@@ -48,19 +48,37 @@ pub enum McpTransport {
 }
 
 impl McpTransport {
-    /// Create a new MCP transport configuration for HTTP
-    pub fn http(
-        bind_address: Option<String>,
-        port: Option<u16>,
-        allowed_hosts: Option<Vec<String>>,
-        allowed_origins: Option<Vec<String>>,
-    ) -> Self {
+    /// Create a new MCP transport configuration for HTTP, using rmcp's default
+    /// `Host`/`Origin` validation. Use [`McpTransport::with_allowed_hosts`] and
+    /// [`McpTransport::with_allowed_origins`] to customize it.
+    pub fn http(bind_address: Option<String>, port: Option<u16>) -> Self {
         McpTransport::Http {
             bind_host: bind_address.unwrap_or("127.0.0.1".into()),
             bind_port: port.unwrap_or(8080),
-            allowed_hosts,
-            allowed_origins,
+            allowed_hosts: None,
+            allowed_origins: None,
         }
+    }
+
+    /// Set the allowed `Host` header values for the HTTP transport.
+    /// Has no effect on [`McpTransport::Stdio`].
+    pub fn with_allowed_hosts(mut self, hosts: Option<Vec<String>>) -> Self {
+        if let McpTransport::Http { allowed_hosts, .. } = &mut self {
+            *allowed_hosts = hosts;
+        }
+        self
+    }
+
+    /// Set the allowed CORS origins for the HTTP transport.
+    /// Has no effect on [`McpTransport::Stdio`].
+    pub fn with_allowed_origins(mut self, origins: Option<Vec<String>>) -> Self {
+        if let McpTransport::Http {
+            allowed_origins, ..
+        } = &mut self
+        {
+            *allowed_origins = origins;
+        }
+        self
     }
 }
 

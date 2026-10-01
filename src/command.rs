@@ -419,8 +419,7 @@ const CLI_FLAGS: &[CliFlag] = &[
         "mcp-allowed-hosts",
         None,
         ValueHint::ListString,
-        "list of allowed `Host` header values, guarding against DNS-rebinding attacks (default: rmcp's built-in loopback-only list)
-",
+        "list of allowed `Host` header values, guarding against DNS-rebinding attacks (default: loopback-only)",
         CliCategory::Startup,
         r#"nu --mcp --mcp-transport http --mcp-allowed-hosts="example.com,localhost""#,
     ),
@@ -429,8 +428,7 @@ const CLI_FLAGS: &[CliFlag] = &[
         "mcp-allowed-origins",
         None,
         ValueHint::ListString,
-        "list of allowed CORS origins (default: none, which disables Origin validation for backward compatibility)
-",
+        "list of allowed CORS origins (default: none, which disables Origin validation for backward compatibility)",
         CliCategory::Startup,
         r#"nu --mcp --mcp-transport http --mcp-allowed-origins="https://example.com,https://localhost""#,
     ),
@@ -1114,18 +1112,46 @@ fn parse_experimental_options(parser: &mut lexopt::Parser) -> Result<Vec<String>
     Ok(parsed)
 }
 
-// Split list-flag values on commas and strip surrounding brackets, so
-// `--flag="a,b"`, `--flag="[a, b]"`, and `--flag a --flag b` all parse the same way.
-// Brackets are only removed when they enclose the whole value, so bracketed IPv6
-// authorities such as `[::1]:8080` are left intact.
+// Strip list-delimiting brackets from a single argument while keeping brackets that
+// belong to an item, such as the IPv6 authority in `[::1]:8080`.
+//
+// An unquoted list like `[a, b]` reaches us split by the shell as `[a,` and `b]`, so a
+// leading `[` is removed when it is never closed or is closed by the final character,
+// and a trailing `]` is removed when it has no opening `[` or closes the leading one.
+fn strip_list_brackets(value: &str) -> &str {
+    let last = value.len().saturating_sub(1);
+    let mut open = Vec::new();
+    let mut leading_closed_at = None;
+    let mut trailing_unmatched = false;
+    for (i, c) in value.char_indices() {
+        match c {
+            '[' => open.push(i),
+            ']' => match open.pop() {
+                Some(0) => leading_closed_at = Some(i),
+                Some(_) => {}
+                None => trailing_unmatched |= i == last,
+            },
+            _ => {}
+        }
+    }
+    let encloses = leading_closed_at == Some(last);
+    let mut stripped = value;
+    if value.starts_with('[') && (leading_closed_at.is_none() || encloses) {
+        stripped = &stripped[1..];
+    }
+    if value.ends_with(']') && (trailing_unmatched || encloses) {
+        stripped = &stripped[..stripped.len() - 1];
+    }
+    stripped
+}
+
+// Split list-flag values on commas and strip list brackets, so `--flag="a,b"`,
+// `--flag="[a, b]"`, `--flag [a, b]` (split by the shell), and `--flag a --flag b`
+// all parse the same way.
 fn split_list_values(values: Vec<String>) -> Vec<String> {
     let mut parsed = Vec::new();
     for value in values {
-        let trimmed = value.trim();
-        let trimmed = trimmed
-            .strip_prefix('[')
-            .and_then(|inner| inner.strip_suffix(']'))
-            .unwrap_or(trimmed);
+        let trimmed = strip_list_brackets(value.trim());
         for item in trimmed.split(',') {
             let item = item.trim();
             if !item.is_empty() {
@@ -1644,6 +1670,47 @@ mod tests {
         assert_eq!(
             items(parsed.nu.mcp_allowed_origins),
             vec!["http://localhost:3000", "https://example.com"]
+        );
+    }
+
+    #[cfg(feature = "mcp")]
+    #[test]
+    fn mcp_allowed_hosts_accepts_unquoted_shell_split_list() {
+        // `--mcp-allowed-hosts [[::1]:8080, localhost]` without quotes
+        let args = vec![
+            OsString::from("nu"),
+            OsString::from("--mcp-allowed-hosts"),
+            OsString::from("[[::1]:8080,"),
+            OsString::from("localhost]"),
+        ];
+
+        let parsed = parse_cli_args(args).expect("should parse args");
+        assert_eq!(
+            items(parsed.nu.mcp_allowed_hosts),
+            vec!["[::1]:8080", "localhost"]
+        );
+    }
+
+    #[test]
+    fn log_include_accepts_unquoted_shell_split_list() {
+        // `--log-include [error, warn]` without quotes
+        let args = vec![
+            OsString::from("nu"),
+            OsString::from("--log-include"),
+            OsString::from("[error,"),
+            OsString::from("warn]"),
+        ];
+
+        let parsed = parse_cli_args(args).expect("should parse args");
+        assert_eq!(
+            parsed
+                .nu
+                .log_include
+                .expect("log include")
+                .into_iter()
+                .map(|v| v.item)
+                .collect::<Vec<_>>(),
+            vec!["error", "warn"]
         );
     }
 
