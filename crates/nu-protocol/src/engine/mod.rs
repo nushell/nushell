@@ -16,6 +16,7 @@ mod overlay;
 mod pattern_match;
 mod prompt_state;
 mod sequence;
+mod signature_cache;
 mod stack;
 mod stack_out_dest;
 mod state_delta;
