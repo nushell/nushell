@@ -25,7 +25,7 @@ use std::{
     path::PathBuf,
     sync::{
         Arc, Mutex, MutexGuard, PoisonError,
-        atomic::{AtomicBool, AtomicU32, Ordering},
+        atomic::{AtomicBool, AtomicU32, AtomicUsize, Ordering},
         mpsc::Sender,
         mpsc::channel,
     },
@@ -75,6 +75,17 @@ impl Clone for IsDebugging {
     }
 }
 
+/// A file index remembered across lookups. An `EngineState` is shared between threads, so this is
+/// an atomic; a clone starts from the same index.
+#[derive(Default)]
+struct FileHint(AtomicUsize);
+
+impl Clone for FileHint {
+    fn clone(&self) -> Self {
+        Self(AtomicUsize::new(self.0.load(Ordering::Relaxed)))
+    }
+}
+
 /// The core global engine state. This includes all global definitions as well as any global state that
 /// will persist for the whole session.
 ///
@@ -95,6 +106,10 @@ impl Clone for IsDebugging {
 #[derive(Clone, derive_more::Debug)]
 pub struct EngineState {
     files: Vec<CachedFile>,
+    /// The index in `files` of the file the last span lookup found (see
+    /// [`Self::try_get_file_contents`]).
+    #[debug(skip)]
+    last_file_hit: FileHint,
     pub(super) virtual_paths: Vec<(String, VirtualPath)>,
     vars: Vec<Variable>,
     #[debug("{:?}", decls.iter().map(|c| c.name()).collect::<Vec<_>>())]
@@ -226,6 +241,7 @@ impl EngineState {
 
         Self {
             files: vec![],
+            last_file_hit: FileHint::default(),
             virtual_paths: vec![],
             vars: vec![
                 Variable::new(Span::new(0, 0), Type::Any, false),
@@ -859,15 +875,27 @@ impl EngineState {
     }
 
     pub fn try_get_file_contents(&self, span: Span) -> Option<&[u8]> {
-        self.files.iter().find_map(|file| {
-            if file.covered_span.contains_span(span) {
-                let start = span.start - file.covered_span.start;
-                let end = span.end - file.covered_span.start;
-                Some(&file.content[start..end])
-            } else {
-                None
-            }
-        })
+        fn contents(file: &CachedFile, span: Span) -> &[u8] {
+            let start = span.start - file.covered_span.start;
+            let end = span.end - file.covered_span.start;
+            &file.content[start..end]
+        }
+        // The parser looks up span after span in the same file, so check the file the last lookup
+        // found before scanning. Only an empty span on a file boundary is in two files, and both
+        // give the same empty slice, so this finds what the scan finds.
+        let hint = self.last_file_hit.0.load(Ordering::Relaxed);
+        if let Some(file) = self.files.get(hint)
+            && file.covered_span.contains_span(span)
+        {
+            return Some(contents(file, span));
+        }
+        let (index, file) = self
+            .files
+            .iter()
+            .enumerate()
+            .find(|(_, file)| file.covered_span.contains_span(span))?;
+        self.last_file_hit.0.store(index, Ordering::Relaxed);
+        Some(contents(file, span))
     }
 
     /// If the span's content starts with the given prefix, return two subspans
@@ -1343,6 +1371,34 @@ mod engine_state_tests {
         let id = engine_state.add_file("test.nu", &[]);
 
         assert_eq!(id, FileId::new(0));
+    }
+
+    #[test]
+    fn file_contents_lookup_finds_what_a_scan_finds() {
+        let mut engine_state = EngineState::new();
+        for (index, content) in ["", "abc", "", "", "de", "f", ""].iter().enumerate() {
+            engine_state.add_file(format!("file{index}").into(), content.as_bytes().into());
+        }
+        let end = engine_state.next_span_start();
+        let scan = |span: Span| {
+            engine_state.files.iter().find_map(|file| {
+                file.covered_span.contains_span(span).then(|| {
+                    &file.content
+                        [span.start - file.covered_span.start..span.end - file.covered_span.start]
+                })
+            })
+        };
+        let spans: Vec<Span> = (0..=end + 1)
+            .flat_map(|start| (start..=end + 1).map(move |span_end| Span::new(start, span_end)))
+            .collect();
+        // Both orders, so that the remembered file is sometimes right and sometimes not.
+        for span in spans.iter().chain(spans.iter().rev()) {
+            assert_eq!(
+                engine_state.try_get_file_contents(*span),
+                scan(*span),
+                "{span:?}"
+            );
+        }
     }
 
     #[test]
