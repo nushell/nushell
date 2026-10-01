@@ -617,6 +617,16 @@ pub fn parse_signature_helper(
 
     let mut args: Vec<Arg> = vec![];
     let mut parse_mode = ParseMode::Arg;
+
+    // Used to prevent external commands to have multiple default values.
+    //
+    // Note that we should support default values for external commands.
+    // It would remove the utility of this variable, since we could use
+    // Arg::Positional.arg.default_value
+    //
+    // See #19124
+    let mut last_arg_with_default: Option<usize> = None;
+
     // Track variables whose name→VarId mappings have not yet been inserted
     // into the overlay scope
     //
@@ -1072,22 +1082,22 @@ pub fn parse_signature_helper(
                             parse_mode = ParseMode::AfterType;
                         }
                         ParseMode::DefaultValue => {
+                            // Check if the current argument is being given a second default value.
+                            let current_arg_idx = (!args.is_empty()).then(|| args.len() - 1);
+                            if let Some(idx) = current_arg_idx
+                                && last_arg_with_default == Some(idx)
+                                && !matches!(args.last(), Some(Arg::RestPositional(_)))
+                            {
+                                working_set.error(ParseError::LabeledErrorWithHelp {
+                                    error: "A positional parameter or flag can have at most one default value.".to_string(),
+                                    label: "extra default value".to_string(),
+                                    help: "remove the extra default value".to_string(),
+                                    span,
+                                });
+                            }
+                            last_arg_with_default = current_arg_idx;
+
                             if !is_external && let Some(last) = args.last_mut() {
-                                let already_has_default = match last {
-                                    Arg::Positional { arg, .. } => arg.default_value.is_some(),
-                                    Arg::Flag { flag, .. } => flag.default_value.is_some(),
-                                    Arg::RestPositional(_) => false,
-                                };
-
-                                if already_has_default {
-                                    working_set.error(ParseError::LabeledErrorWithHelp {
-                                        error: "A positional parameter or flag can have at most one default value.".to_string(),
-                                        label: "extra default value".to_string(),
-                                        help: "remove the extra default value".to_string(),
-                                        span,
-                                    });
-                                }
-
                                 let shape = match last {
                                     Arg::Positional { arg, .. } => arg.shape.clone(),
                                     Arg::RestPositional(arg) => arg.shape.clone(),
