@@ -515,7 +515,7 @@ fn parse_def_inner(
             ..
         }) => {
             compile_block_with_id(working_set, *block_id);
-            *working_set.get_block_mut(*block_id).signature = sig.clone();
+            *working_set.get_block_mut(*block_id).signature = sig;
         }
         Some(arg) => working_set.error(ParseError::Expected(
             "definition body closure { ... }",
