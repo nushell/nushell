@@ -8,6 +8,7 @@ use crate::{
         CachedFile, Command, DEFAULT_OVERLAY_NAME, EnvName, EnvVars, OverlayFrame, PromptState,
         ScopeFrame, Stack, StateDelta, Variable, VisibilityStack,
         description::{Doccomments, build_desc},
+        signature_cache::SignatureCache,
     },
     eval_const::create_nu_constant,
     report_error::ReportLog,
@@ -125,6 +126,9 @@ pub struct EngineState {
     /// engine state.
     pub prompt_state: Arc<PromptState>,
     pub table_decl_id: Option<DeclId>,
+    /// Signatures of [`Self::decls`], built on first use by the parser.
+    #[debug(skip)]
+    pub(super) signature_cache: SignatureCache,
     #[cfg(feature = "plugin")]
     pub plugin_path: Option<PathBuf>,
     #[cfg(feature = "plugin")]
@@ -261,6 +265,7 @@ impl EngineState {
             })),
             prompt_state: Arc::new(PromptState::new()),
             table_decl_id: None,
+            signature_cache: SignatureCache::default(),
             #[cfg(feature = "plugin")]
             plugin_path: None,
             #[cfg(feature = "plugin")]
