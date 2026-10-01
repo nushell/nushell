@@ -5403,6 +5403,7 @@ dependencies = [
  "pretty_assertions",
  "rmp-serde",
  "rstest",
+ "rustc-hash",
  "semver",
  "serde",
  "serde_json",
