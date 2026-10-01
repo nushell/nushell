@@ -252,6 +252,13 @@ pub fn parse_number(working_set: &mut StateWorkingSet, span: Span) -> Expression
     garbage(working_set, span)
 }
 
+/// Whether `token` contains `..`. Without one, [`parse_range`] only reports an error, so callers
+/// that try a token as a range speculatively and discard the error can skip the attempt (and its
+/// UTF-8 validation of the token).
+pub(crate) fn has_range_operator(token: &[u8]) -> bool {
+    memchr::memmem::find(token, b"..").is_some()
+}
+
 pub fn parse_range(working_set: &mut StateWorkingSet, span: Span) -> Option<Expression> {
     trace!("parsing: range");
     let starting_error_count = working_set.parse_errors.len();
@@ -456,7 +463,9 @@ pub(crate) fn parse_dollar_expr(
     } else {
         let starting_error_count = working_set.parse_errors.len();
 
-        if let Some(expr) = parse_range(working_set, span) {
+        if has_range_operator(contents)
+            && let Some(expr) = parse_range(working_set, span)
+        {
             expr
         } else {
             working_set.parse_errors.truncate(starting_error_count);

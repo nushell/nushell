@@ -16,6 +16,7 @@ use crate::{
         parse_overlay_use, parse_run, parse_run_expr, parse_source, parse_use, parse_where,
         parse_where_expr,
     },
+    parse_literals::has_range_operator,
     parse_patterns::parse_pattern,
     parse_pipelines::{parse_block, parse_pipeline_element, redirecting_builtin_error},
     parser::{
@@ -89,7 +90,8 @@ pub fn is_math_expression_like(working_set: &mut StateWorkingSet, span: Span) ->
     }
     working_set.parse_errors.truncate(starting_error_count);
 
-    let is_range = parse_range(working_set, span).is_some();
+    let is_range = has_range_operator(working_set.get_span_contents(span))
+        && parse_range(working_set, span).is_some();
     working_set.parse_errors.truncate(starting_error_count);
     is_range
 }
