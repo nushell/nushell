@@ -1,4 +1,5 @@
 mod escaping;
+mod lex_once;
 
 use std::time::Duration;
 

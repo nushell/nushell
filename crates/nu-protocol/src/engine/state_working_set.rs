@@ -4,8 +4,8 @@ use crate::{
     Value, VarId, VirtualPathId,
     ast::Block,
     engine::{
-        CachedFile, Command, CommandType, EngineState, OverlayFrame, ScopeBindings, StateDelta,
-        Variable, VirtualPath, Visibility, VisibilityStack, description::build_desc,
+        BracketTable, CachedFile, Command, CommandType, EngineState, OverlayFrame, ScopeBindings,
+        StateDelta, Variable, VirtualPath, Visibility, VisibilityStack, description::build_desc,
     },
 };
 use core::panic;
@@ -37,6 +37,14 @@ pub struct StateWorkingSet<'a> {
     pub parse_errors: Vec<ParseError>,
     pub parse_warnings: Vec<ParseWarning>,
     pub compile_errors: Vec<CompileError>,
+    /// Whether the lexer records and uses [`bracket_tables`](Self::bracket_tables) to skip over
+    /// nested groups. Always on; it only changes how fast the lexer is, never what it produces,
+    /// so tests turn it off to show that a parse comes out the same both ways.
+    pub lex_once: bool,
+    /// Bracket tables of the files this working set has lexed with [`lex_once`](Self::lex_once)
+    /// on, built by nu-parser's lexer the first time it lexes part of each file. A parse rarely
+    /// touches more than a few files, so this is a short list.
+    pub bracket_tables: Vec<BracketTable>,
     /// Signatures of *permanent* declarations, built lazily the first time the parser needs
     /// them and shared for the rest of this working set's life. `Command::signature()` rebuilds
     /// a `Signature` (several heap allocations) on every call, and the parser asks for it at
@@ -76,6 +84,8 @@ impl<'a> StateWorkingSet<'a> {
             parse_errors: vec![],
             parse_warnings: vec![],
             compile_errors: vec![],
+            lex_once: true,
+            bracket_tables: vec![],
             permanent_signatures: Mutex::new(HashMap::new()),
             permanent_decl_signatures: Mutex::new(HashMap::new()),
         }

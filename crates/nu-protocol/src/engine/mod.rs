@@ -1,5 +1,6 @@
 //! Representation of the engine state and many of the details that implement the scoping
 mod argument;
+mod bracket_table;
 mod cached_file;
 mod call;
 mod call_info;
@@ -21,6 +22,7 @@ mod state_delta;
 mod state_working_set;
 mod variable;
 
+pub use bracket_table::BracketTable;
 pub use cached_file::CachedFile;
 
 pub use argument::*;

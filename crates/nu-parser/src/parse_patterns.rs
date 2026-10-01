@@ -1,7 +1,9 @@
 #![allow(clippy::byte_char_slices)]
 
 use crate::{
-    TokenContents, lex, lite_parse,
+    TokenContents,
+    lex_once::lex_span,
+    lite_parse,
     parse_helpers::is_variable,
     parser::{ensure_not_reserved_variable_name, parse_value},
 };
@@ -118,9 +120,7 @@ pub fn parse_list_pattern(working_set: &mut StateWorkingSet, span: Span) -> Matc
     }
 
     let inner_span = Span::new(start, end);
-    let source = working_set.get_span_contents(inner_span);
-
-    let (output, err) = lex(source, inner_span.start, &[b'\n', b'\r', b','], &[], true);
+    let (output, err) = lex_span(working_set, inner_span, &[b'\n', b'\r', b','], &[], true);
     if let Some(err) = err {
         working_set.error(err);
     }
@@ -217,9 +217,13 @@ pub fn parse_record_pattern(working_set: &mut StateWorkingSet, span: Span) -> Ma
     }
 
     let inner_span = Span::new(start, end);
-    let source = working_set.get_span_contents(inner_span);
-
-    let (tokens, err) = lex(source, start, &[b'\n', b'\r', b','], &[b':'], true);
+    let (tokens, err) = lex_span(
+        working_set,
+        inner_span,
+        &[b'\n', b'\r', b','],
+        &[b':'],
+        true,
+    );
     if let Some(err) = err {
         working_set.error(err);
     }
