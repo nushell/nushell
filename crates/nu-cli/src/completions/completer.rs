@@ -2401,7 +2401,10 @@ impl ReedlineCompleter for NuCompleter {
         let engine = CompletionEngine::isolated(&self.engine_state, Arc::clone(&self.stack), false);
         if engine.interactive_completer_at(line, pos) {
             let (suggestions, _cacheable) = engine.suggestions_for(&query);
-            self.latest = Some(Completed {
+            // An empty answer is a cancelled picker. Kept, it would answer the next
+            // Tab on this line instead of relaunching the picker; the menu abandons
+            // on it at once, so nothing asks again within this activation.
+            self.latest = (!suggestions.is_empty()).then(|| Completed {
                 query,
                 suggestions: suggestions.clone(),
                 cacheable: false,
