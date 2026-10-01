@@ -113,8 +113,18 @@ pub fn parse_list_expression(
     parse_list_expression_lexed(working_set, span, element_shape, None)
 }
 
+/// Lex the inside of a `[ ... ]` literal (`inner_span`, without the brackets), whose items are
+/// separated by whitespace, newlines or commas. The table parser and the list parser both lex it
+/// this way, so that the list parser can take the table parser's tokens.
+fn lex_list_inner(
+    working_set: &StateWorkingSet,
+    inner_span: Span,
+) -> (Vec<Token>, Option<ParseError>) {
+    lex_span(working_set, inner_span, &[b'\n', b'\r', b','], &[], true)
+}
+
 /// [`parse_list_expression`], given the tokens of the list's inside and the error lexing them
-/// gave, when the caller has already lexed it with the list's settings.
+/// gave (see [`lex_list_inner`]), when the caller has already lexed it.
 fn parse_list_expression_lexed(
     working_set: &mut StateWorkingSet,
     span: Span,
@@ -137,8 +147,7 @@ fn parse_list_expression_lexed(
     }
 
     let inner_span = Span::new(start, end);
-    let (output, err) = lexed
-        .unwrap_or_else(|| lex_span(working_set, inner_span, &[b'\n', b'\r', b','], &[], true));
+    let (output, err) = lexed.unwrap_or_else(|| lex_list_inner(working_set, inner_span));
     if let Some(err) = err {
         working_set.error(err)
     }
@@ -277,7 +286,7 @@ pub(crate) fn parse_table_expression(
 
     // A list's inside is the same span lexed with the same settings, so a list reuses these
     // tokens (and reports their error again, as it does when it lexes them itself).
-    let (tokens, err) = lex_span(working_set, inner_span, &[b'\n', b'\r', b','], &[], true);
+    let (tokens, err) = lex_list_inner(working_set, inner_span);
     if let Some(err) = &err {
         working_set.error(err.clone());
     }

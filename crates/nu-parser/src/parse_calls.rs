@@ -1504,13 +1504,18 @@ pub fn parse_internal_call(
             // ```nu
             // loop { try { } catch {|e| break } }
             // ```
-            // Thus, we discard the compilation error here
+            // Thus, we discard the compilation error here, but only the clause's own: when the
+            // clause's closure compiled, the error comes from a closure or `def` body nested in
+            // it, which is compiled on its own and really is outside any loop.
             if let SyntaxShape::OneOf(ref shapes) = positional.shape {
                 for one_shape in shapes {
                     if let SyntaxShape::Keyword(keyword, ..) = one_shape
                         && keyword == b"catch"
                         && let [nu_protocol::CompileError::NotInALoop { .. }] =
                             &working_set.compile_errors[compile_error_count..]
+                        && let Expr::Keyword(clause) = &arg.expr
+                        && let Expr::Closure(block_id) = clause.expr.expr
+                        && working_set.get_block(block_id).ir_block.is_none()
                     {
                         working_set.compile_errors.truncate(compile_error_count);
                     }
@@ -1902,9 +1907,14 @@ pub fn find_longest_decl_with_prefix(
     // recorded word boundaries instead of rebuilding the name each time. A candidate longer than
     // every declared name cannot match, so the longest candidate built is the longest one within
     // that bound (but always the first word). Otherwise a call like `each { ... }` would copy the
-    // whole closure into a name only to have every lookup reject it.
+    // whole closure into a name only to have every lookup reject it. The buffer is sized for the
+    // call's own words, up to the bound, which one long name anywhere in the process can make large.
     let bound = longest_decl_name();
-    let mut name = Vec::with_capacity(prefix.len() + bound + 1);
+    let words_len = spans
+        .iter()
+        .map(|span| span.end.saturating_sub(span.start) + 1)
+        .sum::<usize>();
+    let mut name = Vec::with_capacity(prefix.len() + words_len.min(bound + 1));
     name.extend(prefix);
     let mut word_ends = Vec::with_capacity(spans.len());
     for word_span in spans {

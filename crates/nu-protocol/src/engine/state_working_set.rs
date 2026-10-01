@@ -43,7 +43,8 @@ pub struct StateWorkingSet<'a> {
     /// so tests turn it off to show that a parse comes out the same both ways.
     pub lex_once: bool,
     /// Bracket tables of the files this working set has lexed with [`lex_once`](Self::lex_once)
-    /// on, built by nu-parser's lexer the first time it lexes part of each file. A parse rarely
+    /// on. nu-parser's lexer records one when it lexes a whole file of 1 KiB to 16 MiB (a parsed
+    /// script or a module file), and later lexes of parts of that file use it. A parse rarely
     /// touches more than a few files, so this is a short list.
     pub bracket_tables: Vec<BracketTable>,
     /// The span of the body of the `def` being parsed. `parse_def` compiles the body itself once it
@@ -842,19 +843,22 @@ impl<'a> StateWorkingSet<'a> {
     }
 
     /// The output type of a call to `decl_id` whose pipeline input is `input_type`, as the parser
-    /// assigns it when it parses the call: what `signature`, the effective signature of `decl_id`
-    /// (see [`StateWorkingSet::get_signature_shared`]), gives for the input with `Nothing` added
-    /// to it, so that commands which ignore their input still type-check.
+    /// assigns it when it parses the call: what the effective signature of `decl_id` (see
+    /// [`StateWorkingSet::get_signature_shared`]) gives for the input with `Nothing` added to it,
+    /// so that commands which ignore their input still type-check.
     ///
-    /// Remembered per input type for permanent declarations (see [`EngineState`]'s signature
-    /// cache); computed on every call for delta declarations.
+    /// `signature` is that effective signature, which the caller already has. It is only used for
+    /// delta declarations, whose output type is computed on every call. For permanent declarations
+    /// the answer is remembered per input type (see [`EngineState`]'s signature cache), so it is
+    /// computed from the declaration's own cached signature: the cache is keyed by the declaration
+    /// alone and must not depend on what a caller passes.
     pub fn call_output_type(
         &self,
         decl_id: DeclId,
         signature: &Signature,
         input_type: Option<&Type>,
     ) -> Option<Type> {
-        let compute = || {
+        let output_type = |signature: &Signature| {
             signature.get_output_type(
                 input_type
                     .map(|ty| ty.clone().union(Type::Nothing))
@@ -862,13 +866,13 @@ impl<'a> StateWorkingSet<'a> {
             )
         };
         if decl_id.get() >= self.permanent_state.num_decls() {
-            return compute();
+            return output_type(signature);
         }
         SignatureCache::output_type(
             &self.permanent_state.signature_cache.call_outputs,
             decl_id,
             input_type,
-            compute,
+            || output_type(&self.get_signature_shared(decl_id)),
         )
     }
 
