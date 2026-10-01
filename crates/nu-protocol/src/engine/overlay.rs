@@ -184,7 +184,12 @@ impl Visibility {
 /// large.
 #[derive(Debug, Default)]
 pub struct VisibilityStack<'a> {
-    layers: Vec<&'a Visibility>,
+    /// The first frames pushed, in order. A lookup rarely walks more than a few frames that
+    /// hide declarations (once the standard library is loaded, the permanent overlay is one), so
+    /// they are kept here rather than in a `Vec`, which would allocate on every lookup.
+    inline: [Option<&'a Visibility>; 4],
+    /// The frames pushed after `inline` is full, in order.
+    spilled: Vec<&'a Visibility>,
 }
 
 impl<'a> VisibilityStack<'a> {
@@ -193,15 +198,21 @@ impl<'a> VisibilityStack<'a> {
     /// A frame that hides nothing can never answer a lookup, so it is not recorded; this keeps
     /// the common lookup (no hidden declarations anywhere) free of allocation.
     pub fn push(&mut self, visibility: &'a Visibility) {
-        if !visibility.decl_ids.is_empty() {
-            self.layers.push(visibility);
+        if visibility.decl_ids.is_empty() {
+            return;
+        }
+        match self.inline.iter_mut().find(|layer| layer.is_none()) {
+            Some(layer) => *layer = Some(visibility),
+            None => self.spilled.push(visibility),
         }
     }
 
     /// Whether `decl_id` is visible given the frames pushed so far.
     pub fn is_decl_id_visible(&self, decl_id: &DeclId) -> bool {
-        self.layers
+        self.inline
             .iter()
+            .map_while(|layer| *layer)
+            .chain(self.spilled.iter().copied())
             .find_map(|visibility| visibility.decl_ids.get(decl_id))
             .copied()
             .unwrap_or(true) // by default it's visible
@@ -411,5 +422,50 @@ impl Default for Visibility {
 impl Default for ScopeFrame {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod visibility_stack_tests {
+    use super::*;
+
+    /// A frame that hides `hidden` and explicitly shows `shown`.
+    fn frame(hidden: &[usize], shown: &[usize]) -> Visibility {
+        let mut visibility = Visibility::new();
+        for id in hidden {
+            visibility.hide_decl_id(&DeclId::new(*id));
+        }
+        for id in shown {
+            visibility.use_decl_id(&DeclId::new(*id));
+        }
+        visibility
+    }
+
+    #[test]
+    fn innermost_frame_with_an_entry_wins_past_the_inline_frames() {
+        // Frame `i` hides decl `i` and shows decl `i + 1`; frames that hide nothing are skipped.
+        let frames: Vec<Visibility> = (0..7).map(|i| frame(&[i], &[i + 1])).collect();
+        let empty = Visibility::new();
+        let mut stack = VisibilityStack::default();
+        for visibility in &frames {
+            stack.push(&empty);
+            stack.push(visibility);
+        }
+        // Decl 0 is only hidden; every other decl is shown by the frame before the one hiding it.
+        assert!(!stack.is_decl_id_visible(&DeclId::new(0)));
+        for id in 1..8 {
+            assert!(stack.is_decl_id_visible(&DeclId::new(id)), "decl {id}");
+        }
+        // A decl no frame mentions is visible.
+        assert!(stack.is_decl_id_visible(&DeclId::new(100)));
+
+        // The same frames with the hiding order reversed: the innermost entry decides.
+        let mut stack = VisibilityStack::default();
+        for visibility in frames.iter().rev() {
+            stack.push(visibility);
+        }
+        assert!(!stack.is_decl_id_visible(&DeclId::new(6)));
+        assert!(stack.is_decl_id_visible(&DeclId::new(7)));
+        assert!(!stack.is_decl_id_visible(&DeclId::new(1)));
     }
 }
