@@ -1,7 +1,7 @@
 use crate::{
     BlockId, Category, CompileError, Config, DeclId, FileId, GetSpan, Module, ModuleId, OverlayId,
     ParseError, ParseWarning, ResolvedImportPattern, ResolvedSpan, Signature, Span, SpanId, Type,
-    Value, VarId, VirtualPathId,
+    TypeSet, Value, VarId, VirtualPathId,
     ast::Block,
     engine::{
         BracketTable, CachedFile, Command, CommandType, EngineState, OverlayFrame, ScopeBindings,
@@ -833,6 +833,56 @@ impl<'a> StateWorkingSet<'a> {
             cache
                 .entry(decl_id)
                 .or_insert_with(|| Arc::new(self.get_decl(decl_id).signature())),
+        )
+    }
+
+    /// The output type of a call to `decl_id` whose pipeline input is `input_type`, as the parser
+    /// assigns it when it parses the call: what `signature`, the effective signature of `decl_id`
+    /// (see [`StateWorkingSet::get_signature_shared`]), gives for the input with `Nothing` added
+    /// to it, so that commands which ignore their input still type-check.
+    ///
+    /// Remembered per input type for permanent declarations (see [`EngineState`]'s signature
+    /// cache); computed on every call for delta declarations.
+    pub fn call_output_type(
+        &self,
+        decl_id: DeclId,
+        signature: &Signature,
+        input_type: Option<&Type>,
+    ) -> Option<Type> {
+        let compute = || {
+            signature.get_output_type(
+                input_type
+                    .map(|ty| ty.clone().union(Type::Nothing))
+                    .as_ref(),
+            )
+        };
+        if decl_id.get() >= self.permanent_state.num_decls() {
+            return compute();
+        }
+        SignatureCache::output_type(
+            &self.permanent_state.signature_cache.call_outputs,
+            decl_id,
+            input_type,
+            compute,
+        )
+    }
+
+    /// The output type the declaration's own signature (see
+    /// [`StateWorkingSet::get_decl_signature_shared`]) gives for `input_type`, as pipeline type
+    /// checking asks for it. Remembered like [`StateWorkingSet::call_output_type`].
+    pub fn decl_output_type(&self, decl_id: DeclId, input_type: Option<&Type>) -> Option<Type> {
+        let compute = || {
+            self.get_decl_signature_shared(decl_id)
+                .get_output_type(input_type)
+        };
+        if decl_id.get() >= self.permanent_state.num_decls() {
+            return compute();
+        }
+        SignatureCache::output_type(
+            &self.permanent_state.signature_cache.declared_outputs,
+            decl_id,
+            input_type,
+            compute,
         )
     }
 
