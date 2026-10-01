@@ -108,6 +108,17 @@ pub fn parse_list_expression(
     span: Span,
     element_shape: &SyntaxShape,
 ) -> Expression {
+    parse_list_expression_lexed(working_set, span, element_shape, None)
+}
+
+/// [`parse_list_expression`], given the tokens of the list's inside and the error lexing them
+/// gave, when the caller has already lexed it with the list's settings.
+fn parse_list_expression_lexed(
+    working_set: &mut StateWorkingSet,
+    span: Span,
+    element_shape: &SyntaxShape,
+    lexed: Option<(Vec<Token>, Option<ParseError>)>,
+) -> Expression {
     let bytes = working_set.get_span_contents(span);
 
     let mut start = span.start;
@@ -124,7 +135,8 @@ pub fn parse_list_expression(
     }
 
     let inner_span = Span::new(start, end);
-    let (output, err) = lex_span(working_set, inner_span, &[b'\n', b'\r', b','], &[], true);
+    let (output, err) = lexed
+        .unwrap_or_else(|| lex_span(working_set, inner_span, &[b'\n', b'\r', b','], &[], true));
     if let Some(err) = err {
         working_set.error(err)
     }
@@ -261,21 +273,33 @@ pub(crate) fn parse_table_expression(
         Span::new(start, end)
     };
 
+    // A list's inside is the same span lexed with the same settings, so a list reuses these
+    // tokens (and reports their error again, as it does when it lexes them itself).
     let (tokens, err) = lex_span(working_set, inner_span, &[b'\n', b'\r', b','], &[], true);
-    if let Some(err) = err {
-        working_set.error(err);
+    if let Some(err) = &err {
+        working_set.error(err.clone());
     }
 
     // Check that we have all arguments first, before trying to parse the first
     // in order to avoid exponential parsing time
     let [first, second, rest @ ..] = &tokens[..] else {
-        return parse_list_expression(working_set, span, list_element_shape);
+        return parse_list_expression_lexed(
+            working_set,
+            span,
+            list_element_shape,
+            Some((tokens, err)),
+        );
     };
 
     if !working_set.get_span_contents(first.span).starts_with(b"[")
         || second.contents != TokenContents::Semicolon
     {
-        return parse_list_expression(working_set, span, list_element_shape);
+        return parse_list_expression_lexed(
+            working_set,
+            span,
+            list_element_shape,
+            Some((tokens, err)),
+        );
     }
 
     let head = parse_table_row(working_set, first.span);
