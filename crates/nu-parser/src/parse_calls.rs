@@ -13,7 +13,7 @@ use nu_protocol::{
     SyntaxShape, Type, TypeSet,
     ast::*,
     did_you_mean,
-    engine::{CommandType, StateWorkingSet},
+    engine::{CommandType, StateWorkingSet, longest_decl_name},
 };
 use std::str;
 
@@ -1897,26 +1897,29 @@ pub fn find_longest_decl_with_prefix(
 ) {
     let cmd_start = 0;
 
-    // Find the longest group of words that could form a command. The candidate with all the
-    // words is built once; shorter candidates are its prefixes, so they are obtained by
-    // truncating at the recorded word boundaries instead of rebuilding the name each time.
-    let name_len = prefix.len()
-        + spans
-            .iter()
-            .map(|span| span.end.saturating_sub(span.start) + 1)
-            .sum::<usize>();
-    let mut name = Vec::with_capacity(name_len);
+    // Find the longest group of words that could form a command. The longest candidate is built
+    // once; shorter candidates are its prefixes, so they are obtained by truncating at the
+    // recorded word boundaries instead of rebuilding the name each time. A candidate longer than
+    // every declared name cannot match, so the longest candidate built is the longest one within
+    // that bound (but always the first word). Otherwise a call like `each { ... }` would copy the
+    // whole closure into a name only to have every lookup reject it.
+    let bound = longest_decl_name();
+    let mut name = Vec::with_capacity(prefix.len() + bound + 1);
     name.extend(prefix);
     let mut word_ends = Vec::with_capacity(spans.len());
     for word_span in spans {
         let name_part = working_set.get_span_contents(*word_span);
-        if !name.is_empty() {
+        let separator = usize::from(!name.is_empty());
+        if !word_ends.is_empty() && name.len() + separator + name_part.len() > bound {
+            break;
+        }
+        if separator == 1 {
             name.push(b' ');
         }
         name.extend(name_part);
         word_ends.push(name.len());
     }
-    let mut pos = spans.len();
+    let mut pos = word_ends.len();
 
     let mut maybe_decl_id = working_set.find_decl(&name);
 

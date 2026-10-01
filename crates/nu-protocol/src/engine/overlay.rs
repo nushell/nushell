@@ -1,6 +1,23 @@
 use crate::{DeclId, ModuleId, OverlayId, VarId};
 use rustc_hash::FxBuildHasher;
-use std::{collections::HashMap, ops::Deref};
+use std::{
+    collections::HashMap,
+    ops::Deref,
+    sync::atomic::{AtomicUsize, Ordering},
+};
+
+/// The longest name ever inserted into any [`DeclNameMap`] in this process.
+static LONGEST_DECL_NAME: AtomicUsize = AtomicUsize::new(0);
+
+/// An upper bound on the length of every declaration name: every name any [`DeclNameMap`] holds,
+/// in any engine state, is at most this long, so no lookup of a longer name can succeed.
+///
+/// `find_decl` searches only [`DeclNameMap`]s (declarations and predeclarations, in every scope
+/// and overlay), so the parser uses this to skip building command-name candidates that cannot
+/// match (see `find_longest_decl` in nu-parser).
+pub fn longest_decl_name() -> usize {
+    LONGEST_DECL_NAME.load(Ordering::Relaxed)
+}
 
 /// Name → id map for declarations that remembers the longest name it has ever held.
 ///
@@ -38,6 +55,7 @@ impl DeclNameMap {
 
     pub fn insert(&mut self, name: Vec<u8>, decl_id: DeclId) -> Option<DeclId> {
         self.longest_name = self.longest_name.max(name.len());
+        LONGEST_DECL_NAME.fetch_max(name.len(), Ordering::Relaxed);
         self.map.insert(name, decl_id)
     }
 
