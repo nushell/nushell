@@ -1,4 +1,5 @@
 use crate::{DeclId, ModuleId, OverlayId, VarId};
+use rustc_hash::FxBuildHasher;
 use std::{collections::HashMap, ops::Deref};
 
 /// Name → id map for declarations that remembers the longest name it has ever held.
@@ -11,9 +12,13 @@ use std::{collections::HashMap, ops::Deref};
 ///
 /// Reads go through `Deref` to the underlying `HashMap`; all mutation goes through the inherent
 /// methods so the bound stays valid.
+///
+/// The parser looks names up here for every command word it sees, so the map uses the Fx hash
+/// (a multiply per 8 bytes) rather than SipHash. Nothing depends on the order of its entries,
+/// which `HashMap`'s default hasher already randomizes.
 #[derive(Debug, Clone, Default)]
 pub struct DeclNameMap {
-    map: HashMap<Vec<u8>, DeclId>,
+    map: HashMap<Vec<u8>, DeclId, FxBuildHasher>,
     longest_name: usize,
 }
 
@@ -46,7 +51,7 @@ impl DeclNameMap {
 }
 
 impl Deref for DeclNameMap {
-    type Target = HashMap<Vec<u8>, DeclId>;
+    type Target = HashMap<Vec<u8>, DeclId, FxBuildHasher>;
 
     fn deref(&self) -> &Self::Target {
         &self.map
@@ -90,9 +95,12 @@ impl FromIterator<(Vec<u8>, DeclId)> for DeclNameMap {
 pub static DEFAULT_OVERLAY_NAME: &str = "zero";
 
 /// Tells whether a decl is visible or not
+///
+/// Looked up for every declaration a name lookup finds (see [`VisibilityStack`]), so it uses the
+/// Fx hash like [`DeclNameMap`].
 #[derive(Debug, Clone)]
 pub struct Visibility {
-    decl_ids: HashMap<DeclId, bool>,
+    decl_ids: HashMap<DeclId, bool, FxBuildHasher>,
 }
 
 /// Name bindings introduced while parsing a single block/closure scope.
@@ -143,7 +151,7 @@ impl ScopeBindings {
 impl Visibility {
     pub fn new() -> Self {
         Visibility {
-            decl_ids: HashMap::new(),
+            decl_ids: HashMap::default(),
         }
     }
 
