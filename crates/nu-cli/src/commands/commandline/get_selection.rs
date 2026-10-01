@@ -75,7 +75,7 @@ impl Command for CommandlineGetSelection {
 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
-            example: r#"let s = commandline get-selection; commandline | str substring ($s.start?)..<($s.end?)"#,
+            example: "let s = commandline get-selection; commandline | str substring ($s.start?)..<($s.end?)",
             description: "Get the current selection content, or the full command line if none.",
             result: None,
         }]
