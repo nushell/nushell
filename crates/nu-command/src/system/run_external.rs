@@ -107,7 +107,15 @@ If you create a custom command with this name, that will be used instead."
         // File extensions of .COM, .EXE, .BAT, and .CMD are ignored because Windows
         // can run those files directly. PS1 files are also ignored and that
         // extension is handled in a separate block below.
-        let executable_path = if cfg!(windows) {
+        let executable_path = if cfg!(windows) && expanded_name.extension().is_none() {
+            // Fast path (assume bin will resolve to .exe)
+            let mut executable_name = expanded_name.clone();
+            executable_name.set_extension("exe");
+            which(&executable_name, &paths, cwd.as_ref())
+                // Normal path (do full resolution based on $PATHEXT)
+                .or_else(|| which(&expanded_name, &paths, cwd.as_ref()))
+        } else if cfg!(windows) {
+            // Fast path (extension is known)
             which(&expanded_name, &paths, cwd.as_ref())
         } else {
             None
