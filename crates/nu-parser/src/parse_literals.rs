@@ -140,8 +140,14 @@ fn strip_underscores(token: &[u8]) -> Cow<'_, str> {
     }
 }
 
+/// The first byte of `token` that is not a `_` digit separator, if any.
+fn first_non_separator(token: &[u8]) -> Option<u8> {
+    token.iter().copied().find(|&byte| byte != b'_')
+}
+
 /// Outcome of reading an integer literal, decided before touching the working set so the
 /// token bytes can stay borrowed from it.
+#[derive(Debug, PartialEq)]
 enum IntLiteral {
     Value(i64),
     Empty,
@@ -149,33 +155,44 @@ enum IntLiteral {
     NotInt,
 }
 
-pub fn parse_int(working_set: &mut StateWorkingSet, span: Span) -> Expression {
-    let literal = {
-        let token = strip_underscores(working_set.get_span_contents(span));
-
-        // Parse as a u64, then cast to i64, otherwise, for numbers like "0xffffffffffffffef",
-        // you'll get `Error parsing hex string: number too large to fit in target type`.
-        let extract_int = |digits: &str, radix: u32| match u64::from_str_radix(digits, radix) {
-            Ok(num) => IntLiteral::Value(num as i64),
-            Err(_) => IntLiteral::InvalidDigits { radix },
-        };
-
-        if token.is_empty() {
-            IntLiteral::Empty
-        } else if let Some(num) = token.strip_prefix("0b") {
-            extract_int(num, 2)
-        } else if let Some(num) = token.strip_prefix("0o") {
-            extract_int(num, 8)
-        } else if let Some(num) = token.strip_prefix("0x") {
-            extract_int(num, 16)
-        } else if let Ok(num) = token.parse::<i64>() {
-            IntLiteral::Value(num)
-        } else {
-            IntLiteral::NotInt
+/// Read `token` as an integer literal: decimal, or binary/octal/hex after `0b`/`0o`/`0x`, with
+/// `_` digit separators.
+fn read_int(token: &[u8]) -> IntLiteral {
+    match first_non_separator(token) {
+        None => return IntLiteral::Empty,
+        // Every integer literal starts with a digit (the radix prefixes included) or a sign.
+        // Most tokens that get here are bare words tried as numbers speculatively, so reject
+        // them before decoding them.
+        Some(first) if !(first.is_ascii_digit() || first == b'+' || first == b'-') => {
+            return IntLiteral::NotInt;
         }
+        Some(_) => {}
+    }
+
+    let token = strip_underscores(token);
+
+    // Parse as a u64, then cast to i64, otherwise, for numbers like "0xffffffffffffffef",
+    // you'll get `Error parsing hex string: number too large to fit in target type`.
+    let extract_int = |digits: &str, radix: u32| match u64::from_str_radix(digits, radix) {
+        Ok(num) => IntLiteral::Value(num as i64),
+        Err(_) => IntLiteral::InvalidDigits { radix },
     };
 
-    match literal {
+    if let Some(num) = token.strip_prefix("0b") {
+        extract_int(num, 2)
+    } else if let Some(num) = token.strip_prefix("0o") {
+        extract_int(num, 8)
+    } else if let Some(num) = token.strip_prefix("0x") {
+        extract_int(num, 16)
+    } else if let Ok(num) = token.parse::<i64>() {
+        IntLiteral::Value(num)
+    } else {
+        IntLiteral::NotInt
+    }
+}
+
+pub fn parse_int(working_set: &mut StateWorkingSet, span: Span) -> Expression {
+    match read_int(working_set.get_span_contents(span)) {
         IntLiteral::Value(num) => Expression::new(working_set, Expr::Int(num), span, Type::Int),
         IntLiteral::Empty | IntLiteral::NotInt => {
             working_set.error(ParseError::Expected("int", span));
@@ -192,10 +209,20 @@ pub fn parse_int(working_set: &mut StateWorkingSet, span: Span) -> Expression {
     }
 }
 
-pub fn parse_float(working_set: &mut StateWorkingSet, span: Span) -> Expression {
-    let parsed = strip_underscores(working_set.get_span_contents(span)).parse::<f64>();
+/// Read `token` as a float literal, with `_` digit separators.
+fn read_float(token: &[u8]) -> Option<f64> {
+    // `f64::from_str` only accepts a sign, a digit, `.`, or `inf`/`infinity`/`nan` in any case
+    // at the start, so reject everything else before decoding it (see `read_int`).
+    let first = first_non_separator(token)?;
+    if !(first.is_ascii_digit() || matches!(first, b'+' | b'-' | b'.' | b'i' | b'I' | b'n' | b'N'))
+    {
+        return None;
+    }
+    strip_underscores(token).parse::<f64>().ok()
+}
 
-    if let Ok(x) = parsed {
+pub fn parse_float(working_set: &mut StateWorkingSet, span: Span) -> Expression {
+    if let Some(x) = read_float(working_set.get_span_contents(span)) {
         Expression::new(working_set, Expr::Float(x), span, Type::Float)
     } else {
         working_set.error(ParseError::Expected("float", span));
@@ -2033,5 +2060,111 @@ pub fn parse_string_strict(working_set: &mut StateWorkingSet, span: Span) -> Exp
     } else {
         working_set.error(ParseError::Expected("string", span));
         garbage(working_set, span)
+    }
+}
+
+#[cfg(test)]
+mod number_tests {
+    use super::*;
+
+    /// How integers were read before tokens were rejected by their first byte.
+    fn read_int_by_decoding(token: &[u8]) -> IntLiteral {
+        let token = strip_underscores(token);
+        let extract_int = |digits: &str, radix: u32| match u64::from_str_radix(digits, radix) {
+            Ok(num) => IntLiteral::Value(num as i64),
+            Err(_) => IntLiteral::InvalidDigits { radix },
+        };
+        if token.is_empty() {
+            IntLiteral::Empty
+        } else if let Some(num) = token.strip_prefix("0b") {
+            extract_int(num, 2)
+        } else if let Some(num) = token.strip_prefix("0o") {
+            extract_int(num, 8)
+        } else if let Some(num) = token.strip_prefix("0x") {
+            extract_int(num, 16)
+        } else if let Ok(num) = token.parse::<i64>() {
+            IntLiteral::Value(num)
+        } else {
+            IntLiteral::NotInt
+        }
+    }
+
+    const TOKENS: &[&[u8]] = &[
+        b"",
+        b"_",
+        b"___",
+        b"1",
+        b"-1",
+        b"+1",
+        b"+",
+        b"-",
+        b"1_000",
+        b"_1",
+        b"1_",
+        b"0x_ff",
+        b"_0xff",
+        b"0_xff",
+        b"0xZZ",
+        b"0b102",
+        b"0o8",
+        b"0x",
+        b"99999999999999999999",
+        b"-9223372036854775808",
+        b"abc",
+        b"foo_bar",
+        b"_foo",
+        b"e5",
+        b"1e5",
+        b".5",
+        b"5.",
+        b"-.5e-3",
+        b"inf",
+        b"+inf",
+        b"-Infinity",
+        b"INFINITY",
+        b"nan",
+        b"NaN",
+        b"-nan",
+        b"i",
+        b"n",
+        b"infinite",
+        b"\xc3\xa91",
+        b"1\xc3\xa9",
+        b"\xff1",
+        b"1\xff",
+        b"_\xff",
+        b"$x",
+        b"(1)",
+        b"[1]",
+        b"1kb",
+        b"1sec",
+        b"1..2",
+    ];
+
+    #[test]
+    fn integers_read_as_before() {
+        for token in TOKENS {
+            assert_eq!(
+                read_int(token),
+                read_int_by_decoding(token),
+                "{:?}",
+                String::from_utf8_lossy(token)
+            );
+        }
+    }
+
+    #[test]
+    fn floats_read_as_before() {
+        for token in TOKENS {
+            let before = strip_underscores(token).parse::<f64>().ok();
+            let after = read_float(token);
+            // Compare bit patterns so that NaN equals NaN.
+            assert_eq!(
+                after.map(f64::to_bits),
+                before.map(f64::to_bits),
+                "{:?}",
+                String::from_utf8_lossy(token)
+            );
+        }
     }
 }
