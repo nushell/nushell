@@ -1,0 +1,1 @@
+try $env.FOO catch {}

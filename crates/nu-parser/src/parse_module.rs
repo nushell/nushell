@@ -1,7 +1,7 @@
 use crate::{
     Token, TokenContents,
     exportable::Exportable,
-    lex,
+    lex_once::lex_file,
     lite_parser::{LiteCommand, lite_parse},
     parse_helpers::{garbage_pipeline, trim_quotes},
     parse_pipelines::redirecting_builtin_error,
@@ -495,9 +495,7 @@ pub fn parse_module_block(
 ) -> (Block, Module, Vec<Span>) {
     working_set.enter_scope();
 
-    let source = working_set.get_span_contents(span);
-
-    let (output, err) = lex(source, span.start, &[], &[], false);
+    let (output, err) = lex_file(working_set, span, &[], &[], false);
     if let Some(err) = err {
         working_set.error(err)
     }

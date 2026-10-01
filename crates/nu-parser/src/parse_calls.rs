@@ -1980,8 +1980,7 @@ pub fn parse_shorter_head_reading(
     head: Span,
     input_type: Option<&Type>,
 ) -> Option<Expression> {
-    let contents = working_set.get_span_contents(head).to_vec();
-    let (tokens, _) = crate::lex::lex(&contents, head.start, &[], &[], true);
+    let (tokens, _) = crate::lex_once::lex_span(working_set, head, &[], &[], true);
     let spans: Vec<Span> = tokens.into_iter().map(|token| token.span).collect();
 
     // Only multi-word heads have a shorter reading.

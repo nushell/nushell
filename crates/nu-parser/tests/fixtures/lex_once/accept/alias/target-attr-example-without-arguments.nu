@@ -1,0 +1,1 @@
+alias x = attr example

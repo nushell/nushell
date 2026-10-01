@@ -2,7 +2,8 @@
 
 use crate::{
     Token, TokenContents,
-    lex::{LexState, interp_subexpr_step, lex, lex_n_tokens},
+    lex::{LexState, interp_subexpr_step},
+    lex_once::{find_bracket_table, lex_n_tokens_in, lex_span},
     parse_helpers::{
         SPREAD_OPERATOR_STR, extract_spread_record, garbage, is_variable, trim_quotes,
     },
@@ -51,13 +52,9 @@ fn parse_binary_with_base(
     if let Some(token) = token.strip_prefix(prefix)
         && let Some(token) = token.strip_suffix(suffix)
     {
-        let (lexed, err) = lex(
-            token,
-            span.start + prefix.len(),
-            &[b',', b'\r', b'\n'],
-            &[],
-            true,
-        );
+        let digits_start = span.start + prefix.len();
+        let digits_span = Span::new(digits_start, digits_start + token.len());
+        let (lexed, err) = lex_span(working_set, digits_span, &[b',', b'\r', b'\n'], &[], true);
         if let Some(err) = err {
             working_set.error(err);
         }
@@ -288,9 +285,9 @@ pub fn parse_range(working_set: &mut StateWorkingSet, span: Span) -> Option<Expr
     // Avoid calling sub-parsers on unmatched parens, to prevent quadratic time on things like ((((1..2))))
     // No need to call the expensive parse_value on "((((1"
     if dotdot_pos[0] > 0 {
-        let (_tokens, err) = lex(
-            &contents[..dotdot_pos[0]],
-            span.start,
+        let (_tokens, err) = lex_span(
+            working_set,
+            Span::new(span.start, span.start + dotdot_pos[0]),
             &[],
             &[b'.', b'?', b'!'],
             true,
@@ -565,19 +562,27 @@ pub fn parse_brace_expr(
         ));
         return Expression::garbage(working_set, span);
     }
-    let bytes = working_set.get_span_contents(Span::new(span.start + 1, span.end - 1));
+    let inner_span = Span::new(span.start + 1, span.end - 1);
     // Only the first two tokens decide the kind of value, so lex just those instead of the
     // whole body: the body is lexed again by whichever parser is chosen below, and for nested
     // closures that repeated full scan dominated parse time. Newlines are additional whitespace
     // and comments are skipped here, so no token depends on a later one and the first two
     // tokens are the same as a full lex would produce. Lex errors are ignored as before.
+    let table = find_bracket_table(working_set, inner_span);
     let mut lex_state = LexState {
-        input: bytes,
+        input: working_set.get_span_contents(inner_span),
         output: Vec::new(),
         error: None,
         span_offset: span.start + 1,
     };
-    lex_n_tokens(&mut lex_state, &[b'\r', b'\n', b'\t'], &[b':'], true, 2);
+    lex_n_tokens_in(
+        &mut lex_state,
+        &[b'\r', b'\n', b'\t'],
+        &[b':'],
+        true,
+        2,
+        table,
+    );
     let tokens = lex_state.output;
 
     match tokens.as_slice() {
@@ -1031,11 +1036,9 @@ pub fn parse_cell_path(
 }
 
 pub fn parse_simple_cell_path(working_set: &mut StateWorkingSet, span: Span) -> Expression {
-    let source = working_set.get_span_contents(span);
-
-    let (tokens, err) = lex(
-        source,
-        span.start,
+    let (tokens, err) = lex_span(
+        working_set,
+        span,
         &[b'\n', b'\r'],
         &[b'.', b'?', b'!'],
         true,
@@ -1064,11 +1067,9 @@ pub fn parse_full_cell_path(
 ) -> Expression {
     trace!("parsing: full cell path");
     let full_cell_span = span;
-    let source = working_set.get_span_contents(span);
-
-    let (tokens, err) = lex(
-        source,
-        span.start,
+    let (tokens, err) = lex_span(
+        working_set,
+        span,
         &[b'\n', b'\r'],
         &[b'.', b'?', b'!'],
         true,
@@ -1104,9 +1105,7 @@ pub fn parse_full_cell_path(
 
             let span = Span::new(start, end);
 
-            let source = working_set.get_span_contents(span);
-
-            let (output, err) = lex(source, span.start, &[b'\n', b'\r'], &[], true);
+            let (output, err) = lex_span(working_set, span, &[b'\n', b'\r'], &[], true);
             if let Some(err) = err {
                 working_set.error(err)
             }

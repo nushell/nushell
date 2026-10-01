@@ -1,0 +1,3 @@
+@deprecated
+
+def f [] { }

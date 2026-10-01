@@ -2,7 +2,8 @@
 
 use crate::{
     Token, TokenContents,
-    lex::{LexState, is_assignment_operator, lex, lex_n_tokens},
+    lex::{LexState, is_assignment_operator},
+    lex_once::{find_bracket_table, lex_n_tokens_in, lex_span},
     lite_parser::{LiteCommand, lite_parse},
     parse_helpers::{
         PERCENT_FORCED_BUILTIN_PARSER_INFO, extract_spread_list, extract_spread_record, garbage,
@@ -123,9 +124,7 @@ pub fn parse_list_expression(
     }
 
     let inner_span = Span::new(start, end);
-    let source = working_set.get_span_contents(inner_span);
-
-    let (output, err) = lex(source, inner_span.start, &[b'\n', b'\r', b','], &[], true);
+    let (output, err) = lex_span(working_set, inner_span, &[b'\n', b'\r', b','], &[], true);
     if let Some(err) = err {
         working_set.error(err)
     }
@@ -262,8 +261,7 @@ pub(crate) fn parse_table_expression(
         Span::new(start, end)
     };
 
-    let source = working_set.get_span_contents(inner_span);
-    let (tokens, err) = lex(source, inner_span.start, &[b'\n', b'\r', b','], &[], true);
+    let (tokens, err) = lex_span(working_set, inner_span, &[b'\n', b'\r', b','], &[], true);
     if let Some(err) = err {
         working_set.error(err);
     }
@@ -437,9 +435,7 @@ pub fn parse_block_expression(
 
     let inner_span = Span::new(start, end);
 
-    let source = working_set.get_span_contents(inner_span);
-
-    let (output, err) = lex(source, start, &[], &[], false);
+    let (output, err) = lex_span(working_set, inner_span, &[], &[], false);
     if let Some(err) = err {
         working_set.error(err);
     }
@@ -496,9 +492,13 @@ pub fn parse_match_block_expression(
 
     let inner_span = Span::new(start, end);
 
-    let source = working_set.get_span_contents(inner_span);
-
-    let (output, err) = lex(source, start, &[b' ', b'\r', b'\n', b',', b'|'], &[], true);
+    let (output, err) = lex_span(
+        working_set,
+        inner_span,
+        &[b' ', b'\r', b'\n', b',', b'|'],
+        &[],
+        true,
+    );
     if let Some(err) = err {
         working_set.error(err);
     }
@@ -723,9 +723,7 @@ pub fn parse_closure_expression(
 
     let inner_span = Span::new(start, end);
 
-    let source = working_set.get_span_contents(inner_span);
-
-    let (output, err) = lex(source, start, &[], &[], false);
+    let (output, err) = lex_span(working_set, inner_span, &[], &[], false);
     if let Some(err) = err {
         working_set.error(err);
     }
@@ -1092,13 +1090,7 @@ pub fn parse_assignment_expression(
     // Re-parse the right-hand side as a subexpression
     let rhs_span = Span::concat(rhs_spans);
 
-    let (rhs_tokens, rhs_error) = lex(
-        working_set.get_span_contents(rhs_span),
-        rhs_span.start,
-        &[],
-        &[],
-        false,
-    );
+    let (rhs_tokens, rhs_error) = lex_span(working_set, rhs_span, &[], &[], false);
     working_set.parse_errors.extend(rhs_error);
 
     trace!("parsing: assignment right-hand side subexpression");
@@ -1963,6 +1955,7 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
 
     let inner_span = Span::new(start, end);
 
+    let table = find_bracket_table(working_set, inner_span);
     let mut lex_state = LexState {
         input: working_set.get_span_contents(inner_span),
         output: Vec::new(),
@@ -1979,7 +1972,15 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
             break;
         }
         let additional_whitespace = &[b'\n', b'\r', b','];
-        if lex_n_tokens(&mut lex_state, additional_whitespace, &[b':'], true, 1) < 1 {
+        if lex_n_tokens_in(
+            &mut lex_state,
+            additional_whitespace,
+            &[b':'],
+            true,
+            1,
+            table,
+        ) < 1
+        {
             break;
         };
         let span = lex_state
@@ -1993,11 +1994,19 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
             continue;
         }
         // Get token for colon
-        if lex_n_tokens(&mut lex_state, additional_whitespace, &[b':'], true, 1) < 1 {
+        if lex_n_tokens_in(
+            &mut lex_state,
+            additional_whitespace,
+            &[b':'],
+            true,
+            1,
+            table,
+        ) < 1
+        {
             break;
         };
         // Get token for value
-        if lex_n_tokens(&mut lex_state, additional_whitespace, &[], true, 1) < 1 {
+        if lex_n_tokens_in(&mut lex_state, additional_whitespace, &[], true, 1, table) < 1 {
             break;
         };
     }

@@ -1,5 +1,6 @@
 use crate::{
-    lex::lex, parse_helpers::PERCENT_FORCED_BUILTIN_PARSER_INFO, parse_pipelines::parse_block,
+    lex_once::lex_file, parse_helpers::PERCENT_FORCED_BUILTIN_PARSER_INFO,
+    parse_pipelines::parse_block,
 };
 use log::trace;
 use nu_protocol::{
@@ -717,7 +718,7 @@ fn parse_with_block_cache(
     let first_new_delta_block = working_set.delta.blocks.len();
 
     let mut output = {
-        let (output, err) = lex(contents, new_span.start, &[], &[], false);
+        let (output, err) = lex_file(working_set, new_span, &[], &[], false);
         if let Some(err) = err {
             working_set.error(err)
         }
