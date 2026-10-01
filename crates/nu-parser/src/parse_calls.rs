@@ -993,12 +993,8 @@ pub fn parse_internal_call(
     // see https://github.com/nushell/nushell/pull/14922
     // Incorrect behavior this may cause will be handled by
     // `check_pipeline_type` in crates/nu-parser/src/type_check.rs
-    let output = signature
-        .get_output_type(
-            input_type
-                .map(|ty| ty.clone().union(Type::Nothing))
-                .as_ref(),
-        )
+    let output = working_set
+        .call_output_type(decl_id, &signature, input_type)
         .unwrap_or(Type::Error);
 
     // This is necessary for some keywords to have proper expression types.
