@@ -1,0 +1,11 @@
+Block 0..59
+  Pipeline 0..33
+    Alias `attr test` 0..33
+      Call `attr category` 20..33
+  Pipeline 34..58
+    AttributeBlock 34..58
+      Attribute `test` 34..44
+        String Bare "math" 40..44
+      Def `foo` 45..58
+        Signature 53..55
+        Body 57..57

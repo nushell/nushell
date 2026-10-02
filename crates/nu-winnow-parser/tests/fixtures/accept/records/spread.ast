@@ -1,0 +1,28 @@
+Block 0..67
+  Pipeline 0..19
+    let spread 0..19
+      Value 13..19
+        Pipeline 13..19
+          Record 13..19
+            Pair
+              String Bare "x" 14..15
+              Int 1 17..18
+  Pipeline 20..66
+    Record 20..66
+      Pair
+        String Bare "a" 21..22
+        Int 1 24..25
+      Spread 27..30
+        Var $spread 30..37
+      Spread 39..42
+        Record 42..48
+          Pair
+            String Bare "b" 43..44
+            Int 2 46..47
+      Spread 50..53
+        Subexpression 53..59 54..58
+          Pipeline 54..58
+            Nothing 54..58
+      Pair
+        String Bare "c" 61..62
+        Int 3 64..65

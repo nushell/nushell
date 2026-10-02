@@ -1,0 +1,7 @@
+error: missing required positional argument
+  --> reject/calls/plugin-use-without-argument.nu:1:1
+  |
+1 | plugin use
+  | ^
+  = while parsing command call
+  = help: `plugin use` takes 1 positional argument(s)

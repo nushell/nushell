@@ -1,0 +1,9 @@
+Block 0..61
+  Pipeline 0..60
+    Def `foo` 0..60
+      Signature 8..54
+        IoType nothing -> int
+        IoType string -> int
+      Body 56..59
+        Pipeline 57..58
+          Int 3 57..58

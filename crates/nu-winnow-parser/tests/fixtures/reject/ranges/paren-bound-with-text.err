@@ -1,0 +1,6 @@
+error: the `..` operator does not work on a string
+  --> reject/ranges/paren-bound-with-text.nu:1:1
+  |
+1 | (1)abc..5
+  | ^^^^^^
+  = help: a range bound is a number, a variable or a subexpression

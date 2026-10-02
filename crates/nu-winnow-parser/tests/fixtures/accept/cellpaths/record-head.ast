@@ -1,0 +1,8 @@
+Block 0..9
+  Pipeline 0..8
+    FullCellPath 0..8
+      Record 0..6
+        Pair
+          String Bare "a" 1..2
+          Int 1 4..5
+      Member "a" 7..8

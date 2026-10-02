@@ -1,0 +1,6 @@
+error: colon in bare word specifying record value
+  --> reject/records/interpolated-value-with-colon.nu:1:12
+  |
+1 | { a: x('y'):z }
+  |            ^
+  = help: quote the value if the `:` is part of it

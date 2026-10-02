@@ -1,0 +1,15 @@
+Block 0..41
+  Pipeline 0..40
+    AttributeBlock 0..40
+      Attribute `example` 0..18
+        String Double "x" 9..12
+        Closure 13..18
+          Body 15..17
+            Pipeline 15..16
+              Int 1 15..16
+      Export 19..40
+        Def `f` 26..40
+          Signature 32..34
+          Body 36..39
+            Pipeline 37..38
+              Int 1 37..38

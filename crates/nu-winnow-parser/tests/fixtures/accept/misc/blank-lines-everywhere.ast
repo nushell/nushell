@@ -1,0 +1,11 @@
+Block 0..41
+  Pipeline 2..33
+    Def `f` 2..33
+      Signature 8..22
+        Param positional `a` 13..19 : int
+      Body 24..32
+        Pipeline 28..30
+          Var $a 28..30
+  Pipeline 36..39
+    Call `f` 36..39
+      Int 1 38..39

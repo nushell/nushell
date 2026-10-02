@@ -1,0 +1,6 @@
+error: extra tokens after the end of the expression
+  --> reject/bindings/const-missing-colon.nu:1:9
+  |
+1 | const a string = 'x'
+  |         ^^^^^^
+  = while parsing const

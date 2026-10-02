@@ -1,0 +1,7 @@
+error: `env` used as variable name
+  --> reject/match/record-pattern-variable-env.nu:1:20
+  |
+1 | match {a: 1} { {a: $env} => 1 }
+  |                    ^^^^
+  = while parsing match
+  = help: `$env` is a built-in variable and cannot be declared

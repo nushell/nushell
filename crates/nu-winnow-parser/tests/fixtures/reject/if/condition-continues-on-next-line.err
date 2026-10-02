@@ -1,0 +1,12 @@
+error: expected block after the condition
+  --> reject/if/condition-continues-on-next-line.nu:3:7
+  |
+3 | if $a and
+  |       ^^^
+  = while parsing if
+
+error: expected operator
+  --> reject/if/condition-continues-on-next-line.nu:4:5
+  |
+4 |  $b { }
+  |     ^^^

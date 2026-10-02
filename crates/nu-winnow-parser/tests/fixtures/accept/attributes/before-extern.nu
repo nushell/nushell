@@ -1,0 +1,2 @@
+@category custom
+extern e []

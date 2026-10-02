@@ -1,0 +1,19 @@
+Block 0..52
+  Pipeline 0..51
+    Call `ls` 0..2
+    | 3..4
+    Where 5..51
+      BinaryOp or 11..51
+        BinaryOp and 11..37
+          BinaryOp > 11..21
+            FullCellPath implicit-head 11..15
+              Var $it 11..11
+              Member "size" 11..15
+            Filesize 1 kB 18..21
+          BinaryOp =~ 26..37
+            FullCellPath implicit-head 26..30
+              Var $it 26..26
+              Member "name" 26..30
+            String Single "x" 34..37
+        Not 41..51
+          String Bare "active" 45..51

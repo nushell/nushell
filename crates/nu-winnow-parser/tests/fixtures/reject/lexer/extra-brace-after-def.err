@@ -1,0 +1,5 @@
+error: unbalanced delimiter: found `}` without a matching `{`
+  --> reject/lexer/extra-brace-after-def.nu:4:1
+  |
+4 | }
+  | ^

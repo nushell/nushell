@@ -1,0 +1,6 @@
+error: unclosed delimiter: expected `}`
+  --> reject/lexer/multiline-unclosed-record.nu:4:1
+  |
+4 | 
+  | ^
+  = note: opened at 1:9

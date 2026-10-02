@@ -1,0 +1,6 @@
+error: invalid int literal: invalid digits for radix 16
+  --> reject/literals/radix-prefix-bracket-then-word.nu:1:6
+  |
+1 | echo 0x[13]abc
+  |      ^^^^^^^^^
+  = while parsing command call

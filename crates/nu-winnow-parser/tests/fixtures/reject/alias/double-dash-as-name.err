@@ -1,0 +1,6 @@
+error: expected `=`
+  --> reject/alias/double-dash-as-name.nu:1:10
+  |
+1 | alias -- x = ls
+  |          ^
+  = while parsing alias

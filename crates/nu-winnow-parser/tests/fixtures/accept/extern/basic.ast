@@ -1,0 +1,7 @@
+Block 0..55
+  Pipeline 0..54
+    Extern `gh` 0..54
+      Signature 10..54
+        Param flag --repo `repo` 11..25 : string
+        Param rest `args` 27..34
+        IoType nothing -> string

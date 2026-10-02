@@ -1,0 +1,6 @@
+Block 0..19
+  Pipeline 0..18
+    Call `echo` 0..18
+      String Bare "...foo" 5..11
+      String Bare "..." 12..15
+      String Bare ".." 16..18

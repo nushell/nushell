@@ -1,0 +1,6 @@
+Block 0..37
+  Pipeline 0..36
+    Def `foo` 0..36
+      Signature 8..33
+        Param positional `x` 9..32 : string @"unknown cmd"
+      Body 35..35

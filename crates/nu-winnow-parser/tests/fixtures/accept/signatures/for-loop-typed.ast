@@ -1,0 +1,15 @@
+Block 0..54
+  Pipeline 0..23
+    For $x : int 0..23
+      Range Inclusive 14..19
+        From
+          Int 1 14..15
+        To
+          Int 10 17..19
+      Body 21..22
+  Pipeline 24..53
+    For $y : list<int> 24..53
+      List 44..49
+        List 45..48
+          Int 1 46..47
+      Body 51..52

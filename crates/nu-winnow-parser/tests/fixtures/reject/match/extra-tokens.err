@@ -1,0 +1,6 @@
+error: extra tokens after the end of the expression
+  --> reject/match/extra-tokens.nu:1:20
+  |
+1 | match 1 { _ => 1 } extra
+  |                    ^^^^^
+  = while parsing match

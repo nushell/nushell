@@ -1,0 +1,6 @@
+error: expected closure
+  --> reject/try/catch-handler-not-closure.nu:1:17
+  |
+1 | try { 1 } catch 5
+  |                 ^
+  = while parsing try

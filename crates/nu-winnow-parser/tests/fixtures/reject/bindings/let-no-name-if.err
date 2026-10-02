@@ -1,0 +1,6 @@
+error: expected variable name
+  --> reject/bindings/let-no-name-if.nu:1:5
+  |
+1 | let = if $
+  |     ^
+  = while parsing let

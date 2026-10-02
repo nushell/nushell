@@ -1,0 +1,6 @@
+error: expected `=`
+  --> reject/def/alias-missing-equals.nu:1:12
+  |
+1 | alias ll ls
+  |            ^
+  = while parsing alias

@@ -1,0 +1,6 @@
+error: unknown operator `%`
+  --> reject/operators/percent.nu:1:3
+  |
+1 | 1 % 2
+  |   ^
+  = help: use `mod` for the remainder

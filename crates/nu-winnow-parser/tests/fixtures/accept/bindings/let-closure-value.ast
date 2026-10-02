@@ -1,0 +1,19 @@
+Block 0..34
+  Pipeline 0..17
+    let f 0..17
+      Value 8..17
+        Pipeline 8..17
+          Closure 8..17
+            Signature 9..12
+              Param positional `x` 10..11
+            Body 13..16
+              Pipeline 13..15
+                Var $x 13..15
+  Pipeline 18..33
+    let g 18..33
+      Value 26..33
+        Pipeline 26..33
+          Closure 26..33
+            Body 28..32
+              Pipeline 28..31
+                Var $in 28..31

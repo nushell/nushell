@@ -1,0 +1,13 @@
+Block 0..46
+  Pipeline 0..18
+    Def `ls` 0..18
+      Signature 7..9
+      Body 11..17
+        Pipeline 12..16
+          String Single "hi" 12..16
+  Pipeline 19..45
+    Def `echo` 19..45
+      Signature 28..30
+      Body 32..44
+        Pipeline 33..43
+          String Single "shadowed" 33..43

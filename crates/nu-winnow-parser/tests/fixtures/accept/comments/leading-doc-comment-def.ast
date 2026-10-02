@@ -1,0 +1,9 @@
+Block 0..65
+  Pipeline 50..64 comments=3
+    Def `foo` 50..64
+      Signature 58..60
+      Body 62..63
+Comments (3)
+  0..25 "# Documentation line one."
+  26..27 "#"
+  28..49 "# More documentation."

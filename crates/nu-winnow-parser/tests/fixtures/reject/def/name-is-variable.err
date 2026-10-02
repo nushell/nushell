@@ -1,0 +1,7 @@
+error: expected string
+  --> reject/def/name-is-variable.nu:1:5
+  |
+1 | def $x [] {}
+  |     ^^
+  = while parsing def
+  = help: the name of a definition is a string

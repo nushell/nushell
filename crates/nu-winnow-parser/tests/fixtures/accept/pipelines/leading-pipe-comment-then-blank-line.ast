@@ -1,0 +1,7 @@
+Block 0..11
+  Pipeline 7..10
+    ExternalCall 7..10
+      String Bare "a" 7..8
+      String Bare "b" 9..10
+Comments (1)
+  2..5 "# c"

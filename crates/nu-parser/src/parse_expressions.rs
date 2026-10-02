@@ -373,7 +373,7 @@ pub(crate) fn parse_table_expression(
     Expression::new(working_set, Expr::Table(table), span, ty)
 }
 
-fn table_type(head: &[Expression], rows: &[Vec<Expression>]) -> (Type, Vec<ParseError>) {
+pub(crate) fn table_type(head: &[Expression], rows: &[Vec<Expression>]) -> (Type, Vec<ParseError>) {
     let mut errors = vec![];
     let mut rows: Vec<_> = rows.iter().map(|row| row.iter()).collect();
 
@@ -1874,7 +1874,7 @@ pub fn parse_builtin_commands(
     }
 }
 
-fn check_record_key_or_value(
+pub(crate) fn check_record_key_or_value(
     working_set: &StateWorkingSet,
     expr: &Expression,
     position: &str,

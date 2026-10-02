@@ -1,0 +1,6 @@
+error: expected `catch` or `finally`
+  --> reject/try/help-then-extra.nu:1:15
+  |
+1 | try {} --help x
+  |               ^
+  = while parsing try

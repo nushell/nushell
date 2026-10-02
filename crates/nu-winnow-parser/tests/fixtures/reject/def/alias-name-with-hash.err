@@ -1,0 +1,7 @@
+error: alias name not supported
+  --> reject/def/alias-name-with-hash.nu:1:7
+  |
+1 | alias "x#y" = ls
+  |       ^^^^^
+  = while parsing alias
+  = help: a name may not contain `#`, `^` or `%`, or read as a number or filesize

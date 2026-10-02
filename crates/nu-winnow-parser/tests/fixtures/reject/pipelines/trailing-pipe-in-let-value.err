@@ -1,0 +1,7 @@
+error: unexpected end of input, expected command after `|`
+  --> reject/pipelines/trailing-pipe-in-let-value.nu:1:11
+  |
+1 | let x = 1 |
+  |           ^
+  = while parsing pipeline
+  = help: the pipeline has no end: add a command after the `|` or remove it

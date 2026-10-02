@@ -1,0 +1,40 @@
+Block 0..88
+  Pipeline 0..11
+    let a 0..11
+      Value 8..11
+        Pipeline 8..11
+          String Single "b" 8..11
+  Pipeline 12..87
+    List 12..87
+      Subexpression 13..41 14..40
+        Pipeline 14..40
+          BinaryOp or 14..40
+            Subexpression 14..25 15..24
+              Pipeline 15..24
+                BinaryOp == 15..24
+                  Var $a 15..17
+                  String Single "b" 21..24
+            Subexpression 29..40 30..39
+              Pipeline 30..39
+                BinaryOp == 30..39
+                  Var $a 30..32
+                  String Single "b" 36..39
+      Subexpression 42..86 43..85
+        Pipeline 43..85
+          BinaryOp or 43..85
+            Subexpression 43..54 44..53
+              Pipeline 44..53
+                BinaryOp == 44..53
+                  Var $a 44..46
+                  String Single "b" 50..53
+            BinaryOp and 58..85
+              Subexpression 58..69 59..68
+                Pipeline 59..68
+                  BinaryOp == 59..68
+                    Var $a 59..61
+                    String Single "b" 65..68
+              Subexpression 74..85 75..84
+                Pipeline 75..84
+                  BinaryOp == 75..84
+                    Var $a 75..77
+                    String Single "b" 81..84

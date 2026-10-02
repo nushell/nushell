@@ -1,0 +1,6 @@
+Block 0..31
+  Pipeline 0..30
+    Call `plugin use` 0..30
+      String Bare "x" 11..12
+      Flag --plugin-config 13..28
+      String Bare "y" 29..30

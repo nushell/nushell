@@ -1,0 +1,6 @@
+Block 0..10
+  Pipeline 0..6
+    Try 0..6
+      Body 5..5
+Ignored (1)
+  7..9 "--"

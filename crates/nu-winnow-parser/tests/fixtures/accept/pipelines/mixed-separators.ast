@@ -1,0 +1,10 @@
+Block 0..26
+  Pipeline 0..2 terminator=2..3
+    Call `ls` 0..2
+  Pipeline 4..7
+    Call `pwd` 4..7
+  Pipeline 8..16 terminator=16..17
+    Call `date now` 8..16
+  Pipeline 19..25
+    Call `echo` 19..25
+      String Bare "a" 24..25

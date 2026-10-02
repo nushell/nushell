@@ -1,0 +1,20 @@
+Block 0..77
+  Pipeline 0..42
+    Module 0..42
+      String Bare "m" 7..8
+      Body 10..41
+        Pipeline 11..40
+          Export 11..40
+            Def `sub cmd` 18..40
+              Signature 32..34
+              Body 36..39
+                Pipeline 37..38
+                  Int 1 37..38
+  Pipeline 43..58
+    Use 43..58
+      String Bare "m" 47..48
+      Member "sub cmd" 49..58
+  Pipeline 59..76
+    Use 59..76
+      String Bare "m" 63..64
+      Members ["sub cmd"] 65..76

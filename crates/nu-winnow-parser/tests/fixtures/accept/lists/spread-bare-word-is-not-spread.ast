@@ -1,0 +1,19 @@
+Block 0..47
+  Pipeline 0..9
+    let a 0..9
+      Value 8..9
+        Pipeline 8..9
+          Int 4 8..9
+  Pipeline 10..46
+    List 10..46
+      String Bare "..." 11..14
+      Var $a 15..17
+      String Bare "..." 18..21
+      List 22..25
+        Int 1 23..24
+      String Bare "..." 26..29
+      Subexpression 30..33 31..32
+        Pipeline 31..32
+          Int 5 31..32
+      String Bare "...bare" 34..41
+      String Bare "..." 42..45

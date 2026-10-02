@@ -1,0 +1,4 @@
+Block 0..25
+  Pipeline 0..24
+    ExternalCall 0..24
+      String Bare "a\\nb \"quoted\" 'single'" 0..24

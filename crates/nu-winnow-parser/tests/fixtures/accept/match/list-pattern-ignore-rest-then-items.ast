@@ -1,0 +1,14 @@
+Block 0..33
+  Pipeline 0..32
+    Match 0..32
+      List 6..11
+        Int 1 7..8
+        Int 2 9..10
+      Arm 14..30
+        Pattern list 14..25
+          Pattern value 15..16
+            Int 1 15..16
+          Pattern rest  17..19
+        Int 1 29..30
+Ignored (1)
+  20..24 "0xzz"

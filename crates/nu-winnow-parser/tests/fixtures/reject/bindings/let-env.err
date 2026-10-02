@@ -1,0 +1,7 @@
+error: `env` used as variable name
+  --> reject/bindings/let-env.nu:1:5
+  |
+1 | let env = 1
+  |     ^^^
+  = while parsing let
+  = help: `$env` is a built-in variable and cannot be declared

@@ -1,0 +1,12 @@
+Block 0..79
+  Pipeline 0..78
+    Def `f` 0..78
+      Signature 6..74
+        Param positional `a` 10..49 : record<
+    x: int
+    y: string
+  >
+        Param positional `b` 52..72 : list<
+    int
+  >
+      Body 76..77

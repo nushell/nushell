@@ -1,0 +1,6 @@
+error: unknown type ``
+  --> reject/signatures/empty-type-before-completer.nu:1:13
+  |
+1 | def foo [x: @foo] {}
+  |             ^
+  = while parsing signature

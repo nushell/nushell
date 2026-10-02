@@ -505,7 +505,52 @@ fn parse_def_inner(
         working_set.exit_scope();
     }
 
-    let call_span = Span::concat(spans);
+    finish_def(
+        working_set,
+        DefCall {
+            call,
+            output,
+            call_kind,
+            call_span: Span::concat(spans),
+            decl_id,
+        },
+        desc,
+        extra_desc,
+        attributes,
+        module_name,
+    )
+}
+
+/// A `def` call as parsed, with the `def` keyword's declaration.
+pub(crate) struct DefCall {
+    pub(crate) call: Box<Call>,
+    pub(crate) output: Type,
+    pub(crate) call_kind: CallKind,
+    pub(crate) call_span: Span,
+    pub(crate) decl_id: DeclId,
+}
+
+/// The rest of `parse_def` once its call is parsed (in its own scope, which is left): compile
+/// the body, check the name, and make the predeclared command the defined one, with its
+/// description, attributes and examples. Returns the expression of the definition and, when
+/// the command was defined, its name and declaration.
+pub(crate) fn finish_def(
+    working_set: &mut StateWorkingSet,
+    def_call: DefCall,
+    desc: String,
+    extra_desc: String,
+    attributes: Vec<(String, Value)>,
+    module_name: Option<&[u8]>,
+) -> (Expression, Option<(Vec<u8>, DeclId)>) {
+    let DefCall {
+        call,
+        output,
+        call_kind,
+        call_span,
+        decl_id,
+    } = def_call;
+    let garbage_result =
+        |working_set: &mut StateWorkingSet<'_>| (garbage(working_set, call_span), None);
     let decl = working_set.get_decl(decl_id);
     let sig = decl.signature();
 
@@ -750,6 +795,32 @@ fn parse_extern_inner(
         }
     };
 
+    finish_extern(
+        working_set,
+        call,
+        call_span,
+        spans[split_id],
+        description,
+        extra_description,
+        attributes,
+        module_name,
+    )
+}
+
+/// The rest of `parse_extern` once its call is parsed (in its own scope, which is left): make
+/// the predeclared command a known external (or, with a body, a custom command) with its
+/// description, attributes and examples. `name_span` is the span of the name item.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn finish_extern(
+    working_set: &mut StateWorkingSet,
+    call: Box<Call>,
+    call_span: Span,
+    name_span: Span,
+    description: String,
+    extra_description: String,
+    attributes: Vec<(String, Value)>,
+    module_name: Option<&[u8]>,
+) -> Expression {
     let (name_and_sig_exprs, body_expr) = {
         let mut positional_iter = call.positional_iter();
         (positional_iter.next_array::<2>(), positional_iter.next())
@@ -831,7 +902,7 @@ fn parse_extern_inner(
             } else {
                 working_set.error(ParseError::InternalError(
                     "Predeclaration failed to add declaration".into(),
-                    spans[split_id],
+                    name_span,
                 ));
             };
         }

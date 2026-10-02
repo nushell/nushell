@@ -1,0 +1,6 @@
+error: expected block
+  --> reject/def/missing-body.nu:1:12
+  |
+1 | def foo [x]
+  |            ^
+  = while parsing def

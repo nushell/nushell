@@ -1,0 +1,6 @@
+error: unknown type `int= 3`
+  --> reject/bindings/let-equals-attached-to-type.nu:1:8
+  |
+1 | let c: int= 3
+  |        ^^^^^^
+  = while parsing let

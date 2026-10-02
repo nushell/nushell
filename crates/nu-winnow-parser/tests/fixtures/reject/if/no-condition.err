@@ -1,0 +1,6 @@
+error: expected condition
+  --> reject/if/no-condition.nu:1:4
+  |
+1 | if { }
+  |    ^^^
+  = while parsing if

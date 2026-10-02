@@ -1,0 +1,6 @@
+error: expected string
+  --> reject/calls/overlay-new-null.nu:1:13
+  |
+1 | overlay new null
+  |             ^^^^
+  = while parsing command call

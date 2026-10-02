@@ -1,0 +1,42 @@
+Block 0..55
+  Pipeline 0..54
+    List 0..54
+      Range RightExclusive 1..18
+        From
+          Subexpression 1..8 2..7
+            Pipeline 2..7
+              BinaryOp - 2..7
+                Int 3 2..3
+                Int 3 6..7
+        To
+          Subexpression 11..18 12..17
+            Pipeline 12..17
+              BinaryOp + 12..17
+                Int 8 12..13
+                Int 2 16..17
+      Range Inclusive 19..35
+        From
+          Subexpression 19..26 20..25
+            Pipeline 20..25
+              BinaryOp - 20..25
+                Int 3 20..21
+                Int 3 24..25
+        To
+          Subexpression 28..35 29..34
+            Pipeline 29..34
+              BinaryOp + 29..34
+                Int 8 29..30
+                Int 2 33..34
+      Range Inclusive 36..53
+        From
+          Subexpression 36..43 37..42
+            Pipeline 37..42
+              BinaryOp - 37..42
+                Int 3 37..38
+                Int 3 41..42
+        To
+          Subexpression 46..53 47..52
+            Pipeline 47..52
+              BinaryOp + 47..52
+                Int 8 47..48
+                Int 2 51..52

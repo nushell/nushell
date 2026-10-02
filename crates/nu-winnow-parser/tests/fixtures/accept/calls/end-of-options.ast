@@ -1,0 +1,6 @@
+Block 0..24
+  Pipeline 0..23
+    Call `echo` 0..23
+      EndOfOptions 5..7
+      Flag --not-a-flag 8..20
+      Flag -x 21..23

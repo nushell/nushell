@@ -1,0 +1,11 @@
+Block 0..30
+  Pipeline 0..29
+    For $x 0..29
+      List 9..16
+        Int 1 10..11
+        Int 2 12..13
+        Int 3 14..15
+      Body 18..28
+        Pipeline 19..27
+          Call `print` 19..27
+            Var $x 25..27

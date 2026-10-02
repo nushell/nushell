@@ -1,0 +1,6 @@
+error: unknown type `;`
+  --> reject/signatures/list-type-semicolon.nu:1:19
+  |
+1 | def f [x: list<int;>] {}
+  |                   ^
+  = while parsing signature

@@ -1,0 +1,7 @@
+error: unknown type `int@completer`
+  --> reject/bindings/let-completer-in-type.nu:1:8
+  |
+1 | let x: int@completer = 42
+  |        ^^^^^^^^^^^^^
+  = while parsing let
+  = help: type specifications do not support custom completers here

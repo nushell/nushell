@@ -1,0 +1,6 @@
+error: unexpected token in record
+  --> reject/records/assignment-token-key.nu:1:2
+  |
+1 | {=: 1}
+  |  ^
+  = help: expected a record key here; fields look like `key: value`

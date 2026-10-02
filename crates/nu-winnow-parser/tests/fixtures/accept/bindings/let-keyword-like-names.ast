@@ -1,0 +1,27 @@
+Block 0..78
+  Pipeline 0..13
+    let input 0..13
+      Value 12..13
+        Pipeline 12..13
+          Int 1 12..13
+  Pipeline 14..24
+    let it 14..24
+      Value 23..24
+        Pipeline 23..24
+          Int 2 23..24
+  Pipeline 25..37
+    let each 25..37
+      Value 36..37
+        Pipeline 36..37
+          Int 3 36..37
+  Pipeline 38..51
+    let match 38..51
+      Value 50..51
+        Pipeline 50..51
+          Int 4 50..51
+  Pipeline 52..77
+    List 52..77
+      Var $input 53..59
+      Var $it 60..63
+      Var $each 64..69
+      Var $match 70..76

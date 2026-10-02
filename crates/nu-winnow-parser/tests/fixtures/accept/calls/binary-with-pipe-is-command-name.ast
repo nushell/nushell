@@ -1,0 +1,4 @@
+Block 0..8
+  Pipeline 0..7
+    ExternalCall 0..7
+      String Bare "0b[1|2]" 0..7

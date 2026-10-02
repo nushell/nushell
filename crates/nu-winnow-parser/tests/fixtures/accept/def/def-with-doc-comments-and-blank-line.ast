@@ -1,0 +1,9 @@
+Block 0..69
+  Pipeline 55..68 comments=3
+    Def `foo` 55..68
+      Signature 63..65
+      Body 67..67
+Comments (3)
+  0..16 "# This is a test"
+  17..18 "#"
+  19..54 "# To see if I have cool description"

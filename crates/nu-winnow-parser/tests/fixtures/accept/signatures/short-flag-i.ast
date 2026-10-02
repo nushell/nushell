@@ -1,0 +1,6 @@
+Block 0..16
+  Pipeline 0..15
+    Def `foo` 0..15
+      Signature 8..12
+        Param flag -i `i` 9..11
+      Body 14..14

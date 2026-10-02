@@ -1,0 +1,19 @@
+Block 0..29
+  Pipeline 0..28
+    Table 0..28
+      Columns
+        List 1..6
+          String Bare "a" 2..3
+          String Bare "b" 4..5
+      Row
+        List 8..13
+          Int 1 9..10
+          Int 2 11..12
+      Row
+        List 15..20
+          Int 3 16..17
+          Int 4 18..19
+      Row
+        List 22..27
+          Int 5 23..24
+          Int 6 25..26

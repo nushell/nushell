@@ -1,0 +1,7 @@
+error: command name not supported
+  --> reject/def/name-with-hash.nu:1:5
+  |
+1 | def "a#b" [] {}
+  |     ^^^^^
+  = while parsing def
+  = help: a name may not contain `#`, `^` or `%`, or read as a number or filesize

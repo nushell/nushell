@@ -1,0 +1,5 @@
+error: invalid string literal: incomplete unicode escape '\u{...}', missing closing '}'
+  --> reject/strings/unicode-escape-no-brace.nu:1:2
+  |
+1 | "\u0041"
+  |  ^^^

@@ -1,0 +1,9 @@
+Block 0..10
+  Pipeline 0..9
+    Assignment = 0..9
+      List 0..3
+        Int 1 1..2
+      Value 6..9
+        Pipeline 6..9
+          List 6..9
+            Int 2 7..8

@@ -1,0 +1,7 @@
+error: expected string
+  --> reject/modules/module-name-true.nu:1:8
+  |
+1 | module true {}
+  |        ^^^^
+  = while parsing module
+  = help: `true` is a value; quote it to use it as a string

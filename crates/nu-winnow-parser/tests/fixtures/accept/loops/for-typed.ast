@@ -1,0 +1,9 @@
+Block 0..24
+  Pipeline 0..23
+    For $x : int 0..23
+      Range Inclusive 14..19
+        From
+          Int 1 14..15
+        To
+          Int 10 17..19
+      Body 21..22

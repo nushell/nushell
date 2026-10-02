@@ -1,0 +1,47 @@
+Block 0..135
+  Pipeline 0..134
+    ExternalCall 0..134
+      String Bare "foo" 1..4
+      Record 5..11
+        Pair
+          String Bare "a" 6..7
+          Int 1 9..10
+      Record 12..14
+      Record 15..32
+        Pair
+          String Bare "a" 16..17
+          Int 1 18..19
+        Pair
+          String Bare "b" 20..21
+          String Single "c" 22..25
+        Pair
+          String Bare "c" 26..27
+          String Double "d" 28..31
+      Record 33..55
+        Pair
+          String Bare "a" 34..35
+          Int 1 37..38
+        Pair
+          String Bare "b" 40..41
+          String Single "c" 43..46
+        Pair
+          String Bare "c" 48..49
+          String Double "d" 51..54
+      Record 56..84
+        Pair
+          String Double "key with spaces" 57..74
+          String Double "value" 76..83
+      Record 85..110
+        Pair
+          String Bare "outer" 86..91
+          Record 93..109
+            Pair
+              String Bare "inner" 94..99
+              String Double "value" 101..108
+      Record 111..134
+        Pair
+          String Bare "items" 112..117
+          List 119..133
+            Int 1 120..121
+            String Double "two" 122..127
+            Bool true 128..132

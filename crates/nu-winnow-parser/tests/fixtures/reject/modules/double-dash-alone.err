@@ -1,0 +1,6 @@
+error: expected module name after `--`
+  --> reject/modules/double-dash-alone.nu:1:10
+  |
+1 | module --
+  |          ^
+  = while parsing module

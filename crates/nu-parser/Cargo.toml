@@ -22,6 +22,7 @@ nu-plugin-engine = { workspace = true, optional = true }
 nu-protocol.workspace = true
 nu-utils.workspace = true
 nu-experimental.workspace = true
+nu-winnow-parser.workspace = true
 
 bytesize = { workspace = true }
 chrono = { default-features = false, features = ['std'], workspace = true }

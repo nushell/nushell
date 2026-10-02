@@ -1,0 +1,10 @@
+Block 0..22
+  Pipeline 0..21
+    BinaryOp ++ 0..12
+      List 0..5
+        Int 1 1..2
+        Int 2 3..4
+      List 9..12
+        Int 3 10..11
+    | 13..14
+    Call `length` 15..21

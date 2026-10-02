@@ -1,0 +1,16 @@
+Block 0..98
+  Pipeline 0..32
+    Def `f` 0..32
+      Signature 6..28
+        Param flag --flag `flag` 7..18 : any
+        Param rest `rest` 20..27
+      Body 30..31
+  Pipeline 33..97
+    Subexpression 33..97 34..96
+      Pipeline 39..95
+        Call `f` 39..95
+          Flag --flag 49..61
+            Bool false 56..61
+          Bool false 70..75
+          Int 1 76..80
+          String Single "{fake: null}" 81..95

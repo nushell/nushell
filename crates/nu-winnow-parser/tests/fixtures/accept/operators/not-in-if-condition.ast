@@ -1,0 +1,13 @@
+Block 0..42
+  Pipeline 0..41
+    If 0..41
+      Condition
+        Not 3..12
+          Bool false 7..12
+      Then 14..23
+        Pipeline 15..22
+          String Double "hello" 15..22
+      Else 25..29
+        BlockExpr 30..41 31..40
+          Pipeline 32..39
+            String Double "world" 32..39

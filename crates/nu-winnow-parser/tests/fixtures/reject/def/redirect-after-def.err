@@ -1,0 +1,5 @@
+error: this statement cannot be redirected
+  --> reject/def/redirect-after-def.nu:1:14
+  |
+1 | def f [] { } o> x
+  |              ^^

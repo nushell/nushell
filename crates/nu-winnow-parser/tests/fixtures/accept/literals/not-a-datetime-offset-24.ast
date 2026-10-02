@@ -1,0 +1,4 @@
+Block 0..31
+  Pipeline 0..30
+    Call `echo` 0..30
+      String Bare "2024-01-02T03:04:05+24:00" 5..30

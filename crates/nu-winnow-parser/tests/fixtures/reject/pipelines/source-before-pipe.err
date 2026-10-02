@@ -1,0 +1,6 @@
+error: `source` is a statement and cannot be used inside a pipeline
+  --> reject/pipelines/source-before-pipe.nu:1:1
+  |
+1 | source null | length
+  | ^^^^^^
+  = help: declarations and the module, source, overlay and plugin commands are statements of their own

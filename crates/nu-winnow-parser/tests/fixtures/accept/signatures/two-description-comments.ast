@@ -1,0 +1,11 @@
+Block 0..50
+  Pipeline 0..49
+    Def `foo` 0..49
+      Signature 8..46
+        Param positional `x` 12..18 : int desc="one\ntwo"
+        Param positional `y` 35..36 desc="three"
+      Body 48..48
+Comments (3)
+  19..24 "# one"
+  27..32 "# two"
+  37..44 "# three"

@@ -1,0 +1,7 @@
+error: expected record
+  --> reject/match/record-pattern-semicolon.nu:1:16
+  |
+1 | match {a: 1} { {a: 1; b: 2} => 1 }
+  |                ^^^^^^^^^^^^
+  = while parsing match
+  = help: record patterns look like `{key: pattern}`; a `:` must follow the field name

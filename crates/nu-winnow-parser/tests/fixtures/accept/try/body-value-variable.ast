@@ -1,0 +1,10 @@
+Block 0..22
+  Pipeline 0..21
+    Try 0..21
+      BodyValue
+        FullCellPath 4..12
+          Var $env 4..8
+          Member "FOO" 9..12
+      Catch 13..18
+        Closure 19..21
+          Body 20..20

@@ -1,0 +1,6 @@
+error: unbalanced delimiter: found `]` without a matching `{`
+  --> reject/lexer/mismatched-bracket-in-block.nu:1:14
+  |
+1 | def f [] { 1 ] }
+  |              ^
+  = help: the innermost open delimiter is `{` at byte 9

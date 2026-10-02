@@ -1,0 +1,50 @@
+Block 0..207
+  Pipeline 0..19
+    Export 0..19
+      Def `f` 7..19
+        Signature 13..15
+        Body 17..18
+  Pipeline 20..45
+    Export 20..45
+      Def `g` [Env] 27..45
+        Signature 39..41
+        Body 43..44
+  Pipeline 46..79
+    Export 46..79
+      Def `h` [Wrapped] 53..79
+        Signature 69..75
+          Param rest `a` 70..74
+        Body 77..78
+  Pipeline 80..98
+    Export 80..98
+      Extern `e` 87..98
+        Signature 96..98
+  Pipeline 99..118
+    Export 99..118
+      Alias `a` 106..118
+        Call `ls` 116..118
+  Pipeline 119..137
+    Export 119..137
+      const c 126..137
+        Value 136..137
+          Pipeline 136..137
+            Int 1 136..137
+  Pipeline 138..156
+    Export 138..156
+      Use 145..156
+        String Bare "std/log" 149..156
+  Pipeline 157..180
+    Export 157..180
+      Module 164..180
+        String Bare "inner" 171..176
+        Body 178..179
+  Pipeline 181..206
+    ExportEnv 181..206 193..205
+      Pipeline 194..204
+        Assignment = 194..204
+          FullCellPath 194..200
+            Var $env 194..198
+            Member "X" 199..200
+          Value 203..204
+            Pipeline 203..204
+              Int 1 203..204

@@ -1,0 +1,7 @@
+error: expected block
+  --> reject/closures/while-body-closure.nu:1:13
+  |
+1 | while false { |y| $y }
+  |             ^^^^^^^^^^
+  = while parsing while
+  = help: found closure parameters; blocks cannot have parameters

@@ -1,0 +1,7 @@
+error: unclosed delimiter: expected `]`
+  --> reject/lists/bracket-word-is-an-unclosed-list.nu:1:10
+  |
+1 | echo [x]y
+  |          ^
+  = note: opened at 1:6
+  = while parsing command call

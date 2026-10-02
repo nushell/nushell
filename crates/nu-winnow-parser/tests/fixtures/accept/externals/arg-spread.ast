@@ -1,0 +1,25 @@
+Block 0..61
+  Pipeline 0..16
+    let rest 0..16
+      Value 11..16
+        Pipeline 11..16
+          List 11..16
+            String Bare "a" 12..13
+            String Bare "b" 14..15
+  Pipeline 17..60
+    ExternalCall 17..60
+      String Bare "foo" 18..21
+      Spread 22..25
+        List 25..32
+          String Bare "a" 26..27
+          String Bare "b" 28..29
+          String Bare "c" 30..31
+      Spread 33..36
+        Var $rest 36..41
+      Spread 42..45
+        Subexpression 45..60 46..59
+          Pipeline 46..59
+            Call `ls` 46..48
+            | 49..50
+            Call `get` 51..59
+              String Bare "name" 55..59

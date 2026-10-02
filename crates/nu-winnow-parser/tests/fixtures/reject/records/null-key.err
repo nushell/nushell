@@ -1,0 +1,6 @@
+error: expected string
+  --> reject/records/null-key.nu:1:2
+  |
+1 | {null: 5}
+  |  ^^^^
+  = help: `null` is a value; quote it to use it as a string

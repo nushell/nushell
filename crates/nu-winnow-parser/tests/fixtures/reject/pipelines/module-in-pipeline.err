@@ -1,0 +1,6 @@
+error: `module` is a statement and cannot be used inside a pipeline
+  --> reject/pipelines/module-in-pipeline.nu:1:1
+  |
+1 | module m { } | length
+  | ^^^^^^
+  = help: declarations and the module, source, overlay and plugin commands are statements of their own

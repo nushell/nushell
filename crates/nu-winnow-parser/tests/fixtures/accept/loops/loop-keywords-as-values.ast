@@ -1,0 +1,22 @@
+Block 0..57
+  Pipeline 0..56
+    Def `f` 0..56
+      Signature 6..8
+      Body 10..55
+        Pipeline 11..50 terminator=50..51
+          let x 11..50
+            Value 19..50
+              Pipeline 19..50
+                If 19..50
+                  Condition
+                    Bool true 22..26
+                  Then 28..38
+                    Pipeline 29..37
+                      Return 29..37
+                        Int 1 36..37
+                  Else 40..44
+                    BlockExpr 45..50 46..49
+                      Pipeline 47..48
+                        Int 2 47..48
+        Pipeline 52..54
+          Var $x 52..54

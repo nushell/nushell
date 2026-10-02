@@ -1,0 +1,20 @@
+Block 0..50
+  Pipeline 0..19
+    For $i 0..19
+      Range RightExclusive 9..15
+        From
+          Int 0 9..10
+        To
+          Int 10 13..15
+      Body 17..18
+  Pipeline 20..49
+    For $i 20..49
+      Range Inclusive 29..45
+        From
+          Int 1 29..30
+        To
+          FullCellPath 32..45
+            Var $env 32..36
+            Member "PWD" 37..40
+            Member "len"? 41..45
+      Body 47..48

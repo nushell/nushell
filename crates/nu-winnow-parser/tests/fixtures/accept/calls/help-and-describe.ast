@@ -1,0 +1,9 @@
+Block 0..36
+  Pipeline 0..22
+    Call `help commands` 0..13
+    | 14..15
+    Call `length` 16..22
+  Pipeline 23..35
+    Int 1 23..24
+    | 25..26
+    Call `describe` 27..35

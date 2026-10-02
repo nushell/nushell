@@ -1,0 +1,7 @@
+error: expected string
+  --> reject/modules/double-dash-then-block.nu:1:11
+  |
+1 | module -- {}
+  |           ^^
+  = while parsing module
+  = help: the name of a module must be a literal

@@ -1,0 +1,7 @@
+Block 0..30
+  Pipeline 0..14
+    Alias `foo` 0..14
+      Call `ls` 12..14
+  Pipeline 15..29
+    Alias `foo` 15..29
+      Call `ls` 27..29

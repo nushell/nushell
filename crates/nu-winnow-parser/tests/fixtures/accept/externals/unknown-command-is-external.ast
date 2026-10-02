@@ -1,0 +1,6 @@
+Block 0..29
+  Pipeline 0..28
+    ExternalCall 0..28
+      String Bare "foo-external-call" 0..17
+      String Bare "--flag" 18..24
+      String Bare "arg" 25..28

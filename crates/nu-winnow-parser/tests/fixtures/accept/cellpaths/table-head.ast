@@ -1,0 +1,14 @@
+Block 0..19
+  Pipeline 0..18
+    FullCellPath 0..18
+      Table 0..14
+        Columns
+          List 1..6
+            String Bare "a" 2..3
+            String Bare "b" 4..5
+        Row
+          List 8..13
+            Int 1 9..10
+            Int 2 11..12
+      Member 0 15..16
+      Member "a" 17..18

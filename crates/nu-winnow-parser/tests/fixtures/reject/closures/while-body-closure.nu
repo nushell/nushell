@@ -1,0 +1,1 @@
+while false { |y| $y }

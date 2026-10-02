@@ -1,0 +1,31 @@
+Block 0..202
+  Pipeline 0..43
+    Def `q` 0..43
+      Signature 6..40
+        IoType int -> int
+        IoType string -> string
+      Body 42..42
+  Pipeline 44..91
+    Def `q2` 44..91
+      Signature 51..85
+        IoType nothing -> int
+        IoType string -> int
+      Body 87..90
+        Pipeline 88..89
+          Int 3 88..89
+  Pipeline 92..145
+    Def `q3` 92..145
+      Signature 99..139
+        IoType nothing -> int
+        IoType string -> int
+      Body 141..144
+        Pipeline 142..143
+          Int 3 142..143
+  Pipeline 146..201
+    Def `q4` 146..201
+      Signature 153..195
+        IoType nothing -> int
+        IoType string -> int
+      Body 197..200
+        Pipeline 198..199
+          Int 3 198..199

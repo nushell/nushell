@@ -1,0 +1,9 @@
+Block 0..48
+  Pipeline 0..47
+    Record 0..47
+      Pair
+        String Bare "a" 2..3
+        DateTime 2024-07-23T22:54:54.532100627+02:00 5..40
+      Pair
+        String Bare "b" 41..42
+        String Bare "xy" 43..45

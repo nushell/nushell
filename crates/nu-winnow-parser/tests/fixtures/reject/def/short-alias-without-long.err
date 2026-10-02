@@ -1,0 +1,6 @@
+error: short flag alias without a preceding long flag
+  --> reject/def/short-alias-without-long.nu:1:8
+  |
+1 | def f [(-a)] {}
+  |        ^^^^
+  = while parsing signature

@@ -1,0 +1,7 @@
+error: command name not supported
+  --> reject/def/name-with-percent.nu:1:8
+  |
+1 | extern "a%b" []
+  |        ^^^^^
+  = while parsing extern
+  = help: a name may not contain `#`, `^` or `%`, or read as a number or filesize

@@ -1,0 +1,36 @@
+Block 0..92
+  Pipeline 0..91
+    Match 0..91
+      Int 1 6..7
+      Arm 12..28
+        Pattern or 12..21
+          Pattern value 12..13
+            Int 1 12..13
+          Pattern value 16..17
+            Int 2 16..17
+          Pattern value 20..21
+            Int 3 20..21
+        ExternalCall 25..28
+          String Bare "low" 25..28
+      Arm 31..47
+        Pattern or 31..40
+          Pattern value 31..34
+            String Double "a" 31..34
+          Pattern value 37..40
+            String Double "b" 37..40
+        Call `str` 44..47
+      Arm 50..72
+        Pattern or 50..64
+          Pattern list 50..54
+            Pattern $a 51..53
+          Pattern list 57..64
+            Pattern $a 58..60
+            Pattern $b 61..63
+        ExternalCall 68..72
+          String Bare "list" 68..72
+      Arm 75..89
+        Pattern or 75..80
+          Pattern _ 75..76
+          Pattern _ 79..80
+        ExternalCall 84..89
+          String Bare "other" 84..89

@@ -1,0 +1,9 @@
+Block 0..108
+  Pipeline 87..107 comments=1
+    Call `module` 87..107
+      String Bare "x" 94..95
+      Flag --help 101..107
+Comments (1)
+  0..86 "# A `--help` after the body makes the statement a help call before the body is parsed."
+Ignored (1)
+  96..100 "{ls}"

@@ -1,0 +1,5 @@
+error: invalid string literal: invalid unicode escape '\u{000000000000000000000000000000000000000000000037}', must be 1-6 hex digits, max codepoint 0x10FFFF
+  --> reject/strings/unicode-escape-too-long.nu:1:9
+  |
+1 | "\u{39}8\u{000000000000000000000000000000000000000000000037}"
+  |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

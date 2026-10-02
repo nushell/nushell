@@ -1,0 +1,19 @@
+Block 0..24
+  Pipeline 0..23
+    Subexpression 0..23 1..22
+      Pipeline 1..22
+        BinaryOp - 1..22
+          Subexpression 1..14 2..13
+            Pipeline 2..13
+              BinaryOp + 2..13
+                Int 1 2..3
+                Subexpression 6..13 7..12
+                  Pipeline 7..12
+                    BinaryOp * 7..12
+                      Int 2 7..8
+                      Int 3 11..12
+          Subexpression 17..22 18..21
+            Pipeline 18..21
+              Subexpression 18..21 19..20
+                Pipeline 19..20
+                  Int 4 19..20

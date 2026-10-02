@@ -1,0 +1,6 @@
+error: unknown type `asd`
+  --> reject/bindings/let-unknown-type.nu:1:20
+  |
+1 | let a: list<string asd> = []
+  |                    ^^^
+  = while parsing let

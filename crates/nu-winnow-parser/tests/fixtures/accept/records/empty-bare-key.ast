@@ -1,0 +1,8 @@
+Block 0..6
+  Pipeline 0..5
+    Closure 0..5
+      Body 1..4
+        Pipeline 1..4
+          ExternalCall 1..4
+            String Bare ":" 1..2
+            String Bare "1" 3..4

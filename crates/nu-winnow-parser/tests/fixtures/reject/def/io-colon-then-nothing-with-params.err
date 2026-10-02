@@ -1,0 +1,7 @@
+error: unclosed delimiter: expected `]`
+  --> reject/def/io-colon-then-nothing-with-params.nu:1:27
+  |
+1 | def q [x: string, y: int]: {}
+  |                           ^
+  = note: opened at 1:7
+  = while parsing def

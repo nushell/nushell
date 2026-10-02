@@ -1,0 +1,5 @@
+Block 0..12
+  Pipeline 0..11
+    Call `ls` 0..2
+    | 3..4
+    Call `length` 5..11

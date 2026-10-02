@@ -1,0 +1,15 @@
+Block 0..36
+  Pipeline 0..12
+    let _x_1 0..12
+      Value 11..12
+        Pipeline 11..12
+          Int 1 11..12
+  Pipeline 13..23
+    let __ 13..23
+      Value 22..23
+        Pipeline 22..23
+          Int 2 22..23
+  Pipeline 24..35
+    BinaryOp + 24..35
+      Var $_x_1 24..29
+      Var $__ 32..35

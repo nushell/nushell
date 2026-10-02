@@ -1,0 +1,15 @@
+Block 0..68
+  Pipeline 0..67
+    Def `f` 0..67
+      Signature 6..8
+      Body 10..66
+        Pipeline 19..65
+          let emoji_dict 19..65
+            Value 36..65
+              Pipeline 36..65
+                Subexpression 36..65 37..64
+                  Pipeline 37..64
+                    Record 37..64
+                      Pair
+                        String Double "200" 47..52
+                        String Double "x" 54..57

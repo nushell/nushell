@@ -1,0 +1,7 @@
+error: unknown type `int@completer`
+  --> reject/def/io-completer.nu:1:20
+  |
+1 | def foo []: int -> int@completer {}
+  |                    ^^^^^^^^^^^^^
+  = while parsing def
+  = help: type specifications do not support custom completers here

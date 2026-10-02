@@ -1,0 +1,5 @@
+Block 0..8
+  Pipeline 0..7
+    FullCellPath 0..7
+      Record 0..2
+      Member "foo"? 3..7

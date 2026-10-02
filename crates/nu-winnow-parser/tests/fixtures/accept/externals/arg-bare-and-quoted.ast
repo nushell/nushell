@@ -1,0 +1,13 @@
+Block 0..157
+  Pipeline 0..156
+    ExternalCall 0..156
+      String Bare "foo" 1..4
+      String Bare "foo-external-call" 5..22
+      String Bare "foo/external-call" 23..40
+      String Bare "foo\\external-call" 41..58
+      String Bare "foo external call" 59..78
+      String Single "foo external call" 79..98
+      String Double "foo external call" 99..118
+      String Double "foo\\external call" 119..139
+      String Single "{a:1}" 140..147
+      String Raw(1) "raw" 148..156

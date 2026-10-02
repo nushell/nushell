@@ -1,0 +1,6 @@
+error: expected block
+  --> reject/modules/export-env-double-dash.nu:1:12
+  |
+1 | export-env -- {}
+  |            ^^
+  = while parsing export-env
