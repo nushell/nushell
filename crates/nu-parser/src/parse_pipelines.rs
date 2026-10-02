@@ -84,46 +84,69 @@ pub(crate) fn redirecting_builtin_error(
     }
 }
 
+/// Context for building the RHS pipeline of `$foo |= bar | baz` as `$foo | bar | baz`
+pub(crate) struct PipeAssignContext {
+    /// The parsed assignment target, inserted before the first RHS command.
+    /// Its type is used to parse that command.
+    pub lhs: Expression,
+    /// The span of `|=`, stored as the pipe before the first RHS command.
+    pub op_span: Span,
+}
+
+impl PipeAssignContext {
+    pub fn ty(&self) -> &Type {
+        &self.lhs.ty
+    }
+}
+
+fn wrap_if_has_in(
+    working_set: &mut StateWorkingSet,
+    element: PipelineElement,
+    input_type: &Type,
+) -> PipelineElement {
+    if element.has_in_variable(working_set) {
+        wrap_element_with_collect(working_set, element, Some(input_type))
+    } else {
+        element
+    }
+}
+
 pub fn parse_pipeline(
     working_set: &mut StateWorkingSet,
     pipeline: &LitePipeline,
     input_type: Option<&Type>,
+    pipe_assign: Option<&PipeAssignContext>,
 ) -> Pipeline {
-    match pipeline.commands.as_slice() {
-        [] => unreachable!("at this point the pipeline must have at least one element"),
-        [single] => parse_builtin_commands(working_set, single, input_type),
-        [first, rest @ ..] => {
-            let mut current_pipeline_type = input_type.cloned().unwrap_or(Type::Any);
+    let (first, rest) = pipeline
+        .commands
+        .split_first()
+        .expect("at this point the pipeline must have at least one element");
 
-            let mut elements = Vec::new();
-            elements.push({
-                let element = parse_pipeline_element(working_set, first, &current_pipeline_type);
-                // the output becomes the input for the next pipeline element
-                current_pipeline_type = element.expr.ty.clone();
-
-                element
-            });
-
-            // Parse a normal multi command pipeline
-            let rest_elements = rest.iter().map(|element| {
-                let input_clone = current_pipeline_type.clone();
-                let element = parse_pipeline_element(working_set, element, &current_pipeline_type);
-                // the output becomes the input for the next pipeline element
-                current_pipeline_type = element.expr.ty.clone();
-
-                // Handle $in for pipeline elements beyond the first one
-                if element.has_in_variable(working_set) {
-                    wrap_element_with_collect(working_set, element, Some(&input_clone))
-                } else {
-                    element
-                }
-            });
-
-            elements.extend(rest_elements);
-
-            Pipeline { elements }
+    let first = match (pipe_assign, rest) {
+        (Some(pipe_assign), _) => {
+            let element = parse_pipeline_element(working_set, first, pipe_assign.ty());
+            wrap_if_has_in(working_set, element, pipe_assign.ty())
         }
+        (None, []) => return parse_builtin_commands(working_set, first, input_type),
+        (None, _) => parse_pipeline_element(working_set, first, input_type.unwrap_or(&Type::Any)),
+    };
+
+    // the output becomes the input for the next pipeline element
+    let mut current_type = first.expr.ty.clone();
+
+    let mut elements = Vec::with_capacity(pipeline.commands.len());
+    elements.push(first);
+
+    for command in rest {
+        let element = parse_pipeline_element(working_set, command, &current_type);
+        let element = wrap_if_has_in(working_set, element, &current_type);
+
+        // the output becomes the input for the next pipeline element
+        current_type = element.expr.ty.clone();
+        elements.push(element);
     }
+
+    Pipeline { elements }
 }
 
 pub fn parse_block(
@@ -133,6 +156,28 @@ pub fn parse_block(
     scoped: bool,
     is_subexpression: bool,
     input_type: Option<&Type>,
+) -> Block {
+    parse_block_with_pipe_assign(
+        working_set,
+        tokens,
+        span,
+        scoped,
+        is_subexpression,
+        input_type,
+        None,
+    )
+}
+
+/// separated from [`parse_block`] since the vast majority
+/// of callers will pass `None`s for the `pipe_assign` parameter
+pub(crate) fn parse_block_with_pipe_assign(
+    working_set: &mut StateWorkingSet,
+    tokens: &[Token],
+    span: Span,
+    scoped: bool,
+    is_subexpression: bool,
+    input_type: Option<&Type>,
+    pipe_assign: Option<PipeAssignContext>,
 ) -> Block {
     let (lite_block, err) = lite_parse(tokens, working_set);
     if let Some(err) = err {
@@ -145,27 +190,49 @@ pub fn parse_block(
         working_set.enter_scope();
     }
 
-    // Pre-declare any definition so that definitions
-    // that share the same block can see each other
-    for pipeline in &lite_block.block {
-        if let [lite_command] = pipeline.commands.as_slice() {
-            parse_def_predecl(working_set, lite_command.command_parts())
-        }
-    }
-
     let mut block = Block::new_with_capacity(lite_block.block.len());
     block.span = Some(span);
     block.parsed_scoped = scoped;
 
     if let [first, rest @ ..] = lite_block.block.as_slice() {
+        // Pre-declare any definition so that definitions
+        // that share the same block can see each other
+        if let [lite_command] = first.commands.as_slice()
+            && pipe_assign.is_none()
+        {
+            parse_def_predecl(working_set, lite_command.command_parts());
+        }
+
+        for pipeline in rest {
+            if let [lite_command] = pipeline.commands.as_slice() {
+                parse_def_predecl(working_set, lite_command.command_parts())
+            }
+        }
+
         // only the first pipeline receives the block's pipeline input
-        let pipeline = parse_pipeline(working_set, first, input_type);
+        let pipeline = parse_pipeline(working_set, first, input_type, pipe_assign.as_ref());
         block.pipelines.push(pipeline);
 
         for lite_pipeline in rest {
-            let pipeline = parse_pipeline(working_set, lite_pipeline, None);
+            let pipeline = parse_pipeline(working_set, lite_pipeline, None, None);
             block.pipelines.push(pipeline);
         }
+    }
+
+    if let Some(PipeAssignContext { lhs, op_span }) = pipe_assign
+        && let Some(pipeline) = block.pipelines.first_mut()
+    {
+        if let Some(first) = pipeline.elements.first_mut() {
+            first.pipe = Some(op_span);
+        }
+
+        let element = PipelineElement {
+            pipe: None,
+            expr: lhs,
+            redirection: None,
+        };
+
+        pipeline.elements.insert(0, element);
     }
 
     // If this is not a subexpression and there are any pipelines where the first element has $in,

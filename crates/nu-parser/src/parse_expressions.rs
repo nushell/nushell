@@ -16,7 +16,10 @@ use crate::{
         parse_where_expr,
     },
     parse_patterns::parse_pattern,
-    parse_pipelines::{parse_block, parse_pipeline_element, redirecting_builtin_error},
+    parse_pipelines::{
+        PipeAssignContext, parse_block, parse_block_with_pipe_assign, parse_pipeline_element,
+        redirecting_builtin_error,
+    },
     parser::{
         compile_block, expand_to_cell_path, parse_binary, parse_brace_expr, parse_call,
         parse_datetime, parse_directory, parse_dollar_expr, parse_duration, parse_filepath,
@@ -1014,6 +1017,7 @@ pub fn parse_assignment_operator(working_set: &mut StateWorkingSet, span: Span) 
         b"*=" => Operator::Assignment(Assignment::MultiplyAssign),
         b"/=" => Operator::Assignment(Assignment::DivideAssign),
         b"++=" => Operator::Assignment(Assignment::ConcatenateAssign),
+        b"|=" => Operator::Assignment(Assignment::PipeAssign),
         _ => {
             working_set.error(ParseError::Expected("assignment operator", span));
             return garbage(working_set, span);
@@ -1102,7 +1106,28 @@ pub fn parse_assignment_expression(
     working_set.parse_errors.extend(rhs_error);
 
     trace!("parsing: assignment right-hand side subexpression");
-    let rhs_block = parse_block(working_set, &rhs_tokens, rhs_span, false, true, input_type);
+
+    let is_pipe_assign = matches!(
+        operator.expr,
+        Expr::Operator(Operator::Assignment(Assignment::PipeAssign))
+    );
+
+    let pipe_assign_context = if is_pipe_assign {
+        let lhs = lhs.clone();
+        Some(PipeAssignContext { lhs, op_span })
+    } else {
+        None
+    };
+
+    let rhs_block = parse_block_with_pipe_assign(
+        working_set,
+        &rhs_tokens,
+        rhs_span,
+        false,
+        true,
+        input_type,
+        pipe_assign_context,
+    );
     let rhs_ty = rhs_block.output_type();
 
     // TEMP: double-check that if the RHS block starts with an external call, it must start with a
@@ -1111,8 +1136,21 @@ pub fn parse_assignment_expression(
     if let Some(Expr::ExternalCall(head, ..)) = rhs_block
         .pipelines
         .first()
-        .and_then(|pipeline| pipeline.elements.first())
+        .and_then(|pipeline| {
+            let idx = if is_pipe_assign { 1 } else { 0 };
+            pipeline.elements.get(idx)
+        })
         .map(|element| &element.expr.expr)
+        .map(|expr| {
+            // when parsing `|=` which uses `$in`,
+            // we collect-wrap the first command. something like:
+            // `$foo |= bar $in | baz` => `$foo = $foo | Collect(bar $in) | baz`
+            // so here we "uncollect" and check `bar`.
+            match expr {
+                Expr::Collect(_, first_command) => &first_command.expr,
+                expr => expr,
+            }
+        })
     {
         let contents = working_set.get_span_contents(Span {
             start: head.span.start - 1,

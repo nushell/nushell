@@ -828,7 +828,7 @@ impl Eval for EvalRuntime {
         let rhs = eval_expression::<D>(engine_state, stack, rhs)?;
 
         let rhs = match assignment {
-            Assignment::Assign => rhs,
+            Assignment::Assign | Assignment::PipeAssign => rhs,
             Assignment::AddAssign => {
                 let lhs = eval_expression::<D>(engine_state, stack, lhs)?;
                 lhs.add(op_span, &rhs, op_span)?

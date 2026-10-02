@@ -662,7 +662,7 @@ pub fn math_result_type(
         Operator::Assignment(Assignment::SubtractAssign) => {
             compound_assignment_result_type(working_set, lhs, op, rhs, operator, Math::Subtract)
         }
-        Operator::Assignment(Assignment::Assign) => {
+        Operator::Assignment(Assignment::Assign | Assignment::PipeAssign) => {
             let err = if type_compatible(&lhs.ty, &rhs.ty) {
                 None
             } else {

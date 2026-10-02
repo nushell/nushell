@@ -206,6 +206,8 @@ pub enum Assignment {
     DivideAssign,
     #[strum(message = "Concatenates a variable with a list, string or binary.")]
     ConcatenateAssign,
+    #[strum(message = "Assigns a variable to the result of running it through a pipeline.")]
+    PipeAssign,
 }
 
 impl AsRef<str> for Assignment {
@@ -223,6 +225,7 @@ impl Assignment {
             Self::MultiplyAssign => "*=",
             Self::DivideAssign => "/=",
             Self::ConcatenateAssign => "++=",
+            Self::PipeAssign => "|=",
         }
     }
 }

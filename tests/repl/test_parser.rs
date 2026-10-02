@@ -513,6 +513,128 @@ fn append_assign_takes_pipeline() -> Result {
 }
 
 #[rstest]
+#[case::scalar(
+    "
+        mut x = 'abc'
+        $x |= str uppercase
+        $x == 'ABC'
+    "
+)]
+#[case::first_in(
+    "
+        mut x = 3
+        $x |= $in * 4
+        $x == 12
+    "
+)]
+#[case::pipeline(
+    "
+        mut x = [1 2]
+        $x |= each { |n| $n * 2 } | reverse
+        $x == [4 2]
+    "
+)]
+#[case::downstream_in(
+    "
+        mut x = [1 2]
+        $x |= each { |n| $n * 2 } | $in | reverse
+        $x == [4 2]
+    "
+)]
+#[case::cell_path(
+    "
+        mut x = {a: 1}
+        $x.a |= $in + 1
+        $x.a == 2
+    "
+)]
+#[case::env_field(
+    "
+        $env.FIZZ_BUZZ = [1 2]
+        $env.FIZZ_BUZZ |= append 3
+        $env.FIZZ_BUZZ == [1 2 3]
+    "
+)]
+#[case::record(
+    "
+        mut x = {a: 1}
+        $x |= upsert a 2
+        $x == {a: 2}
+    "
+)]
+#[case::nested_env_field(
+    "
+        $env.FIZZ_BUZZ = {outer: {middle: {inner: {value: ' abc '}}}}
+        $env.FIZZ_BUZZ.outer.middle.inner.value |= str trim
+        $env.FIZZ_BUZZ == {outer: {middle: {inner: {value: 'abc'}}}}
+    "
+)]
+#[case::nested_record_field(
+    "
+        mut x = {a: {b: {c: {d: 1}}}}
+        $x.a.b.c.d |= $in + 1
+        $x == {a: {b: {c: {d: 2}}}}
+    "
+)]
+#[case::no_spaces(
+    "
+        mut x = 'abc'
+        $x|=str reverse
+        $x == 'cba'
+    "
+)]
+fn pipe_assign_values(#[case] code: &str) -> Result {
+    test().run(code).expect_value_eq(true)
+}
+
+#[rstest]
+#[case::bare("cococo")]
+#[case::bare_with_in("cococo $in")]
+#[nu_test_support::test]
+#[deps(TESTBIN_COCOCO)]
+fn pipe_assign_bare_external_fails(#[case] external: &str) -> Result {
+    let code = format!("mut x = 'old'; $x |= {external}");
+    let err = test().run(code).expect_parse_error()?;
+
+    match err {
+        ParseError::LabeledErrorWithHelp { error, .. } => {
+            assert_contains("must be explicit", error);
+            Ok(())
+        }
+        err => Err(err.into()),
+    }
+}
+
+#[rstest]
+#[case::with_caret("^cococo")]
+#[case::parenthesized("(^cococo)")]
+#[nu_test_support::test]
+#[deps(TESTBIN_COCOCO)]
+fn pipe_assign_explicit_external_works(#[case] external: &str) -> Result {
+    let code = format!("mut x = 'old'; $x |= {external}; $x");
+    test().run(code).expect_value_eq("cococo")
+}
+
+#[test]
+fn pipe_assign_requires_mutable_variable() -> Result {
+    let err = test()
+        .run("let x = 1; $x |= $in + 1")
+        .expect_parse_error()?;
+    assert_matches!(err, ParseError::AssignmentRequiresMutableVar(_));
+    Ok(())
+}
+
+#[test]
+fn pipe_assign_requires_rhs() -> Result {
+    let err = test().run("mut x = 1; $x |=").expect_parse_error()?;
+    assert_matches!(
+        err,
+        ParseError::Expected("right hand side of assignment", _)
+    );
+    Ok(())
+}
+
+#[rstest]
 #[case::bare("cococo")]
 #[case::quoted("`cococo`")]
 #[nu_test_support::test]

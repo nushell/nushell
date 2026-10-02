@@ -80,7 +80,7 @@ fn is_item_terminator(
 /// Assignment operators have special handling distinct from math expressions, as they cause the
 /// rest of the pipeline to be consumed.
 pub fn is_assignment_operator(bytes: &[u8]) -> bool {
-    matches!(bytes, b"=" | b"+=" | b"++=" | b"-=" | b"*=" | b"/=")
+    matches!(bytes, b"=" | b"+=" | b"++=" | b"-=" | b"*=" | b"/=" | b"|=")
 }
 
 // A special token is one that is a byte that stands alone as its own token. For example
@@ -982,25 +982,36 @@ fn lex_internal(
         }
         let c = *c;
         if c == b'|' {
-            // If the next character is `|`, it's either `|` or `||`.
             let idx = curr_offset;
             let prev_idx = idx;
             curr_offset += 1;
 
-            // If the next character is `|`, we're looking at a `||`.
-            if let Some(c) = state.input.get(curr_offset)
-                && *c == b'|'
-            {
-                let idx = curr_offset;
-                curr_offset += 1;
-                state.output.push(Token::new(
-                    TokenContents::PipePipe,
-                    Span::new(state.span_offset + prev_idx, state.span_offset + idx + 1),
-                ));
-                continue;
-            }
+            match state.input.get(curr_offset) {
+                // it's `||`
+                Some(b'|') => {
+                    let idx = curr_offset;
+                    curr_offset += 1;
+                    state.output.push(Token::new(
+                        TokenContents::PipePipe,
+                        Span::new(state.span_offset + prev_idx, state.span_offset + idx + 1),
+                    ));
+                    continue;
+                }
 
-            // Otherwise, it's just a regular `|` token.
+                // it's `|=`
+                Some(b'=') => {
+                    let idx = curr_offset;
+                    curr_offset += 1;
+                    state.output.push(Token::new(
+                        TokenContents::AssignmentOperator,
+                        Span::new(state.span_offset + prev_idx, state.span_offset + idx + 1),
+                    ));
+                    continue;
+                }
+
+                // it's just a regular `|` token
+                _ => {}
+            }
 
             // Before we push, check to see if the previous character was a newline.
             // If so, then this is a continuation of the previous line

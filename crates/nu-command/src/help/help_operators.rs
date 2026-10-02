@@ -174,6 +174,9 @@ fn description(operator: &Operator) -> &'static str {
         Operator::Assignment(Assignment::ConcatenateAssign) => {
             "Concatenates a list, a string, or a binary value to a variable of the same type."
         }
+        Operator::Assignment(Assignment::PipeAssign) => {
+            "Passes a variable through a pipeline and assigns the result."
+        }
     }
 }
 

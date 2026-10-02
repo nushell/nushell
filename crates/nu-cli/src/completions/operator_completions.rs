@@ -99,6 +99,7 @@ fn concat_assignment_ops() -> Vec<OperatorItem> {
     vec![
         operator_to_item(ast::Assignment::Assign),
         operator_to_item(ast::Assignment::ConcatenateAssign),
+        operator_to_item(ast::Assignment::PipeAssign),
     ]
 }
 
@@ -184,7 +185,10 @@ fn ops_by_value(value: &Value, mutable: bool) -> Vec<OperatorItem> {
             Value::Bool { .. }
             | Value::Date { .. }
             | Value::Range { .. }
-            | Value::Record { .. } => vec![operator_to_item(ast::Assignment::Assign)],
+            | Value::Record { .. } => vec![
+                operator_to_item(ast::Assignment::Assign),
+                operator_to_item(ast::Assignment::PipeAssign),
+            ],
             _ => all_assignment_ops(),
         })
     }
@@ -256,7 +260,10 @@ impl Completer for OperatorCompletion<'_> {
                 Type::Filesize | Type::Duration => numeric_assignment_ops(),
                 Type::String | Type::Binary | Type::List(_) => concat_assignment_ops(),
                 Type::Any => all_assignment_ops(),
-                _ => vec![operator_to_item(ast::Assignment::Assign)],
+                _ => vec![
+                    operator_to_item(ast::Assignment::Assign),
+                    operator_to_item(ast::Assignment::PipeAssign),
+                ],
             });
         }
 
