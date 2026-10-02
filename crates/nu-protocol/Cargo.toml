@@ -42,7 +42,7 @@ derive_more = { workspace = true, features = ["debug"] }
 fancy-regex = { workspace = true }
 heck = { workspace = true }
 humantime = { workspace = true }
-indexmap = { workspace = true }
+indexmap = { workspace = true, features = ["serde"] }
 lru = { workspace = true }
 memchr = { workspace = true }
 miette = { workspace = true, features = ["fancy-no-backtrace"] }

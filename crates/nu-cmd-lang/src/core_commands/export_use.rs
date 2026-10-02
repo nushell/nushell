@@ -1,6 +1,4 @@
-use nu_engine::{
-    command_prelude::*, find_in_dirs_env, get_dirs_var_from_call, get_eval_block, redirect_env,
-};
+use nu_engine::{command_prelude::*, get_eval_block, redirect_env};
 use nu_protocol::{
     ast::{Expr, Expression},
     engine::CommandType,
@@ -93,46 +91,20 @@ impl Command for ExportUse {
             if let Some(block_id) = module.env_block {
                 let block = engine_state.get_block(block_id);
 
-                // See if the module is a file
-                let module_arg_str = String::from_utf8_lossy(
-                    engine_state.get_span_contents(import_pattern.head.span),
-                );
-
-                let maybe_file_path_or_dir = find_in_dirs_env(
-                    &module_arg_str,
-                    engine_state,
-                    caller_stack,
-                    get_dirs_var_from_call(caller_stack, call),
-                )?;
-                // module_arg_str maybe a directory, in this case
-                // find_in_dirs_env returns a directory.
-                let maybe_parent = maybe_file_path_or_dir.as_ref().and_then(|path| {
-                    if path.is_dir() {
-                        Some(path.to_path_buf())
-                    } else {
-                        path.parent().map(|p| p.to_path_buf())
-                    }
-                });
-
                 let mut callee_stack = caller_stack
                     .gather_captures(engine_state, &block.captures)
                     .reset_pipes();
 
-                // If so, set the currently evaluated directory (file-relative PWD)
-                if let Some(parent) = maybe_parent {
-                    let file_pwd = Value::string(parent.to_string_lossy(), call.head);
-                    callee_stack.add_env_var("FILE_PWD".to_string(), file_pwd);
-                }
-
-                if let Some(path) = maybe_file_path_or_dir {
-                    let module_file_path = if path.is_dir() {
-                        // the existence of `mod.nu` is verified in parsing time
-                        // so it's safe to use it here.
-                        Value::string(path.join("mod.nu").to_string_lossy(), call.head)
-                    } else {
-                        Value::string(path.to_string_lossy(), call.head)
-                    };
-                    callee_stack.add_env_var("CURRENT_FILE".to_string(), module_file_path);
+                // If the module is a file, set the currently evaluated directory (file-relative
+                // PWD). The parser found the file, which doesn't have to exist any more, like the
+                // files of a pickled script.
+                if let Some(file) = module.real_file() {
+                    if let Some(parent) = file.parent() {
+                        let file_pwd = Value::string(parent.to_string_lossy(), call.head);
+                        callee_stack.add_env_var("FILE_PWD".to_string(), file_pwd);
+                    }
+                    let current_file = Value::string(file.to_string_lossy(), call.head);
+                    callee_stack.add_env_var("CURRENT_FILE".to_string(), current_file);
                 }
 
                 let eval_block = get_eval_block(engine_state);

@@ -1,4 +1,5 @@
 use crate::{DeclId, ModuleId, OverlayId, VarId};
+use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, ops::Deref};
 
 /// Name → id map for declarations that remembers the longest name it has ever held.
@@ -11,7 +12,7 @@ use std::{collections::HashMap, ops::Deref};
 ///
 /// Reads go through `Deref` to the underlying `HashMap`; all mutation goes through the inherent
 /// methods so the bound stays valid.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct DeclNameMap {
     map: HashMap<Vec<u8>, DeclId>,
     longest_name: usize,
@@ -90,7 +91,7 @@ impl FromIterator<(Vec<u8>, DeclId)> for DeclNameMap {
 pub static DEFAULT_OVERLAY_NAME: &str = "zero";
 
 /// Tells whether a decl is visible or not
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Visibility {
     decl_ids: HashMap<DeclId, bool>,
 }
@@ -208,7 +209,7 @@ impl<'a> VisibilityStack<'a> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ScopeFrame {
     /// List of both active and inactive overlays in this ScopeFrame.
     ///
@@ -355,7 +356,7 @@ impl ScopeFrame {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OverlayFrame {
     pub vars: HashMap<Vec<u8>, VarId>,
     pub predecls: DeclNameMap, // temporary storage for predeclarations

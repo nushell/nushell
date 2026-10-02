@@ -21,6 +21,7 @@ mod parse_shape_specs;
 mod parse_signatures;
 mod parse_source;
 mod parser;
+pub mod pickle;
 mod type_check;
 
 pub use deparse::escape_for_script_arg;

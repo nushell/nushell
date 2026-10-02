@@ -126,10 +126,13 @@ pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) {
     }
 
     let starting_error_count = working_set.parse_errors.len();
+    // Defaults are computed again with the definition, after the constants before it.
+    let starting_value_count = working_set.parse_time_values.len();
 
     working_set.enter_scope();
     let sig = parse_full_signature(working_set, &spans[signature_pos..], is_extern);
     working_set.parse_errors.truncate(starting_error_count);
+    working_set.parse_time_values.truncate(starting_value_count);
     working_set.exit_scope();
 
     let Some(mut signature) = sig.as_signature() else {

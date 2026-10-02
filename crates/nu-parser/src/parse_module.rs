@@ -9,7 +9,7 @@ use crate::{
         ArgumentParsingLevel, CallKind, ParsedInternalCall, compile_block_with_id,
         parse_import_pattern, parse_internal_call, parse_string,
     },
-    unescape_unquote_string,
+    pickle, unescape_unquote_string,
 };
 
 use crate::parse_alias::parse_alias;
@@ -24,7 +24,7 @@ use nu_protocol::{
         Argument, Block, Call, Expr, Expression, ImportPattern, ImportPatternHead,
         ImportPatternMember, Pipeline,
     },
-    engine::StateWorkingSet,
+    engine::{ParseTimeValue, StateWorkingSet},
     eval_const::eval_constant,
 };
 use std::{collections::HashSet, sync::Arc};
@@ -732,6 +732,10 @@ fn parse_module_file(
         ));
         return None;
     };
+    if pickle::is_pickle(&contents) {
+        working_set.error(pickle::sourced_pickle_error(path_span));
+        return None;
+    }
 
     let file_id = working_set.add_file(&path.path().to_string_lossy(), &contents);
     let new_span = working_set.get_span_for_file(file_id);
@@ -1283,10 +1287,12 @@ pub fn parse_use(
         constants.push((name, const_vid));
     }
 
-    for (name, const_val) in definitions.constant_values {
+    for (name, module_id, const_val) in definitions.constant_values {
         let const_var_id =
             working_set.add_variable(name.clone(), name_span, const_val.get_type(), false);
         working_set.set_variable_const_val(const_var_id, const_val);
+        working_set
+            .add_parse_time_value(const_var_id, || ParseTimeValue::ModuleConstants(module_id));
         constants.push((name, const_var_id));
     }
 

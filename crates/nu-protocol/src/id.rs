@@ -2,6 +2,7 @@ use std::any;
 use std::fmt::{Debug, Display, Error, Formatter};
 use std::marker::PhantomData;
 
+use crate::relocation::{self, IdMarker};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -51,10 +52,36 @@ where
     }
 }
 
-impl<M, V> Serialize for Id<M, V>
-where
-    V: Serialize,
-{
+// Ids that index engine-state tables go through the relocation hooks, so a serialized parse
+// delta can be loaded into a different engine state (see `crate::relocation`). Outside of such a
+// (de)serialization the hooks leave the value unchanged.
+impl<M: IdMarker> Serialize for Id<M, usize> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        if let Some(kind) = M::KIND {
+            relocation::note_id(kind, self.inner);
+        }
+        self.inner.serialize(serializer)
+    }
+}
+
+impl<'de, M: IdMarker> Deserialize<'de> for Id<M, usize> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let inner = usize::deserialize(deserializer)?;
+        let inner = match M::KIND {
+            Some(kind) => relocation::map_id(kind, inner).map_err(serde::de::Error::custom)?,
+            None => inner,
+        };
+        Ok(Self::new(inner))
+    }
+}
+
+impl<M> Serialize for Id<M, u32> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -63,23 +90,18 @@ where
     }
 }
 
-impl<'de, M, V> Deserialize<'de> for Id<M, V>
-where
-    V: Deserialize<'de>,
-{
+impl<'de, M> Deserialize<'de> for Id<M, u32> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
-        let inner = V::deserialize(deserializer)?;
-        Ok(Self {
-            inner,
-            _phantom: PhantomData,
-        })
+        u32::deserialize(deserializer).map(Self::new)
     }
 }
 
 pub mod marker {
+    use crate::relocation::{IdKind, IdMarker};
+
     #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
     pub struct Var;
     #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -100,6 +122,27 @@ pub mod marker {
     pub struct Reg;
     #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
     pub struct Job;
+
+    impl IdMarker for Var {
+        const KIND: Option<IdKind> = Some(IdKind::Var);
+    }
+    impl IdMarker for Decl {
+        const KIND: Option<IdKind> = Some(IdKind::Decl);
+    }
+    impl IdMarker for Block {
+        const KIND: Option<IdKind> = Some(IdKind::Block);
+    }
+    impl IdMarker for Module {
+        const KIND: Option<IdKind> = Some(IdKind::Module);
+    }
+    impl IdMarker for File {
+        const KIND: Option<IdKind> = Some(IdKind::File);
+    }
+    impl IdMarker for Span {
+        const KIND: Option<IdKind> = Some(IdKind::Span);
+    }
+    // Overlay ids index the overlays of one scope frame, so they stay as they are.
+    impl IdMarker for Overlay {}
 }
 
 pub type VarId = Id<marker::Var>;

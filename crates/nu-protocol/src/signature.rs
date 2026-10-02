@@ -1002,7 +1002,7 @@ fn get_positional_short_name(arg: &PositionalArg, is_required: bool) -> String {
     }
 }
 
-#[derive(Clone, DeriveFromValue)]
+#[derive(Clone, DeriveFromValue, Serialize, Deserialize)]
 pub struct CustomExample {
     pub example: String,
     pub description: String,

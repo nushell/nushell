@@ -6,6 +6,7 @@ use pretty_assertions::assert_eq;
 use rstest::rstest;
 
 mod environment;
+mod pickle;
 mod pipeline;
 mod repl;
 

@@ -58,16 +58,10 @@ impl Command for Source {
         let file_path = if is_windows_device_path(pb.as_path()) {
             pb.clone()
         } else {
-            let path = absolute_with(pb.as_path(), cwd)
-                .map_err(|err| IoError::new(err, call.head, pb.clone()))?;
-            match path.try_exists() {
-                Ok(true) => {}
-                Ok(false) => {
-                    return Err(IoError::new(ErrorKind::FileNotFound, call.head, pb.clone()).into());
-                }
-                Err(e) => return Err(IoError::new(e, call.head, pb.clone()).into()),
-            };
-            path
+            // The parser compiled the file, so it doesn't have to exist any more, like the
+            // files of a pickled script.
+            absolute_with(pb.as_path(), cwd)
+                .map_err(|err| IoError::new(err, call.head, pb.clone()))?
         };
 
         // Note: We intentionally left out PROCESS_PATH since it's supposed to

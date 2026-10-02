@@ -13,7 +13,9 @@ use crate::{
 use log::trace;
 use nu_protocol::{
     Flag, ParseError, PositionalArg, Signature, Span, SyntaxShape, Type, TypeSet, Value, VarId,
-    ast::*, engine::StateWorkingSet, eval_const::eval_constant,
+    ast::*,
+    engine::{ParseTimeValue, StateWorkingSet},
+    eval_const::eval_constant,
 };
 use std::{collections::HashSet, sync::Arc};
 
@@ -1107,6 +1109,9 @@ pub fn parse_signature_helper(
                                         *default_value = if let Ok(constant) =
                                             eval_constant(working_set, &expression)
                                         {
+                                            working_set.add_parse_time_value(var_id, || {
+                                                ParseTimeValue::Expression(expression.clone(), None)
+                                            });
                                             Some(constant)
                                         } else {
                                             working_set.error(ParseError::NonConstantDefaultValue(
@@ -1142,6 +1147,14 @@ pub fn parse_signature_helper(
                                         *default_value = if let Ok(value) =
                                             eval_constant(working_set, &expression)
                                         {
+                                            if let Some(var_id) = *var_id {
+                                                working_set.add_parse_time_value(var_id, || {
+                                                    ParseTimeValue::Expression(
+                                                        expression.clone(),
+                                                        None,
+                                                    )
+                                                });
+                                            }
                                             Some(value)
                                         } else {
                                             working_set.error(ParseError::NonConstantDefaultValue(
