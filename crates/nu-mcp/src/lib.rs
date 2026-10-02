@@ -41,8 +41,8 @@ pub enum McpTransport {
         /// Optional list of allowed `Host` header values, guarding against DNS-rebinding
         /// attacks (default: rmcp's built-in loopback-only list)
         allowed_hosts: Option<Vec<String>>,
-        /// Optional list of allowed CORS origins (default: none, which disables Origin
-        /// validation for backward compatibility)
+        /// Optional list of allowed `Origin` header values for HTTP request validation
+        /// (default: none, which disables Origin validation for backward compatibility)
         allowed_origins: Option<Vec<String>>,
     },
 }
