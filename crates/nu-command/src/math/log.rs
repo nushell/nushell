@@ -138,9 +138,12 @@ impl Command for MathLog {
 }
 
 fn require_positive_base(base: Spanned<f64>, head: Span) -> Result<f64, ShellError> {
-    if base.item <= 0.0f64 {
+    // A logarithm is only defined for a base in the open interval (0, 1) union (1, Inf):
+    // the base must be positive and not equal to 1. `NaN` is rejected as well, since it
+    // satisfies neither `> 0` nor `== 1`.
+    if base.item.is_nan() || base.item <= 0.0f64 || base.item == 1.0f64 {
         return Err(ShellError::UnsupportedInput {
-            msg: "Base has to be greater 0".into(),
+            msg: "Base has to be greater than 0 and not equal to 1".into(),
             input: "value originates from here".into(),
             msg_span: head,
             input_span: base.span,
