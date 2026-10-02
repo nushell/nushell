@@ -105,7 +105,6 @@ pub fn evaluate_repl(
     stack: Stack,
     prerun_command: Option<Spanned<String>>,
     load_std_lib: Option<Spanned<String>>,
-    entire_start_time: Instant,
 ) -> Result<()> {
     // throughout this code, we hold this stack uniquely.
     // During the main REPL loop, we hand ownership of this value to an Arc,
@@ -185,10 +184,9 @@ pub fn evaluate_repl(
         );
     }
 
-    // Provisional `$nu.startup-time`, so the hooks and prompt closures that run before the first
-    // prompt can already read it. The final value is stored right before the first prompt is
-    // drawn: see `finish_startup`.
-    engine_state.set_startup_time(entire_start_time.elapsed().as_nanos() as i64);
+    // Refresh `$nu`, so the hooks and prompt closures that run before the first prompt see the
+    // startup time so far. The final value is stored right before the first prompt is drawn: see
+    // `finish_startup`.
     engine_state.generate_nu_constant();
 
     // The banner is defined by the standard library. Its welcome message goes out now, before
@@ -209,10 +207,7 @@ pub fn evaluate_repl(
             false,
         );
     }
-    let mut first_prompt = Some(FirstPrompt {
-        entire_start_time,
-        banner,
-    });
+    let mut first_prompt = Some(FirstPrompt { banner });
 
     kitty_protocol_healthcheck(engine_state);
 
@@ -366,8 +361,6 @@ struct LoopContext<'a> {
 
 /// Work deferred until the REPL is about to draw its first prompt.
 struct FirstPrompt {
-    /// When the process started (see `main`).
-    entire_start_time: Instant,
     /// Which banner to show; `None` when the standard library (which defines it) is not loaded.
     banner: BannerKind,
 }
@@ -384,12 +377,9 @@ fn finish_startup(
     first_prompt: FirstPrompt,
     use_color: bool,
 ) {
-    let startup_time = first_prompt.entire_start_time.elapsed();
-    engine_state.set_startup_time(startup_time.as_nanos() as i64);
-    // Regenerate the $nu constant to contain the startup time and any other potential updates
-    engine_state.generate_nu_constant();
+    let startup_time = engine_state.finish_startup();
     perf!(
-        "startup (process start to first prompt)",
+        "startup (main to first prompt)",
         elapsed: startup_time,
         use_color
     );

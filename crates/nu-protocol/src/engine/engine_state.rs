@@ -17,6 +17,7 @@ use fancy_regex::Regex;
 use lru::LruCache;
 use nu_config::NushellConfigDirs;
 use nu_path::AbsolutePathBuf;
+use nu_utils::time::Instant;
 use std::{
     collections::{HashMap, HashSet},
     num::NonZeroUsize,
@@ -27,6 +28,7 @@ use std::{
         mpsc::Sender,
         mpsc::channel,
     },
+    time::Duration,
 };
 
 type PoisonDebuggerError<'a> = PoisonError<MutexGuard<'a, Box<dyn Debugger>>>;
@@ -161,7 +163,11 @@ pub struct EngineState {
     /// `is_lsp`/`is_mcp`, this means stdout is a protocol stream, so anything
     /// that would print to it must go to stderr instead.
     pub is_dap: bool,
-    startup_time: i64,
+    /// When startup began: the top of `main` for the `nu` binary, otherwise when this engine
+    /// was created. See [`EngineState::startup_time`].
+    startup_start: Instant,
+    /// How long startup took, once [`EngineState::finish_startup`] has been called.
+    startup_time: Option<Duration>,
     is_debugging: IsDebugging,
     pub debugger: Arc<Mutex<Box<dyn Debugger>>>,
     pub report_log: Arc<Mutex<ReportLog>>,
@@ -273,7 +279,8 @@ impl EngineState {
             is_lsp: false,
             is_mcp: false,
             is_dap: false,
-            startup_time: -1,
+            startup_start: Instant::now(),
+            startup_time: None,
             is_debugging: IsDebugging::new(false),
             debugger: Arc::new(Mutex::new(Box::new(NoopDebugger))),
             report_log: Arc::default(),
@@ -1143,12 +1150,31 @@ impl EngineState {
         &self.files
     }
 
-    pub fn get_startup_time(&self) -> i64 {
+    /// How long startup took (`$nu.startup-time`), or how long it has taken so far while it is
+    /// still running, for example while the config files are being evaluated.
+    ///
+    /// Like the timers in bash and zsh, startup is measured from inside the shell, not from
+    /// process creation, so it leaves out the time the operating system spends starting the
+    /// executable, and `exec nu` does not count the program it replaced.
+    pub fn startup_time(&self) -> Duration {
         self.startup_time
+            .unwrap_or_else(|| self.startup_start.elapsed())
     }
 
-    pub fn set_startup_time(&mut self, startup_time: i64) {
-        self.startup_time = startup_time;
+    /// Sets when startup began. `nu` calls this with the time it reads at the top of `main`.
+    pub fn set_startup_start(&mut self, startup_start: Instant) {
+        self.startup_start = startup_start;
+    }
+
+    /// Ends startup: from now on [`EngineState::startup_time`] stays at the time it took, and
+    /// later calls keep the first value. Regenerates `$nu` so it shows that time, along with any
+    /// other changes made during startup. Returns the startup time.
+    pub fn finish_startup(&mut self) -> Duration {
+        let startup_time = *self
+            .startup_time
+            .get_or_insert_with(|| self.startup_start.elapsed());
+        self.generate_nu_constant();
+        startup_time
     }
 
     pub fn activate_debugger(

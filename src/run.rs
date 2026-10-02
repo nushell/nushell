@@ -22,7 +22,6 @@ pub(crate) fn run_commands(
     use_color: bool,
     commands: &nu_protocol::Spanned<String>,
     input: PipelineData,
-    entire_start_time: nu_utils::time::Instant,
 ) {
     trace!("run_commands");
 
@@ -96,10 +95,7 @@ pub(crate) fn run_commands(
     }
 
     // Startup ends when the commands start running.
-    engine_state.set_startup_time(entire_start_time.elapsed().as_nanos() as i64);
-
-    // Regenerate the $nu constant to contain the startup time and any other potential updates
-    engine_state.generate_nu_constant();
+    engine_state.finish_startup();
 
     let start_time = Instant::now();
     let result = evaluate_commands(
@@ -131,7 +127,6 @@ pub(crate) fn run_file(
     parsed_cli: command::ParsedCli,
     use_color: bool,
     input: PipelineData,
-    entire_start_time: nu_utils::time::Instant,
 ) {
     trace!("run_file");
 
@@ -187,10 +182,7 @@ pub(crate) fn run_file(
     }
 
     // Startup ends when the script starts running.
-    engine_state.set_startup_time(entire_start_time.elapsed().as_nanos() as i64);
-
-    // Regenerate the $nu constant to contain the startup time and any other potential updates
-    engine_state.generate_nu_constant();
+    engine_state.finish_startup();
 
     // Apply --table-mode / -m CLI flag override before evaluating the file
     if let Some(ref t_mode) = parsed_nu_cli_args.table_mode
@@ -225,7 +217,6 @@ pub(crate) fn run_repl(
     engine_state: &mut EngineState,
     mut stack: Stack,
     parsed_nu_cli_args: command::NushellCliArgs,
-    entire_start_time: nu_utils::time::Instant,
 ) -> Result<(), miette::ErrReport> {
     trace!("run_repl");
     let start_time = nu_utils::time::Instant::now();
@@ -261,7 +252,6 @@ pub(crate) fn run_repl(
         stack,
         parsed_nu_cli_args.execute,
         parsed_nu_cli_args.no_std_lib,
-        entire_start_time,
     );
     perf!("evaluate_repl", start_time, use_color);
 
@@ -280,7 +270,7 @@ pub(crate) fn run_lsp(
         config_files::setup_config(&mut engine_state, &mut stack, false);
     }
 
-    let serve = nu_lsp::LanguageServer::initialize_stdio_connection(engine_state)?.serve_requests();
+    engine_state.finish_startup();
     perf!("lsp starting", start_time, use_color);
-    serve
+    nu_lsp::LanguageServer::initialize_stdio_connection(engine_state)?.serve_requests()
 }
