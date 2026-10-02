@@ -9,7 +9,6 @@
 
 mod exit_status;
 mod foreground;
-mod process_start;
 mod util;
 
 #[cfg(target_os = "freebsd")]
@@ -34,7 +33,6 @@ pub use self::foreground::{
     ForegroundChild, ForegroundGuard, ForegroundWaitStatus, UnfreezeHandle,
 };
 
-pub use self::process_start::time_since_process_start;
 pub use self::util::*;
 
 #[cfg(target_os = "freebsd")]
