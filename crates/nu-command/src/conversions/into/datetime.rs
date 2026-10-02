@@ -117,7 +117,7 @@ impl Command for IntoDatetime {
                     .short('z')
                     .arg(SyntaxShape::String)
                     .desc(
-                        "Specify timezone to interpret timestamps and formatted datetime input. Valid options: 'UTC' ('u') or 'LOCAL' ('l').",
+                        "Specify timezone to interpret timestamps and formatted datetime input. Valid options: 'UTC' ('u'), 'LOCAL' ('l') or any of `date list-timezone`.",
                     )
                     .completion(Completion::new_list(ZONE_OPTIONS.deref())),
             )
