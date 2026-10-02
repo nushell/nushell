@@ -69,3 +69,29 @@ def pp_skips_zeros [] {
 def pp_doesnt_skip_neg [] { # datetime-diff can't return negative units, but prettyprint shouldn't skip them (if passed handcrafted record)
     assert equal (pretty-print-duration {year:-1, month:0, day:0, hour:0, minute:0, second:0, millisecond:0, microsecond:0 nanosecond:0}) "-1yr "
 }
+
+@test
+def month_end_to_first_of_month [] {
+    # When the earlier date is at the end of a month (Jan 31) and the later
+    # date is the 1st of a month two months later (Mar 1), the month borrow
+    # must not under-count the days, leaving a negative or short day.
+    let later = ('2023-03-01T00:00:00z' | into datetime)
+    let earlier = ('2023-01-31T00:00:00z' | into datetime)
+    assert equal (datetime-diff $later $earlier) ({year:0, month:1, day:1, hour:0, minute:0, second:0, millisecond:0, microsecond:0 nanosecond:0})
+}
+
+@test
+def leap_month_end_to_first_of_month [] {
+    # Same shape in a leap year: Jan 31 -> Mar 1 crosses a 29-day February.
+    let later = ('2024-03-01T00:00:00z' | into datetime)
+    let earlier = ('2024-01-31T00:00:00z' | into datetime)
+    assert equal (datetime-diff $later $earlier) ({year:0, month:1, day:1, hour:0, minute:0, second:0, millisecond:0, microsecond:0 nanosecond:0})
+}
+
+@test
+def month_end_30_to_first_of_month [] {
+    # May 31 -> Jul 1 crosses June (30 days); the borrow must still land on day 1.
+    let later = ('2023-07-01T00:00:00z' | into datetime)
+    let earlier = ('2023-05-31T00:00:00z' | into datetime)
+    assert equal (datetime-diff $later $earlier) ({year:0, month:1, day:1, hour:0, minute:0, second:0, millisecond:0, microsecond:0 nanosecond:0})
+}

@@ -17,6 +17,49 @@ def leap-year-days [year] {
     }
 }
 
+def days-in-month [month: int, year: int] {
+    if $month in [1, 3, 5, 7, 8, 10, 12] {
+        31
+    } else if $month in [4, 6, 9, 11] {
+        30
+    } else {
+        (leap-year-days $year)
+    }
+}
+
+# Floor division for integers. Nushell's `/` is true division (returns a float),
+# and `($a / $b) | into int` truncates toward zero, which only equals floor for
+# non-negative dividends. `mod` is Euclidean, so this corrects the negative cases.
+def floor-div [a: int, b: int] {
+    let q = ($a / $b) | into int
+    if $a < 0 and ($a mod $b) != 0 {
+        $q - 1
+    } else {
+        $q
+    }
+}
+
+# Days since the civil epoch (1970-01-01) for a proleptic Gregorian date.
+def days-from-civil [year: int, month: int, day: int] {
+    let y = if $month <= 2 { $year - 1 } else { $year }
+    let era = (floor-div $y 400)
+    let yoe = $y - ($era * 400)
+    let mp = if $month > 2 { $month - 3 } else { $month + 9 }
+    let doy = (floor-div ($mp * 153 + 2) 5) + $day - 1
+    let doe = ($yoe * 365) + (floor-div $yoe 4) - (floor-div $yoe 100) + $doy
+    ($era * 146097) + $doe - 719468
+}
+
+# Add n months to a civil date, clamping the day to the resulting month's length.
+def add-months-clamp [year: int, month: int, day: int, n: int] {
+    let total = $month + $n
+    let ny = $year + (floor-div ($total - 1) 12)
+    let nm = (($total - 1) mod 12) + 1
+    let dim = (days-in-month $nm $ny)
+    let new_day = if $day > $dim { $dim } else { $day }
+    { year: $ny, month: $nm, day: $new_day }
+}
+
 def borrow-month [from: record, current: record] {
     mut current = $current
     # When a day is borrowed, the days gained are those of the month that is
@@ -141,16 +184,27 @@ export def datetime-diff [
     let from_expanded = ($later | date to-timezone utc | into record)
     let to_expanded = ($earlier | date to-timezone utc | into record)
 
-    mut result = { year: ($from_expanded.year - $to_expanded.year), month: ($from_expanded.month - $to_expanded.month), day:0, hour:0, minute:0, second:0, millisecond:0, microsecond:0, nanosecond:0}
+    mut result = { year: 0, month: 0, day: 0, hour: 0, minute: 0, second: 0, millisecond: 0, microsecond: 0, nanosecond: 0 }
 
-    if $result.month < 0 {
-        $result = (borrow-year $from_expanded $result)
-    }
+    let from_time_ns = (($from_expanded.hour * 3600 + $from_expanded.minute * 60 + $from_expanded.second) * 1_000_000_000) + ($from_expanded.millisecond * 1_000_000) + ($from_expanded.microsecond * 1_000) + $from_expanded.nanosecond
+    let to_time_ns = (($to_expanded.hour * 3600 + $to_expanded.minute * 60 + $to_expanded.second) * 1_000_000_000) + ($to_expanded.millisecond * 1_000_000) + ($to_expanded.microsecond * 1_000) + $to_expanded.nanosecond
 
-    $result.day = $from_expanded.day - $to_expanded.day
-    if $result.day < 0 {
-        $result = (borrow-month $from_expanded $result)
+    # Compute year/month/day together: find how many whole months fit between the
+    # two dates (clamping the day to the month length), then the remaining days.
+    # Borrowing a month by table lookup under-borrows when the earlier date is at
+    # the end of a month (e.g. Jan 31 -> Mar 1), leaving a negative or short day.
+    mut total_months = (($from_expanded.year - $to_expanded.year) * 12) + ($from_expanded.month - $to_expanded.month)
+    mut anchor = (add-months-clamp $to_expanded.year $to_expanded.month $to_expanded.day $total_months)
+    let later_days = (days-from-civil $from_expanded.year $from_expanded.month $from_expanded.day)
+    mut anchor_days = (days-from-civil $anchor.year $anchor.month $anchor.day)
+    if ($anchor_days > $later_days) or (($anchor_days == $later_days) and ($to_time_ns > $from_time_ns)) {
+        $total_months = $total_months - 1
+        $anchor = (add-months-clamp $to_expanded.year $to_expanded.month $to_expanded.day $total_months)
+        $anchor_days = (days-from-civil $anchor.year $anchor.month $anchor.day)
     }
+    $result.year = (floor-div $total_months 12)
+    $result.month = $total_months mod 12
+    $result.day = $later_days - $anchor_days
 
     $result.hour = $from_expanded.hour - $to_expanded.hour
     if $result.hour < 0 {
