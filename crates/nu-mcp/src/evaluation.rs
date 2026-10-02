@@ -526,7 +526,8 @@ fn promote_to_background_job(
 ) -> Result<EvalOutput, rmcp::ErrorData> {
     let signals = Signals::new(interrupt);
     let (sender, _receiver) = mpsc::channel();
-    let thread_job = ThreadJob::new(signals, Some(description), sender);
+    let auto_kill = false;
+    let thread_job = ThreadJob::new(signals, Some(description), auto_kill, sender);
 
     let job_id = match jobs.lock() {
         Ok(mut jobs) => jobs.add_job(Job::Thread(thread_job)),
