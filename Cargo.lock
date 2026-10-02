@@ -4766,6 +4766,7 @@ dependencies = [
  "pretty_assertions",
  "reedline",
  "rstest",
+ "rustc-hash",
  "same-file",
  "serde_json",
  "simplelog",

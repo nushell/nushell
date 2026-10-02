@@ -30,6 +30,8 @@ Their golden entries record those errors.
 - `crates/nu-parser/src/lex_once.rs` lexes every snippet and every prefix of
   it with and without bracket tables; an ignored test does the same on about
   140,000 mutations of the snippets.
+- `tests/parsing/grammar.rs` checks the values nu-parser parses in the
+  `accept` snippets against the grammar in `devdocs/grammar`.
 
 ## Golden files
 

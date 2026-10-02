@@ -1,7 +1,7 @@
 # The Nushell grammar, as `nu-parser` parses it
 
 This file is a BNF description of the Nushell language **as accepted by
-`nu-parser`** (nushell `main`, commit `d69f33312`, 2026-09-30). Every rule was
+`nu-parser`** (nushell `main`, commit `bd3084374`, 2026-10-02). Every rule was
 derived by reading nu-parser's source, and the rules are annotated with the
 function that decides them, so that a change to the parser can be traced to the
 rule it affects and the other way round. The ```` ```ebnf ```` fences are the
@@ -1401,6 +1401,12 @@ DATE``) and writes them into the header of both generated files. A new
 `SyntaxShape`, `TokenContents` or `ParseError` variant, a new keyword command
 in nu-cmd-lang or a new `parse_*` function in nu-parser usually means a rule is
 missing here or has changed.
+
+`cargo test --test tests -- parsing::grammar` checks the result: that the
+derived files are current, that every rule is defined and reachable, that every
+`; nu:` line names code that exists, and that the grammar matches the values
+nu-parser parses in the language fixtures and the standard library (see
+README.md).
 
 ## Appendix A. Character classes and shared vocabulary
 

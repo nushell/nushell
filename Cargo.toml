@@ -394,6 +394,7 @@ fancy-regex = { workspace = true }
 itertools = { workspace = true }
 pretty_assertions = { workspace = true }
 rstest = { workspace = true, default-features = false }
+rustc-hash = { workspace = true }
 tango-bench = "0.8.0"
 tempfile = { workspace = true }
 

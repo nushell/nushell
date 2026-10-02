@@ -1,5 +1,6 @@
 mod def_compile;
 mod escaping;
+mod grammar;
 mod language;
 mod lex_once;
 

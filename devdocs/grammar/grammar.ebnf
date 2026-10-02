@@ -1,4 +1,4 @@
-(* The Nushell grammar as nu-parser accepts it (nushell main d69f33312, 2026-09-30). *)
+(* The Nushell grammar as nu-parser accepts it (nushell main bd3084374, 2026-10-02). *)
 (* Generated from grammar.md (the fences, in order) by devdocs/grammar/gen-grammar.nu. *)
 (* grammar.md carries the discussion and the meaning of the annotations; this *)
 (* file is the same grammar in one piece. Regenerate it from grammar.md rather *)
