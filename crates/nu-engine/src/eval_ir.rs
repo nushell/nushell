@@ -413,7 +413,10 @@ fn unwind_through_handlers(
 
         let Some(handler) = ctx.stack.error_handlers.pop(ctx.error_handler_base) else {
             return Unwound::Return(Box::new(match unwind {
-                Unwind::Error(err) if need_backtrace => {
+                // `exit` is not an error to report, so it must not be chained.
+                Unwind::Error(err)
+                    if need_backtrace && !matches!(err.item, ShellError::Exit { .. }) =>
+                {
                     Err(ShellError::into_chained(err.item, err.span))
                 }
                 Unwind::Error(err) => Err(err.item),
@@ -2102,7 +2105,8 @@ fn drain(
             let callback_spans = stream.get_caller_spans().clone();
             if let Err(mut err) = stream.drain() {
                 ctx.stack.set_last_error(&err);
-                if callback_spans.is_empty() {
+                // `exit` must reach the top level as is, so it keeps its exit code.
+                if callback_spans.is_empty() || matches!(err, ShellError::Exit { .. }) {
                     return Err(err);
                 } else {
                     for s in callback_spans {
@@ -2120,7 +2124,8 @@ fn drain(
         PipelineData::ListStream(stream, ..) => {
             let callback_spans = stream.get_caller_spans().clone();
             if let Err(mut err) = stream.drain() {
-                if callback_spans.is_empty() {
+                // `exit` must reach the top level as is, so it keeps its exit code.
+                if callback_spans.is_empty() || matches!(err, ShellError::Exit { .. }) {
                     return Err(err);
                 } else {
                     for s in callback_spans {
