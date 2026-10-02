@@ -1,0 +1,10 @@
+Block 0..36
+  Pipeline 0..35
+    Subexpression 0..35 1..34
+      Pipeline 4..25 comments=2
+        Call `ls` 4..6
+        | 17..18
+        Call `length` 19..25
+Comments (2)
+  7..14 "# files"
+  26..33 "# count"

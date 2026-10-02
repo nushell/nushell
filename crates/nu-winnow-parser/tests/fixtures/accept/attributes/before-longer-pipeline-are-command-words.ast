@@ -1,0 +1,12 @@
+Block 0..29
+  Pipeline 0..28
+    ExternalCall 0..19
+      String Bare "@example" 0..8
+      String Double "a" 9..12
+      Closure 13..16
+        Body 14..15
+          Pipeline 14..15
+            Int 1 14..15
+      String Bare "ls" 17..19
+    | 20..21
+    Call `length` 22..28

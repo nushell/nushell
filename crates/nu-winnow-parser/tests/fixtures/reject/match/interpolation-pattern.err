@@ -1,0 +1,6 @@
+error: expected valid variable name
+  --> reject/match/interpolation-pattern.nu:1:11
+  |
+1 | match 1 { $"x(1)" => n }
+  |           ^^^^^^^
+  = while parsing match

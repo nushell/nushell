@@ -1,0 +1,7 @@
+error: cannot create an alias to a parser keyword
+  --> reject/alias/target-for.nu:1:11
+  |
+1 | alias x = for
+  |           ^^^
+  = while parsing alias
+  = help: only if, match, try, overlay, overlay hide, overlay new, overlay use can be aliased

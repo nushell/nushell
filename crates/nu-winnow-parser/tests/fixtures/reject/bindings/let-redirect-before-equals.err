@@ -1,0 +1,5 @@
+error: this statement cannot be redirected
+  --> reject/bindings/let-redirect-before-equals.nu:1:7
+  |
+1 | let a o> file = 1
+  |       ^^

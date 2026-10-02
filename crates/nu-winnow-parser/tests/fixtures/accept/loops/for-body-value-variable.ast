@@ -1,0 +1,8 @@
+Block 0..21
+  Pipeline 0..20
+    For $x 0..20
+      List 9..11
+      BodyValue
+        FullCellPath 12..20
+          Var $env 12..16
+          Member "FOO" 17..20

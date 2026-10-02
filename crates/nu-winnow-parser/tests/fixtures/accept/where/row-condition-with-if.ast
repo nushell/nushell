@@ -1,0 +1,22 @@
+Block 0..53
+  Pipeline 0..52
+    List 0..7
+      Int 1 1..2
+      Int 2 3..4
+      Int 3 5..6
+    | 8..9
+    Where 10..52
+      Subexpression 16..52 17..51
+        Pipeline 17..51
+          If 17..51
+            Condition
+              BinaryOp > 20..27
+                Var $it 20..23
+                Int 1 26..27
+            Then 29..35
+              Pipeline 30..34
+                Bool true 30..34
+            Else 37..41
+              BlockExpr 42..51 43..50
+                Pipeline 44..49
+                  Bool false 44..49

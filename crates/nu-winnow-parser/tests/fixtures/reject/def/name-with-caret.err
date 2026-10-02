@@ -1,0 +1,7 @@
+error: command name not supported
+  --> reject/def/name-with-caret.nu:1:11
+  |
+1 | def --env "set u^p" [] {}
+  |           ^^^^^^^^^
+  = while parsing def
+  = help: a name may not contain `#`, `^` or `%`, or read as a number or filesize

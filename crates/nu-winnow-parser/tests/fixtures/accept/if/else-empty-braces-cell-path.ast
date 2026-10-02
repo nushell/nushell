@@ -1,0 +1,12 @@
+Block 0..119
+  Pipeline 98..118 comments=1
+    If 98..118
+      Condition
+        Bool true 101..105
+      Then 107..107
+      Else 109..113
+        FullCellPath 114..118
+          Record 114..116
+          Member "b" 117..118
+Comments (1)
+  0..97 "# In the `else` branch `{}.b` is a cell path on an empty record, as nu reads it as an expression."

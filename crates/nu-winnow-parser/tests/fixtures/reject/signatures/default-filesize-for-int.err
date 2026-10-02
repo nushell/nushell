@@ -1,0 +1,6 @@
+error: expected int
+  --> reject/signatures/default-filesize-for-int.nu:1:19
+  |
+1 | def foo [x: int = 1kb] {}
+  |                   ^^^
+  = while parsing signature

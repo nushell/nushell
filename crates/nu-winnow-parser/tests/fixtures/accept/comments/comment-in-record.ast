@@ -1,0 +1,11 @@
+Block 0..34
+  Pipeline 0..33
+    Record 0..33
+      Pair
+        String Bare "y" 6..7
+        Int 20 9..11
+      Pair
+        String Bare "z" 26..27
+        Int 40 29..31
+Comments (1)
+  16..21 "# foo"

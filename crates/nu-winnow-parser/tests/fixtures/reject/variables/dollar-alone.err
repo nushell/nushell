@@ -1,0 +1,6 @@
+error: expected valid variable name
+  --> reject/variables/dollar-alone.nu:1:1
+  |
+1 | $ a
+  | ^
+  = help: variable names may not contain `.[({+-*^%/=!<>&|`

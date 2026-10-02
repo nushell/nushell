@@ -1,6 +1,11 @@
 use crate::{ALL, ExperimentalOption, Status};
 use itertools::Itertools;
-use std::{borrow::Cow, env, ops::Range, sync::atomic::Ordering};
+use std::{
+    borrow::Cow,
+    env,
+    ops::Range,
+    sync::{OnceLock, atomic::Ordering},
+};
 use thiserror::Error;
 
 /// Environment variable used to load experimental options from.
@@ -51,6 +56,23 @@ pub enum ParseWarning {
 pub fn parse_iter<'i, Ctx: Clone>(
     iter: impl Iterator<Item = (Cow<'i, str>, Option<Cow<'i, str>>, Ctx)>,
 ) -> Vec<(ParseWarning, Ctx)> {
+    let (assignments, warnings) = resolve(iter);
+    for (option, val) in assignments {
+        option.value.store(val, Ordering::Relaxed);
+    }
+    warnings
+}
+
+/// An option and the value assigned to it.
+type Assignment = (&'static ExperimentalOption, bool);
+
+/// The assignments that `iter` makes, in order (a later one overrides an earlier one for the same
+/// option), without applying them. `all` expands to every option that isn't deprecated, as
+/// [`set_all`](super::set_all) does.
+fn resolve<'i, Ctx: Clone>(
+    iter: impl Iterator<Item = (Cow<'i, str>, Option<Cow<'i, str>>, Ctx)>,
+) -> (Vec<Assignment>, Vec<(ParseWarning, Ctx)>) {
+    let mut assignments = Vec::new();
     let mut warnings = Vec::new();
     for (key, val, ctx) in iter {
         if key == "all" {
@@ -61,8 +83,11 @@ pub fn parse_iter<'i, Ctx: Clone>(
                     continue;
                 }
             };
-            // SAFETY: This is part of the expected parse function to be called at initialization.
-            unsafe { super::set_all(val) };
+            assignments.extend(
+                ALL.iter()
+                    .filter(|option| matches!(option.status(), Status::OptIn | Status::OptOut))
+                    .map(|option| (*option, val)),
+            );
             continue;
         }
 
@@ -89,10 +114,10 @@ pub fn parse_iter<'i, Ctx: Clone>(
             }
         };
 
-        option.value.store(val, Ordering::Relaxed);
+        assignments.push((*option, val));
     }
 
-    warnings
+    (assignments, warnings)
 }
 
 fn parse_val(val: Option<&str>) -> Result<bool, &str> {
@@ -112,7 +137,13 @@ pub fn parse_env() -> Vec<(ParseWarning, Range<usize>)> {
     let Ok(env) = env::var(ENV) else {
         return vec![];
     };
+    parse_iter(env_entries(&env))
+}
 
+/// Split the value of [`ENV`] into `(key, value, range)` entries for [`parse_iter`]/[`resolve`].
+fn env_entries(
+    env: &str,
+) -> impl Iterator<Item = (Cow<'_, str>, Option<Cow<'_, str>>, Range<usize>)> {
     let mut entries = Vec::new();
     let mut start = 0;
     for (idx, c) in env.char_indices() {
@@ -123,12 +154,31 @@ pub fn parse_env() -> Vec<(ParseWarning, Range<usize>)> {
     }
     entries.push((&env[start..], start..env.len()));
 
-    parse_iter(entries.into_iter().map(|(entry, span)| {
+    entries.into_iter().map(|(entry, span)| {
         entry
             .split_once("=")
             .map(|(key, val)| (key.into(), Some(val.into()), span.clone()))
             .unwrap_or((entry.into(), None, span))
-    }))
+    })
+}
+
+/// The value [`ENV`] assigns to `option`, if any.
+///
+/// [`ExperimentalOption::get`] falls back to this for options that were never set, so the
+/// environment variable applies even where [`parse_env`] isn't called: in embedders and in test
+/// binaries (whose harness resets every option before each test group). The variable is read
+/// and resolved once per process; entries with warnings are skipped, as [`parse_env`] skips them.
+pub(crate) fn env_value(option: &ExperimentalOption) -> Option<bool> {
+    static ENV_ASSIGNMENTS: OnceLock<Vec<Assignment>> = OnceLock::new();
+    ENV_ASSIGNMENTS
+        .get_or_init(|| match env::var(ENV) {
+            Ok(env) => resolve(env_entries(&env)).0,
+            Err(_) => Vec::new(),
+        })
+        .iter()
+        .rev()
+        .find(|(assigned, _)| *assigned == option)
+        .map(|(_, val)| *val)
 }
 
 impl ParseWarning {
@@ -162,5 +212,47 @@ impl ParseWarning {
                 Some(String::from("You can safely remove this option now."))
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn resolved(env: &str) -> Vec<(&'static str, bool)> {
+        resolve(env_entries(env))
+            .0
+            .into_iter()
+            .map(|(option, val)| (option.identifier(), val))
+            .collect()
+    }
+
+    #[test]
+    fn resolve_keeps_assignments_in_order() {
+        assert_eq!(
+            resolved("pipefail=false,winnow-parser,pipefail"),
+            [
+                ("pipefail", false),
+                ("winnow-parser", true),
+                ("pipefail", true)
+            ]
+        );
+    }
+
+    #[test]
+    fn resolve_expands_all_to_options_that_are_not_deprecated() {
+        let expected: Vec<_> = crate::ALL
+            .iter()
+            .filter(|option| matches!(option.status(), Status::OptIn | Status::OptOut))
+            .map(|option| (option.identifier(), false))
+            .collect();
+        assert_eq!(resolved("all=false"), expected);
+    }
+
+    #[test]
+    fn resolve_skips_entries_with_warnings() {
+        let (assignments, warnings) = resolve(env_entries("nope,winnow-parser=maybe,all=perhaps"));
+        assert!(assignments.is_empty());
+        assert_eq!(warnings.len(), 3);
     }
 }

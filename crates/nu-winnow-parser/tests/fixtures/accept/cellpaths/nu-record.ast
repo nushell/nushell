@@ -1,0 +1,6 @@
+Block 0..17
+  Pipeline 0..16
+    FullCellPath 0..16
+      Var $nu 0..3
+      Member "os-info" 4..11
+      Member "name" 12..16

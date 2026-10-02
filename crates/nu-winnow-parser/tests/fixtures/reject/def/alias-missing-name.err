@@ -1,0 +1,6 @@
+error: expected alias name
+  --> reject/def/alias-missing-name.nu:1:7
+  |
+1 | alias = ls
+  |       ^
+  = while parsing alias

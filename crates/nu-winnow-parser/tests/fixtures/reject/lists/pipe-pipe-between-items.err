@@ -1,0 +1,5 @@
+error: `||` is not Nushell syntax; use `or` instead
+  --> reject/lists/pipe-pipe-between-items.nu:1:4
+  |
+1 | [1 || 2]
+  |    ^^

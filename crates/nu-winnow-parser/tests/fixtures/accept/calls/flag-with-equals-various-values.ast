@@ -1,0 +1,40 @@
+Block 0..121
+  Pipeline 0..9
+    let n 0..9
+      Value 8..9
+        Pipeline 8..9
+          Int 3 8..9
+  Pipeline 10..120
+    List 10..120
+      Subexpression 11..37 12..36
+        Pipeline 12..36
+          Call `ls` 12..14
+          | 15..16
+          Call `first` 17..36
+            Flag --strict 23..36
+              Bool true 32..36
+      Subexpression 38..61 39..60
+        Pipeline 39..60
+          String Single "x" 39..42
+          | 43..44
+          Call `fill` 45..60
+            Flag --width 50..60
+              Var $n 58..60
+      Subexpression 62..90 63..89
+        Pipeline 63..89
+          String Single "x" 63..66
+          | 67..68
+          Call `fill` 69..89
+            Flag --width 74..89
+              Subexpression 82..89 83..88
+                Pipeline 83..88
+                  BinaryOp + 83..88
+                    Int 1 83..84
+                    Int 2 87..88
+      Subexpression 91..119 92..118
+        Pipeline 92..118
+          String Single "x" 92..95
+          | 96..97
+          Call `fill` 98..118
+            Flag --character 103..118
+              String Double "-" 115..118

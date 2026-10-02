@@ -84,6 +84,7 @@ members = [
   "crates/nu-test-support-macros",
   "crates/nu-utils",
   "crates/nu-heavy-utils",
+  "crates/nu-winnow-parser",
   "crates/nuon",
   "crates/nu-mcp",
   "crates/testbins",
@@ -126,6 +127,7 @@ nu-tui = { path = "crates/nu-tui", version = "0.116.0", default-features = false
 nu-test-support = { path = "crates/nu-test-support", version = "0.116.0", default-features = false }
 nu-test-support-macros = { path = "crates/nu-test-support-macros", version = "0.116.0", default-features = false }
 nu-utils = { path = "crates/nu-utils", version = "0.116.0", default-features = false }
+nu-winnow-parser = { path = "crates/nu-winnow-parser", version = "0.116.0", default-features = false }
 nu_plugin_custom_values = { path = "crates/nu_plugin_custom_values", version = "0.116.0", default-features = false }
 nu_plugin_example = { path = "crates/nu_plugin_example", version = "0.116.0", default-features = false }
 nu_plugin_formats = { path = "crates/nu_plugin_formats", version = "0.116.0", default-features = false }
@@ -155,6 +157,7 @@ chrono = { default-features = false, version = "0.4.45" }
 chrono-humanize = "0.2.3"
 chrono-tz = "0.10"
 crossbeam-channel = "0.5.15"
+criterion = { version = "0.8.2", default-features = false }
 crossterm = "0.29.0"
 csv = "1.4"
 ctrlc = "3.5.2"

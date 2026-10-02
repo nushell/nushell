@@ -1,0 +1,7 @@
+error: cannot use parser keyword `if` as alias name
+  --> reject/def/alias-keyword-name.nu:1:7
+  |
+1 | alias if = ls
+  |       ^^
+  = while parsing alias
+  = help: choose a different name; this word is parsed specially by Nushell

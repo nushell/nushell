@@ -1,0 +1,24 @@
+Block 0..82
+  Pipeline 0..15
+    mut foo 0..15
+      Value 10..15
+        Pipeline 10..15
+          String Single "bar" 10..15
+  Pipeline 16..54
+    Assignment = 16..54
+      Var $foo 16..20
+      Value 23..54
+        Pipeline 23..54
+          Var $foo 23..27
+          | 28..29
+          Call `str upcase` 30..40
+          | 41..42
+          Call `str reverse` 43..54
+  Pipeline 55..81
+    Assignment ++= 55..81
+      Var $foo 55..59
+      Value 64..81
+        Pipeline 64..81
+          Var $foo 64..68
+          | 69..70
+          Call `str upcase` 71..81

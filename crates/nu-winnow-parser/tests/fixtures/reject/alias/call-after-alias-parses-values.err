@@ -1,0 +1,6 @@
+error: invalid int literal: invalid digits for radix 2
+  --> reject/alias/call-after-alias-parses-values.nu:2:3
+  |
+2 | g 0b2
+  |   ^^^
+  = while parsing command call

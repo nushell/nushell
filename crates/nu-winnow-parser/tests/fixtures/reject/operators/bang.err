@@ -1,0 +1,6 @@
+error: unknown operator `!`
+  --> reject/operators/bang.nu:1:6
+  |
+1 | true ! false
+  |      ^
+  = help: use `not` for boolean negation

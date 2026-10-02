@@ -1,0 +1,7 @@
+error: missing required positional argument
+  --> reject/calls/run-without-argument.nu:1:1
+  |
+1 | run
+  | ^
+  = while parsing command call
+  = help: `run` takes 1 positional argument(s)

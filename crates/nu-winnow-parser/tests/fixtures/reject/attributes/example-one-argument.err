@@ -1,0 +1,6 @@
+error: missing required positional argument
+  --> reject/attributes/example-one-argument.nu:1:1
+  |
+1 | @example 'x'
+  | ^
+  = help: `attr example` takes 2 positional argument(s)

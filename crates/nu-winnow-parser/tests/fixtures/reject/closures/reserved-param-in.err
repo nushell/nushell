@@ -1,0 +1,7 @@
+error: `in` used as variable name
+  --> reject/closures/reserved-param-in.nu:1:6
+  |
+1 | do {|in| }
+  |      ^^
+  = while parsing signature
+  = help: `$in` is a built-in variable and cannot be declared

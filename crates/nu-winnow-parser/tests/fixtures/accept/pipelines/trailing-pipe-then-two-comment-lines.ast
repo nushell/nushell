@@ -1,0 +1,6 @@
+Block 0..14
+  Pipeline 0..2 comments=2
+    Call `ls` 0..2
+Comments (2)
+  5..8 "# c"
+  9..12 "# d"

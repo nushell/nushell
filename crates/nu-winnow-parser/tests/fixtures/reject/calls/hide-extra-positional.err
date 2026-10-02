@@ -1,0 +1,7 @@
+error: extra positional argument
+  --> reject/calls/hide-extra-positional.nu:1:11
+  |
+1 | hide ls a b
+  |           ^
+  = while parsing command call
+  = help: `hide` takes at most 2 positional arguments

@@ -1,0 +1,50 @@
+Block 0..130
+  Pipeline 0..9
+    mut i 0..9
+      Value 8..9
+        Pipeline 8..9
+          Int 0 8..9
+  Pipeline 10..75
+    While 10..75
+      BinaryOp and 16..41
+        BinaryOp < 16..23
+          Var $i 16..18
+          Int 10 21..23
+        Not 28..41
+          Subexpression 32..41 33..40
+            Pipeline 33..40
+              BinaryOp == 33..40
+                Var $i 33..35
+                Int 5 39..40
+      Body 43..74
+        Pipeline 44..51 terminator=51..52
+          Assignment += 44..51
+            Var $i 44..46
+            Value 50..51
+              Pipeline 50..51
+                Int 1 50..51
+        Pipeline 53..73
+          If 53..73
+            Condition
+              BinaryOp == 56..63
+                Var $i 56..58
+                Int 3 62..63
+            Then 65..72
+              Pipeline 66..71
+                Break 66..71
+  Pipeline 76..108
+    While 76..108
+      Subexpression 82..98 83..97
+        Pipeline 83..97
+          Var $i 83..85
+          | 86..87
+          Call `into bool` 88..97
+      Body 100..107
+        Pipeline 101..106
+          Break 101..106
+  Pipeline 109..129
+    While 109..129
+      Bool true 115..119
+      Body 121..128
+        Pipeline 122..127
+          Break 122..127

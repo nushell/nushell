@@ -1,0 +1,6 @@
+error: expected match arm body
+  --> reject/match/missing-body.nu:1:16
+  |
+1 | match 1 { 1 => }
+  |                ^
+  = while parsing match

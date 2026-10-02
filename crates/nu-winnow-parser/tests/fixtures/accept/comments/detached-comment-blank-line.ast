@@ -1,0 +1,5 @@
+Block 0..15
+  Pipeline 12..14
+    Call `ls` 12..14
+Comments (1)
+  0..10 "# detached"

@@ -1,0 +1,10 @@
+Block 0..54
+  Pipeline 0..19
+    Def `foo` [Env] 0..19
+      Signature 14..16
+      Body 18..18
+  Pipeline 20..53
+    Def `bar` [Env, Wrapped] 20..53
+      Signature 44..50
+        Param rest `a` 45..49
+      Body 52..52

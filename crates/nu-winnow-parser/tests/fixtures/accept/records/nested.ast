@@ -1,0 +1,18 @@
+Block 0..57
+  Pipeline 0..56
+    Record 0..56
+      Pair
+        String Bare "outer" 1..6
+        Record 8..32
+          Pair
+            String Bare "inner" 9..14
+            Record 16..31
+              Pair
+                String Bare "deep" 17..21
+                String Double "value" 23..30
+      Pair
+        String Bare "items" 34..39
+        List 41..55
+          Int 1 42..43
+          String Double "two" 44..49
+          Bool true 50..54

@@ -1,0 +1,10 @@
+Block 0..49
+  Pipeline 0..34
+    Def `nu-arg` 0..34
+      Signature 11..31
+        Param flag --umlaut -ö `umlaut` 12..30 : int
+      Body 33..33
+  Pipeline 35..48
+    Call `nu-arg` 35..48
+      Flag -ö 42..45
+      Int 42 46..48

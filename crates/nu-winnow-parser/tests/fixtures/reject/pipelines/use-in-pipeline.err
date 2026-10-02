@@ -1,0 +1,6 @@
+error: `use` is a statement and cannot be used inside a pipeline
+  --> reject/pipelines/use-in-pipeline.nu:1:1
+  |
+1 | use std | length
+  | ^^^
+  = help: declarations and the module, source, overlay and plugin commands are statements of their own

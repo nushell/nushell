@@ -1,0 +1,45 @@
+Block 0..112
+  Pipeline 0..13
+    let runs 0..13
+      Value 11..13
+        Pipeline 11..13
+          Int 10 11..13
+  Pipeline 14..29
+    let sizekb 14..29
+      Value 27..29
+        Pipeline 27..29
+          Int 10 27..29
+  Pipeline 30..41
+    let day 30..41
+      Value 40..41
+        Pipeline 40..41
+          Int 1 40..41
+  Pipeline 42..111
+    List 42..111
+      Subexpression 43..64 44..63
+        Pipeline 44..63
+          Range Inclusive 44..52
+            From
+              Int 1 44..45
+            To
+              Var $runs 47..52
+          | 53..54
+          Call `math sum` 55..63
+      Subexpression 65..88 66..87
+        Pipeline 66..87
+          Range Inclusive 66..76
+            From
+              Int 1 66..67
+            To
+              Var $sizekb 69..76
+          | 77..78
+          Call `math sum` 79..87
+      Subexpression 89..110 90..109
+        Pipeline 90..109
+          Range RightExclusive 90..98
+            From
+              Int 0 90..91
+            To
+              Var $day 94..98
+          | 99..100
+          Call `math sum` 101..109

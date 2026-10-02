@@ -1,0 +1,7 @@
+error: `nu` used as variable name
+  --> reject/loops/for-reserved-var.nu:1:5
+  |
+1 | for nu in [] {}
+  |     ^^
+  = while parsing for
+  = help: `$nu` is a built-in variable and cannot be declared

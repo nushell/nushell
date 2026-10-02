@@ -1,0 +1,6 @@
+error: extra tokens after the end of the expression
+  --> reject/loops/continue-with-arg.nu:1:10
+  |
+1 | continue 1
+  |          ^
+  = while parsing continue

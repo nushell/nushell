@@ -1,0 +1,62 @@
+[package]
+name = "nushell-harness"
+version = "0.1.0"
+edition = "2024"
+publish = false
+description = "Benchmark, differential tests and an engine bridge, built against the enclosing checkout's nu-parser"
+
+# The Nushell crates of the enclosing checkout (this harness lives in
+# `crates/nu-winnow-parser/tools/nushell-harness`), so every comparison runs
+# against the nu-parser next to it. The harness is its own workspace because
+# it links the whole shell; its `Cargo.lock` starts from the root one.
+[dependencies]
+nu-winnow-parser = { path = "../.." }
+# The same crates and default features (`plugin`, `sqlite`, `trash-support`)
+# as the `nu` binary, whose `src/command_context.rs` the harness engine
+# (`src/lib.rs`) mirrors.
+nu-parser = { path = "../../../nu-parser", features = ["plugin"] }
+nu-protocol = { path = "../../../nu-protocol", features = ["plugin", "sqlite"] }
+nu-engine = { path = "../../../nu-engine", features = ["plugin"] }
+nu-cmd-lang = { path = "../../../nu-cmd-lang", features = ["plugin"] }
+nu-cmd-plugin = { path = "../../../nu-cmd-plugin" }
+nu-command = { path = "../../../nu-command", features = ["plugin", "sqlite", "trash-support"] }
+nu-cmd-extra = { path = "../../../nu-cmd-extra" }
+nu-cli = { path = "../../../nu-cli", features = ["plugin", "sqlite"] }
+nu-explore = { path = "../../../nu-explore" }
+nu-tui = { path = "../../../nu-tui" }
+nu-std = { path = "../../../nu-std", features = ["sqlite"] }
+nu-experimental = { path = "../../../nu-experimental" }
+chrono = { version = "0.4", default-features = false, features = ["std"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[[bin]]
+name = "bench-vs-nu-parser"
+path = "src/bin/bench.rs"
+
+[[bin]]
+name = "bridge"
+path = "src/bin/bridge.rs"
+
+[[bin]]
+name = "nu-parser-check"
+path = "src/bin/check.rs"
+
+[[bin]]
+name = "differential"
+path = "src/bin/differential.rs"
+
+[[bin]]
+name = "frontends"
+path = "src/bin/frontends.rs"
+
+[[bin]]
+name = "builtin-commands"
+path = "src/bin/builtin_commands.rs"
+
+[workspace]
+
+# nushell builds `nu-cli` against reedline's `main` branch (its own
+# `[patch.crates-io]`), which a separate workspace does not inherit.
+[patch.crates-io]
+reedline = { git = "https://github.com/nushell/reedline", branch = "main" }

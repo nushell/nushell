@@ -1,0 +1,5 @@
+error: invalid int literal: invalid digits for radix 16
+  --> reject/literals/int-hex-invalid-digits-in-math.nu:1:5
+  |
+1 | 0 + 0x0aq
+  |     ^^^^^

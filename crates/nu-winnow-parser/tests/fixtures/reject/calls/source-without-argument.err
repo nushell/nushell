@@ -1,0 +1,7 @@
+error: missing required positional argument
+  --> reject/calls/source-without-argument.nu:1:1
+  |
+1 | source
+  | ^
+  = while parsing command call
+  = help: `source` takes 1 positional argument(s)

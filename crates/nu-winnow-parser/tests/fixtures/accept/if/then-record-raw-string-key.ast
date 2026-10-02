@@ -1,0 +1,12 @@
+Block 0..96
+  Pipeline 74..95 comments=1
+    If 74..95
+      Condition
+        Bool true 77..81
+      ThenValue
+        Record 82..95
+          Pair
+            String Raw(1) "a" 84..90
+            Int 1 92..93
+Comments (1)
+  0..73 "# nu types a record with a raw-string key `any`, so it passes as a block."

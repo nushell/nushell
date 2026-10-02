@@ -1,0 +1,7 @@
+error: the `overlay use` command doesn't have flag `--foo`
+  --> reject/calls/overlay-use-unknown-flag.nu:1:18
+  |
+1 | overlay use null --foo
+  |                  ^^^^^
+  = while parsing command call
+  = help: use `--help` to see available flags

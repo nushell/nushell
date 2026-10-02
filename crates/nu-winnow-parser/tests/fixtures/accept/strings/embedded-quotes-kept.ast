@@ -1,0 +1,6 @@
+Block 0..37
+  Pipeline 0..36
+    List 0..36
+      String Double "[{name: \"John\"}]" 1..19
+      String Single "it''s" 20..27
+      String Double "a\"b\"c" 28..35

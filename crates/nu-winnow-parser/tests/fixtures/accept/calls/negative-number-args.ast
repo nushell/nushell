@@ -1,0 +1,36 @@
+Block 0..104
+  Pipeline 0..38
+    Def `f` 0..38
+      Signature 6..34
+        Param positional `a` 7..13 : int
+        Param positional `b` 15..23 : float
+        Param positional `c` 25..33 : float
+      Body 36..37
+  Pipeline 39..54
+    Call `f` 39..54
+      Int -5 41..43
+      Float -0.5 44..47
+      Float -1500 48..54
+  Pipeline 55..72
+    List 55..62
+      Int 1 56..57
+      Int 2 58..59
+      Int 3 60..61
+    | 63..64
+    Call `skip` 65..72
+      Int -1 70..72
+  Pipeline 73..103
+    List 73..80
+      Int 1 74..75
+      Int 2 76..77
+      Int 3 78..79
+    | 81..82
+    Call `each` 83..103
+      Closure 88..103
+        Signature 90..93
+          Param positional `x` 91..92
+        Body 94..102
+          Pipeline 94..101
+            BinaryOp + 94..101
+              Var $x 94..96
+              Int -1 99..101

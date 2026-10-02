@@ -1,0 +1,7 @@
+Block 0..16
+  Pipeline 0..15
+    Call `echo` 0..15
+      String Bare "-" 5..6
+      EndOfOptions 7..9
+      EndOfOptions 10..12
+      Flag -x 13..15

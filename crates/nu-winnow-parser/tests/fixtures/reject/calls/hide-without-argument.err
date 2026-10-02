@@ -1,0 +1,7 @@
+error: missing required positional argument
+  --> reject/calls/hide-without-argument.nu:1:1
+  |
+1 | hide
+  | ^
+  = while parsing command call
+  = help: `hide` takes 1 positional argument(s)

@@ -1,0 +1,6 @@
+Block 0..18
+  Pipeline 0..17
+    Call `match` 0..17
+      Int 1 6..7
+      Flag --help 8..14
+      Record 15..17

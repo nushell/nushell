@@ -1,0 +1,52 @@
+Block 0..180
+  Pipeline 0..179
+    Module 0..179
+      String Bare "foo" 7..10
+      Body 12..178
+        Pipeline 13..178
+          Module 13..178
+            String Bare "foo" 20..23
+            Body 25..177
+              Pipeline 26..177
+                Module 26..177
+                  String Bare "foo" 33..36
+                  Body 38..176
+                    Pipeline 39..176
+                      Module 39..176
+                        String Bare "foo" 46..49
+                        Body 51..175
+                          Pipeline 52..175
+                            Module 52..175
+                              String Bare "foo" 59..62
+                              Body 64..174
+                                Pipeline 65..174
+                                  Module 65..174
+                                    String Bare "foo" 72..75
+                                    Body 77..173
+                                      Pipeline 78..173
+                                        Module 78..173
+                                          String Bare "foo" 85..88
+                                          Body 90..172
+                                            Pipeline 91..172
+                                              Module 91..172
+                                                String Bare "foo" 98..101
+                                                Body 103..171
+                                                  Pipeline 104..171
+                                                    Module 104..171
+                                                      String Bare "foo" 111..114
+                                                      Body 116..170
+                                                        Pipeline 117..170
+                                                          Module 117..170
+                                                            String Bare "foo" 124..127
+                                                            Body 129..169
+                                                              Pipeline 130..169
+                                                                Module 130..169
+                                                                  String Bare "foo" 137..140
+                                                                  Body 142..168
+                                                                    Pipeline 143..168
+                                                                      Module 143..168
+                                                                        String Bare "foo" 150..153
+                                                                        Body 155..167
+                                                                          Pipeline 156..166
+                                                                            Use 156..166
+                                                                              String Bare "bar.nu" 160..166

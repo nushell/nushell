@@ -1,0 +1,6 @@
+Block 0..19
+  Pipeline 0..18
+    Alias `x` 0..18
+      ExternalCall 10..18
+        String Bare "FOO=1" 10..15
+        String Bare "ls" 16..18

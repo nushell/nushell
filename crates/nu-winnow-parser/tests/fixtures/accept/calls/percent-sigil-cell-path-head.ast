@@ -1,0 +1,12 @@
+Block 0..21
+  Pipeline 0..14
+    let x 0..14
+      Value 8..14
+        Pipeline 8..14
+          List 8..14
+            String Double "ls" 9..13
+  Pipeline 15..20
+    DynamicCall 15..20
+      FullCellPath 16..20
+        Var $x 16..18
+        Member 0 19..20

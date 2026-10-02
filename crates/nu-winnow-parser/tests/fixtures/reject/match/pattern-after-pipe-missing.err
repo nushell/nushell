@@ -1,0 +1,6 @@
+error: expected `=>`
+  --> reject/match/pattern-after-pipe-missing.nu:1:18
+  |
+1 | match 1 { 1 | => 1 }
+  |                  ^
+  = while parsing match

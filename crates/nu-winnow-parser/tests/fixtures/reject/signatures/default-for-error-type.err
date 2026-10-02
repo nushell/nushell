@@ -1,0 +1,6 @@
+error: expected error
+  --> reject/signatures/default-for-error-type.nu:1:21
+  |
+1 | def foo [x: error = 1] {}
+  |                     ^
+  = while parsing signature

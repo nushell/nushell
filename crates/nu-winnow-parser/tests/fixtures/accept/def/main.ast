@@ -1,0 +1,8 @@
+Block 0..90
+  Pipeline 0..89
+    Def `main` 0..89
+      Signature 9..85
+        Param flag --flag `flag` 15..35 : external_arg
+        Param positional `arg` 40..57 : external_arg
+        Param rest `rest` 62..83 : external_arg
+      Body 87..88

@@ -1,0 +1,6 @@
+error: extra columns
+  --> reject/tables/extra-columns.nu:1:20
+  |
+1 | [[a b]; [1 2] [3 4 5]]
+  |                    ^
+  = help: expected 2 columns, found 3

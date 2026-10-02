@@ -1,0 +1,18 @@
+Block 0..37
+  Pipeline 0..36
+    Call `do` 0..36
+      Closure 3..36
+        Body 5..35
+          Pipeline 5..14 terminator=14..15
+            let b 5..14
+              Value 13..14
+                Pipeline 13..14
+                  Int 3 13..14
+          Pipeline 16..31 terminator=31..32
+            Def `c` 16..31
+              Signature 22..24
+              Body 26..30
+                Pipeline 27..29
+                  Var $b 27..29
+          Pipeline 33..34
+            Call `c` 33..34

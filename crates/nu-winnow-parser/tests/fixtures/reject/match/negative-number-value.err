@@ -1,0 +1,7 @@
+error: the `match` command doesn't have flag `-1`
+  --> reject/match/negative-number-value.nu:1:7
+  |
+1 | match -1 { _ => 1 }
+  |       ^^
+  = while parsing match
+  = help: use `--help` to see available flags

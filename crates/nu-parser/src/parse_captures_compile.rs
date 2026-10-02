@@ -716,20 +716,28 @@ fn parse_with_block_cache(
     // Only blocks created by this parse. Older delta entries already have captures.
     let first_new_delta_block = working_set.delta.blocks.len();
 
-    let mut output = {
-        let (output, err) = lex(contents, new_span.start, &[], &[], false);
-        if let Some(err) = err {
-            working_set.error(err)
-        }
+    let winnow_block = if crate::winnow::enabled() {
+        crate::winnow::parse_file_block(working_set, contents, new_span, scoped)
+    } else {
+        None
+    };
+    let mut output = match winnow_block {
+        Some(block) => Arc::new(block),
+        None => {
+            let (output, err) = lex(contents, new_span.start, &[], &[], false);
+            if let Some(err) = err {
+                working_set.error(err)
+            }
 
-        Arc::new(parse_block(
-            working_set,
-            &output,
-            new_span,
-            scoped,
-            false,
-            None,
-        ))
+            Arc::new(parse_block(
+                working_set,
+                &output,
+                new_span,
+                scoped,
+                false,
+                None,
+            ))
+        }
     };
 
     // Top level `Block`s are compiled eagerly, as they don't have a parent which would cause them

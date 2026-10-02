@@ -1,0 +1,6 @@
+error: attributes must be followed by a definition
+  --> reject/attributes/before-export-module.nu:2:1
+  |
+2 | export module y {}
+  | ^^^^^^
+  = help: only `def`, `extern`, `export def` and `export extern` take attributes

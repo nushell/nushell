@@ -1,0 +1,7 @@
+error: rest parameter was given a default value
+  --> reject/signatures/rest-with-default.nu:1:20
+  |
+1 | def foo [...rest = 1] {}
+  |                    ^
+  = while parsing signature
+  = help: a `...rest` parameter can't have a default value

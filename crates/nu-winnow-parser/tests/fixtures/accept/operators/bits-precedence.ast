@@ -1,0 +1,13 @@
+Block 0..51
+  Pipeline 0..50
+    BinaryOp bit-or 0..50
+      BinaryOp bit-shl 0..11
+        Int 1 0..1
+        Int 2 10..11
+      BinaryOp bit-xor 19..50
+        BinaryOp bit-and 19..30
+          Int 4 19..20
+          Int 7 29..30
+        BinaryOp bit-shr 39..50
+          Int 1 39..40
+          Int 0 49..50

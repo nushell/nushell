@@ -1,0 +1,14 @@
+Block 0..32
+  Pipeline 0..31
+    Table 0..31
+      Columns
+        List 1..6
+          String Bare "a" 2..3
+          String Bare "b" 4..5
+      Row
+        List 18..23
+          Int 1 19..20
+          Int 2 21..22
+Comments (2)
+  8..16 "# header"
+  24..29 "# row"

@@ -1,0 +1,6 @@
+error: `for` is a statement and cannot be used inside a pipeline
+  --> reject/pipelines/for-in-pipeline.nu:1:11
+  |
+1 | [1 2 3] | for x in $in { $x + 1 } | $in ++ [5 6 7]
+  |           ^^^
+  = help: declarations and the module, source, overlay and plugin commands are statements of their own

@@ -1,0 +1,4 @@
+Block 0..4
+  Pipeline 0..3
+    ExternalCall 0..3
+      String Bare "ls" 1..3

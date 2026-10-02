@@ -1,0 +1,5 @@
+error: invalid cell path literal: negative index is not supported
+  --> reject/variables/negative-index.nu:2:4
+  |
+2 | $x.-1
+  |    ^^

@@ -1,0 +1,7 @@
+error: expected block
+  --> reject/closures/closure-params-in-block-position.nu:1:9
+  |
+1 | if true { |x| $x }
+  |         ^^^^^^^^^^
+  = while parsing if
+  = help: found closure parameters; blocks cannot have parameters

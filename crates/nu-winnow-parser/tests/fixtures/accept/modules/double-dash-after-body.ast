@@ -1,0 +1,7 @@
+Block 0..15
+  Pipeline 0..11
+    Module 0..11
+      String Bare "x" 7..8
+      Body 10..10
+Ignored (1)
+  12..14 "--"

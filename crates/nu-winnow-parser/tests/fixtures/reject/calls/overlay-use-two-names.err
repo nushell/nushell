@@ -1,0 +1,6 @@
+error: extra positional argument
+  --> reject/calls/overlay-use-two-names.nu:1:23
+  |
+1 | overlay use null as x y
+  |                       ^
+  = while parsing command call

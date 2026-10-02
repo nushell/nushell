@@ -1,0 +1,29 @@
+Block 0..320
+  Pipeline 0..319
+    Def `f` 0..319
+      Signature 6..315
+        Param positional `a` 7..47 : list<record<x: int, y: list<string>>>
+        Param positional `b` 49..70 : oneof<int, string>
+        Param positional `c` 72..80 : table
+        Param positional `d` 82..91 : record
+        Param positional `e` 93..100 : list
+        Param positional `f` 102..112 : closure
+        Param positional `g` 114..126 : cell-path
+        Param positional `h` 128..135 : glob
+        Param positional `i` 137..144 : path
+        Param positional `j` 146..158 : directory
+        Param positional `k` 160..171 : duration
+        Param positional `l` 173..184 : filesize
+        Param positional `m` 186..197 : datetime
+        Param positional `n` 199..208 : binary
+        Param positional `o` 210..217 : bool
+        Param positional `p` 219..227 : float
+        Param positional `q` 229..238 : number
+        Param positional `r` 240..248 : range
+        Param positional `s` 250..256 : any
+        Param positional `t` 258..268 : nothing
+        Param positional `u` 270..278 : error
+        Param positional `v` 280..295 : external_arg
+        Param positional `w` 297..303 : int
+        Param positional `x` 305..314 : string
+      Body 317..318

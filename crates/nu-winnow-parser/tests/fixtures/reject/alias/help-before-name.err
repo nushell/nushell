@@ -1,0 +1,6 @@
+error: expected `=`
+  --> reject/alias/help-before-name.nu:1:14
+  |
+1 | alias --help x = ls
+  |              ^
+  = while parsing alias

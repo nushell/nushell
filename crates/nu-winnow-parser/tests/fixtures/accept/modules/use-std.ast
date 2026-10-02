@@ -1,0 +1,28 @@
+Block 0..97
+  Pipeline 0..11
+    Use 0..11
+      String Bare "std/log" 4..11
+  Pipeline 12..26
+    Use 12..26
+      String Bare "std/assert" 16..26
+  Pipeline 27..43
+    Use 27..43
+      String Bare "std" 31..34
+      Members ["assert"] 35..43
+  Pipeline 44..53
+    Use 44..53
+      String Bare "std" 48..51
+      Member * 52..53
+  Pipeline 54..70
+    Use 54..70
+      String Bare "std" 58..61
+      Member "log" 62..65
+      Member "info" 66..70
+  Pipeline 71..84
+    Use 71..84
+      String Bare "std/log" 75..82
+      Member * 83..84
+  Pipeline 85..96
+    Use 85..96
+      String Bare "std" 89..92
+      Member "log" 93..96

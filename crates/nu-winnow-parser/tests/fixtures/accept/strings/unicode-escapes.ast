@@ -1,0 +1,9 @@
+Block 0..110
+  Pipeline 0..109
+    List 0..109
+      String Double "hello nushell" 1..36
+      String Double "98\u{10ffff}" 37..56
+      String Double "abcA" 57..68
+      String Double "Aabc" 69..80
+      String Double "\n" 81..88
+      String Double "ś🄋" 89..108

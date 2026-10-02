@@ -1,0 +1,6 @@
+error: expected `=>`
+  --> reject/match/no-arrow.nu:1:13
+  |
+1 | match 1 { 1 }
+  |             ^
+  = while parsing match

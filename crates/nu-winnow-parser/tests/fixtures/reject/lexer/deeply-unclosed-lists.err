@@ -1,0 +1,6 @@
+error: unclosed delimiter: expected `]`
+  --> reject/lexer/deeply-unclosed-lists.nu:2:1
+  |
+2 | 
+  | ^
+  = note: opened at 1:28

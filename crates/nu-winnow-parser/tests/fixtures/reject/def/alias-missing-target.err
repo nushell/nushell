@@ -1,0 +1,6 @@
+error: expected command after `=`
+  --> reject/def/alias-missing-target.nu:1:11
+  |
+1 | alias ll =
+  |           ^
+  = while parsing alias

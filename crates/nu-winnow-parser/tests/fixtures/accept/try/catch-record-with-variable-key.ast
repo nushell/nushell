@@ -1,0 +1,13 @@
+Block 0..78
+  Pipeline 52..77 comments=1
+    Try 52..77
+      Body 57..57
+      Catch 59..64
+        Record 65..77
+          Pair
+            FullCellPath 67..73
+              Var $env 67..71
+              Member "A" 72..73
+            String Bare "b" 74..75
+Comments (1)
+  0..51 "# A record typed `any` passes as a `catch` handler."

@@ -1,0 +1,6 @@
+Block 0..25
+  Pipeline 0..24
+    String Double "  x " 0..6
+    | 7..8
+    Call `str trim` 9..24
+      Flag --left 18..24

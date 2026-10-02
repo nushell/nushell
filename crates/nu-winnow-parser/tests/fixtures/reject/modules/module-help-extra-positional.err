@@ -1,0 +1,7 @@
+error: extra positional argument
+  --> reject/modules/module-help-extra-positional.nu:2:20
+  |
+2 | module x --help {} extra
+  |                    ^^^^^
+  = while parsing module
+  = help: `module` takes a name and a block

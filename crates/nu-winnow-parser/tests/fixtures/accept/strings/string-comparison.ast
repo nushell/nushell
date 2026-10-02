@@ -1,0 +1,15 @@
+Block 0..60
+  Pipeline 0..59
+    List 0..59
+      String Double "abc" 1..6
+      String Bare "<" 7..8
+      String Double "bca" 9..14
+      String Double "abc" 15..20
+      String Bare "<=" 21..23
+      String Double "bca" 24..29
+      String Double "abc" 30..35
+      String Bare ">" 36..37
+      String Double "bca" 38..43
+      String Double "abc" 44..49
+      String Bare ">=" 50..52
+      String Double "bca" 53..58

@@ -1,0 +1,22 @@
+Block 0..95
+  Pipeline 0..47
+    let a : record<a: int, b: string> 0..47
+      Value 35..47
+        Pipeline 35..47
+          Record 35..47
+            Pair
+              String Bare "a" 36..37
+              Int 1 39..40
+            Pair
+              String Bare "b" 42..43
+              String Bare "x" 45..46
+  Pipeline 48..74
+    let b : list< string > 48..74
+      Value 72..74
+        Pipeline 72..74
+          List 72..74
+  Pipeline 75..94
+    let c : table<> 75..94
+      Value 92..94
+        Pipeline 92..94
+          List 92..94

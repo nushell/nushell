@@ -1,0 +1,7 @@
+Block 0..28
+  Pipeline 0..27
+    BinaryOp ++ 0..14
+      String Double "abc" 0..5
+      String Double "def" 9..14
+    | 15..16
+    Call `str length` 17..27

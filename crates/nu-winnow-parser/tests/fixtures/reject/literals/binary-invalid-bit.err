@@ -1,0 +1,5 @@
+error: invalid binary literal: `2` is not a valid digit for radix 2
+  --> reject/literals/binary-invalid-bit.nu:1:1
+  |
+1 | 0b[12]
+  | ^^^^^^

@@ -1,0 +1,15 @@
+Block 0..78
+  Pipeline 0..77
+    Match 0..77
+      Int 1 6..7
+      Arm 26..36
+        Pattern value 26..27
+          Int 1 26..27
+        String Double "one" 31..36
+      Arm 63..75
+        Pattern _ 63..64
+        String Double "other" 68..75
+Comments (3)
+  12..23 "# first arm"
+  37..47 "# trailing"
+  50..60 "# last arm"

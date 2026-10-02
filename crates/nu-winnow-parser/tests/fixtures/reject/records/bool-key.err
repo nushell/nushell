@@ -1,0 +1,6 @@
+error: expected string
+  --> reject/records/bool-key.nu:1:2
+  |
+1 | {true: 4}
+  |  ^^^^
+  = help: `true` is a value; quote it to use it as a string

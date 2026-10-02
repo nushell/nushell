@@ -1,0 +1,6 @@
+error: expected block
+  --> reject/try/alone.nu:1:4
+  |
+1 | try
+  |    ^
+  = while parsing try

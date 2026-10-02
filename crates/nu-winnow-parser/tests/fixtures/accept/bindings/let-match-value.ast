@@ -1,0 +1,16 @@
+Block 0..35
+  Pipeline 0..34
+    let x 0..34
+      Value 8..34
+        Pipeline 8..34
+          Match 8..34
+            Int 1 14..15
+            Arm 18..24
+              Pattern value 18..19
+                Int 1 18..19
+              ExternalCall 23..24
+                String Bare "a" 23..24
+            Arm 26..32
+              Pattern _ 26..27
+              ExternalCall 31..32
+                String Bare "b" 31..32

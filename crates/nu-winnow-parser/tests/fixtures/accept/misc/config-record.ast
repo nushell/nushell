@@ -1,0 +1,96 @@
+Block 0..539
+  Pipeline 0..538
+    Assignment = 0..538
+      FullCellPath 0..11
+        Var $env 0..4
+        Member "config" 5..11
+      Value 14..538
+        Pipeline 14..538
+          Record 14..538
+            Pair
+              String Bare "show_banner" 18..29
+              Bool false 31..36
+            Pair
+              String Bare "ls" 39..41
+              Record 43..66
+                Pair
+                  String Bare "use_ls_colors" 45..58
+                  Bool true 60..64
+            Pair
+              String Bare "hooks" 69..74
+              Record 76..239
+                Pair
+                  String Bare "pre_prompt" 82..92
+                  List 94..104
+                    Closure 95..103
+                      Body 97..102
+                        Pipeline 97..101
+                          Nothing 97..101
+                Pair
+                  String Bare "env_change" 109..119
+                  Record 121..155
+                    Pair
+                      String Bare "PWD" 123..126
+                      List 128..153
+                        Closure 129..152
+                          Signature 130..145
+                            Param positional `before` 131..137
+                            Param positional `after` 139..144
+                          Body 146..151
+                            Pipeline 146..150
+                              Nothing 146..150
+                Pair
+                  String Bare "display_output" 160..174
+                  String Double "if (term size).columns >= 100 { table -e } else { table }" 176..235
+            Pair
+              String Bare "menus" 242..247
+              List 249..329
+                Record 255..325
+                  Pair
+                    String Bare "name" 257..261
+                    String Bare "completion_menu" 263..278
+                  Pair
+                    String Bare "only_buffer_difference" 280..302
+                    Bool false 304..309
+                  Pair
+                    String Bare "marker" 311..317
+                    String Double "| " 319..323
+            Pair
+              String Bare "keybindings" 332..343
+              List 345..448
+                Record 351..444
+                  Pair
+                    String Bare "name" 353..357
+                    String Bare "x" 359..360
+                  Pair
+                    String Bare "modifier" 362..370
+                    String Bare "none" 372..376
+                  Pair
+                    String Bare "keycode" 378..385
+                    String Bare "char_x" 387..393
+                  Pair
+                    String Bare "mode" 395..399
+                    List 401..418
+                      String Bare "emacs" 402..407
+                      String Bare "vi_normal" 408..417
+                  Pair
+                    String Bare "event" 420..425
+                    Record 427..442
+                      Pair
+                        String Bare "send" 429..433
+                        String Bare "enter" 435..440
+            Pair
+              String Bare "color_config" 451..463
+              Record 465..505
+                Pair
+                  String Bare "command_bar_text" 467..483
+                  Record 485..502
+                    Pair
+                      String Bare "fg" 487..489
+                      String Single "#C4C9C6" 491..500
+            Pair
+              String Bare "rm" 508..510
+              Record 512..536
+                Pair
+                  String Bare "always_trash" 514..526
+                  Bool false 528..533

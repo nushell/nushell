@@ -1,0 +1,7 @@
+error: missing required positional argument
+  --> reject/calls/overlay-new-without-argument.nu:1:1
+  |
+1 | overlay new
+  | ^
+  = while parsing command call
+  = help: `overlay new` takes 1 positional argument(s)

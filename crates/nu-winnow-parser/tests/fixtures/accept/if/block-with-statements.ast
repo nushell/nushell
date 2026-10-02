@@ -1,0 +1,21 @@
+Block 0..51
+  Pipeline 0..50
+    If 0..50
+      Condition
+        Bool true 3..7
+      Then 9..24
+        Pipeline 10..19 terminator=19..20
+          let x 10..19
+            Value 18..19
+              Pipeline 18..19
+                Int 1 18..19
+        Pipeline 21..23
+          Var $x 21..23
+      Else 26..30
+        BlockExpr 31..50 32..49
+          Pipeline 33..45 terminator=45..46
+            Def `f` 33..45
+              Signature 39..41
+              Body 43..44
+          Pipeline 47..48
+            Call `f` 47..48

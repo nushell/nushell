@@ -1,0 +1,12 @@
+Block 0..78
+  Pipeline 0..77
+    Def `foo` 0..77
+      Signature 8..73
+        Param positional `a` 12..18 : int desc="the a"
+        Param flag --flag -f `flag` 29..39 desc="the flag"
+        Param rest `rest` 53..60 desc="the rest"
+      Body 75..76
+Comments (3)
+  19..26 "# the a"
+  40..50 "# the flag"
+  61..71 "# the rest"

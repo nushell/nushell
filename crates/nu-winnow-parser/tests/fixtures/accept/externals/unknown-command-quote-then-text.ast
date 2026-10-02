@@ -1,0 +1,7 @@
+Block 0..35
+  Pipeline 0..34
+    ExternalCall 0..34
+      String Bare "curl" 0..4
+      String Bare "-H" 5..7
+      String Bare "a:bx" 8..14
+      String Bare "https://example.com" 15..34

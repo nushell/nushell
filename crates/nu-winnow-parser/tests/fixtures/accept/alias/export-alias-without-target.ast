@@ -1,0 +1,4 @@
+Block 0..17
+  Pipeline 0..16
+    Export 0..16
+      Alias `x` 7..16

@@ -1,0 +1,6 @@
+error: unbalanced delimiter: found `]` without a matching `{`
+  --> reject/lexer/extra-bracket-in-block.nu:3:18
+  |
+3 |       2 (3 - 2) 0]
+  |                  ^
+  = help: the innermost open delimiter is `{` at byte 21

@@ -1,0 +1,6 @@
+error: unknown command
+  --> reject/env-shorthand/shorthand-alone.nu:1:1
+  |
+1 | FOO=1
+  | ^^^^^
+  = help: `NAME=value` sets an environment variable for the command that follows it

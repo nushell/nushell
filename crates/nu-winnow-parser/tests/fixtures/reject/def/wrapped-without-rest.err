@@ -1,0 +1,7 @@
+error: missing required positional argument
+  --> reject/def/wrapped-without-rest.nu:1:15
+  |
+1 | def --wrapped foo [] {}
+  |               ^^^
+  = while parsing def
+  = help: def --wrapped must have a ...rest-like positional argument; add `...rest: string` to the signature

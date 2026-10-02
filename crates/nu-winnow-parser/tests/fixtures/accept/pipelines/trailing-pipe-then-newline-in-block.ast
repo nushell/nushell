@@ -1,0 +1,7 @@
+Block 0..18
+  Pipeline 0..17
+    Def `f` 0..17
+      Signature 6..8
+      Body 10..16
+        Pipeline 11..13
+          Call `ls` 11..13

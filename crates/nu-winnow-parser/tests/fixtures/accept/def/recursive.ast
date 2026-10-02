@@ -1,0 +1,40 @@
+Block 0..99
+  Pipeline 0..14
+    Def `c` 0..14
+      Signature 6..8
+      Body 10..13
+        Pipeline 11..12
+          Call `c` 11..12
+  Pipeline 15..98
+    Def `px` 15..98
+      Signature 22..27
+        Param positional `n` 23..26
+          Default
+            Int 0 25..26
+      Body 29..97
+        Pipeline 30..41 terminator=41..42
+          let l 30..41
+            Value 38..41
+              Pipeline 38..41
+                Var $in 38..41
+        Pipeline 43..96
+          If 43..96
+            Condition
+              BinaryOp == 46..53
+                Var $n 46..48
+                Int 0 52..53
+            Then 55..69
+              Pipeline 56..68
+                Return 56..68
+                  Bool false 63..68
+            Else 71..75
+              BlockExpr 76..96 77..95
+                Pipeline 78..94
+                  Var $l 78..80
+                  | 81..82
+                  Call `px` 83..94
+                    Subexpression 86..94 87..93
+                      Pipeline 87..93
+                        BinaryOp - 87..93
+                          Var $n 87..89
+                          Int 1 92..93

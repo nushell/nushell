@@ -1,0 +1,30 @@
+Block 0..67
+  Pipeline 0..66
+    List 0..7
+      Int 1 1..2
+      Int 2 3..4
+      Int 3 5..6
+    | 8..9
+    Call `each` 10..50
+      Closure 15..50
+        Signature 17..20
+          Param positional `x` 18..19
+        Body 21..49
+          Pipeline 21..48
+            If 21..48
+              Condition
+                BinaryOp > 24..30
+                  Var $x 24..26
+                  Int 1 29..30
+              Then 32..36
+                Pipeline 33..35
+                  Var $x 33..35
+              Else 38..42
+                BlockExpr 43..48 44..47
+                  Pipeline 45..46
+                    Int 0 45..46
+    | 51..52
+    Where 53..66
+      BinaryOp > 59..66
+        Var $it 59..62
+        Int 0 65..66

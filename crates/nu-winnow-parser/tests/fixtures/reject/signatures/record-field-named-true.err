@@ -1,0 +1,7 @@
+error: expected string
+  --> reject/signatures/record-field-named-true.nu:1:20
+  |
+1 | def foo [x: record<true: int>] {}
+  |                    ^^^^
+  = while parsing signature
+  = help: `true` is a value; quote it to use it as a string

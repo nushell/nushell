@@ -1,0 +1,5 @@
+error: `2>` is not Nushell syntax; use `e>` instead
+  --> reject/lexer/bash-stderr-redirect.nu:1:5
+  |
+1 | ^ls 2> err.txt
+  |     ^^

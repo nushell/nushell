@@ -1,0 +1,6 @@
+error: expected `:` before the input/output types
+  --> reject/def/help-after-two-braces.nu:1:12
+  |
+1 | def foo [] {} {} --help
+  |            ^^
+  = while parsing def

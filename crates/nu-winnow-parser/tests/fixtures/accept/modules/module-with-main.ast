@@ -1,0 +1,25 @@
+Block 0..90
+  Pipeline 0..81
+    Module 0..81
+      String Bare "m" 7..8
+      Body 10..80
+        Pipeline 13..42
+          Export 13..42
+            Def `main` 20..42
+              Signature 29..31
+              Body 33..41
+                Pipeline 34..40
+                  String Double "main" 34..40
+        Pipeline 45..79
+          Export 45..79
+            Def `main sub` 52..79
+              Signature 67..69
+              Body 71..78
+                Pipeline 72..77
+                  String Double "sub" 72..77
+  Pipeline 82..87
+    Use 82..87
+      String Bare "m" 86..87
+  Pipeline 88..89
+    ExternalCall 88..89
+      String Bare "m" 88..89

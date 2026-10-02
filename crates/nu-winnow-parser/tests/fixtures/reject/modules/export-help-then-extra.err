@@ -1,0 +1,7 @@
+error: extra tokens after the end of the expression
+  --> reject/modules/export-help-then-extra.nu:1:15
+  |
+1 | export --help x
+  |               ^
+  = while parsing export
+  = help: `export` takes no positional arguments

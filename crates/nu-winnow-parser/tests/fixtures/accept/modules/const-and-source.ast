@@ -1,0 +1,9 @@
+Block 0..33
+  Pipeline 0..19
+    const file 0..19
+      Value 13..19
+        Pipeline 13..19
+          String Single "x.nu" 13..19
+  Pipeline 20..32
+    Call `source` 20..32
+      Var $file 27..32

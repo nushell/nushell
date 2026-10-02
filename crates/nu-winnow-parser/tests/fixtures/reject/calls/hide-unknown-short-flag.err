@@ -1,0 +1,7 @@
+error: the `hide` command doesn't have flag `-x`
+  --> reject/calls/hide-unknown-short-flag.nu:1:6
+  |
+1 | hide -x ls
+  |      ^^
+  = while parsing command call
+  = help: use `--help` to see available flags

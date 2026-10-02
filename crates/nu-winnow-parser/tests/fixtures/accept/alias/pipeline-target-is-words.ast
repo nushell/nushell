@@ -1,0 +1,6 @@
+Block 0..23
+  Pipeline 0..22
+    Alias `ll` 0..22
+      Call `ls` 11..22
+        String Bare "|" 14..15
+        String Bare "length" 16..22

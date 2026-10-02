@@ -1,0 +1,20 @@
+Block 0..60
+  Pipeline 0..59
+    For $x 0..59
+      List 9..14
+        Int 1 10..11
+        Int 2 12..13
+      Body 16..58
+        Pipeline 19..57
+          If 19..57
+            Condition
+              BinaryOp == 22..29
+                Var $x 22..24
+                Int 1 28..29
+            Then 31..41
+              Pipeline 32..40
+                Continue 32..40
+            Else 43..47
+              BlockExpr 48..57 49..56
+                Pipeline 50..55
+                  Break 50..55
