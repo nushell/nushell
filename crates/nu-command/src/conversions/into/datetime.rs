@@ -237,6 +237,15 @@ impl Command for IntoDatetime {
                 )),
             },
             Example {
+                description: "Interpret a formatted datetime in the Europe/Berlin timezone.",
+                example: "'2024-07-01 12:00' | into datetime --format '%Y-%m-%d %H:%M' --timezone Europe/Berlin",
+                result: Some(Value::date(
+                    DateTime::parse_from_str("2024-07-01 12:00 +02:00", "%Y-%m-%d %H:%M %z")
+                        .expect("date calculation should not fail in test"),
+                    Span::test_data(),
+                )),
+            },
+            Example {
                 description: "Convert nanosecond-precision unix timestamp to a datetime with \
                               offset from UTC.",
                 example: "1614434140123456789 | into datetime --offset -5",
