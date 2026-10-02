@@ -36,6 +36,11 @@ impl Command for JobSpawn {
                 "An optional description for this job.",
                 Some('d'),
             )
+            .switch(
+                "auto-kill",
+                "Allow nushell to terminate this job automatically, such as when calling `exit`",
+                Some('k'),
+            )
             .required(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
@@ -59,6 +64,7 @@ impl Command for JobSpawn {
         let closure: Closure = call.req(engine_state, stack, 0)?;
 
         let description: Option<String> = call.get_flag(engine_state, stack, "description")?;
+        let auto_kill = call.has_flag(engine_state, stack, "auto-kill")?;
         let job_stack = stack.clone();
 
         let mut job_state = engine_state.clone();
@@ -79,7 +85,7 @@ impl Command for JobSpawn {
         let (send, recv) = mpsc::channel();
 
         let id = {
-            let thread_job = ThreadJob::new(job_signals, description, send);
+            let thread_job = ThreadJob::new(job_signals, description, auto_kill, send);
 
             let id = jobs.add_job(Job::Thread(thread_job.clone()));
 
