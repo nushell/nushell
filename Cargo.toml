@@ -153,7 +153,7 @@ calamine = "0.36.1"
 chardetng = "1.0.0"
 chrono = { default-features = false, version = "0.4.45" }
 chrono-humanize = "0.2.3"
-chrono-tz = "0.10"
+chrono-tz = { version = "0.10", features = ["case-insensitive"] }
 crossbeam-channel = "0.5.15"
 crossterm = "0.29.0"
 csv = "1.4"
