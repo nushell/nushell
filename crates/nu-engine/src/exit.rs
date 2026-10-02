@@ -1,4 +1,5 @@
 use nu_protocol::engine::{EngineState, Job};
+use nu_protocol::{ShellWarning, report_shell_warning};
 use std::sync::atomic::Ordering;
 
 /// Exit the process or clean jobs if appropriate.
@@ -37,9 +38,11 @@ pub fn cleanup<T>(tag: T, engine_state: &EngineState) -> Option<T> {
         && job_count > 0
         && !engine_state.exit_warning_given.load(Ordering::SeqCst)
     {
-        println!("There are still background jobs running ({job_count}).");
-
-        println!("Running `exit` a second time will kill all of them.");
+        report_shell_warning(
+            None,
+            engine_state,
+            &ShellWarning::BackgroundJobsRunning { job_count },
+        );
 
         engine_state
             .exit_warning_given
