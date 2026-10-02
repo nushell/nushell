@@ -1,8 +1,11 @@
+use std::{ops::Deref, sync::LazyLock};
+
 use crate::{generate_strftime_list, parse_date_from_string};
 use chrono::{
-    DateTime, Datelike, FixedOffset, Local, NaiveDate, NaiveDateTime, NaiveTime, TimeZone,
+    DateTime, Datelike, FixedOffset, Local, NaiveDate, NaiveDateTime, NaiveTime, Offset, TimeZone,
     Timelike, Utc,
 };
+use chrono_tz::TZ_VARIANTS;
 use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
 
@@ -40,11 +43,20 @@ enum Zone {
     Local,
     East(u8),
     West(u8),
+    Tz(chrono_tz::Tz),
     Error, // we want Nushell to cast it instead of Rust
 }
 
+static ZONE_OPTIONS: LazyLock<Vec<&'static str>> = LazyLock::new(|| {
+    let builtin = ["LOCAL", "UTC"].into_iter();
+    let timezones = TZ_VARIANTS
+        .into_iter()
+        .map(|tz| tz.name())
+        .filter(|tz| !matches!(tz.to_uppercase().as_str(), "LOCAL" | "UTC")); // deduplicate
+    Vec::from_iter(builtin.chain(timezones))
+});
+
 impl Zone {
-    const OPTIONS: &[&str] = &["utc", "local"];
     fn new(i: i64) -> Self {
         if i.abs() <= 12 {
             // guaranteed here
@@ -57,10 +69,12 @@ impl Zone {
             Self::Error // Out of range
         }
     }
+
     fn from_string(s: &str) -> Self {
         match s.to_ascii_lowercase().as_str() {
             "utc" | "u" => Self::Utc,
             "local" | "l" => Self::Local,
+            tz if let Ok(tz) = chrono_tz::Tz::from_str_insensitive(tz) => Self::Tz(tz),
             _ => Self::Error,
         }
     }
@@ -105,7 +119,7 @@ impl Command for IntoDatetime {
                     .desc(
                         "Specify timezone to interpret timestamps and formatted datetime input. Valid options: 'UTC' ('u') or 'LOCAL' ('l').",
                     )
-                    .completion(Completion::new_list(Zone::OPTIONS)),
+                    .completion(Completion::new_list(ZONE_OPTIONS.deref())),
             )
             .named(
                 "offset",
@@ -423,6 +437,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                         *span,
                     ),
                 },
+                Zone::Tz(tz) => Value::date(tz.timestamp_nanos(ts).fixed_offset(), *span),
                 Zone::Error => Value::error(
                     // This is an argument error, not an input error
                     ShellError::TypeMismatch {
@@ -479,6 +494,11 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                                     *span,
                                 ),
                             },
+                            Zone::Tz(tz) => {
+                                let fixed_offset =
+                                    tz.offset_from_utc_datetime(&dt.naive_utc()).fix();
+                                Value::date(dt.with_timezone(&fixed_offset), *span)
+                            }
                             Zone::Error => Value::error(
                                 // This is an argument error, not an input error
                                 ShellError::TypeMismatch {
@@ -817,6 +837,10 @@ fn interpret_wall_clock_datetime(
                     Some(dt_native) => Value::date(dt_native, *span),
                     None => datetime_parse_error_value(val, *span),
                 },
+                None => datetime_parse_error_value(val, *span),
+            },
+            Zone::Tz(tz) => match dt.and_local_timezone(*tz).single() {
+                Some(dt_tz) => Value::date(dt_tz.fixed_offset(), *span),
                 None => datetime_parse_error_value(val, *span),
             },
             Zone::Error => invalid_timezone_value(*span),
