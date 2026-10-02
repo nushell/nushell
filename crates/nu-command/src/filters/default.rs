@@ -14,7 +14,6 @@ impl Command for Default {
     fn signature(&self) -> Signature {
         Signature::build("default")
             // TODO: Give more specific type signature?
-            // TODO: Declare usage of cell paths in signature? (It seems to behave as if it uses cell paths)
             .input_output_types(vec![(Type::Any, Type::Any)])
             .required(
                 "default value",
@@ -23,8 +22,8 @@ impl Command for Default {
             )
             .rest(
                 "column name",
-                SyntaxShape::String,
-                "The name of the column.",
+                SyntaxShape::CellPath,
+                "The name (or cell path) of the column.",
             )
             .switch(
                 "empty",
@@ -46,7 +45,7 @@ impl Command for Default {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let default_value: Value = call.req(engine_state, stack, 0)?;
-        let columns: Vec<String> = call.rest(engine_state, stack, 1)?;
+        let columns: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
         let empty = call.has_flag(engine_state, stack, "empty")?;
 
         let default_value = DefaultValue::new(engine_state, stack, default_value);
@@ -116,6 +115,16 @@ impl Command for Default {
                 ])),
             },
             Example {
+                description: "Fill a missing nested value using a cell path",
+                example: "{a: {b: 1}} | default 2 a.c",
+                result: Some(Value::test_record(record! {
+                    "a" => Value::test_record(record! {
+                        "b" => Value::test_int(1),
+                        "c" => Value::test_int(2),
+                    }),
+                })),
+            },
+            Example {
                 description: "Generate a default value from a closure",
                 example: "null | default { 1 + 2 }",
                 result: Some(Value::test_int(3)),
@@ -144,7 +153,7 @@ fn default(
     input: PipelineData,
     mut default_value: DefaultValue,
     default_when_empty: bool,
-    columns: Vec<String>,
+    columns: Vec<CellPath>,
     signals: &Signals,
 ) -> Result<PipelineData, ShellError> {
     let mut input = if !columns.is_empty() {
@@ -160,10 +169,9 @@ fn default(
     // and set the default value for the specified record columns
     if !columns.is_empty() {
         if let PipelineData::Value(Value::Record { .. }, _) = input {
-            let record = input.into_value(input_span)?.into_record()?;
+            let record = input.into_value(input_span)?;
             fill_record(
                 record,
-                input_span,
                 &mut default_value,
                 columns.as_slice(),
                 default_when_empty,
@@ -180,11 +188,9 @@ fn default(
             Ok(input
                 .into_iter()
                 .map(move |item| {
-                    let span = item.span();
-                    if let Value::Record { val, .. } = item {
+                    if item.as_record().is_ok() {
                         fill_record(
-                            val.into_owned(),
-                            span,
+                            item,
                             &mut default_value,
                             columns.as_slice(),
                             default_when_empty,
@@ -282,24 +288,29 @@ impl DefaultValue {
     }
 }
 
-/// Given a record, fill missing columns with a default value
+/// Given a record, fill missing (or null, or empty with `--empty`) cell paths with a default value.
+///
+/// Each column is a full cell path, so `default 5 a.b` fills the nested field `b` inside `a`
+/// rather than adding a literal `"a.b"` key. Intermediate records are created on demand,
+/// following the same rules as `upsert`.
 fn fill_record(
-    mut record: Record,
-    span: Span,
+    mut record: Value,
     default_value: &mut DefaultValue,
-    columns: &[String],
+    columns: &[CellPath],
     empty: bool,
 ) -> Result<Value, ShellError> {
     for col in columns {
-        if let Some(val) = record.get_mut(col) {
-            if matches!(val, Value::Nothing { .. }) || (empty && val.is_empty()) {
-                *val = default_value.value()?;
-            }
-        } else {
-            record.push(col.clone(), default_value.value()?);
+        let needs_default = match record.follow_cell_path(&col.members) {
+            Ok(val) => val.is_nothing() || (empty && val.is_empty()),
+            // The path does not exist yet: `upsert` creates it, or reports the real
+            // problem (for example trying to index into a scalar).
+            Err(_) => true,
+        };
+        if needs_default {
+            record.upsert_data_at_cell_path(&col.members, default_value.value()?)?;
         }
     }
-    Ok(Value::record(record, span))
+    Ok(record)
 }
 
 fn closure_variable_warning(

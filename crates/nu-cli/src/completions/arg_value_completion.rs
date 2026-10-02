@@ -1,6 +1,6 @@
 use super::completer::touches;
 use crate::{
-    CompletionEngine, FileCompletion,
+    FileCompletion,
     completions::{
         Completer, Context, DirectoryCompletion, ExportableCompletion, Fetched, SemanticSuggestion,
         completion_options::NuMatcher, to_reedline_span,
@@ -18,9 +18,7 @@ pub struct ArgValueCompletion<'a> {
     pub arg_type: ArgType<'a>,
     /// Whether to fall back to file completion when no source matches.
     pub need_fallback: bool,
-    pub completer: &'a CompletionEngine,
-    /// Index into `call.arguments`, or `call.arguments.len()` for a synthesized
-    /// trailing slot the parser produced no argument for (e.g. `open <tab>`).
+    /// Index into `call.arguments`, or `.len()` for a trailing slot with no argument.
     pub arg_idx: usize,
     /// The `SyntaxShape` this argument is declared with in the command's signature, if
     /// known. Used to pick a type-specific fallback (e.g. directories for `cd <tab>`) when
@@ -32,9 +30,8 @@ pub struct ArgValueCompletion<'a> {
 
 impl<'a> Completer for ArgValueCompletion<'a> {
     fn fetch(&mut self, context: &Context) -> Fetched {
-        let dynamic = self.fetch_dynamic_completion(context);
-        if !dynamic.needs_fallback() {
-            return dynamic;
+        if let Some(fetched_completion) = self.fetch_dynamic_completion(context) {
+            return fetched_completion;
         }
 
         self.fetch_fallback(context)
@@ -42,31 +39,26 @@ impl<'a> Completer for ArgValueCompletion<'a> {
 }
 
 impl<'a> ArgValueCompletion<'a> {
-    pub(crate) fn fetch_dynamic_completion(&self, context: &Context) -> Fetched {
-        self.try_fetch_dynamic_completion(context)
-            .unwrap_or(Fetched::Absent)
-    }
-
+    /// Type and filesystem completion, after all command and user sources decline.
     pub(crate) fn fetch_fallback(&self, context: &Context) -> Fetched {
-        let working_set = context.working_set;
         let prefix_string = context.prefix_str();
 
-        let completion_context = self.completer.context(
-            working_set,
-            context.span,
-            prefix_string.as_ref().as_bytes(),
-            context.offset,
-        );
+        let completion_context = Context {
+            prefix: prefix_string.as_ref().as_bytes(),
+            ..*context
+        };
 
         // Command-specific completions are dispatched earlier via `BuiltinCompletion`;
-        // this is the final generic argument-value fallback.
+        // here we handle only the final generic argument-value fallbacks.
         self.fetch_fallback_completion(self.arg_expr(), &completion_context)
     }
 
-    fn try_fetch_dynamic_completion(&self, context: &Context) -> Option<Fetched> {
+    pub(crate) fn fetch_dynamic_completion(&self, context: &Context) -> Option<Fetched> {
         let working_set = context.working_set;
         let declaration = working_set.get_decl(self.call.decl_id);
-        let mut stack = context.stack.to_owned();
+        // Native/plugin sources are noninteractive even when a later user picker
+        // makes this query run on the line-editor thread.
+        let mut stack = context.stack.to_owned().suppress_stdin();
 
         let dynamic_completion_call = DynamicCompletionCallRef {
             call: self.call,
@@ -104,7 +96,7 @@ impl<'a> ArgValueCompletion<'a> {
                     matcher.add_semantic_suggestion(suggestion);
                 }
 
-                Some(Fetched::Cacheable(matcher.suggestion_results()))
+                Some(Fetched::answering(matcher.suggestion_results()).worth_keeping())
             }
             Ok(None) => None, // fallback to type based completion, file completion, etc.
             Err(error) => {
@@ -134,13 +126,13 @@ impl<'a> ArgValueCompletion<'a> {
     ) -> Fetched {
         let expression = self.arg_expr();
         let Some((module_name, span)) = self.find_module_name_and_span() else {
-            return Fetched::Pure(vec![]);
+            return Fetched::answering(vec![]);
         };
 
         let Some((module_id, temp_working_set)) =
             self.resolve_module(working_set, module_name, span)
         else {
-            return Fetched::Pure(vec![]);
+            return Fetched::answering(vec![]);
         };
 
         let mut exportable_completion = ExportableCompletion {
@@ -157,14 +149,16 @@ impl<'a> ArgValueCompletion<'a> {
                     completion_context,
                     &mut exportable_completion,
                 ),
-                _ => Fetched::Pure(vec![]),
+                _ => Fetched::answering(vec![]),
             },
             // No expression at all or any other scalar shape (`Expr::String`, plus `Expr::Nothing`
             // for the `null` keyword): search exports by the raw prefix text.
             _ => exportable_completion.fetch(completion_context),
         };
 
-        fetched_result.caching()
+        // Reaching here may have parsed a module off disk, so the answer is worth keeping
+        // even where the source that gave it was cheap.
+        fetched_result.worth_keeping()
     }
 
     fn find_module_name_and_span(&self) -> Option<(&[u8], Span)> {
@@ -234,12 +228,11 @@ impl<'a> ArgValueCompletion<'a> {
             completion_context.span.end.min(item_span.end),
         );
 
-        let item_context = self.completer.context(
-            completion_context.working_set,
-            new_span,
-            sliced_prefix,
-            completion_context.offset,
-        );
+        let item_context = Context {
+            span: new_span,
+            prefix: sliced_prefix,
+            ..*completion_context
+        };
 
         exportable_completion.fetch(&item_context)
     }
@@ -268,7 +261,7 @@ impl<'a> ArgValueCompletion<'a> {
             Some(SyntaxShape::Filepath | SyntaxShape::GlobPattern) => complete_file(),
             // fallback to file completion if necessary
             _ if self.need_fallback => complete_file(),
-            _ => Fetched::Pure(vec![]),
+            _ => Fetched::answering(vec![]),
         }
     }
 }

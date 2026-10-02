@@ -229,6 +229,7 @@ impl FromValue for ErrorLabel {
         let [text_val, span_val] = match required_columns.map(|col| record.remove(col.0).ok_or(col))
         {
             [Ok(text_val), Ok(span_val)] => [text_val, span_val],
+            [Err(_), Ok(span_val)] => ["".into_value(span), span_val],
             results => {
                 let err = LabeledError::new("Value is missing required columns.");
                 let err = results

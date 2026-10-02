@@ -27,7 +27,9 @@ web-time = { workspace = true }
 
 [target.'cfg(target_family = "unix")'.dependencies]
 nix = { workspace = true, default-features = false, features = ["fs", "term", "process", "signal"] }
-uucore = { workspace = true, features = ["mode"] }
+# `mode` uses rustix::fs::Mode / rustix::process::umask; uucore 0.12 only
+# enables rustix/process for that feature, so also enable `fs` (rustix/fs).
+uucore = { workspace = true, features = ["fs", "mode"] }
 
 [target.'cfg(any(target_os = "linux", target_os = "android"))'.dependencies]
 procfs = { workspace = true }

@@ -138,11 +138,12 @@ impl Command for FormatDate {
     fn run_const(
         &self,
         working_set: &StateWorkingSet,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let list = call.has_flag_const(working_set, "list")?;
-        let format = call.opt_const::<Spanned<String>>(working_set, 0)?;
+        let list = call.has_flag_const(working_set, stack, "list")?;
+        let format = call.opt_const::<Spanned<String>>(working_set, stack, 0)?;
         let locale = get_locale(|name| working_set.get_env_var(name)?.as_str().ok());
 
         run(working_set.permanent(), call, input, list, format, locale)

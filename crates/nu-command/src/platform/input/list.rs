@@ -4,7 +4,7 @@ use crossterm::{
     event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers},
     execute,
     style::Print,
-    terminal::{self, BeginSynchronizedUpdate, Clear, ClearType, EndSynchronizedUpdate},
+    terminal::{BeginSynchronizedUpdate, Clear, ClearType, EndSynchronizedUpdate},
 };
 use nu_ansi_term::{Style, ansi::RESET};
 use nu_color_config::{Alignment, StyleComputer, TextStyle};
@@ -1742,7 +1742,7 @@ impl<'a> SelectWidget<'a> {
 
         // Get initial terminal size and cache it
         let (term_width, term_height) =
-            terminal::size().map_err(io_context("read terminal size"))?;
+            nu_utils::terminal_size().map_err(io_context("read terminal size"))?;
         self.update_term_size(term_width, term_height);
 
         self.render(&mut stderr)

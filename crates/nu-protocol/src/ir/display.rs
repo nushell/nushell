@@ -243,6 +243,9 @@ impl fmt::Display for FmtInstruction<'_> {
             Instruction::Jump { index } => {
                 write!(f, "{:WIDTH$} {index}", "jump")
             }
+            Instruction::UnwindJump { index, handlers } => {
+                write!(f, "{:WIDTH$} {index}, handlers {handlers}", "unwind-jump")
+            }
             Instruction::BranchIf { cond, index } => {
                 write!(f, "{:WIDTH$} {cond}, {index}", "branch-if")
             }
@@ -273,9 +276,6 @@ impl fmt::Display for FmtInstruction<'_> {
             Instruction::OnError { index } => {
                 write!(f, "{:WIDTH$} {index}", "on-error")
             }
-            Instruction::Finally { index } => {
-                write!(f, "{:WIDTH$} {index}", "finally")
-            }
             Instruction::FinallyInto { index, dst } => {
                 write!(f, "{:WIDTH$} {index}, {dst}", "finally-into")
             }
@@ -285,8 +285,11 @@ impl fmt::Display for FmtInstruction<'_> {
             Instruction::PopErrorHandler => {
                 write!(f, "{:WIDTH$}", "pop-error-handler")
             }
-            Instruction::PopFinallyRun => {
-                write!(f, "{:WIDTH$}", "pop-finally")
+            Instruction::BeginFinally => {
+                write!(f, "{:WIDTH$}", "begin-finally")
+            }
+            Instruction::EndFinally => {
+                write!(f, "{:WIDTH$}", "end-finally")
             }
             Instruction::ReturnEarly { src } => {
                 write!(f, "{:WIDTH$} {src}", "return-early")

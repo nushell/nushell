@@ -52,12 +52,13 @@ impl Command for Describe {
     fn run_const(
         &self,
         working_set: &StateWorkingSet,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let options = Options {
-            no_collect: call.has_flag_const(working_set, "no-collect")?,
-            detailed: call.has_flag_const(working_set, "detailed")?,
+            no_collect: call.has_flag_const(working_set, stack, "no-collect")?,
+            detailed: call.has_flag_const(working_set, stack, "detailed")?,
         };
         run(None, call, input, options)
     }

@@ -39,3 +39,16 @@ fn reports_nonemptiness_by_columns() -> Result {
 
     test().run(code).expect_value_eq(false)
 }
+
+#[test]
+fn is_empty_propagates_error_values_in_stream() -> Result {
+    let code = "
+        [[name size]; [a 100b] [b 200b]]
+        | where size <= 150
+        | is-empty
+    ";
+
+    test()
+        .run(code)
+        .expect_error_code_eq("nu::shell::operator_incompatible_types")
+}

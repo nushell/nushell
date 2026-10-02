@@ -55,7 +55,12 @@ pub fn empty(
                 }
             }
             PipelineData::ListStream(s, ..) => {
-                let empty = s.into_iter().next().is_none();
+                let mut iter = s.into_iter();
+                let empty = match iter.next() {
+                    Some(Value::Error { error, .. }) => return Err(*error),
+                    Some(_) => false,
+                    None => true,
+                };
                 if negate {
                     Ok(Value::bool(!empty, head).into_pipeline_data())
                 } else {
@@ -63,10 +68,14 @@ pub fn empty(
                 }
             }
             PipelineData::Value(value, ..) => {
+                let empty = match value {
+                    Value::Error { error, .. } => return Err(*error),
+                    val => val.is_empty(),
+                };
                 if negate {
-                    Ok(Value::bool(!value.is_empty(), head).into_pipeline_data())
+                    Ok(Value::bool(!empty, head).into_pipeline_data())
                 } else {
-                    Ok(Value::bool(value.is_empty(), head).into_pipeline_data())
+                    Ok(Value::bool(empty, head).into_pipeline_data())
                 }
             }
         }

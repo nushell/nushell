@@ -67,6 +67,23 @@ fn par_each_threads_flag_repeated() -> Result {
     test().run(code).expect_value_eq(true)
 }
 
+/// Chained streaming stages with the same `--threads` value must not share an active pool.
+///
+/// With one worker and more values than the bounded stream buffer, reusing the first
+/// stage's pool leaves that worker blocked on `send` while the downstream producer waits
+/// forever to be scheduled on the same pool. Regression for #18997.
+#[test]
+fn par_each_chained_same_thread_count_does_not_deadlock() -> Result {
+    let code = "
+        0..99
+        | par-each --threads 1 {|it| $it }
+        | par-each --threads 1 {|it| $it }
+        | length
+    ";
+
+    test().run(code).expect_value_eq(100)
+}
+
 /// Default pool with keep-order.
 #[test]
 fn par_each_default_pool_keep_order() -> Result {

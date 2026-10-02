@@ -7,7 +7,7 @@ use nu_protocol::{
     debugger::WithoutDebug,
     engine::{ArgType, Command, EngineState, Stack, StateWorkingSet},
 };
-use nu_test_support::fs;
+use nu_test_support::prelude::*;
 use reedline::Suggestion;
 use std::path::MAIN_SEPARATOR;
 
@@ -39,6 +39,18 @@ impl Command for FakeCmd {
                 Some('f'),
             )
             .named(
+                "stdin-probe",
+                SyntaxShape::String,
+                "Dynamic completion that requires stdin.",
+                None,
+            )
+            .named(
+                "empty",
+                SyntaxShape::String,
+                "Dynamic completion that answers with no suggestions.",
+                None,
+            )
+            .named(
                 "plugin-config",
                 SyntaxShape::Int,
                 "Example flag which support auto completion from plugin config.",
@@ -50,8 +62,8 @@ impl Command for FakeCmd {
     fn get_dynamic_completion(
         &self,
         engine_state: &EngineState,
-        _stack: &mut Stack,
-        _call: DynamicCompletionCallRef,
+        stack: &mut Stack,
+        call: DynamicCompletionCallRef,
         arg_type: &ArgType,
         _experimental: nu_protocol::engine::ExperimentalMarker,
     ) -> Result<Option<Vec<DynamicSuggestion>>, ShellError> {
@@ -89,6 +101,14 @@ impl Command for FakeCmd {
                         })
                         .collect(),
                 ),
+                "stdin-probe" => {
+                    stack.require_stdin(call.call.head)?;
+                    Some(vec![DynamicSuggestion {
+                        value: "stdin-was-enabled".to_string(),
+                        ..Default::default()
+                    }])
+                }
+                "empty" => Some(vec![]),
                 "plugin-config" => engine_state
                     .get_plugin_config("fake-cmd")
                     .and_then(|config| {
@@ -175,13 +195,18 @@ pub fn new_engine_helper(pwd: AbsolutePathBuf) -> (AbsolutePathBuf, String, Engi
 
 /// creates a new engine with the current path in the completions fixtures folder
 pub fn new_engine() -> (AbsolutePathBuf, String, EngineState, Stack) {
-    new_engine_helper(fs::fixtures().join("completions"))
+    new_engine_helper(
+        FIXTURES
+            .join("completions")
+            .try_into()
+            .expect("fixtures is absolute"),
+    )
 }
 
 /// Adds pseudo PATH env for external completion tests
 pub fn new_external_engine() -> EngineState {
     let mut engine = create_default_context();
-    let dir = fs::fixtures().join("external_completions").join("path");
+    let dir = FIXTURES.join("external_completions").join("path");
     let dir_str = dir.to_string_lossy().to_string();
     let span = nu_protocol::Span::new(0, dir_str.len());
     engine.add_env_var(
@@ -194,7 +219,10 @@ pub fn new_external_engine() -> EngineState {
 /// creates a new engine with the current path in the dotnu_completions fixtures folder
 pub fn new_dotnu_engine() -> (AbsolutePathBuf, String, EngineState, Stack) {
     // Target folder inside assets
-    let dir = fs::fixtures().join("dotnu_completions");
+    let dir = FIXTURES
+        .join("dotnu_completions")
+        .try_into()
+        .expect("fixtures is absolute");
     let (dir, dir_str, mut engine_state, mut stack) = new_engine_helper(dir);
     let dir_span = nu_protocol::Span::new(0, dir_str.len());
 
@@ -231,11 +259,21 @@ pub fn new_dotnu_engine() -> (AbsolutePathBuf, String, EngineState, Stack) {
 }
 
 pub fn new_quote_engine() -> (AbsolutePathBuf, String, EngineState, Stack) {
-    new_engine_helper(fs::fixtures().join("quoted_completions"))
+    new_engine_helper(
+        FIXTURES
+            .join("quoted_completions")
+            .try_into()
+            .expect("fixtures is absolute"),
+    )
 }
 
 pub fn new_partial_engine() -> (AbsolutePathBuf, String, EngineState, Stack) {
-    new_engine_helper(fs::fixtures().join("partial_completions"))
+    new_engine_helper(
+        FIXTURES
+            .join("partial_completions")
+            .try_into()
+            .expect("fixtures is absolute"),
+    )
 }
 
 /// match a list of suggestions with the expected values

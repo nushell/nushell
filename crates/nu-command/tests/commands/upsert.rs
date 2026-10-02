@@ -85,9 +85,11 @@ fn upsert_uses_enumerate_index_updating() -> Result {
         | to nuon
     ";
 
+    // `flatten` lifts `item.a` next to the upserted top-level `a`; the lifted
+    // field is renamed `item_a` rather than being overwritten.
     test()
         .run(code)
-        .expect_value_eq("[[index, a]; [0, 8], [1, 8]]")
+        .expect_value_eq("[[index, item_a, a]; [0, 7, 8], [1, 6, 8]]")
 }
 
 #[test]

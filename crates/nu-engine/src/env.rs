@@ -60,7 +60,8 @@ pub fn convert_env_vars(
             stack.add_env_var(key.to_string(), new_val);
         }
     }
-    Ok(())
+
+    ensure_path(engine_state, stack).map_or(Ok(()), Err)
 }
 
 /// Translate environment variables from Strings to Values. Requires config to be already set up in

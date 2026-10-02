@@ -10,7 +10,6 @@ use nu_protocol::{
     report_parse_error, report_parse_warning,
     shell_error::generic::GenericError,
 };
-use std::sync::Arc;
 
 use crate::util::print_pipeline;
 
@@ -40,7 +39,9 @@ pub fn evaluate_commands(
     if let Some(e_style) = error_style {
         match e_style.coerce_str()?.parse() {
             Ok(e_style) => {
-                Arc::make_mut(&mut engine_state.config).error_style = e_style;
+                let mut config = engine_state.get_config().as_ref().clone();
+                config.error_style = e_style;
+                engine_state.set_config(config);
             }
             Err(err) => {
                 return Err(ShellError::Generic(GenericError::new(
@@ -55,8 +56,9 @@ pub fn evaluate_commands(
     // Parse the source code
     let (block, delta) = {
         if let Some(ref t_mode) = table_mode {
-            Arc::make_mut(&mut engine_state.config).table.mode =
-                t_mode.coerce_str()?.parse().unwrap_or_default();
+            let mut config = engine_state.get_config().as_ref().clone();
+            config.table.mode = t_mode.coerce_str()?.parse().unwrap_or_default();
+            engine_state.set_config(config);
         }
 
         let mut working_set = StateWorkingSet::new(engine_state);
@@ -107,8 +109,9 @@ pub fn evaluate_commands(
     }
 
     if let Some(t_mode) = table_mode {
-        Arc::make_mut(&mut engine_state.config).table.mode =
-            t_mode.coerce_str()?.parse().unwrap_or_default();
+        let mut config = engine_state.get_config().as_ref().clone();
+        config.table.mode = t_mode.coerce_str()?.parse().unwrap_or_default();
+        engine_state.set_config(config);
     }
 
     print_pipeline(engine_state, stack, pipeline_data, no_newline)?;

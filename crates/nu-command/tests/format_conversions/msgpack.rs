@@ -4,13 +4,8 @@ use chrono::DateTime;
 use nu_test_support::prelude::*;
 use pretty_assertions::assert_eq;
 
-static GENERATE: LazyLock<PathBuf> = LazyLock::new(|| {
-    nu_test_support::fs::fixtures()
-        .join("formats")
-        .join("msgpack")
-        .join("generate.nu")
-        .into()
-});
+static GENERATE: LazyLock<PathBuf> =
+    LazyLock::new(|| FIXTURES.join("formats").join("msgpack").join("generate.nu"));
 
 fn msgpack_test<T: FromValue>(fixture_name: impl AsRef<str>) -> Result<T> {
     msgpack_test_with_opts(fixture_name, "")
@@ -119,10 +114,7 @@ fn sample() -> Result {
 
 #[test]
 fn sample_roundtrip() -> Result {
-    let path_to_sample_nuon = nu_test_support::fs::fixtures()
-        .join("formats")
-        .join("msgpack")
-        .join("sample.nuon");
+    let path_to_sample_nuon = FIXTURES.join("formats").join("msgpack").join("sample.nuon");
 
     let sample_nuon =
         std::fs::read_to_string(&path_to_sample_nuon).expect("failed to open sample.nuon");

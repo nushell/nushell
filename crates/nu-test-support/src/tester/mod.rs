@@ -32,9 +32,22 @@ use nu_protocol::{PluginIdentity, PluginSignature, RegisteredPlugin};
 ///
 /// Default starting cwd for [`test()`].
 pub static WORKSPACE_ROOT: LazyLock<PathBuf> = LazyLock::new(|| {
-    path::absolute(concat!(env!("CARGO_MANIFEST_DIR"), "/../.."))
-        .expect("could not absolutize root")
+    // Some OS implementations of `path::absolute` do not resolve ".."
+    // lexically, so the "../.." here would otherwise leak into every
+    // path derived from `WORKSPACE_ROOT`.
+    nu_path::dots::expand_dots(
+        path::absolute(concat!(env!("CARGO_MANIFEST_DIR"), "/../.."))
+            .expect("could not absolutize root"),
+    )
 });
+
+/// Test fixtures.
+pub static FIXTURES: LazyLock<PathBuf> =
+    LazyLock::new(|| WORKSPACE_ROOT.join("tests").join("fixtures"));
+
+/// Test assets.
+pub static ASSETS: LazyLock<PathBuf> =
+    LazyLock::new(|| WORKSPACE_ROOT.join("tests").join("assets"));
 
 // By using different engine states depending on the group key, we can ensure that behavior from
 // experimental options or environment variables take proper effect in the setup of an engine state.
@@ -49,6 +62,8 @@ static INITIAL_ENGINE_STATES: KeyedLazyLock<GroupKey, EngineState> = KeyedLazyLo
     #[cfg(feature = "os")]
     let engine_state = nu_cli::add_cli_context(engine_state);
     // let engine_state = nu_explore::add_explore_context(engine_state);
+    #[cfg(feature = "os")]
+    let engine_state = nu_tui::add_tui_context(engine_state);
 
     // Make `engine_state` mutable without fiddling with features
     let mut engine_state = engine_state;
@@ -423,25 +438,6 @@ impl NuTester {
             .inherit_env_if_set("http_proxy")
             .inherit_env_if_set("https_proxy")
             .inherit_env_if_set("no_proxy")
-    }
-
-    /// Adds the "nu" binary for testing to the path.
-    ///
-    /// Calling [`inherit_path`](Self::inherit_path) after this methods removes the path entry.
-    #[deprecated(note = "use `#[deps(NU)]` instead")]
-    pub fn add_nu_to_path(self) -> Self {
-        let nu_home = crate::fs::binaries();
-        let path = self.engine_state.get_env_var("PATH");
-        let path = match path {
-            None => nu_home.display().to_string(),
-            Some(path) => format!(
-                "{nu}{sep}{prev}",
-                nu = nu_home.display(),
-                sep = ENV_PATH_SEPARATOR_CHAR,
-                prev = path.as_str().expect("PATH should always be a string")
-            ),
-        };
-        self.env("PATH", path)
     }
 
     /// Add a custom environment variable to the engine state.

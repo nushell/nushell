@@ -98,7 +98,25 @@ fn tutor(
             variable_tutor(),
         ),
         (vec!["block", "blocks"], block_tutor()),
+        (
+            vec!["conditional", "conditionals", "if", "match", "where"],
+            conditional_tutorial(),
+        ),
+        (
+            vec![
+                "custom-command",
+                "custom-commands",
+                "function",
+                "functions",
+                "def",
+            ],
+            custom_command_tutor(),
+        ),
         (vec!["closure", "closures"], closure_tutor()),
+        (
+            vec!["pipeline-input", "pipeline-inputs", "pipeline", "pipelines"],
+            pipeline_input_tutor(),
+        ),
         (vec!["shorthand", "shorthands"], shorthand_tutor()),
         (
             vec!["shortcut", "shortcuts", "bashism", "bashisms"],
@@ -385,6 +403,115 @@ even though it was declared outside the block.
 "#
 }
 
+fn conditional_tutorial() -> &'static str {
+    r#"
+Conditional commands allow you to choose which code to run based on a value or
+condition.
+
+The `if` command runs a block when its condition is true:
+```
+if 5 > 3 {
+    print "5 is greater than 3"
+}
+```
+
+You can use `else` to run a different block when the condition is false:
+```
+let age = 20
+
+if $age >= 18 {
+    "adult"
+} else {
+    "minor"
+}
+```
+
+You can also chain multiple conditions with `else if`:
+```
+let score = 75
+
+if $score >= 90 {
+    "A"
+} else if $score >= 80 {
+    "B"
+} else if $score >= 70 {
+    "C"
+} else {
+    "F"
+}
+```
+
+The `if` command returns a nushell value, so it can be store in a variable or
+use in a pipeline:
+```
+let result = if 10 > 5 { "yes" } else { "no" }
+$result
+```
+
+When you have several possible values to match, the `match` command can be more
+convenient. It checks a value against several patterns:
+```
+let number = 2
+
+match $number {
+    1 => "one",
+    2 => "two",
+    3 => "three",
+    _ => "something else"
+}
+```
+The `_` pattern acts as a catch-all for anything that did not match an earlier
+branch.
+
+The `match` command can also be used to unpack structured values:
+```
+let user = { name: "Alice", admin: true }
+
+match $user {
+    { admin: true } => "administrator",
+    { admin: false } => "regular user",
+    _ => "unknown"
+}
+```
+
+Conditions can also be used to filter values in a pipeline with the `where`
+command:
+```
+[1 2 3 4 5] | where $it > 2
+```
+This keeps only the values for which the condition is true:
+```
+╭───┬───╮
+│ 0 │ 3 │
+│ 1 │ 4 │
+│ 2 │ 5 │
+╰───┴───╯
+```
+
+For tables, the `where` command is particularly useful for selecting rows:
+```
+ls | where size > 1kb
+```
+
+You can learn more about filtering pipelines with:
+```
+help where
+```
+
+You can learn more about blocks, which are used by the `if` command and other
+control flow commands, by running:
+```
+tutor blocks
+```
+
+You can also see more details about the `if` and `match` commands with:
+```
+help if
+help match
+```
+"#
+}
+
 fn closure_tutor() -> &'static str {
     "
 Closures are blocks of code you can pass to commands. They can accept
@@ -405,6 +532,10 @@ let multiplier = 3
 
 Many commands also make the incoming pipeline value available as `$in` inside the closure.
 
+You can continue to learn about working with pipeline input by running:
+```
+tutor pipeline-input
+```
 "
 }
 
@@ -481,6 +612,101 @@ the history into the input buffer.
 After pressing Enter, `!-5` is expanded to the command from five entries back in
 the history.
 "#
+}
+
+fn custom_command_tutor() -> &'static str {
+    r#"
+Custom commands allow you to create your own commands in Nushell. You can
+define a custom command using the `def` keyword.
+
+For example, this defines a command called `greet`:
+```
+def greet [] {
+    print "Hello!"
+}
+```
+
+You can then run it just like any other command:
+```
+greet
+```
+
+Custom commands can also accept arguments. You define the arguments between
+the square brackets:
+```
+def greet [name] {
+    print $"Hello, ($name)!"
+}
+```
+
+Now you can pass a name to the command:
+```
+greet "Nushell"
+```
+
+You can give arguments a type to make the expected input clearer:
+```
+def add [a: int, b: int] {
+    $a + $b
+}
+```
+
+You can also provide default values for arguments:
+```
+def greet [name = "world"] {
+    print $"Hello, ($name)!"
+}
+```
+
+You can learn more about using pipeline input with custom commands by running:
+```
+tutor pipeline-input
+```
+
+You can learn more about custom commands and see additional examples by
+running:
+```
+help def
+```
+"#
+}
+
+fn pipeline_input_tutor() -> &'static str {
+    "
+Custom commands can receive values from the pipeline. This allows you to
+create commands that work naturally with other Nushell commands.
+
+For example, this custom command takes pipeline input and doubles each value:
+```
+def double [] {
+    each { |x| $x * 2 }
+}
+```
+
+You can use it as part of a pipeline:
+```
+[1 2 3] | double
+```
+
+Custom commands can also access all of their pipeline input through `$in`:
+```
+def total [] {
+    $in | math sum
+}
+```
+
+This allows the custom command to work with the entire value coming through
+the pipeline:
+```
+[1 2 3 4] | total
+```
+
+You can learn more about closures, which are commonly used when processing
+pipeline data, by running:
+```
+tutor closures
+```
+"
 }
 
 fn display(help: &str, engine_state: &EngineState, stack: &mut Stack, span: Span) -> PipelineData {
