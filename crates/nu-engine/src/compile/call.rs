@@ -1,5 +1,5 @@
 use super::{BlockBuilder, CompileError, RedirectModes, compile_expression, keyword::*};
-use crate::HELP_DECL_ID_PARSER_INFO;
+use crate::env::var;
 use nu_protocol::{
     DeclId, IntoSpanned, RegId, Span, Spanned, Type,
     ast::{Argument, Call, Expr, Expression, ExternalArgument, FlagRef},
@@ -391,7 +391,7 @@ pub(crate) fn compile_help(
     if let Some(resolved_help_decl) =
         resolved_help_decl.and_then(|decl_id| help_decl_parser_info_expr(decl_id, decl_name.span))
     {
-        let parser_info_name = builder.data(HELP_DECL_ID_PARSER_INFO)?;
+        let parser_info_name = builder.data(var::HELP_DECL_ID_PARSER_INFO)?;
         builder.push(
             Instruction::PushParserInfo {
                 name: parser_info_name,

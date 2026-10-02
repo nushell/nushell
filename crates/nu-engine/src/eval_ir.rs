@@ -12,15 +12,14 @@ use nu_protocol::{
     debugger::DebugContext,
     engine::{
         Argument, Closure, EngineState, EnvName, ErrorHandler, Matcher, Redirection, Stack,
-        StateWorkingSet, TryHandler,
+        StateWorkingSet, TryHandler, env_var_eq,
     },
     ir::{Call, DataSlice, Instruction, IrAstRef, IrBlock, Literal, RedirectMode},
     shell_error::{generic::GenericError, io::IoError},
 };
-use nu_utils::IgnoreCaseExt;
 
 use crate::{
-    ENV_CONVERSIONS, convert_env_vars, eval::is_automatic_env_var, eval_block_with_early_return,
+    convert_env_vars, env::is_automatic_env_var, env::var, eval_block_with_early_return,
     named_flags::normalize_engine_arguments,
 };
 
@@ -701,8 +700,8 @@ fn eval_instruction<D: DebugContext>(
             let key = get_env_var_name(ctx, key);
 
             if !is_automatic_env_var(&key) {
-                let is_config = key == "config";
-                let update_conversions = key == ENV_CONVERSIONS;
+                let is_config = env_var_eq(&key, var::CONFIG);
+                let update_conversions = env_var_eq(&key, var::ENV_CONVERSIONS);
 
                 ctx.stack.add_env_var(key.into_owned(), value.clone());
 
@@ -2040,7 +2039,7 @@ fn get_env_var_name<'a>(ctx: &mut EvalContext<'_>, key: &'a str) -> Cow<'a, str>
             if map.contains_key(&EnvName::from(key)) {
                 // Find the existing key to preserve its case
                 map.keys()
-                    .find(|k| k.as_str().eq_ignore_case(key))
+                    .find(|k| env_var_eq(k.as_str(), key))
                     .map(|k| Cow::Owned(k.as_str().to_owned()))
             } else {
                 None

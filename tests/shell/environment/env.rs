@@ -1,5 +1,6 @@
 use nu_test_support::{fs::Stub::FileWithContent, prelude::*};
 use pretty_assertions::assert_eq;
+use rstest::rstest;
 
 #[test]
 fn env_shorthand() -> Result {
@@ -98,6 +99,72 @@ fn load_env_pwd_env_var_fails() -> Result {
     test()
         .run("load-env { PWD : 'foo' }")
         .expect_error_code_eq("nu::shell::automatic_env_var_set_manually")
+}
+
+#[test]
+fn automatic_env_assignment_is_case_insensitive() -> Result {
+    test()
+        .run("$env.PwD = 'bad'")
+        .expect_error_code_eq("nu::compile::automatic_env_var_set_manually")
+}
+
+#[rstest]
+#[case::load_env("load-env { file_pwd: 'bad' }")]
+#[case::hide_env("hide-env Current_File")]
+#[case::with_env("with-env { pWd: 'bad' } { null }")]
+fn automatic_env_commands_are_case_insensitive(#[case] code: &str) -> Result {
+    test()
+        .run(code)
+        .expect_error_code_eq("nu::shell::automatic_env_var_set_manually")
+}
+
+#[rstest]
+#[case::load_env("load-env { FOO: 'after', PwD: 'bad' }")]
+#[case::hide_env("hide-env FOO PwD")]
+fn protected_env_names_are_checked_before_mutation(#[case] command: &str) -> Result {
+    let code = format!("$env.FOO = 'before'; try {{ {command} }}; $env.FOO");
+    test().run(code).expect_value_eq("before")
+}
+
+#[rstest]
+#[case::hide_env("hide-env CoNfIg", "nu::shell::config_env_var_set_manually")]
+#[case::load_env("load-env { CoNfIg: 'bad' }", "nu::shell::invalid_config")]
+fn config_env_validation_errors(#[case] code: &str, #[case] error_code: &str) -> Result {
+    test().run(code).expect_error_code_eq(error_code)
+}
+
+#[rstest]
+#[case::load_env_argument(
+    "
+        load-env { CoNfIg: { show_banner: false } }
+        $env.config.show_banner == false and 'table' in $env.config
+    "
+)]
+#[case::load_env_pipeline(
+    "
+        { CoNfIg: { show_banner: false } } | load-env
+        $env.config.show_banner == false and 'table' in $env.config
+    "
+)]
+#[case::with_env_scoped(
+    "
+        let before = $env.config.show_banner
+        let during = with-env { CoNfIg: { show_banner: false } } {
+            $env.config.show_banner == false and 'table' in $env.config
+        }
+        $during and $env.config.show_banner == $before
+    "
+)]
+#[case::shorthand_record(
+    "
+        let cfg = { show_banner: false }
+        CONFIG=$cfg do {
+            $env.config.show_banner == false and 'table' in $env.config
+        }
+    "
+)]
+fn config_updates(#[case] code: &str) -> Result {
+    test().run(code).expect_value_eq(true)
 }
 
 #[test]
