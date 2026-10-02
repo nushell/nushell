@@ -1,0 +1,1860 @@
+=== accept/match/all-pattern-kinds.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..5 "x"
+shape shape_int 8..9 "1"
+shape shape_internalcall 10..15 "match"
+shape shape_variable 16..18 "$x"
+shape shape_match_pattern 23..24 "1"
+shape shape_match_pattern 27..28 "2"
+shape shape_string 32..37 "\"low\""
+shape shape_match_pattern 41..45 "3..5"
+shape shape_block 49..51 "{ "
+shape shape_internalcall 51..56 "print"
+shape shape_string 57..60 "mid"
+shape shape_string 62..67 "\"mid\""
+shape shape_block 67..69 " }"
+shape shape_vardecl 72..74 "$n"
+shape shape_string 90..96 "\"huge\""
+shape shape_match_pattern 99..100 "["
+shape shape_vardecl 100..102 "$a"
+shape shape_vardecl 104..106 "$b"
+shape shape_vardecl 108..115 "..$rest"
+shape shape_match_pattern 115..116 "]"
+shape shape_variable 120..122 "$a"
+shape shape_match_pattern 125..126 "["
+shape shape_vardecl 126..133 "..$last"
+shape shape_match_pattern 133..134 "]"
+shape shape_variable 138..143 "$last"
+shape shape_match_pattern 146..147 "["
+shape shape_nothing 147..149 ".."
+shape shape_match_pattern 149..150 "]"
+shape shape_string 154..160 "\"rest\""
+shape shape_match_pattern 163..170 "{name: "
+shape shape_vardecl 170..175 "$name"
+shape shape_match_pattern 182..183 "3"
+shape shape_match_pattern 183..184 "}"
+shape shape_variable 188..193 "$name"
+shape shape_match_pattern 196..197 "{"
+shape shape_vardecl 197..207 "$shorthand"
+shape shape_match_pattern 207..208 "}"
+shape shape_int 212..213 "1"
+shape shape_match_pattern 216..221 "\"str\""
+shape shape_int 225..226 "2"
+shape shape_match_pattern 229..236 "(1 + 1)"
+shape shape_int 240..241 "3"
+shape shape_match_pattern 244..248 "{a: "
+shape shape_match_pattern 248..249 "1"
+shape shape_match_pattern 249..250 "}"
+shape shape_record 254..255 "{"
+shape shape_string 255..256 "b"
+shape shape_record 256..258 ": "
+shape shape_int 258..259 "2"
+shape shape_record 259..260 "}"
+shape shape_nothing 263..264 "_"
+shape shape_closure 268..272 "{|| "
+shape shape_int 272..273 "1"
+shape shape_closure 273..274 "}"
+shape shape_match_pattern 277..281 "null"
+shape shape_internalcall 285..290 "print"
+ir main
+  # 4 registers, 81 instructions, 18 bytes of data
+     0: load-literal           %0, int(1)
+     1: store-variable         var #0 "$x", %0 # let
+     2: load-literal           %0, empty
+     3: drain                  %0
+     4: load-literal           %0, empty
+     5: load-literal           %0, empty
+     6: load-variable          %1, var #0 "$x"
+     7: collect                %1
+     8: match                  (1 | 2), %1, 24
+     9: match                  (3..5), %1, 27 # label(2)
+    10: match                  (var #1), %1, 35 # label(4)
+    11: match                  ([var #2var #3..var #4]), %1, 45 # label(6), from(41:)
+    12: match                  ([..var #5]), %1, 48 # label(8)
+    13: match                  ([..]), %1, 51 # label(10)
+    14: match                  ({name: var #6age: 3}), %1, 54 # label(12)
+    15: match                  ({shorthand: var #7}), %1, 57 # label(14)
+    16: match                  ('str'), %1, 60 # label(16)
+    17: match                  (2), %1, 63 # label(18)
+    18: match                  ({a: 1}), %1, 66 # label(20)
+    19: match                  (_), %1, 72 # label(22)
+    20: match                  (), %1, 75  # label(24)
+    21: load-literal           %0, empty   # label(26)
+    22: drop                   %1
+    23: jump                   80
+    24: drop                   %1          # label(1), from(8:)
+    25: load-literal           %0, string("low")
+    26: jump                   80          # end match
+    27: drop                   %1          # label(3), from(9:)
+    28: load-literal           %1, string("mid")
+    29: push-positional        %1
+    30: call                   decl "print", %0
+    31: drain                  %0
+    32: load-literal           %0, empty
+    33: load-literal           %0, string("mid")
+    34: jump                   80          # end match
+    35: load-variable          %2, var #1  # label(5), from(10:)
+    36: load-literal           %3, int(100)
+    37: binary-op              %2, Comparison(GreaterThan), %3
+    38: span                   %2
+    39: check-match-guard      %2
+    40: not                    %2
+    41: branch-if              %2, 11      # if match guard false
+    42: drop                   %1
+    43: load-literal           %0, string("huge")
+    44: jump                   80          # end match
+    45: drop                   %1          # label(7), from(11:)
+    46: load-variable          %0, var #2
+    47: jump                   80          # end match
+    48: drop                   %1          # label(9), from(12:)
+    49: load-variable          %0, var #5
+    50: jump                   80          # end match
+    51: drop                   %1          # label(11), from(13:)
+    52: load-literal           %0, string("rest")
+    53: jump                   80          # end match
+    54: drop                   %1          # label(13), from(14:)
+    55: load-variable          %0, var #6
+    56: jump                   80          # end match
+    57: drop                   %1          # label(15), from(15:)
+    58: load-literal           %0, int(1)
+    59: jump                   80          # end match
+    60: drop                   %1          # label(17), from(16:)
+    61: load-literal           %0, int(2)
+    62: jump                   80          # end match
+    63: drop                   %1          # label(19), from(17:)
+    64: load-literal           %0, int(3)
+    65: jump                   80          # end match
+    66: drop                   %1          # label(21), from(18:)
+    67: load-literal           %0, record(capacity = 1)
+    68: load-literal           %1, string("b")
+    69: load-literal           %2, int(2)
+    70: record-insert          %0, %1, %2
+    71: jump                   80          # end match
+    72: drop                   %1          # label(23), from(19:)
+    73: load-literal           %0, closure(#3)
+    74: jump                   80          # end match
+    75: drop                   %1          # label(25), from(20:)
+    76: redirect-out           caller
+    77: redirect-err           caller
+    78: call                   decl "print", %0
+    79: jump                   80          # end match
+    80: return                 %0          # label(0), from(23:), from(26:), from(34:), from(44:), from(47:), from(50:), from(53:), from(56:), from(59:), from(62:), from(65:), from(71:), from(74:), from(79:)
+ir #3
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, int(1)
+     1: return                 %0
+=== accept/match/bare-dollar-pattern.nu
+shape shape_internalcall 0..5 "match"
+shape shape_int 6..7 "1"
+shape shape_vardecl 10..11 "$"
+shape shape_int 15..16 "1"
+ir main
+  # 2 registers, 10 instructions, 0 bytes of data
+     0: load-literal           %1, int(1)
+     1: collect                %1
+     2: match                  (var #0), %1, 6
+     3: load-literal           %0, empty   # label(2)
+     4: drop                   %1
+     5: jump                   9
+     6: drop                   %1          # label(1), from(2:)
+     7: load-literal           %0, int(1)
+     8: jump                   9           # end match
+     9: return                 %0          # label(0), from(5:), from(8:)
+=== accept/match/block-is-closure.nu
+shape shape_internalcall 0..5 "match"
+shape shape_int 6..7 "1"
+shape shape_closure 8..13 "{|x| "
+shape shape_int 13..14 "1"
+shape shape_closure 14..15 "}"
+compile error nu::compile::invalid_keyword_call: Encountered invalid `match` keyword call.
+  label 0..5 "match": this call is not properly formed
+ir #0
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, int(1)
+     1: return                 %0
+=== accept/match/block-is-empty-closure.nu
+shape shape_internalcall 0..5 "match"
+shape shape_int 6..7 "1"
+shape shape_closure 8..12 "{||}"
+compile error nu::compile::invalid_keyword_call: Encountered invalid `match` keyword call.
+  label 0..5 "match": this call is not properly formed
+ir #0
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== accept/match/block-is-record.nu
+shape shape_internalcall 0..5 "match"
+shape shape_int 6..7 "1"
+shape shape_record 8..9 "{"
+shape shape_string 9..10 "a"
+shape shape_record 10..12 ": "
+shape shape_int 12..13 "1"
+shape shape_record 13..14 "}"
+compile error nu::compile::invalid_keyword_call: Encountered invalid `match` keyword call.
+  label 0..5 "match": this call is not properly formed
+=== accept/match/block-is-subexpression.nu
+shape shape_internalcall 0..5 "match"
+shape shape_int 6..7 "1"
+shape shape_block 8..9 "("
+shape shape_int 9..10 "1"
+shape shape_block 10..11 ")"
+compile error nu::compile::invalid_keyword_call: Encountered invalid `match` keyword call.
+  label 0..5 "match": this call is not properly formed
+=== accept/match/block-is-variable.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..5 "x"
+shape shape_record 8..10 "{}"
+shape shape_internalcall 12..17 "match"
+shape shape_int 18..19 "1"
+shape shape_variable 20..22 "$x"
+compile error nu::compile::invalid_keyword_call: Encountered invalid `match` keyword call.
+  label 12..17 "match": this call is not properly formed
+=== accept/match/block-record-cell-path.nu
+shape shape_internalcall 63..68 "match"
+shape shape_int 69..70 "1"
+shape shape_record 71..72 "{"
+shape shape_string 72..73 "a"
+shape shape_record 73..75 ": "
+shape shape_int 75..76 "1"
+shape shape_record 76..77 "}"
+shape shape_string 78..79 "a"
+compile error nu::compile::invalid_keyword_call: Encountered invalid `match` keyword call.
+  label 63..68 "match": this call is not properly formed
+=== accept/match/body-forms.nu
+shape shape_internalcall 0..5 "match"
+shape shape_int 6..7 "1"
+shape shape_match_pattern 12..13 "1"
+shape shape_int 17..18 "1"
+shape shape_match_pattern 21..22 "2"
+shape shape_string 26..29 "\"s\""
+shape shape_match_pattern 32..33 "3"
+shape shape_block 37..39 "{ "
+shape shape_int 39..40 "1"
+shape shape_block 40..42 " }"
+shape shape_match_pattern 45..46 "4"
+shape shape_block 50..52 "{ "
+shape shape_internalcall 52..55 "let"
+shape shape_vardecl 56..57 "x"
+shape shape_int 60..61 "1"
+shape shape_variable 63..65 "$x"
+shape shape_block 65..67 " }"
+shape shape_match_pattern 70..71 "5"
+shape shape_closure 75..79 "{|| "
+shape shape_int 79..80 "1"
+shape shape_closure 80..81 "}"
+shape shape_match_pattern 84..85 "6"
+shape shape_record 89..90 "{"
+shape shape_string 90..91 "a"
+shape shape_record 91..93 ": "
+shape shape_int 93..94 "1"
+shape shape_record 94..95 "}"
+shape shape_match_pattern 98..99 "7"
+shape shape_list 103..104 "["
+shape shape_int 104..105 "1"
+shape shape_list 105..106 " "
+shape shape_int 106..107 "2"
+shape shape_list 107..108 "]"
+shape shape_match_pattern 111..112 "8"
+shape shape_block 116..117 "("
+shape shape_int 117..118 "1"
+shape shape_operator 119..120 "+"
+shape shape_int 121..122 "1"
+shape shape_block 122..123 ")"
+shape shape_match_pattern 126..127 "9"
+shape shape_variable 131..135 "$env"
+shape shape_string 136..139 "PWD"
+shape shape_match_pattern 142..144 "10"
+shape shape_block 148..149 "("
+shape shape_internalcall 149..151 "if"
+shape shape_bool 152..156 "true"
+shape shape_block 157..159 "{ "
+shape shape_int 159..160 "1"
+shape shape_block 160..162 " }"
+shape shape_keyword 163..167 "else"
+shape shape_block 168..170 "{ "
+shape shape_int 170..171 "2"
+shape shape_block 171..173 " }"
+shape shape_block 173..174 ")"
+shape shape_match_pattern 177..179 "11"
+shape shape_internalcall 183..188 "print"
+shape shape_match_pattern 191..193 "12"
+shape shape_block 197..198 "("
+shape shape_internalcall 198..200 "ls"
+shape shape_pipe 201..202 "|"
+shape shape_internalcall 203..209 "length"
+shape shape_block 209..210 ")"
+shape shape_match_pattern 213..215 "13"
+shape shape_block 219..221 "{ "
+shape shape_internalcall 221..226 "print"
+shape shape_string 227..228 "a"
+shape shape_internalcall 230..235 "print"
+shape shape_string 236..237 "b"
+shape shape_block 237..239 " }"
+shape shape_match_pattern 242..244 "14"
+shape shape_external 249..251 "ls"
+shape shape_match_pattern 254..256 "15"
+shape shape_string_interpolation 260..262 "$\""
+shape shape_string 262..263 "x"
+shape shape_block 263..264 "("
+shape shape_int 264..265 "1"
+shape shape_block 265..266 ")"
+shape shape_string_interpolation 266..267 "\""
+shape shape_nothing 270..271 "_"
+shape shape_nothing 275..279 "null"
+ir main
+  # 3 registers, 112 instructions, 10 bytes of data
+     0: load-literal           %1, int(1)
+     1: collect                %1
+     2: match                  (1), %1, 21
+     3: match                  (2), %1, 24 # label(2)
+     4: match                  (3), %1, 27 # label(4)
+     5: match                  (4), %1, 30 # label(6)
+     6: match                  (5), %1, 38 # label(8)
+     7: match                  (6), %1, 41 # label(10)
+     8: match                  (7), %1, 47 # label(12)
+     9: match                  (8), %1, 54 # label(14)
+    10: match                  (9), %1, 60 # label(16)
+    11: match                  (10), %1, 63 # label(18)
+    12: match                  (11), %1, 71 # label(20)
+    13: match                  (12), %1, 76 # label(22)
+    14: match                  (13), %1, 83 # label(24)
+    15: match                  (14), %1, 96 # label(26)
+    16: match                  (15), %1, 103 # label(28)
+    17: match                  (_), %1, 108 # label(30)
+    18: load-literal           %0, empty   # label(32)
+    19: drop                   %1
+    20: jump                   111
+    21: drop                   %1          # label(1), from(2:)
+    22: load-literal           %0, int(1)
+    23: jump                   111         # end match
+    24: drop                   %1          # label(3), from(3:)
+    25: load-literal           %0, string("s")
+    26: jump                   111         # end match
+    27: drop                   %1          # label(5), from(4:)
+    28: load-literal           %0, int(1)
+    29: jump                   111         # end match
+    30: drop                   %1          # label(7), from(5:)
+    31: load-literal           %0, int(1)
+    32: store-variable         var #0, %0  # let
+    33: load-literal           %0, empty
+    34: drain                  %0
+    35: load-literal           %0, empty
+    36: load-variable          %0, var #0
+    37: jump                   111         # end match
+    38: drop                   %1          # label(9), from(6:)
+    39: load-literal           %0, closure(#3)
+    40: jump                   111         # end match
+    41: drop                   %1          # label(11), from(7:)
+    42: load-literal           %0, record(capacity = 1)
+    43: load-literal           %1, string("a")
+    44: load-literal           %2, int(1)
+    45: record-insert          %0, %1, %2
+    46: jump                   111         # end match
+    47: drop                   %1          # label(13), from(8:)
+    48: load-literal           %0, list(capacity = 2)
+    49: load-literal           %1, int(1)
+    50: list-push              %0, %1
+    51: load-literal           %1, int(2)
+    52: list-push              %0, %1
+    53: jump                   111         # end match
+    54: drop                   %1          # label(15), from(9:)
+    55: load-literal           %0, int(1)
+    56: load-literal           %1, int(1)
+    57: binary-op              %0, Math(Add), %1
+    58: span                   %0
+    59: jump                   111         # end match
+    60: drop                   %1          # label(17), from(10:)
+    61: load-env               %0, "PWD"
+    62: jump                   111         # end match
+    63: drop                   %1          # label(19), from(11:)
+    64: load-literal           %1, bool(true)
+    65: not                    %1
+    66: branch-if              %1, 69      # if false
+    67: load-literal           %0, int(1)  # label(33)
+    68: jump                   70          # end if
+    69: load-literal           %0, int(2)  # label(34), from(66:)
+    70: jump                   111         # end match, label(35), from(68:)
+    71: drop                   %1          # label(21), from(12:)
+    72: redirect-out           caller
+    73: redirect-err           caller
+    74: call                   decl "print", %0
+    75: jump                   111         # end match
+    76: drop                   %1          # label(23), from(13:)
+    77: redirect-out           pipe
+    78: call                   decl "ls", %0
+    79: redirect-out           caller
+    80: redirect-err           caller
+    81: call                   decl "length", %0
+    82: jump                   111         # end match
+    83: drop                   %1          # label(25), from(14:)
+    84: load-literal           %1, string("a")
+    85: push-positional        %1
+    86: call                   decl "print", %0
+    87: drain                  %0
+    88: load-literal           %0, empty
+    89: load-literal           %0, empty
+    90: load-literal           %1, string("b")
+    91: push-positional        %1
+    92: redirect-out           caller
+    93: redirect-err           caller
+    94: call                   decl "print", %0
+    95: jump                   111         # end match
+    96: drop                   %1          # label(27), from(15:)
+    97: load-literal           %1, glob-pattern("ls", no_expand = false)
+    98: push-positional        %1
+    99: redirect-out           caller
+   100: redirect-err           caller
+   101: call                   decl "run-external", %0
+   102: jump                   111         # end match
+   103: drop                   %1          # label(29), from(16:)
+   104: load-literal           %0, string("x")
+   105: load-literal           %1, int(1)
+   106: string-append          %0, %1
+   107: jump                   111         # end match
+   108: drop                   %1          # label(31), from(17:)
+   109: load-literal           %0, nothing
+   110: jump                   111         # end match
+   111: return                 %0          # label(0), from(20:), from(23:), from(26:), from(29:), from(37:), from(40:), from(46:), from(53:), from(59:), from(62:), from(70:), from(75:), from(82:), from(95:), from(102:), from(107:), from(110:)
+ir #3
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, int(1)
+     1: return                 %0
+=== accept/match/body-is-any-token.nu
+shape shape_internalcall 0..5 "match"
+shape shape_int 6..7 "1"
+shape shape_match_pattern 10..11 "1"
+shape shape_external 15..16 ";"
+ir main
+  # 2 registers, 14 instructions, 1 byte of data
+     0: load-literal           %1, int(1)
+     1: collect                %1
+     2: match                  (1), %1, 6
+     3: load-literal           %0, empty   # label(2)
+     4: drop                   %1
+     5: jump                   13
+     6: drop                   %1          # label(1), from(2:)
+     7: load-literal           %1, glob-pattern(";", no_expand = false)
+     8: push-positional        %1
+     9: redirect-out           caller
+    10: redirect-err           caller
+    11: call                   decl "run-external", %0
+    12: jump                   13          # end match
+    13: return                 %0          # label(0), from(5:), from(12:)
+=== accept/match/closure-value-then-variable-block.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..7 "foo"
+shape shape_int 10..11 "1"
+shape shape_internalcall 12..17 "match"
+shape shape_closure 18..23 "{|x| "
+shape shape_int 23..24 "1"
+shape shape_closure 24..25 "}"
+shape shape_variable 26..30 "$foo"
+compile error nu::compile::invalid_keyword_call: Encountered invalid `match` keyword call.
+  label 12..17 "match": this call is not properly formed
+ir #1
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, int(1)
+     1: return                 %0
+=== accept/match/comments-in-arms.nu
+shape shape_internalcall 0..5 "match"
+shape shape_int 6..7 "1"
+shape shape_match_pattern 24..25 "1"
+shape shape_external 29..30 "a"
+shape shape_nothing 44..45 "_"
+shape shape_external 49..50 "b"
+ir main
+  # 2 registers, 22 instructions, 2 bytes of data
+     0: load-literal           %1, int(1)
+     1: collect                %1
+     2: match                  (1), %1, 7
+     3: match                  (_), %1, 14 # label(2)
+     4: load-literal           %0, empty   # label(4)
+     5: drop                   %1
+     6: jump                   21
+     7: drop                   %1          # label(1), from(2:)
+     8: load-literal           %1, glob-pattern("a", no_expand = false)
+     9: push-positional        %1
+    10: redirect-out           caller
+    11: redirect-err           caller
+    12: call                   decl "run-external", %0
+    13: jump                   21          # end match
+    14: drop                   %1          # label(3), from(3:)
+    15: load-literal           %1, glob-pattern("b", no_expand = false)
+    16: push-positional        %1
+    17: redirect-out           caller
+    18: redirect-err           caller
+    19: call                   decl "run-external", %0
+    20: jump                   21          # end match
+    21: return                 %0          # label(0), from(6:), from(13:), from(20:)
+=== accept/match/empty-block.nu
+shape shape_internalcall 0..5 "match"
+shape shape_int 6..7 "1"
+ir main
+  # 2 registers, 6 instructions, 0 bytes of data
+     0: load-literal           %1, int(1)
+     1: collect                %1
+     2: load-literal           %0, empty
+     3: drop                   %1
+     4: jump                   5
+     5: return                 %0          # label(0), from(4:)
+=== accept/match/guard-is-any-token.nu
+shape shape_internalcall 0..5 "match"
+shape shape_int 6..7 "1"
+shape shape_vardecl 10..12 "$a"
+shape shape_int 21..22 "1"
+ir main
+  # 3 registers, 14 instructions, 1 byte of data
+     0: load-literal           %1, int(1)
+     1: collect                %1
+     2: match                  (var #0), %1, 6
+     3: load-literal           %0, empty   # label(2), from(9:)
+     4: drop                   %1
+     5: jump                   13
+     6: load-literal           %2, string(";") # label(1), from(2:)
+     7: check-match-guard      %2
+     8: not                    %2
+     9: branch-if              %2, 3       # if match guard false
+    10: drop                   %1
+    11: load-literal           %0, int(1)
+    12: jump                   13          # end match
+    13: return                 %0          # label(0), from(5:), from(12:)
+=== accept/match/guards.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..5 "y"
+shape shape_int 8..9 "1"
+shape shape_internalcall 10..15 "match"
+shape shape_int 16..17 "1"
+shape shape_vardecl 22..24 "$x"
+shape shape_external 38..41 "pos"
+shape shape_vardecl 44..46 "$x"
+shape shape_external 69..73 "even"
+shape shape_vardecl 76..78 "$x"
+shape shape_external 109..116 "complex"
+shape shape_nothing 119..120 "_"
+shape shape_external 132..140 "fallback"
+ir main
+  # 5 registers, 84 instructions, 22 bytes of data
+     0: load-literal           %0, int(1)
+     1: store-variable         var #0 "$y", %0 # let
+     2: load-literal           %0, empty
+     3: drain                  %0
+     4: load-literal           %0, empty
+     5: load-literal           %0, empty
+     6: load-literal           %1, int(1)
+     7: collect                %1
+     8: match                  (var #1), %1, 15
+     9: match                  (var #2), %1, 29 # label(2), from(21:)
+    10: match                  (var #3), %1, 46 # label(4), from(38:)
+    11: match                  (_), %1, 72 # label(6), from(64:)
+    12: load-literal           %0, empty   # label(8), from(75:)
+    13: drop                   %1
+    14: jump                   83
+    15: load-variable          %2, var #1  # label(1), from(8:)
+    16: load-literal           %3, int(0)
+    17: binary-op              %2, Comparison(GreaterThan), %3
+    18: span                   %2
+    19: check-match-guard      %2
+    20: not                    %2
+    21: branch-if              %2, 9       # if match guard false
+    22: drop                   %1
+    23: load-literal           %1, glob-pattern("pos", no_expand = false)
+    24: push-positional        %1
+    25: redirect-out           caller
+    26: redirect-err           caller
+    27: call                   decl "run-external", %0
+    28: jump                   83          # end match
+    29: load-variable          %2, var #2  # label(3), from(9:)
+    30: load-literal           %3, int(2)
+    31: binary-op              %2, Math(Modulo), %3
+    32: span                   %2
+    33: load-literal           %3, int(0)
+    34: binary-op              %2, Comparison(Equal), %3
+    35: span                   %2
+    36: check-match-guard      %2
+    37: not                    %2
+    38: branch-if              %2, 10      # if match guard false
+    39: drop                   %1
+    40: load-literal           %1, glob-pattern("even", no_expand = false)
+    41: push-positional        %1
+    42: redirect-out           caller
+    43: redirect-err           caller
+    44: call                   decl "run-external", %0
+    45: jump                   83          # end match
+    46: load-variable          %2, var #3  # label(5), from(10:)
+    47: load-literal           %3, list(capacity = 2)
+    48: load-literal           %4, int(1)
+    49: list-push              %3, %4
+    50: load-literal           %4, int(2)
+    51: list-push              %3, %4
+    52: binary-op              %2, Comparison(In), %3
+    53: span                   %2
+    54: collect                %2
+    55: match                  (false), %2, 61
+    56: load-variable          %3, var #0 "$y"
+    57: load-literal           %4, int(1)
+    58: binary-op              %3, Comparison(Equal), %4
+    59: span                   %3
+    60: binary-op              %2, Boolean(And), %3
+    61: span                   %2          # label(9), from(55:)
+    62: check-match-guard      %2
+    63: not                    %2
+    64: branch-if              %2, 11      # if match guard false
+    65: drop                   %1
+    66: load-literal           %1, glob-pattern("complex", no_expand = false)
+    67: push-positional        %1
+    68: redirect-out           caller
+    69: redirect-err           caller
+    70: call                   decl "run-external", %0
+    71: jump                   83          # end match
+    72: load-literal           %2, bool(true) # label(7), from(11:)
+    73: check-match-guard      %2
+    74: not                    %2
+    75: branch-if              %2, 12      # if match guard false
+    76: drop                   %1
+    77: load-literal           %1, glob-pattern("fallback", no_expand = false)
+    78: push-positional        %1
+    79: redirect-out           caller
+    80: redirect-err           caller
+    81: call                   decl "run-external", %0
+    82: jump                   83          # end match
+    83: return                 %0          # label(0), from(14:), from(28:), from(45:), from(71:), from(82:)
+=== accept/match/help-after-value.nu
+shape shape_internalcall 0..5 "match"
+shape shape_int 6..7 "1"
+shape shape_flag 8..14 "--help"
+ir main
+  # 2 registers, 5 instructions, 17 bytes of data
+     0: load-literal           %1, string("match")
+     1: push-positional        %1
+     2: push-parser-info       "help_decl_id", Expression { expr: Int(39), span: Span[148075..148080], span_id: SpanId(0), ty: Int }
+     3: call                   decl "help", %0
+     4: return                 %0
+=== accept/match/help-then-block.nu
+shape shape_internalcall 0..5 "match"
+shape shape_int 6..7 "1"
+shape shape_flag 8..14 "--help"
+ir main
+  # 2 registers, 5 instructions, 17 bytes of data
+     0: load-literal           %1, string("match")
+     1: push-positional        %1
+     2: push-parser-info       "help_decl_id", Expression { expr: Int(39), span: Span[148075..148080], span_id: SpanId(0), ty: Int }
+     3: call                   decl "help", %0
+     4: return                 %0
+=== accept/match/in-pipeline.nu
+shape shape_record 0..1 "{"
+shape shape_string 1..2 "a"
+shape shape_record 2..4 ": "
+shape shape_record 4..5 "{"
+shape shape_string 5..6 "b"
+shape shape_record 6..8 ": "
+shape shape_int 8..9 "3"
+shape shape_record 9..10 "}"
+shape shape_record 10..11 "}"
+shape shape_pipe 12..13 "|"
+shape shape_internalcall 14..19 "match"
+shape shape_variable 20..23 "$in"
+shape shape_match_pattern 25..29 "{a: "
+shape shape_match_pattern 29..34 "{ b: "
+shape shape_vardecl 34..36 "$b"
+shape shape_match_pattern 36..38 " }"
+shape shape_match_pattern 38..39 "}"
+shape shape_variable 43..45 "$b"
+ir main
+  # 5 registers, 21 instructions, 2 bytes of data
+     0: load-literal           %0, record(capacity = 1)
+     1: load-literal           %1, string("a")
+     2: load-literal           %2, record(capacity = 1)
+     3: load-literal           %3, string("b")
+     4: load-literal           %4, int(3)
+     5: record-insert          %2, %3, %4
+     6: record-insert          %0, %1, %2
+     7: collect                %0
+     8: clone                  %1, %0
+     9: store-variable         var #1 "$in", %1
+    10: load-variable          %2, var #1 "$in"
+    11: collect                %2
+    12: match                  ({a: {b: var #0}}), %2, 16
+    13: load-literal           %0, empty   # label(2)
+    14: drop                   %2
+    15: jump                   19
+    16: drop                   %2          # label(1), from(12:)
+    17: load-variable          %0, var #0
+    18: jump                   19          # end match
+    19: drop-variable          var #1 "$in" # label(0), from(15:), from(18:)
+    20: return                 %0
+=== accept/match/list-pattern-assignment-mode.nu
+shape shape_internalcall 0..5 "match"
+shape shape_list 6..7 "["
+shape shape_int 7..8 "1"
+shape shape_list 8..9 "]"
+shape shape_match_pattern 12..13 "["
+shape shape_match_pattern 13..14 "a"
+shape shape_match_pattern 15..16 "="
+shape shape_match_pattern 17..18 "b"
+shape shape_match_pattern 19..20 "|"
+shape shape_match_pattern 21..22 "c"
+shape shape_match_pattern 22..23 "]"
+shape shape_int 27..28 "1"
+ir main
+  # 3 registers, 12 instructions, 0 bytes of data
+     0: load-literal           %1, list(capacity = 1)
+     1: load-literal           %2, int(1)
+     2: list-push              %1, %2
+     3: collect                %1
+     4: match                  (['a''=''b''|''c']), %1, 8
+     5: load-literal           %0, empty   # label(2)
+     6: drop                   %1
+     7: jump                   11
+     8: drop                   %1          # label(1), from(4:)
+     9: load-literal           %0, int(1)
+    10: jump                   11          # end match
+    11: return                 %0          # label(0), from(7:), from(10:)
+=== accept/match/list-pattern-dotdot-word-is-string.nu
+shape shape_internalcall 0..5 "match"
+shape shape_list 6..7 "["
+shape shape_int 7..8 "1"
+shape shape_list 8..9 " "
+shape shape_int 9..10 "2"
+shape shape_list 10..11 "]"
+shape shape_match_pattern 14..15 "["
+shape shape_match_pattern 15..20 "..foo"
+shape shape_match_pattern 20..21 "]"
+shape shape_int 25..26 "1"
+ir main
+  # 3 registers, 14 instructions, 0 bytes of data
+     0: load-literal           %1, list(capacity = 2)
+     1: load-literal           %2, int(1)
+     2: list-push              %1, %2
+     3: load-literal           %2, int(2)
+     4: list-push              %1, %2
+     5: collect                %1
+     6: match                  (['..foo']), %1, 10
+     7: load-literal           %0, empty   # label(2)
+     8: drop                   %1
+     9: jump                   13
+    10: drop                   %1          # label(1), from(6:)
+    11: load-literal           %0, int(1)
+    12: jump                   13          # end match
+    13: return                 %0          # label(0), from(9:), from(12:)
+=== accept/match/list-pattern-ignore-rest-then-items.nu
+shape shape_internalcall 0..5 "match"
+shape shape_list 6..7 "["
+shape shape_int 7..8 "1"
+shape shape_list 8..9 " "
+shape shape_int 9..10 "2"
+shape shape_list 10..11 "]"
+shape shape_match_pattern 14..15 "["
+shape shape_match_pattern 15..16 "1"
+shape shape_nothing 17..19 ".."
+shape shape_match_pattern 19..25 " 0xzz]"
+shape shape_int 29..30 "1"
+ir main
+  # 3 registers, 14 instructions, 0 bytes of data
+     0: load-literal           %1, list(capacity = 2)
+     1: load-literal           %2, int(1)
+     2: list-push              %1, %2
+     3: load-literal           %2, int(2)
+     4: list-push              %1, %2
+     5: collect                %1
+     6: match                  ([1..]), %1, 10
+     7: load-literal           %0, empty   # label(2)
+     8: drop                   %1
+     9: jump                   13
+    10: drop                   %1          # label(1), from(6:)
+    11: load-literal           %0, int(1)
+    12: jump                   13          # end match
+    13: return                 %0          # label(0), from(9:), from(12:)
+=== accept/match/list-pattern-items-after-rest-ignored.nu
+shape shape_internalcall 0..5 "match"
+shape shape_list 6..7 "["
+shape shape_int 7..8 "1"
+shape shape_list 8..9 " "
+shape shape_int 9..10 "2"
+shape shape_list 10..11 "]"
+shape shape_match_pattern 14..15 "["
+shape shape_match_pattern 15..16 "1"
+shape shape_vardecl 17..21 "..$r"
+shape shape_match_pattern 21..27 " 0xzz]"
+shape shape_variable 31..33 "$r"
+ir main
+  # 3 registers, 14 instructions, 0 bytes of data
+     0: load-literal           %1, list(capacity = 2)
+     1: load-literal           %2, int(1)
+     2: list-push              %1, %2
+     3: load-literal           %2, int(2)
+     4: list-push              %1, %2
+     5: collect                %1
+     6: match                  ([1..var #0]), %1, 10
+     7: load-literal           %0, empty   # label(2)
+     8: drop                   %1
+     9: jump                   13
+    10: drop                   %1          # label(1), from(6:)
+    11: load-variable          %0, var #0
+    12: jump                   13          # end match
+    13: return                 %0          # label(0), from(9:), from(12:)
+=== accept/match/list-pattern-operator-word.nu
+shape shape_internalcall 0..5 "match"
+shape shape_list 6..7 "["
+shape shape_int 7..8 "1"
+shape shape_list 8..9 "]"
+shape shape_match_pattern 12..13 "["
+shape shape_match_pattern 13..14 "="
+shape shape_match_pattern 15..16 "1"
+shape shape_match_pattern 16..17 "]"
+shape shape_int 21..22 "1"
+ir main
+  # 3 registers, 12 instructions, 0 bytes of data
+     0: load-literal           %1, list(capacity = 1)
+     1: load-literal           %2, int(1)
+     2: list-push              %1, %2
+     3: collect                %1
+     4: match                  (['='1]), %1, 8
+     5: load-literal           %0, empty   # label(2)
+     6: drop                   %1
+     7: jump                   11
+     8: drop                   %1          # label(1), from(4:)
+     9: load-literal           %0, int(1)
+    10: jump                   11          # end match
+    11: return                 %0          # label(0), from(7:), from(10:)
+=== accept/match/list-pattern-pipe-separates-items.nu
+shape shape_internalcall 0..5 "match"
+shape shape_list 6..7 "["
+shape shape_int 7..8 "1"
+shape shape_list 8..9 " "
+shape shape_int 9..10 "2"
+shape shape_list 10..11 "]"
+shape shape_match_pattern 14..15 "["
+shape shape_match_pattern 15..16 "1"
+shape shape_match_pattern 19..20 "2"
+shape shape_match_pattern 20..21 "]"
+shape shape_int 25..26 "1"
+ir main
+  # 3 registers, 14 instructions, 0 bytes of data
+     0: load-literal           %1, list(capacity = 2)
+     1: load-literal           %2, int(1)
+     2: list-push              %1, %2
+     3: load-literal           %2, int(2)
+     4: list-push              %1, %2
+     5: collect                %1
+     6: match                  ([12]), %1, 10
+     7: load-literal           %0, empty   # label(2)
+     8: drop                   %1
+     9: jump                   13
+    10: drop                   %1          # label(1), from(6:)
+    11: load-literal           %0, int(1)
+    12: jump                   13          # end match
+    13: return                 %0          # label(0), from(9:), from(12:)
+=== accept/match/list-pattern-redirection-dropped.nu
+shape shape_internalcall 0..5 "match"
+shape shape_list 6..7 "["
+shape shape_int 7..8 "1"
+shape shape_list 8..9 " "
+shape shape_int 9..10 "2"
+shape shape_list 10..11 "]"
+shape shape_match_pattern 14..15 "["
+shape shape_match_pattern 15..16 "a"
+shape shape_match_pattern 16..22 " o> b]"
+shape shape_int 26..27 "1"
+ir main
+  # 3 registers, 14 instructions, 0 bytes of data
+     0: load-literal           %1, list(capacity = 2)
+     1: load-literal           %2, int(1)
+     2: list-push              %1, %2
+     3: load-literal           %2, int(2)
+     4: list-push              %1, %2
+     5: collect                %1
+     6: match                  (['a']), %1, 10
+     7: load-literal           %0, empty   # label(2)
+     8: drop                   %1
+     9: jump                   13
+    10: drop                   %1          # label(1), from(6:)
+    11: load-literal           %0, int(1)
+    12: jump                   13          # end match
+    13: return                 %0          # label(0), from(9:), from(12:)
+=== accept/match/list-pattern-rest-then-pipe-group.nu
+shape shape_internalcall 0..5 "match"
+shape shape_list 6..7 "["
+shape shape_int 7..8 "1"
+shape shape_list 8..9 " "
+shape shape_int 9..10 "2"
+shape shape_list 10..11 "]"
+shape shape_match_pattern 14..15 "["
+shape shape_match_pattern 15..16 "1"
+shape shape_vardecl 17..21 "..$r"
+shape shape_match_pattern 24..25 "2"
+shape shape_match_pattern 25..26 "]"
+shape shape_variable 30..32 "$r"
+ir main
+  # 3 registers, 14 instructions, 0 bytes of data
+     0: load-literal           %1, list(capacity = 2)
+     1: load-literal           %2, int(1)
+     2: list-push              %1, %2
+     3: load-literal           %2, int(2)
+     4: list-push              %1, %2
+     5: collect                %1
+     6: match                  ([1..var #677]), %1, 10
+     7: load-literal           %0, empty   # label(2)
+     8: drop                   %1
+     9: jump                   13
+    10: drop                   %1          # label(1), from(6:)
+    11: load-variable          %0, var #0
+    12: jump                   13          # end match
+    13: return                 %0          # label(0), from(9:), from(12:)
+=== accept/match/list-patterns.nu
+shape shape_internalcall 0..5 "match"
+shape shape_list 6..7 "["
+shape shape_int 7..8 "1"
+shape shape_list 8..9 " "
+shape shape_int 9..10 "2"
+shape shape_list 10..11 " "
+shape shape_int 11..12 "3"
+shape shape_list 12..13 "]"
+shape shape_match_pattern 18..20 "[]"
+shape shape_external 24..29 "empty"
+shape shape_match_pattern 32..33 "["
+shape shape_vardecl 33..35 "$a"
+shape shape_match_pattern 35..36 "]"
+shape shape_external 40..43 "one"
+shape shape_match_pattern 46..47 "["
+shape shape_vardecl 47..49 "$a"
+shape shape_vardecl 50..52 "$b"
+shape shape_match_pattern 52..53 "]"
+shape shape_external 57..60 "two"
+shape shape_match_pattern 63..64 "["
+shape shape_vardecl 64..66 "$a"
+shape shape_vardecl 68..70 "$b"
+shape shape_vardecl 72..74 "$c"
+shape shape_match_pattern 74..75 "]"
+shape shape_external 79..84 "three"
+shape shape_match_pattern 87..88 "["
+shape shape_match_pattern 88..89 "1"
+shape shape_vardecl 90..92 "$b"
+shape shape_nothing 93..94 "_"
+shape shape_match_pattern 94..95 "]"
+shape shape_external 99..102 "lit"
+shape shape_match_pattern 105..106 "["
+shape shape_vardecl 106..111 "$head"
+shape shape_vardecl 112..119 "..$tail"
+shape shape_match_pattern 119..120 "]"
+shape shape_external 124..128 "rest"
+shape shape_match_pattern 131..132 "["
+shape shape_vardecl 132..139 "..$last"
+shape shape_match_pattern 139..140 "]"
+shape shape_external 144..153 "last_only"
+shape shape_match_pattern 156..157 "["
+shape shape_nothing 157..159 ".."
+shape shape_match_pattern 159..160 "]"
+shape shape_external 164..172 "anything"
+shape shape_match_pattern 175..176 "["
+shape shape_match_pattern 176..177 "["
+shape shape_vardecl 177..179 "$x"
+shape shape_match_pattern 179..180 "]"
+shape shape_match_pattern 181..182 "["
+shape shape_vardecl 182..184 "$y"
+shape shape_match_pattern 184..185 "]"
+shape shape_match_pattern 185..186 "]"
+shape shape_external 190..196 "nested"
+shape shape_match_pattern 199..200 "["
+shape shape_match_pattern 200..204 "{a: "
+shape shape_vardecl 204..206 "$v"
+shape shape_match_pattern 206..207 "}"
+shape shape_match_pattern 207..208 "]"
+shape shape_external 212..226 "record_in_list"
+ir main
+  # 3 registers, 92 instructions, 60 bytes of data
+     0: load-literal           %1, list(capacity = 3)
+     1: load-literal           %2, int(1)
+     2: list-push              %1, %2
+     3: load-literal           %2, int(2)
+     4: list-push              %1, %2
+     5: load-literal           %2, int(3)
+     6: list-push              %1, %2
+     7: collect                %1
+     8: match                  ([]), %1, 21
+     9: match                  ([var #0]), %1, 28 # label(2)
+    10: match                  ([var #1var #2]), %1, 35 # label(4)
+    11: match                  ([var #3var #4var #5]), %1, 42 # label(6)
+    12: match                  ([1var #6_]), %1, 49 # label(8)
+    13: match                  ([var #7..var #8]), %1, 56 # label(10)
+    14: match                  ([..var #9]), %1, 63 # label(12)
+    15: match                  ([..]), %1, 70 # label(14)
+    16: match                  ([[var #10][var #11]]), %1, 77 # label(16)
+    17: match                  ([{a: var #12}]), %1, 84 # label(18)
+    18: load-literal           %0, empty   # label(20)
+    19: drop                   %1
+    20: jump                   91
+    21: drop                   %1          # label(1), from(8:)
+    22: load-literal           %1, glob-pattern("empty", no_expand = false)
+    23: push-positional        %1
+    24: redirect-out           caller
+    25: redirect-err           caller
+    26: call                   decl "run-external", %0
+    27: jump                   91          # end match
+    28: drop                   %1          # label(3), from(9:)
+    29: load-literal           %1, glob-pattern("one", no_expand = false)
+    30: push-positional        %1
+    31: redirect-out           caller
+    32: redirect-err           caller
+    33: call                   decl "run-external", %0
+    34: jump                   91          # end match
+    35: drop                   %1          # label(5), from(10:)
+    36: load-literal           %1, glob-pattern("two", no_expand = false)
+    37: push-positional        %1
+    38: redirect-out           caller
+    39: redirect-err           caller
+    40: call                   decl "run-external", %0
+    41: jump                   91          # end match
+    42: drop                   %1          # label(7), from(11:)
+    43: load-literal           %1, glob-pattern("three", no_expand = false)
+    44: push-positional        %1
+    45: redirect-out           caller
+    46: redirect-err           caller
+    47: call                   decl "run-external", %0
+    48: jump                   91          # end match
+    49: drop                   %1          # label(9), from(12:)
+    50: load-literal           %1, glob-pattern("lit", no_expand = false)
+    51: push-positional        %1
+    52: redirect-out           caller
+    53: redirect-err           caller
+    54: call                   decl "run-external", %0
+    55: jump                   91          # end match
+    56: drop                   %1          # label(11), from(13:)
+    57: load-literal           %1, glob-pattern("rest", no_expand = false)
+    58: push-positional        %1
+    59: redirect-out           caller
+    60: redirect-err           caller
+    61: call                   decl "run-external", %0
+    62: jump                   91          # end match
+    63: drop                   %1          # label(13), from(14:)
+    64: load-literal           %1, glob-pattern("last_only", no_expand = false)
+    65: push-positional        %1
+    66: redirect-out           caller
+    67: redirect-err           caller
+    68: call                   decl "run-external", %0
+    69: jump                   91          # end match
+    70: drop                   %1          # label(15), from(15:)
+    71: load-literal           %1, glob-pattern("anything", no_expand = false)
+    72: push-positional        %1
+    73: redirect-out           caller
+    74: redirect-err           caller
+    75: call                   decl "run-external", %0
+    76: jump                   91          # end match
+    77: drop                   %1          # label(17), from(16:)
+    78: load-literal           %1, glob-pattern("nested", no_expand = false)
+    79: push-positional        %1
+    80: redirect-out           caller
+    81: redirect-err           caller
+    82: call                   decl "run-external", %0
+    83: jump                   91          # end match
+    84: drop                   %1          # label(19), from(17:)
+    85: load-literal           %1, glob-pattern("record_in_list", no_expand = false)
+    86: push-positional        %1
+    87: redirect-out           caller
+    88: redirect-err           caller
+    89: call                   decl "run-external", %0
+    90: jump                   91          # end match
+    91: return                 %0          # label(0), from(20:), from(27:), from(34:), from(41:), from(48:), from(55:), from(62:), from(69:), from(76:), from(83:), from(90:)
+=== accept/match/literal-arms.nu
+shape shape_internalcall 0..5 "match"
+shape shape_int 6..7 "1"
+shape shape_match_pattern 14..15 "1"
+shape shape_int 19..20 "1"
+shape shape_match_pattern 26..27 "2"
+shape shape_string 31..36 "\"foo\""
+shape shape_match_pattern 42..43 "3"
+shape shape_list 47..48 "["
+shape shape_int 48..49 "1"
+shape shape_list 49..51 ", "
+shape shape_int 51..52 "2"
+shape shape_list 52..54 ", "
+shape shape_int 54..55 "3"
+shape shape_list 55..56 "]"
+ir main
+  # 2 registers, 24 instructions, 3 bytes of data
+     0: load-literal           %1, int(1)
+     1: collect                %1
+     2: match                  (1), %1, 8
+     3: match                  (2), %1, 11 # label(2)
+     4: match                  (3), %1, 14 # label(4)
+     5: load-literal           %0, empty   # label(6)
+     6: drop                   %1
+     7: jump                   23
+     8: drop                   %1          # label(1), from(2:)
+     9: load-literal           %0, int(1)
+    10: jump                   23          # end match
+    11: drop                   %1          # label(3), from(3:)
+    12: load-literal           %0, string("foo")
+    13: jump                   23          # end match
+    14: drop                   %1          # label(5), from(4:)
+    15: load-literal           %0, list(capacity = 3)
+    16: load-literal           %1, int(1)
+    17: list-push              %0, %1
+    18: load-literal           %1, int(2)
+    19: list-push              %0, %1
+    20: load-literal           %1, int(3)
+    21: list-push              %0, %1
+    22: jump                   23          # end match
+    23: return                 %0          # label(0), from(7:), from(10:), from(13:), from(22:)
+=== accept/match/nested-match.nu
+shape shape_internalcall 0..5 "match"
+shape shape_int 6..7 "1"
+shape shape_match_pattern 12..13 "1"
+shape shape_block 17..18 "("
+shape shape_internalcall 18..23 "match"
+shape shape_int 24..25 "2"
+shape shape_match_pattern 28..29 "2"
+shape shape_external 33..34 "a"
+shape shape_nothing 36..37 "_"
+shape shape_external 41..42 "b"
+shape shape_block 42..45 " })"
+shape shape_nothing 48..49 "_"
+shape shape_block 53..55 "{ "
+shape shape_internalcall 55..60 "match"
+shape shape_int 61..62 "3"
+shape shape_nothing 65..66 "_"
+shape shape_external 70..71 "c"
+shape shape_block 71..75 " } }"
+ir main
+  # 2 registers, 46 instructions, 3 bytes of data
+     0: load-literal           %1, int(1)
+     1: collect                %1
+     2: match                  (1), %1, 7
+     3: match                  (_), %1, 30 # label(2)
+     4: load-literal           %0, empty   # label(4)
+     5: drop                   %1
+     6: jump                   45
+     7: drop                   %1          # label(1), from(2:)
+     8: load-literal           %1, int(2)
+     9: collect                %1
+    10: match                  (2), %1, 15
+    11: match                  (_), %1, 22 # label(7)
+    12: load-literal           %0, empty   # label(9)
+    13: drop                   %1
+    14: jump                   29
+    15: drop                   %1          # label(6), from(10:)
+    16: load-literal           %1, glob-pattern("a", no_expand = false)
+    17: push-positional        %1
+    18: redirect-out           caller
+    19: redirect-err           caller
+    20: call                   decl "run-external", %0
+    21: jump                   29          # end match
+    22: drop                   %1          # label(8), from(11:)
+    23: load-literal           %1, glob-pattern("b", no_expand = false)
+    24: push-positional        %1
+    25: redirect-out           caller
+    26: redirect-err           caller
+    27: call                   decl "run-external", %0
+    28: jump                   29          # end match
+    29: jump                   45          # end match, label(5), from(14:), from(21:), from(28:)
+    30: drop                   %1          # label(3), from(3:)
+    31: load-literal           %1, int(3)
+    32: collect                %1
+    33: match                  (_), %1, 37
+    34: load-literal           %0, empty   # label(12)
+    35: drop                   %1
+    36: jump                   44
+    37: drop                   %1          # label(11), from(33:)
+    38: load-literal           %1, glob-pattern("c", no_expand = false)
+    39: push-positional        %1
+    40: redirect-out           caller
+    41: redirect-err           caller
+    42: call                   decl "run-external", %0
+    43: jump                   44          # end match
+    44: jump                   45          # end match, label(10), from(36:), from(43:)
+    45: return                 %0          # label(0), from(6:), from(29:), from(44:)
+=== accept/match/or-patterns.nu
+shape shape_internalcall 0..5 "match"
+shape shape_int 6..7 "1"
+shape shape_match_pattern 12..13 "1"
+shape shape_match_pattern 16..17 "2"
+shape shape_match_pattern 20..21 "3"
+shape shape_external 25..28 "low"
+shape shape_match_pattern 31..34 "\"a\""
+shape shape_match_pattern 37..40 "\"b\""
+shape shape_internalcall 44..47 "str"
+shape shape_match_pattern 50..51 "["
+shape shape_vardecl 51..53 "$a"
+shape shape_match_pattern 53..54 "]"
+shape shape_match_pattern 57..58 "["
+shape shape_vardecl 58..60 "$a"
+shape shape_vardecl 61..63 "$b"
+shape shape_match_pattern 63..64 "]"
+shape shape_external 68..72 "list"
+shape shape_nothing 75..76 "_"
+shape shape_nothing 79..80 "_"
+shape shape_external 84..89 "other"
+ir main
+  # 2 registers, 36 instructions, 12 bytes of data
+     0: load-literal           %1, int(1)
+     1: collect                %1
+     2: match                  (1 | 2 | 3), %1, 9
+     3: match                  ('a' | 'b'), %1, 16 # label(2)
+     4: match                  ([var #0] | [var #0var #1]), %1, 21 # label(4)
+     5: match                  (_ | _), %1, 28 # label(6)
+     6: load-literal           %0, empty   # label(8)
+     7: drop                   %1
+     8: jump                   35
+     9: drop                   %1          # label(1), from(2:)
+    10: load-literal           %1, glob-pattern("low", no_expand = false)
+    11: push-positional        %1
+    12: redirect-out           caller
+    13: redirect-err           caller
+    14: call                   decl "run-external", %0
+    15: jump                   35          # end match
+    16: drop                   %1          # label(3), from(3:)
+    17: redirect-out           caller
+    18: redirect-err           caller
+    19: call                   decl "str", %0
+    20: jump                   35          # end match
+    21: drop                   %1          # label(5), from(4:)
+    22: load-literal           %1, glob-pattern("list", no_expand = false)
+    23: push-positional        %1
+    24: redirect-out           caller
+    25: redirect-err           caller
+    26: call                   decl "run-external", %0
+    27: jump                   35          # end match
+    28: drop                   %1          # label(7), from(5:)
+    29: load-literal           %1, glob-pattern("other", no_expand = false)
+    30: push-positional        %1
+    31: redirect-out           caller
+    32: redirect-err           caller
+    33: call                   decl "run-external", %0
+    34: jump                   35          # end match
+    35: return                 %0          # label(0), from(8:), from(15:), from(20:), from(27:), from(34:)
+=== accept/match/pattern-that-lexes-as-operator.nu
+shape shape_internalcall 0..5 "match"
+shape shape_int 6..7 "1"
+shape shape_match_pattern 10..11 "="
+shape shape_int 15..16 "1"
+ir main
+  # 2 registers, 10 instructions, 0 bytes of data
+     0: load-literal           %1, int(1)
+     1: collect                %1
+     2: match                  ('='), %1, 6
+     3: load-literal           %0, empty   # label(2)
+     4: drop                   %1
+     5: jump                   9
+     6: drop                   %1          # label(1), from(2:)
+     7: load-literal           %0, int(1)
+     8: jump                   9           # end match
+     9: return                 %0          # label(0), from(5:), from(8:)
+=== accept/match/record-pattern-pipe-value.nu
+shape shape_internalcall 0..5 "match"
+shape shape_record 6..7 "{"
+shape shape_string 7..8 "a"
+shape shape_record 8..10 ": "
+shape shape_int 10..11 "1"
+shape shape_record 11..12 "}"
+shape shape_match_pattern 15..19 "{a: "
+shape shape_match_pattern 19..20 "|"
+shape shape_match_pattern 20..21 "}"
+shape shape_int 25..26 "1"
+ir main
+  # 4 registers, 13 instructions, 1 byte of data
+     0: load-literal           %1, record(capacity = 1)
+     1: load-literal           %2, string("a")
+     2: load-literal           %3, int(1)
+     3: record-insert          %1, %2, %3
+     4: collect                %1
+     5: match                  ({a: '|'}), %1, 9
+     6: load-literal           %0, empty   # label(2)
+     7: drop                   %1
+     8: jump                   12
+     9: drop                   %1          # label(1), from(5:)
+    10: load-literal           %0, int(1)
+    11: jump                   12          # end match
+    12: return                 %0          # label(0), from(8:), from(11:)
+=== accept/match/record-pattern-quoted-field-verbatim.nu
+shape shape_internalcall 0..5 "match"
+shape shape_record 6..7 "{"
+shape shape_string 7..8 "a"
+shape shape_record 8..10 ": "
+shape shape_int 10..11 "1"
+shape shape_record 11..12 "}"
+shape shape_match_pattern 15..21 "{\"a\": "
+shape shape_vardecl 21..23 "$x"
+shape shape_match_pattern 23..24 "}"
+shape shape_variable 28..30 "$x"
+ir main
+  # 4 registers, 13 instructions, 1 byte of data
+     0: load-literal           %1, record(capacity = 1)
+     1: load-literal           %2, string("a")
+     2: load-literal           %3, int(1)
+     3: record-insert          %1, %2, %3
+     4: collect                %1
+     5: match                  ({"a": var #0}), %1, 9
+     6: load-literal           %0, empty   # label(2)
+     7: drop                   %1
+     8: jump                   12
+     9: drop                   %1          # label(1), from(5:)
+    10: load-variable          %0, var #0
+    11: jump                   12          # end match
+    12: return                 %0          # label(0), from(8:), from(11:)
+=== accept/match/record-pattern-semicolon-field.nu
+shape shape_internalcall 0..5 "match"
+shape shape_record 6..7 "{"
+shape shape_string 7..8 "a"
+shape shape_record 8..10 ": "
+shape shape_int 10..11 "1"
+shape shape_record 11..12 "}"
+shape shape_match_pattern 15..20 "{; : "
+shape shape_match_pattern 20..21 "1"
+shape shape_match_pattern 21..22 "}"
+shape shape_int 26..27 "1"
+ir main
+  # 4 registers, 13 instructions, 1 byte of data
+     0: load-literal           %1, record(capacity = 1)
+     1: load-literal           %2, string("a")
+     2: load-literal           %3, int(1)
+     3: record-insert          %1, %2, %3
+     4: collect                %1
+     5: match                  ({;: 1}), %1, 9
+     6: load-literal           %0, empty   # label(2)
+     7: drop                   %1
+     8: jump                   12
+     9: drop                   %1          # label(1), from(5:)
+    10: load-literal           %0, int(1)
+    11: jump                   12          # end match
+    12: return                 %0          # label(0), from(8:), from(11:)
+=== accept/match/record-patterns.nu
+shape shape_internalcall 0..5 "match"
+shape shape_record 6..7 "{"
+shape shape_string 7..8 "a"
+shape shape_record 8..10 ": "
+shape shape_int 10..11 "1"
+shape shape_record 11..13 ", "
+shape shape_string 13..14 "b"
+shape shape_record 14..16 ": "
+shape shape_record 16..17 "{"
+shape shape_string 17..18 "c"
+shape shape_record 18..20 ": "
+shape shape_int 20..21 "2"
+shape shape_record 21..22 "}"
+shape shape_record 22..23 "}"
+shape shape_match_pattern 28..30 "{}"
+shape shape_external 34..39 "empty"
+shape shape_match_pattern 42..46 "{a: "
+shape shape_match_pattern 46..47 "1"
+shape shape_match_pattern 47..48 "}"
+shape shape_external 52..55 "lit"
+shape shape_match_pattern 58..62 "{a: "
+shape shape_vardecl 62..64 "$a"
+shape shape_match_pattern 64..65 "}"
+shape shape_external 69..73 "bind"
+shape shape_match_pattern 76..80 "{a: "
+shape shape_vardecl 80..82 "$a"
+shape shape_vardecl 87..89 "$b"
+shape shape_match_pattern 89..90 "}"
+shape shape_external 94..97 "two"
+shape shape_match_pattern 100..104 "{a: "
+shape shape_vardecl 104..106 "$a"
+shape shape_match_pattern 110..114 "{c: "
+shape shape_vardecl 114..116 "$c"
+shape shape_match_pattern 116..117 "}"
+shape shape_match_pattern 117..118 "}"
+shape shape_external 122..128 "nested"
+shape shape_match_pattern 131..132 "{"
+shape shape_vardecl 132..134 "$a"
+shape shape_match_pattern 134..135 "}"
+shape shape_external 139..148 "shorthand"
+shape shape_match_pattern 151..152 "{"
+shape shape_vardecl 152..154 "$a"
+shape shape_vardecl 155..157 "$b"
+shape shape_match_pattern 157..158 "}"
+shape shape_external 162..172 "shorthands"
+shape shape_match_pattern 175..190 "{\"quoted key\": "
+shape shape_vardecl 190..192 "$q"
+shape shape_match_pattern 192..193 "}"
+shape shape_external 197..203 "quoted"
+shape shape_match_pattern 206..210 "{a: "
+shape shape_match_pattern 210..211 "["
+shape shape_vardecl 211..213 "$x"
+shape shape_vardecl 214..221 "..$rest"
+shape shape_match_pattern 221..222 "]"
+shape shape_match_pattern 222..223 "}"
+shape shape_external 227..241 "list_in_record"
+ir main
+  # 6 registers, 87 instructions, 63 bytes of data
+     0: load-literal           %1, record(capacity = 2)
+     1: load-literal           %2, string("a")
+     2: load-literal           %3, int(1)
+     3: record-insert          %1, %2, %3
+     4: load-literal           %2, string("b")
+     5: load-literal           %3, record(capacity = 1)
+     6: load-literal           %4, string("c")
+     7: load-literal           %5, int(2)
+     8: record-insert          %3, %4, %5
+     9: record-insert          %1, %2, %3
+    10: collect                %1
+    11: match                  ({}), %1, 23
+    12: match                  ({a: 1}), %1, 30 # label(2)
+    13: match                  ({a: var #0}), %1, 37 # label(4)
+    14: match                  ({a: var #1b: var #2}), %1, 44 # label(6)
+    15: match                  ({a: var #3b: {c: var #4}}), %1, 51 # label(8)
+    16: match                  ({a: var #5}), %1, 58 # label(10)
+    17: match                  ({a: var #6b: var #7}), %1, 65 # label(12)
+    18: match                  ({"quoted key": var #8}), %1, 72 # label(14)
+    19: match                  ({a: [var #9..var #10]}), %1, 79 # label(16)
+    20: load-literal           %0, empty   # label(18)
+    21: drop                   %1
+    22: jump                   86
+    23: drop                   %1          # label(1), from(11:)
+    24: load-literal           %1, glob-pattern("empty", no_expand = false)
+    25: push-positional        %1
+    26: redirect-out           caller
+    27: redirect-err           caller
+    28: call                   decl "run-external", %0
+    29: jump                   86          # end match
+    30: drop                   %1          # label(3), from(12:)
+    31: load-literal           %1, glob-pattern("lit", no_expand = false)
+    32: push-positional        %1
+    33: redirect-out           caller
+    34: redirect-err           caller
+    35: call                   decl "run-external", %0
+    36: jump                   86          # end match
+    37: drop                   %1          # label(5), from(13:)
+    38: load-literal           %1, glob-pattern("bind", no_expand = false)
+    39: push-positional        %1
+    40: redirect-out           caller
+    41: redirect-err           caller
+    42: call                   decl "run-external", %0
+    43: jump                   86          # end match
+    44: drop                   %1          # label(7), from(14:)
+    45: load-literal           %1, glob-pattern("two", no_expand = false)
+    46: push-positional        %1
+    47: redirect-out           caller
+    48: redirect-err           caller
+    49: call                   decl "run-external", %0
+    50: jump                   86          # end match
+    51: drop                   %1          # label(9), from(15:)
+    52: load-literal           %1, glob-pattern("nested", no_expand = false)
+    53: push-positional        %1
+    54: redirect-out           caller
+    55: redirect-err           caller
+    56: call                   decl "run-external", %0
+    57: jump                   86          # end match
+    58: drop                   %1          # label(11), from(16:)
+    59: load-literal           %1, glob-pattern("shorthand", no_expand = false)
+    60: push-positional        %1
+    61: redirect-out           caller
+    62: redirect-err           caller
+    63: call                   decl "run-external", %0
+    64: jump                   86          # end match
+    65: drop                   %1          # label(13), from(17:)
+    66: load-literal           %1, glob-pattern("shorthands", no_expand = false)
+    67: push-positional        %1
+    68: redirect-out           caller
+    69: redirect-err           caller
+    70: call                   decl "run-external", %0
+    71: jump                   86          # end match
+    72: drop                   %1          # label(15), from(18:)
+    73: load-literal           %1, glob-pattern("quoted", no_expand = false)
+    74: push-positional        %1
+    75: redirect-out           caller
+    76: redirect-err           caller
+    77: call                   decl "run-external", %0
+    78: jump                   86          # end match
+    79: drop                   %1          # label(17), from(19:)
+    80: load-literal           %1, glob-pattern("list_in_record", no_expand = false)
+    81: push-positional        %1
+    82: redirect-out           caller
+    83: redirect-err           caller
+    84: call                   decl "run-external", %0
+    85: jump                   86          # end match
+    86: return                 %0          # label(0), from(22:), from(29:), from(36:), from(43:), from(50:), from(57:), from(64:), from(71:), from(78:), from(85:)
+=== accept/match/separators.nu
+shape shape_internalcall 0..5 "match"
+shape shape_int 6..7 "1"
+shape shape_match_pattern 10..11 "1"
+shape shape_external 15..16 "a"
+shape shape_match_pattern 18..19 "2"
+shape shape_external 23..24 "b"
+shape shape_match_pattern 25..26 "3"
+shape shape_external 30..31 "c"
+shape shape_match_pattern 33..34 "4"
+shape shape_external 38..39 "d"
+shape shape_nothing 42..43 "_"
+shape shape_external 47..48 "e"
+ir main
+  # 2 registers, 46 instructions, 5 bytes of data
+     0: load-literal           %1, int(1)
+     1: collect                %1
+     2: match                  (1), %1, 10
+     3: match                  (2), %1, 17 # label(2)
+     4: match                  (3), %1, 24 # label(4)
+     5: match                  (4), %1, 31 # label(6)
+     6: match                  (_), %1, 38 # label(8)
+     7: load-literal           %0, empty   # label(10)
+     8: drop                   %1
+     9: jump                   45
+    10: drop                   %1          # label(1), from(2:)
+    11: load-literal           %1, glob-pattern("a", no_expand = false)
+    12: push-positional        %1
+    13: redirect-out           caller
+    14: redirect-err           caller
+    15: call                   decl "run-external", %0
+    16: jump                   45          # end match
+    17: drop                   %1          # label(3), from(3:)
+    18: load-literal           %1, glob-pattern("b", no_expand = false)
+    19: push-positional        %1
+    20: redirect-out           caller
+    21: redirect-err           caller
+    22: call                   decl "run-external", %0
+    23: jump                   45          # end match
+    24: drop                   %1          # label(5), from(4:)
+    25: load-literal           %1, glob-pattern("c", no_expand = false)
+    26: push-positional        %1
+    27: redirect-out           caller
+    28: redirect-err           caller
+    29: call                   decl "run-external", %0
+    30: jump                   45          # end match
+    31: drop                   %1          # label(7), from(5:)
+    32: load-literal           %1, glob-pattern("d", no_expand = false)
+    33: push-positional        %1
+    34: redirect-out           caller
+    35: redirect-err           caller
+    36: call                   decl "run-external", %0
+    37: jump                   45          # end match
+    38: drop                   %1          # label(9), from(6:)
+    39: load-literal           %1, glob-pattern("e", no_expand = false)
+    40: push-positional        %1
+    41: redirect-out           caller
+    42: redirect-err           caller
+    43: call                   decl "run-external", %0
+    44: jump                   45          # end match
+    45: return                 %0          # label(0), from(9:), from(16:), from(23:), from(30:), from(37:), from(44:)
+=== accept/match/single-line.nu
+shape shape_internalcall 0..5 "match"
+shape shape_int 6..7 "2"
+shape shape_match_pattern 10..11 "2"
+shape shape_int 15..16 "3"
+shape shape_nothing 18..19 "_"
+shape shape_int 23..24 "4"
+ir main
+  # 2 registers, 14 instructions, 0 bytes of data
+     0: load-literal           %1, int(2)
+     1: collect                %1
+     2: match                  (2), %1, 7
+     3: match                  (_), %1, 10 # label(2)
+     4: load-literal           %0, empty   # label(4)
+     5: drop                   %1
+     6: jump                   13
+     7: drop                   %1          # label(1), from(2:)
+     8: load-literal           %0, int(3)
+     9: jump                   13          # end match
+    10: drop                   %1          # label(3), from(3:)
+    11: load-literal           %0, int(4)
+    12: jump                   13          # end match
+    13: return                 %0          # label(0), from(6:), from(9:), from(12:)
+=== accept/match/value-forms.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..5 "x"
+shape shape_int 8..9 "1"
+shape shape_internalcall 10..15 "match"
+shape shape_variable 16..18 "$x"
+shape shape_nothing 21..22 "_"
+shape shape_int 26..27 "1"
+shape shape_internalcall 30..35 "match"
+shape shape_block 36..37 "("
+shape shape_variable 37..39 "$x"
+shape shape_operator 40..41 "+"
+shape shape_int 42..43 "1"
+shape shape_block 43..44 ")"
+shape shape_nothing 47..48 "_"
+shape shape_int 52..53 "1"
+shape shape_internalcall 56..61 "match"
+shape shape_list 62..63 "["
+shape shape_int 63..64 "1"
+shape shape_list 64..65 " "
+shape shape_int 65..66 "2"
+shape shape_list 66..67 "]"
+shape shape_nothing 70..71 "_"
+shape shape_int 75..76 "1"
+shape shape_internalcall 79..84 "match"
+shape shape_record 85..86 "{"
+shape shape_string 86..87 "a"
+shape shape_record 87..89 ": "
+shape shape_int 89..90 "1"
+shape shape_record 90..91 "}"
+shape shape_nothing 94..95 "_"
+shape shape_int 99..100 "1"
+shape shape_internalcall 103..108 "match"
+shape shape_string 109..112 "\"s\""
+shape shape_nothing 115..116 "_"
+shape shape_int 120..121 "1"
+shape shape_internalcall 124..129 "match"
+shape shape_variable 130..132 "$x"
+shape shape_string 133..134 "a"
+shape shape_nothing 138..139 "_"
+shape shape_int 143..144 "1"
+shape shape_internalcall 147..152 "match"
+shape shape_block 153..154 "("
+shape shape_internalcall 154..156 "ls"
+shape shape_pipe 157..158 "|"
+shape shape_internalcall 159..165 "length"
+shape shape_block 165..166 ")"
+shape shape_nothing 169..170 "_"
+shape shape_int 174..175 "1"
+ir main
+  # 4 registers, 104 instructions, 2 bytes of data
+     0: load-literal           %0, int(1)
+     1: store-variable         var #0 "$x", %0 # let
+     2: load-literal           %0, empty
+     3: drain                  %0
+     4: load-literal           %0, empty
+     5: load-literal           %0, empty
+     6: load-variable          %1, var #0 "$x"
+     7: collect                %1
+     8: match                  (_), %1, 12
+     9: load-literal           %0, empty   # label(2)
+    10: drop                   %1
+    11: jump                   15
+    12: drop                   %1          # label(1), from(8:)
+    13: load-literal           %0, int(1)
+    14: jump                   15          # end match
+    15: drain                  %0          # label(0), from(11:), from(14:)
+    16: load-literal           %0, empty
+    17: load-literal           %0, empty
+    18: load-variable          %1, var #0 "$x"
+    19: load-literal           %2, int(1)
+    20: binary-op              %1, Math(Add), %2
+    21: span                   %1
+    22: collect                %1
+    23: match                  (_), %1, 27
+    24: load-literal           %0, empty   # label(5)
+    25: drop                   %1
+    26: jump                   30
+    27: drop                   %1          # label(4), from(23:)
+    28: load-literal           %0, int(1)
+    29: jump                   30          # end match
+    30: drain                  %0          # label(3), from(26:), from(29:)
+    31: load-literal           %0, empty
+    32: load-literal           %0, empty
+    33: load-literal           %1, list(capacity = 2)
+    34: load-literal           %2, int(1)
+    35: list-push              %1, %2
+    36: load-literal           %2, int(2)
+    37: list-push              %1, %2
+    38: collect                %1
+    39: match                  (_), %1, 43
+    40: load-literal           %0, empty   # label(8)
+    41: drop                   %1
+    42: jump                   46
+    43: drop                   %1          # label(7), from(39:)
+    44: load-literal           %0, int(1)
+    45: jump                   46          # end match
+    46: drain                  %0          # label(6), from(42:), from(45:)
+    47: load-literal           %0, empty
+    48: load-literal           %0, empty
+    49: load-literal           %1, record(capacity = 1)
+    50: load-literal           %2, string("a")
+    51: load-literal           %3, int(1)
+    52: record-insert          %1, %2, %3
+    53: collect                %1
+    54: match                  (_), %1, 58
+    55: load-literal           %0, empty   # label(11)
+    56: drop                   %1
+    57: jump                   61
+    58: drop                   %1          # label(10), from(54:)
+    59: load-literal           %0, int(1)
+    60: jump                   61          # end match
+    61: drain                  %0          # label(9), from(57:), from(60:)
+    62: load-literal           %0, empty
+    63: load-literal           %0, empty
+    64: load-literal           %1, string("s")
+    65: collect                %1
+    66: match                  (_), %1, 70
+    67: load-literal           %0, empty   # label(14)
+    68: drop                   %1
+    69: jump                   73
+    70: drop                   %1          # label(13), from(66:)
+    71: load-literal           %0, int(1)
+    72: jump                   73          # end match
+    73: drain                  %0          # label(12), from(69:), from(72:)
+    74: load-literal           %0, empty
+    75: load-literal           %0, empty
+    76: load-variable          %1, var #0 "$x"
+    77: load-literal           %2, cell-path($.a?)
+    78: follow-cell-path       %1, %2
+    79: collect                %1
+    80: match                  (_), %1, 84
+    81: load-literal           %0, empty   # label(17)
+    82: drop                   %1
+    83: jump                   87
+    84: drop                   %1          # label(16), from(80:)
+    85: load-literal           %0, int(1)
+    86: jump                   87          # end match
+    87: drain                  %0          # label(15), from(83:), from(86:)
+    88: load-literal           %0, empty
+    89: load-literal           %0, empty
+    90: load-literal           %1, empty
+    91: redirect-out           pipe
+    92: call                   decl "ls", %1
+    93: redirect-out           value
+    94: call                   decl "length", %1
+    95: collect                %1
+    96: match                  (_), %1, 100
+    97: load-literal           %0, empty   # label(20)
+    98: drop                   %1
+    99: jump                   103
+   100: drop                   %1          # label(19), from(96:)
+   101: load-literal           %0, int(1)
+   102: jump                   103         # end match
+   103: return                 %0          # label(18), from(99:), from(102:)
+=== accept/match/value-patterns.nu
+shape shape_internalcall 0..5 "match"
+shape shape_int 6..7 "1"
+shape shape_match_pattern 12..13 "1"
+shape shape_external 17..18 "a"
+shape shape_match_pattern 21..23 "-1"
+shape shape_external 27..28 "b"
+shape shape_match_pattern 31..34 "1.5"
+shape shape_external 38..39 "c"
+shape shape_match_pattern 42..45 "\"s\""
+shape shape_external 49..50 "d"
+shape shape_match_pattern 53..56 "'s'"
+shape shape_external 60..61 "e"
+shape shape_match_pattern 64..68 "true"
+shape shape_external 72..73 "f"
+shape shape_match_pattern 76..80 "null"
+shape shape_external 84..85 "g"
+shape shape_match_pattern 88..91 "1kb"
+shape shape_external 95..96 "h"
+shape shape_match_pattern 99..109 "2024-01-02"
+shape shape_external 113..114 "i"
+shape shape_match_pattern 117..121 "1..3"
+shape shape_external 125..126 "j"
+shape shape_match_pattern 129..136 "(1 + 1)"
+shape shape_external 140..141 "l"
+shape shape_match_pattern 144..150 "0x[ff]"
+shape shape_external 154..155 "m"
+shape shape_match_pattern 158..166 "r#'raw'#"
+shape shape_external 170..171 "o"
+ir main
+  # 2 registers, 110 instructions, 13 bytes of data
+     0: load-literal           %1, int(1)
+     1: collect                %1
+     2: match                  (1), %1, 18
+     3: match                  (-1), %1, 25 # label(2)
+     4: match                  (1.5), %1, 32 # label(4)
+     5: match                  ('s'), %1, 39 # label(6)
+     6: match                  ('s'), %1, 46 # label(8)
+     7: match                  (true), %1, 53 # label(10)
+     8: match                  (), %1, 60  # label(12)
+     9: match                  (1.0 kB), %1, 67 # label(14)
+    10: match                  (Tue, 2 Jan 2024 00:00:00 +0000 (2 years ago)), %1, 74 # label(16)
+    11: match                  (1..3), %1, 81 # label(18)
+    12: match                  (2), %1, 88 # label(20)
+    13: match                  ([255]), %1, 95 # label(22)
+    14: match                  ('raw'), %1, 102 # label(24)
+    15: load-literal           %0, empty   # label(26)
+    16: drop                   %1
+    17: jump                   109
+    18: drop                   %1          # label(1), from(2:)
+    19: load-literal           %1, glob-pattern("a", no_expand = false)
+    20: push-positional        %1
+    21: redirect-out           caller
+    22: redirect-err           caller
+    23: call                   decl "run-external", %0
+    24: jump                   109         # end match
+    25: drop                   %1          # label(3), from(3:)
+    26: load-literal           %1, glob-pattern("b", no_expand = false)
+    27: push-positional        %1
+    28: redirect-out           caller
+    29: redirect-err           caller
+    30: call                   decl "run-external", %0
+    31: jump                   109         # end match
+    32: drop                   %1          # label(5), from(4:)
+    33: load-literal           %1, glob-pattern("c", no_expand = false)
+    34: push-positional        %1
+    35: redirect-out           caller
+    36: redirect-err           caller
+    37: call                   decl "run-external", %0
+    38: jump                   109         # end match
+    39: drop                   %1          # label(7), from(5:)
+    40: load-literal           %1, glob-pattern("d", no_expand = false)
+    41: push-positional        %1
+    42: redirect-out           caller
+    43: redirect-err           caller
+    44: call                   decl "run-external", %0
+    45: jump                   109         # end match
+    46: drop                   %1          # label(9), from(6:)
+    47: load-literal           %1, glob-pattern("e", no_expand = false)
+    48: push-positional        %1
+    49: redirect-out           caller
+    50: redirect-err           caller
+    51: call                   decl "run-external", %0
+    52: jump                   109         # end match
+    53: drop                   %1          # label(11), from(7:)
+    54: load-literal           %1, glob-pattern("f", no_expand = false)
+    55: push-positional        %1
+    56: redirect-out           caller
+    57: redirect-err           caller
+    58: call                   decl "run-external", %0
+    59: jump                   109         # end match
+    60: drop                   %1          # label(13), from(8:)
+    61: load-literal           %1, glob-pattern("g", no_expand = false)
+    62: push-positional        %1
+    63: redirect-out           caller
+    64: redirect-err           caller
+    65: call                   decl "run-external", %0
+    66: jump                   109         # end match
+    67: drop                   %1          # label(15), from(9:)
+    68: load-literal           %1, glob-pattern("h", no_expand = false)
+    69: push-positional        %1
+    70: redirect-out           caller
+    71: redirect-err           caller
+    72: call                   decl "run-external", %0
+    73: jump                   109         # end match
+    74: drop                   %1          # label(17), from(10:)
+    75: load-literal           %1, glob-pattern("i", no_expand = false)
+    76: push-positional        %1
+    77: redirect-out           caller
+    78: redirect-err           caller
+    79: call                   decl "run-external", %0
+    80: jump                   109         # end match
+    81: drop                   %1          # label(19), from(11:)
+    82: load-literal           %1, glob-pattern("j", no_expand = false)
+    83: push-positional        %1
+    84: redirect-out           caller
+    85: redirect-err           caller
+    86: call                   decl "run-external", %0
+    87: jump                   109         # end match
+    88: drop                   %1          # label(21), from(12:)
+    89: load-literal           %1, glob-pattern("l", no_expand = false)
+    90: push-positional        %1
+    91: redirect-out           caller
+    92: redirect-err           caller
+    93: call                   decl "run-external", %0
+    94: jump                   109         # end match
+    95: drop                   %1          # label(23), from(13:)
+    96: load-literal           %1, glob-pattern("m", no_expand = false)
+    97: push-positional        %1
+    98: redirect-out           caller
+    99: redirect-err           caller
+   100: call                   decl "run-external", %0
+   101: jump                   109         # end match
+   102: drop                   %1          # label(25), from(14:)
+   103: load-literal           %1, glob-pattern("o", no_expand = false)
+   104: push-positional        %1
+   105: redirect-out           caller
+   106: redirect-err           caller
+   107: call                   decl "run-external", %0
+   108: jump                   109         # end match
+   109: return                 %0          # label(0), from(17:), from(24:), from(31:), from(38:), from(45:), from(52:), from(59:), from(66:), from(73:), from(80:), from(87:), from(94:), from(101:), from(108:)
+=== accept/match/wildcard-binds-variable-names.nu
+shape shape_internalcall 0..5 "match"
+shape shape_string 6..15 "\"...$foo\""
+shape shape_match_pattern 18..25 "...$foo"
+shape shape_int 29..30 "5"
+ir main
+  # 2 registers, 10 instructions, 7 bytes of data
+     0: load-literal           %1, string("...$foo")
+     1: collect                %1
+     2: match                  ('...$foo'), %1, 6
+     3: load-literal           %0, empty   # label(2)
+     4: drop                   %1
+     5: jump                   9
+     6: drop                   %1          # label(1), from(2:)
+     7: load-literal           %0, int(5)
+     8: jump                   9           # end match
+     9: return                 %0          # label(0), from(5:), from(8:)

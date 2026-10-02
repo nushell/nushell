@@ -1,0 +1,69 @@
+=== reject/assignments/env-rhs-bare-external.nu
+shape shape_variable 0..4 "$env"
+shape shape_string 5..8 "FOO"
+shape shape_operator 9..10 "="
+shape shape_external 11..14 "bar"
+error : External command calls must be explicit in assignments
+  label 11..14 "bar": add a caret (^) before the command name if you intended to run and capture its output
+  help: the parsing of assignments was changed in 0.97.0, and this would have previously been treated as a string. Alternatively, quote the string with single or double quotes to avoid it being interpreted as a command name. This restriction may be removed in a future release.
+=== reject/assignments/missing-rhs.nu
+shape shape_internalcall 0..3 "mut"
+shape shape_vardecl 4..5 "x"
+shape shape_int 8..9 "1"
+shape shape_variable 10..12 "$x"
+shape shape_operator 13..14 "="
+shape shape_garbage 14..14 ""
+error nu::parser::parse_mismatch: Parse mismatch: expected right hand side of assignment.
+  label 13..14 "=": expected right hand side of assignment
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/assignments/rhs-bare-external-with-args.nu
+shape shape_internalcall 0..3 "mut"
+shape shape_vardecl 4..5 "x"
+shape shape_int 8..9 "1"
+shape shape_variable 11..13 "$x"
+shape shape_operator 14..15 "="
+shape shape_external 16..19 "foo"
+shape shape_externalarg 20..23 "bar"
+error : External command calls must be explicit in assignments
+  label 16..19 "foo": add a caret (^) before the command name if you intended to run and capture its output
+  help: the parsing of assignments was changed in 0.97.0, and this would have previously been treated as a string. Alternatively, quote the string with single or double quotes to avoid it being interpreted as a command name. This restriction may be removed in a future release.
+=== reject/assignments/rhs-bare-external.nu
+shape shape_internalcall 0..3 "mut"
+shape shape_vardecl 4..5 "x"
+shape shape_int 8..9 "1"
+shape shape_variable 11..13 "$x"
+shape shape_operator 14..15 "="
+shape shape_external 16..19 "git"
+error : External command calls must be explicit in assignments
+  label 16..19 "git": add a caret (^) before the command name if you intended to run and capture its output
+  help: the parsing of assignments was changed in 0.97.0, and this would have previously been treated as a string. Alternatively, quote the string with single or double quotes to avoid it being interpreted as a command name. This restriction may be removed in a future release.
+=== reject/assignments/rhs-external-in-pipeline.nu
+shape shape_internalcall 0..3 "mut"
+shape shape_vardecl 4..5 "x"
+shape shape_int 8..9 "1"
+shape shape_variable 11..13 "$x"
+shape shape_operator 14..15 "="
+shape shape_external 16..19 "git"
+shape shape_pipe 20..21 "|"
+shape shape_internalcall 22..28 "length"
+error : External command calls must be explicit in assignments
+  label 16..19 "git": add a caret (^) before the command name if you intended to run and capture its output
+  help: the parsing of assignments was changed in 0.97.0, and this would have previously been treated as a string. Alternatively, quote the string with single or double quotes to avoid it being interpreted as a command name. This restriction may be removed in a future release.
+=== reject/assignments/to-call.nu
+shape shape_internalcall 0..2 "ls"
+shape shape_garbage 3..4 "="
+shape shape_int 5..6 "1"
+error nu::parser::assignment_requires_variable: Assignment operations require a variable.
+  label 0..2 "ls": needs to be a variable
+  help: try assigning to a variable or a cell path of a variable
+error nu::parser::operator_incompatible_types: Types 'table' and 'int' are not compatible for the '=' operator.
+  label 3..4 "=": does not operate between 'table' and 'int'
+  label 0..2 "ls": table
+  label 5..6 "1": int
+=== reject/assignments/to-literal.nu
+shape shape_int 0..1 "1"
+shape shape_operator 2..3 "="
+shape shape_int 4..5 "2"
+error nu::parser::assignment_requires_variable: Assignment operations require a variable.
+  label 0..1 "1": needs to be a variable
+  help: try assigning to a variable or a cell path of a variable

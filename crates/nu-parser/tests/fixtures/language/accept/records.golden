@@ -1,0 +1,787 @@
+=== accept/records/bare-word-values.nu
+shape shape_record 0..1 "{"
+shape shape_string 1..5 "name"
+shape shape_record 5..7 ": "
+shape shape_string 7..10 "bob"
+shape shape_record 10..12 ", "
+shape shape_string 12..16 "path"
+shape shape_record 16..18 ": "
+shape shape_string 18..23 "./a/b"
+shape shape_record 23..25 ", "
+shape shape_string 25..29 "flag"
+shape shape_record 29..31 ": "
+shape shape_string 31..34 "--x"
+shape shape_record 34..35 "}"
+ir main
+  # 3 registers, 11 instructions, 23 bytes of data
+     0: load-literal           %0, record(capacity = 3)
+     1: load-literal           %1, string("name")
+     2: load-literal           %2, string("bob")
+     3: record-insert          %0, %1, %2
+     4: load-literal           %1, string("path")
+     5: load-literal           %2, string("./a/b")
+     6: record-insert          %0, %1, %2
+     7: load-literal           %1, string("flag")
+     8: load-literal           %2, string("--x")
+     9: record-insert          %0, %1, %2
+    10: return                 %0
+=== accept/records/basic.nu
+shape shape_record 0..1 "{"
+shape shape_string 1..2 "a"
+shape shape_record 2..4 ": "
+shape shape_int 4..5 "1"
+shape shape_record 5..7 ", "
+shape shape_string 7..8 "b"
+shape shape_record 8..10 ": "
+shape shape_string 10..15 "\"two\""
+shape shape_record 15..16 " "
+shape shape_string 16..17 "c"
+shape shape_record 17..19 ": "
+shape shape_list 19..20 "["
+shape shape_int 20..21 "3"
+shape shape_list 21..22 "]"
+shape shape_record 22..23 "}"
+ir main
+  # 4 registers, 13 instructions, 6 bytes of data
+     0: load-literal           %0, record(capacity = 3)
+     1: load-literal           %1, string("a")
+     2: load-literal           %2, int(1)
+     3: record-insert          %0, %1, %2
+     4: load-literal           %1, string("b")
+     5: load-literal           %2, string("two")
+     6: record-insert          %0, %1, %2
+     7: load-literal           %1, string("c")
+     8: load-literal           %2, list(capacity = 1)
+     9: load-literal           %3, int(3)
+    10: list-push              %2, %3
+    11: record-insert          %0, %1, %2
+    12: return                 %0
+=== accept/records/closure-value-with-params.nu
+shape shape_record 0..1 "{"
+shape shape_string 1..2 "f"
+shape shape_record 2..4 ": "
+shape shape_closure 4..9 "{|x| "
+shape shape_variable 9..11 "$x"
+shape shape_operator 12..13 "+"
+shape shape_int 14..15 "1"
+shape shape_closure 15..16 "}"
+shape shape_record 16..18 ", "
+shape shape_string 18..19 "g"
+shape shape_record 19..21 ": "
+shape shape_block 21..23 "{ "
+shape shape_variable 23..26 "$in"
+shape shape_block 26..28 " }"
+shape shape_record 28..29 "}"
+ir main
+  # 3 registers, 8 instructions, 2 bytes of data
+     0: load-literal           %0, record(capacity = 2)
+     1: load-literal           %1, string("f")
+     2: load-literal           %2, closure(#0)
+     3: record-insert          %0, %1, %2
+     4: load-literal           %1, string("g")
+     5: load-literal           %2, closure(#2)
+     6: record-insert          %0, %1, %2
+     7: return                 %0
+ir #0
+  # 2 registers, 5 instructions, 0 bytes of data
+     0: load-variable          %0, var #0
+     1: load-literal           %1, int(1)
+     2: binary-op              %0, Math(Add), %1
+     3: span                   %0
+     4: return                 %0
+ir #2
+  # 2 registers, 6 instructions, 0 bytes of data
+     0: collect                %0
+     1: clone                  %1, %0
+     2: store-variable         var #1, %1
+     3: load-variable          %0, var #1
+     4: drop-variable          var #1
+     5: return                 %0
+=== accept/records/colon-in-quoted-value.nu
+shape shape_record 0..1 "{"
+shape shape_string 1..2 "a"
+shape shape_record 2..4 ": "
+shape shape_string 4..9 "\"x:y\""
+shape shape_record 9..11 ", "
+shape shape_string 11..12 "b"
+shape shape_record 12..14 ": "
+shape shape_string 14..19 "'c:d'"
+shape shape_record 19..20 "}"
+ir main
+  # 3 registers, 8 instructions, 8 bytes of data
+     0: load-literal           %0, record(capacity = 2)
+     1: load-literal           %1, string("a")
+     2: load-literal           %2, string("x:y")
+     3: record-insert          %0, %1, %2
+     4: load-literal           %1, string("b")
+     5: load-literal           %2, string("c:d")
+     6: record-insert          %0, %1, %2
+     7: return                 %0
+=== accept/records/empty-bare-key.nu
+shape shape_closure 0..1 "{"
+shape shape_external 1..2 ":"
+shape shape_externalarg 3..4 "1"
+shape shape_closure 4..5 "}"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, closure(#0)
+     1: return                 %0
+ir #0
+  # 3 registers, 8 instructions, 2 bytes of data
+     0: load-literal           %1, glob-pattern(":", no_expand = false)
+     1: load-literal           %2, glob-pattern("1", no_expand = false)
+     2: push-positional        %1
+     3: push-positional        %2
+     4: redirect-out           caller
+     5: redirect-err           caller
+     6: call                   decl "run-external", %0
+     7: return                 %0
+=== accept/records/empty.nu
+shape shape_record 0..2 "{}"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, record(capacity = 0)
+     1: return                 %0
+=== accept/records/keys-with-equals.nu
+shape shape_list 0..1 "["
+shape shape_record 1..2 "{"
+shape shape_string 2..6 "\"a=\""
+shape shape_record 6..7 ":"
+shape shape_string 7..8 "b"
+shape shape_record 8..9 "}"
+shape shape_list 9..10 " "
+shape shape_record 10..11 "{"
+shape shape_string 11..15 "\"=a\""
+shape shape_record 15..16 ":"
+shape shape_string 16..17 "b"
+shape shape_record 17..18 "}"
+shape shape_list 18..19 " "
+shape shape_record 19..20 "{"
+shape shape_string 20..21 "a"
+shape shape_record 21..22 ":"
+shape shape_string 22..26 "\"=b\""
+shape shape_record 26..27 "}"
+shape shape_list 27..28 " "
+shape shape_record 28..29 "{"
+shape shape_string 29..30 "a"
+shape shape_record 30..31 ":"
+shape shape_string 31..35 "\"b=\""
+shape shape_record 35..36 "}"
+shape shape_list 36..37 " "
+shape shape_record 37..38 "{"
+shape shape_string 38..39 "a"
+shape shape_record 39..40 ":"
+shape shape_string 40..41 "b"
+shape shape_record 41..42 ","
+shape shape_string 42..46 "\"=c\""
+shape shape_record 46..47 ":"
+shape shape_string 47..48 "d"
+shape shape_record 48..49 "}"
+shape shape_list 49..50 " "
+shape shape_record 50..51 "{"
+shape shape_string 51..52 "a"
+shape shape_record 52..53 ":"
+shape shape_string 53..54 "b"
+shape shape_record 54..55 ","
+shape shape_string 55..59 "\"c=\""
+shape shape_record 59..60 ":"
+shape shape_string 60..61 "d"
+shape shape_record 61..62 "}"
+shape shape_list 62..63 "]"
+ir main
+  # 4 registers, 38 instructions, 22 bytes of data
+     0: load-literal           %0, list(capacity = 6)
+     1: load-literal           %1, record(capacity = 1)
+     2: load-literal           %2, string("a=")
+     3: load-literal           %3, string("b")
+     4: record-insert          %1, %2, %3
+     5: list-push              %0, %1
+     6: load-literal           %1, record(capacity = 1)
+     7: load-literal           %2, string("=a")
+     8: load-literal           %3, string("b")
+     9: record-insert          %1, %2, %3
+    10: list-push              %0, %1
+    11: load-literal           %1, record(capacity = 1)
+    12: load-literal           %2, string("a")
+    13: load-literal           %3, string("=b")
+    14: record-insert          %1, %2, %3
+    15: list-push              %0, %1
+    16: load-literal           %1, record(capacity = 1)
+    17: load-literal           %2, string("a")
+    18: load-literal           %3, string("b=")
+    19: record-insert          %1, %2, %3
+    20: list-push              %0, %1
+    21: load-literal           %1, record(capacity = 2)
+    22: load-literal           %2, string("a")
+    23: load-literal           %3, string("b")
+    24: record-insert          %1, %2, %3
+    25: load-literal           %2, string("=c")
+    26: load-literal           %3, string("d")
+    27: record-insert          %1, %2, %3
+    28: list-push              %0, %1
+    29: load-literal           %1, record(capacity = 2)
+    30: load-literal           %2, string("a")
+    31: load-literal           %3, string("b")
+    32: record-insert          %1, %2, %3
+    33: load-literal           %2, string("c=")
+    34: load-literal           %3, string("d")
+    35: record-insert          %1, %2, %3
+    36: list-push              %0, %1
+    37: return                 %0
+=== accept/records/multiline.nu
+shape shape_record 0..4 "{\n  "
+shape shape_string 4..5 "a"
+shape shape_record 5..7 ": "
+shape shape_int 7..8 "1"
+shape shape_record 8..11 "\n  "
+shape shape_string 11..12 "b"
+shape shape_record 12..14 ": "
+shape shape_int 14..15 "2"
+shape shape_record 15..19 ",\n  "
+shape shape_string 19..20 "c"
+shape shape_record 20..22 ": "
+shape shape_record 22..28 "{\n    "
+shape shape_string 28..29 "d"
+shape shape_record 29..31 ": "
+shape shape_int 31..32 "3"
+shape shape_record 32..36 "\n  }"
+shape shape_record 36..38 "\n}"
+ir main
+  # 5 registers, 14 instructions, 4 bytes of data
+     0: load-literal           %0, record(capacity = 3)
+     1: load-literal           %1, string("a")
+     2: load-literal           %2, int(1)
+     3: record-insert          %0, %1, %2
+     4: load-literal           %1, string("b")
+     5: load-literal           %2, int(2)
+     6: record-insert          %0, %1, %2
+     7: load-literal           %1, string("c")
+     8: load-literal           %2, record(capacity = 1)
+     9: load-literal           %3, string("d")
+    10: load-literal           %4, int(3)
+    11: record-insert          %2, %3, %4
+    12: record-insert          %0, %1, %2
+    13: return                 %0
+=== accept/records/nested.nu
+shape shape_record 0..1 "{"
+shape shape_string 1..6 "outer"
+shape shape_record 6..8 ": "
+shape shape_record 8..9 "{"
+shape shape_string 9..14 "inner"
+shape shape_record 14..16 ": "
+shape shape_record 16..17 "{"
+shape shape_string 17..21 "deep"
+shape shape_record 21..23 ": "
+shape shape_string 23..30 "\"value\""
+shape shape_record 30..31 "}"
+shape shape_record 31..32 "}"
+shape shape_record 32..34 ", "
+shape shape_string 34..39 "items"
+shape shape_record 39..41 ": "
+shape shape_list 41..42 "["
+shape shape_int 42..43 "1"
+shape shape_list 43..44 " "
+shape shape_string 44..49 "\"two\""
+shape shape_list 49..50 " "
+shape shape_bool 50..54 "true"
+shape shape_list 54..55 "]"
+shape shape_record 55..56 "}"
+ir main
+  # 7 registers, 20 instructions, 27 bytes of data
+     0: load-literal           %0, record(capacity = 2)
+     1: load-literal           %1, string("outer")
+     2: load-literal           %2, record(capacity = 1)
+     3: load-literal           %3, string("inner")
+     4: load-literal           %4, record(capacity = 1)
+     5: load-literal           %5, string("deep")
+     6: load-literal           %6, string("value")
+     7: record-insert          %4, %5, %6
+     8: record-insert          %2, %3, %4
+     9: record-insert          %0, %1, %2
+    10: load-literal           %1, string("items")
+    11: load-literal           %2, list(capacity = 3)
+    12: load-literal           %3, int(1)
+    13: list-push              %2, %3
+    14: load-literal           %3, string("two")
+    15: list-push              %2, %3
+    16: load-literal           %3, bool(true)
+    17: list-push              %2, %3
+    18: record-insert          %0, %1, %2
+    19: return                 %0
+=== accept/records/no-space-after-colon.nu
+shape shape_record 0..1 "{"
+shape shape_string 1..2 "a"
+shape shape_record 2..3 ":"
+shape shape_int 3..4 "1"
+shape shape_record 4..5 ","
+shape shape_string 5..6 "b"
+shape shape_record 6..7 ":"
+shape shape_string 7..10 "'c'"
+shape shape_record 10..11 ","
+shape shape_string 11..12 "c"
+shape shape_record 12..13 ":"
+shape shape_string 13..16 "\"d\""
+shape shape_record 16..17 "}"
+ir main
+  # 3 registers, 11 instructions, 5 bytes of data
+     0: load-literal           %0, record(capacity = 3)
+     1: load-literal           %1, string("a")
+     2: load-literal           %2, int(1)
+     3: record-insert          %0, %1, %2
+     4: load-literal           %1, string("b")
+     5: load-literal           %2, string("c")
+     6: record-insert          %0, %1, %2
+     7: load-literal           %1, string("c")
+     8: load-literal           %2, string("d")
+     9: record-insert          %0, %1, %2
+    10: return                 %0
+=== accept/records/numeric-and-unit-keys.nu
+shape shape_record 0..1 "{"
+shape shape_string 1..2 "7"
+shape shape_record 2..4 ": "
+shape shape_int 4..5 "8"
+shape shape_record 5..7 ", "
+shape shape_string 7..10 "1kb"
+shape shape_record 10..12 ": "
+shape shape_int 12..13 "1"
+shape shape_record 13..15 ", "
+shape shape_string 15..25 "2024-01-02"
+shape shape_record 25..27 ": "
+shape shape_int 27..28 "3"
+shape shape_record 28..30 ", "
+shape shape_string 30..32 "-1"
+shape shape_record 32..34 ": "
+shape shape_int 34..35 "4"
+shape shape_record 35..37 ", "
+shape shape_string 37..40 "1.5"
+shape shape_record 40..42 ": "
+shape shape_int 42..43 "5"
+shape shape_record 43..44 "}"
+ir main
+  # 3 registers, 17 instructions, 19 bytes of data
+     0: load-literal           %0, record(capacity = 5)
+     1: load-literal           %1, string("7")
+     2: load-literal           %2, int(8)
+     3: record-insert          %0, %1, %2
+     4: load-literal           %1, string("1kb")
+     5: load-literal           %2, int(1)
+     6: record-insert          %0, %1, %2
+     7: load-literal           %1, string("2024-01-02")
+     8: load-literal           %2, int(3)
+     9: record-insert          %0, %1, %2
+    10: load-literal           %1, string("-1")
+    11: load-literal           %2, int(4)
+    12: record-insert          %0, %1, %2
+    13: load-literal           %1, string("1.5")
+    14: load-literal           %2, int(5)
+    15: record-insert          %0, %1, %2
+    16: return                 %0
+=== accept/records/quoted-keys.nu
+shape shape_record 0..1 "{"
+shape shape_string 1..6 "\"d e\""
+shape shape_record 6..8 ": "
+shape shape_int 8..9 "1"
+shape shape_record 9..11 ", "
+shape shape_string 11..14 "'f'"
+shape shape_record 14..16 ": "
+shape shape_int 16..17 "2"
+shape shape_record 17..19 ", "
+shape shape_string 19..22 "`g`"
+shape shape_record 22..24 ": "
+shape shape_int 24..25 "3"
+shape shape_record 25..27 ", "
+shape shape_string 27..33 "\"type\""
+shape shape_record 33..35 ": "
+shape shape_int 35..36 "4"
+shape shape_record 36..37 "}"
+ir main
+  # 3 registers, 14 instructions, 9 bytes of data
+     0: load-literal           %0, record(capacity = 4)
+     1: load-literal           %1, string("d e")
+     2: load-literal           %2, int(1)
+     3: record-insert          %0, %1, %2
+     4: load-literal           %1, string("f")
+     5: load-literal           %2, int(2)
+     6: record-insert          %0, %1, %2
+     7: load-literal           %1, string("g")
+     8: load-literal           %2, int(3)
+     9: record-insert          %0, %1, %2
+    10: load-literal           %1, string("type")
+    11: load-literal           %2, int(4)
+    12: record-insert          %0, %1, %2
+    13: return                 %0
+=== accept/records/single-pair-multiline.nu
+shape shape_record 0..4 "{\n  "
+shape shape_string 4..5 "a"
+shape shape_record 5..9 ":\n  "
+shape shape_int 9..10 "1"
+shape shape_record 10..12 "\n}"
+ir main
+  # 3 registers, 5 instructions, 1 byte of data
+     0: load-literal           %0, record(capacity = 1)
+     1: load-literal           %1, string("a")
+     2: load-literal           %2, int(1)
+     3: record-insert          %0, %1, %2
+     4: return                 %0
+=== accept/records/spread-only.nu
+shape shape_list 0..1 "["
+shape shape_record 1..2 "{"
+shape shape_operator 2..5 "..."
+shape shape_record 5..7 "{}"
+shape shape_record 7..8 " "
+shape shape_operator 8..11 "..."
+shape shape_record 11..13 "{}"
+shape shape_record 13..15 ", "
+shape shape_string 15..16 "a"
+shape shape_record 16..18 ": "
+shape shape_int 18..19 "1"
+shape shape_record 19..20 "}"
+shape shape_list 20..21 " "
+shape shape_record 21..22 "{"
+shape shape_operator 22..25 "..."
+shape shape_record 25..26 "{"
+shape shape_operator 26..29 "..."
+shape shape_record 29..30 "{"
+shape shape_operator 30..33 "..."
+shape shape_record 33..35 "{}"
+shape shape_record 35..36 "}"
+shape shape_record 36..37 "}"
+shape shape_record 37..38 "}"
+shape shape_list 38..39 " "
+shape shape_record 39..40 "{"
+shape shape_string 40..43 "foo"
+shape shape_record 43..45 ": "
+shape shape_string 45..48 "bar"
+shape shape_record 48..49 " "
+shape shape_operator 49..52 "..."
+shape shape_record 52..53 "{"
+shape shape_string 53..54 "a"
+shape shape_record 54..56 ": "
+shape shape_record 56..57 "{"
+shape shape_string 57..58 "x"
+shape shape_record 58..60 ": "
+shape shape_int 60..61 "1"
+shape shape_record 61..62 "}"
+shape shape_record 62..63 "}"
+shape shape_record 63..64 " "
+shape shape_string 64..65 "b"
+shape shape_record 65..67 ": "
+shape shape_int 67..68 "3"
+shape shape_record 68..69 "}"
+shape shape_list 69..70 "]"
+ir main
+  # 7 registers, 35 instructions, 10 bytes of data
+     0: load-literal           %0, list(capacity = 3)
+     1: load-literal           %1, record(capacity = 3)
+     2: load-literal           %2, record(capacity = 0)
+     3: record-spread          %1, %2
+     4: load-literal           %2, record(capacity = 0)
+     5: record-spread          %1, %2
+     6: load-literal           %2, string("a")
+     7: load-literal           %3, int(1)
+     8: record-insert          %1, %2, %3
+     9: list-push              %0, %1
+    10: load-literal           %1, record(capacity = 1)
+    11: load-literal           %2, record(capacity = 1)
+    12: load-literal           %3, record(capacity = 1)
+    13: load-literal           %4, record(capacity = 0)
+    14: record-spread          %3, %4
+    15: record-spread          %2, %3
+    16: record-spread          %1, %2
+    17: list-push              %0, %1
+    18: load-literal           %1, record(capacity = 3)
+    19: load-literal           %2, string("foo")
+    20: load-literal           %3, string("bar")
+    21: record-insert          %1, %2, %3
+    22: load-literal           %2, record(capacity = 1)
+    23: load-literal           %3, string("a")
+    24: load-literal           %4, record(capacity = 1)
+    25: load-literal           %5, string("x")
+    26: load-literal           %6, int(1)
+    27: record-insert          %4, %5, %6
+    28: record-insert          %2, %3, %4
+    29: record-spread          %1, %2
+    30: load-literal           %2, string("b")
+    31: load-literal           %3, int(3)
+    32: record-insert          %1, %2, %3
+    33: list-push              %0, %1
+    34: return                 %0
+=== accept/records/spread.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..10 "spread"
+shape shape_record 13..14 "{"
+shape shape_string 14..15 "x"
+shape shape_record 15..17 ": "
+shape shape_int 17..18 "1"
+shape shape_record 18..19 "}"
+shape shape_record 20..21 "{"
+shape shape_string 21..22 "a"
+shape shape_record 22..24 ": "
+shape shape_int 24..25 "1"
+shape shape_record 25..27 ", "
+shape shape_operator 27..30 "..."
+shape shape_variable 30..37 "$spread"
+shape shape_record 37..39 ", "
+shape shape_operator 39..42 "..."
+shape shape_record 42..43 "{"
+shape shape_string 43..44 "b"
+shape shape_record 44..46 ": "
+shape shape_int 46..47 "2"
+shape shape_record 47..48 "}"
+shape shape_record 48..50 ", "
+shape shape_operator 50..53 "..."
+shape shape_block 53..54 "("
+shape shape_nothing 54..58 "null"
+shape shape_block 58..59 ")"
+shape shape_record 59..61 ", "
+shape shape_string 61..62 "c"
+shape shape_record 62..64 ": "
+shape shape_int 64..65 "3"
+shape shape_record 65..66 "}"
+ir main
+  # 4 registers, 25 instructions, 4 bytes of data
+     0: load-literal           %0, record(capacity = 1)
+     1: load-literal           %1, string("x")
+     2: load-literal           %2, int(1)
+     3: record-insert          %0, %1, %2
+     4: store-variable         var #0 "$spread", %0 # let
+     5: load-literal           %0, empty
+     6: drain                  %0
+     7: load-literal           %0, empty
+     8: load-literal           %0, record(capacity = 5)
+     9: load-literal           %1, string("a")
+    10: load-literal           %2, int(1)
+    11: record-insert          %0, %1, %2
+    12: load-variable          %1, var #0 "$spread"
+    13: record-spread          %0, %1
+    14: load-literal           %1, record(capacity = 1)
+    15: load-literal           %2, string("b")
+    16: load-literal           %3, int(2)
+    17: record-insert          %1, %2, %3
+    18: record-spread          %0, %1
+    19: load-literal           %1, nothing
+    20: record-spread          %0, %1
+    21: load-literal           %1, string("c")
+    22: load-literal           %2, int(3)
+    23: record-insert          %0, %1, %2
+    24: return                 %0
+=== accept/records/subexpression-key.nu
+shape shape_record 0..1 "{"
+shape shape_block 1..2 "("
+shape shape_int 2..3 "1"
+shape shape_operator 4..5 "+"
+shape shape_int 6..7 "1"
+shape shape_block 7..8 ")"
+shape shape_record 8..10 ": "
+shape shape_int 10..11 "6"
+shape shape_record 11..13 ", "
+shape shape_block 13..14 "("
+shape shape_string 14..17 "\"a\""
+shape shape_operator 18..19 "+"
+shape shape_string 20..23 "\"b\""
+shape shape_block 23..24 ")"
+shape shape_record 24..26 ": "
+shape shape_int 26..27 "7"
+shape shape_record 27..28 "}"
+ir main
+  # 4 registers, 14 instructions, 2 bytes of data
+     0: load-literal           %0, record(capacity = 2)
+     1: load-literal           %1, int(1)
+     2: load-literal           %3, int(1)
+     3: binary-op              %1, Math(Add), %3
+     4: span                   %1
+     5: load-literal           %2, int(6)
+     6: record-insert          %0, %1, %2
+     7: load-literal           %1, string("a")
+     8: load-literal           %3, string("b")
+     9: binary-op              %1, Math(Add), %3
+    10: span                   %1
+    11: load-literal           %2, int(7)
+    12: record-insert          %0, %1, %2
+    13: return                 %0
+=== accept/records/trailing-comma.nu
+shape shape_record 0..1 "{"
+shape shape_string 1..2 "a"
+shape shape_record 2..4 ": "
+shape shape_int 4..5 "1"
+shape shape_record 5..7 ", "
+shape shape_string 7..8 "b"
+shape shape_record 8..10 ": "
+shape shape_int 10..11 "2"
+shape shape_record 11..13 ",}"
+ir main
+  # 3 registers, 8 instructions, 2 bytes of data
+     0: load-literal           %0, record(capacity = 2)
+     1: load-literal           %1, string("a")
+     2: load-literal           %2, int(1)
+     3: record-insert          %0, %1, %2
+     4: load-literal           %1, string("b")
+     5: load-literal           %2, int(2)
+     6: record-insert          %0, %1, %2
+     7: return                 %0
+=== accept/records/unicode-keys.nu
+shape shape_record 0..1 "{"
+shape shape_string 1..7 "héllo"
+shape shape_record 7..9 ": "
+shape shape_int 9..10 "1"
+shape shape_record 10..12 ", "
+shape shape_string 12..20 "\"日本\""
+shape shape_record 20..22 ": "
+shape shape_int 22..23 "2"
+shape shape_record 23..24 "}"
+ir main
+  # 3 registers, 8 instructions, 12 bytes of data
+     0: load-literal           %0, record(capacity = 2)
+     1: load-literal           %1, string("héllo")
+     2: load-literal           %2, int(1)
+     3: record-insert          %0, %1, %2
+     4: load-literal           %1, string("日本")
+     5: load-literal           %2, int(2)
+     6: record-insert          %0, %1, %2
+     7: return                 %0
+=== accept/records/value-kinds.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..7 "key"
+shape shape_string 10..13 "'k'"
+shape shape_record 14..15 "{"
+shape shape_string 15..16 "a"
+shape shape_record 16..18 ": "
+shape shape_int 18..19 "1"
+shape shape_string 19..21 "kb"
+shape shape_record 21..23 ", "
+shape shape_string 23..24 "b"
+shape shape_record 24..26 ": "
+shape shape_datetime 26..36 "2024-01-02"
+shape shape_record 36..38 ", "
+shape shape_string 38..39 "c"
+shape shape_record 39..41 ": "
+shape shape_binary 41..47 "0x[ff]"
+shape shape_record 47..49 ", "
+shape shape_string 49..50 "d"
+shape shape_record 50..52 ": "
+shape shape_int 52..53 "1"
+shape shape_operator 53..55 ".."
+shape shape_int 55..56 "3"
+shape shape_record 56..58 ", "
+shape shape_string 58..59 "e"
+shape shape_record 59..61 ": "
+shape shape_variable 61..65 "$env"
+shape shape_string 66..69 "PWD"
+shape shape_record 69..71 ", "
+shape shape_string 71..72 "f"
+shape shape_record 72..74 ": "
+shape shape_block 74..75 "("
+shape shape_int 75..76 "1"
+shape shape_operator 77..78 "+"
+shape shape_int 79..80 "1"
+shape shape_block 80..81 ")"
+shape shape_record 81..83 ", "
+shape shape_string 83..84 "g"
+shape shape_record 84..86 ": "
+shape shape_closure 86..90 "{|| "
+shape shape_int 90..91 "1"
+shape shape_closure 91..92 "}"
+shape shape_record 92..94 ", "
+shape shape_string 94..95 "h"
+shape shape_record 95..97 ": "
+shape shape_nothing 97..101 "null"
+shape shape_record 101..103 ", "
+shape shape_string 103..104 "i"
+shape shape_record 104..106 ": "
+shape shape_bool 106..110 "true"
+shape shape_record 110..112 ", "
+shape shape_string 112..113 "j"
+shape shape_record 113..115 ": "
+shape shape_int 115..117 "-1"
+shape shape_record 117..119 ", "
+shape shape_string 119..120 "k"
+shape shape_record 120..122 ": "
+shape shape_string_interpolation 122..124 "$\""
+shape shape_string 124..125 "x"
+shape shape_block 125..126 "("
+shape shape_int 126..127 "1"
+shape shape_block 127..128 ")"
+shape shape_string_interpolation 128..129 "\""
+shape shape_record 129..131 ", "
+shape shape_string 131..132 "l"
+shape shape_record 132..134 ": "
+shape shape_raw_string 134..142 "r#'raw'#"
+shape shape_record 142..143 "}"
+ir main
+  # 6 registers, 51 instructions, 21 bytes of data
+     0: load-literal           %0, string("k")
+     1: store-variable         var #0 "$key", %0 # let
+     2: load-literal           %0, empty
+     3: drain                  %0
+     4: load-literal           %0, empty
+     5: load-literal           %0, record(capacity = 12)
+     6: load-literal           %1, string("a")
+     7: load-literal           %2, filesize(1 kBb)
+     8: record-insert          %0, %1, %2
+     9: load-literal           %1, string("b")
+    10: load-literal           %2, date(2024-01-02 00:00:00 +00:00)
+    11: record-insert          %0, %1, %2
+    12: load-literal           %1, string("c")
+    13: load-literal           %2, binary(0x[6b, 61, 62, 63, ff, 64, 65, 50, 57, 44, 66, 67, 68, 69, 6a, 6b, 78, 6c, 72, 61, 77])
+    14: record-insert          %0, %1, %2
+    15: load-literal           %1, string("d")
+    16: load-literal           %3, int(1)
+    17: load-literal           %4, nothing
+    18: load-literal           %5, int(3)
+    19: load-literal           %2, range(%3, %4, %5, Inclusive)
+    20: record-insert          %0, %1, %2
+    21: load-literal           %1, string("e")
+    22: load-env               %2, "PWD"
+    23: record-insert          %0, %1, %2
+    24: load-literal           %1, string("f")
+    25: load-literal           %2, int(1)
+    26: load-literal           %3, int(1)
+    27: binary-op              %2, Math(Add), %3
+    28: span                   %2
+    29: record-insert          %0, %1, %2
+    30: load-literal           %1, string("g")
+    31: load-literal           %2, closure(#2)
+    32: record-insert          %0, %1, %2
+    33: load-literal           %1, string("h")
+    34: load-literal           %2, nothing
+    35: record-insert          %0, %1, %2
+    36: load-literal           %1, string("i")
+    37: load-literal           %2, bool(true)
+    38: record-insert          %0, %1, %2
+    39: load-literal           %1, string("j")
+    40: load-literal           %2, int(-1)
+    41: record-insert          %0, %1, %2
+    42: load-literal           %1, string("k")
+    43: load-literal           %2, string("x")
+    44: load-literal           %3, int(1)
+    45: string-append          %2, %3
+    46: record-insert          %0, %1, %2
+    47: load-literal           %1, string("l")
+    48: load-literal           %2, raw-string("raw")
+    49: record-insert          %0, %1, %2
+    50: return                 %0
+ir #2
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, int(1)
+     1: return                 %0
+=== accept/records/variable-key.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..7 "key"
+shape shape_string 10..13 "'k'"
+shape shape_record 14..15 "{"
+shape shape_variable 15..19 "$key"
+shape shape_record 19..21 ": "
+shape shape_int 21..22 "5"
+shape shape_record 22..23 "}"
+ir main
+  # 3 registers, 10 instructions, 1 byte of data
+     0: load-literal           %0, string("k")
+     1: store-variable         var #0 "$key", %0 # let
+     2: load-literal           %0, empty
+     3: drain                  %0
+     4: load-literal           %0, empty
+     5: load-literal           %0, record(capacity = 1)
+     6: load-variable          %1, var #0 "$key"
+     7: load-literal           %2, int(5)
+     8: record-insert          %0, %1, %2
+     9: return                 %0

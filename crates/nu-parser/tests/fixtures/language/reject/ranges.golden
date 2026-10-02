@@ -1,0 +1,27 @@
+=== reject/ranges/bare-dollar-bound-value.nu
+shape shape_internalcall 0..4 "echo"
+shape shape_garbage 5..8 "..$"
+error : Incomplete variable
+  label 7..8 "$": expected a variable name after `$`
+  help: Variable names must be attached to `$` with no space (e.g. `$env`, `$in`). Did you mean `$env`?
+=== reject/ranges/paren-bound-with-text.nu
+shape shape_garbage 0..6 "(1)abc"
+shape shape_operator 6..8 ".."
+shape shape_int 8..9 "5"
+error nu::parser::operator_unsupported_type: The '..' operator does not work on values of type 'string'.
+  label 6..8 "..": does not support 'string'
+  label 0..6 "(1)abc": string
+=== reject/ranges/string-bound.nu
+shape shape_block 0..1 "("
+shape shape_int 1..2 "0"
+shape shape_block 2..3 ")"
+shape shape_string 4..5 "."
+error nu::parser::parse_mismatch: Parse mismatch: expected . or ! or ?.
+  label 5..8 "\"a\"": expected . or ! or ?
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/ranges/unclosed-quote-before-dots.nu
+shape shape_string 0..6 "') ..\n"
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 0..1 "'": unclosed — opens here (need `'`)
+  label 5..6 "\n": expected `'` here
+  help: Add a matching `'` to close this delimiter, or check that an earlier closer closed the wrong block.

@@ -1,0 +1,445 @@
+=== accept/comments/comment-after-open-paren.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..5 "x"
+shape shape_block 8..20 "( # start\n  "
+shape shape_int 20..21 "1"
+shape shape_operator 22..23 "+"
+shape shape_int 24..25 "1"
+shape shape_block 25..27 "\n)"
+ir main
+  # 2 registers, 7 instructions, 0 bytes of data
+     0: load-literal           %0, int(1)
+     1: load-literal           %1, int(1)
+     2: binary-op              %0, Math(Add), %1
+     3: span                   %0
+     4: store-variable         var #0 "$x", %0 # let
+     5: load-literal           %0, empty
+     6: return                 %0
+=== accept/comments/comment-between-pipeline-elements.nu
+shape shape_list 0..1 "["
+shape shape_int 1..2 "1"
+shape shape_list 2..3 ","
+shape shape_int 3..4 "2"
+shape shape_list 4..5 ","
+shape shape_int 5..6 "3"
+shape shape_list 6..7 "]"
+shape shape_pipe 8..9 "|"
+shape shape_internalcall 19..23 "each"
+shape shape_closure 24..32 "{ |$it| "
+shape shape_variable 32..35 "$it"
+shape shape_operator 36..37 "+"
+shape shape_int 38..39 "2"
+shape shape_closure 39..41 " }"
+shape shape_pipe 42..43 "|"
+shape shape_internalcall 50..58 "math sum"
+ir main
+  # 2 registers, 15 instructions, 0 bytes of data
+     0: load-literal           %0, list(capacity = 3)
+     1: load-literal           %1, int(1)
+     2: list-push              %0, %1
+     3: load-literal           %1, int(2)
+     4: list-push              %0, %1
+     5: load-literal           %1, int(3)
+     6: list-push              %0, %1
+     7: load-literal           %1, closure(#0)
+     8: push-positional        %1
+     9: redirect-out           pipe
+    10: call                   decl "each", %0
+    11: redirect-out           caller
+    12: redirect-err           caller
+    13: call                   decl "math sum", %0
+    14: return                 %0
+ir #0
+  # 2 registers, 5 instructions, 0 bytes of data
+     0: load-variable          %0, var #0
+     1: load-literal           %1, int(2)
+     2: binary-op              %0, Math(Add), %1
+     3: span                   %0
+     4: return                 %0
+=== accept/comments/comment-in-closure.nu
+shape shape_list 0..1 "["
+shape shape_int 1..2 "1"
+shape shape_list 2..3 " "
+shape shape_int 3..4 "2"
+shape shape_list 4..5 "]"
+shape shape_pipe 6..7 "|"
+shape shape_internalcall 8..12 "each"
+shape shape_closure 13..34 "{ |it|\n  # comment\n  "
+shape shape_variable 34..37 "$it"
+shape shape_operator 38..39 "*"
+shape shape_int 40..41 "2"
+shape shape_closure 41..52 " # double\n}"
+ir main
+  # 2 registers, 11 instructions, 0 bytes of data
+     0: load-literal           %0, list(capacity = 2)
+     1: load-literal           %1, int(1)
+     2: list-push              %0, %1
+     3: load-literal           %1, int(2)
+     4: list-push              %0, %1
+     5: load-literal           %1, closure(#0)
+     6: push-positional        %1
+     7: redirect-out           caller
+     8: redirect-err           caller
+     9: call                   decl "each", %0
+    10: return                 %0
+ir #0
+  # 2 registers, 5 instructions, 0 bytes of data
+     0: load-variable          %0, var #0
+     1: load-literal           %1, int(2)
+     2: binary-op              %0, Math(Multiply), %1
+     3: span                   %0
+     4: return                 %0
+=== accept/comments/comment-in-io-types.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..54 "[]: [\n  nothing -> int # one\n  string -> int\n]"
+shape shape_closure 55..57 "{ "
+shape shape_int 57..58 "3"
+shape shape_closure 58..60 " }"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: return                 %0
+ir #0
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, int(3)
+     1: return                 %0
+=== accept/comments/comment-in-list.nu
+shape shape_list 0..4 "[\n  "
+shape shape_int 4..5 "1"
+shape shape_list 5..14 " # one\n  "
+shape shape_int 14..15 "2"
+shape shape_list 15..26 " # two ]\n  "
+shape shape_int 26..27 "3"
+shape shape_list 27..29 "\n]"
+ir main
+  # 2 registers, 8 instructions, 0 bytes of data
+     0: load-literal           %0, list(capacity = 3)
+     1: load-literal           %1, int(1)
+     2: list-push              %0, %1
+     3: load-literal           %1, int(2)
+     4: list-push              %0, %1
+     5: load-literal           %1, int(3)
+     6: list-push              %0, %1
+     7: return                 %0
+=== accept/comments/comment-in-match.nu
+shape shape_internalcall 0..5 "match"
+shape shape_int 6..7 "1"
+shape shape_match_pattern 26..27 "1"
+shape shape_string 31..36 "\"one\""
+shape shape_nothing 63..64 "_"
+shape shape_string 68..75 "\"other\""
+ir main
+  # 2 registers, 14 instructions, 8 bytes of data
+     0: load-literal           %1, int(1)
+     1: collect                %1
+     2: match                  (1), %1, 7
+     3: match                  (_), %1, 10 # label(2)
+     4: load-literal           %0, empty   # label(4)
+     5: drop                   %1
+     6: jump                   13
+     7: drop                   %1          # label(1), from(2:)
+     8: load-literal           %0, string("one")
+     9: jump                   13          # end match
+    10: drop                   %1          # label(3), from(3:)
+    11: load-literal           %0, string("other")
+    12: jump                   13          # end match
+    13: return                 %0          # label(0), from(6:), from(9:), from(12:)
+=== accept/comments/comment-in-record.nu
+shape shape_record 0..6 "{\n    "
+shape shape_string 6..7 "y"
+shape shape_record 7..9 ": "
+shape shape_int 9..11 "20"
+shape shape_record 11..26 "\n    # foo\n    "
+shape shape_string 26..27 "z"
+shape shape_record 27..29 ": "
+shape shape_int 29..31 "40"
+shape shape_record 31..33 "\n}"
+ir main
+  # 3 registers, 8 instructions, 2 bytes of data
+     0: load-literal           %0, record(capacity = 2)
+     1: load-literal           %1, string("y")
+     2: load-literal           %2, int(20)
+     3: record-insert          %0, %1, %2
+     4: load-literal           %1, string("z")
+     5: load-literal           %2, int(40)
+     6: record-insert          %0, %1, %2
+     7: return                 %0
+=== accept/comments/comment-in-signature.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..73 "[\n  a: int # the a\n  --flag(-f) # the flag\n  ...rest # the rest\n]"
+shape shape_closure 74..77 "{ }"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: return                 %0
+ir #0
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== accept/comments/comment-in-subexpression.nu
+shape shape_block 0..4 "(\n  "
+shape shape_internalcall 4..6 "ls"
+shape shape_pipe 17..18 "|"
+shape shape_internalcall 19..25 "length"
+shape shape_block 25..35 " # count\n)"
+ir main
+  # 1 register, 6 instructions, 0 bytes of data
+     0: redirect-out           pipe
+     1: call                   decl "ls", %0
+     2: redirect-out           caller
+     3: redirect-err           caller
+     4: call                   decl "length", %0
+     5: return                 %0
+=== accept/comments/comment-in-table.nu
+shape shape_table 0..2 "[["
+shape shape_string 2..3 "a"
+shape shape_table 3..4 " "
+shape shape_string 4..5 "b"
+shape shape_table 5..19 "]; # header\n ["
+shape shape_int 19..20 "1"
+shape shape_table 20..21 " "
+shape shape_int 21..22 "2"
+shape shape_table 22..31 "] # row\n]"
+ir main
+  # 6 registers, 14 instructions, 2 bytes of data
+     0: load-literal           %0, list(capacity = 1)
+     1: load-literal           %1, string("a")
+     2: load-literal           %2, string("b")
+     3: load-literal           %3, record(capacity = 2)
+     4: clone                  %4, %1
+     5: load-literal           %5, int(1)
+     6: record-insert          %3, %4, %5
+     7: clone                  %4, %2
+     8: load-literal           %5, int(2)
+     9: record-insert          %3, %4, %5
+    10: list-push              %0, %3
+    11: drop                   %1
+    12: drop                   %2
+    13: return                 %0
+=== accept/comments/comment-lines-between-pipes.nu
+shape shape_list 0..1 "["
+shape shape_int 1..2 "1"
+shape shape_list 2..3 ","
+shape shape_int 3..4 "2"
+shape shape_list 4..5 ","
+shape shape_int 5..6 "3"
+shape shape_list 6..7 "]"
+shape shape_pipe 8..9 "|"
+shape shape_internalcall 29..33 "each"
+shape shape_closure 34..42 "{ |$it| "
+shape shape_variable 42..45 "$it"
+shape shape_operator 46..47 "+"
+shape shape_int 48..49 "2"
+shape shape_closure 49..51 " }"
+shape shape_pipe 57..58 "|"
+shape shape_internalcall 70..78 "math sum"
+ir main
+  # 2 registers, 15 instructions, 0 bytes of data
+     0: load-literal           %0, list(capacity = 3)
+     1: load-literal           %1, int(1)
+     2: list-push              %0, %1
+     3: load-literal           %1, int(2)
+     4: list-push              %0, %1
+     5: load-literal           %1, int(3)
+     6: list-push              %0, %1
+     7: load-literal           %1, closure(#0)
+     8: push-positional        %1
+     9: redirect-out           pipe
+    10: call                   decl "each", %0
+    11: redirect-out           caller
+    12: redirect-err           caller
+    13: call                   decl "math sum", %0
+    14: return                 %0
+ir #0
+  # 2 registers, 5 instructions, 0 bytes of data
+     0: load-variable          %0, var #0
+     1: load-literal           %1, int(2)
+     2: binary-op              %0, Math(Add), %1
+     3: span                   %0
+     4: return                 %0
+=== accept/comments/comment-no-space.nu
+shape shape_internalcall 23..25 "ls"
+ir main
+  # 1 register, 4 instructions, 0 bytes of data
+     0: redirect-out           caller
+     1: redirect-err           caller
+     2: call                   decl "ls", %0
+     3: return                 %0
+=== accept/comments/comment-unicode.nu
+shape shape_internalcall 0..2 "ls"
+ir main
+  # 1 register, 4 instructions, 0 bytes of data
+     0: redirect-out           caller
+     1: redirect-err           caller
+     2: call                   decl "ls", %0
+     3: return                 %0
+=== accept/comments/comment-with-braces-in-record.nu
+shape shape_record 0..6 "{\n    "
+shape shape_string 6..13 "explore"
+shape shape_record 13..15 ": "
+shape shape_record 15..69 "{\n        # command_bar_text: { fg: '#C4C9C6' },\n    }"
+shape shape_record 69..71 "\n}"
+shape shape_pipe 72..73 "|"
+shape shape_internalcall 74..77 "get"
+shape shape_string 78..85 "explore"
+shape shape_pipe 86..87 "|"
+shape shape_internalcall 88..96 "is-empty"
+ir main
+  # 3 registers, 12 instructions, 7 bytes of data
+     0: load-literal           %0, record(capacity = 1)
+     1: load-literal           %1, string("explore")
+     2: load-literal           %2, record(capacity = 0)
+     3: record-insert          %0, %1, %2
+     4: load-literal           %1, cell-path($.explore)
+     5: push-positional        %1
+     6: redirect-out           pipe
+     7: call                   decl "get", %0
+     8: redirect-out           caller
+     9: redirect-err           caller
+    10: call                   decl "is-empty", %0
+    11: return                 %0
+=== accept/comments/commented-out-pipeline-element.nu
+shape shape_table 0..2 "[["
+shape shape_string 2..6 "name"
+shape shape_table 6..8 ", "
+shape shape_string 8..15 "present"
+shape shape_table 15..19 "]; ["
+shape shape_string 19..22 "abc"
+shape shape_table 22..24 ", "
+shape shape_bool 24..28 "true"
+shape shape_table 28..32 "], ["
+shape shape_string 32..35 "def"
+shape shape_table 35..37 ", "
+shape shape_bool 37..42 "false"
+shape shape_table 42..44 "]]"
+shape shape_pipe 67..68 "|"
+shape shape_internalcall 69..72 "get"
+shape shape_string 73..77 "name"
+shape shape_int 78..79 "0"
+ir main
+  # 6 registers, 27 instructions, 17 bytes of data
+     0: load-literal           %0, list(capacity = 2)
+     1: load-literal           %1, string("name")
+     2: load-literal           %2, string("present")
+     3: load-literal           %3, record(capacity = 2)
+     4: clone                  %4, %1
+     5: load-literal           %5, string("abc")
+     6: record-insert          %3, %4, %5
+     7: clone                  %4, %2
+     8: load-literal           %5, bool(true)
+     9: record-insert          %3, %4, %5
+    10: list-push              %0, %3
+    11: load-literal           %3, record(capacity = 2)
+    12: clone                  %4, %1
+    13: load-literal           %5, string("def")
+    14: record-insert          %3, %4, %5
+    15: clone                  %4, %2
+    16: load-literal           %5, bool(false)
+    17: record-insert          %3, %4, %5
+    18: list-push              %0, %3
+    19: drop                   %1
+    20: drop                   %2
+    21: load-literal           %1, cell-path($.name.0)
+    22: push-positional        %1
+    23: redirect-out           caller
+    24: redirect-err           caller
+    25: call                   decl "get", %0
+    26: return                 %0
+=== accept/comments/comments-in-let-multiline.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..5 "x"
+shape shape_record 8..14 "{\n    "
+shape shape_string 14..15 "y"
+shape shape_record 15..17 ": "
+shape shape_int 17..19 "20"
+shape shape_record 19..31 "\n    # foo\n}"
+shape shape_variable 33..35 "$x"
+shape shape_string 36..37 "y"
+ir main
+  # 3 registers, 12 instructions, 1 byte of data
+     0: load-literal           %0, record(capacity = 1)
+     1: load-literal           %1, string("y")
+     2: load-literal           %2, int(20)
+     3: record-insert          %0, %1, %2
+     4: store-variable         var #0 "$x", %0 # let
+     5: load-literal           %0, empty
+     6: drain                  %0
+     7: load-literal           %0, empty
+     8: load-variable          %0, var #0 "$x"
+     9: load-literal           %1, cell-path($.y)
+    10: follow-cell-path       %0, %1
+    11: return                 %0
+=== accept/comments/crlf-comment-keeps-cr.nu
+shape shape_internalcall 0..2 "ls"
+shape shape_internalcall 8..10 "ls"
+ir main
+  # 1 register, 8 instructions, 0 bytes of data
+     0: call                   decl "ls", %0
+     1: drain                  %0
+     2: load-literal           %0, empty
+     3: load-literal           %0, empty
+     4: redirect-out           caller
+     5: redirect-err           caller
+     6: call                   decl "ls", %0
+     7: return                 %0
+=== accept/comments/detached-comment-blank-line.nu
+shape shape_internalcall 12..14 "ls"
+ir main
+  # 1 register, 4 instructions, 0 bytes of data
+     0: redirect-out           caller
+     1: redirect-err           caller
+     2: call                   decl "ls", %0
+     3: return                 %0
+=== accept/comments/hash-inside-string.nu
+shape shape_internalcall 0..4 "echo"
+shape shape_string 5..16 "'.#testing'"
+shape shape_string 17..23 "\"#tag\""
+shape shape_string 24..28 "`#x`"
+ir main
+  # 4 registers, 10 instructions, 15 bytes of data
+     0: load-literal           %1, string(".#testing")
+     1: load-literal           %2, string("#tag")
+     2: load-literal           %3, string("#x")
+     3: push-positional        %1
+     4: push-positional        %2
+     5: push-positional        %3
+     6: redirect-out           caller
+     7: redirect-err           caller
+     8: call                   decl "echo", %0
+     9: return                 %0
+=== accept/comments/hash-inside-word-is-not-comment.nu
+shape shape_internalcall 0..4 "echo"
+shape shape_string 5..17 "test#testing"
+ir main
+  # 2 registers, 6 instructions, 12 bytes of data
+     0: load-literal           %1, string("test#testing")
+     1: push-positional        %1
+     2: redirect-out           caller
+     3: redirect-err           caller
+     4: call                   decl "echo", %0
+     5: return                 %0
+=== accept/comments/leading-doc-comment-def.nu
+shape shape_internalcall 50..53 "def"
+shape shape_string 54..57 "foo"
+shape shape_signature 58..60 "[]"
+shape shape_closure 61..64 "{ }"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: return                 %0
+ir #0
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== accept/comments/only-comment.nu
+ir main
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== accept/comments/trailing-comment.nu
+shape shape_internalcall 0..2 "ls"
+ir main
+  # 1 register, 4 instructions, 0 bytes of data
+     0: redirect-out           caller
+     1: redirect-err           caller
+     2: call                   decl "ls", %0
+     3: return                 %0

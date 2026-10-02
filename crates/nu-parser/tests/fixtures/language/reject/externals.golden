@@ -1,0 +1,36 @@
+=== reject/externals/brace-comment-with-cell-path.nu
+shape shape_external 0..3 "cmd"
+shape shape_record 4..13 "{#a: 1}.a"
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 4..5 "{": unclosed — opens here (need `}`)
+  label 13..13 "": expected `}` here
+  help: Add a matching `}` to close this delimiter, or check that an earlier closer closed the wrong block.
+=== reject/externals/list-then-cell-path.nu
+shape shape_external 1..4 "cmd"
+shape shape_list 5..6 "["
+shape shape_string 6..10 "a].x"
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 5..6 "[": unclosed — opens here (need `]`)
+  label 10..10 "": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+=== reject/externals/list-then-index.nu
+shape shape_external 0..3 "cmd"
+shape shape_list 4..5 "["
+shape shape_string 5..9 "a].0"
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 4..5 "[": unclosed — opens here (need `]`)
+  label 9..9 "": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+=== reject/externals/spread-list-then-cell-path.nu
+shape shape_external 1..4 "cmd"
+shape shape_operator 5..8 "..."
+shape shape_list 8..9 "["
+shape shape_string 9..13 "a].x"
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 8..9 "[": unclosed — opens here (need `]`)
+  label 13..13 "": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 8..9 "[": unclosed — opens here (need `]`)
+  label 13..13 "": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.

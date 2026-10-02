@@ -1,0 +1,886 @@
+=== accept/if/as-value.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..5 "x"
+shape shape_internalcall 8..10 "if"
+shape shape_bool 11..15 "true"
+shape shape_block 16..18 "{ "
+shape shape_int 18..19 "2"
+shape shape_block 19..21 " }"
+shape shape_keyword 22..26 "else"
+shape shape_block 27..29 "{ "
+shape shape_string 29..34 "'foo'"
+shape shape_block 34..36 " }"
+shape shape_list 37..38 "["
+shape shape_block 38..39 "("
+shape shape_internalcall 39..41 "if"
+shape shape_bool 42..46 "true"
+shape shape_block 47..49 "{ "
+shape shape_int 49..50 "1"
+shape shape_block 50..52 " }"
+shape shape_block 52..53 ")"
+shape shape_list 53..54 "]"
+shape shape_record 55..56 "{"
+shape shape_string 56..57 "a"
+shape shape_record 57..59 ": "
+shape shape_block 59..60 "("
+shape shape_internalcall 60..62 "if"
+shape shape_bool 63..67 "true"
+shape shape_block 68..70 "{ "
+shape shape_int 70..71 "1"
+shape shape_block 71..73 " }"
+shape shape_block 73..74 ")"
+shape shape_record 74..75 "}"
+ir main
+  # 4 registers, 32 instructions, 4 bytes of data
+     0: load-literal           %1, bool(true)
+     1: not                    %1
+     2: branch-if              %1, 5       # if false
+     3: load-literal           %0, int(2)  # label(0)
+     4: jump                   6           # end if
+     5: load-literal           %0, string("foo") # label(1), from(2:)
+     6: store-variable         var #0 "$x", %0 # let, label(2), from(4:)
+     7: load-literal           %0, empty
+     8: drain                  %0
+     9: load-literal           %0, empty
+    10: load-literal           %0, list(capacity = 1)
+    11: load-literal           %1, empty
+    12: load-literal           %2, bool(true)
+    13: not                    %2
+    14: branch-if              %2, 17      # if false
+    15: load-literal           %1, int(1)  # label(3)
+    16: jump                   18          # end if
+    17: load-literal           %1, empty   # label(4), from(14:)
+    18: list-push              %0, %1      # label(5), from(16:)
+    19: drain                  %0
+    20: load-literal           %0, empty
+    21: load-literal           %0, record(capacity = 1)
+    22: load-literal           %1, string("a")
+    23: load-literal           %2, empty
+    24: load-literal           %3, bool(true)
+    25: not                    %3
+    26: branch-if              %3, 29      # if false
+    27: load-literal           %2, int(1)  # label(6)
+    28: jump                   30          # end if
+    29: load-literal           %2, empty   # label(7), from(26:)
+    30: record-insert          %0, %1, %2  # label(8), from(28:)
+    31: return                 %0
+=== accept/if/block-with-statements.nu
+shape shape_internalcall 0..2 "if"
+shape shape_bool 3..7 "true"
+shape shape_block 8..10 "{ "
+shape shape_internalcall 10..13 "let"
+shape shape_vardecl 14..15 "x"
+shape shape_int 18..19 "1"
+shape shape_variable 21..23 "$x"
+shape shape_block 23..25 " }"
+shape shape_keyword 26..30 "else"
+shape shape_block 31..33 "{ "
+shape shape_internalcall 33..36 "def"
+shape shape_string 37..38 "f"
+shape shape_signature 39..41 "[]"
+shape shape_closure 42..45 "{ }"
+shape shape_internalcall 47..48 "f"
+shape shape_block 48..50 " }"
+ir main
+  # 2 registers, 18 instructions, 0 bytes of data
+     0: load-literal           %1, bool(true)
+     1: not                    %1
+     2: branch-if              %1, 10      # if false
+     3: load-literal           %0, int(1)  # label(0)
+     4: store-variable         var #0, %0  # let
+     5: load-literal           %0, empty
+     6: drain                  %0
+     7: load-literal           %0, empty
+     8: load-variable          %0, var #0
+     9: jump                   17          # end if
+    10: load-literal           %0, empty   # label(1), from(2:)
+    11: drain                  %0
+    12: load-literal           %0, empty
+    13: load-literal           %0, empty
+    14: redirect-out           caller
+    15: redirect-err           caller
+    16: call                   decl "f", %0
+    17: return                 %0          # label(2), from(9:)
+ir #2
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== accept/if/condition-forms.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..5 "a"
+shape shape_int 8..9 "1"
+shape shape_internalcall 10..13 "let"
+shape shape_vardecl 14..15 "b"
+shape shape_int 18..19 "2"
+shape shape_internalcall 20..23 "let"
+shape shape_vardecl 24..25 "t"
+shape shape_bool 28..32 "true"
+shape shape_internalcall 33..35 "if"
+shape shape_variable 36..38 "$t"
+shape shape_internalcall 43..45 "if"
+shape shape_variable 46..48 "$a"
+shape shape_operator 49..50 ">"
+shape shape_variable 51..53 "$b"
+shape shape_internalcall 58..60 "if"
+shape shape_block 61..62 "("
+shape shape_variable 62..64 "$a"
+shape shape_operator 65..67 "=="
+shape shape_int 68..69 "1"
+shape shape_block 69..70 ")"
+shape shape_operator 71..73 "or"
+shape shape_block 74..75 "("
+shape shape_variable 75..77 "$a"
+shape shape_operator 78..79 ">"
+shape shape_int 80..81 "0"
+shape shape_block 81..82 ")"
+shape shape_block 83..85 "{ "
+shape shape_bool 85..89 "true"
+shape shape_block 89..91 " }"
+shape shape_keyword 92..96 "else"
+shape shape_block 97..99 "{ "
+shape shape_bool 99..104 "false"
+shape shape_block 104..106 " }"
+shape shape_internalcall 107..109 "if"
+shape shape_operator 110..113 "not"
+shape shape_bool 114..119 "false"
+shape shape_internalcall 124..126 "if"
+shape shape_block 127..128 "("
+shape shape_internalcall 128..130 "ls"
+shape shape_pipe 131..132 "|"
+shape shape_internalcall 133..141 "is-empty"
+shape shape_block 141..142 ")"
+shape shape_internalcall 147..149 "if"
+shape shape_block 150..151 "("
+shape shape_variable 151..153 "$a"
+shape shape_operator 154..156 "in"
+shape shape_list 157..158 "["
+shape shape_int 158..159 "1"
+shape shape_list 159..160 " "
+shape shape_int 160..161 "2"
+shape shape_list 161..162 "]"
+shape shape_block 162..163 ")"
+shape shape_operator 164..167 "and"
+shape shape_block 168..169 "("
+shape shape_variable 169..171 "$b"
+shape shape_operator 172..178 "not-in"
+shape shape_list 179..180 "["
+shape shape_int 180..181 "3"
+shape shape_list 181..182 "]"
+shape shape_block 182..183 ")"
+shape shape_internalcall 188..190 "if"
+shape shape_variable 191..193 "$a"
+shape shape_operator 194..196 "in"
+shape shape_list 197..198 "["
+shape shape_int 198..199 "1"
+shape shape_list 199..200 " "
+shape shape_int 200..201 "2"
+shape shape_list 201..202 "]"
+shape shape_operator 203..206 "and"
+shape shape_variable 207..209 "$b"
+shape shape_operator 210..216 "not-in"
+shape shape_list 217..218 "["
+shape shape_int 218..219 "3"
+shape shape_list 219..220 "]"
+shape shape_internalcall 225..227 "if"
+shape shape_block 228..229 "("
+shape shape_variable 229..231 "$t"
+shape shape_operator 232..235 "and"
+shape shape_variable 237..239 "$t"
+shape shape_block 239..240 ")"
+ir main
+  # 5 registers, 139 instructions, 0 bytes of data
+     0: load-literal           %0, int(1)
+     1: store-variable         var #0 "$a", %0 # let
+     2: load-literal           %0, empty
+     3: drain                  %0
+     4: load-literal           %0, empty
+     5: load-literal           %0, empty
+     6: load-literal           %0, int(2)
+     7: store-variable         var #1 "$b", %0 # let
+     8: load-literal           %0, empty
+     9: drain                  %0
+    10: load-literal           %0, empty
+    11: load-literal           %0, empty
+    12: load-literal           %0, bool(true)
+    13: store-variable         var #2 "$t", %0 # let
+    14: load-literal           %0, empty
+    15: drain                  %0
+    16: load-literal           %0, empty
+    17: load-literal           %0, empty
+    18: load-variable          %1, var #2 "$t"
+    19: not                    %1
+    20: branch-if              %1, 22      # if false
+    21: jump                   23          # end if, label(0)
+    22: load-literal           %0, empty   # label(1), from(20:)
+    23: drain                  %0          # label(2), from(21:)
+    24: load-literal           %0, empty
+    25: load-literal           %0, empty
+    26: load-variable          %1, var #0 "$a"
+    27: load-variable          %2, var #1 "$b"
+    28: binary-op              %1, Comparison(GreaterThan), %2
+    29: span                   %1
+    30: not                    %1
+    31: branch-if              %1, 33      # if false
+    32: jump                   34          # end if, label(3)
+    33: load-literal           %0, empty   # label(4), from(31:)
+    34: drain                  %0          # label(5), from(32:)
+    35: load-literal           %0, empty
+    36: load-literal           %0, empty
+    37: load-variable          %1, var #0 "$a"
+    38: load-literal           %2, int(1)
+    39: binary-op              %1, Comparison(Equal), %2
+    40: span                   %1
+    41: collect                %1
+    42: match                  (true), %1, 48
+    43: load-variable          %2, var #0 "$a"
+    44: load-literal           %3, int(0)
+    45: binary-op              %2, Comparison(GreaterThan), %3
+    46: span                   %2
+    47: binary-op              %1, Boolean(Or), %2
+    48: span                   %1          # label(9), from(42:)
+    49: not                    %1
+    50: branch-if              %1, 53      # if false
+    51: load-literal           %0, bool(true) # label(6)
+    52: jump                   54          # end if
+    53: load-literal           %0, bool(false) # label(7), from(50:)
+    54: drain                  %0          # label(8), from(52:)
+    55: load-literal           %0, empty
+    56: load-literal           %0, empty
+    57: load-literal           %1, bool(false)
+    58: not                    %1
+    59: not                    %1
+    60: branch-if              %1, 62      # if false
+    61: jump                   63          # end if, label(10)
+    62: load-literal           %0, empty   # label(11), from(60:)
+    63: drain                  %0          # label(12), from(61:)
+    64: load-literal           %0, empty
+    65: load-literal           %0, empty
+    66: load-literal           %1, empty
+    67: redirect-out           pipe
+    68: call                   decl "ls", %1
+    69: redirect-out           value
+    70: call                   decl "is-empty", %1
+    71: not                    %1
+    72: branch-if              %1, 74      # if false
+    73: jump                   75          # end if, label(13)
+    74: load-literal           %0, empty   # label(14), from(72:)
+    75: drain                  %0          # label(15), from(73:)
+    76: load-literal           %0, empty
+    77: load-literal           %0, empty
+    78: load-variable          %1, var #0 "$a"
+    79: load-literal           %2, list(capacity = 2)
+    80: load-literal           %3, int(1)
+    81: list-push              %2, %3
+    82: load-literal           %3, int(2)
+    83: list-push              %2, %3
+    84: binary-op              %1, Comparison(In), %2
+    85: span                   %1
+    86: collect                %1
+    87: match                  (false), %1, 95
+    88: load-variable          %2, var #1 "$b"
+    89: load-literal           %3, list(capacity = 1)
+    90: load-literal           %4, int(3)
+    91: list-push              %3, %4
+    92: binary-op              %2, Comparison(NotIn), %3
+    93: span                   %2
+    94: binary-op              %1, Boolean(And), %2
+    95: span                   %1          # label(19), from(87:)
+    96: not                    %1
+    97: branch-if              %1, 99      # if false
+    98: jump                   100         # end if, label(16)
+    99: load-literal           %0, empty   # label(17), from(97:)
+   100: drain                  %0          # label(18), from(98:)
+   101: load-literal           %0, empty
+   102: load-literal           %0, empty
+   103: load-variable          %1, var #0 "$a"
+   104: load-literal           %2, list(capacity = 2)
+   105: load-literal           %3, int(1)
+   106: list-push              %2, %3
+   107: load-literal           %3, int(2)
+   108: list-push              %2, %3
+   109: binary-op              %1, Comparison(In), %2
+   110: span                   %1
+   111: collect                %1
+   112: match                  (false), %1, 120
+   113: load-variable          %2, var #1 "$b"
+   114: load-literal           %3, list(capacity = 1)
+   115: load-literal           %4, int(3)
+   116: list-push              %3, %4
+   117: binary-op              %2, Comparison(NotIn), %3
+   118: span                   %2
+   119: binary-op              %1, Boolean(And), %2
+   120: span                   %1          # label(23), from(112:)
+   121: not                    %1
+   122: branch-if              %1, 124     # if false
+   123: jump                   125         # end if, label(20)
+   124: load-literal           %0, empty   # label(21), from(122:)
+   125: drain                  %0          # label(22), from(123:)
+   126: load-literal           %0, empty
+   127: load-literal           %0, empty
+   128: load-variable          %1, var #2 "$t"
+   129: collect                %1
+   130: match                  (false), %1, 133
+   131: load-variable          %2, var #2 "$t"
+   132: binary-op              %1, Boolean(And), %2
+   133: span                   %1          # label(27), from(130:)
+   134: not                    %1
+   135: branch-if              %1, 137     # if false
+   136: jump                   138         # end if, label(24)
+   137: load-literal           %0, empty   # label(25), from(135:)
+   138: return                 %0          # label(26), from(136:)
+=== accept/if/condition-then-help.nu
+shape shape_internalcall 0..2 "if"
+shape shape_bool 3..7 "true"
+shape shape_flag 8..14 "--help"
+ir main
+  # 2 registers, 5 instructions, 14 bytes of data
+     0: load-literal           %1, string("if")
+     1: push-positional        %1
+     2: push-parser-info       "help_decl_id", Expression { expr: Int(30), span: Span[148075..148077], span_id: SpanId(0), ty: Int }
+     3: call                   decl "help", %0
+     4: return                 %0
+=== accept/if/else-call-with-closure-arg.nu
+shape shape_internalcall 0..2 "if"
+shape shape_bool 3..8 "false"
+shape shape_block 9..11 "{ "
+shape shape_string 11..14 "'a'"
+shape shape_block 14..16 " }"
+shape shape_keyword 17..21 "else"
+shape shape_external 22..25 "foo"
+shape shape_closure 26..28 "{ "
+shape shape_string 28..31 "'b'"
+shape shape_closure 31..33 " }"
+ir main
+  # 3 registers, 13 instructions, 4 bytes of data
+     0: load-literal           %1, bool(false)
+     1: not                    %1
+     2: branch-if              %1, 5       # if false
+     3: load-literal           %0, string("a") # label(0)
+     4: jump                   12          # end if
+     5: load-literal           %1, glob-pattern("foo", no_expand = false) # label(1), from(2:)
+     6: load-literal           %2, closure(#1)
+     7: push-positional        %1
+     8: push-positional        %2
+     9: redirect-out           caller
+    10: redirect-err           caller
+    11: call                   decl "run-external", %0
+    12: return                 %0          # label(2), from(4:)
+ir #1
+  # 1 register, 2 instructions, 1 byte of data
+     0: load-literal           %0, string("b")
+     1: return                 %0
+=== accept/if/else-closure.nu
+shape shape_internalcall 0..2 "if"
+shape shape_bool 3..7 "true"
+shape shape_keyword 11..15 "else"
+shape shape_closure 16..22 "{|x| }"
+ir main
+  # 2 registers, 6 instructions, 0 bytes of data
+     0: load-literal           %1, bool(true)
+     1: not                    %1
+     2: branch-if              %1, 4       # if false
+     3: jump                   5           # end if, label(0)
+     4: load-literal           %0, closure(#1) # label(1), from(2:)
+     5: return                 %0          # label(2), from(3:)
+ir #1
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== accept/if/else-empty-braces-cell-path.nu
+shape shape_internalcall 98..100 "if"
+shape shape_bool 101..105 "true"
+shape shape_keyword 109..113 "else"
+shape shape_record 114..116 "{}"
+shape shape_string 117..118 "b"
+ir main
+  # 2 registers, 8 instructions, 0 bytes of data
+     0: load-literal           %1, bool(true)
+     1: not                    %1
+     2: branch-if              %1, 4       # if false
+     3: jump                   7           # end if, label(0)
+     4: load-literal           %0, record(capacity = 0) # label(1), from(2:)
+     5: load-literal           %1, cell-path($.b)
+     6: follow-cell-path       %0, %1
+     7: return                 %0          # label(2), from(3:)
+=== accept/if/else-empty-closure.nu
+shape shape_internalcall 0..2 "if"
+shape shape_bool 3..7 "true"
+shape shape_keyword 11..15 "else"
+shape shape_closure 16..20 "{||}"
+ir main
+  # 2 registers, 6 instructions, 0 bytes of data
+     0: load-literal           %1, bool(true)
+     1: not                    %1
+     2: branch-if              %1, 4       # if false
+     3: jump                   5           # end if, label(0)
+     4: load-literal           %0, closure(#1) # label(1), from(2:)
+     5: return                 %0          # label(2), from(3:)
+ir #1
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== accept/if/else-expression.nu
+shape shape_internalcall 0..2 "if"
+shape shape_bool 3..8 "false"
+shape shape_keyword 13..17 "else"
+shape shape_block 18..19 "("
+shape shape_internalcall 19..24 "print"
+shape shape_string 25..27 "no"
+shape shape_block 27..28 ")"
+shape shape_internalcall 29..31 "if"
+shape shape_bool 32..37 "false"
+shape shape_keyword 42..46 "else"
+shape shape_int 47..48 "5"
+shape shape_internalcall 49..51 "if"
+shape shape_bool 52..57 "false"
+shape shape_keyword 62..66 "else"
+shape shape_string 67..70 "\"s\""
+shape shape_internalcall 71..73 "if"
+shape shape_bool 74..79 "false"
+shape shape_keyword 84..88 "else"
+shape shape_variable 89..93 "$env"
+shape shape_string 94..97 "PWD"
+ir main
+  # 2 registers, 32 instructions, 6 bytes of data
+     0: load-literal           %1, bool(false)
+     1: not                    %1
+     2: branch-if              %1, 4       # if false
+     3: jump                   7           # end if, label(0)
+     4: load-literal           %1, string("no") # label(1), from(2:)
+     5: push-positional        %1
+     6: call                   decl "print", %0
+     7: drain                  %0          # label(2), from(3:)
+     8: load-literal           %0, empty
+     9: load-literal           %0, empty
+    10: load-literal           %1, bool(false)
+    11: not                    %1
+    12: branch-if              %1, 14      # if false
+    13: jump                   15          # end if, label(3)
+    14: load-literal           %0, int(5)  # label(4), from(12:)
+    15: drain                  %0          # label(5), from(13:)
+    16: load-literal           %0, empty
+    17: load-literal           %0, empty
+    18: load-literal           %1, bool(false)
+    19: not                    %1
+    20: branch-if              %1, 22      # if false
+    21: jump                   23          # end if, label(6)
+    22: load-literal           %0, string("s") # label(7), from(20:)
+    23: drain                  %0          # label(8), from(21:)
+    24: load-literal           %0, empty
+    25: load-literal           %0, empty
+    26: load-literal           %1, bool(false)
+    27: not                    %1
+    28: branch-if              %1, 30      # if false
+    29: jump                   31          # end if, label(9)
+    30: load-env               %0, "PWD"   # label(10), from(28:)
+    31: return                 %0          # label(11), from(29:)
+=== accept/if/else-if-chain.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..5 "x"
+shape shape_int 8..9 "1"
+shape shape_internalcall 10..12 "if"
+shape shape_variable 13..15 "$x"
+shape shape_operator 16..17 ">"
+shape shape_int 18..19 "1"
+shape shape_block 20..22 "{ "
+shape shape_external 22..23 "a"
+shape shape_block 23..25 " }"
+shape shape_keyword 26..30 "else"
+shape shape_internalcall 31..33 "if"
+shape shape_variable 34..36 "$x"
+shape shape_operator 37..38 ">"
+shape shape_int 39..40 "0"
+shape shape_block 41..43 "{ "
+shape shape_external 43..44 "b"
+shape shape_block 44..46 " }"
+shape shape_keyword 47..51 "else"
+shape shape_internalcall 52..54 "if"
+shape shape_variable 55..57 "$x"
+shape shape_operator 58..59 ">"
+shape shape_int 60..62 "-1"
+shape shape_block 63..65 "{ "
+shape shape_external 65..66 "c"
+shape shape_block 66..68 " }"
+shape shape_keyword 69..73 "else"
+shape shape_block 74..76 "{ "
+shape shape_external 76..77 "d"
+shape shape_block 77..79 " }"
+ir main
+  # 3 registers, 48 instructions, 4 bytes of data
+     0: load-literal           %0, int(1)
+     1: store-variable         var #0 "$x", %0 # let
+     2: load-literal           %0, empty
+     3: drain                  %0
+     4: load-literal           %0, empty
+     5: load-literal           %0, empty
+     6: load-variable          %1, var #0 "$x"
+     7: load-literal           %2, int(1)
+     8: binary-op              %1, Comparison(GreaterThan), %2
+     9: span                   %1
+    10: not                    %1
+    11: branch-if              %1, 18      # if false
+    12: load-literal           %1, glob-pattern("a", no_expand = false) # label(0)
+    13: push-positional        %1
+    14: redirect-out           caller
+    15: redirect-err           caller
+    16: call                   decl "run-external", %0
+    17: jump                   47          # end if
+    18: load-variable          %1, var #0 "$x" # label(1), from(11:)
+    19: load-literal           %2, int(0)
+    20: binary-op              %1, Comparison(GreaterThan), %2
+    21: span                   %1
+    22: not                    %1
+    23: branch-if              %1, 30      # if false
+    24: load-literal           %1, glob-pattern("b", no_expand = false) # label(3)
+    25: push-positional        %1
+    26: redirect-out           caller
+    27: redirect-err           caller
+    28: call                   decl "run-external", %0
+    29: jump                   47          # end if
+    30: load-variable          %1, var #0 "$x" # label(4), from(23:)
+    31: load-literal           %2, int(-1)
+    32: binary-op              %1, Comparison(GreaterThan), %2
+    33: span                   %1
+    34: not                    %1
+    35: branch-if              %1, 42      # if false
+    36: load-literal           %1, glob-pattern("c", no_expand = false) # label(6)
+    37: push-positional        %1
+    38: redirect-out           caller
+    39: redirect-err           caller
+    40: call                   decl "run-external", %0
+    41: jump                   47          # end if
+    42: load-literal           %1, glob-pattern("d", no_expand = false) # label(7), from(35:)
+    43: push-positional        %1
+    44: redirect-out           caller
+    45: redirect-err           caller
+    46: call                   decl "run-external", %0
+    47: return                 %0          # label(2), label(5), label(8), from(17:), from(29:), from(41:)
+=== accept/if/else-if-dedented-closers.nu
+shape shape_block 0..8 "{||\n    "
+shape shape_internalcall 8..10 "if"
+shape shape_variable 11..14 "$in"
+shape shape_operator 15..16 "<"
+shape shape_int 17..18 "1"
+shape shape_string 18..20 "hr"
+shape shape_block 21..29 "{\n      "
+shape shape_string 29..34 "'red'"
+shape shape_block 34..42 "\n      }"
+shape shape_keyword 43..47 "else"
+shape shape_internalcall 48..50 "if"
+shape shape_variable 51..54 "$in"
+shape shape_operator 55..56 "<"
+shape shape_int 57..58 "1"
+shape shape_string 58..60 "wk"
+shape shape_block 61..69 "{\n      "
+shape shape_string 69..76 "'green'"
+shape shape_block 76..82 "\n    }"
+shape shape_keyword 83..87 "else"
+shape shape_internalcall 88..90 "if"
+shape shape_variable 91..94 "$in"
+shape shape_operator 95..96 "<"
+shape shape_int 97..98 "6"
+shape shape_string 98..100 "wk"
+shape shape_block 101..109 "{\n      "
+shape shape_string 109..115 "'blue'"
+shape shape_block 115..121 "\n    }"
+shape shape_keyword 122..126 "else"
+shape shape_block 127..129 "{ "
+shape shape_string 129..135 "'gray'"
+shape shape_block 135..137 " }"
+shape shape_block 137..141 "\n  }"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, closure(#5)
+     1: return                 %0
+ir #5
+  # 4 registers, 30 instructions, 16 bytes of data
+     0: collect                %0
+     1: clone                  %1, %0
+     2: store-variable         var #0, %1
+     3: load-variable          %2, var #0
+     4: load-literal           %3, duration(3600000000000ns)
+     5: binary-op              %2, Comparison(LessThan), %3
+     6: span                   %2
+     7: not                    %2
+     8: branch-if              %2, 11      # if false
+     9: load-literal           %0, string("red") # label(0)
+    10: jump                   28          # end if
+    11: load-variable          %2, var #0  # label(1), from(8:)
+    12: load-literal           %3, duration(604800000000000ns)
+    13: binary-op              %2, Comparison(LessThan), %3
+    14: span                   %2
+    15: not                    %2
+    16: branch-if              %2, 19      # if false
+    17: load-literal           %0, string("green") # label(3)
+    18: jump                   28          # end if
+    19: load-variable          %2, var #0  # label(4), from(16:)
+    20: load-literal           %3, duration(3628800000000000ns)
+    21: binary-op              %2, Comparison(LessThan), %3
+    22: span                   %2
+    23: not                    %2
+    24: branch-if              %2, 27      # if false
+    25: load-literal           %0, string("blue") # label(6)
+    26: jump                   28          # end if
+    27: load-literal           %0, string("gray") # label(7), from(24:)
+    28: drop-variable          var #0      # label(2), label(5), label(8), from(10:), from(18:), from(26:)
+    29: return                 %0
+=== accept/if/else-record-cell-path.nu
+shape shape_internalcall 74..76 "if"
+shape shape_bool 77..81 "true"
+shape shape_keyword 85..89 "else"
+shape shape_record 90..91 "{"
+shape shape_string 91..92 "b"
+shape shape_record 92..94 ": "
+shape shape_int 94..95 "2"
+shape shape_record 95..96 "}"
+shape shape_string 97..98 "b"
+ir main
+  # 3 registers, 11 instructions, 1 byte of data
+     0: load-literal           %1, bool(true)
+     1: not                    %1
+     2: branch-if              %1, 4       # if false
+     3: jump                   10          # end if, label(0)
+     4: load-literal           %0, record(capacity = 1) # label(1), from(2:)
+     5: load-literal           %1, string("b")
+     6: load-literal           %2, int(2)
+     7: record-insert          %0, %1, %2
+     8: load-literal           %1, cell-path($.b)
+     9: follow-cell-path       %0, %1
+    10: return                 %0          # label(2), from(3:)
+=== accept/if/else-record.nu
+shape shape_internalcall 0..2 "if"
+shape shape_bool 3..7 "true"
+shape shape_keyword 11..15 "else"
+shape shape_record 16..17 "{"
+shape shape_string 17..18 "a"
+shape shape_record 18..20 ": "
+shape shape_int 20..21 "1"
+shape shape_record 21..22 "}"
+ir main
+  # 3 registers, 9 instructions, 1 byte of data
+     0: load-literal           %1, bool(true)
+     1: not                    %1
+     2: branch-if              %1, 4       # if false
+     3: jump                   8           # end if, label(0)
+     4: load-literal           %0, record(capacity = 1) # label(1), from(2:)
+     5: load-literal           %1, string("a")
+     6: load-literal           %2, int(1)
+     7: record-insert          %0, %1, %2
+     8: return                 %0          # label(2), from(3:)
+=== accept/if/else.nu
+shape shape_internalcall 0..2 "if"
+shape shape_bool 3..7 "true"
+shape shape_block 8..10 "{ "
+shape shape_int 10..11 "1"
+shape shape_block 11..13 " }"
+shape shape_keyword 14..18 "else"
+shape shape_block 19..21 "{ "
+shape shape_int 21..22 "2"
+shape shape_block 22..24 " }"
+ir main
+  # 2 registers, 7 instructions, 0 bytes of data
+     0: load-literal           %1, bool(true)
+     1: not                    %1
+     2: branch-if              %1, 5       # if false
+     3: load-literal           %0, int(1)  # label(0)
+     4: jump                   6           # end if
+     5: load-literal           %0, int(2)  # label(1), from(2:)
+     6: return                 %0          # label(2), from(4:)
+=== accept/if/empty-blocks.nu
+shape shape_internalcall 0..2 "if"
+shape shape_bool 3..7 "true"
+shape shape_keyword 12..16 "else"
+ir main
+  # 2 registers, 5 instructions, 0 bytes of data
+     0: load-literal           %1, bool(true)
+     1: not                    %1
+     2: branch-if              %1, 4       # if false
+     3: jump                   4           # end if, label(0)
+     4: return                 %0          # label(1), label(2), from(2:), from(3:)
+=== accept/if/end-of-options-first.nu
+shape shape_internalcall 0..2 "if"
+shape shape_bool 6..10 "true"
+ir main
+  # 2 registers, 6 instructions, 0 bytes of data
+     0: load-literal           %1, bool(true)
+     1: not                    %1
+     2: branch-if              %1, 4       # if false
+     3: jump                   5           # end if, label(0)
+     4: load-literal           %0, empty   # label(1), from(2:)
+     5: return                 %0          # label(2), from(3:)
+=== accept/if/help-flag.nu
+shape shape_internalcall 0..2 "if"
+shape shape_flag 3..9 "--help"
+ir main
+  # 2 registers, 5 instructions, 14 bytes of data
+     0: load-literal           %1, string("if")
+     1: push-positional        %1
+     2: push-parser-info       "help_decl_id", Expression { expr: Int(30), span: Span[148075..148077], span_id: SpanId(0), ty: Int }
+     3: call                   decl "help", %0
+     4: return                 %0
+=== accept/if/help-with-condition-asking-help.nu
+shape shape_internalcall 0..2 "if"
+shape shape_internalcall 3..5 "if"
+shape shape_flag 6..12 "--help"
+shape shape_flag 13..19 "--help"
+ir main
+  # 2 registers, 5 instructions, 14 bytes of data
+     0: load-literal           %1, string("if")
+     1: push-positional        %1
+     2: push-parser-info       "help_decl_id", Expression { expr: Int(30), span: Span[148075..148077], span_id: SpanId(0), ty: Int }
+     3: call                   decl "help", %0
+     4: return                 %0
+=== accept/if/in-pipeline.nu
+shape shape_list 0..1 "["
+shape shape_int 1..2 "1"
+shape shape_list 2..4 ", "
+shape shape_int 4..5 "2"
+shape shape_list 5..7 ", "
+shape shape_int 7..8 "3"
+shape shape_list 8..9 "]"
+shape shape_pipe 10..11 "|"
+shape shape_internalcall 12..14 "if"
+shape shape_bool 15..19 "true"
+shape shape_block 20..22 "{ "
+shape shape_internalcall 22..28 "length"
+shape shape_block 28..30 " }"
+shape shape_keyword 31..35 "else"
+ir main
+  # 2 registers, 15 instructions, 0 bytes of data
+     0: load-literal           %0, list(capacity = 3)
+     1: load-literal           %1, int(1)
+     2: list-push              %0, %1
+     3: load-literal           %1, int(2)
+     4: list-push              %0, %1
+     5: load-literal           %1, int(3)
+     6: list-push              %0, %1
+     7: load-literal           %1, bool(true)
+     8: not                    %1
+     9: branch-if              %1, 14      # if false
+    10: redirect-out           caller      # label(0)
+    11: redirect-err           caller
+    12: call                   decl "length", %0
+    13: jump                   14          # end if
+    14: return                 %0          # label(1), label(2), from(9:), from(13:)
+=== accept/if/multiline.nu
+shape shape_internalcall 0..2 "if"
+shape shape_bool 3..7 "true"
+shape shape_block 8..12 "{\n  "
+shape shape_int 12..13 "1"
+shape shape_block 13..15 "\n}"
+shape shape_keyword 16..20 "else"
+shape shape_internalcall 21..23 "if"
+shape shape_bool 24..29 "false"
+shape shape_block 30..34 "{\n  "
+shape shape_int 34..35 "2"
+shape shape_block 35..37 "\n}"
+shape shape_keyword 38..42 "else"
+shape shape_block 43..47 "{\n  "
+shape shape_int 47..48 "3"
+shape shape_block 48..50 "\n}"
+ir main
+  # 2 registers, 12 instructions, 0 bytes of data
+     0: load-literal           %1, bool(true)
+     1: not                    %1
+     2: branch-if              %1, 5       # if false
+     3: load-literal           %0, int(1)  # label(0)
+     4: jump                   11          # end if
+     5: load-literal           %1, bool(false) # label(1), from(2:)
+     6: not                    %1
+     7: branch-if              %1, 10      # if false
+     8: load-literal           %0, int(2)  # label(3)
+     9: jump                   11          # end if
+    10: load-literal           %0, int(3)  # label(4), from(7:)
+    11: return                 %0          # label(2), label(5), from(4:), from(9:)
+=== accept/if/nested.nu
+shape shape_internalcall 0..2 "if"
+shape shape_bool 3..7 "true"
+shape shape_block 8..10 "{ "
+shape shape_internalcall 10..12 "if"
+shape shape_bool 13..18 "false"
+shape shape_block 19..21 "{ "
+shape shape_int 21..22 "1"
+shape shape_block 22..24 " }"
+shape shape_keyword 25..29 "else"
+shape shape_block 30..32 "{ "
+shape shape_internalcall 32..34 "if"
+shape shape_bool 35..39 "true"
+shape shape_block 40..42 "{ "
+shape shape_int 42..43 "2"
+shape shape_block 43..45 " }"
+shape shape_block 45..47 " }"
+shape shape_block 47..49 " }"
+shape shape_keyword 50..54 "else"
+shape shape_block 55..57 "{ "
+shape shape_int 57..58 "3"
+shape shape_block 58..60 " }"
+ir main
+  # 2 registers, 17 instructions, 0 bytes of data
+     0: load-literal           %1, bool(true)
+     1: not                    %1
+     2: branch-if              %1, 15      # if false
+     3: load-literal           %1, bool(false) # label(0)
+     4: not                    %1
+     5: branch-if              %1, 8       # if false
+     6: load-literal           %0, int(1)  # label(3)
+     7: jump                   14          # end if
+     8: load-literal           %1, bool(true) # label(4), from(5:)
+     9: not                    %1
+    10: branch-if              %1, 13      # if false
+    11: load-literal           %0, int(2)  # label(6)
+    12: jump                   14          # end if
+    13: load-literal           %0, empty   # label(7), from(10:)
+    14: jump                   16          # end if, label(5), label(8), from(7:), from(12:)
+    15: load-literal           %0, int(3)  # label(1), from(2:)
+    16: return                 %0          # label(2), from(14:)
+=== accept/if/simple.nu
+shape shape_internalcall 0..2 "if"
+shape shape_bool 3..7 "true"
+shape shape_block 8..10 "{ "
+shape shape_int 10..11 "1"
+shape shape_block 11..13 " }"
+ir main
+  # 2 registers, 7 instructions, 0 bytes of data
+     0: load-literal           %1, bool(true)
+     1: not                    %1
+     2: branch-if              %1, 5       # if false
+     3: load-literal           %0, int(1)  # label(0)
+     4: jump                   6           # end if
+     5: load-literal           %0, empty   # label(1), from(2:)
+     6: return                 %0          # label(2), from(4:)
+=== accept/if/then-record-cell-path.nu
+shape shape_internalcall 76..78 "if"
+shape shape_bool 79..83 "true"
+shape shape_record 84..85 "{"
+shape shape_string 85..86 "a"
+shape shape_record 86..88 ": "
+shape shape_int 88..89 "1"
+shape shape_record 89..90 "}"
+shape shape_string 91..92 "a"
+compile error nu::compile::invalid_keyword_call: Encountered invalid `if` keyword call.
+  label 76..78 "if": this call is not properly formed
+=== accept/if/then-record-raw-string-key.nu
+shape shape_internalcall 74..76 "if"
+shape shape_bool 77..81 "true"
+shape shape_record 82..84 "{ "
+shape shape_raw_string 84..90 "r#'a'#"
+shape shape_record 90..92 ": "
+shape shape_int 92..93 "1"
+shape shape_record 93..95 " }"
+compile error nu::compile::invalid_keyword_call: Encountered invalid `if` keyword call.
+  label 74..76 "if": this call is not properly formed
+=== accept/if/then-record-with-variable-key.nu
+shape shape_internalcall 90..92 "if"
+shape shape_bool 93..97 "true"
+shape shape_record 98..100 "{ "
+shape shape_variable 100..104 "$env"
+shape shape_string 105..106 "A"
+shape shape_record 106..107 ":"
+shape shape_string 107..108 "b"
+shape shape_record 108..110 " }"
+compile error nu::compile::invalid_keyword_call: Encountered invalid `if` keyword call.
+  label 90..92 "if": this call is not properly formed
+=== accept/if/then-value-variable.nu
+shape shape_internalcall 0..2 "if"
+shape shape_bool 3..7 "true"
+shape shape_variable 8..12 "$env"
+shape shape_string 13..16 "FOO"
+compile error nu::compile::invalid_keyword_call: Encountered invalid `if` keyword call.
+  label 0..2 "if": this call is not properly formed

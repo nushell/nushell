@@ -1,0 +1,904 @@
+=== accept/lists/assignment-mode-keeps-everything.nu
+shape shape_list 0..1 "["
+shape shape_string 1..2 "a"
+shape shape_list 2..3 " "
+shape shape_string 3..4 "="
+shape shape_list 4..5 " "
+shape shape_string 5..6 "b"
+shape shape_list 6..7 " "
+shape shape_string 7..8 "|"
+shape shape_list 8..9 " "
+shape shape_string 9..10 "c"
+shape shape_list 10..11 "]"
+ir main
+  # 2 registers, 12 instructions, 5 bytes of data
+     0: load-literal           %0, list(capacity = 5)
+     1: load-literal           %1, string("a")
+     2: list-push              %0, %1
+     3: load-literal           %1, string("=")
+     4: list-push              %0, %1
+     5: load-literal           %1, string("b")
+     6: list-push              %0, %1
+     7: load-literal           %1, string("|")
+     8: list-push              %0, %1
+     9: load-literal           %1, string("c")
+    10: list-push              %0, %1
+    11: return                 %0
+=== accept/lists/assignment-mode-keeps-redirection.nu
+shape shape_list 0..1 "["
+shape shape_string 1..2 "a"
+shape shape_list 2..3 " "
+shape shape_string 3..4 "="
+shape shape_list 4..5 " "
+shape shape_string 5..6 "b"
+shape shape_list 6..7 " "
+shape shape_string 7..9 "o>"
+shape shape_list 9..10 " "
+shape shape_string 10..11 "c"
+shape shape_list 11..12 "]"
+ir main
+  # 2 registers, 12 instructions, 6 bytes of data
+     0: load-literal           %0, list(capacity = 5)
+     1: load-literal           %1, string("a")
+     2: list-push              %0, %1
+     3: load-literal           %1, string("=")
+     4: list-push              %0, %1
+     5: load-literal           %1, string("b")
+     6: list-push              %0, %1
+     7: load-literal           %1, string("o>")
+     8: list-push              %0, %1
+     9: load-literal           %1, string("c")
+    10: list-push              %0, %1
+    11: return                 %0
+=== accept/lists/bare-words.nu
+shape shape_list 0..1 "["
+shape shape_string 1..2 "a"
+shape shape_list 2..3 " "
+shape shape_string 3..4 "b"
+shape shape_list 4..5 " "
+shape shape_string 5..6 "c"
+shape shape_list 6..7 " "
+shape shape_string 7..14 "foo-bar"
+shape shape_list 14..15 " "
+shape shape_string 15..21 "./path"
+shape shape_list 21..22 "]"
+ir main
+  # 2 registers, 12 instructions, 16 bytes of data
+     0: load-literal           %0, list(capacity = 5)
+     1: load-literal           %1, string("a")
+     2: list-push              %0, %1
+     3: load-literal           %1, string("b")
+     4: list-push              %0, %1
+     5: load-literal           %1, string("c")
+     6: list-push              %0, %1
+     7: load-literal           %1, string("foo-bar")
+     8: list-push              %0, %1
+     9: load-literal           %1, string("./path")
+    10: list-push              %0, %1
+    11: return                 %0
+=== accept/lists/closure-items.nu
+shape shape_list 0..1 "["
+shape shape_closure 1..6 "{|x| "
+shape shape_variable 6..8 "$x"
+shape shape_closure 8..9 "}"
+shape shape_list 9..10 " "
+shape shape_block 10..12 "{ "
+shape shape_variable 12..15 "$in"
+shape shape_block 15..17 " }"
+shape shape_list 17..18 " "
+shape shape_closure 18..22 "{|| "
+shape shape_int 22..23 "1"
+shape shape_closure 23..24 "}"
+shape shape_list 24..25 "]"
+ir main
+  # 2 registers, 8 instructions, 0 bytes of data
+     0: load-literal           %0, list(capacity = 3)
+     1: load-literal           %1, closure(#0)
+     2: list-push              %0, %1
+     3: load-literal           %1, closure(#2)
+     4: list-push              %0, %1
+     5: load-literal           %1, closure(#3)
+     6: list-push              %0, %1
+     7: return                 %0
+ir #0
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-variable          %0, var #0
+     1: return                 %0
+ir #2
+  # 2 registers, 6 instructions, 0 bytes of data
+     0: collect                %0
+     1: clone                  %1, %0
+     2: store-variable         var #1, %1
+     3: load-variable          %0, var #1
+     4: drop-variable          var #1
+     5: return                 %0
+ir #3
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, int(1)
+     1: return                 %0
+=== accept/lists/comma-separated.nu
+shape shape_list 0..1 "["
+shape shape_int 1..2 "1"
+shape shape_list 2..4 ", "
+shape shape_int 4..5 "2"
+shape shape_list 5..7 ", "
+shape shape_int 7..8 "3"
+shape shape_list 8..9 "]"
+ir main
+  # 2 registers, 8 instructions, 0 bytes of data
+     0: load-literal           %0, list(capacity = 3)
+     1: load-literal           %1, int(1)
+     2: list-push              %0, %1
+     3: load-literal           %1, int(2)
+     4: list-push              %0, %1
+     5: load-literal           %1, int(3)
+     6: list-push              %0, %1
+     7: return                 %0
+=== accept/lists/deeply-nested.nu
+shape shape_list 0..1 "["
+shape shape_list 1..2 "["
+shape shape_list 2..3 "["
+shape shape_list 3..4 "["
+shape shape_list 4..5 "["
+shape shape_list 5..6 "["
+shape shape_list 6..7 "["
+shape shape_list 7..8 "["
+shape shape_list 8..9 "["
+shape shape_list 9..10 "["
+shape shape_list 10..11 "["
+shape shape_list 11..12 "["
+shape shape_list 12..13 "["
+shape shape_list 13..14 "["
+shape shape_list 14..15 "["
+shape shape_list 15..16 "["
+shape shape_list 16..17 "["
+shape shape_list 17..18 "["
+shape shape_list 18..19 "["
+shape shape_list 19..20 "["
+shape shape_list 20..21 "["
+shape shape_list 21..22 "["
+shape shape_list 22..23 "["
+shape shape_list 23..24 "["
+shape shape_list 24..25 "["
+shape shape_list 25..26 "["
+shape shape_list 26..27 "["
+shape shape_list 27..28 "["
+shape shape_int 28..29 "1"
+shape shape_list 29..30 "]"
+shape shape_list 30..31 "]"
+shape shape_list 31..32 "]"
+shape shape_list 32..33 "]"
+shape shape_list 33..34 "]"
+shape shape_list 34..35 "]"
+shape shape_list 35..36 "]"
+shape shape_list 36..37 "]"
+shape shape_list 37..38 "]"
+shape shape_list 38..39 "]"
+shape shape_list 39..40 "]"
+shape shape_list 40..41 "]"
+shape shape_list 41..42 "]"
+shape shape_list 42..43 "]"
+shape shape_list 43..44 "]"
+shape shape_list 44..45 "]"
+shape shape_list 45..46 "]"
+shape shape_list 46..47 "]"
+shape shape_list 47..48 "]"
+shape shape_list 48..49 "]"
+shape shape_list 49..50 "]"
+shape shape_list 50..51 "]"
+shape shape_list 51..52 "]"
+shape shape_list 52..53 "]"
+shape shape_list 53..54 "]"
+shape shape_list 54..55 "]"
+shape shape_list 55..56 "]"
+shape shape_list 56..57 "]"
+ir main
+  # 29 registers, 58 instructions, 0 bytes of data
+     0: load-literal           %0, list(capacity = 1)
+     1: load-literal           %1, list(capacity = 1)
+     2: load-literal           %2, list(capacity = 1)
+     3: load-literal           %3, list(capacity = 1)
+     4: load-literal           %4, list(capacity = 1)
+     5: load-literal           %5, list(capacity = 1)
+     6: load-literal           %6, list(capacity = 1)
+     7: load-literal           %7, list(capacity = 1)
+     8: load-literal           %8, list(capacity = 1)
+     9: load-literal           %9, list(capacity = 1)
+    10: load-literal           %10, list(capacity = 1)
+    11: load-literal           %11, list(capacity = 1)
+    12: load-literal           %12, list(capacity = 1)
+    13: load-literal           %13, list(capacity = 1)
+    14: load-literal           %14, list(capacity = 1)
+    15: load-literal           %15, list(capacity = 1)
+    16: load-literal           %16, list(capacity = 1)
+    17: load-literal           %17, list(capacity = 1)
+    18: load-literal           %18, list(capacity = 1)
+    19: load-literal           %19, list(capacity = 1)
+    20: load-literal           %20, list(capacity = 1)
+    21: load-literal           %21, list(capacity = 1)
+    22: load-literal           %22, list(capacity = 1)
+    23: load-literal           %23, list(capacity = 1)
+    24: load-literal           %24, list(capacity = 1)
+    25: load-literal           %25, list(capacity = 1)
+    26: load-literal           %26, list(capacity = 1)
+    27: load-literal           %27, list(capacity = 1)
+    28: load-literal           %28, int(1)
+    29: list-push              %27, %28
+    30: list-push              %26, %27
+    31: list-push              %25, %26
+    32: list-push              %24, %25
+    33: list-push              %23, %24
+    34: list-push              %22, %23
+    35: list-push              %21, %22
+    36: list-push              %20, %21
+    37: list-push              %19, %20
+    38: list-push              %18, %19
+    39: list-push              %17, %18
+    40: list-push              %16, %17
+    41: list-push              %15, %16
+    42: list-push              %14, %15
+    43: list-push              %13, %14
+    44: list-push              %12, %13
+    45: list-push              %11, %12
+    46: list-push              %10, %11
+    47: list-push              %9, %10
+    48: list-push              %8, %9
+    49: list-push              %7, %8
+    50: list-push              %6, %7
+    51: list-push              %5, %6
+    52: list-push              %4, %5
+    53: list-push              %3, %4
+    54: list-push              %2, %3
+    55: list-push              %1, %2
+    56: list-push              %0, %1
+    57: return                 %0
+=== accept/lists/empty.nu
+shape shape_list 0..2 "[]"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, list(capacity = 0)
+     1: return                 %0
+=== accept/lists/err-pipe-separates.nu
+shape shape_list 0..1 "["
+shape shape_string 1..2 "a"
+shape shape_list 2..7 " e>| "
+shape shape_string 7..8 "b"
+shape shape_list 8..9 "]"
+ir main
+  # 2 registers, 6 instructions, 2 bytes of data
+     0: load-literal           %0, list(capacity = 2)
+     1: load-literal           %1, string("a")
+     2: list-push              %0, %1
+     3: load-literal           %1, string("b")
+     4: list-push              %0, %1
+     5: return                 %0
+=== accept/lists/mixed-separators.nu
+shape shape_list 0..1 "["
+shape shape_int 1..2 "1"
+shape shape_list 2..4 ", "
+shape shape_int 4..5 "2"
+shape shape_list 5..6 " "
+shape shape_int 6..7 "3"
+shape shape_list 7..9 "\n "
+shape shape_int 9..10 "4"
+shape shape_list 10..12 "\n "
+shape shape_int 12..13 "5"
+shape shape_list 13..14 ","
+shape shape_int 14..15 "6"
+shape shape_list 15..16 "]"
+ir main
+  # 2 registers, 14 instructions, 0 bytes of data
+     0: load-literal           %0, list(capacity = 6)
+     1: load-literal           %1, int(1)
+     2: list-push              %0, %1
+     3: load-literal           %1, int(2)
+     4: list-push              %0, %1
+     5: load-literal           %1, int(3)
+     6: list-push              %0, %1
+     7: load-literal           %1, int(4)
+     8: list-push              %0, %1
+     9: load-literal           %1, int(5)
+    10: list-push              %0, %1
+    11: load-literal           %1, int(6)
+    12: list-push              %0, %1
+    13: return                 %0
+=== accept/lists/mixed-values.nu
+shape shape_list 0..1 "["
+shape shape_int 1..2 "1"
+shape shape_list 2..3 " "
+shape shape_string 3..8 "\"two\""
+shape shape_list 8..9 " "
+shape shape_bool 9..13 "true"
+shape shape_list 13..14 " "
+shape shape_nothing 14..18 "null"
+shape shape_list 18..19 " "
+shape shape_int 19..20 "1"
+shape shape_string 20..22 "kb"
+shape shape_list 22..23 " "
+shape shape_int 23..24 "2"
+shape shape_string 24..27 "sec"
+shape shape_list 27..28 " "
+shape shape_datetime 28..38 "2024-01-02"
+shape shape_list 38..39 " "
+shape shape_binary 39..45 "0x[ff]"
+shape shape_list 45..46 " "
+shape shape_int 46..47 "1"
+shape shape_operator 47..49 ".."
+shape shape_int 49..50 "3"
+shape shape_list 50..51 " "
+shape shape_variable 51..55 "$env"
+shape shape_string 56..59 "PWD"
+shape shape_list 59..60 " "
+shape shape_block 60..61 "("
+shape shape_int 61..62 "1"
+shape shape_operator 63..64 "+"
+shape shape_int 65..66 "1"
+shape shape_block 66..67 ")"
+shape shape_list 67..68 " "
+shape shape_record 68..69 "{"
+shape shape_string 69..70 "a"
+shape shape_record 70..72 ": "
+shape shape_int 72..73 "1"
+shape shape_record 73..74 "}"
+shape shape_list 74..75 " "
+shape shape_closure 75..79 "{|| "
+shape shape_int 79..80 "1"
+shape shape_closure 80..81 "}"
+shape shape_list 81..82 " "
+shape shape_string_interpolation 82..84 "$\""
+shape shape_string 84..85 "x"
+shape shape_block 85..86 "("
+shape shape_int 86..87 "1"
+shape shape_block 87..88 ")"
+shape shape_string_interpolation 88..89 "\""
+shape shape_list 89..90 "]"
+ir main
+  # 5 registers, 41 instructions, 9 bytes of data
+     0: load-literal           %0, list(capacity = 14)
+     1: load-literal           %1, int(1)
+     2: list-push              %0, %1
+     3: load-literal           %1, string("two")
+     4: list-push              %0, %1
+     5: load-literal           %1, bool(true)
+     6: list-push              %0, %1
+     7: load-literal           %1, nothing
+     8: list-push              %0, %1
+     9: load-literal           %1, filesize(1 kBb)
+    10: list-push              %0, %1
+    11: load-literal           %1, duration(2000000000ns)
+    12: list-push              %0, %1
+    13: load-literal           %1, date(2024-01-02 00:00:00 +00:00)
+    14: list-push              %0, %1
+    15: load-literal           %1, binary(0x[74, 77, 6f, ff, 50, 57, 44, 61, 78])
+    16: list-push              %0, %1
+    17: load-literal           %2, int(1)
+    18: load-literal           %3, nothing
+    19: load-literal           %4, int(3)
+    20: load-literal           %1, range(%2, %3, %4, Inclusive)
+    21: list-push              %0, %1
+    22: load-env               %1, "PWD"
+    23: list-push              %0, %1
+    24: load-literal           %1, int(1)
+    25: load-literal           %2, int(1)
+    26: binary-op              %1, Math(Add), %2
+    27: span                   %1
+    28: list-push              %0, %1
+    29: load-literal           %1, record(capacity = 1)
+    30: load-literal           %2, string("a")
+    31: load-literal           %3, int(1)
+    32: record-insert          %1, %2, %3
+    33: list-push              %0, %1
+    34: load-literal           %1, closure(#1)
+    35: list-push              %0, %1
+    36: load-literal           %1, string("x")
+    37: load-literal           %2, int(1)
+    38: string-append          %1, %2
+    39: list-push              %0, %1
+    40: return                 %0
+ir #1
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, int(1)
+     1: return                 %0
+=== accept/lists/multiline.nu
+shape shape_list 0..4 "[\n  "
+shape shape_int 4..5 "1"
+shape shape_list 5..9 ",\n  "
+shape shape_block 9..10 "("
+shape shape_int 10..11 "2"
+shape shape_operator 12..13 "+"
+shape shape_int 14..15 "3"
+shape shape_block 15..16 ")"
+shape shape_list 16..20 ",\n  "
+shape shape_record 20..21 "{"
+shape shape_string 21..22 "a"
+shape shape_record 22..24 ": "
+shape shape_int 24..25 "4"
+shape shape_record 25..26 "}"
+shape shape_list 26..28 "\n]"
+ir main
+  # 4 registers, 14 instructions, 1 byte of data
+     0: load-literal           %0, list(capacity = 3)
+     1: load-literal           %1, int(1)
+     2: list-push              %0, %1
+     3: load-literal           %1, int(2)
+     4: load-literal           %2, int(3)
+     5: binary-op              %1, Math(Add), %2
+     6: span                   %1
+     7: list-push              %0, %1
+     8: load-literal           %1, record(capacity = 1)
+     9: load-literal           %2, string("a")
+    10: load-literal           %3, int(4)
+    11: record-insert          %1, %2, %3
+    12: list-push              %0, %1
+    13: return                 %0
+=== accept/lists/nested.nu
+shape shape_list 0..1 "["
+shape shape_list 1..2 "["
+shape shape_int 2..3 "1"
+shape shape_list 3..4 " "
+shape shape_int 4..5 "2"
+shape shape_list 5..6 "]"
+shape shape_list 6..7 " "
+shape shape_list 7..8 "["
+shape shape_int 8..9 "3"
+shape shape_list 9..10 " "
+shape shape_list 10..11 "["
+shape shape_int 11..12 "4"
+shape shape_list 12..13 " "
+shape shape_list 13..14 "["
+shape shape_int 14..15 "5"
+shape shape_list 15..16 "]"
+shape shape_list 16..17 "]"
+shape shape_list 17..18 "]"
+shape shape_list 18..19 " "
+shape shape_list 19..21 "[]"
+shape shape_list 21..22 " "
+shape shape_list 22..23 "["
+shape shape_record 23..24 "{"
+shape shape_string 24..25 "a"
+shape shape_record 25..27 ": "
+shape shape_int 27..28 "1"
+shape shape_record 28..29 "}"
+shape shape_list 29..30 "]"
+shape shape_list 30..31 "]"
+ir main
+  # 5 registers, 29 instructions, 1 byte of data
+     0: load-literal           %0, list(capacity = 4)
+     1: load-literal           %1, list(capacity = 2)
+     2: load-literal           %2, int(1)
+     3: list-push              %1, %2
+     4: load-literal           %2, int(2)
+     5: list-push              %1, %2
+     6: list-push              %0, %1
+     7: load-literal           %1, list(capacity = 2)
+     8: load-literal           %2, int(3)
+     9: list-push              %1, %2
+    10: load-literal           %2, list(capacity = 2)
+    11: load-literal           %3, int(4)
+    12: list-push              %2, %3
+    13: load-literal           %3, list(capacity = 1)
+    14: load-literal           %4, int(5)
+    15: list-push              %3, %4
+    16: list-push              %2, %3
+    17: list-push              %1, %2
+    18: list-push              %0, %1
+    19: load-literal           %1, list(capacity = 0)
+    20: list-push              %0, %1
+    21: load-literal           %1, list(capacity = 1)
+    22: load-literal           %2, record(capacity = 1)
+    23: load-literal           %3, string("a")
+    24: load-literal           %4, int(1)
+    25: record-insert          %2, %3, %4
+    26: list-push              %1, %2
+    27: list-push              %0, %1
+    28: return                 %0
+=== accept/lists/operators-after-assignment.nu
+shape shape_list 0..1 "["
+shape shape_int 1..2 "1"
+shape shape_list 2..3 " "
+shape shape_string 3..4 "+"
+shape shape_list 4..5 " "
+shape shape_int 5..6 "1"
+shape shape_list 6..7 " "
+shape shape_string 7..17 "Assignment"
+shape shape_list 17..19 ", "
+shape shape_string 19..20 "="
+shape shape_list 20..22 ", "
+shape shape_string 22..28 "Assign"
+shape shape_list 28..30 ", "
+shape shape_string 30..32 "o>"
+shape shape_list 32..34 ", "
+shape shape_string 34..37 "++="
+shape shape_list 37..38 "]"
+ir main
+  # 2 registers, 18 instructions, 23 bytes of data
+     0: load-literal           %0, list(capacity = 8)
+     1: load-literal           %1, int(1)
+     2: list-push              %0, %1
+     3: load-literal           %1, string("+")
+     4: list-push              %0, %1
+     5: load-literal           %1, int(1)
+     6: list-push              %0, %1
+     7: load-literal           %1, string("Assignment")
+     8: list-push              %0, %1
+     9: load-literal           %1, string("=")
+    10: list-push              %0, %1
+    11: load-literal           %1, string("Assign")
+    12: list-push              %0, %1
+    13: load-literal           %1, string("o>")
+    14: list-push              %0, %1
+    15: load-literal           %1, string("++=")
+    16: list-push              %0, %1
+    17: return                 %0
+=== accept/lists/operators-are-words.nu
+shape shape_list 0..1 "["
+shape shape_int 1..2 "1"
+shape shape_list 2..3 " "
+shape shape_string 3..4 "+"
+shape shape_list 4..5 " "
+shape shape_int 5..6 "1"
+shape shape_list 6..7 " "
+shape shape_string 7..17 "Assignment"
+shape shape_list 17..19 ", "
+shape shape_string 19..20 "="
+shape shape_list 20..22 ", "
+shape shape_string 22..28 "Assign"
+shape shape_list 28..30 ", "
+shape shape_string 30..32 "o>"
+shape shape_list 32..34 ", "
+shape shape_string 34..37 "++="
+shape shape_list 37..38 "]"
+ir main
+  # 2 registers, 18 instructions, 23 bytes of data
+     0: load-literal           %0, list(capacity = 8)
+     1: load-literal           %1, int(1)
+     2: list-push              %0, %1
+     3: load-literal           %1, string("+")
+     4: list-push              %0, %1
+     5: load-literal           %1, int(1)
+     6: list-push              %0, %1
+     7: load-literal           %1, string("Assignment")
+     8: list-push              %0, %1
+     9: load-literal           %1, string("=")
+    10: list-push              %0, %1
+    11: load-literal           %1, string("Assign")
+    12: list-push              %0, %1
+    13: load-literal           %1, string("o>")
+    14: list-push              %0, %1
+    15: load-literal           %1, string("++=")
+    16: list-push              %0, %1
+    17: return                 %0
+=== accept/lists/pipes-tolerated.nu
+shape shape_list 0..1 "["
+shape shape_string 1..2 "a"
+shape shape_list 2..5 " | "
+shape shape_string 5..6 "b"
+shape shape_list 6..7 " "
+shape shape_string 7..8 "c"
+shape shape_list 8..9 "]"
+ir main
+  # 2 registers, 8 instructions, 3 bytes of data
+     0: load-literal           %0, list(capacity = 3)
+     1: load-literal           %1, string("a")
+     2: list-push              %0, %1
+     3: load-literal           %1, string("b")
+     4: list-push              %0, %1
+     5: load-literal           %1, string("c")
+     6: list-push              %0, %1
+     7: return                 %0
+=== accept/lists/quoted-url-with-equals.nu
+shape shape_list 0..1 "["
+shape shape_string 1..55 "\"https://api.github.com/search/issues?q=repo:nushell/\""
+shape shape_list 55..56 "]"
+shape shape_pipe 57..58 "|"
+shape shape_internalcall 59..62 "get"
+shape shape_int 63..64 "0"
+ir main
+  # 2 registers, 9 instructions, 52 bytes of data
+     0: load-literal           %0, list(capacity = 1)
+     1: load-literal           %1, string("https://api.github.com/search/issues?q=repo:nushell/")
+     2: list-push              %0, %1
+     3: load-literal           %1, cell-path($.0)
+     4: push-positional        %1
+     5: redirect-out           caller
+     6: redirect-err           caller
+     7: call                   decl "get", %0
+     8: return                 %0
+=== accept/lists/redirection-before-comma.nu
+shape shape_list 0..1 "["
+shape shape_string 1..2 "a"
+shape shape_list 2..9 " o>, b]"
+ir main
+  # 2 registers, 4 instructions, 1 byte of data
+     0: load-literal           %0, list(capacity = 1)
+     1: load-literal           %1, string("a")
+     2: list-push              %0, %1
+     3: return                 %0
+=== accept/lists/redirection-dropped-then-item.nu
+shape shape_list 0..1 "["
+shape shape_string 1..2 "a"
+shape shape_list 2..8 " o> b "
+shape shape_string 8..9 "c"
+shape shape_list 9..10 "]"
+ir main
+  # 2 registers, 6 instructions, 2 bytes of data
+     0: load-literal           %0, list(capacity = 2)
+     1: load-literal           %1, string("a")
+     2: list-push              %0, %1
+     3: load-literal           %1, string("c")
+     4: list-push              %0, %1
+     5: return                 %0
+=== accept/lists/redirection-dropped.nu
+shape shape_list 0..1 "["
+shape shape_string 1..2 "a"
+shape shape_list 2..8 " o> b]"
+ir main
+  # 2 registers, 4 instructions, 1 byte of data
+     0: load-literal           %0, list(capacity = 1)
+     1: load-literal           %1, string("a")
+     2: list-push              %0, %1
+     3: return                 %0
+=== accept/lists/separate-redirections-dropped.nu
+shape shape_list 0..1 "["
+shape shape_string 1..2 "a"
+shape shape_list 2..13 " o> b e> c]"
+ir main
+  # 2 registers, 4 instructions, 1 byte of data
+     0: load-literal           %0, list(capacity = 1)
+     1: load-literal           %1, string("a")
+     2: list-push              %0, %1
+     3: return                 %0
+=== accept/lists/space-separated.nu
+shape shape_list 0..1 "["
+shape shape_int 1..2 "1"
+shape shape_list 2..3 " "
+shape shape_int 3..4 "2"
+shape shape_list 4..5 " "
+shape shape_int 5..6 "3"
+shape shape_list 6..7 "]"
+ir main
+  # 2 registers, 8 instructions, 0 bytes of data
+     0: load-literal           %0, list(capacity = 3)
+     1: load-literal           %1, int(1)
+     2: list-push              %0, %1
+     3: load-literal           %1, int(2)
+     4: list-push              %0, %1
+     5: load-literal           %1, int(3)
+     6: list-push              %0, %1
+     7: return                 %0
+=== accept/lists/spread-bare-word-is-not-spread.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..5 "a"
+shape shape_int 8..9 "4"
+shape shape_list 10..11 "["
+shape shape_string 11..14 "..."
+shape shape_list 14..15 " "
+shape shape_variable 15..17 "$a"
+shape shape_list 17..18 " "
+shape shape_string 18..21 "..."
+shape shape_list 21..22 " "
+shape shape_list 22..23 "["
+shape shape_int 23..24 "1"
+shape shape_list 24..25 "]"
+shape shape_list 25..26 " "
+shape shape_string 26..29 "..."
+shape shape_list 29..30 " "
+shape shape_block 30..31 "("
+shape shape_int 31..32 "5"
+shape shape_block 32..33 ")"
+shape shape_list 33..34 " "
+shape shape_string 34..41 "...bare"
+shape shape_list 41..42 " "
+shape shape_string 42..45 "..."
+shape shape_list 45..46 "]"
+ir main
+  # 3 registers, 25 instructions, 19 bytes of data
+     0: load-literal           %0, int(4)
+     1: store-variable         var #0 "$a", %0 # let
+     2: load-literal           %0, empty
+     3: drain                  %0
+     4: load-literal           %0, empty
+     5: load-literal           %0, list(capacity = 8)
+     6: load-literal           %1, string("...")
+     7: list-push              %0, %1
+     8: load-variable          %1, var #0 "$a"
+     9: list-push              %0, %1
+    10: load-literal           %1, string("...")
+    11: list-push              %0, %1
+    12: load-literal           %1, list(capacity = 1)
+    13: load-literal           %2, int(1)
+    14: list-push              %1, %2
+    15: list-push              %0, %1
+    16: load-literal           %1, string("...")
+    17: list-push              %0, %1
+    18: load-literal           %1, int(5)
+    19: list-push              %0, %1
+    20: load-literal           %1, string("...bare")
+    21: list-push              %0, %1
+    22: load-literal           %1, string("...")
+    23: list-push              %0, %1
+    24: return                 %0
+=== accept/lists/spread-empty.nu
+shape shape_list 0..1 "["
+shape shape_int 1..2 "1"
+shape shape_list 2..3 " "
+shape shape_operator 3..6 "..."
+shape shape_list 6..8 "[]"
+shape shape_list 8..9 "]"
+ir main
+  # 2 registers, 6 instructions, 0 bytes of data
+     0: load-literal           %0, list(capacity = 2)
+     1: load-literal           %1, int(1)
+     2: list-push              %0, %1
+     3: load-literal           %1, list(capacity = 0)
+     4: list-spread            %0, %1
+     5: return                 %0
+=== accept/lists/spread-list-and-subexpr.nu
+shape shape_list 0..1 "["
+shape shape_int 1..2 "1"
+shape shape_list 2..3 " "
+shape shape_int 3..4 "2"
+shape shape_list 4..5 " "
+shape shape_operator 5..8 "..."
+shape shape_list 8..9 "["
+shape shape_list 9..10 "["
+shape shape_int 10..11 "3"
+shape shape_list 11..12 "]"
+shape shape_list 12..13 " "
+shape shape_record 13..14 "{"
+shape shape_string 14..15 "x"
+shape shape_record 15..17 ": "
+shape shape_int 17..18 "1"
+shape shape_record 18..19 "}"
+shape shape_list 19..20 "]"
+shape shape_list 20..21 " "
+shape shape_int 21..22 "5"
+shape shape_list 22..23 " "
+shape shape_operator 23..26 "..."
+shape shape_block 26..27 "("
+shape shape_string 27..32 "\"foo\""
+shape shape_pipe 33..34 "|"
+shape shape_internalcall 35..46 "split chars"
+shape shape_block 46..47 ")"
+shape shape_list 47..48 " "
+shape shape_int 48..50 "10"
+shape shape_list 50..51 "]"
+ir main
+  # 5 registers, 25 instructions, 4 bytes of data
+     0: load-literal           %0, list(capacity = 6)
+     1: load-literal           %1, int(1)
+     2: list-push              %0, %1
+     3: load-literal           %1, int(2)
+     4: list-push              %0, %1
+     5: load-literal           %1, list(capacity = 2)
+     6: load-literal           %2, list(capacity = 1)
+     7: load-literal           %3, int(3)
+     8: list-push              %2, %3
+     9: list-push              %1, %2
+    10: load-literal           %2, record(capacity = 1)
+    11: load-literal           %3, string("x")
+    12: load-literal           %4, int(1)
+    13: record-insert          %2, %3, %4
+    14: list-push              %1, %2
+    15: list-spread            %0, %1
+    16: load-literal           %1, int(5)
+    17: list-push              %0, %1
+    18: load-literal           %1, string("foo")
+    19: redirect-out           value
+    20: call                   decl "split chars", %1
+    21: list-spread            %0, %1
+    22: load-literal           %1, int(10)
+    23: list-push              %0, %1
+    24: return                 %0
+=== accept/lists/spread-nested.nu
+shape shape_list 0..2 "[ "
+shape shape_operator 2..5 "..."
+shape shape_list 5..7 "[ "
+shape shape_operator 7..10 "..."
+shape shape_list 10..12 "[ "
+shape shape_operator 12..15 "..."
+shape shape_list 15..17 "[ "
+shape shape_string 17..18 "a"
+shape shape_list 18..20 " ]"
+shape shape_list 20..21 " "
+shape shape_string 21..22 "b"
+shape shape_list 22..24 " ]"
+shape shape_list 24..25 " "
+shape shape_string 25..26 "c"
+shape shape_list 26..28 " ]"
+shape shape_list 28..29 " "
+shape shape_string 29..30 "d"
+shape shape_list 30..32 " ]"
+ir main
+  # 5 registers, 16 instructions, 4 bytes of data
+     0: load-literal           %0, list(capacity = 2)
+     1: load-literal           %1, list(capacity = 2)
+     2: load-literal           %2, list(capacity = 2)
+     3: load-literal           %3, list(capacity = 1)
+     4: load-literal           %4, string("a")
+     5: list-push              %3, %4
+     6: list-spread            %2, %3
+     7: load-literal           %3, string("b")
+     8: list-push              %2, %3
+     9: list-spread            %1, %2
+    10: load-literal           %2, string("c")
+    11: list-push              %1, %2
+    12: list-spread            %0, %1
+    13: load-literal           %1, string("d")
+    14: list-push              %0, %1
+    15: return                 %0
+=== accept/lists/spread-variable.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..5 "l"
+shape shape_list 8..9 "["
+shape shape_int 9..10 "1"
+shape shape_list 10..12 ", "
+shape shape_int 12..13 "2"
+shape shape_list 13..15 ", "
+shape shape_list 15..16 "["
+shape shape_int 16..17 "3"
+shape shape_list 17..18 "]"
+shape shape_list 18..19 "]"
+shape shape_list 20..21 "["
+shape shape_operator 21..24 "..."
+shape shape_variable 24..26 "$l"
+shape shape_list 26..27 " "
+shape shape_variable 27..29 "$l"
+shape shape_list 29..30 "]"
+ir main
+  # 3 registers, 19 instructions, 0 bytes of data
+     0: load-literal           %0, list(capacity = 3)
+     1: load-literal           %1, int(1)
+     2: list-push              %0, %1
+     3: load-literal           %1, int(2)
+     4: list-push              %0, %1
+     5: load-literal           %1, list(capacity = 1)
+     6: load-literal           %2, int(3)
+     7: list-push              %1, %2
+     8: list-push              %0, %1
+     9: store-variable         var #0 "$l", %0 # let
+    10: load-literal           %0, empty
+    11: drain                  %0
+    12: load-literal           %0, empty
+    13: load-literal           %0, list(capacity = 2)
+    14: load-variable          %1, var #0 "$l"
+    15: list-spread            %0, %1
+    16: load-variable          %1, var #0 "$l"
+    17: list-push              %0, %1
+    18: return                 %0
+=== accept/lists/trailing-comma.nu
+shape shape_list 0..1 "["
+shape shape_int 1..2 "1"
+shape shape_list 2..4 ", "
+shape shape_int 4..5 "2"
+shape shape_list 5..7 ", "
+shape shape_int 7..8 "3"
+shape shape_list 8..10 ",]"
+ir main
+  # 2 registers, 8 instructions, 0 bytes of data
+     0: load-literal           %0, list(capacity = 3)
+     1: load-literal           %1, int(1)
+     2: list-push              %0, %1
+     3: load-literal           %1, int(2)
+     4: list-push              %0, %1
+     5: load-literal           %1, int(3)
+     6: list-push              %0, %1
+     7: return                 %0
+=== accept/lists/unit-like-bare-word.nu
+shape shape_list 0..1 "["
+shape shape_string 1..7 ".foons"
+shape shape_list 7..8 "]"
+shape shape_pipe 9..10 "|"
+shape shape_internalcall 11..14 "get"
+shape shape_int 15..16 "0"
+ir main
+  # 2 registers, 9 instructions, 6 bytes of data
+     0: load-literal           %0, list(capacity = 1)
+     1: load-literal           %1, string(".foons")
+     2: list-push              %0, %1
+     3: load-literal           %1, cell-path($.0)
+     4: push-positional        %1
+     5: redirect-out           caller
+     6: redirect-err           caller
+     7: call                   decl "get", %0
+     8: return                 %0

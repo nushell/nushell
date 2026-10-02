@@ -1,7 +1,6 @@
 # Example of a `.gitattributes` file which reclassifies `.nu` files as Nushell:
 *.nu linguist-language=Nushell
 
-# These `lex-once` fixtures test CRLF line endings: store them byte-for-byte so that
-# `core.autocrlf` never converts them to LF.
-crates/nu-parser/tests/fixtures/lex_once/accept/comments/crlf-comment-keeps-cr.nu -text
-crates/nu-parser/tests/fixtures/lex_once/accept/pipelines/crlf-line-endings.nu -text
+# The language fixtures and their golden files pin byte offsets, and some fixtures test CRLF
+# line endings: store them byte-for-byte so that `core.autocrlf` never converts them.
+crates/nu-parser/tests/fixtures/language/** -text

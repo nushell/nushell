@@ -1,0 +1,100 @@
+=== reject/tables/column-name-not-string.nu
+shape shape_table 0..2 "[["
+shape shape_int 2..3 "1"
+shape shape_table 3..4 " "
+shape shape_int 4..5 "2"
+shape shape_table 5..9 "]; ["
+shape shape_int 9..10 "3"
+shape shape_table 10..11 " "
+shape shape_int 11..12 "4"
+shape shape_table 12..14 "]]"
+error : Table column name not string
+  label 2..3 "1": must be a string
+  help: Table column names should be able to be converted into strings
+error : Table column name not string
+  label 4..5 "2": must be a string
+  help: Table column names should be able to be converted into strings
+=== reject/tables/extra-columns.nu
+shape shape_table 0..2 "[["
+shape shape_string 2..3 "a"
+shape shape_table 3..4 " "
+shape shape_string 4..5 "b"
+shape shape_table 5..9 "]; ["
+shape shape_int 9..10 "1"
+shape shape_table 10..11 " "
+shape shape_int 11..12 "2"
+shape shape_table 12..15 "] ["
+shape shape_int 15..16 "3"
+shape shape_table 16..17 " "
+shape shape_int 17..18 "4"
+shape shape_table 18..19 " "
+shape shape_int 19..20 "5"
+shape shape_table 20..22 "]]"
+error nu::parser::extra_columns: Extra columns.
+  label 19..21 "5]": expected 2 columns
+=== reject/tables/header-only-with-semicolon.nu
+shape shape_table 0..2 "[["
+shape shape_string 2..3 "a"
+shape shape_table 3..4 " "
+shape shape_string 4..5 "b"
+shape shape_table 5..8 "];]"
+error nu::parser::parse_mismatch: Parse mismatch: expected table row.
+  label 7..7 "": expected table row
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/tables/missing-columns.nu
+shape shape_table 0..2 "[["
+shape shape_string 2..3 "a"
+shape shape_table 3..4 " "
+shape shape_string 4..5 "b"
+shape shape_table 5..9 "]; ["
+shape shape_int 9..10 "1"
+shape shape_table 10..12 "]]"
+error nu::parser::missing_columns: Missing columns.
+  label 8..11 "[1]": expected 2 columns
+=== reject/tables/non-list-row.nu
+shape shape_table 0..2 "[["
+shape shape_string 2..3 "a"
+shape shape_table 3..8 "]; 1]"
+error : Table item not list
+  label 6..7 "1": not a list
+  help: All table items must be lists
+=== reject/tables/null-column-name.nu
+shape shape_table 0..2 "[["
+shape shape_nothing 2..6 "null"
+shape shape_table 6..7 " "
+shape shape_string 7..8 "y"
+shape shape_table 8..12 "]; ["
+shape shape_int 12..13 "3"
+shape shape_table 13..14 " "
+shape shape_int 14..15 "4"
+shape shape_table 15..17 "]]"
+error : Table column name not string
+  label 2..6 "null": must be a string
+  help: Table column names should be able to be converted into strings
+=== reject/tables/semicolon-between-rows.nu
+shape shape_table 0..2 "[["
+shape shape_string 2..3 "a"
+shape shape_table 3..4 " "
+shape shape_string 4..5 "b"
+shape shape_table 5..9 "]; ["
+shape shape_int 9..10 "1"
+shape shape_table 10..11 " "
+shape shape_int 11..12 "2"
+shape shape_table 12..17 "] ; ["
+shape shape_int 17..18 "3"
+shape shape_table 18..19 " "
+shape shape_int 19..20 "4"
+shape shape_table 20..22 "]]"
+error : Table item not list
+  label 14..15 ";": not a list
+  help: All table items must be lists
+=== reject/tables/spread-in-header.nu
+shape shape_table 0..15 "[[...[a]]; [1]]"
+error : Cannot spread in a table row
+  label 5..8 "[a]": invalid spread here
+=== reject/tables/spread-in-row.nu
+shape shape_table 0..2 "[["
+shape shape_string 2..3 "a"
+shape shape_table 3..15 "]; [...[1]]]"
+error : Cannot spread in a table row
+  label 10..13 "[1]": invalid spread here

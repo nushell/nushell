@@ -1,0 +1,1323 @@
+=== accept/operators/arithmetic.nu
+shape shape_list 0..1 "["
+shape shape_block 1..2 "("
+shape shape_int 2..3 "1"
+shape shape_operator 4..5 "+"
+shape shape_int 6..7 "2"
+shape shape_block 7..8 ")"
+shape shape_list 8..9 " "
+shape shape_block 9..10 "("
+shape shape_int 10..11 "3"
+shape shape_operator 12..13 "-"
+shape shape_int 14..15 "4"
+shape shape_block 15..16 ")"
+shape shape_list 16..17 " "
+shape shape_block 17..18 "("
+shape shape_int 18..19 "5"
+shape shape_operator 20..21 "*"
+shape shape_int 22..23 "6"
+shape shape_block 23..24 ")"
+shape shape_list 24..25 " "
+shape shape_block 25..26 "("
+shape shape_int 26..27 "7"
+shape shape_operator 28..29 "/"
+shape shape_int 30..31 "8"
+shape shape_block 31..32 ")"
+shape shape_list 32..33 " "
+shape shape_block 33..34 "("
+shape shape_int 34..35 "9"
+shape shape_operator 36..38 "//"
+shape shape_int 39..41 "10"
+shape shape_block 41..42 ")"
+shape shape_list 42..43 " "
+shape shape_block 43..44 "("
+shape shape_int 44..46 "11"
+shape shape_operator 47..50 "mod"
+shape shape_int 51..53 "12"
+shape shape_block 53..54 ")"
+shape shape_list 54..55 " "
+shape shape_block 55..56 "("
+shape shape_int 56..57 "2"
+shape shape_operator 58..60 "**"
+shape shape_int 61..62 "3"
+shape shape_block 62..63 ")"
+shape shape_list 63..64 " "
+shape shape_block 64..65 "("
+shape shape_list 65..66 "["
+shape shape_int 66..67 "1"
+shape shape_list 67..68 "]"
+shape shape_operator 69..71 "++"
+shape shape_list 72..73 "["
+shape shape_int 73..74 "2"
+shape shape_list 74..75 "]"
+shape shape_block 75..76 ")"
+shape shape_list 76..77 "]"
+ir main
+  # 4 registers, 46 instructions, 0 bytes of data
+     0: load-literal           %0, list(capacity = 8)
+     1: load-literal           %1, int(1)
+     2: load-literal           %2, int(2)
+     3: binary-op              %1, Math(Add), %2
+     4: span                   %1
+     5: list-push              %0, %1
+     6: load-literal           %1, int(3)
+     7: load-literal           %2, int(4)
+     8: binary-op              %1, Math(Subtract), %2
+     9: span                   %1
+    10: list-push              %0, %1
+    11: load-literal           %1, int(5)
+    12: load-literal           %2, int(6)
+    13: binary-op              %1, Math(Multiply), %2
+    14: span                   %1
+    15: list-push              %0, %1
+    16: load-literal           %1, int(7)
+    17: load-literal           %2, int(8)
+    18: binary-op              %1, Math(Divide), %2
+    19: span                   %1
+    20: list-push              %0, %1
+    21: load-literal           %1, int(9)
+    22: load-literal           %2, int(10)
+    23: binary-op              %1, Math(FloorDivide), %2
+    24: span                   %1
+    25: list-push              %0, %1
+    26: load-literal           %1, int(11)
+    27: load-literal           %2, int(12)
+    28: binary-op              %1, Math(Modulo), %2
+    29: span                   %1
+    30: list-push              %0, %1
+    31: load-literal           %1, int(2)
+    32: load-literal           %2, int(3)
+    33: binary-op              %1, Math(Pow), %2
+    34: span                   %1
+    35: list-push              %0, %1
+    36: load-literal           %1, list(capacity = 1)
+    37: load-literal           %2, int(1)
+    38: list-push              %1, %2
+    39: load-literal           %2, list(capacity = 1)
+    40: load-literal           %3, int(2)
+    41: list-push              %2, %3
+    42: binary-op              %1, Math(Concatenate), %2
+    43: span                   %1
+    44: list-push              %0, %1
+    45: return                 %0
+=== accept/operators/bits-precedence.nu
+shape shape_int 0..1 "1"
+shape shape_operator 2..9 "bit-shl"
+shape shape_int 10..11 "2"
+shape shape_operator 12..18 "bit-or"
+shape shape_int 19..20 "4"
+shape shape_operator 21..28 "bit-and"
+shape shape_int 29..30 "7"
+shape shape_operator 31..38 "bit-xor"
+shape shape_int 39..40 "1"
+shape shape_operator 41..48 "bit-shr"
+shape shape_int 49..50 "0"
+ir main
+  # 4 registers, 17 instructions, 0 bytes of data
+     0: load-literal           %0, int(1)
+     1: load-literal           %1, int(2)
+     2: binary-op              %0, Bits(ShiftLeft), %1
+     3: span                   %0
+     4: load-literal           %1, int(4)
+     5: load-literal           %2, int(7)
+     6: binary-op              %1, Bits(BitAnd), %2
+     7: span                   %1
+     8: load-literal           %2, int(1)
+     9: load-literal           %3, int(0)
+    10: binary-op              %2, Bits(ShiftRight), %3
+    11: span                   %2
+    12: binary-op              %1, Bits(BitXor), %2
+    13: span                   %1
+    14: binary-op              %0, Bits(BitOr), %1
+    15: span                   %0
+    16: return                 %0
+=== accept/operators/bits.nu
+shape shape_list 0..1 "["
+shape shape_block 1..2 "("
+shape shape_int 2..3 "1"
+shape shape_operator 4..10 "bit-or"
+shape shape_int 11..12 "2"
+shape shape_block 12..13 ")"
+shape shape_list 13..14 " "
+shape shape_block 14..15 "("
+shape shape_int 15..16 "3"
+shape shape_operator 17..24 "bit-xor"
+shape shape_int 25..26 "1"
+shape shape_block 26..27 ")"
+shape shape_list 27..28 " "
+shape shape_block 28..29 "("
+shape shape_int 29..30 "3"
+shape shape_operator 31..38 "bit-and"
+shape shape_int 39..40 "1"
+shape shape_block 40..41 ")"
+shape shape_list 41..42 " "
+shape shape_block 42..43 "("
+shape shape_int 43..44 "1"
+shape shape_operator 45..52 "bit-shl"
+shape shape_int 53..54 "2"
+shape shape_block 54..55 ")"
+shape shape_list 55..56 " "
+shape shape_block 56..57 "("
+shape shape_int 57..58 "4"
+shape shape_operator 59..66 "bit-shr"
+shape shape_int 67..68 "1"
+shape shape_block 68..69 ")"
+shape shape_list 69..70 "]"
+ir main
+  # 3 registers, 27 instructions, 0 bytes of data
+     0: load-literal           %0, list(capacity = 5)
+     1: load-literal           %1, int(1)
+     2: load-literal           %2, int(2)
+     3: binary-op              %1, Bits(BitOr), %2
+     4: span                   %1
+     5: list-push              %0, %1
+     6: load-literal           %1, int(3)
+     7: load-literal           %2, int(1)
+     8: binary-op              %1, Bits(BitXor), %2
+     9: span                   %1
+    10: list-push              %0, %1
+    11: load-literal           %1, int(3)
+    12: load-literal           %2, int(1)
+    13: binary-op              %1, Bits(BitAnd), %2
+    14: span                   %1
+    15: list-push              %0, %1
+    16: load-literal           %1, int(1)
+    17: load-literal           %2, int(2)
+    18: binary-op              %1, Bits(ShiftLeft), %2
+    19: span                   %1
+    20: list-push              %0, %1
+    21: load-literal           %1, int(4)
+    22: load-literal           %2, int(1)
+    23: binary-op              %1, Bits(ShiftRight), %2
+    24: span                   %1
+    25: list-push              %0, %1
+    26: return                 %0
+=== accept/operators/boolean-precedence.nu
+shape shape_list 0..1 "["
+shape shape_block 1..2 "("
+shape shape_bool 2..6 "true"
+shape shape_operator 7..10 "and"
+shape shape_bool 11..16 "false"
+shape shape_operator 17..19 "or"
+shape shape_bool 20..24 "true"
+shape shape_block 24..25 ")"
+shape shape_list 25..26 " "
+shape shape_block 26..27 "("
+shape shape_bool 27..31 "true"
+shape shape_operator 32..35 "and"
+shape shape_bool 36..40 "true"
+shape shape_operator 41..44 "xor"
+shape shape_bool 45..49 "true"
+shape shape_operator 50..53 "and"
+shape shape_bool 54..59 "false"
+shape shape_block 59..60 ")"
+shape shape_list 60..61 " "
+shape shape_block 61..62 "("
+shape shape_bool 62..66 "true"
+shape shape_operator 67..69 "or"
+shape shape_bool 70..75 "false"
+shape shape_operator 76..79 "xor"
+shape shape_bool 80..84 "true"
+shape shape_operator 85..87 "or"
+shape shape_bool 88..93 "false"
+shape shape_block 93..94 ")"
+shape shape_list 94..95 " "
+shape shape_block 95..96 "("
+shape shape_operator 96..99 "not"
+shape shape_bool 100..104 "true"
+shape shape_operator 105..108 "and"
+shape shape_bool 109..114 "false"
+shape shape_operator 115..117 "or"
+shape shape_bool 118..122 "true"
+shape shape_block 122..123 ")"
+shape shape_list 123..124 "]"
+ir main
+  # 4 registers, 57 instructions, 0 bytes of data
+     0: load-literal           %0, list(capacity = 4)
+     1: load-literal           %1, bool(true)
+     2: collect                %1
+     3: match                  (false), %1, 6
+     4: load-literal           %2, bool(false)
+     5: binary-op              %1, Boolean(And), %2
+     6: span                   %1          # label(0), from(3:)
+     7: collect                %1
+     8: match                  (true), %1, 11
+     9: load-literal           %2, bool(true)
+    10: binary-op              %1, Boolean(Or), %2
+    11: span                   %1          # label(1), from(8:)
+    12: list-push              %0, %1
+    13: load-literal           %1, bool(true)
+    14: collect                %1
+    15: match                  (false), %1, 18
+    16: load-literal           %2, bool(true)
+    17: binary-op              %1, Boolean(And), %2
+    18: span                   %1          # label(2), from(15:)
+    19: load-literal           %2, bool(true)
+    20: collect                %2
+    21: match                  (false), %2, 24
+    22: load-literal           %3, bool(false)
+    23: binary-op              %2, Boolean(And), %3
+    24: span                   %2          # label(3), from(21:)
+    25: binary-op              %1, Boolean(Xor), %2
+    26: span                   %1
+    27: list-push              %0, %1
+    28: load-literal           %1, bool(true)
+    29: collect                %1
+    30: match                  (true), %1, 36
+    31: load-literal           %2, bool(false)
+    32: load-literal           %3, bool(true)
+    33: binary-op              %2, Boolean(Xor), %3
+    34: span                   %2
+    35: binary-op              %1, Boolean(Or), %2
+    36: span                   %1          # label(4), from(30:)
+    37: collect                %1
+    38: match                  (true), %1, 41
+    39: load-literal           %2, bool(false)
+    40: binary-op              %1, Boolean(Or), %2
+    41: span                   %1          # label(5), from(38:)
+    42: list-push              %0, %1
+    43: load-literal           %1, bool(true)
+    44: not                    %1
+    45: collect                %1
+    46: match                  (false), %1, 49
+    47: load-literal           %2, bool(false)
+    48: binary-op              %1, Boolean(And), %2
+    49: span                   %1          # label(6), from(46:)
+    50: collect                %1
+    51: match                  (true), %1, 54
+    52: load-literal           %2, bool(true)
+    53: binary-op              %1, Boolean(Or), %2
+    54: span                   %1          # label(7), from(51:)
+    55: list-push              %0, %1
+    56: return                 %0
+=== accept/operators/boolean.nu
+shape shape_list 0..1 "["
+shape shape_block 1..2 "("
+shape shape_bool 2..6 "true"
+shape shape_operator 7..10 "and"
+shape shape_bool 11..16 "false"
+shape shape_block 16..17 ")"
+shape shape_list 17..18 " "
+shape shape_block 18..19 "("
+shape shape_bool 19..23 "true"
+shape shape_operator 24..26 "or"
+shape shape_bool 27..32 "false"
+shape shape_block 32..33 ")"
+shape shape_list 33..34 " "
+shape shape_block 34..35 "("
+shape shape_bool 35..39 "true"
+shape shape_operator 40..43 "xor"
+shape shape_bool 44..49 "false"
+shape shape_block 49..50 ")"
+shape shape_list 50..51 " "
+shape shape_block 51..52 "("
+shape shape_operator 52..55 "not"
+shape shape_bool 56..60 "true"
+shape shape_block 60..61 ")"
+shape shape_list 61..62 "]"
+ir main
+  # 3 registers, 24 instructions, 0 bytes of data
+     0: load-literal           %0, list(capacity = 4)
+     1: load-literal           %1, bool(true)
+     2: collect                %1
+     3: match                  (false), %1, 6
+     4: load-literal           %2, bool(false)
+     5: binary-op              %1, Boolean(And), %2
+     6: span                   %1          # label(0), from(3:)
+     7: list-push              %0, %1
+     8: load-literal           %1, bool(true)
+     9: collect                %1
+    10: match                  (true), %1, 13
+    11: load-literal           %2, bool(false)
+    12: binary-op              %1, Boolean(Or), %2
+    13: span                   %1          # label(1), from(10:)
+    14: list-push              %0, %1
+    15: load-literal           %1, bool(true)
+    16: load-literal           %2, bool(false)
+    17: binary-op              %1, Boolean(Xor), %2
+    18: span                   %1
+    19: list-push              %0, %1
+    20: load-literal           %1, bool(true)
+    21: not                    %1
+    22: list-push              %0, %1
+    23: return                 %0
+=== accept/operators/cell-path-operands.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..5 "r"
+shape shape_record 8..9 "{"
+shape shape_string 9..10 "a"
+shape shape_record 10..12 ": "
+shape shape_int 12..13 "1"
+shape shape_record 13..15 ", "
+shape shape_string 15..16 "b"
+shape shape_record 16..18 ": "
+shape shape_list 18..19 "["
+shape shape_int 19..20 "2"
+shape shape_list 20..21 "]"
+shape shape_record 21..22 "}"
+shape shape_variable 23..25 "$r"
+shape shape_string 26..27 "a"
+shape shape_operator 28..29 "+"
+shape shape_variable 30..32 "$r"
+shape shape_string 33..34 "b"
+shape shape_int 35..36 "0"
+shape shape_operator 37..38 "*"
+shape shape_variable 39..43 "$env"
+shape shape_string 44..47 "PWD"
+shape shape_string 48..51 "len"
+ir main
+  # 4 registers, 27 instructions, 5 bytes of data
+     0: load-literal           %0, record(capacity = 2)
+     1: load-literal           %1, string("a")
+     2: load-literal           %2, int(1)
+     3: record-insert          %0, %1, %2
+     4: load-literal           %1, string("b")
+     5: load-literal           %2, list(capacity = 1)
+     6: load-literal           %3, int(2)
+     7: list-push              %2, %3
+     8: record-insert          %0, %1, %2
+     9: store-variable         var #0 "$r", %0 # let
+    10: load-literal           %0, empty
+    11: drain                  %0
+    12: load-literal           %0, empty
+    13: load-variable          %0, var #0 "$r"
+    14: load-literal           %1, cell-path($.a)
+    15: follow-cell-path       %0, %1
+    16: load-variable          %1, var #0 "$r"
+    17: load-literal           %2, cell-path($.b.0)
+    18: follow-cell-path       %1, %2
+    19: load-env               %2, "PWD"
+    20: load-literal           %3, cell-path($.len?)
+    21: follow-cell-path       %2, %3
+    22: binary-op              %1, Math(Multiply), %2
+    23: span                   %1
+    24: binary-op              %0, Math(Add), %1
+    25: span                   %0
+    26: return                 %0
+=== accept/operators/comparison.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..5 "a"
+shape shape_int 8..9 "1"
+shape shape_internalcall 10..13 "let"
+shape shape_vardecl 14..15 "b"
+shape shape_int 18..19 "2"
+shape shape_list 20..21 "["
+shape shape_block 21..22 "("
+shape shape_variable 22..24 "$a"
+shape shape_operator 25..27 "=="
+shape shape_variable 28..30 "$b"
+shape shape_block 30..31 ")"
+shape shape_list 31..32 " "
+shape shape_block 32..33 "("
+shape shape_variable 33..35 "$a"
+shape shape_operator 36..38 "!="
+shape shape_variable 39..41 "$b"
+shape shape_block 41..42 ")"
+shape shape_list 42..43 " "
+shape shape_block 43..44 "("
+shape shape_variable 44..46 "$a"
+shape shape_operator 47..48 "<"
+shape shape_variable 49..51 "$b"
+shape shape_block 51..52 ")"
+shape shape_list 52..53 " "
+shape shape_block 53..54 "("
+shape shape_variable 54..56 "$a"
+shape shape_operator 57..59 "<="
+shape shape_variable 60..62 "$b"
+shape shape_block 62..63 ")"
+shape shape_list 63..64 " "
+shape shape_block 64..65 "("
+shape shape_variable 65..67 "$a"
+shape shape_operator 68..69 ">"
+shape shape_variable 70..72 "$b"
+shape shape_block 72..73 ")"
+shape shape_list 73..74 " "
+shape shape_block 74..75 "("
+shape shape_variable 75..77 "$a"
+shape shape_operator 78..80 ">="
+shape shape_variable 81..83 "$b"
+shape shape_block 83..84 ")"
+shape shape_list 84..85 "]"
+ir main
+  # 3 registers, 43 instructions, 0 bytes of data
+     0: load-literal           %0, int(1)
+     1: store-variable         var #0 "$a", %0 # let
+     2: load-literal           %0, empty
+     3: drain                  %0
+     4: load-literal           %0, empty
+     5: load-literal           %0, empty
+     6: load-literal           %0, int(2)
+     7: store-variable         var #1 "$b", %0 # let
+     8: load-literal           %0, empty
+     9: drain                  %0
+    10: load-literal           %0, empty
+    11: load-literal           %0, list(capacity = 6)
+    12: load-variable          %1, var #0 "$a"
+    13: load-variable          %2, var #1 "$b"
+    14: binary-op              %1, Comparison(Equal), %2
+    15: span                   %1
+    16: list-push              %0, %1
+    17: load-variable          %1, var #0 "$a"
+    18: load-variable          %2, var #1 "$b"
+    19: binary-op              %1, Comparison(NotEqual), %2
+    20: span                   %1
+    21: list-push              %0, %1
+    22: load-variable          %1, var #0 "$a"
+    23: load-variable          %2, var #1 "$b"
+    24: binary-op              %1, Comparison(LessThan), %2
+    25: span                   %1
+    26: list-push              %0, %1
+    27: load-variable          %1, var #0 "$a"
+    28: load-variable          %2, var #1 "$b"
+    29: binary-op              %1, Comparison(LessThanOrEqual), %2
+    30: span                   %1
+    31: list-push              %0, %1
+    32: load-variable          %1, var #0 "$a"
+    33: load-variable          %2, var #1 "$b"
+    34: binary-op              %1, Comparison(GreaterThan), %2
+    35: span                   %1
+    36: list-push              %0, %1
+    37: load-variable          %1, var #0 "$a"
+    38: load-variable          %2, var #1 "$b"
+    39: binary-op              %1, Comparison(GreaterThanOrEqual), %2
+    40: span                   %1
+    41: list-push              %0, %1
+    42: return                 %0
+=== accept/operators/if-as-operand.nu
+shape shape_int 0..1 "1"
+shape shape_operator 2..3 "+"
+shape shape_internalcall 4..6 "if"
+shape shape_bool 7..11 "true"
+shape shape_block 12..14 "{ "
+shape shape_int 14..15 "2"
+shape shape_block 15..17 " }"
+shape shape_keyword 18..22 "else"
+shape shape_block 23..25 "{ "
+shape shape_int 25..26 "3"
+shape shape_block 26..28 " }"
+ir main
+  # 3 registers, 11 instructions, 0 bytes of data
+     0: load-literal           %0, int(1)
+     1: load-literal           %1, empty
+     2: load-literal           %2, bool(true)
+     3: not                    %2
+     4: branch-if              %2, 7       # if false
+     5: load-literal           %1, int(2)  # label(0)
+     6: jump                   8           # end if
+     7: load-literal           %1, int(3)  # label(1), from(4:)
+     8: binary-op              %0, Math(Add), %1 # label(2), from(6:)
+     9: span                   %0
+    10: return                 %0
+=== accept/operators/list-head-math.nu
+shape shape_list 0..1 "["
+shape shape_int 1..2 "1"
+shape shape_list 2..3 " "
+shape shape_int 3..4 "2"
+shape shape_list 4..5 "]"
+shape shape_operator 6..8 "++"
+shape shape_list 9..10 "["
+shape shape_int 10..11 "3"
+shape shape_list 11..12 "]"
+shape shape_pipe 13..14 "|"
+shape shape_internalcall 15..21 "length"
+ir main
+  # 3 registers, 14 instructions, 0 bytes of data
+     0: load-literal           %0, list(capacity = 2)
+     1: load-literal           %1, int(1)
+     2: list-push              %0, %1
+     3: load-literal           %1, int(2)
+     4: list-push              %0, %1
+     5: load-literal           %1, list(capacity = 1)
+     6: load-literal           %2, int(3)
+     7: list-push              %1, %2
+     8: binary-op              %0, Math(Concatenate), %1
+     9: span                   %0
+    10: redirect-out           caller
+    11: redirect-err           caller
+    12: call                   decl "length", %0
+    13: return                 %0
+=== accept/operators/match-as-operand.nu
+shape shape_int 0..1 "1"
+shape shape_operator 2..3 "+"
+shape shape_internalcall 4..9 "match"
+shape shape_int 10..11 "2"
+shape shape_match_pattern 14..15 "2"
+shape shape_int 19..20 "3"
+shape shape_nothing 22..23 "_"
+shape shape_int 27..28 "4"
+ir main
+  # 3 registers, 18 instructions, 0 bytes of data
+     0: load-literal           %0, int(1)
+     1: load-literal           %1, empty
+     2: load-literal           %2, int(2)
+     3: collect                %2
+     4: match                  (2), %2, 9
+     5: match                  (_), %2, 12 # label(2)
+     6: load-literal           %1, empty   # label(4)
+     7: drop                   %2
+     8: jump                   15
+     9: drop                   %2          # label(1), from(4:)
+    10: load-literal           %1, int(3)
+    11: jump                   15          # end match
+    12: drop                   %2          # label(3), from(5:)
+    13: load-literal           %1, int(4)
+    14: jump                   15          # end match
+    15: binary-op              %0, Math(Add), %1 # label(0), from(8:), from(11:), from(14:)
+    16: span                   %0
+    17: return                 %0
+=== accept/operators/math-at-pipeline-head-then-pipe.nu
+shape shape_int 0..1 "1"
+shape shape_operator 2..3 "+"
+shape shape_int 4..5 "1"
+shape shape_pipe 6..7 "|"
+shape shape_internalcall 8..19 "into string"
+ir main
+  # 2 registers, 8 instructions, 0 bytes of data
+     0: load-literal           %0, int(1)
+     1: load-literal           %1, int(1)
+     2: binary-op              %0, Math(Add), %1
+     3: span                   %0
+     4: redirect-out           caller
+     5: redirect-err           caller
+     6: call                   decl "into string", %0
+     7: return                 %0
+=== accept/operators/math-with-units.nu
+shape shape_list 0..1 "["
+shape shape_block 1..2 "("
+shape shape_int 2..5 "1.5"
+shape shape_string 5..7 "hr"
+shape shape_operator 8..9 "+"
+shape shape_int 10..12 "30"
+shape shape_string 12..15 "min"
+shape shape_block 15..16 ")"
+shape shape_list 16..17 " "
+shape shape_block 17..18 "("
+shape shape_int 18..19 "1"
+shape shape_string 19..21 "kb"
+shape shape_operator 22..23 "*"
+shape shape_int 24..25 "2"
+shape shape_block 25..26 ")"
+shape shape_list 26..27 " "
+shape shape_block 27..28 "("
+shape shape_datetime 28..38 "2024-01-02"
+shape shape_operator 39..40 "+"
+shape shape_int 41..42 "1"
+shape shape_string 42..45 "day"
+shape shape_block 45..46 ")"
+shape shape_list 46..47 " "
+shape shape_block 47..48 "("
+shape shape_int 48..50 "10"
+shape shape_string 50..53 "sec"
+shape shape_operator 54..55 "/"
+shape shape_int 56..57 "2"
+shape shape_block 57..58 ")"
+shape shape_list 58..59 "]"
+ir main
+  # 3 registers, 22 instructions, 0 bytes of data
+     0: load-literal           %0, list(capacity = 4)
+     1: load-literal           %1, duration(5400000000000ns)
+     2: load-literal           %2, duration(1800000000000ns)
+     3: binary-op              %1, Math(Add), %2
+     4: span                   %1
+     5: list-push              %0, %1
+     6: load-literal           %1, filesize(1 kBb)
+     7: load-literal           %2, int(2)
+     8: binary-op              %1, Math(Multiply), %2
+     9: span                   %1
+    10: list-push              %0, %1
+    11: load-literal           %1, date(2024-01-02 00:00:00 +00:00)
+    12: load-literal           %2, duration(86400000000000ns)
+    13: binary-op              %1, Math(Add), %2
+    14: span                   %1
+    15: list-push              %0, %1
+    16: load-literal           %1, duration(10000000000ns)
+    17: load-literal           %2, int(2)
+    18: binary-op              %1, Math(Divide), %2
+    19: span                   %1
+    20: list-push              %0, %1
+    21: return                 %0
+=== accept/operators/membership.nu
+shape shape_list 0..1 "["
+shape shape_block 1..2 "("
+shape shape_int 2..3 "1"
+shape shape_operator 4..6 "in"
+shape shape_list 7..8 "["
+shape shape_int 8..9 "1"
+shape shape_list 9..10 " "
+shape shape_int 10..11 "2"
+shape shape_list 11..12 "]"
+shape shape_block 12..13 ")"
+shape shape_list 13..14 " "
+shape shape_block 14..15 "("
+shape shape_int 15..16 "3"
+shape shape_operator 17..23 "not-in"
+shape shape_list 24..25 "["
+shape shape_int 25..26 "1"
+shape shape_list 26..27 " "
+shape shape_int 27..28 "2"
+shape shape_list 28..29 "]"
+shape shape_block 29..30 ")"
+shape shape_list 30..31 " "
+shape shape_block 31..32 "("
+shape shape_list 32..33 "["
+shape shape_int 33..34 "1"
+shape shape_list 34..35 " "
+shape shape_int 35..36 "2"
+shape shape_list 36..37 "]"
+shape shape_operator 38..41 "has"
+shape shape_int 42..43 "1"
+shape shape_block 43..44 ")"
+shape shape_list 44..45 " "
+shape shape_block 45..46 "("
+shape shape_list 46..47 "["
+shape shape_int 47..48 "1"
+shape shape_list 48..49 " "
+shape shape_int 49..50 "2"
+shape shape_list 50..51 "]"
+shape shape_operator 52..59 "not-has"
+shape shape_int 60..61 "3"
+shape shape_block 61..62 ")"
+shape shape_list 62..63 " "
+shape shape_block 63..64 "("
+shape shape_string 64..67 "\"a\""
+shape shape_operator 68..70 "in"
+shape shape_string 71..76 "\"abc\""
+shape shape_block 76..77 ")"
+shape shape_list 77..78 "]"
+ir main
+  # 4 registers, 43 instructions, 4 bytes of data
+     0: load-literal           %0, list(capacity = 5)
+     1: load-literal           %1, int(1)
+     2: load-literal           %2, list(capacity = 2)
+     3: load-literal           %3, int(1)
+     4: list-push              %2, %3
+     5: load-literal           %3, int(2)
+     6: list-push              %2, %3
+     7: binary-op              %1, Comparison(In), %2
+     8: span                   %1
+     9: list-push              %0, %1
+    10: load-literal           %1, int(3)
+    11: load-literal           %2, list(capacity = 2)
+    12: load-literal           %3, int(1)
+    13: list-push              %2, %3
+    14: load-literal           %3, int(2)
+    15: list-push              %2, %3
+    16: binary-op              %1, Comparison(NotIn), %2
+    17: span                   %1
+    18: list-push              %0, %1
+    19: load-literal           %1, list(capacity = 2)
+    20: load-literal           %2, int(1)
+    21: list-push              %1, %2
+    22: load-literal           %2, int(2)
+    23: list-push              %1, %2
+    24: load-literal           %2, int(1)
+    25: binary-op              %1, Comparison(Has), %2
+    26: span                   %1
+    27: list-push              %0, %1
+    28: load-literal           %1, list(capacity = 2)
+    29: load-literal           %2, int(1)
+    30: list-push              %1, %2
+    31: load-literal           %2, int(2)
+    32: list-push              %1, %2
+    33: load-literal           %2, int(3)
+    34: binary-op              %1, Comparison(NotHas), %2
+    35: span                   %1
+    36: list-push              %0, %1
+    37: load-literal           %1, string("a")
+    38: load-literal           %2, string("abc")
+    39: binary-op              %1, Comparison(In), %2
+    40: span                   %1
+    41: list-push              %0, %1
+    42: return                 %0
+=== accept/operators/mixed-precedence-chain.nu
+shape shape_block 0..1 "("
+shape shape_int 1..2 "1"
+shape shape_operator 3..4 "+"
+shape shape_int 5..6 "2"
+shape shape_block 6..7 ")"
+shape shape_operator 8..9 "*"
+shape shape_int 10..11 "3"
+shape shape_operator 12..14 "**"
+shape shape_int 15..16 "2"
+shape shape_operator 17..19 "**"
+shape shape_int 20..21 "1"
+shape shape_operator 22..24 "//"
+shape shape_int 25..26 "4"
+shape shape_operator 27..30 "mod"
+shape shape_int 31..32 "3"
+shape shape_operator 33..34 "-"
+shape shape_int 35..37 "-1"
+ir main
+  # 4 registers, 23 instructions, 0 bytes of data
+     0: load-literal           %0, int(1)
+     1: load-literal           %1, int(2)
+     2: binary-op              %0, Math(Add), %1
+     3: span                   %0
+     4: load-literal           %1, int(3)
+     5: load-literal           %2, int(2)
+     6: load-literal           %3, int(1)
+     7: binary-op              %2, Math(Pow), %3
+     8: span                   %2
+     9: binary-op              %1, Math(Pow), %2
+    10: span                   %1
+    11: binary-op              %0, Math(Multiply), %1
+    12: span                   %0
+    13: load-literal           %1, int(4)
+    14: binary-op              %0, Math(FloorDivide), %1
+    15: span                   %0
+    16: load-literal           %1, int(3)
+    17: binary-op              %0, Math(Modulo), %1
+    18: span                   %0
+    19: load-literal           %1, int(-1)
+    20: binary-op              %0, Math(Subtract), %1
+    21: span                   %0
+    22: return                 %0
+=== accept/operators/multiline-inside-parens.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..8 "long"
+shape shape_block 11..12 "("
+shape shape_int 12..13 "1"
+shape shape_operator 14..15 "+"
+shape shape_int 18..19 "2"
+shape shape_operator 20..21 "+"
+shape shape_int 24..25 "3"
+shape shape_block 25..26 ")"
+shape shape_variable 27..32 "$long"
+ir main
+  # 2 registers, 13 instructions, 0 bytes of data
+     0: load-literal           %0, int(1)
+     1: load-literal           %1, int(2)
+     2: binary-op              %0, Math(Add), %1
+     3: span                   %0
+     4: load-literal           %1, int(3)
+     5: binary-op              %0, Math(Add), %1
+     6: span                   %0
+     7: store-variable         var #0 "$long", %0 # let
+     8: load-literal           %0, empty
+     9: drain                  %0
+    10: load-literal           %0, empty
+    11: load-variable          %0, var #0 "$long"
+    12: return                 %0
+=== accept/operators/negative-numbers-vs-subtraction.nu
+shape shape_list 0..1 "["
+shape shape_block 1..2 "("
+shape shape_int 2..3 "1"
+shape shape_operator 4..5 "-"
+shape shape_int 6..7 "1"
+shape shape_block 7..8 ")"
+shape shape_list 8..9 " "
+shape shape_block 9..10 "("
+shape shape_int 10..12 "-1"
+shape shape_operator 13..14 "-"
+shape shape_int 15..17 "-1"
+shape shape_block 17..18 ")"
+shape shape_list 18..19 " "
+shape shape_block 19..20 "("
+shape shape_int 20..21 "1"
+shape shape_operator 22..23 "+"
+shape shape_int 24..26 "-1"
+shape shape_block 26..27 ")"
+shape shape_list 27..28 " "
+shape shape_block 28..29 "("
+shape shape_int 29..30 "1"
+shape shape_operator 31..32 "-"
+shape shape_int 33..35 "-1"
+shape shape_block 35..36 ")"
+shape shape_list 36..37 "]"
+ir main
+  # 3 registers, 22 instructions, 0 bytes of data
+     0: load-literal           %0, list(capacity = 4)
+     1: load-literal           %1, int(1)
+     2: load-literal           %2, int(1)
+     3: binary-op              %1, Math(Subtract), %2
+     4: span                   %1
+     5: list-push              %0, %1
+     6: load-literal           %1, int(-1)
+     7: load-literal           %2, int(-1)
+     8: binary-op              %1, Math(Subtract), %2
+     9: span                   %1
+    10: list-push              %0, %1
+    11: load-literal           %1, int(1)
+    12: load-literal           %2, int(-1)
+    13: binary-op              %1, Math(Add), %2
+    14: span                   %1
+    15: list-push              %0, %1
+    16: load-literal           %1, int(1)
+    17: load-literal           %2, int(-1)
+    18: binary-op              %1, Math(Subtract), %2
+    19: span                   %1
+    20: list-push              %0, %1
+    21: return                 %0
+=== accept/operators/not-in-if-condition.nu
+shape shape_internalcall 0..2 "if"
+shape shape_operator 3..6 "not"
+shape shape_bool 7..12 "false"
+shape shape_block 13..15 "{ "
+shape shape_string 15..22 "\"hello\""
+shape shape_block 22..24 " }"
+shape shape_keyword 25..29 "else"
+shape shape_block 30..32 "{ "
+shape shape_string 32..39 "\"world\""
+shape shape_block 39..41 " }"
+ir main
+  # 2 registers, 8 instructions, 10 bytes of data
+     0: load-literal           %1, bool(false)
+     1: not                    %1
+     2: not                    %1
+     3: branch-if              %1, 6       # if false
+     4: load-literal           %0, string("hello") # label(0)
+     5: jump                   7           # end if
+     6: load-literal           %0, string("world") # label(1), from(3:)
+     7: return                 %0          # label(2), from(5:)
+=== accept/operators/not-on-rhs.nu
+shape shape_bool 0..4 "true"
+shape shape_operator 5..7 "=="
+shape shape_operator 8..11 "not"
+shape shape_bool 12..17 "false"
+ir main
+  # 2 registers, 6 instructions, 0 bytes of data
+     0: load-literal           %0, bool(true)
+     1: load-literal           %1, bool(false)
+     2: not                    %1
+     3: binary-op              %0, Comparison(Equal), %1
+     4: span                   %0
+     5: return                 %0
+=== accept/operators/null-comparison.nu
+shape shape_list 0..1 "["
+shape shape_block 1..2 "("
+shape shape_int 2..3 "2"
+shape shape_operator 4..6 "=="
+shape shape_nothing 7..11 "null"
+shape shape_block 11..12 ")"
+shape shape_list 12..13 " "
+shape shape_block 13..14 "("
+shape shape_int 14..15 "2"
+shape shape_operator 16..18 "!="
+shape shape_nothing 19..23 "null"
+shape shape_block 23..24 ")"
+shape shape_list 24..25 "]"
+ir main
+  # 3 registers, 12 instructions, 0 bytes of data
+     0: load-literal           %0, list(capacity = 2)
+     1: load-literal           %1, int(2)
+     2: load-literal           %2, nothing
+     3: binary-op              %1, Comparison(Equal), %2
+     4: span                   %1
+     5: list-push              %0, %1
+     6: load-literal           %1, int(2)
+     7: load-literal           %2, nothing
+     8: binary-op              %1, Comparison(NotEqual), %2
+     9: span                   %1
+    10: list-push              %0, %1
+    11: return                 %0
+=== accept/operators/parenthesised-comparisons.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..5 "a"
+shape shape_string 8..11 "'b'"
+shape shape_list 12..13 "["
+shape shape_block 13..14 "("
+shape shape_block 14..15 "("
+shape shape_variable 15..17 "$a"
+shape shape_operator 18..20 "=="
+shape shape_string 21..24 "'b'"
+shape shape_block 24..25 ")"
+shape shape_operator 26..28 "or"
+shape shape_block 29..30 "("
+shape shape_variable 30..32 "$a"
+shape shape_operator 33..35 "=="
+shape shape_string 36..39 "'b'"
+shape shape_block 39..40 ")"
+shape shape_block 40..41 ")"
+shape shape_list 41..42 " "
+shape shape_block 42..43 "("
+shape shape_block 43..44 "("
+shape shape_variable 44..46 "$a"
+shape shape_operator 47..49 "=="
+shape shape_string 50..53 "'b'"
+shape shape_block 53..54 ")"
+shape shape_operator 55..57 "or"
+shape shape_block 58..59 "("
+shape shape_variable 59..61 "$a"
+shape shape_operator 62..64 "=="
+shape shape_string 65..68 "'b'"
+shape shape_block 68..69 ")"
+shape shape_operator 70..73 "and"
+shape shape_block 74..75 "("
+shape shape_variable 75..77 "$a"
+shape shape_operator 78..80 "=="
+shape shape_string 81..84 "'b'"
+shape shape_block 84..85 ")"
+shape shape_block 85..86 ")"
+shape shape_list 86..87 "]"
+ir main
+  # 5 registers, 41 instructions, 6 bytes of data
+     0: load-literal           %0, string("b")
+     1: store-variable         var #0 "$a", %0 # let
+     2: load-literal           %0, empty
+     3: drain                  %0
+     4: load-literal           %0, empty
+     5: load-literal           %0, list(capacity = 2)
+     6: load-variable          %1, var #0 "$a"
+     7: load-literal           %2, string("b")
+     8: binary-op              %1, Comparison(Equal), %2
+     9: span                   %1
+    10: collect                %1
+    11: match                  (true), %1, 17
+    12: load-variable          %2, var #0 "$a"
+    13: load-literal           %3, string("b")
+    14: binary-op              %2, Comparison(Equal), %3
+    15: span                   %2
+    16: binary-op              %1, Boolean(Or), %2
+    17: span                   %1          # label(0), from(11:)
+    18: list-push              %0, %1
+    19: load-variable          %1, var #0 "$a"
+    20: load-literal           %2, string("b")
+    21: binary-op              %1, Comparison(Equal), %2
+    22: span                   %1
+    23: collect                %1
+    24: match                  (true), %1, 38
+    25: load-variable          %2, var #0 "$a"
+    26: load-literal           %3, string("b")
+    27: binary-op              %2, Comparison(Equal), %3
+    28: span                   %2
+    29: collect                %2
+    30: match                  (false), %2, 36
+    31: load-variable          %3, var #0 "$a"
+    32: load-literal           %4, string("b")
+    33: binary-op              %3, Comparison(Equal), %4
+    34: span                   %3
+    35: binary-op              %2, Boolean(And), %3
+    36: span                   %2          # label(2), from(30:)
+    37: binary-op              %1, Boolean(Or), %2
+    38: span                   %1          # label(1), from(24:)
+    39: list-push              %0, %1
+    40: return                 %0
+=== accept/operators/pow-right-associative.nu
+shape shape_int 0..1 "2"
+shape shape_operator 2..4 "**"
+shape shape_int 5..6 "3"
+shape shape_operator 7..9 "**"
+shape shape_int 10..11 "2"
+ir main
+  # 3 registers, 8 instructions, 0 bytes of data
+     0: load-literal           %0, int(2)
+     1: load-literal           %1, int(3)
+     2: load-literal           %2, int(2)
+     3: binary-op              %1, Math(Pow), %2
+     4: span                   %1
+     5: binary-op              %0, Math(Pow), %1
+     6: span                   %0
+     7: return                 %0
+=== accept/operators/precedence-arithmetic.nu
+shape shape_int 0..1 "1"
+shape shape_operator 2..3 "+"
+shape shape_int 4..5 "2"
+shape shape_operator 6..7 "*"
+shape shape_int 8..9 "3"
+shape shape_operator 10..11 "-"
+shape shape_int 12..13 "4"
+shape shape_operator 14..15 "/"
+shape shape_int 16..17 "2"
+ir main
+  # 3 registers, 14 instructions, 0 bytes of data
+     0: load-literal           %0, int(1)
+     1: load-literal           %1, int(2)
+     2: load-literal           %2, int(3)
+     3: binary-op              %1, Math(Multiply), %2
+     4: span                   %1
+     5: binary-op              %0, Math(Add), %1
+     6: span                   %0
+     7: load-literal           %1, int(4)
+     8: load-literal           %2, int(2)
+     9: binary-op              %1, Math(Divide), %2
+    10: span                   %1
+    11: binary-op              %0, Math(Subtract), %1
+    12: span                   %0
+    13: return                 %0
+=== accept/operators/regex.nu
+shape shape_list 0..1 "["
+shape shape_block 1..2 "("
+shape shape_string 2..7 "\"abc\""
+shape shape_operator 8..10 "=~"
+shape shape_string 11..14 "\"b\""
+shape shape_block 14..15 ")"
+shape shape_list 15..16 " "
+shape shape_block 16..17 "("
+shape shape_string 17..22 "\"abc\""
+shape shape_operator 23..25 "!~"
+shape shape_string 26..29 "\"z\""
+shape shape_block 29..30 ")"
+shape shape_list 30..31 " "
+shape shape_block 31..32 "("
+shape shape_string 32..37 "\"abc\""
+shape shape_operator 38..42 "like"
+shape shape_string 43..46 "\"b\""
+shape shape_block 46..47 ")"
+shape shape_list 47..48 " "
+shape shape_block 48..49 "("
+shape shape_string 49..54 "\"abc\""
+shape shape_operator 55..63 "not-like"
+shape shape_string 64..67 "\"z\""
+shape shape_block 67..68 ")"
+shape shape_list 68..69 "]"
+ir main
+  # 3 registers, 22 instructions, 16 bytes of data
+     0: load-literal           %0, list(capacity = 4)
+     1: load-literal           %1, string("abc")
+     2: load-literal           %2, string("b")
+     3: binary-op              %1, Comparison(RegexMatch), %2
+     4: span                   %1
+     5: list-push              %0, %1
+     6: load-literal           %1, string("abc")
+     7: load-literal           %2, string("z")
+     8: binary-op              %1, Comparison(NotRegexMatch), %2
+     9: span                   %1
+    10: list-push              %0, %1
+    11: load-literal           %1, string("abc")
+    12: load-literal           %2, string("b")
+    13: binary-op              %1, Comparison(RegexMatch), %2
+    14: span                   %1
+    15: list-push              %0, %1
+    16: load-literal           %1, string("abc")
+    17: load-literal           %2, string("z")
+    18: binary-op              %1, Comparison(NotRegexMatch), %2
+    19: span                   %1
+    20: list-push              %0, %1
+    21: return                 %0
+=== accept/operators/starts-ends-with.nu
+shape shape_list 0..1 "["
+shape shape_block 1..2 "("
+shape shape_string 2..7 "\"abc\""
+shape shape_operator 8..19 "starts-with"
+shape shape_string 20..23 "\"a\""
+shape shape_block 23..24 ")"
+shape shape_list 24..25 " "
+shape shape_block 25..26 "("
+shape shape_string 26..31 "\"abc\""
+shape shape_operator 32..47 "not-starts-with"
+shape shape_string 48..51 "\"b\""
+shape shape_block 51..52 ")"
+shape shape_list 52..53 " "
+shape shape_block 53..54 "("
+shape shape_string 54..59 "\"abc\""
+shape shape_operator 60..69 "ends-with"
+shape shape_string 70..73 "\"c\""
+shape shape_block 73..74 ")"
+shape shape_list 74..75 " "
+shape shape_block 75..76 "("
+shape shape_string 76..81 "\"abc\""
+shape shape_operator 82..95 "not-ends-with"
+shape shape_string 96..99 "\"a\""
+shape shape_block 99..100 ")"
+shape shape_list 100..101 "]"
+ir main
+  # 3 registers, 22 instructions, 16 bytes of data
+     0: load-literal           %0, list(capacity = 4)
+     1: load-literal           %1, string("abc")
+     2: load-literal           %2, string("a")
+     3: binary-op              %1, Comparison(StartsWith), %2
+     4: span                   %1
+     5: list-push              %0, %1
+     6: load-literal           %1, string("abc")
+     7: load-literal           %2, string("b")
+     8: binary-op              %1, Comparison(NotStartsWith), %2
+     9: span                   %1
+    10: list-push              %0, %1
+    11: load-literal           %1, string("abc")
+    12: load-literal           %2, string("c")
+    13: binary-op              %1, Comparison(EndsWith), %2
+    14: span                   %1
+    15: list-push              %0, %1
+    16: load-literal           %1, string("abc")
+    17: load-literal           %2, string("a")
+    18: binary-op              %1, Comparison(NotEndsWith), %2
+    19: span                   %1
+    20: list-push              %0, %1
+    21: return                 %0
+=== accept/operators/string-concat-and-plus.nu
+shape shape_list 0..1 "["
+shape shape_string 1..4 "\"a\""
+shape shape_list 4..5 " "
+shape shape_string 5..6 "+"
+shape shape_list 6..7 " "
+shape shape_string 7..10 "\"b\""
+shape shape_list 10..11 " "
+shape shape_string 11..14 "\"a\""
+shape shape_list 14..15 " "
+shape shape_string 15..17 "++"
+shape shape_list 17..18 " "
+shape shape_string 18..21 "\"b\""
+shape shape_list 21..22 " "
+shape shape_list 22..23 "["
+shape shape_int 23..24 "1"
+shape shape_list 24..25 "]"
+shape shape_list 25..26 " "
+shape shape_string 26..28 "++"
+shape shape_list 28..29 " "
+shape shape_list 29..30 "["
+shape shape_int 30..31 "2"
+shape shape_list 31..32 "]"
+shape shape_list 32..33 " "
+shape shape_record 33..34 "{"
+shape shape_string 34..35 "a"
+shape shape_record 35..37 ": "
+shape shape_int 37..38 "1"
+shape shape_record 38..39 "}"
+shape shape_list 39..42 " | "
+shape shape_string 42..47 "merge"
+shape shape_list 47..48 " "
+shape shape_record 48..49 "{"
+shape shape_string 49..50 "b"
+shape shape_record 50..52 ": "
+shape shape_int 52..53 "2"
+shape shape_record 53..54 "}"
+shape shape_list 54..55 "]"
+ir main
+  # 4 registers, 36 instructions, 16 bytes of data
+     0: load-literal           %0, list(capacity = 12)
+     1: load-literal           %1, string("a")
+     2: list-push              %0, %1
+     3: load-literal           %1, string("+")
+     4: list-push              %0, %1
+     5: load-literal           %1, string("b")
+     6: list-push              %0, %1
+     7: load-literal           %1, string("a")
+     8: list-push              %0, %1
+     9: load-literal           %1, string("++")
+    10: list-push              %0, %1
+    11: load-literal           %1, string("b")
+    12: list-push              %0, %1
+    13: load-literal           %1, list(capacity = 1)
+    14: load-literal           %2, int(1)
+    15: list-push              %1, %2
+    16: list-push              %0, %1
+    17: load-literal           %1, string("++")
+    18: list-push              %0, %1
+    19: load-literal           %1, list(capacity = 1)
+    20: load-literal           %2, int(2)
+    21: list-push              %1, %2
+    22: list-push              %0, %1
+    23: load-literal           %1, record(capacity = 1)
+    24: load-literal           %2, string("a")
+    25: load-literal           %3, int(1)
+    26: record-insert          %1, %2, %3
+    27: list-push              %0, %1
+    28: load-literal           %1, string("merge")
+    29: list-push              %0, %1
+    30: load-literal           %1, record(capacity = 1)
+    31: load-literal           %2, string("b")
+    32: load-literal           %3, int(2)
+    33: record-insert          %1, %2, %3
+    34: list-push              %0, %1
+    35: return                 %0
+=== accept/operators/string-head-math.nu
+shape shape_string 0..5 "\"abc\""
+shape shape_operator 6..8 "++"
+shape shape_string 9..14 "\"def\""
+shape shape_pipe 15..16 "|"
+shape shape_internalcall 17..27 "str length"
+ir main
+  # 2 registers, 8 instructions, 6 bytes of data
+     0: load-literal           %0, string("abc")
+     1: load-literal           %1, string("def")
+     2: binary-op              %0, Math(Concatenate), %1
+     3: span                   %0
+     4: redirect-out           caller
+     5: redirect-err           caller
+     6: call                   decl "str length", %0
+     7: return                 %0
+=== accept/operators/subexpression-operands.nu
+shape shape_block 0..1 "("
+shape shape_internalcall 1..3 "ls"
+shape shape_pipe 4..5 "|"
+shape shape_internalcall 6..12 "length"
+shape shape_block 12..13 ")"
+shape shape_operator 14..15 "+"
+shape shape_block 16..17 "("
+shape shape_int 17..18 "1"
+shape shape_pipe 19..20 "|"
+shape shape_internalcall 21..29 "into int"
+shape shape_block 29..30 ")"
+shape shape_operator 31..32 "*"
+shape shape_int 33..34 "2"
+ir main
+  # 3 registers, 14 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: redirect-out           pipe
+     2: call                   decl "ls", %0
+     3: redirect-out           value
+     4: call                   decl "length", %0
+     5: load-literal           %1, int(1)
+     6: redirect-out           value
+     7: call                   decl "into int", %1
+     8: load-literal           %2, int(2)
+     9: binary-op              %1, Math(Multiply), %2
+    10: span                   %1
+    11: binary-op              %0, Math(Add), %1
+    12: span                   %0
+    13: return                 %0
+=== accept/operators/subtraction-left-associative.nu
+shape shape_int 0..2 "10"
+shape shape_operator 3..4 "-"
+shape shape_int 5..6 "3"
+shape shape_operator 7..8 "-"
+shape shape_int 9..10 "2"
+ir main
+  # 2 registers, 8 instructions, 0 bytes of data
+     0: load-literal           %0, int(10)
+     1: load-literal           %1, int(3)
+     2: binary-op              %0, Math(Subtract), %1
+     3: span                   %0
+     4: load-literal           %1, int(2)
+     5: binary-op              %0, Math(Subtract), %1
+     6: span                   %0
+     7: return                 %0
+=== accept/operators/unary-not-forms.nu
+shape shape_list 0..1 "["
+shape shape_block 1..2 "("
+shape shape_operator 2..5 "not"
+shape shape_bool 6..11 "false"
+shape shape_block 11..12 ")"
+shape shape_list 12..13 " "
+shape shape_block 13..14 "("
+shape shape_operator 14..17 "not"
+shape shape_block 18..19 "("
+shape shape_bool 19..24 "false"
+shape shape_block 24..25 ")"
+shape shape_block 25..26 ")"
+shape shape_list 26..27 " "
+shape shape_block 27..28 "("
+shape shape_operator 28..31 "not"
+shape shape_operator 32..35 "not"
+shape shape_operator 36..39 "not"
+shape shape_operator 40..43 "not"
+shape shape_bool 44..49 "false"
+shape shape_block 49..50 ")"
+shape shape_list 50..51 " "
+shape shape_block 51..52 "("
+shape shape_operator 52..55 "not"
+shape shape_variable 56..59 "$nu"
+shape shape_string 60..74 "is-interactive"
+shape shape_block 74..75 ")"
+shape shape_list 75..76 "]"
+ir main
+  # 3 registers, 19 instructions, 0 bytes of data
+     0: load-literal           %0, list(capacity = 4)
+     1: load-literal           %1, bool(false)
+     2: not                    %1
+     3: list-push              %0, %1
+     4: load-literal           %1, bool(false)
+     5: not                    %1
+     6: list-push              %0, %1
+     7: load-literal           %1, bool(false)
+     8: not                    %1
+     9: not                    %1
+    10: not                    %1
+    11: not                    %1
+    12: list-push              %0, %1
+    13: load-variable          %1, var 0
+    14: load-literal           %2, cell-path($.is-interactive)
+    15: follow-cell-path       %1, %2
+    16: not                    %1
+    17: list-push              %0, %1
+    18: return                 %0

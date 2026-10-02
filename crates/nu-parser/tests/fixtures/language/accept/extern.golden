@@ -1,0 +1,200 @@
+=== accept/extern/basic.nu
+shape shape_internalcall 0..6 "extern"
+shape shape_string 7..9 "gh"
+shape shape_signature 10..54 "[--repo: string, ...args]: nothing -> string"
+ir main
+  # 3 registers, 8 instructions, 2 bytes of data
+     0: load-literal           %1, string("gh")
+     1: load-literal           %2, empty
+     2: push-positional        %1
+     3: push-positional        %2
+     4: redirect-out           caller
+     5: redirect-err           caller
+     6: call                   decl "extern", %0
+     7: return                 %0
+=== accept/extern/body-ignored.nu
+shape shape_internalcall 0..6 "extern"
+shape shape_string 7..10 "foo"
+shape shape_signature 11..13 "[]"
+ir main
+  # 3 registers, 8 instructions, 3 bytes of data
+     0: load-literal           %1, string("foo")
+     1: load-literal           %2, empty
+     2: push-positional        %1
+     3: push-positional        %2
+     4: redirect-out           caller
+     5: redirect-err           caller
+     6: call                   decl "extern", %0
+     7: return                 %0
+=== accept/extern/completer-flag.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..5 "c"
+shape shape_signature 6..8 "[]"
+shape shape_closure 9..11 "{ "
+shape shape_list 11..13 "[]"
+shape shape_closure 13..15 " }"
+shape shape_internalcall 16..22 "extern"
+shape shape_string 23..26 "cmd"
+shape shape_signature 27..62 "[x: string@c, --flag(-f): string@c]"
+ir main
+  # 3 registers, 12 instructions, 3 bytes of data
+     0: load-literal           %0, empty
+     1: drain                  %0
+     2: load-literal           %0, empty
+     3: load-literal           %0, empty
+     4: load-literal           %1, string("cmd")
+     5: load-literal           %2, empty
+     6: push-positional        %1
+     7: push-positional        %2
+     8: redirect-out           caller
+     9: redirect-err           caller
+    10: call                   decl "extern", %0
+    11: return                 %0
+ir #0
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, list(capacity = 0)
+     1: return                 %0
+=== accept/extern/default-not-parsed.nu
+shape shape_internalcall 0..6 "extern"
+shape shape_string 7..10 "foo"
+shape shape_signature 11..19 "[x = 0x]"
+ir main
+  # 3 registers, 8 instructions, 3 bytes of data
+     0: load-literal           %1, string("foo")
+     1: load-literal           %2, empty
+     2: push-positional        %1
+     3: push-positional        %2
+     4: redirect-out           caller
+     5: redirect-err           caller
+     6: call                   decl "extern", %0
+     7: return                 %0
+=== accept/extern/help-after-name.nu
+shape shape_internalcall 0..6 "extern"
+shape shape_string 7..10 "foo"
+shape shape_flag 11..17 "--help"
+ir main
+  # 2 registers, 5 instructions, 18 bytes of data
+     0: load-literal           %1, string("extern")
+     1: push-positional        %1
+     2: push-parser-info       "help_decl_id", Expression { expr: Int(26), span: Span[148075..148081], span_id: SpanId(0), ty: Int }
+     3: call                   decl "help", %0
+     4: return                 %0
+=== accept/extern/help-twice.nu
+shape shape_internalcall 0..6 "extern"
+shape shape_string 7..10 "foo"
+shape shape_flag 11..17 "--help"
+shape shape_flag 18..24 "--help"
+ir main
+  # 2 registers, 5 instructions, 18 bytes of data
+     0: load-literal           %1, string("extern")
+     1: push-positional        %1
+     2: push-parser-info       "help_decl_id", Expression { expr: Int(26), span: Span[148075..148081], span_id: SpanId(0), ty: Int }
+     3: call                   decl "help", %0
+     4: return                 %0
+=== accept/extern/io-types.nu
+shape shape_internalcall 0..6 "extern"
+shape shape_string 7..10 "cmd"
+shape shape_signature 11..52 "[]: [nothing -> string, string -> string]"
+shape shape_internalcall 53..59 "extern"
+shape shape_string 60..64 "cmd2"
+shape shape_signature 65..87 "[] : nothing -> string"
+ir main
+  # 3 registers, 16 instructions, 7 bytes of data
+     0: load-literal           %1, string("cmd")
+     1: load-literal           %2, empty
+     2: push-positional        %1
+     3: push-positional        %2
+     4: call                   decl "extern", %0
+     5: drain                  %0
+     6: load-literal           %0, empty
+     7: load-literal           %0, empty
+     8: load-literal           %1, string("cmd2")
+     9: load-literal           %2, empty
+    10: push-positional        %1
+    11: push-positional        %2
+    12: redirect-out           caller
+    13: redirect-err           caller
+    14: call                   decl "extern", %0
+    15: return                 %0
+=== accept/extern/no-params.nu
+shape shape_internalcall 0..6 "extern"
+shape shape_string 7..10 "cmd"
+shape shape_signature 11..13 "[]"
+ir main
+  # 3 registers, 8 instructions, 3 bytes of data
+     0: load-literal           %1, string("cmd")
+     1: load-literal           %2, empty
+     2: push-positional        %1
+     3: push-positional        %2
+     4: redirect-out           caller
+     5: redirect-err           caller
+     6: call                   decl "extern", %0
+     7: return                 %0
+=== accept/extern/paren-signature.nu
+shape shape_internalcall 0..6 "extern"
+shape shape_string 7..10 "cmd"
+shape shape_signature 11..19 "(--flag)"
+ir main
+  # 3 registers, 8 instructions, 3 bytes of data
+     0: load-literal           %1, string("cmd")
+     1: load-literal           %2, empty
+     2: push-positional        %1
+     3: push-positional        %2
+     4: redirect-out           caller
+     5: redirect-err           caller
+     6: call                   decl "extern", %0
+     7: return                 %0
+=== accept/extern/quoted-name.nu
+shape shape_internalcall 0..6 "extern"
+shape shape_string 7..21 "\"git checkout\""
+shape shape_signature 22..79 "[branch?: string@\"nu-complete git branches\", --track(-t)]"
+shape shape_internalcall 80..83 "def"
+shape shape_string 84..110 "\"nu-complete git branches\""
+shape shape_signature 111..113 "[]"
+shape shape_closure 114..116 "{ "
+shape shape_list 116..118 "[]"
+shape shape_closure 118..120 " }"
+ir main
+  # 3 registers, 10 instructions, 12 bytes of data
+     0: load-literal           %1, string("git checkout")
+     1: load-literal           %2, empty
+     2: push-positional        %1
+     3: push-positional        %2
+     4: call                   decl "extern", %0
+     5: drain                  %0
+     6: load-literal           %0, empty
+     7: load-literal           %0, empty
+     8: load-literal           %0, empty
+     9: return                 %0
+ir #0
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, list(capacity = 0)
+     1: return                 %0
+=== accept/extern/reserved-names-allowed.nu
+shape shape_internalcall 0..6 "extern"
+shape shape_string 7..10 "foo"
+shape shape_signature 11..29 "[in, --env, ...nu]"
+ir main
+  # 3 registers, 8 instructions, 3 bytes of data
+     0: load-literal           %1, string("foo")
+     1: load-literal           %2, empty
+     2: push-positional        %1
+     3: push-positional        %2
+     4: redirect-out           caller
+     5: redirect-err           caller
+     6: call                   decl "extern", %0
+     7: return                 %0
+=== accept/extern/wrapped-body-ignored.nu
+shape shape_internalcall 0..6 "extern"
+shape shape_string 7..10 "foo"
+shape shape_signature 11..20 "[...args]"
+ir main
+  # 3 registers, 8 instructions, 3 bytes of data
+     0: load-literal           %1, string("foo")
+     1: load-literal           %2, empty
+     2: push-positional        %1
+     3: push-positional        %2
+     4: redirect-out           caller
+     5: redirect-err           caller
+     6: call                   decl "extern", %0
+     7: return                 %0

@@ -1,0 +1,101 @@
+=== reject/try/alone.nu
+shape shape_internalcall 0..3 "try"
+error nu::parser::missing_positional: Missing required positional argument.
+  label 3..3 "": missing try_block
+  help: Usage: try <try_block> (catch) (finally) . Use `--help` for more information.
+=== reject/try/bad-handler-word.nu
+shape shape_internalcall 0..3 "try"
+shape shape_block 4..6 "{ "
+shape shape_int 6..7 "1"
+shape shape_block 7..9 " }"
+shape shape_keyword 10..13 "foo"
+shape shape_closure 14..16 "{ "
+shape shape_int 16..17 "2"
+shape shape_closure 17..19 " }"
+error nu::parser::expected_keyword: Expected keyword.
+  label 10..13 "foo": expected catch
+=== reject/try/body-is-record.nu
+shape shape_internalcall 0..3 "try"
+shape shape_garbage 4..10 "{a: 1}"
+error nu::parser::type_mismatch: Type mismatch.
+  label 4..10 "{a: 1}": expected block, found record<a: int>
+=== reject/try/catch-handler-not-closure.nu
+shape shape_internalcall 0..3 "try"
+shape shape_block 4..6 "{ "
+shape shape_int 6..7 "1"
+shape shape_block 7..9 " }"
+shape shape_keyword 10..15 "catch"
+shape shape_garbage 16..17 "5"
+error nu::parser::parse_mismatch_with_full_string_msg: Parse mismatch: expected one of a list of accepted shapes: [Closure(None), Closure(Some([Any]))].
+  label 16..17 "5": expected one of a list of accepted shapes: [Closure(None), Closure(Some([Any]))]
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/try/catch-is-record.nu
+shape shape_internalcall 0..3 "try"
+shape shape_garbage 7..21 "catch { a: 1 }"
+error nu::parser::type_mismatch: Type mismatch.
+  label 7..21 "catch { a: 1 }": expected oneof<closure>, found record<a: int>
+=== reject/try/catch-without-handler.nu
+shape shape_internalcall 0..3 "try"
+shape shape_block 4..6 "{ "
+shape shape_int 6..7 "1"
+shape shape_block 7..9 " }"
+shape shape_garbage 10..15 "catch"
+shape shape_keyword 10..15 "catch"
+error nu::parser::keyword_missing_arg: Missing argument to `catch`.
+  label 15..15 "": missing oneof<closure(), closure(any)> value that follows catch
+=== reject/try/double-dash-twice.nu
+shape shape_internalcall 0..3 "try"
+shape shape_keyword 10..15 "catch"
+shape shape_closure 16..18 "{}"
+shape shape_garbage 19..21 "--"
+shape shape_keyword 19..21 "--"
+error nu::parser::expected_keyword: Expected keyword.
+  label 19..21 "--": expected catch
+error nu::parser::keyword_missing_arg: Missing argument to `catch`.
+  label 21..21 "": missing oneof<closure(), closure(any)> value that follows catch
+ir #1
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== reject/try/finally-typed-record.nu
+shape shape_internalcall 44..47 "try"
+shape shape_garbage 51..65 "finally {a: 1}"
+error nu::parser::type_mismatch: Type mismatch.
+  label 51..65 "finally {a: 1}": expected oneof<closure>, found record<a: int>
+=== reject/try/help-then-extra.nu
+shape shape_internalcall 0..3 "try"
+shape shape_flag 7..13 "--help"
+shape shape_garbage 14..15 "x"
+shape shape_keyword 14..15 "x"
+error nu::parser::expected_keyword: Expected keyword.
+  label 14..15 "x": expected catch
+error nu::parser::keyword_missing_arg: Missing argument to `catch`.
+  label 15..15 "": missing oneof<closure(), closure(any)> value that follows catch
+=== reject/try/three-handlers.nu
+shape shape_internalcall 0..3 "try"
+shape shape_block 4..6 "{ "
+shape shape_int 6..7 "1"
+shape shape_block 7..9 " }"
+shape shape_keyword 10..15 "catch"
+shape shape_closure 16..18 "{ "
+shape shape_int 18..19 "2"
+shape shape_closure 19..21 " }"
+shape shape_keyword 22..27 "catch"
+shape shape_closure 28..30 "{ "
+shape shape_int 30..31 "3"
+shape shape_closure 31..33 " }"
+shape shape_garbage 34..41 "finally"
+shape shape_garbage 42..47 "{ 4 }"
+error nu::parser::extra_positional: Extra positional argument.
+  label 34..41 "finally": extra positional argument
+  help: Usage: try <try_block> (catch) (finally) 
+error nu::parser::extra_positional: Extra positional argument.
+  label 42..47 "{ 4 }": extra positional argument
+  help: Usage: try <try_block> (catch) (finally) 
+ir #1
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, int(2)
+     1: return                 %0
+ir #2
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, int(3)
+     1: return                 %0

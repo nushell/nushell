@@ -250,7 +250,7 @@ mod tests {
         b"[1 2] # [3]\n[4]",
     ];
 
-    /// Every snippet in `tests/fixtures/lex_once`, then the hazards.
+    /// Every snippet in `tests/fixtures/language`, then the hazards.
     fn inputs() -> Vec<Vec<u8>> {
         fn collect(dir: &Path, out: &mut Vec<Vec<u8>>) {
             let mut entries: Vec<_> = std::fs::read_dir(dir)
@@ -268,7 +268,7 @@ mod tests {
         }
         let mut inputs = vec![];
         collect(
-            &Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/lex_once"),
+            &Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/language"),
             &mut inputs,
         );
         inputs.extend(HAZARDS.iter().map(|hazard| hazard.to_vec()));

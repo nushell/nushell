@@ -1,0 +1,395 @@
+=== accept/tables/basic.nu
+shape shape_table 0..2 "[["
+shape shape_string 2..3 "a"
+shape shape_table 3..4 " "
+shape shape_string 4..5 "b"
+shape shape_table 5..9 "]; ["
+shape shape_int 9..10 "1"
+shape shape_table 10..11 " "
+shape shape_int 11..12 "2"
+shape shape_table 12..15 "] ["
+shape shape_int 15..16 "3"
+shape shape_table 16..17 " "
+shape shape_int 17..18 "4"
+shape shape_table 18..20 "]]"
+ir main
+  # 6 registers, 22 instructions, 2 bytes of data
+     0: load-literal           %0, list(capacity = 2)
+     1: load-literal           %1, string("a")
+     2: load-literal           %2, string("b")
+     3: load-literal           %3, record(capacity = 2)
+     4: clone                  %4, %1
+     5: load-literal           %5, int(1)
+     6: record-insert          %3, %4, %5
+     7: clone                  %4, %2
+     8: load-literal           %5, int(2)
+     9: record-insert          %3, %4, %5
+    10: list-push              %0, %3
+    11: load-literal           %3, record(capacity = 2)
+    12: clone                  %4, %1
+    13: load-literal           %5, int(3)
+    14: record-insert          %3, %4, %5
+    15: clone                  %4, %2
+    16: load-literal           %5, int(4)
+    17: record-insert          %3, %4, %5
+    18: list-push              %0, %3
+    19: drop                   %1
+    20: drop                   %2
+    21: return                 %0
+=== accept/tables/bool-columns.nu
+shape shape_table 0..2 "[["
+shape shape_string 2..3 "a"
+shape shape_table 3..5 ", "
+shape shape_string 5..6 "b"
+shape shape_table 6..10 "]; ["
+shape shape_bool 10..14 "true"
+shape shape_table 14..16 ", "
+shape shape_bool 16..21 "false"
+shape shape_table 21..25 "], ["
+shape shape_bool 25..29 "true"
+shape shape_table 29..31 ", "
+shape shape_bool 31..35 "true"
+shape shape_table 35..37 "]]"
+shape shape_pipe 38..39 "|"
+shape shape_internalcall 40..45 "where"
+shape shape_string 46..47 "a"
+shape shape_variable 46..47 "a"
+shape shape_pipe 48..49 "|"
+shape shape_internalcall 50..56 "length"
+ir main
+  # 6 registers, 29 instructions, 2 bytes of data
+     0: load-literal           %0, list(capacity = 2)
+     1: load-literal           %1, string("a")
+     2: load-literal           %2, string("b")
+     3: load-literal           %3, record(capacity = 2)
+     4: clone                  %4, %1
+     5: load-literal           %5, bool(true)
+     6: record-insert          %3, %4, %5
+     7: clone                  %4, %2
+     8: load-literal           %5, bool(false)
+     9: record-insert          %3, %4, %5
+    10: list-push              %0, %3
+    11: load-literal           %3, record(capacity = 2)
+    12: clone                  %4, %1
+    13: load-literal           %5, bool(true)
+    14: record-insert          %3, %4, %5
+    15: clone                  %4, %2
+    16: load-literal           %5, bool(true)
+    17: record-insert          %3, %4, %5
+    18: list-push              %0, %3
+    19: drop                   %1
+    20: drop                   %2
+    21: load-literal           %1, row_condition(#0)
+    22: push-positional        %1
+    23: redirect-out           pipe
+    24: call                   decl "where", %0
+    25: redirect-out           caller
+    26: redirect-err           caller
+    27: call                   decl "length", %0
+    28: return                 %0
+=== accept/tables/cell-path-column-name.nu
+shape shape_table 0..4 "[[$."
+shape shape_string 4..5 "a"
+shape shape_table 5..9 "]; ["
+shape shape_int 9..10 "1"
+shape shape_table 10..12 "]]"
+ir main
+  # 5 registers, 9 instructions, 0 bytes of data
+     0: load-literal           %0, list(capacity = 1)
+     1: load-literal           %1, cell-path($.a)
+     2: load-literal           %2, record(capacity = 1)
+     3: clone                  %3, %1
+     4: load-literal           %4, int(1)
+     5: record-insert          %2, %3, %4
+     6: list-push              %0, %2
+     7: drop                   %1
+     8: return                 %0
+=== accept/tables/comma-rows.nu
+shape shape_table 0..2 "[["
+shape shape_string 2..3 "a"
+shape shape_table 3..4 " "
+shape shape_string 4..5 "b"
+shape shape_table 5..9 "]; ["
+shape shape_int 9..10 "1"
+shape shape_table 10..11 " "
+shape shape_int 11..12 "2"
+shape shape_table 12..16 "], ["
+shape shape_int 16..17 "3"
+shape shape_table 17..18 " "
+shape shape_int 18..19 "4"
+shape shape_table 19..23 "], ["
+shape shape_int 23..24 "5"
+shape shape_table 24..25 " "
+shape shape_int 25..26 "6"
+shape shape_table 26..28 "]]"
+ir main
+  # 6 registers, 30 instructions, 2 bytes of data
+     0: load-literal           %0, list(capacity = 3)
+     1: load-literal           %1, string("a")
+     2: load-literal           %2, string("b")
+     3: load-literal           %3, record(capacity = 2)
+     4: clone                  %4, %1
+     5: load-literal           %5, int(1)
+     6: record-insert          %3, %4, %5
+     7: clone                  %4, %2
+     8: load-literal           %5, int(2)
+     9: record-insert          %3, %4, %5
+    10: list-push              %0, %3
+    11: load-literal           %3, record(capacity = 2)
+    12: clone                  %4, %1
+    13: load-literal           %5, int(3)
+    14: record-insert          %3, %4, %5
+    15: clone                  %4, %2
+    16: load-literal           %5, int(4)
+    17: record-insert          %3, %4, %5
+    18: list-push              %0, %3
+    19: load-literal           %3, record(capacity = 2)
+    20: clone                  %4, %1
+    21: load-literal           %5, int(5)
+    22: record-insert          %3, %4, %5
+    23: clone                  %4, %2
+    24: load-literal           %5, int(6)
+    25: record-insert          %3, %4, %5
+    26: list-push              %0, %3
+    27: drop                   %1
+    28: drop                   %2
+    29: return                 %0
+=== accept/tables/multiline.nu
+shape shape_table 0..2 "[["
+shape shape_string 2..6 "name"
+shape shape_table 6..7 " "
+shape shape_string 7..11 "size"
+shape shape_table 11..17 "];\n  ["
+shape shape_string 17..20 "\"a\""
+shape shape_table 20..21 " "
+shape shape_int 21..22 "1"
+shape shape_string 22..24 "kb"
+shape shape_table 24..29 "]\n  ["
+shape shape_string 29..32 "\"b\""
+shape shape_table 32..33 " "
+shape shape_int 33..36 "2.5"
+shape shape_string 36..38 "mb"
+shape shape_table 38..41 "]\n]"
+ir main
+  # 6 registers, 22 instructions, 10 bytes of data
+     0: load-literal           %0, list(capacity = 2)
+     1: load-literal           %1, string("name")
+     2: load-literal           %2, string("size")
+     3: load-literal           %3, record(capacity = 2)
+     4: clone                  %4, %1
+     5: load-literal           %5, string("a")
+     6: record-insert          %3, %4, %5
+     7: clone                  %4, %2
+     8: load-literal           %5, filesize(1 kBb)
+     9: record-insert          %3, %4, %5
+    10: list-push              %0, %3
+    11: load-literal           %3, record(capacity = 2)
+    12: clone                  %4, %1
+    13: load-literal           %5, string("b")
+    14: record-insert          %3, %4, %5
+    15: clone                  %4, %2
+    16: load-literal           %5, filesize(2.5 MBb)
+    17: record-insert          %3, %4, %5
+    18: list-push              %0, %3
+    19: drop                   %1
+    20: drop                   %2
+    21: return                 %0
+=== accept/tables/nested-values.nu
+shape shape_table 0..2 "[["
+shape shape_string 2..3 "a"
+shape shape_table 3..4 " "
+shape shape_string 4..5 "b"
+shape shape_table 5..9 "]; ["
+shape shape_record 9..10 "{"
+shape shape_string 10..11 "x"
+shape shape_record 11..13 ": "
+shape shape_int 13..14 "1"
+shape shape_record 14..15 "}"
+shape shape_table 15..16 " "
+shape shape_list 16..17 "["
+shape shape_int 17..18 "1"
+shape shape_list 18..19 " "
+shape shape_int 19..20 "2"
+shape shape_list 20..21 "]"
+shape shape_table 21..24 "] ["
+shape shape_block 24..25 "("
+shape shape_int 25..26 "1"
+shape shape_operator 27..28 "+"
+shape shape_int 29..30 "1"
+shape shape_block 30..31 ")"
+shape shape_table 31..32 " "
+shape shape_string_interpolation 32..34 "$\""
+shape shape_string 34..35 "s"
+shape shape_block 35..36 "("
+shape shape_int 36..37 "1"
+shape shape_block 37..38 ")"
+shape shape_string_interpolation 38..39 "\""
+shape shape_table 39..41 "]]"
+ir main
+  # 8 registers, 34 instructions, 4 bytes of data
+     0: load-literal           %0, list(capacity = 2)
+     1: load-literal           %1, string("a")
+     2: load-literal           %2, string("b")
+     3: load-literal           %3, record(capacity = 2)
+     4: clone                  %4, %1
+     5: load-literal           %5, record(capacity = 1)
+     6: load-literal           %6, string("x")
+     7: load-literal           %7, int(1)
+     8: record-insert          %5, %6, %7
+     9: record-insert          %3, %4, %5
+    10: clone                  %4, %2
+    11: load-literal           %5, list(capacity = 2)
+    12: load-literal           %6, int(1)
+    13: list-push              %5, %6
+    14: load-literal           %6, int(2)
+    15: list-push              %5, %6
+    16: record-insert          %3, %4, %5
+    17: list-push              %0, %3
+    18: load-literal           %3, record(capacity = 2)
+    19: clone                  %4, %1
+    20: load-literal           %5, int(1)
+    21: load-literal           %6, int(1)
+    22: binary-op              %5, Math(Add), %6
+    23: span                   %5
+    24: record-insert          %3, %4, %5
+    25: clone                  %4, %2
+    26: load-literal           %5, string("s")
+    27: load-literal           %6, int(1)
+    28: string-append          %5, %6
+    29: record-insert          %3, %4, %5
+    30: list-push              %0, %3
+    31: drop                   %1
+    32: drop                   %2
+    33: return                 %0
+=== accept/tables/no-rows-is-list.nu
+shape shape_list 0..1 "["
+shape shape_list 1..2 "["
+shape shape_string 2..3 "a"
+shape shape_list 3..4 " "
+shape shape_string 4..5 "b"
+shape shape_list 5..6 "]"
+shape shape_list 6..7 "]"
+ir main
+  # 3 registers, 8 instructions, 2 bytes of data
+     0: load-literal           %0, list(capacity = 1)
+     1: load-literal           %1, list(capacity = 2)
+     2: load-literal           %2, string("a")
+     3: list-push              %1, %2
+     4: load-literal           %2, string("b")
+     5: list-push              %1, %2
+     6: list-push              %0, %1
+     7: return                 %0
+=== accept/tables/quoted-columns.nu
+shape shape_table 0..2 "[["
+shape shape_string 2..7 "\"a b\""
+shape shape_table 7..8 " "
+shape shape_string 8..11 "'c'"
+shape shape_table 11..17 "];\n  ["
+shape shape_int 17..18 "1"
+shape shape_table 18..19 " "
+shape shape_int 19..20 "2"
+shape shape_table 20..23 "]\n]"
+ir main
+  # 6 registers, 14 instructions, 4 bytes of data
+     0: load-literal           %0, list(capacity = 1)
+     1: load-literal           %1, string("a b")
+     2: load-literal           %2, string("c")
+     3: load-literal           %3, record(capacity = 2)
+     4: clone                  %4, %1
+     5: load-literal           %5, int(1)
+     6: record-insert          %3, %4, %5
+     7: clone                  %4, %2
+     8: load-literal           %5, int(2)
+     9: record-insert          %3, %4, %5
+    10: list-push              %0, %3
+    11: drop                   %1
+    12: drop                   %2
+    13: return                 %0
+=== accept/tables/single-row.nu
+shape shape_table 0..2 "[["
+shape shape_string 2..3 "a"
+shape shape_table 3..7 "]; ["
+shape shape_int 7..8 "1"
+shape shape_table 8..10 "]]"
+ir main
+  # 5 registers, 9 instructions, 1 byte of data
+     0: load-literal           %0, list(capacity = 1)
+     1: load-literal           %1, string("a")
+     2: load-literal           %2, record(capacity = 1)
+     3: clone                  %3, %1
+     4: load-literal           %4, int(1)
+     5: record-insert          %2, %3, %4
+     6: list-push              %0, %2
+     7: drop                   %1
+     8: return                 %0
+=== accept/tables/variable-column.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..15 "column_name"
+shape shape_string 18..27 "'column0'"
+shape shape_internalcall 28..31 "let"
+shape shape_vardecl 32..35 "tbl"
+shape shape_table 38..41 "[[ "
+shape shape_variable 41..53 "$column_name"
+shape shape_table 53..54 " "
+shape shape_string 54..61 "column1"
+shape shape_table 61..67 " ]; [ "
+shape shape_string 67..70 "foo"
+shape shape_table 70..71 " "
+shape shape_string 71..74 "bar"
+shape shape_table 74..79 " ] [ "
+shape shape_string 79..82 "baz"
+shape shape_table 82..83 " "
+shape shape_string 83..86 "car"
+shape shape_table 86..91 " ] [ "
+shape shape_string 91..94 "far"
+shape shape_table 94..95 " "
+shape shape_string 95..98 "fit"
+shape shape_table 98..101 " ]]"
+shape shape_variable 102..106 "$tbl"
+shape shape_string 107..114 "column0"
+shape shape_int 115..116 "0"
+ir main
+  # 6 registers, 43 instructions, 32 bytes of data
+     0: load-literal           %0, string("column0")
+     1: store-variable         var #0 "$column_name", %0 # let
+     2: load-literal           %0, empty
+     3: drain                  %0
+     4: load-literal           %0, empty
+     5: load-literal           %0, empty
+     6: load-literal           %0, list(capacity = 3)
+     7: load-variable          %1, var #0 "$column_name"
+     8: load-literal           %2, string("column1")
+     9: load-literal           %3, record(capacity = 2)
+    10: clone                  %4, %1
+    11: load-literal           %5, string("foo")
+    12: record-insert          %3, %4, %5
+    13: clone                  %4, %2
+    14: load-literal           %5, string("bar")
+    15: record-insert          %3, %4, %5
+    16: list-push              %0, %3
+    17: load-literal           %3, record(capacity = 2)
+    18: clone                  %4, %1
+    19: load-literal           %5, string("baz")
+    20: record-insert          %3, %4, %5
+    21: clone                  %4, %2
+    22: load-literal           %5, string("car")
+    23: record-insert          %3, %4, %5
+    24: list-push              %0, %3
+    25: load-literal           %3, record(capacity = 2)
+    26: clone                  %4, %1
+    27: load-literal           %5, string("far")
+    28: record-insert          %3, %4, %5
+    29: clone                  %4, %2
+    30: load-literal           %5, string("fit")
+    31: record-insert          %3, %4, %5
+    32: list-push              %0, %3
+    33: drop                   %1
+    34: drop                   %2
+    35: store-variable         var #1 "$tbl", %0 # let
+    36: load-literal           %0, empty
+    37: drain                  %0
+    38: load-literal           %0, empty
+    39: load-variable          %0, var #1 "$tbl"
+    40: load-literal           %1, cell-path($."column0".0)
+    41: follow-cell-path       %0, %1
+    42: return                 %0

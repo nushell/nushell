@@ -1,0 +1,800 @@
+=== accept/ranges/bad-cell-path-bound-head-is-external.nu
+shape shape_internalcall 90..93 "let"
+shape shape_vardecl 94..95 "x"
+shape shape_record 98..99 "{"
+shape shape_string 99..100 "a"
+shape shape_record 100..102 ": "
+shape shape_int 102..103 "1"
+shape shape_record 103..104 "}"
+shape shape_external 105..113 "..$x.c!!"
+ir main
+  # 3 registers, 15 instructions, 9 bytes of data
+     0: load-literal           %0, record(capacity = 1)
+     1: load-literal           %1, string("a")
+     2: load-literal           %2, int(1)
+     3: record-insert          %0, %1, %2
+     4: store-variable         var #0 "$x", %0 # let
+     5: load-literal           %0, empty
+     6: drain                  %0
+     7: load-literal           %0, empty
+     8: load-literal           %0, empty
+     9: load-literal           %1, glob-pattern("..$x.c!!", no_expand = false)
+    10: push-positional        %1
+    11: redirect-out           caller
+    12: redirect-err           caller
+    13: call                   decl "run-external", %0
+    14: return                 %0
+=== accept/ranges/bare-dollar-bound-head-is-external.nu
+shape shape_external 0..3 "..$"
+shape shape_externalarg 4..5 "a"
+ir main
+  # 3 registers, 8 instructions, 4 bytes of data
+     0: load-literal           %1, glob-pattern("..$", no_expand = false)
+     1: load-literal           %2, glob-pattern("a", no_expand = false)
+     2: push-positional        %1
+     3: push-positional        %2
+     4: redirect-out           caller
+     5: redirect-err           caller
+     6: call                   decl "run-external", %0
+     7: return                 %0
+=== accept/ranges/cell-path-bound-head-is-range.nu
+shape shape_internalcall 61..64 "let"
+shape shape_vardecl 65..66 "x"
+shape shape_record 69..70 "{"
+shape shape_string 70..71 "a"
+shape shape_record 71..73 ": "
+shape shape_int 73..74 "1"
+shape shape_record 74..75 "}"
+shape shape_operator 76..78 ".."
+shape shape_variable 78..80 "$x"
+shape shape_string 81..82 "a"
+shape shape_string 84..85 "b"
+ir main
+  # 5 registers, 15 instructions, 1 byte of data
+     0: load-literal           %0, record(capacity = 1)
+     1: load-literal           %1, string("a")
+     2: load-literal           %2, int(1)
+     3: record-insert          %0, %1, %2
+     4: store-variable         var #0 "$x", %0 # let
+     5: load-literal           %0, empty
+     6: drain                  %0
+     7: load-literal           %0, empty
+     8: load-literal           %1, nothing
+     9: load-literal           %2, nothing
+    10: load-variable          %3, var #0 "$x"
+    11: load-literal           %4, cell-path($.a?.b!?)
+    12: follow-cell-path       %3, %4
+    13: load-literal           %0, range(%1, %2, %3, Inclusive)
+    14: return                 %0
+=== accept/ranges/cell-path-bound.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..5 "x"
+shape shape_record 8..9 "{"
+shape shape_string 9..12 "len"
+shape shape_record 12..14 ": "
+shape shape_int 14..15 "3"
+shape shape_record 15..16 "}"
+shape shape_int 17..18 "0"
+shape shape_operator 18..20 ".."
+shape shape_variable 20..22 "$x"
+shape shape_string 23..26 "len"
+ir main
+  # 5 registers, 15 instructions, 3 bytes of data
+     0: load-literal           %0, record(capacity = 1)
+     1: load-literal           %1, string("len")
+     2: load-literal           %2, int(3)
+     3: record-insert          %0, %1, %2
+     4: store-variable         var #0 "$x", %0 # let
+     5: load-literal           %0, empty
+     6: drain                  %0
+     7: load-literal           %0, empty
+     8: load-literal           %1, int(0)
+     9: load-literal           %2, nothing
+    10: load-variable          %3, var #0 "$x"
+    11: load-literal           %4, cell-path($.len)
+    12: follow-cell-path       %3, %4
+    13: load-literal           %0, range(%1, %2, %3, Inclusive)
+    14: return                 %0
+=== accept/ranges/dotdot-as-argument.nu
+shape shape_internalcall 0..2 "cd"
+shape shape_directory 3..8 "../.."
+ir main
+  # 2 registers, 6 instructions, 5 bytes of data
+     0: load-literal           %1, directory("../..", no_expand = false)
+     1: push-positional        %1
+     2: redirect-out           caller
+     3: redirect-err           caller
+     4: call                   decl "cd", %0
+     5: return                 %0
+=== accept/ranges/exclusive.nu
+shape shape_int 0..1 "0"
+shape shape_operator 1..4 "..<"
+shape shape_int 4..6 "10"
+ir main
+  # 4 registers, 5 instructions, 0 bytes of data
+     0: load-literal           %1, int(0)
+     1: load-literal           %2, nothing
+     2: load-literal           %3, int(10)
+     3: load-literal           %0, range(%1, %2, %3, RightExclusive)
+     4: return                 %0
+=== accept/ranges/float-bounds.nu
+shape shape_float 0..3 "1.5"
+shape shape_operator 3..5 ".."
+shape shape_int 5..6 "3"
+ir main
+  # 4 registers, 5 instructions, 0 bytes of data
+     0: load-literal           %1, float(1.5)
+     1: load-literal           %2, nothing
+     2: load-literal           %3, int(3)
+     3: load-literal           %0, range(%1, %2, %3, Inclusive)
+     4: return                 %0
+=== accept/ranges/in-pipeline.nu
+shape shape_int 0..1 "1"
+shape shape_operator 1..3 ".."
+shape shape_int 3..4 "4"
+shape shape_pipe 5..6 "|"
+shape shape_internalcall 7..11 "each"
+shape shape_closure 12..18 "{ |y| "
+shape shape_variable 18..20 "$y"
+shape shape_operator 21..22 "+"
+shape shape_int 23..25 "10"
+shape shape_closure 25..27 " }"
+shape shape_pipe 28..29 "|"
+shape shape_internalcall 30..33 "get"
+shape shape_int 34..35 "0"
+ir main
+  # 4 registers, 14 instructions, 0 bytes of data
+     0: load-literal           %1, int(1)
+     1: load-literal           %2, nothing
+     2: load-literal           %3, int(4)
+     3: load-literal           %0, range(%1, %2, %3, Inclusive)
+     4: load-literal           %1, closure(#0)
+     5: push-positional        %1
+     6: redirect-out           pipe
+     7: call                   decl "each", %0
+     8: load-literal           %1, cell-path($.0)
+     9: push-positional        %1
+    10: redirect-out           caller
+    11: redirect-err           caller
+    12: call                   decl "get", %0
+    13: return                 %0
+ir #0
+  # 2 registers, 5 instructions, 0 bytes of data
+     0: load-variable          %0, var #0
+     1: load-literal           %1, int(10)
+     2: binary-op              %0, Math(Add), %1
+     3: span                   %0
+     4: return                 %0
+=== accept/ranges/inclusive-equals.nu
+shape shape_int 0..1 "0"
+shape shape_operator 1..4 "..="
+shape shape_int 4..6 "10"
+ir main
+  # 4 registers, 5 instructions, 0 bytes of data
+     0: load-literal           %1, int(0)
+     1: load-literal           %2, nothing
+     2: load-literal           %3, int(10)
+     3: load-literal           %0, range(%1, %2, %3, Inclusive)
+     4: return                 %0
+=== accept/ranges/inclusive.nu
+shape shape_int 0..1 "0"
+shape shape_operator 1..3 ".."
+shape shape_int 3..5 "10"
+ir main
+  # 4 registers, 5 instructions, 0 bytes of data
+     0: load-literal           %1, int(0)
+     1: load-literal           %2, nothing
+     2: load-literal           %3, int(10)
+     3: load-literal           %0, range(%1, %2, %3, Inclusive)
+     4: return                 %0
+=== accept/ranges/invalid-variable-bound-head-is-external.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..5 "s"
+shape shape_int 8..9 "1"
+shape shape_block 10..11 "("
+shape shape_external 11..17 "1..$s="
+shape shape_pipe 18..19 "|"
+shape shape_internalcall 20..28 "math sum"
+shape shape_block 28..29 ")"
+ir main
+  # 2 registers, 14 instructions, 6 bytes of data
+     0: load-literal           %0, int(1)
+     1: store-variable         var #0 "$s", %0 # let
+     2: load-literal           %0, empty
+     3: drain                  %0
+     4: load-literal           %0, empty
+     5: load-literal           %0, empty
+     6: load-literal           %1, glob-pattern("1..$s=", no_expand = false)
+     7: push-positional        %1
+     8: redirect-out           pipe
+     9: call                   decl "run-external", %0
+    10: redirect-out           caller
+    11: redirect-err           caller
+    12: call                   decl "math sum", %0
+    13: return                 %0
+=== accept/ranges/left-unbounded.nu
+shape shape_list 0..1 "["
+shape shape_operator 1..3 ".."
+shape shape_int 3..5 "10"
+shape shape_list 5..6 " "
+shape shape_operator 6..9 "..="
+shape shape_int 9..11 "10"
+shape shape_list 11..12 " "
+shape shape_operator 12..15 "..<"
+shape shape_int 15..17 "10"
+shape shape_list 17..18 "]"
+ir main
+  # 5 registers, 17 instructions, 0 bytes of data
+     0: load-literal           %0, list(capacity = 3)
+     1: load-literal           %2, nothing
+     2: load-literal           %3, nothing
+     3: load-literal           %4, int(10)
+     4: load-literal           %1, range(%2, %3, %4, Inclusive)
+     5: list-push              %0, %1
+     6: load-literal           %2, nothing
+     7: load-literal           %3, nothing
+     8: load-literal           %4, int(10)
+     9: load-literal           %1, range(%2, %3, %4, Inclusive)
+    10: list-push              %0, %1
+    11: load-literal           %2, nothing
+    12: load-literal           %3, nothing
+    13: load-literal           %4, int(10)
+    14: load-literal           %1, range(%2, %3, %4, RightExclusive)
+    15: list-push              %0, %1
+    16: return                 %0
+=== accept/ranges/negative-bounds.nu
+shape shape_list 0..1 "["
+shape shape_int 1..4 "-10"
+shape shape_operator 4..6 ".."
+shape shape_int 6..8 "-3"
+shape shape_list 8..9 " "
+shape shape_int 9..12 "-10"
+shape shape_operator 12..15 "..="
+shape shape_int 15..17 "-3"
+shape shape_list 17..18 " "
+shape shape_int 18..21 "-10"
+shape shape_operator 21..24 "..<"
+shape shape_int 24..26 "-3"
+shape shape_list 26..27 "]"
+ir main
+  # 5 registers, 17 instructions, 0 bytes of data
+     0: load-literal           %0, list(capacity = 3)
+     1: load-literal           %2, int(-10)
+     2: load-literal           %3, nothing
+     3: load-literal           %4, int(-3)
+     4: load-literal           %1, range(%2, %3, %4, Inclusive)
+     5: list-push              %0, %1
+     6: load-literal           %2, int(-10)
+     7: load-literal           %3, nothing
+     8: load-literal           %4, int(-3)
+     9: load-literal           %1, range(%2, %3, %4, Inclusive)
+    10: list-push              %0, %1
+    11: load-literal           %2, int(-10)
+    12: load-literal           %3, nothing
+    13: load-literal           %4, int(-3)
+    14: load-literal           %1, range(%2, %3, %4, RightExclusive)
+    15: list-push              %0, %1
+    16: return                 %0
+=== accept/ranges/not-ranges.nu
+shape shape_internalcall 0..2 "cd"
+shape shape_directory 3..5 ".."
+shape shape_internalcall 6..10 "echo"
+shape shape_string 11..15 "a..b"
+shape shape_string 16..18 ".."
+ir main
+  # 3 registers, 14 instructions, 8 bytes of data
+     0: load-literal           %1, directory("..", no_expand = false)
+     1: push-positional        %1
+     2: call                   decl "cd", %0
+     3: drain                  %0
+     4: load-literal           %0, empty
+     5: load-literal           %0, empty
+     6: load-literal           %1, string("a..b")
+     7: load-literal           %2, string("..")
+     8: push-positional        %1
+     9: push-positional        %2
+    10: redirect-out           caller
+    11: redirect-err           caller
+    12: call                   decl "echo", %0
+    13: return                 %0
+=== accept/ranges/paren-bound-with-cell-path.nu
+shape shape_block 0..1 "("
+shape shape_internalcall 1..3 "ls"
+shape shape_block 3..4 ")"
+shape shape_int 5..6 "0"
+shape shape_operator 6..8 ".."
+shape shape_int 8..9 "5"
+ir main
+  # 4 registers, 9 instructions, 0 bytes of data
+     0: load-literal           %1, empty
+     1: redirect-out           value
+     2: call                   decl "ls", %1
+     3: load-literal           %2, cell-path($.0)
+     4: follow-cell-path       %1, %2
+     5: load-literal           %2, nothing
+     6: load-literal           %3, int(5)
+     7: load-literal           %0, range(%1, %2, %3, Inclusive)
+     8: return                 %0
+=== accept/ranges/paren-bounds-with-cell-paths.nu
+shape shape_block 0..1 "("
+shape shape_internalcall 1..3 "ls"
+shape shape_block 3..4 ")"
+shape shape_int 5..6 "0"
+shape shape_operator 6..8 ".."
+shape shape_block 8..9 "("
+shape shape_internalcall 9..11 "ls"
+shape shape_block 11..12 ")"
+shape shape_int 13..14 "1"
+ir main
+  # 5 registers, 13 instructions, 0 bytes of data
+     0: load-literal           %1, empty
+     1: redirect-out           value
+     2: call                   decl "ls", %1
+     3: load-literal           %2, cell-path($.0)
+     4: follow-cell-path       %1, %2
+     5: load-literal           %2, nothing
+     6: load-literal           %3, empty
+     7: redirect-out           value
+     8: call                   decl "ls", %3
+     9: load-literal           %4, cell-path($.1)
+    10: follow-cell-path       %3, %4
+    11: load-literal           %0, range(%1, %2, %3, Inclusive)
+    12: return                 %0
+=== accept/ranges/reverse.nu
+shape shape_list 0..1 "["
+shape shape_int 1..3 "10"
+shape shape_operator 3..5 ".."
+shape shape_int 5..6 "0"
+shape shape_list 6..7 " "
+shape shape_int 7..9 "10"
+shape shape_operator 9..12 "..="
+shape shape_int 12..13 "0"
+shape shape_list 13..14 "]"
+ir main
+  # 5 registers, 12 instructions, 0 bytes of data
+     0: load-literal           %0, list(capacity = 2)
+     1: load-literal           %2, int(10)
+     2: load-literal           %3, nothing
+     3: load-literal           %4, int(0)
+     4: load-literal           %1, range(%2, %3, %4, Inclusive)
+     5: list-push              %0, %1
+     6: load-literal           %2, int(10)
+     7: load-literal           %3, nothing
+     8: load-literal           %4, int(0)
+     9: load-literal           %1, range(%2, %3, %4, Inclusive)
+    10: list-push              %0, %1
+    11: return                 %0
+=== accept/ranges/right-unbounded.nu
+shape shape_list 0..1 "["
+shape shape_int 1..2 "0"
+shape shape_operator 2..4 ".."
+shape shape_list 4..5 " "
+shape shape_int 5..6 "0"
+shape shape_operator 6..9 "..="
+shape shape_list 9..10 " "
+shape shape_int 10..11 "0"
+shape shape_operator 11..14 "..<"
+shape shape_list 14..15 "]"
+ir main
+  # 5 registers, 17 instructions, 0 bytes of data
+     0: load-literal           %0, list(capacity = 3)
+     1: load-literal           %2, int(0)
+     2: load-literal           %3, nothing
+     3: load-literal           %4, nothing
+     4: load-literal           %1, range(%2, %3, %4, Inclusive)
+     5: list-push              %0, %1
+     6: load-literal           %2, int(0)
+     7: load-literal           %3, nothing
+     8: load-literal           %4, nothing
+     9: load-literal           %1, range(%2, %3, %4, Inclusive)
+    10: list-push              %0, %1
+    11: load-literal           %2, int(0)
+    12: load-literal           %3, nothing
+    13: load-literal           %4, nothing
+    14: load-literal           %1, range(%2, %3, %4, RightExclusive)
+    15: list-push              %0, %1
+    16: return                 %0
+=== accept/ranges/stepped.nu
+shape shape_list 0..1 "["
+shape shape_int 1..2 "1"
+shape shape_operator 2..4 ".."
+shape shape_int 4..5 "3"
+shape shape_operator 5..7 ".."
+shape shape_int 7..9 "10"
+shape shape_list 9..10 " "
+shape shape_float 10..13 "2.0"
+shape shape_operator 13..15 ".."
+shape shape_float 15..18 "4.0"
+shape shape_operator 18..20 ".."
+shape shape_float 20..24 "10.0"
+shape shape_list 24..25 " "
+shape shape_float 25..28 "2.0"
+shape shape_operator 28..30 ".."
+shape shape_float 30..33 "4.0"
+shape shape_operator 33..36 "..="
+shape shape_float 36..40 "10.0"
+shape shape_list 40..41 " "
+shape shape_float 41..44 "2.0"
+shape shape_operator 44..46 ".."
+shape shape_float 46..49 "4.0"
+shape shape_operator 49..52 "..<"
+shape shape_float 52..56 "10.0"
+shape shape_list 56..57 "]"
+ir main
+  # 5 registers, 22 instructions, 0 bytes of data
+     0: load-literal           %0, list(capacity = 4)
+     1: load-literal           %2, int(1)
+     2: load-literal           %3, int(3)
+     3: load-literal           %4, int(10)
+     4: load-literal           %1, range(%2, %3, %4, Inclusive)
+     5: list-push              %0, %1
+     6: load-literal           %2, float(2.0)
+     7: load-literal           %3, float(4.0)
+     8: load-literal           %4, float(10.0)
+     9: load-literal           %1, range(%2, %3, %4, Inclusive)
+    10: list-push              %0, %1
+    11: load-literal           %2, float(2.0)
+    12: load-literal           %3, float(4.0)
+    13: load-literal           %4, float(10.0)
+    14: load-literal           %1, range(%2, %3, %4, Inclusive)
+    15: list-push              %0, %1
+    16: load-literal           %2, float(2.0)
+    17: load-literal           %3, float(4.0)
+    18: load-literal           %4, float(10.0)
+    19: load-literal           %1, range(%2, %3, %4, RightExclusive)
+    20: list-push              %0, %1
+    21: return                 %0
+=== accept/ranges/subexpression-bounds.nu
+shape shape_list 0..1 "["
+shape shape_block 1..2 "("
+shape shape_int 2..3 "3"
+shape shape_operator 4..5 "-"
+shape shape_int 6..7 "3"
+shape shape_block 7..8 ")"
+shape shape_operator 8..11 "..<"
+shape shape_block 11..12 "("
+shape shape_int 12..13 "8"
+shape shape_operator 14..15 "+"
+shape shape_int 16..17 "2"
+shape shape_block 17..18 ")"
+shape shape_list 18..19 " "
+shape shape_block 19..20 "("
+shape shape_int 20..21 "3"
+shape shape_operator 22..23 "-"
+shape shape_int 24..25 "3"
+shape shape_block 25..26 ")"
+shape shape_operator 26..28 ".."
+shape shape_block 28..29 "("
+shape shape_int 29..30 "8"
+shape shape_operator 31..32 "+"
+shape shape_int 33..34 "2"
+shape shape_block 34..35 ")"
+shape shape_list 35..36 " "
+shape shape_block 36..37 "("
+shape shape_int 37..38 "3"
+shape shape_operator 39..40 "-"
+shape shape_int 41..42 "3"
+shape shape_block 42..43 ")"
+shape shape_operator 43..46 "..="
+shape shape_block 46..47 "("
+shape shape_int 47..48 "8"
+shape shape_operator 49..50 "+"
+shape shape_int 51..52 "2"
+shape shape_block 52..53 ")"
+shape shape_list 53..54 "]"
+ir main
+  # 6 registers, 35 instructions, 0 bytes of data
+     0: load-literal           %0, list(capacity = 3)
+     1: load-literal           %2, int(3)
+     2: load-literal           %3, int(3)
+     3: binary-op              %2, Math(Subtract), %3
+     4: span                   %2
+     5: load-literal           %3, nothing
+     6: load-literal           %4, int(8)
+     7: load-literal           %5, int(2)
+     8: binary-op              %4, Math(Add), %5
+     9: span                   %4
+    10: load-literal           %1, range(%2, %3, %4, RightExclusive)
+    11: list-push              %0, %1
+    12: load-literal           %2, int(3)
+    13: load-literal           %3, int(3)
+    14: binary-op              %2, Math(Subtract), %3
+    15: span                   %2
+    16: load-literal           %3, nothing
+    17: load-literal           %4, int(8)
+    18: load-literal           %5, int(2)
+    19: binary-op              %4, Math(Add), %5
+    20: span                   %4
+    21: load-literal           %1, range(%2, %3, %4, Inclusive)
+    22: list-push              %0, %1
+    23: load-literal           %2, int(3)
+    24: load-literal           %3, int(3)
+    25: binary-op              %2, Math(Subtract), %3
+    26: span                   %2
+    27: load-literal           %3, nothing
+    28: load-literal           %4, int(8)
+    29: load-literal           %5, int(2)
+    30: binary-op              %4, Math(Add), %5
+    31: span                   %4
+    32: load-literal           %1, range(%2, %3, %4, Inclusive)
+    33: list-push              %0, %1
+    34: return                 %0
+=== accept/ranges/to-bound-paren-cell-path.nu
+shape shape_int 0..1 "1"
+shape shape_operator 1..3 ".."
+shape shape_block 3..4 "("
+shape shape_int 4..5 "2"
+shape shape_block 5..6 ")"
+shape shape_int 7..8 "0"
+ir main
+  # 5 registers, 7 instructions, 0 bytes of data
+     0: load-literal           %1, int(1)
+     1: load-literal           %2, nothing
+     2: load-literal           %3, int(2)
+     3: load-literal           %4, cell-path($.0)
+     4: follow-cell-path       %3, %4
+     5: load-literal           %0, range(%1, %2, %3, Inclusive)
+     6: return                 %0
+=== accept/ranges/unit-named-variables.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..8 "runs"
+shape shape_int 11..13 "10"
+shape shape_internalcall 14..17 "let"
+shape shape_vardecl 18..24 "sizekb"
+shape shape_int 27..29 "10"
+shape shape_internalcall 30..33 "let"
+shape shape_vardecl 34..37 "day"
+shape shape_int 40..41 "1"
+shape shape_list 42..43 "["
+shape shape_block 43..44 "("
+shape shape_int 44..45 "1"
+shape shape_operator 45..47 ".."
+shape shape_variable 47..52 "$runs"
+shape shape_pipe 53..54 "|"
+shape shape_internalcall 55..63 "math sum"
+shape shape_block 63..64 ")"
+shape shape_list 64..65 " "
+shape shape_block 65..66 "("
+shape shape_int 66..67 "1"
+shape shape_operator 67..69 ".."
+shape shape_variable 69..76 "$sizekb"
+shape shape_pipe 77..78 "|"
+shape shape_internalcall 79..87 "math sum"
+shape shape_block 87..88 ")"
+shape shape_list 88..89 " "
+shape shape_block 89..90 "("
+shape shape_int 90..91 "0"
+shape shape_operator 91..94 "..<"
+shape shape_variable 94..98 "$day"
+shape shape_pipe 99..100 "|"
+shape shape_internalcall 101..109 "math sum"
+shape shape_block 109..110 ")"
+shape shape_list 110..111 "]"
+ir main
+  # 5 registers, 40 instructions, 0 bytes of data
+     0: load-literal           %0, int(10)
+     1: store-variable         var #0 "$runs", %0 # let
+     2: load-literal           %0, empty
+     3: drain                  %0
+     4: load-literal           %0, empty
+     5: load-literal           %0, empty
+     6: load-literal           %0, int(10)
+     7: store-variable         var #1 "$sizekb", %0 # let
+     8: load-literal           %0, empty
+     9: drain                  %0
+    10: load-literal           %0, empty
+    11: load-literal           %0, empty
+    12: load-literal           %0, int(1)
+    13: store-variable         var #2 "$day", %0 # let
+    14: load-literal           %0, empty
+    15: drain                  %0
+    16: load-literal           %0, empty
+    17: load-literal           %0, list(capacity = 3)
+    18: load-literal           %2, int(1)
+    19: load-literal           %3, nothing
+    20: load-variable          %4, var #0 "$runs"
+    21: load-literal           %1, range(%2, %3, %4, Inclusive)
+    22: redirect-out           value
+    23: call                   decl "math sum", %1
+    24: list-push              %0, %1
+    25: load-literal           %2, int(1)
+    26: load-literal           %3, nothing
+    27: load-variable          %4, var #1 "$sizekb"
+    28: load-literal           %1, range(%2, %3, %4, Inclusive)
+    29: redirect-out           value
+    30: call                   decl "math sum", %1
+    31: list-push              %0, %1
+    32: load-literal           %2, int(0)
+    33: load-literal           %3, nothing
+    34: load-variable          %4, var #2 "$day"
+    35: load-literal           %1, range(%2, %3, %4, RightExclusive)
+    36: redirect-out           value
+    37: call                   decl "math sum", %1
+    38: list-push              %0, %1
+    39: return                 %0
+=== accept/ranges/variable-bounds.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..5 "a"
+shape shape_int 8..9 "2"
+shape shape_list 10..11 "["
+shape shape_variable 11..13 "$a"
+shape shape_operator 13..15 ".."
+shape shape_int 15..17 "10"
+shape shape_list 17..18 " "
+shape shape_variable 18..20 "$a"
+shape shape_operator 20..23 "..="
+shape shape_int 23..25 "10"
+shape shape_list 25..26 " "
+shape shape_variable 26..28 "$a"
+shape shape_operator 28..31 "..<"
+shape shape_block 31..32 "("
+shape shape_variable 32..34 "$a"
+shape shape_operator 35..36 "+"
+shape shape_int 37..39 "10"
+shape shape_block 39..40 ")"
+shape shape_list 40..41 " "
+shape shape_int 41..42 "0"
+shape shape_operator 42..45 "..<"
+shape shape_variable 45..47 "$a"
+shape shape_list 47..48 " "
+shape shape_int 48..49 "1"
+shape shape_operator 49..51 ".."
+shape shape_variable 51..53 "$a"
+shape shape_list 53..54 "]"
+ir main
+  # 6 registers, 35 instructions, 0 bytes of data
+     0: load-literal           %0, int(2)
+     1: store-variable         var #0 "$a", %0 # let
+     2: load-literal           %0, empty
+     3: drain                  %0
+     4: load-literal           %0, empty
+     5: load-literal           %0, list(capacity = 5)
+     6: load-variable          %2, var #0 "$a"
+     7: load-literal           %3, nothing
+     8: load-literal           %4, int(10)
+     9: load-literal           %1, range(%2, %3, %4, Inclusive)
+    10: list-push              %0, %1
+    11: load-variable          %2, var #0 "$a"
+    12: load-literal           %3, nothing
+    13: load-literal           %4, int(10)
+    14: load-literal           %1, range(%2, %3, %4, Inclusive)
+    15: list-push              %0, %1
+    16: load-variable          %2, var #0 "$a"
+    17: load-literal           %3, nothing
+    18: load-variable          %4, var #0 "$a"
+    19: load-literal           %5, int(10)
+    20: binary-op              %4, Math(Add), %5
+    21: span                   %4
+    22: load-literal           %1, range(%2, %3, %4, RightExclusive)
+    23: list-push              %0, %1
+    24: load-literal           %2, int(0)
+    25: load-literal           %3, nothing
+    26: load-variable          %4, var #0 "$a"
+    27: load-literal           %1, range(%2, %3, %4, RightExclusive)
+    28: list-push              %0, %1
+    29: load-literal           %2, int(1)
+    30: load-literal           %3, nothing
+    31: load-variable          %4, var #0 "$a"
+    32: load-literal           %1, range(%2, %3, %4, Inclusive)
+    33: list-push              %0, %1
+    34: return                 %0
+=== accept/ranges/wacky-parens.nu
+shape shape_list 0..1 "["
+shape shape_int 1..2 "0"
+shape shape_operator 2..4 ".."
+shape shape_block 4..5 "("
+shape shape_int 5..6 "1"
+shape shape_operator 6..8 ".."
+shape shape_int 8..9 "2"
+shape shape_pipe 10..11 "|"
+shape shape_internalcall 12..17 "first"
+shape shape_block 17..18 ")"
+shape shape_list 18..19 " "
+shape shape_int 19..20 "0"
+shape shape_operator 20..23 "..<"
+shape shape_block 23..24 "("
+shape shape_int 24..25 "1"
+shape shape_operator 25..27 ".."
+shape shape_int 27..28 "2"
+shape shape_pipe 29..30 "|"
+shape shape_internalcall 31..36 "first"
+shape shape_block 36..37 ")"
+shape shape_list 37..38 " "
+shape shape_int 38..39 "0"
+shape shape_operator 39..42 "..="
+shape shape_block 42..43 "("
+shape shape_int 43..44 "1"
+shape shape_operator 44..46 ".."
+shape shape_int 46..47 "2"
+shape shape_pipe 48..49 "|"
+shape shape_internalcall 50..55 "first"
+shape shape_block 55..56 ")"
+shape shape_list 56..57 " "
+shape shape_operator 57..59 ".."
+shape shape_block 59..60 "("
+shape shape_int 60..61 "1"
+shape shape_operator 61..63 ".."
+shape shape_int 63..64 "2"
+shape shape_pipe 65..66 "|"
+shape shape_internalcall 67..72 "first"
+shape shape_block 72..73 ")"
+shape shape_list 73..74 " "
+shape shape_int 74..75 "1"
+shape shape_operator 75..77 ".."
+shape shape_block 77..78 "("
+shape shape_int 78..79 "5"
+shape shape_block 79..80 ")"
+shape shape_operator 80..82 ".."
+shape shape_int 82..84 "10"
+shape shape_list 84..85 " "
+shape shape_int 85..86 "1"
+shape shape_operator 86..88 ".."
+shape shape_block 88..89 "("
+shape shape_int 89..90 "5"
+shape shape_operator 90..92 ".."
+shape shape_int 92..94 "10"
+shape shape_pipe 95..96 "|"
+shape shape_internalcall 97..102 "first"
+shape shape_block 102..103 ")"
+shape shape_operator 103..105 ".."
+shape shape_int 105..107 "10"
+shape shape_list 107..108 "]"
+ir main
+  # 8 registers, 57 instructions, 0 bytes of data
+     0: load-literal           %0, list(capacity = 6)
+     1: load-literal           %2, int(0)
+     2: load-literal           %3, nothing
+     3: load-literal           %5, int(1)
+     4: load-literal           %6, nothing
+     5: load-literal           %7, int(2)
+     6: load-literal           %4, range(%5, %6, %7, Inclusive)
+     7: redirect-out           value
+     8: call                   decl "first", %4
+     9: load-literal           %1, range(%2, %3, %4, Inclusive)
+    10: list-push              %0, %1
+    11: load-literal           %2, int(0)
+    12: load-literal           %3, nothing
+    13: load-literal           %5, int(1)
+    14: load-literal           %6, nothing
+    15: load-literal           %7, int(2)
+    16: load-literal           %4, range(%5, %6, %7, Inclusive)
+    17: redirect-out           value
+    18: call                   decl "first", %4
+    19: load-literal           %1, range(%2, %3, %4, RightExclusive)
+    20: list-push              %0, %1
+    21: load-literal           %2, int(0)
+    22: load-literal           %3, nothing
+    23: load-literal           %5, int(1)
+    24: load-literal           %6, nothing
+    25: load-literal           %7, int(2)
+    26: load-literal           %4, range(%5, %6, %7, Inclusive)
+    27: redirect-out           value
+    28: call                   decl "first", %4
+    29: load-literal           %1, range(%2, %3, %4, Inclusive)
+    30: list-push              %0, %1
+    31: load-literal           %2, nothing
+    32: load-literal           %3, nothing
+    33: load-literal           %5, int(1)
+    34: load-literal           %6, nothing
+    35: load-literal           %7, int(2)
+    36: load-literal           %4, range(%5, %6, %7, Inclusive)
+    37: redirect-out           value
+    38: call                   decl "first", %4
+    39: load-literal           %1, range(%2, %3, %4, Inclusive)
+    40: list-push              %0, %1
+    41: load-literal           %2, int(1)
+    42: load-literal           %3, int(5)
+    43: load-literal           %4, int(10)
+    44: load-literal           %1, range(%2, %3, %4, Inclusive)
+    45: list-push              %0, %1
+    46: load-literal           %2, int(1)
+    47: load-literal           %4, int(5)
+    48: load-literal           %5, nothing
+    49: load-literal           %6, int(10)
+    50: load-literal           %3, range(%4, %5, %6, Inclusive)
+    51: redirect-out           value
+    52: call                   decl "first", %3
+    53: load-literal           %4, int(10)
+    54: load-literal           %1, range(%2, %3, %4, Inclusive)
+    55: list-push              %0, %1
+    56: return                 %0

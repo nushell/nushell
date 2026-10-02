@@ -1,0 +1,259 @@
+=== reject/match/bad-variable-pattern.nu
+shape shape_internalcall 0..5 "match"
+shape shape_int 6..7 "1"
+shape shape_garbage 10..14 "$a-b"
+shape shape_int 18..19 "1"
+error nu::parser::parse_mismatch: Parse mismatch: expected valid variable name.
+  label 10..14 "$a-b": expected valid variable name
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/match/block-is-list.nu
+shape shape_internalcall 0..5 "match"
+shape shape_int 6..7 "1"
+shape shape_garbage 8..11 "[a]"
+error nu::parser::parse_mismatch_with_full_string_msg: Parse mismatch: expected match-block.
+  label 8..11 "[a]": expected match-block
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/match/block-is-word.nu
+shape shape_internalcall 0..5 "match"
+shape shape_int 6..7 "1"
+shape shape_garbage 8..11 "foo"
+error nu::parser::parse_mismatch_with_full_string_msg: Parse mismatch: expected match-block.
+  label 8..11 "foo": expected match-block
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/match/body-is-call-with-args.nu
+shape shape_internalcall 0..5 "match"
+shape shape_int 6..7 "1"
+shape shape_match_pattern 10..11 "1"
+shape shape_internalcall 15..19 "echo"
+shape shape_match_pattern 20..21 "a"
+shape shape_external 22..23 "b"
+error nu::parser::type_mismatch: Type mismatch during operation.
+  label 21..21 "": expected =>, found end of input
+=== reject/match/body-is-if-statement.nu
+shape shape_internalcall 0..5 "match"
+shape shape_int 6..7 "1"
+shape shape_match_pattern 10..12 "10"
+shape shape_garbage 16..18 "if"
+shape shape_match_pattern 19..23 "true"
+shape shape_block 24..26 "{ "
+shape shape_int 26..27 "1"
+shape shape_block 27..29 " }"
+shape shape_match_pattern 30..34 "else"
+shape shape_block 35..37 "{ "
+shape shape_int 37..38 "2"
+shape shape_block 38..40 " }"
+error nu::parser::parse_mismatch: Parse mismatch: expected expression.
+  label 18..18 "": expected expression
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+error nu::parser::type_mismatch: Type mismatch during operation.
+  label 23..23 "": expected =>, found end of input
+error nu::parser::type_mismatch: Type mismatch during operation.
+  label 34..34 "": expected =>, found end of input
+=== reject/match/body-with-trailing-tokens.nu
+shape shape_internalcall 0..5 "match"
+shape shape_int 6..7 "1"
+shape shape_match_pattern 10..12 "12"
+shape shape_int 16..17 "1"
+shape shape_match_pattern 18..19 "+"
+shape shape_int 20..21 "1"
+error nu::parser::type_mismatch: Type mismatch during operation.
+  label 19..19 "": expected =>, found end of input
+=== reject/match/cell-path-pattern.nu
+shape shape_internalcall 0..5 "match"
+shape shape_int 6..7 "1"
+shape shape_garbage 10..18 "$env.PWD"
+shape shape_external 22..23 "k"
+error nu::parser::parse_mismatch: Parse mismatch: expected valid variable name.
+  label 10..18 "$env.PWD": expected valid variable name
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/match/empty-braces-with-tail.nu
+shape shape_internalcall 53..58 "match"
+shape shape_int 59..60 "1"
+shape shape_match_pattern 62..63 "}"
+shape shape_external 63..65 ".a"
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 61..62 "{": unclosed — opens here (need `}`)
+  label 65..65 "": expected `}` here
+  help: Add a matching `}` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unbalanced_delimiter: Unbalanced delimiter.
+  label 62..63 "}": unexpected `}` (unbalanced with `{`)
+  help: Remove this `}` if it is extra, or add a matching `{` earlier. If you closed a block too early, the real mistake may be above.
+error nu::parser::type_mismatch: Type mismatch during operation.
+  label 63..63 "": expected =>, found end of input
+=== reject/match/empty-guard.nu
+shape shape_internalcall 0..5 "match"
+shape shape_int 6..7 "1"
+shape shape_garbage 8..22 "{ $a if => 1 }"
+error : Match guard without an expression
+  label 15..15 "": expected an expression
+  help: The `if` keyword must be followed with an expression
+=== reject/match/extra-tokens.nu
+shape shape_internalcall 0..5 "match"
+shape shape_int 6..7 "1"
+shape shape_nothing 10..11 "_"
+shape shape_int 15..16 "1"
+shape shape_garbage 19..24 "extra"
+error nu::parser::extra_positional: Extra positional argument.
+  label 19..24 "extra": extra positional argument
+  help: Usage: match <value> <match_block> 
+=== reject/match/help-then-extra.nu
+shape shape_internalcall 0..5 "match"
+shape shape_int 6..7 "1"
+shape shape_flag 8..14 "--help"
+shape shape_garbage 18..19 "x"
+error nu::parser::extra_positional: Extra positional argument.
+  label 18..19 "x": extra positional argument
+  help: Usage: match <value> <match_block> 
+=== reject/match/help-then-non-block.nu
+shape shape_internalcall 0..5 "match"
+shape shape_int 6..7 "1"
+shape shape_flag 8..14 "--help"
+shape shape_garbage 15..18 ":{}"
+error nu::parser::parse_mismatch_with_full_string_msg: Parse mismatch: expected match-block.
+  label 15..18 ":{}": expected match-block
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/match/interpolation-pattern.nu
+shape shape_internalcall 0..5 "match"
+shape shape_int 6..7 "1"
+shape shape_garbage 10..17 "$\"x(1)\""
+shape shape_external 21..22 "n"
+error nu::parser::parse_mismatch: Parse mismatch: expected valid variable name.
+  label 10..17 "$\"x(1)\"": expected valid variable name
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/match/list-pattern-variable-in.nu
+shape shape_internalcall 0..5 "match"
+shape shape_list 6..7 "["
+shape shape_int 7..8 "1"
+shape shape_list 8..9 "]"
+shape shape_match_pattern 12..13 "["
+shape shape_vardecl 13..16 "$in"
+shape shape_match_pattern 16..17 "]"
+shape shape_int 21..22 "1"
+error nu::parser::name_is_builtin_var: `in` used as variable name.
+  label 13..16 "$in": already a builtin variable
+  help: 'in' is the name of a builtin Nushell variable and cannot be used as a variable name
+=== reject/match/missing-block.nu
+shape shape_internalcall 0..5 "match"
+shape shape_int 6..7 "1"
+error nu::parser::missing_positional: Missing required positional argument.
+  label 7..7 "": missing match_block
+  help: Usage: match <value> <match_block> . Use `--help` for more information.
+=== reject/match/missing-body.nu
+shape shape_internalcall 0..5 "match"
+shape shape_int 6..7 "1"
+error nu::parser::type_mismatch: Type mismatch during operation.
+  label 14..14 "": expected match result, found end of input
+=== reject/match/missing-value.nu
+shape shape_garbage 0..5 "match"
+error nu::parser::parse_mismatch: Parse mismatch: expected expression.
+  label 5..5 "": expected expression
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/match/negative-number-value.nu
+shape shape_internalcall 0..5 "match"
+shape shape_closure 9..11 "{ "
+shape shape_external 11..12 "_"
+shape shape_externalarg 13..15 "=>"
+shape shape_externalarg 16..17 "1"
+shape shape_closure 17..19 " }"
+error nu::parser::unknown_flag: The `match` command doesn't have flag `-1`.
+  label 7..8 "1": unknown flag
+  help: Use `--help` to see available flags
+error nu::parser::missing_positional: Missing required positional argument.
+  label 19..19 "": missing match_block
+  help: Usage: match <value> <match_block> . Use `--help` for more information.
+=== reject/match/nested-match-without-parens.nu
+shape shape_internalcall 0..5 "match"
+shape shape_int 6..7 "1"
+shape shape_match_pattern 10..11 "1"
+shape shape_garbage 15..20 "match"
+shape shape_match_pattern 21..22 "2"
+shape shape_block 23..25 "{ "
+shape shape_int 25..26 "2"
+shape shape_garbage 27..29 "=>"
+shape shape_string 30..32 "a,"
+shape shape_garbage 33..34 "_"
+shape shape_string 35..37 "=>"
+shape shape_garbage 38..39 "b"
+shape shape_garbage 39..39 ""
+shape shape_block 39..41 " }"
+error nu::parser::parse_mismatch: Parse mismatch: expected expression.
+  label 20..20 "": expected expression
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+error nu::parser::type_mismatch: Type mismatch during operation.
+  label 22..22 "": expected =>, found end of input
+error nu::parser::parse_mismatch: Parse mismatch: expected operator.
+  label 27..29 "=>": expected operator
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+error nu::parser::parse_mismatch: Parse mismatch: expected operator.
+  label 33..34 "_": expected operator
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+error nu::parser::incomplete_math_expression: Incomplete math expression.
+  label 27..29 "=>": incomplete math expression
+error nu::parser::parse_mismatch: Parse mismatch: expected operator.
+  label 38..39 "b": expected operator
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+error nu::parser::incomplete_math_expression: Incomplete math expression.
+  label 38..39 "b": incomplete math expression
+error nu::parser::incomplete_math_expression: Incomplete math expression.
+  label 38..39 "b": incomplete math expression
+error nu::parser::incomplete_math_expression: Incomplete math expression.
+  label 33..34 "_": incomplete math expression
+=== reject/match/no-arrow.nu
+shape shape_internalcall 0..5 "match"
+shape shape_int 6..7 "1"
+error nu::parser::type_mismatch: Type mismatch during operation.
+  label 11..11 "": expected =>, found end of input
+=== reject/match/pattern-after-pipe-missing.nu
+shape shape_internalcall 0..5 "match"
+shape shape_int 6..7 "1"
+shape shape_match_pattern 10..11 "1"
+shape shape_match_pattern 14..16 "=>"
+shape shape_int 17..18 "1"
+error nu::parser::type_mismatch: Type mismatch during operation.
+  label 16..16 "": expected =>, found end of input
+=== reject/match/record-pattern-missing-colon.nu
+shape shape_internalcall 0..5 "match"
+shape shape_record 6..7 "{"
+shape shape_string 7..8 "a"
+shape shape_record 8..10 ": "
+shape shape_int 10..11 "1"
+shape shape_record 11..12 "}"
+shape shape_garbage 15..20 "{a 1}"
+shape shape_int 24..25 "1"
+error nu::parser::parse_mismatch: Parse mismatch: expected record.
+  label 15..20 "{a 1}": expected record
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/match/record-pattern-semicolon.nu
+shape shape_internalcall 0..5 "match"
+shape shape_record 6..7 "{"
+shape shape_string 7..8 "a"
+shape shape_record 8..10 ": "
+shape shape_int 10..11 "1"
+shape shape_record 11..12 "}"
+shape shape_garbage 15..27 "{a: 1; b: 2}"
+shape shape_int 31..32 "1"
+error nu::parser::parse_mismatch: Parse mismatch: expected record.
+  label 15..27 "{a: 1; b: 2}": expected record
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/match/record-pattern-variable-env.nu
+shape shape_internalcall 0..5 "match"
+shape shape_record 6..7 "{"
+shape shape_string 7..8 "a"
+shape shape_record 8..10 ": "
+shape shape_int 10..11 "1"
+shape shape_record 11..12 "}"
+shape shape_match_pattern 15..19 "{a: "
+shape shape_vardecl 19..23 "$env"
+shape shape_match_pattern 23..24 "}"
+shape shape_int 28..29 "1"
+error nu::parser::name_is_builtin_var: `env` used as variable name.
+  label 19..23 "$env": already a builtin variable
+  help: 'env' is the name of a builtin Nushell variable and cannot be used as a variable name
+=== reject/match/variable-pattern-in.nu
+shape shape_internalcall 0..5 "match"
+shape shape_int 6..7 "1"
+shape shape_vardecl 10..13 "$in"
+shape shape_int 17..18 "1"
+error nu::parser::name_is_builtin_var: `in` used as variable name.
+  label 10..13 "$in": already a builtin variable
+  help: 'in' is the name of a builtin Nushell variable and cannot be used as a variable name

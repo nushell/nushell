@@ -1,0 +1,86 @@
+=== reject/env-shorthand/def-after-shorthand.nu
+shape shape_string 0..3 "FOO"
+shape shape_record 3..4 "="
+shape shape_string 4..5 "1"
+shape shape_internalcall 6..9 "def"
+shape shape_string 10..11 "x"
+shape shape_signature 12..14 "[]"
+shape shape_closure 15..17 "{}"
+error nu::parser::unexpected_keyword: Statement used in pipeline.
+  label 0..5 "FOO=1": not allowed in pipeline
+  help: 'def' keyword is not allowed in pipeline. Use 'def' by itself, outside of a pipeline.
+=== reject/env-shorthand/export-env-after-shorthand.nu
+shape shape_string 0..3 "FOO"
+shape shape_record 3..4 "="
+shape shape_string 4..5 "1"
+shape shape_internalcall 6..16 "export-env"
+shape shape_closure 16..19 " {}"
+error nu::parser::unexpected_keyword: Statement used in pipeline.
+  label 0..5 "FOO=1": not allowed in pipeline
+  help: 'export-env' keyword is not allowed in pipeline. Use 'export-env' by itself, outside of a pipeline.
+=== reject/env-shorthand/for-after-shorthand.nu
+shape shape_string 0..3 "FOO"
+shape shape_record 3..4 "="
+shape shape_string 4..5 "1"
+shape shape_internalcall 6..9 "for"
+shape shape_vardecl 10..11 "x"
+shape shape_keyword 12..14 "in"
+shape shape_list 15..16 "["
+shape shape_int 16..17 "1"
+shape shape_list 17..18 "]"
+shape shape_closure 18..21 " {}"
+error nu::parser::unexpected_keyword: Statement used in pipeline.
+  label 0..5 "FOO=1": not allowed in pipeline
+  help: 'for' keyword is not allowed in pipeline. Use 'for' by itself, outside of a pipeline.
+=== reject/env-shorthand/hide-after-shorthand.nu
+shape shape_string 0..3 "FOO"
+shape shape_record 3..4 "="
+shape shape_string 4..5 "1"
+shape shape_internalcall 6..10 "hide"
+shape shape_string 11..13 "ls"
+error nu::parser::unexpected_keyword: Statement used in pipeline.
+  label 0..5 "FOO=1": not allowed in pipeline
+  help: 'hide' keyword is not allowed in pipeline. Use 'hide' by itself, outside of a pipeline.
+=== reject/env-shorthand/module-after-shorthand.nu
+shape shape_string 0..3 "FOO"
+shape shape_record 3..4 "="
+shape shape_string 4..5 "1"
+shape shape_internalcall 6..12 "module"
+shape shape_string 13..14 "m"
+shape shape_closure 14..17 " {}"
+error nu::parser::unexpected_keyword: Statement used in pipeline.
+  label 0..5 "FOO=1": not allowed in pipeline
+  help: 'module' keyword is not allowed in pipeline. Use 'module' by itself, outside of a pipeline.
+=== reject/env-shorthand/mut-after-shorthand.nu
+shape shape_string 0..3 "FOO"
+shape shape_record 3..4 "="
+shape shape_string 4..5 "1"
+shape shape_internalcall 6..9 "mut"
+shape shape_vardecl 10..11 "x"
+error nu::parser::unexpected_keyword: mut statement used in pipeline.
+  label 0..5 "FOO=1": 'mut' in pipeline
+  help: Assigning 'value' to 'mut' does not produce a value to be piped. If the pipeline result is meant to be assigned to 'mut', use 'mut mut = (value | ...)'.
+error nu::parser::missing_positional: Missing required positional argument.
+  label 11..11 "": missing initial_value
+  help: Usage: mut <var_name> = <initial_value> . Use `--help` for more information.
+=== reject/env-shorthand/overlay-list-after-shorthand.nu
+shape shape_string 0..3 "FOO"
+shape shape_record 3..4 "="
+shape shape_string 4..5 "1"
+shape shape_internalcall 6..18 "overlay list"
+error nu::parser::unexpected_keyword: Statement used in pipeline.
+  label 0..5 "FOO=1": not allowed in pipeline
+  help: 'overlay' keyword is not allowed in pipeline. Use 'overlay' by itself, outside of a pipeline.
+=== reject/env-shorthand/shorthand-alone.nu
+shape shape_garbage 0..5 "FOO=1"
+error nu::parser::unknown_command: Unknown command.
+  label 0..5 "FOO=1": unknown command
+=== reject/env-shorthand/use-after-shorthand.nu
+shape shape_string 0..3 "FOO"
+shape shape_record 3..4 "="
+shape shape_string 4..5 "1"
+shape shape_internalcall 6..9 "use"
+shape shape_string 10..13 "std"
+error nu::parser::unexpected_keyword: Statement used in pipeline.
+  label 0..5 "FOO=1": not allowed in pipeline
+  help: 'use' keyword is not allowed in pipeline. Use 'use' by itself, outside of a pipeline.

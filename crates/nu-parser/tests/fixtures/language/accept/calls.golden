@@ -1,0 +1,1478 @@
+=== accept/calls/args-of-every-kind.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..5 "f"
+shape shape_signature 6..39 "[--flag, --val: any, -f, ...rest]"
+shape shape_closure 40..43 "{ }"
+shape shape_internalcall 44..47 "let"
+shape shape_vardecl 48..49 "v"
+shape shape_record 52..53 "{"
+shape shape_string 53..54 "a"
+shape shape_record 54..56 ": "
+shape shape_int 56..57 "1"
+shape shape_record 57..58 "}"
+shape shape_internalcall 59..60 "f"
+shape shape_int 61..62 "1"
+shape shape_float 63..66 "1.5"
+shape shape_bool 67..71 "true"
+shape shape_nothing 72..76 "null"
+shape shape_string 77..80 "\"s\""
+shape shape_string 81..84 "'s'"
+shape shape_string 85..88 "`b`"
+shape shape_raw_string 89..95 "r#'r'#"
+shape shape_string 96..100 "bare"
+shape shape_variable 101..103 "$v"
+shape shape_variable 104..106 "$v"
+shape shape_string 107..108 "a"
+shape shape_block 110..111 "("
+shape shape_int 111..112 "1"
+shape shape_operator 113..114 "+"
+shape shape_int 115..116 "1"
+shape shape_block 116..117 ")"
+shape shape_list 118..119 "["
+shape shape_int 119..120 "1"
+shape shape_list 120..121 "]"
+shape shape_record 122..123 "{"
+shape shape_string 123..124 "a"
+shape shape_record 124..126 ": "
+shape shape_int 126..127 "1"
+shape shape_record 127..128 "}"
+shape shape_closure 129..133 "{|| "
+shape shape_int 133..134 "1"
+shape shape_closure 134..135 "}"
+shape shape_int 136..137 "1"
+shape shape_string 137..139 "kb"
+shape shape_int 140..141 "1"
+shape shape_string 141..144 "sec"
+shape shape_datetime 145..155 "2024-01-02"
+shape shape_binary 156..162 "0x[ff]"
+shape shape_int 163..164 "1"
+shape shape_operator 164..166 ".."
+shape shape_int 166..167 "2"
+shape shape_string 170..171 "a"
+shape shape_string_interpolation 172..174 "$\""
+shape shape_string 174..175 "i"
+shape shape_block 175..176 "("
+shape shape_int 176..177 "1"
+shape shape_block 177..178 ")"
+shape shape_string_interpolation 178..179 "\""
+shape shape_operator 180..183 "..."
+shape shape_list 183..184 "["
+shape shape_int 184..185 "1"
+shape shape_list 185..186 "]"
+shape shape_flag 187..193 "--flag"
+shape shape_flag 194..196 "-f"
+shape shape_flag 197..202 "--val"
+shape shape_int 203..204 "1"
+shape shape_string 208..210 "-x"
+ir main
+  # 26 registers, 86 instructions, 22 bytes of data
+     0: load-literal           %0, empty
+     1: drain                  %0
+     2: load-literal           %0, empty
+     3: load-literal           %0, empty
+     4: load-literal           %0, record(capacity = 1)
+     5: load-literal           %1, string("a")
+     6: load-literal           %2, int(1)
+     7: record-insert          %0, %1, %2
+     8: store-variable         var #8 "$v", %0 # let
+     9: load-literal           %0, empty
+    10: drain                  %0
+    11: load-literal           %0, empty
+    12: load-literal           %0, empty
+    13: load-literal           %1, int(1)
+    14: load-literal           %2, float(1.5)
+    15: load-literal           %3, bool(true)
+    16: load-literal           %4, nothing
+    17: load-literal           %5, string("s")
+    18: load-literal           %6, string("s")
+    19: load-literal           %7, string("b")
+    20: load-literal           %8, raw-string("r")
+    21: load-literal           %9, string("bare")
+    22: load-variable          %10, var #8 "$v"
+    23: load-variable          %11, var #8 "$v"
+    24: load-literal           %12, cell-path($.a?)
+    25: follow-cell-path       %11, %12
+    26: load-literal           %12, int(1)
+    27: load-literal           %13, int(1)
+    28: binary-op              %12, Math(Add), %13
+    29: span                   %12
+    30: load-literal           %13, list(capacity = 1)
+    31: load-literal           %14, int(1)
+    32: list-push              %13, %14
+    33: load-literal           %14, record(capacity = 1)
+    34: load-literal           %15, string("a")
+    35: load-literal           %16, int(1)
+    36: record-insert          %14, %15, %16
+    37: load-literal           %15, closure(#3)
+    38: load-literal           %16, filesize(1 kBb)
+    39: load-literal           %17, duration(1000000000ns)
+    40: load-literal           %18, date(2024-01-02 00:00:00 +00:00)
+    41: load-literal           %19, binary(0x[61, 73, 73, 62, 72, 62, 61, 72, 65, 61, ff, 69, 2d, 78, 66, 6c, 61, 67, 66, 76, 61, 6c])
+    42: load-literal           %21, int(1)
+    43: load-literal           %22, nothing
+    44: load-literal           %23, int(2)
+    45: load-literal           %20, range(%21, %22, %23, Inclusive)
+    46: load-literal           %21, cell-path($.a)
+    47: load-literal           %22, string("i")
+    48: load-literal           %23, int(1)
+    49: string-append          %22, %23
+    50: load-literal           %23, list(capacity = 1)
+    51: load-literal           %24, int(1)
+    52: list-push              %23, %24
+    53: load-literal           %24, int(1)
+    54: load-literal           %25, string("-x")
+    55: push-positional        %1
+    56: push-positional        %2
+    57: push-positional        %3
+    58: push-positional        %4
+    59: push-positional        %5
+    60: push-positional        %6
+    61: push-positional        %7
+    62: push-positional        %8
+    63: push-positional        %9
+    64: push-positional        %10
+    65: push-positional        %11
+    66: push-positional        %12
+    67: push-positional        %13
+    68: push-positional        %14
+    69: push-positional        %15
+    70: push-positional        %16
+    71: push-positional        %17
+    72: push-positional        %18
+    73: push-positional        %19
+    74: push-positional        %20
+    75: push-positional        %21
+    76: push-positional        %22
+    77: append-rest            %23
+    78: push-flag              "flag"
+    79: push-short-flag        "f"
+    80: push-named             "val", %24
+    81: push-positional        %25
+    82: redirect-out           caller
+    83: redirect-err           caller
+    84: call                   decl "f", %0
+    85: return                 %0
+ir #0
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+ir #3
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, int(1)
+     1: return                 %0
+=== accept/calls/bare-word-operators-as-args.nu
+shape shape_internalcall 0..4 "echo"
+shape shape_int 5..6 "1"
+shape shape_string 7..8 "+"
+shape shape_int 9..10 "1"
+shape shape_string 11..14 "not"
+shape shape_bool 15..19 "true"
+shape shape_string 20..23 "and"
+shape shape_string 24..26 "or"
+ir main
+  # 8 registers, 18 instructions, 9 bytes of data
+     0: load-literal           %1, int(1)
+     1: load-literal           %2, string("+")
+     2: load-literal           %3, int(1)
+     3: load-literal           %4, string("not")
+     4: load-literal           %5, bool(true)
+     5: load-literal           %6, string("and")
+     6: load-literal           %7, string("or")
+     7: push-positional        %1
+     8: push-positional        %2
+     9: push-positional        %3
+    10: push-positional        %4
+    11: push-positional        %5
+    12: push-positional        %6
+    13: push-positional        %7
+    14: redirect-out           caller
+    15: redirect-err           caller
+    16: call                   decl "echo", %0
+    17: return                 %0
+=== accept/calls/binary-with-pipe-is-command-name.nu
+shape shape_external 0..7 "0b[1|2]"
+ir main
+  # 2 registers, 6 instructions, 7 bytes of data
+     0: load-literal           %1, glob-pattern("0b[1|2]", no_expand = false)
+     1: push-positional        %1
+     2: redirect-out           caller
+     3: redirect-err           caller
+     4: call                   decl "run-external", %0
+     5: return                 %0
+=== accept/calls/call-with-trailing-comment.nu
+shape shape_internalcall 0..2 "ls"
+shape shape_flag 3..5 "-l"
+ir main
+  # 1 register, 5 instructions, 4 bytes of data
+     0: push-flag              "long"
+     1: redirect-out           caller
+     2: redirect-err           caller
+     3: call                   decl "ls", %0
+     4: return                 %0
+=== accept/calls/closure-arg-without-pipes.nu
+shape shape_list 0..1 "["
+shape shape_int 1..2 "1"
+shape shape_list 2..3 " "
+shape shape_int 3..4 "2"
+shape shape_list 4..5 " "
+shape shape_int 5..6 "3"
+shape shape_list 6..7 "]"
+shape shape_pipe 8..9 "|"
+shape shape_internalcall 10..14 "each"
+shape shape_block 15..17 "{ "
+shape shape_variable 17..20 "$in"
+shape shape_operator 21..22 "*"
+shape shape_int 23..24 "2"
+shape shape_block 24..26 " }"
+shape shape_pipe 27..28 "|"
+shape shape_internalcall 29..35 "reduce"
+shape shape_closure 36..48 "{ |it, acc| "
+shape shape_variable 48..51 "$it"
+shape shape_operator 52..53 "+"
+shape shape_variable 54..58 "$acc"
+shape shape_closure 58..60 " }"
+ir main
+  # 2 registers, 17 instructions, 0 bytes of data
+     0: load-literal           %0, list(capacity = 3)
+     1: load-literal           %1, int(1)
+     2: list-push              %0, %1
+     3: load-literal           %1, int(2)
+     4: list-push              %0, %1
+     5: load-literal           %1, int(3)
+     6: list-push              %0, %1
+     7: load-literal           %1, closure(#1)
+     8: push-positional        %1
+     9: redirect-out           pipe
+    10: call                   decl "each", %0
+    11: load-literal           %1, closure(#2)
+    12: push-positional        %1
+    13: redirect-out           caller
+    14: redirect-err           caller
+    15: call                   decl "reduce", %0
+    16: return                 %0
+ir #1
+  # 3 registers, 9 instructions, 0 bytes of data
+     0: collect                %0
+     1: clone                  %1, %0
+     2: store-variable         var #0, %1
+     3: load-variable          %0, var #0
+     4: load-literal           %2, int(2)
+     5: binary-op              %0, Math(Multiply), %2
+     6: span                   %0
+     7: drop-variable          var #0
+     8: return                 %0
+ir #2
+  # 2 registers, 5 instructions, 0 bytes of data
+     0: load-variable          %0, var #1
+     1: load-variable          %1, var #2
+     2: binary-op              %0, Math(Add), %1
+     3: span                   %0
+     4: return                 %0
+=== accept/calls/command-named-like-spread.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "..."
+shape shape_signature 8..11 "[x]"
+shape shape_closure 12..14 "{ "
+shape shape_variable 14..16 "$x"
+shape shape_closure 16..18 " }"
+shape shape_internalcall 19..22 "..."
+shape shape_string 23..26 "..."
+ir main
+  # 2 registers, 10 instructions, 3 bytes of data
+     0: load-literal           %0, empty
+     1: drain                  %0
+     2: load-literal           %0, empty
+     3: load-literal           %0, empty
+     4: load-literal           %1, string("...")
+     5: push-positional        %1
+     6: redirect-out           caller
+     7: redirect-err           caller
+     8: call                   decl "...", %0
+     9: return                 %0
+ir #0
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-variable          %0, var #1
+     1: return                 %0
+=== accept/calls/dash-args.nu
+shape shape_internalcall 0..4 "echo"
+shape shape_string 5..6 "-"
+shape shape_string 10..12 "--"
+shape shape_string 13..15 "-x"
+ir main
+  # 4 registers, 10 instructions, 5 bytes of data
+     0: load-literal           %1, string("-")
+     1: load-literal           %2, string("--")
+     2: load-literal           %3, string("-x")
+     3: push-positional        %1
+     4: push-positional        %2
+     5: push-positional        %3
+     6: redirect-out           caller
+     7: redirect-err           caller
+     8: call                   decl "echo", %0
+     9: return                 %0
+=== accept/calls/end-of-options.nu
+shape shape_internalcall 0..4 "echo"
+shape shape_string 8..20 "--not-a-flag"
+shape shape_string 21..23 "-x"
+ir main
+  # 3 registers, 8 instructions, 14 bytes of data
+     0: load-literal           %1, string("--not-a-flag")
+     1: load-literal           %2, string("-x")
+     2: push-positional        %1
+     3: push-positional        %2
+     4: redirect-out           caller
+     5: redirect-err           caller
+     6: call                   decl "echo", %0
+     7: return                 %0
+=== accept/calls/flag-followed-by-value.nu
+shape shape_internalcall 0..2 "ls"
+shape shape_pipe 3..4 "|"
+shape shape_internalcall 5..12 "sort-by"
+shape shape_string 13..17 "name"
+shape shape_pipe 18..19 "|"
+shape shape_internalcall 20..25 "first"
+shape shape_int 26..27 "3"
+shape shape_string 28..31 "'x'"
+shape shape_pipe 32..33 "|"
+shape shape_internalcall 34..38 "fill"
+shape shape_flag 39..46 "--width"
+shape shape_int 47..49 "10"
+shape shape_flag 50..61 "--character"
+shape shape_string 62..65 "'-'"
+ir main
+  # 3 registers, 20 instructions, 16 bytes of data
+     0: redirect-out           pipe
+     1: call                   decl "ls", %0
+     2: load-literal           %1, cell-path($.name)
+     3: push-positional        %1
+     4: redirect-out           pipe
+     5: call                   decl "sort-by", %0
+     6: load-literal           %1, int(3)
+     7: push-positional        %1
+     8: call                   decl "first", %0
+     9: drain                  %0
+    10: load-literal           %0, empty
+    11: load-literal           %0, string("x")
+    12: load-literal           %1, int(10)
+    13: load-literal           %2, string("-")
+    14: push-named             "width", %1
+    15: push-named             "character", %2
+    16: redirect-out           caller
+    17: redirect-err           caller
+    18: call                   decl "fill", %0
+    19: return                 %0
+=== accept/calls/flag-with-equals-value.nu
+shape shape_string 0..9 "'nushell'"
+shape shape_pipe 10..11 "|"
+shape shape_internalcall 12..16 "fill"
+shape shape_flag 17..28 "--alignment"
+shape shape_string 29..34 "right"
+shape shape_flag 35..42 "--width"
+shape shape_int 43..45 "10"
+shape shape_flag 46..57 "--character"
+shape shape_string 58..61 "'-'"
+ir main
+  # 4 registers, 11 instructions, 36 bytes of data
+     0: load-literal           %0, string("nushell")
+     1: load-literal           %1, string("right")
+     2: load-literal           %2, int(10)
+     3: load-literal           %3, string("-")
+     4: push-named             "alignment", %1
+     5: push-named             "width", %2
+     6: push-named             "character", %3
+     7: redirect-out           caller
+     8: redirect-err           caller
+     9: call                   decl "fill", %0
+    10: return                 %0
+=== accept/calls/flag-with-equals-various-values.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..5 "n"
+shape shape_int 8..9 "3"
+shape shape_list 10..11 "["
+shape shape_block 11..12 "("
+shape shape_internalcall 12..14 "ls"
+shape shape_pipe 15..16 "|"
+shape shape_internalcall 17..22 "first"
+shape shape_flag 23..31 "--strict"
+shape shape_bool 32..36 "true"
+shape shape_block 36..37 ")"
+shape shape_list 37..38 " "
+shape shape_block 38..39 "("
+shape shape_string 39..42 "'x'"
+shape shape_pipe 43..44 "|"
+shape shape_internalcall 45..49 "fill"
+shape shape_flag 50..57 "--width"
+shape shape_variable 58..60 "$n"
+shape shape_block 60..61 ")"
+shape shape_list 61..62 " "
+shape shape_block 62..63 "("
+shape shape_string 63..66 "'x'"
+shape shape_pipe 67..68 "|"
+shape shape_internalcall 69..73 "fill"
+shape shape_flag 74..81 "--width"
+shape shape_block 82..83 "("
+shape shape_int 83..84 "1"
+shape shape_operator 85..86 "+"
+shape shape_int 87..88 "2"
+shape shape_block 88..89 ")"
+shape shape_block 89..90 ")"
+shape shape_list 90..91 " "
+shape shape_block 91..92 "("
+shape shape_string 92..95 "'x'"
+shape shape_pipe 96..97 "|"
+shape shape_internalcall 98..102 "fill"
+shape shape_flag 103..114 "--character"
+shape shape_string 115..118 "\"-\""
+shape shape_block 118..119 ")"
+shape shape_list 119..120 "]"
+ir main
+  # 4 registers, 36 instructions, 29 bytes of data
+     0: load-literal           %0, int(3)
+     1: store-variable         var #0 "$n", %0 # let
+     2: load-literal           %0, empty
+     3: drain                  %0
+     4: load-literal           %0, empty
+     5: load-literal           %0, list(capacity = 4)
+     6: load-literal           %1, empty
+     7: redirect-out           pipe
+     8: call                   decl "ls", %1
+     9: load-literal           %2, bool(true)
+    10: push-named             "strict", %2
+    11: redirect-out           value
+    12: call                   decl "first", %1
+    13: list-push              %0, %1
+    14: load-literal           %1, string("x")
+    15: load-variable          %2, var #0 "$n"
+    16: push-named             "width", %2
+    17: redirect-out           value
+    18: call                   decl "fill", %1
+    19: list-push              %0, %1
+    20: load-literal           %1, string("x")
+    21: load-literal           %2, int(1)
+    22: load-literal           %3, int(2)
+    23: binary-op              %2, Math(Add), %3
+    24: span                   %2
+    25: push-named             "width", %2
+    26: redirect-out           value
+    27: call                   decl "fill", %1
+    28: list-push              %0, %1
+    29: load-literal           %1, string("x")
+    30: load-literal           %2, string("-")
+    31: push-named             "character", %2
+    32: redirect-out           value
+    33: call                   decl "fill", %1
+    34: list-push              %0, %1
+    35: return                 %0
+=== accept/calls/help-and-describe.nu
+shape shape_internalcall 0..13 "help commands"
+shape shape_pipe 14..15 "|"
+shape shape_internalcall 16..22 "length"
+shape shape_int 23..24 "1"
+shape shape_pipe 25..26 "|"
+shape shape_internalcall 27..35 "describe"
+ir main
+  # 1 register, 10 instructions, 0 bytes of data
+     0: redirect-out           pipe
+     1: call                   decl "help commands", %0
+     2: call                   decl "length", %0
+     3: drain                  %0
+     4: load-literal           %0, empty
+     5: load-literal           %0, int(1)
+     6: redirect-out           caller
+     7: redirect-err           caller
+     8: call                   decl "describe", %0
+     9: return                 %0
+=== accept/calls/hide-int-name.nu
+shape shape_internalcall 0..4 "hide"
+shape shape_string 5..6 "1"
+ir main
+  # 2 registers, 7 instructions, 15 bytes of data
+     0: load-literal           %1, string("1")
+     1: push-positional        %1
+     2: push-parser-info       "import_pattern", Expression { expr: ImportPattern(ImportPattern { head: ImportPatternHead { name: [49], id: None, span: Span[148080..148081] }, members: [], hidden: {}, constants: [] }), span: Span[148080..148081], span_id: SpanId(4629), ty: Any }
+     3: redirect-out           caller
+     4: redirect-err           caller
+     5: call                   decl "hide", %0
+     6: return                 %0
+=== accept/calls/hide-with-members.nu
+shape shape_garbage 0..14 "hide std [a b]"
+error nu::parser::module_not_found: Module not found.
+  label 5..8 "std": module std not found
+  help: module files and their paths must be available before your script is run as parsing occurs before anything is evaluated
+=== accept/calls/keyword-named-commands.nu
+shape shape_internalcall 0..8 "hide-env"
+shape shape_string 9..12 "FOO"
+shape shape_internalcall 13..25 "overlay list"
+shape shape_internalcall 26..37 "overlay new"
+shape shape_string 38..39 "x"
+shape shape_internalcall 40..52 "overlay hide"
+shape shape_string 53..54 "x"
+shape shape_internalcall 55..66 "plugin list"
+shape shape_internalcall 67..79 "run-external"
+shape shape_globpattern 80..84 "echo"
+shape shape_globpattern 85..86 "a"
+ir main
+  # 3 registers, 34 instructions, 10 bytes of data
+     0: load-literal           %1, string("FOO")
+     1: push-positional        %1
+     2: call                   decl "hide-env", %0
+     3: drain                  %0
+     4: load-literal           %0, empty
+     5: load-literal           %0, empty
+     6: call                   decl "overlay list", %0
+     7: drain                  %0
+     8: load-literal           %0, empty
+     9: load-literal           %0, empty
+    10: load-literal           %1, string("x")
+    11: push-positional        %1
+    12: call                   decl "overlay new", %0
+    13: drain                  %0
+    14: load-literal           %0, empty
+    15: load-literal           %0, empty
+    16: load-literal           %1, string("x")
+    17: push-positional        %1
+    18: call                   decl "overlay hide", %0
+    19: drain                  %0
+    20: load-literal           %0, empty
+    21: load-literal           %0, empty
+    22: call                   decl "plugin list", %0
+    23: drain                  %0
+    24: load-literal           %0, empty
+    25: load-literal           %0, empty
+    26: load-literal           %1, glob-pattern("echo", no_expand = false)
+    27: load-literal           %2, glob-pattern("a", no_expand = false)
+    28: push-positional        %1
+    29: push-positional        %2
+    30: redirect-out           caller
+    31: redirect-err           caller
+    32: call                   decl "run-external", %0
+    33: return                 %0
+=== accept/calls/long-flags.nu
+shape shape_internalcall 0..2 "ls"
+shape shape_flag 3..8 "--all"
+shape shape_flag 9..15 "--long"
+ir main
+  # 1 register, 6 instructions, 7 bytes of data
+     0: push-flag              "all"
+     1: push-flag              "long"
+     2: redirect-out           caller
+     3: redirect-err           caller
+     4: call                   decl "ls", %0
+     5: return                 %0
+=== accept/calls/multiline-args-inside-parens.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..5 "f"
+shape shape_signature 6..28 "[--flag: any, ...rest]"
+shape shape_closure 29..32 "{ }"
+shape shape_block 33..39 "(\n    "
+shape shape_internalcall 39..40 "f"
+shape shape_flag 49..55 "--flag"
+shape shape_bool 56..61 "false"
+shape shape_bool 70..75 "false"
+shape shape_int 76..80 "0001"
+shape shape_string 81..95 "'{fake: null}'"
+shape shape_block 95..97 "\n)"
+ir main
+  # 5 registers, 16 instructions, 16 bytes of data
+     0: load-literal           %0, empty
+     1: drain                  %0
+     2: load-literal           %0, empty
+     3: load-literal           %0, empty
+     4: load-literal           %1, bool(false)
+     5: load-literal           %2, bool(false)
+     6: load-literal           %3, int(1)
+     7: load-literal           %4, string("{fake: null}")
+     8: push-named             "flag", %1
+     9: push-positional        %2
+    10: push-positional        %3
+    11: push-positional        %4
+    12: redirect-out           caller
+    13: redirect-err           caller
+    14: call                   decl "f", %0
+    15: return                 %0
+ir #0
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== accept/calls/multiword-command-with-subcommand-chain.nu
+shape shape_string 0..3 "\"1\""
+shape shape_pipe 4..5 "|"
+shape shape_internalcall 6..14 "into int"
+shape shape_pipe 15..16 "|"
+shape shape_internalcall 17..28 "into string"
+shape shape_pipe 29..30 "|"
+shape shape_internalcall 31..41 "str upcase"
+shape shape_pipe 42..43 "|"
+shape shape_internalcall 44..56 "str downcase"
+shape shape_pipe 57..58 "|"
+shape shape_internalcall 59..67 "str trim"
+shape shape_flag 68..74 "--left"
+warning nu::parser::deprecated: Command deprecated.
+  label 31..41 "str upcase": str upcase was deprecated in 0.114.0 and will be removed in a future release.
+  help: Use `str uppercase` instead.
+warning nu::parser::deprecated: Command deprecated.
+  label 44..56 "str downcase": str downcase was deprecated in 0.114.0 and will be removed in a future release.
+  help: Use `str lowercase` instead.
+ir main
+  # 1 register, 14 instructions, 5 bytes of data
+     0: load-literal           %0, string("1")
+     1: redirect-out           pipe
+     2: call                   decl "into int", %0
+     3: redirect-out           pipe
+     4: call                   decl "into string", %0
+     5: redirect-out           pipe
+     6: call                   decl "str upcase", %0
+     7: redirect-out           pipe
+     8: call                   decl "str downcase", %0
+     9: push-flag              "left"
+    10: redirect-out           caller
+    11: redirect-err           caller
+    12: call                   decl "str trim", %0
+    13: return                 %0
+=== accept/calls/multiword-command.nu
+shape shape_string 0..6 "\"  x \""
+shape shape_pipe 7..8 "|"
+shape shape_internalcall 9..17 "str trim"
+shape shape_flag 18..24 "--left"
+ir main
+  # 1 register, 6 instructions, 8 bytes of data
+     0: load-literal           %0, string("  x ")
+     1: push-flag              "left"
+     2: redirect-out           caller
+     3: redirect-err           caller
+     4: call                   decl "str trim", %0
+     5: return                 %0
+=== accept/calls/negative-number-args.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..5 "f"
+shape shape_signature 6..34 "[a: int, b: float, c: float]"
+shape shape_closure 35..38 "{ }"
+shape shape_internalcall 39..40 "f"
+shape shape_int 41..43 "-5"
+shape shape_float 44..47 "-.5"
+shape shape_float 48..54 "-1.5e3"
+shape shape_list 55..56 "["
+shape shape_int 56..57 "1"
+shape shape_list 57..58 " "
+shape shape_int 58..59 "2"
+shape shape_list 59..60 " "
+shape shape_int 60..61 "3"
+shape shape_list 61..62 "]"
+shape shape_pipe 63..64 "|"
+shape shape_internalcall 65..69 "skip"
+shape shape_int 70..72 "-1"
+shape shape_list 73..74 "["
+shape shape_int 74..75 "1"
+shape shape_list 75..76 " "
+shape shape_int 76..77 "2"
+shape shape_list 77..78 " "
+shape shape_int 78..79 "3"
+shape shape_list 79..80 "]"
+shape shape_pipe 81..82 "|"
+shape shape_internalcall 83..87 "each"
+shape shape_closure 88..94 "{ |x| "
+shape shape_variable 94..96 "$x"
+shape shape_operator 97..98 "+"
+shape shape_int 99..101 "-1"
+shape shape_closure 101..103 " }"
+ir main
+  # 4 registers, 38 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: drain                  %0
+     2: load-literal           %0, empty
+     3: load-literal           %0, empty
+     4: load-literal           %1, int(-5)
+     5: load-literal           %2, float(-0.5)
+     6: load-literal           %3, float(-1500.0)
+     7: push-positional        %1
+     8: push-positional        %2
+     9: push-positional        %3
+    10: call                   decl "f", %0
+    11: drain                  %0
+    12: load-literal           %0, empty
+    13: load-literal           %0, list(capacity = 3)
+    14: load-literal           %1, int(1)
+    15: list-push              %0, %1
+    16: load-literal           %1, int(2)
+    17: list-push              %0, %1
+    18: load-literal           %1, int(3)
+    19: list-push              %0, %1
+    20: load-literal           %1, int(-1)
+    21: push-positional        %1
+    22: call                   decl "skip", %0
+    23: drain                  %0
+    24: load-literal           %0, empty
+    25: load-literal           %0, list(capacity = 3)
+    26: load-literal           %1, int(1)
+    27: list-push              %0, %1
+    28: load-literal           %1, int(2)
+    29: list-push              %0, %1
+    30: load-literal           %1, int(3)
+    31: list-push              %0, %1
+    32: load-literal           %1, closure(#1)
+    33: push-positional        %1
+    34: redirect-out           caller
+    35: redirect-err           caller
+    36: call                   decl "each", %0
+    37: return                 %0
+ir #0
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+ir #1
+  # 2 registers, 5 instructions, 0 bytes of data
+     0: load-variable          %0, var #6
+     1: load-literal           %1, int(-1)
+     2: binary-op              %0, Math(Add), %1
+     3: span                   %0
+     4: return                 %0
+=== accept/calls/no-args.nu
+shape shape_internalcall 0..2 "ls"
+ir main
+  # 1 register, 4 instructions, 0 bytes of data
+     0: redirect-out           caller
+     1: redirect-err           caller
+     2: call                   decl "ls", %0
+     3: return                 %0
+=== accept/calls/non-ascii-flag.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..10 "nu-arg"
+shape shape_signature 11..31 "[--umlaut(-ö): int]"
+shape shape_closure 32..34 "{}"
+shape shape_internalcall 35..41 "nu-arg"
+shape shape_flag 42..45 "-ö"
+shape shape_int 46..48 "42"
+ir main
+  # 2 registers, 10 instructions, 6 bytes of data
+     0: load-literal           %0, empty
+     1: drain                  %0
+     2: load-literal           %0, empty
+     3: load-literal           %0, empty
+     4: load-literal           %1, int(42)
+     5: push-named             "umlaut", %1
+     6: redirect-out           caller
+     7: redirect-err           caller
+     8: call                   decl "nu-arg", %0
+     9: return                 %0
+ir #0
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== accept/calls/overlay-hide-keep-env-list.nu
+shape shape_internalcall 0..12 "overlay hide"
+shape shape_flag 13..23 "--keep-env"
+shape shape_list 24..25 "["
+shape shape_string 25..26 "a"
+shape shape_list 26..27 "]"
+error nu::parser::cant_hide_default_overlay: Cannot hide default overlay.
+  label 0..27 "overlay hide --keep-env [a]": can't hide overlay
+  help: 'zero' is a default overlay. Default overlays cannot be hidden.
+=== accept/calls/overlay-new-int-name.nu
+shape shape_internalcall 0..11 "overlay new"
+shape shape_string 12..13 "1"
+ir main
+  # 2 registers, 6 instructions, 1 byte of data
+     0: load-literal           %1, string("1")
+     1: push-positional        %1
+     2: redirect-out           caller
+     3: redirect-err           caller
+     4: call                   decl "overlay new", %0
+     5: return                 %0
+=== accept/calls/overlay-use-prefix-and-as.nu
+shape shape_internalcall 0..11 "overlay use"
+shape shape_flag 12..20 "--prefix"
+shape shape_nothing 21..25 "null"
+shape shape_keyword 26..28 "as"
+shape shape_string 29..30 "x"
+ir main
+  # 3 registers, 10 instructions, 11 bytes of data
+     0: load-literal           %1, nothing
+     1: load-literal           %2, string("x")
+     2: push-flag              "prefix"
+     3: push-positional        %1
+     4: push-positional        %2
+     5: push-parser-info       "noop", Expression { expr: Bool(true), span: Span(UNKNOWN), span_id: SpanId(0), ty: Bool }
+     6: redirect-out           caller
+     7: redirect-err           caller
+     8: call                   decl "overlay use", %0
+     9: return                 %0
+=== accept/calls/overlay-use-reload.nu
+shape shape_internalcall 0..11 "overlay use"
+shape shape_nothing 12..16 "null"
+shape shape_flag 17..25 "--reload"
+ir main
+  # 2 registers, 8 instructions, 10 bytes of data
+     0: load-literal           %1, nothing
+     1: push-positional        %1
+     2: push-flag              "reload"
+     3: push-parser-info       "noop", Expression { expr: Bool(true), span: Span(UNKNOWN), span_id: SpanId(0), ty: Bool }
+     4: redirect-out           caller
+     5: redirect-err           caller
+     6: call                   decl "overlay use", %0
+     7: return                 %0
+=== accept/calls/percent-sigil-bare-var.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..7 "cmd"
+shape shape_string 10..16 "'echo'"
+shape shape_internalcall 17..30 "%$cmd 'hello'"
+shape shape_string 23..30 "'hello'"
+ir main
+  # 3 registers, 14 instructions, 9 bytes of data
+     0: load-literal           %0, string("echo")
+     1: store-variable         var #0 "$cmd", %0 # let
+     2: load-literal           %0, empty
+     3: drain                  %0
+     4: load-literal           %0, empty
+     5: load-literal           %0, empty
+     6: load-variable          %1, var #0 "$cmd"
+     7: load-literal           %2, string("hello")
+     8: push-positional        %1
+     9: push-positional        %2
+    10: redirect-out           caller
+    11: redirect-err           caller
+    12: call                   decl "run-internal", %0
+    13: return                 %0
+=== accept/calls/percent-sigil-builtin.nu
+shape shape_internalcall 1..5 "echo"
+shape shape_string 6..8 "ok"
+ir main
+  # 2 registers, 6 instructions, 2 bytes of data
+     0: load-literal           %1, string("ok")
+     1: push-positional        %1
+     2: redirect-out           caller
+     3: redirect-err           caller
+     4: call                   decl "echo", %0
+     5: return                 %0
+=== accept/calls/percent-sigil-cell-path-head.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..5 "x"
+shape shape_list 8..9 "["
+shape shape_string 9..13 "\"ls\""
+shape shape_list 13..14 "]"
+shape shape_internalcall 15..20 "%$x.0"
+ir main
+  # 3 registers, 16 instructions, 2 bytes of data
+     0: load-literal           %0, list(capacity = 1)
+     1: load-literal           %1, string("ls")
+     2: list-push              %0, %1
+     3: store-variable         var #0 "$x", %0 # let
+     4: load-literal           %0, empty
+     5: drain                  %0
+     6: load-literal           %0, empty
+     7: load-literal           %0, empty
+     8: load-variable          %1, var #0 "$x"
+     9: load-literal           %2, cell-path($.0)
+    10: follow-cell-path       %1, %2
+    11: push-positional        %1
+    12: redirect-out           caller
+    13: redirect-err           caller
+    14: call                   decl "run-internal", %0
+    15: return                 %0
+=== accept/calls/percent-sigil-dynamic.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..7 "cmd"
+shape shape_string 10..16 "'echo'"
+shape shape_internalcall 17..32 "%($cmd) 'hello'"
+shape shape_string 25..32 "'hello'"
+ir main
+  # 3 registers, 14 instructions, 9 bytes of data
+     0: load-literal           %0, string("echo")
+     1: store-variable         var #0 "$cmd", %0 # let
+     2: load-literal           %0, empty
+     3: drain                  %0
+     4: load-literal           %0, empty
+     5: load-literal           %0, empty
+     6: load-variable          %1, var #0 "$cmd"
+     7: load-literal           %2, string("hello")
+     8: push-positional        %1
+     9: push-positional        %2
+    10: redirect-out           caller
+    11: redirect-err           caller
+    12: call                   decl "run-internal", %0
+    13: return                 %0
+=== accept/calls/percent-sigil-in-pipeline.nu
+shape shape_internalcall 1..3 "ls"
+shape shape_pipe 4..5 "|"
+shape shape_internalcall 6..12 "length"
+ir main
+  # 1 register, 6 instructions, 0 bytes of data
+     0: redirect-out           pipe
+     1: call                   decl "ls", %0
+     2: redirect-out           caller
+     3: redirect-err           caller
+     4: call                   decl "length", %0
+     5: return                 %0
+=== accept/calls/percent-sigil-multiword.nu
+shape shape_string 0..5 "\" x \""
+shape shape_pipe 6..7 "|"
+shape shape_internalcall 9..17 "str trim"
+shape shape_internalcall 19..22 "str"
+ir main
+  # 1 register, 9 instructions, 3 bytes of data
+     0: load-literal           %0, string(" x ")
+     1: call                   decl "str trim", %0
+     2: drain                  %0
+     3: load-literal           %0, empty
+     4: load-literal           %0, empty
+     5: redirect-out           caller
+     6: redirect-err           caller
+     7: call                   decl "str", %0
+     8: return                 %0
+=== accept/calls/percent-sigil-shadowed-builtin.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..6 "ls"
+shape shape_signature 7..9 "[]"
+shape shape_closure 10..12 "{ "
+shape shape_string 12..16 "'hi'"
+shape shape_closure 16..18 " }"
+shape shape_internalcall 20..22 "ls"
+shape shape_pipe 23..24 "|"
+shape shape_internalcall 25..31 "length"
+shape shape_internalcall 32..37 "alias"
+shape shape_string 38..40 "cd"
+shape shape_keyword 41..42 "="
+shape shape_internalcall 43..47 "echo"
+shape shape_internalcall 49..51 "cd"
+shape shape_flag 52..58 "--help"
+ir main
+  # 2 registers, 19 instructions, 14 bytes of data
+     0: load-literal           %0, empty
+     1: drain                  %0
+     2: load-literal           %0, empty
+     3: load-literal           %0, empty
+     4: redirect-out           pipe
+     5: call                   decl "ls", %0
+     6: call                   decl "length", %0
+     7: drain                  %0
+     8: load-literal           %0, empty
+     9: load-literal           %0, empty
+    10: load-literal           %0, empty
+    11: drain                  %0
+    12: load-literal           %0, empty
+    13: load-literal           %0, empty
+    14: load-literal           %1, string("cd")
+    15: push-positional        %1
+    16: push-parser-info       "help_decl_id", Expression { expr: Int(238), span: Span[148124..148126], span_id: SpanId(0), ty: Int }
+    17: call                   decl "help", %0
+    18: return                 %0
+ir #0
+  # 1 register, 2 instructions, 2 bytes of data
+     0: load-literal           %0, string("hi")
+     1: return                 %0
+=== accept/calls/percent-sigil-spaced-head.nu
+shape shape_internalcall 0..16 "% ('echo') hello"
+shape shape_string 11..16 "hello"
+ir main
+  # 3 registers, 8 instructions, 9 bytes of data
+     0: load-literal           %1, string("echo")
+     1: load-literal           %2, string("hello")
+     2: push-positional        %1
+     3: push-positional        %2
+     4: redirect-out           caller
+     5: redirect-err           caller
+     6: call                   decl "run-internal", %0
+     7: return                 %0
+=== accept/calls/percent-sigil-subexpression-math.nu
+shape shape_internalcall 0..10 "%(1 + 1) x"
+shape shape_string 9..10 "x"
+ir main
+  # 3 registers, 11 instructions, 1 byte of data
+     0: load-literal           %1, int(1)
+     1: load-literal           %2, int(1)
+     2: binary-op              %1, Math(Add), %2
+     3: span                   %1
+     4: load-literal           %2, string("x")
+     5: push-positional        %1
+     6: push-positional        %2
+     7: redirect-out           caller
+     8: redirect-err           caller
+     9: call                   decl "run-internal", %0
+    10: return                 %0
+=== accept/calls/percent-sigil-with-spread.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..7 "cmd"
+shape shape_string 10..16 "'echo'"
+shape shape_internalcall 17..20 "let"
+shape shape_vardecl 21..25 "args"
+shape shape_list 28..29 "["
+shape shape_string 29..36 "'hello'"
+shape shape_list 36..37 " "
+shape shape_string 37..44 "'world'"
+shape shape_list 44..45 "]"
+shape shape_internalcall 46..70 "%($cmd) 'start' ...$args"
+shape shape_string 54..61 "'start'"
+shape shape_operator 62..65 "..."
+shape shape_variable 65..70 "$args"
+ir main
+  # 4 registers, 26 instructions, 19 bytes of data
+     0: load-literal           %0, string("echo")
+     1: store-variable         var #0 "$cmd", %0 # let
+     2: load-literal           %0, empty
+     3: drain                  %0
+     4: load-literal           %0, empty
+     5: load-literal           %0, empty
+     6: load-literal           %0, list(capacity = 2)
+     7: load-literal           %1, string("hello")
+     8: list-push              %0, %1
+     9: load-literal           %1, string("world")
+    10: list-push              %0, %1
+    11: store-variable         var #1 "$args", %0 # let
+    12: load-literal           %0, empty
+    13: drain                  %0
+    14: load-literal           %0, empty
+    15: load-literal           %0, empty
+    16: load-variable          %1, var #0 "$cmd"
+    17: load-literal           %2, string("start")
+    18: load-variable          %3, var #1 "$args"
+    19: push-positional        %1
+    20: push-positional        %2
+    21: append-rest            %3
+    22: redirect-out           caller
+    23: redirect-err           caller
+    24: call                   decl "run-internal", %0
+    25: return                 %0
+=== accept/calls/plugin-use-with-config.nu
+shape shape_internalcall 0..10 "plugin use"
+shape shape_string 11..12 "x"
+shape shape_flag 13..28 "--plugin-config"
+shape shape_filepath 29..30 "y"
+error nu::parser::file_not_found: File not found
+  label 29..30 "y": File not found: y
+=== accept/calls/positional-args.nu
+shape shape_internalcall 0..4 "echo"
+shape shape_string 5..6 "a"
+shape shape_string 7..8 "b"
+shape shape_string 9..10 "c"
+shape shape_int 11..12 "1"
+shape shape_float 13..16 "2.5"
+shape shape_bool 17..21 "true"
+shape shape_nothing 22..26 "null"
+ir main
+  # 8 registers, 18 instructions, 3 bytes of data
+     0: load-literal           %1, string("a")
+     1: load-literal           %2, string("b")
+     2: load-literal           %3, string("c")
+     3: load-literal           %4, int(1)
+     4: load-literal           %5, float(2.5)
+     5: load-literal           %6, bool(true)
+     6: load-literal           %7, nothing
+     7: push-positional        %1
+     8: push-positional        %2
+     9: push-positional        %3
+    10: push-positional        %4
+    11: push-positional        %5
+    12: push-positional        %6
+    13: push-positional        %7
+    14: redirect-out           caller
+    15: redirect-err           caller
+    16: call                   decl "echo", %0
+    17: return                 %0
+=== accept/calls/prefix-word-not-command.nu
+shape shape_internalcall 0..3 "str"
+ir main
+  # 1 register, 4 instructions, 0 bytes of data
+     0: redirect-out           caller
+     1: redirect-err           caller
+     2: call                   decl "str", %0
+     3: return                 %0
+=== accept/calls/record-arg.nu
+shape shape_list 0..1 "["
+shape shape_int 1..2 "1"
+shape shape_list 2..3 " "
+shape shape_int 3..4 "2"
+shape shape_list 4..5 "]"
+shape shape_pipe 6..7 "|"
+shape shape_internalcall 8..12 "wrap"
+shape shape_string 13..14 "x"
+shape shape_pipe 15..16 "|"
+shape shape_internalcall 17..23 "update"
+shape shape_string 24..25 "x"
+shape shape_closure 26..34 "{ |row| "
+shape shape_variable 34..38 "$row"
+shape shape_string 39..40 "x"
+shape shape_operator 41..42 "+"
+shape shape_int 43..44 "1"
+shape shape_closure 44..46 " }"
+ir main
+  # 3 registers, 17 instructions, 1 byte of data
+     0: load-literal           %0, list(capacity = 2)
+     1: load-literal           %1, int(1)
+     2: list-push              %0, %1
+     3: load-literal           %1, int(2)
+     4: list-push              %0, %1
+     5: load-literal           %1, string("x")
+     6: push-positional        %1
+     7: redirect-out           pipe
+     8: call                   decl "wrap", %0
+     9: load-literal           %1, cell-path($.x)
+    10: load-literal           %2, closure(#0)
+    11: push-positional        %1
+    12: push-positional        %2
+    13: redirect-out           caller
+    14: redirect-err           caller
+    15: call                   decl "update", %0
+    16: return                 %0
+ir #0
+  # 2 registers, 7 instructions, 0 bytes of data
+     0: load-variable          %0, var #0
+     1: load-literal           %1, cell-path($.x)
+     2: follow-cell-path       %0, %1
+     3: load-literal           %1, int(1)
+     4: binary-op              %0, Math(Add), %1
+     5: span                   %0
+     6: return                 %0
+=== accept/calls/run-full-reparse.nu
+shape shape_internalcall 0..3 "run"
+shape shape_flag 4..18 "--full-reparse"
+shape shape_nothing 19..23 "null"
+ir main
+  # 2 registers, 8 instructions, 16 bytes of data
+     0: load-literal           %1, nothing
+     1: push-flag              "full-reparse"
+     2: push-positional        %1
+     3: push-parser-info       "noop", Expression { expr: Nothing, span: Span(UNKNOWN), span_id: SpanId(0), ty: Nothing }
+     4: redirect-out           caller
+     5: redirect-err           caller
+     6: call                   decl "run", %0
+     7: return                 %0
+=== accept/calls/run-with-rest-and-unknown-flags.nu
+shape shape_internalcall 0..3 "run"
+shape shape_nothing 4..8 "null"
+shape shape_string 9..10 "a"
+shape shape_string 11..12 "b"
+shape shape_string 13..18 "--foo"
+ir main
+  # 5 registers, 13 instructions, 11 bytes of data
+     0: load-literal           %1, nothing
+     1: load-literal           %2, string("a")
+     2: load-literal           %3, string("b")
+     3: load-literal           %4, string("--foo")
+     4: push-positional        %1
+     5: push-positional        %2
+     6: push-positional        %3
+     7: push-positional        %4
+     8: push-parser-info       "noop", Expression { expr: Nothing, span: Span(UNKNOWN), span_id: SpanId(0), ty: Nothing }
+     9: redirect-out           caller
+    10: redirect-err           caller
+    11: call                   decl "run", %0
+    12: return                 %0
+=== accept/calls/short-flag-batch.nu
+shape shape_internalcall 0..2 "ls"
+shape shape_flag 3..6 "-al"
+shape shape_flag 3..6 "-al"
+ir main
+  # 1 register, 6 instructions, 7 bytes of data
+     0: push-flag              "all"
+     1: push-flag              "long"
+     2: redirect-out           caller
+     3: redirect-err           caller
+     4: call                   decl "ls", %0
+     5: return                 %0
+=== accept/calls/short-flags.nu
+shape shape_internalcall 0..2 "ls"
+shape shape_flag 3..5 "-a"
+shape shape_flag 6..8 "-l"
+ir main
+  # 1 register, 6 instructions, 7 bytes of data
+     0: push-flag              "all"
+     1: push-flag              "long"
+     2: redirect-out           caller
+     3: redirect-err           caller
+     4: call                   decl "ls", %0
+     5: return                 %0
+=== accept/calls/source-env-null.nu
+shape shape_internalcall 0..10 "source-env"
+shape shape_nothing 11..15 "null"
+ir main
+  # 2 registers, 7 instructions, 4 bytes of data
+     0: load-literal           %1, nothing
+     1: push-positional        %1
+     2: push-parser-info       "noop", Expression { expr: Nothing, span: Span(UNKNOWN), span_id: SpanId(0), ty: Nothing }
+     3: redirect-out           caller
+     4: redirect-err           caller
+     5: call                   decl "source-env", %0
+     6: return                 %0
+=== accept/calls/spread-args.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..17 "[...rest]"
+shape shape_closure 18..20 "{ "
+shape shape_variable 20..25 "$rest"
+shape shape_closure 25..27 " }"
+shape shape_internalcall 28..31 "let"
+shape shape_vardecl 32..36 "args"
+shape shape_list 39..40 "["
+shape shape_int 40..41 "1"
+shape shape_list 41..42 " "
+shape shape_int 42..43 "2"
+shape shape_list 43..44 "]"
+shape shape_internalcall 45..48 "foo"
+shape shape_operator 49..52 "..."
+shape shape_variable 52..57 "$args"
+shape shape_operator 58..61 "..."
+shape shape_list 61..62 "["
+shape shape_int 62..63 "3"
+shape shape_list 63..64 " "
+shape shape_int 64..65 "4"
+shape shape_list 65..66 "]"
+shape shape_operator 67..70 "..."
+shape shape_block 70..71 "("
+shape shape_int 71..72 "5"
+shape shape_operator 72..74 ".."
+shape shape_int 74..75 "6"
+shape shape_pipe 76..77 "|"
+shape shape_internalcall 78..82 "each"
+shape shape_block 83..85 "{ "
+shape shape_variable 85..88 "$in"
+shape shape_block 88..90 " }"
+shape shape_block 90..91 ")"
+shape shape_int 92..93 "7"
+ir main
+  # 7 registers, 37 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: drain                  %0
+     2: load-literal           %0, empty
+     3: load-literal           %0, empty
+     4: load-literal           %0, list(capacity = 2)
+     5: load-literal           %1, int(1)
+     6: list-push              %0, %1
+     7: load-literal           %1, int(2)
+     8: list-push              %0, %1
+     9: store-variable         var #2 "$args", %0 # let
+    10: load-literal           %0, empty
+    11: drain                  %0
+    12: load-literal           %0, empty
+    13: load-literal           %0, empty
+    14: load-variable          %1, var #2 "$args"
+    15: load-literal           %2, list(capacity = 2)
+    16: load-literal           %3, int(3)
+    17: list-push              %2, %3
+    18: load-literal           %3, int(4)
+    19: list-push              %2, %3
+    20: load-literal           %4, int(5)
+    21: load-literal           %5, nothing
+    22: load-literal           %6, int(6)
+    23: load-literal           %3, range(%4, %5, %6, Inclusive)
+    24: load-literal           %4, closure(#3)
+    25: push-positional        %4
+    26: redirect-out           value
+    27: call                   decl "each", %3
+    28: load-literal           %4, int(7)
+    29: append-rest            %1
+    30: append-rest            %2
+    31: append-rest            %3
+    32: push-positional        %4
+    33: redirect-out           caller
+    34: redirect-err           caller
+    35: call                   decl "foo", %0
+    36: return                 %0
+ir #0
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-variable          %0, var #1
+     1: return                 %0
+ir #3
+  # 2 registers, 6 instructions, 0 bytes of data
+     0: collect                %0
+     1: clone                  %1, %0
+     2: store-variable         var #3, %1
+     3: load-variable          %0, var #3
+     4: drop-variable          var #3
+     5: return                 %0
+=== accept/calls/spread-bare-word-is-positional.nu
+shape shape_internalcall 0..4 "echo"
+shape shape_string 5..11 "...foo"
+shape shape_string 12..15 "..."
+shape shape_string 16..18 ".."
+ir main
+  # 4 registers, 10 instructions, 11 bytes of data
+     0: load-literal           %1, string("...foo")
+     1: load-literal           %2, string("...")
+     2: load-literal           %3, string("..")
+     3: push-positional        %1
+     4: push-positional        %2
+     5: push-positional        %3
+     6: redirect-out           caller
+     7: redirect-err           caller
+     8: call                   decl "echo", %0
+     9: return                 %0
+=== accept/calls/spread-record-args.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..5 "f"
+shape shape_signature 6..25 "[--x: int, ...rest]"
+shape shape_closure 26..28 "{ "
+shape shape_list 28..29 "["
+shape shape_variable 29..31 "$x"
+shape shape_list 31..32 " "
+shape shape_variable 32..37 "$rest"
+shape shape_list 37..38 "]"
+shape shape_closure 38..40 " }"
+shape shape_internalcall 41..42 "f"
+shape shape_operator 43..46 "..."
+shape shape_record 46..47 "{"
+shape shape_string 47..48 "x"
+shape shape_record 48..50 ": "
+shape shape_int 50..51 "1"
+shape shape_record 51..52 "}"
+shape shape_operator 53..56 "..."
+shape shape_record 56..57 "{"
+shape shape_string 57..61 "rest"
+shape shape_record 61..63 ": "
+shape shape_list 63..64 "["
+shape shape_string 64..65 "a"
+shape shape_list 65..66 " "
+shape shape_string 66..67 "b"
+shape shape_list 67..68 "]"
+shape shape_record 68..69 "}"
+ir main
+  # 6 registers, 22 instructions, 7 bytes of data
+     0: load-literal           %0, empty
+     1: drain                  %0
+     2: load-literal           %0, empty
+     3: load-literal           %0, empty
+     4: load-literal           %1, record(capacity = 1)
+     5: load-literal           %2, string("x")
+     6: load-literal           %3, int(1)
+     7: record-insert          %1, %2, %3
+     8: load-literal           %2, record(capacity = 1)
+     9: load-literal           %3, string("rest")
+    10: load-literal           %4, list(capacity = 2)
+    11: load-literal           %5, string("a")
+    12: list-push              %4, %5
+    13: load-literal           %5, string("b")
+    14: list-push              %4, %5
+    15: record-insert          %2, %3, %4
+    16: append-rest            %1
+    17: append-rest            %2
+    18: redirect-out           caller
+    19: redirect-err           caller
+    20: call                   decl "f", %0
+    21: return                 %0
+ir #0
+  # 2 registers, 6 instructions, 0 bytes of data
+     0: load-literal           %0, list(capacity = 2)
+     1: load-variable          %1, var #2
+     2: list-push              %0, %1
+     3: load-variable          %1, var #3
+     4: list-push              %0, %1
+     5: return                 %0
+=== accept/calls/subcommand-user-defined.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..10 "[]"
+shape shape_closure 11..13 "{}"
+shape shape_internalcall 14..17 "def"
+shape shape_string 18..27 "\"foo bar\""
+shape shape_signature 28..30 "[]"
+shape shape_closure 31..32 "{"
+shape shape_int 32..33 "3"
+shape shape_closure 33..34 "}"
+shape shape_internalcall 35..42 "foo bar"
+ir main
+  # 1 register, 12 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: drain                  %0
+     2: load-literal           %0, empty
+     3: load-literal           %0, empty
+     4: load-literal           %0, empty
+     5: drain                  %0
+     6: load-literal           %0, empty
+     7: load-literal           %0, empty
+     8: redirect-out           caller
+     9: redirect-err           caller
+    10: call                   decl "foo bar", %0
+    11: return                 %0
+ir #0
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+ir #1
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, int(3)
+     1: return                 %0
+=== accept/calls/three-word-command.nu
+shape shape_list 0..1 "["
+shape shape_int 1..2 "1"
+shape shape_list 2..3 " "
+shape shape_int 3..4 "2"
+shape shape_list 4..5 "]"
+shape shape_pipe 6..7 "|"
+shape shape_internalcall 8..16 "math sum"
+ir main
+  # 2 registers, 9 instructions, 0 bytes of data
+     0: load-literal           %0, list(capacity = 2)
+     1: load-literal           %1, int(1)
+     2: list-push              %0, %1
+     3: load-literal           %1, int(2)
+     4: list-push              %0, %1
+     5: redirect-out           caller
+     6: redirect-err           caller
+     7: call                   decl "math sum", %0
+     8: return                 %0
+=== accept/calls/user-defined-later-in-file.nu
+shape shape_internalcall 0..5 "later"
+shape shape_int 6..7 "1"
+shape shape_internalcall 8..11 "def"
+shape shape_string 12..17 "later"
+shape shape_signature 18..21 "[x]"
+shape shape_closure 22..24 "{ "
+shape shape_variable 24..26 "$x"
+shape shape_closure 26..28 " }"
+ir main
+  # 2 registers, 8 instructions, 0 bytes of data
+     0: load-literal           %1, int(1)
+     1: push-positional        %1
+     2: call                   decl "later", %0
+     3: drain                  %0
+     4: load-literal           %0, empty
+     5: load-literal           %0, empty
+     6: load-literal           %0, empty
+     7: return                 %0
+ir #0
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-variable          %0, var #1
+     1: return                 %0
+=== accept/calls/user-defined-multiword-backtick.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..12 "`my cmd`"
+shape shape_signature 13..16 "[x]"
+shape shape_closure 17..19 "{ "
+shape shape_variable 19..21 "$x"
+shape shape_closure 21..23 " }"
+shape shape_internalcall 24..30 "my cmd"
+shape shape_int 31..32 "1"
+ir main
+  # 2 registers, 10 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: drain                  %0
+     2: load-literal           %0, empty
+     3: load-literal           %0, empty
+     4: load-literal           %1, int(1)
+     5: push-positional        %1
+     6: redirect-out           caller
+     7: redirect-err           caller
+     8: call                   decl "my cmd", %0
+     9: return                 %0
+ir #0
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-variable          %0, var #1
+     1: return                 %0
+=== accept/calls/user-defined-multiword-quoted-single.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..12 "'my cmd'"
+shape shape_signature 13..16 "[x]"
+shape shape_closure 17..19 "{ "
+shape shape_variable 19..21 "$x"
+shape shape_closure 21..23 " }"
+shape shape_internalcall 24..30 "my cmd"
+shape shape_int 31..32 "1"
+ir main
+  # 2 registers, 10 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: drain                  %0
+     2: load-literal           %0, empty
+     3: load-literal           %0, empty
+     4: load-literal           %1, int(1)
+     5: push-positional        %1
+     6: redirect-out           caller
+     7: redirect-err           caller
+     8: call                   decl "my cmd", %0
+     9: return                 %0
+ir #0
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-variable          %0, var #1
+     1: return                 %0

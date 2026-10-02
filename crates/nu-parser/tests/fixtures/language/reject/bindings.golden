@@ -1,0 +1,275 @@
+=== reject/bindings/const-missing-colon.nu
+shape shape_internalcall 0..5 "const"
+shape shape_vardecl 6..7 "a"
+shape shape_string 17..20 "'x'"
+error nu::parser::extra_tokens: Extra tokens in code.
+  label 8..14 "string": extra tokens
+  help: Remove the unexpected tokens, or check for a missing operator, delimiter, or newline above.
+=== reject/bindings/const-no-name.nu
+shape shape_internalcall 0..5 "const"
+shape shape_garbage 5..6 " "
+shape shape_keyword 6..7 "="
+shape shape_int 8..9 "1"
+error nu::parser::missing_positional: Missing required positional argument.
+  label 5..6 " ": missing const_name
+  help: Usage: const <const_name> = <initial_value> . Use `--help` for more information.
+=== reject/bindings/const-without-value.nu
+shape shape_internalcall 0..5 "const"
+shape shape_vardecl 6..7 "x"
+error nu::parser::missing_positional: Missing required positional argument.
+  label 7..7 "": missing initial_value
+  help: Usage: const <const_name> = <initial_value> . Use `--help` for more information.
+=== reject/bindings/double-dash-as-name.nu
+shape shape_internalcall 0..3 "let"
+shape shape_garbage 4..6 "--"
+shape shape_int 11..12 "1"
+error nu::parser::parse_mismatch: Parse mismatch: expected valid variable name.
+  label 4..6 "--": expected valid variable name
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+error nu::parser::extra_tokens: Extra tokens in code.
+  label 7..8 "x": extra tokens
+  help: Remove the unexpected tokens, or check for a missing operator, delimiter, or newline above.
+=== reject/bindings/export-const-without-value.nu
+shape shape_internalcall 0..12 "export const"
+shape shape_vardecl 13..14 "x"
+error nu::parser::missing_positional: Missing required positional argument.
+  label 14..14 "": missing initial_value
+  help: Usage: const <const_name> = <initial_value> . Use `--help` for more information.
+=== reject/bindings/let-ans.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..7 "ans"
+shape shape_int 10..11 "1"
+error nu::parser::name_is_builtin_var: `ans` used as variable name.
+  label 4..7 "ans": already a builtin variable
+  help: 'ans' is the name of a builtin Nushell variable and cannot be used as a variable name
+=== reject/bindings/let-colon-attached-to-type.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..5 "b"
+shape shape_int 13..14 "2"
+error nu::parser::extra_tokens: Extra tokens in code.
+  label 6..10 ":int": extra tokens
+  help: Remove the unexpected tokens, or check for a missing operator, delimiter, or newline above.
+=== reject/bindings/let-colon-no-type.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..6 "a:"
+shape shape_int 9..10 "1"
+error nu::parser::missing_type: Missing type.
+  label 4..6 "a:": expected type
+=== reject/bindings/let-colon-then-nothing.nu
+shape shape_internalcall 0..5 "const"
+shape shape_vardecl 6..8 "x:"
+shape shape_garbage 9..12 "int"
+shape shape_keyword 9..12 "int"
+error nu::parser::missing_type: Missing type.
+  label 6..8 "x:": expected type
+error nu::parser::expected_keyword: Expected keyword.
+  label 9..12 "int": expected =
+error nu::parser::keyword_missing_arg: Missing argument to `=`.
+  label 12..12 "": missing variable value that follows =
+=== reject/bindings/let-completer-in-type.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..5 "x"
+shape shape_int 23..25 "42"
+error : Unexpected custom completer in type spec
+  label 7..20 "int@completer": Type specifications do not support custom completers
+error nu::parser::unknown_type: Unknown type.
+  label 7..20 "int@completer": unknown type
+=== reject/bindings/let-compound-operator.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..5 "x"
+shape shape_keyword 6..8 "+="
+shape shape_int 9..10 "1"
+error nu::parser::expected_keyword: Expected keyword.
+  label 6..8 "+=": expected =
+=== reject/bindings/let-dash-name.nu
+shape shape_internalcall 0..3 "let"
+shape shape_garbage 4..12 "$foo-bar"
+shape shape_int 15..16 "4"
+error nu::parser::parse_mismatch: Parse mismatch: expected valid variable name.
+  label 4..12 "$foo-bar": expected valid variable name
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/bindings/let-env.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..7 "env"
+shape shape_int 10..11 "1"
+error nu::parser::name_is_builtin_var: `env` used as variable name.
+  label 4..7 "env": already a builtin variable
+  help: 'env' is the name of a builtin Nushell variable and cannot be used as a variable name
+=== reject/bindings/let-equals-attached-to-type.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..5 "c"
+error nu::parser::unknown_type: Unknown type.
+  label 7..11 "int=": unknown type
+=== reject/bindings/let-equals-name.nu
+shape shape_internalcall 0..3 "let"
+shape shape_garbage 4..9 "$=foo"
+shape shape_int 12..13 "4"
+error nu::parser::parse_mismatch: Parse mismatch: expected valid variable name.
+  label 4..9 "$=foo": expected valid variable name
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/bindings/let-in.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..6 "in"
+shape shape_int 9..10 "1"
+error nu::parser::name_is_builtin_var: `in` used as variable name.
+  label 4..6 "in": already a builtin variable
+  help: 'in' is the name of a builtin Nushell variable and cannot be used as a variable name
+=== reject/bindings/let-missing-colon.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..5 "a"
+shape shape_int 12..13 "1"
+error nu::parser::extra_tokens: Extra tokens in code.
+  label 6..9 "int": extra tokens
+  help: Remove the unexpected tokens, or check for a missing operator, delimiter, or newline above.
+=== reject/bindings/let-missing-value.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..5 "x"
+shape shape_garbage 6..7 "="
+shape shape_keyword 6..7 "="
+error nu::parser::keyword_missing_arg: Missing argument to `=`.
+  label 7..7 "": missing variable value that follows =
+=== reject/bindings/let-no-name-if.nu
+shape shape_internalcall 0..3 "let"
+shape shape_garbage 3..4 " "
+shape shape_keyword 4..5 "="
+shape shape_internalcall 6..8 "if"
+shape shape_garbage 9..10 "$"
+error nu::parser::missing_positional: Missing required positional argument.
+  label 3..4 " ": missing var_name
+  help: Usage: let <var_name> (= <initial_value>) . Use `--help` for more information.
+error : Incomplete variable
+  label 9..10 "$": expected a variable name after `$`
+  help: Variable names must be attached to `$` with no space (e.g. `$env`, `$in`). Did you mean `$env`?
+error nu::parser::missing_positional: Missing required positional argument.
+  label 10..10 "": missing then_block
+  help: Usage: if <cond> <then_block> (else <else_expression>) . Use `--help` for more information.
+=== reject/bindings/let-no-name.nu
+shape shape_internalcall 0..3 "let"
+shape shape_garbage 3..4 " "
+shape shape_keyword 4..5 "="
+shape shape_int 6..7 "1"
+error nu::parser::missing_positional: Missing required positional argument.
+  label 3..4 " ": missing var_name
+  help: Usage: let <var_name> (= <initial_value>) . Use `--help` for more information.
+=== reject/bindings/let-nu.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..6 "nu"
+shape shape_int 9..10 "1"
+error nu::parser::name_is_builtin_var: `nu` used as variable name.
+  label 4..6 "nu": already a builtin variable
+  help: 'nu' is the name of a builtin Nushell variable and cannot be used as a variable name
+=== reject/bindings/let-quoted-name.nu
+shape shape_internalcall 0..3 "let"
+shape shape_garbage 4..14 "$\"foo bar\""
+shape shape_int 17..18 "4"
+error nu::parser::variable_not_valid: Variable name not supported.
+  label 4..14 "$\"foo bar\"": variable name can't contain spaces or quotes
+=== reject/bindings/let-quoted-string-name.nu
+shape shape_internalcall 0..3 "let"
+shape shape_garbage 4..9 "'a b'"
+shape shape_int 12..13 "1"
+error nu::parser::variable_not_valid: Variable name not supported.
+  label 4..9 "'a b'": variable name can't contain spaces or quotes
+=== reject/bindings/let-redirect-before-equals.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..5 "a"
+shape shape_int 16..17 "1"
+error nu::parser::extra_tokens: Extra tokens in code.
+  label 6..8 "o>": extra tokens
+  help: Remove the unexpected tokens, or check for a missing operator, delimiter, or newline above.
+=== reject/bindings/let-semi-open-brace.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..5 "a"
+shape shape_external 8..9 "}"
+error nu::parser::unbalanced_delimiter: Unbalanced delimiter.
+  label 8..9 "}": unexpected `}` (unbalanced with `{`)
+  help: Remove this `}` if it is extra, or add a matching `{` earlier. If you closed a block too early, the real mistake may be above.
+error nu::parser::unbalanced_delimiter: Unbalanced delimiter.
+  label 8..9 "}": unexpected `}` (unbalanced with `{`)
+  help: Remove this `}` if it is extra, or add a matching `{` earlier. If you closed a block too early, the real mistake may be above.
+=== reject/bindings/let-space-before-colon.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..5 "a"
+shape shape_int 14..15 "1"
+error nu::parser::extra_tokens: Extra tokens in code.
+  label 6..7 ":": extra tokens
+  help: Remove the unexpected tokens, or check for a missing operator, delimiter, or newline above.
+=== reject/bindings/let-type-stray-bracket.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..5 "x"
+shape shape_record 36..38 "{}"
+error nu::parser::unbalanced_delimiter: Unbalanced delimiter.
+  label 23..24 "]": unexpected `]` (unbalanced with `<`)
+  help: Remove this `]` if it is extra, or add a matching `<` earlier. If you closed a block too early, the real mistake may be above.
+=== reject/bindings/let-unclosed-generic.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..5 "a"
+shape shape_record 41..42 "{"
+shape shape_string 42..43 "a"
+shape shape_record 43..45 ": "
+shape shape_int 45..46 "1"
+shape shape_record 46..47 " "
+shape shape_string 47..48 "b"
+shape shape_record 48..50 ": "
+shape shape_record 50..51 "{"
+shape shape_string 51..52 "a"
+shape shape_record 52..54 ": "
+shape shape_int 54..55 "1"
+shape shape_record 55..56 "}"
+shape shape_record 56..57 "}"
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 13..14 "<": unclosed — opens here (need `>`)
+  label 37..38 ">": expected `>` here
+  help: Add a matching `>` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 30..31 "<": unclosed — opens here (need `>`)
+  label 36..37 "t": expected `>` here
+  help: Add a matching `>` to close record field `b`, or check that an earlier closer closed the wrong block.
+=== reject/bindings/let-unknown-type.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..5 "a"
+shape shape_list 26..28 "[]"
+error nu::parser::unknown_type: Unknown type.
+  label 19..22 "asd": unknown type
+error : expected a single type parameter
+  label 12..22 "string asd": only one parameter allowed
+=== reject/bindings/mut-missing-colon.nu
+shape shape_internalcall 0..3 "mut"
+shape shape_vardecl 4..5 "a"
+shape shape_record 30..31 "{"
+shape shape_string 31..32 "a"
+shape shape_record 32..34 ": "
+shape shape_int 34..35 "1"
+shape shape_record 35..36 " "
+shape shape_string 36..37 "b"
+shape shape_record 37..39 ": "
+shape shape_int 39..40 "1"
+shape shape_record 40..41 "}"
+error nu::parser::extra_tokens: Extra tokens in code.
+  label 6..15 "record<a:": extra tokens
+  help: Remove the unexpected tokens, or check for a missing operator, delimiter, or newline above.
+=== reject/bindings/mut-no-name.nu
+shape shape_internalcall 0..3 "mut"
+shape shape_garbage 3..4 " "
+shape shape_keyword 4..5 "="
+shape shape_int 6..7 "1"
+error nu::parser::missing_positional: Missing required positional argument.
+  label 3..4 " ": missing var_name
+  help: Usage: mut <var_name> = <initial_value> . Use `--help` for more information.
+=== reject/bindings/mut-semi-open-brace-pipe.nu
+shape shape_internalcall 0..3 "mut"
+shape shape_vardecl 4..5 "a"
+shape shape_garbage 8..9 "|"
+shape shape_external 10..11 "}"
+error nu::parser::unbalanced_delimiter: Unbalanced delimiter.
+  label 10..11 "}": unexpected `}` (unbalanced with `{`)
+  help: Remove this `}` if it is extra, or add a matching `{` earlier. If you closed a block too early, the real mistake may be above.
+error nu::parser::unbalanced_delimiter: Unbalanced delimiter.
+  label 10..11 "}": unexpected `}` (unbalanced with `{`)
+  help: Remove this `}` if it is extra, or add a matching `{` earlier. If you closed a block too early, the real mistake may be above.
+=== reject/bindings/mut-without-value.nu
+shape shape_internalcall 0..3 "mut"
+shape shape_vardecl 4..5 "x"
+error nu::parser::missing_positional: Missing required positional argument.
+  label 5..5 "": missing initial_value
+  help: Usage: mut <var_name> = <initial_value> . Use `--help` for more information.

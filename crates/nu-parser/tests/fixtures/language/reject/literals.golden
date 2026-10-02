@@ -1,0 +1,78 @@
+=== reject/literals/binary-invalid-bit.nu
+shape shape_garbage 0..6 "0b[12]"
+error nu::parser::invalid_binary_string: Invalid binary string.
+  label 0..6 "0b[12]": invalid binary string
+  help: binary strings may contain only 0 or 1.
+=== reject/literals/binary-invalid-hex-digit.nu
+shape shape_garbage 0..6 "0x[zz]"
+error nu::parser::invalid_binary_string: Invalid binary string.
+  label 0..6 "0x[zz]": invalid binary string
+  help: hexadecimal strings may contain only the characters 0–9 and A–F.
+=== reject/literals/binary-invalid-octal-digit.nu
+shape shape_garbage 0..6 "0o[90]"
+error nu::parser::invalid_binary_string: Invalid binary string.
+  label 0..6 "0o[90]": invalid binary string
+  help: octal strings must have a length that is a multiple of three and contain values between 0o000 and 0o377.
+=== reject/literals/binary-octal-overflow.nu
+shape shape_garbage 0..7 "0o[777]"
+error nu::parser::invalid_binary_string: Invalid binary string.
+  label 0..7 "0o[777]": invalid binary string
+  help: octal strings must have a length that is a multiple of three and contain values between 0o000 and 0o377.
+=== reject/literals/binary-with-pipe-as-argument.nu
+shape shape_internalcall 0..4 "echo"
+shape shape_garbage 5..12 "0b[1|2]"
+error : Invalid literal
+  label 5..12 "0b[1|2]": invalid digits for radix 2 in int
+=== reject/literals/duration-faulty-number.nu
+shape shape_internalcall 0..5 "sleep"
+shape shape_garbage 6..10 "4-ms"
+error : duration value must be a number
+  label 6..8 "4-": not a number
+=== reject/literals/filesize-bad-number-word.nu
+shape shape_internalcall 0..4 "echo"
+shape shape_garbage 5..10 "42m_b"
+error : filesize value must be a number
+  label 5..9 "42m_": not a number
+=== reject/literals/int-binary-invalid-digit-word.nu
+shape shape_internalcall 0..4 "echo"
+shape shape_garbage 5..8 "0b2"
+error : Invalid literal
+  label 5..8 "0b2": invalid digits for radix 2 in int
+=== reject/literals/int-binary-invalid-digits-in-math.nu
+shape shape_int 0..1 "0"
+shape shape_operator 2..3 "+"
+shape shape_garbage 4..7 "0b2"
+error : Invalid literal
+  label 4..7 "0b2": invalid digits for radix 2 in int
+=== reject/literals/int-hex-invalid-digits-in-math.nu
+shape shape_int 0..1 "0"
+shape shape_operator 2..3 "+"
+shape shape_garbage 4..9 "0x0aq"
+error : Invalid literal
+  label 4..9 "0x0aq": invalid digits for radix 16 in int
+=== reject/literals/int-octal-truncated-in-math.nu
+shape shape_int 0..1 "0"
+shape shape_operator 2..3 "+"
+shape shape_garbage 4..6 "0o"
+error : Invalid literal
+  label 4..6 "0o": invalid digits for radix 8 in int
+=== reject/literals/int-prefix-without-digits.nu
+shape shape_internalcall 0..4 "echo"
+shape shape_garbage 5..7 "0x"
+error : Invalid literal
+  label 5..7 "0x": invalid digits for radix 16 in int
+=== reject/literals/radix-prefix-bracket-then-word.nu
+shape shape_internalcall 0..4 "echo"
+shape shape_garbage 5..14 "0x[13]abc"
+error : Invalid literal
+  label 5..14 "0x[13]abc": invalid digits for radix 16 in int
+=== reject/literals/radix-prefix-with-bracket-tail.nu
+shape shape_internalcall 0..4 "echo"
+shape shape_garbage 5..12 "0x[13]="
+error : Invalid literal
+  label 5..12 "0x[13]=": invalid digits for radix 16 in int
+=== reject/literals/unit-with-range-value.nu
+shape shape_internalcall 0..4 "echo"
+shape shape_garbage 5..12 "1..2sec"
+error : duration value must be a number
+  label 5..9 "1..2": not a number

@@ -1,0 +1,163 @@
+=== reject/operators/ampersand.nu
+shape shape_int 0..1 "1"
+shape shape_garbage 2..3 "&"
+shape shape_int 4..5 "2"
+error nu::parser::unknown_operator: Unknown operator
+  label 2..3 "&": Operator '&' not supported
+  help: Did you mean 'bit-and'?
+error nu::parser::incomplete_math_expression: Incomplete math expression.
+  label 2..3 "&": incomplete math expression
+=== reject/operators/bang.nu
+shape shape_bool 0..4 "true"
+shape shape_garbage 5..6 "!"
+shape shape_bool 7..12 "false"
+error nu::parser::parse_mismatch: Parse mismatch: expected operator.
+  label 5..6 "!": expected operator
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+error nu::parser::incomplete_math_expression: Incomplete math expression.
+  label 5..6 "!": incomplete math expression
+=== reject/operators/bits-and.nu
+shape shape_int 0..1 "1"
+shape shape_garbage 2..10 "bits-and"
+shape shape_int 11..12 "2"
+error nu::parser::unknown_operator: Unknown operator
+  label 2..10 "bits-and": Operator 'bits-and' not supported
+  help: Did you mean 'bit-and'?
+error nu::parser::incomplete_math_expression: Incomplete math expression.
+  label 2..10 "bits-and": incomplete math expression
+=== reject/operators/caret.nu
+shape shape_int 0..1 "1"
+shape shape_garbage 2..3 "^"
+shape shape_int 4..5 "2"
+error nu::parser::unknown_operator: Unknown operator
+  label 2..3 "^": Operator '^' not supported
+  help: Use '**' for exponentiation or 'bit-xor' for bitwise XOR.
+error nu::parser::incomplete_math_expression: Incomplete math expression.
+  label 2..3 "^": incomplete math expression
+=== reject/operators/contains.nu
+shape shape_list 0..1 "["
+shape shape_int 1..2 "1"
+shape shape_list 2..3 "]"
+shape shape_garbage 4..12 "contains"
+shape shape_int 13..14 "1"
+error nu::parser::unknown_operator: Unknown operator
+  label 4..12 "contains": Operator 'contains' not supported
+  help: Did you mean 'has'?
+error nu::parser::incomplete_math_expression: Incomplete math expression.
+  label 4..12 "contains": incomplete math expression
+=== reject/operators/incomplete.nu
+shape shape_int 0..1 "1"
+shape shape_garbage 2..3 "+"
+shape shape_garbage 3..3 ""
+error nu::parser::incomplete_math_expression: Incomplete math expression.
+  label 2..3 "+": incomplete math expression
+error nu::parser::incomplete_math_expression: Incomplete math expression.
+  label 2..3 "+": incomplete math expression
+=== reject/operators/is.nu
+shape shape_int 0..1 "1"
+shape shape_garbage 2..4 "is"
+shape shape_int 5..6 "2"
+error nu::parser::unknown_operator: Unknown operator
+  label 2..4 "is": Operator 'is' not supported
+  help: Did you mean '=='?
+error nu::parser::incomplete_math_expression: Incomplete math expression.
+  label 2..4 "is": incomplete math expression
+=== reject/operators/missing-operator.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..5 "x"
+shape shape_int 8..9 "1"
+shape shape_variable 10..12 "$x"
+shape shape_garbage 13..16 "foo"
+shape shape_garbage 16..16 ""
+error nu::parser::parse_mismatch: Parse mismatch: expected operator.
+  label 13..16 "foo": expected operator
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+error nu::parser::incomplete_math_expression: Incomplete math expression.
+  label 13..16 "foo": incomplete math expression
+error nu::parser::incomplete_math_expression: Incomplete math expression.
+  label 13..16 "foo": incomplete math expression
+=== reject/operators/negative-number-after-operand.nu
+shape shape_block 0..1 "("
+shape shape_int 1..2 "1"
+shape shape_garbage 3..5 "-1"
+shape shape_garbage 5..5 ""
+shape shape_block 5..6 ")"
+error nu::parser::parse_mismatch: Parse mismatch: expected operator.
+  label 3..5 "-1": expected operator
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+error nu::parser::incomplete_math_expression: Incomplete math expression.
+  label 3..5 "-1": incomplete math expression
+error nu::parser::incomplete_math_expression: Incomplete math expression.
+  label 3..5 "-1": incomplete math expression
+=== reject/operators/not-alone.nu
+shape shape_garbage 0..3 "not"
+error nu::parser::parse_mismatch: Parse mismatch: expected expression.
+  label 3..3 "": expected expression
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/operators/percent.nu
+shape shape_int 0..1 "1"
+shape shape_garbage 2..3 "%"
+shape shape_int 4..5 "2"
+error nu::parser::unknown_operator: Unknown operator
+  label 2..3 "%": Operator '%' not supported
+  help: Did you mean 'mod'?
+error nu::parser::incomplete_math_expression: Incomplete math expression.
+  label 2..3 "%": incomplete math expression
+=== reject/operators/pow-word.nu
+shape shape_int 0..1 "1"
+shape shape_garbage 2..5 "pow"
+shape shape_int 6..7 "2"
+error nu::parser::unknown_operator: Unknown operator
+  label 2..5 "pow": Operator 'pow' not supported
+  help: Use '**' for exponentiation or 'bit-xor' for bitwise XOR.
+error nu::parser::incomplete_math_expression: Incomplete math expression.
+  label 2..5 "pow": incomplete math expression
+=== reject/operators/shift.nu
+shape shape_int 0..1 "1"
+shape shape_garbage 2..4 "<<"
+shape shape_int 5..6 "2"
+error nu::parser::unknown_operator: Unknown operator
+  label 2..4 "<<": Operator '<<' not supported
+  help: Did you mean 'bit-shl'?
+error nu::parser::incomplete_math_expression: Incomplete math expression.
+  label 2..4 "<<": incomplete math expression
+=== reject/operators/trailing-operator-after-if.nu
+shape shape_int 0..1 "1"
+shape shape_operator 2..3 "+"
+shape shape_internalcall 4..6 "if"
+shape shape_bool 7..11 "true"
+shape shape_garbage 12..17 "{ 1 }"
+shape shape_garbage 17..17 ""
+shape shape_garbage 18..19 "+"
+error nu::parser::parse_mismatch: Parse mismatch: expected operator.
+  label 12..17 "{ 1 }": expected operator
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+error nu::parser::incomplete_math_expression: Incomplete math expression.
+  label 12..17 "{ 1 }": incomplete math expression
+error nu::parser::incomplete_math_expression: Incomplete math expression.
+  label 12..17 "{ 1 }": incomplete math expression
+error nu::parser::parse_mismatch: Parse mismatch: expected block, closure or record.
+  label 18..19 "+": expected block, closure or record
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/operators/triple-equals.nu
+shape shape_int 0..1 "1"
+shape shape_garbage 2..5 "==="
+shape shape_int 6..7 "2"
+error nu::parser::unknown_operator: Unknown operator
+  label 2..5 "===": Operator '===' not supported
+  help: Did you mean '=='?
+error nu::parser::incomplete_math_expression: Incomplete math expression.
+  label 2..5 "===": incomplete math expression
+=== reject/operators/two-operators.nu
+shape shape_int 0..1 "1"
+shape shape_operator 2..3 "+"
+shape shape_string 4..5 "+"
+shape shape_garbage 6..7 "2"
+shape shape_garbage 7..7 ""
+error nu::parser::parse_mismatch: Parse mismatch: expected operator.
+  label 6..7 "2": expected operator
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+error nu::parser::incomplete_math_expression: Incomplete math expression.
+  label 6..7 "2": incomplete math expression
+error nu::parser::incomplete_math_expression: Incomplete math expression.
+  label 6..7 "2": incomplete math expression

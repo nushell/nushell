@@ -1,0 +1,36 @@
+=== reject/cellpaths/closure-head.nu
+shape shape_closure 0..4 "{|| "
+shape shape_external 4..6 "1}"
+shape shape_externalarg 6..9 ".0?"
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 0..1 "{": unclosed — opens here (need `}`)
+  label 9..9 "": expected `}` here
+  help: Add a matching `}` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unbalanced_delimiter: Unbalanced delimiter.
+  label 5..6 "}": unexpected `}` (unbalanced with `{`)
+  help: Remove this `}` if it is extra, or add a matching `{` earlier. If you closed a block too early, the real mistake may be above.
+=== reject/cellpaths/member-is-paren.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..5 "x"
+shape shape_record 8..10 "{}"
+shape shape_variable 12..14 "$x"
+error nu::parser::parse_mismatch: Parse mismatch: expected string.
+  label 15..18 "(a)": expected string
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/cellpaths/member-with-paren.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..5 "x"
+shape shape_record 8..10 "{}"
+shape shape_variable 12..14 "$x"
+error nu::parser::parse_mismatch: Parse mismatch: expected string.
+  label 15..19 "a(b)": expected string
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/cellpaths/optional-then-equals.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..5 "x"
+shape shape_int 8..9 "1"
+shape shape_variable 10..12 "$x"
+shape shape_string 13..14 "a"
+error nu::parser::parse_mismatch: Parse mismatch: expected . or !.
+  label 15..16 "=": expected . or !
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.

@@ -1,0 +1,677 @@
+=== accept/literals/bare-words-look-like-numbers.nu
+shape shape_internalcall 0..4 "echo"
+shape shape_string 5..10 "1.0.1"
+shape shape_string 11..21 "1..2..3..4"
+shape shape_string 22..32 "1_000_d_ay"
+shape shape_string 33..39 ".foons"
+shape shape_string 40..44 "0X10"
+shape shape_string 45..48 "5NS"
+ir main
+  # 7 registers, 16 instructions, 38 bytes of data
+     0: load-literal           %1, string("1.0.1")
+     1: load-literal           %2, string("1..2..3..4")
+     2: load-literal           %3, string("1_000_d_ay")
+     3: load-literal           %4, string(".foons")
+     4: load-literal           %5, string("0X10")
+     5: load-literal           %6, string("5NS")
+     6: push-positional        %1
+     7: push-positional        %2
+     8: push-positional        %3
+     9: push-positional        %4
+    10: push-positional        %5
+    11: push-positional        %6
+    12: redirect-out           caller
+    13: redirect-err           caller
+    14: call                   decl "echo", %0
+    15: return                 %0
+=== accept/literals/binary-bits.nu
+shape shape_list 0..1 "["
+shape shape_binary 1..14 "0b[1010 1000]"
+shape shape_list 14..15 " "
+shape shape_binary 15..21 "0b[10]"
+shape shape_list 21..22 "]"
+ir main
+  # 2 registers, 6 instructions, 2 bytes of data
+     0: load-literal           %0, list(capacity = 2)
+     1: load-literal           %1, binary(0x[a8, 2])
+     2: list-push              %0, %1
+     3: load-literal           %1, binary("\u{2}")
+     4: list-push              %0, %1
+     5: return                 %0
+=== accept/literals/binary-empty.nu
+shape shape_binary 0..4 "0x[]"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, binary("")
+     1: return                 %0
+=== accept/literals/binary-hex-multiline-comments.nu
+shape shape_binary 0..31 "0x[\n  de ad # comment\n  be ef\n]"
+ir main
+  # 1 register, 2 instructions, 4 bytes of data
+     0: load-literal           %0, binary(0x[de, ad, be, ef])
+     1: return                 %0
+=== accept/literals/binary-hex-odd-digits.nu
+shape shape_binary 0..5 "0x[3]"
+ir main
+  # 1 register, 2 instructions, 1 byte of data
+     0: load-literal           %0, binary("\u{3}")
+     1: return                 %0
+=== accept/literals/binary-hex-spaces-commas.nu
+shape shape_binary 0..16 "0x[ff 00, 1a,2b]"
+ir main
+  # 1 register, 2 instructions, 4 bytes of data
+     0: load-literal           %0, binary(0x[ff, 0, 1a, 2b])
+     1: return                 %0
+=== accept/literals/binary-hex.nu
+shape shape_binary 0..6 "0x[13]"
+ir main
+  # 1 register, 2 instructions, 1 byte of data
+     0: load-literal           %0, binary("\u{13}")
+     1: return                 %0
+=== accept/literals/binary-octal.nu
+shape shape_list 0..1 "["
+shape shape_binary 1..8 "0o[250]"
+shape shape_list 8..9 " "
+shape shape_binary 9..14 "0o[2]"
+shape shape_list 14..15 "]"
+ir main
+  # 2 registers, 6 instructions, 2 bytes of data
+     0: load-literal           %0, list(capacity = 2)
+     1: load-literal           %1, binary(0x[a8, 2])
+     2: list-push              %0, %1
+     3: load-literal           %1, binary("\u{2}")
+     4: list-push              %0, %1
+     5: return                 %0
+=== accept/literals/binary-without-closing-bracket-is-word.nu
+shape shape_external 0..7 "0x[13]="
+ir main
+  # 2 registers, 6 instructions, 7 bytes of data
+     0: load-literal           %1, glob-pattern("0x[13]=", no_expand = false)
+     1: push-positional        %1
+     2: redirect-out           caller
+     3: redirect-err           caller
+     4: call                   decl "run-external", %0
+     5: return                 %0
+=== accept/literals/bool-true-false.nu
+shape shape_list 0..1 "["
+shape shape_bool 1..5 "true"
+shape shape_list 5..6 " "
+shape shape_bool 6..11 "false"
+shape shape_list 11..12 "]"
+ir main
+  # 2 registers, 6 instructions, 0 bytes of data
+     0: load-literal           %0, list(capacity = 2)
+     1: load-literal           %1, bool(true)
+     2: list-push              %0, %1
+     3: load-literal           %1, bool(false)
+     4: list-push              %0, %1
+     5: return                 %0
+=== accept/literals/datetime-date.nu
+shape shape_datetime 0..10 "2024-01-02"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, date(2024-01-02 00:00:00 +00:00)
+     1: return                 %0
+=== accept/literals/datetime-fraction-utc.nu
+shape shape_datetime 0..24 "2024-01-02T03:04:05.123Z"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, date(2024-01-02 03:04:05.123 +00:00)
+     1: return                 %0
+=== accept/literals/datetime-in-record.nu
+shape shape_record 0..2 "{ "
+shape shape_string 2..3 "a"
+shape shape_record 3..5 ": "
+shape shape_datetime 5..40 "2024-07-23T22:54:54.532100627+02:00"
+shape shape_record 40..41 " "
+shape shape_string 41..42 "b"
+shape shape_record 42..43 ":"
+shape shape_string 43..45 "xy"
+shape shape_record 45..47 " }"
+ir main
+  # 3 registers, 8 instructions, 4 bytes of data
+     0: load-literal           %0, record(capacity = 2)
+     1: load-literal           %1, string("a")
+     2: load-literal           %2, date(2024-07-23 22:54:54.532100627 +02:00)
+     3: record-insert          %0, %1, %2
+     4: load-literal           %1, string("b")
+     5: load-literal           %2, string("xy")
+     6: record-insert          %0, %1, %2
+     7: return                 %0
+=== accept/literals/datetime-leap-day.nu
+shape shape_internalcall 0..4 "echo"
+shape shape_datetime 5..15 "2024-02-29"
+ir main
+  # 2 registers, 6 instructions, 0 bytes of data
+     0: load-literal           %1, date(2024-02-29 00:00:00 +00:00)
+     1: push-positional        %1
+     2: redirect-out           caller
+     3: redirect-err           caller
+     4: call                   decl "echo", %0
+     5: return                 %0
+=== accept/literals/datetime-leap-second.nu
+shape shape_internalcall 0..4 "echo"
+shape shape_datetime 5..24 "2024-01-02T23:59:60"
+ir main
+  # 2 registers, 6 instructions, 0 bytes of data
+     0: load-literal           %1, date(2024-01-02 23:59:60 +00:00)
+     1: push-positional        %1
+     2: redirect-out           caller
+     3: redirect-err           caller
+     4: call                   decl "echo", %0
+     5: return                 %0
+=== accept/literals/datetime-long-fraction.nu
+shape shape_internalcall 0..4 "echo"
+shape shape_datetime 5..35 "2024-01-02T03:04:05.1234567890"
+ir main
+  # 2 registers, 6 instructions, 0 bytes of data
+     0: load-literal           %1, date(2024-01-02 03:04:05.123456789 +00:00)
+     1: push-positional        %1
+     2: redirect-out           caller
+     3: redirect-err           caller
+     4: call                   decl "echo", %0
+     5: return                 %0
+=== accept/literals/datetime-lowercase-t-and-z.nu
+shape shape_internalcall 0..4 "echo"
+shape shape_datetime 5..25 "2024-01-02t03:04:05z"
+ir main
+  # 2 registers, 6 instructions, 0 bytes of data
+     0: load-literal           %1, date(2024-01-02 03:04:05 +00:00)
+     1: push-positional        %1
+     2: redirect-out           caller
+     3: redirect-err           caller
+     4: call                   decl "echo", %0
+     5: return                 %0
+=== accept/literals/datetime-offset.nu
+shape shape_list 0..1 "["
+shape shape_datetime 1..26 "2024-01-02T03:04:05+05:30"
+shape shape_list 26..27 " "
+shape shape_datetime 27..62 "2024-07-23T22:54:54.532100627+02:00"
+shape shape_list 62..63 " "
+shape shape_datetime 63..73 "2022-09-10"
+shape shape_list 73..74 " "
+shape shape_datetime 74..94 "2024-01-02t03:04:05z"
+shape shape_list 94..95 "]"
+ir main
+  # 2 registers, 10 instructions, 0 bytes of data
+     0: load-literal           %0, list(capacity = 4)
+     1: load-literal           %1, date(2024-01-02 03:04:05 +05:30)
+     2: list-push              %0, %1
+     3: load-literal           %1, date(2024-07-23 22:54:54.532100627 +02:00)
+     4: list-push              %0, %1
+     5: load-literal           %1, date(2022-09-10 00:00:00 +00:00)
+     6: list-push              %0, %1
+     7: load-literal           %1, date(2024-01-02 03:04:05 +00:00)
+     8: list-push              %0, %1
+     9: return                 %0
+=== accept/literals/datetime-time.nu
+shape shape_datetime 0..19 "2024-01-02T03:04:05"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, date(2024-01-02 03:04:05 +00:00)
+     1: return                 %0
+=== accept/literals/duration-underscores.nu
+shape shape_int 0..4 "420_"
+shape shape_string 4..7 "min"
+shape shape_operator 8..9 "+"
+shape shape_int 10..19 "1_000_000"
+shape shape_string 19..22 "sec"
+ir main
+  # 2 registers, 5 instructions, 0 bytes of data
+     0: load-literal           %0, duration(25200000000000ns)
+     1: load-literal           %1, duration(1000000000000000ns)
+     2: binary-op              %0, Math(Add), %1
+     3: span                   %0
+     4: return                 %0
+=== accept/literals/duration-units.nu
+shape shape_list 0..1 "["
+shape shape_int 1..2 "1"
+shape shape_string 2..4 "ns"
+shape shape_list 4..5 " "
+shape shape_int 5..6 "1"
+shape shape_string 6..8 "us"
+shape shape_list 8..9 " "
+shape shape_int 9..10 "1"
+shape shape_string 10..13 "µs"
+shape shape_list 13..14 " "
+shape shape_int 14..15 "1"
+shape shape_string 15..18 "μs"
+shape shape_list 18..19 " "
+shape shape_int 19..20 "1"
+shape shape_string 20..22 "ms"
+shape shape_list 22..23 " "
+shape shape_int 23..24 "1"
+shape shape_string 24..27 "sec"
+shape shape_list 27..28 " "
+shape shape_int 28..29 "1"
+shape shape_string 29..32 "min"
+shape shape_list 32..33 " "
+shape shape_int 33..34 "1"
+shape shape_string 34..36 "hr"
+shape shape_list 36..37 " "
+shape shape_int 37..38 "1"
+shape shape_string 38..41 "day"
+shape shape_list 41..42 " "
+shape shape_int 42..43 "1"
+shape shape_string 43..45 "wk"
+shape shape_list 45..46 " "
+shape shape_int 46..49 "2.5"
+shape shape_string 49..51 "hr"
+shape shape_list 51..52 " "
+shape shape_int 52..54 ".6"
+shape shape_string 54..57 "min"
+shape shape_list 57..58 " "
+shape shape_int 58..60 "-3"
+shape shape_string 60..63 "sec"
+shape shape_list 63..64 "]"
+ir main
+  # 2 registers, 28 instructions, 0 bytes of data
+     0: load-literal           %0, list(capacity = 13)
+     1: load-literal           %1, duration(1ns)
+     2: list-push              %0, %1
+     3: load-literal           %1, duration(1000ns)
+     4: list-push              %0, %1
+     5: load-literal           %1, duration(1000ns)
+     6: list-push              %0, %1
+     7: load-literal           %1, duration(1000ns)
+     8: list-push              %0, %1
+     9: load-literal           %1, duration(1000000ns)
+    10: list-push              %0, %1
+    11: load-literal           %1, duration(1000000000ns)
+    12: list-push              %0, %1
+    13: load-literal           %1, duration(60000000000ns)
+    14: list-push              %0, %1
+    15: load-literal           %1, duration(3600000000000ns)
+    16: list-push              %0, %1
+    17: load-literal           %1, duration(86400000000000ns)
+    18: list-push              %0, %1
+    19: load-literal           %1, duration(604800000000000ns)
+    20: list-push              %0, %1
+    21: load-literal           %1, duration(9000000000000ns)
+    22: list-push              %0, %1
+    23: load-literal           %1, duration(36000000000ns)
+    24: list-push              %0, %1
+    25: load-literal           %1, duration(-3000000000ns)
+    26: list-push              %0, %1
+    27: return                 %0
+=== accept/literals/duration-uppercase-unit-is-word.nu
+shape shape_internalcall 0..4 "echo"
+shape shape_string 5..8 "5NS"
+ir main
+  # 2 registers, 6 instructions, 3 bytes of data
+     0: load-literal           %1, string("5NS")
+     1: push-positional        %1
+     2: redirect-out           caller
+     3: redirect-err           caller
+     4: call                   decl "echo", %0
+     5: return                 %0
+=== accept/literals/filesize-like-with-dollar-is-string.nu
+shape shape_internalcall 0..4 "echo"
+shape shape_string 5..11 "42m$_b"
+ir main
+  # 2 registers, 6 instructions, 6 bytes of data
+     0: load-literal           %1, string("42m$_b")
+     1: push-positional        %1
+     2: redirect-out           caller
+     3: redirect-err           caller
+     4: call                   decl "echo", %0
+     5: return                 %0
+=== accept/literals/filesize-negative.nu
+shape shape_int 0..2 "-1"
+shape shape_string 2..4 "kb"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, filesize(-1 kBb)
+     1: return                 %0
+=== accept/literals/filesize-underscores.nu
+shape shape_int 0..4 "420_"
+shape shape_string 4..6 "MB"
+shape shape_operator 7..8 "+"
+shape shape_int 9..18 "1_000_000"
+shape shape_string 18..19 "B"
+ir main
+  # 2 registers, 5 instructions, 0 bytes of data
+     0: load-literal           %0, filesize(420 MBb)
+     1: load-literal           %1, filesize(1 MBb)
+     2: binary-op              %0, Math(Add), %1
+     3: span                   %0
+     4: return                 %0
+=== accept/literals/filesize-units.nu
+shape shape_list 0..1 "["
+shape shape_int 1..2 "1"
+shape shape_string 2..3 "b"
+shape shape_list 3..4 " "
+shape shape_int 4..5 "1"
+shape shape_string 5..6 "B"
+shape shape_list 6..7 " "
+shape shape_int 7..8 "1"
+shape shape_string 8..10 "kb"
+shape shape_list 10..11 " "
+shape shape_int 11..12 "1"
+shape shape_string 12..14 "KB"
+shape shape_list 14..15 " "
+shape shape_int 15..16 "1"
+shape shape_string 16..18 "kB"
+shape shape_list 18..19 " "
+shape shape_int 19..20 "1"
+shape shape_string 20..22 "Kb"
+shape shape_list 22..23 " "
+shape shape_int 23..24 "1"
+shape shape_string 24..26 "mb"
+shape shape_list 26..27 " "
+shape shape_int 27..28 "1"
+shape shape_string 28..30 "gb"
+shape shape_list 30..31 " "
+shape shape_int 31..32 "1"
+shape shape_string 32..34 "tb"
+shape shape_list 34..35 " "
+shape shape_int 35..36 "1"
+shape shape_string 36..38 "pb"
+shape shape_list 38..39 " "
+shape shape_int 39..40 "1"
+shape shape_string 40..42 "eb"
+shape shape_list 42..43 " "
+shape shape_int 43..44 "1"
+shape shape_string 44..47 "kib"
+shape shape_list 47..48 " "
+shape shape_int 48..49 "1"
+shape shape_string 49..52 "KiB"
+shape shape_list 52..53 " "
+shape shape_int 53..54 "1"
+shape shape_string 54..57 "mib"
+shape shape_list 57..58 " "
+shape shape_int 58..59 "1"
+shape shape_string 59..62 "gib"
+shape shape_list 62..63 " "
+shape shape_int 63..64 "1"
+shape shape_string 64..67 "tib"
+shape shape_list 67..68 " "
+shape shape_int 68..69 "1"
+shape shape_string 69..72 "pib"
+shape shape_list 72..73 " "
+shape shape_int 73..74 "1"
+shape shape_string 74..77 "eib"
+shape shape_list 77..78 " "
+shape shape_int 78..81 "1.5"
+shape shape_string 81..84 "MiB"
+shape shape_list 84..85 " "
+shape shape_int 85..93 "95307.27"
+shape shape_string 93..96 "MiB"
+shape shape_list 96..97 "]"
+ir main
+  # 2 registers, 42 instructions, 0 bytes of data
+     0: load-literal           %0, list(capacity = 20)
+     1: load-literal           %1, filesize(1 Bb)
+     2: list-push              %0, %1
+     3: load-literal           %1, filesize(1 Bb)
+     4: list-push              %0, %1
+     5: load-literal           %1, filesize(1 kBb)
+     6: list-push              %0, %1
+     7: load-literal           %1, filesize(1 kBb)
+     8: list-push              %0, %1
+     9: load-literal           %1, filesize(1 kBb)
+    10: list-push              %0, %1
+    11: load-literal           %1, filesize(1 kBb)
+    12: list-push              %0, %1
+    13: load-literal           %1, filesize(1 MBb)
+    14: list-push              %0, %1
+    15: load-literal           %1, filesize(1 GBb)
+    16: list-push              %0, %1
+    17: load-literal           %1, filesize(1 TBb)
+    18: list-push              %0, %1
+    19: load-literal           %1, filesize(1 PBb)
+    20: list-push              %0, %1
+    21: load-literal           %1, filesize(1 EBb)
+    22: list-push              %0, %1
+    23: load-literal           %1, filesize(1.024 kBb)
+    24: list-push              %0, %1
+    25: load-literal           %1, filesize(1.024 kBb)
+    26: list-push              %0, %1
+    27: load-literal           %1, filesize(1.048576 MBb)
+    28: list-push              %0, %1
+    29: load-literal           %1, filesize(1.073741824 GBb)
+    30: list-push              %0, %1
+    31: load-literal           %1, filesize(1.099511627776 TBb)
+    32: list-push              %0, %1
+    33: load-literal           %1, filesize(1.125899906842624 PBb)
+    34: list-push              %0, %1
+    35: load-literal           %1, filesize(1.152921504606846976 EBb)
+    36: list-push              %0, %1
+    37: load-literal           %1, filesize(1.572864 MBb)
+    38: list-push              %0, %1
+    39: load-literal           %1, filesize(99.936915947 GBb)
+    40: list-push              %0, %1
+    41: return                 %0
+=== accept/literals/float-exponent.nu
+shape shape_float 0..4 "3e10"
+shape shape_operator 5..6 "+"
+shape shape_float 7..11 "1E-3"
+shape shape_operator 12..13 "+"
+shape shape_float 14..20 "2.5e+2"
+ir main
+  # 2 registers, 8 instructions, 0 bytes of data
+     0: load-literal           %0, float(30000000000.0)
+     1: load-literal           %1, float(0.001)
+     2: binary-op              %0, Math(Add), %1
+     3: span                   %0
+     4: load-literal           %1, float(250.0)
+     5: binary-op              %0, Math(Add), %1
+     6: span                   %0
+     7: return                 %0
+=== accept/literals/float-inf-nan.nu
+shape shape_list 0..1 "["
+shape shape_float 1..4 "inf"
+shape shape_list 4..5 " "
+shape shape_float 5..9 "-inf"
+shape shape_list 9..10 " "
+shape shape_float 10..13 "NaN"
+shape shape_list 13..14 "]"
+ir main
+  # 2 registers, 8 instructions, 0 bytes of data
+     0: load-literal           %0, list(capacity = 3)
+     1: load-literal           %1, float(inf)
+     2: list-push              %0, %1
+     3: load-literal           %1, float(-inf)
+     4: list-push              %0, %1
+     5: load-literal           %1, float(NaN)
+     6: list-push              %0, %1
+     7: return                 %0
+=== accept/literals/float-leading-dot.nu
+shape shape_float 0..2 ".5"
+shape shape_operator 3..4 "+"
+shape shape_float 5..8 "-.5"
+ir main
+  # 2 registers, 5 instructions, 0 bytes of data
+     0: load-literal           %0, float(0.5)
+     1: load-literal           %1, float(-0.5)
+     2: binary-op              %0, Math(Add), %1
+     3: span                   %0
+     4: return                 %0
+=== accept/literals/float-negative.nu
+shape shape_float 0..5 "-41.7"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, float(-41.7)
+     1: return                 %0
+=== accept/literals/float-simple.nu
+shape shape_float 0..3 "1.5"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, float(1.5)
+     1: return                 %0
+=== accept/literals/float-trailing-dot.nu
+shape shape_float 0..2 "5."
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, float(5.0)
+     1: return                 %0
+=== accept/literals/float-underscores.nu
+shape shape_float 0..20 "3.1415_9265_3589_793"
+shape shape_operator 21..22 "*"
+shape shape_int 23..24 "2"
+ir main
+  # 2 registers, 5 instructions, 0 bytes of data
+     0: load-literal           %0, float(3.141592653589793)
+     1: load-literal           %1, int(2)
+     2: binary-op              %0, Math(Multiply), %1
+     3: span                   %0
+     4: return                 %0
+=== accept/literals/int-binary.nu
+shape shape_int 0..6 "0b1010"
+shape shape_operator 7..8 "+"
+shape shape_int 9..29 "0b_10100_11101_10010"
+ir main
+  # 2 registers, 5 instructions, 0 bytes of data
+     0: load-literal           %0, int(10)
+     1: load-literal           %1, int(21426)
+     2: binary-op              %0, Math(Add), %1
+     3: span                   %0
+     4: return                 %0
+=== accept/literals/int-decimal.nu
+shape shape_int 0..2 "42"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, int(42)
+     1: return                 %0
+=== accept/literals/int-hex-full-width-wraps.nu
+shape shape_int 0..18 "0xffffffffffffffff"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, int(-1)
+     1: return                 %0
+=== accept/literals/int-hex-not-filesize.nu
+shape shape_int 0..5 "0x42b"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, int(1067)
+     1: return                 %0
+=== accept/literals/int-hex-underscores.nu
+shape shape_int 0..12 "0x68__9d__6a"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, int(6856042)
+     1: return                 %0
+=== accept/literals/int-hex.nu
+shape shape_int 0..4 "0xff"
+shape shape_operator 5..6 "+"
+shape shape_int 7..13 "0x00e0"
+shape shape_operator 14..15 "+"
+shape shape_int 16..20 "0xFF"
+ir main
+  # 2 registers, 8 instructions, 0 bytes of data
+     0: load-literal           %0, int(255)
+     1: load-literal           %1, int(224)
+     2: binary-op              %0, Math(Add), %1
+     3: span                   %0
+     4: load-literal           %1, int(255)
+     5: binary-op              %0, Math(Add), %1
+     6: span                   %0
+     7: return                 %0
+=== accept/literals/int-max.nu
+shape shape_int 0..19 "9223372036854775807"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, int(9223372036854775807)
+     1: return                 %0
+=== accept/literals/int-min.nu
+shape shape_int 0..20 "-9223372036854775808"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, int(-9223372036854775808)
+     1: return                 %0
+=== accept/literals/int-negative.nu
+shape shape_int 0..3 "-42"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, int(-42)
+     1: return                 %0
+=== accept/literals/int-octal.nu
+shape shape_int 0..4 "0o17"
+shape shape_operator 5..6 "+"
+shape shape_int 7..28 "0o2443_6442_7652_0044"
+ir main
+  # 2 registers, 5 instructions, 0 bytes of data
+     0: load-literal           %0, int(15)
+     1: load-literal           %1, int(90422533333028)
+     2: binary-op              %0, Math(Add), %1
+     3: span                   %0
+     4: return                 %0
+=== accept/literals/int-positive-sign.nu
+shape shape_int 0..2 "+7"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, int(7)
+     1: return                 %0
+=== accept/literals/int-underscores.nu
+shape shape_int 0..16 "1_0000_0000_0000"
+shape shape_operator 17..18 "+"
+shape shape_int 19..21 "10"
+ir main
+  # 2 registers, 5 instructions, 0 bytes of data
+     0: load-literal           %0, int(1000000000000)
+     1: load-literal           %1, int(10)
+     2: binary-op              %0, Math(Add), %1
+     3: span                   %0
+     4: return                 %0
+=== accept/literals/int-zero.nu
+shape shape_int 0..1 "0"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, int(0)
+     1: return                 %0
+=== accept/literals/not-a-datetime-feb-29-common-year.nu
+shape shape_internalcall 0..4 "echo"
+shape shape_string 5..15 "2023-02-29"
+ir main
+  # 2 registers, 6 instructions, 10 bytes of data
+     0: load-literal           %1, string("2023-02-29")
+     1: push-positional        %1
+     2: redirect-out           caller
+     3: redirect-err           caller
+     4: call                   decl "echo", %0
+     5: return                 %0
+=== accept/literals/not-a-datetime-feb-30.nu
+shape shape_internalcall 0..4 "echo"
+shape shape_string 5..15 "2023-02-30"
+ir main
+  # 2 registers, 6 instructions, 10 bytes of data
+     0: load-literal           %1, string("2023-02-30")
+     1: push-positional        %1
+     2: redirect-out           caller
+     3: redirect-err           caller
+     4: call                   decl "echo", %0
+     5: return                 %0
+=== accept/literals/not-a-datetime-offset-24.nu
+shape shape_internalcall 0..4 "echo"
+shape shape_string 5..30 "2024-01-02T03:04:05+24:00"
+ir main
+  # 2 registers, 6 instructions, 25 bytes of data
+     0: load-literal           %1, string("2024-01-02T03:04:05+24:00")
+     1: push-positional        %1
+     2: redirect-out           caller
+     3: redirect-err           caller
+     4: call                   decl "echo", %0
+     5: return                 %0
+=== accept/literals/not-a-datetime-second-61.nu
+shape shape_internalcall 0..4 "echo"
+shape shape_string 5..24 "2024-01-02T23:59:61"
+ir main
+  # 2 registers, 6 instructions, 19 bytes of data
+     0: load-literal           %1, string("2024-01-02T23:59:61")
+     1: push-positional        %1
+     2: redirect-out           caller
+     3: redirect-err           caller
+     4: call                   decl "echo", %0
+     5: return                 %0
+=== accept/literals/null.nu
+shape shape_nothing 0..4 "null"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, nothing
+     1: return                 %0
+=== accept/literals/semver-string-not-number.nu
+shape shape_string 0..7 "'1.0.1'"
+ir main
+  # 1 register, 2 instructions, 5 bytes of data
+     0: load-literal           %0, string("1.0.1")
+     1: return                 %0

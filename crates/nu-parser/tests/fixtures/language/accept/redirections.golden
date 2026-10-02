@@ -1,0 +1,620 @@
+=== accept/redirections/append.nu
+shape shape_external 1..3 "ls"
+shape shape_redirection 4..7 "o>>"
+shape shape_string 8..17 "/dev/null"
+shape shape_external 19..21 "ls"
+shape shape_redirection 22..27 "out>>"
+shape shape_string 28..37 "/dev/null"
+shape shape_external 39..41 "ls"
+shape shape_redirection 42..45 "e>>"
+shape shape_string 46..55 "/dev/null"
+shape shape_external 57..59 "ls"
+shape shape_redirection 60..65 "err>>"
+shape shape_string 66..75 "/dev/null"
+ir main
+  # 2 registers, 43 instructions, 44 bytes of data
+  # 4 files used for redirection
+     0: load-literal           %1, string("/dev/null")
+     1: open-file              file(0), %1, append = true
+     2: load-literal           %1, glob-pattern("ls", no_expand = false)
+     3: push-positional        %1
+     4: redirect-out           file(0)
+     5: call                   decl "run-external", %0
+     6: write-file             file(0), %0
+     7: load-literal           %0, empty
+     8: close-file             file(0)
+     9: drain                  %0
+    10: load-literal           %0, empty
+    11: load-literal           %1, string("/dev/null")
+    12: open-file              file(1), %1, append = true
+    13: load-literal           %0, empty
+    14: load-literal           %1, glob-pattern("ls", no_expand = false)
+    15: push-positional        %1
+    16: redirect-out           file(1)
+    17: call                   decl "run-external", %0
+    18: write-file             file(1), %0
+    19: load-literal           %0, empty
+    20: close-file             file(1)
+    21: drain                  %0
+    22: load-literal           %0, empty
+    23: load-literal           %1, string("/dev/null")
+    24: open-file              file(2), %1, append = true
+    25: load-literal           %0, empty
+    26: load-literal           %1, glob-pattern("ls", no_expand = false)
+    27: push-positional        %1
+    28: redirect-err           file(2)
+    29: call                   decl "run-external", %0
+    30: close-file             file(2)
+    31: drain                  %0
+    32: load-literal           %0, empty
+    33: load-literal           %1, string("/dev/null")
+    34: open-file              file(3), %1, append = true
+    35: load-literal           %0, empty
+    36: load-literal           %1, glob-pattern("ls", no_expand = false)
+    37: push-positional        %1
+    38: redirect-out           caller
+    39: redirect-err           file(3)
+    40: call                   decl "run-external", %0
+    41: close-file             file(3)
+    42: return                 %0
+=== accept/redirections/both-pipe.nu
+shape shape_external 1..3 "ls"
+shape shape_redirection 4..8 "o+e>"
+shape shape_pipe 8..9 "|"
+shape shape_internalcall 10..15 "lines"
+shape shape_external 17..19 "ls"
+shape shape_redirection 20..28 "out+err>"
+shape shape_pipe 28..29 "|"
+shape shape_internalcall 30..35 "lines"
+shape shape_external 37..39 "ls"
+shape shape_redirection 40..44 "e+o>"
+shape shape_pipe 44..45 "|"
+shape shape_internalcall 46..51 "lines"
+shape shape_external 53..55 "ls"
+shape shape_redirection 56..64 "err+out>"
+shape shape_pipe 64..65 "|"
+shape shape_internalcall 66..71 "lines"
+ir main
+  # 2 registers, 40 instructions, 8 bytes of data
+     0: load-literal           %1, glob-pattern("ls", no_expand = false)
+     1: push-positional        %1
+     2: redirect-out           pipe
+     3: redirect-err           pipe
+     4: call                   decl "run-external", %0
+     5: check-err-redirected   %0
+     6: call                   decl "lines", %0
+     7: drain                  %0
+     8: load-literal           %0, empty
+     9: load-literal           %0, empty
+    10: load-literal           %1, glob-pattern("ls", no_expand = false)
+    11: push-positional        %1
+    12: redirect-out           pipe
+    13: redirect-err           pipe
+    14: call                   decl "run-external", %0
+    15: check-err-redirected   %0
+    16: call                   decl "lines", %0
+    17: drain                  %0
+    18: load-literal           %0, empty
+    19: load-literal           %0, empty
+    20: load-literal           %1, glob-pattern("ls", no_expand = false)
+    21: push-positional        %1
+    22: redirect-out           pipe
+    23: redirect-err           pipe
+    24: call                   decl "run-external", %0
+    25: check-err-redirected   %0
+    26: call                   decl "lines", %0
+    27: drain                  %0
+    28: load-literal           %0, empty
+    29: load-literal           %0, empty
+    30: load-literal           %1, glob-pattern("ls", no_expand = false)
+    31: push-positional        %1
+    32: redirect-out           pipe
+    33: redirect-err           pipe
+    34: call                   decl "run-external", %0
+    35: check-err-redirected   %0
+    36: redirect-out           caller
+    37: redirect-err           caller
+    38: call                   decl "lines", %0
+    39: return                 %0
+=== accept/redirections/both-streams.nu
+shape shape_external 1..3 "ls"
+shape shape_redirection 4..8 "o+e>"
+shape shape_string 9..18 "/dev/null"
+shape shape_external 20..22 "ls"
+shape shape_redirection 23..31 "out+err>"
+shape shape_string 32..41 "/dev/null"
+shape shape_external 43..45 "ls"
+shape shape_redirection 46..50 "e+o>"
+shape shape_string 51..60 "/dev/null"
+shape shape_external 62..64 "ls"
+shape shape_redirection 65..73 "err+out>"
+shape shape_string 74..83 "/dev/null"
+shape shape_external 85..87 "ls"
+shape shape_redirection 88..93 "o+e>>"
+shape shape_string 94..103 "/dev/null"
+shape shape_external 105..107 "ls"
+shape shape_redirection 108..117 "out+err>>"
+shape shape_string 118..127 "/dev/null"
+ir main
+  # 2 registers, 76 instructions, 66 bytes of data
+  # 6 files used for redirection
+     0: load-literal           %1, string("/dev/null")
+     1: open-file              file(0), %1, append = false
+     2: load-literal           %1, glob-pattern("ls", no_expand = false)
+     3: push-positional        %1
+     4: redirect-out           file(0)
+     5: redirect-err           file(0)
+     6: call                   decl "run-external", %0
+     7: write-file             file(0), %0
+     8: load-literal           %0, empty
+     9: close-file             file(0)
+    10: drain                  %0
+    11: load-literal           %0, empty
+    12: load-literal           %1, string("/dev/null")
+    13: open-file              file(1), %1, append = false
+    14: load-literal           %0, empty
+    15: load-literal           %1, glob-pattern("ls", no_expand = false)
+    16: push-positional        %1
+    17: redirect-out           file(1)
+    18: redirect-err           file(1)
+    19: call                   decl "run-external", %0
+    20: write-file             file(1), %0
+    21: load-literal           %0, empty
+    22: close-file             file(1)
+    23: drain                  %0
+    24: load-literal           %0, empty
+    25: load-literal           %1, string("/dev/null")
+    26: open-file              file(2), %1, append = false
+    27: load-literal           %0, empty
+    28: load-literal           %1, glob-pattern("ls", no_expand = false)
+    29: push-positional        %1
+    30: redirect-out           file(2)
+    31: redirect-err           file(2)
+    32: call                   decl "run-external", %0
+    33: write-file             file(2), %0
+    34: load-literal           %0, empty
+    35: close-file             file(2)
+    36: drain                  %0
+    37: load-literal           %0, empty
+    38: load-literal           %1, string("/dev/null")
+    39: open-file              file(3), %1, append = false
+    40: load-literal           %0, empty
+    41: load-literal           %1, glob-pattern("ls", no_expand = false)
+    42: push-positional        %1
+    43: redirect-out           file(3)
+    44: redirect-err           file(3)
+    45: call                   decl "run-external", %0
+    46: write-file             file(3), %0
+    47: load-literal           %0, empty
+    48: close-file             file(3)
+    49: drain                  %0
+    50: load-literal           %0, empty
+    51: load-literal           %1, string("/dev/null")
+    52: open-file              file(4), %1, append = true
+    53: load-literal           %0, empty
+    54: load-literal           %1, glob-pattern("ls", no_expand = false)
+    55: push-positional        %1
+    56: redirect-out           file(4)
+    57: redirect-err           file(4)
+    58: call                   decl "run-external", %0
+    59: write-file             file(4), %0
+    60: load-literal           %0, empty
+    61: close-file             file(4)
+    62: drain                  %0
+    63: load-literal           %0, empty
+    64: load-literal           %1, string("/dev/null")
+    65: open-file              file(5), %1, append = true
+    66: load-literal           %0, empty
+    67: load-literal           %1, glob-pattern("ls", no_expand = false)
+    68: push-positional        %1
+    69: redirect-out           file(5)
+    70: redirect-err           file(5)
+    71: call                   decl "run-external", %0
+    72: write-file             file(5), %0
+    73: load-literal           %0, empty
+    74: close-file             file(5)
+    75: return                 %0
+=== accept/redirections/err-pipe-then-semicolon.nu
+shape shape_internalcall 0..2 "ls"
+shape shape_redirection 3..5 "e>"
+shape shape_pipe 5..6 "|"
+shape shape_internalcall 8..10 "ls"
+ir main
+  # 1 register, 10 instructions, 0 bytes of data
+     0: redirect-err           pipe
+     1: call                   decl "ls", %0
+     2: check-err-redirected   %0
+     3: drain                  %0
+     4: load-literal           %0, empty
+     5: load-literal           %0, empty
+     6: redirect-out           caller
+     7: redirect-err           caller
+     8: call                   decl "ls", %0
+     9: return                 %0
+=== accept/redirections/in-let-value.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..5 "a"
+shape shape_block 8..9 "^"
+shape shape_external 9..11 "ls"
+shape shape_redirection 12..16 "err>"
+shape shape_string 17..26 "/dev/null"
+shape shape_internalcall 27..30 "let"
+shape shape_vardecl 31..32 "b"
+shape shape_block 35..36 "^"
+shape shape_external 36..38 "ls"
+shape shape_redirection 39..43 "out>"
+shape shape_string 44..53 "/dev/null"
+shape shape_internalcall 54..57 "let"
+shape shape_vardecl 58..59 "c"
+shape shape_block 62..63 "^"
+shape shape_external 63..65 "ls"
+shape shape_redirection 66..74 "out+err>"
+shape shape_string 75..84 "/dev/null"
+shape shape_internalcall 85..88 "mut"
+shape shape_vardecl 89..90 "d"
+shape shape_block 93..94 "^"
+shape shape_external 94..96 "ls"
+shape shape_redirection 97..101 "err>"
+shape shape_string 102..111 "/dev/null"
+shape shape_internalcall 112..115 "mut"
+shape shape_vardecl 116..117 "e"
+shape shape_block 120..121 "^"
+shape shape_external 121..123 "ls"
+shape shape_redirection 124..128 "out>"
+shape shape_string 129..138 "/dev/null"
+shape shape_internalcall 139..142 "mut"
+shape shape_vardecl 143..144 "f"
+shape shape_block 147..148 "^"
+shape shape_external 148..150 "ls"
+shape shape_redirection 151..159 "out+err>"
+shape shape_string 160..169 "/dev/null"
+ir main
+  # 2 registers, 87 instructions, 66 bytes of data
+  # 6 files used for redirection
+     0: load-literal           %1, string("/dev/null")
+     1: open-file              file(0), %1, append = false
+     2: load-literal           %1, glob-pattern("ls", no_expand = false)
+     3: push-positional        %1
+     4: redirect-out           value
+     5: redirect-err           file(0)
+     6: call                   decl "run-external", %0
+     7: close-file             file(0)
+     8: store-variable         var #0 "$a", %0 # let
+     9: load-literal           %0, empty
+    10: drain                  %0
+    11: load-literal           %0, empty
+    12: load-literal           %0, empty
+    13: load-literal           %1, string("/dev/null")
+    14: open-file              file(1), %1, append = false
+    15: load-literal           %0, empty
+    16: load-literal           %1, glob-pattern("ls", no_expand = false)
+    17: push-positional        %1
+    18: redirect-out           file(1)
+    19: call                   decl "run-external", %0
+    20: write-file             file(1), %0
+    21: load-literal           %0, empty
+    22: close-file             file(1)
+    23: store-variable         var #1 "$b", %0 # let
+    24: load-literal           %0, empty
+    25: drain                  %0
+    26: load-literal           %0, empty
+    27: load-literal           %0, empty
+    28: load-literal           %1, string("/dev/null")
+    29: open-file              file(2), %1, append = false
+    30: load-literal           %0, empty
+    31: load-literal           %1, glob-pattern("ls", no_expand = false)
+    32: push-positional        %1
+    33: redirect-out           file(2)
+    34: redirect-err           file(2)
+    35: call                   decl "run-external", %0
+    36: write-file             file(2), %0
+    37: load-literal           %0, empty
+    38: close-file             file(2)
+    39: store-variable         var #2 "$c", %0 # let
+    40: load-literal           %0, empty
+    41: drain                  %0
+    42: load-literal           %0, empty
+    43: load-literal           %0, empty
+    44: load-literal           %1, string("/dev/null")
+    45: open-file              file(3), %1, append = false
+    46: load-literal           %0, empty
+    47: load-literal           %1, glob-pattern("ls", no_expand = false)
+    48: push-positional        %1
+    49: redirect-out           value
+    50: redirect-err           file(3)
+    51: call                   decl "run-external", %0
+    52: close-file             file(3)
+    53: store-variable         var #3 "$d", %0 # let
+    54: load-literal           %0, empty
+    55: drain                  %0
+    56: load-literal           %0, empty
+    57: load-literal           %0, empty
+    58: load-literal           %1, string("/dev/null")
+    59: open-file              file(4), %1, append = false
+    60: load-literal           %0, empty
+    61: load-literal           %1, glob-pattern("ls", no_expand = false)
+    62: push-positional        %1
+    63: redirect-out           file(4)
+    64: call                   decl "run-external", %0
+    65: write-file             file(4), %0
+    66: load-literal           %0, empty
+    67: close-file             file(4)
+    68: store-variable         var #4 "$e", %0 # let
+    69: load-literal           %0, empty
+    70: drain                  %0
+    71: load-literal           %0, empty
+    72: load-literal           %0, empty
+    73: load-literal           %1, string("/dev/null")
+    74: open-file              file(5), %1, append = false
+    75: load-literal           %0, empty
+    76: load-literal           %1, glob-pattern("ls", no_expand = false)
+    77: push-positional        %1
+    78: redirect-out           file(5)
+    79: redirect-err           file(5)
+    80: call                   decl "run-external", %0
+    81: write-file             file(5), %0
+    82: load-literal           %0, empty
+    83: close-file             file(5)
+    84: store-variable         var #5 "$f", %0 # let
+    85: load-literal           %0, empty
+    86: return                 %0
+=== accept/redirections/internal-command.nu
+shape shape_internalcall 0..2 "ls"
+shape shape_redirection 3..5 "o>"
+shape shape_string 6..15 "/dev/null"
+ir main
+  # 2 registers, 9 instructions, 9 bytes of data
+  # 1 file used for redirection
+     0: load-literal           %1, string("/dev/null")
+     1: open-file              file(0), %1, append = false
+     2: redirect-out           file(0)
+     3: redirect-err           caller
+     4: call                   decl "ls", %0
+     5: write-file             file(0), %0
+     6: load-literal           %0, empty
+     7: close-file             file(0)
+     8: return                 %0
+=== accept/redirections/separate-streams.nu
+shape shape_external 1..3 "ls"
+shape shape_redirection 4..6 "o>"
+shape shape_string 7..16 "/dev/null"
+shape shape_redirection 17..19 "e>"
+shape shape_string 20..29 "/dev/null"
+shape shape_external 31..33 "ls"
+shape shape_redirection 34..37 "e>>"
+shape shape_string 38..47 "/dev/null"
+shape shape_redirection 48..51 "o>>"
+shape shape_string 52..61 "/dev/null"
+ir main
+  # 2 registers, 30 instructions, 40 bytes of data
+  # 4 files used for redirection
+     0: load-literal           %1, string("/dev/null")
+     1: open-file              file(0), %1, append = false
+     2: load-literal           %1, string("/dev/null")
+     3: open-file              file(1), %1, append = false
+     4: load-literal           %1, glob-pattern("ls", no_expand = false)
+     5: push-positional        %1
+     6: redirect-out           file(0)
+     7: redirect-err           file(1)
+     8: call                   decl "run-external", %0
+     9: write-file             file(0), %0
+    10: load-literal           %0, empty
+    11: close-file             file(0)
+    12: close-file             file(1)
+    13: drain                  %0
+    14: load-literal           %0, empty
+    15: load-literal           %1, string("/dev/null")
+    16: open-file              file(2), %1, append = true
+    17: load-literal           %1, string("/dev/null")
+    18: open-file              file(3), %1, append = true
+    19: load-literal           %0, empty
+    20: load-literal           %1, glob-pattern("ls", no_expand = false)
+    21: push-positional        %1
+    22: redirect-out           file(2)
+    23: redirect-err           file(3)
+    24: call                   decl "run-external", %0
+    25: write-file             file(2), %0
+    26: load-literal           %0, empty
+    27: close-file             file(2)
+    28: close-file             file(3)
+    29: return                 %0
+=== accept/redirections/stderr-pipe.nu
+shape shape_external 1..3 "ls"
+shape shape_redirection 4..6 "e>"
+shape shape_pipe 6..7 "|"
+shape shape_internalcall 8..13 "lines"
+shape shape_pipe 14..15 "|"
+shape shape_internalcall 16..22 "length"
+shape shape_external 24..26 "ls"
+shape shape_redirection 27..31 "err>"
+shape shape_pipe 31..32 "|"
+shape shape_internalcall 33..38 "lines"
+ir main
+  # 2 registers, 20 instructions, 4 bytes of data
+     0: load-literal           %1, glob-pattern("ls", no_expand = false)
+     1: push-positional        %1
+     2: redirect-err           pipe
+     3: call                   decl "run-external", %0
+     4: check-err-redirected   %0
+     5: redirect-out           pipe
+     6: call                   decl "lines", %0
+     7: call                   decl "length", %0
+     8: drain                  %0
+     9: load-literal           %0, empty
+    10: load-literal           %0, empty
+    11: load-literal           %1, glob-pattern("ls", no_expand = false)
+    12: push-positional        %1
+    13: redirect-err           pipe
+    14: call                   decl "run-external", %0
+    15: check-err-redirected   %0
+    16: redirect-out           caller
+    17: redirect-err           caller
+    18: call                   decl "lines", %0
+    19: return                 %0
+=== accept/redirections/stderr.nu
+shape shape_external 1..3 "ls"
+shape shape_redirection 4..6 "e>"
+shape shape_string 7..16 "/dev/null"
+shape shape_external 18..20 "ls"
+shape shape_redirection 21..25 "err>"
+shape shape_string 26..35 "/dev/null"
+ir main
+  # 2 registers, 19 instructions, 22 bytes of data
+  # 2 files used for redirection
+     0: load-literal           %1, string("/dev/null")
+     1: open-file              file(0), %1, append = false
+     2: load-literal           %1, glob-pattern("ls", no_expand = false)
+     3: push-positional        %1
+     4: redirect-err           file(0)
+     5: call                   decl "run-external", %0
+     6: close-file             file(0)
+     7: drain                  %0
+     8: load-literal           %0, empty
+     9: load-literal           %1, string("/dev/null")
+    10: open-file              file(1), %1, append = false
+    11: load-literal           %0, empty
+    12: load-literal           %1, glob-pattern("ls", no_expand = false)
+    13: push-positional        %1
+    14: redirect-out           caller
+    15: redirect-err           file(1)
+    16: call                   decl "run-external", %0
+    17: close-file             file(1)
+    18: return                 %0
+=== accept/redirections/stdout.nu
+shape shape_external 1..3 "ls"
+shape shape_redirection 4..6 "o>"
+shape shape_string 7..16 "/dev/null"
+shape shape_external 18..20 "ls"
+shape shape_redirection 21..25 "out>"
+shape shape_string 26..35 "/dev/null"
+ir main
+  # 2 registers, 23 instructions, 22 bytes of data
+  # 2 files used for redirection
+     0: load-literal           %1, string("/dev/null")
+     1: open-file              file(0), %1, append = false
+     2: load-literal           %1, glob-pattern("ls", no_expand = false)
+     3: push-positional        %1
+     4: redirect-out           file(0)
+     5: call                   decl "run-external", %0
+     6: write-file             file(0), %0
+     7: load-literal           %0, empty
+     8: close-file             file(0)
+     9: drain                  %0
+    10: load-literal           %0, empty
+    11: load-literal           %1, string("/dev/null")
+    12: open-file              file(1), %1, append = false
+    13: load-literal           %0, empty
+    14: load-literal           %1, glob-pattern("ls", no_expand = false)
+    15: push-positional        %1
+    16: redirect-out           file(1)
+    17: redirect-err           caller
+    18: call                   decl "run-external", %0
+    19: write-file             file(1), %0
+    20: load-literal           %0, empty
+    21: close-file             file(1)
+    22: return                 %0
+=== accept/redirections/target-expressions.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..8 "file"
+shape shape_string 11..22 "'/dev/null'"
+shape shape_external 24..26 "ls"
+shape shape_redirection 27..29 "o>"
+shape shape_variable 30..35 "$file"
+shape shape_external 37..39 "ls"
+shape shape_redirection 40..42 "o>"
+shape shape_block 43..44 "("
+shape shape_variable 44..49 "$file"
+shape shape_pipe 50..51 "|"
+shape shape_internalcall 52..63 "path expand"
+shape shape_block 63..64 ")"
+shape shape_external 66..68 "ls"
+shape shape_redirection 69..71 "o>"
+shape shape_string_interpolation 72..74 "$\""
+shape shape_block 74..75 "("
+shape shape_variable 75..80 "$file"
+shape shape_block 80..81 ")"
+shape shape_string_interpolation 81..82 "\""
+shape shape_external 84..86 "ls"
+shape shape_redirection 87..89 "o>"
+shape shape_string 90..101 "\"/dev/null\""
+ir main
+  # 3 registers, 57 instructions, 26 bytes of data
+  # 4 files used for redirection
+     0: load-literal           %0, string("/dev/null")
+     1: store-variable         var #0 "$file", %0 # let
+     2: load-literal           %0, empty
+     3: drain                  %0
+     4: load-literal           %0, empty
+     5: load-variable          %1, var #0 "$file"
+     6: open-file              file(0), %1, append = false
+     7: load-literal           %0, empty
+     8: load-literal           %1, glob-pattern("ls", no_expand = false)
+     9: push-positional        %1
+    10: redirect-out           file(0)
+    11: call                   decl "run-external", %0
+    12: write-file             file(0), %0
+    13: load-literal           %0, empty
+    14: close-file             file(0)
+    15: drain                  %0
+    16: load-literal           %0, empty
+    17: load-variable          %1, var #0 "$file"
+    18: redirect-out           value
+    19: call                   decl "path expand", %1
+    20: open-file              file(1), %1, append = false
+    21: load-literal           %0, empty
+    22: load-literal           %1, glob-pattern("ls", no_expand = false)
+    23: push-positional        %1
+    24: redirect-out           file(1)
+    25: call                   decl "run-external", %0
+    26: write-file             file(1), %0
+    27: load-literal           %0, empty
+    28: close-file             file(1)
+    29: drain                  %0
+    30: load-literal           %0, empty
+    31: load-literal           %1, string("")
+    32: load-variable          %2, var #0 "$file"
+    33: string-append          %1, %2
+    34: open-file              file(2), %1, append = false
+    35: load-literal           %0, empty
+    36: load-literal           %1, glob-pattern("ls", no_expand = false)
+    37: push-positional        %1
+    38: redirect-out           file(2)
+    39: call                   decl "run-external", %0
+    40: write-file             file(2), %0
+    41: load-literal           %0, empty
+    42: close-file             file(2)
+    43: drain                  %0
+    44: load-literal           %0, empty
+    45: load-literal           %1, string("/dev/null")
+    46: open-file              file(3), %1, append = false
+    47: load-literal           %0, empty
+    48: load-literal           %1, glob-pattern("ls", no_expand = false)
+    49: push-positional        %1
+    50: redirect-out           file(3)
+    51: redirect-err           caller
+    52: call                   decl "run-external", %0
+    53: write-file             file(3), %0
+    54: load-literal           %0, empty
+    55: close-file             file(3)
+    56: return                 %0
+=== accept/redirections/then-pipe.nu
+shape shape_external 1..3 "ls"
+shape shape_redirection 4..6 "e>"
+shape shape_string 7..16 "/dev/null"
+shape shape_pipe 17..18 "|"
+shape shape_internalcall 19..24 "lines"
+ir main
+  # 2 registers, 12 instructions, 11 bytes of data
+  # 1 file used for redirection
+     0: load-literal           %1, string("/dev/null")
+     1: open-file              file(0), %1, append = false
+     2: load-literal           %1, glob-pattern("ls", no_expand = false)
+     3: push-positional        %1
+     4: redirect-out           pipe
+     5: redirect-err           file(0)
+     6: call                   decl "run-external", %0
+     7: close-file             file(0)
+     8: redirect-out           caller
+     9: redirect-err           caller
+    10: call                   decl "lines", %0
+    11: return                 %0

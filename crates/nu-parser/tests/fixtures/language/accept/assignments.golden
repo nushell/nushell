@@ -1,0 +1,665 @@
+=== accept/assignments/cell-path-target.nu
+shape shape_internalcall 0..3 "mut"
+shape shape_vardecl 4..7 "rec"
+shape shape_record 10..11 "{"
+shape shape_string 11..12 "a"
+shape shape_record 12..14 ": "
+shape shape_int 14..15 "1"
+shape shape_record 15..17 ", "
+shape shape_string 17..18 "d"
+shape shape_record 18..20 ": "
+shape shape_record 20..21 "{"
+shape shape_string 21..22 "e"
+shape shape_record 22..24 ": "
+shape shape_int 24..25 "0"
+shape shape_record 25..26 "}"
+shape shape_record 26..27 "}"
+shape shape_variable 28..32 "$rec"
+shape shape_string 33..34 "a"
+shape shape_operator 35..37 "+="
+shape shape_int 38..40 "10"
+shape shape_variable 41..45 "$rec"
+shape shape_string 46..47 "d"
+shape shape_string 48..49 "e"
+shape shape_operator 50..51 "="
+shape shape_int 52..53 "2"
+ir main
+  # 5 registers, 30 instructions, 3 bytes of data
+     0: load-literal           %0, record(capacity = 2)
+     1: load-literal           %1, string("a")
+     2: load-literal           %2, int(1)
+     3: record-insert          %0, %1, %2
+     4: load-literal           %1, string("d")
+     5: load-literal           %2, record(capacity = 1)
+     6: load-literal           %3, string("e")
+     7: load-literal           %4, int(0)
+     8: record-insert          %2, %3, %4
+     9: record-insert          %0, %1, %2
+    10: store-variable         var #0 "$rec", %0 # let
+    11: load-literal           %0, empty
+    12: drain                  %0
+    13: load-literal           %0, empty
+    14: load-variable          %0, var #0 "$rec"
+    15: load-literal           %1, cell-path($.a)
+    16: follow-cell-path       %0, %1
+    17: load-literal           %1, int(10)
+    18: binary-op              %0, Math(Add), %1
+    19: span                   %0
+    20: load-literal           %1, cell-path($.a)
+    21: update-var-cell-path   var #0 "$rec", %1, %0
+    22: load-literal           %0, nothing
+    23: drain                  %0
+    24: load-literal           %0, empty
+    25: load-literal           %0, int(2)
+    26: load-literal           %1, cell-path($.d.e)
+    27: update-var-cell-path   var #0 "$rec", %1, %0
+    28: load-literal           %0, nothing
+    29: return                 %0
+=== accept/assignments/compound.nu
+shape shape_internalcall 0..3 "mut"
+shape shape_vardecl 4..5 "x"
+shape shape_int 8..9 "1"
+shape shape_variable 10..12 "$x"
+shape shape_operator 13..15 "+="
+shape shape_int 16..17 "1"
+shape shape_variable 18..20 "$x"
+shape shape_operator 21..23 "-="
+shape shape_int 24..25 "1"
+shape shape_variable 26..28 "$x"
+shape shape_operator 29..31 "*="
+shape shape_int 32..33 "2"
+shape shape_internalcall 34..37 "mut"
+shape shape_vardecl 38..39 "f"
+shape shape_float 42..45 "4.0"
+shape shape_variable 46..48 "$f"
+shape shape_operator 49..51 "/="
+shape shape_int 52..53 "2"
+shape shape_internalcall 54..57 "mut"
+shape shape_vardecl 58..59 "l"
+shape shape_list 62..63 "["
+shape shape_int 63..64 "1"
+shape shape_list 64..65 "]"
+shape shape_variable 66..68 "$l"
+shape shape_operator 69..72 "++="
+shape shape_list 73..74 "["
+shape shape_int 74..75 "2"
+shape shape_list 75..76 "]"
+ir main
+  # 3 registers, 60 instructions, 0 bytes of data
+     0: load-literal           %0, int(1)
+     1: store-variable         var #0 "$x", %0 # let
+     2: load-literal           %0, empty
+     3: drain                  %0
+     4: load-literal           %0, empty
+     5: load-variable          %0, var #0 "$x"
+     6: load-literal           %1, int(1)
+     7: binary-op              %0, Math(Add), %1
+     8: span                   %0
+     9: store-variable         var #0 "$x", %0
+    10: load-literal           %0, nothing
+    11: drain                  %0
+    12: load-literal           %0, empty
+    13: load-variable          %0, var #0 "$x"
+    14: load-literal           %1, int(1)
+    15: binary-op              %0, Math(Subtract), %1
+    16: span                   %0
+    17: store-variable         var #0 "$x", %0
+    18: load-literal           %0, nothing
+    19: drain                  %0
+    20: load-literal           %0, empty
+    21: load-variable          %0, var #0 "$x"
+    22: load-literal           %1, int(2)
+    23: binary-op              %0, Math(Multiply), %1
+    24: span                   %0
+    25: store-variable         var #0 "$x", %0
+    26: load-literal           %0, nothing
+    27: drain                  %0
+    28: load-literal           %0, empty
+    29: load-literal           %0, empty
+    30: load-literal           %0, float(4.0)
+    31: store-variable         var #1 "$f", %0 # let
+    32: load-literal           %0, empty
+    33: drain                  %0
+    34: load-literal           %0, empty
+    35: load-variable          %0, var #1 "$f"
+    36: load-literal           %1, int(2)
+    37: binary-op              %0, Math(Divide), %1
+    38: span                   %0
+    39: store-variable         var #1 "$f", %0
+    40: load-literal           %0, nothing
+    41: drain                  %0
+    42: load-literal           %0, empty
+    43: load-literal           %0, empty
+    44: load-literal           %0, list(capacity = 1)
+    45: load-literal           %1, int(1)
+    46: list-push              %0, %1
+    47: store-variable         var #2 "$l", %0 # let
+    48: load-literal           %0, empty
+    49: drain                  %0
+    50: load-literal           %0, empty
+    51: load-variable          %0, var #2 "$l"
+    52: load-literal           %1, list(capacity = 1)
+    53: load-literal           %2, int(2)
+    54: list-push              %1, %2
+    55: binary-op              %0, Math(Concatenate), %1
+    56: span                   %0
+    57: store-variable         var #2 "$l", %0
+    58: load-literal           %0, nothing
+    59: return                 %0
+=== accept/assignments/env.nu
+shape shape_variable 0..4 "$env"
+shape shape_string 5..8 "FOO"
+shape shape_operator 9..10 "="
+shape shape_string 11..16 "\"bar\""
+shape shape_variable 17..21 "$env"
+shape shape_string 22..26 "PATH"
+shape shape_operator 27..30 "++="
+shape shape_list 31..32 "["
+shape shape_string 32..38 "\"/bin\""
+shape shape_list 38..39 "]"
+ir main
+  # 3 registers, 14 instructions, 18 bytes of data
+     0: load-literal           %0, string("bar")
+     1: store-env              "FOO", %0
+     2: load-literal           %0, nothing
+     3: drain                  %0
+     4: load-literal           %0, empty
+     5: load-env               %0, "PATH"
+     6: load-literal           %1, list(capacity = 1)
+     7: load-literal           %2, string("/bin")
+     8: list-push              %1, %2
+     9: binary-op              %0, Math(Concatenate), %1
+    10: span                   %0
+    11: store-env              "PATH", %0
+    12: load-literal           %0, nothing
+    13: return                 %0
+=== accept/assignments/in-closure-and-block.nu
+shape shape_internalcall 0..3 "mut"
+shape shape_vardecl 4..5 "i"
+shape shape_int 8..9 "0"
+shape shape_internalcall 10..15 "while"
+shape shape_variable 16..18 "$i"
+shape shape_operator 19..20 "<"
+shape shape_int 21..22 "3"
+shape shape_block 23..25 "{ "
+shape shape_variable 25..27 "$i"
+shape shape_operator 28..30 "+="
+shape shape_int 31..32 "1"
+shape shape_block 32..34 " }"
+shape shape_internalcall 35..37 "if"
+shape shape_bool 38..42 "true"
+shape shape_block 43..45 "{ "
+shape shape_variable 45..47 "$i"
+shape shape_operator 48..49 "="
+shape shape_int 50..51 "5"
+shape shape_block 51..53 " }"
+shape shape_internalcall 54..57 "for"
+shape shape_vardecl 58..59 "x"
+shape shape_keyword 60..62 "in"
+shape shape_list 63..64 "["
+shape shape_int 64..65 "1"
+shape shape_list 65..66 "]"
+shape shape_block 67..69 "{ "
+shape shape_variable 69..71 "$i"
+shape shape_operator 72..73 "="
+shape shape_variable 74..76 "$x"
+shape shape_block 76..78 " }"
+ir main
+  # 3 registers, 50 instructions, 0 bytes of data
+     0: load-literal           %0, int(0)
+     1: store-variable         var #0 "$i", %0 # let
+     2: load-literal           %0, empty
+     3: drain                  %0
+     4: load-literal           %0, empty
+     5: load-literal           %0, empty
+     6: load-variable          %0, var #0 "$i" # label(1), from(20:)
+     7: load-literal           %1, int(3)
+     8: binary-op              %0, Comparison(LessThan), %1
+     9: span                   %0
+    10: branch-if              %0, 13      # while
+    11: jump                   21          # end while
+    12: load-literal           %0, empty
+    13: load-variable          %0, var #0 "$i" # label(2), from(10:)
+    14: load-literal           %1, int(1)
+    15: binary-op              %0, Math(Add), %1
+    16: span                   %0
+    17: store-variable         var #0 "$i", %0
+    18: load-literal           %0, nothing
+    19: drain                  %0
+    20: jump                   6           # while
+    21: load-literal           %0, empty   # label(0), from(11:)
+    22: drain                  %0
+    23: load-literal           %0, empty
+    24: load-literal           %0, empty
+    25: load-literal           %1, bool(true)
+    26: not                    %1
+    27: branch-if              %1, 32      # if false
+    28: load-literal           %0, int(5)  # label(3)
+    29: store-variable         var #0 "$i", %0
+    30: load-literal           %0, nothing
+    31: jump                   33          # end if
+    32: load-literal           %0, empty   # label(4), from(27:)
+    33: drain                  %0          # label(5), from(31:)
+    34: load-literal           %0, empty
+    35: load-literal           %0, empty
+    36: load-literal           %0, empty
+    37: load-literal           %1, list(capacity = 1)
+    38: load-literal           %2, int(1)
+    39: list-push              %1, %2
+    40: iterate                %0, %1, end 48 # for, label(7), from(47:)
+    41: store-variable         var #1, %0
+    42: load-literal           %0, empty
+    43: load-variable          %0, var #1
+    44: store-variable         var #0 "$i", %0
+    45: load-literal           %0, nothing
+    46: drain                  %0
+    47: jump                   40
+    48: load-literal           %0, empty   # label(6), from(40:)
+    49: return                 %0
+=== accept/assignments/list-cell-path-target.nu
+shape shape_internalcall 0..3 "mut"
+shape shape_vardecl 4..5 "x"
+shape shape_int 8..9 "1"
+shape shape_list 11..12 "["
+shape shape_int 12..13 "1"
+shape shape_list 13..14 "]"
+shape shape_int 15..16 "0"
+shape shape_operator 17..18 "="
+shape shape_int 19..20 "2"
+compile error nu::compile::assignment_requires_variable: Assignment operations require a variable.
+  label 11..14 "[1]": needs to be a variable
+  help: try assigning to a variable or a cell path of a variable
+=== accept/assignments/list-target.nu
+shape shape_list 0..1 "["
+shape shape_int 1..2 "1"
+shape shape_list 2..3 "]"
+shape shape_operator 4..5 "="
+shape shape_list 6..7 "["
+shape shape_int 7..8 "2"
+shape shape_list 8..9 "]"
+compile error nu::compile::assignment_requires_variable: Assignment operations require a variable.
+  label 0..3 "[1]": needs to be a variable
+  help: try assigning to a variable or a cell path of a variable
+=== accept/assignments/record-cell-path-target.nu
+shape shape_internalcall 0..3 "mut"
+shape shape_vardecl 4..5 "x"
+shape shape_int 8..9 "1"
+shape shape_record 11..12 "{"
+shape shape_string 12..13 "a"
+shape shape_record 13..15 ": "
+shape shape_int 15..16 "1"
+shape shape_record 16..17 "}"
+shape shape_string 18..19 "a"
+shape shape_operator 20..21 "="
+shape shape_int 22..23 "2"
+compile error nu::compile::assignment_requires_variable: Assignment operations require a variable.
+  label 11..17 "{a: 1}": needs to be a variable
+  help: try assigning to a variable or a cell path of a variable
+=== accept/assignments/record-target.nu
+shape shape_record 0..1 "{"
+shape shape_string 1..2 "a"
+shape shape_record 2..4 ": "
+shape shape_int 4..5 "1"
+shape shape_record 5..6 "}"
+shape shape_operator 7..8 "="
+shape shape_record 9..10 "{"
+shape shape_string 10..11 "a"
+shape shape_record 11..13 ": "
+shape shape_int 13..14 "2"
+shape shape_record 14..15 "}"
+compile error nu::compile::assignment_requires_variable: Assignment operations require a variable.
+  label 0..6 "{a: 1}": needs to be a variable
+  help: try assigning to a variable or a cell path of a variable
+=== accept/assignments/rhs-caret-external.nu
+shape shape_internalcall 0..3 "mut"
+shape shape_vardecl 4..5 "x"
+shape shape_int 8..9 "1"
+shape shape_variable 11..13 "$x"
+shape shape_operator 14..15 "="
+shape shape_block 16..17 "^"
+shape shape_external 17..20 "git"
+ir main
+  # 2 registers, 13 instructions, 3 bytes of data
+     0: load-literal           %0, int(1)
+     1: store-variable         var #0 "$x", %0 # let
+     2: load-literal           %0, empty
+     3: drain                  %0
+     4: load-literal           %0, empty
+     5: load-literal           %0, empty
+     6: load-literal           %1, glob-pattern("git", no_expand = false)
+     7: push-positional        %1
+     8: redirect-out           value
+     9: call                   decl "run-external", %0
+    10: store-variable         var #0 "$x", %0
+    11: load-literal           %0, nothing
+    12: return                 %0
+=== accept/assignments/rhs-external-after-first-element.nu
+shape shape_variable 0..4 "$env"
+shape shape_string 5..8 "FOO"
+shape shape_operator 9..10 "="
+shape shape_int 11..12 "1"
+shape shape_pipe 13..14 "|"
+shape shape_external 15..18 "git"
+ir main
+  # 2 registers, 8 instructions, 6 bytes of data
+     0: load-literal           %0, int(1)
+     1: load-literal           %1, glob-pattern("git", no_expand = false)
+     2: push-positional        %1
+     3: redirect-out           value
+     4: call                   decl "run-external", %0
+     5: store-env              "FOO", %0
+     6: load-literal           %0, nothing
+     7: return                 %0
+=== accept/assignments/rhs-external-quoted.nu
+shape shape_variable 0..4 "$env"
+shape shape_string 5..8 "FOO"
+shape shape_operator 9..10 "="
+shape shape_block 11..12 "^"
+shape shape_external 12..18 "`echo`"
+shape shape_externalarg 19..25 "cococo"
+ir main
+  # 3 registers, 10 instructions, 13 bytes of data
+     0: load-literal           %0, empty
+     1: load-literal           %1, glob-pattern("echo", no_expand = false)
+     2: load-literal           %2, glob-pattern("cococo", no_expand = false)
+     3: push-positional        %1
+     4: push-positional        %2
+     5: redirect-out           value
+     6: call                   decl "run-external", %0
+     7: store-env              "FOO", %0
+     8: load-literal           %0, nothing
+     9: return                 %0
+=== accept/assignments/rhs-external-with-redirect.nu
+shape shape_variable 0..4 "$env"
+shape shape_string 5..8 "FOO"
+shape shape_operator 9..10 "="
+shape shape_block 11..12 "^"
+shape shape_external 12..16 "echo"
+shape shape_externalarg 17..23 "cococo"
+shape shape_redirection 24..26 "o>"
+shape shape_string 27..36 "/dev/null"
+ir main
+  # 3 registers, 15 instructions, 22 bytes of data
+  # 1 file used for redirection
+     0: load-literal           %1, string("/dev/null")
+     1: open-file              file(0), %1, append = false
+     2: load-literal           %0, empty
+     3: load-literal           %1, glob-pattern("echo", no_expand = false)
+     4: load-literal           %2, glob-pattern("cococo", no_expand = false)
+     5: push-positional        %1
+     6: push-positional        %2
+     7: redirect-out           file(0)
+     8: call                   decl "run-external", %0
+     9: write-file             file(0), %0
+    10: load-literal           %0, empty
+    11: close-file             file(0)
+    12: store-env              "FOO", %0
+    13: load-literal           %0, nothing
+    14: return                 %0
+=== accept/assignments/rhs-if.nu
+shape shape_variable 0..4 "$env"
+shape shape_string 5..9 "Path"
+shape shape_operator 10..11 "="
+shape shape_internalcall 12..14 "if"
+shape shape_block 15..16 "("
+shape shape_variable 16..20 "$env"
+shape shape_pipe 21..22 "|"
+shape shape_internalcall 23..30 "columns"
+shape shape_pipe 31..32 "|"
+shape shape_string 33..48 "\"VENV_OLD_PATH\""
+shape shape_operator 49..51 "in"
+shape shape_variable 52..55 "$in"
+shape shape_block 55..56 ")"
+shape shape_block 57..63 "{\n    "
+shape shape_variable 63..67 "$env"
+shape shape_string 68..81 "VENV_OLD_PATH"
+shape shape_block 81..83 "\n}"
+shape shape_keyword 84..88 "else"
+shape shape_block 89..95 "{\n    "
+shape shape_variable 95..99 "$env"
+shape shape_string 100..104 "PATH"
+shape shape_block 104..106 "\n}"
+ir main
+  # 4 registers, 20 instructions, 34 bytes of data
+     0: load-literal           %0, empty
+     1: load-variable          %1, var 2
+     2: redirect-out           pipe
+     3: call                   decl "columns", %1
+     4: collect                %1
+     5: clone                  %2, %1
+     6: store-variable         var #0, %2
+     7: load-literal           %1, string("VENV_OLD_PATH")
+     8: load-variable          %3, var #0
+     9: binary-op              %1, Comparison(In), %3
+    10: span                   %1
+    11: drop-variable          var #0
+    12: not                    %1
+    13: branch-if              %1, 16      # if false
+    14: load-env               %0, "VENV_OLD_PATH" # label(0)
+    15: jump                   17          # end if
+    16: load-env               %0, "PATH"  # label(1), from(13:)
+    17: store-env              "Path", %0  # label(2), from(15:)
+    18: load-literal           %0, nothing
+    19: return                 %0
+=== accept/assignments/rhs-multiline-pipeline.nu
+shape shape_internalcall 0..3 "mut"
+shape shape_vardecl 4..5 "x"
+shape shape_int 8..9 "1"
+shape shape_variable 10..12 "$x"
+shape shape_operator 13..14 "="
+shape shape_int 15..16 "1"
+shape shape_pipe 17..18 "|"
+shape shape_variable 21..24 "$in"
+shape shape_operator 25..26 "+"
+shape shape_int 27..28 "1"
+shape shape_variable 29..31 "$x"
+shape shape_operator 32..33 "="
+shape shape_int 34..35 "2"
+shape shape_pipe 38..39 "|"
+shape shape_variable 40..43 "$in"
+shape shape_operator 44..45 "+"
+shape shape_int 46..47 "1"
+ir main
+  # 4 registers, 30 instructions, 0 bytes of data
+     0: load-literal           %0, int(1)
+     1: store-variable         var #0 "$x", %0 # let
+     2: load-literal           %0, empty
+     3: drain                  %0
+     4: load-literal           %0, empty
+     5: load-literal           %0, int(1)
+     6: collect                %0
+     7: clone                  %1, %0
+     8: store-variable         var #1, %1
+     9: load-variable          %0, var #1
+    10: load-literal           %2, int(1)
+    11: binary-op              %0, Math(Add), %2
+    12: span                   %0
+    13: drop-variable          var #1
+    14: store-variable         var #0 "$x", %0
+    15: load-literal           %0, nothing
+    16: drain                  %0
+    17: load-literal           %0, empty
+    18: load-literal           %0, int(2)
+    19: collect                %0
+    20: clone                  %2, %0
+    21: store-variable         var #2 "$in", %2
+    22: load-variable          %0, var #2 "$in"
+    23: load-literal           %3, int(1)
+    24: binary-op              %0, Math(Add), %3
+    25: span                   %0
+    26: drop-variable          var #2 "$in"
+    27: store-variable         var #0 "$x", %0
+    28: load-literal           %0, nothing
+    29: return                 %0
+=== accept/assignments/rhs-pipeline.nu
+shape shape_internalcall 0..3 "mut"
+shape shape_vardecl 4..7 "foo"
+shape shape_string 10..15 "'bar'"
+shape shape_variable 16..20 "$foo"
+shape shape_operator 21..22 "="
+shape shape_variable 23..27 "$foo"
+shape shape_pipe 28..29 "|"
+shape shape_internalcall 30..40 "str upcase"
+shape shape_pipe 41..42 "|"
+shape shape_internalcall 43..54 "str reverse"
+shape shape_variable 55..59 "$foo"
+shape shape_operator 60..63 "++="
+shape shape_variable 64..68 "$foo"
+shape shape_pipe 69..70 "|"
+shape shape_internalcall 71..81 "str upcase"
+warning nu::parser::deprecated: Command deprecated.
+  label 30..40 "str upcase": str upcase was deprecated in 0.114.0 and will be removed in a future release.
+  help: Use `str uppercase` instead.
+warning nu::parser::deprecated: Command deprecated.
+  label 71..81 "str upcase": str upcase was deprecated in 0.114.0 and will be removed in a future release.
+  help: Use `str uppercase` instead.
+ir main
+  # 2 registers, 23 instructions, 3 bytes of data
+     0: load-literal           %0, string("bar")
+     1: store-variable         var #0 "$foo", %0 # let
+     2: load-literal           %0, empty
+     3: drain                  %0
+     4: load-literal           %0, empty
+     5: load-variable          %0, var #0 "$foo"
+     6: redirect-out           pipe
+     7: call                   decl "str upcase", %0
+     8: redirect-out           value
+     9: call                   decl "str reverse", %0
+    10: store-variable         var #0 "$foo", %0
+    11: load-literal           %0, nothing
+    12: drain                  %0
+    13: load-literal           %0, empty
+    14: load-variable          %0, var #0 "$foo"
+    15: load-variable          %1, var #0 "$foo"
+    16: redirect-out           value
+    17: call                   decl "str upcase", %1
+    18: binary-op              %0, Math(Concatenate), %1
+    19: span                   %0
+    20: store-variable         var #0 "$foo", %0
+    21: load-literal           %0, nothing
+    22: return                 %0
+=== accept/assignments/rhs-subexpression-external.nu
+shape shape_internalcall 0..3 "mut"
+shape shape_vardecl 4..5 "x"
+shape shape_int 8..9 "1"
+shape shape_variable 11..13 "$x"
+shape shape_operator 14..15 "="
+shape shape_block 16..17 "("
+shape shape_external 17..20 "git"
+shape shape_block 20..21 ")"
+ir main
+  # 2 registers, 13 instructions, 3 bytes of data
+     0: load-literal           %0, int(1)
+     1: store-variable         var #0 "$x", %0 # let
+     2: load-literal           %0, empty
+     3: drain                  %0
+     4: load-literal           %0, empty
+     5: load-literal           %0, empty
+     6: load-literal           %1, glob-pattern("git", no_expand = false)
+     7: push-positional        %1
+     8: redirect-out           value
+     9: call                   decl "run-external", %0
+    10: store-variable         var #0 "$x", %0
+    11: load-literal           %0, nothing
+    12: return                 %0
+=== accept/assignments/rhs-user-command.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..10 "[]"
+shape shape_closure 11..13 "{ "
+shape shape_int 13..14 "1"
+shape shape_closure 14..16 " }"
+shape shape_internalcall 17..20 "mut"
+shape shape_vardecl 21..22 "x"
+shape shape_int 25..26 "1"
+shape shape_variable 27..29 "$x"
+shape shape_operator 30..31 "="
+shape shape_internalcall 32..35 "foo"
+ir main
+  # 1 register, 15 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: drain                  %0
+     2: load-literal           %0, empty
+     3: load-literal           %0, empty
+     4: load-literal           %0, int(1)
+     5: store-variable         var #0 "$x", %0 # let
+     6: load-literal           %0, empty
+     7: drain                  %0
+     8: load-literal           %0, empty
+     9: load-literal           %0, empty
+    10: redirect-out           value
+    11: call                   decl "foo", %0
+    12: store-variable         var #0 "$x", %0
+    13: load-literal           %0, nothing
+    14: return                 %0
+ir #0
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, int(1)
+     1: return                 %0
+=== accept/assignments/rhs-with-comment-line.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..9 "dummy"
+shape shape_signature 10..24 "[]: int -> int"
+shape shape_block 25..27 "{ "
+shape shape_variable 27..30 "$in"
+shape shape_block 30..32 " }"
+shape shape_internalcall 33..36 "mut"
+shape shape_vardecl 37..40 "foo"
+shape shape_int 43..44 "1"
+shape shape_variable 45..49 "$foo"
+shape shape_operator 50..51 "="
+shape shape_int 52..53 "1"
+shape shape_pipe 54..55 "|"
+shape shape_internalcall 66..71 "dummy"
+ir main
+  # 1 register, 15 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: drain                  %0
+     2: load-literal           %0, empty
+     3: load-literal           %0, empty
+     4: load-literal           %0, int(1)
+     5: store-variable         var #1 "$foo", %0 # let
+     6: load-literal           %0, empty
+     7: drain                  %0
+     8: load-literal           %0, empty
+     9: load-literal           %0, int(1)
+    10: redirect-out           value
+    11: call                   decl "dummy", %0
+    12: store-variable         var #1 "$foo", %0
+    13: load-literal           %0, nothing
+    14: return                 %0
+ir #1
+  # 2 registers, 6 instructions, 0 bytes of data
+     0: collect                %0
+     1: clone                  %1, %0
+     2: store-variable         var #0, %1
+     3: load-variable          %0, var #0
+     4: drop-variable          var #0
+     5: return                 %0
+=== accept/assignments/simple.nu
+shape shape_internalcall 0..3 "mut"
+shape shape_vardecl 4..5 "x"
+shape shape_int 8..9 "1"
+shape shape_variable 10..12 "$x"
+shape shape_operator 13..14 "="
+shape shape_int 15..16 "2"
+ir main
+  # 1 register, 9 instructions, 0 bytes of data
+     0: load-literal           %0, int(1)
+     1: store-variable         var #0 "$x", %0 # let
+     2: load-literal           %0, empty
+     3: drain                  %0
+     4: load-literal           %0, empty
+     5: load-literal           %0, int(2)
+     6: store-variable         var #0 "$x", %0
+     7: load-literal           %0, nothing
+     8: return                 %0
+=== accept/assignments/to-subexpression-head.nu
+shape shape_block 0..1 "("
+shape shape_int 1..2 "1"
+shape shape_block 2..3 ")"
+shape shape_operator 4..5 "="
+shape shape_int 6..7 "2"
+compile error nu::compile::assignment_requires_variable: Assignment operations require a variable.
+  label 0..3 "(1)": needs to be a variable
+  help: try assigning to a variable or a cell path of a variable

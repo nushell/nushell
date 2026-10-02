@@ -1,0 +1,333 @@
+=== accept/strings/backtick-in-middle-is-bare.nu
+shape shape_internalcall 0..4 "echo"
+shape shape_string 5..9 "a`b`"
+ir main
+  # 2 registers, 6 instructions, 4 bytes of data
+     0: load-literal           %1, string("a`b`")
+     1: push-positional        %1
+     2: redirect-out           caller
+     3: redirect-err           caller
+     4: call                   decl "echo", %0
+     5: return                 %0
+=== accept/strings/backtick-no-escapes.nu
+shape shape_external 0..24 "`a\\nb \"quoted\" 'single'`"
+ir main
+  # 2 registers, 6 instructions, 22 bytes of data
+     0: load-literal           %1, glob-pattern("a\\nb \"quoted\" 'single'", no_expand = false)
+     1: push-positional        %1
+     2: redirect-out           caller
+     3: redirect-err           caller
+     4: call                   decl "run-external", %0
+     5: return                 %0
+=== accept/strings/backtick-not-closing-is-bare.nu
+shape shape_internalcall 0..4 "echo"
+shape shape_string 5..9 "`a`b"
+ir main
+  # 2 registers, 6 instructions, 4 bytes of data
+     0: load-literal           %1, string("`a`b")
+     1: push-positional        %1
+     2: redirect-out           caller
+     3: redirect-err           caller
+     4: call                   decl "echo", %0
+     5: return                 %0
+=== accept/strings/backtick.nu
+shape shape_external 0..15 "`hello nushell`"
+ir main
+  # 2 registers, 6 instructions, 13 bytes of data
+     0: load-literal           %1, glob-pattern("hello nushell", no_expand = false)
+     1: push-positional        %1
+     2: redirect-out           caller
+     3: redirect-err           caller
+     4: call                   decl "run-external", %0
+     5: return                 %0
+=== accept/strings/bare-with-trailing-quotes.nu
+shape shape_internalcall 0..4 "echo"
+shape shape_string 5..13 "foo\"bar\""
+shape shape_string 14..22 "foo'bar'"
+ir main
+  # 3 registers, 8 instructions, 16 bytes of data
+     0: load-literal           %1, string("foo\"bar\"")
+     1: load-literal           %2, string("foo'bar'")
+     2: push-positional        %1
+     3: push-positional        %2
+     4: redirect-out           caller
+     5: redirect-err           caller
+     6: call                   decl "echo", %0
+     7: return                 %0
+=== accept/strings/bare-word.nu
+shape shape_internalcall 0..4 "echo"
+shape shape_string 5..14 "bare-word"
+shape shape_string 15..20 "./a/b"
+shape shape_string 21..24 "~/x"
+shape shape_string 25..29 "*.rs"
+shape shape_string 30..33 "a=b"
+shape shape_string 34..41 "foo.txt"
+ir main
+  # 7 registers, 16 instructions, 31 bytes of data
+     0: load-literal           %1, string("bare-word")
+     1: load-literal           %2, string("./a/b")
+     2: load-literal           %3, string("~/x")
+     3: load-literal           %4, string("*.rs")
+     4: load-literal           %5, string("a=b")
+     5: load-literal           %6, string("foo.txt")
+     6: push-positional        %1
+     7: push-positional        %2
+     8: push-positional        %3
+     9: push-positional        %4
+    10: push-positional        %5
+    11: push-positional        %6
+    12: redirect-out           caller
+    13: redirect-err           caller
+    14: call                   decl "echo", %0
+    15: return                 %0
+=== accept/strings/double-quoted-escapes.nu
+shape shape_string 0..59 "\"\\u{1F600}\\x41\\e\\t\\\\\\\"\\/\\(\\)\\{\\}\\$\\^\\#\\|\\~\\a\\b\\f\\r\\0\\n\\'\\ \""
+ir main
+  # 1 register, 2 instructions, 27 bytes of data
+     0: load-literal           %0, string("😀A\u{1b}\t\\\"/(){}$^#|~\u{7}\u{8}\u{c}\r\0\n' ")
+     1: return                 %0
+=== accept/strings/double-quoted.nu
+shape shape_string 0..15 "\"hello nushell\""
+ir main
+  # 1 register, 2 instructions, 13 bytes of data
+     0: load-literal           %0, string("hello nushell")
+     1: return                 %0
+=== accept/strings/embedded-quotes-kept.nu
+shape shape_list 0..1 "["
+shape shape_string 1..19 "\"[{name: \"John\"}]\""
+shape shape_list 19..20 " "
+shape shape_string 20..27 "'it''s'"
+shape shape_list 27..28 " "
+shape shape_string 28..35 "\"a\"b\"c\""
+shape shape_list 35..36 "]"
+ir main
+  # 2 registers, 8 instructions, 26 bytes of data
+     0: load-literal           %0, list(capacity = 3)
+     1: load-literal           %1, string("[{name: \"John\"}]")
+     2: list-push              %0, %1
+     3: load-literal           %1, string("it''s")
+     4: list-push              %0, %1
+     5: load-literal           %1, string("a\"b\"c")
+     6: list-push              %0, %1
+     7: return                 %0
+=== accept/strings/empty-strings.nu
+shape shape_list 0..1 "["
+shape shape_string 1..3 "\"\""
+shape shape_list 3..4 " "
+shape shape_string 4..6 "''"
+shape shape_list 6..7 " "
+shape shape_string 7..9 "``"
+shape shape_list 9..10 "]"
+ir main
+  # 2 registers, 8 instructions, 0 bytes of data
+     0: load-literal           %0, list(capacity = 3)
+     1: load-literal           %1, string("")
+     2: list-push              %0, %1
+     3: load-literal           %1, string("")
+     4: list-push              %0, %1
+     5: load-literal           %1, string("")
+     6: list-push              %0, %1
+     7: return                 %0
+=== accept/strings/hex-escapes-form-utf8.nu
+shape shape_internalcall 0..4 "echo"
+shape shape_string 5..15 "\"\\xC3\\xA9\""
+ir main
+  # 2 registers, 6 instructions, 2 bytes of data
+     0: load-literal           %1, string("é")
+     1: push-positional        %1
+     2: redirect-out           caller
+     3: redirect-err           caller
+     4: call                   decl "echo", %0
+     5: return                 %0
+=== accept/strings/multiline-double.nu
+shape shape_string 0..13 "\"hello\nworld\""
+ir main
+  # 1 register, 2 instructions, 11 bytes of data
+     0: load-literal           %0, string("hello\nworld")
+     1: return                 %0
+=== accept/strings/multiline-single.nu
+shape shape_string 0..13 "'hello\nworld'"
+ir main
+  # 1 register, 2 instructions, 11 bytes of data
+     0: load-literal           %0, string("hello\nworld")
+     1: return                 %0
+=== accept/strings/quote-escape-not-env-shorthand.nu
+shape shape_string 0..8 "\"\\\"=foo\""
+ir main
+  # 1 register, 2 instructions, 5 bytes of data
+     0: load-literal           %0, string("\"=foo")
+     1: return                 %0
+=== accept/strings/quotes-with-equals.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..16 "query_prefix"
+shape shape_string 19..73 "\"https://api.github.com/search/issues?q=repo:nushell/\""
+shape shape_variable 74..87 "$query_prefix"
+ir main
+  # 1 register, 7 instructions, 52 bytes of data
+     0: load-literal           %0, string("https://api.github.com/search/issues?q=repo:nushell/")
+     1: store-variable         var #0 "$query_prefix", %0 # let
+     2: load-literal           %0, empty
+     3: drain                  %0
+     4: load-literal           %0, empty
+     5: load-variable          %0, var #0 "$query_prefix"
+     6: return                 %0
+=== accept/strings/raw-string-hashes.nu
+shape shape_list 0..1 "["
+shape shape_raw_string 1..12 "r##'a'#b'##"
+shape shape_list 12..13 " "
+shape shape_raw_string 13..35 "r###' one '## two '###"
+shape shape_list 35..36 "]"
+ir main
+  # 2 registers, 6 instructions, 17 bytes of data
+     0: load-literal           %0, list(capacity = 2)
+     1: load-literal           %1, raw-string("a'#b")
+     2: list-push              %0, %1
+     3: load-literal           %1, raw-string(" one '## two ")
+     4: list-push              %0, %1
+     5: return                 %0
+=== accept/strings/raw-string-multiline.nu
+shape shape_raw_string 0..27 "r#'first\ntype: text}\nlast'#"
+ir main
+  # 1 register, 2 instructions, 22 bytes of data
+     0: load-literal           %0, raw-string("first\ntype: text}\nlast")
+     1: return                 %0
+=== accept/strings/raw-string-with-equals.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..16 "query_prefix"
+shape shape_raw_string 19..76 "r#'https://api.github.com/search/issues?q=repo:nushell/'#"
+shape shape_variable 77..90 "$query_prefix"
+ir main
+  # 1 register, 7 instructions, 52 bytes of data
+     0: load-literal           %0, raw-string("https://api.github.com/search/issues?q=repo:nushell/")
+     1: store-variable         var #0 "$query_prefix", %0 # let
+     2: load-literal           %0, empty
+     3: drain                  %0
+     4: load-literal           %0, empty
+     5: load-variable          %0, var #0 "$query_prefix"
+     6: return                 %0
+=== accept/strings/raw-string-with-hashtag.nu
+shape shape_raw_string 0..18 "r##' one # two '##"
+ir main
+  # 1 register, 2 instructions, 11 bytes of data
+     0: load-literal           %0, raw-string(" one # two ")
+     1: return                 %0
+=== accept/strings/raw-string.nu
+shape shape_raw_string 0..38 "r#'raw \"string\" with 'quotes' and \\n'#"
+ir main
+  # 1 register, 2 instructions, 33 bytes of data
+     0: load-literal           %0, raw-string("raw \"string\" with 'quotes' and \\n")
+     1: return                 %0
+=== accept/strings/single-quoted-no-escapes.nu
+shape shape_string 0..14 "'a\\nb\\u{41}\\('"
+ir main
+  # 1 register, 2 instructions, 12 bytes of data
+     0: load-literal           %0, string("a\\nb\\u{41}\\(")
+     1: return                 %0
+=== accept/strings/single-quoted.nu
+shape shape_string 0..15 "'hello nushell'"
+ir main
+  # 1 register, 2 instructions, 13 bytes of data
+     0: load-literal           %0, string("hello nushell")
+     1: return                 %0
+=== accept/strings/string-comparison.nu
+shape shape_list 0..1 "["
+shape shape_string 1..6 "\"abc\""
+shape shape_list 6..7 " "
+shape shape_string 7..8 "<"
+shape shape_list 8..9 " "
+shape shape_string 9..14 "\"bca\""
+shape shape_list 14..15 " "
+shape shape_string 15..20 "\"abc\""
+shape shape_list 20..21 " "
+shape shape_string 21..23 "<="
+shape shape_list 23..24 " "
+shape shape_string 24..29 "\"bca\""
+shape shape_list 29..30 " "
+shape shape_string 30..35 "\"abc\""
+shape shape_list 35..36 " "
+shape shape_string 36..37 ">"
+shape shape_list 37..38 " "
+shape shape_string 38..43 "\"bca\""
+shape shape_list 43..44 " "
+shape shape_string 44..49 "\"abc\""
+shape shape_list 49..50 " "
+shape shape_string 50..52 ">="
+shape shape_list 52..53 " "
+shape shape_string 53..58 "\"bca\""
+shape shape_list 58..59 "]"
+ir main
+  # 2 registers, 26 instructions, 30 bytes of data
+     0: load-literal           %0, list(capacity = 12)
+     1: load-literal           %1, string("abc")
+     2: list-push              %0, %1
+     3: load-literal           %1, string("<")
+     4: list-push              %0, %1
+     5: load-literal           %1, string("bca")
+     6: list-push              %0, %1
+     7: load-literal           %1, string("abc")
+     8: list-push              %0, %1
+     9: load-literal           %1, string("<=")
+    10: list-push              %0, %1
+    11: load-literal           %1, string("bca")
+    12: list-push              %0, %1
+    13: load-literal           %1, string("abc")
+    14: list-push              %0, %1
+    15: load-literal           %1, string(">")
+    16: list-push              %0, %1
+    17: load-literal           %1, string("bca")
+    18: list-push              %0, %1
+    19: load-literal           %1, string("abc")
+    20: list-push              %0, %1
+    21: load-literal           %1, string(">=")
+    22: list-push              %0, %1
+    23: load-literal           %1, string("bca")
+    24: list-push              %0, %1
+    25: return                 %0
+=== accept/strings/unicode-content.nu
+shape shape_list 0..1 "["
+shape shape_string 1..14 "'ünïcödé'"
+shape shape_list 14..15 " "
+shape shape_string 15..28 "\"héllo 🧼\""
+shape shape_list 28..29 " "
+shape shape_string 29..40 "`日本語`"
+shape shape_list 40..41 "]"
+ir main
+  # 2 registers, 8 instructions, 31 bytes of data
+     0: load-literal           %0, list(capacity = 3)
+     1: load-literal           %1, string("ünïcödé")
+     2: list-push              %0, %1
+     3: load-literal           %1, string("héllo 🧼")
+     4: list-push              %0, %1
+     5: load-literal           %1, string("日本語")
+     6: list-push              %0, %1
+     7: return                 %0
+=== accept/strings/unicode-escapes.nu
+shape shape_list 0..1 "["
+shape shape_string 1..36 "\"hello \\u{6e}\\u{000075}\\u{073}hell\""
+shape shape_list 36..37 " "
+shape shape_string 37..56 "\"\\u{39}8\\u{10ffff}\""
+shape shape_list 56..57 " "
+shape shape_string 57..68 "\"abc\\u{41}\""
+shape shape_list 68..69 " "
+shape shape_string 69..80 "\"\\u{41}abc\""
+shape shape_list 80..81 " "
+shape shape_string 81..88 "\"\\u{a}\""
+shape shape_list 88..89 " "
+shape shape_string 89..108 "\"\\u{015B}\\u{1f10b}\""
+shape shape_list 108..109 "]"
+ir main
+  # 2 registers, 14 instructions, 34 bytes of data
+     0: load-literal           %0, list(capacity = 6)
+     1: load-literal           %1, string("hello nushell")
+     2: list-push              %0, %1
+     3: load-literal           %1, string("98\u{10ffff}")
+     4: list-push              %0, %1
+     5: load-literal           %1, string("abcA")
+     6: list-push              %0, %1
+     7: load-literal           %1, string("Aabc")
+     8: list-push              %0, %1
+     9: load-literal           %1, string("\n")
+    10: list-push              %0, %1
+    11: load-literal           %1, string("ś🄋")
+    12: list-push              %0, %1
+    13: return                 %0

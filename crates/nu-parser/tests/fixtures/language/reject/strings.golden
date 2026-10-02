@@ -1,0 +1,33 @@
+=== reject/strings/hex-escape-non-ascii.nu
+shape shape_garbage 0..6 "\"\\xff\""
+error nu::parser::parse_mismatch: Parse mismatch: expected any shape.
+  label 0..6 "\"\\xff\"": expected any shape
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/strings/hex-escape-non-hex.nu
+shape shape_string 0..6 "\"\\xzz\""
+error : Invalid literal
+  label 1..6 "\\xzz\"": invalid hex escape '\xHH', expected exactly 2 hex digits in string
+=== reject/strings/hex-escape-short.nu
+shape shape_string 0..5 "\"\\x4\""
+error : Invalid literal
+  label 1..5 "\\x4\"": incomplete hex escape '\xHH', expected 2 hex digits in string
+=== reject/strings/unicode-escape-no-brace.nu
+shape shape_string 0..8 "\"\\u0041\""
+error : Invalid literal
+  label 1..8 "\\u0041\"": invalid unicode escape '\u{...}', must be 1-6 hex digits, max codepoint 0x10FFFF in string
+=== reject/strings/unicode-escape-too-large.nu
+shape shape_string 0..12 "\"\\u{110000}\""
+error : Invalid literal
+  label 1..12 "\\u{110000}\"": invalid unicode escape '\u{...}', must be 1-6 hex digits, max codepoint 0x10FFFF in string
+=== reject/strings/unicode-escape-too-long.nu
+shape shape_string 0..61 "\"\\u{39}8\\u{000000000000000000000000000000000000000000000037}\""
+error : Invalid literal
+  label 8..61 "\\u{000000000000000000000000000000000000000000000037}\"": invalid unicode escape '\u{...}', must be 1-6 hex digits, max codepoint 0x10FFFF in string
+=== reject/strings/unicode-escape-unclosed.nu
+shape shape_string 0..13 "\"hello \\u{6e\""
+error : Invalid literal
+  label 7..13 "\\u{6e\"": incomplete unicode escape '\u{...}', missing closing '}' in string
+=== reject/strings/unknown-escape.nu
+shape shape_string 0..4 "\"\\q\""
+error : Invalid literal
+  label 1..4 "\\q\"": unrecognized escape sequence '\q' in string

@@ -1,0 +1,223 @@
+=== reject/modules/body-with-call-after-def.nu
+shape shape_internalcall 0..6 "module"
+shape shape_string 7..8 "m"
+shape shape_block 9..11 "{ "
+shape shape_internalcall 11..14 "def"
+shape shape_string 15..16 "f"
+shape shape_signature 17..19 "[]"
+shape shape_closure 20..22 "{}"
+shape shape_garbage 24..25 "f"
+shape shape_block 25..27 " }"
+error nu::parser::expected_keyword: Expected keyword.
+  label 24..25 "f": expected def, const, extern, alias, use, module, export or export-env keyword
+ir #0
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== reject/modules/body-with-command.nu
+shape shape_internalcall 0..6 "module"
+shape shape_string 7..8 "m"
+shape shape_block 9..11 "{ "
+shape shape_garbage 11..13 "ls"
+shape shape_block 13..15 " }"
+error nu::parser::expected_keyword: Expected keyword.
+  label 11..13 "ls": expected def, const, extern, alias, use, module, export or export-env keyword
+=== reject/modules/body-with-let.nu
+shape shape_internalcall 0..6 "module"
+shape shape_string 7..8 "m"
+shape shape_block 9..11 "{ "
+shape shape_garbage 11..20 "let x = 1"
+shape shape_block 20..22 " }"
+error nu::parser::expected_keyword: Expected keyword.
+  label 11..14 "let": expected def, const, extern, alias, use, module, export or export-env keyword
+=== reject/modules/double-dash-alone.nu
+shape shape_internalcall 0..6 "module"
+error nu::parser::missing_positional: Missing required positional argument.
+  label 6..6 "": missing module
+  help: Usage: module <module> (block) . Use `--help` for more information.
+=== reject/modules/double-dash-as-name.nu
+shape shape_garbage 0..14 "module -- x {}"
+error nu::parser::parse_mismatch: Parse mismatch: expected block.
+  label 10..11 "x": expected block
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/modules/double-dash-before-body.nu
+shape shape_garbage 0..14 "module x -- {}"
+error nu::parser::parse_mismatch: Parse mismatch: expected block.
+  label 9..11 "--": expected block
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/modules/double-dash-then-block.nu
+shape shape_garbage 0..12 "module -- {}"
+error nu::parser::type_mismatch: Type mismatch.
+  label 10..12 "{}": expected string, found record
+error nu::parser::unknown_state: Unknown state.
+  label 0..12 "module -- {}": internal error: name not a string
+=== reject/modules/export-alias-help-in-module.nu
+shape shape_internalcall 0..6 "module"
+shape shape_string 7..8 "m"
+shape shape_block 9..11 "{ "
+shape shape_internalcall 11..23 "export alias"
+shape shape_flag 24..30 "--help"
+shape shape_block 30..32 " }"
+error nu::parser::unknown_state: Internal error.
+  label 18..30 "alias --help": failed to find added alias
+=== reject/modules/export-alias-without-target-in-module.nu
+shape shape_internalcall 0..6 "module"
+shape shape_string 7..8 "m"
+shape shape_block 9..11 "{ "
+shape shape_internalcall 11..23 "export alias"
+shape shape_string 24..25 "x"
+shape shape_garbage 26..27 "="
+shape shape_keyword 26..27 "="
+shape shape_block 27..29 " }"
+error nu::parser::incorrect_value: Incorrect value
+  label 18..23 "alias": unexpected Incomplete alias
+  help: incomplete alias
+error nu::parser::unknown_state: Internal error.
+  label 18..27 "alias x =": failed to find added alias
+=== reject/modules/export-alone.nu
+shape shape_garbage 0..6 "export"
+error nu::parser::unexpected_keyword: Unexpected keyword.
+  label 0..6 "export": unexpected export
+  help: 'export' keyword is allowed only in a module.
+error nu::parser::unknown_state: Internal error.
+  label outside the snippet: unexpected output from parsing a definition
+=== reject/modules/export-env-body-is-record.nu
+shape shape_garbage 0..17 "export-env {a: 1}"
+error nu::parser::type_mismatch: Type mismatch.
+  label 11..17 "{a: 1}": expected block, found record<a: int>
+error nu::parser::unknown_state: Unknown state.
+  label 11..17 "{a: 1}": internal error: 'export-env' block is not a block
+=== reject/modules/export-env-double-dash.nu
+shape shape_internalcall 0..10 "export-env"
+error nu::parser::missing_positional: Missing required positional argument.
+  label 10..10 "": missing block
+  help: Usage: export-env <block> . Use `--help` for more information.
+=== reject/modules/export-env-missing-block.nu
+shape shape_garbage 0..10 "export-env"
+error nu::parser::missing_positional: Missing required positional argument.
+  label 0..10 "export-env": missing block
+  help: Usage: export-env <block>. Use `--help` for more information.
+=== reject/modules/export-help-then-extra.nu
+shape shape_internalcall 0..6 "export"
+shape shape_flag 7..13 "--help"
+shape shape_garbage 14..15 "x"
+error nu::parser::extra_positional: Extra positional argument.
+  label 14..15 "x": extra positional argument
+  help: Usage: export 
+=== reject/modules/export-invalid.nu
+shape shape_garbage 0..10 "export foo"
+error nu::parser::unexpected_keyword: Unexpected keyword.
+  label 0..6 "export": unexpected export
+  help: 'export' keyword is allowed only in a module.
+error nu::parser::unknown_state: Internal error.
+  label 7..10 "foo": unexpected output from parsing a definition
+=== reject/modules/module-extra-tokens.nu
+shape shape_internalcall 0..6 "module"
+shape shape_string 7..8 "m"
+shape shape_garbage 13..18 "extra"
+error nu::parser::extra_positional: Extra positional argument.
+  label 13..18 "extra": extra positional argument
+  help: Usage: module <module> (block) 
+=== reject/modules/module-help-extra-positional.nu
+shape shape_internalcall 67..73 "module"
+shape shape_string 74..75 "x"
+shape shape_flag 76..82 "--help"
+shape shape_garbage 83..85 "{}"
+shape shape_garbage 86..91 "extra"
+error nu::parser::extra_positional: Extra positional argument.
+  label 86..91 "extra": extra positional argument
+  help: Usage: module <module> (block) 
+=== reject/modules/module-help-record-name.nu
+shape shape_internalcall 79..85 "module"
+shape shape_flag 86..92 "--help"
+shape shape_garbage 93..99 "{a: 1}"
+error nu::parser::type_mismatch: Type mismatch.
+  label 93..99 "{a: 1}": expected string, found record<a: int>
+=== reject/modules/module-help-unknown-flag.nu
+shape shape_internalcall 51..57 "module"
+shape shape_string 58..59 "x"
+shape shape_flag 60..66 "--help"
+shape shape_flag 67..72 "--foo"
+error nu::parser::unknown_flag: The `module` command doesn't have flag `foo`.
+  label 67..72 "--foo": unknown flag
+  help: Use `--help` to see available flags
+=== reject/modules/module-missing-name.nu
+shape shape_internalcall 0..6 "module"
+error nu::parser::missing_positional: Missing required positional argument.
+  label 6..6 "": missing module
+  help: Usage: module <module> (block) . Use `--help` for more information.
+=== reject/modules/module-name-interpolation.nu
+shape shape_garbage 0..14 "module $\"a\" {}"
+error nu::parser::unknown_state: Unknown state.
+  label 0..14 "module $\"a\" {}": internal error: name not a string
+=== reject/modules/module-name-record.nu
+shape shape_garbage 0..9 "module {}"
+error nu::parser::type_mismatch: Type mismatch.
+  label 7..9 "{}": expected string, found record
+error nu::parser::unknown_state: Unknown state.
+  label 0..9 "module {}": internal error: name not a string
+=== reject/modules/module-name-subexpression.nu
+shape shape_garbage 0..13 "module (a) {}"
+error nu::parser::unknown_state: Unknown state.
+  label 0..13 "module (a) {}": internal error: name not a string
+=== reject/modules/module-name-true.nu
+shape shape_garbage 0..14 "module true {}"
+error nu::parser::parse_mismatch_with_full_string_msg: Parse mismatch: expected string.
+  label 7..11 "true": expected string
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+error nu::parser::unknown_state: Unknown state.
+  label 0..14 "module true {}": internal error: name not a string
+=== reject/modules/use-glob-not-last.nu
+shape shape_internalcall 0..3 "use"
+shape shape_string 4..7 "std"
+shape shape_string 8..9 "*"
+shape shape_string 10..13 "log"
+error nu::parser::wrong_import_pattern: Wrong import pattern structure.
+  label 8..9 "*": glob member can be only at the end of an import pattern
+=== reject/modules/use-list-not-last.nu
+shape shape_internalcall 0..3 "use"
+shape shape_string 4..7 "std"
+shape shape_list 8..9 "["
+shape shape_string 9..12 "log"
+shape shape_list 12..13 "]"
+shape shape_string 14..20 "assert"
+error nu::parser::wrong_import_pattern: Wrong import pattern structure.
+  label 8..13 "[log]": list member can be only at the end of an import pattern
+=== reject/modules/use-member-int.nu
+shape shape_internalcall 0..3 "use"
+shape shape_string 4..7 "std"
+shape shape_int 8..9 "5"
+error nu::parser::wrong_import_pattern: Wrong import pattern structure.
+  label 8..9 "5": Wrong type of import pattern, only String and List<String> are allowed.
+=== reject/modules/use-member-interpolation.nu
+shape shape_internalcall 0..3 "use"
+shape shape_string 4..7 "std"
+shape shape_string_interpolation 8..10 "$\""
+shape shape_string 10..11 "x"
+shape shape_string_interpolation 11..12 "\""
+error nu::parser::wrong_import_pattern: Wrong import pattern structure.
+  label 8..12 "$\"x\"": Wrong type of import pattern, only String and List<String> are allowed.
+=== reject/modules/use-member-null.nu
+shape shape_internalcall 0..3 "use"
+shape shape_string 4..7 "std"
+shape shape_nothing 8..12 "null"
+error nu::parser::wrong_import_pattern: Wrong import pattern structure.
+  label 8..12 "null": Wrong type of import pattern, only String and List<String> are allowed.
+=== reject/modules/use-member-range.nu
+shape shape_internalcall 0..3 "use"
+shape shape_string 4..7 "std"
+shape shape_int 8..9 "1"
+shape shape_operator 9..11 ".."
+shape shape_int 11..12 "2"
+error nu::parser::wrong_import_pattern: Wrong import pattern structure.
+  label 8..12 "1..2": Wrong type of import pattern, only String and List<String> are allowed.
+=== reject/modules/use-missing-module.nu
+shape shape_internalcall 0..3 "use"
+error nu::parser::missing_positional: Missing required positional argument.
+  label 3..3 "": missing module
+  help: Usage: use <module> ...(members) . Use `--help` for more information.
+=== reject/modules/use-raw-string-member.nu
+shape shape_internalcall 0..3 "use"
+shape shape_string 4..7 "std"
+shape shape_raw_string 8..16 "r#'log'#"
+error nu::parser::wrong_import_pattern: Wrong import pattern structure.
+  label 8..16 "r#'log'#": Wrong type of import pattern, only String and List<String> are allowed.

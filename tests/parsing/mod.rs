@@ -1,5 +1,6 @@
 mod def_compile;
 mod escaping;
+mod language;
 mod lex_once;
 
 use std::time::Duration;
