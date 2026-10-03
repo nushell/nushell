@@ -57,6 +57,11 @@ impl Command for Find {
             )
             .switch("invert", "Invert the match.", Some('v'))
             .switch(
+                "only-matching",
+                "Print only the matched parts, with each match on a separate line.",
+                Some('o'),
+            )
+            .switch(
                 "rfind",
                 "Search from the end of the string and only return the first match.",
                 Some('R'),
@@ -245,6 +250,19 @@ impl Command for Find {
                     "\u{1b}[39mhello world \u{1b}[0m\u{1b}[41;39mhello\u{1b}[0m\u{1b}[39m\u{1b}[0m",
                 )),
             },
+            Example {
+                description: "Return only matching parts of a string.",
+                example: "'abc abc' | find --only-matching ab",
+                result: Some(Value::test_list(vec![
+                    Value::test_string("ab"),
+                    Value::test_string("ab"),
+                ])),
+            },
+            Example {
+                description: "Return only the last matching part of a string.",
+                example: "'abc abc' | find --only-matching --rfind ab",
+                result: Some(Value::test_list(vec![Value::test_string("ab")])),
+            },
         ]
     }
 
@@ -302,6 +320,9 @@ struct MatchPattern {
     /// return the values that aren't a match instead
     invert: bool,
 
+    /// return only matched substrings
+    only_matching: bool,
+
     /// search from the end (find last occurrence)
     rfind: bool,
 
@@ -325,11 +346,23 @@ fn get_match_pattern_from_arguments(
 
     let invert = call.has_flag(engine_state, stack, "invert")?;
     let highlight = !call.has_flag(engine_state, stack, "no-highlight")?;
+    let only_matching = call.has_flag(engine_state, stack, "only-matching")?;
     let rfind = call.has_flag(engine_state, stack, "rfind")?;
 
     let ignore_case = call.has_flag(engine_state, stack, "ignore-case")?;
 
     let dotall = call.has_flag(engine_state, stack, "dotall")?;
+
+    if invert && only_matching {
+        return Err(ShellError::IncompatibleParameters {
+            left_message: "inverts matches".into(),
+            left_span: call.get_flag_span(stack, "invert").expect("has flag"),
+            right_message: "returns matches".into(),
+            right_span: call
+                .get_flag_span(stack, "only-matching")
+                .expect("has flag"),
+        });
+    }
 
     let style_computer = StyleComputer::from_config(engine_state, stack);
     // Currently, search results all use the same style.
@@ -401,6 +434,7 @@ fn get_match_pattern_from_arguments(
         search_terms,
         ignore_case,
         invert,
+        only_matching,
         highlight,
         rfind,
         string_style,
@@ -524,6 +558,10 @@ fn find_in_pipelinedata(
 ) -> Result<PipelineData, ShellError> {
     let config = stack.get_config(engine_state);
 
+    if pattern.only_matching {
+        return find_only_matching_in_pipelinedata(pattern, columns_to_search, input, &config);
+    }
+
     let map_pattern = pattern.clone();
     let map_columns_to_search = columns_to_search.clone();
 
@@ -573,6 +611,101 @@ fn find_in_pipelinedata(
             }
         }
     }
+}
+
+fn find_only_matching_in_pipelinedata(
+    pattern: MatchPattern,
+    columns_to_search: Vec<String>,
+    input: PipelineData,
+    config: &Config,
+) -> Result<PipelineData, ShellError> {
+    match input {
+        PipelineData::Empty => Ok(PipelineData::empty()),
+        PipelineData::Value(value, metadata) => {
+            let span = value.span();
+            let matches =
+                only_matching_matches_in_value(&pattern, value, &columns_to_search, config);
+            Ok(Value::list(matches, span).into_pipeline_data_with_metadata(metadata))
+        }
+        PipelineData::ListStream(stream, metadata) => {
+            let config = config.clone();
+            let stream = stream.modify(|iter| {
+                iter.flat_map(move |value| {
+                    only_matching_matches_in_value(&pattern, value, &columns_to_search, &config)
+                })
+            });
+
+            Ok(PipelineData::list_stream(stream, metadata))
+        }
+        PipelineData::ByteStream(stream, ..) => {
+            let span = stream.span();
+            if let Some(lines) = stream.lines() {
+                let mut output = vec![];
+                for line in lines {
+                    let line = line?;
+                    output.extend(only_matching_matches_in_string(&pattern, &line, span));
+                }
+
+                Ok(Value::list(output, span).into_pipeline_data())
+            } else {
+                Ok(PipelineData::empty())
+            }
+        }
+    }
+}
+
+fn only_matching_matches_in_value(
+    pattern: &MatchPattern,
+    value: Value,
+    columns_to_search: &[String],
+    config: &Config,
+) -> Vec<Value> {
+    let span = value.span();
+    let value_as_string = if pattern.ignore_case {
+        value.to_expanded_string("", config).to_lowercase()
+    } else {
+        value.to_expanded_string("", config)
+    };
+
+    match value {
+        Value::String { val, .. } => only_matching_matches_in_string(pattern, &val, span),
+        Value::List { vals, .. } => vals
+            .into_iter()
+            .flat_map(|item| only_matching_matches_in_value(pattern, item, &[], config))
+            .collect(),
+        Value::Record { val: record, .. } => {
+            let col_select = !columns_to_search.is_empty();
+            record
+                .into_owned()
+                .into_iter()
+                .filter(|(col, _)| !col_select || columns_to_search.contains(col))
+                .flat_map(|(_, val)| only_matching_matches_in_value(pattern, val, &[], config))
+                .collect()
+        }
+        Value::Binary { .. } | Value::Error { .. } => Vec::new(),
+        _ => only_matching_matches_in_string(pattern, &value_as_string, span),
+    }
+}
+
+fn only_matching_matches_in_string(pattern: &MatchPattern, text: &str, span: Span) -> Vec<Value> {
+    if pattern.rfind {
+        return pattern
+            .regex
+            .find_iter(text)
+            .filter_map(|m| m.ok())
+            .filter(|m| !m.as_str().is_empty())
+            .last()
+            .map(|m| vec![Value::string(m.as_str(), span)])
+            .unwrap_or_default();
+    }
+
+    pattern
+        .regex
+        .find_iter(text)
+        .filter_map(|m| m.ok())
+        .filter(|m| !m.as_str().is_empty())
+        .map(|m| Value::string(m.as_str(), span))
+        .collect()
 }
 
 // filter functions
@@ -679,6 +812,7 @@ pub fn find_internal(
         ignore_case: true,
         highlight,
         invert: false,
+        only_matching: false,
         rfind: false,
         string_style,
         highlight_style,
