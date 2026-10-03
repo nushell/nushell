@@ -33,6 +33,29 @@ Their golden entries record those errors.
 - `tests/parsing/grammar.rs` checks the values nu-parser parses in the
   `accept` snippets against the grammar in `devdocs/grammar`.
 
+### Running them
+
+Run these from the workspace root. The three `tests/parsing` files are modules
+of the root crate's test binary, `tests`, which uses nushell's own test harness:
+a filter selects every test whose full name
+(`parsing::language::fixtures_parse_as_recorded`, say) contains it, and
+`--list` shows the names a filter selects without running them.
+
+```nushell
+cargo test --test tests -- parsing::language   # golden files and reject snippets
+cargo test --test tests -- parsing::lex_once   # bracket tables on and off
+cargo test --test tests -- parsing::grammar    # devdocs/grammar
+cargo test --test tests -- parsing::           # all three, with the other parsing tests
+```
+
+The lexer test is a unit test of nu-parser, run by the standard test harness.
+Run the ignored one after changing the lexer or the bracket table builder.
+
+```nushell
+cargo test -p nu-parser --lib lex_once
+cargo test -p nu-parser --lib lex_once -- --ignored
+```
+
 ## Golden files
 
 An entry starts with `=== <verdict>/<area>/<name>.nu` and lists, in order:
@@ -56,7 +79,15 @@ entry is a changed parse.
 
 ```nushell
 NU_TEST_UPDATE_GOLDEN=1 cargo test --test tests -- parsing::language
+git diff crates/nu-parser/tests/fixtures/language
 ```
+
+With the variable set, `fixtures_parse_as_recorded` rewrites the golden file of
+every area instead of comparing with it, and passes; the diff is the check. The
+test only checks that the variable is set, so `NU_TEST_UPDATE_GOLDEN=0`
+rewrites them too. Without it, a failure lists every entry that differs
+(recorded on the left, current on the right), every snippet without an entry
+and every entry without a snippet.
 
 ## Adding a snippet
 
