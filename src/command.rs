@@ -753,6 +753,13 @@ pub(crate) fn parse_cli_args(args: Vec<OsString>) -> Result<ParsedCli, CliError>
                         .with_help("Use UTF-8 arguments when calling nushell.")
                 })?;
 
+                if value == "/c" || value == "/C" {
+                    let value = parse_string_value(&mut parser, "commands")?;
+                    cli.commands = Some(spanned_value(value));
+                    consume_remaining_args(&mut parser)?;
+                    break;
+                }
+
                 if script_name.is_empty() && cli.commands.is_none() {
                     script_name = value;
                     consume_remaining_args(&mut parser)?;
@@ -1215,7 +1222,7 @@ fn prevalidate_short_groups_before_lexopt(args: &[OsString]) -> Result<(), CliEr
         }
 
         // Flags that take command/script strings - stop all validation after these
-        if arg == "-c" || arg == "--commands" {
+        if arg == "-c" || arg == "--commands" || arg == "/c" || arg == "/C" {
             // Everything after -c/--commands is nushell code, not CLI args
             break;
         }
@@ -1522,6 +1529,42 @@ mod tests {
 
         let result = parse_cli_args(args);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn slash_c_parses_as_commands() {
+        let args = vec![
+            OsString::from("nu"),
+            OsString::from("/c"),
+            OsString::from("42 + 1"),
+        ];
+
+        let parsed = parse_cli_args(args).expect("should parse /c as commands");
+
+        assert_eq!(parsed.nu.commands.expect("commands").item, "42 + 1");
+        assert!(parsed.script_name.is_empty());
+    }
+
+    #[test]
+    fn slash_c_preserves_remaining_args_for_command() {
+        let args = vec![
+            OsString::from("nu"),
+            OsString::from("/c"),
+            OsString::from("$args"),
+            OsString::from("--not-a-nu-flag"),
+            OsString::from("value with spaces"),
+        ];
+
+        let parsed = parse_cli_args(args).expect("should parse /c as commands");
+
+        assert_eq!(parsed.nu.commands.expect("commands").item, "$args");
+        assert_eq!(
+            parsed.args_to_script,
+            vec![
+                "--not-a-nu-flag".to_string(),
+                r#""value with spaces""#.to_string()
+            ]
+        );
     }
 
     #[test]
