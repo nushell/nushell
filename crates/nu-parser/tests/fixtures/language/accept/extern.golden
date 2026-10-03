@@ -76,7 +76,7 @@ ir main
   # 2 registers, 5 instructions, 18 bytes of data
      0: load-literal           %1, string("extern")
      1: push-positional        %1
-     2: push-parser-info       "help_decl_id", Expression { expr: Int(26), span: Span[148075..148081], span_id: SpanId(0), ty: Int }
+     2: push-parser-info       "help_decl_id"
      3: call                   decl "help", %0
      4: return                 %0
 === accept/extern/help-twice.nu
@@ -88,7 +88,7 @@ ir main
   # 2 registers, 5 instructions, 18 bytes of data
      0: load-literal           %1, string("extern")
      1: push-positional        %1
-     2: push-parser-info       "help_decl_id", Expression { expr: Int(26), span: Span[148075..148081], span_id: SpanId(0), ty: Int }
+     2: push-parser-info       "help_decl_id"
      3: call                   decl "help", %0
      4: return                 %0
 === accept/extern/io-types.nu

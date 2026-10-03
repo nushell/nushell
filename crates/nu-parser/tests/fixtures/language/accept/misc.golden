@@ -420,7 +420,7 @@ ir #14
     31: load-literal           %0, empty
     32: load-literal           %1, string("m")
     33: push-positional        %1
-    34: push-parser-info       "import_pattern", Expression { expr: ImportPattern(ImportPattern { head: ImportPatternHead { name: [109], id: Some(ModuleId(5)), span: Span[148168..148169] }, members: [], hidden: {}, constants: [] }), span: Span[148168..148169], span_id: SpanId(4752), ty: Any }
+    34: push-parser-info       "import_pattern"
     35: call                   decl "use", %0
     36: drain                  %0
     37: load-literal           %0, empty

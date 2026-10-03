@@ -21,10 +21,12 @@ signature or table decides it.
 
 ```ebnf
 <name> ::= alt1 | alt2      a rule; terminals are in double quotes
+"\n" "\r" "\t"              the line feed, carriage return and tab; any other
+                            backslash in a terminal is itself ("\" is one)
 [ x ]                       optional
 { x }                       zero or more
 ( x )                       grouping
-1*x                         one or more; N*x exactly N
+1*x                         one or more; N*x exactly N; N*Mx N to M
 x - y                       x except y (ISO 14977 exception; used for name restrictions)
 <words with spaces>         a class described in words, not a nonterminal
 ; ...                       a comment; prose describes character classes

@@ -242,7 +242,7 @@ ir #0
   # 2 registers, 7 instructions, 4 bytes of data
      0: load-literal           %1, nothing
      1: push-positional        %1
-     2: push-parser-info       "noop", Expression { expr: Nothing, span: Span(UNKNOWN), span_id: SpanId(0), ty: Nothing }
+     2: push-parser-info       "noop"
      3: redirect-out           caller
      4: redirect-err           caller
      5: call                   decl "run", %0

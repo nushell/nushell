@@ -13,22 +13,19 @@
 //!
 //! Golden files hold no offsets or ids of the engine, so that adding a command or changing the
 //! standard library does not change them: spans count from the start of the snippet, the IR names
-//! commands without their ids, and numbers the snippet's variables and blocks from the first one
-//! the snippet adds (`#0`).
+//! commands without their ids, numbers the snippet's own variables and blocks in the order the
+//! parse added them (`#0`, `#1`, ...), and shows only the name of the parser info a call pushes.
 
 use fancy_regex::{Captures, Regex};
 use miette::Diagnostic;
-use nu_parser::{flatten_block, parse};
-use nu_protocol::{
-    Span,
-    ast::Block,
-    engine::{EngineState, StateWorkingSet},
-};
-use nu_test_support::prelude::*;
+use nu_parser::flatten_block;
+use nu_protocol::{LAST_VARIABLE_ID, Span, VarId, ast::Block, engine::EngineState};
+use nu_test_support::{fs::nu_files, prelude::*, tester::parse_file};
 use pretty_assertions::StrComparison;
 use std::{
+    collections::HashMap,
     fmt::Write,
-    path::{Path, PathBuf},
+    path::Path,
     sync::{Arc, LazyLock},
 };
 
@@ -37,46 +34,6 @@ pub(super) const FIXTURES: &str = "crates/nu-parser/tests/fixtures/language";
 
 /// Set this environment variable to write the golden files instead of comparing with them.
 const UPDATE_GOLDEN: &str = "NU_TEST_UPDATE_GOLDEN";
-
-/// Every `.nu` file under `dir`, in a stable order.
-pub(super) fn nu_files(dir: &Path, files: &mut Vec<PathBuf>) {
-    let mut entries: Vec<_> = std::fs::read_dir(dir)
-        .expect("directory is readable")
-        .map(|entry| entry.expect("directory entry is readable").path())
-        .collect();
-    entries.sort();
-    for path in entries {
-        if path.is_dir() {
-            nu_files(&path, files);
-        } else if path.extension().is_some_and(|ext| ext == "nu") {
-            files.push(path);
-        }
-    }
-}
-
-/// Parse `source` as the contents of the file at `path`, the way `source` parses a file, with
-/// bracket tables ([`StateWorkingSet::lex_once`]) on or off.
-pub(super) fn parse_file<'a>(
-    engine_state: &'a EngineState,
-    path: &Path,
-    source: &[u8],
-    lex_once: bool,
-) -> (StateWorkingSet<'a>, Arc<Block>) {
-    let mut working_set = StateWorkingSet::new(engine_state);
-    working_set.lex_once = lex_once;
-    working_set
-        .files
-        .push(path.to_path_buf(), Span::unknown())
-        .expect("a single file cannot be a circular import");
-    let block = parse(
-        &mut working_set,
-        Some(&path.to_string_lossy()),
-        source,
-        false,
-    );
-    working_set.files.pop();
-    (working_set, block)
-}
 
 /// The golden file entry of the snippet at `path`, named `name` in the entry's header.
 fn render(engine_state: &EngineState, path: &Path, name: &str) -> String {
@@ -127,44 +84,77 @@ fn render(engine_state: &EngineState, path: &Path, name: &str) -> String {
         }
     }
 
-    // The main block, then every block the parse added for the snippet (blocks of the modules it
-    // loads lie outside it).
+    // The snippet's own blocks and variables, numbered in the order the parse added them. Those
+    // of the modules it loads (the standard library's, say) lie in other files and are left out,
+    // so that changing those modules doesn't renumber the snippet's. A block or variable the parser
+    // makes up (a row condition, say) has no span and counts as the snippet's.
+    let first_block = engine_state.num_blocks();
+    let own_blocks: Vec<(usize, &Arc<Block>)> = (working_set.delta.blocks.iter().enumerate())
+        .filter(|(_, block)| block.span.is_none_or(|span| file.contains_span(span)))
+        .map(|(index, block)| (first_block + index, block))
+        .collect();
+    let names = Names {
+        blocks: (own_blocks.iter().enumerate())
+            .map(|(number, (id, _))| (*id, format!("#{number}")))
+            .collect(),
+        vars: (engine_state.num_vars()..working_set.num_vars())
+            .filter(|&id| {
+                let span = working_set.get_variable(VarId::new(id)).declaration_span;
+                span == Span::unknown() || file.contains_span(span)
+            })
+            .enumerate()
+            .map(|(number, id)| (id, format!("#{number}")))
+            .collect(),
+    };
+    // The main block, then the snippet's own blocks that have a span in it.
     let blocks: Vec<(String, Arc<Block>)> = std::iter::once(("main".to_string(), block))
         .chain(
-            (working_set.delta.blocks.iter().enumerate()).filter_map(|(index, block)| {
-                let inside = block.span.is_some_and(|span| file.contains_span(span));
-                inside.then(|| (format!("#{index}"), block.clone()))
-            }),
+            (own_blocks.into_iter())
+                .filter(|(_, block)| block.span.is_some())
+                .map(|(id, block)| (names.blocks[&id].clone(), block.clone())),
         )
         .collect();
     let mut merged = engine_state.clone();
     match merged.merge_delta(working_set.render()) {
-        Ok(()) => out.push_str(&render_ir(&merged, engine_state, &blocks)),
+        Ok(()) => out.push_str(&render_ir(&merged, &names, &blocks)),
         Err(error) => writeln!(out, "no ir: {error}").expect("writing to a String"),
     }
     out
 }
 
-/// The IR of `blocks`, rendered with `merged` (the engine with the snippet's parse merged into it)
-/// and with the ids of `engine_state` (the engine before the parse) taken out.
-fn render_ir(
-    merged: &EngineState,
-    engine_state: &EngineState,
-    blocks: &[(String, Arc<Block>)],
-) -> String {
+/// The names that the golden files give the snippet's own blocks and variables, by id.
+struct Names {
+    blocks: HashMap<usize, String>,
+    vars: HashMap<usize, String>,
+}
+
+/// The IR of `blocks`, rendered with `merged` (the engine with the snippet's parse merged into it),
+/// with the snippet's blocks and variables named as in `names` and no other ids of the engine.
+fn render_ir(merged: &EngineState, names: &Names, blocks: &[(String, Arc<Block>)]) -> String {
     static DECL: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"decl \d+ ").expect("valid regex"));
     static VAR: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"var (\d+)").expect("valid regex"));
     static BLOCK: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"(block|closure|row_condition)\((\d+)\)").expect("valid regex")
     });
-    // Ids below the engine's counts belong to the engine (`$nu`, `$in`, `$env`); the snippet's
-    // own count from `#0`.
-    let renumber = |id: &str, first: usize| {
-        let id: usize = id.parse().expect("ids are numbers");
-        match id.checked_sub(first) {
-            Some(own) => format!("#{own}"),
-            None => id.to_string(),
-        }
+    // The value of a parser info is an `Expression`, printed with its absolute spans and ids, so
+    // only the name of the info is kept (and the comment of the instruction, if it has one).
+    static PARSER_INFO: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r#"^(\s*\d+: push-parser-info\s+"[^"]*"), .*?(\s+# (?:label|from)\(.*)?$"#)
+            .expect("valid regex")
+    });
+    // The engine's own variables `$nu`, `$in`, `$env` and `$ans` keep their ids; any other id the
+    // snippet didn't add belongs to the engine or to a module the snippet loads.
+    let var_name = |id: usize| match names.vars.get(&id) {
+        Some(name) => name.clone(),
+        None if id <= LAST_VARIABLE_ID.get() => id.to_string(),
+        None => "outside the snippet".into(),
+    };
+    let block_name = |id: usize| match names.blocks.get(&id) {
+        Some(name) => name.clone(),
+        None => "outside the snippet".into(),
+    };
+    let id = |caps: &Captures<'_, str>, group: usize| -> usize {
+        caps[group].parse().expect("ids are numbers")
     };
 
     let mut out = String::new();
@@ -175,19 +165,17 @@ fn render_ir(
         let ir = ir_block.display(merged).to_string();
         let ir = DECL.replace_all(&ir, "decl ");
         let ir = VAR.replace_all(&ir, |caps: &Captures<'_, str>| {
-            format!("var {}", renumber(&caps[1], engine_state.num_vars()))
+            format!("var {}", var_name(id(caps, 1)))
         });
         let ir = BLOCK.replace_all(&ir, |caps: &Captures<'_, str>| {
-            format!(
-                "{}({})",
-                &caps[1],
-                renumber(&caps[2], engine_state.num_blocks())
-            )
+            format!("{}({})", &caps[1], block_name(id(caps, 2)))
         });
         // `Call::parser_info` is a `HashMap`, so a call with several entries pushes them in a
         // different order in every process: sort each run of `push-parser-info` instructions,
         // keeping the instruction numbers in place.
-        let mut lines: Vec<String> = ir.lines().map(str::to_string).collect();
+        let mut lines: Vec<String> = (ir.lines())
+            .map(|line| PARSER_INFO.replace(line, "$1$2").into_owned())
+            .collect();
         let is_push = |line: &String| line.contains(": push-parser-info");
         for run in lines.chunk_by_mut(|a, b| is_push(a) && is_push(b)) {
             if run.len() < 2 {
@@ -241,8 +229,7 @@ fn fixtures_parse_as_recorded() -> Result {
 
     let mut differences = String::new();
     for area in areas {
-        let mut files = vec![];
-        nu_files(&area, &mut files);
+        let files = nu_files(&area);
         let actual: String = files
             .iter()
             .map(|path| {
@@ -295,8 +282,7 @@ fn fixtures_parse_as_recorded() -> Result {
 #[test]
 fn reject_fixtures_report_errors() -> Result {
     let engine_state = test().engine_state;
-    let mut files = vec![];
-    nu_files(&WORKSPACE_ROOT.join(FIXTURES).join("reject"), &mut files);
+    let files = nu_files(WORKSPACE_ROOT.join(FIXTURES).join("reject"));
     let accepted: Vec<_> = files
         .iter()
         .filter(|path| {

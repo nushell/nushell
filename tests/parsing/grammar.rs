@@ -19,13 +19,13 @@
 //! context the lexer is in. A match that needs one of them is not decided and is not checked; the
 //! special sequences that are plain byte classes are ([`class`]).
 
-use super::language::{FIXTURES, nu_files, parse_file};
+use super::language::FIXTURES;
 use fancy_regex::Regex;
 use nu_protocol::{
     Span,
     ast::{Expr, Expression, Traverse, Unit},
 };
-use nu_test_support::prelude::*;
+use nu_test_support::{fs::nu_files, prelude::*, tester::parse_file};
 use pretty_assertions::assert_eq;
 use rustc_hash::FxHashMap;
 use std::{
@@ -83,6 +83,17 @@ enum Token {
     Punct(u8),
 }
 
+/// The bytes the text of a terminal stands for: `\n`, `\r` and `\t` are the line feed, carriage
+/// return and tab, and any other text is itself, backslashes included (section 0 of grammar.md).
+fn terminal_bytes(text: &[u8]) -> Vec<u8> {
+    match text {
+        br"\n" => b"\n".to_vec(),
+        br"\r" => b"\r".to_vec(),
+        br"\t" => b"\t".to_vec(),
+        text => text.to_vec(),
+    }
+}
+
 /// The tokens of `text`, without its `(* ... *)` comments.
 fn tokenize(text: &str) -> Vec<Token> {
     let bytes = text.as_bytes();
@@ -104,7 +115,7 @@ fn tokenize(text: &str) -> Vec<Token> {
             b'(' if bytes[i..].starts_with(b"(*") => i = until(i + 2, b"*)") + 2,
             quote @ (b'"' | b'\'') => {
                 let end = until(i + 1, &[quote]);
-                tokens.push(Token::Terminal(bytes[i + 1..end].to_vec()));
+                tokens.push(Token::Terminal(terminal_bytes(&bytes[i + 1..end])));
                 i = end + 1;
             }
             b'?' => {
@@ -684,7 +695,7 @@ fn grammar_matches_parsed_values() -> Result {
         "crates/nu-config/default_files",
         "toolkit",
     ] {
-        nu_files(&WORKSPACE_ROOT.join(dir), &mut files);
+        files.extend(nu_files(WORKSPACE_ROOT.join(dir)));
     }
 
     // The rules this test met, and how many values each one decided.

@@ -6,10 +6,6 @@ error nu::parser::unclosed_delimiter: Unclosed delimiter.
   label 5..6 "[": unclosed — opens here (need `]`)
   label 9..9 "": expected `]` here
   help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
-error nu::parser::unclosed_delimiter: Unclosed delimiter.
-  label 5..6 "[": unclosed — opens here (need `]`)
-  label 9..9 "": expected `]` here
-  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
 === reject/lists/pipe-pipe-between-items.nu
 shape shape_list 0..1 "["
 shape shape_int 1..2 "1"

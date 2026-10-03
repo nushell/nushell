@@ -69,10 +69,10 @@ ir main
      8: match                  (1 | 2), %1, 24
      9: match                  (3..5), %1, 27 # label(2)
     10: match                  (var #1), %1, 35 # label(4)
-    11: match                  ([var #2var #3..var #4]), %1, 45 # label(6), from(41:)
+    11: match                  ([var #2, var #3, ..var #4]), %1, 45 # label(6), from(41:)
     12: match                  ([..var #5]), %1, 48 # label(8)
     13: match                  ([..]), %1, 51 # label(10)
-    14: match                  ({name: var #6age: 3}), %1, 54 # label(12)
+    14: match                  ({name: var #6, age: 3}), %1, 54 # label(12)
     15: match                  ({shorthand: var #7}), %1, 57 # label(14)
     16: match                  ('str'), %1, 60 # label(16)
     17: match                  (2), %1, 63 # label(18)
@@ -625,7 +625,7 @@ ir main
   # 2 registers, 5 instructions, 17 bytes of data
      0: load-literal           %1, string("match")
      1: push-positional        %1
-     2: push-parser-info       "help_decl_id", Expression { expr: Int(39), span: Span[148075..148080], span_id: SpanId(0), ty: Int }
+     2: push-parser-info       "help_decl_id"
      3: call                   decl "help", %0
      4: return                 %0
 === accept/match/help-then-block.nu
@@ -636,7 +636,7 @@ ir main
   # 2 registers, 5 instructions, 17 bytes of data
      0: load-literal           %1, string("match")
      1: push-positional        %1
-     2: push-parser-info       "help_decl_id", Expression { expr: Int(39), span: Span[148075..148080], span_id: SpanId(0), ty: Int }
+     2: push-parser-info       "help_decl_id"
      3: call                   decl "help", %0
      4: return                 %0
 === accept/match/in-pipeline.nu
@@ -700,7 +700,7 @@ ir main
      1: load-literal           %2, int(1)
      2: list-push              %1, %2
      3: collect                %1
-     4: match                  (['a''=''b''|''c']), %1, 8
+     4: match                  (['a', '=', 'b', '|', 'c']), %1, 8
      5: load-literal           %0, empty   # label(2)
      6: drop                   %1
      7: jump                   11
@@ -755,7 +755,7 @@ ir main
      3: load-literal           %2, int(2)
      4: list-push              %1, %2
      5: collect                %1
-     6: match                  ([1..]), %1, 10
+     6: match                  ([1, ..]), %1, 10
      7: load-literal           %0, empty   # label(2)
      8: drop                   %1
      9: jump                   13
@@ -783,7 +783,7 @@ ir main
      3: load-literal           %2, int(2)
      4: list-push              %1, %2
      5: collect                %1
-     6: match                  ([1..var #0]), %1, 10
+     6: match                  ([1, ..var #0]), %1, 10
      7: load-literal           %0, empty   # label(2)
      8: drop                   %1
      9: jump                   13
@@ -807,7 +807,7 @@ ir main
      1: load-literal           %2, int(1)
      2: list-push              %1, %2
      3: collect                %1
-     4: match                  (['='1]), %1, 8
+     4: match                  (['=', 1]), %1, 8
      5: load-literal           %0, empty   # label(2)
      6: drop                   %1
      7: jump                   11
@@ -835,7 +835,7 @@ ir main
      3: load-literal           %2, int(2)
      4: list-push              %1, %2
      5: collect                %1
-     6: match                  ([12]), %1, 10
+     6: match                  ([1, 2]), %1, 10
      7: load-literal           %0, empty   # label(2)
      8: drop                   %1
      9: jump                   13
@@ -891,7 +891,7 @@ ir main
      3: load-literal           %2, int(2)
      4: list-push              %1, %2
      5: collect                %1
-     6: match                  ([1..var #677]), %1, 10
+     6: match                  ([1, ..var #0, 2]), %1, 10
      7: load-literal           %0, empty   # label(2)
      8: drop                   %1
      9: jump                   13
@@ -971,13 +971,13 @@ ir main
      7: collect                %1
      8: match                  ([]), %1, 21
      9: match                  ([var #0]), %1, 28 # label(2)
-    10: match                  ([var #1var #2]), %1, 35 # label(4)
-    11: match                  ([var #3var #4var #5]), %1, 42 # label(6)
-    12: match                  ([1var #6_]), %1, 49 # label(8)
-    13: match                  ([var #7..var #8]), %1, 56 # label(10)
+    10: match                  ([var #1, var #2]), %1, 35 # label(4)
+    11: match                  ([var #3, var #4, var #5]), %1, 42 # label(6)
+    12: match                  ([1, var #6, _]), %1, 49 # label(8)
+    13: match                  ([var #7, ..var #8]), %1, 56 # label(10)
     14: match                  ([..var #9]), %1, 63 # label(12)
     15: match                  ([..]), %1, 70 # label(14)
-    16: match                  ([[var #10][var #11]]), %1, 77 # label(16)
+    16: match                  ([[var #10], [var #11]]), %1, 77 # label(16)
     17: match                  ([{a: var #12}]), %1, 84 # label(18)
     18: load-literal           %0, empty   # label(20)
     19: drop                   %1
@@ -1188,7 +1188,7 @@ ir main
      1: collect                %1
      2: match                  (1 | 2 | 3), %1, 9
      3: match                  ('a' | 'b'), %1, 16 # label(2)
-     4: match                  ([var #0] | [var #0var #1]), %1, 21 # label(4)
+     4: match                  ([var #0] | [var #0, var #1]), %1, 21 # label(4)
      5: match                  (_ | _), %1, 28 # label(6)
      6: load-literal           %0, empty   # label(8)
      7: drop                   %1
@@ -1388,12 +1388,12 @@ ir main
     11: match                  ({}), %1, 23
     12: match                  ({a: 1}), %1, 30 # label(2)
     13: match                  ({a: var #0}), %1, 37 # label(4)
-    14: match                  ({a: var #1b: var #2}), %1, 44 # label(6)
-    15: match                  ({a: var #3b: {c: var #4}}), %1, 51 # label(8)
+    14: match                  ({a: var #1, b: var #2}), %1, 44 # label(6)
+    15: match                  ({a: var #3, b: {c: var #4}}), %1, 51 # label(8)
     16: match                  ({a: var #5}), %1, 58 # label(10)
-    17: match                  ({a: var #6b: var #7}), %1, 65 # label(12)
+    17: match                  ({a: var #6, b: var #7}), %1, 65 # label(12)
     18: match                  ({"quoted key": var #8}), %1, 72 # label(14)
-    19: match                  ({a: [var #9..var #10]}), %1, 79 # label(16)
+    19: match                  ({a: [var #9, ..var #10]}), %1, 79 # label(16)
     20: load-literal           %0, empty   # label(18)
     21: drop                   %1
     22: jump                   86

@@ -159,16 +159,18 @@ enum IntLiteral {
 /// `_` digit separators.
 fn read_int(token: &[u8]) -> IntLiteral {
     match first_non_separator(token) {
-        None => return IntLiteral::Empty,
         // Every integer literal starts with a digit (the radix prefixes included) or a sign.
         // Most tokens that get here are bare words tried as numbers speculatively, so reject
         // them before decoding them.
         Some(first) if !(first.is_ascii_digit() || first == b'+' || first == b'-') => {
-            return IntLiteral::NotInt;
+            IntLiteral::NotInt
         }
-        Some(_) => {}
+        _ => decode_int(token),
     }
+}
 
+/// [`read_int`] without rejecting tokens by their first byte first: what decoding `token` gives.
+fn decode_int(token: &[u8]) -> IntLiteral {
     let token = strip_underscores(token);
 
     // Parse as a u64, then cast to i64, otherwise, for numbers like "0xffffffffffffffef",
@@ -178,7 +180,9 @@ fn read_int(token: &[u8]) -> IntLiteral {
         Err(_) => IntLiteral::InvalidDigits { radix },
     };
 
-    if let Some(num) = token.strip_prefix("0b") {
+    if token.is_empty() {
+        IntLiteral::Empty
+    } else if let Some(num) = token.strip_prefix("0b") {
         extract_int(num, 2)
     } else if let Some(num) = token.strip_prefix("0o") {
         extract_int(num, 8)
@@ -293,14 +297,22 @@ pub fn parse_range(working_set: &mut StateWorkingSet, span: Span) -> Option<Expr
         return None;
     }
 
+    // The `..`s outside parentheses: those with as many `(` as `)` before them. The parens are
+    // counted from one `..` to the next instead of from the start of the token for each `..`, which
+    // made a large subexpression with many `..`s in it (`../` paths) quadratic to parse.
+    let mut paren_depth = 0isize;
+    let mut counted = 0;
     let dotdot_pos: Vec<_> = token
         .match_indices("..")
         .filter_map(|(pos, _)| {
-            // paren_depth = count of unclosed parens prior to pos
-            let before = &token[..pos];
-            let paren_opened = before.chars().filter(|&c| c == '(').count();
-            let paren_closed = before.chars().filter(|&c| c == ')').count();
-            let paren_depth = paren_opened.checked_sub(paren_closed)?;
+            for byte in &token.as_bytes()[counted..pos] {
+                match byte {
+                    b'(' => paren_depth += 1,
+                    b')' => paren_depth -= 1,
+                    _ => {}
+                }
+            }
+            counted = pos;
             (paren_depth == 0).then_some(pos)
         })
         .collect();
@@ -2078,28 +2090,6 @@ pub fn parse_string_strict(working_set: &mut StateWorkingSet, span: Span) -> Exp
 mod number_tests {
     use super::*;
 
-    /// How integers were read before tokens were rejected by their first byte.
-    fn read_int_by_decoding(token: &[u8]) -> IntLiteral {
-        let token = strip_underscores(token);
-        let extract_int = |digits: &str, radix: u32| match u64::from_str_radix(digits, radix) {
-            Ok(num) => IntLiteral::Value(num as i64),
-            Err(_) => IntLiteral::InvalidDigits { radix },
-        };
-        if token.is_empty() {
-            IntLiteral::Empty
-        } else if let Some(num) = token.strip_prefix("0b") {
-            extract_int(num, 2)
-        } else if let Some(num) = token.strip_prefix("0o") {
-            extract_int(num, 8)
-        } else if let Some(num) = token.strip_prefix("0x") {
-            extract_int(num, 16)
-        } else if let Ok(num) = token.parse::<i64>() {
-            IntLiteral::Value(num)
-        } else {
-            IntLiteral::NotInt
-        }
-    }
-
     const TOKENS: &[&[u8]] = &[
         b"",
         b"_",
@@ -2154,10 +2144,12 @@ mod number_tests {
 
     #[test]
     fn integers_read_as_before() {
+        // Rejecting tokens by their first byte changes nothing: `read_int` gives what decoding them
+        // gives, as integers were read before.
         for token in TOKENS {
             assert_eq!(
                 read_int(token),
-                read_int_by_decoding(token),
+                decode_int(token),
                 "{:?}",
                 String::from_utf8_lossy(token)
             );

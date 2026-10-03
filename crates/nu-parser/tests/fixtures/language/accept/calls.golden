@@ -488,7 +488,7 @@ ir main
   # 2 registers, 7 instructions, 15 bytes of data
      0: load-literal           %1, string("1")
      1: push-positional        %1
-     2: push-parser-info       "import_pattern", Expression { expr: ImportPattern(ImportPattern { head: ImportPatternHead { name: [49], id: None, span: Span[148080..148081] }, members: [], hidden: {}, constants: [] }), span: Span[148080..148081], span_id: SpanId(4629), ty: Any }
+     2: push-parser-info       "import_pattern"
      3: redirect-out           caller
      4: redirect-err           caller
      5: call                   decl "hide", %0
@@ -787,7 +787,7 @@ ir main
      2: push-flag              "prefix"
      3: push-positional        %1
      4: push-positional        %2
-     5: push-parser-info       "noop", Expression { expr: Bool(true), span: Span(UNKNOWN), span_id: SpanId(0), ty: Bool }
+     5: push-parser-info       "noop"
      6: redirect-out           caller
      7: redirect-err           caller
      8: call                   decl "overlay use", %0
@@ -801,7 +801,7 @@ ir main
      0: load-literal           %1, nothing
      1: push-positional        %1
      2: push-flag              "reload"
-     3: push-parser-info       "noop", Expression { expr: Bool(true), span: Span(UNKNOWN), span_id: SpanId(0), ty: Bool }
+     3: push-parser-info       "noop"
      4: redirect-out           caller
      5: redirect-err           caller
      6: call                   decl "overlay use", %0
@@ -948,7 +948,7 @@ ir main
     13: load-literal           %0, empty
     14: load-literal           %1, string("cd")
     15: push-positional        %1
-    16: push-parser-info       "help_decl_id", Expression { expr: Int(238), span: Span[148124..148126], span_id: SpanId(0), ty: Int }
+    16: push-parser-info       "help_decl_id"
     17: call                   decl "help", %0
     18: return                 %0
 ir #0
@@ -1126,7 +1126,7 @@ ir main
      0: load-literal           %1, nothing
      1: push-flag              "full-reparse"
      2: push-positional        %1
-     3: push-parser-info       "noop", Expression { expr: Nothing, span: Span(UNKNOWN), span_id: SpanId(0), ty: Nothing }
+     3: push-parser-info       "noop"
      4: redirect-out           caller
      5: redirect-err           caller
      6: call                   decl "run", %0
@@ -1147,7 +1147,7 @@ ir main
      5: push-positional        %2
      6: push-positional        %3
      7: push-positional        %4
-     8: push-parser-info       "noop", Expression { expr: Nothing, span: Span(UNKNOWN), span_id: SpanId(0), ty: Nothing }
+     8: push-parser-info       "noop"
      9: redirect-out           caller
     10: redirect-err           caller
     11: call                   decl "run", %0
@@ -1183,7 +1183,7 @@ ir main
   # 2 registers, 7 instructions, 4 bytes of data
      0: load-literal           %1, nothing
      1: push-positional        %1
-     2: push-parser-info       "noop", Expression { expr: Nothing, span: Span(UNKNOWN), span_id: SpanId(0), ty: Nothing }
+     2: push-parser-info       "noop"
      3: redirect-out           caller
      4: redirect-err           caller
      5: call                   decl "source-env", %0

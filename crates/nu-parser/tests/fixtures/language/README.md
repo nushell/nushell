@@ -29,7 +29,7 @@ Their golden entries record those errors.
   tables and compares everything the parse produces.
 - `crates/nu-parser/src/lex_once.rs` lexes every snippet and every prefix of
   it with and without bracket tables; an ignored test does the same on about
-  140,000 mutations of the snippets.
+  97,000 mutations of the snippets.
 - `tests/parsing/grammar.rs` checks the values nu-parser parses in the
   `accept` snippets against the grammar in `devdocs/grammar`.
 
@@ -42,11 +42,13 @@ An entry starts with `=== <verdict>/<area>/<name>.nu` and lists, in order:
 - `error`, `warning` and `compile error`: every diagnostic, with its code, the
   first line of its message, its labels and its help;
 - `ir`: the IR of the snippet's main block and of every block it adds. Commands
-  appear by name, and the snippet's variables and blocks are numbered from
-  `#0`, so that adding a command or changing the standard library does not
-  change the golden files. The parser-info entries of a call are pushed in a
-  different order in every process, so a run of `push-parser-info`
-  instructions is sorted.
+  appear by name, the snippet's own variables and blocks are numbered from `#0`
+  in the order the parse added them (those of modules it loads are left out),
+  and a `push-parser-info` instruction shows only the name of the info, so
+  that adding a command or changing the standard library does not change the
+  golden files. The parser-info entries of a call are pushed in a different
+  order in every process, so a run of `push-parser-info` instructions is
+  sorted.
 
 Golden files are generated, never edited by hand. After a change to the parser,
 the compiler or a snippet, regenerate them and review their diff: a changed

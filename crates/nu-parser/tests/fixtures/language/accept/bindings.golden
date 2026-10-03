@@ -161,7 +161,7 @@ ir main
   # 2 registers, 5 instructions, 15 bytes of data
      0: load-literal           %1, string("let")
      1: push-positional        %1
-     2: push-parser-info       "help_decl_id", Expression { expr: Int(37), span: Span[148075..148078], span_id: SpanId(0), ty: Int }
+     2: push-parser-info       "help_decl_id"
      3: call                   decl "help", %0
      4: return                 %0
 === accept/bindings/let-if-value.nu
@@ -408,7 +408,7 @@ ir main
   # 2 registers, 5 instructions, 15 bytes of data
      0: load-literal           %1, string("let")
      1: push-positional        %1
-     2: push-parser-info       "help_decl_id", Expression { expr: Int(37), span: Span[148075..148078], span_id: SpanId(0), ty: Int }
+     2: push-parser-info       "help_decl_id"
      3: call                   decl "help", %0
      4: return                 %0
 === accept/bindings/let-name-with-attached-type.nu

@@ -82,7 +82,7 @@ explains how to regenerate them.
   lexical layer: how the lite parse groups tokens into `block_tokens` is stated
   in words, so the parser's rules hang off `block_tokens`.
 - Every `; nu:` annotation (127 of them) names code that exists.
-- The grammar accepts every value it can decide: 7,667 values in 20 rules, about
+- The grammar accepts every value it can decide: 7,708 values in 20 rules, about
   half of the values the test sees.
 
 Reading the grammar takes things the rules alone don't show:

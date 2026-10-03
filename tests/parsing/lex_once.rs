@@ -7,10 +7,10 @@
 //! lexer itself is compared on variants of these inputs by the tests in
 //! `crates/nu-parser/src/lex_once.rs`.
 
-use super::language::{FIXTURES, nu_files, parse_file};
+use super::language::FIXTURES;
 use nu_parser::{FlatShape, flatten_block};
 use nu_protocol::{DeclId, Span, VarId, ast::Block, engine::StateWorkingSet};
-use nu_test_support::prelude::*;
+use nu_test_support::{fs::nu_files, prelude::*, tester::parse_file};
 
 /// The smallest file that gets a bracket table (`BRACKET_TABLE_LEN` in
 /// `crates/nu-parser/src/lex_once.rs`). Smaller inputs are padded to it with trailing spaces,
@@ -104,11 +104,15 @@ fn lex_once_parses_like_scanning() -> Result {
         "crates/nu-config/default_files",
         "toolkit",
     ] {
-        nu_files(&WORKSPACE_ROOT.join(dir), &mut files);
+        let found = nu_files(WORKSPACE_ROOT.join(dir));
+        assert!(!found.is_empty(), "no .nu files under {dir}");
+        files.extend(found);
     }
-    assert!(files.len() > 1400, "the fixtures and sources are all found");
 
     for path in files {
+        // Every input is at least as large as the smallest file that gets a bracket table, so the
+        // parse with `lex_once` on records and uses one (a unit test of `lex_file` in nu-parser
+        // checks that it does).
         let mut source = std::fs::read(&path).expect("file is readable");
         if source.len() < MIN_TABLE_LEN {
             source.resize(MIN_TABLE_LEN, b' ');
@@ -116,9 +120,10 @@ fn lex_once_parses_like_scanning() -> Result {
         let (working_set, block) = parse_file(&engine_state, &path, &source, false);
         let scanning = ParseResult::new(&working_set, &block);
         let (working_set, block) = parse_file(&engine_state, &path, &source, true);
+        // A bracket table only serves the parse of its file.
         assert!(
-            !working_set.bracket_tables.is_empty(),
-            "{} was lexed without a bracket table",
+            working_set.bracket_tables.is_empty(),
+            "the parse of {} kept its bracket tables",
             path.display()
         );
         let jumping = ParseResult::new(&working_set, &block);

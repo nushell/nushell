@@ -473,7 +473,7 @@ ir main
   # 2 registers, 5 instructions, 15 bytes of data
      0: load-literal           %1, string("def")
      1: push-positional        %1
-     2: push-parser-info       "help_decl_id", Expression { expr: Int(13), span: Span[148075..148078], span_id: SpanId(0), ty: Int }
+     2: push-parser-info       "help_decl_id"
      3: call                   decl "help", %0
      4: return                 %0
 === accept/def/help-after-name.nu
@@ -484,7 +484,7 @@ ir main
   # 2 registers, 5 instructions, 15 bytes of data
      0: load-literal           %1, string("def")
      1: push-positional        %1
-     2: push-parser-info       "help_decl_id", Expression { expr: Int(13), span: Span[148075..148078], span_id: SpanId(0), ty: Int }
+     2: push-parser-info       "help_decl_id"
      3: call                   decl "help", %0
      4: return                 %0
 === accept/def/help-after-signature.nu
@@ -496,7 +496,7 @@ ir main
   # 2 registers, 5 instructions, 15 bytes of data
      0: load-literal           %1, string("def")
      1: push-positional        %1
-     2: push-parser-info       "help_decl_id", Expression { expr: Int(13), span: Span[148075..148078], span_id: SpanId(0), ty: Int }
+     2: push-parser-info       "help_decl_id"
      3: call                   decl "help", %0
      4: return                 %0
 === accept/def/help-before-signature-then-body.nu
@@ -509,7 +509,7 @@ ir main
   # 2 registers, 5 instructions, 15 bytes of data
      0: load-literal           %1, string("def")
      1: push-positional        %1
-     2: push-parser-info       "help_decl_id", Expression { expr: Int(13), span: Span[148075..148078], span_id: SpanId(0), ty: Int }
+     2: push-parser-info       "help_decl_id"
      3: call                   decl "help", %0
      4: return                 %0
 ir #0
@@ -522,7 +522,7 @@ ir main
   # 2 registers, 5 instructions, 15 bytes of data
      0: load-literal           %1, string("def")
      1: push-positional        %1
-     2: push-parser-info       "help_decl_id", Expression { expr: Int(13), span: Span[148075..148078], span_id: SpanId(0), ty: Int }
+     2: push-parser-info       "help_decl_id"
      3: call                   decl "help", %0
      4: return                 %0
 === accept/def/help-twice-then-signature.nu
@@ -536,7 +536,7 @@ ir main
   # 2 registers, 5 instructions, 15 bytes of data
      0: load-literal           %1, string("def")
      1: push-positional        %1
-     2: push-parser-info       "help_decl_id", Expression { expr: Int(13), span: Span[148075..148078], span_id: SpanId(0), ty: Int }
+     2: push-parser-info       "help_decl_id"
      3: call                   decl "help", %0
      4: return                 %0
 ir #0
@@ -551,7 +551,7 @@ ir main
   # 2 registers, 5 instructions, 15 bytes of data
      0: load-literal           %1, string("def")
      1: push-positional        %1
-     2: push-parser-info       "help_decl_id", Expression { expr: Int(13), span: Span[148075..148078], span_id: SpanId(0), ty: Int }
+     2: push-parser-info       "help_decl_id"
      3: call                   decl "help", %0
      4: return                 %0
 === accept/def/io-colon-then-nothing.nu

@@ -54,7 +54,7 @@ ir main
   # 2 registers, 5 instructions, 17 bytes of data
      0: load-literal           %1, string("break")
      1: push-positional        %1
-     2: push-parser-info       "help_decl_id", Expression { expr: Int(9), span: Span[148075..148080], span_id: SpanId(0), ty: Int }
+     2: push-parser-info       "help_decl_id"
      3: call                   decl "help", %0
      4: return                 %0
 === accept/loops/continue-help.nu
@@ -64,7 +64,7 @@ ir main
   # 2 registers, 5 instructions, 20 bytes of data
      0: load-literal           %1, string("continue")
      1: push-positional        %1
-     2: push-parser-info       "help_decl_id", Expression { expr: Int(12), span: Span[148075..148083], span_id: SpanId(0), ty: Int }
+     2: push-parser-info       "help_decl_id"
      3: call                   decl "help", %0
      4: return                 %0
 === accept/loops/for-bare-dollar-name.nu
@@ -141,7 +141,7 @@ ir main
   # 2 registers, 5 instructions, 15 bytes of data
      0: load-literal           %1, string("for")
      1: push-positional        %1
-     2: push-parser-info       "help_decl_id", Expression { expr: Int(27), span: Span[148075..148078], span_id: SpanId(0), ty: Int }
+     2: push-parser-info       "help_decl_id"
      3: call                   decl "help", %0
      4: return                 %0
 === accept/loops/for-iterable-forms.nu
@@ -466,7 +466,7 @@ ir main
   # 2 registers, 5 instructions, 16 bytes of data
      0: load-literal           %1, string("loop")
      1: push-positional        %1
-     2: push-parser-info       "help_decl_id", Expression { expr: Int(38), span: Span[148075..148079], span_id: SpanId(0), ty: Int }
+     2: push-parser-info       "help_decl_id"
      3: call                   decl "help", %0
      4: return                 %0
 === accept/loops/loop-keywords-as-values.nu
@@ -770,7 +770,7 @@ ir main
   # 2 registers, 5 instructions, 18 bytes of data
      0: load-literal           %1, string("return")
      1: push-positional        %1
-     2: push-parser-info       "help_decl_id", Expression { expr: Int(42), span: Span[148075..148081], span_id: SpanId(0), ty: Int }
+     2: push-parser-info       "help_decl_id"
      3: call                   decl "help", %0
      4: return                 %0
 === accept/loops/while-basic.nu
@@ -944,7 +944,7 @@ ir main
   # 2 registers, 5 instructions, 17 bytes of data
      0: load-literal           %1, string("while")
      1: push-positional        %1
-     2: push-parser-info       "help_decl_id", Expression { expr: Int(53), span: Span[148075..148080], span_id: SpanId(0), ty: Int }
+     2: push-parser-info       "help_decl_id"
      3: call                   decl "help", %0
      4: return                 %0
 === accept/loops/while-help.nu
@@ -954,6 +954,6 @@ ir main
   # 2 registers, 5 instructions, 17 bytes of data
      0: load-literal           %1, string("while")
      1: push-positional        %1
-     2: push-parser-info       "help_decl_id", Expression { expr: Int(53), span: Span[148075..148080], span_id: SpanId(0), ty: Int }
+     2: push-parser-info       "help_decl_id"
      3: call                   decl "help", %0
      4: return                 %0

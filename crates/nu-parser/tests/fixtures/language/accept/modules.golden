@@ -27,7 +27,7 @@ ir main
   # 2 registers, 5 instructions, 22 bytes of data
      0: load-literal           %1, string("export def")
      1: push-positional        %1
-     2: push-parser-info       "help_decl_id", Expression { expr: Int(22), span: Span[148075..148085], span_id: SpanId(0), ty: Int }
+     2: push-parser-info       "help_decl_id"
      3: call                   decl "help", %0
      4: return                 %0
 === accept/modules/export-env-extra-items-ignored.nu
@@ -50,7 +50,7 @@ ir main
   # 2 registers, 5 instructions, 22 bytes of data
      0: load-literal           %1, string("export-env")
      1: push-positional        %1
-     2: push-parser-info       "help_decl_id", Expression { expr: Int(356), span: Span[148075..148085], span_id: SpanId(0), ty: Int }
+     2: push-parser-info       "help_decl_id"
      3: call                   decl "help", %0
      4: return                 %0
 === accept/modules/export-env-multiline.nu
@@ -178,20 +178,20 @@ ir main
     27: load-literal           %0, empty
     28: load-literal           %1, string("std/log")
     29: push-positional        %1
-    30: push-parser-info       "import_pattern", Expression { expr: ImportPattern(ImportPattern { head: ImportPatternHead { name: [108, 111, 103], id: Some(ModuleId(6)), span: Span[148224..148231] }, members: [], hidden: {}, constants: [] }), span: Span[148224..148231], span_id: SpanId(7118), ty: Any }
+    30: push-parser-info       "import_pattern"
     31: call                   decl "export use", %0
     32: drain                  %0
     33: load-literal           %0, empty
     34: load-literal           %0, empty
     35: load-literal           %1, string("inner")
-    36: load-literal           %2, block(#129)
+    36: load-literal           %2, block(#4)
     37: push-positional        %1
     38: push-positional        %2
     39: call                   decl "export module", %0
     40: drain                  %0
     41: load-literal           %0, empty
     42: load-literal           %0, empty
-    43: load-literal           %1, block(#131)
+    43: load-literal           %1, block(#6)
     44: push-positional        %1
     45: redirect-out           caller
     46: redirect-err           caller
@@ -206,7 +206,7 @@ ir #1
 ir #2
   # 1 register, 1 instruction, 0 bytes of data
      0: return                 %0
-ir #131
+ir #6
   # 1 register, 4 instructions, 1 byte of data
      0: load-literal           %0, int(1)
      1: store-env              "X", %0
@@ -220,7 +220,7 @@ ir main
   # 2 registers, 5 instructions, 18 bytes of data
      0: load-literal           %1, string("export")
      1: push-positional        %1
-     2: push-parser-info       "help_decl_id", Expression { expr: Int(20), span: Span[148075..148081], span_id: SpanId(0), ty: Int }
+     2: push-parser-info       "help_decl_id"
      3: call                   decl "help", %0
      4: return                 %0
 === accept/modules/export-help.nu
@@ -230,7 +230,7 @@ ir main
   # 2 registers, 5 instructions, 18 bytes of data
      0: load-literal           %1, string("export")
      1: push-positional        %1
-     2: push-parser-info       "help_decl_id", Expression { expr: Int(20), span: Span[148075..148081], span_id: SpanId(0), ty: Int }
+     2: push-parser-info       "help_decl_id"
      3: call                   decl "help", %0
      4: return                 %0
 === accept/modules/export-with-attributes.nu
@@ -378,7 +378,7 @@ ir main
   # 2 registers, 5 instructions, 18 bytes of data
      0: load-literal           %1, string("module")
      1: push-positional        %1
-     2: push-parser-info       "help_decl_id", Expression { expr: Int(40), span: Span[148162..148168], span_id: SpanId(0), ty: Int }
+     2: push-parser-info       "help_decl_id"
      3: call                   decl "help", %0
      4: return                 %0
 === accept/modules/module-help-after-name.nu
@@ -390,7 +390,7 @@ ir main
   # 2 registers, 5 instructions, 18 bytes of data
      0: load-literal           %1, string("module")
      1: push-positional        %1
-     2: push-parser-info       "help_decl_id", Expression { expr: Int(40), span: Span[148075..148081], span_id: SpanId(0), ty: Int }
+     2: push-parser-info       "help_decl_id"
      3: call                   decl "help", %0
      4: return                 %0
 === accept/modules/module-help-block-not-parsed.nu
@@ -402,7 +402,7 @@ ir main
   # 2 registers, 5 instructions, 18 bytes of data
      0: load-literal           %1, string("module")
      1: push-positional        %1
-     2: push-parser-info       "help_decl_id", Expression { expr: Int(40), span: Span[148156..148162], span_id: SpanId(0), ty: Int }
+     2: push-parser-info       "help_decl_id"
      3: call                   decl "help", %0
      4: return                 %0
 === accept/modules/module-inline.nu
@@ -548,7 +548,7 @@ ir main
      7: load-literal           %0, empty
      8: load-literal           %1, string("m")
      9: push-positional        %1
-    10: push-parser-info       "import_pattern", Expression { expr: ImportPattern(ImportPattern { head: ImportPatternHead { name: [109], id: Some(ModuleId(5)), span: Span[148161..148162] }, members: [], hidden: {}, constants: [] }), span: Span[148161..148162], span_id: SpanId(4674), ty: Any }
+    10: push-parser-info       "import_pattern"
     11: call                   decl "use", %0
     12: drain                  %0
     13: load-literal           %0, empty
@@ -609,7 +609,7 @@ ir main
   # 2 registers, 5 instructions, 15 bytes of data
      0: load-literal           %1, string("use")
      1: push-positional        %1
-     2: push-parser-info       "help_decl_id", Expression { expr: Int(51), span: Span[148075..148078], span_id: SpanId(0), ty: Int }
+     2: push-parser-info       "help_decl_id"
      3: call                   decl "help", %0
      4: return                 %0
 === accept/modules/use-in-block.nu
@@ -633,17 +633,17 @@ ir main
      1: drain                  %0
      2: load-literal           %0, empty
      3: load-literal           %0, empty
-     4: load-literal           %1, closure(#126)
+     4: load-literal           %1, closure(#1)
      5: push-positional        %1
      6: redirect-out           caller
      7: redirect-err           caller
      8: call                   decl "do", %0
      9: return                 %0
-ir #125
+ir #0
   # 2 registers, 13 instructions, 22 bytes of data
      0: load-literal           %1, string("std/log")
      1: push-positional        %1
-     2: push-parser-info       "import_pattern", Expression { expr: ImportPattern(ImportPattern { head: ImportPatternHead { name: [108, 111, 103], id: Some(ModuleId(6)), span: Span[148090..148097] }, members: [], hidden: {}, constants: [] }), span: Span[148090..148097], span_id: SpanId(7028), ty: Any }
+     2: push-parser-info       "import_pattern"
      3: call                   decl "use", %0
      4: drain                  %0
      5: load-literal           %0, empty
@@ -654,11 +654,11 @@ ir #125
     10: redirect-err           caller
     11: call                   decl "info", %0
     12: return                 %0
-ir #126
+ir #1
   # 2 registers, 7 instructions, 21 bytes of data
      0: load-literal           %1, string("std/log")
      1: push-positional        %1
-     2: push-parser-info       "import_pattern", Expression { expr: ImportPattern(ImportPattern { head: ImportPatternHead { name: [108, 111, 103], id: Some(ModuleId(7)), span: Span[148123..148130] }, members: [], hidden: {}, constants: [] }), span: Span[148123..148130], span_id: SpanId(7074), ty: Any }
+     2: push-parser-info       "import_pattern"
      3: redirect-out           caller
      4: redirect-err           caller
      5: call                   decl "use", %0
@@ -700,7 +700,7 @@ ir main
      7: load-literal           %0, empty
      8: load-literal           %1, string("m")
      9: push-positional        %1
-    10: push-parser-info       "import_pattern", Expression { expr: ImportPattern(ImportPattern { head: ImportPatternHead { name: [109], id: Some(ModuleId(5)), span: Span[148114..148115] }, members: [], hidden: {}, constants: [] }), span: Span[148114..148115], span_id: SpanId(4655), ty: Any }
+    10: push-parser-info       "import_pattern"
     11: call                   decl "use", %0
     12: drain                  %0
     13: load-literal           %0, empty
@@ -709,7 +709,7 @@ ir main
     16: load-literal           %2, string("f")
     17: push-positional        %1
     18: push-positional        %2
-    19: push-parser-info       "import_pattern", Expression { expr: ImportPattern(ImportPattern { head: ImportPatternHead { name: [109], id: Some(ModuleId(5)), span: Span[148120..148121] }, members: [Name { name: [102], span: Span[148122..148123] }], hidden: {}, constants: [] }), span: Span[148120..148123], span_id: SpanId(4677), ty: Any }
+    19: push-parser-info       "import_pattern"
     20: call                   decl "use", %0
     21: drain                  %0
     22: load-literal           %0, empty
@@ -720,7 +720,7 @@ ir main
     27: list-push              %2, %3
     28: push-positional        %1
     29: push-positional        %2
-    30: push-parser-info       "import_pattern", Expression { expr: ImportPattern(ImportPattern { head: ImportPatternHead { name: [109], id: Some(ModuleId(5)), span: Span[148128..148129] }, members: [List { names: [([102], Span[148131..148132])] }], hidden: {}, constants: [] }), span: Span[148128..148133], span_id: SpanId(4701), ty: Any }
+    30: push-parser-info       "import_pattern"
     31: call                   decl "use", %0
     32: drain                  %0
     33: load-literal           %0, empty
@@ -729,7 +729,7 @@ ir main
     36: load-literal           %2, string("*")
     37: push-positional        %1
     38: push-positional        %2
-    39: push-parser-info       "import_pattern", Expression { expr: ImportPattern(ImportPattern { head: ImportPatternHead { name: [109], id: Some(ModuleId(5)), span: Span[148138..148139] }, members: [Glob { span: Span[148140..148141] }], hidden: {}, constants: [] }), span: Span[148138..148141], span_id: SpanId(4723), ty: Any }
+    39: push-parser-info       "import_pattern"
     40: call                   decl "use", %0
     41: drain                  %0
     42: load-literal           %0, empty
@@ -798,7 +798,7 @@ ir main
     13: list-push              %2, %3
     14: push-positional        %1
     15: push-positional        %2
-    16: push-parser-info       "import_pattern", Expression { expr: ImportPattern(ImportPattern { head: ImportPatternHead { name: [109], id: Some(ModuleId(5)), span: Span[148137..148138] }, members: [List { names: [([102], Span[148140..148141]), ([103], Span[148142..148143])] }], hidden: {}, constants: [] }), span: Span[148137..148144], span_id: SpanId(4692), ty: Any }
+    16: push-parser-info       "import_pattern"
     17: call                   decl "use", %0
     18: drain                  %0
     19: load-literal           %0, empty
@@ -811,7 +811,7 @@ ir main
     26: list-push              %2, %3
     27: push-positional        %1
     28: push-positional        %2
-    29: push-parser-info       "import_pattern", Expression { expr: ImportPattern(ImportPattern { head: ImportPatternHead { name: [109], id: Some(ModuleId(5)), span: Span[148149..148150] }, members: [List { names: [([102], Span[148152..148153]), ([103], Span[148155..148156])] }], hidden: {}, constants: [] }), span: Span[148149..148157], span_id: SpanId(4726), ty: Any }
+    29: push-parser-info       "import_pattern"
     30: call                   decl "use", %0
     31: drain                  %0
     32: load-literal           %0, empty
@@ -824,7 +824,7 @@ ir main
     39: list-push              %2, %3
     40: push-positional        %1
     41: push-positional        %2
-    42: push-parser-info       "import_pattern", Expression { expr: ImportPattern(ImportPattern { head: ImportPatternHead { name: [109], id: Some(ModuleId(5)), span: Span[148162..148163] }, members: [List { names: [([102], Span[148168..148169]), ([103], Span[148172..148173])] }], hidden: {}, constants: [] }), span: Span[148162..148175], span_id: SpanId(4760), ty: Any }
+    42: push-parser-info       "import_pattern"
     43: redirect-out           caller
     44: redirect-err           caller
     45: call                   decl "use", %0
@@ -854,7 +854,7 @@ ir main
      5: follow-cell-path       %2, %3
      6: push-positional        %1
      7: push-positional        %2
-     8: push-parser-info       "import_pattern", Expression { expr: ImportPattern(ImportPattern { head: ImportPatternHead { name: [115, 116, 100], id: Some(ModuleId(42)), span: Span[148079..148082] }, members: [List { names: [([109, 97, 116, 104], Span[148084..148088])] }], hidden: {}, constants: [VarId(560)] }), span: Span[148079..148091], span_id: SpanId(34795), ty: Any }
+     8: push-parser-info       "import_pattern"
      9: redirect-out           caller
     10: redirect-err           caller
     11: call                   decl "use", %0
@@ -877,7 +877,7 @@ ir main
      5: list-push              %2, %3
      6: push-positional        %1
      7: push-positional        %2
-     8: push-parser-info       "import_pattern", Expression { expr: ImportPattern(ImportPattern { head: ImportPatternHead { name: [115, 116, 100], id: Some(ModuleId(42)), span: Span[148079..148082] }, members: [List { names: [] }], hidden: {}, constants: [] }), span: Span[148079..148088], span_id: SpanId(34795), ty: Any }
+     8: push-parser-info       "import_pattern"
      9: redirect-out           caller
     10: redirect-err           caller
     11: call                   decl "use", %0
@@ -899,7 +899,7 @@ ir main
      4: record-insert          %2, %3, %4
      5: push-positional        %1
      6: push-positional        %2
-     7: push-parser-info       "import_pattern", Expression { expr: ImportPattern(ImportPattern { head: ImportPatternHead { name: [115, 116, 100], id: Some(ModuleId(42)), span: Span[148079..148082] }, members: [], hidden: {}, constants: [VarId(670)] }), span: Span[148079..148089], span_id: SpanId(34790), ty: Any }
+     7: push-parser-info       "import_pattern"
      8: redirect-out           caller
      9: redirect-err           caller
     10: call                   decl "use", %0
@@ -920,7 +920,7 @@ ir main
      5: call                   decl "run-external", %2
      6: push-positional        %1
      7: push-positional        %2
-     8: push-parser-info       "import_pattern", Expression { expr: ImportPattern(ImportPattern { head: ImportPatternHead { name: [115, 116, 100], id: Some(ModuleId(42)), span: Span[148079..148082] }, members: [], hidden: {}, constants: [VarId(670)] }), span: Span[148079..148088], span_id: SpanId(34799), ty: Any }
+     8: push-parser-info       "import_pattern"
      9: redirect-out           caller
     10: redirect-err           caller
     11: call                   decl "use", %0
@@ -942,7 +942,7 @@ ir main
      5: load-variable          %2, var #0 "$x"
      6: push-positional        %1
      7: push-positional        %2
-     8: push-parser-info       "import_pattern", Expression { expr: ImportPattern(ImportPattern { head: ImportPatternHead { name: [115, 116, 100], id: Some(ModuleId(42)), span: Span[148096..148099] }, members: [], hidden: {}, constants: [VarId(671)] }), span: Span[148096..148102], span_id: SpanId(34803), ty: Any }
+     8: push-parser-info       "import_pattern"
      9: redirect-out           caller
     10: redirect-err           caller
     11: call                   decl "use", %0
@@ -957,7 +957,7 @@ ir main
      1: load-literal           %2, int(5)
      2: push-positional        %1
      3: push-positional        %2
-     4: push-parser-info       "noop", Expression { expr: Nothing, span: Span(UNKNOWN), span_id: SpanId(0), ty: Nothing }
+     4: push-parser-info       "noop"
      5: redirect-out           caller
      6: redirect-err           caller
      7: call                   decl "use", %0
@@ -972,7 +972,7 @@ ir main
      1: load-literal           %2, string("a")
      2: push-positional        %1
      3: push-positional        %2
-     4: push-parser-info       "noop", Expression { expr: Nothing, span: Span(UNKNOWN), span_id: SpanId(0), ty: Nothing }
+     4: push-parser-info       "noop"
      5: redirect-out           caller
      6: redirect-err           caller
      7: call                   decl "use", %0
@@ -984,7 +984,7 @@ ir main
   # 2 registers, 7 instructions, 4 bytes of data
      0: load-literal           %1, nothing
      1: push-positional        %1
-     2: push-parser-info       "noop", Expression { expr: Nothing, span: Span(UNKNOWN), span_id: SpanId(0), ty: Nothing }
+     2: push-parser-info       "noop"
      3: redirect-out           caller
      4: redirect-err           caller
      5: call                   decl "use", %0
@@ -1062,7 +1062,7 @@ ir main
      9: load-literal           %2, string("sub cmd")
     10: push-positional        %1
     11: push-positional        %2
-    12: push-parser-info       "import_pattern", Expression { expr: ImportPattern(ImportPattern { head: ImportPatternHead { name: [109], id: Some(ModuleId(5)), span: Span[148122..148123] }, members: [Name { name: [115, 117, 98, 32, 99, 109, 100], span: Span[148124..148133] }], hidden: {}, constants: [] }), span: Span[148122..148133], span_id: SpanId(4665), ty: Any }
+    12: push-parser-info       "import_pattern"
     13: call                   decl "use", %0
     14: drain                  %0
     15: load-literal           %0, empty
@@ -1073,7 +1073,7 @@ ir main
     20: list-push              %2, %3
     21: push-positional        %1
     22: push-positional        %2
-    23: push-parser-info       "import_pattern", Expression { expr: ImportPattern(ImportPattern { head: ImportPatternHead { name: [109], id: Some(ModuleId(5)), span: Span[148138..148139] }, members: [List { names: [([115, 117, 98, 32, 99, 109, 100], Span[148141..148150])] }], hidden: {}, constants: [] }), span: Span[148138..148151], span_id: SpanId(4689), ty: Any }
+    23: push-parser-info       "import_pattern"
     24: redirect-out           caller
     25: redirect-err           caller
     26: call                   decl "use", %0
@@ -1109,14 +1109,14 @@ ir main
   # 4 registers, 63 instructions, 152 bytes of data
      0: load-literal           %1, string("std/log")
      1: push-positional        %1
-     2: push-parser-info       "import_pattern", Expression { expr: ImportPattern(ImportPattern { head: ImportPatternHead { name: [108, 111, 103], id: Some(ModuleId(6)), span: Span[148079..148086] }, members: [], hidden: {}, constants: [] }), span: Span[148079..148086], span_id: SpanId(7016), ty: Any }
+     2: push-parser-info       "import_pattern"
      3: call                   decl "use", %0
      4: drain                  %0
      5: load-literal           %0, empty
      6: load-literal           %0, empty
      7: load-literal           %1, string("std/assert")
      8: push-positional        %1
-     9: push-parser-info       "import_pattern", Expression { expr: ImportPattern(ImportPattern { head: ImportPatternHead { name: [97, 115, 115, 101, 114, 116], id: Some(ModuleId(8)), span: Span[148091..148101] }, members: [], hidden: {}, constants: [] }), span: Span[148091..148101], span_id: SpanId(10132), ty: Any }
+     9: push-parser-info       "import_pattern"
     10: call                   decl "use", %0
     11: drain                  %0
     12: load-literal           %0, empty
@@ -1127,7 +1127,7 @@ ir main
     17: list-push              %2, %3
     18: push-positional        %1
     19: push-positional        %2
-    20: push-parser-info       "import_pattern", Expression { expr: ImportPattern(ImportPattern { head: ImportPatternHead { name: [115, 116, 100], id: Some(ModuleId(44)), span: Span[148106..148109] }, members: [List { names: [([97, 115, 115, 101, 114, 116], Span[148111..148117])] }], hidden: {}, constants: [] }), span: Span[148106..148118], span_id: SpanId(34817), ty: Any }
+    20: push-parser-info       "import_pattern"
     21: call                   decl "use", %0
     22: drain                  %0
     23: load-literal           %0, empty
@@ -1136,7 +1136,7 @@ ir main
     26: load-literal           %2, string("*")
     27: push-positional        %1
     28: push-positional        %2
-    29: push-parser-info       "import_pattern", Expression { expr: ImportPattern(ImportPattern { head: ImportPatternHead { name: [115, 116, 100], id: Some(ModuleId(44)), span: Span[148123..148126] }, members: [Glob { span: Span[148127..148128] }], hidden: {}, constants: [VarId(286), VarId(560), VarId(670)] }), span: Span[148123..148128], span_id: SpanId(34839), ty: Any }
+    29: push-parser-info       "import_pattern"
     30: call                   decl "use", %0
     31: drain                  %0
     32: load-literal           %0, empty
@@ -1147,7 +1147,7 @@ ir main
     37: push-positional        %1
     38: push-positional        %2
     39: push-positional        %3
-    40: push-parser-info       "import_pattern", Expression { expr: ImportPattern(ImportPattern { head: ImportPatternHead { name: [115, 116, 100], id: Some(ModuleId(44)), span: Span[148133..148136] }, members: [Name { name: [108, 111, 103], span: Span[148137..148140] }, Name { name: [105, 110, 102, 111], span: Span[148141..148145] }], hidden: {}, constants: [] }), span: Span[148133..148145], span_id: SpanId(34871), ty: Any }
+    40: push-parser-info       "import_pattern"
     41: call                   decl "use", %0
     42: drain                  %0
     43: load-literal           %0, empty
@@ -1156,7 +1156,7 @@ ir main
     46: load-literal           %2, string("*")
     47: push-positional        %1
     48: push-positional        %2
-    49: push-parser-info       "import_pattern", Expression { expr: ImportPattern(ImportPattern { head: ImportPatternHead { name: [108, 111, 103], id: Some(ModuleId(45)), span: Span[148150..148157] }, members: [Glob { span: Span[148158..148159] }], hidden: {}, constants: [] }), span: Span[148150..148159], span_id: SpanId(34893), ty: Any }
+    49: push-parser-info       "import_pattern"
     50: call                   decl "use", %0
     51: drain                  %0
     52: load-literal           %0, empty
@@ -1165,7 +1165,7 @@ ir main
     55: load-literal           %2, string("log")
     56: push-positional        %1
     57: push-positional        %2
-    58: push-parser-info       "import_pattern", Expression { expr: ImportPattern(ImportPattern { head: ImportPatternHead { name: [115, 116, 100], id: Some(ModuleId(44)), span: Span[148164..148167] }, members: [Name { name: [108, 111, 103], span: Span[148168..148171] }], hidden: {}, constants: [] }), span: Span[148164..148171], span_id: SpanId(34915), ty: Any }
+    58: push-parser-info       "import_pattern"
     59: redirect-out           caller
     60: redirect-err           caller
     61: call                   decl "use", %0

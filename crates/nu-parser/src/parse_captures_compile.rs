@@ -7,6 +7,7 @@ use nu_protocol::{
     BlockId, IN_VARIABLE_ID, LAST_VARIABLE_ID, ParseError, Span, Type, VarId, ast::*,
     engine::StateWorkingSet,
 };
+use rustc_hash::FxBuildHasher;
 use std::{
     collections::{HashMap, HashSet},
     sync::Arc,
@@ -52,11 +53,13 @@ pub fn compile_block_with_id(working_set: &mut StateWorkingSet<'_>, block_id: Bl
 ///
 /// Every variable use checks it, and a block can declare many variables (the walk of a module's
 /// definitions shares one), so it answers from a set once it holds more than a few dozen; small
-/// ones, which most closures and blocks have, stay a plain list.
+/// ones, which most closures and blocks have, stay a plain list. The set hashes the ids with the
+/// Fx hash. They are small integers the parser assigns, so SipHash's resistance to chosen keys
+/// would only cost time.
 #[derive(Default)]
 pub(crate) struct SeenVars {
     vars: Vec<VarId>,
-    set: HashSet<VarId>,
+    set: HashSet<VarId, FxBuildHasher>,
 }
 
 impl SeenVars {
@@ -751,6 +754,8 @@ fn parse_with_block_cache(
 
     // Only blocks created by this parse. Older delta entries already have captures.
     let first_new_delta_block = working_set.delta.blocks.len();
+    // A bracket table recorded for the file serves only this parse (see `lex_file`).
+    let bracket_tables = working_set.bracket_tables.len();
 
     let mut output = {
         let (output, err) = lex_file(working_set, new_span, &[], &[], false);
@@ -767,6 +772,7 @@ fn parse_with_block_cache(
             None,
         ))
     };
+    working_set.bracket_tables.truncate(bracket_tables);
 
     // Top level `Block`s are compiled eagerly, as they don't have a parent which would cause them
     // to be compiled later.

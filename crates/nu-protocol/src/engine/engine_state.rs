@@ -75,14 +75,40 @@ impl Clone for IsDebugging {
     }
 }
 
-/// A file index remembered across lookups. An `EngineState` is shared between threads, so this is
-/// an atomic; a clone starts from the same index.
+/// A file index remembered across lookups (see [`FileHint::contents`]). An `EngineState` is shared
+/// between threads, and a `StateWorkingSet` must be `Sync`, so this is an atomic; a clone starts
+/// from the same index.
 #[derive(Default)]
-struct FileHint(AtomicUsize);
+pub(super) struct FileHint(AtomicUsize);
 
 impl Clone for FileHint {
     fn clone(&self) -> Self {
         Self(AtomicUsize::new(self.0.load(Ordering::Relaxed)))
+    }
+}
+
+impl FileHint {
+    /// The contents of `span` in the file of `files` that contains it, if any.
+    ///
+    /// The parser looks up span after span in the same file, so this checks the file the last
+    /// lookup found before scanning `files`, and remembers the file a scan finds. Only an empty
+    /// span on a boundary between files is in more than one file, and each gives the same empty
+    /// slice, so the result is always what the scan alone returns.
+    pub(super) fn contents<'a>(&self, files: &'a [CachedFile], span: Span) -> Option<&'a [u8]> {
+        let file = match files.get(self.0.load(Ordering::Relaxed)) {
+            Some(file) if file.covered_span.contains_span(span) => file,
+            _ => {
+                let (index, file) = files
+                    .iter()
+                    .enumerate()
+                    .find(|(_, file)| file.covered_span.contains_span(span))?;
+                self.0.store(index, Ordering::Relaxed);
+                file
+            }
+        };
+        let start = span.start - file.covered_span.start;
+        let end = span.end - file.covered_span.start;
+        Some(&file.content[start..end])
     }
 }
 
@@ -141,8 +167,9 @@ pub struct EngineState {
     /// engine state.
     pub prompt_state: Arc<PromptState>,
     pub table_decl_id: Option<DeclId>,
-    /// Signatures of [`Self::decls`], built on first use by the parser. Clones share it until one
-    /// of them appends declarations (see [`Self::merge_delta`]), so that cloning stays cheap.
+    /// Signatures of [`Self::decls`], built on first use by the parser. Clones share it, so that
+    /// cloning stays cheap; a clone that appends declarations while sharing it starts over with an
+    /// empty cache of its own (see [`Self::merge_delta`]).
     #[debug(skip)]
     pub(super) signature_cache: Arc<SignatureCache>,
     #[cfg(feature = "plugin")]
@@ -369,8 +396,13 @@ impl EngineState {
         // Avoid potentially cloning the Arcs if we aren't adding anything
         if !delta.decls.is_empty() {
             // Clones that share the signature cache must agree on every declaration it holds, so
-            // take a copy of it before adding declarations the other clones don't have.
-            Arc::make_mut(&mut self.signature_cache);
+            // an engine that adds declarations the other clones don't have stops sharing it. It
+            // starts over with an empty cache rather than a copy. Copying would clone every
+            // signature and remembered output type, while later parses rebuild only the entries
+            // they use.
+            if Arc::get_mut(&mut self.signature_cache).is_none() {
+                self.signature_cache = Arc::default();
+            }
             Arc::make_mut(&mut self.decls).extend(delta.decls);
         }
         if !delta.blocks.is_empty() {
@@ -879,27 +911,7 @@ impl EngineState {
     }
 
     pub fn try_get_file_contents(&self, span: Span) -> Option<&[u8]> {
-        fn contents(file: &CachedFile, span: Span) -> &[u8] {
-            let start = span.start - file.covered_span.start;
-            let end = span.end - file.covered_span.start;
-            &file.content[start..end]
-        }
-        // The parser looks up span after span in the same file, so check the file the last lookup
-        // found before scanning. Only an empty span on a file boundary is in two files, and both
-        // give the same empty slice, so this finds what the scan finds.
-        let hint = self.last_file_hit.0.load(Ordering::Relaxed);
-        if let Some(file) = self.files.get(hint)
-            && file.covered_span.contains_span(span)
-        {
-            return Some(contents(file, span));
-        }
-        let (index, file) = self
-            .files
-            .iter()
-            .enumerate()
-            .find(|(_, file)| file.covered_span.contains_span(span))?;
-        self.last_file_hit.0.store(index, Ordering::Relaxed);
-        Some(contents(file, span))
+        self.last_file_hit.contents(&self.files, span)
     }
 
     /// If the span's content starts with the given prefix, return two subspans
@@ -1375,6 +1387,36 @@ mod engine_state_tests {
         let id = engine_state.add_file("test.nu", &[]);
 
         assert_eq!(id, FileId::new(0));
+    }
+
+    /// An engine that appends declarations to a signature cache it shares with a clone starts
+    /// over with its own empty cache; one that doesn't share it keeps it.
+    #[test]
+    fn merging_declarations_stops_sharing_the_signature_cache() {
+        let merge_a_decl = |engine_state: &mut EngineState| {
+            let mut working_set = StateWorkingSet::new(engine_state);
+            working_set.add_decl(Signature::new("foo").predeclare());
+            let delta = working_set.render();
+            engine_state
+                .merge_delta(delta)
+                .expect("merging a declaration");
+        };
+
+        let mut engine_state = EngineState::new();
+        let clone = engine_state.clone();
+        assert!(Arc::ptr_eq(
+            &engine_state.signature_cache,
+            &clone.signature_cache
+        ));
+        merge_a_decl(&mut engine_state);
+        assert!(!Arc::ptr_eq(
+            &engine_state.signature_cache,
+            &clone.signature_cache
+        ));
+
+        let cache = Arc::as_ptr(&engine_state.signature_cache);
+        merge_a_decl(&mut engine_state);
+        assert_eq!(Arc::as_ptr(&engine_state.signature_cache), cache);
     }
 
     #[test]

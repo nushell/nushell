@@ -335,7 +335,7 @@ ir main
   # 2 registers, 5 instructions, 14 bytes of data
      0: load-literal           %1, string("if")
      1: push-positional        %1
-     2: push-parser-info       "help_decl_id", Expression { expr: Int(30), span: Span[148075..148077], span_id: SpanId(0), ty: Int }
+     2: push-parser-info       "help_decl_id"
      3: call                   decl "help", %0
      4: return                 %0
 === accept/if/else-call-with-closure-arg.nu
@@ -712,7 +712,7 @@ ir main
   # 2 registers, 5 instructions, 14 bytes of data
      0: load-literal           %1, string("if")
      1: push-positional        %1
-     2: push-parser-info       "help_decl_id", Expression { expr: Int(30), span: Span[148075..148077], span_id: SpanId(0), ty: Int }
+     2: push-parser-info       "help_decl_id"
      3: call                   decl "help", %0
      4: return                 %0
 === accept/if/help-with-condition-asking-help.nu
@@ -724,7 +724,7 @@ ir main
   # 2 registers, 5 instructions, 14 bytes of data
      0: load-literal           %1, string("if")
      1: push-positional        %1
-     2: push-parser-info       "help_decl_id", Expression { expr: Int(30), span: Span[148075..148077], span_id: SpanId(0), ty: Int }
+     2: push-parser-info       "help_decl_id"
      3: call                   decl "help", %0
      4: return                 %0
 === accept/if/in-pipeline.nu

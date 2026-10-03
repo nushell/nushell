@@ -736,7 +736,7 @@ ir main
   # 2 registers, 9 instructions, 4 bytes of data
      0: load-literal           %1, nothing
      1: push-positional        %1
-     2: push-parser-info       "noop", Expression { expr: Nothing, span: Span(UNKNOWN), span_id: SpanId(0), ty: Nothing }
+     2: push-parser-info       "noop"
      3: redirect-out           pipe
      4: call                   decl "run", %0
      5: redirect-out           caller
@@ -754,7 +754,7 @@ ir main
      1: call                   decl "ls", %0
      2: load-literal           %1, nothing
      3: push-positional        %1
-     4: push-parser-info       "noop", Expression { expr: Nothing, span: Span(UNKNOWN), span_id: SpanId(0), ty: Nothing }
+     4: push-parser-info       "noop"
      5: redirect-out           caller
      6: redirect-err           caller
      7: call                   decl "run", %0

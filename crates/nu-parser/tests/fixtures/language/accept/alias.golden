@@ -123,7 +123,7 @@ ir main
   # 2 registers, 5 instructions, 17 bytes of data
      0: load-literal           %1, string("alias")
      1: push-positional        %1
-     2: push-parser-info       "help_decl_id", Expression { expr: Int(0), span: Span[148075..148080], span_id: SpanId(0), ty: Int }
+     2: push-parser-info       "help_decl_id"
      3: call                   decl "help", %0
      4: return                 %0
 === accept/alias/help-flag.nu
@@ -133,7 +133,7 @@ ir main
   # 2 registers, 5 instructions, 17 bytes of data
      0: load-literal           %1, string("alias")
      1: push-positional        %1
-     2: push-parser-info       "help_decl_id", Expression { expr: Int(0), span: Span[148075..148080], span_id: SpanId(0), ty: Int }
+     2: push-parser-info       "help_decl_id"
      3: call                   decl "help", %0
      4: return                 %0
 === accept/alias/keyword-target.nu
@@ -209,7 +209,7 @@ ir main
   # 2 registers, 5 instructions, 17 bytes of data
      0: load-literal           %1, string("alias")
      1: push-positional        %1
-     2: push-parser-info       "help_decl_id", Expression { expr: Int(0), span: Span[148075..148080], span_id: SpanId(0), ty: Int }
+     2: push-parser-info       "help_decl_id"
      3: call                   decl "help", %0
      4: return                 %0
 === accept/alias/pipeline-target-is-words.nu
@@ -265,7 +265,7 @@ ir main
   # 2 registers, 5 instructions, 17 bytes of data
      0: load-literal           %1, string("alias")
      1: push-positional        %1
-     2: push-parser-info       "help_decl_id", Expression { expr: Int(0), span: Span[148075..148080], span_id: SpanId(0), ty: Int }
+     2: push-parser-info       "help_decl_id"
      3: call                   decl "help", %0
      4: return                 %0
 === accept/alias/simple.nu

@@ -11,7 +11,7 @@
 # grammar.ebnf is the same grammar in ISO 14977 style, which ebnf2railroad and
 # the VS Code EBNF extension understand:
 #   <a-b> ::= x y | z        a_b = x, y | z ;
-#   1*x  N*x  1*6x           x, { x }   N * x   x, 5 * [ x ]
+#   1*x  N*x  1*6x  2*6x     x, { x }   N * x   x, 5 * [ x ]   2 * x, 4 * [ x ]
 #   "\""  "\\"               '"'  "\"
 #   <words with spaces>      ? words with spaces ?   (a rule stated in prose)
 #   ; comment                (* comment *)
@@ -200,17 +200,19 @@ def tokenize [text: string]: nothing -> record<tokens: list<string>, prose: bool
 }
 
 # `unit` repeated as a marker `*from:to` says: `1*x` is `x, { x }`, `N*x` is
-# `N * x`, `1*6x` is `x, 5 * [ x ]`.
+# `N * x`, `1*6x` is `x, 5 * [ x ]` and `2*6x` is `2 * x, 4 * [ x ]`.
 def repeat [marker: string, unit: string]: nothing -> string {
     let parts = $marker | str substring 1.. | split row ":"
     let from = $parts.0 | into int
+    # The `from` occurrences every repetition has.
+    let required = if $from == 1 { $unit } else { $"($from) * ($unit)" }
     if ($parts.1 | is-not-empty) {
         let to = $parts.1 | into int
-        $"($unit), (($to - $from)) * [ ($unit) ]"
+        $"($required), (($to - $from)) * [ ($unit) ]"
     } else if $from == 1 {
         $"($unit), { ($unit) }"
     } else {
-        $"($from) * ($unit)"
+        $required
     }
 }
 

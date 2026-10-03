@@ -123,13 +123,14 @@ fn lex_list_inner(
     lex_span(working_set, inner_span, &[b'\n', b'\r', b','], &[], true)
 }
 
-/// [`parse_list_expression`], given the tokens of the list's inside and the error lexing them
-/// gave (see [`lex_list_inner`]), when the caller has already lexed it.
+/// [`parse_list_expression`], given the tokens of the list's inside (see [`lex_list_inner`]) when
+/// the caller has already lexed it. A caller that passes them has already reported a missing `]`
+/// and the error lexing them gave, so this reports those only when it lexes the inside itself.
 fn parse_list_expression_lexed(
     working_set: &mut StateWorkingSet,
     span: Span,
     element_shape: &SyntaxShape,
-    lexed: Option<(Vec<Token>, Option<ParseError>)>,
+    tokens: Option<Vec<Token>>,
 ) -> Expression {
     let bytes = working_set.get_span_contents(span);
 
@@ -139,18 +140,26 @@ fn parse_list_expression_lexed(
     if bytes.starts_with(b"[") {
         start += 1;
     }
-    if bytes.ends_with(b"]") {
+    let closed = bytes.ends_with(b"]");
+    if closed {
         end -= 1;
-    } else {
-        let open = ParseError::opener_span(span, 1);
-        working_set.error(ParseError::unclosed("]", open, Span::new(end, end)));
     }
 
     let inner_span = Span::new(start, end);
-    let (output, err) = lexed.unwrap_or_else(|| lex_list_inner(working_set, inner_span));
-    if let Some(err) = err {
-        working_set.error(err)
-    }
+    let output = match tokens {
+        Some(tokens) => tokens,
+        None => {
+            if !closed {
+                let open = ParseError::opener_span(span, 1);
+                working_set.error(ParseError::unclosed("]", open, Span::new(end, end)));
+            }
+            let (tokens, err) = lex_list_inner(working_set, inner_span);
+            if let Some(err) = err {
+                working_set.error(err)
+            }
+            tokens
+        }
+    };
 
     if let Some(token) = output
         .iter()
@@ -284,33 +293,24 @@ pub(crate) fn parse_table_expression(
         Span::new(start, end)
     };
 
-    // A list's inside is the same span lexed with the same settings, so a list reuses these
-    // tokens (and reports their error again, as it does when it lexes them itself).
+    // A list's inside is the same span lexed with the same settings, so a list takes these tokens.
+    // The errors reported here (a missing `]` above, and the lex error) then stand for the list's
+    // too, and the list parser doesn't report them again.
     let (tokens, err) = lex_list_inner(working_set, inner_span);
-    if let Some(err) = &err {
-        working_set.error(err.clone());
+    if let Some(err) = err {
+        working_set.error(err);
     }
 
     // Check that we have all arguments first, before trying to parse the first
     // in order to avoid exponential parsing time
     let [first, second, rest @ ..] = &tokens[..] else {
-        return parse_list_expression_lexed(
-            working_set,
-            span,
-            list_element_shape,
-            Some((tokens, err)),
-        );
+        return parse_list_expression_lexed(working_set, span, list_element_shape, Some(tokens));
     };
 
     if !working_set.get_span_contents(first.span).starts_with(b"[")
         || second.contents != TokenContents::Semicolon
     {
-        return parse_list_expression_lexed(
-            working_set,
-            span,
-            list_element_shape,
-            Some((tokens, err)),
-        );
+        return parse_list_expression_lexed(working_set, span, list_element_shape, Some(tokens));
     }
 
     let head = parse_table_row(working_set, first.span);

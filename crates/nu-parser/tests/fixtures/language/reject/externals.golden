@@ -30,7 +30,3 @@ error nu::parser::unclosed_delimiter: Unclosed delimiter.
   label 8..9 "[": unclosed — opens here (need `]`)
   label 13..13 "": expected `]` here
   help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
-error nu::parser::unclosed_delimiter: Unclosed delimiter.
-  label 8..9 "[": unclosed — opens here (need `]`)
-  label 13..13 "": expected `]` here
-  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
