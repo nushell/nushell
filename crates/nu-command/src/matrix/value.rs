@@ -7,6 +7,7 @@ use nu_protocol::{
 use serde::{Deserialize, Serialize};
 use std::any::Any;
 use std::cmp::Ordering;
+use std::hash::{Hash, Hasher};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MatrixValue {
@@ -33,6 +34,15 @@ impl CustomValue for MatrixValue {
 
     fn as_mut_any(&mut self) -> &mut dyn Any {
         self
+    }
+
+    fn hash_value(&self, mut state: &mut dyn Hasher) {
+        self.type_name().hash(&mut state);
+        self.array.shape().hash(&mut state);
+        for val in self.array.iter() {
+            let val = if *val == 0.0 { 0.0 } else { *val };
+            val.to_bits().hash(&mut state);
+        }
     }
 
     fn partial_cmp(&self, other: &Value) -> Option<Ordering> {

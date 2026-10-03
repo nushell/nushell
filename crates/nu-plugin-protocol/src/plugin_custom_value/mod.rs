@@ -1,9 +1,7 @@
-use std::{cmp::Ordering, path::Path};
-
 use nu_protocol::{CustomValue, ShellError, Span, Spanned, Value, ast::Operator, casing::Casing};
 use nu_utils::SharedCow;
-
 use serde::{Deserialize, Serialize};
+use std::{cmp::Ordering, path::Path};
 
 #[cfg(test)]
 mod tests;
