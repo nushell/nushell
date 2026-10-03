@@ -211,6 +211,15 @@ $env.config.cursor_shape.helix_select = "inherit"
 # Default: "inherit"
 $env.config.cursor_shape.helix_insert = "inherit"
 
+# auto_pairs.enable (bool): Automatically insert the closing character of (), [], {}, "", '', and ``.
+# Typing a closing character that is already at the cursor moves over it,
+# and Backspace inside an empty pair deletes both characters.
+# Pairs are not inserted inside strings or comments, in front of other text,
+# or for a quote right after a letter or digit.
+# Note: When bracketed_paste is off or unsupported (e.g. on Windows), pasted text is auto-paired too.
+# Default: false
+$env.config.auto_pairs.enable = false
+
 # --------------------
 # Completions Behavior
 # --------------------
