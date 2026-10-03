@@ -775,6 +775,70 @@ fn run_control_heavy_file_errors_without_parsing() -> Result {
     )
 }
 
+/// `--help` forwarded to a script `main` must show help, not panic (#18940).
+#[test]
+fn run_script_main_help_flag_shows_help() -> Result {
+    Playground::setup("run_script_main_help_flag_shows_help", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
+            "help_me.nu",
+            "
+                def main [--a, --b] { 'should not run' }
+            ",
+        )]);
+
+        let out: String = test()
+            .cwd(dirs.test())
+            .run("run help_me.nu -- --help | to text")?;
+        assert_contains("Usage", &out);
+        assert_contains("--a", &out);
+        Ok(())
+    })
+}
+
+#[test]
+fn run_script_main_short_help_flag_shows_help() -> Result {
+    Playground::setup(
+        "run_script_main_short_help_flag_shows_help",
+        |dirs, sandbox| {
+            sandbox.with_files(&[FileWithContentToBeTrimmed(
+                "help_short.nu",
+                "
+                def main [--a, --b] { 'should not run' }
+            ",
+            )]);
+
+            let out: String = test()
+                .cwd(dirs.test())
+                .run("run help_short.nu -- -h | to text")?;
+            assert_contains("Usage", &out);
+            assert_contains("--a", &out);
+            Ok(())
+        },
+    )
+}
+
+#[test]
+fn run_script_main_help_flag_with_full_reparse_shows_help() -> Result {
+    Playground::setup(
+        "run_script_main_help_flag_with_full_reparse_shows_help",
+        |dirs, sandbox| {
+            sandbox.with_files(&[FileWithContentToBeTrimmed(
+                "help_reparse.nu",
+                "
+                def main [--a, --b] { 'should not run' }
+            ",
+            )]);
+
+            let out: String = test()
+                .cwd(dirs.test())
+                .run("run --full-reparse help_reparse.nu -- --help | to text")?;
+            assert_contains("Usage", &out);
+            assert_contains("--b", &out);
+            Ok(())
+        },
+    )
+}
+
 /// `--full-reparse` skips parse-time load, so oversized files must still be rejected at runtime.
 #[test]
 fn run_full_reparse_oversized_file_errors() -> Result {

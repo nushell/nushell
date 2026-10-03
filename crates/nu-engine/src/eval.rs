@@ -191,9 +191,14 @@ impl CallEval {
         });
 
         if let Some(named) = named {
-            let var_id = named
-                .var_id
-                .expect("internal error: all custom parameters must have var_ids");
+            // The default `--help` flag injected by `Signature::add_help` carries no
+            // `var_id` (it is intercepted before binding in normal `eval_call`).
+            // Forwarding paths such as `run` may still pass it through, so skip
+            // binding instead of panicking. This mirrors `finalize_arguments`,
+            // which already ignores named flags without `var_id`.
+            let Some(var_id) = named.var_id else {
+                return Ok(self);
+            };
 
             let value = value
                 .or_else(|| named.default_value.as_ref().map(Cow::Borrowed))
