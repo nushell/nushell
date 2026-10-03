@@ -744,12 +744,17 @@ def scope-commands [
 def external-commands [
     ...command: string@"nu-complete list-commands",
 ] {
-    let target_command = $command | str join " " | str replace "^" "" | str replace "%" ""
-    print $"(ansi default_italic)Help pages from external command ($target_command | pretty-cmd):(ansi reset)"
+    let target_command = (
+        $command
+        | update 0 { str replace --regex '^[\^%]' "" }
+    )
+    let pretty_command = ($target_command | str join " ")
+
+    print $"(ansi default_italic)Help pages from external command ($pretty_command | pretty-cmd):(ansi reset)"
     if $env.NU_HELPER? == "--help" {
-        run-external ($target_command | split row " ") "--help" | if $nu.os-info.name == "windows" { collect } else {}
+        run-external ...$target_command "--help" | if $nu.os-info.name == "windows" { collect } else {}
     } else {
-        ^($env.NU_HELPER? | default "man") $target_command
+        ^($env.NU_HELPER? | default "man") ...$target_command
     }
 }
 
@@ -819,5 +824,5 @@ export def main [
     }
     # use external tool (e.g: `man`) to search help for $target_item
     # the stdout and stderr of external tool will follow `main` call.
-    external-commands $target_item
+    external-commands ...$item
 }
