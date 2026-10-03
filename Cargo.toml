@@ -186,7 +186,7 @@ itertools = "0.15"
 kitest = "0.6.0"
 lean_string = { version = "0.7.0", features = ["serde"] }
 lexopt = "0.3.2"
-libc = "0.2.185"
+libc = "0.2.189"
 libproc = "0.14.11"
 log = "0.4.34"
 lru = "0.18.3"
