@@ -760,7 +760,7 @@ $env.config.abbreviations = {}
 # $env.config.abbreviations = {
 #   gs: "git status",
 #   ll: "ls -l",
-#   ptop: "ps | sort-by -r cpu | first 10"
+#   ptop: "ps | compact cpu | sort-by -r cpu | first 10"
 # }
 
 # -----
