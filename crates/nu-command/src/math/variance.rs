@@ -1,6 +1,6 @@
 use crate::math::utils::{
-    NUMBER_INPUT_TYPES, NumericUnit, expand_range_input, run_with_function,
-    run_with_function_and_cell_paths, to_unit_f64, variance_denominator,
+    NumericUnit, expand_range_input, run_with_function, run_with_function_and_cell_paths,
+    to_unit_f64, variance_denominator,
 };
 use nu_engine::command_prelude::*;
 
@@ -141,42 +141,26 @@ impl Command for MathVariance {
                 example: "[1KB 3KB] | math variance",
                 result: Some(Value::test_float(1_000_000.0)),
             },
+            Example {
+                // Large, close values: the two-pass formula avoids the
+                // catastrophic cancellation that made the old single-pass
+                // formula return 0.0 (or even a negative value) here.
+                description: "Variance of large, close values is computed accurately.",
+                example: "[506250000.0 506250001.0] | math variance",
+                result: Some(Value::test_float(0.25)),
+            },
         ]
     }
 }
 
-fn sum_of_squares(values: &[Value], span: Span, head: Span) -> Result<Value, ShellError> {
-    let n = Value::int(values.len() as i64, span);
-    let mut sum_x = Value::int(0, span);
-    let mut sum_x2 = Value::int(0, span);
-    for value in values {
-        let v = match &value {
-            Value::Int { .. } | Value::Float { .. } => value.clone(),
-            Value::Error { error, .. } => return Err(*error.clone()),
-            other => {
-                return Err(ShellError::OnlySupportsThisInputType {
-                    exp_input_type: NUMBER_INPUT_TYPES.into(),
-                    wrong_type: other.get_type().to_string(),
-                    dst_span: head,
-                    src_span: other.span(),
-                });
-            }
-        };
-        let v_squared = &v.mul(span, &v, span)?;
-        sum_x2 = sum_x2.add(span, v_squared, span)?;
-        sum_x = sum_x.add(span, &v, span)?;
-    }
-
-    let sum_x_squared = sum_x.mul(span, &sum_x, span)?;
-    let sum_x_squared_div_n = sum_x_squared.div(span, &n, span)?;
-
-    let ss = sum_x2.sub(span, &sum_x_squared_div_n, span)?;
-
-    Ok(ss)
-}
-
-/// Variance for duration/filesize via `f64` units (ns / bytes) to avoid i64 overflow
-/// when squaring large values such as multi-second durations.
+/// Numerically-stable two-pass variance in `f64` base units.
+///
+/// All numeric types (int/float/duration/filesize) are converted to `f64` and
+/// the mean-deviation form `Σ(x − mean)² / n` is used. This avoids the
+/// catastrophic cancellation of the single-pass `Σx² − (Σx)²/n` formula, which
+/// loses precision (and can even go negative) when values are large but close
+/// together. The result is a plain `f64`: squared base units (B² / ns²) for
+/// filesize/duration, or a plain number for int/float.
 fn variance_unit_f64(
     values: &[Value],
     sample: bool,
@@ -204,22 +188,12 @@ pub fn compute_variance(
     sample: bool,
 ) -> impl Fn(&[Value], Span, Span) -> Result<Value, ShellError> {
     move |values: &[Value], span: Span, head: Span| {
-        let unit = values_unit(values, head)?;
-        let denom = variance_denominator(values.len(), sample, head, span)?;
-        match unit {
-            // Duration/filesize: compute in f64 so large units (e.g. seconds as ns) don't overflow.
-            // Result is a plain number (squared units).
-            NumericUnit::Duration | NumericUnit::Filesize => {
-                let var = variance_unit_f64(values, sample, span, head)?;
-                Ok(Value::float(var, span))
-            }
-            NumericUnit::Number => {
-                // Arithmetic uses the original value span; errors point at the call head.
-                let ss = sum_of_squares(values, span, head)?;
-                let n = Value::int(denom as i64, head);
-                ss.div(head, &n, head)
-            }
-        }
+        // Validate that all values share one numeric unit (int/float may mix;
+        // duration/filesize must be homogeneous).
+        let _ = values_unit(values, head)?;
+        // Two-pass f64 variance for all units (numerically stable).
+        let var = variance_unit_f64(values, sample, span, head)?;
+        Ok(Value::float(var, span))
     }
 }
 
