@@ -2,13 +2,13 @@ use log::trace;
 use nu_ansi_term::Style;
 use nu_color_config::{get_matching_brackets_style, get_shape_color};
 use nu_engine::env;
-use nu_parser::{FlatShape, flatten_block, parse};
+use nu_parser::{FlatShape, TokenContents, flatten_block, lex, parse};
 use nu_protocol::{
-    BlockId, Span,
+    BlockId, ParseError, Span,
     ast::{Block, Expr, Expression, PipelineRedirection, RecordItem},
     engine::{EngineState, Stack, StateWorkingSet},
 };
-use reedline::{AbbrExpandContext, Highlighter, StyledText};
+use reedline::{AbbrExpandContext, AutoPairAction, AutoPairContext, Highlighter, StyledText};
 use std::{
     borrow::Cow,
     ffi::OsStr,
@@ -101,6 +101,13 @@ impl Highlighter for NuHighlighter {
                 }
         })
     }
+
+    fn should_auto_pair(&self, context: &AutoPairContext<'_>) -> bool {
+        // Skipping a closer, deleting an empty pair and wrapping a selection are always allowed.
+        context.action() != AutoPairAction::Open
+            || context.selection().is_some()
+            || should_insert_pair(context.buffer(), context.insertion_point(), context.pair())
+    }
 }
 
 impl NuHighlighter {
@@ -123,6 +130,54 @@ impl NuHighlighter {
             parsed: parsed.clone(),
         });
         parsed
+    }
+}
+
+/// Whether typing `open` at `cursor` should also insert `close`.
+fn should_insert_pair(line: &str, cursor: usize, (open, close): (char, char)) -> bool {
+    let Some((before, after)) = line.split_at_checked(cursor) else {
+        return true;
+    };
+
+    // A quote typed right after a word is more likely an apostrophe, as in `don't`.
+    if open == close && before.ends_with(char::is_alphanumeric) {
+        return false;
+    }
+
+    // Typing an opener in front of other text, e.g. to wrap a word, should not pair.
+    let next_allows_pair = after
+        .chars()
+        .next()
+        .is_none_or(|next| next.is_whitespace() || matches!(next, ')' | ']' | '}'));
+
+    next_allows_pair && !is_in_string_or_comment(before)
+}
+
+/// Whether the end of `text` is inside a string or a comment.
+///
+/// Only the first error is reported, so lexing resumes after it or inside an unclosed bracket.
+fn is_in_string_or_comment(mut text: &str) -> bool {
+    loop {
+        let (tokens, err) = lex(text.as_bytes(), 0, &[], &[], false);
+        let resume = match err {
+            Some(ParseError::Unclosed("\"" | "'" | "`", ..)) => return true,
+            // an unclosed raw string
+            Some(ParseError::UnexpectedEof(expected, _)) if expected.starts_with('\'') => {
+                return true;
+            }
+            Some(ParseError::Unclosed(_, open, ..)) => open.end,
+            Some(err) => err.span().end,
+            None => {
+                return tokens.last().is_some_and(|token| {
+                    token.contents == TokenContents::Comment && token.span.end == text.len()
+                });
+            }
+        };
+        match text.get(resume..) {
+            // `resume > 0` keeps an error span ending at 0 from looping forever.
+            Some(rest) if resume > 0 => text = rest,
+            _ => return false,
+        }
     }
 }
 
@@ -749,7 +804,7 @@ fn get_char_length(c: char) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use super::NuHighlighter;
+    use super::{NuHighlighter, is_in_string_or_comment, should_insert_pair};
     use nu_protocol::engine::{EngineState, Stack};
     use reedline::{AbbrExpandContext, Highlighter};
     use rstest::rstest;
@@ -866,5 +921,67 @@ mod tests {
             h.should_expand_abbr(line, cursor, AbbrExpandContext::BangExpansion),
             expected
         );
+    }
+
+    #[rstest]
+    // strings
+    #[case("echo \"abc", true)]
+    #[case("echo \"abc\"", false)]
+    #[case("echo 'ab\"c", true)]
+    #[case("echo `abc", true)]
+    #[case("echo r#'abc", true)]
+    #[case("echo r#'abc'#", false)]
+    #[case("echo r##'abc'#", true)]
+    #[case("echo \"a\nb", true)]
+    #[case("echo \"a\\\"b", true)]
+    #[case("echo 'a\\'", false)]
+    // strings nested in brackets
+    #[case("echo (\"x", true)]
+    #[case("if true {\n  echo \"x", true)]
+    // string interpolation: the inside of `(...)` is code
+    #[case("echo $\"abc ", true)]
+    #[case("echo $\"abc (", false)]
+    #[case("echo $\"abc (1 + ", false)]
+    #[case("echo $\"abc (\"x", true)]
+    #[case("echo $\"abc (1) ", true)]
+    // comments
+    #[case("echo foo # c", true)]
+    #[case("# c", true)]
+    #[case("def f [] {\n  # c", true)]
+    #[case("echo foo#bar", false)]
+    #[case("echo foo # c\necho ", false)]
+    // lex errors earlier in the line
+    #[case("echo ) \"x", true)]
+    #[case("echo ) x", false)]
+    #[case("ls && echo \"abc", true)]
+    fn test_is_in_string_or_comment(#[case] text: &str, #[case] expected: bool) {
+        assert_eq!(is_in_string_or_comment(text), expected);
+    }
+
+    #[rstest]
+    // plain code
+    #[case("echo ", 5, ('(', ')'), true)]
+    #[case("echo ", 5, ('"', '"'), true)]
+    #[case("echo ()", 6, ('[', ']'), true)]
+    #[case("echo  x", 5, ('(', ')'), true)]
+    // inside a string or comment
+    #[case("echo \"abc", 9, ('(', ')'), false)]
+    #[case("echo \"abc ", 10, ('\'', '\''), false)]
+    #[case("echo foo # ", 11, ('(', ')'), false)]
+    // a quote right after a word is an apostrophe
+    #[case("echo don", 8, ('\'', '\''), false)]
+    #[case("echo $", 6, ('"', '"'), true)]
+    #[case("echo foo", 8, ('(', ')'), true)]
+    // in front of other text
+    #[case("echo foo", 5, ('(', ')'), false)]
+    #[case("echo foo", 5, ('"', '"'), false)]
+    #[case("echo \"foo\"", 5, ('(', ')'), false)]
+    fn test_should_insert_pair(
+        #[case] line: &str,
+        #[case] cursor: usize,
+        #[case] pair: (char, char),
+        #[case] expected: bool,
+    ) {
+        assert_eq!(should_insert_pair(line, cursor, pair), expected);
     }
 }
