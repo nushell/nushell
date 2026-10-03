@@ -39,9 +39,9 @@ use reedline::Helix;
 #[cfg(feature = "sqlite")]
 use reedline::SqliteBackedHistory;
 use reedline::{
-    CursorConfig, CwdAwareHinter, DefaultCompleter, EditCommand, Emacs, FileBackedHistory,
-    HistorySessionId, MouseClickMode, Osc133ClickEventsMarkers, Osc633Markers, Reedline,
-    SemanticPromptMarkers, Vi,
+    AutoPairs, CursorConfig, CwdAwareHinter, DefaultCompleter, EditCommand, Emacs,
+    FileBackedHistory, HistorySessionId, MouseClickMode, Osc133ClickEventsMarkers, Osc633Markers,
+    Reedline, SemanticPromptMarkers, Vi,
 };
 use std::sync::atomic::Ordering;
 use std::{
@@ -709,6 +709,19 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         } else {
             MouseClickMode::Disabled
         });
+
+    line_editor = if config.auto_pairs.enable {
+        line_editor.with_auto_pairs(AutoPairs::new([
+            ('(', ')'),
+            ('[', ']'),
+            ('{', '}'),
+            ('"', '"'),
+            ('\'', '\''),
+            ('`', '`'),
+        ]))
+    } else {
+        line_editor.disable_auto_pairs()
+    };
 
     perf!("reedline builder", start_time, use_color);
 
