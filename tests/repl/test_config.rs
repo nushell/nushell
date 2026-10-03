@@ -108,6 +108,19 @@ fn mutate_nu_config_nested_completion() -> TestResult {
 }
 
 #[test]
+fn mutate_nu_config_nested_auto_pairs() -> TestResult {
+    run_test_std(
+        "$env.config.auto_pairs.enable = true; $env.config.auto_pairs.enable",
+        "true",
+    )
+}
+
+#[test]
+fn reject_nu_config_auto_pairs_non_record() -> TestResult {
+    fail_test("$env.config.auto_pairs = true", "Type mismatch")
+}
+
+#[test]
 fn mutate_nu_config_nested_history() -> TestResult {
     run_test_std(
         "$env.config.history.max_size = 100; $env.config.history.max_size",
