@@ -1,0 +1,117 @@
+=== reject/alias/call-after-alias-parses-values.nu
+shape shape_internalcall 0..5 "alias"
+shape shape_string 6..7 "g"
+shape shape_keyword 8..9 "="
+shape shape_internalcall 10..14 "echo"
+shape shape_internalcall 15..16 "g"
+shape shape_garbage 17..20 "0b2"
+error : Invalid literal
+  label 17..20 "0b2": invalid digits for radix 2 in int
+error : Invalid literal
+  label 17..20 "0b2": invalid digits for radix 2 in int
+=== reject/alias/double-dash-as-name.nu
+shape shape_garbage 9..10 "x"
+error nu::parser::assignment_mismatch: alias missing sign
+  label 9..10 "x": missing equal sign
+=== reject/alias/double-dash-before-equals.nu
+shape shape_garbage 8..10 "--"
+error nu::parser::assignment_mismatch: alias missing sign
+  label 8..10 "--": missing equal sign
+=== reject/alias/double-dash-name-alone.nu
+shape shape_garbage 0..13 "alias -- = ls"
+error nu::parser::variable_not_valid: Alias name not supported.
+  label 8..9 " ": alias name can't be a number, a filesize, or contain #, ^, or %
+=== reject/alias/help-before-name.nu
+shape shape_garbage 13..14 "x"
+error nu::parser::assignment_mismatch: alias missing sign
+  label 13..14 "x": missing equal sign
+=== reject/alias/help-then-extra.nu
+shape shape_garbage 8..14 "--help"
+error nu::parser::assignment_mismatch: alias missing sign
+  label 8..14 "--help": missing equal sign
+=== reject/alias/name-is-plugin-use.nu
+shape shape_garbage 0..23 "alias 'plugin use' = ls"
+error nu::parser::name_is_keyword: Can't use parser keyword `plugin use` as alias name.
+  label 6..18 "'plugin use'": 'plugin use' is a parser keyword
+  help: Parser keywords cannot be shadowed (including via module exports and `use *`). Choose a different alias name so language constructs keep working.
+=== reject/alias/target-def.nu
+shape shape_internalcall 0..5 "alias"
+shape shape_string 6..7 "d"
+shape shape_keyword 8..9 "="
+shape shape_internalcall 10..13 "def"
+error nu::parser::cant_alias_keyword: Can't create alias to parser keyword.
+  label 10..13 "def": not supported in alias
+  help: Only the following keywords can be aliased: if, match, try, overlay, overlay hide, overlay new, overlay use.
+=== reject/alias/target-ends-with-pipe-at-eof.nu
+shape shape_internalcall 0..5 "alias"
+shape shape_string 6..7 "x"
+shape shape_keyword 8..9 "="
+shape shape_internalcall 10..12 "ls"
+shape shape_globpattern 13..14 "|"
+error nu::parser::unexpected_eof: Unexpected end of code.
+  label 13..14 "|": expected closing pipeline missing end
+=== reject/alias/target-export-def.nu
+shape shape_internalcall 0..5 "alias"
+shape shape_string 6..7 "e"
+shape shape_keyword 8..9 "="
+shape shape_internalcall 10..20 "export def"
+error nu::parser::cant_alias_keyword: Can't create alias to parser keyword.
+  label 10..20 "export def": not supported in alias
+  help: Only the following keywords can be aliased: if, match, try, overlay, overlay hide, overlay new, overlay use.
+=== reject/alias/target-export.nu
+shape shape_internalcall 0..5 "alias"
+shape shape_string 6..7 "e"
+shape shape_keyword 8..9 "="
+shape shape_internalcall 10..16 "export"
+error nu::parser::cant_alias_keyword: Can't create alias to parser keyword.
+  label 10..16 "export": not supported in alias
+  help: Only the following keywords can be aliased: if, match, try, overlay, overlay hide, overlay new, overlay use.
+=== reject/alias/target-for.nu
+shape shape_internalcall 0..5 "alias"
+shape shape_string 6..7 "x"
+shape shape_keyword 8..9 "="
+shape shape_internalcall 10..13 "for"
+error nu::parser::cant_alias_keyword: Can't create alias to parser keyword.
+  label 10..13 "for": not supported in alias
+  help: Only the following keywords can be aliased: if, match, try, overlay, overlay hide, overlay new, overlay use.
+=== reject/alias/target-hide.nu
+shape shape_internalcall 0..5 "alias"
+shape shape_string 6..7 "x"
+shape shape_keyword 8..9 "="
+shape shape_internalcall 10..14 "hide"
+error nu::parser::cant_alias_keyword: Can't create alias to parser keyword.
+  label 10..14 "hide": not supported in alias
+  help: Only the following keywords can be aliased: if, match, try, overlay, overlay hide, overlay new, overlay use.
+=== reject/alias/target-if-invalid-condition.nu
+shape shape_garbage 10..16 "if not"
+error nu::parser::parse_mismatch: Parse mismatch: expected expression.
+  label 16..16 "": expected expression
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+error nu::parser::missing_positional: Missing required positional argument.
+  label 16..16 "": missing then_block
+  help: Usage: if <cond> <then_block> (else <else_expression>) . Use `--help` for more information.
+=== reject/alias/target-if-without-block.nu
+shape shape_garbage 10..16 "if x y"
+error nu::parser::parse_mismatch: Parse mismatch: expected block, closure or record.
+  label 15..16 "y": expected block, closure or record
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/alias/target-let.nu
+shape shape_internalcall 0..5 "alias"
+shape shape_string 6..7 "l"
+shape shape_keyword 8..9 "="
+shape shape_internalcall 10..13 "let"
+error nu::parser::cant_alias_keyword: Can't create alias to parser keyword.
+  label 10..13 "let": not supported in alias
+  help: Only the following keywords can be aliased: if, match, try, overlay, overlay hide, overlay new, overlay use.
+=== reject/alias/target-where.nu
+shape shape_internalcall 0..5 "alias"
+shape shape_string 6..7 "w"
+shape shape_keyword 8..9 "="
+shape shape_internalcall 10..15 "where"
+error nu::parser::cant_alias_keyword: Can't create alias to parser keyword.
+  label 10..15 "where": not supported in alias
+  help: Only the following keywords can be aliased: if, match, try, overlay, overlay hide, overlay new, overlay use.
+=== reject/alias/variable-as-name.nu
+shape shape_garbage 0..12 "alias $x = a"
+error nu::parser::variable_not_valid: Alias name not supported.
+  label 6..8 "$x": alias name can't be a number, a filesize, or contain #, ^, or %

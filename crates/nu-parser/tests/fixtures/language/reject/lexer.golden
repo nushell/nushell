@@ -1,0 +1,1107 @@
+=== reject/lexer/and-and.nu
+shape shape_internalcall 0..2 "ls"
+shape shape_garbage 3..5 "&&"
+shape shape_internalcall 6..9 "pwd"
+error nu::parser::shell_andand: The '&&' operator is not supported in Nushell
+  label 3..5 "&&": instead of '&&', use ';' or 'and'
+  help: use ';' instead of the shell '&&', or 'and' instead of the boolean '&&'
+=== reject/lexer/bash-both-redirect.nu
+shape shape_external 1..3 "ls"
+shape shape_garbage 4..8 "2>&1"
+error nu::parser::shell_outerr: The '2>&1' shell operation is 'out+err>' in Nushell.
+  label 4..8 "2>&1": use 'out+err>' instead of '2>&1' in Nushell
+  help: Nushell redirection will write all of stdout before stderr.
+=== reject/lexer/bash-stderr-redirect.nu
+shape shape_external 1..3 "ls"
+shape shape_garbage 4..6 "2>"
+shape shape_string 7..14 "err.txt"
+error nu::parser::shell_err: The '2>' shell operation is 'err>' in Nushell.
+  label 4..6 "2>": use 'err>' instead of '2>' in Nushell
+=== reject/lexer/comment-after-tab-swallows-closing-brace.nu
+shape shape_int 0..1 "1"
+shape shape_operator 1..3 ".."
+shape shape_int 3..5 "10"
+shape shape_pipe 6..7 "|"
+shape shape_internalcall 8..12 "each"
+shape shape_closure 13..14 "{"
+shape shape_internalcall 14..18 "echo"
+shape shape_string 19..23 "test"
+shape shape_closure 23..35 "\t#testing }\n"
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 13..14 "{": unclosed — opens here (need `}`)
+  label 34..35 "\n": expected `}` here
+  help: Add a matching `}` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 13..14 "{": unclosed — opens here (need `}`)
+  label 35..35 "": expected `}` here
+  help: Add a matching `}` to close this delimiter, or check that an earlier closer closed the wrong block.
+=== reject/lexer/comment-swallows-closing-brace.nu
+shape shape_int 0..1 "1"
+shape shape_operator 1..3 ".."
+shape shape_int 3..5 "10"
+shape shape_pipe 6..7 "|"
+shape shape_internalcall 8..12 "each"
+shape shape_closure 13..14 "{"
+shape shape_internalcall 14..18 "echo"
+shape shape_string 19..23 "test"
+shape shape_closure 23..35 " #testing }\n"
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 13..14 "{": unclosed — opens here (need `}`)
+  label 34..35 "\n": expected `}` here
+  help: Add a matching `}` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 13..14 "{": unclosed — opens here (need `}`)
+  label 35..35 "": expected `}` here
+  help: Add a matching `}` to close this delimiter, or check that an earlier closer closed the wrong block.
+=== reject/lexer/deeply-unclosed-lists.nu
+shape shape_list 0..1 "["
+shape shape_list 1..2 "["
+shape shape_list 2..3 "["
+shape shape_list 3..4 "["
+shape shape_list 4..5 "["
+shape shape_list 5..6 "["
+shape shape_list 6..7 "["
+shape shape_list 7..8 "["
+shape shape_list 8..9 "["
+shape shape_list 9..10 "["
+shape shape_list 10..11 "["
+shape shape_list 11..12 "["
+shape shape_list 12..13 "["
+shape shape_list 13..14 "["
+shape shape_list 14..15 "["
+shape shape_list 15..16 "["
+shape shape_list 16..17 "["
+shape shape_list 17..18 "["
+shape shape_list 18..19 "["
+shape shape_list 19..20 "["
+shape shape_list 20..21 "["
+shape shape_list 21..22 "["
+shape shape_list 22..23 "["
+shape shape_list 23..24 "["
+shape shape_list 24..25 "["
+shape shape_list 25..26 "["
+shape shape_list 26..27 "["
+shape shape_list 27..29 "[\n"
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 27..28 "[": unclosed — opens here (need `]`)
+  label 28..29 "\n": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 27..28 "[": unclosed — opens here (need `]`)
+  label 28..29 "\n": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 0..1 "[": unclosed — opens here (need `]`)
+  label 29..29 "": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 27..28 "[": unclosed — opens here (need `]`)
+  label 28..29 "\n": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 27..28 "[": unclosed — opens here (need `]`)
+  label 28..29 "\n": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 1..2 "[": unclosed — opens here (need `]`)
+  label 29..29 "": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 27..28 "[": unclosed — opens here (need `]`)
+  label 28..29 "\n": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 27..28 "[": unclosed — opens here (need `]`)
+  label 28..29 "\n": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 2..3 "[": unclosed — opens here (need `]`)
+  label 29..29 "": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 27..28 "[": unclosed — opens here (need `]`)
+  label 28..29 "\n": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 27..28 "[": unclosed — opens here (need `]`)
+  label 28..29 "\n": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 3..4 "[": unclosed — opens here (need `]`)
+  label 29..29 "": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 27..28 "[": unclosed — opens here (need `]`)
+  label 28..29 "\n": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 27..28 "[": unclosed — opens here (need `]`)
+  label 28..29 "\n": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 4..5 "[": unclosed — opens here (need `]`)
+  label 29..29 "": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 27..28 "[": unclosed — opens here (need `]`)
+  label 28..29 "\n": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 27..28 "[": unclosed — opens here (need `]`)
+  label 28..29 "\n": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 5..6 "[": unclosed — opens here (need `]`)
+  label 29..29 "": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 27..28 "[": unclosed — opens here (need `]`)
+  label 28..29 "\n": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 27..28 "[": unclosed — opens here (need `]`)
+  label 28..29 "\n": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 6..7 "[": unclosed — opens here (need `]`)
+  label 29..29 "": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 27..28 "[": unclosed — opens here (need `]`)
+  label 28..29 "\n": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 27..28 "[": unclosed — opens here (need `]`)
+  label 28..29 "\n": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 7..8 "[": unclosed — opens here (need `]`)
+  label 29..29 "": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 27..28 "[": unclosed — opens here (need `]`)
+  label 28..29 "\n": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 27..28 "[": unclosed — opens here (need `]`)
+  label 28..29 "\n": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 8..9 "[": unclosed — opens here (need `]`)
+  label 29..29 "": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 27..28 "[": unclosed — opens here (need `]`)
+  label 28..29 "\n": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 27..28 "[": unclosed — opens here (need `]`)
+  label 28..29 "\n": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 9..10 "[": unclosed — opens here (need `]`)
+  label 29..29 "": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 27..28 "[": unclosed — opens here (need `]`)
+  label 28..29 "\n": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 27..28 "[": unclosed — opens here (need `]`)
+  label 28..29 "\n": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 10..11 "[": unclosed — opens here (need `]`)
+  label 29..29 "": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 27..28 "[": unclosed — opens here (need `]`)
+  label 28..29 "\n": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 27..28 "[": unclosed — opens here (need `]`)
+  label 28..29 "\n": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 11..12 "[": unclosed — opens here (need `]`)
+  label 29..29 "": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 27..28 "[": unclosed — opens here (need `]`)
+  label 28..29 "\n": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 27..28 "[": unclosed — opens here (need `]`)
+  label 28..29 "\n": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 12..13 "[": unclosed — opens here (need `]`)
+  label 29..29 "": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 27..28 "[": unclosed — opens here (need `]`)
+  label 28..29 "\n": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 27..28 "[": unclosed — opens here (need `]`)
+  label 28..29 "\n": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 13..14 "[": unclosed — opens here (need `]`)
+  label 29..29 "": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 27..28 "[": unclosed — opens here (need `]`)
+  label 28..29 "\n": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 27..28 "[": unclosed — opens here (need `]`)
+  label 28..29 "\n": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 14..15 "[": unclosed — opens here (need `]`)
+  label 29..29 "": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 27..28 "[": unclosed — opens here (need `]`)
+  label 28..29 "\n": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 27..28 "[": unclosed — opens here (need `]`)
+  label 28..29 "\n": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 15..16 "[": unclosed — opens here (need `]`)
+  label 29..29 "": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 27..28 "[": unclosed — opens here (need `]`)
+  label 28..29 "\n": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 27..28 "[": unclosed — opens here (need `]`)
+  label 28..29 "\n": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 16..17 "[": unclosed — opens here (need `]`)
+  label 29..29 "": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 27..28 "[": unclosed — opens here (need `]`)
+  label 28..29 "\n": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 27..28 "[": unclosed — opens here (need `]`)
+  label 28..29 "\n": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 17..18 "[": unclosed — opens here (need `]`)
+  label 29..29 "": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 27..28 "[": unclosed — opens here (need `]`)
+  label 28..29 "\n": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 27..28 "[": unclosed — opens here (need `]`)
+  label 28..29 "\n": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 18..19 "[": unclosed — opens here (need `]`)
+  label 29..29 "": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 27..28 "[": unclosed — opens here (need `]`)
+  label 28..29 "\n": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 27..28 "[": unclosed — opens here (need `]`)
+  label 28..29 "\n": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 19..20 "[": unclosed — opens here (need `]`)
+  label 29..29 "": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 27..28 "[": unclosed — opens here (need `]`)
+  label 28..29 "\n": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 27..28 "[": unclosed — opens here (need `]`)
+  label 28..29 "\n": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 20..21 "[": unclosed — opens here (need `]`)
+  label 29..29 "": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 27..28 "[": unclosed — opens here (need `]`)
+  label 28..29 "\n": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 27..28 "[": unclosed — opens here (need `]`)
+  label 28..29 "\n": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 21..22 "[": unclosed — opens here (need `]`)
+  label 29..29 "": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 27..28 "[": unclosed — opens here (need `]`)
+  label 28..29 "\n": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 27..28 "[": unclosed — opens here (need `]`)
+  label 28..29 "\n": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 22..23 "[": unclosed — opens here (need `]`)
+  label 29..29 "": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 27..28 "[": unclosed — opens here (need `]`)
+  label 28..29 "\n": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 27..28 "[": unclosed — opens here (need `]`)
+  label 28..29 "\n": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 23..24 "[": unclosed — opens here (need `]`)
+  label 29..29 "": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 27..28 "[": unclosed — opens here (need `]`)
+  label 28..29 "\n": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 27..28 "[": unclosed — opens here (need `]`)
+  label 28..29 "\n": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 24..25 "[": unclosed — opens here (need `]`)
+  label 29..29 "": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 27..28 "[": unclosed — opens here (need `]`)
+  label 28..29 "\n": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 27..28 "[": unclosed — opens here (need `]`)
+  label 28..29 "\n": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 25..26 "[": unclosed — opens here (need `]`)
+  label 29..29 "": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 27..28 "[": unclosed — opens here (need `]`)
+  label 28..29 "\n": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 27..28 "[": unclosed — opens here (need `]`)
+  label 28..29 "\n": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 26..27 "[": unclosed — opens here (need `]`)
+  label 29..29 "": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 27..28 "[": unclosed — opens here (need `]`)
+  label 28..29 "\n": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 27..28 "[": unclosed — opens here (need `]`)
+  label 28..29 "\n": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 27..28 "[": unclosed — opens here (need `]`)
+  label 29..29 "": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+=== reject/lexer/extra-brace-after-def.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..5 "f"
+shape shape_signature 6..8 "[]"
+shape shape_closure 9..13 "{\n  "
+shape shape_int 13..14 "1"
+shape shape_closure 14..16 "\n}"
+shape shape_external 17..18 "}"
+error nu::parser::unbalanced_delimiter: Unbalanced delimiter.
+  label 17..18 "}": unexpected `}` (unbalanced with `{`)
+  help: Remove this `}` if it is extra, or add a matching `{` earlier. If you closed a block too early, the real mistake may be above.
+=== reject/lexer/extra-brace-after-if-without-block.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..5 "f"
+shape shape_signature 6..8 "[]"
+shape shape_closure 9..13 "{\n  "
+shape shape_internalcall 13..17 "each"
+shape shape_closure 18..27 "{|r|\n    "
+shape shape_internalcall 27..29 "if"
+shape shape_garbage 30..32 "$x"
+shape shape_garbage 33..35 "!="
+shape shape_garbage 35..35 ""
+shape shape_garbage 36..42 "string"
+shape shape_variable 49..51 "$r"
+shape shape_closure 51..57 "\n    }"
+shape shape_closure 57..61 "\n  }"
+shape shape_external 62..63 "}"
+error nu::parser::unbalanced_delimiter: Unbalanced delimiter.
+  label 62..63 "}": unexpected `}` (unbalanced with `{`)
+  help: Remove this `}` if it is extra, or add a matching `{` earlier. If you closed a block too early, the real mistake may be above.
+error nu::parser::variable_not_found: Variable not found.
+  label 30..32 "$x": variable not found. Did you mean '$r'?
+error nu::parser::incomplete_math_expression: Incomplete math expression.
+  label 33..35 "!=": incomplete math expression
+error nu::parser::incomplete_math_expression: Incomplete math expression.
+  label 33..35 "!=": incomplete math expression
+error nu::parser::parse_mismatch: Parse mismatch: expected block, closure or record.
+  label 36..42 "string": expected block, closure or record
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/lexer/extra-brace-after-while-without-block.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..5 "f"
+shape shape_signature 6..8 "[]"
+shape shape_closure 9..13 "{\n  "
+shape shape_internalcall 13..18 "while"
+shape shape_garbage 19..24 "$true"
+shape shape_int 29..30 "1"
+shape shape_closure 30..34 "\n  }"
+shape shape_external 35..36 "}"
+error nu::parser::unbalanced_delimiter: Unbalanced delimiter.
+  label 35..36 "}": unexpected `}` (unbalanced with `{`)
+  help: Remove this `}` if it is extra, or add a matching `{` earlier. If you closed a block too early, the real mistake may be above.
+error nu::parser::variable_not_found: Variable not found.
+  label 19..24 "$true": variable not found. 
+error nu::parser::missing_positional: Missing required positional argument.
+  label 24..24 "": missing block
+  help: Usage: while <cond> <block> . Use `--help` for more information.
+=== reject/lexer/extra-brace-with-raw-string-content.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..5 "f"
+shape shape_signature 6..8 "[]"
+shape shape_closure 9..13 "{\n  "
+shape shape_internalcall 13..16 "let"
+shape shape_vardecl 17..18 "s"
+shape shape_raw_string 21..48 "r#'first\ntype: text}\nlast'#"
+shape shape_closure 48..50 "\n}"
+shape shape_external 51..52 "}"
+error nu::parser::unbalanced_delimiter: Unbalanced delimiter.
+  label 51..52 "}": unexpected `}` (unbalanced with `{`)
+  help: Remove this `}` if it is extra, or add a matching `{` earlier. If you closed a block too early, the real mistake may be above.
+=== reject/lexer/extra-brace-with-string-content.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..5 "f"
+shape shape_signature 6..8 "[]"
+shape shape_closure 9..13 "{\n  "
+shape shape_internalcall 13..16 "let"
+shape shape_vardecl 17..18 "s"
+shape shape_string 21..64 "'first\nif this is just string content\nlast'"
+shape shape_closure 64..66 "\n}"
+shape shape_external 67..68 "}"
+error nu::parser::unbalanced_delimiter: Unbalanced delimiter.
+  label 67..68 "}": unexpected `}` (unbalanced with `{`)
+  help: Remove this `}` if it is extra, or add a matching `{` earlier. If you closed a block too early, the real mistake may be above.
+=== reject/lexer/extra-bracket-in-block.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..5 "f"
+shape shape_signature 6..8 "[]"
+shape shape_closure 9..13 "{\n  "
+shape shape_internalcall 13..15 "if"
+shape shape_bool 16..20 "true"
+shape shape_block 21..29 "{\n      "
+shape shape_int 29..30 "2"
+shape shape_garbage 31..38 "(3 - 2)"
+shape shape_string 39..41 "0]"
+shape shape_external 44..45 "}"
+shape shape_external 46..47 "}"
+error nu::parser::unbalanced_delimiter: Unbalanced delimiter.
+  label 40..41 "]": unexpected `]` (unbalanced with `{`)
+  help: Remove this `]` if it is extra, or add a matching `{` earlier. If you closed a block too early, the real mistake may be above.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 9..10 "{": unclosed — opens here (need `}`)
+  label 41..41 "": expected `}` here
+  help: Add a matching `}` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unbalanced_delimiter: Unbalanced delimiter.
+  label 40..41 "]": unexpected `]` (unbalanced with `{`)
+  help: Remove this `]` if it is extra, or add a matching `{` earlier. If you closed a block too early, the real mistake may be above.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 21..22 "{": unclosed — opens here (need `}`)
+  label 41..41 "": expected `}` here
+  help: Add a matching `}` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::parse_mismatch: Parse mismatch: expected operator.
+  label 31..38 "(3 - 2)": expected operator
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+error nu::parser::incomplete_math_expression: Incomplete math expression.
+  label 31..38 "(3 - 2)": incomplete math expression
+=== reject/lexer/extra-paren-after-balanced.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..5 "f"
+shape shape_signature 6..8 "[]"
+shape shape_garbage 31..32 "}"
+error nu::parser::unbalanced_delimiter: Unbalanced delimiter.
+  label 29..30 ")": unexpected `)` (unbalanced with `{`)
+  help: Remove this `)` if it is extra, or add a matching `{` earlier. If you closed a block too early, the real mistake may be above.
+error nu::parser::parse_mismatch: Parse mismatch: expected block, closure or record.
+  label 31..32 "}": expected block, closure or record
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+error nu::parser::parse_mismatch: Parse mismatch: expected definition body closure { ... }.
+  label 31..32 "}": expected definition body closure { ... }
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/lexer/extra-paren-in-block.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..5 "f"
+shape shape_signature 6..8 "[]"
+shape shape_closure 9..13 "{\n  "
+shape shape_internalcall 13..15 "if"
+shape shape_bool 16..20 "true"
+shape shape_block 21..31 "{\n        "
+shape shape_internalcall 31..36 "print"
+shape shape_flag 37..39 "-n"
+shape shape_string 40..44 "ansi"
+shape shape_string 45..51 "green)"
+shape shape_external 54..55 "}"
+shape shape_external 56..57 "}"
+error nu::parser::unbalanced_delimiter: Unbalanced delimiter.
+  label 50..51 ")": unexpected `)` (unbalanced with `{`)
+  help: Remove this `)` if it is extra, or add a matching `{` earlier. If you closed a block too early, the real mistake may be above.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 9..10 "{": unclosed — opens here (need `}`)
+  label 51..51 "": expected `}` here
+  help: Add a matching `}` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unbalanced_delimiter: Unbalanced delimiter.
+  label 50..51 ")": unexpected `)` (unbalanced with `{`)
+  help: Remove this `)` if it is extra, or add a matching `{` earlier. If you closed a block too early, the real mistake may be above.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 21..22 "{": unclosed — opens here (need `}`)
+  label 51..51 "": expected `}` here
+  help: Add a matching `}` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unbalanced_delimiter: Unbalanced delimiter.
+  label 50..51 ")": unexpected `)` (unbalanced with `(`)
+  help: Remove this `)` if it is extra, or add a matching `(` earlier. If you closed a block too early, the real mistake may be above.
+=== reject/lexer/mismatched-brace-closed-with-paren.nu
+shape shape_record 0..2 "{ "
+shape shape_string 2..3 "a"
+shape shape_record 3..5 ": "
+shape shape_int 5..6 "1"
+shape shape_record 6..7 " "
+shape shape_garbage 7..8 ")"
+shape shape_garbage 8..8 ""
+error nu::parser::unbalanced_delimiter: Unbalanced delimiter.
+  label 7..8 ")": unexpected `)` (unbalanced with `{`)
+  help: Remove this `)` if it is extra, or add a matching `{` earlier. If you closed a block too early, the real mistake may be above.
+error nu::parser::unbalanced_delimiter: Unbalanced delimiter.
+  label 7..8 ")": unexpected `)` (unbalanced with `{`)
+  help: Remove this `)` if it is extra, or add a matching `{` earlier. If you closed a block too early, the real mistake may be above.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 0..1 "{": unclosed — opens here (need `}`)
+  label 8..8 "": expected `}` here
+  help: Add a matching `}` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unbalanced_delimiter: Unbalanced delimiter.
+  label 7..8 ")": unexpected `)` (unbalanced with `(`)
+  help: Remove this `)` if it is extra, or add a matching `(` earlier. If you closed a block too early, the real mistake may be above.
+error : Incomplete record field
+  label 8..8 "": expected `:` after this key
+  help: Record fields look like `key: value`. Add a colon after the key.
+=== reject/lexer/mismatched-bracket-in-block.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..5 "f"
+shape shape_signature 6..8 "[]"
+shape shape_garbage 15..16 "}"
+error nu::parser::unbalanced_delimiter: Unbalanced delimiter.
+  label 13..14 "]": unexpected `]` (unbalanced with `{`)
+  help: Remove this `]` if it is extra, or add a matching `{` earlier. If you closed a block too early, the real mistake may be above.
+error nu::parser::parse_mismatch: Parse mismatch: expected block, closure or record.
+  label 15..16 "}": expected block, closure or record
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+error nu::parser::parse_mismatch: Parse mismatch: expected definition body closure { ... }.
+  label 15..16 "}": expected definition body closure { ... }
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/lexer/mismatched-list-closed-with-paren.nu
+shape shape_list 0..1 "["
+shape shape_int 1..2 "1"
+shape shape_list 2..4 ", "
+shape shape_int 4..5 "2"
+shape shape_list 5..7 ", "
+shape shape_string 7..9 "3)"
+error nu::parser::unbalanced_delimiter: Unbalanced delimiter.
+  label 8..9 ")": unexpected `)` (unbalanced with `[`)
+  help: Remove this `)` if it is extra, or add a matching `[` earlier. If you closed a block too early, the real mistake may be above.
+error nu::parser::unbalanced_delimiter: Unbalanced delimiter.
+  label 8..9 ")": unexpected `)` (unbalanced with `[`)
+  help: Remove this `)` if it is extra, or add a matching `[` earlier. If you closed a block too early, the real mistake may be above.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 0..1 "[": unclosed — opens here (need `]`)
+  label 9..9 "": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unbalanced_delimiter: Unbalanced delimiter.
+  label 8..9 ")": unexpected `)` (unbalanced with `(`)
+  help: Remove this `)` if it is extra, or add a matching `(` earlier. If you closed a block too early, the real mistake may be above.
+=== reject/lexer/mismatched-paren-closed-with-bracket.nu
+shape shape_block 0..1 "("
+shape shape_external 1..3 "1,"
+shape shape_externalarg 4..6 "2]"
+error nu::parser::unbalanced_delimiter: Unbalanced delimiter.
+  label 5..6 "]": unexpected `]` (unbalanced with `(`)
+  help: Remove this `]` if it is extra, or add a matching `(` earlier. If you closed a block too early, the real mistake may be above.
+error nu::parser::unbalanced_delimiter: Unbalanced delimiter.
+  label 5..6 "]": unexpected `]` (unbalanced with `(`)
+  help: Remove this `]` if it is extra, or add a matching `(` earlier. If you closed a block too early, the real mistake may be above.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 0..1 "(": unclosed — opens here (need `)`)
+  label 6..6 "": expected `)` here
+  help: Add a matching `)` to close this delimiter, or check that an earlier closer closed the wrong block.
+=== reject/lexer/missing-closure-brace-before-pipe.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..5 "f"
+shape shape_signature 6..8 "[]"
+shape shape_closure 9..13 "{\n  "
+shape shape_internalcall 13..15 "ls"
+shape shape_pipe 16..17 "|"
+shape shape_internalcall 18..24 "upsert"
+shape shape_string 25..26 "a"
+shape shape_closure 27..36 "{|n|\n    "
+shape shape_variable 36..38 "$n"
+shape shape_pipe 39..40 "|"
+shape shape_internalcall 41..47 "length"
+shape shape_pipe 50..51 "|"
+shape shape_internalcall 52..58 "upsert"
+shape shape_string 59..60 "b"
+shape shape_closure 61..70 "{|x|\n    "
+shape shape_variable 70..72 "$x"
+shape shape_closure 72..76 "\n  }"
+shape shape_closure 76..77 "\n"
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 27..28 "{": unclosed — opens here (need `}`)
+  label 50..51 "|": expected `}` here
+  help: Add a matching `}` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 9..10 "{": unclosed — opens here (need `}`)
+  label 77..77 "": expected `}` here
+  help: Add a matching `}` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 27..28 "{": unclosed — opens here (need `}`)
+  label 50..51 "|": expected `}` here
+  help: Add a matching `}` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 27..28 "{": unclosed — opens here (need `}`)
+  label 77..77 "": expected `}` here
+  help: Add a matching `}` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::input_type_mismatch: Command does not support int input.
+  label 52..58 "upsert": command doesn't support int input
+=== reject/lexer/missing-signature-close.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..21 "prepend-if-not-in"
+shape shape_signature 22..62 "[\n  value: string\n {\n  let list = $in\n}\n"
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 22..23 "[": unclosed — opens here (need `]`)
+  label 41..42 "{": expected `]` here
+  help: Add a matching `]` to close `def prepend-if-not-in`, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 22..23 "[": unclosed — opens here (need `] or )`)
+  label 62..62 "": expected `] or )` here
+  help: Add a matching `] or )` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::parse_mismatch: Parse mismatch: expected valid variable name for this parameter.
+  label 41..61 "{\n  let list = $in\n}": expected valid variable name for this parameter
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+error nu::parser::missing_positional: Missing required positional argument.
+  label 62..62 "": missing block
+  help: Usage: def {flags} <def_name> <params> <block> . Use `--help` for more information.
+=== reject/lexer/multiline-unclosed-list.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..5 "y"
+shape shape_list 8..9 "["
+shape shape_int 9..10 "1"
+shape shape_list 10..12 ", "
+shape shape_int 12..13 "2"
+shape shape_list 13..15 ", "
+shape shape_int 15..16 "3"
+shape shape_list 16..17 "\n"
+shape shape_int 17..18 "4"
+shape shape_list 18..20 ", "
+shape shape_int 20..21 "5"
+shape shape_list 21..23 ", "
+shape shape_int 23..24 "6"
+shape shape_list 24..25 "\n"
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 8..9 "[": unclosed — opens here (need `]`)
+  label 24..25 "\n": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 8..9 "[": unclosed — opens here (need `]`)
+  label 24..25 "\n": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 8..9 "[": unclosed — opens here (need `]`)
+  label 24..25 "\n": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 8..9 "[": unclosed — opens here (need `]`)
+  label 25..25 "": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+=== reject/lexer/multiline-unclosed-paren.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..5 "n"
+shape shape_block 8..12 "(\n  "
+shape shape_int 12..13 "1"
+shape shape_operator 14..15 "+"
+shape shape_int 16..17 "2"
+shape shape_block 17..18 "\n"
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 8..9 "(": unclosed — opens here (need `)`)
+  label 17..18 "\n": expected `)` here
+  help: Add a matching `)` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 8..9 "(": unclosed — opens here (need `)`)
+  label 17..18 "\n": expected `)` here
+  help: Add a matching `)` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 8..9 "(": unclosed — opens here (need `)`)
+  label 17..18 "\n": expected `)` here
+  help: Add a matching `)` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 8..9 "(": unclosed — opens here (need `)`)
+  label 18..18 "": expected `)` here
+  help: Add a matching `)` to close this delimiter, or check that an earlier closer closed the wrong block.
+=== reject/lexer/multiline-unclosed-record.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..5 "r"
+shape shape_record 8..12 "{\n  "
+shape shape_string 12..13 "a"
+shape shape_record 13..15 ": "
+shape shape_int 15..16 "1"
+shape shape_record 16..19 "\n  "
+shape shape_string 19..20 "b"
+shape shape_record 20..22 ": "
+shape shape_int 22..23 "2"
+shape shape_record 23..24 "\n"
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 8..9 "{": unclosed — opens here (need `}`)
+  label 23..24 "\n": expected `}` here
+  help: Add a matching `}` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 8..9 "{": unclosed — opens here (need `}`)
+  label 23..24 "\n": expected `}` here
+  help: Add a matching `}` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 8..9 "{": unclosed — opens here (need `}`)
+  label 23..24 "\n": expected `}` here
+  help: Add a matching `}` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 8..9 "{": unclosed — opens here (need `}`)
+  label 24..24 "": expected `}` here
+  help: Add a matching `}` to close this delimiter, or check that an earlier closer closed the wrong block.
+=== reject/lexer/or-or.nu
+shape shape_internalcall 0..2 "ls"
+shape shape_globpattern 3..5 "||"
+shape shape_globpattern 6..9 "pwd"
+error nu::parser::shell_oror: The '||' operator is not supported in Nushell
+  label 3..5 "||": instead of '||', use 'try' or 'or'
+  help: use 'try' instead of the shell '||', or 'or' instead of the boolean '||'
+=== reject/lexer/raw-string-missing-quote.nu
+shape shape_garbage 0..2 "r#"
+shape shape_garbage 2..5 "abc"
+shape shape_garbage 5..5 ""
+error nu::parser::parse_mismatch: Parse mismatch: expected '.
+  label 2..3 "a": expected '
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 0..1 "r": unclosed — opens here (need `'`)
+  label 0..2 "r#": expected `'` here
+  help: Add a matching `'` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::parse_mismatch: Parse mismatch: expected operator.
+  label 2..5 "abc": expected operator
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+error nu::parser::incomplete_math_expression: Incomplete math expression.
+  label 2..5 "abc": incomplete math expression
+error nu::parser::incomplete_math_expression: Incomplete math expression.
+  label 2..5 "abc": incomplete math expression
+=== reject/lexer/stdout-pipe-redirect.nu
+shape shape_external 1..3 "ls"
+shape shape_garbage 4..7 "o>|"
+shape shape_internalcall 8..13 "lines"
+error nu::parser::parse_mismatch: Parse mismatch: expected `|`.  Redirecting stdout to a pipe is the same as normal piping..
+  label 4..7 "o>|": expected `|`.  Redirecting stdout to a pipe is the same as normal piping.
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/lexer/text-after-closing-brace.nu
+shape shape_record 0..1 "{"
+shape shape_string 1..2 "a"
+shape shape_record 2..3 ":"
+shape shape_string 3..5 "b}"
+shape shape_record 5..6 "/"
+error nu::parser::extra_token_after_closing_delimiter: Invalid characters after closing delimiter
+  label 5..6 "/": invalid characters
+  help: Remove these characters, or check that a delimiter closed too early above.
+error nu::parser::unbalanced_delimiter: Unbalanced delimiter.
+  label 4..5 "}": unexpected `}` (unbalanced with `{`)
+  help: Remove this `}` if it is extra, or add a matching `{` earlier. If you closed a block too early, the real mistake may be above.
+=== reject/lexer/text-after-closing-quote.nu
+shape shape_garbage 0..8 "\"abc\"def"
+error nu::parser::extra_token_after_closing_delimiter: Invalid characters after closing delimiter
+  label 5..8 "def": invalid characters
+  help: Remove these characters, or check that a delimiter closed too early above.
+=== reject/lexer/trailing-backslash-in-string.nu
+shape shape_string 0..7 "\"say \\\n"
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 0..1 "\"": unclosed — opens here (need `"`)
+  label 6..7 "\n": expected `"` here
+  help: Add a matching `"` to close this delimiter, or check that an earlier closer closed the wrong block.
+error : Invalid literal
+  label 6..7 "\n": unrecognized escape sequence '\
+' in string
+=== reject/lexer/unbalanced-brace-after-comment.nu
+shape shape_record 0..1 "{"
+shape shape_garbage 1..2 "}"
+shape shape_garbage 2..2 ""
+shape shape_record 2..3 "#"
+shape shape_string 4..5 "}"
+error nu::parser::unbalanced_delimiter: Unbalanced delimiter.
+  label 4..5 "}": unexpected `}` (unbalanced with `{`)
+  help: Remove this `}` if it is extra, or add a matching `{` earlier. If you closed a block too early, the real mistake may be above.
+error nu::parser::unbalanced_delimiter: Unbalanced delimiter.
+  label 4..5 "}": unexpected `}` (unbalanced with `{`)
+  help: Remove this `}` if it is extra, or add a matching `{` earlier. If you closed a block too early, the real mistake may be above.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 0..1 "{": unclosed — opens here (need `}`)
+  label 3..3 "": expected `}` here
+  help: Add a matching `}` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unbalanced_delimiter: Unbalanced delimiter.
+  label 1..2 "}": unexpected `}` (unbalanced with `{`)
+  help: Remove this `}` if it is extra, or add a matching `{` earlier. If you closed a block too early, the real mistake may be above.
+error : Incomplete record field
+  label 2..2 "": expected `:` after this key
+  help: Record fields look like `key: value`. Add a colon after the key.
+=== reject/lexer/unbalanced-brace-alone.nu
+shape shape_external 0..1 "}"
+error nu::parser::unbalanced_delimiter: Unbalanced delimiter.
+  label 0..1 "}": unexpected `}` (unbalanced with `{`)
+  help: Remove this `}` if it is extra, or add a matching `{` earlier. If you closed a block too early, the real mistake may be above.
+=== reject/lexer/unbalanced-brace-nested.nu
+shape shape_record 0..1 "{"
+shape shape_string 1..2 "a"
+shape shape_record 2..3 ":"
+shape shape_record 3..4 "{"
+shape shape_string 4..5 "b"
+shape shape_record 5..6 ":"
+shape shape_string 6..8 "5}"
+shape shape_record 8..9 "}"
+shape shape_record 9..10 "}"
+error nu::parser::unbalanced_delimiter: Unbalanced delimiter.
+  label 9..10 "}": unexpected `}` (unbalanced with `{`)
+  help: Remove this `}` if it is extra, or add a matching `{` earlier. If you closed a block too early, the real mistake may be above.
+error nu::parser::unbalanced_delimiter: Unbalanced delimiter.
+  label 9..10 "}": unexpected `}` (unbalanced with `{`)
+  help: Remove this `}` if it is extra, or add a matching `{` earlier. If you closed a block too early, the real mistake may be above.
+error nu::parser::unbalanced_delimiter: Unbalanced delimiter.
+  label 8..9 "}": unexpected `}` (unbalanced with `{`)
+  help: Remove this `}` if it is extra, or add a matching `{` earlier. If you closed a block too early, the real mistake may be above.
+error nu::parser::unbalanced_delimiter: Unbalanced delimiter.
+  label 8..9 "}": unexpected `}` (unbalanced with `{`)
+  help: Remove this `}` if it is extra, or add a matching `{` earlier. If you closed a block too early, the real mistake may be above.
+error nu::parser::unbalanced_delimiter: Unbalanced delimiter.
+  label 7..8 "}": unexpected `}` (unbalanced with `{`)
+  help: Remove this `}` if it is extra, or add a matching `{` earlier. If you closed a block too early, the real mistake may be above.
+=== reject/lexer/unbalanced-paren-alone.nu
+shape shape_external 0..1 ")"
+error nu::parser::unbalanced_delimiter: Unbalanced delimiter.
+  label 0..1 ")": unexpected `)` (unbalanced with `(`)
+  help: Remove this `)` if it is extra, or add a matching `(` earlier. If you closed a block too early, the real mistake may be above.
+=== reject/lexer/unbalanced-paren.nu
+shape shape_internalcall 0..4 "echo"
+shape shape_string 5..6 ")"
+error nu::parser::unbalanced_delimiter: Unbalanced delimiter.
+  label 5..6 ")": unexpected `)` (unbalanced with `(`)
+  help: Remove this `)` if it is extra, or add a matching `(` earlier. If you closed a block too early, the real mistake may be above.
+=== reject/lexer/unbalanced-quoted-paren.nu
+shape shape_block 0..1 "("
+shape shape_string 1..4 "\"(\""
+shape shape_block 4..5 ")"
+shape shape_string 5..6 ")"
+error nu::parser::unbalanced_delimiter: Unbalanced delimiter.
+  label 5..6 ")": unexpected `)` (unbalanced with `(`)
+  help: Remove this `)` if it is extra, or add a matching `(` earlier. If you closed a block too early, the real mistake may be above.
+=== reject/lexer/unclosed-brace.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..5 "f"
+shape shape_signature 6..8 "[]"
+shape shape_closure 9..11 "{\n"
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 9..10 "{": unclosed — opens here (need `}`)
+  label 10..11 "\n": expected `}` here
+  help: Add a matching `}` to close `def f`, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 9..10 "{": unclosed — opens here (need `}`)
+  label 11..11 "": expected `}` here
+  help: Add a matching `}` to close this delimiter, or check that an earlier closer closed the wrong block.
+=== reject/lexer/unclosed-bracket.nu
+shape shape_internalcall 0..4 "echo"
+shape shape_list 5..6 "["
+shape shape_int 6..7 "1"
+shape shape_list 7..8 " "
+shape shape_int 8..9 "2"
+shape shape_list 9..10 "\n"
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 5..6 "[": unclosed — opens here (need `]`)
+  label 9..10 "\n": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 5..6 "[": unclosed — opens here (need `]`)
+  label 9..10 "\n": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 5..6 "[": unclosed — opens here (need `]`)
+  label 10..10 "": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+=== reject/lexer/unclosed-double-quote-multiline.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..5 "x"
+shape shape_string 8..21 "\"hello\nworld\n"
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 8..9 "\"": unclosed — opens here (need `"`)
+  label 20..21 "\n": expected `"` here
+  help: Add a matching `"` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 8..9 "\"": unclosed — opens here (need `"`)
+  label 20..21 "\n": expected `"` here
+  help: Add a matching `"` to close this delimiter, or check that an earlier closer closed the wrong block.
+=== reject/lexer/unclosed-double-quote.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..5 "x"
+shape shape_string 8..15 "\"hello\n"
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 8..9 "\"": unclosed — opens here (need `"`)
+  label 14..15 "\n": expected `"` here
+  help: Add a matching `"` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 8..9 "\"": unclosed — opens here (need `"`)
+  label 14..15 "\n": expected `"` here
+  help: Add a matching `"` to close this delimiter, or check that an earlier closer closed the wrong block.
+=== reject/lexer/unclosed-interpolation-quote-in-subexpression.nu
+shape shape_garbage 0..6 "$\"('\"\n"
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 2..3 "(": unclosed — opens here (need `)`)
+  label 5..6 "\n": expected `)` here
+  help: Add a matching `)` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::extra_token_after_closing_delimiter: Invalid characters after closing delimiter
+  label 5..6 "\n": invalid characters
+  help: Remove these characters, or check that a delimiter closed too early above.
+=== reject/lexer/unclosed-interpolation-subexpression-eof.nu
+shape shape_string_interpolation 0..2 "$\""
+shape shape_block 2..3 "("
+shape shape_int 3..4 "1"
+shape shape_block 4..5 "\n"
+shape shape_string_interpolation 4..5 "\n"
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 2..3 "(": unclosed — opens here (need `)`)
+  label 4..5 "\n": expected `)` here
+  help: Add a matching `)` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 2..3 "(": unclosed — opens here (need `)`)
+  label 4..5 "\n": expected `)` here
+  help: Add a matching `)` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 2..3 "(": unclosed — opens here (need `)`)
+  label 5..5 "": expected `)` here
+  help: Add a matching `)` to close this delimiter, or check that an earlier closer closed the wrong block.
+=== reject/lexer/unclosed-interpolation-subexpression.nu
+shape shape_garbage 0..14 "$\"foo (2 + 3\"\n"
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 6..7 "(": unclosed — opens here (need `)`)
+  label 13..14 "\n": expected `)` here
+  help: Add a matching `)` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::extra_token_after_closing_delimiter: Invalid characters after closing delimiter
+  label 13..14 "\n": invalid characters
+  help: Remove these characters, or check that a delimiter closed too early above.
+=== reject/lexer/unclosed-interpolation.nu
+shape shape_internalcall 0..4 "echo"
+shape shape_string_interpolation 5..7 "$\""
+shape shape_string 7..11 "abc\n"
+shape shape_string_interpolation 10..11 "\n"
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 6..7 "\"": unclosed — opens here (need `"`)
+  label 10..11 "\n": expected `"` here
+  help: Add a matching `"` to close this delimiter, or check that an earlier closer closed the wrong block.
+=== reject/lexer/unclosed-nested-record.nu
+shape shape_variable 0..4 "$env"
+shape shape_string 5..11 "config"
+shape shape_operator 12..13 "="
+shape shape_record 14..18 "{\n  "
+shape shape_string 18..20 "ls"
+shape shape_record 20..22 ": "
+shape shape_record 22..28 "{\n    "
+shape shape_string 28..41 "use_ls_colors"
+shape shape_record 41..43 ": "
+shape shape_bool 43..47 "true"
+shape shape_record 47..48 "\n"
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 22..23 "{": unclosed — opens here (need `}`)
+  label 47..48 "\n": expected `}` here
+  help: Add a matching `}` to close record field `ls`, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 22..23 "{": unclosed — opens here (need `}`)
+  label 47..48 "\n": expected `}` here
+  help: Add a matching `}` to close record field `ls`, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 22..23 "{": unclosed — opens here (need `}`)
+  label 47..48 "\n": expected `}` here
+  help: Add a matching `}` to close record field `ls`, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 14..15 "{": unclosed — opens here (need `}`)
+  label 48..48 "": expected `}` here
+  help: Add a matching `}` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 22..23 "{": unclosed — opens here (need `}`)
+  label 47..48 "\n": expected `}` here
+  help: Add a matching `}` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 22..23 "{": unclosed — opens here (need `}`)
+  label 47..48 "\n": expected `}` here
+  help: Add a matching `}` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 22..23 "{": unclosed — opens here (need `}`)
+  label 48..48 "": expected `}` here
+  help: Add a matching `}` to close this delimiter, or check that an earlier closer closed the wrong block.
+=== reject/lexer/unclosed-paren.nu
+shape shape_internalcall 0..5 "print"
+shape shape_block 6..7 "("
+shape shape_int 7..8 "1"
+shape shape_operator 9..10 "+"
+shape shape_int 11..12 "2"
+shape shape_block 12..13 "\n"
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 6..7 "(": unclosed — opens here (need `)`)
+  label 12..13 "\n": expected `)` here
+  help: Add a matching `)` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 6..7 "(": unclosed — opens here (need `)`)
+  label 12..13 "\n": expected `)` here
+  help: Add a matching `)` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 6..7 "(": unclosed — opens here (need `)`)
+  label 13..13 "": expected `)` here
+  help: Add a matching `)` to close this delimiter, or check that an earlier closer closed the wrong block.
+=== reject/lexer/unclosed-raw-string.nu
+shape shape_garbage 0..7 "r#'abc\n"
+error nu::parser::unexpected_eof: Unexpected end of code.
+  label 6..7 "\n": expected closing '#
+error nu::parser::unbalanced_delimiter: Unbalanced delimiter.
+  label 0..7 "r#'abc\n": unexpected `postfix #` (unbalanced with `prefix #`)
+  help: Remove this `postfix #` if it is extra, or add a matching `prefix #` earlier. If you closed a block too early, the real mistake may be above.
+=== reject/lexer/unclosed-single-quote-multiline.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..5 "x"
+shape shape_string 8..21 "'hello\nworld\n"
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 8..9 "'": unclosed — opens here (need `'`)
+  label 20..21 "\n": expected `'` here
+  help: Add a matching `'` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 8..9 "'": unclosed — opens here (need `'`)
+  label 20..21 "\n": expected `'` here
+  help: Add a matching `'` to close this delimiter, or check that an earlier closer closed the wrong block.
+=== reject/lexer/unclosed-single-quote.nu
+shape shape_internalcall 0..4 "echo"
+shape shape_string 5..10 "'abc\n"
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 5..6 "'": unclosed — opens here (need `'`)
+  label 9..10 "\n": expected `'` here
+  help: Add a matching `'` to close this delimiter, or check that an earlier closer closed the wrong block.

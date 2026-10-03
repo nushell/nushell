@@ -1,0 +1,626 @@
+=== accept/signatures/all-types.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..5 "f"
+shape shape_signature 6..315 "[a: list<record<x: int, y: list<string>>>, b: oneof<int, string>, c: table, d: record, e: list, f: closure, g: cell-path, h: glob, i: path, j: directory, k: duration, l: filesize, m: datetime, n: binary, o: bool, p: float, q: number, r: range, s: any, t: nothing, u: error, v: external_arg, w: int, x: string]"
+shape shape_closure 316..319 "{ }"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: return                 %0
+ir #0
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== accept/signatures/closure-param-list-forms.nu
+shape shape_list 0..1 "["
+shape shape_closure 1..5 "{|| "
+shape shape_int 5..6 "1"
+shape shape_closure 6..7 "}"
+shape shape_list 7..8 " "
+shape shape_closure 8..13 "{|a| "
+shape shape_int 13..14 "1"
+shape shape_closure 14..15 "}"
+shape shape_list 15..16 " "
+shape shape_closure 16..23 "{|a b| "
+shape shape_int 23..24 "1"
+shape shape_closure 24..25 "}"
+shape shape_list 25..26 " "
+shape shape_closure 26..34 "{|a, b| "
+shape shape_int 34..35 "1"
+shape shape_closure 35..36 "}"
+shape shape_list 36..37 " "
+shape shape_closure 37..58 "{|a: int, b: string| "
+shape shape_int 58..59 "1"
+shape shape_closure 59..60 "}"
+shape shape_list 60..61 " "
+shape shape_closure 61..70 "{|a = 1| "
+shape shape_int 70..71 "1"
+shape shape_closure 71..72 "}"
+shape shape_list 72..73 " "
+shape shape_closure 73..84 "{|...rest| "
+shape shape_int 84..85 "1"
+shape shape_closure 85..86 "}"
+shape shape_list 86..87 " "
+shape shape_closure 87..93 "{|a?| "
+shape shape_int 93..94 "1"
+shape shape_closure 94..95 "}"
+shape shape_list 95..96 " "
+shape shape_closure 96..106 "{|--flag| "
+shape shape_int 106..107 "1"
+shape shape_closure 107..108 "}"
+shape shape_list 108..109 "]"
+ir main
+  # 2 registers, 20 instructions, 0 bytes of data
+     0: load-literal           %0, list(capacity = 9)
+     1: load-literal           %1, closure(#0)
+     2: list-push              %0, %1
+     3: load-literal           %1, closure(#1)
+     4: list-push              %0, %1
+     5: load-literal           %1, closure(#2)
+     6: list-push              %0, %1
+     7: load-literal           %1, closure(#3)
+     8: list-push              %0, %1
+     9: load-literal           %1, closure(#4)
+    10: list-push              %0, %1
+    11: load-literal           %1, closure(#5)
+    12: list-push              %0, %1
+    13: load-literal           %1, closure(#6)
+    14: list-push              %0, %1
+    15: load-literal           %1, closure(#7)
+    16: list-push              %0, %1
+    17: load-literal           %1, closure(#8)
+    18: list-push              %0, %1
+    19: return                 %0
+ir #0
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, int(1)
+     1: return                 %0
+ir #1
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, int(1)
+     1: return                 %0
+ir #2
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, int(1)
+     1: return                 %0
+ir #3
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, int(1)
+     1: return                 %0
+ir #4
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, int(1)
+     1: return                 %0
+ir #5
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, int(1)
+     1: return                 %0
+ir #6
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, int(1)
+     1: return                 %0
+ir #7
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, int(1)
+     1: return                 %0
+ir #8
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, int(1)
+     1: return                 %0
+=== accept/signatures/colon-then-comment-only.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..5 "f"
+shape shape_signature 6..15 "[x: # c\n]"
+shape shape_closure 16..18 "{}"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: return                 %0
+ir #0
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== accept/signatures/completer-command-being-defined.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..23 "[x: string@foo]"
+shape shape_closure 24..26 "{}"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: return                 %0
+ir #0
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== accept/signatures/completer-empty-list.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..22 "[x: string@[]]"
+shape shape_closure 23..25 "{}"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: return                 %0
+ir #0
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== accept/signatures/completer-int-is-consumer.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..21 "[x: string@1]"
+shape shape_closure 22..24 "{}"
+error nu::parser::unknown_command: Unknown command.
+  label 19..20 "1": unknown command
+=== accept/signatures/completer-list-of-ints.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..25 "[x: string@[1 2]]"
+shape shape_closure 26..28 "{}"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: return                 %0
+ir #0
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== accept/signatures/completer-quoted-multiword-command.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..30 "[x: string@\"str trim\"]"
+shape shape_closure 31..33 "{}"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: return                 %0
+ir #0
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== accept/signatures/completer-raw-string.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..27 "[x: string@r#'ls'#]"
+shape shape_closure 28..30 "{}"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: return                 %0
+ir #0
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== accept/signatures/completer-unknown-command-is-consumer.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..33 "[x: string@\"unknown cmd\"]"
+shape shape_closure 34..36 "{}"
+error nu::parser::unknown_command: Unknown command.
+  label 19..32 "\"unknown cmd\"": unknown command
+=== accept/signatures/default-in-redirection-position.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..5 "f"
+shape shape_signature 6..16 "[x = o> y]"
+shape shape_closure 17..19 "{}"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: return                 %0
+ir #0
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== accept/signatures/defaults-matching-declared-types.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..553 "[\n  a: number = 1\n  b: string = 1\n  c: string = 1.5\n  d: float = 1\n  e: list<int> = [1]\n  f: record = {a: 1}\n  g: bool = true\n  h: duration = 1sec\n  i: filesize = 1kb\n  j: datetime = 2024-01-01\n  k: range = 1..2\n  l: cell-path = $.a\n  m: binary = 0x[ff]\n  n: glob = *.rs\n  o: path = a/b\n  p: nothing = null\n  q: external_arg = 1\n  r: any = ls\n  s: string = ls\n  t: table = [[a]; [1]]\n  u: string = $\"a\"\n  v: string = (1)\n  w: int = -1\n  x: string = -1\n  y: int = (1 + 1)\n  z: oneof<int, string> = 1\n  --f1 = 1\n  --f2: string = 1\n  --f3(-y) = 1\n]"
+shape shape_closure 554..556 "{}"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: return                 %0
+ir #4
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== accept/signatures/defaults-with-types.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..5 "f"
+shape shape_signature 6..98 "[a: int = 1, b: string = \"x\", c: list<int> = [1], d: record<a: int> = {a: 1}, e: any = null]"
+shape shape_closure 99..102 "{ }"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: return                 %0
+ir #0
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== accept/signatures/equals-comment-then-default.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..5 "f"
+shape shape_signature 6..18 "[x = # c\n y]"
+shape shape_closure 19..21 "{}"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: return                 %0
+ir #0
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== accept/signatures/equals-then-comment-only.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..5 "f"
+shape shape_signature 6..16 "[x = # c\n]"
+shape shape_closure 17..19 "{}"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: return                 %0
+ir #0
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== accept/signatures/err-pipe-token-ignored.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..17 "[x e>| y]"
+shape shape_closure 18..20 "{}"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: return                 %0
+ir #0
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== accept/signatures/flag-names-with-dashes-and-digits.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..5 "f"
+shape shape_signature 6..43 "[--dash-name, --n1, --a-b-c(-x): int]"
+shape shape_closure 44..47 "{ }"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: return                 %0
+ir #0
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== accept/signatures/flag-short-forms.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..5 "f"
+shape shape_signature 6..75 "[--long(-l), --other (-o), -s, --typed(-t): int, --dflt(-d): int = 1]"
+shape shape_closure 76..79 "{ }"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: return                 %0
+ir #0
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== accept/signatures/for-loop-typed.nu
+shape shape_internalcall 0..3 "for"
+shape shape_vardecl 4..5 "x"
+shape shape_keyword 11..13 "in"
+shape shape_int 14..15 "1"
+shape shape_operator 15..17 ".."
+shape shape_int 17..19 "10"
+shape shape_internalcall 24..27 "for"
+shape shape_vardecl 28..29 "y"
+shape shape_keyword 41..43 "in"
+shape shape_list 44..45 "["
+shape shape_list 45..46 "["
+shape shape_int 46..47 "1"
+shape shape_list 47..48 "]"
+shape shape_list 48..49 "]"
+ir main
+  # 5 registers, 29 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: load-literal           %2, int(1)
+     2: load-literal           %3, nothing
+     3: load-literal           %4, int(10)
+     4: load-literal           %1, range(%2, %3, %4, Inclusive)
+     5: iterate                %0, %1, end 11 # for, label(1), from(10:)
+     6: store-variable         var #0, %0
+     7: load-literal           %0, empty
+     8: load-literal           %0, empty
+     9: drain                  %0
+    10: jump                   5
+    11: load-literal           %0, empty   # label(0), from(5:)
+    12: drain                  %0
+    13: load-literal           %0, empty
+    14: load-literal           %0, empty
+    15: load-literal           %0, empty
+    16: load-literal           %1, list(capacity = 1)
+    17: load-literal           %2, list(capacity = 1)
+    18: load-literal           %3, int(1)
+    19: list-push              %2, %3
+    20: list-push              %1, %2
+    21: iterate                %0, %1, end 27 # for, label(3), from(26:)
+    22: store-variable         var #1, %0
+    23: load-literal           %0, empty
+    24: load-literal           %0, empty
+    25: drain                  %0
+    26: jump                   21
+    27: load-literal           %0, empty   # label(2), from(21:)
+    28: return                 %0
+=== accept/signatures/generic-types-multiline.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..5 "f"
+shape shape_signature 6..74 "[\n  a: record<\n    x: int\n    y: string\n  >\n  b: list<\n    int\n  >\n]"
+shape shape_closure 75..78 "{ }"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: return                 %0
+ir #0
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== accept/signatures/generic-types.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..5 "f"
+shape shape_signature 6..343 "[\n  a: list<int>\n  b: list<>\n  c: list< string >\n  d: record<>\n  e: record<a: int b: string>\n  f: record<a: int, b: string>\n  g: record<a b: int>\n  h: table<a: int>\n  i: table<>\n  j: oneof<int, string, nothing>\n  k: oneof<>\n  l: list<list<list<int>>>\n  m: record<a: list<record<b: int>>>\n  n: record<\"quoted key\": int, 'other': string>\n]"
+shape shape_closure 344..347 "{ }"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: return                 %0
+ir #0
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== accept/signatures/list-type-leading-comma.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..23 "[x: list<,int>]"
+shape shape_closure 24..26 "{}"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: return                 %0
+ir #0
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== accept/signatures/oneof-type-double-comma.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..32 "[x: oneof<int,, string>]"
+shape shape_closure 33..35 "{}"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: return                 %0
+ir #0
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== accept/signatures/optional-positional.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..5 "f"
+shape shape_signature 6..19 "[a?: int, b?]"
+shape shape_closure 20..23 "{ }"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: return                 %0
+ir #0
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== accept/signatures/param-named-like-keyword.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..5 "f"
+shape shape_signature 6..38 "[if: int, def, let: string, for]"
+shape shape_closure 39..42 "{ }"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: return                 %0
+ir #0
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== accept/signatures/pipe-pipe-ignored.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..16 "[x || y]"
+shape shape_closure 17..19 "{}"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: return                 %0
+ir #0
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== accept/signatures/pipes-ignored.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..5 "f"
+shape shape_signature 6..13 "[a | b]"
+shape shape_closure 14..17 "{ }"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: return                 %0
+ir #0
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== accept/signatures/record-type-comment.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..5 "f"
+shape shape_signature 6..26 "[x: record<#a: int>]"
+shape shape_closure 27..29 "{}"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: return                 %0
+ir #0
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== accept/signatures/record-type-double-comma.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..36 "[x: record<a: int,, b: int>]"
+shape shape_closure 37..39 "{}"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: return                 %0
+ir #0
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== accept/signatures/record-type-key-with-equals.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..5 "f"
+shape shape_signature 6..27 "[x: record<a=b: int>]"
+shape shape_closure 28..30 "{}"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: return                 %0
+ir #0
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== accept/signatures/record-type-leading-comma.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..29 "[x: record<, a: int>]"
+shape shape_closure 30..32 "{}"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: return                 %0
+ir #0
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== accept/signatures/record-type-untyped-field-no-comma.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..26 "[x: record<a int>]"
+shape shape_closure 27..29 "{}"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: return                 %0
+ir #0
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== accept/signatures/redirection-then-stray-default.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..5 "f"
+shape shape_signature 6..14 "[o> = 1]"
+shape shape_closure 15..17 "{}"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: return                 %0
+ir #0
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== accept/signatures/redirection-token-ignored.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..14 "[o> x]"
+shape shape_closure 15..17 "{}"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: return                 %0
+ir #0
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== accept/signatures/separators.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..5 "f"
+shape shape_signature 6..22 "[a, b c\n d\n , e]"
+shape shape_closure 23..26 "{ }"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: return                 %0
+ir #0
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== accept/signatures/short-flag-i.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..12 "[-i]"
+shape shape_closure 13..15 "{}"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: return                 %0
+ir #0
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== accept/signatures/stray-colon-before-rest.nu
+shape shape_internalcall 0..6 "extern"
+shape shape_string 7..11 "acat"
+shape shape_signature 12..25 "[\n\t:...args\n]"
+ir main
+  # 3 registers, 8 instructions, 4 bytes of data
+     0: load-literal           %1, string("acat")
+     1: load-literal           %2, empty
+     2: push-positional        %1
+     3: push-positional        %2
+     4: redirect-out           caller
+     5: redirect-err           caller
+     6: call                   decl "extern", %0
+     7: return                 %0
+=== accept/signatures/stray-semicolons.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..5 "f"
+shape shape_signature 6..10 "[;a]"
+shape shape_closure 11..13 "{}"
+shape shape_internalcall 14..17 "def"
+shape shape_string 18..19 "g"
+shape shape_signature 20..24 "[a;]"
+shape shape_closure 25..27 "{}"
+shape shape_internalcall 28..34 "extern"
+shape shape_string 35..36 "m"
+shape shape_signature 37..50 "[\n ...args\n;]"
+ir main
+  # 3 registers, 16 instructions, 1 byte of data
+     0: load-literal           %0, empty
+     1: drain                  %0
+     2: load-literal           %0, empty
+     3: load-literal           %0, empty
+     4: load-literal           %0, empty
+     5: drain                  %0
+     6: load-literal           %0, empty
+     7: load-literal           %0, empty
+     8: load-literal           %1, string("m")
+     9: load-literal           %2, empty
+    10: push-positional        %1
+    11: push-positional        %2
+    12: redirect-out           caller
+    13: redirect-err           caller
+    14: call                   decl "extern", %0
+    15: return                 %0
+ir #0
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+ir #1
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== accept/signatures/table-type-double-comma.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..30 "[x: table<a: int,, b>]"
+shape shape_closure 31..33 "{}"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: return                 %0
+ir #0
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== accept/signatures/two-description-comments.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..46 "[\n  x: int # one\n  # two\n  y # three\n]"
+shape shape_closure 47..49 "{}"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: return                 %0
+ir #0
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== accept/signatures/unicode-param-names.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..5 "f"
+shape shape_signature 6..28 "[ünïcode: int, 🧼]"
+shape shape_closure 29..32 "{ }"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: return                 %0
+ir #0
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0

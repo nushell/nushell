@@ -1,0 +1,932 @@
+=== accept/pipelines/alias-with-pipe-word.nu
+shape shape_internalcall 0..5 "alias"
+shape shape_string 6..7 "x"
+shape shape_keyword 8..9 "="
+shape shape_internalcall 10..12 "ls"
+shape shape_globpattern 13..14 "|"
+shape shape_globpattern 15..21 "length"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: return                 %0
+=== accept/pipelines/assignment-then-blank-line-then-pipe.nu
+shape shape_internalcall 0..3 "mut"
+shape shape_vardecl 4..5 "x"
+shape shape_int 8..9 "2"
+shape shape_variable 10..12 "$x"
+shape shape_operator 13..14 "="
+shape shape_int 15..16 "5"
+shape shape_garbage 18..19 "|"
+shape shape_int 20..21 "3"
+shape shape_variable 22..24 "$x"
+ir main
+  # 1 register, 15 instructions, 0 bytes of data
+     0: load-literal           %0, int(2)
+     1: store-variable         var #0 "$x", %0 # let
+     2: load-literal           %0, empty
+     3: drain                  %0
+     4: load-literal           %0, empty
+     5: load-literal           %0, int(5)
+     6: store-variable         var #0 "$x", %0
+     7: load-literal           %0, nothing
+     8: drain                  %0
+     9: load-literal           %0, empty
+    10: load-literal           %0, int(3)
+    11: drain                  %0
+    12: load-literal           %0, empty
+    13: load-variable          %0, var #0 "$x"
+    14: return                 %0
+=== accept/pipelines/blank-line-after-pipe-closes.nu
+shape shape_list 0..1 "["
+shape shape_int 1..2 "1"
+shape shape_list 2..3 " "
+shape shape_int 3..4 "2"
+shape shape_list 4..5 " "
+shape shape_int 5..6 "3"
+shape shape_list 6..7 "]"
+shape shape_pipe 8..9 "|"
+shape shape_variable 11..14 "$in"
+shape shape_block 14..15 "\n"
+ir main
+  # 3 registers, 15 instructions, 0 bytes of data
+     0: collect                %0
+     1: clone                  %1, %0
+     2: store-variable         var #0 "$in", %1
+     3: load-literal           %0, list(capacity = 3)
+     4: load-literal           %2, int(1)
+     5: list-push              %0, %2
+     6: load-literal           %2, int(2)
+     7: list-push              %0, %2
+     8: load-literal           %2, int(3)
+     9: list-push              %0, %2
+    10: drain                  %0
+    11: load-literal           %0, empty
+    12: load-variable          %0, var #0 "$in"
+    13: drop-variable          var #0 "$in"
+    14: return                 %0
+=== accept/pipelines/blank-line-before-pipe-closes.nu
+shape shape_list 0..1 "["
+shape shape_int 1..2 "1"
+shape shape_list 2..3 " "
+shape shape_int 3..4 "2"
+shape shape_list 4..5 " "
+shape shape_int 5..6 "3"
+shape shape_list 6..7 "]"
+shape shape_variable 11..14 "$in"
+shape shape_pipe 15..16 "|"
+shape shape_internalcall 17..25 "describe"
+shape shape_block 25..26 "\n"
+ir main
+  # 3 registers, 18 instructions, 0 bytes of data
+     0: collect                %0
+     1: clone                  %1, %0
+     2: store-variable         var #0 "$in", %1
+     3: load-literal           %0, list(capacity = 3)
+     4: load-literal           %2, int(1)
+     5: list-push              %0, %2
+     6: load-literal           %2, int(2)
+     7: list-push              %0, %2
+     8: load-literal           %2, int(3)
+     9: list-push              %0, %2
+    10: drain                  %0
+    11: load-literal           %0, empty
+    12: load-variable          %0, var #0 "$in"
+    13: redirect-out           caller
+    14: redirect-err           caller
+    15: call                   decl "describe", %0
+    16: drop-variable          var #0 "$in"
+    17: return                 %0
+=== accept/pipelines/blank-then-comment-before-pipe-closes.nu
+shape shape_external 0..1 "a"
+shape shape_garbage 7..8 "|"
+shape shape_external 9..10 "b"
+ir main
+  # 2 registers, 12 instructions, 2 bytes of data
+     0: load-literal           %1, glob-pattern("a", no_expand = false)
+     1: push-positional        %1
+     2: call                   decl "run-external", %0
+     3: drain                  %0
+     4: load-literal           %0, empty
+     5: load-literal           %0, empty
+     6: load-literal           %1, glob-pattern("b", no_expand = false)
+     7: push-positional        %1
+     8: redirect-out           caller
+     9: redirect-err           caller
+    10: call                   decl "run-external", %0
+    11: return                 %0
+=== accept/pipelines/comment-lines-before-pipe-continue.nu
+shape shape_external 0..1 "a"
+shape shape_pipe 10..11 "|"
+shape shape_external 12..13 "b"
+ir main
+  # 2 registers, 10 instructions, 2 bytes of data
+     0: load-literal           %1, glob-pattern("a", no_expand = false)
+     1: push-positional        %1
+     2: redirect-out           pipe
+     3: call                   decl "run-external", %0
+     4: load-literal           %1, glob-pattern("b", no_expand = false)
+     5: push-positional        %1
+     6: redirect-out           caller
+     7: redirect-err           caller
+     8: call                   decl "run-external", %0
+     9: return                 %0
+=== accept/pipelines/comment-then-blank-before-pipe-closes.nu
+shape shape_external 0..1 "a"
+shape shape_garbage 7..8 "|"
+shape shape_external 9..10 "b"
+ir main
+  # 2 registers, 12 instructions, 2 bytes of data
+     0: load-literal           %1, glob-pattern("a", no_expand = false)
+     1: push-positional        %1
+     2: call                   decl "run-external", %0
+     3: drain                  %0
+     4: load-literal           %0, empty
+     5: load-literal           %0, empty
+     6: load-literal           %1, glob-pattern("b", no_expand = false)
+     7: push-positional        %1
+     8: redirect-out           caller
+     9: redirect-err           caller
+    10: call                   decl "run-external", %0
+    11: return                 %0
+=== accept/pipelines/crlf-line-endings.nu
+shape shape_internalcall 0..2 "ls"
+shape shape_pipe 4..5 "|"
+shape shape_internalcall 6..12 "length"
+shape shape_internalcall 14..17 "let"
+shape shape_vardecl 18..19 "x"
+shape shape_int 22..23 "1"
+shape shape_variable 25..27 "$x"
+ir main
+  # 1 register, 13 instructions, 0 bytes of data
+     0: redirect-out           pipe
+     1: call                   decl "ls", %0
+     2: call                   decl "length", %0
+     3: drain                  %0
+     4: load-literal           %0, empty
+     5: load-literal           %0, empty
+     6: load-literal           %0, int(1)
+     7: store-variable         var #0 "$x", %0 # let
+     8: load-literal           %0, empty
+     9: drain                  %0
+    10: load-literal           %0, empty
+    11: load-variable          %0, var #0 "$x"
+    12: return                 %0
+=== accept/pipelines/deeply-nested-pipelines.nu
+shape shape_block 0..1 "("
+shape shape_internalcall 1..3 "ls"
+shape shape_pipe 4..5 "|"
+shape shape_internalcall 6..11 "where"
+shape shape_block 12..13 "("
+shape shape_block 13..14 "("
+shape shape_variable 14..17 "$in"
+shape shape_pipe 18..19 "|"
+shape shape_internalcall 20..26 "length"
+shape shape_block 26..27 ")"
+shape shape_operator 28..29 ">"
+shape shape_int 30..31 "0"
+shape shape_block 31..32 ")"
+shape shape_pipe 33..34 "|"
+shape shape_internalcall 35..39 "each"
+shape shape_closure 40..46 "{ |f| "
+shape shape_block 46..47 "("
+shape shape_variable 47..49 "$f"
+shape shape_string 50..54 "name"
+shape shape_pipe 55..56 "|"
+shape shape_internalcall 57..67 "str length"
+shape shape_block 67..68 ")"
+shape shape_operator 69..70 "+"
+shape shape_block 71..72 "("
+shape shape_int 72..73 "1"
+shape shape_pipe 74..75 "|"
+shape shape_internalcall 76..84 "into int"
+shape shape_block 84..85 ")"
+shape shape_closure 85..87 " }"
+shape shape_block 87..88 ")"
+shape shape_pipe 89..90 "|"
+shape shape_internalcall 91..99 "math sum"
+ir main
+  # 3 registers, 18 instructions, 0 bytes of data
+     0: redirect-out           pipe
+     1: call                   decl "ls", %0
+     2: collect                %0
+     3: clone                  %1, %0
+     4: store-variable         var #1, %1
+     5: load-literal           %2, row_condition(#2)
+     6: push-positional        %2
+     7: redirect-out           pipe
+     8: call                   decl "where", %0
+     9: drop-variable          var #1
+    10: load-literal           %2, closure(#5)
+    11: push-positional        %2
+    12: redirect-out           pipe
+    13: call                   decl "each", %0
+    14: redirect-out           caller
+    15: redirect-err           caller
+    16: call                   decl "math sum", %0
+    17: return                 %0
+ir #5
+  # 2 registers, 11 instructions, 0 bytes of data
+     0: load-variable          %0, var #2
+     1: load-literal           %1, cell-path($.name)
+     2: follow-cell-path       %0, %1
+     3: redirect-out           value
+     4: call                   decl "str length", %0
+     5: load-literal           %1, int(1)
+     6: redirect-out           value
+     7: call                   decl "into int", %1
+     8: binary-op              %0, Math(Add), %1
+     9: span                   %0
+    10: return                 %0
+=== accept/pipelines/double-pipe-tolerated.nu
+shape shape_internalcall 0..2 "ls"
+shape shape_pipe 3..4 "|"
+shape shape_garbage 5..6 "|"
+shape shape_internalcall 7..13 "length"
+ir main
+  # 1 register, 6 instructions, 0 bytes of data
+     0: redirect-out           pipe
+     1: call                   decl "ls", %0
+     2: redirect-out           caller
+     3: redirect-err           caller
+     4: call                   decl "length", %0
+     5: return                 %0
+=== accept/pipelines/empty.nu
+ir main
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== accept/pipelines/if-before-pipe.nu
+shape shape_internalcall 0..2 "if"
+shape shape_bool 3..7 "true"
+shape shape_pipe 11..12 "|"
+shape shape_internalcall 13..19 "length"
+ir main
+  # 2 registers, 9 instructions, 0 bytes of data
+     0: load-literal           %1, bool(true)
+     1: not                    %1
+     2: branch-if              %1, 4       # if false
+     3: jump                   5           # end if, label(0)
+     4: load-literal           %0, empty   # label(1), from(2:)
+     5: redirect-out           caller      # label(2), from(3:)
+     6: redirect-err           caller
+     7: call                   decl "length", %0
+     8: return                 %0
+=== accept/pipelines/in-variable-pipeline.nu
+shape shape_list 0..1 "["
+shape shape_int 1..2 "1"
+shape shape_list 2..3 " "
+shape shape_int 3..4 "2"
+shape shape_list 4..5 " "
+shape shape_int 5..6 "3"
+shape shape_list 6..7 "]"
+shape shape_pipe 8..9 "|"
+shape shape_variable 10..13 "$in"
+shape shape_int 14..15 "0"
+shape shape_operator 16..17 "+"
+shape shape_block 18..19 "("
+shape shape_variable 19..22 "$in"
+shape shape_pipe 23..24 "|"
+shape shape_internalcall 25..31 "length"
+shape shape_block 31..32 ")"
+ir main
+  # 3 registers, 20 instructions, 0 bytes of data
+     0: load-literal           %0, list(capacity = 3)
+     1: load-literal           %1, int(1)
+     2: list-push              %0, %1
+     3: load-literal           %1, int(2)
+     4: list-push              %0, %1
+     5: load-literal           %1, int(3)
+     6: list-push              %0, %1
+     7: collect                %0
+     8: clone                  %1, %0
+     9: store-variable         var #0 "$in", %1
+    10: load-variable          %0, var #0 "$in"
+    11: load-literal           %2, cell-path($.0)
+    12: follow-cell-path       %0, %2
+    13: load-variable          %2, var #0 "$in"
+    14: redirect-out           value
+    15: call                   decl "length", %2
+    16: binary-op              %0, Math(Add), %2
+    17: span                   %0
+    18: drop-variable          var #0 "$in"
+    19: return                 %0
+=== accept/pipelines/keyword-in-pipeline-position.nu
+shape shape_list 0..1 "["
+shape shape_int 1..2 "1"
+shape shape_list 2..3 " "
+shape shape_int 3..4 "2"
+shape shape_list 4..5 " "
+shape shape_int 5..6 "3"
+shape shape_list 6..7 "]"
+shape shape_pipe 8..9 "|"
+shape shape_internalcall 10..14 "each"
+shape shape_closure 15..21 "{ |x| "
+shape shape_internalcall 21..23 "if"
+shape shape_variable 24..26 "$x"
+shape shape_operator 27..28 ">"
+shape shape_int 29..30 "1"
+shape shape_block 31..33 "{ "
+shape shape_variable 33..35 "$x"
+shape shape_block 35..37 " }"
+shape shape_keyword 38..42 "else"
+shape shape_block 43..45 "{ "
+shape shape_int 45..46 "0"
+shape shape_block 46..48 " }"
+shape shape_closure 48..50 " }"
+shape shape_pipe 51..52 "|"
+shape shape_internalcall 53..58 "where"
+shape shape_variable 59..62 "$it"
+shape shape_operator 63..64 ">"
+shape shape_int 65..66 "0"
+ir main
+  # 2 registers, 17 instructions, 0 bytes of data
+     0: load-literal           %0, list(capacity = 3)
+     1: load-literal           %1, int(1)
+     2: list-push              %0, %1
+     3: load-literal           %1, int(2)
+     4: list-push              %0, %1
+     5: load-literal           %1, int(3)
+     6: list-push              %0, %1
+     7: load-literal           %1, closure(#2)
+     8: push-positional        %1
+     9: redirect-out           pipe
+    10: call                   decl "each", %0
+    11: load-literal           %1, row_condition(#3)
+    12: push-positional        %1
+    13: redirect-out           caller
+    14: redirect-err           caller
+    15: call                   decl "where", %0
+    16: return                 %0
+ir #2
+  # 3 registers, 10 instructions, 0 bytes of data
+     0: load-variable          %1, var #0
+     1: load-literal           %2, int(1)
+     2: binary-op              %1, Comparison(GreaterThan), %2
+     3: span                   %1
+     4: not                    %1
+     5: branch-if              %1, 8       # if false
+     6: load-variable          %0, var #0  # label(0)
+     7: jump                   9           # end if
+     8: load-literal           %0, int(0)  # label(1), from(5:)
+     9: return                 %0          # label(2), from(7:)
+=== accept/pipelines/leading-pipe-at-file-start.nu
+shape shape_garbage 0..1 "|"
+shape shape_internalcall 2..4 "ls"
+ir main
+  # 1 register, 4 instructions, 0 bytes of data
+     0: redirect-out           caller
+     1: redirect-err           caller
+     2: call                   decl "ls", %0
+     3: return                 %0
+=== accept/pipelines/leading-pipe-blank-lines.nu
+shape shape_internalcall 0..2 "ls"
+shape shape_garbage 6..7 "|"
+shape shape_internalcall 8..14 "length"
+ir main
+  # 1 register, 8 instructions, 0 bytes of data
+     0: call                   decl "ls", %0
+     1: drain                  %0
+     2: load-literal           %0, empty
+     3: load-literal           %0, empty
+     4: redirect-out           caller
+     5: redirect-err           caller
+     6: call                   decl "length", %0
+     7: return                 %0
+=== accept/pipelines/leading-pipe-comment-then-blank-line.nu
+shape shape_garbage 0..1 "|"
+shape shape_external 7..8 "a"
+shape shape_externalarg 9..10 "b"
+ir main
+  # 3 registers, 8 instructions, 2 bytes of data
+     0: load-literal           %1, glob-pattern("a", no_expand = false)
+     1: load-literal           %2, glob-pattern("b", no_expand = false)
+     2: push-positional        %1
+     3: push-positional        %2
+     4: redirect-out           caller
+     5: redirect-err           caller
+     6: call                   decl "run-external", %0
+     7: return                 %0
+=== accept/pipelines/leading-pipe-continuation.nu
+shape shape_internalcall 0..2 "ls"
+shape shape_pipe 5..6 "|"
+shape shape_internalcall 7..12 "where"
+shape shape_string 13..17 "size"
+shape shape_variable 13..17 "size"
+shape shape_operator 18..19 ">"
+shape shape_int 20..21 "1"
+shape shape_string 21..23 "kb"
+shape shape_pipe 26..27 "|"
+shape shape_internalcall 28..31 "get"
+shape shape_string 32..36 "name"
+ir main
+  # 2 registers, 12 instructions, 0 bytes of data
+     0: redirect-out           pipe
+     1: call                   decl "ls", %0
+     2: load-literal           %1, row_condition(#0)
+     3: push-positional        %1
+     4: redirect-out           pipe
+     5: call                   decl "where", %0
+     6: load-literal           %1, cell-path($.name)
+     7: push-positional        %1
+     8: redirect-out           caller
+     9: redirect-err           caller
+    10: call                   decl "get", %0
+    11: return                 %0
+=== accept/pipelines/leading-pipe-then-blank-line.nu
+shape shape_block 0..1 " "
+shape shape_garbage 1..2 "|"
+shape shape_variable 4..7 "$in"
+shape shape_block 7..8 "\n"
+ir main
+  # 2 registers, 6 instructions, 0 bytes of data
+     0: collect                %0
+     1: clone                  %1, %0
+     2: store-variable         var #0 "$in", %1
+     3: load-variable          %0, var #0 "$in"
+     4: drop-variable          var #0 "$in"
+     5: return                 %0
+=== accept/pipelines/leading-pipe-with-comments.nu
+shape shape_internalcall 0..2 "ls"
+shape shape_pipe 16..17 "|"
+shape shape_internalcall 18..23 "where"
+shape shape_string 24..28 "size"
+shape shape_variable 24..28 "size"
+shape shape_operator 29..30 ">"
+shape shape_int 31..32 "1"
+shape shape_string 32..34 "kb"
+shape shape_pipe 37..38 "|"
+shape shape_garbage 54..55 "|"
+shape shape_internalcall 56..59 "get"
+shape shape_string 60..64 "name"
+ir main
+  # 2 registers, 12 instructions, 0 bytes of data
+     0: redirect-out           pipe
+     1: call                   decl "ls", %0
+     2: load-literal           %1, row_condition(#0)
+     3: push-positional        %1
+     4: redirect-out           pipe
+     5: call                   decl "where", %0
+     6: load-literal           %1, cell-path($.name)
+     7: push-positional        %1
+     8: redirect-out           caller
+     9: redirect-err           caller
+    10: call                   decl "get", %0
+    11: return                 %0
+=== accept/pipelines/let-in-pipeline-tail.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..9 "files"
+shape shape_internalcall 12..14 "ls"
+shape shape_pipe 15..16 "|"
+shape shape_internalcall 17..20 "get"
+shape shape_string 21..25 "name"
+shape shape_variable 26..32 "$files"
+ir main
+  # 2 registers, 12 instructions, 0 bytes of data
+     0: redirect-out           pipe
+     1: call                   decl "ls", %0
+     2: load-literal           %1, cell-path($.name)
+     3: push-positional        %1
+     4: redirect-out           value
+     5: call                   decl "get", %0
+     6: store-variable         var #0 "$files", %0 # let
+     7: load-literal           %0, empty
+     8: drain                  %0
+     9: load-literal           %0, empty
+    10: load-variable          %0, var #0 "$files"
+    11: return                 %0
+=== accept/pipelines/let-then-blank-then-pipe.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..5 "x"
+shape shape_int 8..9 "1"
+shape shape_garbage 11..12 "|"
+shape shape_internalcall 13..19 "length"
+ir main
+  # 1 register, 10 instructions, 0 bytes of data
+     0: load-literal           %0, int(1)
+     1: store-variable         var #0 "$x", %0 # let
+     2: load-literal           %0, empty
+     3: drain                  %0
+     4: load-literal           %0, empty
+     5: load-literal           %0, empty
+     6: redirect-out           caller
+     7: redirect-err           caller
+     8: call                   decl "length", %0
+     9: return                 %0
+=== accept/pipelines/let-then-pipe-on-next-line-continues.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..5 "x"
+shape shape_int 8..9 "1"
+shape shape_pipe 10..11 "|"
+shape shape_internalcall 12..18 "length"
+error nu::parser::input_type_mismatch: Command does not support int input.
+  label 12..18 "length": command doesn't support int input
+=== accept/pipelines/let-without-value-after-pipe.nu
+shape shape_internalcall 0..2 "ls"
+shape shape_pipe 3..4 "|"
+shape shape_internalcall 5..8 "let"
+shape shape_vardecl 9..10 "x"
+ir main
+  # 1 register, 6 instructions, 0 bytes of data
+     0: redirect-out           pipe
+     1: call                   decl "ls", %0
+     2: collect                %0
+     3: store-variable         var #0 "$x", %0 # let
+     4: load-variable          %0, var #0 "$x"
+     5: return                 %0
+=== accept/pipelines/many-elements.nu
+shape shape_internalcall 0..2 "ls"
+shape shape_pipe 3..4 "|"
+shape shape_internalcall 5..10 "where"
+shape shape_string 11..15 "size"
+shape shape_variable 11..15 "size"
+shape shape_operator 16..17 ">"
+shape shape_int 18..19 "1"
+shape shape_string 19..21 "kb"
+shape shape_pipe 22..23 "|"
+shape shape_internalcall 24..31 "sort-by"
+shape shape_string 32..36 "name"
+shape shape_pipe 37..38 "|"
+shape shape_internalcall 39..42 "get"
+shape shape_string 43..47 "name"
+shape shape_pipe 48..49 "|"
+shape shape_internalcall 50..55 "first"
+shape shape_int 56..57 "3"
+ir main
+  # 2 registers, 20 instructions, 0 bytes of data
+     0: redirect-out           pipe
+     1: call                   decl "ls", %0
+     2: load-literal           %1, row_condition(#0)
+     3: push-positional        %1
+     4: redirect-out           pipe
+     5: call                   decl "where", %0
+     6: load-literal           %1, cell-path($.name)
+     7: push-positional        %1
+     8: redirect-out           pipe
+     9: call                   decl "sort-by", %0
+    10: load-literal           %1, cell-path($.name)
+    11: push-positional        %1
+    12: redirect-out           pipe
+    13: call                   decl "get", %0
+    14: load-literal           %1, int(3)
+    15: push-positional        %1
+    16: redirect-out           caller
+    17: redirect-err           caller
+    18: call                   decl "first", %0
+    19: return                 %0
+=== accept/pipelines/mixed-separators.nu
+shape shape_internalcall 0..2 "ls"
+shape shape_internalcall 4..7 "pwd"
+shape shape_internalcall 8..16 "date now"
+shape shape_internalcall 19..23 "echo"
+shape shape_string 24..25 "a"
+ir main
+  # 2 registers, 18 instructions, 1 byte of data
+     0: call                   decl "ls", %0
+     1: drain                  %0
+     2: load-literal           %0, empty
+     3: load-literal           %0, empty
+     4: call                   decl "pwd", %0
+     5: drain                  %0
+     6: load-literal           %0, empty
+     7: load-literal           %0, empty
+     8: call                   decl "date now", %0
+     9: drain                  %0
+    10: load-literal           %0, empty
+    11: load-literal           %0, empty
+    12: load-literal           %1, string("a")
+    13: push-positional        %1
+    14: redirect-out           caller
+    15: redirect-err           caller
+    16: call                   decl "echo", %0
+    17: return                 %0
+=== accept/pipelines/newline-separated.nu
+shape shape_internalcall 0..2 "ls"
+shape shape_internalcall 3..6 "pwd"
+shape shape_internalcall 7..15 "date now"
+ir main
+  # 1 register, 12 instructions, 0 bytes of data
+     0: call                   decl "ls", %0
+     1: drain                  %0
+     2: load-literal           %0, empty
+     3: load-literal           %0, empty
+     4: call                   decl "pwd", %0
+     5: drain                  %0
+     6: load-literal           %0, empty
+     7: load-literal           %0, empty
+     8: redirect-out           caller
+     9: redirect-err           caller
+    10: call                   decl "date now", %0
+    11: return                 %0
+=== accept/pipelines/only-semicolons.nu
+ir main
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== accept/pipelines/only-whitespace.nu
+ir main
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== accept/pipelines/overlay-list-first.nu
+shape shape_internalcall 0..12 "overlay list"
+shape shape_pipe 13..14 "|"
+shape shape_internalcall 15..21 "length"
+ir main
+  # 1 register, 6 instructions, 0 bytes of data
+     0: redirect-out           pipe
+     1: call                   decl "overlay list", %0
+     2: redirect-out           caller
+     3: redirect-err           caller
+     4: call                   decl "length", %0
+     5: return                 %0
+=== accept/pipelines/overlay-list-in-pipeline.nu
+shape shape_internalcall 0..12 "overlay list"
+shape shape_pipe 13..14 "|"
+shape shape_internalcall 15..20 "where"
+shape shape_string 21..25 "name"
+shape shape_variable 21..25 "name"
+shape shape_operator 26..28 "=="
+shape shape_string 29..33 "spam"
+shape shape_internalcall 34..36 "ls"
+shape shape_pipe 37..38 "|"
+shape shape_internalcall 39..51 "overlay list"
+error nu::parser::input_type_mismatch: Command does not support table input.
+  label 39..51 "overlay list": command doesn't support table input
+=== accept/pipelines/pipe-comment-lines-then-blank-closes.nu
+shape shape_external 0..1 "a"
+shape shape_pipe 2..3 "|"
+shape shape_external 9..10 "b"
+ir main
+  # 2 registers, 12 instructions, 2 bytes of data
+     0: load-literal           %1, glob-pattern("a", no_expand = false)
+     1: push-positional        %1
+     2: call                   decl "run-external", %0
+     3: drain                  %0
+     4: load-literal           %0, empty
+     5: load-literal           %0, empty
+     6: load-literal           %1, glob-pattern("b", no_expand = false)
+     7: push-positional        %1
+     8: redirect-out           caller
+     9: redirect-err           caller
+    10: call                   decl "run-external", %0
+    11: return                 %0
+=== accept/pipelines/pipe-same-line-comment-then-blank-closes.nu
+shape shape_external 0..1 "a"
+shape shape_pipe 2..3 "|"
+shape shape_external 9..10 "b"
+ir main
+  # 2 registers, 12 instructions, 2 bytes of data
+     0: load-literal           %1, glob-pattern("a", no_expand = false)
+     1: push-positional        %1
+     2: call                   decl "run-external", %0
+     3: drain                  %0
+     4: load-literal           %0, empty
+     5: load-literal           %0, empty
+     6: load-literal           %1, glob-pattern("b", no_expand = false)
+     7: push-positional        %1
+     8: redirect-out           caller
+     9: redirect-err           caller
+    10: call                   decl "run-external", %0
+    11: return                 %0
+=== accept/pipelines/pipe-then-comment-then-newline.nu
+shape shape_internalcall 0..2 "ls"
+shape shape_pipe 3..4 "|"
+shape shape_internalcall 16..22 "length"
+ir main
+  # 1 register, 6 instructions, 0 bytes of data
+     0: redirect-out           pipe
+     1: call                   decl "ls", %0
+     2: redirect-out           caller
+     3: redirect-err           caller
+     4: call                   decl "length", %0
+     5: return                 %0
+=== accept/pipelines/plugin-list-after-shorthand.nu
+shape shape_string 0..3 "FOO"
+shape shape_record 3..4 "="
+shape shape_string 4..5 "1"
+shape shape_internalcall 6..17 "plugin list"
+ir main
+  # 4 registers, 11 instructions, 4 bytes of data
+     0: load-literal           %1, record(capacity = 1)
+     1: load-literal           %2, string("FOO")
+     2: load-literal           %3, string("1")
+     3: record-insert          %1, %2, %3
+     4: load-literal           %2, closure(#0)
+     5: push-positional        %1
+     6: push-positional        %2
+     7: redirect-out           caller
+     8: redirect-err           caller
+     9: call                   decl "with-env", %0
+    10: return                 %0
+ir #0
+  # 1 register, 4 instructions, 0 bytes of data
+     0: redirect-out           caller
+     1: redirect-err           caller
+     2: call                   decl "plugin list", %0
+     3: return                 %0
+=== accept/pipelines/return-after-pipe.nu
+shape shape_internalcall 0..2 "ls"
+shape shape_pipe 3..4 "|"
+shape shape_internalcall 5..11 "return"
+error nu::parser::input_type_mismatch: Command does not support table input.
+  label 5..11 "return": command doesn't support table input
+=== accept/pipelines/run-first.nu
+shape shape_internalcall 0..3 "run"
+shape shape_nothing 4..8 "null"
+shape shape_pipe 9..10 "|"
+shape shape_internalcall 11..17 "length"
+ir main
+  # 2 registers, 9 instructions, 4 bytes of data
+     0: load-literal           %1, nothing
+     1: push-positional        %1
+     2: push-parser-info       "noop"
+     3: redirect-out           pipe
+     4: call                   decl "run", %0
+     5: redirect-out           caller
+     6: redirect-err           caller
+     7: call                   decl "length", %0
+     8: return                 %0
+=== accept/pipelines/run-in-pipeline.nu
+shape shape_internalcall 0..2 "ls"
+shape shape_pipe 3..4 "|"
+shape shape_internalcall 5..8 "run"
+shape shape_nothing 9..13 "null"
+ir main
+  # 2 registers, 9 instructions, 4 bytes of data
+     0: redirect-out           pipe
+     1: call                   decl "ls", %0
+     2: load-literal           %1, nothing
+     3: push-positional        %1
+     4: push-parser-info       "noop"
+     5: redirect-out           caller
+     6: redirect-err           caller
+     7: call                   decl "run", %0
+     8: return                 %0
+=== accept/pipelines/semicolon-separated.nu
+shape shape_internalcall 0..2 "ls"
+shape shape_internalcall 4..7 "pwd"
+shape shape_internalcall 9..17 "date now"
+ir main
+  # 1 register, 12 instructions, 0 bytes of data
+     0: call                   decl "ls", %0
+     1: drain                  %0
+     2: load-literal           %0, empty
+     3: load-literal           %0, empty
+     4: call                   decl "pwd", %0
+     5: drain                  %0
+     6: load-literal           %0, empty
+     7: load-literal           %0, empty
+     8: redirect-out           caller
+     9: redirect-err           caller
+    10: call                   decl "date now", %0
+    11: return                 %0
+=== accept/pipelines/shebang-only.nu
+ir main
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== accept/pipelines/shebang.nu
+shape shape_internalcall 18..20 "ls"
+shape shape_pipe 21..22 "|"
+shape shape_internalcall 23..29 "length"
+ir main
+  # 1 register, 6 instructions, 0 bytes of data
+     0: redirect-out           pipe
+     1: call                   decl "ls", %0
+     2: redirect-out           caller
+     3: redirect-err           caller
+     4: call                   decl "length", %0
+     5: return                 %0
+=== accept/pipelines/single-call.nu
+shape shape_internalcall 0..2 "ls"
+ir main
+  # 1 register, 4 instructions, 0 bytes of data
+     0: redirect-out           caller
+     1: redirect-err           caller
+     2: call                   decl "ls", %0
+     3: return                 %0
+=== accept/pipelines/source-env-in-pipeline.nu
+shape shape_internalcall 0..2 "ls"
+shape shape_pipe 3..4 "|"
+shape shape_internalcall 5..15 "source-env"
+shape shape_nothing 16..20 "null"
+ir main
+  # 2 registers, 8 instructions, 0 bytes of data
+     0: redirect-out           pipe
+     1: call                   decl "ls", %0
+     2: load-literal           %1, nothing
+     3: push-positional        %1
+     4: redirect-out           caller
+     5: redirect-err           caller
+     6: call                   decl "source-env", %0
+     7: return                 %0
+=== accept/pipelines/subexpression-starting-with-pipe.nu
+shape shape_list 0..1 "["
+shape shape_string 1..2 "a"
+shape shape_list 2..3 " "
+shape shape_string 3..4 "b"
+shape shape_list 4..5 "]"
+shape shape_pipe 6..7 "|"
+shape shape_block 8..10 "( "
+shape shape_garbage 10..11 "|"
+shape shape_internalcall 12..20 "str join"
+shape shape_block 20..21 ")"
+ir main
+  # 2 registers, 9 instructions, 2 bytes of data
+     0: load-literal           %0, list(capacity = 2)
+     1: load-literal           %1, string("a")
+     2: list-push              %0, %1
+     3: load-literal           %1, string("b")
+     4: list-push              %0, %1
+     5: redirect-out           caller
+     6: redirect-err           caller
+     7: call                   decl "str join", %0
+     8: return                 %0
+=== accept/pipelines/tabs-as-whitespace.nu
+shape shape_internalcall 0..2 "ls"
+shape shape_flag 3..5 "-l"
+shape shape_pipe 6..7 "|"
+shape shape_internalcall 8..14 "length"
+ir main
+  # 1 register, 7 instructions, 4 bytes of data
+     0: push-flag              "long"
+     1: redirect-out           pipe
+     2: call                   decl "ls", %0
+     3: redirect-out           caller
+     4: redirect-err           caller
+     5: call                   decl "length", %0
+     6: return                 %0
+=== accept/pipelines/trailing-pipe-at-end-of-file.nu
+shape shape_internalcall 0..2 "ls"
+shape shape_pipe 3..4 "|"
+ir main
+  # 1 register, 4 instructions, 0 bytes of data
+     0: redirect-out           caller
+     1: redirect-err           caller
+     2: call                   decl "ls", %0
+     3: return                 %0
+=== accept/pipelines/trailing-pipe-continuation.nu
+shape shape_internalcall 0..2 "ls"
+shape shape_pipe 3..4 "|"
+shape shape_internalcall 7..13 "length"
+ir main
+  # 1 register, 6 instructions, 0 bytes of data
+     0: redirect-out           pipe
+     1: call                   decl "ls", %0
+     2: redirect-out           caller
+     3: redirect-err           caller
+     4: call                   decl "length", %0
+     5: return                 %0
+=== accept/pipelines/trailing-pipe-then-blank-lines.nu
+shape shape_internalcall 0..2 "ls"
+shape shape_pipe 3..4 "|"
+ir main
+  # 1 register, 4 instructions, 0 bytes of data
+     0: redirect-out           caller
+     1: redirect-err           caller
+     2: call                   decl "ls", %0
+     3: return                 %0
+=== accept/pipelines/trailing-pipe-then-comment-then-newline.nu
+shape shape_internalcall 0..2 "ls"
+shape shape_pipe 3..4 "|"
+ir main
+  # 1 register, 4 instructions, 0 bytes of data
+     0: redirect-out           caller
+     1: redirect-err           caller
+     2: call                   decl "ls", %0
+     3: return                 %0
+=== accept/pipelines/trailing-pipe-then-newline-in-block.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..5 "f"
+shape shape_signature 6..8 "[]"
+shape shape_closure 9..11 "{ "
+shape shape_internalcall 11..13 "ls"
+shape shape_pipe 14..15 "|"
+shape shape_closure 15..17 "\n}"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: return                 %0
+ir #0
+  # 1 register, 4 instructions, 0 bytes of data
+     0: redirect-out           caller
+     1: redirect-err           caller
+     2: call                   decl "ls", %0
+     3: return                 %0
+=== accept/pipelines/trailing-pipe-then-two-comment-lines.nu
+shape shape_internalcall 0..2 "ls"
+shape shape_pipe 3..4 "|"
+ir main
+  # 1 register, 4 instructions, 0 bytes of data
+     0: redirect-out           caller
+     1: redirect-err           caller
+     2: call                   decl "ls", %0
+     3: return                 %0
+=== accept/pipelines/two-elements.nu
+shape shape_internalcall 0..2 "ls"
+shape shape_pipe 3..4 "|"
+shape shape_internalcall 5..11 "length"
+ir main
+  # 1 register, 6 instructions, 0 bytes of data
+     0: redirect-out           pipe
+     1: call                   decl "ls", %0
+     2: redirect-out           caller
+     3: redirect-err           caller
+     4: call                   decl "length", %0
+     5: return                 %0

@@ -1,0 +1,235 @@
+=== reject/loops/break-help-then-extra.nu
+shape shape_internalcall 0..5 "break"
+shape shape_flag 6..12 "--help"
+shape shape_garbage 13..14 "x"
+error nu::parser::extra_positional: Extra positional argument.
+  label 13..14 "x": extra positional argument
+  help: Usage: break 
+=== reject/loops/break-with-arg.nu
+shape shape_internalcall 0..5 "break"
+shape shape_garbage 6..7 "1"
+error nu::parser::extra_positional: Extra positional argument.
+  label 6..7 "1": extra positional argument
+  help: Usage: break 
+=== reject/loops/continue-with-arg.nu
+shape shape_internalcall 0..8 "continue"
+shape shape_garbage 9..10 "1"
+error nu::parser::extra_positional: Extra positional argument.
+  label 9..10 "1": extra positional argument
+  help: Usage: continue 
+=== reject/loops/for-bad-var-name.nu
+shape shape_internalcall 0..3 "for"
+shape shape_garbage 4..7 "x.y"
+shape shape_keyword 8..10 "in"
+shape shape_list 11..12 "["
+shape shape_int 12..13 "1"
+shape shape_list 13..14 "]"
+error nu::parser::parse_mismatch: Parse mismatch: expected valid variable name.
+  label 4..7 "x.y": expected valid variable name
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/loops/for-body-is-record.nu
+shape shape_internalcall 0..3 "for"
+shape shape_vardecl 4..5 "x"
+shape shape_keyword 6..8 "in"
+shape shape_list 9..11 "[]"
+shape shape_garbage 12..18 "{a: 1}"
+error nu::parser::type_mismatch: Type mismatch.
+  label 12..18 "{a: 1}": expected block, found record<a: int>
+=== reject/loops/for-extra-tokens.nu
+shape shape_internalcall 0..3 "for"
+shape shape_vardecl 4..5 "x"
+shape shape_keyword 6..8 "in"
+shape shape_list 9..10 "["
+shape shape_int 10..11 "1"
+shape shape_list 11..12 "]"
+shape shape_garbage 17..22 "extra"
+error nu::parser::extra_positional: Extra positional argument.
+  label 17..22 "extra": extra positional argument
+  help: Usage: for <var_name> in <range> <block> 
+=== reject/loops/for-help-then-extra.nu
+shape shape_internalcall 0..3 "for"
+shape shape_flag 4..10 "--help"
+shape shape_vardecl 11..12 "x"
+shape shape_keyword 13..15 "in"
+shape shape_list 16..18 "[]"
+shape shape_garbage 22..23 "y"
+error nu::parser::extra_positional: Extra positional argument.
+  label 22..23 "y": extra positional argument
+  help: Usage: for <var_name> in <range> <block> 
+=== reject/loops/for-help-then-in-without-block.nu
+shape shape_internalcall 0..3 "for"
+shape shape_vardecl 4..5 "x"
+shape shape_flag 6..12 "--help"
+shape shape_garbage 13..15 "in"
+shape shape_keyword 13..15 "in"
+error nu::parser::keyword_missing_arg: Missing argument to `in`.
+  label 15..15 "": missing any value that follows in
+=== reject/loops/for-help-then-in-without-value.nu
+shape shape_internalcall 0..3 "for"
+shape shape_vardecl 4..5 "x"
+shape shape_flag 6..12 "--help"
+shape shape_garbage 13..15 "in"
+shape shape_keyword 13..15 "in"
+error nu::parser::keyword_missing_arg: Missing argument to `in`.
+  label 15..15 "": missing any value that follows in
+=== reject/loops/for-missing-block.nu
+shape shape_internalcall 0..3 "for"
+shape shape_vardecl 4..5 "x"
+shape shape_garbage 6..8 "in"
+shape shape_keyword 6..8 "in"
+error nu::parser::keyword_missing_arg: Missing argument to `in`.
+  label 8..8 "": missing any value that follows in
+error nu::parser::missing_positional: Missing required positional argument.
+  label 8..8 "": missing block
+  help: Usage: for <var_name> in <range> <block> . Use `--help` for more information.
+=== reject/loops/for-missing-in.nu
+shape shape_internalcall 0..3 "for"
+shape shape_vardecl 4..5 "x"
+shape shape_garbage 6..9 "[1]"
+shape shape_keyword 6..9 "[1]"
+error nu::parser::expected_keyword: Expected keyword.
+  label 6..9 "[1]": expected in
+error nu::parser::keyword_missing_arg: Missing argument to `in`.
+  label 9..9 "": missing any value that follows in
+error nu::parser::missing_positional: Missing required positional argument.
+  label 9..9 "": missing block
+  help: Usage: for <var_name> in <range> <block> . Use `--help` for more information.
+=== reject/loops/for-missing-var.nu
+shape shape_internalcall 0..3 "for"
+shape shape_garbage 3..4 " "
+shape shape_garbage 4..6 "in"
+shape shape_keyword 4..6 "in"
+error nu::parser::missing_positional: Missing required positional argument.
+  label 3..4 " ": missing var_name
+  help: Usage: for <var_name> in <range> <block> . Use `--help` for more information.
+error nu::parser::keyword_missing_arg: Missing argument to `in`.
+  label 6..6 "": missing any value that follows in
+error nu::parser::missing_positional: Missing required positional argument.
+  label 6..6 "": missing block
+  help: Usage: for <var_name> in <range> <block> . Use `--help` for more information.
+=== reject/loops/for-reserved-var.nu
+shape shape_internalcall 0..3 "for"
+shape shape_vardecl 4..6 "nu"
+shape shape_keyword 7..9 "in"
+shape shape_list 10..12 "[]"
+error nu::parser::name_is_builtin_var: `nu` used as variable name.
+  label 4..6 "nu": already a builtin variable
+  help: 'nu' is the name of a builtin Nushell variable and cannot be used as a variable name
+=== reject/loops/for-typed-then-help.nu
+shape shape_internalcall 0..3 "for"
+shape shape_vardecl 4..5 "x"
+shape shape_keyword 18..20 "in"
+shape shape_list 21..23 "[]"
+error nu::parser::unknown_type: Unknown type.
+  label 7..10 "int": unknown type
+=== reject/loops/loop-alone.nu
+shape shape_internalcall 0..4 "loop"
+error nu::parser::missing_positional: Missing required positional argument.
+  label 4..4 "": missing block
+  help: Usage: loop <block> . Use `--help` for more information.
+=== reject/loops/loop-body-is-record.nu
+shape shape_internalcall 0..4 "loop"
+shape shape_garbage 5..11 "{a: 1}"
+error nu::parser::type_mismatch: Type mismatch.
+  label 5..11 "{a: 1}": expected block, found record<a: int>
+=== reject/loops/loop-double-dash-then-help.nu
+shape shape_internalcall 0..4 "loop"
+shape shape_garbage 11..17 "--help"
+error nu::parser::extra_positional: Extra positional argument.
+  label 11..17 "--help": extra positional argument
+  help: Usage: loop <block> 
+=== reject/loops/loop-extra-tokens.nu
+shape shape_internalcall 0..4 "loop"
+shape shape_garbage 9..14 "extra"
+error nu::parser::extra_positional: Extra positional argument.
+  label 9..14 "extra": extra positional argument
+  help: Usage: loop <block> 
+=== reject/loops/loop-help-then-extra.nu
+shape shape_internalcall 0..4 "loop"
+shape shape_flag 5..11 "--help"
+shape shape_garbage 15..16 "y"
+error nu::parser::extra_positional: Extra positional argument.
+  label 15..16 "y": extra positional argument
+  help: Usage: loop <block> 
+=== reject/loops/return-double-dash-twice.nu
+shape shape_internalcall 0..6 "return"
+shape shape_int 10..11 "1"
+shape shape_garbage 12..14 "--"
+error nu::parser::extra_positional: Extra positional argument.
+  label 12..14 "--": extra positional argument
+  help: Usage: return (return_value) 
+=== reject/loops/return-help-then-two-values.nu
+shape shape_internalcall 0..6 "return"
+shape shape_flag 7..13 "--help"
+shape shape_int 14..15 "1"
+shape shape_garbage 16..17 "2"
+error nu::parser::extra_positional: Extra positional argument.
+  label 16..17 "2": extra positional argument
+  help: Usage: return (return_value) 
+=== reject/loops/return-negative-number.nu
+shape shape_internalcall 0..6 "return"
+error nu::parser::unknown_flag: The `return` command doesn't have flag `-1`.
+  label 8..9 "1": unknown flag
+  help: Use `--help` to see available flags
+=== reject/loops/return-two-values.nu
+shape shape_internalcall 0..6 "return"
+shape shape_int 7..8 "1"
+shape shape_garbage 9..10 "2"
+error nu::parser::extra_positional: Extra positional argument.
+  label 9..10 "2": extra positional argument
+  help: Usage: return (return_value) 
+=== reject/loops/return-unknown-flag.nu
+shape shape_internalcall 0..6 "return"
+shape shape_flag 7..12 "--foo"
+error nu::parser::unknown_flag: The `return` command doesn't have flag `foo`.
+  label 7..12 "--foo": unknown flag
+  help: Use `--help` to see available flags
+=== reject/loops/while-alone.nu
+shape shape_internalcall 0..5 "while"
+error nu::parser::missing_positional: Missing required positional argument.
+  label 5..5 "": missing cond
+  help: Usage: while <cond> <block> . Use `--help` for more information.
+=== reject/loops/while-body-is-record.nu
+shape shape_internalcall 0..5 "while"
+shape shape_bool 6..10 "true"
+shape shape_garbage 11..17 "{a: 1}"
+error nu::parser::type_mismatch: Type mismatch.
+  label 11..17 "{a: 1}": expected block, found record<a: int>
+=== reject/loops/while-help-then-extra.nu
+shape shape_internalcall 0..5 "while"
+shape shape_flag 6..12 "--help"
+shape shape_bool 13..17 "true"
+shape shape_garbage 18..20 "{}"
+shape shape_garbage 20..20 ""
+shape shape_garbage 21..22 "y"
+error nu::parser::parse_mismatch: Parse mismatch: expected operator.
+  label 18..20 "{}": expected operator
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+error nu::parser::incomplete_math_expression: Incomplete math expression.
+  label 18..20 "{}": incomplete math expression
+error nu::parser::incomplete_math_expression: Incomplete math expression.
+  label 18..20 "{}": incomplete math expression
+error nu::parser::parse_mismatch: Parse mismatch: expected block, closure or record.
+  label 21..22 "y": expected block, closure or record
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/loops/while-negative-number-first.nu
+shape shape_internalcall 0..5 "while"
+shape shape_string 9..10 "<"
+shape shape_garbage 11..12 "0"
+shape shape_garbage 12..12 ""
+error nu::parser::unknown_flag: The `while` command doesn't have flag `-1`.
+  label 7..8 "1": unknown flag
+  help: Use `--help` to see available flags
+error nu::parser::parse_mismatch: Parse mismatch: expected operator.
+  label 11..12 "0": expected operator
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+error nu::parser::incomplete_math_expression: Incomplete math expression.
+  label 11..12 "0": incomplete math expression
+error nu::parser::incomplete_math_expression: Incomplete math expression.
+  label 11..12 "0": incomplete math expression
+=== reject/loops/while-no-block.nu
+shape shape_internalcall 0..5 "while"
+shape shape_bool 6..10 "true"
+error nu::parser::missing_positional: Missing required positional argument.
+  label 10..10 "": missing cond
+  help: Usage: while <cond> <block> . Use `--help` for more information.

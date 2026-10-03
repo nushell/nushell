@@ -1,0 +1,476 @@
+=== accept/try/basic.nu
+shape shape_internalcall 0..3 "try"
+shape shape_block 4..6 "{ "
+shape shape_int 6..7 "1"
+shape shape_block 7..9 " }"
+ir main
+  # 1 register, 9 instructions, 0 bytes of data
+     0: on-error               7           # try
+     1: load-literal           %0, int(1)
+     2: redirect-out           caller
+     3: redirect-err           caller
+     4: drain-if-end           %0
+     5: pop-error-handler     
+     6: jump                   8
+     7: load-literal           %0, empty   # label(0), from(0:)
+     8: return                 %0          # label(2), from(6:)
+=== accept/try/body-record-cell-path.nu
+shape shape_internalcall 63..66 "try"
+shape shape_record 67..68 "{"
+shape shape_string 68..69 "a"
+shape shape_record 69..71 ": "
+shape shape_int 71..72 "1"
+shape shape_record 72..73 "}"
+shape shape_string 74..75 "a"
+compile error nu::compile::invalid_keyword_call: Encountered invalid `try` keyword call.
+  label 63..66 "try": this call is not properly formed
+=== accept/try/body-value-variable.nu
+shape shape_internalcall 0..3 "try"
+shape shape_variable 4..8 "$env"
+shape shape_string 9..12 "FOO"
+shape shape_keyword 13..18 "catch"
+shape shape_closure 19..21 "{}"
+compile error nu::compile::invalid_keyword_call: Encountered invalid `try` keyword call.
+  label 0..3 "try": this call is not properly formed
+ir #0
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== accept/try/catch-finally.nu
+shape shape_internalcall 0..3 "try"
+shape shape_block 4..6 "{ "
+shape shape_external 6..11 "risky"
+shape shape_block 11..13 " }"
+shape shape_keyword 14..19 "catch"
+shape shape_closure 20..26 "{ |e| "
+shape shape_internalcall 26..31 "print"
+shape shape_variable 32..34 "$e"
+shape shape_string 35..38 "msg"
+shape shape_closure 38..40 " }"
+shape shape_keyword 41..48 "finally"
+shape shape_closure 49..51 "{ "
+shape shape_external 51..58 "cleanup"
+shape shape_closure 58..60 " }"
+ir main
+  # 4 registers, 33 instructions, 12 bytes of data
+     0: finally-into           24, %0      # try
+     1: on-error-into          13, %0
+     2: load-literal           %1, glob-pattern("risky", no_expand = false)
+     3: push-positional        %1
+     4: redirect-out           caller
+     5: redirect-err           caller
+     6: call                   decl "run-external", %0
+     7: redirect-out           caller
+     8: redirect-err           caller
+     9: try-collect            %0
+    10: pop-error-handler     
+    11: begin-finally         
+    12: jump                   24
+    13: clone                  %1, %0      # label(0), from(1:)
+    14: store-variable         var #0, %1
+    15: load-variable          %2, var #0
+    16: load-literal           %3, cell-path($.msg)
+    17: follow-cell-path       %2, %3
+    18: push-positional        %2
+    19: redirect-out           caller
+    20: redirect-err           caller
+    21: call                   decl "print", %0
+    22: try-collect            %0
+    23: begin-finally         
+    24: clone                  %2, %0      # label(1), from(0:), from(12:)
+    25: load-literal           %3, glob-pattern("cleanup", no_expand = false)
+    26: push-positional        %3
+    27: redirect-out           caller
+    28: redirect-err           caller
+    29: call                   decl "run-external", %0
+    30: move                   %0, %2
+    31: end-finally           
+    32: return                 %0          # label(2)
+ir #1
+  # 3 registers, 8 instructions, 0 bytes of data
+     0: load-variable          %1, var #0
+     1: load-literal           %2, cell-path($.msg)
+     2: follow-cell-path       %1, %2
+     3: push-positional        %1
+     4: redirect-out           caller
+     5: redirect-err           caller
+     6: call                   decl "print", %0
+     7: return                 %0
+ir #3
+  # 2 registers, 6 instructions, 7 bytes of data
+     0: load-literal           %1, glob-pattern("cleanup", no_expand = false)
+     1: push-positional        %1
+     2: redirect-out           caller
+     3: redirect-err           caller
+     4: call                   decl "run-external", %0
+     5: return                 %0
+=== accept/try/catch-record-with-variable-key.nu
+shape shape_internalcall 52..55 "try"
+shape shape_keyword 59..64 "catch"
+shape shape_record 65..67 "{ "
+shape shape_variable 67..71 "$env"
+shape shape_string 72..73 "A"
+shape shape_record 73..74 ":"
+shape shape_string 74..75 "b"
+shape shape_record 75..77 " }"
+ir main
+  # 4 registers, 15 instructions, 2 bytes of data
+     0: load-literal           %1, record(capacity = 1)
+     1: load-env               %2, "A"
+     2: load-literal           %3, string("b")
+     3: record-insert          %1, %2, %3
+     4: on-error-into          10, %0      # try
+     5: redirect-out           caller
+     6: redirect-err           caller
+     7: try-collect            %0
+     8: pop-error-handler     
+     9: jump                   14
+    10: clone                  %2, %0      # label(0), from(4:)
+    11: push-positional        %1
+    12: push-positional        %2
+    13: call                   decl "do", %0
+    14: return                 %0          # label(2), from(9:)
+=== accept/try/catch-variable-handler.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..11 "handler"
+shape shape_closure 14..19 "{|e| "
+shape shape_int 19..20 "1"
+shape shape_closure 20..22 " }"
+shape shape_internalcall 23..26 "try"
+shape shape_block 27..29 "{ "
+shape shape_int 29..30 "1"
+shape shape_block 30..32 " }"
+shape shape_keyword 33..38 "catch"
+shape shape_variable 39..47 "$handler"
+ir main
+  # 3 registers, 19 instructions, 0 bytes of data
+     0: load-literal           %0, closure(#0)
+     1: store-variable         var #1 "$handler", %0 # let
+     2: load-literal           %0, empty
+     3: drain                  %0
+     4: load-literal           %0, empty
+     5: load-literal           %0, empty
+     6: load-variable          %1, var #1 "$handler"
+     7: on-error-into          14, %0      # try
+     8: load-literal           %0, int(1)
+     9: redirect-out           caller
+    10: redirect-err           caller
+    11: try-collect            %0
+    12: pop-error-handler     
+    13: jump                   18
+    14: clone                  %2, %0      # label(0), from(7:)
+    15: push-positional        %1
+    16: push-positional        %2
+    17: call                   decl "do", %0
+    18: return                 %0          # label(2), from(13:)
+ir #0
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, int(1)
+     1: return                 %0
+=== accept/try/catch.nu
+shape shape_internalcall 0..3 "try"
+shape shape_block 4..6 "{ "
+shape shape_internalcall 6..16 "error make"
+shape shape_record 17..18 "{"
+shape shape_string 18..21 "msg"
+shape shape_record 21..23 ": "
+shape shape_string 23..26 "\"x\""
+shape shape_record 26..27 "}"
+shape shape_block 27..29 " }"
+shape shape_keyword 30..35 "catch"
+shape shape_closure 36..42 "{ |e| "
+shape shape_internalcall 42..47 "print"
+shape shape_variable 48..50 "$e"
+shape shape_string 51..54 "msg"
+shape shape_closure 54..56 " }"
+shape shape_internalcall 57..60 "try"
+shape shape_block 61..63 "{ "
+shape shape_int 63..64 "1"
+shape shape_block 64..66 " }"
+shape shape_keyword 67..72 "catch"
+shape shape_closure 73..75 "{ "
+shape shape_int 75..76 "2"
+shape shape_closure 76..78 " }"
+shape shape_internalcall 79..82 "try"
+shape shape_block 83..85 "{ "
+shape shape_int 85..86 "1"
+shape shape_block 86..88 " }"
+shape shape_keyword 89..94 "catch"
+shape shape_closure 95..102 "{ |e| }"
+shape shape_internalcall 103..106 "try"
+shape shape_block 107..109 "{ "
+shape shape_int 109..110 "1"
+shape shape_block 110..112 " }"
+shape shape_keyword 113..118 "catch"
+shape shape_closure 119..123 "{|| "
+shape shape_int 123..124 "2"
+shape shape_closure 124..126 " }"
+ir main
+  # 4 registers, 48 instructions, 4 bytes of data
+     0: on-error-into          10, %0      # try
+     1: load-literal           %1, record(capacity = 1)
+     2: load-literal           %2, string("msg")
+     3: load-literal           %3, string("x")
+     4: record-insert          %1, %2, %3
+     5: push-positional        %1
+     6: call                   decl "error make", %0
+     7: try-collect            %0
+     8: pop-error-handler     
+     9: jump                   17
+    10: clone                  %1, %0      # label(0), from(0:)
+    11: store-variable         var #0, %1
+    12: load-variable          %2, var #0
+    13: load-literal           %3, cell-path($.msg)
+    14: follow-cell-path       %2, %3
+    15: push-positional        %2
+    16: call                   decl "print", %0
+    17: drain                  %0          # label(2), from(9:)
+    18: load-literal           %0, empty
+    19: load-literal           %0, empty
+    20: on-error-into          25, %0      # try
+    21: load-literal           %0, int(1)
+    22: try-collect            %0
+    23: pop-error-handler     
+    24: jump                   26
+    25: load-literal           %0, int(2)  # label(3), from(20:)
+    26: drain                  %0          # label(5), from(24:)
+    27: load-literal           %0, empty
+    28: load-literal           %0, empty
+    29: on-error-into          34, %0      # try
+    30: load-literal           %0, int(1)
+    31: try-collect            %0
+    32: pop-error-handler     
+    33: jump                   36
+    34: clone                  %2, %0      # label(6), from(29:)
+    35: store-variable         var #1, %2
+    36: drain                  %0          # label(8), from(33:)
+    37: load-literal           %0, empty
+    38: load-literal           %0, empty
+    39: on-error-into          46, %0      # try
+    40: load-literal           %0, int(1)
+    41: redirect-out           caller
+    42: redirect-err           caller
+    43: try-collect            %0
+    44: pop-error-handler     
+    45: jump                   47
+    46: load-literal           %0, int(2)  # label(9), from(39:)
+    47: return                 %0          # label(11), from(45:)
+ir #1
+  # 3 registers, 8 instructions, 0 bytes of data
+     0: load-variable          %1, var #0
+     1: load-literal           %2, cell-path($.msg)
+     2: follow-cell-path       %1, %2
+     3: push-positional        %1
+     4: redirect-out           caller
+     5: redirect-err           caller
+     6: call                   decl "print", %0
+     7: return                 %0
+ir #3
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, int(2)
+     1: return                 %0
+ir #5
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+ir #7
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, int(2)
+     1: return                 %0
+=== accept/try/double-dash-after-body.nu
+shape shape_internalcall 0..3 "try"
+ir main
+  # 1 register, 8 instructions, 0 bytes of data
+     0: on-error               6           # try
+     1: redirect-out           caller
+     2: redirect-err           caller
+     3: drain-if-end           %0
+     4: pop-error-handler     
+     5: jump                   7
+     6: load-literal           %0, empty   # label(0), from(0:)
+     7: return                 %0          # label(2), from(5:)
+=== accept/try/double-dash-after-catch.nu
+shape shape_internalcall 0..3 "try"
+shape shape_keyword 7..12 "catch"
+shape shape_closure 13..15 "{}"
+ir main
+  # 1 register, 7 instructions, 0 bytes of data
+     0: on-error-into          6, %0       # try
+     1: redirect-out           caller
+     2: redirect-err           caller
+     3: try-collect            %0
+     4: pop-error-handler     
+     5: jump                   6
+     6: return                 %0          # label(0), label(2), from(0:), from(5:)
+ir #1
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== accept/try/double-dash-then-help-before-catch.nu
+shape shape_internalcall 0..3 "try"
+shape shape_flag 7..13 "--help"
+shape shape_keyword 14..19 "catch"
+shape shape_closure 20..22 "{}"
+ir main
+  # 2 registers, 5 instructions, 15 bytes of data
+     0: load-literal           %1, string("try")
+     1: push-positional        %1
+     2: push-parser-info       "help_decl_id"
+     3: call                   decl "help", %0
+     4: return                 %0
+ir #1
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== accept/try/duplicate-handlers.nu
+shape shape_internalcall 0..3 "try"
+shape shape_block 4..6 "{ "
+shape shape_int 6..7 "1"
+shape shape_block 7..9 " }"
+shape shape_keyword 10..15 "catch"
+shape shape_closure 16..18 "{ "
+shape shape_int 18..19 "2"
+shape shape_closure 19..21 " }"
+shape shape_keyword 22..27 "catch"
+shape shape_closure 28..30 "{ "
+shape shape_int 30..31 "3"
+shape shape_closure 31..33 " }"
+compile error nu::compile::invalid_keyword_call: Encountered invalid `try` keyword call.
+  label 0..3 "try": this call is not properly formed
+ir #1
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, int(2)
+     1: return                 %0
+ir #2
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, int(3)
+     1: return                 %0
+=== accept/try/finally-catch-order.nu
+shape shape_internalcall 0..3 "try"
+shape shape_block 4..6 "{ "
+shape shape_int 6..7 "1"
+shape shape_block 7..9 " }"
+shape shape_keyword 10..17 "finally"
+shape shape_closure 18..20 "{ "
+shape shape_int 20..21 "2"
+shape shape_closure 21..23 " }"
+shape shape_keyword 24..29 "catch"
+shape shape_closure 30..32 "{ "
+shape shape_int 32..33 "3"
+shape shape_closure 33..35 " }"
+compile error nu::compile::invalid_keyword_call: Encountered invalid `try` keyword call.
+  label 0..3 "try": this call is not properly formed
+ir #2
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, int(2)
+     1: return                 %0
+ir #3
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, int(3)
+     1: return                 %0
+=== accept/try/finally-record-cell-path.nu
+shape shape_internalcall 57..60 "try"
+shape shape_keyword 64..71 "finally"
+shape shape_record 72..73 "{"
+shape shape_string 73..74 "a"
+shape shape_record 74..76 ": "
+shape shape_int 76..77 "1"
+shape shape_record 77..78 "}"
+shape shape_string 79..80 "a"
+compile error nu::compile::invalid_keyword_call: Encountered invalid `try` keyword call.
+  label 57..60 "try": this call is not properly formed
+=== accept/try/finally.nu
+shape shape_internalcall 0..3 "try"
+shape shape_block 4..6 "{ "
+shape shape_int 6..7 "1"
+shape shape_block 7..9 " }"
+shape shape_keyword 10..17 "finally"
+shape shape_closure 18..20 "{ "
+shape shape_int 20..21 "2"
+shape shape_closure 21..23 " }"
+ir main
+  # 2 registers, 11 instructions, 0 bytes of data
+     0: finally-into           6, %0       # try
+     1: load-literal           %0, int(1)
+     2: redirect-out           caller
+     3: redirect-err           caller
+     4: try-collect            %0
+     5: begin-finally         
+     6: clone                  %1, %0      # label(1), from(0:)
+     7: load-literal           %0, int(2)
+     8: move                   %0, %1
+     9: end-finally           
+    10: return                 %0          # label(2)
+ir #2
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, int(2)
+     1: return                 %0
+=== accept/try/help-after-block.nu
+shape shape_internalcall 0..3 "try"
+shape shape_flag 7..13 "--help"
+ir main
+  # 2 registers, 5 instructions, 15 bytes of data
+     0: load-literal           %1, string("try")
+     1: push-positional        %1
+     2: push-parser-info       "help_decl_id"
+     3: call                   decl "help", %0
+     4: return                 %0
+=== accept/try/in-pipeline.nu
+shape shape_internalcall 0..3 "try"
+shape shape_block 4..6 "{ "
+shape shape_internalcall 6..8 "ls"
+shape shape_block 8..10 " }"
+shape shape_pipe 11..12 "|"
+shape shape_internalcall 13..19 "length"
+ir main
+  # 1 register, 12 instructions, 0 bytes of data
+     0: on-error               7           # try
+     1: redirect-out           pipe
+     2: call                   decl "ls", %0
+     3: redirect-out           pipe
+     4: drain-if-end           %0
+     5: pop-error-handler     
+     6: jump                   8
+     7: load-literal           %0, empty   # label(0), from(0:)
+     8: redirect-out           caller      # label(2), from(6:)
+     9: redirect-err           caller
+    10: call                   decl "length", %0
+    11: return                 %0
+=== accept/try/multiline.nu
+shape shape_internalcall 0..3 "try"
+shape shape_block 4..8 "{\n  "
+shape shape_int 8..9 "1"
+shape shape_block 9..11 "\n}"
+shape shape_keyword 12..17 "catch"
+shape shape_closure 18..26 "{ |e|\n  "
+shape shape_int 26..27 "2"
+shape shape_closure 27..29 "\n}"
+shape shape_keyword 30..37 "finally"
+shape shape_closure 38..42 "{\n  "
+shape shape_int 42..43 "3"
+shape shape_closure 43..45 "\n}"
+ir main
+  # 3 registers, 19 instructions, 0 bytes of data
+     0: finally-into           14, %0      # try
+     1: on-error-into          9, %0
+     2: load-literal           %0, int(1)
+     3: redirect-out           caller
+     4: redirect-err           caller
+     5: try-collect            %0
+     6: pop-error-handler     
+     7: begin-finally         
+     8: jump                   14
+     9: clone                  %1, %0      # label(0), from(1:)
+    10: store-variable         var #0, %1
+    11: load-literal           %0, int(2)
+    12: try-collect            %0
+    13: begin-finally         
+    14: clone                  %2, %0      # label(1), from(0:), from(8:)
+    15: load-literal           %0, int(3)
+    16: move                   %0, %2
+    17: end-finally           
+    18: return                 %0          # label(2)
+ir #1
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, int(2)
+     1: return                 %0
+ir #3
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, int(3)
+     1: return                 %0

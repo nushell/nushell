@@ -1,0 +1,43 @@
+=== reject/lists/bracket-word-is-an-unclosed-list.nu
+shape shape_internalcall 0..4 "echo"
+shape shape_list 5..6 "["
+shape shape_string 6..9 "x]y"
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 5..6 "[": unclosed — opens here (need `]`)
+  label 9..9 "": expected `]` here
+  help: Add a matching `]` to close this delimiter, or check that an earlier closer closed the wrong block.
+=== reject/lists/pipe-pipe-between-items.nu
+shape shape_list 0..1 "["
+shape shape_int 1..2 "1"
+shape shape_list 2..3 " "
+shape shape_string 3..5 "||"
+shape shape_list 5..6 " "
+shape shape_int 6..7 "2"
+shape shape_list 7..8 "]"
+error nu::parser::shell_oror: The '||' operator is not supported in Nushell
+  label 3..5 "||": instead of '||', use 'try' or 'or'
+  help: use 'try' instead of the shell '||', or 'or' instead of the boolean '||'
+=== reject/lists/semicolon-between-items.nu
+shape shape_list 0..1 "["
+shape shape_string 1..2 "a"
+shape shape_list 2..5 " | "
+shape shape_string 5..6 "b"
+shape shape_list 6..11 " ; c]"
+error : Unexpected semicolon in list
+  label 7..8 ";": not a valid list separator
+  help: Use commas or whitespace to separate list items.
+=== reject/lists/semicolon-single.nu
+shape shape_list 0..1 "["
+shape shape_int 1..2 "1"
+shape shape_list 2..6 "; 2]"
+error : Unexpected semicolon in list
+  label 2..3 ";": not a valid list separator
+  help: Use commas or whitespace to separate list items.
+=== reject/lists/trailing-pipe.nu
+shape shape_list 0..1 "["
+shape shape_int 1..2 "1"
+shape shape_list 2..3 " "
+shape shape_int 3..4 "2"
+shape shape_list 4..7 " |]"
+error nu::parser::unexpected_eof: Unexpected end of code.
+  label 5..6 "|": expected closing pipeline missing end

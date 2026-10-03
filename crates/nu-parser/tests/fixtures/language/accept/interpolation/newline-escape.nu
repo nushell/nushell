@@ -1,0 +1,1 @@
+$"hello\nworld" | lines | length

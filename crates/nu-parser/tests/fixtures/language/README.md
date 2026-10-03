@@ -1,0 +1,97 @@
+# Language fixtures
+
+One Nushell snippet per file, covering the constructs of the language in the
+spellings nu-parser accepts and the ones it rejects. The snippets come from the
+fixtures of the nu-winnow-parser project (MIT).
+
+```text
+accept/<area>/<name>.nu    a snippet that is syntactically valid
+reject/<area>/<name>.nu    a snippet that is not: its parse reports an error
+accept/<area>.golden       what nu-parser makes of every snippet of the area
+reject/<area>.golden
+```
+
+The areas follow the language: `literals`, `strings`, `interpolation`,
+`records`, `closures`, `calls`, `signatures`, `pipelines`, `redirections`,
+`modules`, `match`, `try` and so on. Some `accept` snippets still fail a check
+that needs more than their text: a module, file or plugin they name does not
+exist, a command is unknown, a type does not match, or the compiler rejects
+them (`if true {a: 1}.a` is a valid `if` call that the compiler can't compile).
+Their golden entries record those errors.
+
+## Tests
+
+- `tests/parsing/language.rs` parses every snippet on its own in the shell's
+  engine and compares the result with the golden file of its area
+  (`fixtures_parse_as_recorded`), and checks that every `reject` snippet
+  reports an error (`reject_fixtures_report_errors`).
+- `tests/parsing/lex_once.rs` parses every snippet with and without bracket
+  tables and compares everything the parse produces.
+- `crates/nu-parser/src/lex_once.rs` lexes every snippet and every prefix of
+  it with and without bracket tables; an ignored test does the same on about
+  97,000 mutations of the snippets.
+- `tests/parsing/grammar.rs` checks the values nu-parser parses in the
+  `accept` snippets against the grammar in `devdocs/grammar`.
+
+### Running them
+
+Run these from the workspace root. The three `tests/parsing` files are modules
+of the root crate's test binary, `tests`, which uses nushell's own test harness:
+a filter selects every test whose full name
+(`parsing::language::fixtures_parse_as_recorded`, say) contains it, and
+`--list` shows the names a filter selects without running them.
+
+```nushell
+cargo test --test tests -- parsing::language   # golden files and reject snippets
+cargo test --test tests -- parsing::lex_once   # bracket tables on and off
+cargo test --test tests -- parsing::grammar    # devdocs/grammar
+cargo test --test tests -- parsing::           # all three, with the other parsing tests
+```
+
+The lexer test is a unit test of nu-parser, run by the standard test harness.
+Run the ignored one after changing the lexer or the bracket table builder.
+
+```nushell
+cargo test -p nu-parser --lib lex_once
+cargo test -p nu-parser --lib lex_once -- --ignored
+```
+
+## Golden files
+
+An entry starts with `=== <verdict>/<area>/<name>.nu` and lists, in order:
+
+- `shape`: every shape the parse highlights, with its span counted from the
+  start of the snippet and its text;
+- `error`, `warning` and `compile error`: every diagnostic, with its code, the
+  first line of its message, its labels and its help;
+- `ir`: the IR of the snippet's main block and of every block it adds. Commands
+  appear by name, the snippet's own variables and blocks are numbered from `#0`
+  in the order the parse added them (those of modules it loads are left out),
+  and a `push-parser-info` instruction shows only the name of the info, so
+  that adding a command or changing the standard library does not change the
+  golden files. The parser-info entries of a call are pushed in a different
+  order in every process, so a run of `push-parser-info` instructions is
+  sorted.
+
+Golden files are generated, never edited by hand. After a change to the parser,
+the compiler or a snippet, regenerate them and review their diff: a changed
+entry is a changed parse.
+
+```nushell
+NU_TEST_UPDATE_GOLDEN=1 cargo test --test tests -- parsing::language
+git diff crates/nu-parser/tests/fixtures/language
+```
+
+With the variable set, `fixtures_parse_as_recorded` rewrites the golden file of
+every area instead of comparing with it, and passes; the diff is the check. The
+test only checks that the variable is set, so `NU_TEST_UPDATE_GOLDEN=0`
+rewrites them too. Without it, a failure lists every entry that differs
+(recorded on the left, current on the right), every snippet without an entry
+and every entry without a snippet.
+
+## Adding a snippet
+
+Write plain Nushell as a user would, with a trailing newline unless the snippet
+is about the end of the file. Keep it small: one construct, or one interaction
+between two. Put it under `accept` if it is syntactically valid and under
+`reject` if its parse must report an error, then regenerate the golden files.

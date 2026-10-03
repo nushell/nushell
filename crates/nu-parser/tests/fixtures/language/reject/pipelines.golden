@@ -1,0 +1,295 @@
+=== reject/pipelines/assignment-pipe-then-blank-line.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..5 "x"
+shape shape_int 8..9 "1"
+shape shape_pipe 10..11 "|"
+shape shape_internalcall 13..15 "ls"
+error nu::parser::unexpected_eof: Unexpected end of code.
+  label 10..11 "|": expected closing pipeline missing end
+=== reject/pipelines/const-after-pipe.nu
+shape shape_internalcall 0..2 "ls"
+shape shape_pipe 3..4 "|"
+shape shape_internalcall 5..10 "const"
+shape shape_vardecl 11..12 "x"
+shape shape_garbage 13..14 "="
+shape shape_int 15..16 "1"
+error nu::parser::unexpected_keyword: const statement used in pipeline.
+  label 5..10 "const": 'const' in pipeline
+  help: Assigning 'value' to 'x' does not produce a value to be piped. If the pipeline result is meant to be assigned to 'x', use 'const x = (value | ...)'.
+error nu::parser::missing_positional: Missing required positional argument.
+  label 12..12 "": missing initial_value
+  help: Usage: const <const_name> = <initial_value> . Use `--help` for more information.
+error nu::parser::assignment_requires_variable: Assignment operations require a variable.
+  label 5..12 "const x": needs to be a variable
+  help: try assigning to a variable or a cell path of a variable
+error nu::parser::operator_incompatible_types: Types 'nothing' and 'int' are not compatible for the '=' operator.
+  label 13..14 "=": does not operate between 'nothing' and 'int'
+  label 5..12 "const x": nothing
+  label 15..16 "1": int
+=== reject/pipelines/dangling-pipe-then-semicolon-line.nu
+shape shape_internalcall 0..2 "ls"
+shape shape_pipe 3..4 "|"
+error nu::parser::extra_tokens: Extra tokens in code.
+  label 5..6 ";": extra tokens
+  help: Remove the unexpected tokens, or check for a missing operator, delimiter, or newline above.
+=== reject/pipelines/def-in-pipeline.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..5 "f"
+shape shape_signature 6..8 "[]"
+shape shape_closure 9..12 "{ }"
+shape shape_pipe 13..14 "|"
+shape shape_internalcall 15..21 "length"
+error nu::parser::unexpected_keyword: Statement used in pipeline.
+  label 0..3 "def": not allowed in pipeline
+  help: 'def' keyword is not allowed in pipeline. Use 'def' by itself, outside of a pipeline.
+=== reject/pipelines/for-in-pipeline.nu
+shape shape_list 0..1 "["
+shape shape_int 1..2 "1"
+shape shape_list 2..3 " "
+shape shape_int 3..4 "2"
+shape shape_list 4..5 " "
+shape shape_int 5..6 "3"
+shape shape_list 6..7 "]"
+shape shape_pipe 8..9 "|"
+shape shape_internalcall 10..13 "for"
+shape shape_vardecl 14..15 "x"
+shape shape_keyword 16..18 "in"
+shape shape_variable 19..22 "$in"
+shape shape_block 23..25 "{ "
+shape shape_variable 25..27 "$x"
+shape shape_operator 28..29 "+"
+shape shape_int 30..31 "1"
+shape shape_block 31..33 " }"
+shape shape_pipe 34..35 "|"
+shape shape_variable 36..39 "$in"
+shape shape_garbage 40..42 "++"
+shape shape_list 43..44 "["
+shape shape_int 44..45 "5"
+shape shape_list 45..46 " "
+shape shape_int 46..47 "6"
+shape shape_list 47..48 " "
+shape shape_int 48..49 "7"
+shape shape_list 49..50 "]"
+error nu::parser::unexpected_keyword: Statement used in pipeline.
+  label 10..13 "for": not allowed in pipeline
+  help: 'for' keyword is not allowed in pipeline. Use 'for' by itself, outside of a pipeline.
+error nu::parser::operator_unsupported_type: The '++' operator does not work on values of type 'nothing'.
+  label 40..42 "++": does not support 'nothing'
+  label 36..39 "$in": nothing
+  help: if you meant to append a value to a list or a record to a table, use the `append` command or wrap the value in a list. For example: `$list ++ $value` should be `$list ++ [$value]` or `$list | append $value`.
+=== reject/pipelines/hide-after-pipe.nu
+shape shape_internalcall 0..2 "ls"
+shape shape_pipe 3..4 "|"
+shape shape_internalcall 5..9 "hide"
+shape shape_string 10..13 "foo"
+error nu::parser::unexpected_keyword: Statement used in pipeline.
+  label 5..9 "hide": not allowed in pipeline
+  help: 'hide' keyword is not allowed in pipeline. Use 'hide' by itself, outside of a pipeline.
+error nu::parser::input_type_mismatch: Command does not support table input.
+  label 5..9 "hide": command doesn't support table input
+=== reject/pipelines/hide-before-pipe.nu
+shape shape_internalcall 0..4 "hide"
+shape shape_string 5..7 "ls"
+shape shape_pipe 8..9 "|"
+shape shape_internalcall 10..16 "length"
+error nu::parser::unexpected_keyword: Statement used in pipeline.
+  label 0..4 "hide": not allowed in pipeline
+  help: 'hide' keyword is not allowed in pipeline. Use 'hide' by itself, outside of a pipeline.
+=== reject/pipelines/let-in-after-pipe.nu
+shape shape_list 0..1 "["
+shape shape_int 1..2 "1"
+shape shape_list 2..3 "]"
+shape shape_pipe 4..5 "|"
+shape shape_internalcall 6..9 "let"
+shape shape_vardecl 10..11 "x"
+shape shape_operator 12..13 "="
+shape shape_variable 14..17 "$in"
+error nu::parser::assignment_requires_variable: Assignment operations require a variable.
+  label 6..11 "let x": needs to be a variable
+  help: try assigning to a variable or a cell path of a variable
+=== reject/pipelines/let-with-value-after-pipe.nu
+shape shape_internalcall 0..2 "ls"
+shape shape_pipe 3..4 "|"
+shape shape_internalcall 5..8 "let"
+shape shape_vardecl 9..10 "x"
+shape shape_operator 11..12 "="
+shape shape_int 13..14 "1"
+error nu::parser::assignment_requires_variable: Assignment operations require a variable.
+  label 5..10 "let x": needs to be a variable
+  help: try assigning to a variable or a cell path of a variable
+=== reject/pipelines/module-in-pipeline.nu
+shape shape_internalcall 0..6 "module"
+shape shape_string 7..8 "m"
+shape shape_pipe 13..14 "|"
+shape shape_internalcall 15..21 "length"
+error nu::parser::unexpected_keyword: Statement used in pipeline.
+  label 0..6 "module": not allowed in pipeline
+  help: 'module' keyword is not allowed in pipeline. Use 'module' by itself, outside of a pipeline.
+=== reject/pipelines/mut-after-pipe.nu
+shape shape_internalcall 0..2 "ls"
+shape shape_pipe 3..4 "|"
+shape shape_internalcall 5..8 "mut"
+shape shape_vardecl 9..10 "x"
+shape shape_garbage 11..12 "="
+shape shape_int 13..14 "1"
+error nu::parser::unexpected_keyword: mut statement used in pipeline.
+  label 5..8 "mut": 'mut' in pipeline
+  help: Assigning 'value' to 'x' does not produce a value to be piped. If the pipeline result is meant to be assigned to 'x', use 'mut x = (value | ...)'.
+error nu::parser::missing_positional: Missing required positional argument.
+  label 10..10 "": missing initial_value
+  help: Usage: mut <var_name> = <initial_value> . Use `--help` for more information.
+error nu::parser::assignment_requires_variable: Assignment operations require a variable.
+  label 5..10 "mut x": needs to be a variable
+  help: try assigning to a variable or a cell path of a variable
+error nu::parser::operator_incompatible_types: Types 'nothing' and 'int' are not compatible for the '=' operator.
+  label 11..12 "=": does not operate between 'nothing' and 'int'
+  label 5..10 "mut x": nothing
+  label 13..14 "1": int
+=== reject/pipelines/mut-without-value-after-pipe.nu
+shape shape_internalcall 0..2 "ls"
+shape shape_pipe 3..4 "|"
+shape shape_internalcall 5..8 "mut"
+shape shape_vardecl 9..10 "x"
+error nu::parser::unexpected_keyword: mut statement used in pipeline.
+  label 5..8 "mut": 'mut' in pipeline
+  help: Assigning 'value' to 'x' does not produce a value to be piped. If the pipeline result is meant to be assigned to 'x', use 'mut x = (value | ...)'.
+error nu::parser::missing_positional: Missing required positional argument.
+  label 10..10 "": missing initial_value
+  help: Usage: mut <var_name> = <initial_value> . Use `--help` for more information.
+=== reject/pipelines/overlay-after-pipe.nu
+shape shape_internalcall 0..2 "ls"
+shape shape_pipe 3..4 "|"
+shape shape_internalcall 5..16 "overlay use"
+shape shape_string 17..21 "spam"
+error nu::parser::unexpected_keyword: Statement used in pipeline.
+  label 5..12 "overlay": not allowed in pipeline
+  help: 'overlay' keyword is not allowed in pipeline. Use 'overlay' by itself, outside of a pipeline.
+error nu::parser::input_type_mismatch: Command does not support table input.
+  label 5..16 "overlay use": command doesn't support table input
+=== reject/pipelines/overlay-new-before-pipe.nu
+shape shape_internalcall 0..11 "overlay new"
+shape shape_string 12..13 "a"
+shape shape_pipe 14..15 "|"
+shape shape_internalcall 16..22 "length"
+error nu::parser::unexpected_keyword: Statement used in pipeline.
+  label 0..7 "overlay": not allowed in pipeline
+  help: 'overlay' keyword is not allowed in pipeline. Use 'overlay' by itself, outside of a pipeline.
+=== reject/pipelines/pipe-then-comment-at-eof.nu
+shape shape_internalcall 0..2 "ls"
+shape shape_pipe 3..4 "|"
+error nu::parser::unexpected_eof: Unexpected end of code.
+  label 5..8 "# c": expected closing pipeline missing end
+=== reject/pipelines/pipe-then-newline-then-semicolon.nu
+shape shape_internalcall 0..2 "ls"
+shape shape_pipe 3..4 "|"
+error nu::parser::extra_tokens: Extra tokens in code.
+  label 5..6 ";": extra tokens
+  help: Remove the unexpected tokens, or check for a missing operator, delimiter, or newline above.
+=== reject/pipelines/pipe-then-semicolon-then-command.nu
+shape shape_internalcall 0..2 "ls"
+shape shape_pipe 3..4 "|"
+shape shape_internalcall 7..10 "pwd"
+error nu::parser::extra_tokens: Extra tokens in code.
+  label 5..6 ";": extra tokens
+  help: Remove the unexpected tokens, or check for a missing operator, delimiter, or newline above.
+=== reject/pipelines/pipe-then-semicolon.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..5 "x"
+shape shape_int 8..11 "300"
+shape shape_pipe 12..13 "|"
+error nu::parser::extra_tokens: Extra tokens in code.
+  label 14..15 ";": extra tokens
+  help: Remove the unexpected tokens, or check for a missing operator, delimiter, or newline above.
+error nu::parser::unexpected_eof: Unexpected end of code.
+  label 12..13 "|": expected closing pipeline missing end
+=== reject/pipelines/plugin-use-before-pipe.nu
+shape shape_internalcall 0..10 "plugin use"
+shape shape_string 11..12 "x"
+shape shape_pipe 13..14 "|"
+shape shape_internalcall 15..17 "ls"
+error nu::parser::unexpected_keyword: Statement used in pipeline.
+  label 0..6 "plugin": not allowed in pipeline
+  help: 'plugin use' keyword is not allowed in pipeline. Use 'plugin use' by itself, outside of a pipeline.
+=== reject/pipelines/source-after-pipe.nu
+shape shape_internalcall 0..2 "ls"
+shape shape_pipe 3..4 "|"
+shape shape_internalcall 5..11 "source"
+shape shape_filepath 12..16 "x.nu"
+error nu::parser::unexpected_keyword: Statement used in pipeline.
+  label 5..11 "source": not allowed in pipeline
+  help: 'source' keyword is not allowed in pipeline. Use 'source' by itself, outside of a pipeline.
+=== reject/pipelines/source-before-pipe.nu
+shape shape_internalcall 0..6 "source"
+shape shape_nothing 7..11 "null"
+shape shape_pipe 12..13 "|"
+shape shape_internalcall 14..20 "length"
+error nu::parser::unexpected_keyword: Statement used in pipeline.
+  label 0..6 "source": not allowed in pipeline
+  help: 'source' keyword is not allowed in pipeline. Use 'source' by itself, outside of a pipeline.
+=== reject/pipelines/statement-after-pipe.nu
+shape shape_internalcall 0..2 "ls"
+shape shape_pipe 3..4 "|"
+shape shape_internalcall 5..8 "def"
+shape shape_string 9..10 "f"
+shape shape_signature 11..13 "[]"
+shape shape_closure 14..17 "{ }"
+error nu::parser::unexpected_keyword: Statement used in pipeline.
+  label 5..8 "def": not allowed in pipeline
+  help: 'def' keyword is not allowed in pipeline. Use 'def' by itself, outside of a pipeline.
+error nu::parser::input_type_mismatch: Command does not support table input.
+  label 5..8 "def": command doesn't support table input
+=== reject/pipelines/trailing-pipe-in-block.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..5 "f"
+shape shape_signature 6..8 "[]"
+shape shape_closure 9..11 "{ "
+shape shape_internalcall 11..13 "ls"
+shape shape_pipe 14..15 "|"
+shape shape_closure 15..17 " }"
+error nu::parser::unexpected_eof: Unexpected end of code.
+  label 14..15 "|": expected closing pipeline missing end
+=== reject/pipelines/trailing-pipe-in-closure.nu
+shape shape_internalcall 0..2 "do"
+shape shape_closure 3..5 "{ "
+shape shape_internalcall 5..7 "ls"
+shape shape_pipe 8..9 "|"
+shape shape_closure 9..11 " }"
+error nu::parser::unexpected_eof: Unexpected end of code.
+  label 8..9 "|": expected closing pipeline missing end
+=== reject/pipelines/trailing-pipe-in-let-value.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..5 "x"
+shape shape_int 8..9 "1"
+shape shape_pipe 10..11 "|"
+error nu::parser::unexpected_eof: Unexpected end of code.
+  label 10..11 "|": expected closing pipeline missing end
+=== reject/pipelines/trailing-pipe-in-subexpression.nu
+shape shape_block 0..1 "("
+shape shape_internalcall 1..3 "ls"
+shape shape_pipe 4..5 "|"
+shape shape_block 5..6 ")"
+error nu::parser::unexpected_eof: Unexpected end of code.
+  label 4..5 "|": expected closing pipeline missing end
+=== reject/pipelines/trailing-pipe-then-comment-at-eof.nu
+shape shape_internalcall 0..2 "ls"
+shape shape_pipe 3..4 "|"
+error nu::parser::unexpected_eof: Unexpected end of code.
+  label 5..8 "# c": expected closing pipeline missing end
+=== reject/pipelines/trailing-pipe-then-two-comments.nu
+shape shape_internalcall 0..2 "ls"
+shape shape_pipe 3..4 "|"
+error nu::parser::unexpected_eof: Unexpected end of code.
+  label 9..12 "# d": expected closing pipeline missing end
+=== reject/pipelines/trailing-pipe-without-newline.nu
+shape shape_internalcall 0..2 "ls"
+shape shape_pipe 3..4 "|"
+error nu::parser::unexpected_eof: Unexpected end of code.
+  label 3..4 "|": expected closing pipeline missing end
+=== reject/pipelines/use-in-pipeline.nu
+shape shape_internalcall 0..3 "use"
+shape shape_string 4..7 "std"
+shape shape_pipe 8..9 "|"
+shape shape_internalcall 10..16 "length"
+error nu::parser::unexpected_keyword: Statement used in pipeline.
+  label 0..3 "use": not allowed in pipeline
+  help: 'use' keyword is not allowed in pipeline. Use 'use' by itself, outside of a pipeline.

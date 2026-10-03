@@ -1,0 +1,550 @@
+=== accept/closures/as-argument-to-each-with-flag.nu
+shape shape_block 0..1 "("
+shape shape_list 1..2 "["
+shape shape_string 2..3 "a"
+shape shape_list 3..5 ", "
+shape shape_string 5..6 "b"
+shape shape_list 6..8 ", "
+shape shape_string 8..9 "c"
+shape shape_list 9..10 "]"
+shape shape_pipe 11..12 "|"
+shape shape_internalcall 13..22 "enumerate"
+shape shape_pipe 23..24 "|"
+shape shape_internalcall 25..29 "each"
+shape shape_flag 30..42 "--keep-empty"
+shape shape_closure 43..49 "{ |e| "
+shape shape_internalcall 49..51 "if"
+shape shape_variable 52..54 "$e"
+shape shape_string 55..60 "index"
+shape shape_operator 61..63 "!="
+shape shape_int 64..65 "1"
+shape shape_block 66..68 "{ "
+shape shape_int 68..71 "100"
+shape shape_block 71..73 " }"
+shape shape_closure 73..74 "}"
+shape shape_block 74..75 ")"
+shape shape_int 76..77 "1"
+ir main
+  # 2 registers, 17 instructions, 13 bytes of data
+     0: load-literal           %0, list(capacity = 3)
+     1: load-literal           %1, string("a")
+     2: list-push              %0, %1
+     3: load-literal           %1, string("b")
+     4: list-push              %0, %1
+     5: load-literal           %1, string("c")
+     6: list-push              %0, %1
+     7: redirect-out           pipe
+     8: call                   decl "enumerate", %0
+     9: load-literal           %1, closure(#1)
+    10: push-flag              "keep-empty"
+    11: push-positional        %1
+    12: redirect-out           value
+    13: call                   decl "each", %0
+    14: load-literal           %1, cell-path($.1)
+    15: follow-cell-path       %0, %1
+    16: return                 %0
+ir #1
+  # 3 registers, 12 instructions, 0 bytes of data
+     0: load-variable          %1, var #0
+     1: load-literal           %2, cell-path($.index)
+     2: follow-cell-path       %1, %2
+     3: load-literal           %2, int(1)
+     4: binary-op              %1, Comparison(NotEqual), %2
+     5: span                   %1
+     6: not                    %1
+     7: branch-if              %1, 10      # if false
+     8: load-literal           %0, int(100) # label(0)
+     9: jump                   11          # end if
+    10: load-literal           %0, empty   # label(1), from(7:)
+    11: return                 %0          # label(2), from(9:)
+=== accept/closures/body-starting-with-keyword.nu
+shape shape_closure 0..2 "{ "
+shape shape_internalcall 2..4 "if"
+shape shape_bool 5..9 "true"
+shape shape_block 10..12 "{ "
+shape shape_int 12..13 "1"
+shape shape_block 13..15 " }"
+shape shape_keyword 16..20 "else"
+shape shape_block 21..23 "{ "
+shape shape_int 23..24 "2"
+shape shape_block 24..26 " }"
+shape shape_closure 26..28 " }"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, closure(#2)
+     1: return                 %0
+ir #2
+  # 2 registers, 7 instructions, 0 bytes of data
+     0: load-literal           %1, bool(true)
+     1: not                    %1
+     2: branch-if              %1, 5       # if false
+     3: load-literal           %0, int(1)  # label(0)
+     4: jump                   6           # end if
+     5: load-literal           %0, int(2)  # label(1), from(2:)
+     6: return                 %0          # label(2), from(4:)
+=== accept/closures/body-starting-with-let.nu
+shape shape_internalcall 0..2 "do"
+shape shape_closure 3..5 "{ "
+shape shape_internalcall 5..8 "let"
+shape shape_vardecl 9..10 "b"
+shape shape_int 13..14 "3"
+shape shape_internalcall 16..19 "def"
+shape shape_string 20..21 "c"
+shape shape_signature 22..24 "[]"
+shape shape_closure 25..27 "{ "
+shape shape_variable 27..29 "$b"
+shape shape_closure 29..31 " }"
+shape shape_internalcall 33..34 "c"
+shape shape_closure 34..36 " }"
+ir main
+  # 2 registers, 6 instructions, 0 bytes of data
+     0: load-literal           %1, closure(#2)
+     1: push-positional        %1
+     2: redirect-out           caller
+     3: redirect-err           caller
+     4: call                   decl "do", %0
+     5: return                 %0
+ir #1
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-variable          %0, var #0
+     1: return                 %0
+ir #2
+  # 1 register, 14 instructions, 0 bytes of data
+     0: load-literal           %0, int(3)
+     1: store-variable         var #0, %0  # let
+     2: load-literal           %0, empty
+     3: drain                  %0
+     4: load-literal           %0, empty
+     5: load-literal           %0, empty
+     6: load-literal           %0, empty
+     7: drain                  %0
+     8: load-literal           %0, empty
+     9: load-literal           %0, empty
+    10: redirect-out           caller
+    11: redirect-err           caller
+    12: call                   decl "c", %0
+    13: return                 %0
+=== accept/closures/closure-in-record-field-then-call.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..5 "r"
+shape shape_record 8..9 "{"
+shape shape_string 9..10 "f"
+shape shape_record 10..12 ": "
+shape shape_closure 12..17 "{|x| "
+shape shape_variable 17..19 "$x"
+shape shape_operator 20..21 "*"
+shape shape_int 22..23 "2"
+shape shape_closure 23..24 "}"
+shape shape_record 24..25 "}"
+shape shape_internalcall 26..28 "do"
+shape shape_variable 29..31 "$r"
+shape shape_string 32..33 "f"
+shape shape_int 34..35 "4"
+ir main
+  # 3 registers, 19 instructions, 1 byte of data
+     0: load-literal           %0, record(capacity = 1)
+     1: load-literal           %1, string("f")
+     2: load-literal           %2, closure(#0)
+     3: record-insert          %0, %1, %2
+     4: store-variable         var #1 "$r", %0 # let
+     5: load-literal           %0, empty
+     6: drain                  %0
+     7: load-literal           %0, empty
+     8: load-literal           %0, empty
+     9: load-variable          %1, var #1 "$r"
+    10: load-literal           %2, cell-path($.f)
+    11: follow-cell-path       %1, %2
+    12: load-literal           %2, int(4)
+    13: push-positional        %1
+    14: push-positional        %2
+    15: redirect-out           caller
+    16: redirect-err           caller
+    17: call                   decl "do", %0
+    18: return                 %0
+ir #0
+  # 2 registers, 5 instructions, 0 bytes of data
+     0: load-variable          %0, var #0
+     1: load-literal           %1, int(2)
+     2: binary-op              %0, Math(Multiply), %1
+     3: span                   %0
+     4: return                 %0
+=== accept/closures/do-with-closure-and-args.nu
+shape shape_internalcall 0..2 "do"
+shape shape_closure 3..11 "{|a, b| "
+shape shape_variable 11..13 "$a"
+shape shape_operator 14..15 "+"
+shape shape_variable 16..18 "$b"
+shape shape_closure 18..20 " }"
+shape shape_int 21..22 "1"
+shape shape_int 23..24 "2"
+ir main
+  # 4 registers, 10 instructions, 0 bytes of data
+     0: load-literal           %1, closure(#0)
+     1: load-literal           %2, int(1)
+     2: load-literal           %3, int(2)
+     3: push-positional        %1
+     4: push-positional        %2
+     5: push-positional        %3
+     6: redirect-out           caller
+     7: redirect-err           caller
+     8: call                   decl "do", %0
+     9: return                 %0
+ir #0
+  # 2 registers, 5 instructions, 0 bytes of data
+     0: load-variable          %0, var #0
+     1: load-variable          %1, var #1
+     2: binary-op              %0, Math(Add), %1
+     3: span                   %0
+     4: return                 %0
+=== accept/closures/dollar-param.nu
+shape shape_list 0..1 "["
+shape shape_int 1..2 "1"
+shape shape_list 2..3 ","
+shape shape_int 3..4 "2"
+shape shape_list 4..5 ","
+shape shape_int 5..6 "3"
+shape shape_list 6..7 "]"
+shape shape_pipe 8..9 "|"
+shape shape_internalcall 10..14 "each"
+shape shape_closure 15..23 "{ |$it| "
+shape shape_variable 23..26 "$it"
+shape shape_operator 27..28 "+"
+shape shape_int 29..30 "2"
+shape shape_closure 30..32 " }"
+ir main
+  # 2 registers, 13 instructions, 0 bytes of data
+     0: load-literal           %0, list(capacity = 3)
+     1: load-literal           %1, int(1)
+     2: list-push              %0, %1
+     3: load-literal           %1, int(2)
+     4: list-push              %0, %1
+     5: load-literal           %1, int(3)
+     6: list-push              %0, %1
+     7: load-literal           %1, closure(#0)
+     8: push-positional        %1
+     9: redirect-out           caller
+    10: redirect-err           caller
+    11: call                   decl "each", %0
+    12: return                 %0
+ir #0
+  # 2 registers, 5 instructions, 0 bytes of data
+     0: load-variable          %0, var #0
+     1: load-literal           %1, int(2)
+     2: binary-op              %0, Math(Add), %1
+     3: span                   %0
+     4: return                 %0
+=== accept/closures/empty-body.nu
+shape shape_closure 0..6 "{|x| }"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, closure(#0)
+     1: return                 %0
+ir #0
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== accept/closures/empty-braces-as-where-condition.nu
+shape shape_list 0..1 "["
+shape shape_int 1..2 "0"
+shape shape_list 2..3 " "
+shape shape_int 3..4 "1"
+shape shape_list 4..5 " "
+shape shape_int 5..6 "2"
+shape shape_list 6..7 "]"
+shape shape_pipe 8..9 "|"
+shape shape_internalcall 10..15 "where"
+ir main
+  # 2 registers, 13 instructions, 0 bytes of data
+     0: load-literal           %0, list(capacity = 3)
+     1: load-literal           %1, int(0)
+     2: list-push              %0, %1
+     3: load-literal           %1, int(1)
+     4: list-push              %0, %1
+     5: load-literal           %1, int(2)
+     6: list-push              %0, %1
+     7: load-literal           %1, row_condition(#0)
+     8: push-positional        %1
+     9: redirect-out           caller
+    10: redirect-err           caller
+    11: call                   decl "where", %0
+    12: return                 %0
+ir #0
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== accept/closures/empty-braces-is-record.nu
+shape shape_record 0..2 "{}"
+shape shape_pipe 3..4 "|"
+shape shape_internalcall 5..13 "describe"
+ir main
+  # 1 register, 5 instructions, 0 bytes of data
+     0: load-literal           %0, record(capacity = 0)
+     1: redirect-out           caller
+     2: redirect-err           caller
+     3: call                   decl "describe", %0
+     4: return                 %0
+=== accept/closures/empty-params-no-space.nu
+shape shape_closure 0..4 "{|| "
+shape shape_int 4..5 "1"
+shape shape_closure 5..6 "}"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, closure(#0)
+     1: return                 %0
+ir #0
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, int(1)
+     1: return                 %0
+=== accept/closures/empty-params.nu
+shape shape_closure 0..5 "{ || "
+shape shape_int 5..6 "1"
+shape shape_closure 6..8 " }"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, closure(#0)
+     1: return                 %0
+ir #0
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, int(1)
+     1: return                 %0
+=== accept/closures/in-variable.nu
+shape shape_block 0..2 "{ "
+shape shape_variable 2..5 "$in"
+shape shape_pipe 6..7 "|"
+shape shape_internalcall 8..14 "length"
+shape shape_block 14..16 " }"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, closure(#1)
+     1: return                 %0
+ir #1
+  # 2 registers, 9 instructions, 0 bytes of data
+     0: collect                %0
+     1: clone                  %1, %0
+     2: store-variable         var #0, %1
+     3: load-variable          %0, var #0
+     4: redirect-out           caller
+     5: redirect-err           caller
+     6: call                   decl "length", %0
+     7: drop-variable          var #0
+     8: return                 %0
+=== accept/closures/multiline-body.nu
+shape shape_internalcall 0..2 "do"
+shape shape_closure 3..9 "{\n    "
+shape shape_internalcall 9..13 "echo"
+shape shape_string 14..19 "hello"
+shape shape_pipe 20..21 "|"
+shape shape_internalcall 26..36 "str length"
+shape shape_closure 36..38 "\n}"
+ir main
+  # 2 registers, 6 instructions, 0 bytes of data
+     0: load-literal           %1, closure(#0)
+     1: push-positional        %1
+     2: redirect-out           caller
+     3: redirect-err           caller
+     4: call                   decl "do", %0
+     5: return                 %0
+ir #0
+  # 2 registers, 8 instructions, 5 bytes of data
+     0: load-literal           %1, string("hello")
+     1: push-positional        %1
+     2: redirect-out           pipe
+     3: call                   decl "echo", %0
+     4: redirect-out           caller
+     5: redirect-err           caller
+     6: call                   decl "str length", %0
+     7: return                 %0
+=== accept/closures/nested.nu
+shape shape_closure 0..4 "{|| "
+shape shape_closure 4..8 "{|| "
+shape shape_closure 8..12 "{|| "
+shape shape_int 12..13 "1"
+shape shape_closure 13..15 " }"
+shape shape_closure 15..17 " }"
+shape shape_closure 17..19 " }"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, closure(#2)
+     1: return                 %0
+ir #0
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, int(1)
+     1: return                 %0
+ir #1
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, closure(#0)
+     1: return                 %0
+ir #2
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, closure(#1)
+     1: return                 %0
+=== accept/closures/no-params.nu
+shape shape_closure 0..2 "{ "
+shape shape_internalcall 2..7 "print"
+shape shape_string 8..10 "hi"
+shape shape_closure 10..12 " }"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, closure(#0)
+     1: return                 %0
+ir #0
+  # 2 registers, 6 instructions, 2 bytes of data
+     0: load-literal           %1, string("hi")
+     1: push-positional        %1
+     2: redirect-out           caller
+     3: redirect-err           caller
+     4: call                   decl "print", %0
+     5: return                 %0
+=== accept/closures/one-param.nu
+shape shape_list 0..1 "["
+shape shape_int 1..2 "3"
+shape shape_list 2..3 "]"
+shape shape_pipe 4..5 "|"
+shape shape_internalcall 6..10 "each"
+shape shape_closure 11..18 "{ |it| "
+shape shape_variable 18..21 "$it"
+shape shape_operator 22..23 "+"
+shape shape_int 24..26 "10"
+shape shape_closure 26..28 " }"
+ir main
+  # 2 registers, 9 instructions, 0 bytes of data
+     0: load-literal           %0, list(capacity = 1)
+     1: load-literal           %1, int(3)
+     2: list-push              %0, %1
+     3: load-literal           %1, closure(#0)
+     4: push-positional        %1
+     5: redirect-out           caller
+     6: redirect-err           caller
+     7: call                   decl "each", %0
+     8: return                 %0
+ir #0
+  # 2 registers, 5 instructions, 0 bytes of data
+     0: load-variable          %0, var #0
+     1: load-literal           %1, int(10)
+     2: binary-op              %0, Math(Add), %1
+     3: span                   %0
+     4: return                 %0
+=== accept/closures/param-trailing-colon.nu
+shape shape_closure 0..7 "{|x:| }"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, closure(#0)
+     1: return                 %0
+ir #0
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== accept/closures/param-trailing-equals.nu
+shape shape_closure 0..7 "{|x=| }"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, closure(#0)
+     1: return                 %0
+ir #0
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== accept/closures/params-on-second-line.nu
+shape shape_closure 0..10 "{\n  |x|\n  "
+shape shape_variable 10..12 "$x"
+shape shape_closure 12..14 "\n}"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, closure(#0)
+     1: return                 %0
+ir #0
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-variable          %0, var #0
+     1: return                 %0
+=== accept/closures/params-with-comments.nu
+shape shape_closure 0..18 "{|x, # the x\n  y| "
+shape shape_variable 18..20 "$x"
+shape shape_operator 21..22 "+"
+shape shape_variable 23..25 "$y"
+shape shape_closure 25..27 " }"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, closure(#0)
+     1: return                 %0
+ir #0
+  # 2 registers, 5 instructions, 0 bytes of data
+     0: load-variable          %0, var #0
+     1: load-variable          %1, var #1
+     2: binary-op              %0, Math(Add), %1
+     3: span                   %0
+     4: return                 %0
+=== accept/closures/params-with-defaults.nu
+shape shape_closure 0..21 "{|x = 1, y: int = 2| "
+shape shape_variable 21..23 "$x"
+shape shape_operator 24..25 "+"
+shape shape_variable 26..28 "$y"
+shape shape_closure 28..30 " }"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, closure(#0)
+     1: return                 %0
+ir #0
+  # 2 registers, 5 instructions, 0 bytes of data
+     0: load-variable          %0, var #0
+     1: load-variable          %1, var #1
+     2: binary-op              %0, Math(Add), %1
+     3: span                   %0
+     4: return                 %0
+=== accept/closures/pipes-after-comment-line-are-body.nu
+shape shape_closure 0..7 "{\n# c\n|"
+shape shape_external 7..8 "x"
+shape shape_pipe 8..9 "|"
+shape shape_int 10..11 "1"
+shape shape_closure 11..12 "}"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, closure(#0)
+     1: return                 %0
+ir #0
+  # 2 registers, 6 instructions, 1 byte of data
+     0: load-literal           %1, glob-pattern("x", no_expand = false)
+     1: push-positional        %1
+     2: redirect-out           pipe
+     3: call                   decl "run-external", %0
+     4: load-literal           %0, int(1)
+     5: return                 %0
+=== accept/closures/semicolons-in-body.nu
+shape shape_internalcall 0..2 "do"
+shape shape_closure 3..5 "{ "
+shape shape_internalcall 5..10 "print"
+shape shape_string 11..12 "a"
+shape shape_internalcall 14..19 "print"
+shape shape_string 20..21 "b"
+shape shape_int 23..24 "3"
+shape shape_closure 24..26 " }"
+ir main
+  # 2 registers, 6 instructions, 0 bytes of data
+     0: load-literal           %1, closure(#0)
+     1: push-positional        %1
+     2: redirect-out           caller
+     3: redirect-err           caller
+     4: call                   decl "do", %0
+     5: return                 %0
+ir #0
+  # 2 registers, 13 instructions, 2 bytes of data
+     0: load-literal           %1, string("a")
+     1: push-positional        %1
+     2: call                   decl "print", %0
+     3: drain                  %0
+     4: load-literal           %0, empty
+     5: load-literal           %0, empty
+     6: load-literal           %1, string("b")
+     7: push-positional        %1
+     8: call                   decl "print", %0
+     9: drain                  %0
+    10: load-literal           %0, empty
+    11: load-literal           %0, int(3)
+    12: return                 %0
+=== accept/closures/typed-params.nu
+shape shape_closure 0..31 "{|x: int, y?: string, ...rest| "
+shape shape_variable 31..33 "$x"
+shape shape_closure 33..35 " }"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, closure(#0)
+     1: return                 %0
+ir #0
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-variable          %0, var #0
+     1: return                 %0

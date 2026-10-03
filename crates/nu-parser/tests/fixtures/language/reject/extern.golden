@@ -1,0 +1,17 @@
+=== reject/extern/duplicate-extern.nu
+shape shape_internalcall 0..6 "extern"
+shape shape_string 7..10 "foo"
+shape shape_signature 11..13 "[]"
+shape shape_internalcall 14..20 "extern"
+shape shape_string 21..24 "foo"
+shape shape_signature 25..27 "[]"
+error nu::parser::duplicate_command_def: Duplicate command definition within a block.
+  label 21..24 "foo": defined more than once
+error nu::parser::unknown_state: Internal error.
+  label 21..24 "foo": Predeclaration failed to add declaration
+=== reject/extern/lone-dash-name.nu
+shape shape_internalcall 0..6 "extern"
+shape shape_string 7..8 "-"
+shape shape_signature 9..11 "[]"
+error nu::parser::unknown_state: Internal error.
+  label 7..8 "-": Predeclaration failed to add declaration

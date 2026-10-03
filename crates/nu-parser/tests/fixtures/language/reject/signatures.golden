@@ -1,0 +1,296 @@
+=== reject/signatures/bool-typed-switch.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..19 "[--x: bool]"
+shape shape_closure 20..22 "{}"
+error : Type annotations are not allowed for boolean switches.
+  label 14..18 "bool": Remove the `: bool` type annotation.
+=== reject/signatures/colon-last-token.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..5 "f"
+shape shape_signature 6..10 "[x:]"
+shape shape_closure 11..13 "{}"
+error nu::parser::parse_mismatch: Parse mismatch: expected type.
+  label 9..9 "": expected type
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/signatures/completer-inside-record-type.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..29 "[x: record<a@b: int>]"
+shape shape_closure 30..32 "{}"
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 12..13 "r": unclosed — opens here (need `>`)
+  label 12..20 "record<a": expected `>` here
+  help: Add a matching `>` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unknown_type: Unknown type.
+  label 12..20 "record<a": unknown type
+error nu::parser::unknown_command: Unknown command.
+  label 21..28 "b: int>": unknown command
+=== reject/signatures/completer-record.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..26 "[x: string@{a: 1}]"
+shape shape_closure 27..29 "{}"
+error nu::parser::operator_unsupported_type: The 'parameter completer' operator does not work on values of type 'record<a: int>'.
+  label 18..19 "@": does not support 'record<a: int>'
+  label 19..25 "{a: 1}": record<a: int>
+  help: the completer can only be a
+- string (name of a command)
+- list of items with simple string representations
+=== reject/signatures/completer-subexpression.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..27 "[x: string@(1 + 1)]"
+shape shape_closure 28..30 "{}"
+error nu::parser::operator_unsupported_type: The 'parameter completer' operator does not work on values of type 'int'.
+  label 18..19 "@": does not support 'int'
+  label 19..26 "(1 + 1)": int
+  help: the completer can only be a
+- string (name of a command)
+- list of items with simple string representations
+=== reject/signatures/default-filesize-for-int.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..22 "[x: int = 1kb]"
+shape shape_closure 23..25 "{}"
+error nu::parser::parse_mismatch: Parse mismatch: expected int.
+  label 18..21 "1kb": expected int
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+error nu::parser::non_constant_default_value: Default values should be constant expressions.
+  label 18..21 "1kb": expected a constant value
+=== reject/signatures/default-float-for-int.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..22 "[x: int = 1.0]"
+shape shape_closure 23..25 "{}"
+error nu::parser::parse_mismatch: Parse mismatch: expected int.
+  label 18..21 "1.0": expected int
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+error nu::parser::non_constant_default_value: Default values should be constant expressions.
+  label 18..21 "1.0": expected a constant value
+=== reject/signatures/default-for-error-type.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..22 "[x: error = 1]"
+shape shape_closure 23..25 "{}"
+error nu::parser::parse_mismatch_with_full_string_msg: Parse mismatch: expected error.
+  label 20..21 "1": expected error
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+error nu::parser::non_constant_default_value: Default values should be constant expressions.
+  label 20..21 "1": expected a constant value
+=== reject/signatures/default-int-for-bool.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..21 "[x: bool = 1]"
+shape shape_closure 22..24 "{}"
+error nu::parser::parse_mismatch_with_full_string_msg: Parse mismatch: expected bool.
+  label 19..20 "1": expected bool
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+error nu::parser::non_constant_default_value: Default values should be constant expressions.
+  label 19..20 "1": expected a constant value
+=== reject/signatures/default-int-for-closure.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..24 "[x: closure = 1]"
+shape shape_closure 25..27 "{}"
+error nu::parser::parse_mismatch: Parse mismatch: expected block, closure or record.
+  label 22..23 "1": expected block, closure or record
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+error nu::parser::non_constant_default_value: Default values should be constant expressions.
+  label 22..23 "1": expected a constant value
+=== reject/signatures/default-int-for-filesize.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..25 "[x: filesize = 1]"
+shape shape_closure 26..28 "{}"
+error nu::parser::parse_mismatch: Parse mismatch: expected filesize with valid units.
+  label 23..24 "1": expected filesize with valid units
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+error nu::parser::non_constant_default_value: Default values should be constant expressions.
+  label 23..24 "1": expected a constant value
+=== reject/signatures/default-int-for-list.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..26 "[x: list<int> = 1]"
+shape shape_closure 27..29 "{}"
+error nu::parser::parse_mismatch_with_full_string_msg: Parse mismatch: expected list<int>.
+  label 24..25 "1": expected list<int>
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+error nu::parser::non_constant_default_value: Default values should be constant expressions.
+  label 24..25 "1": expected a constant value
+=== reject/signatures/default-not-of-declared-type.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..22 "[x: int = abc]"
+shape shape_closure 23..25 "{}"
+error nu::parser::parse_mismatch: Parse mismatch: expected int.
+  label 18..21 "abc": expected int
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+error nu::parser::non_constant_default_value: Default values should be constant expressions.
+  label 18..21 "abc": expected a constant value
+=== reject/signatures/default-string-for-int.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..22 "[x: int = \"a\"]"
+shape shape_closure 23..25 "{}"
+error nu::parser::parse_mismatch: Parse mismatch: expected int.
+  label 18..21 "\"a\"": expected int
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+error nu::parser::non_constant_default_value: Default values should be constant expressions.
+  label 18..21 "\"a\"": expected a constant value
+=== reject/signatures/default-true-for-string.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..26 "[x: string = true]"
+shape shape_closure 27..29 "{}"
+error nu::parser::parse_mismatch_with_full_string_msg: Parse mismatch: expected string.
+  label 21..25 "true": expected string
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+error nu::parser::non_constant_default_value: Default values should be constant expressions.
+  label 21..25 "true": expected a constant value
+=== reject/signatures/double-dash-alone.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..12 "[--]"
+shape shape_closure 13..15 "{}"
+error nu::parser::parse_mismatch: Parse mismatch: expected valid variable name for this short flag.
+  label 9..11 "--": expected valid variable name for this short flag
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/signatures/empty-type-before-completer.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..17 "[x: @foo]"
+shape shape_closure 18..20 "{}"
+error nu::parser::unknown_type: Unknown type.
+  label 12..12 "": unknown type
+=== reject/signatures/equals-last-token.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..5 "f"
+shape shape_signature 6..11 "[x =]"
+shape shape_closure 12..14 "{}"
+error nu::parser::parse_mismatch: Parse mismatch: expected default value.
+  label 10..10 "": expected default value
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/signatures/flag-default-string-for-int.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..24 "[--x: int = \"a\"]"
+shape shape_closure 25..27 "{}"
+error nu::parser::parse_mismatch: Parse mismatch: expected int.
+  label 20..23 "\"a\"": expected int
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+error nu::parser::non_constant_default_value: Default values should be constant expressions.
+  label 20..23 "\"a\"": expected a constant value
+=== reject/signatures/io-types-semicolon.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..5 "q"
+shape shape_signature 6..24 "[]: [int ; -> int]"
+shape shape_closure 25..27 "{}"
+error nu::parser::parse_mismatch: Parse mismatch: expected arrow (->).
+  label 15..16 ";": expected arrow (->)
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+error nu::parser::unknown_type: Unknown type.
+  label 17..19 "->": unknown type
+error nu::parser::parse_mismatch: Parse mismatch: expected arrow (->).
+  label 23..23 "": expected arrow (->)
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/signatures/list-type-semicolon.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..5 "f"
+shape shape_signature 6..21 "[x: list<int;>]"
+shape shape_closure 22..24 "{}"
+error nu::parser::unknown_type: Unknown type.
+  label 18..19 ";": unknown type
+error : expected a single type parameter
+  label 15..19 "int;": only one parameter allowed
+=== reject/signatures/list-type-two-params.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..31 "[x: list<int,, string>]"
+shape shape_closure 32..34 "{}"
+error : expected a single type parameter
+  label 17..29 "int,, string": only one parameter allowed
+=== reject/signatures/record-field-named-true.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..30 "[x: record<true: int>]"
+shape shape_closure 31..33 "{}"
+error nu::parser::parse_mismatch_with_full_string_msg: Parse mismatch: expected string.
+  label 19..23 "true": expected string
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+error : annotation key not string
+  label 19..23 "true": must be a string
+=== reject/signatures/record-type-colon-then-comma.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..31 "[x: record<a:, b: int>]"
+shape shape_closure 32..34 "{}"
+error nu::parser::unknown_type: Unknown type.
+  label 21..22 ",": unknown type
+=== reject/signatures/record-type-key-is-operator.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..27 "[x: record<=: int>]"
+shape shape_closure 28..30 "{}"
+error : annotation key not string
+  label 19..20 "=": must be a string
+=== reject/signatures/record-type-semicolon.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..28 "[x: record<a: int;>]"
+shape shape_closure 29..31 "{}"
+error : annotation key not string
+  label 25..26 ";": must be a string
+=== reject/signatures/required-after-optional.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..23 "[x: int = 1, y]"
+shape shape_closure 24..26 "{}"
+error nu::parser::required_after_optional: Required positional parameter after optional parameter
+  label 9..22 "x: int = 1, y": required parameter y after optional parameter
+=== reject/signatures/reserved-flag-env.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..15 "[--env]"
+shape shape_closure 16..18 "{}"
+error nu::parser::name_is_builtin_var: `env` used as variable name.
+  label 9..14 "--env": already a builtin variable
+  help: 'env' is the name of a builtin Nushell variable and cannot be used as a variable name
+=== reject/signatures/reserved-flag-in.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..14 "[--in]"
+shape shape_closure 15..17 "{}"
+error nu::parser::name_is_builtin_var: `in` used as variable name.
+  label 9..13 "--in": already a builtin variable
+  help: 'in' is the name of a builtin Nushell variable and cannot be used as a variable name
+=== reject/signatures/reserved-param-in.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..12 "[in]"
+shape shape_closure 13..15 "{}"
+error nu::parser::name_is_builtin_var: `in` used as variable name.
+  label 9..11 "in": already a builtin variable
+  help: 'in' is the name of a builtin Nushell variable and cannot be used as a variable name
+=== reject/signatures/rest-with-default.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..21 "[...rest = 1]"
+shape shape_closure 22..24 "{}"
+error nu::parser::assignment_mismatch: Rest parameter was given a default value
+  label 19..20 "1": can't have default value
+=== reject/signatures/short-flag-dot.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..12 "[-.]"
+shape shape_closure 13..15 "{}"
+error nu::parser::parse_mismatch: Parse mismatch: expected valid variable name for this short flag.
+  label 9..11 "-.": expected valid variable name for this short flag
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/signatures/two-rest-params.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..19 "[...a ...b]"
+shape shape_closure 20..22 "{}"
+error nu::parser::multiple_rest_params: Multiple rest params.
+  label 9..18 "...a ...b": multiple rest params

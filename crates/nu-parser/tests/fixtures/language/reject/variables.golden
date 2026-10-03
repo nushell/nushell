@@ -1,0 +1,56 @@
+=== reject/variables/bad-optional-chain.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..5 "x"
+shape shape_record 8..9 "{"
+shape shape_string 9..10 "a"
+shape shape_record 10..12 ": "
+shape shape_int 12..13 "1"
+shape shape_record 13..14 "}"
+shape shape_variable 15..17 "$x"
+shape shape_string 18..19 "a"
+shape shape_string 21..22 "b"
+shape shape_string 24..25 "c"
+error nu::parser::parse_mismatch: Parse mismatch: expected . or ?.
+  label 26..27 "!": expected . or ?
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/variables/dollar-alone.nu
+shape shape_garbage 0..1 "$"
+shape shape_garbage 2..3 "a"
+shape shape_garbage 3..3 ""
+error : Incomplete variable
+  label 0..1 "$": expected a variable name after `$`
+  help: Variable names must be attached to `$` with no space (e.g. `$env`, `$in`). Did you mean `$env`?
+error nu::parser::parse_mismatch: Parse mismatch: expected operator.
+  label 2..3 "a": expected operator
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+error nu::parser::incomplete_math_expression: Incomplete math expression.
+  label 2..3 "a": incomplete math expression
+error nu::parser::incomplete_math_expression: Incomplete math expression.
+  label 2..3 "a": incomplete math expression
+=== reject/variables/double-question.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..5 "x"
+shape shape_record 8..9 "{"
+shape shape_string 9..10 "a"
+shape shape_record 10..12 ": "
+shape shape_int 12..13 "1"
+shape shape_record 13..14 "}"
+shape shape_variable 15..17 "$x"
+shape shape_string 18..19 "a"
+error nu::parser::parse_mismatch: Parse mismatch: expected . or !.
+  label 20..21 "?": expected . or !
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/variables/name-with-dash.nu
+shape shape_garbage 0..8 "$foo-bar"
+error nu::parser::parse_mismatch_with_did_you_mean: Parse mismatch: expected valid variable name.
+  label 0..8 "$foo-bar": expected valid variable name. 
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/variables/negative-index.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..5 "x"
+shape shape_list 8..9 "["
+shape shape_int 9..10 "1"
+shape shape_list 10..11 "]"
+shape shape_variable 12..14 "$x"
+error : Invalid literal
+  label 15..17 "-1": negative index is not supported in cell path

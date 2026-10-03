@@ -1,0 +1,199 @@
+=== reject/records/assignment-token-key.nu
+shape shape_record 0..1 "{"
+shape shape_garbage 1..2 "="
+shape shape_record 2..4 ": "
+shape shape_int 4..5 "1"
+shape shape_record 5..6 "}"
+error : Unexpected token in record
+  label 1..2 "=": expected a record key here
+  help: Record fields use `key: value` (colon), not `key = value`.
+=== reject/records/assignment-token-value.nu
+shape shape_record 0..1 "{"
+shape shape_string 1..2 "a"
+shape shape_record 2..4 ": "
+shape shape_garbage 4..5 "="
+shape shape_record 5..6 "}"
+error : Unexpected token in record value
+  label 4..5 "=": expected a value, found `=`
+  help: After `key:`, provide a value (string, number, record, list, …).
+=== reject/records/bare-colon-key.nu
+shape shape_record 0..2 "{ "
+shape shape_garbage 2..3 ":"
+shape shape_record 3..5 ": "
+shape shape_string 5..6 "x"
+shape shape_record 6..8 " }"
+error : Invalid literal
+  label 2..3 ":": colon in bare word specifying record key
+=== reject/records/bool-key.nu
+shape shape_record 0..1 "{"
+shape shape_garbage 1..5 "true"
+shape shape_record 5..7 ": "
+shape shape_int 7..8 "4"
+shape shape_record 8..9 "}"
+error nu::parser::parse_mismatch_with_full_string_msg: Parse mismatch: expected string.
+  label 1..5 "true": expected string
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/records/interpolated-value-with-colon.nu
+shape shape_record 0..2 "{ "
+shape shape_string 2..3 "a"
+shape shape_record 3..5 ": "
+shape shape_garbage 5..13 "x('y'):z"
+shape shape_record 13..15 " }"
+error : Invalid literal
+  label 11..12 ":": colon in bare word specifying record value
+=== reject/records/math-value.nu
+shape shape_record 0..1 "{"
+shape shape_string 1..2 "a"
+shape shape_record 2..4 ": "
+shape shape_int 4..5 "1"
+shape shape_record 5..6 " "
+shape shape_string 6..7 "+"
+shape shape_record 7..8 " "
+shape shape_garbage 8..9 "1"
+shape shape_record 9..10 "}"
+error : Expected `:` after record key
+  label 8..9 "1": expected `:`, found `1`
+  help: Record fields look like `key: value`. A missing colon often causes this field to be parsed as a block or closure.
+=== reject/records/missing-colon-with-value.nu
+shape shape_record 0..2 "{ "
+shape shape_string 2..3 "a"
+shape shape_record 3..5 ": "
+shape shape_int 5..6 "2"
+shape shape_record 6..7 " "
+shape shape_string 7..8 "b"
+shape shape_record 8..9 " "
+shape shape_garbage 9..10 "3"
+shape shape_record 10..12 " }"
+error : Expected `:` after record key
+  label 9..10 "3": expected `:`, found `3`
+  help: Record fields look like `key: value`. A missing colon often causes this field to be parsed as a block or closure.
+=== reject/records/missing-colon.nu
+shape shape_record 0..2 "{ "
+shape shape_string 2..3 "a"
+shape shape_record 3..5 ": "
+shape shape_int 5..6 "2"
+shape shape_record 6..7 " "
+shape shape_garbage 7..8 "b"
+shape shape_garbage 8..8 ""
+shape shape_record 8..10 " }"
+error : Incomplete record field
+  label 8..8 "": expected `:` after this key
+  help: Record fields look like `key: value`. Add a colon after the key.
+=== reject/records/missing-value.nu
+shape shape_record 0..2 "{ "
+shape shape_string 2..3 "a"
+shape shape_record 3..5 ": "
+shape shape_int 5..6 "2"
+shape shape_record 6..7 " "
+shape shape_garbage 7..9 "b:"
+shape shape_garbage 9..9 ""
+shape shape_record 9..11 " }"
+error nu::parser::parse_mismatch: Parse mismatch: expected value for record field.
+  label 9..9 "": expected value for record field
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/records/multibyte-character-after-brace.nu
+shape shape_internalcall 0..4 "echo"
+shape shape_record 5..6 "{"
+shape shape_string 6..7 "a"
+shape shape_record 7..9 ": "
+shape shape_string 9..11 "1}"
+shape shape_record 11..14 "╮"
+error nu::parser::extra_token_after_closing_delimiter: Invalid characters after closing delimiter
+  label 11..14 "╮": invalid characters
+  help: Remove these characters, or check that a delimiter closed too early above.
+error nu::parser::unbalanced_delimiter: Unbalanced delimiter.
+  label 10..11 "}": unexpected `}` (unbalanced with `{`)
+  help: Remove this `}` if it is extra, or add a matching `{` earlier. If you closed a block too early, the real mistake may be above.
+=== reject/records/null-key.nu
+shape shape_record 0..1 "{"
+shape shape_garbage 1..5 "null"
+shape shape_record 5..7 ": "
+shape shape_int 7..8 "5"
+shape shape_record 8..9 "}"
+error nu::parser::parse_mismatch_with_full_string_msg: Parse mismatch: expected string.
+  label 1..5 "null": expected string
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/records/pipe-value.nu
+shape shape_record 0..2 "{ "
+shape shape_string 2..3 "a"
+shape shape_record 3..5 ": "
+shape shape_garbage 5..7 "||"
+shape shape_record 7..9 " }"
+error : Unexpected token in record value
+  label 5..7 "||": expected a value, found `||`
+  help: After `key:`, provide a value (string, number, record, list, …).
+=== reject/records/redirection-token-value.nu
+shape shape_record 0..1 "{"
+shape shape_string 1..2 "a"
+shape shape_record 2..4 ": "
+shape shape_garbage 4..6 "o>"
+shape shape_record 6..7 "}"
+error : Unexpected token in record value
+  label 4..6 "o>": expected a value, found `o>`
+  help: After `key:`, provide a value (string, number, record, list, …).
+=== reject/records/semicolon-key.nu
+shape shape_record 0..2 "{ "
+shape shape_garbage 2..3 ";"
+shape shape_record 3..5 ": "
+shape shape_string 5..6 "x"
+shape shape_record 6..8 " }"
+error : Unexpected token in record
+  label 2..3 ";": expected a record key here
+  help: Records use newlines or commas between fields, not `;`. `;` separates pipelines/statements in Nushell.
+=== reject/records/semicolon-separator.nu
+shape shape_record 0..2 "{ "
+shape shape_string 2..13 "show_banner"
+shape shape_record 13..15 ": "
+shape shape_bool 15..20 "false"
+shape shape_garbage 20..21 ";"
+shape shape_record 21..22 " "
+shape shape_garbage 22..41 "table_mode: rounded"
+shape shape_record 41..43 " }"
+error : Unexpected token in record
+  label 20..21 ";": expected a record key here
+  help: Records use newlines or commas between fields, not `;`. `;` separates pipelines/statements in Nushell.
+error : Expected `:` after record key
+  label 22..32 "table_mode": expected `:`, found `table_mode`
+  help: Record fields look like `key: value`. A missing colon often causes this field to be parsed as a block or closure.
+=== reject/records/spread-with-cell-path.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..5 "r"
+shape shape_record 8..10 "{}"
+shape shape_internalcall 11..15 "echo"
+shape shape_record 16..17 "{"
+shape shape_operator 17..20 "..."
+shape shape_garbage 20..23 "$r}"
+shape shape_record 23..25 ".a"
+error nu::parser::extra_token_after_closing_delimiter: Invalid characters after closing delimiter
+  label 23..25 ".a": invalid characters
+  help: Remove these characters, or check that a delimiter closed too early above.
+error nu::parser::unbalanced_delimiter: Unbalanced delimiter.
+  label 22..23 "}": unexpected `}` (unbalanced with `{`)
+  help: Remove this `}` if it is extra, or add a matching `{` earlier. If you closed a block too early, the real mistake may be above.
+error nu::parser::unbalanced_delimiter: Unbalanced delimiter.
+  label 22..23 "}": unexpected `}` (unbalanced with `{`)
+  help: Remove this `}` if it is extra, or add a matching `{` earlier. If you closed a block too early, the real mistake may be above.
+error nu::parser::variable_not_found: Variable not found.
+  label 20..23 "$r}": variable not found. Did you mean '$r'?
+=== reject/records/url-value-colon.nu
+shape shape_record 0..1 "{"
+shape shape_string 1..2 "a"
+shape shape_record 2..4 ": "
+shape shape_garbage 4..14 "http://x.y"
+shape shape_record 14..16 ", "
+shape shape_string 16..17 "b"
+shape shape_record 17..19 ": "
+shape shape_garbage 19..71 "https://api.github.com/search/issues?q=repo:nushell/"
+shape shape_record 71..72 "}"
+error : Invalid literal
+  label 8..9 ":": colon in bare word specifying record value
+error : Invalid literal
+  label 24..25 ":": colon in bare word specifying record value
+=== reject/records/value-with-colon.nu
+shape shape_record 0..2 "{ "
+shape shape_string 2..3 "a"
+shape shape_record 3..5 ": "
+shape shape_garbage 5..8 "x:y"
+shape shape_record 8..10 " }"
+error : Invalid literal
+  label 6..7 ":": colon in bare word specifying record value

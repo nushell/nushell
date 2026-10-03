@@ -1,0 +1,69 @@
+=== reject/closures/closure-params-in-block-position.nu
+shape shape_internalcall 0..2 "if"
+shape shape_bool 3..7 "true"
+shape shape_garbage 8..18 "{ |x| $x }"
+error nu::parser::type_mismatch: Type mismatch during operation.
+  label 8..18 "{ |x| $x }": expected block, found closure
+=== reject/closures/def-body-subexpression.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..5 "a"
+shape shape_signature 6..8 "[]"
+shape shape_block 9..10 "("
+shape shape_internalcall 10..14 "echo"
+shape shape_int 15..16 "4"
+shape shape_block 16..17 ")"
+error nu::parser::parse_mismatch: Parse mismatch: expected definition body closure { ... }.
+  label 9..17 "(echo 4)": expected definition body closure { ... }
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/closures/empty-params-in-block-position.nu
+shape shape_internalcall 0..2 "if"
+shape shape_bool 3..7 "true"
+shape shape_garbage 8..23 "{ || print hi }"
+error nu::parser::type_mismatch: Type mismatch during operation.
+  label 8..23 "{ || print hi }": expected block, found closure
+=== reject/closures/for-body-closure.nu
+shape shape_internalcall 0..3 "for"
+shape shape_vardecl 4..5 "x"
+shape shape_keyword 6..8 "in"
+shape shape_list 9..10 "["
+shape shape_int 10..11 "1"
+shape shape_list 11..12 "]"
+shape shape_garbage 13..23 "{ |y| $y }"
+error nu::parser::type_mismatch: Type mismatch during operation.
+  label 13..23 "{ |y| $y }": expected block, found closure
+=== reject/closures/newline-then-double-pipe.nu
+shape shape_closure 0..2 "{\n"
+shape shape_external 2..4 "||"
+shape shape_externalarg 5..6 "1"
+shape shape_closure 6..7 "}"
+error nu::parser::shell_oror: The '||' operator is not supported in Nushell
+  label 2..4 "||": instead of '||', use 'try' or 'or'
+  help: use 'try' instead of the shell '||', or 'or' instead of the boolean '||'
+=== reject/closures/params-then-semicolon.nu
+shape shape_closure 0..6 "{|x|; "
+shape shape_variable 6..8 "$x"
+shape shape_closure 8..9 "}"
+error nu::parser::extra_tokens: Extra tokens in code.
+  label 4..5 ";": extra tokens
+  help: Remove the unexpected tokens, or check for a missing operator, delimiter, or newline above.
+=== reject/closures/reserved-param-in.nu
+shape shape_internalcall 0..2 "do"
+shape shape_closure 3..10 "{|in| }"
+error nu::parser::name_is_builtin_var: `in` used as variable name.
+  label 5..7 "in": already a builtin variable
+  help: 'in' is the name of a builtin Nushell variable and cannot be used as a variable name
+=== reject/closures/unclosed-params.nu
+shape shape_closure 0..2 "{|"
+shape shape_external 2..3 "x"
+shape shape_variable 4..6 "$x"
+shape shape_closure 6..8 " }"
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 1..2 "|": unclosed — opens here (need `|`)
+  label 7..7 "": expected `|` here
+  help: Add a matching `|` to close this delimiter, or check that an earlier closer closed the wrong block.
+=== reject/closures/while-body-closure.nu
+shape shape_internalcall 0..5 "while"
+shape shape_bool 6..11 "false"
+shape shape_garbage 12..22 "{ |y| $y }"
+error nu::parser::type_mismatch: Type mismatch during operation.
+  label 12..22 "{ |y| $y }": expected block, found closure

@@ -10,3 +10,4 @@ A complementary (currently stale) resource has been the [Nushell contributor boo
 - [How to/SOPs](HOWTOS.md)
 - [Platform support policy](PLATFORM_SUPPORT.md)
 - [Our Rust style](rust_style.md)
+- [The Nushell grammar, as nu-parser accepts it](grammar/README.md)

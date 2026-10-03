@@ -1,0 +1,318 @@
+=== accept/env-shorthand/before-keyword.nu
+shape shape_string 0..3 "FOO"
+shape shape_record 3..4 "="
+shape shape_string 4..7 "BAR"
+shape shape_internalcall 8..10 "if"
+shape shape_bool 11..16 "false"
+shape shape_block 17..19 "{ "
+shape shape_int 19..20 "3"
+shape shape_block 20..22 " }"
+shape shape_keyword 23..27 "else"
+shape shape_block 28..30 "{ "
+shape shape_int 30..31 "4"
+shape shape_block 31..33 " }"
+ir main
+  # 4 registers, 11 instructions, 6 bytes of data
+     0: load-literal           %1, record(capacity = 1)
+     1: load-literal           %2, string("FOO")
+     2: load-literal           %3, string("BAR")
+     3: record-insert          %1, %2, %3
+     4: load-literal           %2, closure(#2)
+     5: push-positional        %1
+     6: push-positional        %2
+     7: redirect-out           caller
+     8: redirect-err           caller
+     9: call                   decl "with-env", %0
+    10: return                 %0
+ir #2
+  # 2 registers, 7 instructions, 0 bytes of data
+     0: load-literal           %1, bool(false)
+     1: not                    %1
+     2: branch-if              %1, 5       # if false
+     3: load-literal           %0, int(3)  # label(0)
+     4: jump                   6           # end if
+     5: load-literal           %0, int(4)  # label(1), from(2:)
+     6: return                 %0          # label(2), from(4:)
+=== accept/env-shorthand/invalid-name-is-command.nu
+shape shape_external 1..10 "foo-bar=4"
+shape shape_externalarg 11..15 "true"
+ir main
+  # 3 registers, 8 instructions, 13 bytes of data
+     0: load-literal           %1, glob-pattern("foo-bar=4", no_expand = false)
+     1: load-literal           %2, glob-pattern("true", no_expand = false)
+     2: push-positional        %1
+     3: push-positional        %2
+     4: redirect-out           caller
+     5: redirect-err           caller
+     6: call                   decl "run-external", %0
+     7: return                 %0
+=== accept/env-shorthand/let-without-value-after-shorthand.nu
+shape shape_string 0..3 "FOO"
+shape shape_record 3..4 "="
+shape shape_string 4..5 "1"
+shape shape_internalcall 6..9 "let"
+shape shape_vardecl 10..11 "x"
+ir main
+  # 4 registers, 11 instructions, 4 bytes of data
+     0: load-literal           %1, record(capacity = 1)
+     1: load-literal           %2, string("FOO")
+     2: load-literal           %3, string("1")
+     3: record-insert          %1, %2, %3
+     4: load-literal           %2, closure(#0)
+     5: push-positional        %1
+     6: push-positional        %2
+     7: redirect-out           caller
+     8: redirect-err           caller
+     9: call                   decl "with-env", %0
+    10: return                 %0
+ir #0
+  # 1 register, 4 instructions, 0 bytes of data
+     0: collect                %0
+     1: store-variable         var #0 "$x", %0 # let
+     2: load-variable          %0, var #0 "$x"
+     3: return                 %0
+=== accept/env-shorthand/multiple.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..5 "x"
+shape shape_int 8..9 "1"
+shape shape_string outside the snippet
+shape shape_record outside the snippet
+shape shape_string 10..13 "FOO"
+shape shape_record 13..14 "="
+shape shape_string 14..17 "bar"
+shape shape_record 17..18 " "
+shape shape_string 18..21 "BAZ"
+shape shape_record 21..22 "="
+shape shape_variable 22..24 "$x"
+shape shape_record 24..25 " "
+shape shape_string 25..30 "EMPTY"
+shape shape_internalcall 32..36 "echo"
+shape shape_variable 37..41 "$env"
+shape shape_string 42..45 "FOO"
+ir main
+  # 4 registers, 23 instructions, 14 bytes of data
+     0: load-literal           %0, int(1)
+     1: store-variable         var #0 "$x", %0 # let
+     2: load-literal           %0, empty
+     3: drain                  %0
+     4: load-literal           %0, empty
+     5: load-literal           %0, empty
+     6: load-literal           %1, record(capacity = 3)
+     7: load-literal           %2, string("FOO")
+     8: load-literal           %3, string("bar")
+     9: record-insert          %1, %2, %3
+    10: load-literal           %2, string("BAZ")
+    11: load-variable          %3, var #0 "$x"
+    12: record-insert          %1, %2, %3
+    13: load-literal           %2, string("EMPTY")
+    14: load-literal           %3, string("")
+    15: record-insert          %1, %2, %3
+    16: load-literal           %2, closure(#1)
+    17: push-positional        %1
+    18: push-positional        %2
+    19: redirect-out           caller
+    20: redirect-err           caller
+    21: call                   decl "with-env", %0
+    22: return                 %0
+ir #1
+  # 2 registers, 6 instructions, 3 bytes of data
+     0: load-env               %1, "FOO"
+     1: push-positional        %1
+     2: redirect-out           caller
+     3: redirect-err           caller
+     4: call                   decl "echo", %0
+     5: return                 %0
+=== accept/env-shorthand/not-shorthand-in-argument-position.nu
+shape shape_internalcall 0..4 "echo"
+shape shape_string 5..8 "a=b"
+ir main
+  # 2 registers, 6 instructions, 3 bytes of data
+     0: load-literal           %1, string("a=b")
+     1: push-positional        %1
+     2: redirect-out           caller
+     3: redirect-err           caller
+     4: call                   decl "echo", %0
+     5: return                 %0
+=== accept/env-shorthand/plugin-use-after-shorthand.nu
+shape shape_string 0..3 "FOO"
+shape shape_record 3..4 "="
+shape shape_string 4..5 "1"
+shape shape_internalcall 6..16 "plugin use"
+shape shape_string 17..18 "x"
+ir main
+  # 4 registers, 11 instructions, 4 bytes of data
+     0: load-literal           %1, record(capacity = 1)
+     1: load-literal           %2, string("FOO")
+     2: load-literal           %3, string("1")
+     3: record-insert          %1, %2, %3
+     4: load-literal           %2, closure(#0)
+     5: push-positional        %1
+     6: push-positional        %2
+     7: redirect-out           caller
+     8: redirect-err           caller
+     9: call                   decl "with-env", %0
+    10: return                 %0
+ir #0
+  # 2 registers, 6 instructions, 1 byte of data
+     0: load-literal           %1, string("x")
+     1: push-positional        %1
+     2: redirect-out           caller
+     3: redirect-err           caller
+     4: call                   decl "plugin use", %0
+     5: return                 %0
+=== accept/env-shorthand/quoted-value.nu
+shape shape_string 0..3 "FOO"
+shape shape_record 3..4 "="
+shape shape_string 4..9 "\"a b\""
+shape shape_record 9..10 " "
+shape shape_string 10..13 "BAR"
+shape shape_record 13..14 "="
+shape shape_string 14..17 "'c'"
+shape shape_internalcall 18..22 "echo"
+shape shape_variable 23..27 "$env"
+shape shape_string 28..31 "FOO"
+ir main
+  # 4 registers, 14 instructions, 10 bytes of data
+     0: load-literal           %1, record(capacity = 2)
+     1: load-literal           %2, string("FOO")
+     2: load-literal           %3, string("a b")
+     3: record-insert          %1, %2, %3
+     4: load-literal           %2, string("BAR")
+     5: load-literal           %3, string("c")
+     6: record-insert          %1, %2, %3
+     7: load-literal           %2, closure(#0)
+     8: push-positional        %1
+     9: push-positional        %2
+    10: redirect-out           caller
+    11: redirect-err           caller
+    12: call                   decl "with-env", %0
+    13: return                 %0
+ir #0
+  # 2 registers, 6 instructions, 3 bytes of data
+     0: load-env               %1, "FOO"
+     1: push-positional        %1
+     2: redirect-out           caller
+     3: redirect-err           caller
+     4: call                   decl "echo", %0
+     5: return                 %0
+=== accept/env-shorthand/return-after-shorthand.nu
+shape shape_string 0..3 "FOO"
+shape shape_record 3..4 "="
+shape shape_string 4..5 "1"
+shape shape_internalcall 6..12 "return"
+ir main
+  # 4 registers, 11 instructions, 4 bytes of data
+     0: load-literal           %1, record(capacity = 1)
+     1: load-literal           %2, string("FOO")
+     2: load-literal           %3, string("1")
+     3: record-insert          %1, %2, %3
+     4: load-literal           %2, closure(#0)
+     5: push-positional        %1
+     6: push-positional        %2
+     7: redirect-out           caller
+     8: redirect-err           caller
+     9: call                   decl "with-env", %0
+    10: return                 %0
+ir #0
+  # 1 register, 4 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: return-early           %0
+     2: load-literal           %0, empty
+     3: return                 %0
+=== accept/env-shorthand/run-after-shorthand.nu
+shape shape_string 0..3 "FOO"
+shape shape_record 3..4 "="
+shape shape_string 4..5 "1"
+shape shape_internalcall 6..9 "run"
+shape shape_nothing 10..14 "null"
+ir main
+  # 4 registers, 11 instructions, 4 bytes of data
+     0: load-literal           %1, record(capacity = 1)
+     1: load-literal           %2, string("FOO")
+     2: load-literal           %3, string("1")
+     3: record-insert          %1, %2, %3
+     4: load-literal           %2, closure(#0)
+     5: push-positional        %1
+     6: push-positional        %2
+     7: redirect-out           caller
+     8: redirect-err           caller
+     9: call                   decl "with-env", %0
+    10: return                 %0
+ir #0
+  # 2 registers, 7 instructions, 4 bytes of data
+     0: load-literal           %1, nothing
+     1: push-positional        %1
+     2: push-parser-info       "noop"
+     3: redirect-out           caller
+     4: redirect-err           caller
+     5: call                   decl "run", %0
+     6: return                 %0
+=== accept/env-shorthand/single.nu
+shape shape_string 0..3 "FOO"
+shape shape_record 3..4 "="
+shape shape_string 4..7 "bar"
+shape shape_internalcall 8..12 "echo"
+shape shape_variable 13..17 "$env"
+shape shape_string 18..21 "FOO"
+ir main
+  # 4 registers, 11 instructions, 6 bytes of data
+     0: load-literal           %1, record(capacity = 1)
+     1: load-literal           %2, string("FOO")
+     2: load-literal           %3, string("bar")
+     3: record-insert          %1, %2, %3
+     4: load-literal           %2, closure(#0)
+     5: push-positional        %1
+     6: push-positional        %2
+     7: redirect-out           caller
+     8: redirect-err           caller
+     9: call                   decl "with-env", %0
+    10: return                 %0
+ir #0
+  # 2 registers, 6 instructions, 3 bytes of data
+     0: load-env               %1, "FOO"
+     1: push-positional        %1
+     2: redirect-out           caller
+     3: redirect-err           caller
+     4: call                   decl "echo", %0
+     5: return                 %0
+=== accept/env-shorthand/value-that-does-not-parse-is-command.nu
+shape shape_external 0..6 "A='b'c"
+shape shape_externalarg 7..9 "ls"
+ir main
+  # 3 registers, 8 instructions, 6 bytes of data
+     0: load-literal           %1, glob-pattern("A=bc", no_expand = false)
+     1: load-literal           %2, glob-pattern("ls", no_expand = false)
+     2: push-positional        %1
+     3: push-positional        %2
+     4: redirect-out           caller
+     5: redirect-err           caller
+     6: call                   decl "run-external", %0
+     7: return                 %0
+=== accept/env-shorthand/where-after-shorthand.nu
+shape shape_string 0..3 "FOO"
+shape shape_record 3..4 "="
+shape shape_string 4..5 "1"
+shape shape_internalcall 6..11 "where"
+shape shape_string 12..13 "a"
+shape shape_variable 12..13 "a"
+ir main
+  # 4 registers, 11 instructions, 4 bytes of data
+     0: load-literal           %1, record(capacity = 1)
+     1: load-literal           %2, string("FOO")
+     2: load-literal           %3, string("1")
+     3: record-insert          %1, %2, %3
+     4: load-literal           %2, closure(#1)
+     5: push-positional        %1
+     6: push-positional        %2
+     7: redirect-out           caller
+     8: redirect-err           caller
+     9: call                   decl "with-env", %0
+    10: return                 %0
+ir #1
+  # 2 registers, 6 instructions, 0 bytes of data
+     0: load-literal           %1, row_condition(#0)
+     1: push-positional        %1
+     2: redirect-out           caller
+     3: redirect-err           caller
+     4: call                   decl "where", %0
+     5: return                 %0

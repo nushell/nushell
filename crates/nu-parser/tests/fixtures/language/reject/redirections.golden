@@ -1,0 +1,76 @@
+=== reject/redirections/duplicate-both.nu
+shape shape_external 1..3 "ls"
+shape shape_externalarg 11..13 "e>"
+shape shape_externalarg 14..15 "b"
+error nu::parser::multiple_redirections: Multiple redirections provided for stdout and stderr.
+  label 4..8 "o+e>": first redirection
+  label 11..13 "e>": second redirection
+=== reject/redirections/duplicate-stream.nu
+shape shape_external 1..3 "ls"
+shape shape_externalarg 9..11 "o>"
+shape shape_externalarg 12..13 "b"
+error nu::parser::multiple_redirections: Multiple redirections provided for stdout.
+  label 4..6 "o>": first redirection
+  label 9..11 "o>": second redirection
+=== reject/redirections/hide-redirected.nu
+shape shape_garbage 0..7 "hide ls"
+error : Redirection can not be used with hide.
+  label 8..10 "o>": not allowed here
+=== reject/redirections/missing-target.nu
+shape shape_external 1..3 "ls"
+shape shape_externalarg 4..6 "o>"
+error nu::parser::parse_mismatch: Parse mismatch: expected redirection target.
+  label 6..7 "\n": expected redirection target
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/redirections/nothing-after-pipe.nu
+shape shape_internalcall 0..2 "ls"
+shape shape_pipe 3..4 "|"
+shape shape_external 5..7 "o>"
+shape shape_externalarg 8..12 "file"
+error nu::parser::unexpected_redirection: Unexpected redirection.
+  label 5..7 "o>": redirecting nothing
+=== reject/redirections/nothing-to-redirect-append.nu
+shape shape_external 0..3 "e>>"
+shape shape_externalarg 4..8 "file"
+error nu::parser::unexpected_redirection: Unexpected redirection.
+  label 0..3 "e>>": redirecting nothing
+=== reject/redirections/nothing-to-redirect-pipe.nu
+error nu::parser::unexpected_redirection: Unexpected redirection.
+  label 0..3 "e>|": redirecting nothing
+=== reject/redirections/nothing-to-redirect.nu
+shape shape_external 0..2 "o>"
+shape shape_externalarg 3..7 "file"
+error nu::parser::unexpected_redirection: Unexpected redirection.
+  label 0..2 "o>": redirecting nothing
+=== reject/redirections/overlay-doubled-redirected.nu
+shape shape_garbage 0..24 "overlay overlay use null"
+error : Redirection can not be used with overlay.
+  label 25..27 "o>": not allowed here
+=== reject/redirections/overlay-unknown-subcommand-redirected.nu
+shape shape_garbage 0..11 "overlay foo"
+error : Redirection can not be used with overlay.
+  label 12..14 "o>": not allowed here
+=== reject/redirections/overlay-use-redirected.nu
+shape shape_garbage 0..16 "overlay use null"
+error : Redirection can not be used with overlay.
+  label 17..19 "o>": not allowed here
+=== reject/redirections/plugin-use-redirected.nu
+shape shape_garbage 0..12 "plugin use x"
+error : Redirection can not be used with plugin use.
+  label 13..15 "o>": not allowed here
+=== reject/redirections/run-redirected.nu
+shape shape_garbage 0..8 "run null"
+error : Redirection can not be used with run.
+  label 9..11 "o>": not allowed here
+=== reject/redirections/source-redirected.nu
+shape shape_garbage 0..11 "source null"
+error : Redirection can not be used with source.
+  label 12..14 "o>": not allowed here
+=== reject/redirections/target-is-pipe.nu
+shape shape_external 1..3 "ls"
+shape shape_externalarg 4..6 "o>"
+shape shape_pipe 7..8 "|"
+shape shape_internalcall 9..14 "lines"
+error nu::parser::parse_mismatch: Parse mismatch: expected redirection target.
+  label 7..8 "|": expected redirection target
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.

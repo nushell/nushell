@@ -1,0 +1,928 @@
+=== reject/def/alias-keyword-name.nu
+shape shape_garbage 0..13 "alias if = ls"
+error nu::parser::name_is_keyword: Can't use parser keyword `if` as alias name.
+  label 6..8 "if": 'if' is a parser keyword
+  help: Parser keywords cannot be shadowed (including via module exports and `use *`). Choose a different alias name so language constructs keep working.
+=== reject/def/alias-missing-equals.nu
+shape shape_internalcall 0..5 "alias"
+shape shape_string 6..8 "ll"
+shape shape_garbage 9..11 "ls"
+shape shape_keyword 9..11 "ls"
+error nu::parser::incorrect_value: Incorrect value
+  label 0..5 "alias": unexpected Incomplete alias
+  help: incomplete alias
+=== reject/def/alias-missing-name.nu
+shape shape_garbage 6..7 "="
+error nu::parser::assignment_mismatch: alias missing name
+  label 6..7 "=": missing name
+=== reject/def/alias-missing-target.nu
+shape shape_internalcall 0..5 "alias"
+shape shape_string 6..8 "ll"
+shape shape_garbage 9..10 "="
+shape shape_keyword 9..10 "="
+error nu::parser::incorrect_value: Incorrect value
+  label 0..5 "alias": unexpected Incomplete alias
+  help: incomplete alias
+=== reject/def/alias-name-with-hash.nu
+shape shape_garbage 0..16 "alias \"x#y\" = ls"
+error nu::parser::variable_not_valid: Alias name not supported.
+  label 6..11 "\"x#y\"": alias name can't be a number, a filesize, or contain #, ^, or %
+=== reject/def/alias-to-flag.nu
+shape shape_internalcall 0..5 "alias"
+shape shape_string 6..7 "a"
+shape shape_keyword 8..9 "="
+shape shape_string 10..16 "--long"
+error nu::parser::cant_alias_expression: Can't create alias to expression.
+  label 10..16 "--long": aliasing a string is not supported
+  help: Only command calls can be aliased.
+=== reject/def/alias-to-subexpression.nu
+shape shape_internalcall 0..5 "alias"
+shape shape_string 6..7 "a"
+shape shape_keyword 8..9 "="
+shape shape_block 10..11 "("
+shape shape_internalcall 11..13 "ls"
+shape shape_block 13..14 ")"
+error nu::parser::cant_alias_expression: Can't create alias to expression.
+  label 10..14 "(ls)": aliasing a cell path expression is not supported
+  help: Only command calls can be aliased.
+=== reject/def/alias-to-value.nu
+shape shape_internalcall 0..5 "alias"
+shape shape_string 6..7 "a"
+shape shape_keyword 8..9 "="
+shape shape_int 10..11 "1"
+error nu::parser::cant_alias_expression: Can't create alias to expression.
+  label 10..11 "1": aliasing an integer is not supported
+  help: Only command calls can be aliased.
+=== reject/def/alias-to-variable.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..5 "x"
+shape shape_int 8..9 "1"
+shape shape_internalcall 10..15 "alias"
+shape shape_string 16..17 "a"
+shape shape_keyword 18..19 "="
+shape shape_variable 20..22 "$x"
+error nu::parser::cant_alias_expression: Can't create alias to expression.
+  label 20..22 "$x": aliasing a cell path expression is not supported
+  help: Only command calls can be aliased.
+=== reject/def/bad-short-flag.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..8 "foo3"
+shape shape_signature 9..18 "[-l?:int]"
+shape shape_closure 19..21 "{ "
+shape shape_variable 21..23 "$l"
+shape shape_closure 23..25 " }"
+error nu::parser::parse_mismatch: Parse mismatch: expected short flag.
+  label 10..13 "-l?": expected short flag
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/def/block-type.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..18 "[x: block]"
+shape shape_closure 19..22 "{ }"
+error : Blocks are not support as first-class values
+  label 12..17 "block": blocks are not supported as values
+  help: Use 'closure' instead of 'block'
+=== reject/def/body-is-list.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..5 "q"
+shape shape_signature 6..8 "[]"
+shape shape_garbage 9..12 "[]}"
+error nu::parser::unbalanced_delimiter: Unbalanced delimiter.
+  label 11..12 "}": unexpected `}` (unbalanced with `{`)
+  help: Remove this `}` if it is extra, or add a matching `{` earlier. If you closed a block too early, the real mistake may be above.
+error nu::parser::parse_mismatch_with_full_string_msg: Parse mismatch: expected closure().
+  label 9..12 "[]}": expected closure()
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+error nu::parser::parse_mismatch: Parse mismatch: expected definition body closure { ... }.
+  label 9..12 "[]}": expected definition body closure { ... }
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/def/def-no-space-bracket.nu
+shape shape_garbage 0..12 "def cmd[] {}"
+error : no space between name and parameters
+  label 6..6 "": expected space
+  help: consider adding a space between the `def` command's name and its parameters
+=== reject/def/default-missing.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..19 "[x: int = ]"
+shape shape_closure 20..23 "{ }"
+error nu::parser::parse_mismatch: Parse mismatch: expected default value.
+  label 17..17 "": expected default value
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/def/double-comma.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..15 "[a,, b]"
+shape shape_closure 16..19 "{ }"
+error nu::parser::parse_mismatch: Parse mismatch: expected parameter or flag.
+  label 11..12 ",": expected parameter or flag
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/def/duplicate-def-and-extern.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..10 "[]"
+shape shape_closure 11..13 "{}"
+shape shape_internalcall 14..20 "extern"
+shape shape_string 21..24 "foo"
+shape shape_signature 25..27 "[]"
+error nu::parser::duplicate_command_def: Duplicate command definition within a block.
+  label 21..24 "foo": defined more than once
+error nu::parser::unknown_state: Internal error.
+  label 21..24 "foo": Predeclaration failed to add declaration
+=== reject/def/duplicate-in-block.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..10 "[]"
+shape shape_closure 11..13 "{}"
+shape shape_internalcall 15..18 "def"
+shape shape_string 19..22 "foo"
+shape shape_signature 23..25 "[]"
+shape shape_closure 26..28 "{}"
+error nu::parser::duplicate_command_def: Duplicate command definition within a block.
+  label 19..22 "foo": defined more than once
+error nu::parser::unknown_state: Internal error.
+  label 19..22 "foo": Predeclaration failed to add declaration
+=== reject/def/duplicate-on-lines.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..10 "[]"
+shape shape_closure 11..13 "{}"
+shape shape_internalcall 14..17 "def"
+shape shape_string 18..21 "foo"
+shape shape_signature 22..24 "[]"
+shape shape_closure 25..27 "{}"
+error nu::parser::duplicate_command_def: Duplicate command definition within a block.
+  label 18..21 "foo": defined more than once
+error nu::parser::unknown_state: Internal error.
+  label 18..21 "foo": Predeclaration failed to add declaration
+=== reject/def/extern-keyword-name.nu
+shape shape_internalcall 0..6 "extern"
+shape shape_string 7..14 "\"while\""
+shape shape_signature 15..17 "[]"
+error nu::parser::name_is_keyword: Can't use parser keyword `while` as command name.
+  label 7..14 "\"while\"": 'while' is a parser keyword
+  help: Parser keywords cannot be shadowed (including via module exports and `use *`). Choose a different command name so language constructs keep working.
+error nu::parser::name_is_keyword: Can't use parser keyword `while` as command name.
+  label 7..14 "\"while\"": 'while' is a parser keyword
+  help: Parser keywords cannot be shadowed (including via module exports and `use *`). Choose a different command name so language constructs keep working.
+=== reject/def/extern-missing-signature.nu
+shape shape_internalcall 0..6 "extern"
+shape shape_string 7..10 "cmd"
+error nu::parser::missing_positional: Missing required positional argument.
+  label 10..10 "": missing params
+  help: Usage: extern <def_name> <params> . Use `--help` for more information.
+=== reject/def/extern-no-space-bracket.nu
+shape shape_garbage 0..12 "extern cmd[]"
+error : no space between name and parameters
+  label 9..9 "": expected space
+  help: consider adding a space between the `extern` command's name and its parameters
+=== reject/def/extern-no-space-paren.nu
+shape shape_garbage 0..18 "extern cmd(--flag)"
+error : no space between name and parameters
+  label 9..9 "": expected space
+  help: consider adding a space between the `extern` command's name and its parameters
+=== reject/def/help-after-two-braces.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..16 "[] {} {}"
+shape shape_flag 17..23 "--help"
+error nu::parser::parse_mismatch: Parse mismatch: expected colon (:) before type signature.
+  label 11..16 "{} {}": expected colon (:) before type signature
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+error nu::parser::unknown_type: Unknown type.
+  label 11..13 "{}": unknown type
+error nu::parser::parse_mismatch: Parse mismatch: expected arrow (->).
+  label 14..16 "{}": expected arrow (->)
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+error nu::parser::missing_type: Missing type.
+  label 16..16 "": expected type
+=== reject/def/help-then-body-then-extra.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_flag 8..14 "--help"
+shape shape_signature 15..17 "[]"
+shape shape_garbage 21..22 "y"
+error nu::parser::parse_mismatch: Parse mismatch: expected block, closure or record.
+  label 21..22 "y": expected block, closure or record
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+error nu::parser::parse_mismatch: Parse mismatch: expected definition body closure { ... }.
+  label 21..22 "y": expected definition body closure { ... }
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/def/io-body-is-list.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..5 "q"
+shape shape_signature 6..13 "[]: int"
+shape shape_garbage 14..17 "[]}"
+error nu::parser::unbalanced_delimiter: Unbalanced delimiter.
+  label 16..17 "}": unexpected `}` (unbalanced with `{`)
+  help: Remove this `}` if it is extra, or add a matching `{` earlier. If you closed a block too early, the real mistake may be above.
+error nu::parser::parse_mismatch: Parse mismatch: expected arrow (->).
+  label 13..13 "": expected arrow (->)
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+error nu::parser::parse_mismatch_with_full_string_msg: Parse mismatch: expected closure().
+  label 14..17 "[]}": expected closure()
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+error nu::parser::parse_mismatch: Parse mismatch: expected definition body closure { ... }.
+  label 14..17 "[]}": expected definition body closure { ... }
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/def/io-colon-then-nothing-with-params.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..5 "q"
+shape shape_signature 6..26 "[x: string, y: int]:"
+shape shape_closure 27..29 "{}"
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 6..7 "[": unclosed — opens here (need `] or )`)
+  label 26..26 "": expected `] or )` here
+  help: Add a matching `] or )` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unknown_type: Unknown type.
+  label 21..25 "int]": unknown type
+error nu::parser::parse_mismatch: Parse mismatch: expected parameter or flag.
+  label 25..26 ":": expected parameter or flag
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/def/io-colon-then-nothing.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..5 "q"
+shape shape_signature 6..9 "[]:"
+shape shape_closure 10..12 "{}"
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 6..7 "[": unclosed — opens here (need `] or )`)
+  label 9..9 "": expected `] or )` here
+  help: Add a matching `] or )` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::parse_mismatch: Parse mismatch: expected type.
+  label 9..9 "": expected type
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/def/io-completer.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..32 "[]: int -> int@completer"
+shape shape_closure 33..35 "{}"
+error : Unexpected custom completer in type spec
+  label 19..32 "int@completer": Type specifications do not support custom completers
+error nu::parser::unknown_type: Unknown type.
+  label 19..32 "int@completer": unknown type
+=== reject/def/io-empty-list.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..5 "q"
+shape shape_signature 6..9 "[]:"
+shape shape_garbage 10..13 "[]}"
+error nu::parser::unbalanced_delimiter: Unbalanced delimiter.
+  label 12..13 "}": unexpected `}` (unbalanced with `{`)
+  help: Remove this `}` if it is extra, or add a matching `{` earlier. If you closed a block too early, the real mistake may be above.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 6..7 "[": unclosed — opens here (need `] or )`)
+  label 9..9 "": expected `] or )` here
+  help: Add a matching `] or )` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::parse_mismatch: Parse mismatch: expected type.
+  label 9..9 "": expected type
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+error nu::parser::parse_mismatch_with_full_string_msg: Parse mismatch: expected closure().
+  label 10..13 "[]}": expected closure()
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+error nu::parser::parse_mismatch: Parse mismatch: expected definition body closure { ... }.
+  label 10..13 "[]}": expected definition body closure { ... }
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/def/io-list-completer.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..38 "[]: int -> list<int@completer>"
+shape shape_closure 39..41 "{}"
+error : Unexpected custom completer in type spec
+  label 24..37 "int@completer": Type specifications do not support custom completers
+error nu::parser::unknown_type: Unknown type.
+  label 24..37 "int@completer": unknown type
+error nu::parser::output_type_mismatch: Command output doesn't match list<any>.
+  label 39..41 "{}": expected list<any>, but command outputs int
+=== reject/def/io-missing-arrow.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..15 "[]: int"
+shape shape_closure 16..18 "{ "
+shape shape_int 18..19 "3"
+shape shape_closure 19..21 " }"
+error nu::parser::parse_mismatch: Parse mismatch: expected arrow (->).
+  label 15..15 "": expected arrow (->)
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/def/io-missing-output.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..18 "[]: int ->"
+shape shape_closure 19..21 "{ "
+shape shape_int 21..22 "3"
+shape shape_closure 22..24 " }"
+error nu::parser::missing_type: Missing type.
+  label 18..18 "": expected type
+=== reject/def/io-spaced-unclosed-generic.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..5 "q"
+shape shape_signature 6..33 "[] : nothing -> list<string"
+shape shape_closure 34..35 "{"
+shape shape_list 35..37 "[]"
+shape shape_closure 37..38 "}"
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 26..27 "<": unclosed — opens here (need `>`)
+  label 32..33 "g": expected `>` here
+  help: Add a matching `>` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 22..23 "l": unclosed — opens here (need `>`)
+  label 22..33 "list<string": expected `>` here
+  help: Add a matching `>` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unknown_type: Unknown type.
+  label 22..33 "list<string": unknown type
+=== reject/def/io-types-without-colon.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..21 "[] int -> int"
+shape shape_closure 22..25 "{ }"
+error nu::parser::parse_mismatch: Parse mismatch: expected colon (:) before type signature.
+  label 11..21 "int -> int": expected colon (:) before type signature
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/def/io-unclosed-body.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..5 "q"
+shape shape_signature 6..14 "[]: bool"
+shape shape_closure 15..16 "{"
+shape shape_list 16..18 "[]"
+shape shape_closure 18..19 "\n"
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 15..16 "{": unclosed — opens here (need `}`)
+  label 18..19 "\n": expected `}` here
+  help: Add a matching `}` to close `def q`, or check that an earlier closer closed the wrong block.
+error nu::parser::parse_mismatch: Parse mismatch: expected arrow (->).
+  label 14..14 "": expected arrow (->)
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 15..16 "{": unclosed — opens here (need `}`)
+  label 19..19 "": expected `}` here
+  help: Add a matching `}` to close this delimiter, or check that an earlier closer closed the wrong block.
+=== reject/def/io-unclosed-input-generic.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..5 "q"
+shape shape_signature 6..48 "[]: record<c: int e: int -> record<a: int>"
+shape shape_closure 49..50 "{"
+shape shape_record 50..51 "{"
+shape shape_string 51..52 "a"
+shape shape_record 52..54 ": "
+shape shape_int 54..55 "1"
+shape shape_record 55..56 "}"
+shape shape_closure 56..57 "}"
+error nu::parser::parse_mismatch: Parse mismatch: expected arrow (->).
+  label 34..48 "record<a: int>": expected arrow (->)
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+error nu::parser::missing_type: Missing type.
+  label 48..48 "": expected type
+=== reject/def/io-unclosed-list-generic.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..5 "q"
+shape shape_signature 6..32 "[]: nothing -> list<string"
+shape shape_closure 33..34 "{"
+shape shape_list 34..36 "[]"
+shape shape_closure 36..37 "}"
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 25..26 "<": unclosed — opens here (need `>`)
+  label 31..32 "g": expected `>` here
+  help: Add a matching `>` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 21..22 "l": unclosed — opens here (need `>`)
+  label 21..32 "list<string": expected `>` here
+  help: Add a matching `>` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unknown_type: Unknown type.
+  label 21..32 "list<string": unknown type
+=== reject/def/io-unclosed-nested-generic.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..5 "q"
+shape shape_signature 6..45 "[]: nothing -> record<a: record<a: int>"
+shape shape_closure 46..47 "{"
+shape shape_record 47..48 "{"
+shape shape_string 48..49 "a"
+shape shape_record 49..51 ": "
+shape shape_record 51..52 "{"
+shape shape_string 52..53 "a"
+shape shape_record 53..55 ": "
+shape shape_int 55..56 "1"
+shape shape_record 56..57 "}"
+shape shape_record 57..58 "}"
+shape shape_closure 58..59 "}"
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 27..28 "<": unclosed — opens here (need `>`)
+  label 44..45 ">": expected `>` here
+  help: Add a matching `>` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 37..38 "<": unclosed — opens here (need `>`)
+  label 43..44 "t": expected `>` here
+  help: Add a matching `>` to close record field `a`, or check that an earlier closer closed the wrong block.
+=== reject/def/io-unclosed-record-generic.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..5 "q"
+shape shape_signature 6..41 "[]: nothing -> record<c: int e: int"
+shape shape_closure 42..43 "{"
+shape shape_record 43..44 "{"
+shape shape_string 44..45 "c"
+shape shape_record 45..47 ": "
+shape shape_int 47..48 "1"
+shape shape_record 48..49 " "
+shape shape_string 49..50 "e"
+shape shape_record 50..52 ": "
+shape shape_int 52..53 "1"
+shape shape_record 53..54 "}"
+shape shape_closure 54..55 "}"
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 27..28 "<": unclosed — opens here (need `>`)
+  label 40..41 "t": expected `>` here
+  help: Add a matching `>` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 21..22 "r": unclosed — opens here (need `>`)
+  label 21..41 "record<c: int e: int": expected `>` here
+  help: Add a matching `>` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unknown_type: Unknown type.
+  label 21..41 "record<c: int e: int": unknown type
+=== reject/def/keyword-name-def.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "def"
+shape shape_signature 8..10 "[]"
+shape shape_closure 11..13 "{}"
+error nu::parser::name_is_keyword: Can't use parser keyword `def` as command name.
+  label 4..7 "def": 'def' is a parser keyword
+  help: Parser keywords cannot be shadowed (including via module exports and `use *`). Choose a different command name so language constructs keep working.
+error nu::parser::name_is_keyword: Can't use parser keyword `def` as command name.
+  label 4..7 "def": 'def' is a parser keyword
+  help: Parser keywords cannot be shadowed (including via module exports and `use *`). Choose a different command name so language constructs keep working.
+=== reject/def/keyword-name-garbage.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "def"
+shape shape_signature 8..15 "(=a|s)>"
+error nu::parser::name_is_keyword: Can't use parser keyword `def` as command name.
+  label 4..7 "def": 'def' is a parser keyword
+  help: Parser keywords cannot be shadowed (including via module exports and `use *`). Choose a different command name so language constructs keep working.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 8..9 "(": unclosed — opens here (need `] or )`)
+  label 15..15 "": expected `] or )` here
+  help: Add a matching `] or )` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unbalanced_delimiter: Unbalanced delimiter.
+  label 13..14 ")": unexpected `)` (unbalanced with `(`)
+  help: Remove this `)` if it is extra, or add a matching `(` earlier. If you closed a block too early, the real mistake may be above.
+error nu::parser::parse_mismatch: Parse mismatch: expected valid variable name for this parameter.
+  label 14..15 ">": expected valid variable name for this parameter
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+error nu::parser::missing_positional: Missing required positional argument.
+  label 15..15 "": missing block
+  help: Usage: def {flags} <def_name> <params> <block> . Use `--help` for more information.
+=== reject/def/keyword-name-if.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..6 "if"
+shape shape_signature 7..9 "[]"
+shape shape_closure 10..12 "{}"
+error nu::parser::name_is_keyword: Can't use parser keyword `if` as command name.
+  label 4..6 "if": 'if' is a parser keyword
+  help: Parser keywords cannot be shadowed (including via module exports and `use *`). Choose a different command name so language constructs keep working.
+error nu::parser::name_is_keyword: Can't use parser keyword `if` as command name.
+  label 4..6 "if": 'if' is a parser keyword
+  help: Parser keywords cannot be shadowed (including via module exports and `use *`). Choose a different command name so language constructs keep working.
+=== reject/def/keyword-name-loop.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..8 "loop"
+shape shape_signature 9..12 "[x]"
+shape shape_closure 13..15 "{ "
+shape shape_variable 15..17 "$x"
+shape shape_closure 17..19 " }"
+error nu::parser::name_is_keyword: Can't use parser keyword `loop` as command name.
+  label 4..8 "loop": 'loop' is a parser keyword
+  help: Parser keywords cannot be shadowed (including via module exports and `use *`). Choose a different command name so language constructs keep working.
+error nu::parser::name_is_keyword: Can't use parser keyword `loop` as command name.
+  label 4..8 "loop": 'loop' is a parser keyword
+  help: Parser keywords cannot be shadowed (including via module exports and `use *`). Choose a different command name so language constructs keep working.
+=== reject/def/keyword-name-quoted-break.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..11 "\"break\""
+shape shape_signature 12..14 "[]"
+shape shape_closure 15..17 "{}"
+error nu::parser::name_is_keyword: Can't use parser keyword `break` as command name.
+  label 4..11 "\"break\"": 'break' is a parser keyword
+  help: Parser keywords cannot be shadowed (including via module exports and `use *`). Choose a different command name so language constructs keep working.
+error nu::parser::name_is_keyword: Can't use parser keyword `break` as command name.
+  label 4..11 "\"break\"": 'break' is a parser keyword
+  help: Parser keywords cannot be shadowed (including via module exports and `use *`). Choose a different command name so language constructs keep working.
+=== reject/def/keyword-name-run.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "run"
+shape shape_signature 8..10 "[]"
+shape shape_closure 11..13 "{ "
+shape shape_int 13..14 "1"
+shape shape_closure 14..16 " }"
+error nu::parser::name_is_keyword: Can't use parser keyword `run` as command name.
+  label 4..7 "run": 'run' is a parser keyword
+  help: Parser keywords cannot be shadowed (including via module exports and `use *`). Choose a different command name so language constructs keep working.
+error nu::parser::name_is_keyword: Can't use parser keyword `run` as command name.
+  label 4..7 "run": 'run' is a parser keyword
+  help: Parser keywords cannot be shadowed (including via module exports and `use *`). Choose a different command name so language constructs keep working.
+=== reject/def/keyword-name-where.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..9 "where"
+shape shape_signature 10..12 "[]"
+shape shape_closure 13..15 "{ "
+shape shape_int 15..16 "1"
+shape shape_closure 16..18 " }"
+error nu::parser::name_is_keyword: Can't use parser keyword `where` as command name.
+  label 4..9 "where": 'where' is a parser keyword
+  help: Parser keywords cannot be shadowed (including via module exports and `use *`). Choose a different command name so language constructs keep working.
+error nu::parser::name_is_keyword: Can't use parser keyword `where` as command name.
+  label 4..9 "where": 'where' is a parser keyword
+  help: Parser keywords cannot be shadowed (including via module exports and `use *`). Choose a different command name so language constructs keep working.
+=== reject/def/lone-dash-name.nu
+shape shape_garbage 0..11 "def - [] {}"
+error : no space between name and parameters
+  label 5..5 "": expected space
+  help: consider adding a space between the `def` command's name and its parameters
+=== reject/def/long-flag-with-dot.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..5 "f"
+shape shape_signature 6..13 "[--a.b]"
+shape shape_closure 14..16 "{}"
+error nu::parser::parse_mismatch: Parse mismatch: expected valid variable name for this long flag.
+  label 7..12 "--a.b": expected valid variable name for this long flag
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/def/missing-body.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..11 "[x]"
+error nu::parser::missing_positional: Missing required positional argument.
+  label 11..11 "": missing block
+  help: Usage: def {flags} <def_name> <params> <block> . Use `--help` for more information.
+=== reject/def/missing-everything.nu
+shape shape_internalcall 0..3 "def"
+error nu::parser::missing_positional: Missing required positional argument.
+  label 3..3 "": missing def_name
+  help: Usage: def {flags} <def_name> <params> <block> . Use `--help` for more information.
+=== reject/def/missing-name.nu
+shape shape_garbage 0..9 "def [] {}"
+error : no space between name and parameters
+  label 3..3 "": expected space
+  help: consider adding a space between the `def` command's name and its parameters
+=== reject/def/missing-signature.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_garbage 8..11 "{ }"
+error nu::parser::parse_mismatch: Parse mismatch: expected [ or (.
+  label 8..9 "{": expected [ or (
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+error nu::parser::missing_positional: Missing required positional argument.
+  label 11..11 "": missing block
+  help: Usage: def {flags} <def_name> <params> <block> . Use `--help` for more information.
+=== reject/def/name-is-byte-size.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..6 "1k"
+shape shape_signature 7..9 "[]"
+shape shape_closure 10..12 "{}"
+error nu::parser::variable_not_valid: Command name not supported.
+  label 4..6 "1k": command name can't be a number, a filesize, or contain #, ^, or %
+error nu::parser::unknown_state: Internal error.
+  label 4..6 "1k": Predeclaration failed to add declaration
+=== reject/def/name-is-filesize.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "1kb"
+shape shape_signature 8..10 "[]"
+shape shape_closure 11..13 "{}"
+error nu::parser::variable_not_valid: Command name not supported.
+  label 4..7 "1kb": command name can't be a number, a filesize, or contain #, ^, or %
+error nu::parser::unknown_state: Internal error.
+  label 4..7 "1kb": Predeclaration failed to add declaration
+=== reject/def/name-is-interpolation.nu
+shape shape_garbage 0..16 "def $\"foo\" [] {}"
+error nu::parser::unknown_state: Unknown state.
+  label 4..10 "$\"foo\"": Could not get string from string expression
+ir #0
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== reject/def/name-is-list.nu
+shape shape_garbage 0..15 "def [foo] [] {}"
+error : no space between name and parameters
+  label 3..3 "": expected space
+  help: consider adding a space between the `def` command's name and its parameters
+=== reject/def/name-is-multiword-keyword.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..16 "\"export def\""
+shape shape_signature 17..19 "[]"
+shape shape_closure 20..22 "{}"
+error nu::parser::name_is_keyword: Can't use parser keyword `export def` as command name.
+  label 4..16 "\"export def\"": 'export def' is a parser keyword
+  help: Parser keywords cannot be shadowed (including via module exports and `use *`). Choose a different command name so language constructs keep working.
+error nu::parser::name_is_keyword: Can't use parser keyword `export def` as command name.
+  label 4..16 "\"export def\"": 'export def' is a parser keyword
+  help: Parser keywords cannot be shadowed (including via module exports and `use *`). Choose a different command name so language constructs keep working.
+=== reject/def/name-is-number.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..6 "42"
+shape shape_signature 7..9 "[]"
+shape shape_closure 10..12 "{}"
+error nu::parser::variable_not_valid: Command name not supported.
+  label 4..6 "42": command name can't be a number, a filesize, or contain #, ^, or %
+error nu::parser::unknown_state: Internal error.
+  label 4..6 "42": Predeclaration failed to add declaration
+=== reject/def/name-is-overlay-use.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..17 "\"overlay use\""
+shape shape_signature 18..20 "[]"
+shape shape_closure 21..23 "{}"
+error nu::parser::name_is_keyword: Can't use parser keyword `overlay use` as command name.
+  label 4..17 "\"overlay use\"": 'overlay use' is a parser keyword
+  help: Parser keywords cannot be shadowed (including via module exports and `use *`). Choose a different command name so language constructs keep working.
+error nu::parser::name_is_keyword: Can't use parser keyword `overlay use` as command name.
+  label 4..17 "\"overlay use\"": 'overlay use' is a parser keyword
+  help: Parser keywords cannot be shadowed (including via module exports and `use *`). Choose a different command name so language constructs keep working.
+=== reject/def/name-is-subexpression.nu
+shape shape_garbage 0..15 "def (foo) [] {}"
+error : no space between name and parameters
+  label 3..3 "": expected space
+  help: consider adding a space between the `def` command's name and its parameters
+=== reject/def/name-is-variable.nu
+shape shape_garbage 0..12 "def $x [] {}"
+error nu::parser::variable_not_found: Variable not found.
+  label 4..6 "$x": variable not found. 
+error nu::parser::unknown_state: Unknown state.
+  label 4..6 "$x": Could not get string from string expression
+=== reject/def/name-with-caret.nu
+shape shape_internalcall 0..3 "def"
+shape shape_flag 4..9 "--env"
+shape shape_string 10..19 "\"set u^p\""
+shape shape_signature 20..22 "[]"
+shape shape_closure 23..25 "{}"
+error nu::parser::variable_not_valid: Command name not supported.
+  label 10..19 "\"set u^p\"": command name can't be a number, a filesize, or contain #, ^, or %
+error nu::parser::unknown_state: Internal error.
+  label 10..19 "\"set u^p\"": Predeclaration failed to add declaration
+=== reject/def/name-with-hash.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..9 "\"a#b\""
+shape shape_signature 10..12 "[]"
+shape shape_closure 13..15 "{}"
+error nu::parser::variable_not_valid: Command name not supported.
+  label 4..9 "\"a#b\"": command name can't be a number, a filesize, or contain #, ^, or %
+error nu::parser::unknown_state: Internal error.
+  label 4..9 "\"a#b\"": Predeclaration failed to add declaration
+=== reject/def/name-with-percent.nu
+shape shape_internalcall 0..6 "extern"
+shape shape_string 7..12 "\"a%b\""
+shape shape_signature 13..15 "[]"
+error nu::parser::variable_not_valid: Command name not supported.
+  label 7..12 "\"a%b\"": command name can't be a number, a filesize, or contain #, ^, or %
+error nu::parser::unknown_state: Internal error.
+  label 7..12 "\"a%b\"": Predeclaration failed to add declaration
+=== reject/def/no-space-before-body.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..12 "[]{}"
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 8..9 "[": unclosed — opens here (need `] or )`)
+  label 12..12 "": expected `] or )` here
+  help: Add a matching `] or )` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::parse_mismatch: Parse mismatch: expected valid variable name for this parameter.
+  label 9..12 "]{}": expected valid variable name for this parameter
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+error nu::parser::missing_positional: Missing required positional argument.
+  label 12..12 "": missing block
+  help: Usage: def {flags} <def_name> <params> <block> . Use `--help` for more information.
+=== reject/def/optional-param-with-dot.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..5 "f"
+shape shape_signature 6..12 "[a.b?]"
+shape shape_closure 13..15 "{}"
+error nu::parser::parse_mismatch: Parse mismatch: expected valid variable name for this optional parameter.
+  label 7..11 "a.b?": expected valid variable name for this optional parameter
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/def/param-trailing-equals.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..5 "f"
+shape shape_signature 6..10 "[x=]"
+shape shape_closure 11..13 "{}"
+error nu::parser::parse_mismatch: Parse mismatch: expected default value.
+  label 9..9 "": expected default value
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/def/param-with-dot.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..5 "f"
+shape shape_signature 6..11 "[a.b]"
+shape shape_closure 12..14 "{}"
+error nu::parser::parse_mismatch: Parse mismatch: expected valid variable name for this parameter.
+  label 7..10 "a.b": expected valid variable name for this parameter
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/def/quoted-name-with-paren.nu
+shape shape_garbage 0..15 "def \"a(b\" [] {}"
+error : no space between name and parameters
+  label 5..5 "": expected space
+  help: consider adding a space between the `def` command's name and its parameters
+=== reject/def/redirect-after-def.nu
+shape shape_garbage 0..12 "def f [] { }"
+error : Redirection can not be used with def.
+  label 13..15 "o>": not allowed here
+=== reject/def/rest-param-with-dot.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..5 "f"
+shape shape_signature 6..14 "[...a.b]"
+shape shape_closure 15..17 "{}"
+error nu::parser::parse_mismatch: Parse mismatch: expected valid variable name for this rest parameter.
+  label 7..13 "...a.b": expected valid variable name for this rest parameter
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/def/short-alias-multi-char.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..5 "f"
+shape shape_signature 6..16 "[--a(-ab)]"
+shape shape_closure 17..19 "{}"
+error nu::parser::parse_mismatch: Parse mismatch: expected short flag.
+  label 7..15 "--a(-ab)": expected short flag
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/def/short-alias-twice.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..5 "f"
+shape shape_signature 6..20 "[--a(-a) (-b)]"
+shape shape_closure 21..23 "{}"
+error nu::parser::parse_mismatch: Parse mismatch: expected one short flag.
+  label 15..19 "(-b)": expected one short flag
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/def/short-alias-unclosed.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..5 "f"
+shape shape_signature 6..14 "[--a(-a]"
+shape shape_closure 15..17 "{}"
+error nu::parser::unbalanced_delimiter: Unbalanced delimiter.
+  label 13..14 "]": unexpected `]` (unbalanced with `(`)
+  help: Remove this `]` if it is extra, or add a matching `(` earlier. If you closed a block too early, the real mistake may be above.
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 10..11 "(": unclosed — opens here (need `)`)
+  label 12..13 "a": expected `)` here
+  help: Add a matching `)` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::parse_mismatch: Parse mismatch: expected short flag alternative for the long flag.
+  label 7..13 "--a(-a": expected short flag alternative for the long flag
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+error nu::parser::parse_mismatch: Parse mismatch: expected short flag.
+  label 7..13 "--a(-a": expected short flag
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/def/short-alias-without-long.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..5 "f"
+shape shape_signature 6..12 "[(-a)]"
+shape shape_closure 13..15 "{}"
+error nu::parser::parse_mismatch: Parse mismatch: expected unknown flag.
+  label 7..11 "(-a)": expected unknown flag
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/def/short-flag-multi-char.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..5 "f"
+shape shape_signature 6..11 "[-ab]"
+shape shape_closure 12..14 "{}"
+error nu::parser::parse_mismatch: Parse mismatch: expected short flag.
+  label 7..10 "-ab": expected short flag
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/def/signature-is-word.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_garbage 8..11 "bar"
+shape shape_closure 12..15 "{ }"
+error nu::parser::parse_mismatch: Parse mismatch: expected [ or (.
+  label 8..9 "b": expected [ or (
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/def/spread-as-name.nu
+shape shape_internalcall 0..3 "def"
+shape shape_operator 4..7 "..."
+shape shape_record 7..8 "{"
+shape shape_string 8..9 "x"
+shape shape_record 9..11 ": "
+shape shape_int 11..12 "1"
+shape shape_record 12..13 "}"
+shape shape_string 14..16 "[]"
+shape shape_garbage 17..19 "{}"
+error nu::parser::parse_mismatch: Parse mismatch: expected [ or (.
+  label 17..18 "{": expected [ or (
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+error nu::parser::missing_positional: Missing required positional argument.
+  label 19..19 "": missing block
+  help: Usage: def {flags} <def_name> <params> <block> . Use `--help` for more information.
+=== reject/def/type-missing-last.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..20 "[x: int, y:]"
+shape shape_closure 21..24 "{ }"
+error nu::parser::parse_mismatch: Parse mismatch: expected type.
+  label 19..19 "": expected type
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/def/type-missing.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..12 "[x:]"
+shape shape_closure 13..16 "{ }"
+error nu::parser::parse_mismatch: Parse mismatch: expected type.
+  label 11..11 "": expected type
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/def/unknown-def-flag.nu
+shape shape_internalcall 0..3 "def"
+shape shape_flag 4..9 "--foo"
+shape shape_string 10..11 "x"
+shape shape_signature 12..14 "[]"
+shape shape_closure 15..18 "{ }"
+error nu::parser::unknown_flag: The `def` command doesn't have flag `foo`.
+  label 4..9 "--foo": unknown flag
+  help: Use `--help` to see available flags
+=== reject/def/unknown-type.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..20 "[x: unknown]"
+shape shape_closure 21..24 "{ }"
+error nu::parser::unknown_type: Unknown type.
+  label 12..19 "unknown": unknown type
+=== reject/def/word-between-signature-and-body.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..7 "foo"
+shape shape_signature 8..14 "[] int"
+shape shape_closure 15..17 "{}"
+error nu::parser::parse_mismatch: Parse mismatch: expected colon (:) before type signature.
+  label 11..14 "int": expected colon (:) before type signature
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+error nu::parser::parse_mismatch: Parse mismatch: expected arrow (->).
+  label 14..14 "": expected arrow (->)
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/def/wrapped-rest-any.nu
+shape shape_internalcall 0..3 "def"
+shape shape_flag 4..13 "--wrapped"
+shape shape_string 14..17 "foo"
+shape shape_signature 18..32 "[...rest: any]"
+shape shape_closure 33..35 "{}"
+error nu::parser::type_mismatch_help: Type mismatch.
+  label 19..26 "...rest": expected list<string>, found list<any>
+  help: ...rest-like positional argument used in 'def --wrapped' supports only strings. Change the type annotation of ...rest to 'string'.
+ir #0
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== reject/def/wrapped-rest-int.nu
+shape shape_internalcall 0..3 "def"
+shape shape_flag 4..13 "--wrapped"
+shape shape_string 14..17 "foo"
+shape shape_signature 18..32 "[...rest: int]"
+shape shape_closure 33..35 "{}"
+error nu::parser::type_mismatch_help: Type mismatch.
+  label 19..26 "...rest": expected list<string>, found list<int>
+  help: ...rest-like positional argument used in 'def --wrapped' supports only strings. Change the type annotation of ...rest to 'string'.
+ir #0
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== reject/def/wrapped-shadowed-by-plain-def.nu
+shape shape_internalcall 76..79 "def"
+shape shape_flag 80..89 "--wrapped"
+shape shape_string 90..91 "f"
+shape shape_signature 92..101 "[...rest]"
+shape shape_closure 102..104 "{}"
+shape shape_internalcall 105..107 "do"
+shape shape_closure 108..110 "{ "
+shape shape_internalcall 110..113 "def"
+shape shape_string 114..115 "f"
+shape shape_signature 116..125 "[...rest]"
+shape shape_closure 126..128 "{}"
+shape shape_internalcall 130..131 "f"
+shape shape_garbage 132..136 "'x'$"
+shape shape_closure 136..138 " }"
+error nu::parser::extra_token_after_closing_delimiter: Invalid characters after closing delimiter
+  label 135..136 "$": invalid characters
+  help: Remove these characters, or check that a delimiter closed too early above.
+ir #0
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+ir #1
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== reject/def/wrapped-typed-dollar-rest-takes-values.nu
+shape shape_internalcall 76..79 "def"
+shape shape_flag 80..89 "--wrapped"
+shape shape_string 90..91 "f"
+shape shape_signature 92..110 "[...$rest: string]"
+shape shape_closure 111..113 "{}"
+shape shape_internalcall 114..115 "f"
+shape shape_garbage 116..120 "'x'$"
+error nu::parser::extra_token_after_closing_delimiter: Invalid characters after closing delimiter
+  label 119..120 "$": invalid characters
+  help: Remove these characters, or check that a delimiter closed too early above.
+ir #0
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== reject/def/wrapped-typed-rest-takes-values.nu
+shape shape_internalcall 83..86 "def"
+shape shape_flag 87..96 "--wrapped"
+shape shape_string 97..98 "f"
+shape shape_signature 99..116 "[...rest: string]"
+shape shape_closure 117..119 "{}"
+shape shape_internalcall 120..121 "f"
+shape shape_garbage 122..126 "'x'$"
+error nu::parser::extra_token_after_closing_delimiter: Invalid characters after closing delimiter
+  label 125..126 "$": invalid characters
+  help: Remove these characters, or check that a delimiter closed too early above.
+ir #0
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== reject/def/wrapped-without-rest.nu
+shape shape_internalcall 0..3 "def"
+shape shape_flag 4..13 "--wrapped"
+shape shape_string 14..17 "foo"
+shape shape_signature 18..20 "[]"
+shape shape_closure 21..23 "{}"
+error nu::parser::missing_positional: Missing required positional argument.
+  label 14..17 "foo": missing ...rest-like positional argument
+  help: Usage: def --wrapped must have a ...rest-like positional argument. Add '...rest: string' to the command's signature.. Use `--help` for more information.
+ir #0
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0

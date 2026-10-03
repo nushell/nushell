@@ -1,0 +1,881 @@
+=== accept/externals/arg-bare-and-quoted.nu
+shape shape_external 1..4 "foo"
+shape shape_externalarg 5..22 "foo-external-call"
+shape shape_externalarg 23..40 "foo/external-call"
+shape shape_externalarg 41..58 "foo\\external-call"
+shape shape_externalarg 59..78 "`foo external call`"
+shape shape_externalarg 79..98 "'foo external call'"
+shape shape_externalarg 99..118 "\"foo external call\""
+shape shape_externalarg 119..139 "\"foo\\\\external call\""
+shape shape_externalarg 140..147 "'{a:1}'"
+shape shape_raw_string 148..156 "r#'raw'#"
+ir main
+  # 11 registers, 24 instructions, 130 bytes of data
+     0: load-literal           %1, glob-pattern("foo", no_expand = false)
+     1: load-literal           %2, glob-pattern("foo-external-call", no_expand = false)
+     2: load-literal           %3, glob-pattern("foo/external-call", no_expand = false)
+     3: load-literal           %4, glob-pattern("foo\\external-call", no_expand = false)
+     4: load-literal           %5, glob-pattern("foo external call", no_expand = false)
+     5: load-literal           %6, string("foo external call")
+     6: load-literal           %7, string("foo external call")
+     7: load-literal           %8, string("foo\\external call")
+     8: load-literal           %9, string("{a:1}")
+     9: load-literal           %10, raw-string("raw")
+    10: push-positional        %1
+    11: push-positional        %2
+    12: push-positional        %3
+    13: push-positional        %4
+    14: push-positional        %5
+    15: push-positional        %6
+    16: push-positional        %7
+    17: push-positional        %8
+    18: push-positional        %9
+    19: push-positional        %10
+    20: redirect-out           caller
+    21: redirect-err           caller
+    22: call                   decl "run-external", %0
+    23: return                 %0
+=== accept/externals/arg-closure.nu
+shape shape_external 1..4 "foo"
+shape shape_closure 5..15 "{|my_var| "
+shape shape_string_interpolation 15..17 "$\""
+shape shape_block 17..18 "("
+shape shape_variable 18..25 "$my_var"
+shape shape_block 25..26 ")"
+shape shape_string_interpolation 26..27 "\""
+shape shape_closure 27..29 " }"
+shape shape_closure 30..41 "{ |my_var| "
+shape shape_string_interpolation 41..43 "$\""
+shape shape_block 43..44 "("
+shape shape_variable 44..51 "$my_var"
+shape shape_block 51..52 ")"
+shape shape_string_interpolation 52..53 "\""
+shape shape_closure 53..55 " }"
+shape shape_closure 56..58 "{ "
+shape shape_int 58..60 "42"
+shape shape_closure 60..62 " }"
+ir main
+  # 5 registers, 12 instructions, 3 bytes of data
+     0: load-literal           %1, glob-pattern("foo", no_expand = false)
+     1: load-literal           %2, closure(#1)
+     2: load-literal           %3, closure(#3)
+     3: load-literal           %4, closure(#4)
+     4: push-positional        %1
+     5: push-positional        %2
+     6: push-positional        %3
+     7: push-positional        %4
+     8: redirect-out           caller
+     9: redirect-err           caller
+    10: call                   decl "run-external", %0
+    11: return                 %0
+ir #1
+  # 2 registers, 4 instructions, 0 bytes of data
+     0: load-literal           %0, string("")
+     1: load-variable          %1, var #0
+     2: string-append          %0, %1
+     3: return                 %0
+ir #3
+  # 2 registers, 4 instructions, 0 bytes of data
+     0: load-literal           %0, string("")
+     1: load-variable          %1, var #1
+     2: string-append          %0, %1
+     3: return                 %0
+ir #4
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, int(42)
+     1: return                 %0
+=== accept/externals/arg-flags-with-quotes.nu
+shape shape_external 1..4 "foo"
+shape shape_externalarg 5..19 "--flag=\"value\""
+shape shape_externalarg 20..34 "--flag='value'"
+shape shape_externalarg 35..48 "`hello world`"
+shape shape_externalarg 49..64 "`\"hello world\"`"
+shape shape_externalarg 65..80 "`'hello world'`"
+ir main
+  # 7 registers, 16 instructions, 64 bytes of data
+     0: load-literal           %1, glob-pattern("foo", no_expand = false)
+     1: load-literal           %2, glob-pattern("--flag=value", no_expand = false)
+     2: load-literal           %3, glob-pattern("--flag=value", no_expand = false)
+     3: load-literal           %4, glob-pattern("hello world", no_expand = false)
+     4: load-literal           %5, glob-pattern("\"hello world\"", no_expand = false)
+     5: load-literal           %6, glob-pattern("'hello world'", no_expand = false)
+     6: push-positional        %1
+     7: push-positional        %2
+     8: push-positional        %3
+     9: push-positional        %4
+    10: push-positional        %5
+    11: push-positional        %6
+    12: redirect-out           caller
+    13: redirect-err           caller
+    14: call                   decl "run-external", %0
+    15: return                 %0
+=== accept/externals/arg-interpolated.nu
+shape shape_external 1..4 "foo"
+shape shape_string 5..12 "~/.foo/"
+shape shape_block 12..13 "("
+shape shape_int 13..14 "1"
+shape shape_block 14..15 ")"
+shape shape_string_interpolation 16..18 "$\""
+shape shape_string 18..25 "~/.foo/"
+shape shape_block 25..26 "("
+shape shape_int 26..27 "1"
+shape shape_block 27..28 ")"
+shape shape_string_interpolation 28..29 "\""
+shape shape_block 30..31 "("
+shape shape_variable 31..34 "$nu"
+shape shape_string 35..44 "home-path"
+shape shape_block 44..45 ")"
+shape shape_string 45..50 "/path"
+ir main
+  # 7 registers, 23 instructions, 22 bytes of data
+     0: load-literal           %1, glob-pattern("foo", no_expand = false)
+     1: load-literal           %2, string("~/.foo/")
+     2: load-literal           %3, int(1)
+     3: string-append          %2, %3
+     4: glob-from              %2, expand
+     5: load-literal           %3, string("~/.foo/")
+     6: load-literal           %4, int(1)
+     7: string-append          %3, %4
+     8: load-literal           %4, string("")
+     9: load-variable          %5, var 0
+    10: load-literal           %6, cell-path($.home-path)
+    11: follow-cell-path       %5, %6
+    12: string-append          %4, %5
+    13: load-literal           %5, string("/path")
+    14: string-append          %4, %5
+    15: push-positional        %1
+    16: push-positional        %2
+    17: push-positional        %3
+    18: push-positional        %4
+    19: redirect-out           caller
+    20: redirect-err           caller
+    21: call                   decl "run-external", %0
+    22: return                 %0
+=== accept/externals/arg-list-and-variable.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..8 "file"
+shape shape_string 11..14 "'x'"
+shape shape_external 16..19 "foo"
+shape shape_list 20..21 "["
+shape shape_string 21..22 "a"
+shape shape_list 22..23 " "
+shape shape_string 23..24 "b"
+shape shape_list 24..25 "]"
+shape shape_variable 26..31 "$file"
+shape shape_variable 32..36 "$env"
+shape shape_string 37..40 "PWD"
+ir main
+  # 5 registers, 22 instructions, 9 bytes of data
+     0: load-literal           %0, string("x")
+     1: store-variable         var #0 "$file", %0 # let
+     2: load-literal           %0, empty
+     3: drain                  %0
+     4: load-literal           %0, empty
+     5: load-literal           %0, empty
+     6: load-literal           %1, glob-pattern("foo", no_expand = false)
+     7: load-literal           %2, list(capacity = 2)
+     8: load-literal           %3, string("a")
+     9: list-push              %2, %3
+    10: load-literal           %3, string("b")
+    11: list-push              %2, %3
+    12: load-variable          %3, var #0 "$file"
+    13: load-env               %4, "PWD"
+    14: push-positional        %1
+    15: push-positional        %2
+    16: push-positional        %3
+    17: push-positional        %4
+    18: redirect-out           caller
+    19: redirect-err           caller
+    20: call                   decl "run-external", %0
+    21: return                 %0
+=== accept/externals/arg-numbers-and-words.nu
+shape shape_external 1..4 "foo"
+shape shape_externalarg 5..6 "1"
+shape shape_externalarg 7..10 "1.5"
+shape shape_externalarg 11..15 "true"
+shape shape_externalarg 16..20 "null"
+shape shape_externalarg 21..24 "1kb"
+shape shape_externalarg 25..27 "-1"
+shape shape_externalarg 28..33 "--x=1"
+shape shape_externalarg 34..37 "a=b"
+ir main
+  # 10 registers, 22 instructions, 28 bytes of data
+     0: load-literal           %1, glob-pattern("foo", no_expand = false)
+     1: load-literal           %2, glob-pattern("1", no_expand = false)
+     2: load-literal           %3, glob-pattern("1.5", no_expand = false)
+     3: load-literal           %4, glob-pattern("true", no_expand = false)
+     4: load-literal           %5, glob-pattern("null", no_expand = false)
+     5: load-literal           %6, glob-pattern("1kb", no_expand = false)
+     6: load-literal           %7, glob-pattern("-1", no_expand = false)
+     7: load-literal           %8, glob-pattern("--x=1", no_expand = false)
+     8: load-literal           %9, glob-pattern("a=b", no_expand = false)
+     9: push-positional        %1
+    10: push-positional        %2
+    11: push-positional        %3
+    12: push-positional        %4
+    13: push-positional        %5
+    14: push-positional        %6
+    15: push-positional        %7
+    16: push-positional        %8
+    17: push-positional        %9
+    18: redirect-out           caller
+    19: redirect-err           caller
+    20: call                   decl "run-external", %0
+    21: return                 %0
+=== accept/externals/arg-query-with-parens.nu
+shape shape_external 1..3 "gh"
+shape shape_externalarg 4..7 "api"
+shape shape_externalarg 8..10 "-f"
+shape shape_externalarg 11..30 "query='q($x) { y }'"
+ir main
+  # 5 registers, 12 instructions, 24 bytes of data
+     0: load-literal           %1, glob-pattern("gh", no_expand = false)
+     1: load-literal           %2, glob-pattern("api", no_expand = false)
+     2: load-literal           %3, glob-pattern("-f", no_expand = false)
+     3: load-literal           %4, glob-pattern("query=q($x) { y }", no_expand = false)
+     4: push-positional        %1
+     5: push-positional        %2
+     6: push-positional        %3
+     7: push-positional        %4
+     8: redirect-out           caller
+     9: redirect-err           caller
+    10: call                   decl "run-external", %0
+    11: return                 %0
+=== accept/externals/arg-record.nu
+shape shape_external 1..4 "foo"
+shape shape_record 5..6 "{"
+shape shape_string 6..7 "a"
+shape shape_record 7..9 ": "
+shape shape_int 9..10 "1"
+shape shape_record 10..11 "}"
+shape shape_record 12..14 "{}"
+shape shape_record 15..16 "{"
+shape shape_string 16..17 "a"
+shape shape_record 17..18 ":"
+shape shape_int 18..19 "1"
+shape shape_record 19..20 ","
+shape shape_string 20..21 "b"
+shape shape_record 21..22 ":"
+shape shape_string 22..25 "'c'"
+shape shape_record 25..26 ","
+shape shape_string 26..27 "c"
+shape shape_record 27..28 ":"
+shape shape_string 28..31 "\"d\""
+shape shape_record 31..32 "}"
+shape shape_record 33..34 "{"
+shape shape_string 34..35 "a"
+shape shape_record 35..37 ": "
+shape shape_int 37..38 "1"
+shape shape_record 38..40 ", "
+shape shape_string 40..41 "b"
+shape shape_record 41..43 ": "
+shape shape_string 43..46 "'c'"
+shape shape_record 46..48 ", "
+shape shape_string 48..49 "c"
+shape shape_record 49..51 ": "
+shape shape_string 51..54 "\"d\""
+shape shape_record 54..55 "}"
+shape shape_record 56..57 "{"
+shape shape_string 57..74 "\"key with spaces\""
+shape shape_record 74..76 ": "
+shape shape_string 76..83 "\"value\""
+shape shape_record 83..84 "}"
+shape shape_record 85..86 "{"
+shape shape_string 86..91 "outer"
+shape shape_record 91..93 ": "
+shape shape_record 93..94 "{"
+shape shape_string 94..99 "inner"
+shape shape_record 99..101 ": "
+shape shape_string 101..108 "\"value\""
+shape shape_record 108..109 "}"
+shape shape_record 109..110 "}"
+shape shape_record 111..112 "{"
+shape shape_string 112..117 "items"
+shape shape_record 117..119 ": "
+shape shape_list 119..120 "["
+shape shape_int 120..121 "1"
+shape shape_list 121..122 " "
+shape shape_string 122..127 "\"two\""
+shape shape_list 127..128 " "
+shape shape_bool 128..132 "true"
+shape shape_list 132..133 "]"
+shape shape_record 133..134 "}"
+ir main
+  # 12 registers, 59 instructions, 57 bytes of data
+     0: load-literal           %1, glob-pattern("foo", no_expand = false)
+     1: load-literal           %2, record(capacity = 1)
+     2: load-literal           %3, string("a")
+     3: load-literal           %4, int(1)
+     4: record-insert          %2, %3, %4
+     5: load-literal           %3, record(capacity = 0)
+     6: load-literal           %4, record(capacity = 3)
+     7: load-literal           %5, string("a")
+     8: load-literal           %6, int(1)
+     9: record-insert          %4, %5, %6
+    10: load-literal           %5, string("b")
+    11: load-literal           %6, string("c")
+    12: record-insert          %4, %5, %6
+    13: load-literal           %5, string("c")
+    14: load-literal           %6, string("d")
+    15: record-insert          %4, %5, %6
+    16: load-literal           %5, record(capacity = 3)
+    17: load-literal           %6, string("a")
+    18: load-literal           %7, int(1)
+    19: record-insert          %5, %6, %7
+    20: load-literal           %6, string("b")
+    21: load-literal           %7, string("c")
+    22: record-insert          %5, %6, %7
+    23: load-literal           %6, string("c")
+    24: load-literal           %7, string("d")
+    25: record-insert          %5, %6, %7
+    26: load-literal           %6, record(capacity = 1)
+    27: load-literal           %7, string("key with spaces")
+    28: load-literal           %8, string("value")
+    29: record-insert          %6, %7, %8
+    30: load-literal           %7, record(capacity = 1)
+    31: load-literal           %8, string("outer")
+    32: load-literal           %9, record(capacity = 1)
+    33: load-literal           %10, string("inner")
+    34: load-literal           %11, string("value")
+    35: record-insert          %9, %10, %11
+    36: record-insert          %7, %8, %9
+    37: load-literal           %8, record(capacity = 1)
+    38: load-literal           %9, string("items")
+    39: load-literal           %10, list(capacity = 3)
+    40: load-literal           %11, int(1)
+    41: list-push              %10, %11
+    42: load-literal           %11, string("two")
+    43: list-push              %10, %11
+    44: load-literal           %11, bool(true)
+    45: list-push              %10, %11
+    46: record-insert          %8, %9, %10
+    47: push-positional        %1
+    48: push-positional        %2
+    49: push-positional        %3
+    50: push-positional        %4
+    51: push-positional        %5
+    52: push-positional        %6
+    53: push-positional        %7
+    54: push-positional        %8
+    55: redirect-out           caller
+    56: redirect-err           caller
+    57: call                   decl "run-external", %0
+    58: return                 %0
+=== accept/externals/arg-spread.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..8 "rest"
+shape shape_list 11..12 "["
+shape shape_string 12..13 "a"
+shape shape_list 13..14 " "
+shape shape_string 14..15 "b"
+shape shape_list 15..16 "]"
+shape shape_external 18..21 "foo"
+shape shape_operator 22..25 "..."
+shape shape_list 25..26 "["
+shape shape_string 26..27 "a"
+shape shape_list 27..28 " "
+shape shape_string 28..29 "b"
+shape shape_list 29..30 " "
+shape shape_string 30..31 "c"
+shape shape_list 31..32 "]"
+shape shape_operator 33..36 "..."
+shape shape_variable 36..41 "$rest"
+shape shape_operator 42..45 "..."
+shape shape_block 45..46 "("
+shape shape_internalcall 46..48 "ls"
+shape shape_pipe 49..50 "|"
+shape shape_internalcall 51..54 "get"
+shape shape_string 55..59 "name"
+shape shape_block 59..60 ")"
+ir main
+  # 6 registers, 34 instructions, 8 bytes of data
+     0: load-literal           %0, list(capacity = 2)
+     1: load-literal           %1, string("a")
+     2: list-push              %0, %1
+     3: load-literal           %1, string("b")
+     4: list-push              %0, %1
+     5: store-variable         var #0 "$rest", %0 # let
+     6: load-literal           %0, empty
+     7: drain                  %0
+     8: load-literal           %0, empty
+     9: load-literal           %0, empty
+    10: load-literal           %1, glob-pattern("foo", no_expand = false)
+    11: load-literal           %2, list(capacity = 3)
+    12: load-literal           %3, string("a")
+    13: list-push              %2, %3
+    14: load-literal           %3, string("b")
+    15: list-push              %2, %3
+    16: load-literal           %3, string("c")
+    17: list-push              %2, %3
+    18: load-variable          %3, var #0 "$rest"
+    19: load-literal           %4, empty
+    20: redirect-out           pipe
+    21: call                   decl "ls", %4
+    22: load-literal           %5, cell-path($.name)
+    23: push-positional        %5
+    24: redirect-out           value
+    25: call                   decl "get", %4
+    26: push-positional        %1
+    27: append-rest            %2
+    28: append-rest            %3
+    29: append-rest            %4
+    30: redirect-out           caller
+    31: redirect-err           caller
+    32: call                   decl "run-external", %0
+    33: return                 %0
+=== accept/externals/arg-subexpressions-in-word.nu
+shape shape_external 1..5 "echo"
+shape shape_string 6..9 "foo"
+shape shape_block 9..11 "( "
+shape shape_block 11..12 "("
+shape shape_string 12..17 "'bar'"
+shape shape_block 17..18 ")"
+shape shape_pipe 19..20 "|"
+shape shape_variable 21..24 "$in"
+shape shape_operator 25..27 "++"
+shape shape_string 28..33 "'baz'"
+shape shape_block 33..35 " )"
+shape shape_string 36..39 "foo"
+shape shape_block 39..41 "( "
+shape shape_string 41..46 "'bar'"
+shape shape_block 46..48 " )"
+shape shape_block 48..49 "("
+shape shape_string 49..54 "'baz'"
+shape shape_block 54..55 ")"
+shape shape_externalarg 56..67 "\")('foo')(\""
+ir main
+  # 6 registers, 28 instructions, 31 bytes of data
+     0: load-literal           %1, glob-pattern("echo", no_expand = false)
+     1: load-literal           %2, string("foo")
+     2: load-literal           %3, string("bar")
+     3: collect                %3
+     4: clone                  %4, %3
+     5: store-variable         var #0, %4
+     6: load-variable          %3, var #0
+     7: load-literal           %5, string("baz")
+     8: binary-op              %3, Math(Concatenate), %5
+     9: span                   %3
+    10: drop-variable          var #0
+    11: string-append          %2, %3
+    12: glob-from              %2, expand
+    13: load-literal           %3, string("foo")
+    14: load-literal           %5, string("bar")
+    15: string-append          %3, %5
+    16: load-literal           %5, string("baz")
+    17: string-append          %3, %5
+    18: glob-from              %3, expand
+    19: load-literal           %5, string(")('foo')(")
+    20: push-positional        %1
+    21: push-positional        %2
+    22: push-positional        %3
+    23: push-positional        %5
+    24: redirect-out           caller
+    25: redirect-err           caller
+    26: call                   decl "run-external", %0
+    27: return                 %0
+=== accept/externals/caret-alone.nu
+shape shape_external 1..1 ""
+ir main
+  # 2 registers, 6 instructions, 0 bytes of data
+     0: load-literal           %1, glob-pattern("", no_expand = false)
+     1: push-positional        %1
+     2: redirect-out           caller
+     3: redirect-err           caller
+     4: call                   decl "run-external", %0
+     5: return                 %0
+=== accept/externals/caret-args.nu
+shape shape_external 1..4 "git"
+shape shape_externalarg 5..11 "commit"
+shape shape_externalarg 12..14 "-m"
+shape shape_externalarg 15..20 "'msg'"
+shape shape_externalarg 21..26 "--all"
+shape shape_externalarg 27..30 "-am"
+shape shape_externalarg 31..34 "\"x\""
+ir main
+  # 8 registers, 18 instructions, 23 bytes of data
+     0: load-literal           %1, glob-pattern("git", no_expand = false)
+     1: load-literal           %2, glob-pattern("commit", no_expand = false)
+     2: load-literal           %3, glob-pattern("-m", no_expand = false)
+     3: load-literal           %4, string("msg")
+     4: load-literal           %5, glob-pattern("--all", no_expand = false)
+     5: load-literal           %6, glob-pattern("-am", no_expand = false)
+     6: load-literal           %7, string("x")
+     7: push-positional        %1
+     8: push-positional        %2
+     9: push-positional        %3
+    10: push-positional        %4
+    11: push-positional        %5
+    12: push-positional        %6
+    13: push-positional        %7
+    14: redirect-out           caller
+    15: redirect-err           caller
+    16: call                   decl "run-external", %0
+    17: return                 %0
+=== accept/externals/caret-simple.nu
+shape shape_external 1..3 "ls"
+ir main
+  # 2 registers, 6 instructions, 2 bytes of data
+     0: load-literal           %1, glob-pattern("ls", no_expand = false)
+     1: push-positional        %1
+     2: redirect-out           caller
+     3: redirect-err           caller
+     4: call                   decl "run-external", %0
+     5: return                 %0
+=== accept/externals/head-forms.nu
+shape shape_external 1..18 "foo-external-call"
+shape shape_external 20..37 "foo/external-call"
+shape shape_external 39..56 "foo\\external-call"
+shape shape_external 58..77 "`foo external call`"
+shape shape_external 79..98 "`foo/external call`"
+shape shape_external 100..119 "'foo external call'"
+shape shape_external 121..140 "\"foo external call\""
+shape shape_external 142..162 "\"foo\\\\external call\""
+shape shape_raw_string 164..186 "r#'foo-external-call'#"
+ir main
+  # 2 registers, 54 instructions, 153 bytes of data
+     0: load-literal           %1, glob-pattern("foo-external-call", no_expand = false)
+     1: push-positional        %1
+     2: call                   decl "run-external", %0
+     3: drain                  %0
+     4: load-literal           %0, empty
+     5: load-literal           %0, empty
+     6: load-literal           %1, glob-pattern("foo/external-call", no_expand = false)
+     7: push-positional        %1
+     8: call                   decl "run-external", %0
+     9: drain                  %0
+    10: load-literal           %0, empty
+    11: load-literal           %0, empty
+    12: load-literal           %1, glob-pattern("foo\\external-call", no_expand = false)
+    13: push-positional        %1
+    14: call                   decl "run-external", %0
+    15: drain                  %0
+    16: load-literal           %0, empty
+    17: load-literal           %0, empty
+    18: load-literal           %1, glob-pattern("foo external call", no_expand = false)
+    19: push-positional        %1
+    20: call                   decl "run-external", %0
+    21: drain                  %0
+    22: load-literal           %0, empty
+    23: load-literal           %0, empty
+    24: load-literal           %1, glob-pattern("foo/external call", no_expand = false)
+    25: push-positional        %1
+    26: call                   decl "run-external", %0
+    27: drain                  %0
+    28: load-literal           %0, empty
+    29: load-literal           %0, empty
+    30: load-literal           %1, string("foo external call")
+    31: push-positional        %1
+    32: call                   decl "run-external", %0
+    33: drain                  %0
+    34: load-literal           %0, empty
+    35: load-literal           %0, empty
+    36: load-literal           %1, string("foo external call")
+    37: push-positional        %1
+    38: call                   decl "run-external", %0
+    39: drain                  %0
+    40: load-literal           %0, empty
+    41: load-literal           %0, empty
+    42: load-literal           %1, string("foo\\external call")
+    43: push-positional        %1
+    44: call                   decl "run-external", %0
+    45: drain                  %0
+    46: load-literal           %0, empty
+    47: load-literal           %0, empty
+    48: load-literal           %1, raw-string("foo-external-call")
+    49: push-positional        %1
+    50: redirect-out           caller
+    51: redirect-err           caller
+    52: call                   decl "run-external", %0
+    53: return                 %0
+=== accept/externals/head-interpolated.nu
+shape shape_string 1..8 "~/.foo/"
+shape shape_block 8..9 "("
+shape shape_int 9..10 "1"
+shape shape_block 10..11 ")"
+shape shape_string_interpolation 13..15 "$\""
+shape shape_string 15..22 "~/.foo/"
+shape shape_block 22..23 "("
+shape shape_int 23..24 "1"
+shape shape_block 24..25 ")"
+shape shape_string_interpolation 25..26 "\""
+shape shape_string 28..34 "~\\.foo"
+shape shape_block 34..35 "("
+shape shape_int 35..36 "2"
+shape shape_block 36..37 ")"
+shape shape_string 37..38 "\\"
+shape shape_block 38..39 "("
+shape shape_int 39..40 "1"
+shape shape_block 40..41 ")"
+ir main
+  # 3 registers, 30 instructions, 21 bytes of data
+     0: load-literal           %1, string("~/.foo/")
+     1: load-literal           %2, int(1)
+     2: string-append          %1, %2
+     3: glob-from              %1, expand
+     4: push-positional        %1
+     5: call                   decl "run-external", %0
+     6: drain                  %0
+     7: load-literal           %0, empty
+     8: load-literal           %0, empty
+     9: load-literal           %1, string("~/.foo/")
+    10: load-literal           %2, int(1)
+    11: string-append          %1, %2
+    12: push-positional        %1
+    13: call                   decl "run-external", %0
+    14: drain                  %0
+    15: load-literal           %0, empty
+    16: load-literal           %0, empty
+    17: load-literal           %1, string("~\\.foo")
+    18: load-literal           %2, int(2)
+    19: string-append          %1, %2
+    20: load-literal           %2, string("\\")
+    21: string-append          %1, %2
+    22: load-literal           %2, int(1)
+    23: string-append          %1, %2
+    24: glob-from              %1, expand
+    25: push-positional        %1
+    26: redirect-out           caller
+    27: redirect-err           caller
+    28: call                   decl "run-external", %0
+    29: return                 %0
+=== accept/externals/head-subexpression.nu
+shape shape_block 1..2 "("
+shape shape_internalcall 2..7 "which"
+shape shape_string 8..10 "ls"
+shape shape_pipe 11..12 "|"
+shape shape_internalcall 13..16 "get"
+shape shape_int 17..18 "0"
+shape shape_string 19..23 "path"
+shape shape_block 23..24 ")"
+shape shape_externalarg 25..27 "-l"
+ir main
+  # 3 registers, 16 instructions, 4 bytes of data
+     0: load-literal           %1, empty
+     1: load-literal           %2, string("ls")
+     2: push-positional        %2
+     3: redirect-out           pipe
+     4: call                   decl "which", %1
+     5: load-literal           %2, cell-path($.0.path)
+     6: push-positional        %2
+     7: redirect-out           value
+     8: call                   decl "get", %1
+     9: load-literal           %2, glob-pattern("-l", no_expand = false)
+    10: push-positional        %1
+    11: push-positional        %2
+    12: redirect-out           caller
+    13: redirect-err           caller
+    14: call                   decl "run-external", %0
+    15: return                 %0
+=== accept/externals/head-variable.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..7 "cmd"
+shape shape_string 10..14 "'ls'"
+shape shape_variable 16..20 "$cmd"
+shape shape_externalarg 21..23 "-l"
+ir main
+  # 3 registers, 14 instructions, 4 bytes of data
+     0: load-literal           %0, string("ls")
+     1: store-variable         var #0 "$cmd", %0 # let
+     2: load-literal           %0, empty
+     3: drain                  %0
+     4: load-literal           %0, empty
+     5: load-literal           %0, empty
+     6: load-variable          %1, var #0 "$cmd"
+     7: load-literal           %2, glob-pattern("-l", no_expand = false)
+     8: push-positional        %1
+     9: push-positional        %2
+    10: redirect-out           caller
+    11: redirect-err           caller
+    12: call                   decl "run-external", %0
+    13: return                 %0
+=== accept/externals/in-def-wrapped.nu
+shape shape_internalcall 0..3 "def"
+shape shape_flag 4..13 "--wrapped"
+shape shape_string 14..18 "wrap"
+shape shape_signature 19..28 "[...args]"
+shape shape_closure 29..32 "{ ^"
+shape shape_external 32..36 "echo"
+shape shape_operator 37..40 "..."
+shape shape_variable 40..45 "$args"
+shape shape_closure 45..47 " }"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: return                 %0
+ir #0
+  # 3 registers, 8 instructions, 4 bytes of data
+     0: load-literal           %1, glob-pattern("echo", no_expand = false)
+     1: load-variable          %2, var #1
+     2: push-positional        %1
+     3: append-rest            %2
+     4: redirect-out           caller
+     5: redirect-err           caller
+     6: call                   decl "run-external", %0
+     7: return                 %0
+=== accept/externals/in-pipeline.nu
+shape shape_external 1..3 "ls"
+shape shape_pipe 4..5 "|"
+shape shape_internalcall 6..11 "lines"
+shape shape_pipe 12..13 "|"
+shape shape_internalcall 14..20 "length"
+ir main
+  # 2 registers, 10 instructions, 2 bytes of data
+     0: load-literal           %1, glob-pattern("ls", no_expand = false)
+     1: push-positional        %1
+     2: redirect-out           pipe
+     3: call                   decl "run-external", %0
+     4: redirect-out           pipe
+     5: call                   decl "lines", %0
+     6: redirect-out           caller
+     7: redirect-err           caller
+     8: call                   decl "length", %0
+     9: return                 %0
+=== accept/externals/record-then-cell-path.nu
+shape shape_external 0..3 "cmd"
+shape shape_record 4..5 "{"
+shape shape_string 5..6 "a"
+shape shape_record 6..8 ": "
+shape shape_int 8..9 "1"
+shape shape_record 9..10 "}"
+shape shape_string 11..12 "a"
+ir main
+  # 5 registers, 13 instructions, 4 bytes of data
+     0: load-literal           %1, glob-pattern("cmd", no_expand = false)
+     1: load-literal           %2, record(capacity = 1)
+     2: load-literal           %3, string("a")
+     3: load-literal           %4, int(1)
+     4: record-insert          %2, %3, %4
+     5: load-literal           %3, cell-path($.a)
+     6: follow-cell-path       %2, %3
+     7: push-positional        %1
+     8: push-positional        %2
+     9: redirect-out           caller
+    10: redirect-err           caller
+    11: call                   decl "run-external", %0
+    12: return                 %0
+=== accept/externals/relative-path-command.nu
+shape shape_external 0..6 "../foo"
+shape shape_external 7..18 "./script.sh"
+shape shape_externalarg 19..22 "--x"
+ir main
+  # 3 registers, 14 instructions, 20 bytes of data
+     0: load-literal           %1, glob-pattern("../foo", no_expand = false)
+     1: push-positional        %1
+     2: call                   decl "run-external", %0
+     3: drain                  %0
+     4: load-literal           %0, empty
+     5: load-literal           %0, empty
+     6: load-literal           %1, glob-pattern("./script.sh", no_expand = false)
+     7: load-literal           %2, glob-pattern("--x", no_expand = false)
+     8: push-positional        %1
+     9: push-positional        %2
+    10: redirect-out           caller
+    11: redirect-err           caller
+    12: call                   decl "run-external", %0
+    13: return                 %0
+=== accept/externals/subexpression-then-cell-path.nu
+shape shape_external 0..3 "cmd"
+shape shape_block 4..5 "("
+shape shape_internalcall 5..7 "ls"
+shape shape_block 7..8 ")"
+shape shape_string 9..13 "name"
+ir main
+  # 4 registers, 12 instructions, 3 bytes of data
+     0: load-literal           %1, glob-pattern("cmd", no_expand = false)
+     1: load-literal           %2, empty
+     2: redirect-out           value
+     3: call                   decl "ls", %2
+     4: load-literal           %3, cell-path($.name)
+     5: follow-cell-path       %2, %3
+     6: push-positional        %1
+     7: push-positional        %2
+     8: redirect-out           caller
+     9: redirect-err           caller
+    10: call                   decl "run-external", %0
+    11: return                 %0
+=== accept/externals/unknown-command-duration-like-argument.nu
+shape shape_external 0..3 "git"
+shape shape_externalarg 4..12 "checkout"
+shape shape_externalarg 13..17 "3min"
+ir main
+  # 4 registers, 10 instructions, 15 bytes of data
+     0: load-literal           %1, glob-pattern("git", no_expand = false)
+     1: load-literal           %2, glob-pattern("checkout", no_expand = false)
+     2: load-literal           %3, glob-pattern("3min", no_expand = false)
+     3: push-positional        %1
+     4: push-positional        %2
+     5: push-positional        %3
+     6: redirect-out           caller
+     7: redirect-err           caller
+     8: call                   decl "run-external", %0
+     9: return                 %0
+=== accept/externals/unknown-command-flags-are-strings.nu
+shape shape_external 0..3 "git"
+shape shape_externalarg 4..8 "show"
+shape shape_externalarg 9..15 "0x12zz"
+shape shape_externalarg 16..22 "--stat"
+ir main
+  # 5 registers, 12 instructions, 19 bytes of data
+     0: load-literal           %1, glob-pattern("git", no_expand = false)
+     1: load-literal           %2, glob-pattern("show", no_expand = false)
+     2: load-literal           %3, glob-pattern("0x12zz", no_expand = false)
+     3: load-literal           %4, glob-pattern("--stat", no_expand = false)
+     4: push-positional        %1
+     5: push-positional        %2
+     6: push-positional        %3
+     7: push-positional        %4
+     8: redirect-out           caller
+     9: redirect-err           caller
+    10: call                   decl "run-external", %0
+    11: return                 %0
+=== accept/externals/unknown-command-is-external.nu
+shape shape_external 0..17 "foo-external-call"
+shape shape_externalarg 18..24 "--flag"
+shape shape_externalarg 25..28 "arg"
+ir main
+  # 4 registers, 10 instructions, 26 bytes of data
+     0: load-literal           %1, glob-pattern("foo-external-call", no_expand = false)
+     1: load-literal           %2, glob-pattern("--flag", no_expand = false)
+     2: load-literal           %3, glob-pattern("arg", no_expand = false)
+     3: push-positional        %1
+     4: push-positional        %2
+     5: push-positional        %3
+     6: redirect-out           caller
+     7: redirect-err           caller
+     8: call                   decl "run-external", %0
+     9: return                 %0
+=== accept/externals/unknown-command-quote-then-text.nu
+shape shape_external 0..4 "curl"
+shape shape_externalarg 5..7 "-H"
+shape shape_externalarg 8..14 "'a:b'x"
+shape shape_externalarg 15..34 "https://example.com"
+ir main
+  # 5 registers, 12 instructions, 29 bytes of data
+     0: load-literal           %1, glob-pattern("curl", no_expand = false)
+     1: load-literal           %2, glob-pattern("-H", no_expand = false)
+     2: load-literal           %3, glob-pattern("a:bx", no_expand = false)
+     3: load-literal           %4, glob-pattern("https://example.com", no_expand = false)
+     4: push-positional        %1
+     5: push-positional        %2
+     6: push-positional        %3
+     7: push-positional        %4
+     8: redirect-out           caller
+     9: redirect-err           caller
+    10: call                   decl "run-external", %0
+    11: return                 %0
+=== accept/externals/unknown-command-radix-like-argument.nu
+shape shape_external 0..3 "git"
+shape shape_externalarg 4..7 "log"
+shape shape_externalarg 8..21 "0b2d1f4..HEAD"
+ir main
+  # 4 registers, 10 instructions, 19 bytes of data
+     0: load-literal           %1, glob-pattern("git", no_expand = false)
+     1: load-literal           %2, glob-pattern("log", no_expand = false)
+     2: load-literal           %3, glob-pattern("0b2d1f4..HEAD", no_expand = false)
+     3: push-positional        %1
+     4: push-positional        %2
+     5: push-positional        %3
+     6: redirect-out           caller
+     7: redirect-err           caller
+     8: call                   decl "run-external", %0
+     9: return                 %0

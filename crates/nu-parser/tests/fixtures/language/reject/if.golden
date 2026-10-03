@@ -1,0 +1,151 @@
+=== reject/if/alone.nu
+shape shape_garbage 0..2 "if"
+error nu::parser::parse_mismatch: Parse mismatch: expected expression.
+  label 2..2 "": expected expression
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/if/block-is-number.nu
+shape shape_internalcall 0..2 "if"
+shape shape_bool 3..7 "true"
+shape shape_garbage 8..9 "1"
+error nu::parser::parse_mismatch: Parse mismatch: expected block, closure or record.
+  label 8..9 "1": expected block, closure or record
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/if/condition-continues-on-next-line.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..5 "a"
+shape shape_bool 8..12 "true"
+shape shape_internalcall 13..16 "let"
+shape shape_vardecl 17..18 "b"
+shape shape_bool 21..25 "true"
+shape shape_internalcall 26..28 "if"
+shape shape_variable 29..31 "$a"
+shape shape_garbage 32..35 "and"
+shape shape_variable 37..39 "$b"
+shape shape_garbage 40..43 "{ }"
+shape shape_garbage 43..43 ""
+error nu::parser::parse_mismatch: Parse mismatch: expected block, closure or record.
+  label 32..35 "and": expected block, closure or record
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+error nu::parser::parse_mismatch: Parse mismatch: expected operator.
+  label 40..43 "{ }": expected operator
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+error nu::parser::incomplete_math_expression: Incomplete math expression.
+  label 40..43 "{ }": incomplete math expression
+error nu::parser::incomplete_math_expression: Incomplete math expression.
+  label 40..43 "{ }": incomplete math expression
+=== reject/if/else-before-condition.nu
+shape shape_internalcall 0..2 "if"
+shape shape_garbage 2..3 " "
+shape shape_garbage 2..3 " "
+shape shape_keyword 3..7 "else"
+error nu::parser::missing_positional: Missing required positional argument.
+  label 2..3 " ": missing cond
+  help: Usage: if <cond> <then_block> (else <else_expression>) . Use `--help` for more information.
+error nu::parser::missing_positional: Missing required positional argument.
+  label 2..3 " ": missing then_block
+  help: Usage: if <cond> <then_block> (else <else_expression>) . Use `--help` for more information.
+=== reject/if/else-nothing.nu
+shape shape_internalcall 0..2 "if"
+shape shape_bool 3..7 "true"
+shape shape_garbage 12..16 "else"
+shape shape_keyword 12..16 "else"
+error nu::parser::keyword_missing_arg: Missing argument to `else`.
+  label 16..16 "": missing oneof<block, expression> value that follows else
+=== reject/if/help-after-invalid-condition.nu
+shape shape_internalcall 0..2 "if"
+shape shape_garbage 3..5 "if"
+shape shape_flag 6..12 "--help"
+error nu::parser::parse_mismatch: Parse mismatch: expected expression.
+  label 5..5 "": expected expression
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/if/help-before-invalid-condition.nu
+shape shape_internalcall 0..2 "if"
+shape shape_flag 3..9 "--help"
+shape shape_garbage 10..12 "if"
+error nu::parser::parse_mismatch: Parse mismatch: expected expression.
+  label 12..12 "": expected expression
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/if/help-then-extra.nu
+shape shape_internalcall 0..2 "if"
+shape shape_flag 3..9 "--help"
+shape shape_bool 10..14 "true"
+shape shape_garbage 15..17 "{}"
+shape shape_garbage 17..17 ""
+shape shape_garbage 18..19 "x"
+error nu::parser::parse_mismatch: Parse mismatch: expected operator.
+  label 15..17 "{}": expected operator
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+error nu::parser::incomplete_math_expression: Incomplete math expression.
+  label 15..17 "{}": incomplete math expression
+error nu::parser::incomplete_math_expression: Incomplete math expression.
+  label 15..17 "{}": incomplete math expression
+error nu::parser::parse_mismatch: Parse mismatch: expected block, closure or record.
+  label 18..19 "x": expected block, closure or record
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+=== reject/if/negative-number-first.nu
+shape shape_internalcall 0..2 "if"
+shape shape_string 6..7 ">"
+shape shape_garbage 8..9 "0"
+shape shape_garbage 9..9 ""
+error nu::parser::unknown_flag: The `if` command doesn't have flag `-1`.
+  label 4..5 "1": unknown flag
+  help: Use `--help` to see available flags
+error nu::parser::parse_mismatch: Parse mismatch: expected operator.
+  label 8..9 "0": expected operator
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+error nu::parser::incomplete_math_expression: Incomplete math expression.
+  label 8..9 "0": incomplete math expression
+error nu::parser::incomplete_math_expression: Incomplete math expression.
+  label 8..9 "0": incomplete math expression
+=== reject/if/no-block.nu
+shape shape_internalcall 0..2 "if"
+shape shape_bool 3..7 "true"
+error nu::parser::missing_positional: Missing required positional argument.
+  label 7..7 "": missing cond
+  help: Usage: if <cond> <then_block> (else <else_expression>) . Use `--help` for more information.
+=== reject/if/no-condition.nu
+shape shape_internalcall 0..2 "if"
+shape shape_record 3..6 "{ }"
+error nu::parser::missing_positional: Missing required positional argument.
+  label 6..6 "": missing cond
+  help: Usage: if <cond> <then_block> (else <else_expression>) . Use `--help` for more information.
+=== reject/if/pipe-in-condition.nu
+shape shape_internalcall 0..2 "if"
+shape shape_list 3..4 "["
+shape shape_int 4..5 "1"
+shape shape_list 5..6 " "
+shape shape_int 6..7 "2"
+shape shape_list 7..8 "]"
+shape shape_pipe 9..10 "|"
+shape shape_internalcall 11..19 "is-empty"
+shape shape_garbage 20..23 "{ }"
+error nu::parser::missing_positional: Missing required positional argument.
+  label 8..8 "": missing cond
+  help: Usage: if <cond> <then_block> (else <else_expression>) . Use `--help` for more information.
+error nu::parser::type_mismatch: Type mismatch.
+  label 20..23 "{ }": expected cell-path, found record
+=== reject/if/then-block-is-quoted-key-record.nu
+shape shape_internalcall 75..77 "if"
+shape shape_bool 78..82 "true"
+shape shape_garbage 83..93 "{ \"a\": 1 }"
+error nu::parser::type_mismatch: Type mismatch.
+  label 83..93 "{ \"a\": 1 }": expected block, found record<a: int>
+=== reject/if/then-block-is-record-with-record-spread.nu
+shape shape_internalcall 76..78 "if"
+shape shape_bool 79..83 "true"
+shape shape_garbage 84..103 "{ a: 1, ...{b: 2} }"
+error nu::parser::type_mismatch: Type mismatch.
+  label 84..103 "{ a: 1, ...{b: 2} }": expected block, found record<a: int, b: int>
+=== reject/if/then-block-is-record.nu
+shape shape_internalcall 0..2 "if"
+shape shape_bool 3..7 "true"
+shape shape_garbage 8..14 "{a: 1}"
+error nu::parser::type_mismatch: Type mismatch.
+  label 8..14 "{a: 1}": expected block, found record<a: int>
+=== reject/if/then-list.nu
+shape shape_internalcall 0..2 "if"
+shape shape_bool 3..7 "true"
+shape shape_garbage 8..11 "[1]"
+error nu::parser::parse_mismatch_with_full_string_msg: Parse mismatch: expected block.
+  label 8..11 "[1]": expected block
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.

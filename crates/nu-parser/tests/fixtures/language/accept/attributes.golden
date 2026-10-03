@@ -1,0 +1,430 @@
+=== accept/attributes/after-line-pipe-is-command.nu
+shape shape_internalcall 0..2 "ls"
+shape shape_pipe 3..4 "|"
+shape shape_external 5..9 "@foo"
+ir main
+  # 2 registers, 8 instructions, 4 bytes of data
+     0: redirect-out           pipe
+     1: call                   decl "ls", %0
+     2: load-literal           %1, glob-pattern("@foo", no_expand = false)
+     3: push-positional        %1
+     4: redirect-out           caller
+     5: redirect-err           caller
+     6: call                   decl "run-external", %0
+     7: return                 %0
+=== accept/attributes/after-pipe-is-command.nu
+shape shape_internalcall 0..4 "echo"
+shape shape_int 5..6 "1"
+shape shape_pipe 7..8 "|"
+shape shape_external 9..13 "@foo"
+ir main
+  # 2 registers, 10 instructions, 4 bytes of data
+     0: load-literal           %1, int(1)
+     1: push-positional        %1
+     2: redirect-out           pipe
+     3: call                   decl "echo", %0
+     4: load-literal           %1, glob-pattern("@foo", no_expand = false)
+     5: push-positional        %1
+     6: redirect-out           caller
+     7: redirect-err           caller
+     8: call                   decl "run-external", %0
+     9: return                 %0
+=== accept/attributes/alias-name.nu
+shape shape_internalcall 0..5 "alias"
+shape shape_string 6..17 "\"attr test\""
+shape shape_keyword 18..19 "="
+shape shape_internalcall 20..33 "attr category"
+shape shape_internalcall 35..39 "test"
+shape shape_string 40..44 "math"
+shape shape_internalcall 45..48 "def"
+shape shape_string 49..52 "foo"
+shape shape_signature 53..55 "[]"
+shape shape_closure 56..58 "{}"
+ir main
+  # 1 register, 6 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: drain                  %0
+     2: load-literal           %0, empty
+     3: load-literal           %0, empty
+     4: load-literal           %0, empty
+     5: return                 %0
+ir #0
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== accept/attributes/args-include-assignment.nu
+shape shape_internalcall 1..13 "search-terms"
+shape shape_string 14..15 "a"
+shape shape_string 16..17 "="
+shape shape_string 18..19 "b"
+shape shape_internalcall 20..23 "def"
+shape shape_string 24..25 "x"
+shape shape_signature 26..28 "[]"
+shape shape_closure 29..31 "{}"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: return                 %0
+ir #0
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== accept/attributes/args-include-pipe.nu
+shape shape_internalcall 1..13 "search-terms"
+shape shape_string 14..15 "a"
+shape shape_string 16..17 "|"
+shape shape_string 18..19 "b"
+shape shape_internalcall 20..23 "def"
+shape shape_string 24..25 "x"
+shape shape_signature 26..28 "[]"
+shape shape_closure 29..31 "{}"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: return                 %0
+ir #0
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== accept/attributes/args-include-redirection.nu
+shape shape_internalcall 1..13 "search-terms"
+shape shape_string 14..15 "a"
+shape shape_string 16..18 "o>"
+shape shape_string 19..20 "b"
+shape shape_internalcall 21..24 "def"
+shape shape_string 25..26 "x"
+shape shape_signature 27..29 "[]"
+shape shape_closure 30..32 "{}"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: return                 %0
+ir #0
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== accept/attributes/before-export.nu
+shape shape_internalcall 1..8 "example"
+shape shape_string 9..12 "\"x\""
+shape shape_block 13..15 "{ "
+shape shape_int 15..16 "1"
+shape shape_block 16..18 " }"
+shape shape_internalcall 19..29 "export def"
+shape shape_string 30..31 "f"
+shape shape_signature 32..34 "[]"
+shape shape_closure 35..38 "{ }"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: return                 %0
+ir #1
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== accept/attributes/before-extern.nu
+shape shape_internalcall 1..9 "category"
+shape shape_string 10..16 "custom"
+shape shape_internalcall 17..23 "extern"
+shape shape_string 24..25 "e"
+shape shape_signature 26..28 "[]"
+ir main
+  # 3 registers, 8 instructions, 1 byte of data
+     0: load-literal           %1, string("e")
+     1: load-literal           %2, empty
+     2: push-positional        %1
+     3: push-positional        %2
+     4: redirect-out           caller
+     5: redirect-err           caller
+     6: call                   decl "extern", %0
+     7: return                 %0
+=== accept/attributes/before-longer-pipeline-are-command-words.nu
+shape shape_external 0..8 "@example"
+shape shape_externalarg 9..12 "\"a\""
+shape shape_closure 13..14 "{"
+shape shape_int 14..15 "1"
+shape shape_closure 15..16 "}"
+shape shape_externalarg 17..19 "ls"
+shape shape_pipe 20..21 "|"
+shape shape_internalcall 22..28 "length"
+ir main
+  # 5 registers, 14 instructions, 11 bytes of data
+     0: load-literal           %1, glob-pattern("@example", no_expand = false)
+     1: load-literal           %2, string("a")
+     2: load-literal           %3, closure(#0)
+     3: load-literal           %4, glob-pattern("ls", no_expand = false)
+     4: push-positional        %1
+     5: push-positional        %2
+     6: push-positional        %3
+     7: push-positional        %4
+     8: redirect-out           pipe
+     9: call                   decl "run-external", %0
+    10: redirect-out           caller
+    11: redirect-err           caller
+    12: call                   decl "length", %0
+    13: return                 %0
+ir #0
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, int(1)
+     1: return                 %0
+=== accept/attributes/in-module.nu
+shape shape_internalcall 0..6 "module"
+shape shape_string 7..8 "m"
+shape shape_block 9..14 "{\n  @"
+shape shape_internalcall 14..21 "example"
+shape shape_string 22..25 "\"x\""
+shape shape_block 26..28 "{ "
+shape shape_int 28..29 "1"
+shape shape_block 29..31 " }"
+shape shape_internalcall 34..44 "export def"
+shape shape_string 45..46 "f"
+shape shape_signature 47..49 "[]"
+shape shape_closure 50..53 "{ }"
+shape shape_block 53..55 "\n}"
+ir main
+  # 3 registers, 8 instructions, 1 byte of data
+     0: load-literal           %1, string("m")
+     1: load-literal           %2, block(#2)
+     2: push-positional        %1
+     3: push-positional        %2
+     4: redirect-out           caller
+     5: redirect-err           caller
+     6: call                   decl "module", %0
+     7: return                 %0
+ir #1
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== accept/attributes/line-ending-with-pipe-continues-past-comment.nu
+shape shape_internalcall 1..13 "search-terms"
+shape shape_string 14..19 "hello"
+shape shape_string 19..20 "|"
+shape shape_internalcall 32..35 "def"
+shape shape_string 36..41 "greet"
+shape shape_signature 42..44 "[]"
+shape shape_closure 45..48 "{ }"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: return                 %0
+ir #0
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== accept/attributes/multiline-args.nu
+shape shape_internalcall 1..8 "example"
+shape shape_string 9..16 "\"multi\""
+shape shape_block 17..21 "{\n  "
+shape shape_int 21..22 "1"
+shape shape_operator 23..24 "+"
+shape shape_int 25..26 "1"
+shape shape_block 26..28 "\n}"
+shape shape_flag 29..37 "--result"
+shape shape_int 38..39 "2"
+shape shape_internalcall 40..43 "def"
+shape shape_string 44..45 "f"
+shape shape_signature 46..48 "[]"
+shape shape_closure 49..52 "{ }"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: return                 %0
+ir #1
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== accept/attributes/semicolon-then-def-same-line.nu
+shape shape_internalcall 1..13 "search-terms"
+shape shape_string 14..15 "a"
+shape shape_internalcall 17..20 "def"
+shape shape_string 21..22 "x"
+shape shape_signature 23..25 "[]"
+shape shape_closure 26..28 "{}"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: return                 %0
+ir #0
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== accept/attributes/single.nu
+shape shape_internalcall 1..11 "deprecated"
+shape shape_internalcall 12..15 "def"
+shape shape_string 16..19 "old"
+shape shape_signature 20..22 "[]"
+shape shape_closure 23..26 "{ }"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: return                 %0
+ir #0
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== accept/attributes/trailing-comment-and-doc-before.nu
+shape shape_internalcall 12..19 "example"
+shape shape_string 20..28 "\"say hi\""
+shape shape_block 29..31 "{ "
+shape shape_internalcall 31..36 "greet"
+shape shape_string 37..42 "world"
+shape shape_block 42..44 " }"
+shape shape_flag 45..53 "--result"
+shape shape_string 54..67 "\"hello world\""
+shape shape_internalcall 88..100 "search-terms"
+shape shape_string 101..106 "hello"
+shape shape_string 107..117 "salutation"
+shape shape_internalcall 118..121 "def"
+shape shape_string 122..127 "greet"
+shape shape_signature 128..134 "[name]"
+shape shape_closure 135..138 "{ }"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: return                 %0
+ir #1
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== accept/attributes/unknown-attribute-name-is-consumer.nu
+shape shape_garbage 1..14 "nonexistent 1"
+shape shape_internalcall 15..18 "def"
+shape shape_string 19..20 "x"
+shape shape_signature 21..23 "[]"
+shape shape_closure 24..26 "{}"
+error nu::parser::unknown_command: Unknown command.
+  label 1..12 "nonexistent": unknown command
+=== accept/attributes/user-defined-attribute.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..14 "\"attr foo\""
+shape shape_signature 15..17 "[]"
+shape shape_closure 18..20 "{ "
+shape shape_record 20..22 "{}"
+shape shape_closure 22..24 " }"
+shape shape_internalcall 26..29 "foo"
+shape shape_internalcall 30..33 "def"
+shape shape_string 34..35 "x"
+shape shape_signature 36..38 "[]"
+shape shape_closure 39..41 "{}"
+error : Error: nu::shell::not_a_const_command
+  label 26..29 "foo": Encountered error during parse-time evaluation
+ir #0
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, record(capacity = 0)
+     1: return                 %0
+=== accept/attributes/values-of-every-kind.nu
+shape shape_internalcall 1..8 "example"
+shape shape_string 9..22 "\"hello world\""
+shape shape_block 23..25 "{ "
+shape shape_int 25..26 "1"
+shape shape_block 26..28 " }"
+shape shape_internalcall 30..37 "example"
+shape shape_string 38..43 "\"int\""
+shape shape_block 44..46 "{ "
+shape shape_int 46..48 "42"
+shape shape_block 48..50 " }"
+shape shape_flag 51..59 "--result"
+shape shape_int 60..62 "42"
+shape shape_internalcall 64..71 "example"
+shape shape_string 72..78 "\"null\""
+shape shape_block 79..81 "{ "
+shape shape_nothing 81..85 "null"
+shape shape_block 85..87 " }"
+shape shape_flag 88..96 "--result"
+shape shape_nothing 97..101 "null"
+shape shape_internalcall 103..110 "example"
+shape shape_string 111..117 "\"list\""
+shape shape_block 118..120 "{ "
+shape shape_list 120..121 "["
+shape shape_int 121..122 "1"
+shape shape_list 122..123 " "
+shape shape_int 123..124 "2"
+shape shape_list 124..125 "]"
+shape shape_block 125..127 " }"
+shape shape_flag 128..136 "--result"
+shape shape_list 137..138 "["
+shape shape_int 138..139 "1"
+shape shape_list 139..140 " "
+shape shape_int 140..141 "2"
+shape shape_list 141..142 "]"
+shape shape_internalcall 144..151 "example"
+shape shape_string 152..160 "\"record\""
+shape shape_block 161..163 "{ "
+shape shape_record 163..164 "{"
+shape shape_string 164..165 "a"
+shape shape_record 165..167 ": "
+shape shape_int 167..168 "1"
+shape shape_record 168..169 "}"
+shape shape_block 169..171 " }"
+shape shape_flag 172..180 "--result"
+shape shape_record 181..182 "{"
+shape shape_string 182..183 "a"
+shape shape_record 183..185 ": "
+shape shape_int 185..186 "1"
+shape shape_record 186..187 "}"
+shape shape_internalcall 189..196 "example"
+shape shape_string 197..203 "\"math\""
+shape shape_block 204..206 "{ "
+shape shape_block 206..207 "("
+shape shape_int 207..208 "1"
+shape shape_operator 209..210 "+"
+shape shape_int 211..212 "1"
+shape shape_block 212..213 ")"
+shape shape_block 213..215 " }"
+shape shape_flag 216..224 "--result"
+shape shape_int 225..226 "2"
+shape shape_internalcall 228..235 "example"
+shape shape_string 236..244 "\"interp\""
+shape shape_block 245..247 "{ "
+shape shape_string_interpolation 247..249 "$\""
+shape shape_string 249..250 "x"
+shape shape_block 250..251 "("
+shape shape_int 251..252 "1"
+shape shape_block 252..253 ")"
+shape shape_string_interpolation 253..254 "\""
+shape shape_block 254..256 " }"
+shape shape_flag 257..265 "--result"
+shape shape_string 266..270 "\"x1\""
+shape shape_internalcall 272..279 "example"
+shape shape_string 280..287 "\"mixed\""
+shape shape_block 288..290 "{ "
+shape shape_list 290..291 "["
+shape shape_bool 291..295 "true"
+shape shape_list 295..296 " "
+shape shape_float 296..299 "1.5"
+shape shape_list 299..300 " "
+shape shape_int 300..301 "1"
+shape shape_string 301..303 "kb"
+shape shape_list 303..304 "]"
+shape shape_block 304..306 " }"
+shape shape_internalcall 308..320 "search-terms"
+shape shape_string 321..322 "a"
+shape shape_string 323..324 "b"
+shape shape_string 325..326 "c"
+shape shape_internalcall 328..336 "category"
+shape shape_string 337..341 "math"
+shape shape_internalcall 342..345 "def"
+shape shape_string 346..349 "foo"
+shape shape_signature 350..352 "[]"
+shape shape_closure 353..355 "{}"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: return                 %0
+ir #10
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0
+=== accept/attributes/with-args.nu
+shape shape_internalcall 1..8 "example"
+shape shape_string 9..14 "\"add\""
+shape shape_block 15..17 "{ "
+shape shape_int 17..18 "1"
+shape shape_operator 19..20 "+"
+shape shape_int 21..22 "1"
+shape shape_block 22..24 " }"
+shape shape_flag 25..33 "--result"
+shape shape_int 34..35 "2"
+shape shape_internalcall 37..49 "search-terms"
+shape shape_string 50..54 "math"
+shape shape_string 55..59 "plus"
+shape shape_internalcall 61..69 "category"
+shape shape_string 70..74 "math"
+shape shape_internalcall 75..78 "def"
+shape shape_string 79..82 "add"
+shape shape_signature 83..85 "[]"
+shape shape_closure 86..89 "{ }"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: return                 %0
+ir #1
+  # 1 register, 1 instruction, 0 bytes of data
+     0: return                 %0

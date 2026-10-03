@@ -248,6 +248,7 @@ roxmltree = "0.21.1"
 rstest = { version = "0.27.0", default-features = false }
 rstest_reuse = "0.7"
 rusqlite = "0.40.2"
+rustc-hash = "2.1.2"
 # We have to semi-fix rustls and ureq versions
 # because we use unversioned api to allow users set up their own
 # crypto providers (grep for "unversioned").
@@ -393,6 +394,7 @@ fancy-regex = { workspace = true }
 itertools = { workspace = true }
 pretty_assertions = { workspace = true }
 rstest = { workspace = true, default-features = false }
+rustc-hash = { workspace = true }
 tango-bench = "0.8.0"
 tempfile = { workspace = true }
 

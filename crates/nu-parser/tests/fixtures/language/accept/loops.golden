@@ -1,0 +1,959 @@
+=== accept/loops/break-continue-in-nested-blocks.nu
+shape shape_internalcall 0..3 "for"
+shape shape_vardecl 4..5 "x"
+shape shape_keyword 6..8 "in"
+shape shape_list 9..10 "["
+shape shape_int 10..11 "1"
+shape shape_list 11..12 " "
+shape shape_int 12..13 "2"
+shape shape_list 13..14 "]"
+shape shape_block 15..19 "{\n  "
+shape shape_internalcall 19..21 "if"
+shape shape_variable 22..24 "$x"
+shape shape_operator 25..27 "=="
+shape shape_int 28..29 "1"
+shape shape_block 30..32 "{ "
+shape shape_internalcall 32..40 "continue"
+shape shape_block 40..42 " }"
+shape shape_keyword 43..47 "else"
+shape shape_block 48..50 "{ "
+shape shape_internalcall 50..55 "break"
+shape shape_block 55..57 " }"
+shape shape_block 57..59 "\n}"
+ir main
+  # 4 registers, 25 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: load-literal           %1, list(capacity = 2)
+     2: load-literal           %2, int(1)
+     3: list-push              %1, %2
+     4: load-literal           %2, int(2)
+     5: list-push              %1, %2
+     6: iterate                %0, %1, end 23 # for, label(1), from(17:), from(22:)
+     7: store-variable         var #0, %0
+     8: load-literal           %0, empty
+     9: load-literal           %0, empty
+    10: load-variable          %2, var #0
+    11: load-literal           %3, int(1)
+    12: binary-op              %2, Comparison(Equal), %3
+    13: span                   %2
+    14: not                    %2
+    15: branch-if              %2, 19      # if false
+    16: load-literal           %0, empty   # label(2)
+    17: jump                   6           # continue
+    18: jump                   21          # end if
+    19: load-literal           %0, empty   # label(3), from(15:)
+    20: jump                   23          # break
+    21: drain                  %0          # label(4), from(18:)
+    22: jump                   6
+    23: load-literal           %0, empty   # label(0), from(6:), from(20:)
+    24: return                 %0
+=== accept/loops/break-help.nu
+shape shape_internalcall 0..5 "break"
+shape shape_flag 6..12 "--help"
+ir main
+  # 2 registers, 5 instructions, 17 bytes of data
+     0: load-literal           %1, string("break")
+     1: push-positional        %1
+     2: push-parser-info       "help_decl_id"
+     3: call                   decl "help", %0
+     4: return                 %0
+=== accept/loops/continue-help.nu
+shape shape_internalcall 0..8 "continue"
+shape shape_flag 9..15 "--help"
+ir main
+  # 2 registers, 5 instructions, 20 bytes of data
+     0: load-literal           %1, string("continue")
+     1: push-positional        %1
+     2: push-parser-info       "help_decl_id"
+     3: call                   decl "help", %0
+     4: return                 %0
+=== accept/loops/for-bare-dollar-name.nu
+shape shape_internalcall 0..3 "for"
+shape shape_vardecl 4..5 "$"
+shape shape_keyword 6..8 "in"
+shape shape_list 9..10 "["
+shape shape_int 10..11 "1"
+shape shape_list 11..12 "]"
+ir main
+  # 3 registers, 12 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: load-literal           %1, list(capacity = 1)
+     2: load-literal           %2, int(1)
+     3: list-push              %1, %2
+     4: iterate                %0, %1, end 10 # for, label(1), from(9:)
+     5: store-variable         var #0, %0
+     6: load-literal           %0, empty
+     7: load-literal           %0, empty
+     8: drain                  %0
+     9: jump                   4
+    10: load-literal           %0, empty   # label(0), from(4:)
+    11: return                 %0
+=== accept/loops/for-body-record-with-variable-key.nu
+shape shape_internalcall 52..55 "for"
+shape shape_vardecl 56..57 "x"
+shape shape_keyword 58..60 "in"
+shape shape_list 61..63 "[]"
+shape shape_record 64..66 "{ "
+shape shape_variable 66..70 "$env"
+shape shape_string 71..72 "A"
+shape shape_record 72..73 ":"
+shape shape_string 73..74 "b"
+shape shape_record 74..76 " }"
+compile error nu::compile::invalid_keyword_call: Encountered invalid `for` keyword call.
+  label 52..55 "for": this call is not properly formed
+=== accept/loops/for-body-value-variable.nu
+shape shape_internalcall 0..3 "for"
+shape shape_vardecl 4..5 "x"
+shape shape_keyword 6..8 "in"
+shape shape_list 9..11 "[]"
+shape shape_variable 12..16 "$env"
+shape shape_string 17..20 "FOO"
+compile error nu::compile::invalid_keyword_call: Encountered invalid `for` keyword call.
+  label 0..3 "for": this call is not properly formed
+=== accept/loops/for-dollar-var.nu
+shape shape_internalcall 0..3 "for"
+shape shape_vardecl 4..6 "$y"
+shape shape_keyword 7..9 "in"
+shape shape_list 10..11 "["
+shape shape_int 11..12 "1"
+shape shape_list 12..13 "]"
+ir main
+  # 3 registers, 12 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: load-literal           %1, list(capacity = 1)
+     2: load-literal           %2, int(1)
+     3: list-push              %1, %2
+     4: iterate                %0, %1, end 10 # for, label(1), from(9:)
+     5: store-variable         var #0, %0
+     6: load-literal           %0, empty
+     7: load-literal           %0, empty
+     8: drain                  %0
+     9: jump                   4
+    10: load-literal           %0, empty   # label(0), from(4:)
+    11: return                 %0
+=== accept/loops/for-help-after-var.nu
+shape shape_internalcall 0..3 "for"
+shape shape_vardecl 4..5 "x"
+shape shape_flag 6..12 "--help"
+shape shape_keyword 13..15 "in"
+shape shape_list 16..18 "[]"
+ir main
+  # 2 registers, 5 instructions, 15 bytes of data
+     0: load-literal           %1, string("for")
+     1: push-positional        %1
+     2: push-parser-info       "help_decl_id"
+     3: call                   decl "help", %0
+     4: return                 %0
+=== accept/loops/for-iterable-forms.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..5 "l"
+shape shape_list 8..9 "["
+shape shape_int 9..10 "1"
+shape shape_list 10..11 "]"
+shape shape_internalcall 12..15 "for"
+shape shape_vardecl 16..17 "x"
+shape shape_keyword 18..20 "in"
+shape shape_variable 21..23 "$l"
+shape shape_internalcall 28..31 "for"
+shape shape_vardecl 32..33 "x"
+shape shape_keyword 34..36 "in"
+shape shape_block 37..38 "("
+shape shape_variable 38..40 "$l"
+shape shape_pipe 41..42 "|"
+shape shape_internalcall 43..50 "reverse"
+shape shape_block 50..51 ")"
+shape shape_internalcall 56..59 "for"
+shape shape_vardecl 60..61 "x"
+shape shape_keyword 62..64 "in"
+shape shape_table 65..67 "[["
+shape shape_string 67..68 "a"
+shape shape_table 68..72 "]; ["
+shape shape_int 72..73 "1"
+shape shape_table 73..75 "]]"
+shape shape_internalcall 80..83 "for"
+shape shape_vardecl 84..85 "x"
+shape shape_keyword 86..88 "in"
+shape shape_record 89..90 "{"
+shape shape_string 90..91 "a"
+shape shape_record 91..93 ": "
+shape shape_int 93..94 "1"
+shape shape_record 94..95 "}"
+shape shape_internalcall 100..103 "for"
+shape shape_vardecl 104..105 "x"
+shape shape_keyword 106..108 "in"
+shape shape_string 109..114 "\"abc\""
+shape shape_internalcall 119..122 "for"
+shape shape_vardecl 123..124 "x"
+shape shape_keyword 125..127 "in"
+shape shape_int 128..129 "1"
+shape shape_operator 129..131 ".."
+shape shape_int 131..132 "3"
+ir main
+  # 6 registers, 94 instructions, 5 bytes of data
+     0: load-literal           %0, list(capacity = 1)
+     1: load-literal           %1, int(1)
+     2: list-push              %0, %1
+     3: store-variable         var #0 "$l", %0 # let
+     4: load-literal           %0, empty
+     5: drain                  %0
+     6: load-literal           %0, empty
+     7: load-literal           %0, empty
+     8: load-literal           %0, empty
+     9: load-variable          %1, var #0 "$l"
+    10: iterate                %0, %1, end 16 # for, label(1), from(15:)
+    11: store-variable         var #1, %0
+    12: load-literal           %0, empty
+    13: load-literal           %0, empty
+    14: drain                  %0
+    15: jump                   10
+    16: load-literal           %0, empty   # label(0), from(10:)
+    17: drain                  %0
+    18: load-literal           %0, empty
+    19: load-literal           %0, empty
+    20: load-literal           %0, empty
+    21: load-variable          %1, var #0 "$l"
+    22: redirect-out           caller
+    23: redirect-err           caller
+    24: call                   decl "reverse", %1
+    25: iterate                %0, %1, end 31 # for, label(3), from(30:)
+    26: store-variable         var #2, %0
+    27: load-literal           %0, empty
+    28: load-literal           %0, empty
+    29: drain                  %0
+    30: jump                   25
+    31: load-literal           %0, empty   # label(2), from(25:)
+    32: drain                  %0
+    33: load-literal           %0, empty
+    34: load-literal           %0, empty
+    35: load-literal           %0, empty
+    36: load-literal           %1, list(capacity = 1)
+    37: load-literal           %2, string("a")
+    38: load-literal           %3, record(capacity = 1)
+    39: clone                  %4, %2
+    40: load-literal           %5, int(1)
+    41: record-insert          %3, %4, %5
+    42: list-push              %1, %3
+    43: drop                   %2
+    44: iterate                %0, %1, end 50 # for, label(5), from(49:)
+    45: store-variable         var #3, %0
+    46: load-literal           %0, empty
+    47: load-literal           %0, empty
+    48: drain                  %0
+    49: jump                   44
+    50: load-literal           %0, empty   # label(4), from(44:)
+    51: drain                  %0
+    52: load-literal           %0, empty
+    53: load-literal           %0, empty
+    54: load-literal           %0, empty
+    55: load-literal           %1, record(capacity = 1)
+    56: load-literal           %2, string("a")
+    57: load-literal           %3, int(1)
+    58: record-insert          %1, %2, %3
+    59: iterate                %0, %1, end 65 # for, label(7), from(64:)
+    60: store-variable         var #4, %0
+    61: load-literal           %0, empty
+    62: load-literal           %0, empty
+    63: drain                  %0
+    64: jump                   59
+    65: load-literal           %0, empty   # label(6), from(59:)
+    66: drain                  %0
+    67: load-literal           %0, empty
+    68: load-literal           %0, empty
+    69: load-literal           %0, empty
+    70: load-literal           %1, string("abc")
+    71: iterate                %0, %1, end 77 # for, label(9), from(76:)
+    72: store-variable         var #5, %0
+    73: load-literal           %0, empty
+    74: load-literal           %0, empty
+    75: drain                  %0
+    76: jump                   71
+    77: load-literal           %0, empty   # label(8), from(71:)
+    78: drain                  %0
+    79: load-literal           %0, empty
+    80: load-literal           %0, empty
+    81: load-literal           %0, empty
+    82: load-literal           %2, int(1)
+    83: load-literal           %3, nothing
+    84: load-literal           %4, int(3)
+    85: load-literal           %1, range(%2, %3, %4, Inclusive)
+    86: iterate                %0, %1, end 92 # for, label(11), from(91:)
+    87: store-variable         var #6, %0
+    88: load-literal           %0, empty
+    89: load-literal           %0, empty
+    90: drain                  %0
+    91: jump                   86
+    92: load-literal           %0, empty   # label(10), from(86:)
+    93: return                 %0
+=== accept/loops/for-list.nu
+shape shape_internalcall 0..3 "for"
+shape shape_vardecl 4..5 "x"
+shape shape_keyword 6..8 "in"
+shape shape_list 9..10 "["
+shape shape_int 10..11 "1"
+shape shape_list 11..12 " "
+shape shape_int 12..13 "2"
+shape shape_list 13..14 " "
+shape shape_int 14..15 "3"
+shape shape_list 15..16 "]"
+shape shape_block 17..19 "{ "
+shape shape_internalcall 19..24 "print"
+shape shape_variable 25..27 "$x"
+shape shape_block 27..29 " }"
+ir main
+  # 3 registers, 19 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: load-literal           %1, list(capacity = 3)
+     2: load-literal           %2, int(1)
+     3: list-push              %1, %2
+     4: load-literal           %2, int(2)
+     5: list-push              %1, %2
+     6: load-literal           %2, int(3)
+     7: list-push              %1, %2
+     8: iterate                %0, %1, end 17 # for, label(1), from(16:)
+     9: store-variable         var #0, %0
+    10: load-literal           %0, empty
+    11: load-literal           %0, empty
+    12: load-variable          %2, var #0
+    13: push-positional        %2
+    14: call                   decl "print", %0
+    15: drain                  %0
+    16: jump                   8
+    17: load-literal           %0, empty   # label(0), from(8:)
+    18: return                 %0
+=== accept/loops/for-multiline.nu
+shape shape_internalcall 0..3 "for"
+shape shape_vardecl 4..5 "x"
+shape shape_keyword 6..8 "in"
+shape shape_list 9..13 "[\n  "
+shape shape_int 13..14 "1"
+shape shape_list 14..17 "\n  "
+shape shape_int 17..18 "2"
+shape shape_list 18..20 "\n]"
+shape shape_block 21..25 "{\n  "
+shape shape_internalcall 25..30 "print"
+shape shape_variable 31..33 "$x"
+shape shape_block 33..35 "\n}"
+ir main
+  # 3 registers, 17 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: load-literal           %1, list(capacity = 2)
+     2: load-literal           %2, int(1)
+     3: list-push              %1, %2
+     4: load-literal           %2, int(2)
+     5: list-push              %1, %2
+     6: iterate                %0, %1, end 15 # for, label(1), from(14:)
+     7: store-variable         var #0, %0
+     8: load-literal           %0, empty
+     9: load-literal           %0, empty
+    10: load-variable          %2, var #0
+    11: push-positional        %2
+    12: call                   decl "print", %0
+    13: drain                  %0
+    14: jump                   6
+    15: load-literal           %0, empty   # label(0), from(6:)
+    16: return                 %0
+=== accept/loops/for-range.nu
+shape shape_internalcall 0..3 "for"
+shape shape_vardecl 4..5 "i"
+shape shape_keyword 6..8 "in"
+shape shape_int 9..10 "0"
+shape shape_operator 10..13 "..<"
+shape shape_int 13..15 "10"
+shape shape_internalcall 20..23 "for"
+shape shape_vardecl 24..25 "i"
+shape shape_keyword 26..28 "in"
+shape shape_int 29..30 "1"
+shape shape_operator 30..32 ".."
+shape shape_variable 32..36 "$env"
+shape shape_string 37..40 "PWD"
+shape shape_string 41..44 "len"
+ir main
+  # 6 registers, 30 instructions, 3 bytes of data
+     0: load-literal           %0, empty
+     1: load-literal           %2, int(0)
+     2: load-literal           %3, nothing
+     3: load-literal           %4, int(10)
+     4: load-literal           %1, range(%2, %3, %4, RightExclusive)
+     5: iterate                %0, %1, end 11 # for, label(1), from(10:)
+     6: store-variable         var #0, %0
+     7: load-literal           %0, empty
+     8: load-literal           %0, empty
+     9: drain                  %0
+    10: jump                   5
+    11: load-literal           %0, empty   # label(0), from(5:)
+    12: drain                  %0
+    13: load-literal           %0, empty
+    14: load-literal           %0, empty
+    15: load-literal           %0, empty
+    16: load-literal           %2, int(1)
+    17: load-literal           %3, nothing
+    18: load-env               %4, "PWD"
+    19: load-literal           %5, cell-path($.len?)
+    20: follow-cell-path       %4, %5
+    21: load-literal           %1, range(%2, %3, %4, Inclusive)
+    22: iterate                %0, %1, end 28 # for, label(3), from(27:)
+    23: store-variable         var #1, %0
+    24: load-literal           %0, empty
+    25: load-literal           %0, empty
+    26: drain                  %0
+    27: jump                   22
+    28: load-literal           %0, empty   # label(2), from(22:)
+    29: return                 %0
+=== accept/loops/for-typed-record-with-spaces.nu
+shape shape_internalcall 0..3 "for"
+shape shape_vardecl 4..5 "x"
+shape shape_keyword 33..35 "in"
+shape shape_list 36..38 "[]"
+ir main
+  # 2 registers, 10 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: load-literal           %1, list(capacity = 0)
+     2: iterate                %0, %1, end 8 # for, label(1), from(7:)
+     3: store-variable         var #0, %0
+     4: load-literal           %0, empty
+     5: load-literal           %0, empty
+     6: drain                  %0
+     7: jump                   2
+     8: load-literal           %0, empty   # label(0), from(2:)
+     9: return                 %0
+=== accept/loops/for-typed.nu
+shape shape_internalcall 0..3 "for"
+shape shape_vardecl 4..5 "x"
+shape shape_keyword 11..13 "in"
+shape shape_int 14..15 "1"
+shape shape_operator 15..17 ".."
+shape shape_int 17..19 "10"
+ir main
+  # 5 registers, 13 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: load-literal           %2, int(1)
+     2: load-literal           %3, nothing
+     3: load-literal           %4, int(10)
+     4: load-literal           %1, range(%2, %3, %4, Inclusive)
+     5: iterate                %0, %1, end 11 # for, label(1), from(10:)
+     6: store-variable         var #0, %0
+     7: load-literal           %0, empty
+     8: load-literal           %0, empty
+     9: drain                  %0
+    10: jump                   5
+    11: load-literal           %0, empty   # label(0), from(5:)
+    12: return                 %0
+=== accept/loops/loop-basic.nu
+shape shape_internalcall 0..4 "loop"
+shape shape_block 5..7 "{ "
+shape shape_internalcall 7..12 "break"
+shape shape_block 12..14 " }"
+ir main
+  # 1 register, 8 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: load-literal           %0, empty   # label(1), from(5:)
+     2: load-literal           %0, empty
+     3: jump                   6           # break
+     4: drain                  %0
+     5: jump                   1           # loop
+     6: load-literal           %0, empty   # label(0), from(3:)
+     7: return                 %0
+=== accept/loops/loop-body-value-variable.nu
+shape shape_internalcall 0..4 "loop"
+shape shape_variable 5..9 "$env"
+shape shape_string 10..13 "FOO"
+compile error nu::compile::invalid_keyword_call: Encountered invalid `loop` keyword call.
+  label 0..4 "loop": this call is not properly formed
+=== accept/loops/loop-help.nu
+shape shape_internalcall 0..4 "loop"
+shape shape_flag 5..11 "--help"
+ir main
+  # 2 registers, 5 instructions, 16 bytes of data
+     0: load-literal           %1, string("loop")
+     1: push-positional        %1
+     2: push-parser-info       "help_decl_id"
+     3: call                   decl "help", %0
+     4: return                 %0
+=== accept/loops/loop-keywords-as-values.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..5 "f"
+shape shape_signature 6..8 "[]"
+shape shape_closure 9..11 "{ "
+shape shape_internalcall 11..14 "let"
+shape shape_vardecl 15..16 "x"
+shape shape_internalcall 19..21 "if"
+shape shape_bool 22..26 "true"
+shape shape_block 27..29 "{ "
+shape shape_internalcall 29..35 "return"
+shape shape_int 36..37 "1"
+shape shape_block 37..39 " }"
+shape shape_keyword 40..44 "else"
+shape shape_block 45..47 "{ "
+shape shape_int 47..48 "2"
+shape shape_block 48..50 " }"
+shape shape_variable 52..54 "$x"
+shape shape_closure 54..56 " }"
+ir main
+  # 1 register, 2 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: return                 %0
+ir #3
+  # 2 registers, 14 instructions, 0 bytes of data
+     0: load-literal           %1, bool(true)
+     1: not                    %1
+     2: branch-if              %1, 7       # if false
+     3: load-literal           %0, int(1)  # label(0)
+     4: return-early           %0
+     5: load-literal           %0, empty
+     6: jump                   8           # end if
+     7: load-literal           %0, int(2)  # label(1), from(2:)
+     8: store-variable         var #0, %0  # let, label(2), from(6:)
+     9: load-literal           %0, empty
+    10: drain                  %0
+    11: load-literal           %0, empty
+    12: load-variable          %0, var #0
+    13: return                 %0
+=== accept/loops/loop-with-continue.nu
+shape shape_internalcall 0..3 "mut"
+shape shape_vardecl 4..5 "i"
+shape shape_int 8..9 "0"
+shape shape_internalcall 10..14 "loop"
+shape shape_block 15..19 "{\n  "
+shape shape_variable 19..21 "$i"
+shape shape_operator 22..24 "+="
+shape shape_int 25..26 "1"
+shape shape_internalcall 29..31 "if"
+shape shape_variable 32..34 "$i"
+shape shape_operator 35..36 "<"
+shape shape_int 37..38 "3"
+shape shape_block 39..41 "{ "
+shape shape_internalcall 41..49 "continue"
+shape shape_block 49..51 " }"
+shape shape_internalcall 54..59 "break"
+shape shape_block 59..61 "\n}"
+ir main
+  # 3 registers, 35 instructions, 0 bytes of data
+     0: load-literal           %0, int(0)
+     1: store-variable         var #0 "$i", %0 # let
+     2: load-literal           %0, empty
+     3: drain                  %0
+     4: load-literal           %0, empty
+     5: load-literal           %0, empty
+     6: load-literal           %0, empty
+     7: load-variable          %0, var #0 "$i" # label(1), from(23:), from(32:)
+     8: load-literal           %1, int(1)
+     9: binary-op              %0, Math(Add), %1
+    10: span                   %0
+    11: store-variable         var #0 "$i", %0
+    12: load-literal           %0, nothing
+    13: drain                  %0
+    14: load-literal           %0, empty
+    15: load-literal           %0, empty
+    16: load-variable          %1, var #0 "$i"
+    17: load-literal           %2, int(3)
+    18: binary-op              %1, Comparison(LessThan), %2
+    19: span                   %1
+    20: not                    %1
+    21: branch-if              %1, 25      # if false
+    22: load-literal           %0, empty   # label(2)
+    23: jump                   7           # continue
+    24: jump                   26          # end if
+    25: load-literal           %0, empty   # label(3), from(21:)
+    26: drain                  %0          # label(4), from(24:)
+    27: load-literal           %0, empty
+    28: load-literal           %0, empty
+    29: load-literal           %0, empty
+    30: jump                   33          # break
+    31: drain                  %0
+    32: jump                   7           # loop
+    33: load-literal           %0, empty   # label(0), from(30:)
+    34: return                 %0
+=== accept/loops/return-double-dash-then-help-word.nu
+shape shape_internalcall 0..6 "return"
+shape shape_string 10..16 "--help"
+ir main
+  # 1 register, 4 instructions, 6 bytes of data
+     0: load-literal           %0, string("--help")
+     1: return-early           %0
+     2: load-literal           %0, empty
+     3: return                 %0
+=== accept/loops/return-double-dash-then-negative.nu
+shape shape_internalcall 0..6 "return"
+shape shape_int 10..12 "-1"
+ir main
+  # 1 register, 4 instructions, 0 bytes of data
+     0: load-literal           %0, int(-1)
+     1: return-early           %0
+     2: load-literal           %0, empty
+     3: return                 %0
+=== accept/loops/return-end-of-options.nu
+shape shape_internalcall 0..6 "return"
+shape shape_int 10..11 "1"
+ir main
+  # 1 register, 4 instructions, 0 bytes of data
+     0: load-literal           %0, int(1)
+     1: return-early           %0
+     2: load-literal           %0, empty
+     3: return                 %0
+=== accept/loops/return-forms.nu
+shape shape_internalcall 0..3 "def"
+shape shape_string 4..5 "a"
+shape shape_signature 6..8 "[]"
+shape shape_closure 9..11 "{ "
+shape shape_internalcall 11..17 "return"
+shape shape_closure 17..19 " }"
+shape shape_internalcall 20..23 "def"
+shape shape_string 24..25 "b"
+shape shape_signature 26..28 "[]"
+shape shape_closure 29..31 "{ "
+shape shape_internalcall 31..37 "return"
+shape shape_int 38..39 "5"
+shape shape_closure 39..41 " }"
+shape shape_internalcall 42..45 "def"
+shape shape_string 46..47 "c"
+shape shape_signature 48..50 "[]"
+shape shape_closure 51..53 "{ "
+shape shape_internalcall 53..59 "return"
+shape shape_string 60..63 "\"s\""
+shape shape_closure 63..65 " }"
+shape shape_internalcall 66..69 "def"
+shape shape_string 70..71 "d"
+shape shape_signature 72..74 "[]"
+shape shape_closure 75..77 "{ "
+shape shape_internalcall 77..83 "return"
+shape shape_list 84..85 "["
+shape shape_int 85..86 "1"
+shape shape_list 86..87 " "
+shape shape_int 87..88 "2"
+shape shape_list 88..89 "]"
+shape shape_closure 89..91 " }"
+shape shape_internalcall 92..95 "def"
+shape shape_string 96..97 "e"
+shape shape_signature 98..100 "[]"
+shape shape_closure 101..103 "{ "
+shape shape_internalcall 103..109 "return"
+shape shape_record 110..111 "{"
+shape shape_string 111..112 "a"
+shape shape_record 112..114 ": "
+shape shape_int 114..115 "1"
+shape shape_record 115..116 "}"
+shape shape_closure 116..118 " }"
+shape shape_internalcall 119..122 "def"
+shape shape_string 123..124 "f"
+shape shape_signature 125..127 "[]"
+shape shape_closure 128..130 "{ "
+shape shape_internalcall 130..136 "return"
+shape shape_block 137..138 "("
+shape shape_int 138..139 "1"
+shape shape_operator 140..141 "+"
+shape shape_int 142..143 "1"
+shape shape_block 143..144 ")"
+shape shape_closure 144..146 " }"
+shape shape_internalcall 147..150 "def"
+shape shape_string 151..152 "g"
+shape shape_signature 153..155 "[]"
+shape shape_closure 156..158 "{ "
+shape shape_internalcall 158..164 "return"
+shape shape_variable 165..169 "$env"
+shape shape_string 170..173 "PWD"
+shape shape_closure 173..175 " }"
+shape shape_internalcall 176..179 "def"
+shape shape_string 180..181 "h"
+shape shape_signature 182..184 "[]"
+shape shape_closure 185..187 "{ "
+shape shape_internalcall 187..189 "if"
+shape shape_bool 190..194 "true"
+shape shape_block 195..197 "{ "
+shape shape_internalcall 197..203 "return"
+shape shape_int 204..205 "1"
+shape shape_block 205..207 " }"
+shape shape_int 209..210 "2"
+shape shape_closure 210..212 " }"
+ir main
+  # 1 register, 30 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: drain                  %0
+     2: load-literal           %0, empty
+     3: load-literal           %0, empty
+     4: load-literal           %0, empty
+     5: drain                  %0
+     6: load-literal           %0, empty
+     7: load-literal           %0, empty
+     8: load-literal           %0, empty
+     9: drain                  %0
+    10: load-literal           %0, empty
+    11: load-literal           %0, empty
+    12: load-literal           %0, empty
+    13: drain                  %0
+    14: load-literal           %0, empty
+    15: load-literal           %0, empty
+    16: load-literal           %0, empty
+    17: drain                  %0
+    18: load-literal           %0, empty
+    19: load-literal           %0, empty
+    20: load-literal           %0, empty
+    21: drain                  %0
+    22: load-literal           %0, empty
+    23: load-literal           %0, empty
+    24: load-literal           %0, empty
+    25: drain                  %0
+    26: load-literal           %0, empty
+    27: load-literal           %0, empty
+    28: load-literal           %0, empty
+    29: return                 %0
+ir #0
+  # 1 register, 4 instructions, 0 bytes of data
+     0: load-literal           %0, empty
+     1: return-early           %0
+     2: load-literal           %0, empty
+     3: return                 %0
+ir #1
+  # 1 register, 4 instructions, 0 bytes of data
+     0: load-literal           %0, int(5)
+     1: return-early           %0
+     2: load-literal           %0, empty
+     3: return                 %0
+ir #2
+  # 1 register, 4 instructions, 1 byte of data
+     0: load-literal           %0, string("s")
+     1: return-early           %0
+     2: load-literal           %0, empty
+     3: return                 %0
+ir #3
+  # 2 registers, 8 instructions, 0 bytes of data
+     0: load-literal           %0, list(capacity = 2)
+     1: load-literal           %1, int(1)
+     2: list-push              %0, %1
+     3: load-literal           %1, int(2)
+     4: list-push              %0, %1
+     5: return-early           %0
+     6: load-literal           %0, empty
+     7: return                 %0
+ir #4
+  # 3 registers, 7 instructions, 1 byte of data
+     0: load-literal           %0, record(capacity = 1)
+     1: load-literal           %1, string("a")
+     2: load-literal           %2, int(1)
+     3: record-insert          %0, %1, %2
+     4: return-early           %0
+     5: load-literal           %0, empty
+     6: return                 %0
+ir #6
+  # 2 registers, 7 instructions, 0 bytes of data
+     0: load-literal           %0, int(1)
+     1: load-literal           %1, int(1)
+     2: binary-op              %0, Math(Add), %1
+     3: span                   %0
+     4: return-early           %0
+     5: load-literal           %0, empty
+     6: return                 %0
+ir #7
+  # 1 register, 4 instructions, 3 bytes of data
+     0: load-env               %0, "PWD"
+     1: return-early           %0
+     2: load-literal           %0, empty
+     3: return                 %0
+ir #9
+  # 2 registers, 12 instructions, 0 bytes of data
+     0: load-literal           %1, bool(true)
+     1: not                    %1
+     2: branch-if              %1, 7       # if false
+     3: load-literal           %0, int(1)  # label(0)
+     4: return-early           %0
+     5: load-literal           %0, empty
+     6: jump                   8           # end if
+     7: load-literal           %0, empty   # label(1), from(2:)
+     8: drain                  %0          # label(2), from(6:)
+     9: load-literal           %0, empty
+    10: load-literal           %0, int(2)
+    11: return                 %0
+=== accept/loops/return-help-after-value.nu
+shape shape_internalcall 0..6 "return"
+shape shape_int 7..8 "1"
+shape shape_flag 9..15 "--help"
+ir main
+  # 2 registers, 5 instructions, 18 bytes of data
+     0: load-literal           %1, string("return")
+     1: push-positional        %1
+     2: push-parser-info       "help_decl_id"
+     3: call                   decl "help", %0
+     4: return                 %0
+=== accept/loops/while-basic.nu
+shape shape_internalcall 0..3 "mut"
+shape shape_vardecl 4..5 "i"
+shape shape_int 8..9 "0"
+shape shape_internalcall 10..15 "while"
+shape shape_variable 16..18 "$i"
+shape shape_operator 19..20 "<"
+shape shape_int 21..23 "10"
+shape shape_block 24..26 "{ "
+shape shape_variable 26..28 "$i"
+shape shape_operator 29..31 "+="
+shape shape_int 32..33 "1"
+shape shape_block 33..35 " }"
+ir main
+  # 2 registers, 23 instructions, 0 bytes of data
+     0: load-literal           %0, int(0)
+     1: store-variable         var #0 "$i", %0 # let
+     2: load-literal           %0, empty
+     3: drain                  %0
+     4: load-literal           %0, empty
+     5: load-literal           %0, empty
+     6: load-variable          %0, var #0 "$i" # label(1), from(20:)
+     7: load-literal           %1, int(10)
+     8: binary-op              %0, Comparison(LessThan), %1
+     9: span                   %0
+    10: branch-if              %0, 13      # while
+    11: jump                   21          # end while
+    12: load-literal           %0, empty
+    13: load-variable          %0, var #0 "$i" # label(2), from(10:)
+    14: load-literal           %1, int(1)
+    15: binary-op              %0, Math(Add), %1
+    16: span                   %0
+    17: store-variable         var #0 "$i", %0
+    18: load-literal           %0, nothing
+    19: drain                  %0
+    20: jump                   6           # while
+    21: load-literal           %0, empty   # label(0), from(11:)
+    22: return                 %0
+=== accept/loops/while-body-value-subexpression.nu
+shape shape_internalcall 0..5 "while"
+shape shape_bool 6..11 "false"
+shape shape_block 12..13 "("
+shape shape_variable 13..17 "$env"
+shape shape_string 18..21 "FOO"
+shape shape_block 21..22 ")"
+compile error nu::compile::invalid_keyword_call: Encountered invalid `while` keyword call.
+  label 0..5 "while": this call is not properly formed
+=== accept/loops/while-complex-condition.nu
+shape shape_internalcall 0..3 "mut"
+shape shape_vardecl 4..5 "i"
+shape shape_int 8..9 "0"
+shape shape_internalcall 10..15 "while"
+shape shape_variable 16..18 "$i"
+shape shape_operator 19..20 "<"
+shape shape_int 21..23 "10"
+shape shape_operator 24..27 "and"
+shape shape_operator 28..31 "not"
+shape shape_block 32..33 "("
+shape shape_variable 33..35 "$i"
+shape shape_operator 36..38 "=="
+shape shape_int 39..40 "5"
+shape shape_block 40..41 ")"
+shape shape_block 42..44 "{ "
+shape shape_variable 44..46 "$i"
+shape shape_operator 47..49 "+="
+shape shape_int 50..51 "1"
+shape shape_internalcall 53..55 "if"
+shape shape_variable 56..58 "$i"
+shape shape_operator 59..61 "=="
+shape shape_int 62..63 "3"
+shape shape_block 64..66 "{ "
+shape shape_internalcall 66..71 "break"
+shape shape_block 71..73 " }"
+shape shape_block 73..75 " }"
+shape shape_internalcall 76..81 "while"
+shape shape_block 82..83 "("
+shape shape_variable 83..85 "$i"
+shape shape_pipe 86..87 "|"
+shape shape_internalcall 88..97 "into bool"
+shape shape_block 97..98 ")"
+shape shape_block 99..101 "{ "
+shape shape_internalcall 101..106 "break"
+shape shape_block 106..108 " }"
+shape shape_internalcall 109..114 "while"
+shape shape_bool 115..119 "true"
+shape shape_block 120..122 "{ "
+shape shape_internalcall 122..127 "break"
+shape shape_block 127..129 " }"
+ir main
+  # 3 registers, 73 instructions, 0 bytes of data
+     0: load-literal           %0, int(0)
+     1: store-variable         var #0 "$i", %0 # let
+     2: load-literal           %0, empty
+     3: drain                  %0
+     4: load-literal           %0, empty
+     5: load-literal           %0, empty
+     6: load-variable          %0, var #0 "$i" # label(1), from(42:)
+     7: load-literal           %1, int(10)
+     8: binary-op              %0, Comparison(LessThan), %1
+     9: span                   %0
+    10: collect                %0
+    11: match                  (false), %0, 18
+    12: load-variable          %1, var #0 "$i"
+    13: load-literal           %2, int(5)
+    14: binary-op              %1, Comparison(Equal), %2
+    15: span                   %1
+    16: not                    %1
+    17: binary-op              %0, Boolean(And), %1
+    18: span                   %0          # label(3), from(11:)
+    19: branch-if              %0, 22      # while
+    20: jump                   43          # end while
+    21: load-literal           %0, empty
+    22: load-variable          %0, var #0 "$i" # label(2), from(19:)
+    23: load-literal           %1, int(1)
+    24: binary-op              %0, Math(Add), %1
+    25: span                   %0
+    26: store-variable         var #0 "$i", %0
+    27: load-literal           %0, nothing
+    28: drain                  %0
+    29: load-literal           %0, empty
+    30: load-literal           %0, empty
+    31: load-variable          %1, var #0 "$i"
+    32: load-literal           %2, int(3)
+    33: binary-op              %1, Comparison(Equal), %2
+    34: span                   %1
+    35: not                    %1
+    36: branch-if              %1, 40      # if false
+    37: load-literal           %0, empty   # label(4)
+    38: jump                   43          # break
+    39: jump                   41          # end if
+    40: load-literal           %0, empty   # label(5), from(36:)
+    41: drain                  %0          # label(6), from(39:)
+    42: jump                   6           # while
+    43: load-literal           %0, empty   # label(0), from(20:), from(38:)
+    44: drain                  %0
+    45: load-literal           %0, empty
+    46: load-literal           %0, empty
+    47: load-variable          %0, var #0 "$i" # label(8), from(57:)
+    48: redirect-out           value
+    49: call                   decl "into bool", %0
+    50: branch-if              %0, 53      # while
+    51: jump                   58          # end while
+    52: load-literal           %0, empty
+    53: load-literal           %0, empty   # label(9), from(50:)
+    54: load-literal           %0, empty
+    55: jump                   58          # break
+    56: drain                  %0
+    57: jump                   47          # while
+    58: load-literal           %0, empty   # label(7), from(51:), from(55:)
+    59: drain                  %0
+    60: load-literal           %0, empty
+    61: load-literal           %0, empty
+    62: load-literal           %0, bool(true) # label(11), from(70:)
+    63: branch-if              %0, 66      # while
+    64: jump                   71          # end while
+    65: load-literal           %0, empty
+    66: load-literal           %0, empty   # label(12), from(63:)
+    67: load-literal           %0, empty
+    68: jump                   71          # break
+    69: drain                  %0
+    70: jump                   62          # while
+    71: load-literal           %0, empty   # label(10), from(64:), from(68:)
+    72: return                 %0
+=== accept/loops/while-condition-then-help.nu
+shape shape_internalcall 0..5 "while"
+shape shape_bool 6..10 "true"
+shape shape_flag 11..17 "--help"
+ir main
+  # 2 registers, 5 instructions, 17 bytes of data
+     0: load-literal           %1, string("while")
+     1: push-positional        %1
+     2: push-parser-info       "help_decl_id"
+     3: call                   decl "help", %0
+     4: return                 %0
+=== accept/loops/while-help.nu
+shape shape_internalcall 0..5 "while"
+shape shape_flag 6..12 "--help"
+ir main
+  # 2 registers, 5 instructions, 17 bytes of data
+     0: load-literal           %1, string("while")
+     1: push-positional        %1
+     2: push-parser-info       "help_decl_id"
+     3: call                   decl "help", %0
+     4: return                 %0

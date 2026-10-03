@@ -1,0 +1,205 @@
+=== accept/variables/builtins.nu
+shape shape_list 0..1 "["
+shape shape_variable 1..5 "$env"
+shape shape_string 6..9 "PWD"
+shape shape_list 9..10 " "
+shape shape_variable 10..13 "$nu"
+shape shape_string 14..23 "home-path"
+shape shape_list 23..24 " "
+shape shape_block 24..25 "("
+shape shape_variable 25..28 "$in"
+shape shape_pipe 29..30 "|"
+shape shape_internalcall 31..39 "describe"
+shape shape_block 39..40 ")"
+shape shape_list 40..41 "]"
+shape shape_block 41..42 "\n"
+ir main
+  # 4 registers, 16 instructions, 3 bytes of data
+     0: collect                %0
+     1: clone                  %1, %0
+     2: store-variable         var #0 "$in", %1
+     3: load-literal           %0, list(capacity = 3)
+     4: load-env               %2, "PWD"
+     5: list-push              %0, %2
+     6: load-variable          %2, var 0
+     7: load-literal           %3, cell-path($.home-path)
+     8: follow-cell-path       %2, %3
+     9: list-push              %0, %2
+    10: load-variable          %2, var #0 "$in"
+    11: redirect-out           value
+    12: call                   decl "describe", %2
+    13: list-push              %0, %2
+    14: drop-variable          var #0 "$in"
+    15: return                 %0
+=== accept/variables/in-alone.nu
+shape shape_variable 0..3 "$in"
+shape shape_block 3..4 "\n"
+ir main
+  # 2 registers, 6 instructions, 0 bytes of data
+     0: collect                %0
+     1: clone                  %1, %0
+     2: store-variable         var #0 "$in", %1
+     3: load-variable          %0, var #0 "$in"
+     4: drop-variable          var #0 "$in"
+     5: return                 %0
+=== accept/variables/it-as-name.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..6 "it"
+shape shape_int 9..10 "3"
+shape shape_list 11..12 "["
+shape shape_int 12..13 "1"
+shape shape_list 13..14 " "
+shape shape_int 14..15 "2"
+shape shape_list 15..16 " "
+shape shape_int 16..17 "3"
+shape shape_list 17..18 " "
+shape shape_int 18..19 "4"
+shape shape_list 19..20 "]"
+shape shape_pipe 21..22 "|"
+shape shape_internalcall 23..28 "where"
+shape shape_variable 29..32 "$it"
+shape shape_operator 33..34 ">"
+shape shape_int 35..36 "2"
+shape shape_pipe 37..38 "|"
+shape shape_internalcall 39..45 "length"
+ir main
+  # 2 registers, 22 instructions, 0 bytes of data
+     0: load-literal           %0, int(3)
+     1: store-variable         var #0 "$it", %0 # let
+     2: load-literal           %0, empty
+     3: drain                  %0
+     4: load-literal           %0, empty
+     5: load-literal           %0, list(capacity = 4)
+     6: load-literal           %1, int(1)
+     7: list-push              %0, %1
+     8: load-literal           %1, int(2)
+     9: list-push              %0, %1
+    10: load-literal           %1, int(3)
+    11: list-push              %0, %1
+    12: load-literal           %1, int(4)
+    13: list-push              %0, %1
+    14: load-literal           %1, row_condition(#1)
+    15: push-positional        %1
+    16: redirect-out           pipe
+    17: call                   decl "where", %0
+    18: redirect-out           caller
+    19: redirect-err           caller
+    20: call                   decl "length", %0
+    21: return                 %0
+=== accept/variables/named-like-units.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..8 "runs"
+shape shape_int 11..13 "10"
+shape shape_internalcall 14..17 "let"
+shape shape_vardecl 18..24 "sizekb"
+shape shape_int 27..29 "10"
+shape shape_internalcall 30..33 "let"
+shape shape_vardecl 34..37 "day"
+shape shape_int 40..41 "1"
+shape shape_list 42..43 "["
+shape shape_variable 43..48 "$runs"
+shape shape_list 48..49 " "
+shape shape_variable 49..56 "$sizekb"
+shape shape_list 56..57 " "
+shape shape_variable 57..61 "$day"
+shape shape_list 61..62 "]"
+ir main
+  # 2 registers, 25 instructions, 0 bytes of data
+     0: load-literal           %0, int(10)
+     1: store-variable         var #0 "$runs", %0 # let
+     2: load-literal           %0, empty
+     3: drain                  %0
+     4: load-literal           %0, empty
+     5: load-literal           %0, empty
+     6: load-literal           %0, int(10)
+     7: store-variable         var #1 "$sizekb", %0 # let
+     8: load-literal           %0, empty
+     9: drain                  %0
+    10: load-literal           %0, empty
+    11: load-literal           %0, empty
+    12: load-literal           %0, int(1)
+    13: store-variable         var #2 "$day", %0 # let
+    14: load-literal           %0, empty
+    15: drain                  %0
+    16: load-literal           %0, empty
+    17: load-literal           %0, list(capacity = 3)
+    18: load-variable          %1, var #0 "$runs"
+    19: list-push              %0, %1
+    20: load-variable          %1, var #1 "$sizekb"
+    21: list-push              %0, %1
+    22: load-variable          %1, var #2 "$day"
+    23: list-push              %0, %1
+    24: return                 %0
+=== accept/variables/simple.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..5 "x"
+shape shape_int 8..9 "1"
+shape shape_variable 10..12 "$x"
+ir main
+  # 1 register, 7 instructions, 0 bytes of data
+     0: load-literal           %0, int(1)
+     1: store-variable         var #0 "$x", %0 # let
+     2: load-literal           %0, empty
+     3: drain                  %0
+     4: load-literal           %0, empty
+     5: load-variable          %0, var #0 "$x"
+     6: return                 %0
+=== accept/variables/underscore-and-digits.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..8 "_x_1"
+shape shape_int 11..12 "1"
+shape shape_internalcall 13..16 "let"
+shape shape_vardecl 17..19 "__"
+shape shape_int 22..23 "2"
+shape shape_variable 24..29 "$_x_1"
+shape shape_operator 30..31 "+"
+shape shape_variable 32..35 "$__"
+ir main
+  # 2 registers, 16 instructions, 0 bytes of data
+     0: load-literal           %0, int(1)
+     1: store-variable         var #0 "$_x_1", %0 # let
+     2: load-literal           %0, empty
+     3: drain                  %0
+     4: load-literal           %0, empty
+     5: load-literal           %0, empty
+     6: load-literal           %0, int(2)
+     7: store-variable         var #1 "$__", %0 # let
+     8: load-literal           %0, empty
+     9: drain                  %0
+    10: load-literal           %0, empty
+    11: load-variable          %0, var #0 "$_x_1"
+    12: load-variable          %1, var #1 "$__"
+    13: binary-op              %0, Math(Add), %1
+    14: span                   %0
+    15: return                 %0
+=== accept/variables/unicode-name.nu
+shape shape_internalcall 0..3 "let"
+shape shape_vardecl 4..8 "🧼"
+shape shape_string 11..24 "'ünïcödé'"
+shape shape_internalcall 25..28 "let"
+shape shape_vardecl 29..33 "üml"
+shape shape_int 36..37 "1"
+shape shape_list 38..39 "["
+shape shape_variable 39..44 "$🧼"
+shape shape_list 44..45 " "
+shape shape_variable 45..50 "$üml"
+shape shape_list 50..51 "]"
+ir main
+  # 2 registers, 17 instructions, 11 bytes of data
+     0: load-literal           %0, string("ünïcödé")
+     1: store-variable         var #0 "$🧼", %0 # let
+     2: load-literal           %0, empty
+     3: drain                  %0
+     4: load-literal           %0, empty
+     5: load-literal           %0, empty
+     6: load-literal           %0, int(1)
+     7: store-variable         var #1 "$üml", %0 # let
+     8: load-literal           %0, empty
+     9: drain                  %0
+    10: load-literal           %0, empty
+    11: load-literal           %0, list(capacity = 2)
+    12: load-variable          %1, var #0 "$🧼"
+    13: list-push              %0, %1
+    14: load-variable          %1, var #1 "$üml"
+    15: list-push              %0, %1
+    16: return                 %0

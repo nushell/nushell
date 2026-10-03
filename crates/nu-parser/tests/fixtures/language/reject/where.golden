@@ -1,0 +1,77 @@
+=== reject/where/alone.nu
+shape shape_list 0..1 "["
+shape shape_int 1..2 "1"
+shape shape_list 2..3 "]"
+shape shape_pipe 4..5 "|"
+shape shape_internalcall 6..11 "where"
+error nu::parser::missing_positional: Missing required positional argument.
+  label 11..11 "": missing condition
+  help: Usage: where <condition> . Use `--help` for more information.
+=== reject/where/closure-with-tail.nu
+shape shape_list 69..70 "["
+shape shape_int 70..71 "0"
+shape shape_list 71..72 " "
+shape shape_int 72..73 "1"
+shape shape_list 73..74 " "
+shape shape_int 74..75 "2"
+shape shape_list 75..76 "]"
+shape shape_pipe 77..78 "|"
+shape shape_internalcall 79..84 "where"
+shape shape_block 85..90 "{|x| "
+shape shape_variable 90..92 "$x"
+shape shape_operator 93..94 ">"
+shape shape_string 95..97 "1}"
+shape shape_garbage 97..99 ".a"
+shape shape_garbage 99..99 ""
+error nu::parser::unclosed_delimiter: Unclosed delimiter.
+  label 85..86 "{": unclosed — opens here (need `}`)
+  label 99..99 "": expected `}` here
+  help: Add a matching `}` to close this delimiter, or check that an earlier closer closed the wrong block.
+error nu::parser::unbalanced_delimiter: Unbalanced delimiter.
+  label 96..97 "}": unexpected `}` (unbalanced with `{`)
+  help: Remove this `}` if it is extra, or add a matching `{` earlier. If you closed a block too early, the real mistake may be above.
+error nu::parser::parse_mismatch: Parse mismatch: expected operator.
+  label 97..99 ".a": expected operator
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+error nu::parser::incomplete_math_expression: Incomplete math expression.
+  label 97..99 ".a": incomplete math expression
+error nu::parser::incomplete_math_expression: Incomplete math expression.
+  label 97..99 ".a": incomplete math expression
+=== reject/where/help-then-extra.nu
+shape shape_internalcall 0..5 "where"
+shape shape_flag 6..12 "--help"
+shape shape_int 13..14 "1"
+shape shape_garbage 15..16 "2"
+shape shape_garbage 16..16 ""
+error nu::parser::parse_mismatch: Parse mismatch: expected operator.
+  label 15..16 "2": expected operator
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+error nu::parser::incomplete_math_expression: Incomplete math expression.
+  label 15..16 "2": incomplete math expression
+error nu::parser::incomplete_math_expression: Incomplete math expression.
+  label 15..16 "2": incomplete math expression
+=== reject/where/negative-number-first.nu
+shape shape_internalcall 0..5 "where"
+shape shape_string 9..10 ">"
+shape shape_variable 9..10 ">"
+shape shape_garbage 11..12 "0"
+shape shape_garbage 12..12 ""
+error nu::parser::unknown_flag: The `where` command doesn't have flag `-1`.
+  label 7..8 "1": unknown flag
+  help: Use `--help` to see available flags
+error nu::parser::parse_mismatch: Parse mismatch: expected operator.
+  label 11..12 "0": expected operator
+  help: Check the syntax around this position — a typo, missing delimiter, or wrong separator is common.
+error nu::parser::incomplete_math_expression: Incomplete math expression.
+  label 11..12 "0": incomplete math expression
+error nu::parser::incomplete_math_expression: Incomplete math expression.
+  label 11..12 "0": incomplete math expression
+=== reject/where/unknown-flag.nu
+shape shape_internalcall 0..5 "where"
+shape shape_flag 6..11 "--foo"
+error nu::parser::unknown_flag: The `where` command doesn't have flag `foo`.
+  label 6..11 "--foo": unknown flag
+  help: Use `--help` to see available flags
+error nu::parser::missing_positional: Missing required positional argument.
+  label 5..5 "": missing condition
+  help: Usage: where <condition> . Use `--help` for more information.
