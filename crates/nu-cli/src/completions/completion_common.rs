@@ -37,8 +37,8 @@ pub struct MatchedPart {
 ///   like `ls` can be run on regular files as well.
 /// * `isdir`: whether the current partial path has a trailing slash.
 ///   Parsing a path string into a pathbuf loses that bit of information.
-/// * `enable_exact_match`: Whether match algorithm is Prefix and all previous components
-///   of the path matched a directory exactly.
+/// * `enable_exact_match`: Whether exact directory matches should take priority.
+///   Enabled for prefix matching.
 fn complete_rec(
     partial: &[&str],
     built_paths: &[PathBuiltFromString],
@@ -171,6 +171,45 @@ fn complete_rec(
     } else {
         completion_iter.collect()
     }
+}
+
+/// Completes path components using the configured algorithm.
+///
+/// Fallback applies to the whole path: the full traversal is retried with fuzzy matching only
+/// when prefix matching produces no final suggestions.
+fn complete_components(
+    partial: &[&str],
+    built_paths: &[PathBuiltFromString],
+    options: &CompletionOptions,
+    want_directory: bool,
+    isdir: bool,
+) -> Vec<PathBuiltFromString> {
+    let complete_with_options = |options: &CompletionOptions| {
+        complete_rec(
+            partial,
+            built_paths,
+            options,
+            want_directory,
+            isdir,
+            options.match_algorithm == MatchAlgorithm::Prefix,
+        )
+    };
+
+    // single-pass completion if we're not using fallback
+    if options.match_algorithm != MatchAlgorithm::Fallback {
+        return complete_with_options(options);
+    }
+
+    // try prefix first and only fall back to fuzzy if it produces no completions
+    let mut options = options.clone();
+    options.match_algorithm = MatchAlgorithm::Prefix;
+    let prefix_matches = complete_with_options(&options);
+    if !prefix_matches.is_empty() {
+        return prefix_matches;
+    }
+
+    options.match_algorithm = MatchAlgorithm::Fuzzy;
+    complete_with_options(&options)
 }
 
 #[derive(Debug)]
@@ -343,7 +382,7 @@ pub fn complete_item(
         .filter(|s| !s.is_empty())
         .collect();
 
-    complete_rec(
+    complete_components(
         partial.as_slice(),
         &cwds
             .into_iter()
@@ -356,7 +395,6 @@ pub fn complete_item(
         options,
         want_directory,
         isdir,
-        options.match_algorithm == MatchAlgorithm::Prefix,
     )
     .into_iter()
     .map(|mut p| {
