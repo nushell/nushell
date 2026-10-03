@@ -972,10 +972,16 @@ impl Command for Predeclaration {
         &self,
         _engine_state: &EngineState,
         _stack: &mut Stack,
-        _call: &Call,
+        call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, crate::ShellError> {
-        panic!("Internal error: can't run a predeclaration without a body")
+        // A call can only resolve to a predeclaration whose `def` never defined it; report that
+        // instead of panicking on the user's input.
+        Err(crate::ShellError::NushellFailedSpanned {
+            msg: "Can't run a predeclaration without a body".to_string(),
+            label: "originates from here".to_string(),
+            span: call.head,
+        })
     }
 
     fn command_type(&self) -> CommandType {

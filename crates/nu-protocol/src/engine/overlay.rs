@@ -14,25 +14,31 @@ static LONGEST_DECL_NAME: AtomicUsize = AtomicUsize::new(0);
 ///
 /// `find_decl` searches only [`DeclNameMap`]s (declarations and predeclarations, in every scope
 /// and overlay), so the parser uses this to skip building command-name candidates that cannot
-/// match (see `find_longest_decl` in nu-parser).
+/// match (see `find_longest_decl_with_prefix` in nu-parser). The bound is shared by every engine
+/// in the process and only grows, so a long name declared anywhere, even in a scope that is gone,
+/// makes it less tight; that only lets the parser build longer candidates, as it did without it.
 pub fn longest_decl_name() -> usize {
     LONGEST_DECL_NAME.load(Ordering::Relaxed)
 }
 
 /// Name → id map for declarations that remembers the longest name it has ever held.
 ///
-/// Command resolution tries the longest possible command name first (`find_longest_decl`), so
-/// for a call like `each {|x| ... }` the first candidate is the whole call text, and every
-/// non-empty map on the scope chain would hash all of it just to say "no". Knowing the longest
-/// name lets [`DeclNameMap::get`] reject such candidates by length before hashing. The bound only
-/// grows (removals leave it alone), so it is always an upper bound on the keys present.
+/// Command resolution tries the longest possible command name first and shortens it a word at a
+/// time (`find_longest_decl_with_prefix` in nu-parser), looking each candidate up in every map on
+/// the scope chain. It only builds candidates up to [`longest_decl_name`], the longest name in any
+/// map, but most maps hold much shorter names, such as a script's own definitions or a module's.
+/// Knowing the longest name it holds lets [`DeclNameMap::get`] reject a longer candidate before
+/// hashing it. The bound only grows (removals leave it alone), so it is always an upper bound on
+/// the keys present.
 ///
 /// Reads go through `Deref` to the underlying `HashMap`; all mutation goes through the inherent
 /// methods so the bound stays valid.
 ///
 /// The parser looks names up here for every command word it sees, so the map uses the Fx hash
-/// (a multiply per 8 bytes) rather than SipHash. Nothing depends on the order of its entries,
-/// which `HashMap`'s default hasher already randomizes.
+/// (a multiply per 8 bytes) rather than SipHash. Nothing depends on the order of its entries.
+/// Unlike SipHash, the Fx hash has no per-process key, so a file could declare names chosen to
+/// collide and make its own parse slow, in the LSP or `nu-check` as much as when it runs. That is
+/// accepted for the speed, as rustc does, since the names come from the code being parsed.
 #[derive(Debug, Clone, Default)]
 pub struct DeclNameMap {
     map: HashMap<Vec<u8>, DeclId, FxBuildHasher>,

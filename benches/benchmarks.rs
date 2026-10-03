@@ -14,6 +14,7 @@ use nu_protocol::{
 };
 use nu_std::load_standard_library;
 use nu_table::{NuTable, TableTheme};
+use nu_test_support::{fs::nu_files, tester::parse_file};
 use std::{
     env,
     fmt::Write,
@@ -1211,31 +1212,12 @@ const PARSER_STD_HELP_MOD: &str = include_str!("../crates/nu-std/std/help/mod.nu
 const PARSER_STD_LOG_MOD: &str = include_str!("../crates/nu-std/std/log/mod.nu");
 const PARSER_DOC_CONFIG: &str = include_str!("../crates/nu-config/default_files/doc_config.nu");
 
-/// Recursively discover all .nu files under a directory.
-fn collect_nu_files_recursive(root: &Path, files: &mut Vec<PathBuf>) {
-    let Ok(entries) = fs::read_dir(root) else {
-        return;
-    };
-
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if path.is_dir() {
-            collect_nu_files_recursive(&path, files);
-        } else if path.extension().is_some_and(|ext| ext == "nu") {
-            files.push(path);
-        }
-    }
-}
-
 /// Collect all .nu source files from crates/nu-std/std into a single concatenated string.
 /// Files are sorted by path for deterministic output across runs.
-/// Returns None if the directory cannot be read (will panic at benchmark time to fail loudly).
+/// Returns None if no file could be read (will panic at benchmark time to fail loudly).
 fn collect_all_std_nu_sources() -> Option<String> {
     let std_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("crates/nu-std/std");
-    let mut files = Vec::new();
-    collect_nu_files_recursive(&std_root, &mut files);
-
-    files.sort();
+    let files = nu_files(std_root);
 
     let mut combined = String::new();
     for path in files {
@@ -1421,11 +1403,7 @@ fn bench_parser_full_parse_ctx(dataset: &str, source: String) -> impl IntoBenchm
 fn parser_shell_corpus() -> Vec<(String, PathBuf)> {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let std_root = root.join("crates/nu-std/std");
-    let mut std_files = Vec::new();
-    collect_nu_files_recursive(&std_root, &mut std_files);
-    std_files.sort();
-
-    let mut corpus: Vec<(String, PathBuf)> = std_files
+    let mut corpus: Vec<(String, PathBuf)> = nu_files(&std_root)
         .into_iter()
         .map(|path| {
             // `std/mod.nu` is "std", `std/help/mod.nu` is "std_help".
@@ -1449,24 +1427,6 @@ fn parser_shell_corpus() -> Vec<(String, PathBuf)> {
     corpus
 }
 
-/// Parse `input` as the contents of the file at `path`, the way `source` parses a file: the
-/// path is pushed on the file stack so that relative `use` and `source` resolve next to it.
-fn parse_as_file<'a>(
-    engine_state: &'a EngineState,
-    path: &Path,
-    fname: &str,
-    input: &[u8],
-) -> StateWorkingSet<'a> {
-    let mut working_set = StateWorkingSet::new(engine_state);
-    working_set
-        .files
-        .push(path.to_path_buf(), Span::unknown())
-        .expect("a single file cannot be a circular import");
-    black_box(parse(&mut working_set, Some(fname), input, false));
-    working_set.files.pop();
-    working_set
-}
-
 /// Benchmark the full parse of real files in the shell's engine (see [`setup_shell_engine`]).
 /// Unlike the `parser_parse_ctx_*` benchmarks, `use std/...` and relative module paths resolve,
 /// so every input parses without errors and IR compilation runs as it does in `nu`. Setup
@@ -1486,19 +1446,19 @@ fn bench_parser_parse_shell() -> impl IntoBenchmarks {
                 let engine_state = setup_shell_engine();
                 let input = input.clone();
                 let path = path.clone();
-                let fname = path.to_string_lossy().to_string();
                 {
-                    let working_set = parse_as_file(&engine_state, &path, &fname, &input);
+                    let (working_set, _) = parse_file(&engine_state, &path, &input, true);
                     assert!(
                         working_set.parse_errors.is_empty()
                             && working_set.compile_errors.is_empty(),
-                        "{fname} must parse without errors: {:?} {:?}",
+                        "{} must parse without errors: {:?} {:?}",
+                        path.display(),
                         working_set.parse_errors,
                         working_set.compile_errors,
                     );
                 }
                 b.iter(move || {
-                    black_box(parse_as_file(&engine_state, &path, &fname, &input));
+                    black_box(parse_file(&engine_state, &path, &input, true));
                 })
             })
         })

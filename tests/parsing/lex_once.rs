@@ -6,14 +6,14 @@
 //! the parse produced is compared. The lexer itself is compared on hand-written inputs and
 //! variants of them by the tests in `crates/nu-parser/src/lex_once.rs`.
 
-use nu_parser::{FlatShape, flatten_block, parse};
-use nu_protocol::{
-    DeclId, Span, VarId,
-    ast::Block,
-    engine::{EngineState, StateWorkingSet},
-};
-use nu_test_support::prelude::*;
-use std::path::{Path, PathBuf};
+use nu_parser::{FlatShape, flatten_block};
+use nu_protocol::{DeclId, Span, VarId, ast::Block, engine::StateWorkingSet};
+use nu_test_support::{fs::nu_files, prelude::*, tester::parse_file};
+
+/// The smallest file that gets a bracket table (`BRACKET_TABLE_LEN` in
+/// `crates/nu-parser/src/lex_once.rs`). Smaller inputs are padded to it with trailing spaces,
+/// which lex the same with and without tables.
+const MIN_TABLE_LEN: usize = 1024;
 
 /// Everything a parse produces, in a form that compares equal for equal parses.
 #[derive(Debug, PartialEq)]
@@ -34,58 +34,41 @@ struct ParseResult {
     shapes: Vec<(Span, FlatShape)>,
 }
 
-/// Parse `source` as the contents of the file at `path`, the way `source` parses a file.
-fn parse_file(
-    engine_state: &EngineState,
-    path: &Path,
-    source: &[u8],
-    lex_once: bool,
-) -> ParseResult {
-    let mut working_set = StateWorkingSet::new(engine_state);
-    working_set.lex_once = lex_once;
-    working_set
-        .files
-        .push(path.to_path_buf(), Span::unknown())
-        .expect("a single file cannot be a circular import");
-    let block = parse(
-        &mut working_set,
-        Some(&path.to_string_lossy()),
-        source,
-        false,
-    );
-    working_set.files.pop();
-
-    let without_ir = |block: &Block| {
-        let mut block = block.clone();
-        block.ir_block = None;
-        let mut json = serde_json::to_value(block).expect("blocks serialize to JSON");
-        sort_hidden_sets(&mut json);
-        json
-    };
-    let permanent = working_set.permanent_state;
-    ParseResult {
-        blocks: std::iter::once(&block)
-            .chain(&working_set.delta.blocks)
-            .map(|block| without_ir(block))
-            .collect(),
-        variables: (permanent.num_vars()..working_set.num_vars())
-            .map(|id| format!("{:?}", working_set.get_variable(VarId::new(id))))
-            .collect(),
-        declarations: (permanent.num_decls()..working_set.num_decls())
-            .map(|id| {
-                let signature = working_set.get_decl(DeclId::new(id)).signature();
-                serde_json::to_value(signature).expect("signatures serialize to JSON")
-            })
-            .collect(),
-        spans: working_set.delta.spans.clone(),
-        parse_errors: working_set.parse_errors.clone(),
-        parse_warnings: working_set
-            .parse_warnings
-            .iter()
-            .map(|warning| format!("{warning:?}"))
-            .collect(),
-        compile_errors: working_set.compile_errors.clone(),
-        shapes: flatten_block(&working_set, &block),
+impl ParseResult {
+    /// What the parse of `block` left in `working_set`.
+    fn new(working_set: &StateWorkingSet, block: &Block) -> Self {
+        let without_ir = |block: &Block| {
+            let mut block = block.clone();
+            block.ir_block = None;
+            let mut json = serde_json::to_value(block).expect("blocks serialize to JSON");
+            sort_hidden_sets(&mut json);
+            json
+        };
+        let permanent = working_set.permanent_state;
+        ParseResult {
+            blocks: std::iter::once(block)
+                .chain(working_set.delta.blocks.iter().map(|block| &**block))
+                .map(without_ir)
+                .collect(),
+            variables: (permanent.num_vars()..working_set.num_vars())
+                .map(|id| format!("{:?}", working_set.get_variable(VarId::new(id))))
+                .collect(),
+            declarations: (permanent.num_decls()..working_set.num_decls())
+                .map(|id| {
+                    let signature = working_set.get_decl(DeclId::new(id)).signature();
+                    serde_json::to_value(signature).expect("signatures serialize to JSON")
+                })
+                .collect(),
+            spans: working_set.delta.spans.clone(),
+            parse_errors: working_set.parse_errors.clone(),
+            parse_warnings: working_set
+                .parse_warnings
+                .iter()
+                .map(|warning| format!("{warning:?}"))
+                .collect(),
+            compile_errors: working_set.compile_errors.clone(),
+            shapes: flatten_block(working_set, block),
+        }
     }
 }
 
@@ -109,22 +92,6 @@ fn sort_hidden_sets(json: &mut serde_json::Value) {
     }
 }
 
-/// Every `.nu` file under `dir`, in a stable order.
-fn nu_files(dir: &Path, files: &mut Vec<PathBuf>) {
-    let mut entries: Vec<_> = std::fs::read_dir(dir)
-        .expect("directory is readable")
-        .map(|entry| entry.expect("directory entry is readable").path())
-        .collect();
-    entries.sort();
-    for path in entries {
-        if path.is_dir() {
-            nu_files(&path, files);
-        } else if path.extension().is_some_and(|ext| ext == "nu") {
-            files.push(path);
-        }
-    }
-}
-
 #[test]
 fn lex_once_parses_like_scanning() -> Result {
     let engine_state = test().engine_state;
@@ -134,15 +101,29 @@ fn lex_once_parses_like_scanning() -> Result {
         "crates/nu-config/default_files",
         "toolkit",
     ] {
-        let found = files.len();
-        nu_files(&WORKSPACE_ROOT.join(dir), &mut files);
-        assert!(files.len() > found, "no .nu files under {dir}");
+        let found = nu_files(WORKSPACE_ROOT.join(dir));
+        assert!(!found.is_empty(), "no .nu files under {dir}");
+        files.extend(found);
     }
 
     for path in files {
-        let source = std::fs::read(&path).expect("file is readable");
-        let scanning = parse_file(&engine_state, &path, &source, false);
-        let jumping = parse_file(&engine_state, &path, &source, true);
+        // Every input is at least as large as the smallest file that gets a bracket table, so the
+        // parse with `lex_once` on records and uses one (a unit test of `lex_file` in nu-parser
+        // checks that it does).
+        let mut source = std::fs::read(&path).expect("file is readable");
+        if source.len() < MIN_TABLE_LEN {
+            source.resize(MIN_TABLE_LEN, b' ');
+        }
+        let (working_set, block) = parse_file(&engine_state, &path, &source, false);
+        let scanning = ParseResult::new(&working_set, &block);
+        let (working_set, block) = parse_file(&engine_state, &path, &source, true);
+        // A bracket table only serves the parse of its file.
+        assert!(
+            working_set.bracket_tables.is_empty(),
+            "the parse of {} kept its bracket tables",
+            path.display()
+        );
+        let jumping = ParseResult::new(&working_set, &block);
         assert!(
             scanning == jumping,
             "bracket tables changed the parse of {}",

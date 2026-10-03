@@ -5268,6 +5268,7 @@ dependencies = [
  "nu-protocol",
  "nu-utils",
  "rstest",
+ "rustc-hash",
  "semver",
  "serde_json",
 ]

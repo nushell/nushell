@@ -495,6 +495,8 @@ pub fn parse_module_block(
 ) -> (Block, Module, Vec<Span>) {
     working_set.enter_scope();
 
+    // A bracket table recorded for the module's file serves only this parse (see `lex_file`).
+    let bracket_tables = working_set.bracket_tables.len();
     let (output, err) = lex_file(working_set, span, &[], &[], false);
     if let Some(err) = err {
         working_set.error(err)
@@ -658,6 +660,7 @@ pub fn parse_module_block(
         }
     }
 
+    working_set.bracket_tables.truncate(bracket_tables);
     working_set.exit_scope();
 
     (block, module, module_comments)

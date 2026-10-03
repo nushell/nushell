@@ -3,7 +3,6 @@ use nu_protocol::{
     ast::Pattern,
     ir::{DataSlice, Instruction, IrAstRef, IrBlock, Literal, ScopeRegion},
 };
-use std::collections::BTreeMap;
 
 /// A label identifier. Only exists while building code. Replaced with the actual target.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -22,13 +21,14 @@ pub(crate) struct BlockBuilder {
     /// an index actually set.
     pub(crate) labels: Vec<Option<usize>>,
     pub(crate) data: Vec<u8>,
-    /// The AST of the instructions that have one, by instruction index. Few instructions do, so
+    /// The AST of the instructions that have one, as (instruction index, AST) pairs. Only the last
+    /// instruction pushed ever gets one, so the indices increase. Few instructions have one, so
     /// this and `comments` are only expanded to one entry per instruction by [`finish()`].
     ///
     /// [`finish()`]: Self::finish
-    pub(crate) ast: BTreeMap<usize, IrAstRef>,
-    /// The comments of the instructions that have one, by instruction index.
-    pub(crate) comments: BTreeMap<usize, String>,
+    pub(crate) ast: Vec<(usize, IrAstRef)>,
+    /// The comments of the instructions that have one, like `ast`.
+    pub(crate) comments: Vec<(usize, String)>,
     pub(crate) register_allocation_state: Vec<bool>,
     pub(crate) file_count: u32,
     pub(crate) context_stack: ContextStack,
@@ -45,8 +45,8 @@ impl BlockBuilder {
             spans: vec![],
             labels: vec![],
             data: vec![],
-            ast: BTreeMap::new(),
-            comments: BTreeMap::new(),
+            ast: vec![],
+            comments: vec![],
             register_allocation_state: vec![true],
             file_count: 0,
             context_stack: ContextStack::new(),
@@ -344,16 +344,23 @@ impl BlockBuilder {
     /// Set the AST of the last instruction. Separate method because it's rarely used.
     pub(crate) fn set_last_ast(&mut self, ast_ref: Option<IrAstRef>) {
         let index = self.last_index();
-        match ast_ref {
-            Some(ast_ref) => self.ast.insert(index, ast_ref),
-            None => self.ast.remove(&index),
-        };
+        // An entry for the last instruction can only be the last entry.
+        if self.ast.last().is_some_and(|(last, _)| *last == index) {
+            self.ast.pop();
+        }
+        if let Some(ast_ref) = ast_ref {
+            self.ast.push((index, ast_ref));
+        }
     }
 
     /// Add a comment to the last instruction.
     pub(crate) fn add_comment(&mut self, comment: &str) {
         let index = self.last_index();
-        add_comment(self.comments.entry(index).or_default(), comment, None, "")
+        // An entry for the last instruction can only be the last entry.
+        match self.comments.last_mut() {
+            Some((last, text)) if *last == index => add_comment(text, comment, None, ""),
+            _ => self.comments.push((index, comment.to_string())),
+        }
     }
 
     /// Load a register with a literal.
@@ -586,15 +593,17 @@ impl BlockBuilder {
 
     /// Consume the builder and produce the final [`IrBlock`].
     pub(crate) fn finish(mut self) -> Result<IrBlock, CompileError> {
+        // One comment per instruction (empty for most). The comments added while building come
+        // first, then the label and branch comments below.
+        let mut comments = vec![String::new(); self.instructions.len()];
+        for (index, comment) in self.comments {
+            comments[index] = comment;
+        }
+
         // Add comments to label targets
         for (index, label_target) in self.labels.iter().enumerate() {
             if let Some(label_target) = label_target {
-                add_comment(
-                    self.comments.entry(*label_target).or_default(),
-                    "label(",
-                    Some(index),
-                    ")",
-                );
+                add_comment(&mut comments[*label_target], "label(", Some(index), ")");
             }
         }
 
@@ -610,12 +619,7 @@ impl BlockBuilder {
                     },
                 )?;
                 // Add a comment to the target index that we come from here
-                add_comment(
-                    self.comments.entry(target_index).or_default(),
-                    "from(",
-                    Some(index),
-                    ":)",
-                );
+                add_comment(&mut comments[target_index], "from(", Some(index), ":)");
                 instruction.set_branch_target(target_index).map_err(|_| {
                     CompileError::SetBranchTargetOfNonBranchInstruction {
                         instruction: format!("{instruction:?}"),
@@ -625,14 +629,10 @@ impl BlockBuilder {
             }
         }
 
-        // One entry per instruction; instructions without an AST or a comment get `None` and `""`.
+        // One AST entry per instruction; instructions without one get `None`.
         let mut ast = vec![None; self.instructions.len()];
         for (index, ast_ref) in self.ast {
             ast[index] = Some(ast_ref);
-        }
-        let mut comments = vec![Box::<str>::default(); self.instructions.len()];
-        for (index, comment) in self.comments {
-            comments[index] = comment.into_boxed_str();
         }
 
         Ok(IrBlock {
@@ -640,7 +640,7 @@ impl BlockBuilder {
             spans: self.spans,
             data: self.data.into(),
             ast,
-            comments,
+            comments: comments.into_iter().map(String::into_boxed_str).collect(),
             register_count: self
                 .register_allocation_state
                 .len()

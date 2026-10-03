@@ -6,7 +6,7 @@ use crate::{
     engine::{
         BracketTable, CachedFile, Command, CommandType, EngineState, OverlayFrame, ScopeBindings,
         StateDelta, Variable, VirtualPath, Visibility, VisibilityStack, description::build_desc,
-        signature_cache::SignatureCache,
+        engine_state::FileHint, signature_cache::SignatureCache,
     },
 };
 use core::panic;
@@ -42,15 +42,19 @@ pub struct StateWorkingSet<'a> {
     /// nested groups. Always on; it only changes how fast the lexer is, never what it produces,
     /// so tests turn it off to show that a parse comes out the same both ways.
     pub lex_once: bool,
-    /// Bracket tables of the files this working set has lexed with [`lex_once`](Self::lex_once)
-    /// on. nu-parser's lexer records one when it lexes a whole file of 1 KiB to 16 MiB (a parsed
-    /// script or a module file), and later lexes of parts of that file use it. A parse rarely
-    /// touches more than a few files, so this is a short list.
+    /// Bracket tables of the files being parsed, innermost last, when [`lex_once`](Self::lex_once)
+    /// is on. nu-parser's lexer records one when it lexes a whole file of 1 KiB to 16 MiB (a parsed
+    /// script or a module file), later lexes of parts of that file use it, and nu-parser drops it
+    /// when it finishes parsing the file. Files nest only through `use` and `source`, so this is a
+    /// short list.
     pub bracket_tables: Vec<BracketTable>,
     /// The span of the body of the `def` being parsed. `parse_def` compiles the body itself once it
     /// has closed the body's scope, so the closure parser leaves the closure with this span
     /// uncompiled instead of compiling it a first time.
     pub def_body_span: Option<Span>,
+    /// The index in `delta.files` of the file the last span lookup found (see
+    /// [`Self::get_span_contents`]).
+    last_file_hit: FileHint,
 }
 
 impl<'a> StateWorkingSet<'a> {
@@ -74,6 +78,7 @@ impl<'a> StateWorkingSet<'a> {
             lex_once: true,
             bracket_tables: vec![],
             def_body_span: None,
+            last_file_hit: FileHint::default(),
         }
     }
 
@@ -223,6 +228,13 @@ impl<'a> StateWorkingSet<'a> {
         }
 
         None
+    }
+
+    /// Drop the predeclaration of `name` without defining it, wherever [`Self::merge_predecl`]
+    /// would find it, so that later calls to `name` don't resolve to a declaration without a body.
+    pub fn remove_predecl(&mut self, name: &[u8]) -> Option<DeclId> {
+        self.move_one_predecl_to_overlay(name);
+        self.last_overlay_mut().predecls.remove(name)
     }
 
     fn move_one_predecl_to_overlay(&mut self, name: &[u8]) {
@@ -414,13 +426,10 @@ impl<'a> StateWorkingSet<'a> {
     #[inline]
     pub fn get_span_contents(&self, span: Span) -> &[u8] {
         let permanent_end = self.permanent_state.next_span_start();
-        if permanent_end <= span.start {
-            for cached_file in &self.delta.files {
-                if cached_file.covered_span.contains_span(span) {
-                    return &cached_file.content[span.start - cached_file.covered_span.start
-                        ..span.end - cached_file.covered_span.start];
-                }
-            }
+        if permanent_end <= span.start
+            && let Some(contents) = self.last_file_hit.contents(&self.delta.files, span)
+        {
+            return contents;
         }
 
         // if no files with span were found, fall back on permanent ones
@@ -829,8 +838,13 @@ impl<'a> StateWorkingSet<'a> {
     /// Shared version of `Command::signature()` for the declaration `decl_id`, i.e. the
     /// declaration's own signature rather than the one on its block.
     ///
-    /// Cached for permanent declarations, rebuilt on every call for delta declarations.
+    /// Cached for permanent declarations, rebuilt on every call for delta declarations. A
+    /// declaration without a block has no other signature, so this shares the one
+    /// [`StateWorkingSet::get_signature_shared`] returns instead of building and caching a copy.
     pub fn get_decl_signature_shared(&self, decl_id: DeclId) -> Arc<Signature> {
+        if self.get_decl(decl_id).block_id().is_none() {
+            return self.get_signature_shared(decl_id);
+        }
         if decl_id.get() >= self.permanent_state.num_decls() {
             return Arc::new(self.get_decl(decl_id).signature());
         }
@@ -850,8 +864,9 @@ impl<'a> StateWorkingSet<'a> {
     /// `signature` is that effective signature, which the caller already has. It is only used for
     /// delta declarations, whose output type is computed on every call. For permanent declarations
     /// the answer is remembered per input type (see [`EngineState`]'s signature cache), so it is
-    /// computed from the declaration's own cached signature: the cache is keyed by the declaration
-    /// alone and must not depend on what a caller passes.
+    /// computed from the cached effective signature of `decl_id` instead of from `signature`,
+    /// because the cache is keyed by the declaration alone and must not depend on what a caller
+    /// passes.
     pub fn call_output_type(
         &self,
         decl_id: DeclId,

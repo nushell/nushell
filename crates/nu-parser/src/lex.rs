@@ -152,33 +152,30 @@ pub(crate) fn interp_subexpr_step<T>(stack: &mut Vec<(u8, T)>, byte: u8, open: T
 /// A file's first lex scans every group in it, so it records where each one closes
 /// ([`RecordBrackets`]). Later lexes of parts of the file are given the resulting [`BracketTable`]
 /// and jump from an opening bracket straight past its closer. Everything else uses [`NoBrackets`],
-/// which does neither, so that instantiation of the lexer is the plain scan.
+/// which does neither, so that instantiation of the lexer is the plain scan. The default methods
+/// neither know nor record anything.
 pub(crate) trait Brackets: Copy {
     /// Whether [`close_of`](Self::close_of) can ever answer.
-    const JUMPS: bool;
+    const JUMPS: bool = false;
 
-    /// The absolute position of the closer of the opening bracket at absolute position `open`.
-    fn close_of(self, open: usize) -> Option<usize>;
+    /// The absolute position of the closer of the opening bracket at the absolute position given,
+    /// if it is known.
+    #[inline(always)]
+    fn close_of(self, _open: usize) -> Option<usize> {
+        None
+    }
 
-    /// The scan found that the group opened at absolute position `open` is closed at `close`.
-    fn record(self, open: usize, close: usize);
+    /// The scan found that the group opened at the first absolute position given is closed at the
+    /// second.
+    #[inline(always)]
+    fn record(self, _open: usize, _close: usize) {}
 }
 
 /// The lexer without a bracket table: every group is scanned.
 #[derive(Clone, Copy)]
 pub(crate) struct NoBrackets;
 
-impl Brackets for NoBrackets {
-    const JUMPS: bool = false;
-
-    #[inline(always)]
-    fn close_of(self, _open: usize) -> Option<usize> {
-        None
-    }
-
-    #[inline(always)]
-    fn record(self, _open: usize, _close: usize) {}
-}
+impl Brackets for NoBrackets {}
 
 impl Brackets for &BracketTable {
     const JUMPS: bool = true;
@@ -187,9 +184,6 @@ impl Brackets for &BracketTable {
     fn close_of(self, open: usize) -> Option<usize> {
         BracketTable::close_of(self, open)
     }
-
-    #[inline(always)]
-    fn record(self, _open: usize, _close: usize) {}
 }
 
 /// Rescans a token without jumping (see [`lex_item`]). It is its own type, rather than
@@ -197,17 +191,7 @@ impl Brackets for &BracketTable {
 #[derive(Clone, Copy)]
 struct Rescan;
 
-impl Brackets for Rescan {
-    const JUMPS: bool = false;
-
-    #[inline(always)]
-    fn close_of(self, _open: usize) -> Option<usize> {
-        None
-    }
-
-    #[inline(always)]
-    fn record(self, _open: usize, _close: usize) {}
-}
+impl Brackets for Rescan {}
 
 /// Scans every group, recording where each closes into the `close` array of a [`BracketTable`]
 /// whose covered span starts at `start`.
@@ -218,13 +202,6 @@ pub(crate) struct RecordBrackets<'a> {
 }
 
 impl Brackets for RecordBrackets<'_> {
-    const JUMPS: bool = false;
-
-    #[inline(always)]
-    fn close_of(self, _open: usize) -> Option<usize> {
-        None
-    }
-
     #[inline]
     fn record(self, open: usize, close: usize) {
         if let Some(entry) = open

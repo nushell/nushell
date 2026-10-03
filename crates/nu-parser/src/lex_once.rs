@@ -30,6 +30,12 @@ const BRACKET_TABLE_LEN: std::ops::RangeInclusive<usize> = 1024..=16 * 1024 * 10
 /// Lex a whole file (or part of one) as [`lex`](crate::lex::lex) does. When
 /// [`StateWorkingSet::lex_once`] is on, this records the file's [`BracketTable`] while lexing it,
 /// or jumps over nested groups if the table is already there.
+///
+/// A table serves only the parse of its file: the caller (`parse` or `parse_module_block`)
+/// truncates [`StateWorkingSet::bracket_tables`] back to its length before this call when it is
+/// done with the file. So the tables are those of the files being parsed, innermost last, and a
+/// working set that parses many files one after another (nu-lsp's workspace search) does not keep
+/// a table for each of them.
 pub(crate) fn lex_file(
     working_set: &mut StateWorkingSet,
     span: Span,
@@ -153,8 +159,8 @@ pub(crate) fn lex_n_tokens_in(
 }
 
 /// The recorded bracket table of the file containing `span`, if [`StateWorkingSet::lex_once`] is
-/// on. The file being parsed is almost always the one whose table was recorded last, so the
-/// search starts there.
+/// on. The tables are those of the files being parsed, innermost last (see [`lex_file`]), and the
+/// innermost file is the one being lexed, so the search starts there.
 pub(crate) fn find_bracket_table<'a>(
     working_set: &'a StateWorkingSet,
     span: Span,
@@ -369,5 +375,43 @@ mod tests {
                 assert_jumping_lexes_like_scanning(&variant);
             }
         }
+    }
+
+    /// [`lex_file`] records the table of a whole file of 1 KiB or more, and only of such a file,
+    /// and lexes of parts of the file find it.
+    #[test]
+    fn lex_file_records_the_table_of_a_whole_file() {
+        let engine_state = nu_protocol::engine::EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        let record = "{ x: (1 + 2) }";
+        let source = format!("[{}] {record}", "1 ".repeat(600));
+        let file = working_set.add_file("big.nu", source.as_bytes());
+        let span = working_set.get_span_for_file(file);
+
+        // Part of the file gets no table.
+        lex_file(
+            &mut working_set,
+            Span::new(span.start, span.start + 1100),
+            b"",
+            b"",
+            false,
+        );
+        assert!(working_set.bracket_tables.is_empty());
+
+        let (_, error) = lex_file(&mut working_set, span, b"", b"", false);
+        assert_eq!(error, None);
+        let [table] = working_set.bracket_tables.as_slice() else {
+            panic!("one table: {:?}", working_set.bracket_tables);
+        };
+        assert_eq!(table.covered_span, span);
+        assert_eq!(table.close_of(span.start), Some(span.start + 1201));
+        let record_span = Span::new(span.end - record.len(), span.end);
+        assert!(find_bracket_table(&working_set, record_span).is_some());
+
+        // A whole file under 1 KiB gets none.
+        let small = working_set.add_file("small.nu", b"[1 2] { x: 1 }");
+        let small_span = working_set.get_span_for_file(small);
+        lex_file(&mut working_set, small_span, b"", b"", false);
+        assert_eq!(working_set.bracket_tables.len(), 1);
     }
 }
