@@ -703,4 +703,75 @@ version = "1.0.0"
         // roundtrip: aligned output parses back to the same value
         assert_eq!(val, from_nuon(&result, None).unwrap());
     }
+
+    /// Column widths must be measured in the same unit the padding uses.
+    ///
+    /// The padding is applied with `{:<width$}`, which counts chars, so measuring
+    /// widths in bytes shifts every column to the right of a non-ASCII cell.
+    fn assert_columns_align(output: &str) {
+        // The second field of each row starts at the same char index.
+        let starts: Vec<usize> = output
+            .lines()
+            .map(|line| match (line.find(','), line.rfind(',')) {
+                (Some(first), Some(last)) if first != last => line[last + 1..].chars().count(),
+                _ => 0,
+            })
+            .collect();
+        assert!(
+            starts.iter().all(|n| *n == starts[0]),
+            "second field does not start at the same char offset in every row: {output}"
+        );
+    }
+
+    #[test]
+    fn table_column_alignment_with_non_ascii_cells() {
+        let engine_state = EngineState::new();
+        let val = Value::test_list(vec![
+            Value::test_record(record!(
+                "a" => Value::test_string("日本"),
+                "b" => Value::test_int(1)
+            )),
+            Value::test_record(record!(
+                "a" => Value::test_string("abcde"),
+                "b" => Value::test_int(2)
+            )),
+        ]);
+        let result = to_nuon(
+            &engine_state,
+            &val,
+            ToNuonConfig::default().style(ToStyle::Spaces(2)),
+        )
+        .unwrap();
+
+        assert_eq!(result, "[\n  [a,     b];\n  [日本,    1],\n  [abcde, 2]\n]");
+        assert_columns_align(&result);
+        // roundtrip: aligned output still parses back to the same value
+        assert_eq!(val, from_nuon(&result, None).unwrap());
+    }
+
+    #[test]
+    fn table_column_alignment_with_multibyte_single_rune_cells() {
+        // `…` is one rune but three bytes, the other direction of the same mismatch.
+        let engine_state = EngineState::new();
+        let val = Value::test_list(vec![
+            Value::test_record(record!(
+                "a" => Value::test_string("…"),
+                "b" => Value::test_int(1)
+            )),
+            Value::test_record(record!(
+                "a" => Value::test_string("abcde"),
+                "b" => Value::test_int(2)
+            )),
+        ]);
+        let result = to_nuon(
+            &engine_state,
+            &val,
+            ToNuonConfig::default().style(ToStyle::Spaces(2)),
+        )
+        .unwrap();
+
+        assert_eq!(result, "[\n  [a,     b];\n  […,     1],\n  [abcde, 2]\n]");
+        assert_columns_align(&result);
+        assert_eq!(val, from_nuon(&result, None).unwrap());
+    }
 }

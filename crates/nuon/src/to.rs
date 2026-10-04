@@ -330,11 +330,15 @@ fn value_to_string(
                         all_rows.push(row);
                     }
 
-                    // Column widths = max of header and cell widths per column
-                    let mut widths: Vec<usize> = col_names.iter().map(|h| h.len()).collect();
+                    // Column widths = max of header and cell widths per column.
+                    // Counted in chars, not bytes: the padding below is applied with
+                    // `{:<width$}`, which counts chars, so measuring in bytes makes the two
+                    // disagree on any non-ASCII cell and shifts every column to its right.
+                    let mut widths: Vec<usize> =
+                        col_names.iter().map(|h| h.chars().count()).collect();
                     for row in &all_rows {
                         for (i, cell) in row.iter().enumerate() {
-                            widths[i] = widths[i].max(cell.len());
+                            widths[i] = widths[i].max(cell.chars().count());
                         }
                     }
 
