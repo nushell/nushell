@@ -423,6 +423,14 @@ fn convert_to_value(
             };
 
             match value.unit.item {
+                // A negative count of bytes is not a meaningful filesize. `Filesize` is a
+                // signed i64 and `checked_mul` happily produces one, so `[-1kb]` would
+                // otherwise decode to -1000.
+                Unit::Filesize(unit) if size < 0 => Err(truncated_nuon_error(
+                    original_text,
+                    expr.span,
+                    "filesize cannot be negative",
+                )),
                 Unit::Filesize(unit) => match Filesize::from_unit(size, unit) {
                     Some(val) => Ok(val.into_value(span)),
                     None => {
@@ -651,6 +659,43 @@ mod tests {
             from_nuon("\u{feff}\u{feff}1", Some(Span::test_data())).is_err(),
             "only one leading bom is stripped"
         );
+    }
+
+    #[test]
+    fn nuon_rejects_negative_filesizes() {
+        // `Filesize` is a signed i64, so `checked_mul` produces a negative count of
+        // bytes rather than failing. A negative filesize is not a meaningful value.
+        for input in ["[-1b]", "[-1kb]", "[-9223372036854775808b]"] {
+            assert!(
+                from_nuon(input, Some(Span::test_data())).is_err(),
+                "{input} should not decode to a negative filesize"
+            );
+        }
+    }
+
+    #[test]
+    fn nuon_accepts_zero_and_positive_filesizes() {
+        // The guard must reject only negatives, not the whole unit suffix path.
+        for (input, expected) in [
+            ("[0b]", 0i64),
+            ("[1b]", 1),
+            ("[1kb]", 1000),
+            ("[9223372036854775807b]", i64::MAX),
+        ] {
+            let value = from_nuon(input, Some(Span::test_data()))
+                .unwrap_or_else(|e| panic!("{input} should parse: {e:?}"));
+            let Value::List { vals, .. } = value else {
+                panic!("{input} should decode to a list");
+            };
+            match &vals[0] {
+                Value::Filesize { val, .. } => assert_eq!(
+                    val.get(),
+                    expected,
+                    "{input} decoded to the wrong byte count"
+                ),
+                other => panic!("{input} decoded to {other:?}, not a filesize"),
+            }
+        }
     }
 
     #[test]
