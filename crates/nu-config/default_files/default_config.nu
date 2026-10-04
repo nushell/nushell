@@ -8,5 +8,5 @@
 # startup so users can rely on the load order. Leave it empty (or assign only
 # intentional overrides) unless you need Nu-side default setup.
 #
-# version = "0.116.0"
+# version = "0.116.1"
 $env.config = {}
