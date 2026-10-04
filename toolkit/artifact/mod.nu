@@ -21,7 +21,7 @@ export def "download pr" [
 
   let platform = $platform | default $"($nu.os-info.name)-($nu.os-info.arch)"
   let artifacts = get-artifacts $number $platform $span --commit=$commit | first
-  let filename = if ($platform | str starts-with "windows-") { "nu.exe" } else { "nu" }
+  let filename = if $platform starts-with "windows-" { "nu.exe" } else { "nu" }
 
   ^gh api $artifacts.archive_download_url | unzip $filename $span
 }
