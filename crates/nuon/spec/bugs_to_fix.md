@@ -7,7 +7,7 @@ what nushell 0.115.1 does today where it differs from
 [nuon_formal_specification](./nuon_formal_specification.md). tick one off when it is fixed. when
 the list is empty, this file goes away and so does the todo at the top of the spec.
 
-- [ ] bug 1 - a leading utf-8 bom is rejected. strip one instead.
+- [x] bug 1 - a leading utf-8 bom is rejected. strip one instead.
 - [ ] bug 2 - the empty document decodes to `null`. error instead.
 - [x] bug 3 - `[[a b];]` is a list containing the header, not an empty table. error instead.
 - [ ] bug 4 - an empty container under indentation emits a blank line. do not emit it.
