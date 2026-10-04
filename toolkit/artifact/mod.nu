@@ -1,6 +1,10 @@
 export use api.nu *
 use unzip.nu
 
+# these are the currently provided platforms in our ci
+const platforms = ["linux-x86_64", "macos-aarch64", "windows-x86_64"]
+const this_platform = $"($nu.os-info.name)-($nu.os-info.arch)"
+
 # Download a Nushell binary from a pull request CI artifact.
 @category "toolkit"
 @search-terms download pr artifact binary ci gh
@@ -12,14 +16,13 @@ export def "download pr" [
   # Use specific commit from branch
   --commit: string
   # OS and architecture to download for (defaults to the current platform)
-  --platform: string
+  --platform: string@$platforms = $this_platform
   # For internal use only
   --head: oneof<>
 ]: nothing -> binary {
   let span = (metadata $head).span
   let number = { item: $number, span: (metadata $number).span }
 
-  let platform = $platform | default $"($nu.os-info.name)-($nu.os-info.arch)"
   let artifacts = get-artifacts $number $platform $span --commit=$commit | first
   let filename = if $platform starts-with "windows-" { "nu.exe" } else { "nu" }
 
