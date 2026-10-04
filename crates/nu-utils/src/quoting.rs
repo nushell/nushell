@@ -5,9 +5,10 @@ use std::sync::LazyLock;
 // • Any character of []:`{}#'";()|$,.!?=
 // • Any digit (\d)
 // • Any whitespace (\s)
+// • A NUL, which must be escaped rather than written raw
 // • Case-insensitive sign-insensitive float "keywords" inf, infinity and nan.
 static NEEDS_QUOTING_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r#"[\[\]:`\{\}#'";\(\)\|\$,\.\d\s!?=]|(?i)^[+\-]?(inf(inity)?|nan)$"#)
+    Regex::new(r#"[\[\]:`\{\}#'";\(\)\|\$,\.\d\s\x00!?=]|(?i)^[+\-]?(inf(inity)?|nan)$"#)
         .expect("internal error: NEEDS_QUOTING_REGEX didn't compile")
 });
 
@@ -32,10 +33,16 @@ pub fn escape_quote_string(string: &str) -> String {
     output.push('"');
 
     for c in string.chars() {
-        if c == '"' || c == '\\' {
-            output.push('\\');
+        match c {
+            '"' | '\\' => {
+                output.push('\\');
+                output.push(c);
+            }
+            // A raw NUL is rejected by the reader, so the writer must escape it rather
+            // than emit a byte its own reader refuses.
+            '\0' => output.push_str("\\0"),
+            _ => output.push(c),
         }
-        output.push(c);
     }
 
     output.push('"');
@@ -76,7 +83,37 @@ pub fn as_raw_string(s: &str) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::as_raw_string;
+    use super::{as_raw_string, escape_quote_string, needs_quoting};
+
+    #[test]
+    fn escape_quote_string_escapes_nul_as_backslash_zero() {
+        // The reader is specified to reject a raw NUL, so the writer must not emit one.
+        assert_eq!(escape_quote_string("a\0b"), r#""a\0b""#);
+        assert_eq!(escape_quote_string("\0"), r#""\0""#);
+        assert!(
+            !escape_quote_string("\0").contains('\0'),
+            "the escaped form must not contain a raw NUL"
+        );
+    }
+
+    #[test]
+    fn escape_quote_string_still_escapes_quotes_and_backslashes() {
+        // The NUL arm must not have displaced the existing escapes.
+        assert_eq!(escape_quote_string(r#"a"b"#), r#""a\"b""#);
+        assert_eq!(escape_quote_string(r"a\b"), r#""a\\b""#);
+        assert_eq!(escape_quote_string("a\0b\"c"), r#""a\0b\"c""#);
+    }
+
+    #[test]
+    fn needs_quoting_forces_a_nul_to_be_quoted() {
+        // Without this, a NUL-bearing string is written as a bare word with a raw NUL
+        // inside it, which no conforming reader will accept.
+        assert!(needs_quoting("a\0b"));
+        assert!(needs_quoting("\0"));
+        // ...and nothing else changed: ordinary strings still take the fast path.
+        assert!(!needs_quoting("hello"));
+        assert!(!needs_quoting("plain_name"));
+    }
 
     #[test]
     fn raw_string_uses_single_hash_when_safe() {

@@ -20,7 +20,7 @@ the list is empty, this file goes away and so does the todo at the top of the sp
    `ns` and `us` still saturate because the parser clamps the literal head, so this stays
    open until that is fixed.
 - [ ] bug 9 - filesizes may be negative, and an oversized one saturates instead of erroring.
-- [ ] bug 10 - a raw NUL is written verbatim and unquoted, producing a document the reader is
+- [x] bug 10 - a raw NUL is written verbatim and unquoted, producing a document the reader is
    specified to reject.
 
 each entry below shows what 0.115.1 actually does. an implementation that has to match nushell
