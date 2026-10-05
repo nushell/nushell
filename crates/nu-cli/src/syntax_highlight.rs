@@ -4,7 +4,7 @@ use nu_color_config::{get_matching_brackets_style, get_shape_color};
 use nu_engine::env;
 use nu_parser::{FlatShape, TokenContents, flatten_block, lex, parse};
 use nu_protocol::{
-    BlockId, ParseError, Span,
+    AutoPair, AutoPairsConfig, BlockId, ParseError, Span,
     ast::{Block, Expr, Expression, PipelineRedirection, RecordItem},
     engine::{EngineState, Stack, StateWorkingSet},
 };
@@ -104,9 +104,18 @@ impl Highlighter for NuHighlighter {
 
     fn should_auto_pair(&self, context: &AutoPairContext<'_>) -> bool {
         // Skipping a closer, deleting an empty pair and wrapping a selection are always allowed.
-        context.action() != AutoPairAction::Open
-            || context.selection().is_some()
-            || should_insert_pair(context.buffer(), context.insertion_point(), context.pair())
+        if context.action() != AutoPairAction::Open || context.selection().is_some() {
+            return true;
+        }
+
+        let (open, close) = context.pair();
+        let config = self.stack.get_config(&self.engine_state);
+        should_insert_pair(
+            context.buffer(),
+            context.insertion_point(),
+            AutoPair { open, close },
+            &config.auto_pairs,
+        )
     }
 }
 
@@ -133,50 +142,69 @@ impl NuHighlighter {
     }
 }
 
-/// Whether typing `open` at `cursor` should also insert `close`.
-fn should_insert_pair(line: &str, cursor: usize, (open, close): (char, char)) -> bool {
+/// Whether typing the opening character of `pair` at `cursor` should also insert the closing one.
+fn should_insert_pair(line: &str, cursor: usize, pair: AutoPair, config: &AutoPairsConfig) -> bool {
     let Some((before, after)) = line.split_at_checked(cursor) else {
         return true;
     };
+    let AutoPairsConfig { pairs, also, .. } = config;
 
-    // A quote typed right after a word is more likely an apostrophe, as in `don't`.
-    if open == close && before.ends_with(char::is_alphanumeric) {
+    // Right after a letter or digit, as in `don't`, an opener rarely starts a pair.
+    if before.ends_with(char::is_alphanumeric) && !also.after_word.contains(&pair) {
         return false;
     }
 
-    // Typing an opener in front of other text, e.g. to wrap a word, should not pair.
-    let next_allows_pair = after
-        .chars()
-        .next()
-        .is_none_or(|next| next.is_whitespace() || matches!(next, ')' | ']' | '}'));
+    // Before other text, pair only if the next char closes a bracket, or is a quote in a string.
+    let place = string_or_comment_at_end(before);
+    let next_allows_pair = after.chars().next().is_none_or(|next| {
+        next.is_whitespace()
+            || pairs.iter().any(|p| p.open != p.close && p.close == next)
+            || (place == Some(StringOrComment::String) && matches!(next, '"' | '\'' | '`'))
+    });
+    if !next_allows_pair && !also.before_text.contains(&pair) {
+        return false;
+    }
 
-    next_allows_pair && !is_in_string_or_comment(before)
+    match place {
+        Some(StringOrComment::String) => also.in_string.contains(&pair),
+        Some(StringOrComment::Comment) => also.in_comment.contains(&pair),
+        None => true,
+    }
 }
 
-/// Whether the end of `text` is inside a string or a comment.
+#[derive(Debug, PartialEq, Eq)]
+enum StringOrComment {
+    String,
+    Comment,
+}
+
+/// Which of a string or a comment the end of `text` is inside, if any.
 ///
-/// Only the first error is reported, so lexing resumes after it or inside an unclosed bracket.
-fn is_in_string_or_comment(mut text: &str) -> bool {
+/// `lex` reports only the first error, so lexing resumes after it, or inside an unclosed bracket.
+fn string_or_comment_at_end(mut text: &str) -> Option<StringOrComment> {
     loop {
         let (tokens, err) = lex(text.as_bytes(), 0, &[], &[], false);
         let resume = match err {
-            Some(ParseError::Unclosed("\"" | "'" | "`", ..)) => return true,
-            // an unclosed raw string
+            Some(ParseError::Unclosed("\"" | "'" | "`", ..)) => {
+                return Some(StringOrComment::String);
+            }
+            // an unclosed raw string, which expects a closer like `'#`
             Some(ParseError::UnexpectedEof(expected, _)) if expected.starts_with('\'') => {
-                return true;
+                return Some(StringOrComment::String);
             }
             Some(ParseError::Unclosed(_, open, ..)) => open.end,
             Some(err) => err.span().end,
             None => {
-                return tokens.last().is_some_and(|token| {
+                let ends_in_comment = tokens.last().is_some_and(|token| {
                     token.contents == TokenContents::Comment && token.span.end == text.len()
                 });
+                return ends_in_comment.then_some(StringOrComment::Comment);
             }
         };
         match text.get(resume..) {
             // `resume > 0` keeps an error span ending at 0 from looping forever.
             Some(rest) if resume > 0 => text = rest,
-            _ => return false,
+            _ => return None,
         }
     }
 }
@@ -804,8 +832,11 @@ fn get_char_length(c: char) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use super::{NuHighlighter, is_in_string_or_comment, should_insert_pair};
-    use nu_protocol::engine::{EngineState, Stack};
+    use super::{NuHighlighter, StringOrComment, should_insert_pair, string_or_comment_at_end};
+    use nu_protocol::{
+        AutoPair, AutoPairsAlso, AutoPairsConfig,
+        engine::{EngineState, Stack},
+    };
     use reedline::{AbbrExpandContext, Highlighter};
     use rstest::rstest;
     use std::sync::Arc;
@@ -925,63 +956,135 @@ mod tests {
 
     #[rstest]
     // strings
-    #[case("echo \"abc", true)]
-    #[case("echo \"abc\"", false)]
-    #[case("echo 'ab\"c", true)]
-    #[case("echo `abc", true)]
-    #[case("echo r#'abc", true)]
-    #[case("echo r#'abc'#", false)]
-    #[case("echo r##'abc'#", true)]
-    #[case("echo \"a\nb", true)]
-    #[case("echo \"a\\\"b", true)]
-    #[case("echo 'a\\'", false)]
+    #[case("echo \"abc", Some(StringOrComment::String))]
+    #[case("echo \"abc\"", None)]
+    #[case("echo 'ab\"c", Some(StringOrComment::String))]
+    #[case("echo `abc", Some(StringOrComment::String))]
+    #[case("echo r#'abc", Some(StringOrComment::String))]
+    #[case("echo r#'abc'#", None)]
+    #[case("echo r##'abc'#", Some(StringOrComment::String))]
+    #[case("echo \"a\nb", Some(StringOrComment::String))]
+    #[case("echo \"a\\\"b", Some(StringOrComment::String))]
+    #[case("echo 'a\\'", None)]
     // strings nested in brackets
-    #[case("echo (\"x", true)]
-    #[case("if true {\n  echo \"x", true)]
+    #[case("echo (\"x", Some(StringOrComment::String))]
+    #[case("if true {\n  echo \"x", Some(StringOrComment::String))]
     // string interpolation: the inside of `(...)` is code
-    #[case("echo $\"abc ", true)]
-    #[case("echo $\"abc (", false)]
-    #[case("echo $\"abc (1 + ", false)]
-    #[case("echo $\"abc (\"x", true)]
-    #[case("echo $\"abc (1) ", true)]
+    #[case("echo $\"abc ", Some(StringOrComment::String))]
+    #[case("echo $\"abc (", None)]
+    #[case("echo $\"abc (1 + ", None)]
+    #[case("echo $\"abc (\"x", Some(StringOrComment::String))]
+    #[case("echo $\"abc (1) ", Some(StringOrComment::String))]
     // comments
-    #[case("echo foo # c", true)]
-    #[case("# c", true)]
-    #[case("def f [] {\n  # c", true)]
-    #[case("echo foo#bar", false)]
-    #[case("echo foo # c\necho ", false)]
+    #[case("echo foo # c", Some(StringOrComment::Comment))]
+    #[case("# c", Some(StringOrComment::Comment))]
+    #[case("def f [] {\n  # c", Some(StringOrComment::Comment))]
+    #[case("echo foo#bar", None)]
+    #[case("echo foo # c\necho ", None)]
+    #[case("echo foo # \"c", Some(StringOrComment::Comment))]
     // lex errors earlier in the line
-    #[case("echo ) \"x", true)]
-    #[case("echo ) x", false)]
-    #[case("ls && echo \"abc", true)]
-    fn test_is_in_string_or_comment(#[case] text: &str, #[case] expected: bool) {
-        assert_eq!(is_in_string_or_comment(text), expected);
+    #[case("echo ) \"x", Some(StringOrComment::String))]
+    #[case("echo ) x", None)]
+    #[case("ls && echo \"abc", Some(StringOrComment::String))]
+    fn test_string_or_comment_at_end(
+        #[case] text: &str,
+        #[case] expected: Option<StringOrComment>,
+    ) {
+        assert_eq!(string_or_comment_at_end(text), expected);
     }
 
     #[rstest]
     // plain code
-    #[case("echo ", 5, ('(', ')'), true)]
-    #[case("echo ", 5, ('"', '"'), true)]
-    #[case("echo ()", 6, ('[', ']'), true)]
-    #[case("echo  x", 5, ('(', ')'), true)]
+    #[case("echo ", 5, "()", true)]
+    #[case("echo ", 5, "\"\"", true)]
+    #[case("echo ()", 6, "[]", true)]
+    #[case("echo  x", 5, "()", true)]
+    #[case("echo \nls", 5, "()", true)]
     // inside a string or comment
-    #[case("echo \"abc", 9, ('(', ')'), false)]
-    #[case("echo \"abc ", 10, ('\'', '\''), false)]
-    #[case("echo foo # ", 11, ('(', ')'), false)]
-    // a quote right after a word is an apostrophe
-    #[case("echo don", 8, ('\'', '\''), false)]
-    #[case("echo $", 6, ('"', '"'), true)]
-    #[case("echo foo", 8, ('(', ')'), true)]
+    #[case("echo \"abc ", 10, "()", false)]
+    #[case("echo \"abc \"", 10, "()", false)]
+    #[case("echo \"abc ", 10, "''", false)]
+    #[case("echo foo # ", 11, "()", false)]
+    // right after a word
+    #[case("echo don", 8, "''", false)]
+    #[case("echo foo", 8, "()", false)]
+    #[case("echo $", 6, "\"\"", true)]
+    #[case("echo foo_", 9, "[]", true)]
     // in front of other text
-    #[case("echo foo", 5, ('(', ')'), false)]
-    #[case("echo foo", 5, ('"', '"'), false)]
-    #[case("echo \"foo\"", 5, ('(', ')'), false)]
+    #[case("echo foo", 5, "()", false)]
+    #[case("echo foo", 5, "\"\"", false)]
+    #[case("echo \"foo\"", 5, "()", false)]
     fn test_should_insert_pair(
         #[case] line: &str,
         #[case] cursor: usize,
-        #[case] pair: (char, char),
+        #[case] pair: AutoPair,
         #[case] expected: bool,
     ) {
-        assert_eq!(should_insert_pair(line, cursor, pair), expected);
+        assert_eq!(
+            should_insert_pair(line, cursor, pair, &AutoPairsConfig::default()),
+            expected
+        );
+    }
+
+    #[rstest]
+    // the closer of a pair whose two characters differ
+    #[case(&["<>"], "echo <>", 6, "<>", true)]
+    #[case(&["\\/"], "echo \\/", 6, "\\/", true)]
+    #[case(&["()", "<)"], "echo )", 5, "<)", true)]
+    #[case(&["()", "**"], "echo *", 5, "()", false)]
+    #[case(&["()", "[]"], "echo >", 5, "()", false)]
+    fn test_should_insert_pair_with_pairs(
+        #[case] pairs: &[&str],
+        #[case] line: &str,
+        #[case] cursor: usize,
+        #[case] pair: AutoPair,
+        #[case] expected: bool,
+    ) {
+        let config = AutoPairsConfig {
+            pairs: pairs.iter().map(|pair| pair.parse().unwrap()).collect(),
+            ..Default::default()
+        };
+        assert_eq!(should_insert_pair(line, cursor, pair, &config), expected);
+    }
+
+    const PAREN: AutoPair = AutoPair {
+        open: '(',
+        close: ')',
+    };
+    const BRACKET: AutoPair = AutoPair {
+        open: '[',
+        close: ']',
+    };
+
+    #[rstest]
+    #[case("echo \"abc ", 10, AutoPairsAlso { in_string: vec![PAREN], ..Default::default() })]
+    #[case("echo \"abc \"", 10, AutoPairsAlso { in_string: vec![PAREN], ..Default::default() })]
+    #[case("echo r#'abc '#", 12, AutoPairsAlso { in_string: vec![PAREN], ..Default::default() })]
+    #[case("echo foo # ", 11, AutoPairsAlso { in_comment: vec![PAREN], ..Default::default() })]
+    #[case("echo foo", 8, AutoPairsAlso { after_word: vec![PAREN], ..Default::default() })]
+    #[case("echo foo", 5, AutoPairsAlso { before_text: vec![PAREN], ..Default::default() })]
+    fn test_should_insert_pair_with_also(
+        #[case] line: &str,
+        #[case] cursor: usize,
+        #[case] also: AutoPairsAlso,
+    ) {
+        let config = AutoPairsConfig {
+            also,
+            ..Default::default()
+        };
+        assert!(should_insert_pair(line, cursor, PAREN, &config));
+        assert!(!should_insert_pair(line, cursor, BRACKET, &config));
+    }
+
+    #[test]
+    fn test_should_insert_pair_with_also_for_another_place() {
+        let config = AutoPairsConfig {
+            also: AutoPairsAlso {
+                after_word: vec![PAREN],
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        assert!(!should_insert_pair("echo \"a foo", 11, PAREN, &config));
     }
 }
