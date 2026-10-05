@@ -513,6 +513,94 @@ pub(crate) fn parse_cli_args_from_env() -> Result<ParsedCli, CliError> {
     parse_cli_args(args)
 }
 
+fn normalize_slash_command_aliases(mut args: Vec<OsString>) -> Vec<OsString> {
+    let mut index = 1;
+    while index < args.len() {
+        let arg = args[index].to_string_lossy();
+
+        if arg == "--" {
+            break;
+        }
+
+        if is_slash_command_alias(&arg) {
+            args[index] = OsString::from("-c");
+            break;
+        }
+
+        if arg.starts_with("--log-include") || arg.starts_with("--log-exclude") {
+            if arg.contains('=') {
+                index += 1;
+            } else {
+                index += 2;
+            }
+
+            while index < args.len() {
+                let value = args[index].to_string_lossy();
+                if value == "--" || is_slash_command_alias(&value) || is_cli_option_like(&value) {
+                    break;
+                }
+                index += 1;
+            }
+            continue;
+        }
+
+        if option_consumes_one_value(&arg) {
+            index += if arg.starts_with("--") && arg.contains('=') {
+                1
+            } else {
+                2
+            };
+            continue;
+        }
+
+        if is_cli_option_like(&arg) {
+            index += 1;
+            continue;
+        }
+
+        break;
+    }
+
+    args
+}
+
+fn is_slash_command_alias(value: &str) -> bool {
+    value == "/c" || value == "/C"
+}
+
+fn is_cli_option_like(value: &str) -> bool {
+    value.starts_with('-') && value != "-"
+}
+
+fn option_consumes_one_value(value: &str) -> bool {
+    matches!(
+        value.split_once('=').map_or(value, |(option, _)| option),
+        "-c" | "--commands"
+            | "-e"
+            | "--execute"
+            | "--config"
+            | "--env-config"
+            | "--config-home"
+            | "--plugin-config"
+            | "--plugins"
+            | "--log-level"
+            | "--log-target"
+            | "--log-file"
+            | "-I"
+            | "--include-path"
+            | "-m"
+            | "--table-mode"
+            | "--error-style"
+            | "--ide-goto-def"
+            | "--ide-hover"
+            | "--ide-complete"
+            | "--ide-check"
+            | "--mcp-transport"
+            | "--mcp-port"
+            | "--mcp-host"
+    )
+}
+
 // Parse CLI args into nushell options and script details.
 pub(crate) fn parse_cli_args(args: Vec<OsString>) -> Result<ParsedCli, CliError> {
     if args.is_empty() {
@@ -523,6 +611,7 @@ pub(crate) fn parse_cli_args(args: Vec<OsString>) -> Result<ParsedCli, CliError>
     }
 
     prevalidate_short_groups_before_lexopt(&args)?;
+    let args = normalize_slash_command_aliases(args);
 
     let argv0 = args
         .first()
@@ -653,14 +742,14 @@ pub(crate) fn parse_cli_args(args: Vec<OsString>) -> Result<ParsedCli, CliError>
                 cli.log_file = Some(spanned_value(value));
             }
             Long("log-include") => {
-                let values = parse_list_values(&mut parser, "log-include")?;
+                let values = parse_log_filter_values(&mut parser, "log-include")?;
                 let parsed = parse_log_filters(values);
                 cli.log_include
                     .get_or_insert_with(Vec::new)
                     .extend(parsed.into_iter().map(spanned_value));
             }
             Long("log-exclude") => {
-                let values = parse_list_values(&mut parser, "log-exclude")?;
+                let values = parse_log_filter_values(&mut parser, "log-exclude")?;
                 let parsed = parse_log_filters(values);
                 cli.log_exclude
                     .get_or_insert_with(Vec::new)
@@ -752,13 +841,6 @@ pub(crate) fn parse_cli_args(args: Vec<OsString>) -> Result<ParsedCli, CliError>
                     CliError::new("Invalid argument", "argument is not valid unicode")
                         .with_help("Use UTF-8 arguments when calling nushell.")
                 })?;
-
-                if value == "/c" || value == "/C" {
-                    let value = parse_string_value(&mut parser, "commands")?;
-                    cli.commands = Some(spanned_value(value));
-                    consume_remaining_args(&mut parser)?;
-                    break;
-                }
 
                 if script_name.is_empty() && cli.commands.is_none() {
                     script_name = value;
@@ -933,6 +1015,13 @@ fn parse_list_values(parser: &mut lexopt::Parser, name: &str) -> Result<Vec<Stri
         parsed.push(value);
     }
     Ok(parsed)
+}
+
+fn parse_log_filter_values(
+    parser: &mut lexopt::Parser,
+    name: &str,
+) -> Result<Vec<String>, CliError> {
+    parse_list_values(parser, name)
 }
 
 /// Parse a single `--plugins` value into a list of plugin paths.
@@ -1565,6 +1654,47 @@ mod tests {
                 r#""value with spaces""#.to_string()
             ]
         );
+    }
+
+    #[test]
+    fn slash_c_after_end_of_options_is_script_name() {
+        for slash_alias in ["/c", "/C"] {
+            let args = vec![
+                OsString::from("nu"),
+                OsString::from("--"),
+                OsString::from(slash_alias),
+                OsString::from("42 + 1"),
+            ];
+
+            let parsed = parse_cli_args(args).expect("should parse args after --");
+
+            assert!(parsed.nu.commands.is_none());
+            assert_eq!(parsed.script_name, slash_alias);
+            assert_eq!(parsed.args_to_script, vec![r#""42 + 1""#.to_string()]);
+        }
+    }
+
+    #[test]
+    fn slash_c_after_log_filters_parses_as_commands() {
+        for (log_option, slash_alias) in [
+            ("--log-include", "/c"),
+            ("--log-include", "/C"),
+            ("--log-exclude", "/c"),
+            ("--log-exclude", "/C"),
+        ] {
+            let args = vec![
+                OsString::from("nu"),
+                OsString::from(log_option),
+                OsString::from("nu_cli"),
+                OsString::from(slash_alias),
+                OsString::from("42 + 1"),
+            ];
+
+            let parsed = parse_cli_args(args).expect("should parse slash command alias");
+
+            assert_eq!(parsed.nu.commands.expect("commands").item, "42 + 1");
+            assert!(parsed.script_name.is_empty());
+        }
     }
 
     #[test]
