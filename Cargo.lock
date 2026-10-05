@@ -3970,9 +3970,9 @@ checksum = "803ec87c9cfb29b9d2633f20cba1f488db3fd53f2158b1024cbefb47ba05d413"
 
 [[package]]
 name = "libc"
-version = "0.2.186"
+version = "0.2.189"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "68ab91017fe16c622486840e4c83c9a37afeff978bd239b5293d61ece587de66"
+checksum = "3eaf3ede3fee6db1a4c2ee091bf8a8b4dccdc6d17f656fb07896ee72867612f2"
 
 [[package]]
 name = "libflate"
@@ -4989,7 +4989,6 @@ dependencies = [
  "percent-encoding",
  "pretty_assertions",
  "print-positions",
- "procfs",
  "pure-rust-locales",
  "quick-xml 0.42.0",
  "rand 0.10.2",
@@ -5432,7 +5431,6 @@ dependencies = [
 name = "nu-system"
 version = "0.116.2"
 dependencies = [
- "chrono",
  "itertools 0.15.0",
  "libc",
  "libproc",

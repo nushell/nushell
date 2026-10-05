@@ -152,7 +152,7 @@ impl Command for Kill {
         vec![
             Example {
                 description: "Kill the pid using the most memory.",
-                example: "ps | sort-by mem | last | kill $in.pid",
+                example: "ps | compact mem | sort-by mem | last | kill $in.pid",
                 result: None,
             },
             Example {
