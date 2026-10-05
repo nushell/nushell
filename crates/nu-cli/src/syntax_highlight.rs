@@ -103,19 +103,24 @@ impl Highlighter for NuHighlighter {
     }
 
     fn should_auto_pair(&self, context: &AutoPairContext<'_>) -> bool {
-        // Skipping a closer, deleting an empty pair and wrapping a selection are always allowed.
-        if context.action() != AutoPairAction::Open || context.selection().is_some() {
-            return true;
-        }
-
         let (open, close) = context.pair();
+        let (line, cursor) = (context.buffer(), context.insertion_point());
         let config = self.stack.get_config(&self.engine_state);
-        should_insert_pair(
-            context.buffer(),
-            context.insertion_point(),
-            AutoPair { open, close },
-            &config.auto_pairs,
-        )
+        match context.action() {
+            AutoPairAction::Open if context.selection().is_none() => {
+                should_insert_pair(line, cursor, AutoPair { open, close }, &config.auto_pairs)
+            }
+            // reedline may pass another pair with this closer, like `«"`, so look up `""` itself.
+            AutoPairAction::SkipExistingCloser => {
+                let quote = AutoPair { open: close, close };
+                !config.auto_pairs.pairs.contains(&quote) || !is_quote_in_code(line, cursor, close)
+            }
+            AutoPairAction::BackspacePair => {
+                open != close || !is_quote_in_code(line, cursor, close)
+            }
+            // Wrapping a selection is always allowed, and so is any action reedline adds later.
+            _ => true,
+        }
     }
 }
 
@@ -170,6 +175,15 @@ fn should_insert_pair(line: &str, cursor: usize, pair: AutoPair, config: &AutoPa
         Some(StringOrComment::Comment) => also.in_comment.contains(&pair),
         None => true,
     }
+}
+
+/// Whether `quote` is a quote and `cursor` is outside strings and comments, as right after `"a"`
+/// in `"a""b"`.
+fn is_quote_in_code(line: &str, cursor: usize, quote: char) -> bool {
+    matches!(quote, '"' | '\'' | '`')
+        && line
+            .get(..cursor)
+            .is_some_and(|before| string_or_comment_at_end(before).is_none())
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -832,12 +846,15 @@ fn get_char_length(c: char) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use super::{NuHighlighter, StringOrComment, should_insert_pair, string_or_comment_at_end};
+    use super::{
+        NuHighlighter, StringOrComment, is_quote_in_code, should_insert_pair,
+        string_or_comment_at_end,
+    };
     use nu_protocol::{
-        AutoPair, AutoPairsAlso, AutoPairsConfig,
+        AutoPair, AutoPairsAlso, AutoPairsConfig, Config,
         engine::{EngineState, Stack},
     };
-    use reedline::{AbbrExpandContext, Highlighter};
+    use reedline::{AbbrExpandContext, AutoPairs, EditCommand, Highlighter, Reedline};
     use rstest::rstest;
     use std::sync::Arc;
 
@@ -1086,5 +1103,91 @@ mod tests {
             ..Default::default()
         };
         assert!(!should_insert_pair("echo \"a foo", 11, PAREN, &config));
+    }
+
+    #[rstest]
+    // in code
+    #[case("echo \"foo\"", 5, '"', true)]
+    #[case("echo 'a''b'", 8, '\'', true)]
+    #[case("echo ``", 5, '`', true)]
+    // inside a string or comment
+    #[case("echo r#'abc'#", 11, '\'', false)]
+    #[case("echo $\"a (\"x\")\"", 12, '"', false)]
+    #[case("echo foo # \"\"", 12, '"', false)]
+    // not a quote
+    #[case("{||}", 2, '|', false)]
+    fn test_is_quote_in_code(
+        #[case] line: &str,
+        #[case] cursor: usize,
+        #[case] quote: char,
+        #[case] expected: bool,
+    ) {
+        assert_eq!(is_quote_in_code(line, cursor, quote), expected);
+    }
+
+    #[rstest]
+    // moves over or deletes the pair
+    #[case(&["\"\""], "echo \"abc\"", 9, EditCommand::InsertChar('"'), "echo \"abc\"", 10)]
+    #[case(&["\"\""], "echo \"\"", 6, EditCommand::Backspace, "echo ", 5)]
+    #[case(&["«\""], "echo «x\"", 8, EditCommand::InsertChar('"'), "echo «x\"", 9)]
+    #[case(&["«\"", "\"\""], "echo «\"", 7, EditCommand::Backspace, "echo ", 5)]
+    // types or deletes one character as usual
+    #[case(&["\"\""], "echo \"foo\"", 5, EditCommand::InsertChar('"'), "echo \"\"foo\"", 6)]
+    #[case(&["\"\""], "echo \"a\"\"b\"", 8, EditCommand::Backspace, "echo \"a\"b\"", 7)]
+    // a `"` is a quote whenever `""` is a pair
+    #[case(&["«\"", "\"\""], "echo \"foo\"", 5, EditCommand::InsertChar('"'), "echo \"\"foo\"", 6)]
+    #[case(&["«\"", "\"\""], "echo «x\"", 8, EditCommand::InsertChar('"'), "echo «x\"\"", 9)]
+    fn test_should_auto_pair(
+        #[case] pairs: &[&str],
+        #[case] line: &str,
+        #[case] cursor: usize,
+        #[case] command: EditCommand,
+        #[case] expected_line: &str,
+        #[case] expected_cursor: usize,
+    ) {
+        let mut config = Config::default();
+        config.auto_pairs.pairs = pairs.iter().map(|pair| pair.parse().unwrap()).collect();
+        let auto_pairs = AutoPairs::new(config.auto_pairs.pairs.iter().map(|p| (p.open, p.close)));
+        let mut engine_state = EngineState::new();
+        engine_state.set_config(config);
+        let h = NuHighlighter::new(Arc::new(engine_state), Arc::new(Stack::new()));
+        let mut line_editor = Reedline::create()
+            .with_highlighter(Box::new(h))
+            .with_auto_pairs(auto_pairs);
+        line_editor.run_edit_commands(&[
+            EditCommand::InsertString(line.into()),
+            EditCommand::MoveToPosition {
+                position: cursor,
+                select: false,
+            },
+            command,
+        ]);
+        assert_eq!(line_editor.current_buffer_contents(), expected_line);
+        assert_eq!(line_editor.current_insertion_point(), expected_cursor);
+    }
+
+    #[test]
+    fn test_should_auto_pair_wraps_selection_in_string() {
+        let config = Config::default();
+        let auto_pairs = AutoPairs::new(config.auto_pairs.pairs.iter().map(|p| (p.open, p.close)));
+        let mut engine_state = EngineState::new();
+        engine_state.set_config(config);
+        let h = NuHighlighter::new(Arc::new(engine_state), Arc::new(Stack::new()));
+        let mut line_editor = Reedline::create()
+            .with_highlighter(Box::new(h))
+            .with_auto_pairs(auto_pairs);
+        line_editor.run_edit_commands(&[
+            EditCommand::InsertString("echo \"foo\"".into()),
+            EditCommand::MoveToPosition {
+                position: 6,
+                select: false,
+            },
+            EditCommand::MoveToPosition {
+                position: 9,
+                select: true,
+            },
+            EditCommand::InsertChar('('),
+        ]);
+        assert_eq!(line_editor.current_buffer_contents(), "echo \"(foo)\"");
     }
 }
