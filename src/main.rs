@@ -304,16 +304,17 @@ fn main() -> Result<()> {
     let is_dap = false;
     engine_state.is_dap = is_dap;
     #[cfg(feature = "mcp")]
-    {
-        engine_state.is_mcp = parsed_nu_cli_args.mcp;
-    }
+    let is_mcp = parsed_nu_cli_args.mcp;
+    #[cfg(not(feature = "mcp"))]
+    let is_mcp = false;
+    engine_state.is_mcp = is_mcp;
     // keep this condition in sync with the branches at the end
     engine_state.is_interactive = parsed_nu_cli_args.interactive_shell.is_some()
         || (parsed_nu_cli_args.commands.is_none()
             && script_name.is_empty()
             && !is_lsp
             && !is_dap
-            && !engine_state.is_mcp);
+            && !is_mcp);
 
     engine_state.is_login = parsed_nu_cli_args.login_shell.is_some();
     engine_state.history_enabled = parsed_nu_cli_args.no_history.is_none();
