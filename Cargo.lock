@@ -5281,6 +5281,7 @@ dependencies = [
  "nu-protocol",
  "nu-utils",
  "rstest",
+ "rustc-hash",
  "semver",
  "serde_json",
 ]
@@ -5416,6 +5417,7 @@ dependencies = [
  "pretty_assertions",
  "rmp-serde",
  "rstest",
+ "rustc-hash",
  "semver",
  "serde",
  "serde_json",

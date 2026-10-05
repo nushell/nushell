@@ -480,6 +480,9 @@ fn parse_def_inner(
     }
 
     let starting_error_count = working_set.parse_errors.len();
+    // The body is the last word; this compiles it below, after closing its scope.
+    let outer_def_body_span =
+        std::mem::replace(&mut working_set.def_body_span, rest_spans.last().copied());
     let ParsedInternalCall {
         call,
         output,
@@ -492,6 +495,7 @@ fn parse_def_inner(
         ArgumentParsingLevel::Full,
         None,
     );
+    working_set.def_body_span = outer_def_body_span;
 
     if working_set
         .parse_errors
@@ -515,7 +519,7 @@ fn parse_def_inner(
             ..
         }) => {
             compile_block_with_id(working_set, *block_id);
-            *working_set.get_block_mut(*block_id).signature = sig.clone();
+            *working_set.get_block_mut(*block_id).signature = sig;
         }
         Some(arg) => working_set.error(ParseError::Expected(
             "definition body closure { ... }",
@@ -525,6 +529,17 @@ fn parse_def_inner(
     }
 
     if call_kind != CallKind::Valid {
+        // `def --help` only shows the help of `def`. It defines nothing, so drop the predeclaration
+        // the definition would have replaced. A call to the name then fails to resolve instead of
+        // reaching a declaration without a body.
+        if call_kind == CallKind::Help
+            && let Some(name) = call
+                .positional_iter()
+                .next()
+                .and_then(Expression::as_string)
+        {
+            working_set.remove_predecl(name.as_bytes());
+        }
         return (
             Expression::new(working_set, Expr::Call(call), call_span, output),
             None,
