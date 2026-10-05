@@ -938,7 +938,7 @@ pub trait ShellErrorExt {
     fn into_labeled(self) -> Result<LabeledError>;
 
     /// Extract the iterator on the sources of the [`ChainedError`] from
-    /// [`ShellError::ChainedError`], it it is one.
+    /// [`ShellError::ChainedError`], if it is one.
     fn into_chained_iter(self) -> Result<impl Iterator<Item = ShellError>>;
 
     /// Extract the error field from [`ShellError::Generic`], if it is one.
