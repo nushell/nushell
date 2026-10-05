@@ -8,7 +8,7 @@ use prelude::*;
 use std::collections::{BTreeSet, HashMap};
 
 pub use ansi_coloring::UseAnsiColoring;
-pub use auto_pairs::AutoPairsConfig;
+pub use auto_pairs::{AutoPair, AutoPairsAlso, AutoPairsConfig};
 pub use clip::ClipConfig;
 pub use completions::{
     CompletionAlgorithm, CompletionConfig, CompletionSort, ExternalCompleterConfig,
