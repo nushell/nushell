@@ -263,6 +263,16 @@ impl Command for Find {
                 example: "'abc abc' | find --only-matching --rfind ab",
                 result: Some(Value::test_list(vec![Value::test_string("ab")])),
             },
+            Example {
+                description: "Return only matching parts while preserving original case.",
+                example: "'ABC' | find --only-matching --ignore-case a",
+                result: Some(Value::test_list(vec![Value::test_string("A")])),
+            },
+            Example {
+                description: "Return only exact scalar matches for search terms.",
+                example: "[5 35] | find --only-matching 5",
+                result: Some(Value::test_list(vec![Value::test_string("5")])),
+            },
         ]
     }
 
@@ -661,11 +671,7 @@ fn only_matching_matches_in_value(
     config: &Config,
 ) -> Vec<Value> {
     let span = value.span();
-    let value_as_string = if pattern.ignore_case {
-        value.to_expanded_string("", config).to_lowercase()
-    } else {
-        value.to_expanded_string("", config)
-    };
+    let value_as_string = value.to_expanded_string("", config);
 
     match value {
         Value::String { val, .. } => only_matching_matches_in_string(pattern, &val, span),
@@ -682,8 +688,40 @@ fn only_matching_matches_in_value(
                 .flat_map(|(_, val)| only_matching_matches_in_value(pattern, val, &[], config))
                 .collect()
         }
-        Value::Binary { .. } | Value::Error { .. } => Vec::new(),
+        Value::Bool { .. }
+        | Value::Int { .. }
+        | Value::Filesize { .. }
+        | Value::Duration { .. }
+        | Value::Date { .. }
+        | Value::Range { .. }
+        | Value::Float { .. }
+        | Value::Closure { .. }
+        | Value::Nothing { .. } => only_matching_matches_in_scalar(pattern, value_as_string, span),
+        Value::Binary { .. } => Vec::new(),
+        Value::Error { .. } => vec![value],
         _ => only_matching_matches_in_string(pattern, &value_as_string, span),
+    }
+}
+
+fn only_matching_matches_in_scalar(
+    pattern: &MatchPattern,
+    value_as_string: String,
+    span: Span,
+) -> Vec<Value> {
+    if pattern.search_terms.is_empty() {
+        return only_matching_matches_in_string(pattern, &value_as_string, span);
+    }
+
+    let comparable = if pattern.ignore_case {
+        value_as_string.to_lowercase()
+    } else {
+        value_as_string.clone()
+    };
+
+    if pattern.search_terms.iter().any(|term| term == &comparable) {
+        vec![Value::string(value_as_string, span)]
+    } else {
+        Vec::new()
     }
 }
 
@@ -833,5 +871,57 @@ mod tests {
     #[test]
     fn test_examples() -> nu_test_support::Result {
         nu_test_support::test().examples(Find)
+    }
+
+    #[test]
+    fn only_matching_preserves_error_values() {
+        let pattern = MatchPattern {
+            regex: Regex::new("needle").expect("valid regex"),
+            search_terms: vec!["needle".to_string()],
+            ignore_case: false,
+            highlight: true,
+            invert: false,
+            only_matching: true,
+            rfind: false,
+            string_style: Style::new(),
+            highlight_style: Style::new(),
+        };
+        let error = Value::error(
+            ShellError::Generic(
+                nu_protocol::shell_error::generic::GenericError::new_internal(
+                    "test error",
+                    "test error",
+                ),
+            ),
+            Span::test_data(),
+        );
+
+        let matches = only_matching_matches_in_value(&pattern, error, &[], &Config::default());
+
+        assert!(matches[0].is_error());
+    }
+
+    #[test]
+    fn only_matching_preserves_original_case_for_globs() {
+        let pattern = MatchPattern {
+            regex: Regex::new("(?i)a").expect("valid regex"),
+            search_terms: vec!["a".to_string()],
+            ignore_case: true,
+            highlight: true,
+            invert: false,
+            only_matching: true,
+            rfind: false,
+            string_style: Style::new(),
+            highlight_style: Style::new(),
+        };
+
+        let matches = only_matching_matches_in_value(
+            &pattern,
+            Value::test_glob("ABC"),
+            &[],
+            &Config::default(),
+        );
+
+        assert_eq!(matches, vec![Value::test_string("A")]);
     }
 }
