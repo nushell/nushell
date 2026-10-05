@@ -34,6 +34,12 @@ pub fn from_nuon(input: &str, span: Option<Span>) -> Result<Value, ShellError> {
     engine_state.add_env_var("PWD".to_string(), Value::string("", Span::unknown()));
     let mut working_set = StateWorkingSet::new(&engine_state);
 
+    // Strip exactly one leading byte order mark. Windows editors and PowerShell's
+    // `Out-File` write one, so a reader that refuses them cannot open files people
+    // actually have. `U+FEFF` anywhere else is ordinary content, so this is a
+    // `strip_prefix` rather than a `trim`.
+    let input = input.strip_prefix('\u{feff}').unwrap_or(input);
+
     let mut block = nu_parser::parse(&mut working_set, None, input.as_bytes(), false);
 
     if let Some(pipeline) = block.pipelines.get(1) {
@@ -601,6 +607,50 @@ mod tests {
                 "unexpected duration for {unit:?}: {actual:?}"
             );
         }
+    }
+
+    #[test]
+    fn nuon_parse_strips_one_leading_bom() {
+        // Windows editors and PowerShell's `Out-File` write a bom; a reader that
+        // rejects one cannot open files people actually have.
+        for input in ["\u{feff}1", "\u{feff}[1]", "\u{feff}{ a: 1 }"] {
+            let with_bom = from_nuon(input, Some(Span::test_data()));
+            let without_bom = from_nuon(
+                input.trim_start_matches('\u{feff}'),
+                Some(Span::test_data()),
+            );
+            assert!(
+                with_bom.is_ok(),
+                "a leading bom should be stripped, but {input:?} failed: {with_bom:?}"
+            );
+            assert_eq!(
+                with_bom.expect("should parse"),
+                without_bom.expect("should parse"),
+                "a leading bom should not change the decoded value of {input:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn nuon_parse_keeps_a_lone_bom_and_inner_boms() {
+        // Exactly one *leading* bom is stripped, and U+FEFF anywhere else is ordinary
+        // content. A document that is only a bom is an empty document, which is bug 2
+        // in the spec's list and deliberately not addressed here.
+
+        // A bom inside a string body is content, not a prefix.
+        let inner = from_nuon("[\"\u{feff}\"]", Some(Span::test_data())).expect("should parse");
+        assert_eq!(
+            inner,
+            Value::list(vec![Value::test_string("\u{feff}")], Span::test_data()),
+            "an inner bom is content, not a prefix"
+        );
+
+        // Two leading boms: only the first is stripped, so the second becomes a bare
+        // word that fails to parse rather than being silently dropped as well.
+        assert!(
+            from_nuon("\u{feff}\u{feff}1", Some(Span::test_data())).is_err(),
+            "only one leading bom is stripped"
+        );
     }
 
     #[test]
