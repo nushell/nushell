@@ -158,18 +158,19 @@ impl Session {
         let is_bare_name =
             !bare.is_empty() && bare.chars().all(|c| c.is_alphanumeric() || c == '_');
 
-        if is_bare_name
-            && let Some(state) = &self.state
-            && let Some(v) = state
+        if is_bare_name && let Some(state) = &self.state {
+            let found = state
                 .session_state
                 .lock()
                 .active_shadow_vars()
                 .values()
                 .find(|sv| sv.name == bare)
-                .map(|sv| sv.value.clone())
-        {
-            respond_with_value(&self.writer, state, seq, cmd, v);
-            return;
+                .map(|sv| sv.value.clone());
+            
+            if let Some(v) = found {
+                respond_with_value(&self.writer, state, seq, cmd, v);
+                return;
+            }
         }
 
         match self.state.clone() {
