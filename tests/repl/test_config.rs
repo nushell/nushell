@@ -158,6 +158,22 @@ fn keep_nu_config_auto_pairs_pairs_on_invalid_element() -> TestResult {
 }
 
 #[test]
+fn mutate_nu_config_auto_pairs_also_warning() -> TestResult {
+    fail_test(
+        r#"$env.config.auto_pairs.pairs = ["()"]; $env.config.auto_pairs.also.in_string = ["<>"]"#,
+        "this pair is not in auto_pairs.pairs",
+    )?;
+    run_test(
+        r#"
+            $env.config.auto_pairs.pairs = ["()"]
+            $env.config.auto_pairs.also.in_string = ["<>"]
+            $env.config.auto_pairs.also.in_string.0
+        "#,
+        "<>",
+    )
+}
+
+#[test]
 fn reject_nu_config_auto_pairs_pair_of_wrong_length() -> TestResult {
     fail_test(
         r#"$env.config.auto_pairs.pairs = ["()" "("]"#,

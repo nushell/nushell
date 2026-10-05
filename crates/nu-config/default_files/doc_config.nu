@@ -219,6 +219,7 @@ $env.config.cursor_shape.helix_insert = "inherit"
 $env.config.auto_pairs.enable = false
 
 # auto_pairs.pairs (list): Pairs to auto-pair, each a string of its opening and closing characters.
+# Pairs in auto_pairs.also that are not listed here have no effect, and a warning is shown.
 # Default: ["()" "[]" "{}" '""' "''" "``"]
 $env.config.auto_pairs.pairs = ["()" "[]" "{}" '""' "''" "``"]
 

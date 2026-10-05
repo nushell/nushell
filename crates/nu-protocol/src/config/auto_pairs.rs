@@ -1,5 +1,5 @@
 use super::prelude::*;
-use crate as nu_protocol;
+use crate::{self as nu_protocol, ConfigWarning};
 
 /// Configuration for automatic pair insertion in the line editor (`$env.config.auto_pairs`).
 #[derive(Clone, Debug, IntoValue, PartialEq, Eq, Serialize, Deserialize)]
@@ -48,6 +48,27 @@ impl UpdateFromValue for AutoPairsConfig {
                 "also" => self.also.update(val, path, errors),
                 _ => errors.unknown_option(path, val),
             }
+        }
+
+        let missing = record
+            .get("also")
+            .and_then(|also| also.as_record().ok())
+            .into_iter()
+            .flat_map(|also| also.values())
+            .filter_map(|list| list.as_list().ok())
+            .flatten()
+            .filter(|val| {
+                val.as_str()
+                    .ok()
+                    .and_then(|str| str.parse::<AutoPair>().ok())
+                    .is_some_and(|pair| !self.pairs.contains(&pair))
+            });
+        for val in missing {
+            errors.warn(ConfigWarning::IncompatibleOptions {
+                label: "this pair is not in auto_pairs.pairs, so it has no effect",
+                span: val.span(),
+                help: "add it to $env.config.auto_pairs.pairs, or remove it from $env.config.auto_pairs.also",
+            });
         }
     }
 }
@@ -141,5 +162,48 @@ impl UpdateFromValue for Vec<AutoPair> {
         if pairs.len() == list.len() {
             *self = pairs;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::Config;
+
+    #[test]
+    fn warn_about_every_also_pair_missing_from_pairs() {
+        let old = Config::default();
+        let mut new = old.clone();
+        let span = |start| Span::new(start, start + 2);
+        let value = Value::test_record(record! {
+            "auto_pairs" => Value::test_record(record! {
+                "pairs" => Value::test_list(vec![Value::test_string("()")]),
+                "also" => Value::test_record(record! {
+                    "in_string" => Value::test_list(vec![
+                        Value::string("()", span(0)),
+                        Value::string("<>", span(10)),
+                    ]),
+                    "in_comment" => Value::test_list(vec![
+                        Value::string("[]", span(20)),
+                        Value::string("<>", span(30)),
+                    ]),
+                }),
+            }),
+        });
+
+        let result = new.update_from_value(&old, &value);
+
+        let Ok(Some(ShellWarning::InvalidConfig { warnings })) = result else {
+            panic!("expected config warnings, got: {result:?}");
+        };
+        let spans: Vec<_> = warnings
+            .iter()
+            .map(|warning| match warning {
+                ConfigWarning::IncompatibleOptions { span, .. } => *span,
+                other => panic!("unexpected warning: {other:?}"),
+            })
+            .collect();
+        // `()` is in `pairs`, so it does not warn; `<>` warns once per occurrence.
+        assert_eq!(spans, [span(10), span(20), span(30)]);
     }
 }
