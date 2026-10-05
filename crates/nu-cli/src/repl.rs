@@ -711,14 +711,13 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         });
 
     line_editor = if config.auto_pairs.enable {
-        line_editor.with_auto_pairs(AutoPairs::new([
-            ('(', ')'),
-            ('[', ']'),
-            ('{', '}'),
-            ('"', '"'),
-            ('\'', '\''),
-            ('`', '`'),
-        ]))
+        line_editor.with_auto_pairs(AutoPairs::new(
+            config
+                .auto_pairs
+                .pairs
+                .iter()
+                .map(|pair| (pair.open, pair.close)),
+        ))
     } else {
         line_editor.disable_auto_pairs()
     };
