@@ -11,7 +11,7 @@ the list is empty, this file goes away and so does the todo at the top of the sp
 - [ ] bug 2 - the empty document decodes to `null`. error instead.
 - [x] bug 3 - `[[a b];]` is a list containing the header, not an empty table. error instead.
 - [ ] bug 4 - an empty container under indentation emits a blank line. do not emit it.
-- [ ] bug 5 - `--raw --no-commas` emits no separator and loses data. make the two exclusive.
+- [x] bug 5 - `--raw --no-commas` emits no separator and loses data. make the two exclusive.
 - [ ] bug 6 - table width is measured in bytes but padded in runes. use one measure for both.
 - [ ] bug 7 - `inf` and `NaN` become `null` through `to json`. not a nuon bug, and not fixable
    in this crate, since json cannot spell them.
