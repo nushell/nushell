@@ -168,14 +168,6 @@ fn main() -> Result<()> {
     // Get the current working directory from the environment.
     let init_cwd = current_dir_from_environment();
 
-    #[cfg(feature = "mcp")]
-    let handle_ctrlc = !parsed_nu_cli_args.mcp;
-    #[cfg(not(feature = "mcp"))]
-    let handle_ctrlc = true;
-    if handle_ctrlc {
-        ctrlc_protection(&mut engine_state);
-    }
-
     #[cfg(all(feature = "rustls-tls", feature = "network"))]
     nu_command::tls::CRYPTO_PROVIDER.default();
 
@@ -315,6 +307,11 @@ fn main() -> Result<()> {
             && !is_lsp
             && !is_dap
             && !is_mcp);
+
+    // Configure signal handling after determining whether the shell is interactive.
+    if !is_mcp {
+        ctrlc_protection(&mut engine_state);
+    }
 
     engine_state.is_login = parsed_nu_cli_args.login_shell.is_some();
     engine_state.history_enabled = parsed_nu_cli_args.no_history.is_none();
