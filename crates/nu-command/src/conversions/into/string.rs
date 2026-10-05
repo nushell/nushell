@@ -223,7 +223,7 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                 return Value::string(val.to_string(), span);
             }
 
-            let mut basic = digits.map_or_else(
+            let basic = digits.map_or_else(
                 || val.to_string(),
                 |precision| {
                     let rounded = (val * 10_f64.powi(precision as i32)).round()
@@ -232,7 +232,9 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                 },
             );
 
+            let first_digit = if val.is_sign_negative() { 1 } else { 0 };
             let decimal = basic.find('.').unwrap_or_else(|| basic.len());
+            let decimal_len = decimal - first_digit;
             let locale = get_system_locale();
             if !group_digits
                 || match locale.grouping() {
@@ -240,9 +242,11 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                     Grouping::Standard | Grouping::Indian => decimal < 4,
                 }
             {
-                if decimal < basic.len() {
-                    basic.replace_range(decimal..=decimal, locale.decimal());
-                }
+                let basic = format!("{}{}{}{}", if val.is_sign_negative() {
+                    locale.minus_sign() } else { "" },
+                    &basic[first_digit..decimal],
+                    if decimal < basic.len() { locale.decimal() } else { "" },
+                    if decimal < basic.len() { &basic[decimal + 1..]} else {""});
                 return Value::string(basic, span);
             }
 
@@ -251,22 +255,25 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                     unreachable!("Posix locale grouping should already have returned")
                 }
                 Grouping::Standard => (
-                    basic.len() + decimal / 3 * locale.separator().len(),
-                    if decimal % 3 == 0 { 3 } else { decimal % 3 },
+                    basic.len() + (decimal - first_digit) / 3 * locale.separator().len(),
+                    if decimal_len % 3 == 0 { first_digit + 3 } else { first_digit + decimal_len % 3 },
                     3,
                 ),
                 Grouping::Indian => (
-                    basic.len() + ((decimal - 3) / 2 + 1) * locale.separator().len(),
-                    if (decimal - 3) % 2 == 0 {
-                        2
+                    basic.len() + ((decimal_len - 3) / 2 + 1) * locale.separator().len(),
+                    if (decimal_len - 3) % 2 == 0 {
+                        first_digit + 2
                     } else {
-                        (decimal - 3) % 2
+                        first_digit + (decimal_len - 3) % 2
                     },
                     2,
                 ),
             };
             let mut result = String::with_capacity(size);
-            result.push_str(&basic[0..start]);
+            if val.is_sign_negative() {
+                result.push_str(locale.minus_sign());
+            }
+            result.push_str(&basic[first_digit..start]);
             for start in (start..(decimal - 3)).step_by(step) {
                 result.push_str(locale.separator());
                 result.push_str(&basic[start..(start + step)])
@@ -346,6 +353,8 @@ fn format_int(int: i64, group_digits: bool, decimals: usize) -> String {
 
     let str = if group_digits {
         int.to_formatted_string(&locale)
+    } else if int < 0 {
+        format!("{}{}", locale.minus_sign(), int.abs().to_string())
     } else {
         int.to_string()
     };

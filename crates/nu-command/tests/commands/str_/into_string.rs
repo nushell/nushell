@@ -48,6 +48,24 @@ fn from_inf() -> Result {
 }
 
 #[test]
+fn from_negative_zero() -> Result {
+    let code = "
+        echo -- -0.0 | into string
+    ";
+
+    test().run(code).expect_value_eq("-0")
+}
+
+#[test]
+fn from_int_negative_zero() -> Result {
+    let code = "
+        echo -- -0 | into string
+    ";
+
+    test().run(code).expect_value_eq("0")
+}
+
+#[test]
 fn from_boolean() -> Result {
     let code = "
         echo true | into string
@@ -365,4 +383,44 @@ fn float_into_string_grouping_respects_system_locale_in() -> Result {
     ";
 
     test().run(code).expect_value_eq("1,23,456")
+}
+
+#[test]
+#[env(NU_TEST_LOCALE_OVERRIDE = "en_US.UTF-8")]
+fn int_into_string_negative_grouping() -> Result {
+    let code = "
+    -123456 | into string --group-digits
+    ";
+
+    test().run(code).expect_value_eq("-123,456")
+}
+
+#[test]
+#[env(NU_TEST_LOCALE_OVERRIDE = "en_US.UTF-8")]
+fn float_into_string_negative_grouping() -> Result {
+    let code = "
+    -123456.0 | into string --group-digits
+    ";
+
+    test().run(code).expect_value_eq("-123,456")
+}
+
+#[test]
+#[env(NU_TEST_LOCALE_OVERRIDE = "ar_AE.UTF-8")]
+fn int_into_string_negative_respects_system_locale_ar() -> Result {
+    let code = "
+    -123456 | into string
+    ";
+
+    test().run(code).expect_value_eq("\u{61c}-123456")
+}
+
+#[test]
+#[env(NU_TEST_LOCALE_OVERRIDE = "ar_AE.UTF-8")]
+fn float_into_string_negative_respects_system_locale_ar() -> Result {
+    let code = "
+    -123456.0 | into string
+    ";
+
+    test().run(code).expect_value_eq("\u{61c}-123456")
 }
