@@ -194,6 +194,26 @@ fn reject_nu_config_auto_pairs_non_string_pair() -> TestResult {
 }
 
 #[test]
+fn reject_nu_config_auto_pairs_pair_of_one_grapheme() -> TestResult {
+    fail_test(
+        r#"$env.config.auto_pairs.pairs = ["e\u{301}"]"#,
+        "a string of two characters",
+    )?;
+    fail_test(
+        r#"$env.config.auto_pairs.pairs = ["\r\n"]"#,
+        "a string of two characters",
+    )
+}
+
+#[test]
+fn mutate_nu_config_auto_pairs_non_ascii_pair() -> TestResult {
+    run_test(
+        r#"$env.config.auto_pairs.pairs = ["«»"]; $env.config.auto_pairs.pairs.0"#,
+        "«»",
+    )
+}
+
+#[test]
 fn reject_nu_config_auto_pairs_also_non_record() -> TestResult {
     fail_test("$env.config.auto_pairs.also = []", "Type mismatch")
 }

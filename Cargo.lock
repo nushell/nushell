@@ -5426,6 +5426,7 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.20",
  "typetag",
+ "unicode-segmentation",
  "web-time",
  "windows 0.62.2",
  "windows-sys 0.61.2",

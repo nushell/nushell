@@ -1,5 +1,6 @@
 use super::prelude::*;
 use crate::{self as nu_protocol, ConfigWarning};
+use unicode_segmentation::UnicodeSegmentation;
 
 /// Configuration for automatic pair insertion in the line editor (`$env.config.auto_pairs`).
 #[derive(Clone, Debug, IntoValue, PartialEq, Eq, Serialize, Deserialize)]
@@ -125,8 +126,11 @@ impl FromStr for AutoPair {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut chars = s.chars();
+        // Two chars that render as one, like `e\u{301}` or `\r\n`, can't be typed separately.
         match (chars.next(), chars.next(), chars.next()) {
-            (Some(open), Some(close), None) => Ok(Self { open, close }),
+            (Some(open), Some(close), None) if s.graphemes(true).count() == 2 => {
+                Ok(Self { open, close })
+            }
             _ => Err("a string of two characters like '()'"),
         }
     }
