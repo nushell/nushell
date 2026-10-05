@@ -30,6 +30,24 @@ fn from_float() -> Result {
 }
 
 #[test]
+fn from_nan() -> Result {
+    let code = "
+        echo nan | into string
+    ";
+
+    test().run(code).expect_value_eq("NaN")
+}
+
+#[test]
+fn from_inf() -> Result {
+    let code = "
+        echo inf | into string
+    ";
+
+    test().run(code).expect_value_eq("inf")
+}
+
+#[test]
 fn from_boolean() -> Result {
     let code = "
         echo true | into string
@@ -124,6 +142,33 @@ fn from_int_float_trim_trailing_zeros() -> Result {
     let outcome: String = test().run(code)?;
     assert_contains("1 flat", outcome);
     Ok(())
+}
+
+#[test]
+fn from_float_rounding() -> Result {
+    let code = "
+        1.23450 | into string -d 3
+    ";
+
+    test().run(code).expect_value_eq("1.235")
+}
+
+#[test]
+fn from_float_int_rounding() -> Result {
+    let code = "
+        1.995 | into string -d 2
+    ";
+
+    test().run(code).expect_value_eq("2.00")
+}
+
+#[test]
+fn from_float_neg_rounding() -> Result {
+    let code = "
+        -1.23450 | into string -d 3
+    ";
+
+    test().run(code).expect_value_eq("-1.235")
 }
 
 #[test]
@@ -250,4 +295,74 @@ fn int_into_string_decimals_respects_system_locale_en() -> Result {
     ";
 
     test().run(code).expect_value_eq("10.0")
+}
+
+#[test]
+#[env(NU_TEST_LOCALE_OVERRIDE = "de_DE.UTF-8")]
+fn float_into_string_decimals_respects_system_locale_de() -> Result {
+    let code = "
+    10.0 | into string --decimals 1
+    ";
+
+    test().run(code).expect_value_eq("10,0")
+}
+
+#[test]
+#[env(NU_TEST_LOCALE_OVERRIDE = "en_US.UTF-8")]
+fn int_into_string_grouping_respects_system_locale_en() -> Result {
+    let code = "
+    1234 | into string --group-digits
+    ";
+
+    test().run(code).expect_value_eq("1,234")
+}
+
+#[test]
+#[env(NU_TEST_LOCALE_OVERRIDE = "en_US.UTF-8")]
+fn float_into_string_decimals_respects_system_locale_en() -> Result {
+    let code = "
+    10.0 | into string --decimals 1
+    ";
+
+    test().run(code).expect_value_eq("10.0")
+}
+
+#[test]
+#[env(NU_TEST_LOCALE_OVERRIDE = "de_DE.UTF-8")]
+fn int_into_string_grouping_respects_system_locale_de() -> Result {
+    let code = "
+    1234 | into string --group-digits
+    ";
+
+    test().run(code).expect_value_eq("1.234")
+}
+
+#[test]
+#[env(NU_TEST_LOCALE_OVERRIDE = "de_DE.UTF-8")]
+fn float_into_string_grouping_respects_system_locale_de() -> Result {
+    let code = "
+    1234.0 | into string --group-digits
+    ";
+
+    test().run(code).expect_value_eq("1.234")
+}
+
+#[test]
+#[env(NU_TEST_LOCALE_OVERRIDE = "hi_IN.UTF-8")]
+fn int_into_string_grouping_respects_system_locale_in() -> Result {
+    let code = "
+    123456 | into string --group-digits
+    ";
+
+    test().run(code).expect_value_eq("1,23,456")
+}
+
+#[test]
+#[env(NU_TEST_LOCALE_OVERRIDE = "hi_IN.UTF-8")]
+fn float_into_string_grouping_respects_system_locale_in() -> Result {
+    let code = "
+    123456.0 | into string --group-digits
+    ";
+
+    test().run(code).expect_value_eq("1,23,456")
 }

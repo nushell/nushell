@@ -2,7 +2,7 @@ use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
 use nu_protocol::Config;
 use nu_utils::get_system_locale;
-use num_format::ToFormattedString;
+use num_format::{Grouping, ToFormattedString};
 use std::sync::Arc;
 
 struct Arguments {
@@ -219,12 +219,65 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             Value::string(res, span)
         }
         Value::Float { val, .. } => {
-            if let Some(decimal_value) = digits {
-                let decimal_value = decimal_value as usize;
-                Value::string(format!("{val:.decimal_value$}"), span)
-            } else {
-                Value::string(val.to_string(), span)
+            if !val.is_finite() {
+                return Value::string(val.to_string(), span);
             }
+
+            let mut basic = digits.map_or_else(
+                || val.to_string(),
+                |precision| {
+                    let rounded = (val * 10_f64.powi(precision as i32)).round()
+                        / 10_f64.powi(precision as i32);
+                    format!("{:.*}", precision as usize, rounded)
+                },
+            );
+
+            let decimal = basic.find('.').unwrap_or_else(|| basic.len());
+            let locale = get_system_locale();
+            if !group_digits
+                || match locale.grouping() {
+                    Grouping::Posix => true,
+                    Grouping::Standard | Grouping::Indian => decimal < 4,
+                }
+            {
+                if decimal < basic.len() {
+                    basic.replace_range(decimal..=decimal, locale.decimal());
+                }
+                return Value::string(basic, span);
+            }
+
+            let (size, start, step) = match locale.grouping() {
+                Grouping::Posix => {
+                    unreachable!("Posix locale grouping should already have returned")
+                }
+                Grouping::Standard => (
+                    basic.len() + decimal / 3 * locale.separator().len(),
+                    if decimal % 3 == 0 { 3 } else { decimal % 3 },
+                    3,
+                ),
+                Grouping::Indian => (
+                    basic.len() + ((decimal - 3) / 2 + 1) * locale.separator().len(),
+                    if (decimal - 3) % 2 == 0 {
+                        2
+                    } else {
+                        (decimal - 3) % 2
+                    },
+                    2,
+                ),
+            };
+            let mut result = String::with_capacity(size);
+            result.push_str(&basic[0..start]);
+            for start in (start..(decimal - 3)).step_by(step) {
+                result.push_str(locale.separator());
+                result.push_str(&basic[start..(start + step)])
+            }
+            result.push_str(locale.separator());
+            result.push_str(&basic[(decimal - 3)..decimal]);
+            if decimal < basic.len() {
+                result.push_str(locale.decimal());
+                result.push_str(&basic[decimal + 1..]);
+            }
+            Value::string(result, span)
         }
         Value::Bool { val, .. } => Value::string(val.to_string(), span),
         Value::Date { val, .. } => Value::string(val.format("%c").to_string(), span),
