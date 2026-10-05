@@ -166,7 +166,7 @@ impl Session {
                 .values()
                 .find(|sv| sv.name == bare)
                 .map(|sv| sv.value.clone());
-            
+
             if let Some(v) = found {
                 respond_with_value(&self.writer, state, seq, cmd, v);
                 return;
