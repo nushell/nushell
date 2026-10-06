@@ -300,17 +300,17 @@ fn main() -> Result<()> {
     #[cfg(not(feature = "mcp"))]
     let is_mcp = false;
     engine_state.is_mcp = is_mcp;
-    // keep this condition in sync with the branches at the end
-    engine_state.is_interactive = parsed_nu_cli_args.interactive_shell.is_some()
-        || (parsed_nu_cli_args.commands.is_none()
-            && script_name.is_empty()
-            && !is_lsp
-            && !is_dap
-            && !is_mcp);
+    // Keep this condition in sync with the branches at the end.
+    let is_repl = parsed_nu_cli_args.commands.is_none()
+        && script_name.is_empty()
+        && !is_lsp
+        && !is_dap
+        && !is_mcp;
+    engine_state.is_interactive = parsed_nu_cli_args.interactive_shell.is_some() || is_repl;
 
-    // Configure signal handling after determining whether the shell is interactive.
+    // `-i` also applies to commands and scripts, which exit rather than return to the REPL.
     if !is_mcp {
-        ctrlc_protection(&mut engine_state);
+        ctrlc_protection(&mut engine_state, is_repl);
     }
 
     engine_state.is_login = parsed_nu_cli_args.login_shell.is_some();

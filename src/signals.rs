@@ -4,20 +4,20 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
 };
 
-pub(crate) fn ctrlc_protection(engine_state: &mut EngineState) {
-    ctrlc::set_handler(ctrlc_handler(engine_state)).expect("Error setting Ctrl-C handler");
+pub(crate) fn ctrlc_protection(engine_state: &mut EngineState, is_repl: bool) {
+    ctrlc::set_handler(ctrlc_handler(engine_state, is_repl)).expect("Error setting Ctrl-C handler");
 }
 
-fn ctrlc_handler(engine_state: &mut EngineState) -> impl FnMut() + Send + 'static {
+fn ctrlc_handler(engine_state: &mut EngineState, is_repl: bool) -> impl FnMut() + Send + 'static {
     let interrupt = Arc::new(AtomicBool::new(false));
     engine_state.set_signals(Signals::new(interrupt.clone()));
 
     let signal_handlers = Handlers::new();
 
-    // Non-interactive execution must clean up background jobs on interrupt.
-    // In the REPL, interrupting foreground work (including the prompt) must leave
-    // background and frozen jobs available for later use.
-    if !engine_state.is_interactive {
+    // Only execution that returns to the REPL may preserve background and frozen jobs
+    // when interrupting foreground work (including the prompt). Commands and scripts
+    // must clean up on interrupt, even when `-i` makes the engine interactive.
+    if !is_repl {
         signal_handlers
             .register_unguarded({
                 let jobs = engine_state.jobs.clone();
@@ -62,21 +62,23 @@ mod tests {
     }
 
     #[test]
-    fn interactive_interrupt_preserves_background_jobs() {
+    fn repl_interrupt_preserves_background_jobs() {
         let (mut engine_state, id, job_signals) = engine_with_background_job(true);
 
-        ctrlc_handler(&mut engine_state)();
+        ctrlc_handler(&mut engine_state, true)();
 
         assert!(engine_state.signals().interrupted());
         assert!(!job_signals.interrupted());
         assert!(engine_state.jobs.lock().unwrap().lookup(id).is_some());
     }
 
-    #[test]
-    fn non_interactive_interrupt_kills_background_jobs() {
-        let (mut engine_state, id, job_signals) = engine_with_background_job(false);
+    #[rstest::rstest]
+    #[case::non_interactive(false)]
+    #[case::forced_interactive(true)]
+    fn non_repl_interrupt_kills_background_jobs(#[case] is_interactive: bool) {
+        let (mut engine_state, id, job_signals) = engine_with_background_job(is_interactive);
 
-        ctrlc_handler(&mut engine_state)();
+        ctrlc_handler(&mut engine_state, false)();
 
         assert!(engine_state.signals().interrupted());
         assert!(job_signals.interrupted());
