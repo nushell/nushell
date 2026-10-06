@@ -113,10 +113,14 @@ impl Highlighter for NuHighlighter {
             // reedline may pass another pair with this closer, like `«"`, so look up `""` itself.
             AutoPairAction::SkipExistingCloser => {
                 let quote = AutoPair { open: close, close };
-                !config.auto_pairs.pairs.contains(&quote) || !is_quote_in_code(line, cursor, close)
+                !config.auto_pairs.pairs.contains(&quote)
+                    || !(is_quote_in_code(line, cursor, close)
+                        || is_escaped_quote(line, cursor, close))
             }
             AutoPairAction::BackspacePair => {
-                open != close || !is_quote_in_code(line, cursor, close)
+                open != close
+                    || !(is_quote_in_code(line, cursor, close)
+                        || is_escaped_quote(line, cursor.saturating_sub(open.len_utf8()), open))
             }
             // Wrapping a selection is always allowed, and so is any action reedline adds later.
             _ => true,
@@ -164,14 +168,15 @@ fn should_insert_pair(line: &str, cursor: usize, pair: AutoPair, config: &AutoPa
     let next_allows_pair = after.chars().next().is_none_or(|next| {
         next.is_whitespace()
             || pairs.iter().any(|p| p.open != p.close && p.close == next)
-            || (place == Some(StringOrComment::String) && matches!(next, '"' | '\'' | '`'))
+            || (matches!(place, Some(StringOrComment::String(_)))
+                && matches!(next, '"' | '\'' | '`'))
     });
     if !next_allows_pair && !also.before_text.contains(&pair) {
         return false;
     }
 
     match place {
-        Some(StringOrComment::String) => also.in_string.contains(&pair),
+        Some(StringOrComment::String(_)) => also.in_string.contains(&pair),
         Some(StringOrComment::Comment) => also.in_comment.contains(&pair),
         None => true,
     }
@@ -186,9 +191,19 @@ fn is_quote_in_code(line: &str, cursor: usize, quote: char) -> bool {
             .is_some_and(|before| string_or_comment_at_end(before).is_none())
 }
 
+/// Whether `quote` at `at` is a `"` escaped by a backslash inside a `"` string.
+fn is_escaped_quote(line: &str, at: usize, quote: char) -> bool {
+    quote == '"'
+        && line.get(..at).is_some_and(|before| {
+            (before.len() - before.trim_end_matches('\\').len()) % 2 == 1
+                && string_or_comment_at_end(before) == Some(StringOrComment::String('"'))
+        })
+}
+
 #[derive(Debug, PartialEq, Eq)]
 enum StringOrComment {
-    String,
+    /// A string opened with this quote.
+    String(char),
     Comment,
 }
 
@@ -199,12 +214,12 @@ fn string_or_comment_at_end(mut text: &str) -> Option<StringOrComment> {
     loop {
         let (tokens, err) = lex(text.as_bytes(), 0, &[], &[], false);
         let resume = match err {
-            Some(ParseError::Unclosed("\"" | "'" | "`", ..)) => {
-                return Some(StringOrComment::String);
+            Some(ParseError::Unclosed(quote @ ("\"" | "'" | "`"), ..)) => {
+                return quote.chars().next().map(StringOrComment::String);
             }
             // an unclosed raw string, which expects a closer like `'#`
             Some(ParseError::UnexpectedEof(expected, _)) if expected.starts_with('\'') => {
-                return Some(StringOrComment::String);
+                return Some(StringOrComment::String('\''));
             }
             Some(ParseError::Unclosed(_, open, ..)) => open.end,
             Some(err) => err.span().end,
@@ -847,7 +862,7 @@ fn get_char_length(c: char) -> usize {
 #[cfg(test)]
 mod tests {
     use super::{
-        NuHighlighter, StringOrComment, is_quote_in_code, should_insert_pair,
+        NuHighlighter, StringOrComment, is_escaped_quote, is_quote_in_code, should_insert_pair,
         string_or_comment_at_end,
     };
     use nu_protocol::{
@@ -973,25 +988,25 @@ mod tests {
 
     #[rstest]
     // strings
-    #[case("echo \"abc", Some(StringOrComment::String))]
+    #[case("echo \"abc", Some(StringOrComment::String('"')))]
     #[case("echo \"abc\"", None)]
-    #[case("echo 'ab\"c", Some(StringOrComment::String))]
-    #[case("echo `abc", Some(StringOrComment::String))]
-    #[case("echo r#'abc", Some(StringOrComment::String))]
+    #[case("echo 'ab\"c", Some(StringOrComment::String('\'')))]
+    #[case("echo `abc", Some(StringOrComment::String('`')))]
+    #[case("echo r#'abc", Some(StringOrComment::String('\'')))]
     #[case("echo r#'abc'#", None)]
-    #[case("echo r##'abc'#", Some(StringOrComment::String))]
-    #[case("echo \"a\nb", Some(StringOrComment::String))]
-    #[case("echo \"a\\\"b", Some(StringOrComment::String))]
+    #[case("echo r##'abc'#", Some(StringOrComment::String('\'')))]
+    #[case("echo \"a\nb", Some(StringOrComment::String('"')))]
+    #[case("echo \"a\\\"b", Some(StringOrComment::String('"')))]
     #[case("echo 'a\\'", None)]
     // strings nested in brackets
-    #[case("echo (\"x", Some(StringOrComment::String))]
-    #[case("if true {\n  echo \"x", Some(StringOrComment::String))]
+    #[case("echo (\"x", Some(StringOrComment::String('"')))]
+    #[case("if true {\n  echo \"x", Some(StringOrComment::String('"')))]
     // string interpolation: the inside of `(...)` is code
-    #[case("echo $\"abc ", Some(StringOrComment::String))]
+    #[case("echo $\"abc ", Some(StringOrComment::String('"')))]
     #[case("echo $\"abc (", None)]
     #[case("echo $\"abc (1 + ", None)]
-    #[case("echo $\"abc (\"x", Some(StringOrComment::String))]
-    #[case("echo $\"abc (1) ", Some(StringOrComment::String))]
+    #[case("echo $\"abc (\"x", Some(StringOrComment::String('"')))]
+    #[case("echo $\"abc (1) ", Some(StringOrComment::String('"')))]
     // comments
     #[case("echo foo # c", Some(StringOrComment::Comment))]
     #[case("# c", Some(StringOrComment::Comment))]
@@ -1000,9 +1015,9 @@ mod tests {
     #[case("echo foo # c\necho ", None)]
     #[case("echo foo # \"c", Some(StringOrComment::Comment))]
     // lex errors earlier in the line
-    #[case("echo ) \"x", Some(StringOrComment::String))]
+    #[case("echo ) \"x", Some(StringOrComment::String('"')))]
     #[case("echo ) x", None)]
-    #[case("ls && echo \"abc", Some(StringOrComment::String))]
+    #[case("ls && echo \"abc", Some(StringOrComment::String('"')))]
     fn test_string_or_comment_at_end(
         #[case] text: &str,
         #[case] expected: Option<StringOrComment>,
@@ -1126,14 +1141,34 @@ mod tests {
     }
 
     #[rstest]
+    // in a `"` string
+    #[case("echo \"a\\", 8, true)]
+    #[case("echo \"a\\\\", 9, false)]
+    #[case("echo \"a\\\\\\", 10, true)]
+    #[case("echo $\"a\\", 9, true)]
+    // where a backslash does not escape
+    #[case("echo 'a\\", 8, false)]
+    #[case("echo `a\\", 8, false)]
+    #[case("echo r#'a\\", 10, false)]
+    #[case("echo # a\\", 9, false)]
+    #[case("echo $\"(ls C:\\", 14, false)]
+    fn test_is_escaped_quote(#[case] line: &str, #[case] at: usize, #[case] expected: bool) {
+        assert_eq!(is_escaped_quote(line, at, '"'), expected);
+    }
+
+    #[rstest]
     // moves over or deletes the pair
     #[case(&["\"\""], "echo \"abc\"", 9, EditCommand::InsertChar('"'), "echo \"abc\"", 10)]
     #[case(&["\"\""], "echo \"\"", 6, EditCommand::Backspace, "echo ", 5)]
     #[case(&["«\""], "echo «x\"", 8, EditCommand::InsertChar('"'), "echo «x\"", 9)]
     #[case(&["«\"", "\"\""], "echo «\"", 7, EditCommand::Backspace, "echo ", 5)]
+    #[case(&["\"\""], "echo \"a\\\\\"", 9, EditCommand::InsertChar('"'), "echo \"a\\\\\"", 10)]
+    #[case(&["''"], "echo 'a\\'", 8, EditCommand::InsertChar('\''), "echo 'a\\'", 9)]
     // types or deletes one character as usual
     #[case(&["\"\""], "echo \"foo\"", 5, EditCommand::InsertChar('"'), "echo \"\"foo\"", 6)]
     #[case(&["\"\""], "echo \"a\"\"b\"", 8, EditCommand::Backspace, "echo \"a\"b\"", 7)]
+    #[case(&["\"\""], "echo \"a\\\"", 8, EditCommand::InsertChar('"'), "echo \"a\\\"\"", 9)]
+    #[case(&["\"\""], "echo \"a\\\"\"", 9, EditCommand::Backspace, "echo \"a\\\"", 8)]
     // a `"` is a quote whenever `""` is a pair
     #[case(&["«\"", "\"\""], "echo \"foo\"", 5, EditCommand::InsertChar('"'), "echo \"\"foo\"", 6)]
     #[case(&["«\"", "\"\""], "echo «x\"", 8, EditCommand::InsertChar('"'), "echo «x\"\"", 9)]
