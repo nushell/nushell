@@ -381,6 +381,11 @@ nix = { workspace = true, default-features = false, features = [
   "term",
 ] }
 
+[target.'cfg(target_os = "windows")'.dependencies]
+# `GetCommandLineW` lets us recover the raw, still-quoted command line for the
+# `/c` ComSpec alias.
+windows-sys = { workspace = true, features = ["Win32_System_Environment"] }
+
 [dev-dependencies]
 nu-plugin-core = { path = "./crates/nu-plugin-core", version = "0.116.0" }
 nu-plugin-protocol = { path = "./crates/nu-plugin-protocol", version = "0.116.0" }
