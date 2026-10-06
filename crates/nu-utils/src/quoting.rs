@@ -62,6 +62,14 @@ pub fn as_raw_string(s: &str) -> Option<String> {
         return None;
     }
 
+    // A raw string reproduces its content byte for byte, so it cannot carry the
+    // `\0` escape: a NUL inside `r#'...'#` stays a raw NUL in the output, which is
+    // exactly what the caller is escaping. Refuse the raw form and let the value
+    // fall through to `escape_quote_string`, which writes `\0`.
+    if s.contains('\0') {
+        return None;
+    }
+
     // Find minimum # count needed for delimiter.
     // Nushell requires at least one #, so start at 1.
     // Need to avoid both:
@@ -117,6 +125,25 @@ mod tests {
 
     #[test]
     fn raw_string_uses_single_hash_when_safe() {
+        assert_eq!(
+            as_raw_string(r#"hello \"world\""#),
+            Some(r#"r#'hello \"world\"'#"#.to_string())
+        );
+    }
+
+    #[test]
+    fn raw_string_is_refused_when_the_value_has_a_nul() {
+        // A raw string cannot represent the `\0` escape, so one would come back out
+        // as a raw NUL. Refusing it hands the value to `escape_quote_string` instead.
+        for value in ["a\0\"b", "\0\"", "a\\b\0"] {
+            assert_eq!(
+                as_raw_string(value),
+                None,
+                "a NUL-bearing value must not take the raw form: {value:?}"
+            );
+        }
+
+        // And nothing else changed: a NUL-free value that needs escaping still gets it.
         assert_eq!(
             as_raw_string(r#"hello \"world\""#),
             Some(r#"r#'hello \"world\"'#"#.to_string())

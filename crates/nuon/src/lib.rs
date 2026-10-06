@@ -560,6 +560,45 @@ mod tests {
     }
 
     #[test]
+    fn raw_strings_fall_through_to_escaping_when_the_value_has_a_nul() {
+        // A raw string carries its content verbatim, so a NUL inside `r#'...'#` is a raw
+        // NUL in the output. `as_raw_string` only opts a value in when it holds a quote
+        // or a backslash, so `a\0"b` took the raw path and the escape added for bare
+        // NULs never ran.
+        let engine_state = EngineState::new();
+        for value in ["a\0\"b", "\0\"", "a\\b\0", "\0"] {
+            let result = to_nuon(
+                &engine_state,
+                &Value::test_string(value),
+                ToNuonConfig::default().raw_strings(true),
+            )
+            .unwrap();
+            assert!(
+                !result.contains('\0'),
+                "--raw-strings wrote a raw NUL for {value:?}: {result:?}"
+            );
+            assert!(
+                result.starts_with('"'),
+                "--raw-strings must fall back to escaping for {value:?}, got {result:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn raw_strings_still_use_raw_syntax_when_no_nul_is_present() {
+        // The control: the fallback above must not turn every raw string into a quoted
+        // one, which would silently change the output shape for all existing callers.
+        let engine_state = EngineState::new();
+        let result = to_nuon(
+            &engine_state,
+            &Value::test_string(r#"hello "world""#),
+            ToNuonConfig::default().raw_strings(true),
+        )
+        .unwrap();
+        assert_eq!(result, r#"r#'hello "world"'#"#);
+    }
+
+    #[test]
     fn raw_strings_option_in_list() {
         let engine_state = EngineState::new();
         let val = Value::test_list(vec![Value::test_string(r#"a "b" c"#)]);

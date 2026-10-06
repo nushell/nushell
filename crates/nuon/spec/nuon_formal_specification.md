@@ -274,8 +274,9 @@
        is not line-oriented, and anything that splits it on newlines will get it wrong.
     - NUL is the exception because the reader is required to reject a raw one. a writer that
        emits it verbatim produces a document its own reader must refuse, so the round trip
-       promised below would not hold. nushell emits a raw NUL today, and does not even quote the
-       string containing it: see bug 10 in [bugs_to_fix](./bugs_to_fix.md).
+       promised below would not hold. the writer therefore escapes NUL as `\0` and quotes any
+       string containing one, and the raw string form is not used for such a value, since it
+       would carry the NUL through unchanged.
 
 ## numbers
 
