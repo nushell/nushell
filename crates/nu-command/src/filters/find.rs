@@ -273,6 +273,11 @@ impl Command for Find {
                 example: "[5 35] | find --only-matching 5",
                 result: Some(Value::test_list(vec![Value::test_string("5")])),
             },
+            Example {
+                description: "Return only matches from selected columns of a table.",
+                example: "[[name desc]; [foo bar]] | find --only-matching --columns [name] bar",
+                result: Some(Value::test_list(vec![])),
+            },
         ]
     }
 
@@ -569,7 +574,13 @@ fn find_in_pipelinedata(
     let config = stack.get_config(engine_state);
 
     if pattern.only_matching {
-        return find_only_matching_in_pipelinedata(pattern, columns_to_search, input, &config);
+        return find_only_matching_in_pipelinedata(
+            pattern,
+            columns_to_search,
+            engine_state,
+            input,
+            &config,
+        );
     }
 
     let map_pattern = pattern.clone();
@@ -626,42 +637,42 @@ fn find_in_pipelinedata(
 fn find_only_matching_in_pipelinedata(
     pattern: MatchPattern,
     columns_to_search: Vec<String>,
+    engine_state: &EngineState,
     input: PipelineData,
     config: &Config,
 ) -> Result<PipelineData, ShellError> {
-    match input {
-        PipelineData::Empty => Ok(PipelineData::empty()),
-        PipelineData::Value(value, metadata) => {
-            let span = value.span();
-            let matches =
-                only_matching_matches_in_value(&pattern, value, &columns_to_search, config);
-            Ok(Value::list(matches, span).into_pipeline_data_with_metadata(metadata))
-        }
-        PipelineData::ListStream(stream, metadata) => {
-            let config = config.clone();
-            let stream = stream.modify(|iter| {
-                iter.flat_map(move |value| {
-                    only_matching_matches_in_value(&pattern, value, &columns_to_search, &config)
-                })
-            });
+    // Byte streams are split into lines so each line is matched like a string,
+    // mirroring the plain `find` byte-stream arm. Every other input shape is
+    // delegated to `PipelineData::flat_map`, which already walks lists, ranges,
+    // iterable custom values, preserves metadata and honors ctrl-c.
+    if let PipelineData::ByteStream(stream, ..) = input {
+        let span = stream.span();
+        let Some(lines) = stream.lines() else {
+            return Ok(PipelineData::empty());
+        };
 
-            Ok(PipelineData::list_stream(stream, metadata))
+        let mut output = vec![];
+        for line in lines {
+            let line = line?;
+            output.extend(only_matching_matches_in_string(&pattern, &line, span));
         }
-        PipelineData::ByteStream(stream, ..) => {
-            let span = stream.span();
-            if let Some(lines) = stream.lines() {
-                let mut output = vec![];
-                for line in lines {
-                    let line = line?;
-                    output.extend(only_matching_matches_in_string(&pattern, &line, span));
-                }
 
-                Ok(Value::list(output, span).into_pipeline_data())
-            } else {
-                Ok(PipelineData::empty())
-            }
-        }
+        return Ok(Value::list(output, span).into_pipeline_data());
     }
+
+    // A top-level error should flow through unchanged, just like plain `find`,
+    // rather than being wrapped in a one-element list.
+    if let PipelineData::Value(value, _) = &input
+        && value.is_error()
+    {
+        return Ok(input);
+    }
+
+    let config = config.clone();
+    input.flat_map(
+        move |value| only_matching_matches_in_value(&pattern, value, &columns_to_search, &config),
+        engine_state.signals(),
+    )
 }
 
 fn only_matching_matches_in_value(
@@ -671,7 +682,6 @@ fn only_matching_matches_in_value(
     config: &Config,
 ) -> Vec<Value> {
     let span = value.span();
-    let value_as_string = value.to_expanded_string("", config);
 
     match value {
         Value::String { val, .. } => only_matching_matches_in_string(pattern, &val, span),
@@ -696,54 +706,71 @@ fn only_matching_matches_in_value(
         | Value::Range { .. }
         | Value::Float { .. }
         | Value::Closure { .. }
-        | Value::Nothing { .. } => only_matching_matches_in_scalar(pattern, value_as_string, span),
+        | Value::Nothing { .. } => only_matching_matches_in_scalar(pattern, value, config),
         Value::Binary { .. } => Vec::new(),
         Value::Error { .. } => vec![value],
-        _ => only_matching_matches_in_string(pattern, &value_as_string, span),
+        // `to_expanded_string` is only computed here (and in the scalar arm) so
+        // string/list/record values don't pay for a rendering they never use.
+        _ => only_matching_matches_in_string(pattern, &value.to_expanded_string("", config), span),
     }
 }
 
 fn only_matching_matches_in_scalar(
     pattern: &MatchPattern,
-    value_as_string: String,
-    span: Span,
+    value: Value,
+    config: &Config,
 ) -> Vec<Value> {
-    if pattern.search_terms.is_empty() {
-        return only_matching_matches_in_string(pattern, &value_as_string, span);
+    let span = value.span();
+    let value_as_string = value.to_expanded_string("", config);
+
+    // Reuse `value_should_be_printed` for the exact-match rule so `find` and
+    // `find -o` agree on what counts as a scalar match.
+    if !pattern.search_terms.is_empty() {
+        return if value_should_be_printed(pattern, &value, &[], config) {
+            vec![Value::string(value_as_string, span)]
+        } else {
+            Vec::new()
+        };
     }
 
-    let comparable = if pattern.ignore_case {
-        value_as_string.to_lowercase()
-    } else {
-        value_as_string.clone()
-    };
-
-    if pattern.search_terms.iter().any(|term| term == &comparable) {
-        vec![Value::string(value_as_string, span)]
-    } else {
-        Vec::new()
-    }
+    only_matching_matches_in_string(pattern, &value_as_string, span)
 }
 
 fn only_matching_matches_in_string(pattern: &MatchPattern, text: &str, span: Span) -> Vec<Value> {
-    if pattern.rfind {
-        return pattern
-            .regex
-            .find_iter(text)
-            .filter_map(|m| m.ok())
-            .filter(|m| !m.as_str().is_empty())
-            .last()
-            .map(|m| vec![Value::string(m.as_str(), span)])
-            .unwrap_or_default();
+    // Build the match iterator once; `rfind` keeps the last forward match
+    // (matching `highlight_last_match`), otherwise all non-empty matches.
+    let mut matches = Vec::new();
+    for found in pattern.regex.find_iter(text) {
+        match found {
+            Ok(m) if !m.as_str().is_empty() => matches.push(m.as_str().to_string()),
+            Ok(_) => {}
+            // Surface regex runtime errors (e.g. backtrack-limit exceeded) as an
+            // error value instead of silently returning a short or empty list.
+            Err(err) => {
+                return vec![Value::error(
+                    ShellError::Generic(
+                        nu_protocol::shell_error::generic::GenericError::new_internal(
+                            "Regex error while matching",
+                            err.to_string(),
+                        ),
+                    ),
+                    span,
+                )];
+            }
+        }
     }
 
-    pattern
-        .regex
-        .find_iter(text)
-        .filter_map(|m| m.ok())
-        .filter(|m| !m.as_str().is_empty())
-        .map(|m| Value::string(m.as_str(), span))
-        .collect()
+    if pattern.rfind {
+        matches
+            .pop()
+            .map(|m| vec![Value::string(m, span)])
+            .unwrap_or_default()
+    } else {
+        matches
+            .into_iter()
+            .map(|m| Value::string(m, span))
+            .collect()
+    }
 }
 
 // filter functions
@@ -923,5 +950,62 @@ mod tests {
         );
 
         assert_eq!(matches, vec![Value::test_string("A")]);
+    }
+
+    #[test]
+    fn only_matching_scalar_uses_exact_search_term_match() {
+        let pattern = MatchPattern {
+            regex: Regex::new("5").expect("valid regex"),
+            search_terms: vec!["5".to_string()],
+            ignore_case: false,
+            highlight: true,
+            invert: false,
+            only_matching: true,
+            rfind: false,
+            string_style: Style::new(),
+            highlight_style: Style::new(),
+        };
+
+        // An exact scalar match (e.g. an expanded range element) is returned.
+        assert_eq!(
+            only_matching_matches_in_value(&pattern, Value::test_int(5), &[], &Config::default()),
+            vec![Value::test_string("5")]
+        );
+        // A substring like 35 is not an exact scalar match, so nothing is returned.
+        assert!(
+            only_matching_matches_in_value(&pattern, Value::test_int(35), &[], &Config::default())
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn only_matching_respects_selected_columns_on_record() {
+        let pattern = MatchPattern {
+            regex: Regex::new("bar").expect("valid regex"),
+            search_terms: vec!["bar".to_string()],
+            ignore_case: false,
+            highlight: true,
+            invert: false,
+            only_matching: true,
+            rfind: false,
+            string_style: Style::new(),
+            highlight_style: Style::new(),
+        };
+
+        let record = Value::test_record(nu_protocol::record! {
+            "name" => Value::test_string("foo"),
+            "desc" => Value::test_string("bar"),
+        });
+
+        // Only the `name` column is searched, so the match in `desc` is skipped.
+        assert!(
+            only_matching_matches_in_value(
+                &pattern,
+                record,
+                &["name".to_string()],
+                &Config::default()
+            )
+            .is_empty()
+        );
     }
 }
