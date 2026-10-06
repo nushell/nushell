@@ -15,7 +15,10 @@ pub use communication_mode::{
 };
 pub use interface::{
     Interface, InterfaceManager, PipelineDataWriter, PluginRead, PluginWrite,
-    stream::{FromShellError, StreamManager, StreamManagerHandle, StreamReader, StreamWriter},
+    stream::{
+        FromShellError, InputCancellation, StreamManager, StreamManagerHandle, StreamReader,
+        StreamWriter,
+    },
 };
 pub use serializers::{
     Encoder, EncodingType, PluginEncoder, json::JsonSerializer, msgpack::MsgPackSerializer,

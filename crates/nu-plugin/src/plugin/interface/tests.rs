@@ -1,6 +1,6 @@
 use crate::test_util::TestCaseExt;
 
-use super::{EngineInterfaceManager, ReceivedPluginCall};
+use super::{EngineInterface, EngineInterfaceManager, ReceivedPluginCall};
 use nu_engine::command_prelude::IoError;
 use nu_plugin_core::{Interface, InterfaceManager, interface_test_util::TestCase};
 use nu_plugin_protocol::{
@@ -11,7 +11,7 @@ use nu_plugin_protocol::{
 };
 use nu_protocol::{
     BlockId, ByteStreamType, Config, CustomValue, IntoInterruptiblePipelineData, LabeledError,
-    PipelineData, PluginSignature, ShellError, Signals, Span, Spanned, Value, VarId,
+    PipelineData, PluginSignature, ShellError, SignalAction, Signals, Span, Spanned, Value, VarId,
     engine::Closure, shell_error,
 };
 use std::{
@@ -20,7 +20,298 @@ use std::{
         Arc,
         mpsc::{self, TryRecvError},
     },
+    time::Duration,
 };
+
+const INPUT_TIMEOUT: Duration = Duration::from_secs(5);
+
+/// Use the same Run dispatch and per-call interface that a plugin command receives.
+fn receive_run(
+    manager: &mut EngineInterfaceManager,
+    id: usize,
+    input: PipelineDataHeader,
+) -> Result<(EngineInterface, PipelineData), ShellError> {
+    manager.consume(PluginInput::Call(
+        id,
+        PluginCall::Run(CallInfo {
+            name: "test-input".into(),
+            call: EvaluatedCall::new(Span::test_data()),
+            input,
+        }),
+    ))?;
+    match manager
+        .plugin_call_receiver
+        .as_ref()
+        .expect("missing receiver")
+        .try_recv()
+        .expect("Run was not dispatched")
+    {
+        ReceivedPluginCall::Run { engine, call } => Ok((engine, call.input)),
+        other => panic!("expected Run, got {other:?}"),
+    }
+}
+
+#[test]
+fn input_cancellation_is_absent_for_value_empty_and_non_run_interfaces() -> Result<(), ShellError> {
+    let mut manager = TestCase::new().engine();
+    set_default_protocol_info(&mut manager)?;
+    assert!(manager.get_interface().input_cancellation().is_none());
+    assert!(
+        manager
+            .interface_for_context(42)
+            .input_cancellation()
+            .is_none()
+    );
+    for header in [
+        PipelineDataHeader::Empty,
+        PipelineDataHeader::value(Value::test_int(42)),
+    ] {
+        let (engine, _input) = receive_run(&mut manager, 0, header)?;
+        assert!(engine.input_cancellation().is_none());
+    }
+    Ok(())
+}
+
+#[test]
+fn input_cancellation_isolates_calls_and_engine_call_results() -> Result<(), ShellError> {
+    let test = TestCase::new();
+    let mut manager = test.engine();
+    set_default_protocol_info(&mut manager)?;
+    let (engine_a, input_a) = receive_run(
+        &mut manager,
+        0,
+        PipelineDataHeader::list_stream(ListStreamInfo::new(10, Span::test_data())),
+    )?;
+    let (engine_b, input_b) = receive_run(
+        &mut manager,
+        1,
+        PipelineDataHeader::list_stream(ListStreamInfo::new(11, Span::test_data())),
+    )?;
+    let cancellation = engine_a
+        .clone()
+        .input_cancellation()
+        .expect("missing input cancellation");
+    assert!(engine_b.input_cancellation().is_some());
+    let (started, started_rx) = mpsc::channel();
+    let (done, done_rx) = mpsc::channel();
+    let worker = std::thread::spawn(move || {
+        let _ = started.send(());
+        let _ = done.send(input_a.into_iter().collect::<Vec<_>>());
+    });
+    started_rx
+        .recv_timeout(INPUT_TIMEOUT)
+        .expect("reader did not start");
+    cancellation.cancel();
+    let result = done_rx.recv_timeout(INPUT_TIMEOUT);
+    if result.is_err() {
+        manager.consume(PluginInput::End(10))?;
+    }
+    worker.join().expect("reader panicked");
+    assert!(result.expect("input A did not stop").is_empty());
+    assert!(!engine_b.signals().interrupted());
+    manager.consume(PluginInput::Data(11, Value::test_int(42).into()))?;
+    manager.consume(PluginInput::End(11))?;
+    assert_eq!(
+        input_b.into_iter().collect::<Vec<_>>(),
+        vec![Value::test_int(42)]
+    );
+    // An engine call result uses another reader, even in A's cancelled context.
+    let response_rx = fake_engine_call(&mut manager, 0);
+    manager.consume(PluginInput::EngineCallResponse(
+        0,
+        EngineCallResponse::PipelineData(PipelineDataHeader::list_stream(ListStreamInfo::new(
+            12,
+            Span::test_data(),
+        ))),
+    ))?;
+    manager.consume(PluginInput::Data(12, Value::test_int(43).into()))?;
+    manager.consume(PluginInput::End(12))?;
+    let EngineCallResponse::PipelineData(result) =
+        response_rx.try_recv().expect("missing response")
+    else {
+        panic!("expected pipeline data");
+    };
+    assert_eq!(
+        result.into_iter().collect::<Vec<_>>(),
+        vec![Value::test_int(43)]
+    );
+    // Late messages for A are still legal until the producer sends its actual End.
+    manager.consume(PluginInput::Data(10, Value::test_int(99).into()))?;
+    manager.consume(PluginInput::End(10))?;
+    let (engine_c, input_c) = receive_run(
+        &mut manager,
+        2,
+        PipelineDataHeader::value(Value::test_int(44)),
+    )?;
+    assert!(engine_c.input_cancellation().is_none());
+    assert_eq!(input_c.into_value(Span::test_data())?, Value::test_int(44));
+    assert_eq!(
+        test.written()
+            .filter(|msg| matches!(msg, PluginOutput::Drop(10)))
+            .count(),
+        1
+    );
+    Ok(())
+}
+
+#[test]
+fn input_cancellation_wakes_list_and_byte_streams_after_run_response() -> Result<(), ShellError> {
+    for header in [
+        PipelineDataHeader::list_stream(ListStreamInfo::new(10, Span::test_data())),
+        PipelineDataHeader::byte_stream(ByteStreamInfo::new(
+            10,
+            Span::test_data(),
+            ByteStreamType::Binary,
+        )),
+    ] {
+        let mut manager = TestCase::new().engine();
+        set_default_protocol_info(&mut manager)?;
+        let (engine, input) = receive_run(&mut manager, 0, header)?;
+        let cancellation = engine
+            .input_cancellation()
+            .expect("missing input cancellation");
+        engine
+            .write_response(Ok::<_, ShellError>(PipelineData::empty()))?
+            .write()?;
+        drop(engine);
+        let (done, done_rx) = mpsc::channel();
+        let worker = std::thread::spawn(move || {
+            let result = match input {
+                PipelineData::ListStream(stream, _) => Ok(stream.into_iter().next().is_none()),
+                PipelineData::ByteStream(stream, _) => {
+                    stream.into_bytes().map(|bytes| bytes.is_empty())
+                }
+                other => panic!("expected stream, got {other:?}"),
+            };
+            let _ = done.send(result);
+        });
+        cancellation.cancel();
+        let result = done_rx.recv_timeout(INPUT_TIMEOUT);
+        if result.is_err() {
+            manager.consume(PluginInput::End(10))?;
+        }
+        worker.join().expect("reader panicked");
+        assert!(result.expect("reader did not stop")?);
+    }
+    Ok(())
+}
+
+#[test]
+fn input_cancellation_does_not_retract_buffered_bytes() -> Result<(), ShellError> {
+    use std::io::Read;
+
+    let mut manager = TestCase::new().engine();
+    set_default_protocol_info(&mut manager)?;
+    let (engine, input) = receive_run(
+        &mut manager,
+        0,
+        PipelineDataHeader::byte_stream(ByteStreamInfo::new(
+            10,
+            Span::test_data(),
+            ByteStreamType::Binary,
+        )),
+    )?;
+    let cancellation = engine
+        .input_cancellation()
+        .expect("missing input cancellation");
+    manager.consume(PluginInput::Data(10, StreamData::Raw(Ok(vec![1, 2]))))?;
+    let PipelineData::ByteStream(stream, _) = input else {
+        panic!("expected byte stream");
+    };
+    let mut reader = stream.reader().expect("missing byte reader");
+    let mut byte = [0];
+    assert_eq!(reader.read(&mut byte).expect("read failed"), 1);
+    assert_eq!(byte, [1]);
+    cancellation.cancel();
+    // This byte has already left the transport queue and belongs to the byte reader's buffer.
+    assert_eq!(reader.read(&mut byte).expect("read failed"), 1);
+    assert_eq!(byte, [2]);
+    let (done, done_rx) = mpsc::channel();
+    let worker = std::thread::spawn(move || {
+        let _ = done.send(reader.read(&mut byte));
+    });
+    let result = done_rx.recv_timeout(INPUT_TIMEOUT);
+    if result.is_err() {
+        manager.consume(PluginInput::End(10))?;
+    }
+    worker.join().expect("reader panicked");
+    assert_eq!(
+        result
+            .expect("reader waited for new transport bytes")
+            .expect("read failed"),
+        0
+    );
+    Ok(())
+}
+
+#[test]
+fn input_cancellation_signal_example_handles_latched_and_new_interrupts() -> Result<(), ShellError>
+{
+    for interrupt_before_registration in [false, true] {
+        let mut manager = TestCase::new().engine();
+        set_default_protocol_info(&mut manager)?;
+        let (engine, input) = receive_run(
+            &mut manager,
+            0,
+            PipelineDataHeader::list_stream(ListStreamInfo::new(10, Span::test_data())),
+        )?;
+        if interrupt_before_registration {
+            manager.consume(PluginInput::Signal(SignalAction::Interrupt))?;
+        }
+        let cancellation = engine.input_cancellation();
+        let on_signal = cancellation.clone();
+        let guard = engine.register_signal_handler(Box::new(move |action| {
+            if matches!(action, SignalAction::Interrupt)
+                && let Some(handle) = &on_signal
+            {
+                handle.cancel();
+            }
+        }))?;
+        if engine.signals().interrupted()
+            && let Some(handle) = &cancellation
+        {
+            handle.cancel();
+        }
+        if !interrupt_before_registration {
+            manager.consume(PluginInput::Signal(SignalAction::Interrupt))?;
+        }
+        manager.consume(PluginInput::Signal(SignalAction::Reset))?;
+        assert!(!engine.signals().interrupted());
+        let (done, done_rx) = mpsc::channel();
+        let worker = std::thread::spawn(move || {
+            let _keep_guard = guard;
+            let _ = done.send(input.into_iter().next());
+        });
+        let result = done_rx.recv_timeout(INPUT_TIMEOUT);
+        if result.is_err() {
+            manager.consume(PluginInput::End(10))?;
+        }
+        worker.join().expect("reader panicked");
+        assert!(result.expect("signal did not cancel input").is_none());
+    }
+    Ok(())
+}
+
+#[test]
+fn input_cancellation_does_not_keep_engine_interface_alive() -> Result<(), ShellError> {
+    let mut manager = TestCase::new().engine();
+    set_default_protocol_info(&mut manager)?;
+    let (engine, input) = receive_run(
+        &mut manager,
+        0,
+        PipelineDataHeader::list_stream(ListStreamInfo::new(10, Span::test_data())),
+    )?;
+    let weak = Arc::downgrade(&engine.state);
+    let cancellation = engine
+        .input_cancellation()
+        .expect("missing input cancellation");
+    drop(input);
+    drop(engine);
+    drop(manager);
+    assert!(weak.upgrade().is_none());
+    cancellation.cancel();
+    Ok(())
+}
 
 #[test]
 fn is_using_stdio_is_false_for_test() {

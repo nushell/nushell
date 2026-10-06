@@ -4,17 +4,63 @@ use std::{
     collections::{BTreeMap, btree_map},
     iter::FusedIterator,
     marker::PhantomData,
-    sync::{Arc, Condvar, Mutex, MutexGuard, Weak, mpsc},
+    sync::{
+        Arc, Condvar, Mutex, MutexGuard, Weak,
+        atomic::{AtomicBool, Ordering},
+        mpsc,
+    },
 };
 
 #[cfg(test)]
 mod tests;
 
+/// Messages for a reader's local queue, never sent over the plugin protocol.
+#[derive(Debug)]
+enum ReaderMessage {
+    Incoming(Result<Option<StreamData>, ShellError>),
+    Cancel,
+}
+
+/// A handle for permanently cancelling one plugin transport input stream.
+///
+/// Clones cancel the same stream. Dropping a handle does not cancel the stream, and keeping a
+/// handle does not keep its reader, buffered data, or transport alive. Cancellation affects only
+/// waits in the transport reader; it cannot interrupt arbitrary iterators, deserialization, or
+/// writes to the output transport, or retract data already returned to the caller.
+#[derive(Debug, Clone)]
+pub struct InputCancellation {
+    cancelled: Arc<AtomicBool>,
+    sender: Weak<mpsc::Sender<ReaderMessage>>,
+}
+
+impl InputCancellation {
+    fn new(sender: &Arc<mpsc::Sender<ReaderMessage>>) -> Self {
+        Self {
+            cancelled: Arc::new(AtomicBool::new(false)),
+            sender: Arc::downgrade(sender),
+        }
+    }
+
+    /// Request cancellation, waking an idle reader without waiting for data from its producer.
+    ///
+    /// This is idempotent and does not write to the transport or wait for the reader to finish.
+    /// Once observed, cancellation discards the reader's queue and ends further reads. A read
+    /// already in progress may race with this request. Calling this after the reader has ended
+    /// or been dropped is harmless. There is no reset operation.
+    pub fn cancel(&self) {
+        if !self.cancelled.swap(true, Ordering::AcqRel)
+            && let Some(sender) = self.sender.upgrade()
+        {
+            // The flag takes priority over queued data; the message wakes a blocking recv().
+            let _ = sender.send(ReaderMessage::Cancel);
+        }
+    }
+}
+
 /// Receives messages from a stream read from input by a [`StreamManager`].
 ///
-/// The receiver reads for messages of type `Result<Option<StreamData>, ShellError>` from the
-/// channel, which is managed by a [`StreamManager`]. Signalling for end-of-stream is explicit
-/// through `Ok(Some)`.
+/// The receiver reads stream events from a local channel managed by a [`StreamManager`].
+/// End-of-stream is explicit, and local cancellation can wake a blocked receive.
 ///
 /// Failing to receive is an error. When end-of-stream is received, the `receiver` is set to `None`
 /// and all further calls to `next()` return `None`.
@@ -30,8 +76,12 @@ where
     W: WriteStreamMessage,
 {
     id: StreamId,
-    receiver: Option<mpsc::Receiver<Result<Option<StreamData>, ShellError>>>,
+    receiver: Option<mpsc::Receiver<ReaderMessage>>,
     writer: W,
+    cancellation: InputCancellation,
+    drop_sent: bool,
+    #[cfg(test)]
+    before_receive: Option<(mpsc::Sender<()>, mpsc::Receiver<()>)>,
     /// Iterator requires the item type to be fixed, so we have to keep it as part of the type,
     /// even though we're actually receiving dynamic data.
     marker: PhantomData<fn() -> T>,
@@ -45,15 +95,25 @@ where
     /// Create a new StreamReader from parts
     fn new(
         id: StreamId,
-        receiver: mpsc::Receiver<Result<Option<StreamData>, ShellError>>,
+        receiver: mpsc::Receiver<ReaderMessage>,
         writer: W,
+        cancellation: InputCancellation,
     ) -> StreamReader<T, W> {
         StreamReader {
             id,
             receiver: Some(receiver),
             writer,
+            cancellation,
+            drop_sent: false,
+            #[cfg(test)]
+            before_receive: None,
             marker: PhantomData,
         }
+    }
+
+    /// Get a handle that cancels only this reader's transport input.
+    pub fn cancellation(&self) -> InputCancellation {
+        self.cancellation.clone()
     }
 
     /// Receive a message from the channel, or return an error if:
@@ -69,19 +129,43 @@ where
             ))
         };
 
+        if self.receiver.is_some() && self.cancellation.cancelled.load(Ordering::Acquire) {
+            self.finish()?;
+            return Ok(None);
+        }
+
+        #[cfg(test)]
+        if let Some((entered, resume)) = self.before_receive.take() {
+            let _ = entered.send(());
+            let _ = resume.recv();
+        }
+
         if let Some(ref rx) = self.receiver {
             // Try to receive a message first
             let msg = match rx.try_recv() {
-                Ok(msg) => msg?,
+                Ok(msg) => msg,
                 Err(mpsc::TryRecvError::Empty) => {
                     // The receiver doesn't have any messages waiting for us. It's possible that the
                     // other side hasn't seen our acknowledgements. Let's flush the writer and then
                     // wait
                     self.writer.flush()?;
-                    rx.recv().map_err(|_| connection_lost())??
+                    rx.recv().map_err(|_| connection_lost())?
                 }
                 Err(mpsc::TryRecvError::Disconnected) => return Err(connection_lost()),
             };
+
+            let msg = match msg {
+                // Preserve errors already received, including errors from flush or disconnection.
+                ReaderMessage::Incoming(msg) => msg?,
+                ReaderMessage::Cancel => {
+                    self.finish()?;
+                    return Ok(None);
+                }
+            };
+            if self.cancellation.cancelled.load(Ordering::Acquire) {
+                self.finish()?;
+                return Ok(None);
+            }
 
             if let Some(data) = msg {
                 // Acknowledge the message
@@ -98,6 +182,21 @@ where
             // Closed already
             Ok(None)
         }
+    }
+}
+
+impl<T, W: WriteStreamMessage> StreamReader<T, W> {
+    /// Close the local queue before notifying the producer, even when notification fails.
+    /// Keep the manager's registration until the peer's real End arrives for in-flight messages.
+    fn finish(&mut self) -> Result<(), ShellError> {
+        self.receiver = None;
+        if !self.drop_sent {
+            self.drop_sent = true;
+            self.writer
+                .write_stream_message(StreamMessage::Drop(self.id))?;
+            self.writer.flush()?;
+        }
+        Ok(())
     }
 }
 
@@ -134,11 +233,7 @@ where
     W: WriteStreamMessage,
 {
     fn drop(&mut self) {
-        if let Err(err) = self
-            .writer
-            .write_stream_message(StreamMessage::Drop(self.id))
-            .and_then(|_| self.writer.flush())
-        {
+        if let Err(err) = self.finish() {
             log::warn!("Failed to send message to drop stream: {err}");
         }
     }
@@ -396,7 +491,7 @@ pub trait WriteStreamMessage {
 
 #[derive(Debug, Default)]
 struct StreamManagerState {
-    reading_streams: BTreeMap<StreamId, mpsc::Sender<Result<Option<StreamData>, ShellError>>>,
+    reading_streams: BTreeMap<StreamId, Arc<mpsc::Sender<ReaderMessage>>>,
     writing_streams: BTreeMap<StreamId, Weak<StreamWriterSignal>>,
 }
 
@@ -444,7 +539,7 @@ impl StreamManager {
                     // We should ignore the error on send. This just means the reader has dropped,
                     // but it will have sent a Drop message to the other side, and we will receive
                     // an End message at which point we can remove the channel.
-                    let _ = sender.send(Ok(Some(data)));
+                    let _ = sender.send(ReaderMessage::Incoming(Ok(Some(data))));
                     Ok(())
                 } else {
                     Err(ShellError::PluginFailedToDecode {
@@ -456,7 +551,7 @@ impl StreamManager {
                 if let Some(sender) = state.reading_streams.remove(&id) {
                     // We should ignore the error on the send, because the reader might have dropped
                     // already
-                    let _ = sender.send(Ok(None));
+                    let _ = sender.send(ReaderMessage::Incoming(Ok(None)));
                     Ok(())
                 } else {
                     Err(ShellError::PluginFailedToDecode {
@@ -497,7 +592,7 @@ impl StreamManager {
         let state = self.lock()?;
         for channel in state.reading_streams.values() {
             // Ignore send errors.
-            let _ = channel.send(Err(error.clone()));
+            let _ = channel.send(ReaderMessage::Incoming(Err(error.clone())));
         }
         Ok(())
     }
@@ -574,6 +669,8 @@ impl StreamManagerHandle {
         W: WriteStreamMessage,
     {
         let (tx, rx) = mpsc::channel();
+        let tx = Arc::new(tx);
+        let cancellation = InputCancellation::new(&tx);
         self.with_lock(|mut state| {
             // Must be exclusive
             if let btree_map::Entry::Vacant(e) = state.reading_streams.entry(id) {
@@ -589,7 +686,7 @@ impl StreamManagerHandle {
                 ))
             }
         })?;
-        Ok(StreamReader::new(id, rx, writer))
+        Ok(StreamReader::new(id, rx, writer, cancellation))
     }
 
     /// Register a new stream for writing, and return a [`StreamWriter`] that can be used to send

@@ -1,8 +1,8 @@
 //! Interface used by the plugin to communicate with the engine.
 
 use nu_plugin_core::{
-    Interface, InterfaceManager, PipelineDataWriter, PluginRead, PluginWrite, StreamManager,
-    StreamManagerHandle,
+    InputCancellation, Interface, InterfaceManager, PipelineDataWriter, PluginRead, PluginWrite,
+    StreamManager, StreamManagerHandle,
     util::{Waitable, WaitableMut},
 };
 use nu_plugin_protocol::{
@@ -155,6 +155,7 @@ impl EngineInterfaceManager {
             state: self.state.clone(),
             stream_manager_handle: self.stream_manager.get_handle(),
             context: Some(context),
+            input_cancellation: None,
         }
     }
 
@@ -245,6 +246,7 @@ impl InterfaceManager for EngineInterfaceManager {
             state: self.state.clone(),
             stream_manager_handle: self.stream_manager.get_handle(),
             context: None,
+            input_cancellation: None,
         }
     }
 
@@ -287,11 +289,14 @@ impl InterfaceManager for EngineInterfaceManager {
                 })?)
             }
             PluginInput::Call(id, call) => {
-                let interface = self.interface_for_context(id);
+                let mut interface = self.interface_for_context(id);
                 // Read streams in the input
-                let call = match call
-                    .map_data(|input| self.read_pipeline_data(input, &Signals::empty()))
-                {
+                let call = match call.map_data(|input| {
+                    let (data, cancellation) =
+                        self.read_pipeline_data_with_cancellation(input, &Signals::empty())?;
+                    interface.input_cancellation = cancellation;
+                    Ok(data)
+                }) {
                     Ok(call) => call,
                     Err(err) => {
                         // If there's an error with initialization of the input stream, just send
@@ -407,6 +412,8 @@ pub struct EngineInterface {
     stream_manager_handle: StreamManagerHandle,
     /// The plugin call this interface belongs to.
     context: Option<PluginCallId>,
+    /// Cancellation of this call's original transport input, shared by interface clones.
+    input_cancellation: Option<InputCancellation>,
 }
 
 impl EngineInterface {
@@ -565,6 +572,59 @@ impl EngineInterface {
     /// Returns a RAII guard that will keep the closure alive until it is dropped.
     pub fn register_signal_handler(&self, handler: Handler) -> Result<HandlerGuard, ShellError> {
         self.state.signal_handlers.register(handler)
+    }
+
+    /// Get a handle for cancelling the original input stream of this command invocation.
+    ///
+    /// Returns `Some` for transport list and byte streams, and `None` for empty or value input
+    /// and interfaces outside a command invocation. Clones refer to the same input, and remain
+    /// usable after `run` returns a lazy output stream. Other invocations and streams returned
+    /// by engine calls are unaffected. Cancellation does not change [`Signals`] or occur
+    /// automatically on Ctrl-C; use a signal handler to opt in.
+    ///
+    /// Call [`InputCancellation::cancel`] from a local failure, deadline, or output cancellation
+    /// path. It wakes an idle transport reader and discards its queue when observed, without
+    /// waiting for the producer. It does not retract values or bytes already returned or buffered
+    /// by application code, interrupt arbitrary iterators or output writes, or indicate successful
+    /// completion of the command. Keep the original failure in your own error handling.
+    ///
+    /// # Example
+    ///
+    /// Register before checking an already latched interrupt, and keep the guard until the input
+    /// is fully consumed. For lazy output, move the guard into the iterator instead.
+    ///
+    /// ```rust,no_run
+    /// # use nu_plugin::EngineInterface;
+    /// # use nu_protocol::{ListStream, PipelineData, ShellError, SignalAction, Signals, Span};
+    /// # fn example(engine: &EngineInterface, input: PipelineData, span: Span)
+    /// #     -> Result<PipelineData, ShellError> {
+    /// let cancellation = engine.input_cancellation();
+    /// let on_signal = cancellation.clone();
+    /// let guard = engine.register_signal_handler(Box::new(move |action| {
+    ///     if matches!(action, SignalAction::Interrupt)
+    ///         && let Some(handle) = &on_signal
+    ///     {
+    ///         handle.cancel();
+    ///     }
+    /// }))?;
+    /// if engine.signals().interrupted() {
+    ///     if let Some(handle) = &cancellation {
+    ///         handle.cancel();
+    ///     }
+    ///     engine.signals().check(&span)?;
+    /// }
+    /// let mut input = input.into_iter();
+    /// let output = std::iter::from_fn(move || {
+    ///     let _keep_guard = &guard;
+    ///     input.next()
+    /// });
+    /// Ok(PipelineData::list_stream(
+    ///     ListStream::new(output, span, Signals::empty()), None,
+    /// ))
+    /// # }
+    /// ```
+    pub fn input_cancellation(&self) -> Option<InputCancellation> {
+        self.input_cancellation.clone()
     }
 
     /// Get the full shell configuration from the engine. As this is quite a large object, it is
