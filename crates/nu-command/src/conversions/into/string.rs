@@ -233,7 +233,7 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             );
 
             let first_digit = if val.is_sign_negative() { 1 } else { 0 };
-            let decimal = basic.find('.').unwrap_or_else(|| basic.len());
+            let decimal = basic.find('.').unwrap_or(basic.len());
             let decimal_len = decimal - first_digit;
             let locale = get_system_locale();
             if !group_digits
@@ -270,7 +270,7 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                 }
                 Grouping::Standard => (
                     basic.len() + (decimal - first_digit) / 3 * locale.separator().len(),
-                    if decimal_len % 3 == 0 {
+                    if decimal_len.is_multiple_of(3) {
                         first_digit + 3
                     } else {
                         first_digit + decimal_len % 3
@@ -279,7 +279,7 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                 ),
                 Grouping::Indian => (
                     basic.len() + ((decimal_len - 3) / 2 + 1) * locale.separator().len(),
-                    if (decimal_len - 3) % 2 == 0 {
+                    if (decimal_len - 3).is_multiple_of(2) {
                         first_digit + 2
                     } else {
                         first_digit + (decimal_len - 3) % 2
@@ -372,7 +372,7 @@ fn format_int(int: i64, group_digits: bool, decimals: usize) -> String {
     let str = if group_digits {
         int.to_formatted_string(&locale)
     } else if int < 0 {
-        format!("{}{}", locale.minus_sign(), int.abs().to_string())
+        format!("{}{}", locale.minus_sign(), int.abs())
     } else {
         int.to_string()
     };
