@@ -513,144 +513,10 @@ pub(crate) fn parse_cli_args_from_env() -> Result<ParsedCli, CliError> {
     parse_cli_args(args)
 }
 
-fn normalize_slash_command_aliases(mut args: Vec<OsString>) -> Vec<OsString> {
-    let mut index = 1;
-    while index < args.len() {
-        let arg = args[index].to_string_lossy();
-
-        if arg == "--" {
-            break;
-        }
-
-        if is_slash_command_alias(&arg) {
-            args[index] = OsString::from("-c");
-            break;
-        }
-
-        if arg.starts_with("--") {
-            match normalize_after_long_option(&arg, &args, index) {
-                NormalizationStep::Advance(next) => index = next,
-                NormalizationStep::Stop => break,
-            }
-            continue;
-        }
-
-        if arg.starts_with('-') && arg != "-" {
-            match normalize_after_short_options(&arg, index) {
-                NormalizationStep::Advance(next) => index = next,
-                NormalizationStep::Stop => break,
-            }
-            continue;
-        }
-
-        break;
-    }
-
-    args
-}
-
+// Check for the Windows command-execution alias accepted for ComSpec compatibility.
+#[cfg(windows)]
 fn is_slash_command_alias(value: &str) -> bool {
     value == "/c" || value == "/C"
-}
-
-enum NormalizationStep {
-    Advance(usize),
-    Stop,
-}
-
-fn normalize_after_long_option(arg: &str, args: &[OsString], index: usize) -> NormalizationStep {
-    let option = arg.trim_start_matches("--");
-    let (name, attached_value) = option
-        .split_once('=')
-        .map_or((option, None), |(name, value)| (name, Some(value)));
-
-    if name == "commands" {
-        return NormalizationStep::Stop;
-    }
-
-    let Some(flag) = find_long_flag(name) else {
-        return NormalizationStep::Advance(index + 1);
-    };
-
-    match flag.value {
-        ValueHint::None => NormalizationStep::Advance(index + 1),
-        ValueHint::ListString if name == "log-include" || name == "log-exclude" => {
-            NormalizationStep::Advance(skip_normal_values(args, index, attached_value))
-        }
-        ValueHint::ListString if name == "experimental-options" => {
-            NormalizationStep::Advance(skip_experimental_option_values(args, index, attached_value))
-        }
-        _ => NormalizationStep::Advance(index + if attached_value.is_some() { 1 } else { 2 }),
-    }
-}
-
-fn normalize_after_short_options(arg: &str, index: usize) -> NormalizationStep {
-    let mut chars = arg.trim_start_matches('-').char_indices().peekable();
-    while let Some((char_index, short)) = chars.next() {
-        let Some(flag) = find_short_flag(short) else {
-            continue;
-        };
-
-        if short == 'c' {
-            return NormalizationStep::Stop;
-        }
-
-        if flag.value != ValueHint::None {
-            let value_start = char_index + short.len_utf8();
-            let has_attached_value = arg[value_start..].starts_with('=') || chars.peek().is_some();
-            return NormalizationStep::Advance(index + if has_attached_value { 1 } else { 2 });
-        }
-    }
-
-    NormalizationStep::Advance(index + 1)
-}
-
-fn skip_normal_values(args: &[OsString], index: usize, attached_value: Option<&str>) -> usize {
-    let mut next = index + 1;
-    if attached_value.is_none() {
-        next += 1;
-    }
-
-    while next < args.len() {
-        let value = args[next].to_string_lossy();
-        if value == "--" || is_slash_command_alias(&value) || is_option_like(&value) {
-            break;
-        }
-        next += 1;
-    }
-
-    next
-}
-
-fn skip_experimental_option_values(
-    args: &[OsString],
-    index: usize,
-    attached_value: Option<&str>,
-) -> usize {
-    let first = if let Some(value) = attached_value {
-        value.to_string()
-    } else if let Some(value) = args.get(index + 1) {
-        value.to_string_lossy().to_string()
-    } else {
-        return index + 1;
-    };
-
-    let mut next = index + if attached_value.is_some() { 1 } else { 2 };
-    if first.trim_start().starts_with('[') && !first.trim_end().ends_with(']') {
-        while next < args.len() {
-            let value = args[next].to_string_lossy();
-            next += 1;
-            if value.trim_end().ends_with(']') {
-                break;
-            }
-        }
-    }
-
-    next
-}
-
-fn is_option_like(value: &str) -> bool {
-    value.starts_with('-') && value != "-"
 }
 
 // Parse CLI args into nushell options and script details.
@@ -663,7 +529,6 @@ pub(crate) fn parse_cli_args(args: Vec<OsString>) -> Result<ParsedCli, CliError>
     }
 
     prevalidate_short_groups_before_lexopt(&args)?;
-    let args = normalize_slash_command_aliases(args);
 
     let argv0 = args
         .first()
@@ -794,14 +659,14 @@ pub(crate) fn parse_cli_args(args: Vec<OsString>) -> Result<ParsedCli, CliError>
                 cli.log_file = Some(spanned_value(value));
             }
             Long("log-include") => {
-                let values = parse_log_filter_values(&mut parser, "log-include")?;
+                let values = parse_list_values(&mut parser, "log-include")?;
                 let parsed = parse_log_filters(values);
                 cli.log_include
                     .get_or_insert_with(Vec::new)
                     .extend(parsed.into_iter().map(spanned_value));
             }
             Long("log-exclude") => {
-                let values = parse_log_filter_values(&mut parser, "log-exclude")?;
+                let values = parse_list_values(&mut parser, "log-exclude")?;
                 let parsed = parse_log_filters(values);
                 cli.log_exclude
                     .get_or_insert_with(Vec::new)
@@ -894,6 +759,16 @@ pub(crate) fn parse_cli_args(args: Vec<OsString>) -> Result<ParsedCli, CliError>
                         .with_help("Use UTF-8 arguments when calling nushell.")
                 })?;
 
+                #[cfg(windows)]
+                if script_name.is_empty()
+                    && cli.commands.is_none()
+                    && is_slash_command_alias(&value)
+                {
+                    let command = parse_slash_c_command(&mut parser)?;
+                    cli.commands = Some(spanned_value(command));
+                    break;
+                }
+
                 if script_name.is_empty() && cli.commands.is_none() {
                     script_name = value;
                     consume_remaining_args(&mut parser)?;
@@ -972,6 +847,26 @@ fn spanned_value(value: String) -> Spanned<String> {
     Spanned {
         item: value,
         span: Span::unknown(),
+    }
+}
+
+// Parse the Windows `/c` alias by treating the rest of argv as the command text.
+#[cfg(windows)]
+fn parse_slash_c_command(parser: &mut lexopt::Parser) -> Result<String, CliError> {
+    let command = parser
+        .raw_args()
+        .map_err(map_lexopt_error)?
+        .map(|arg| arg.to_string_lossy().to_string())
+        .collect::<Vec<_>>()
+        .join(" ");
+
+    if command.is_empty() {
+        Err(
+            CliError::new("Missing command after `/c`", "expected command string")
+                .with_help("Provide a command to run after `/c`."),
+        )
+    } else {
+        Ok(command)
     }
 }
 
@@ -1054,9 +949,30 @@ fn parse_ide_int_option(parser: &mut lexopt::Parser, name: &str) -> Result<Value
 
 // Parse a list of UTF-8 values for options that accept repeated values.
 fn parse_list_values(parser: &mut lexopt::Parser, name: &str) -> Result<Vec<String>, CliError> {
-    let values = parser.values().map_err(map_lexopt_error)?;
     let mut parsed = Vec::new();
-    for value in values {
+    let mut raw_args = match parser.raw_args() {
+        Ok(raw_args) => raw_args,
+        Err(lexopt::Error::UnexpectedValue { value, .. }) => {
+            parsed.push(value_to_string(value, name)?);
+            return Ok(parsed);
+        }
+        Err(err) => return Err(map_lexopt_error(err)),
+    };
+
+    while let Some(value) = raw_args.peek() {
+        #[cfg(windows)]
+        if value.to_str().is_some_and(is_slash_command_alias) {
+            break;
+        }
+
+        if value
+            .to_str()
+            .is_some_and(|value| value.starts_with('-') && value != "-")
+        {
+            break;
+        }
+
+        let value = raw_args.next().expect("peeked value");
         let value = value.string().map_err(|_| {
             CliError::new(
                 format!("Invalid value for `--{name}`"),
@@ -1066,14 +982,24 @@ fn parse_list_values(parser: &mut lexopt::Parser, name: &str) -> Result<Vec<Stri
         })?;
         parsed.push(value);
     }
+    if parsed.is_empty() {
+        return Err(CliError::new(
+            format!("Missing value for `--{name}`"),
+            "expected at least one value",
+        ));
+    }
     Ok(parsed)
 }
 
-fn parse_log_filter_values(
-    parser: &mut lexopt::Parser,
-    name: &str,
-) -> Result<Vec<String>, CliError> {
-    parse_list_values(parser, name)
+// Convert an option value into UTF-8 with the same error style as other CLI parsers.
+fn value_to_string(value: OsString, name: &str) -> Result<String, CliError> {
+    value.into_string().map_err(|_| {
+        CliError::new(
+            format!("Invalid value for `--{name}`"),
+            "value is not valid unicode",
+        )
+        .with_help("Use UTF-8 values when calling nushell.")
+    })
 }
 
 /// Parse a single `--plugins` value into a list of plugin paths.
@@ -1563,11 +1489,6 @@ fn find_short_flag(short: char) -> Option<&'static CliFlag> {
     CLI_FLAGS.iter().find(|flag| flag.short == Some(short))
 }
 
-// Find the CLI flag metadata for a long option.
-fn find_long_flag(long: &str) -> Option<&'static CliFlag> {
-    CLI_FLAGS.iter().find(|flag| flag.long == long)
-}
-
 // Convert a flag category into a header label.
 fn category_name(category: CliCategory) -> &'static str {
     match category {
@@ -1677,42 +1598,56 @@ mod tests {
         assert!(result.is_err());
     }
 
+    #[cfg(windows)]
     #[test]
     fn slash_c_parses_as_commands() {
+        let args = vec![
+            OsString::from("nu"),
+            OsString::from("/c"),
+            OsString::from("git"),
+            OsString::from("status"),
+        ];
+
+        let parsed = parse_cli_args(args).expect("should parse /c as commands");
+
+        assert_eq!(parsed.nu.commands.expect("commands").item, "git status");
+        assert!(parsed.script_name.is_empty());
+        assert!(parsed.args_to_script.is_empty());
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn slash_c_preserves_remaining_args_for_command() {
+        let args = vec![
+            OsString::from("nu"),
+            OsString::from("/c"),
+            OsString::from("echo"),
+            OsString::from("\"a b\""),
+        ];
+
+        let parsed = parse_cli_args(args).expect("should parse /c as commands");
+
+        assert_eq!(parsed.nu.commands.expect("commands").item, "echo \"a b\"");
+        assert!(parsed.args_to_script.is_empty());
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn slash_c_is_script_name_on_non_windows() {
         let args = vec![
             OsString::from("nu"),
             OsString::from("/c"),
             OsString::from("42 + 1"),
         ];
 
-        let parsed = parse_cli_args(args).expect("should parse /c as commands");
+        let parsed = parse_cli_args(args).expect("should parse /c as script name");
 
-        assert_eq!(parsed.nu.commands.expect("commands").item, "42 + 1");
-        assert!(parsed.script_name.is_empty());
+        assert!(parsed.nu.commands.is_none());
+        assert_eq!(parsed.script_name, "/c");
+        assert_eq!(parsed.args_to_script, vec![r#""42 + 1""#.to_string()]);
     }
 
-    #[test]
-    fn slash_c_preserves_remaining_args_for_command() {
-        let args = vec![
-            OsString::from("nu"),
-            OsString::from("/c"),
-            OsString::from("$args"),
-            OsString::from("--not-a-nu-flag"),
-            OsString::from("value with spaces"),
-        ];
-
-        let parsed = parse_cli_args(args).expect("should parse /c as commands");
-
-        assert_eq!(parsed.nu.commands.expect("commands").item, "$args");
-        assert_eq!(
-            parsed.args_to_script,
-            vec![
-                "--not-a-nu-flag".to_string(),
-                r#""value with spaces""#.to_string()
-            ]
-        );
-    }
-
+    #[cfg(not(windows))]
     #[test]
     fn slash_c_after_end_of_options_is_script_name() {
         for slash_alias in ["/c", "/C"] {
@@ -1731,6 +1666,7 @@ mod tests {
         }
     }
 
+    #[cfg(windows)]
     #[test]
     fn slash_c_after_log_filters_parses_as_commands() {
         for (log_option, slash_alias) in [
@@ -1754,6 +1690,7 @@ mod tests {
         }
     }
 
+    #[cfg(windows)]
     #[test]
     fn slash_c_after_experimental_options_parses_as_commands() {
         let cases = [
@@ -1788,6 +1725,7 @@ mod tests {
         }
     }
 
+    #[cfg(windows)]
     #[test]
     fn slash_c_after_commands_flag_remains_command_argument() {
         for args in [
@@ -1815,6 +1753,7 @@ mod tests {
         }
     }
 
+    #[cfg(windows)]
     #[test]
     fn slash_c_after_attached_short_option_value_parses_as_commands() {
         let args = vec![
@@ -1830,6 +1769,7 @@ mod tests {
         assert!(parsed.script_name.is_empty());
     }
 
+    #[cfg(windows)]
     #[test]
     fn slash_c_after_grouped_short_option_value_uses_value_boundaries() {
         let args = vec![
