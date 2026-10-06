@@ -256,6 +256,7 @@ $env.config.completions.algorithm = "prefix"
 # completions.sort (string): How completion results are sorted.
 # "smart": Sort order depends on the algorithm setting.
 # "alphabetical": Always sort alphabetically.
+# "natural": Sort alphanumerically, treating contiguous digits as a single number.
 # In "smart",  mode: prefix/substring use alphabetical; fuzzy uses match score.
 # Default: "smart"
 $env.config.completions.sort = "smart"
