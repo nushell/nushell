@@ -27,19 +27,29 @@ impl Debug for Record {
     }
 }
 
+/// Follows [`Value::strict_eq`] for records, not the derived, order-sensitive [`PartialEq`].
+///
+/// Like `Value`, `Record` must never implement [`Eq`]:
+///
+/// ```compile_fail,E0277
+/// fn requires_eq<T: Eq>() {}
+/// requires_eq::<nu_protocol::Record>();
+/// ```
 impl Hash for Record {
-    /// Hashes the length, then the [`HASH_ITEM_LIMIT`] smallest keys with their values.
+    /// Hashes the length, then the `HASH_ITEM_LIMIT` smallest keys with their values.
     ///
     /// Selecting keys by order rather than by position makes the hash independent of insertion
-    /// order, which matches `Value` record equality. The limit keeps hashing wide records cheap;
-    /// records that differ only in later keys collide, and the map's equality check separates
-    /// them.
+    /// order, which matches [`Value::strict_eq`]. Duplicate keys are taken in their original
+    /// order, the same tie-break as the stable sort `strict_eq` uses. The limit keeps hashing wide
+    /// records cheap; records that differ only in later keys collide, and the map's equality
+    /// check separates them.
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.len().hash(state);
-        for (key, value) in self
+        for (_, (key, value)) in self
             .inner
             .iter()
-            .k_smallest_by_key(HASH_ITEM_LIMIT, |(key, _)| key)
+            .enumerate()
+            .k_smallest_by_key(HASH_ITEM_LIMIT, |&(index, (key, _))| (key, index))
         {
             key.hash(state);
             value.hash(state);

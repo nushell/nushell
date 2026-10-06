@@ -299,6 +299,32 @@ impl CellPath {
         }
     }
 
+    /// Compares like `==`, except that a string member's casing is ignored, so `a` equals `a!`.
+    ///
+    /// `select` and `reject` use this to skip a column that is requested twice as `a` and `a!`.
+    pub fn eq_ignore_casing(&self, other: &CellPath) -> bool {
+        self.members.len() == other.members.len()
+            && self
+                .members
+                .iter()
+                .zip(&other.members)
+                .all(|(lhs, rhs)| match (lhs, rhs) {
+                    (
+                        PathMember::String {
+                            val: l_val,
+                            optional: l_opt,
+                            ..
+                        },
+                        PathMember::String {
+                            val: r_val,
+                            optional: r_opt,
+                            ..
+                        },
+                    ) => l_val == r_val && l_opt == r_opt,
+                    _ => lhs == rhs,
+                })
+    }
+
     // Formats the cell-path as a column name, i.e. without quoting and optional markers ('?').
     pub fn to_column_name(&self) -> String {
         let mut s = String::new();

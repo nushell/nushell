@@ -3,12 +3,7 @@
 use crate::{ShellError, Signals, Span, Value, ast::RangeInclusion};
 use core::ops::Bound;
 use serde::{Deserialize, Serialize};
-use std::{
-    cmp::Ordering,
-    fmt::Display,
-    hash::{Hash, Hasher},
-    str::FromStr,
-};
+use std::{cmp::Ordering, fmt::Display, str::FromStr};
 use winnow::Parser;
 
 mod int_range {
@@ -326,9 +321,7 @@ mod int_range {
 }
 
 mod float_range {
-    use crate::{
-        IntRange, Range, ShellError, Signals, Span, Value, ast::RangeInclusion, value::hash_f64,
-    };
+    use crate::{IntRange, Range, ShellError, Signals, Span, Value, ast::RangeInclusion, hash_f64};
     use nu_utils::ObviousFloat;
     use serde::{Deserialize, Serialize};
     use std::{
@@ -779,14 +772,6 @@ impl PartialEq for Range {
 }
 
 impl Eq for Range {}
-
-impl Hash for Range {
-    /// Hashes every range as a [`FloatRange`], because [`PartialEq`] promotes an [`IntRange`] to a
-    /// [`FloatRange`] for mixed comparisons: `0..5 == 0.0..5.0`, so both must hash the same.
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        FloatRange::from(*self).hash(state);
-    }
-}
 
 impl Display for Range {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

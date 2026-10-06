@@ -1,4 +1,4 @@
-use crate::{BlockId, ShellError, Span, Value, VarId, engine::EngineState};
+use crate::{BlockId, HASH_ITEM_LIMIT, ShellError, Span, Value, VarId, engine::EngineState};
 use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
@@ -29,10 +29,15 @@ impl Debug for Closure {
 }
 
 impl Hash for Closure {
-    /// Hashes `block_id` only. `Value::partial_cmp` compares closures by `block_id` alone, while
-    /// [`Value::strict_eq`] also compares captures; a hash that ignores captures agrees with both.
+    /// Hashes `block_id`, the number of captures, and the first [`HASH_ITEM_LIMIT`] captures in
+    /// order, which agrees with [`Value::strict_eq`]'s positional compare of captures. Closures
+    /// built from one literal with different captures then land in different buckets.
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.block_id.hash(state);
+        self.captures.len().hash(state);
+        for capture in self.captures.iter().take(HASH_ITEM_LIMIT) {
+            capture.hash(state);
+        }
     }
 }
 

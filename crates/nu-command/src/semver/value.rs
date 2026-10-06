@@ -68,8 +68,8 @@ impl nu_protocol::CustomValue for SemverValue {
         self
     }
 
+    /// Hashes the version only: `partial_cmp` ignores the display prefix.
     fn hash_value(&self, mut state: &mut dyn Hasher) {
-        self.type_name().hash(&mut state);
         self.version.hash(&mut state);
     }
 
@@ -429,7 +429,6 @@ mod tests {
     #[test]
     fn semver_hash_ignores_display_prefix() {
         use std::collections::hash_map::DefaultHasher;
-        use std::hash::{Hash, Hasher};
 
         let with_prefix = Value::custom(
             Box::new(SemverValue::with_prefix(
@@ -443,7 +442,7 @@ mod tests {
             Span::test_data(),
         );
 
-        assert_eq!(with_prefix, without_prefix);
+        assert!(with_prefix.strict_eq(&without_prefix));
         let mut a = DefaultHasher::new();
         let mut b = DefaultHasher::new();
         with_prefix.hash(&mut a);
