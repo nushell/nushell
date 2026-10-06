@@ -704,22 +704,52 @@ version = "1.0.0"
         assert_eq!(val, from_nuon(&result, None).unwrap());
     }
 
-    /// Column widths must be measured in the same unit the padding uses.
+    /// The char offset at which the second field starts, one entry per data row.
     ///
-    /// The padding is applied with `{:<width$}`, which counts chars, so measuring
-    /// widths in bytes shifts every column to the right of a non-ASCII cell.
+    /// Rows only, so the bracket-only lines and the `;`-terminated header are
+    /// skipped rather than counted as offset 0. The separator is the last comma
+    /// inside `[...]`, not the row's trailing comma, and the offset is taken at
+    /// the first non-whitespace character after it -- measuring to the end of the
+    /// line, or from the trailing comma, returns a number that is 0 or differs by
+    /// the padding alone and so asserts nothing.
+    fn second_field_offsets(output: &str) -> Vec<usize> {
+        let mut offsets = Vec::new();
+        for line in output.lines() {
+            let trimmed = line.trim();
+            if !trimmed.starts_with('[') || trimmed.ends_with(';') {
+                continue;
+            }
+            let body = trimmed
+                .trim_start_matches('[')
+                .trim_end_matches(']')
+                .trim_end_matches(',');
+            let Some(separator) = body.rfind(',') else {
+                continue;
+            };
+            let after = &body[separator + 1..];
+            let padding = after.len() - after.trim_start().len();
+            offsets.push(body[..body.len() - after.len() + padding].chars().count());
+        }
+        offsets
+    }
+
+    /// Every data row's second field starts at the same char offset.
+    ///
+    /// Note what this does *not* pin: byte-derived widths satisfied it too, since a
+    /// shared width plus `{:<width$}` pads every cell to the same char count either
+    /// way. What byte widths got wrong was the width itself, one unit too wide per
+    /// multi-byte cell in the column. The exact-output assertions in the tests below
+    /// are what pin that; this checks the invariant the padding operator provides.
     fn assert_columns_align(output: &str) {
-        // The second field of each row starts at the same char index.
-        let starts: Vec<usize> = output
-            .lines()
-            .map(|line| match (line.find(','), line.rfind(',')) {
-                (Some(first), Some(last)) if first != last => line[last + 1..].chars().count(),
-                _ => 0,
-            })
-            .collect();
+        let offsets = second_field_offsets(output);
         assert!(
-            starts.iter().all(|n| *n == starts[0]),
-            "second field does not start at the same char offset in every row: {output}"
+            !offsets.is_empty(),
+            "no data rows found to compare: {output}"
+        );
+        assert!(
+            offsets.windows(2).all(|w| w[0] == w[1]),
+            "second field does not start at the same char offset in every row: \
+             {offsets:?} in\n{output}"
         );
     }
 
