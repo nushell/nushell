@@ -44,6 +44,8 @@ use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use std::{
     cell::Cell,
     collections::{HashMap, HashSet},
+    fs::File,
+    io::{Read, Seek},
     path::{Component, Path, PathBuf},
     sync::Arc,
 };
@@ -357,14 +359,79 @@ pub fn is_pickle(contents: &[u8]) -> bool {
     contents.starts_with(MAGIC)
 }
 
-/// The error for a pickle that `source` or `use` would parse as source code. Only `nu` runs one.
+/// Whether the file at `path` is a pickle, told by its first bytes alone, so that `run` can tell
+/// without reading a large file whole.
+///
+/// Only a regular file can be a pickle: reading a pipe or FIFO here would take its bytes from
+/// whoever reads it next. The file is rewound afterwards, because `/dev/stdin` redirected from a
+/// file shares its offset with the next reader that opens it.
+pub fn is_pickle_file(path: &Path) -> bool {
+    if !path.metadata().is_ok_and(|metadata| metadata.is_file()) {
+        return false;
+    }
+    let Ok(mut file) = File::open(path) else {
+        return false;
+    };
+    let mut magic = Vec::with_capacity(MAGIC.len());
+    let read = (&mut file)
+        .take(MAGIC.len() as u64)
+        .read_to_end(&mut magic)
+        .is_ok();
+    let rewound = file.rewind().is_ok();
+    read && rewound && is_pickle(&magic)
+}
+
+/// The error for a pickle that `source` or `use` would parse as source code. Only `nu` and `run`
+/// run one.
 pub(crate) fn sourced_pickle_error(span: Span) -> ParseError {
     ParseError::LabeledErrorWithHelp {
         error: "Can't read a pickle as source code".into(),
         label: "this file was made by `pickle`".into(),
-        help: "run it with `nu`, or get its source back with `depickle`".into(),
+        help: "run it with `nu` or `run`, or get its source back with `depickle`".into(),
         span,
     }
+}
+
+/// Refuse a pickle made with other experimental options than the ones this nushell runs with.
+///
+/// The options can change what the parser and compiler emit. `nu` sets a pickle's options at
+/// startup, before anything reads them, but a shell that loads a pickle while it runs, as `run`
+/// does, can't change its own. A pickle [`load`] refuses for another reason passes, so that `load`
+/// reports that reason.
+pub fn check_experimental_options(contents: &[u8]) -> Result<(), ShellError> {
+    let (info, _) = read_header(contents)?;
+    let Some(header) = info.header.filter(|_| info.problems.is_empty()) else {
+        return Ok(());
+    };
+    let state = |enabled: bool| if enabled { "enabled" } else { "disabled" };
+    let differences: Vec<_> = header
+        .experimental_options
+        .iter()
+        .filter_map(|(name, enabled)| {
+            let option = nu_experimental::ALL
+                .iter()
+                .find(|option| option.identifier() == name)?;
+            (option.get() != *enabled).then(|| {
+                format!(
+                    "expected experimental option `{name}` {} and got {}",
+                    state(option.get()),
+                    state(*enabled)
+                )
+            })
+        })
+        .collect();
+    if differences.is_empty() {
+        return Ok(());
+    }
+    Err(LabeledError::new(
+        "Can't load pickled program: it was made with different experimental options",
+    )
+    .with_code("nu::pickle::experimental_options")
+    .with_help(format!(
+        "{}\npickle the source again in this shell, or run the pickle with `nu`",
+        differences.join("\n")
+    ))
+    .into())
 }
 
 /// Serialize the program [`parse`](crate::parse) just produced into `working_set`, with `block`
@@ -592,7 +659,8 @@ pub fn sources(contents: &[u8]) -> Result<Vec<(String, Vec<u8>)>, ShellError> {
 /// The program's file paths are resolved against `base`, the pickle's directory.
 ///
 /// The experimental options aren't compared. The caller runs the program with the ones in the
-/// pickle's header, which `nu` sets at startup before anything reads them.
+/// pickle's header, which `nu` sets at startup before anything reads them. A caller that can't set
+/// them, like `run`, refuses a pickle with other ones through [`check_experimental_options`].
 ///
 /// The values the parser computed (`const` values, parameter defaults) are computed again here,
 /// on this machine, as parsing the source would. If one fails, the error is added to

@@ -206,6 +206,105 @@ fn pickle_runs_as_a_script_whatever_overlay_is_active() -> Result {
 }
 
 #[test]
+fn run_runs_a_pickle_like_its_source() -> Result {
+    Playground::setup("pickle_run", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[
+            FileWithContent(
+                "greet.nu",
+                "
+                    use lib/upper.nu
+                    def main [name: string, --loud] {
+                        let msg = $'hi ($name) ($in)'
+                        if $loud { upper $msg } else { $msg }
+                    }
+                ",
+            ),
+            FileWithContent("double.nu", "$in | each { $in * 2 }"),
+        ]);
+        sandbox.within("lib").with_files(&[FileWithContent(
+            "upper.nu",
+            "export def main [s: string] { $s | str uppercase }",
+        )]);
+
+        test()
+            .cwd(dirs.test())
+            .run::<()>("pickle greet.nu; pickle double.nu | ignore")?;
+        std::fs::remove_file(dirs.test().join("greet.nu"))?;
+        std::fs::remove_file(dirs.test().join("double.nu"))?;
+        std::fs::remove_dir_all(dirs.test().join("lib"))?;
+
+        // `main` gets the arguments and the input, and the pickle carries the module it uses.
+        test()
+            .cwd(dirs.test())
+            .run("'x' | run greet.nupkl bob --loud")
+            .expect_value_eq("HI BOB X")?;
+        test()
+            .cwd(dirs.test())
+            .run("[a b] | each { run greet.nupkl $in }")
+            .expect_value_eq(["hi a a", "hi b b"])?;
+        test()
+            .cwd(dirs.test())
+            .run("module spam {}; overlay use spam; 'x' | run greet.nupkl bob")
+            .expect_value_eq("hi bob x")?;
+
+        // Without a `main` of its own, the pickle runs on the input, whatever `main` the shell has.
+        for run in ["run", "run --full-reparse"] {
+            test()
+                .cwd(dirs.test())
+                .run(format!(
+                    "def main [] {{ 'shell' }}; [1 2] | {run} double.nupkl"
+                ))
+                .expect_value_eq([2, 4])?;
+        }
+        Ok(())
+    })
+}
+
+#[test]
+fn run_loads_a_pickle_of_any_size() -> Result {
+    Playground::setup("pickle_run_large", |dirs, sandbox| -> Result {
+        // Hashed counters in a comment, which LZ4 can't shrink much, make the pickle larger than
+        // the size limit of the scripts `run` parses.
+        let noise: String = (0..150_000u64)
+            .map(|i| format!("{:016x}", i.wrapping_mul(0x9E37_79B9_7F4A_7C15)))
+            .collect();
+        let script = format!("# {noise}\n'ran'");
+        sandbox.with_files(&[FileWithContent("big.nu", &script)]);
+
+        test()
+            .cwd(dirs.test())
+            .run::<()>("pickle big.nu | ignore")?;
+        let size = std::fs::metadata(dirs.test().join("big.nupkl"))?.len();
+        assert!(
+            size > nu_protocol::parser_path::MAX_RUN_SCRIPT_BYTES,
+            "the pickle has only {size} bytes"
+        );
+        test()
+            .cwd(dirs.test())
+            .run("run big.nupkl")
+            .expect_value_eq("ran")
+    })
+}
+
+#[test]
+#[deps(NU)]
+fn run_refuses_a_pickle_made_with_other_experimental_options() -> Result {
+    Playground::setup("pickle_run_options", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[FileWithContent("script.nu", "'ran'")]);
+
+        // `dc-glob` is off by default, and `run` can't switch it on for the pickle like `nu` does.
+        let result: CompleteResult = test()
+            .cwd(dirs.test())
+            .run("nu -n '--experimental-options=[dc-glob]' -c 'pickle script.nu' | complete")?;
+        assert_eq!(result.exit_code, 0);
+        test()
+            .cwd(dirs.test())
+            .run("run script.nupkl")
+            .expect_error_code_eq("nu::pickle::experimental_options")
+    })
+}
+
+#[test]
 #[deps(NU)]
 fn pickle_runs_with_the_experimental_options_it_was_made_with() -> Result {
     Playground::setup("pickle_options", |dirs, sandbox| -> Result {

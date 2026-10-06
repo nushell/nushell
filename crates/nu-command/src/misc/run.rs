@@ -1,7 +1,7 @@
 use nu_engine::{
     CallEval, command_prelude::*, get_eval_block_with_early_return, get_eval_expression,
 };
-use nu_parser::{find_main_block_id_in_script, parse};
+use nu_parser::{find_main_block_id_in_script, parse, pickle};
 use nu_path::{absolute_with, is_windows_device_path};
 use nu_protocol::{
     BlockId, Value,
@@ -27,7 +27,7 @@ impl Command for Run {
             .required(
                 "filename",
                 SyntaxShape::OneOf(vec![SyntaxShape::Filepath, SyntaxShape::Nothing]),
-                "The filepath to the script file to run (`null` for no-op).",
+                "The filepath to the script file or pickle to run (`null` for no-op).",
             )
             .rest(
                 "arguments",
@@ -49,7 +49,9 @@ impl Command for Run {
 
     fn extra_description(&self) -> &str {
         "This command is a parser keyword. For details, check:
-   https://www.nushell.sh/book/thinking_in_nu.html"
+   https://www.nushell.sh/book/thinking_in_nu.html
+
+A pickle written by `pickle` is loaded every time the call runs, like a script with `--full-reparse`."
     }
 
     fn command_type(&self) -> CommandType {
@@ -73,6 +75,7 @@ impl Command for Run {
         // We intentionally execute that precompiled block instead of reparsing at runtime.
         //
         let block_id_name: String = call.req_parser_info(engine_state, stack, "block_id_name")?;
+        // Set for `--full-reparse` and for a pickle: the file is read when the call runs.
         let full_reparse = call.get_parser_info(stack, "full_reparse").is_some();
 
         // Resolve the script path to an absolute path for consistent `CURRENT_FILE` / `FILE_PWD`
@@ -83,8 +86,8 @@ impl Command for Run {
         let file_path = if is_windows_device_path(pb.as_path()) {
             pb.clone()
         } else {
-            // Unless `--full-reparse` reads it again, the parser compiled the file, so it doesn't
-            // have to exist any more, like the files of a pickled script.
+            // Unless the file is read again (`--full-reparse`, or a pickle), the parser compiled
+            // it, so it doesn't have to exist any more, like the files of a pickled script.
             absolute_with(pb.as_path(), cwd)
                 .map_err(|err| IoError::new(err, call.head, pb.clone()))?
         };
@@ -211,24 +214,40 @@ impl Command for Run {
                 example: "watch . -g *.nu | each -f { run --full-reparse ./test.nu }",
                 result: None,
             },
+            Example {
+                description: "Run the pickle that `pickle transform.nu` wrote.",
+                example: r#""hello" | run transform.nupkl"#,
+                result: None,
+            },
         ]
     }
 }
 
-/// Reload, reparse, and compile a script file against a cloned engine state.
+/// Reload, reparse, and compile a script file against a cloned engine state, or load it if it is a
+/// pickle.
 ///
-/// This is used by `run --full-reparse` to bypass parser-time script caching while keeping
-/// declaration resolution and execution isolated from the caller's engine state.
+/// This is used by `run --full-reparse` to bypass parser-time script caching, and by `run` of a
+/// pickle, which the parser can't load into the caller's working set, while keeping declaration
+/// resolution and execution isolated from the caller's engine state.
 ///
-/// Parse errors are surfaced at runtime as `ShellError::Generic`, which is an intentional behavior
-/// difference from parse-time `run` compilation.
+/// Parse errors, and for a pickle the errors of computing its parse-time values again, are surfaced
+/// at runtime as `ShellError::Generic`, which is an intentional behavior difference from
+/// parse-time `run` compilation.
 fn parse_run_script_fresh(
     engine_state: &EngineState,
     file_path: &std::path::Path,
     call_head: Span,
 ) -> Result<(EngineState, Arc<Block>, Option<BlockId>), ShellError> {
     let display_path = file_path.display().to_string();
-    let contents = match read_run_script_file(file_path, MAX_RUN_SCRIPT_BYTES) {
+    // A pickle is told apart by its magic bytes and has no size limit, like `nu script.nupkl`.
+    // Anything else must be a text script under the limit.
+    let pickled = pickle::is_pickle_file(file_path);
+    let contents = if pickled {
+        std::fs::read(file_path).map_err(|_| ScriptLoadError::Unreadable)
+    } else {
+        read_run_script_file(file_path, MAX_RUN_SCRIPT_BYTES)
+    };
+    let contents = match contents {
         Ok(contents) => contents,
         Err(ScriptLoadError::TooLarge { size, max_size }) => {
             return Err(GenericError::new(
@@ -244,7 +263,7 @@ fn parse_run_script_fresh(
             return Err(GenericError::new(
                 "Script file does not appear to be text",
                 format!(
-                    "The file does not look like UTF-8 text and cannot be loaded by `run`: {display_path}"
+                    "The file is neither UTF-8 text nor a pickle and cannot be loaded by `run`: {display_path}"
                 ),
                 call_head,
             )
@@ -262,15 +281,31 @@ fn parse_run_script_fresh(
 
     let mut full_reparse_engine_state = engine_state.clone();
     let mut working_set = StateWorkingSet::new(&full_reparse_engine_state);
-    working_set
-        .files
-        .push(file_path.to_path_buf(), call_head)
-        .map_err(|err| GenericError::new("Failed to parse script", err.to_string(), call_head))?;
+    let (script_block, script_main_block_id) = if pickled {
+        pickle::check_experimental_options(&contents)?;
+        let base = file_path.parent().unwrap_or(std::path::Path::new(""));
+        let script_block = pickle::load(&mut working_set, &contents, base)?;
+        // A pickle keeps no AST for its top-level block, so its `main` is found by name, the way
+        // `nu` finds it. Only the pickle's own `main` counts, not one the shell defined.
+        let script_main_block_id = working_set
+            .find_decl(b"main")
+            .filter(|decl_id| decl_id.get() >= engine_state.num_decls())
+            .and_then(|decl_id| working_set.get_decl(decl_id).block_id());
+        (script_block, script_main_block_id)
+    } else {
+        working_set
+            .files
+            .push(file_path.to_path_buf(), call_head)
+            .map_err(|err| {
+                GenericError::new("Failed to parse script", err.to_string(), call_head)
+            })?;
 
-    let filename = file_path.to_string_lossy();
-    let script_block = parse(&mut working_set, Some(filename.as_ref()), &contents, false);
-    let script_main_block_id = find_main_block_id_in_script(&working_set, &script_block);
-    working_set.files.pop();
+        let filename = file_path.to_string_lossy();
+        let script_block = parse(&mut working_set, Some(filename.as_ref()), &contents, false);
+        let script_main_block_id = find_main_block_id_in_script(&working_set, &script_block);
+        working_set.files.pop();
+        (script_block, script_main_block_id)
+    };
 
     if let Some(parse_error) = working_set.parse_errors.first() {
         return Err(GenericError::new(

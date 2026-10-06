@@ -110,21 +110,13 @@ experimental options it was made with",
 /// `None` if it isn't a pickle or can't be read, which running it reports properly later.
 fn pickle_header(script_name: &str) -> Option<PickleHeader> {
     let path = nu_path::absolute_with(script_name, std::env::current_dir().ok()?).ok()?;
-    // Only a regular file can be a pickle. Reading a pipe or FIFO here would take its bytes from
-    // the script `evaluate_file` reads.
-    if !path.metadata().is_ok_and(|metadata| metadata.is_file()) {
+    // Source code is told apart by its first bytes, only a pickle is read whole.
+    if !pickle::is_pickle_file(&path) {
         return None;
     }
     let mut file = File::open(path).ok()?;
-    // Source code is told apart by its first bytes, only a pickle is read whole.
     let mut contents = vec![];
-    (&mut file)
-        .take(pickle::MAGIC.len() as u64)
-        .read_to_end(&mut contents)
-        .ok()?;
-    if pickle::is_pickle(&contents) {
-        file.read_to_end(&mut contents).ok()?;
-    }
+    file.read_to_end(&mut contents).ok()?;
     // `/dev/stdin` redirected from a file shares its offset with the one `evaluate_file` opens.
     file.rewind().ok()?;
     pickle::info(&contents).ok()?.header
