@@ -242,11 +242,25 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                     Grouping::Standard | Grouping::Indian => decimal < 4,
                 }
             {
-                let basic = format!("{}{}{}{}", if val.is_sign_negative() {
-                    locale.minus_sign() } else { "" },
+                let basic = format!(
+                    "{}{}{}{}",
+                    if val.is_sign_negative() {
+                        locale.minus_sign()
+                    } else {
+                        ""
+                    },
                     &basic[first_digit..decimal],
-                    if decimal < basic.len() { locale.decimal() } else { "" },
-                    if decimal < basic.len() { &basic[decimal + 1..]} else {""});
+                    if decimal < basic.len() {
+                        locale.decimal()
+                    } else {
+                        ""
+                    },
+                    if decimal < basic.len() {
+                        &basic[decimal + 1..]
+                    } else {
+                        ""
+                    }
+                );
                 return Value::string(basic, span);
             }
 
@@ -256,7 +270,11 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                 }
                 Grouping::Standard => (
                     basic.len() + (decimal - first_digit) / 3 * locale.separator().len(),
-                    if decimal_len % 3 == 0 { first_digit + 3 } else { first_digit + decimal_len % 3 },
+                    if decimal_len % 3 == 0 {
+                        first_digit + 3
+                    } else {
+                        first_digit + decimal_len % 3
+                    },
                     3,
                 ),
                 Grouping::Indian => (
