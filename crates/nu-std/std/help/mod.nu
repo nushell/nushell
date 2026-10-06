@@ -746,11 +746,14 @@ def external-commands [
 ] {
     let target_command = (
         $command
-        | update 0 { str replace --regex '^[\^%]' "" }
+        | each { split row " " }
+        | flatten
+        | if ($in | is-empty) { $in } else {
+            update 0 { str replace --regex '^[\^%]' "" }
+        }
     )
-    let pretty_command = ($target_command | str join " ")
 
-    print $"(ansi default_italic)Help pages from external command ($pretty_command | pretty-cmd):(ansi reset)"
+    print $"(ansi default_italic)Help pages from external command (($target_command | str join " ") | pretty-cmd):(ansi reset)"
     if $env.NU_HELPER? == "--help" {
         run-external ...$target_command "--help" | if $nu.os-info.name == "windows" { collect } else {}
     } else {
@@ -779,7 +782,7 @@ def pretty-cmd [] {
 #
 # `help word` searches for "word" in commands, aliases and modules, in that order.
 # If not found as internal to nushell, you can set `$env.NU_HELPER` to a program
-# (default: man) and "word" will be passed as the first argument.
+# (default: man) and each word will be passed as its own argument.
 # Alternatively, you can set `$env.NU_HELPER` to `--help` and it will run "word" as
 # an external and pass `--help` as the last argument (this could cause unintended
 # behaviour if it doesn't support the flag, use it carefully).
