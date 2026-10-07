@@ -703,4 +703,54 @@ version = "1.0.0"
         // roundtrip: aligned output parses back to the same value
         assert_eq!(val, from_nuon(&result, None).unwrap());
     }
+
+    #[test]
+    fn table_column_alignment_with_non_ascii_cells() {
+        let engine_state = EngineState::new();
+        let val = Value::test_list(vec![
+            Value::test_record(record!(
+                "a" => Value::test_string("日本"),
+                "b" => Value::test_int(1)
+            )),
+            Value::test_record(record!(
+                "a" => Value::test_string("abcde"),
+                "b" => Value::test_int(2)
+            )),
+        ]);
+        let result = to_nuon(
+            &engine_state,
+            &val,
+            ToNuonConfig::default().style(ToStyle::Spaces(2)),
+        )
+        .unwrap();
+
+        assert_eq!(result, "[\n  [a,     b];\n  [日本,  1],\n  [abcde, 2]\n]");
+        // roundtrip: aligned output still parses back to the same value
+        assert_eq!(val, from_nuon(&result, None).unwrap());
+    }
+
+    #[test]
+    fn table_column_alignment_with_multibyte_single_rune_cells() {
+        // `…` is one rune but three bytes, the other direction of the same mismatch.
+        let engine_state = EngineState::new();
+        let val = Value::test_list(vec![
+            Value::test_record(record!(
+                "a" => Value::test_string("…"),
+                "b" => Value::test_int(1)
+            )),
+            Value::test_record(record!(
+                "a" => Value::test_string("abcde"),
+                "b" => Value::test_int(2)
+            )),
+        ]);
+        let result = to_nuon(
+            &engine_state,
+            &val,
+            ToNuonConfig::default().style(ToStyle::Spaces(2)),
+        )
+        .unwrap();
+
+        assert_eq!(result, "[\n  [a,     b];\n  […,     1],\n  [abcde, 2]\n]");
+        assert_eq!(val, from_nuon(&result, None).unwrap());
+    }
 }
