@@ -5842,6 +5842,7 @@ dependencies = [
  "nu-parser",
  "nu-protocol",
  "nu-utils",
+ "unicode-width 0.2.2",
 ]
 
 [[package]]

@@ -704,55 +704,6 @@ version = "1.0.0"
         assert_eq!(val, from_nuon(&result, None).unwrap());
     }
 
-    /// The char offset at which the second field starts, one entry per data row.
-    ///
-    /// Rows only, so the bracket-only lines and the `;`-terminated header are
-    /// skipped rather than counted as offset 0. The separator is the last comma
-    /// inside `[...]`, not the row's trailing comma, and the offset is taken at
-    /// the first non-whitespace character after it -- measuring to the end of the
-    /// line, or from the trailing comma, returns a number that is 0 or differs by
-    /// the padding alone and so asserts nothing.
-    fn second_field_offsets(output: &str) -> Vec<usize> {
-        let mut offsets = Vec::new();
-        for line in output.lines() {
-            let trimmed = line.trim();
-            if !trimmed.starts_with('[') || trimmed.ends_with(';') {
-                continue;
-            }
-            let body = trimmed
-                .trim_start_matches('[')
-                .trim_end_matches(']')
-                .trim_end_matches(',');
-            let Some(separator) = body.rfind(',') else {
-                continue;
-            };
-            let after = &body[separator + 1..];
-            let padding = after.len() - after.trim_start().len();
-            offsets.push(body[..body.len() - after.len() + padding].chars().count());
-        }
-        offsets
-    }
-
-    /// Every data row's second field starts at the same char offset.
-    ///
-    /// Note what this does *not* pin: byte-derived widths satisfied it too, since a
-    /// shared width plus `{:<width$}` pads every cell to the same char count either
-    /// way. What byte widths got wrong was the width itself, one unit too wide per
-    /// multi-byte cell in the column. The exact-output assertions in the tests below
-    /// are what pin that; this checks the invariant the padding operator provides.
-    fn assert_columns_align(output: &str) {
-        let offsets = second_field_offsets(output);
-        assert!(
-            !offsets.is_empty(),
-            "no data rows found to compare: {output}"
-        );
-        assert!(
-            offsets.windows(2).all(|w| w[0] == w[1]),
-            "second field does not start at the same char offset in every row: \
-             {offsets:?} in\n{output}"
-        );
-    }
-
     #[test]
     fn table_column_alignment_with_non_ascii_cells() {
         let engine_state = EngineState::new();
@@ -773,8 +724,7 @@ version = "1.0.0"
         )
         .unwrap();
 
-        assert_eq!(result, "[\n  [a,     b];\n  [日本,    1],\n  [abcde, 2]\n]");
-        assert_columns_align(&result);
+        assert_eq!(result, "[\n  [a,     b];\n  [日本,  1],\n  [abcde, 2]\n]");
         // roundtrip: aligned output still parses back to the same value
         assert_eq!(val, from_nuon(&result, None).unwrap());
     }
@@ -801,7 +751,6 @@ version = "1.0.0"
         .unwrap();
 
         assert_eq!(result, "[\n  [a,     b];\n  […,     1],\n  [abcde, 2]\n]");
-        assert_columns_align(&result);
         assert_eq!(val, from_nuon(&result, None).unwrap());
     }
 }
