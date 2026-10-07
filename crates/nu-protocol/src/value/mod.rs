@@ -4070,12 +4070,15 @@ impl Value {
                 Ok(Value::bool(val, span))
             }
             (Value::CellPath { val: lhs, .. }, Value::CellPath { val: rhs, .. }) => {
-                Ok(Value::bool(
-                    rhs.members
+                // `lhs` is in `rhs` when its members appear in `rhs` as a contiguous run, the way
+                // a substring is in a string. Like the empty string, the empty path is in every
+                // path, and `windows(0)` would panic.
+                let found = lhs.members.is_empty()
+                    || rhs
+                        .members
                         .windows(lhs.members.len())
-                        .any(|member_window| member_window == rhs.members),
-                    span,
-                ))
+                        .any(|member_window| member_window == lhs.members);
+                Ok(Value::bool(found, span))
             }
             (Value::Custom { val: lhs, .. }, rhs) => {
                 lhs.operation(self.span(), Operator::Comparison(Comparison::In), op, rhs)
@@ -4136,13 +4139,8 @@ impl Value {
 
                 Ok(Value::bool(val, span))
             }
-            (Value::CellPath { val: lhs, .. }, Value::CellPath { val: rhs, .. }) => {
-                Ok(Value::bool(
-                    rhs.members
-                        .windows(lhs.members.len())
-                        .all(|member_window| member_window != rhs.members),
-                    span,
-                ))
+            (Value::CellPath { .. }, Value::CellPath { .. }) => {
+                Ok(Value::bool(!self.r#in(op, rhs, span)?.is_true(), span))
             }
             (Value::Custom { val: lhs, .. }, rhs) => lhs.operation(
                 self.span(),
