@@ -192,6 +192,7 @@ log = "0.4.34"
 lru = "0.18.3"
 lscolors = { version = "0.21", default-features = false }
 lsp-server = "0.10.0"
+lz4_flex = { version = "0.14.0", default-features = false }
 lsp-types = { version = "0.97.0", features = ["proposed"] }
 lsp-textdocument = "0.5.0"
 linkme = "0.3.37"
@@ -218,6 +219,7 @@ parking_lot = "0.12.5"
 pastey = "0.2.3"
 pathdiff = "0.2"
 percent-encoding = "2"
+postcard = { version = "1.1.3", default-features = false }
 pretty_assertions = { version = "1.4", features = ["unstable"] }
 print-positions = "0.6"
 proc-macro-error3 = "3.1.1"

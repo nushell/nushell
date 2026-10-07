@@ -1,4 +1,5 @@
 //! [`Span`] to point to sections of source code and the [`Spanned`] wrapper type
+use crate::relocation;
 use crate::shell_error::generic::GenericError;
 use crate::{FromValue, IntoValue, ShellError, Signals, SpanId, Type, Value, record};
 use miette::SourceSpan;
@@ -139,9 +140,26 @@ impl<T> IntoSpanned for T {
 /// end offset together make the inclusive start/exclusive end pair for where to underline to highlight
 /// a given point of interest.
 #[derive(Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(from = "SpanRepr")]
 pub struct Span {
     pub start: usize,
     pub end: usize,
+}
+
+/// What a [`Span`] deserializes from. Spans go through the relocation hook (see
+/// [`crate::relocation`]) so a serialized parse delta can be loaded into an engine state with a
+/// different file layout.
+#[derive(Deserialize)]
+#[serde(rename = "Span")]
+struct SpanRepr {
+    start: usize,
+    end: usize,
+}
+
+impl From<SpanRepr> for Span {
+    fn from(SpanRepr { start, end }: SpanRepr) -> Self {
+        relocation::map_span(Span { start, end })
+    }
 }
 
 #[derive(Clone)]

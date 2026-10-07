@@ -12,7 +12,7 @@ use log::trace;
 use nu_protocol::{
     ParseError, Span, Type,
     ast::{Argument, Call, Expr, Expression, Pipeline},
-    engine::StateWorkingSet,
+    engine::{ParseTimeValue, StateWorkingSet},
     eval_const::eval_constant,
 };
 use std::{collections::HashMap, sync::Arc};
@@ -231,6 +231,12 @@ pub fn parse_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeli
                                 working_set.set_variable_type(var_id, const_type);
 
                                 working_set.set_variable_const_val(var_id, value);
+                                working_set.add_parse_time_value(var_id, || {
+                                    ParseTimeValue::Expression(
+                                        rvalue.clone(),
+                                        explicit_type.clone(),
+                                    )
+                                });
                             }
                             Err(err) => working_set.error(err.wrap(working_set, rvalue.span)),
                         }

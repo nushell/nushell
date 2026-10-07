@@ -1,5 +1,10 @@
-use std::borrow::Borrow;
+use std::{
+    borrow::Borrow,
+    fs::File,
+    io::{Read, Seek},
+};
 
+use nu_parser::pickle::{self, PickleHeader};
 use nu_protocol::{
     engine::{EngineState, StateWorkingSet},
     report_error::report_experimental_option_warning,
@@ -10,8 +15,10 @@ use crate::command::NushellCliArgs;
 // 1. Parse experimental options from env
 // 2. See if we should have any and disable all of them if not
 // 3. Parse CLI arguments, if explicitly mentioned, let's enable them
-pub fn load(engine_state: &EngineState, cli_args: &NushellCliArgs, has_script: bool) {
+// 4. If the script is a pickle, use the options it was made with instead
+pub fn load(engine_state: &EngineState, cli_args: &NushellCliArgs, script_name: &str) {
     let working_set = StateWorkingSet::new(engine_state);
+    let has_script = !script_name.is_empty();
 
     if !should_disable_experimental_options(has_script, cli_args) {
         let env_content = std::env::var(nu_experimental::ENV).unwrap_or_default();
@@ -72,6 +79,47 @@ pub fn load(engine_state: &EngineState, cli_args: &NushellCliArgs, has_script: b
             None => report_experimental_option_warning(None, &working_set, &diagnostic),
         }
     }
+
+    // The options can change what the parser and compiler emit, so a pickle runs with the ones it
+    // was compiled with. The pickle records every option, so none of the ones set above is left
+    // over.
+    if let Some(header) = pickle_header(script_name) {
+        if cli_args.experimental_options.is_some() {
+            let diagnostic = miette::diagnostic!(
+                severity = miette::Severity::Warning,
+                code = "nu::experimental_option::pickle",
+                help = "pickle the script again with the options it should run with",
+                "`--experimental-options` doesn't apply to a pickle, which runs with the \
+experimental options it was made with",
+            );
+            report_experimental_option_warning(None, &working_set, &diagnostic);
+        }
+        for (name, enabled) in header.experimental_options {
+            if let Some(option) = nu_experimental::ALL
+                .iter()
+                .find(|option| option.identifier() == name)
+            {
+                // SAFETY: This runs at initialization, before anything reads the options.
+                unsafe { option.set(enabled) };
+            }
+        }
+    }
+}
+
+/// The header of the pickle `script_name` names, found the way `evaluate_file` finds the script.
+/// `None` if it isn't a pickle or can't be read, which running it reports properly later.
+fn pickle_header(script_name: &str) -> Option<PickleHeader> {
+    let path = nu_path::absolute_with(script_name, std::env::current_dir().ok()?).ok()?;
+    // Source code is told apart by its first bytes, only a pickle is read whole.
+    if !pickle::is_pickle_file(&path) {
+        return None;
+    }
+    let mut file = File::open(path).ok()?;
+    let mut contents = vec![];
+    file.read_to_end(&mut contents).ok()?;
+    // `/dev/stdin` redirected from a file shares its offset with the one `evaluate_file` opens.
+    file.rewind().ok()?;
+    pickle::info(&contents).ok()?.header
 }
 
 // Disable experimental options when not loading config files (for NU_EXPERIMENTAL_OPTIONS env).

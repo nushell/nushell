@@ -1,7 +1,7 @@
 use crate::util::{eval_parsed_block_source, eval_source, print_pipeline};
 use log::{info, trace};
 use nu_engine::eval_block;
-use nu_parser::parse;
+use nu_parser::{parse, pickle};
 use nu_path::absolute_with;
 use nu_protocol::{
     PipelineData, ShellError, Span, Value,
@@ -14,6 +14,9 @@ use nu_protocol::{
 use std::{path::PathBuf, sync::Arc};
 
 /// Entry point for evaluating a file.
+///
+/// The file is either Nushell source or a pickle written by the `pickle` command. A pickle is loaded
+/// instead of parsed and from then on runs exactly like the source it was made from.
 ///
 /// If the file contains a main command, it is invoked with `args` and the pipeline data from `input`;
 /// otherwise, the pipeline data is forwarded to the first command in the file, and `args` are ignored.
@@ -95,8 +98,15 @@ pub fn evaluate_file(
     let script_name_bytes = script_name.as_bytes().to_vec();
 
     let mut working_set = StateWorkingSet::new(engine_state);
-    trace!("parsing file: {file_path_str}");
-    let block = parse(&mut working_set, Some(file_path_str), &file, false);
+    let block = if pickle::is_pickle(&file) {
+        trace!("loading pickled file: {file_path_str}");
+        // Loading computes the pickle's parse-time values again. That can fail like parsing
+        // would, so the checks below apply to it too.
+        pickle::load(&mut working_set, &file, parent)?
+    } else {
+        trace!("parsing file: {file_path_str}");
+        parse(&mut working_set, Some(file_path_str), &file, false)
+    };
 
     if let Some(warning) = working_set.parse_warnings.first() {
         report_parse_warning(None, &working_set, warning);

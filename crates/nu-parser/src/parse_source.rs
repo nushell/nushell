@@ -8,6 +8,7 @@ use crate::{
         ArgumentParsingLevel, CallKind, ParsedInternalCall, compile_block, parse,
         parse_internal_call,
     },
+    pickle,
 };
 
 use log::trace;
@@ -145,6 +146,10 @@ pub fn parse_source(working_set: &mut StateWorkingSet, lite_command: &LiteComman
 
                 if let Some(path) = find_in_dirs(&filename, working_set, &cwd, Some(LIB_DIRS_VAR)) {
                     if let Some(contents) = path.read(working_set) {
+                        if pickle::is_pickle(&contents) {
+                            working_set.error(pickle::sourced_pickle_error(spans[1]));
+                            return garbage_pipeline(working_set, spans);
+                        }
                         if let Err(e) = working_set.files.push(path.clone().path_buf(), spans[1]) {
                             working_set.error(e);
                             return garbage_pipeline(working_set, spans);
@@ -314,7 +319,13 @@ fn parse_run_expr_internal(
                 };
 
                 if let Some(path) = find_in_dirs(&filename, working_set, &cwd, Some(LIB_DIRS_VAR)) {
-                    if do_full_reparse {
+                    // A pickle is loaded when the call runs, the way `--full-reparse` parses then:
+                    // `pickle::load` needs a working set without changes, which this one isn't.
+                    // Only its magic bytes are read here, so the size limit for scripts the parser
+                    // reads doesn't apply to it. Virtual files are the standard library's sources.
+                    if do_full_reparse
+                        || matches!(&path, ParserPath::RealPath(path) if pickle::is_pickle_file(path))
+                    {
                         let mut call_with_block = call;
                         call_with_block.set_parser_info(
                             "block_id_name".to_string(),

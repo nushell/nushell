@@ -2,6 +2,7 @@ use crate::{
     FileId,
     engine::{StateWorkingSet, VirtualPath},
 };
+use serde::{Deserialize, Serialize};
 use std::{
     ffi::OsStr,
     path::{Path, PathBuf},
@@ -97,7 +98,7 @@ pub fn read_run_script_file(path: &Path, max_bytes: u64) -> Result<Vec<u8>, Scri
 /// paths to be present in the file system.
 ///
 /// Created from VirtualPath found in the engine state.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum ParserPath {
     RealPath(PathBuf),
     VirtualFile(PathBuf, usize),

@@ -557,7 +557,7 @@ pub enum ParseError {
     #[diagnostic(
         code(nu::parser::script_file_not_text),
         help(
-            "The `run` command only loads UTF-8 text scripts. Binary data (NUL bytes, invalid UTF-8, or dense control characters) is rejected."
+            "The `run` command only loads UTF-8 text scripts and pickles. Other binary data (NUL bytes, invalid UTF-8, or dense control characters) is rejected."
         )
     )]
     ScriptFileNotText {

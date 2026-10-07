@@ -1,5 +1,6 @@
 use crate::{DeclId, ModuleId, OverlayId, VarId};
 use rustc_hash::FxBuildHasher;
+use serde::{Deserialize, Deserializer, Serialize};
 use std::{
     collections::HashMap,
     ops::Deref,
@@ -39,7 +40,9 @@ pub fn longest_decl_name() -> usize {
 /// Unlike SipHash, the Fx hash has no per-process key, so a file could declare names chosen to
 /// collide and make its own parse slow, in the LSP or `nu-check` as much as when it runs. That is
 /// accepted for the speed, as rustc does, since the names come from the code being parsed.
-#[derive(Debug, Clone, Default)]
+///
+/// A deserialized map, like one in a pickle, raises [`longest_decl_name`] to cover its names too.
+#[derive(Debug, Clone, Default, Serialize)]
 pub struct DeclNameMap {
     map: HashMap<Vec<u8>, DeclId, FxBuildHasher>,
     longest_name: usize,
@@ -116,13 +119,30 @@ impl FromIterator<(Vec<u8>, DeclId)> for DeclNameMap {
     }
 }
 
+/// Reads what the derived `Serialize` writes. The names don't go through [`DeclNameMap::insert`],
+/// so the map's bound raises [`longest_decl_name`] here.
+impl<'de> Deserialize<'de> for DeclNameMap {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        #[derive(Deserialize)]
+        #[serde(rename = "DeclNameMap")]
+        struct Fields {
+            map: HashMap<Vec<u8>, DeclId, FxBuildHasher>,
+            longest_name: usize,
+        }
+
+        let Fields { map, longest_name } = Fields::deserialize(deserializer)?;
+        LONGEST_DECL_NAME.fetch_max(longest_name, Ordering::Relaxed);
+        Ok(Self { map, longest_name })
+    }
+}
+
 pub static DEFAULT_OVERLAY_NAME: &str = "zero";
 
 /// Tells whether a decl is visible or not
 ///
 /// Looked up for every declaration a name lookup finds (see [`VisibilityStack`]), so it uses the
 /// Fx hash like [`DeclNameMap`].
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Visibility {
     decl_ids: HashMap<DeclId, bool, FxBuildHasher>,
 }
@@ -251,7 +271,7 @@ impl<'a> VisibilityStack<'a> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ScopeFrame {
     /// List of both active and inactive overlays in this ScopeFrame.
     ///
@@ -398,7 +418,7 @@ impl ScopeFrame {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OverlayFrame {
     pub vars: HashMap<Vec<u8>, VarId>,
     pub predecls: DeclNameMap, // temporary storage for predeclarations
