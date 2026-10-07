@@ -1,9 +1,7 @@
 use nu_engine::{ClosureEvalOnce, command_prelude::*};
 #[cfg(feature = "os")]
 use nu_protocol::process::{ChildPipe, ChildProcess};
-use nu_protocol::{
-    ByteStream, ByteStreamSource, OutDest, engine::Closure, shell_error::io::IoError,
-};
+use nu_protocol::{ByteStream, ByteStreamSource, engine::Closure, shell_error::io::IoError};
 
 use std::{
     io::{Cursor, Read},
@@ -159,13 +157,12 @@ impl Command for Do {
                     Err(stream) => Ok(PipelineData::byte_stream(stream, metadata)),
                 }
             }
-            Ok(PipelineData::ByteStream(mut stream, metadata))
-                if ignore_all_errors
-                    && !matches!(
-                        caller_stack.stdout(),
-                        OutDest::Pipe | OutDest::PipeSeparate | OutDest::Value
-                    ) =>
-            {
+            Ok(PipelineData::ByteStream(mut stream, metadata)) if ignore_all_errors => {
+                // Mark the child so that a non-zero exit code is ignored regardless of
+                // where the stream is consumed. The exit code is only checked once the
+                // stream is drained, which may happen downstream (e.g. `do -i { ... } | collect`)
+                // or when collected into a value (e.g. `let x = do -i { ... }`). Without this,
+                // those cases would still surface the error even though `-i` was given.
                 #[cfg(feature = "os")]
                 if let ByteStreamSource::Child(child) = stream.source_mut() {
                     child.ignore_error(true);
