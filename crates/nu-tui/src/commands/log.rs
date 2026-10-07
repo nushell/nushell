@@ -1,4 +1,6 @@
-use super::{WidgetKind, builder_io_types, data_flags, push_widget, with_app};
+use super::{
+    WidgetKind, border_flag, builder_io_types, data_flags, push_widget, title_flag, with_app,
+};
 use crate::widgets::log::LogWidget;
 use nu_engine::command_prelude::*;
 
@@ -15,14 +17,14 @@ impl Command for TuiLog {
     }
 
     fn extra_description(&self) -> &str {
-        "Follows the tail as new items arrive. Mouse wheel and Up/Down scroll; scrolling up pauses follow until you hit the bottom again. `--max-lines` keeps that many newest lines in the view. Streamed rows share a global store capped at max(10000, --max-lines).\n\
+        "Follows the tail as new items arrive. Mouse wheel and Up/Down scroll; scrolling up pauses follow until you hit the bottom again. `--max-lines` keeps that many newest lines in the view. A stream keeps its newest 100,000 rows, or `--max-lines` if that is more.\n\
          \n\
          With `--from` and a closure the log shows the closure's output for the highlighted row of another widget, e.g. `tui log --from table-0 {|row| open $row.name | lines }`."
     }
 
     fn signature(&self) -> Signature {
         data_flags(
-            Signature::build("tui log")
+            border_flag(title_flag(Signature::build("tui log")))
                 .category(Category::Viewers)
                 .optional(
                     "source",
@@ -42,7 +44,7 @@ impl Command for TuiLog {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Live log of a slow stream",
-            example: r#"1.. | each {|n| sleep 100ms; $"tick ($n)"} | tui label --title "ticks" | tui log | tui run"#,
+            example: r#"1.. | each {|n| sleep 100ms; $"tick ($n)"} | tui label --titlebar "ticks" | tui log | tui run"#,
             result: None,
         }]
     }

@@ -3,7 +3,7 @@
 # Warning: This file is intended for documentation purposes only and
 # is not intended to be used as an actual configuration file as-is.
 #
-# version = "0.116.0"
+# version = "0.116.2"
 #
 # A `config.nu` file is used to override default Nushell settings,
 # define (or import) custom commands, or run any other startup tasks.
@@ -760,7 +760,7 @@ $env.config.abbreviations = {}
 # $env.config.abbreviations = {
 #   gs: "git status",
 #   ll: "ls -l",
-#   ptop: "ps | sort-by -r cpu | first 10"
+#   ptop: "ps | compact cpu | sort-by -r cpu | first 10"
 # }
 
 # -----
@@ -1366,11 +1366,12 @@ $env.config.explore.try.reactive = false
 # TUI Command Settings
 # --------------------
 # `$env.config.tui` styles the `tui` command family (`tui table`, `tui split`, `tui run`, ...).
-# It is read by `Theme::from_config` in `crates/nu-tui/src/theme.rs`. Every key is a color
-# value in the same forms as `color_config`: a color name, `#RRGGBB`, or `{ fg?, bg?, attr? }`.
+# It is read by `Theme::from_config` in `crates/nu-tui/src/theme.rs`. Every key except
+# `border_type` is a color value in the same forms as `color_config`: a color name, `#RRGGBB`,
+# or `{ fg?, bg?, attr? }`.
 # When `use_ansi_coloring` is off the TUI draws without colors.
 
-# tui.title_bar (color): The one-line title bar from `tui label --title`.
+# tui.title_bar (color): The one-line title bar from `tui label --titlebar`.
 # Default: { fg: white, bg: blue, attr: b }
 $env.config.tui.title_bar = { fg: white, bg: blue, attr: b }
 
@@ -1382,6 +1383,19 @@ $env.config.tui.status_bar = { fg: white, bg: dark_gray }
 # Defaults: { fg: dark_gray } / { fg: cyan }
 $env.config.tui.border = { fg: dark_gray }
 $env.config.tui.border_focused = { fg: cyan }
+
+# tui.border_type (string): The lines of every widget border, named like `table --theme`.
+# A widget's own `--border` flag overrides it. A tui border always takes one cell, so `none`
+# is an error, and so is `default`. Each name draws the closest outline of that table theme:
+#   single, thin: ┌─┐ │ └─┘       rounded: ╭─╮ │ ╰─╯        double: ╔═╗ ║ ╚═╝
+#   heavy: ┏━┓ ┃ ┗━┛              reinforced: ┏─┓ │ ┗─┛
+#   basic, basic_compact: +-+ | +-+                  ascii_rounded: .-. | '-'
+#   dots: .... : : :..:            with_love: ❤ lines, no sides
+#   compact: ─ lines, no sides     compact_double: ═ lines, no sides
+#   restructured: = lines, no sides                  markdown: | sides, no lines
+#   frameless, light, psql: blank
+# Default: "single"
+$env.config.tui.border_type = "single"
 
 # tui.selected (color): The highlighted row in tables, trees, selects, and menus.
 # Default: { attr: r }

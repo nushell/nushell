@@ -31,6 +31,7 @@ lz4_flex = { workspace = true, features = ["std", "safe-encode", "safe-decode", 
 memchr = { workspace = true }
 pathdiff = { workspace = true }
 postcard = { workspace = true, features = ["use-std"] }
+rustc-hash = { workspace = true }
 semver = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }

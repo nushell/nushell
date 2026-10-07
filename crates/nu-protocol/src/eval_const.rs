@@ -3,7 +3,7 @@
 //! This enables you to assign `const`-constants and execute parse-time code dependent on this.
 //! e.g. `source $my_const`
 use crate::{
-    BlockId, Config, HistoryPath, PipelineData, Record, ShellError, Span, Value, VarId,
+    BlockId, Config, HistoryPath, IntoValue, PipelineData, Record, ShellError, Span, Value, VarId,
     ast::{self, Assignment, Block, Call, Expr, Expression, ExternalArgument},
     debugger::{DebugContext, WithoutDebug},
     engine::{
@@ -202,10 +202,7 @@ pub(crate) fn create_nu_constant(engine_state: &EngineState, span: Span) -> Valu
         )
     });
 
-    record.push(
-        "startup-time",
-        Value::duration(engine_state.get_startup_time(), span),
-    );
+    record.push("startup-time", engine_state.startup_time().into_value(span));
 
     record.push(
         "is-interactive",

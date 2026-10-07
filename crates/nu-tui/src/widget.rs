@@ -11,6 +11,7 @@
 
 use crate::keys::KeyPress;
 use crate::session::Session;
+use crate::stream::Feed;
 use crate::widgets::{
     r#box::BoxWidget, button::ButtonWidget, label::LabelWidget, log::LogWidget, menu::MenuWidget,
     preview::PreviewWidget, progress::ProgressWidget, search::SearchWidget, select::SelectWidget,
@@ -18,7 +19,7 @@ use crate::widgets::{
     tree::TreeWidget,
 };
 use nu_protocol::engine::Closure;
-use nu_protocol::{Record, Span, Value};
+use nu_protocol::{Record, Span, TableMode, Value};
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Rect};
 use serde::{Deserialize, Serialize};
@@ -40,6 +41,11 @@ pub struct Widget {
     /// builder inside a container's child list). Descendants inherit it.
     #[serde(default)]
     pub data: Option<Value>,
+    /// A stream piped into this widget inside a child list, unread until the
+    /// TUI runs; its rows are appended to `data`. Root widgets of one child
+    /// share it.
+    #[serde(skip)]
+    pub stream: Option<Feed>,
     /// Another widget whose highlighted row drives this one.
     #[serde(default)]
     pub source: Option<Source>,
@@ -49,6 +55,15 @@ pub struct Widget {
     /// `--focus`: start with this widget focused.
     #[serde(default)]
     pub focus: bool,
+    /// `--title`: replaces the widget's name in its border title (see
+    /// `widgets::custom_title`). On `tui preview` it goes in front of the
+    /// previewed file's name. Never empty.
+    #[serde(default)]
+    pub title: Option<String>,
+    /// `--border`: the `table --theme` outline this widget's border draws,
+    /// instead of `$env.config.tui.border_type`.
+    #[serde(default)]
+    pub border: Option<TableMode>,
 }
 
 impl Widget {
@@ -60,9 +75,12 @@ impl Widget {
             kind,
             children: Vec::new(),
             data: None,
+            stream: None,
             source: None,
             on_select: None,
             focus: false,
+            title: None,
+            border: None,
         }
     }
 
@@ -449,6 +467,7 @@ pub struct MenuState {
 
 #[derive(Debug, Clone, Default)]
 pub struct PreviewState {
+    /// The previewed file's name, or empty when nothing is previewed.
     pub title: String,
     pub text: String,
     pub scroll: usize,

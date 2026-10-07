@@ -121,7 +121,7 @@ impl TuiWidget for SearchWidget {
 
     fn render(
         &self,
-        _id: &str,
+        id: &str,
         state: &WidgetState,
         frame: &mut Frame,
         area: Rect,
@@ -130,12 +130,13 @@ impl TuiWidget for SearchWidget {
     ) {
         let theme = &session.theme;
         let text = state.as_text().cloned().unwrap_or_default();
+        let name = super::custom_title(session, id, "search");
         let title = if self.fuzzy {
-            "search (fuzzy)"
+            format!("{name} (fuzzy)")
         } else {
-            "search"
+            name.to_string()
         };
-        let block = super::framed(title, focused, theme);
+        let block = super::framed(&title, focused, session, id);
         let inner = block.inner(area);
         frame.render_widget(block, area);
         let display = if text.text.is_empty() && !focused {

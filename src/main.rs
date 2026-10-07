@@ -93,15 +93,13 @@ impl miette::Diagnostic for Panic {
 }
 
 fn main() -> Result<()> {
-    // `$nu.startup-time` runs from process creation to the moment the shell is ready: the first
-    // prompt in the REPL, or the start of evaluation for `-c` and script runs. The time spent
-    // before `main` (loader, runtime setup) comes from `nu_system::time_since_process_start`,
-    // which documents what each platform can measure; without it the clock starts here.
-    let main_entry_time = nu_utils::time::Instant::now();
-    let entire_start_time = nu_system::time_since_process_start()
-        .and_then(|before_main| main_entry_time.checked_sub(before_main))
-        .unwrap_or(main_entry_time);
-    let mut start_time = main_entry_time;
+    // `$nu.startup-time` runs from here to the moment the shell is ready: the first prompt in the
+    // REPL, the start of evaluation for `-c` and script runs, or the start of serving for the
+    // `--lsp`, `--mcp` and `--dap` servers. It starts inside the shell, as bash's and zsh's timers
+    // do, rather than at process creation: the process keeps its creation time and CPU time across
+    // `exec`, so after `exec nu` those would also count the program that ran before.
+    let entire_start_time = nu_utils::time::Instant::now();
+    let mut start_time = entire_start_time;
     // Replicated from `miette::set_panic_hook`, but writes via `writeln!(io::stderr(), …)`
     // instead of `eprintln!`. `eprintln!`/`println!` panic on a broken stderr/stdout
     // (parent terminal/pty closed), so when our parent (Codex, Ghostty, an MCP host, …)
@@ -137,7 +135,8 @@ fn main() -> Result<()> {
         }
     }));
 
-    let engine_state = EngineState::new();
+    let mut engine_state = EngineState::new();
+    engine_state.set_startup_start(entire_start_time);
 
     // Parse commandline args very early and load experimental options to allow loading different
     // commands based on experimental options.
@@ -297,16 +296,25 @@ fn main() -> Result<()> {
     #[cfg(not(feature = "lsp"))]
     let is_lsp = false;
     engine_state.is_lsp = is_lsp;
-    // Here, not in the `--dap` branch at the end: `generate_nu_constant()`
-    // below bakes `$nu.is-dap`, and that branch's startup files must see it.
+    // Here, not in the `--dap` and `--mcp` branches at the end: `generate_nu_constant()`
+    // below bakes `$nu.is-dap` and `$nu.is-mcp`, and those branches' startup files must see them.
     #[cfg(feature = "dap")]
     let is_dap = parsed_nu_cli_args.dap;
     #[cfg(not(feature = "dap"))]
     let is_dap = false;
     engine_state.is_dap = is_dap;
+    #[cfg(feature = "mcp")]
+    let is_mcp = parsed_nu_cli_args.mcp;
+    #[cfg(not(feature = "mcp"))]
+    let is_mcp = false;
+    engine_state.is_mcp = is_mcp;
     // keep this condition in sync with the branches at the end
     engine_state.is_interactive = parsed_nu_cli_args.interactive_shell.is_some()
-        || (parsed_nu_cli_args.commands.is_none() && script_name.is_empty() && !is_lsp && !is_dap);
+        || (parsed_nu_cli_args.commands.is_none()
+            && script_name.is_empty()
+            && !is_lsp
+            && !is_dap
+            && !is_mcp);
 
     engine_state.is_login = parsed_nu_cli_args.login_shell.is_some();
     engine_state.history_enabled = parsed_nu_cli_args.no_history.is_none();
@@ -375,11 +383,6 @@ fn main() -> Result<()> {
         // info!("start logging {}:{}:{}", file!(), line!(), column!());
         perf!("start logging", start_time, use_color);
         // Phases that ran before the logger existed.
-        perf!(
-            "before main (exec, loader, runtime init)",
-            elapsed: main_entry_time.duration_since(entire_start_time),
-            use_color
-        );
         perf!(
             "create engine state, parse args, register commands",
             elapsed: engine_setup_elapsed,
@@ -513,6 +516,11 @@ fn main() -> Result<()> {
         perf!("load standard library", start_time, use_color);
     }
 
+    start_time = nu_utils::time::Instant::now();
+    // Set up the $nu constant before the IDE commands and the config files, which both read it
+    engine_state.generate_nu_constant();
+    perf!("create_nu_constant", start_time, use_color);
+
     // IDE commands
     if let Some(ide_goto_def) = parsed_nu_cli_args.ide_goto_def {
         ide::goto_def(&mut engine_state, &script_name, &ide_goto_def);
@@ -548,11 +556,6 @@ fn main() -> Result<()> {
         PipelineData::empty()
     };
     perf!("redirect stdin", start_time, use_color);
-
-    start_time = nu_utils::time::Instant::now();
-    // Set up the $nu constant before evaluating config files (need to have $nu available in them)
-    engine_state.generate_nu_constant();
-    perf!("create_nu_constant", start_time, use_color);
 
     #[cfg(feature = "plugin")]
     if let Some(plugins) = &parsed_nu_cli_args.plugins {
@@ -602,8 +605,6 @@ fn main() -> Result<()> {
     #[cfg(feature = "mcp")]
     if parsed_nu_cli_args.mcp {
         start_time = nu_utils::time::Instant::now();
-        // Mark MCP mode before config evaluation so startup scripts can adapt behavior.
-        engine_state.is_mcp = true;
         let mcp_transport_kind = parsed_nu_cli_args
             .mcp_transport
             .as_ref()
@@ -632,8 +633,9 @@ fn main() -> Result<()> {
             ),
             _ => nu_mcp::McpTransport::Stdio,
         };
-        nu_mcp::initialize_mcp_server(engine_state, transport)?;
+        engine_state.finish_startup();
         perf!("mcp started", start_time, use_color);
+        nu_mcp::initialize_mcp_server(engine_state, transport)?;
         return Ok(());
     }
 
@@ -671,6 +673,7 @@ fn main() -> Result<()> {
         }
         perf!("dap setup_config", start_time, use_color);
 
+        engine_state.finish_startup();
         nu_dap::run_stdio(engine_state);
         return Ok(());
     }
@@ -687,7 +690,6 @@ fn main() -> Result<()> {
             use_color,
             &commands,
             input,
-            entire_start_time,
         );
 
         cleanup_exit(0, &engine_state, 0);
@@ -702,7 +704,6 @@ fn main() -> Result<()> {
             },
             use_color,
             input,
-            entire_start_time,
         );
 
         cleanup_exit(0, &engine_state, 0);
@@ -737,12 +738,7 @@ fn main() -> Result<()> {
         // No source span — startup env var
         engine_state.add_env_var("SHLVL".to_string(), Value::int(shlvl, Span::unknown()));
 
-        run_repl(
-            &mut engine_state,
-            stack,
-            parsed_nu_cli_args,
-            entire_start_time,
-        )?;
+        run_repl(&mut engine_state, stack, parsed_nu_cli_args)?;
 
         cleanup_exit(0, &engine_state, 0);
     }

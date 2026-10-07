@@ -4,7 +4,7 @@ use crate::session::Session;
 use crate::widget::{Caps, Effect, Size, SplitState, TuiWidget, WidgetState};
 use nu_protocol::{Record, Span, Value};
 use ratatui::Frame;
-use ratatui::layout::{Constraint, Rect};
+use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -20,6 +20,30 @@ impl SplitDir {
         match self {
             SplitDir::Horizontal => "horizontal",
             SplitDir::Vertical => "vertical",
+        }
+    }
+
+    /// The ratatui layout for children of these sizes, with a one-cell
+    /// handle between each pair when the split is `resizable`. Drawing
+    /// and resizing both use it, so a resize is judged by the cells the
+    /// new size will really get.
+    pub fn layout(self, sizes: &[Size], resizable: bool) -> Layout {
+        let direction = match self {
+            SplitDir::Horizontal => Direction::Horizontal,
+            SplitDir::Vertical => Direction::Vertical,
+        };
+        Layout::default()
+            .direction(direction)
+            .constraints(sizes.iter().map(|s| s.to_constraint()))
+            .spacing(u16::from(resizable))
+    }
+
+    /// Where `rect` ends along this direction: the column after it, or
+    /// the row below it for `--vertical`.
+    fn end(self, rect: Rect) -> u16 {
+        match self {
+            SplitDir::Horizontal => rect.right(),
+            SplitDir::Vertical => rect.bottom(),
         }
     }
 }
@@ -40,45 +64,98 @@ impl SplitWidget {
         sizes
     }
 
-    /// Set the size of child `index` so its edge lands `len` cells into a
-    /// split `total` cells long. Sizes become percentages so the other
-    /// children keep sharing the rest.
-    pub fn place_handle(state: &mut SplitState, index: usize, len: u16, total: u16) {
-        if total == 0 || index >= state.sizes.len() {
-            return;
-        }
-        let percent = (len as u32 * 100 / total as u32).clamp(5, 95) as u16;
-        state.sizes[index] = Size::Percent(percent);
+    /// Mouse drag: move handle `index` of a split drawn in `area` as close
+    /// as it can get to `at`, the pointer's column (row for `--vertical`).
+    /// Sizes become percentages so the other children keep sharing the
+    /// rest.
+    pub fn place_handle(
+        state: &mut SplitState,
+        direction: SplitDir,
+        index: usize,
+        area: Rect,
+        at: u16,
+    ) {
+        move_edge(state, direction, index, area, |edge| {
+            Some(edge.abs_diff(at))
+        });
     }
 
-    /// Keyboard resize of the first child by one percent.
+    /// Keyboard resize of the first child: move its edge to the nearest
+    /// cell a percentage can reach in that direction. On splits up to 100
+    /// cells that is the next cell; on wider ones a percentage covers more
+    /// than a cell, so a press can skip one.
     fn nudge(&self, id: &str, state: &mut SplitState, grow: bool, session: &Session) {
-        let Some(widget) = session.widget(id) else {
-            return;
-        };
-        let Some(first) = widget.children.first() else {
-            return;
-        };
-        let (Some(area), Some(child)) = (session.areas.get(id), session.areas.get(&first.id))
-        else {
-            return;
-        };
-        let (total, len) = match self.direction {
-            SplitDir::Horizontal => (area.width, child.width),
-            SplitDir::Vertical => (area.height, child.height),
-        };
-        if total == 0 {
+        // Only a split the mouse can resize: one of fixed-height leaves
+        // (a button row) gets no handle and must keep its sizes.
+        if !session.handles.iter().any(|h| h.id == id && h.index == 0) {
             return;
         }
-        let current = (len as u32 * 100 / total as u32) as u16;
-        let next = if grow {
-            (current + 1).min(95)
-        } else {
-            current.saturating_sub(1).max(5)
+        let Some(&area) = session.areas.get(id) else {
+            return;
         };
-        if let Some(size) = state.sizes.first_mut() {
-            *size = Size::Percent(next);
-        }
+        // Measure from the sizes rather than the last drawn frame: several
+        // presses can arrive before the next one.
+        let segments = self.direction.layout(&state.sizes, true).split(area);
+        let Some(current) = segments.first().map(|&rect| self.direction.end(rect)) else {
+            return;
+        };
+        move_edge(state, self.direction, 0, area, |edge| {
+            let ahead = if grow { edge > current } else { edge < current };
+            ahead.then(|| edge.abs_diff(current))
+        });
+    }
+}
+
+/// Percentages a dragged or nudged child can take. Past these the handle
+/// is within a twentieth of the split's edge.
+const MIN_PERCENT: u16 = 5;
+/// See [`MIN_PERCENT`].
+const MAX_PERCENT: u16 = 95;
+
+/// Give child `index` of a split drawn in `area` the percentage whose far
+/// edge has the lowest `cost` (`None` rules an edge out). Every candidate
+/// is laid out for real, so the choice matches what gets drawn whatever
+/// ratatui's rounding does and however the other children are sized.
+/// Candidates that would leave any child with no cells are skipped. When
+/// several percentages end on the same cell the middle one is kept: it is
+/// closest to the exact share, so the pane keeps its proportion when the
+/// terminal is resized.
+fn move_edge(
+    state: &mut SplitState,
+    direction: SplitDir,
+    index: usize,
+    area: Rect,
+    cost: impl Fn(u16) -> Option<u16>,
+) {
+    if index >= state.sizes.len() {
+        return;
+    }
+    let mut trial = state.sizes.clone();
+    let reachable: Vec<(u16, u16)> = (MIN_PERCENT..=MAX_PERCENT)
+        .filter_map(|percent| {
+            trial[index] = Size::Percent(percent);
+            let segments = direction.layout(&trial, true).split(area);
+            let edge = direction.end(*segments.get(index)?);
+            segments
+                .iter()
+                .all(|rect| !rect.is_empty())
+                .then_some((percent, edge))
+        })
+        .collect();
+    let Some((_, best)) = reachable
+        .iter()
+        .filter_map(|&(_, edge)| Some((cost(edge)?, edge)))
+        .min()
+    else {
+        return;
+    };
+    let band: Vec<u16> = reachable
+        .iter()
+        .filter(|&&(_, edge)| edge == best)
+        .map(|&(percent, _)| percent)
+        .collect();
+    if let Some(&percent) = band.get(band.len() / 2) {
+        state.sizes[index] = Size::Percent(percent);
     }
 }
 

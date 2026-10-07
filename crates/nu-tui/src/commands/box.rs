@@ -1,5 +1,6 @@
 use super::{
-    WidgetKind, builder_io_types, children_from_values, common_flags, push_widget, with_app,
+    WidgetKind, border_flag, builder_io_types, children_from_values, common_flags, push_widget,
+    with_app,
 };
 use crate::widgets::r#box::BoxWidget;
 use nu_engine::command_prelude::*;
@@ -22,7 +23,7 @@ impl Command for TuiBox {
 
     fn signature(&self) -> Signature {
         common_flags(
-            Signature::build("tui box")
+            border_flag(Signature::build("tui box"))
                 .category(Category::Viewers)
                 .required("title", SyntaxShape::String, "Box title.")
                 .required(

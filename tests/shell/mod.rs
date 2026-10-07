@@ -259,6 +259,44 @@ fn run_in_noninteractive_mode() {
     assert!(child_output.stderr.is_empty());
 }
 
+// `$nu.startup-time` must be a real duration wherever it can be read, also before startup has
+// finished and in engines that never ran nushell's `main`.
+#[test]
+fn startup_time_in_embedded_engine() -> Result {
+    let startup: std::time::Duration = test().run("$nu.startup-time")?;
+    assert!(
+        startup > std::time::Duration::ZERO,
+        "startup time {startup:?}"
+    );
+    Ok(())
+}
+
+#[test]
+#[deps(NU)]
+fn startup_time_while_config_is_evaluated() -> Result {
+    Playground::setup(
+        "startup_time_while_config_is_evaluated",
+        |dirs, sandbox| -> Result {
+            sandbox.with_files(&[FileWithContent(
+                "config.nu",
+                "$env.STARTUP_IN_CONFIG = $nu.startup-time",
+            )]);
+            let code = "
+            nu --no-std-lib --config config.nu -c '$env.STARTUP_IN_CONFIG | into int'
+            | into int
+            | into duration
+        ";
+            let startup: std::time::Duration = test().cwd(dirs.test()).run(code)?;
+
+            assert!(
+                startup > std::time::Duration::ZERO,
+                "startup time {startup:?}"
+            );
+            Ok(())
+        },
+    )
+}
+
 // A `try` with a `catch` or `finally` block collects the block's output to know whether
 // it failed. When the tried external's stdout is inherited, its output already went to
 // the terminal; collecting used to turn the data-less stream into an empty string, which

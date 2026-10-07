@@ -8,6 +8,7 @@ use crate::{
         CachedFile, Command, DEFAULT_OVERLAY_NAME, EnvName, EnvVars, OverlayFrame, PromptState,
         ScopeFrame, Stack, StateDelta, Variable, VisibilityStack,
         description::{Doccomments, build_desc},
+        signature_cache::SignatureCache,
     },
     eval_const::create_nu_constant,
     report_error::ReportLog,
@@ -17,16 +18,18 @@ use fancy_regex::Regex;
 use lru::LruCache;
 use nu_config::NushellConfigDirs;
 use nu_path::AbsolutePathBuf;
+use nu_utils::time::Instant;
 use std::{
     collections::{HashMap, HashSet},
     num::NonZeroUsize,
     path::PathBuf,
     sync::{
         Arc, Mutex, MutexGuard, PoisonError,
-        atomic::{AtomicBool, AtomicU32, Ordering},
+        atomic::{AtomicBool, AtomicU32, AtomicUsize, Ordering},
         mpsc::Sender,
         mpsc::channel,
     },
+    time::Duration,
 };
 
 type PoisonDebuggerError<'a> = PoisonError<MutexGuard<'a, Box<dyn Debugger>>>;
@@ -72,6 +75,43 @@ impl Clone for IsDebugging {
     }
 }
 
+/// A file index remembered across lookups (see [`FileHint::contents`]). An `EngineState` is shared
+/// between threads, and a `StateWorkingSet` must be `Sync`, so this is an atomic; a clone starts
+/// from the same index.
+#[derive(Default)]
+pub(super) struct FileHint(AtomicUsize);
+
+impl Clone for FileHint {
+    fn clone(&self) -> Self {
+        Self(AtomicUsize::new(self.0.load(Ordering::Relaxed)))
+    }
+}
+
+impl FileHint {
+    /// The contents of `span` in the file of `files` that contains it, if any.
+    ///
+    /// The parser looks up span after span in the same file, so this checks the file the last
+    /// lookup found before scanning `files`, and remembers the file a scan finds. Only an empty
+    /// span on a boundary between files is in more than one file, and each gives the same empty
+    /// slice, so the result is always what the scan alone returns.
+    pub(super) fn contents<'a>(&self, files: &'a [CachedFile], span: Span) -> Option<&'a [u8]> {
+        let file = match files.get(self.0.load(Ordering::Relaxed)) {
+            Some(file) if file.covered_span.contains_span(span) => file,
+            _ => {
+                let (index, file) = files
+                    .iter()
+                    .enumerate()
+                    .find(|(_, file)| file.covered_span.contains_span(span))?;
+                self.0.store(index, Ordering::Relaxed);
+                file
+            }
+        };
+        let start = span.start - file.covered_span.start;
+        let end = span.end - file.covered_span.start;
+        Some(&file.content[start..end])
+    }
+}
+
 /// The core global engine state. This includes all global definitions as well as any global state that
 /// will persist for the whole session.
 ///
@@ -92,6 +132,10 @@ impl Clone for IsDebugging {
 #[derive(Clone, derive_more::Debug)]
 pub struct EngineState {
     files: Vec<CachedFile>,
+    /// The index in `files` of the file the last span lookup found (see
+    /// [`Self::try_get_file_contents`]).
+    #[debug(skip)]
+    last_file_hit: FileHint,
     pub(super) virtual_paths: Vec<(String, VirtualPath)>,
     vars: Vec<Variable>,
     #[debug("{:?}", decls.iter().map(|c| c.name()).collect::<Vec<_>>())]
@@ -123,6 +167,11 @@ pub struct EngineState {
     /// engine state.
     pub prompt_state: Arc<PromptState>,
     pub table_decl_id: Option<DeclId>,
+    /// Signatures of [`Self::decls`], built on first use by the parser. Clones share it, so that
+    /// cloning stays cheap; a clone that appends declarations while sharing it starts over with an
+    /// empty cache of its own (see [`Self::merge_delta`]).
+    #[debug(skip)]
+    pub(super) signature_cache: Arc<SignatureCache>,
     #[cfg(feature = "plugin")]
     pub plugin_path: Option<PathBuf>,
     #[cfg(feature = "plugin")]
@@ -161,7 +210,11 @@ pub struct EngineState {
     /// `is_lsp`/`is_mcp`, this means stdout is a protocol stream, so anything
     /// that would print to it must go to stderr instead.
     pub is_dap: bool,
-    startup_time: i64,
+    /// When startup began: the top of `main` for the `nu` binary, otherwise when this engine
+    /// was created. See [`EngineState::startup_time`].
+    startup_start: Instant,
+    /// How long startup took, once [`EngineState::finish_startup`] has been called.
+    startup_time: Option<Duration>,
     is_debugging: IsDebugging,
     pub debugger: Arc<Mutex<Box<dyn Debugger>>>,
     pub report_log: Arc<Mutex<ReportLog>>,
@@ -216,6 +269,7 @@ impl EngineState {
 
         Self {
             files: vec![],
+            last_file_hit: FileHint::default(),
             virtual_paths: vec![],
             vars: vec![
                 Variable::new(Span::new(0, 0), Type::Any, false),
@@ -255,6 +309,7 @@ impl EngineState {
             })),
             prompt_state: Arc::new(PromptState::new()),
             table_decl_id: None,
+            signature_cache: Arc::default(),
             #[cfg(feature = "plugin")]
             plugin_path: None,
             #[cfg(feature = "plugin")]
@@ -273,7 +328,8 @@ impl EngineState {
             is_lsp: false,
             is_mcp: false,
             is_dap: false,
-            startup_time: -1,
+            startup_start: Instant::now(),
+            startup_time: None,
             is_debugging: IsDebugging::new(false),
             debugger: Arc::new(Mutex::new(Box::new(NoopDebugger))),
             report_log: Arc::default(),
@@ -339,6 +395,14 @@ impl EngineState {
 
         // Avoid potentially cloning the Arcs if we aren't adding anything
         if !delta.decls.is_empty() {
+            // Clones that share the signature cache must agree on every declaration it holds, so
+            // an engine that adds declarations the other clones don't have stops sharing it. It
+            // starts over with an empty cache rather than a copy. Copying would clone every
+            // signature and remembered output type, while later parses rebuild only the entries
+            // they use.
+            if Arc::get_mut(&mut self.signature_cache).is_none() {
+                self.signature_cache = Arc::default();
+            }
             Arc::make_mut(&mut self.decls).extend(delta.decls);
         }
         if !delta.blocks.is_empty() {
@@ -847,15 +911,7 @@ impl EngineState {
     }
 
     pub fn try_get_file_contents(&self, span: Span) -> Option<&[u8]> {
-        self.files.iter().find_map(|file| {
-            if file.covered_span.contains_span(span) {
-                let start = span.start - file.covered_span.start;
-                let end = span.end - file.covered_span.start;
-                Some(&file.content[start..end])
-            } else {
-                None
-            }
-        })
+        self.last_file_hit.contents(&self.files, span)
     }
 
     /// If the span's content starts with the given prefix, return two subspans
@@ -1143,12 +1199,31 @@ impl EngineState {
         &self.files
     }
 
-    pub fn get_startup_time(&self) -> i64 {
+    /// How long startup took (`$nu.startup-time`), or how long it has taken so far while it is
+    /// still running, for example while the config files are being evaluated.
+    ///
+    /// Like the timers in bash and zsh, startup is measured from inside the shell, not from
+    /// process creation, so it leaves out the time the operating system spends starting the
+    /// executable, and `exec nu` does not count the program it replaced.
+    pub fn startup_time(&self) -> Duration {
         self.startup_time
+            .unwrap_or_else(|| self.startup_start.elapsed())
     }
 
-    pub fn set_startup_time(&mut self, startup_time: i64) {
-        self.startup_time = startup_time;
+    /// Sets when startup began. `nu` calls this with the time it reads at the top of `main`.
+    pub fn set_startup_start(&mut self, startup_start: Instant) {
+        self.startup_start = startup_start;
+    }
+
+    /// Ends startup: from now on [`EngineState::startup_time`] stays at the time it took, and
+    /// later calls keep the first value. Regenerates `$nu` so it shows that time, along with any
+    /// other changes made during startup. Returns the startup time.
+    pub fn finish_startup(&mut self) -> Duration {
+        let startup_time = *self
+            .startup_time
+            .get_or_insert_with(|| self.startup_start.elapsed());
+        self.generate_nu_constant();
+        startup_time
     }
 
     pub fn activate_debugger(
@@ -1312,6 +1387,64 @@ mod engine_state_tests {
         let id = engine_state.add_file("test.nu", &[]);
 
         assert_eq!(id, FileId::new(0));
+    }
+
+    /// An engine that appends declarations to a signature cache it shares with a clone starts
+    /// over with its own empty cache; one that doesn't share it keeps it.
+    #[test]
+    fn merging_declarations_stops_sharing_the_signature_cache() {
+        let merge_a_decl = |engine_state: &mut EngineState| {
+            let mut working_set = StateWorkingSet::new(engine_state);
+            working_set.add_decl(Signature::new("foo").predeclare());
+            let delta = working_set.render();
+            engine_state
+                .merge_delta(delta)
+                .expect("merging a declaration");
+        };
+
+        let mut engine_state = EngineState::new();
+        let clone = engine_state.clone();
+        assert!(Arc::ptr_eq(
+            &engine_state.signature_cache,
+            &clone.signature_cache
+        ));
+        merge_a_decl(&mut engine_state);
+        assert!(!Arc::ptr_eq(
+            &engine_state.signature_cache,
+            &clone.signature_cache
+        ));
+
+        let cache = Arc::as_ptr(&engine_state.signature_cache);
+        merge_a_decl(&mut engine_state);
+        assert_eq!(Arc::as_ptr(&engine_state.signature_cache), cache);
+    }
+
+    #[test]
+    fn file_contents_lookup_finds_what_a_scan_finds() {
+        let mut engine_state = EngineState::new();
+        for (index, content) in ["", "abc", "", "", "de", "f", ""].iter().enumerate() {
+            engine_state.add_file(format!("file{index}").into(), content.as_bytes().into());
+        }
+        let end = engine_state.next_span_start();
+        let scan = |span: Span| {
+            engine_state.files.iter().find_map(|file| {
+                file.covered_span.contains_span(span).then(|| {
+                    &file.content
+                        [span.start - file.covered_span.start..span.end - file.covered_span.start]
+                })
+            })
+        };
+        let spans: Vec<Span> = (0..=end + 1)
+            .flat_map(|start| (start..=end + 1).map(move |span_end| Span::new(start, span_end)))
+            .collect();
+        // Both orders, so that the remembered file is sometimes right and sometimes not.
+        for span in spans.iter().chain(spans.iter().rev()) {
+            assert_eq!(
+                engine_state.try_get_file_contents(*span),
+                scan(*span),
+                "{span:?}"
+            );
+        }
     }
 
     #[test]
