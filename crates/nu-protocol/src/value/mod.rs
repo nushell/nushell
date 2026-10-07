@@ -37,6 +37,7 @@ use std::{
     borrow::Cow,
     cmp::Ordering,
     fmt::{self, Debug, Display, Write},
+    hash::{Hash, Hasher},
     ops::{Bound, ControlFlow},
     path::PathBuf,
 };
@@ -2785,6 +2786,210 @@ impl PartialOrd for Value {
 impl PartialEq for Value {
     fn eq(&self, other: &Self) -> bool {
         self.partial_cmp(other).is_some_and(Ordering::is_eq)
+    }
+}
+
+/// How many items `Hash` covers from each end of a list, and from the smallest keys of a record.
+///
+/// Hashing a bounded number of items keeps hashing large values cheap. Values that differ only in
+/// the items left out collide, and the equality check of the map they are stored in tells them
+/// apart. Custom values hashing a collection can use the same bound.
+pub const HASH_ITEM_LIMIT: usize = 5;
+
+/// Hash an `f64` consistently with `f64 ==`, with `NaN` equal to itself.
+///
+/// `-0.0` is collapsed to `0.0`, and every `NaN` payload hashes as the canonical `f64::NAN`.
+/// Custom values that hash floats should use this too.
+pub fn hash_f64<H: Hasher>(val: f64, state: &mut H) {
+    let val = if val == 0.0 {
+        0.0
+    } else if val.is_nan() {
+        f64::NAN
+    } else {
+        val
+    };
+    val.to_bits().hash(state);
+}
+
+/// `Hash` follows [`Value::strict_eq`], not `==`.
+///
+/// `Value`'s [`PartialEq`] is Nushell's `==`: `1 == 1.0`, `"a" == glob "a"`, and floats compare
+/// with an epsilon. That relation is not an equivalence (`NaN != NaN`, epsilon equality is not
+/// transitive), so `Value` must never implement [`Eq`], and no hash can be consistent with it.
+/// Hashing instead follows the strict, per-variant identity that [`Value::strict_eq`] defines,
+/// which is what `group-by` needs: an `int` and a `float` are different keys.
+///
+/// Spans are never hashed.
+impl Hash for Value {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        std::mem::discriminant(self).hash(state);
+        match self {
+            Value::Bool { val, .. } => val.hash(state),
+            Value::Int { val, .. } => val.hash(state),
+            Value::Float { val, .. } => hash_f64(*val, state),
+            Value::String { val, .. } => val.hash(state),
+            Value::Glob { val, no_expand, .. } => {
+                val.hash(state);
+                no_expand.hash(state);
+            }
+            Value::Filesize { val, .. } => val.hash(state),
+            Value::Duration { val, .. } => val.hash(state),
+            // chrono hashes the UTC instant, so the offset does not matter, matching its `==`.
+            Value::Date { val, .. } => val.hash(state),
+            // Per variant, like `strict_eq`: `0..5` and `0.0..5.0` are different keys.
+            Value::Range { val, .. } => {
+                std::mem::discriminant(&**val).hash(state);
+                match **val {
+                    Range::IntRange(range) => range.hash(state),
+                    Range::FloatRange(range) => range.hash(state),
+                }
+            }
+            Value::Record { val, .. } => val.hash(state),
+            Value::List { vals, .. } => {
+                vals.len().hash(state);
+                // The first and the last few items. Which positions are hashed depends only on
+                // the length, so equal lists hash equally, and lists sharing a long prefix (like
+                // split paths) still spread out.
+                let tail_start = vals
+                    .len()
+                    .saturating_sub(HASH_ITEM_LIMIT)
+                    .max(HASH_ITEM_LIMIT);
+                for val in vals
+                    .iter()
+                    .take(HASH_ITEM_LIMIT)
+                    .chain(vals.iter().skip(tail_start))
+                {
+                    val.hash(state);
+                }
+            }
+            Value::Closure { val, .. } => val.hash(state),
+            // `ShellError` has no `Hash`; all errors share one bucket.
+            Value::Error { .. } => {}
+            Value::Binary { val, .. } => val.hash(state),
+            Value::CellPath { val, .. } => val.hash(state),
+            // `strict_eq` requires the same `type_name`, so hashing it here is always consistent.
+            Value::Custom { val, .. } => {
+                val.type_name().hash(state);
+                val.hash_value(state);
+            }
+            Value::Nothing { .. } => {}
+        }
+    }
+}
+
+impl Value {
+    /// Strict equality: the same variant with the same payload, ignoring spans.
+    ///
+    /// This is the relation that [`Hash`] is consistent with. It is narrower than `==`, which is
+    /// Nushell's operator: `1 == 1.0` and `"a" == glob "a"` hold there but not here. The one
+    /// exception is `NaN`: floats compare with IEEE `==` except that `NaN` equals `NaN`, which
+    /// keeps the relation reflexive. Records ignore key order. Closures compare `block_id` and
+    /// captures. Errors compare with `ShellError`'s `==`, which includes the spans stored inside
+    /// the error. Custom values must have the same `type_name` and then defer to their own
+    /// `partial_cmp`; a custom value whose `partial_cmp` returns `None` is not equal to anything,
+    /// itself included.
+    ///
+    /// To key a map by `Value`, wrap it in a newtype whose [`PartialEq`] calls `strict_eq`, then
+    /// implement [`Eq`] and forward [`Hash`]. Do not derive `PartialEq` on the wrapper: that uses
+    /// the loose `==` and breaks the contract between `Eq` and `Hash`.
+    ///
+    /// `Value` itself must never implement [`Eq`]:
+    ///
+    /// ```compile_fail,E0277
+    /// fn requires_eq<T: Eq>() {}
+    /// requires_eq::<nu_protocol::Value>();
+    /// ```
+    pub fn strict_eq(&self, other: &Value) -> bool {
+        match (self, other) {
+            (Value::Bool { val: lhs, .. }, Value::Bool { val: rhs, .. }) => lhs == rhs,
+            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => lhs == rhs,
+            (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
+                lhs == rhs || (lhs.is_nan() && rhs.is_nan())
+            }
+            (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => lhs == rhs,
+            (
+                Value::Glob {
+                    val: lhs,
+                    no_expand: lhs_no_expand,
+                    ..
+                },
+                Value::Glob {
+                    val: rhs,
+                    no_expand: rhs_no_expand,
+                    ..
+                },
+            ) => lhs == rhs && lhs_no_expand == rhs_no_expand,
+            (Value::Filesize { val: lhs, .. }, Value::Filesize { val: rhs, .. }) => lhs == rhs,
+            (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => lhs == rhs,
+            (Value::Date { val: lhs, .. }, Value::Date { val: rhs, .. }) => lhs == rhs,
+            (Value::Range { val: lhs, .. }, Value::Range { val: rhs, .. }) => {
+                match (**lhs, **rhs) {
+                    (Range::IntRange(lhs), Range::IntRange(rhs)) => lhs == rhs,
+                    (Range::FloatRange(lhs), Range::FloatRange(rhs)) => lhs == rhs,
+                    _ => false,
+                }
+            }
+            (Value::Record { val: lhs, .. }, Value::Record { val: rhs, .. }) => {
+                lhs.len() == rhs.len()
+                    && if lhs.columns().eq(rhs.columns()) {
+                        lhs.values()
+                            .zip(rhs.values())
+                            .all(|(lhs, rhs)| lhs.strict_eq(rhs))
+                    } else {
+                        // Compare in key order. The sort is stable, so duplicate keys stay in
+                        // their original order, the same order `Record`'s `Hash` uses.
+                        let mut lhs: Vec<_> = lhs.iter().collect();
+                        let mut rhs: Vec<_> = rhs.iter().collect();
+                        lhs.sort_by_key(|(key, _)| *key);
+                        rhs.sort_by_key(|(key, _)| *key);
+                        lhs.into_iter()
+                            .zip(rhs)
+                            .all(|((lhs_key, lhs), (rhs_key, rhs))| {
+                                lhs_key == rhs_key && lhs.strict_eq(rhs)
+                            })
+                    }
+            }
+            (Value::List { vals: lhs, .. }, Value::List { vals: rhs, .. }) => {
+                lhs.len() == rhs.len() && lhs.iter().zip(rhs).all(|(lhs, rhs)| lhs.strict_eq(rhs))
+            }
+            (Value::Closure { val: lhs, .. }, Value::Closure { val: rhs, .. }) => {
+                lhs.block_id == rhs.block_id
+                    && lhs.captures.len() == rhs.captures.len()
+                    && lhs.captures.iter().zip(&rhs.captures).all(
+                        |((lhs_var, lhs), (rhs_var, rhs))| lhs_var == rhs_var && lhs.strict_eq(rhs),
+                    )
+            }
+            (Value::Error { error: lhs, .. }, Value::Error { error: rhs, .. }) => lhs == rhs,
+            (Value::Binary { val: lhs, .. }, Value::Binary { val: rhs, .. }) => lhs == rhs,
+            (Value::CellPath { val: lhs, .. }, Value::CellPath { val: rhs, .. }) => lhs == rhs,
+            (Value::Custom { val: lhs, .. }, Value::Custom { val: rhs, .. }) => {
+                lhs.type_name() == rhs.type_name()
+                    && lhs.partial_cmp(other).is_some_and(Ordering::is_eq)
+            }
+            (Value::Nothing { .. }, Value::Nothing { .. }) => true,
+            // Different variants are never equal. Listing every variant instead of using `_`
+            // makes a new variant a compile error until it gets an arm above.
+            (
+                Value::Bool { .. }
+                | Value::Int { .. }
+                | Value::Float { .. }
+                | Value::String { .. }
+                | Value::Glob { .. }
+                | Value::Filesize { .. }
+                | Value::Duration { .. }
+                | Value::Date { .. }
+                | Value::Range { .. }
+                | Value::Record { .. }
+                | Value::List { .. }
+                | Value::Closure { .. }
+                | Value::Error { .. }
+                | Value::Binary { .. }
+                | Value::CellPath { .. }
+                | Value::Custom { .. }
+                | Value::Nothing { .. },
+                _,
+            ) => false,
+        }
     }
 }
 
@@ -5821,6 +6026,775 @@ mod tests {
             // Verify it's larger than a simple list
             let simple_list = Value::test_list(vec![Value::test_int(1)]);
             assert!(record_size > simple_list.memory_size());
+        }
+    }
+
+    mod hash {
+        use super::*;
+        use crate::ast::{CellPath, PathMember};
+        use crate::engine::Closure;
+        use crate::value::HASH_ITEM_LIMIT;
+        use crate::{
+            BlockId, CustomValue, Filesize, Range, Record, ShellError, Span, VarId, casing::Casing,
+        };
+        use chrono::FixedOffset;
+        use indexmap::IndexMap;
+        use serde::{Deserialize, Serialize};
+        use std::any::Any;
+        use std::cmp::Ordering;
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+        use std::ops::Bound;
+
+        fn hash_value(val: &Value) -> u64 {
+            let mut hasher = DefaultHasher::new();
+            val.hash(&mut hasher);
+            hasher.finish()
+        }
+
+        /// The contract `Hash` must uphold: strictly equal values hash equally.
+        fn assert_strict_eq_same_hash(a: &Value, b: &Value) {
+            assert!(a.strict_eq(b), "{a:?} should strict_eq {b:?}");
+            assert!(b.strict_eq(a), "{b:?} should strict_eq {a:?}");
+            assert_eq!(hash_value(a), hash_value(b));
+        }
+
+        fn assert_strict_ne(a: &Value, b: &Value) {
+            assert!(!a.strict_eq(b), "{a:?} should not strict_eq {b:?}");
+            assert!(!b.strict_eq(a), "{b:?} should not strict_eq {a:?}");
+        }
+
+        fn wide_record(keys: impl IntoIterator<Item = &'static str>) -> Value {
+            Value::test_record(
+                keys.into_iter()
+                    .map(|key| (key.to_string(), Value::test_string(key)))
+                    .collect(),
+            )
+        }
+
+        /// A record that may repeat keys, as `from csv` or `rename` can produce.
+        fn record_with_duplicates(pairs: &[(&str, i64)]) -> Value {
+            let mut record = Record::new();
+            for (key, val) in pairs {
+                record.push(*key, Value::test_int(*val));
+            }
+            Value::test_record(record)
+        }
+
+        /// A map key built the way `strict_eq` documents: `PartialEq` is `strict_eq`, `Hash`
+        /// forwards to `Value`.
+        struct Key(Value);
+
+        impl PartialEq for Key {
+            fn eq(&self, other: &Self) -> bool {
+                self.0.strict_eq(&other.0)
+            }
+        }
+
+        impl Eq for Key {}
+
+        impl Hash for Key {
+            fn hash<H: Hasher>(&self, state: &mut H) {
+                self.0.hash(state);
+            }
+        }
+
+        #[derive(Debug, Clone, Serialize, Deserialize)]
+        struct PrefixedCustom {
+            version: u64,
+            prefix: String,
+        }
+
+        #[typetag::serde]
+        impl CustomValue for PrefixedCustom {
+            fn clone_value(&self, span: Span) -> Value {
+                Value::custom(Box::new(self.clone()), span)
+            }
+
+            fn type_name(&self) -> String {
+                "prefixed".into()
+            }
+
+            fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
+                Ok(Value::string(
+                    format!("{}{}", self.prefix, self.version),
+                    span,
+                ))
+            }
+
+            fn as_any(&self) -> &dyn Any {
+                self
+            }
+
+            fn as_mut_any(&mut self) -> &mut dyn Any {
+                self
+            }
+
+            fn partial_cmp(&self, other: &Value) -> Option<Ordering> {
+                other
+                    .as_custom_value()
+                    .ok()?
+                    .as_any()
+                    .downcast_ref::<Self>()
+                    .and_then(|other| self.version.partial_cmp(&other.version))
+            }
+
+            fn hash_value(&self, mut state: &mut dyn Hasher) {
+                self.version.hash(&mut state);
+            }
+        }
+
+        /// Keeps the default `partial_cmp` (`None`) unless `loose`, in which case it compares
+        /// equal to every custom value, like a plugin comparing across its own types.
+        #[derive(Debug, Clone, Serialize, Deserialize)]
+        struct Opaque {
+            loose: bool,
+        }
+
+        #[typetag::serde]
+        impl CustomValue for Opaque {
+            fn clone_value(&self, span: Span) -> Value {
+                Value::custom(Box::new(self.clone()), span)
+            }
+
+            fn type_name(&self) -> String {
+                "opaque".into()
+            }
+
+            fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
+                Ok(Value::nothing(span))
+            }
+
+            fn as_any(&self) -> &dyn Any {
+                self
+            }
+
+            fn as_mut_any(&mut self) -> &mut dyn Any {
+                self
+            }
+
+            fn partial_cmp(&self, other: &Value) -> Option<Ordering> {
+                (self.loose && other.as_custom_value().is_ok()).then_some(Ordering::Equal)
+            }
+        }
+
+        #[test]
+        fn same_value_same_hash() {
+            assert_strict_eq_same_hash(&Value::test_int(1), &Value::test_int(1));
+            assert_strict_eq_same_hash(&Value::test_string("hello"), &Value::test_string("hello"));
+            assert_strict_eq_same_hash(&Value::test_bool(true), &Value::test_bool(true));
+            assert_strict_eq_same_hash(&Value::test_nothing(), &Value::test_nothing());
+        }
+
+        #[test]
+        fn different_values_different_hash() {
+            assert_strict_ne(&Value::test_int(1), &Value::test_int(2));
+            assert_ne!(
+                hash_value(&Value::test_int(1)),
+                hash_value(&Value::test_int(2))
+            );
+            assert_strict_ne(&Value::test_string("a"), &Value::test_string("b"));
+            assert_ne!(
+                hash_value(&Value::test_string("a")),
+                hash_value(&Value::test_string("b"))
+            );
+        }
+
+        #[test]
+        fn bool_and_string_true_are_distinct() {
+            assert_strict_ne(&Value::test_bool(true), &Value::test_string("true"));
+            assert_ne!(
+                hash_value(&Value::test_bool(true)),
+                hash_value(&Value::test_string("true"))
+            );
+        }
+
+        #[test]
+        fn nothing_and_empty_string_are_distinct() {
+            assert_strict_ne(&Value::test_nothing(), &Value::test_string(""));
+            assert_ne!(
+                hash_value(&Value::test_nothing()),
+                hash_value(&Value::test_string(""))
+            );
+        }
+
+        #[test]
+        fn int_and_float_are_distinct() {
+            let int = Value::test_int(1);
+            let float = Value::test_float(1.0);
+            // `==` is Nushell's loose comparison; strict identity keeps the types apart.
+            assert_eq!(int, float);
+            assert_strict_ne(&int, &float);
+            assert_ne!(hash_value(&int), hash_value(&float));
+        }
+
+        #[test]
+        fn string_and_glob_are_distinct() {
+            let string = Value::test_string("*.txt");
+            let glob = Value::glob("*.txt", false, Span::test_data());
+            assert_eq!(string, glob);
+            assert_strict_ne(&string, &glob);
+            assert_ne!(hash_value(&string), hash_value(&glob));
+        }
+
+        #[test]
+        fn glob_no_expand_is_part_of_identity() {
+            let expand = Value::glob("*.txt", false, Span::test_data());
+            let no_expand = Value::glob("*.txt", true, Span::test_data());
+            assert_eq!(expand, no_expand);
+            assert_strict_ne(&expand, &no_expand);
+            assert_strict_eq_same_hash(&expand, &expand.clone());
+        }
+
+        #[test]
+        fn float_zero_and_negative_zero_are_equal() {
+            assert_strict_eq_same_hash(&Value::test_float(0.0), &Value::test_float(-0.0));
+        }
+
+        #[test]
+        fn float_nan_equals_nan() {
+            let nan = Value::test_float(f64::NAN);
+            let same_nan = nan.clone();
+            let other_payload = Value::test_float(f64::from_bits(f64::NAN.to_bits() | 1));
+            assert_ne!(nan, same_nan, "Nushell `==` keeps IEEE NaN semantics");
+            assert_strict_eq_same_hash(&nan, &same_nan);
+            assert_strict_eq_same_hash(&nan, &other_payload);
+            assert_strict_ne(&nan, &Value::test_float(1.0));
+        }
+
+        #[test]
+        fn float_infinities_hash_by_sign() {
+            let pos = Value::test_float(f64::INFINITY);
+            let neg = Value::test_float(f64::NEG_INFINITY);
+            assert_strict_eq_same_hash(&pos, &pos);
+            assert_strict_ne(&pos, &neg);
+            assert_ne!(hash_value(&pos), hash_value(&neg));
+        }
+
+        #[test]
+        fn nearby_floats_are_distinct() {
+            // `==` uses an epsilon, strict identity does not.
+            let a = Value::test_float(1.0);
+            let b = Value::test_float(1.0 + f64::EPSILON);
+            assert_eq!(a, b);
+            assert_strict_ne(&a, &b);
+        }
+
+        #[test]
+        fn date_offset_does_not_affect_identity() {
+            let utc = chrono::DateTime::parse_from_rfc3339("2020-01-01T00:00:00.123456789Z")
+                .expect("rfc3339");
+            let east = utc.with_timezone(&FixedOffset::east_opt(3600).expect("offset"));
+            assert_strict_eq_same_hash(&Value::test_date(utc), &Value::test_date(east));
+        }
+
+        #[test]
+        fn date_subseconds_affect_identity() {
+            let a = chrono::DateTime::parse_from_rfc3339("2020-01-01T00:00:00.000000000Z")
+                .expect("rfc3339");
+            let b = chrono::DateTime::parse_from_rfc3339("2020-01-01T00:00:00.000000001Z")
+                .expect("rfc3339");
+            assert_strict_ne(&Value::test_date(a), &Value::test_date(b));
+            assert_ne!(
+                hash_value(&Value::test_date(a)),
+                hash_value(&Value::test_date(b))
+            );
+        }
+
+        #[test]
+        fn custom_hash_matches_partial_cmp_not_base_value() {
+            let a = Value::custom(
+                Box::new(PrefixedCustom {
+                    version: 1,
+                    prefix: "v".into(),
+                }),
+                Span::test_data(),
+            );
+            let b = Value::custom(
+                Box::new(PrefixedCustom {
+                    version: 1,
+                    prefix: String::new(),
+                }),
+                Span::test_data(),
+            );
+            let c = Value::custom(
+                Box::new(PrefixedCustom {
+                    version: 2,
+                    prefix: String::new(),
+                }),
+                Span::test_data(),
+            );
+            assert_eq!(a, b);
+            assert_strict_eq_same_hash(&a, &b);
+            assert_strict_ne(&a, &c);
+        }
+
+        #[test]
+        fn custom_without_partial_cmp_is_not_strict_eq_to_itself() {
+            let opaque = Value::custom(Box::new(Opaque { loose: false }), Span::test_data());
+            assert!(!opaque.strict_eq(&opaque));
+        }
+
+        #[test]
+        fn custom_values_of_different_types_are_distinct() {
+            // `Opaque` claims equality with any custom value; `strict_eq` checks `type_name`
+            // first, because `Hash` hashes it.
+            let loose = Value::custom(Box::new(Opaque { loose: true }), Span::test_data());
+            let prefixed = Value::custom(
+                Box::new(PrefixedCustom {
+                    version: 1,
+                    prefix: String::new(),
+                }),
+                Span::test_data(),
+            );
+            assert_eq!(loose, prefixed);
+            assert_strict_ne(&loose, &prefixed);
+            assert_strict_eq_same_hash(&loose, &loose.clone());
+        }
+
+        #[test]
+        fn filesize_identity() {
+            let a = Value::filesize(Filesize::new(1000), Span::test_data());
+            let b = Value::filesize(Filesize::new(1000), Span::test_data());
+            let c = Value::filesize(Filesize::new(2000), Span::test_data());
+            assert_strict_eq_same_hash(&a, &b);
+            assert_strict_ne(&a, &c);
+            assert_ne!(hash_value(&a), hash_value(&c));
+        }
+
+        #[test]
+        fn duration_identity() {
+            let a = Value::duration(1_000_000, Span::test_data());
+            let b = Value::duration(1_000_000, Span::test_data());
+            assert_strict_eq_same_hash(&a, &b);
+            assert_strict_ne(&a, &Value::duration(1, Span::test_data()));
+        }
+
+        #[test]
+        fn range_int_identity() {
+            let a = Value::range(
+                Range::new_int(1, Some(2), Some(Bound::Included(5))),
+                Span::test_data(),
+            );
+            let b = Value::range(
+                Range::new_int(1, Some(2), Some(Bound::Included(5))),
+                Span::test_data(),
+            );
+            let c = Value::range(
+                Range::new_int(1, Some(3), Some(Bound::Included(5))),
+                Span::test_data(),
+            );
+            assert_strict_eq_same_hash(&a, &b);
+            assert_strict_ne(&a, &c);
+            assert_ne!(hash_value(&a), hash_value(&c));
+        }
+
+        #[test]
+        fn range_int_and_float_are_distinct() {
+            let int = Value::range(
+                Range::new_int(1, Some(2), Some(Bound::Included(3))),
+                Span::test_data(),
+            );
+            let float = Value::range(
+                Range::new_float(1.0, Some(2.0), Some(Bound::Included(3.0))),
+                Span::test_data(),
+            );
+            // `Range::eq` promotes the int range, so `==` holds; strict identity and `Hash` keep
+            // the variants apart.
+            assert_eq!(int, float);
+            assert_strict_ne(&int, &float);
+            assert_ne!(hash_value(&int), hash_value(&float));
+        }
+
+        #[test]
+        fn range_negative_zero_is_equal() {
+            let a = Value::range(
+                Range::new_float(0.0, None, Some(Bound::Included(1.0))),
+                Span::test_data(),
+            );
+            let b = Value::range(
+                Range::new_float(-0.0, None, Some(Bound::Included(1.0))),
+                Span::test_data(),
+            );
+            assert_strict_eq_same_hash(&a, &b);
+        }
+
+        #[test]
+        fn record_identity() {
+            let a = Value::test_record(record! {
+                "x" => Value::test_int(1),
+                "y" => Value::test_int(2),
+            });
+            let b = Value::test_record(record! {
+                "x" => Value::test_int(1),
+                "y" => Value::test_int(2),
+            });
+            let other_key = Value::test_record(record! {
+                "x" => Value::test_int(1),
+                "z" => Value::test_int(2),
+            });
+            let other_value = Value::test_record(record! {
+                "x" => Value::test_int(1),
+                "y" => Value::test_float(2.0),
+            });
+            assert_strict_eq_same_hash(&a, &b);
+            assert_strict_ne(&a, &other_key);
+            assert_ne!(hash_value(&a), hash_value(&other_key));
+            assert_strict_ne(&a, &other_value);
+            assert_strict_ne(
+                &a,
+                &Value::test_record(record! { "x" => Value::test_int(1) }),
+            );
+        }
+
+        #[test]
+        fn record_key_order_does_not_affect_identity() {
+            let a = Value::test_record(record! {
+                "a" => Value::test_int(1),
+                "b" => Value::test_int(2),
+            });
+            let b = Value::test_record(record! {
+                "b" => Value::test_int(2),
+                "a" => Value::test_int(1),
+            });
+            assert_strict_eq_same_hash(&a, &b);
+        }
+
+        #[test]
+        fn wide_record_key_order_does_not_affect_identity() {
+            let keys = ["g", "f", "e", "d", "c", "b", "a"];
+            assert!(keys.len() > HASH_ITEM_LIMIT);
+            let a = wide_record(keys);
+            let b = wide_record(keys.into_iter().rev());
+            assert_strict_eq_same_hash(&a, &b);
+        }
+
+        #[test]
+        fn wide_records_differing_past_hash_limit_collide_but_are_distinct() {
+            // Only the smallest `HASH_ITEM_LIMIT` keys are hashed; equality still sees the rest.
+            let keys = ["a", "b", "c", "d", "e", "f"];
+            assert_eq!(keys.len(), HASH_ITEM_LIMIT + 1);
+            let a = wide_record(keys);
+            let b = wide_record(["a", "b", "c", "d", "e", "z"]);
+            assert_strict_ne(&a, &b);
+            assert_eq!(hash_value(&a), hash_value(&b));
+        }
+
+        #[test]
+        fn record_with_duplicate_keys_is_reflexive() {
+            let dup = record_with_duplicates(&[("a", 1), ("a", 2)]);
+            assert_strict_eq_same_hash(&dup, &dup.clone());
+            assert_strict_ne(&dup, &record_with_duplicates(&[("a", 2), ("a", 1)]));
+            assert_strict_ne(
+                &record_with_duplicates(&[("a", 1), ("a", 1)]),
+                &record_with_duplicates(&[("a", 1), ("b", 1)]),
+            );
+        }
+
+        #[test]
+        fn record_with_duplicate_keys_ignores_key_order() {
+            // Duplicates keep their relative order; the other keys may move.
+            let keys = [("a", 1), ("b", 0), ("a", 2), ("c", 0), ("d", 0), ("e", 0)];
+            let moved = [("e", 0), ("d", 0), ("c", 0), ("a", 1), ("a", 2), ("b", 0)];
+            assert_strict_eq_same_hash(
+                &record_with_duplicates(&keys),
+                &record_with_duplicates(&moved),
+            );
+        }
+
+        #[test]
+        fn list_identity() {
+            let a = Value::test_list(vec![Value::test_int(1), Value::test_int(2)]);
+            let b = Value::test_list(vec![Value::test_int(1), Value::test_int(2)]);
+            let c = Value::test_list(vec![Value::test_int(1), Value::test_int(3)]);
+            let d = Value::test_list(vec![Value::test_int(1), Value::test_float(2.0)]);
+            assert_strict_eq_same_hash(&a, &b);
+            assert_strict_ne(&a, &c);
+            assert_ne!(hash_value(&a), hash_value(&c));
+            assert_strict_ne(&a, &d);
+            assert_strict_ne(&a, &Value::test_list(vec![Value::test_int(1)]));
+        }
+
+        #[test]
+        fn long_lists_hash_both_ends() {
+            // `HASH_ITEM_LIMIT` items from each end are hashed, so the middle one is not.
+            let len = 2 * HASH_ITEM_LIMIT + 1;
+            let list = |index: usize, changed: i64| {
+                Value::test_list(
+                    (0..len)
+                        .map(|i| Value::test_int(if i == index { changed } else { i as i64 }))
+                        .collect(),
+                )
+            };
+            let middle = HASH_ITEM_LIMIT;
+            assert_strict_eq_same_hash(&list(middle, -1), &list(middle, -1));
+            assert_strict_ne(&list(middle, -1), &list(middle, -2));
+            assert_eq!(hash_value(&list(middle, -1)), hash_value(&list(middle, -2)));
+            // Lists that share a long prefix still hash apart by their tail.
+            assert_ne!(
+                hash_value(&list(len - 1, -1)),
+                hash_value(&list(len - 1, -2))
+            );
+        }
+
+        #[test]
+        fn cell_path_identity() {
+            let path = |optional: bool, casing: Casing| {
+                Value::cell_path(
+                    CellPath {
+                        members: vec![PathMember::test_string("a", optional, casing)],
+                    },
+                    Span::test_data(),
+                )
+            };
+            assert_strict_eq_same_hash(
+                &path(false, Casing::Sensitive),
+                &path(false, Casing::Sensitive),
+            );
+            assert_strict_ne(
+                &path(false, Casing::Sensitive),
+                &path(true, Casing::Sensitive),
+            );
+            // `a` and `a!` are different paths.
+            assert_strict_ne(
+                &path(false, Casing::Sensitive),
+                &path(false, Casing::Insensitive),
+            );
+            assert_ne!(
+                path(false, Casing::Sensitive),
+                path(false, Casing::Insensitive)
+            );
+        }
+
+        #[test]
+        fn closure_identity() {
+            let closure = |block: usize, captured: i64| {
+                Value::closure(
+                    Closure {
+                        block_id: BlockId::new(block),
+                        captures: vec![(VarId::new(0), Value::test_int(captured))],
+                    },
+                    Span::test_data(),
+                )
+            };
+            assert_strict_eq_same_hash(&closure(0, 1), &closure(0, 1));
+            assert_strict_ne(&closure(0, 1), &closure(1, 1));
+            assert_ne!(hash_value(&closure(0, 1)), hash_value(&closure(1, 1)));
+            // `==` compares closures by block only; strict identity also compares captures.
+            assert_eq!(closure(0, 1), closure(0, 2));
+            assert_strict_ne(&closure(0, 1), &closure(0, 2));
+            assert_ne!(hash_value(&closure(0, 1)), hash_value(&closure(0, 2)));
+        }
+
+        #[test]
+        fn error_identity() {
+            let error = |to_type: &str| {
+                Value::error(
+                    ShellError::CantConvert {
+                        to_type: to_type.into(),
+                        from_type: "string".into(),
+                        span: Span::test_data(),
+                        help: None,
+                    },
+                    Span::test_data(),
+                )
+            };
+            assert_strict_eq_same_hash(&error("int"), &error("int"));
+            // `==` treats all errors as equal; strict identity compares the errors.
+            assert_eq!(error("int"), error("float"));
+            assert_strict_ne(&error("int"), &error("float"));
+        }
+
+        #[test]
+        fn binary_identity() {
+            let a = Value::binary(vec![1, 2, 3], Span::test_data());
+            let b = Value::binary(vec![1, 2, 3], Span::test_data());
+            let c = Value::binary(vec![1, 2, 4], Span::test_data());
+            assert_strict_eq_same_hash(&a, &b);
+            assert_strict_ne(&a, &c);
+            assert_ne!(hash_value(&a), hash_value(&c));
+        }
+
+        #[test]
+        fn map_keyed_by_strict_eq_groups_equal_values() {
+            let int_range = Range::new_int(0, None, Some(Bound::Excluded(5)));
+            let float_range = Range::new_float(0.0, None, Some(Bound::Excluded(5.0)));
+            let groups = [
+                vec![Value::test_int(1), Value::test_int(1)],
+                vec![Value::test_float(1.0)],
+                vec![Value::test_float(0.0), Value::test_float(-0.0)],
+                vec![Value::test_float(f64::NAN), Value::test_float(f64::NAN)],
+                vec![Value::test_string("x")],
+                vec![Value::glob("x", false, Span::test_data())],
+                vec![
+                    Value::range(int_range, Span::test_data()),
+                    Value::range(int_range, Span::test_data()),
+                ],
+                vec![Value::range(float_range, Span::test_data())],
+                vec![
+                    record_with_duplicates(&[("a", 1), ("b", 2)]),
+                    record_with_duplicates(&[("b", 2), ("a", 1)]),
+                ],
+                vec![
+                    record_with_duplicates(&[("a", 1), ("a", 2)]),
+                    record_with_duplicates(&[("a", 1), ("a", 2)]),
+                ],
+                vec![
+                    wide_record(["a", "b", "c", "d", "e", "f"]),
+                    wide_record(["f", "e", "d", "c", "b", "a"]),
+                ],
+                vec![wide_record(["a", "b", "c", "d", "e", "z"])],
+            ];
+
+            let mut map = IndexMap::<Key, usize>::new();
+            for value in groups.iter().flatten() {
+                *map.entry(Key(value.clone())).or_default() += 1;
+            }
+            let counts: Vec<usize> = map.values().copied().collect();
+            let expected: Vec<usize> = groups.iter().map(Vec::len).collect();
+            assert_eq!(counts, expected);
+        }
+
+        /// A small xorshift generator, so the randomized test below is reproducible and needs no
+        /// property-testing dependency.
+        struct Rng(u64);
+
+        impl Rng {
+            fn below(&mut self, n: usize) -> usize {
+                self.0 ^= self.0 << 13;
+                self.0 ^= self.0 >> 7;
+                self.0 ^= self.0 << 17;
+                (self.0 % n as u64) as usize
+            }
+
+            fn pick<T: Copy>(&mut self, items: &[T]) -> T {
+                items[self.below(items.len())]
+            }
+        }
+
+        /// Builds a random value from a narrow domain, so records repeat keys and grow past
+        /// `HASH_ITEM_LIMIT`, and lists grow past both hashed ends.
+        fn random_value(rng: &mut Rng, depth: usize) -> Value {
+            let kinds = if depth == 0 { 6 } else { 9 };
+            match rng.below(kinds) {
+                0 => Value::test_int(rng.below(3) as i64),
+                1 => Value::test_float(rng.pick(&[0.0, -0.0, 1.0, f64::NAN, f64::INFINITY])),
+                2 => Value::test_string(rng.pick(&["a", "b"])),
+                3 => Value::glob(rng.pick(&["a", "b"]), rng.below(2) == 0, Span::test_data()),
+                4 => {
+                    let date = chrono::DateTime::parse_from_rfc3339("2020-01-01T00:00:00Z")
+                        .expect("rfc3339");
+                    Value::test_date(date + chrono::Duration::nanoseconds(rng.below(2) as i64))
+                }
+                5 => Value::range(
+                    Range::new_float(rng.pick(&[0.0, -0.0]), None, Some(Bound::Included(1.0))),
+                    Span::test_data(),
+                ),
+                6 => {
+                    let mut record = Record::new();
+                    for _ in 0..rng.below(2 * HASH_ITEM_LIMIT) {
+                        let key = rng.pick(&["a", "b", "c", "d", "e", "f", "g"]);
+                        record.push(key, random_value(rng, depth - 1));
+                    }
+                    Value::test_record(record)
+                }
+                7 => Value::test_list(
+                    (0..rng.below(3 * HASH_ITEM_LIMIT))
+                        .map(|_| random_value(rng, depth - 1))
+                        .collect(),
+                ),
+                _ => Value::closure(
+                    Closure {
+                        block_id: BlockId::new(0),
+                        captures: (0..rng.below(2 * HASH_ITEM_LIMIT))
+                            .map(|_| (VarId::new(rng.below(2)), random_value(rng, depth - 1)))
+                            .collect(),
+                    },
+                    Span::test_data(),
+                ),
+            }
+        }
+
+        /// The same float under `strict_eq`, possibly with other bits: either sign of zero, or
+        /// another NaN payload.
+        fn other_float_bits(rng: &mut Rng, val: f64) -> f64 {
+            if val == 0.0 {
+                rng.pick(&[0.0, -0.0])
+            } else if val.is_nan() {
+                rng.pick(&[f64::NAN, -f64::NAN, f64::from_bits(f64::NAN.to_bits() | 1)])
+            } else {
+                val
+            }
+        }
+
+        /// Rewrites `value` in every way `strict_eq` ignores: new spans, the other sign of zero,
+        /// another NaN payload, another date offset, and record keys in a new order with
+        /// duplicate keys kept in their relative order.
+        fn equivalent_rewrite(rng: &mut Rng, value: &Value) -> Value {
+            let span = Span::new(rng.below(100), 100 + rng.below(100));
+            match value {
+                Value::Float { val, .. } => Value::float(other_float_bits(rng, *val), span),
+                Value::Date { val, .. } => {
+                    let offset = FixedOffset::east_opt(rng.pick(&[3600, -7200])).expect("offset");
+                    Value::date(val.with_timezone(&offset), span)
+                }
+                // `random_value` only makes float ranges with the default step, so `None`
+                // rebuilds the same step.
+                Value::Range { val, .. } => match **val {
+                    Range::FloatRange(range) => Value::range(
+                        Range::new_float(
+                            other_float_bits(rng, range.start()),
+                            None,
+                            Some(range.end()),
+                        ),
+                        span,
+                    ),
+                    Range::IntRange(_) => Value::range(**val, span),
+                },
+                Value::Record { val, .. } => {
+                    let mut entries: Vec<(String, Value)> = val
+                        .iter()
+                        .map(|(key, item)| (key.clone(), equivalent_rewrite(rng, item)))
+                        .collect();
+                    // A stable sort by a random rank per key shuffles the keys, and duplicate
+                    // keys keep their relative order.
+                    let salt = rng.below(usize::MAX);
+                    entries.sort_by_key(|(key, _)| {
+                        let mut hasher = DefaultHasher::new();
+                        (salt, key).hash(&mut hasher);
+                        hasher.finish()
+                    });
+                    Value::record(entries.into_iter().collect(), span)
+                }
+                Value::List { vals, .. } => Value::list(
+                    vals.iter()
+                        .map(|item| equivalent_rewrite(rng, item))
+                        .collect(),
+                    span,
+                ),
+                Value::Closure { val, .. } => Value::closure(
+                    Closure {
+                        block_id: val.block_id,
+                        captures: val
+                            .captures
+                            .iter()
+                            .map(|(id, item)| (*id, equivalent_rewrite(rng, item)))
+                            .collect(),
+                    },
+                    span,
+                ),
+                other => other.clone().with_span(span),
+            }
+        }
+
+        #[test]
+        fn random_values_hash_like_their_equivalent_rewrites() {
+            let mut rng = Rng(0x5EED);
+            for _ in 0..1_000 {
+                let value = random_value(&mut rng, 3);
+                let rewrite = equivalent_rewrite(&mut rng, &value);
+                assert_strict_eq_same_hash(&value, &rewrite);
+            }
         }
     }
 
