@@ -2,9 +2,9 @@
 use lsp_server::{Connection, IoThreads, Message, Response, ResponseError};
 use lsp_textdocument::{FullTextDocument, TextDocuments};
 use lsp_types::{
-    InlayHint, MessageType, OneOf, Position, Range, ReferencesOptions, RenameOptions,
-    SemanticToken, SemanticTokenType, SemanticTokensLegend, SemanticTokensOptions,
-    SemanticTokensServerCapabilities, ServerCapabilities, SignatureHelpOptions,
+    InitializeResult, InlayHint, MessageType, OneOf, Position, Range, ReferencesOptions,
+    RenameOptions, SemanticToken, SemanticTokenType, SemanticTokensLegend, SemanticTokensOptions,
+    SemanticTokensServerCapabilities, ServerCapabilities, ServerInfo, SignatureHelpOptions,
     TextDocumentSyncKind, Uri, WorkDoneProgressOptions, WorkspaceFolder,
     WorkspaceFoldersServerCapabilities, WorkspaceServerCapabilities,
     request::{self, Request},
@@ -122,7 +122,7 @@ impl LanguageServer {
         let work_done_progress_options = WorkDoneProgressOptions {
             work_done_progress: Some(true),
         };
-        let server_capabilities = serde_json::to_value(ServerCapabilities {
+        let server_capabilities = ServerCapabilities {
             completion_provider: Some(lsp_types::CompletionOptions::default()),
             definition_provider: Some(OneOf::Left(true)),
             document_highlight_provider: Some(OneOf::Left(true)),
@@ -160,13 +160,23 @@ impl LanguageServer {
             ),
             signature_help_provider: Some(SignatureHelpOptions::default()),
             ..Default::default()
+        };
+        let initialize_result = serde_json::to_value(InitializeResult {
+            capabilities: server_capabilities,
+            server_info: Some(ServerInfo {
+                name: "Nushell".into(),
+                version: Some(env!("CARGO_PKG_VERSION").into()),
+            }),
+            ..Default::default()
         })
         .expect("Must be serializable");
-        let init_params = self
+        let running = || !self.initial_engine_state.signals().interrupted();
+        let (initialize_id, init_params) = self
             .connection
-            .initialize_while(server_capabilities, || {
-                !self.initial_engine_state.signals().interrupted()
-            })
+            .initialize_start_while(running)
+            .into_diagnostic()?;
+        self.connection
+            .initialize_finish_while(initialize_id, initialize_result, running)
             .into_diagnostic()?;
         self.initialize_workspace_folders(init_params);
 
@@ -547,6 +557,41 @@ mod tests {
 
         // Merge environment into the permanent state
         engine_state.merge_env(stack)
+    }
+
+    #[test]
+    fn initialize_reports_server_info() {
+        let engine_state = nu_cmd_lang::create_default_context();
+        let (client_connection, server_connection) = Connection::memory();
+        let lsp_server =
+            LanguageServer::initialize_connection(server_connection, None, engine_state).unwrap();
+        std::thread::spawn(move || lsp_server.serve_requests());
+
+        client_connection
+            .sender
+            .send(Message::Request(lsp_server::Request {
+                id: 1.into(),
+                method: Initialize::METHOD.to_string(),
+                params: serde_json::Value::Null,
+            }))
+            .unwrap();
+        let response = client_connection
+            .receiver
+            .recv_timeout(Duration::from_secs(5))
+            .unwrap();
+
+        let Message::Response(Response {
+            response_result: Ok(result),
+            ..
+        }) = response
+        else {
+            panic!("expected a successful initialize response, got: {response:?}");
+        };
+        assert_eq!(
+            result["serverInfo"],
+            serde_json::json!({ "name": "Nushell", "version": env!("CARGO_PKG_VERSION") })
+        );
+        assert!(result["capabilities"].is_object());
     }
 
     #[test]
