@@ -6654,6 +6654,148 @@ mod tests {
             let expected: Vec<usize> = groups.iter().map(Vec::len).collect();
             assert_eq!(counts, expected);
         }
+
+        /// A small xorshift generator, so the randomized test below is reproducible and needs no
+        /// property-testing dependency.
+        struct Rng(u64);
+
+        impl Rng {
+            fn below(&mut self, n: usize) -> usize {
+                self.0 ^= self.0 << 13;
+                self.0 ^= self.0 >> 7;
+                self.0 ^= self.0 << 17;
+                (self.0 % n as u64) as usize
+            }
+
+            fn pick<T: Copy>(&mut self, items: &[T]) -> T {
+                items[self.below(items.len())]
+            }
+        }
+
+        /// Builds a random value from a narrow domain, so records repeat keys and grow past
+        /// `HASH_ITEM_LIMIT`, and lists grow past both hashed ends.
+        fn random_value(rng: &mut Rng, depth: usize) -> Value {
+            let kinds = if depth == 0 { 6 } else { 9 };
+            match rng.below(kinds) {
+                0 => Value::test_int(rng.below(3) as i64),
+                1 => Value::test_float(rng.pick(&[0.0, -0.0, 1.0, f64::NAN, f64::INFINITY])),
+                2 => Value::test_string(rng.pick(&["a", "b"])),
+                3 => Value::glob(rng.pick(&["a", "b"]), rng.below(2) == 0, Span::test_data()),
+                4 => {
+                    let date = chrono::DateTime::parse_from_rfc3339("2020-01-01T00:00:00Z")
+                        .expect("rfc3339");
+                    Value::test_date(date + chrono::Duration::nanoseconds(rng.below(2) as i64))
+                }
+                5 => Value::range(
+                    Range::new_float(rng.pick(&[0.0, -0.0]), None, Some(Bound::Included(1.0))),
+                    Span::test_data(),
+                ),
+                6 => {
+                    let mut record = Record::new();
+                    for _ in 0..rng.below(2 * HASH_ITEM_LIMIT) {
+                        let key = rng.pick(&["a", "b", "c", "d", "e", "f", "g"]);
+                        record.push(key, random_value(rng, depth - 1));
+                    }
+                    Value::test_record(record)
+                }
+                7 => Value::test_list(
+                    (0..rng.below(3 * HASH_ITEM_LIMIT))
+                        .map(|_| random_value(rng, depth - 1))
+                        .collect(),
+                ),
+                _ => Value::closure(
+                    Closure {
+                        block_id: BlockId::new(0),
+                        captures: (0..rng.below(2 * HASH_ITEM_LIMIT))
+                            .map(|_| (VarId::new(rng.below(2)), random_value(rng, depth - 1)))
+                            .collect(),
+                    },
+                    Span::test_data(),
+                ),
+            }
+        }
+
+        /// The same float under `strict_eq`, possibly with other bits: either sign of zero, or
+        /// another NaN payload.
+        fn other_float_bits(rng: &mut Rng, val: f64) -> f64 {
+            if val == 0.0 {
+                rng.pick(&[0.0, -0.0])
+            } else if val.is_nan() {
+                rng.pick(&[f64::NAN, -f64::NAN, f64::from_bits(f64::NAN.to_bits() | 1)])
+            } else {
+                val
+            }
+        }
+
+        /// Rewrites `value` in every way `strict_eq` ignores: new spans, the other sign of zero,
+        /// another NaN payload, another date offset, and record keys in a new order with
+        /// duplicate keys kept in their relative order.
+        fn equivalent_rewrite(rng: &mut Rng, value: &Value) -> Value {
+            let span = Span::new(rng.below(100), 100 + rng.below(100));
+            match value {
+                Value::Float { val, .. } => Value::float(other_float_bits(rng, *val), span),
+                Value::Date { val, .. } => {
+                    let offset = FixedOffset::east_opt(rng.pick(&[3600, -7200])).expect("offset");
+                    Value::date(val.with_timezone(&offset), span)
+                }
+                // `random_value` only makes float ranges with the default step, so `None`
+                // rebuilds the same step.
+                Value::Range { val, .. } => match **val {
+                    Range::FloatRange(range) => Value::range(
+                        Range::new_float(
+                            other_float_bits(rng, range.start()),
+                            None,
+                            Some(range.end()),
+                        ),
+                        span,
+                    ),
+                    Range::IntRange(_) => Value::range(**val, span),
+                },
+                Value::Record { val, .. } => {
+                    let mut entries: Vec<(String, Value)> = val
+                        .iter()
+                        .map(|(key, item)| (key.clone(), equivalent_rewrite(rng, item)))
+                        .collect();
+                    // A stable sort by a random rank per key shuffles the keys, and duplicate
+                    // keys keep their relative order.
+                    let salt = rng.below(usize::MAX);
+                    entries.sort_by_key(|(key, _)| {
+                        let mut hasher = DefaultHasher::new();
+                        (salt, key).hash(&mut hasher);
+                        hasher.finish()
+                    });
+                    Value::record(entries.into_iter().collect(), span)
+                }
+                Value::List { vals, .. } => Value::list(
+                    vals.iter()
+                        .map(|item| equivalent_rewrite(rng, item))
+                        .collect(),
+                    span,
+                ),
+                Value::Closure { val, .. } => Value::closure(
+                    Closure {
+                        block_id: val.block_id,
+                        captures: val
+                            .captures
+                            .iter()
+                            .map(|(id, item)| (*id, equivalent_rewrite(rng, item)))
+                            .collect(),
+                    },
+                    span,
+                ),
+                other => other.clone().with_span(span),
+            }
+        }
+
+        #[test]
+        fn random_values_hash_like_their_equivalent_rewrites() {
+            let mut rng = Rng(0x5EED);
+            for _ in 0..1_000 {
+                let value = random_value(&mut rng, 3);
+                let rewrite = equivalent_rewrite(&mut rng, &value);
+                assert_strict_eq_same_hash(&value, &rewrite);
+            }
+        }
     }
 
     mod concat {
