@@ -171,6 +171,9 @@ impl LanguageServer {
         })
         .expect("Must be serializable");
         let running = || !self.initial_engine_state.signals().interrupted();
+        // `Connection::initialize_while` only sends `capabilities`. Use the
+        // start/finish pair so the response is a full `InitializeResult`, which
+        // carries `serverInfo`.
         let (initialize_id, init_params) = self
             .connection
             .initialize_start_while(running)
