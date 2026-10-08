@@ -9,6 +9,64 @@ fn keeps_fields_in_input_order() -> Result {
 }
 
 #[test]
+fn row_condition_filters_on_value() -> Result {
+    test()
+        .run("{c: 3, a: 1, b: 2} | record where value != 1 | to nuon")
+        .expect_value_eq("{c: 3, b: 2}")
+}
+
+#[test]
+fn row_condition_filters_on_key() -> Result {
+    test()
+        .run("{a: 1, b: 2} | record where key == b")
+        .expect_value_eq(test_value!({b: 2}))
+}
+
+#[test]
+fn row_condition_receives_key_value_row_as_it() -> Result {
+    test()
+        .run("{a: 1, b: 2} | record where $it == {key: b, value: 2}")
+        .expect_value_eq(test_value!({b: 2}))
+}
+
+#[test]
+fn row_condition_receives_key_value_row_as_input() -> Result {
+    test()
+        .run("{a: 1, b: 2} | record where ($in.key == b)")
+        .expect_value_eq(test_value!({b: 2}))
+}
+
+#[test]
+fn values_flag_passes_value_to_row_condition() -> Result {
+    test()
+        .run("{a: 1, b: 2} | record where --values $it > 1")
+        .expect_value_eq(test_value!({b: 2}))
+}
+
+#[test]
+fn closure_parameter_named_it_receives_key() -> Result {
+    // Only the parser's row condition gets the `{key, value}` row. A closure keeps
+    // the `items` arguments even when its parameter is called `it`.
+    test()
+        .run("{a: 1, b: 2} | record where {|it| $it == b}")
+        .expect_value_eq(test_value!({b: 2}))
+}
+
+#[test]
+fn closure_in_a_variable_receives_key_and_value() -> Result {
+    test()
+        .run("let keep = {|key, value| $value > 1}; {a: 1, b: 2} | record where $keep")
+        .expect_value_eq(test_value!({b: 2}))
+}
+
+#[test]
+fn closure_parameters_can_be_typed() -> Result {
+    test()
+        .run("{a: 1, b: 2} | record where {|key: string, value: int| $value > 1}")
+        .expect_value_eq(test_value!({b: 2}))
+}
+
+#[test]
 fn single_parameter_closure_receives_key() -> Result {
     test()
         .run("{a: 1, b: 2} | record where {|key| $key == b}")
@@ -72,6 +130,16 @@ fn rejects_byte_stream_without_reading_it() -> Result {
 fn streams_a_table() -> Result {
     // `1..` never ends, so this only finishes if `record where` streams.
     let code = "1.. | each {|i| {a: $i, b: 0}} | record where {|key, value| $value != 0} | first 2";
+
+    test()
+        .run(code)
+        .expect_value_eq(test_value!([{a: 1}, {a: 2}]))
+}
+
+#[test]
+fn streams_a_table_with_a_row_condition() -> Result {
+    // `1..` never ends, so this only finishes if `record where` streams.
+    let code = "1.. | each {|i| {a: $i, b: 0}} | record where value != 0 | first 2";
 
     test()
         .run(code)
