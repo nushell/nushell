@@ -228,6 +228,9 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                 |precision| {
                     let rounded = (val * 10_f64.powi(precision as i32)).round()
                         / 10_f64.powi(precision as i32);
+                    if rounded.is_nan() {
+                        return val.to_string();
+                    }
                     format!("{:.*}", precision as usize, rounded)
                 },
             );

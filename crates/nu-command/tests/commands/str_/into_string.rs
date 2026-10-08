@@ -424,3 +424,12 @@ fn float_into_string_negative_respects_system_locale_ar() -> Result {
 
     test().run(code).expect_value_eq("\u{61c}-123456")
 }
+
+#[test]
+fn float_into_string_large_decimals_does_not_panic() -> Result {
+    let code = "
+    1.5 | into string -d 2147483648
+    ";
+
+    test().run(code).expect_value_eq("1.5")
+}
