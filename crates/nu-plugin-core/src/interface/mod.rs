@@ -16,7 +16,7 @@ pub mod stream;
 use crate::Encoder;
 
 use self::stream::{
-    InputCancellation, StreamManager, StreamManagerHandle, StreamWriter, WriteStreamMessage,
+    StreamManager, StreamManagerHandle, StreamReaderSignal, StreamWriter, WriteStreamMessage,
 };
 
 pub mod test_util;
@@ -183,11 +183,12 @@ pub trait InterfaceManager {
 
     /// Read pipeline data and retain a cancellation handle for its transport reader, if any.
     /// Dropping the handle leaves the stream's ordinary behavior unchanged.
+    #[doc(hidden)]
     fn read_pipeline_data_with_cancellation(
         &self,
         header: PipelineDataHeader,
         signals: &Signals,
-    ) -> Result<(PipelineData, Option<InputCancellation>), ShellError> {
+    ) -> Result<(PipelineData, Option<StreamReaderSignal>), ShellError> {
         let mut cancellation = None;
         let data = match header {
             PipelineDataHeader::Empty => PipelineData::empty(),

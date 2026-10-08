@@ -75,7 +75,7 @@ mod test_util;
 pub use plugin::{EngineInterface, Plugin, PluginCommand, SimplePluginCommand, serve_plugin};
 
 // Re-exports. Consider semver implications carefully.
-pub use nu_plugin_core::{InputCancellation, JsonSerializer, MsgPackSerializer, PluginEncoder};
+pub use nu_plugin_core::{JsonSerializer, MsgPackSerializer, PluginEncoder};
 pub use nu_plugin_protocol::{DynamicCompletionCall, EvaluatedCall};
 
 // Required by other internal crates.

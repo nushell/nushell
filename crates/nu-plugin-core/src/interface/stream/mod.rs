@@ -21,19 +21,20 @@ enum ReaderMessage {
     Cancel,
 }
 
-/// A handle for permanently cancelling one plugin transport input stream.
+/// Internal notification for permanently cancelling one transport reader.
 ///
 /// Clones cancel the same stream. Dropping a handle does not cancel the stream, and keeping a
 /// handle does not keep its reader, buffered data, or transport alive. Cancellation affects only
 /// waits in the transport reader; it cannot interrupt arbitrary iterators, deserialization, or
 /// writes to the output transport, or retract data already returned to the caller.
 #[derive(Debug, Clone)]
-pub struct InputCancellation {
+#[doc(hidden)]
+pub struct StreamReaderSignal {
     cancelled: Arc<AtomicBool>,
     sender: Weak<mpsc::Sender<ReaderMessage>>,
 }
 
-impl InputCancellation {
+impl StreamReaderSignal {
     fn new(sender: &Arc<mpsc::Sender<ReaderMessage>>) -> Self {
         Self {
             cancelled: Arc::new(AtomicBool::new(false)),
@@ -78,7 +79,7 @@ where
     id: StreamId,
     receiver: Option<mpsc::Receiver<ReaderMessage>>,
     writer: W,
-    cancellation: InputCancellation,
+    cancellation: StreamReaderSignal,
     drop_sent: bool,
     #[cfg(test)]
     before_receive: Option<(mpsc::Sender<()>, mpsc::Receiver<()>)>,
@@ -97,7 +98,7 @@ where
         id: StreamId,
         receiver: mpsc::Receiver<ReaderMessage>,
         writer: W,
-        cancellation: InputCancellation,
+        cancellation: StreamReaderSignal,
     ) -> StreamReader<T, W> {
         StreamReader {
             id,
@@ -112,7 +113,8 @@ where
     }
 
     /// Get a handle that cancels only this reader's transport input.
-    pub fn cancellation(&self) -> InputCancellation {
+    #[doc(hidden)]
+    pub fn cancellation(&self) -> StreamReaderSignal {
         self.cancellation.clone()
     }
 
@@ -670,7 +672,7 @@ impl StreamManagerHandle {
     {
         let (tx, rx) = mpsc::channel();
         let tx = Arc::new(tx);
-        let cancellation = InputCancellation::new(&tx);
+        let cancellation = StreamReaderSignal::new(&tx);
         self.with_lock(|mut state| {
             // Must be exclusive
             if let btree_map::Entry::Vacant(e) = state.reading_streams.entry(id) {

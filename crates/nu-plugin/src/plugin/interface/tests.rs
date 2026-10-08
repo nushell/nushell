@@ -6,12 +6,12 @@ use nu_plugin_core::{Interface, InterfaceManager, interface_test_util::TestCase}
 use nu_plugin_protocol::{
     ByteStreamInfo, CallInfo, CustomValueOp, EngineCall, EngineCallId, EngineCallResponse,
     EvaluatedCall, ListStreamInfo, PipelineDataHeader, PluginCall, PluginCallResponse,
-    PluginCustomValue, PluginInput, PluginOutput, Protocol, ProtocolInfo, StreamData,
+    PluginCustomValue, PluginInput, PluginOption, PluginOutput, Protocol, ProtocolInfo, StreamData,
     test_util::{TestCustomValue, expected_test_custom_value, test_plugin_custom_value},
 };
 use nu_protocol::{
     BlockId, ByteStreamType, Config, CustomValue, IntoInterruptiblePipelineData, LabeledError,
-    PipelineData, PluginSignature, ShellError, SignalAction, Signals, Span, Spanned, Value, VarId,
+    ListStream, PipelineData, PluginSignature, ShellError, Signals, Span, Spanned, Value, VarId,
     engine::Closure, shell_error,
 };
 use std::{
@@ -52,28 +52,26 @@ fn receive_run(
 }
 
 #[test]
-fn input_cancellation_is_absent_for_value_empty_and_non_run_interfaces() -> Result<(), ShellError> {
+fn input_cleanup_ignores_value_empty_and_non_run_interfaces() -> Result<(), ShellError> {
     let mut manager = TestCase::new().engine();
     set_default_protocol_info(&mut manager)?;
-    assert!(manager.get_interface().input_cancellation().is_none());
-    assert!(
-        manager
-            .interface_for_context(42)
-            .input_cancellation()
-            .is_none()
-    );
+    assert!(manager.get_interface().input.is_none());
+    manager.get_interface().finish_input()?;
+    assert!(manager.interface_for_context(42).input.is_none());
+    manager.interface_for_context(42).finish_input()?;
     for header in [
         PipelineDataHeader::Empty,
         PipelineDataHeader::value(Value::test_int(42)),
     ] {
         let (engine, _input) = receive_run(&mut manager, 0, header)?;
-        assert!(engine.input_cancellation().is_none());
+        assert!(engine.input.is_none());
+        engine.finish_input()?;
     }
     Ok(())
 }
 
 #[test]
-fn input_cancellation_isolates_calls_and_engine_call_results() -> Result<(), ShellError> {
+fn input_completion_isolates_calls_and_engine_call_results() -> Result<(), ShellError> {
     let test = TestCase::new();
     let mut manager = test.engine();
     set_default_protocol_info(&mut manager)?;
@@ -87,11 +85,7 @@ fn input_cancellation_isolates_calls_and_engine_call_results() -> Result<(), She
         1,
         PipelineDataHeader::list_stream(ListStreamInfo::new(11, Span::test_data())),
     )?;
-    let cancellation = engine_a
-        .clone()
-        .input_cancellation()
-        .expect("missing input cancellation");
-    assert!(engine_b.input_cancellation().is_some());
+    assert!(engine_b.input.is_some());
     let (started, started_rx) = mpsc::channel();
     let (done, done_rx) = mpsc::channel();
     let worker = std::thread::spawn(move || {
@@ -101,7 +95,10 @@ fn input_cancellation_isolates_calls_and_engine_call_results() -> Result<(), She
     started_rx
         .recv_timeout(INPUT_TIMEOUT)
         .expect("reader did not start");
-    cancellation.cancel();
+    engine_a
+        .write_response(Ok::<_, ShellError>(PipelineData::empty()))?
+        .write()?;
+    engine_a.clone().finish_input()?;
     let result = done_rx.recv_timeout(INPUT_TIMEOUT);
     if result.is_err() {
         manager.consume(PluginInput::End(10))?;
@@ -143,7 +140,7 @@ fn input_cancellation_isolates_calls_and_engine_call_results() -> Result<(), She
         2,
         PipelineDataHeader::value(Value::test_int(44)),
     )?;
-    assert!(engine_c.input_cancellation().is_none());
+    assert!(engine_c.input.is_none());
     assert_eq!(input_c.into_value(Span::test_data())?, Value::test_int(44));
     assert_eq!(
         test.written()
@@ -155,7 +152,7 @@ fn input_cancellation_isolates_calls_and_engine_call_results() -> Result<(), She
 }
 
 #[test]
-fn input_cancellation_wakes_list_and_byte_streams_after_run_response() -> Result<(), ShellError> {
+fn input_completion_wakes_list_and_byte_streams_after_run_response() -> Result<(), ShellError> {
     for header in [
         PipelineDataHeader::list_stream(ListStreamInfo::new(10, Span::test_data())),
         PipelineDataHeader::byte_stream(ByteStreamInfo::new(
@@ -167,13 +164,9 @@ fn input_cancellation_wakes_list_and_byte_streams_after_run_response() -> Result
         let mut manager = TestCase::new().engine();
         set_default_protocol_info(&mut manager)?;
         let (engine, input) = receive_run(&mut manager, 0, header)?;
-        let cancellation = engine
-            .input_cancellation()
-            .expect("missing input cancellation");
         engine
             .write_response(Ok::<_, ShellError>(PipelineData::empty()))?
             .write()?;
-        drop(engine);
         let (done, done_rx) = mpsc::channel();
         let worker = std::thread::spawn(move || {
             let result = match input {
@@ -185,7 +178,8 @@ fn input_cancellation_wakes_list_and_byte_streams_after_run_response() -> Result
             };
             let _ = done.send(result);
         });
-        cancellation.cancel();
+        engine.finish_input()?;
+        drop(engine);
         let result = done_rx.recv_timeout(INPUT_TIMEOUT);
         if result.is_err() {
             manager.consume(PluginInput::End(10))?;
@@ -197,7 +191,7 @@ fn input_cancellation_wakes_list_and_byte_streams_after_run_response() -> Result
 }
 
 #[test]
-fn input_cancellation_does_not_retract_buffered_bytes() -> Result<(), ShellError> {
+fn input_completion_does_not_retract_buffered_bytes() -> Result<(), ShellError> {
     use std::io::Read;
 
     let mut manager = TestCase::new().engine();
@@ -211,9 +205,6 @@ fn input_cancellation_does_not_retract_buffered_bytes() -> Result<(), ShellError
             ByteStreamType::Binary,
         )),
     )?;
-    let cancellation = engine
-        .input_cancellation()
-        .expect("missing input cancellation");
     manager.consume(PluginInput::Data(10, StreamData::Raw(Ok(vec![1, 2]))))?;
     let PipelineData::ByteStream(stream, _) = input else {
         panic!("expected byte stream");
@@ -222,7 +213,7 @@ fn input_cancellation_does_not_retract_buffered_bytes() -> Result<(), ShellError
     let mut byte = [0];
     assert_eq!(reader.read(&mut byte).expect("read failed"), 1);
     assert_eq!(byte, [1]);
-    cancellation.cancel();
+    engine.finish_input()?;
     // This byte has already left the transport queue and belongs to the byte reader's buffer.
     assert_eq!(reader.read(&mut byte).expect("read failed"), 1);
     assert_eq!(byte, [2]);
@@ -245,55 +236,40 @@ fn input_cancellation_does_not_retract_buffered_bytes() -> Result<(), ShellError
 }
 
 #[test]
-fn input_cancellation_signal_example_handles_latched_and_new_interrupts() -> Result<(), ShellError>
-{
-    for interrupt_before_registration in [false, true] {
-        let mut manager = TestCase::new().engine();
+fn input_completion_uses_plugin_wide_gc_option_at_completion() -> Result<(), ShellError> {
+    for disabled in [false, true] {
+        let test = TestCase::new();
+        let mut manager = test.engine();
         set_default_protocol_info(&mut manager)?;
         let (engine, input) = receive_run(
             &mut manager,
             0,
             PipelineDataHeader::list_stream(ListStreamInfo::new(10, Span::test_data())),
         )?;
-        if interrupt_before_registration {
-            manager.consume(PluginInput::Signal(SignalAction::Interrupt))?;
-        }
-        let cancellation = engine.input_cancellation();
-        let on_signal = cancellation.clone();
-        let guard = engine.register_signal_handler(Box::new(move |action| {
-            if matches!(action, SignalAction::Interrupt)
-                && let Some(handle) = &on_signal
-            {
-                handle.cancel();
-            }
-        }))?;
-        if engine.signals().interrupted()
-            && let Some(handle) = &cancellation
-        {
-            handle.cancel();
-        }
-        if !interrupt_before_registration {
-            manager.consume(PluginInput::Signal(SignalAction::Interrupt))?;
-        }
-        manager.consume(PluginInput::Signal(SignalAction::Reset))?;
+        // GC is process-wide, and changes after Run dispatch must still affect its cleanup.
+        let global = manager.get_interface();
+        global.set_gc_disabled(true)?;
+        global.set_gc_disabled(disabled)?;
+        engine.finish_input()?;
         assert!(!engine.signals().interrupted());
-        let (done, done_rx) = mpsc::channel();
-        let worker = std::thread::spawn(move || {
-            let _keep_guard = guard;
-            let _ = done.send(input.into_iter().next());
-        });
-        let result = done_rx.recv_timeout(INPUT_TIMEOUT);
-        if result.is_err() {
-            manager.consume(PluginInput::End(10))?;
-        }
-        worker.join().expect("reader panicked");
-        assert!(result.expect("signal did not cancel input").is_none());
+        manager.consume(PluginInput::Data(10, Value::test_int(42).into()))?;
+        manager.consume(PluginInput::End(10))?;
+        let expected = if disabled {
+            vec![Value::test_int(42)]
+        } else {
+            vec![]
+        };
+        assert_eq!(input.into_iter().collect::<Vec<_>>(), expected);
+        assert!(test.written().any(|msg| matches!(
+            msg,
+            PluginOutput::Option(PluginOption::GcDisabled(value)) if value == disabled
+        )));
     }
     Ok(())
 }
 
 #[test]
-fn input_cancellation_does_not_keep_engine_interface_alive() -> Result<(), ShellError> {
+fn input_cleanup_does_not_keep_engine_interface_alive() -> Result<(), ShellError> {
     let mut manager = TestCase::new().engine();
     set_default_protocol_info(&mut manager)?;
     let (engine, input) = receive_run(
@@ -303,13 +279,230 @@ fn input_cancellation_does_not_keep_engine_interface_alive() -> Result<(), Shell
     )?;
     let weak = Arc::downgrade(&engine.state);
     let cancellation = engine
-        .input_cancellation()
-        .expect("missing input cancellation");
+        .input
+        .as_ref()
+        .expect("missing call input")
+        .cancellation
+        .clone();
     drop(input);
     drop(engine);
     drop(manager);
     assert!(weak.upgrade().is_none());
     cancellation.cancel();
+    Ok(())
+}
+
+#[test]
+fn input_gc_option_write_failure_does_not_disable_cleanup() -> Result<(), ShellError> {
+    let test = TestCase::new();
+    let mut manager = test.engine();
+    set_default_protocol_info(&mut manager)?;
+    let (engine, input) = receive_run(
+        &mut manager,
+        0,
+        PipelineDataHeader::list_stream(ListStreamInfo::new(10, Span::test_data())),
+    )?;
+    test.set_write_error(ShellError::NushellFailed {
+        msg: "write failed".into(),
+    });
+    assert!(engine.set_gc_disabled(true).is_err());
+    engine.finish_input()?;
+    manager.consume(PluginInput::Data(10, Value::test_int(42).into()))?;
+    manager.consume(PluginInput::End(10))?;
+    assert!(input.into_iter().next().is_none());
+    Ok(())
+}
+
+#[test]
+fn input_gc_option_matches_wire_order_for_concurrent_calls() -> Result<(), ShellError> {
+    let test = TestCase::new();
+    let manager = test.engine();
+    let interface = manager.get_interface();
+    std::thread::scope(|scope| {
+        let workers = (0..8)
+            .map(|index| {
+                let interface = interface.clone();
+                scope.spawn(move || {
+                    for change in 0..16 {
+                        interface.set_gc_disabled((index + change) % 2 == 0)?;
+                    }
+                    Ok::<_, ShellError>(())
+                })
+            })
+            .collect::<Vec<_>>();
+        for worker in workers {
+            worker.join().expect("GC option writer panicked")?;
+        }
+        Ok::<_, ShellError>(())
+    })?;
+    let last = test
+        .written()
+        .filter_map(|msg| match msg {
+            PluginOutput::Option(PluginOption::GcDisabled(disabled)) => Some(disabled),
+            _ => None,
+        })
+        .last()
+        .expect("no GC option was sent");
+    assert_eq!(
+        *interface
+            .state
+            .gc_disabled
+            .lock()
+            .expect("GC mutex poisoned"),
+        last
+    );
+    Ok(())
+}
+
+#[test]
+fn input_failed_response_header_releases_output_association() -> Result<(), ShellError> {
+    let test = TestCase::new();
+    let mut manager = test.engine();
+    set_default_protocol_info(&mut manager)?;
+    let (engine, input) = receive_run(
+        &mut manager,
+        0,
+        PipelineDataHeader::list_stream(ListStreamInfo::new(10, Span::test_data())),
+    )?;
+    let output = PipelineData::list_stream(
+        ListStream::new(std::iter::empty(), Span::test_data(), Signals::empty()),
+        None,
+    );
+    test.set_write_error(ShellError::NushellFailed {
+        msg: "response write failed".into(),
+    });
+    let error = engine
+        .write_response(Ok::<_, ShellError>(output))
+        .err()
+        .expect("header write succeeded");
+    assert!(matches!(error, ShellError::NushellFailed { msg } if msg == "response write failed"));
+    assert!(engine.state.output_inputs()?.is_empty());
+    engine.finish_input()?;
+    manager.consume(PluginInput::Data(10, Value::test_int(42).into()))?;
+    manager.consume(PluginInput::End(10))?;
+    assert!(input.into_iter().next().is_none());
+    Ok(())
+}
+
+#[test]
+fn input_output_drop_ends_input_even_with_gc_disabled() -> Result<(), ShellError> {
+    for disabled in [false, true] {
+        let test = TestCase::new();
+        let mut manager = test.engine();
+        set_default_protocol_info(&mut manager)?;
+        let (engine, input) = receive_run(
+            &mut manager,
+            0,
+            PipelineDataHeader::list_stream(ListStreamInfo::new(10, Span::test_data())),
+        )?;
+        engine.set_gc_disabled(disabled)?;
+        let output = PipelineData::list_stream(
+            ListStream::new(std::iter::empty(), Span::test_data(), Signals::empty()),
+            None,
+        );
+        let writer = engine.write_response(Ok::<_, ShellError>(output))?;
+        let output_id = *engine
+            .input
+            .as_ref()
+            .expect("missing call input")
+            .output_stream_id
+            .get()
+            .expect("missing output id");
+        let (done, done_rx) = mpsc::channel();
+        let worker = std::thread::spawn(move || {
+            let _ = done.send(input.into_iter().next());
+        });
+        manager.consume(PluginInput::Drop(output_id))?;
+        manager.consume(PluginInput::Drop(output_id))?;
+        let result = done_rx.recv_timeout(INPUT_TIMEOUT);
+        if result.is_err() {
+            manager.consume(PluginInput::End(10))?;
+        }
+        worker.join().expect("reader panicked");
+        assert!(result.expect("output Drop did not end input").is_none());
+        assert!(engine.state.output_inputs()?.is_empty());
+        writer.write()?;
+        engine.finish_input()?;
+        assert_eq!(
+            test.written()
+                .filter(|msg| matches!(msg, PluginOutput::Drop(10)))
+                .count(),
+            1
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn input_output_association_is_removed_after_completion() -> Result<(), ShellError> {
+    for disabled in [false, true] {
+        let mut manager = TestCase::new().engine();
+        set_default_protocol_info(&mut manager)?;
+        let (engine, input) = receive_run(
+            &mut manager,
+            0,
+            PipelineDataHeader::list_stream(ListStreamInfo::new(10, Span::test_data())),
+        )?;
+        engine.set_gc_disabled(disabled)?;
+        let output = PipelineData::list_stream(
+            ListStream::new(std::iter::empty(), Span::test_data(), Signals::empty()),
+            None,
+        );
+        let writer = engine.write_response(Ok::<_, ShellError>(output))?;
+        let output_id = *engine
+            .input
+            .as_ref()
+            .expect("missing call input")
+            .output_stream_id
+            .get()
+            .expect("missing output id");
+        assert_eq!(engine.state.output_inputs()?.len(), 1);
+        writer.write()?;
+        assert!(engine.state.output_inputs()?.is_empty());
+        // A Drop acknowledging natural End can arrive before the runner's completion hook.
+        manager.consume(PluginInput::Drop(output_id))?;
+        engine.finish_input()?;
+        assert!(engine.state.output_inputs()?.is_empty());
+        // A late Drop must not revoke the GC opt-out after the response already completed.
+        manager.consume(PluginInput::Drop(output_id))?;
+        manager.consume(PluginInput::Data(10, Value::test_int(42).into()))?;
+        manager.consume(PluginInput::End(10))?;
+        let expected = if disabled {
+            vec![Value::test_int(42)]
+        } else {
+            vec![]
+        };
+        assert_eq!(input.into_iter().collect::<Vec<_>>(), expected);
+    }
+    Ok(())
+}
+
+#[test]
+fn input_engine_call_stream_drop_does_not_cancel_original_input() -> Result<(), ShellError> {
+    let mut manager = TestCase::new().engine();
+    set_default_protocol_info(&mut manager)?;
+    let (engine, input) = receive_run(
+        &mut manager,
+        0,
+        PipelineDataHeader::list_stream(ListStreamInfo::new(10, Span::test_data())),
+    )?;
+    let data = PipelineData::list_stream(
+        ListStream::new(std::iter::empty(), Span::test_data(), Signals::empty()),
+        None,
+    );
+    let (header, writer) = engine.init_write_pipeline_data(data, &())?;
+    manager.consume(PluginInput::Drop(
+        header.stream_id().expect("missing stream id"),
+    ))?;
+    assert!(engine.state.output_inputs()?.is_empty());
+    manager.consume(PluginInput::Data(10, Value::test_int(42).into()))?;
+    manager.consume(PluginInput::End(10))?;
+    assert_eq!(
+        input.into_iter().collect::<Vec<_>>(),
+        vec![Value::test_int(42)]
+    );
+    writer.write()?;
+    engine.finish_input()?;
     Ok(())
 }
 

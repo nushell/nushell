@@ -144,6 +144,12 @@ pub trait PluginCommand: Sync {
     /// handling of I/O. This is recommended if the plugin is expected to transform large
     /// lists or potentially large quantities of bytes. The API is more complex however, and
     /// [`SimplePluginCommand`] is recommended instead if this is not a concern.
+    ///
+    /// The SDK ends reads from the original transport input when the complete response has been
+    /// written, or when Nushell drops the response stream. Returning a lazy stream does not itself
+    /// end input consumption. To keep reading in the background after the response finishes, first
+    /// call [`EngineInterface::set_gc_disabled`] with `true`. This does not prevent input cleanup
+    /// when the response stream is explicitly dropped.
     fn run(
         &self,
         plugin: &Self::Plugin,

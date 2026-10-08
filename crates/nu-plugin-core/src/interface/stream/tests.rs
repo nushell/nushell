@@ -10,7 +10,7 @@ use std::{
 use nu_utils::time::Instant;
 
 use super::{
-    InputCancellation, ReaderMessage, StreamManager, StreamReader, StreamWriter,
+    ReaderMessage, StreamManager, StreamReader, StreamReaderSignal, StreamWriter,
     StreamWriterSignal, WriteStreamMessage,
 };
 use nu_plugin_protocol::{StreamData, StreamMessage};
@@ -106,7 +106,7 @@ where
 {
     let (tx, rx) = mpsc::channel();
     let tx = Arc::new(tx);
-    let cancellation = InputCancellation::new(&tx);
+    let cancellation = StreamReaderSignal::new(&tx);
     let reader = StreamReader::new(id, rx, writer, cancellation);
     (tx, reader)
 }
