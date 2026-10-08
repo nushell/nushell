@@ -365,7 +365,17 @@ fn format_list_item(
 
 fn escape_markdown_characters(input: String, escape_md: bool, for_table: bool) -> String {
     let mut output = String::with_capacity(input.len());
-    for ch in input.chars() {
+    let mut chars = input.chars().peekable();
+    while let Some(ch) = chars.next() {
+        // A line break would end the table row, so write it as an HTML break instead
+        if for_table && matches!(ch, '\r' | '\n') {
+            if ch == '\r' && chars.peek() == Some(&'\n') {
+                chars.next();
+            }
+            output.push_str("<br>");
+            continue;
+        }
+
         let must_escape = match ch {
             '\\' => true,
             '|' if for_table => true,
@@ -1307,6 +1317,37 @@ mod tests {
             | \_ref\_value | RefObject\<SampleTableRef \| null\> |
             | onChange     | \(val: string\) =\> void\\          |
             "#)
+        );
+    }
+
+    #[test]
+    fn test_line_breaks_in_table_cells() {
+        let value = Value::test_list(vec![
+            Value::test_record(record! {
+                "a" => Value::test_string("line 1\nline 2"),
+                "b" => Value::test_string("crlf 1\r\ncrlf 2"),
+            }),
+            Value::test_record(record! {
+                "a" => Value::test_string("x"),
+                "b" => Value::test_string("y"),
+            }),
+        ]);
+
+        assert_eq!(
+            table(
+                value.into_pipeline_data(),
+                false,
+                &None,
+                false,
+                false,
+                &Config::default()
+            ),
+            one("
+            | a | b |
+            | --- | --- |
+            | line 1<br>line 2 | crlf 1<br>crlf 2 |
+            | x | y |
+            ")
         );
     }
 
