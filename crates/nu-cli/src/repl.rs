@@ -408,6 +408,7 @@ struct RunContext<'a> {
     stack: &'a mut Stack,
     line_editor: Reedline,
     command: String,
+    is_host_command: bool,
     hostname: Option<&'a str>,
     use_color: bool,
     shell_integration: &'a ShellIntegrationConfig,
@@ -422,17 +423,21 @@ fn run_command(ctx: RunContext) -> Reedline {
         stack,
         mut line_editor,
         command,
+        is_host_command,
         hostname,
         use_color,
         shell_integration,
         entry_num,
     } = ctx;
 
-    let history_supports_meta = match engine_state.history_config().map(|h| h.file_format) {
-        #[cfg(feature = "sqlite")]
-        Some(HistoryFileFormat::Sqlite) => true,
-        _ => false,
-    };
+    // Host commands do not create history entries; Reedline still points to
+    // the previous submission, whose metadata must remain unchanged.
+    let history_supports_meta = !is_host_command
+        && match engine_state.history_config().map(|h| h.file_format) {
+            #[cfg(feature = "sqlite")]
+            Some(HistoryFileFormat::Sqlite) => true,
+            _ => false,
+        };
 
     if history_supports_meta {
         prepare_history_metadata(&command, hostname, engine_state, &mut line_editor);
@@ -876,6 +881,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
                 stack: &mut stack,
                 line_editor,
                 command,
+                is_host_command: false,
                 hostname,
                 use_color,
                 shell_integration,
@@ -889,6 +895,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
                 stack: &mut stack,
                 line_editor,
                 command,
+                is_host_command: true,
                 hostname,
                 use_color,
                 shell_integration,
