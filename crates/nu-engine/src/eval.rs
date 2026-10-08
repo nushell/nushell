@@ -96,6 +96,7 @@ impl CallEval {
         if let Some(param) = maybe_param {
             let param_type = param.shape.to_type();
             if !value.is_subtype_of(&param_type) {
+                self.reset_arguments();
                 return Err(ShellError::CantConvert {
                     to_type: param_type.to_string(),
                     from_type: value.get_type().to_string(),
@@ -129,6 +130,7 @@ impl CallEval {
 
         let param_type = rest_positional.shape.to_type();
         if !value.is_subtype_of(&param_type) {
+            self.reset_arguments();
             return Err(ShellError::CantConvert {
                 to_type: param_type.to_string(),
                 from_type: value.get_type().to_string(),
@@ -139,6 +141,18 @@ impl CallEval {
 
         self.rest_args.push(value.into_owned());
         Ok(self)
+    }
+
+    /// Forget the positional arguments bound so far, so the next call made with
+    /// this [`CallEval`] binds its arguments from the first parameter again.
+    ///
+    /// This runs after every call, and also when an argument can't be bound,
+    /// because the caller can't run that call but may go on to make another one
+    /// (for example a command that maps a closure over a stream and keeps going
+    /// after an item fails).
+    fn reset_arguments(&mut self) {
+        self.arg_index = 0;
+        self.rest_args.clear();
     }
 
     /// Spread a list into rest (IR parity). Errors if required positionals remain unbound.
@@ -233,9 +247,10 @@ impl CallEval {
         block: &Block,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        self.finalize_arguments(&block.signature)?;
-        self.arg_index = 0;
-        self.rest_args.clear();
+        // Reset even when a parameter is missing, so the error doesn't leak into the next call.
+        let finalized = self.finalize_arguments(&block.signature);
+        self.reset_arguments();
+        finalized?;
         (self.eval)(engine_state, &mut self.callee_stack, block, input).map(|p| p.body)
     }
 
@@ -258,8 +273,7 @@ impl CallEval {
         block: &Block,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        self.arg_index = 0;
-        self.rest_args.clear();
+        self.reset_arguments();
         (self.eval)(engine_state, &mut self.callee_stack, block, input).map(|p| p.body)
     }
 
