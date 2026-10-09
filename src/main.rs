@@ -19,7 +19,10 @@ use log::{Level, trace};
 use miette::Result;
 use nu_cli::gather_parent_env_vars;
 use nu_config::{CliOverrides, ConfigError, ConfigWarning, SystemEnv, resolve_paths};
-use nu_engine::{convert_env_values, exit::cleanup_exit};
+use nu_engine::{
+    convert_env_values,
+    exit::{kill_all_jobs, kill_jobs_and_exit},
+};
 use nu_path::absolute_with;
 use nu_protocol::{
     ByteStream, Config, IntoValue, PipelineData, ShellError, Span, Spanned, Type, Value,
@@ -144,6 +147,7 @@ fn main() -> Result<()> {
         report_shell_error(None, &engine_state, &err.into());
         std::process::exit(1)
     });
+    let is_repl = parsed.is_repl();
     let parsed_nu_cli_args = parsed.nu;
     let script_name = parsed.script_name;
     let args_to_script = parsed.args_to_script;
@@ -167,6 +171,14 @@ fn main() -> Result<()> {
 
     // Get the current working directory from the environment.
     let init_cwd = current_dir_from_environment();
+
+    #[cfg(feature = "mcp")]
+    let handle_ctrlc = !parsed_nu_cli_args.mcp;
+    #[cfg(not(feature = "mcp"))]
+    let handle_ctrlc = true;
+    if handle_ctrlc {
+        ctrlc_protection(&mut engine_state, is_repl);
+    }
 
     #[cfg(all(feature = "rustls-tls", feature = "network"))]
     nu_command::tls::CRYPTO_PROVIDER.default();
@@ -300,18 +312,7 @@ fn main() -> Result<()> {
     #[cfg(not(feature = "mcp"))]
     let is_mcp = false;
     engine_state.is_mcp = is_mcp;
-    // Keep this condition in sync with the branches at the end.
-    let is_repl = parsed_nu_cli_args.commands.is_none()
-        && script_name.is_empty()
-        && !is_lsp
-        && !is_dap
-        && !is_mcp;
     engine_state.is_interactive = parsed_nu_cli_args.interactive_shell.is_some() || is_repl;
-
-    // `-i` also applies to commands and scripts, which exit rather than return to the REPL.
-    if !is_mcp {
-        ctrlc_protection(&mut engine_state, is_repl);
-    }
 
     engine_state.is_login = parsed_nu_cli_args.login_shell.is_some();
     engine_state.history_enabled = parsed_nu_cli_args.no_history.is_none();
@@ -675,36 +676,7 @@ fn main() -> Result<()> {
         return Ok(());
     }
 
-    if let Some(commands) = parsed_nu_cli_args.commands.clone() {
-        run_commands(
-            &mut engine_state,
-            stack,
-            ParsedCli {
-                nu: parsed_nu_cli_args,
-                script_name,
-                args_to_script,
-            },
-            use_color,
-            &commands,
-            input,
-        );
-
-        cleanup_exit(0, &engine_state, 0);
-    } else if !script_name.is_empty() {
-        run_file(
-            &mut engine_state,
-            stack,
-            ParsedCli {
-                nu: parsed_nu_cli_args,
-                script_name,
-                args_to_script,
-            },
-            use_color,
-            input,
-        );
-
-        cleanup_exit(0, &engine_state, 0);
-    } else {
+    if is_repl {
         // Environment variables that apply only when in REPL
         engine_state.add_env_var("PROMPT_INDICATOR".to_string(), Value::test_string("> "));
         engine_state.add_env_var(
@@ -735,10 +707,43 @@ fn main() -> Result<()> {
         // No source span — startup env var
         engine_state.add_env_var("SHLVL".to_string(), Value::int(shlvl, Span::unknown()));
 
-        run_repl(&mut engine_state, stack, parsed_nu_cli_args)?;
+        let result = run_repl(&mut engine_state, stack, parsed_nu_cli_args);
 
-        cleanup_exit(0, &engine_state, 0);
+        // The REPL exits Nu itself, so this only returns when the REPL can't keep running (for
+        // example, when stdin isn't a terminal), with no prompt left to warn about jobs at.
+        kill_all_jobs(&engine_state);
+        result
+    } else if let Some(commands) = parsed_nu_cli_args.commands.clone() {
+        run_commands(
+            &mut engine_state,
+            stack,
+            ParsedCli {
+                nu: parsed_nu_cli_args,
+                script_name,
+                args_to_script,
+            },
+            use_color,
+            &commands,
+            input,
+        );
+
+        // Commands exit when done, even with `-i`: their jobs must not outlive Nu.
+        kill_jobs_and_exit(&engine_state, 0)
+    } else {
+        // `--lsp`, `--dap` and `--mcp` returned above, so this runs a script.
+        run_file(
+            &mut engine_state,
+            stack,
+            ParsedCli {
+                nu: parsed_nu_cli_args,
+                script_name,
+                args_to_script,
+            },
+            use_color,
+            input,
+        );
+
+        // Scripts exit when done, even with `-i`: their jobs must not outlive Nu.
+        kill_jobs_and_exit(&engine_state, 0)
     }
-
-    Ok(())
 }

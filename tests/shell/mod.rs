@@ -5,70 +5,11 @@ use nu_test_support::{
 use pretty_assertions::assert_eq;
 use rstest::rstest;
 
+#[cfg(unix)]
+mod background_jobs;
 mod environment;
 mod pipeline;
 mod repl;
-
-#[cfg(unix)]
-#[rstest]
-#[case::command(false, false)]
-#[case::script(false, true)]
-#[case::interactive_command(true, false)]
-#[case::interactive_script(true, true)]
-#[nu_test_support::test]
-#[deps(NU)]
-fn interrupt_cleans_up_background_processes(
-    #[case] interactive: bool,
-    #[case] script: bool,
-) -> Result {
-    use nix::{sys::signal, unistd::Pid};
-    use nu_utils::time::Instant;
-    use std::time::Duration;
-
-    let directory = tempfile::tempdir()?;
-    let code = r#"
-        job spawn {
-            ^sh -c 'printf "%s" "$$" > child.pid; touch ready; exec sleep 60' out+err> child.log
-        } | ignore
-        while not ('ready' | path exists) { sleep 10ms }
-        kill --signal 2 $nu.pid
-        sleep 60sec
-    "#;
-    let mut command = assert_cmd::Command::new(NU.path());
-    command
-        .args(["--no-config-file", "--no-std-lib"])
-        .current_dir(directory.path())
-        .timeout(Duration::from_secs(10));
-    if interactive {
-        command.arg("-i");
-    }
-    if script {
-        std::fs::write(directory.path().join("script.nu"), code)?;
-        command.arg("script.nu");
-    } else {
-        command.args(["-c", code]);
-    }
-    let output = command.output()?;
-    let pid = Pid::from_raw(
-        std::fs::read_to_string(directory.path().join("child.pid"))?
-            .parse()
-            .expect("background process should write its PID"),
-    );
-
-    // Allow the interrupted background process to be reaped, then clean up even on failure.
-    let deadline = Instant::now() + Duration::from_secs(5);
-    let mut alive = signal::kill(pid, None).is_ok();
-    while alive && Instant::now() < deadline {
-        std::thread::sleep(Duration::from_millis(10));
-        alive = signal::kill(pid, None).is_ok();
-    }
-    if alive {
-        let _ = signal::kill(pid, signal::Signal::SIGKILL);
-    }
-    assert_eq!(output.status.code(), Some(1), "{output:?}");
-    assert!(!alive, "background process survived Nu's interrupt exit");
-    Ok(())
-}
 
 //FIXME: jt: we need to focus some fixes on wix as the plugins will differ
 #[ignore]

@@ -1,4 +1,4 @@
-use std::sync::atomic::Ordering;
+use std::sync::{PoisonError, atomic::Ordering};
 
 use nu_protocol::engine::EngineState;
 
@@ -47,4 +47,27 @@ pub fn cleanup<T>(tag: T, engine_state: &EngineState) -> Option<T> {
 
     drop(tag);
     None
+}
+
+/// Kill all background jobs, then exit the current process.
+///
+/// Unlike [`cleanup_exit`], which in an interactive session warns about running jobs and keeps Nu
+/// running instead, this always kills them and exits. Use it where Nu exits without returning to
+/// a prompt, such as when commands (`-c`) or a script finish or fail, even with `-i`: jobs still
+/// in the table would outlive Nu.
+pub fn kill_jobs_and_exit(engine_state: &EngineState, exit_code: i32) -> ! {
+    kill_all_jobs(engine_state);
+    std::process::exit(exit_code)
+}
+
+/// Kill all background jobs and remove them from the job table, without warning.
+///
+/// For when Nu exits without a prompt to warn at; see [`kill_jobs_and_exit`]. A poisoned job
+/// table is still cleaned up, since its jobs would otherwise outlive Nu.
+pub fn kill_all_jobs(engine_state: &EngineState) {
+    let mut jobs = engine_state
+        .jobs
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner);
+    let _ = jobs.kill_all();
 }

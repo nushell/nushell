@@ -1,5 +1,6 @@
 use crate::startup_context::StartupFileKind;
 use crate::util::eval_source;
+use nu_engine::exit::kill_jobs_and_exit;
 #[cfg(feature = "plugin")]
 use nu_path::absolute_with;
 use nu_protocol::report_shell_error;
@@ -283,7 +284,7 @@ pub fn eval_config_contents_with_kind(
                     false,
                 );
                 if exit_code != 0 && strict_mode {
-                    std::process::exit(exit_code)
+                    kill_jobs_and_exit(engine_state, exit_code)
                 }
 
                 // Restore the current active file.
@@ -307,7 +308,7 @@ pub fn eval_config_contents_with_kind(
                 let shell_err = ShellError::Io(io_err);
                 report_shell_error(None, engine_state, &shell_err);
                 if strict_mode {
-                    std::process::exit(shell_err.exit_code().unwrap_or(1));
+                    kill_jobs_and_exit(engine_state, shell_err.exit_code().unwrap_or(1));
                 }
             }
         }
