@@ -142,9 +142,6 @@ impl Command for MathVariance {
                 result: Some(Value::test_float(1_000_000.0)),
             },
             Example {
-                // Large, close values: the two-pass formula avoids the
-                // catastrophic cancellation that made the old single-pass
-                // formula return 0.0 (or even a negative value) here.
                 description: "Variance of large, close values is computed accurately.",
                 example: "[506250000.0 506250001.0] | math variance",
                 result: Some(Value::test_float(0.25)),
@@ -156,11 +153,14 @@ impl Command for MathVariance {
 /// Numerically-stable two-pass variance in `f64` base units.
 ///
 /// All numeric types (int/float/duration/filesize) are converted to `f64` and
-/// the mean-deviation form `Σ(x − mean)² / n` is used. This avoids the
+/// the mean-deviation form `Σ(x − mean)² / denom` is used, where `denom` is `n`
+/// for the population variance and `n − 1` with `--sample`. This avoids the
 /// catastrophic cancellation of the single-pass `Σx² − (Σx)²/n` formula, which
 /// loses precision (and can even go negative) when values are large but close
 /// together. The result is a plain `f64`: squared base units (B² / ns²) for
-/// filesize/duration, or a plain number for int/float.
+/// filesize/duration, or a plain number for int/float. Integer inputs above
+/// `2^53` are exact as `i64` but not as `f64`, so their variance is approximate
+/// rather than an error.
 fn variance_unit_f64(
     values: &[Value],
     sample: bool,
