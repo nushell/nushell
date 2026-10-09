@@ -4786,6 +4786,7 @@ dependencies = [
  "tango-bench",
  "tempfile",
  "time",
+ "windows-sys 0.61.2",
  "winresource",
 ]
 
