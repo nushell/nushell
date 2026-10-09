@@ -19,7 +19,7 @@ struct CharGroup {
 }
 
 /// some groups may resolve to the same character, because some
-/// of these are platform-dependant.
+/// of these are platform-dependent.
 static CHAR_GROUPS: LazyLock<Vec<CharGroup>> = LazyLock::new(|| {
     vec![
         // These are some regular characters that either can't be used or
