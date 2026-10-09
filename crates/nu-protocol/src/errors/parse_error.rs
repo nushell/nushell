@@ -299,7 +299,7 @@ pub enum ParseError {
     #[error("Alias name not supported.")]
     #[diagnostic(code(nu::parser::variable_not_valid))]
     AliasNotValid(
-        #[label = "alias name can't be a number, a filesize, contain #, ^, or %, or have whitespace other than single spaces between words"]
+        #[label = "alias name must not be a number or filesize, contain #, ^, or %, or use whitespace other than single spaces between words"]
          Span,
     ),
 
