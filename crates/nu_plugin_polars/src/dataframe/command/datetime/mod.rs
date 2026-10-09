@@ -1,7 +1,11 @@
 mod as_date;
 mod as_datetime;
 mod convert_time_zone;
+mod date_range;
+mod date_ranges;
 mod datepart;
+mod datetime_range;
+mod datetime_ranges;
 mod get_day;
 mod get_hour;
 mod get_minute;
@@ -34,8 +38,9 @@ pub use get_week::GetWeek;
 pub use get_weekday::GetWeekDay;
 pub use get_year::GetYear;
 use nu_protocol::shell_error::generic::GenericError;
-use nu_protocol::{ShellError, Span};
-use polars::prelude::{PlSmallStr, TimeZone};
+use nu_protocol::{ShellError, Span, Value};
+use polars::prelude::{ClosedWindow, PlSmallStr, TimeZone};
+use polars::time::Duration;
 pub use replace_time_zone::ReplaceTimeZone;
 pub use strftime::StrFTime;
 pub use truncate::Truncate;
@@ -45,6 +50,10 @@ pub(crate) fn datetime_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPl
         Box::new(AsDate),
         Box::new(AsDateTime),
         Box::new(ConvertTimeZone),
+        Box::new(date_range::DateRange),
+        Box::new(date_ranges::DateRange),
+        Box::new(datetime_range::DatetimeRange),
+        Box::new(datetime_ranges::DatetimeRanges),
         Box::new(ExprDatePart),
         Box::new(GetDay),
         Box::new(GetHour),
@@ -84,6 +93,38 @@ pub fn timezone_utc() -> TimeZone {
     TimeZone::opt_try_new(Some(PlSmallStr::from_str("UTC")))
         .expect("UTC timezone should always be valid")
         .expect("UTC timezone should always be present")
+}
+
+pub fn value_to_duration(value: &Value) -> Result<Duration, ShellError> {
+    match value {
+        Value::Duration { val, .. } => Ok(Duration::new(*val)),
+        Value::String { val, .. } => Ok(Duration::try_parse(&val.to_string()).map_err(|e| {
+            ShellError::Generic(GenericError::new(
+                "Failed to parse duration",
+                format!("Failed to parse duration: {}", e),
+                value.span(),
+            ))
+        })?),
+        _ => Err(ShellError::Generic(GenericError::new(
+            "Invalid duration",
+            format!("Expected a string for duration: received {value:?}"),
+            value.span(),
+        ))),
+    }
+}
+
+pub fn str_to_closed_window(closed_str: &str, span: Span) -> Result<ClosedWindow, ShellError> {
+    match closed_str {
+        "left" => Ok(ClosedWindow::Left),
+        "right" => Ok(ClosedWindow::Right),
+        "both" => Ok(ClosedWindow::Both),
+        "none" => Ok(ClosedWindow::None),
+        _ => Err(ShellError::Generic(GenericError::new(
+            "Invalid closed window",
+            format!("Invalid closed window: {}", closed_str),
+            span,
+        ))),
+    }
 }
 
 #[cfg(test)]

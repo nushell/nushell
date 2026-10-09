@@ -49,6 +49,11 @@ static CHAR_MAP: LazyLock<IndexMap<&'static str, String>> = LazyLock::new(|| {
         "double_quote" => '\"'.to_string(),
         "dquote" => '\"'.to_string(),
         "dq" => '\"'.to_string(),
+        "forward_slash" => '/'.to_string(),
+        "slash" => '/'.to_string(),
+        "fslash" => '/'.to_string(),
+        "back_slash" => '\\'.to_string(),
+        "bslash" => '\\'.to_string(),
         "path_sep" => std::path::MAIN_SEPARATOR.to_string(),
         "psep" => std::path::MAIN_SEPARATOR.to_string(),
         "separator" => std::path::MAIN_SEPARATOR.to_string(),
@@ -246,13 +251,14 @@ impl Command for Char {
     fn run_const(
         &self,
         working_set: &StateWorkingSet,
+        stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let call_span = call.head;
-        let list = call.has_flag_const(working_set, "list")?;
-        let integer = call.has_flag_const(working_set, "integer")?;
-        let unicode = call.has_flag_const(working_set, "unicode")?;
+        let list = call.has_flag_const(working_set, stack, "list")?;
+        let integer = call.has_flag_const(working_set, stack, "integer")?;
+        let unicode = call.has_flag_const(working_set, stack, "unicode")?;
 
         // handle -l flag
         if list {
@@ -264,17 +270,17 @@ impl Command for Char {
 
         // handle -i flag
         if integer {
-            let int_args = call.rest_const(working_set, 0)?;
+            let int_args = call.rest_const(working_set, stack, 0)?;
             handle_integer_flag(int_args, call_span)
         }
         // handle -u flag
         else if unicode {
-            let string_args = call.rest_const(working_set, 0)?;
+            let string_args = call.rest_const(working_set, stack, 0)?;
             handle_unicode_flag(string_args, call_span)
         }
         // handle the rest
         else {
-            let string_args = call.rest_const(working_set, 0)?;
+            let string_args = call.rest_const(working_set, stack, 0)?;
             handle_the_rest(string_args, call_span)
         }
     }

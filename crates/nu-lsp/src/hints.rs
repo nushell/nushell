@@ -164,7 +164,7 @@ mod tests {
         InlayHintParams, Position, Range, TextDocumentIdentifier, Uri, WorkDoneProgressParams,
         request::{InlayHintRequest, Request},
     };
-    use nu_test_support::fs::fixtures;
+    use nu_test_support::prelude::*;
     use rstest::rstest;
 
     fn send_inlay_hint_request(client_connection: &Connection, uri: Uri) -> Message {
@@ -291,7 +291,7 @@ mod tests {
         #[case] source_self: bool,
         #[case] expected: serde_json::Value,
     ) {
-        let mut script = fixtures();
+        let mut script = FIXTURES.clone();
         script.push("lsp/hints");
         script.push(filename);
 

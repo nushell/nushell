@@ -69,12 +69,53 @@ impl Hash for ShellWarning {
                 dep_type.hash(state);
                 label.hash(state);
             }
-            // We always report config warnings, so no hash necessary
-            ShellWarning::InvalidConfig { .. } => (),
+            // Hash the contents so FirstUse dedups per warning batch, not
+            // once for all config warnings in the session.
+            ShellWarning::InvalidConfig { warnings } => warnings.hash(state),
             // EveryUse — hash unused for suppression; include fields for completeness
             ShellWarning::LastResultTruncated { limit_bytes, .. } => {
                 limit_bytes.hash(state);
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ConfigWarning;
+
+    fn hash_of(warning: &ShellWarning) -> u64 {
+        let mut hasher = std::hash::DefaultHasher::new();
+        warning.hash(&mut hasher);
+        std::hash::Hasher::finish(&hasher)
+    }
+
+    fn shared_name_batch(names: &str) -> ShellWarning {
+        ShellWarning::InvalidConfig {
+            warnings: vec![ConfigWarning::SharedKeybindingName {
+                names: names.into(),
+                span: Span::test_data(),
+            }],
+        }
+    }
+
+    /// `report_mode` is `FirstUse`, which dedups by this hash; a constant hash
+    /// would suppress every config warning after the first batch of a session.
+    #[test]
+    fn different_config_warning_batches_hash_differently() {
+        assert_ne!(
+            hash_of(&shared_name_batch("atuin")),
+            hash_of(&shared_name_batch("other")),
+        );
+    }
+
+    /// The same batch re-reported (e.g. a re-sourced config) stays suppressed.
+    #[test]
+    fn an_identical_config_warning_batch_hashes_the_same() {
+        assert_eq!(
+            hash_of(&shared_name_batch("atuin")),
+            hash_of(&shared_name_batch("atuin")),
+        );
     }
 }

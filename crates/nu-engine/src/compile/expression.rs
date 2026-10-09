@@ -146,6 +146,7 @@ pub(crate) fn compile_expression(
                     Instruction::LoadVariable {
                         dst: out_reg,
                         var_id: IN_VARIABLE_ID,
+                        preserve_origin: false,
                     }
                     .into_spanned(expr.span),
                 )?;
@@ -155,6 +156,7 @@ pub(crate) fn compile_expression(
                     Instruction::LoadVariable {
                         dst: out_reg,
                         var_id: *var_id,
+                        preserve_origin: false,
                     }
                     .into_spanned(expr.span),
                 )?;

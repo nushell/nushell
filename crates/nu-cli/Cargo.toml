@@ -51,6 +51,7 @@ lru = { workspace = true }
 lscolors = { workspace = true, default-features = false, features = ["nu-ansi-term"] }
 miette = { workspace = true, features = ["fancy-no-backtrace"] }
 nucleo-matcher = { workspace = true }
+parking_lot = { workspace = true }
 percent-encoding = { workspace = true }
 sysinfo = { workspace = true }
 strum = { workspace = true }
@@ -61,7 +62,6 @@ which = { workspace = true }
 [features]
 plugin = ["nu-plugin-engine"]
 system-clipboard = ["reedline/system_clipboard"]
-helix = ["reedline/helix"]
 sqlite = ["reedline/sqlite", "nu-protocol/sqlite", "nu-command/sqlite"]
 
 [lints]

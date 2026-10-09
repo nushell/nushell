@@ -1,7 +1,7 @@
 use crate::{
     Token, TokenContents,
     exportable::Exportable,
-    lex,
+    lex_once::lex_file,
     lite_parser::{LiteCommand, lite_parse},
     parse_helpers::{garbage_pipeline, trim_quotes},
     parse_pipelines::redirecting_builtin_error,
@@ -495,9 +495,9 @@ pub fn parse_module_block(
 ) -> (Block, Module, Vec<Span>) {
     working_set.enter_scope();
 
-    let source = working_set.get_span_contents(span);
-
-    let (output, err) = lex(source, span.start, &[], &[], false);
+    // A bracket table recorded for the module's file serves only this parse (see `lex_file`).
+    let bracket_tables = working_set.bracket_tables.len();
+    let (output, err) = lex_file(working_set, span, &[], &[], false);
     if let Some(err) = err {
         working_set.error(err)
     }
@@ -660,6 +660,7 @@ pub fn parse_module_block(
         }
     }
 
+    working_set.bracket_tables.truncate(bracket_tables);
     working_set.exit_scope();
 
     (block, module, module_comments)
@@ -777,6 +778,10 @@ pub fn parse_module_file_or_dir(
     let (module_path_str, err) = unescape_unquote_string(path, path_span);
     if let Some(err) = err {
         working_set.error(err);
+        return None;
+    }
+
+    if working_set.skip_module_load {
         return None;
     }
 
@@ -963,6 +968,10 @@ pub fn parse_module(
             call_span,
             Type::Any,
         )]);
+
+        if working_set.skip_module_load {
+            return (pipeline, None);
+        }
 
         if let Some(module_id) = parse_module_file_or_dir(
             working_set,
@@ -1201,6 +1210,16 @@ pub fn parse_use(
             module,
             module_id,
         )
+    } else if working_set.skip_module_load {
+        return (
+            Pipeline::from_vec(vec![Expression::new(
+                working_set,
+                Expr::Call(call),
+                call_span,
+                Type::Any,
+            )]),
+            vec![],
+        );
     } else if let Some(module_id) = parse_module_file_or_dir(
         working_set,
         &import_pattern.head.name,
@@ -1690,6 +1709,8 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
                     module_id,
                     true,
                 )
+            } else if working_set.skip_module_load {
+                return pipeline;
             } else if let Some(module_id) = parse_module_file_or_dir(
                 working_set,
                 overlay_name.as_bytes(),

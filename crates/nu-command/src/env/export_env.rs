@@ -1,5 +1,5 @@
 use nu_engine::{command_prelude::*, get_eval_block, redirect_env};
-use nu_protocol::engine::CommandType;
+use nu_protocol::engine::{Closure, CommandType};
 
 #[derive(Clone)]
 pub struct ExportEnv;
@@ -33,11 +33,6 @@ impl Command for ExportEnv {
         CommandType::Keyword
     }
 
-    // Needed so IR retains the block Expression for `as_block()`.
-    fn requires_ast_for_arguments(&self) -> bool {
-        true
-    }
-
     fn run(
         &self,
         engine_state: &EngineState,
@@ -45,13 +40,9 @@ impl Command for ExportEnv {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let block_id = call
-            .positional_nth(caller_stack, 0)
-            .expect("checked through parser")
-            .as_block()
-            .expect("internal error: missing block");
-
-        let block = engine_state.get_block(block_id);
+        // Blocks compile to closure values under IR; use the block id from the evaluated arg.
+        let closure: Closure = call.req(engine_state, caller_stack, 0)?;
+        let block = engine_state.get_block(closure.block_id);
         let mut callee_stack = caller_stack
             .gather_captures(engine_state, &block.captures)
             .reset_pipes();

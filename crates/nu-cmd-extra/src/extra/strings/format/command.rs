@@ -141,8 +141,17 @@ fn extract_formatting_operations(
     };
 
     let mut is_fixed = true;
+    // `batching` stops on `None`. An unclosed `{` at end-of-pattern yields
+    // FixedText first, then the next call peeks empty; report that error once.
+    let mut reported_unclosed = false;
     let ops = pattern.char_indices().peekable().batching(move |it| {
-        let start_index = it.peek()?.0;
+        let Some(&(start_index, _)) = it.peek() else {
+            if is_fixed || reported_unclosed {
+                return None;
+            }
+            reported_unclosed = true;
+            return Some(Err(()));
+        };
         let mut buf = String::new();
         while let Some((index, ch)) = it.next() {
             match ch {

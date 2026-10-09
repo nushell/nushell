@@ -40,12 +40,12 @@ impl Command for Lines {
                     // source is a UTF-8 String, so strict mode should always produce valid UTF-8 strings
                     let lines = lines.strict(true);
 
-                    Ok(lines
-                        .map(move |line| match line {
-                            Ok(line) => Value::string(line, head),
-                            Err(err) => Value::error(err, head),
-                        })
-                        .into_pipeline_data(head, engine_state.signals().clone()))
+                    Ok(lines_to_pipeline_data(
+                        lines,
+                        skip_empty,
+                        head,
+                        engine_state.signals().clone(),
+                    ))
                 }
                 // Propagate existing errors
                 Value::Error { error, .. } => Err(*error),
@@ -84,12 +84,12 @@ impl Command for Lines {
             }
             PipelineData::ByteStream(stream, ..) => {
                 if let Some(lines) = stream.lines().map(|l| l.strict(strict)) {
-                    Ok(lines
-                        .map(move |line| match line {
-                            Ok(line) => Value::string(line, head),
-                            Err(err) => Value::error(err, head),
-                        })
-                        .into_pipeline_data(head, engine_state.signals().clone()))
+                    Ok(lines_to_pipeline_data(
+                        lines,
+                        skip_empty,
+                        head,
+                        engine_state.signals().clone(),
+                    ))
                 } else {
                     Ok(PipelineData::empty())
                 }
@@ -98,15 +98,40 @@ impl Command for Lines {
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
-        vec![Example {
-            description: "Split multi-line string into lines",
-            example: r#"$"two\nlines" | lines"#,
-            result: Some(Value::list(
-                vec![Value::test_string("two"), Value::test_string("lines")],
-                Span::test_data(),
-            )),
-        }]
+        vec![
+            Example {
+                description: "Split multi-line string into lines",
+                example: r#"$"two\nlines" | lines"#,
+                result: Some(Value::list(
+                    vec![Value::test_string("two"), Value::test_string("lines")],
+                    Span::test_data(),
+                )),
+            },
+            Example {
+                description: "Skip empty lines",
+                example: r#""foo\n\nbar" | lines --skip-empty"#,
+                result: Some(Value::list(
+                    vec![Value::test_string("foo"), Value::test_string("bar")],
+                    Span::test_data(),
+                )),
+            },
+        ]
     }
+}
+
+fn lines_to_pipeline_data(
+    lines: impl Iterator<Item = Result<String, ShellError>> + Send + 'static,
+    skip_empty: bool,
+    span: Span,
+    signals: Signals,
+) -> PipelineData {
+    lines
+        .filter_map(move |line| match line {
+            Ok(line) if skip_empty && line.trim().is_empty() => None,
+            Ok(line) => Some(Value::string(line, span)),
+            Err(err) => Some(Value::error(err, span)),
+        })
+        .into_pipeline_data(span, signals)
 }
 
 #[cfg(test)]

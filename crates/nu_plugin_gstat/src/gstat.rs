@@ -1,6 +1,6 @@
-use git2::{Branch, BranchType, DescribeOptions, Repository};
+use git2::{Branch, BranchType, Oid, Repository};
 use nu_protocol::{IntoSpanned, LabeledError, Span, Spanned, Value, record};
-use std::{fmt::Write, ops::BitAnd, path::Path};
+use std::{collections::HashMap, fmt::Write, ops::BitAnd, path::Path};
 
 // git status
 // https://github.com/git/git/blob/9875c515535860450bafd1a177f64f0a478900fa/Documentation/git-status.txt
@@ -94,11 +94,7 @@ impl GStat {
             .unwrap_or_else(|| "".to_string());
 
         let tag = calculate_tag
-            .then(|| {
-                let mut desc_opts = DescribeOptions::new();
-                desc_opts.describe_tags();
-                repo.describe(&desc_opts).ok()?.format(None).ok()
-            })
+            .then(|| nearest_tag(&repo))
             .flatten()
             .unwrap_or_else(|| "no_tag".to_string());
 
@@ -369,6 +365,50 @@ impl Stats {
 
 /// Check the bits of a flag against the value to see if they are set
 #[inline]
+/// The closest tag reachable from `HEAD`, formatted like `git describe --tags`: the tag itself
+/// when `HEAD` is tagged, otherwise `<tag>-<commits since the tag>-g<abbreviated hash>`.
+///
+/// libgit2's own `describe` walks the entire commit history looking for candidate tags, which
+/// cost hundreds of milliseconds on large repositories every time a prompt was drawn. Tags are
+/// few, so this maps every tag to the commit it points at once and then walks back from `HEAD`
+/// only until the first tagged commit.
+fn nearest_tag(repo: &Repository) -> Option<String> {
+    let mut tagged_commits: HashMap<Oid, String> = HashMap::new();
+    for reference in repo.references_glob("refs/tags/*").ok()?.flatten() {
+        if let (Ok(name), Ok(commit)) = (reference.shorthand(), reference.peel_to_commit()) {
+            tagged_commits
+                .entry(commit.id())
+                .or_insert_with(|| name.to_string());
+        }
+    }
+    if tagged_commits.is_empty() {
+        return None;
+    }
+
+    let head = repo.head().ok()?.peel_to_commit().ok()?.id();
+    if let Some(tag) = tagged_commits.get(&head) {
+        return Some(tag.clone());
+    }
+
+    // The default walk order yields commits lazily; a topological sort would load the whole
+    // history first.
+    let mut walk = repo.revwalk().ok()?;
+    walk.push(head).ok()?;
+    let tagged = walk.flatten().find(|id| tagged_commits.contains_key(id))?;
+
+    // Like `git describe`, count the commits reachable from HEAD but not from the tag.
+    let mut walk = repo.revwalk().ok()?;
+    walk.push(head).ok()?;
+    walk.hide(tagged).ok()?;
+    let distance = walk.count();
+
+    let abbreviated_head = head.to_string().chars().take(7).collect::<String>();
+    Some(format!(
+        "{}-{distance}-g{abbreviated_head}",
+        tagged_commits[&tagged]
+    ))
+}
+
 fn check<B>(val: B, flag: B) -> bool
 where
     B: BitAnd<Output = B> + PartialEq + Copy,

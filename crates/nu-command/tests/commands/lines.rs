@@ -1,4 +1,6 @@
-use nu_protocol::{ShellError, shell_error::io::ErrorKind};
+use nu_protocol::{
+    ByteStream, PipelineData, ShellError, Signals, Span, shell_error::io::ErrorKind,
+};
 use nu_test_support::prelude::*;
 
 #[test]
@@ -55,6 +57,56 @@ fn lines_mixed_line_endings() -> Result {
     test()
         .run(r#""foo\nbar\r\nquux" | lines | length"#)
         .expect_value_eq(3)
+}
+
+#[test]
+fn lines_skip_empty_on_string() -> Result {
+    test()
+        .run(r#""foo\n\n\nbar\n\n\nqux" | lines --skip-empty"#)
+        .expect_value_eq(["foo", "bar", "qux"])
+}
+
+#[test]
+fn lines_keeps_empty_lines_without_skip_empty() -> Result {
+    test()
+        .run(r#""foo\n\nbar" | lines"#)
+        .expect_value_eq(["foo", "", "bar"])
+}
+
+#[test]
+fn lines_skip_empty_drops_whitespace_only_lines() -> Result {
+    test()
+        .run(r#""foo\n  \nbar" | lines --skip-empty"#)
+        .expect_value_eq(["foo", "bar"])
+}
+
+#[test]
+fn lines_skip_empty_on_list_stream() -> Result {
+    test()
+        .run(r#"["foo\n\n\nbar\n\n\nqux"] | each {} | lines --skip-empty"#)
+        .expect_value_eq(["foo", "bar", "qux"])
+}
+
+#[test]
+fn lines_skip_empty_on_byte_stream() -> Result {
+    let input = PipelineData::ByteStream(
+        ByteStream::read_string(
+            "foo\n\n\nbar\n\n\nqux".into(),
+            Span::test_data(),
+            Signals::empty(),
+        ),
+        None,
+    );
+
+    test()
+        .run_raw_with_data("lines --skip-empty", input)
+        .and_then(|outcome| {
+            outcome
+                .body
+                .into_value(Span::test_data())
+                .map_err(Error::from)
+        })
+        .expect_value_eq(["foo", "bar", "qux"])
 }
 
 #[test]

@@ -7,7 +7,7 @@ use crate::prompt_update::{
 };
 use crate::{
     NuHighlighter, NuValidator, NushellPrompt,
-    completions::{NarrowingCache, NuCompleter},
+    completions::{NarrowingCache, NuCompleter, flush_completion_warnings},
     hints::ExternalHinter,
     prompt_update,
     reedline_config::{KeybindingsMode, add_menus, create_keybindings},
@@ -35,7 +35,6 @@ use nu_utils::{
     filesystem::{PermissionResult, have_permission},
     perf, stderr_write_all_and_flush, stdout_write_all_and_flush,
 };
-#[cfg(feature = "helix")]
 use reedline::Helix;
 #[cfg(feature = "sqlite")]
 use reedline::SqliteBackedHistory;
@@ -44,6 +43,7 @@ use reedline::{
     HistorySessionId, MouseClickMode, Osc133ClickEventsMarkers, Osc633Markers, Reedline,
     SemanticPromptMarkers, Vi,
 };
+use std::ffi::OsStr;
 use std::sync::atomic::Ordering;
 use std::{
     collections::HashMap,
@@ -106,7 +106,6 @@ pub fn evaluate_repl(
     stack: Stack,
     prerun_command: Option<Spanned<String>>,
     load_std_lib: Option<Spanned<String>>,
-    entire_start_time: Instant,
 ) -> Result<()> {
     // throughout this code, we hold this stack uniquely.
     // During the main REPL loop, we hand ownership of this value to an Arc,
@@ -114,17 +113,8 @@ pub fn evaluate_repl(
     // can't modify the stack, but at the end of the loop we take back ownership
     // from the Arc. This lets us avoid copying stack variables needlessly
     let mut unique_stack = stack.clone();
-    let config = engine_state.get_config();
-    let use_color = config.use_ansi_coloring.get(engine_state);
-
     let mut entry_num = 0;
     let mut is_hostcommand = false;
-
-    // Let's grab the shell_integration configs
-    let shell_integration_osc2 = config.shell_integration.osc2;
-    let shell_integration_osc7 = config.shell_integration.osc7;
-    let shell_integration_osc9_9 = config.shell_integration.osc9_9;
-    let shell_integration_osc633 = config.shell_integration.osc633;
 
     // Seed env vars — no source span exists at REPL startup
     unique_stack.add_env_var(
@@ -134,7 +124,6 @@ pub fn evaluate_repl(
 
     unique_stack.set_last_exit_code(0, Span::unknown());
 
-    let mut line_editor = get_line_editor(engine_state, use_color)?;
     let temp_file = temp_dir().join(format!("{}.nu", uuid::Uuid::new_v4()));
 
     if let Some(s) = prerun_command {
@@ -148,6 +137,21 @@ pub fn evaluate_repl(
         );
         engine_state.merge_env(&mut unique_stack)?;
     }
+
+    let config = engine_state.get_config();
+    let use_color = config.use_ansi_coloring.get(engine_state);
+
+    // Read the shell integration toggles after the optional prerun command too, so a
+    // config sourced by `--execute` governs this session's OSC emissions.
+    let shell_integration_osc2 = config.shell_integration.osc2;
+    let shell_integration_osc7 = config.shell_integration.osc7;
+    let shell_integration_osc9_9 = config.shell_integration.osc9_9;
+    let shell_integration_osc633 = config.shell_integration.osc633;
+
+    // Build reedline after the optional prerun command so ANSI coloring and the other
+    // editor settings a `--execute`-sourced config changes are picked up for the
+    // session. Menus and keybindings additionally refresh every prompt iteration.
+    let mut line_editor = get_line_editor(engine_state, use_color)?;
 
     confirm_stdin_is_terminal()?;
 
@@ -181,36 +185,30 @@ pub fn evaluate_repl(
         );
     }
 
-    engine_state.set_startup_time(entire_start_time.elapsed().as_nanos() as i64);
-
-    // Regenerate the $nu constant to contain the startup time and any other potential updates
+    // Refresh `$nu`, so the hooks and prompt closures that run before the first prompt see the
+    // startup time so far. The final value is stored right before the first prompt is drawn: see
+    // `finish_startup`.
     engine_state.generate_nu_constant();
 
-    if load_std_lib.is_none() {
-        match engine_state.get_config().show_banner {
-            BannerKind::None => {}
-            BannerKind::Short => {
-                eval_source(
-                    engine_state,
-                    &mut unique_stack,
-                    "banner --short".as_bytes(),
-                    "show short banner",
-                    PipelineData::empty(),
-                    false,
-                );
-            }
-            BannerKind::Full => {
-                eval_source(
-                    engine_state,
-                    &mut unique_stack,
-                    "banner".as_bytes(),
-                    "show_banner",
-                    PipelineData::empty(),
-                    false,
-                );
-            }
-        }
+    // The banner is defined by the standard library. Its welcome message goes out now, before
+    // the startup hooks; its startup time line follows the hooks and the prompt evaluation,
+    // right before the first prompt, once the value is final.
+    let banner = if load_std_lib.is_none() {
+        engine_state.get_config().show_banner
+    } else {
+        BannerKind::None
+    };
+    if matches!(banner, BannerKind::Full) {
+        eval_source(
+            engine_state,
+            &mut unique_stack,
+            "banner --no-startup-time".as_bytes(),
+            "show_banner",
+            PipelineData::empty(),
+            false,
+        );
     }
+    let mut first_prompt = Some(FirstPrompt { banner });
 
     kitty_protocol_healthcheck(engine_state);
 
@@ -241,6 +239,7 @@ pub fn evaluate_repl(
                 hostname: hostname.as_deref(),
                 is_hostcommand: &mut is_hostcommand,
                 completion_cache: current_completion_cache,
+                first_prompt: first_prompt.take(),
             });
 
             // pass the most recent version of the line_editor back
@@ -357,6 +356,51 @@ struct LoopContext<'a> {
     is_hostcommand: &'a mut bool,
     /// Completion cache carried across prompts (survives the per-prompt completer rebuild).
     completion_cache: NarrowingCache,
+    /// Set for the iteration that draws the first prompt; `None` afterwards.
+    first_prompt: Option<FirstPrompt>,
+}
+
+/// Work deferred until the REPL is about to draw its first prompt.
+struct FirstPrompt {
+    /// Which banner to show; `None` when the standard library (which defines it) is not loaded.
+    banner: BannerKind,
+}
+
+/// Record the final `$nu.startup-time` and print the banner's startup time line, right before
+/// the first prompt is drawn.
+///
+/// Everything up to this point is startup: config files, plugins, the `env_change` and
+/// `pre_prompt` hooks, the prompt closures and the line editor setup all run before the user can
+/// type. The line is printed here so the startup time it shows is the final one.
+fn finish_startup(
+    engine_state: &mut EngineState,
+    stack: &Arc<Stack>,
+    first_prompt: FirstPrompt,
+    use_color: bool,
+) {
+    let startup_time = engine_state.finish_startup();
+    perf!(
+        "startup (main to first prompt)",
+        elapsed: startup_time,
+        use_color
+    );
+
+    let banner_source = match first_prompt.banner {
+        BannerKind::None => return,
+        BannerKind::Short => "banner --short",
+        // The welcome message went out before the hooks; keep the blank line that separated the
+        // two parts of the full banner.
+        BannerKind::Full => r#"$"(char nl)(banner --short)""#,
+    };
+    // The banner only reads state, so evaluate it on a child stack and leave the REPL's alone.
+    eval_source(
+        engine_state,
+        &mut Stack::with_parent(stack.clone()),
+        banner_source.as_bytes(),
+        "show_banner",
+        PipelineData::empty(),
+        false,
+    );
 }
 
 struct RunContext<'a> {
@@ -540,6 +584,21 @@ fn run_command(ctx: RunContext) -> Reedline {
     line_editor
 }
 
+/// Check whether `cmd` exists in the current directory or in `$env.PATH`
+fn editor_is_resolved(engine_state: &EngineState, stack: &Stack, cmd: &str) -> bool {
+    let paths = nu_engine::env::path_str(engine_state, stack, Span::unknown()).ok();
+    let cmd_os = OsStr::new(cmd);
+    let paths_os = paths.as_deref().map(OsStr::new);
+    if let Ok(cwd) = engine_state.cwd(Some(stack)) {
+        which::which_in(cmd_os, paths_os, cwd).is_ok()
+    } else {
+        which::which_in_global(cmd_os, paths_os)
+            .ok()
+            .and_then(|mut i| i.next())
+            .is_some()
+    }
+}
+
 /// Perform one iteration of the REPL loop
 /// Result is bool: continue loop, current reedline
 #[inline]
@@ -558,6 +617,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         hostname,
         is_hostcommand,
         completion_cache,
+        first_prompt,
     } = ctx;
 
     let mut start_time = Instant::now();
@@ -606,12 +666,10 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     let cursor_config = CursorConfig {
         vi_insert: map_nucursorshape_to_cursorshape(config.cursor_shape.vi_insert),
         vi_normal: map_nucursorshape_to_cursorshape(config.cursor_shape.vi_normal),
+        vi_visual: map_nucursorshape_to_cursorshape(config.cursor_shape.vi_visual),
         emacs: map_nucursorshape_to_cursorshape(config.cursor_shape.emacs),
-        #[cfg(feature = "helix")]
         hx_insert: map_nucursorshape_to_cursorshape(config.cursor_shape.helix_insert),
-        #[cfg(feature = "helix")]
         hx_normal: map_nucursorshape_to_cursorshape(config.cursor_shape.helix_normal),
-        #[cfg(feature = "helix")]
         hx_select: map_nucursorshape_to_cursorshape(config.cursor_shape.helix_select),
     };
     perf!("get config/cursor config", start_time, use_color);
@@ -646,6 +704,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         )))
         .with_quick_completions(config.completions.quick)
         .with_partial_completions(config.completions.partial)
+        .with_persistent_menus(config.completions.persistent_menus)
         .with_ansi_colors(config.use_ansi_coloring.get(engine_state))
         .with_cwd(Some(
             engine_state
@@ -714,7 +773,9 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     // No call span available in the REPL loop for editor lookup
     let buffer_editor = get_editor(engine_state, &stack_arc, Span::unknown());
 
-    line_editor = if let Ok((cmd, args)) = buffer_editor {
+    line_editor = if let Ok((cmd, args)) = buffer_editor
+        && editor_is_resolved(engine_state, &stack_arc, &cmd)
+    {
         let mut command = std::process::Command::new(cmd);
         let envs = env_to_strings(engine_state, &stack_arc).unwrap_or_else(|e| {
             warn!("Couldn't convert environment variable values to strings: {e}");
@@ -777,6 +838,10 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
 
     *entry_num += 1;
 
+    if let Some(first_prompt) = first_prompt {
+        finish_startup(engine_state, &stack_arc, first_prompt, use_color);
+    }
+
     start_time = Instant::now();
     line_editor = line_editor.with_transient_prompt(transient_prompt);
 
@@ -799,6 +864,9 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     let mut stack = Arc::unwrap_or_clone(stack_arc);
 
     perf!("line_editor setup", start_time, use_color);
+
+    // Flush queued deprecation warnings.
+    flush_completion_warnings(engine_state, &stack);
 
     let line_editor_input_time = Instant::now();
     match input {
@@ -1347,11 +1415,15 @@ fn setup_keybindings(engine_state: &EngineState, line_editor: Reedline) -> Reedl
             KeybindingsMode::Vi {
                 insert_keybindings,
                 normal_keybindings,
+                visual_keybindings,
             } => {
-                let edit_mode = Box::new(Vi::new(insert_keybindings, normal_keybindings));
+                let edit_mode = Box::new(Vi::new(
+                    insert_keybindings,
+                    normal_keybindings,
+                    visual_keybindings,
+                ));
                 line_editor.with_edit_mode(edit_mode)
             }
-            #[cfg(feature = "helix")]
             KeybindingsMode::Helix {
                 insert_keybindings,
                 normal_keybindings,
@@ -1376,8 +1448,15 @@ fn setup_keybindings(engine_state: &EngineState, line_editor: Reedline) -> Reedl
 ///
 /// Make sure that the terminal supports the kitty protocol if the config is asking for it
 ///
+/// Warn (in the log) when `use_kitty_protocol` is on but the terminal lacks support.
+///
+/// The probe is a terminal round trip, and reedline runs its own cached probe before enabling
+/// the protocol, so only pay for this one when the warning could actually be seen.
 fn kitty_protocol_healthcheck(engine_state: &EngineState) {
-    if engine_state.get_config().use_kitty_protocol && !reedline::kitty_protocol_available() {
+    if log::log_enabled!(log::Level::Warn)
+        && engine_state.get_config().use_kitty_protocol
+        && !reedline::kitty_protocol_available()
+    {
         warn!("Terminal doesn't support use_kitty_protocol config");
     }
 }

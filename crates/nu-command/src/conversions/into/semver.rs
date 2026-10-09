@@ -522,6 +522,34 @@ mod tests {
             .run_with_data("into semver a c | values", value)
             .expect_value_eq(vec!["0.10.2", "will not error", "5.3.0"])
     }
+
+    #[test]
+    fn semver_comparison_can_be_or_ed_with_bool() -> Result {
+        test()
+            .run("true or (('1.0.0' | into semver) < ('2.0.0' | into semver))")
+            .expect_value_eq(true)
+    }
+
+    #[test]
+    fn semver_comparison_can_be_and_ed_with_bool() -> Result {
+        test()
+            .run("false and (('1.0.0' | into semver) < ('2.0.0' | into semver))")
+            .expect_value_eq(false)
+    }
+
+    #[test]
+    fn semver_comparison_can_be_bound_with_let() -> Result {
+        test()
+            .run("let x = ('1.0.0' | into semver) < ('2.0.0' | into semver); $x")
+            .expect_value_eq(true)
+    }
+
+    #[test]
+    fn semver_in_range_can_be_or_ed_with_bool() -> Result {
+        test()
+            .run("true or (('1.2.3' | into semver) in ('>=1.0.0' | into semver-range))")
+            .expect_value_eq(true)
+    }
 }
 
 #[cfg(test)]

@@ -2,6 +2,7 @@ use core::fmt::Write;
 use nu_engine::get_columns;
 use nu_protocol::{Range, ShellError, Span, Value, engine::EngineState};
 use nu_utils::{ObviousFloat, as_raw_string, escape_quote_string, needs_quoting};
+use unicode_width::UnicodeWidthStr;
 
 /// Configuration for converting Nushell [`Value`] to NUON data.
 ///
@@ -330,11 +331,19 @@ fn value_to_string(
                         all_rows.push(row);
                     }
 
-                    // Column widths = max of header and cell widths per column
-                    let mut widths: Vec<usize> = col_names.iter().map(|h| h.len()).collect();
+                    // Column widths = max of header and cell widths per column.
+                    // Measured in terminal display width via unicode-width: double-width
+                    // cells (e.g. CJK) count 2, zero-width combining marks count 0.
+                    // The padding below fills each cell to that same display width, so
+                    // the column lines up on the terminal; measuring in bytes made a
+                    // column too wide whenever its longest cell had multi-byte characters.
+                    let mut widths: Vec<usize> = col_names
+                        .iter()
+                        .map(|h| UnicodeWidthStr::width(h.as_str()))
+                        .collect();
                     for row in &all_rows {
                         for (i, cell) in row.iter().enumerate() {
-                            widths[i] = widths[i].max(cell.len());
+                            widths[i] = widths[i].max(UnicodeWidthStr::width(cell.as_str()));
                         }
                     }
 
@@ -345,12 +354,17 @@ fn value_to_string(
                         let mut out = String::new();
                         for (i, item) in items.iter().enumerate() {
                             if i < num_cols - 1 {
-                                let _ = write!(
-                                    out,
-                                    "{:<width$}",
-                                    format!("{item}{c}"),
-                                    width = widths[i] + 2
-                                );
+                                // `{:<width$}` would pad by char count, which is not the
+                                // display width for wide or zero-width cells, so pad by
+                                // hand: fill the rendered cell up to its column's display
+                                // width plus the separator and one breathing space.
+                                let cell = format!("{item}{c}");
+                                let missing = (widths[i] + 2)
+                                    .saturating_sub(UnicodeWidthStr::width(cell.as_str()));
+                                out.push_str(&cell);
+                                for _ in 0..missing {
+                                    out.push(' ');
+                                }
                             } else {
                                 out.push_str(item);
                             }

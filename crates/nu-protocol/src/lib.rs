@@ -56,6 +56,7 @@ pub use example::*;
 pub use id::*;
 pub use last_result::{
     block_is_bare_last_result, block_is_bare_last_result_with, truncate_value_to_budget,
+    value_is_error_only,
 };
 pub use lev_distance::levenshtein_distance;
 pub use module::*;

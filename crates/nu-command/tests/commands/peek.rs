@@ -1,5 +1,5 @@
 use nu_protocol::{ByteStreamType, PipelineData, Span};
-use nu_test_support::{fs::fixtures, prelude::*};
+use nu_test_support::prelude::*;
 use pretty_assertions::assert_eq;
 use rstest::rstest;
 
@@ -102,7 +102,7 @@ fn peek_with_byte_streams(
     #[case] expected_peek_record: PeekRecord,
 ) -> Result {
     let outcome = test()
-        .cwd(fixtures())
+        .cwd(FIXTURES.as_path())
         .run_raw_with_data(code, PipelineData::Empty)?;
 
     let PipelineData::ByteStream(stream, Some(metadata)) = outcome.body else {

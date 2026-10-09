@@ -1,12 +1,14 @@
 use ndarray::ArrayD;
 use nu_protocol::{
-    CellPathMutation, CustomValue, ShellError, Span, Type, Value,
+    CellPathMutation, CustomValue, HASH_ITEM_LIMIT, ShellError, Span, Type, Value,
     ast::{Comparison, Math, Operator, PathMember},
     casing::Casing,
+    hash_f64,
 };
 use serde::{Deserialize, Serialize};
 use std::any::Any;
 use std::cmp::Ordering;
+use std::hash::{Hash, Hasher};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MatrixValue {
@@ -33,6 +35,14 @@ impl CustomValue for MatrixValue {
 
     fn as_mut_any(&mut self) -> &mut dyn Any {
         self
+    }
+
+    /// Hashes the shape and the first few elements, which `partial_cmp` compares exactly.
+    fn hash_value(&self, mut state: &mut dyn Hasher) {
+        self.array.shape().hash(&mut state);
+        for val in self.array.iter().take(HASH_ITEM_LIMIT) {
+            hash_f64(*val, &mut state);
+        }
     }
 
     fn partial_cmp(&self, other: &Value) -> Option<Ordering> {

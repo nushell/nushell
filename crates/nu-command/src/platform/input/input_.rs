@@ -91,8 +91,12 @@ impl Command for Input {
         .any(|x| *x);
 
         if !use_reedline {
+            // `legacy_input` guards the terminal itself via `RawModeGuard`.
             return self.legacy_input(engine_state, stack, call, input);
         }
+
+        // Reedline grabs the terminal itself, so check the precondition here.
+        stack.require_stdin(call.head)?;
 
         let prompt_str: Option<String> = call.opt(engine_state, stack, 0)?;
         let default_val: Option<String> = call.get_flag(engine_state, stack, "default")?;

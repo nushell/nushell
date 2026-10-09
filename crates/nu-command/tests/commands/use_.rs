@@ -231,6 +231,46 @@ fn use_module_creates_accurate_did_you_mean_2() -> Result {
 }
 
 #[rstest]
+#[case("def fizz [] { }")]
+#[case("extern fizz []")]
+#[case("alias fizz = ^git")]
+fn do_not_suggest_later_def(#[case] forward_decl: &str) -> Result {
+    let mut tester = test();
+    let () = tester.run("def buzz [] { fizz }")?;
+    let () = tester.run(forward_decl)?;
+
+    let err = tester.run("buzz").expect_shell_error()?;
+    match err {
+        ShellError::ExternalCommand { help, .. } => {
+            assert_eq!(
+                help,
+                "`fizz` is neither a Nushell built-in or a known external command"
+            );
+            Ok(())
+        }
+        err => Err(err.into()),
+    }
+}
+
+#[test]
+fn suggest_only_imported_path() -> Result {
+    let mut tester = test();
+    let () = tester.run("use std/dirs")?;
+
+    let err = tester.run("gt").expect_shell_error()?;
+
+    // here it should _not_ suggest "goto",
+    // which is only available via "dirs goto"
+    match err {
+        ShellError::ExternalCommand { help, .. } => {
+            assert_eq!(help, "Did you mean `get`?");
+            Ok(())
+        }
+        err => Err(err.into()),
+    }
+}
+
+#[rstest]
 #[case("use spam")]
 #[case("use spam main")]
 #[case("use spam [ main ]")]

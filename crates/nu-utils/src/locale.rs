@@ -1,8 +1,22 @@
 use std::borrow::Cow;
+use std::sync::OnceLock;
 
 use num_format::Locale;
 
 pub const LOCALE_OVERRIDE_ENV_VAR: &str = "NU_TEST_LOCALE_OVERRIDE";
+
+/// The system locale, read from the OS once per process.
+///
+/// `sys_locale::get_locale` is not cheap, and on macOS it goes through
+/// CoreFoundation preferences whose autoreleased objects are never collected
+/// on a plain Rust thread. Callers such as filesize formatting run per value,
+/// and a redrawing UI runs them per frame, so an uncached lookup grows memory
+/// without bound. The locale does not change while nushell runs.
+#[cfg_attr(all(test, debug_assertions), allow(dead_code))]
+fn system_locale_from_os() -> Option<String> {
+    static LOCALE: OnceLock<Option<String>> = OnceLock::new();
+    LOCALE.get_or_init(sys_locale::get_locale).clone()
+}
 
 pub fn get_system_locale() -> Locale {
     let locale_string = get_system_locale_string().unwrap_or_else(|| String::from("en-US"));
@@ -27,7 +41,7 @@ pub fn get_system_locale_string() -> Option<String> {
     std::env::var(LOCALE_OVERRIDE_ENV_VAR).ok().or_else(
         #[cfg(not(test))]
         {
-            sys_locale::get_locale
+            system_locale_from_os
         },
         #[cfg(test)]
         {
@@ -40,7 +54,7 @@ pub fn get_system_locale_string() -> Option<String> {
 
 #[cfg(not(debug_assertions))]
 pub fn get_system_locale_string() -> Option<String> {
-    sys_locale::get_locale()
+    system_locale_from_os()
 }
 
 /// Get the current locale from environment variables.

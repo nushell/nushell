@@ -11,6 +11,7 @@ mod eval_helpers;
 mod eval_ir;
 pub mod exit;
 mod glob_from;
+mod named_flags;
 pub mod scope;
 
 #[cfg(test)]

@@ -227,6 +227,20 @@ fn truncate_binary(val: Vec<u8>, budget: usize, span: Span) -> (Value, bool) {
     }
 }
 
+/// True when `value` is a [`Value::Error`] or a non-empty list of only errors.
+///
+/// Commands like `str length` embed type mismatches as values via `operate()`
+/// instead of failing the pipeline. Interactive last-result must not replace
+/// `$ans.last` with those payloads (same policy as a thrown runtime error).
+/// Mixed lists (some errors, some values) are real results and return false.
+pub fn value_is_error_only(value: &Value) -> bool {
+    match value {
+        Value::Error { .. } => true,
+        Value::List { vals, .. } => !vals.is_empty() && vals.iter().all(Value::is_error),
+        _ => false,
+    }
+}
+
 /// Returns true when `block` is only a reference to the last-result variable or a
 /// cell-path rooted at it (e.g. `$ans`, `$ans.last`, `$ans.exit_code`, `$ans.command`),
 /// optionally wrapped in parentheses / a single-element pipeline.
@@ -434,5 +448,36 @@ mod tests {
         let (out, truncated) = truncate_value_to_budget(rec, budget);
         assert!(truncated);
         assert!(out.memory_size() <= budget);
+    }
+
+    fn error_value() -> Value {
+        Value::error(
+            crate::ShellError::Generic(crate::shell_error::generic::GenericError::new(
+                "boom",
+                "",
+                Span::test_data(),
+            )),
+            Span::test_data(),
+        )
+    }
+
+    #[test]
+    fn error_only_detects_error_value() {
+        assert!(value_is_error_only(&error_value()));
+        assert!(!value_is_error_only(&Value::test_int(1)));
+        assert!(!value_is_error_only(&Value::test_nothing()));
+    }
+
+    #[test]
+    fn error_only_detects_nonempty_error_list() {
+        let list = Value::test_list(vec![error_value(), error_value()]);
+        assert!(value_is_error_only(&list));
+        assert!(!value_is_error_only(&Value::test_list(vec![])));
+    }
+
+    #[test]
+    fn error_only_rejects_mixed_list() {
+        let list = Value::test_list(vec![error_value(), Value::test_int(2)]);
+        assert!(!value_is_error_only(&list));
     }
 }

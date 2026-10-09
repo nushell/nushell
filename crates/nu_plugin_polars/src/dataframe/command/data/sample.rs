@@ -122,7 +122,7 @@ fn command(
             .sample_n(
                 &Series::new("s".into(), &[rows.item]),
                 replace,
-                shuffle,
+                Some(shuffle),
                 seed,
             )
             .map_err(|e| {
@@ -137,7 +137,7 @@ fn command(
             .sample_frac(
                 &Series::new("frac".into(), &[frac.item]),
                 replace,
-                shuffle,
+                Some(shuffle),
                 seed,
             )
             .map_err(|e| {

@@ -56,7 +56,7 @@ jobs:
         wix --version
 
     - name: Setup Nushell
-      uses: hustcer/setup-nu@f3fd65374ffc4d60974c0dd2f7263c6c5c285f81 # v3.26
+      uses: hustcer/setup-nu@95cd3bfe252450ef7d35dd9a7ddecf3484341134 # v3.28
       with:
         version: 0.112.2
 

@@ -137,6 +137,32 @@ fn lex_empty() {
 }
 
 #[test]
+fn lex_extra_tokens_span_is_absolute() {
+    // A `;` right after a `|` is labeled where it is in the file, not in the lexed slice.
+    let file = b"ls |; ls";
+
+    let output = lex(file, 100, &[], &[], false);
+
+    assert_eq!(output.1, Some(ParseError::ExtraTokens(Span::new(104, 105))));
+}
+
+#[test]
+fn lex_hash_after_non_ascii_character_is_not_a_comment() {
+    // `à` is C3 A0 in UTF-8: its last byte is not whitespace, so the `#` doesn't start a comment
+    // that would swallow the closing bracket.
+    let file = "[voilà#tag] (é#x) ok".as_bytes();
+
+    let (tokens, error) = lex(file, 0, &[], &[], false);
+
+    assert_eq!(error, None);
+    let items: Vec<&[u8]> = tokens
+        .iter()
+        .map(|token| &file[token.span.start..token.span.end])
+        .collect();
+    assert_eq!(items, ["[voilà#tag]".as_bytes(), "(é#x)".as_bytes(), b"ok"]);
+}
+
+#[test]
 fn lex_parenthesis() {
     // The whole parenthesis is an item for the lexer
     let file = b"let x = (300 + (322 * 444));";

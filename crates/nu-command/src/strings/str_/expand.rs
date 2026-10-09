@@ -200,10 +200,11 @@ impl Command for StrExpand {
     fn run_const(
         &self,
         working_set: &StateWorkingSet,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let is_path = call.has_flag_const(working_set, "path")?;
+        let is_path = call.has_flag_const(working_set, stack, "path")?;
         run(call, input, is_path, working_set.permanent())
     }
 }

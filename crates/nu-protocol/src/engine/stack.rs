@@ -88,8 +88,6 @@ pub struct Stack {
     pub arguments: ArgumentStack,
     /// Error handler stack for IR evaluation
     pub error_handlers: ErrorHandlerStack,
-    /// Finally handler stack for IR evaluation
-    pub finally_run_handlers: ErrorHandlerStack,
     pub recursion_count: u64,
     pub parent_stack: Option<Arc<Stack>>,
     /// Variables that have been deleted (this is used to hide values from parent stack lookups)
@@ -99,8 +97,9 @@ pub struct Stack {
     /// Locally updated config. Use [`.get_config()`](Self::get_config) to access correctly.
     pub config: Option<Arc<Config>>,
     pub(crate) out_dest: StackOutDest,
-    /// When `true`, external processes spawned with `PipelineData::Empty` input
-    /// receive `/dev/null` for stdin instead of inheriting the terminal.
+    /// When `true`, external processes spawned from this stack are detached from
+    /// the controlling terminal, and empty stdin is `/dev/null` instead of inheriting
+    /// the TTY. Used on completion threads so children cannot race reedline.
     pub suppress_stdin: bool,
     /// Active block-local scope bindings (commands/modules), outer → inner.
     ///
@@ -141,7 +140,6 @@ impl Stack {
             active_overlays: vec![DEFAULT_OVERLAY_NAME.to_string()],
             arguments: ArgumentStack::new(),
             error_handlers: ErrorHandlerStack::new(),
-            finally_run_handlers: ErrorHandlerStack::new(),
             recursion_count: 0,
             parent_stack: None,
             parent_deletions: vec![],
@@ -169,7 +167,6 @@ impl Stack {
             active_overlays: parent.active_overlays.clone(),
             arguments: ArgumentStack::new(),
             error_handlers: ErrorHandlerStack::new(),
-            finally_run_handlers: ErrorHandlerStack::new(),
             recursion_count: parent.recursion_count,
             vars: vec![],
             parent_deletions: vec![],
@@ -717,7 +714,6 @@ impl Stack {
             active_overlays: self.active_overlays.clone(),
             arguments: ArgumentStack::new(),
             error_handlers: ErrorHandlerStack::new(),
-            finally_run_handlers: ErrorHandlerStack::new(),
             recursion_count: self.recursion_count,
             // Keep the caller as parent so global/outer locals stay nameable for `scope`
             // (values are still resolved via the parent chain when not captured).
@@ -762,7 +758,6 @@ impl Stack {
             active_overlays: self.active_overlays.clone(),
             arguments: ArgumentStack::new(),
             error_handlers: ErrorHandlerStack::new(),
-            finally_run_handlers: ErrorHandlerStack::new(),
             recursion_count: self.recursion_count,
             parent_stack: Some(Arc::new(self.clone())),
             parent_deletions: vec![],
@@ -1279,17 +1274,43 @@ impl Stack {
         self
     }
 
-    /// Causes external processes spawned with empty input to receive
-    /// `/dev/null` for stdin instead of inheriting the terminal.
+    /// Causes external processes spawned from this stack to detach from the
+    /// controlling terminal. Empty input also receives `/dev/null` for stdin
+    /// instead of inheriting the terminal.
     ///
     /// Use this together with [`suppress_output`](Self::suppress_output) for
     /// background tasks (e.g. completion threads).  Without it, subprocesses
     /// spawned by closure-based completers (carapace, fish_complete, etc.)
     /// inherit the live terminal fd and can race with reedline's reads,
-    /// causing `Input/output error` (EIO).
+    /// causing `Input/output error` (EIO). Piped stdin (candidate lists for
+    /// `fzf`) is still detached so the child cannot open `/dev/tty`.
     pub fn suppress_stdin(mut self) -> Self {
         self.suppress_stdin = true;
         self
+    }
+
+    /// Error if this stack is detached from the controlling terminal (see
+    /// [`suppress_stdin`](Self::suppress_stdin), set on completion threads). Commands that grab
+    /// the terminal (`input`, `input list`, `input listen`, `term query`) call this first so
+    /// they decline instead of racing reedline for it; completers turn the error into a
+    /// fallback. `span` points at the offending call.
+    pub fn require_stdin(&self, span: Span) -> Result<(), ShellError> {
+        if self.suppress_stdin {
+            Err(ShellError::Generic(
+                GenericError::new(
+                    "Interactive input is unavailable in this context",
+                    "this command reads from the terminal",
+                    span,
+                )
+                .with_help(
+                    "this stack is detached from the terminal (completion worker or MCP), so \
+                     interactive commands like `input`, `input list`, `input listen`, and \
+                     `term query` cannot run here",
+                ),
+            ))
+        } else {
+            Ok(())
+        }
     }
 
     /// Clears any pipe redirections, keeping the current stdout and stderr.

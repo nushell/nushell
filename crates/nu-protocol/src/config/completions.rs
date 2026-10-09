@@ -58,6 +58,9 @@ impl UpdateFromValue for CompletionSort {
 pub struct ExternalCompleterConfig {
     pub enable: bool,
     pub max_results: i64,
+    /// A closure completing external-command arguments. To drive a picker like `fzf`, have it
+    /// call a command carrying the `@interactive` attribute; interactivity is seen through the
+    /// closure to that command, so there is no separate switch to set.
     pub completer: Option<Closure>,
 }
 
@@ -105,6 +108,7 @@ pub struct CompletionConfig {
     pub case_sensitive: bool,
     pub quick: bool,
     pub partial: bool,
+    pub persistent_menus: bool,
     pub algorithm: CompletionAlgorithm,
     pub external: ExternalCompleterConfig,
     pub use_ls_colors: bool,
@@ -119,6 +123,7 @@ impl Default for CompletionConfig {
             case_sensitive: false,
             quick: true,
             partial: true,
+            persistent_menus: false,
             algorithm: CompletionAlgorithm::default(),
             external: ExternalCompleterConfig::default(),
             use_ls_colors: true,
@@ -145,6 +150,7 @@ impl UpdateFromValue for CompletionConfig {
                 "sort" => self.sort.update(val, path, errors),
                 "quick" => self.quick.update(val, path, errors),
                 "partial" => self.partial.update(val, path, errors),
+                "persistent_menus" => self.persistent_menus.update(val, path, errors),
                 "algorithm" => self.algorithm.update(val, path, errors),
                 "case_sensitive" => self.case_sensitive.update(val, path, errors),
                 "external" => self.external.update(val, path, errors),

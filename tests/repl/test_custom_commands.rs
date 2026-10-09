@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use nu_protocol::{ParseError, ShellError, Type};
 use nu_test_support::prelude::*;
 use pretty_assertions::assert_matches;
@@ -85,7 +83,6 @@ fn custom_switch1() -> Result {
 fn custom_flag_with_type_checking(
     #[values(
         ("int", "\"3\""),
-        ("int", "null"),
         ("record<i: int>", "{i: \"\"}"),
         ("list<int>", "[\"\"]")
     )]
@@ -101,6 +98,19 @@ fn custom_flag_with_type_checking(
     test()
         .run(code)
         .expect_error_code_eq("nu::parser::type_mismatch")
+}
+
+/// `null` is intentionally allowed for optional named flags: it omits the flag
+/// (same as not passing it) rather than type-mismatching.
+#[rstest]
+fn custom_flag_null_is_omitted(#[values("--dry-run", "-d")] flag: &str) -> Result {
+    let code = format! {"
+        def florb [--dry-run (-d): int] {{ $dry_run }}
+        let y = null
+        florb {flag} $y
+    "};
+
+    test().run(code).expect_value_eq(())
 }
 
 #[test]
@@ -242,8 +252,9 @@ fn override_table_eval_file() -> Result {
 #[test]
 fn infinite_recursion_does_not_panic() -> Result {
     let mut tester = test();
-    let config = Arc::make_mut(&mut tester.engine_state.config);
+    let mut config = tester.engine_state.get_config().as_ref().clone();
     config.recursion_limit = 5;
+    tester.engine_state.set_config(config);
     let err = tester
         .run("def bang [] { bang }; bang")
         .expect_shell_error()?;
@@ -260,8 +271,9 @@ fn infinite_recursion_does_not_panic() -> Result {
 #[test]
 fn infinite_mutual_recursion_does_not_panic() -> Result {
     let mut tester = test();
-    let config = Arc::make_mut(&mut tester.engine_state.config);
+    let mut config = tester.engine_state.get_config().as_ref().clone();
     config.recursion_limit = 5;
+    tester.engine_state.set_config(config);
     let err = tester
         .run("def bang [] { def boom [] { bang }; boom }; bang")
         .expect_shell_error()?;

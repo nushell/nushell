@@ -83,6 +83,18 @@ pub enum ConfigWarning {
         span: Span,
         help: &'static str,
     },
+    #[error("Multiple keybindings share a name")]
+    #[diagnostic(
+        code(nu::shell::shared_keybindings_name),
+        help(
+            "all of these bindings remain in the configuration; give each a unique name to silence this warning"
+        )
+    )]
+    SharedKeybindingName {
+        names: String,
+        #[label("{names}: each names more than one keybinding")]
+        span: Span,
+    },
 }
 
 // To keep track of reported warnings
@@ -92,6 +104,9 @@ impl Hash for ConfigWarning {
             ConfigWarning::IncompatibleOptions { label, help, .. } => {
                 label.hash(state);
                 help.hash(state);
+            }
+            ConfigWarning::SharedKeybindingName { names, .. } => {
+                names.hash(state);
             }
         }
     }

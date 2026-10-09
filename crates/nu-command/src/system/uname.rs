@@ -55,6 +55,7 @@ impl Command for UName {
     fn run_const(
         &self,
         _working_set: &StateWorkingSet,
+        _stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
@@ -78,6 +79,7 @@ fn run_uname(call: &Call) -> Result<PipelineData, ShellError> {
     // Simulate `uname -all` is called every time
     let opts = uu_uname::Options {
         all: true,
+        all_labeled: true,
         kernel_name: false,
         nodename: false,
         kernel_release: false,

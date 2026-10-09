@@ -49,6 +49,18 @@ impl Flag {
         (!self.long.is_empty()).then_some(self.long.as_str())
     }
 
+    /// Whether this flag's value type accepts `nothing`/`null`.
+    ///
+    /// Used so `--flag=$null` can either pass `null` through (when the type allows it) or omit
+    /// the flag (when it does not). Switches (`arg: None`) never accept nothing — null means omit.
+    #[inline]
+    pub fn type_accepts_nothing(&self) -> bool {
+        match &self.arg {
+            Some(shape) => Type::Nothing.is_assignable_to(&shape.to_type()),
+            None => false,
+        }
+    }
+
     #[inline]
     pub fn new(long: impl Into<String>) -> Self {
         Flag {
@@ -377,6 +389,28 @@ impl PartialEq for Signature {
 
 impl Eq for Signature {}
 
+fn type_involves_custom(ty: &Type) -> bool {
+    match ty {
+        Type::Custom(_) => true,
+        Type::OneOf(types) => types.iter().any(type_involves_custom),
+        Type::List(inner) => type_involves_custom(inner),
+        _ => false,
+    }
+}
+
+fn is_structured_type(ty: &Type) -> bool {
+    matches!(ty, Type::List(_) | Type::Table(_) | Type::Record(_))
+}
+
+/// Custom values are assignable to list/table/record so `get` / `into record` type-check.
+/// That special case must not steal the output type of a real custom IO pair
+/// (`semver | into string` is a string, not `oneof<list, table, record>`).
+fn is_custom_structured_fallback(input: &Type, declared: &Type) -> bool {
+    type_involves_custom(input)
+        && is_structured_type(declared)
+        && input.compare_types(declared).is_none()
+}
+
 impl Signature {
     /// Creates a new signature for a command with `name`
     pub fn new(name: impl Into<String>) -> Signature {
@@ -418,7 +452,9 @@ impl Signature {
     /// - If `input` is [`None`], it's treated as [`Type::Any`]. i.e. all IO pairs are considered.
     /// - IO pairs where the given `input` is [assignable to](crate::CompareTypes::is_assignable_to)
     ///   the input type are considered valid.
-    /// - [Union](TypeSet::union) of all valid outputs are returned.
+    /// - Custom values are assignable to list/table/record. Those fallback pairs are ignored
+    ///   when a lattice match exists (so `semver | into string` is `string`).
+    /// - [Union](TypeSet::union) of remaining outputs is returned.
     /// - If there are no valid IO pairs for the given `input`, [`None`] is returned.
     // XXX: remove?
     pub fn get_output_type(&self, input_type: Option<&Type>) -> Option<Type> {
@@ -426,15 +462,33 @@ impl Signature {
             return Some(Type::Any);
         }
         let input = input_type.unwrap_or(&Type::Any);
-        let mut it = self
-            .input_output_types
-            .iter()
-            .filter(|(in_ty, _out_ty)| input.is_assignable_to(in_ty))
-            .map(|(_, out)| out)
-            .peekable();
+        // Entries whose input type accepts `input` are the candidates; among those, the ones
+        // that are not merely a structured-type fallback for a custom value are preferred. Two
+        // passes without temporary collections: this runs for every call the parser
+        // type-checks.
+        let mut any_match = false;
+        let mut any_strict_match = false;
+        for (in_ty, _) in &self.input_output_types {
+            if input.is_assignable_to(in_ty) {
+                any_match = true;
+                if !is_custom_structured_fallback(input, in_ty) {
+                    any_strict_match = true;
+                    break;
+                }
+            }
+        }
+        if !any_match {
+            return None;
+        }
 
-        it.peek()?;
-        it.cloned().reduce(Type::union)
+        self.input_output_types
+            .iter()
+            .filter(|(in_ty, _)| {
+                input.is_assignable_to(in_ty)
+                    && (!any_strict_match || !is_custom_structured_fallback(input, in_ty))
+            })
+            .map(|(_, out)| out.clone())
+            .reduce(Type::union)
     }
 
     /// Add a default help option to a signature
@@ -918,10 +972,16 @@ impl Command for Predeclaration {
         &self,
         _engine_state: &EngineState,
         _stack: &mut Stack,
-        _call: &Call,
+        call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, crate::ShellError> {
-        panic!("Internal error: can't run a predeclaration without a body")
+        // A call can only resolve to a predeclaration whose `def` never defined it; report that
+        // instead of panicking on the user's input.
+        Err(crate::ShellError::NushellFailedSpanned {
+            msg: "Can't run a predeclaration without a body".to_string(),
+            label: "originates from here".to_string(),
+            span: call.head,
+        })
     }
 
     fn command_type(&self) -> CommandType {

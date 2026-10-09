@@ -15,8 +15,9 @@ pub use child_pgroup::stdin_fd;
 /// Detach `command` from the parent's controlling terminal/console.
 ///
 /// Used for background completion subprocesses so they cannot call
-/// `tcsetattr` / `SetConsoleMode` and corrupt reedline. Caller must also
-/// redirect stdin to null. No-op on platforms without a process API.
+/// `tcsetattr` / `SetConsoleMode` and corrupt reedline, nor open `/dev/tty`
+/// to read keystrokes meant for it. Caller must also keep stdin off the
+/// terminal (null or a pipe). No-op on platforms without a process API.
 pub fn prepare_background_command(command: &mut Command) {
     #[cfg(unix)]
     child_pgroup::prepare_isolated_command(command);

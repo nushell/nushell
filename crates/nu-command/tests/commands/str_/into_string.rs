@@ -30,6 +30,42 @@ fn from_float() -> Result {
 }
 
 #[test]
+fn from_nan() -> Result {
+    let code = "
+        echo nan | into string
+    ";
+
+    test().run(code).expect_value_eq("NaN")
+}
+
+#[test]
+fn from_inf() -> Result {
+    let code = "
+        echo inf | into string
+    ";
+
+    test().run(code).expect_value_eq("inf")
+}
+
+#[test]
+fn from_negative_zero() -> Result {
+    let code = "
+        echo -- -0.0 | into string
+    ";
+
+    test().run(code).expect_value_eq("-0")
+}
+
+#[test]
+fn from_int_negative_zero() -> Result {
+    let code = "
+        echo -- -0 | into string
+    ";
+
+    test().run(code).expect_value_eq("0")
+}
+
+#[test]
 fn from_boolean() -> Result {
     let code = "
         echo true | into string
@@ -127,6 +163,33 @@ fn from_int_float_trim_trailing_zeros() -> Result {
 }
 
 #[test]
+fn from_float_rounding() -> Result {
+    let code = "
+        1.23450 | into string -d 3
+    ";
+
+    test().run(code).expect_value_eq("1.235")
+}
+
+#[test]
+fn from_float_int_rounding() -> Result {
+    let code = "
+        1.995 | into string -d 2
+    ";
+
+    test().run(code).expect_value_eq("2.00")
+}
+
+#[test]
+fn from_float_neg_rounding() -> Result {
+    let code = "
+        -1.23450 | into string -d 3
+    ";
+
+    test().run(code).expect_value_eq("-1.235")
+}
+
+#[test]
 fn from_table() -> Result {
     let code = r#"
         echo '[{"name": "foo", "weight": 32.377}, {"name": "bar", "weight": 15.2}]'
@@ -154,6 +217,43 @@ fn from_nothing() -> Result {
     let err = test().run(code).expect_parse_error()?;
     assert!(matches!(err, ParseError::InputMismatch { .. }));
     Ok(())
+}
+
+#[test]
+fn from_semver() -> Result {
+    test()
+        .run("'1.2.3' | into semver | into string")
+        .expect_value_eq("1.2.3")
+}
+
+#[test]
+fn from_semver_let_binding() -> Result {
+    test()
+        .run(r#"let s = "1.0.0" | into semver | into string; $s"#)
+        .expect_value_eq("1.0.0")
+}
+
+#[test]
+fn from_semver_let_binding_is_string() -> Result {
+    test()
+        .run(r#"let s = "1.0.0" | into semver | into string; $s | describe"#)
+        .expect_value_eq("string")
+}
+
+#[test]
+fn from_semver_path_join() -> Result {
+    test()
+        .run(
+            r#""versions" | path join ("1.115.0" | into semver | into string) | path split | last"#,
+        )
+        .expect_value_eq("1.115.0")
+}
+
+#[test]
+fn from_semver_range_let_binding() -> Result {
+    test()
+        .run(r#"let s = ">=1.0.0" | into semver-range | into string; $s"#)
+        .expect_value_eq(">=1.0.0")
 }
 
 #[test]
@@ -213,4 +313,114 @@ fn int_into_string_decimals_respects_system_locale_en() -> Result {
     ";
 
     test().run(code).expect_value_eq("10.0")
+}
+
+#[test]
+#[env(NU_TEST_LOCALE_OVERRIDE = "de_DE.UTF-8")]
+fn float_into_string_decimals_respects_system_locale_de() -> Result {
+    let code = "
+    10.0 | into string --decimals 1
+    ";
+
+    test().run(code).expect_value_eq("10,0")
+}
+
+#[test]
+#[env(NU_TEST_LOCALE_OVERRIDE = "en_US.UTF-8")]
+fn int_into_string_grouping_respects_system_locale_en() -> Result {
+    let code = "
+    1234 | into string --group-digits
+    ";
+
+    test().run(code).expect_value_eq("1,234")
+}
+
+#[test]
+#[env(NU_TEST_LOCALE_OVERRIDE = "en_US.UTF-8")]
+fn float_into_string_decimals_respects_system_locale_en() -> Result {
+    let code = "
+    10.0 | into string --decimals 1
+    ";
+
+    test().run(code).expect_value_eq("10.0")
+}
+
+#[test]
+#[env(NU_TEST_LOCALE_OVERRIDE = "de_DE.UTF-8")]
+fn int_into_string_grouping_respects_system_locale_de() -> Result {
+    let code = "
+    1234 | into string --group-digits
+    ";
+
+    test().run(code).expect_value_eq("1.234")
+}
+
+#[test]
+#[env(NU_TEST_LOCALE_OVERRIDE = "de_DE.UTF-8")]
+fn float_into_string_grouping_respects_system_locale_de() -> Result {
+    let code = "
+    1234.0 | into string --group-digits
+    ";
+
+    test().run(code).expect_value_eq("1.234")
+}
+
+#[test]
+#[env(NU_TEST_LOCALE_OVERRIDE = "hi_IN.UTF-8")]
+fn int_into_string_grouping_respects_system_locale_in() -> Result {
+    let code = "
+    123456 | into string --group-digits
+    ";
+
+    test().run(code).expect_value_eq("1,23,456")
+}
+
+#[test]
+#[env(NU_TEST_LOCALE_OVERRIDE = "hi_IN.UTF-8")]
+fn float_into_string_grouping_respects_system_locale_in() -> Result {
+    let code = "
+    123456.0 | into string --group-digits
+    ";
+
+    test().run(code).expect_value_eq("1,23,456")
+}
+
+#[test]
+#[env(NU_TEST_LOCALE_OVERRIDE = "en_US.UTF-8")]
+fn int_into_string_negative_grouping() -> Result {
+    let code = "
+    -123456 | into string --group-digits
+    ";
+
+    test().run(code).expect_value_eq("-123,456")
+}
+
+#[test]
+#[env(NU_TEST_LOCALE_OVERRIDE = "en_US.UTF-8")]
+fn float_into_string_negative_grouping() -> Result {
+    let code = "
+    -123456.0 | into string --group-digits
+    ";
+
+    test().run(code).expect_value_eq("-123,456")
+}
+
+#[test]
+#[env(NU_TEST_LOCALE_OVERRIDE = "ar_AE.UTF-8")]
+fn int_into_string_negative_respects_system_locale_ar() -> Result {
+    let code = "
+    -123456 | into string
+    ";
+
+    test().run(code).expect_value_eq("\u{61c}-123456")
+}
+
+#[test]
+#[env(NU_TEST_LOCALE_OVERRIDE = "ar_AE.UTF-8")]
+fn float_into_string_negative_respects_system_locale_ar() -> Result {
+    let code = "
+    -123456.0 | into string
+    ";
+
+    test().run(code).expect_value_eq("\u{61c}-123456")
 }
