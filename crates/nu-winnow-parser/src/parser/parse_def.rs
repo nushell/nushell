@@ -13,6 +13,7 @@ use crate::lex::{Token, TokenContents};
 use crate::span::{Span, Spanned};
 
 use super::WorkingSet;
+use super::lite_parser::pipe_on_later_line;
 use super::parse_expressions::{
     BraceShape, ExpectedShape, brace_shape, parse_block_body_unchecked, parse_closure_parts, parse_value,
 };
@@ -175,11 +176,23 @@ fn scan_definitions(
     mut on_definition: impl FnMut(FoundDefinition<&[Token]>),
 ) {
     let mut declared: Vec<&str> = Vec::new();
+    // A `|`, or a redirection into one (`e>|`), joins the next command to the pipeline.
+    let joins_next_command = |token: &Token| match token.contents {
+        TokenContents::Pipe => true,
+        TokenContents::Redirection(operator) => operator.is_pipe(),
+        _ => false,
+    };
     // The next item is the first of its line, or the first after a `;`.
     let mut at_line_start = true;
     // No command since the start of the block, a `;` or a blank line: a `|` here leads the next
     // command (`|def x [] {}`) instead of joining a pipeline.
     let mut after_statement = true;
+    // The last token but comments and one end of line was a `|` that joins a pipeline, so the
+    // next item continues that pipeline (`ls |\ndef f [] {}`), even first on its line.
+    let mut after_pipe = false;
+    // The statement started with an attribute (`@example ...`): a `|` ending its line carries
+    // it on to the command below, which stays one command (`@search-terms a|\ndef f [] {}`).
+    let mut in_attribute = false;
     let mut previous = TokenContents::Eol;
     let mut index = 0;
     while let Some(token) = tokens.get(index) {
@@ -190,12 +203,15 @@ fn scan_definitions(
             TokenContents::Eol | TokenContents::Semicolon => {
                 at_line_start = true;
                 after_statement |= blank_line || token.contents == TokenContents::Semicolon;
+                // A blank line or a `;` ends the pipeline (nu's `after_pipe` finds it dangling).
+                after_pipe &= !after_statement;
             }
             TokenContents::Comment => {}
             TokenContents::Pipe if at_line_start && after_statement => {}
-            TokenContents::Item if at_line_start => {
+            TokenContents::Item if at_line_start && !after_pipe => {
                 at_line_start = false;
                 after_statement = false;
+                in_attribute = working_set.get_span_contents(token.span).starts_with('@');
                 // The items after the head (`index` is past it), with their text. Past an
                 // `export`, `words` is left after `def`/`extern`: flags, name, signature.
                 let statement = || {
@@ -229,15 +245,16 @@ fn scan_definitions(
                     });
                 let rest = tokens.get(items_start..rest_end).unwrap_or(&[]);
                 // nu predeclares only a pipeline of one command (an assignment takes the pipes
-                // after it into its command).
-                let pipes_to_another_command = rest
-                    .iter()
-                    .take_while(|token| !matches!(token.contents, TokenContents::AssignmentOperator(_)))
-                    .any(|token| match token.contents {
-                        TokenContents::Pipe => true,
-                        TokenContents::Redirection(operator) => operator.is_pipe(),
-                        _ => false,
-                    });
+                // after it into its command), and a `|` on a later line joins the next command
+                // (`def f [] {}\n| ls`).
+                let continues_on_a_later_line = tokens
+                    .get(rest_end..)
+                    .is_some_and(|after| pipe_on_later_line(&mut Tokens::new(working_set, after, 0)).is_ok());
+                let pipes_to_another_command = continues_on_a_later_line
+                    || rest
+                        .iter()
+                        .take_while(|token| !matches!(token.contents, TokenContents::AssignmentOperator(_)))
+                        .any(joins_next_command);
                 if pipes_to_another_command {
                     continue;
                 }
@@ -291,6 +308,7 @@ fn scan_definitions(
             _ => {
                 at_line_start = false;
                 after_statement = false;
+                after_pipe = !in_attribute && joins_next_command(token);
             }
         }
     }

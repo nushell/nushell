@@ -273,7 +273,10 @@ including commands defined *later* in the same block. `parse_def_predecl`
 `export def`, `extern` and `export extern` at line starts and, when a
 signature item (`[` or `(`) follows the name, registers the name in the
 current scope with `working_set.add_predecl` before any statement is
-parsed:
+parsed. As in nu, only a pipeline of one command counts: a `def` that a `|`
+joins to another command (on its line, on a later line, or after a `|` that
+ends the line before) is not predeclared, while a `|` ending an attribute
+line carries the attribute on to the `def` below, which still is:
 
 ```rust
 use nu_winnow_parser::{parse, ast::Expr};

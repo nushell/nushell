@@ -71,6 +71,23 @@ fn corpus_round_trips() {
     assert!(count >= 10);
 }
 
+/// The fixtures about comments, which put them in every place a comment can go, including
+/// inside text the formatter copies from the source (match patterns, type parameters).
+#[test]
+fn comment_fixtures_round_trip() {
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/accept/comments");
+    let mut count = 0;
+    for entry in std::fs::read_dir(&dir).unwrap().flatten() {
+        let path = entry.path();
+        if path.extension().is_some_and(|e| e == "nu") {
+            let src = std::fs::read_to_string(&path).unwrap();
+            check(&path.display().to_string(), &src);
+            count += 1;
+        }
+    }
+    assert!(count >= 10);
+}
+
 #[test]
 fn normalises_whitespace() {
     let options = Options::default();

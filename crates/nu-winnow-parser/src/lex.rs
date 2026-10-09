@@ -186,7 +186,10 @@ impl Token {
 /// each carries the byte sets the lexer stops at, computed at compile time.
 #[derive(Clone, Copy, Debug)]
 pub struct LexOptions {
-    /// Drop comments instead of emitting [`TokenContents::Comment`].
+    /// Drop comments instead of emitting [`TokenContents::Comment`]. Only a probe
+    /// (`BRACE_PROBE`) and text that never holds a comment nu accepts (`CELL_PATH`, `VAR_TYPE`)
+    /// set it: every other comment must reach `Ast::comments`, so a parser that does not want
+    /// comment tokens records and drops them.
     skip_comments: bool,
     /// Treat `<`/`>` as nesting brackets (used for type annotations such as `list<int>`).
     in_signature: bool,
@@ -225,15 +228,15 @@ impl LexOptions {
     /// Options for signatures `[a: int, --flag(-f)]`.
     pub const SIGNATURE: LexOptions = lex_options!(b"\n\r", b":=,", false, true);
     /// Options for type parameters `list<int>`, `oneof<a, b>`, `record<a: int>`
-    /// (nu's `lex_signature` in `parse_type_params`): `:` and `,` are special
-    /// and comments are skipped.
-    pub const TYPE_PARAMS: LexOptions = lex_options!(b"\n\r", b":,", true, true);
+    /// (nu's `lex_signature` in `parse_type_params`): `:` and `,` are special.
+    /// nu skips comments here; the parser records them and drops them.
+    pub const TYPE_PARAMS: LexOptions = lex_options!(b"\n\r", b":,", false, true);
     /// Options for the type of a declared variable `let x: record<a: int>`
     /// (nu's `lex_signature` in `parse_var_with_opt_type`): `<`/`>` pair up,
     /// so a stray `]` or `}` inside them is unbalanced.
     pub const VAR_TYPE: LexOptions = lex_options!(b"", b",", true, true);
     /// Options for input/output type lists `[int -> string, nothing -> nothing]`.
-    pub const IO_TYPES: LexOptions = lex_options!(b"\n\r,", &[], true, true);
+    pub const IO_TYPES: LexOptions = lex_options!(b"\n\r,", &[], false, true);
     /// Options for cell paths: `.`, `?` and `!` are special.
     pub const CELL_PATH: LexOptions = lex_options!(b"\n\r", b".?!", true, false);
     /// Options for match blocks: commas and newlines are whitespace. A `|` still lexes as a
@@ -242,11 +245,11 @@ impl LexOptions {
     /// Options for the first two tokens of a `{...}` body, used to decide what it is.
     pub const BRACE_PROBE: LexOptions = lex_options!(b"\r\n\t", b":", true, false);
     /// Options for binary literals `0x[ff 00]`.
-    pub const BINARY: LexOptions = lex_options!(b",\r\n", &[], true, false);
-    /// Options for match list/record patterns.
-    pub const PATTERN_LIST: LexOptions = lex_options!(b"\n\r,", &[], true, false);
+    pub const BINARY: LexOptions = lex_options!(b",\r\n", &[], false, false);
+    /// Options for match list patterns.
+    pub const PATTERN_LIST: LexOptions = lex_options!(b"\n\r,", &[], false, false);
     /// Options for record patterns.
-    pub const PATTERN_RECORD: LexOptions = lex_options!(b"\n\r,", b":", true, false);
+    pub const PATTERN_RECORD: LexOptions = lex_options!(b"\n\r,", b":", false, false);
 }
 
 /// Where the bracket groups of a block's source close, as scanning its items found them.
@@ -358,9 +361,8 @@ pub fn lex_n_tokens_with(
 }
 
 /// The next token of `input` after whitespace, or `None` at its end. With a
-/// preset that skips comments (`TYPE_PARAMS`, `CELL_PATH`, ...) a comment is
-/// passed over. Bracket groups are
-/// measured with `groups` (see [`GroupEnds`]).
+/// preset that skips comments (`VAR_TYPE`, `CELL_PATH`, ...) a comment is
+/// passed over. Bracket groups are measured with `groups` (see [`GroupEnds`]).
 #[inline]
 pub fn next_token(input: &mut Input<'_>, options: LexOptions, groups: &mut GroupEnds) -> ParseResult<Option<Token>> {
     loop {

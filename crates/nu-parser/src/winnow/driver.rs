@@ -49,7 +49,7 @@ use std::{
 use nu_protocol::{
     Module, Span, Type,
     ast::{Block, Pipeline},
-    engine::StateWorkingSet,
+    engine::{StateWorkingSet, longest_decl_name},
 };
 use nu_winnow_parser::{
     BlockSink, BlockStatements, Definitions, Diagnostic, PredeclaredDef, ast as w,
@@ -106,6 +106,7 @@ pub(super) fn parse_block(
         source,
         offset,
         span,
+        inner,
         target: match &kind {
             BlockKind::Block { input_type, .. } => Target::Block {
                 input_type: input_type.clone(),
@@ -288,7 +289,6 @@ fn parse_ahead(
     driver: &mut Driver,
 ) -> bool {
     let names = NamesSnapshot::new(lookup);
-    let longest_name = names.longest_name;
     // Set once this thread takes no more statements. It only saves the thread work (the
     // statements themselves go through the channel), so `Relaxed` is enough.
     let stop = &AtomicBool::new(false);
@@ -322,6 +322,10 @@ fn parse_ahead(
         });
         stats::record_ahead_run();
         declare(definitions, source, span, lookup, driver);
+        // The bound on name lengths the answers are checked against, read once the block's
+        // definitions are declared: a longer name among them raises it, but the thread knows
+        // those names from its own scopes and searches as far for them.
+        let longest_name = longest_decl_name();
         let mut go_on = true;
         // Until the thread is done and drops its sender; after a stop, what it parsed
         // meanwhile is dropped (the classic parser has parsed it).
@@ -425,6 +429,8 @@ struct Driver<'c, 'w, 'e, 's> {
     /// The block's span, which errors about the whole block point at; for a block in braces
     /// (a closure's body parsed again by `Lower::block`), the braces included.
     span: Span,
+    /// The span of the block's statements: `span` without the braces of a block in braces.
+    inner: Span,
     target: Target,
     /// The block's pipelines so far.
     pipelines: Vec<Pipeline>,
@@ -464,8 +470,8 @@ impl Driver<'_, '_, '_, '_> {
         let start = lower.statement_span(pipeline).start;
         let mut target = statement_target(&mut self.target, &self.pipelines, self.span);
         // Where the statement ends is the classic parser's to decide, so it parses the rest
-        // of the block.
-        let span = Span::new(start, self.span.end);
+        // of the block's statements (up to a closing brace, not through it).
+        let span = Span::new(start, self.inner.end);
         stats::record_classic_statement(span.len(), had_errors);
         parse_classic(
             lower.working_set,

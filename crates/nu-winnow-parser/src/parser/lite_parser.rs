@@ -52,12 +52,15 @@ impl LiteCommand {
 }
 
 /// Skip tokens up to (not including) the next `Eol`/`;`, returning the span
-/// of the last token skipped.
+/// of the last token skipped. A comment among them (`a || b # c`) is recorded:
+/// the statement failed to parse, but its comment stays in `Ast::comments`.
 pub fn skip_to_statement_end(tokens: &mut Tokens<'_, '_>) -> Span {
     let mut end = None;
     while let Some(token) = tokens.peek_token() {
-        if matches!(token.contents, TokenContents::Eol | TokenContents::Semicolon) {
-            break;
+        match token.contents {
+            TokenContents::Eol | TokenContents::Semicolon => break,
+            TokenContents::Comment => tokens.working_set.add_comment(token.span),
+            _ => {}
         }
         end = Some(token.span);
         tokens.next_token();
@@ -84,7 +87,7 @@ pub fn last_non_comment_token(tokens: &[Token]) -> Option<TokenContents> {
 /// pipeline: exactly one end of line, then any number of comment lines, then
 /// the pipe (`Eol (Comment Eol)* Pipe`), which is left for the caller. A blank
 /// line in between closes the pipeline instead.
-fn pipe_on_later_line(tokens: &mut Tokens<'_, '_>) -> ParseResult<Vec<Token>> {
+pub fn pipe_on_later_line(tokens: &mut Tokens<'_, '_>) -> ParseResult<Vec<Token>> {
     preceded(eol, terminated(repeat(0.., terminated(comment, eol)), peek(pipe))).parse_next(tokens)
 }
 

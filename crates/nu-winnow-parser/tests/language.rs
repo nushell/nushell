@@ -738,6 +738,64 @@ fn hash_without_preceding_space_is_not_a_comment() {
     assert!(ok("# command_bar_text: { fg: '#C4C9C6' },").block.pipelines.is_empty());
 }
 
+/// A comment inside a construct whose interior is lexed again (a match pattern, type
+/// parameters, input/output types, a binary literal) is in `Ast::comments` like any other.
+#[rstest]
+#[case::list_pattern("match $x { [1 # one\n 2] => 1 }", "# one")]
+#[case::record_pattern("match $x { {a: # key\n $y} => $y }", "# key")]
+#[case::record_type("def f [x: record<a: int # field\n>] {}", "# field")]
+#[case::list_type("def f [x: list<int # item\n>] {}", "# item")]
+#[case::io_types("def f []: [int # in\n-> int] { 1 }", "# in")]
+#[case::binary("0x[ff # high\n 00]", "# high")]
+fn comments_inside_relexed_constructs(#[case] src: &str, #[case] comment: &str) {
+    let ast = ok(src);
+    let comments: Vec<&str> = ast.comments.iter().map(|c| &src[c.span.range()]).collect();
+    assert_eq!(comments, [comment], "{src}");
+}
+
+/// A statement that fails to parse keeps the comment after it on its line.
+#[test]
+fn comment_after_a_failed_statement_is_kept() {
+    let src = "a || b # c\nls # d";
+    let (ast, diagnostics) = parse_lenient(src, &ParseConfig::new());
+    assert!(!diagnostics.is_empty());
+    let comments: Vec<&str> = ast.comments.iter().map(|c| &src[c.span.range()]).collect();
+    assert_eq!(comments, ["# c", "# d"]);
+}
+
+/// Like nu, a `def` that a `|` joins to another command (on its own line or the line before) is
+/// not predeclared, so a later call to its name is an external command.
+#[rstest]
+#[case::pipe_on_the_next_line("def f [] {}\n| ls\nf")]
+#[case::pipe_after_a_comment_line("def f [] {}\n# c\n| ls\nf")]
+#[case::pipe_on_the_line_before("ls |\ndef f [] {}\nf")]
+fn def_joined_to_a_pipeline_is_not_predeclared(#[case] src: &str) {
+    let (ast, _) = parse_lenient(src, &ParseConfig::new());
+    assert!(matches!(last_expr(&ast).expr, Expr::ExternalCall(_)), "{src}");
+}
+
+/// A `def` after a line ending in a `|` is still a command of its own, and predeclared, when the
+/// `|` carries an attribute on to it or a blank line ends the pipeline first: a call before it
+/// resolves.
+#[rstest]
+#[case::attribute_line("f\n@search-terms hello|\n# doc\ndef f [] {}")]
+#[case::blank_line_after_the_pipe("f\nls |\n\ndef f [] {}")]
+fn def_after_a_line_ending_in_a_pipe_can_be_predeclared(#[case] src: &str) {
+    let (ast, _) = parse_lenient(src, &ParseConfig::new());
+    let first = &ast.block.pipelines[0].elements[0].expr;
+    assert!(matches!(first.expr, Expr::Call(_)), "{src}: {first:?}");
+}
+
+/// A missing required argument is reported where the call ends, as nu does: after its last
+/// positional, or after the call when it has none.
+#[rstest]
+#[case::no_positional("ls\nhide", Span::point(7))]
+#[case::after_the_last_positional("@example x\nls", Span::point(10))]
+fn missing_positional_is_reported_at_the_end_of_the_call(#[case] src: &str, #[case] at: Span) {
+    let (_, diagnostics) = parse_lenient(src, &ParseConfig::new());
+    assert_eq!(diagnostics.first().map(|d| d.span), Some(at), "{diagnostics:?}");
+}
+
 #[test]
 fn let_after_pipe_is_a_statement() {
     let ast = ok("ls | let files");

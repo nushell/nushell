@@ -626,7 +626,7 @@ pub fn check_call(working_set: &WorkingSet<'_>, call: &Call<'_>, lenient: bool) 
     if keyword_signature(&call.head.name).is_none() {
         arguments.next();
     }
-    check_call_arguments(working_set, &call.head.name, &signature, arguments, lenient)?;
+    check_call_arguments(working_set, &call.head.name, &signature, arguments, call_end(call), lenient)?;
     // nu's `parse_hide` hands the members to `parse_import_pattern`, like
     // `use` (`hide foo null` is a wrong import pattern); an alias target is
     // only parsed as a call.
@@ -643,19 +643,26 @@ pub fn check_call(working_set: &WorkingSet<'_>, call: &Call<'_>, lenient: bool) 
 /// [`check_call`] for a call whose head is known by `name` (an attribute: `attr example`).
 fn check_call_named(working_set: &WorkingSet<'_>, name: &str, call: &Call<'_>) -> ParseResult<()> {
     let Some(signature) = keyword_signature(name) else { return Ok(()) };
-    check_call_arguments(working_set, name, &signature, call.arguments.iter().peekable(), false)
+    check_call_arguments(working_set, name, &signature, call.arguments.iter().peekable(), call_end(call), false)
+}
+
+/// The offset just past `call`: past its last argument, or past its head.
+fn call_end(call: &Call<'_>) -> usize {
+    call.arguments.last().map_or(call.head.span, Argument::span).end
 }
 
 /// The arguments of a keyword command, checked against its signature in one
 /// pass, in the order nu's call parser meets them: a `--help`/`-h` before any
 /// `--` ends the checks (the call only shows help), a flag that takes a value
 /// takes the next positional, and the `keyword` (`as`) is looked for once the
-/// positionals are filled.
+/// positionals are filled. A missing positional is reported, as nu reports it,
+/// past the last positional, or at `call_end` when there is none.
 fn check_call_arguments<'c>(
     working_set: &WorkingSet<'_>,
     name: &str,
     signature: &KeywordSignature,
     mut arguments: std::iter::Peekable<impl Iterator<Item = &'c Argument<'c>>>,
+    call_end: usize,
     lenient: bool,
 ) -> ParseResult<()> {
     let no_flag = |flag: &str, span: Span| {
@@ -663,6 +670,7 @@ fn check_call_arguments<'c>(
             .with_help("use `--help` to see available flags"))
     };
     let mut positionals = 0usize;
+    let mut last_positional_end = None;
     let mut keyword_seen = false;
     let mut end_of_options = false;
     while let Some(argument) = arguments.next() {
@@ -698,7 +706,10 @@ fn check_call_arguments<'c>(
                 }
             }
             // After `--` a flag is a positional.
-            Argument::Named(_) => positionals += 1,
+            Argument::Named(flag) => {
+                positionals += 1;
+                last_positional_end = Some(flag.span.end);
+            }
             // How many items a spread holds is not known here: it may supply the required ones.
             Argument::Spread { .. } => positionals = signature.required,
             Argument::Positional(expr) => {
@@ -736,6 +747,7 @@ fn check_call_arguments<'c>(
                     return Err(cut(Diagnostic::expected("string", expr.span)));
                 }
                 positionals += 1;
+                last_positional_end = Some(expr.span.end);
                 if !signature.rest && positionals > signature.required + signature.optional {
                     return Err(cut(Diagnostic::message("extra positional argument", expr.span).with_help(format!(
                         "`{name}` takes at most {} positional arguments",
@@ -746,7 +758,8 @@ fn check_call_arguments<'c>(
         }
     }
     if positionals < signature.required && !lenient {
-        return Err(cut(Diagnostic::message("missing required positional argument", Span::point(0))
+        let at = Span::point(last_positional_end.unwrap_or(call_end));
+        return Err(cut(Diagnostic::message("missing required positional argument", at)
             .with_help(format!("`{name}` takes {} positional argument(s)", signature.required))));
     }
     Ok(())

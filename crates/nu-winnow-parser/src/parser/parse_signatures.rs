@@ -410,6 +410,7 @@ fn parse_input_output_types<'a>(working_set: &WorkingSet<'a>, span: Span) -> Par
     let end = (span.end - usize::from(text.ends_with(']'))).max(start);
     let inner = Span::new(start, end);
     let lexed = working_set.lex(inner, LexOptions::IO_TYPES).map_err(cut)?;
+    working_set.add_comments(&lexed);
     // Like nu, every token counts by position, so a `;` or `|` is read as a
     // type or an arrow and refused (`[int ; -> int]`).
     let items: Vec<Token> = lexed

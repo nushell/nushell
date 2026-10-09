@@ -351,9 +351,9 @@ impl<'s> Lower<'_, '_, 's> {
         Ok(self.node(Expr::Subexpression(block_id), span, ty))
     }
 
-    /// An interpolation read with `shape`: a glob interpolation for a glob (`parse_path_like`),
-    /// quoted only when the whole item is in quotes, so that `$"..."`, which starts with `$`,
-    /// is a bare one; a string interpolation otherwise.
+    /// An interpolation read with `shape`: for a glob, a glob interpolation (`parse_path_like`)
+    /// when the item has a `(`, quoted only when the whole item is in quotes, so that `$"..."`,
+    /// which starts with `$`, is a bare one; a string interpolation otherwise.
     fn path_interpolation(
         &mut self,
         span: WSpan,
@@ -362,7 +362,11 @@ impl<'s> Lower<'_, '_, 's> {
     ) -> Lowered<Expression> {
         let expression = self.interpolation(span, interpolation)?;
         match (shape, expression.expr) {
-            (SyntaxShape::GlobPattern, Expr::StringInterpolation(parts)) => {
+            // The classic `parse_dollar_expr` takes the glob route only for an item with a `(`
+            // (`is_bare_string_interpolation`): `$"foo"` stays a string interpolation.
+            (SyntaxShape::GlobPattern, Expr::StringInterpolation(parts))
+                if self.text(span).contains('(') =>
+            {
                 let quoted = matches!(
                     self.text(span).as_bytes(),
                     [b'\'', .., b'\''] | [b'"', .., b'"']

@@ -293,6 +293,7 @@ fn parse_binary_with_base<'a>(
     };
     let inner_span = Span::new(span.start + prefix.len(), span.end - 1);
     let tokens = lex(inner, inner_span.start, LexOptions::BINARY).map_err(cut)?;
+    working_set.add_comments(&tokens);
     let mut digits = String::new();
     for token in &tokens {
         match token.contents {

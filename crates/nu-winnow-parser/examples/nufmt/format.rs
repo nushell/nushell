@@ -285,14 +285,7 @@ impl<'a> Formatter<'a> {
 
     /// [`Formatter::spanned`] with replacement text for the span.
     fn spanned_as(&mut self, span: Span, text: &str) {
-        // A comment inside the span (e.g. in an interpolation's subexpression)
-        // is part of the copied text.
-        while self.next_comment < self.comments.len() && self.comments[self.next_comment].span.end <= span.end {
-            if self.comments[self.next_comment].span.start < span.start {
-                break;
-            }
-            self.next_comment += 1;
-        }
+        self.skip_comments_within(span);
         if self.options.keep_alignment
             && !self.at_line_start()
             && !self.out.ends_with(['(', '[', '{'])
@@ -359,8 +352,24 @@ impl<'a> Formatter<'a> {
     /// `true` if a block or closure covering `outer` can be written on one line:
     /// it was on one line in the source and contains no comment.
     fn can_be_compact(&self, outer: Span) -> bool {
-        !self.spans_lines(outer)
-            && !self.comments.iter().any(|c| outer.start <= c.span.start && c.span.end <= outer.end)
+        !self.spans_lines(outer) && !self.contains_comment(outer)
+    }
+
+    /// `true` if a comment lies within `span`.
+    fn contains_comment(&self, span: Span) -> bool {
+        self.comments.iter().any(|c| span.start <= c.span.start && c.span.end <= span.end)
+    }
+
+    /// Pass over the comments within `span`, whose text is copied from the
+    /// source with them (an interpolation's subexpression, a type with a
+    /// comment between its parameters), so they are not written again.
+    fn skip_comments_within(&mut self, span: Span) {
+        while self.next_comment < self.comments.len() && self.comments[self.next_comment].span.end <= span.end {
+            if self.comments[self.next_comment].span.start < span.start {
+                break;
+            }
+            self.next_comment += 1;
+        }
     }
 
     /// `true` if at least one blank line separates two source positions.
@@ -904,6 +913,7 @@ impl<'a> Formatter<'a> {
                 self.flush_comments(p.span.start);
                 self.indent_str();
                 self.out.push_str(&text);
+                self.skip_comments_within(p.span);
                 // The first description comment stays on the parameter's line;
                 // further ones (nu joins them into one description) keep their own lines.
                 for (i, d) in p.description.iter().enumerate() {
@@ -929,7 +939,13 @@ impl<'a> Formatter<'a> {
             let inline = self.signature_inline(sig);
             self.word(&format!("[{inline}]"));
         }
-        if let Some(io) = sig.input_output_span {
+        // Types with a comment between them are copied as written: joined on
+        // one line, the comment would hide the rest.
+        if let Some(io) = sig.input_output_span
+            && self.contains_comment(io)
+        {
+            self.glue(&format!(": {}", self.text(io)));
+        } else if let Some(io) = sig.input_output_span {
             let types: Vec<String> = sig
                 .input_output_types
                 .iter()
@@ -1272,7 +1288,12 @@ impl<'a> Formatter<'a> {
             self.spanned_as(p.span, &bare);
             return;
         }
-        let text = Self::collapse_spaces(self.text(p.span));
+        // A pattern with a comment keeps its lines: collapsed onto one, the
+        // comment would hide the rest of the pattern.
+        let text = match self.contains_comment(p.span) {
+            true => self.text(p.span).to_string(),
+            false => Self::collapse_spaces(self.text(p.span)),
+        };
         self.spanned_as(p.span, &text);
     }
 

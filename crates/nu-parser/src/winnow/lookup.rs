@@ -102,8 +102,8 @@ pub(super) struct NamesSnapshot<'e> {
     /// `def --wrapped`), the live working set answers otherwise and [`changed_answer`] says so.
     kinds: RefCell<Vec<Option<DeclKind>>>,
     /// The bound on the length of command names when the copy was made, which the thread
-    /// parses with: the live bound can grow meanwhile, and [`changed_answer`] compares the two.
-    pub(super) longest_name: usize,
+    /// parses with (the winnow parser raises it for the names it declared itself).
+    longest_name: usize,
 }
 
 impl<'e> NamesSnapshot<'e> {
@@ -166,7 +166,7 @@ impl CommandLookup for AskedLookup<'_> {
     }
 
     /// The bound when the copy was made, not the live one, which can grow while the thread
-    /// parses; [`changed_answer`] compares the two.
+    /// parses; [`changed_answer`] checks that it did not.
     fn longest_name(&self) -> usize {
         self.names.longest_name
     }
@@ -188,8 +188,8 @@ impl CommandLookup for AskedLookup<'_> {
 }
 
 /// What `lookup` (the live working set's) answers differently from `asked`, or a changed bound
-/// on name lengths (it was `longest_name`); `None` when nothing changed, and parsing with
-/// `lookup` would then have given the same tree.
+/// on name lengths (it was `longest_name` once the block's definitions were declared); `None`
+/// when nothing changed, and parsing with `lookup` would then have given the same tree.
 ///
 /// The tree of a statement depends only on the source, on the winnow parser's own state (the
 /// names it declared itself, the same on either thread) and on what its lookup answers. The
@@ -197,9 +197,11 @@ impl CommandLookup for AskedLookup<'_> {
 /// would have taken the same path and asked the same next question; `is_decl_name_prefix` is
 /// `true` in both lookups. The bound is compared rather than replayed: the parser looks up no
 /// candidate name longer than it, so a larger live bound could have found a name the thread
-/// never asked about. The bound is the whole process's and only grows, so a longer name declared
-/// anywhere meanwhile counts as a change, even one of the block's own definitions, which are
-/// declared after the copy is made.
+/// never asked about. What raised the bound between the copy and the declaration of the block's
+/// definitions does not count: the block's definitions, whose names the winnow parser declared
+/// in its own scopes and searches as far for on either thread, and the names of other engines in
+/// the process, which this working set cannot find. The bound is the whole process's and only
+/// grows, so a longer name declared anywhere after that counts as a change.
 pub(super) fn changed_answer(
     lookup: &EngineLookup,
     asked: &[Asked],

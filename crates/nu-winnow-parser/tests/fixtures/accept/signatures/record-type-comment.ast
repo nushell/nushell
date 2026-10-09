@@ -4,3 +4,5 @@ Block 0..30
       Signature 6..26
         Param positional `x` 7..25 : record<#a: int>
       Body 28..28
+Comments (1)
+  17..24 "#a: int"
