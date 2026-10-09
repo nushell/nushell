@@ -1,5 +1,6 @@
 use nu_engine::{
     CallEval, command_prelude::*, get_eval_block_with_early_return, get_eval_expression,
+    get_full_help,
 };
 use nu_parser::{find_main_block_id_in_script, parse};
 use nu_path::{absolute_with, is_windows_device_path};
@@ -144,6 +145,23 @@ impl Command for Run {
             // Otherwise evaluate the full script block as a pipeline transform.
             if let Some(main_block) = main_block.clone() {
                 let signature = (*main_block.signature).clone();
+                // Collect forwarded arguments once so help detection and binding share
+                // a single evaluation (no double-eval side effects).
+                let rest_values = collect_explicit_run_arguments(eval_engine_state, stack, call)?;
+
+                // Mirror normal `eval_call` behaviour: an explicit unquoted
+                // `--help`/`-h` shows help instead of executing `main`.
+                // Uses the script block's own signature directly rather than a
+                // `find_decl("main")` lookup, which could resolve to a hidden or
+                // unrelated declaration.
+                if forwarded_help_requested(eval_engine_state, &rest_values, &signature) {
+                    let help_cmd = MainHelpCommand {
+                        signature: signature.clone(),
+                    };
+                    let help = get_full_help(&help_cmd, eval_engine_state, stack, call.head);
+                    return Ok(Value::string(help, call.head).into_pipeline_data());
+                }
+
                 let callee_stack = stack.gather_captures(eval_engine_state, &main_block.captures);
                 let mut call_eval = CallEval::new(
                     callee_stack,
@@ -155,7 +173,7 @@ impl Command for Run {
                 // Forward remaining run arguments (`run file.nu ...args`) to `main`.
                 // This helper normalizes long/short flags and supports AST+IR call representations
                 // while delegating actual binding/type validation to CallEval.
-                bind_main_arguments(eval_engine_state, stack, call, &signature, &mut call_eval)?;
+                bind_main_arguments(eval_engine_state, &rest_values, &signature, &mut call_eval)?;
                 call_eval.finalize_for_signature(&signature)?;
 
                 // Execute a signature-stripped copy of `main` after manually binding all
@@ -376,16 +394,75 @@ fn resolve_named_flag<'a>(
         .find(|named| matches_named_flag(named, long, short))
 }
 
+/// Minimal [`Command`] wrapper so `get_full_help` can render a script `main`
+/// signature without resolving a (possibly hidden or unrelated) `main` decl.
+#[derive(Clone)]
+struct MainHelpCommand {
+    signature: Signature,
+}
+
+impl Command for MainHelpCommand {
+    fn name(&self) -> &str {
+        &self.signature.name
+    }
+
+    fn signature(&self) -> Signature {
+        self.signature.clone()
+    }
+
+    fn description(&self) -> &str {
+        &self.signature.description
+    }
+
+    fn extra_description(&self) -> &str {
+        &self.signature.extra_description
+    }
+
+    fn run(
+        &self,
+        _engine_state: &EngineState,
+        _stack: &mut Stack,
+        _call: &Call,
+        _input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        Err(ShellError::Generic(GenericError::new_internal(
+            "Internal error: MainHelpCommand is help-only",
+            "",
+        )))
+    }
+
+    fn command_type(&self) -> CommandType {
+        CommandType::Custom
+    }
+}
+
+/// Check whether already-collected forwarded arguments contain an explicit
+/// unquoted `--help`/`-h` token that resolves to the signature's `help` flag.
+///
+/// Operates on evaluated `rest_values` (no re-evaluation) and reuses
+/// `parse_flag_token` so quoted `"--help"` stays a positional value.
+fn forwarded_help_requested(
+    engine_state: &EngineState,
+    rest_values: &[Value],
+    signature: &Signature,
+) -> bool {
+    rest_values.iter().any(|value| {
+        if let Some((long, short)) = parse_flag_token(engine_state, value)
+            && let Some(flag) = resolve_named_flag(signature, &long, short.as_deref())
+        {
+            return flag.long == "help";
+        }
+        false
+    })
+}
+
 /// Bind explicit `run file.nu ...args` arguments onto a script `def main` call evaluator.
 fn bind_main_arguments(
     engine_state: &EngineState,
-    caller_stack: &mut Stack,
-    call: &Call,
+    rest_values: &[Value],
     signature: &Signature,
     call_eval: &mut CallEval,
 ) -> Result<(), ShellError> {
-    let rest_values = collect_explicit_run_arguments(engine_state, caller_stack, call)?;
-
     let mut index = 0;
     while index < rest_values.len() {
         if let Some((long, short)) = parse_flag_token(engine_state, &rest_values[index]) {
