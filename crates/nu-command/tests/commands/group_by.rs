@@ -92,9 +92,9 @@ fn group_by_to_table_on_empty_list_returns_empty_list() -> Result {
 
 #[test]
 fn group_by_compound_values_are_grouped_distinctly() -> Result {
-    // List keys force table output. Distinct lists stay distinct.
+    // Distinct lists stay distinct, and `--to-table` keeps them as lists.
     test()
-        .run("[[k v]; [a [2 1]] [b [1 2]] [c [3]] [d [2]]] | group-by v")
+        .run("[[k v]; [a [2 1]] [b [1 2]] [c [3]] [d [2]]] | group-by v --to-table")
         .expect_value_eq(test_value!([
             {v: [2, 1], items: [{k: "a", v: [2, 1]}]},
             {v: [1, 2], items: [{k: "b", v: [1, 2]}]},
@@ -172,14 +172,13 @@ fn null_and_empty_string_are_distinct_groups() -> Result {
 
 #[test]
 fn optional_cell_path_still_skips_nothing() -> Result {
-    // Missing optional column is still ignored (historical #9020 behavior). The keys are ints,
-    // so the default output is a table.
+    // Missing optional column is still ignored (historical #9020 behavior).
     test()
         .run("[{foo: 123}, {foo: 234}, {bar: 345}] | group-by foo?")
-        .expect_value_eq(test_value!([
-            {foo: 123, items: [{foo: 123}]},
-            {foo: 234, items: [{foo: 234}]},
-        ]))?;
+        .expect_value_eq(test_value!({
+            "123": [{foo: 123}],
+            "234": [{foo: 234}],
+        }))?;
 
     // Optional path with explicit null is also skipped (cannot distinguish from missing).
     test()
@@ -213,49 +212,23 @@ fn multi_grouper_null_key_in_to_table() -> Result {
         .run("[ { a: null, b: 1 } { a: 2, b: 1 } ] | group-by a b --to-table | get b | each { describe }")
         .expect_value_eq(["int", "int"])?;
 
-    // Int keys force table output; the null group is kept as nothing.
+    // Record mode drops the null branch entirely and keys the rest by display string.
     test()
         .run("[ { a: null, b: 1 } { a: 2, b: 1 } ] | group-by a b")
-        .expect_value_eq(test_value!([
-            {a: (), b: 1, items: [{a: (), b: 1}]},
-            {a: 2, b: 1, items: [{a: 2, b: 1}]},
-        ]))
-}
-
-#[test]
-fn multi_grouper_record_omits_null_branch() -> Result {
-    // String and null keys give a record, which omits the null branch.
-    test()
-        .run(r#"[ { a: null, b: "1" } { a: "2", b: "1" } ] | group-by a b"#)
         .expect_value_eq(test_value!({
             "2": {
-                "1": [{a: "2", b: "1"}],
+                "1": [{a: 2, b: 1}],
             },
         }))
 }
 
 #[test]
-fn nested_non_string_keys_emit_a_table() -> Result {
-    // A non-string key below the first grouper also needs a table.
-    test()
-        .run(r#"[ { a: "x", b: 1 } { a: "x", b: 2 } ] | group-by a b"#)
-        .expect_value_eq(test_value!([
-            {a: "x", b: 1, items: [{a: "x", b: 1}]},
-            {a: "x", b: 2, items: [{a: "x", b: 2}]},
-        ]))
-}
-
-#[rstest]
-#[case::default("let data = [[size]; [1MB] [1.001MB]]; ($data | group-by size).size == $data.size")]
-#[case::to_table(
-    "let data = [[size]; [1MB] [1.001MB]]; ($data | group-by size --to-table).size == $data.size"
-)]
-fn filesize_keys_keep_their_type_and_do_not_collapse_display_collisions(
-    #[case] code: &str,
-) -> Result {
+fn to_table_filesize_keys_keep_their_type_and_do_not_collapse_display_collisions() -> Result {
     // 1MB and 1.001MB both display as "1.0 MB". A filesize only equals another filesize, so the
     // comparison fails if the two groups merge or the keys turn into strings or numbers.
-    test().run(code).expect_value_eq(true)
+    test()
+        .run("let data = [[size]; [1MB] [1.001MB]]; ($data | group-by size --to-table).size == $data.size")
+        .expect_value_eq(true)
 }
 
 #[test]
@@ -267,80 +240,53 @@ fn to_table_groups_equal_lists_and_keeps_list_keys() -> Result {
         ]))
 }
 
-#[rstest]
-#[case::default("[{n: 1} {n: 1} {n: 2}] | group-by n | update n { describe }")]
-#[case::to_table("[{n: 1} {n: 1} {n: 2}] | group-by n --to-table | update n { describe }")]
-fn int_keys_keep_their_type(#[case] code: &str) -> Result {
-    // `expect_value_eq` compares with `==`, where `1 == 1.0`, so `describe` checks the key type.
-    test().run(code).expect_value_eq(test_value!([
-        {n: "int", items: [{n: 1}, {n: 1}]},
-        {n: "int", items: [{n: 2}]},
-    ]))
-}
-
 #[test]
-fn non_string_keys_emit_a_table_without_to_table_flag() -> Result {
+fn to_table_int_keys_keep_their_type() -> Result {
+    // `expect_value_eq` compares with `==`, where `1 == 1.0`, so `describe` checks the key type.
     test()
-        .run("[1 2 1] | group-by")
+        .run("[{n: 1} {n: 1} {n: 2}] | group-by n --to-table | update n { describe }")
         .expect_value_eq(test_value!([
-            {group: 1, items: [1, 1]},
-            {group: 2, items: [2]},
-        ]))?;
-
-    test()
-        .run(r#"[true "true"] | group-by"#)
-        .expect_value_eq(test_value!([
-            {group: true, items: [true]},
-            {group: "true", items: ["true"]},
-        ]))?;
-
-    test()
-        .run(r#"["a" 1] | group-by"#)
-        .expect_value_eq(test_value!([
-            {group: "a", items: ["a"]},
-            {group: 1, items: [1]},
+            {n: "int", items: [{n: 1}, {n: 1}]},
+            {n: "int", items: [{n: 2}]},
         ]))
 }
 
 #[test]
-fn string_keys_still_emit_a_record() -> Result {
+fn default_output_is_a_record_keyed_by_display_string() -> Result {
     test()
         .run("['a' 'b' 'a'] | group-by")
         .expect_value_eq(test_value!({
             a: ["a", "a"],
             b: ["b"],
+        }))?;
+
+    // Values that display alike share a group.
+    test()
+        .run(r#"[1 1.0 "1"] | group-by"#)
+        .expect_value_eq(test_value!({
+            "1": [1, "1"],
+            "1.0": [1.0],
+        }))?;
+
+    test()
+        .run(r#"[true "true"] | group-by"#)
+        .expect_value_eq(test_value!({
+            "true": [true, "true"],
+        }))?;
+
+    // A record can have an `items` key, so the grouper name is only checked with `--to-table`.
+    test()
+        .run("[{items: 1} {items: 1}] | group-by items")
+        .expect_value_eq(test_value!({
+            "1": [{items: 1}, {items: 1}],
         }))
 }
 
-#[test]
-fn items_grouper_errors_when_output_is_a_table() -> Result {
-    // String keys still emit a record, so a column named `items` is fine.
-    test()
-        .run(r#"[{items: "a"} {items: "a"}] | group-by items"#)
-        .expect_value_eq(test_value!({
-            a: [{items: "a"}, {items: "a"}],
-        }))?;
-
-    // Non-string keys emit a table, which cannot have two `items` columns.
-    let err = test()
-        .run("[{items: 1} {items: 2}] | group-by items")
-        .expect_shell_error()?;
-    match err {
-        ShellError::Generic(generic) => {
-            assert_contains("items", generic.error.as_ref());
-            Ok(())
-        }
-        err => Err(err.into()),
-    }
-}
-
 #[rstest]
-#[case::items("[] | group-by items --to-table", "can't be named `items`")]
-#[case::duplicate("[] | group-by a a --to-table", "colliding column names")]
-fn to_table_checks_column_names_on_empty_input(
-    #[case] code: &str,
-    #[case] message: &str,
-) -> Result {
+#[case::items("[{items: 1}] | group-by items --to-table", "can't be named `items`")]
+#[case::items_empty("[] | group-by items --to-table", "can't be named `items`")]
+#[case::duplicate_empty("[] | group-by a a --to-table", "colliding column names")]
+fn to_table_checks_column_names(#[case] code: &str, #[case] message: &str) -> Result {
     // `--to-table` always returns a table, so its column names are checked even with no rows.
     match test().run(code).expect_shell_error()? {
         ShellError::Generic(generic) => {

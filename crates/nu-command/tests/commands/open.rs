@@ -214,13 +214,12 @@ fn sqlite_database_operations(#[case] operation: &str, #[case] expected: impl In
 #[case::rotate("rotate --ccw | columns | first", "column0")]
 #[case::group_by(
     "group-by z",
-    test_value!([
-        {z: 1, items: [{z: 1}]},
-        {z: 42, items: [{z: 42}]},
-        {z: 425, items: [{z: 425}]},
-        {z: 4253, items: [{z: 4253}]},
-        {z: (), items: [{z: ()}]},
-    ])
+    test_value!({
+        "1": [{z: 1}],
+        "42": [{z: 42}],
+        "425": [{z: 425}],
+        "4253": [{z: 4253}],
+    })
 )]
 #[case::get("get z.0", 1)]
 #[case::length("length", 5)]
