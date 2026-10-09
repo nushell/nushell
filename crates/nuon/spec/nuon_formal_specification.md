@@ -155,10 +155,11 @@
     - it contains no unicode whitespace, and
     - it contains no unicode decimal digit (general category `Nd`), and
     - it would not read back as some other type.
-    - the quote-forcing set is `! " # $ ' ( ) , . : ; = ? ` [ ] { | }` plus **any** character
+    - the quote-forcing set is `! " # $ ' ( ) , . : ; = ? ` [ ] { | }`, plus **any** character
        with the unicode `White_Space` property, which is wider than `space tab cr lf`. vertical
        tab, form feed, U+0085, U+00A0, U+1680, U+2000..U+200A, U+2028, U+2029, U+202F, U+205F and
-       U+3000 all force quoting.
+       U+3000 all force quoting. NUL (U+0000) is in the set as well, because the reader has to
+       reject a raw one.
         ```nushell
         ["a\u{a0}b" "a\u{3000}b" "a\u{200b}b" "ab"] | each {|s| [$s] | to nuon | str contains (char dq)} | to json -r
         # => [true,true,false,false]
@@ -730,6 +731,9 @@
        but also vertical tab, form feed, U+0085, U+00A0, U+1680, U+2000..U+200A, U+2028, U+2029,
        U+202F, U+205F and U+3000. an ascii-only whitespace test writes those bare and the result
        does not read back as one string.
+    - NUL (U+0000) is in the set too, and is not whitespace: the reader has to reject a raw one,
+       so a writer that leaves it bare produces a document no conforming reader will accept. write
+       it as `\0` inside quotes.
     - `.` and `$` are there because nushell gives them meaning (cell paths, variables), not
        because they are punctuation.
     - **not** in the set: `-`, `/`, `\`, `%`, `&`, `*`, `+`, `<`, `>`, `@`, `^`, `_`, `~`, and

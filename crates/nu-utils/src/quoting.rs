@@ -52,21 +52,19 @@ pub fn escape_quote_string(string: &str) -> String {
 /// Returns a raw string representation if the string contains quotes or backslashes.
 /// Otherwise returns None (caller should use regular quoting or bare string).
 ///
+/// A string containing a NUL also returns None, even when it has a quote or a backslash: a raw
+/// string reproduces its content byte for byte, so it cannot carry the `\0` escape and a NUL
+/// inside one would be written verbatim.
+///
 /// Raw strings avoid escaping by using `r#'...'#` syntax with enough `#` characters
 /// to ensure the closing delimiter is unambiguous.
 ///
 /// Note: Nushell requires at least one `#` in raw strings (i.e., `r#'...'#` not `r'...'`).
 pub fn as_raw_string(s: &str) -> Option<String> {
-    // Only use raw strings if they would avoid escaping
-    if !s.contains('"') && !s.contains('\\') {
-        return None;
-    }
-
-    // A raw string reproduces its content byte for byte, so it cannot carry the
-    // `\0` escape: a NUL inside `r#'...'#` stays a raw NUL in the output, which is
-    // exactly what the caller is escaping. Refuse the raw form and let the value
-    // fall through to `escape_quote_string`, which writes `\0`.
-    if s.contains('\0') {
+    // Only use raw strings if they would avoid escaping. The NUL check comes first so the
+    // scan stays single-pass: a raw string cannot represent `\0` at all, so a NUL-bearing
+    // value has to fall through to `escape_quote_string`, which writes the escape.
+    if s.contains('\0') || !s.contains(['"', '\\']) {
         return None;
     }
 

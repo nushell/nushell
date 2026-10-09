@@ -581,6 +581,11 @@ mod tests {
                 result.starts_with('"'),
                 "--raw-strings must fall back to escaping for {value:?}, got {result:?}"
             );
+            assert_eq!(
+                from_nuon(&result, None).unwrap(),
+                Value::test_string(value),
+                "the escaped form has to read back as the same value"
+            );
         }
     }
 
@@ -596,6 +601,38 @@ mod tests {
         )
         .unwrap();
         assert_eq!(result, r#"r#'hello "world"'#"#);
+    }
+
+    #[test]
+    fn nul_in_a_key_and_in_a_list_element_round_trips() {
+        // A value nested in a container is written by `needs_quoting`, so the key and the
+        // element each need a quoted form that reads back as the same string, not merely
+        // as something that parses.
+        let engine_state = EngineState::new();
+        let val = Value::test_record(record!(
+            "a\0b" => Value::test_list(vec![
+                Value::test_string("c\0d"),
+                Value::test_string("plain"),
+            ]),
+        ));
+
+        let result = to_nuon(&engine_state, &val, ToNuonConfig::default()).unwrap();
+        assert!(
+            !result.contains('\0'),
+            "a raw NUL reached the output: {result:?}"
+        );
+        assert_eq!(from_nuon(&result, None).unwrap(), val);
+    }
+
+    #[test]
+    fn a_top_level_nul_string_round_trips() {
+        // The headline claim of the change is the round trip, so assert it where the writer
+        // is called directly rather than only on a raw-strings configuration.
+        let engine_state = EngineState::new();
+        let val = Value::test_string("a\0b");
+        let result = to_nuon(&engine_state, &val, ToNuonConfig::default()).unwrap();
+        assert_eq!(result, r#""a\0b""#);
+        assert_eq!(from_nuon(&result, None).unwrap(), val);
     }
 
     #[test]
