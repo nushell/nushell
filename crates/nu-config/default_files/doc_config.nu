@@ -3,7 +3,7 @@
 # Warning: This file is intended for documentation purposes only and
 # is not intended to be used as an actual configuration file as-is.
 #
-# version = "0.116.0"
+# version = "0.116.2"
 #
 # A `config.nu` file is used to override default Nushell settings,
 # define (or import) custom commands, or run any other startup tasks.
@@ -760,7 +760,7 @@ $env.config.abbreviations = {}
 # $env.config.abbreviations = {
 #   gs: "git status",
 #   ll: "ls -l",
-#   ptop: "ps | sort-by -r cpu | first 10"
+#   ptop: "ps | compact cpu | sort-by -r cpu | first 10"
 # }
 
 # -----

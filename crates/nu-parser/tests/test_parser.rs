@@ -3890,6 +3890,35 @@ fn accept_valid_list_pattern_semicolons(#[case] pattern: &str) {
     );
 }
 
+/// A second `..` or `..$name` in one list pattern gives one error at the extra rest. The arm
+/// body can still use the extra rest's variable without also getting "Variable not found".
+#[rstest]
+#[case::ignore("[.., 2, ..] => true", "..")]
+#[case::capture("[..$a, 2, ..$b] => $b", "..$b")]
+fn reject_second_list_pattern_rest(#[case] arm: &str, #[case] extra_rest: &str) {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    working_set.add_decl(Box::new(MatchMocked));
+    let source = format!("match [] {{ {arm}, _ => false }}");
+    let _ = parse(&mut working_set, None, source.as_bytes(), false);
+
+    let [error] = working_set.parse_errors.as_slice() else {
+        panic!(
+            "expected one parse error, got {:?}",
+            working_set.parse_errors
+        );
+    };
+    assert!(
+        matches!(error, ParseError::LabeledErrorWithHelp { error, .. }
+            if error == "`..` can only be used once per list pattern"),
+        "unexpected diagnostic: {error:?}"
+    );
+    assert_eq!(
+        working_set.get_span_contents(error.span()),
+        extra_rest.as_bytes()
+    );
+}
+
 #[test]
 fn record_semicolon_gives_separator_help() {
     let engine_state = EngineState::new();

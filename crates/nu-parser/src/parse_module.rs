@@ -1,7 +1,7 @@
 use crate::{
     Token, TokenContents,
     exportable::Exportable,
-    lex,
+    lex_once::lex_file,
     lite_parser::{LiteCommand, LitePipeline, lite_parse},
     parse_helpers::{garbage_pipeline, trim_quotes},
     parse_pipelines::redirecting_builtin_error,
@@ -501,9 +501,9 @@ pub fn parse_module_block(
 
     working_set.enter_scope();
 
-    let source = working_set.get_span_contents(span);
-
-    let (output, err) = lex(source, span.start, &[], &[], false);
+    // A bracket table recorded for the module's file serves only this parse (see `lex_file`).
+    let bracket_tables = working_set.bracket_tables.len();
+    let (output, err) = lex_file(working_set, span, &[], &[], false);
     if let Some(err) = err {
         working_set.error(err)
     }
@@ -531,6 +531,7 @@ pub fn parse_module_block(
         block.pipelines.push(pipeline);
     }
 
+    working_set.bracket_tables.truncate(bracket_tables);
     working_set.exit_scope();
 
     (block, module, module_comments)

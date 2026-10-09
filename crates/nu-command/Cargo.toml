@@ -179,9 +179,6 @@ nix = { workspace = true, default-features = false, features = [
 	"pthread",
 ] }
 
-[target.'cfg(any(target_os = "linux", target_os = "android"))'.dependencies]
-procfs = { workspace = true }
-
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies.trash]
 optional = true
 workspace = true

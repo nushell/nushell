@@ -85,6 +85,13 @@ fn ignores_duplicate_columns_rejected() -> Result {
 }
 
 #[test]
+fn ignores_duplicate_column_differing_only_in_casing() -> Result {
+    test()
+        .run("{a: 1, b: 2} | reject a a! | columns")
+        .expect_value_eq(["b"])
+}
+
+#[test]
 fn ignores_duplicate_rows_rejected() -> Result {
     let code = "$in | reject 2 2";
     let input = test_table![

@@ -629,6 +629,34 @@ fn ide_ast_flag_runs() -> TestResult {
 }
 
 #[test]
+fn ide_complete_out_of_range_locations() -> TestResult {
+    let script_path = unique_temp_script_path("ide_complete_bounds");
+    std::fs::write(&script_path, "ä")?;
+
+    for location in ["-1", "1", "99"] {
+        let mut cmd = Command::new(cargo_bin!());
+        let output = cmd
+            .args([
+                "--no-config-file",
+                "--no-std-lib",
+                "--ide-complete",
+                location,
+                script_path.to_str().unwrap(),
+            ])
+            .output()?;
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+
+        assert!(output.status.success());
+        assert!(stdout.starts_with("{\"completions\":"));
+        assert!(!stderr.contains("panicked"));
+    }
+
+    let _ = std::fs::remove_file(&script_path);
+    Ok(())
+}
+
+#[test]
 fn lsp_flag_accepts_run() -> TestResult {
     let mut cmd = Command::new(cargo_bin!());
     let output = cmd

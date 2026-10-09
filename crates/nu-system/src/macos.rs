@@ -1,131 +1,282 @@
+use crate::process::{ProcessInfo, command_line};
+use crate::unix::{UserNames, c_string};
 use libc::{c_int, c_void, size_t};
-use libproc::libproc::bsd_info::BSDInfo;
-use libproc::libproc::file_info::{ListFDs, ProcFDType, pidfdinfo};
-use libproc::libproc::net_info::{InSockInfo, SocketFDInfo, SocketInfoKind, TcpSockInfo};
 use libproc::libproc::pid_rusage::{RUsageInfoV2, pidrusage};
-use libproc::libproc::proc_pid::{ListThreads, listpidinfo, pidinfo};
-use libproc::libproc::task_info::{TaskAllInfo, TaskInfo};
+use libproc::libproc::proc_pid::{ListThreads, listpidinfo, pidinfo, pidpath};
+use libproc::libproc::task_info::TaskAllInfo;
 use libproc::libproc::thread_info::ThreadInfo;
 use libproc::processes::{ProcFilter, pids_by_type};
 use mach2::mach_time;
+use nix::unistd::{Pid, getsid};
 use nu_utils::time::Instant;
-use std::cmp;
+use std::collections::HashMap;
+use std::ffi::OsString;
+use std::io;
+use std::mem::{MaybeUninit, offset_of, size_of};
+use std::os::unix::ffi::OsStringExt;
 use std::path::{Path, PathBuf};
+use std::ptr;
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-pub struct ProcessInfo {
-    pub pid: i32,
-    pub ppid: i32,
-    pub curr_task: TaskAllInfo,
-    pub prev_task: TaskAllInfo,
-    pub curr_path: Option<PathInfo>,
-    pub curr_threads: Vec<ThreadInfo>,
-    pub curr_udps: Vec<InSockInfo>,
-    pub curr_tcps: Vec<TcpSockInfo>,
-    pub curr_res: Option<RUsageInfoV2>,
-    pub prev_res: Option<RUsageInfoV2>,
-    pub interval: Duration,
-    pub start_time: i64,
-    pub user_id: i64,
-    pub priority: i64,
-    pub task_thread_num: i64,
+/// One reading of the CPU time a process has used.
+struct CpuSample {
+    /// Start time in seconds and microseconds, to detect a reused pid.
+    start: (u64, u64),
+    /// User plus system time, in mach ticks.
+    ticks: u64,
 }
 
-pub fn collect_proc(interval: Duration, _with_thread: bool) -> Vec<ProcessInfo> {
+impl CpuSample {
+    fn new(task: &TaskAllInfo) -> Self {
+        Self {
+            start: (task.pbsd.pbi_start_tvsec, task.pbsd.pbi_start_tvusec),
+            ticks: task_cpu_ticks(task),
+        }
+    }
+}
+
+/// Lists every process, measuring CPU usage over `interval`. When `long` is false, the details
+/// only `ps --long` shows aren't read, so they are `None`. The executable's path is still read
+/// when the name needs it.
+///
+/// The kernel only hands out task, thread, argument and working directory details for the
+/// current user's processes (`/bin/ps` and `top` are setuid root to see everything). The details
+/// that need that access are `None` for other users' processes, which are still listed with the
+/// details that are public.
+pub fn collect_proc(interval: Duration, long: bool) -> Vec<ProcessInfo> {
     let mut base_procs = Vec::new();
-    let mut ret = Vec::new();
     let arg_max = get_arg_max();
 
     if let Ok(procs) = pids_by_type(ProcFilter::All) {
         for p in procs {
-            if let Ok(task) = pidinfo::<TaskAllInfo>(p as i32, 0) {
-                let res = pidrusage::<RUsageInfoV2>(p as i32).ok();
-                let time = Instant::now();
-                base_procs.push((p as i32, task, res, time));
-            }
+            let sample = pidinfo::<TaskAllInfo>(p as i32, 0)
+                .ok()
+                .map(|task| CpuSample::new(&task));
+            base_procs.push((p as i32, sample, Instant::now()));
         }
     }
 
     thread::sleep(interval);
 
-    for (pid, prev_task, prev_res, prev_time) in base_procs {
-        let curr_task = if let Ok(task) = pidinfo::<TaskAllInfo>(pid, 0) {
-            task
-        } else {
-            clone_task_all_info(&prev_task)
-        };
+    let ticktime = mach_ticktime();
+    let kinfo = if long { all_kinfo() } else { HashMap::new() };
+    let mut user_names = UserNames::default();
+    base_procs
+        .into_iter()
+        .filter_map(|(pid, prev_sample, prev_time)| {
+            // SAFETY: `proc_bsdshortinfo` is the struct this flavor returns, and it holds only
+            // integers. A non-zero `arg` makes the kernel find zombies too, so this fails only
+            // once the process has been reaped.
+            let bsd_info: libc::proc_bsdshortinfo =
+                unsafe { pid_info(pid, libc::PROC_PIDT_SHORTBSDINFO, 1) }?;
+            let task = pidinfo::<TaskAllInfo>(pid, 0).ok();
+            let interval = Instant::now().saturating_duration_since(prev_time);
+            // A different start time means the pid was reused during the sample.
+            let cpu_usage = prev_sample
+                .zip(task.as_ref().map(CpuSample::new))
+                .filter(|(prev, curr)| prev.start == curr.start)
+                .map(|(prev, curr)| {
+                    curr.ticks.saturating_sub(prev.ticks) as f64 * ticktime * 100.0
+                        / interval.as_nanos() as f64
+                });
 
-        let curr_path = get_path_info(pid, arg_max);
+            // Arguments, threads, resource usage and the working directory need the same access
+            // as the task info, so don't ask for them when the kernel already refused.
+            let (args, threads, rusage, cwd) = match &task {
+                Some(task) => (
+                    get_path_info(pid, arg_max),
+                    get_threads(pid, task),
+                    long.then(|| pidrusage::<RUsageInfoV2>(pid).ok()).flatten(),
+                    long.then(|| get_cwd(pid)).flatten(),
+                ),
+                None => (None, Vec::new(), None, None),
+            };
+            // The name is the file name of the path the process was started with, and the
+            // command its arguments. When those can't be read, both fall back to the executable,
+            // like `/bin/ps` shows, and the name then to the kernel's (16 character) name.
+            let started = args.as_ref().filter(|args| !args.cmd.is_empty());
+            let exe = (long || started.is_none())
+                .then(|| pidpath(pid).ok().map(PathBuf::from))
+                .flatten();
+            let name = started
+                .map(|args| args.exe.as_path())
+                .or(exe.as_deref())
+                .and_then(Path::file_name)
+                .map(|name| name.to_string_lossy().into_owned())
+                .unwrap_or_else(|| {
+                    c_string(&bsd_info.pbsi_comm.map(|c| c as u8)).unwrap_or_default()
+                });
+            let command = long
+                .then(|| {
+                    started
+                        .and_then(|args| command_line(&args.cmd))
+                        .or_else(|| exe.as_ref().map(|exe| exe.display().to_string()))
+                })
+                .flatten();
+            let ptinfo = task.as_ref().map(|task| &task.ptinfo);
+            let kinfo = kinfo.get(&pid);
 
-        let threadids = listpidinfo::<ListThreads>(pid, curr_task.ptinfo.pti_threadnum as usize);
-        let mut curr_threads = Vec::new();
-        if let Ok(threadids) = threadids {
-            for t in threadids {
-                if let Ok(thread) = pidinfo::<ThreadInfo>(pid, t) {
-                    curr_threads.push(thread);
-                }
-            }
-        }
+            Some(ProcessInfo {
+                pid,
+                ppid: bsd_info.pbsi_ppid as i32,
+                name,
+                command,
+                exe: exe.map(|exe| exe.display().to_string()),
+                user: user_names.get(bsd_info.pbsi_uid),
+                user_id: Some(bsd_info.pbsi_uid),
+                status: process_status(bsd_info.pbsi_status, &threads),
+                cpu_usage,
+                cpu_time: task.as_ref().map(|task| {
+                    Duration::from_nanos((task_cpu_ticks(task) as f64 * ticktime) as u64)
+                }),
+                mem_size: ptinfo.map(|info| info.pti_resident_size),
+                virtual_size: ptinfo.map(|info| info.pti_virtual_size),
+                // The physical footprint: the memory the process alone is responsible for,
+                // including what the system compressed or swapped. Activity Monitor shows this
+                // as "Memory".
+                private_size: rusage.as_ref().map(|usage| usage.ri_phys_footprint),
+                disk_read: rusage.as_ref().map(|usage| usage.ri_diskio_bytesread),
+                disk_written: rusage.as_ref().map(|usage| usage.ri_diskio_byteswritten),
+                start_time: kinfo.and_then(KinfoProc::start_time),
+                process_group_id: Some(bsd_info.pbsi_pgid as i32),
+                // `getsid(0)` reads the calling process, so kernel_task's session isn't readable.
+                session_id: (long && pid != 0)
+                    .then(|| getsid(Some(Pid::from_raw(pid))).ok())
+                    .flatten()
+                    .map(|sid| sid.as_raw().into()),
+                // The Mach task priority
+                priority: ptinfo.map(|info| info.pti_priority.into()),
+                nice: kinfo.map(|kinfo| kinfo.p_nice.into()),
+                thread_count: ptinfo.map(|info| info.pti_threadnum.into()),
+                cwd: cwd.map(|cwd| cwd.display().to_string()),
+                // The environment the process started with
+                environ: args.filter(|_| long).map(|args| args.env),
+            })
+        })
+        .collect()
+}
 
-        let mut curr_tcps = Vec::new();
-        let mut curr_udps = Vec::new();
+/// Reads a fixed-size `proc_pidinfo` flavor, or `None` if the kernel refuses or the process
+/// doesn't exist. `arg` means something different for each flavor.
+///
+/// # Safety
+///
+/// `T` must be the struct the kernel returns for `flavor`, and every bit pattern, including all
+/// zeroes, must be a valid `T`: plain integers and arrays of them, no `bool`, enum or pointer.
+unsafe fn pid_info<T>(pid: i32, flavor: c_int, arg: u64) -> Option<T> {
+    let size = size_of::<T>() as c_int;
+    let mut info = MaybeUninit::<T>::zeroed();
+    // SAFETY: the buffer is `size` bytes, and the kernel writes at most that many.
+    let written = unsafe { libc::proc_pidinfo(pid, flavor, arg, info.as_mut_ptr().cast(), size) };
+    // SAFETY: the kernel filled the whole buffer, and the caller guarantees that any bytes make
+    // a valid `T`.
+    (written == size).then(|| unsafe { info.assume_init() })
+}
 
-        let fds = listpidinfo::<ListFDs>(pid, curr_task.pbsd.pbi_nfiles as usize);
-        if let Ok(fds) = fds {
-            for fd in fds {
-                if let ProcFDType::Socket = fd.proc_fdtype.into()
-                    && let Ok(socket) = pidfdinfo::<SocketFDInfo>(pid, fd.proc_fd)
-                {
-                    match socket.psi.soi_kind.into() {
-                        SocketInfoKind::In => {
-                            if socket.psi.soi_protocol == libc::IPPROTO_UDP {
-                                let info = unsafe { socket.psi.soi_proto.pri_in };
-                                curr_udps.push(info);
-                            }
-                        }
-                        SocketInfoKind::Tcp => {
-                            let info = unsafe { socket.psi.soi_proto.pri_tcp };
-                            curr_tcps.push(info);
-                        }
-                        _ => (),
-                    }
-                }
-            }
-        }
+fn get_threads(pid: i32, task: &TaskAllInfo) -> Vec<ThreadInfo> {
+    listpidinfo::<ListThreads>(pid, task.ptinfo.pti_threadnum as usize)
+        .map(|ids| {
+            ids.into_iter()
+                .filter_map(|id| pidinfo::<ThreadInfo>(pid, id).ok())
+                .collect()
+        })
+        .unwrap_or_default()
+}
 
-        let curr_res = pidrusage::<RUsageInfoV2>(pid).ok();
+/// The real current working directory. The `PWD` environment variable only records the
+/// directory the process was started in.
+fn get_cwd(pid: i32) -> Option<PathBuf> {
+    // SAFETY: `proc_vnodepathinfo` is the struct this flavor returns, and it holds only integers
+    // and character arrays. The flavor ignores `arg`.
+    let info: libc::proc_vnodepathinfo = unsafe { pid_info(pid, libc::PROC_PIDVNODEPATHINFO, 0) }?;
+    let path: Vec<u8> = info
+        .pvi_cdir
+        .vip_path
+        .as_flattened()
+        .iter()
+        .take_while(|c| **c != 0)
+        .map(|c| *c as u8)
+        .collect();
+    (!path.is_empty()).then(|| PathBuf::from(OsString::from_vec(path)))
+}
 
-        let curr_time = Instant::now();
-        let interval = curr_time.saturating_duration_since(prev_time);
-        let ppid = curr_task.pbsd.pbi_ppid as i32;
-        let start_time = curr_task.pbsd.pbi_start_tvsec as i64;
-        let user_id = curr_task.pbsd.pbi_uid as i64;
-        let priority = curr_task.ptinfo.pti_priority as i64;
-        let task_thread_num = curr_task.ptinfo.pti_threadnum as i64;
+/// Darwin's `struct kinfo_proc` from `<sys/sysctl.h>`, which starts with `struct extern_proc`
+/// from `<sys/proc.h>`. libc doesn't define them for Apple targets, so this names only the
+/// fields `ps` reads, at their offsets in the 648-byte struct of 64-bit targets, the size of each
+/// entry `KERN_PROC_ALL` returns.
+#[repr(C)]
+struct KinfoProc {
+    /// `kp_proc.p_starttime`
+    p_starttime: libc::timeval,
+    _before_pid: [u8; 40 - size_of::<libc::timeval>()],
+    /// `kp_proc.p_pid`
+    p_pid: libc::pid_t,
+    _before_nice: [u8; 242 - 44],
+    /// `kp_proc.p_nice`
+    p_nice: libc::c_char,
+    _rest: [u8; 648 - 243],
+}
 
-        let proc = ProcessInfo {
-            pid,
-            ppid,
-            curr_task,
-            prev_task,
-            curr_path,
-            curr_threads,
-            curr_udps,
-            curr_tcps,
-            curr_res,
-            prev_res,
-            interval,
-            start_time,
-            user_id,
-            priority,
-            task_thread_num,
-        };
+const _: () = assert!(
+    offset_of!(KinfoProc, p_pid) == 40
+        && offset_of!(KinfoProc, p_nice) == 242
+        && size_of::<KinfoProc>() == 648
+);
 
-        ret.push(proc);
+impl KinfoProc {
+    /// When the process started
+    fn start_time(&self) -> Option<SystemTime> {
+        let start = self.p_starttime;
+        let since_epoch = Duration::from_secs(start.tv_sec.try_into().ok()?)
+            .checked_add(Duration::from_micros(start.tv_usec.try_into().ok()?))?;
+        UNIX_EPOCH.checked_add(since_epoch)
     }
+}
 
-    ret
+/// Reads every process's `kinfo_proc` with one `KERN_PROC_ALL` sysctl, keyed by pid. Unlike
+/// `proc_pidinfo`, it covers every user's process, kernel_task and zombies included. Reading one
+/// pid at a time with `KERN_PROC_PID` would walk the kernel's process list once per process.
+fn all_kinfo() -> HashMap<i32, KinfoProc> {
+    let mut mib = [libc::CTL_KERN, libc::KERN_PROC, libc::KERN_PROC_ALL];
+    let mut sysctl = |buffer: *mut c_void, size: &mut size_t| {
+        // SAFETY: `buffer` is either null, which only asks for the size, or has room for `size`
+        // bytes, and the kernel writes at most that many.
+        unsafe {
+            libc::sysctl(
+                mib.as_mut_ptr(),
+                mib.len() as u32,
+                buffer,
+                size,
+                ptr::null_mut(),
+                0,
+            )
+        }
+    };
+    // Processes can start between the size query and the read, which then fails with ENOMEM,
+    // so leave some room and try again.
+    for _ in 0..4 {
+        let mut size = 0;
+        if sysctl(ptr::null_mut(), &mut size) != 0 {
+            break;
+        }
+        let mut procs = Vec::<KinfoProc>::with_capacity(size / size_of::<KinfoProc>() + 16);
+        size = procs.capacity() * size_of::<KinfoProc>();
+        if sysctl(procs.as_mut_ptr().cast(), &mut size) != 0 {
+            if io::Error::last_os_error().raw_os_error() == Some(libc::ENOMEM) {
+                continue;
+            }
+            break;
+        }
+        // SAFETY: the kernel wrote `size` bytes of whole structs, whose fields are all plain
+        // integers.
+        unsafe { procs.set_len(size / size_of::<KinfoProc>()) };
+        return procs
+            .into_iter()
+            .map(|kinfo| (kinfo.p_pid, kinfo))
+            .collect();
+    }
+    HashMap::new()
 }
 
 fn get_arg_max() -> size_t {
@@ -146,26 +297,29 @@ fn get_arg_max() -> size_t {
     arg_max as size_t
 }
 
-pub struct PathInfo {
-    pub name: String,
-    pub exe: PathBuf,
-    pub root: PathBuf,
-    pub cmd: Vec<String>,
-    pub env: Vec<String>,
-    pub cwd: PathBuf,
+/// What `KERN_PROCARGS2` reports: the path passed to `exec`, the arguments and the environment
+/// the process started with.
+struct PathInfo {
+    exe: PathBuf,
+    cmd: Vec<String>,
+    env: Vec<String>,
 }
 
-unsafe fn get_unchecked_str(cp: *mut u8, start: *mut u8) -> String {
-    unsafe {
-        let len = (cp as usize).saturating_sub(start as usize);
-        let part = std::slice::from_raw_parts(start, len);
-        String::from_utf8_unchecked(part.to_vec())
-    }
+/// Decodes the bytes from `start` up to `cp`, replacing invalid UTF-8.
+///
+/// # Safety
+///
+/// `start..cp` must lie inside one initialized buffer.
+unsafe fn lossy_str(cp: *mut u8, start: *mut u8) -> String {
+    let len = (cp as usize).saturating_sub(start as usize);
+    // SAFETY: the caller guarantees that `start..cp` is initialized memory in one buffer.
+    let part = unsafe { std::slice::from_raw_parts(start, len) };
+    String::from_utf8_lossy(part).into_owned()
 }
 
 fn get_path_info(pid: i32, mut size: size_t) -> Option<PathInfo> {
-    let mut proc_args = Vec::with_capacity(size);
-    let ptr: *mut u8 = proc_args.as_mut_slice().as_mut_ptr();
+    let mut proc_args: Vec<u8> = Vec::with_capacity(size);
+    let ptr: *mut u8 = proc_args.as_mut_ptr();
 
     let mut mib: [c_int; 3] = [libc::CTL_KERN, libc::KERN_PROCARGS2, pid as c_int];
 
@@ -191,21 +345,7 @@ fn get_path_info(pid: i32, mut size: size_t) -> Option<PathInfo> {
                 while cp < ptr.add(size) && *cp != 0 {
                     cp = cp.offset(1);
                 }
-                let exe = Path::new(get_unchecked_str(cp, start).as_str()).to_path_buf();
-                let name = exe
-                    .file_name()
-                    .unwrap_or_default()
-                    .to_str()
-                    .unwrap_or("")
-                    .to_owned();
-                let mut need_root = true;
-                let mut root = Default::default();
-                if exe.is_absolute()
-                    && let Some(parent) = exe.parent()
-                {
-                    root = parent.to_path_buf();
-                    need_root = false;
-                }
+                let exe = Path::new(lossy_str(cp, start).as_str()).to_path_buf();
                 while cp < ptr.add(size) && *cp == 0 {
                     cp = cp.offset(1);
                 }
@@ -215,45 +355,25 @@ fn get_path_info(pid: i32, mut size: size_t) -> Option<PathInfo> {
                 while c < n_args && cp < ptr.add(size) {
                     if *cp == 0 {
                         c += 1;
-                        cmd.push(get_unchecked_str(cp, start));
+                        cmd.push(lossy_str(cp, start));
                         start = cp.offset(1);
                     }
                     cp = cp.offset(1);
                 }
                 start = cp;
                 let mut env = Vec::new();
-                let mut cwd = PathBuf::default();
                 while cp < ptr.add(size) {
                     if *cp == 0 {
                         if cp == start {
                             break;
                         }
-                        let env_str = get_unchecked_str(cp, start);
-                        if let Some(pwd) = env_str.strip_prefix("PWD=") {
-                            cwd = PathBuf::from(pwd)
-                        }
-                        env.push(env_str);
+                        env.push(lossy_str(cp, start));
                         start = cp.offset(1);
                     }
                     cp = cp.offset(1);
                 }
-                if need_root {
-                    for env in env.iter() {
-                        if env.starts_with("PATH=") {
-                            root = Path::new(&env[6..]).to_path_buf();
-                            break;
-                        }
-                    }
-                }
 
-                Some(PathInfo {
-                    exe,
-                    name,
-                    root,
-                    cmd,
-                    env,
-                    cwd,
-                })
+                Some(PathInfo { exe, cmd, env })
             } else {
                 None
             }
@@ -263,178 +383,40 @@ fn get_path_info(pid: i32, mut size: size_t) -> Option<PathInfo> {
     }
 }
 
-fn clone_task_all_info(src: &TaskAllInfo) -> TaskAllInfo {
-    let pbsd = BSDInfo {
-        pbi_flags: src.pbsd.pbi_flags,
-        pbi_status: src.pbsd.pbi_status,
-        pbi_xstatus: src.pbsd.pbi_xstatus,
-        pbi_pid: src.pbsd.pbi_pid,
-        pbi_ppid: src.pbsd.pbi_ppid,
-        pbi_uid: src.pbsd.pbi_uid,
-        pbi_gid: src.pbsd.pbi_gid,
-        pbi_ruid: src.pbsd.pbi_ruid,
-        pbi_rgid: src.pbsd.pbi_rgid,
-        pbi_svuid: src.pbsd.pbi_svuid,
-        pbi_svgid: src.pbsd.pbi_svgid,
-        rfu_1: src.pbsd.rfu_1,
-        pbi_comm: src.pbsd.pbi_comm,
-        pbi_name: src.pbsd.pbi_name,
-        pbi_nfiles: src.pbsd.pbi_nfiles,
-        pbi_pgid: src.pbsd.pbi_pgid,
-        pbi_pjobc: src.pbsd.pbi_pjobc,
-        e_tdev: src.pbsd.e_tdev,
-        e_tpgid: src.pbsd.e_tpgid,
-        pbi_nice: src.pbsd.pbi_nice,
-        pbi_start_tvsec: src.pbsd.pbi_start_tvsec,
-        pbi_start_tvusec: src.pbsd.pbi_start_tvusec,
-    };
-
-    // Comments taken from here https://github.com/apple-oss-distributions/xnu/blob/8d741a5de7ff4191bf97d57b9f54c2f6d4a15585/bsd/sys/proc_info.h#L127
-    let ptinfo = TaskInfo {
-        // virtual memory size (bytes)
-        pti_virtual_size: src.ptinfo.pti_virtual_size,
-        // resident memory size (bytes)
-        pti_resident_size: src.ptinfo.pti_resident_size,
-        // total user time
-        pti_total_user: src.ptinfo.pti_total_user,
-        // total system time
-        pti_total_system: src.ptinfo.pti_total_system,
-        // existing threads only user
-        pti_threads_user: src.ptinfo.pti_threads_user,
-        // existing threads only system
-        pti_threads_system: src.ptinfo.pti_threads_system,
-        // default policy for new threads
-        pti_policy: src.ptinfo.pti_policy,
-        // number of page faults
-        pti_faults: src.ptinfo.pti_faults,
-        // number of actual pageins
-        pti_pageins: src.ptinfo.pti_pageins,
-        // number of copy-on-write faults
-        pti_cow_faults: src.ptinfo.pti_cow_faults,
-        // number of messages sent
-        pti_messages_sent: src.ptinfo.pti_messages_sent,
-        // number of messages received
-        pti_messages_received: src.ptinfo.pti_messages_received,
-        // number of mach system calls
-        pti_syscalls_mach: src.ptinfo.pti_syscalls_mach,
-        // number of unix system calls
-        pti_syscalls_unix: src.ptinfo.pti_syscalls_unix,
-        // number of context switches
-        pti_csw: src.ptinfo.pti_csw,
-        // number of threads in the task
-        pti_threadnum: src.ptinfo.pti_threadnum,
-        // number of running threads
-        pti_numrunning: src.ptinfo.pti_numrunning,
-        // task priority
-        pti_priority: src.ptinfo.pti_priority,
-    };
-    TaskAllInfo { pbsd, ptinfo }
+/// The state of a process. Zombies and stopped processes report theirs in `pbsi_status`, and
+/// every other process reports `SRUN` there, so its real state comes from its threads.
+fn process_status(bsd_status: u32, threads: &[ThreadInfo]) -> Option<&'static str> {
+    match bsd_status {
+        libc::SZOMB => return Some("Zombie"),
+        libc::SSTOP => return Some("Stopped"),
+        _ => {}
+    }
+    let state = threads
+        .iter()
+        .map(|t| match t.pth_run_state {
+            1 => 1, // TH_STATE_RUNNING
+            2 => 5, // TH_STATE_STOPPED
+            // The kernel reports a `pth_sleep_time` of 0 for every thread, so a long sleep
+            // can't be told from a short one.
+            3 => 3, // TH_STATE_WAITING
+            4 => 2, // TH_STATE_UNINTERRUPTIBLE
+            5 => 6, // TH_STATE_HALTED
+            _ => 7,
+        })
+        .min()?;
+    Some(match state {
+        1 => "Running",
+        2 => "Uninterruptible",
+        3 => "Sleeping",
+        5 => "Stopped",
+        6 => "Halted",
+        _ => "Unknown",
+    })
 }
 
-impl ProcessInfo {
-    /// PID of process
-    pub fn pid(&self) -> i32 {
-        self.pid
-    }
-
-    /// Parent PID of process
-    pub fn ppid(&self) -> i32 {
-        self.ppid
-    }
-
-    /// Name of command
-    pub fn name(&self) -> String {
-        if let Some(path) = &self.curr_path {
-            if !path.cmd.is_empty() {
-                let command_path = &path.exe;
-
-                if let Some(command_name) = command_path.file_name() {
-                    command_name.to_string_lossy().to_string()
-                } else {
-                    command_path.to_string_lossy().to_string()
-                }
-            } else {
-                String::from("")
-            }
-        } else {
-            String::from("")
-        }
-    }
-
-    /// Full name of command, with arguments
-    pub fn command(&self) -> String {
-        if let Some(path) = &self.curr_path {
-            if !path.cmd.is_empty() {
-                path.cmd.join(" ").replace(['\n', '\t'], " ")
-            } else {
-                String::new()
-            }
-        } else {
-            String::new()
-        }
-    }
-
-    /// Get the status of the process
-    pub fn status(&self) -> String {
-        let mut state = 7;
-        for t in &self.curr_threads {
-            let s = match t.pth_run_state {
-                1 => 1, // TH_STATE_RUNNING
-                2 => 5, // TH_STATE_STOPPED
-                3 => {
-                    if t.pth_sleep_time > 20 {
-                        4
-                    } else {
-                        3
-                    }
-                } // TH_STATE_WAITING
-                4 => 2, // TH_STATE_UNINTERRUPTIBLE
-                5 => 6, // TH_STATE_HALTED
-                _ => 7,
-            };
-            state = cmp::min(s, state);
-        }
-        let state = match state {
-            0 => "",
-            1 => "Running",
-            2 => "Uninterruptible",
-            3 => "Sleep",
-            4 => "Waiting",
-            5 => "Stopped",
-            6 => "Halted",
-            _ => "?",
-        };
-        state.to_string()
-    }
-
-    /// CPU usage as a percent of total
-    pub fn cpu_usage(&self) -> f64 {
-        let curr_time =
-            self.curr_task.ptinfo.pti_total_user + self.curr_task.ptinfo.pti_total_system;
-        let prev_time =
-            self.prev_task.ptinfo.pti_total_user + self.prev_task.ptinfo.pti_total_system;
-        let usage_ticks = curr_time.saturating_sub(prev_time);
-        let interval_us = self.interval.as_micros();
-        let ticktime_us = mach_ticktime() / 1000.0;
-        usage_ticks as f64 * 100.0 * ticktime_us / interval_us as f64
-    }
-
-    /// Memory size in number of bytes
-    pub fn mem_size(&self) -> u64 {
-        self.curr_task.ptinfo.pti_resident_size
-    }
-
-    /// Virtual memory size in bytes
-    pub fn virtual_size(&self) -> u64 {
-        self.curr_task.ptinfo.pti_virtual_size
-    }
-
-    pub fn cwd(&self) -> String {
-        self.curr_path
-            .as_ref()
-            .map(|cur_path| cur_path.cwd.display().to_string())
-            .unwrap_or_default()
-    }
+/// User plus system time of a task, in mach ticks.
+fn task_cpu_ticks(task: &TaskAllInfo) -> u64 {
+    task.ptinfo.pti_total_user + task.ptinfo.pti_total_system
 }
 
 /// The Macos kernel returns process times in mach ticks rather than nanoseconds.  To get times in

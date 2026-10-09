@@ -13,7 +13,7 @@ use nu_protocol::{
     SyntaxShape, Type, TypeSet,
     ast::*,
     did_you_mean,
-    engine::{CommandType, StateWorkingSet},
+    engine::{CommandType, StateWorkingSet, longest_decl_name},
 };
 use std::str;
 
@@ -993,12 +993,8 @@ pub fn parse_internal_call(
     // see https://github.com/nushell/nushell/pull/14922
     // Incorrect behavior this may cause will be handled by
     // `check_pipeline_type` in crates/nu-parser/src/type_check.rs
-    let output = signature
-        .get_output_type(
-            input_type
-                .map(|ty| ty.clone().union(Type::Nothing))
-                .as_ref(),
-        )
+    let output = working_set
+        .call_output_type(decl_id, &signature, input_type)
         .unwrap_or(Type::Error);
 
     // This is necessary for some keywords to have proper expression types.
@@ -1508,13 +1504,18 @@ pub fn parse_internal_call(
             // ```nu
             // loop { try { } catch {|e| break } }
             // ```
-            // Thus, we discard the compilation error here
+            // Thus, we discard the compilation error here, but only the clause's own: when the
+            // clause's closure compiled, the error comes from a closure or `def` body nested in
+            // it, which is compiled on its own and really is outside any loop.
             if let SyntaxShape::OneOf(ref shapes) = positional.shape {
                 for one_shape in shapes {
                     if let SyntaxShape::Keyword(keyword, ..) = one_shape
                         && keyword == b"catch"
                         && let [nu_protocol::CompileError::NotInALoop { .. }] =
                             &working_set.compile_errors[compile_error_count..]
+                        && let Expr::Keyword(clause) = &arg.expr
+                        && let Expr::Closure(block_id) = clause.expr.expr
+                        && working_set.get_block(block_id).ir_block.is_none()
                     {
                         working_set.compile_errors.truncate(compile_error_count);
                     }
@@ -1901,26 +1902,34 @@ pub fn find_longest_decl_with_prefix(
 ) {
     let cmd_start = 0;
 
-    // Find the longest group of words that could form a command. The candidate with all the
-    // words is built once; shorter candidates are its prefixes, so they are obtained by
-    // truncating at the recorded word boundaries instead of rebuilding the name each time.
-    let name_len = prefix.len()
-        + spans
-            .iter()
-            .map(|span| span.end.saturating_sub(span.start) + 1)
-            .sum::<usize>();
-    let mut name = Vec::with_capacity(name_len);
+    // Find the longest group of words that could form a command. The longest candidate is built
+    // once; shorter candidates are its prefixes, so they are obtained by truncating at the
+    // recorded word boundaries instead of rebuilding the name each time. A candidate longer than
+    // every declared name cannot match, so the longest candidate built is the longest one within
+    // that bound (but always the first word). Otherwise a call like `each { ... }` would copy the
+    // whole closure into a name only to have every lookup reject it. The buffer is sized for the
+    // call's own words, up to the bound, which one long name anywhere in the process can make large.
+    let bound = longest_decl_name();
+    let words_len = spans
+        .iter()
+        .map(|span| span.end.saturating_sub(span.start) + 1)
+        .sum::<usize>();
+    let mut name = Vec::with_capacity(prefix.len() + words_len.min(bound + 1));
     name.extend(prefix);
     let mut word_ends = Vec::with_capacity(spans.len());
     for word_span in spans {
         let name_part = working_set.get_span_contents(*word_span);
-        if !name.is_empty() {
+        let separator = usize::from(!name.is_empty());
+        if !word_ends.is_empty() && name.len() + separator + name_part.len() > bound {
+            break;
+        }
+        if separator == 1 {
             name.push(b' ');
         }
         name.extend(name_part);
         word_ends.push(name.len());
     }
-    let mut pos = spans.len();
+    let mut pos = word_ends.len();
 
     let mut maybe_decl_id = working_set.find_decl(&name);
 
@@ -1980,8 +1989,7 @@ pub fn parse_shorter_head_reading(
     head: Span,
     input_type: Option<&Type>,
 ) -> Option<Expression> {
-    let contents = working_set.get_span_contents(head).to_vec();
-    let (tokens, _) = crate::lex::lex(&contents, head.start, &[], &[], true);
+    let (tokens, _) = crate::lex_once::lex_span(working_set, head, &[], &[], true);
     let spans: Vec<Span> = tokens.into_iter().map(|token| token.span).collect();
 
     // Only multi-word heads have a shorter reading.

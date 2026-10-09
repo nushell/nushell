@@ -224,7 +224,7 @@ fn reject(
     let mut input = input.into_stream_or_original(engine_state);
     let mut unique_rows: HashSet<usize> = HashSet::new();
     let mut metadata = input.take_metadata();
-    let mut new_columns = vec![];
+    let mut new_columns: Vec<CellPath> = vec![];
     let mut new_rows = vec![];
     for column in cell_paths {
         let CellPath { ref members } = column;
@@ -243,7 +243,7 @@ fn reject(
                 }
             }
             _ => {
-                if !new_columns.contains(&column) {
+                if !new_columns.iter().any(|c| c.eq_ignore_casing(&column)) {
                     new_columns.push(column)
                 }
             }
