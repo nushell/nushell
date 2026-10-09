@@ -189,22 +189,21 @@ export def datetime-diff [
     let from_time_ns = (($from_expanded.hour * 3600 + $from_expanded.minute * 60 + $from_expanded.second) * 1_000_000_000) + ($from_expanded.millisecond * 1_000_000) + ($from_expanded.microsecond * 1_000) + $from_expanded.nanosecond
     let to_time_ns = (($to_expanded.hour * 3600 + $to_expanded.minute * 60 + $to_expanded.second) * 1_000_000_000) + ($to_expanded.millisecond * 1_000_000) + ($to_expanded.microsecond * 1_000) + $to_expanded.nanosecond
 
-    # Compute year/month/day together: find how many whole months fit between the
-    # two dates (clamping the day to the month length), then the remaining days.
-    # Borrowing a month by table lookup under-borrows when the earlier date is at
-    # the end of a month (e.g. Jan 31 -> Mar 1), leaving a negative or short day.
+    # Count the whole months between the dates from the raw day of month (and, on
+    # equal days, the time of day), then measure the remaining days from the
+    # anchor: the earlier date advanced by those months, its day clamped to the
+    # anchor month's length. Borrowing a month by table lookup instead
+    # under-counted the days whenever the earlier date sat at the end of a month
+    # (Jan 31 -> Mar 1), while letting the clamped anchor itself decide the month
+    # count would round such a short month up into a whole one.
     mut total_months = (($from_expanded.year - $to_expanded.year) * 12) + ($from_expanded.month - $to_expanded.month)
-    mut anchor = (add-months-clamp $to_expanded.year $to_expanded.month $to_expanded.day $total_months)
-    let later_days = (days-from-civil $from_expanded.year $from_expanded.month $from_expanded.day)
-    mut anchor_days = (days-from-civil $anchor.year $anchor.month $anchor.day)
-    if ($anchor_days > $later_days) or (($anchor_days == $later_days) and ($to_time_ns > $from_time_ns)) {
+    if ($from_expanded.day < $to_expanded.day) or (($from_expanded.day == $to_expanded.day) and ($to_time_ns > $from_time_ns)) {
         $total_months = $total_months - 1
-        $anchor = (add-months-clamp $to_expanded.year $to_expanded.month $to_expanded.day $total_months)
-        $anchor_days = (days-from-civil $anchor.year $anchor.month $anchor.day)
     }
+    let anchor = (add-months-clamp $to_expanded.year $to_expanded.month $to_expanded.day $total_months)
     $result.year = (floor-div $total_months 12)
     $result.month = $total_months mod 12
-    $result.day = $later_days - $anchor_days
+    $result.day = (days-from-civil $from_expanded.year $from_expanded.month $from_expanded.day) - (days-from-civil $anchor.year $anchor.month $anchor.day)
 
     $result.hour = $from_expanded.hour - $to_expanded.hour
     if $result.hour < 0 {

@@ -95,3 +95,63 @@ def month_end_30_to_first_of_month [] {
     let earlier = ('2023-05-31T00:00:00z' | into datetime)
     assert equal (datetime-diff $later $earlier) ({year:0, month:1, day:1, hour:0, minute:0, second:0, millisecond:0, microsecond:0 nanosecond:0})
 }
+
+@test
+def clamped_anchor_does_not_complete_a_month [] {
+    # Jan 31 -> Feb 28 is not a completed month: the anchor's day is clamped to
+    # Feb 28, but the raw day of month decides, so all 28 days remain as days.
+    let later = ('2023-02-28T00:00:00z' | into datetime)
+    let earlier = ('2023-01-31T00:00:00z' | into datetime)
+    assert equal (datetime-diff $later $earlier) ({year:0, month:0, day:28, hour:0, minute:0, second:0, millisecond:0, microsecond:0 nanosecond:0})
+}
+
+@test
+def month_end_to_last_day_of_30_day_month [] {
+    # Same shape for a 30-day month: Mar 31 -> Apr 30 stays 30 days.
+    let later = ('2023-04-30T00:00:00z' | into datetime)
+    let earlier = ('2023-03-31T00:00:00z' | into datetime)
+    assert equal (datetime-diff $later $earlier) ({year:0, month:0, day:30, hour:0, minute:0, second:0, millisecond:0, microsecond:0 nanosecond:0})
+}
+
+@test
+def leap_day_to_clamped_anniversary [] {
+    # Feb 29 -> Feb 28 a year later: the anchor is clamped, so the last day is
+    # not yet a full year.
+    let later = ('2025-02-28T00:00:00z' | into datetime)
+    let earlier = ('2024-02-29T00:00:00z' | into datetime)
+    assert equal (datetime-diff $later $earlier) ({year:0, month:11, day:30, hour:0, minute:0, second:0, millisecond:0, microsecond:0 nanosecond:0})
+}
+
+@test
+def month_end_with_time_of_day [] {
+    # A later time of day does not make up for the missing day of the month.
+    let later = ('2023-02-28T13:00:00z' | into datetime)
+    let earlier = ('2023-01-31T12:00:00z' | into datetime)
+    assert equal (datetime-diff $later $earlier) ({year:0, month:0, day:28, hour:1, minute:0, second:0, millisecond:0, microsecond:0 nanosecond:0})
+}
+
+@test
+def month_end_borrowing_a_day_from_the_time_of_day [] {
+    # The remaining 28 days still lose one to the time of day, leaving 27 days
+    # 18 hours, and the borrow must not fall through to borrow a whole month.
+    let later = ('2023-02-28T06:00:00z' | into datetime)
+    let earlier = ('2023-01-31T12:00:00z' | into datetime)
+    assert equal (datetime-diff $later $earlier) ({year:0, month:0, day:27, hour:18, minute:0, second:0, millisecond:0, microsecond:0 nanosecond:0})
+}
+
+@test
+def month_end_across_a_year_rollover [] {
+    # Dec 31 -> Mar 1 keeps the year rollover and the clamped February anchor.
+    let later = ('2023-03-01T00:00:00z' | into datetime)
+    let earlier = ('2022-12-31T00:00:00z' | into datetime)
+    assert equal (datetime-diff $later $earlier) ({year:0, month:2, day:1, hour:0, minute:0, second:0, millisecond:0, microsecond:0 nanosecond:0})
+}
+
+@test
+def clamped_day_that_is_not_a_month_end [] {
+    # Jan 29 -> Mar 1: the anchor is Feb 28, i.e. the day was clamped even though
+    # neither date is at a month end, and the extra day must still be counted.
+    let later = ('2023-03-01T00:00:00z' | into datetime)
+    let earlier = ('2023-01-29T00:00:00z' | into datetime)
+    assert equal (datetime-diff $later $earlier) ({year:0, month:1, day:1, hour:0, minute:0, second:0, millisecond:0, microsecond:0 nanosecond:0})
+}
