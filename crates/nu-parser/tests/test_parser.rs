@@ -840,6 +840,72 @@ pub fn parse_attributes_external_alias() {
     assert!(parse_error.contains("Encountered error during parse-time evaluation"));
 }
 
+#[rstest]
+#[case::double_space("foo  bar")]
+#[case::leading_space(" foo")]
+#[case::trailing_space("foo ")]
+#[case::tab("foo\tbar")]
+pub fn parse_rejects_irregular_whitespace_in_command_names(#[case] name: &str) {
+    // https://github.com/nushell/nushell/issues/15539
+    // A call is looked up by its words joined with single spaces, so a name
+    // with any other whitespace could never be called.
+    let first_error = |source: &str| {
+        let engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        working_set.add_decl(Box::new(Def));
+        working_set.add_decl(Box::new(Alias));
+        working_set.add_decl(Box::new(AttrEcho));
+        let _ = parse(&mut working_set, None, source.as_bytes(), false);
+        working_set.parse_errors.first().cloned()
+    };
+
+    for source in [
+        format!("def \"{name}\" [] {{}}"),
+        format!("extern \"{name}\" []"),
+    ] {
+        assert!(
+            matches!(
+                first_error(&source),
+                Some(ParseError::CommandDefNotValid(_))
+            ),
+            "{source:?}"
+        );
+    }
+
+    let source = format!("alias \"{name}\" = attr echo");
+    assert!(
+        matches!(first_error(&source), Some(ParseError::AliasNotValid(_))),
+        "{source:?}"
+    );
+}
+
+#[test]
+pub fn parse_accepts_single_spaces_in_command_names() {
+    let mut engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    working_set.add_decl(Box::new(Def));
+    working_set.add_decl(Box::new(Alias));
+    working_set.add_decl(Box::new(AttrEcho));
+
+    let _ = engine_state.merge_delta(working_set.render());
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    let source = br#"
+    def "foo bar" [] {}
+    alias "foo bar baz" = attr echo
+    "#;
+    let _ = parse(&mut working_set, None, source, false);
+
+    assert!(
+        working_set.parse_errors.is_empty(),
+        "{:?}",
+        working_set.parse_errors
+    );
+    assert!(working_set.find_decl(b"foo bar").is_some());
+    assert!(working_set.find_decl(b"foo bar baz").is_some());
+}
+
 #[test]
 pub fn parse_aliased_variable_in() {
     // https://github.com/nushell/nushell/issues/13706
