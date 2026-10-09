@@ -114,7 +114,9 @@ pub enum CommandType {
 /// so that the common single-word head needs no string building at all.
 #[derive(Debug, Default)]
 pub(crate) struct CommandSet {
+    /// Every name, its words separated by single spaces.
     names: NameSet,
+    /// The first word of each multi-word name.
     prefixes: NameSet,
     /// The length of the longest name.
     longest: usize,
@@ -130,8 +132,10 @@ type NameSet = HashSet<Box<str>, BuildHasherDefault<NameHasher>>;
 struct NameHasher(u64);
 
 impl NameHasher {
+    /// FxHash's multiplier.
     const SEED: u64 = 0x51_7c_c1_b7_27_22_0a_95;
 
+    /// Mix one word into the hash.
     #[inline]
     fn add(&mut self, word: u64) {
         self.0 = (self.0.rotate_left(5) ^ word).wrapping_mul(Self::SEED);
@@ -139,6 +143,7 @@ impl NameHasher {
 }
 
 impl Hasher for NameHasher {
+    /// Eight bytes per step, then the tail byte by byte.
     #[inline]
     fn write(&mut self, bytes: &[u8]) {
         let (words, rest) = bytes.as_chunks::<8>();
@@ -162,6 +167,7 @@ impl Hasher for NameHasher {
 }
 
 impl CommandSet {
+    /// Add `name`, indexing its first word when it has more than one.
     fn insert(&mut self, name: &str) {
         if let Some((first, _)) = name.split_once(' ') {
             self.prefixes.insert(Box::from(first));

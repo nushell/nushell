@@ -41,8 +41,9 @@ pub(in crate::winnow) enum StatementTarget<'t> {
 
 impl<'s> Lower<'_, '_, 's> {
     /// A statement lowered, or parsed by the classic parser from `span` when the lowering gives
-    /// it back, added to `out`. Whatever the lowering reported or registered before giving up is
-    /// dropped.
+    /// it back, added to `out`. The errors, warnings and compile errors the lowering reported
+    /// before giving up are dropped; what else it added to the working set stays, unreachable
+    /// from `out` (see the module documentation of `lower`).
     pub(in crate::winnow) fn statement_or_classic(
         &mut self,
         pipeline: &w::Pipeline<'s>,
@@ -83,7 +84,8 @@ impl<'s> Lower<'_, '_, 's> {
     }
 
     /// A statement of a module's body (`parse_module_pipeline`): definitions, constants and
-    /// `export-env` blocks, and their exports added to `module`.
+    /// `export-env` blocks, and their exports added to `module`. `module` changes only once
+    /// nothing can fail, since the classic parser adds the exports of a statement given back.
     fn module_statement(
         &mut self,
         pipeline: &w::Pipeline<'s>,
@@ -303,11 +305,20 @@ impl<'s> Lower<'_, '_, 's> {
         Ok(Pipeline::from_vec(vec![expr]))
     }
 
-    /// The `pipe` of each element as the classic lite parser sets it: the first `|` after an
-    /// element, except for the last element, which keeps a `|` after it that no command follows
+    /// The `pipe` of each element as the classic lite parser sets it. The winnow parser keeps,
+    /// with each element, the last `|` before it; the classic lite parser keeps the `|` that
+    /// ends an element, the first one after it:
+    ///
+    /// ```text
+    /// ls | sort | first
+    ///    a      b
+    /// winnow:  ls -, sort a, first b      (- for none)
+    /// classic: ls a, sort b, first -
+    /// ```
+    ///
+    /// The last element, which no `|` ends, keeps a `|` after it that no command follows
     /// (`ls |` at the end of a block), or else the last of two or more `|` before it (and the
-    /// first element a leading `|`), which empty commands between them hand on. The winnow
-    /// parser keeps, with each element, the last `|` before it.
+    /// first element a leading `|`), which empty commands between them hand on.
     fn classic_pipes(&self, pipeline: &w::Pipeline<'s>) -> Vec<Option<WSpan>> {
         let elements = &pipeline.elements;
         let last = elements.len() - 1;
@@ -402,6 +413,8 @@ impl<'s> Lower<'_, '_, 's> {
         })
     }
 
+    /// Where a redirection goes (`parse_redirection_target`): a file, whose path is read with
+    /// any shape, or the next command (`e>|`, `o+e>|`).
     fn redirection_target(
         &mut self,
         target: &w::RedirectionTarget<'s>,
@@ -454,8 +467,8 @@ impl<'s> Lower<'_, '_, 's> {
         if scoped {
             self.working_set.enter_scope();
         }
-        // A definition the lowering cannot predeclare leaves the whole block to the classic
-        // parser, which predeclares it.
+        // A definition the lowering cannot predeclare leaves the whole block, with the
+        // statement it is in, to the classic parser, which predeclares it.
         for pipeline in &block.pipelines {
             if let [element] = pipeline.elements.as_slice()
                 && let Err(unlowered) = self.predecl_statement(&element.expr)
@@ -502,7 +515,8 @@ impl<'s> Lower<'_, '_, 's> {
 
 /// Parse the statements covering `span` with the classic parser into `out`, with their effects
 /// on the working set and, in a module's body, on the module. `is_first` says whether the first
-/// of them is the block's first statement, which receives the block's input.
+/// of them is the block's first statement, which receives the block's input. Unlike the classic
+/// `parse_block`, it predeclares no definitions: the block's are declared already.
 pub(in crate::winnow) fn parse_classic(
     working_set: &mut StateWorkingSet,
     span: Span,
@@ -510,8 +524,8 @@ pub(in crate::winnow) fn parse_classic(
     is_first: bool,
     out: &mut Vec<Pipeline>,
 ) {
-    // With the end of line after it, as in the block: a `|` ending the statement is reported
-    // only at the end of the block (`ls |` then a newline is fine).
+    // With the newline after it, when one follows, as in the block: a `|` ending the statement
+    // is reported only at the end of the block (`ls |` then a newline is fine).
     let with_eol = Span::new(span.start, span.end + 1);
     let contents = match working_set.get_span_contents(with_eol) {
         contents if contents.len() == with_eol.len() && contents.ends_with(b"\n") => contents,
@@ -544,7 +558,8 @@ pub(in crate::winnow) fn parse_classic(
     }
 }
 
-/// Whether a statement changes which commands exist for the statements after it.
+/// Whether a statement changes which commands exist for the statements after it. A `true` too
+/// many costs only parsing the block again ([`Lower::block`]).
 fn changes_commands(pipeline: &w::Pipeline<'_>) -> bool {
     pipeline
         .elements
@@ -560,6 +575,7 @@ fn changes_commands(pipeline: &w::Pipeline<'_>) -> bool {
         })
 }
 
+/// The stream a redirection takes, as `nu-protocol` names it.
 fn redirection_source(source: WinnowSource) -> RedirectionSource {
     match source {
         WinnowSource::Stdout => RedirectionSource::Stdout,

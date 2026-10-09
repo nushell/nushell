@@ -16,10 +16,11 @@ use super::WorkingSet;
 use super::parse_expressions::{ExpectedShape, parse_value};
 use super::tokens::{Tokens, cut_with, item, keyword, repeat_to_end};
 
-/// A parameter's type item, which may carry a `@completer` suffix (nu's
-/// `parse_shape_name`). Like nu, the
-/// split is at the first `@` wherever it is (`record<a@b: int>` is then an
-/// unclosed `record<`), and an empty type before the `@` is unknown.
+/// A parameter's type item, which may carry a `@completer` suffix: `int`,
+/// `string@cmd`, `string@[a b]` (the `@` split of nu's
+/// `parse_signature_helper`; the type itself goes to [`parse_type`]). Like
+/// nu, the split is at the first `@` wherever it is (`record<a@b: int>` is
+/// then an unclosed `record<`), and an empty type before the `@` is unknown.
 pub fn parse_shape_name<'a>(
     working_set: &WorkingSet<'a>,
     span: Span,
@@ -37,9 +38,10 @@ pub fn parse_shape_name<'a>(
 }
 
 /// A parameter completer (nu's `parse_completer`): the name of a command
-/// (bare or quoted) or a list of
-/// values; a subexpression or a record cannot be one. Whether the command
-/// exists is the consumer's business (it may come from a `use`d module).
+/// (bare or quoted) or a list of values; a subexpression or a record cannot
+/// be one, and a variable passes unchecked, since only constant evaluation
+/// knows what it holds. Whether the command exists is the consumer's
+/// business (it may come from a `use`d module).
 fn parse_completer(working_set: &WorkingSet<'_>, completer: Spanned<&str>) -> ParseResult<()> {
     let text = completer.item;
     let not_a_name = || {
@@ -107,7 +109,15 @@ pub fn parse_type<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResult<T
 }
 
 /// `list`, `record`, `table` or `oneof`, with or without `<...>` parameters
-/// (nu's `parse_generic_shape`).
+/// (nu's `parse_generic_shape`):
+///
+/// ```text
+/// generic = "list"  [ "<" { type | "," } ">" ]         list<int>, at most one type
+///         | "oneof" [ "<" { type | "," } ">" ]         oneof<int, string>
+///         | ( "record" | "table" ) [ "<" fields ">" ]  record<a: int, b>
+/// ```
+///
+/// The parameters run from the first `<` to a `>` that must end the item.
 fn parse_generic_shape<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResult<SyntaxShape<'a>> {
     let text = working_set.get_span_contents(span);
     let (name, params) = match text.find('<') {
@@ -154,7 +164,7 @@ fn parse_generic_shape<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseRes
 }
 
 /// The comma-separated types of `list<int>` and `oneof<int, string>` (nu's
-/// `parse_type_params`). Like nu, every other token is read as a type, so
+/// `parse_type_params`). Like nu, every token but a `,` is read as a type, so
 /// `list<int;>` and `list<int:>` have an unknown type.
 fn parse_type_params<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResult<Vec<TypeAnnotation<'a>>> {
     let tokens = working_set.lex(span, LexOptions::TYPE_PARAMS).map_err(cut)?;
@@ -184,7 +194,9 @@ fn parse_named_type_params<'a>(working_set: &WorkingSet<'a>, span: Span) -> Pars
     Ok(fields.into_iter().flatten().collect())
 }
 
-/// One field: `name`, `name: type` or `name,`.
+/// One field: `name`, `name: type` or `name,`. The name is read as a string
+/// (`"a b"` loses its quotes); a field without a type is `any`, at the empty
+/// span just past the name.
 fn named_type_param<'a>(tokens: &mut Tokens<'_, 'a>) -> ParseResult<TypeField<'a>> {
     let working_set = tokens.working_set;
     let not_a_string =

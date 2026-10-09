@@ -18,15 +18,20 @@ use crate::{
 
 /// A parameter as it is read, before the signature is assembled.
 enum Parameter {
+    /// `x` or `x?`; `required` is false for `x?`, and turns false with a default value.
     Positional { arg: PositionalArg, required: bool },
+    /// `...rest`.
     Rest(PositionalArg),
+    /// `--flag`, `-f` or `--flag(-f)`; `type_annotated` when it has a written type: a default
+    /// value then does not set its type, and without one its variable can be `null`.
     Flag { flag: Flag, type_annotated: bool },
 }
 
 /// What the predeclaration of a command needs.
 pub(in crate::winnow) struct Predecl<'d, 's> {
-    /// The command's name, unquoted, and the span of its item.
+    /// The command's name, unquoted.
     pub(in crate::winnow) name: &'d str,
+    /// The span of the name's item in the source.
     pub(in crate::winnow) name_span: WSpan,
     /// The signature, when the statement has one that parses.
     pub(in crate::winnow) signature: Option<&'d w::Signature<'s>>,
@@ -43,6 +48,13 @@ impl<'s> Lower<'_, '_, 's> {
     /// Declare a command before the statements of its block are lowered, so calls to it
     /// resolve (`parse_def_predecl`). Returns `false` when the lowering cannot read the
     /// signature, for the classic predeclaration to do it.
+    ///
+    /// Unlike a statement's lowering, this is the classic predeclaration done from the winnow
+    /// tree, with no statement to hand back: it reports what `parse_def_predecl` reports (an
+    /// invalid name, a duplicate definition), and `true` means done, errors included. In order:
+    /// the name checks; the signature, read in a scope of its own that takes its parameters'
+    /// variables away again, with its errors dropped (the definition reports them); `--wrapped`
+    /// making an untyped rest parameter take external arguments; the declaration.
     pub(in crate::winnow) fn predecl(&mut self, predecl: Predecl<'_, 's>) -> bool {
         // Without a signature the winnow parser could read (none, or one with an error), the
         // classic predeclaration decides, name checks included.
@@ -74,6 +86,7 @@ impl<'s> Lower<'_, '_, 's> {
         let lowered = self.signature_params(signature, predecl.external);
         let lowered = lowered.map(|mut sig| {
             if let Some(types) = signature.input_output_span {
+                // To the statement's end, as the classic predeclaration reads them.
                 let span = self.span(WSpan::new(types.start, predecl.statement_end));
                 sig.input_output_types = parse_input_output_types(self.working_set, &[span]);
             }
@@ -106,7 +119,10 @@ impl<'s> Lower<'_, '_, 's> {
         true
     }
 
-    /// Declare the command a `def` or `extern` statement of a nested block defines.
+    /// Declare the command a `def` or `extern` statement of a nested block defines, through an
+    /// `export` or attributes; any other statement declares nothing. A definition the lowering
+    /// cannot predeclare is `Unsupported`, which leaves the whole block to the classic parser:
+    /// it predeclares a block's definitions before parsing its statements.
     pub(super) fn predecl_statement(&mut self, e: &w::Expression<'s>) -> Lowered<()> {
         let (name, signature, wrapped, external) = match &e.expr {
             w::Expr::Def(def) => (
@@ -137,8 +153,8 @@ impl<'s> Lower<'_, '_, 's> {
         }
     }
 
-    /// Whether the rest parameter `name` has a type in the signature's text
-    /// (`rest_param_is_type_annotated`).
+    /// Whether the rest parameter `name` has a written type (`rest_param_is_type_annotated`,
+    /// which looks for `...name:` in the signature's text).
     fn rest_is_typed(&self, signature: Option<&w::Signature<'s>>, name: &str) -> bool {
         signature.is_some_and(|signature| {
             signature.params.iter().any(|param| {
@@ -177,7 +193,18 @@ impl<'s> Lower<'_, '_, 's> {
 
     /// The parameters of a signature (`parse_signature_helper`). The parameters of a command
     /// get variables, declared once every parameter is read so that default values refer to
-    /// variables outside the signature; an `extern`'s get none.
+    /// variables outside the signature, not to sibling parameters; an `extern`'s get none.
+    /// In two passes, as the classic parser makes it:
+    ///
+    /// 1. Each parameter in order: its variable, created outside any scope with the span of the
+    ///    parameter's item (typed `bool` for a flag, `any` otherwise); its type, which the
+    ///    variable takes, and its completer; its description; its default value.
+    /// 2. The variables put in scope, then the signature assembled: an optional parameter or a
+    ///    typed flag without a default can be `null`.
+    ///
+    /// What the classic parser reports is handed back: a `bool` type on a flag, a required
+    /// parameter after an optional one, an unnamed or second rest parameter, and whatever the
+    /// classic shape, completer and name checks report.
     pub(super) fn signature_params(
         &mut self,
         signature: &w::Signature<'s>,
@@ -187,6 +214,7 @@ impl<'s> Lower<'_, '_, 's> {
         let mut pending: Vec<(Vec<u8>, VarId)> = Vec::new();
         for param in &signature.params {
             let token = self.span(parameter_token(param));
+            // A flag's variable is named after its long name (`-` made `_`), else its short one.
             let (var_name, initial_ty) = match &param.kind {
                 w::ParameterKind::Flag {
                     long: Some(long), ..
@@ -352,8 +380,11 @@ impl<'s> Lower<'_, '_, 's> {
         Ok(Box::new(sig))
     }
 
-    /// A parameter's default value: a constant, whose type is the parameter's when it has
-    /// none.
+    /// A parameter's default value, read with the parameter's shape and evaluated as a
+    /// constant. A parameter without a written type takes the default's type, as its shape and
+    /// its variable's type, and a positional parameter with a default is optional. A rest
+    /// parameter with a default, or a default that is not constant, is the classic parser's
+    /// error.
     fn default_value(
         &mut self,
         parameter: &mut Parameter,

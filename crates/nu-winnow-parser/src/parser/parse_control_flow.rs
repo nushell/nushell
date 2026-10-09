@@ -42,6 +42,9 @@ fn parse_block_or_value<'a>(working_set: &WorkingSet<'a>, token: &Token) -> Pars
 /// `if condition... { block } [else { block } | else expression...]`: the
 /// condition is every item before the block, which is the item before the
 /// `else`, or the last item.
+///
+/// `else if ...` needs no rule of its own: the expression after `else` is
+/// another `if`, which takes the rest of the items, its own `else` included.
 pub fn parse_if<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
     let working_set = tokens.working_set;
     let mut call = KeywordCall::start(&mut tokens)?;
@@ -176,6 +179,14 @@ pub fn parse_loop<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>>
 
 /// `try { block } [catch handler] [finally handler]`, the handlers in either
 /// order, at most two.
+///
+/// ```text
+/// try     = "try" block [ handler [ handler ] ]
+/// handler = ( "catch" | "finally" ) closure
+/// ```
+///
+/// nu's `try` has two optional positionals that each take `catch` or
+/// `finally`, so `try {} finally {} catch {}` and even two `catch`es parse.
 pub fn parse_try<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
     let working_set = tokens.working_set;
     let mut call = KeywordCall::start(&mut tokens)?;

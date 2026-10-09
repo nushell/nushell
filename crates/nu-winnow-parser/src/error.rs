@@ -128,13 +128,14 @@ impl Diagnostic {
         self
     }
 
-    /// The outermost-but-one context, useful for messages like "in closure".
+    /// The innermost context: the construct being parsed where the problem is, useful for
+    /// messages like "while parsing closure".
     pub fn innermost_context(&self) -> Option<&'static str> {
         self.context.first().copied()
     }
 
     /// Render with source context: `error: … --> name:line:col` followed by the
-    /// offending line and a caret marker.
+    /// offending line and a caret marker. `name` is the file name, `<input>` when `None`.
     pub fn render(&self, source: &str, name: Option<&str>) -> String {
         let index = LineIndex::new(source);
         let mut out = String::new();
@@ -209,6 +210,10 @@ impl From<Diagnostic> for ParseError {
     }
 }
 
+/// Append `d` to `out` in the style of rustc's diagnostics: the message, `--> name:line:col`,
+/// the line the span starts on with carets under the span, then notes for where an unclosed
+/// delimiter opened, the innermost context and the help. `index` is `source`'s, built once by
+/// the caller for every diagnostic it renders.
 fn render_into(out: &mut String, d: &Diagnostic, source: &str, name: Option<&str>, index: &LineIndex) {
     use std::fmt::Write as _;
     let start = index.line_col(d.span.start, source);
@@ -222,7 +227,8 @@ fn render_into(out: &mut String, d: &Diagnostic, source: &str, name: Option<&str
     let pad = " ".repeat(gutter.len());
     let _ = writeln!(out, "{pad} |");
     let _ = writeln!(out, "{gutter} | {line_text}");
-    // Caret line: count characters up to the span start on this line.
+    // Caret line: the span clipped to this line, measured in characters. A span that runs on
+    // to later lines is underlined to the line's end; an empty one still gets one caret.
     let col0 = source[range.start..d.span.start.min(range.end).max(range.start)].chars().count();
     let end_on_line = d.span.end.min(range.end).max(d.span.start.min(range.end));
     let width = source[d.span.start.min(range.end)..end_on_line].chars().count().max(1);

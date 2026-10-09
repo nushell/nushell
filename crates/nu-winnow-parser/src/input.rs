@@ -45,7 +45,8 @@ impl ParseFailure {
         }
     }
 
-    /// Record the grammar construct that was being parsed (innermost first).
+    /// Record the grammar construct that was being parsed (innermost first). A backtrack has
+    /// no diagnostic to record it in and is left as it is.
     pub fn with_context(self, context: &'static str) -> Self {
         self.map_diagnostic(|diagnostic| diagnostic.with_context(context))
     }
@@ -113,6 +114,9 @@ pub fn backtrack(offset: usize) -> ErrMode<ParseFailure> {
     ErrMode::Backtrack(ParseFailure::NoMatch(offset))
 }
 
+/// How winnow's own parsers over characters (`literal`, `take_while`, `alt`, ...) fail: a
+/// mismatch is a [`ParseFailure::NoMatch`] at the current position, and of two failed
+/// alternatives the one that got further is kept.
 impl<'a> ParserError<Input<'a>> for ParseFailure {
     type Inner = ParseFailure;
 
@@ -131,6 +135,8 @@ impl<'a> ParserError<Input<'a>> for ParseFailure {
     }
 }
 
+/// winnow's `.context("...")`: the label goes onto an error's diagnostic
+/// ([`ParseFailure::with_context`]).
 impl<'a> AddContext<Input<'a>, &'static str> for ParseFailure {
     fn add_context(
         self,
@@ -142,6 +148,7 @@ impl<'a> AddContext<Input<'a>, &'static str> for ParseFailure {
     }
 }
 
+/// winnow's `.try_map(...)`: a conversion's error becomes a message at the current position.
 impl<'a, E: std::fmt::Display> FromExternalError<Input<'a>, E> for ParseFailure {
     fn from_external_error(input: &Input<'a>, error: E) -> Self {
         ParseFailure::from(Diagnostic::message(error.to_string(), Span::point(pos(input))))

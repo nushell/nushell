@@ -46,6 +46,7 @@ fn parse_binding<'a>(mut tokens: Tokens<'_, 'a>, kind: BindingKind) -> ParseResu
         BindingKind::Mut => ("mut", Expr::Mut),
         BindingKind::Const => ("const", Expr::Const),
     };
+    // The whole statement, keyword included: `tokens.position()` and `equals_index` index it.
     let items = tokens.all();
     let keyword = tokens.expect_item(keyword_name)?;
     if let KeywordBoundary::Help = keyword_boundary_with(&mut tokens, keyword_name, &[], false)? {
@@ -84,6 +85,7 @@ fn parse_binding<'a>(mut tokens: Tokens<'_, 'a>, kind: BindingKind) -> ParseResu
     }
     let ty = parse_type_after_var(working_set, &items[tokens.position()..equals_index], typed, name_token.span.past())?;
     let (value, end) = match equals {
+        // nu parses everything after the `=` as a block of its own (`let x = ls | length`).
         Some(equals) => {
             let rhs = tokens.slice(equals_index + 1..items.len());
             let Some(rhs_span) = rhs.span() else {

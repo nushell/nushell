@@ -105,6 +105,7 @@ impl<'s> Lower<'_, '_, 's> {
     ) -> Lowered<(Box<Call>, Type)> {
         let mut call = Call::new(head);
         call.decl_id = decl_id;
+        // Registered as `parse_internal_call` registers it.
         let _ = self.working_set.add_span(head);
 
         let decl = self.working_set.get_decl(decl_id);
@@ -129,6 +130,8 @@ impl<'s> Lower<'_, '_, 's> {
             call.head = head;
             positional_idx = call.positional_iter().count();
         }
+        // `parse_internal_call` hands the library directories to `nu-check` and to `use`,
+        // `overlay use` and `source-env`, which never get here (`CLASSIC_COMMANDS`).
         if checks_lib_dirs && let Some(var_id) = find_dirs_var(self.working_set, LIB_DIRS_VAR) {
             let var = self.node(Expr::Var(var_id), call.head, Type::Any);
             call.set_parser_info(DIR_VAR_PARSER_INFO.to_owned(), var);
@@ -166,6 +169,7 @@ impl<'s> Lower<'_, '_, 's> {
         mut positional_idx: usize,
     ) -> Lowered<()> {
         let mut end_of_options = false;
+        // An index rather than an iterator: a flag may take the next argument as its value.
         let mut index = 0;
         while let Some(argument) = arguments.get(index) {
             index += 1;
@@ -345,7 +349,8 @@ impl<'s> Lower<'_, '_, 's> {
     }
 
     /// A spread argument, `...$list`, `...[a b]` or `...{flag: value}`. Returns the index of
-    /// the next positional.
+    /// the next positional: past them all once the spread fills the rest parameter, unchanged
+    /// when it is, or may be, a record of flags.
     fn spread(
         &mut self,
         call: &mut Call,
@@ -412,6 +417,9 @@ impl<'s> Lower<'_, '_, 's> {
             && name.quote == w::Quote::Bare
             && let Some(decl_id) = self.working_set.find_decl(name.value.as_bytes())
         {
+            // A known name here is an alias of an external command; any other command resolved
+            // differently for the winnow parser, which made an external call, so the classic
+            // parser decides.
             let Some(alias) = self.working_set.get_decl(decl_id).as_alias() else {
                 return Err(Unlowered::Unsupported("external call to a known command"));
             };

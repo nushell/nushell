@@ -2,9 +2,14 @@
 //!
 //! ```text
 //! pattern        = "_" | "$" name | list-pattern | record-pattern | value
-//! list-pattern   = "[" { pattern } [ ".." | "..$" name ] "]"
+//! list-pattern   = "[" { pattern | rest } "]"      at most one rest, anywhere
+//! rest           = ".." | "..$" name
 //! record-pattern = "{" { key ":" pattern | "$" name } "}"
 //! ```
+//!
+//! Alternatives (`1 | 2 => ...`) and `if` guards belong to the match arm:
+//! `parse_or_pattern` and `parse_match_arm` in `parse_expressions.rs` build
+//! them around [`pattern`].
 
 use std::borrow::Cow;
 
@@ -24,7 +29,7 @@ use super::parse_helpers::{declared_variable_name, delimited_interior, is_variab
 use super::parse_signatures::ensure_not_reserved_variable_name;
 use super::tokens::{Tokens, cut_with, expected, item, keyword};
 
-/// Parse the pattern item at `span`.
+/// Parse the pattern item at `span`, by its first byte (nu's `parse_pattern`).
 pub fn parse_pattern<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResult<MatchPattern<'a>> {
     let text = working_set.get_span_contents(span);
     let pattern = match text.as_bytes()[0] {
@@ -37,14 +42,16 @@ pub fn parse_pattern<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResul
     Ok(MatchPattern { span, pattern })
 }
 
-/// The next item, parsed as a pattern.
+/// The next item, parsed as a pattern: [`parse_pattern`] as a parser over
+/// [`Tokens`], for `repeat` and `alt` to compose. Backtracks when the next
+/// token is not an item (the end, or the `|` between alternatives).
 pub fn pattern<'a>(tokens: &mut Tokens<'_, 'a>) -> ParseResult<MatchPattern<'a>> {
     let token = item(tokens)?;
     parse_pattern(tokens.working_set, token.span)
 }
 
 /// The name of a `$var` pattern, which binds a variable and so may not be a
-/// reserved name.
+/// reserved name (nu's `parse_variable_pattern_helper`).
 fn parse_variable_pattern<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResult<&'a str> {
     let text = working_set.get_span_contents(span);
     if !is_variable(text) {
@@ -55,8 +62,8 @@ fn parse_variable_pattern<'a>(working_set: &WorkingSet<'a>, span: Span) -> Parse
     Ok(name)
 }
 
-/// The tokens of a pattern's interior, comments recorded and dropped, every
-/// token taken as an item (`[a = b]` has three).
+/// The tokens of a pattern's interior, comments recorded and dropped. The
+/// callers then take every token as an item (`[a = b]` has three).
 fn pattern_interior(working_set: &WorkingSet<'_>, inner: Span, options: LexOptions) -> ParseResult<Vec<Token>> {
     let lexed = working_set.lex(inner, options).map_err(cut)?;
     working_set.add_comments(&lexed);
@@ -66,10 +73,10 @@ fn pattern_interior(working_set: &WorkingSet<'_>, inner: Span, options: LexOptio
         .collect())
 }
 
-/// `[p1, ..$rest, p2]`. Like nu, the interior is lite-parsed: `|` separates
-/// groups (`[1 | 2]` is `[1, 2]`) and a redirection is dropped. Like a Rust
-/// slice pattern, the list may hold one `..` or `..$rest`, at any position; a
-/// second one is an error.
+/// `[p1, ..$rest, p2]` (nu's `parse_list_pattern`). Like nu, the interior is
+/// lite-parsed: `|` separates groups (`[1 | 2]` is `[1, 2]`) and a
+/// redirection is dropped. Like a Rust slice pattern, the list may hold one
+/// `..` or `..$rest`, at any position; a second one is an error.
 fn parse_list_pattern<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResult<Vec<MatchPattern<'a>>> {
     let inner = delimited_interior(working_set, span, "[", "]")?;
     let lexed = pattern_interior(working_set, inner, LexOptions::PATTERN_LIST)?;
@@ -83,6 +90,7 @@ fn parse_list_pattern<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResu
         let group: Vec<Token> =
             group.iter().map(|token| Token { contents: TokenContents::Item, span: token.span }).collect();
         let mut tokens = Tokens::new(working_set, &group, inner.end);
+        // `rest_pattern` goes first: `pattern` would read `..` and `..$r` as ranges.
         let items: Vec<MatchPattern<'a>> = repeat(0.., alt((rest_pattern, pattern))).parse_next(&mut tokens)?;
         for item in items {
             let is_rest = matches!(item.pattern, Pattern::IgnoreRest | Pattern::Rest(_));
@@ -121,9 +129,9 @@ fn rest_pattern<'a>(tokens: &mut Tokens<'_, 'a>) -> ParseResult<MatchPattern<'a>
     Ok(MatchPattern { span: marker.span, pattern })
 }
 
-/// `{key: pattern, $shorthand}`. Like nu, every token is a field name, kept
-/// verbatim (`{"a": $x}` has the field `"a"`, quotes included), and must be
-/// followed by `:` and a pattern.
+/// `{key: pattern, $shorthand}` (nu's `parse_record_pattern`). Like nu, every
+/// token is a field name, kept verbatim (`{"a": $x}` has the field `"a"`,
+/// quotes included), and must be followed by `:` and a pattern.
 fn parse_record_pattern<'a>(
     working_set: &WorkingSet<'a>,
     span: Span,

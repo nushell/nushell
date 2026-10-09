@@ -24,6 +24,7 @@ use super::working_set::{CommandLookup, ParseState};
 ///
 /// Errors are recorded in the working set and the offending statement becomes
 /// an [`Expr::Garbage`] pipeline, so parsing continues with the next line.
+/// [`BlockStatements`] runs the same steps a few statements at a time.
 pub fn parse_block<'a>(mut tokens: Tokens<'_, 'a>, span: Span) -> Block<'a> {
     let working_set = tokens.working_set;
     parse_def_predecl(working_set, tokens.all());
@@ -33,7 +34,7 @@ pub fn parse_block<'a>(mut tokens: Tokens<'_, 'a>, span: Span) -> Block<'a> {
     Block { span, pipelines }
 }
 
-/// What [`parse_block_streaming`] hands over, in source order: first every
+/// What [`crate::parse_block_streaming`] hands over, in source order: first every
 /// definition of the block, then its statements one at a time.
 pub trait BlockSink<'a> {
     /// A `def` or `extern` of the block, found before any statement is parsed
@@ -42,33 +43,52 @@ pub trait BlockSink<'a> {
 
     /// The next statement of the block, parsed only after every earlier one
     /// was handed over, so that what an earlier statement declares (a `use`,
-    /// an `alias`) is known to the [`CommandLookup`](super::working_set::CommandLookup)
-    /// while this one is parsed. `diagnostics` holds what parsing it reported;
-    /// when it is not empty, `pipeline` may be a garbage placeholder that spans
-    /// the statement. Returns whether to go on with the next statement.
+    /// an `alias`) is known to the [`CommandLookup`] while this one is parsed.
+    /// `diagnostics` holds what parsing it reported; when it is not empty,
+    /// `pipeline` may be a garbage placeholder that spans the statement.
+    /// Returns whether to go on with the next statement.
     fn statement(&mut self, pipeline: Pipeline<'a>, diagnostics: Vec<Diagnostic>) -> bool;
 }
 
 /// A block's statements, parsed a few at a time (see [`crate::parse_block_streaming`]): the
-/// block's tokens and how far parsing them got. It borrows nothing, so it can move to another
-/// thread between two calls of [`BlockStatements::parse`], and each call may resolve command
-/// names with a different [`CommandLookup`](super::working_set::CommandLookup).
+/// block's tokens and how far parsing them got.
+///
+/// ```text
+/// BlockStatements::new       lex the block, declare the names of its `def`s and `extern`s
+/// Definitions::parse         their signatures, for the engine to declare before it takes a statement
+/// BlockStatements::parse     statements, one by one, until the sink returns `false` ...
+/// BlockStatements::parse     ... and on from there, until `is_done`
+/// ```
+///
+/// A statement is parsed only after the previous one was handed over, so a [`CommandLookup`]
+/// over the engine's live declarations knows what the earlier statements brought in (a `use`,
+/// an `overlay use`). It borrows
+/// nothing: the tokens are spans, what the parse knows between two calls is owned, and
+/// `source` and `lookup` are passed to each call. So it can move to another thread between
+/// two calls, and each call may resolve command names with a different lookup (a copy of the
+/// engine's names, for a call on another thread).
 #[derive(Debug)]
 pub struct BlockStatements {
     /// The block's tokens, as the lexer returned them (`Eof` last).
     tokens: Vec<Token>,
     /// The next token to parse.
     position: usize,
+    /// Where the statement loop stood when the last call returned: the comments waiting for
+    /// the next statement, a `|` carried over to it.
     statements: StatementsState,
+    /// What the working set knew when the last call returned: the block's scope, with the
+    /// names `new` predeclared and the aliases parsed since, and the bracket groups measured.
+    /// Each call builds its working set from it and takes it back.
     parse_state: ParseState,
 }
 
 impl BlockStatements {
-    /// Lex the block covering `span` of `source` and declare the names of its definitions
-    /// (nu's `parse_def_predecl`), resolving command names with `lookup`. Returns the statements
-    /// still to parse and every `def`/`extern` of the block, whose signatures
-    /// [`Definitions::parse`] parses: an engine declares them before it takes any statement,
-    /// and the statements can be parsed meanwhile.
+    /// Lex the block covering `span` of `source` and declare the names of its definitions in
+    /// the block's scope (nu's `parse_def_predecl`), so that a statement may call a command
+    /// defined after it. Returns the statements still to parse and every `def`/`extern` of the
+    /// block, whose signatures [`Definitions::parse`] parses: an engine declares them before it
+    /// takes any statement, and the statements can be parsed meanwhile. Declaring the names
+    /// asks `lookup` nothing.
     ///
     /// A lexing error, or a diagnostic about the block as a whole (a definition declared
     /// twice, a `|` that ends the block), is returned instead.
@@ -95,7 +115,10 @@ impl BlockStatements {
     /// be a garbage placeholder that spans the statement). A statement is parsed only after
     /// the previous one was handed over. Stops when `sink` returns `false` or the block ends.
     ///
-    /// Neither a statement's terminator nor the comments after it on its line are handed over.
+    /// `source` is the text given to [`BlockStatements::new`]: the tokens are spans into it.
+    /// A statement that fails to parse is handed over without the `;` after it and a comment
+    /// after that `;`: `parse_block` adds them to its garbage pipeline once it meets them, and
+    /// a streamed pipeline is the sink's by then.
     pub fn parse<'a>(
         &mut self,
         source: &'a str,
@@ -160,19 +183,24 @@ fn check_dangling_pipe(working_set: &WorkingSet<'_>, tokens: &[Token]) {
     }
 }
 
-/// Where [`parse_statements`] puts the pipelines it parses.
+/// Where [`parse_statements`] puts the pipelines it parses: a `Vec` for [`parse_block`],
+/// which leaves every diagnostic in the working set for the whole parse to collect, or a
+/// [`StreamingSink`] for [`BlockStatements::parse`], which hands each statement over with
+/// its own diagnostics.
 trait StatementSink<'a> {
-    /// Take the next pipeline. `errors_before` is the number of diagnostics
-    /// recorded before it was parsed. Returns whether to go on.
+    /// Take the next pipeline. `errors_before` is [`WorkingSet::error_count`] from just
+    /// before it was parsed: every diagnostic recorded since, those of its nested blocks
+    /// included, is the statement's. Returns whether to go on.
     fn push(&mut self, pipeline: Pipeline<'a>, errors_before: usize) -> bool;
     /// Take the placeholder for a statement covering `span` that failed to
     /// parse. Returns whether to go on.
     fn push_garbage(&mut self, span: Span, leading_comments: Vec<Comment>, errors_before: usize) -> bool;
     /// The pipeline pushed last, while it can still be amended (its
-    /// terminator, a comment after it on its line).
+    /// terminator, a comment after it on its line); `None` once it was handed over.
     fn last_mut(&mut self) -> Option<&mut Pipeline<'a>>;
 }
 
+/// The whole block at once ([`parse_block`]): the diagnostics stay in the working set.
 impl<'a> StatementSink<'a> for Vec<Pipeline<'a>> {
     fn push(&mut self, pipeline: Pipeline<'a>, _errors_before: usize) -> bool {
         Vec::push(self, pipeline);
@@ -190,9 +218,11 @@ impl<'a> StatementSink<'a> for Vec<Pipeline<'a>> {
 }
 
 /// Hands each pipeline to a [`BlockStatements::parse`] sink with the diagnostics parsing it
-/// reported.
+/// reported, taken out of the working set.
 struct StreamingSink<'s, 'w, 'a> {
+    /// The caller's sink: takes a statement and says whether to go on.
     sink: &'s mut dyn FnMut(Pipeline<'a>, Vec<Diagnostic>) -> bool,
+    /// The working set the statements are parsed in, where their diagnostics are recorded.
     working_set: &'w WorkingSet<'a>,
 }
 
@@ -210,6 +240,7 @@ impl<'a> StatementSink<'a> for StreamingSink<'_, '_, 'a> {
     }
 
     fn last_mut(&mut self) -> Option<&mut Pipeline<'a>> {
+        // Each pipeline went to the sink when it was pushed.
         None
     }
 }
@@ -218,16 +249,20 @@ impl<'a> StatementSink<'a> for StreamingSink<'_, '_, 'a> {
 /// be parsed a few at a time ([`BlockStatements`]).
 #[derive(Debug)]
 struct StatementsState {
-    /// Comments on lines of their own since the last statement: the next statement's.
+    /// Comments on lines of their own since the last statement: the next statement's leading
+    /// comments, unless a blank line comes first.
     pending: Vec<Comment>,
     /// A `|` that no command followed before a blank line, which nu hands to the next command.
     carried_pipe: Option<Span>,
-    /// What the last token was.
+    /// What the last token was (`Item` for a whole statement): an `Eol` after an `Eol` is a
+    /// blank line, and a `;` or a comment right after a statement belongs to it.
     last: TokenContents,
-    /// Whether a statement was pushed.
+    /// Whether a statement was pushed. A comment that is not first on its line trails the
+    /// statement pushed last, if there is one; otherwise it waits for the next statement.
     pushed: bool,
 }
 
+/// The start of a block counts as the start of a line.
 impl Default for StatementsState {
     fn default() -> Self {
         Self { pending: Vec::new(), carried_pipe: None, last: TokenContents::Eol, pushed: false }
@@ -237,6 +272,10 @@ impl Default for StatementsState {
 /// The statements of a block, pushed to `out` as they are parsed, until `out`
 /// says to stop. Comments on lines of their own before a statement become its
 /// leading comments.
+///
+/// A loop over the tokens rather than a combinator: what an `Eol`, `;` or
+/// comment means depends on the token before it (`state.last`), and the state
+/// must survive a stop so that a later call goes on from it.
 fn parse_statements<'a>(tokens: &mut Tokens<'_, 'a>, state: &mut StatementsState, out: &mut dyn StatementSink<'a>) {
     let working_set = tokens.working_set;
     let StatementsState { pending, carried_pipe, last, pushed } = state;
@@ -250,6 +289,8 @@ fn parse_statements<'a>(tokens: &mut Tokens<'_, 'a>, state: &mut StatementsState
                 *last = TokenContents::Eol;
             }
             TokenContents::Semicolon => {
+                // A parsed pipeline took the `;` right after it already, so this sets the
+                // terminator of a garbage statement.
                 if !matches!(last, TokenContents::Eol | TokenContents::Semicolon)
                     && let Some(pipeline) = out.last_mut()
                     && pipeline.terminator.is_none()
@@ -332,6 +373,8 @@ fn parse_pipeline<'a>(
     let mut lite_commands: Vec<(Option<Span>, LiteCommand)> = Vec::new();
     let mut trailing_comments = Vec::new();
     let mut pipe: Option<Span> = carried_pipe.take();
+    // Each turn takes the `|`s before a command, then the command. A `|` on the command's
+    // line is left for the next turn; an `e>|` is taken with the command (`pipe_after`).
     'commands: loop {
         // A pipeline may start with `|` (`( | str join)`) and `a | | b` is
         // `a | b`: the empty commands are dropped.
@@ -453,7 +496,8 @@ fn parse_pipeline_element<'a>(
     if let Expr::ExportEnv(_) = expr.expr
         && redirection.is_some()
     {
-        // nu never looks at a redirection on `export-env`.
+        // nu never looks at a redirection on `export-env`: it is ignored text, not
+        // refused, so this comes before `rejects_redirection`.
         for (operator, target) in &lite_command.redirections {
             working_set.add_ignored(operator.span);
             if let Some(target) = target {
@@ -493,8 +537,9 @@ fn rejects_redirection(expr: &Expression<'_>) -> bool {
     }
 }
 
-/// The redirections of a command (nu's `parse_redirection`): one stream, or
-/// stdout and stderr separately.
+/// The redirections of a command (nu's `parse_redirection`): one stream
+/// (`o> f`, `o+e> f`, `e>| cmd`), or stdout and stderr separately (`o> f e> g`,
+/// in either order). Redirecting the same stream twice is an error.
 fn parse_redirection<'a>(
     working_set: &WorkingSet<'a>,
     lite_command: &LiteCommand,

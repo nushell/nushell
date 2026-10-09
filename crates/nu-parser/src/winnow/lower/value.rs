@@ -19,7 +19,8 @@ use crate::{
 };
 
 impl<'s> Lower<'_, '_, 's> {
-    /// One item read with `shape` (`parse_value`).
+    /// One item read with `shape` (`parse_value`). As there, the item's first byte picks how it
+    /// is read, and the shape matters within each case.
     pub(super) fn value(
         &mut self,
         e: &w::Expression<'s>,
@@ -40,7 +41,9 @@ impl<'s> Lower<'_, '_, 's> {
     }
 
     /// The first of `shapes` that reads the item without an error (`parse_oneof`). When none
-    /// does, the classic parser picks the error to report.
+    /// does, the classic parser picks the error to report. A shape that is handed back, or that
+    /// lowers but leaves errors (from a statement of a nested block the classic parser parsed),
+    /// does not end the search: its errors are dropped and the next shape is tried.
     pub(super) fn one_of(
         &mut self,
         e: &w::Expression<'s>,
@@ -59,7 +62,8 @@ impl<'s> Lower<'_, '_, 's> {
 
     /// An item without inner structure: a number, a word, a quoted string. The common shapes
     /// are read from the winnow literal; the others (a bare word as a path, a glob, a cell
-    /// path, a number as a string, units, dates, ranges) by the classic leaf parsers.
+    /// path, a number as a string, units, dates, ranges) by the classic leaf parsers, whose
+    /// errors hand the statement back.
     fn leaf(&mut self, e: &w::Expression<'s>, shape: &SyntaxShape) -> Lowered<Expression> {
         let span = self.span(e.span);
         let (expr, ty) = match (shape, &e.expr) {
@@ -201,6 +205,9 @@ impl<'s> Lower<'_, '_, 's> {
             w::Expr::FullCellPath(path) if matches!(path.head.expr, w::Expr::Record(_)) => {
                 self.full_cell_path(e.span, &path.head, &path.tail, None)
             }
+            // As `parse_brace_expr` decides: with parameters, a closure for any shape but a
+            // block (an error); without, a block for a block shape, a closure for a closure or
+            // any shape, an error for the rest. A match block is left to the classic parser.
             w::Expr::Closure(closure) => {
                 let has_params = closure.params.is_some();
                 match shape {
@@ -220,7 +227,8 @@ impl<'s> Lower<'_, '_, 's> {
         }
     }
 
-    /// An item starting with `[`: a list or a table, possibly with a cell path.
+    /// An item starting with `[` (the `[` case of `parse_value`): a list or a table, possibly
+    /// with a cell path. A shape that does not take a `[` item is the classic parser's error.
     fn bracket(&mut self, e: &w::Expression<'s>, shape: &SyntaxShape) -> Lowered<Expression> {
         match shape {
             SyntaxShape::List(element) => self.table_expression(e, element),
@@ -243,6 +251,8 @@ impl<'s> Lower<'_, '_, 's> {
     }
 
     /// A head with an optional cell path after it (`parse_full_cell_path`), covering `span`.
+    /// Its type is the head's or, with members, what following them through the head's type
+    /// gives when `nu_experimental::CELL_PATH_TYPES` is on (`any` otherwise).
     pub(super) fn full_cell_path(
         &mut self,
         span: WSpan,
@@ -278,7 +288,9 @@ impl<'s> Lower<'_, '_, 's> {
         ))
     }
 
-    /// A variable (`parse_variable_expr`).
+    /// A variable (`parse_variable_expr`): `$nu`, `$in` (typed by `input_type`), `$env` and the
+    /// last-result variable have fixed ids; any other name must be in scope, else it is the
+    /// classic parser's error.
     pub(super) fn variable(
         &mut self,
         span: WSpan,
@@ -339,9 +351,9 @@ impl<'s> Lower<'_, '_, 's> {
         Ok(self.node(Expr::Subexpression(block_id), span, ty))
     }
 
-    /// An interpolation read with `shape`: a glob interpolation for a glob (`parse_path_like`,
-    /// which also takes `$"..."`, not starting with a quote, for a bare one), a string
-    /// interpolation otherwise.
+    /// An interpolation read with `shape`: a glob interpolation for a glob (`parse_path_like`),
+    /// quoted only when the whole item is in quotes, so that `$"..."`, which starts with `$`,
+    /// is a bare one; a string interpolation otherwise.
     fn path_interpolation(
         &mut self,
         span: WSpan,
@@ -365,7 +377,9 @@ impl<'s> Lower<'_, '_, 's> {
         }
     }
 
-    /// A string with interpolated expressions (`parse_string_interpolation`).
+    /// A string with interpolated expressions (`parse_string_interpolation`): text parts are
+    /// strings, and each `(...)` part a subexpression, read as the head of a full cell path as
+    /// the classic parser reads it. Any other expression part is left to the classic parser.
     fn interpolation(
         &mut self,
         span: WSpan,
@@ -403,7 +417,8 @@ impl<'s> Lower<'_, '_, 's> {
         }
     }
 
-    /// A list (`parse_list_expression`); its type is the union of its items' types.
+    /// A list (`parse_list_expression`); its type is the union of its items' types. A spread,
+    /// `...$items`, is read as a list of `element` and adds its item type.
     pub(super) fn list(
         &mut self,
         span: WSpan,
@@ -440,7 +455,9 @@ impl<'s> Lower<'_, '_, 's> {
         Ok(self.node(Expr::List(out), span, ty))
     }
 
-    /// A table literal: a header row, `;`, then rows (`parse_table_expression`).
+    /// A table literal: a header row, `;`, then rows (`parse_table_expression`), typed by
+    /// `table_type`. A row of another length than the header, a header without rows, and
+    /// column types `table_type` rejects are the classic parser's errors.
     fn table(&mut self, span: WSpan, table: &w::Table<'s>) -> Lowered<Expression> {
         let columns = self.table_row(&table.columns)?;
         let mut rows = Vec::with_capacity(table.rows.len());
@@ -484,7 +501,8 @@ impl<'s> Lower<'_, '_, 's> {
     }
 
     /// A record (`parse_record`). Its type lists the field types when every key is a literal
-    /// string.
+    /// string and every spread a record of known fields; otherwise it is `any`. A key or value
+    /// that is a bare word with a `:` is the classic parser's error (`check_record_key_or_value`).
     fn record(&mut self, span: WSpan, items: &[w::RecordItem<'s>]) -> Lowered<Expression> {
         let mut out = Vec::with_capacity(items.len());
         let mut field_types = Some(Vec::new());
@@ -531,8 +549,16 @@ impl<'s> Lower<'_, '_, 's> {
         Ok(self.node(Expr::Record(out), span, ty))
     }
 
-    /// A closure (`parse_closure_expression`), covering `span` with its braces. Its parameters
-    /// are declared in its own scope; closures are compiled right away.
+    /// A closure (`parse_closure_expression`), covering `span` with its braces. In its own
+    /// scope, as the classic parser makes it:
+    ///
+    /// 1. The parameters, declared in that scope and checked against those a `closure(...)`
+    ///    shape expects.
+    /// 2. The body's block, receiving `input_type`.
+    /// 3. The block compiled right away, as every closure is, except when the working set holds
+    ///    any parse error (the classic parser's check, over everything parsed so far) and for
+    ///    the body of the `def` being lowered, which `finish_def` compiles.
+    /// 4. The parameters made the block's signature, and the scope's bindings recorded.
     pub(super) fn closure(
         &mut self,
         span: WSpan,
@@ -577,7 +603,8 @@ impl<'s> Lower<'_, '_, 's> {
         Ok(self.node(Expr::Closure(block_id), span, Type::Closure))
     }
 
-    /// A block in braces (`parse_block_expression`), covering `span`; not compiled on its own.
+    /// A block in braces (`parse_block_expression`), covering `span`, in its own scope; not
+    /// compiled on its own but with the block it is in.
     pub(super) fn block_expression(
         &mut self,
         span: WSpan,

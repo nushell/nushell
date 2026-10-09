@@ -149,9 +149,11 @@ pub struct KeywordCall<'t, 'a> {
     statement: Tokens<'t, 'a>,
     /// The keyword.
     pub keyword: Token,
+    /// The keyword's text, for the unknown-flag error.
     name: &'a str,
-    /// Whether a `--` ends the options (for all but `export-env`, whose
-    /// argument nu takes by position).
+    /// Whether a `--` ends the options: `false` from
+    /// [`KeywordCall::start_positional`], for a keyword whose argument nu takes
+    /// by position (`export-env`).
     end_of_options: bool,
     /// A `--help` or `-h` was seen.
     help: bool,
@@ -174,6 +176,8 @@ impl<'t, 'a> KeywordCall<'t, 'a> {
     /// The flags at a positional boundary; nu takes every one of them
     /// (`extern foo --help --help`).
     pub fn flags(&mut self, tokens: &mut Tokens<'t, 'a>) -> ParseResult<()> {
+        // `keyword_boundary_with` leaves a help flag for this loop to take, takes a `--` itself
+        // and refuses an unknown flag; anything else it leaves in place, which ends the flags.
         loop {
             let before = tokens.position();
             if let KeywordBoundary::Help = keyword_boundary_with(tokens, self.name, &[], self.end_of_options)? {

@@ -385,7 +385,7 @@ drive.
 | `parse_keyword` | `parse_expressions::parse_builtin_commands`; `parse_keywords::KeywordCall` gives the statements nu's handling of flags and `--help` | `accept/misc/every-statement-in-closure.nu` | `if_forms` |
 | `parse_let` | `parse_bindings::parse_let` | `accept/bindings/let-*.nu` | `let_mut_const` |
 | `parse_list_expression` | `parse_expressions::parse_list_expression`, `lite_parser::lite_parse_parts` | `accept/lists/*.nu` `reject/lists/*.nu` | `lists` |
-| `parse_list_pattern` | `parse_patterns::parse_list_pattern` over `lite_parser::lite_parse_parts` (items after the rest are ignored spans) | `accept/match/list-pattern*.nu` | `match_forms` |
+| `parse_list_pattern` | `parse_patterns::parse_list_pattern` over `lite_parser::lite_parse_parts` (the rest may stand anywhere, once) | `accept/match/list-pattern*.nu` | `match_forms` |
 | `parse_match_block_expression` | `parse_expressions::parse_match_block_expression` (`repeat_till(0.., parse_match_arm, eof)`); `parse_control_flow::parse_match` (`Match::value_block`) | `accept/match/*.nu` | `match_forms` |
 | `parse_math_expression` | `parse_expressions::parse_math_expression` | `accept/operators/*.nu` | `precedence` |
 | `parse_module` | `parse_module::parse_module` | `accept/modules/module-*.nu` | `extern_alias_module_use_export` |

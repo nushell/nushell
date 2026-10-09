@@ -31,7 +31,8 @@ use super::tokens::{Tokens, comment, eol, pipe};
 pub struct LiteCommand {
     /// The items and, after an assignment operator, everything to the end of the line.
     pub parts: Vec<Token>,
-    /// Byte offset just past the last part.
+    /// Byte offset just past the last part, or, for a command with no parts (only
+    /// attributes or redirections), where the command stopped.
     pub end: usize,
     /// Preceding `@attribute` lines.
     pub attributes: Vec<Vec<Token>>,
@@ -130,8 +131,17 @@ pub fn after_pipe(tokens: &mut Tokens<'_, '_>, comments: &mut Vec<Comment>) -> P
     }
 }
 
-/// Collect the tokens of one command. `first` is set for the first command of
-/// a pipeline, the only place attribute lines can precede it.
+/// Collect the tokens of one command (nu's `lite_parse`, for one command).
+/// `first` is set for the first command of a pipeline, the only place attribute
+/// lines can precede it.
+///
+/// Items become `parts`, comments are recorded, and a redirection takes the item
+/// after it as its target. The command ends before a `|`, an end of line, a `;`
+/// or the end of the tokens, or just after an `e>|`; a `||` is an error. After
+/// an assignment operator the command absorbs the rest of the line instead,
+/// pipes, `||` and redirections included, and carries on past an end of line
+/// that the pipeline continues across (a `|` ending the line or starting a
+/// later one).
 pub fn parse_lite_command(tokens: &mut Tokens<'_, '_>, first: bool) -> ParseResult<LiteCommand> {
     let working_set = tokens.working_set;
     let mut lite_command = LiteCommand::default();
@@ -221,6 +231,7 @@ fn lite_attribute_lines(tokens: &mut Tokens<'_, '_>, lite_command: &mut LiteComm
                     lite_command.comments.push(Comment { span: token.span });
                 }
                 TokenContents::Eol | TokenContents::Semicolon => {
+                    // A line ending with `|` keeps the command open only at a newline; a `;` closes it.
                     ends_with_pipe &= token.contents == TokenContents::Eol;
                     tokens.next_token();
                     break;
@@ -264,10 +275,14 @@ fn lite_attribute_lines(tokens: &mut Tokens<'_, '_>, lite_command: &mut LiteComm
 /// After an assignment operator everything is an item (`[a = b | c]` has
 /// five). `;` is left to the caller, which has already refused it.
 pub fn lite_parse_parts(working_set: &WorkingSet<'_>, tokens: &[Token]) -> ParseResult<Vec<Vec<Token>>> {
+    /// What the current command has redirected, to refuse a second redirection of a stream.
     #[derive(Clone, Copy)]
     enum Redirected {
+        /// Nothing yet.
         None,
+        /// One redirection, of this source (`o+e>` counts as both streams).
         Single(RedirectionSource),
+        /// Stdout and stderr, each to its own target: nothing more may follow.
         Separate,
     }
     if let Some(last) = tokens.last().filter(|token| token.contents == TokenContents::Pipe) {

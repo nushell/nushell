@@ -37,6 +37,7 @@ pub enum DeclKind {
 /// The commands declared in one block, closure or module body.
 #[derive(Debug, Default)]
 struct Scope {
+    /// The names declared here.
     commands: CommandSet,
     /// The names in `commands` whose calls parse differently: aliases of
     /// external commands and wrapped commands. Few, so a list.
@@ -105,13 +106,16 @@ impl<T: CommandLookup + ?Sized> CommandLookup for &T {
 pub struct WorkingSet<'a> {
     /// The complete source text; every span indexes into it.
     pub source: &'a str,
+    /// The configured commands, consulted when there is no `lookup`.
     config: ParseConfig,
     /// The engine to ask about commands, instead of `config`. Owned, so that a parse on
     /// another thread can own its lookup while the trees it builds borrow only the source.
     lookup: Option<Box<dyn CommandLookup + 'a>>,
+    /// Every comment found so far, in no particular order ([`WorkingSet::into_collected`] sorts).
     comments: RefCell<Vec<Comment>>,
     /// Source text nu-parser accepts and discards (see [`crate::ast::Ast::ignored`]).
     ignored: RefCell<Vec<Span>>,
+    /// The diagnostics recorded with [`WorkingSet::error`].
     parse_errors: RefCell<Vec<Diagnostic>>,
     /// Command names declared with `def`/`extern`/`alias` in enclosing blocks,
     /// innermost scope last.
@@ -139,15 +143,21 @@ impl std::fmt::Debug for WorkingSet<'_> {
 /// a few at a time, each time in a new [`WorkingSet`] (see [`super::BlockStatements`]).
 #[derive(Debug, Default)]
 pub(crate) struct ParseState {
+    /// The declaration scopes, innermost last.
     scopes: Vec<Scope>,
+    /// The bracket groups measured so far.
     groups: GroupEnds,
+    /// The length of the longest name declared so far.
     longest_declared: usize,
 }
 
 /// What a finished parse collected besides the tree.
 pub struct Collected {
+    /// Every comment, sorted and without duplicates.
     pub comments: Vec<Comment>,
+    /// The text nu-parser discards, sorted and without duplicates.
     pub ignored: Vec<Span>,
+    /// Every diagnostic, sorted by position.
     pub parse_errors: Vec<Diagnostic>,
 }
 
@@ -168,7 +178,7 @@ impl<'a> WorkingSet<'a> {
     }
 
     /// A working set for parsing the text of `span` in `source` with the commands `lookup`
-    /// knows.
+    /// knows. Its [`GroupEnds`] table covers `span` only.
     pub fn with_lookup(source: &'a str, span: Span, lookup: impl CommandLookup + 'a) -> Self {
         let mut working_set = Self::new(source, &ParseConfig::empty());
         working_set.lookup = Some(Box::new(lookup));
@@ -311,8 +321,9 @@ impl<'a> WorkingSet<'a> {
         self.lookup.is_some()
     }
 
-    /// Whether a table of built-in commands is configured. Rules that need to
-    /// know whether a command exists apply only when it is.
+    /// Whether the parse knows which commands exist: an engine answers
+    /// ([`CommandLookup`]) or the configuration lists some. Rules that need to
+    /// know whether a command exists apply only then.
     pub fn has_builtin_decls(&self) -> bool {
         self.lookup.is_some() || !self.config.is_empty()
     }

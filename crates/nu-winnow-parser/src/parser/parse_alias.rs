@@ -31,6 +31,7 @@ fn parse_aliased_keyword<'a>(
     end: usize,
 ) -> ParseResult<Option<Expression<'a>>> {
     let Some((head, rest)) = words.split_first() else { return Ok(None) };
+    // How many items after the keyword its signature requires.
     let complete = match working_set.get_span_contents(head.span) {
         "if" | "match" => 2,
         "try" => 1,
@@ -79,9 +80,12 @@ fn parse_alias_as_call<'a>(statement: Tokens<'_, 'a>) -> ParseResult<Expression<
 }
 
 /// `alias name = target` (nu's `parse_alias`); `exported` for `export alias`,
-/// which nu lets go
-/// without a target (`export alias x =`) because its length check counts the
-/// `export` word.
+/// which nu lets go without a target (`export alias x =`) because its length
+/// check counts the `export` word.
+///
+/// The checks below run in nu's order, which decides what a malformed alias
+/// reports: the positions of the items first, then a help flag, then the
+/// name, then the `=` and the target.
 pub fn parse_alias<'a>(mut tokens: Tokens<'_, 'a>, exported: bool) -> ParseResult<Expression<'a>> {
     let working_set = tokens.working_set;
     let statement = tokens;

@@ -236,7 +236,8 @@ impl LexOptions {
     pub const IO_TYPES: LexOptions = lex_options!(b"\n\r,", &[], true, true);
     /// Options for cell paths: `.`, `?` and `!` are special.
     pub const CELL_PATH: LexOptions = lex_options!(b"\n\r", b".?!", true, false);
-    /// Options for match blocks: commas, newlines and (see below) pipes separate arms.
+    /// Options for match blocks: commas and newlines are whitespace. A `|` still lexes as a
+    /// [`TokenContents::Pipe`], which separates the alternatives of an or-pattern (`1 | 2 => x`).
     pub const MATCH: LexOptions = lex_options!(b" \r\n,", &[], false, false);
     /// Options for the first two tokens of a `{...}` body, used to decide what it is.
     pub const BRACE_PROBE: LexOptions = lex_options!(b"\r\n\t", b":", true, false);
@@ -263,7 +264,8 @@ pub struct GroupEnds {
     /// The length of the text covered.
     len: usize,
     /// For each offset from `start`, one past the offset (from `start`) of the bracket closing
-    /// the group that opens there, `0` when unknown. Allocated on the first record.
+    /// the group that opens there. Storing it plus one lets the zero-filled table mean "unknown"
+    /// everywhere. Allocated, one `u32` per byte covered, on the first record.
     ends: Vec<u32>,
 }
 
@@ -273,7 +275,8 @@ impl GroupEnds {
         Self { start: span.start, len: span.len(), ends: Vec::new() }
     }
 
-    /// The group opening at `open` closes at `close`.
+    /// The group opening at `open` closes at `close`. A group opening outside the covered text,
+    /// or closing too far from `start` for a `u32`, is not recorded; scans then measure it again.
     fn record(&mut self, open: usize, close: usize) {
         let Some(index) = open.checked_sub(self.start).filter(|&index| index < self.len) else { return };
         let Ok(end) = u32::try_from(close - self.start + 1) else { return };
@@ -324,6 +327,7 @@ pub fn lex_n_tokens_with(
     groups: &mut GroupEnds,
 ) -> Result<Vec<Token>, Diagnostic> {
     let mut input = input(text, base);
+    // An estimate of the token count (one per six bytes), never more than the budget and `Eof`.
     let capacity = (text.len() / 6).max(4).min(max_tokens.saturating_add(1));
     let mut tokens: Vec<Token> = Vec::with_capacity(capacity);
     // nu's `is_complete`: a `;` after a `|` with no item between them is
@@ -353,8 +357,9 @@ pub fn lex_n_tokens_with(
     Ok(tokens)
 }
 
-/// The next token of `input` after whitespace, or `None` at its end. With
-/// [`LexOptions::skip_comments`] a comment is passed over. Bracket groups are
+/// The next token of `input` after whitespace, or `None` at its end. With a
+/// preset that skips comments (`TYPE_PARAMS`, `CELL_PATH`, ...) a comment is
+/// passed over. Bracket groups are
 /// measured with `groups` (see [`GroupEnds`]).
 #[inline]
 pub fn next_token(input: &mut Input<'_>, options: LexOptions, groups: &mut GroupEnds) -> ParseResult<Option<Token>> {
@@ -369,6 +374,9 @@ pub fn next_token(input: &mut Input<'_>, options: LexOptions, groups: &mut Group
     }
 }
 
+/// Skip the whitespace of `options` (space, tab, `\r` and the preset's own). A byte loop over
+/// the [`ByteSet`] rather than winnow's `take_while`, whose tokens on this `&str` stream are
+/// decoded `char`s: it runs before every token.
 fn skip_whitespace(input: &mut Input<'_>, options: LexOptions) {
     let bytes = input.input.as_ref().as_bytes();
     let mut whitespace = 0;
@@ -420,13 +428,18 @@ fn lex_comment(input: &mut Input<'_>) {
 /// The opening bracket kinds tracked while scanning an item.
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Bracket {
+    /// `(`
     Paren,
+    /// `[`
     Square,
+    /// `{`
     Curly,
+    /// `<`, paired only in a signature ([`LexOptions::in_signature`]).
     Angle,
 }
 
 impl Bracket {
+    /// The bracket that closes this one, for an unclosed-bracket error.
     fn closer(self) -> &'static str {
         match self {
             Bracket::Paren => ")",
@@ -437,6 +450,9 @@ impl Bracket {
     }
 }
 
+/// The spelling of the delimiter an unclosed-quote error asks for: the quote itself, or `)`, the
+/// closer an interpolation subexpression `$"... (...)"` waits for (see `interp_level` in
+/// [`item_length`]).
 fn quote_str(quote: u8) -> &'static str {
     match quote {
         b'"' => "\"",
@@ -448,8 +464,15 @@ fn quote_str(quote: u8) -> &'static str {
 }
 
 /// Advance the delimiter matching inside a `(...)` subexpression of an
-/// interpolated string. Returns `true` when `byte` is a backslash inside a
-/// nested double-quoted string, in which case the caller must skip the next byte.
+/// interpolated string by one `byte` at absolute offset `at` (nu's
+/// `interp_subexpr_step`). [`item_length`] and the interpolation parser
+/// (`parse_interpolation_parts`) share it, so both end the string at the same byte.
+///
+/// `stack` holds the closers still expected, each with where its opener is. While
+/// the innermost is a quote only that quote closes it; otherwise quotes open nested
+/// strings, `(` nests and `)` closes. Escapes exist only in double-quoted strings:
+/// returns `true` when `byte` is a backslash inside a nested `"` string, in which
+/// case the caller must skip the next byte.
 pub(crate) fn interp_subexpr_step(stack: &mut Vec<(u8, usize)>, byte: u8, at: usize) -> bool {
     match stack.last() {
         Some(&(expected, _)) if expected != b')' => {
@@ -478,17 +501,15 @@ fn is_redirection(text: &[u8]) -> bool {
     matches!(text, b"o>" | b"out>" | b"e>" | b"err>" | b"o+e>" | b"e+o>" | b"out+err>" | b"err+out>")
 }
 
-/// Scan one item starting at the current position.
-///
-/// This is the heart of the lexer and a direct port of the reference
-/// algorithm: it consumes text until an item terminator is found at bracket
-/// depth zero, tracking quotes, brackets, raw strings, comments inside
-/// brackets and interpolated-string subexpressions.
+/// Lex one item at the current position (nu's `lex_item`): [`item_length`]
+/// measures it, [`item_contents`] tells an operator spelling from a plain item,
+/// and the stream advances past it.
 fn lex_item(input: &mut Input<'_>, options: LexOptions, groups: &mut GroupEnds) -> ParseResult<TokenContents> {
     let text = *input.input.as_ref();
     let bytes = text.as_bytes();
     let base = input.state.0 + input.current_token_start();
     let offset = item_length(bytes, base, options, false, groups)?;
+    // An empty item would leave the stream where it is, and `lex_n_tokens_with` would loop.
     if offset == 0 {
         return Err(cut(Diagnostic::new(ErrorKind::UnexpectedEof("command"), Span::point(base))));
     }
@@ -521,8 +542,36 @@ pub(crate) fn group_end_with(text: &str, base: usize, groups: &mut GroupEnds) ->
 }
 
 /// Scan the item at the start of `bytes` (whose first byte is at absolute
-/// offset `base`) and return its length. With `first_group` set, stop right
-/// after the bracket closing the group opened by the first byte.
+/// offset `base`) and return its length: the scan of nu's `lex_item`. With
+/// `first_group` set, stop right after the bracket closing the group opened by
+/// the first byte (see [`group_end`]).
+///
+/// The item ends at the first terminator (`StopBytes::terminators`: whitespace,
+/// `|`, `;` and the options' own) met outside every quote, comment and bracket.
+/// Where that is depends on what is open at each byte, so the scan is a byte loop
+/// over this state rather than a grammar:
+///
+/// - `quote`: the quote the scan is inside (`'`, `"` or `` ` ``) and where it
+///   opened. Only `"` has backslash escapes. `quote_is_interp` marks `$"..."` and
+///   `$'...'`, in which a `(` opens a subexpression.
+/// - `interp_level`: the delimiters open inside that subexpression, matched by
+///   [`interp_subexpr_step`]. While it is not empty the string's own quote does
+///   not close the string.
+/// - `brackets`: the open `(`, `[`, `{` (and `<` in a signature), each with its
+///   offset. Inside a bracket no terminator ends the item.
+/// - `in_comment`: a `#` after whitespace starts a comment that runs to the next
+///   newline and in which quotes and brackets do not count. In practice this
+///   happens inside brackets, since outside them whitespace ends the item.
+/// - `previous`: the last byte scanned, to see the `r` of a raw string
+///   `r#'...'#`, the `$` of an interpolated string and the whitespace before a
+///   comment's `#`.
+///
+/// Outside quotes, a run of bytes that changes nothing but `previous` is skipped
+/// at once. At an opening bracket whose group `groups` knows, the scan jumps to
+/// its closing bracket; each group it closes otherwise is recorded there. A
+/// signature scan does neither, since pairing `<` and `>` can change a group's
+/// extent. A stray `]` at depth zero is text; a stray `)` or `}` is an error, as
+/// is a quote or bracket still open at the end.
 fn item_length(
     bytes: &[u8],
     base: usize,
@@ -543,11 +592,15 @@ fn item_length(
     let mut offset = 0usize;
     let stops = options.stops;
 
+    // nu's `is_item_terminator`: only at bracket depth zero does a terminator end the item.
     let is_terminator =
         |brackets: &[(Bracket, usize)], byte: u8| brackets.is_empty() && stops.terminators.contains(byte);
 
     while offset < bytes.len() {
-        // Outside quotes most bytes are none that the match below looks at: skip them all.
+        // Outside quotes most bytes (letters, digits, `$`, `-`, ...) are ones the match below
+        // passes over, so skip the whole run in this tight loop: it runs for every byte of every
+        // item. `StopBytes::item` lists the bytes that matter at depth zero, `group` those inside
+        // brackets.
         if quote.is_none() {
             let stop = if brackets.is_empty() { &stops.item } else { &stops.group };
             let mut plain_end = offset;
@@ -563,7 +616,9 @@ fn item_length(
         let byte = bytes[offset];
         match quote {
             Some(_) if !interp_level.is_empty() => {
-                // Inside `$"... ( ... )"`: track nested delimiters until the `)` closes.
+                // Inside `$"... ( ... )"`: track nested delimiters until the `)` closes. A
+                // backslash as the last byte is not skipped past the end; the unclosed
+                // subexpression is reported after the loop.
                 let escaped =
                     interp_subexpr_step(&mut interp_level, byte, absolute(offset)) && offset + 1 < bytes.len();
                 offset += if escaped { 2 } else { 1 };
@@ -602,7 +657,8 @@ fn item_length(
                         break;
                     }
                 }
-                // A special character (`:` in record keys, `.` in cell paths) is an item of its own.
+                // A special character (`:` in record keys, `.` in cell paths) is an item of its own
+                // (nu's `is_special_item`); elsewhere at depth zero it ends the item.
                 _ if offset == 0 && brackets.is_empty() && stops.special_tokens.contains(byte) => {
                     offset += 1;
                     break;
@@ -612,7 +668,8 @@ fn item_length(
                     quote_is_interp = byte != b'`' && previous == Some(b'$');
                 }
                 b'[' | b'{' | b'(' => {
-                    // A group an earlier scan measured: on to its closing bracket.
+                    // A group an earlier scan measured: on to its closing bracket, unless that lies
+                    // past the end of `bytes` (this text ends inside the group).
                     if !options.in_signature
                         && let Some(close) = groups.close(absolute(offset))
                         && close < absolute(bytes.len())
@@ -632,6 +689,8 @@ fn item_length(
                     brackets.push((bracket, absolute(offset)));
                 }
                 b'<' if options.in_signature => brackets.push((Bracket::Angle, absolute(offset))),
+                // A `>` closes a `<` only when that is the innermost open bracket; otherwise it is
+                // text, such as the arrow in `[int -> string]`.
                 b'>' if options.in_signature => {
                     if matches!(brackets.last(), Some((Bracket::Angle, _))) {
                         brackets.pop();
@@ -693,6 +752,7 @@ struct StopBytes {
 }
 
 impl StopBytes {
+    /// The sets for one preset, from the arguments of `lex_options!`.
     const fn new(additional_whitespace: &[u8], special_tokens: &[u8], in_signature: bool) -> Self {
         let brackets: &[u8] = if in_signature { b"[]{}()<>" } else { b"[]{}()" };
         let terminators = ByteSet::EMPTY.with(b" \t\n\r|;").with(additional_whitespace).with(special_tokens);
@@ -706,11 +766,13 @@ impl StopBytes {
     }
 }
 
-/// A set of bytes.
+/// A set of bytes: a 256-bit map in which byte `b` is bit `b & 63` of word `b >> 6`. Built in
+/// `const` context for each preset, so a membership test in the scan is one bit test.
 #[derive(Clone, Copy, Debug)]
 struct ByteSet([u64; 4]);
 
 impl ByteSet {
+    /// The set with no bytes.
     const EMPTY: ByteSet = ByteSet([0; 4]);
 
     /// This set with `bytes` added.
@@ -724,18 +786,23 @@ impl ByteSet {
         self
     }
 
+    /// Whether `byte` is in the set.
     #[inline]
     fn contains(&self, byte: u8) -> bool {
         self.0[(byte >> 6) as usize] & (1 << (byte & 63)) != 0
     }
 }
 
+/// The cut error for a delimiter opened at `open_at` and still open where the text ends, at
+/// `at`; `delimiter` is the closer it needs.
 fn unclosed_error(delimiter: &'static str, open_at: usize, at: usize) -> winnow::error::ErrMode<ParseFailure> {
     cut(Diagnostic::new(ErrorKind::Unclosed { delimiter, open: Span::new(open_at, open_at + 1) }, Span::point(at)))
 }
 
 /// Pop the bracket closed by `closer`, returning where it opened, or report the
-/// mismatch. A stray `]` is ordinary text (`a]`); a stray `}` or `)` is an error.
+/// mismatch. With no bracket open, a `]` is ordinary text (`a]`) and gives `None`,
+/// while a `}` or `)` is an error; a closer that does not match the innermost open
+/// bracket (`(a]`) is always an error.
 fn close_bracket(brackets: &mut Vec<(Bracket, usize)>, closer: u8, at: usize) -> ParseResult<Option<usize>> {
     let (expected, found) = match closer {
         b']' => (Bracket::Square, "]"),
@@ -756,6 +823,8 @@ fn close_bracket(brackets: &mut Vec<(Bracket, usize)>, closer: u8, at: usize) ->
     }
 }
 
+/// The cut error for a closer `found` at `at` that does not match the innermost open bracket,
+/// `open` at `open_at`; the help names that bracket.
 fn unbalanced_error(
     found: &'static str,
     open: Bracket,
@@ -766,6 +835,7 @@ fn unbalanced_error(
         .with_help(format!("the innermost open delimiter is `{}` at byte {open_at}", opening_delimiter_str(open))))
 }
 
+/// The spelling of an opening bracket, for error messages.
 fn opening_delimiter_str(bracket: Bracket) -> &'static str {
     match bracket {
         Bracket::Paren => "(",
@@ -776,7 +846,8 @@ fn opening_delimiter_str(bracket: Bracket) -> &'static str {
 }
 
 /// Scan a raw string `r#'...'#` starting at the `r` (nu's `lex_raw_string`);
-/// returns the offset just past it.
+/// returns the offset just past it. The string ends at the first `'` followed by
+/// as many `#`s as follow the `r`, so `r##'a'#'##` holds `a'#`.
 fn lex_raw_string(bytes: &[u8], start: usize, absolute: impl Fn(usize) -> usize) -> ParseResult<usize> {
     let mut hashes = 0;
     while bytes.get(start + 1 + hashes) == Some(&b'#') {

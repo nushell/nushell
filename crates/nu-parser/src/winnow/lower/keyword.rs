@@ -1,6 +1,8 @@
 //! Keyword statements: `if`, `match`, `while`, `loop`, `try`, `return`, `break`, `continue`
-//! (ordinary calls to keyword commands in the classic parser), and `let`, `mut`, `for` and
-//! `def` (the classic parser's `parse_let`, `parse_mut`, `parse_for` and `parse_def`).
+//! (ordinary calls to keyword commands in the classic parser), and `let`, `mut`, `const`, `for`,
+//! `def`, `extern` and `export-env` (the classic parser's `parse_let`, `parse_mut`,
+//! `parse_const`, `parse_for`, `parse_def`, `parse_extern` and `parse_export_env`), with the
+//! attributes and the `export` around a definition.
 
 use std::{collections::HashMap, sync::Arc};
 
@@ -28,7 +30,9 @@ use crate::{
 };
 
 impl<'s> Lower<'_, '_, 's> {
-    /// The call to keyword `name` that `e` is, its head the keyword.
+    /// The call to keyword `name` that `e` is, its head the keyword. The head's span is
+    /// registered in the working set, as `parse_internal_call` registers it (as do the other
+    /// calls the lowering builds).
     fn keyword_call(&mut self, e: &w::Expression<'s>, name: &str) -> Lowered<(Call, DeclId)> {
         let decl_id = self
             .working_set
@@ -42,7 +46,9 @@ impl<'s> Lower<'_, '_, 's> {
     }
 
     /// The end of a keyword's call (`parse_internal_call`): the missing-argument check, and
-    /// the output type the keyword's signature gives for `input_type`.
+    /// the output type the keyword's signature gives for `input_type`. Only `CallKind::Invalid`
+    /// is handed back: `CallKind::Help` needs a `--help` flag, which no keyword call the
+    /// lowering builds has.
     fn finish_keyword_call(
         &mut self,
         call: &Call,
@@ -63,7 +69,9 @@ impl<'s> Lower<'_, '_, 's> {
             .unwrap_or(Type::Error))
     }
 
-    /// A block argument of a keyword (`{ ... }`), or the value standing in for one.
+    /// A block argument of a keyword, `{ ... }` (`parse_block_expression`). A variable or
+    /// subexpression in its place (`if $c $env.f`), which the classic parser type-checks as a
+    /// block, is left to the classic parser.
     fn block_argument(
         &mut self,
         block: &w::Block<'s>,
@@ -77,7 +85,9 @@ impl<'s> Lower<'_, '_, 's> {
         self.block_expression(span, block, input_type)
     }
 
-    /// The span of a block's braces, from the span of its inside.
+    /// The span of a block's braces, from the span of its inside: a winnow block covers the text
+    /// between its braces, while the classic parser's block and closure expressions cover the
+    /// braces. A block that is not between braces in the source is left to the classic parser.
     pub(super) fn braces_span(&self, block: &w::Block<'s>) -> Lowered<WSpan> {
         let (start, end) = (block.span.start, block.span.end);
         if start == 0
@@ -90,7 +100,9 @@ impl<'s> Lower<'_, '_, 's> {
     }
 
     /// `if condition { then } else { otherwise }`: a call to `if`, whose output is the union of
-    /// its branches' outputs (with `nothing` when there is no `else`).
+    /// its branches' outputs (with `nothing` when there is no `else`), as `parse_internal_call`
+    /// overrides the output of `if`. The condition gets no input, the branches `input_type`.
+    /// The `else` branch, a block or an expression (`else if ...`), is a `Keyword` argument.
     pub(super) fn if_call(
         &mut self,
         e: &w::Expression<'s>,
@@ -128,13 +140,14 @@ impl<'s> Lower<'_, '_, 's> {
         } else {
             output = output.union(Type::Nothing);
         }
+        // For its check: the output is the branches' union, not the signature's.
         self.finish_keyword_call(&call, decl_id, input_type)?;
         let span = self.span(e.span);
         Ok(self.node(Expr::Call(Box::new(call)), span, output))
     }
 
     /// The type a branch of `if` or `match` gives: its block's output, or the input for an
-    /// empty block.
+    /// empty block (as `parse_internal_call` and `parse_match_block_expression` compute it).
     fn branch_type(&self, branch: &Expression, input_type: Option<&Type>) -> Type {
         match &branch.expr {
             Expr::Block(block_id) => {
@@ -149,7 +162,7 @@ impl<'s> Lower<'_, '_, 's> {
         }
     }
 
-    /// `while condition { body }`.
+    /// `while condition { body }`: neither the condition nor the body gets the pipeline's input.
     pub(super) fn while_call(
         &mut self,
         e: &w::Expression<'s>,
@@ -179,10 +192,16 @@ impl<'s> Lower<'_, '_, 's> {
         Ok(self.node(Expr::Call(Box::new(call)), span, output))
     }
 
-    /// `try { body } catch {|err| ... } finally { ... }`. A `break` in a handler's closure is
-    /// allowed although the closure is compiled on its own: the classic parser drops that
-    /// error for both of `try`'s handler parameters (whose shapes list `catch`), when it is the
-    /// handler's own (its closure did not compile), not that of a `def` body or closure in it.
+    /// `try { body } catch {|err| ... } finally { ... }`: a call to `try` with the body as a
+    /// block and each handler as a `Keyword` argument holding a closure.
+    ///
+    /// A handler's closure is compiled on its own as it is lowered, so a `break` or `continue`
+    /// in it reports `NotInALoop` even when the `try` is in a loop. `parse_internal_call` drops
+    /// that error for each of `try`'s handler parameters (both list `catch` in their shapes, so
+    /// a `finally` handler too) when it is the handler's own: the only compile error the
+    /// handler added, and its closure has no IR. An error from a closure or `def` body nested
+    /// in the handler, whose closure then did compile, stands. Hence the compile errors are
+    /// counted before each handler.
     pub(super) fn try_call(
         &mut self,
         e: &w::Expression<'s>,
@@ -231,8 +250,12 @@ impl<'s> Lower<'_, '_, 's> {
         Ok(self.node(Expr::Call(Box::new(call)), span, output))
     }
 
-    /// `match value { pattern => result, ... }`: the output is the union of the arms' outputs
-    /// (with `nothing` when no arm matches everything).
+    /// `match value { pattern => result, ... }`: a call to `match` with the value and a
+    /// `MatchBlock` of the arms (`parse_match_block_expression`). Each arm has a scope of its
+    /// own, in which its pattern declares its variables before its guard and its result are
+    /// lowered. The value gets no input, the results `input_type`. The output is the union of
+    /// the arms' outputs (with `nothing` when no arm matches everything). A `{ ... }` that is a
+    /// closure or a record rather than arms is left to the classic parser.
     pub(super) fn match_call(
         &mut self,
         e: &w::Expression<'s>,
@@ -265,13 +288,15 @@ impl<'s> Lower<'_, '_, 's> {
         let block_span = self.span(match_expr.block_span);
         let block = self.node(Expr::MatchBlock(arms), block_span, output.clone());
         call.add_positional(block);
+        // For its check: the output is the arms' union, not the signature's.
         self.finish_keyword_call(&call, decl_id, input_type)?;
         let span = self.span(e.span);
         Ok(self.node(Expr::Call(Box::new(call)), span, output))
     }
 
     /// A match arm's pattern, read by the classic pattern parser (`parse_pattern`), which also
-    /// declares its variables.
+    /// declares its variables. The alternatives of an or-pattern (`a | b`) are read one by one,
+    /// as `parse_match_block_expression` reads them.
     fn pattern(&mut self, pattern: &w::MatchPattern<'s>) -> Lowered<MatchPattern> {
         match &pattern.pattern {
             w::Pattern::Or(alternatives) => {
@@ -296,7 +321,10 @@ impl<'s> Lower<'_, '_, 's> {
         }
     }
 
-    /// The result of a match arm: a block, or an expression.
+    /// The result of a match arm, which the classic parser reads as `oneof<block, expression>`:
+    /// braces without parameters are a block (`{}` included, while `{a: 1}` stays a record, as
+    /// `parse_brace_expr` decides for a block shape); anything else, a closure with parameters
+    /// included, is an expression.
     fn match_result(
         &mut self,
         body: &w::Expression<'s>,
@@ -342,8 +370,9 @@ impl<'s> Lower<'_, '_, 's> {
         Ok(self.node(Expr::Call(Box::new(call)), span, output))
     }
 
-    /// The variable of `let`, `mut` or `for`, with its type when it has one
-    /// (`parse_var_with_opt_type`). An untyped `let` variable takes the pipeline's type.
+    /// The variable of `let`, `mut`, `const` or `for` (`parse_var_with_opt_type`), declared
+    /// with its written type, or else with `input_type` (`any` without one), which the caller
+    /// may replace. Returns its `VarDecl` expression and the written type.
     fn variable_declaration(
         &mut self,
         name: &nu_winnow_parser::Spanned<&'s str>,
@@ -401,7 +430,8 @@ impl<'s> Lower<'_, '_, 's> {
     }
 
     /// `let name = value` (`parse_let`): the value is a pipeline parsed before the variable is
-    /// declared; an untyped variable takes the value's type.
+    /// declared; an untyped variable takes the value's type. The value receives `input_type`
+    /// (`ls | let files = $in`).
     pub(super) fn let_statement(
         &mut self,
         element: &w::PipelineElement<'s>,
@@ -411,7 +441,7 @@ impl<'s> Lower<'_, '_, 's> {
         self.binding(element, binding, "let", false, input_type)
     }
 
-    /// `mut name = value` (`parse_mut`).
+    /// `mut name = value` (`parse_mut`): as `let`, without the pipeline's input.
     pub(super) fn mut_statement(
         &mut self,
         element: &w::PipelineElement<'s>,
@@ -420,6 +450,16 @@ impl<'s> Lower<'_, '_, 's> {
         self.binding(element, binding, "mut", true, None)
     }
 
+    /// `let` or `mut` (`parse_let`, `parse_mut`), `keyword` being which, in the classic order:
+    ///
+    /// 1. The value, a pipeline lowered as an `Expr::Block` before the variable exists, so
+    ///    that `let x = $x + 1` reads an outer `x`. Its type is what `check_pipeline_type`
+    ///    gives for a `let` of one pipeline with an input, else the block's output.
+    /// 2. The variable, declared with its written type (an untyped `let` variable with
+    ///    `input_type` until step 3).
+    /// 3. A written type must accept the value's type; an untyped variable takes the value's.
+    ///
+    /// `let x` without a value is left to the classic parser, which reads it as a plain call.
     fn binding(
         &mut self,
         element: &w::PipelineElement<'s>,
@@ -477,7 +517,14 @@ impl<'s> Lower<'_, '_, 's> {
     }
 
     /// `for variable in iterable { body }` (`parse_for`): the variable, in the loop's scope,
-    /// gets the type of what the iterable yields, and the body's block takes it.
+    /// gets the type of what the iterable yields, and the body's block takes it. In order:
+    ///
+    /// 1. In the loop's scope, as `parse_internal_call` reads `for`'s arguments: the variable
+    ///    is declared (with its written type or `any`), then the iterable and the body (a block,
+    ///    compiled with the block the `for` is in) are lowered.
+    /// 2. Once the scope is left and the call checked, the body's block gets `for`'s signature
+    ///    with the variable as its first parameter, and the variable the type the iterable
+    ///    yields (`yielded_type`). The call's output is `nothing`.
     pub(super) fn for_statement(
         &mut self,
         element: &w::PipelineElement<'s>,
@@ -543,7 +590,16 @@ impl<'s> Lower<'_, '_, 's> {
     /// `def` expression, or the `export` expression around it (for an `export def` in a
     /// module named `module_name`, or in a script). The definition is a call to `def` whose
     /// predeclared command becomes the defined one. Returns the definition's expression and the
-    /// command's name and declaration.
+    /// command's name and declaration. In the order of `parse_def`:
+    ///
+    /// 1. The description from the comments, and the attributes with their constant values.
+    /// 2. In a scope of its own, the call to `def`: the name; the signature, which declares the
+    ///    parameters' variables in that scope; then the body, a closure whose input is the
+    ///    signature's input type, marked by `def_body_span` so that `closure` does not compile
+    ///    it.
+    /// 3. Once the scope is left, `finish_def` compiles the body and makes the predeclared
+    ///    command the defined one.
+    /// 4. The attributes and the `export` around the call (`definition_expression`).
     pub(super) fn def(
         &mut self,
         pipeline: &w::Pipeline<'s>,
@@ -581,7 +637,9 @@ impl<'s> Lower<'_, '_, 's> {
                 _ => Type::Any,
             };
             let body_span = this.braces_span(&def.body)?;
-            // `finish_def` compiles the body (`parse_def` marks it the same way).
+            // `finish_def` compiles the body (`parse_def` marks it the same way). The outer
+            // mark is restored before `?`: this `def` may be in another one's body, and a
+            // statement handed back does not end the lowering of the statements after it.
             let def_body_span = Some(this.span(body_span));
             let outer_def_body_span =
                 std::mem::replace(&mut this.working_set.def_body_span, def_body_span);
@@ -624,7 +682,8 @@ impl<'s> Lower<'_, '_, 's> {
         })?;
 
         // `finish_def` is the classic parser's own code and commits the definition, so what it
-        // reports stands: the statement is not handed back after it.
+        // reports stands; past it, only an engine without `export def` hands the statement
+        // back. The call is `CallKind::Valid`: `finish_keyword_call` handed back any other.
         let (expression, decl) = finish_def(
             self.working_set,
             DefCall {
@@ -651,8 +710,10 @@ impl<'s> Lower<'_, '_, 's> {
     }
 
     /// `extern name [signature]` (`parse_extern`), with its `attributes`; `command` is the
-    /// `extern` expression or the `export` expression around it. The predeclared command becomes
-    /// a known external.
+    /// `extern` expression or the `export` expression around it. As for `def`, the call (the
+    /// name and the signature, whose parameters get no variables) is lowered in a scope of its
+    /// own; once the scope is left, `finish_extern` makes the predeclared command a known
+    /// external.
     pub(super) fn extern_def(
         &mut self,
         pipeline: &w::Pipeline<'s>,
@@ -704,7 +765,12 @@ impl<'s> Lower<'_, '_, 's> {
     }
 
     /// `const name = value` (`parse_const`): the value is evaluated now and the variable holds
-    /// it. Returns the statement's expression, covering `span`, and the variable's name span.
+    /// it. In order: the value, a pipeline without input lowered as an `Expr::Subexpression`
+    /// (where `let` makes an `Expr::Block`); the variable, declared after it; a written type,
+    /// checked against the value's type and then the constant's, and a string held by a `glob`
+    /// variable made a glob. A value that does not evaluate is the classic parser's error.
+    /// `keyword` is the `const` expression. Returns the statement's expression and the
+    /// variable's name span.
     pub(super) fn const_statement(
         &mut self,
         keyword: &w::Expression<'s>,
@@ -763,8 +829,10 @@ impl<'s> Lower<'_, '_, 's> {
         Ok((self.node(Expr::Call(call), span, Type::Any), lvalue_span))
     }
 
-    /// `export-env { ... }` (`parse_export_env`): its block is compiled now. Returns the
-    /// statement's expression and the block.
+    /// `export-env { ... }` (`parse_export_env`): its block is compiled now, once the call is
+    /// made. The block is lowered in an extra scope when `export-env`'s signature creates one,
+    /// as `parse_internal_call` does for any command. Returns the statement's expression and the
+    /// block.
     pub(super) fn export_env(
         &mut self,
         e: &w::Expression<'s>,
@@ -791,9 +859,11 @@ impl<'s> Lower<'_, '_, 's> {
 
     /// A definition's description and extra description, from its doc comments and the comment
     /// after it on its line (`build_desc` over the lite command's comments). With attributes
-    /// (`command` is what follows them), the classic lite parser keeps the comment lines after
-    /// the last comment beside an attribute, or, when there are none, the comments beside the
-    /// attributes.
+    /// (`command` is the definition after them), the comments are those the classic lite parser
+    /// keeps: a comment beside an attribute drops the whole-line comments before it, so the doc
+    /// comments are the whole-line comments after the last comment beside an attribute (all of
+    /// them when no attribute has one) or, when that leaves none, the comments beside the
+    /// attributes. Comments from the definition on are kept in any case.
     fn description(
         &mut self,
         pipeline: &w::Pipeline<'s>,
@@ -808,6 +878,8 @@ impl<'s> Lower<'_, '_, 's> {
             .collect();
         if let Some(first) = attributes.first() {
             comments.sort_by_key(|span| span.start);
+            // `after`: from the definition on; `beside`: after an attribute on its line, which
+            // drops the whole-line comments before it; `lines`: whole-line comments.
             let (mut lines, mut beside, mut after) = (Vec::new(), Vec::new(), Vec::new());
             for span in comments {
                 if span.start > command.span.start {
@@ -826,7 +898,7 @@ impl<'s> Lower<'_, '_, 's> {
         self.working_set.build_desc(&comments)
     }
 
-    /// Whether only spaces come before `offset` on its line.
+    /// Whether only spaces or tabs come before `offset` on its line.
     fn starts_line(&self, offset: usize) -> bool {
         self.source[..offset]
             .rsplit('\n')
@@ -834,7 +906,9 @@ impl<'s> Lower<'_, '_, 's> {
             .is_none_or(|line| line.trim_start_matches([' ', '\t', '\r']).is_empty())
     }
 
-    /// A definition's attributes and their constant values.
+    /// A definition's attributes and their constant values (the loop that starts `parse_def`
+    /// and `parse_extern`). An attribute that does not evaluate to a constant is the classic
+    /// parser's error.
     fn attributes(&mut self, attributes: &[w::Attribute<'s>]) -> Lowered<LoweredAttributes> {
         let mut lowered = Vec::with_capacity(attributes.len());
         let mut values = Vec::with_capacity(attributes.len());
@@ -849,7 +923,8 @@ impl<'s> Lower<'_, '_, 's> {
     }
 
     /// The head of a definition's call: `keyword`, or `export keyword` when `command` is an
-    /// `export`.
+    /// `export`, covering the blanks between the two words, as `Span::concat` of the two items
+    /// does.
     fn command_head(&self, command: &w::Expression<'s>, keyword: &str) -> Span {
         let start = self.span(command.span).start;
         match command.expr {
@@ -932,7 +1007,8 @@ impl<'s> Lower<'_, '_, 's> {
     }
 
     /// An attribute, `@name arguments` (`parse_attribute`): a call to the command `attr name`,
-    /// covering the attribute without its `@`. Returns it with its name.
+    /// covering the attribute without its `@`. Returns it with its name. An alias of an
+    /// external command, which is not a constant command, is the classic parser's error.
     fn attribute(&mut self, attribute: &w::Attribute<'s>) -> Lowered<(Attribute, String)> {
         let name = attribute.name.item.to_string();
         let decl_id = self
@@ -968,7 +1044,8 @@ pub(super) type Definition = (Expression, Option<(Vec<u8>, DeclId)>);
 /// A definition's attributes, and their names with their constant values.
 type LoweredAttributes = (Vec<Attribute>, Vec<(String, Value)>);
 
-/// What iterating over a value of type `ty` yields.
+/// What iterating over a value of type `ty` yields (the `yielded_type` inside `parse_for`):
+/// recursive, since each alternative of a union may itself be iterable.
 fn yielded_type(ty: Type) -> Type {
     match ty {
         Type::List(item) => *item,

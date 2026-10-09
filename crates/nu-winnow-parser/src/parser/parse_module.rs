@@ -44,6 +44,7 @@ fn parse_module_name<'a>(working_set: &WorkingSet<'a>, token: &Token) -> ParseRe
 pub fn parse_module<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
     let working_set = tokens.working_set;
     let statement = tokens;
+    // nu looks for `--help` in the whole statement before anything else.
     if let Some(call) = parse_module_help_call(statement) {
         return call;
     }
@@ -198,6 +199,15 @@ fn is_module_item(expr: &Expression<'_>) -> bool {
 
 /// `use module [members...]` (nu's `parse_use`, whose members are nu's import
 /// pattern).
+///
+/// ```text
+/// use    = "use" module { member }
+/// module = string | "null"
+/// member = name | "*" | "[" { name } "]" | $var | (expr) | { key: value }
+/// ```
+///
+/// A `*` or a list ends the pattern; the last three members are parsed and
+/// ignored ([`parse_import_pattern_member`]).
 pub fn parse_use<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
     let working_set = tokens.working_set;
     let statement = tokens;

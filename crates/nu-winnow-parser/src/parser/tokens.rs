@@ -39,7 +39,9 @@ use super::WorkingSet;
 pub struct Tokens<'t, 'a> {
     /// The working set of the parse.
     pub working_set: &'t WorkingSet<'a>,
+    /// Every token of the stream, consumed or not.
     tokens: &'t [Token],
+    /// The index in `tokens` of the next token.
     position: usize,
     /// Byte offset just past the last token, for errors at the end.
     end: usize,
@@ -306,6 +308,9 @@ impl Location for Tokens<'_, '_> {
     }
 }
 
+/// How winnow's own parsers over tokens (`alt`, `repeat`, `eof`, ...) fail, as over
+/// characters: a mismatch is a [`ParseFailure::NoMatch`] at the next token's start, and of two
+/// failed alternatives the one that got further is kept.
 impl<'t, 'a: 't> ParserError<Tokens<'t, 'a>> for ParseFailure {
     type Inner = ParseFailure;
 
@@ -328,12 +333,14 @@ impl<'t, 'a: 't> ParserError<Tokens<'t, 'a>> for ParseFailure {
     }
 }
 
+/// winnow's `.context("...")` over tokens ([`ParseFailure::with_context`]).
 impl<'t, 'a: 't> AddContext<Tokens<'t, 'a>, &'static str> for ParseFailure {
     fn add_context(self, _tokens: &Tokens<'t, 'a>, _start: &TokenPosition, context: &'static str) -> Self {
         self.with_context(context)
     }
 }
 
+/// winnow's `.try_map(...)` over tokens: the error becomes a message at the next token.
 impl<'t, 'a: 't, E: fmt::Display> FromExternalError<Tokens<'t, 'a>, E> for ParseFailure {
     fn from_external_error(tokens: &Tokens<'t, 'a>, error: E) -> Self {
         ParseFailure::from(Diagnostic::message(error.to_string(), tokens.here()))

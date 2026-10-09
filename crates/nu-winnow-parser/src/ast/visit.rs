@@ -306,6 +306,8 @@ fn walk_block_or_value<'a, V: Visitor<'a> + ?Sized>(
     }
 }
 
+/// The expressions among call or attribute arguments: positionals, spreads
+/// and the value of a `--flag=value`.
 fn walk_arguments<'a, V: Visitor<'a> + ?Sized>(visitor: &mut V, args: &[Argument<'a>]) {
     for arg in args {
         match arg {

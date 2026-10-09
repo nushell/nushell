@@ -1,4 +1,9 @@
 //! The engine's declarations, as the winnow parser asks about them.
+//!
+//! Two [`CommandLookup`]s: [`EngineLookup`] answers from the live working set, on the thread
+//! that lowers; [`AskedLookup`] answers from a [`NamesSnapshot`] on the thread that parses
+//! ahead, and writes every answer down for [`changed_answer`] to check before the statement is
+//! lowered.
 
 use std::{cell::RefCell, rc::Rc};
 
@@ -24,6 +29,7 @@ pub(super) struct EngineLookup<'c, 'w, 'e> {
 }
 
 impl<'c, 'w, 'e> EngineLookup<'c, 'w, 'e> {
+    /// A lookup over `working_set`, with no kinds worked out yet.
     pub(super) fn new(working_set: &'c RefCell<&'w mut StateWorkingSet<'e>>) -> Self {
         Self {
             working_set,
@@ -88,12 +94,15 @@ pub(super) struct NamesSnapshot<'e> {
     /// A working set over the same engine whose scope frames copy the original's names
     /// (declarations, predeclarations, visibility, overlays), so that its `find_decl` answers
     /// as the original's did when the copy was made. It holds no declarations of its own: it is
-    /// asked only about names, and about permanent declarations.
+    /// asked only about names, and about permanent declarations, since the id of a declaration
+    /// of the original's delta indexes nothing here (see [`NamesSnapshot::is_permanent`]).
     names: StateWorkingSet<'e>,
     /// The kinds the original lookup had worked out, by declaration id. A delta declaration not
-    /// among them is taken to be `Declared`, which most are.
+    /// among them is taken to be `Declared`, which most are; for one that is not (an imported
+    /// `def --wrapped`), the live working set answers otherwise and [`changed_answer`] says so.
     kinds: RefCell<Vec<Option<DeclKind>>>,
-    /// The bound on the length of command names when the copy was made.
+    /// The bound on the length of command names when the copy was made, which the thread
+    /// parses with: the live bound can grow meanwhile, and [`changed_answer`] compares the two.
     pub(super) longest_name: usize,
 }
 
@@ -120,12 +129,16 @@ impl<'e> NamesSnapshot<'e> {
 /// A [`NamesSnapshot`] answering the winnow parser, every answer written down in `asked`.
 pub(super) struct AskedLookup<'e> {
     pub(super) names: NamesSnapshot<'e>,
+    /// Shared with the thread's statement sink: the parser owns the lookup while it parses, and
+    /// the sink takes each statement's answers out between statements.
     pub(super) asked: Rc<RefCell<Vec<Asked>>>,
 }
 
 /// A question the winnow parser asked an [`AskedLookup`], with the answer it got.
 pub(super) enum Asked {
+    /// `find_decl(name)` and its answer.
     Decl(Box<str>, Option<DeclKind>),
+    /// `is_builtin_decl(name)` and its answer.
     Builtin(Box<str>, bool),
 }
 
@@ -147,10 +160,13 @@ impl CommandLookup for AskedLookup<'_> {
         kind
     }
 
+    /// Always `true`, as for [`EngineLookup`]: an answer that never changes is not written down.
     fn is_decl_name_prefix(&self, _word: &str) -> bool {
         true
     }
 
+    /// The bound when the copy was made, not the live one, which can grow while the thread
+    /// parses; [`changed_answer`] compares the two.
     fn longest_name(&self) -> usize {
         self.names.longest_name
     }
@@ -174,6 +190,16 @@ impl CommandLookup for AskedLookup<'_> {
 /// What `lookup` (the live working set's) answers differently from `asked`, or a changed bound
 /// on name lengths (it was `longest_name`); `None` when nothing changed, and parsing with
 /// `lookup` would then have given the same tree.
+///
+/// The tree of a statement depends only on the source, on the winnow parser's own state (the
+/// names it declared itself, the same on either thread) and on what its lookup answers. The
+/// questions are asked again in the order the parser asked them, so with the same answers it
+/// would have taken the same path and asked the same next question; `is_decl_name_prefix` is
+/// `true` in both lookups. The bound is compared rather than replayed: the parser looks up no
+/// candidate name longer than it, so a larger live bound could have found a name the thread
+/// never asked about. The bound is the whole process's and only grows, so a longer name declared
+/// anywhere meanwhile counts as a change, even one of the block's own definitions, which are
+/// declared after the copy is made.
 pub(super) fn changed_answer(
     lookup: &EngineLookup,
     asked: &[Asked],
@@ -242,6 +268,8 @@ fn decl_kind(working_set: &StateWorkingSet, decl_id: DeclId) -> DeclKind {
     }
 }
 
+/// Whether the rest parameter of `decl_id` has the `external_arg` shape, which `def --wrapped`
+/// gives an untyped rest parameter.
 fn takes_external_arguments(working_set: &StateWorkingSet, decl_id: DeclId) -> bool {
     working_set
         .get_signature_shared(decl_id)

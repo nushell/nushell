@@ -54,6 +54,8 @@ pub fn parse_call_lenient<'a>(mut tokens: Tokens<'_, 'a>, lenient: bool) -> Pars
         _ => {}
     }
     let head = find_longest_decl(first, &mut tokens, "");
+    // What the head is decides how the arguments parse: an alias of an external command or an
+    // unknown command takes external arguments, a wrapped command `external_arg` values.
     let wrapped = match working_set.find_decl(&head.name) {
         Some(DeclKind::ExternalAlias) => {
             let name = StringLiteral { value: head.name, quote: Quote::Bare };
@@ -73,6 +75,7 @@ pub fn parse_call_lenient<'a>(mut tokens: Tokens<'_, 'a>, lenient: bool) -> Pars
     Ok(Expression::new(Expr::Call(call), span))
 }
 
+/// The help of every error about a `%` call.
 const PERCENT_HELP: &str =
     "write the built-in command's name bare (`%ls`), or `%$var` / `%(expr)` to name it at run time";
 
@@ -334,9 +337,14 @@ fn check_external_list_argument(working_set: &WorkingSet<'_>, span: Span) -> Par
 
 /// The kind of segment [`parse_external_string`] is inside.
 enum ExternalStringSegment {
+    /// Plain text, up to the next opening quote, backtick or `(`.
     Bare,
+    /// A `'...'` or `"..."` string, or a `$'...'` or `$"..."` interpolation;
+    /// `escaped` when the byte before escapes this one (a `\` inside double quotes).
     Quote { quote: u8, escaped: bool },
+    /// A `` `...` `` string, which has no escapes.
     Backtick,
+    /// A `(...)` subexpression, `depth` parentheses deep.
     Paren { depth: usize },
 }
 
@@ -346,7 +354,8 @@ enum ExternalStringSegment {
 /// strings, backtick strings and parenthesised subexpressions) so that
 /// `--query='a (b)'` keeps its parentheses literal while `--out=(pwd)/x`
 /// interpolates. All-literal words become one string; otherwise the segments
-/// form a bare interpolation.
+/// form a bare interpolation. The byte loop only finds where the segments
+/// start and end; [`parse_string`] parses each.
 pub fn parse_external_string<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResult<Expression<'a>> {
     let text = working_set.get_span_contents(span);
     let bytes = text.as_bytes();
@@ -479,7 +488,9 @@ pub fn parse_attribute<'a>(working_set: &WorkingSet<'a>, attribute_line: &[Token
 
 /// A flag of a [`KeywordSignature`].
 struct KeywordFlag {
+    /// The long name, without the `--`.
     long: &'static str,
+    /// The short name, without the `-`.
     short: Option<char>,
     /// Whether the flag takes a value (`--keep-env [a b]`).
     takes_value: bool,
@@ -506,6 +517,7 @@ pub struct KeywordSignature {
     rest: bool,
     /// A keyword argument (`as NAME`) allowed after the positionals.
     keyword: Option<&'static str>,
+    /// The flags it has, besides `--help`.
     flags: &'static [KeywordFlag],
     /// Unknown flags are passed through (`run`; nu's `allows_unknown_args`).
     allows_unknown_flags: bool,
@@ -634,7 +646,11 @@ fn check_call_named(working_set: &WorkingSet<'_>, name: &str, call: &Call<'_>) -
     check_call_arguments(working_set, name, &signature, call.arguments.iter().peekable(), false)
 }
 
-/// The arguments of a keyword command, checked against its signature.
+/// The arguments of a keyword command, checked against its signature in one
+/// pass, in the order nu's call parser meets them: a `--help`/`-h` before any
+/// `--` ends the checks (the call only shows help), a flag that takes a value
+/// takes the next positional, and the `keyword` (`as`) is looked for once the
+/// positionals are filled.
 fn check_call_arguments<'c>(
     working_set: &WorkingSet<'_>,
     name: &str,
@@ -683,9 +699,11 @@ fn check_call_arguments<'c>(
             }
             // After `--` a flag is a positional.
             Argument::Named(_) => positionals += 1,
+            // How many items a spread holds is not known here: it may supply the required ones.
             Argument::Spread { .. } => positionals = signature.required,
             Argument::Positional(expr) => {
                 let text = working_set.get_span_contents(expr.span);
+                // `-1` parsed as a number, but nu takes it for a flag.
                 if !end_of_options && text.starts_with('-') && text.len() > 1 && !signature.allows_unknown_flags {
                     return Err(no_flag(text, expr.span));
                 }
@@ -710,6 +728,8 @@ fn check_call_arguments<'c>(
                     }
                     continue;
                 }
+                // The first positional takes a string: a bool, record or closure never fits it,
+                // and `null` only where the signature takes it.
                 if positionals == 0 && matches!(expr.expr, Expr::Nothing) && !signature.accepts_nothing
                     || positionals == 0 && matches!(expr.expr, Expr::Bool(_) | Expr::Record(_) | Expr::Closure(_))
                 {

@@ -1,12 +1,23 @@
-//! A human-readable tree dump of the AST, used by the `parse` example and
-//! handy in tests: `println!("{}", nu_winnow_parser::pretty::dump(&ast))`.
+//! A human-readable tree dump of the AST: [`dump`] renders a whole [`Ast`]
+//! (`println!("{}", nu_winnow_parser::pretty::dump(&ast))`), and
+//! [`dump_expression`] one expression.
+//!
+//! Each node is one line, indented two spaces per level, naming the node, its
+//! details and, for most nodes, its span (`start..end`); its children follow
+//! one level deeper.
+//! `examples/parse.rs` prints it by default, and the tests depend on its
+//! shape: the golden `<name>.ast` files of `tests/fixtures.rs` are dumps, and
+//! `tests/nufmt.rs` compares dumps with the spans removed to show that
+//! formatting keeps a program's structure. A change to the format means
+//! regenerating the golden files (`UPDATE_FIXTURES=1`).
 
 use std::fmt::Write;
 
 use crate::ast::*;
 use crate::span::Span;
 
-/// Render the AST as an indented tree, one node per line, with spans.
+/// Render the AST as an indented tree, one node per line, with spans,
+/// followed by `Comments (n)` and `Ignored (n)` sections when they are not empty.
 pub fn dump(ast: &Ast<'_>) -> String {
     let mut printer = Printer { src: ast.source, out: String::new(), depth: 0 };
     printer.block("Block", &ast.block);
@@ -36,6 +47,7 @@ pub fn dump_expression(source: &str, expr: &Expression<'_>) -> String {
     printer.out
 }
 
+/// Writes the dump into `out`, `depth` levels deep.
 struct Printer<'a> {
     src: &'a str,
     out: String,
@@ -43,6 +55,7 @@ struct Printer<'a> {
 }
 
 impl<'a> Printer<'a> {
+    /// One line at the current depth.
     fn line(&mut self, args: std::fmt::Arguments<'_>) {
         for _ in 0..self.depth {
             self.out.push_str("  ");
@@ -51,16 +64,22 @@ impl<'a> Printer<'a> {
         self.out.push('\n');
     }
 
+    /// The source text of `span`.
     fn text(&self, span: Span) -> &'a str {
         span.slice(self.src)
     }
 
+    /// Run `print` one level deeper.
     fn nested(&mut self, print: impl FnOnce(&mut Self)) {
         self.depth += 1;
         print(self);
         self.depth -= 1;
     }
 
+    /// A `{label} {span}` line for the block's contents, then its pipelines.
+    /// A block that is an expression puts the expression's span in `label`, so
+    /// `BlockExpr 19..24 20..23` is the expression's span (braces included),
+    /// then the contents'.
     fn block(&mut self, label: &str, block: &Block<'a>) {
         self.line(format_args!("{label} {}", block.span));
         self.nested(|printer| {
@@ -82,6 +101,8 @@ impl<'a> Printer<'a> {
         }
     }
 
+    /// A `Pipeline` line with its comment count and `;` terminator, then each
+    /// element: its `|`, its expression and its redirection.
     fn pipeline(&mut self, pipeline: &Pipeline<'a>) {
         let comments = pipeline.leading_comments.len() + pipeline.trailing_comments.len();
         let mut extra = String::new();
@@ -105,6 +126,7 @@ impl<'a> Printer<'a> {
         });
     }
 
+    /// A `Redirect` line per target, with a file target's path nested.
     fn redirection(&mut self, r: &PipelineRedirection<'a>) {
         let target = |printer: &mut Self, t: &RedirectionTarget<'a>| match t {
             RedirectionTarget::File { op, path, .. } => {
@@ -122,6 +144,9 @@ impl<'a> Printer<'a> {
         }
     }
 
+    /// A `Signature` line, then a `Param` line per parameter (kind, name, span,
+    /// then type, completer and description) with its default nested, and an
+    /// `IoType` line per input/output pair.
     fn signature(&mut self, sig: &Signature<'a>) {
         self.line(format_args!("Signature {}", sig.span));
         self.nested(|printer| {
@@ -165,6 +190,8 @@ impl<'a> Printer<'a> {
         });
     }
 
+    /// Call arguments: a positional is its expression; flags, spreads and `--`
+    /// get lines of their own.
     fn args(&mut self, args: &[Argument<'a>]) {
         for arg in args {
             match arg {
@@ -185,6 +212,7 @@ impl<'a> Printer<'a> {
         }
     }
 
+    /// A `Member` line per cell-path member, with its `?` and `!`.
     fn members(&mut self, members: &[PathMember<'a>]) {
         for member in members {
             let name = match &member.kind {
@@ -197,6 +225,7 @@ impl<'a> Printer<'a> {
         }
     }
 
+    /// A `Pattern` line; list, record and `|` patterns nest their parts.
     fn pattern(&mut self, pat: &MatchPattern<'a>) {
         match &pat.pattern {
             Pattern::Expression(expr) => {
@@ -223,6 +252,7 @@ impl<'a> Printer<'a> {
                 });
             }
             Pattern::Rest(name) => self.line(format_args!("Pattern rest ${} {}", name.item, pat.span)),
+            // `..` is a rest pattern with no name, hence the two spaces.
             Pattern::IgnoreRest => self.line(format_args!("Pattern rest  {}", pat.span)),
             Pattern::Or(alts) => {
                 self.line(format_args!("Pattern or {}", pat.span));
@@ -235,6 +265,7 @@ impl<'a> Printer<'a> {
         }
     }
 
+    /// One expression's line, then its children one level deeper.
     fn expr(&mut self, expression: &Expression<'a>) {
         let span = expression.span;
         match &expression.expr {

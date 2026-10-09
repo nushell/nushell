@@ -167,6 +167,8 @@ fn check_builtin_command_in_pipeline(tokens: &Tokens<'_, '_>) -> ParseResult<()>
     Ok(())
 }
 
+/// Whether `name` can be set by `NAME=value` shorthand: an ASCII letter or `_`,
+/// then letters, digits and `_` (nu's `is_env_variable_name`).
 fn is_env_variable_name(name: &str) -> bool {
     let mut chars = name.chars();
     matches!(chars.next(), Some(c) if c == '_' || c.is_ascii_alphabetic())
@@ -196,6 +198,7 @@ fn env_assignment<'a>(tokens: &mut Tokens<'_, 'a>) -> ParseResult<EnvAssignment<
         .parse_next(tokens)?;
     let text = tokens.text(&token);
     let value_span = Span::new(token.span.start + equals + 1, token.span.end);
+    // Like nu, the value is a string unless it starts with `$`: `A=1` sets `A` to `"1"`.
     let value = match &text[equals + 1..] {
         "" => Ok(Expression::new(Expr::String(StringLiteral::bare("")), value_span)),
         value if value.starts_with('$') => parse_value(working_set, value_span, ExpectedShape::Any),
@@ -311,7 +314,9 @@ pub fn parse_math_expression<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expr
 }
 
 /// The operator after an operand, with its binding power: `Left` for all but
-/// the right-associative `**`.
+/// the right-associative `**`. winnow asks for one only while tokens are left,
+/// and the item after an operand must be an operator, so `1 2` is an error
+/// rather than the end of the expression.
 fn infix_operator<'t, 'a>(
     tokens: &mut Tokens<'t, 'a>,
 ) -> ParseResult<Infix<Tokens<'t, 'a>, Expression<'a>, ErrMode<ParseFailure>>> {
@@ -357,6 +362,8 @@ fn expand_row_condition<'a>(
         return expand_to_cell_path(working_set, condition);
     };
     replace_boxed(&mut binary.lhs, |lhs| expand_row_condition(working_set, lhs))?;
+    // A right operand stays a value (`name == foo` compares with the string `foo`);
+    // one that is an operation of its own has left operands to expand.
     if let Expr::BinaryOp(_) = binary.rhs.expr {
         replace_boxed(&mut binary.rhs, |rhs| expand_row_condition(working_set, rhs))?;
     }
@@ -387,7 +394,8 @@ fn expand_to_cell_path<'a>(working_set: &WorkingSet<'a>, expr: Expression<'a>) -
 }
 
 /// One operand: `not* value`, or an `if`/`match` that takes the rest of the
-/// items (`1 + if $x { 2 } else { 3 }`).
+/// items (`1 + if $x { 2 } else { 3 }`). As in nu, a `not` applies to the one
+/// value after it: `not $a == $b` is `(not $a) == $b`.
 fn parse_math_operand<'a>(tokens: &mut Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
     let working_set = tokens.working_set;
     let Some(first) = tokens.peek_token() else {
@@ -437,7 +445,9 @@ pub enum ExpectedShape<'t, 'a> {
     Declared(&'t SyntaxShape<'a>),
 }
 
-/// One item, parsed as `shape` expects (nu's `parse_value`).
+/// One item, parsed as `shape` expects (nu's `parse_value`). How the item
+/// starts picks its kind (`$`, `(`, `{`, `[`, `r#`), whose parser may still
+/// consult the shape; a bare word is a literal of the shape.
 pub fn parse_value<'a>(
     working_set: &WorkingSet<'a>,
     span: Span,
@@ -536,6 +546,8 @@ fn parse_value_for_shape<'a>(
         [b'$', ..] => return parse_dollar_expr(working_set, span),
         [b'(', ..] => return parse_paren_expr(working_set, span, ExpectedShape::Any),
         [b'{', ..] => {
+            // Only `closure` and `any` take a body of code; for the other shapes the `{`
+            // must be a record or have closure parameters (`String` stands for "a value").
             let shape = match declared {
                 SyntaxShape::Closure => ExpectedShape::Closure,
                 SyntaxShape::Any => ExpectedShape::Any,
@@ -579,6 +591,7 @@ fn parse_value_for_shape<'a>(
         SyntaxShape::Float => parse_float(text).map_or_else(|| Err(expected()), |float| literal(Expr::Float(float))),
         SyntaxShape::Int => match parse_int(text) {
             Some(int) => literal(Expr::Int(int)),
+            // `0b2`: the error an untyped value gets, not a shape mismatch.
             None if radix_prefix(text).is_some() => parse_any_value(working_set, span, text),
             None => Err(expected()),
         },
@@ -686,7 +699,7 @@ pub fn parse_subexpression<'a>(working_set: &WorkingSet<'a>, span: Span) -> Pars
 /// `parse_brace_expr` looks at the same two tokens).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BraceShape {
-    /// `{}` or only whitespace and comments.
+    /// `{}`, only whitespace and comments, or a body whose first tokens do not lex.
     Empty,
     /// Starts with `|` or `||`: closure parameters.
     ClosureParams,
@@ -698,6 +711,15 @@ pub enum BraceShape {
     Other,
 }
 
+/// The [`BraceShape`] of `inner`, the text inside a `{`, from its first two
+/// tokens. [`LexOptions::BRACE_PROBE`] makes newlines whitespace, skips
+/// comments and splits off `:`, so these are the first two tokens of
+/// substance and `a:` reads as a key. The arms are in nu's order: pipes, then
+/// `key:`, then a spread.
+///
+/// The probe only picks a parser and, like nu, reports no lex error: one reads
+/// as `Empty` (`unwrap_or_default`), and the parser chosen for an `Empty` body
+/// lexes it again, where a real error is reported.
 fn probe_brace_shape(working_set: &WorkingSet<'_>, inner: Span) -> BraceShape {
     let probe = working_set.lex_n_tokens(inner, LexOptions::BRACE_PROBE, 2).unwrap_or_default();
     match probe.as_slice() {
@@ -767,7 +789,9 @@ fn parse_brace_expr<'a>(
         // `{a: 1}.a`. Like nu, the kind is decided from the text between the
         // first and the last character, tail included: a record (`key :`) or a
         // first token `}` (`{}.a`) is a cell path, anything else a closure,
-        // block or record that never closes (`{#a: 1}.a`, `{...$r}.a`).
+        // block or record that never closes (`{#a: 1}.a`, `{...$r}.a`). The
+        // lexer refuses a `}` that was never opened, so the probe cannot see a
+        // first `}`: the lines are scanned for it, past blanks and comments.
         let inner = brace_probe_interior(working_set, span);
         let rest = working_set.get_span_contents(inner);
         let first_is_close = rest
@@ -827,16 +851,21 @@ pub fn parse_block_body_unchecked<'a>(working_set: &WorkingSet<'a>, span: Span) 
     Ok(block)
 }
 
+/// [`parse_block_body`] as an expression: a `{ ... }` match-arm body (nu's `parse_block_expression`).
 fn parse_block_expression<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResult<Expression<'a>> {
     Ok(Expression::new(Expr::Block(parse_block_body(working_set, span)?), span))
 }
 
-/// Parse `{|params| body}` or `{ body }` as a closure.
+/// Parse `{|params| body}` or `{ body }` as a closure (nu's `parse_closure_expression`).
 pub fn parse_closure_expression<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResult<Expression<'a>> {
     Ok(Expression::new(Expr::Closure(Box::new(parse_closure_parts(working_set, span)?)), span))
 }
 
-/// The parameters and body of a `{|params| body}` or `{ body }` item.
+/// The parameters and body of a closure item; `params` is `None` without pipes.
+///
+/// ```text
+/// closure = "{" [ "|" parameters "|" | "||" ] block "}"
+/// ```
 pub fn parse_closure_parts<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResult<Closure<'a>> {
     let inner = delimited_interior(working_set, span, "{", "}")?;
     let tokens = working_set.lex(inner, LexOptions::BLOCK).map_err(cut)?;
@@ -904,7 +933,13 @@ fn reject_semicolon(items: &[Token], what: &'static str) -> ParseResult<()> {
 }
 
 /// `[ ... ]` as a list or, when it is `[[cols]; [row] ...]`, a table (nu's
-/// `parse_list_expression`).
+/// `parse_list_expression`). Commas and newlines are whitespace.
+///
+/// ```text
+/// list  = "[" { value | "..." value } "]"
+/// table = "[" "[" { column } "]" ";" row { row } "]"
+/// row   = "[" { value } "]"                            one value per column
+/// ```
 pub fn parse_list_expression<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResult<Expression<'a>> {
     parse_list_expression_with_shape(working_set, span, None)
 }
@@ -926,6 +961,8 @@ fn parse_list_expression_with_shape<'a>(
     }
     reject_semicolon(&items, "list")?;
     let mut list_items = Vec::with_capacity(items.len());
+    // Like nu, the interior is lite-parsed as a pipeline and the items of all its
+    // commands are the list's: `[a | b]` is `[a b]`.
     for group in lite_parse_parts(working_set, &items)? {
         for token in &group {
             list_items.push(parse_list_item(working_set, token, element)?);
@@ -991,6 +1028,9 @@ fn parse_table_expression<'a>(
     Ok(Expression::new(Expr::Table(Table { columns: Box::new(columns), rows }), span))
 }
 
+/// One item of a list or table row, as [`lite_parse_parts`] leaves it: a
+/// `...` spread, a value of the `element` shape (any shape when `None`), or a
+/// token that is not an item (`=`, and a `|` or `o>` after one) as a bare word.
 fn parse_list_item<'a>(
     working_set: &WorkingSet<'a>,
     token: &Token,
@@ -1143,6 +1183,14 @@ fn check_record_key_or_value(
 
 /// Parse the `{ pattern => body, ... }` item of a `match` (nu's
 /// `parse_match_block_expression`): arms up to the closing brace.
+///
+/// ```text
+/// match-block = "{" { arm } "}"
+/// arm         = pattern { "|" pattern } [ "if" guard... ] "=>" body
+/// ```
+///
+/// Commas and newlines are whitespace. A body is one token, so the next arm
+/// starts right after it.
 pub fn parse_match_block_expression<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResult<Vec<MatchArm<'a>>> {
     let inner = delimited_interior(working_set, span, "{", "}")?;
     let lexed = working_set.lex(inner, LexOptions::MATCH).map_err(cut)?;

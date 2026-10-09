@@ -8,8 +8,18 @@
 //! What the lowering does not do is report errors. When it meets something the classic parser
 //! would report (an unknown flag, a type mismatch, a missing argument), or something it does not
 //! handle, it returns [`Unlowered`], and the driver parses the whole statement again with the
-//! classic parser, which reports the error exactly as it always has. The lowering's changes to
-//! the working set up to that point are unreachable from the result and harmless.
+//! classic parser, which reports the error exactly as it always has. The exceptions are where
+//! nothing is parsed again: a predeclaration ([`Lower::predecl`]) reports an invalid or
+//! duplicate name itself, as `parse_def_predecl` does, and a definition keeps what the classic
+//! parser's `finish_def` or `finish_extern`, which commit it, report.
+//!
+//! What the lowering reported before giving up is dropped ([`Lower::statement_or_classic`]).
+//! What else it added to the working set stays, unreachable from the result: spans, blocks,
+//! variables (a `let`'s, which the classic parser declares again under the same name) and the
+//! declarations of nested scopes; every scope it entered is left on every path. One pass still
+//! sees what is left: `parse` discovers the captures of every block the parse added, so a block
+//! the lowering gave up on that holds a closure capturing a `mut` variable reports that error
+//! once more.
 //!
 //! Leaf values whose meaning depends on the shape a command expects (a bare word as a file path,
 //! a glob, a cell path, a number as a string) are converted by the classic parser's leaf parsers

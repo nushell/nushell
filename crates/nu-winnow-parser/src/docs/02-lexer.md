@@ -68,6 +68,8 @@ The named presets map one-to-one onto the constructs that use them:
 | `RECORD_KEY` / `RECORD_VALUE` | `\n\r,` | `:` / — | record keys (`a:1` splits) and values (`http://x` does not) |
 | `CELL_PATH` | `\n\r` | `.?!` | `$x.a?.0!` |
 | `SIGNATURE` | `\n\r` | `:=,` | `[a: int = 1, --flag(-f)]`, with `<>` nesting |
+| `TYPE_PARAMS` | `\n\r` | `:,` | the inside of `list<int>`, `oneof<a, b>`, `record<a: int>`, with `<>` nesting |
+| `VAR_TYPE` | — | `,` | the type of `let x: record<a: int>`, with `<>` nesting |
 | `IO_TYPES` | `\n\r,` | — | `[int -> string, nothing -> nothing]`, with `<>` nesting |
 | `MATCH` | ` \r\n,` | — | match arms; a pipe still becomes `Pipe` for or-patterns |
 | `BRACE_PROBE` | `\r\n\t` | `:` | the first two tokens of `{ ... }` to decide record/closure/block |

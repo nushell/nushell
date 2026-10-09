@@ -143,7 +143,9 @@ impl fmt::Display for LineCol {
 /// Precomputed line starts for converting byte offsets to [`LineCol`].
 #[derive(Clone, Debug)]
 pub struct LineIndex {
+    /// The offset of each line's first byte, ascending; the first is `0`.
     line_starts: Vec<usize>,
+    /// The source length, to tell a trailing newline from a last line of its own.
     len: usize,
 }
 
@@ -161,7 +163,8 @@ impl LineIndex {
         if n > 1 && self.line_starts[n - 1] == self.len { n - 1 } else { n }
     }
 
-    /// The 0-based line index containing `offset`.
+    /// The 0-based line index containing `offset`: the last line that starts at or before it.
+    /// The first line starts at `0`, so there always is one.
     pub fn line_of(&self, offset: usize) -> usize {
         match self.line_starts.binary_search(&offset) {
             Ok(i) => i,
@@ -169,9 +172,11 @@ impl LineIndex {
         }
     }
 
-    /// Byte range of the given 0-based line, excluding the line terminator.
+    /// Byte range of the given 0-based line, excluding the line terminator (`\n` or `\r\n`).
     pub fn line_range(&self, line: usize, source: &str) -> Range<usize> {
         let start = self.line_starts[line];
+        // Up to the `\n` that starts the next line (or the end of the source), then back over
+        // a `\r` before it, never past `start`.
         let end = self.line_starts.get(line + 1).map_or(source.len(), |e| e - 1);
         let end = end.max(start);
         let end = if source.as_bytes().get(end.wrapping_sub(1)) == Some(&b'\r') && end > start { end - 1 } else { end };

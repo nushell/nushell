@@ -34,8 +34,8 @@ Files: `src/ast/mod.rs`, `src/ast/visit.rs`, `src/flatten.rs`, `src/pretty.rs`.
   never looks at: a redirection inside a list (`[a o> b]` is `["a"]`), the
   second brace item of a `def` or `extern` signature (`def f [] {} {}`), an
   `extern` default-value token, the extra items and the redirection of
-  `export-env`, dropped `use` members (`use std [1 2]`), list-pattern items
-  after the rest (`[1 ..$r 2]`) and a consumed `--` marker. The parser
+  `export-env`, dropped `use` members (`use std [1 2]`) and a consumed `--`
+  marker. The parser
   records them with `working_set.add_ignored`; the tree holds nothing for
   them, so a consumer that wants to warn about dead text has the spans.
 * **Borrowing.** `Ast<'a>` borrows the source. Identifiers are `&'a str`,
@@ -145,8 +145,9 @@ only indirectly.
 ## `flatten`
 
 `flatten(&Ast) -> Vec<(Span, FlatShape)>` produces a source-ordered,
-non-overlapping list of classified spans, the representation nufmt and
-syntax highlighters consume (it corresponds to nu-parser's `flatten_block`).
+non-overlapping list of classified spans, the representation a syntax
+highlighter consumes (it corresponds to nu-parser's `flatten_block`; nufmt
+formats from the tree instead).
 `Flattener` is a `Visitor`: leaf nodes map to one shape each; containers
 emit their delimiters and punctuation as the *gaps* between their children
 (`Flattener::gaps`), so the brackets of a list are `FlatShape::List` and the

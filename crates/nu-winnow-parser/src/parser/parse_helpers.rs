@@ -1,4 +1,8 @@
-//! Small helpers shared by the parser files (nu-parser's `parse_helpers.rs`).
+//! Small helpers shared by the parser files (nu-parser's `parse_helpers.rs`):
+//! predicates on an item's text (`is_identifier`, `is_variable`, `is_spread`,
+//! `is_help_flag`), the interior of a bracketed item (`delimited_interior`), an
+//! error constructor (`invalid_literal`) and the placeholders for what failed to
+//! parse (`garbage`, `garbage_pipeline`).
 
 use crate::ast::{Expr, Expression, Pipeline, PipelineElement};
 use crate::error::{Diagnostic, ErrorKind};
@@ -53,7 +57,8 @@ pub fn declared_variable_name(text: &str) -> (usize, &str) {
     }
 }
 
-/// `true` for `...x` where `x` starts with one of `heads`.
+/// `true` for `...x` where `x` starts with one of `heads` (the check in nu's
+/// `extract_spread_list` and `extract_spread_record`, whose heads are `[$(` and `{$(`).
 pub fn is_spread(text: &str, heads: &[u8]) -> bool {
     text.len() > 3 && text.starts_with("...") && heads.contains(&text.as_bytes()[3])
 }
@@ -84,10 +89,10 @@ pub fn invalid_literal(kind: &'static str, message: &str, span: Span) -> winnow:
     cut(Diagnostic::new(ErrorKind::InvalidLiteral { kind, message: message.into() }, span))
 }
 
-/// The placeholder for something that is not an expression (nu's
-/// `garbage`). Signatures are not expressions in this AST: the statement
-/// parsers call `parse_signature` directly, and reaching one through
-/// `parse_value` only happens on error-recovery paths.
+/// The placeholder for something that is not an expression (nu's `garbage`).
+/// It also stands for a signature that `parse_value` reaches, which happens only
+/// on error-recovery paths: signatures are not expressions in this AST, and the
+/// statement parsers call `parse_signature` directly.
 pub fn garbage<'a>(span: Span) -> Expression<'a> {
     Expression::new(Expr::Garbage, span)
 }

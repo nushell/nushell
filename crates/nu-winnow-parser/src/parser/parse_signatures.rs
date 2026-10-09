@@ -52,8 +52,10 @@ pub fn parse_signature_helper<'a>(
     Ok(Signature { span: outer, params: parameters, input_output_types: Vec::new(), input_output_span: None })
 }
 
-/// nu's checks over the finished list: a required parameter after an
-/// optional one and more than one rest parameter are errors.
+/// nu's checks over the finished list (`RequiredAfterOptional`,
+/// `MultipleRestParams`): a required parameter after an optional one and more
+/// than one rest parameter are errors. A positional with a default value
+/// counts as optional.
 fn check_parameter_order(parameters: &[Parameter<'_>], span: Span) -> ParseResult<()> {
     let mut optional_seen = false;
     let mut rest_seen = false;
@@ -103,6 +105,11 @@ enum ParseMode {
 /// ```
 ///
 /// A comment after a parameter is its description.
+///
+/// The loop is nu's `ParseMode` state machine rather than a combinator chain:
+/// the mode decides which error a misplaced `:`, `=` or `,` gets and which
+/// malformed lists nu lets through (`[: int]`). It is also looser than the
+/// sketch, as nu's is: a `(-s)` alias may follow a flag's type or default.
 fn parse_parameters<'a>(
     working_set: &WorkingSet<'a>,
     tokens: &[Token],
@@ -341,11 +348,16 @@ fn parse_parameter<'a>(working_set: &WorkingSet<'a>, token: &Token, external: bo
     Ok(Parameter { name: Spanned::new(text, span), ..base })
 }
 
-/// nu's `parse_full_signature`: the items nu hands to the signature argument
-/// of `def`/`extern` are everything up to the body. One item is the
-/// signature; two of which the second starts with `{` is the signature and
-/// an item nu drops on the floor; otherwise the input/output types follow a
-/// `:` (attached to the signature or standing alone), possibly none.
+/// The signature of a `def` or `extern` with its input/output types (nu's
+/// `parse_full_signature`), from the items after the command name (for a
+/// `def`, up to its body):
+///
+/// ```text
+/// [x: int]                        the signature alone
+/// [x: int] {}                     a second item starting with `{`, which nu drops (recorded as ignored)
+/// [x: int]: int -> string         input/output types after a `:` attached to the signature
+/// [x: int] : [int -> string]      or standing alone; `[x] :` declares none
+/// ```
 pub fn parse_full_signature<'a>(
     working_set: &WorkingSet<'a>,
     items: &[Token],
@@ -408,7 +420,8 @@ fn parse_input_output_types<'a>(working_set: &WorkingSet<'a>, span: Span) -> Par
     repeat_to_end(input_output_type).parse_next(&mut Tokens::new(working_set, &items, inner.end))
 }
 
-/// One `input -> output` pair.
+/// One `input -> output` pair. Once the input type is read, a missing `->` or
+/// output type is an error rather than the end of the list.
 fn input_output_type<'a>(tokens: &mut Tokens<'_, 'a>) -> ParseResult<InputOutputType<'a>> {
     let working_set = tokens.working_set;
     let input = item(tokens)?;
@@ -428,7 +441,8 @@ pub fn parse_definition_name<'a>(working_set: &WorkingSet<'a>, span: Span) -> Pa
 }
 
 /// A declared variable name: `x`, `$x`, or `x:` (followed by a type).
-/// Returns the name and whether a type follows.
+/// Returns the name and whether a type follows: the name half of nu's
+/// `parse_var_with_opt_type`, whose type half is [`parse_type_after_var`].
 pub fn parse_var_with_opt_type<'a>(
     working_set: &WorkingSet<'a>,
     token: &Token,
@@ -449,8 +463,10 @@ pub fn parse_var_with_opt_type<'a>(
     Ok((Spanned::new(name, span), typed))
 }
 
-/// The type annotation items between a declared name and `=`: `x: int`,
-/// `x : int`, `x: record<a: int, b: string>` (several items, re-lexed as one).
+/// The type annotation items between a declared name and `=`. With `typed`
+/// (the name ended in `:`) they are the type, `x: int` or `x: record<a: int,
+/// b: string>` (several items, read as one); without it there must be none.
+/// A detached colon (`x : int`) is an error, as in Nushell.
 pub fn parse_type_after_var<'a>(
     working_set: &WorkingSet<'a>,
     items: &[Token],

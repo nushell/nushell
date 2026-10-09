@@ -1,12 +1,21 @@
 //! A flat, source-ordered view of the AST.
 //!
-//! [`flatten`] walks the tree and emits `(span, shape)` pairs in source order,
-//! in the spirit of `nu-parser`'s `flatten_block`. This is the representation
-//! `nufmt` and syntax highlighters consume: every byte of significant source
-//! text is covered by exactly one shape, and gaps between shapes are
-//! whitespace, comments or punctuation belonging to the enclosing construct.
+//! [`flatten`] walks the tree and returns `(span, shape)` pairs in source
+//! order, without overlap, in the spirit of `nu-parser`'s `flatten_block`:
+//! each [`FlatShape`] says what a piece of the source is, as a syntax
+//! highlighter would color it. A container's delimiters and the space between
+//! its children take the container's shape (the brackets of `[1 2]` and the
+//! space inside are [`FlatShape::List`]). Comments and [`Ast::ignored`] text
+//! are cut out of whatever shape they sit in and emitted as
+//! [`FlatShape::Comment`] and [`FlatShape::Ignored`]. Bytes outside every
+//! shape are whitespace, `;`, the `.` between cell-path members and a
+//! redundant `|`.
 //!
-//! Comments are emitted as [`FlatShape::Comment`].
+//! Its consumers are `examples/parse.rs --flat` (whose rows `flatcmp.nu`
+//! compares with nu's `ast --flatten`), the fixture tests that check the
+//! coverage above, and the source-reconstruction example in the nufmt README.
+//! The nufmt formatter walks the tree itself, and Nushell's highlighter runs
+//! nu-parser's own `flatten_block` on the lowered tree.
 
 use crate::ast::*;
 use crate::span::Span;
@@ -20,11 +29,12 @@ pub enum FlatShape {
     Boolean,
     /// A binary literal.
     Binary,
-    /// The braces of a block.
+    /// The braces of a block, the parentheses of a subexpression, and the
+    /// space between the arms of a `match` (a guard's `if` included).
     Block,
     /// `true` / `false`.
     Bool,
-    /// The braces and pipes of a closure.
+    /// The braces of a closure (the pipes around its parameters are [`FlatShape::Signature`]).
     Closure,
     /// A comment.
     Comment,
@@ -48,9 +58,10 @@ pub enum FlatShape {
     Garbage,
     /// An integer literal.
     Int,
-    /// An internal command name.
+    /// An internal command name (and its `%` sigil), and a parameter's completer.
     InternalCall,
-    /// A statement keyword (`let`, `def`, `if`, ...).
+    /// A statement keyword (`let`, `def`, `if`, ...), and the `else`, `in`,
+    /// `catch` or `finally` inside one.
     Keyword,
     /// The brackets and commas of a list.
     List,
@@ -58,7 +69,9 @@ pub enum FlatShape {
     MatchPattern,
     /// `null`.
     Nothing,
-    /// A binary or assignment operator.
+    /// A binary or assignment operator, and the `=` of a binding or alias,
+    /// the `...` of a spread, the `->` of an input/output type and the `=>`
+    /// of a match arm.
     Operator,
     /// `|`.
     Pipe,
@@ -68,7 +81,9 @@ pub enum FlatShape {
     Record,
     /// A redirection operator.
     Redirection,
-    /// A signature and its parameters.
+    /// The punctuation of a signature: its brackets or pipes, `:`, `,`, `=`,
+    /// `@`, and a parameter's `--`, `-`, `...`, `?` or `(-s)`. Parameter names are
+    /// [`FlatShape::VarDecl`] or [`FlatShape::Flag`], types [`FlatShape::Type`].
     Signature,
     /// A string literal (any quoting).
     String,
@@ -119,12 +134,16 @@ pub fn flatten(ast: &Ast<'_>) -> Vec<(Span, FlatShape)> {
     out
 }
 
+/// The [`Visitor`] behind [`flatten`]. `out` is in visiting order, which
+/// [`flatten`] sorts after cutting out comments and ignored text.
 struct Flattener<'s> {
     src: &'s str,
     out: Vec<(Span, FlatShape)>,
 }
 
 impl Flattener<'_> {
+    /// Record `span` as `shape`. Empty spans (the implicit `$it` head of a row
+    /// condition has one) are dropped, so a caller can push a gap unchecked.
     fn push(&mut self, span: Span, shape: FlatShape) {
         if !span.is_empty() {
             self.out.push((span, shape));
@@ -154,6 +173,8 @@ impl Flattener<'_> {
         }
     }
 
+    /// Call arguments. A flag is a [`FlatShape::Flag`] up to its `=value`,
+    /// whose value is walked like a positional.
     fn args(&mut self, args: &[Argument<'_>]) {
         for arg in args {
             match arg {
@@ -174,12 +195,16 @@ impl Flattener<'_> {
         }
     }
 
+    /// Cell-path members; the `.` before each stays uncovered.
     fn members(&mut self, members: &[PathMember<'_>]) {
         for member in members {
             self.push(member.span, FlatShape::CellPath);
         }
     }
 
+    /// A block inside `expr_span`: the text of `expr_span` before and after the
+    /// block's contents (its braces or parentheses) is `shape`, and the
+    /// pipelines are walked in between.
     fn block_braces(&mut self, expr_span: Span, block: &Block<'_>, shape: FlatShape) {
         self.push(Span::new(expr_span.start, block.span.start), shape);
         self.visit_block(block);
@@ -243,6 +268,7 @@ impl<'a> Visitor<'a> for Flattener<'_> {
             self.push(io.arrow, FlatShape::Operator);
             self.push(io.output.span, FlatShape::Type);
         }
+        // The signature's punctuation is whatever the shapes inside its span leave uncovered.
         let covered: Vec<Span> = self
             .out
             .iter()
@@ -311,6 +337,7 @@ impl<'a> Visitor<'a> for Flattener<'_> {
             }
             Expr::Var(_) => self.push(span, FlatShape::Variable),
             Expr::CellPath(cell_path) => {
+                // The leading `$.`.
                 self.push(Span::new(span.start, span.start + 2), FlatShape::CellPath);
                 self.members(&cell_path.members);
             }
@@ -392,6 +419,7 @@ impl<'a> Visitor<'a> for Flattener<'_> {
                 self.visit_block(&assignment.rhs);
             }
             Expr::Call(call) => {
+                // `%ls` is one shape, `% ls` two.
                 match call.sigil {
                     Some(sigil) if sigil.end == call.head.span.start => {
                         self.push(sigil.merge(call.head.span), FlatShape::InternalCall);

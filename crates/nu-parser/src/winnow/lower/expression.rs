@@ -19,7 +19,11 @@ use crate::{
 };
 
 impl<'s> Lower<'_, '_, 's> {
-    /// A command or math expression (`parse_expression`).
+    /// A command or math expression (`parse_expression`); `input_type` is what the pipeline
+    /// gives it. Statements (`let`, `def`, `for`, ...) are lowered as statements when they are a
+    /// pipeline of their own; met here, inside a longer pipeline, they are left to the classic
+    /// parser, as is `Garbage` (what the winnow parser could not read). Whatever is neither a
+    /// call nor a keyword is a math expression.
     pub(super) fn expression(
         &mut self,
         e: &w::Expression<'s>,
@@ -58,7 +62,8 @@ impl<'s> Lower<'_, '_, 's> {
     }
 
     /// A math expression (`parse_math_expression`): operands are values read with any shape,
-    /// and each operation gets its type from `math_result_type`.
+    /// and each operation gets its type from `math_result_type`. The winnow tree already nests
+    /// operations by precedence, which the classic parser works out with its operator stack.
     pub(super) fn math(
         &mut self,
         e: &w::Expression<'s>,
@@ -91,6 +96,8 @@ impl<'s> Lower<'_, '_, 's> {
                 let span = Span::new(self.span(not.not_span).start, inner.span.end);
                 Ok(self.node(Expr::UnaryNot(Box::new(inner)), span, Type::Bool))
             }
+            // `1 + if $c { 2 } else { 3 }`: an operand `if` or `match` is a call without the
+            // pipeline's input, as the classic parser's `parse_call` gets it there.
             w::Expr::If(_) | w::Expr::Match(_) => self.expression(e, None),
             w::Expr::FullCellPath(path) if path.implicit_head => self.implicit_cell_path(e, path),
             _ => self.value(e, &SyntaxShape::Any, input_type),
@@ -98,7 +105,9 @@ impl<'s> Lower<'_, '_, 's> {
     }
 
     /// A bare word in a row condition, `size > 10` (`expand_to_cell_path`): the row variable
-    /// with the word as its cell path, the head covering the first word.
+    /// with the word as its cell path, the head covering the first word. The winnow parser
+    /// makes such paths only in `where` conditions, and `row_var` is set while
+    /// `row_condition` lowers one.
     fn implicit_cell_path(
         &mut self,
         e: &w::Expression<'s>,
@@ -121,8 +130,11 @@ impl<'s> Lower<'_, '_, 's> {
         ))
     }
 
-    /// `lhs = rhs` and the other assignment operators (`parse_assignment_expression`): the
-    /// left side must be a mutable variable or `$env`, the right side is a pipeline.
+    /// `lhs = rhs` and the other assignment operators (`parse_assignment_expression`). The left
+    /// side, lowered without input, must be a cell path whose head, when a variable, is mutable
+    /// or `$env` (else the classic parser reports `AssignmentRequiresMutableVar` or
+    /// `AssignmentRequiresVar`). The right side is a pipeline, the block of a subexpression that
+    /// receives `input_type`.
     fn assignment(
         &mut self,
         e: &w::Expression<'s>,
@@ -151,7 +163,8 @@ impl<'s> Lower<'_, '_, 's> {
         );
         let rhs_span = self.span(assignment.rhs.span);
         let rhs_block = self.block(&assignment.rhs, rhs_span, false, true, input_type)?;
-        // An external call must be explicit (`^cmd`) on the right side of an assignment.
+        // An external call must be explicit (`^cmd`) on the right side of an assignment. The
+        // head's span leaves out the `^`, so the byte before it is read too.
         if let Some(Expr::ExternalCall(head, ..)) = rhs_block
             .pipelines
             .first()
@@ -180,7 +193,11 @@ impl<'s> Lower<'_, '_, 's> {
     }
 
     /// `NAME=value command`: the command in a closure run by `with-env` with a record of the
-    /// variables (the end of `parse_expression`).
+    /// variables (the start and the end of `parse_expression`). A value is an empty string
+    /// (typed `nothing`, with an unknown span) when nothing follows the `=`, a `$` expression
+    /// when it starts with `$`, and a strict string otherwise. The record covers the
+    /// assignments, the closure the command, which is compiled now; without a `with-env`
+    /// command the expression is the command alone, as in the classic parser.
     fn env_shorthand(
         &mut self,
         e: &w::Expression<'s>,
@@ -239,7 +256,10 @@ impl<'s> Lower<'_, '_, 's> {
         Ok(self.node(Expr::Call(Box::new(call)), span, ty))
     }
 
-    /// `where condition` (`parse_where_expr`): a call to `where` with a row condition.
+    /// `where condition` (`parse_where_expr`): a call to `where` with a row condition, typed
+    /// `any`, its head registered like `parse_internal_call` registers it. A call `check_call`
+    /// does not find `CallKind::Valid` is left to the classic parser, as `parse_where_expr`
+    /// returns it early.
     pub(super) fn where_expression(
         &mut self,
         e: &w::Expression<'s>,
@@ -265,7 +285,11 @@ impl<'s> Lower<'_, '_, 's> {
     }
 
     /// A row condition (`parse_row_condition`): a closure, or an expression over `$it` (with
-    /// bare words as its cell paths) turned into a block taking `$it`.
+    /// bare words as its cell paths) turned into a block taking `$it`. For an expression, `$it`
+    /// is declared in a scope of its own (with an empty span at the condition's start) before
+    /// the condition is lowered. As in the classic parser, a condition that is a variable other
+    /// than `$it`, or a cell path on one, is not a row condition but that expression, typed
+    /// `any`.
     fn row_condition(&mut self, condition: &w::Expression<'s>) -> Lowered<Expression> {
         let span = self.span(condition.span);
         if let w::Expr::Closure(closure) = &condition.expr {
@@ -281,6 +305,8 @@ impl<'s> Lower<'_, '_, 's> {
             };
             return Ok(self.node(Expr::RowCondition(block_id), span, Type::Bool));
         }
+        // `Ok(block_id)` is a row condition's block; `Err(expression)` the expression that
+        // stands for the condition, where `parse_row_condition` returns early.
         let block_id = self.in_scope(|this| {
             let var_id = this.working_set.add_variable(
                 b"$it".to_vec(),
@@ -288,6 +314,9 @@ impl<'s> Lower<'_, '_, 's> {
                 Type::Any,
                 false,
             );
+            // Restored before `?`: this `where` may sit in another row condition, and a
+            // statement handed back to the classic parser does not end the lowering of the
+            // statements after it.
             let saved = this.row_var.replace(var_id);
             let expression = this.math(condition, None);
             this.row_var = saved;
@@ -321,7 +350,7 @@ impl<'s> Lower<'_, '_, 's> {
         }
     }
 
-    /// The block of a row condition: the expression, taking `$it`.
+    /// The block of a row condition: the expression, taking `$it`, compiled now.
     fn row_condition_block(
         &mut self,
         expression: Expression,
@@ -400,6 +429,7 @@ fn operator(operator: w::Operator) -> Operator {
     }
 }
 
+/// The classic parser's assignment operator for a winnow one (`parse_assignment_operator`).
 fn assignment_operator(operator: AssignmentOperator) -> Assignment {
     match operator {
         AssignmentOperator::Assign => Assignment::Assign,

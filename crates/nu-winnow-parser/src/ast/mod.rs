@@ -34,17 +34,19 @@ pub struct Ast<'a> {
     /// The top-level block.
     pub block: Block<'a>,
     /// Every comment in the file, in source order (including those attached to
-    /// pipelines and parameters).
+    /// pipelines and parameters), except one inside a list or record match
+    /// pattern or a parameter type's `<...>`: the lexer skips those, as nu's does.
     pub comments: Vec<Comment>,
     /// The span of a leading `#!` line, if present. It is also in `comments`.
     pub shebang: Option<Span>,
     /// Source text that nu-parser accepts but silently discards, in source
-    /// order: the redirection of `[a o> b]`, the items after `..` in a list
-    /// pattern, a block before the body of a `def` (`def f [] {} { }`), the
-    /// body of an `extern`, the items after the block of `export-env`, the
-    /// default values of an `extern` signature, a `--` after a keyword. They
-    /// are not in the tree; a consumer that reproduces the source splices
-    /// them back in by span.
+    /// order: the redirection of `[a o> b]` (in a list or a list pattern), a
+    /// block before the body of a `def` (`def f [] {} { }`), the body of an
+    /// `extern`, the items after the block of `export-env` and its
+    /// redirection, the default values of an `extern` signature, the items of
+    /// a `use` list that are not names and a cell path after it (`use std [1
+    /// a].x`), a `--` after a keyword. They are not in the tree; a consumer
+    /// that reproduces the source splices them back in by span.
     pub ignored: Vec<Span>,
 }
 
@@ -269,7 +271,10 @@ pub enum Expr<'a> {
     Record(Vec<RecordItem<'a>>),
     /// `{|x| ...}` or `{ ... }` in value position.
     Closure(Box<Closure<'a>>),
-    /// `{ ... }` in block position (bodies of `if`, `for`, `def`, ...).
+    /// `{ ... }` where a block stands in for an expression: an `else` branch
+    /// or a match arm body. The bodies of `if`, `for`, `def`, ... are [`Block`]
+    /// fields of their nodes instead. The expression's span includes the
+    /// braces; the block's covers only its contents.
     Block(Block<'a>),
     /// `( ... )`.
     Subexpression(Block<'a>),
@@ -1238,7 +1243,7 @@ pub struct TypeAnnotation<'a> {
 pub struct TypeField<'a> {
     /// The field name.
     pub name: Spanned<Cow<'a, str>>,
-    /// The field type (`any` if omitted).
+    /// The field type; `any` if omitted, with the empty span just past the name.
     pub ty: TypeAnnotation<'a>,
 }
 
@@ -1298,7 +1303,8 @@ pub enum SyntaxShape<'a> {
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct Parameter<'a> {
-    /// From the name to the end of the default value.
+    /// From the start of the parameter (`--`, `-` and `...` included) to the
+    /// end of its last part: the name, a `(-s)` alias, the type or the default value.
     pub span: Span,
     /// The parameter kind.
     pub kind: ParameterKind<'a>,
@@ -1352,7 +1358,8 @@ pub struct InputOutputType<'a> {
 #[derive(Clone, Debug, PartialEq, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct Signature<'a> {
-    /// The span of the parameter list including its delimiters (`[...]`, `(...)` or `|...|`).
+    /// The span of the parameter list including its delimiters (`[...]`, `(...)` or `|...|`),
+    /// extended over the input/output types when there are any.
     pub span: Span,
     /// The parameters.
     pub params: Vec<Parameter<'a>>,
@@ -1569,7 +1576,9 @@ pub enum Pattern<'a> {
     IgnoreValue,
     /// `[p1, p2, ..$rest]`.
     List(Vec<MatchPattern<'a>>),
-    /// `{key: pattern, $shorthand}`.
+    /// `{key: pattern, $shorthand}`. As in nu-parser, a key is its source text
+    /// verbatim, quotes included (`{"a": $x}` has the key `"a"`); a shorthand's
+    /// key is the name without `$`, its span the whole `$name`.
     Record(Vec<(Spanned<Cow<'a, str>>, MatchPattern<'a>)>),
     /// `..$rest` inside a list pattern: bind the remaining items.
     Rest(Spanned<&'a str>),
@@ -1593,7 +1602,7 @@ pub struct For<'a> {
     pub iterable: Box<Expression<'a>>,
     /// The body (empty when `body_value` is set).
     pub body: Block<'a>,
-    /// A variable or subexpression in place of the block (`if $c $env.f`):
+    /// A variable or subexpression in place of the block (`for x in $l $env.f`):
     /// nu-parser accepts one where it wants a block and type-checks it as a
     /// block.
     pub body_value: Option<Box<Expression<'a>>>,
@@ -1607,7 +1616,7 @@ pub struct While<'a> {
     pub condition: Box<Expression<'a>>,
     /// The body (empty when `body_value` is set).
     pub body: Block<'a>,
-    /// A variable or subexpression in place of the block (`if $c $env.f`):
+    /// A variable or subexpression in place of the block (`while $c $env.f`):
     /// nu-parser accepts one where it wants a block and type-checks it as a
     /// block.
     pub body_value: Option<Box<Expression<'a>>>,
@@ -1619,7 +1628,7 @@ pub struct While<'a> {
 pub struct Loop<'a> {
     /// The body (empty when `body_value` is set).
     pub body: Block<'a>,
-    /// A variable or subexpression in place of the block (`if $c $env.f`):
+    /// A variable or subexpression in place of the block (`loop $env.f`):
     /// nu-parser accepts one where it wants a block and type-checks it as a
     /// block.
     pub body_value: Option<Box<Expression<'a>>>,
@@ -1661,7 +1670,7 @@ pub struct Handler<'a> {
 pub struct Try<'a> {
     /// The body (empty when `body_value` is set).
     pub body: Block<'a>,
-    /// A variable or subexpression in place of the block (`if $c $env.f`):
+    /// A variable or subexpression in place of the block (`try $env.f`):
     /// nu-parser accepts one where it wants a block and type-checks it as a
     /// block.
     pub body_value: Option<Box<Expression<'a>>>,

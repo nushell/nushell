@@ -23,9 +23,9 @@ use super::tokens::{Tokens, item, tokens_until};
 use super::working_set::{CommandLookup, DeclKind};
 
 /// Declare the names of the `def`/`extern` statements of a block before
-/// parsing it (nu's `parse_def_predecl`, which nu's `parse_block` calls for
-/// every statement first), so calls to commands defined later resolve. Like
-/// nu, only a definition with a signature item after its name is
+/// parsing it (nu's `parse_def_predecl`, which nu's `parse_block` calls first
+/// for every pipeline of one command), so calls to commands defined later
+/// resolve. Like nu, only a definition with a signature item after its name is
 /// predeclared, and a name declared twice in one block is an error. An
 /// `alias` is declared when its statement is parsed (`WorkingSet::add_alias`),
 /// so a call before it is an unknown command.
@@ -56,11 +56,12 @@ pub struct PredeclaredDef<'a> {
 }
 
 /// [`parse_def_predecl`], also returning the definitions found, whose signatures
-/// [`Definitions::parse`] parses later: the statements can be parsed
-/// meanwhile, since the names are declared.
+/// [`Definitions::parse`] parses later: the statements need only the declared
+/// names, so they can be parsed meanwhile (see [`crate::BlockStatements::new`]).
 pub(super) fn scan_predecls(working_set: &WorkingSet<'_>, tokens: &[Token]) -> Definitions {
     let mut found = Vec::new();
     scan_definitions(working_set, tokens, |definition| {
+        // Copied, so that `Definitions` borrows nothing.
         let items = definition.items.to_vec();
         found.push(definition.with_items(items));
     });
@@ -76,14 +77,16 @@ pub struct Definitions(Vec<FoundDefinition<Vec<Token>>>);
 impl Definitions {
     /// Each definition with its signature, parsed in `source` with the
     /// commands `lookup` knows. A signature is parsed as the scan would have
-    /// parsed it: with the names of the block's definitions up to its own
-    /// declared. What parsing a name or signature reports is dropped, as nu's
-    /// predeclaration drops it (the statement reports it again when parsed).
+    /// parsed it: with the names of the block's definitions up to and
+    /// including its own declared. What parsing a name or signature reports is
+    /// dropped, as nu's predeclaration drops it (the statement reports it
+    /// again when parsed).
     pub fn parse<'a>(self, source: &'a str, span: Span, lookup: impl CommandLookup + 'a) -> Vec<PredeclaredDef<'a>> {
         let working_set = WorkingSet::with_lookup(source, span, lookup);
         self.0
             .into_iter()
             .map(|found| {
+                // A new working set: the scan's names are declared again, in its order.
                 if let Some(kind) = found.declared {
                     working_set.add_predecl(declared_name(&working_set, found.name.span), kind);
                 }
@@ -105,10 +108,13 @@ struct FoundDefinition<Items> {
     items: Items,
     /// The name item.
     name: Token,
-    /// Whether an item starting with `[` or `(` follows the name.
+    /// Whether an item starting with `[` or `(` follows the name: only then is
+    /// the name declared.
     has_signature: bool,
-    /// Whether the statement has the `--wrapped` flag.
+    /// Whether the statement has the `--wrapped` flag (looked for only when
+    /// the name is declared).
     wrapped: bool,
+    /// An `extern` rather than a `def`.
     external: bool,
     /// How the scan declared the name; `None` when it did not.
     declared: Option<DeclKind>,
@@ -141,6 +147,8 @@ fn predeclared_def<'a>(working_set: &WorkingSet<'a>, found: FoundDefinition<&[To
             + found.items[after_name..]
                 .iter()
                 .position(|token| working_set.get_span_contents(token.span).starts_with(['[', '(']))?;
+        // A `def`'s last item is its body unless it is the only one (`def f []`); every
+        // item of an `extern` is its signature's.
         let signature_items = match &found.items[signature_start..] {
             [only] => std::slice::from_ref(only),
             [signature @ .., _body] if !found.external => signature,
@@ -156,12 +164,18 @@ fn predeclared_def<'a>(working_set: &WorkingSet<'a>, found: FoundDefinition<&[To
 /// signature item after its name, report a name declared twice, and hand each
 /// definition with a name (a statement of at least three items, as nu
 /// requires) to `on_definition`.
+///
+/// It runs before the lite parse, over the block's tokens, so it finds where
+/// statements start itself: at an item first on its line or after a `;`, past
+/// a `|` that leads a new statement but not one that continues a pipeline. Of
+/// each statement it reads only the head and the tokens up to its end of line.
 fn scan_definitions(
     working_set: &WorkingSet<'_>,
     tokens: &[Token],
     mut on_definition: impl FnMut(FoundDefinition<&[Token]>),
 ) {
     let mut declared: Vec<&str> = Vec::new();
+    // The next item is the first of its line, or the first after a `;`.
     let mut at_line_start = true;
     // No command since the start of the block, a `;` or a blank line: a `|` here leads the next
     // command (`|def x [] {}`) instead of joining a pipeline.
@@ -182,6 +196,8 @@ fn scan_definitions(
             TokenContents::Item if at_line_start => {
                 at_line_start = false;
                 after_statement = false;
+                // The items after the head (`index` is past it), with their text. Past an
+                // `export`, `words` is left after `def`/`extern`: flags, name, signature.
                 let statement = || {
                     tokens[index..]
                         .iter()
@@ -460,6 +476,9 @@ fn parse_def_flags(tokens: &mut Tokens<'_, '_>) -> ParseResult<Vec<Spanned<DefFl
     repeat(0.., def_flag).parse_next(tokens)
 }
 
+/// One `--env` or `--wrapped`. Backtracks at a `--help`, a `--` or an item
+/// that is not a long flag, which ends the `repeat` of [`parse_def_flags`]; any
+/// other long flag is an error.
 fn def_flag(tokens: &mut Tokens<'_, '_>) -> ParseResult<Spanned<DefFlag>> {
     let working_set = tokens.working_set;
     let flag = item

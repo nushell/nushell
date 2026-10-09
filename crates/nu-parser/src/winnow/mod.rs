@@ -15,15 +15,21 @@
 //!   the lowering, with a copy of the command names; every name it resolved is checked against
 //!   the live working set before its statement is lowered.
 //! * [`lookup`] answers the winnow parser's questions about which commands exist from the live
-//!   [`StateWorkingSet`](nu_protocol::engine::StateWorkingSet), or from a copy of its names for
-//!   the second thread.
+//!   [`StateWorkingSet`], or from a copy of its names for the second thread.
+//! * [`lower`] turns each statement's syntax tree into the AST, each of its functions the
+//!   counterpart of a classic parser function, or gives the statement back.
 //! * [`stats`] counts what went where, so a benchmark can say how much of its input the winnow
 //!   front end parsed.
 //!
-//! A statement goes to the classic parser (lexed and parsed from its span, with its effects
-//! applied as usual) when the winnow parser reported an error in it, so error messages stay the
-//! classic ones. A block the winnow parser cannot lex at all is parsed entirely by the classic
-//! parser.
+//! The classic parser (lexing and parsing from the source, with its effects applied as usual)
+//! takes over wherever the winnow front end stops, so error messages stay the classic ones:
+//!
+//! * a statement the lowering gives back (an error to report, or a construct it does not
+//!   handle) is parsed alone;
+//! * from a statement the winnow parser reported an error in, or one parsed ahead with command
+//!   names that turned out different, the rest of the block is parsed;
+//! * a block the winnow parser cannot take as a whole (not UTF-8, it does not lex, or it has an
+//!   error about the whole block) is parsed entirely.
 
 pub(super) mod driver;
 mod lookup;
@@ -42,13 +48,16 @@ pub(crate) fn enabled() -> bool {
 
 /// The top-level block of a file (the part of `parse` that the classic parser does with `lex`
 /// and `parse_block`). `None` when the winnow parser cannot take the file (it is not UTF-8, or
-/// it does not lex), in which case nothing was changed and the caller parses it the classic way.
+/// [`driver::parse_block`] cannot take it), in which case nothing was changed and the caller
+/// parses it the classic way.
 pub(crate) fn parse_file_block(
     working_set: &mut StateWorkingSet,
     contents: &[u8],
     span: Span,
     scoped: bool,
 ) -> Option<Block> {
+    // `contents` is the caller's, not the working set's, so the syntax tree can borrow it while
+    // the working set changes (unlike a module body's, which `parse_module_block` copies).
     let Ok(source) = std::str::from_utf8(contents) else {
         stats::record_classic_block();
         return None;

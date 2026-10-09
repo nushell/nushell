@@ -108,6 +108,8 @@ fn unit_literal_start(text: &[u8]) -> bool {
             || (text[0] == b'-' && text[1].is_ascii_digit()))
 }
 
+/// The filesize units in upper case. [`parse_unit_value`] takes the first one
+/// the text ends with, so `B`, the end of every other unit, comes last.
 const FILESIZE_UNITS: &[(&str, FilesizeUnit)] = &[
     ("KB", FilesizeUnit::KB),
     ("MB", FilesizeUnit::MB),
@@ -124,6 +126,7 @@ const FILESIZE_UNITS: &[(&str, FilesizeUnit)] = &[
     ("B", FilesizeUnit::B),
 ];
 
+/// The duration units; `µs` is spelled with the micro sign or the Greek mu.
 const DURATION_UNITS: &[(&str, DurationUnit)] = &[
     ("ns", DurationUnit::Nanosecond),
     ("us", DurationUnit::Microsecond),
@@ -207,12 +210,14 @@ pub fn is_datetime(text: &str) -> bool {
     (date, opt((time, opt(offset)))).parse(text).is_ok()
 }
 
+/// The `date` of [`is_datetime`]: `YYYY-MM-DD`, a day that exists in that month.
 fn date(input: &mut &str) -> winnow::Result<(), EmptyError> {
     let year = digits(4).parse_next(input)?;
     let month = preceded('-', digits(2).verify(|month| (1..=12).contains(month))).parse_next(input)?;
     preceded('-', digits(2).verify(|day| (1..=days_in_month(year, month)).contains(day))).void().parse_next(input)
 }
 
+/// The `time` of [`is_datetime`]: `Thh:mm:ss` with optional fractional seconds.
 fn time(input: &mut &str) -> winnow::Result<(), EmptyError> {
     (
         one_of(['T', 't']),
@@ -227,6 +232,7 @@ fn time(input: &mut &str) -> winnow::Result<(), EmptyError> {
         .parse_next(input)
 }
 
+/// The `offset` of [`is_datetime`]: `Z`, or `+hh:mm` / `-hh:mm` from UTC.
 fn offset(input: &mut &str) -> winnow::Result<(), EmptyError> {
     alt((
         one_of(['Z', 'z']).void(),
@@ -237,7 +243,8 @@ fn offset(input: &mut &str) -> winnow::Result<(), EmptyError> {
 
 /// Whether a `0x[...]`/`0o[...]`/`0b[...]` word makes a command line a math
 /// expression: like nu, it does unless the brackets hold a pipe, redirection
-/// or assignment token (`0b[1|2]` is then a command name).
+/// or assignment token (`0b[1|2]` is then a command name). A bracket interior
+/// that does not lex counts as binary, so [`parse_binary`] reports the error.
 pub fn looks_like_binary(text: &str) -> bool {
     let Some(prefix) = ["0x[", "0o[", "0b["].into_iter().find(|prefix| text.starts_with(prefix)) else { return false };
     let Some(inner) = text[prefix.len()..].strip_suffix(']') else { return false };
@@ -303,6 +310,7 @@ fn parse_binary_with_base<'a>(
             span,
         )));
     }
+    // Like nu, a short first byte is padded on the left: `0x[abc]` is `0x[0a bc]`.
     let padding = (digits_per_byte - digits.len() % digits_per_byte) % digits_per_byte;
     let padded = format!("{}{}", "0".repeat(padding), digits);
     let mut bytes = Vec::with_capacity(padded.len() / digits_per_byte);
@@ -433,7 +441,16 @@ fn invalid_string(message: String, span: Span) -> Diagnostic {
     Diagnostic::new(ErrorKind::InvalidLiteral { kind: "string", message }, span)
 }
 
-/// A raw string `r#'...'#` (nu's `parse_raw_string`). The lexer guarantees the delimiters balance.
+/// A raw string `r#'...'#` (nu's `parse_raw_string`): the text between the
+/// quotes, taken as it is.
+///
+/// ```text
+/// raw-string = "r" "#"{n} "'" text "'" "#"{n}        n from 1 to 255
+/// ```
+///
+/// The text runs from the quote after the opening hashes to the quote before
+/// as many hashes at the end of the item; anything else is an unclosed quote
+/// (`r#'a'#b`).
 pub fn parse_raw_string<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResult<Expression<'a>> {
     let text = working_set.get_span_contents(span);
     let Some(after_r) = text.strip_prefix('r') else {
@@ -547,7 +564,17 @@ fn parse_string_interpolation<'a>(working_set: &WorkingSet<'a>, span: Span) -> P
 }
 
 /// Split the body of an interpolated string into literal text and `( ... )`
-/// subexpressions, using the same delimiter rules as the lexer.
+/// subexpressions, using the same delimiter rules as the lexer (the loop of
+/// nu's `parse_string_interpolation`).
+///
+/// ```text
+/// body = { text | "(" subexpression ")" }
+/// ```
+///
+/// A byte scan rather than combinators, because it must find the `)` the
+/// lexer found: it tracks quotes and nested parentheses with
+/// [`interp_subexpr_step`], the step the lexer takes inside `$"..."`. In
+/// double quotes `\(` is text, and the text parts are unescaped.
 fn parse_interpolation_parts<'a>(
     working_set: &WorkingSet<'a>,
     body: Span,
@@ -667,7 +694,7 @@ pub fn parse_simple_cell_path<'a>(working_set: &WorkingSet<'a>, span: Span) -> P
 }
 
 /// A head (`$var`, `(...)`, `[...]`, `{...}`) followed by `.member`
-/// accesses (nu's `parse_full_cell_path`).
+/// accesses (nu's `parse_full_cell_path`): `$x.a.0`, `(ls).name?`, `{a: 1}.a`.
 ///
 /// With `implicit` set, a bare head is taken as a column of the row variable
 /// `$it` (used by `where` row conditions).
@@ -720,6 +747,7 @@ fn parse_cell_path<'a>(tokens: &mut Tokens<'_, 'a>, expect_dot: bool) -> ParseRe
         true => None,
         false => opt(path_member).parse_next(tokens)?,
     };
+    // The member before the first `.`, if any, seeds the list.
     let members = repeat(0.., preceded(keyword("."), opt(path_member)))
         .fold(
             || Vec::from_iter(first.take()),
@@ -784,12 +812,14 @@ fn expected_after_path_member(member: &PathMember<'_>, span: Span) -> ErrMode<Pa
     cut(Diagnostic::expected(what, span))
 }
 
-/// The items of `span` lexed as a cell path. Like nu, every token counts, so
+/// The items of `span` lexed as a cell path, with `.`, `?` and `!` split off:
+/// `$x.a?.0` gives `$x` `.` `a` `?` `.` `0`. Like nu, every token counts, so
 /// an `=` or an `o>` is a member or a misplaced one (`$x.a?=` fails), never
 /// dropped.
 fn lex_cell_path(working_set: &WorkingSet<'_>, span: Span) -> ParseResult<Vec<Token>> {
     // Most cell paths are a head alone: `$name`, or a group whose closing bracket ends the
-    // text. Either is one item, which lexing would only confirm.
+    // text. Either is one item, which lexing would only confirm. The `$name` bytes are ones
+    // the cell-path lexer never splits at, valid in a name or not (`$a-b`).
     let text = working_set.get_span_contents(span);
     let head_alone = match text.as_bytes() {
         [b'$', name @ ..] => name.iter().all(|&byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-')),
@@ -936,6 +966,7 @@ fn range_bounds(text: &str) -> Option<(&str, Option<&str>, &str)> {
     let (next_operator, operator) = find_range_operators(text)?;
     let operator_length =
         if text[operator..].starts_with("..<") || text[operator..].starts_with("..=") { 3 } else { 2 };
+    // Only the last operator may be `..<` (`1..<2..3` is no range).
     if text.find("..<").is_some_and(|position| position != operator) {
         return None;
     }
@@ -949,6 +980,13 @@ fn range_bounds(text: &str) -> Option<(&str, Option<&str>, &str)> {
 }
 
 /// A range item (nu's `parse_range`); the caller has checked [`is_range_syntax`].
+///
+/// ```text
+/// range = [ from ] [ ".." next ] ( ".." | "..=" | "..<" ) [ to ]     from or to present
+/// ```
+///
+/// The operators are the `..`s outside parentheses (`(1..2).0..5` has one);
+/// each bound is a value of the `number` shape.
 pub fn parse_range<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResult<Expression<'a>> {
     let text = working_set.get_span_contents(span);
     let Some((next_operator, operator)) = find_range_operators(text) else {
