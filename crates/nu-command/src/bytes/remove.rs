@@ -114,11 +114,6 @@ impl Command for BytesRemove {
                 result: Some(Value::test_binary(vec![0x10, 0x11, 0x12, 0x13])),
             },
             Example {
-                description: "Remove find binary from end when the pattern is longer than the input.",
-                example: "0x[10 11] | bytes remove --end 0x[AA BB CC]",
-                result: Some(Value::test_binary(vec![0x10, 0x11])),
-            },
-            Example {
                 description: "Remove all occurrences of find binary in table.",
                 example: "[[ColA ColB ColC]; [0x[11 12 13] 0x[14 15 16] 0x[17 18 19]]] | bytes remove 0x[11] ColA ColC",
                 result: Some(Value::test_list(vec![Value::test_record(record! {
@@ -159,27 +154,12 @@ fn remove_impl(input: &[u8], arg: &Arguments, span: Span) -> Value {
     // remove_all from start and end will generate the same result.
     // so we'll put `remove_all` relative logic into else clause.
     if arg.end && !remove_all {
-        let (mut left, mut right) = (
-            input.len() as isize - arg.pattern.len() as isize,
-            input.len() as isize,
-        );
-        while left >= 0 && input[left as usize..right as usize] != arg.pattern {
-            result.push(input[right as usize - 1]);
-            left -= 1;
-            right -= 1;
+        // Remove the last occurrence of the pattern anywhere in the input.
+        // An empty pattern is rejected earlier in `run`, so `windows` is safe.
+        match input.windows(pattern_len).rposition(|w| w == arg.pattern) {
+            Some(pos) => Value::binary([&input[..pos], &input[pos + pattern_len..]].concat(), span),
+            None => Value::binary(input.to_vec(), span),
         }
-        if left < 0 {
-            // Pattern not found: return the input unchanged. (The scan
-            // skipped over the leading bytes without saving them, so the
-            // `result` collected above is incomplete.)
-            return Value::binary(input.to_vec(), span);
-        }
-        // append the remaining thing to result, this can be happening when
-        // we have something to remove and remove_all is False.
-        let mut remain = input[..left as usize].iter().copied().rev().collect();
-        result.append(&mut remain);
-        result = result.into_iter().rev().collect();
-        Value::binary(result, span)
     } else {
         let (mut left, mut right) = (0, arg.pattern.len());
         while right <= input_len {
@@ -210,5 +190,60 @@ mod tests {
     #[test]
     fn test_examples() -> nu_test_support::Result {
         nu_test_support::test().examples(BytesRemove)
+    }
+
+    fn remove_end(input: &[u8], pattern: &[u8]) -> Vec<u8> {
+        let args = Arguments {
+            pattern: pattern.to_vec(),
+            end: true,
+            cell_paths: None,
+            all: false,
+        };
+        match remove_impl(input, &args, Span::test_data()) {
+            Value::Binary { val, .. } => val.to_vec(),
+            other => panic!("expected a binary value, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn end_pattern_not_found_keeps_whole_input() {
+        assert_eq!(
+            remove_end(&[0x10, 0x11, 0x12, 0x13], &[0xAA, 0xBB]),
+            vec![0x10, 0x11, 0x12, 0x13]
+        );
+    }
+
+    #[test]
+    fn end_pattern_longer_than_input_keeps_whole_input() {
+        assert_eq!(
+            remove_end(&[0x10, 0x11], &[0xAA, 0xBB, 0xCC]),
+            vec![0x10, 0x11]
+        );
+    }
+
+    #[test]
+    fn end_match_at_offset_zero() {
+        assert_eq!(remove_end(&[0xAA, 0xBB, 0x10], &[0xAA, 0xBB]), vec![0x10]);
+    }
+
+    #[test]
+    fn end_pattern_equals_input() {
+        assert!(remove_end(&[0xAA, 0xBB], &[0xAA, 0xBB]).is_empty());
+    }
+
+    #[test]
+    fn end_removes_the_last_occurrence_anywhere() {
+        assert_eq!(
+            remove_end(&[0x01, 0x02, 0x01, 0x02, 0x01], &[0x01, 0x02]),
+            vec![0x01, 0x02, 0x01]
+        );
+    }
+
+    #[test]
+    fn end_with_overlapping_pattern_removes_rightmost() {
+        assert_eq!(
+            remove_end(&[0x01, 0x02, 0x01, 0x02, 0x01], &[0x01, 0x02, 0x01]),
+            vec![0x01, 0x02]
+        );
     }
 }
