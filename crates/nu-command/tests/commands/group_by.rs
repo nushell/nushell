@@ -376,3 +376,44 @@ fn to_table_does_not_merge_int_and_float_ranges() -> Result {
     ";
     test().run(code).expect_value_eq(true)
 }
+
+#[test]
+fn int_and_float_keys_are_distinct_groups() -> Result {
+    // `1 == 1.0` is true, but group keys keep their type.
+    test()
+        .run("[1 1.0 1] | group-by --to-table | get group | each { describe }")
+        .expect_value_eq(test_value!(["int", "float"]))?;
+
+    test()
+        .run("[1 1.0 1] | group-by --to-table | get items | each { length }")
+        .expect_value_eq(test_value!([2, 1]))
+}
+
+#[test]
+fn equal_values_written_differently_share_a_group() -> Result {
+    // Records ignore key order.
+    test()
+        .run("[{a: 1, b: 2} {b: 2, a: 1}] | group-by --to-table | length")
+        .expect_value_eq(1)?;
+
+    // Dates compare by instant, not by offset.
+    test()
+        .run("[2026-01-01T00:00:00+00:00 2026-01-01T02:00:00+02:00] | group-by --to-table | length")
+        .expect_value_eq(1)?;
+
+    // Floats compare with `==`, so `0.0` and `-0.0` are one key.
+    test()
+        .run("[0.0 -0.0] | group-by --to-table | length")
+        .expect_value_eq(1)
+}
+
+#[test]
+fn custom_value_keys_group_by_their_own_equality() -> Result {
+    test()
+        .run(r#"["1.2.3" "1.3.0" "1.2.3"] | each { into semver } | group-by --to-table | get items | each { length }"#)
+        .expect_value_eq(test_value!([2, 1]))?;
+
+    test()
+        .run(r#""1.2.3" | into semver | [$in] | group-by --to-table | get 0.group | describe"#)
+        .expect_value_eq("semver")
+}
