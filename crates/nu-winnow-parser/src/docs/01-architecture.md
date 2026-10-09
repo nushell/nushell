@@ -193,12 +193,14 @@ uses: the set of known command names, needed to join multi-word heads such as
   name.
 * **Combinators at both levels.** Both `Input` and `Tokens` implement winnow's
   `Stream` and `Location`, and the error type implements `ParserError` for
-  both. The lexer dispatches with `dispatch!` and `take_while`; sequence
+  both. The lexer works on bytes (`next_token` skips whitespace and
+  dispatches on the next byte); sequence
   parsers are winnow parsers over `Tokens` and compose with `repeat`, `opt`,
   `alt`, `preceded`, `repeat_till` and the Pratt parser `expression`. Code
   that mirrors a state machine of nu-parser stays a loop: `parse_block`'s
   statement loop, `parse_lite_command`, the `ParseMode` machine of
-  `parse_parameters`, and the item scanner `item_length`.
+  `parse_parameters`, the token dispatch `lex_token` and the item scanner
+  `item_length`.
 * **Cheap failures.** Combinators try alternatives all the time, so a failed
   alternative must cost nothing. A backtrack carries only a byte offset; only
   a real error (a cut) builds and boxes a `Diagnostic` (chapter 03).

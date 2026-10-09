@@ -42,6 +42,10 @@ fn strip_underscores(text: &str) -> Cow<'_, str> {
 /// Like Nushell, radix literals are parsed as `u64` and reinterpreted, so
 /// `0xffffffffffffffff` is `-1`.
 pub fn parse_int(text: &str) -> Option<i64> {
+    // Most words asked about are no number: an int has a digit.
+    if !text.bytes().any(|byte| byte.is_ascii_digit()) {
+        return None;
+    }
     let text = strip_underscores(text);
     alt((
         rest.try_map(str::parse::<i64>),
@@ -72,6 +76,13 @@ pub fn radix_prefix(text: &str) -> Option<u32> {
 /// A float literal (nu's `parse_float`): everything Rust's `f64::from_str`
 /// accepts (including `inf`, `NaN`, `1e5`, `.5`), with `_` separators.
 pub fn parse_float(text: &str) -> Option<f64> {
+    // Most words asked about are no number: a float has a digit, unless it is `inf`,
+    // `infinity` or `NaN` (in any case, signed, with separators).
+    let special_float_byte =
+        |byte: u8| matches!(byte.to_ascii_lowercase(), b'+' | b'-' | b'_' | b'i' | b'n' | b'f' | b'a' | b't' | b'y');
+    if !text.bytes().any(|byte| byte.is_ascii_digit()) && !text.bytes().all(special_float_byte) {
+        return None;
+    }
     let text = strip_underscores(text);
     if text.is_empty() {
         return None;
@@ -672,7 +683,7 @@ pub fn parse_full_cell_path<'a>(
     let head_text = working_set.get_span_contents(head_token.span);
     let (head, member_tokens) = match head_text.as_bytes() {
         // `(pwd)/x` and `(a)/b/(c)`: not a subexpression head but a bare interpolation.
-        [b'(', ..] if group_end(head_text) != Some(head_text.len() - 1) => {
+        [b'(', ..] if working_set.group_end(head_token.span) != Some(head_text.len() - 1) => {
             return parse_string_interpolation(working_set, span);
         }
         [b'(', ..] => (parse_subexpression(working_set, head_token.span)?, &items[1..]),
@@ -777,12 +788,12 @@ fn expected_after_path_member(member: &PathMember<'_>, span: Span) -> ErrMode<Pa
 /// an `=` or an `o>` is a member or a misplaced one (`$x.a?=` fails), never
 /// dropped.
 fn lex_cell_path(working_set: &WorkingSet<'_>, span: Span) -> ParseResult<Vec<Token>> {
-    let lexed = lex(working_set.get_span_contents(span), span.start, LexOptions::CELL_PATH).map_err(cut)?;
-    Ok(lexed
-        .into_iter()
-        .filter(|token| !matches!(token.contents, TokenContents::Eof | TokenContents::Eol | TokenContents::Comment))
-        .map(|token| Token { contents: TokenContents::Item, span: token.span })
-        .collect())
+    let mut lexed = working_set.lex(span, LexOptions::CELL_PATH).map_err(cut)?;
+    lexed.retain(|token| !matches!(token.contents, TokenContents::Eof | TokenContents::Eol | TokenContents::Comment));
+    for token in &mut lexed {
+        token.contents = TokenContents::Item;
+    }
+    Ok(lexed)
 }
 
 /// Positions of the range operators (`..`) at parenthesis depth zero:
@@ -836,11 +847,18 @@ pub fn is_range_syntax(text: &str) -> bool {
         })
 }
 
-/// Whether `text` holds `..` anywhere: a byte scan, cheaper on the short items
-/// it is asked about than a substring search.
+/// Whether `text` holds `..` anywhere. The search goes from `.` to `.` (a
+/// `memchr`), since it also runs over whole subexpressions.
 #[inline]
 fn has_range_operator(text: &str) -> bool {
-    text.as_bytes().windows(2).any(|pair| pair == b"..")
+    let mut rest = text;
+    while let Some(dot) = rest.find('.') {
+        rest = &rest[dot + 1..];
+        if rest.starts_with('.') {
+            return true;
+        }
+    }
+    false
 }
 
 /// Whether a command head is a range (nu's `is_math_expression_like`, which
@@ -851,11 +869,13 @@ fn has_range_operator(text: &str) -> bool {
 pub fn is_range_head(text: &str) -> bool {
     // A `$` bound must name a variable and a cell path on it (`..$x.a`);
     // `..$`, `1..$s=`, `1..$s!` and `..$x.c!!` are no range for nu, whose
-    // value parser fails on them.
+    // value parser fails on them, nor is `..$a:` (no variable has a `:` in
+    // its name: `let` reads `name: type`).
     let bound_parses = |bound: &str| match bound.strip_prefix('$') {
         Some(rest) => {
             let name_end = rest.find(['.', '?', '!']).unwrap_or(rest.len());
-            is_identifier(&rest[..name_end]) && is_cell_path_tail(&rest[name_end..])
+            let name = &rest[..name_end];
+            is_identifier(name) && !name.contains(':') && is_cell_path_tail(&rest[name_end..])
         }
         None => true,
     };

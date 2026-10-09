@@ -810,11 +810,13 @@ fn parse_extern_inner(
         }
     };
 
+    // The item after `extern` (which a statement of `extern` alone does not have).
+    let name_span = spans.get(split_id).copied().unwrap_or(call_span);
     finish_extern(
         working_set,
         call,
         call_span,
-        spans[split_id],
+        name_span,
         description,
         extra_description,
         attributes,

@@ -560,7 +560,10 @@ impl<'s> Lower<'_, '_, 's> {
                 }
             }
             let mut block = this.block(body, span, false, false, input_type)?;
-            if this.working_set.parse_errors.is_empty() {
+            // A `def` body is compiled by `finish_def`, once its scope is closed.
+            if this.working_set.parse_errors.is_empty()
+                && this.working_set.def_body_span != Some(span)
+            {
                 compile_block(this.working_set, &mut block);
             }
             if let Some(signature) = signature {

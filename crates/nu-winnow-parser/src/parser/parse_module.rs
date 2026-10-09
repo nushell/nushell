@@ -6,7 +6,7 @@ use crate::ast::{
 };
 use crate::error::{Diagnostic, ErrorKind};
 use crate::input::{ParseResult, cut};
-use crate::lex::{Token, TokenContents, group_end};
+use crate::lex::{Token, TokenContents};
 use crate::span::{Span, Spanned};
 
 use super::WorkingSet;
@@ -295,9 +295,8 @@ pub fn parse_import_pattern_member<'a>(
 /// The names in a `use module [a b c]` list. Items that are not strings are
 /// parsed and ignored, as is a cell path after the list (`[math].x`).
 fn parse_import_pattern_list<'a>(working_set: &WorkingSet<'a>, token: &Token) -> ParseResult<ImportPatternMember<'a>> {
-    let text = working_set.get_span_contents(token.span);
     let span = token.span;
-    let list_end = group_end(text).map_or(span.end, |close| span.start + close + 1);
+    let list_end = working_set.group_end(span).map_or(span.end, |close| span.start + close + 1);
     let list = parse_list_expression(working_set, Span::new(span.start, list_end))?;
     if list_end < span.end {
         // Parse the cell path for its errors, then drop it like nu.

@@ -119,14 +119,25 @@ fn scan_definitions(
 ) {
     let mut declared: Vec<&str> = Vec::new();
     let mut at_line_start = true;
+    // No command since the start of the block, a `;` or a blank line: a `|` here leads the next
+    // command (`|def x [] {}`) instead of joining a pipeline.
+    let mut after_statement = true;
+    let mut previous = TokenContents::Eol;
     let mut index = 0;
     while let Some(token) = tokens.get(index) {
         index += 1;
+        let blank_line = token.contents == TokenContents::Eol && previous == TokenContents::Eol;
+        previous = token.contents;
         match token.contents {
-            TokenContents::Eol | TokenContents::Semicolon => at_line_start = true,
+            TokenContents::Eol | TokenContents::Semicolon => {
+                at_line_start = true;
+                after_statement |= blank_line || token.contents == TokenContents::Semicolon;
+            }
             TokenContents::Comment => {}
+            TokenContents::Pipe if at_line_start && after_statement => {}
             TokenContents::Item if at_line_start => {
                 at_line_start = false;
+                after_statement = false;
                 let statement = || {
                     tokens[index..]
                         .iter()
@@ -157,6 +168,19 @@ fn scan_definitions(
                             .count()
                     });
                 let rest = tokens.get(items_start..rest_end).unwrap_or(&[]);
+                // nu predeclares only a pipeline of one command (an assignment takes the pipes
+                // after it into its command).
+                let pipes_to_another_command = rest
+                    .iter()
+                    .take_while(|token| !matches!(token.contents, TokenContents::AssignmentOperator(_)))
+                    .any(|token| match token.contents {
+                        TokenContents::Pipe => true,
+                        TokenContents::Redirection(operator) => operator.is_pipe(),
+                        _ => false,
+                    });
+                if pipes_to_another_command {
+                    continue;
+                }
                 // nu looks at a definition only when its statement has at least three parts.
                 let parts = rest.iter().filter(|token| token.contents != TokenContents::Comment).count();
                 let statement_items = parts + if items_start > index { 2 } else { 1 };
@@ -202,7 +226,10 @@ fn scan_definitions(
                 declared.push(name);
                 on_definition(FoundDefinition { wrapped: has_wrapped_flag, ..found });
             }
-            _ => at_line_start = false,
+            _ => {
+                at_line_start = false;
+                after_statement = false;
+            }
         }
     }
 }
@@ -341,7 +368,7 @@ pub fn parse_def<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> 
     }
     let span = call.keyword.span.merge(body.map_or(signature.span, |token| token.span));
     let def = Def { flags, name, signature, body_params, body: body_block };
-    call.finish(Expression::new(Expr::Def(def), span))
+    call.finish(Expression::new(Expr::Def(Box::new(def)), span))
 }
 
 /// The body of a `def`: nu parses it as a closure without looking at its
@@ -423,7 +450,7 @@ pub fn parse_extern<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a
     // (the old `extern-wrapped`) is dropped by nu without a look.
     let signature = parse_full_signature(working_set, rest, true)?;
     let span = call.keyword.span.merge(last.span);
-    call.finish(Expression::new(Expr::Extern(Extern { name, signature }), span))
+    call.finish(Expression::new(Expr::Extern(Box::new(Extern { name, signature })), span))
 }
 
 /// `for variable[: type] in iterable { block }`.
@@ -462,5 +489,5 @@ pub fn parse_for<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> 
     call.end(&mut tokens)?;
     let span = call.keyword.span.merge(block.span);
     let for_loop = For { var, ty, in_keyword: in_keyword.span, iterable, body, body_value };
-    call.finish(Expression::new(Expr::For(for_loop), span))
+    call.finish(Expression::new(Expr::For(Box::new(for_loop)), span))
 }

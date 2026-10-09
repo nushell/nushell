@@ -123,6 +123,20 @@ fn is_syntax_error(err: &ParseError) -> bool {
     if name == "IncompleteMathExpression" {
         return false;
     }
+    // An item read as an int because the signature asks for one (`first
+    // 0x[01]`, which is binary anywhere else).
+    if let ParseError::InvalidLiteral(_, entity, _) = err
+        && entity == "int"
+    {
+        return false;
+    }
+    // `use a b c` where `b` is not a submodule of `a`: found when the import
+    // pattern is resolved against the module's contents.
+    if let ParseError::WrongImportPattern(message, _) = err
+        && message.starts_with("Trying to import something but the parent")
+    {
+        return false;
+    }
     matches!(
         name.as_str(),
         "ExtraTokens"
@@ -226,7 +240,9 @@ impl Rng {
 /// words when the text does not lex.
 fn token_spans(text: &str) -> Vec<(usize, usize)> {
     match lex(text, 0, LexOptions::BLOCK) {
-        Ok(tokens) => tokens.iter().filter(|t| t.contents != TokenContents::Eof).map(|t| (t.span.start, t.span.end)).collect(),
+        Ok(tokens) => {
+            tokens.iter().filter(|t| t.contents != TokenContents::Eof).map(|t| (t.span.start, t.span.end)).collect()
+        }
         Err(_) => text
             .split_whitespace()
             .map(|w| {

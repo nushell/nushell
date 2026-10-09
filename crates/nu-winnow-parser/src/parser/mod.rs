@@ -56,7 +56,7 @@ use std::sync::Arc;
 
 use crate::ast::{Ast, Block};
 use crate::error::Diagnostic;
-use crate::lex::{LexOptions, lex};
+use crate::lex::LexOptions;
 use crate::span::Span;
 
 pub use parse_def::PredeclaredDef;
@@ -116,6 +116,8 @@ pub enum CommandType {
 pub(crate) struct CommandSet {
     names: NameSet,
     prefixes: NameSet,
+    /// The length of the longest name.
+    longest: usize,
 }
 
 /// A set of command names, hashed with [`NameHasher`].
@@ -164,6 +166,7 @@ impl CommandSet {
         if let Some((first, _)) = name.split_once(' ') {
             self.prefixes.insert(Box::from(first));
         }
+        self.longest = self.longest.max(name.len());
         self.names.insert(Box::from(name));
     }
 }
@@ -241,6 +244,12 @@ impl ParseConfig {
         self.commands.all.prefixes.contains(word)
     }
 
+    /// The length of the longest known command name.
+    #[inline]
+    pub fn longest_name(&self) -> usize {
+        self.commands.all.longest
+    }
+
     /// Number of known command names.
     pub fn len(&self) -> usize {
         self.commands.all.names.len()
@@ -255,7 +264,7 @@ impl ParseConfig {
 
 impl Clone for CommandSet {
     fn clone(&self) -> Self {
-        Self { names: self.names.clone(), prefixes: self.prefixes.clone() }
+        Self { names: self.names.clone(), prefixes: self.prefixes.clone(), longest: self.longest }
     }
 }
 
@@ -267,7 +276,7 @@ pub(crate) fn parse<'a>(source: &'a str, config: &ParseConfig) -> (Ast<'a>, Vec<
         let end = source.find('\n').unwrap_or(source.len());
         Span::new(0, end)
     });
-    let block = match lex(source, 0, LexOptions::BLOCK) {
+    let block = match working_set.lex(whole_source, LexOptions::BLOCK) {
         Ok(tokens) => parse_pipelines::parse_block(tokens::Tokens::from_lexed(&working_set, &tokens), whole_source),
         Err(diagnostic) => {
             working_set.error(diagnostic);
@@ -286,7 +295,7 @@ pub(crate) fn parse_block_streaming<'a>(
     lookup: &'a dyn CommandLookup,
     sink: &mut dyn BlockSink<'a>,
 ) -> Result<(), Vec<Diagnostic>> {
-    let working_set = WorkingSet::with_lookup(source, lookup);
-    let tokens = lex(span.slice(source), span.start, LexOptions::BLOCK).map_err(|diagnostic| vec![diagnostic])?;
+    let working_set = WorkingSet::with_lookup(source, span, lookup);
+    let tokens = working_set.lex(span, LexOptions::BLOCK).map_err(|diagnostic| vec![diagnostic])?;
     parse_pipelines::parse_block_streaming(tokens::Tokens::from_lexed(&working_set, &tokens), sink)
 }

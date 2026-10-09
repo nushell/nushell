@@ -13,7 +13,7 @@ use crate::ast::{
 };
 use crate::error::{Diagnostic, ErrorKind};
 use crate::input::{Input, ParseFailure, ParseResult, backtrack, cut, input};
-use crate::lex::{LexOptions, Token, TokenContents, assignment_operator, lex, lex_n_tokens, next_token};
+use crate::lex::{LexOptions, Token, TokenContents, assignment_operator};
 use crate::span::{Span, Spanned};
 
 use super::WorkingSet;
@@ -187,9 +187,10 @@ fn env_assignment<'a>(tokens: &mut Tokens<'_, 'a>) -> ParseResult<EnvAssignment<
     let (token, equals) = item
         .verify_map(|token| {
             let text = working_set.get_span_contents(token.span);
-            // A byte scan: most items have no `=`, and this runs for every command.
-            let equals = text.bytes().position(|byte| byte == b'=')?;
-            is_env_variable_name(&text[..equals]).then_some(())?;
+            // This runs for every command, so only the name is scanned: up to the first byte
+            // that cannot be part of one, which must be the `=`.
+            let equals = text.bytes().position(|byte| byte != b'_' && !byte.is_ascii_alphanumeric())?;
+            (text.as_bytes()[equals] == b'=' && is_env_variable_name(&text[..equals])).then_some(())?;
             Some((token, equals))
         })
         .parse_next(tokens)?;
@@ -674,7 +675,7 @@ pub fn is_math_expression_like(text: &str) -> bool {
 /// Parse `( ... )` as a subexpression. Newlines inside are whitespace.
 pub fn parse_subexpression<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResult<Expression<'a>> {
     let inner = delimited_interior(working_set, span, "(", ")")?;
-    let tokens = lex(working_set.get_span_contents(inner), inner.start, LexOptions::SUBEXPRESSION).map_err(cut)?;
+    let tokens = working_set.lex(inner, LexOptions::SUBEXPRESSION).map_err(cut)?;
     working_set.enter_scope();
     let block = parse_block(Tokens::from_lexed(working_set, &tokens), inner);
     working_set.exit_scope();
@@ -698,8 +699,7 @@ pub enum BraceShape {
 }
 
 fn probe_brace_shape(working_set: &WorkingSet<'_>, inner: Span) -> BraceShape {
-    let probe =
-        lex_n_tokens(working_set.get_span_contents(inner), inner.start, LexOptions::BRACE_PROBE, 2).unwrap_or_default();
+    let probe = working_set.lex_n_tokens(inner, LexOptions::BRACE_PROBE, 2).unwrap_or_default();
     match probe.as_slice() {
         [first, ..] if matches!(first.contents, TokenContents::Pipe | TokenContents::PipePipe) => {
             BraceShape::ClosureParams
@@ -820,7 +820,7 @@ pub fn parse_block_body<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseRe
 /// `def`, which nu parses as a closure whatever it starts with).
 pub fn parse_block_body_unchecked<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResult<Block<'a>> {
     let inner = delimited_interior(working_set, span, "{", "}")?;
-    let tokens = lex(working_set.get_span_contents(inner), inner.start, LexOptions::BLOCK).map_err(cut)?;
+    let tokens = working_set.lex(inner, LexOptions::BLOCK).map_err(cut)?;
     working_set.enter_scope();
     let block = parse_block(Tokens::from_lexed(working_set, &tokens), inner);
     working_set.exit_scope();
@@ -833,13 +833,13 @@ fn parse_block_expression<'a>(working_set: &WorkingSet<'a>, span: Span) -> Parse
 
 /// Parse `{|params| body}` or `{ body }` as a closure.
 pub fn parse_closure_expression<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResult<Expression<'a>> {
-    Ok(Expression::new(Expr::Closure(parse_closure_parts(working_set, span)?), span))
+    Ok(Expression::new(Expr::Closure(Box::new(parse_closure_parts(working_set, span)?)), span))
 }
 
 /// The parameters and body of a `{|params| body}` or `{ body }` item.
 pub fn parse_closure_parts<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResult<Closure<'a>> {
     let inner = delimited_interior(working_set, span, "{", "}")?;
-    let tokens = lex(working_set.get_span_contents(inner), inner.start, LexOptions::BLOCK).map_err(cut)?;
+    let tokens = working_set.lex(inner, LexOptions::BLOCK).map_err(cut)?;
     // The parameter list is the first token or, as nu's lexer merges a newline
     // and the `|` after it, the `|` right after one newline (`{\n  |x| ... }`).
     // After a comment line or a blank line, and for `||` on a later line, the
@@ -886,7 +886,7 @@ pub fn parse_closure_parts<'a>(working_set: &WorkingSet<'a>, span: Span) -> Pars
 /// The tokens of a `[...]` interior, comments recorded and dropped.
 fn lex_bracket_interior(working_set: &WorkingSet<'_>, span: Span) -> ParseResult<Vec<Token>> {
     let inner = delimited_interior(working_set, span, "[", "]")?;
-    let tokens = lex(working_set.get_span_contents(inner), inner.start, LexOptions::LIST).map_err(cut)?;
+    let tokens = working_set.lex(inner, LexOptions::LIST).map_err(cut)?;
     working_set.add_comments(&tokens);
     Ok(tokens
         .into_iter()
@@ -1059,7 +1059,7 @@ fn next_record_token(
     interior: &mut Input<'_>,
     options: LexOptions,
 ) -> ParseResult<Option<Token>> {
-    while let Some(token) = next_token(interior, options)? {
+    while let Some(token) = working_set.next_token(interior, options)? {
         match token.contents {
             TokenContents::Comment => working_set.add_comment(token.span),
             _ => return Ok(Some(token)),
@@ -1145,7 +1145,7 @@ fn check_record_key_or_value(
 /// `parse_match_block_expression`): arms up to the closing brace.
 pub fn parse_match_block_expression<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResult<Vec<MatchArm<'a>>> {
     let inner = delimited_interior(working_set, span, "{", "}")?;
-    let lexed = lex(working_set.get_span_contents(inner), inner.start, LexOptions::MATCH).map_err(cut)?;
+    let lexed = working_set.lex(inner, LexOptions::MATCH).map_err(cut)?;
     working_set.add_comments(&lexed);
     // nu reads the arms by the text of each token, so a word that lexes as an
     // operator or a redirection (`=`, `o>`) is an ordinary pattern or body.

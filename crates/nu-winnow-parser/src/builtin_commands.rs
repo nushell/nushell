@@ -1,6 +1,6 @@
 //! Every command a fresh `nu` resolves at the top level, with its kind: the
 //! built-in and keyword commands of the `nu` binary and the standard
-//! library's prelude, at nushell `d69f33312`. Used, when the
+//! library's prelude, at nushell `b0ce12894`. Used, when the
 //! `builtin-commands` feature is enabled, to resolve multi-word command names
 //! such as `str trim`, to tell a known command from an external one, and to
 //! check that `%name` names a built-in command.
@@ -371,6 +371,11 @@ pub static BUILTIN_COMMANDS: &[(&str, CommandType)] = &[
     ("random int", Builtin),
     ("random pass", Builtin),
     ("random uuid", Builtin),
+    ("record", Builtin),
+    ("record apply", Builtin),
+    ("record each", Builtin),
+    ("record walk", Builtin),
+    ("record where", Builtin),
     ("reduce", Builtin),
     ("reject", Builtin),
     ("rename", Builtin),

@@ -41,27 +41,29 @@ pub(in crate::winnow) enum StatementTarget<'t> {
 
 impl<'s> Lower<'_, '_, 's> {
     /// A statement lowered, or parsed by the classic parser from `span` when the lowering gives
-    /// it back. Whatever the lowering reported or registered before giving up is dropped.
+    /// it back, added to `out`. Whatever the lowering reported or registered before giving up is
+    /// dropped.
     pub(in crate::winnow) fn statement_or_classic(
         &mut self,
         pipeline: &w::Pipeline<'s>,
         span: Span,
         target: &mut StatementTarget<'_>,
-    ) -> Vec<Pipeline> {
+        out: &mut Vec<Pipeline>,
+    ) {
         let errors = self.working_set.parse_errors.len();
         let warnings = self.working_set.parse_warnings.len();
         let compile_errors = self.working_set.compile_errors.len();
         match self.statement(pipeline, target) {
             Ok(pipeline) => {
                 stats::record_lowered_statement();
-                vec![pipeline]
+                out.push(pipeline);
             }
             Err(reason) => {
                 self.working_set.parse_errors.truncate(errors);
                 self.working_set.parse_warnings.truncate(warnings);
                 self.working_set.compile_errors.truncate(compile_errors);
                 stats::record_unlowered(span, &reason, self.working_set);
-                parse_classic(self.working_set, span, target, true)
+                parse_classic(self.working_set, span, target, true, out);
             }
         }
     }
@@ -302,9 +304,10 @@ impl<'s> Lower<'_, '_, 's> {
     }
 
     /// The `pipe` of each element as the classic lite parser sets it: the first `|` after an
-    /// element, except for the last element, which keeps the last of two or more `|` before it
-    /// (and the first element a leading `|`), which empty commands between them hand on. The
-    /// winnow parser keeps, with each element, the last `|` before it.
+    /// element, except for the last element, which keeps a `|` after it that no command follows
+    /// (`ls |` at the end of a block), or else the last of two or more `|` before it (and the
+    /// first element a leading `|`), which empty commands between them hand on. The winnow
+    /// parser keeps, with each element, the last `|` before it.
     fn classic_pipes(&self, pipeline: &w::Pipeline<'s>) -> Vec<Option<WSpan>> {
         let elements = &pipeline.elements;
         let last = elements.len() - 1;
@@ -315,6 +318,8 @@ impl<'s> Lower<'_, '_, 's> {
                     let gap_end = next.pipe.map_or(next.span.start, |pipe| pipe.start);
                     self.first_pipe(elements[index].span.end, gap_end)
                         .or(next.pipe)
+                } else if let Some(dangling) = self.dangling_pipe(&elements[index]) {
+                    Some(dangling)
                 } else {
                     let pipe = elements[index].pipe?;
                     let gap_start = match index {
@@ -325,6 +330,22 @@ impl<'s> Lower<'_, '_, 's> {
                 }
             })
             .collect()
+    }
+
+    /// A `|` (or `e>|`) right after the last element of a pipeline, which no command follows:
+    /// the winnow parser drops it, the classic lite parser keeps it with the element.
+    fn dangling_pipe(&self, element: &w::PipelineElement<'s>) -> Option<WSpan> {
+        if let Some(w::PipelineRedirection::Single {
+            target: w::RedirectionTarget::Pipe { op },
+            ..
+        }) = &element.redirection
+        {
+            return Some(op.span);
+        }
+        let after = self.source.get(element.span.end..)?;
+        let start = element.span.end + (after.len() - after.trim_start_matches([' ', '\t']).len());
+        (self.source[start..].starts_with('|') && !self.source[start..].starts_with("||"))
+            .then(|| WSpan::new(start, start + 1))
     }
 
     /// The first `|` between `start` and `end` of the source, outside comments.
@@ -450,8 +471,7 @@ impl<'s> Lower<'_, '_, 's> {
             let span = self.statement_span(pipeline);
             let input_type = if index == 0 { input_type } else { None };
             let mut target = StatementTarget::Block { input_type };
-            let pipelines = self.statement_or_classic(pipeline, span, &mut target);
-            out.pipelines.extend(pipelines);
+            self.statement_or_classic(pipeline, span, &mut target, &mut out.pipelines);
         }
         Ok(finish_block(
             self.working_set,
@@ -480,22 +500,24 @@ impl<'s> Lower<'_, '_, 's> {
     }
 }
 
-/// Parse the statements covering `span` with the classic parser, with their effects on the
-/// working set and, in a module's body, on the module. `is_first` says whether the first of
-/// them is the block's first statement, which receives the block's input.
+/// Parse the statements covering `span` with the classic parser into `out`, with their effects
+/// on the working set and, in a module's body, on the module. `is_first` says whether the first
+/// of them is the block's first statement, which receives the block's input.
 pub(in crate::winnow) fn parse_classic(
     working_set: &mut StateWorkingSet,
     span: Span,
     target: &mut StatementTarget<'_>,
     is_first: bool,
-) -> Vec<Pipeline> {
-    let (tokens, err) = lex(
-        working_set.get_span_contents(span),
-        span.start,
-        &[],
-        &[],
-        false,
-    );
+    out: &mut Vec<Pipeline>,
+) {
+    // With the end of line after it, as in the block: a `|` ending the statement is reported
+    // only at the end of the block (`ls |` then a newline is fine).
+    let with_eol = Span::new(span.start, span.end + 1);
+    let contents = match working_set.get_span_contents(with_eol) {
+        contents if contents.len() == with_eol.len() && contents.ends_with(b"\n") => contents,
+        _ => working_set.get_span_contents(span),
+    };
+    let (tokens, err) = lex(contents, span.start, &[], &[], false);
     if let Some(err) = err {
         working_set.error(err);
     }
@@ -503,7 +525,7 @@ pub(in crate::winnow) fn parse_classic(
     if let Some(err) = err {
         working_set.error(err);
     }
-    let mut pipelines = Vec::with_capacity(lite_block.block.len());
+    out.reserve(lite_block.block.len());
     for (index, lite_pipeline) in lite_block.block.iter().enumerate() {
         let pipeline = match target {
             StatementTarget::Block { input_type } => {
@@ -518,9 +540,8 @@ pub(in crate::winnow) fn parse_classic(
                 parse_module_pipeline(working_set, lite_pipeline, name, module, *span)
             }
         };
-        pipelines.push(pipeline);
+        out.push(pipeline);
     }
-    pipelines
 }
 
 /// Whether a statement changes which commands exist for the statements after it.

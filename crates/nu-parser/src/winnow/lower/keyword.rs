@@ -180,8 +180,9 @@ impl<'s> Lower<'_, '_, 's> {
     }
 
     /// `try { body } catch {|err| ... } finally { ... }`. A `break` in a handler's closure is
-    /// allowed although the closure is compiled on its own (the classic parser drops that
-    /// error for both of `try`'s handler parameters, whose shapes list `catch`).
+    /// allowed although the closure is compiled on its own: the classic parser drops that
+    /// error for both of `try`'s handler parameters (whose shapes list `catch`), when it is the
+    /// handler's own (its closure did not compile), not that of a `def` body or closure in it.
     pub(super) fn try_call(
         &mut self,
         e: &w::Expression<'s>,
@@ -209,6 +210,8 @@ impl<'s> Lower<'_, '_, 's> {
             };
             if let [CompileError::NotInALoop { .. }] =
                 &self.working_set.compile_errors[compile_errors..]
+                && let Expr::Closure(block_id) = closure.expr
+                && self.working_set.get_block(block_id).ir_block.is_none()
             {
                 self.working_set.compile_errors.truncate(compile_errors);
             }
@@ -552,7 +555,7 @@ impl<'s> Lower<'_, '_, 's> {
         if def.body_params.is_some() {
             return Err(Unlowered::Unsupported("def body with parameters"));
         }
-        let (desc, extra_desc) = self.description(pipeline);
+        let (desc, extra_desc) = self.description(pipeline, attributes, command);
         let (lowered_attributes, attribute_values) = self.attributes(attributes)?;
         // A `def` that is not the keyword (an engine without the core language) is parsed like
         // any command by the classic parser.
@@ -578,13 +581,19 @@ impl<'s> Lower<'_, '_, 's> {
                 _ => Type::Any,
             };
             let body_span = this.braces_span(&def.body)?;
+            // `finish_def` compiles the body (`parse_def` marks it the same way).
+            let def_body_span = Some(this.span(body_span));
+            let outer_def_body_span =
+                std::mem::replace(&mut this.working_set.def_body_span, def_body_span);
             let body = this.closure(
                 body_span,
                 None,
                 &def.body,
                 &SyntaxShape::Closure(None),
                 Some(&input_type),
-            )?;
+            );
+            this.working_set.def_body_span = outer_def_body_span;
+            let body = body?;
             // The arguments in source order: flags, then the name, the signature and the body.
             let mut arguments: Vec<(usize, Argument)> = def
                 .flags
@@ -652,7 +661,7 @@ impl<'s> Lower<'_, '_, 's> {
         attributes: &[w::Attribute<'s>],
         module_name: Option<&[u8]>,
     ) -> Lowered<Expression> {
-        let (desc, extra_desc) = self.description(pipeline);
+        let (desc, extra_desc) = self.description(pipeline, attributes, command);
         let (lowered_attributes, attribute_values) = self.attributes(attributes)?;
         let decl_id = find_keyword_decl(self.working_set, b"extern")
             .ok_or(Unlowered::Unsupported("extern that is not a keyword"))?;
@@ -781,22 +790,52 @@ impl<'s> Lower<'_, '_, 's> {
     }
 
     /// A definition's description and extra description, from its doc comments and the comment
-    /// after it on its line (`build_desc` over the lite command's comments).
-    fn description(&mut self, pipeline: &w::Pipeline<'s>) -> (String, String) {
-        let comments: Vec<Span> = pipeline
+    /// after it on its line (`build_desc` over the lite command's comments). With attributes
+    /// (`command` is what follows them), the classic lite parser keeps the comment lines after
+    /// the last comment beside an attribute, or, when there are none, the comments beside the
+    /// attributes.
+    fn description(
+        &mut self,
+        pipeline: &w::Pipeline<'s>,
+        attributes: &[w::Attribute<'s>],
+        command: &w::Expression<'s>,
+    ) -> (String, String) {
+        let mut comments: Vec<WSpan> = pipeline
             .leading_comments
             .iter()
             .chain(&pipeline.trailing_comments)
-            .map(|comment| self.span(comment.span))
+            .map(|comment| comment.span)
             .collect();
+        if let Some(first) = attributes.first() {
+            comments.sort_by_key(|span| span.start);
+            let (mut lines, mut beside, mut after) = (Vec::new(), Vec::new(), Vec::new());
+            for span in comments {
+                if span.start > command.span.start {
+                    after.push(span);
+                } else if span.start > first.span.start && !self.starts_line(span.start) {
+                    beside.push(span);
+                    lines.clear();
+                } else {
+                    lines.push(span);
+                }
+            }
+            comments = if lines.is_empty() { beside } else { lines };
+            comments.extend(after);
+        }
+        let comments: Vec<Span> = comments.into_iter().map(|span| self.span(span)).collect();
         self.working_set.build_desc(&comments)
     }
 
+    /// Whether only spaces come before `offset` on its line.
+    fn starts_line(&self, offset: usize) -> bool {
+        self.source[..offset]
+            .rsplit('\n')
+            .next()
+            .is_none_or(|line| line.trim_start_matches([' ', '\t', '\r']).is_empty())
+    }
+
     /// A definition's attributes and their constant values.
-    fn attributes(
-        &mut self,
-        attributes: &[w::Attribute<'s>],
-    ) -> Lowered<LoweredAttributes> {
+    fn attributes(&mut self, attributes: &[w::Attribute<'s>]) -> Lowered<LoweredAttributes> {
         let mut lowered = Vec::with_capacity(attributes.len());
         let mut values = Vec::with_capacity(attributes.len());
         for attribute in attributes {

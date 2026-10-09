@@ -41,7 +41,7 @@ pub fn parse_const<'a>(tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
 fn parse_binding<'a>(mut tokens: Tokens<'_, 'a>, kind: BindingKind) -> ParseResult<Expression<'a>> {
     let working_set = tokens.working_set;
     let statement = tokens;
-    let (keyword_name, make_expr): (&str, fn(Binding<'a>) -> Expr<'a>) = match kind {
+    let (keyword_name, make_expr): (&str, fn(Box<Binding<'a>>) -> Expr<'a>) = match kind {
         BindingKind::Let => ("let", Expr::Let),
         BindingKind::Mut => ("mut", Expr::Mut),
         BindingKind::Const => ("const", Expr::Const),
@@ -101,5 +101,5 @@ fn parse_binding<'a>(mut tokens: Tokens<'_, 'a>, kind: BindingKind) -> ParseResu
         None => (None, items[items.len() - 1].span),
     };
     let binding = Binding { name, ty, eq: equals.map(|token| token.span), value };
-    Ok(Expression::new(make_expr(binding), keyword.span.merge(end)))
+    Ok(Expression::new(make_expr(Box::new(binding)), keyword.span.merge(end)))
 }

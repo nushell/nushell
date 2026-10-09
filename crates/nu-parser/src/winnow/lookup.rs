@@ -5,7 +5,7 @@ use std::cell::RefCell;
 use nu_protocol::{
     DeclId, SyntaxShape,
     ast::Expr,
-    engine::{CommandType, StateWorkingSet},
+    engine::{CommandType, StateWorkingSet, longest_decl_name},
 };
 use nu_winnow_parser::{CommandLookup, DeclKind};
 
@@ -53,6 +53,11 @@ impl CommandLookup for EngineLookup<'_, '_, '_> {
     /// longer names first, as the classic parser's `find_longest_decl` does.
     fn is_decl_name_prefix(&self, _word: &str) -> bool {
         true
+    }
+
+    /// No declaration in any engine has a longer name (`longest_decl_name`).
+    fn longest_name(&self) -> usize {
+        longest_decl_name()
     }
 
     fn is_builtin_decl(&self, name: &str) -> bool {

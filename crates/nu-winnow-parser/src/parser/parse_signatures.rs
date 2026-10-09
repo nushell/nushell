@@ -8,7 +8,7 @@ use winnow::Parser;
 use crate::ast::{Comment, InputOutputType, Parameter, ParameterKind, Signature, SyntaxShape, TypeAnnotation};
 use crate::error::{Diagnostic, ErrorKind};
 use crate::input::{ParseResult, cut};
-use crate::lex::{LexOptions, Token, TokenContents, lex};
+use crate::lex::{LexOptions, Token, TokenContents};
 use crate::span::{Span, Spanned};
 
 use super::WorkingSet;
@@ -45,7 +45,7 @@ pub fn parse_signature_helper<'a>(
     outer: Span,
     external: bool,
 ) -> ParseResult<Signature<'a>> {
-    let tokens = lex(working_set.get_span_contents(inner), inner.start, LexOptions::SIGNATURE).map_err(cut)?;
+    let tokens = working_set.lex(inner, LexOptions::SIGNATURE).map_err(cut)?;
     let parameters = parse_parameters(working_set, &tokens, external)
         .map_err(|error| error.map(|failure| failure.with_context("signature")))?;
     check_parameter_order(&parameters, outer)?;
@@ -397,7 +397,7 @@ fn parse_input_output_types<'a>(working_set: &WorkingSet<'a>, span: Span) -> Par
     let start = span.start + usize::from(text.starts_with('['));
     let end = (span.end - usize::from(text.ends_with(']'))).max(start);
     let inner = Span::new(start, end);
-    let lexed = lex(working_set.get_span_contents(inner), inner.start, LexOptions::IO_TYPES).map_err(cut)?;
+    let lexed = working_set.lex(inner, LexOptions::IO_TYPES).map_err(cut)?;
     // Like nu, every token counts by position, so a `;` or `|` is read as a
     // type or an arrow and refused (`[int ; -> int]`).
     let items: Vec<Token> = lexed
@@ -475,7 +475,7 @@ pub fn parse_type_after_var<'a>(
 /// lexes as a signature before it reads the type, so that `record<a: int,
 /// b]>` is an unbalanced delimiter.
 pub fn parse_var_type<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResult<TypeAnnotation<'a>> {
-    lex(working_set.get_span_contents(span), span.start, LexOptions::VAR_TYPE).map_err(cut)?;
+    working_set.lex(span, LexOptions::VAR_TYPE).map_err(cut)?;
     parse_type(working_set, span)
 }
 

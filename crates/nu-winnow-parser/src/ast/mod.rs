@@ -221,6 +221,9 @@ impl<'a> Expression<'a> {
 }
 
 /// The kinds of expression.
+///
+/// The large and rare kinds (closures, definitions, bindings, `for`) are boxed, so that an
+/// expression stays small: the parser returns, moves and collects expressions by value.
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[non_exhaustive]
@@ -265,7 +268,7 @@ pub enum Expr<'a> {
     /// `{a: 1, ...$rest}`.
     Record(Vec<RecordItem<'a>>),
     /// `{|x| ...}` or `{ ... }` in value position.
-    Closure(Closure<'a>),
+    Closure(Box<Closure<'a>>),
     /// `{ ... }` in block position (bodies of `if`, `for`, `def`, ...).
     Block(Block<'a>),
     /// `( ... )`.
@@ -294,15 +297,15 @@ pub enum Expr<'a> {
 
     // --- declarations ----------------------------------------------------
     /// `let x = ...`.
-    Let(Binding<'a>),
+    Let(Box<Binding<'a>>),
     /// `mut x = ...`.
-    Mut(Binding<'a>),
+    Mut(Box<Binding<'a>>),
     /// `const x = ...`.
-    Const(Binding<'a>),
+    Const(Box<Binding<'a>>),
     /// `def name [params] { body }`.
-    Def(Def<'a>),
+    Def(Box<Def<'a>>),
     /// `extern name [params]`.
-    Extern(Extern<'a>),
+    Extern(Box<Extern<'a>>),
     /// `alias name = command`.
     Alias(Alias<'a>),
     /// `use module [members]`.
@@ -320,7 +323,7 @@ pub enum Expr<'a> {
     /// `match value { pattern => body, ... }`.
     Match(Match<'a>),
     /// `for x in iterable { }`.
-    For(For<'a>),
+    For(Box<For<'a>>),
     /// `while cond { }`.
     While(While<'a>),
     /// `loop { }`.

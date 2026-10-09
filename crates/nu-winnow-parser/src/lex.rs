@@ -13,15 +13,12 @@
 //! absolute byte offsets into the original source.
 //!
 //! The lexer reads a character stream ([`crate::input::Input`]): [`next_token`]
-//! skips whitespace and dispatches on the next character with winnow's
-//! `dispatch!`. An item is measured by `item_length`, a byte loop like nu's
-//! `lex_item`, because an item's end depends on the quotes and brackets open
-//! at each byte rather than on a grammar.
+//! skips whitespace and dispatches on the next byte. An item is measured by
+//! `item_length`, a byte loop like nu's `lex_item`, because an item's end
+//! depends on the quotes and brackets open at each byte rather than on a
+//! grammar; [`GroupEnds`] lets it jump over a bracket group it measured before.
 
-use winnow::combinator::{dispatch, peek, preceded};
-use winnow::prelude::*;
 use winnow::stream::{Location, Stream};
-use winnow::token::{any, take_till, take_while};
 
 use crate::error::{Diagnostic, ErrorKind};
 use crate::input::{Input, ParseFailure, ParseResult, cut, input, into_diagnostic, pos, span_from};
@@ -253,6 +250,49 @@ impl LexOptions {
         LexOptions { additional_whitespace: b"\n\r,", special_tokens: b":", skip_comments: true, in_signature: false };
 }
 
+/// Where the bracket groups of a block's source close, as scanning its items found them.
+///
+/// The parser lexes the inside of a `[...]`, `{...}` or `(...)` again when it parses it, so
+/// without this table every byte would be scanned once for each bracket around it. Scanning an
+/// item records where each group in it closes, and a later scan that meets the same opening
+/// bracket jumps to its close. A group's extent does not depend on what is around it: the scan
+/// enters it in the same state (no quote or comment open) and its own bracket is innermost until
+/// it closes. Signature scans, which also pair `<` and `>`, neither record nor jump.
+#[derive(Debug, Default)]
+pub struct GroupEnds {
+    /// The first offset of the text covered.
+    start: usize,
+    /// The length of the text covered.
+    len: usize,
+    /// For each offset from `start`, one past the offset (from `start`) of the bracket closing
+    /// the group that opens there, `0` when unknown. Allocated on the first record.
+    ends: Vec<u32>,
+}
+
+impl GroupEnds {
+    /// A table for the groups opening within `span`.
+    pub fn new(span: Span) -> Self {
+        Self { start: span.start, len: span.len(), ends: Vec::new() }
+    }
+
+    /// The group opening at `open` closes at `close`.
+    fn record(&mut self, open: usize, close: usize) {
+        let Some(index) = open.checked_sub(self.start).filter(|&index| index < self.len) else { return };
+        let Ok(end) = u32::try_from(close - self.start + 1) else { return };
+        if self.ends.is_empty() {
+            self.ends = vec![0; self.len];
+        }
+        self.ends[index] = end;
+    }
+
+    /// Where the group opening at `open` closes, if a scan found it.
+    #[inline]
+    fn close(&self, open: usize) -> Option<usize> {
+        let end = *self.ends.get(open.checked_sub(self.start)?)?;
+        (end > 0).then(|| self.start + end as usize - 1)
+    }
+}
+
 /// Lex `text`, whose first byte is at absolute offset `base` (nu's `lex`).
 ///
 /// The returned vector always ends with a [`TokenContents::Eof`] token whose span is
@@ -274,6 +314,17 @@ fn semicolon_after_pipe(span: Span) -> Diagnostic {
 /// This is used to look at the first couple of tokens of a `{ ... }` body
 /// without lexing all of it.
 pub fn lex_n_tokens(text: &str, base: usize, options: LexOptions, max_tokens: usize) -> Result<Vec<Token>, Diagnostic> {
+    lex_n_tokens_with(text, base, options, max_tokens, &mut GroupEnds::default())
+}
+
+/// [`lex_n_tokens`], jumping over the bracket groups in `groups` and recording the others.
+pub fn lex_n_tokens_with(
+    text: &str,
+    base: usize,
+    options: LexOptions,
+    max_tokens: usize,
+    groups: &mut GroupEnds,
+) -> Result<Vec<Token>, Diagnostic> {
     let mut input = input(text, base);
     let capacity = (text.len() / 6).max(4).min(max_tokens.saturating_add(1));
     let mut tokens: Vec<Token> = Vec::with_capacity(capacity);
@@ -282,7 +333,7 @@ pub fn lex_n_tokens(text: &str, base: usize, options: LexOptions, max_tokens: us
     // with a plain `|`). Newlines, comments and `||` leave it as it is.
     let mut after_pipe = false;
     while tokens.len() < max_tokens {
-        match next_token(&mut input, options) {
+        match next_token(&mut input, options, groups) {
             Ok(Some(token)) => {
                 match token.contents {
                     TokenContents::Pipe => after_pipe = true,
@@ -305,48 +356,75 @@ pub fn lex_n_tokens(text: &str, base: usize, options: LexOptions, max_tokens: us
 }
 
 /// The next token of `input` after whitespace, or `None` at its end. With
-/// [`LexOptions::skip_comments`] a comment is passed over.
+/// [`LexOptions::skip_comments`] a comment is passed over. Bracket groups are
+/// measured with `groups` (see [`GroupEnds`]).
 #[inline]
-pub fn next_token(input: &mut Input<'_>, options: LexOptions) -> ParseResult<Option<Token>> {
+pub fn next_token(input: &mut Input<'_>, options: LexOptions, groups: &mut GroupEnds) -> ParseResult<Option<Token>> {
     loop {
         skip_whitespace(input, options);
         if input.is_empty() {
             return Ok(None);
         }
-        if let Some(token) = lex_token(input, options)? {
+        if let Some(token) = lex_token(input, options, groups)? {
             return Ok(Some(token));
         }
     }
 }
 
 fn skip_whitespace(input: &mut Input<'_>, options: LexOptions) {
-    let _ = take_while::<_, _, ParseFailure>(0.., |character: char| {
-        character == ' '
-            || character == '\t'
-            || character == '\r'
-            || (character.is_ascii() && options.additional_whitespace.contains(&(character as u8)))
-    })
-    .parse_next(input);
+    let bytes = input.input.as_ref().as_bytes();
+    let mut whitespace = 0;
+    while let Some(&byte) = bytes.get(whitespace)
+        && (matches!(byte, b' ' | b'\t' | b'\r') || (byte.is_ascii() && has_byte(options.additional_whitespace, byte)))
+    {
+        whitespace += 1;
+    }
+    input.next_slice(whitespace);
 }
 
-/// One token, dispatched on its first character. `None` for input that
-/// produces no token (a skipped comment).
-fn lex_token(input: &mut Input<'_>, options: LexOptions) -> ParseResult<Option<Token>> {
+/// Whether `bytes`, a few bytes of a [`LexOptions`] list, holds `byte`: a loop, where
+/// `<[u8]>::contains` would call `memchr` for every byte scanned.
+#[inline]
+#[allow(clippy::manual_contains, reason = "`contains` calls `memchr`, slower for a few bytes")]
+fn has_byte(bytes: &[u8], byte: u8) -> bool {
+    bytes.iter().any(|&other| other == byte)
+}
+
+/// One token, dispatched on its first byte. `None` for input that produces no
+/// token (a skipped comment).
+fn lex_token(input: &mut Input<'_>, options: LexOptions, groups: &mut GroupEnds) -> ParseResult<Option<Token>> {
     let start = pos(input);
-    dispatch! {peek(any);
-        '\n' => any.map(|_| Some(TokenContents::Eol)),
-        '#' => lex_comment.map(move |_| if options.skip_comments { None } else { Some(TokenContents::Comment) }),
-        '|' => preceded('|', winnow::combinator::opt('|')).map(|second| Some(if second.is_some() { TokenContents::PipePipe } else { TokenContents::Pipe })),
-        ';' => any.map(|_| Some(TokenContents::Semicolon)),
-        _ => move |input: &mut Input<'_>| lex_item(input, options).map(Some),
-    }
-    .parse_next(input)
-    .map(|kind| kind.map(|kind| Token { contents: kind, span: span_from(input, start) }))
+    let text: &str = input.input.as_ref();
+    let kind = match text.as_bytes() {
+        [b'\n', ..] => {
+            input.next_slice(1);
+            Some(TokenContents::Eol)
+        }
+        [b'#', ..] => {
+            lex_comment(input);
+            (!options.skip_comments).then_some(TokenContents::Comment)
+        }
+        [b'|', b'|', ..] => {
+            input.next_slice(2);
+            Some(TokenContents::PipePipe)
+        }
+        [b'|', ..] => {
+            input.next_slice(1);
+            Some(TokenContents::Pipe)
+        }
+        [b';', ..] => {
+            input.next_slice(1);
+            Some(TokenContents::Semicolon)
+        }
+        _ => Some(lex_item(input, options, groups)?),
+    };
+    Ok(kind.map(|kind| Token { contents: kind, span: span_from(input, start) }))
 }
 
 /// A comment runs to the newline; like nu, a `\r` before it is part of the comment.
-fn lex_comment(input: &mut Input<'_>) -> ParseResult<()> {
-    ('#', take_till(0.., ['\n'])).void().parse_next(input)
+fn lex_comment(input: &mut Input<'_>) {
+    let text: &str = input.input.as_ref();
+    input.next_slice(text.find('\n').unwrap_or(text.len()));
 }
 
 /// The opening bracket kinds tracked while scanning an item.
@@ -416,11 +494,11 @@ fn is_redirection(text: &[u8]) -> bool {
 /// algorithm: it consumes text until an item terminator is found at bracket
 /// depth zero, tracking quotes, brackets, raw strings, comments inside
 /// brackets and interpolated-string subexpressions.
-fn lex_item(input: &mut Input<'_>, options: LexOptions) -> ParseResult<TokenContents> {
+fn lex_item(input: &mut Input<'_>, options: LexOptions, groups: &mut GroupEnds) -> ParseResult<TokenContents> {
     let text = *input.input.as_ref();
     let bytes = text.as_bytes();
     let base = input.state.0 + input.current_token_start();
-    let offset = item_length(bytes, base, options, false)?;
+    let offset = item_length(bytes, base, options, false, groups)?;
     if offset == 0 {
         return Err(cut(Diagnostic::new(ErrorKind::UnexpectedEof("command"), Span::point(base))));
     }
@@ -441,16 +519,27 @@ fn lex_item(input: &mut Input<'_>, options: LexOptions) -> ParseResult<TokenCont
 /// strings, comments and nested brackets are respected. `None` if `text`
 /// does not start with a bracket or the group is not closed.
 pub(crate) fn group_end(text: &str) -> Option<usize> {
+    group_end_with(text, 0, &mut GroupEnds::default())
+}
+
+/// [`group_end`] for `text` at absolute offset `base`, measured with `groups`.
+pub(crate) fn group_end_with(text: &str, base: usize, groups: &mut GroupEnds) -> Option<usize> {
     if !text.starts_with(['(', '[', '{']) {
         return None;
     }
-    item_length(text.as_bytes(), 0, LexOptions::BLOCK, true).ok().map(|offset| offset - 1)
+    item_length(text.as_bytes(), base, LexOptions::BLOCK, true, groups).ok().map(|offset| offset - 1)
 }
 
 /// Scan the item at the start of `bytes` (whose first byte is at absolute
 /// offset `base`) and return its length. With `first_group` set, stop right
 /// after the bracket closing the group opened by the first byte.
-fn item_length(bytes: &[u8], base: usize, options: LexOptions, first_group: bool) -> ParseResult<usize> {
+fn item_length(
+    bytes: &[u8],
+    base: usize,
+    options: LexOptions,
+    first_group: bool,
+    groups: &mut GroupEnds,
+) -> ParseResult<usize> {
     let absolute = |offset: usize| base + offset;
 
     // The quote we are inside, with the offset where it opened.
@@ -462,15 +551,28 @@ fn item_length(bytes: &[u8], base: usize, options: LexOptions, first_group: bool
     let mut brackets: Vec<(Bracket, usize)> = Vec::new();
     let mut previous: Option<u8> = None;
     let mut offset = 0usize;
+    let special = SpecialBytes::new(options);
 
     let is_terminator = |brackets: &[(Bracket, usize)], byte: u8| {
         brackets.is_empty()
             && (matches!(byte, b' ' | b'\t' | b'\n' | b'\r' | b'|' | b';')
-                || options.additional_whitespace.contains(&byte)
-                || options.special_tokens.contains(&byte))
+                || has_byte(options.additional_whitespace, byte)
+                || has_byte(options.special_tokens, byte))
     };
 
     while offset < bytes.len() {
+        // Outside quotes most bytes are none that the match below looks at: skip them all.
+        if quote.is_none() {
+            let mut plain_end = offset;
+            while plain_end < bytes.len() && !special.contains(bytes[plain_end]) {
+                plain_end += 1;
+            }
+            if plain_end > offset {
+                offset = plain_end;
+                previous = Some(bytes[offset - 1]);
+                continue;
+            }
+        }
         let byte = bytes[offset];
         match quote {
             Some(_) if !interp_level.is_empty() => {
@@ -495,6 +597,12 @@ fn item_length(bytes: &[u8], base: usize, options: LexOptions, first_group: bool
                 _ => {}
             },
             None => match byte {
+                // `r#'...'#`, a raw string; its `r` went by as an ordinary byte.
+                b'#' if !in_comment && previous == Some(b'r') => {
+                    offset = lex_raw_string(bytes, offset - 1, absolute)?;
+                    previous = Some(b'#');
+                    continue;
+                }
                 b'#' if !in_comment => in_comment = previous.is_none_or(|previous| previous.is_ascii_whitespace()),
                 b'\n' | b'\r' => {
                     in_comment = false;
@@ -508,7 +616,7 @@ fn item_length(bytes: &[u8], base: usize, options: LexOptions, first_group: bool
                     }
                 }
                 // A special character (`:` in record keys, `.` in cell paths) is an item of its own.
-                _ if offset == 0 && brackets.is_empty() && options.special_tokens.contains(&byte) => {
+                _ if offset == 0 && brackets.is_empty() && has_byte(options.special_tokens, byte) => {
                     offset += 1;
                     break;
                 }
@@ -516,9 +624,26 @@ fn item_length(bytes: &[u8], base: usize, options: LexOptions, first_group: bool
                     quote = Some((byte, absolute(offset)));
                     quote_is_interp = byte != b'`' && previous == Some(b'$');
                 }
-                b'[' => brackets.push((Bracket::Square, absolute(offset))),
-                b'{' => brackets.push((Bracket::Curly, absolute(offset))),
-                b'(' => brackets.push((Bracket::Paren, absolute(offset))),
+                b'[' | b'{' | b'(' => {
+                    // A group an earlier scan measured: on to its closing bracket.
+                    if !options.in_signature
+                        && let Some(close) = groups.close(absolute(offset))
+                        && close < absolute(bytes.len())
+                    {
+                        offset = close - base + 1;
+                        previous = Some(bytes[close - base]);
+                        if first_group && brackets.is_empty() {
+                            break;
+                        }
+                        continue;
+                    }
+                    let bracket = match byte {
+                        b'[' => Bracket::Square,
+                        b'{' => Bracket::Curly,
+                        _ => Bracket::Paren,
+                    };
+                    brackets.push((bracket, absolute(offset)));
+                }
                 b'<' if options.in_signature => brackets.push((Bracket::Angle, absolute(offset))),
                 b'>' if options.in_signature => {
                     if matches!(brackets.last(), Some((Bracket::Angle, _))) {
@@ -526,16 +651,15 @@ fn item_length(bytes: &[u8], base: usize, options: LexOptions, first_group: bool
                     }
                 }
                 b']' | b'}' | b')' => {
-                    close_bracket(&mut brackets, byte, absolute(offset))?;
+                    if let Some(open) = close_bracket(&mut brackets, byte, absolute(offset))?
+                        && !options.in_signature
+                    {
+                        groups.record(open, absolute(offset));
+                    }
                     if first_group && brackets.is_empty() {
                         offset += 1;
                         break;
                     }
-                }
-                b'r' if bytes.get(offset + 1) == Some(&b'#') => {
-                    offset = lex_raw_string(bytes, offset, absolute)?;
-                    previous = Some(b'#');
-                    continue;
                 }
                 // `e>|` is one token even though `|` normally terminates the item.
                 b'|' if is_redirection(&bytes[..offset]) => {
@@ -562,25 +686,55 @@ fn item_length(bytes: &[u8], base: usize, options: LexOptions, first_group: bool
     Ok(offset)
 }
 
+/// The bytes [`item_length`] must look at outside quotes, as a set of bytes: the terminators and
+/// whitespace (with `options`' own), brackets (`<` and `>` in a signature), quotes and `#` (a
+/// comment, or the end of a raw string's `r#`). Every other byte just continues the item.
+struct SpecialBytes([u64; 4]);
+
+impl SpecialBytes {
+    const ALWAYS: SpecialBytes = SpecialBytes::with(SpecialBytes([0; 4]), b" \t\n\r|;#'\"`[]{}()");
+
+    fn new(options: LexOptions) -> Self {
+        let set = Self::with(Self::with(Self::ALWAYS, options.additional_whitespace), options.special_tokens);
+        if options.in_signature { Self::with(set, b"<>") } else { set }
+    }
+
+    /// `set` with `bytes` added.
+    const fn with(mut set: SpecialBytes, bytes: &[u8]) -> SpecialBytes {
+        let mut index = 0;
+        while index < bytes.len() {
+            let byte = bytes[index];
+            set.0[(byte >> 6) as usize] |= 1 << (byte & 63);
+            index += 1;
+        }
+        set
+    }
+
+    #[inline]
+    fn contains(&self, byte: u8) -> bool {
+        self.0[(byte >> 6) as usize] & (1 << (byte & 63)) != 0
+    }
+}
+
 fn unclosed_error(delimiter: &'static str, open_at: usize, at: usize) -> winnow::error::ErrMode<ParseFailure> {
     cut(Diagnostic::new(ErrorKind::Unclosed { delimiter, open: Span::new(open_at, open_at + 1) }, Span::point(at)))
 }
 
-/// Pop the bracket closed by `closer`, or report the mismatch. A stray `]` is
-/// ordinary text (`a]`); a stray `}` or `)` is an error.
-fn close_bracket(brackets: &mut Vec<(Bracket, usize)>, closer: u8, at: usize) -> ParseResult<()> {
+/// Pop the bracket closed by `closer`, returning where it opened, or report the
+/// mismatch. A stray `]` is ordinary text (`a]`); a stray `}` or `)` is an error.
+fn close_bracket(brackets: &mut Vec<(Bracket, usize)>, closer: u8, at: usize) -> ParseResult<Option<usize>> {
     let (expected, found) = match closer {
         b']' => (Bracket::Square, "]"),
         b'}' => (Bracket::Curly, "}"),
         _ => (Bracket::Paren, ")"),
     };
     match brackets.last() {
-        Some((open, _)) if *open == expected => {
+        Some(&(open, open_at)) if open == expected => {
             brackets.pop();
-            Ok(())
+            Ok(Some(open_at))
         }
         Some(&(open, open_at)) => Err(unbalanced_error(found, open, open_at, at)),
-        None if closer == b']' => Ok(()),
+        None if closer == b']' => Ok(None),
         None => Err(cut(Diagnostic::new(
             ErrorKind::Unbalanced { found, expected: opening_delimiter_str(expected) },
             Span::new(at, at + 1),

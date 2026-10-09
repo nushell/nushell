@@ -161,6 +161,8 @@ impl<'a> StatementSink<'a> for StreamingSink<'_, '_, 'a> {
 fn parse_statements<'a>(tokens: &mut Tokens<'_, 'a>, out: &mut dyn StatementSink<'a>) {
     let working_set = tokens.working_set;
     let mut pending: Vec<Comment> = Vec::new();
+    // A `|` that no command followed before a blank line, which nu hands to the next command.
+    let mut carried_pipe: Option<Span> = None;
     let mut last = TokenContents::Eol;
     while let Some(token) = tokens.peek_token() {
         match token.contents {
@@ -197,7 +199,7 @@ fn parse_statements<'a>(tokens: &mut Tokens<'_, 'a>, out: &mut dyn StatementSink
                 let start = tokens.position();
                 let start_span = token.span;
                 let errors_before = working_set.error_count();
-                match parse_pipeline(tokens, &mut pending) {
+                match parse_pipeline(tokens, &mut pending, &mut carried_pipe) {
                     Ok(Some(mut pipeline)) => {
                         // A comment right after the statement, on its line, is the statement's
                         // (for a definition, part of its description), so it goes with it.
@@ -234,19 +236,22 @@ fn parse_statements<'a>(tokens: &mut Tokens<'_, 'a>, out: &mut dyn StatementSink
 }
 
 /// One pipeline (nu's `parse_pipeline`): commands separated by `|`. `None`
-/// when there was no command at all (a lone `|` before a blank line). A `;`
-/// right after a `|` never gets here: the lexer refuses it, as nu's does.
-/// The pipeline takes `leading_comments` only when it parses.
+/// when there was no command at all (a lone `|` before a blank line), the `|`
+/// then left in `carried_pipe`: nu's lite parser keeps it for the next command,
+/// which starts with it as with a leading `|`. A `;` right after a `|` never
+/// gets here: the lexer refuses it, as nu's does. The pipeline takes
+/// `leading_comments` only when it parses.
 fn parse_pipeline<'a>(
     tokens: &mut Tokens<'_, 'a>,
     leading_comments: &mut Vec<Comment>,
+    carried_pipe: &mut Option<Span>,
 ) -> ParseResult<Option<Pipeline<'a>>> {
     let working_set = tokens.working_set;
     // The lite parse first: collect the commands, then parse them, because a
     // command is parsed differently when it is one element of a longer pipeline.
     let mut lite_commands: Vec<(Option<Span>, LiteCommand)> = Vec::new();
     let mut trailing_comments = Vec::new();
-    let mut pipe: Option<Span> = None;
+    let mut pipe: Option<Span> = carried_pipe.take();
     'commands: loop {
         // A pipeline may start with `|` (`( | str join)`) and `a | | b` is
         // `a | b`: the empty commands are dropped.
@@ -277,6 +282,7 @@ fn parse_pipeline<'a>(
     }
     if lite_commands.is_empty() {
         // Only pipes (`|` and a blank line): nu drops the empty command.
+        *carried_pipe = pipe;
         return Ok(None);
     }
     let single = lite_commands.len() == 1;
@@ -358,6 +364,11 @@ fn parse_pipeline_element<'a>(
             Expression::new(Expr::AttributeBlock(AttributeBlock { attributes, item: Box::new(item) }), span)
         }
     };
+    // nu's command covers all of its items, those it ignores included (`try {} --`).
+    let mut expr = expr;
+    if let Some(last) = lite_command.parts.last() {
+        expr.span.end = expr.span.end.max(last.span.end);
+    }
     let redirection = parse_redirection(working_set, lite_command)?;
     if let Expr::ExportEnv(_) = expr.expr
         && redirection.is_some()

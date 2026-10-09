@@ -1557,14 +1557,17 @@ constant evaluation and is the consumer's.
 <list-pattern>    ::= "[" { <list-pattern-item> } "]"
 ; lexed with "\n\r," as whitespace, then LITE-PARSED: ";" is an explicit error, "|"
 ; splits the items into commands and is dropped silently
-<list-pattern-item> ::= ".."                  ; IgnoreRest; parsing STOPS here, later items are dropped
-                    | "..$" 1*<identifier-byte>   ; Rest(var); parsing stops here too
+<list-pattern-item> ::= ".."                  ; IgnoreRest
+                    | "..$" 1*<identifier-byte>   ; Rest(var)
                     | <pattern>
+; like a Rust slice pattern, a list pattern holds at most ONE ".." or "..$name", at
+; any position; a second one is a PARSE error ("`..` can only be used once per list
+; pattern"); a nested list has its own
 ; a redirection token is dropped as in a list (5.14); an assignment-op item is a
 ; string pattern and, as in every lite parse, so is everything after it
-; nu: parse_patterns.rs:104, 140-180
+; nu: parse_patterns.rs:104, 140-195
 ; here: src/parser/parse_patterns.rs::parse_list_pattern over
-;       lite_parser::lite_parse_parts (the items after the rest are ignored text)
+;       lite_parser::lite_parse_parts
 
 <record-pattern>  ::= "{" { <record-pattern-item> } "}"
 <record-pattern-item> ::= "$" 1*<identifier-byte>          ; shorthand: field bound to $name

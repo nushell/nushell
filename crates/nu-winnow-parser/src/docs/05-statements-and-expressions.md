@@ -115,7 +115,8 @@ pub fn parse_for<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> 
     let body = parse_block_argument(working_set, &block, "block")?;           // must start with `{`
     call.end(&mut tokens)?;                                                   // trailing flags, then the end
     let span = call.keyword.span.merge(block.span);
-    call.finish(Expression::new(Expr::For(For { var, ty, in_keyword: in_keyword.span, iterable, body }), span))
+    let for_loop = For { var, ty, in_keyword: in_keyword.span, iterable, body };
+    call.finish(Expression::new(Expr::For(Box::new(for_loop)), span))
 }
 ```
 

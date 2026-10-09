@@ -136,21 +136,50 @@ fn find_longest_decl<'a>(first: Token, tokens: &mut Tokens<'_, 'a>, prefix: &str
     // commands can have any number of words (`def "a b c d e f" []`), so with one every item
     // may be part of the name, as in nu's `find_longest_decl`.
     let max_words = if working_set.has_lookup() { usize::MAX } else { MAX_COMMAND_WORDS - 1 };
-    let following_words: Vec<&Token> =
-        tokens.remaining().iter().take(max_words).take_while(|token| token.contents == TokenContents::Item).collect();
-    for count in (1..=following_words.len()).rev() {
-        let mut name = String::from(prefix);
-        name.push_str(first_word);
-        for token in &following_words[..count] {
-            name.push(' ');
-            name.push_str(working_set.get_span_contents(token.span));
-        }
-        if working_set.find_decl(&name).is_some() {
-            let display = name.split_off(prefix.len());
+    // The words after `first` that keep the name within the longest command name; each longer
+    // candidate is tried first (nu's `find_longest_decl_with_prefix`).
+    let bound = working_set.longest_decl_name();
+    let mut length = prefix.len() + first_word.len();
+    let remaining = tokens.remaining();
+    let fitting = remaining
+        .iter()
+        .take(max_words)
+        .take_while(|token| token.contents == TokenContents::Item)
+        .take_while(|token| {
+            length += 1 + token.span.len();
+            length <= bound
+        })
+        .count();
+    let following = &remaining[..fitting];
+    // Most names are written with single spaces between their words: then a candidate is the
+    // source text from `first` to its last word, and no name needs to be built.
+    let mut end = first.span.end;
+    let single_spaced = following
+        .iter()
+        .take_while(|token| {
+            let one_space =
+                token.span.start == end + 1 && working_set.get_span_contents(Span::new(end, end + 1)) == " ";
+            end = token.span.end;
+            one_space
+        })
+        .count();
+    for count in (1..=following.len()).rev() {
+        let span = first.span.merge(following[count - 1].span);
+        let name = if prefix.is_empty() && count <= single_spaced {
+            Cow::Borrowed(working_set.get_span_contents(span))
+        } else {
+            let words = following[..count].iter().map(|token| working_set.get_span_contents(token.span));
+            Cow::Owned(std::iter::once(first_word).chain(words).collect::<Vec<_>>().join(" "))
+        };
+        let found = match prefix {
+            "" => working_set.find_decl(&name).is_some(),
+            prefix => working_set.find_decl(&format!("{prefix}{name}")).is_some(),
+        };
+        if found {
             for _ in 0..count {
                 tokens.next_token();
             }
-            return CallHead { name: Cow::Owned(display), span: first.span.merge(following_words[count - 1].span) };
+            return CallHead { name, span };
         }
     }
     single

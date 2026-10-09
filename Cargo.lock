@@ -5671,7 +5671,7 @@ dependencies = [
 
 [[package]]
 name = "nu-winnow-parser"
-version = "0.116.0"
+version = "0.116.2"
 dependencies = [
  "criterion",
  "rstest",

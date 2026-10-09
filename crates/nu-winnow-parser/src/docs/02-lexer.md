@@ -84,11 +84,15 @@ is why `a:1` lexes as `a`, `:`, `1` with `RECORD_KEY` and `$x.a` as `$x`,
 [`lex`](crate::lex::lex) lexes a whole text,
 [`lex_n_tokens`](crate::lex::lex_n_tokens) stops after a number of tokens,
 and [`next_token`](crate::lex::next_token) reads one token from a character
-stream:
+stream. The parser lexes through its working set (`WorkingSet::lex`,
+`WorkingSet::lex_n_tokens`, `WorkingSet::next_token`), which passes the
+parse's [`GroupEnds`](crate::lex::GroupEnds) table (see
+[below](#measuring-a-group-once)); the free functions take a table of their
+own or none:
 
 ```rust
 use nu_winnow_parser::input::input;
-use nu_winnow_parser::lex::{lex, lex_n_tokens, next_token, LexOptions, TokenContents};
+use nu_winnow_parser::lex::{lex, lex_n_tokens, next_token, GroupEnds, LexOptions, TokenContents};
 
 let src = "ls -l | where size > 1kb # big\n";
 let tokens = lex(src, 0, LexOptions::BLOCK).unwrap();
@@ -112,11 +116,12 @@ assert_eq!(probe[1].text("a: 1, b: 2"), ":");
 // One token at a time, with different options for each.
 let text = "a: http://x";
 let mut stream = input(text, 0);
-let key = next_token(&mut stream, LexOptions::RECORD_KEY).unwrap().unwrap();
-let colon = next_token(&mut stream, LexOptions::RECORD_KEY).unwrap().unwrap();
-let value = next_token(&mut stream, LexOptions::RECORD_VALUE).unwrap().unwrap();
+let mut groups = GroupEnds::default();
+let key = next_token(&mut stream, LexOptions::RECORD_KEY, &mut groups).unwrap().unwrap();
+let colon = next_token(&mut stream, LexOptions::RECORD_KEY, &mut groups).unwrap().unwrap();
+let value = next_token(&mut stream, LexOptions::RECORD_VALUE, &mut groups).unwrap().unwrap();
 assert_eq!([key.text(text), colon.text(text), value.text(text)], ["a", ":", "http://x"]);
-assert!(next_token(&mut stream, LexOptions::RECORD_VALUE).unwrap().is_none());
+assert!(next_token(&mut stream, LexOptions::RECORD_VALUE, &mut groups).unwrap().is_none());
 ```
 
 `next_token` is how a caller changes options in the middle of a text. The
@@ -136,22 +141,8 @@ comments between them is "extra tokens" (`ls |; ls`, `ls |\n\n; ls`, and
 `{|x|; 1}`, whose parameter list ends with a plain `|`); an item, including a
 redirection pipe such as `e>|`, ends that state, and `||` never starts it.
 `next_token` skips whitespace and calls `lex_token`, which dispatches on the
-next character with winnow's `dispatch!`:
-
-```rust,ignore
-fn lex_token(input: &mut Input<'_>, options: LexOptions) -> ParseResult<Option<Token>> {
-    let start = pos(input);
-    dispatch! {peek(any);
-        '\n' => any.map(|_| Some(TokenContents::Eol)),
-        '#' => lex_comment.map(move |_| if options.skip_comments { None } else { Some(TokenContents::Comment) }),
-        '|' => preceded('|', winnow::combinator::opt('|')).map(|second| Some(if second.is_some() { TokenContents::PipePipe } else { TokenContents::Pipe })),
-        ';' => any.map(|_| Some(TokenContents::Semicolon)),
-        _ => move |input: &mut Input<'_>| lex_item(input, options).map(Some),
-    }
-    .parse_next(input)
-    .map(|kind| kind.map(|kind| Token { contents: kind, span: span_from(input, start) }))
-}
-```
+next byte: `\n` is an `Eol`, `#` a comment (`lex_comment`), `||` and `|`
+pipes, `;` a semicolon, and anything else an item (`lex_item`).
 
 `None` means the input produced no token (a comment with `skip_comments`),
 and `next_token` goes round again.
@@ -194,19 +185,24 @@ State tracked while scanning:
 * `in_comment`: inside brackets, `#` after whitespace starts a comment that
   runs to the end of the line.
 * Raw strings `r#'...'#` are scanned by `lex_raw_string`, which counts the
-  hashes and finds the matching `'#...#`.
+  hashes and finds the matching `'#...#`. The scanner notices one at its
+  first `#`, right after an `r`.
 * Closing brackets go through `close_bracket`, which pops the matching
   opener or reports the mismatch.
 * A `|` directly after a redirection (`e>`, `o+e>`; `is_redirection`) is
   consumed into the item, giving the `e>|` tokens.
+* An opening bracket whose group an earlier scan measured is jumped over
+  (see below).
+* Outside quotes, a run of bytes none of the above cares about (letters,
+  digits, `$`, `-`, ...; `SpecialBytes` lists the others) is skipped in one
+  step.
 
 The scanner is a byte loop, not a combinator grammar, on purpose. Where an
 item ends depends on the quotes and brackets open at each byte, which is state
 rather than grammar: a combinator version would have to thread the same stack
 through every step and would be harder to follow. The loop also keeps the
 structure of nu's `lex_item`, which is a byte loop with the same state, so
-the two are easy to compare. The combinators start one level up, in
-`lex_token`'s `dispatch!`.
+the two are easy to compare.
 
 Errors from the scanner are *cut* errors (fatal for the current block): an
 unclosed quote or bracket and a stray `)` or `}`. Note that a stray `]` at
@@ -223,6 +219,26 @@ diagnostic that has the Nushell spelling in the help text.
 group a text starts with. `parse_full_cell_path` uses it to tell a
 subexpression `(a)` from the bare interpolation `(a)/b/(c)`, and `use` to find
 the end of its `[...]` list, without a second state machine.
+
+## Measuring a group once
+
+The parser lexes the inside of a `[...]`, `{...}` or `(...)` again when it
+parses it (a list's items, a closure's statements), and nu-parser does the
+same. Measured naively, every byte is scanned once for each bracket around
+it, since measuring an item means scanning to its closing bracket. So
+`item_length` records, in the parse's [`GroupEnds`](crate::lex::GroupEnds),
+where each group it scans closes, and when it meets an opening bracket whose
+group is recorded it jumps straight to the closing bracket. Each byte is then
+scanned about once, however deep it is.
+
+The jump is exact because a group's extent does not depend on what surrounds
+it: the scanner enters a group only outside quotes and comments, with the
+group's own bracket innermost until it closes, and nothing inside looks
+further out. Only signature scans (`in_signature`, which also pair `<` and
+`>`) see a group differently, so they neither record nor jump. A jump that
+would leave the text being scanned (the text ends inside the group) is not
+taken. The table covers the block a working set parses and is allocated on
+its first record.
 
 ## Pipe continuation is not the lexer's job
 
@@ -250,8 +266,7 @@ test, and the rule lives next to the other pipeline-layout rules.
 * New quoting form: the quote handling in `item_length` and, if the parser
   must decode it, `parse_string_literal` / `parse_raw_string` in
   `src/parser/parse_literals.rs`.
-* Anything else: write the change as a winnow parser and add a case to
-  `lex_token`'s `dispatch!`.
+* Anything else: add a case to `lex_token`'s dispatch on the first byte.
 
 Tests for the lexer live at the bottom of `src/lex.rs` and use the
 `lex_debug` helper that returns `(TokenContents, text)` pairs.

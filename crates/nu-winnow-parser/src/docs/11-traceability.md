@@ -166,7 +166,7 @@ with `item_length`, a byte loop like the one in nu's `lex_item`, and
 | `r#'..'#` raw strings | `lex_raw_string` (nu's name) | `accept/strings/raw-string*.nu` `reject/lexer/unclosed-raw-string.nu` `reject/lexer/raw-string-missing-quote.nu` | `strings_all_quote_styles` |
 | `(`, `[`, `{` nest; `)`, `]`, `}` must match; a stray `]` is text | `close_bracket`, `group_end` | `reject/lexer/mismatched-*.nu` `reject/lexer/unbalanced-*.nu` `reject/lexer/extra-*.nu` | `lex_mismatched_closers` `valid_layouts_never_get_delimiter_errors` |
 | `<` and `>` nest inside signatures | `LexOptions::in_signature` | `accept/signatures/generic-types*.nu` `reject/def/io-unclosed-*.nu` | `lex_signatures` `lex_unterminated_type_annotations` |
-| `\|` ends an item and is a pipe; `\|\|` is one token | `lex_token` (`dispatch!`) | `accept/pipelines/double-pipe-tolerated.nu` `reject/lexer/or-or.nu` | `simple_call_and_pipeline` |
+| `\|` ends an item and is a pipe; `\|\|` is one token | `lex_token` | `accept/pipelines/double-pipe-tolerated.nu` `reject/lexer/or-or.nu` | `simple_call_and_pipeline` |
 | `;` ends an item | `lex_token` | `accept/pipelines/semicolon-separated.nu` | `statements_separated_by_semicolons_and_newlines` |
 | `o>`, `e>`, `o+e>` and `>>`, `>\|` variants are redirection tokens | `item_contents`, `is_redirection` (nu's name) | `accept/redirections/*.nu` `reject/redirections/*.nu` | `redirections` `redirecting_nothing_is_an_error` |
 | `=`, `+=`, `-=`, `*=`, `/=`, `++=` are assignment tokens | `item_contents` | `accept/assignments/compound.nu` | `assignments` |

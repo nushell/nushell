@@ -1,6 +1,6 @@
 Block 0..101
-  Pipeline 81..96 comments=1
-    Call `module` 81..96
+  Pipeline 81..100 comments=1
+    Call `module` 81..100
       String Bare "x" 88..89
       Flag --help 90..96
 Comments (1)

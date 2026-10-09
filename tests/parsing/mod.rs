@@ -731,3 +731,14 @@ fn issue_16209_mutual_recursion_closure_in_variable() -> Result {
         .run(code)
         .expect_value_eq("record<first: closure, second: closure, third: closure>")
 }
+
+/// `extern` with nothing after it on its line is a parse error, not a panic (the name is on the
+/// next line, a statement of its own).
+#[test]
+fn extern_without_a_name_is_an_error() -> Result {
+    let engine_state = test().engine_state;
+    let mut working_set = nu_protocol::engine::StateWorkingSet::new(&engine_state);
+    nu_parser::parse(&mut working_set, None, b"extern\n\"name\" []", false);
+    assert!(!working_set.parse_errors.is_empty());
+    Ok(())
+}

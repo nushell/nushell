@@ -204,7 +204,7 @@ hands its span to `parse_pattern`. The result is a
 | --- | --- |
 | `$name` | `Variable`; the name binds a variable, so `parse_variable_pattern` refuses the reserved `in`, `nu`, `env`, `ans` |
 | `{a: pat, $b}` | `Record` (a `$var` entry binds the field of the same name) |
-| `[p, ..$rest]` / `[p, ..]` | `List`, ending with `Rest(name)` / `IgnoreRest` |
+| `[p, ..$rest, q]` / `[.., p]` | `List`, with one `Rest(name)` / `IgnoreRest` anywhere (a second one is an error) |
 | `_` | `IgnoreValue` |
 | anything else | `Expression(Box::new(parse_value(.., ExpectedShape::Any)))`, boxed as in nu-protocol: literals, ranges, `(1 + 1)`; that the value is constant is the consumer's check |
 

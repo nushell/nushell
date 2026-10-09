@@ -54,7 +54,18 @@ path = "src/bin/frontends.rs"
 name = "builtin-commands"
 path = "src/bin/builtin_commands.rs"
 
+[features]
+# A counting global allocator, for `frontends allocs`.
+count-allocs = []
+
 [workspace]
+
+# The `nu` binary's release profile (the enclosing workspace's), so the timings
+# are those of the code `nu` runs.
+[profile.release]
+opt-level = "s"
+strip = "debuginfo"
+lto = "thin"
 
 # nushell builds `nu-cli` against reedline's `main` branch (its own
 # `[patch.crates-io]`), which a separate workspace does not inherit.

@@ -9,7 +9,7 @@ use winnow::token::any;
 use crate::ast::{Expr, SyntaxShape, TypeAnnotation, TypeField};
 use crate::error::{Diagnostic, ErrorKind};
 use crate::input::{ParseResult, cut};
-use crate::lex::{LexOptions, TokenContents, lex};
+use crate::lex::{LexOptions, TokenContents};
 use crate::span::{Span, Spanned};
 
 use super::WorkingSet;
@@ -157,7 +157,7 @@ fn parse_generic_shape<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseRes
 /// `parse_type_params`). Like nu, every other token is read as a type, so
 /// `list<int;>` and `list<int:>` have an unknown type.
 fn parse_type_params<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResult<Vec<TypeAnnotation<'a>>> {
-    let tokens = lex(working_set.get_span_contents(span), span.start, LexOptions::TYPE_PARAMS).map_err(cut)?;
+    let tokens = working_set.lex(span, LexOptions::TYPE_PARAMS).map_err(cut)?;
     tokens
         .iter()
         .filter(|token| token.contents != TokenContents::Eof)
@@ -177,7 +177,7 @@ fn parse_type_params<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResul
 /// the type after a `:` may be any token (`record<a:, b: int>` has the unknown
 /// type `,`), and a name without a type has the type `any`.
 fn parse_named_type_params<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResult<Vec<TypeField<'a>>> {
-    let lexed = lex(working_set.get_span_contents(span), span.start, LexOptions::TYPE_PARAMS).map_err(cut)?;
+    let lexed = working_set.lex(span, LexOptions::TYPE_PARAMS).map_err(cut)?;
     let mut tokens = Tokens::from_lexed(working_set, &lexed);
     let fields: Vec<Option<TypeField<'a>>> =
         repeat_to_end(alt((keyword(",").value(None), named_type_param.map(Some)))).parse_next(&mut tokens)?;

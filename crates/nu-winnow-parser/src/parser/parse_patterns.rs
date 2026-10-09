@@ -9,12 +9,12 @@
 use std::borrow::Cow;
 
 use winnow::Parser;
-use winnow::combinator::{eof, not, opt, preceded, repeat, repeat_till};
+use winnow::combinator::{alt, eof, repeat, repeat_till};
 
 use crate::ast::{MatchPattern, Pattern};
 use crate::error::Diagnostic;
 use crate::input::{ParseResult, cut};
-use crate::lex::{LexOptions, Token, TokenContents, lex};
+use crate::lex::{LexOptions, Token, TokenContents};
 use crate::span::{Span, Spanned};
 
 use super::WorkingSet;
@@ -58,7 +58,7 @@ fn parse_variable_pattern<'a>(working_set: &WorkingSet<'a>, span: Span) -> Parse
 /// The tokens of a pattern's interior, comments recorded and dropped, every
 /// token taken as an item (`[a = b]` has three).
 fn pattern_interior(working_set: &WorkingSet<'_>, inner: Span, options: LexOptions) -> ParseResult<Vec<Token>> {
-    let lexed = lex(working_set.get_span_contents(inner), inner.start, options).map_err(cut)?;
+    let lexed = working_set.lex(inner, options).map_err(cut)?;
     working_set.add_comments(&lexed);
     Ok(lexed
         .into_iter()
@@ -66,9 +66,10 @@ fn pattern_interior(working_set: &WorkingSet<'_>, inner: Span, options: LexOptio
         .collect())
 }
 
-/// `[p1, p2, ..$rest]`. Like nu, the interior is lite-parsed: `|` separates
-/// groups (`[1 | 2]` is `[1, 2]`), a redirection is dropped, and the items
-/// after a `..`/`..$rest` in the same group are dropped too.
+/// `[p1, ..$rest, p2]`. Like nu, the interior is lite-parsed: `|` separates
+/// groups (`[1 | 2]` is `[1, 2]`) and a redirection is dropped. Like a Rust
+/// slice pattern, the list may hold one `..` or `..$rest`, at any position; a
+/// second one is an error.
 fn parse_list_pattern<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResult<Vec<MatchPattern<'a>>> {
     let inner = delimited_interior(working_set, span, "[", "]")?;
     let lexed = pattern_interior(working_set, inner, LexOptions::PATTERN_LIST)?;
@@ -76,19 +77,21 @@ fn parse_list_pattern<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResu
         return Err(cut(Diagnostic::message("unexpected semicolon in list pattern", semicolon.span)
             .with_help("use commas or whitespace to separate list items")));
     }
-    let mut patterns = Vec::new();
+    let mut patterns: Vec<MatchPattern<'a>> = Vec::new();
+    let mut has_rest = false;
     for group in lite_parse_parts(working_set, &lexed)? {
         let group: Vec<Token> =
             group.iter().map(|token| Token { contents: TokenContents::Item, span: token.span }).collect();
         let mut tokens = Tokens::new(working_set, &group, inner.end);
-        let items: Vec<MatchPattern<'a>> = repeat(0.., preceded(not(rest_marker), pattern)).parse_next(&mut tokens)?;
-        patterns.extend(items);
-        if let Some(rest) = opt(rest_pattern).parse_next(&mut tokens)? {
-            patterns.push(rest);
-            // nu stops reading the group here.
-            for ignored in tokens.remaining() {
-                working_set.add_ignored(ignored.span);
+        let items: Vec<MatchPattern<'a>> = repeat(0.., alt((rest_pattern, pattern))).parse_next(&mut tokens)?;
+        for item in items {
+            let is_rest = matches!(item.pattern, Pattern::IgnoreRest | Pattern::Rest(_));
+            if is_rest && has_rest {
+                return Err(cut(Diagnostic::message("`..` can only be used once per list pattern", item.span)
+                    .with_help("Keep one `..` or `..$name` and remove the others.")));
             }
+            has_rest |= is_rest;
+            patterns.push(item);
         }
     }
     Ok(patterns)

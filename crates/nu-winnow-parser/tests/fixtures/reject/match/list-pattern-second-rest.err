@@ -1,0 +1,7 @@
+error: `..` can only be used once per list pattern
+  --> reject/match/list-pattern-second-rest.nu:1:20
+  |
+1 | match [] { [.., 2, ..] => true, _ => false }
+  |                    ^^
+  = while parsing match
+  = help: Keep one `..` or `..$name` and remove the others.

@@ -49,6 +49,11 @@ impl<'s> Lower<'_, '_, 's> {
         let Some(signature) = predecl.signature else {
             return false;
         };
+        // A name item in brackets or parentheses (`def [foo] ...`): the classic predeclaration
+        // reads the signature from it, or gives up.
+        if self.text(predecl.name_span).starts_with(['[', '(']) {
+            return false;
+        }
         let name = predecl.name;
         let name_span = self.span(predecl.name_span);
         if name.contains('#')

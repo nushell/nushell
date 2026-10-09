@@ -15,7 +15,11 @@
 //! `indent_pipelines`, `strip_redundant_parens`, `expand_def_bodies`,
 //! `expand_complex_records`, `compact_simple_closures`,
 //! `unquote_match_patterns`. nufmt's `exclude` is accepted and ignored.
-#![allow(clippy::disallowed_types, clippy::unwrap_used, reason = "a native command-line example; `Instant` is disallowed only for WASM")]
+#![allow(
+    clippy::disallowed_types,
+    clippy::unwrap_used,
+    reason = "a native command-line example; `Instant` is disallowed only for WASM"
+)]
 
 mod format;
 

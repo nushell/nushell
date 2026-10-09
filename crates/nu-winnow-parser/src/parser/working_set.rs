@@ -8,11 +8,12 @@
 //! ignored text, diagnostics, declared command names) sits behind a
 //! [`RefCell`], so the combinators that capture it can share one `&WorkingSet`.
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 
 use crate::ast::Comment;
 use crate::error::Diagnostic;
-use crate::lex::{Token, TokenContents};
+use crate::input::{Input, ParseResult};
+use crate::lex::{self, GroupEnds, LexOptions, Token, TokenContents};
 use crate::span::Span;
 
 use super::{CommandSet, ParseConfig};
@@ -73,6 +74,11 @@ pub trait CommandLookup {
     fn find_decl(&self, name: &str) -> Option<DeclKind>;
     /// Whether `word` is the first word of some multi-word command.
     fn is_decl_name_prefix(&self, word: &str) -> bool;
+    /// An upper bound on the length of every command name, so the parser need not look up a
+    /// longer one. Without one (the default), every candidate is looked up.
+    fn longest_name(&self) -> usize {
+        usize::MAX
+    }
     /// Whether `name` is a built-in command, which `%name` may call.
     fn is_builtin_decl(&self, name: &str) -> bool;
 }
@@ -91,6 +97,11 @@ pub struct WorkingSet<'a> {
     /// Command names declared with `def`/`extern`/`alias` in enclosing blocks,
     /// innermost scope last.
     scopes: RefCell<Vec<Scope>>,
+    /// Where the bracket groups of the text being parsed close, so that lexing the inside of
+    /// a group again does not scan its nested groups again.
+    groups: RefCell<GroupEnds>,
+    /// The length of the longest name declared in the text so far.
+    longest_declared: Cell<usize>,
 }
 
 impl std::fmt::Debug for WorkingSet<'_> {
@@ -122,14 +133,40 @@ impl<'a> WorkingSet<'a> {
             ignored: RefCell::new(Vec::new()),
             parse_errors: RefCell::new(Vec::new()),
             scopes: RefCell::new(vec![Scope::default()]),
+            groups: RefCell::new(GroupEnds::new(Span::new(0, source.len()))),
+            longest_declared: Cell::new(0),
         }
     }
 
-    /// A working set for parsing `source` with the commands `lookup` knows.
-    pub fn with_lookup(source: &'a str, lookup: &'a dyn CommandLookup) -> Self {
+    /// A working set for parsing the text of `span` in `source` with the commands `lookup`
+    /// knows.
+    pub fn with_lookup(source: &'a str, span: Span, lookup: &'a dyn CommandLookup) -> Self {
         let mut working_set = Self::new(source, &ParseConfig::empty());
         working_set.lookup = Some(lookup);
+        working_set.groups = RefCell::new(GroupEnds::new(span));
         working_set
+    }
+
+    /// Lex the text of `span` (nu's `lex` over the span's contents).
+    pub fn lex(&self, span: Span, options: LexOptions) -> Result<Vec<Token>, Diagnostic> {
+        self.lex_n_tokens(span, options, usize::MAX)
+    }
+
+    /// Lex at most `max_tokens` tokens of the text of `span` (nu's `lex_n_tokens`).
+    pub fn lex_n_tokens(&self, span: Span, options: LexOptions, max_tokens: usize) -> Result<Vec<Token>, Diagnostic> {
+        let mut groups = self.groups.borrow_mut();
+        lex::lex_n_tokens_with(self.get_span_contents(span), span.start, options, max_tokens, &mut groups)
+    }
+
+    /// The offset in the text of `span` of the bracket closing the group it starts with
+    /// ([`lex::group_end`]).
+    pub fn group_end(&self, span: Span) -> Option<usize> {
+        lex::group_end_with(self.get_span_contents(span), span.start, &mut self.groups.borrow_mut())
+    }
+
+    /// The next token of `input`, a stream over part of the source ([`lex::next_token`]).
+    pub fn next_token(&self, input: &mut Input<'_>, options: LexOptions) -> ParseResult<Option<Token>> {
+        lex::next_token(input, options, &mut self.groups.borrow_mut())
     }
 
     /// The number of diagnostics recorded so far.
@@ -211,6 +248,15 @@ impl<'a> WorkingSet<'a> {
         known || self.scopes.borrow().iter().any(|scope| scope.commands.prefixes.contains(word))
     }
 
+    /// An upper bound on the length of every command name: no longer name is known.
+    pub fn longest_decl_name(&self) -> usize {
+        let known = match self.lookup {
+            Some(lookup) => lookup.longest_name(),
+            None => self.config.longest_name(),
+        };
+        known.max(self.longest_declared.get())
+    }
+
     /// Whether an engine answers the questions about commands ([`CommandLookup`]).
     pub fn has_lookup(&self) -> bool {
         self.lookup.is_some()
@@ -235,6 +281,7 @@ impl<'a> WorkingSet<'a> {
     /// parsed, so calls to it resolve (nu's `add_predecl`); `kind` is
     /// [`DeclKind::Wrapped`] or [`DeclKind::Declared`].
     pub fn add_predecl(&self, name: &str, kind: DeclKind) {
+        self.longest_declared.set(self.longest_declared.get().max(name.len()));
         if let Some(scope) = self.scopes.borrow_mut().last_mut() {
             scope.declare(name, kind);
         }
@@ -246,6 +293,7 @@ impl<'a> WorkingSet<'a> {
     /// external call, [`DeclKind::Wrapped`] when it is a call to a wrapped
     /// command, else [`DeclKind::Declared`].
     pub fn add_alias(&self, name: &str, kind: DeclKind) {
+        self.longest_declared.set(self.longest_declared.get().max(name.len()));
         if let Some(scope) = self.scopes.borrow_mut().last_mut() {
             scope.declare(name, kind);
         }

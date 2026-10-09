@@ -27,10 +27,13 @@ the same commands.
 
 ```text
 frontends compare [--show] FILE|DIR ...           # the same AST from both front ends? (first difference per file)
-frontends bench [--clean] [--iters N] FILE|DIR ...  # parse time of each front end, and of winnow's syntax pass
+frontends bench [--iters N] FILE|DIR ...           # parse time of each front end, and of winnow's syntax pass
 frontends syntax [--iters N] FILE|DIR ...          # winnow's syntax pass alone, with and without a command-prefix index
-frontends loop-classic|loop-winnow --iters N FILE|DIR ...   # one front end in a loop, for a profiler
+frontends loop-classic|loop-winnow|loop-syntax|loop-lex --iters N FILE|DIR ...   # one pass in a loop, for a profiler
+frontends allocs FILE|DIR ...                      # allocations per parse (build with `--features count-allocs`)
 ```
+
+`--clean`, with any mode, leaves out the files the classic front end rejects.
 
 Both front ends parse each file in a fresh working set over the same engine,
 in one process. `compare` renders each result as text with every id resolved
@@ -38,8 +41,17 @@ to what it names (a variable's name and declaration, a command's name, a
 block's contents inline), with the declarations the parse added, its errors
 and its highlighting, so front ends that create things in a different order
 still compare equal when they built the same program. `bench` alternates the
-two front ends over rounds and reports the median round; `--clean` skips
-files the classic parser rejects.
+two front ends over rounds and reports the median round. The `loop-*` modes
+run one front end (`loop-classic`, `loop-winnow`), winnow's syntax pass alone
+(`loop-syntax`, statements dropped) or winnow's lexer alone (`loop-lex`) over
+the files `--iters` times; under `/usr/bin/time -l`, minus a run with
+`--iters 0` for the engine's setup, they give instructions and cycles per
+pass, which other load on the machine hardly changes. `allocs` counts the
+allocations of each front end and of winnow's syntax pass, and the spans,
+variables and blocks each parse registered.
+
+The harness builds with the `nu` binary's release profile (`opt-level = "s"`,
+thin LTO), so the timings are those of the code `nu` runs.
 
 ## `bench-vs-nu-parser`
 

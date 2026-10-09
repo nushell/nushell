@@ -1,6 +1,6 @@
 Block 0..19
-  Pipeline 0..15
-    Try 0..15
+  Pipeline 0..18
+    Try 0..18
       Body 5..5
       Catch 7..12
         Closure 13..15

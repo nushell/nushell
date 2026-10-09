@@ -3,7 +3,11 @@
 //! ```text
 //! frontends compare [--show] FILE|DIR ...     # same AST from both front ends? (first difference per file)
 //! frontends bench [--iters N] FILE|DIR ...    # parse time of each front end, and what winnow parsed
+//! frontends loop-classic|loop-winnow|loop-syntax|loop-lex --iters N FILE|DIR ...   # for a profiler
+//! frontends allocs FILE|DIR ...               # allocations per parse (`--features count-allocs`)
 //! ```
+//!
+//! With `--clean`, files the classic front end rejects are left out.
 //!
 //! Both front ends parse each file in a fresh working set over the same engine (the `nu`
 //! binary's commands and the standard library), with the file on the file stack so relative
@@ -25,8 +29,8 @@ use nu_parser::{flatten_block, parse, winnow_stats};
 use nu_protocol::{
     BlockId, ENV_VARIABLE_ID, IN_VARIABLE_ID, LAST_VARIABLE_ID, NU_VARIABLE_ID, Signature, VarId,
     ast::{
-        Argument, Block, Expr, Expression, ExternalArgument, ListItem, MatchPattern, Pattern,
-        PipelineRedirection, RecordItem, RedirectionTarget,
+        Argument, Block, Expr, Expression, ExternalArgument, ListItem, MatchPattern, Pattern, PipelineRedirection,
+        RecordItem, RedirectionTarget,
     },
     engine::{EngineState, StateWorkingSet},
 };
@@ -55,23 +59,52 @@ fn main() {
     for path in &paths {
         collect(path, &mut files);
     }
-    let files: Vec<PathBuf> = files
-        .into_iter()
-        .map(|file| std::fs::canonicalize(&file).unwrap_or(file))
-        .collect();
+    let files: Vec<PathBuf> = files.into_iter().map(|file| std::fs::canonicalize(&file).unwrap_or(file)).collect();
     set_winnow(false);
     let engine_state = engine(true);
+    // `--clean`: only the files the classic front end parses without errors.
+    let files: Vec<PathBuf> = if clean {
+        files
+            .into_iter()
+            .filter(|file| {
+                std::fs::read(file)
+                    .is_ok_and(|source| parse_file(&engine_state, file, &source, false).0.parse_errors.is_empty())
+            })
+            .collect()
+    } else {
+        files
+    };
     match mode.as_str() {
         "compare" => compare(&engine_state, &files, show),
-        "bench" => bench(&engine_state, &files, iters, clean),
+        "bench" => bench(&engine_state, &files, iters),
         "syntax" => syntax(&engine_state, &files, iters),
+        // Allocations (and reallocations) per parse of the files: classic, winnow, winnow's syntax.
+        "allocs" => counting::allocs(&engine_state, &files),
+        // For a profiler: winnow's lexer alone, each file lexed whole.
+        "loop-lex" => {
+            let sources: Vec<String> = files.iter().filter_map(|file| std::fs::read_to_string(file).ok()).collect();
+            for _ in 0..iters {
+                for source in &sources {
+                    let tokens = nu_winnow_parser::lex::lex(source, 0, nu_winnow_parser::lex::LexOptions::BLOCK);
+                    std::hint::black_box(tokens.map(|tokens| tokens.len()).ok());
+                }
+            }
+        }
+        // For a profiler: winnow's syntax pass alone, statements dropped (no lowering).
+        "loop-syntax" => {
+            let sources: Vec<String> = files.iter().filter_map(|file| std::fs::read_to_string(file).ok()).collect();
+            let working_set = StateWorkingSet::new(&engine_state);
+            for _ in 0..iters {
+                for source in &sources {
+                    syntax_once(&working_set, source);
+                }
+            }
+        }
         // For a profiler: parse the files over and over with one front end.
         "loop-classic" | "loop-winnow" => {
             let winnow = mode == "loop-winnow";
-            let sources: Vec<(PathBuf, Vec<u8>)> = files
-                .iter()
-                .filter_map(|file| Some((file.clone(), std::fs::read(file).ok()?)))
-                .collect();
+            let sources: Vec<(PathBuf, Vec<u8>)> =
+                files.iter().filter_map(|file| Some((file.clone(), std::fs::read(file).ok()?))).collect();
             for _ in 0..iters {
                 for (file, source) in &sources {
                     let (working_set, block) = parse_file(&engine_state, file, source, winnow);
@@ -93,9 +126,8 @@ fn set_winnow(on: bool) {
 
 fn collect(path: &Path, out: &mut Vec<PathBuf>) {
     if path.is_dir() {
-        let mut entries: Vec<PathBuf> = std::fs::read_dir(path)
-            .map(|dir| dir.flatten().map(|entry| entry.path()).collect())
-            .unwrap_or_default();
+        let mut entries: Vec<PathBuf> =
+            std::fs::read_dir(path).map(|dir| dir.flatten().map(|entry| entry.path()).collect()).unwrap_or_default();
         entries.sort();
         for entry in entries {
             collect(&entry, out);
@@ -190,6 +222,42 @@ fn command_prefixes(engine_state: &EngineState) -> HashSet<String> {
         .collect()
 }
 
+/// One run of the winnow parser alone over `source`, statement by statement over the working
+/// set's commands, the statements dropped.
+fn syntax_once(working_set: &StateWorkingSet, source: &str) {
+    struct Lookup<'a, 'e>(&'a StateWorkingSet<'e>);
+    impl nu_winnow_parser::CommandLookup for Lookup<'_, '_> {
+        fn find_decl(&self, name: &str) -> Option<nu_winnow_parser::DeclKind> {
+            self.0.find_decl(name.as_bytes()).map(|_| nu_winnow_parser::DeclKind::Declared)
+        }
+        fn is_decl_name_prefix(&self, _word: &str) -> bool {
+            true
+        }
+        fn longest_name(&self) -> usize {
+            nu_protocol::engine::longest_decl_name()
+        }
+        fn is_builtin_decl(&self, _name: &str) -> bool {
+            true
+        }
+    }
+    struct Drop;
+    impl<'a> nu_winnow_parser::BlockSink<'a> for Drop {
+        fn predecl(&mut self, def: nu_winnow_parser::PredeclaredDef<'a>) {
+            std::hint::black_box(def);
+        }
+        fn statement(
+            &mut self,
+            pipeline: nu_winnow_parser::ast::Pipeline<'a>,
+            _: Vec<nu_winnow_parser::Diagnostic>,
+        ) -> bool {
+            std::hint::black_box(pipeline);
+            true
+        }
+    }
+    let span = nu_winnow_parser::Span::new(0, source.len());
+    let _ = nu_winnow_parser::parse_block_streaming(source, span, &Lookup(working_set), &mut Drop);
+}
+
 fn syntax_time_with(
     engine_state: &EngineState,
     source: &str,
@@ -213,7 +281,11 @@ fn syntax_time_with(
         fn predecl(&mut self, def: nu_winnow_parser::PredeclaredDef<'a>) {
             std::hint::black_box(def);
         }
-        fn statement(&mut self, pipeline: nu_winnow_parser::ast::Pipeline<'a>, _: Vec<nu_winnow_parser::Diagnostic>) -> bool {
+        fn statement(
+            &mut self,
+            pipeline: nu_winnow_parser::ast::Pipeline<'a>,
+            _: Vec<nu_winnow_parser::Diagnostic>,
+        ) -> bool {
             std::hint::black_box(pipeline);
             true
         }
@@ -270,7 +342,11 @@ fn syntax_old(engine_state: &EngineState, files: &[PathBuf], iters: u32) {
         fn predecl(&mut self, def: nu_winnow_parser::PredeclaredDef<'a>) {
             std::hint::black_box(def);
         }
-        fn statement(&mut self, pipeline: nu_winnow_parser::ast::Pipeline<'a>, _: Vec<nu_winnow_parser::Diagnostic>) -> bool {
+        fn statement(
+            &mut self,
+            pipeline: nu_winnow_parser::ast::Pipeline<'a>,
+            _: Vec<nu_winnow_parser::Diagnostic>,
+        ) -> bool {
             std::hint::black_box(pipeline);
             true
         }
@@ -301,13 +377,27 @@ fn syntax_old(engine_state: &EngineState, files: &[PathBuf], iters: u32) {
     println!("TOTAL streaming {streaming:.2?}, standalone {plain:.2?}");
 }
 
+/// `text` (an expression's `Debug`) without its span ids: they number the spans in the order
+/// the parse registered them, which differs between front ends that build the same expressions.
+fn without_span_ids(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut rest = text;
+    while let Some(at) = rest.find("span_id: SpanId(") {
+        out.push_str(&rest[..at]);
+        rest = &rest[at..];
+        rest = rest.find(')').map_or("", |end| rest[end + 1..].trim_start_matches(", "));
+    }
+    out.push_str(rest);
+    out
+}
+
 /// The start of the first `start..end` span in a rendered line.
 fn first_span_start(line: &str) -> Option<usize> {
     line.split(|c: char| !c.is_ascii_digit() && c != '.')
         .find_map(|word| word.split_once("..").and_then(|(start, _)| start.parse().ok()))
 }
 
-fn bench(engine_state: &EngineState, files: &[PathBuf], iters: u32, clean: bool) {
+fn bench(engine_state: &EngineState, files: &[PathBuf], iters: u32) {
     // Each file: a warm-up, then `ROUNDS` rounds of `iters` classic parses and `iters` winnow
     // parses, alternating; the median round of each is reported.
     const ROUNDS: usize = 7;
@@ -320,14 +410,10 @@ fn bench(engine_state: &EngineState, files: &[PathBuf], iters: u32, clean: bool)
         let Ok(source) = std::fs::read(file) else {
             continue;
         };
-        if clean && !parse_file(engine_state, file, &source, false).0.parse_errors.is_empty() {
-            continue;
-        }
         benched += 1;
         bytes += source.len();
-        let syntax = std::str::from_utf8(&source).map_or(Duration::ZERO, |text| {
-            syntax_time(engine_state, text, iters * 3)
-        });
+        let syntax =
+            std::str::from_utf8(&source).map_or(Duration::ZERO, |text| syntax_time(engine_state, text, iters * 3));
         syntax_total += syntax;
         let time = |winnow: bool, iters: u32| {
             let start = Instant::now();
@@ -378,12 +464,7 @@ fn bench(engine_state: &EngineState, files: &[PathBuf], iters: u32, clean: bool)
 /// The parse as text, every id resolved: the block, the declarations the parse added, the
 /// errors, and the highlighting.
 fn render(working_set: &StateWorkingSet, block: &Block) -> String {
-    let mut renderer = Renderer {
-        working_set,
-        out: String::new(),
-        depth: 0,
-        rendering: HashSet::new(),
-    };
+    let mut renderer = Renderer { working_set, out: String::new(), depth: 0, rendering: HashSet::new() };
     renderer.line("BLOCK");
     renderer.block(block);
     let permanent = working_set.permanent_state.num_decls();
@@ -439,11 +520,7 @@ impl Renderer<'_, '_> {
             LAST_VARIABLE_ID => "$ans".into(),
             _ => {
                 let var = self.working_set.get_variable(var_id);
-                let name = var
-                    .name
-                    .as_deref()
-                    .map(String::from_utf8_lossy)
-                    .unwrap_or_default();
+                let name = var.name.as_deref().map(String::from_utf8_lossy).unwrap_or_default();
                 format!(
                     "var({name}@{}..{}:{} mut={})",
                     var.declaration_span.start, var.declaration_span.end, var.ty, var.mutable
@@ -463,21 +540,42 @@ impl Renderer<'_, '_> {
             signature
                 .required_positional
                 .iter()
-                .map(|p| (p.name.clone(), p.shape.to_string(), p.var_id.map(|v| self.var(v)), p.desc.clone(), p.default_value.clone()))
+                .map(|p| (
+                    p.name.clone(),
+                    p.shape.to_string(),
+                    p.var_id.map(|v| self.var(v)),
+                    p.desc.clone(),
+                    p.default_value.clone()
+                ))
                 .collect::<Vec<_>>(),
             signature
                 .optional_positional
                 .iter()
-                .map(|p| (p.name.clone(), p.shape.to_string(), p.var_id.map(|v| self.var(v)), p.desc.clone(), p.default_value.clone()))
+                .map(|p| (
+                    p.name.clone(),
+                    p.shape.to_string(),
+                    p.var_id.map(|v| self.var(v)),
+                    p.desc.clone(),
+                    p.default_value.clone()
+                ))
                 .collect::<Vec<_>>(),
-            signature
-                .rest_positional
-                .as_ref()
-                .map(|p| (p.name.clone(), p.shape.to_string(), p.var_id.map(|v| self.var(v)), p.desc.clone())),
+            signature.rest_positional.as_ref().map(|p| (
+                p.name.clone(),
+                p.shape.to_string(),
+                p.var_id.map(|v| self.var(v)),
+                p.desc.clone()
+            )),
             signature
                 .named
                 .iter()
-                .map(|f| (f.long.clone(), f.short, f.arg.as_ref().map(|a| a.to_string()), f.var_id.map(|v| self.var(v)), f.desc.clone(), f.default_value.clone()))
+                .map(|f| (
+                    f.long.clone(),
+                    f.short,
+                    f.arg.as_ref().map(|a| a.to_string()),
+                    f.var_id.map(|v| self.var(v)),
+                    f.desc.clone(),
+                    f.default_value.clone()
+                ))
                 .collect::<Vec<_>>(),
         );
         self.line(&text);
@@ -494,7 +592,8 @@ impl Renderer<'_, '_> {
     }
 
     fn block(&mut self, block: &Block) {
-        let mut captures: Vec<String> = block.captures.iter().map(|(v, s)| format!("{}@{}..{}", self.var(*v), s.start, s.end)).collect();
+        let mut captures: Vec<String> =
+            block.captures.iter().map(|(v, s)| format!("{}@{}..{}", self.var(*v), s.start, s.end)).collect();
         captures.sort();
         self.line(&format!(
             "span={:?} scoped={} redirect_env={} compiled={} captures={captures:?}",
@@ -554,7 +653,7 @@ impl Renderer<'_, '_> {
                             pattern.members,
                             pattern.constants.iter().map(|c| self.var(*c)).collect::<Vec<_>>()
                         ),
-                        other => format!("{k}={other:?}"),
+                        other => format!("{k}={}", without_span_ids(&format!("{other:?}"))),
                     })
                     .collect();
                 info.sort();
@@ -761,5 +860,91 @@ impl Renderer<'_, '_> {
                 this.expression(guard);
             });
         }
+    }
+}
+
+/// `frontends allocs`, with a counting global allocator (`--features count-allocs`), which every
+/// other mode would pay for.
+#[cfg(feature = "count-allocs")]
+mod counting {
+    use std::path::PathBuf;
+    use std::sync::atomic::{AtomicU64, Ordering::Relaxed};
+
+    use nu_protocol::engine::{EngineState, StateWorkingSet};
+
+    use super::{parse_file, syntax_once};
+
+    /// The system allocator, counting allocations.
+    struct CountingAlloc;
+
+    static ALLOCATIONS: AtomicU64 = AtomicU64::new(0);
+    static ALLOCATED_BYTES: AtomicU64 = AtomicU64::new(0);
+
+    // SAFETY: forwards to the system allocator; the counters do not touch the memory.
+    unsafe impl std::alloc::GlobalAlloc for CountingAlloc {
+        unsafe fn alloc(&self, layout: std::alloc::Layout) -> *mut u8 {
+            ALLOCATIONS.fetch_add(1, Relaxed);
+            ALLOCATED_BYTES.fetch_add(layout.size() as u64, Relaxed);
+            // SAFETY: the caller's layout, passed on.
+            unsafe { std::alloc::System.alloc(layout) }
+        }
+        unsafe fn dealloc(&self, ptr: *mut u8, layout: std::alloc::Layout) {
+            // SAFETY: allocated by `alloc` above with this layout.
+            unsafe { std::alloc::System.dealloc(ptr, layout) }
+        }
+        unsafe fn realloc(&self, ptr: *mut u8, layout: std::alloc::Layout, new_size: usize) -> *mut u8 {
+            ALLOCATIONS.fetch_add(1, Relaxed);
+            ALLOCATED_BYTES.fetch_add(new_size as u64, Relaxed);
+            // SAFETY: the caller's pointer and layout, passed on.
+            unsafe { std::alloc::System.realloc(ptr, layout, new_size) }
+        }
+    }
+
+    #[global_allocator]
+    static GLOBAL: CountingAlloc = CountingAlloc;
+
+    /// Allocations (and reallocations) per parse of `files`: classic, winnow, winnow's syntax.
+    pub(super) fn allocs(engine_state: &EngineState, files: &[PathBuf]) {
+        let sources: Vec<(PathBuf, Vec<u8>)> =
+            files.iter().filter_map(|file| Some((file.clone(), std::fs::read(file).ok()?))).collect();
+        let count = |run: &dyn Fn()| {
+            let (calls, bytes) = (ALLOCATIONS.load(Relaxed), ALLOCATED_BYTES.load(Relaxed));
+            run();
+            (ALLOCATIONS.load(Relaxed) - calls, ALLOCATED_BYTES.load(Relaxed) - bytes)
+        };
+        for (name, winnow) in [("classic", false), ("winnow", true)] {
+            let (calls, bytes) = count(&|| {
+                for (file, source) in &sources {
+                    std::hint::black_box(parse_file(engine_state, file, source, winnow));
+                }
+            });
+            // What the parses registered: expressions (spans), variables, blocks.
+            let (mut spans, mut vars, mut blocks) = (0, 0, 0);
+            for (file, source) in &sources {
+                let (working_set, _) = parse_file(engine_state, file, source, winnow);
+                spans += working_set.delta.spans.len();
+                vars += working_set.delta.num_vars();
+                blocks += working_set.delta.num_blocks();
+            }
+            println!(
+                "{name:8} {calls:>9} allocations {bytes:>11} bytes; {spans} spans, {vars} variables, {blocks} blocks"
+            );
+        }
+        let working_set = StateWorkingSet::new(engine_state);
+        let (calls, bytes) = count(&|| {
+            for (_, source) in &sources {
+                syntax_once(&working_set, std::str::from_utf8(source).unwrap_or_default());
+            }
+        });
+        println!("syntax   {calls:>9} allocations {bytes:>11} bytes");
+    }
+}
+
+/// Without the counting allocator, `allocs` has nothing to count.
+#[cfg(not(feature = "count-allocs"))]
+mod counting {
+    pub(super) fn allocs(_: &nu_protocol::engine::EngineState, _: &[std::path::PathBuf]) {
+        eprintln!("`allocs` needs the counting allocator: build with `--features count-allocs`");
+        std::process::exit(2);
     }
 }

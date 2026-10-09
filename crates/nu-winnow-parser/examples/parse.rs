@@ -11,7 +11,11 @@
 //!
 //! Set `NU_WINNOW_COMMANDS=path` to a file with one command name per line to
 //! make additional (e.g. standard-library) multi-word commands known.
-#![allow(clippy::disallowed_types, clippy::unwrap_used, reason = "a native command-line example; `Instant` is disallowed only for WASM")]
+#![allow(
+    clippy::disallowed_types,
+    clippy::unwrap_used,
+    reason = "a native command-line example; `Instant` is disallowed only for WASM"
+)]
 
 use std::io::Read;
 use std::path::{Path, PathBuf};

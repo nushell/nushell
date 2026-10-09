@@ -208,12 +208,16 @@ impl<'a> BlockSink<'a> for Driver<'_, '_, '_, '_> {
             // it parses the rest of the block, reporting the error as it always has.
             let span = Span::new(span.start, self.span.end);
             stats::record_classic_statement(span.len(), true);
-            let pipelines = parse_classic(lower.working_set, span, &mut target, true);
-            self.pipelines.extend(pipelines);
+            parse_classic(
+                lower.working_set,
+                span,
+                &mut target,
+                true,
+                &mut self.pipelines,
+            );
             return false;
         }
-        let pipelines = lower.statement_or_classic(&pipeline, span, &mut target);
-        self.pipelines.extend(pipelines);
+        lower.statement_or_classic(&pipeline, span, &mut target, &mut self.pipelines);
         true
     }
 }

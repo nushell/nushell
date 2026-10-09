@@ -11,7 +11,27 @@ use super::WorkingSet;
 /// Whether `name` can name a variable or parameter: it is not empty and has
 /// none of the characters `.[({+-*^%/=!<>&|` (nu's `is_identifier`).
 pub fn is_identifier(name: &str) -> bool {
-    !name.is_empty() && !name.bytes().any(|byte| b".[({+-*^%/=!<>&|".contains(&byte))
+    !name.is_empty()
+        && !name.bytes().any(|byte| {
+            matches!(
+                byte,
+                b'.' | b'['
+                    | b'('
+                    | b'{'
+                    | b'+'
+                    | b'-'
+                    | b'*'
+                    | b'^'
+                    | b'%'
+                    | b'/'
+                    | b'='
+                    | b'!'
+                    | b'<'
+                    | b'>'
+                    | b'&'
+                    | b'|'
+            )
+        })
 }
 
 /// Whether `text` can declare a variable (nu's `is_variable`): `$name` or
