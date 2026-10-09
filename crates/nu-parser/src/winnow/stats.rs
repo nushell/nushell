@@ -19,6 +19,8 @@ static LOWERED_STATEMENTS: AtomicU64 = AtomicU64::new(0);
 static CLASSIC_STATEMENTS: AtomicU64 = AtomicU64::new(0);
 static CLASSIC_STATEMENT_BYTES: AtomicU64 = AtomicU64::new(0);
 static ERROR_STATEMENTS: AtomicU64 = AtomicU64::new(0);
+static AHEAD_RUNS: AtomicU64 = AtomicU64::new(0);
+static AHEAD_FALLBACKS: AtomicU64 = AtomicU64::new(0);
 
 /// What the winnow front end has done in this process so far.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -35,6 +37,11 @@ pub struct WinnowStats {
     pub classic_statement_bytes: u64,
     /// Of those, the statements the winnow parser reported an error in.
     pub error_statements: u64,
+    /// Runs of statements a second thread parsed ahead of the lowering.
+    pub ahead_runs: u64,
+    /// Of those, the runs a statement of which the second thread resolved a command name in
+    /// differently from the live working set: the classic parser took the rest of the block.
+    pub ahead_fallbacks: u64,
 }
 
 /// The counters so far.
@@ -46,6 +53,8 @@ pub fn winnow_stats() -> WinnowStats {
         classic_statements: CLASSIC_STATEMENTS.load(Relaxed),
         classic_statement_bytes: CLASSIC_STATEMENT_BYTES.load(Relaxed),
         error_statements: ERROR_STATEMENTS.load(Relaxed),
+        ahead_runs: AHEAD_RUNS.load(Relaxed),
+        ahead_fallbacks: AHEAD_FALLBACKS.load(Relaxed),
     }
 }
 
@@ -55,6 +64,20 @@ pub(super) fn record_winnow_block() {
 
 pub(super) fn record_classic_block() {
     CLASSIC_BLOCKS.fetch_add(1, Relaxed);
+}
+
+pub(super) fn record_ahead_run() {
+    AHEAD_RUNS.fetch_add(1, Relaxed);
+}
+
+/// Count a run whose statement the classic parser had to take, because the live working set
+/// answered a question about command names differently (`changed`), and log it with
+/// `NU_WINNOW_LOG`.
+pub(super) fn record_ahead_fallback(changed: &str) {
+    AHEAD_FALLBACKS.fetch_add(1, Relaxed);
+    if log() {
+        eprintln!("winnow: parsed ahead with other command names: {changed}");
+    }
 }
 
 pub(super) fn record_lowered_statement() {
@@ -73,8 +96,7 @@ pub(super) fn record_classic_statement(bytes: usize, had_errors: bool) {
 /// log it with `NU_WINNOW_LOG`.
 pub(super) fn record_unlowered(span: Span, reason: &Unlowered, working_set: &StateWorkingSet) {
     record_classic_statement(span.len(), false);
-    static LOG: OnceLock<bool> = OnceLock::new();
-    if *LOG.get_or_init(|| std::env::var_os("NU_WINNOW_LOG").is_some()) {
+    if log() {
         let text = String::from_utf8_lossy(working_set.get_span_contents(span));
         let first_line = text
             .lines()
@@ -87,4 +109,10 @@ pub(super) fn record_unlowered(span: Span, reason: &Unlowered, working_set: &Sta
             span.len()
         );
     }
+}
+
+/// Whether `NU_WINNOW_LOG` is set.
+fn log() -> bool {
+    static LOG: OnceLock<bool> = OnceLock::new();
+    *LOG.get_or_init(|| std::env::var_os("NU_WINNOW_LOG").is_some())
 }

@@ -182,72 +182,70 @@ impl Token {
 ///
 /// Nested constructs lex their interior with different delimiters: lists treat
 /// `,` and newlines as whitespace, records additionally split on `:`, cell
-/// paths split on `.`, and so on.
-#[derive(Clone, Copy, Debug, Default)]
+/// paths split on `.`, and so on. The constants below are the only options;
+/// each carries the byte sets the lexer stops at, computed at compile time.
+#[derive(Clone, Copy, Debug)]
 pub struct LexOptions {
-    /// Extra bytes treated as whitespace (in addition to space, tab, `\r`).
-    /// Including `\n` here suppresses [`TokenContents::Eol`] tokens.
-    pub additional_whitespace: &'static [u8],
-    /// Bytes that are emitted as single-character items when they start a token
-    /// and that terminate the item otherwise (e.g. `:` in records).
-    pub special_tokens: &'static [u8],
     /// Drop comments instead of emitting [`TokenContents::Comment`].
-    pub skip_comments: bool,
+    skip_comments: bool,
     /// Treat `<`/`>` as nesting brackets (used for type annotations such as `list<int>`).
-    pub in_signature: bool,
+    in_signature: bool,
+    /// The bytes the lexer treats specially, from the preset's extra whitespace and special
+    /// tokens (see `lex_options!`).
+    stops: &'static StopBytes,
+}
+
+/// A [`LexOptions`] preset, its [`StopBytes`] computed at compile time:
+/// - `additional_whitespace`: extra bytes treated as whitespace (in addition to space, tab,
+///   `\r`); including `\n` suppresses [`TokenContents::Eol`] tokens.
+/// - `special_tokens`: bytes that are emitted as single-character items when they start a token
+///   and that terminate the item otherwise (e.g. `:` in records).
+macro_rules! lex_options {
+    ($additional_whitespace:expr, $special_tokens:expr, $skip_comments:expr, $in_signature:expr) => {
+        LexOptions {
+            skip_comments: $skip_comments,
+            in_signature: $in_signature,
+            stops: &StopBytes::new($additional_whitespace, $special_tokens, $in_signature),
+        }
+    };
 }
 
 impl LexOptions {
     /// The options used for blocks and the top level of a file.
-    pub const BLOCK: LexOptions =
-        LexOptions { additional_whitespace: &[], special_tokens: &[], skip_comments: false, in_signature: false };
+    pub const BLOCK: LexOptions = lex_options!(&[], &[], false, false);
     /// Options for subexpressions `( ... )`: newlines are whitespace, so a
     /// parenthesised pipeline may span several lines.
-    pub const SUBEXPRESSION: LexOptions =
-        LexOptions { additional_whitespace: b"\n\r", special_tokens: &[], skip_comments: false, in_signature: false };
+    pub const SUBEXPRESSION: LexOptions = lex_options!(b"\n\r", &[], false, false);
     /// Options for list interiors: commas and newlines are whitespace.
-    pub const LIST: LexOptions =
-        LexOptions { additional_whitespace: b"\n\r,", special_tokens: &[], skip_comments: false, in_signature: false };
+    pub const LIST: LexOptions = lex_options!(b"\n\r,", &[], false, false);
     /// Options for record interiors: like lists, and `:` is special.
-    pub const RECORD_KEY: LexOptions =
-        LexOptions { additional_whitespace: b"\n\r,", special_tokens: b":", skip_comments: false, in_signature: false };
+    pub const RECORD_KEY: LexOptions = lex_options!(b"\n\r,", b":", false, false);
     /// Options for record values: like lists, but nothing is special.
-    pub const RECORD_VALUE: LexOptions =
-        LexOptions { additional_whitespace: b"\n\r,", special_tokens: &[], skip_comments: false, in_signature: false };
+    pub const RECORD_VALUE: LexOptions = lex_options!(b"\n\r,", &[], false, false);
     /// Options for signatures `[a: int, --flag(-f)]`.
-    pub const SIGNATURE: LexOptions =
-        LexOptions { additional_whitespace: b"\n\r", special_tokens: b":=,", skip_comments: false, in_signature: true };
+    pub const SIGNATURE: LexOptions = lex_options!(b"\n\r", b":=,", false, true);
     /// Options for type parameters `list<int>`, `oneof<a, b>`, `record<a: int>`
     /// (nu's `lex_signature` in `parse_type_params`): `:` and `,` are special
     /// and comments are skipped.
-    pub const TYPE_PARAMS: LexOptions =
-        LexOptions { additional_whitespace: b"\n\r", special_tokens: b":,", skip_comments: true, in_signature: true };
+    pub const TYPE_PARAMS: LexOptions = lex_options!(b"\n\r", b":,", true, true);
     /// Options for the type of a declared variable `let x: record<a: int>`
     /// (nu's `lex_signature` in `parse_var_with_opt_type`): `<`/`>` pair up,
     /// so a stray `]` or `}` inside them is unbalanced.
-    pub const VAR_TYPE: LexOptions =
-        LexOptions { additional_whitespace: b"", special_tokens: b",", skip_comments: true, in_signature: true };
+    pub const VAR_TYPE: LexOptions = lex_options!(b"", b",", true, true);
     /// Options for input/output type lists `[int -> string, nothing -> nothing]`.
-    pub const IO_TYPES: LexOptions =
-        LexOptions { additional_whitespace: b"\n\r,", special_tokens: &[], skip_comments: true, in_signature: true };
+    pub const IO_TYPES: LexOptions = lex_options!(b"\n\r,", &[], true, true);
     /// Options for cell paths: `.`, `?` and `!` are special.
-    pub const CELL_PATH: LexOptions =
-        LexOptions { additional_whitespace: b"\n\r", special_tokens: b".?!", skip_comments: true, in_signature: false };
+    pub const CELL_PATH: LexOptions = lex_options!(b"\n\r", b".?!", true, false);
     /// Options for match blocks: commas, newlines and (see below) pipes separate arms.
-    pub const MATCH: LexOptions =
-        LexOptions { additional_whitespace: b" \r\n,", special_tokens: &[], skip_comments: false, in_signature: false };
+    pub const MATCH: LexOptions = lex_options!(b" \r\n,", &[], false, false);
     /// Options for the first two tokens of a `{...}` body, used to decide what it is.
-    pub const BRACE_PROBE: LexOptions =
-        LexOptions { additional_whitespace: b"\r\n\t", special_tokens: b":", skip_comments: true, in_signature: false };
+    pub const BRACE_PROBE: LexOptions = lex_options!(b"\r\n\t", b":", true, false);
     /// Options for binary literals `0x[ff 00]`.
-    pub const BINARY: LexOptions =
-        LexOptions { additional_whitespace: b",\r\n", special_tokens: &[], skip_comments: true, in_signature: false };
+    pub const BINARY: LexOptions = lex_options!(b",\r\n", &[], true, false);
     /// Options for match list/record patterns.
-    pub const PATTERN_LIST: LexOptions =
-        LexOptions { additional_whitespace: b"\n\r,", special_tokens: &[], skip_comments: true, in_signature: false };
+    pub const PATTERN_LIST: LexOptions = lex_options!(b"\n\r,", &[], true, false);
     /// Options for record patterns.
-    pub const PATTERN_RECORD: LexOptions =
-        LexOptions { additional_whitespace: b"\n\r,", special_tokens: b":", skip_comments: true, in_signature: false };
+    pub const PATTERN_RECORD: LexOptions = lex_options!(b"\n\r,", b":", true, false);
 }
 
 /// Where the bracket groups of a block's source close, as scanning its items found them.
@@ -375,19 +373,11 @@ fn skip_whitespace(input: &mut Input<'_>, options: LexOptions) {
     let bytes = input.input.as_ref().as_bytes();
     let mut whitespace = 0;
     while let Some(&byte) = bytes.get(whitespace)
-        && (matches!(byte, b' ' | b'\t' | b'\r') || (byte.is_ascii() && has_byte(options.additional_whitespace, byte)))
+        && options.stops.whitespace.contains(byte)
     {
         whitespace += 1;
     }
     input.next_slice(whitespace);
-}
-
-/// Whether `bytes`, a few bytes of a [`LexOptions`] list, holds `byte`: a loop, where
-/// `<[u8]>::contains` would call `memchr` for every byte scanned.
-#[inline]
-#[allow(clippy::manual_contains, reason = "`contains` calls `memchr`, slower for a few bytes")]
-fn has_byte(bytes: &[u8], byte: u8) -> bool {
-    bytes.iter().any(|&other| other == byte)
 }
 
 /// One token, dispatched on its first byte. `None` for input that produces no
@@ -551,20 +541,17 @@ fn item_length(
     let mut brackets: Vec<(Bracket, usize)> = Vec::new();
     let mut previous: Option<u8> = None;
     let mut offset = 0usize;
-    let special = SpecialBytes::new(options);
+    let stops = options.stops;
 
-    let is_terminator = |brackets: &[(Bracket, usize)], byte: u8| {
-        brackets.is_empty()
-            && (matches!(byte, b' ' | b'\t' | b'\n' | b'\r' | b'|' | b';')
-                || has_byte(options.additional_whitespace, byte)
-                || has_byte(options.special_tokens, byte))
-    };
+    let is_terminator =
+        |brackets: &[(Bracket, usize)], byte: u8| brackets.is_empty() && stops.terminators.contains(byte);
 
     while offset < bytes.len() {
         // Outside quotes most bytes are none that the match below looks at: skip them all.
         if quote.is_none() {
+            let stop = if brackets.is_empty() { &stops.item } else { &stops.group };
             let mut plain_end = offset;
-            while plain_end < bytes.len() && !special.contains(bytes[plain_end]) {
+            while plain_end < bytes.len() && !stop.contains(bytes[plain_end]) {
                 plain_end += 1;
             }
             if plain_end > offset {
@@ -616,7 +603,7 @@ fn item_length(
                     }
                 }
                 // A special character (`:` in record keys, `.` in cell paths) is an item of its own.
-                _ if offset == 0 && brackets.is_empty() && has_byte(options.special_tokens, byte) => {
+                _ if offset == 0 && brackets.is_empty() && stops.special_tokens.contains(byte) => {
                     offset += 1;
                     break;
                 }
@@ -686,28 +673,55 @@ fn item_length(
     Ok(offset)
 }
 
-/// The bytes [`item_length`] must look at outside quotes, as a set of bytes: the terminators and
-/// whitespace (with `options`' own), brackets (`<` and `>` in a signature), quotes and `#` (a
-/// comment, or the end of a raw string's `r#`). Every other byte just continues the item.
-struct SpecialBytes([u64; 4]);
+/// The bytes [`item_length`] must look at outside quotes, for one [`LexOptions`].
+#[derive(Debug)]
+struct StopBytes {
+    /// At bracket depth zero: the terminators and whitespace (with the options' own), brackets
+    /// (`<` and `>` in a signature), quotes and `#` (a comment, or the end of a raw string's `r#`).
+    /// Every other byte just continues the item.
+    item: ByteSet,
+    /// Inside a bracket group, where whitespace, terminators and special tokens do not end the
+    /// item and `|` cannot follow a redirection (the item so far holds the open bracket): only
+    /// brackets, quotes, `#` and the newline that ends a comment.
+    group: ByteSet,
+    /// The bytes that end an item at depth zero.
+    terminators: ByteSet,
+    /// The options' special tokens.
+    special_tokens: ByteSet,
+    /// The bytes skipped between tokens: space, tab, `\r` and the options' own.
+    whitespace: ByteSet,
+}
 
-impl SpecialBytes {
-    const ALWAYS: SpecialBytes = SpecialBytes::with(SpecialBytes([0; 4]), b" \t\n\r|;#'\"`[]{}()");
-
-    fn new(options: LexOptions) -> Self {
-        let set = Self::with(Self::with(Self::ALWAYS, options.additional_whitespace), options.special_tokens);
-        if options.in_signature { Self::with(set, b"<>") } else { set }
+impl StopBytes {
+    const fn new(additional_whitespace: &[u8], special_tokens: &[u8], in_signature: bool) -> Self {
+        let brackets: &[u8] = if in_signature { b"[]{}()<>" } else { b"[]{}()" };
+        let terminators = ByteSet::EMPTY.with(b" \t\n\r|;").with(additional_whitespace).with(special_tokens);
+        StopBytes {
+            item: terminators.with(b"#'\"`").with(brackets),
+            group: ByteSet::EMPTY.with(b"\n\r#'\"`").with(brackets),
+            terminators,
+            special_tokens: ByteSet::EMPTY.with(special_tokens),
+            whitespace: ByteSet::EMPTY.with(b" \t\r").with(additional_whitespace),
+        }
     }
+}
 
-    /// `set` with `bytes` added.
-    const fn with(mut set: SpecialBytes, bytes: &[u8]) -> SpecialBytes {
+/// A set of bytes.
+#[derive(Clone, Copy, Debug)]
+struct ByteSet([u64; 4]);
+
+impl ByteSet {
+    const EMPTY: ByteSet = ByteSet([0; 4]);
+
+    /// This set with `bytes` added.
+    const fn with(mut self, bytes: &[u8]) -> ByteSet {
         let mut index = 0;
         while index < bytes.len() {
             let byte = bytes[index];
-            set.0[(byte >> 6) as usize] |= 1 << (byte & 63);
+            self.0[(byte >> 6) as usize] |= 1 << (byte & 63);
             index += 1;
         }
-        set
+        self
     }
 
     #[inline]

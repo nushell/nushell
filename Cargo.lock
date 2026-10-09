@@ -5362,6 +5362,7 @@ dependencies = [
  "nu-protocol",
  "nu-utils",
  "nu-winnow-parser",
+ "rayon",
  "rstest",
  "rustc-hash",
  "semver",

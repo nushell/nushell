@@ -788,6 +788,17 @@ fn expected_after_path_member(member: &PathMember<'_>, span: Span) -> ErrMode<Pa
 /// an `=` or an `o>` is a member or a misplaced one (`$x.a?=` fails), never
 /// dropped.
 fn lex_cell_path(working_set: &WorkingSet<'_>, span: Span) -> ParseResult<Vec<Token>> {
+    // Most cell paths are a head alone: `$name`, or a group whose closing bracket ends the
+    // text. Either is one item, which lexing would only confirm.
+    let text = working_set.get_span_contents(span);
+    let head_alone = match text.as_bytes() {
+        [b'$', name @ ..] => name.iter().all(|&byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-')),
+        [b'(' | b'[' | b'{', ..] => working_set.group_end(span) == Some(text.len() - 1),
+        _ => false,
+    };
+    if head_alone {
+        return Ok(vec![Token { contents: TokenContents::Item, span }]);
+    }
     let mut lexed = working_set.lex(span, LexOptions::CELL_PATH).map_err(cut)?;
     lexed.retain(|token| !matches!(token.contents, TokenContents::Eof | TokenContents::Eol | TokenContents::Comment));
     for token in &mut lexed {

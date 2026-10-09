@@ -42,23 +42,23 @@ position even when the input ran out (see chapter 03).
 ## `LexOptions`
 
 ```rust,ignore
-pub struct LexOptions {
-    /// Extra bytes treated as whitespace. Including b'\n' suppresses Eol tokens.
-    pub additional_whitespace: &'static [u8],
-    /// Bytes that become single-character items when they start a token and
-    /// terminate the item otherwise (`:` in records, `.` in cell paths).
-    pub special_tokens: &'static [u8],
-    /// Drop comments instead of emitting them.
-    pub skip_comments: bool,
-    /// Treat `<`/`>` as nesting brackets (type annotations such as list<int>).
-    pub in_signature: bool,
-}
+// additional whitespace, special tokens, skip comments, in signature
+pub const RECORD_KEY: LexOptions = lex_options!(b"\n\r,", b":", false, false);
 ```
 
-The fields are the parameters of nu's `lex` and `lex_item`
-(`additional_whitespace`, `special_tokens`, `skip_comment`, `in_signature`);
-nu's `lex_signature` is `lex` with `in_signature` set. The named presets map
-one-to-one onto the constructs that use them:
+A preset is built from the parameters of nu's `lex` and `lex_item`:
+
+* additional whitespace: extra bytes treated as whitespace; including `\n`
+  suppresses `Eol` tokens.
+* special tokens: bytes that become single-character items when they start a
+  token and terminate the item otherwise (`:` in records, `.` in cell paths).
+* skip comments: drop comments instead of emitting them (nu's `skip_comment`).
+* in signature: treat `<`/`>` as nesting brackets (type annotations such as
+  `list<int>`); nu's `lex_signature` is `lex` with it set.
+
+`lex_options!` also computes, at compile time, the sets of bytes the scanner
+stops at (`StopBytes`, see below), so the presets are the only `LexOptions`.
+The named presets map one-to-one onto the constructs that use them:
 
 | Preset | Whitespace | Special | Used by |
 | --- | --- | --- | --- |
@@ -158,12 +158,10 @@ the item: it walks the bytes of the remaining input with a small state
 machine and stops at the first *terminator at depth zero*:
 
 ```rust,ignore
-let is_terminator = |brackets: &[(Bracket, usize)], byte: u8| {
-    brackets.is_empty()
-        && (matches!(byte, b' ' | b'\t' | b'\n' | b'\r' | b'|' | b';')
-            || options.additional_whitespace.contains(&byte)
-            || options.special_tokens.contains(&byte))
-};
+// `terminators`: space, tab, `\n`, `\r`, `|`, `;` and the preset's additional
+// whitespace and special tokens.
+let is_terminator =
+    |brackets: &[(Bracket, usize)], byte: u8| brackets.is_empty() && stops.terminators.contains(byte);
 ```
 
 Then `item_contents` classifies the item's text, and `lex_item` advances the
@@ -194,8 +192,10 @@ State tracked while scanning:
 * An opening bracket whose group an earlier scan measured is jumped over
   (see below).
 * Outside quotes, a run of bytes none of the above cares about (letters,
-  digits, `$`, `-`, ...; `SpecialBytes` lists the others) is skipped in one
-  step.
+  digits, `$`, `-`, ...; `StopBytes::item` lists the others) is skipped in one
+  step. Inside brackets fewer bytes matter (`StopBytes::group`: brackets,
+  quotes, `#` and the newline that ends a comment), so the run there also
+  takes in whitespace, pipes and semicolons.
 
 The scanner is a byte loop, not a combinator grammar, on purpose. Where an
 item ends depends on the quotes and brackets open at each byte, which is state

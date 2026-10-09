@@ -63,7 +63,7 @@ count-allocs = []
 # The `nu` binary's release profile (the enclosing workspace's), so the timings
 # are those of the code `nu` runs.
 [profile.release]
-opt-level = "s"
+opt-level = 3
 strip = "debuginfo"
 lto = "thin"
 

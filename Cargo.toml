@@ -480,7 +480,7 @@ sqlite = [
 ]
 
 [profile.release]
-opt-level = "s"     # Optimize for size
+opt-level = 3     # Optimize for speed
 strip = "debuginfo"
 lto = "thin"
 

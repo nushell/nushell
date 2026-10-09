@@ -59,8 +59,8 @@ use crate::error::Diagnostic;
 use crate::lex::LexOptions;
 use crate::span::Span;
 
-pub use parse_def::PredeclaredDef;
-pub use parse_pipelines::BlockSink;
+pub use parse_def::{Definitions, PredeclaredDef};
+pub use parse_pipelines::{BlockSink, BlockStatements};
 use working_set::Collected;
 pub(crate) use working_set::WorkingSet;
 pub use working_set::{CommandLookup, DeclKind};
@@ -295,7 +295,10 @@ pub(crate) fn parse_block_streaming<'a>(
     lookup: &'a dyn CommandLookup,
     sink: &mut dyn BlockSink<'a>,
 ) -> Result<(), Vec<Diagnostic>> {
-    let working_set = WorkingSet::with_lookup(source, span, lookup);
-    let tokens = working_set.lex(span, LexOptions::BLOCK).map_err(|diagnostic| vec![diagnostic])?;
-    parse_pipelines::parse_block_streaming(tokens::Tokens::from_lexed(&working_set, &tokens), sink)
+    let (mut statements, definitions) = BlockStatements::new(source, span, lookup)?;
+    for def in definitions.parse(source, span, lookup) {
+        sink.predecl(def);
+    }
+    statements.parse(source, lookup, &mut |pipeline, diagnostics| sink.statement(pipeline, diagnostics));
+    Ok(())
 }

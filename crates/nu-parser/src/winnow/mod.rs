@@ -8,12 +8,15 @@
 //!
 //! The pieces:
 //!
-//! * [`driver`] runs `nu_winnow_parser::parse_block_streaming` over a block, one statement at a
-//!   time, and hands each statement to the lowering (or to the classic parser, see below) before
-//!   the next one is parsed. A `use` or `alias` therefore affects how the following statements
-//!   resolve their command names, as in the classic parser.
+//! * [`driver`] parses a block with `nu_winnow_parser::BlockStatements`, one statement at a
+//!   time, and hands each statement to the lowering (or to the classic parser, see below). A
+//!   `use` therefore affects how the following statements resolve their command names, as in
+//!   the classic parser. In a long block the statements are parsed on a second thread, ahead of
+//!   the lowering, with a copy of the command names; every name it resolved is checked against
+//!   the live working set before its statement is lowered.
 //! * [`lookup`] answers the winnow parser's questions about which commands exist from the live
-//!   [`StateWorkingSet`](nu_protocol::engine::StateWorkingSet).
+//!   [`StateWorkingSet`](nu_protocol::engine::StateWorkingSet), or from a copy of its names for
+//!   the second thread.
 //! * [`stats`] counts what went where, so a benchmark can say how much of its input the winnow
 //!   front end parsed.
 //!

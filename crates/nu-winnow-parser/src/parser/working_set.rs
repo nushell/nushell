@@ -83,13 +83,32 @@ pub trait CommandLookup {
     fn is_builtin_decl(&self, name: &str) -> bool;
 }
 
+impl<T: CommandLookup + ?Sized> CommandLookup for &T {
+    fn find_decl(&self, name: &str) -> Option<DeclKind> {
+        (**self).find_decl(name)
+    }
+
+    fn is_decl_name_prefix(&self, word: &str) -> bool {
+        (**self).is_decl_name_prefix(word)
+    }
+
+    fn longest_name(&self) -> usize {
+        (**self).longest_name()
+    }
+
+    fn is_builtin_decl(&self, name: &str) -> bool {
+        (**self).is_builtin_decl(name)
+    }
+}
+
 /// The source text, the known command names, and what one parse collects.
 pub struct WorkingSet<'a> {
     /// The complete source text; every span indexes into it.
     pub source: &'a str,
     config: ParseConfig,
-    /// The engine to ask about commands, instead of `config`.
-    lookup: Option<&'a dyn CommandLookup>,
+    /// The engine to ask about commands, instead of `config`. Owned, so that a parse on
+    /// another thread can own its lookup while the trees it builds borrow only the source.
+    lookup: Option<Box<dyn CommandLookup + 'a>>,
     comments: RefCell<Vec<Comment>>,
     /// Source text nu-parser accepts and discards (see [`crate::ast::Ast::ignored`]).
     ignored: RefCell<Vec<Span>>,
@@ -113,6 +132,16 @@ impl std::fmt::Debug for WorkingSet<'_> {
             .field("parse_errors", &self.parse_errors)
             .finish_non_exhaustive()
     }
+}
+
+/// What a parse knows between two statements of a block besides the tokens: the commands
+/// its scopes declare and the bracket groups it measured. A block's statements can be parsed
+/// a few at a time, each time in a new [`WorkingSet`] (see [`super::BlockStatements`]).
+#[derive(Debug, Default)]
+pub(crate) struct ParseState {
+    scopes: Vec<Scope>,
+    groups: GroupEnds,
+    longest_declared: usize,
 }
 
 /// What a finished parse collected besides the tree.
@@ -140,11 +169,31 @@ impl<'a> WorkingSet<'a> {
 
     /// A working set for parsing the text of `span` in `source` with the commands `lookup`
     /// knows.
-    pub fn with_lookup(source: &'a str, span: Span, lookup: &'a dyn CommandLookup) -> Self {
+    pub fn with_lookup(source: &'a str, span: Span, lookup: impl CommandLookup + 'a) -> Self {
         let mut working_set = Self::new(source, &ParseConfig::empty());
-        working_set.lookup = Some(lookup);
+        working_set.lookup = Some(Box::new(lookup));
         working_set.groups = RefCell::new(GroupEnds::new(span));
         working_set
+    }
+
+    /// A working set that goes on from `state`, what an earlier one over the same text knew
+    /// ([`WorkingSet::into_state`]), with the commands `lookup` knows.
+    pub(crate) fn with_state(source: &'a str, lookup: impl CommandLookup + 'a, state: ParseState) -> Self {
+        let mut working_set = Self::new(source, &ParseConfig::empty());
+        working_set.lookup = Some(Box::new(lookup));
+        working_set.scopes = RefCell::new(state.scopes);
+        working_set.groups = RefCell::new(state.groups);
+        working_set.longest_declared = Cell::new(state.longest_declared);
+        working_set
+    }
+
+    /// What this working set knows for a later one to go on from ([`WorkingSet::with_state`]).
+    pub(crate) fn into_state(self) -> ParseState {
+        ParseState {
+            scopes: self.scopes.into_inner(),
+            groups: self.groups.into_inner(),
+            longest_declared: self.longest_declared.get(),
+        }
     }
 
     /// Lex the text of `span` (nu's `lex` over the span's contents).
@@ -225,7 +274,7 @@ impl<'a> WorkingSet<'a> {
         if let Some(scope) = scopes.iter().rev().find(|scope| scope.commands.names.contains(name)) {
             return Some(scope.kind(name));
         }
-        match self.lookup {
+        match &self.lookup {
             Some(lookup) => lookup.find_decl(name),
             None => self.config.is_known(name).then_some(DeclKind::Builtin),
         }
@@ -241,7 +290,7 @@ impl<'a> WorkingSet<'a> {
     /// Whether `word` is the first word of some known multi-word command.
     #[inline]
     pub fn is_decl_name_prefix(&self, word: &str) -> bool {
-        let known = match self.lookup {
+        let known = match &self.lookup {
             Some(lookup) => lookup.is_decl_name_prefix(word),
             None => self.config.is_prefix(word),
         };
@@ -250,7 +299,7 @@ impl<'a> WorkingSet<'a> {
 
     /// An upper bound on the length of every command name: no longer name is known.
     pub fn longest_decl_name(&self) -> usize {
-        let known = match self.lookup {
+        let known = match &self.lookup {
             Some(lookup) => lookup.longest_name(),
             None => self.config.longest_name(),
         };
@@ -271,7 +320,7 @@ impl<'a> WorkingSet<'a> {
     /// Whether `name` is one of the configured built-in commands, whatever
     /// the file declares (what `%name` may call).
     pub fn is_builtin_decl(&self, name: &str) -> bool {
-        match self.lookup {
+        match &self.lookup {
             Some(lookup) => lookup.is_builtin_decl(name),
             None => self.config.is_builtin(name),
         }

@@ -33,7 +33,9 @@ pub mod pretty;
 pub mod span;
 
 pub use error::{Diagnostic, ErrorKind, ParseError};
-pub use parser::{BlockSink, CommandLookup, CommandType, DeclKind, ParseConfig, PredeclaredDef};
+pub use parser::{
+    BlockSink, BlockStatements, CommandLookup, CommandType, DeclKind, Definitions, ParseConfig, PredeclaredDef,
+};
 pub use span::{LineCol, LineIndex, Span, Spanned};
 
 use ast::Ast;

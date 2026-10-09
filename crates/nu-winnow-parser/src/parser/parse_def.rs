@@ -20,7 +20,7 @@ use super::parse_helpers::{is_help_flag, is_spread};
 use super::parse_keywords::{KeywordCall, is_parser_keyword, parse_block_or_value_argument, seen_end_of_options};
 use super::parse_signatures::{parse_definition_name, parse_full_signature, parse_var_type, parse_var_with_opt_type};
 use super::tokens::{Tokens, item, tokens_until};
-use super::working_set::DeclKind;
+use super::working_set::{CommandLookup, DeclKind};
 
 /// Declare the names of the `def`/`extern` statements of a block before
 /// parsing it (nu's `parse_def_predecl`, which nu's `parse_block` calls for
@@ -55,25 +55,54 @@ pub struct PredeclaredDef<'a> {
     pub external: bool,
 }
 
-/// [`parse_def_predecl`], also returning each definition with its signature.
-/// What parsing a name or signature reports is dropped, as nu's
-/// predeclaration drops it (the statement reports it again when parsed).
-pub fn collect_predecls<'a>(working_set: &WorkingSet<'a>, tokens: &[Token]) -> Vec<PredeclaredDef<'a>> {
-    let mut defs = Vec::new();
-    scan_definitions(working_set, tokens, |found| {
-        let before = working_set.error_count();
-        defs.push(predeclared_def(working_set, found));
-        drop(working_set.take_errors_from(before));
+/// [`parse_def_predecl`], also returning the definitions found, whose signatures
+/// [`Definitions::parse`] parses later: the statements can be parsed
+/// meanwhile, since the names are declared.
+pub(super) fn scan_predecls(working_set: &WorkingSet<'_>, tokens: &[Token]) -> Definitions {
+    let mut found = Vec::new();
+    scan_definitions(working_set, tokens, |definition| {
+        let items = definition.items.to_vec();
+        found.push(definition.with_items(items));
     });
-    defs
+    Definitions(found)
 }
 
-/// A definition found by [`scan_definitions`].
-struct FoundDefinition<'t> {
+/// The `def`/`extern` statements of a block, as the predeclaration scan found
+/// them (see [`crate::BlockStatements::new`]), their signatures not yet
+/// parsed.
+#[derive(Debug, Default)]
+pub struct Definitions(Vec<FoundDefinition<Vec<Token>>>);
+
+impl Definitions {
+    /// Each definition with its signature, parsed in `source` with the
+    /// commands `lookup` knows. A signature is parsed as the scan would have
+    /// parsed it: with the names of the block's definitions up to its own
+    /// declared. What parsing a name or signature reports is dropped, as nu's
+    /// predeclaration drops it (the statement reports it again when parsed).
+    pub fn parse<'a>(self, source: &'a str, span: Span, lookup: impl CommandLookup + 'a) -> Vec<PredeclaredDef<'a>> {
+        let working_set = WorkingSet::with_lookup(source, span, lookup);
+        self.0
+            .into_iter()
+            .map(|found| {
+                if let Some(kind) = found.declared {
+                    working_set.add_predecl(declared_name(&working_set, found.name.span), kind);
+                }
+                let def = predeclared_def(&working_set, found.with_items(found.items.as_slice()));
+                drop(working_set.take_errors_from(0));
+                def
+            })
+            .collect()
+    }
+}
+
+/// A definition found by [`scan_definitions`], with its items (`&[Token]` while
+/// scanning, `Vec<Token>` in [`Definitions`]).
+#[derive(Debug)]
+struct FoundDefinition<Items> {
     /// The statement's items, from its first to its last.
     span: Span,
     /// The items of the statement after `def`/`extern`: flags, name, signature, body.
-    items: &'t [Token],
+    items: Items,
     /// The name item.
     name: Token,
     /// Whether an item starting with `[` or `(` follows the name.
@@ -81,12 +110,27 @@ struct FoundDefinition<'t> {
     /// Whether the statement has the `--wrapped` flag.
     wrapped: bool,
     external: bool,
+    /// How the scan declared the name; `None` when it did not.
+    declared: Option<DeclKind>,
+}
+
+impl<Items> FoundDefinition<Items> {
+    /// This definition with `items` for its items.
+    fn with_items<Other>(&self, items: Other) -> FoundDefinition<Other> {
+        let FoundDefinition { span, name, has_signature, wrapped, external, declared, .. } = *self;
+        FoundDefinition { span, items, name, has_signature, wrapped, external, declared }
+    }
+}
+
+/// The name a definition whose name item is at `span` is declared under: its text, unquoted.
+fn declared_name<'a>(working_set: &WorkingSet<'a>, span: Span) -> &'a str {
+    working_set.get_span_contents(span).trim_matches(['"', '\'', '`'])
 }
 
 /// A definition found by the scan, with its signature: the items from the
 /// first one starting with `[` or `(` after the name, up to (not including) a
 /// `def`'s body.
-fn predeclared_def<'a>(working_set: &WorkingSet<'a>, found: FoundDefinition<'_>) -> PredeclaredDef<'a> {
+fn predeclared_def<'a>(working_set: &WorkingSet<'a>, found: FoundDefinition<&[Token]>) -> PredeclaredDef<'a> {
     let name = match parse_definition_name(working_set, found.name.span) {
         Ok(name) => name,
         Err(_) => Spanned::new(Cow::Borrowed(working_set.get_span_contents(found.name.span)), found.name.span),
@@ -115,7 +159,7 @@ fn predeclared_def<'a>(working_set: &WorkingSet<'a>, found: FoundDefinition<'_>)
 fn scan_definitions(
     working_set: &WorkingSet<'_>,
     tokens: &[Token],
-    mut on_definition: impl FnMut(FoundDefinition<'_>),
+    mut on_definition: impl FnMut(FoundDefinition<&[Token]>),
 ) {
     let mut declared: Vec<&str> = Vec::new();
     let mut at_line_start = true;
@@ -197,6 +241,7 @@ fn scan_definitions(
                     has_signature,
                     wrapped: false,
                     external: head == "extern",
+                    declared: None,
                 };
                 let name = name.trim_matches(['"', '\'', '`']);
                 // nu predeclares a definition only when a signature item follows the name.
@@ -216,7 +261,8 @@ fn scan_definitions(
                         .skip_while(|(_, span)| *span != name_span)
                         .find(|(word, _)| word.starts_with(['[', '(']))
                         .is_some_and(|(signature, _)| has_untyped_rest(signature));
-                working_set.add_predecl(name, if wrapped { DeclKind::Wrapped } else { DeclKind::Declared });
+                let kind = if wrapped { DeclKind::Wrapped } else { DeclKind::Declared };
+                working_set.add_predecl(name, kind);
                 if declared.contains(&name) {
                     working_set.error(
                         Diagnostic::message("duplicate command definition within a block", name_span)
@@ -224,7 +270,7 @@ fn scan_definitions(
                     );
                 }
                 declared.push(name);
-                on_definition(FoundDefinition { wrapped: has_wrapped_flag, ..found });
+                on_definition(FoundDefinition { wrapped: has_wrapped_flag, declared: Some(kind), ..found });
             }
             _ => {
                 at_line_start = false;

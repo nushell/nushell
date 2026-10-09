@@ -4,7 +4,7 @@
 
 use nu_engine::DIR_VAR_PARSER_INFO;
 use nu_protocol::{
-    DeclId, Flag, Span, Spanned, SyntaxShape, Type, TypeSet,
+    DeclId, Flag, Span, Spanned, SyntaxShape, Type,
     ast::{Call, Expr, Expression, ExternalArgument},
 };
 use nu_winnow_parser::ast as w;
@@ -113,12 +113,9 @@ impl<'s> Lower<'_, '_, 's> {
         let checks_lib_dirs = decl.name() == "nu-check" && decl.is_builtin();
         let alias_call = decl.as_alias().map(|alias| alias.wrapped_call.clone());
 
-        let output = signature
-            .get_output_type(
-                input_type
-                    .map(|ty| ty.clone().union(Type::Nothing))
-                    .as_ref(),
-            )
+        let output = self
+            .working_set
+            .call_output_type(decl_id, &signature, input_type)
             .unwrap_or(Type::Error);
 
         let mut positional_idx = 0;

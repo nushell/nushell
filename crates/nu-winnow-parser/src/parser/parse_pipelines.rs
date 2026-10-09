@@ -5,7 +5,7 @@ use crate::ast::{
 };
 use crate::error::{Diagnostic, ErrorKind};
 use crate::input::{ParseResult, cut, into_diagnostic};
-use crate::lex::{RedirectionSource, Token, TokenContents, assignment_operator};
+use crate::lex::{LexOptions, RedirectionSource, Token, TokenContents, assignment_operator};
 use crate::span::Span;
 
 use super::WorkingSet;
@@ -14,10 +14,11 @@ use super::lite_parser::{
     take_pipe_on_later_line,
 };
 use super::parse_calls::{keyword_signature_of_call, parse_attribute};
-use super::parse_def::{PredeclaredDef, collect_predecls, parse_def_predecl};
+use super::parse_def::{Definitions, PredeclaredDef, parse_def_predecl, scan_predecls};
 use super::parse_expressions::{ExpectedShape, Position, parse_builtin_commands, parse_expression, parse_value};
 use super::parse_helpers::garbage_pipeline;
 use super::tokens::Tokens;
+use super::working_set::{CommandLookup, ParseState};
 
 /// The pipelines of a block covering `span` (nu's `parse_block`).
 ///
@@ -28,7 +29,7 @@ pub fn parse_block<'a>(mut tokens: Tokens<'_, 'a>, span: Span) -> Block<'a> {
     parse_def_predecl(working_set, tokens.all());
     check_dangling_pipe(working_set, tokens.all());
     let mut pipelines: Vec<Pipeline<'a>> = Vec::new();
-    parse_statements(&mut tokens, &mut pipelines);
+    parse_statements(&mut tokens, &mut StatementsState::default(), &mut pipelines);
     Block { span, pipelines }
 }
 
@@ -48,30 +49,100 @@ pub trait BlockSink<'a> {
     fn statement(&mut self, pipeline: Pipeline<'a>, diagnostics: Vec<Diagnostic>) -> bool;
 }
 
-/// The pipelines of a block covering `span`, handed to `sink` one statement
-/// at a time (see [`BlockSink`]).
-///
-/// Diagnostics that concern the block as a whole (a definition declared twice,
-/// a `|` that ends the block) are returned before `sink` sees anything, so the
-/// caller can parse the block another way. Neither a statement's terminator
-/// nor the comments after it on its line are handed over.
-pub fn parse_block_streaming<'a>(
-    mut tokens: Tokens<'_, 'a>,
-    sink: &mut dyn BlockSink<'a>,
-) -> Result<(), Vec<Diagnostic>> {
-    let working_set = tokens.working_set;
-    let before = working_set.error_count();
-    let predecls = collect_predecls(working_set, tokens.all());
-    check_dangling_pipe(working_set, tokens.all());
-    let block_errors = working_set.take_errors_from(before);
-    if !block_errors.is_empty() {
-        return Err(block_errors);
+/// A block's statements, parsed a few at a time (see [`crate::parse_block_streaming`]): the
+/// block's tokens and how far parsing them got. It borrows nothing, so it can move to another
+/// thread between two calls of [`BlockStatements::parse`], and each call may resolve command
+/// names with a different [`CommandLookup`](super::working_set::CommandLookup).
+#[derive(Debug)]
+pub struct BlockStatements {
+    /// The block's tokens, as the lexer returned them (`Eof` last).
+    tokens: Vec<Token>,
+    /// The next token to parse.
+    position: usize,
+    statements: StatementsState,
+    parse_state: ParseState,
+}
+
+impl BlockStatements {
+    /// Lex the block covering `span` of `source` and declare the names of its definitions
+    /// (nu's `parse_def_predecl`), resolving command names with `lookup`. Returns the statements
+    /// still to parse and every `def`/`extern` of the block, whose signatures
+    /// [`Definitions::parse`] parses: an engine declares them before it takes any statement,
+    /// and the statements can be parsed meanwhile.
+    ///
+    /// A lexing error, or a diagnostic about the block as a whole (a definition declared
+    /// twice, a `|` that ends the block), is returned instead.
+    pub fn new<'a>(
+        source: &'a str,
+        span: Span,
+        lookup: impl CommandLookup + 'a,
+    ) -> Result<(Self, Definitions), Vec<Diagnostic>> {
+        let working_set = WorkingSet::with_lookup(source, span, lookup);
+        let tokens = working_set.lex(span, LexOptions::BLOCK).map_err(|diagnostic| vec![diagnostic])?;
+        let stream = Tokens::from_lexed(&working_set, &tokens);
+        let definitions = scan_predecls(&working_set, stream.all());
+        check_dangling_pipe(&working_set, stream.all());
+        let block_errors = working_set.take_errors_from(0);
+        if !block_errors.is_empty() {
+            return Err(block_errors);
+        }
+        let parse_state = working_set.into_state();
+        Ok((Self { tokens, position: 0, statements: StatementsState::default(), parse_state }, definitions))
     }
-    for def in predecls {
-        sink.predecl(def);
+
+    /// Parse the next statements, resolving command names with `lookup`, and hand each to
+    /// `sink` with the diagnostics parsing it reported (when there are some, the pipeline may
+    /// be a garbage placeholder that spans the statement). A statement is parsed only after
+    /// the previous one was handed over. Stops when `sink` returns `false` or the block ends.
+    ///
+    /// Neither a statement's terminator nor the comments after it on its line are handed over.
+    pub fn parse<'a>(
+        &mut self,
+        source: &'a str,
+        lookup: impl CommandLookup + 'a,
+        sink: &mut dyn FnMut(Pipeline<'a>, Vec<Diagnostic>) -> bool,
+    ) {
+        let parse_state = std::mem::take(&mut self.parse_state);
+        let working_set = WorkingSet::with_state(source, lookup, parse_state);
+        let mut tokens = Tokens::from_lexed(&working_set, &self.tokens);
+        tokens.reset_to(self.position);
+        parse_statements(&mut tokens, &mut self.statements, &mut StreamingSink { sink, working_set: &working_set });
+        self.position = tokens.position();
+        self.parse_state = working_set.into_state();
     }
-    parse_statements(&mut tokens, &mut StreamingSink { sink, working_set, handed_over: false });
-    Ok(())
+
+    /// Whether every statement was parsed.
+    pub fn is_done(&self) -> bool {
+        self.position >= self.stream_len()
+    }
+
+    /// The text of the statements still to parse: from the next token to the end of the block.
+    pub fn remaining(&self) -> Span {
+        let end = self.tokens.last().map_or(0, |token| token.span.end);
+        let start = self.tokens.get(self.position).map_or(end, |token| token.span.start);
+        Span::new(start, end)
+    }
+
+    /// The first two words of the next statement (the second when it is on the same line),
+    /// to tell what kind of statement comes without parsing it.
+    pub fn next_words<'a>(&self, source: &'a str) -> (Option<&'a str>, Option<&'a str>) {
+        let rest = &self.tokens[self.position.min(self.stream_len())..self.stream_len()];
+        let mut words = rest
+            .iter()
+            .skip_while(|token| {
+                matches!(token.contents, TokenContents::Eol | TokenContents::Comment | TokenContents::Semicolon)
+            })
+            .map_while(|token| token.is_item().then(|| token.text(source)));
+        (words.next(), words.next())
+    }
+
+    /// The number of tokens the statements are parsed from (all but the closing `Eof`).
+    fn stream_len(&self) -> usize {
+        match self.tokens.last() {
+            Some(last) if last.contents == TokenContents::Eof => self.tokens.len() - 1,
+            _ => self.tokens.len(),
+        }
+    }
 }
 
 /// nu's lite parser: a block whose last token, skipping trailing comment
@@ -100,8 +171,6 @@ trait StatementSink<'a> {
     /// The pipeline pushed last, while it can still be amended (its
     /// terminator, a comment after it on its line).
     fn last_mut(&mut self) -> Option<&mut Pipeline<'a>>;
-    /// Whether a pipeline was pushed.
-    fn has_last(&self) -> bool;
 }
 
 impl<'a> StatementSink<'a> for Vec<Pipeline<'a>> {
@@ -118,25 +187,19 @@ impl<'a> StatementSink<'a> for Vec<Pipeline<'a>> {
     fn last_mut(&mut self) -> Option<&mut Pipeline<'a>> {
         self.as_mut_slice().last_mut()
     }
-
-    fn has_last(&self) -> bool {
-        !self.is_empty()
-    }
 }
 
-/// Hands each pipeline to a [`BlockSink`] with the diagnostics parsing it
+/// Hands each pipeline to a [`BlockStatements::parse`] sink with the diagnostics parsing it
 /// reported.
 struct StreamingSink<'s, 'w, 'a> {
-    sink: &'s mut dyn BlockSink<'a>,
+    sink: &'s mut dyn FnMut(Pipeline<'a>, Vec<Diagnostic>) -> bool,
     working_set: &'w WorkingSet<'a>,
-    handed_over: bool,
 }
 
 impl<'a> StatementSink<'a> for StreamingSink<'_, '_, 'a> {
     fn push(&mut self, pipeline: Pipeline<'a>, errors_before: usize) -> bool {
         let diagnostics = self.working_set.take_errors_from(errors_before);
-        self.handed_over = true;
-        self.sink.statement(pipeline, diagnostics)
+        (self.sink)(pipeline, diagnostics)
     }
 
     fn push_garbage(&mut self, span: Span, leading_comments: Vec<Comment>, errors_before: usize) -> bool {
@@ -149,29 +212,42 @@ impl<'a> StatementSink<'a> for StreamingSink<'_, '_, 'a> {
     fn last_mut(&mut self) -> Option<&mut Pipeline<'a>> {
         None
     }
+}
 
-    fn has_last(&self) -> bool {
-        self.handed_over
+/// Where [`parse_statements`] stands between two statements, so that a block's statements can
+/// be parsed a few at a time ([`BlockStatements`]).
+#[derive(Debug)]
+struct StatementsState {
+    /// Comments on lines of their own since the last statement: the next statement's.
+    pending: Vec<Comment>,
+    /// A `|` that no command followed before a blank line, which nu hands to the next command.
+    carried_pipe: Option<Span>,
+    /// What the last token was.
+    last: TokenContents,
+    /// Whether a statement was pushed.
+    pushed: bool,
+}
+
+impl Default for StatementsState {
+    fn default() -> Self {
+        Self { pending: Vec::new(), carried_pipe: None, last: TokenContents::Eol, pushed: false }
     }
 }
 
 /// The statements of a block, pushed to `out` as they are parsed, until `out`
 /// says to stop. Comments on lines of their own before a statement become its
 /// leading comments.
-fn parse_statements<'a>(tokens: &mut Tokens<'_, 'a>, out: &mut dyn StatementSink<'a>) {
+fn parse_statements<'a>(tokens: &mut Tokens<'_, 'a>, state: &mut StatementsState, out: &mut dyn StatementSink<'a>) {
     let working_set = tokens.working_set;
-    let mut pending: Vec<Comment> = Vec::new();
-    // A `|` that no command followed before a blank line, which nu hands to the next command.
-    let mut carried_pipe: Option<Span> = None;
-    let mut last = TokenContents::Eol;
+    let StatementsState { pending, carried_pipe, last, pushed } = state;
     while let Some(token) = tokens.peek_token() {
         match token.contents {
             TokenContents::Eol => {
-                if last == TokenContents::Eol {
+                if *last == TokenContents::Eol {
                     pending.clear();
                 }
                 tokens.next_token();
-                last = TokenContents::Eol;
+                *last = TokenContents::Eol;
             }
             TokenContents::Semicolon => {
                 if !matches!(last, TokenContents::Eol | TokenContents::Semicolon)
@@ -181,11 +257,11 @@ fn parse_statements<'a>(tokens: &mut Tokens<'_, 'a>, out: &mut dyn StatementSink
                     pipeline.terminator = Some(token.span);
                 }
                 tokens.next_token();
-                last = TokenContents::Semicolon;
+                *last = TokenContents::Semicolon;
             }
             TokenContents::Comment => {
                 working_set.add_comment(token.span);
-                if out.has_last() && last != TokenContents::Eol {
+                if *pushed && *last != TokenContents::Eol {
                     if let Some(pipeline) = out.last_mut() {
                         pipeline.trailing_comments.push(Comment { span: token.span });
                     }
@@ -193,14 +269,18 @@ fn parse_statements<'a>(tokens: &mut Tokens<'_, 'a>, out: &mut dyn StatementSink
                     pending.push(Comment { span: token.span });
                 }
                 tokens.next_token();
-                last = TokenContents::Comment;
+                *last = TokenContents::Comment;
             }
             _ => {
                 let start = tokens.position();
                 let start_span = token.span;
                 let errors_before = working_set.error_count();
-                match parse_pipeline(tokens, &mut pending, &mut carried_pipe) {
+                // The state is up to date before each push: `out` may stop the loop there, and a
+                // later call goes on from the state.
+                let go_on = match parse_pipeline(tokens, pending, carried_pipe) {
                     Ok(Some(mut pipeline)) => {
+                        *pushed = true;
+                        *last = TokenContents::Item;
                         // A comment right after the statement, on its line, is the statement's
                         // (for a definition, part of its description), so it goes with it.
                         if let Some(comment) =
@@ -209,27 +289,27 @@ fn parse_statements<'a>(tokens: &mut Tokens<'_, 'a>, out: &mut dyn StatementSink
                             working_set.add_comment(comment.span);
                             pipeline.trailing_comments.push(Comment { span: comment.span });
                             tokens.next_token();
-                            if !out.push(pipeline, errors_before) {
-                                return;
-                            }
-                            last = TokenContents::Comment;
-                            continue;
+                            *last = TokenContents::Comment;
                         }
-                        if !out.push(pipeline, errors_before) {
-                            return;
-                        }
+                        out.push(pipeline, errors_before)
                     }
-                    Ok(None) => pending.clear(),
+                    Ok(None) => {
+                        pending.clear();
+                        *last = TokenContents::Item;
+                        true
+                    }
                     Err(error) => {
                         working_set.error(into_diagnostic(error));
                         tokens.reset_to(start);
                         let end = skip_to_statement_end(tokens);
-                        if !out.push_garbage(start_span.merge(end), std::mem::take(&mut pending), errors_before) {
-                            return;
-                        }
+                        *pushed = true;
+                        *last = TokenContents::Item;
+                        out.push_garbage(start_span.merge(end), std::mem::take(pending), errors_before)
                     }
+                };
+                if !go_on {
+                    return;
                 }
-                last = TokenContents::Item;
             }
         }
     }

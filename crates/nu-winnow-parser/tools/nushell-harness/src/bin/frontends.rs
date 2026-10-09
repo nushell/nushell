@@ -450,14 +450,17 @@ fn bench(engine_state: &EngineState, files: &[PathBuf], iters: u32) {
         "TOTAL {benched} files, {bytes} bytes: classic {classic_total:.2?}, winnow {winnow_total:.2?} (of which winnow syntax {syntax_total:.2?}), {:.3}x (medians of {ROUNDS} rounds)",
         classic_total.as_secs_f64() / winnow_total.as_secs_f64().max(1e-12)
     );
-    let per = |a: u64, b: u64| (a - b) / parses.max(1) * benched as u64;
+    // Counts for one parse of every file of the set (each file was parsed `parses / benched` times).
+    let per = |a: u64, b: u64| (a - b) as f64 / parses.max(1) as f64 * benched as f64;
     println!(
-        "winnow front end per parse of the set: {} statements lowered, {} parsed by the classic parser ({} bytes), {} blocks by winnow, {} blocks classic",
+        "winnow front end per parse of the set: {:.1} statements lowered, {:.1} parsed by the classic parser ({:.0} bytes), {:.1} blocks by winnow, {:.1} blocks classic, {:.1} runs parsed ahead on a second thread ({:.1} handed to the classic parser)",
         per(after.lowered_statements, before.lowered_statements),
         per(after.classic_statements, before.classic_statements),
         per(after.classic_statement_bytes, before.classic_statement_bytes),
         per(after.winnow_blocks, before.winnow_blocks),
         per(after.classic_blocks, before.classic_blocks),
+        per(after.ahead_runs, before.ahead_runs),
+        per(after.ahead_fallbacks, before.ahead_fallbacks),
     );
 }
 
