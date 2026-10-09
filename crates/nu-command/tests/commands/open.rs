@@ -212,7 +212,16 @@ fn sqlite_database_operations(#[case] operation: &str, #[case] expected: impl In
 #[case::wrap("wrap wrapped | columns | first", "wrapped")]
 #[case::interleave("interleave { [{z: 999}] } | length", 6)]
 #[case::rotate("rotate --ccw | columns | first", "column0")]
-#[case::group_by("group-by z | length", 5)]
+#[case::group_by(
+    "group-by z",
+    test_value!([
+        {z: 1, items: [{z: 1}]},
+        {z: 42, items: [{z: 42}]},
+        {z: 425, items: [{z: 425}]},
+        {z: 4253, items: [{z: 4253}]},
+        {z: (), items: [{z: ()}]},
+    ])
+)]
 #[case::get("get z.0", 1)]
 #[case::length("length", 5)]
 #[case::merge("first | merge {n: 1} | get n", 1)]

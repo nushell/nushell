@@ -1,5 +1,6 @@
 use nu_protocol::test_value;
 use nu_test_support::prelude::*;
+use rstest::rstest;
 
 #[test]
 fn groups() -> Result {
@@ -90,17 +91,6 @@ fn group_by_to_table_on_empty_list_returns_empty_list() -> Result {
 }
 
 #[test]
-fn optional_cell_path_works() -> Result {
-    // Int keys are not strings, so the default output is a table.
-    test()
-        .run("[{foo: 123}, {foo: 234}, {bar: 345}] | group-by foo?")
-        .expect_value_eq(test_value!([
-            {foo: 123, items: [{foo: 123}]},
-            {foo: 234, items: [{foo: 234}]},
-        ]))
-}
-
-#[test]
 fn group_by_compound_values_are_grouped_distinctly() -> Result {
     // List keys force table output. Distinct lists stay distinct.
     test()
@@ -182,7 +172,8 @@ fn null_and_empty_string_are_distinct_groups() -> Result {
 
 #[test]
 fn optional_cell_path_still_skips_nothing() -> Result {
-    // Missing optional column is still ignored (historical #9020 behavior).
+    // Missing optional column is still ignored (historical #9020 behavior). The keys are ints,
+    // so the default output is a table.
     test()
         .run("[{foo: 123}, {foo: 234}, {bar: 345}] | group-by foo?")
         .expect_value_eq(test_value!([
@@ -217,7 +208,12 @@ fn multi_grouper_null_key_in_to_table() -> Result {
             {a: 2, b: 1, items: [{a: 2, b: 1}]},
         ]))?;
 
-    // Non-string keys (and null) force table output; null is kept as nothing.
+    // `expect_value_eq` compares with `==`, where `1 == 1.0`, so check the key type directly.
+    test()
+        .run("[ { a: null, b: 1 } { a: 2, b: 1 } ] | group-by a b --to-table | get b | each { describe }")
+        .expect_value_eq(["int", "int"])?;
+
+    // Int keys force table output; the null group is kept as nothing.
     test()
         .run("[ { a: null, b: 1 } { a: 2, b: 1 } ] | group-by a b")
         .expect_value_eq(test_value!([
@@ -227,25 +223,39 @@ fn multi_grouper_null_key_in_to_table() -> Result {
 }
 
 #[test]
-fn to_table_preserves_filesize_keys_and_does_not_collapse_display_collisions() -> Result {
+fn multi_grouper_record_omits_null_branch() -> Result {
+    // String and null keys give a record, which omits the null branch.
     test()
-        .run("[[size]; [1MB] [1.001MB]] | group-by size --to-table | length")
-        .expect_value_eq(2)?;
+        .run(r#"[ { a: null, b: "1" } { a: "2", b: "1" } ] | group-by a b"#)
+        .expect_value_eq(test_value!({
+            "2": {
+                "1": [{a: "2", b: "1"}],
+            },
+        }))
+}
 
-    let code = "
-        let data = [[size]; [1MB] [1.001MB]]
-        let grouped = $data | group-by size --to-table
-        $grouped.size == $data.size
-    ";
-    test().run(code).expect_value_eq(true)?;
-
+#[test]
+fn nested_non_string_keys_emit_a_table() -> Result {
+    // A non-string key below the first grouper also needs a table.
     test()
-        .run("[[size]; [1MB]] | group-by size --to-table | get 0.size | describe")
-        .expect_value_eq("filesize")?;
+        .run(r#"[ { a: "x", b: 1 } { a: "x", b: 2 } ] | group-by a b"#)
+        .expect_value_eq(test_value!([
+            {a: "x", b: 1, items: [{a: "x", b: 1}]},
+            {a: "x", b: 2, items: [{a: "x", b: 2}]},
+        ]))
+}
 
-    test()
-        .run("[[size]; [1MB] [1.001MB]] | group-by size --to-table | get 0.size | into filesize")
-        .expect_value_eq(nu_protocol::Filesize::new(1_000_000))
+#[rstest]
+#[case::default("let data = [[size]; [1MB] [1.001MB]]; ($data | group-by size).size == $data.size")]
+#[case::to_table(
+    "let data = [[size]; [1MB] [1.001MB]]; ($data | group-by size --to-table).size == $data.size"
+)]
+fn filesize_keys_keep_their_type_and_do_not_collapse_display_collisions(
+    #[case] code: &str,
+) -> Result {
+    // 1MB and 1.001MB both display as "1.0 MB". A filesize only equals another filesize, so the
+    // comparison fails if the two groups merge or the keys turn into strings or numbers.
+    test().run(code).expect_value_eq(true)
 }
 
 #[test]
@@ -257,33 +267,19 @@ fn to_table_groups_equal_lists_and_keeps_list_keys() -> Result {
         ]))
 }
 
-#[test]
-fn to_table_keeps_int_keys() -> Result {
-    test()
-        .run("[{n: 1} {n: 1} {n: 2}] | group-by n --to-table")
-        .expect_value_eq(test_value!([
-            {n: 1, items: [{n: 1}, {n: 1}]},
-            {n: 2, items: [{n: 2}]},
-        ]))
+#[rstest]
+#[case::default("[{n: 1} {n: 1} {n: 2}] | group-by n | update n { describe }")]
+#[case::to_table("[{n: 1} {n: 1} {n: 2}] | group-by n --to-table | update n { describe }")]
+fn int_keys_keep_their_type(#[case] code: &str) -> Result {
+    // `expect_value_eq` compares with `==`, where `1 == 1.0`, so `describe` checks the key type.
+    test().run(code).expect_value_eq(test_value!([
+        {n: "int", items: [{n: 1}, {n: 1}]},
+        {n: "int", items: [{n: 2}]},
+    ]))
 }
 
 #[test]
 fn non_string_keys_emit_a_table_without_to_table_flag() -> Result {
-    test()
-        .run("[[size]; [1MB] [1.001MB]] | group-by size | length")
-        .expect_value_eq(2)?;
-
-    test()
-        .run("[[size]; [1MB]] | group-by size | get 0.size | describe")
-        .expect_value_eq("filesize")?;
-
-    test()
-        .run("[{n: 1} {n: 1} {n: 2}] | group-by n")
-        .expect_value_eq(test_value!([
-            {n: 1, items: [{n: 1}, {n: 1}]},
-            {n: 2, items: [{n: 2}]},
-        ]))?;
-
     test()
         .run("[1 2 1] | group-by")
         .expect_value_eq(test_value!([
@@ -338,6 +334,30 @@ fn items_grouper_errors_when_output_is_a_table() -> Result {
     }
 }
 
+#[rstest]
+#[case::items("[] | group-by items --to-table", "can't be named `items`")]
+#[case::duplicate("[] | group-by a a --to-table", "colliding column names")]
+fn to_table_checks_column_names_on_empty_input(
+    #[case] code: &str,
+    #[case] message: &str,
+) -> Result {
+    // `--to-table` always returns a table, so its column names are checked even with no rows.
+    match test().run(code).expect_shell_error()? {
+        ShellError::Generic(generic) => {
+            assert_contains(message, generic.error.as_ref());
+            Ok(())
+        }
+        err => Err(err.into()),
+    }
+}
+
+#[test]
+fn errors_in_the_input_are_raised() -> Result {
+    test()
+        .run("1..3 | each {|n| error make { msg: 'boom' } } | group-by")
+        .expect_error_code_eq("nu::shell::eval_block_with_input")
+}
+
 #[test]
 fn closures_with_different_captures_are_distinct_groups() -> Result {
     let code = "
@@ -349,44 +369,32 @@ fn closures_with_different_captures_are_distinct_groups() -> Result {
 
 #[test]
 fn to_table_does_not_merge_int_and_float_ranges() -> Result {
-    // `1..3 == 1.0..3.0` is true, but --to-table groups by typed identity.
-    test()
-        .run("[1..3, 1..3, 1.0..3.0] | group-by --to-table | length")
-        .expect_value_eq(2)?;
-
-    test()
-        .run("[1..3, 1..3] | group-by --to-table | length")
-        .expect_value_eq(1)?;
-
-    test()
-        .run("[1.0..3.0, 1.0..3.0] | group-by --to-table | length")
-        .expect_value_eq(1)?;
-
-    test()
-        .run("[1..3, 1..4] | group-by --to-table | length")
-        .expect_value_eq(2)?;
-
-    test()
-        .run("[1..3] | group-by --to-table | get 0.group | describe")
-        .expect_value_eq("range")?;
-
+    // `1..3 == 1.0..3.0` is true, but group keys keep their type. `describe` prints `range` for
+    // both kinds, so the item counts show that int and float ranges stay apart.
     let code = "
-        let grouped = [1..3, 1..3, 1.0..3.0] | group-by --to-table
-        ($grouped.items.0 | length) == 2 and ($grouped.items.1 | length) == 1
+        [1..3, 1..3, 1.0..3.0, 1.0..3.0, 1..4]
+        | group-by --to-table
+        | update group { describe }
+        | update items { length }
     ";
-    test().run(code).expect_value_eq(true)
+    test().run(code).expect_value_eq(test_value!([
+        {group: "range", items: 2},
+        {group: "range", items: 2},
+        {group: "range", items: 1},
+    ]))
 }
 
 #[test]
 fn int_and_float_keys_are_distinct_groups() -> Result {
     // `1 == 1.0` is true, but group keys keep their type.
     test()
-        .run("[1 1.0 1] | group-by --to-table | get group | each { describe }")
-        .expect_value_eq(test_value!(["int", "float"]))?;
-
-    test()
-        .run("[1 1.0 1] | group-by --to-table | get items | each { length }")
-        .expect_value_eq(test_value!([2, 1]))
+        .run(
+            "[1 1.0 1] | group-by --to-table | update group { describe } | update items { length }",
+        )
+        .expect_value_eq(test_value!([
+            {group: "int", items: 2},
+            {group: "float", items: 1},
+        ]))
 }
 
 #[test]
@@ -404,6 +412,12 @@ fn equal_values_written_differently_share_a_group() -> Result {
     // Floats compare with `==`, so `0.0` and `-0.0` are one key.
     test()
         .run("[0.0 -0.0] | group-by --to-table | length")
+        .expect_value_eq(1)?;
+
+    // NaN is one key although `NaN == NaN` is false. Keying by `==` instead of `strict_eq` would
+    // give each row its own group.
+    test()
+        .run("[NaN NaN] | group-by --to-table | length")
         .expect_value_eq(1)
 }
 
