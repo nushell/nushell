@@ -175,6 +175,18 @@ fn string_helper(
             span: head,
         });
     }
+    if let Some(decimal_val) = decimals_value
+        && decimal_val > u16::MAX as i64
+    {
+        return Err(ShellError::IncorrectValue {
+            msg: format!(
+                "Cannot accept more than {} decimal digits for the decimals argument",
+                u16::MAX
+            ),
+            val_span: head,
+            call_span: head,
+        });
+    }
     let cell_paths = call.rest(engine_state, stack, 0)?;
     let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
 
@@ -226,11 +238,8 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             let basic = digits.map_or_else(
                 || val.to_string(),
                 |precision| {
-                    let rounded = (val * 10_f64.powi(precision as i32)).round()
-                        / 10_f64.powi(precision as i32);
-                    if rounded.is_nan() {
-                        return val.to_string();
-                    }
+                    let scale = 10_f64.powi(precision as i32);
+                    let rounded = (val * scale).round() / scale;
                     format!("{:.*}", precision as usize, rounded)
                 },
             );
