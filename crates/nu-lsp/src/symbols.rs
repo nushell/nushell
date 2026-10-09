@@ -277,6 +277,7 @@ impl LanguageServer {
         let uri = &params.text_document.uri;
         let engine_state = self.new_engine_state(Some(uri));
         let docs = self.docs.lock().ok()?;
+        docs.get_document(uri)?;
         self.symbol_cache.update(uri, &engine_state, &docs);
         self.symbol_cache
             .get_symbols_by_uri(uri)
@@ -306,8 +307,9 @@ mod tests {
     use assert_json_diff::assert_json_eq;
     use lsp_server::{Connection, Message};
     use lsp_types::{
-        DocumentSymbolParams, PartialResultParams, Position, Range, TextDocumentIdentifier, Uri,
-        WorkDoneProgressParams, WorkspaceSymbolParams,
+        DidCloseTextDocumentParams, DocumentSymbolParams, PartialResultParams, Position, Range,
+        TextDocumentIdentifier, Uri, WorkDoneProgressParams, WorkspaceSymbolParams,
+        notification::{DidCloseTextDocument, Notification},
         request::{DocumentSymbolRequest, Request, WorkspaceSymbolRequest},
     };
     use nu_test_support::prelude::*;
@@ -443,6 +445,47 @@ mod tests {
         // Update expected JSON to include the actual URI
         update_symbol_uri(&mut expected, &script);
 
+        assert_json_eq!(result_from_message(resp), expected);
+    }
+
+    #[rstest]
+    #[case::never_opened(false)]
+    #[case::already_closed(true)]
+    fn document_symbol_for_untracked_document(#[case] close_first: bool) {
+        let (client_connection, _recv) = initialize_language_server(None, None);
+        let script = path_to_uri(FIXTURES.join("lsp/symbols/foo.nu"));
+        let mut expected = serde_json::json!([
+            create_symbol("def_foo", 12, 5, 15, 5, 20),
+            create_symbol("var_foo", 13, 2, 4, 2, 11)
+        ]);
+        update_symbol_uri(&mut expected, &script);
+
+        if close_first {
+            open_unchecked(&client_connection, script.clone());
+
+            // Fill the symbol cache before closing the document.
+            let resp = send_document_symbol_request(&client_connection, script.clone());
+            assert_json_eq!(result_from_message(resp), expected);
+
+            client_connection
+                .sender
+                .send(Message::Notification(lsp_server::Notification::new(
+                    DidCloseTextDocument::METHOD.to_string(),
+                    DidCloseTextDocumentParams {
+                        text_document: TextDocumentIdentifier {
+                            uri: script.clone(),
+                        },
+                    },
+                )))
+                .unwrap();
+        }
+
+        let resp = send_document_symbol_request(&client_connection, script.clone());
+        assert!(result_from_message(resp).is_null());
+
+        // A later valid request must succeed on the same server connection.
+        open_unchecked(&client_connection, script.clone());
+        let resp = send_document_symbol_request(&client_connection, script);
         assert_json_eq!(result_from_message(resp), expected);
     }
 
