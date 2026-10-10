@@ -4806,6 +4806,7 @@ dependencies = [
  "crossterm",
  "fancy-regex",
  "is_executable",
+ "libc",
  "log",
  "lru",
  "lscolors",
