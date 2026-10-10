@@ -1,12 +1,13 @@
-use nu_parser::lex_with_bracket_pairs;
+use nu_parser::lex_with_delimiter_pairs;
 use reedline::{HintContext, HintEdit, HintPlan, HintPolicy, HintPreview, HintQuery};
 
 /// Applies Nushell's lexer-backed delimiter mapping to hints shown around auto-pairs.
 ///
-/// The lexer reports `()`, `[]`, and `{}` matches, but not quote boundaries. A lexical error,
-/// quote closer in the existing tail, non-ASCII closer, or ambiguous ordered mapping suppresses
-/// the hint. The source buffer itself may be incomplete after an earlier partial acceptance; the
-/// candidate is the syntax input for delimiter matching.
+/// The lexer reports matched brackets and ordinary single, double, and backtick quotes. Raw string
+/// boundaries are not paired because their closer includes `#` bytes. A lexical error, unsupported
+/// tail character, or ambiguous ordered mapping suppresses the hint. The source buffer itself may
+/// be incomplete after an earlier partial acceptance; the candidate is the syntax input for
+/// delimiter matching.
 pub(crate) struct AutoPairHintPolicy {
     external_hinter: bool,
     prepared_tail: Option<PreparedTail>,
@@ -122,11 +123,11 @@ impl HintPolicy for AutoPairHintPolicy {
     }
 }
 
-fn trailing_closers<'a>(
-    source: &'a str,
+fn trailing_closers(
+    source: &str,
     cursor: usize,
     pairs: impl Iterator<Item = (char, char)>,
-) -> Option<&'a str> {
+) -> Option<&str> {
     if cursor >= source.len() || !source.is_char_boundary(cursor) {
         return None;
     }
@@ -146,7 +147,7 @@ fn candidate_closer_targets(
 ) -> Option<Vec<usize>> {
     let prefix = source.get(..cursor)?;
     let candidate = format!("{prefix}{hint}");
-    let (_, error, pairs_found) = lex_with_bracket_pairs(candidate.as_bytes(), 0, b"", b"", true);
+    let (_, error, pairs_found) = lex_with_delimiter_pairs(candidate.as_bytes(), 0, b"", b"", true);
     if error.is_some() {
         return None;
     }
@@ -235,6 +236,41 @@ mod tests {
         let targets = candidate_closer_targets("f(())", 3, "x))", PAIRS.into_iter(), "))")
             .expect("both nested closers map in order");
         assert_eq!(targets, vec![4, 5]);
+    }
+
+    #[test]
+    fn quote_tail_closers_map_to_candidate_quotes() {
+        let cases = [
+            (r#"echo "hel""#, 9, "lo\"", "\"", 11),
+            ("echo 'hel'", 9, "lo'", "'", 11),
+            ("echo `hel`", 9, "lo`", "`", 11),
+        ];
+
+        for (source, cursor, hint, tail, expected_close) in cases {
+            let targets = candidate_closer_targets(source, cursor, hint, PAIRS.into_iter(), tail)
+                .expect("the candidate's quote opener identifies its closer");
+
+            assert_eq!(targets, vec![expected_close], "candidate: {source}{hint}");
+        }
+    }
+
+    #[test]
+    fn escaped_quote_is_not_a_candidate_quote_closer() {
+        let source = r#"echo "hel\"""#;
+        let targets = candidate_closer_targets(source, 11, "lo\"", PAIRS.into_iter(), "\"")
+            .expect("the final unescaped quote closes the candidate string");
+
+        assert_eq!(targets, vec![13]);
+        assert_eq!(source.as_bytes()[10], b'"');
+    }
+
+    #[test]
+    fn quote_and_outer_bracket_tail_closers_map_in_order() {
+        let source = r#"f("hel")"#;
+        let targets = candidate_closer_targets(source, 6, "lo\")", PAIRS.into_iter(), "\")")
+            .expect("the quote and outer paren each have a unique candidate pair");
+
+        assert_eq!(targets, vec![8, 9]);
     }
 
     #[test]

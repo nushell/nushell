@@ -169,6 +169,11 @@ pub(crate) trait Brackets: Copy {
     /// second.
     #[inline(always)]
     fn record(self, _open: usize, _close: usize) {}
+
+    /// The scan found a matched hint-relevant delimiter opened at the first absolute position and
+    /// closed at the second. Dense bracket tables intentionally ignore these extra pairs.
+    #[inline(always)]
+    fn record_hint_pair(self, _open: usize, _close: usize) {}
 }
 
 /// The lexer without a bracket table: every group is scanned.
@@ -186,13 +191,18 @@ impl Brackets for &BracketTable {
     }
 }
 
-/// Collects matched bracket positions without allocating an entry for every input byte.
+/// Collects matched delimiter positions without allocating an entry for every input byte.
 ///
 /// Unlike [`RecordBrackets`], this collector is not used to accelerate later lexer passes. It is
 /// intended for callers that need the matched positions from one lexing pass.
 impl Brackets for &RefCell<Vec<(usize, usize)>> {
     #[inline]
     fn record(self, open: usize, close: usize) {
+        self.borrow_mut().push((open, close));
+    }
+
+    #[inline]
+    fn record_hint_pair(self, open: usize, close: usize) {
         self.borrow_mut().push((open, close));
     }
 }
@@ -480,6 +490,10 @@ fn lex_item_scan<B: Brackets>(
                 // same rules, so the token ends where the parser ends the
                 // string.
                 let open = Span::new(span_offset + *curr_offset, span_offset + *curr_offset + 1);
+                let matched_open = interp_expr_level
+                    .last()
+                    .filter(|(expected, _)| *expected == c)
+                    .map(|(_, open)| open.start);
                 if interp_subexpr_step(&mut interp_expr_level, c, open)
                     && input.get(*curr_offset + 1).is_some()
                 {
@@ -489,6 +503,9 @@ fn lex_item_scan<B: Brackets>(
                     previous_char = Some(c);
                     at_line_start = false;
                     continue;
+                }
+                if let Some(open) = matched_open {
+                    brackets.record_hint_pair(open, span_offset + *curr_offset);
                 }
                 last_sig_char = Some(c);
                 at_line_start = false;
@@ -532,6 +549,7 @@ fn lex_item_scan<B: Brackets>(
             // string, we're done with the current string.
             if c == start {
                 // Also need to check to make sure we aren't escaped
+                brackets.record_hint_pair(open_span.start, span_offset + *curr_offset);
                 quote_start = None;
             } else if quote_is_interp && c == b'(' {
                 // An unescaped `(` in an interpolated string starts a
@@ -1100,17 +1118,19 @@ pub fn lex(
     )
 }
 
-/// Lex input and return the positions of matched `()`, `[]`, and `{}` delimiters.
+/// Lex input and return positions of matched `()`, `[]`, `{}`, and ordinary quote delimiters.
 ///
 /// Positions use the same absolute coordinates as token spans: `span_offset` is added to each
-/// input-relative byte position. The pairs are reported in closing-delimiter order. Delimiters
-/// inside strings and comments are ignored according to Nushell's lexer rules. Quote boundaries
-/// themselves are not included.
+/// input-relative byte position. The pairs are reported in closing-delimiter order. Brackets
+/// inside ordinary string literal contents and comments are ignored, while delimiter pairs inside
+/// interpolated-string subexpressions are reported. Quote pairs include single, double, and
+/// backtick strings, including quotes in interpolated subexpressions. Raw string boundaries are
+/// not reported because their closing delimiter also includes `#` bytes.
 ///
 /// Callers that need the result for a safety decision should reject the input when the returned
 /// parse error is `Some`, since the pair list may then describe only the portion lexed before the
 /// error.
-pub fn lex_with_bracket_pairs(
+pub fn lex_with_delimiter_pairs(
     input: &[u8],
     span_offset: usize,
     additional_whitespace: &[u8],
@@ -1156,30 +1176,6 @@ pub(crate) fn lex_with<B: Brackets>(
         brackets,
     );
     (state.output, state.error)
-}
-
-#[cfg(test)]
-mod bracket_pair_tests {
-    use super::{lex, lex_with_bracket_pairs};
-
-    #[test]
-    fn bracket_pairs_are_sparse_nested_and_ignore_string_contents() {
-        let input = br#"f(([1], {x: ")"}))"#;
-        let (tokens, error, pairs) = lex_with_bracket_pairs(input, 40, b"", b"", false);
-
-        assert!(error.is_none());
-        assert_eq!(tokens, lex(input, 40, b"", b"", false).0);
-        assert_eq!(pairs, vec![(43, 45), (48, 55), (42, 56), (41, 57)]);
-        assert_eq!(&input[pairs[0].0 - 40..=pairs[0].1 - 40], b"[1]");
-        assert_eq!(&input[pairs[1].0 - 40..=pairs[1].1 - 40], br#"{x: ")"}"#);
-    }
-
-    #[test]
-    fn bracket_pairs_return_the_lexer_error_for_ambiguous_input() {
-        let (_, error, _) = lex_with_bracket_pairs(b"f([)]", 0, b"", b"", false);
-
-        assert!(error.is_some());
-    }
 }
 
 fn lex_internal<B: Brackets>(
@@ -1348,4 +1344,51 @@ fn is_redirection(token: &[u8]) -> bool {
         token,
         b"o>" | b"out>" | b"e>" | b"err>" | b"o+e>" | b"e+o>" | b"out+err>" | b"err+out>"
     )
+}
+
+#[cfg(test)]
+mod delimiter_pair_tests {
+    use super::{lex, lex_with_delimiter_pairs};
+
+    #[test]
+    fn delimiter_pairs_are_sparse_nested_and_ignore_string_contents() {
+        let input = br#"f(([1], {x: ")"}))"#;
+        let (tokens, error, pairs) = lex_with_delimiter_pairs(input, 40, b"", b"", false);
+
+        assert!(error.is_none());
+        assert_eq!(tokens, lex(input, 40, b"", b"", false).0);
+        assert_eq!(
+            pairs,
+            vec![(43, 45), (52, 54), (48, 55), (42, 56), (41, 57)]
+        );
+        assert_eq!(&input[pairs[0].0 - 40..=pairs[0].1 - 40], b"[1]");
+        assert_eq!(&input[pairs[1].0 - 40..=pairs[1].1 - 40], b"\")\"");
+        assert_eq!(&input[pairs[2].0 - 40..=pairs[2].1 - 40], br#"{x: ")"}"#);
+    }
+
+    #[test]
+    fn delimiter_pairs_return_the_lexer_error_for_ambiguous_input() {
+        let (_, error, _) = lex_with_delimiter_pairs(b"f([)]", 0, b"", b"", false);
+
+        assert!(error.is_some());
+    }
+
+    #[test]
+    fn raw_string_boundaries_are_not_reported_as_quote_pairs() {
+        let (_, error, pairs) = lex_with_delimiter_pairs(b"r#'raw)'#", 0, b"", b"", true);
+
+        assert!(error.is_none());
+        assert!(pairs.is_empty());
+    }
+
+    #[test]
+    fn interpolated_subexpression_pairs_follow_quote_escape_rules() {
+        let input = br#"$"x (f("inner \" ) still")) y""#;
+        let (_, error, pairs) = lex_with_delimiter_pairs(input, 100, b"", b"", true);
+
+        assert!(error.is_none());
+        assert_eq!(pairs, vec![(107, 124), (106, 125), (104, 126), (101, 129)]);
+        assert_eq!(&input[17..18], b")");
+        assert_eq!(&input[15..16], b"\"");
+    }
 }

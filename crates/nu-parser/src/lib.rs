@@ -30,7 +30,7 @@ pub use flatten::{
 };
 pub use known_external::KnownExternal;
 pub use lex::{
-    LexState, Token, TokenContents, lex, lex_n_tokens, lex_signature, lex_with_bracket_pairs,
+    LexState, Token, TokenContents, lex, lex_n_tokens, lex_signature, lex_with_delimiter_pairs,
 };
 pub use lite_parser::{LiteBlock, LiteCommand, lite_parse};
 pub use nu_protocol::parser_path::*;
