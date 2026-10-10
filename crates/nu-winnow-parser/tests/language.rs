@@ -13,7 +13,7 @@ use std::path::PathBuf;
 
 use nu_winnow_parser::ast::*;
 use nu_winnow_parser::lex::{LexOptions, RedirectionOperator, TokenContents, lex};
-use nu_winnow_parser::{ErrorKind, ParseConfig, Span, parse, parse_lenient};
+use nu_winnow_parser::{Diagnostic, ErrorKind, LineCol, LineIndex, ParseConfig, Span, parse, parse_lenient};
 use rstest::rstest;
 
 // --- helpers ------------------------------------------------------------------
@@ -125,13 +125,12 @@ fn radix_prefixed_words_must_be_ints(#[case] src: &str, #[case] message: &str) {
 #[case("-41.7", -41.7)]
 #[case("3e10", 3.0e10)]
 #[case("0 + 43.5", 43.5)]
-#[case("3.1415_9265_3589_793 * 2", 2.0)]
+#[case("3.1415_9265_3589_793", std::f64::consts::PI)]
 #[case(".5", 0.5)]
 fn floats(#[case] src: &str, #[case] expected: f64) {
     let ast = ok(src);
     match &rhs(last_expr(&ast)).expr {
         Expr::Float(f) => assert_eq!(*f, expected, "{src}"),
-        Expr::Int(i) => assert_eq!(*i as f64, expected, "{src}"),
         other => panic!("{src}: expected Float, got {other:?}"),
     }
 }
@@ -268,6 +267,66 @@ fn string_escape_errors(#[case] src: &str, #[case] message: &str) {
 #[test]
 fn trailing_backslash_is_an_unclosed_quote() {
     assert!(matches!(parse("\"say \\").unwrap_err().primary().kind, ErrorKind::Unclosed { delimiter: "\"", .. }));
+}
+
+/// An escape error ends on a character boundary: the characters after `\x` or `\u` are counted
+/// as characters, so rendering the error never splits one.
+#[rstest]
+#[case("\"\\xa\u{e9}\"")]
+#[case("\"\u{e9}\\u\u{e9}\u{e9}\"")]
+fn escape_errors_end_on_a_character_boundary(#[case] src: &str) {
+    let e = parse(src).unwrap_err();
+    for d in &e.diagnostics {
+        assert!(src.is_char_boundary(d.span.start) && src.is_char_boundary(d.span.end), "{src}: {}", d.span);
+    }
+    let _ = e.render(src, None);
+}
+
+/// A diagnostic built by hand may hold a span that splits a character: rendering it and its
+/// line and column round to the character.
+#[test]
+fn rendering_a_span_inside_a_character() {
+    let src = "\u{e9}t\u{e9} 1";
+    assert_eq!(LineIndex::new(src).line_col(1, src), LineCol { line: 1, column: 1 });
+    let text = Diagnostic::new(ErrorKind::ExtraTokens, Span::new(1, 4)).render(src, None);
+    assert!(text.contains("--> <input>:1:1"), "{text}");
+}
+
+/// The closing `#`s of a raw string are compared as bytes, as nu does: an item that ends inside
+/// a multi-byte character after them is an unclosed raw string, not a panic.
+#[test]
+fn raw_string_followed_by_a_multibyte_character_is_unclosed() {
+    let src = "r#'a'#\u{e9}";
+    let e = parse(src).unwrap_err();
+    assert!(matches!(e.primary().kind, ErrorKind::Unclosed { delimiter: "'", .. }), "{e}");
+    let _ = e.render(src, None);
+}
+
+/// Like nu's `lex_raw_string`, the quote that opens a raw string may also close it: the raw
+/// part of `r#'#foo'#` is `r#'#`, which leaves `foo'#` an unclosed quote, and `r#'#a'#'#` holds
+/// `#a'#`.
+#[test]
+fn raw_string_opening_quote_may_close_it() {
+    let e = lex("r#'#foo'#", 0, LexOptions::BLOCK).unwrap_err();
+    assert!(matches!(e.kind, ErrorKind::Unclosed { delimiter: "'", .. }), "{e}");
+    let ast = ok("r#'#a'#'#");
+    assert_eq!(string_value(last_expr(&ast)), ("#a'#".to_string(), Quote::Raw(1)));
+}
+
+/// A raw string may have any number of `#`s, as in nu.
+#[test]
+fn raw_string_with_many_hashes() {
+    let hashes = "#".repeat(256);
+    let src = format!("r{hashes}'hello'{hashes}");
+    let ast = ok(&src);
+    assert_eq!(string_value(last_expr(&ast)), ("hello".to_string(), Quote::Raw(256)));
+}
+
+/// Like chrono's RFC 3339 parser, which nu uses, a datetime offset may use U+2212 for its minus.
+#[test]
+fn datetime_offset_with_a_unicode_minus() {
+    let ast = ok("2024-01-02T03:04:05\u{2212}05:00");
+    assert!(matches!(last_expr(&ast).expr, Expr::DateTime(_)), "{:?}", last_expr(&ast));
 }
 
 // --- interpolation (test_parser.rs: string::interpolation) ---------------------------------
@@ -530,6 +589,20 @@ fn percent_sigil_without_a_command_table_is_not_checked() {
     assert!(diagnostics.is_empty());
 }
 
+/// `if`, `while`, `return`, ... are commands that nu reads with `parse_call`: a longer known name
+/// that starts with the keyword is called instead of the keyword.
+#[rstest]
+#[case("def \"if ready\" [then: closure] { do $then }\nif ready { 'ran' }", "if ready")]
+#[case("def \"while ready\" [then: closure] { do $then }\nwhile ready { 'ran' }", "while ready")]
+#[case("def \"return early\" [] { 1 }\nreturn early", "return early")]
+fn keyword_that_starts_a_longer_command_name(#[case] src: &str, #[case] name: &str) {
+    let ast = ok(src);
+    match &last_expr(&ast).expr {
+        Expr::Call(c) => assert_eq!(c.head.name, name, "{src}"),
+        other => panic!("{src}: {other:?}"),
+    }
+}
+
 // --- cell paths and ranges (test_parser.rs: parse_cell_path*, mod range) -------------------
 
 #[rstest]
@@ -586,6 +659,12 @@ fn cell_path_members(#[case] src: &str, #[case] expected: &[(&str, bool)]) {
 #[case("0..<$day", true, false, true, RangeInclusion::RightExclusive)]
 #[case("0..(1..2 | first)", true, false, true, RangeInclusion::Inclusive)]
 #[case("1..(5)..10", true, true, true, RangeInclusion::Inclusive)]
+// Like nu's `parse_range`, a text that ends with its operator has no `to`: `1...` is `1..`.
+#[case("1...", true, false, false, RangeInclusion::Inclusive)]
+#[case("let a = 1; $a...", true, false, false, RangeInclusion::Inclusive)]
+#[case("1..3...", true, true, false, RangeInclusion::Inclusive)]
+// A cell-path literal bound makes a command head a range, as in nu (whose type check refuses it).
+#[case("1..$.a", true, false, true, RangeInclusion::Inclusive)]
 fn ranges(#[case] src: &str, #[case] from: bool, #[case] next: bool, #[case] to: bool, #[case] incl: RangeInclusion) {
     let ast = ok(src);
     match &last_expr(&ast).expr {
@@ -603,8 +682,40 @@ fn ranges(#[case] src: &str, #[case] from: bool, #[case] next: bool, #[case] to:
 #[rstest]
 #[case("(0)..\"a\"")]
 #[case("') ..")]
+// nu commits to these ranges and refuses them: a bound that is no number (`check_range_types`),
+// an empty `next`, and a radix prefix after a `_`.
+#[case("print 5..{a:1}")]
+#[case("print 5..{}")]
+#[case("print 5..{|| 1}")]
+#[case("print 5..r#'a'#")]
+#[case("print 1..{a:1}..5")]
+#[case("print 1....5")]
+#[case("print 0_xzz")]
+#[case("print _0xzz")]
+#[case("let x = 5..{a:1}")]
+#[case("let x = 5..r#'a'#")]
 fn bad_ranges(#[case] src: &str) {
     assert!(parse(src).is_err(), "{src}");
+}
+
+/// What nu does not read as a range stays a string, or at the head of a command an external
+/// command: a block bound (`{ls}`), a bound that the dots of a spread split (`{...$in}`), and at
+/// a head an empty `next` (`1....5`).
+#[rstest]
+#[case("print 5..{ls}")]
+#[case("print 5..{ ls }")]
+#[case("print 5..{...$in}")]
+#[case("1....5")]
+fn not_ranges(#[case] src: &str) {
+    let ast = ok(src);
+    match &last_expr(&ast).expr {
+        Expr::Call(c) => {
+            let argument = c.positional_iter().next().map(|e| &e.expr);
+            assert!(matches!(argument, Some(Expr::String(_))), "{src}: {argument:?}");
+        }
+        Expr::ExternalCall(_) => {}
+        other => panic!("{src}: {other:?}"),
+    }
 }
 
 #[test]
@@ -813,6 +924,20 @@ fn empty_braces_as_row_condition() {
     }
 }
 
+/// In a row condition a raw string is a value, not a column of the row: nu's
+/// `expand_to_cell_path` expands only an `Expr::String`, and a raw string is an `Expr::RawString`.
+#[test]
+fn raw_string_in_a_row_condition_is_a_value() {
+    let ast = ok("[{a: 1}] | where r#'a'# == 'a'");
+    match &last_expr(&ast).expr {
+        Expr::Where(w) => match &w.condition.expr {
+            Expr::BinaryOp(b) => assert_eq!(string_value(&b.lhs), ("a".to_string(), Quote::Raw(1))),
+            other => panic!("{other:?}"),
+        },
+        other => panic!("{other:?}"),
+    }
+}
+
 #[test]
 fn datetime_in_record_value() {
     let ast = ok("{ a: 2024-07-23T22:54:54.532100627+02:00 b:xy }");
@@ -890,6 +1015,32 @@ fn arg_expr<'a>(arg: &'a Argument<'a>) -> &'a Expression<'a> {
 fn signature_forms_from_nushell_tests(#[case] src: &str) {
     let ast = ok(src);
     assert!(matches!(last_expr(&ast).expr, Expr::Def(_) | Expr::Extern(_) | Expr::Export(_)));
+}
+
+/// nu parses a second default of a parameter without a type with the first default's type
+/// (`1..=5` lexes as `1..`, `=`, `5` in a signature); the tree keeps the last default, so it
+/// marks the parameter. With a type, nu parses every default with it, as the tree does.
+#[rstest]
+#[case("def f [x = 1 = 2] {}", true)]
+#[case("def f [x = 1..=5] {}", true)]
+#[case("def f [--n = a = 1] {}", true)]
+#[case("def f [x: int = 1 = 2] {}", false)]
+#[case("def f [x = 1, y = 2] {}", false)]
+fn second_default_of_an_untyped_parameter_is_marked(#[case] src: &str, #[case] marked: bool) {
+    let ast = ok(src);
+    match &last_expr(&ast).expr {
+        Expr::Def(def) => assert_eq!(def.signature.params[0].extra_default, marked, "{src}"),
+        other => panic!("{src}: {other:?}"),
+    }
+}
+
+/// The `cell-path` default of a parameter has no `$.`: flattening it emits its members only, so
+/// the rows do not overlap.
+#[test]
+fn flattening_a_cell_path_default() {
+    let src = "def f [x: cell-path = a.b] { $x }";
+    let shapes = nu_winnow_parser::flatten::flatten(&ok(src));
+    assert!(shapes.windows(2).all(|pair| pair[0].0.end <= pair[1].0.start), "{shapes:?}");
 }
 
 /// `in`, `nu`, `env` and `ans` are built-in variables: a parameter, a `let`
@@ -1034,6 +1185,15 @@ fn lex_comment_spans() {
     assert_eq!((toks[5].contents, toks[5].span), (TokenContents::Eol, Span::new(19, 20)));
     assert_eq!((toks[10].contents, toks[10].span), (TokenContents::Comment, Span::new(31, 40)));
     assert_eq!((toks[11].contents, toks[11].span), (TokenContents::Eol, Span::new(40, 41)));
+}
+
+/// Like nu, a `#` after a vertical tab starts a comment, so the `]` after it does not close the
+/// list: `[1<VT># x ]` and the next line ` 2]` are one item.
+#[test]
+fn lex_hash_after_a_vertical_tab_starts_a_comment() {
+    let tokens = lex("[1\u{b}# x ]\n 2]", 0, LexOptions::BLOCK).unwrap();
+    let contents: Vec<TokenContents> = tokens.iter().map(|t| t.contents).collect();
+    assert_eq!(contents, [TokenContents::Item, TokenContents::Eof]);
 }
 
 #[test]

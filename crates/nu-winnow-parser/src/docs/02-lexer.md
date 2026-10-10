@@ -42,8 +42,8 @@ position even when the input ran out (see chapter 03).
 ## `LexOptions`
 
 ```rust,ignore
-// additional whitespace, special tokens, skip comments, in signature
-pub const RECORD_KEY: LexOptions = lex_options!(b"\n\r,", b":", false, false);
+// StopBytes::new(additional whitespace, special tokens, in signature), skip comments
+pub const RECORD_KEY: LexOptions = LexOptions::with_stops(&StopBytes::new(b"\n\r,", b":", false), false);
 ```
 
 A preset is built from the parameters of nu's `lex` and `lex_item`:
@@ -56,9 +56,11 @@ A preset is built from the parameters of nu's `lex` and `lex_item`:
 * in signature: treat `<`/`>` as nesting brackets (type annotations such as
   `list<int>`); nu's `lex_signature` is `lex` with it set.
 
-`lex_options!` also computes, at compile time, the sets of bytes the scanner
-stops at (`StopBytes`, see below), so the presets are the only `LexOptions`.
-The named presets map one-to-one onto the constructs that use them:
+`StopBytes::new` is a `const fn` that computes, at compile time, the sets of
+bytes the scanner stops at (see below), and keeps `in_signature` with them.
+`LexOptions::with_stops`, which pairs those sets with `skip_comments`, is
+private to `lex.rs`, so the presets are the only `LexOptions`. The named
+presets map one-to-one onto the constructs that use them:
 
 | Preset | Whitespace | Special | Used by |
 | --- | --- | --- | --- |

@@ -183,9 +183,10 @@ impl LineIndex {
         start..end
     }
 
-    /// Convert a byte offset to a 1-based line/column.
+    /// Convert a byte offset to a 1-based line/column. An offset inside a character counts
+    /// as that character's start, and one past the end as the end.
     pub fn line_col(&self, offset: usize, source: &str) -> LineCol {
-        let offset = offset.min(source.len());
+        let offset = source.floor_char_boundary(offset);
         let line = self.line_of(offset);
         let start = self.line_starts[line];
         let column = source[start..offset].chars().count() + 1;

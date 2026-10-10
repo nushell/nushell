@@ -26,9 +26,10 @@ nu-explore = { path = "../../../nu-explore" }
 nu-tui = { path = "../../../nu-tui" }
 nu-std = { path = "../../../nu-std", features = ["sqlite"] }
 nu-experimental = { path = "../../../nu-experimental" }
-chrono = { version = "0.4", default-features = false, features = ["std"] }
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+# The versions the root `Cargo.toml` uses (a separate workspace cannot inherit them).
+chrono = { version = "0.4.45", default-features = false, features = ["std"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0.149"
 
 [[bin]]
 name = "bench-vs-nu-parser"
@@ -68,6 +69,8 @@ strip = "debuginfo"
 lto = "thin"
 
 # nushell builds `nu-cli` against reedline's `main` branch (its own
-# `[patch.crates-io]`), which a separate workspace does not inherit.
+# `[patch.crates-io]`), which a separate workspace does not inherit. Keep it in
+# step with the root's: when release preparation comments that one out, comment
+# this one out too.
 [patch.crates-io]
 reedline = { git = "https://github.com/nushell/reedline", branch = "main" }

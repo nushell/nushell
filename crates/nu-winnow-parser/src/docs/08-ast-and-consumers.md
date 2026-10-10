@@ -55,7 +55,7 @@ The `Expr` variants, grouped as in the source:
 | Variables and paths | `Var`, `CellPath` (`$.a`), `FullCellPath` (`head` + `tail`, `implicit_head` for `$it`) |
 | Collections | `List(Vec<ListItem>)`, `Table`, `Record(Vec<RecordItem>)`, `Closure`, `Block`, `Subexpression` |
 | Operators | `BinaryOp`, `UnaryNot`, `Assignment` (rhs is a `Block`) |
-| Calls | `Call { head, arguments, sigil }`, `DynamicCall` (`%$cmd`), `ExternalCall`, `EnvShorthand`, `AttributeBlock` |
+| Calls | `Call { head, arguments, sigil, wrapped }`, `DynamicCall` (`%$cmd`), `ExternalCall`, `EnvShorthand`, `AttributeBlock` |
 | Declarations | `Let`, `Mut`, `Const` (all `Binding`), `Def`, `Extern`, `Alias`, `Use`, `Module`, `Export`, `ExportEnv` |
 | Control flow | `If`, `Match`, `For`, `While`, `Loop`, `Break`, `Continue`, `Return`, `Try`, `Where` |
 | Recovery | `Garbage` |
@@ -85,6 +85,18 @@ says the same thing nu-parser's does:
   after `use null`).
 * `Alias::value` is `None` only for `export alias x =`, which nu accepts
   because its length check counts the `export` word.
+* `Parameter::extra_default`: another `= value` followed the default of a
+  parameter without a type (`[x = a = 1]`, or `[x = 1..=5]`, which lexes as
+  `x = 1.. = 5`). nu parses the later default with the first one's type;
+  the tree keeps the last default, parsed as any value, and marks the
+  parameter, so a consumer can check it. With a declared type nu parses
+  every default with that type, as the tree does, and nothing is marked.
+
+`Call::wrapped` is set when the call's head was a `def --wrapped` command
+(`DeclKind::Wrapped`, or an alias of one) at the time the call was parsed,
+so the parser read every argument as an external argument. A consumer that
+resolves the name to another command (a `hide` or `use` in between) must
+read the arguments again with that command's signature.
 
 Things that are deliberately *not* decided in the tree, because nu needs
 more than the text for them (`grammar/grammar.md` sections 8 and 9.4 list
@@ -187,6 +199,7 @@ so it shows up.
   `--flat` rows, `--json` (feature `serde`), `--check` over directories.
 * `examples/nufmt/format.rs`: a formatter that walks the tree, copies atoms
   from their spans, normalises whitespace, re-indents blocks and multi-line
-  collections, and re-emits comments by position.
+  collections, and re-emits comments, and the `--` markers of
+  `Ast::ignored`, by position.
 * `tools/nushell-harness/src/bin/bridge.rs`: lowers the tree into
   `nu-protocol` structures and runs it on the engine.

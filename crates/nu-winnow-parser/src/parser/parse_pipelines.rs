@@ -90,15 +90,24 @@ impl BlockStatements {
     /// takes any statement, and the statements can be parsed meanwhile. Declaring the names
     /// asks `lookup` nothing.
     ///
+    /// With `subexpression` the block is the inside of a `( ... )`, lexed as nu's
+    /// `parse_subexpression` lexes it: newlines are whitespace and comments are skipped, so a
+    /// statement goes on across lines (`(ls\n| length)`, `(echo a\nb)`).
+    ///
     /// A lexing error, or a diagnostic about the block as a whole (a definition declared
     /// twice, a `|` that ends the block), is returned instead.
     pub fn new<'a>(
         source: &'a str,
         span: Span,
         lookup: impl CommandLookup + 'a,
+        subexpression: bool,
     ) -> Result<(Self, Definitions), Vec<Diagnostic>> {
         let working_set = WorkingSet::with_lookup(source, span, lookup);
-        let tokens = working_set.lex(span, LexOptions::BLOCK).map_err(|diagnostic| vec![diagnostic])?;
+        let options = if subexpression { LexOptions::SUBEXPRESSION } else { LexOptions::BLOCK };
+        let mut tokens = working_set.lex(span, options).map_err(|diagnostic| vec![diagnostic])?;
+        if subexpression {
+            tokens.retain(|token| token.contents != TokenContents::Comment);
+        }
         let stream = Tokens::from_lexed(&working_set, &tokens);
         let definitions = scan_predecls(&working_set, stream.all());
         check_dangling_pipe(&working_set, stream.all());
@@ -381,7 +390,7 @@ fn parse_pipeline<'a>(
         while let Some(token) = tokens.peek_token().filter(|token| token.contents == TokenContents::Pipe) {
             pipe = Some(token.span);
             tokens.next_token();
-            if let AfterPipe::Dangling = after_pipe(tokens, &mut trailing_comments)? {
+            if let AfterPipe::Dangling = after_pipe(tokens, true, &mut trailing_comments)? {
                 break 'commands;
             }
         }
@@ -392,13 +401,21 @@ fn parse_pipeline<'a>(
             }
             continue;
         }
-        let lite_command = parse_lite_command(tokens, pipe.is_none())?;
+        // nu's lite parser reads attribute lines where an `@` item follows an end of line or a
+        // `;`: before a statement's first command, and before a command starting a line.
+        let starts_line = tokens
+            .position()
+            .checked_sub(1)
+            .and_then(|previous| tokens.all().get(previous))
+            .is_some_and(|previous| previous.contents == TokenContents::Eol);
+        let lite_command = parse_lite_command(tokens, pipe.is_none() || starts_line)?;
         trailing_comments.extend(lite_command.comments.iter().copied());
         let pipe_after = lite_command.pipe_after;
         lite_commands.push((pipe.take(), lite_command));
         if pipe_after.is_some() {
             pipe = pipe_after;
-            if let AfterPipe::Dangling = after_pipe(tokens, &mut trailing_comments)? {
+            // After an `e>|` nu goes on to a later line only through a `|` that starts it.
+            if let AfterPipe::Dangling = after_pipe(tokens, false, &mut trailing_comments)? {
                 break;
             }
         }
@@ -526,7 +543,6 @@ fn rejects_redirection(expr: &Expression<'_>) -> bool {
         | Expr::Module(_)
         | Expr::Use(_)
         | Expr::Export(_)
-        | Expr::ExportEnv(_)
         | Expr::AttributeBlock(_) => true,
         // `overlay <anything>` is refused by name before its arguments are looked at.
         Expr::Call(call) => {
@@ -571,4 +587,99 @@ fn parse_redirection<'a>(
         });
     }
     Ok(redirection)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::parser::{DeclKind, ParseConfig};
+
+    /// The pipelines of `source`, which must parse.
+    fn parse(source: &str) -> Vec<Pipeline<'_>> {
+        let (ast, diagnostics) = crate::parser::parse(source, &ParseConfig::new());
+        assert!(diagnostics.is_empty(), "{source:?}: {diagnostics:?}");
+        ast.block.pipelines
+    }
+
+    /// The number of elements of each pipeline of `source`.
+    fn pipelines(source: &str) -> Vec<usize> {
+        parse(source).iter().map(|pipeline| pipeline.elements.len()).collect()
+    }
+
+    #[test]
+    fn line_leading_pipe_after_one_blank_line_continues() {
+        assert_eq!(pipelines("[1 2 3] |\n\n| length"), [2]);
+        assert_eq!(pipelines("[1 2 3] |\n# c\n\n# d\n| length"), [2]);
+        assert_eq!(pipelines("[1 2 3] | # c\n\n| length"), [2]);
+        assert_eq!(pipelines("[1 2 3] |\n\n\n| length"), [1, 1]);
+        assert_eq!(pipelines("[1 2 3]\n\n| length"), [1, 1]);
+    }
+
+    #[test]
+    fn redirection_pipe_continues_only_through_a_line_leading_pipe() {
+        assert_eq!(pipelines("^ls e>|\nlines"), [1, 1]);
+        assert_eq!(pipelines("^ls o+e>| # c\nlines"), [1, 1]);
+        assert_eq!(pipelines("^ls e>|\n# c\nlines"), [1, 1]);
+        assert_eq!(pipelines("^ls e>|\n# c\n| lines"), [2]);
+        assert_eq!(pipelines("^ls e>|\n\n| lines"), [1, 1]);
+        assert_eq!(pipelines("^ls e>| lines"), [2]);
+    }
+
+    /// The attributes of the one statement of `source`, an attributed definition, by their
+    /// number of arguments.
+    fn attribute_arguments(source: &str) -> Vec<usize> {
+        let pipelines = parse(source);
+        let [Pipeline { elements, .. }] = &pipelines[..] else { panic!("{source:?}: {pipelines:?}") };
+        let [PipelineElement { expr: Expression { expr: Expr::AttributeBlock(block), .. }, .. }] = &elements[..] else {
+            panic!("{source:?}: {elements:?}")
+        };
+        block.attributes.iter().map(|attribute| attribute.arguments.len()).collect()
+    }
+
+    #[test]
+    fn attribute_lines_where_a_line_starts() {
+        // A command that starts a line may have attribute lines, after a `|` too.
+        assert_eq!(attribute_arguments("|\n@search-terms foo\ndef bar [] {}"), [1]);
+        assert_eq!(pipelines("ls | length |\n@search-terms foo\ndef bar [] {}"), [3]);
+        // A `|` that starts the next line goes on with the attribute line.
+        assert_eq!(attribute_arguments("@search-terms foo\n| bar\ndef baz [] {}"), [3]);
+    }
+
+    /// No commands at all: every head is an external command.
+    struct NoCommands;
+
+    impl CommandLookup for NoCommands {
+        fn find_decl(&self, _: &str) -> Option<DeclKind> {
+            None
+        }
+
+        fn is_decl_name_prefix(&self, _: &str) -> bool {
+            false
+        }
+
+        fn is_builtin_decl(&self, _: &str) -> bool {
+            false
+        }
+    }
+
+    /// The text of each statement of the block covering `span` of `source`.
+    fn statements(source: &str, span: Span, subexpression: bool) -> Vec<&str> {
+        let (mut statements, _) = BlockStatements::new(source, span, NoCommands, subexpression).unwrap();
+        let mut texts = Vec::new();
+        statements.parse(source, NoCommands, &mut |pipeline, diagnostics| {
+            assert!(diagnostics.is_empty(), "{diagnostics:?}");
+            texts.push(pipeline.span.slice(source));
+            true
+        });
+        texts
+    }
+
+    #[test]
+    fn subexpression_statements_go_on_across_lines() {
+        // As nu's `parse_subexpression` lexes them: newlines are whitespace, comments skipped.
+        let source = "(echo a\n  b # c\n  | length)";
+        let inner = Span::new(1, source.len() - 1);
+        assert_eq!(statements(source, inner, true), ["echo a\n  b # c\n  | length"]);
+        assert_eq!(statements(source, inner, false), ["echo a", "b # c\n  | length"]);
+    }
 }

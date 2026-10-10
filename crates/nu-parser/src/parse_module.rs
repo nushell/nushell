@@ -19,7 +19,7 @@ use crate::parse_def::{
 };
 
 use nu_protocol::{
-    BlockId, Module, ModuleId, ParseError, Span, Type,
+    BlockId, DeclId, Module, ModuleId, ParseError, Span, Type,
     ast::{
         Argument, Block, Call, Expr, Expression, ImportPattern, ImportPatternHead,
         ImportPatternMember, Pipeline,
@@ -566,28 +566,13 @@ pub(crate) fn parse_module_pipeline(
         b"export" => {
             let (pipe, exportables) =
                 parse_export_in_module(working_set, command, module_name, module);
+            let main_span = double_main_span(pipe.elements.first().map(|e| &e.expr), span);
 
             for exportable in exportables {
                 match exportable {
                     Exportable::Decl { name, id } => {
                         if &name == b"main" {
-                            if module.main.is_some() {
-                                let err_span = if !pipe.elements.is_empty() {
-                                    if let Expr::Call(call) = &pipe.elements[0].expr.expr {
-                                        call.head
-                                    } else {
-                                        pipe.elements[0].expr.span
-                                    }
-                                } else {
-                                    span
-                                };
-                                working_set.error(ParseError::ModuleDoubleMain(
-                                    String::from_utf8_lossy(module_name).to_string(),
-                                    err_span,
-                                ));
-                            } else {
-                                module.main = Some(id);
-                            }
+                            set_module_main(working_set, module, module_name, id, main_span);
                         } else {
                             module.add_decl(name, id);
                         }
@@ -604,23 +589,13 @@ pub(crate) fn parse_module_pipeline(
                             }
 
                             if let Some(main_decl_id) = submodule_main {
-                                if module.main.is_some() {
-                                    let err_span = if !pipe.elements.is_empty() {
-                                        if let Expr::Call(call) = &pipe.elements[0].expr.expr {
-                                            call.head
-                                        } else {
-                                            pipe.elements[0].expr.span
-                                        }
-                                    } else {
-                                        span
-                                    };
-                                    working_set.error(ParseError::ModuleDoubleMain(
-                                        String::from_utf8_lossy(module_name).to_string(),
-                                        err_span,
-                                    ));
-                                } else {
-                                    module.main = Some(main_decl_id);
-                                }
+                                set_module_main(
+                                    working_set,
+                                    module,
+                                    module_name,
+                                    main_decl_id,
+                                    main_span,
+                                );
                             }
 
                             for (submodule_name, submodule_id) in submodule_submodules {
@@ -660,6 +635,38 @@ pub(crate) fn parse_module_pipeline(
 
             garbage_pipeline(working_set, &command.parts)
         }
+    }
+}
+
+/// Make `decl_id` the `main` command of `module` (named `module_name`), or report
+/// `ModuleDoubleMain` at `err_span` when it has one already.
+pub(crate) fn set_module_main(
+    working_set: &mut StateWorkingSet,
+    module: &mut Module,
+    module_name: &[u8],
+    decl_id: DeclId,
+    err_span: Span,
+) {
+    if module.main.is_some() {
+        working_set.error(ParseError::ModuleDoubleMain(
+            String::from_utf8_lossy(module_name).to_string(),
+            err_span,
+        ));
+    } else {
+        module.main = Some(decl_id);
+    }
+}
+
+/// Where `ModuleDoubleMain` points for an export statement whose first expression is `expr`:
+/// the head of its call, else the whole expression; `fallback` when there is none.
+pub(crate) fn double_main_span(expr: Option<&Expression>, fallback: Span) -> Span {
+    match expr {
+        Some(Expression {
+            expr: Expr::Call(call),
+            ..
+        }) => call.head,
+        Some(expression) => expression.span,
+        None => fallback,
     }
 }
 

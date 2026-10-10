@@ -9,11 +9,11 @@ use winnow::combinator::repeat;
 use crate::ast::{Block, Def, DefFlag, Expr, Expression, Extern, For, Signature};
 use crate::error::{Diagnostic, ErrorKind};
 use crate::input::{ParseResult, cut};
-use crate::lex::{Token, TokenContents};
+use crate::lex::{LexOptions, Token, TokenContents};
 use crate::span::{Span, Spanned};
 
 use super::WorkingSet;
-use super::lite_parser::pipe_on_later_line;
+use super::lite_parser::{AfterPipe, after_pipe_lines, pipe_on_later_line};
 use super::parse_expressions::{
     BraceShape, ExpectedShape, brace_shape, parse_block_body_unchecked, parse_closure_parts, parse_value,
 };
@@ -88,8 +88,10 @@ impl Definitions {
             .into_iter()
             .map(|found| {
                 // A new working set: the scan's names are declared again, in its order.
-                if let Some(kind) = found.declared {
-                    working_set.add_predecl(declared_name(&working_set, found.name.span), kind);
+                if let Some(kind) = found.declared
+                    && let Ok(name) = parse_definition_name(&working_set, found.name.span)
+                {
+                    working_set.add_predecl(&name.item, kind);
                 }
                 let def = predeclared_def(&working_set, found.with_items(found.items.as_slice()));
                 drop(working_set.take_errors_from(0));
@@ -129,20 +131,19 @@ impl<Items> FoundDefinition<Items> {
     }
 }
 
-/// The name a definition whose name item is at `span` is declared under: its text, unquoted.
-fn declared_name<'a>(working_set: &WorkingSet<'a>, span: Span) -> &'a str {
-    working_set.get_span_contents(span).trim_matches(['"', '\'', '`'])
-}
-
 /// A definition found by the scan, with its signature: the items from the
 /// first one starting with `[` or `(` after the name, up to (not including) a
-/// `def`'s body.
+/// `def`'s body. A name that is no string (`def "a"b`) gets no signature, so the
+/// engine predeclares nothing, as nu does.
 fn predeclared_def<'a>(working_set: &WorkingSet<'a>, found: FoundDefinition<&[Token]>) -> PredeclaredDef<'a> {
-    let name = match parse_definition_name(working_set, found.name.span) {
-        Ok(name) => name,
-        Err(_) => Spanned::new(Cow::Borrowed(working_set.get_span_contents(found.name.span)), found.name.span),
+    let (name, has_signature) = match parse_definition_name(working_set, found.name.span) {
+        Ok(name) => (name, found.has_signature),
+        Err(_) => {
+            let text = working_set.get_span_contents(found.name.span);
+            (Spanned::new(Cow::Borrowed(text), found.name.span), false)
+        }
     };
-    let signature = found.has_signature.then(|| {
+    let signature = has_signature.then(|| {
         let after_name = found.items.iter().position(|token| token.span == found.name.span)? + 1;
         let signature_start = after_name
             + found.items[after_name..]
@@ -168,50 +169,74 @@ fn predeclared_def<'a>(working_set: &WorkingSet<'a>, found: FoundDefinition<&[To
 ///
 /// It runs before the lite parse, over the block's tokens, so it finds where
 /// statements start itself: at an item first on its line or after a `;`, past
-/// a `|` that leads a new statement but not one that continues a pipeline. Of
-/// each statement it reads only the head and the tokens up to its end of line.
-fn scan_definitions(
-    working_set: &WorkingSet<'_>,
+/// a `|` that leads a new statement but not one that continues a pipeline.
+/// Whether a pipe joins a command to its pipeline is the statement parser's
+/// rule ([`after_pipe_lines`]). Of each statement it reads only the head and
+/// the tokens up to its end of line.
+fn scan_definitions<'a>(
+    working_set: &WorkingSet<'a>,
     tokens: &[Token],
     mut on_definition: impl FnMut(FoundDefinition<&[Token]>),
 ) {
-    let mut declared: Vec<&str> = Vec::new();
-    // A `|`, or a redirection into one (`e>|`), joins the next command to the pipeline.
-    let joins_next_command = |token: &Token| match token.contents {
+    let mut declared: Vec<Cow<'a, str>> = Vec::new();
+    // A `|`, or a redirection into one (`e>|`).
+    let is_pipe = |token: &Token| match token.contents {
         TokenContents::Pipe => true,
         TokenContents::Redirection(operator) => operator.is_pipe(),
         _ => false,
+    };
+    // Whether a command follows the pipe at `tokens[at]` in its pipeline, as the statement
+    // parser decides it; of several pipes in a row (`a | | b`, `a |\n| b`) the last decides.
+    let joins_next_command = |mut at: usize| loop {
+        let mut after = Tokens::new(working_set, &tokens[at + 1..], 0);
+        match after_pipe_lines(&mut after, tokens[at].contents == TokenContents::Pipe) {
+            Ok((_, AfterPipe::Command)) => match after.peek_token() {
+                Some(next) if next.contents == TokenContents::Pipe => at += 1 + after.position(),
+                _ => break true,
+            },
+            _ => break false,
+        }
     };
     // The next item is the first of its line, or the first after a `;`.
     let mut at_line_start = true;
     // No command since the start of the block, a `;` or a blank line: a `|` here leads the next
     // command (`|def x [] {}`) instead of joining a pipeline.
     let mut after_statement = true;
-    // The last token but comments and one end of line was a `|` that joins a pipeline, so the
-    // next item continues that pipeline (`ls |\ndef f [] {}`), even first on its line.
+    // The next item continues a pipeline, even first on its line: the last pipe has a command
+    // after it (`ls |\ndef f [] {}`, `ls |\n\n| def f [] {}`), or an attribute line in a
+    // pipeline came last, whose command follows on the next line.
     let mut after_pipe = false;
-    // The statement started with an attribute (`@example ...`): a `|` ending its line carries
-    // it on to the command below, which stays one command (`@search-terms a|\ndef f [] {}`).
+    // On an attribute line (`@example ...`), whose pipes are its arguments: a `|` ending it carries
+    // the command on to the line below, which stays one command (`@search-terms a|\ndef f [] {}`).
     let mut in_attribute = false;
     let mut previous = TokenContents::Eol;
     let mut index = 0;
     while let Some(token) = tokens.get(index) {
         index += 1;
+        // nu's lite parser takes an `@` item for an attribute line right after an end of line or
+        // a `;` only (the start of the block counts as one), in a pipeline too.
+        let starts_attribute = matches!(previous, TokenContents::Eol | TokenContents::Semicolon)
+            && working_set.get_span_contents(token.span).starts_with('@');
         let blank_line = token.contents == TokenContents::Eol && previous == TokenContents::Eol;
         previous = token.contents;
         match token.contents {
             TokenContents::Eol | TokenContents::Semicolon => {
                 at_line_start = true;
                 after_statement |= blank_line || token.contents == TokenContents::Semicolon;
-                // A blank line or a `;` ends the pipeline (nu's `after_pipe` finds it dangling).
-                after_pipe &= !after_statement;
             }
             TokenContents::Comment => {}
             TokenContents::Pipe if at_line_start && after_statement => {}
-            TokenContents::Item if at_line_start && !after_pipe => {
+            TokenContents::Item if at_line_start && after_pipe => {
+                // The pipeline's next command, or an attribute line before it.
                 at_line_start = false;
                 after_statement = false;
-                in_attribute = working_set.get_span_contents(token.span).starts_with('@');
+                in_attribute = starts_attribute;
+                after_pipe = in_attribute;
+            }
+            TokenContents::Item if at_line_start => {
+                at_line_start = false;
+                after_statement = false;
+                in_attribute = starts_attribute;
                 // The items after the head (`index` is past it), with their text. Past an
                 // `export`, `words` is left after `def`/`extern`: flags, name, signature.
                 let statement = || {
@@ -244,29 +269,34 @@ fn scan_definitions(
                             .count()
                     });
                 let rest = tokens.get(items_start..rest_end).unwrap_or(&[]);
-                // nu predeclares only a pipeline of one command (an assignment takes the pipes
-                // after it into its command), and a `|` on a later line joins the next command
-                // (`def f [] {}\n| ls`).
-                let continues_on_a_later_line = tokens
-                    .get(rest_end..)
-                    .is_some_and(|after| pipe_on_later_line(&mut Tokens::new(working_set, after, 0)).is_ok());
-                let pipes_to_another_command = continues_on_a_later_line
-                    || rest
-                        .iter()
-                        .take_while(|token| !matches!(token.contents, TokenContents::AssignmentOperator(_)))
-                        .any(joins_next_command);
+                // nu predeclares only a pipeline of one command. The definition's command ends at
+                // the first pipe of its line, unless an assignment comes first and takes the rest
+                // of the line into the command, with the lines a `|` continues it to; without
+                // either, a `|` on a later line may go on with the pipeline (`def f [] {}\n| ls`).
+                let command_end = rest
+                    .iter()
+                    .position(|token| is_pipe(token) || matches!(token.contents, TokenContents::AssignmentOperator(_)));
+                let (command, pipes_to_another_command) = match command_end {
+                    Some(at) if is_pipe(&rest[at]) => (&rest[..at], joins_next_command(items_start + at)),
+                    Some(_) => (rest, false),
+                    None => {
+                        let mut after = Tokens::new(working_set, tokens.get(rest_end..).unwrap_or(&[]), 0);
+                        let pipe_below = pipe_on_later_line(&mut after).is_ok();
+                        (rest, pipe_below && joins_next_command(rest_end + after.position()))
+                    }
+                };
                 if pipes_to_another_command {
                     continue;
                 }
                 // nu looks at a definition only when its statement has at least three parts.
-                let parts = rest.iter().filter(|token| token.contents != TokenContents::Comment).count();
+                let parts = command.iter().filter(|token| token.contents != TokenContents::Comment).count();
                 let statement_items = parts + if items_start > index { 2 } else { 1 };
-                let Some((name, name_span)) = words.find(|(word, _)| !word.starts_with('-')) else { continue };
+                let Some((_, name_span)) = words.find(|(word, _)| !word.starts_with('-')) else { continue };
                 if statement_items < 3 {
                     continue;
                 }
                 let has_signature = words.any(|(word, _)| word.starts_with(['[', '(']));
-                let last_part = rest.iter().rev().find(|token| token.contents != TokenContents::Comment);
+                let last_part = command.iter().rev().find(|token| token.contents != TokenContents::Comment);
                 let found = FoundDefinition {
                     span: last_part.map_or(token.span, |last| token.span.merge(last.span)),
                     items,
@@ -276,12 +306,15 @@ fn scan_definitions(
                     external: head == "extern",
                     declared: None,
                 };
-                let name = name.trim_matches(['"', '\'', '`']);
-                // nu predeclares a definition only when a signature item follows the name.
-                if name.is_empty() || !has_signature {
-                    on_definition(found);
-                    continue;
-                }
+                // nu predeclares a definition only when its name item is a string (nu's
+                // `parse_string`, which unquotes it) and a signature item follows it.
+                let name = match parse_definition_name(working_set, name_span) {
+                    Ok(name) if !name.item.is_empty() && has_signature => name.item,
+                    _ => {
+                        on_definition(found);
+                        continue;
+                    }
+                };
                 // nu gives the untyped rest parameter of a `def --wrapped` the
                 // `external_arg` shape.
                 let has_wrapped_flag = head == "def"
@@ -293,9 +326,9 @@ fn scan_definitions(
                     && statement()
                         .skip_while(|(_, span)| *span != name_span)
                         .find(|(word, _)| word.starts_with(['[', '(']))
-                        .is_some_and(|(signature, _)| has_untyped_rest(signature));
+                        .is_some_and(|(_, signature)| has_untyped_rest(working_set, signature));
                 let kind = if wrapped { DeclKind::Wrapped } else { DeclKind::Declared };
-                working_set.add_predecl(name, kind);
+                working_set.add_predecl(&name, kind);
                 if declared.contains(&name) {
                     working_set.error(
                         Diagnostic::message("duplicate command definition within a block", name_span)
@@ -308,33 +341,41 @@ fn scan_definitions(
             _ => {
                 at_line_start = false;
                 after_statement = false;
-                after_pipe = !in_attribute && joins_next_command(token);
+                if !in_attribute {
+                    after_pipe = is_pipe(token) && joins_next_command(index - 1);
+                }
             }
         }
     }
 }
 
-/// Whether the rest parameter of a signature's text has no type, as nu
-/// decides it (`rest_param_is_type_annotated`, on the text): the parameter's
-/// name is the word after the `...` that starts it (`$` included, so `...$r:
-/// string` is typed), and it is typed when some `...name` is followed by a
-/// `:`. `false` without one.
-fn has_untyped_rest(signature: &str) -> bool {
-    let name = signature.match_indices("...").find_map(|(start, _)| {
-        let starts_parameter = signature[..start]
-            .chars()
-            .next_back()
-            .is_none_or(|previous| previous.is_whitespace() || matches!(previous, '[' | '(' | ','));
-        let rest = &signature[start + 3..];
-        let end = rest
-            .find(|next: char| next.is_whitespace() || matches!(next, ',' | ':' | ']' | ')' | '#' | '=' | '?'))
-            .unwrap_or(rest.len());
-        (starts_parameter && end > 0).then(|| &rest[..end])
-    });
+/// Whether the rest parameter of the signature item at `signature` has no
+/// type, as nu decides it. nu takes the parameter from the parsed signature:
+/// the first item of the brackets in a parameter's place (not a type after a
+/// `:` or a default value after an `=`; comments and quoted values are tokens
+/// of their own) that starts with `...`, its name keeping a `$` (`...$r:
+/// string` is typed). It is typed when some `...name` in the item's text,
+/// comments included, is followed by a `:` (`rest_param_is_type_annotated`).
+/// `false` without one.
+fn has_untyped_rest(working_set: &WorkingSet<'_>, signature: Span) -> bool {
+    let Some(close) = working_set.group_end(signature) else { return false };
+    let inner = Span::new(signature.start + 1, signature.start + close);
+    let Ok(parameters) = working_set.lex(inner, LexOptions::SIGNATURE) else { return false };
+    let mut after_colon_or_equals = false;
+    let name = parameters
+        .iter()
+        .filter(|token| matches!(token.contents, TokenContents::Item | TokenContents::AssignmentOperator(_)))
+        .find_map(|token| {
+            let text = working_set.get_span_contents(token.span);
+            let in_parameter_place = !after_colon_or_equals;
+            after_colon_or_equals = matches!(text, ":" | "=");
+            text.strip_prefix("...").filter(|name| in_parameter_place && !name.is_empty())
+        });
     let Some(name) = name else { return false };
+    let text = working_set.get_span_contents(signature);
     let needle = format!("...{name}");
-    !signature.match_indices(&needle).any(|(start, _)| {
-        signature[start + needle.len()..].trim_start_matches(|c: char| c.is_ascii_whitespace()).starts_with(':')
+    !text.match_indices(&needle).any(|(start, _)| {
+        text[start + needle.len()..].trim_start_matches(|c: char| c.is_ascii_whitespace()).starts_with(':')
     })
 }
 
@@ -573,4 +614,84 @@ pub fn parse_for<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> 
     let span = call.keyword.span.merge(block.span);
     let for_loop = For { var, ty, in_keyword: in_keyword.span, iterable, body, body_value };
     call.finish(Expression::new(Expr::For(Box::new(for_loop)), span))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::parser::ParseConfig;
+
+    /// How the predeclaration scan of `source` declared `name`, if it did.
+    fn declared(source: &str, name: &str) -> Option<DeclKind> {
+        let working_set = WorkingSet::new(source, &ParseConfig::empty());
+        let tokens = working_set.lex(Span::new(0, source.len()), LexOptions::BLOCK).unwrap();
+        parse_def_predecl(&working_set, Tokens::from_lexed(&working_set, &tokens).all());
+        working_set.find_decl(name)
+    }
+
+    #[test]
+    fn definition_with_a_dropped_pipe_is_declared() {
+        // nu drops a `|` that a blank line, the end of the block or, after an `e>|`, the end of
+        // its line follows: the definition is a pipeline of its own.
+        for source in [
+            "def f [] {} |\n\nf",
+            "def f [] {} | # c\n\nf",
+            "def f [] {} |\n",
+            "def f [] {}\n|\n\nf",
+            "def f [] {} | |\n\nf",
+            "def f [] {} e>|\nf",
+            "^ls e>|\ndef f [] {}",
+            "^ls o+e>| # c\ndef f [] {}",
+        ] {
+            assert_eq!(declared(source, "f"), Some(DeclKind::Declared), "{source:?}");
+        }
+        assert_eq!(declared("extern e [] |\n\ne", "e"), Some(DeclKind::Declared));
+    }
+
+    #[test]
+    fn definition_in_a_longer_pipeline_is_not_declared() {
+        for source in [
+            "def f [] {} | ls",
+            "def f [] {} |\n# c\nls",
+            "def f [] {} |\n\n| ls",
+            "def f [] {}\n| ls",
+            "ls |\n\n| def f [] {}",
+            "ls |\n# c\n\n# d\n| def f [] {}",
+            "^ls e>|\n# c\n| def f [] {}",
+            "ls | length |\n@search-terms foo\ndef f [] {}",
+        ] {
+            assert_eq!(declared(source, "f"), None, "{source:?}");
+        }
+    }
+
+    #[test]
+    fn attribute_lines_keep_their_definition() {
+        for source in ["|\n@search-terms foo\ndef f [] {}", "@search-terms foo\n| bar\ndef f [] {}"] {
+            assert_eq!(declared(source, "f"), Some(DeclKind::Declared), "{source:?}");
+        }
+    }
+
+    #[test]
+    fn rest_parameter_of_a_wrapped_definition() {
+        // The rest parameter is the signature's, not a `...word` in a comment or a default value
+        // before it; a `...name:` anywhere in the text makes it typed, as in nu.
+        for (source, kind) in [
+            ("def --wrapped g [...rest] {}", DeclKind::Wrapped),
+            ("def --wrapped g [\n  # usage: g ...flags\n  ...args: string\n] {}", DeclKind::Declared),
+            ("def --wrapped g [--x: string = \"a ...b\", ...rest: string] {}", DeclKind::Declared),
+            ("def --wrapped g [\n  ...rest # see ...rest: list\n] {}", DeclKind::Declared),
+            ("def --wrapped g [...$r: string] {}", DeclKind::Declared),
+            ("def --wrapped g [x # ...y\n ...rest] {}", DeclKind::Wrapped),
+        ] {
+            assert_eq!(declared(source, "g"), Some(kind), "{source:?}");
+        }
+    }
+
+    #[test]
+    fn definition_name_is_its_string() {
+        let source = "def --wrapped \"'echo'\" [...rest] {}";
+        assert_eq!(declared(source, "'echo'"), Some(DeclKind::Wrapped));
+        assert_eq!(declared(source, "echo"), None);
+        assert_eq!(declared("def \"a\"b [] {}", "a\"b"), None);
+    }
 }

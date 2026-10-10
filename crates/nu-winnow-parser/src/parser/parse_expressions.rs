@@ -20,12 +20,12 @@ use super::WorkingSet;
 use super::lite_parser::lite_parse_parts;
 use super::parse_alias::parse_alias;
 use super::parse_bindings::{parse_const, parse_let, parse_mut};
-use super::parse_calls::{parse_call, parse_external_string};
+use super::parse_calls::{find_longest_decl, parse_call, parse_external_string};
 use super::parse_control_flow::{
     parse_break_or_continue, parse_if, parse_loop, parse_match, parse_return, parse_try, parse_while,
 };
 use super::parse_def::{parse_def, parse_extern, parse_for};
-use super::parse_helpers::{delimited_interior, garbage, invalid_literal, is_spread};
+use super::parse_helpers::{delimited_interior, invalid_literal, is_spread};
 use super::parse_keywords::is_statement_keyword;
 use super::parse_literals::{
     is_datetime, is_range_head, is_range_syntax, looks_like_binary, parse_binary, parse_dollar_expr, parse_duration,
@@ -115,6 +115,15 @@ pub fn parse_builtin_commands<'a>(tokens: Tokens<'_, 'a>) -> ParseResult<Express
         true => head,
         false => "",
     };
+    // nu reads `if`, `match`, `while`, `loop`, `try`, `return`, `break` and `continue` with
+    // `parse_call`, whose `find_longest_decl` takes a longer known name that starts with the
+    // keyword (`def "if ready"`); `where` and the statement keywords go by their first word.
+    let longer_name = || {
+        let mut after_head = tokens;
+        after_head.next_token();
+        let (longest, _) = find_longest_decl(*first, &mut after_head, "");
+        longest.span != first.span
+    };
     let (context, result) = match head {
         "def" => ("def", parse_def(tokens)),
         "extern" => ("extern", parse_extern(tokens)),
@@ -127,6 +136,9 @@ pub fn parse_builtin_commands<'a>(tokens: Tokens<'_, 'a>) -> ParseResult<Express
         "use" => ("use", parse_use(tokens)),
         "export" => ("export", parse_export_in_block(tokens)),
         "export-env" => ("export-env", parse_export_env(tokens)),
+        "if" | "match" | "while" | "loop" | "try" | "return" | "break" | "continue" if longer_name() => {
+            ("command call", parse_call(tokens))
+        }
         "if" => ("if", parse_if(tokens)),
         "match" => ("match", parse_match(tokens)),
         "while" => ("while", parse_while(tokens)),
@@ -216,14 +228,15 @@ fn env_assignment<'a>(tokens: &mut Tokens<'_, 'a>) -> ParseResult<EnvAssignment<
 fn parse_assignment_expression<'a>(tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
     let working_set = tokens.working_set;
     let items = tokens.all();
-    let operator_index = items
-        .iter()
-        .position(|token| matches!(token.contents, TokenContents::AssignmentOperator(_)))
-        .expect("checked by caller");
-    let operator_token = items[operator_index];
-    let TokenContents::AssignmentOperator(operator) = operator_token.contents else {
-        unreachable!("position found an assignment token")
+    // The caller found an assignment operator among the items.
+    let operator = items.iter().enumerate().find_map(|(index, token)| match token.contents {
+        TokenContents::AssignmentOperator(operator) => Some((index, operator)),
+        _ => None,
+    });
+    let Some((operator_index, operator)) = operator else {
+        return Err(cut(Diagnostic::expected("assignment operator", tokens.here())));
     };
+    let operator_token = items[operator_index];
     if operator_index == 0 {
         return Err(cut(Diagnostic::expected("left hand side of assignment", operator_token.span)));
     }
@@ -384,7 +397,11 @@ fn replace_boxed<'a>(
 /// In a row condition, a string operand `size` means `$it.size`.
 fn expand_to_cell_path<'a>(working_set: &WorkingSet<'a>, expr: Expression<'a>) -> ParseResult<Expression<'a>> {
     match expr.expr {
-        Expr::String(_) => parse_full_cell_path(working_set, expr.span, true),
+        // nu's `expand_to_cell_path` re-parses only an `Expr::String`: a raw string is nu's
+        // `Expr::RawString`, and stays a value (`where r#'a'# == 'a'`).
+        Expr::String(ref string) if !matches!(string.quote, Quote::Raw(_)) => {
+            parse_full_cell_path(working_set, expr.span, true)
+        }
         Expr::UnaryNot(mut not) => {
             replace_boxed(&mut not.expr, |operand| expand_to_cell_path(working_set, operand))?;
             Ok(Expression::new(Expr::UnaryNot(not), expr.span))
@@ -437,8 +454,6 @@ pub enum ExpectedShape<'t, 'a> {
     /// A string (record keys, module names, `record<...>` field names):
     /// `true`, `false` and `null` are refused and `[...]` is a bare word.
     String,
-    /// A signature `[...]` / `(...)`.
-    Signature,
     /// The declared shape of a parameter whose default value this is
     /// (`[x: int = 1]`), or of the items of a `list<...>`: nu parses the value
     /// with that shape.
@@ -460,9 +475,8 @@ pub fn parse_value<'a>(
     match text.as_bytes() {
         [] => Err(cut(Diagnostic::expected("value", span))),
         [b'$', ..] => parse_dollar_expr(working_set, span),
-        [b'(', ..] => parse_paren_expr(working_set, span, shape),
+        [b'(', ..] => parse_paren_expr(working_set, span),
         [b'{', ..] => parse_brace_expr(working_set, span, shape),
-        [b'[', ..] if shape == ExpectedShape::Signature => Ok(garbage(span)),
         // `parse_string` on `[a b]`: the text is a bare word.
         [b'[', ..] if shape == ExpectedShape::String => parse_string(working_set, span),
         [b'[', ..] if shape == ExpectedShape::Number => Err(cut(Diagnostic::expected("number", span))),
@@ -473,7 +487,6 @@ pub fn parse_value<'a>(
             ExpectedShape::String => parse_string_value(working_set, span),
             ExpectedShape::MatchArmBody => Err(cut(Diagnostic::expected("block", span))),
             ExpectedShape::Closure => Err(cut(Diagnostic::expected("closure", span))),
-            ExpectedShape::Signature => Err(cut(Diagnostic::expected("signature", span))),
             ExpectedShape::Any | ExpectedShape::Declared(_) => parse_any_value(working_set, span, text),
         },
     }
@@ -544,7 +557,7 @@ fn parse_value_for_shape<'a>(
     match text.as_bytes() {
         [] => return Err(cut(Diagnostic::expected("value", span))),
         [b'$', ..] => return parse_dollar_expr(working_set, span),
-        [b'(', ..] => return parse_paren_expr(working_set, span, ExpectedShape::Any),
+        [b'(', ..] => return parse_paren_expr(working_set, span),
         [b'{', ..] => {
             // Only `closure` and `any` take a body of code; for the other shapes the `{`
             // must be a record or have closure parameters (`String` stands for "a value").
@@ -711,31 +724,36 @@ pub enum BraceShape {
     Other,
 }
 
+impl BraceShape {
+    /// The shape that `probe`, the first two tokens of a `{` body lexed from `source` with
+    /// [`LexOptions::BRACE_PROBE`], gives the body. The arms are in nu's order: pipes, then
+    /// `key:`, then a spread.
+    pub fn of_probe(probe: &[Token], source: &str) -> BraceShape {
+        match probe {
+            [first, ..] if matches!(first.contents, TokenContents::Pipe | TokenContents::PipePipe) => {
+                BraceShape::ClosureParams
+            }
+            [_, second, ..] if second.text(source) == ":" => BraceShape::Record,
+            [first, ..] if first.contents == TokenContents::Item && is_spread(first.text(source), b"{$(") => {
+                BraceShape::Spread
+            }
+            [first, ..] if first.contents != TokenContents::Eof => BraceShape::Other,
+            _ => BraceShape::Empty,
+        }
+    }
+}
+
 /// The [`BraceShape`] of `inner`, the text inside a `{`, from its first two
-/// tokens. [`LexOptions::BRACE_PROBE`] makes newlines whitespace, skips
-/// comments and splits off `:`, so these are the first two tokens of
-/// substance and `a:` reads as a key. The arms are in nu's order: pipes, then
-/// `key:`, then a spread.
+/// tokens ([`BraceShape::of_probe`]). [`LexOptions::BRACE_PROBE`] makes newlines
+/// whitespace, skips comments and splits off `:`, so these are the first two
+/// tokens of substance and `a:` reads as a key.
 ///
 /// The probe only picks a parser and, like nu, reports no lex error: one reads
 /// as `Empty` (`unwrap_or_default`), and the parser chosen for an `Empty` body
 /// lexes it again, where a real error is reported.
 fn probe_brace_shape(working_set: &WorkingSet<'_>, inner: Span) -> BraceShape {
     let probe = working_set.lex_n_tokens(inner, LexOptions::BRACE_PROBE, 2).unwrap_or_default();
-    match probe.as_slice() {
-        [first, ..] if matches!(first.contents, TokenContents::Pipe | TokenContents::PipePipe) => {
-            BraceShape::ClosureParams
-        }
-        [_, second, ..] if working_set.get_span_contents(second.span) == ":" => BraceShape::Record,
-        [first, ..]
-            if first.contents == TokenContents::Item
-                && is_spread(working_set.get_span_contents(first.span), b"{$(") =>
-        {
-            BraceShape::Spread
-        }
-        [first, ..] if first.contents != TokenContents::Eof => BraceShape::Other,
-        _ => BraceShape::Empty,
-    }
+    BraceShape::of_probe(&probe, working_set.source)
 }
 
 /// The shape of a `{ ... }` item (checking that it closes).
@@ -817,10 +835,9 @@ fn parse_brace_expr<'a>(
         (BraceShape::Spread, _) => parse_record(working_set, span),
         (BraceShape::Other, ExpectedShape::MatchArmBody) => parse_block_expression(working_set, span),
         (BraceShape::Other, ExpectedShape::Closure | ExpectedShape::Any) => parse_closure_expression(working_set, span),
-        (
-            BraceShape::Other,
-            ExpectedShape::Number | ExpectedShape::String | ExpectedShape::Signature | ExpectedShape::Declared(_),
-        ) => Err(cut(Diagnostic::expected("value", span).with_help("found a block or closure"))),
+        (BraceShape::Other, ExpectedShape::Number | ExpectedShape::String | ExpectedShape::Declared(_)) => {
+            Err(cut(Diagnostic::expected("value", span).with_help("found a block or closure")))
+        }
     }
 }
 
@@ -981,12 +998,15 @@ fn parse_table_expression<'a>(
     semicolon: &Token,
     rows: &[Token],
 ) -> ParseResult<Expression<'a>> {
-    let columns = parse_table_row(working_set, columns.span)?;
+    // The header and each row are lists in the tree.
+    let list = |cells: Vec<Expression<'a>>, span: Span| {
+        Expression::new(Expr::List(cells.into_iter().map(ListItem::Item).collect()), span)
+    };
+    let column_cells = parse_table_row(working_set, columns.span)?;
     if rows.is_empty() {
         return Err(cut(Diagnostic::expected("table row", semicolon.span.past())));
     }
-    let Expr::List(column_items) = &columns.expr else { unreachable!("parse_table_row returns a list") };
-    let width = column_items.len();
+    let width = column_cells.len();
     let rows = rows
         .iter()
         .map(|token| {
@@ -995,24 +1015,22 @@ fn parse_table_expression<'a>(
                     Diagnostic::message("table item not list", token.span).with_help("all table items must be lists")
                 ));
             }
-            let row = parse_table_row(working_set, token.span)?;
-            let Expr::List(items) = &row.expr else { unreachable!("parse_table_row returns a list") };
-            match items.len().cmp(&width) {
+            let cells = parse_table_row(working_set, token.span)?;
+            match cells.len().cmp(&width) {
                 std::cmp::Ordering::Less => Err(cut(Diagnostic::message("missing columns", token.span)
-                    .with_help(format!("expected {width} columns, found {}", items.len())))),
+                    .with_help(format!("expected {width} columns, found {}", cells.len())))),
                 std::cmp::Ordering::Greater => {
-                    let extra = items[width].span().merge(items[items.len() - 1].span());
+                    let extra = cells[width].span.merge(cells[cells.len() - 1].span);
                     Err(cut(Diagnostic::message("extra columns", extra)
-                        .with_help(format!("expected {width} columns, found {}", items.len()))))
+                        .with_help(format!("expected {width} columns, found {}", cells.len()))))
                 }
-                std::cmp::Ordering::Equal => Ok(row),
+                std::cmp::Ordering::Equal => Ok(list(cells, token.span)),
             }
         })
         .collect::<ParseResult<Vec<_>>>()?;
-    for column in column_items {
-        let ListItem::Item(expr) = column else { unreachable!("parse_table_row refuses spreads") };
+    for column in &column_cells {
         let stringy = matches!(
-            expr.expr,
+            column.expr,
             Expr::String(_)
                 | Expr::StringInterpolation(_)
                 | Expr::Var(_)
@@ -1021,10 +1039,11 @@ fn parse_table_expression<'a>(
                 | Expr::Subexpression(_)
         );
         if !stringy {
-            return Err(cut(Diagnostic::message("table column name not string", expr.span)
+            return Err(cut(Diagnostic::message("table column name not string", column.span)
                 .with_help("table column names should be able to be converted into strings")));
         }
     }
+    let columns = list(column_cells, columns.span);
     Ok(Expression::new(Expr::Table(Table { columns: Box::new(columns), rows }), span))
 }
 
@@ -1054,22 +1073,22 @@ fn parse_list_item<'a>(
     Ok(ListItem::Item(parse_value(working_set, token.span, shape)?))
 }
 
-/// A table header or row (nu's `parse_table_row`): a list without spreads.
-fn parse_table_row<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResult<Expression<'a>> {
+/// The cells of a table header or row (nu's `parse_table_row`): a list without spreads.
+fn parse_table_row<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResult<Vec<Expression<'a>>> {
     let items = lex_bracket_interior(working_set, span)?;
     reject_semicolon(&items, "list")?;
     let mut cells = Vec::new();
     for group in lite_parse_parts(working_set, &items)? {
         for token in &group {
             match parse_list_item(working_set, token, None)? {
-                cell @ ListItem::Item(_) => cells.push(cell),
+                ListItem::Item(cell) => cells.push(cell),
                 ListItem::Spread { dots, .. } => {
                     return Err(cut(Diagnostic::message("cannot spread in a table row", dots)));
                 }
             }
         }
     }
-    Ok(Expression::new(Expr::List(cells), span))
+    Ok(cells)
 }
 
 /// `{ key: value, ...$spread }` (nu's `parse_record`).

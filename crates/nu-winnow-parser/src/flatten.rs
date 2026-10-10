@@ -248,6 +248,8 @@ impl<'a> Visitor<'a> for Flattener<'_> {
     }
 
     fn visit_signature(&mut self, signature: &Signature<'a>) {
+        // Every shape pushed before the signature lies before it in the source.
+        let from = self.out.len();
         for parameter in &signature.params {
             match &parameter.kind {
                 ParameterKind::Flag { .. } => self.push(parameter.name.span, FlatShape::Flag),
@@ -269,13 +271,12 @@ impl<'a> Visitor<'a> for Flattener<'_> {
             self.push(io.output.span, FlatShape::Type);
         }
         // The signature's punctuation is whatever the shapes inside its span leave uncovered.
-        let covered: Vec<Span> = self
-            .out
+        // They are not in source order: a default such as `= [1 2]` pushes its gaps last.
+        let mut covered: Vec<Span> = self.out[from..]
             .iter()
             .filter(|(span, _)| signature.span.start <= span.start && span.end <= signature.span.end)
             .map(|(span, _)| *span)
             .collect();
-        let mut covered = covered;
         covered.sort_by_key(|span| span.start);
         self.gaps(signature.span, covered.into_iter(), FlatShape::Signature);
     }
@@ -337,8 +338,11 @@ impl<'a> Visitor<'a> for Flattener<'_> {
             }
             Expr::Var(_) => self.push(span, FlatShape::Variable),
             Expr::CellPath(cell_path) => {
-                // The leading `$.`.
-                self.push(Span::new(span.start, span.start + 2), FlatShape::CellPath);
+                // The leading `$.`, which the `cell-path` value of a typed default does not have
+                // (`[x: cell-path = a.b]`, nu's `parse_simple_cell_path`).
+                if self.src[span.start..].starts_with("$.") {
+                    self.push(Span::new(span.start, span.start + 2), FlatShape::CellPath);
+                }
                 self.members(&cell_path.members);
             }
             Expr::FullCellPath(full_cell_path) => {

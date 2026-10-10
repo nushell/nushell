@@ -60,7 +60,7 @@ impl ParseFailure {
     }
 
     /// Where the failure happened.
-    fn offset(&self) -> usize {
+    pub(crate) fn offset(&self) -> usize {
         match self {
             ParseFailure::NoMatch(offset) => *offset,
             ParseFailure::Error(diagnostic) => diagnostic.span.start,

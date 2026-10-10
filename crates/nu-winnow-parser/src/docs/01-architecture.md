@@ -58,7 +58,7 @@ Vec<Token>  (Item | Pipe | PipePipe | Redirection | AssignmentOperator |
 the statement loop: comments attached, pipelines collected, error recovery
 per statement
    │
-   ▼  parse_lite_command(&mut Tokens, first)                     src/parser/lite_parser.rs
+   ▼  parse_lite_command(&mut Tokens, at_line_start)             src/parser/lite_parser.rs
 the lite parse: one command's tokens grouped into a LiteCommand, `=` absorbs
 the rest of the line, redirections and @attribute lines collected, a `|` on
 a later line continues the pipeline
@@ -125,8 +125,8 @@ nu-parser namesake, except `parse_control_flow.rs`, which has no counterpart
 | `src/parser/mod.rs` | `ParseConfig`, the command-name sets, `parse` (the entry point) | change configuration or the top-level driver |
 | `src/parser/working_set.rs` | `WorkingSet`: source text, declared and built-in command names, scopes, collected comments, ignored text and diagnostics | change scopes or what a parse collects |
 | `src/parser/tokens.rs` | The `Tokens` stream and the token parsers `item`, `keyword`, `pipe`, `eol`, `comment`, `expected`, `cut_with`, `repeat_to_end`, `tokens_until` | change how parsers walk tokens |
-| `src/parser/lite_parser.rs` | The lite parse: `LiteCommand`, `parse_lite_command`, pipe continuation (`take_pipe_on_later_line`, `after_pipe`), `lite_parse_parts` | change command boundaries, comments, redirections, attributes |
-| `src/parser/parse_pipelines.rs` | `parse_block` (statement loop, recovery), `parse_pipeline`, `parse_pipeline_element`, `parse_redirection` | change pipelines, redirections or error recovery |
+| `src/parser/lite_parser.rs` | The lite parse: `LiteCommand`, `parse_lite_command`, pipe continuation (`take_pipe_on_later_line`, `after_pipe_lines`, `after_pipe`), `lite_parse_parts` | change command boundaries, comments, redirections, attributes |
+| `src/parser/parse_pipelines.rs` | `parse_block` and its statement loop `parse_statements` (recovery), `parse_pipeline`, `parse_pipeline_element`, `parse_redirection` | change pipelines, redirections or error recovery |
 | `src/parser/parse_expressions.rs` | `parse_expression`, `parse_builtin_commands`, env shorthand, assignments, `parse_math_expression`, `parse_row_condition`, `parse_value` and `ExpectedShape`, `is_math_expression_like`, `{ ... }` (record, closure or block), lists, tables, records, match blocks | change operators, precedence, value dispatch or disambiguation |
 | `src/parser/parse_calls.rs` | `parse_call`, `find_longest_decl`, `parse_call_arguments`, external and `%` calls, `parse_attribute`, `KeywordSignature`, `check_call` | change argument parsing or command-name resolution |
 | `src/parser/parse_keywords.rs` | `is_statement_keyword`, the parser-keyword lists, `KeywordCall` (flags and `--help` of keyword statements), `parse_block_argument` | change how keyword statements take flags |

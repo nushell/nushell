@@ -31,10 +31,9 @@ def main [
     }
     if $diff != null {
         let input = $fixtures | path join input $"($diff).nu"
-        let ours = mktemp -t nufmt-ours.XXXXXX
-        ^$bin ...(config-args $fixtures $diff) $input | save -f $ours
-        ^diff $ours ($fixtures | path join expected $"($diff).nu")
-        rm $ours
+        # `diff` reads our output from stdin: no temporary file to leave behind
+        # when the outputs differ (`diff` exits 1) or nufmt fails.
+        ^$bin ...(config-args $fixtures $diff) $input | ^diff - ($fixtures | path join expected $"($diff).nu")
         return
     }
     let results = glob ($fixtures | path join input *.nu) | sort | each {|input|

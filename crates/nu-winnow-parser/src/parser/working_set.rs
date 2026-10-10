@@ -80,7 +80,9 @@ pub trait CommandLookup {
     fn longest_name(&self) -> usize {
         usize::MAX
     }
-    /// Whether `name` is a built-in command, which `%name` may call.
+    /// Whether some declaration named `name` is a built-in command, visible or
+    /// not (shadowed or hidden): what `%name` may call, as nu-parser's
+    /// `find_decl_with_command_type(.., CommandType::Builtin)` answers it.
     fn is_builtin_decl(&self, name: &str) -> bool;
 }
 
@@ -328,8 +330,9 @@ impl<'a> WorkingSet<'a> {
         self.lookup.is_some() || !self.config.is_empty()
     }
 
-    /// Whether `name` is one of the configured built-in commands, whatever
-    /// the file declares (what `%name` may call).
+    /// Whether `name` is a built-in command, even one that a declaration
+    /// shadows (what `%name` may call): the engine's answer
+    /// ([`CommandLookup::is_builtin_decl`]), or one of the configured ones.
     pub fn is_builtin_decl(&self, name: &str) -> bool {
         match &self.lookup {
             Some(lookup) => lookup.is_builtin_decl(name),
@@ -353,10 +356,7 @@ impl<'a> WorkingSet<'a> {
     /// external call, [`DeclKind::Wrapped`] when it is a call to a wrapped
     /// command, else [`DeclKind::Declared`].
     pub fn add_alias(&self, name: &str, kind: DeclKind) {
-        self.longest_declared.set(self.longest_declared.get().max(name.len()));
-        if let Some(scope) = self.scopes.borrow_mut().last_mut() {
-            scope.declare(name, kind);
-        }
+        self.add_predecl(name, kind)
     }
 
     /// Enter a declaration scope (a block, closure or module body).

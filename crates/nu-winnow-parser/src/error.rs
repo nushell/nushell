@@ -228,10 +228,14 @@ fn render_into(out: &mut String, d: &Diagnostic, source: &str, name: Option<&str
     let _ = writeln!(out, "{pad} |");
     let _ = writeln!(out, "{gutter} | {line_text}");
     // Caret line: the span clipped to this line, measured in characters. A span that runs on
-    // to later lines is underlined to the line's end; an empty one still gets one caret.
-    let col0 = source[range.start..d.span.start.min(range.end).max(range.start)].chars().count();
-    let end_on_line = d.span.end.min(range.end).max(d.span.start.min(range.end));
-    let width = source[d.span.start.min(range.end)..end_on_line].chars().count().max(1);
+    // to later lines is underlined to the line's end; an empty one still gets one caret. A
+    // diagnostic built by hand may hold any span: widen it to whole characters, so the slices
+    // below never split one.
+    let span_start = source.floor_char_boundary(d.span.start);
+    let span_end = source.ceil_char_boundary(d.span.end).max(span_start);
+    let col0 = source[range.start..span_start.min(range.end).max(range.start)].chars().count();
+    let end_on_line = span_end.min(range.end).max(span_start.min(range.end));
+    let width = source[span_start.min(range.end)..end_on_line].chars().count().max(1);
     let _ = writeln!(out, "{pad} | {}{}", " ".repeat(col0), "^".repeat(width));
     if let ErrorKind::Unclosed { open, .. } = &d.kind {
         let open_pos = index.line_col(open.start, source);

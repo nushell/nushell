@@ -321,11 +321,7 @@ impl<'t, 'a: 't> ParserError<Tokens<'t, 'a>> for ParseFailure {
 
     fn or(self, other: Self) -> Self {
         // Prefer the failure that got furthest.
-        let offset = |failure: &ParseFailure| match failure {
-            ParseFailure::NoMatch(offset) => *offset,
-            ParseFailure::Error(diagnostic) => diagnostic.span.start,
-        };
-        if offset(&other) >= offset(&self) { other } else { self }
+        if other.offset() >= self.offset() { other } else { self }
     }
 
     fn into_inner(self) -> Result<Self::Inner, Self> {

@@ -33,9 +33,9 @@ pub struct Ast<'a> {
     pub source: &'a str,
     /// The top-level block.
     pub block: Block<'a>,
-    /// Every comment in the file, in source order (including those attached to
-    /// pipelines and parameters), except one inside a list or record match
-    /// pattern or a parameter type's `<...>`: the lexer skips those, as nu's does.
+    /// Every comment in the file, in source order, including those attached to
+    /// pipelines and parameters and those inside match patterns, type parameters,
+    /// input/output types and binary literals, which nu's lexer skips.
     pub comments: Vec<Comment>,
     /// The span of a leading `#!` line, if present. It is also in `comments`.
     pub shebang: Option<Span>,
@@ -344,8 +344,9 @@ pub enum Expr<'a> {
     /// `where <row condition>`.
     Where(Where<'a>),
 
-    /// A placeholder for text that failed to parse (only produced by
-    /// [`crate::parse_lenient`]).
+    /// A placeholder for a statement that failed to parse: in the tree from
+    /// [`crate::parse_lenient`], and as the statement [`crate::parse_block_streaming`]
+    /// (`BlockStatements::parse`) hands over with its diagnostics.
     Garbage,
 }
 
@@ -392,8 +393,8 @@ pub enum Quote {
     Double,
     /// `` `foo` ``.
     Backtick,
-    /// `r#'foo'#` with the given number of `#`.
-    Raw(u8),
+    /// `r#'foo'#` with the given number of `#` (any number, as in nu).
+    Raw(usize),
 }
 
 /// A string literal.
@@ -1060,6 +1061,9 @@ pub struct Call<'a> {
     /// built-in command of that name even when a custom command or alias
     /// shadows it.
     pub sigil: Option<Span>,
+    /// The head was resolved as a `def --wrapped` command (`DeclKind::Wrapped`) when the call
+    /// was parsed, so its arguments were parsed as external arguments.
+    pub wrapped: bool,
 }
 
 /// `%$cmd args` or `%(expr) args`: the `%` sigil with a command name computed
@@ -1315,6 +1319,10 @@ pub struct Parameter<'a> {
     pub ty: Option<TypeAnnotation<'a>>,
     /// The default value after `=`.
     pub default: Option<Expression<'a>>,
+    /// Another `= value` followed the default; nu parses it with the first default's type, this
+    /// tree keeps the last. Only a parameter without a type is marked: with one, nu parses
+    /// every default with that type and keeps the last, as this tree does.
+    pub extra_default: bool,
     /// A custom completer after `@` in the type.
     pub completer: Option<Spanned<&'a str>>,
     /// The `# description` comments following the parameter, in source order
@@ -1514,9 +1522,9 @@ pub struct If<'a> {
     pub condition: Box<Expression<'a>>,
     /// The then block (empty when `then_value` is set).
     pub then_block: Block<'a>,
-    /// A variable or subexpression in place of the block (`if $c $env.f`):
-    /// nu-parser accepts one where it wants a block and type-checks it as a
-    /// block.
+    /// A variable, a subexpression, or a record or a cell path on one (`{a: 1}.a`), in
+    /// place of the block (`if $c $env.f`): nu-parser accepts one where it wants a
+    /// block and type-checks it as a block.
     pub then_value: Option<Box<Expression<'a>>>,
     /// The else branch.
     pub else_branch: Option<Else<'a>>,
@@ -1602,9 +1610,9 @@ pub struct For<'a> {
     pub iterable: Box<Expression<'a>>,
     /// The body (empty when `body_value` is set).
     pub body: Block<'a>,
-    /// A variable or subexpression in place of the block (`for x in $l $env.f`):
-    /// nu-parser accepts one where it wants a block and type-checks it as a
-    /// block.
+    /// A variable, a subexpression, or a record or a cell path on one (`{a: 1}.a`), in
+    /// place of the block (`for x in $l $env.f`): nu-parser accepts one where it wants a
+    /// block and type-checks it as a block.
     pub body_value: Option<Box<Expression<'a>>>,
 }
 
@@ -1616,9 +1624,9 @@ pub struct While<'a> {
     pub condition: Box<Expression<'a>>,
     /// The body (empty when `body_value` is set).
     pub body: Block<'a>,
-    /// A variable or subexpression in place of the block (`while $c $env.f`):
-    /// nu-parser accepts one where it wants a block and type-checks it as a
-    /// block.
+    /// A variable, a subexpression, or a record or a cell path on one (`{a: 1}.a`), in
+    /// place of the block (`while $c $env.f`): nu-parser accepts one where it wants a
+    /// block and type-checks it as a block.
     pub body_value: Option<Box<Expression<'a>>>,
 }
 
@@ -1628,9 +1636,9 @@ pub struct While<'a> {
 pub struct Loop<'a> {
     /// The body (empty when `body_value` is set).
     pub body: Block<'a>,
-    /// A variable or subexpression in place of the block (`loop $env.f`):
-    /// nu-parser accepts one where it wants a block and type-checks it as a
-    /// block.
+    /// A variable, a subexpression, or a record or a cell path on one (`{a: 1}.a`), in
+    /// place of the block (`loop $env.f`): nu-parser accepts one where it wants a
+    /// block and type-checks it as a block.
     pub body_value: Option<Box<Expression<'a>>>,
 }
 
@@ -1670,9 +1678,9 @@ pub struct Handler<'a> {
 pub struct Try<'a> {
     /// The body (empty when `body_value` is set).
     pub body: Block<'a>,
-    /// A variable or subexpression in place of the block (`try $env.f`):
-    /// nu-parser accepts one where it wants a block and type-checks it as a
-    /// block.
+    /// A variable, a subexpression, or a record or a cell path on one (`{a: 1}.a`), in
+    /// place of the block (`try $env.f`): nu-parser accepts one where it wants a
+    /// block and type-checks it as a block.
     pub body_value: Option<Box<Expression<'a>>>,
     /// The handlers in source order (at most two, in any order; Nushell
     /// accepts `catch` or `finally` for either slot).

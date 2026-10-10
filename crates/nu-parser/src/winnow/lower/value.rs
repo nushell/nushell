@@ -16,6 +16,7 @@ use crate::{
     parse_captures_compile::compile_block,
     parse_expressions::parse_value as classic_value,
     parse_expressions::{check_record_key_or_value, table_type},
+    parse_literals::is_quoted,
 };
 
 impl<'s> Lower<'_, '_, 's> {
@@ -367,10 +368,7 @@ impl<'s> Lower<'_, '_, 's> {
             (SyntaxShape::GlobPattern, Expr::StringInterpolation(parts))
                 if self.text(span).contains('(') =>
             {
-                let quoted = matches!(
-                    self.text(span).as_bytes(),
-                    [b'\'', .., b'\''] | [b'"', .., b'"']
-                );
+                let quoted = is_quoted(self.text(span).as_bytes());
                 Ok(self.node(
                     Expr::GlobInterpolation(parts, quoted),
                     expression.span,

@@ -76,10 +76,7 @@ pub fn parse_module<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a
         {
             end = token.span;
             tokens.next_token();
-            working_set.enter_scope();
-            let body = parse_block_body_unchecked(working_set, token.span);
-            working_set.exit_scope();
-            let body = body?;
+            let body = parse_block_body_unchecked(working_set, token.span)?;
             // Like nu, a module body holds declarations only.
             for pipeline in &body.pipelines {
                 let first = &pipeline.elements[0].expr;

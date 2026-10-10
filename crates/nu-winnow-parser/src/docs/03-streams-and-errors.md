@@ -251,7 +251,7 @@ being `Copy`. Methods you will use:
 | `add_ignored(span)`, `remove_ignored_from(offset)` | Record text nu accepts and never looks at, or drop what was recorded from an offset on |
 | `find_decl(name)` | Whether `name` is a command: `Some(DeclKind::Declared)` for a `def`/`extern`/`alias` in an enclosing block (it shadows a built-in; the innermost wins), `Some(DeclKind::ExternalAlias)` for an alias of an external command, `Some(DeclKind::Wrapped)` for a `def --wrapped` with an untyped rest parameter or an alias of one (its arguments parse as external arguments), `Some(DeclKind::Builtin)` for a configured command, or `None` (an external command when a table is configured) |
 | `is_declared(name)`, `is_decl_name_prefix(word)` | A declaration in scope; the first word of a known multi-word command |
-| `has_builtin_decls()`, `is_builtin_decl(name)` | Whether a command table is configured, and whether `name` is a built-in command of it (`CommandType::Builtin`, what `%name` may call) |
+| `has_builtin_decls()`, `is_builtin_decl(name)` | Whether the parse knows which commands exist (an engine answers, or a command table is configured), and whether some declaration named `name` is a built-in command, visible or not (shadowed or hidden): what `%name` may call, as nu-parser's `find_decl_with_command_type(.., CommandType::Builtin)` answers it |
 | `add_predecl(name, kind)` | Declare a `def`/`extern` before its block is parsed, so calls to it resolve (nu's `add_predecl`); `kind` is `Wrapped` or `Declared` |
 | `add_alias(name, kind)` | Declare an alias once its statement is parsed (nu never predeclares one), with the kind of its target: `ExternalAlias` for an external call, `Wrapped` for a call to a wrapped command, else `Declared` |
 | `enter_scope()` / `exit_scope()` | Declaration scopes for closures, blocks and subexpressions |
@@ -286,8 +286,9 @@ again as a help call, does not record its comments twice.
 
 ## Error recovery
 
-Recovery happens in exactly one place: `parse_block` in
-`src/parser/parse_pipelines.rs`. When a pipeline fails to parse it records
+Recovery happens in exactly one place: `parse_statements` in
+`src/parser/parse_pipelines.rs`, the statement loop that `parse_block` and
+`BlockStatements::parse` run. When a pipeline fails to parse it records
 the diagnostic, resets the stream to the pipeline's start, skips to the next
 `Eol` or `;` (`skip_to_statement_end`), and emits a pipeline whose single
 element is `Expr::Garbage` covering the skipped span. Because every block

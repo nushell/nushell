@@ -1,0 +1,31 @@
+Block 0..136
+  Pipeline 83..92 comments=1
+    let a 83..92
+      Value 91..92
+        Pipeline 91..92
+          Int 1 91..92
+  Pipeline 93..105
+    let x 93..105
+      Value 101..105
+        Pipeline 101..105
+          Range Inclusive 101..105
+            From
+              Int 1 101..102
+  Pipeline 106..119
+    let y 106..119
+      Value 114..119
+        Pipeline 114..119
+          Range Inclusive 114..119
+            From
+              Var $a 114..116
+  Pipeline 120..135
+    let z 120..135
+      Value 128..135
+        Pipeline 128..135
+          Range Inclusive 128..135
+            From
+              Int 1 128..129
+            Next
+              Int 3 131..132
+Comments (1)
+  0..82 "# A range whose text ends with its operator has no `to`: the third `.` is dropped."

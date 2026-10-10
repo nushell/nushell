@@ -12,7 +12,11 @@
 //! either side closes the pipeline: `a\n\n| b` and `a |\n\n b` are two
 //! pipelines each (the trailing `|` of the first is dropped silently, as nu
 //! does), and a `|` that nothing but comments follow at the end of a block is
-//! an error.
+//! an error. Between a `|` ending a line and one starting a later line there
+//! may be one blank line, as nu's lexer turns the end of line before a
+//! line-leading `|` into that `|` (`a |\n\n| b` is one pipeline). After an
+//! `e>|` or `o+e>|` the pipeline goes on to a later line only through such a
+//! `|` (`a e>|\nb` is two pipelines).
 
 use winnow::Parser;
 use winnow::combinator::{opt, peek, preceded, repeat, terminated};
@@ -107,36 +111,61 @@ fn record_comments(working_set: &WorkingSet<'_>, comment_tokens: &[Token], comme
     }
 }
 
-/// What follows a `|` (just consumed) after its continuation lines.
+/// What follows a pipe (just consumed) after its continuation lines.
 pub enum AfterPipe {
     /// A command follows.
     Command,
-    /// A blank line, a `;` (after a redirection pipe such as `e>|`; the lexer
-    /// refuses one after a plain `|`) or the end of the block: the pipeline ends
-    /// here and the `|` is dropped.
+    /// The pipeline ends here, the pipe dropped from it: a blank line (after an
+    /// `e>|`, any end of line) with no `|` starting a later line, a `;` (after
+    /// an `e>|`; the lexer refuses one after a plain `|`) or the end of the block.
     Dangling,
 }
 
-/// After a `|`: the comments on its line, then one end of line and any
-/// comment lines (`Comment* [Eol (Comment Eol)*]`), the way nu's lite parser
-/// keeps a pipeline open across them.
-pub fn after_pipe(tokens: &mut Tokens<'_, '_>, comments: &mut Vec<Comment>) -> ParseResult<AfterPipe> {
-    let same_line: Vec<Token> = repeat(0.., comment).parse_next(tokens)?;
-    let later_lines: Option<Vec<Token>> =
-        opt(preceded(eol, repeat(0.., terminated(comment, eol)))).parse_next(tokens)?;
-    record_comments(tokens.working_set, &same_line, comments);
-    record_comments(tokens.working_set, &later_lines.unwrap_or_default(), comments);
-    // A `|` that only comments follow at the end of the block is reported
-    // once, by `parse_block`, whichever command absorbed it.
-    match tokens.peek_token().map(|token| token.contents) {
-        None | Some(TokenContents::Eol | TokenContents::Semicolon) => Ok(AfterPipe::Dangling),
-        Some(_) => Ok(AfterPipe::Command),
+/// What follows a pipe just consumed, a `|` when `plain`, else an `e>|` or
+/// `o+e>|`, and the comment tokens before it, recording nothing: the one rule
+/// the statement parser ([`after_pipe`]) and the predeclaration scan share.
+///
+/// nu's lite parser keeps the pipeline open across the comments on the pipe's
+/// line and, after a `|` only, one end of line and any comment lines
+/// (`Comment* [Eol (Comment Eol)*]`, its `last_non_comment_token`). Its lexer
+/// turns the end of line before a `|` that starts a later line into that `|`,
+/// so such a `|` continues the pipeline too, with comment lines and, after a
+/// `|`, one blank line before it (`a |\n\n| b`, `a e>|\n# c\n| b`). The stream
+/// is left at what follows: the command, or the blank line, `;` or end of the
+/// block that drops the pipe. A `|` that only comments follow at the end of
+/// the block is reported once, by `parse_block`, whichever command absorbed it.
+pub fn after_pipe_lines(tokens: &mut Tokens<'_, '_>, plain: bool) -> ParseResult<(Vec<Token>, AfterPipe)> {
+    let mut comments: Vec<Token> = repeat(0.., comment).parse_next(tokens)?;
+    if plain {
+        let later_lines: Option<Vec<Token>> =
+            opt(preceded(eol, repeat(0.., terminated(comment, eol)))).parse_next(tokens)?;
+        comments.extend(later_lines.into_iter().flatten());
+    }
+    let next = tokens.peek_token().map(|token| token.contents);
+    if next == Some(TokenContents::Eol)
+        && let Some(comment_lines) = opt(pipe_on_later_line).parse_next(tokens)?
+    {
+        comments.extend(comment_lines);
+        return Ok((comments, AfterPipe::Command));
+    }
+    match next {
+        None | Some(TokenContents::Eol | TokenContents::Semicolon) => Ok((comments, AfterPipe::Dangling)),
+        Some(_) => Ok((comments, AfterPipe::Command)),
     }
 }
 
+/// What follows a pipe ([`after_pipe_lines`]), with the comments before it
+/// recorded.
+pub fn after_pipe(tokens: &mut Tokens<'_, '_>, plain: bool, comments: &mut Vec<Comment>) -> ParseResult<AfterPipe> {
+    let (comment_tokens, after) = after_pipe_lines(tokens, plain)?;
+    record_comments(tokens.working_set, &comment_tokens, comments);
+    Ok(after)
+}
+
 /// Collect the tokens of one command (nu's `lite_parse`, for one command).
-/// `first` is set for the first command of a pipeline, the only place attribute
-/// lines can precede it.
+/// `at_line_start` is set where attribute lines may precede it: nu's lite
+/// parser takes an `@` item for one at the start of a statement or of a line,
+/// in a pipeline too (`ls |\n@example ...\ndef f [] {}`).
 ///
 /// Items become `parts`, comments are recorded, and a redirection takes the item
 /// after it as its target. The command ends before a `|`, an end of line, a `;`
@@ -145,10 +174,10 @@ pub fn after_pipe(tokens: &mut Tokens<'_, '_>, comments: &mut Vec<Comment>) -> P
 /// pipes, `||` and redirections included, and carries on past an end of line
 /// that the pipeline continues across (a `|` ending the line or starting a
 /// later one).
-pub fn parse_lite_command(tokens: &mut Tokens<'_, '_>, first: bool) -> ParseResult<LiteCommand> {
+pub fn parse_lite_command(tokens: &mut Tokens<'_, '_>, at_line_start: bool) -> ParseResult<LiteCommand> {
     let working_set = tokens.working_set;
     let mut lite_command = LiteCommand::default();
-    if first {
+    if at_line_start {
         lite_attribute_lines(tokens, &mut lite_command)?;
     }
     // After `=` everything to the end of the line belongs to the command.
@@ -219,7 +248,9 @@ pub fn parse_lite_command(tokens: &mut Tokens<'_, '_>, first: bool) -> ParseResu
 /// Leading `@name arguments` lines, each up to the end of its line or a `;`. Like
 /// nu, everything on the line is an argument of the attribute, pipes and
 /// redirections included, and the definition must follow on the very next
-/// line: a blank or comment line in between is an error.
+/// line: a blank or comment line in between is an error. A `|` that starts a
+/// later line continues the attribute line, as in nu, whose lexer turns the end
+/// of line before it into that `|`.
 fn lite_attribute_lines(tokens: &mut Tokens<'_, '_>, lite_command: &mut LiteCommand) -> ParseResult<()> {
     let working_set = tokens.working_set;
     while tokens.peek_token().is_some_and(|token| {
@@ -234,6 +265,12 @@ fn lite_attribute_lines(tokens: &mut Tokens<'_, '_>, lite_command: &mut LiteComm
                     lite_command.comments.push(Comment { span: token.span });
                 }
                 TokenContents::Eol | TokenContents::Semicolon => {
+                    // `@a x\n| y`: the `|` and `y` are arguments too.
+                    if token.contents == TokenContents::Eol
+                        && take_pipe_on_later_line(tokens, &mut lite_command.comments)?
+                    {
+                        continue;
+                    }
                     // A line ending with `|` keeps the command open only at a newline; a `;` closes it.
                     ends_with_pipe &= token.contents == TokenContents::Eol;
                     tokens.next_token();

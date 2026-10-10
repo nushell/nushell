@@ -18,6 +18,12 @@ def harness-commit [harness: path]: nothing -> string {
     git -C $harness rev-parse HEAD | str trim | str substring 0..8
 }
 
+# The source with the nushell commit in its header masked: the commit changes
+# with every commit, while the commands stay the same.
+def without-commit []: string -> string {
+    str replace --regex 'at nushell `[0-9a-f]+`' 'at nushell `<commit>`'
+}
+
 # The Rust source of `src/builtin_commands.rs`.
 def render [commit: string, commands: table<name: string, type: string>]: nothing -> string {
     let entries = $commands | each {|c| $"    \(\"($c.name)\", ($c.type)\),"}
@@ -60,7 +66,9 @@ def main [
     let source = render (harness-commit $harness) $commands
     let current = if ($target | path exists) { open --raw $target } else { "" }
     if $check {
-        if $current != $source {
+        # The file is current when it lists the same commands, whatever commit it was
+        # generated at: committing a regenerated file moves the commit again.
+        if ($current | without-commit) != ($source | without-commit) {
             print "src/builtin_commands.rs is stale; run `nu tools/scripts/gen-builtin-commands.nu`"
             exit 1
         }

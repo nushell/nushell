@@ -14,6 +14,8 @@ use nu_protocol::{
 };
 use nu_winnow_parser::{CommandLookup, DeclKind};
 
+use crate::parse_calls::find_decl_with_command_type;
+
 /// Answers the winnow parser's questions about commands from the working set.
 ///
 /// The working set sits in a [`RefCell`] because the driver changes it between statements (a
@@ -58,11 +60,11 @@ impl CommandLookup for EngineLookup<'_, '_, '_> {
         longest_decl_name()
     }
 
+    /// Whether some declaration named `name` is a built-in, visible or not: `%name` calls it
+    /// even when a custom command shadows or hides it, as in the classic `parse_call`.
     fn is_builtin_decl(&self, name: &str) -> bool {
         let working_set = self.working_set.borrow();
-        working_set
-            .find_decl(name.as_bytes())
-            .is_some_and(|decl_id| working_set.get_decl(decl_id).is_builtin())
+        find_decl_with_command_type(&working_set, name.as_bytes(), CommandType::Builtin).is_some()
     }
 }
 
@@ -171,15 +173,12 @@ impl CommandLookup for AskedLookup<'_> {
         self.names.longest_name
     }
 
-    /// Only an engine declaration is built in.
+    /// As [`EngineLookup`] answers it, over the copy's declarations: those of the engine, where
+    /// the built-ins are.
     fn is_builtin_decl(&self, name: &str) -> bool {
-        let names = &self.names;
-        let builtin = names
-            .names
-            .find_decl(name.as_bytes())
-            .is_some_and(|decl_id| {
-                names.is_permanent(decl_id) && names.names.get_decl(decl_id).is_builtin()
-            });
+        let builtin =
+            find_decl_with_command_type(&self.names.names, name.as_bytes(), CommandType::Builtin)
+                .is_some();
         self.asked
             .borrow_mut()
             .push(Asked::Builtin(Box::from(name), builtin));
@@ -250,7 +249,7 @@ fn names_only(frame: &ScopeFrame) -> ScopeFrame {
 /// How the parser treats calls to `decl_id`: an alias of an external command makes an external
 /// call; a command whose rest parameter takes external arguments (an untyped `def --wrapped`),
 /// or an alias of one, has its arguments parsed like an external command's.
-fn decl_kind(working_set: &StateWorkingSet, decl_id: DeclId) -> DeclKind {
+pub(super) fn decl_kind(working_set: &StateWorkingSet, decl_id: DeclId) -> DeclKind {
     let decl = working_set.get_decl(decl_id);
     if let Some(alias) = decl.as_alias() {
         return match &alias.wrapped_call.expr {

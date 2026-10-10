@@ -33,7 +33,8 @@ All scripts run with `nu` 0.115.2 and need the example binary built with
 * `gen-builtin-commands.nu` — regenerates `src/builtin_commands.rs`, the
   commands `ParseConfig::new()` knows and their `CommandType`, from the
   `builtin-commands` binary of `tools/nushell-harness` (the `nu` binary's
-  engine, no plugins). `--check` exits 1 when the file is stale.
+  engine, no plugins). `--check` exits 1 when the file lists other commands
+  (the nushell commit named in its header does not count).
 * `gen-std-commands.nu [STD_DIR]` — regenerates `std_commands.txt`, the list
   of standard-library exports both bare and module-prefixed.
 * `gen-grammar.nu` — regenerates `grammar/grammar.bnf` (the ```` ```ebnf ````

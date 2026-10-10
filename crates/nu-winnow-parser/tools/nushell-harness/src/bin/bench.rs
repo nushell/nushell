@@ -66,7 +66,14 @@ pub fn main() {
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
         match arg.as_str() {
-            "--iters" => iters = args.next().and_then(|n| n.parse().ok()).unwrap_or(iters),
+            "--iters" => match args.next().and_then(|n| n.parse::<usize>().ok()) {
+                // A file's time is the mean over the iterations, so there must be one.
+                Some(n) if n > 0 => iters = n,
+                _ => {
+                    eprintln!("error: --iters needs a number of iterations, at least 1");
+                    std::process::exit(2);
+                }
+            },
             "--std" => std = true,
             _ => paths.push(PathBuf::from(arg)),
         }
@@ -79,9 +86,9 @@ pub fn main() {
     let engine_state = engine(std);
     let config = ParseConfig::new();
     // Warm up both parsers so first-call costs are not counted.
-    let warm = b"ls | where size > 1kb | get name";
-    let _ = time_nu_parser(&engine_state, "warm", warm, 1);
-    let _ = time_winnow(&config, std::str::from_utf8(warm).unwrap(), 1);
+    let warm = "ls | where size > 1kb | get name";
+    let _ = time_nu_parser(&engine_state, "warm", warm.as_bytes(), 1);
+    let _ = time_winnow(&config, warm, 1);
 
     println!(
         "{:<52} {:>8} {:>11} {:>11} {:>7} {:>5} {:>5}",
@@ -90,7 +97,7 @@ pub fn main() {
     let (mut bytes_total, mut nu_total, mut w_total) = (0usize, Duration::ZERO, Duration::ZERO);
     for file in &files {
         let Ok(src) = std::fs::read_to_string(file) else { continue };
-        let name = file.file_name().unwrap().to_string_lossy();
+        let name = file.file_name().unwrap_or(file.as_os_str()).to_string_lossy();
         let (nu_t, nu_err) = time_nu_parser(&engine_state, &name, src.as_bytes(), iters);
         let (w_t, w_err) = time_winnow(&config, &src, iters);
         let nu_avg = nu_t / iters as u32;

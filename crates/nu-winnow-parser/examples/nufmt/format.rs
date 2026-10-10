@@ -16,6 +16,7 @@
 use std::fmt::Write as _;
 
 use nu_winnow_parser::ast::*;
+use nu_winnow_parser::lex::{LexOptions, lex_n_tokens};
 use nu_winnow_parser::{ParseConfig, ParseError, Span, parse_with};
 
 /// What one level of indentation is written as.
@@ -61,7 +62,10 @@ pub struct Options {
     /// assignment, the only statement of a block, or an `if`/`while`
     /// condition: `let x = (ls | length)`, `if (true)`, `((pwd) | where true)`.
     /// Parentheses around an operator expression, `let x = ($a + $b)`, and
-    /// around a top-level statement are kept (default true).
+    /// around a top-level statement are kept, and so are those nu needs: around
+    /// an external command at the start of an assignment's value (`$x = (git
+    /// log)`), and around a pipeline that would start a block with `key:`
+    /// (`{ (echo: 1) }`) (default true).
     pub strip_redundant_parens: bool,
     /// Write the body of every non-empty `def` on its own lines, even if the
     /// author wrote `def f [] { 1 }` (default false: a one-line body stays).
@@ -73,7 +77,8 @@ pub struct Options {
     /// `{|x| $x * 2 }`, even if the author split it over lines (default true).
     pub compact_simple_closures: bool,
     /// Write `"allow" => ...` as `allow => ...` in match arms when the string
-    /// is a plain identifier (default true).
+    /// is a plain identifier that nu does not read as a number (`"Infinity"`
+    /// and `"_1"` keep their quotes) (default true).
     pub unquote_match_patterns: bool,
     /// Known extra command names (multi-word commands from modules).
     pub config: ParseConfig,
@@ -130,7 +135,7 @@ pub fn format(src: &str, options: &Options) -> Result<String, ParseError> {
 /// rewrites that go beyond whitespace (see [`Formatter::compact_comparison`]).
 pub fn format_with_notes(src: &str, options: &Options) -> Result<(String, Vec<Note>), ParseError> {
     let ast = parse_with(src, &options.config)?;
-    let mut f = Formatter::new(src, options, ast.comments.clone());
+    let mut f = Formatter::new(options, &ast);
     f.block_body(&ast.block, 0, src.len());
     f.flush_comments(src.len());
     let mut out = std::mem::take(&mut f.out);
@@ -189,6 +194,12 @@ struct Formatter<'a> {
     options: &'a Options,
     comments: Vec<Comment>,
     next_comment: usize,
+    /// The `--` end-of-options markers nu drops after a keyword (`return -- -1`,
+    /// `try { } --`), from [`Ast::ignored`], written back where they were: without
+    /// it, `return -- -1` would become `return -1`, a flag `return` does not have.
+    end_of_options: Vec<Span>,
+    /// The first marker of `end_of_options` not yet written or passed over.
+    next_end_of_options: usize,
     /// `true` while formatting the condition of a `where`.
     row_condition: bool,
     notes: Vec<Note>,
@@ -201,14 +212,17 @@ struct Formatter<'a> {
 }
 
 impl<'a> Formatter<'a> {
-    fn new(src: &'a str, options: &'a Options, comments: Vec<Comment>) -> Self {
+    fn new(options: &'a Options, ast: &Ast<'a>) -> Self {
+        let src = ast.source;
         Formatter {
             src,
             out: String::new(),
             indent: 0,
             options,
-            comments,
+            comments: ast.comments.clone(),
             next_comment: 0,
+            end_of_options: ast.ignored.iter().copied().filter(|span| span.slice(src) == "--").collect(),
+            next_end_of_options: 0,
             row_condition: false,
             notes: Vec::new(),
             last_end: 0,
@@ -310,6 +324,12 @@ impl<'a> Formatter<'a> {
     /// space, for tokens copied from the source that may contain spacing
     /// (`error  make`, `[a,  b]`, match patterns).
     fn collapse_spaces(text: &str) -> String {
+        // `\"` and raw strings (`r#'it's'#`) hide a quote from the scan below,
+        // which would then collapse spaces inside the string: keep such text
+        // as written.
+        if text.contains('\\') || text.contains("r#") {
+            return text.to_string();
+        }
         let mut out = String::with_capacity(text.len());
         let mut quote: Option<char> = None;
         let mut in_space = false;
@@ -340,6 +360,13 @@ impl<'a> Formatter<'a> {
         out
     }
 
+    /// The source text of `span` with its spacing collapsed, or as written
+    /// when it holds a comment: joined onto one line, the comment would hide
+    /// the rest (a match pattern, a `use` list).
+    fn copied_text(&self, span: Span) -> String {
+        if self.has_comments(span) { self.text(span).to_string() } else { Self::collapse_spaces(self.text(span)) }
+    }
+
     /// `true` if the source between `a` and `b` contains a newline.
     fn multiline_between(&self, a: usize, b: usize) -> bool {
         self.src[a.min(b)..b.max(a)].contains('\n')
@@ -352,12 +379,7 @@ impl<'a> Formatter<'a> {
     /// `true` if a block or closure covering `outer` can be written on one line:
     /// it was on one line in the source and contains no comment.
     fn can_be_compact(&self, outer: Span) -> bool {
-        !self.spans_lines(outer) && !self.contains_comment(outer)
-    }
-
-    /// `true` if a comment lies within `span`.
-    fn contains_comment(&self, span: Span) -> bool {
-        self.comments.iter().any(|c| span.start <= c.span.start && c.span.end <= span.end)
+        !self.spans_lines(outer) && !self.has_comments(outer)
     }
 
     /// Pass over the comments within `span`, whose text is copied from the
@@ -450,6 +472,24 @@ impl<'a> Formatter<'a> {
     /// A comment on the same line as an opening bracket at `open` stays there.
     fn opener_comment(&mut self, open: usize) {
         self.trailing_comments(open + 1);
+    }
+
+    /// Write the `--` markers of [`Formatter::end_of_options`] that start
+    /// before `pos`, the source position of the next thing a keyword statement
+    /// writes (its value, condition, name, signature, block or end). A marker
+    /// is written only when nothing but whitespace separates it from `pos`; any
+    /// other is passed over, as nu passes over it: a `--` that nu drops inside a
+    /// list (`[a o> -- b]`) or a signature is not one to write back.
+    fn end_of_options_before(&mut self, pos: usize) {
+        while let Some(&marker) = self.end_of_options.get(self.next_end_of_options)
+            && marker.start < pos
+        {
+            self.next_end_of_options += 1;
+            if self.src.get(marker.end..pos).is_some_and(|gap| gap.trim().is_empty()) {
+                self.word("--");
+                self.last_end = marker.end;
+            }
+        }
     }
 
     // --- blocks and pipelines ----------------------------------------------------
@@ -592,12 +632,19 @@ impl<'a> Formatter<'a> {
     /// Run `f`; if what it wrote spans lines (or, with `fit`, runs past the
     /// line length), undo it and return `false`.
     fn try_one_line(&mut self, fit: bool, f: impl FnOnce(&mut Self)) -> bool {
-        let (out, next_comment, notes, last_end, keep) =
-            (self.out.len(), self.next_comment, self.notes.len(), self.last_end, self.keep_line_end);
+        let (out, next_comment, next_end_of_options, notes, last_end, keep) = (
+            self.out.len(),
+            self.next_comment,
+            self.next_end_of_options,
+            self.notes.len(),
+            self.last_end,
+            self.keep_line_end,
+        );
         f(self);
         if self.out[out..].contains('\n') || (fit && self.column() > self.options.line_length) {
             self.out.truncate(out);
             self.next_comment = next_comment;
+            self.next_end_of_options = next_end_of_options;
             self.notes.truncate(notes);
             self.last_end = last_end;
             self.keep_line_end = keep;
@@ -626,14 +673,26 @@ impl<'a> Formatter<'a> {
         self.pipeline_with(pipeline, self.options.strip_redundant_parens);
     }
 
+    /// `true` if `p`, written without the parentheses around it, would make
+    /// the `{ ... }` it may start a record: nu's `parse_brace_expr` reads a body
+    /// whose second token is `:` as one, so `{ (echo: 1) }` is a block and
+    /// `{ echo: 1 }` a record. The tokens are lexed as nu (and this crate's
+    /// brace probe) lexes them.
+    fn starts_like_record(&self, p: &Pipeline<'a>) -> bool {
+        lex_n_tokens(self.text(p.span), p.span.start, LexOptions::BRACE_PROBE, 2)
+            .is_ok_and(|tokens| tokens.get(1).is_some_and(|second| self.text(second.span) == ":"))
+    }
+
     fn pipeline_with(&mut self, pipeline: &Pipeline<'a>, strip: bool) {
         // `(a | b)` as the whole pipeline: the parentheses change nothing,
-        // except around an operator expression, where they aid reading.
+        // except around an operator expression, where they aid reading, and
+        // around `key: ...`, which would turn a block into a record.
         if strip
             && let [element] = pipeline.elements.as_slice()
             && element.redirection.is_none()
             && let Some(inner) = self.parenthesised(&element.expr)
             && !matches!(inner.elements.as_slice(), [only] if matches!(only.expr.expr, Expr::BinaryOp(_)))
+            && !self.starts_like_record(inner)
         {
             self.pipeline_with(inner, true);
             if pipeline.terminator.is_some() {
@@ -664,7 +723,8 @@ impl<'a> Formatter<'a> {
                 }
                 self.word(pipe_text);
             }
-            // `(cmd) | rest`: the parentheses around a lone head change nothing.
+            // `(cmd) | rest`: the parentheses around a lone head change nothing
+            // (unless the head is `key:`, as above).
             let mut expr = &element.expr;
             if strip
                 && i == 0
@@ -676,6 +736,7 @@ impl<'a> Formatter<'a> {
                     only.expr.expr,
                     Expr::Call(_) | Expr::DynamicCall(_) | Expr::ExternalCall(_) | Expr::Var(_) | Expr::FullCellPath(_)
                 )
+                && !self.starts_like_record(inner)
             {
                 expr = &only.expr;
             }
@@ -684,6 +745,8 @@ impl<'a> Formatter<'a> {
                 self.redirection(r);
             }
         }
+        // A `--` ending a keyword statement (`try { } --`, `module x { } --`).
+        self.end_of_options_before(pipeline.span.end);
         if pipeline.terminator.is_some() {
             self.glue(";");
         }
@@ -691,6 +754,8 @@ impl<'a> Formatter<'a> {
 
     /// The condition of `if`/`while`: `(x)` around a single value is dropped.
     fn condition(&mut self, e: &Expression<'a>) {
+        // `if -- -1 < 0`: without the `--`, nu reads `-1` as a flag of `if`.
+        self.end_of_options_before(e.span.start);
         if self.options.strip_redundant_parens
             && let Some(inner) = self.parenthesised(e)
             && let [only] = inner.elements.as_slice()
@@ -734,6 +799,9 @@ impl<'a> Formatter<'a> {
     /// `{ ... }` for a block. Single-line if it was single-line in the source
     /// and holds at most one pipeline.
     fn braced_block(&mut self, block: &Block<'a>, outer: Span, expand: bool) {
+        let open = outer.start + self.text(outer).find('{').unwrap_or(0);
+        // `try -- { }`, `for x in $list -- { }`.
+        self.end_of_options_before(open);
         if block.pipelines.is_empty() && !self.has_comments(outer) {
             self.word("{ }");
             return;
@@ -749,7 +817,7 @@ impl<'a> Formatter<'a> {
         {
             return;
         }
-        self.opener_comment(outer.start + self.text(outer).find('{').unwrap_or(0));
+        self.opener_comment(open);
         self.newline();
         self.indent += 1;
         self.block_body(block, block.span.start, block.span.end);
@@ -788,8 +856,16 @@ impl<'a> Formatter<'a> {
     fn closure(&mut self, c: &Closure<'a>, outer: Span) {
         self.word("{");
         if let Some(sig) = &c.params {
-            let params = self.signature_inline(sig);
-            self.glue(&format!("|{params}|"));
+            // Parameters with a comment among them (a description, or one in a
+            // type or default) are copied as written: joined on one line the
+            // comment would hide the rest, and the body would write it again.
+            if self.has_comments(sig.span) {
+                self.glue(self.text(sig.span));
+                self.skip_comments_within(sig.span);
+            } else {
+                let params = self.signature_inline(sig);
+                self.glue(&format!("|{params}|"));
+            }
         }
         if c.body.pipelines.is_empty() && !self.has_comments(outer) {
             self.glue(" }");
@@ -845,8 +921,9 @@ impl<'a> Formatter<'a> {
             self.glue(")");
         } else {
             for (i, p) in block.pipelines.iter().enumerate() {
+                // A pipeline with its own `;` already wrote it.
                 if i > 0 {
-                    self.glue("; ");
+                    self.glue(if block.pipelines[i - 1].terminator.is_some() { " " } else { "; " });
                 }
                 self.glued(|f| f.pipeline(p));
             }
@@ -903,7 +980,13 @@ impl<'a> Formatter<'a> {
 
     /// `[params]` plus `: in -> out` types.
     fn signature(&mut self, sig: &Signature<'a>) {
-        let multiline = self.spans_lines(sig.span) && !sig.params.is_empty();
+        // `def f -- [] { }`.
+        self.end_of_options_before(sig.span.start);
+        // `[...]` without the input/output types.
+        let brackets = Span::new(sig.span.start, sig.input_output_span.map_or(sig.span.end, |io| io.start));
+        // A list with a comment keeps its lines even without parameters, or the
+        // comment would be lost.
+        let multiline = self.spans_lines(sig.span) && (!sig.params.is_empty() || self.has_comments(brackets));
         if multiline {
             self.word("[");
             self.newline();
@@ -933,6 +1016,8 @@ impl<'a> Formatter<'a> {
                 }
                 self.newline();
             }
+            // Comments after the last parameter, or in a list without any.
+            self.flush_comments(brackets.end);
             self.indent -= 1;
             self.glue("]");
         } else {
@@ -942,7 +1027,7 @@ impl<'a> Formatter<'a> {
         // Types with a comment between them are copied as written: joined on
         // one line, the comment would hide the rest.
         if let Some(io) = sig.input_output_span
-            && self.contains_comment(io)
+            && self.has_comments(io)
         {
             self.glue(&format!(": {}", self.text(io)));
         } else if let Some(io) = sig.input_output_span {
@@ -1228,7 +1313,9 @@ impl<'a> Formatter<'a> {
 
     fn match_block(&mut self, m: &Match<'a>) {
         self.word("match");
+        self.end_of_options_before(m.value.span.start);
         self.expr(&m.value);
+        self.end_of_options_before(m.block_span.start);
         if let Some(b) = &m.value_block {
             // A closure or record where the arms should be: nu-parser accepts it.
             self.expr(b);
@@ -1288,27 +1375,28 @@ impl<'a> Formatter<'a> {
             self.spanned_as(p.span, &bare);
             return;
         }
-        // A pattern with a comment keeps its lines: collapsed onto one, the
-        // comment would hide the rest of the pattern.
-        let text = match self.contains_comment(p.span) {
-            true => self.text(p.span).to_string(),
-            false => Self::collapse_spaces(self.text(p.span)),
-        };
+        let text = self.copied_text(p.span);
         self.spanned_as(p.span, &text);
     }
 
     /// `true` if `word` written bare in a match pattern is still the same
     /// string: letters, digits and `_` only, starting with a letter or `_`,
-    /// and not a literal or keyword.
+    /// and not a number, literal or keyword.
     fn identifier_safe(word: &str) -> bool {
-        const RESERVED: [&str; 34] = [
-            "true", "false", "null", "nan", "inf", "NaN", "Inf", "_", "if", "else", "match", "in", "not", "and", "or",
-            "xor", "let", "mut", "const", "def", "use", "for", "while", "loop", "break", "continue", "return", "try",
-            "catch", "export", "module", "alias", "hide", "where",
+        const RESERVED: [&str; 30] = [
+            "true", "false", "null", "_", "if", "else", "match", "in", "not", "and", "or", "xor", "let", "mut",
+            "const", "def", "use", "for", "while", "loop", "break", "continue", "return", "try", "catch", "export",
+            "module", "alias", "hide", "where",
         ];
+        // nu-parser's `read_int` and `read_float` drop the `_` separators and
+        // read a word as a number when it then starts with a digit or parses as
+        // an `f64` (`_1`, `_0x10`, `i_n_f`, `Infinity`, `NAN`).
+        let digits: String = word.chars().filter(|c| *c != '_').collect();
+        let number = digits.starts_with(|c: char| c.is_ascii_digit()) || digits.parse::<f64>().is_ok();
         let mut chars = word.chars();
         chars.next().is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
             && chars.all(|c| c.is_ascii_alphanumeric() || c == '_')
+            && !number
             && !RESERVED.contains(&word)
     }
 
@@ -1356,7 +1444,14 @@ impl<'a> Formatter<'a> {
             Expr::Assignment(a) => {
                 self.expr(&a.lhs);
                 self.spanned_as(a.op.span, a.op.item.as_str());
-                self.inline_block(&a.rhs);
+                match a.rhs.pipelines.as_slice() {
+                    // nu-parser's `parse_assignment_expression` refuses an external
+                    // command at the start of the value (`$x = git log`: "External
+                    // command calls must be explicit in assignments"), so the
+                    // parentheses of `$x = (git log)` stay.
+                    [p] if self.bare_external_head(p) => self.pipeline(p),
+                    _ => self.inline_block(&a.rhs),
+                }
             }
             Expr::Call(c) => {
                 if c.arguments.is_empty() && self.repair_packed_if(c.head.span) {
@@ -1414,6 +1509,8 @@ impl<'a> Formatter<'a> {
             }
             Expr::Let(b) | Expr::Mut(b) | Expr::Const(b) => {
                 self.word(e.expr.keyword().unwrap_or("let"));
+                // `let -- x`.
+                self.end_of_options_before(b.name.span.start);
                 match &b.ty {
                     Some(ty) => {
                         self.spanned_as(b.name.span, &format!("{}: {}", b.name.item, self.text(ty.span)));
@@ -1434,6 +1531,8 @@ impl<'a> Formatter<'a> {
                 for f in &d.flags {
                     self.spanned(f.span);
                 }
+                // `def -- f`, `def --env -- f`.
+                self.end_of_options_before(d.name.span.start);
                 self.spanned(d.name.span);
                 self.signature(&d.signature);
                 let outer = Span::new(d.signature.span.end, span.end);
@@ -1448,6 +1547,7 @@ impl<'a> Formatter<'a> {
             }
             Expr::Extern(x) => {
                 self.word("extern");
+                self.end_of_options_before(x.name.span.start);
                 self.spanned(x.name.span);
                 self.signature(&x.signature);
             }
@@ -1461,9 +1561,11 @@ impl<'a> Formatter<'a> {
             }
             Expr::Use(u) => {
                 self.word("use");
+                self.end_of_options_before(u.module.span.start);
                 self.expr(&u.module);
                 for m in &u.members {
-                    self.spanned_as(m.span, &Self::collapse_spaces(self.text(m.span)));
+                    let text = self.copied_text(m.span);
+                    self.spanned_as(m.span, &text);
                 }
             }
             Expr::Module(m) => {
@@ -1494,10 +1596,12 @@ impl<'a> Formatter<'a> {
             Expr::Match(m) => self.match_block(m),
             Expr::For(f) => {
                 self.word("for");
+                self.end_of_options_before(f.var.span.start);
                 match &f.ty {
                     Some(ty) => self.word(&format!("{}: {}", f.var.item, self.text(ty.span))),
                     None => self.word(f.var.item),
                 }
+                self.end_of_options_before(f.in_keyword.start);
                 self.word("in");
                 self.expr(&f.iterable);
                 self.block_or_value(&f.body, Span::new(f.iterable.span.end, span.end), f.body_value.as_deref());
@@ -1516,6 +1620,8 @@ impl<'a> Formatter<'a> {
             Expr::Return(r) => {
                 self.word("return");
                 if let Some(v) = &r.value {
+                    // `return -- -1`: without the `--`, nu reads `-1` as a flag.
+                    self.end_of_options_before(v.span.start);
                     self.expr(v);
                 }
             }
@@ -1524,6 +1630,8 @@ impl<'a> Formatter<'a> {
                 let body_end = t.handlers.first().map_or(span.end, |h| h.keyword.start);
                 self.block_or_value(&t.body, Span::new(span.start + "try".len(), body_end), t.body_value.as_deref());
                 for h in &t.handlers {
+                    // `try { } -- catch { }`.
+                    self.end_of_options_before(h.keyword.start);
                     self.spanned(h.keyword);
                     self.expr(&h.body);
                 }
@@ -1572,7 +1680,7 @@ impl<'a> Formatter<'a> {
         if !matches!(element.expr.expr, Expr::If(_)) || pipeline.terminator.is_some() {
             return false;
         }
-        let mut sub = Formatter::new(&spaced, self.options, ast.comments.clone());
+        let mut sub = Formatter::new(self.options, &ast);
         sub.indent = self.indent;
         sub.out.push(' ');
         sub.expr(&element.expr);
@@ -1629,6 +1737,16 @@ impl<'a> Formatter<'a> {
             message: format!("`{word}` written as the comparison `{lhs} {op} {rhs}`"),
         });
         true
+    }
+
+    /// `true` if the first command of `p`, looking through the parentheses the
+    /// formatter could drop, is an external command written without `^`.
+    fn bare_external_head(&self, p: &Pipeline<'a>) -> bool {
+        let Some(first) = p.elements.first() else { return false };
+        match &first.expr.expr {
+            Expr::ExternalCall(c) => c.caret.is_none(),
+            _ => self.parenthesised(&first.expr).is_some_and(|inner| self.bare_external_head(inner)),
+        }
     }
 
     /// The right-hand side of `let`/assignment: pipelines written inline.

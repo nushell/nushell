@@ -1,0 +1,6 @@
+error: expected value between the range operators
+  --> reject/ranges/empty-next-bound.nu:2:10
+  |
+2 | print 1....5
+  |          ^
+  = while parsing command call

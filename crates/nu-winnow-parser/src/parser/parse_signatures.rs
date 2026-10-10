@@ -197,12 +197,11 @@ fn parse_parameters<'a>(
                 }
                 ParseMode::Type => {
                     // `[: int]`: nu silently drops a type with no parameter before it.
-                    if parameters.is_empty() {
+                    let Some(parameter) = parameters.last_mut() else {
                         mode = ParseMode::AfterType;
                         continue;
-                    }
+                    };
                     let (ty, completer) = parse_shape_name(working_set, token.span)?;
-                    let Some(parameter) = parameters.last_mut() else { unreachable!("checked above") };
                     if let ParameterKind::Flag { .. } = parameter.kind
                         && ty.shape == SyntaxShape::Boolean
                     {
@@ -219,20 +218,25 @@ fn parse_parameters<'a>(
                 }
                 ParseMode::DefaultValue => {
                     // `[= 1]`: nu silently drops a default with no parameter before it.
-                    if parameters.is_empty() {
+                    let Some(parameter) = parameters.last_mut() else {
                         mode = ParseMode::Arg;
                         continue;
-                    }
+                    };
                     if external {
                         // nu never parses the default values of an `extern` signature.
                         working_set.add_ignored(token.span);
                         mode = ParseMode::Arg;
                         continue;
                     }
-                    let Some(parameter) = parameters.last_mut() else { unreachable!("checked above") };
                     if let ParameterKind::Rest = parameter.kind {
                         return Err(cut(Diagnostic::message("rest parameter was given a default value", token.span)
                             .with_help("a `...rest` parameter can't have a default value")));
+                    }
+                    // nu parses a later default of a parameter without a type with the first
+                    // default's type (`[x = 1..=5]` lexes as `x`, `=`, `1..`, `=`, `5`); this tree
+                    // keeps the last default, parsed as any value, and marks the parameter.
+                    if parameter.ty.is_none() && parameter.default.is_some() {
+                        parameter.extra_default = true;
                     }
                     // The default is parsed with the declared shape (`[x: int = abc]` is an error).
                     let default = match &parameter.ty {
@@ -273,6 +277,7 @@ fn parse_parameter<'a>(working_set: &WorkingSet<'a>, token: &Token, external: bo
         name: Spanned::new("", span),
         ty: None,
         default: None,
+        extra_default: false,
         completer: None,
         description: Vec::new(),
     };

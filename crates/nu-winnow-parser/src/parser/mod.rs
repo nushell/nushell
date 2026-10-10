@@ -112,7 +112,7 @@ pub enum CommandType {
 
 /// Known command names plus an index of the first words of multi-word names,
 /// so that the common single-word head needs no string building at all.
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub(crate) struct CommandSet {
     /// Every name, its words separated by single spaces.
     names: NameSet,
@@ -268,12 +268,6 @@ impl ParseConfig {
     }
 }
 
-impl Clone for CommandSet {
-    fn clone(&self) -> Self {
-        Self { names: self.names.clone(), prefixes: self.prefixes.clone(), longest: self.longest }
-    }
-}
-
 /// Parse `source` into an AST plus any diagnostics (nu's `parse`).
 pub(crate) fn parse<'a>(source: &'a str, config: &ParseConfig) -> (Ast<'a>, Vec<Diagnostic>) {
     let working_set = WorkingSet::new(source, config);
@@ -301,7 +295,7 @@ pub(crate) fn parse_block_streaming<'a>(
     lookup: &'a dyn CommandLookup,
     sink: &mut dyn BlockSink<'a>,
 ) -> Result<(), Vec<Diagnostic>> {
-    let (mut statements, definitions) = BlockStatements::new(source, span, lookup)?;
+    let (mut statements, definitions) = BlockStatements::new(source, span, lookup, false)?;
     for def in definitions.parse(source, span, lookup) {
         sink.predecl(def);
     }

@@ -165,13 +165,13 @@ with `item_length`, a byte loop like the one in nu's `lex_item`, and
 | `$"..("..")"` subexpression delimiters inside interpolation | `interp_subexpr_step` (nu's name) | `accept/interpolation/quotes-inside-subexpression.nu` `reject/lexer/unclosed-interpolation-*.nu` | `lex_interpolation_is_one_item` `unclosed_interpolation_subexpression_names_the_paren` |
 | `r#'..'#` raw strings | `lex_raw_string` (nu's name) | `accept/strings/raw-string*.nu` `reject/lexer/unclosed-raw-string.nu` `reject/lexer/raw-string-missing-quote.nu` | `strings_all_quote_styles` |
 | `(`, `[`, `{` nest; `)`, `]`, `}` must match; a stray `]` is text | `close_bracket`, `group_end` | `reject/lexer/mismatched-*.nu` `reject/lexer/unbalanced-*.nu` `reject/lexer/extra-*.nu` | `lex_mismatched_closers` `valid_layouts_never_get_delimiter_errors` |
-| `<` and `>` nest inside signatures | `LexOptions::in_signature` | `accept/signatures/generic-types*.nu` `reject/def/io-unclosed-*.nu` | `lex_signatures` `lex_unterminated_type_annotations` |
+| `<` and `>` nest inside signatures | `StopBytes::in_signature` | `accept/signatures/generic-types*.nu` `reject/def/io-unclosed-*.nu` | `lex_signatures` `lex_unterminated_type_annotations` |
 | `\|` ends an item and is a pipe; `\|\|` is one token | `lex_token` | `accept/pipelines/double-pipe-tolerated.nu` `reject/lexer/or-or.nu` | `simple_call_and_pipeline` |
 | `;` ends an item | `lex_token` | `accept/pipelines/semicolon-separated.nu` | `statements_separated_by_semicolons_and_newlines` |
 | `o>`, `e>`, `o+e>` and `>>`, `>\|` variants are redirection tokens | `item_contents`, `is_redirection` (nu's name) | `accept/redirections/*.nu` `reject/redirections/*.nu` | `redirections` `redirecting_nothing_is_an_error` |
 | `=`, `+=`, `-=`, `*=`, `/=`, `++=` are assignment tokens | `item_contents` | `accept/assignments/compound.nu` | `assignments` |
 | `&&`, `2>`, `2>&1`, `o>\|` are refused with a hint | `item_contents` | `reject/lexer/and-and.nu` `reject/lexer/bash-*.nu` `reject/lexer/stdout-pipe-redirect.nu` | `bashisms_are_reported_with_help` |
-| context-specific separators: `,` in lists, `:` in records, `.`/`?`/`!` in cell paths, `:`/`=`/`,` in signatures | `LexOptions` constants (`additional_whitespace`, `special_tokens`) | `accept/lists/mixed-separators.nu` `accept/records/no-space-after-colon.nu` `accept/cellpaths/optional-and-insensitive.nu` | `special_tokens_split` `lex_signatures` |
+| context-specific separators: `,` in lists, `:` in records, `.`/`?`/`!` in cell paths, `:`/`=`/`,` in signatures | `LexOptions` constants (`StopBytes::new`'s `additional_whitespace`, `special_tokens`) | `accept/lists/mixed-separators.nu` `accept/records/no-space-after-colon.nu` `accept/cellpaths/optional-and-insensitive.nu` | `special_tokens_split` `lex_signatures` |
 
 ## FlatShape
 
@@ -389,7 +389,7 @@ drive.
 | `parse_match_block_expression` | `parse_expressions::parse_match_block_expression` (`repeat_till(0.., parse_match_arm, eof)`); `parse_control_flow::parse_match` (`Match::value_block`) | `accept/match/*.nu` | `match_forms` |
 | `parse_math_expression` | `parse_expressions::parse_math_expression` | `accept/operators/*.nu` | `precedence` |
 | `parse_module` | `parse_module::parse_module` | `accept/modules/module-*.nu` | `extern_alias_module_use_export` |
-| `parse_module_block` | `parse_module::parse_module` (the body through `parse_expressions::parse_block_body`, in a new scope) | `accept/modules/module-inline.nu` | `extern_alias_module_use_export` |
+| `parse_module_block` | `parse_module::parse_module` (the body through `parse_expressions::parse_block_body_unchecked`, in a new scope) | `accept/modules/module-inline.nu` | `extern_alias_module_use_export` |
 | `parse_module_file_or_dir` | n/a (files) | `accept/modules/module-path.nu` | `extern_alias_module_use_export` |
 | `parse_multispan_value` | the keyword arguments of the statements, read with `KeywordCall` and token parsers such as `tokens_until("else")` and `opt(keyword("else"))` (`parse_control_flow.rs`, `parse_def.rs`) | `accept/if/else-if-chain.nu` | `if_forms` |
 | `parse_mut` | `parse_bindings::parse_mut` | `accept/bindings/mut-forms.nu` | `let_mut_const` |
@@ -400,7 +400,7 @@ drive.
 | `parse_overlay_use` | an ordinary `Call` checked by `parse_calls::check_call` | `accept/modules/overlay.nu` `reject/calls/overlay-use-*.nu` | `use_forms` |
 | `parse_paren_expr` | `parse_literals::parse_paren_expr`, `parse_expressions::parse_subexpression` | `accept/subexpressions/*.nu` | `subexpressions_span_lines` |
 | `parse_pattern` | `parse_patterns::parse_pattern` | `accept/match/value-patterns.nu` | `match_forms` |
-| `parse_pipeline` | `parse_pipelines::parse_pipeline`, `lite_parser::after_pipe`, `pipe_on_later_line` (`Eol (Comment Eol)* Pipe` continues a line; a blank line closes the pipeline) | `accept/pipelines/*.nu` `reject/pipelines/*.nu` | `multiline_pipelines_with_leading_pipes_and_comments` |
+| `parse_pipeline` | `parse_pipelines::parse_pipeline`, `lite_parser::after_pipe_lines`, `pipe_on_later_line` (`Eol (Comment Eol)* Pipe` continues a line; a blank line closes the pipeline, except one between a `\|` ending a line and a `\|` starting a later one; after an `e>\|` only a line-leading `\|` goes on) | `accept/pipelines/*.nu` `reject/pipelines/*.nu` | `multiline_pipelines_with_leading_pipes_and_comments` |
 | `parse_plugin_use` | an ordinary `Call` checked by `parse_calls::check_call` | `accept/modules/plugin.nu` `reject/calls/plugin-use-*.nu` | `use_forms` |
 | `parse_range` | `parse_literals::parse_range` | `accept/ranges/*.nu` | `ranges` |
 | `parse_raw_string` | `parse_literals::parse_raw_string` | `accept/strings/raw-string.nu` | `strings_all_quote_styles` |

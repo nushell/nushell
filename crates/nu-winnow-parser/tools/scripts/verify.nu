@@ -63,10 +63,14 @@ export def main [
 
     print "cargo test..."
     let tests = run-capture cargo test --all-features
-    let failed = $tests.stdout | parse -r 'test result: (?P<status>\w+)\. (?P<passed>\d+) passed; (?P<failed>\d+) failed' | get failed | each { into int } | math sum
-    let passed = $tests.stdout | parse -r 'test result: (?P<status>\w+)\. (?P<passed>\d+) passed' | get passed | each { into int } | math sum
-    $rows ++= [{rung: "cargo test", metric: "tests passed", value: $passed, ok: ($failed == 0)}]
-    $rows ++= [{rung: "cargo test", metric: "tests failed", value: $failed, ok: ($failed == 0)}]
+    # `append 0`: a build that fails prints no `test result:` line at all.
+    let failed = $tests.stdout | parse -r 'test result: (?P<status>\w+)\. (?P<passed>\d+) passed; (?P<failed>\d+) failed' | get failed | each { into int } | append 0 | math sum
+    let passed = $tests.stdout | parse -r 'test result: (?P<status>\w+)\. (?P<passed>\d+) passed' | get passed | each { into int } | append 0 | math sum
+    # cargo's exit status also catches what the summaries miss: a build error, or a test
+    # binary that died (a stack overflow) before printing its summary.
+    let ok = $tests.ok and $failed == 0
+    $rows ++= [{rung: "cargo test", metric: "tests passed", value: $passed, ok: $ok}]
+    $rows ++= [{rung: "cargo test", metric: "tests failed", value: $failed, ok: $ok}]
 
     print "fixtures-compare..."
     use fixtures-compare.nu

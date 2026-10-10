@@ -9,9 +9,9 @@
 //! the lowering, which changes the working set, takes each statement as it comes. The thread
 //! resolves names with a copy of the working set's ([`NamesSnapshot`]), made when it starts and
 //! again after each statement that changes which commands exist (`use`, `overlay`, `hide`,
-//! `source`), up to which it parses. Every answer it got is checked against the live working
-//! set before its statement is lowered, so the tree is the one parsing on this thread would
-//! have built; when an answer differs, the classic parser takes the rest of the block.
+//! `source`, `run`), up to which it parses. Every answer it got is checked against the live
+//! working set before its statement is lowered, so the tree is the one parsing on this thread
+//! would have built; when an answer differs, the classic parser takes the rest of the block.
 //!
 //! ```text
 //! this thread                                   second thread
@@ -22,9 +22,11 @@
 //!   spawn -------------------------------------> statements.parse with an AskedLookup:
 //!   declare the block's definitions               parse a statement, its answers recorded
 //!   receive a statement <----------------------- send it with its answers
-//!     an answer differs now, or a syntax error:   go on unless the statement changes names,
-//!       the classic parser takes the rest of       the block ends, or `stop` is set
-//!       the block; set `stop`                     drop the sender
+//!     an answer differs now: set `stop`, the      go on unless the statement changes names
+//!       classic parser takes the rest of the      or has a syntax error, the block ends, or
+//!       block                                     `stop` is set
+//!     a syntax error: the classic parser takes    drop the sender
+//!       the rest of the block
 //!     else lower it
 //!   ...until the sender is dropped
 //! the next statement changes names:
@@ -67,7 +69,8 @@ use crate::{
 /// What kind of block is parsed, with what the kind needs.
 pub(super) enum BlockKind {
     /// An ordinary block (a file, or the body of a closure or command), as the classic
-    /// parser's `parse_block` takes it.
+    /// parser's `parse_block` takes it. The statements of a subexpression (`is_subexpression`)
+    /// are lexed as `parse_full_cell_path` lexes a parenthesized one: newlines as whitespace.
     Block {
         scoped: bool,
         is_subexpression: bool,
@@ -91,9 +94,24 @@ pub(super) fn parse_block(
     kind: BlockKind,
 ) -> Option<(Block, Option<Module>)> {
     let local_span = nu_winnow_parser::Span::new(inner.start - offset, inner.end - offset);
-    let enters_scope = match &kind {
-        BlockKind::Block { scoped, .. } => *scoped,
-        BlockKind::Module { .. } => true,
+    let target = match kind {
+        BlockKind::Block {
+            scoped,
+            is_subexpression,
+            input_type,
+        } => Target::Block {
+            scoped,
+            is_subexpression,
+            input_type,
+        },
+        BlockKind::Module { name } => Target::Module {
+            module: Box::new(Module::from_span(name.clone(), span)),
+            name,
+        },
+    };
+    let enters_scope = match &target {
+        Target::Block { scoped, .. } => *scoped,
+        Target::Module { .. } => true,
     };
     if enters_scope {
         working_set.enter_scope();
@@ -107,15 +125,7 @@ pub(super) fn parse_block(
         offset,
         span,
         inner,
-        target: match &kind {
-            BlockKind::Block { input_type, .. } => Target::Block {
-                input_type: input_type.clone(),
-            },
-            BlockKind::Module { name } => Target::Module {
-                module: Box::new(Module::from_span(name.clone(), span)),
-                name: name.clone(),
-            },
-        },
+        target,
         pipelines: Vec::new(),
     };
     let result = parse_statements(source, local_span, &lookup, &mut driver);
@@ -136,15 +146,12 @@ pub(super) fn parse_block(
 
     let mut block = Block::new_with_capacity(pipelines.len());
     block.pipelines = pipelines;
-    match (kind, target) {
-        (
-            BlockKind::Block {
-                scoped,
-                is_subexpression,
-                input_type,
-            },
-            _,
-        ) => {
+    match target {
+        Target::Block {
+            scoped,
+            is_subexpression,
+            input_type,
+        } => {
             let block = finish_block(
                 working_set,
                 block,
@@ -155,15 +162,10 @@ pub(super) fn parse_block(
             );
             Some((block, None))
         }
-        (BlockKind::Module { .. }, Target::Module { module, .. }) => {
+        Target::Module { module, .. } => {
             block.span = Some(span);
             working_set.exit_scope();
             Some((block, Some(*module)))
-        }
-        // Not reached: `target` is made from `kind` above.
-        (BlockKind::Module { .. }, Target::Block { .. }) => {
-            working_set.exit_scope();
-            None
         }
     }
 }
@@ -193,7 +195,16 @@ fn parse_statements(
     {
         threads.spawn(|| {});
     }
-    let (mut statements, definitions) = BlockStatements::new(source, span, lookup)?;
+    // A subexpression's statements are lexed as the classic `parse_full_cell_path` lexes a
+    // parenthesized one: newlines as whitespace.
+    let subexpression = matches!(
+        driver.target,
+        Target::Block {
+            is_subexpression: true,
+            ..
+        }
+    );
+    let (mut statements, definitions) = BlockStatements::new(source, span, lookup, subexpression)?;
     // Declared before the first statement is lowered: by `parse_ahead` once its thread has
     // started, so that the thread parses the first statements meanwhile, or else before the
     // first statement parsed here. `None` once declared.
@@ -266,8 +277,9 @@ struct Ahead<'a> {
 
 /// Parse statements on a second thread while this one declares the block's `definitions` and
 /// lowers the statements as they arrive, until one that changes which command names exist (the
-/// thread's copy of them is then out of date) or the end of the block (`span`). Returns whether
-/// to go on with the block: `false` once the classic parser has taken the rest of it.
+/// thread's copy of them is then out of date), one with a syntax error (the classic parser
+/// takes the rest of the block from it) or the end of the block (`span`). Returns whether to go
+/// on with the block: `false` once the classic parser has taken the rest of it.
 ///
 /// The thread's names are copied before the definitions are declared, so that it starts at
 /// once: it never asks about the block's own definitions, which the winnow parser declared in
@@ -277,8 +289,8 @@ struct Ahead<'a> {
 /// again of the live working set ([`changed_answer`]), at the point where parsing on this thread
 /// would have asked it. When an answer differs, the classic parser takes the rest of the block
 /// (the thread has parsed on past the statement with the old names, so the winnow parser cannot
-/// go on from it), as it does from a statement with a syntax error; `stop` then tells the
-/// thread to stop, and what it sent meanwhile is dropped.
+/// go on from it); `stop` tells the thread to stop first, and what it sent meanwhile is
+/// dropped.
 fn parse_ahead(
     threads: &rayon::ThreadPool,
     source: &str,
@@ -307,6 +319,10 @@ fn parse_ahead(
             };
             statements.parse(source, lookup, &mut |pipeline, diagnostics| {
                 let changes = statement_changes_names(&pipeline);
+                // The classic parser takes the rest of the block from a statement with a
+                // syntax error (`Driver::take_statement`): what would be parsed after it is
+                // dropped.
+                let failed = !diagnostics.is_empty();
                 // The sink is called between statements: what was asked since the last call
                 // was asked while parsing this one.
                 let asked = asked.take();
@@ -317,7 +333,7 @@ fn parse_ahead(
                         asked,
                     })
                     .is_ok();
-                sent && !changes && !stop.load(Relaxed)
+                sent && !changes && !failed && !stop.load(Relaxed)
             });
         });
         stats::record_ahead_run();
@@ -334,14 +350,16 @@ fn parse_ahead(
                 continue;
             }
             if let Some(changed) = changed_answer(lookup, &ahead.asked, longest_name) {
+                // Stopped first, so that the thread does not go on parsing what the classic
+                // parser parses now.
+                stop.store(true, Relaxed);
                 stats::record_ahead_fallback(&changed);
-                driver.rest_to_classic(&ahead.pipeline, false);
+                driver.rest_to_classic(&ahead.pipeline, None);
                 go_on = false;
             } else {
+                // `false` after a statement with a syntax error, after which the thread
+                // stopped by itself.
                 go_on = driver.take_statement(&ahead.pipeline, &ahead.diagnostics);
-            }
-            if !go_on {
-                stop.store(true, Relaxed);
             }
         }
         go_on
@@ -349,23 +367,28 @@ fn parse_ahead(
 }
 
 /// Whether a statement whose first words are `words` changes which command names exist:
-/// `use`, `export use`, `overlay ...`, `hide`, `source`, `source-env`, `plugin use`. A `def`
-/// or an `alias` does not count: the winnow parser declares those names itself.
+/// `use`, `export use`, `overlay ...`, `hide`, `source`, `source-env`, `run`, `plugin use`, the
+/// statements the classic `parse_builtin_commands` tells by their first word. A `def` or an
+/// `alias` does not count: the winnow parser declares those names itself.
 ///
-/// A wrong answer costs only time: a run ends early, or goes on past a statement this misses
-/// (an alias of `overlay use`), and [`changed_answer`] catches any later answer it changed.
+/// A wrong answer costs only time: here a run ends early, or goes on past a statement this
+/// misses (an alias of `overlay use`) and [`changed_answer`] catches any later answer it
+/// changed; in a nested block (`changes_commands` in `lower`), the block is parsed again for
+/// nothing, or the lowering catches the alias once the classic parser has parsed it.
 fn changes_names(words: (Option<&str>, Option<&str>)) -> bool {
     matches!(
         words,
         (
-            Some("use" | "overlay" | "hide" | "source" | "source-env"),
+            Some("use" | "overlay" | "hide" | "source" | "source-env" | "run"),
             _
         ) | (Some("export" | "plugin"), Some("use"))
     )
 }
 
-/// [`changes_names`] for a parsed statement.
-fn statement_changes_names(pipeline: &w::Pipeline<'_>) -> bool {
+/// [`changes_names`] for a parsed statement, from the first words of its commands' names: the
+/// classic parser takes `source me` for a `source` even where a command `source me` exists.
+/// The lowering of a nested block asks it too (`changes_commands` in `lower`).
+pub(super) fn statement_changes_names(pipeline: &w::Pipeline<'_>) -> bool {
     pipeline.elements.iter().any(|element| {
         changes_names(match &element.expr.expr {
             w::Expr::Use(_) => (Some("use"), None),
@@ -410,8 +433,13 @@ fn ahead_threads() -> Option<&'static rayon::ThreadPool> {
 /// Where the statements of a block go; [`statement_target`] lends it to each statement as a
 /// [`StatementTarget`].
 enum Target {
-    /// An ordinary block; the first statement receives the block's input.
-    Block { input_type: Option<Type> },
+    /// An ordinary block, as [`BlockKind::Block`] describes it; the first statement receives
+    /// the block's input.
+    Block {
+        scoped: bool,
+        is_subexpression: bool,
+        input_type: Option<Type>,
+    },
     /// A module body; the statements add to `module`.
     Module { module: Box<Module>, name: Vec<u8> },
 }
@@ -446,10 +474,10 @@ impl Driver<'_, '_, '_, '_> {
     /// [`BlockSink::statement`]). Returns whether to go on with the next statement: `false`
     /// once the classic parser has taken the rest of the block.
     fn take_statement(&mut self, pipeline: &w::Pipeline<'_>, diagnostics: &[Diagnostic]) -> bool {
-        if !diagnostics.is_empty() {
+        if let Some(error) = diagnostics.first() {
             // A syntax error: the classic parser takes the rest of the block, reporting the
             // error as it always has.
-            self.rest_to_classic(pipeline, true);
+            self.rest_to_classic(pipeline, Some(error));
             return false;
         }
         let cell = self.working_set;
@@ -461,9 +489,9 @@ impl Driver<'_, '_, '_, '_> {
         true
     }
 
-    /// Hand the rest of the block, from `pipeline` on, to the classic parser. `had_errors`: the
-    /// winnow parser reported an error in `pipeline`.
-    fn rest_to_classic(&mut self, pipeline: &w::Pipeline<'_>, had_errors: bool) {
+    /// Hand the rest of the block, from `pipeline` on, to the classic parser. `error`: the
+    /// first error the winnow parser reported in `pipeline`, if it reported one.
+    fn rest_to_classic(&mut self, pipeline: &w::Pipeline<'_>, error: Option<&Diagnostic>) {
         let cell = self.working_set;
         let working_set = &mut **cell.borrow_mut();
         let lower = Lower::new(working_set, self.source, self.offset);
@@ -472,14 +500,11 @@ impl Driver<'_, '_, '_, '_> {
         // Where the statement ends is the classic parser's to decide, so it parses the rest
         // of the block's statements (up to a closing brace, not through it).
         let span = Span::new(start, self.inner.end);
-        stats::record_classic_statement(span.len(), had_errors);
-        parse_classic(
-            lower.working_set,
-            span,
-            &mut target,
-            true,
-            &mut self.pipelines,
-        );
+        match error {
+            Some(error) => stats::record_error_statement(span, error, lower.working_set),
+            None => stats::record_classic_statement(span.len(), false),
+        }
+        parse_classic(lower.working_set, span, &mut target, &mut self.pipelines);
     }
 }
 
@@ -490,12 +515,17 @@ fn statement_target<'t>(
     span: Span,
 ) -> StatementTarget<'t> {
     match target {
-        Target::Block { input_type } => StatementTarget::Block {
+        Target::Block {
+            input_type,
+            is_subexpression,
+            ..
+        } => StatementTarget::Block {
             input_type: if pipelines.is_empty() {
                 input_type.as_ref()
             } else {
                 None
             },
+            is_subexpression: *is_subexpression,
         },
         Target::Module { module, name } => StatementTarget::Module { name, module, span },
     }

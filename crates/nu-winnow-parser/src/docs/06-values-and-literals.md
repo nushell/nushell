@@ -34,9 +34,8 @@ pub fn parse_value<'a>(
     match text.as_bytes() {
         [] => Err(cut(Diagnostic::expected("value", span))),
         [b'$', ..] => parse_dollar_expr(working_set, span),         // $var, $x.a, $.a, $"..", $'..', ranges
-        [b'(', ..] => parse_paren_expr(working_set, span, shape),   // range, signature, or (subexpr)[.members]
+        [b'(', ..] => parse_paren_expr(working_set, span),          // range, or (subexpr)[.members]
         [b'{', ..] => parse_brace_expr(working_set, span, shape),   // record | closure | block
-        [b'[', ..] if shape == ExpectedShape::Signature => Ok(garbage(span)),
         [b'[', ..] if shape == ExpectedShape::String => parse_string(working_set, span), // `[a b]` is a bare word
         [b'[', ..] if shape == ExpectedShape::Number => Err(..),
         [b'[', ..] => parse_full_cell_path(working_set, span, false),
@@ -44,7 +43,7 @@ pub fn parse_value<'a>(
         _ => match shape {
             ExpectedShape::Number => parse_number(working_set, span),
             ExpectedShape::String => parse_string_value(working_set, span), // refuses true/false/null
-            ExpectedShape::MatchArmBody | ExpectedShape::Closure | ExpectedShape::Signature => Err(..), // must start with { or [
+            ExpectedShape::MatchArmBody | ExpectedShape::Closure => Err(..), // must start with { or [
             ExpectedShape::Any | ExpectedShape::Declared(_) => parse_any_value(working_set, span, text),
         },
     }
@@ -59,9 +58,8 @@ pub fn parse_value<'a>(
 | `Any` | most arguments | full literal search |
 | `Closure` | the default of a `closure` parameter | `{}` and `{ code }` are closures |
 | `MatchArmBody` | the body of a `match` arm | `{}` is a block, unless it is written as a closure (`{\|x\| ..}`) or a record (`{a: 1}`) |
-| `Number` | range bounds | numbers only (plus `$` and `(` forms) |
+| `Number` | range bounds | a bare word must be a number; the `$`, `(`, `{` and `r#` forms are what they always are, and `parse_range` refuses the ones that are no number (below) |
 | `String` | record keys, `module` and `use` names, `record<...>` field names, completers | bare or quoted string, `$var`, `(expr)`, interpolation; `true`, `false` and `null` are refused ("`true` is a value; quote it") and `[a b]` is a bare word, as with nu's `SyntaxShape::String` |
-| `Signature` | (reserved) | |
 | `Declared(&SyntaxShape)` | the default value of a typed parameter, and the items of a `list<T>` default | the value is parsed with the declared shape (below) |
 
 Statement bodies (`if`, `for`, `while`, ...) do not go through `parse_value`
@@ -83,7 +81,8 @@ finally string. The order matters: `1..3` must be tested as a range before
 A matched unit with a bad number (`1..2sec`) is an error, not a fallback, as
 in nu, and so is a word with a radix prefix that is not a number (`0b2`,
 `0x`, `0x[13]=`): nu commits to an int as soon as it sees `0x`/`0o`/`0b`
-(`radix_prefix`), and `parse_binary` only claims a bracketed literal that
+(`radix_prefix`, which reads past `_` separators as nu does, so `0_xzz` is
+a bad hex int too), and `parse_binary` only claims a bracketed literal that
 closes with `]`.
 
 `parse_value_for_shape` is nu's `parse_value` with a declared `SyntaxShape`,
@@ -104,7 +103,7 @@ message.
 whether the first word of a command line starts a math expression instead of
 naming a command. Besides the literal kinds above it consults
 `looks_like_binary`, so `0b[1|2]` (a pipe inside the brackets) is a command
-name, as in nu.
+name, as in nu, and `is_range_head` for a range (see Ranges below).
 
 ## Literals (`parse_literals.rs`)
 
@@ -117,7 +116,7 @@ failed attempt allocates nothing:
 | `parse_int` | after removing `_` separators, `alt((rest.try_map(str::parse::<i64>), preceded("0x", radix_digits(16)), preceded("0o", radix_digits(8)), preceded("0b", radix_digits(2))))`: a signed decimal, `0x`, `0o` or `0b`; radix digits are read as a `u64` and wrap like nu (`0xffffffffffffffff` is -1) |
 | `parse_float` | whatever Rust's `f64::from_str` accepts after removing `_`: `1.5`, `.5`, `5.`, `1e3`, `inf`, `NaN` |
 | `parse_filesize` / `parse_duration` | `<number><unit>`, both through `parse_unit_value`, which looks the suffix up in a unit table; filesize units case-insensitive (`kb`, `KiB`), duration units case-sensitive (`sec`, `µs`); the number must start with a digit, `.digit` or `-digit` and must not end with `$` (so `$x..$kb` can be a range) |
-| `is_datetime` | `(date, opt((time, opt(offset))))`: `date` is `YYYY-MM-DD` built from `digits(n)` (exactly `n` digits) with `verify` checks, and must be a real calendar date (`days_in_month` knows leap years, so `2023-02-30` is a string); `time` is `Thh:mm:ss[.frac]` (seconds up to 60); `offset` is `Z` or `±hh:mm` |
+| `is_datetime` | `(date, opt((time, opt(offset))))`: `date` is `YYYY-MM-DD` built from `digits(n)` (exactly `n` digits) with `verify` checks, and must be a real calendar date (`days_in_month` knows leap years, so `2023-02-30` is a string); `time` is `Thh:mm:ss[.frac]` (seconds up to 60); `offset` is `Z` or `±hh:mm`, whose minus may also be U+2212 (`−`), as chrono reads it |
 | `parse_binary` | `0x[..]`, `0o[..]`, `0b[..]` ending in `]`; `parse_binary_with_base` lexes the interior with `BINARY`, concatenates the digits, left-pads them to whole bytes and decodes them |
 | `looks_like_binary` | whether such a word makes the line a math expression: not when the brackets hold a pipe, redirection or assignment token |
 | `unescape_string` | the escape table of double-quoted strings: `\" \' \\ \/ \( \) \{ \} \$ \^ \# \| \~ \  \a \b \e \f \n \r \t \0 \xHH \u{...}`; anything else is an error |
@@ -243,19 +242,38 @@ match &ast.block.pipelines[0].elements[0].expr.expr {
 ## Ranges
 
 Two functions share the work. `is_range_syntax(text)` decides, without
-parsing, whether an item *is* a range: `find_range_operators` finds the `..`
-occurrences at parenthesis depth zero (one for `a..b`, two for `a..s..b`)
-and `is_range_bound` checks that every bound present is number-like (an int,
-a float, a `$` expression, or a `(` group that closes, followed by anything,
-so `(ls).0..5` is a range whose bound carries a cell path). `cd ..` and
-`a..b` fail that test and fall through to the next literal kind, as in nu.
+parsing, whether an item *is* a range. `find_range_operators` finds the `..`
+occurrences at parenthesis depth zero (one for `a..b`, two for `a..s..b`),
+and `range_bounds` cuts the text into its `from`, `next` and `to`.
+`is_range_bound` then checks each bound present. A bound must be something
+nu's `parse_value` with the `number` shape reads as a value, since that
+commits nu to the range: an int, a float, a `$` expression, a `(` group that
+closes, followed by anything (so `(ls).0..5` is a range whose bound carries a
+cell path), a raw string, or a `{` item that is a record, a closure, `{}` or
+a cell path on a record (`5..{a: 1}.a`). Like nu, it tells those from a
+block by the first two tokens of the text between the item's first and last
+character (`BraceShape::of_probe`, below). `cd ..`, `a..b` and a block bound
+(`5..{ls}`) fail that test and fall through to the next literal kind, as in
+nu. As in nu's `parse_range`, a text that ends with its operator has no `to`,
+so `1...` is `1..` and its third `.` is dropped.
+
 `parse_range` then parses a text that passed: it reads the operator (`..`,
 `..<`, `..=`) into a `RangeOperator { inclusion, span, next_op_span }` and
 each bound with `parse_value(.., ExpectedShape::Number)`. Because the shape
 was checked first, an error in a bound (`1..(1 +)`) is reported as an error
-in the range rather than turning the item into a string; a bound that turns
-out to be a bare interpolation (`(1)abc..5`, a string for nu) is refused
-with "the `..` operator does not work on a string".
+in the range rather than turning the item into a string. A bound that is no
+number is refused, as nu's `check_range_types` refuses it: a raw string or a
+bare interpolation (`(1)abc..5`, a string for nu) with "the `..` operator
+does not work on a string", and a record or a closure (`5..{a: 1}`,
+`5..{|| 1}`) with "... on a record" or "... on a closure". An empty `next`
+(`1....5`) is "expected value between the range operators".
+
+At the head of a command a range is a math expression, which nu tells by
+asking `parse_range` for one without an error. `is_range_head` answers that
+for `is_math_expression_like`: it is `is_range_syntax` without an empty
+`next` and without a `$` bound nu's value parser fails on (`..$`,
+`..$x.c!!`; a variable with a cell path, `..$x.a`, and a cell-path literal,
+`1..$.a`, are fine), so `..$` and `1....5` are external commands there.
 
 ## `{ ... }`: record, closure or block
 
@@ -265,9 +283,11 @@ with "the `..` operator does not work on a string".
    `parse_full_cell_path`.
 2. `probe_brace_shape` lexes the first two interior tokens with
    `lex_n_tokens(.., LexOptions::BRACE_PROBE, 2)` and classifies them as a
-   `BraceShape`. The enum is `pub`, and `brace_shape(working_set, span)` asks
-   the same question for the statement parsers, which need the answer before
-   deciding how to parse a body.
+   `BraceShape` with `BraceShape::of_probe`, which looks only at the tokens
+   and the text they were lexed from, so `is_range_bound` (above) classifies
+   a range bound's text with it too. The enum is `pub`, and
+   `brace_shape(working_set, span)` asks the same question for the statement
+   parsers, which need the answer before deciding how to parse a body.
 
 | `BraceShape` | Probe | `parse_brace_expr` makes it |
 | --- | --- | --- |
@@ -275,7 +295,7 @@ with "the `..` operator does not work on a string".
 | `ClosureParams` | first token is `\|` or `\|\|` | closure, whatever the shape |
 | `Record` | second token is `:` | record (`{a: 1}`), whatever the shape |
 | `Spread` | first token starts with `...` followed by `{`, `$` or `(` | a closure for `Closure`, a block for `MatchArmBody`, otherwise a record |
-| `Other` | anything else | a block for `MatchArmBody`, a closure for `Closure` and `Any`; an error for `Number`, `String`, `Signature` and `Declared` |
+| `Other` | anything else | a block for `MatchArmBody`, a closure for `Closure` and `Any`; an error for `Number`, `String` and `Declared` |
 
 So `{ print hi }` in argument position is a closure, `{}` is a record, and
 `if true { }` gets a block.

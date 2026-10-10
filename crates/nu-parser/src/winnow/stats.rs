@@ -4,16 +4,21 @@
 //! (`crates/nu-winnow-parser/tools/nushell-harness`) prints them after `compare` and `bench`.
 //!
 //! With `NU_WINNOW_LOG` set to any value (`NU_WINNOW_LOG=1`), read once per process, each
-//! statement the lowering gives back to the classic parser is written to standard error with
-//! the reason, to find what the lowering still lacks, and so is each run parsed ahead whose
+//! hand-over to the classic parser is written to standard error with its reason, to find what
+//! the lowering still lacks: a statement the lowering gives back, the rest of a block from a
+//! statement the winnow parser reported a syntax error in, and each run parsed ahead whose
 //! answers about command names changed.
 
-use std::sync::{
-    OnceLock,
-    atomic::{AtomicU64, Ordering::Relaxed},
+use std::{
+    fmt::Display,
+    sync::{
+        OnceLock,
+        atomic::{AtomicU64, Ordering::Relaxed},
+    },
 };
 
 use nu_protocol::{Span, engine::StateWorkingSet};
+use nu_winnow_parser::Diagnostic;
 
 use super::lower::Unlowered;
 
@@ -110,6 +115,27 @@ pub(super) fn record_classic_statement(bytes: usize, had_errors: bool) {
 /// log it with `NU_WINNOW_LOG`.
 pub(super) fn record_unlowered(span: Span, reason: &Unlowered, working_set: &StateWorkingSet) {
     record_classic_statement(span.len(), false);
+    log_hand_over(reason.reason(), span, working_set);
+}
+
+/// Count the rest of a block, covering `span`, handed to the classic parser from a statement
+/// the winnow parser reported `error` in, and log it with `NU_WINNOW_LOG`.
+pub(super) fn record_error_statement(
+    span: Span,
+    error: &Diagnostic,
+    working_set: &StateWorkingSet,
+) {
+    record_classic_statement(span.len(), true);
+    log_hand_over(
+        format_args!("syntax error ({})", error.kind),
+        span,
+        working_set,
+    );
+}
+
+/// With `NU_WINNOW_LOG`, write a hand-over of `span` to the classic parser to standard error:
+/// `why`, its length and its first line of code.
+fn log_hand_over(why: impl Display, span: Span, working_set: &StateWorkingSet) {
     if log() {
         let text = String::from_utf8_lossy(working_set.get_span_contents(span));
         let first_line = text
@@ -117,11 +143,7 @@ pub(super) fn record_unlowered(span: Span, reason: &Unlowered, working_set: &Sta
             .map(str::trim)
             .find(|line| !line.is_empty() && !line.starts_with('#'))
             .unwrap_or_default();
-        eprintln!(
-            "winnow: {}: {} bytes: {first_line}",
-            reason.reason(),
-            span.len()
-        );
+        eprintln!("winnow: {why}: {} bytes: {first_line}", span.len());
     }
 }
 

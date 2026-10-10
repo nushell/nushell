@@ -42,8 +42,8 @@ pub enum ParseWarning {
 /// This is the recommended way to activate options, as it handles [`ParseWarning`]s properly
 /// and is easy to hook into.
 ///
-/// When the key `"all"` is encountered, [`set_all`](super::set_all) is used to set all
-/// experimental options that aren't deprecated.
+/// When the key `"all"` is encountered, every experimental option that isn't deprecated is set,
+/// as [`set_all`](super::set_all) does.
 /// This allows opting (or opting out of) all experimental options that are currently available for
 /// testing.
 ///
@@ -85,7 +85,7 @@ fn resolve<'i, Ctx: Clone>(
             };
             assignments.extend(
                 ALL.iter()
-                    .filter(|option| matches!(option.status(), Status::OptIn | Status::OptOut))
+                    .filter(|option| !option.status().is_deprecated())
                     .map(|option| (*option, val)),
             );
             continue;
@@ -167,7 +167,8 @@ fn env_entries(
 /// [`ExperimentalOption::get`] falls back to this for options that were never set, so the
 /// environment variable applies even where [`parse_env`] isn't called: in embedders and in test
 /// binaries (whose harness resets every option before each test group). The variable is read
-/// and resolved once per process; entries with warnings are skipped, as [`parse_env`] skips them.
+/// once per process and resolved as [`parse_env`] resolves it (unknown options and invalid
+/// values are skipped, deprecated options still apply), without reporting warnings.
 pub(crate) fn env_value(option: &ExperimentalOption) -> Option<bool> {
     static ENV_ASSIGNMENTS: OnceLock<Vec<Assignment>> = OnceLock::new();
     ENV_ASSIGNMENTS
@@ -243,16 +244,23 @@ mod tests {
     fn resolve_expands_all_to_options_that_are_not_deprecated() {
         let expected: Vec<_> = crate::ALL
             .iter()
-            .filter(|option| matches!(option.status(), Status::OptIn | Status::OptOut))
+            .filter(|option| !option.status().is_deprecated())
             .map(|option| (option.identifier(), false))
             .collect();
         assert_eq!(resolved("all=false"), expected);
     }
 
     #[test]
-    fn resolve_skips_entries_with_warnings() {
+    fn resolve_skips_invalid_entries() {
         let (assignments, warnings) = resolve(env_entries("nope,winnow-parser=maybe,all=perhaps"));
         assert!(assignments.is_empty());
         assert_eq!(warnings.len(), 3);
+    }
+
+    #[test]
+    fn resolve_applies_deprecated_options_with_a_warning() {
+        // `example` is deprecated: named on its own it still applies, as in `parse_env`.
+        assert_eq!(resolved("example"), [("example", true)]);
+        assert_eq!(resolve(env_entries("example")).1.len(), 1);
     }
 }

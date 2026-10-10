@@ -1,0 +1,30 @@
+Block 0..224
+  Pipeline 107..150 comments=2
+    Def `if ready` 107..150
+      Signature 122..137
+        Param positional `then` 123..136 : closure
+      Body 139..149
+        Pipeline 140..148
+          Call `do` 140..148
+            Var $then 143..148
+  Pipeline 151..169
+    Call `if ready` 151..169
+      Closure 160..169
+        Body 162..168
+          Pipeline 162..167
+            String Single "ran" 162..167
+  Pipeline 170..197
+    Def `return early` 170..197
+      Signature 189..191
+      Body 193..196
+        Pipeline 194..195
+          Int 1 194..195
+  Pipeline 198..223
+    Def `g` 198..223
+      Signature 204..206
+      Body 208..222
+        Pipeline 209..221
+          Call `return early` 209..221
+Comments (2)
+  0..88 "# `if`, `return`, ... are commands for nu: a longer command name that starts with one is"
+  89..106 "# called instead."

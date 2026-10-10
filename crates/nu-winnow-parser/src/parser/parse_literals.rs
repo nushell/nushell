@@ -20,11 +20,13 @@ use crate::ast::{
 };
 use crate::error::{Diagnostic, ErrorKind};
 use crate::input::{Input, ParseFailure, ParseResult, cut, input, into_diagnostic, pos, rest_span};
-use crate::lex::{LexOptions, Token, TokenContents, group_end, interp_subexpr_step, lex};
+use crate::lex::{LexOptions, Token, TokenContents, group_end, interp_subexpr_step, lex, lex_n_tokens};
 use crate::span::Span;
 
 use super::WorkingSet;
-use super::parse_expressions::{ExpectedShape, parse_list_expression, parse_record, parse_subexpression, parse_value};
+use super::parse_expressions::{
+    BraceShape, ExpectedShape, parse_list_expression, parse_record, parse_subexpression, parse_value,
+};
 use super::parse_helpers::is_identifier;
 use super::tokens::{Tokens, item, keyword};
 
@@ -42,7 +44,13 @@ fn strip_underscores(text: &str) -> Cow<'_, str> {
 /// Like Nushell, radix literals are parsed as `u64` and reinterpreted, so
 /// `0xffffffffffffffff` is `-1`.
 pub fn parse_int(text: &str) -> Option<i64> {
-    // Most words asked about are no number: an int has a digit.
+    // Most words asked about are no number. Like nu's `read_int`, refuse them at their first
+    // byte (past `_` separators): an int starts with a digit, its radix prefix included, or a sign.
+    let first = text.bytes().find(|&byte| byte != b'_')?;
+    if !(first.is_ascii_digit() || first == b'+' || first == b'-') {
+        return None;
+    }
+    // An int has a digit.
     if !text.bytes().any(|byte| byte.is_ascii_digit()) {
         return None;
     }
@@ -63,12 +71,14 @@ fn radix_digits<'i>(radix: u32) -> impl Parser<&'i str, i64, EmptyError> {
     rest.try_map(move |digits| u64::from_str_radix(digits, radix)).map(|value| value as i64)
 }
 
-/// The radix announced by a `0x`, `0o` or `0b` prefix, if any.
+/// The radix announced by a `0x`, `0o` or `0b` prefix, if any. Like nu's `read_int`, which
+/// strips the `_` separators before it reads the prefix, `0_xzz` claims to be hex.
 pub fn radix_prefix(text: &str) -> Option<u32> {
-    match text.as_bytes() {
-        [b'0', b'x', ..] => Some(16),
-        [b'0', b'o', ..] => Some(8),
-        [b'0', b'b', ..] => Some(2),
+    let mut bytes = text.bytes().filter(|&byte| byte != b'_');
+    match (bytes.next(), bytes.next()) {
+        (Some(b'0'), Some(b'x')) => Some(16),
+        (Some(b'0'), Some(b'o')) => Some(8),
+        (Some(b'0'), Some(b'b')) => Some(2),
         _ => None,
     }
 }
@@ -76,8 +86,15 @@ pub fn radix_prefix(text: &str) -> Option<u32> {
 /// A float literal (nu's `parse_float`): everything Rust's `f64::from_str`
 /// accepts (including `inf`, `NaN`, `1e5`, `.5`), with `_` separators.
 pub fn parse_float(text: &str) -> Option<f64> {
-    // Most words asked about are no number: a float has a digit, unless it is `inf`,
-    // `infinity` or `NaN` (in any case, signed, with separators).
+    // Most words asked about are no number. Like nu's `read_float`, refuse them at their first
+    // byte (past `_` separators): `f64::from_str` only takes a sign, a digit, `.`, or `inf`,
+    // `infinity` and `nan` in any case there.
+    let first = text.bytes().find(|&byte| byte != b'_')?;
+    if !matches!(first, b'0'..=b'9' | b'+' | b'-' | b'.' | b'i' | b'I' | b'n' | b'N') {
+        return None;
+    }
+    // A float has a digit, unless it is `inf`, `infinity` or `NaN` (in any case, signed, with
+    // separators).
     let special_float_byte =
         |byte: u8| matches!(byte.to_ascii_lowercase(), b'+' | b'-' | b'_' | b'i' | b'n' | b'f' | b'a' | b't' | b'y');
     if !text.bytes().any(|byte| byte.is_ascii_digit()) && !text.bytes().all(special_float_byte) {
@@ -204,7 +221,7 @@ fn days_in_month(year: u32, month: u32) -> u32 {
 /// datetime = date [ time [ offset ] ]
 /// date     = YYYY "-" MM "-" DD                      a real calendar date
 /// time     = ("T" | "t") hh ":" mm ":" ss [ "." digits ]   seconds up to 60 (a leap second)
-/// offset   = "Z" | "z" | ("+" | "-") hh ":" mm
+/// offset   = "Z" | "z" | ("+" | "-" | "−") hh ":" mm   "−" is U+2212, the minus sign
 /// ```
 pub fn is_datetime(text: &str) -> bool {
     (date, opt((time, opt(offset)))).parse(text).is_ok()
@@ -232,11 +249,18 @@ fn time(input: &mut &str) -> winnow::Result<(), EmptyError> {
         .parse_next(input)
 }
 
-/// The `offset` of [`is_datetime`]: `Z`, or `+hh:mm` / `-hh:mm` from UTC.
+/// The `offset` of [`is_datetime`]: `Z`, or `+hh:mm` / `-hh:mm` from UTC. Like chrono's RFC 3339
+/// parser, which nu uses, the minus may also be U+2212 (`−`).
 fn offset(input: &mut &str) -> winnow::Result<(), EmptyError> {
     alt((
         one_of(['Z', 'z']).void(),
-        (one_of(['+', '-']), digits(2).verify(|hour| *hour < 24), ':', digits(2).verify(|minute| *minute < 60)).void(),
+        (
+            one_of(['+', '-', '\u{2212}']),
+            digits(2).verify(|hour| *hour < 24),
+            ':',
+            digits(2).verify(|minute| *minute < 60),
+        )
+            .void(),
     ))
     .parse_next(input)
 }
@@ -405,18 +429,25 @@ fn escape_sequence<'t>(input: &mut Input<'t>) -> ParseResult<Unescaped<'t>> {
         't' => b'\t',
         '0' => 0,
         'x' => {
+            // The error covers the `\x` and the two characters meant as hex digits, counted in
+            // characters so that it never ends inside one.
+            let rest: &str = input.input.as_ref();
+            let digits_end = pos(input) + rest.chars().take(2).map(char::len_utf8).sum::<usize>();
             let hex: ParseResult<&str> = take_while(2..=2, |digit: char| digit.is_ascii_hexdigit()).parse_next(input);
             let Ok(hex) = hex else {
                 let message = "incomplete hex escape '\\xHH', expected 2 hex digits";
-                return Err(cut(invalid_string(message.into(), Span::new(start, end.min(start + 4)))));
+                return Err(cut(invalid_string(message.into(), Span::new(start, digits_end))));
             };
             u8::from_str_radix(hex, 16).expect("two hex digits")
         }
         'u' => {
+            // The error covers the `\u` and the character meant as its `{`.
+            let rest: &str = input.input.as_ref();
+            let brace_end = pos(input) + rest.chars().next().map_or(0, char::len_utf8);
             let braced: ParseResult<&str> = delimited('{', take_till(0.., '}'), '}').parse_next(input);
             let Ok(hex) = braced else {
                 let message = "incomplete unicode escape '\\u{...}', missing closing '}'";
-                return Err(cut(invalid_string(message.into(), Span::new(start, end.min(start + 3)))));
+                return Err(cut(invalid_string(message.into(), Span::new(start, brace_end))));
             };
             let code_point = u32::from_str_radix(hex, 16).ok().filter(|_| (1..=6).contains(&hex.len()));
             return match code_point.and_then(char::from_u32) {
@@ -446,7 +477,7 @@ fn invalid_string(message: String, span: Span) -> Diagnostic {
 /// quotes, taken as it is.
 ///
 /// ```text
-/// raw-string = "r" "#"{n} "'" text "'" "#"{n}        n from 1 to 255
+/// raw-string = "r" "#"{n} "'" text "'" "#"{n}        n >= 1
 /// ```
 ///
 /// The text runs from the quote after the opening hashes to the quote before
@@ -458,7 +489,7 @@ pub fn parse_raw_string<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseRe
         return Err(cut(Diagnostic::expected("raw string", span)));
     };
     let hashes = after_r.bytes().take_while(|byte| *byte == b'#').count();
-    if hashes == 0 || hashes > u8::MAX as usize {
+    if hashes == 0 {
         return Err(cut(Diagnostic::expected("`#` after `r` in raw string", span)));
     }
     let body_start = 1 + hashes;
@@ -466,17 +497,15 @@ pub fn parse_raw_string<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseRe
     let Some(body_end) = body_end else {
         return Err(cut(Diagnostic::new(ErrorKind::Unclosed { delimiter: "'", open: span }, span.past())));
     };
-    if !text[body_end..].bytes().all(|byte| byte == b'#')
-        || text.as_bytes()[body_start] != b'\''
-        || text.as_bytes()[body_end - 1] != b'\''
+    // Bytes, as nu compares them: `body_end` may fall inside a character (`r#'a'#é`).
+    let bytes = text.as_bytes();
+    if !bytes[body_end..].iter().all(|byte| *byte == b'#') || bytes[body_start] != b'\'' || bytes[body_end - 1] != b'\''
     {
         return Err(cut(Diagnostic::new(ErrorKind::Unclosed { delimiter: "'", open: span }, span.past())));
     }
+    // Both quotes are ASCII, so the text between them starts and ends on a character boundary.
     let value = &text[body_start + 1..body_end - 1];
-    Ok(Expression::new(
-        Expr::String(StringLiteral { value: Cow::Borrowed(value), quote: Quote::Raw(hashes as u8) }),
-        span,
-    ))
+    Ok(Expression::new(Expr::String(StringLiteral { value: Cow::Borrowed(value), quote: Quote::Raw(hashes) }), span))
 }
 
 /// `true` for a bare word that Nushell treats as an interpolation because it
@@ -623,7 +652,7 @@ fn parse_interpolation_parts<'a>(
         }
         if c == b')' && stack.is_empty() {
             let span = Span::new(body.start + part_start, body.start + index + 1);
-            let expression = parse_paren_expr(working_set, span, ExpectedShape::Any)?;
+            let expression = parse_paren_expr(working_set, span)?;
             parts.push(InterpolationPart::Expression(Box::new(expression)));
             in_expr = false;
             part_start = index + 1;
@@ -672,17 +701,13 @@ pub fn parse_dollar_expr<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseR
     }
 }
 
-/// An item starting with `(` (nu's `parse_paren_expr`): a range, a
-/// signature, or a subexpression with an optional cell path.
-pub fn parse_paren_expr<'a>(
-    working_set: &WorkingSet<'a>,
-    span: Span,
-    shape: ExpectedShape<'_, 'a>,
-) -> ParseResult<Expression<'a>> {
-    match shape {
-        _ if is_range_syntax(working_set.get_span_contents(span)) => parse_range(working_set, span),
-        ExpectedShape::Signature => Ok(Expression::new(Expr::Garbage, span)),
-        _ => parse_full_cell_path(working_set, span, false),
+/// An item starting with `(` (nu's `parse_paren_expr`): a range, or a
+/// subexpression with an optional cell path.
+pub fn parse_paren_expr<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResult<Expression<'a>> {
+    if is_range_syntax(working_set.get_span_contents(span)) {
+        parse_range(working_set, span)
+    } else {
+        parse_full_cell_path(working_set, span, false)
     }
 }
 
@@ -865,28 +890,34 @@ fn find_range_operators(text: &str) -> Option<(Option<usize>, usize)> {
     }
 }
 
-/// A range bound must be something `parse_value(Number)` accepts: a number,
-/// a `$` expression or a parenthesised subexpression, which may carry a cell
-/// path (`(ls).0..5`).
+/// A range bound must be something nu's `parse_value(Number)` reads as a value, which commits
+/// the item to being a range: a number, a `$` expression, a parenthesised subexpression (which
+/// may carry a cell path, `(ls).0..5`), a raw string, or a `{...}` that nu's `parse_brace_expr`
+/// reads as a value, as its first two tokens tell: a record, a closure or `{}`, or a cell path
+/// on a record (`{a: 1}.a`). [`parse_range`] refuses the bounds that are no number, as nu's
+/// `check_range_types` does. A block (`5..{ls}`) is no value of the `number` shape: like nu,
+/// the item is then no range.
 fn is_range_bound(text: &str) -> bool {
-    parse_int(text).is_some()
-        || parse_float(text).is_some()
-        || text.starts_with('$')
-        || (text.starts_with('(') && group_end(text).is_some())
+    match text.as_bytes() {
+        [b'$', ..] | [b'r', b'#', ..] => true,
+        [b'(', ..] => group_end(text).is_some(),
+        // nu probes the text between the first and the last character, a tail included.
+        [b'{', _, ..] => {
+            let inner = &text[1..text.len() - text.chars().next_back().map_or(0, char::len_utf8)];
+            lex_n_tokens(inner, 0, LexOptions::BRACE_PROBE, 2)
+                .is_ok_and(|probe| BraceShape::of_probe(&probe, inner) != BraceShape::Other)
+        }
+        _ => parse_int(text).is_some() || parse_float(text).is_some(),
+    }
 }
 
 /// `true` if `text` has the shape of a range: `from..to`, `from..<to`,
 /// `from..=to`, `from..next..to`, `..to`, `from..`, with every present bound
-/// number-like. Decided without parsing, so callers can fall through to the
-/// next literal kind (`cd ..`, `a..b`) when it is not.
+/// number-like ([`range_bounds`]). Decided without parsing, so callers can fall
+/// through to the next literal kind (`cd ..`, `a..b`) when it is not.
 pub fn is_range_syntax(text: &str) -> bool {
     // Most items hold no `..`; answer those without a call.
-    has_range_operator(text)
-        && range_bounds(text).is_some_and(|(from, next, to)| {
-            (from.is_empty() || is_range_bound(from))
-                && next.is_none_or(|next| !next.is_empty() && is_range_bound(next))
-                && (to.is_empty() || is_range_bound(to))
-        })
+    has_range_operator(text) && range_bounds(text).is_some()
 }
 
 /// Whether `text` holds `..` anywhere. The search goes from `.` to `.` (a
@@ -905,15 +936,16 @@ fn has_range_operator(text: &str) -> bool {
 
 /// Whether a command head is a range (nu's `is_math_expression_like`, which
 /// asks `parse_range` for a range without an error): [`is_range_syntax`] with
-/// no bare `$` bound. As a head, `..$` is then an external command; as a value
-/// it is still a range, whose `$` is an incomplete variable.
+/// no bare `$` bound and no empty `next`. As a head, `..$` and `1....5` are
+/// then external commands; as values they are ranges with an error.
 #[inline]
 pub fn is_range_head(text: &str) -> bool {
-    // A `$` bound must name a variable and a cell path on it (`..$x.a`);
-    // `..$`, `1..$s=`, `1..$s!` and `..$x.c!!` are no range for nu, whose
-    // value parser fails on them, nor is `..$a:` (no variable has a `:` in
-    // its name: `let` reads `name: type`).
+    // A `$` bound must name a variable and a cell path on it (`..$x.a`), or be a
+    // cell-path literal (`1..$.a`); `..$`, `1..$s=`, `1..$s!` and `..$x.c!!` are
+    // no range for nu, whose value parser fails on them, nor is `..$a:` (no
+    // variable has a `:` in its name: `let` reads `name: type`).
     let bound_parses = |bound: &str| match bound.strip_prefix('$') {
+        Some(rest) if rest.starts_with('.') => is_cell_path_tail(rest),
         Some(rest) => {
             let name_end = rest.find(['.', '?', '!']).unwrap_or(rest.len());
             let name = &rest[..name_end];
@@ -921,9 +953,10 @@ pub fn is_range_head(text: &str) -> bool {
         }
         None => true,
     };
-    is_range_syntax(text)
-        && range_bounds(text)
-            .is_some_and(|(from, next, to)| bound_parses(from) && next.is_none_or(bound_parses) && bound_parses(to))
+    has_range_operator(text)
+        && range_bounds(text).is_some_and(|(from, next, to)| {
+            bound_parses(from) && next.is_none_or(|next| !next.is_empty() && bound_parses(next)) && bound_parses(to)
+        })
 }
 
 /// Whether `tail`, the text after a variable's name, is a cell path that
@@ -959,9 +992,12 @@ fn is_cell_path_tail(tail: &str) -> bool {
 }
 
 /// The `from`, `next` and `to` texts of a range-shaped `text` (empty for an
-/// absent bound), or `None` when its operators do not make a range.
+/// absent bound), or `None` when it is no range: its operators do not make
+/// one, or a bound is not [`is_range_bound`]. As in nu's `parse_range`, a text
+/// that ends with its operator has no `to` (`1...` is `1..`), and an empty
+/// `next` (`1....5`) is kept: nu commits to the range and fails on it.
 fn range_bounds(text: &str) -> Option<(&str, Option<&str>, &str)> {
-    if !has_range_operator(text) || text.starts_with("...") {
+    if text.starts_with("...") {
         return None;
     }
     let (next_operator, operator) = find_range_operators(text)?;
@@ -973,11 +1009,17 @@ fn range_bounds(text: &str) -> Option<(&str, Option<&str>, &str)> {
     }
     let from = &text[..next_operator.unwrap_or(operator)];
     let next = next_operator.map(|next_operator| &text[next_operator + 2..operator]);
-    let to = &text[operator + operator_length..];
+    let to = match text.ends_with(&text[operator..operator + operator_length]) {
+        true => "",
+        false => &text[operator + operator_length..],
+    };
     if from.is_empty() && to.is_empty() {
         return None;
     }
-    Some((from, next, to))
+    let bounds = (from.is_empty() || is_range_bound(from))
+        && next.is_none_or(|next| next.is_empty() || is_range_bound(next))
+        && (to.is_empty() || is_range_bound(to));
+    bounds.then_some((from, next, to))
 }
 
 /// A range item (nu's `parse_range`); the caller has checked [`is_range_syntax`].
@@ -987,7 +1029,9 @@ fn range_bounds(text: &str) -> Option<(&str, Option<&str>, &str)> {
 /// ```
 ///
 /// The operators are the `..`s outside parentheses (`(1..2).0..5` has one);
-/// each bound is a value of the `number` shape.
+/// each bound is a value of the `number` shape. As in nu, a text that ends
+/// with its operator has no `to` (`1...` is `1..`), and an empty `next`
+/// (`1....5`) is an error.
 pub fn parse_range<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResult<Expression<'a>> {
     let text = working_set.get_span_contents(span);
     let Some((next_operator, operator)) = find_range_operators(text) else {
@@ -1004,20 +1048,35 @@ pub fn parse_range<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResult<
         }
         let bound_span = Span::new(span.start + start, span.start + end);
         let bound = parse_value(working_set, bound_span, ExpectedShape::Number)?;
-        // `(1)abc..5`: nu reads the bound as a bare interpolation, a string,
-        // which the `..` operator then refuses.
-        if let Expr::StringInterpolation(_) = bound.expr {
-            return Err(cut(Diagnostic::message("the `..` operator does not work on a string", bound_span)
-                .with_help("a range bound is a number, a variable or a subexpression")));
-        }
-        Ok(Some(Box::new(bound)))
+        // nu's `check_range_types` refuses a bound that is no number: a raw string, a record,
+        // a closure, or a bare interpolation (`(1)abc..5`), a string for nu.
+        let refused = match bound.expr {
+            Expr::String(_) | Expr::StringInterpolation(_) => "a string",
+            Expr::Record(_) => "a record",
+            Expr::Closure(_) => "a closure",
+            _ => return Ok(Some(Box::new(bound))),
+        };
+        Err(cut(Diagnostic::message(format!("the `..` operator does not work on {refused}"), bound_span)
+            .with_help("a range bound is a number, a variable or a subexpression")))
     };
     let from = bound(0, next_operator.unwrap_or(operator))?;
     let next = match next_operator {
+        // `1....5`: nu parses the empty text between the operators and fails.
+        Some(next_operator) if next_operator + 2 == operator => {
+            return Err(cut(Diagnostic::expected(
+                "value between the range operators",
+                Span::point(span.start + operator),
+            )));
+        }
         Some(next_operator) => bound(next_operator + 2, operator)?,
         None => None,
     };
-    let to = bound(operator + operator_length, text.len())?;
+    // nu's `has_to`: no `to` when the text ends with its operator, so the third `.` of `1...` is
+    // dropped.
+    let to = match text.ends_with(&text[operator..operator + operator_length]) {
+        true => None,
+        false => bound(operator + operator_length, text.len())?,
+    };
     Ok(Expression::new(
         Expr::Range(Range {
             from,

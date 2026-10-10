@@ -21,6 +21,6 @@ impl ExperimentalOptionMarker for WinnowParser {
         Parse with the nu-winnow-parser front end and lower its syntax tree into nu-parser's AST, \
         to compare the two parsers.";
     const STATUS: Status = Status::OptIn;
-    const SINCE: Version = (0, 116, 1);
+    const SINCE: Version = (0, 116, 2);
     const ISSUE: u32 = 0;
 }

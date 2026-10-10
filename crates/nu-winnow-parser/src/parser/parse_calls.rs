@@ -53,10 +53,10 @@ pub fn parse_call_lenient<'a>(mut tokens: Tokens<'_, 'a>, lenient: bool) -> Pars
         b'%' => return parse_percent_call(first, tokens),
         _ => {}
     }
-    let head = find_longest_decl(first, &mut tokens, "");
+    let (head, found) = find_longest_decl(first, &mut tokens, "");
     // What the head is decides how the arguments parse: an alias of an external command or an
     // unknown command takes external arguments, a wrapped command `external_arg` values.
-    let wrapped = match working_set.find_decl(&head.name) {
+    let wrapped = match found.or_else(|| working_set.find_decl(&head.name)) {
         Some(DeclKind::ExternalAlias) => {
             let name = StringLiteral { value: head.name, quote: Quote::Bare };
             let name = Expression::new(Expr::String(name), head.span);
@@ -70,7 +70,7 @@ pub fn parse_call_lenient<'a>(mut tokens: Tokens<'_, 'a>, lenient: bool) -> Pars
     };
     let arguments = parse_call_arguments_with(tokens, wrapped)?;
     let span = first.span.merge(arguments.last().map_or(head.span, Argument::span));
-    let call = Call { head, arguments, sigil: None };
+    let call = Call { head, arguments, sigil: None, wrapped };
     check_call(working_set, &call, lenient)?;
     Ok(Expression::new(Expr::Call(call), span))
 }
@@ -110,14 +110,17 @@ fn parse_percent_call<'a>(first: Token, mut tokens: Tokens<'_, 'a>) -> ParseResu
                 .with_help(PERCENT_HELP)))
         }
         _ => {
-            let head = find_longest_decl(head_token, &mut tokens, "");
-            if working_set.has_builtin_decls() && !working_set.is_builtin_decl(&head.name) {
+            // nu's `find_longest_decl_with_command_type`: the head is the longest name of a
+            // built-in command, so `%ls foo` calls `ls` even where `def "ls foo"` exists.
+            let builtin = |name: &str| working_set.is_builtin_decl(name).then_some(DeclKind::Builtin);
+            let (head, found) = find_longest_name(head_token, &mut tokens, "", builtin);
+            if found.is_none() && working_set.has_builtin_decls() && !working_set.is_builtin_decl(&head.name) {
                 return Err(cut(Diagnostic::message("percent sigil requires a built-in command", head.span)
                     .with_help(format!("`{}` is not a built-in command; {PERCENT_HELP}", head.name))));
             }
             let arguments = parse_call_arguments(tokens)?;
             let span = sigil.merge(arguments.last().map_or(head.span, Argument::span));
-            Ok(Expression::new(Expr::Call(Call { head, arguments, sigil: Some(sigil) }), span))
+            Ok(Expression::new(Expr::Call(Call { head, arguments, sigil: Some(sigil), wrapped: false }), span))
         }
     }
 }
@@ -125,7 +128,29 @@ fn parse_percent_call<'a>(first: Token, mut tokens: Tokens<'_, 'a>) -> ParseResu
 /// The longest known command name starting at `first`, already consumed
 /// (nu's `find_longest_decl`); the further words of the name are consumed too.
 /// `prefix` is `"attr "` for attributes, whose first word carries a leading `@`.
-fn find_longest_decl<'a>(first: Token, tokens: &mut Tokens<'_, 'a>, prefix: &str) -> CallHead<'a> {
+/// Also returns how calls to a name of several words parse, as the lookup that
+/// found it answered; `None` when the head is the first word alone, which was
+/// not looked up.
+pub(super) fn find_longest_decl<'a>(
+    first: Token,
+    tokens: &mut Tokens<'_, 'a>,
+    prefix: &str,
+) -> (CallHead<'a>, Option<DeclKind>) {
+    let working_set = tokens.working_set;
+    find_longest_name(first, tokens, prefix, |name| match prefix {
+        "" => working_set.find_decl(name),
+        prefix => working_set.find_decl(&format!("{prefix}{name}")),
+    })
+}
+
+/// [`find_longest_decl`] with the names `known` answers for: how calls to
+/// `name` parse, or `None` when it is not a command of the kind looked for.
+fn find_longest_name<'a>(
+    first: Token,
+    tokens: &mut Tokens<'_, 'a>,
+    prefix: &str,
+    known: impl Fn(&str) -> Option<DeclKind>,
+) -> (CallHead<'a>, Option<DeclKind>) {
     let working_set = tokens.working_set;
     let first_word = working_set.get_span_contents(first.span);
     let first_word = if prefix.is_empty() { first_word } else { first_word.strip_prefix('@').unwrap_or(first_word) };
@@ -133,7 +158,7 @@ fn find_longest_decl<'a>(first: Token, tokens: &mut Tokens<'_, 'a>, prefix: &str
     // Fast path: most heads are single words that start no multi-word command.
     let prefix_word = if prefix.is_empty() { first_word } else { prefix.trim_end() };
     if !working_set.is_decl_name_prefix(prefix_word) {
-        return single;
+        return (single, None);
     }
     // A configured command table has no longer names than `MAX_COMMAND_WORDS`; an engine's
     // commands can have any number of words (`def "a b c d e f" []`), so with one every item
@@ -174,18 +199,14 @@ fn find_longest_decl<'a>(first: Token, tokens: &mut Tokens<'_, 'a>, prefix: &str
             let words = following[..count].iter().map(|token| working_set.get_span_contents(token.span));
             Cow::Owned(std::iter::once(first_word).chain(words).collect::<Vec<_>>().join(" "))
         };
-        let found = match prefix {
-            "" => working_set.find_decl(&name).is_some(),
-            prefix => working_set.find_decl(&format!("{prefix}{name}")).is_some(),
-        };
-        if found {
+        if let Some(kind) = known(&name) {
             for _ in 0..count {
                 tokens.next_token();
             }
-            return CallHead { name, span };
+            return (CallHead { name, span }, Some(kind));
         }
     }
-    single
+    (single, None)
 }
 
 /// `-5` or `-.5`: a negative number rather than a flag.
@@ -476,11 +497,11 @@ pub fn parse_attribute<'a>(working_set: &WorkingSet<'a>, attribute_line: &[Token
     if working_set.get_span_contents(first.span) == "@" {
         return Err(cut(Diagnostic::expected("attribute name after `@`", first.span)));
     }
-    let head = find_longest_decl(first, &mut tokens, "attr ");
+    let (head, _) = find_longest_decl(first, &mut tokens, "attr ");
     let name_span = Span::new(first.span.start + 1, head.span.end);
     let full_name = format!("attr {}", head.name);
     let arguments = parse_call_arguments(tokens)?;
-    let call = Call { head, arguments, sigil: None };
+    let call = Call { head, arguments, sigil: None, wrapped: false };
     check_call_named(working_set, &full_name, &call)?;
     let Call { head, arguments, .. } = call;
     Ok(Attribute { span: Span::new(first.span.start, end), name: Spanned::new(head.name, name_span), arguments })
@@ -622,11 +643,15 @@ pub fn keyword_signature_of_call(call: &Call<'_>) -> Option<KeywordSignature> {
 pub fn check_call(working_set: &WorkingSet<'_>, call: &Call<'_>, lenient: bool) -> ParseResult<()> {
     let Some(signature) = keyword_signature_of_call(call) else { return Ok(()) };
     let mut arguments = call.arguments.iter().peekable();
-    // A head resolved as a single word (`overlay` + `use`): skip the subcommand word.
-    if keyword_signature(&call.head.name).is_none() {
-        arguments.next();
+    // A head resolved as a single word (`overlay` + `use`): skip the subcommand word, which ends
+    // the command's name.
+    let mut name_end = call.head.span.end;
+    if keyword_signature(&call.head.name).is_none()
+        && let Some(subcommand) = arguments.next()
+    {
+        name_end = subcommand.span().end;
     }
-    check_call_arguments(working_set, &call.head.name, &signature, arguments, call_end(call), lenient)?;
+    check_call_arguments(working_set, &call.head.name, &signature, arguments, name_end, lenient)?;
     // nu's `parse_hide` hands the members to `parse_import_pattern`, like
     // `use` (`hide foo null` is a wrong import pattern); an alias target is
     // only parsed as a call.
@@ -643,26 +668,23 @@ pub fn check_call(working_set: &WorkingSet<'_>, call: &Call<'_>, lenient: bool) 
 /// [`check_call`] for a call whose head is known by `name` (an attribute: `attr example`).
 fn check_call_named(working_set: &WorkingSet<'_>, name: &str, call: &Call<'_>) -> ParseResult<()> {
     let Some(signature) = keyword_signature(name) else { return Ok(()) };
-    check_call_arguments(working_set, name, &signature, call.arguments.iter().peekable(), call_end(call), false)
-}
-
-/// The offset just past `call`: past its last argument, or past its head.
-fn call_end(call: &Call<'_>) -> usize {
-    call.arguments.last().map_or(call.head.span, Argument::span).end
+    let arguments = call.arguments.iter().peekable();
+    check_call_arguments(working_set, name, &signature, arguments, call.head.span.end, false)
 }
 
 /// The arguments of a keyword command, checked against its signature in one
 /// pass, in the order nu's call parser meets them: a `--help`/`-h` before any
 /// `--` ends the checks (the call only shows help), a flag that takes a value
 /// takes the next positional, and the `keyword` (`as`) is looked for once the
-/// positionals are filled. A missing positional is reported, as nu reports it,
-/// past the last positional, or at `call_end` when there is none.
+/// positionals are filled. A missing positional is reported, as nu's
+/// `check_call` reports it, past the last positional, or at `name_end`, just
+/// after the command's name, when there is none (`overlay use --prefix`).
 fn check_call_arguments<'c>(
     working_set: &WorkingSet<'_>,
     name: &str,
     signature: &KeywordSignature,
     mut arguments: std::iter::Peekable<impl Iterator<Item = &'c Argument<'c>>>,
-    call_end: usize,
+    name_end: usize,
     lenient: bool,
 ) -> ParseResult<()> {
     let no_flag = |flag: &str, span: Span| {
@@ -758,9 +780,55 @@ fn check_call_arguments<'c>(
         }
     }
     if positionals < signature.required && !lenient {
-        let at = Span::point(last_positional_end.unwrap_or(call_end));
+        let at = Span::point(last_positional_end.unwrap_or(name_end));
         return Err(cut(Diagnostic::message("missing required positional argument", at)
             .with_help(format!("`{name}` takes {} positional argument(s)", signature.required))));
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ast::Pipeline;
+    use crate::parser::ParseConfig;
+
+    /// The calls heading the statements of `source`, which must parse.
+    fn calls(source: &str) -> Vec<Call<'_>> {
+        let (ast, diagnostics) = crate::parser::parse(source, &ParseConfig::new());
+        assert!(diagnostics.is_empty(), "{source:?}: {diagnostics:?}");
+        ast.block
+            .pipelines
+            .into_iter()
+            .filter_map(|Pipeline { mut elements, .. }| match elements.remove(0).expr.expr {
+                Expr::Call(call) => Some(call),
+                _ => None,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn call_records_whether_its_head_is_wrapped() {
+        let calls = calls("def --wrapped w [...rest] {}\nw 'x'$\nls x");
+        let wrapped: Vec<(&str, bool)> = calls.iter().map(|call| (&*call.head.name, call.wrapped)).collect();
+        assert_eq!(wrapped, [("w", true), ("ls", false)]);
+    }
+
+    #[test]
+    fn percent_head_is_the_longest_builtin_name() {
+        // nu's `find_longest_decl_with_command_type`: a custom `ls foo` does not hide `ls`.
+        let calls = calls("def \"ls foo\" [] {}\n%ls foo\n%str trim");
+        let heads: Vec<(&str, usize)> = calls.iter().map(|call| (&*call.head.name, call.arguments.len())).collect();
+        assert_eq!(heads, [("ls", 1), ("str trim", 0)]);
+    }
+
+    #[test]
+    fn missing_positional_is_reported_after_the_command_name() {
+        // nu's `check_call`: past the last positional, or past the name when there is none.
+        for (source, offset) in [("overlay use --prefix", 11), ("plugin use --plugin-config x", 10), ("hide", 4)] {
+            let (_, diagnostics) = crate::parser::parse(source, &ParseConfig::new());
+            let spans: Vec<Span> = diagnostics.iter().map(|diagnostic| diagnostic.span).collect();
+            assert_eq!(spans, [Span::point(offset)], "{source:?}");
+        }
+    }
 }

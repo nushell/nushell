@@ -16,8 +16,12 @@ Every binary uses one engine state, `nushell_harness::engine` in `src/lib.rs`:
 the commands the `nu` binary registers (nushell's `src/command_context.rs`,
 in the same order, with the `plugin`, `sqlite` and `trash-support` features),
 the `$nu` constant and the standard library with its prelude, and no plugins,
-as in `nu -n`. `nu-cli` needs reedline's `main` branch, which `Cargo.toml`
-patches in as nushell's own workspace does. `builtin-commands` prints that
+as in `nu -n`. It first sets every experimental option to its default,
+whatever `NU_EXPERIMENTAL_OPTIONS` says, so an exported `winnow-parser` (or
+`all`) never turns the reference nu-parser into the winnow front end or adds
+an option's commands to the engine; `frontends` then applies the variable's
+options to the parses it compares. `nu-cli` needs reedline's `main` branch,
+which `Cargo.toml` patches in as nushell's own workspace does. `builtin-commands` prints that
 engine's commands with their `CommandType`, and
 `tools/scripts/gen-builtin-commands.nu` turns them into
 `src/builtin_commands.rs`, so this parser and the harness's nu-parser know
@@ -50,7 +54,7 @@ pass, which other load on the machine hardly changes. `allocs` counts the
 allocations of each front end and of winnow's syntax pass, and the spans,
 variables and blocks each parse registered.
 
-The harness builds with the `nu` binary's release profile (`opt-level = "s"`,
+The harness builds with the `nu` binary's release profile (`opt-level = 3`,
 thin LTO), so the timings are those of the code `nu` runs.
 
 ## `bench-vs-nu-parser`

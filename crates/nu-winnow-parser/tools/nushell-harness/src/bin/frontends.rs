@@ -11,11 +11,12 @@
 //!
 //! Both front ends parse each file in a fresh working set over the same engine (the `nu`
 //! binary's commands and the standard library), with the file on the file stack so relative
-//! `use` resolves. `compare` renders each result as text with every id resolved to what it
-//! names (a variable's name and declaration, a command's name, a block's contents inline), so
-//! two front ends that create things in a different order still compare equal when they built
-//! the same program. It also compares the declarations each parse added, the parse errors and
-//! the syntax highlighting (`flatten_block`).
+//! `use` resolves, under the experimental options `NU_EXPERIMENTAL_OPTIONS` sets (the engine
+//! itself is built with every option at its default). `compare` renders each result as text
+//! with every id resolved to what it names (a variable's name and declaration, a command's
+//! name, a block's contents inline), so two front ends that create things in a different order
+//! still compare equal when they built the same program. It also compares the declarations
+//! each parse added, the parse errors and the syntax highlighting (`flatten_block`).
 
 use std::{
     collections::HashSet,
@@ -60,8 +61,14 @@ fn main() {
         collect(path, &mut files);
     }
     let files: Vec<PathBuf> = files.into_iter().map(|file| std::fs::canonicalize(&file).unwrap_or(file)).collect();
-    set_winnow(false);
     let engine_state = engine(true);
+    // `engine` builds the engine with every experimental option at its default. The front ends
+    // are compared under the options `NU_EXPERIMENTAL_OPTIONS` sets, as `nu` parses with them;
+    // `winnow-parser` itself is switched for each parse.
+    for (warning, _) in nu_experimental::parse_env() {
+        eprintln!("warning: {warning}");
+    }
+    set_winnow(false);
     // `--clean`: only the files the classic front end parses without errors.
     let files: Vec<PathBuf> = if clean {
         files

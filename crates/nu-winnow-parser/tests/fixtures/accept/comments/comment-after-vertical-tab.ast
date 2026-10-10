@@ -1,0 +1,10 @@
+Block 0..165
+  Pipeline 152..164 comments=2
+    List 152..164
+      String Bare "1\u{b}#" 153..156
+      String Bare "x" 157..158
+      String Bare "]" 159..160
+      Int 2 162..163
+Comments (2)
+  0..91 "# A `#` after a vertical tab starts a comment, as after any ASCII whitespace: the first `]`"
+  92..151 "# is in the comment, and the list goes on to the next line."

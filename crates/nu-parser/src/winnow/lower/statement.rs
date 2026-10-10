@@ -3,9 +3,9 @@
 //! of a statement to the classic parser.
 
 use nu_protocol::{
-    Module, ParseError, Span, SyntaxShape, Type,
+    DeclId, Module, Span, SyntaxShape, Type,
     ast::{
-        Block, Expr, Pipeline, PipelineElement, PipelineRedirection, RedirectionSource,
+        Block, Expr, Expression, Pipeline, PipelineElement, PipelineRedirection, RedirectionSource,
         RedirectionTarget,
     },
     engine::StateWorkingSet,
@@ -18,10 +18,10 @@ use crate::{
     lex::lex,
     lite_parser::lite_parse,
     parse_captures_compile::wrap_element_with_collect,
-    parse_module::parse_module_pipeline,
+    parse_module::{double_main_span, parse_module_pipeline, set_module_main},
     parse_pipelines::{finish_block, parse_pipeline},
     winnow::{
-        driver::{BlockKind, parse_block},
+        driver::{BlockKind, parse_block, statement_changes_names},
         stats,
     },
 };
@@ -29,8 +29,14 @@ use crate::{
 /// Where a statement goes: an ordinary block, or a module's body.
 pub(in crate::winnow) enum StatementTarget<'t> {
     /// A statement of an ordinary block; `input_type` is the block's input, which only its
-    /// first statement receives.
-    Block { input_type: Option<&'t Type> },
+    /// first statement receives. `is_subexpression` is the classic `parse_block`'s flag: the
+    /// classic parser then lexes the statement as `parse_full_cell_path` lexes a parenthesized
+    /// subexpression, newlines as whitespace. (The value of a binding or an assignment is also
+    /// a subexpression; it is one pipeline, which lexes the same either way.)
+    Block {
+        input_type: Option<&'t Type>,
+        is_subexpression: bool,
+    },
     /// A statement of the body of the module `name`, covering `span`; exports add to `module`.
     Module {
         name: &'t [u8],
@@ -41,16 +47,17 @@ pub(in crate::winnow) enum StatementTarget<'t> {
 
 impl<'s> Lower<'_, '_, 's> {
     /// A statement lowered, or parsed by the classic parser from `span` when the lowering gives
-    /// it back, added to `out`. The errors, warnings and compile errors the lowering reported
-    /// before giving up are dropped; what else it added to the working set stays, unreachable
-    /// from `out` (see the module documentation of `lower`).
+    /// it back, added to `out`; returns whether the classic parser parsed it. The errors,
+    /// warnings and compile errors the lowering reported before giving up are dropped; what
+    /// else it added to the working set stays, unreachable from `out` (see the module
+    /// documentation of `lower`).
     pub(in crate::winnow) fn statement_or_classic(
         &mut self,
         pipeline: &w::Pipeline<'s>,
         span: Span,
         target: &mut StatementTarget<'_>,
         out: &mut Vec<Pipeline>,
-    ) {
+    ) -> bool {
         let errors = self.working_set.parse_errors.len();
         let warnings = self.working_set.parse_warnings.len();
         let compile_errors = self.working_set.compile_errors.len();
@@ -58,13 +65,15 @@ impl<'s> Lower<'_, '_, 's> {
             Ok(pipeline) => {
                 stats::record_lowered_statement();
                 out.push(pipeline);
+                false
             }
             Err(reason) => {
                 self.working_set.parse_errors.truncate(errors);
                 self.working_set.parse_warnings.truncate(warnings);
                 self.working_set.compile_errors.truncate(compile_errors);
                 stats::record_unlowered(span, &reason, self.working_set);
-                parse_classic(self.working_set, span, target, true, out);
+                parse_classic(self.working_set, span, target, out);
+                true
             }
         }
     }
@@ -76,7 +85,7 @@ impl<'s> Lower<'_, '_, 's> {
         target: &mut StatementTarget<'_>,
     ) -> Lowered<Pipeline> {
         match target {
-            StatementTarget::Block { input_type } => self.pipeline(pipeline, *input_type),
+            StatementTarget::Block { input_type, .. } => self.pipeline(pipeline, *input_type),
             StatementTarget::Module { name, module, .. } => {
                 self.module_statement(pipeline, name, module)
             }
@@ -162,28 +171,21 @@ impl<'s> Lower<'_, '_, 's> {
         Ok(Pipeline::from_vec(vec![expression]))
     }
 
-    /// Add an exported command to a module: as its `main`, or under its name.
+    /// Add an exported command to a module: as its `main` (`parse_module_pipeline`'s rule), or
+    /// under its name.
     fn add_export_decl(
         &mut self,
         module: &mut Module,
         module_name: &[u8],
         name: Vec<u8>,
-        decl_id: nu_protocol::DeclId,
-        expression: &nu_protocol::ast::Expression,
+        decl_id: DeclId,
+        expression: &Expression,
     ) {
         if name != b"main" {
             module.add_decl(name, decl_id);
-        } else if module.main.is_some() {
-            let span = match &expression.expr {
-                Expr::Call(call) => call.head,
-                _ => expression.span,
-            };
-            self.working_set.error(ParseError::ModuleDoubleMain(
-                String::from_utf8_lossy(module_name).to_string(),
-                span,
-            ));
         } else {
-            module.main = Some(decl_id);
+            let err_span = double_main_span(Some(expression), expression.span);
+            set_module_main(self.working_set, module, module_name, decl_id, err_span);
         }
     }
 
@@ -194,7 +196,7 @@ impl<'s> Lower<'_, '_, 's> {
         command: &w::Expression<'s>,
         export: &w::Export<'s>,
         binding: &w::Binding<'s>,
-    ) -> Lowered<(nu_protocol::ast::Expression, Span)> {
+    ) -> Lowered<(Expression, Span)> {
         let (mut expression, var_span) = self.const_statement(&export.item, binding)?;
         let span = self.span(command.span);
         self.export_call(&mut expression, "export const", span)?;
@@ -289,12 +291,7 @@ impl<'s> Lower<'_, '_, 's> {
                     self.pipeline_element(element, input_type.unwrap_or(&Type::Any), pipe)?;
                 // An alias of `overlay use` and friends has side effects the lowering does not
                 // apply.
-                if let Expr::Call(call) = &element.expr.expr
-                    && matches!(
-                        self.working_set.get_decl(call.decl_id).name(),
-                        "overlay hide" | "overlay new" | "overlay use"
-                    )
-                {
+                if self.calls_overlay(&element.expr) {
                     return Err(Unlowered::Unsupported("overlay"));
                 }
                 return Ok(Pipeline {
@@ -303,6 +300,19 @@ impl<'s> Lower<'_, '_, 's> {
             }
         };
         Ok(Pipeline::from_vec(vec![expr]))
+    }
+
+    /// Whether `expression` calls `overlay use`, `overlay hide` or `overlay new`, maybe through
+    /// an alias: the classic `parse_builtin_commands` applies such a call's effect on the
+    /// scope as it parses it.
+    fn calls_overlay(&self, expression: &Expression) -> bool {
+        matches!(
+            &expression.expr,
+            Expr::Call(call) if matches!(
+                self.working_set.get_decl(call.decl_id).name(),
+                "overlay hide" | "overlay new" | "overlay use"
+            )
+        )
     }
 
     /// The `pipe` of each element as the classic lite parser sets it. The winnow parser keeps,
@@ -316,15 +326,21 @@ impl<'s> Lower<'_, '_, 's> {
     /// classic: ls a, sort b, first -
     /// ```
     ///
+    /// An element ending with `e>|` or `o+e>|` keeps it: the classic lite parser's
+    /// `ErrGreaterPipe`/`OutErrGreaterPipe` arms end the command there as a `|` does.
+    ///
     /// The last element, which no `|` ends, keeps a `|` after it that no command follows
     /// (`ls |` at the end of a block), or else the last of two or more `|` before it (and the
-    /// first element a leading `|`), which empty commands between them hand on.
+    /// first element a leading `|`), which empty commands between them hand on; an `e>|` that
+    /// ends the element before counts as one of them (`^ls e>|\n| lines`).
     fn classic_pipes(&self, pipeline: &w::Pipeline<'s>) -> Vec<Option<WSpan>> {
         let elements = &pipeline.elements;
         let last = elements.len() - 1;
         (0..elements.len())
             .map(|index| {
-                if index < last {
+                if let Some(op) = redirection_pipe(&elements[index]) {
+                    Some(op)
+                } else if index < last {
                     let next = &elements[index + 1];
                     let gap_end = next.pipe.map_or(next.span.start, |pipe| pipe.start);
                     self.first_pipe(elements[index].span.end, gap_end)
@@ -333,26 +349,24 @@ impl<'s> Lower<'_, '_, 's> {
                     Some(dangling)
                 } else {
                     let pipe = elements[index].pipe?;
-                    let gap_start = match index {
+                    let previous = match index {
                         0 => return Some(pipe),
-                        _ => elements[index - 1].span.end,
+                        _ => &elements[index - 1],
                     };
-                    self.first_pipe(gap_start, pipe.start).map(|_| pipe)
+                    // `pipe` is the `e>|` itself when no `|` follows it.
+                    let after_redirection_pipe =
+                        redirection_pipe(previous).is_some_and(|op| op != pipe);
+                    (after_redirection_pipe
+                        || self.first_pipe(previous.span.end, pipe.start).is_some())
+                    .then_some(pipe)
                 }
             })
             .collect()
     }
 
-    /// A `|` (or `e>|`) right after the last element of a pipeline, which no command follows:
-    /// the winnow parser drops it, the classic lite parser keeps it with the element.
+    /// A `|` right after the last element of a pipeline, which no command follows: the winnow
+    /// parser drops it, the classic lite parser keeps it with the element.
     fn dangling_pipe(&self, element: &w::PipelineElement<'s>) -> Option<WSpan> {
-        if let Some(w::PipelineRedirection::Single {
-            target: w::RedirectionTarget::Pipe { op },
-            ..
-        }) = &element.redirection
-        {
-            return Some(op.span);
-        }
         let after = self.source.get(element.span.end..)?;
         let start = element.span.end + (after.len() - after.trim_start_matches([' ', '\t']).len());
         (self.source[start..].starts_with('|') && !self.source[start..].starts_with("||"))
@@ -433,7 +447,8 @@ impl<'s> Lower<'_, '_, 's> {
 
     /// A block from the winnow tree (`parse_block`), covering `span`: a new scope when
     /// `scoped`, its definitions declared first, then its statements; statements the lowering
-    /// gives back are parsed by the classic parser.
+    /// gives back are parsed by the classic parser, and so is the rest of the block after one
+    /// of them that called `overlay use` (or `hide`, `new`) through an alias.
     pub(super) fn block(
         &mut self,
         block: &w::Block<'s>,
@@ -483,8 +498,34 @@ impl<'s> Lower<'_, '_, 's> {
         for (index, pipeline) in block.pipelines.iter().enumerate() {
             let span = self.statement_span(pipeline);
             let input_type = if index == 0 { input_type } else { None };
-            let mut target = StatementTarget::Block { input_type };
-            self.statement_or_classic(pipeline, span, &mut target, &mut out.pipelines);
+            let mut target = StatementTarget::Block {
+                input_type,
+                is_subexpression,
+            };
+            let first = out.pipelines.len();
+            let classic =
+                self.statement_or_classic(pipeline, span, &mut target, &mut out.pipelines);
+            // A statement the classic parser parsed may call `overlay use` through an alias
+            // (which `changes_commands` cannot tell from its head), and the classic parser
+            // applied it: the rest of the block, parsed before with the old commands, is parsed
+            // by the classic parser, as the driver's `rest_to_classic` does.
+            if classic
+                && let Some(next) = block.pipelines.get(index + 1)
+                && out.pipelines[first..]
+                    .iter()
+                    .flat_map(|pipeline| &pipeline.elements)
+                    .any(|element| self.calls_overlay(&element.expr))
+            {
+                let rest = Span::new(self.statement_span(next).start, self.span(block.span).end);
+                let reason = Unlowered::Unsupported("rest of a block after an overlay");
+                stats::record_unlowered(rest, &reason, self.working_set);
+                let mut target = StatementTarget::Block {
+                    input_type: None,
+                    is_subexpression,
+                };
+                parse_classic(self.working_set, rest, &mut target, &mut out.pipelines);
+                break;
+            }
         }
         Ok(finish_block(
             self.working_set,
@@ -514,24 +555,47 @@ impl<'s> Lower<'_, '_, 's> {
 }
 
 /// Parse the statements covering `span` with the classic parser into `out`, with their effects
-/// on the working set and, in a module's body, on the module. `is_first` says whether the first
-/// of them is the block's first statement, which receives the block's input. Unlike the classic
+/// on the working set and, in a module's body, on the module. The first of them receives the
+/// target's input, which the caller gives only to a block's first statement. Unlike the classic
 /// `parse_block`, it predeclares no definitions: the block's are declared already.
 pub(in crate::winnow) fn parse_classic(
     working_set: &mut StateWorkingSet,
     span: Span,
     target: &mut StatementTarget<'_>,
-    is_first: bool,
     out: &mut Vec<Pipeline>,
 ) {
-    // With the newline after it, when one follows, as in the block: a `|` ending the statement
-    // is reported only at the end of the block (`ls |` then a newline is fine).
-    let with_eol = Span::new(span.start, span.end + 1);
-    let contents = match working_set.get_span_contents(with_eol) {
-        contents if contents.len() == with_eol.len() && contents.ends_with(b"\n") => contents,
-        _ => working_set.get_span_contents(span),
+    let subexpression = matches!(
+        target,
+        StatementTarget::Block {
+            is_subexpression: true,
+            ..
+        }
+    );
+    let (tokens, err) = if subexpression {
+        // As `parse_full_cell_path` lexes a parenthesized subexpression: newlines are
+        // whitespace and comments are skipped, so a statement goes on over lines.
+        lex(
+            working_set.get_span_contents(span),
+            span.start,
+            b"\n\r",
+            &[],
+            true,
+        )
+    } else {
+        // With the newline after it, when only what the lexer skips (spaces, tabs, a lone
+        // `\r`) comes before it, as in the block: a `|` ending the statement is reported only
+        // at the end of the block (`ls |` then a newline is fine).
+        let mut end = span.end;
+        while let [b' ' | b'\t' | b'\r'] = working_set.get_span_contents(Span::new(end, end + 1)) {
+            end += 1;
+        }
+        let with_eol = Span::new(span.start, end + 1);
+        let contents = match working_set.get_span_contents(with_eol) {
+            contents if contents.len() == with_eol.len() && contents.ends_with(b"\n") => contents,
+            _ => working_set.get_span_contents(span),
+        };
+        lex(contents, span.start, &[], &[], false)
     };
-    let (tokens, err) = lex(contents, span.start, &[], &[], false);
     if let Some(err) = err {
         working_set.error(err);
     }
@@ -542,12 +606,8 @@ pub(in crate::winnow) fn parse_classic(
     out.reserve(lite_block.block.len());
     for (index, lite_pipeline) in lite_block.block.iter().enumerate() {
         let pipeline = match target {
-            StatementTarget::Block { input_type } => {
-                let input_type = if is_first && index == 0 {
-                    *input_type
-                } else {
-                    None
-                };
+            StatementTarget::Block { input_type, .. } => {
+                let input_type = if index == 0 { *input_type } else { None };
                 parse_pipeline(working_set, lite_pipeline, input_type)
             }
             StatementTarget::Module { name, module, span } => {
@@ -558,21 +618,34 @@ pub(in crate::winnow) fn parse_classic(
     }
 }
 
-/// Whether a statement changes which commands exist for the statements after it. A `true` too
-/// many costs only parsing the block again ([`Lower::block`]).
+/// Whether a statement changes which commands exist for the statements after it: one the
+/// driver ends a run parsed ahead after ([`statement_changes_names`]), a module or an export.
+/// A `true` too many costs only parsing the block again ([`Lower::block`]); a statement this
+/// misses (a call through an alias of `overlay use`) is caught there once the classic parser
+/// has parsed it.
 fn changes_commands(pipeline: &w::Pipeline<'_>) -> bool {
     pipeline
         .elements
         .iter()
-        .any(|element| match &element.expr.expr {
-            w::Expr::Use(_) | w::Expr::Module(_) | w::Expr::Export(_) => true,
-            w::Expr::Call(call) => {
-                let head = call.head.name.as_ref();
-                head.starts_with("overlay ")
-                    || matches!(head, "source" | "source-env" | "hide" | "plugin use")
+        .any(|element| matches!(element.expr.expr, w::Expr::Module(_) | w::Expr::Export(_)))
+        || statement_changes_names(pipeline)
+}
+
+/// The `e>|` or `o+e>|` that ends `element`, if one does (alone, or after an `o> file`).
+fn redirection_pipe(element: &w::PipelineElement<'_>) -> Option<WSpan> {
+    match &element.redirection {
+        Some(
+            w::PipelineRedirection::Single {
+                target: w::RedirectionTarget::Pipe { op },
+                ..
             }
-            _ => false,
-        })
+            | w::PipelineRedirection::Separate {
+                err: w::RedirectionTarget::Pipe { op },
+                ..
+            },
+        ) => Some(op.span),
+        _ => None,
+    }
 }
 
 /// The stream a redirection takes, as `nu-protocol` names it.

@@ -1,0 +1,9 @@
+Block 0..48
+  Pipeline 0..35
+    Def `'echo'` [Wrapped] 0..35
+      Signature 23..32
+        Param rest `rest` 24..31
+      Body 34..34
+  Pipeline 36..47
+    Call `echo` 36..47
+      Binary radix=16 [255] 41..47

@@ -11,7 +11,7 @@ use nu_winnow_parser::{Span as WSpan, ast as w};
 
 use super::{Lower, Lowered, Unlowered};
 use crate::{
-    parse_keywords::reject_parser_keyword_name,
+    parse_def::{reject_command_name, rest_param_is_type_annotated},
     parse_shape_specs::{parse_completer, parse_shape_name},
     parse_signatures::{ensure_not_reserved_variable_name, parse_input_output_types},
 };
@@ -54,11 +54,12 @@ impl<'s> Lower<'_, '_, 's> {
     /// invalid name, a duplicate definition), and `true` means done, errors included. In order:
     /// the name checks; the signature, read in a scope of its own that takes its parameters'
     /// variables away again, with its errors dropped (the definition reports them); `--wrapped`
-    /// making an untyped rest parameter take external arguments; the declaration.
+    /// making the rest parameter take external arguments unless the signature's text types it;
+    /// the declaration.
     pub(in crate::winnow) fn predecl(&mut self, predecl: Predecl<'_, 's>) -> bool {
         // Without a signature the winnow parser could read (none, or one with an error), the
         // classic predeclaration decides, name checks included.
-        let Some(signature) = predecl.signature else {
+        let Some(written) = predecl.signature else {
             return false;
         };
         // A name item in brackets or parentheses (`def [foo] ...`): the classic predeclaration
@@ -68,24 +69,15 @@ impl<'s> Lower<'_, '_, 's> {
         }
         let name = predecl.name;
         let name_span = self.span(predecl.name_span);
-        if name.contains('#')
-            || name.contains('^')
-            || name.contains('%')
-            || name.parse::<bytesize::ByteSize>().is_ok()
-            || name.parse::<f64>().is_ok()
-        {
-            self.working_set
-                .error(ParseError::CommandDefNotValid(name_span));
-            return true;
-        }
-        if reject_parser_keyword_name(self.working_set, name, "command", name_span) {
+        // The name checks of `parse_def_predecl`, shared with it.
+        if reject_command_name(self.working_set, name, name_span) {
             return true;
         }
         let errors = self.working_set.parse_errors.len();
         self.working_set.enter_scope();
-        let lowered = self.signature_params(signature, predecl.external);
+        let lowered = self.signature_params(written, predecl.external);
         let lowered = lowered.map(|mut sig| {
-            if let Some(types) = signature.input_output_span {
+            if let Some(types) = written.input_output_span {
                 // To the statement's end, as the classic predeclaration reads them.
                 let span = self.span(WSpan::new(types.start, predecl.statement_end));
                 sig.input_output_types = parse_input_output_types(self.working_set, &[span]);
@@ -99,8 +91,16 @@ impl<'s> Lower<'_, '_, 's> {
         };
         signature.name = name.to_string();
         if predecl.wrapped {
+            // `parse_def_predecl` decides whether the rest parameter is typed from the text of
+            // the `[...]` item (`rest_param_is_type_annotated`), where a comment counts too.
+            let params = WSpan::new(
+                written.span.start,
+                written
+                    .input_output_span
+                    .map_or(written.span.end, |types| types.start),
+            );
             if let Some(rest) = &mut signature.rest_positional
-                && !self.rest_is_typed(predecl.signature, &rest.name)
+                && !rest_param_is_type_annotated(self.text(params).as_bytes(), &rest.name)
             {
                 rest.shape = SyntaxShape::ExternalArgument;
             }
@@ -151,18 +151,6 @@ impl<'s> Lower<'_, '_, 's> {
         } else {
             Err(Unlowered::Unsupported("predeclaration"))
         }
-    }
-
-    /// Whether the rest parameter `name` has a written type (`rest_param_is_type_annotated`,
-    /// which looks for `...name:` in the signature's text).
-    fn rest_is_typed(&self, signature: Option<&w::Signature<'s>>, name: &str) -> bool {
-        signature.is_some_and(|signature| {
-            signature.params.iter().any(|param| {
-                matches!(param.kind, w::ParameterKind::Rest)
-                    && param.name.item == name
-                    && param.ty.is_some()
-            })
-        })
     }
 
     /// A signature with its input and output types, as an expression (`parse_full_signature`).
@@ -317,6 +305,11 @@ impl<'s> Lower<'_, '_, 's> {
             };
 
             if let (Some(default), false) = (&param.default, is_external) {
+                // `parse_signature_helper` reads each `= value` after the first with the shape
+                // the one before gave; the winnow tree keeps only the last.
+                if param.extra_default {
+                    return Err(Unlowered::Unsupported("second default value"));
+                }
                 self.default_value(&mut parameter, default, type_annotated)?;
             }
             parameters.push(parameter);

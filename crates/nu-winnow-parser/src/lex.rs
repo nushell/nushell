@@ -117,19 +117,6 @@ impl AssignmentOperator {
             AssignmentOperator::ConcatenateAssign => "++=",
         }
     }
-
-    /// Parse the spelling of an assignment operator.
-    pub fn from_spelling(s: &str) -> Option<Self> {
-        Some(match s {
-            "=" => AssignmentOperator::Assign,
-            "+=" => AssignmentOperator::AddAssign,
-            "-=" => AssignmentOperator::SubtractAssign,
-            "*=" => AssignmentOperator::MultiplyAssign,
-            "/=" => AssignmentOperator::DivideAssign,
-            "++=" => AssignmentOperator::ConcatenateAssign,
-            _ => return None,
-        })
-    }
 }
 
 /// The kind of a lexed token.
@@ -191,65 +178,54 @@ pub struct LexOptions {
     /// set it: every other comment must reach `Ast::comments`, so a parser that does not want
     /// comment tokens records and drops them.
     skip_comments: bool,
-    /// Treat `<`/`>` as nesting brackets (used for type annotations such as `list<int>`).
-    in_signature: bool,
-    /// The bytes the lexer treats specially, from the preset's extra whitespace and special
-    /// tokens (see `lex_options!`).
+    /// The bytes the lexer treats specially and whether `<`/`>` nest, computed at compile time
+    /// by `StopBytes::new` from the preset's extra whitespace and special tokens.
     stops: &'static StopBytes,
 }
 
-/// A [`LexOptions`] preset, its [`StopBytes`] computed at compile time:
-/// - `additional_whitespace`: extra bytes treated as whitespace (in addition to space, tab,
-///   `\r`); including `\n` suppresses [`TokenContents::Eol`] tokens.
-/// - `special_tokens`: bytes that are emitted as single-character items when they start a token
-///   and that terminate the item otherwise (e.g. `:` in records).
-macro_rules! lex_options {
-    ($additional_whitespace:expr, $special_tokens:expr, $skip_comments:expr, $in_signature:expr) => {
-        LexOptions {
-            skip_comments: $skip_comments,
-            in_signature: $in_signature,
-            stops: &StopBytes::new($additional_whitespace, $special_tokens, $in_signature),
-        }
-    };
-}
-
 impl LexOptions {
+    /// A preset: its byte sets, `stops`, which a constant below builds with `StopBytes::new`
+    /// and borrows (so they live in the program), and whether it drops comments.
+    const fn with_stops(stops: &'static StopBytes, skip_comments: bool) -> Self {
+        LexOptions { skip_comments, stops }
+    }
+
     /// The options used for blocks and the top level of a file.
-    pub const BLOCK: LexOptions = lex_options!(&[], &[], false, false);
+    pub const BLOCK: LexOptions = LexOptions::with_stops(&StopBytes::new(&[], &[], false), false);
     /// Options for subexpressions `( ... )`: newlines are whitespace, so a
     /// parenthesised pipeline may span several lines.
-    pub const SUBEXPRESSION: LexOptions = lex_options!(b"\n\r", &[], false, false);
+    pub const SUBEXPRESSION: LexOptions = LexOptions::with_stops(&StopBytes::new(b"\n\r", &[], false), false);
     /// Options for list interiors: commas and newlines are whitespace.
-    pub const LIST: LexOptions = lex_options!(b"\n\r,", &[], false, false);
+    pub const LIST: LexOptions = LexOptions::with_stops(&StopBytes::new(b"\n\r,", &[], false), false);
     /// Options for record interiors: like lists, and `:` is special.
-    pub const RECORD_KEY: LexOptions = lex_options!(b"\n\r,", b":", false, false);
+    pub const RECORD_KEY: LexOptions = LexOptions::with_stops(&StopBytes::new(b"\n\r,", b":", false), false);
     /// Options for record values: like lists, but nothing is special.
-    pub const RECORD_VALUE: LexOptions = lex_options!(b"\n\r,", &[], false, false);
+    pub const RECORD_VALUE: LexOptions = LexOptions::with_stops(&StopBytes::new(b"\n\r,", &[], false), false);
     /// Options for signatures `[a: int, --flag(-f)]`.
-    pub const SIGNATURE: LexOptions = lex_options!(b"\n\r", b":=,", false, true);
+    pub const SIGNATURE: LexOptions = LexOptions::with_stops(&StopBytes::new(b"\n\r", b":=,", true), false);
     /// Options for type parameters `list<int>`, `oneof<a, b>`, `record<a: int>`
     /// (nu's `lex_signature` in `parse_type_params`): `:` and `,` are special.
     /// nu skips comments here; the parser records them and drops them.
-    pub const TYPE_PARAMS: LexOptions = lex_options!(b"\n\r", b":,", false, true);
+    pub const TYPE_PARAMS: LexOptions = LexOptions::with_stops(&StopBytes::new(b"\n\r", b":,", true), false);
     /// Options for the type of a declared variable `let x: record<a: int>`
     /// (nu's `lex_signature` in `parse_var_with_opt_type`): `<`/`>` pair up,
     /// so a stray `]` or `}` inside them is unbalanced.
-    pub const VAR_TYPE: LexOptions = lex_options!(b"", b",", true, true);
+    pub const VAR_TYPE: LexOptions = LexOptions::with_stops(&StopBytes::new(b"", b",", true), true);
     /// Options for input/output type lists `[int -> string, nothing -> nothing]`.
-    pub const IO_TYPES: LexOptions = lex_options!(b"\n\r,", &[], false, true);
+    pub const IO_TYPES: LexOptions = LexOptions::with_stops(&StopBytes::new(b"\n\r,", &[], true), false);
     /// Options for cell paths: `.`, `?` and `!` are special.
-    pub const CELL_PATH: LexOptions = lex_options!(b"\n\r", b".?!", true, false);
+    pub const CELL_PATH: LexOptions = LexOptions::with_stops(&StopBytes::new(b"\n\r", b".?!", false), true);
     /// Options for match blocks: commas and newlines are whitespace. A `|` still lexes as a
     /// [`TokenContents::Pipe`], which separates the alternatives of an or-pattern (`1 | 2 => x`).
-    pub const MATCH: LexOptions = lex_options!(b" \r\n,", &[], false, false);
+    pub const MATCH: LexOptions = LexOptions::with_stops(&StopBytes::new(b" \r\n,", &[], false), false);
     /// Options for the first two tokens of a `{...}` body, used to decide what it is.
-    pub const BRACE_PROBE: LexOptions = lex_options!(b"\r\n\t", b":", true, false);
+    pub const BRACE_PROBE: LexOptions = LexOptions::with_stops(&StopBytes::new(b"\r\n\t", b":", false), true);
     /// Options for binary literals `0x[ff 00]`.
-    pub const BINARY: LexOptions = lex_options!(b",\r\n", &[], false, false);
+    pub const BINARY: LexOptions = LexOptions::with_stops(&StopBytes::new(b",\r\n", &[], false), false);
     /// Options for match list patterns.
-    pub const PATTERN_LIST: LexOptions = lex_options!(b"\n\r,", &[], false, false);
+    pub const PATTERN_LIST: LexOptions = LexOptions::with_stops(&StopBytes::new(b"\n\r,", &[], false), false);
     /// Options for record patterns.
-    pub const PATTERN_RECORD: LexOptions = lex_options!(b"\n\r,", b":", false, false);
+    pub const PATTERN_RECORD: LexOptions = LexOptions::with_stops(&StopBytes::new(b"\n\r,", b":", false), false);
 }
 
 /// Where the bracket groups of a block's source close, as scanning its items found them.
@@ -436,11 +412,21 @@ enum Bracket {
     Square,
     /// `{`
     Curly,
-    /// `<`, paired only in a signature ([`LexOptions::in_signature`]).
+    /// `<`, paired only in a signature (`StopBytes::in_signature`).
     Angle,
 }
 
 impl Bracket {
+    /// The spelling of this opening bracket, for error messages.
+    fn opener(self) -> &'static str {
+        match self {
+            Bracket::Paren => "(",
+            Bracket::Square => "[",
+            Bracket::Curly => "{",
+            Bracket::Angle => "<",
+        }
+    }
+
     /// The bracket that closes this one, for an unclosed-bracket error.
     fn closer(self) -> &'static str {
         match self {
@@ -593,6 +579,7 @@ fn item_length(
     let mut previous: Option<u8> = None;
     let mut offset = 0usize;
     let stops = options.stops;
+    let in_signature = stops.in_signature;
 
     // nu's `is_item_terminator`: only at bracket depth zero does a terminator end the item.
     let is_terminator =
@@ -647,7 +634,11 @@ fn item_length(
                     previous = Some(b'#');
                     continue;
                 }
-                b'#' if !in_comment => in_comment = previous.is_none_or(|previous| previous.is_ascii_whitespace()),
+                // nu's rule: a `#` after ASCII whitespace, vertical tab included, starts a comment.
+                b'#' if !in_comment => {
+                    in_comment =
+                        previous.is_none_or(|previous| previous.is_ascii() && char::from(previous).is_whitespace())
+                }
                 b'\n' | b'\r' => {
                     in_comment = false;
                     if is_terminator(&brackets, byte) {
@@ -672,7 +663,7 @@ fn item_length(
                 b'[' | b'{' | b'(' => {
                     // A group an earlier scan measured: on to its closing bracket, unless that lies
                     // past the end of `bytes` (this text ends inside the group).
-                    if !options.in_signature
+                    if !in_signature
                         && let Some(close) = groups.close(absolute(offset))
                         && close < absolute(bytes.len())
                     {
@@ -690,17 +681,17 @@ fn item_length(
                     };
                     brackets.push((bracket, absolute(offset)));
                 }
-                b'<' if options.in_signature => brackets.push((Bracket::Angle, absolute(offset))),
+                b'<' if in_signature => brackets.push((Bracket::Angle, absolute(offset))),
                 // A `>` closes a `<` only when that is the innermost open bracket; otherwise it is
                 // text, such as the arrow in `[int -> string]`.
-                b'>' if options.in_signature => {
+                b'>' if in_signature => {
                     if matches!(brackets.last(), Some((Bracket::Angle, _))) {
                         brackets.pop();
                     }
                 }
                 b']' | b'}' | b')' => {
                     if let Some(open) = close_bracket(&mut brackets, byte, absolute(offset))?
-                        && !options.in_signature
+                        && !in_signature
                     {
                         groups.record(open, absolute(offset));
                     }
@@ -751,10 +742,18 @@ struct StopBytes {
     special_tokens: ByteSet,
     /// The bytes skipped between tokens: space, tab, `\r` and the options' own.
     whitespace: ByteSet,
+    /// Whether `<` and `>` nest as brackets (type annotations such as `list<int>`). Such a scan
+    /// neither records nor jumps over bracket groups (see [`GroupEnds`]).
+    in_signature: bool,
 }
 
 impl StopBytes {
-    /// The sets for one preset, from the arguments of `lex_options!`.
+    /// The sets for one [`LexOptions`] preset:
+    /// - `additional_whitespace`: extra bytes treated as whitespace (in addition to space, tab,
+    ///   `\r`); including `\n` suppresses [`TokenContents::Eol`] tokens.
+    /// - `special_tokens`: bytes that are emitted as single-character items when they start a
+    ///   token and that terminate the item otherwise (e.g. `:` in records).
+    /// - `in_signature`: whether `<` and `>` nest as brackets.
     const fn new(additional_whitespace: &[u8], special_tokens: &[u8], in_signature: bool) -> Self {
         let brackets: &[u8] = if in_signature { b"[]{}()<>" } else { b"[]{}()" };
         let terminators = ByteSet::EMPTY.with(b" \t\n\r|;").with(additional_whitespace).with(special_tokens);
@@ -764,6 +763,7 @@ impl StopBytes {
             terminators,
             special_tokens: ByteSet::EMPTY.with(special_tokens),
             whitespace: ByteSet::EMPTY.with(b" \t\r").with(additional_whitespace),
+            in_signature,
         }
     }
 }
@@ -819,7 +819,7 @@ fn close_bracket(brackets: &mut Vec<(Bracket, usize)>, closer: u8, at: usize) ->
         Some(&(open, open_at)) => Err(unbalanced_error(found, open, open_at, at)),
         None if closer == b']' => Ok(None),
         None => Err(cut(Diagnostic::new(
-            ErrorKind::Unbalanced { found, expected: opening_delimiter_str(expected) },
+            ErrorKind::Unbalanced { found, expected: expected.opener() },
             Span::new(at, at + 1),
         ))),
     }
@@ -833,23 +833,15 @@ fn unbalanced_error(
     open_at: usize,
     at: usize,
 ) -> winnow::error::ErrMode<ParseFailure> {
-    cut(Diagnostic::new(ErrorKind::Unbalanced { found, expected: opening_delimiter_str(open) }, Span::new(at, at + 1))
-        .with_help(format!("the innermost open delimiter is `{}` at byte {open_at}", opening_delimiter_str(open))))
-}
-
-/// The spelling of an opening bracket, for error messages.
-fn opening_delimiter_str(bracket: Bracket) -> &'static str {
-    match bracket {
-        Bracket::Paren => "(",
-        Bracket::Square => "[",
-        Bracket::Curly => "{",
-        Bracket::Angle => "<",
-    }
+    cut(Diagnostic::new(ErrorKind::Unbalanced { found, expected: open.opener() }, Span::new(at, at + 1))
+        .with_help(format!("the innermost open delimiter is `{}` at byte {open_at}", open.opener())))
 }
 
 /// Scan a raw string `r#'...'#` starting at the `r` (nu's `lex_raw_string`);
 /// returns the offset just past it. The string ends at the first `'` followed by
-/// as many `#`s as follow the `r`, so `r##'a'#'##` holds `a'#`.
+/// as many `#`s as follow the `r`, so `r##'a'#'##` holds `a'#`. Like nu, that `'`
+/// may be the opening quote itself: the raw part of `r#'#a'#` is `r#'#`, and the
+/// `a'#` after it opens a quote that never closes.
 fn lex_raw_string(bytes: &[u8], start: usize, absolute: impl Fn(usize) -> usize) -> ParseResult<usize> {
     let mut hashes = 0;
     while bytes.get(start + 1 + hashes) == Some(&b'#') {
@@ -859,9 +851,12 @@ fn lex_raw_string(bytes: &[u8], start: usize, absolute: impl Fn(usize) -> usize)
     if bytes.get(quote_at) != Some(&b'\'') {
         return Err(cut(Diagnostic::expected("`'` after `r#`", Span::point(absolute(quote_at)))));
     }
-    let mut offset = quote_at + 1;
+    // The closing `#`s are as many as the opening ones, which follow the `r`.
+    let closing_hashes = &bytes[start + 1..quote_at];
+    // nu's `lex_raw_string` looks for the closing quote from the opening one on (a quirk).
+    let mut offset = quote_at;
     while offset < bytes.len() {
-        if bytes[offset] == b'\'' && bytes[offset + 1..].starts_with(&b"#".repeat(hashes)) {
+        if bytes[offset] == b'\'' && bytes[offset + 1..].starts_with(closing_hashes) {
             return Ok(offset + 1 + hashes);
         }
         offset += 1;

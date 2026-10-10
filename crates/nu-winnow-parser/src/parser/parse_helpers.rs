@@ -89,10 +89,7 @@ pub fn invalid_literal(kind: &'static str, message: &str, span: Span) -> winnow:
     cut(Diagnostic::new(ErrorKind::InvalidLiteral { kind, message: message.into() }, span))
 }
 
-/// The placeholder for something that is not an expression (nu's `garbage`).
-/// It also stands for a signature that `parse_value` reaches, which happens only
-/// on error-recovery paths: signatures are not expressions in this AST, and the
-/// statement parsers call `parse_signature` directly.
+/// The placeholder expression for text that failed to parse (nu's `garbage`).
 pub fn garbage<'a>(span: Span) -> Expression<'a> {
     Expression::new(Expr::Garbage, span)
 }
@@ -102,12 +99,7 @@ pub fn garbage<'a>(span: Span) -> Expression<'a> {
 pub fn garbage_pipeline<'a>(span: Span) -> Pipeline<'a> {
     Pipeline {
         span,
-        elements: vec![PipelineElement {
-            span,
-            pipe: None,
-            expr: Expression::new(Expr::Garbage, span),
-            redirection: None,
-        }],
+        elements: vec![PipelineElement { span, pipe: None, expr: garbage(span), redirection: None }],
         leading_comments: Vec::new(),
         trailing_comments: Vec::new(),
         terminator: None,

@@ -2023,7 +2023,7 @@ pub fn parse_string(working_set: &mut StateWorkingSet, span: Span) -> Expression
     Expression::new(working_set, Expr::String(s), span, Type::String)
 }
 
-fn is_quoted(bytes: &[u8]) -> bool {
+pub(crate) fn is_quoted(bytes: &[u8]) -> bool {
     matches!(bytes, [b'\'', .., b'\''] | [b'"', .., b'"'])
 }
 

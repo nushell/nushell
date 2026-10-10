@@ -27,7 +27,9 @@
 //! * a statement the lowering gives back (an error to report, or a construct it does not
 //!   handle) is parsed alone;
 //! * from a statement the winnow parser reported an error in, or one parsed ahead with command
-//!   names that turned out different, the rest of the block is parsed;
+//!   names that turned out different, the rest of the block is parsed, and so it is after a
+//!   statement given back in a nested block that changed its commands (a call through an alias
+//!   of `overlay use`);
 //! * a block the winnow parser cannot take as a whole (not UTF-8, it does not lex, or it has an
 //!   error about the whole block) is parsed entirely.
 

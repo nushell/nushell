@@ -1,7 +1,13 @@
 # Example of a `.gitattributes` file which reclassifies `.nu` files as Nushell:
 *.nu linguist-language=Nushell
 
+# `tests/fixtures.rs` compares the fixtures' trees and errors with their golden
+# `.ast`/`.err` files byte for byte, so check every fixture file out with LF
+# line endings, whatever `core.autocrlf` says (Windows CI converts otherwise).
+tests/fixtures/** text eol=lf
+
 # These fixtures test CRLF line endings: store them byte-for-byte so that
-# `core.autocrlf` never converts them to LF.
+# `core.autocrlf` never converts them to LF. (Later lines win, so these
+# override the rule above.)
 tests/fixtures/accept/comments/crlf-comment-keeps-cr.nu -text
 tests/fixtures/accept/pipelines/crlf-line-endings.nu -text

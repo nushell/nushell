@@ -160,11 +160,16 @@ fn print_json(_ast: &Ast<'_>) {
     eprintln!("error: --json requires building with `--features serde`");
 }
 
-/// Walk every `.nu` file under the given paths and report parse failures.
+/// Parse every `.nu` file under the given directories, and every file named,
+/// and report parse failures. A file that cannot be read counts as one.
 fn check(opts: &Options, config: &ParseConfig) -> ExitCode {
     let mut files = Vec::new();
     for path in &opts.paths {
-        collect(path, &mut files);
+        if path.is_dir() {
+            collect(path, &mut files);
+        } else {
+            files.push(path.clone());
+        }
     }
     files.sort();
     let mut failed = 0usize;
@@ -172,7 +177,16 @@ fn check(opts: &Options, config: &ParseConfig) -> ExitCode {
     let mut total_errors = 0usize;
     let start = Instant::now();
     for file in &files {
-        let Ok(source) = std::fs::read_to_string(file) else { continue };
+        let source = match std::fs::read_to_string(file) {
+            Ok(source) => source,
+            Err(e) => {
+                failed += 1;
+                if !opts.quiet {
+                    println!("{}: cannot read: {e}", file.display());
+                }
+                continue;
+            }
+        };
         total_bytes += source.len();
         let (_, diagnostics) = parse_lenient(&source, config);
         if !diagnostics.is_empty() {
@@ -197,6 +211,7 @@ fn check(opts: &Options, config: &ParseConfig) -> ExitCode {
     if failed == 0 { ExitCode::SUCCESS } else { ExitCode::FAILURE }
 }
 
+/// Every `.nu` file below `path`, recursively.
 fn collect(path: &Path, out: &mut Vec<PathBuf>) {
     if path.is_dir() {
         if let Ok(entries) = std::fs::read_dir(path) {

@@ -2,7 +2,7 @@
 
 Everything here is driven from the command line. This page lists each tool,
 its parameters, and a few things to try. All commands are run from the
-repository root unless a `cd` is shown.
+crate root (`crates/nu-winnow-parser`) unless a `cd` is shown.
 
 | Tool | What it is | Build |
 | --- | --- | --- |
@@ -10,7 +10,7 @@ repository root unless a `cd` is shown.
 | `nufmt` | Example binary: a formatter built on the AST | `cargo build --release --example nufmt` |
 | `cargo test` | Unit, integration, corpus, formatter and doc tests | — |
 | `cargo bench` | Criterion benchmarks of the parser and lexer | — |
-| `bench-vs-nu-parser` | Times `nu-parser` and this crate on the same files (needs a Nushell checkout) | `cd tools/nushell-harness && cargo build --release` |
+| `bench-vs-nu-parser` | Times `nu-parser` and this crate on the same files (needs a Nushell checkout) | `cd tools/nushell-harness && CARGO_TARGET_DIR=../../../../target cargo build --release` |
 | `bridge` | Parses with this crate, lowers into `nu-protocol` and runs on the Nushell engine | same as above |
 | `tools/scripts/*.nu` | Nushell scripts that compare this parser with `nu-check` and `ast --flatten` | need `nu` 0.115.2 and the `parse` example |
 
@@ -28,7 +28,7 @@ span; with no file it reads standard input.
 | `FILE` | Parse this file (any number of files) |
 | `DIR` | Parse every `.nu` file below the directory, recursively |
 | (stdin) | With no file, parse what is piped in |
-| `--check` | Do not print trees; report each file that has diagnostics, then a one-line summary with bytes, time and throughput |
+| `--check` | Do not print trees; report each file that has diagnostics or cannot be read, then a one-line summary with bytes, time and throughput |
 | `--summary` | Print node counts per kind and the parse time instead of the tree |
 | `--flat` | Print `flatten()` output: one `start<TAB>end<TAB>shape` row per classified span |
 | `--json` | Print the AST as JSON (requires `--features serde`) |
@@ -81,7 +81,7 @@ nufmt [--write|-w] [--check] [--config FILE] [FILE|DIR ...]
 
 | Parameter | Effect |
 | --- | --- |
-| `FILE`, `DIR` | Format these files (directories recursively, `.nu` files only) |
+| `FILE`, `DIR` | Format these files, whatever their names, and the `.nu` files below these directories; a file that cannot be read is an error |
 | (stdin) | With no file, format what is piped in and print the result |
 | (no flag) | Print the formatted source to standard output |
 | `--write`, `-w` | Rewrite each file in place |
@@ -139,11 +139,11 @@ inconsistencies).
 | `keep_alignment` | `false` | Keep runs of two or more spaces between tokens on one line, so hand-aligned `=`, `=>`, values and trailing comments stay aligned |
 | `trim_trailing_whitespace` | `true` | Remove whitespace at the end of comments |
 | `indent_pipelines` | `false` | Indent the `\| cmd` continuation lines of a multi-line pipeline one level deeper than its first line |
-| `strip_redundant_parens` | `true` | Drop `( )` around the whole value of a `let`/assignment, the only statement of a block, or an `if`/`while` condition (`let x = (ls \| length)`, `if (true)`, `((pwd) \| where true)`); parentheses around an operator expression or a top-level statement are kept |
+| `strip_redundant_parens` | `true` | Drop `( )` around the whole value of a `let`/assignment, the only statement of a block, or an `if`/`while` condition (`let x = (ls \| length)`, `if (true)`, `((pwd) \| where true)`); parentheses around an operator expression or a top-level statement are kept, and so are those nu needs: around an external command starting an assignment's value (`$x = (git log)`) and around `key:` starting a block (`{ (echo: 1) }`) |
 | `expand_def_bodies` | `false` | Write every non-empty `def` body on its own lines |
 | `expand_complex_records` | `true` | One field per line when a value is a record, closure or block |
 | `compact_simple_closures` | `true` | `{\|x\| $x * 2 }` on one line when the body is a single value expression and fits |
-| `unquote_match_patterns` | `true` | `"allow" => ...` becomes `allow => ...` when the string is a plain identifier |
+| `unquote_match_patterns` | `true` | `"allow" => ...` becomes `allow => ...` when the string is a plain identifier that nu does not read as a number (`"Infinity"`, `"NAN"` and `"_1"` keep their quotes) |
 
 Two rewrites go beyond layout and are always on; each occurrence is reported
 on stderr as `file:line:col: note: ...`:
@@ -159,7 +159,7 @@ on stderr as `file:line:col: note: ...`:
 
 ## Tests
 
-`TESTING.md` at the repository root is the runbook for all of this; the
+`TESTING.md` at the crate root is the runbook for all of this; the
 commands are repeated here for completeness.
 
 ```nushell
@@ -172,7 +172,7 @@ cargo test --test examples              # every built-in command's examples (tes
 cargo test --test traceability          # chapter 11 maps every nu-parser construct (needs ../nushell for the upstream check)
 cargo test --test corpus                # every file in tests/corpus must parse cleanly
 cargo test --test nufmt                 # formatter idempotency and structure preservation
-cargo test --doc                        # the `rust` blocks in src/docs and the README
+cargo test --doc                        # the `rust` blocks in src/docs and examples/nufmt/README.md
 cargo test --lib lex                    # unit tests of one module (src/lex.rs)
 cargo test --test syntax -- if_forms    # one test by name
 ```
@@ -222,7 +222,7 @@ nu tools/scripts/verify.nu --save tools/scripts/verify-history.nuon
 | `nufmt-fixtures.nu` | the formatter vs the nushell/nufmt reference fixtures | 114 of 130 |
 
 Scoreboard on 2026-09-26 against the Nushell checkout `7de074cfe` (main; the
-harness is locked to the same commit) and `nu` 0.115.2
+harness links the same checkout) and `nu` 0.115.2
 (`tools/scripts/verify-history.nuon` keeps the record): 1,862 tests, 0
 failures; the command table matches the harness engine; 1,384 fixtures, 0
 with `ours != expected` (17 where `nu-check` rejects for semantic reasons);
@@ -247,7 +247,7 @@ traceability test names the unmapped construct.
 ```nushell
 nu tools/scripts/extract-corpus.nu [--nushell DIR] [--book DIR] [--out DIR]
 cd tools/nushell-harness
-cargo run --release --bin differential -- [--details] [--json] [--mutants N] [--seed S] [--no-std] [--snippets FILE.json]... [FILE|DIR ...]
+CARGO_TARGET_DIR=../../../../target cargo run --release --bin differential -- [--details] [--json] [--mutants N] [--seed S] [--no-std] [--snippets FILE.json]... [FILE|DIR ...]
 ```
 
 `extract-corpus.nu` regenerates `tests/corpus/snippets/*.json` from the
@@ -261,8 +261,8 @@ message. There is no list of tolerated differences. It exits 1 when
 
 ```nushell
 cd tools/nushell-harness
-cargo run --release --bin differential -- ../../tests/fixtures ../../tests/corpus --mutants 5 --details
-cargo run --release --bin differential -- --snippets ../../tests/corpus/snippets/nu-command-examples.json
+CARGO_TARGET_DIR=../../../../target cargo run --release --bin differential -- ../../tests/fixtures ../../tests/corpus --mutants 5 --details
+CARGO_TARGET_DIR=../../../../target cargo run --release --bin differential -- --snippets ../../tests/corpus/snippets/nu-command-examples.json
 ```
 
 ## Benchmarks
@@ -311,20 +311,24 @@ cp target/release/examples/parse /tmp/parse-before
 
 ### Against `nu-parser` (`tools/nushell-harness`)
 
-This crate links the real Nushell crates from the `main` branch on GitHub
-(see its `Cargo.toml`: `cargo update` in that directory moves to the newest
-commit, and a commented `[patch]` block switches to a checkout next to this
-repository); the first build takes several minutes.
+The harness links the Nushell crates of the enclosing checkout by path, so it
+always compares with the `nu-parser` next to this crate. It is a cargo
+workspace of its own (it links the whole shell); the first build takes several
+minutes. Set `CARGO_TARGET_DIR=../../../../target` for its `cargo` commands, as
+below, so it builds into the workspace's `target`, where the scripts look for
+its binaries, instead of a second full build in its own directory. Every
+harness binary sets each experimental option to its default before it builds
+the engine, whatever `NU_EXPERIMENTAL_OPTIONS` says.
 
 ```nushell
 cd tools/nushell-harness
-cargo run --release --bin bench-vs-nu-parser -- [--iters N] [--std] FILE|DIR ...
+CARGO_TARGET_DIR=../../../../target cargo run --release --bin bench-vs-nu-parser -- [--iters N] [--std] FILE|DIR ...
 ```
 
 | Parameter | Effect |
 | --- | --- |
 | `FILE`, `DIR` | The files to time (directories recursively) |
-| `--iters N` | Parse each file N times and report the total (default 1) |
+| `--iters N` | Parse each file N times (at least 1) and report the mean time (default 5) |
 | `--std` | Load the standard library into the engine first, so `use std/...` resolves and `nu-parser` also parses the imported modules |
 
 Without `--std` both parsers see the same bytes and nothing else, which is
@@ -332,9 +336,9 @@ the fair comparison. Examples:
 
 ```nushell
 cd tools/nushell-harness
-cargo run --release --bin bench-vs-nu-parser -- ~/src/nushell/crates/nu-std
-cargo run --release --bin bench-vs-nu-parser -- --iters 10 ../../tests/corpus
-cargo run --release --bin bench-vs-nu-parser -- --std ~/src/nushell/crates/nu-std
+CARGO_TARGET_DIR=../../../../target cargo run --release --bin bench-vs-nu-parser -- ~/src/nushell/crates/nu-std
+CARGO_TARGET_DIR=../../../../target cargo run --release --bin bench-vs-nu-parser -- --iters 10 ../../tests/corpus
+CARGO_TARGET_DIR=../../../../target cargo run --release --bin bench-vs-nu-parser -- --std ~/src/nushell/crates/nu-std
 ```
 
 The same package has `nu-parser-check`, a `nu-check` equivalent built on the
@@ -343,26 +347,17 @@ library registered, used by `fixtures-compare.nu`:
 
 ```nushell
 cd tools/nushell-harness
-cargo run --release --bin nu-parser-check -- [--no-std] [--quiet] FILE...
+CARGO_TARGET_DIR=../../../../target cargo run --release --bin nu-parser-check -- [--no-std] [--quiet] FILE...
 ```
 
 It prints `ok FILE` or `error FILE: <first parse error>` per file and exits
 non-zero if any file failed.
 
-`tools/nushell-harness-release` is the same benchmark compiled against the
-crates.io release of `nu-parser` (pinned in its `Cargo.toml`), so two Nushell
-versions can be put side by side:
-
-```nushell
-cd tools/nushell-harness-release
-cargo run --release -- ~/src/nushell/crates/nu-std
-```
-
 ## The engine bridge (`tools/nushell-harness`, `bridge`)
 
 ```nushell
 cd tools/nushell-harness
-cargo run --release --bin bridge -- [--demo] [--compare] [--file FILE] ['script']
+CARGO_TARGET_DIR=../../../../target cargo run --release --bin bridge -- [--demo] [--compare] [--file FILE] ['script']
 ```
 
 | Parameter | Effect |
@@ -376,10 +371,10 @@ Things to try:
 
 ```nushell
 cd tools/nushell-harness
-cargo run --release --bin bridge -- --demo
-cargo run --release --bin bridge -- '[3 1 2] | sort | each {|x| $x * 2 }'
-cargo run --release --bin bridge -- --compare 'def add [a: int, b: int] { $a + $b }; add 1 2'
-cargo run --release --bin bridge -- --compare --file /tmp/script.nu
+CARGO_TARGET_DIR=../../../../target cargo run --release --bin bridge -- --demo
+CARGO_TARGET_DIR=../../../../target cargo run --release --bin bridge -- '[3 1 2] | sort | each {|x| $x * 2 }'
+CARGO_TARGET_DIR=../../../../target cargo run --release --bin bridge -- --compare 'def add [a: int, b: int] { $a + $b }; add 1 2'
+CARGO_TARGET_DIR=../../../../target cargo run --release --bin bridge -- --compare --file /tmp/script.nu
 ```
 
 The bridge supports custom commands with flags, closures with captures,
@@ -401,15 +396,15 @@ nu tools/scripts/fixtures-compare.nu [--details] [--parse BIN] [--check BIN] [--
 
 Runs every file in `tests/fixtures/` through three front ends and reports
 the disagreements: `ours` (`parse --check`), `nu` (`nu-check` in the `nu`
-on `PATH`) and `main` (`nu-parser` from nushell's `main` branch via
+on `PATH`) and `main` (the enclosing checkout's `nu-parser`, through
 `tools/nushell-harness`'s `nu-parser-check`, with its first error message;
-`null` when that binary is not built). The expected verdict is the
-fixture's directory, `accept` or `reject`. `--details` returns the whole
-table.
+`null` when that binary is not built into the workspace's `target`). The
+expected verdict is the fixture's directory, `accept` or `reject`.
+`--details` returns the whole table.
 
 ```nushell
 cargo build --release --example parse
-cd tools/nushell-harness; cargo build --release --bin nu-parser-check; cd ../..
+cd tools/nushell-harness; CARGO_TARGET_DIR=../../../../target cargo build --release --bin nu-parser-check; cd ../..
 nu tools/scripts/fixtures-compare.nu
 nu -c 'use tools/scripts/fixtures-compare.nu; fixtures-compare --details | where ours != nu'
 ```
@@ -467,9 +462,11 @@ nu tools/scripts/gen-builtin-commands.nu --check    # exit 1 when it is stale
 
 Regenerates `src/builtin_commands.rs`, the commands `ParseConfig::new()`
 knows, with their `CommandType`, from the harness's `builtin-commands`
-binary: the engine of the `nu` binary with the standard library's prelude
-and no plugins, at the Nushell commit the harness is built from. Run it after
-moving the harness to a new commit; `verify.nu` checks that it is current.
+binary: the engine of the `nu` binary with the standard library's prelude,
+no plugins and every experimental option at its default, at the commit of the
+enclosing checkout. Run it when the checkout gains or loses commands;
+`verify.nu` checks that it is current (`--check` compares the commands, not
+the commit named in the file's header).
 
 ### `gen-std-commands.nu`
 

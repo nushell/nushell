@@ -15,11 +15,6 @@
 //! `indent_pipelines`, `strip_redundant_parens`, `expand_def_bodies`,
 //! `expand_complex_records`, `compact_simple_closures`,
 //! `unquote_match_patterns`. nufmt's `exclude` is accepted and ignored.
-#![allow(
-    clippy::disallowed_types,
-    clippy::unwrap_used,
-    reason = "a native command-line example; `Instant` is disallowed only for WASM"
-)]
 
 mod format;
 
@@ -111,6 +106,7 @@ fn report(notes: &[Note], src: &str, name: &str) {
     }
 }
 
+/// Every `.nu` file below `path`, recursively.
 fn collect(path: &Path, out: &mut Vec<PathBuf>) {
     if path.is_dir() {
         if let Ok(entries) = std::fs::read_dir(path) {
@@ -164,15 +160,29 @@ fn main() -> ExitCode {
             }
         };
     }
+    // A directory contributes its `.nu` files; a file named on the command line
+    // is formatted whatever its name (a `#!/usr/bin/env nu` script), and one that
+    // cannot be read is an error, not a file left out.
     let mut files = Vec::new();
     for p in &paths {
-        collect(p, &mut files);
+        if p.is_dir() {
+            collect(p, &mut files);
+        } else {
+            files.push(p.clone());
+        }
     }
     files.sort();
     let mut status = ExitCode::SUCCESS;
     let mut changed = 0;
     for file in &files {
-        let Ok(src) = std::fs::read_to_string(file) else { continue };
+        let src = match std::fs::read_to_string(file) {
+            Ok(src) => src,
+            Err(e) => {
+                eprintln!("error: cannot read {}: {e}", file.display());
+                status = ExitCode::FAILURE;
+                continue;
+            }
+        };
         match format_with_notes(&src, &options) {
             Ok((out, notes)) => {
                 report(&notes, &src, &file.display().to_string());

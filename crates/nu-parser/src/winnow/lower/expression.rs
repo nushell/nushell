@@ -231,10 +231,7 @@ impl<'s> Lower<'_, '_, 's> {
         };
         compile_block(self.working_set, &mut block);
         let block_id = self.working_set.add_block(Arc::new(block));
-        let (Some(first), Some(last)) = (shorthand.vars.first(), shorthand.vars.last()) else {
-            return Err(Unlowered::Error);
-        };
-        let vars_span = self.span(first.span.merge(last.span));
+        let vars_span = Span::merge_many(shorthand.vars.iter().map(|var| self.span(var.span)));
         let command_span = self.span(shorthand.expr.span);
         let record = self.node(
             Expr::Record(
@@ -290,7 +287,7 @@ impl<'s> Lower<'_, '_, 's> {
     /// the condition is lowered. As in the classic parser, a condition that is a variable other
     /// than `$it`, or a cell path on one, is not a row condition but that expression, typed
     /// `any`.
-    fn row_condition(&mut self, condition: &w::Expression<'s>) -> Lowered<Expression> {
+    pub(super) fn row_condition(&mut self, condition: &w::Expression<'s>) -> Lowered<Expression> {
         let span = self.span(condition.span);
         if let w::Expr::Closure(closure) = &condition.expr {
             let closure = self.closure(

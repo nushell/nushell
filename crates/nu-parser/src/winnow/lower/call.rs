@@ -7,47 +7,25 @@ use nu_protocol::{
     DeclId, Flag, Span, Spanned, SyntaxShape, Type,
     ast::{Call, Expr, Expression, ExternalArgument},
 };
-use nu_winnow_parser::ast as w;
+use nu_winnow_parser::{DeclKind, ast as w};
 
 use super::{Lower, Lowered, Unlowered};
 use crate::{
-    parse_calls::{CallKind, check_call, parse_regular_external_arg},
+    parse_calls::{
+        CallKind, check_call, find_longest_decl_with_prefix, parse_external_string,
+        parse_regular_external_arg, parse_unknown_arg, shape_allows_negative_number,
+    },
     parse_expressions::parse_value as classic_value,
+    parse_keywords::is_parser_keyword,
     parse_source::{LIB_DIRS_VAR, find_dirs_var},
     type_check::type_compatible,
+    winnow::lookup::decl_kind,
 };
 
-/// The commands whose calls the lowering leaves to the classic parser: parser keywords with
-/// effects on the working set, and statements the winnow tree never makes a plain call.
-const CLASSIC_COMMANDS: &[&str] = &[
-    "alias",
-    "const",
-    "def",
-    "export",
-    "export alias",
-    "export const",
-    "export def",
-    "export extern",
-    "export module",
-    "export use",
-    "export-env",
-    "extern",
-    "for",
-    "hide",
-    "hide-env",
-    "let",
-    "module",
-    "mut",
-    "overlay hide",
-    "overlay new",
-    "overlay use",
-    "plugin use",
-    "run",
-    "source",
-    "source-env",
-    "use",
-    "where",
-];
+/// The commands the classic parser picks by a statement's first word, before it looks up any
+/// command name (`parse_builtin_commands`; `run` also after a `|`, in `parse_expression`): a
+/// longer command name that starts with one of them is never called there.
+const FIRST_WORD_COMMANDS: &[&str] = &["hide", "run", "source", "source-env"];
 
 impl<'s> Lower<'_, '_, 's> {
     /// A call to a command (`parse_call`).
@@ -64,8 +42,41 @@ impl<'s> Lower<'_, '_, 's> {
         let Some(decl_id) = self.working_set.find_decl(call.head.name.as_bytes()) else {
             return Err(Unlowered::Unsupported("unresolved command"));
         };
+        // The winnow parser read the arguments as external arguments, for a `def --wrapped`
+        // command; the classic parser reads them with the signature of the command the name
+        // resolves to now (`parse_internal_call`), which a `hide`, `use` or `overlay use` may
+        // have changed since.
+        if call.wrapped && decl_kind(self.working_set, decl_id) != DeclKind::Wrapped {
+            return Err(Unlowered::Unsupported("wrapped command rebound"));
+        }
         let decl = self.working_set.get_decl(decl_id);
-        if decl.is_keyword() && CLASSIC_COMMANDS.contains(&decl.name()) {
+        // A parser keyword has a parse function of its own in the classic parser
+        // (`parse_builtin_commands`), which applies its effects on the working set. Left to the
+        // lowering are the control-flow keywords, which the winnow tree has nodes for, and
+        // `overlay` alone, a plain call.
+        if decl.is_keyword()
+            && is_parser_keyword(decl.name().as_bytes())
+            && !matches!(
+                decl.name(),
+                "if" | "match"
+                    | "try"
+                    | "overlay"
+                    | "loop"
+                    | "while"
+                    | "return"
+                    | "break"
+                    | "continue"
+            )
+        {
+            return Err(Unlowered::Unsupported("keyword command"));
+        }
+        if call
+            .head
+            .name
+            .split(' ')
+            .next()
+            .is_some_and(|word| FIRST_WORD_COMMANDS.contains(&word))
+        {
             return Err(Unlowered::Unsupported("keyword command"));
         }
         // `let = 1` and friends: the classic parser reports an incomplete statement.
@@ -87,6 +98,33 @@ impl<'s> Lower<'_, '_, 's> {
                 arguments.push(self.call_argument_as_external(argument)?);
             }
             return Ok(self.node(Expr::ExternalCall(head, arguments.into()), span, ty));
+        }
+        // The words after an alias of a command may name a subcommand of that command
+        // (`alias u = update; u cells {..}`), which the classic parser then calls instead
+        // (`find_longest_decl_with_prefix`, asked here with the aliased command's name).
+        if let Some(alias) = decl.as_alias()
+            && let Expr::Call(wrapped) = &alias.wrapped_call.expr
+            && !call.arguments.is_empty()
+        {
+            let prefix = self
+                .working_set
+                .get_decl(wrapped.decl_id)
+                .name()
+                .as_bytes()
+                .to_vec();
+            let spans: Vec<Span> = call
+                .arguments
+                .iter()
+                .map(|argument| self.span(argument.span()))
+                .collect();
+            if find_longest_decl_with_prefix(self.working_set, &spans, &prefix)
+                .3
+                .is_some()
+            {
+                return Err(Unlowered::Unsupported(
+                    "alias of a command with a subcommand",
+                ));
+            }
         }
         let (call, output) = self.internal_call(head_span, &call.arguments, decl_id, input_type)?;
         Ok(self.node(Expr::Call(call), span, output))
@@ -131,7 +169,8 @@ impl<'s> Lower<'_, '_, 's> {
             positional_idx = call.positional_iter().count();
         }
         // `parse_internal_call` hands the library directories to `nu-check` and to `use`,
-        // `overlay use` and `source-env`, which never get here (`CLASSIC_COMMANDS`).
+        // `overlay use` and `source-env`, which never get here (parser keywords, which
+        // `Lower::call` leaves to the classic parser).
         if checks_lib_dirs && let Some(var_id) = find_dirs_var(self.working_set, LIB_DIRS_VAR) {
             let var = self.node(Expr::Var(var_id), call.head, Type::Any);
             call.set_parser_info(DIR_VAR_PARSER_INFO.to_owned(), var);
@@ -178,12 +217,17 @@ impl<'s> Lower<'_, '_, 's> {
                     end_of_options = true;
                     if signature.allows_unknown_args {
                         let span = self.span(*span);
-                        let shape = rest_shape(signature);
-                        let value = self.checked(|ws| classic_value(ws, span, &shape, None))?;
+                        let value = self.checked(|ws| parse_unknown_arg(ws, span, signature))?;
                         call.add_unknown(value);
                     }
                 }
                 w::Argument::Named(flag) if !end_of_options => {
+                    // `-inf` or `-nan`, which `parse_short_flags` reads as a number here.
+                    if !flag.long
+                        && is_negative_number(self.text(flag.span), signature, positional_idx)
+                    {
+                        return Err(Unlowered::Unsupported("`-inf` or `-nan` as a number"));
+                    }
                     let taken = self.flag(call, flag, arguments.get(index), signature)?;
                     if taken {
                         index += 1;
@@ -202,8 +246,7 @@ impl<'s> Lower<'_, '_, 's> {
                         call.add_positional(value);
                         positional_idx += 1;
                     } else if signature.allows_unknown_args {
-                        let shape = rest_shape(signature);
-                        let value = self.checked(|ws| classic_value(ws, span, &shape, None))?;
+                        let value = self.checked(|ws| parse_unknown_arg(ws, span, signature))?;
                         call.add_unknown(value);
                     } else {
                         return Err(Unlowered::Error);
@@ -213,12 +256,31 @@ impl<'s> Lower<'_, '_, 's> {
                     positional_idx = self.spread(call, expr, signature, positional_idx)?;
                 }
                 w::Argument::Positional(expr) => {
+                    // Before `--`, an item starting with `-` is short flags unless it is a
+                    // negative number for the next positional (`parse_short_flags`).
+                    let text = self.text(expr.span);
+                    if !end_of_options
+                        && text.len() > 1
+                        && text.starts_with('-')
+                        && !is_negative_number(text, signature, positional_idx)
+                    {
+                        return Err(Unlowered::Error);
+                    }
                     if let Some(positional) = signature.get_positional(positional_idx) {
                         let shape = &positional.shape;
-                        if is_multispan_shape(shape) {
+                        // A row condition reads the items from here on (`parse_multispan_value`):
+                        // a closure that is the call's last item is one by itself
+                        // (`parse_row_condition`).
+                        let value = if matches!(shape, SyntaxShape::RowCondition)
+                            && index == arguments.len()
+                            && matches!(expr.expr, w::Expr::Closure(_))
+                        {
+                            self.row_condition(expr)?
+                        } else if is_multispan_shape(shape) {
                             return Err(Unlowered::Unsupported("multi-item argument"));
-                        }
-                        let value = self.value(expr, shape, None)?;
+                        } else {
+                            self.value(expr, shape, None)?
+                        };
                         if !type_compatible(&shape.to_type(), &value.ty) {
                             return Err(Unlowered::Error);
                         }
@@ -342,8 +404,7 @@ impl<'s> Lower<'_, '_, 's> {
         if !signature.allows_unknown_args {
             return Err(Unlowered::Error);
         }
-        let shape = rest_shape(signature);
-        let value = self.checked(|ws| classic_value(ws, token, &shape, None))?;
+        let value = self.checked(|ws| parse_unknown_arg(ws, token, signature))?;
         call.add_unknown(value);
         Ok(())
     }
@@ -417,6 +478,15 @@ impl<'s> Lower<'_, '_, 's> {
             && name.quote == w::Quote::Bare
             && let Some(decl_id) = self.working_set.find_decl(name.value.as_bytes())
         {
+            // `alias "run tests" = ^echo`: the classic parser picks `run` by the first word.
+            if name
+                .value
+                .split(' ')
+                .next()
+                .is_some_and(|word| FIRST_WORD_COMMANDS.contains(&word))
+            {
+                return Err(Unlowered::Unsupported("keyword command"));
+            }
             // A known name here is an alias of an external command; any other command resolved
             // differently for the winnow parser, which made an external call, so the classic
             // parser decides.
@@ -436,11 +506,12 @@ impl<'s> Lower<'_, '_, 's> {
             let span = self.span(e.span);
             return Ok(self.node(Expr::ExternalCall(head, arguments.into()), span, ty));
         }
+        // Any other head is a string or glob, even `[a b]` or `{a}` (`parse_external_string`).
         let head = match self.text(call.head.span).as_bytes().first() {
             Some(b'$' | b'(') => self.expression(&call.head, None)?,
             _ => {
                 let span = self.span(call.head.span);
-                self.checked(|ws| parse_regular_external_arg(ws, span))?
+                self.checked(|ws| parse_external_string(ws, span))?
             }
         };
         let mut arguments = Vec::with_capacity(call.arguments.len());
@@ -524,6 +595,25 @@ fn rest_shape(signature: &nu_protocol::Signature) -> SyntaxShape {
         .rest_positional
         .as_ref()
         .map_or(SyntaxShape::Any, |rest| rest.shape.clone())
+}
+
+/// `parse_short_flags`' rule for an item starting with `-`, before `--`: it is a negative number
+/// for the positional at `positional_idx` when none of its characters is a short flag of
+/// `signature`, the positional takes a number (`shape_allows_negative_number`) and the item
+/// parses as one; otherwise it is short flags.
+fn is_negative_number(
+    text: &str,
+    signature: &nu_protocol::Signature,
+    positional_idx: usize,
+) -> bool {
+    text.strip_prefix('-').is_some_and(|flags| {
+        !flags
+            .chars()
+            .any(|short| signature.get_short_flag(short).is_some())
+    }) && signature
+        .get_positional(positional_idx)
+        .is_some_and(|positional| shape_allows_negative_number(&positional.shape))
+        && text.parse::<f64>().is_ok()
 }
 
 /// Whether a positional's shape reads several items, which the lowering does not assign to

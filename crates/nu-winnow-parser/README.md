@@ -36,18 +36,18 @@ engine and as the foundation of a formatter such as
 ## Usage
 
 ```rust
-use nu_winnow_parser::{parse, ast::ExprKind};
+use nu_winnow_parser::{parse, ast::Expr};
 
 let ast = parse("ls | where size > 1kb | get name").unwrap();
 let pipeline = &ast.block.pipelines[0];
 assert_eq!(pipeline.elements.len(), 3);
-assert!(matches!(pipeline.elements[1].expr.kind, ExprKind::Where(_)));
+assert!(matches!(pipeline.elements[1].expr.expr, Expr::Where(_)));
 ```
 
 ```rust
 use nu_winnow_parser::{parse_lenient, ParseConfig};
 
-// Error recovery: failed statements become `ExprKind::Garbage` nodes and
+// Error recovery: failed statements become `Expr::Garbage` nodes and
 // parsing continues; every diagnostic is returned.
 let (ast, diagnostics) = parse_lenient("ls\nlet = 1\npwd", &ParseConfig::new());
 assert_eq!(ast.block.pipelines.len(), 3);
@@ -140,7 +140,7 @@ see it.
 ## Verification
 
 `nu tools/scripts/verify.nu` runs every check against Nushell and prints a
-scoreboard: the test-suite (1,272 fixture snippets with golden trees, tables
+scoreboard: the test-suite (about 1,400 fixture snippets with golden trees, tables
 mirroring nu-parser's own tests, every built-in command's examples), a
 traceability matrix from every `SyntaxShape`, keyword, `FlatShape` and
 `ParseError` of nu-parser to a fixture and a test (`src/docs/11-traceability.md`),
@@ -235,17 +235,15 @@ Nushell scripts in `tools/scripts/`):
   nu), and the `=>` of a last match arm whose body is an empty `{ }` inside a
   `def` (nu's flatten emits nothing for the empty block, so the gap takes the
   enclosing closure's shape).
-* **Speed.** `tools/nushell-harness/bench-vs-nu-parser` times both parsers on the
-  same bytes, with `nu-parser` given the full command set as in the shell.
-  Two Nushell releases are shown, since 0.115.2 sped up `nu-parser`
-  considerably (`tools/nushell-harness-release` builds the same harness against the
-  crates.io release):
+* **Speed.** `tools/nushell-harness`'s `bench-vs-nu-parser` times both parsers
+  on the same bytes, with `nu-parser` given the full command set as in the
+  shell. Against `nu-parser` 0.115.2:
 
-  | Corpus | `nu-parser` 0.115.1 | `nu-parser` 0.115.2 | `nu-winnow-parser` | Ratio vs 0.115.1 | Ratio vs 0.115.2 |
-  | --- | ---: | ---: | ---: | ---: | ---: |
-  | Standard library, 61 files, 250 kB | 31.6 ms | 25.2 ms | 7.4 ms | 4.2× | 3.4× |
-  | `nu_scripts`, 1538 files, 6.9 MB | 435 ms | 301 ms | 117 ms | 3.6× | 2.6× |
-  | `tests/corpus`, 14 files, 220 kB | 17.2 ms | 13.1 ms | 4.7 ms | 3.6× | 2.8× |
+  | Corpus | `nu-parser` | `nu-winnow-parser` | Ratio |
+  | --- | ---: | ---: | ---: |
+  | Standard library, 61 files, 250 kB | 25.2 ms | 7.4 ms | 3.4× |
+  | `nu_scripts`, 1538 files, 6.9 MB | 301 ms | 117 ms | 2.6× |
+  | `tests/corpus`, 14 files, 220 kB | 13.1 ms | 4.7 ms | 2.8× |
 
   If the standard library is loaded so that `use std/...` resolves, `nu-parser`
   also parses the imported modules and the gap grows to 15×; that number
@@ -260,8 +258,10 @@ parses each block one statement at a time over the engine's commands
 lowers each statement into the `nu-protocol` AST it builds itself. With the
 option on, the whole Nushell test suite passes, and `frontends compare` finds
 the same AST, errors and highlighting from both front ends on the standard
-library, the default config files, Nushell's tests and `nu_scripts`. Parsing
-in the shell is about 7–11% slower with this front end: see
+library, the default config files, Nushell's tests and `nu_scripts`. With this
+front end the shell parses 1.09× to 1.24× as fast as with `nu-parser` in wall
+time, because a long block's statements are parsed on a second thread while
+they are lowered, and uses 12 to 16% more CPU time: see
 [`src/docs/nushell-integration-plan.md`](src/docs/nushell-integration-plan.md).
 
 `tools/nushell-harness/src/bin/bridge.rs` is the earlier prototype of that
@@ -269,7 +269,7 @@ lowering, kept for its `--demo` comparison.
 
 ### A formatter
 
-`examples/nufmt/` is a `nufmt`-style formatter over this AST (about 600
+`examples/nufmt/` is a `nufmt`-style formatter over this AST (about 2,000
 lines): normalised spacing, indentation of blocks and multi-line collections,
 comments preserved, literals copied verbatim. `tests/nufmt.rs` checks on the
 whole corpus that formatting is idempotent, keeps every comment, and yields a
@@ -334,10 +334,9 @@ disagreement and how to add coverage. In brief:
   example over the corpus. `examples/nufmt/README.md` shows, with runnable
   examples, how a formatter reconstructs source losslessly from the tree.
 
-* `tools/nushell-harness` — benchmark, differential tests and the engine
-  bridge against `nu-parser` from nushell's `main` branch (see its README);
-  `tools/nushell-harness-release` builds the benchmark against the crates.io
-  release for cross-version tables.
+* `tools/nushell-harness` — benchmark, differential tests, the comparison of
+  nu-parser's two front ends (`frontends`) and the engine bridge, against the
+  `nu-parser` of the enclosing checkout (see its README).
 * `src/docs/` — how the parser works, chapter by chapter, a how-to for every
   tool, and the Nushell integration plan; also rendered by `cargo doc` under
   `nu_winnow_parser::docs`.

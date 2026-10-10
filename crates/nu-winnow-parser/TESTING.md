@@ -8,7 +8,7 @@ tool's flags are in [`src/docs/how-to.md`](src/docs/how-to.md).
 ## The short version
 
 ```nushell
-cargo test                      # everything that needs nothing but Rust: about 1,750 tests, a few seconds
+cargo test                      # everything that needs nothing but Rust: about 1,900 tests, a few seconds
 nu tools/scripts/verify.nu      # everything that compares with Nushell itself, a few minutes, prints a scoreboard
 ```
 
@@ -31,9 +31,11 @@ The first harness build takes a few minutes because it links the whole shell
 (its own workspace, sharing the workspace's `target` directory).
 All defaults can be overridden with flags (`--nushell`, `--nu-scripts`,
 `--book`, the `nufmt_dir` argument) or environment variables; nothing in the repository
-assumes a particular home directory. Note that the harness's nu-parser (from
-GitHub) and the checkout the traceability test reads can be at different
-commits; `verify.nu --save` records both.
+assumes a particular home directory. The harness's nu-parser and the checkout
+the traceability test reads are the same enclosing checkout; `verify.nu
+--save` records its commit. Every harness binary sets each experimental
+option to its default before it builds its engine, so an exported
+`NU_EXPERIMENTAL_OPTIONS` does not change the reference.
 
 ## `cargo test`, layer by layer
 
@@ -47,7 +49,7 @@ commits; `verify.nu --save` records both.
 | `cargo test --test corpus` | Real files (std modules, default config, nu_scripts samples) parse cleanly | `tests/corpus.rs`, `tests/corpus/` |
 | `cargo test --test traceability` | The matrix in chapter 11 points at existing fixtures and tests, and (with a Nushell checkout) covers every upstream construct | `tests/traceability.rs`, `src/docs/11-traceability.md` |
 | `cargo test --test nufmt` | The formatter is idempotent, keeps comments and preserves the tree over the corpus | `tests/nufmt.rs`, `examples/nufmt/` |
-| `cargo test --doc` | The `rust` code blocks in the README and `src/docs/` | `src/docs/*.md` |
+| `cargo test --doc` | The `rust` code blocks in `src/docs/` and `examples/nufmt/README.md` | `src/docs/*.md`, `examples/nufmt/README.md` |
 | `cargo test --all-features` | The same with the `serde` derives compiled | |
 
 Run one test by name with `cargo test --test syntax -- if_forms`; fixture

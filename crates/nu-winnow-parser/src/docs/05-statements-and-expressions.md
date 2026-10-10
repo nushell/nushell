@@ -74,9 +74,14 @@ case applies. Details that are easy to miss:
 `parse_builtin_commands` matches the head text and calls one function per
 keyword; anything else is a call (`parse_call`). A non-statement keyword
 (`if`, `loop`, `where`, ...) that a user command shadows
-(`working_set.is_declared`) is a call. The match also attaches the grammar
-context (`while parsing for`) to any error. The keyword functions live in
-files named like nu-parser's:
+(`working_set.is_declared`) is a call. So is `if`, `match`, `while`, `loop`,
+`try`, `return`, `break` or `continue` when a longer known command name
+starts with it: `def "if ready" [] {}` makes `if ready` a call. nu parses
+these keywords with `parse_call`, and its longest match
+(`find_longest_decl`, below) finds the longer name. `where` and the
+statement keywords go by their first word alone. The match also attaches
+the grammar context (`while parsing for`) to any error. The keyword
+functions live in files named like nu-parser's:
 
 | File | Functions |
 | --- | --- |
@@ -343,13 +348,19 @@ refused, `$x = ^git` is not). A bare external head needs the command table
 ## Calls (`parse_call`, `find_longest_decl`, `parse_call_arguments`)
 
 `find_longest_decl` implements nu's longest-match rule: try the first *n*
-words (up to five) joined with spaces against the known commands
+words (up to five with a `ParseConfig` table, any number with a
+`CommandLookup`) joined with spaces against the known commands
 (`working_set.find_decl`), longest first; `str trim --left` becomes a call to
-`str trim` with one flag. Two performance details: the single-word fast path
-never builds a string, and a multi-word attempt only happens if the first
-word is a known *prefix* of some multi-word command
-(`working_set.is_decl_name_prefix`; `ParseConfig` and the declaration scopes
-both index prefixes).
+`str trim` with one flag. It also returns the `DeclKind` the lookup gave for
+a name of several words. For a single-word head it returns `None`, since it
+never looked that word up, and the caller asks `find_decl` itself.
+Two performance details: the single-word fast path never builds a string,
+and a multi-word attempt only happens if the first word is a known *prefix*
+of some multi-word command (`working_set.is_decl_name_prefix`; `ParseConfig`
+and the declaration scopes both index prefixes). The search itself is
+`find_longest_name`, which takes the question to ask of each candidate name:
+`find_longest_decl` asks `find_decl`, and the `%` sigil (below) asks
+`is_builtin_decl`.
 
 `parse_call_arguments` is `repeat_to_end(parse_call_argument)`:
 
@@ -410,12 +421,16 @@ or plugin exists is still the consumer's.
 The `%` sigil (`parse_percent_call`) forces the built-in command even when a
 custom command or alias shadows its name. `%ls` and `% ls` give a `Call`
 whose `sigil` is the span of the `%`; `%$cmd` and `%(expr)` give a
-`DynamicCall` whose head is the `$` expression or subexpression. Like nu, a
-quoted or otherwise non-bare name after `%` is an error, and a bare name that
-is not a built-in command of the configured set (`working_set.is_builtin_decl`:
-`CommandType::Builtin`, so not a keyword such as `if` nor a prelude command
-such as `pwd`) is rejected with "percent sigil requires a built-in command"
-(skipped when the `ParseConfig` knows no commands at all).
+`DynamicCall` whose head is the `$` expression or subexpression. Like nu
+(`find_longest_decl_with_command_type`), the head is the longest name of a
+built-in command, visible or not (`working_set.is_builtin_decl`), so
+`%ls foo` calls `ls` with the argument `foo` even where `def "ls foo"`
+exists. A quoted or otherwise non-bare name after `%` is an error, and a
+bare name that is not a built-in command (`CommandType::Builtin`, so not a
+keyword such as `if` nor a prelude command such as `pwd`) is rejected with
+"percent sigil requires a built-in command" (skipped when the parse knows
+no commands at all). The error points at the first word: under
+`def "my cmd"`, `%my cmd` is reported at `my`.
 
 ## External calls and environment shorthand
 
@@ -435,8 +450,10 @@ external command (`alias g = git`) is an external call the same way
 (`DeclKind::ExternalAlias`). A `def --wrapped` whose rest parameter has no
 type gets nu's `external_arg` shape for it, so a call to it (or to an alias
 of it) parses every argument as an external command's (`f 'x'$` and `f 0b2`
-are strings; `DeclKind::Wrapped`, recorded by `parse_def_predecl` from the
-text, as nu's `rest_param_is_type_annotated` does). nu gives any positional
+are strings; `DeclKind::Wrapped`, recorded by `parse_def_predecl`, whose
+`has_untyped_rest` takes the rest parameter from the lexed signature and then
+looks for its type on the text, as nu's `rest_param_is_type_annotated` does).
+The call records it (`Call::wrapped`, chapter 08). nu gives any positional
 before the rest its own shape, which is left to consumers here. `parse_external_string` reproduces
 nu-parser's segmenting: a word is split into bare, quoted, backtick and
 parenthesised segments (the `ExternalStringSegment` state machine, kept as a

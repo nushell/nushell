@@ -187,6 +187,15 @@ fn options_change_layout() {
         "let x = ls | length\nlet y = pwd | where true\nlet z = ($a + $b)\n(1 + 2)\n(ls)\nif true { 1 }\nif ($x | is-empty) { 1 }\ndef f [] { $in | length }\nlet w = (bar\n    1\n    2\n)\n"
     );
     assert_eq!(fmt(parens, &with(|o| o.strip_redundant_parens = false)), parens);
+    // ... except those nu needs: around an external command at the start of an
+    // assignment's value (`$x = git log` is an error) and around `key:` at the
+    // start of a block (`{ echo: 1 }` is a record).
+    let needed = "mut x = 1\n$x = (git log)\n$x = ((git log) | lines)\n$x = (ls | length)\nlet c = { (echo: 1) }\nlet d = { (ls) }\n";
+    assert_eq!(
+        fmt(needed, &default),
+        "mut x = 1\n$x = (git log)\n$x = ((git log) | lines)\n$x = ls | length\nlet c = { (echo: 1) }\nlet d = { ls }\n"
+    );
+    check("parentheses nu needs", needed);
 
     // expand_def_bodies
     assert_eq!(fmt("def f [] { 1 }\ndef g [] { }", &default), "def f [] { 1 }\ndef g [] { }\n");
@@ -218,6 +227,10 @@ fn options_change_layout() {
         "match $x {\n    allow => 1\n    \"true\" => 2\n    \"a-b\" => 3\n    \"_\" => 4\n}\n"
     );
     assert_eq!(fmt(arms, &with(|o| o.unquote_match_patterns = false)), arms);
+    // A string nu would read as a number once unquoted keeps its quotes
+    // (bare, `Infinity`, `NAN`, `_1` and `i_n_f` are numbers; `e5` is not).
+    let numbers = "match $x {\n    \"Infinity\" => 1\n    \"NAN\" => 2\n    \"_1\" => 3\n    \"i_n_f\" => 4\n    \"e5\" => 5\n}\n";
+    assert_eq!(fmt(numbers, &default), numbers.replace("\"e5\"", "e5"));
 
     // margin and declaration grouping
     let items = "echo one\necho two\n\n\necho three\n";
@@ -262,6 +275,70 @@ fn preserves_source_layout() {
     assert_eq!(fmt("use std [a,  b]"), "use std [a, b]\n");
     assert_eq!(fmt("error  make {msg: 1}"), "error make {msg: 1}\n");
     assert_eq!(fmt("match $x {\n    {type:  \"user\"} => 1\n}"), "match $x {\n    {type: \"user\"} => 1\n}\n");
+    // A `use` list with a comment keeps its lines: joined, the comment would hide the rest.
+    same("use m [\n    a # first\n    b\n]\n");
+    // Spaces inside a string with an escaped quote, or a raw string, are its text.
+    let strings = "match $x {\n    \"a\\\"  b\" => 1\n    r#'it's  here'# => 2\n}\n";
+    same(strings);
+    check("spaces inside strings", strings);
+    // Statements of a one-line subexpression: one `;` between them.
+    same("print (1; 2)\n");
+    assert_eq!(fmt("(1;2;)"), "(1; 2;)\n");
+}
+
+/// Comments inside a signature or a closure's parameters are written once and
+/// keep their lines.
+#[test]
+fn keeps_comments_in_parameters() {
+    let fmt = |s: &str| format(s, &Options::default()).unwrap();
+    for src in [
+        "def f [\n    # c\n] { }\n",
+        "extern foo [\n    # TODO\n]\n",
+        "def f [\n    # c\n]: nothing -> int { 1 }\n",
+        "let c = {|x: record<\n    a: int # field a\n>|\n    $x\n}\n",
+        "{|x, # the x value\n  y # the y value\n|\n    $x + $y\n}\n",
+    ] {
+        assert_eq!(fmt(src), src, "{src}");
+        check(src, src);
+    }
+    // A comment on the `[` line of a list without parameters gets its own line.
+    assert_eq!(fmt("def f [ # opener\n] { 1 }\n"), "def f [\n    # opener\n] { 1 }\n");
+    // A comment in a closure parameter's type or default is not written again in the body.
+    for src in ["let c = {|x: record<\n    a: int # field a\n>| $x }\n", "{|x = [\n    1 # one\n]| $x }\n"] {
+        check(src, src);
+    }
+}
+
+/// A `--` after a keyword is text nu drops, but it decides how the next word
+/// is read: `return -- -1` returns -1, `return -1` is a flag `return` lacks.
+#[test]
+fn keeps_end_of_options_after_keywords() {
+    let fmt = |s: &str| format(s, &Options::default()).unwrap();
+    for src in [
+        "def f [] { return -- -1 }\n",
+        "return -- --help\n",
+        "if -- -1 < 0 { 1 }\n",
+        "while -- true { break }\n",
+        "match -- -1 {\n    _ => 2\n}\n",
+        "match 1 -- {\n    _ => 2\n}\n",
+        "for -- x in [1] { }\n",
+        "for x in [1] -- { }\n",
+        "try -- { }\n",
+        "try { } -- catch { }\n",
+        "try { } --\n",
+        "module x { } --\n",
+        "let -- x\n",
+        "def --env -- f [] { }\n",
+        "extern foo -- []\n",
+        "use -- std\n",
+    ] {
+        assert_eq!(fmt(src), src, "{src}");
+        check(src, src);
+    }
+    // A `--` that nu drops inside a list (a redirection's target) is not one of
+    // them, and never becomes an item.
+    let out = fmt("[a o> -- b]\n");
+    assert!(!out.contains("a -- b"), "{out}");
 }
 
 /// `if(true){1}else{2}` is one word to Nushell; it is written as an `if`.

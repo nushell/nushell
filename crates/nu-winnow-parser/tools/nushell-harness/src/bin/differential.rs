@@ -329,8 +329,6 @@ fn compare(engine_state: &EngineState, config: &ParseConfig, unit: &Unit, summar
 }
 
 pub fn main() {
-    // Panics are counted, not printed.
-    std::panic::set_hook(Box::new(|_| {}));
     let mut paths = Vec::new();
     let mut snippets = Vec::new();
     let mut mutants = 0usize;
@@ -365,7 +363,7 @@ pub fn main() {
     for path in &snippets {
         let text = std::fs::read_to_string(path).unwrap_or_else(|e| panic!("cannot read {}: {e}", path.display()));
         let list: Vec<Snippet> = serde_json::from_str(&text).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
-        let name = path.file_name().unwrap().to_string_lossy().to_string();
+        let name = path.file_name().unwrap_or(path.as_os_str()).to_string_lossy().to_string();
         units.extend(
             list.into_iter()
                 .enumerate()
@@ -378,6 +376,9 @@ pub fn main() {
     let mut originals = Summary::default();
     let mut mutated = Summary::default();
     let mut rng = Rng(seed);
+    // From here on panics are counted, not printed. Installed only now, so that a bad
+    // argument or snippet file above still reports its message.
+    std::panic::set_hook(Box::new(|_| {}));
     for unit in &units {
         compare(&engine_state, &config, unit, &mut originals, details);
         for i in 0..mutants {

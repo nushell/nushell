@@ -21,7 +21,8 @@ use crate::{
     lex::lex,
     parse_calls::{CallKind, check_call},
     parse_captures_compile::compile_block_with_id,
-    parse_def::{DefCall, finish_def, finish_extern},
+    parse_def::{DefCall, finish_def, finish_extern, yielded_type},
+    parse_expressions::parse_value,
     parse_keywords::find_keyword_decl,
     parse_patterns::parse_pattern,
     parse_shape_specs::parse_type,
@@ -60,12 +61,9 @@ impl<'s> Lower<'_, '_, 's> {
         if kind == CallKind::Invalid {
             return Err(Unlowered::Error);
         }
-        Ok(signature
-            .get_output_type(
-                input_type
-                    .map(|ty| ty.clone().union(Type::Nothing))
-                    .as_ref(),
-            )
+        Ok(self
+            .working_set
+            .call_output_type(decl_id, &signature, input_type)
             .unwrap_or(Type::Error))
     }
 
@@ -304,10 +302,8 @@ impl<'s> Lower<'_, '_, 's> {
                 for alternative in alternatives {
                     out.push(self.pattern(alternative)?);
                 }
-                let (Some(first), Some(last)) = (out.first(), out.last()) else {
-                    return Err(Unlowered::Error);
-                };
-                let span = Span::new(first.span.start, last.span.end);
+                // From the first alternative to the last, which is what the winnow span covers.
+                let span = self.span(pattern.span);
                 Ok(MatchPattern {
                     pattern: Pattern::Or(out),
                     guard: None,
@@ -370,16 +366,21 @@ impl<'s> Lower<'_, '_, 's> {
         Ok(self.node(Expr::Call(Box::new(call)), span, output))
     }
 
-    /// The variable of `let`, `mut`, `const` or `for` (`parse_var_with_opt_type`), declared
+    /// The variable of `let`, `mut`, `const` or `for` (`parse_var_with_opt_type`), created
     /// with its written type, or else with `input_type` (`any` without one), which the caller
-    /// may replace. Returns its `VarDecl` expression and the written type.
+    /// may replace. Returns its `VarDecl` expression, the written type and the variable's name.
+    ///
+    /// The variable is not in scope yet. The caller puts it there (`insert_variable_into_scope`)
+    /// where the classic parser declares it or, when a later check can still hand the statement
+    /// back, once that check passed: the classic parser, parsing the statement again, must not
+    /// find the variable (`let x: string = $x` reads the `x` before it).
     fn variable_declaration(
         &mut self,
         name: &nu_winnow_parser::Spanned<&'s str>,
         ty: Option<&w::TypeAnnotation<'s>>,
         mutable: bool,
         input_type: Option<&Type>,
-    ) -> Lowered<(Expression, Option<Type>)> {
+    ) -> Lowered<(Expression, Option<Type>, Vec<u8>)> {
         // The variable's item keeps a `$` written before the name (`for $x in ...`).
         let name_span = self.span(name.span);
         let (name_span, var_name) = if self.source[..name.span.start].ends_with('$') {
@@ -410,21 +411,20 @@ impl<'s> Lower<'_, '_, 's> {
                     [.., second_to_last, _] => second_to_last.span,
                     _ => Span::new(name_span.start, name_span.end + 1),
                 };
-                let var_id = self
-                    .working_set
-                    .add_variable(var_name, var_span, ty.clone(), mutable);
+                let var_id =
+                    self.working_set
+                        .add_variable_without_scope(var_span, ty.clone(), mutable);
                 let decl = self.node(Expr::VarDecl(var_id), name_span, ty.clone());
-                Ok((decl, Some(ty)))
+                Ok((decl, Some(ty), var_name))
             }
             None => {
-                let var_id = self.working_set.add_variable(
-                    var_name,
+                let var_id = self.working_set.add_variable_without_scope(
                     name_span,
                     input_type.cloned().unwrap_or(Type::Any),
                     mutable,
                 );
                 let decl = self.node(Expr::VarDecl(var_id), name_span, Type::Any);
-                Ok((decl, None))
+                Ok((decl, None, var_name))
             }
         }
     }
@@ -455,9 +455,10 @@ impl<'s> Lower<'_, '_, 's> {
     /// 1. The value, a pipeline lowered as an `Expr::Block` before the variable exists, so
     ///    that `let x = $x + 1` reads an outer `x`. Its type is what `check_pipeline_type`
     ///    gives for a `let` of one pipeline with an input, else the block's output.
-    /// 2. The variable, declared with its written type (an untyped `let` variable with
+    /// 2. The variable, created with its written type (an untyped `let` variable with
     ///    `input_type` until step 3).
-    /// 3. A written type must accept the value's type; an untyped variable takes the value's.
+    /// 3. A written type must accept the value's type; then the variable is put in scope, and
+    ///    an untyped one takes the value's type.
     ///
     /// `let x` without a value is left to the classic parser, which reads it as a plain call.
     fn binding(
@@ -477,29 +478,29 @@ impl<'s> Lower<'_, '_, 's> {
             .ok_or(Unlowered::Error)?;
         let rvalue_span = self.span(value.span);
         let block = self.block(value, rvalue_span, false, true, input_type)?;
+        // `mut` gives no input (`mut_statement`), so only a `let` gets here with one.
         let output_type = match (block.pipelines.as_slice(), input_type) {
-            ([pipeline], Some(input)) if !mutable => {
-                check_pipeline_type(self.working_set, pipeline, input)
-                    .map_err(|_| Unlowered::Error)?
-            }
+            ([pipeline], Some(input)) => check_pipeline_type(self.working_set, pipeline, input)
+                .map_err(|_| Unlowered::Error)?,
             _ => block.output_type(),
         };
         let block_id = self.working_set.add_block(Arc::new(block));
         let rvalue = self.node(Expr::Block(block_id), rvalue_span, output_type);
-        let (lvalue, explicit_type) = self.variable_declaration(
-            &binding.name,
-            binding.ty.as_ref(),
-            mutable,
-            if mutable { None } else { input_type },
-        )?;
+        let (lvalue, explicit_type, var_name) =
+            self.variable_declaration(&binding.name, binding.ty.as_ref(), mutable, input_type)?;
         let rhs_type = rvalue.ty.clone();
         if let Some(explicit_type) = &explicit_type
             && !type_compatible(explicit_type, &rhs_type)
         {
             return Err(Unlowered::Error);
         }
-        if let (Some(var_id), None) = (lvalue.as_var(), &explicit_type) {
-            self.working_set.set_variable_type(var_id, rhs_type);
+        if let Some(var_id) = lvalue.as_var() {
+            // In scope once the statement can no longer be handed back (`variable_declaration`).
+            self.working_set
+                .insert_variable_into_scope(var_name, var_id);
+            if explicit_type.is_none() {
+                self.working_set.set_variable_type(var_id, rhs_type);
+            }
         }
         let head = self.keyword_span(&element.expr, keyword);
         let call = Box::new(Call {
@@ -533,8 +534,13 @@ impl<'s> Lower<'_, '_, 's> {
         let e = &element.expr;
         let (mut call, decl_id) = self.keyword_call(e, "for")?;
         let (var_decl, iterable, body) = self.in_scope(|this| {
-            let (var_decl, _) =
+            let (var_decl, _, var_name) =
                 this.variable_declaration(&for_loop.var, for_loop.ty.as_ref(), false, None)?;
+            // In scope at once: `parse_internal_call` declares it before reading the iterable.
+            if let Some(var_id) = var_decl.as_var() {
+                this.working_set
+                    .insert_variable_into_scope(var_name, var_id);
+            }
             let iterable = this.value(&for_loop.iterable, &SyntaxShape::Any, None)?;
             let body = this.block_argument(&for_loop.body, for_loop.body_value.as_deref(), None)?;
             Ok((var_decl, iterable, body))
@@ -563,10 +569,7 @@ impl<'s> Lower<'_, '_, 's> {
         if let Some(block_id) = block_id {
             *self.working_set.get_block_mut(block_id).signature = signature;
         }
-        let var_type = match iterable_ty {
-            Type::OneOf(types) => Type::one_of(types.into_iter().map(yielded_type)),
-            ty => yielded_type(ty),
-        };
+        let var_type = yielded_type(iterable_ty);
         if let (Some(var_id), Some(block_id)) = (var_id, block_id) {
             self.working_set.set_variable_type(var_id, var_type.clone());
             let block = self.working_set.get_block_mut(block_id);
@@ -626,11 +629,13 @@ impl<'s> Lower<'_, '_, 's> {
             call.decl_id = decl_id;
             let _ = this.working_set.add_span(head);
             let name_span = this.span(def.name.span);
-            let name = this.node(
-                Expr::String(def.name.item.to_string()),
-                name_span,
-                Type::String,
-            );
+            // The name is `def`'s `string` positional (`parse_value`), which refuses a bare
+            // `true`, `false` or `null` and a `{...}`; a name it reads otherwise is the classic
+            // parser's to report.
+            let name = this.checked(|ws| parse_value(ws, name_span, &SyntaxShape::String, None))?;
+            if !matches!(&name.expr, Expr::String(s) if *s == *def.name.item) {
+                return Err(Unlowered::Error);
+            }
             let signature = this.signature_expression(&def.signature, false)?;
             let input_type = match &signature.expr {
                 Expr::Signature(sig) => sig.get_input_type(),
@@ -733,11 +738,11 @@ impl<'s> Lower<'_, '_, 's> {
             let mut call = Call::new(head);
             call.decl_id = decl_id;
             let _ = this.working_set.add_span(head);
-            let name = this.node(
-                Expr::String(extern_def.name.item.to_string()),
-                name_span,
-                Type::String,
-            );
+            // As for `def`: the name is `extern`'s `string` positional (`parse_value`).
+            let name = this.checked(|ws| parse_value(ws, name_span, &SyntaxShape::String, None))?;
+            if !matches!(&name.expr, Expr::String(s) if *s == *extern_def.name.item) {
+                return Err(Unlowered::Error);
+            }
             call.add_positional(name);
             let signature = this.signature_expression(&extern_def.signature, true)?;
             call.add_positional(signature);
@@ -766,11 +771,11 @@ impl<'s> Lower<'_, '_, 's> {
 
     /// `const name = value` (`parse_const`): the value is evaluated now and the variable holds
     /// it. In order: the value, a pipeline without input lowered as an `Expr::Subexpression`
-    /// (where `let` makes an `Expr::Block`); the variable, declared after it; a written type,
+    /// (where `let` makes an `Expr::Block`); the variable, created after it; a written type,
     /// checked against the value's type and then the constant's, and a string held by a `glob`
-    /// variable made a glob. A value that does not evaluate is the classic parser's error.
-    /// `keyword` is the `const` expression. Returns the statement's expression and the
-    /// variable's name span.
+    /// variable made a glob; the variable put in scope. A value that does not evaluate is the
+    /// classic parser's error. `keyword` is the `const` expression. Returns the statement's
+    /// expression and the variable's name span.
     pub(super) fn const_statement(
         &mut self,
         keyword: &w::Expression<'s>,
@@ -788,7 +793,7 @@ impl<'s> Lower<'_, '_, 's> {
         let rvalue_ty = block.output_type();
         let block_id = self.working_set.add_block(Arc::new(block));
         let rvalue = self.node(Expr::Subexpression(block_id), rvalue_span, rvalue_ty);
-        let (lvalue, explicit_type) =
+        let (lvalue, explicit_type, var_name) =
             self.variable_declaration(&binding.name, binding.ty.as_ref(), false, None)?;
         if let Some(explicit_type) = &explicit_type
             && !type_compatible(explicit_type, &rvalue.ty)
@@ -816,6 +821,9 @@ impl<'s> Lower<'_, '_, 's> {
             }
             self.working_set.set_variable_type(var_id, const_type);
             self.working_set.set_variable_const_val(var_id, value);
+            // In scope once the statement can no longer be handed back (`variable_declaration`).
+            self.working_set
+                .insert_variable_into_scope(var_name, var_id);
         }
         let head = self.keyword_span(keyword, "const");
         let lvalue_span = lvalue.span;
@@ -900,10 +908,8 @@ impl<'s> Lower<'_, '_, 's> {
 
     /// Whether only spaces or tabs come before `offset` on its line.
     fn starts_line(&self, offset: usize) -> bool {
-        self.source[..offset]
-            .rsplit('\n')
-            .next()
-            .is_none_or(|line| line.trim_start_matches([' ', '\t', '\r']).is_empty())
+        let before = self.source[..offset].trim_end_matches([' ', '\t', '\r']);
+        before.is_empty() || before.ends_with('\n')
     }
 
     /// A definition's attributes and their constant values (the loop that starts `parse_def`
@@ -1020,16 +1026,9 @@ impl<'s> Lower<'_, '_, 's> {
         {
             return Err(Unlowered::Error);
         }
+        // The name without the attribute's `@`; a second one (`@@name`, a call to `attr @name`)
+        // stays, as `parse_attribute` drops only the first.
         let name_span = self.span(attribute.name.span);
-        let name_span = if self
-            .working_set
-            .get_span_contents(name_span)
-            .starts_with(b"@")
-        {
-            Span::new(name_span.start + 1, name_span.end)
-        } else {
-            name_span
-        };
         let span = self.span(attribute.span);
         let span = Span::new(span.start + 1, span.end);
         let (call, output) = self.internal_call(name_span, &attribute.arguments, decl_id, None)?;
@@ -1043,15 +1042,3 @@ pub(super) type Definition = (Expression, Option<(Vec<u8>, DeclId)>);
 
 /// A definition's attributes, and their names with their constant values.
 type LoweredAttributes = (Vec<Attribute>, Vec<(String, Value)>);
-
-/// What iterating over a value of type `ty` yields (the `yielded_type` inside `parse_for`):
-/// recursive, since each alternative of a union may itself be iterable.
-fn yielded_type(ty: Type) -> Type {
-    match ty {
-        Type::List(item) => *item,
-        Type::Table(columns) => Type::Record(columns),
-        Type::Range => Type::Number,
-        Type::OneOf(types) => Type::one_of(types.into_iter().map(yielded_type)),
-        ty => ty,
-    }
-}

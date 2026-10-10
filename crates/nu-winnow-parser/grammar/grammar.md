@@ -88,8 +88,9 @@ Two facts about nu-parser shape everything below and are easy to forget:
 <comment>         ::= "#" { <any byte except "\n"> }
 ; At a token boundary "#" always starts a comment running to "\n" (a "\r" before
 ; the "\n" is part of the comment). Inside an item "#" starts a comment only when
-; the previous byte of the item is ASCII whitespace or there is none: `a#b` and
-; `[a]#b` are not comments. A comment inside brackets ends at "\n"/"\r" and the
+; the previous byte of the item is an ASCII byte that is whitespace for Rust's
+; char::is_whitespace (space, tab, "\n", "\r", form feed and vertical tab) or there
+; is none: `a#b` and `[a]#b` are not comments. A comment inside brackets ends at "\n"/"\r" and the
 ; item continues. Comments are dropped when the construct lexes with skip_comment.
 ; nu: lex.rs:1075-1099, 429-447
 ; here: src/lex.rs::lex_comment, item_length (`in_comment`, `previous`)
@@ -108,11 +109,12 @@ Two facts about nu-parser shape everything below and are easy to forget:
 <pipe>            ::= "|"
 ; A "|" directly after an <eol> token replaces that Eol (line continuation), and
 ; ([Eol] Comment) pairs directly before it lose their Eol too, so `a\n# c\n| b` is
-; one pipeline. Exactly ONE Eol is absorbed: `a\n\n| b` keeps an Eol (see 2.2).
+; one pipeline. Exactly ONE Eol is absorbed: `a\n\n| b` keeps an Eol (see
+; <pipe-continuation>, 2).
 ; nu: lex.rs:1005-1031
-; here: src/parser/lite_parser.rs::pipe_on_later_line, take_pipe_on_later_line (the same
-;       rule, applied in the block parser: exactly `Eol (Comment Eol)* Pipe` continues the
-;       line)
+; here: src/parser/lite_parser.rs::pipe_on_later_line, take_pipe_on_later_line,
+;       after_pipe_lines (the same rule, applied in the block parser: exactly
+;       `Eol (Comment Eol)* Pipe` continues the line)
 
 <pipe-pipe>       ::= "||"
 ; an error (ShellOrOr) everywhere except as empty closure parameters
@@ -192,7 +194,11 @@ Two facts about nu-parser shape everything below and are easy to forget:
 <hashes>          ::= 1*"#"
 ; triggered by "r#" at the top state of an item (also inside brackets); the same
 ; number of "#" must follow the closing "'"; a missing "'" after the hashes is
-; Expected("'"); a missing closer is UnexpectedEof
+; Expected("'"); a missing closer is UnexpectedEof. The closing "'" is looked for
+; from the opening one on, so the opening quote may close the raw part itself:
+; the raw part of `r#'#a'#'#` is `r#'#`, and the item goes on with `a'#'#`
+; (whose value 5.6 reads as `#a'#`); in `r#'#a'#` the `a'#` opens a quote that
+; never closes.
 ; nu: lex.rs:586, 812 lex_raw_string
 ; here: src/lex.rs::lex_raw_string
 
@@ -263,9 +269,14 @@ this crate's `LexOptions` constants carry the same sets.
 ; starts a new pipeline (`a |\n\n b` is two pipelines, no error). Symmetrically the
 ; lexer makes `\n|` a continuation but `\n\n|` keeps one Eol, so `a\n\n| b` is two
 ; pipelines, the second beginning with a dropped leading pipe. This changes meaning:
-; `$x = 5\n\n| 3` leaves `$x = 5` in nu.
+; `$x = 5\n\n| 3` leaves `$x = 5` in nu. The two rules add up: after a "|" that ends a
+; line, one blank line may stand before a "|" that starts a later one, since the
+; pipe's Eol is ignored and the lexer turns the other into the leading "|", so
+; `a |\n\n| b` is ONE pipeline (comment lines may stand on either side of the blank
+; line), while `a |\n\n\n| b` is two.
 ; nu: lite_parser.rs:198, 460; lex.rs:1005-1031
-; here: src/parser/lite_parser.rs::after_pipe (`Eol (Comment Eol)*`), pipe_on_later_line
+; here: src/parser/lite_parser.rs::after_pipe_lines (`Comment* [Eol (Comment Eol)*]`, then
+;       pipe_on_later_line)
 
 ; The trailing-pipe rule: a BLOCK whose last non-comment token is "|" (skipping ([Comment]+ Eol) pairs
 ; from the end) is UnexpectedEof("pipeline missing end"), whatever absorbed the
@@ -297,9 +308,12 @@ this crate's `LexOptions` constants carry the same sets.
 <pipe-redirection> ::= <err-pipe> | <out-err-pipe>
 ; ends the command like "|" (it becomes the pipe of the next element) and records a
 ; Pipe target for stderr or both; same combination rules (`o> a e>| next` is
-; Separate{out: File, err: Pipe})
-; nu: lite_parser.rs:427-450
-; here: src/parser/lite_parser.rs::parse_lite_command (`pipe_after`),
+; Separate{out: File, err: Pipe}). Unlike "|" it does not keep the command open
+; across the end of its line: after an "e>|" that ends a line the pipeline goes on
+; only through a "|" that starts a later line, after comment lines but no blank
+; line (`a e>|\nb` is two pipelines, `a e>|\n# c\n| b` one)
+; nu: lite_parser.rs:427-450; lex.rs:1005-1031
+; here: src/parser/lite_parser.rs::parse_lite_command (`pipe_after`), after_pipe_lines,
 ;       src/parser/parse_pipelines.rs::parse_redirection
 
 <assignment-tail> ::= <assignment-op> { <item> | <pipe> | <pipe-pipe> | <redirection-op> | <comment> }
@@ -314,15 +328,20 @@ this crate's `LexOptions` constants carry the same sets.
 <attribute-lines> ::= 1*<attribute-line>
 <attribute-line>  ::= "@" <item-rest> { <item> | <pipe> | <pipe-pipe> | <redirection-op> | <assignment-op> } ( <eol> | <semicolon> )
 ; An item starting with "@" enters attribute mode ONLY when the previous token is
-; Eol or ";" (i.e. at the start of a pipeline); `echo 1 | @foo` is a call to `@foo`.
-; Inside an attribute line every token up to the Eol/";" is part of the attribute:
-; pipes and redirections are NOT lite errors, they reach the attribute's argument
-; parser as words. The definition must start on the very next line or after the
-; ";": a blank line or a comment line between attributes and definition closes the
-; command and the attributes then lack a definition (6.8).
-; nu: lite_parser.rs:239-257, 379-383, 455-469
-; here: src/parser/lite_parser.rs::lite_attribute_lines (only for the first command of a
-;       pipeline; every token of the line becomes a word)
+; Eol or ";" (at the start of a pipeline, or of a line inside one); `echo 1 | @foo`
+; is a call to `@foo`. Inside an attribute line every token up to the Eol/";" is
+; part of the attribute: pipes and redirections are NOT lite errors, they reach the
+; attribute's argument parser as words, and a "|" that starts the next line
+; continues the line (the lexer turns the Eol before it into it: `@a x\n| y` gives
+; `@a` the words `x`, "|" and `y`). The definition must start on the very next line
+; or after the ";": a blank line or a comment line between attributes and definition
+; closes the command and the attributes then lack a definition (6.8). In a pipeline
+; of several commands the attribute lines are items of their element, the first of
+; them its head (`ls |\n@a x\ndef f [] {}` calls `@a`).
+; nu: lite_parser.rs:239-257, 379-383, 455-469; parse_pipelines.rs parse_pipeline_element
+; here: src/parser/lite_parser.rs::lite_attribute_lines (for the first command of a
+;       pipeline and a command that starts a line; every token of the line becomes a
+;       word), src/parser/parse_pipelines.rs::parse_pipeline_element
 ```
 
 ### 2.1 Which parser sees a command
@@ -405,11 +424,14 @@ this crate's `LexOptions` constants carry the same sets.
 ;   | <number> | <filesize> | <duration> | <datetime>
 ;   | <binary-literal>                 ; even one with invalid digits
 ;   | <range>                          ; whose bounds parse: a `$` bound names a
-;                                      ; variable and a valid cell path on it, so
-;                                      ; `..$`, `..$x.c!!` are external commands
+;                                      ; variable and a valid cell path on it, or
+;                                      ; is a cell-path literal (`1..$.a`), and a
+;                                      ; "next" bound is not empty, so `..$`,
+;                                      ; `..$x.c!!` and `1....5` are external commands
 ; the literal probes are the section 5 parsers run speculatively
 ; nu: parse_expressions.rs:38 is_math_expression_like
-; here: src/parser/parse_expressions.rs::is_math_expression_like
+; here: src/parser/parse_expressions.rs::is_math_expression_like,
+;       src/parser/parse_literals.rs::is_range_head
 ```
 
 ### 3.2 Math expressions and operators
@@ -496,9 +518,14 @@ Precedence (nu-protocol `ast/operator.rs:256`; higher binds tighter):
 
 <keyword-command> ::= <if> | <match> | <while> | <loop> | <try> | <return> | <break> | <continue>
 ; ordinary declared commands whose signatures use keyword and block shapes (6.6);
-; nu parses them with parse_call, this crate in parse_expressions.rs::parse_builtin_commands
+; nu parses them with parse_call, this crate in parse_expressions.rs::parse_builtin_commands.
+; Being parse_call's, the head is the longest known name (<call-head>): a longer
+; command name that starts with the keyword is called instead (`def "if ready"`
+; makes `if ready { }` a call to it). `where` and the statement keywords go by
+; their first word alone.
 ; nu: nu-cmd-lang core_commands signatures; parse_calls.rs:947 parse_internal_call
-; here: src/parser/parse_expressions.rs::parse_builtin_commands
+; here: src/parser/parse_expressions.rs::parse_builtin_commands (the longer name through
+;       parse_calls.rs::find_longest_decl, then parse_call)
 
 <external-call>   ::= "^" <ext-head> { <ext-arg> }
                     | <unknown-head> { <ext-arg> }  ; no "^": a head that names no command
@@ -545,9 +572,14 @@ Precedence (nu-protocol `ast/operator.rs:256`; higher binds tighter):
                     | "%" " " <builtin-head> <args>          ; `% ls` (two items)
                     | "%" ( <var-item> | <paren-item> ) <args>   ; dynamic head
 ; "%" with a quoted, list, record, "^" or "%" head is "percent sigil requires a
-; built-in command"; a name that is not a built-in is the same error.
-; nu: parse_calls.rs:1600-1700
-; here: src/parser/parse_calls.rs::parse_percent_call (built-in table from ParseConfig)
+; built-in command"; a name that is not a built-in is the same error. The
+; <builtin-head> is the longest run of words naming a built-in command, visible or
+; not (shadowed or hidden): `%ls foo` calls `ls` even where `def "ls foo"` exists,
+; and `%my cmd` under `def "my cmd"` is the error at `my`.
+; nu: parse_calls.rs:1600-1700 (find_longest_decl_with_command_type)
+; here: src/parser/parse_calls.rs::parse_percent_call (find_longest_name asking
+;       is_builtin_decl: the built-in table from ParseConfig, or the engine's
+;       CommandLookup::is_builtin_decl)
 
 <internal-call>   ::= <call-head> <args>
 <call-head>       ::= <word> { " " <word> }
@@ -556,9 +588,10 @@ Precedence (nu-protocol `ast/operator.rs:256`; higher binds tighter):
 ; words of the aliased command. A head naming no declaration is an <unknown-head>. A quoted word is never a head (`"ls" -l` is a
 ; math-expression error) because is_math_expression_like fires on the quote.
 ; nu: parse_calls.rs:1838 find_longest_decl_with_prefix
-; here: src/parser/parse_calls.rs::find_longest_decl (longest known name, at most 5 words,
-;       from ParseConfig plus def/extern/alias names declared in scope; alias
-;       subcommand expansion: consumer)
+; here: src/parser/parse_calls.rs::find_longest_decl (longest known name, at most 5 words
+;       with a ParseConfig table, any number with an engine's CommandLookup, from the
+;       table plus def/extern/alias names declared in scope; alias subcommand
+;       expansion: consumer)
 
 <args>            ::= { <arg> }
 <arg>             ::= <long-flag> | <short-flags> | "--" | <spread-arg> | <keyword-arg> | <positional>
@@ -644,7 +677,7 @@ Each rule describes the text of one item.
 ; Block, Closure and Record shapes are satisfied only by a "{" item.
 ; nu: parse_expressions.rs:893-1004
 ; here: src/parser/parse_expressions.rs::parse_value with
-;       ExpectedShape::{Any,Number,String,Closure,MatchArmBody, Signature,Declared}:
+;       ExpectedShape::{Any,Number,String,Closure,MatchArmBody,Declared}:
 ;       Declared is the declared shape of a parameter default (7.1); the argument shapes
 ;       of calls are the consumer's
 
@@ -718,11 +751,12 @@ Each rule describes the text of one item.
 <date>            ::= 4*<digit> "-" 2*<digit> "-" 2*<digit>   ; item >= 6 bytes, byte 4 is "-"
 <time-sep>        ::= "T" | "t"
 <time>            ::= 2*<digit> ":" 2*<digit> ":" 2*<digit> [ "." 1*<digit> ]
-<offset>          ::= "Z" | "z" | ( "+" | "-" ) 2*<digit> ":" 2*<digit>
+<offset>          ::= "Z" | "z" | ( "+" | "-" | "−" ) 2*<digit> ":" 2*<digit>
 ; Validity is chrono's parse_from_rfc3339: month 1-12, day valid for that month and
 ; year (2023-02-30 is a string), hour < 24, minute < 60, second <= 60, offset
-; hours < 24; seconds are mandatory; "+0530" (no colon) is not an offset. Anything
-; that fails is a plain string.
+; hours < 24; seconds are mandatory; "+0530" (no colon) is not an offset; the minus
+; of an offset may be U+2212 ("−") as well as "-". Anything that fails is a plain
+; string.
 ; nu: parse_literals.rs:1304 parse_datetime
 ; here: src/parser/parse_literals.rs::is_datetime, days_in_month
 ```
@@ -778,7 +812,10 @@ Each rule describes the text of one item.
 ; here: src/parser/parse_literals.rs::unescape_string (bytes, then one UTF-8 check)
 
 ; <raw-string> and <hashes> are defined with the lexer (1.3): the same "#" count on
-; both sides; the body may contain "'" followed by fewer "#"
+; both sides; the body may contain "'" followed by fewer "#". The value is the text
+; between the "'" after the opening hashes and the "'" before as many "#" at the end
+; of the item, which the lexer may have run past the raw part (its opening quote can
+; close that, 1.3): `r#'#a'#'#` is the string `#a'#`
 ; nu: parse_literals.rs:444 parse_raw_string
 ; here: src/parser/parse_literals.rs::parse_raw_string
 ```
@@ -843,18 +880,29 @@ signature driven (`; nu: parse_literals.rs:1246 parse_path_like`; `; here: consu
 <bound>           ::= <int> | <float>                              ; shape Number
                     | <variable> [ <cell-path-tail> ]              ; "$x", "$x.a"
                     | "(" <block-tokens> ")" [ <cell-path-tail> ]  ; "(1 + 1)", "(ls).0"
-; a "{", "[" or bare-word bound fails, and the whole item falls through to the next
+; A cell-path literal ("$.a"), a raw string, or a "{" item that nu's value parser
+; reads as a value (a record, "{}", a closure, or a cell path on a record, told from
+; the first two tokens of the text between its first and last character as 5.13
+; probes them) is a bound too: it commits the item to a range, and the range's type
+; check refuses a bound that is no number, so `5..{a: 1}`, `5..{|| 1}`,
+; `5..r#'a'#` and `1..$.a` are errors. A block bound (`5..{ls}`), a
+; "[" or a bare-word bound fails, and the whole item falls through to the next
 ; shape (it becomes a string). On the text of the item, before parsing bounds:
 ; an item starting with "..." is never a range (spread); the ".." occurrences
 ; counted are those at parenthesis depth 0 (quotes are not considered); exactly one
-; or two must exist; with two, the first is the "next" operator; "..<" may only be
-; the range operator; "..=" is recognised only at the range-operator position;
-; "1...5" is the range 1 .. 0.5.
-; nu: parse_literals.rs:231 parse_range
+; or two must exist; with two, the first is the "next" operator, and an empty
+; "next" (`1....5`) is an error; "..<" may only be the range operator; "..=" is
+; recognised only at the range-operator position; an item that ends with its
+; operator has no "to" (`1...` is `1..`, `1..3...` is `1..3..`); "1...5" is the
+; range 1 .. 0.5.
+; nu: parse_literals.rs:231 parse_range; type_check.rs check_range_types
 ; here: src/parser/parse_literals.rs::is_range_syntax, find_range_operators,
-;       is_range_bound, parse_range (a "(" bound is a closed group with any cell path
-;       after it; a "(" group that does not close, `(1)abc`, is the string the ".."
-;       refuses)
+;       range_bounds, is_range_bound (a "{" bound through
+;       src/parser/parse_expressions.rs::BraceShape::of_probe), parse_range (it
+;       refuses a raw string, record or closure bound and a bare interpolation: a "("
+;       bound is a closed group with any cell path after it, and a "(" group that does
+;       not close, `(1)abc`, is the string the ".." refuses; the type of any other
+;       bound, such as "$.a", is the consumer's), is_range_head (a command head, 3.1)
 ```
 
 ### 5.11 Cell paths
@@ -915,6 +963,7 @@ signature driven (`; nu: parse_literals.rs:1246 parse_path_like`; `; here: consu
 ; So a record where a Block is required (`if true {a: 1}`) is a type mismatch.
 ; nu: parse_literals.rs:547 parse_brace_expr
 ; here: src/parser/parse_expressions.rs::parse_brace_expr, probe_brace_shape,
+;       BraceShape::of_probe (the classification, shared with range bounds, 5.10),
 ;       parse_block_body (a "key:" body in block position is "expected block, found a
 ;       record")
 
@@ -1083,9 +1132,16 @@ Vocabulary: `<expression>` is a `<pipeline-element>` (3.1); `<block>` is a
 ; [ "export" ] ( "def" | "extern" ) { "--flag" } <name> ... "[" | "(" declares <name>,
 ; so calls to commands defined later in the file resolve; the same name declared
 ; twice this way in one block is DuplicateCommandDef (an alias is not predeclared,
-; so `def foo` plus `alias foo` is fine, and so is a nested block)
+; so `def foo` plus `alias foo` is fine, and so is a nested block). <name> must read
+; as a string and is declared unquoted as parse_string unquotes it (`def "a"b [] {}`
+; declares nothing). A dropped "|" (a blank line or the end of the block after it,
+; or the end of the line after an "e>|") does not join the def to another command,
+; so the def is still a single-command pipeline; a def after an attribute line
+; inside a pipeline is not.
 ; nu: parse_def.rs:52 parse_def_predecl, 161
-; here: src/parser/parse_def.rs::parse_def_predecl (also `alias`, for head resolution)
+; here: src/parser/parse_def.rs::parse_def_predecl (whether a pipe joins the next
+;       command: src/parser/lite_parser.rs::after_pipe_lines, the statement parser's
+;       rule; the name: src/parser/parse_signatures.rs::parse_definition_name)
 ```
 
 ### 6.2 let, mut, const
@@ -1150,17 +1206,21 @@ Vocabulary: `<expression>` is a `<pipeline-element>` (3.1); `<block>` is a
 ; to `a:`). Because the signature takes every item but the last, `def foo [] {} extra`
 ; fails on `extra` as the body while `def foo [] {} {}` drops the first `{}`.
 ; `--wrapped` needs a `...rest` param that is untyped or typed `string`. An untyped
-; one gets the shape external_arg, found on the text (a `:` after `...name`), so
-; a call to the command takes <ext-arg>s: `f 'x'$` and `f 0b2` parse, from the
-; predeclaration on and through an alias of the command. Here every argument of
-; such a call is an <ext-arg>; nu gives the positionals before the rest their own
-; shapes (consumer, 9.4).
+; one gets the shape external_arg: the rest param is the signature's (the first
+; item of the brackets in a param's place that starts with "...", not a word in a
+; comment or a default value), and it is typed when some `...name` in the text,
+; comments included, is followed by a `:`. A call to the command then takes
+; <ext-arg>s: `f 'x'$` and `f 0b2` parse, from the predeclaration on and through an
+; alias of the command. Here every argument of such a call is an <ext-arg>; nu gives
+; the positionals before the rest their own shapes (consumer, 9.4).
 ; nu: parse_calls.rs:1424-1449, 1467; parse_def.rs:25 rest_param_is_type_annotated,
 ;     52 parse_def_predecl, 585-628; parse_calls.rs:111 parse_unknown_arg;
 ;     nu-cmd-lang def.rs:21
 ; here: src/parser/parse_def.rs::parse_def, parse_def_body (the `|x|` parameters are kept
 ;       as Def::body_params), check_wrapped_signature, parse_def_predecl and
-;       has_untyped_rest (DeclKind::Wrapped); src/parser/parse_calls.rs::parse_call_lenient
+;       has_untyped_rest (DeclKind::Wrapped: the rest param from the lexed signature,
+;       its type from the text); src/parser/parse_calls.rs::parse_call_lenient (which
+;       records it as Call::wrapped)
 
 <extern>          ::= "extern" <def-name> <full-signature>
 ; The signature argument takes every remaining item, so a body (the former
@@ -1378,10 +1438,14 @@ Vocabulary: `<expression>` is a `<pipeline-element>` (3.1); `<block>` is a
 ; mode machine Arg -> (":") Type -> AfterType -> ("=") DefaultValue -> Arg. ":" or "="
 ; as the LAST token is "expected type" / "expected default value", but a comment
 ; counts as a token, so `[x: # c\n]` is fine (no type) and `[x = # c\n y]` gives x the
-; default `y`; a second "=" after a default is accepted (the second wins); a second
+; default `y`; a second "=" after a default is accepted (the second wins; without a
+; declared type it is parsed with the first default's type: `[x = a = 1]` gives the
+; string "1", and `[x = 1..=5]`, which lexes as `x = 1.. = 5`, is an error); a second
 ; ":" is an error; ":" or "=" with no parameter before them is silently skipped
 ; nu: parse_signatures.rs:641-694
-; here: src/parser/parse_signatures.rs::parse_parameters (same modes and skips)
+; here: src/parser/parse_signatures.rs::parse_parameters (same modes and skips; a later
+;       default without a declared type is parsed as any value and the parameter is
+;       marked Parameter::extra_default: its type is the consumer's)
 
 <param-head>      ::= <positional-param> | <optional-param> | <rest-param>
                     | <long-flag-param> | <short-flag-param> | <short-alias>

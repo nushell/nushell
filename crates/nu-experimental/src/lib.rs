@@ -110,6 +110,17 @@ pub enum Status {
     DeprecatedDiscard,
 }
 
+impl Status {
+    /// Whether an option with this status is deprecated: `all` leaves it alone ([`set_all`],
+    /// and the key `all` in [`parse_iter`] and [`ENV`]).
+    pub(crate) const fn is_deprecated(self) -> bool {
+        match self {
+            Status::OptIn | Status::OptOut => false,
+            Status::DeprecatedDefault | Status::DeprecatedDiscard => true,
+        }
+    }
+}
+
 /// Experimental option (aka feature flag).
 ///
 /// This struct holds one experimental option that can change some part of Nushell's behavior.
@@ -259,10 +270,9 @@ impl Hash for ExperimentalOption {
 /// starts.
 pub unsafe fn set_all(value: bool) {
     for option in ALL {
-        match option.status() {
+        if !option.status().is_deprecated() {
             // SAFETY: The safety bounds for `ExperimentalOption.set` are the same as this function.
-            Status::OptIn | Status::OptOut => unsafe { option.set(value) },
-            Status::DeprecatedDefault | Status::DeprecatedDiscard => {}
+            unsafe { option.set(value) }
         }
     }
 }

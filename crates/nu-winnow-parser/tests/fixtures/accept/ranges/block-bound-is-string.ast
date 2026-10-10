@@ -1,0 +1,9 @@
+Block 0..179
+  Pipeline 143..178 comments=2
+    Call `print` 143..178
+      String Bare "5..{ls}" 149..156
+      String Bare "5..{ ls }" 157..166
+      String Bare "5..{...$in}" 167..178
+Comments (2)
+  0..88 "# A block is no value of the `number` shape, so these are strings, as in nu; the dots of"
+  89..142 "# a spread split its braces, which then do not close."

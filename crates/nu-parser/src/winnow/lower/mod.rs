@@ -15,11 +15,13 @@
 //!
 //! What the lowering reported before giving up is dropped ([`Lower::statement_or_classic`]).
 //! What else it added to the working set stays, unreachable from the result: spans, blocks,
-//! variables (a `let`'s, which the classic parser declares again under the same name) and the
-//! declarations of nested scopes; every scope it entered is left on every path. One pass still
-//! sees what is left: `parse` discovers the captures of every block the parse added, so a block
-//! the lowering gave up on that holds a closure capturing a `mut` variable reports that error
-//! once more.
+//! variables and the declarations of nested scopes; every scope it entered is left on every
+//! path. A binding (`let`, `mut`, `const`) declares its variable into scope only after its
+//! checks pass: the classic parser, parsing again a binding the lowering gave back, must not
+//! find it from the binding's own value (`let x: string = $x` reads the `x` declared before).
+//! One pass still sees what is left: `parse` discovers the captures of every block the parse
+//! added, so a block the lowering gave up on that holds a closure capturing a `mut` variable
+//! reports that error once more.
 //!
 //! Leaf values whose meaning depends on the shape a command expects (a bare word as a file path,
 //! a glob, a cell path, a number as a string) are converted by the classic parser's leaf parsers
