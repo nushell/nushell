@@ -17,6 +17,10 @@ pub use interface::{
     Interface, InterfaceManager, PipelineDataWriter, PluginRead, PluginWrite,
     stream::{FromShellError, StreamManager, StreamManagerHandle, StreamReader, StreamWriter},
 };
+
+// Required for SDK-managed input cleanup, not part of the plugin author API.
+#[doc(hidden)]
+pub use interface::stream::StreamReaderSignal;
 pub use serializers::{
     Encoder, EncodingType, PluginEncoder, json::JsonSerializer, msgpack::MsgPackSerializer,
 };
