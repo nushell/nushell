@@ -85,6 +85,24 @@ fn rejects_invalid_cell_paths(#[case] input: &str) {
     assert!(input.parse::<CellPath>().is_err());
 }
 
+#[rstest]
+// `PathMember`'s `Display` escapes a NUL as `\0`. The reader used to have no arm for that
+// escape, and `alt` fell through to the bare-character parser, which read the backslash and
+// the `0` as two ordinary characters — so the path parsed fine and came back as the four
+// characters `a\0b`.
+#[case(r#"$."a\0b""#)]
+#[case(r#"$."a\0b"."c\0d""#)]
+#[case(r#"$."""#)]
+#[case(r#"$."\0""#)]
+fn a_nul_in_a_member_round_trips(#[case] input: &str) {
+    let parsed: CellPath = input.parse().expect("cell path parses");
+    assert_eq!(
+        parsed.to_string(),
+        input,
+        "the path must serialize back to the text it was parsed from"
+    );
+}
+
 /// `in` and `not-in` between cell paths look for the left path's members as a contiguous run in
 /// the right path. The paths come in as data, so the type checker sees `any` and lets the
 /// operators through to the runtime.

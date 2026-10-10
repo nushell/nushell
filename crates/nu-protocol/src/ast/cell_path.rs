@@ -595,6 +595,10 @@ mod parse {
                     '\\'.value('\\'),
                     '/'.value('/'),
                     '"'.value('"'),
+                    // `PathMember`'s `Display` escapes a NUL as `\0`, and `alt` falls through
+                    // to the bare `char` parser on an unknown escape, which would read that as
+                    // a backslash followed by a `0` and hand back a four-character string.
+                    '0'.value('\0'),
                 )),
             )
             .parse_next(input)

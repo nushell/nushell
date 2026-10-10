@@ -21,8 +21,10 @@ the list is empty, this file goes away and so does the todo at the top of the sp
    `ns` and `us` still saturate because the parser clamps the literal head, so this stays
    open until that is fixed.
 - [ ] bug 9 - filesizes may be negative, and an oversized one saturates instead of erroring.
-- [ ] bug 10 - a raw NUL is written verbatim and unquoted, producing a document the reader is
+- [x] bug 10 - a raw NUL is written verbatim and unquoted, producing a document the reader is
    specified to reject.
+- [ ] bug 11 - a raw NUL is read instead of rejected. the spec requires the reader to reject one;
+   nushell accepts it in a string body and in a record key.
 
 each entry below shows what 0.115.1 actually does. an implementation that has to match nushell
 byte for byte still has to reproduce these until they are fixed.
@@ -171,3 +173,15 @@ byte for byte still has to reproduce these until they are fixed.
        way that cancels out. an implementation that follows the spec's reader rule and the spec's
        old writer rule at the same time cannot round-trip.
     - **do not reproduce.** escape NUL as `\0`, and add it to the set that forces quoting.
+
+- bug 11 - a raw NUL is read instead of rejected.
+    - the spec says a raw NUL in a string body, bare word or key should be rejected, and that
+       only an explicit `\u{0}` or `\0` is a stated intent worth accepting. the reader takes the
+       byte as ordinary content in a string body and in a record key, so a document carrying one
+       parses instead of erroring.
+    - a bare word does not get that far: it parses as a command call and errors, which is the
+       wrong reason but still an error.
+    - this is the reader half of what bug 10 was about, and it is a separate rule: a reader that
+       rejects the byte rejects documents nushell still accepts today, so it cannot be folded
+       into the writer's fix.
+    - **do not reproduce.** reject a raw NUL in a string body and in a record key.
