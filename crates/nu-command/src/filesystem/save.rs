@@ -1,6 +1,6 @@
 use crate::formats::{preserve_toml_document, read_toml_source_from_metadata};
 use crate::progress_bar;
-use nu_engine::{command_prelude::*, get_eval_block};
+use nu_engine::{command_prelude::*, get_eval_block, get_eval_expression_with_input};
 use nu_path::{expand_path_with, is_windows_device_path};
 use nu_protocol::{
     ByteStreamSource, DataSource, OutDest, PipelineMetadata, Signals, ast,
@@ -319,7 +319,16 @@ fn convert_to_extension(
 ) -> Result<PipelineData, ShellError> {
     if let Some(decl_id) = engine_state.find_decl(format!("to {extension}").as_bytes(), &[]) {
         let decl = engine_state.get_decl(decl_id);
-        if let Some(block_id) = decl.block_id() {
+        if let Some(alias) = decl.as_alias() {
+            // An alias can't run by itself: run the call it stands for, with its arguments
+            // (`alias "to jsonc" = to json`, #18725).
+            get_eval_expression_with_input(engine_state)(
+                engine_state,
+                stack,
+                &alias.wrapped_call,
+                input,
+            )
+        } else if let Some(block_id) = decl.block_id() {
             let block = engine_state.get_block(block_id);
             let eval_block = get_eval_block(engine_state);
             eval_block(engine_state, stack, block, input).map(|p| p.body)
