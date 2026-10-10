@@ -48,7 +48,7 @@ impl Command for Default {
         let columns: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
         let empty = call.has_flag(engine_state, stack, "empty")?;
 
-        let default_value = DefaultValue::new(engine_state, stack, default_value);
+        let default_value = DefaultValue::new(engine_state, stack, default_value)?;
 
         default(
             engine_state,
@@ -243,7 +243,7 @@ enum DefaultValue {
 }
 
 impl DefaultValue {
-    fn new(engine_state: &EngineState, stack: &Stack, value: Value) -> Self {
+    fn new(engine_state: &EngineState, stack: &Stack, value: Value) -> Result<Self, ShellError> {
         let span = value.span();
 
         // FIXME temporary workaround to warn people of breaking change from #15654.
@@ -251,15 +251,14 @@ impl DefaultValue {
         // with `$` (no AST required under IR).
         let value = match closure_variable_warning(stack, engine_state, value) {
             Ok(val) => val,
-            Err(default_value) => return default_value,
+            Err(default_value) => return Ok(default_value),
         };
 
         match value {
-            Value::Closure { val, .. } => {
-                let closure_eval = ClosureEval::new(engine_state, stack, *val);
-                DefaultValue::Uncalculated(Box::new(closure_eval.into_spanned(span)))
-            }
-            _ => DefaultValue::Calculated(value),
+            Value::Closure { val, .. } => Ok(DefaultValue::Uncalculated(Box::new(
+                ClosureEval::try_new(engine_state, stack, *val, span)?.into_spanned(span),
+            ))),
+            _ => Ok(DefaultValue::Calculated(value)),
         }
     }
 

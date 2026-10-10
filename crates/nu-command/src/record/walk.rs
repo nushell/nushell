@@ -131,7 +131,7 @@ Given a list of records, each record is walked on its own, with cell paths start
         let closure: Closure = call.req(engine_state, stack, 0)?;
 
         let mut walker = Walker {
-            closure: ClosureEval::new(engine_state, stack, closure),
+            closure: ClosureEval::try_new(engine_state, stack, closure, head)?,
             containers: call.has_flag(engine_state, stack, "containers")?,
             lists: !call.has_flag(engine_state, stack, "no-lists")?,
             path: Vec::new(),

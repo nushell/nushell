@@ -149,7 +149,7 @@ impl Command for SortBy {
             .map(|val| match val {
                 Value::CellPath { val, .. } => Ok(Comparator::CellPath(val)),
                 Value::Closure { val, .. } => {
-                    let closure_eval = ClosureEval::new(engine_state, stack, *val);
+                    let closure_eval = ClosureEval::try_new(engine_state, stack, *val, head)?;
                     if custom {
                         Ok(Comparator::CustomClosure(closure_eval))
                     } else {

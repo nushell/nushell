@@ -442,7 +442,7 @@ fn group_closure(
     stack: &mut Stack,
 ) -> Result<IndexMap<GroupKey, Vec<Value>>, ShellError> {
     let mut groups = IndexMap::<_, Vec<_>>::new();
-    let mut closure = ClosureEval::new(engine_state, stack, closure);
+    let mut closure = ClosureEval::try_new(engine_state, stack, closure, span)?;
     let config = &stack.get_config(engine_state);
 
     for value in values {

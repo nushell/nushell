@@ -417,7 +417,8 @@ fn describe_value_inner(
             })
         }
         Value::Closure { ref val, .. } => {
-            let block = engine_state.map(|engine_state| engine_state.get_block(val.block_id));
+            let block =
+                engine_state.and_then(|engine_state| engine_state.try_get_block(val.block_id));
 
             let mut record = record! {
                 "type" => Value::string("closure", head),

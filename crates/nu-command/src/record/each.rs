@@ -93,7 +93,7 @@ Given a list of records, each record is rebuilt on its own and the results are s
         let head = call.head;
         let closure: Closure = call.req(engine_state, stack, 0)?;
 
-        let mut closure = ClosureEval::new(engine_state, stack, closure);
+        let mut closure = ClosureEval::try_new(engine_state, stack, closure, head)?;
         map_records(input, head, engine_state.signals(), move |record, span| {
             // Like `Record::insert` and `into record`, `IndexMap::insert` keeps the
             // position of an existing key, but finds it without a linear search.

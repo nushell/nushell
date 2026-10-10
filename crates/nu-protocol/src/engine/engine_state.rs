@@ -37,7 +37,7 @@ type PoisonDebuggerError<'a> = PoisonError<MutexGuard<'a, Box<dyn Debugger>>>;
 #[cfg(feature = "plugin")]
 use crate::{PluginRegistryFile, PluginRegistryItem, RegisteredPlugin};
 
-use super::{CurrentJob, Jobs, Mail, Mailbox, ThreadJob};
+use super::{Closure, CurrentJob, Jobs, Mail, Mailbox, ThreadJob};
 
 /// Configure whether the current working directory may be updated when [`EngineState::merge_env`]
 /// is called.
@@ -1065,11 +1065,37 @@ impl EngineState {
 
     /// Optionally get a block by id, if it exists
     ///
-    /// Prefer to use [`.get_block()`](Self::get_block) in most cases - `BlockId`s that don't exist
-    /// are normally a compiler error. This only exists to stop plugins from crashing the engine if
-    /// they send us something invalid.
+    /// Use this instead of [`.get_block()`](Self::get_block) whenever the
+    /// `BlockId` comes from a runtime value instead of the current parse,
+    /// because such a block may legitimately be missing (see
+    /// [`get_closure_block`](Self::get_closure_block)).
     pub fn try_get_block(&self, block_id: BlockId) -> Option<&Arc<Block>> {
         self.blocks.get(block_id.get())
+    }
+
+    /// Get the block a closure refers to, or an error when that block is not
+    /// available in this engine state.
+    ///
+    /// Closures can be passed between jobs. A job may have been spawned before
+    /// the closure was parsed, so its cloned engine state may not contain the
+    /// referenced block. Unlike [`get_block`](Self::get_block), this reports
+    /// that case as a regular shell error instead of panicking.
+    pub fn get_closure_block(
+        &self,
+        closure: &Closure,
+        span: Span,
+    ) -> Result<&Arc<Block>, ShellError> {
+        self.try_get_block(closure.block_id).ok_or_else(|| {
+            ShellError::Generic(GenericError::new(
+                "Closure cannot be evaluated",
+                format!(
+                    "the closure refers to a block that is not available in this engine state (block {})",
+                    closure.block_id.get()
+                ),
+                span,
+            )
+            .with_help(super::MISSING_CLOSURE_BLOCK_HELP))
+        })
     }
 
     pub fn get_module(&self, module_id: ModuleId) -> &Module {

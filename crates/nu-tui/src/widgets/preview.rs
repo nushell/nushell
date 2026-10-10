@@ -37,11 +37,21 @@ impl PreviewWidget {
             return;
         };
         let engine = session.engine.as_ref().zip(stack);
-        let wants_row = self
-            .transform
-            .as_ref()
-            .zip(engine)
-            .is_some_and(|(c, ((engine_state, _), _))| closure_arity(engine_state, c) > 0);
+        // A transform closure whose block is unavailable (for example one parsed
+        // after this job was spawned) fails for every row, so report it once
+        // instead of falling through to the file preview.
+        let wants_row = match self.transform.as_ref().zip(engine) {
+            Some((c, ((engine_state, _), _))) => {
+                match closure_arity(engine_state, c, Span::unknown()) {
+                    Ok(arity) => arity > 0,
+                    Err(err) => {
+                        preview.text = format!("preview error: {err}");
+                        return;
+                    }
+                }
+            }
+            None => false,
+        };
         let file = match (row, wants_row) {
             // One-parameter closure: it is the source, no file is read.
             (Some(row), true) => FilePreview {
@@ -267,7 +277,10 @@ fn apply_transform(
         }
     };
 
-    let mut eval = ClosureEvalOnce::new(engine_state, stack, closure);
+    let mut eval = match ClosureEvalOnce::try_new(engine_state, stack, closure, Span::unknown()) {
+        Ok(eval) => eval,
+        Err(err) => return format!("preview error: {err}"),
+    };
     if let Some(row) = row {
         eval = match eval.add_arg(row.clone()) {
             Ok(eval) => eval,

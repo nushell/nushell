@@ -98,7 +98,7 @@ pub fn boolean_fold(
     let head = call.head;
     let closure: Closure = call.req(engine_state, stack, 0)?;
 
-    let mut closure = ClosureEval::new(engine_state, stack, closure);
+    let mut closure = ClosureEval::try_new(engine_state, stack, closure, head)?;
 
     for value in input {
         engine_state.signals().check(&head)?;

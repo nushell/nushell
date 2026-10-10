@@ -69,10 +69,15 @@ impl ExternalHinter {
         .map_err(|err| format!("failed to build context record: {err}"))?;
 
         let stack = Stack::with_parent(self.stack.clone());
-        let result = ClosureEvalOnce::new(self.engine_state.as_ref(), &stack, self.closure.clone())
-            .add_arg(Value::record(context, span))
-            .and_then(|closure| closure.run_with_input(PipelineData::empty()))
-            .and_then(|data| data.into_value(span));
+        let result = ClosureEvalOnce::try_new(
+            self.engine_state.as_ref(),
+            &stack,
+            self.closure.clone(),
+            span,
+        )
+        .and_then(|eval| eval.add_arg(Value::record(context, span)))
+        .and_then(|closure| closure.run_with_input(PipelineData::empty()))
+        .and_then(|data| data.into_value(span));
 
         match result {
             Ok(Value::String { val, .. }) => Ok(Some(HintResult {

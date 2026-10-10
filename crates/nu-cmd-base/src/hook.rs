@@ -327,7 +327,7 @@ fn run_hook(
     arguments: Vec<(String, Value)>,
     span: Span,
 ) -> Result<PipelineData, ShellError> {
-    let block = engine_state.get_block(closure.block_id);
+    let block = engine_state.get_closure_block(closure, span)?;
 
     let input = optional_input.unwrap_or_else(PipelineData::empty);
 

@@ -75,10 +75,10 @@ impl<'a> StyleComputer<'a> {
             Some(ComputableStyle::Static(s)) => *s,
             // Closures are run here.
             Some(ComputableStyle::Closure(closure, span)) => {
-                let result = ClosureEvalOnce::new(self.engine_state, self.stack, closure.clone())
-                    .debug(false)
-                    .run_with_value(value.clone())
-                    .and_then(|data| data.into_value(*span));
+                let result =
+                    ClosureEvalOnce::try_new(self.engine_state, self.stack, closure.clone(), *span)
+                        .and_then(|eval| eval.debug(false).run_with_value(value.clone()))
+                        .and_then(|data| data.into_value(*span));
 
                 match result {
                     Ok(value) => {

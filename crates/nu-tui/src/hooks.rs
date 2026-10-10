@@ -13,7 +13,7 @@
 
 use nu_engine::ClosureEvalOnce;
 use nu_protocol::engine::{Closure, EngineState, Stack};
-use nu_protocol::{IntoPipelineData, PipelineData, Span, Value};
+use nu_protocol::{IntoPipelineData, PipelineData, ShellError, Span, Value};
 
 #[derive(Debug, Clone)]
 pub enum HookOutcome {
@@ -26,8 +26,19 @@ pub enum HookOutcome {
 
 /// Whether the closure declares a positional parameter. Hooks and source
 /// closures pass their argument both as `$in` and, when declared, as `$row`.
-pub fn closure_arity(engine_state: &EngineState, closure: &Closure) -> usize {
-    let block = engine_state.get_block(closure.block_id);
+///
+/// Fails when the closure's block is not available in this engine state,
+/// which happens for a closure parsed after the running job was spawned.
+pub fn closure_arity(
+    engine_state: &EngineState,
+    closure: &Closure,
+    span: Span,
+) -> Result<usize, ShellError> {
+    Ok(block_arity(engine_state.get_closure_block(closure, span)?))
+}
+
+/// How many positional parameters the closure's block declares.
+fn block_arity(block: &nu_protocol::ast::Block) -> usize {
     block.signature.required_positional.len() + block.signature.optional_positional.len()
 }
 
@@ -38,9 +49,10 @@ pub fn call_closure(
     stack: &Stack,
     closure: Closure,
     input: Value,
-) -> Result<PipelineData, nu_protocol::ShellError> {
-    let arity = closure_arity(engine_state, &closure);
-    let mut eval = ClosureEvalOnce::new(engine_state, stack, closure);
+) -> Result<PipelineData, ShellError> {
+    let span = input.span();
+    let mut eval = ClosureEvalOnce::try_new(engine_state, stack, closure, span)?;
+    let arity = block_arity(eval.block());
     if arity > 0 {
         eval = eval.add_arg(input.clone())?;
     }

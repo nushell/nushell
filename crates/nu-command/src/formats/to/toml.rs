@@ -79,8 +79,8 @@ pub(crate) fn nu_value_to_toml_value(
         }
         Value::Closure { val, .. } => {
             if serialize_types {
-                let block = engine_state.get_block(val.block_id);
-                if let Some(span) = block.span {
+                let block = engine_state.try_get_block(val.block_id);
+                if let Some(span) = block.and_then(|block| block.span) {
                     let contents_bytes = engine_state.get_span_contents(span);
                     let contents_string = String::from_utf8_lossy(contents_bytes);
                     toml::Value::String(contents_string.to_string())
