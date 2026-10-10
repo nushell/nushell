@@ -204,6 +204,15 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
                 let column_requested = columns.iter().find(|c| c.to_column_name() == column);
                 let need_flatten = { columns.is_empty() || column_requested.is_some() };
                 let span = value.span();
+                let overwrite_error = Value::error(
+                    ShellError::UnsupportedInput {
+                        msg: "overwriting columns is not allowed".into(),
+                        input: "value originates from here".into(),
+                        msg_span: tag,
+                        input_span: span,
+                    },
+                    span,
+                );
 
                 match value {
                     Value::Record { ref val, .. } => {
@@ -212,13 +221,17 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
                                 if out.contains_key(&col)
                                     || retained_outer_columns.iter().any(|column| column == &col)
                                 {
-                                    out.insert(format!("{column}_{col}"), val);
+                                    if out.insert(format!("{column}_{col}"), val).is_some() {
+                                        return vec![overwrite_error];
+                                    }
                                 } else {
                                     out.insert(col, val);
                                 }
                             }
                         } else if out.contains_key(&column) {
-                            out.insert(format!("{column}_{column}"), value);
+                            if out.insert(format!("{column}_{column}"), value).is_some() {
+                                return vec![overwrite_error];
+                            }
                         } else {
                             out.insert(column, value);
                         }
@@ -250,10 +263,15 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
                                     parent_column_index: column_index,
                                 });
                             } else if out.contains_key(&column) {
-                                out.insert(
-                                    format!("{column}_{column}"),
-                                    Value::list_shared(vals, span),
-                                );
+                                if out
+                                    .insert(
+                                        format!("{column}_{column}"),
+                                        Value::list_shared(vals, span),
+                                    )
+                                    .is_some()
+                                {
+                                    return vec![overwrite_error];
+                                }
                             } else {
                                 out.insert(column, Value::list_shared(vals, span));
                             }
@@ -271,7 +289,9 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
                                     column_index,
                                 ));
                             } else {
-                                out.insert(column, Value::list_shared(vals, span));
+                                if out.insert(column, Value::list_shared(vals, span)).is_some() {
+                                    return vec![overwrite_error];
+                                }
                             }
                         } else {
                             inner_table = Some(TableInside::Entries(
@@ -282,7 +302,9 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
                         }
                     }
                     _ => {
-                        out.insert(column, value);
+                        if out.insert(column, value).is_some() {
+                            return vec![overwrite_error];
+                        }
                     }
                 }
             }
@@ -371,8 +393,24 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
 #[cfg(test)]
 mod test {
     use super::*;
+    use nu_test_support::TestResultExt;
+
     #[test]
     fn test_examples() -> nu_test_support::Result {
         nu_test_support::test().examples(Flatten)
+    }
+
+    #[test]
+    fn test_column_overwrites_lifted_column() -> nu_test_support::Result {
+        nu_test_support::test()
+            .run("{a: {b: 1, c: 2}, a_c: 3, c: 4} | flatten")
+            .expect_error_code_eq("nu::shell::unsupported_input")
+    }
+
+    #[test]
+    fn test_lifted_column_overwrites_column() -> nu_test_support::Result {
+        nu_test_support::test()
+            .run("{a_c: 3, a: {b: 1, c: 2}, c: 4} | flatten")
+            .expect_error_code_eq("nu::shell::unsupported_input")
     }
 }
