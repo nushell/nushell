@@ -20,7 +20,7 @@
 #   nucheck-compare         nu-check vs ours over nu_scripts and nu-std: 0 files nu accepts that we reject
 #   flatcmp                 nu's `ast --flatten` vs ours over nu-std: differences are the documented ones
 #   nufmt-fixtures          the formatter reproduces the nushell/nufmt reference fixtures: 114 of 130 today
-#   traceability            every nu-parser construct is mapped (part of cargo test, listed for visibility)
+#   traceability            every nu-parser construct is mapped (its ignored test, run by the cargo test rung, listed for visibility)
 
 # Run a command line, returning {ok, stdout} without failing the script.
 def --wrapped run-capture [...cmd: string]: nothing -> record<ok: bool, stdout: string> {
@@ -62,7 +62,11 @@ export def main [
     $rows ++= [{rung: "command table", metric: "matches the harness engine", value: $table.ok, ok: $table.ok}]
 
     print "cargo test..."
-    let tests = run-capture cargo test --all-features
+    # Then the traceability test's upstream check, which plain `cargo test` skips (`#[ignore]`;
+    # only that test target: `--include-ignored` would also run the `rust,ignore` doc blocks).
+    let all_tests = run-capture cargo test --all-features
+    let upstream = run-capture cargo test --all-features --test traceability -- --include-ignored
+    let tests = {ok: ($all_tests.ok and $upstream.ok), stdout: ($all_tests.stdout + $upstream.stdout)}
     # `append 0`: a build that fails prints no `test result:` line at all.
     let failed = $tests.stdout | parse -r 'test result: (?P<status>\w+)\. (?P<passed>\d+) passed; (?P<failed>\d+) failed' | get failed | each { into int } | append 0 | math sum
     let passed = $tests.stdout | parse -r 'test result: (?P<status>\w+)\. (?P<passed>\d+) passed' | get passed | each { into int } | append 0 | math sum

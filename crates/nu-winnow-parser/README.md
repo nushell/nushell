@@ -105,7 +105,7 @@ directly, while keeping everything a formatter needs:
 * `Ast { source, block, comments, shebang }` — `comments` lists every comment
   in source order, and each `Pipeline` also carries the comments attached to
   it (`leading_comments` are the doc comments of a `def`).
-* `Block { pipelines }` → `Pipeline { elements, terminator }` →
+* `Block { pipelines }` → `Pipeline { elements, terminator, dangling_pipe }` →
   `PipelineElement { pipe, expr, redirection }`.
 * `Expression { span, expr: Expr }`, as in `nu-protocol`. Statement keywords
   are `Expr` variants (`Let`, `Def`, `If`, `Match`, ...) holding structs with a
@@ -282,7 +282,7 @@ echo 'ls|where size > 1kb' | cargo run --example nufmt
 
 ## Performance notes
 
-Measured with `cargo bench` (criterion, release profile) on an Apple Silicon
+Measured with `cargo bench --bench parse -- solo` (tango, release profile) on an Apple Silicon
 laptop, single-threaded:
 
 | Input | Size | Time | Throughput |
@@ -343,7 +343,8 @@ disagreement and how to add coverage. In brief:
 * Unit tests in each module (`lex`, `parse_literals`, flatten, spans, errors).
 
 Run everything with `cargo test`; run the comparison with Nushell itself
-with `nu tools/scripts/verify.nu`; run the benchmarks with `cargo bench`.
+with `nu tools/scripts/verify.nu`; run the benchmarks with
+`cargo bench --bench parse -- solo`.
 
 ## Grammar Railroad Diagram
 

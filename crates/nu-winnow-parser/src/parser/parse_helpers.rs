@@ -103,6 +103,7 @@ pub fn garbage_pipeline<'a>(span: Span) -> Pipeline<'a> {
         leading_comments: Vec::new(),
         trailing_comments: Vec::new(),
         terminator: None,
+        dangling_pipe: None,
     }
 }
 

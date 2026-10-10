@@ -161,3 +161,46 @@ fn long_quoted_definition_name_in_a_long_block() -> Result {
     let code = format!("def \"{name}\" [] {{ 'custom' }}\n{}{name}", filler(100));
     test().run(code).expect_value_eq("custom")
 }
+
+/// nu-parser lite-parses a whole block before it parses any statement, so a `||` or a
+/// redirection error is the block's first error, before those of statements above it.
+#[rstest]
+#[case::or_or("let x: int = \"a\"\nls || ls", "nu::parser::shell_oror")]
+#[case::missing_redirection_target("let x: int = \"a\"\nls o>", "nu::parser::parse_mismatch")]
+#[case::two_redirections(
+    "let x: int = \"a\"\n%echo a o> b o> c",
+    "nu::parser::multiple_redirections"
+)]
+#[case::in_a_closure("do {\n  let x: int = \"a\"\n  ls || ls\n}", "nu::parser::shell_oror")]
+#[nu_test_support::test]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn lite_parse_error_comes_first(#[case] code: &str, #[case] error: &str) -> Result {
+    test().run(code).expect_error_code_eq(error)
+}
+
+/// nu-parser keeps a `|` that no command follows with the last element of its pipeline (it is
+/// highlighted), on a later line too and in a statement it parses itself; of a run of them
+/// (`| |`), the last goes with the first element of the next statement.
+#[rstest]
+#[case::later_line("ls\n|\n\nls", [true, false])]
+#[case::statement_parsed_by_nu_parser("%echo 1 |\n\n2", [true, false])]
+#[case::two_pipes("ls | |\n\nls", [true, true])]
+#[nu_test_support::test]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn dangling_pipe_stays_in_the_tree(#[case] code: &str, #[case] pipes: [bool; 2]) -> Result {
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let block = nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    let found: Vec<bool> = block
+        .pipelines
+        .iter()
+        .map(|pipeline| {
+            pipeline
+                .elements
+                .last()
+                .is_some_and(|element| element.pipe.is_some())
+        })
+        .collect();
+    assert_eq!(found, pipes, "`{code}`");
+    Ok(())
+}

@@ -154,6 +154,28 @@ fn percent_call_of_a_shadowed_builtin(#[case] statements: usize) -> Result {
     Ok(())
 }
 
+/// Names the block declares itself, longer than any command before (an alias, a definition in a
+/// nested block), do not end a run parsed ahead: the thread searches as far for them as the
+/// live working set. The names are longer than any other test's, so that they raise the bound.
+#[test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn block_declares_a_longer_name_while_parsed_ahead() -> Result {
+    let alias = format!("list-{}", "a".repeat(200));
+    let def = format!("run-{}", "d".repeat(220));
+    let code = format!(
+        "alias {alias} = echo 1\n{}let n = do {{ def {def} [] {{ 2 }}; {def} }}\n{}({alias}) + $n",
+        filler(100),
+        filler(100),
+    );
+    let mut tester = test();
+    let before = nu_parser::winnow_stats();
+    tester.run(code).expect_value_eq(3)?;
+    let after = nu_parser::winnow_stats();
+    assert_eq!(after.ahead_fallbacks, before.ahead_fallbacks);
+    Ok(())
+}
+
 /// `run` declares the script's commands where it is parsed, as the classic parser does it: a
 /// nested block with a `run` is parsed again statement by statement, so the statements after
 /// it see them.

@@ -157,7 +157,6 @@ chrono = { default-features = false, version = "0.4.45" }
 chrono-humanize = "0.2.3"
 chrono-tz = { version = "0.10", features = ["case-insensitive"] }
 crossbeam-channel = "0.5.15"
-criterion = { version = "0.8.2", default-features = false }
 crossterm = "0.29.0"
 csv = "1.4"
 ctrlc = "3.5.2"
@@ -272,6 +271,7 @@ strum_macros = "0.28.0"
 syn = "3.0.4"
 sysinfo = "0.39.6"
 tabled = { version = "0.22", default-features = false }
+tango-bench = "0.8.0"
 tempfile = "3.27"
 thiserror = "2.0.20"
 titlecase = "3.6"
@@ -397,7 +397,7 @@ fancy-regex = { workspace = true }
 itertools = { workspace = true }
 pretty_assertions = { workspace = true }
 rstest = { workspace = true, default-features = false }
-tango-bench = "0.8.0"
+tango-bench = { workspace = true }
 tempfile = { workspace = true }
 
 [features]

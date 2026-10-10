@@ -63,7 +63,7 @@ pub use parse_def::{Definitions, PredeclaredDef};
 pub use parse_pipelines::{BlockSink, BlockStatements};
 use working_set::Collected;
 pub(crate) use working_set::WorkingSet;
-pub use working_set::{CommandLookup, DeclKind};
+pub use working_set::{AliasedKeyword, CommandLookup, DeclKind};
 
 /// Configuration for a parse.
 ///
@@ -76,7 +76,9 @@ pub use working_set::{CommandLookup, DeclKind};
 ///   defined in the file is an external command, whose arguments are
 ///   external strings (`git log 0b2d1f4..HEAD`), as in nu;
 /// * which commands are built-in ([`CommandType::Builtin`]), the only ones
-///   `%name` may call.
+///   `%name` may call;
+/// * which commands take a row condition (`any`, `take while`), whose
+///   arguments parse as one condition, as `where`'s.
 ///
 /// Commands defined in the file being parsed (`def "my cmd" ...`) are always
 /// recognised. With no commands configured ([`ParseConfig::empty`]) every head
@@ -95,6 +97,8 @@ struct ConfiguredCommands {
     all: CommandSet,
     /// The names in `all` that are built-in commands.
     builtins: NameSet,
+    /// The names whose first positional parameter is a row condition.
+    row_conditions: NameSet,
 }
 
 /// The kind of a configured command (nu-protocol's `CommandType`, for the
@@ -183,7 +187,9 @@ impl ParseConfig {
     pub fn new() -> Self {
         #[cfg(feature = "builtin-commands")]
         {
-            Self::default().add_typed_commands(crate::builtin_commands::BUILTIN_COMMANDS.iter().copied())
+            Self::default()
+                .add_typed_commands(crate::builtin_commands::BUILTIN_COMMANDS.iter().copied())
+                .add_row_condition_commands(crate::builtin_commands::ROW_CONDITION_COMMANDS.iter().copied())
         }
         #[cfg(not(feature = "builtin-commands"))]
         {
@@ -232,10 +238,32 @@ impl ParseConfig {
         self
     }
 
+    /// Mark commands whose first positional parameter is a row condition
+    /// (`any`, `take while`): their arguments parse as one condition, as
+    /// `where`'s. Only commands that are known count.
+    pub fn add_row_condition_commands<I, S>(mut self, names: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<str>,
+    {
+        let configured = Arc::make_mut(&mut self.commands);
+        configured.row_conditions.extend(names.into_iter().map(|name| Box::from(name.as_ref())));
+        self
+    }
+
     /// Whether `name` (with words separated by single spaces) is a known command.
     #[inline]
     pub fn is_known(&self, name: &str) -> bool {
         self.commands.all.names.contains(name)
+    }
+
+    /// How a call to `name` parses, if it is a known command.
+    #[inline]
+    pub(crate) fn decl_kind(&self, name: &str) -> Option<DeclKind> {
+        self.is_known(name).then(|| match self.commands.row_conditions.contains(name) {
+            true => DeclKind::RowCondition,
+            false => DeclKind::Builtin,
+        })
     }
 
     /// Whether `name` is a known built-in command, which `%name` may call.
@@ -299,6 +327,6 @@ pub(crate) fn parse_block_streaming<'a>(
     for def in definitions.parse(source, span, lookup) {
         sink.predecl(def);
     }
-    statements.parse(source, lookup, &mut |pipeline, diagnostics| sink.statement(pipeline, diagnostics));
+    statements.parse(source, lookup, &mut |pipeline, diagnostics, _| sink.statement(pipeline, diagnostics));
     Ok(())
 }

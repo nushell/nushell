@@ -43,7 +43,7 @@ use std::{
     rc::Rc,
     sync::{
         OnceLock,
-        atomic::{AtomicBool, Ordering::Relaxed},
+        atomic::{AtomicBool, AtomicUsize, Ordering::Relaxed},
         mpsc,
     },
 };
@@ -51,7 +51,7 @@ use std::{
 use nu_protocol::{
     Module, Span, Type,
     ast::{Block, Pipeline},
-    engine::{StateWorkingSet, longest_decl_name},
+    engine::StateWorkingSet,
 };
 use nu_winnow_parser::{
     BlockSink, BlockStatements, Definitions, Diagnostic, PredeclaredDef, ast as w,
@@ -117,6 +117,7 @@ pub(super) fn parse_block(
         working_set.enter_scope();
     }
 
+    let block_errors = working_set.parse_errors.len();
     let cell = RefCell::new(working_set);
     let lookup = EngineLookup::new(&cell);
     let mut driver = Driver {
@@ -127,6 +128,7 @@ pub(super) fn parse_block(
         inner,
         target,
         pipelines: Vec::new(),
+        block_errors,
     };
     let result = parse_statements(source, local_span, &lookup, &mut driver);
     let Driver {
@@ -192,6 +194,7 @@ fn parse_statements(
     let threads = ahead_threads();
     if let Some(threads) = threads
         && span.len() >= AHEAD_MIN_BYTES
+        && AheadThread::any_free()
     {
         threads.spawn(|| {});
     }
@@ -217,6 +220,7 @@ fn parse_statements(
         go_on = if let Some(threads) = threads
             && !short
             && !changes_names(statements.next_words(source))
+            && let Some(_thread) = AheadThread::take()
         {
             let definitions = definitions.take().unwrap_or_default();
             parse_ahead(
@@ -233,13 +237,14 @@ fn parse_statements(
                 declare(definitions, source, span, lookup, driver);
             }
             // On this thread: all that is left when it is short or there is no second thread
-            // (the next turn would decide the same), else only the next statement, which
-            // changes the command names, so a run parsed ahead would end right after it. The
-            // sink then stops after that statement, and this `go_on` carries the driver's answer
-            // to the loop, which goes on with a run that sees the new names.
+            // (the next turn would decide the same), else only the next statement: one that
+            // changes the command names, so a run parsed ahead would end right after it, or one
+            // parsed while both threads run other parses' runs, after which a thread may be
+            // free. The sink then stops after that statement, and this `go_on` carries the
+            // driver's answer to the loop, which goes on with a run that sees the new names.
             let all = short || threads.is_none();
             let mut go_on = true;
-            statements.parse(source, lookup, &mut |pipeline, diagnostics| {
+            statements.parse(source, lookup, &mut |pipeline, diagnostics, _| {
                 go_on = driver.statement(pipeline, diagnostics);
                 go_on && all
             });
@@ -267,12 +272,13 @@ fn declare(
     }
 }
 
-/// A statement the second thread parsed, with what it reported and the questions about command
-/// names it asked.
+/// A statement the second thread parsed, with what it reported, the questions about command
+/// names it asked and the bound on name lengths it looked up names within.
 struct Ahead<'a> {
     pipeline: w::Pipeline<'a>,
     diagnostics: Vec<Diagnostic>,
     asked: Vec<Asked>,
+    longest_name: usize,
 }
 
 /// Parse statements on a second thread while this one declares the block's `definitions` and
@@ -317,31 +323,32 @@ fn parse_ahead(
                 names,
                 asked: Rc::clone(&asked),
             };
-            statements.parse(source, lookup, &mut |pipeline, diagnostics| {
-                let changes = statement_changes_names(&pipeline);
-                // The classic parser takes the rest of the block from a statement with a
-                // syntax error (`Driver::take_statement`): what would be parsed after it is
-                // dropped.
-                let failed = !diagnostics.is_empty();
-                // The sink is called between statements: what was asked since the last call
-                // was asked while parsing this one.
-                let asked = asked.take();
-                let sent = sender
-                    .send(Ahead {
-                        pipeline,
-                        diagnostics,
-                        asked,
-                    })
-                    .is_ok();
-                sent && !changes && !failed && !stop.load(Relaxed)
-            });
+            statements.parse(
+                source,
+                lookup,
+                &mut |pipeline, diagnostics, longest_name| {
+                    let changes = statement_changes_names(&pipeline);
+                    // The classic parser takes the rest of the block from a statement with a
+                    // syntax error (`Driver::take_statement`): what would be parsed after it is
+                    // dropped.
+                    let failed = !diagnostics.is_empty();
+                    // The sink is called between statements: what was asked since the last call
+                    // was asked while parsing this one.
+                    let asked = asked.take();
+                    let sent = sender
+                        .send(Ahead {
+                            pipeline,
+                            diagnostics,
+                            asked,
+                            longest_name,
+                        })
+                        .is_ok();
+                    sent && !changes && !failed && !stop.load(Relaxed)
+                },
+            );
         });
         stats::record_ahead_run();
         declare(definitions, source, span, lookup, driver);
-        // The bound on name lengths the answers are checked against, read once the block's
-        // definitions are declared: a longer name among them raises it, but the thread knows
-        // those names from its own scopes and searches as far for them.
-        let longest_name = longest_decl_name();
         let mut go_on = true;
         // Until the thread is done and drops its sender; after a stop, what it parsed
         // meanwhile is dropped (the classic parser has parsed it).
@@ -349,7 +356,7 @@ fn parse_ahead(
             if !go_on {
                 continue;
             }
-            if let Some(changed) = changed_answer(lookup, &ahead.asked, longest_name) {
+            if let Some(changed) = changed_answer(lookup, &ahead.asked, ahead.longest_name) {
                 // Stopped first, so that the thread does not go on parsing what the classic
                 // parser parses now.
                 stop.store(true, Relaxed);
@@ -404,14 +411,23 @@ pub(super) fn statement_changes_names(pipeline: &w::Pipeline<'_>) -> bool {
     })
 }
 
+/// How many threads [`ahead_threads`] has.
+const AHEAD_THREADS: usize = 2;
+
+/// The stack of each of [`ahead_threads`]: the 8 MiB the main thread gets on Linux and macOS,
+/// not the 2 MiB of a spawned thread. The syntax of a deeply nested block is parsed there,
+/// and a stack overflow aborts the process. Per level of nesting the winnow parser takes less
+/// stack than the classic parser, so the main thread runs out first, also on Windows, whose
+/// main thread nushell gives 10 MB.
+const AHEAD_STACK_SIZE: usize = 8 * 1024 * 1024;
+
 /// The threads that parse statements ahead of the lowering, started on first use and kept, so
 /// that a run starts in microseconds, on a thread whose caches hold the parser. They are not
 /// rayon's global pool: a parse inside a `par-each` closure waits for its run, which must not
-/// queue behind the closures. Two, so that a block parsed while another block's run goes on (a
-/// module's body, loaded by the lowering of a statement of that run) does not wait for it. A
-/// run never waits for the thread that lowers it (its channel has no bound), so a run queued
-/// behind others always gets a thread. `None` on a machine that runs one thread at a time, or
-/// where threads cannot be started.
+/// queue behind the closures. A run starts only on a free thread ([`AheadThread`]), so it never
+/// waits for one: while both run other parses' runs (concurrent parses, or a module's body
+/// loaded by the lowering of a statement of a run), a block is parsed on its own thread.
+/// `None` on a machine that runs one thread at a time, or where threads cannot be started.
 fn ahead_threads() -> Option<&'static rayon::ThreadPool> {
     static THREADS: OnceLock<Option<rayon::ThreadPool>> = OnceLock::new();
     THREADS
@@ -420,7 +436,8 @@ fn ahead_threads() -> Option<&'static rayon::ThreadPool> {
             parallel
                 .then(|| {
                     rayon::ThreadPoolBuilder::new()
-                        .num_threads(2)
+                        .num_threads(AHEAD_THREADS)
+                        .stack_size(AHEAD_STACK_SIZE)
                         .thread_name(|_| "nu-winnow-ahead".into())
                         .build()
                         .ok()
@@ -428,6 +445,35 @@ fn ahead_threads() -> Option<&'static rayon::ThreadPool> {
                 .flatten()
         })
         .as_ref()
+}
+
+/// One of [`ahead_threads`] taken for a run, given back when dropped.
+struct AheadThread;
+
+/// How many of [`ahead_threads`] are taken.
+static AHEAD_THREADS_TAKEN: AtomicUsize = AtomicUsize::new(0);
+
+impl AheadThread {
+    /// Take a free thread, if there is one.
+    fn take() -> Option<Self> {
+        AHEAD_THREADS_TAKEN
+            .fetch_update(Relaxed, Relaxed, |taken| {
+                (taken < AHEAD_THREADS).then_some(taken + 1)
+            })
+            .ok()
+            .map(|_| AheadThread)
+    }
+
+    /// Whether a thread is free now.
+    fn any_free() -> bool {
+        AHEAD_THREADS_TAKEN.load(Relaxed) < AHEAD_THREADS
+    }
+}
+
+impl Drop for AheadThread {
+    fn drop(&mut self) {
+        AHEAD_THREADS_TAKEN.fetch_sub(1, Relaxed);
+    }
 }
 
 /// Where the statements of a block go; [`statement_target`] lends it to each statement as a
@@ -462,6 +508,9 @@ struct Driver<'c, 'w, 'e, 's> {
     target: Target,
     /// The block's pipelines so far.
     pipelines: Vec<Pipeline>,
+    /// Where the block's errors start, past the lex and lite-parse errors the classic parser
+    /// put there ([`parse_classic`]).
+    block_errors: usize,
 }
 
 impl Driver<'_, '_, '_, '_> {
@@ -485,7 +534,13 @@ impl Driver<'_, '_, '_, '_> {
         let mut lower = Lower::new(working_set, self.source, self.offset);
         let span = lower.statement_span(pipeline);
         let mut target = statement_target(&mut self.target, &self.pipelines, self.span);
-        lower.statement_or_classic(pipeline, span, &mut target, &mut self.pipelines);
+        lower.statement_or_classic(
+            pipeline,
+            span,
+            &mut target,
+            &mut self.pipelines,
+            &mut self.block_errors,
+        );
         true
     }
 
@@ -504,7 +559,13 @@ impl Driver<'_, '_, '_, '_> {
             Some(error) => stats::record_error_statement(span, error, lower.working_set),
             None => stats::record_classic_statement(span.len(), false),
         }
-        parse_classic(lower.working_set, span, &mut target, &mut self.pipelines);
+        parse_classic(
+            lower.working_set,
+            span,
+            &mut target,
+            &mut self.pipelines,
+            &mut self.block_errors,
+        );
     }
 }
 

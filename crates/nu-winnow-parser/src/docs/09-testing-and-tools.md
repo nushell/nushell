@@ -81,7 +81,10 @@ Chapter 11 maps every `SyntaxShape`, `FlatShape`, `TokenContents` and
 nu-parser to the code, fixtures and tests here. The test checks that every
 fixture pattern and test name in those tables exists and, with a Nushell
 checkout, that every upstream item is mapped, so a construct added to
-Nushell fails this test until it has a row, a fixture and a test.
+Nushell fails this test until it has a row, a fixture and a test. The
+upstream check is `#[ignore]`d, so that a Nushell pull request that adds a
+construct does not fail CI here; `verify.nu` runs it with
+`cargo test --test traceability -- --include-ignored`.
 
 ## `tests/corpus.rs`: real files
 
@@ -170,12 +173,13 @@ becomes a value (`parse_value` in `src/parser/parse_expressions.rs`,
 
 ## Benchmarks
 
-* `benches/parse.rs` (criterion): per-file, per-snippet and lexer-only
-  throughput. `cargo bench`. To measure a change, save a named baseline
-  before it (`cargo bench --bench parse -- --save-baseline before`) and
-  compare against it after (`-- --baseline before`); do this whenever you
-  rewrite a parser with combinators or add work to a hot path. Chapter 10
-  and `how-to.md` have the details.
+* `benches/parse.rs` (tango, as nushell's own benchmarks): per-file,
+  per-snippet and lexer-only timings, each name ending with the input's size
+  in bytes. `cargo bench --bench parse -- solo`. To measure a change, export
+  the benchmark built from the code before it (`cargo export`) and run the
+  new one in `compare` mode against it; do this whenever you rewrite a
+  parser with combinators or add work to a hot path. Chapter 10 and
+  `how-to.md` have the details.
 * `tools/nushell-harness` (`bench-vs-nu-parser`): times `nu-parser` and this
   crate on the same files, with `nu-parser` given the full command set. It
   links the Nushell crates of the enclosing checkout by path, so it is a

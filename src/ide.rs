@@ -111,9 +111,10 @@ pub fn check(
             // eprintln!("Too many errors, stopping here. idx: {idx} max_errors: {max_errors}");
             break;
         }
+        // An error whose span lies before this file (an unknown span) is reported at its start.
         let mut span = err.span();
-        span.start -= offset;
-        span.end -= offset;
+        span.start = span.start.saturating_sub(offset);
+        span.end = span.end.saturating_sub(offset);
 
         let msg = err.to_string();
 

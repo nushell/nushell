@@ -23,10 +23,10 @@ winnow = { workspace = true }
 serde = { workspace = true, features = ["derive"], optional = true }
 
 [dev-dependencies]
-criterion = { workspace = true }
+rstest = { workspace = true, default-features = false }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
-rstest = { workspace = true, default-features = false }
+tango-bench = { workspace = true }
 
 [features]
 default = ["builtin-commands"]

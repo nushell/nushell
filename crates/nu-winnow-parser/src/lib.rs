@@ -34,7 +34,8 @@ pub mod span;
 
 pub use error::{Diagnostic, ErrorKind, ParseError};
 pub use parser::{
-    BlockSink, BlockStatements, CommandLookup, CommandType, DeclKind, Definitions, ParseConfig, PredeclaredDef,
+    AliasedKeyword, BlockSink, BlockStatements, CommandLookup, CommandType, DeclKind, Definitions, ParseConfig,
+    PredeclaredDef,
 };
 pub use span::{LineCol, LineIndex, Span, Spanned};
 

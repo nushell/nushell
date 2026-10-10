@@ -9,7 +9,7 @@ crate root (`crates/nu-winnow-parser`) unless a `cd` is shown.
 | `parse` | Example binary: dump, check, flatten or JSON-serialise Nushell source | `cargo build --release --example parse` |
 | `nufmt` | Example binary: a formatter built on the AST | `cargo build --release --example nufmt` |
 | `cargo test` | Unit, integration, corpus, formatter and doc tests | — |
-| `cargo bench` | Criterion benchmarks of the parser and lexer | — |
+| `cargo bench --bench parse -- solo` | Tango benchmarks of the parser and lexer | — |
 | `bench-vs-nu-parser` | Times `nu-parser` and this crate on the same files (needs a Nushell checkout) | `cd tools/nushell-harness && CARGO_TARGET_DIR=../../../../target cargo build --release` |
 | `bridge` | Parses with this crate, lowers into `nu-protocol` and runs on the Nushell engine | same as above |
 | `tools/scripts/*.nu` | Nushell scripts that compare this parser with `nu-check` and `ast --flatten` | need `nu` 0.115.2 and the `parse` example |
@@ -267,31 +267,32 @@ CARGO_TARGET_DIR=../../../../target cargo run --release --bin differential -- --
 
 ## Benchmarks
 
-### Criterion (`benches/parse.rs`)
+### Tango (`benches/parse.rs`)
+
+The benchmarks use [tango](https://github.com/bazhenov/tango), as nushell's
+own do (`benches/README.md` at the repository's root). Each name ends with the
+size of its input in bytes.
 
 ```nushell
-cargo bench                             # all groups
-cargo bench -- parse/                   # whole-file parses: kitchen_sink, std_iter, std_assert, large_file
-cargo bench -- snippets/                # small programs: pipeline, math, record, closure, def
-cargo bench -- lexer/                   # the lexer alone
+cargo bench --bench parse -- solo                   # all of them
+cargo bench --bench parse -- solo -f 'parse_*'      # whole files: kitchen_sink, std_iter, std_assert, large_file
+cargo bench --bench parse -- solo -f 'snippets_*'   # small programs: pipeline, math, record, closure, def
+cargo bench --bench parse -- solo -f 'lexer_*'      # the lexer alone
 ```
 
-Criterion prints a time per iteration and the change against the previous
-run; the HTML report is written under `target/criterion/`. Run it on a quiet
-machine.
-
-To compare two versions of the code, save a named baseline on the first and
-compare the second against it:
+Run them on a quiet machine. To compare two versions of the code, export the
+benchmark built from the first (`cargo install cargo-export` once) and run the
+second against it: tango runs the two in turns, which cancels most of the
+noise of a busy machine, and prints the change of every benchmark.
 
 ```nushell
-cargo bench --bench parse -- --save-baseline before     # on the code before the change
+cargo export target/tango/before -- bench --bench parse      # on the code before the change
 # ... make the change ...
-cargo bench --bench parse -- --baseline before          # prints the change of every benchmark
-cargo bench --bench parse -- --baseline before snippets/   # or of one group
+cargo bench --bench parse -- compare target/tango/before/parse              # every benchmark
+cargo bench --bench parse -- compare target/tango/before/parse -f 'snippets_*'   # or some
 ```
 
-A named baseline stays put however often you run the comparison, unlike the
-"previous run" that a plain `cargo bench` overwrites. Check this after
+The exported benchmark stays put however often you run the comparison. Check this after
 rewriting a parser with winnow combinators or touching a hot path (the lexer,
 `parse_value` on bare words, `is_math_expression_like` on command heads): a
 combinator can cost speed that a hand-written loop did not.

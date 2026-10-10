@@ -30,8 +30,41 @@ pub enum DeclKind {
     /// An `alias` whose target is an external command (`alias g = git`): nu
     /// parses a call to it as an external call, with external arguments.
     ExternalAlias,
+    /// A command whose first positional parameter is a row condition (`any`,
+    /// `take while`, `record where`, ...), or an alias of one that gives it no
+    /// arguments: nu reads its arguments, from the first one to the end, as one
+    /// condition, as `where`'s (when the first one is a flag, whose value nu
+    /// takes by the flag's shape, the parser reads them one by one).
+    RowCondition,
+    /// An alias of `if`, `match` or `try` that gives it no arguments (`alias m =
+    /// match`): a call to it parses as that keyword's statement.
+    KeywordAlias(AliasedKeyword),
     /// One of the configured (built-in) commands of [`ParseConfig`].
     Builtin,
+}
+
+/// A keyword with a statement of its own that nu lets an alias name: `if`,
+/// `match` and `try` (`alias m = match`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AliasedKeyword {
+    /// `if`.
+    If,
+    /// `match`.
+    Match,
+    /// `try`.
+    Try,
+}
+
+impl AliasedKeyword {
+    /// The keyword named `name`, if it is one of them.
+    pub fn from_name(name: &str) -> Option<Self> {
+        match name {
+            "if" => Some(Self::If),
+            "match" => Some(Self::Match),
+            "try" => Some(Self::Try),
+            _ => None,
+        }
+    }
 }
 
 /// The commands declared in one block, closure or module body.
@@ -39,8 +72,9 @@ pub enum DeclKind {
 struct Scope {
     /// The names declared here.
     commands: CommandSet,
-    /// The names in `commands` whose calls parse differently: aliases of
-    /// external commands and wrapped commands. Few, so a list.
+    /// The names in `commands` whose calls parse differently: wrapped commands
+    /// and aliases of external commands, of row-condition commands and of
+    /// keywords. Few, so a list.
     kinds: Vec<(Box<str>, DeclKind)>,
 }
 
@@ -49,7 +83,7 @@ impl Scope {
     fn declare(&mut self, name: &str, kind: DeclKind) {
         self.commands.insert(name);
         self.kinds.retain(|(declared, _)| **declared != *name);
-        if matches!(kind, DeclKind::ExternalAlias | DeclKind::Wrapped) {
+        if kind != DeclKind::Declared {
             self.kinds.push((Box::from(name), kind));
         }
     }
@@ -84,6 +118,15 @@ pub trait CommandLookup {
     /// not (shadowed or hidden): what `%name` may call, as nu-parser's
     /// `find_decl_with_command_type(.., CommandType::Builtin)` answers it.
     fn is_builtin_decl(&self, name: &str) -> bool;
+    /// Whether to leave unparsed, as an empty block, a nested block with a
+    /// statement that changes which commands exist (`use`, `module`, `export`,
+    /// `overlay`, `hide`, `source`, `run`), an inline module's body among them.
+    /// A front end that parses such a block again, with the commands its
+    /// statements bring in, answers `true` and saves parsing it twice. `false`
+    /// (the default) parses every block.
+    fn defers_command_changing_blocks(&self) -> bool {
+        false
+    }
 }
 
 impl<T: CommandLookup + ?Sized> CommandLookup for &T {
@@ -101,6 +144,10 @@ impl<T: CommandLookup + ?Sized> CommandLookup for &T {
 
     fn is_builtin_decl(&self, name: &str) -> bool {
         (**self).is_builtin_decl(name)
+    }
+
+    fn defers_command_changing_blocks(&self) -> bool {
+        (**self).defers_command_changing_blocks()
     }
 }
 
@@ -288,7 +335,7 @@ impl<'a> WorkingSet<'a> {
         }
         match &self.lookup {
             Some(lookup) => lookup.find_decl(name),
-            None => self.config.is_known(name).then_some(DeclKind::Builtin),
+            None => self.config.decl_kind(name),
         }
     }
 
@@ -307,6 +354,13 @@ impl<'a> WorkingSet<'a> {
             None => self.config.is_prefix(word),
         };
         known || self.scopes.borrow().iter().any(|scope| scope.commands.prefixes.contains(word))
+    }
+
+    /// Whether the lookup has nested blocks that change which commands exist left unparsed
+    /// ([`CommandLookup::defers_command_changing_blocks`]).
+    #[inline]
+    pub fn defers_command_changing_blocks(&self) -> bool {
+        self.lookup.as_ref().is_some_and(|lookup| lookup.defers_command_changing_blocks())
     }
 
     /// An upper bound on the length of every command name: no longer name is known.
@@ -354,7 +408,9 @@ impl<'a> WorkingSet<'a> {
     /// (nu adds an alias then, and never predeclares one). `kind` says how a
     /// call to it parses: [`DeclKind::ExternalAlias`] when its target is an
     /// external call, [`DeclKind::Wrapped`] when it is a call to a wrapped
-    /// command, else [`DeclKind::Declared`].
+    /// command, [`DeclKind::RowCondition`] or [`DeclKind::KeywordAlias`] when it
+    /// is one with no arguments to a row-condition command or to `if`, `match`
+    /// or `try`, else [`DeclKind::Declared`].
     pub fn add_alias(&self, name: &str, kind: DeclKind) {
         self.add_predecl(name, kind)
     }

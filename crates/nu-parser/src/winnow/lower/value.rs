@@ -4,7 +4,6 @@
 use std::sync::Arc;
 
 use nu_protocol::{
-    ENV_VARIABLE_ID, IN_VARIABLE_ID, LAST_RESULT_VAR_NAME, LAST_VARIABLE_ID, NU_VARIABLE_ID,
     PositionalArg, Signature, Span, SyntaxShape, Type, TypeSet,
     ast::{CellPath, Expr, Expression, FullCellPath, ListItem, PathMember, RecordItem, Table},
     casing::Casing,
@@ -16,7 +15,7 @@ use crate::{
     parse_captures_compile::compile_block,
     parse_expressions::parse_value as classic_value,
     parse_expressions::{check_record_key_or_value, table_type},
-    parse_literals::is_quoted,
+    parse_literals::{is_quoted, parse_variable_expr},
 };
 
 impl<'s> Lower<'_, '_, 's> {
@@ -262,7 +261,7 @@ impl<'s> Lower<'_, '_, 's> {
         input_type: Option<&Type>,
     ) -> Lowered<Expression> {
         let head = match &head.expr {
-            w::Expr::Var(var) => self.variable(head.span, var.name, input_type)?,
+            w::Expr::Var(_) => self.variable(head.span, input_type)?,
             w::Expr::Subexpression(block) => self.subexpression(head.span, block)?,
             w::Expr::List(_) | w::Expr::Table(_) => {
                 self.table_expression(head, &SyntaxShape::Any)?
@@ -289,30 +288,16 @@ impl<'s> Lower<'_, '_, 's> {
         ))
     }
 
-    /// A variable (`parse_variable_expr`): `$nu`, `$in` (typed by `input_type`), `$env` and the
-    /// last-result variable have fixed ids; any other name must be in scope, else it is the
-    /// classic parser's error.
+    /// A variable, as `parse_variable_expr` makes it: `$nu`, `$in` (typed by `input_type`),
+    /// `$env` and the last-result variable have fixed ids; any other name must be in scope,
+    /// else it is the classic parser's error.
     pub(super) fn variable(
         &mut self,
         span: WSpan,
-        name: &str,
         input_type: Option<&Type>,
     ) -> Lowered<Expression> {
         let span = self.span(span);
-        let (var_id, ty) = match name {
-            "nu" => (NU_VARIABLE_ID, Type::Any),
-            "in" => (IN_VARIABLE_ID, input_type.cloned().unwrap_or(Type::Any)),
-            "env" => (ENV_VARIABLE_ID, Type::Any),
-            _ if name == LAST_RESULT_VAR_NAME => (LAST_VARIABLE_ID, Type::Any),
-            _ => {
-                let var_id = self
-                    .working_set
-                    .find_variable(self.working_set.get_span_contents(span))
-                    .ok_or(Unlowered::Error)?;
-                (var_id, self.working_set.get_variable(var_id).ty.clone())
-            }
-        };
-        Ok(self.node(Expr::Var(var_id), span, ty))
+        self.checked(|working_set| parse_variable_expr(working_set, span, input_type))
     }
 
     /// The members of a cell path (`parse_cell_path`). A member's span leaves out its `?` and

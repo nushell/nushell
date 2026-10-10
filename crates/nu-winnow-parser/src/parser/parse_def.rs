@@ -395,11 +395,11 @@ pub fn check_definition_name(name: &Spanned<Cow<'_, str>>, what: &str) -> ParseR
         .with_help("choose a different name; this word is parsed specially by Nushell")));
     }
     let text: &str = &name.item;
-    if text.contains(['#', '^', '%'])
-        || is_byte_size(text)
-        || text.parse::<f64>().is_ok()
-        || text.split_ascii_whitespace().collect::<Vec<_>>().join(" ") != text
-    {
+    let single_spaced = !text.starts_with(|c: char| c.is_ascii_whitespace())
+        && !text.ends_with(|c: char| c.is_ascii_whitespace())
+        && !text.contains("  ")
+        && text.bytes().all(|byte| byte == b' ' || !byte.is_ascii_whitespace());
+    if text.contains(['#', '^', '%']) || is_byte_size(text) || text.parse::<f64>().is_ok() || !single_spaced {
         return Err(cut(Diagnostic::message(format!("{what} name not supported"), name.span).with_help(
             "a name may not contain `#`, `^` or `%`, read as a number or filesize, or use whitespace other than single spaces between words",
         )));

@@ -9,7 +9,10 @@
 //!   workspace at `../..`), every `SyntaxShape`, `FlatShape`, `TokenContents` and
 //!   `ParseError` variant, every keyword command and every `pub fn parse_*`
 //!   of `nu-parser` appears in the matching table, so that a new construct
-//!   upstream fails here until it is mapped.
+//!   upstream fails here until it is mapped. This check is ignored by a plain
+//!   `cargo test`, so that a Nushell change elsewhere does not fail CI for this
+//!   crate: `verify.nu` runs it (`cargo test --test traceability --
+//!   --include-ignored`).
 #![allow(clippy::unwrap_used, clippy::format_push_string, reason = "tests may panic on failure")]
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -230,6 +233,7 @@ fn upstream(nushell: &Path) -> BTreeMap<&'static str, Vec<String>> {
 }
 
 #[test]
+#[ignore = "upstream completeness: run by tools/scripts/verify.nu (`cargo test --test traceability -- --include-ignored`)"]
 fn every_upstream_construct_is_mapped() {
     let Some(nushell) = nushell_checkout() else {
         eprintln!("no Nushell checkout; set NU_WINNOW_NUSHELL to run the upstream completeness check");

@@ -96,13 +96,20 @@ pub struct Pipeline<'a> {
     pub span: Span,
     /// The elements. Never empty.
     pub elements: Vec<PipelineElement<'a>>,
-    /// Comment lines immediately preceding the pipeline (no blank line in between).
-    /// For a `def`, these are its documentation.
+    /// Comment lines immediately preceding the pipeline (no blank line in between),
+    /// or, when there are none, the comments nu's lite parser gives the next
+    /// command: those after a `;`, or after a `|` that ends its pipeline, on that
+    /// line (`a; # c`), even across blank lines. For a `def`, these are its
+    /// documentation.
     pub leading_comments: Vec<Comment>,
     /// Comments on the same line(s) as the pipeline, after or between elements.
     pub trailing_comments: Vec<Comment>,
     /// The span of a `;` terminating this pipeline, if any.
     pub terminator: Option<Span>,
+    /// A `|` after the last element that no command followed, which nu drops from the
+    /// pipeline: one before a blank line, `;` or the end of the block (`ls |`, then a blank
+    /// line), on the element's line or starting a later one (`ls\n|\n\nls`).
+    pub dangling_pipe: Option<Span>,
 }
 
 /// One element of a pipeline.
@@ -216,9 +223,15 @@ impl<'a> Expression<'a> {
     }
 
     /// The span of the keyword that starts this expression (`let`, `if`, ...),
-    /// if it is a keyword statement. See [`Expr::keyword`].
+    /// if it is a keyword statement. See [`Expr::keyword`]. For `if`, `match`
+    /// and `try` it is the word written, which may be an alias's name.
     pub fn keyword_span(&self) -> Option<Span> {
-        self.expr.keyword().map(|kw| Span::new(self.span.start, self.span.start + kw.len()))
+        match &self.expr {
+            Expr::If(if_expression) => Some(if_expression.keyword),
+            Expr::Match(match_expression) => Some(match_expression.keyword),
+            Expr::Try(try_expression) => Some(try_expression.keyword),
+            expr => expr.keyword().map(|kw| Span::new(self.span.start, self.span.start + kw.len())),
+        }
     }
 }
 
@@ -1518,6 +1531,9 @@ pub struct Else<'a> {
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct If<'a> {
+    /// The keyword, or the name of an alias of it that the statement calls
+    /// (`alias m = match`, then `m 1 { .. }`).
+    pub keyword: Span,
     /// The condition.
     pub condition: Box<Expression<'a>>,
     /// The then block (empty when `then_value` is set).
@@ -1550,6 +1566,9 @@ pub struct MatchArm<'a> {
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct Match<'a> {
+    /// The keyword, or the name of an alias of it that the statement calls
+    /// (`alias m = match`, then `m 1 { .. }`).
+    pub keyword: Span,
     /// The scrutinee.
     pub value: Box<Expression<'a>>,
     /// The span of the `{ ... }`.
@@ -1676,6 +1695,9 @@ pub struct Handler<'a> {
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct Try<'a> {
+    /// The keyword, or the name of an alias of it that the statement calls
+    /// (`alias m = match`, then `m 1 { .. }`).
+    pub keyword: Span,
     /// The body (empty when `body_value` is set).
     pub body: Block<'a>,
     /// A variable, a subexpression, or a record or a cell path on one (`{a: 1}.a`), in

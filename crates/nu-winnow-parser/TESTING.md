@@ -47,7 +47,7 @@ option to its default before it builds its engine, so an exported
 | `cargo test --test language` | Tables lifted from Nushell's own `test_lex.rs`, `test_parser.rs` and repl tests: values, spans, token streams, precedence, error messages | `tests/language.rs` |
 | `cargo test --test examples` | Every built-in command's `Example` snippet parses with no diagnostics | `tests/examples.rs`, `tests/corpus/snippets/` |
 | `cargo test --test corpus` | Real files (std modules, default config, nu_scripts samples) parse cleanly | `tests/corpus.rs`, `tests/corpus/` |
-| `cargo test --test traceability` | The matrix in chapter 11 points at existing fixtures and tests, and (with a Nushell checkout) covers every upstream construct | `tests/traceability.rs`, `src/docs/11-traceability.md` |
+| `cargo test --test traceability` | The matrix in chapter 11 points at existing fixtures and tests; with `-- --include-ignored` and a Nushell checkout, it also covers every upstream construct | `tests/traceability.rs`, `src/docs/11-traceability.md` |
 | `cargo test --test nufmt` | The formatter is idempotent, keeps comments and preserves the tree over the corpus | `tests/nufmt.rs`, `examples/nufmt/` |
 | `cargo test --doc` | The `rust` code blocks in `src/docs/` and `examples/nufmt/README.md` | `src/docs/*.md`, `examples/nufmt/README.md` |
 | `cargo test --all-features` | The same with the `serde` derives compiled | |
@@ -145,7 +145,7 @@ its front end (`src/docs/nushell-integration-plan.md`). From the workspace
 root:
 
 ```nushell
-NU_EXPERIMENTAL_OPTIONS=winnow-parser cargo nextest run --workspace   # the whole suite, option on
+NU_EXPERIMENTAL_OPTIONS=winnow-parser cargo nextest run --workspace   # the whole suite, option on for its in-process parses
 cd crates/nu-winnow-parser/tools/nushell-harness
 CARGO_TARGET_DIR=../../../../target cargo build --release --bin frontends
 cd ../../../..
@@ -153,8 +153,9 @@ target/release/frontends compare crates/nu-std crates/nu-config/default_files te
 target/release/frontends bench --clean --iters 5 ~/src/nu_scripts
 ```
 
-`compare` must report every file identical; `NU_WINNOW_LOG=1` lists the
-statements `nu-parser` parsed instead of the lowering.
+`compare` must report every file identical; with `--log`, `frontends` lists
+the statements `nu-parser` parsed instead of the lowering (in `nu`:
+`nu --log-level debug --log-include nu_parser::winnow ...`, log flags first).
 
 ## When the Nushell checkout moves
 
@@ -162,7 +163,7 @@ statements `nu-parser` parsed instead of the lowering.
 cd tools/nushell-harness; CARGO_TARGET_DIR=../../../../target cargo build --release --bin differential --bin nu-parser-check --bin builtin-commands; cd ../..
 nu tools/scripts/gen-builtin-commands.nu # the commands the parser knows, from the new engine
 nu tools/scripts/extract-corpus.nu       # new command examples and book blocks
-cargo test --test traceability           # new SyntaxShape / keyword / ParseError variants show up here
+cargo test --test traceability -- --include-ignored   # new SyntaxShape / keyword / ParseError variants show up here
 nu tools/scripts/verify.nu --save tools/scripts/verify-history.nuon
 ```
 

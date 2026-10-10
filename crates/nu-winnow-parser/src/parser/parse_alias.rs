@@ -1,6 +1,6 @@
 //! `alias` (nu-parser's `parse_alias.rs`).
 
-use crate::ast::{Alias, Expr, Expression};
+use crate::ast::{Alias, Call, Expr, Expression};
 use crate::error::Diagnostic;
 use crate::input::{ParseResult, cut};
 use crate::lex::{AssignmentOperator, Token, TokenContents};
@@ -16,7 +16,7 @@ use super::parse_keywords::{
 };
 use super::parse_signatures::parse_definition_name;
 use super::tokens::Tokens;
-use super::working_set::DeclKind;
+use super::working_set::{AliasedKeyword, DeclKind};
 
 /// An aliased `if`, `match` or `try`, which nu parses with the keyword's own
 /// signature, forgiving only missing positionals: a complete one is parsed as
@@ -53,6 +53,26 @@ fn parse_aliased_keyword<'a>(
         _ => {}
     }
     Ok(None)
+}
+
+/// How a call to an alias of `call` parses: with external arguments when its
+/// command takes them, and, when the alias gives no arguments, as its command
+/// when that is a row-condition command or `if`, `match` or `try` (`alias m =
+/// match`, and an alias of such an alias).
+fn call_alias_kind(working_set: &WorkingSet<'_>, call: &Call<'_>) -> DeclKind {
+    let kind = working_set.find_decl(&call.head.name);
+    if kind == Some(DeclKind::Wrapped) {
+        return DeclKind::Wrapped;
+    }
+    if !call.arguments.is_empty() {
+        return DeclKind::Declared;
+    }
+    match kind {
+        Some(kind @ (DeclKind::RowCondition | DeclKind::KeywordAlias(_))) => kind,
+        // A command of the file named `match` is no keyword.
+        _ if working_set.is_declared(&call.head.name) => DeclKind::Declared,
+        _ => AliasedKeyword::from_name(&call.head.name).map_or(DeclKind::Declared, DeclKind::KeywordAlias),
+    }
 }
 
 /// nu's `check_alias_name`, which looks at the items after `alias` by
@@ -180,7 +200,7 @@ pub fn parse_alias<'a>(mut tokens: Tokens<'_, 'a>, exported: bool) -> ParseResul
     // arguments.
     let kind = match &value.expr {
         Expr::ExternalCall(_) => DeclKind::ExternalAlias,
-        Expr::Call(call) if working_set.find_decl(&call.head.name) == Some(DeclKind::Wrapped) => DeclKind::Wrapped,
+        Expr::Call(call) => call_alias_kind(working_set, call),
         _ => DeclKind::Declared,
     };
     working_set.add_alias(&name.item, kind);

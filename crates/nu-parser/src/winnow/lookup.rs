@@ -8,11 +8,11 @@
 use std::{cell::RefCell, rc::Rc};
 
 use nu_protocol::{
-    DeclId, SyntaxShape,
+    DeclId, Signature, SyntaxShape,
     ast::Expr,
     engine::{CommandType, OverlayFrame, ScopeFrame, StateWorkingSet, longest_decl_name},
 };
-use nu_winnow_parser::{CommandLookup, DeclKind};
+use nu_winnow_parser::{AliasedKeyword, CommandLookup, DeclKind};
 
 use crate::parse_calls::find_decl_with_command_type;
 
@@ -65,6 +65,12 @@ impl CommandLookup for EngineLookup<'_, '_, '_> {
     fn is_builtin_decl(&self, name: &str) -> bool {
         let working_set = self.working_set.borrow();
         find_decl_with_command_type(&working_set, name.as_bytes(), CommandType::Builtin).is_some()
+    }
+
+    /// The lowering parses such a block again, once the statements before it have changed
+    /// the commands (`Lower::block`).
+    fn defers_command_changing_blocks(&self) -> bool {
+        true
     }
 }
 
@@ -184,11 +190,16 @@ impl CommandLookup for AskedLookup<'_> {
             .push(Asked::Builtin(Box::from(name), builtin));
         builtin
     }
+
+    /// As [`EngineLookup`] answers it.
+    fn defers_command_changing_blocks(&self) -> bool {
+        true
+    }
 }
 
-/// What `lookup` (the live working set's) answers differently from `asked`, or a changed bound
-/// on name lengths (it was `longest_name` once the block's definitions were declared); `None`
-/// when nothing changed, and parsing with `lookup` would then have given the same tree.
+/// What `lookup` (the live working set's) answers differently from `asked`, or a live bound on
+/// name lengths above `longest_name`, the one the statement was parsed within; `None` when
+/// nothing changed, and parsing with `lookup` would then have given the same tree.
 ///
 /// The tree of a statement depends only on the source, on the winnow parser's own state (the
 /// names it declared itself, the same on either thread) and on what its lookup answers. The
@@ -196,18 +207,18 @@ impl CommandLookup for AskedLookup<'_> {
 /// would have taken the same path and asked the same next question; `is_decl_name_prefix` is
 /// `true` in both lookups. The bound is compared rather than replayed: the parser looks up no
 /// candidate name longer than it, so a larger live bound could have found a name the thread
-/// never asked about. What raised the bound between the copy and the declaration of the block's
-/// definitions does not count: the block's definitions, whose names the winnow parser declared
-/// in its own scopes and searches as far for on either thread, and the names of other engines in
-/// the process, which this working set cannot find. The bound is the whole process's and only
-/// grows, so a longer name declared anywhere after that counts as a change.
+/// never asked about. The thread's bound counts the names the winnow parser declared itself (the
+/// block's definitions, and the aliases and nested definitions of the statements before), which
+/// it searches as far for on either thread. The live bound is the whole process's and only
+/// grows, so a longer name declared anywhere else since the copy, in another engine too, counts
+/// as a change.
 pub(super) fn changed_answer(
     lookup: &EngineLookup,
     asked: &[Asked],
     longest_name: usize,
 ) -> Option<String> {
     let longest = longest_decl_name();
-    if longest != longest_name {
+    if longest > longest_name {
         return Some(format!(
             "longest command name {longest} instead of {longest_name}"
         ));
@@ -248,20 +259,39 @@ fn names_only(frame: &ScopeFrame) -> ScopeFrame {
 
 /// How the parser treats calls to `decl_id`: an alias of an external command makes an external
 /// call; a command whose rest parameter takes external arguments (an untyped `def --wrapped`),
-/// or an alias of one, has its arguments parsed like an external command's.
+/// or an alias of one, has its arguments parsed like an external command's; a command whose
+/// first positional parameter is a row condition (`any`), or an alias of one that gives it no
+/// arguments, has them parsed as one condition; and an alias of `if`, `match` or `try` that
+/// gives it no arguments makes that keyword's statement.
 pub(super) fn decl_kind(working_set: &StateWorkingSet, decl_id: DeclId) -> DeclKind {
     let decl = working_set.get_decl(decl_id);
     if let Some(alias) = decl.as_alias() {
-        return match &alias.wrapped_call.expr {
-            Expr::ExternalCall(..) => DeclKind::ExternalAlias,
-            Expr::Call(call) if takes_external_arguments(working_set, call.decl_id) => {
-                DeclKind::Wrapped
+        let Expr::Call(call) = &alias.wrapped_call.expr else {
+            return match alias.wrapped_call.expr {
+                Expr::ExternalCall(..) => DeclKind::ExternalAlias,
+                _ => DeclKind::Declared,
+            };
+        };
+        let signature = working_set.get_signature_shared(call.decl_id);
+        return if takes_external_arguments(&signature) {
+            DeclKind::Wrapped
+        } else if !call.arguments.is_empty() {
+            DeclKind::Declared
+        } else if takes_row_condition(&signature) {
+            DeclKind::RowCondition
+        } else {
+            let target = working_set.get_decl(call.decl_id);
+            match AliasedKeyword::from_name(target.name()) {
+                Some(keyword) if target.is_keyword() => DeclKind::KeywordAlias(keyword),
+                _ => DeclKind::Declared,
             }
-            _ => DeclKind::Declared,
         };
     }
-    if takes_external_arguments(working_set, decl_id) {
+    let signature = working_set.get_signature_shared(decl_id);
+    if takes_external_arguments(&signature) {
         DeclKind::Wrapped
+    } else if takes_row_condition(&signature) {
+        DeclKind::RowCondition
     } else if decl.command_type() == CommandType::Builtin {
         DeclKind::Builtin
     } else {
@@ -269,12 +299,19 @@ pub(super) fn decl_kind(working_set: &StateWorkingSet, decl_id: DeclId) -> DeclK
     }
 }
 
-/// Whether the rest parameter of `decl_id` has the `external_arg` shape, which `def --wrapped`
-/// gives an untyped rest parameter.
-fn takes_external_arguments(working_set: &StateWorkingSet, decl_id: DeclId) -> bool {
-    working_set
-        .get_signature_shared(decl_id)
+/// Whether the rest parameter has the `external_arg` shape, which `def --wrapped` gives an
+/// untyped rest parameter.
+fn takes_external_arguments(signature: &Signature) -> bool {
+    signature
         .rest_positional
         .as_ref()
         .is_some_and(|rest| rest.shape == SyntaxShape::ExternalArgument)
+}
+
+/// Whether the first positional parameter is a row condition (`any`, `take while`).
+fn takes_row_condition(signature: &Signature) -> bool {
+    signature
+        .required_positional
+        .first()
+        .is_some_and(|positional| positional.shape == SyntaxShape::RowCondition)
 }

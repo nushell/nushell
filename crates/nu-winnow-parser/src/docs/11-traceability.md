@@ -63,7 +63,7 @@ enum name), with which its default value is parsed
 | `Operator` | `parse_expressions::parse_operator`, `Operator::from_spelling` | `accept/operators/*.nu` `reject/operators/*.nu` | `all_operators_parse` `unknown_operators_get_help` |
 | `Range` | `parse_literals::parse_range`, `is_range_syntax` | `accept/ranges/*.nu` `reject/ranges/*.nu` | `ranges` `bad_ranges` |
 | `Record` | `parse_expressions::parse_record` (the interior is read token by token with `lex::next_token`) | `accept/records/*.nu` `reject/records/*.nu` | `records` `bare_colons_in_records_are_refused` |
-| `RowCondition` | `parse_source::parse_where`, `parse_expressions::parse_row_condition` (`expand_to_cell_path` makes a bare left operand a `$it` cell path) | `accept/where/*.nu` `reject/where/*.nu` | `where_row_conditions` `empty_braces_as_row_condition` |
+| `RowCondition` | `parse_source::parse_where`, `parse_source::parse_condition` (also for `DeclKind::RowCondition` calls), `parse_expressions::parse_row_condition` (`expand_to_cell_path` makes a bare left operand a `$it` cell path) | `accept/where/*.nu` `reject/where/*.nu` `accept/calls/row-condition-*.nu` | `where_row_conditions` `empty_braces_as_row_condition` |
 | `Signature` | `parse_signatures::parse_signature`, `check_parameter_order` | `accept/signatures/*.nu` `reject/signatures/*.nu` `accept/def/*.nu` `reject/def/*.nu` | `def_forms` `signature_forms_from_nushell_tests` |
 | `ExternalSignature` | `parse_def::parse_extern` (same signature parser) | `accept/extern/*.nu` `reject/def/extern-*.nu` | `extern_alias_module_use_export` |
 | `String` | `parse_literals::parse_string`, `parse_string_literal` | `accept/strings/*.nu` `reject/strings/*.nu` | `strings_all_quote_styles` `string_values` `string_escape_errors` |

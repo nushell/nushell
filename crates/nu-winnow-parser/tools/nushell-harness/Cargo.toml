@@ -28,6 +28,7 @@ nu-std = { path = "../../../nu-std", features = ["sqlite"] }
 nu-experimental = { path = "../../../nu-experimental" }
 # The versions the root `Cargo.toml` uses (a separate workspace cannot inherit them).
 chrono = { version = "0.4.45", default-features = false, features = ["std"] }
+log = "0.4.34"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.149"
 

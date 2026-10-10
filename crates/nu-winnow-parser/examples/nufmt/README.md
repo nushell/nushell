@@ -205,7 +205,10 @@ themselves from the source.
 1. `parse_with` gives the tree; `ast.comments` becomes a cursor of comments
    still to print, and the `--` markers nu drops after a keyword (in
    `ast.ignored`: `return -- -1`) a second one, each written back before the
-   next part of its statement.
+   next part of its statement. The rest of `ast.ignored` (`[a o> b]`, the
+   defaults of an `extern`) is text the tree does not hold: the innermost
+   statement holding some is copied as written, so formatting never deletes
+   it.
 2. `block_body` walks pipelines. Before each one it flushes the comments that
    precede it; after each one it prints the trailing comments on its line.
 3. Every atom (number, string, variable, cell path, flag, operator) is

@@ -99,7 +99,8 @@ pub fn parse_if<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
             Some(Else { keyword: else_keyword.span, body: Box::new(body) })
         }
     };
-    let if_expression = If { condition: Box::new(condition), then_block, then_value, else_branch };
+    let if_expression =
+        If { keyword: call.keyword.span, condition: Box::new(condition), then_block, then_value, else_branch };
     call.finish(Expression::new(Expr::If(if_expression), span))
 }
 
@@ -128,7 +129,8 @@ pub fn parse_match<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>
         _ => return Err(cut(Diagnostic::expected("match block", block.span))),
     };
     call.end(&mut tokens)?;
-    let match_expression = Match { value: Box::new(value), block_span: block.span, arms, value_block };
+    let match_expression =
+        Match { keyword: call.keyword.span, value: Box::new(value), block_span: block.span, arms, value_block };
     let span = call.keyword.span.merge(block.span);
     call.finish(Expression::new(Expr::Match(match_expression), span))
 }
@@ -215,7 +217,8 @@ pub fn parse_try<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> 
         let body = Box::new(parse_try_handler(working_set, &handler)?);
         handlers.push(Handler { kind, keyword: handler_keyword.span, body });
     }
-    call.finish(Expression::new(Expr::Try(Try { body, body_value, handlers }), span))
+    let keyword = call.keyword.span;
+    call.finish(Expression::new(Expr::Try(Try { keyword, body, body_value, handlers }), span))
 }
 
 /// A `catch`/`finally` handler: a closure, or a variable, subexpression or

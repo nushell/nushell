@@ -244,15 +244,15 @@ word starts a multi-word command). Backtracking is cheap because a backtrack
 is a position and nothing else; keep it that way, and do not build a
 `Diagnostic` for a failure that an `alt` or `opt` may throw away.
 
-Measure a change with criterion's named baselines:
+Measure a change with tango, against the benchmark built from the code before it:
 
 ```text
-cargo bench --bench parse -- --save-baseline before    # on the code before the change
-cargo bench --bench parse -- --baseline before         # after it: the change of every benchmark
+cargo export target/tango/before -- bench --bench parse          # on the code before the change
+cargo bench --bench parse -- compare target/tango/before/parse   # after it: the change of every benchmark
 ```
 
-Rewriting a loop with combinators should not slow the `parse/`, `snippets/`
-or `lexer/` groups down. A combinator can cost speed that the loop did not
+Rewriting a loop with combinators should not slow the `parse_`, `snippets_`
+or `lexer_` benchmarks down. A combinator can cost speed that the loop did not
 (an extra pass, a `Vec` collected only to be walked again); if it does and
 cannot be avoided, keep the loop. `parse --check` over `nu_scripts` gives the
 whole-corpus throughput (see `how-to.md`).

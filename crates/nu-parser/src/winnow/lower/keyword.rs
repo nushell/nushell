@@ -35,6 +35,11 @@ impl<'s> Lower<'_, '_, 's> {
     /// registered in the working set, as `parse_internal_call` registers it (as do the other
     /// calls the lowering builds).
     fn keyword_call(&mut self, e: &w::Expression<'s>, name: &str) -> Lowered<(Call, DeclId)> {
+        // The statement of a call through an alias of the keyword (`alias m = match`), whose
+        // call the classic parser makes with the alias.
+        if self.text(e.span).split_ascii_whitespace().next() != Some(name) {
+            return Err(Unlowered::Unsupported("call through an alias of a keyword"));
+        }
         let decl_id = self
             .working_set
             .find_decl(name.as_bytes())

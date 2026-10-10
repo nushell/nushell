@@ -93,3 +93,36 @@ fn attribute_head_keeps_a_second_at_sign() -> Result {
     assert_eq!(working_set.get_span_contents(call.head), b"@foo");
     Ok(())
 }
+
+/// A definition's description holds the comments nu's lite parser gives its command: a comment
+/// after a `;`, or after a `|` that ends its pipeline, on that line goes to the next command,
+/// even past blank lines, unless comment lines come right before that one; a blank line right
+/// above a line-leading `|` is no blank line to nu's lexer.
+#[rstest]
+#[case::after_semicolon_to_the_next(
+    "def foo [] {}; # my desc\ndef bar [] {} # bar desc",
+    "bar",
+    "my desc\nbar desc"
+)]
+#[case::after_semicolon_not_the_previous("def foo [] {}; # my desc\ndef bar [] {}", "foo", "")]
+#[case::after_semicolon_past_blank_lines("let a = 1; # note\n\n\ndef bar [] {}", "bar", "note")]
+#[case::after_semicolon_to_a_definition_nu_parser_parses(
+    "let a = 1; # note\n\ndef bar [] {|x| 1 }",
+    "bar",
+    "note"
+)]
+#[case::lone_semicolon("let a = 1\n; # c\ndef foo [] {}", "foo", "c")]
+#[case::semicolon_ending_a_definition("extern e [];# d\nlet a = 1", "e", "")]
+#[case::after_a_dangling_pipe("ls |# c\n\ndef k [] {}", "k", "c")]
+#[case::comment_lines_after_a_dangling_pipe("def f [] { 1 } |\n# c\n\ndef g [] { 2 }", "g", "")]
+#[case::blank_line_before_a_leading_pipe("# d\n\n| def k [] {}", "k", "d")]
+#[nu_test_support::test]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn description_takes_the_comments_nu_gives_the_command(
+    #[case] code: &str,
+    #[case] name: &str,
+    #[case] description: &str,
+) -> Result {
+    let code = format!("{code}\nscope commands | where name == {name} | get 0.description");
+    test().run(code).expect_value_eq(description)
+}

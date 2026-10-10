@@ -137,7 +137,8 @@ pub fn parse_export_in_block(
                     Span::concat(&lite_command.parts),
                 ));
             };
-            garbage_pipeline(working_set, &lite_command.parts)
+            // The error is reported: there is no definition for `warp_export_call` to export.
+            return garbage_pipeline(working_set, &lite_command.parts);
         }
     };
 

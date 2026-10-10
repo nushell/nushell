@@ -57,10 +57,17 @@ Comments are attached while grouping, following nu-parser's rules:
 * A comment on its own line is a **leading comment** of the next pipeline
   (`Pipeline::leading_comments`), unless a blank line separates them, in
   which case it is dropped from the attachment (it stays in `Ast::comments`).
+  A blank line right above a line-leading `|` does not count: nu's lexer turns
+  the end of line before that `|` into it (`# doc\n\n| def f [] {}`).
   For a `def`, leading comments are its documentation.
 * A comment after the last token of a line is a **trailing comment** of that
   pipeline (`Pipeline::trailing_comments`), as are comments between the
   elements of a multi-line pipeline.
+* A comment after a `;`, or after a `|` that ends its pipeline, on that line,
+  is carried to the next statement: nu's lite parser puts it in the command it
+  starts there. It is that statement's leading comment, past blank lines too,
+  unless comment lines come right before the statement, which nu puts in its
+  place (`def foo [] {}; # doc\ndef bar [] {}` documents `bar`).
 * Every comment, attached or not, is recorded in `Ast::comments` (sorted, in
   source order). Nested constructs record theirs through
   `working_set.add_comment`.
@@ -99,6 +106,8 @@ fn parse_pipeline<'a>(tokens: &mut Tokens<'_, 'a>, leading_comments: Vec<Comment
             pipe = Some(token.span);
             tokens.next_token();
             if let AfterPipe::Dangling = after_pipe(tokens, true, &mut trailing_comments)? {   // after a `|`
+                // the first `|` of the run is `dangling_pipe`; with more, the last goes on to the
+                // next statement (`carried_pipe`), and so do the comments beside them
                 break 'commands;
             }
         }
@@ -126,7 +135,7 @@ fn parse_pipeline<'a>(tokens: &mut Tokens<'_, 'a>, leading_comments: Vec<Comment
         elements.push(PipelineElement { span, pipe: *pipe, expr, redirection });
     }
     let terminator = /* a following `;` */;
-    Ok(Some(Pipeline { span, elements, leading_comments, trailing_comments, terminator }))
+    Ok(Some(Pipeline { span, elements, leading_comments, trailing_comments, terminator, dangling_pipe }))
 }
 ```
 

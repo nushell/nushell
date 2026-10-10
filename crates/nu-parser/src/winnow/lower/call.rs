@@ -221,19 +221,22 @@ impl<'s> Lower<'_, '_, 's> {
                         call.add_unknown(value);
                     }
                 }
-                w::Argument::Named(flag) if !end_of_options => {
-                    // `-inf` or `-nan`, which `parse_short_flags` reads as a number here.
-                    if !flag.long
-                        && is_negative_number(self.text(flag.span), signature, positional_idx)
-                    {
-                        return Err(Unlowered::Unsupported("`-inf` or `-nan` as a number"));
-                    }
+                w::Argument::Named(flag)
+                    if !end_of_options
+                        && (flag.long
+                            || !is_negative_number(
+                                self.text(flag.span),
+                                signature,
+                                positional_idx,
+                            )) =>
+                {
                     let taken = self.flag(call, flag, arguments.get(index), signature)?;
                     if taken {
                         index += 1;
                     }
                 }
-                // After `--`, a flag or another `--` is an ordinary positional.
+                // After `--`, a flag or another `--` is an ordinary positional, and so is
+                // `-inf` or `-nan` for a positional that takes a number (`parse_short_flags`).
                 w::Argument::Named(w::NamedArgument { span, .. })
                 | w::Argument::EndOfOptions(span) => {
                     let span = self.span(*span);
@@ -257,23 +260,43 @@ impl<'s> Lower<'_, '_, 's> {
                 }
                 w::Argument::Positional(expr) => {
                     // Before `--`, an item starting with `-` is short flags unless it is a
-                    // negative number for the next positional (`parse_short_flags`).
+                    // negative number for the next positional (`parse_short_flags`): the
+                    // command's own flags when it has them all (`def f [--one(-1)]; f -1`),
+                    // else an unknown flag, which `extern` and `def --wrapped` commands take
+                    // as an argument (`f -1` for `def --wrapped f [...rest]`).
                     let text = self.text(expr.span);
                     if !end_of_options
                         && text.len() > 1
                         && text.starts_with('-')
                         && !is_negative_number(text, signature, positional_idx)
                     {
-                        return Err(Unlowered::Error);
+                        let Some(name) =
+                            text.strip_prefix('-').filter(|name| !name.starts_with('-'))
+                        else {
+                            return Err(Unlowered::Error);
+                        };
+                        let flags = w::NamedArgument {
+                            span: expr.span,
+                            name,
+                            long: false,
+                            value: None,
+                        };
+                        if self.flag(call, &flags, arguments.get(index), signature)? {
+                            index += 1;
+                        }
+                        continue;
                     }
                     if let Some(positional) = signature.get_positional(positional_idx) {
                         let shape = &positional.shape;
                         // A row condition reads the items from here on (`parse_multispan_value`):
                         // a closure that is the call's last item is one by itself
-                        // (`parse_row_condition`).
+                        // (`parse_row_condition`), and so is the call's only argument when it
+                        // is the first positional, which the winnow parser read as one
+                        // condition (`DeclKind::RowCondition`).
                         let value = if matches!(shape, SyntaxShape::RowCondition)
                             && index == arguments.len()
-                            && matches!(expr.expr, w::Expr::Closure(_))
+                            && (matches!(expr.expr, w::Expr::Closure(_))
+                                || arguments.len() == 1 && positional_idx == 0)
                         {
                             self.row_condition(expr)?
                         } else if is_multispan_shape(shape) {

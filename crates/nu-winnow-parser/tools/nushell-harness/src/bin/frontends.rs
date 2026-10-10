@@ -7,7 +7,9 @@
 //! frontends allocs FILE|DIR ...               # allocations per parse (`--features count-allocs`)
 //! ```
 //!
-//! With `--clean`, files the classic front end rejects are left out.
+//! With `--clean`, files the classic front end rejects are left out. With `--log`, each
+//! statement the winnow front end hands to the classic one is written to standard error with
+//! the reason (the `winnow: ` lines nu-parser logs at the debug level).
 //!
 //! Both front ends parse each file in a fresh working set over the same engine (the `nu`
 //! binary's commands and the standard library), with the file on the file stack so relative
@@ -53,6 +55,11 @@ fn main() {
             "--iters" => iters = it.next().and_then(|n| n.parse().ok()).unwrap_or(iters),
             "--show" => show = true,
             "--clean" => clean = true,
+            "--log" => {
+                if log::set_logger(&HandOverLog).is_ok() {
+                    log::set_max_level(log::LevelFilter::Debug);
+                }
+            }
             path => paths.push(PathBuf::from(path)),
         }
     }
@@ -124,6 +131,24 @@ fn main() {
             std::process::exit(2);
         }
     }
+}
+
+/// `--log`: the winnow front end's hand-overs to the classic parser, as nu-parser logs them,
+/// each message on its own line of standard error.
+struct HandOverLog;
+
+impl log::Log for HandOverLog {
+    fn enabled(&self, metadata: &log::Metadata) -> bool {
+        metadata.target().starts_with("nu_parser::winnow")
+    }
+
+    fn log(&self, record: &log::Record) {
+        if self.enabled(record.metadata()) {
+            eprintln!("{}", record.args());
+        }
+    }
+
+    fn flush(&self) {}
 }
 
 fn set_winnow(on: bool) {

@@ -22,7 +22,9 @@ fn structure(src: &str) -> String {
         let words: Vec<&str> = line
             .split(' ')
             .filter(|w| !(w.contains("..") && w.starts_with(|c: char| c.is_ascii_digit())))
-            .filter(|w| !w.starts_with("comments=") && !w.starts_with("terminator="))
+            .filter(|w| {
+                !w.starts_with("comments=") && !w.starts_with("terminator=") && !w.starts_with("dangling_pipe=")
+            })
             .collect();
         out.push_str(&words.join(" "));
         out.push('\n');
@@ -339,6 +341,44 @@ fn keeps_end_of_options_after_keywords() {
     // them, and never becomes an item.
     let out = fmt("[a o> -- b]\n");
     assert!(!out.contains("a -- b"), "{out}");
+}
+
+/// Text nu accepts and discards (`Ast::ignored`) is not in the tree: the
+/// statement holding it is copied as written, so that it is not deleted, and
+/// only that statement.
+#[test]
+fn keeps_text_nu_ignores() {
+    let fmt = |s: &str| format(s, &Options::default()).unwrap();
+    for src in [
+        "extern foo [x: int = 5, --flag: string = \"a\"]\n",
+        "let x = [a b o> file.txt c]\n",
+        "def f [] {} { }\n",
+        "export-env { $env.A = 1 } o> x.txt\n",
+        "use std [1 assert].x\n",
+    ] {
+        assert_eq!(fmt(src), src, "{src}");
+        check(src, src);
+    }
+    assert_eq!(
+        fmt("let x = {||\n  [a   b o> f c]\n}\nls|length\n"),
+        "let x = {||\n    [a   b o> f c]\n}\nls | length\n"
+    );
+}
+
+/// A `|` that no command follows, which nu drops, is written back. Of a run of
+/// them (`a | |`), the last goes with the next statement as a leading `|`, which
+/// the formatter leaves out like any other; that statement stays apart.
+#[test]
+fn keeps_dangling_pipes() {
+    let fmt = |s: &str| format(s, &Options::default()).unwrap();
+    for (src, expected) in
+        [("ls |\n\nls\n", "ls |\n\nls\n"), ("ls\n|\n\nls\n", "ls |\n\nls\n"), ("ls | # c\n\nls\n", "ls | # c\n\nls\n")]
+    {
+        assert_eq!(fmt(src), expected, "{src}");
+        check(src, src);
+    }
+    let src = "a | |\n\nb\n";
+    assert_eq!(check_with(src, src, &Options::default()), "a |\n\nb\n");
 }
 
 /// `if(true){1}else{2}` is one word to Nushell; it is written as an `if`.

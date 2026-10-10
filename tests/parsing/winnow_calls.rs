@@ -39,6 +39,29 @@ fn dash_item_is_flags_or_a_negative_number(#[case] code: &str, #[case] expected:
     test().run(code).expect_value_eq(expected)
 }
 
+/// An `extern` or `def --wrapped` command takes an item starting with `-` that is none of its
+/// flags as an argument, as `parse_short_flags` does: the lowering passes it through, without
+/// the classic parser.
+#[test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn wrapped_command_takes_unknown_dash_items() -> Result {
+    let mut tester = test();
+    let before = nu_parser::winnow_stats();
+    tester
+        .run("def --wrapped f [...rest] { $rest }; f -1 -x --y 5")
+        .expect_value_eq(["-1", "-x", "--y", "5"])?;
+    tester
+        .run("def --wrapped g [--one(-1), ...rest] { [$one $rest] | to nuon }; g -1 -2")
+        .expect_value_eq(r#"[true, ["-2"]]"#)?;
+    let after = nu_parser::winnow_stats();
+    assert_eq!(
+        after.classic_statements, before.classic_statements,
+        "a statement was handed to the classic parser"
+    );
+    Ok(())
+}
+
 /// After an alias of a command, the words that follow may name a subcommand of the aliased
 /// command, which is then the command called (`find_longest_decl_with_prefix`).
 #[rstest]
@@ -142,4 +165,55 @@ fn closure_row_condition_is_lowered() -> Result {
         "a statement was handed to the classic parser"
     );
     Ok(())
+}
+
+/// The arguments of a command taking a row condition (`any`, `take while`, `record where`,
+/// or an alias of one) are read as one condition, as `where`'s, and lowered without the
+/// classic parser.
+#[test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn bare_row_condition_is_lowered() -> Result {
+    let mut tester = test();
+    let before = nu_parser::winnow_stats();
+    tester.run("[1 2 3] | any $it > 2").expect_value_eq(true)?;
+    tester
+        .run("[{a: 1} {a: 5}] | all a > 0")
+        .expect_value_eq(true)?;
+    tester
+        .run("[1 2 3 4] | take while $it < 3 | length")
+        .expect_value_eq(2)?;
+    tester
+        .run("{a: 1, b: 2} | record where $it.value > 1 | columns")
+        .expect_value_eq(["b"])?;
+    tester
+        .run("alias a = any; [1 2 3] | a $it > 2")
+        .expect_value_eq(true)?;
+    let after = nu_parser::winnow_stats();
+    // The `alias` statement goes to the classic parser by design.
+    assert_eq!(
+        after.classic_statements - before.classic_statements,
+        1,
+        "a statement was handed to the classic parser"
+    );
+    Ok(())
+}
+
+/// A call through an alias of `match`, `if` or `try` parses as the keyword's statement; only
+/// that statement goes to the classic parser, which makes the call with the alias.
+#[rstest]
+#[case::match_alias(r#"alias m = match; m 1 { 1 => "one", _ => "other" }"#, "one")]
+#[case::if_alias(r#"alias i = if; i false { "yes" } else { "no" }"#, "no")]
+#[case::try_alias(
+    r#"alias t = try; t { error make {msg: x} } catch { "caught" }"#,
+    "caught"
+)]
+#[case::alias_of_the_alias(
+    r#"alias m = match; alias n = m; n 2 { 1 => "one", _ => "other" }"#,
+    "other"
+)]
+#[nu_test_support::test]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn call_through_an_alias_of_a_keyword(#[case] code: &str, #[case] expected: &str) -> Result {
+    test().run(code).expect_value_eq(expected)
 }

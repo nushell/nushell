@@ -77,6 +77,8 @@
 //! [`ENV`] if the variable assigns it, and from its [`Status`] otherwise. So the environment
 //! variable applies even without calling [`parse_env`], which is how
 //! `NU_EXPERIMENTAL_OPTIONS=<option> cargo test` runs a test suite with an option enabled.
+//! The `nu` binary does not want that where it skips the variable (a script, `-c` or `-n`
+//! without config files): there it sets every option to its default first.
 
 use crate::util::AtomicMaybe;
 use std::{any::TypeId, fmt::Debug, hash::Hash, sync::atomic::Ordering};
@@ -117,6 +119,15 @@ impl Status {
         match self {
             Status::OptIn | Status::OptOut => false,
             Status::DeprecatedDefault | Status::DeprecatedDiscard => true,
+        }
+    }
+
+    /// The value of an option with this status that nothing set: enabled only for
+    /// [`OptOut`](Status::OptOut).
+    pub const fn default_value(self) -> bool {
+        match self {
+            Status::OptOut => true,
+            Status::OptIn | Status::DeprecatedDefault | Status::DeprecatedDiscard => false,
         }
     }
 }
@@ -185,12 +196,7 @@ impl ExperimentalOption {
         self.value
             .load(Ordering::Relaxed)
             .or_else(|| parse::env_value(self))
-            .unwrap_or_else(|| match self.marker.status() {
-                Status::OptIn => false,
-                Status::OptOut => true,
-                Status::DeprecatedDiscard => false,
-                Status::DeprecatedDefault => false,
-            })
+            .unwrap_or_else(|| self.marker.status().default_value())
     }
 
     /// Sets the state of an experimental option.

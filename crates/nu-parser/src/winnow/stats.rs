@@ -3,20 +3,18 @@
 //! read with `nu_parser::winnow_stats()`: the `frontends` harness
 //! (`crates/nu-winnow-parser/tools/nushell-harness`) prints them after `compare` and `bench`.
 //!
-//! With `NU_WINNOW_LOG` set to any value (`NU_WINNOW_LOG=1`), read once per process, each
-//! hand-over to the classic parser is written to standard error with its reason, to find what
-//! the lowering still lacks: a statement the lowering gives back, the rest of a block from a
-//! statement the winnow parser reported a syntax error in, and each run parsed ahead whose
-//! answers about command names changed.
+//! Each hand-over to the classic parser is also logged at the debug level, with its reason, to
+//! find what the lowering still lacks: a statement the lowering gives back, the rest of a block
+//! from a statement the winnow parser reported a syntax error in, and each run parsed ahead
+//! whose answers about command names changed. Every message starts with `winnow: `; to see
+//! them, run `nu --log-level debug --log-include nu_parser::winnow`, or `frontends --log`.
 
 use std::{
     fmt::Display,
-    sync::{
-        OnceLock,
-        atomic::{AtomicU64, Ordering::Relaxed},
-    },
+    sync::atomic::{AtomicU64, Ordering::Relaxed},
 };
 
+use log::{Level, debug, log_enabled};
 use nu_protocol::{Span, engine::StateWorkingSet};
 use nu_winnow_parser::Diagnostic;
 
@@ -87,13 +85,10 @@ pub(super) fn record_ahead_run() {
 }
 
 /// Count a run whose statement the classic parser had to take, because the live working set
-/// answered a question about command names differently (`changed`), and log it with
-/// `NU_WINNOW_LOG`.
+/// answered a question about command names differently (`changed`), and log it.
 pub(super) fn record_ahead_fallback(changed: &str) {
     AHEAD_FALLBACKS.fetch_add(1, Relaxed);
-    if log() {
-        eprintln!("winnow: parsed ahead with other command names: {changed}");
-    }
+    debug!("winnow: parsed ahead with other command names: {changed}");
 }
 
 /// Count a statement the lowering turned into the AST.
@@ -112,14 +107,14 @@ pub(super) fn record_classic_statement(bytes: usize, had_errors: bool) {
 }
 
 /// Count a statement the lowering gave back (it is then counted as a classic statement), and
-/// log it with `NU_WINNOW_LOG`.
+/// log it.
 pub(super) fn record_unlowered(span: Span, reason: &Unlowered, working_set: &StateWorkingSet) {
     record_classic_statement(span.len(), false);
     log_hand_over(reason.reason(), span, working_set);
 }
 
 /// Count the rest of a block, covering `span`, handed to the classic parser from a statement
-/// the winnow parser reported `error` in, and log it with `NU_WINNOW_LOG`.
+/// the winnow parser reported `error` in, and log it.
 pub(super) fn record_error_statement(
     span: Span,
     error: &Diagnostic,
@@ -133,22 +128,16 @@ pub(super) fn record_error_statement(
     );
 }
 
-/// With `NU_WINNOW_LOG`, write a hand-over of `span` to the classic parser to standard error:
-/// `why`, its length and its first line of code.
+/// Log a hand-over of `span` to the classic parser: `why`, its length and its first line of
+/// code.
 fn log_hand_over(why: impl Display, span: Span, working_set: &StateWorkingSet) {
-    if log() {
+    if log_enabled!(Level::Debug) {
         let text = String::from_utf8_lossy(working_set.get_span_contents(span));
         let first_line = text
             .lines()
             .map(str::trim)
             .find(|line| !line.is_empty() && !line.starts_with('#'))
             .unwrap_or_default();
-        eprintln!("winnow: {why}: {} bytes: {first_line}", span.len());
+        debug!("winnow: {why}: {} bytes: {first_line}", span.len());
     }
-}
-
-/// Whether `NU_WINNOW_LOG` is set.
-fn log() -> bool {
-    static LOG: OnceLock<bool> = OnceLock::new();
-    *LOG.get_or_init(|| std::env::var_os("NU_WINNOW_LOG").is_some())
 }

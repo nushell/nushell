@@ -101,8 +101,8 @@ impl<'a> Printer<'a> {
         }
     }
 
-    /// A `Pipeline` line with its comment count and `;` terminator, then each
-    /// element: its `|`, its expression and its redirection.
+    /// A `Pipeline` line with its comment count, `;` terminator and dangling
+    /// `|`, then each element: its `|`, its expression and its redirection.
     fn pipeline(&mut self, pipeline: &Pipeline<'a>) {
         let comments = pipeline.leading_comments.len() + pipeline.trailing_comments.len();
         let mut extra = String::new();
@@ -111,6 +111,9 @@ impl<'a> Printer<'a> {
         }
         if let Some(terminator) = pipeline.terminator {
             let _ = write!(extra, " terminator={terminator}");
+        }
+        if let Some(pipe) = pipeline.dangling_pipe {
+            let _ = write!(extra, " dangling_pipe={pipe}");
         }
         self.line(format_args!("Pipeline {}{extra}", pipeline.span));
         self.nested(|printer| {

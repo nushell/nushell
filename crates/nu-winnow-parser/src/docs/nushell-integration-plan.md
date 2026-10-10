@@ -43,9 +43,11 @@ source ──▶ parse_block_streaming (this crate) ──▶ one statement's sy
   contains a statement changing which commands exist is parsed again,
   statement by statement: a `module` or an `export`, or a statement whose
   first words are `use`, `overlay`, `hide`, `source`, `source-env`, `run`,
-  `export use` or `plugin use`. When a statement that `nu-parser` parsed
-  calls `overlay use`, `overlay hide` or `overlay new` through an alias,
-  `nu-parser` also parses the rest of that block.
+  `export use` or `plugin use`. This crate leaves such a block unparsed in
+  the first place (`CommandLookup::defers_command_changing_blocks`), an
+  inline module's body among them, so it is parsed once. When a statement
+  that `nu-parser` parsed calls `overlay use`, `overlay hide` or `overlay
+  new` through an alias, `nu-parser` also parses the rest of that block.
 - **Errors.** The lowering never reports an error itself: a statement it
   finds an error in, or cannot handle, is parsed by `nu-parser` from its span,
   which reports what it always has. A statement with a syntax error hands the
@@ -58,26 +60,34 @@ source ──▶ parse_block_streaming (this crate) ──▶ one statement's sy
   through `parse_module_block`. `nu-parser` also parses a call this crate
   read for a `def --wrapped` command whose name a `hide`, `use` or
   `overlay use` has since bound to another command, and reads its arguments
-  with that command's signature.
+  with that command's signature, and a call through an alias of `if`,
+  `match` or `try`, which this crate parses as the keyword's statement and
+  `nu-parser` makes with the alias.
 
 The lowering's functions carry the names of the `nu-parser` functions they
 stand in for, and reuse `nu-parser`'s code wherever it does not read spans
 (`finish_def`, `finish_extern`, `finish_block`, `compile_block`,
-`math_result_type`, `check_call`, the predicates `is_parser_keyword`,
-`is_quoted` and `shape_allows_negative_number`, and the leaf parsers for the
-rarer shape-dependent values).
+`assemble_signature`, `math_result_type`, `check_call`, `parse_variable_expr`,
+`parse_unknown_arg`, the predicates `is_parser_keyword`, `is_quoted`,
+`is_valid_command_name` and `shape_allows_negative_number`, and the leaf
+parsers for the rarer shape-dependent values).
 
 ## Checking it
 
 - The whole Nushell test suite, with the option on:
-  `NU_EXPERIMENTAL_OPTIONS=winnow-parser cargo nextest run --workspace`.
+  `NU_EXPERIMENTAL_OPTIONS=winnow-parser cargo nextest run --workspace`. The
+  variable reaches the tests that parse in their own process; the `nu`
+  processes tests spawn run with the option off (they clear their
+  environment, or skip config files, where `nu` ignores the variable).
 - `tools/nushell-harness`'s `frontends compare FILE|DIR...` parses each file
   with both front ends in one process and compares the results rendered with
   every id resolved to what it names (blocks, declarations and their
   signatures, errors, highlighting).
 - `frontends bench [--clean] [--iters N] FILE|DIR...` times both front ends
   on the same files, and this crate's syntax pass alone.
-- `NU_WINNOW_LOG=1` prints each hand-over to `nu-parser`, with the reason:
+- nu-parser logs each hand-over to `nu-parser` at the debug level, with the
+  reason (`frontends --log`, or `nu --log-level debug --log-include
+  nu_parser::winnow` with the log flags first):
   a statement the lowering gives back, the rest of a block from a statement
   with a syntax error
   (`winnow: syntax error (<kind>): <n> bytes: <first line>`), and a run

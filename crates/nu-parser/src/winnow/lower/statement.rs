@@ -50,13 +50,15 @@ impl<'s> Lower<'_, '_, 's> {
     /// it back, added to `out`; returns whether the classic parser parsed it. The errors,
     /// warnings and compile errors the lowering reported before giving up are dropped; what
     /// else it added to the working set stays, unreachable from `out` (see the module
-    /// documentation of `lower`).
+    /// documentation of `lower`). `block_errors` is where the block's errors start
+    /// ([`parse_classic`]).
     pub(in crate::winnow) fn statement_or_classic(
         &mut self,
         pipeline: &w::Pipeline<'s>,
         span: Span,
         target: &mut StatementTarget<'_>,
         out: &mut Vec<Pipeline>,
+        block_errors: &mut usize,
     ) -> bool {
         let errors = self.working_set.parse_errors.len();
         let warnings = self.working_set.parse_warnings.len();
@@ -72,7 +74,7 @@ impl<'s> Lower<'_, '_, 's> {
                 self.working_set.parse_warnings.truncate(warnings);
                 self.working_set.compile_errors.truncate(compile_errors);
                 stats::record_unlowered(span, &reason, self.working_set);
-                parse_classic(self.working_set, span, target, out);
+                parse_classic(self.working_set, span, target, out, block_errors);
                 true
             }
         }
@@ -330,7 +332,8 @@ impl<'s> Lower<'_, '_, 's> {
     /// `ErrGreaterPipe`/`OutErrGreaterPipe` arms end the command there as a `|` does.
     ///
     /// The last element, which no `|` ends, keeps a `|` after it that no command follows
-    /// (`ls |` at the end of a block), or else the last of two or more `|` before it (and the
+    /// (`ls |` at the end of a block, [`w::Pipeline::dangling_pipe`]), or else the last of two
+    /// or more `|` before it (and the
     /// first element a leading `|`), which empty commands between them hand on; an `e>|` that
     /// ends the element before counts as one of them (`^ls e>|\n| lines`).
     fn classic_pipes(&self, pipeline: &w::Pipeline<'s>) -> Vec<Option<WSpan>> {
@@ -345,7 +348,7 @@ impl<'s> Lower<'_, '_, 's> {
                     let gap_end = next.pipe.map_or(next.span.start, |pipe| pipe.start);
                     self.first_pipe(elements[index].span.end, gap_end)
                         .or(next.pipe)
-                } else if let Some(dangling) = self.dangling_pipe(&elements[index]) {
+                } else if let Some(dangling) = pipeline.dangling_pipe {
                     Some(dangling)
                 } else {
                     let pipe = elements[index].pipe?;
@@ -362,15 +365,6 @@ impl<'s> Lower<'_, '_, 's> {
                 }
             })
             .collect()
-    }
-
-    /// A `|` right after the last element of a pipeline, which no command follows: the winnow
-    /// parser drops it, the classic lite parser keeps it with the element.
-    fn dangling_pipe(&self, element: &w::PipelineElement<'s>) -> Option<WSpan> {
-        let after = self.source.get(element.span.end..)?;
-        let start = element.span.end + (after.len() - after.trim_start_matches([' ', '\t']).len());
-        (self.source[start..].starts_with('|') && !self.source[start..].starts_with("||"))
-            .then(|| WSpan::new(start, start + 1))
     }
 
     /// The first `|` between `start` and `end` of the source, outside comments.
@@ -460,8 +454,10 @@ impl<'s> Lower<'_, '_, 's> {
         // A statement that changes which commands exist (`use`, `overlay use`, `source`, ...)
         // changes how the statements after it parse, which the winnow parser could not know
         // when it parsed this block as part of its statement: the block is parsed again, one
-        // statement at a time, as a file is.
-        if block.pipelines.iter().any(changes_commands) {
+        // statement at a time, as a file is. The winnow parser leaves such a block unparsed,
+        // empty (`CommandLookup::defers_command_changing_blocks`).
+        let unparsed = block.pipelines.is_empty() && !self.text(block.span).trim().is_empty();
+        if unparsed || block.pipelines.iter().any(changes_commands) {
             let inner = self.span(block.span);
             let kind = BlockKind::Block {
                 scoped,
@@ -479,6 +475,8 @@ impl<'s> Lower<'_, '_, 's> {
             .map(|(block, _)| block)
             .ok_or(Unlowered::Unsupported("block that changes commands"));
         }
+        // Where the block's errors start (`parse_classic`).
+        let mut block_errors = self.working_set.parse_errors.len();
         if scoped {
             self.working_set.enter_scope();
         }
@@ -503,8 +501,13 @@ impl<'s> Lower<'_, '_, 's> {
                 is_subexpression,
             };
             let first = out.pipelines.len();
-            let classic =
-                self.statement_or_classic(pipeline, span, &mut target, &mut out.pipelines);
+            let classic = self.statement_or_classic(
+                pipeline,
+                span,
+                &mut target,
+                &mut out.pipelines,
+                &mut block_errors,
+            );
             // A statement the classic parser parsed may call `overlay use` through an alias
             // (which `changes_commands` cannot tell from its head), and the classic parser
             // applied it: the rest of the block, parsed before with the old commands, is parsed
@@ -523,7 +526,13 @@ impl<'s> Lower<'_, '_, 's> {
                     input_type: None,
                     is_subexpression,
                 };
-                parse_classic(self.working_set, rest, &mut target, &mut out.pipelines);
+                parse_classic(
+                    self.working_set,
+                    rest,
+                    &mut target,
+                    &mut out.pipelines,
+                    &mut block_errors,
+                );
                 break;
             }
         }
@@ -537,19 +546,31 @@ impl<'s> Lower<'_, '_, 's> {
         ))
     }
 
-    /// The span of a statement in the working set, with its doc comments and the comment after
-    /// it on its line.
+    /// The span of a statement in the working set, with its doc comments, the comment after it
+    /// on its line and a `|` after it that no command follows, which the classic parser keeps
+    /// with its last element.
+    ///
+    /// A doc comment after the `;` of the statement before (`a; # doc`) is the statement's
+    /// because the classic lite parser reads it after that `;`; read from the comment on, it is
+    /// dropped at a blank line before the statement. The span then starts at the `;`.
     pub(in crate::winnow) fn statement_span(&self, pipeline: &w::Pipeline<'s>) -> Span {
         let start = pipeline
             .leading_comments
             .first()
-            .map_or(pipeline.span.start, |comment| comment.span.start);
+            .map_or(pipeline.span.start, |comment| {
+                let before = self.source[..comment.span.start].trim_end_matches([' ', '\t']);
+                match before.strip_suffix(';') {
+                    Some(rest) => rest.len(),
+                    None => comment.span.start,
+                }
+            });
         let end = pipeline
             .trailing_comments
             .last()
-            .map_or(pipeline.span.end, |comment| {
-                comment.span.end.max(pipeline.span.end)
-            });
+            .map(|comment| comment.span.end)
+            .into_iter()
+            .chain(pipeline.dangling_pipe.map(|pipe| pipe.end))
+            .fold(pipeline.span.end, usize::max);
         self.span(WSpan::new(start, end))
     }
 }
@@ -558,11 +579,16 @@ impl<'s> Lower<'_, '_, 's> {
 /// on the working set and, in a module's body, on the module. The first of them receives the
 /// target's input, which the caller gives only to a block's first statement. Unlike the classic
 /// `parse_block`, it predeclares no definitions: the block's are declared already.
+///
+/// The classic parser lexes and lite-parses a whole block before it parses any statement, so it
+/// reports those errors (a `||`, a redirection without a target) before the errors of statements
+/// before them: they go to `block_errors`, where the block's errors start, which moves past them.
 pub(in crate::winnow) fn parse_classic(
     working_set: &mut StateWorkingSet,
     span: Span,
     target: &mut StatementTarget<'_>,
     out: &mut Vec<Pipeline>,
+    block_errors: &mut usize,
 ) {
     let subexpression = matches!(
         target,
@@ -596,12 +622,11 @@ pub(in crate::winnow) fn parse_classic(
         };
         lex(contents, span.start, &[], &[], false)
     };
-    if let Some(err) = err {
-        working_set.error(err);
-    }
-    let (lite_block, err) = lite_parse(&tokens, working_set);
-    if let Some(err) = err {
-        working_set.error(err);
+    let (lite_block, lite_err) = lite_parse(&tokens, working_set);
+    for err in [err, lite_err].into_iter().flatten() {
+        let at = (*block_errors).min(working_set.parse_errors.len());
+        working_set.parse_errors.insert(at, err);
+        *block_errors = at + 1;
     }
     out.reserve(lite_block.block.len());
     for (index, lite_pipeline) in lite_block.block.iter().enumerate() {

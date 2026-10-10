@@ -2,10 +2,9 @@
 //! `parse_full_signature`), and the predeclaration of commands (`parse_def_predecl`).
 
 use nu_protocol::{
-    Flag, ParseError, PositionalArg, Signature, SyntaxShape, Type, TypeSet, VarId,
+    Flag, ParseError, PositionalArg, Signature, SyntaxShape, Type, VarId,
     ast::{Expr, Expression},
     engine::CommandType,
-    eval_const::eval_constant,
 };
 use nu_winnow_parser::{Span as WSpan, ast as w};
 
@@ -13,19 +12,10 @@ use super::{Lower, Lowered, Unlowered};
 use crate::{
     parse_def::{reject_command_name, rest_param_is_type_annotated},
     parse_shape_specs::{parse_completer, parse_shape_name},
-    parse_signatures::{ensure_not_reserved_variable_name, parse_input_output_types},
+    parse_signatures::{
+        Arg, assemble_signature, ensure_not_reserved_variable_name, parse_input_output_types,
+    },
 };
-
-/// A parameter as it is read, before the signature is assembled.
-enum Parameter {
-    /// `x` or `x?`; `required` is false for `x?`, and turns false with a default value.
-    Positional { arg: PositionalArg, required: bool },
-    /// `...rest`.
-    Rest(PositionalArg),
-    /// `--flag`, `-f` or `--flag(-f)`; `type_annotated` when it has a written type: a default
-    /// value then does not set its type, and without one its variable can be `null`.
-    Flag { flag: Flag, type_annotated: bool },
-}
 
 /// What the predeclaration of a command needs.
 pub(in crate::winnow) struct Predecl<'d, 's> {
@@ -198,7 +188,7 @@ impl<'s> Lower<'_, '_, 's> {
         signature: &w::Signature<'s>,
         is_external: bool,
     ) -> Lowered<Box<Signature>> {
-        let mut parameters: Vec<Parameter> = Vec::with_capacity(signature.params.len());
+        let mut parameters: Vec<Arg> = Vec::with_capacity(signature.params.len());
         let mut pending: Vec<(Vec<u8>, VarId)> = Vec::new();
         for param in &signature.params {
             let token = self.span(parameter_token(param));
@@ -255,7 +245,7 @@ impl<'s> Lower<'_, '_, 's> {
                     if let (Some(var_id), Some(shape)) = (var_id, &shape) {
                         self.working_set.set_variable_type(var_id, shape.to_type());
                     }
-                    Parameter::Flag {
+                    Arg::Flag {
                         flag: Flag {
                             arg: shape.clone(),
                             desc,
@@ -275,7 +265,7 @@ impl<'s> Lower<'_, '_, 's> {
                         self.working_set
                             .set_variable_type(var_id, Type::List(Box::new(shape.to_type())));
                     }
-                    Parameter::Rest(PositionalArg {
+                    Arg::RestPositional(PositionalArg {
                         name: param.name.item.to_string(),
                         desc,
                         shape,
@@ -290,7 +280,7 @@ impl<'s> Lower<'_, '_, 's> {
                         self.working_set
                             .set_variable_type(var_id, arg_shape.to_type());
                     }
-                    Parameter::Positional {
+                    Arg::Positional {
                         arg: PositionalArg {
                             name: param.name.item.to_string(),
                             desc,
@@ -300,6 +290,7 @@ impl<'s> Lower<'_, '_, 's> {
                             completion,
                         },
                         required: matches!(param.kind, w::ParameterKind::Required),
+                        type_annotated,
                     }
                 }
             };
@@ -310,7 +301,8 @@ impl<'s> Lower<'_, '_, 's> {
                 if param.extra_default {
                     return Err(Unlowered::Unsupported("second default value"));
                 }
-                self.default_value(&mut parameter, default, type_annotated)?;
+                let expression = self.value(default, &parameter.default_value_shape(), None)?;
+                self.checked(|working_set| parameter.set_default_value(working_set, expression))?;
             }
             parameters.push(parameter);
         }
@@ -318,107 +310,8 @@ impl<'s> Lower<'_, '_, 's> {
         for (name, var_id) in pending {
             self.working_set.insert_variable_into_scope(name, var_id);
         }
-
-        let mut sig = Signature::new(String::new());
-        for parameter in parameters {
-            match parameter {
-                Parameter::Positional { arg, required } => {
-                    if required {
-                        if !sig.optional_positional.is_empty() {
-                            return Err(Unlowered::Error);
-                        }
-                        sig.required_positional.push(arg);
-                    } else {
-                        // An optional parameter without a default can be `null`.
-                        if arg.default_value.is_none()
-                            && let Some(var_id) = arg.var_id
-                        {
-                            let ty = self
-                                .working_set
-                                .get_variable(var_id)
-                                .ty
-                                .clone()
-                                .union(Type::Nothing);
-                            self.working_set.set_variable_type(var_id, ty);
-                        }
-                        sig.optional_positional.push(arg);
-                    }
-                }
-                Parameter::Flag {
-                    flag,
-                    type_annotated,
-                } => {
-                    if type_annotated
-                        && flag.default_value.is_none()
-                        && let Some(var_id) = flag.var_id
-                    {
-                        let ty = self
-                            .working_set
-                            .get_variable(var_id)
-                            .ty
-                            .clone()
-                            .union(Type::Nothing);
-                        self.working_set.set_variable_type(var_id, ty);
-                    }
-                    sig.named.push(flag);
-                }
-                Parameter::Rest(arg) => {
-                    if arg.name.is_empty() || sig.rest_positional.is_some() {
-                        return Err(Unlowered::Error);
-                    }
-                    sig.rest_positional = Some(arg);
-                }
-            }
-        }
-        Ok(Box::new(sig))
-    }
-
-    /// A parameter's default value, read with the parameter's shape and evaluated as a
-    /// constant. A parameter without a written type takes the default's type, as its shape and
-    /// its variable's type, and a positional parameter with a default is optional. A rest
-    /// parameter with a default, or a default that is not constant, is the classic parser's
-    /// error.
-    fn default_value(
-        &mut self,
-        parameter: &mut Parameter,
-        default: &w::Expression<'s>,
-        type_annotated: bool,
-    ) -> Lowered<()> {
-        let shape = match parameter {
-            Parameter::Positional { arg, .. } => arg.shape.clone(),
-            Parameter::Rest(_) => return Err(Unlowered::Error),
-            Parameter::Flag { flag, .. } => flag.arg.clone().unwrap_or(SyntaxShape::Any),
-        };
-        let expression = self.value(default, &shape, None)?;
-        let value = eval_constant(self.working_set, &expression).map_err(|_| Unlowered::Error)?;
-        match parameter {
-            Parameter::Positional { arg, required } => {
-                if let Some(var_id) = arg.var_id
-                    && self.working_set.get_variable(var_id).ty == Type::Any
-                    && !type_annotated
-                {
-                    self.working_set
-                        .set_variable_type(var_id, expression.ty.clone());
-                }
-                arg.default_value = Some(value);
-                if !type_annotated {
-                    arg.shape = expression.ty.to_shape();
-                }
-                *required = false;
-            }
-            Parameter::Flag { flag, .. } => {
-                flag.default_value = Some(value);
-                if !type_annotated {
-                    flag.arg = Some(expression.ty.to_shape());
-                    if let Some(var_id) = flag.var_id {
-                        self.working_set
-                            .set_variable_type(var_id, expression.ty.clone());
-                    }
-                }
-            }
-            Parameter::Rest(_) => return Err(Unlowered::Error),
-        }
-        Ok(())
+        let span = self.span(signature.span);
+        self.checked(|working_set| assemble_signature(working_set, parameters, span))
     }
 
     /// A parameter's description: the comments after it, each without its `#`, one per line.

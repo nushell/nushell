@@ -1,5 +1,5 @@
 Block 0..10
-  Pipeline 0..2 comments=1
+  Pipeline 0..2 dangling_pipe=3..4
     Call `ls` 0..2
 Comments (1)
   5..8 "# c"

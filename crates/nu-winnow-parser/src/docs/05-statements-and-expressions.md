@@ -210,7 +210,7 @@ whitespace-delimited items; "rest" means everything to the end of the line
 | `try` | `try BLOCK [catch\|finally CLOSURE]{0,2}` | Handlers are kept in source order; nu allows two of either kind. A handler is a closure, or a `$x`/`(..)` that may hold one (`parse_try_handler`); a record is refused unless nu would type it `any`, as for the block of `if` (`catch { $env.A:b }`, `finally {a: 1}.a`). |
 | `return` | `return [ITEM]` | One item only, as in nu. |
 | `break`/`continue` | keyword alone | |
-| `where` | `where {closure}` or `where COND...` | A row condition: `parse_row_condition`. `where --help` is a help call. One `{` item is a closure when it ends with `}`; nu tries a closure first and falls back to a row condition, so `where {}.a` is a cell path on a record. |
+| `where` | `where {closure}` or `where COND...` | A row condition: `parse_condition`. `where --help` is a help call. One `{` item is a closure when it ends with `}`; nu tries a closure first and falls back to a row condition, so `where {}.a` is a cell path on a record. The other commands taking a row condition (`any`, `take while`, ...) parse their arguments the same way (`DeclKind::RowCondition`). |
 
 How the extent of a multi-item argument is found deserves a note. nu-parser
 computes it from the signature ("the condition of `if` gets all spans up to
@@ -454,7 +454,18 @@ are strings; `DeclKind::Wrapped`, recorded by `parse_def_predecl`, whose
 `has_untyped_rest` takes the rest parameter from the lexed signature and then
 looks for its type on the text, as nu's `rest_param_is_type_annotated` does).
 The call records it (`Call::wrapped`, chapter 08). nu gives any positional
-before the rest its own shape, which is left to consumers here. `parse_external_string` reproduces
+before the rest its own shape, which is left to consumers here.
+
+Two more kinds change how a call parses. A command whose first positional
+parameter is a row condition (`any`, `all`, `take while`, `record where`, the
+`ROW_CONDITION_COMMANDS` of the command table; `DeclKind::RowCondition`) takes
+its arguments as one condition, parsed as `where`'s (`parse_condition`), so
+`any $it > 2` is a call with one positional, a comparison. When the first
+argument is a flag, the parser cannot tell whether nu takes the next item as
+its value (`take while --include 2 ..`), and reads the arguments one by one.
+A call to an alias of `if`, `match` or `try` that gives it no arguments
+(`alias m = match`; `DeclKind::KeywordAlias`) is parsed by the keyword's own
+parser, the alias's name in the keyword's place (`If::keyword`). `parse_external_string` reproduces
 nu-parser's segmenting: a word is split into bare, quoted, backtick and
 parenthesised segments (the `ExternalStringSegment` state machine, kept as a
 byte loop), quoted segments stay literal, parenthesised bare segments

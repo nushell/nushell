@@ -27,7 +27,8 @@ Files: `src/ast/mod.rs`, `src/ast/visit.rs`, `src/flatten.rs`, `src/pretty.rs`.
   Numbers hold their value; units hold the number and the unit; datetimes
   keep their text.
 * **Comments.** `Ast::comments` lists all of them; pipelines carry
-  `leading_comments` and `trailing_comments`; parameters carry their
+  `leading_comments` (with the comment nu gives the next command after a `;`
+  or a dangling `|`) and `trailing_comments`; parameters carry their
   `description` comments (a `Vec<Comment>`, in source order, as nu joins
   several with `\n`).
 * **Ignored text.** `Ast::ignored` lists the spans nu-parser accepts and then

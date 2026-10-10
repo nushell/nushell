@@ -16,12 +16,14 @@ use crate::lex::{Token, TokenContents};
 use crate::span::{Span, Spanned};
 
 use super::WorkingSet;
+use super::parse_control_flow::{parse_if, parse_match, parse_try};
 use super::parse_expressions::{ExpectedShape, parse_value};
 use super::parse_helpers::is_spread;
 use super::parse_literals::{parse_raw_string, parse_string};
 use super::parse_module::parse_import_pattern_member;
+use super::parse_source::parse_condition;
 use super::tokens::{Tokens, expected, item, repeat_to_end};
-use super::working_set::DeclKind;
+use super::working_set::{AliasedKeyword, DeclKind};
 
 /// The most words that can form a known multi-word command.
 const MAX_COMMAND_WORDS: usize = 5;
@@ -47,6 +49,7 @@ pub fn parse_call<'a>(tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
 /// may miss positionals.
 pub fn parse_call_lenient<'a>(mut tokens: Tokens<'_, 'a>, lenient: bool) -> ParseResult<Expression<'a>> {
     let working_set = tokens.working_set;
+    let statement = tokens;
     let first = tokens.expect_item("command")?;
     match working_set.get_span_contents(first.span).as_bytes()[0] {
         b'^' => return parse_external_call(first, tokens),
@@ -61,6 +64,25 @@ pub fn parse_call_lenient<'a>(mut tokens: Tokens<'_, 'a>, lenient: bool) -> Pars
             let name = StringLiteral { value: head.name, quote: Quote::Bare };
             let name = Expression::new(Expr::String(name), head.span);
             return parse_external_arguments(None, name, tokens);
+        }
+        // `alias m = match`: a call to it is that keyword's statement, the alias in the
+        // keyword's place (an alias target, `alias m2 = m`, is only a call).
+        Some(DeclKind::KeywordAlias(keyword)) if !lenient && head.span == first.span => {
+            return match keyword {
+                AliasedKeyword::If => parse_if(statement),
+                AliasedKeyword::Match => parse_match(statement),
+                AliasedKeyword::Try => parse_try(statement),
+            };
+        }
+        // `any $it > 2`: the arguments are one condition, unless the first is a flag, whose
+        // value nu takes by the flag's shape, which the parser does not know
+        // (`take while --include 2 {..}`): those are read one by one.
+        Some(DeclKind::RowCondition) if tokens.peek_token().is_some_and(|next| !tokens.text(next).starts_with('-')) => {
+            let condition = parse_condition(tokens)?;
+            let span = first.span.merge(condition.span);
+            let call = Call { head, arguments: vec![Argument::Positional(condition)], sigil: None, wrapped: false };
+            check_call(working_set, &call, lenient)?;
+            return Ok(Expression::new(Expr::Call(call), span));
         }
         None if working_set.has_builtin_decls() => {
             let name = parse_external_string(working_set, head.span)?;

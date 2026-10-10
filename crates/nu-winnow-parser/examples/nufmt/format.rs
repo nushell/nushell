@@ -187,6 +187,47 @@ fn split_compact_comparison(word: &str) -> Option<(&str, &str, &str)> {
     ok.then_some((lhs, op, rhs))
 }
 
+/// The statements holding text of [`Ast::ignored`] other than a `--` (which the formatter
+/// writes back itself), each with the span to copy as written: the innermost statement around
+/// the text, through ignored text right after it (the redirection of an `export-env`, which
+/// the statement's span leaves out).
+fn copied_statements(ast: &Ast<'_>) -> Vec<(Span, Span)> {
+    struct Statements(Vec<Span>);
+    impl<'a> Visitor<'a> for Statements {
+        fn visit_pipeline(&mut self, pipeline: &Pipeline<'a>) {
+            self.0.push(pipeline.span);
+            walk_pipeline(self, pipeline);
+        }
+    }
+    let mut statements = Statements(Vec::new());
+    statements.visit_block(&ast.block);
+    let mut copied: Vec<(Span, Span)> = Vec::new();
+    for ignored in ast.ignored.iter().filter(|span| ast.text(**span) != "--") {
+        let owner = statements
+            .0
+            .iter()
+            .map(|statement| {
+                let extent =
+                    copied.iter().find(|(copied, _)| copied == statement).map_or(*statement, |(_, extent)| *extent);
+                (*statement, extent)
+            })
+            .filter(|(_, extent)| {
+                extent.start <= ignored.start
+                    && (ignored.end <= extent.end
+                        || extent.end <= ignored.start && ast.source[extent.end..ignored.start].trim().is_empty())
+            })
+            .max_by_key(|(statement, _)| statement.start);
+        if let Some((statement, extent)) = owner {
+            let extent = Span::new(extent.start, extent.end.max(ignored.end));
+            match copied.iter_mut().find(|(copied, _)| *copied == statement) {
+                Some(entry) => entry.1 = extent,
+                None => copied.push((statement, extent)),
+            }
+        }
+    }
+    copied
+}
+
 struct Formatter<'a> {
     src: &'a str,
     out: String,
@@ -200,6 +241,11 @@ struct Formatter<'a> {
     end_of_options: Vec<Span>,
     /// The first marker of `end_of_options` not yet written or passed over.
     next_end_of_options: usize,
+    /// The statements copied as written, each with the span to copy: those holding the rest
+    /// of [`Ast::ignored`], text nu accepts and discards (`[a o> b]`, the defaults of an
+    /// `extern`, ...), which the tree does not hold, so that formatting never deletes it
+    /// ([`copied_statements`]).
+    copied_statements: Vec<(Span, Span)>,
     /// `true` while formatting the condition of a `where`.
     row_condition: bool,
     notes: Vec<Note>,
@@ -223,6 +269,7 @@ impl<'a> Formatter<'a> {
             next_comment: 0,
             end_of_options: ast.ignored.iter().copied().filter(|span| span.slice(src) == "--").collect(),
             next_end_of_options: 0,
+            copied_statements: copied_statements(ast),
             row_condition: false,
             notes: Vec::new(),
             last_end: 0,
@@ -492,6 +539,22 @@ impl<'a> Formatter<'a> {
         }
     }
 
+    /// The span to copy as written for the statement covering `span`, if it is one of
+    /// [`Formatter::copied_statements`].
+    fn copied_extent(&self, span: Span) -> Option<Span> {
+        self.copied_statements.iter().find(|(statement, _)| *statement == span).map(|(_, extent)| *extent)
+    }
+
+    /// Copy the statement covering `span` as written, passing over the comments and `--`
+    /// markers within it, which the copy holds.
+    fn copy_statement(&mut self, span: Span) {
+        self.spanned(span);
+        self.skip_comments_within(span);
+        while self.end_of_options.get(self.next_end_of_options).is_some_and(|marker| marker.start < span.end) {
+            self.next_end_of_options += 1;
+        }
+    }
+
     // --- blocks and pipelines ----------------------------------------------------
 
     /// Emit the pipelines of a block whose source occupies `start..end`.
@@ -499,9 +562,11 @@ impl<'a> Formatter<'a> {
         let mut prev_end = start;
         let mut prev_multiline = false;
         for (i, pipeline) in block.pipelines.iter().enumerate() {
-            let first_comment =
-                self.comments.get(self.next_comment).map(|c| c.span.start).filter(|s| *s < pipeline.span.start);
-            let next_start = first_comment.unwrap_or(pipeline.span.start);
+            // A `|` before the first element (leading, or handed on by the `| |` ending the
+            // statement before) is not written: the statement starts at its expression.
+            let starts_at = pipeline.elements[0].expr.span.start;
+            let first_comment = self.comments.get(self.next_comment).map(|c| c.span.start).filter(|s| *s < starts_at);
+            let next_start = first_comment.unwrap_or(starts_at);
             // Blank lines to add before this statement once it turns out to
             // span several lines (grouped declarations stay together only
             // while each is a single line).
@@ -524,7 +589,10 @@ impl<'a> Formatter<'a> {
             } else {
                 self.pipeline(pipeline);
             }
-            let pipeline_end = pipeline.terminator.map_or(pipeline.span.end, |t| t.end);
+            let pipeline_end = [pipeline.terminator, pipeline.dangling_pipe]
+                .into_iter()
+                .flatten()
+                .fold(pipeline.span.end, |end, span| end.max(span.end));
             self.trailing_comments(pipeline_end);
             let multiline = self.out[statement..].contains('\n');
             self.newline();
@@ -684,6 +752,14 @@ impl<'a> Formatter<'a> {
     }
 
     fn pipeline_with(&mut self, pipeline: &Pipeline<'a>, strip: bool) {
+        // Text nu ignores is not in the tree: formatting the statement would delete it.
+        if let Some(extent) = self.copied_extent(pipeline.span) {
+            self.copy_statement(extent);
+            if pipeline.terminator.is_some() {
+                self.glue(";");
+            }
+            return;
+        }
         // `(a | b)` as the whole pipeline: the parentheses change nothing,
         // except around an operator expression, where they aid reading, and
         // around `key: ...`, which would turn a block into a record.
@@ -744,6 +820,11 @@ impl<'a> Formatter<'a> {
             if let Some(r) = &element.redirection {
                 self.redirection(r);
             }
+        }
+        // A `|` no command follows, which nu drops (`ls |` before a blank line): written back,
+        // so that formatting deletes nothing.
+        if let Some(pipe) = pipeline.dangling_pipe {
+            self.spanned(pipe);
         }
         // A `--` ending a keyword statement (`try { } --`, `module x { } --`).
         self.end_of_options_before(pipeline.span.end);
@@ -1312,7 +1393,8 @@ impl<'a> Formatter<'a> {
     }
 
     fn match_block(&mut self, m: &Match<'a>) {
-        self.word("match");
+        // The keyword as written: the name of an alias of it, too (`alias m = match`).
+        self.spanned(m.keyword);
         self.end_of_options_before(m.value.span.start);
         self.expr(&m.value);
         self.end_of_options_before(m.block_span.start);
@@ -1584,7 +1666,7 @@ impl<'a> Formatter<'a> {
                 self.braced_block(&x.body, Span::new(span.start + "export-env".len(), span.end), false);
             }
             Expr::If(i) => {
-                self.word("if");
+                self.spanned(i.keyword);
                 self.condition(&i.condition);
                 let then_end = i.else_branch.as_ref().map_or(span.end, |e| e.keyword.start);
                 self.block_or_value(&i.then_block, Span::new(i.condition.span.end, then_end), i.then_value.as_deref());
@@ -1626,9 +1708,9 @@ impl<'a> Formatter<'a> {
                 }
             }
             Expr::Try(t) => {
-                self.word("try");
+                self.spanned(t.keyword);
                 let body_end = t.handlers.first().map_or(span.end, |h| h.keyword.start);
-                self.block_or_value(&t.body, Span::new(span.start + "try".len(), body_end), t.body_value.as_deref());
+                self.block_or_value(&t.body, Span::new(t.keyword.end, body_end), t.body_value.as_deref());
                 for h in &t.handlers {
                     // `try { } -- catch { }`.
                     self.end_of_options_before(h.keyword.start);
