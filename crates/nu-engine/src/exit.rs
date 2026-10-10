@@ -1,6 +1,6 @@
+use nu_protocol::engine::{EngineState, Job};
+use nu_protocol::{ShellWarning, report_shell_warning};
 use std::sync::atomic::Ordering;
-
-use nu_protocol::engine::EngineState;
 
 /// Exit the process or clean jobs if appropriate.
 ///
@@ -26,15 +26,23 @@ pub fn cleanup_exit<T>(tag: T, engine_state: &EngineState, exit_code: i32) -> T 
 pub fn cleanup<T>(tag: T, engine_state: &EngineState) -> Option<T> {
     let mut jobs = engine_state.jobs.lock().expect("failed to lock job table");
 
+    let job_count = jobs
+        .iter()
+        .filter(|(_, job)| match job {
+            Job::Thread(job) => !job.auto_kill(),
+            Job::Frozen(_) => true,
+        })
+        .count();
+
     if engine_state.is_interactive
-        && jobs.iter().next().is_some()
+        && job_count > 0
         && !engine_state.exit_warning_given.load(Ordering::SeqCst)
     {
-        let job_count = jobs.iter().count();
-
-        println!("There are still background jobs running ({job_count}).");
-
-        println!("Running `exit` a second time will kill all of them.");
+        report_shell_warning(
+            None,
+            engine_state,
+            &ShellWarning::BackgroundJobsRunning { job_count },
+        );
 
         engine_state
             .exit_warning_given

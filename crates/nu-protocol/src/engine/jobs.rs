@@ -154,16 +154,23 @@ pub struct ThreadJob {
     signals: Signals,
     pids: Arc<Mutex<HashSet<u32>>>,
     description: Option<String>,
+    auto_kill: bool,
     pub sender: Sender<Mail>,
 }
 
 impl ThreadJob {
-    pub fn new(signals: Signals, description: Option<String>, sender: Sender<Mail>) -> Self {
+    pub fn new(
+        signals: Signals,
+        description: Option<String>,
+        auto_kill: bool,
+        sender: Sender<Mail>,
+    ) -> Self {
         ThreadJob {
             signals,
             pids: Arc::new(Mutex::new(HashSet::default())),
             sender,
             description,
+            auto_kill,
         }
     }
 
@@ -210,6 +217,10 @@ impl ThreadJob {
         let mut pids = self.pids.lock().expect("PID lock was poisoned");
 
         pids.remove(&pid);
+    }
+
+    pub fn auto_kill(&self) -> bool {
+        self.auto_kill
     }
 }
 
