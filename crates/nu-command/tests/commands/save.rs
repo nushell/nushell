@@ -600,6 +600,21 @@ fn save_with_custom_converter() -> Result {
     })
 }
 
+/// A `to <ext>` alias runs the call it stands for, flags included, instead of failing with
+/// "Can't run alias directly" (#18725).
+#[test]
+fn save_with_a_to_alias() -> Result {
+    Playground::setup("save_with_to_alias", |dirs, _| {
+        let file = dirs.test().join("test.jsonc");
+
+        let code = r#"alias "to jsonc" = to json --raw; {a: 1, b: 2} | save test.jsonc"#;
+        let () = test().cwd(dirs.test()).run(code)?;
+
+        assert_eq!(fs::read_to_string(file)?, r#"{"a":1,"b":2}"#);
+        Ok(())
+    })
+}
+
 #[test]
 fn save_same_file_with_collect() -> Result {
     Playground::setup("save_test_20", |dirs, _sandbox| {

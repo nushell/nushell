@@ -1,4 +1,4 @@
-use nu_engine::{command_prelude::*, eval_call};
+use nu_engine::{command_prelude::*, eval_call, get_eval_expression_with_input};
 use nu_path::is_windows_device_path;
 use nu_protocol::{
     DataSource, NuGlob, PipelineMetadata, ast,
@@ -214,16 +214,34 @@ impl Command for Open {
 
                     match converter {
                         Some((converter_id, ext)) => {
-                            let open_call = ast::Call {
-                                decl_id: converter_id,
-                                head: call_span,
-                                arguments: vec![],
-                                parser_info: HashMap::new(),
-                            };
-                            let command_output = if engine_state.is_debugging() {
-                                eval_call::<WithDebug>(engine_state, stack, &open_call, stream)
+                            let command_output = if let Some(alias) =
+                                engine_state.get_decl(converter_id).as_alias()
+                            {
+                                // An alias can't run by itself: run the call it stands for, with
+                                // its arguments (`alias "from jsonc" = from json`, #18725).
+                                get_eval_expression_with_input(engine_state)(
+                                    engine_state,
+                                    stack,
+                                    &alias.wrapped_call,
+                                    stream,
+                                )
                             } else {
-                                eval_call::<WithoutDebug>(engine_state, stack, &open_call, stream)
+                                let open_call = ast::Call {
+                                    decl_id: converter_id,
+                                    head: call_span,
+                                    arguments: vec![],
+                                    parser_info: HashMap::new(),
+                                };
+                                if engine_state.is_debugging() {
+                                    eval_call::<WithDebug>(engine_state, stack, &open_call, stream)
+                                } else {
+                                    eval_call::<WithoutDebug>(
+                                        engine_state,
+                                        stack,
+                                        &open_call,
+                                        stream,
+                                    )
+                                }
                             };
                             output.push(command_output.map_err(|inner| {
                                 ShellError::Generic(

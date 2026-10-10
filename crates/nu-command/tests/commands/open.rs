@@ -122,6 +122,25 @@ fn parses_csv() -> Result {
     })
 }
 
+/// A `from <ext>` alias runs the call it stands for, flags included, instead of failing with
+/// "Can't run alias directly" (#18725).
+#[test]
+fn opens_with_a_from_alias() -> Result {
+    Playground::setup("open_with_from_alias", |dirs, sandbox| {
+        sandbox.with_files(&[
+            FileWithContent("deno.jsonc", r#"{"name": "nu"}"#),
+            FileWithContent("plain.foo", "a,b\n1,2\n"),
+        ]);
+
+        let code = r#"alias "from jsonc" = from json; open deno.jsonc | get name"#;
+        test().cwd(dirs.test()).run(code).expect_value_eq("nu")?;
+
+        // With `--noheaders` the first line is data, not the column names.
+        let code = r#"alias "from foo" = from csv --noheaders; open plain.foo | get column0.0"#;
+        test().cwd(dirs.test()).run(code).expect_value_eq("a")
+    })
+}
+
 // sample.db has the following format:
 //
 // ╭─────────┬────────────────╮
