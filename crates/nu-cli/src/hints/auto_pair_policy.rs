@@ -75,7 +75,7 @@ impl HintPolicy for AutoPairHintPolicy {
         let end = context.source().len();
         Some(HintPlan::new(
             HintEdit::new(cursor..end, candidate, cursor + candidate.len()),
-            Some(HintPreview::new(cursor..end, cursor)),
+            Some(HintPreview::new(cursor..end)),
         ))
     }
 
