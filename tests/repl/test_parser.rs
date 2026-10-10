@@ -636,6 +636,97 @@ fn percent_dynamic_dispatch_with_paren_expr() -> Result {
     test().run(code).expect_value_eq("world")
 }
 
+#[rstest]
+#[case::short("run-internal -- print -h", "Print the given values")]
+#[case::long("run-internal -- print --help", "Print the given values")]
+#[case::required_positional("run-internal -- get -h", "Extract data")]
+#[case::dynamic("let cmd = 'print'; %($cmd) -h", "Print the given values")]
+#[case::spread(
+    "let args = ['-h']; run-internal -- print ...$args",
+    "Print the given values"
+)]
+#[case::wrapped(
+    "def --wrapped builtin [name, ...args] { %($name) ...$args }; builtin print -h",
+    "Print the given values"
+)]
+fn run_internal_target_help(#[case] code: &str, #[case] description: &str) -> Result {
+    let help: String = test().run(code)?;
+    assert_contains(description, &help);
+    assert_contains("--help", help);
+    Ok(())
+}
+
+#[rstest]
+#[case::short("[1 2 3] | run-internal -- sort -r")]
+#[case::long("[1 2 3] | run-internal -- sort --reverse")]
+#[case::batch("[1 2 3] | run-internal -- sort -ri")]
+#[case::inline("[1 2 3] | run-internal -- sort --reverse=true")]
+#[case::dynamic("let cmd = 'sort'; [1 2 3] | %($cmd) --reverse")]
+#[case::spread("let args = ['--reverse']; [1 2 3] | run-internal -- sort ...$args")]
+fn run_internal_switch_flags(#[case] code: &str) -> Result {
+    test().run(code).expect_value_eq([3, 2, 1])
+}
+
+#[rstest]
+#[case::short("1.234 | run-internal -- 'into string' -d 2")]
+#[case::long("1.234 | run-internal -- 'into string' --decimals 2")]
+#[case::inline("1.234 | run-internal -- 'into string' --decimals=2")]
+#[case::string("1.234 | run-internal -- 'into string' --decimals '2'")]
+#[case::spread("let args = ['--decimals' '2']; 1.234 | run-internal -- 'into string' ...$args")]
+fn run_internal_named_flags(#[case] code: &str) -> Result {
+    test().run(code).expect_value_eq("1.23")
+}
+
+#[test]
+fn run_internal_false_switch() -> Result {
+    test()
+        .run("[2 1] | run-internal -- sort --reverse=false")
+        .expect_value_eq([1, 2])
+}
+
+#[rstest]
+#[case::literal("run-internal -- echo -- -h --help")]
+#[case::spread("let args = ['--' '-h' '--help']; run-internal -- echo ...$args")]
+fn run_internal_literal_flags(#[case] code: &str) -> Result {
+    test().run(code).expect_value_eq(["-h", "--help"])
+}
+
+#[test]
+fn run_internal_preserves_negative_numbers_and_typed_values() -> Result {
+    test()
+        .run("run-internal -- echo -42 {value: 3} | to nuon")
+        .expect_value_eq("[-42, {value: 3}]")
+}
+
+#[rstest]
+#[case::unknown("run-internal -- sort --not-a-flag")]
+#[case::missing_value("run-internal -- 'into string' --decimals")]
+#[case::wrong_type("run-internal -- 'into string' --decimals true")]
+#[case::invalid_batch("run-internal -- 'into string' -dg 2")]
+fn run_internal_invalid_flags(#[case] code: &str) -> Result {
+    test().run(code).expect_error()?;
+    Ok(())
+}
+
+#[test]
+#[deps(NU)]
+fn run_internal_print_no_newline() -> Result {
+    let actual: CompleteResult =
+        test().run("nu -n -c 'run-internal -- print -n hello' | complete")?;
+    assert_eq!(actual.stdout, "hello");
+    assert_eq!(actual.stderr, "");
+    Ok(())
+}
+
+#[test]
+#[deps(NU)]
+fn run_internal_print_literal_help_flag() -> Result {
+    let actual: CompleteResult = test().run("nu -n -c 'run-internal -- print -- -h' | complete")?;
+    assert_eq!(actual.stdout.trim_end(), "-h");
+    assert_eq!(actual.stderr, "");
+    Ok(())
+}
+
 #[test]
 fn percent_dynamic_dispatch_with_non_builtin() -> Result {
     let code = "let cmd = 'my_nonexistent_cmd'; %($cmd)";
