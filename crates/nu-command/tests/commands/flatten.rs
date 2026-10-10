@@ -115,6 +115,13 @@ fn flatten_nested_table_renames_conflicting_column_after_flattened_column() -> R
 }
 
 #[test]
+fn flatten_all_renames_inner_table_column_conflicting_with_later_column() -> Result {
+    test()
+        .run("[[b, a]; [[[a]; [9]], 1]] | flatten --all")
+        .expect_value_eq(test_table![["b_a", "a"]; [9, 1]])
+}
+
+#[test]
 fn flatten_nested_record_renames_conflicting_column_after_flattened_column() -> Result {
     test()
         .run("{b: {a: 9}, a: 1} | flatten b")
