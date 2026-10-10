@@ -58,8 +58,8 @@ In protocol modes (`--lsp`, `--mcp`), `print` always writes to stderr to keep st
         let no_newline = call.has_flag(engine_state, stack, "no-newline")?;
         let raw = call.has_flag(engine_state, stack, "raw")?;
 
-        // In protocol modes (LSP, MCP), reserve stdout for protocol messages.
-        let to_stderr = if engine_state.is_lsp || engine_state.is_mcp {
+        // In protocol modes (LSP, MCP, DAP), reserve stdout for protocol messages.
+        let to_stderr = if engine_state.is_lsp || engine_state.is_mcp || engine_state.is_dap {
             true
         } else {
             call.has_flag(engine_state, stack, "stderr")?

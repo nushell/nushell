@@ -72,14 +72,14 @@ fn list_annotations_nested_unknown_inner() -> TestResult {
 #[test]
 fn list_annotations_unterminated() -> TestResult {
     let input = "def my_run [list: list<string] {$list | length}; my_run [nu she ll]";
-    let expected = "expected closing >";
+    let expected = "expected `>`";
     fail_test(input, expected)
 }
 
 #[test]
 fn list_annotations_nested_unterminated() -> TestResult {
     let input = "def my_run [list: list<list<>] {$list | length}; my_run [2 5 4]";
-    let expected = "expected closing >";
+    let expected = "expected `>`";
     fail_test(input, expected)
 }
 
@@ -230,14 +230,14 @@ fn record_annotations_type_inference_2() -> TestResult {
 #[test]
 fn record_annotations_not_terminated() -> TestResult {
     let input = "def my_run [rec: record<age: int] { $rec }";
-    let expected = "expected closing >";
+    let expected = "expected `>`";
     fail_test(input, expected)
 }
 
 #[test]
 fn record_annotations_not_terminated_inner() -> TestResult {
     let input = "def my_run [rec: record<name: string, repos: list<string>] { $rec }";
-    let expected = "expected closing >";
+    let expected = "expected `>`";
     fail_test(input, expected)
 }
 
@@ -305,14 +305,14 @@ fn table_annotations(
 #[test]
 fn table_annotations_not_terminated() -> TestResult {
     let input = "def my_run [t: table<age: int] { $t }";
-    let expected = "expected closing >";
+    let expected = "expected `>`";
     fail_test(input, expected)
 }
 
 #[test]
 fn table_annotations_not_terminated_inner() -> TestResult {
     let input = "def my_run [t: table<name: string, repos: list<string>] { $t }";
-    let expected = "expected closing >";
+    let expected = "expected `>`";
     fail_test(input, expected)
 }
 
@@ -404,7 +404,7 @@ fn oneof_type_checking(
 #[test]
 fn oneof_annotations_not_terminated() -> TestResult {
     let input = "def my_run [t: oneof<binary, string] { $t }";
-    let expected = "expected closing >";
+    let expected = "expected `>`";
     fail_test(input, expected)
 }
 
@@ -421,5 +421,5 @@ fn oneof_annotations_with_extra_characters() -> TestResult {
 #[case("do { |a $a } 1")]
 #[case("do { |a $a } 1 2")]
 fn closure_param_list_not_terminated(#[case] input: &str) -> TestResult {
-    fail_test(input, "unclosed |")
+    fail_test(input, "expected `|`")
 }

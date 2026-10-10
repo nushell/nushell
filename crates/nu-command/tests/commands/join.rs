@@ -1,61 +1,61 @@
-use nu_test_support::nu;
+use nu_test_support::prelude::*;
 
 #[test]
-fn cases_where_result_is_same_between_join_types_inner() {
+fn cases_where_result_is_same_between_join_types_inner() -> Result {
     do_cases_where_result_is_same_between_join_types("--inner")
 }
 
 #[test]
-fn cases_where_result_differs_between_join_types_inner() {
+fn cases_where_result_differs_between_join_types_inner() -> Result {
     do_cases_where_result_differs_between_join_types("--inner")
 }
 
 #[test]
-fn cases_where_result_differs_between_join_types_with_different_join_keys_inner() {
+fn cases_where_result_differs_between_join_types_with_different_join_keys_inner() -> Result {
     do_cases_where_result_differs_between_join_types_with_different_join_keys("--inner")
 }
 
 #[test]
-fn cases_where_result_is_same_between_join_types_left() {
+fn cases_where_result_is_same_between_join_types_left() -> Result {
     do_cases_where_result_is_same_between_join_types("--left")
 }
 
 #[test]
-fn cases_where_result_is_same_between_join_types_outer() {
+fn cases_where_result_is_same_between_join_types_outer() -> Result {
     do_cases_where_result_is_same_between_join_types("--outer")
 }
 
 #[test]
-fn cases_where_result_differs_between_join_types_left() {
+fn cases_where_result_differs_between_join_types_left() -> Result {
     do_cases_where_result_differs_between_join_types("--left")
 }
 
 #[test]
-fn cases_where_result_differs_between_join_types_with_different_join_keys_left() {
+fn cases_where_result_differs_between_join_types_with_different_join_keys_left() -> Result {
     do_cases_where_result_differs_between_join_types_with_different_join_keys("--left")
 }
 
 #[test]
-fn cases_where_result_is_same_between_join_types_right() {
+fn cases_where_result_is_same_between_join_types_right() -> Result {
     do_cases_where_result_is_same_between_join_types("--right")
 }
 
 #[test]
-fn cases_where_result_differs_between_join_types_right() {
+fn cases_where_result_differs_between_join_types_right() -> Result {
     do_cases_where_result_differs_between_join_types("--right")
 }
 
 #[test]
-fn cases_where_result_differs_between_join_types_outer() {
+fn cases_where_result_differs_between_join_types_outer() -> Result {
     do_cases_where_result_differs_between_join_types("--outer")
 }
 
 #[test]
-fn cases_where_result_differs_between_join_types_with_different_join_keys_outer() {
+fn cases_where_result_differs_between_join_types_with_different_join_keys_outer() -> Result {
     do_cases_where_result_differs_between_join_types_with_different_join_keys("--outer")
 }
 
-fn do_cases_where_result_is_same_between_join_types(join_type: &str) {
+fn do_cases_where_result_is_same_between_join_types(join_type: &str) -> Result {
     // .mode column
     // .headers on
     for ((left, right, on), expected) in [
@@ -84,18 +84,17 @@ fn do_cases_where_result_is_same_between_join_types(join_type: &str) {
         (("[{a: 1}]", "[{a: 1 b: 1}]", "a"), "[[a, b]; [1, 1]]"),
     ] {
         let expr = format!("{left} | join {right} {join_type} {on} | to nuon");
-        let actual = nu!(expr).out;
-        assert_eq!(actual, expected);
+        assert_join_output(&expr, expected)?;
 
         // Test again with streaming input (using `each` to convert the input into a ListStream)
         let to_list_stream = "each { |i| $i } | ";
         let expr = format!("{left} | {to_list_stream} join {right} {join_type} {on} | to nuon");
-        let actual = nu!(expr).out;
-        assert_eq!(actual, expected);
+        assert_join_output(&expr, expected)?;
     }
+    Ok(())
 }
 
-fn do_cases_where_result_differs_between_join_types(join_type: &str) {
+fn do_cases_where_result_differs_between_join_types(join_type: &str) -> Result {
     // .mode column
     // .headers on
     for ((left, right, on), join_types) in [
@@ -242,21 +241,22 @@ fn do_cases_where_result_differs_between_join_types(join_type: &str) {
         for (join_type_, expected) in join_types {
             if join_type_ == join_type {
                 let expr = format!("{left} | join {right} {join_type} {on} | to nuon");
-                let actual = nu!(expr).out;
-                assert_eq!(actual, expected);
+                assert_join_output(&expr, expected)?;
 
                 // Test again with streaming input (using `each` to convert the input into a ListStream)
                 let to_list_stream = "each { |i| $i } | ";
                 let expr =
                     format!("{left} | {to_list_stream} join {right} {join_type} {on} | to nuon");
-                let actual = nu!(expr).out;
-                assert_eq!(actual, expected);
+                assert_join_output(&expr, expected)?;
             }
         }
     }
+    Ok(())
 }
 
-fn do_cases_where_result_differs_between_join_types_with_different_join_keys(join_type: &str) {
+fn do_cases_where_result_differs_between_join_types_with_different_join_keys(
+    join_type: &str,
+) -> Result {
     // .mode column
     // .headers on
     for ((left, right, left_on, right_on), join_types) in [
@@ -381,23 +381,22 @@ fn do_cases_where_result_differs_between_join_types_with_different_join_keys(joi
             if join_type_ == join_type {
                 let expr =
                     format!("{left} | join {right} {join_type} {left_on} {right_on} | to nuon");
-                let actual = nu!(expr).out;
-                assert_eq!(actual, expected);
+                assert_join_output(&expr, expected)?;
 
                 // Test again with streaming input (using `each` to convert the input into a ListStream)
                 let to_list_stream = "each { |i| $i } | ";
                 let expr = format!(
                     "{left} | {to_list_stream} join {right} {join_type} {left_on} {right_on} | to nuon"
                 );
-                let actual = nu!(expr).out;
-                assert_eq!(actual, expected);
+                assert_join_output(&expr, expected)?;
             }
         }
     }
+    Ok(())
 }
 
 #[test]
-fn test_alternative_table_syntax() {
+fn test_alternative_table_syntax() -> Result {
     let join_type = "--inner";
     for ((left, right, on), expected) in [
         (("[{a: 1}]", "[{a: 1}]", "a"), "[[a]; [1]]"),
@@ -406,7 +405,11 @@ fn test_alternative_table_syntax() {
         (("[[a]; [1]]", "[[a]; [1]]", "a"), "[[a]; [1]]"),
     ] {
         let expr = format!("{left} | join {right} {join_type} {on} | to nuon");
-        let actual = nu!(&expr).out;
-        assert_eq!(actual, expected, "Expression was {}", &expr);
+        assert_join_output(&expr, expected)?;
     }
+    Ok(())
+}
+
+fn assert_join_output(expr: &str, expected: &str) -> Result {
+    test().run(expr).expect_value_eq(expected)
 }

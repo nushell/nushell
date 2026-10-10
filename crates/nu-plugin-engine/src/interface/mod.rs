@@ -759,7 +759,7 @@ impl PluginInterface {
             .send((
                 id,
                 PluginCallState {
-                    sender: Some(tx).filter(|_| !dont_send_response),
+                    sender: (!dont_send_response).then_some(tx),
                     dont_send_response,
                     signals,
                     context_rx: Some(context_rx),

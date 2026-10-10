@@ -57,6 +57,7 @@ pub mod macros {
 pub const SKIP_DEPS_BUILD_ENV: &str = "NU_TEST_SKIP_DEPS_BUILD";
 
 pub const BUILD_PROFILE: &str = env!("BUILD_PROFILE");
+pub const BUILD_TARGET: Option<&str> = option_env!("BUILD_TARGET");
 static TARGET_DIR: OnceLock<PathBuf> = OnceLock::new();
 
 pub const DEFAULT_THREAD_COUNT_MUL: NonZeroUsize = NonZeroUsize::new(4).unwrap();

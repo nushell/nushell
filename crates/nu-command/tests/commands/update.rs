@@ -359,3 +359,45 @@ fn update_nested_table_column_closure_with_in_place_transform() -> Result {
         )
         .expect_value_eq("datetime")
 }
+
+#[cfg(feature = "sqlite")]
+#[test]
+fn update_closure_on_sqlite_query_builder() -> Result {
+    test()
+        .cwd("tests/fixtures/formats")
+        .run("open sample.db | get ints | update z { default 0 | $in + 1 } | get z.0")
+        .expect_value_eq(2)
+}
+
+#[cfg(feature = "sqlite")]
+#[test]
+fn update_literal_on_sqlite_query_builder() -> Result {
+    test()
+        .cwd("tests/fixtures/formats")
+        .run("open sample.db | get ints | update z 0 | get z.0")
+        .expect_value_eq(0)
+}
+
+#[cfg(feature = "sqlite")]
+#[test]
+fn update_into_datetime_on_sqlite_query_builder() -> Result {
+    Playground::setup("update_sqlite_datetime", |dirs, _| {
+        let code = "
+            [{ key: test, created: 1787132290545485211, expiry: 1787139010545500670, value: [7, 2, 128] }]
+            | into sqlite --table-name std_cache_store test.db
+            open test.db | get std_cache_store | update expiry { into datetime } | get expiry.0 | describe
+        ";
+
+        test()
+            .cwd(dirs.test())
+            .run(code)
+            .expect_value_eq("datetime")
+    })
+}
+
+#[test]
+fn update_matrix_row_preserves_matrix_type() -> Result {
+    test()
+        .run("[[1 2] [3 4]] | into matrix | update 0 [5 6] | describe")
+        .expect_value_eq("matrix")
+}

@@ -1,3 +1,4 @@
+use crate::conversions::into::compound_to_duration;
 use chrono::{Local, TimeZone, Utc};
 use fancy_regex::{Regex, RegexBuilder};
 use nu_engine::command_prelude::*;
@@ -119,6 +120,11 @@ impl Command for DetectType {
                 )),
             },
             Example {
+                description: "Composite durations",
+                example: "'5ns' | detect type",
+                result: Some(Value::test_duration(5)),
+            },
+            Example {
                 description: "Unknown stays a string",
                 example: "'not-a-number' | detect type",
                 result: Some(Value::test_string("not-a-number")),
@@ -209,7 +215,7 @@ fn process(
     span: Span,
 ) -> Result<PipelineData, ShellError> {
     // step 1: convert value to string
-    let val_str = val.coerce_str().unwrap_or_default();
+    let val_str = val.coerce_string().unwrap_or_default();
 
     // Determine the order of checking ambiguous date formats (DMY vs MDY) based on the prefer_dmy flag.
     // This ensures that when dates like "01/02/2025" are encountered, we check the preferred format first
@@ -271,7 +277,7 @@ fn process(
             Ok(Value::int(ival, span))
         }
     } else if INTEGER_WITH_DELIMS_RE.is_match(&val_str).unwrap_or(false) {
-        let mut val_str = val_str.into_owned();
+        let mut val_str = val_str.to_owned();
         val_str.retain(|x| !['_', ','].contains(&x));
 
         let ival = val_str
@@ -341,6 +347,8 @@ fn process(
         })?;
 
         Ok(Value::date(dt, span))
+    } else if let Ok(duration) = compound_to_duration(&val_str, span) {
+        Ok(duration)
     } else {
         // If we don't know what it is, just return whatever it was passed in as
         return Ok(val.into_pipeline_data_with_metadata(metadata));

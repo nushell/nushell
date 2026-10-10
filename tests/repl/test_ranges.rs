@@ -80,7 +80,7 @@ fn float_not_in_unbounded_stepped_range() -> TestResult {
 #[rstest]
 #[case("1..=3..", "expected number")]
 #[case("..=3..=15", "expected number")]
-#[case("..=(..", "expected closing )")]
+#[case("..=(..", "expected `)`")]
 #[case("..=()..", "expected at least one range bound")]
 #[case("..=..", "expected at least one range bound")]
 #[test]

@@ -2,7 +2,7 @@ use super::{BlockBuilder, CompileError, RedirectModes, compile_expression, keywo
 use crate::HELP_DECL_ID_PARSER_INFO;
 use nu_protocol::{
     DeclId, IntoSpanned, RegId, Span, Spanned, Type,
-    ast::{Argument, Call, Expr, Expression, ExternalArgument},
+    ast::{Argument, Call, Expr, Expression, ExternalArgument, FlagRef},
     engine::{ENV_VARIABLE_ID, IN_VARIABLE_ID, NU_VARIABLE_ID, StateWorkingSet, UNKNOWN_SPAN_ID},
     ir::{Instruction, IrAstRef, Literal},
 };
@@ -211,13 +211,16 @@ pub(crate) fn compile_call(
         }
     }
 
-    // Special handling for builtin commands that have direct IR equivalents
+    // Special handling for builtin commands that have direct IR equivalents.
+    // `unlet` never goes through `Command::run`; see `compile_unlet`.
     if decl.name() == "unlet" {
         return compile_unlet(working_set, builder, call, io_reg);
     }
 
     // Keep AST if the decl needs it.
     let requires_ast = decl.requires_ast_for_arguments();
+    // `metadata $var` needs the variable's definition span, not the use-site span.
+    let preserve_var_origin = decl.name() == "metadata";
 
     // It's important that we evaluate the args first before trying to set up the argument
     // state for the call.
@@ -227,13 +230,7 @@ pub(crate) fn compile_call(
     // it.
     enum CompiledArg<'a> {
         Positional(RegId, Span, Option<IrAstRef>),
-        Named(
-            &'a str,
-            Option<&'a str>,
-            Option<RegId>,
-            Span,
-            Option<IrAstRef>,
-        ),
+        Named(FlagRef<'a>, Option<RegId>, Span, Option<IrAstRef>),
         Spread(RegId, Span, Option<IrAstRef>),
     }
 
@@ -244,6 +241,19 @@ pub(crate) fn compile_call(
             .expr()
             .map(|expr| {
                 let arg_reg = builder.next_register()?;
+
+                // Bare variables for `metadata` load with origin span preserved.
+                if preserve_var_origin && let Some(var_id) = bare_var_id(expr) {
+                    builder.push(
+                        Instruction::LoadVariable {
+                            dst: arg_reg,
+                            var_id,
+                            preserve_origin: true,
+                        }
+                        .into_spanned(expr.span),
+                    )?;
+                    return Ok(arg_reg);
+                }
 
                 compile_expression(
                     working_set,
@@ -271,9 +281,8 @@ pub(crate) fn compile_call(
                     ast_ref,
                 ))
             }
-            Argument::Named((name, short, _)) => compiled_args.push(CompiledArg::Named(
-                &name.item,
-                short.as_ref().map(|spanned| spanned.item.as_str()),
+            Argument::Named((long, short, _)) => compiled_args.push(CompiledArg::Named(
+                FlagRef::from_named(long, short.as_ref()),
                 arg_reg,
                 arg.span(),
                 ast_ref,
@@ -293,25 +302,25 @@ pub(crate) fn compile_call(
                 builder.push(Instruction::PushPositional { src: reg }.into_spanned(span))?;
                 builder.set_last_ast(ast_ref);
             }
-            CompiledArg::Named(name, short, Some(reg), span, ast_ref) => {
-                if !name.is_empty() {
-                    let name = builder.data(name)?;
-                    builder.push(Instruction::PushNamed { name, src: reg }.into_spanned(span))?;
-                } else {
-                    let short = builder.data(short.unwrap_or(""))?;
-                    builder
-                        .push(Instruction::PushShortNamed { short, src: reg }.into_spanned(span))?;
-                }
-                builder.set_last_ast(ast_ref);
-            }
-            CompiledArg::Named(name, short, None, span, ast_ref) => {
-                if !name.is_empty() {
-                    let name = builder.data(name)?;
-                    builder.push(Instruction::PushFlag { name }.into_spanned(span))?;
-                } else {
-                    let short = builder.data(short.unwrap_or(""))?;
-                    builder.push(Instruction::PushShortFlag { short }.into_spanned(span))?;
-                }
+            // The long/short × with-value/bare grid, spelled out once.
+            CompiledArg::Named(flag, reg, span, ast_ref) => {
+                let instruction = match (flag, reg) {
+                    (FlagRef::Long(name), Some(src)) => Instruction::PushNamed {
+                        name: builder.data(name)?,
+                        src,
+                    },
+                    (FlagRef::Long(name), None) => Instruction::PushFlag {
+                        name: builder.data(name)?,
+                    },
+                    (FlagRef::Short(short), Some(src)) => Instruction::PushShortNamed {
+                        short: builder.data(short)?,
+                        src,
+                    },
+                    (FlagRef::Short(short), None) => Instruction::PushShortFlag {
+                        short: builder.data(short)?,
+                    },
+                };
+                builder.push(instruction.into_spanned(span))?;
                 builder.set_last_ast(ast_ref);
             }
             CompiledArg::Spread(reg, span, ast_ref) => {
@@ -454,6 +463,18 @@ pub(crate) fn compile_external_call(
     )
 }
 
+/// Extract a bare variable id from `$var` or a FullCellPath with empty tail.
+fn bare_var_id(expr: &Expression) -> Option<nu_protocol::VarId> {
+    match &expr.expr {
+        Expr::Var(var_id) => Some(*var_id),
+        Expr::FullCellPath(cell_path) if cell_path.tail.is_empty() => match &cell_path.head.expr {
+            Expr::Var(var_id) => Some(*var_id),
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
 pub(crate) fn compile_unlet(
     _working_set: &StateWorkingSet,
     builder: &mut BlockBuilder,
@@ -467,35 +488,26 @@ pub(crate) fn compile_unlet(
     for arg in call.positional_iter() {
         iter_empty = false;
 
-        // Extract variable ID from the expression
         // Handle both direct variable references (Expr::Var) and full cell paths (Expr::FullCellPath)
         // that represent simple variables (e.g., $var parsed as FullCellPath with empty tail).
-        // This allows unlet to work with variables parsed in different contexts.
-        let var_id = match &arg.expr {
-            nu_protocol::ast::Expr::Var(var_id) => Some(*var_id),
-            nu_protocol::ast::Expr::FullCellPath(cell_path) => {
-                if cell_path.tail.is_empty() {
-                    match &cell_path.head.expr {
-                        nu_protocol::ast::Expr::Var(var_id) => Some(*var_id),
-                        _ => None,
-                    }
-                } else {
-                    None
-                }
-            }
-            _ => None,
-        };
+        let var_id = bare_var_id(arg);
 
         match var_id {
             Some(var_id) => {
                 // Prevent deletion of built-in variables that are essential for nushell operation
-                if var_id == NU_VARIABLE_ID || var_id == ENV_VARIABLE_ID || var_id == IN_VARIABLE_ID
+                if var_id == NU_VARIABLE_ID
+                    || var_id == ENV_VARIABLE_ID
+                    || var_id == IN_VARIABLE_ID
+                    || var_id == nu_protocol::LAST_VARIABLE_ID
                 {
                     // Determine the variable name for the error message
                     let var_name = match var_id {
                         NU_VARIABLE_ID => "nu",
                         ENV_VARIABLE_ID => "env",
                         IN_VARIABLE_ID => "in",
+                        _ if var_id == nu_protocol::LAST_VARIABLE_ID => {
+                            nu_protocol::LAST_RESULT_VAR_NAME
+                        }
                         _ => "unknown", // This should never happen due to the check above
                     };
 

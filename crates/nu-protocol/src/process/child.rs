@@ -224,6 +224,10 @@ pub struct ChildProcess {
     pub stderr: Option<ChildPipe>,
     exit_status: Arc<Mutex<ExitStatusFuture>>,
     ignore_error: Arc<Mutex<bool>>,
+    /// Pid of the process, when it was spawned by the shell. Lets a consumer
+    /// that stops reading early (an interactive viewer) kill a producer that
+    /// would otherwise keep the pipeline waiting on its exit status.
+    pid: Option<u32>,
     span: Span,
 }
 
@@ -298,6 +302,7 @@ impl ChildProcess {
                 }
             }
         };
+        let pid = child.pid();
 
         // Create a thread to wait for the exit status.
         let (exit_status_sender, exit_status) = mpsc::channel();
@@ -339,7 +344,9 @@ impl ChildProcess {
                 )
             })?;
 
-        Ok(Self::from_raw(stdout, stderr, Some(exit_status), span))
+        let mut this = Self::from_raw(stdout, stderr, Some(exit_status), span);
+        this.pid = Some(pid);
+        Ok(this)
     }
 
     pub fn from_raw(
@@ -357,8 +364,14 @@ impl ChildProcess {
                     .unwrap_or(ExitStatusFuture::Finished(Ok(ExitStatus::Exited(0)))),
             )),
             ignore_error: Arc::new(Mutex::new(false)),
+            pid: None,
             span,
         }
+    }
+
+    /// The process id, if this child was spawned by the shell.
+    pub fn pid(&self) -> Option<u32> {
+        self.pid
     }
 
     pub fn ignore_error(&mut self, ignore: bool) -> &mut Self {

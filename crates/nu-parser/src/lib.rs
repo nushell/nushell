@@ -4,6 +4,7 @@ mod exportable;
 mod flatten;
 mod known_external;
 mod lex;
+mod lex_once;
 mod lite_parser;
 mod parse_alias;
 mod parse_bindings;
@@ -35,6 +36,6 @@ pub use parse_keywords::*;
 
 pub use parser::{
     DURATION_UNIT_GROUPS, is_math_expression_like, parse, parse_block, parse_expression,
-    parse_external_call, parse_fresh, parse_unit_value, trim_quotes, trim_quotes_str,
-    unescape_unquote_string,
+    parse_external_call, parse_fresh, parse_shorter_head_reading, parse_unit_value, trim_quotes,
+    trim_quotes_str, unescape_unquote_string,
 };

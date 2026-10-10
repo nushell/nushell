@@ -136,11 +136,20 @@ fn let_raw_string() -> Result {
 
 #[test]
 fn let_malformed_type() -> Result {
+    // Unexpected `)` — unbalanced delimiter.
     let err = test().run("let foo: )a").expect_parse_error()?;
-    assert_contains("Unbalanced delimiter", err.to_string());
+    let msg = err.to_string();
+    assert!(
+        msg.contains("unbalanced with `(`") || msg.contains("Unbalanced delimiter"),
+        "unexpected err: {msg}"
+    );
 
     let err = test().run("let foo: }a").expect_parse_error()?;
-    assert_contains("Unbalanced delimiter", err.to_string());
+    let msg = err.to_string();
+    assert!(
+        msg.contains("unbalanced with `{`") || msg.contains("Unbalanced delimiter"),
+        "unexpected err: {msg}"
+    );
 
     let err = test().run("mut : , a").expect_parse_error()?;
     assert_contains("Unknown type", err.to_string());

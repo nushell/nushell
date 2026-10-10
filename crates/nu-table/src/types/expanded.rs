@@ -1,4 +1,4 @@
-use std::cmp::max;
+use std::cmp::{max, min};
 
 use nu_color_config::{Alignment, StyleComputer, TextStyle};
 use nu_engine::column::get_columns;
@@ -33,18 +33,35 @@ impl ExpandedTable {
     }
 
     pub fn build_value(self, item: &Value, opts: TableOpts<'_>) -> NuText {
-        let cfg = Cfg { opts, format: self };
+        let cfg = Cfg {
+            opts,
+            format: self,
+            raise_row_errors: false,
+            clip_columns: true,
+        };
         let cell = expand_entry(item, cfg);
         (cell.text, cell.style)
     }
 
     pub fn build_map(self, record: &Record, opts: TableOpts<'_>) -> StringResult {
-        let cfg = Cfg { opts, format: self };
+        let cfg = Cfg {
+            opts,
+            format: self,
+            raise_row_errors: false,
+            clip_columns: true,
+        };
         expanded_table_kv(record, cfg).map(|cell| cell.map(|cell| cell.text))
     }
 
     pub fn build_list(self, vals: &[Value], opts: TableOpts<'_>) -> StringResult {
-        let cfg = Cfg { opts, format: self };
+        let cfg = Cfg {
+            opts,
+            format: self,
+            raise_row_errors: true,
+            // Keep natural cell widths; `maybe_expand_table` applies wrapping vs
+            // truncating when the table is wider than the terminal.
+            clip_columns: false,
+        };
         let output = expand_list(vals, cfg.clone())?;
         let mut output = match output {
             Some(out) => out,
@@ -58,6 +75,7 @@ impl ExpandedTable {
             cfg.opts.mode,
         );
 
+        refit_nested_tables(&mut output, vals, cfg.clone())?;
         maybe_expand_table(output, cfg.opts.width)
     }
 }
@@ -66,6 +84,12 @@ impl ExpandedTable {
 struct Cfg<'a> {
     opts: TableOpts<'a>,
     format: ExpandedTable,
+    /// When true, a `Value::Error` row is re-raised (top-level `table --expand`).
+    /// Nested expansion leaves errors as cells so wrapping records (e.g. `$ans`) stay printable.
+    raise_row_errors: bool,
+    /// When true (nested tables), drop columns that do not fit the remaining
+    /// width. Top-level lists leave overflow for `table.trim` (wrap vs truncate).
+    clip_columns: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -101,9 +125,11 @@ impl CellOutput {
 
 type CellResult = Result<Option<CellOutput>, ShellError>;
 
+/// Nested expand columns narrower than this wrap into unreadable ladders.
+const MIN_CELL_WIDTH: usize = 4;
+
 fn expand_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
     const SPLIT_LINE_SPACE: usize = 1;
-    const MIN_CELL_WIDTH: usize = 3;
     const TRUNCATE_CONTENT_WIDTH: usize = 3;
 
     if input.is_empty() {
@@ -154,15 +180,11 @@ fn expand_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
 
         for (row, item) in input.iter().enumerate() {
             cfg.opts.signals.check(&cfg.opts.span)?;
-            check_value(item)?;
+            cfg.check_row(item)?;
 
             let inner_cfg = cfg_expand_reset_table(cfg.clone(), available_width);
             let cell = expand_entry(item, inner_cfg);
-
-            table.insert((row, 0), cell.text);
-            table.insert_style((row, 0), cell.style);
-
-            total_rows = total_rows.saturating_add(cell.size);
+            insert_expanded_cell(&mut table, (row, 0), cell, &mut total_rows);
         }
 
         return Ok(Some(TableOutput::new(table, false, false, total_rows)));
@@ -178,7 +200,7 @@ fn expand_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
 
         for (row, item) in input.iter().enumerate() {
             cfg.opts.signals.check(&cfg.opts.span)?;
-            check_value(item)?;
+            cfg.check_row(item)?;
 
             let index = row + row_offset;
             let index_value = item
@@ -203,15 +225,11 @@ fn expand_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
 
         for (row, item) in input.iter().enumerate() {
             cfg.opts.signals.check(&cfg.opts.span)?;
-            check_value(item)?;
+            cfg.check_row(item)?;
 
             let inner_cfg = cfg_expand_reset_table(cfg.clone(), available_width);
             let cell = expand_entry(item, inner_cfg);
-
-            table.insert((row, 1), cell.text);
-            table.insert_style((row, 1), cell.style);
-
-            total_rows = total_rows.saturating_add(cell.size);
+            insert_expanded_cell(&mut table, (row, 1), cell, &mut total_rows);
         }
 
         return Ok(Some(TableOutput::new(table, false, true, total_rows)));
@@ -234,7 +252,7 @@ fn expand_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
 
         for (row, item) in input.iter().enumerate() {
             cfg.opts.signals.check(&cfg.opts.span)?;
-            check_value(item)?;
+            cfg.check_row(item)?;
 
             let index = row + row_offset;
             let index_value = item
@@ -264,28 +282,37 @@ fn expand_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
     let mut rendered_column = 0;
     for (col, header) in headers.into_iter().enumerate() {
         let column = col + with_index as usize;
-        if available_width <= extra_width {
+        if cfg.clip_columns && available_width <= extra_width {
             table.pop_column(table.count_columns() - column);
             truncate = true;
             break;
         }
 
-        let mut available = available_width - extra_width;
+        let mut available = available_width.saturating_sub(extra_width);
+        if cfg.clip_columns && available < MIN_CELL_WIDTH {
+            table.pop_column(table.count_columns() - column);
+            truncate = true;
+            break;
+        }
 
-        // We want to reserver some space for next column
-        // If we can't fit it in it will be popped anyhow.
-        let is_prelast_column = col + 2 == count_columns;
+        // Nested tables clip to leftover. Top-level lists keep natural widths;
+        // `maybe_expand_table` applies wrap vs truncate.
         let is_last_column = col + 1 == count_columns;
-        if is_prelast_column {
-            let need_width = MIN_CELL_WIDTH + SPLIT_LINE_SPACE;
-            if available > need_width {
-                available -= need_width;
+        if cfg.clip_columns && !is_last_column {
+            let reserve = if col + 2 == count_columns {
+                MIN_CELL_WIDTH + SPLIT_LINE_SPACE
+            } else {
+                truncate_column_width + SPLIT_LINE_SPACE
+            };
+            if available >= reserve + MIN_CELL_WIDTH {
+                available -= reserve;
             }
-        } else if !is_last_column {
-            let need_width: usize = truncate_column_width + SPLIT_LINE_SPACE;
-            if available > need_width {
-                available -= need_width;
-            }
+        } else if !cfg.clip_columns {
+            available = cfg
+                .opts
+                .width
+                .saturating_sub(extra_width)
+                .max(MIN_CELL_WIDTH);
         }
 
         let mut total_column_rows = 0usize;
@@ -293,35 +320,37 @@ fn expand_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
 
         for (row, item) in input.iter().enumerate() {
             cfg.opts.signals.check(&cfg.opts.span)?;
-            check_value(item)?;
+            cfg.check_row(item)?;
 
             let inner_cfg = cfg_expand_reset_table(cfg.clone(), available);
             let cell = expand_entry_with_header(item, &header, inner_cfg);
-            // TODO: optimize cause when we expand we alrready know the width (most of the time or all)
-            let mut value = NuTable::create(cell.text);
-            let mut value_width = value.width();
-            if value_width > available {
-                // NOTE:
-                // most likely it was emojie which we are not sure about what to do
-                // so we truncate it just in case
-                //
-                // most likely width is 1
-
-                value = NuTable::create(String::from("\u{FFFD}"));
-                value_width = 1;
-            }
+            let expanded = cell.is_expanded;
+            let text = if cfg.clip_columns && string_width(&cell.text) > available && !expanded {
+                wrap_text(&cell.text, available, cfg.opts.config)
+            } else {
+                cell.text
+            };
+            let value = NuTable::create(text);
+            let value_width = if cfg.clip_columns {
+                min(value.width(), available)
+            } else {
+                value.width()
+            };
 
             column_width = max(column_width, value_width);
 
             table.insert_value((row + 1, column), value);
             table.insert_style((row + 1, column), cell.style);
+            if expanded {
+                table.mark_nested_cell((row + 1, column));
+            }
 
             total_column_rows = total_column_rows.saturating_add(cell.size);
         }
 
         let mut head_width = string_width(&header);
         let mut header = header;
-        if head_width > available {
+        if cfg.clip_columns && head_width > available {
             header = wrap_text(&header, available, cfg.opts.config);
             head_width = available;
         }
@@ -329,11 +358,13 @@ fn expand_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
         table.insert((0, column), header);
 
         column_width = max(column_width, head_width);
-        assert!(column_width <= available);
+        if cfg.clip_columns {
+            assert!(column_width <= available);
+            available_width -= column_width + extra_width;
+        }
 
         widths.push(column_width);
 
-        available_width -= column_width + extra_width;
         rendered_column += 1;
 
         total_rows = std::cmp::max(total_rows, total_column_rows);
@@ -402,6 +433,9 @@ fn expanded_table_kv(record: &Record, cfg: Cfg<'_>) -> CellResult {
     }
 
     let value_width = cfg.opts.width - key_width - count_borders - pad - pad;
+    if value_width < MIN_CELL_WIDTH {
+        return Ok(None);
+    }
 
     let mut total_rows = 0usize;
 
@@ -430,6 +464,9 @@ fn expanded_table_kv(record: &Record, cfg: Cfg<'_>) -> CellResult {
 
         table.insert((i, 0), key);
         table.insert((i, 1), value);
+        if cell.is_expanded {
+            table.mark_nested_cell((i, 1));
+        }
 
         total_rows = total_rows.saturating_add(cell.size);
     }
@@ -444,7 +481,7 @@ fn expanded_table_kv(record: &Record, cfg: Cfg<'_>) -> CellResult {
     );
 
     maybe_expand_table(out, cfg.opts.width)
-        .map(|value| value.map(|value| CellOutput::clean(value, total_rows, false)))
+        .map(|value| value.map(|value| CellOutput::clean(value, total_rows, true)))
 }
 
 // the flag is used as an optimization to not do `value.lines().count()` search.
@@ -458,12 +495,13 @@ fn expand_value(value: &Value, width: usize, cfg: &Cfg<'_>) -> CellResult {
     match value {
         Value::List { vals, .. } => {
             let inner_cfg = cfg_expand_reset_table(cfg_expand_next_level(cfg.clone(), span), width);
-            let table = expand_list(vals, inner_cfg)?;
+            let table = expand_list(vals, inner_cfg.clone())?;
 
             match table {
                 Some(mut out) => {
                     table_apply_config(&mut out, cfg);
-                    let value = out.table.draw_unchecked(width);
+                    refit_nested_tables(&mut out, vals, inner_cfg)?;
+                    let value = out.table.draw(width);
                     match value {
                         Some(value) => Ok(Some(CellOutput::clean(value, out.count_rows, true))),
                         None => Ok(None),
@@ -558,7 +596,7 @@ fn expand_entry(item: &Value, cfg: Cfg<'_>) -> CellOutput {
             }
 
             let inner_cfg = cfg_expand_next_level(cfg.clone(), span);
-            let table = expand_list(vals, inner_cfg);
+            let table = expand_list(vals, inner_cfg.clone());
 
             let mut out = match table {
                 Ok(Some(out)) => out,
@@ -570,10 +608,15 @@ fn expand_entry(item: &Value, cfg: Cfg<'_>) -> CellOutput {
             };
 
             table_apply_config(&mut out, &cfg);
+            if refit_nested_tables(&mut out, vals, inner_cfg).is_err() {
+                let value = nu_value_to_string(item, cfg.opts.config, &cfg.opts.style_computer);
+                let value = nutext_wrap(value, &cfg);
+                return CellOutput::styled(value);
+            }
 
-            let table = out.table.draw_unchecked(cfg.opts.width);
+            let table = out.table.draw(cfg.opts.width);
             match table {
-                Some(table) => CellOutput::clean(table, out.count_rows, false),
+                Some(table) => CellOutput::clean(table, out.count_rows, true),
                 None => {
                     let value = nu_value_to_string(item, cfg.opts.config, &cfg.opts.style_computer);
                     let value = nutext_wrap(value, &cfg);
@@ -626,20 +669,135 @@ fn list_to_string(
     buf
 }
 
+fn refit_nested_tables(
+    out: &mut TableOutput,
+    input: &[Value],
+    cfg: Cfg<'_>,
+) -> Result<(), ShellError> {
+    if out.table.total_width() <= cfg.opts.width {
+        return Ok(());
+    }
+
+    out.table.prefer_nested_table_columns();
+
+    let Some((needed, trail)) = out.table.plan_column_widths(cfg.opts.width) else {
+        return Ok(());
+    };
+
+    let pad = cfg.opts.config.table.padding.left + cfg.opts.config.table.padding.right;
+    let real_columns = if trail {
+        needed.len().saturating_sub(1)
+    } else {
+        needed.len()
+    };
+    if real_columns == 0 {
+        return Ok(());
+    }
+
+    let with_index = out.with_index;
+    let with_header = out.with_header;
+    let headers = get_columns(input);
+    let headers: Vec<_> = headers
+        .into_iter()
+        .filter(|header| !with_index || header != INDEX_COLUMN_NAME)
+        .collect();
+
+    let mut replaced = false;
+    for (col, col_width) in needed
+        .iter()
+        .enumerate()
+        .take(real_columns.min(out.table.count_columns()))
+    {
+        if with_index && col == 0 {
+            continue;
+        }
+
+        let content_width = col_width.saturating_sub(pad);
+        if content_width < MIN_CELL_WIDTH {
+            continue;
+        }
+
+        let header_idx = col - with_index as usize;
+        let Some(header) = headers.get(header_idx) else {
+            continue;
+        };
+
+        for (i, item) in input.iter().enumerate() {
+            cfg.opts.signals.check(&cfg.opts.span)?;
+
+            let table_row = i + with_header as usize;
+            if table_row >= out.table.count_rows() {
+                break;
+            }
+
+            if out.table.cell_content_width(table_row, col) <= content_width {
+                continue;
+            }
+
+            let value = match item {
+                Value::Record { val, .. } => val.get(header),
+                _ => Some(item),
+            };
+            let Some(value) = value else {
+                continue;
+            };
+            if !matches!(value, Value::List { .. } | Value::Record { .. }) {
+                continue;
+            }
+
+            let mut inner_cfg = cfg_expand_reset_table(cfg.clone(), content_width);
+            inner_cfg.clip_columns = true;
+            inner_cfg.raise_row_errors = false;
+            let cell = expand_entry(value, inner_cfg);
+            let expanded = cell.is_expanded;
+            out.table.insert((table_row, col), cell.text);
+            if expanded {
+                out.table.mark_nested_cell((table_row, col));
+            }
+            replaced = true;
+        }
+    }
+
+    if replaced {
+        out.table.recalculate_dimensions();
+    }
+
+    Ok(())
+}
+
 fn maybe_expand_table(mut out: TableOutput, term_width: usize) -> StringResult {
+    out.table.prefer_nested_table_columns();
     let total_width = out.table.total_width();
+    if total_width > term_width {
+        // Overflow: wrapping vs truncating is applied in NuTable::draw.
+        return Ok(out.table.draw(term_width));
+    }
+
     if total_width < term_width {
         const EXPAND_THRESHOLD: f32 = 0.80;
         let used_percent = total_width as f32 / term_width as f32;
-        let need_expansion = total_width < term_width && used_percent > EXPAND_THRESHOLD;
+        let need_expansion = used_percent > EXPAND_THRESHOLD;
         if need_expansion {
             out.table.set_strategy(true);
         }
     }
 
-    let table = out.table.draw_unchecked(term_width);
+    Ok(out.table.draw_unchecked(term_width))
+}
 
-    Ok(table)
+fn insert_expanded_cell(
+    table: &mut NuTable,
+    pos: (usize, usize),
+    cell: CellOutput,
+    total_rows: &mut usize,
+) {
+    let expanded = cell.is_expanded;
+    *total_rows = total_rows.saturating_add(cell.size);
+    table.insert(pos, cell.text);
+    table.insert_style(pos, cell.style);
+    if expanded {
+        table.mark_nested_cell(pos);
+    }
 }
 
 fn table_apply_config(out: &mut TableOutput, cfg: &Cfg<'_>) {
@@ -668,8 +826,19 @@ fn value_to_wrapped_string_clean(value: &Value, cfg: &Cfg<'_>, value_width: usiz
     wrap_text(&text, value_width, cfg.opts.config)
 }
 
+impl Cfg<'_> {
+    fn check_row(&self, item: &Value) -> Result<(), ShellError> {
+        if self.raise_row_errors {
+            check_value(item)?;
+        }
+        Ok(())
+    }
+}
+
 fn cfg_expand_next_level(mut cfg: Cfg<'_>, span: Span) -> Cfg<'_> {
     cfg.opts.span = span;
+    cfg.raise_row_errors = false;
+    cfg.clip_columns = true;
     if let Some(deep) = cfg.format.expand_limit.as_mut() {
         *deep -= 1
     }

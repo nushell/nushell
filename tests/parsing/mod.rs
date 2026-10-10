@@ -1,4 +1,6 @@
+mod def_compile;
 mod escaping;
+mod lex_once;
 
 use std::time::Duration;
 
@@ -611,9 +613,10 @@ fn wacky_range_parse(#[case] normal: &str, #[case] wacky: &str) -> Result {
 // Regression test https://github.com/nushell/nushell/issues/17146
 #[test]
 fn wacky_range_unmatched_paren() -> Result {
+    // Unterminated quote is reported as unclosed delimiter (not unexpected EOF).
     test()
         .run("') ..")
-        .expect_error_code_eq("nu::parser::unexpected_eof")
+        .expect_error_code_eq("nu::parser::unclosed_delimiter")
 }
 
 #[test]

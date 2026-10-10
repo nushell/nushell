@@ -1,5 +1,5 @@
 mod binary;
-mod colored_text_widget;
+pub mod colored_text_widget;
 mod cursor;
 mod preview;
 mod record;

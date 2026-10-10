@@ -32,11 +32,11 @@ impl Command for FormatFilesize {
                 (Type::record(), Type::record()),
             ])
             .allow_variants_without_examples(true)
-            .required(
-                "format value",
-                SyntaxShape::String,
-                "The format into which convert the file sizes.",
-            )
+            .param(Parameter::Required(
+                PositionalArg::new("format value", SyntaxShape::String)
+                    .desc("The format into which convert the file sizes.")
+                    .completion(Completion::new_list(SUPPORTED_FILESIZE_UNITS.as_slice())),
+            ))
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
@@ -90,11 +90,13 @@ impl Command for FormatFilesize {
     fn run_const(
         &self,
         working_set: &StateWorkingSet,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let unit = parse_filesize_unit(call.req_const::<Spanned<String>>(working_set, 0)?)?;
-        let cell_paths: Vec<CellPath> = call.rest_const(working_set, 1)?;
+        let unit =
+            parse_filesize_unit(call.req_const::<Spanned<String>>(working_set, stack, 0)?)?;
+        let cell_paths: Vec<CellPath> = call.rest_const(working_set, stack, 1)?;
         let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
         let float_precision = working_set.permanent().get_config().float_precision.max(0) as usize;
         let arg = Arguments {

@@ -1,12 +1,7 @@
-#[cfg(target_os = "macos")]
-use chrono::{Local, TimeZone};
-#[cfg(windows)]
-use itertools::Itertools;
+use chrono::{DateTime, Local};
 use nu_engine::command_prelude::*;
 
 use nu_protocol::PipelineMetadata;
-#[cfg(target_os = "linux")]
-use procfs::WithCurrentSystemInfo;
 use std::time::Duration;
 
 #[derive(Clone)]
@@ -31,6 +26,14 @@ impl Command for Ps {
 
     fn description(&self) -> &str {
         "View information about system processes."
+    }
+
+    fn extra_description(&self) -> &str {
+        "The columns are the same on every platform. `cpu` is the percent of one CPU core the process used during a short (about 100ms) sample, like `top` shows, and `cpu_time` is the total CPU time it has used since it started. `mem` is resident memory.
+
+With `--long`, `virtual` is the size of the process's virtual address space and `private` is the memory only it uses, the number Activity Monitor and Task Manager show as \"Memory\". `read` and `written` count bytes of storage I/O since the process started; on Windows they count all I/O, including pipes and network. `user_id` is the numeric user id on unix and the SID string (for example `S-1-5-18`) on Windows. Windows has priority classes rather than nice values, so its `nice` is the priority class on the nice scale, the way libuv and Node.js map it, and its `process_group_id` is the console process group.
+
+A column is null when the operating system doesn't make that value available for a process: for example, macOS only shows the CPU, memory, threads, environment and working directory of other users' processes to root (their `command` is the executable's path), and the BSDs count disk I/O in blocks rather than bytes. Null sorts after every number and can't be matched with `=~`, so use `compact` to drop those rows before sorting or matching text."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -63,12 +66,17 @@ impl Command for Ps {
             },
             Example {
                 description: "List the top 5 system processes with the highest memory usage",
-                example: "ps | sort-by mem | last 5",
+                example: "ps | compact mem | sort-by mem | last 5",
                 result: None,
             },
             Example {
                 description: "List the top 3 system processes with the highest CPU usage",
-                example: "ps | sort-by cpu | last 3",
+                example: "ps | compact cpu | sort-by cpu | last 3",
+                result: None,
+            },
+            Example {
+                description: "List the 3 system processes that have used the most CPU time",
+                example: "ps | compact cpu_time | sort-by cpu_time | last 3",
                 result: None,
             },
             Example {
@@ -90,109 +98,55 @@ fn run_ps(
     stack: &mut Stack,
     call: &Call,
 ) -> Result<PipelineData, ShellError> {
-    let mut output = vec![];
     let span = call.head;
     let long = call.has_flag(engine_state, stack, "long")?;
+    let filesize = |bytes: Option<u64>| {
+        bytes.map_or(Value::nothing(span), |bytes| {
+            Value::filesize(bytes as i64, span)
+        })
+    };
 
-    for proc in nu_system::collect_proc(Duration::from_millis(100), false) {
-        let mut record = Record::new();
+    let output: Vec<Value> = nu_system::collect_proc(Duration::from_millis(100), long)
+        .into_iter()
+        .map(|proc| {
+            let mut record = Record::new();
 
-        record.push("pid", Value::int(proc.pid() as i64, span));
-        record.push("ppid", Value::int(proc.ppid() as i64, span));
-        record.push("name", Value::string(proc.name(), span));
+            record.push("pid", Value::int(proc.pid() as i64, span));
+            record.push("ppid", Value::int(proc.ppid() as i64, span));
+            record.push("name", Value::string(proc.name(), span));
+            record.push("user", proc.user().into_value(span));
+            record.push("status", proc.status().into_value(span));
+            record.push("cpu", proc.cpu_usage().into_value(span));
+            record.push("cpu_time", proc.cpu_time().into_value(span));
+            record.push("mem", filesize(proc.mem_size()));
 
-        #[cfg(not(windows))]
-        {
-            // Hide status on Windows until we can find a good way to support it
-            record.push("status", Value::string(proc.status(), span));
-        }
-
-        record.push("cpu", Value::float(proc.cpu_usage(), span));
-        record.push("mem", Value::filesize(proc.mem_size() as i64, span));
-        record.push("virtual", Value::filesize(proc.virtual_size() as i64, span));
-
-        if long {
-            record.push("command", Value::string(proc.command(), span));
-            #[cfg(target_os = "linux")]
-            {
-                let Ok(proc_stat) = proc.curr_proc.stat() else {
-                    continue;
-                };
+            if long {
+                record.push("virtual", filesize(proc.virtual_size()));
+                record.push("private", filesize(proc.private_size()));
+                record.push("command", Value::string(proc.command(), span));
+                record.push("exe", proc.exe().into_value(span));
                 record.push(
                     "start_time",
-                    match proc_stat.starttime().get() {
-                        Ok(ts) => Value::date(ts.into(), span),
-                        Err(_) => Value::nothing(span),
-                    },
+                    proc.start_time()
+                        .map(|time| DateTime::<Local>::from(time).fixed_offset())
+                        .into_value(span),
                 );
-                record.push("user_id", Value::int(proc.curr_proc.owner() as i64, span));
-                record.push("process_group_id", Value::int(proc_stat.pgrp as i64, span));
-                record.push("session_id", Value::int(proc_stat.session as i64, span));
-                // This may be helpful for ctrl+z type of checking, once we get there
-                // record.push("tpg_id", Value::int(proc_stat.tpgid as i64, span));
-                record.push("priority", Value::int(proc_stat.priority, span));
-                record.push("process_threads", Value::int(proc_stat.num_threads, span));
-                record.push("working", Value::filesize(proc.working_size() as i64, span));
-                record.push("paged", Value::filesize(proc.paged_size() as i64, span));
-                record.push("cwd", Value::string(proc.cwd(), span));
+                // A uid on unix, a SID string such as "S-1-5-18" on Windows.
+                record.push("user_id", proc.user_id().into_value(span));
+                record.push("process_group_id", proc.process_group_id().into_value(span));
+                record.push("session_id", proc.session_id().into_value(span));
+                record.push("priority", proc.priority().into_value(span));
+                record.push("nice", proc.nice().into_value(span));
+                record.push("threads", proc.thread_count().into_value(span));
+                record.push("read", filesize(proc.disk_read()));
+                record.push("written", filesize(proc.disk_written()));
+                record.push("cwd", proc.cwd().into_value(span));
+                record.push("environment", proc.environ().into_value(span));
             }
-            #[cfg(windows)]
-            {
-                //TODO: There's still more information we can cram in there if we want to
-                // see the ProcessInfo struct for more information
-                record.push(
-                    "start_time",
-                    Value::date(proc.start_time.fixed_offset(), span),
-                );
-                record.push(
-                    "user",
-                    Value::string(
-                        proc.user.clone().name.unwrap_or("unknown".to_string()),
-                        span,
-                    ),
-                );
-                record.push(
-                    "user_sid",
-                    Value::string(
-                        proc.user
-                            .clone()
-                            .sid
-                            .iter()
-                            .map(|r| r.to_string())
-                            .join("-"),
-                        span,
-                    ),
-                );
-                record.push("priority", Value::int(proc.priority as i64, span));
-                record.push("working", Value::filesize(proc.working_size() as i64, span));
-                record.push("paged", Value::filesize(proc.paged_size() as i64, span));
-                record.push("cwd", Value::string(proc.cwd(), span));
-                record.push(
-                    "environment",
-                    Value::list(
-                        proc.environ()
-                            .iter()
-                            .map(|x| Value::string(x.to_string(), span))
-                            .collect(),
-                        span,
-                    ),
-                );
-            }
-            #[cfg(target_os = "macos")]
-            {
-                let timestamp = Local
-                    .timestamp_nanos(proc.start_time * 1_000_000_000)
-                    .into();
-                record.push("start_time", Value::date(timestamp, span));
-                record.push("user_id", Value::int(proc.user_id, span));
-                record.push("priority", Value::int(proc.priority, span));
-                record.push("process_threads", Value::int(proc.task_thread_num, span));
-                record.push("cwd", Value::string(proc.cwd(), span));
-            }
-        }
 
-        output.push(Value::record(record, span));
-    }
+            Value::record(record, span)
+        })
+        .collect();
 
     Ok(output.into_pipeline_data_with_metadata(
         span,

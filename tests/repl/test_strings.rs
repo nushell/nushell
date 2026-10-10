@@ -61,7 +61,7 @@ fn single_tick_interpolation() -> TestResult {
 
 #[test]
 fn unclosed_interpolation_subexpression() -> TestResult {
-    fail_test("$\"foo (2 + 3\"", "expected closing )")
+    fail_test("$\"foo (2 + 3\"", "expected `)`")
 }
 
 #[test]
@@ -170,8 +170,8 @@ fn raw_string_inside_closure() -> TestResult {
 fn incomplete_string() -> TestResult {
     fail_test("r#abc", "expected '")?;
     fail_test("r#'bc", "expected closing '#")?;
-    fail_test("'ab\"", "expected closing '")?;
-    fail_test("\"ab'", "expected closing \"")?;
+    fail_test("'ab\"", "expected `'`")?;
+    fail_test("\"ab'", "expected `\"`")?;
     fail_test(
         r#"def func [] {
   {
@@ -179,6 +179,6 @@ fn incomplete_string() -> TestResult {
   }
 }
 "#,
-        "expected closing \"",
+        "expected `\"`",
     )
 }

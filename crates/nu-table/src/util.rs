@@ -155,7 +155,7 @@ fn colorize_space_one(text: &str, lead: ANSIStr<'_>, trail: ANSIStr<'_>) -> Stri
 
     if !lead.is_empty() {
         buf = RE_LEADING
-            .replace_all(&buf, |cap: &Captures| {
+            .replace_all(&buf, |cap: &Captures<'_, str>| {
                 let spaces = cap.get(1).expect("valid").as_str();
                 format!("{}{}{}", lead.get_prefix(), spaces, lead.get_suffix())
             })
@@ -164,7 +164,7 @@ fn colorize_space_one(text: &str, lead: ANSIStr<'_>, trail: ANSIStr<'_>) -> Stri
 
     if !trail.is_empty() {
         buf = RE_TRAILING
-            .replace_all(&buf, |cap: &Captures| {
+            .replace_all(&buf, |cap: &Captures<'_, str>| {
                 let spaces = cap.get(1).expect("valid").as_str();
                 format!("{}{}{}", trail.get_prefix(), spaces, trail.get_suffix())
             })

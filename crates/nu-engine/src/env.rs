@@ -60,7 +60,8 @@ pub fn convert_env_vars(
             stack.add_env_var(key.to_string(), new_val);
         }
     }
-    Ok(())
+
+    ensure_path(engine_state, stack).map_or(Ok(()), Err)
 }
 
 /// Translate environment variables from Strings to Values. Requires config to be already set up in
@@ -245,21 +246,17 @@ pub fn find_in_dirs_env(
 ) -> Result<Option<PathBuf>, ShellError> {
     // Choose whether to use file-relative or PWD-relative path
     let cwd = if let Some(pwd) = stack.get_env_var(engine_state, "FILE_PWD") {
-        match env_to_string("FILE_PWD", pwd, engine_state, stack) {
-            Ok(cwd) => {
-                if Path::new(&cwd).is_absolute() {
-                    cwd
-                } else {
-                    return Err(ShellError::Generic(GenericError::new(
-                        "Invalid current directory",
-                        format!(
-                            "The 'FILE_PWD' environment variable must be set to an absolute path. Found: '{cwd}'"
-                        ),
-                        pwd.span(),
-                    )));
-                }
-            }
-            Err(e) => return Err(e),
+        let cwd = env_to_string("FILE_PWD", pwd, engine_state, stack)?;
+        if Path::new(&cwd).is_absolute() {
+            cwd
+        } else {
+            return Err(ShellError::Generic(GenericError::new(
+                "Invalid current directory",
+                format!(
+                    "The 'FILE_PWD' environment variable must be set to an absolute path. Found: '{cwd}'"
+                ),
+                pwd.span(),
+            )));
         }
     } else {
         engine_state.cwd_as_string(Some(stack))?

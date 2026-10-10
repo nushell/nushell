@@ -492,13 +492,18 @@ impl Expression {
             | Expr::Closure(block_id)
             | Expr::RowCondition(block_id)
             | Expr::Subexpression(block_id) => {
-                let mut block = Block::clone(working_set.get_block(*block_id));
-                block.replace_in_variable(working_set, new_var_id);
                 if block_id.get() < working_set.permanent_state.num_blocks() {
                     // For aliased blocks, duplicate to avoid panics
                     // TODO: consider making them mutable in the future
+                    let mut block = Block::clone(working_set.get_block(*block_id));
+                    block.replace_in_variable(working_set, new_var_id);
                     *block_id = working_set.add_block(Arc::new(block));
                 } else {
+                    // Take the block out of the working set rather than cloning it: the walk only
+                    // visits the blocks nested in it, never this one, so nothing sees the
+                    // placeholder before the block is put back.
+                    let mut block = std::mem::take(working_set.get_block_mut(*block_id));
+                    block.replace_in_variable(working_set, new_var_id);
                     *working_set.get_block_mut(*block_id) = block;
                 }
             }

@@ -22,11 +22,16 @@ impl Command for OverlayUse {
         Signature::build("overlay use")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .allow_variants_without_examples(true)
-            .required(
-                "name",
-                SyntaxShape::OneOf(vec![SyntaxShape::String, SyntaxShape::Nothing]),
-                "Module name to use overlay for (`null` for no-op).",
-            )
+            .param(Parameter::Required(
+                PositionalArg::new(
+                    "name",
+                    SyntaxShape::OneOf(vec![SyntaxShape::String, SyntaxShape::Nothing]),
+                )
+                .desc("Module name to use overlay for (`null` for no-op).")
+                .completion(Completion::Builtin(BuiltinCompletion::NuFile {
+                    std_virtual_path: true,
+                })),
+            ))
             .optional(
                 "as",
                 SyntaxShape::Keyword(b"as".to_vec(), Box::new(SyntaxShape::String)),

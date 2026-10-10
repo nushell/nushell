@@ -1,10 +1,7 @@
 mod into_string;
 mod join;
 
-use nu_test_support::{
-    fs::{Stub::FileWithContent, fixtures},
-    prelude::*,
-};
+use nu_test_support::{fs::Stub::FileWithContent, prelude::*};
 
 #[test]
 fn trims() -> Result {
@@ -198,7 +195,7 @@ fn regex_error_in_pattern() -> Result {
          "#;
 
         let err = test().cwd(dirs.test()).run(code).expect_shell_error()?;
-        assert_contains("Incorrect value", err.to_string());
+        assert_contains("Invalid value", err.to_string());
         Ok(())
     })
 }
@@ -208,7 +205,7 @@ fn regex_error_in_pattern_without_input() -> Result {
     let code = r#"[] | str replace -r '[' "destination""#;
 
     let err = test().run(code).expect_shell_error()?;
-    assert_contains("Incorrect value", err.to_string());
+    assert_contains("Invalid value", err.to_string());
     Ok(())
 }
 
@@ -441,7 +438,7 @@ fn substring_drops_content_type() -> Result {
         | metadata
         | $in.content_type?
     ";
-    test().cwd(fixtures()).run(code).expect_value_eq(())
+    test().cwd(FIXTURES.as_path()).run(code).expect_value_eq(())
 }
 
 #[test]

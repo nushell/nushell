@@ -640,6 +640,32 @@ fn table_expand_record_2() -> Result {
 }
 
 #[test]
+fn table_expand_nested_error_list_does_not_rethrow() -> Result {
+    // Nested `Value::Error` lists (e.g. `$ans.last` after `str length` on a table)
+    // must render under `--expand` instead of rethrowing. Construct the record in
+    // Rust: collecting `[{a: 1}] | str length` in a subexpression raises first.
+    use nu_protocol::shell_error::generic::GenericError;
+    use nu_protocol::{Span, record};
+
+    let err = Value::error(
+        ShellError::Generic(GenericError::new("boom", "test", Span::test_data())),
+        Span::test_data(),
+    );
+    let data = Value::test_record(record! {
+        "last" => Value::test_list(vec![err.clone(), err]),
+    });
+    let _: String = test().run_with_data("table --expand | ansi strip", data)?;
+    Ok(())
+}
+
+#[test]
+fn table_expand_top_level_error_list_still_throws() -> Result {
+    test()
+        .run("[{a: 1}] | str length | table --expand")
+        .expect_error_code_eq("nu::shell::only_supports_this_input_type")
+}
+
+#[test]
 #[deps(TESTBIN_MEOW)]
 fn external_with_too_much_stdout_should_not_hang_nu() -> Result {
     use nu_test_support::fs::Stub::FileWithContent;

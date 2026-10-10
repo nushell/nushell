@@ -49,7 +49,7 @@ pub fn encode(
     if ["UTF-16BE", "UTF-16LE"].contains(&encoding.name()) {
         return Err(ShellError::Generic(
             GenericError::new(
-                format!("{} encoding is not supported", &encoding_name.item),
+                format!("{} encoding is not supported", encoding_name.item),
                 "invalid encoding",
                 encoding_name.span,
             )
@@ -64,7 +64,7 @@ pub fn encode(
         // TODO: make GenericError accept two spans (including head)
         Err(ShellError::Generic(GenericError::new(
             "error while encoding string",
-            format!("string contained characters not in {}", &encoding_name.item),
+            format!("string contained characters not in {}", encoding_name.item),
             s_span,
         )))
     } else {

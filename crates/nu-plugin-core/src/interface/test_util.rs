@@ -78,7 +78,7 @@ impl<I, O> TestCase<I, O> {
 
     /// Clear the read buffer.
     pub fn clear(&self) {
-        self.r#in.lock().expect(FAILED).data.truncate(0);
+        self.r#in.lock().expect(FAILED).data.clear();
     }
 
     /// Add input that will be read by the interface.

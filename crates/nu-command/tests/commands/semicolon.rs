@@ -1,24 +1,22 @@
-use nu_test_support::nu;
 use nu_test_support::playground::Playground;
+use nu_test_support::prelude::*;
 
 #[test]
-fn semicolon_allows_lhs_to_complete() {
+fn semicolon_allows_lhs_to_complete() -> Result {
     Playground::setup("create_test_1", |dirs, _sandbox| {
-        let actual = nu!(
-            cwd: dirs.test(),
-            "touch i_will_be_created_semi.txt; echo done"
-        );
+        test()
+            .cwd(dirs.test())
+            .run("touch i_will_be_created_semi.txt; 'done'")
+            .expect_value_eq("done")?;
 
         let path = dirs.test().join("i_will_be_created_semi.txt");
-
         assert!(path.exists());
-        assert_eq!(actual.out, "done");
+        Ok(())
     })
 }
 
 #[test]
-fn semicolon_lhs_error_stops_processing() {
-    let actual = nu!("where 1 1; echo done");
-
-    assert!(!actual.out.contains("done"));
+fn semicolon_lhs_error_stops_processing() -> Result {
+    test().run("where 1 1; 'done'").expect_parse_error()?;
+    Ok(())
 }

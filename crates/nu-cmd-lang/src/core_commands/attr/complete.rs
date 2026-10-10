@@ -12,11 +12,13 @@ impl Command for AttrComplete {
         Signature::build("attr complete")
             .input_output_type(Type::Nothing, Type::String)
             .allow_variants_without_examples(true)
-            .required(
-                "completer",
-                SyntaxShape::String,
-                "Name of the completion command.",
-            )
+            .param(Parameter::Required(
+                PositionalArg::new("completer", SyntaxShape::String)
+                    .desc("Name of the completion command.")
+                    .completion(Completion::Builtin(BuiltinCompletion::Command {
+                        internal_only: true,
+                    })),
+            ))
             .category(Category::Core)
     }
 
@@ -38,10 +40,11 @@ impl Command for AttrComplete {
     fn run_const(
         &self,
         working_set: &StateWorkingSet,
+        stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let arg: Spanned<String> = call.req_const(working_set, 0)?;
+        let arg: Spanned<String> = call.req_const(working_set, stack, 0)?;
         run_impl(arg)
     }
 
@@ -53,8 +56,8 @@ impl Command for AttrComplete {
         vec![Example {
             description: "Use another command as completion source.",
             example: "\
-                def complete-foo [spans: list<string>] {\n    \
-                    [bar baz qux spam eggs] | where $it not-in $spans\n\
+                def complete-foo [token: record] {\n    \
+                    [bar baz qux spam eggs] | where $it != $token.text\n\
                 }\n\n\
                 @complete 'complete-foo'\n\
                 def foo [...args] { $args }\
@@ -100,6 +103,7 @@ impl Command for AttrCompleteExternal {
     fn run_const(
         &self,
         _: &StateWorkingSet,
+        _: &mut Stack,
         _: &Call,
         _: PipelineData,
     ) -> Result<PipelineData, ShellError> {

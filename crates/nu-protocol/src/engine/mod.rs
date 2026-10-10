@@ -1,5 +1,6 @@
 //! Representation of the engine state and many of the details that implement the scoping
 mod argument;
+mod bracket_table;
 mod cached_file;
 mod call;
 mod call_info;
@@ -10,15 +11,19 @@ mod engine_state;
 mod env_name;
 mod error_handler;
 mod jobs;
+pub mod named_flags;
 mod overlay;
 mod pattern_match;
+mod prompt_state;
 mod sequence;
+mod signature_cache;
 mod stack;
 mod stack_out_dest;
 mod state_delta;
 mod state_working_set;
 mod variable;
 
+pub use bracket_table::BracketTable;
 pub use cached_file::CachedFile;
 
 pub use argument::*;
@@ -32,6 +37,7 @@ pub use error_handler::*;
 pub use jobs::*;
 pub use overlay::*;
 pub use pattern_match::*;
+pub use prompt_state::*;
 pub use sequence::*;
 pub use stack::*;
 pub use stack_out_dest::*;

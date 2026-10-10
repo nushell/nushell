@@ -151,13 +151,14 @@ impl Command for SplitRow {
     fn run_const(
         &self,
         working_set: &StateWorkingSet,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let separator: Spanned<String> = call.req_const(working_set, 0)?;
-        let max_split: Option<usize> = call.get_flag_const(working_set, "number")?;
-        let split_from_right = call.has_flag_const(working_set, "right")?;
-        let has_regex = call.has_flag_const(working_set, "regex")?;
+        let separator: Spanned<String> = call.req_const(working_set, stack, 0)?;
+        let max_split: Option<usize> = call.get_flag_const(working_set, stack, "number")?;
+        let split_from_right = call.has_flag_const(working_set, stack, "right")?;
+        let has_regex = call.has_flag_const(working_set, stack, "regex")?;
 
         let args = Arguments {
             separator,
@@ -183,19 +184,12 @@ fn split_row(
     args: Arguments,
 ) -> Result<PipelineData, ShellError> {
     let name_span = call.head;
-    let regex = if args.has_regex {
-        Regex::new(&args.separator.item)
+    let pattern = if args.has_regex {
+        std::borrow::Cow::Borrowed(args.separator.item.as_str())
     } else {
-        let escaped = escape(&args.separator.item);
-        Regex::new(&escaped)
-    }
-    .map_err(|e| {
-        ShellError::Generic(GenericError::new(
-            "Error with regular expression",
-            e.to_string(),
-            args.separator.span,
-        ))
-    })?;
+        escape(&args.separator.item)
+    };
+    let regex = engine_state.compile_regex(&pattern, args.separator.span)?;
     input.flat_map(
         move |x| split_row_helper(&x, &regex, args.max_split, args.split_from_right, name_span),
         engine_state.signals(),
@@ -213,7 +207,7 @@ fn split_row_helper(
     if let Value::Error { error, .. } = v {
         return vec![Value::error(*error.clone(), span)];
     }
-    let Ok(s) = v.coerce_str() else {
+    let Ok(s) = v.coerce_string() else {
         return vec![Value::error(
             ShellError::OnlySupportsThisInputType {
                 exp_input_type: "string".into(),

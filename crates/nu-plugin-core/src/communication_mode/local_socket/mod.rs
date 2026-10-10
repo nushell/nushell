@@ -18,8 +18,9 @@ pub fn make_local_socket_name(unique_id: &str) -> OsString {
         // not `/tmp`
         std::env::temp_dir()
     };
-    let socket_name = format!("nu.{}.{}.sock", std::process::id(), unique_id);
-    base.push(socket_name);
+    let socket_dir = format!("nu.{}.{}", std::process::id(), unique_id);
+    base.push(socket_dir);
+    base.push("plugin.sock");
     base.into()
 }
 

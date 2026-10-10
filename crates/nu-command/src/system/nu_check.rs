@@ -2,6 +2,7 @@ use nu_engine::{command_prelude::*, find_in_dirs_env, get_dirs_var_from_call};
 use nu_parser::{parse, parse_module_block, parse_module_file_or_dir, unescape_unquote_string};
 use nu_protocol::{
     engine::{FileStack, StateWorkingSet},
+    report_parse_error,
     shell_error::generic::GenericError,
     shell_error::io::IoError,
 };
@@ -219,15 +220,16 @@ fn check_parse(
     call_head: Span,
 ) -> Result<PipelineData, ShellError> {
     if starting_error_count != working_set.parse_errors.len() {
-        let msg = format!(
-            "Found : {}",
-            working_set
-                .parse_errors
-                .first()
-                .expect("Missing parser error")
-        );
+        let parse_err = working_set
+            .parse_errors
+            .first()
+            .expect("Missing parser error");
 
         if is_debug {
+            // Print the real miette diagnostic (with file contents / labels) first.
+            report_parse_error(None, working_set, parse_err);
+
+            let msg = format!("Found : {parse_err}");
             let mut err = GenericError::new("Failed to parse content", msg, call_head);
             if let Some(help) = help {
                 err = err.with_help(help);
@@ -274,13 +276,12 @@ fn parse_file_or_dir_module(
 
     if starting_error_count != working_set.parse_errors.len() {
         if is_debug {
-            let msg = format!(
-                "Found : {}",
-                working_set
-                    .parse_errors
-                    .first()
-                    .expect("Missing parser error")
-            );
+            let parse_err = working_set
+                .parse_errors
+                .first()
+                .expect("Missing parser error");
+            report_parse_error(None, working_set, parse_err);
+            let msg = format!("Found : {parse_err}");
             Err(ShellError::Generic(
                 GenericError::new("Failed to parse content", msg, path_span).with_help(
                     "If the content is intended to be a script, please try to remove `--as-module` flag ",

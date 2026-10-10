@@ -474,6 +474,11 @@ impl ByteStream {
     }
 
     /// Returns the [`ByteStreamType`] associated with the [`ByteStream`].
+    /// Process interrupt signals associated with this stream.
+    pub fn signals(&self) -> &Signals {
+        &self.signals
+    }
+
     pub fn type_(&self) -> ByteStreamType {
         self.type_
     }
@@ -685,17 +690,12 @@ impl ByteStream {
         let value = match self.type_ {
             // If the type is specified, then the stream should always become that type:
             ByteStreamType::Binary => Value::binary(self.into_bytes()?, span),
+            // Fail on invalid UTF-8 rather than falling back to binary (unlike [`value_from_bytes`]).
             ByteStreamType::String => Value::string(self.into_string()?, span),
             // If the type is not specified, then it just depends on whether it parses or not:
-            ByteStreamType::Unknown => match String::from_utf8(self.into_bytes()?) {
-                Ok(mut str) => {
-                    if trim {
-                        trim_end_newline(&mut str);
-                    }
-                    Value::string(str, span)
-                }
-                Err(err) => Value::binary(err.into_bytes(), span),
-            },
+            ByteStreamType::Unknown => {
+                value_from_bytes(self.into_bytes()?, span, ByteStreamType::Unknown, trim)
+            }
         };
         Ok(value)
     }
@@ -1116,6 +1116,56 @@ fn trim_end_newline(string: &mut String) {
         string.pop();
         if string.ends_with('\r') {
             string.pop();
+        }
+    }
+}
+
+/// Convert already-collected stream bytes into a [`Value`].
+///
+/// Shared by [`ByteStream::into_value`] (for [`ByteStreamType::Unknown`]) and interactive
+/// last-result capture of a byte-stream prefix.
+///
+/// - [`ByteStreamType::Binary`] → binary (no decode)
+/// - [`ByteStreamType::String`] / [`ByteStreamType::Unknown`] → UTF-8 string when valid, else binary
+///
+/// Incomplete multi-byte sequences at the end (typical when a prefix is truncated to a budget)
+/// keep the valid UTF-8 prefix as a string rather than failing the whole buffer to binary.
+///
+/// When `trim_trailing_newline` is true, a single trailing `\n` or `\r\n` is stripped, matching
+/// collected external/file values.
+pub fn value_from_bytes(
+    bytes: Vec<u8>,
+    span: Span,
+    type_: ByteStreamType,
+    trim_trailing_newline: bool,
+) -> Value {
+    if matches!(type_, ByteStreamType::Binary) {
+        return Value::binary(bytes, span);
+    }
+
+    match String::from_utf8(bytes) {
+        Ok(mut s) => {
+            if trim_trailing_newline {
+                trim_end_newline(&mut s);
+            }
+            Value::string(s, span)
+        }
+        Err(err) => {
+            let valid_up_to = err.utf8_error().valid_up_to();
+            // `error_len() == None` means unexpected EOF mid-sequence (truncation).
+            let incomplete_at_end = err.utf8_error().error_len().is_none();
+            let bytes = err.into_bytes();
+            if incomplete_at_end && valid_up_to > 0 {
+                // SAFETY: `valid_up_to` is the end of a valid UTF-8 prefix.
+                let mut s = String::from_utf8(bytes[..valid_up_to].to_vec())
+                    .expect("valid_up_to marks a valid UTF-8 prefix");
+                if trim_trailing_newline {
+                    trim_end_newline(&mut s);
+                }
+                Value::string(s, span)
+            } else {
+                Value::binary(bytes, span)
+            }
         }
     }
 }

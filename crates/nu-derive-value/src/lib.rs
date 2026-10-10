@@ -28,7 +28,7 @@
 //! but ensures that no other code may influence this generated code or vice versa.
 
 use proc_macro::TokenStream;
-use proc_macro_error2::{Diagnostic, proc_macro_error};
+use proc_macro_error3::{Diagnostic, proc_macro_error};
 use proc_macro2::TokenStream as TokenStream2;
 
 mod attributes;

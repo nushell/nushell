@@ -22,12 +22,18 @@ impl Command for ExportUse {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("export use")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
-            .required("module", SyntaxShape::String, "Module or module file.")
-            .rest(
-                "members",
-                SyntaxShape::Any,
-                "Which members of the module to import.",
-            )
+            .param(Parameter::Required(
+                PositionalArg::new("module", SyntaxShape::String)
+                    .desc("Module or module file.")
+                    .completion(Completion::Builtin(BuiltinCompletion::NuFile {
+                        std_virtual_path: true,
+                    })),
+            ))
+            .param(Parameter::Rest(
+                PositionalArg::new("members", SyntaxShape::Any)
+                    .desc("Which members of the module to import.")
+                    .completion(Completion::Builtin(BuiltinCompletion::ModuleExports)),
+            ))
             .category(Category::Core)
     }
 

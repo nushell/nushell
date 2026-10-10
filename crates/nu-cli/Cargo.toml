@@ -47,9 +47,11 @@ crossterm = { workspace = true }
 fancy-regex = { workspace = true }
 is_executable = { workspace = true }
 log = { workspace = true }
+lru = { workspace = true }
 lscolors = { workspace = true, default-features = false, features = ["nu-ansi-term"] }
 miette = { workspace = true, features = ["fancy-no-backtrace"] }
 nucleo-matcher = { workspace = true }
+parking_lot = { workspace = true }
 percent-encoding = { workspace = true }
 sysinfo = { workspace = true }
 strum = { workspace = true }

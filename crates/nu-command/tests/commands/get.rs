@@ -4,6 +4,21 @@ use pretty_assertions::assert_matches;
 use rstest::rstest;
 
 #[test]
+fn get_index_then_split_chars() -> Result {
+    // oh-my-style prompts: `($splits | get $x | split chars | get 0)` inside `each`.
+    // `get` has a `(nothing, nothing)` pair; pipeline parsing unions input with
+    // `nothing`. That must not make `get` output `nothing`, or `split chars` is
+    // inferred as error input.
+    let code = r#"
+        let splits = "a/b/c" | split row "/"
+        1..<2 | each {|x|
+            ($splits | get $x | split chars | get 0)
+        } | get 0
+    "#;
+    test().run(code).expect_value_eq("b")
+}
+
+#[test]
 fn simple_get_record() -> Result {
     test()
         .run_with_data("$in | get foo", test_value!({ foo: "bar" }))

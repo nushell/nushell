@@ -419,6 +419,7 @@ pub(crate) fn compile_load_env(
             Instruction::LoadVariable {
                 dst: out_reg,
                 var_id: ENV_VARIABLE_ID,
+                preserve_origin: false,
             }
             .into_spanned(span),
         )?,

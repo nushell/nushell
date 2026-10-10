@@ -174,6 +174,7 @@ impl<'e, 's> ScopeData<'e, 's> {
             if self.visibility.is_decl_id_visible(decl_id)
                 && !self.engine_state.get_decl(*decl_id).is_alias()
             {
+                let command_name = String::from_utf8_lossy(command_name);
                 let decl = self.engine_state.get_decl(*decl_id);
                 let signature = decl.signature();
 
@@ -206,8 +207,14 @@ impl<'e, 's> ScopeData<'e, 's> {
                     })
                     .collect();
 
+                let deprecations = decl
+                    .deprecation_info()
+                    .into_iter()
+                    .map(|entry| entry.into_value(&command_name, span))
+                    .collect();
+
                 let record = record! {
-                    "name" => Value::string(String::from_utf8_lossy(command_name), span),
+                    "name" => Value::string(command_name, span),
                     "category" => Value::string(signature.category.to_string(), span),
                     "signatures" => self.collect_signatures(&signature, span),
                     "description" => Value::string(decl.description(), span),
@@ -224,6 +231,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                         Some(CommandWideCompleter::External) => Value::string("external", span),
                         None => Value::nothing(span),
                     },
+                    "deprecation_info" => Value::list(deprecations, span),
                     "decl_id" => Value::int(decl_id.get() as i64, span),
                 };
 
@@ -635,6 +643,27 @@ impl<'e, 's> ScopeData<'e, 's> {
             .map(|overlay| overlay.len() as i64)
             .sum();
 
+        let config = self.stack.get_config(self.engine_state);
+        let last_result = Value::record(
+            record! {
+                "name" => Value::string(
+                    format!("${}", nu_protocol::LAST_RESULT_VAR_NAME),
+                    span,
+                ),
+                "size_limit" => Value::filesize(config.max_last_result_size, span),
+                "memory_size" => Value::filesize(
+                    nu_protocol::Filesize::new(self.stack.last_result_memory_size() as i64),
+                    span,
+                ),
+                "truncated" => Value::bool(self.stack.last_result_was_truncated(), span),
+                "has_metadata" => Value::bool(
+                    self.stack.last_result_metadata().is_some(),
+                    span,
+                ),
+            },
+            span,
+        );
+
         Value::record(
             record! {
                 "source_bytes" => Value::int(self.engine_state.next_span_start() as i64, span),
@@ -643,6 +672,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                 "num_blocks" => Value::int(self.engine_state.num_blocks() as i64, span),
                 "num_modules" => Value::int(self.engine_state.num_modules() as i64, span),
                 "num_env_vars" => Value::int(num_env_vars, span),
+                "last_result" => last_result,
             },
             span,
         )

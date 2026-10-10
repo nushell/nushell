@@ -72,9 +72,14 @@ fn main() {
             .collect();
 
         for _ in 0..repeat.count {
-            stdout
-                .write_all(&bytes)
-                .expect("writing to stdout must not fail");
+            if let Err(err) = stdout.write_all(&bytes) {
+                if err.kind() == io::ErrorKind::BrokenPipe {
+                    return;
+                }
+
+                eprintln!("failed to write to stdout: {err}");
+                std::process::exit(1);
+            }
         }
     }
 

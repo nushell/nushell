@@ -8,6 +8,7 @@
 //! | [`Semver`] | Display this help message |
 //! | [`SemverBump`] | Increment major/minor/patch or add/advance prerelease |
 
+pub mod parse;
 pub mod range;
 pub mod value;
 

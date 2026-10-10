@@ -212,7 +212,15 @@ fn sqlite_database_operations(#[case] operation: &str, #[case] expected: impl In
 #[case::wrap("wrap wrapped | columns | first", "wrapped")]
 #[case::interleave("interleave { [{z: 999}] } | length", 6)]
 #[case::rotate("rotate --ccw | columns | first", "column0")]
-#[case::group_by("group-by z | columns | length", 4)]
+#[case::group_by(
+    "group-by z",
+    test_value!({
+        "1": [{z: 1}],
+        "42": [{z: 42}],
+        "425": [{z: 425}],
+        "4253": [{z: 4253}],
+    })
+)]
 #[case::get("get z.0", 1)]
 #[case::length("length", 5)]
 #[case::merge("first | merge {n: 1} | get n", 1)]
@@ -223,7 +231,11 @@ fn sqlite_database_operations(#[case] operation: &str, #[case] expected: impl In
 #[case::shuffle("shuffle | length", 5)]
 #[case::split_list("split list 2 | flatten | length", 5)]
 #[case::each_while("each while {|row| $row } | length", 5)]
-#[case::tee("tee {|x| $x | ignore } | flatten | length", 6)]
+// note: `tee`'s closure does not bind positional params for stream inputs, which used to
+// surface a `variable not found` error row that `length` swallowed and counted (6 = 5 rows
+// + 1 masked error). Since `length` now propagates stream errors, drop the row with a
+// closure that takes no arguments (`tee { ignore }`), keeping streaming intact.
+#[case::tee("tee { ignore } | flatten | length", 5)]
 #[case::filter("filter {|row| $row.z > 100 } | length", 2)]
 fn sqlite_int_table_operations(
     #[case] operation: &str,

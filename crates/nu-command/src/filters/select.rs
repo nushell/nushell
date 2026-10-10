@@ -231,7 +231,7 @@ fn select(
 ) -> Result<PipelineData, ShellError> {
     let mut unique_rows: BTreeSet<usize> = BTreeSet::new();
 
-    let mut new_columns = vec![];
+    let mut new_columns: Vec<CellPath> = vec![];
 
     for column in columns {
         let CellPath { ref members } = column;
@@ -247,7 +247,7 @@ fn select(
                 unique_rows.insert(*val);
             }
             _ => {
-                if !new_columns.contains(&column) {
+                if !new_columns.iter().any(|c| c.eq_ignore_casing(&column)) {
                     new_columns.push(column)
                 }
             }
@@ -375,18 +375,15 @@ impl Iterator for NthIterator {
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            if let Some(row) = self.rows.peek() {
-                if self.current == *row {
-                    self.rows.next();
-                    self.current += 1;
-                    return self.input.next();
-                } else {
-                    self.current += 1;
-                    let _ = self.input.next()?;
-                    continue;
-                }
+            let row = self.rows.peek()?;
+            if self.current == *row {
+                self.rows.next();
+                self.current += 1;
+                return self.input.next();
             } else {
-                return None;
+                self.current += 1;
+                let _ = self.input.next()?;
+                continue;
             }
         }
     }

@@ -1,12 +1,15 @@
 use log::info;
 #[cfg(feature = "plugin")]
 use nu_cli::read_plugin_file;
-use nu_cli::{eval_config_contents, eval_source};
+use nu_cli::{
+    StartupFileKind, StartupLoadContext, eval_config_contents_with_kind, eval_source,
+    report_startup_file_not_found,
+};
 use nu_config::ConfigFileKind;
 use nu_protocol::{
-    Config, ParseError, PipelineData, Spanned,
-    engine::{EngineState, Stack, StateWorkingSet},
-    report_parse_error, report_shell_error,
+    Config, PipelineData, Spanned,
+    engine::{EngineState, Stack},
+    report_shell_error,
 };
 use std::{
     fs,
@@ -14,7 +17,6 @@ use std::{
     io::{Result, Write},
     panic::{AssertUnwindSafe, catch_unwind},
     path::Path,
-    sync::Arc,
 };
 
 const LOGINSHELL_FILE: &str = "login.nu";
@@ -73,21 +75,29 @@ pub(crate) fn read_config_file(
     let is_override = resolved.is_override();
     let config_path = resolved.to_path_buf();
 
+    let startup_kind = match config_kind {
+        ConfigFileKind::Config => StartupFileKind::Config,
+        ConfigFileKind::Env => StartupFileKind::Env,
+    };
+
     if is_override {
         if config_path.exists() {
-            eval_config_contents(config_path, engine_state, stack, strict_mode);
+            eval_config_contents_with_kind(
+                config_path,
+                engine_state,
+                stack,
+                strict_mode,
+                startup_kind,
+            );
         } else {
             // Prefer the original CLI path string for the error (matches historical
             // behavior and tests). Fall back to the resolved absolute path.
             let (display_path, span) = match cli_override {
-                Some(s) => (s.item.clone(), s.span),
-                None => (
-                    config_path.display().to_string(),
-                    nu_protocol::Span::unknown(),
-                ),
+                Some(s) => (s.item.clone(), Some(s.span)),
+                None => (config_path.display().to_string(), None),
             };
-            let e = ParseError::FileNotFound(display_path, span);
-            report_parse_error(None, &StateWorkingSet::new(engine_state), &e);
+            let startup = StartupLoadContext::new(startup_kind, config_path.clone());
+            report_startup_file_not_found(engine_state, &display_path, span, Some(&startup));
             if strict_mode {
                 std::process::exit(1);
             }
@@ -143,7 +153,7 @@ pub(crate) fn read_config_file(
         }
 
         let config_name = config_kind.name();
-        if engine_state.is_mcp {
+        if engine_state.is_mcp || engine_state.is_dap {
             eprintln!(
                 "{} file created at: {}",
                 config_name,
@@ -158,7 +168,7 @@ pub(crate) fn read_config_file(
         }
     }
 
-    eval_config_contents(config_path, engine_state, stack, strict_mode);
+    eval_config_contents_with_kind(config_path, engine_state, stack, strict_mode, startup_kind);
 }
 
 pub(crate) fn read_loginshell_file(
@@ -185,7 +195,13 @@ pub(crate) fn read_loginshell_file(
     }
 
     if config_path.exists() {
-        eval_config_contents(config_path, engine_state, stack, strict_mode);
+        eval_config_contents_with_kind(
+            config_path,
+            engine_state,
+            stack,
+            strict_mode,
+            StartupFileKind::Login,
+        );
     }
 }
 
@@ -249,9 +265,14 @@ pub(crate) fn read_vendor_autoload_files(engine_state: &mut EngineState, stack: 
     vendor_dirs
         .iter()
         .chain(user_dirs.iter())
-        .for_each(|autoload_dir| {
+        .inspect(|autoload_dir| {
             info!("read_vendor_autoload_files: {}", autoload_dir.display());
-
+        })
+        // Autoload files are executable startup configuration. Keep this
+        // boundary defensive even if an upstream resolver regresses or a new
+        // source of autoload paths is added.
+        .filter(|autoload_dir| autoload_dir.is_absolute())
+        .for_each(|autoload_dir| {
             if autoload_dir.exists() {
                 // on a second levels files are lexicographically sorted by the string of the filename
                 let entries = read_and_sort_directory(autoload_dir);
@@ -262,7 +283,13 @@ pub(crate) fn read_vendor_autoload_files(engine_state: &mut EngineState, stack: 
                         }
                         let path = autoload_dir.join(entry);
                         info!("AutoLoading: {path:?}");
-                        eval_config_contents(path, engine_state, stack, false);
+                        eval_config_contents_with_kind(
+                            path,
+                            engine_state,
+                            stack,
+                            false,
+                            StartupFileKind::Autoload,
+                        );
                     }
                 }
             }
@@ -330,6 +357,6 @@ pub(crate) fn setup_config(
         eprintln!(
             "A panic occurred while reading configuration files, using default configuration."
         );
-        engine_state.config = Arc::new(Config::default())
+        engine_state.set_config(Config::default())
     }
 }

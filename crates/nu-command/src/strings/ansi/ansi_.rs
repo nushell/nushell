@@ -810,12 +810,13 @@ Operating system commands:
     fn run_const(
         &self,
         working_set: &StateWorkingSet,
+        stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let list: bool = call.has_flag_const(working_set, "list")?;
-        let escape: bool = call.has_flag_const(working_set, "escape")?;
-        let osc: bool = call.has_flag_const(working_set, "osc")?;
+        let list: bool = call.has_flag_const(working_set, stack, "list")?;
+        let escape: bool = call.has_flag_const(working_set, stack, "escape")?;
+        let osc: bool = call.has_flag_const(working_set, stack, "osc")?;
         let use_ansi_coloring = working_set
             .get_config()
             .use_ansi_coloring
@@ -832,7 +833,7 @@ Operating system commands:
         // The code can now be one of the ansi abbreviations like green_bold
         // or it can be a record like this: { fg: "#ff0000" bg: "#00ff00" attr: bli }
         // this record is defined in nu-color-config crate
-        let code: Value = match call.opt_const(working_set, 0)? {
+        let code: Value = match call.opt_const(working_set, stack, 0)? {
             Some(c) => c,
             None => {
                 return Err(ShellError::MissingParameter {
@@ -995,7 +996,7 @@ fn generate_ansi_code_list(
                 // The first 409 items in the ansi array are previewable
                 let preview = if i < 409 {
                     Value::string(
-                        format!("\u{1b}[0m{}NUSHELL\u{1b}[0m", &ansi_code.code),
+                        format!("\u{1b}[0m{}NUSHELL\u{1b}[0m", ansi_code.code),
                         call_span,
                     )
                 } else {

@@ -261,6 +261,12 @@ mod math {
     }
 }
 
+/// Custom comparisons may return a bool (semver, matrix) or another custom
+/// value (polars expressions). Parse-time only has the type name, so allow both.
+fn custom_comparison_type(name: &str) -> Type {
+    Type::one_of([Type::Bool, Type::Custom(name.into())])
+}
+
 fn ord_cmp_op(lhs: &Type, rhs: &Type) -> Option<Type> {
     fn op(lhs: &Type, rhs: &Type) -> Option<Type> {
         Some(match (lhs, rhs) {
@@ -274,8 +280,8 @@ fn ord_cmp_op(lhs: &Type, rhs: &Type) -> Option<Type> {
             (Type::Filesize, Type::Filesize) => Type::Bool,
             (Type::Bool, Type::Bool) => Type::Bool,
 
-            (Type::Custom(a), Type::Custom(b)) if a == b => Type::Custom(a.clone()),
-            (Type::Custom(a), _) => Type::Custom(a.clone()),
+            (Type::Custom(a), Type::Custom(b)) if a == b => custom_comparison_type(a),
+            (Type::Custom(a), _) => custom_comparison_type(a),
 
             (Type::Nothing, _) | (_, Type::Nothing) => Type::Nothing, // TODO: is this right
             // TODO: should this include:
@@ -296,8 +302,8 @@ fn str_cmp_op(lhs: &Type, rhs: &Type) -> Option<Type> {
         Some(match (lhs, rhs) {
             (Type::String | Type::Any, Type::String | Type::Any) => Type::Bool,
             // TODO: should this include glob?
-            (Type::Custom(a), Type::Custom(b)) if a == b => Type::Custom(a.clone()),
-            (Type::Custom(a), _) => Type::Custom(a.clone()),
+            (Type::Custom(a), Type::Custom(b)) if a == b => custom_comparison_type(a),
+            (Type::Custom(a), _) => custom_comparison_type(a),
             _ => return None,
         })
     }
@@ -311,8 +317,8 @@ fn in_op(lhs: &Type, rhs: &Type) -> Option<Type> {
             (Type::Int | Type::Float | Type::Number, Type::Range) => Type::Bool,
             (Type::String, Type::String) => Type::Bool,
             (Type::String, Type::Record(_)) => Type::Bool,
-            (Type::Custom(a), Type::Custom(b)) if a == b => Type::Custom(a.clone()),
-            (Type::Custom(a), _) => Type::Custom(a.clone()),
+            (Type::Custom(a), Type::Custom(b)) if a == b => custom_comparison_type(a),
+            (Type::Custom(a), _) => custom_comparison_type(a),
             _ => return None,
         })
     }
@@ -323,7 +329,8 @@ fn has_op(lhs: &Type, rhs: &Type) -> Option<Type> {
     in_op(rhs, lhs)
 }
 
-// TODO: rework type checking for Custom values
+// Custom math/boolean ops still return the custom type. Comparison-class ops
+// use `custom_comparison_type` (`oneof<bool, custom>`).
 pub fn math_result_type(
     working_set: &mut StateWorkingSet,
     lhs: &mut Expression,
@@ -531,8 +538,8 @@ pub fn math_result_type(
         },
         Operator::Comparison(Comparison::Equal | Comparison::NotEqual) => {
             match (&lhs.ty, &rhs.ty) {
-                (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.clone()), None),
-                (Type::Custom(a), _) => (Type::Custom(a.clone()), None),
+                (Type::Custom(a), Type::Custom(b)) if a == b => (custom_comparison_type(a), None),
+                (Type::Custom(a), _) => (custom_comparison_type(a), None),
                 _ => (Type::Bool, None),
             }
         }
@@ -709,11 +716,8 @@ pub fn check_pipeline_type(
             continue;
         }
 
-        let signature = working_set.get_decl(call.decl_id).signature();
-
-        let output_type = signature
-            // NOTE[2]: unlike `parse_internal_call`, `Type::Nothing` is not added to input types.
-            .get_output_type(Some(&input_type));
+        // NOTE[2]: unlike `parse_internal_call`, `Type::Nothing` is not added to input types.
+        let output_type = working_set.decl_output_type(call.decl_id, Some(&input_type));
 
         if let Some(output_type) = output_type {
             input_type = output_type;
@@ -735,7 +739,9 @@ pub fn check_pipeline_type(
 
         output_errors.push(ParseError::InputMismatch(types_string, call.head));
 
-        input_type = signature.get_output_type(None).unwrap_or(Type::Any);
+        input_type = working_set
+            .decl_output_type(call.decl_id, None)
+            .unwrap_or(Type::Any);
     }
 
     if output_errors.is_empty() {

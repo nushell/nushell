@@ -13,10 +13,6 @@ pub enum ConfigError {
     /// fallback returned `None`).
     #[error("Could not determine a config directory")]
     ConfigDirNotFound,
-
-    /// No home directory could be found via the platform home-dir lookup.
-    #[error("Could not determine the home directory")]
-    NoHomeDir,
 }
 
 /// Non-fatal warnings produced during config-path resolution.

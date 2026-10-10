@@ -1,8 +1,9 @@
+use crate::platform::RawModeGuard;
 use crossterm::event::{
     DisableBracketedPaste, DisableFocusChange, DisableMouseCapture, EnableBracketedPaste,
     EnableMouseCapture, KeyCode, KeyEventKind, KeyModifiers, MouseEvent, MouseEventKind,
 };
-use crossterm::{execute, terminal};
+use crossterm::execute;
 use nu_engine::command_prelude::*;
 use std::time::Duration;
 
@@ -96,7 +97,7 @@ There are 4 `key_type` variants:
         let add_raw = call.has_flag(engine_state, stack, "raw")?;
         let config = stack.get_config(engine_state);
 
-        terminal::enable_raw_mode().map_err(|err| IoError::new(err, head, None))?;
+        let _raw_mode = RawModeGuard::acquire(stack, head)?;
 
         if config.use_kitty_protocol {
             if let Ok(false) = crossterm::terminal::supports_keyboard_enhancement() {
@@ -134,7 +135,6 @@ There are 4 `key_type` variants:
                     ShellError::Generic(GenericError::new("Error with user input", "", head))
                 })?
             {
-                terminal::disable_raw_mode().map_err(|err| IoError::new(err, head, None))?;
                 return Err(ShellError::Generic(GenericError::new(
                     "Timed out while waiting for user input",
                     "no input was received within the timeout duration",
@@ -146,7 +146,6 @@ There are 4 `key_type` variants:
             })?;
             let event = parse_event(head, &event, &event_type_filter, add_raw);
             if let Some(event) = event {
-                terminal::disable_raw_mode().map_err(|err| IoError::new(err, head, None))?;
                 if config.use_kitty_protocol {
                     let _ = execute!(
                         std::io::stdout(),

@@ -12,6 +12,10 @@ impl Command for LoadEnv {
         "Loads an environment update from a record."
     }
 
+    fn extra_description(&self) -> &str {
+        "Environment conversions are not applied automatically. To apply the conversions configured in $env.ENV_CONVERSIONS after loading an update, assign $env.ENV_CONVERSIONS to itself."
+    }
+
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("load-env")
             .input_output_types(vec![
@@ -81,6 +85,14 @@ impl Command for LoadEnv {
                 description: "Load variables from an argument.",
                 example: "load-env {NAME: ABE, AGE: UNKNOWN}; $env.NAME",
                 result: Some(Value::test_string("ABE")),
+            },
+            Example {
+                description: "Load a variable, then apply its environment conversion.",
+                example: "$env.ENV_CONVERSIONS = {MY_ENV_VAR: {from_string: { split row ':' }}}; load-env {MY_ENV_VAR: 'foo:bar'}; $env.ENV_CONVERSIONS = $env.ENV_CONVERSIONS; $env.MY_ENV_VAR",
+                result: Some(Value::test_list(vec![
+                    Value::test_string("foo"),
+                    Value::test_string("bar"),
+                ])),
             },
         ]
     }

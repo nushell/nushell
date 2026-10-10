@@ -204,14 +204,11 @@ fn build_help_commands(engine_state: &EngineState, span: Span) -> PipelineData {
             }
 
             for named_param in &sig.named {
-                let name = if let Some(short) = named_param.short {
-                    if named_param.long.is_empty() {
-                        format!("-{short}")
-                    } else {
-                        format!("--{}(-{})", named_param.long, short)
-                    }
-                } else {
-                    format!("--{}", named_param.long)
+                let name = match (named_param.long_name(), named_param.short) {
+                    (Some(long), Some(short)) => format!("--{long}(-{short})"),
+                    (Some(long), None) => format!("--{long}"),
+                    (None, Some(short)) => format!("-{short}"),
+                    (None, None) => format!("--{}", named_param.long),
                 };
 
                 let typ = if let Some(arg) = &named_param.arg {
