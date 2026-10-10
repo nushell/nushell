@@ -53,7 +53,7 @@ impl Command for MathLog {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let base = require_positive_base(call.req(engine_state, stack, 0)?, call.head)?;
+        let base = require_valid_base(call.req(engine_state, stack, 0)?, call.head)?;
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
         let head = call.head;
         run_with_elementwise(
@@ -73,7 +73,7 @@ impl Command for MathLog {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let base = require_positive_base(call.req_const(working_set, stack, 0)?, call.head)?;
+        let base = require_valid_base(call.req_const(working_set, stack, 0)?, call.head)?;
         let cell_paths: Vec<CellPath> = call.rest_const(working_set, stack, 1)?;
         let head = call.head;
         run_with_elementwise(
@@ -137,10 +137,13 @@ impl Command for MathLog {
     }
 }
 
-fn require_positive_base(base: Spanned<f64>, head: Span) -> Result<f64, ShellError> {
-    if base.item <= 0.0f64 {
+fn require_valid_base(base: Spanned<f64>, head: Span) -> Result<f64, ShellError> {
+    // A logarithm is only defined for a base in the open intervals (0, 1) and (1, Inf):
+    // the base has to be a finite, positive number different from 1. `!is_finite()`
+    // covers `NaN` as well as both infinities.
+    if !base.item.is_finite() || base.item <= 0.0f64 || base.item == 1.0f64 {
         return Err(ShellError::UnsupportedInput {
-            msg: "Base has to be greater 0".into(),
+            msg: "Base has to be a finite number greater than 0 and not equal to 1".into(),
             input: "value originates from here".into(),
             msg_span: head,
             input_span: base.span,
@@ -159,8 +162,21 @@ fn operate(value: Value, head: Span, base: f64) -> Value {
                 _ => unreachable!(),
             };
 
-            if val <= 0.0 {
-                return Value::error(
+            // A positive test keeps `NaN` out of the log: `NaN > 0.0` is false, so it
+            // reaches the error branch instead of silently returning `NaN`.
+            if val > 0.0 {
+                // Specialize for better precision/performance
+                let val = if base == 10.0 {
+                    val.log10()
+                } else if base == 2.0 {
+                    val.log2()
+                } else {
+                    val.log(base)
+                };
+
+                Value::float(val, span)
+            } else {
+                Value::error(
                     ShellError::UnsupportedInput {
                         msg: "'math log' undefined for values outside the open interval (0, Inf)."
                             .into(),
@@ -169,18 +185,8 @@ fn operate(value: Value, head: Span, base: f64) -> Value {
                         input_span: span,
                     },
                     span,
-                );
+                )
             }
-            // Specialize for better precision/performance
-            let val = if base == 10.0 {
-                val.log10()
-            } else if base == 2.0 {
-                val.log2()
-            } else {
-                val.log(base)
-            };
-
-            Value::float(val, span)
         }
         Value::Error { .. } => value,
         other => Value::error(
