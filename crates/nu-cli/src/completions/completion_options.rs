@@ -1,3 +1,4 @@
+use nu_command::compare_strings;
 use nu_protocol::{CompletionAlgorithm, CompletionSort};
 use nu_utils::IgnoreCaseExt;
 use nucleo_matcher::{
@@ -222,6 +223,11 @@ impl<T> NuMatcher<'_, T> {
             State::Fuzzy { matches, .. } => match self.options.sort {
                 CompletionSort::Alphabetical => {
                     matches.sort_by(|a, b| a.haystack.cmp(&b.haystack));
+                }
+                CompletionSort::Natural => {
+                    matches.sort_by(|a, b| {
+                        compare_strings(&a.haystack, &b.haystack, self.options.case_sensitive, true)
+                    });
                 }
                 CompletionSort::Smart => {
                     matches.sort_by(|a, b| b.score.cmp(&a.score).then(a.haystack.cmp(&b.haystack)));
