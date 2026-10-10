@@ -1,0 +1,6 @@
+error: unclosed delimiter: expected `}`
+  --> reject/def/io-unclosed-body.nu:2:1
+  |
+2 | 
+  | ^
+  = note: opened at 1:16

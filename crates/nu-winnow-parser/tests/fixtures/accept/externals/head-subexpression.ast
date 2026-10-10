@@ -1,0 +1,11 @@
+Block 0..28
+  Pipeline 0..27
+    ExternalCall 0..27
+      Subexpression 1..24 2..23
+        Pipeline 2..23
+          Call `which` 2..10
+            String Bare "ls" 8..10
+          | 11..12
+          Call `get` 13..23
+            String Bare "0.path" 17..23
+      String Bare "-l" 25..27

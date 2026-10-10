@@ -1,0 +1,7 @@
+Block 0..23
+  Pipeline 0..22
+    ExternalCall 0..22
+      String Bare "git" 0..3
+      String Bare "show" 4..8
+      String Bare "0x12zz" 9..15
+      String Bare "--stat" 16..22

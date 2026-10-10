@@ -1,0 +1,6 @@
+error: extra tokens after the end of the expression
+  --> reject/bindings/mut-missing-colon.nu:1:7
+  |
+1 | mut a record<a: int b: int> = {a: 1 b: 1}
+  |       ^^^^^^^^^
+  = while parsing mut

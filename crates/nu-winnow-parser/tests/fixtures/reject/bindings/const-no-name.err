@@ -1,0 +1,6 @@
+error: expected variable name
+  --> reject/bindings/const-no-name.nu:1:7
+  |
+1 | const = 1
+  |       ^
+  = while parsing const

@@ -1,0 +1,6 @@
+Block 0..31
+  Pipeline 0..30
+    Def `foo` 0..30
+      Signature 8..27
+        Param positional `x` 9..26 : string @r#'ls'#
+      Body 29..29

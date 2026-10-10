@@ -1,0 +1,6 @@
+error: invalid int literal: invalid digits for radix 16
+  --> reject/literals/int-prefix-without-digits.nu:1:6
+  |
+1 | echo 0x
+  |      ^^
+  = while parsing command call

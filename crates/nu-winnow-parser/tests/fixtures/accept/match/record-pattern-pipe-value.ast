@@ -1,0 +1,13 @@
+Block 0..29
+  Pipeline 0..28
+    Match 0..28
+      Record 6..12
+        Pair
+          String Bare "a" 7..8
+          Int 1 10..11
+      Arm 15..26
+        Pattern record 15..21
+          Field "a"
+            Pattern value 19..20
+              String Bare "|" 19..20
+        Int 1 25..26

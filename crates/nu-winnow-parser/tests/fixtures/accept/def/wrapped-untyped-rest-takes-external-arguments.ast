@@ -1,0 +1,19 @@
+Block 0..225
+  Pipeline 166..210 comments=2
+    Def `f` [Wrapped] 166..210
+      Signature 182..191
+        Param rest `rest` 183..190
+      Body 193..209
+        Pipeline 194..208
+          ExternalCall 194..208
+            String Bare "echo" 195..199
+            Spread 200..203
+              Var $rest 203..208
+  Pipeline 211..224
+    Call `f` 211..224
+      Flag -e 213..215
+      String Bare "x$" 216..220
+      String Bare "0b2" 221..224
+Comments (2)
+  0..77 "# nu gives the untyped rest parameter of a `def --wrapped` the `external_arg`"
+  78..165 "# shape, so its arguments parse as an external command's: `'x'$` and `0b2` are strings."

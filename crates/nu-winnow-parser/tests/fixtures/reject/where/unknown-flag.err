@@ -1,0 +1,7 @@
+error: the `where` command doesn't have flag `--foo`
+  --> reject/where/unknown-flag.nu:1:7
+  |
+1 | where --foo
+  |       ^^^^^
+  = while parsing where
+  = help: use `--help` to see available flags

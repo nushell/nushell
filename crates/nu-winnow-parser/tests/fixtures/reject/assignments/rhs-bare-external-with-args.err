@@ -1,0 +1,6 @@
+error: external command calls must be explicit in assignments
+  --> reject/assignments/rhs-bare-external-with-args.nu:1:17
+  |
+1 | mut x = 1; $x = foo bar
+  |                 ^^^
+  = help: `foo` is not a known command; write `^foo` to run it and capture its output, or quote the string

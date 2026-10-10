@@ -1,0 +1,63 @@
+Block 0..205
+  Pipeline 0..204
+    Call `ls` 0..12
+      Flag -la 3..6
+      Flag --all 7..12
+    | 13..14
+    Where 15..47
+      BinaryOp and 21..47
+        BinaryOp > 21..31
+          FullCellPath implicit-head 21..25
+            Var $it 21..21
+            Member "size" 21..25
+          Filesize 1 kB 28..31
+        BinaryOp =~ 36..47
+          FullCellPath implicit-head 36..40
+            Var $it 36..36
+            Member "name" 36..40
+          String Single "x" 44..47
+    | 48..49
+    Call `sort-by` 50..69
+      Flag -r 58..60
+      String Bare "modified" 61..69
+    | 70..71
+    Call `select` 72..88
+      String Bare "name" 79..83
+      String Bare "size" 84..88
+    | 89..90
+    Call `each` 91..127
+      Closure 96..127
+        Signature 98..101
+          Param positional `r` 99..100
+        Body 102..126
+          Pipeline 102..125
+            Interpolation Double 102..125
+              Subexpression 104..113 105..112
+                Pipeline 105..112
+                  FullCellPath 105..112
+                    Var $r 105..107
+                    Member "name" 108..112
+              Text ": " 113..115
+              Subexpression 115..124 116..123
+                Pipeline 116..123
+                  FullCellPath 116..123
+                    Var $r 116..118
+                    Member "size" 119..123
+    | 128..129
+    Call `str join` 130..143
+      String Double "\n" 139..143
+    | 144..145
+    Call `lines` 146..151
+    | 152..153
+    Call `length` 154..160
+    | 161..162
+    BinaryOp + 163..170
+      Var $in 163..166
+      Int 1 169..170
+    | 171..172
+    Call `into string` 173..184
+    | 185..186
+    ExternalCall 187..191
+      String Bare "cat" 188..191
+    Redirect Out 192..194
+      String Bare "/dev/null" 195..204

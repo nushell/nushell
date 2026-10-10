@@ -1,0 +1,7 @@
+error: cannot use parser keyword `where` as command name
+  --> reject/def/keyword-name-where.nu:1:5
+  |
+1 | def where [] { 1 }
+  |     ^^^^^
+  = while parsing def
+  = help: choose a different name; this word is parsed specially by Nushell

@@ -1,0 +1,6 @@
+error: expected operator
+  --> reject/if/help-then-extra.nu:1:16
+  |
+1 | if --help true {} x
+  |                ^^
+  = while parsing if

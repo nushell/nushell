@@ -1,0 +1,6 @@
+error: expected condition
+  --> reject/match/body-is-if-statement.nu:1:19
+  |
+1 | match 1 { 10 => if true { 1 } else { 2 } }
+  |                   ^
+  = while parsing if

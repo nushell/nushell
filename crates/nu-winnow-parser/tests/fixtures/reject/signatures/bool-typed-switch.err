@@ -1,0 +1,7 @@
+error: type annotations are not allowed for boolean switches
+  --> reject/signatures/bool-typed-switch.nu:1:15
+  |
+1 | def foo [--x: bool] {}
+  |               ^^^^
+  = while parsing signature
+  = help: remove the `: bool` type annotation

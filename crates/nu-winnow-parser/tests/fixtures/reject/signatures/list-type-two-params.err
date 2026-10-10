@@ -1,0 +1,6 @@
+error: expected a single type parameter
+  --> reject/signatures/list-type-two-params.nu:1:18
+  |
+1 | def foo [x: list<int,, string>] {}
+  |                  ^^^^^^^^^^^^
+  = while parsing signature

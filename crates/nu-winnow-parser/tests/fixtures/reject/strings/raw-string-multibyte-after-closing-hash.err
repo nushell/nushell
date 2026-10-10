@@ -1,0 +1,6 @@
+error: unclosed delimiter: expected `'`
+  --> reject/strings/raw-string-multibyte-after-closing-hash.nu:2:8
+  |
+2 | r#'a'#é
+  |        ^
+  = note: opened at 2:1

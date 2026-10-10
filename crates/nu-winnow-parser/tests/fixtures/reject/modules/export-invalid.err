@@ -1,0 +1,7 @@
+error: `export foo` is not a valid export
+  --> reject/modules/export-invalid.nu:1:8
+  |
+1 | export foo
+  |        ^^^
+  = while parsing export
+  = help: expected `def`, `extern`, `alias`, `use`, `module` or `const`

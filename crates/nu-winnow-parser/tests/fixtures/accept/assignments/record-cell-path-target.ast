@@ -1,0 +1,17 @@
+Block 0..24
+  Pipeline 0..9 terminator=9..10
+    mut x 0..9
+      Value 8..9
+        Pipeline 8..9
+          Int 1 8..9
+  Pipeline 11..23
+    Assignment = 11..23
+      FullCellPath 11..19
+        Record 11..17
+          Pair
+            String Bare "a" 12..13
+            Int 1 15..16
+        Member "a" 18..19
+      Value 22..23
+        Pipeline 22..23
+          Int 2 22..23

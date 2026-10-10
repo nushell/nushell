@@ -1,0 +1,23 @@
+Block 0..75
+  Pipeline 0..13
+    let x 0..13
+      Value 8..13
+        Pipeline 8..13
+          List 8..13
+            Int 1 9..10
+            Int 2 11..12
+  Pipeline 14..74
+    Match 14..74
+      Var $x 20..22
+      Arm 27..57
+        Pattern list 27..47
+          Pattern value 28..29
+            Int 1 28..29
+          Pattern value 45..46
+            Int 2 45..46
+        String Double "pair" 51..57
+      Arm 60..72
+        Pattern _ 60..61
+        String Double "other" 65..72
+Comments (1)
+  30..41 "# the first"

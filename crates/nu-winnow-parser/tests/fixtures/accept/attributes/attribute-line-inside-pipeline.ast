@@ -1,0 +1,13 @@
+Block 0..46
+  Pipeline 0..45
+    Call `ls` 0..2
+    | 3..4
+    Call `length` 5..11
+    | 12..13
+    ExternalCall 14..45
+      String Bare "@search-terms" 14..27
+      String Bare "foo" 28..31
+      String Bare "def" 32..35
+      String Bare "bar" 36..39
+      List 40..42
+      Record 43..45

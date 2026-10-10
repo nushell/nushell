@@ -1,0 +1,5 @@
+error: `2>&1` is not Nushell syntax; use `o+e>` instead
+  --> reject/lexer/bash-both-redirect.nu:1:5
+  |
+1 | ^ls 2>&1
+  |     ^^^^

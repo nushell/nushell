@@ -1,0 +1,5 @@
+error: unbalanced delimiter: found `)` without a matching `(`
+  --> reject/lexer/unbalanced-paren.nu:1:6
+  |
+1 | echo )
+  |      ^

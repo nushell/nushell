@@ -1,0 +1,8 @@
+Block 0..13
+  Pipeline 0..12
+    List 0..12
+      String Bare "a" 1..2
+      String Bare "=" 3..4
+      String Bare "b" 5..6
+      String Bare "o>" 7..9
+      String Bare "c" 10..11

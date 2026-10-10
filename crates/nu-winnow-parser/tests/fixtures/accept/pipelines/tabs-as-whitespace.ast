@@ -1,0 +1,6 @@
+Block 0..15
+  Pipeline 0..14
+    Call `ls` 0..5
+      Flag -l 3..5
+    | 6..7
+    Call `length` 8..14

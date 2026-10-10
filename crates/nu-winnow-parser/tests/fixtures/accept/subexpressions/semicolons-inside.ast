@@ -1,0 +1,7 @@
+Block 0..10
+  Pipeline 0..9
+    Subexpression 0..9 1..8
+      Pipeline 1..3 terminator=3..4
+        Call `ls` 1..3
+      Pipeline 5..8
+        Call `pwd` 5..8

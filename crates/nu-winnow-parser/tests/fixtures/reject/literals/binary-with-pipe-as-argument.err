@@ -1,0 +1,6 @@
+error: expected binary digits
+  --> reject/literals/binary-with-pipe-as-argument.nu:1:10
+  |
+1 | echo 0b[1|2]
+  |          ^
+  = while parsing command call

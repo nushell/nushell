@@ -1,0 +1,7 @@
+error: expected expression after `if` in match guard
+  --> reject/match/empty-guard.nu:1:16
+  |
+1 | match 1 { $a if => 1 }
+  |                ^
+  = while parsing match
+  = help: the `if` keyword must be followed by an expression

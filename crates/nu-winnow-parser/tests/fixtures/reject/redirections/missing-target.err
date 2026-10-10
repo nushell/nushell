@@ -1,0 +1,5 @@
+error: expected redirection target
+  --> reject/redirections/missing-target.nu:1:7
+  |
+1 | ^ls o>
+  |       ^

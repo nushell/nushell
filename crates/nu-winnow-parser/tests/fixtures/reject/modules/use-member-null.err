@@ -1,0 +1,7 @@
+error: wrong import pattern structure
+  --> reject/modules/use-member-null.nu:1:9
+  |
+1 | use std null
+  |         ^^^^
+  = while parsing use
+  = help: only strings and lists of strings can be imported

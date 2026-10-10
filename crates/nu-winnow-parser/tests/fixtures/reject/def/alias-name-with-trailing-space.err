@@ -1,0 +1,7 @@
+error: alias name not supported
+  --> reject/def/alias-name-with-trailing-space.nu:1:7
+  |
+1 | alias "ll " = ls
+  |       ^^^^^
+  = while parsing alias
+  = help: a name may not contain `#`, `^` or `%`, read as a number or filesize, or use whitespace other than single spaces between words

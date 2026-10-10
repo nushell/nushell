@@ -1,0 +1,7 @@
+error: required positional parameter `y` after an optional parameter
+  --> reject/signatures/required-after-optional.nu:1:22
+  |
+1 | def foo [x: int = 1, y] {}
+  |                      ^
+  = while parsing def
+  = help: move the required parameter before the optional ones

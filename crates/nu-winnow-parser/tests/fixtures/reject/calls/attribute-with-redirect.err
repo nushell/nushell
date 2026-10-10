@@ -1,0 +1,6 @@
+error: extra positional argument
+  --> reject/calls/attribute-with-redirect.nu:1:15
+  |
+1 | @example x o> y
+  |               ^
+  = help: `attr example` takes at most 2 positional arguments

@@ -1,0 +1,13 @@
+Block 0..66
+  Pipeline 0..19
+    Def `my cmd` 0..19
+      Signature 13..15
+      Body 17..18
+  Pipeline 20..42
+    Def `other cmd` 20..42
+      Signature 36..38
+      Body 40..41
+  Pipeline 43..65
+    Def `third cmd` 43..65
+      Signature 59..61
+      Body 63..64

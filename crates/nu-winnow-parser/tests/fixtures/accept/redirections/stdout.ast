@@ -1,0 +1,11 @@
+Block 0..36
+  Pipeline 0..16
+    ExternalCall 0..3
+      String Bare "ls" 1..3
+    Redirect Out 4..6
+      String Bare "/dev/null" 7..16
+  Pipeline 17..35
+    ExternalCall 17..20
+      String Bare "ls" 18..20
+    Redirect Out 21..25
+      String Bare "/dev/null" 26..35

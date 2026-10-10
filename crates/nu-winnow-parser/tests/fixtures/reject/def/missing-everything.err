@@ -1,0 +1,6 @@
+error: expected command name
+  --> reject/def/missing-everything.nu:1:4
+  |
+1 | def
+  |    ^
+  = while parsing def

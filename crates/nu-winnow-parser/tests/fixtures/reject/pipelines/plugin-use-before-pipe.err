@@ -1,0 +1,6 @@
+error: `plugin` is a statement and cannot be used inside a pipeline
+  --> reject/pipelines/plugin-use-before-pipe.nu:1:1
+  |
+1 | plugin use x | ls
+  | ^^^^^^
+  = help: declarations and the module, source, overlay and plugin commands are statements of their own

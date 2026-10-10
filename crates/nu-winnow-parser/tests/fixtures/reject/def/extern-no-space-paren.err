@@ -1,0 +1,7 @@
+error: no space between name and parameters
+  --> reject/def/extern-no-space-paren.nu:1:11
+  |
+1 | extern cmd(--flag)
+  |           ^
+  = while parsing extern
+  = help: consider adding a space between the command's name and its parameters

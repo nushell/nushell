@@ -1,0 +1,6 @@
+error: `&&` is not Nushell syntax; use `;` instead
+  --> reject/lexer/and-and.nu:1:4
+  |
+1 | ls && pwd
+  |    ^^
+  = help: use `;` to run commands in sequence, or `and` for boolean logic

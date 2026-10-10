@@ -1,0 +1,11 @@
+Block 0..23
+  Pipeline 0..10 terminator=10..11
+    let x 0..10
+      Value 8..10
+        Pipeline 8..10
+          Record 8..10
+  Pipeline 12..22
+    Match 12..22
+      Int 1 18..19
+      ValueBlock
+        Var $x 20..22

@@ -84,6 +84,7 @@ members = [
   "crates/nu-test-support-macros",
   "crates/nu-utils",
   "crates/nu-heavy-utils",
+  "crates/nu-winnow-parser",
   "crates/nuon",
   "crates/nu-mcp",
   "crates/testbins",
@@ -126,6 +127,7 @@ nu-tui = { path = "crates/nu-tui", version = "0.116.2", default-features = false
 nu-test-support = { path = "crates/nu-test-support", version = "0.116.2", default-features = false }
 nu-test-support-macros = { path = "crates/nu-test-support-macros", version = "0.116.2", default-features = false }
 nu-utils = { path = "crates/nu-utils", version = "0.116.2", default-features = false }
+nu-winnow-parser = { path = "crates/nu-winnow-parser", version = "0.116.2", default-features = false }
 nu_plugin_custom_values = { path = "crates/nu_plugin_custom_values", version = "0.116.2", default-features = false }
 nu_plugin_example = { path = "crates/nu_plugin_example", version = "0.116.2", default-features = false }
 nu_plugin_formats = { path = "crates/nu_plugin_formats", version = "0.116.2", default-features = false }
@@ -269,6 +271,7 @@ strum_macros = "0.28.0"
 syn = "3.0.4"
 sysinfo = "0.39.6"
 tabled = { version = "0.22", default-features = false }
+tango-bench = "0.8.0"
 tempfile = "3.27"
 thiserror = "2.0.20"
 titlecase = "3.6"
@@ -394,7 +397,7 @@ fancy-regex = { workspace = true }
 itertools = { workspace = true }
 pretty_assertions = { workspace = true }
 rstest = { workspace = true, default-features = false }
-tango-bench = "0.8.0"
+tango-bench = { workspace = true }
 tempfile = { workspace = true }
 
 [features]
@@ -477,7 +480,7 @@ sqlite = [
 ]
 
 [profile.release]
-opt-level = "s"     # Optimize for size
+opt-level = 3     # Optimize for speed
 strip = "debuginfo"
 lto = "thin"
 

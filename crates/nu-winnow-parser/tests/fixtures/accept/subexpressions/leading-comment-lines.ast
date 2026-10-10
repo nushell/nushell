@@ -1,0 +1,7 @@
+Block 0..21
+  Pipeline 0..20
+    Subexpression 0..20 1..19
+      Pipeline 16..18 comments=1
+        Call `ls` 16..18
+Comments (1)
+  4..13 "# leading"

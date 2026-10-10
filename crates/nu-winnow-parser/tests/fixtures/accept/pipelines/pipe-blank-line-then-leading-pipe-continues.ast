@@ -1,0 +1,8 @@
+Block 0..20
+  Pipeline 0..19
+    List 0..7
+      Int 1 1..2
+      Int 2 3..4
+      Int 3 5..6
+    | 11..12
+    Call `length` 13..19

@@ -1,0 +1,7 @@
+error: extra positional argument
+  --> reject/calls/overlay-new-two-positionals.nu:1:15
+  |
+1 | overlay new a b
+  |               ^
+  = while parsing command call
+  = help: `overlay new` takes at most 1 positional arguments

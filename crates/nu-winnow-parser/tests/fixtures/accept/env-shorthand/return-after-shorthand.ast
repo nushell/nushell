@@ -1,0 +1,6 @@
+Block 0..13
+  Pipeline 0..12
+    EnvShorthand 0..12
+      Env FOO 0..5
+        String Bare "1" 4..5
+      Return 6..12

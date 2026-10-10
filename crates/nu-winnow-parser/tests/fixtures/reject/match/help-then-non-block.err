@@ -1,0 +1,6 @@
+error: expected match block
+  --> reject/match/help-then-non-block.nu:1:16
+  |
+1 | match 1 --help :{}
+  |                ^^^
+  = while parsing match

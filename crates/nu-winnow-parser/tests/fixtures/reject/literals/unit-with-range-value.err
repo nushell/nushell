@@ -1,0 +1,6 @@
+error: invalid duration literal: value must be a number
+  --> reject/literals/unit-with-range-value.nu:1:6
+  |
+1 | echo 1..2sec
+  |      ^^^^^^^
+  = while parsing command call

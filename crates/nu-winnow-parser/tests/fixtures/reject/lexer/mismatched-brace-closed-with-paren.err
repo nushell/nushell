@@ -1,0 +1,6 @@
+error: unbalanced delimiter: found `)` without a matching `{`
+  --> reject/lexer/mismatched-brace-closed-with-paren.nu:1:8
+  |
+1 | { a: 1 )
+  |        ^
+  = help: the innermost open delimiter is `{` at byte 0

@@ -1,0 +1,10 @@
+Block 0..34
+  Pipeline 0..13
+    Alias `g` 0..13
+      ExternalCall 10..13
+        String Bare "git" 10..13
+  Pipeline 14..33
+    ExternalCall 14..33
+      String Bare "g" 14..15
+      String Bare "log" 16..19
+      String Bare "0b2d1f4..HEAD" 20..33

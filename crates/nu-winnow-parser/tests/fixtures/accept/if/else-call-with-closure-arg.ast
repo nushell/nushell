@@ -1,0 +1,15 @@
+Block 0..34
+  Pipeline 0..33
+    If 0..33
+      Condition
+        Bool false 3..8
+      Then 10..15
+        Pipeline 11..14
+          String Single "a" 11..14
+      Else 17..21
+        ExternalCall 22..33
+          String Bare "foo" 22..25
+          Closure 26..33
+            Body 28..32
+              Pipeline 28..31
+                String Single "b" 28..31

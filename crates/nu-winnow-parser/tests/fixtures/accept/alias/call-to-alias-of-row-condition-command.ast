@@ -1,0 +1,14 @@
+Block 0..34
+  Pipeline 0..13
+    Alias `a` 0..13
+      Call `any` 10..13
+  Pipeline 14..33
+    List 14..21
+      Int 1 15..16
+      Int 2 17..18
+      Int 3 19..20
+    | 22..23
+    Call `a` 24..33
+      BinaryOp > 26..33
+        Var $it 26..29
+        Int 2 32..33

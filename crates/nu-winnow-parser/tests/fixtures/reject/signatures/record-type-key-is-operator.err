@@ -1,0 +1,7 @@
+error: annotation key not string
+  --> reject/signatures/record-type-key-is-operator.nu:1:20
+  |
+1 | def foo [x: record<=: int>] {}
+  |                    ^
+  = while parsing signature
+  = help: a field name must be a string

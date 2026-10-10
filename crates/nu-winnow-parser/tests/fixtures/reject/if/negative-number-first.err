@@ -1,0 +1,7 @@
+error: the `if` command doesn't have flag `-1`
+  --> reject/if/negative-number-first.nu:1:4
+  |
+1 | if -1 > 0 { }
+  |    ^^
+  = while parsing if
+  = help: use `--help` to see available flags

@@ -1,0 +1,7 @@
+error: cannot use parser keyword `export def` as command name
+  --> reject/def/name-is-multiword-keyword.nu:1:5
+  |
+1 | def "export def" [] {}
+  |     ^^^^^^^^^^^^
+  = while parsing def
+  = help: choose a different name; this word is parsed specially by Nushell

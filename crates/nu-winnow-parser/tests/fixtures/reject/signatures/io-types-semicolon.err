@@ -1,0 +1,6 @@
+error: expected arrow (->)
+  --> reject/signatures/io-types-semicolon.nu:1:16
+  |
+1 | def q []: [int ; -> int] {}
+  |                ^
+  = while parsing def

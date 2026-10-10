@@ -1,0 +1,5 @@
+Block 0..15
+  Pipeline 0..14
+    Call `def` 0..14
+      String Bare "foo" 4..7
+      Flag --help 8..14

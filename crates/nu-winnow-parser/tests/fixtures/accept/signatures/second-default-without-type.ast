@@ -1,0 +1,15 @@
+Block 0..125
+  Pipeline 87..124 comments=1
+    Def `f` 87..124
+      Signature 93..117
+        Param positional `x` 94..103
+          Default
+            Int 1 102..103
+        Param flag --n `n` 105..116
+          Default
+            Int 2 115..116
+      Body 119..123
+        Pipeline 120..122
+          Var $x 120..122
+Comments (1)
+  0..86 "# nu parses a second default of a parameter without a type with the type of the first."

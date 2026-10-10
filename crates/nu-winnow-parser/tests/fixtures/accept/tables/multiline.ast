@@ -1,0 +1,15 @@
+Block 0..42
+  Pipeline 0..41
+    Table 0..41
+      Columns
+        List 1..12
+          String Bare "name" 2..6
+          String Bare "size" 7..11
+      Row
+        List 16..25
+          String Double "a" 17..20
+          Filesize 1 kB 21..24
+      Row
+        List 28..39
+          String Double "b" 29..32
+          Filesize 2.5 MB 33..38

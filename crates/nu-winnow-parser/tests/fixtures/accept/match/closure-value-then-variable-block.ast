@@ -1,0 +1,16 @@
+Block 0..31
+  Pipeline 0..11
+    let foo 0..11
+      Value 10..11
+        Pipeline 10..11
+          Int 1 10..11
+  Pipeline 12..30
+    Match 12..30
+      Closure 18..25
+        Signature 19..22
+          Param positional `x` 20..21
+        Body 23..24
+          Pipeline 23..24
+            Int 1 23..24
+      ValueBlock
+        Var $foo 26..30

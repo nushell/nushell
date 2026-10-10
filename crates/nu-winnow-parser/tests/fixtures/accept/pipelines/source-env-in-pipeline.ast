@@ -1,0 +1,6 @@
+Block 0..21
+  Pipeline 0..20
+    Call `ls` 0..2
+    | 3..4
+    Call `source-env` 5..20
+      Nothing 16..20

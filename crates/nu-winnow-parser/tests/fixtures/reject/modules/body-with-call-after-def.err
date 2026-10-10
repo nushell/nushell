@@ -1,0 +1,7 @@
+error: expected keyword `def, const, extern, alias, use, module, export or export-env`
+  --> reject/modules/body-with-call-after-def.nu:1:25
+  |
+1 | module m { def f [] {}; f }
+  |                         ^
+  = while parsing module
+  = help: a module body can only declare things; put code in `export-env` or a `def`

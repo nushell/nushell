@@ -1,0 +1,9 @@
+Block 0..20
+  Pipeline 0..9
+    let x 0..9
+      Value 8..9
+        Pipeline 8..9
+          Int 1 8..9
+  Pipeline 11..19
+    | 11..12
+    Call `length` 13..19

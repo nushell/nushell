@@ -1,0 +1,27 @@
+Block 0..53
+  Pipeline 0..22
+    let r 0..22
+      Value 8..22
+        Pipeline 8..22
+          Record 8..22
+            Pair
+              String Bare "a" 9..10
+              Int 1 12..13
+            Pair
+              String Bare "b" 15..16
+              List 18..21
+                Int 2 19..20
+  Pipeline 23..52
+    BinaryOp + 23..52
+      FullCellPath 23..27
+        Var $r 23..25
+        Member "a" 26..27
+      BinaryOp * 30..52
+        FullCellPath 30..36
+          Var $r 30..32
+          Member "b" 33..34
+          Member 0 35..36
+        FullCellPath 39..52
+          Var $env 39..43
+          Member "PWD" 44..47
+          Member "len"? 48..52

@@ -1,0 +1,6 @@
+error: expected closure
+  --> reject/signatures/default-int-for-closure.nu:1:23
+  |
+1 | def foo [x: closure = 1] {}
+  |                       ^
+  = while parsing signature

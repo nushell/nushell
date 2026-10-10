@@ -1,0 +1,6 @@
+error: expected block after the condition
+  --> reject/if/block-is-number.nu:1:9
+  |
+1 | if true 1
+  |         ^
+  = while parsing if

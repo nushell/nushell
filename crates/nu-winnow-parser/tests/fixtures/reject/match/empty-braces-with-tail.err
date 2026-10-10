@@ -1,0 +1,7 @@
+error: unclosed delimiter: expected `}`
+  --> reject/match/empty-braces-with-tail.nu:2:13
+  |
+2 | match 1 {}.a
+  |             ^
+  = note: opened at 2:9
+  = while parsing match

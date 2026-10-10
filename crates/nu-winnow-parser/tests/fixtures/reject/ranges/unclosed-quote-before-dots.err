@@ -1,0 +1,6 @@
+error: unclosed delimiter: expected `'`
+  --> reject/ranges/unclosed-quote-before-dots.nu:2:1
+  |
+2 | 
+  | ^
+  = note: opened at 1:1

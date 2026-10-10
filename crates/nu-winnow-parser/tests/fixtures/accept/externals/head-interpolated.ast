@@ -1,0 +1,26 @@
+Block 0..42
+  Pipeline 0..11
+    ExternalCall 0..11
+      Interpolation Bare 1..11
+        Text "~/.foo/" 1..8
+        Subexpression 8..11 9..10
+          Pipeline 9..10
+            Int 1 9..10
+  Pipeline 12..26
+    ExternalCall 12..26
+      Interpolation Double 13..26
+        Text "~/.foo/" 15..22
+        Subexpression 22..25 23..24
+          Pipeline 23..24
+            Int 1 23..24
+  Pipeline 27..41
+    ExternalCall 27..41
+      Interpolation Bare 28..41
+        Text "~\\.foo" 28..34
+        Subexpression 34..37 35..36
+          Pipeline 35..36
+            Int 2 35..36
+        Text "\\" 37..38
+        Subexpression 38..41 39..40
+          Pipeline 39..40
+            Int 1 39..40

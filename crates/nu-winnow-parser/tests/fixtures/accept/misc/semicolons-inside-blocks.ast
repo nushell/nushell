@@ -1,0 +1,14 @@
+Block 0..37
+  Pipeline 0..22
+    Def `f` 0..22
+      Signature 6..8
+      Body 10..21
+        Pipeline 13..14 terminator=14..15
+          Int 1 13..14
+        Pipeline 18..19 terminator=19..20
+          Int 2 18..19
+  Pipeline 23..36
+    If 23..36
+      Condition
+        Bool true 26..30
+      Then 32..35

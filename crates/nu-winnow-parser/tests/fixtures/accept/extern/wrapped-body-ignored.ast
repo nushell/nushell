@@ -1,0 +1,7 @@
+Block 0..39
+  Pipeline 0..38
+    Extern `foo` 0..38
+      Signature 11..20
+        Param rest `args` 12..19
+Ignored (1)
+  21..38 "{ ^foo ...$args }"

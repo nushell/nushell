@@ -1,0 +1,1 @@
+alias ext = ^nu --version

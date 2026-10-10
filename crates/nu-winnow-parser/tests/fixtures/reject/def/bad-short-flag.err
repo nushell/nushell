@@ -1,0 +1,6 @@
+error: expected single-character short flag
+  --> reject/def/bad-short-flag.nu:1:11
+  |
+1 | def foo3 [-l?:int] { $l }
+  |           ^^^
+  = while parsing signature

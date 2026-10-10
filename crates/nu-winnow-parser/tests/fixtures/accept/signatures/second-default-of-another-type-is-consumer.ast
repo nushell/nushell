@@ -1,0 +1,13 @@
+Block 0..138
+  Pipeline 113..137 comments=2
+    Def `f` 113..137
+      Signature 119..130
+        Param positional `x` 120..129
+          Default
+            Int 5 128..129
+      Body 132..136
+        Pipeline 133..135
+          Var $x 133..135
+Comments (2)
+  0..93 "# `1..=5` lexes as `1..`, `=`, `5` here; nu parses `5` as a range (the first default's type),"
+  94..112 "# which it is not."

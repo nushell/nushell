@@ -1,0 +1,7 @@
+error: unclosed delimiter: expected `]`
+  --> reject/def/no-space-before-body.nu:1:13
+  |
+1 | def foo []{}
+  |             ^
+  = note: opened at 1:9
+  = while parsing def

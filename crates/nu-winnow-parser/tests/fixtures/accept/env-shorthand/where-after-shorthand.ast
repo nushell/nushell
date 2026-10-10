@@ -1,0 +1,9 @@
+Block 0..14
+  Pipeline 0..13
+    EnvShorthand 0..13
+      Env FOO 0..5
+        String Bare "1" 4..5
+      Where 6..13
+        FullCellPath implicit-head 12..13
+          Var $it 12..12
+          Member "a" 12..13

@@ -1,0 +1,51 @@
+Block 0..205
+  Pipeline 0..43
+    List 0..17
+      String Bare "Moe" 1..4
+      String Bare "Larry" 5..10
+      String Bare "Curly" 11..16
+    | 18..19
+    Where 20..43
+      BinaryOp starts-with 26..43
+        Var $it 26..29
+        String Bare "L" 42..43
+  Pipeline 44..91
+    List 44..61
+      String Bare "Moe" 45..48
+      String Bare "Larry" 49..54
+      String Bare "Curly" 55..60
+    | 62..63
+    Where 64..91
+      BinaryOp not-starts-with 70..91
+        Var $it 70..73
+        String Bare "L" 90..91
+  Pipeline 92..134
+    List 92..109
+      String Bare "Moe" 93..96
+      String Bare "Larry" 97..102
+      String Bare "Curly" 103..108
+    | 110..111
+    Where 112..134
+      BinaryOp ends-with 118..134
+        Var $it 118..121
+        String Bare "ly" 132..134
+  Pipeline 135..180
+    List 135..152
+      String Bare "Moe" 136..139
+      String Bare "Larry" 140..145
+      String Bare "Curly" 146..151
+    | 153..154
+    Where 155..180
+      BinaryOp not-ends-with 161..180
+        Var $it 161..164
+        String Bare "y" 179..180
+  Pipeline 181..204
+    List 181..188
+      Int 1 182..183
+      Int 2 184..185
+      Int 3 186..187
+    | 189..190
+    Where 191..204
+      BinaryOp > 197..204
+        Var $it 197..200
+        Int 1 203..204

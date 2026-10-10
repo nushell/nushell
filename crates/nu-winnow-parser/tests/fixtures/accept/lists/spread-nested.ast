@@ -1,0 +1,13 @@
+Block 0..33
+  Pipeline 0..32
+    List 0..32
+      Spread 2..5
+        List 5..28
+          Spread 7..10
+            List 10..24
+              Spread 12..15
+                List 15..20
+                  String Bare "a" 17..18
+              String Bare "b" 21..22
+          String Bare "c" 25..26
+      String Bare "d" 29..30

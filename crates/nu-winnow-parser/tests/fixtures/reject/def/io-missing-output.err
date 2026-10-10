@@ -1,0 +1,6 @@
+error: expected output type
+  --> reject/def/io-missing-output.nu:1:19
+  |
+1 | def foo []: int -> { 3 }
+  |                   ^
+  = while parsing def

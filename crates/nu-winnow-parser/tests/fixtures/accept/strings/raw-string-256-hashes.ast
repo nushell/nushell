@@ -1,0 +1,5 @@
+Block 0..560
+  Pipeline 39..559 comments=1
+    String Raw(256) "hello" 39..559
+Comments (1)
+  0..38 "# More than 255 `#`s, which nu allows."

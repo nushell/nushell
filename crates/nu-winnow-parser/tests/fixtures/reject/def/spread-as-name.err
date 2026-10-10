@@ -1,0 +1,7 @@
+error: command name not supported
+  --> reject/def/spread-as-name.nu:1:5
+  |
+1 | def ...{x: 1} [] {}
+  |     ^^^^^^^^^
+  = while parsing def
+  = help: a bare command name cannot start with `-` or be a spread; quote it

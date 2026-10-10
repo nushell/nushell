@@ -1,0 +1,19 @@
+Block 0..41
+  Pipeline 0..40
+    ExportEnv 0..40 12..39
+      Pipeline 15..25
+        Assignment = 15..25
+          FullCellPath 15..21
+            Var $env 15..19
+            Member "A" 20..21
+          Value 24..25
+            Pipeline 24..25
+              Int 1 24..25
+      Pipeline 28..38
+        Assignment = 28..38
+          FullCellPath 28..34
+            Var $env 28..32
+            Member "B" 33..34
+          Value 37..38
+            Pipeline 37..38
+              Int 2 37..38

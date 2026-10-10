@@ -1,0 +1,7 @@
+error: extra positional argument
+  --> reject/calls/overlay-list-positional.nu:1:14
+  |
+1 | overlay list x
+  |              ^
+  = while parsing command call
+  = help: `overlay list` takes at most 0 positional arguments

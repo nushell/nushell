@@ -1,0 +1,21 @@
+Block 0..90
+  Pipeline 0..89
+    AttributeBlock 0..89
+      Attribute `example` 0..35
+        String Double "add" 9..14
+        Closure 15..24
+          Body 17..23
+            Pipeline 17..22
+              BinaryOp + 17..22
+                Int 1 17..18
+                Int 1 21..22
+        Flag --result 25..33
+        Int 2 34..35
+      Attribute `search-terms` 36..59
+        String Bare "math" 50..54
+        String Bare "plus" 55..59
+      Attribute `category` 60..74
+        String Bare "math" 70..74
+      Def `add` 75..89
+        Signature 83..85
+        Body 87..88

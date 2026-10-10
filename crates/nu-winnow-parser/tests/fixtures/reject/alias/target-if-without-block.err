@@ -1,0 +1,6 @@
+error: expected block after the condition
+  --> reject/alias/target-if-without-block.nu:1:16
+  |
+1 | alias i = if x y
+  |                ^
+  = while parsing if

@@ -1,0 +1,21 @@
+Block 0..47
+  Pipeline 0..46
+    List 0..5
+      Int 1 1..2
+      Int 2 3..4
+    | 6..7
+    Call `wrap` 8..14
+      String Bare "x" 13..14
+    | 15..16
+    Call `update` 17..46
+      String Bare "x" 24..25
+      Closure 26..46
+        Signature 28..33
+          Param positional `row` 29..32
+        Body 34..45
+          Pipeline 34..44
+            BinaryOp + 34..44
+              FullCellPath 34..40
+                Var $row 34..38
+                Member "x" 39..40
+              Int 1 43..44

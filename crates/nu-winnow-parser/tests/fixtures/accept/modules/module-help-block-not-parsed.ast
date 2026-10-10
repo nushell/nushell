@@ -1,0 +1,9 @@
+Block 0..101
+  Pipeline 81..100 comments=1
+    Call `module` 81..100
+      String Bare "x" 88..89
+      Flag --help 90..96
+Comments (1)
+  0..80 "# nu parses only the name of a `module` help call: the block is never looked at."
+Ignored (1)
+  97..100 "{}#"

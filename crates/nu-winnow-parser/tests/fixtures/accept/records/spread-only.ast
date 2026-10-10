@@ -1,0 +1,33 @@
+Block 0..71
+  Pipeline 0..70
+    List 0..70
+      Record 1..20
+        Spread 2..5
+          Record 5..7
+        Spread 8..11
+          Record 11..13
+        Pair
+          String Bare "a" 15..16
+          Int 1 18..19
+      Record 21..38
+        Spread 22..25
+          Record 25..37
+            Spread 26..29
+              Record 29..36
+                Spread 30..33
+                  Record 33..35
+      Record 39..69
+        Pair
+          String Bare "foo" 40..43
+          String Bare "bar" 45..48
+        Spread 49..52
+          Record 52..63
+            Pair
+              String Bare "a" 53..54
+              Record 56..62
+                Pair
+                  String Bare "x" 57..58
+                  Int 1 60..61
+        Pair
+          String Bare "b" 64..65
+          Int 3 67..68

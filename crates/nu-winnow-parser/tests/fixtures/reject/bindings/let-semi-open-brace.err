@@ -1,0 +1,5 @@
+error: unbalanced delimiter: found `}` without a matching `{`
+  --> reject/bindings/let-semi-open-brace.nu:1:9
+  |
+1 | let a = }
+  |         ^

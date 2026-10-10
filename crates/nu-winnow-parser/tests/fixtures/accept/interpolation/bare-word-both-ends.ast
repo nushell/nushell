@@ -1,0 +1,18 @@
+Block 0..34
+  Pipeline 0..33
+    Interpolation Bare 0..33
+      Subexpression 0..14 1..13
+        Pipeline 1..13
+          BinaryOp + 1..13
+            BinaryOp + 1..9
+              Int 100 1..4
+              Int 20 7..9
+            Int 3 12..13
+      Text "/bar/" 14..19
+      Subexpression 19..33 20..32
+        Pipeline 20..32
+          BinaryOp + 20..32
+            BinaryOp + 20..28
+              Int 300 20..23
+              Int 20 26..28
+            Int 1 31..32

@@ -22,7 +22,7 @@ use nu_protocol::{
     shell_error::generic::GenericError,
 };
 
-fn rest_param_is_type_annotated(signature_source: &[u8], rest_name: &str) -> bool {
+pub(crate) fn rest_param_is_type_annotated(signature_source: &[u8], rest_name: &str) -> bool {
     let mut needle = Vec::with_capacity(rest_name.len() + 3);
     needle.extend_from_slice(SPREAD_OPERATOR);
     needle.extend_from_slice(rest_name.as_bytes());
@@ -47,6 +47,31 @@ fn rest_param_is_type_annotated(signature_source: &[u8], rest_name: &str) -> boo
     }
 
     false
+}
+
+/// Whether `def`, `extern` or `alias` may define a command named `name`: a call can never
+/// reach a name that contains `#`, `^` or `%`, or that reads as a number or a filesize.
+/// A call is also looked up by its words joined with single spaces, so a name with any
+/// other whitespace could never be called (#15539).
+pub(crate) fn is_valid_command_name(name: &str) -> bool {
+    !name.contains(['#', '^', '%'])
+        && name.parse::<bytesize::ByteSize>().is_err()
+        && name.parse::<f64>().is_err()
+        && name.split_ascii_whitespace().collect::<Vec<_>>().join(" ") == name
+}
+
+/// Report at `span` a name `def` or `extern` cannot define: one [`is_valid_command_name`]
+/// refuses, or a parser keyword. Returns whether it did; the caller then predeclares nothing.
+pub(crate) fn reject_command_name(
+    working_set: &mut StateWorkingSet,
+    name: &str,
+    span: Span,
+) -> bool {
+    if !is_valid_command_name(name) {
+        working_set.error(ParseError::CommandDefNotValid(span));
+        return true;
+    }
+    reject_parser_keyword_name(working_set, name, "command", span)
 }
 
 pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) {
@@ -86,20 +111,7 @@ pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) {
         return;
     };
 
-    // A call is looked up by its words joined with single spaces, so a name
-    // with any other whitespace could never be called (#15539).
-    if name.contains('#')
-        || name.contains('^')
-        || name.contains('%')
-        || name.parse::<bytesize::ByteSize>().is_ok()
-        || name.parse::<f64>().is_ok()
-        || name.split_ascii_whitespace().collect::<Vec<_>>().join(" ") != name
-    {
-        working_set.error(ParseError::CommandDefNotValid(spans[name_pos]));
-        return;
-    }
-
-    if reject_parser_keyword_name(working_set, &name, "command", spans[name_pos]) {
+    if reject_command_name(working_set, &name, spans[name_pos]) {
         return;
     }
 
@@ -238,25 +250,10 @@ pub fn parse_for(working_set: &mut StateWorkingSet, lite_command: &LiteCommand) 
         *block.signature = sig;
     };
 
-    // `oneof` is usually flat, but yielded-type inference is recursive by
-    // definition: every union alternative may itself be an iterable.
-    fn yielded_type(ty: Type) -> Type {
-        match ty {
-            Type::List(item) => *item,
-            Type::Table(columns) => Type::Record(columns),
-            Type::Range => Type::Number,
-            Type::OneOf(types) => Type::one_of(types.into_iter().map(yielded_type)),
-            ty => ty,
-        }
-    }
-
     // Infer the loop variable from yielded values, not from the iterable itself.
     // Filter commands can return unions like `oneof<table, binary, list<any>>`,
     // which yield records, binary chunks, or list items respectively.
-    let var_type = match iteration_expr.ty.clone() {
-        Type::OneOf(types) => Type::one_of(types.into_iter().map(yielded_type)),
-        ty => yielded_type(ty),
-    };
+    let var_type = yielded_type(iteration_expr.ty.clone());
 
     if let (Some(var_id), Some(block_id)) = (var_decl.as_var(), block_expr.as_block()) {
         working_set.set_variable_type(var_id, var_type.clone());
@@ -276,6 +273,19 @@ pub fn parse_for(working_set: &mut StateWorkingSet, lite_command: &LiteCommand) 
     }
 
     Expression::new(working_set, Expr::Call(call), call_span, Type::Nothing)
+}
+
+/// What a `for` loop over a value of type `ty` yields, the type of its variable. `oneof` is
+/// usually flat, but yielded-type inference is recursive by definition: every union
+/// alternative may itself be an iterable.
+pub(crate) fn yielded_type(ty: Type) -> Type {
+    match ty {
+        Type::List(item) => *item,
+        Type::Table(columns) => Type::Record(columns),
+        Type::Range => Type::Number,
+        Type::OneOf(types) => Type::one_of(types.into_iter().map(yielded_type)),
+        ty => ty,
+    }
 }
 
 pub fn parse_attribute_block(
@@ -512,7 +522,52 @@ fn parse_def_inner(
         working_set.exit_scope();
     }
 
-    let call_span = Span::concat(spans);
+    finish_def(
+        working_set,
+        DefCall {
+            call,
+            output,
+            call_kind,
+            call_span: Span::concat(spans),
+            decl_id,
+        },
+        desc,
+        extra_desc,
+        attributes,
+        module_name,
+    )
+}
+
+/// A `def` call as parsed, with the `def` keyword's declaration.
+pub(crate) struct DefCall {
+    pub(crate) call: Box<Call>,
+    pub(crate) output: Type,
+    pub(crate) call_kind: CallKind,
+    pub(crate) call_span: Span,
+    pub(crate) decl_id: DeclId,
+}
+
+/// The rest of `parse_def` once its call is parsed (in its own scope, which is left): compile
+/// the body, check the name, and make the predeclared command the defined one, with its
+/// description, attributes and examples. Returns the expression of the definition and, when
+/// the command was defined, its name and declaration.
+pub(crate) fn finish_def(
+    working_set: &mut StateWorkingSet,
+    def_call: DefCall,
+    desc: String,
+    extra_desc: String,
+    attributes: Vec<(String, Value)>,
+    module_name: Option<&[u8]>,
+) -> (Expression, Option<(Vec<u8>, DeclId)>) {
+    let DefCall {
+        call,
+        output,
+        call_kind,
+        call_span,
+        decl_id,
+    } = def_call;
+    let garbage_result =
+        |working_set: &mut StateWorkingSet<'_>| (garbage(working_set, call_span), None);
     let decl = working_set.get_decl(decl_id);
     let sig = decl.signature();
 
@@ -768,6 +823,34 @@ fn parse_extern_inner(
         }
     };
 
+    // The item after `extern` (which a statement of `extern` alone does not have).
+    let name_span = spans.get(split_id).copied().unwrap_or(call_span);
+    finish_extern(
+        working_set,
+        call,
+        call_span,
+        name_span,
+        description,
+        extra_description,
+        attributes,
+        module_name,
+    )
+}
+
+/// The rest of `parse_extern` once its call is parsed (in its own scope, which is left): make
+/// the predeclared command a known external (or, with a body, a custom command) with its
+/// description, attributes and examples. `name_span` is the span of the name item.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn finish_extern(
+    working_set: &mut StateWorkingSet,
+    call: Box<Call>,
+    call_span: Span,
+    name_span: Span,
+    description: String,
+    extra_description: String,
+    attributes: Vec<(String, Value)>,
+    module_name: Option<&[u8]>,
+) -> Expression {
     let (name_and_sig_exprs, body_expr) = {
         let mut positional_iter = call.positional_iter();
         (positional_iter.next_array::<2>(), positional_iter.next())
@@ -849,7 +932,7 @@ fn parse_extern_inner(
             } else {
                 working_set.error(ParseError::InternalError(
                     "Predeclaration failed to add declaration".into(),
-                    spans[split_id],
+                    name_span,
                 ));
             };
         }

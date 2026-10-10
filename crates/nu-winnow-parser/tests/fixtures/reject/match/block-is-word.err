@@ -1,0 +1,6 @@
+error: expected match block
+  --> reject/match/block-is-word.nu:1:9
+  |
+1 | match 1 foo
+  |         ^^^
+  = while parsing match

@@ -1,0 +1,36 @@
+Block 0..142
+  Pipeline 0..141
+    Closure 0..141
+      Signature 1..3
+      Body 3..140
+        Pipeline 8..137
+          If 8..137
+            Condition
+              BinaryOp < 11..20
+                Var $in 11..14
+                Duration 1 hr 17..20
+            Then 22..41
+              Pipeline 29..34
+                String Single "red" 29..34
+            Else 43..47
+              If 48..137
+                Condition
+                  BinaryOp < 51..60
+                    Var $in 51..54
+                    Duration 1 wk 57..60
+                Then 62..81
+                  Pipeline 69..76
+                    String Single "green" 69..76
+                Else 83..87
+                  If 88..137
+                    Condition
+                      BinaryOp < 91..100
+                        Var $in 91..94
+                        Duration 6 wk 97..100
+                    Then 102..120
+                      Pipeline 109..115
+                        String Single "blue" 109..115
+                    Else 122..126
+                      BlockExpr 127..137 128..136
+                        Pipeline 129..135
+                          String Single "gray" 129..135

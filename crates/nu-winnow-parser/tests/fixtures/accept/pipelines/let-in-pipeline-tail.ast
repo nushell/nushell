@@ -1,0 +1,11 @@
+Block 0..33
+  Pipeline 0..25
+    let files 0..25
+      Value 12..25
+        Pipeline 12..25
+          Call `ls` 12..14
+          | 15..16
+          Call `get` 17..25
+            String Bare "name" 21..25
+  Pipeline 26..32
+    Var $files 26..32

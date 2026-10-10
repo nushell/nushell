@@ -1,0 +1,7 @@
+error: expected block
+  --> reject/closures/empty-params-in-block-position.nu:1:9
+  |
+1 | if true { || print hi }
+  |         ^^^^^^^^^^^^^^^
+  = while parsing if
+  = help: found closure parameters; blocks cannot have parameters

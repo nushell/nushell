@@ -1,0 +1,15 @@
+Block 0..39
+  Pipeline 0..38
+    Record 0..38
+      Pair
+        String Bare "a" 4..5
+        Int 1 7..8
+      Pair
+        String Bare "b" 11..12
+        Int 2 14..15
+      Pair
+        String Bare "c" 19..20
+        Record 22..36
+          Pair
+            String Bare "d" 28..29
+            Int 3 31..32

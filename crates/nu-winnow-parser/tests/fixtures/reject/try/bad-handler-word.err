@@ -1,0 +1,6 @@
+error: expected `catch` or `finally`
+  --> reject/try/bad-handler-word.nu:1:11
+  |
+1 | try { 1 } foo { 2 }
+  |           ^^^
+  = while parsing try

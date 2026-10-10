@@ -1,0 +1,17 @@
+Block 0..29
+  Pipeline 0..28
+    Record 0..28
+      Pair
+        Subexpression 1..8 2..7
+          Pipeline 2..7
+            BinaryOp + 2..7
+              Int 1 2..3
+              Int 1 6..7
+        Int 6 10..11
+      Pair
+        Subexpression 13..24 14..23
+          Pipeline 14..23
+            BinaryOp + 14..23
+              String Double "a" 14..17
+              String Double "b" 20..23
+        Int 7 26..27

@@ -1,0 +1,6 @@
+error: unexpected token in record value
+  --> reject/records/redirection-token-value.nu:1:5
+  |
+1 | {a: o>}
+  |     ^^
+  = help: after `key:`, provide a value (string, number, record, list, ...)

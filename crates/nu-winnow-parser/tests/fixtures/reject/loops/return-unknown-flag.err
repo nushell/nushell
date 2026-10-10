@@ -1,0 +1,7 @@
+error: the `return` command doesn't have flag `--foo`
+  --> reject/loops/return-unknown-flag.nu:1:8
+  |
+1 | return --foo
+  |        ^^^^^
+  = while parsing return
+  = help: use `--help` to see available flags

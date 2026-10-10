@@ -1,0 +1,12 @@
+Block 0..41
+  Pipeline 0..9
+    let x 0..9
+      Value 8..9
+        Pipeline 8..9
+          Int 1 8..9
+  Pipeline 10..40
+    Interpolation Double 10..40
+      Text "<meta charset=\"utf-8\"> " 12..35
+      Subexpression 35..39 36..38
+        Pipeline 36..38
+          Var $x 36..38

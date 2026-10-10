@@ -1,0 +1,5 @@
+Block 0..24
+  Pipeline 0..23
+    Call `run` 0..23
+      Flag --full-reparse 4..18
+      Nothing 19..23

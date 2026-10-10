@@ -1,0 +1,6 @@
+error: extra tokens after the end of the expression
+  --> reject/loops/return-help-then-two-values.nu:1:17
+  |
+1 | return --help 1 2
+  |                 ^
+  = while parsing return

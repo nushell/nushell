@@ -1,0 +1,6 @@
+error: table item not list
+  --> reject/tables/non-list-row.nu:1:7
+  |
+1 | [[a]; 1]
+  |       ^
+  = help: all table items must be lists

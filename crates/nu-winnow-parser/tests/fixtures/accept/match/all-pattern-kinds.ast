@@ -1,0 +1,95 @@
+Block 0..293
+  Pipeline 0..9
+    let x 0..9
+      Value 8..9
+        Pipeline 8..9
+          Int 1 8..9
+  Pipeline 10..292
+    Match 10..292
+      Var $x 16..18
+      Arm 23..37
+        Pattern or 23..28
+          Pattern value 23..24
+            Int 1 23..24
+          Pattern value 27..28
+            Int 2 27..28
+        String Double "low" 32..37
+      Arm 41..69
+        Pattern value 41..45
+          Range Inclusive 41..45
+            From
+              Int 3 41..42
+            To
+              Int 5 44..45
+        BlockExpr 49..69 50..68
+          Pipeline 51..60 terminator=60..61
+            Call `print` 51..60
+              String Bare "mid" 57..60
+          Pipeline 62..67
+            String Double "mid" 62..67
+      Arm 72..96
+        Pattern $n 72..74
+        Guard
+          BinaryOp > 78..86
+            Var $n 78..80
+            Int 100 83..86
+        String Double "huge" 90..96
+      Arm 99..122
+        Pattern list 99..116
+          Pattern $a 100..102
+          Pattern $b 104..106
+          Pattern rest $rest 108..115
+        Var $a 120..122
+      Arm 125..143
+        Pattern list 125..134
+          Pattern rest $last 126..133
+        Var $last 138..143
+      Arm 146..160
+        Pattern list 146..150
+          Pattern rest  147..149
+        String Double "rest" 154..160
+      Arm 163..193
+        Pattern record 163..184
+          Field "name"
+            Pattern $name 170..175
+          Field "age"
+            Pattern value 182..183
+              Int 3 182..183
+        Var $name 188..193
+      Arm 196..213
+        Pattern record 196..208
+          Field "shorthand"
+            Pattern $shorthand 197..207
+        Int 1 212..213
+      Arm 216..226
+        Pattern value 216..221
+          String Double "str" 216..221
+        Int 2 225..226
+      Arm 229..241
+        Pattern value 229..236
+          Subexpression 229..236 230..235
+            Pipeline 230..235
+              BinaryOp + 230..235
+                Int 1 230..231
+                Int 1 234..235
+        Int 3 240..241
+      Arm 244..260
+        Pattern record 244..250
+          Field "a"
+            Pattern value 248..249
+              Int 1 248..249
+        Record 254..260
+          Pair
+            String Bare "b" 255..256
+            Int 2 258..259
+      Arm 263..274
+        Pattern _ 263..264
+        Closure 268..274
+          Signature 269..271
+          Body 272..273
+            Pipeline 272..273
+              Int 1 272..273
+      Arm 277..290
+        Pattern value 277..281
+          Nothing 277..281
+        Call `print` 285..290

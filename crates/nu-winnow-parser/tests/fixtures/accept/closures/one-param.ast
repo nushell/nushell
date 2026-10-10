@@ -1,0 +1,14 @@
+Block 0..29
+  Pipeline 0..28
+    List 0..3
+      Int 3 1..2
+    | 4..5
+    Call `each` 6..28
+      Closure 11..28
+        Signature 13..17
+          Param positional `it` 14..16
+        Body 18..27
+          Pipeline 18..26
+            BinaryOp + 18..26
+              Var $it 18..21
+              Int 10 24..26

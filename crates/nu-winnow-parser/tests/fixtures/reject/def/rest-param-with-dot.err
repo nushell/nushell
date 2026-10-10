@@ -1,0 +1,6 @@
+error: expected valid variable name for this rest parameter
+  --> reject/def/rest-param-with-dot.nu:1:8
+  |
+1 | def f [...a.b] {}
+  |        ^^^^^^
+  = while parsing signature

@@ -1,6 +1,7 @@
 use crate::{
     is_math_expression_like,
     lite_parser::LiteCommand,
+    parse_def::is_valid_command_name,
     parse_helpers::{garbage, garbage_pipeline},
     parse_keywords::reject_parser_keyword_name,
     parse_pipelines::redirecting_builtin_error,
@@ -134,13 +135,7 @@ pub fn parse_alias(
         };
 
         let alias_name = if let Some(name) = alias_name_expr.as_string() {
-            if name.contains('#')
-                || name.contains('^')
-                || name.contains('%')
-                || name.parse::<bytesize::ByteSize>().is_ok()
-                || name.parse::<f64>().is_ok()
-                || name.split_ascii_whitespace().collect::<Vec<_>>().join(" ") != name
-            {
+            if !is_valid_command_name(&name) {
                 working_set.error(ParseError::AliasNotValid(alias_name_expr.span));
                 return garbage_pipeline(working_set, spans);
             } else if reject_parser_keyword_name(working_set, &name, "alias", alias_name_expr.span)

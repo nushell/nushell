@@ -1,0 +1,63 @@
+Block 0..178
+  Pipeline 0..9
+    let x 0..9
+      Value 8..9
+        Pipeline 8..9
+          Int 1 8..9
+  Pipeline 10..29
+    Match 10..29
+      Var $x 16..18
+      Arm 21..27
+        Pattern _ 21..22
+        Int 1 26..27
+  Pipeline 30..55
+    Match 30..55
+      Subexpression 36..44 37..43
+        Pipeline 37..43
+          BinaryOp + 37..43
+            Var $x 37..39
+            Int 1 42..43
+      Arm 47..53
+        Pattern _ 47..48
+        Int 1 52..53
+  Pipeline 56..78
+    Match 56..78
+      List 62..67
+        Int 1 63..64
+        Int 2 65..66
+      Arm 70..76
+        Pattern _ 70..71
+        Int 1 75..76
+  Pipeline 79..102
+    Match 79..102
+      Record 85..91
+        Pair
+          String Bare "a" 86..87
+          Int 1 89..90
+      Arm 94..100
+        Pattern _ 94..95
+        Int 1 99..100
+  Pipeline 103..123
+    Match 103..123
+      String Double "s" 109..112
+      Arm 115..121
+        Pattern _ 115..116
+        Int 1 120..121
+  Pipeline 124..146
+    Match 124..146
+      FullCellPath 130..135
+        Var $x 130..132
+        Member "a"? 133..135
+      Arm 138..144
+        Pattern _ 138..139
+        Int 1 143..144
+  Pipeline 147..177
+    Match 147..177
+      Subexpression 153..166 154..165
+        Pipeline 154..165
+          Call `ls` 154..156
+          | 157..158
+          Call `length` 159..165
+      Arm 169..175
+        Pattern _ 169..170
+        Int 1 174..175
