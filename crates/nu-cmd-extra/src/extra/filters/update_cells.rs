@@ -142,7 +142,7 @@ With `--recursive`, nested records and lists are descended into instead and the 
                 let val = val.to_mut();
                 update_record(
                     val,
-                    &mut ClosureEval::new(engine_state, stack, closure),
+                    &mut ClosureEval::try_new(engine_state, stack, closure, head)?,
                     span,
                     columns.as_ref(),
                     recursive,
@@ -153,7 +153,7 @@ With `--recursive`, nested records and lists are descended into instead and the 
                 let metadata = input.take_metadata();
                 Ok(UpdateCellIterator {
                     iter: input.into_iter(),
-                    closure: ClosureEval::new(engine_state, stack, closure),
+                    closure: ClosureEval::try_new(engine_state, stack, closure, head)?,
                     columns,
                     recursive,
                     span: head,

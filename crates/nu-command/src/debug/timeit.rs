@@ -68,7 +68,8 @@ This command will bubble up any errors encountered when running the closure. The
 
         let include_output = call.has_flag(engine_state, stack, "output")?;
         let closure: Closure = call.req(engine_state, stack, 0)?;
-        let closure = ClosureEvalOnce::new_preserve_out_dest(engine_state, stack, closure);
+        let closure =
+            ClosureEvalOnce::try_new_preserve_out_dest(engine_state, stack, closure, call.head)?;
 
         // Get the start time after all other computation has been done.
         let start_time = Instant::now();

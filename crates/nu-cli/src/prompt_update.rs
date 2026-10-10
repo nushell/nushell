@@ -57,9 +57,12 @@ fn get_prompt_string(
 ) -> Option<String> {
     let mut output = match stack.get_env_var(engine_state, prompt)? {
         Value::String { val, .. } => val.clone(),
-        Value::Closure { val, .. } => {
-            let result = ClosureEvalOnce::new(engine_state, stack, val.as_ref().clone())
-                .run_with_input(PipelineData::empty());
+        Value::Closure {
+            val, internal_span, ..
+        } => {
+            let result =
+                ClosureEvalOnce::try_new(engine_state, stack, val.as_ref().clone(), *internal_span)
+                    .and_then(|eval| eval.run_with_input(PipelineData::empty()));
 
             trace!(
                 "get_prompt_string (block) {}:{}:{}",

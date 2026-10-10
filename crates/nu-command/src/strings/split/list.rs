@@ -190,9 +190,14 @@ impl Command for SubCommand {
         let split: Option<Split> = call.get_flag(engine_state, stack, "split")?;
         let split = split.unwrap_or(Split::On);
         let matcher = match separator {
-            Value::Closure { val, .. } => {
-                Matcher::from_closure(ClosureEval::new(engine_state, stack, *val))
-            }
+            Value::Closure {
+                val, internal_span, ..
+            } => Matcher::from_closure(ClosureEval::try_new(
+                engine_state,
+                stack,
+                *val,
+                internal_span,
+            )?),
             _ => Matcher::new(engine_state, has_regex, separator)?,
         };
         split_list(engine_state, call, input, matcher, split)

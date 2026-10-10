@@ -132,7 +132,8 @@ groups as its argument. It must return a string that will be used as a replaceme
             Value::Closure {
                 val, internal_span, ..
             } => Ok(ReplacementValue::Closure(Box::new(
-                ClosureEval::new(engine_state, stack, *val).into_spanned(internal_span),
+                ClosureEval::try_new(engine_state, stack, *val, internal_span)?
+                    .into_spanned(internal_span),
             ))),
             Value::String {
                 val, internal_span, ..

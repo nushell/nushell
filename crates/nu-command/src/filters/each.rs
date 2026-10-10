@@ -173,7 +173,7 @@ they represent."#
             | PipelineData::Value(Value::List { .. }, ..)
             | PipelineData::ListStream(..) => {
                 let metadata = input.take_metadata();
-                let mut closure = ClosureEval::new(engine_state, stack, closure);
+                let mut closure = ClosureEval::try_new(engine_state, stack, closure, head)?;
 
                 let out = if flatten {
                     input
@@ -201,7 +201,7 @@ they represent."#
                 if val.is_iterable() && val.type_name() != "matrix" =>
             {
                 let metadata = input.take_metadata();
-                let mut closure = ClosureEval::new(engine_state, stack, closure);
+                let mut closure = ClosureEval::try_new(engine_state, stack, closure, head)?;
 
                 let out = if flatten {
                     input
@@ -228,7 +228,7 @@ they represent."#
                     return Ok(PipelineData::empty());
                 };
 
-                let mut closure = ClosureEval::new(engine_state, stack, closure);
+                let mut closure = ClosureEval::try_new(engine_state, stack, closure, head)?;
                 let out = if flatten {
                     chunks
                         .flat_map(move |result| {
@@ -264,7 +264,7 @@ they represent."#
             // This match allows non-iterables to be accepted,
             // which is currently considered undesirable (Nov 2022).
             PipelineData::Value(value, metadata) => {
-                ClosureEvalOnce::new(engine_state, stack, closure)
+                ClosureEvalOnce::try_new(engine_state, stack, closure, head)?
                     .run_with_value_with_metadata(value, metadata)
             }
         };

@@ -201,7 +201,7 @@ pub fn chunk_by(
         PipelineData::Value(Value::Range { .. }, ..)
         | PipelineData::Value(Value::List { .. }, ..)
         | PipelineData::ListStream(..) => {
-            let closure = ClosureEval::new(engine_state, stack, closure);
+            let closure = ClosureEval::try_new(engine_state, stack, closure, head)?;
 
             let result = chunk_value_stream(
                 input.into_iter(),

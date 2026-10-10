@@ -299,8 +299,8 @@ fn plugin_config(
     config.plugins.get(plugin_name).cloned().map(|value| {
         let span = value.span();
         match value {
-            Value::Closure { val, .. } => ClosureEvalOnce::new(engine_state, stack, *val)
-                .run_with_input(PipelineData::empty())
+            Value::Closure { val, .. } => ClosureEvalOnce::try_new(engine_state, stack, *val, span)
+                .and_then(|eval| eval.run_with_input(PipelineData::empty()))
                 .and_then(|data| data.into_value(span))
                 .unwrap_or_else(|err| Value::error(err, head)),
             _ => value.clone(),

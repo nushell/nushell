@@ -146,11 +146,16 @@ confusing the id/parent_id hierarchy. The --expr flag is helpful for investigati
             ))
         };
 
+        // Check the closure before the profiler is installed, so a stale
+        // closure can't leave the job in debugging mode.
+        engine_state.get_closure_block(&closure, call.head)?;
+
         engine_state
             .activate_debugger(Box::new(profiler))
             .map_err(lock_err)?;
 
-        let result = ClosureEvalOnce::new(engine_state, stack, closure).run_with_input(input);
+        let result = ClosureEvalOnce::try_new(engine_state, stack, closure, call.head)
+            .and_then(|eval| eval.run_with_input(input));
 
         // Return potential errors
         let pipeline_data = result?;
