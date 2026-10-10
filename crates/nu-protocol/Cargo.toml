@@ -43,6 +43,7 @@ fancy-regex = { workspace = true }
 heck = { workspace = true }
 humantime = { workspace = true }
 indexmap = { workspace = true }
+itertools = { workspace = true }
 lru = { workspace = true }
 memchr = { workspace = true }
 miette = { workspace = true, features = ["fancy-no-backtrace"] }
@@ -56,6 +57,7 @@ thiserror = { workspace = true }
 typetag = "0.2"
 os_pipe = { workspace = true, optional = true, features = ["io_safety"] }
 log = { workspace = true }
+rustc-hash = { workspace = true }
 semver = { version = "1.0", features = ["serde"] }
 web-time = { workspace = true }
 winnow = { workspace = true }

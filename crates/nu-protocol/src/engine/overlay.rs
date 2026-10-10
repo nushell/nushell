@@ -1,19 +1,47 @@
 use crate::{DeclId, ModuleId, OverlayId, VarId};
-use std::{collections::HashMap, ops::Deref};
+use rustc_hash::FxBuildHasher;
+use std::{
+    collections::HashMap,
+    ops::Deref,
+    sync::atomic::{AtomicUsize, Ordering},
+};
+
+/// The longest name ever inserted into any [`DeclNameMap`] in this process.
+static LONGEST_DECL_NAME: AtomicUsize = AtomicUsize::new(0);
+
+/// An upper bound on the length of every declaration name: every name any [`DeclNameMap`] holds,
+/// in any engine state, is at most this long, so no lookup of a longer name can succeed.
+///
+/// `find_decl` searches only [`DeclNameMap`]s (declarations and predeclarations, in every scope
+/// and overlay), so the parser uses this to skip building command-name candidates that cannot
+/// match (see `find_longest_decl_with_prefix` in nu-parser). The bound is shared by every engine
+/// in the process and only grows, so a long name declared anywhere, even in a scope that is gone,
+/// makes it less tight; that only lets the parser build longer candidates, as it did without it.
+pub fn longest_decl_name() -> usize {
+    LONGEST_DECL_NAME.load(Ordering::Relaxed)
+}
 
 /// Name → id map for declarations that remembers the longest name it has ever held.
 ///
-/// Command resolution tries the longest possible command name first (`find_longest_decl`), so
-/// for a call like `each {|x| ... }` the first candidate is the whole call text, and every
-/// non-empty map on the scope chain would hash all of it just to say "no". Knowing the longest
-/// name lets [`DeclNameMap::get`] reject such candidates by length before hashing. The bound only
-/// grows (removals leave it alone), so it is always an upper bound on the keys present.
+/// Command resolution tries the longest possible command name first and shortens it a word at a
+/// time (`find_longest_decl_with_prefix` in nu-parser), looking each candidate up in every map on
+/// the scope chain. It only builds candidates up to [`longest_decl_name`], the longest name in any
+/// map, but most maps hold much shorter names, such as a script's own definitions or a module's.
+/// Knowing the longest name it holds lets [`DeclNameMap::get`] reject a longer candidate before
+/// hashing it. The bound only grows (removals leave it alone), so it is always an upper bound on
+/// the keys present.
 ///
 /// Reads go through `Deref` to the underlying `HashMap`; all mutation goes through the inherent
 /// methods so the bound stays valid.
+///
+/// The parser looks names up here for every command word it sees, so the map uses the Fx hash
+/// (a multiply per 8 bytes) rather than SipHash. Nothing depends on the order of its entries.
+/// Unlike SipHash, the Fx hash has no per-process key, so a file could declare names chosen to
+/// collide and make its own parse slow, in the LSP or `nu-check` as much as when it runs. That is
+/// accepted for the speed, as rustc does, since the names come from the code being parsed.
 #[derive(Debug, Clone, Default)]
 pub struct DeclNameMap {
-    map: HashMap<Vec<u8>, DeclId>,
+    map: HashMap<Vec<u8>, DeclId, FxBuildHasher>,
     longest_name: usize,
 }
 
@@ -33,6 +61,7 @@ impl DeclNameMap {
 
     pub fn insert(&mut self, name: Vec<u8>, decl_id: DeclId) -> Option<DeclId> {
         self.longest_name = self.longest_name.max(name.len());
+        LONGEST_DECL_NAME.fetch_max(name.len(), Ordering::Relaxed);
         self.map.insert(name, decl_id)
     }
 
@@ -46,7 +75,7 @@ impl DeclNameMap {
 }
 
 impl Deref for DeclNameMap {
-    type Target = HashMap<Vec<u8>, DeclId>;
+    type Target = HashMap<Vec<u8>, DeclId, FxBuildHasher>;
 
     fn deref(&self) -> &Self::Target {
         &self.map
@@ -90,9 +119,12 @@ impl FromIterator<(Vec<u8>, DeclId)> for DeclNameMap {
 pub static DEFAULT_OVERLAY_NAME: &str = "zero";
 
 /// Tells whether a decl is visible or not
+///
+/// Looked up for every declaration a name lookup finds (see [`VisibilityStack`]), so it uses the
+/// Fx hash like [`DeclNameMap`].
 #[derive(Debug, Clone)]
 pub struct Visibility {
-    decl_ids: HashMap<DeclId, bool>,
+    decl_ids: HashMap<DeclId, bool, FxBuildHasher>,
 }
 
 /// Name bindings introduced while parsing a single block/closure scope.
@@ -143,7 +175,7 @@ impl ScopeBindings {
 impl Visibility {
     pub fn new() -> Self {
         Visibility {
-            decl_ids: HashMap::new(),
+            decl_ids: HashMap::default(),
         }
     }
 
@@ -184,7 +216,12 @@ impl Visibility {
 /// large.
 #[derive(Debug, Default)]
 pub struct VisibilityStack<'a> {
-    layers: Vec<&'a Visibility>,
+    /// The first frames pushed, in order. A lookup rarely walks more than a few frames that
+    /// hide declarations (once the standard library is loaded, the permanent overlay is one), so
+    /// they are kept here rather than in a `Vec`, which would allocate on every lookup.
+    inline: [Option<&'a Visibility>; 4],
+    /// The frames pushed after `inline` is full, in order.
+    spilled: Vec<&'a Visibility>,
 }
 
 impl<'a> VisibilityStack<'a> {
@@ -193,15 +230,21 @@ impl<'a> VisibilityStack<'a> {
     /// A frame that hides nothing can never answer a lookup, so it is not recorded; this keeps
     /// the common lookup (no hidden declarations anywhere) free of allocation.
     pub fn push(&mut self, visibility: &'a Visibility) {
-        if !visibility.decl_ids.is_empty() {
-            self.layers.push(visibility);
+        if visibility.decl_ids.is_empty() {
+            return;
+        }
+        match self.inline.iter_mut().find(|layer| layer.is_none()) {
+            Some(layer) => *layer = Some(visibility),
+            None => self.spilled.push(visibility),
         }
     }
 
     /// Whether `decl_id` is visible given the frames pushed so far.
     pub fn is_decl_id_visible(&self, decl_id: &DeclId) -> bool {
-        self.layers
+        self.inline
             .iter()
+            .map_while(|layer| *layer)
+            .chain(self.spilled.iter().copied())
             .find_map(|visibility| visibility.decl_ids.get(decl_id))
             .copied()
             .unwrap_or(true) // by default it's visible
@@ -411,5 +454,50 @@ impl Default for Visibility {
 impl Default for ScopeFrame {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod visibility_stack_tests {
+    use super::*;
+
+    /// A frame that hides `hidden` and explicitly shows `shown`.
+    fn frame(hidden: &[usize], shown: &[usize]) -> Visibility {
+        let mut visibility = Visibility::new();
+        for id in hidden {
+            visibility.hide_decl_id(&DeclId::new(*id));
+        }
+        for id in shown {
+            visibility.use_decl_id(&DeclId::new(*id));
+        }
+        visibility
+    }
+
+    #[test]
+    fn innermost_frame_with_an_entry_wins_past_the_inline_frames() {
+        // Frame `i` hides decl `i` and shows decl `i + 1`; frames that hide nothing are skipped.
+        let frames: Vec<Visibility> = (0..7).map(|i| frame(&[i], &[i + 1])).collect();
+        let empty = Visibility::new();
+        let mut stack = VisibilityStack::default();
+        for visibility in &frames {
+            stack.push(&empty);
+            stack.push(visibility);
+        }
+        // Decl 0 is only hidden; every other decl is shown by the frame before the one hiding it.
+        assert!(!stack.is_decl_id_visible(&DeclId::new(0)));
+        for id in 1..8 {
+            assert!(stack.is_decl_id_visible(&DeclId::new(id)), "decl {id}");
+        }
+        // A decl no frame mentions is visible.
+        assert!(stack.is_decl_id_visible(&DeclId::new(100)));
+
+        // The same frames with the hiding order reversed: the innermost entry decides.
+        let mut stack = VisibilityStack::default();
+        for visibility in frames.iter().rev() {
+            stack.push(visibility);
+        }
+        assert!(!stack.is_decl_id_visible(&DeclId::new(6)));
+        assert!(stack.is_decl_id_visible(&DeclId::new(7)));
+        assert!(!stack.is_decl_id_visible(&DeclId::new(1)));
     }
 }

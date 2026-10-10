@@ -102,3 +102,27 @@ fn a_nul_in_a_member_round_trips(#[case] input: &str) {
         "the path must serialize back to the text it was parsed from"
     );
 }
+
+/// `in` and `not-in` between cell paths look for the left path's members as a contiguous run in
+/// the right path. The paths come in as data, so the type checker sees `any` and lets the
+/// operators through to the runtime.
+#[rstest]
+#[case::same_path(test_cell_path!(a), test_cell_path!(a), true)]
+#[case::other_member(test_cell_path!(x), test_cell_path!(a), false)]
+#[case::inner_run(test_cell_path!(b.c), test_cell_path!(a.b.c.d), true)]
+#[case::int_member(test_cell_path!(0), test_cell_path!(items.0), true)]
+#[case::not_contiguous(test_cell_path!(a.c), test_cell_path!(a.b.c), false)]
+#[case::longer_than_rhs(test_cell_path!(a.b), test_cell_path!(a), false)]
+#[case::empty_lhs(CellPath::empty(), test_cell_path!(a), true)]
+fn cell_path_in_cell_path(
+    #[case] lhs: CellPath,
+    #[case] rhs: CellPath,
+    #[case] expected: bool,
+) -> Result {
+    test()
+        .run_with_data(
+            "let paths = $in; [($paths.0 in $paths.1) ($paths.0 not-in $paths.1)]",
+            [lhs, rhs],
+        )
+        .expect_value_eq([expected, !expected])
+}

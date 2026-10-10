@@ -428,7 +428,10 @@ impl fmt::Display for FmtPattern<'_> {
         match self.pattern {
             Pattern::Record(bindings) => {
                 f.write_str("{")?;
-                for (name, pattern) in bindings {
+                for (index, (name, pattern)) in bindings.iter().enumerate() {
+                    if index > 0 {
+                        f.write_str(", ")?;
+                    }
                     write!(
                         f,
                         "{}: {}",
@@ -443,7 +446,10 @@ impl fmt::Display for FmtPattern<'_> {
             }
             Pattern::List(bindings) => {
                 f.write_str("[")?;
-                for pattern in bindings {
+                for (index, pattern) in bindings.iter().enumerate() {
+                    if index > 0 {
+                        f.write_str(", ")?;
+                    }
                     write!(
                         f,
                         "{}",

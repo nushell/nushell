@@ -1,18 +1,19 @@
 use crate::{
     BlockId, Category, CompileError, Config, DeclId, FileId, GetSpan, Module, ModuleId, OverlayId,
     ParseError, ParseWarning, ResolvedImportPattern, ResolvedSpan, Signature, Span, SpanId, Type,
-    Value, VarId, VirtualPathId,
+    TypeSet, Value, VarId, VirtualPathId,
     ast::Block,
     engine::{
-        CachedFile, Command, CommandType, EngineState, OverlayFrame, ScopeBindings, StateDelta,
-        Variable, VirtualPath, Visibility, VisibilityStack, description::build_desc,
+        BracketTable, CachedFile, Command, CommandType, EngineState, OverlayFrame, ScopeBindings,
+        StateDelta, Variable, VirtualPath, Visibility, VisibilityStack, description::build_desc,
+        engine_state::FileHint, signature_cache::SignatureCache,
     },
 };
 use core::panic;
 use std::{
     collections::{HashMap, HashSet},
     path::{Path, PathBuf},
-    sync::{Arc, Mutex},
+    sync::Arc,
 };
 
 #[cfg(feature = "plugin")]
@@ -37,25 +38,23 @@ pub struct StateWorkingSet<'a> {
     pub parse_errors: Vec<ParseError>,
     pub parse_warnings: Vec<ParseWarning>,
     pub compile_errors: Vec<CompileError>,
-    /// Signatures of *permanent* declarations, built lazily the first time the parser needs
-    /// them and shared for the rest of this working set's life. `Command::signature()` rebuilds
-    /// a `Signature` (several heap allocations) on every call, and the parser asks for it at
-    /// least twice per call site (argument parsing and pipeline type checking), so a file that
-    /// calls the same command many times would otherwise rebuild it many times.
-    ///
-    /// Only permanent declarations are cached: they, and the permanent blocks that back custom
-    /// commands, cannot change while this working set borrows the `EngineState`. Declarations
-    /// in the delta are never cached because `def` replaces a predeclaration's signature in
-    /// place while parsing.
-    ///
-    /// The two caches mirror the two ways the parser reads a signature: the effective signature
-    /// from [`StateWorkingSet::get_signature`] (block-backed commands report their block's
-    /// signature) and the declaration's own `Command::signature()`. They are maps rather than
-    /// id-indexed vectors so that a tiny parse (a REPL line) only pays for the few commands it
-    /// uses. A `Mutex` (never contended; the working set is single-threaded) keeps the type
-    /// `Sync` for miette.
-    permanent_signatures: Mutex<HashMap<DeclId, Arc<Signature>>>,
-    permanent_decl_signatures: Mutex<HashMap<DeclId, Arc<Signature>>>,
+    /// Whether the lexer records and uses [`bracket_tables`](Self::bracket_tables) to skip over
+    /// nested groups. Always on; it only changes how fast the lexer is, never what it produces,
+    /// so tests turn it off to show that a parse comes out the same both ways.
+    pub lex_once: bool,
+    /// Bracket tables of the files being parsed, innermost last, when [`lex_once`](Self::lex_once)
+    /// is on. nu-parser's lexer records one when it lexes a whole file of 1 KiB to 16 MiB (a parsed
+    /// script or a module file), later lexes of parts of that file use it, and nu-parser drops it
+    /// when it finishes parsing the file. Files nest only through `use` and `source`, so this is a
+    /// short list.
+    pub bracket_tables: Vec<BracketTable>,
+    /// The span of the body of the `def` being parsed. `parse_def` compiles the body itself once it
+    /// has closed the body's scope, so the closure parser leaves the closure with this span
+    /// uncompiled instead of compiling it a first time.
+    pub def_body_span: Option<Span>,
+    /// The index in `delta.files` of the file the last span lookup found (see
+    /// [`Self::get_span_contents`]).
+    last_file_hit: FileHint,
 }
 
 impl<'a> StateWorkingSet<'a> {
@@ -76,8 +75,10 @@ impl<'a> StateWorkingSet<'a> {
             parse_errors: vec![],
             parse_warnings: vec![],
             compile_errors: vec![],
-            permanent_signatures: Mutex::new(HashMap::new()),
-            permanent_decl_signatures: Mutex::new(HashMap::new()),
+            lex_once: true,
+            bracket_tables: vec![],
+            def_body_span: None,
+            last_file_hit: FileHint::default(),
         }
     }
 
@@ -227,6 +228,13 @@ impl<'a> StateWorkingSet<'a> {
         }
 
         None
+    }
+
+    /// Drop the predeclaration of `name` without defining it, wherever [`Self::merge_predecl`]
+    /// would find it, so that later calls to `name` don't resolve to a declaration without a body.
+    pub fn remove_predecl(&mut self, name: &[u8]) -> Option<DeclId> {
+        self.move_one_predecl_to_overlay(name);
+        self.last_overlay_mut().predecls.remove(name)
     }
 
     fn move_one_predecl_to_overlay(&mut self, name: &[u8]) {
@@ -418,13 +426,10 @@ impl<'a> StateWorkingSet<'a> {
     #[inline]
     pub fn get_span_contents(&self, span: Span) -> &[u8] {
         let permanent_end = self.permanent_state.next_span_start();
-        if permanent_end <= span.start {
-            for cached_file in &self.delta.files {
-                if cached_file.covered_span.contains_span(span) {
-                    return &cached_file.content[span.start - cached_file.covered_span.start
-                        ..span.end - cached_file.covered_span.start];
-                }
-            }
+        if permanent_end <= span.start
+            && let Some(contents) = self.last_file_hit.contents(&self.delta.files, span)
+        {
+            return contents;
         }
 
         // if no files with span were found, fall back on permanent ones
@@ -815,16 +820,14 @@ impl<'a> StateWorkingSet<'a> {
 
     /// Shared version of [`StateWorkingSet::get_signature`] for the declaration `decl_id`.
     ///
-    /// Permanent declarations are built once per working set and then returned from a cache;
-    /// declarations in the delta are rebuilt on every call, exactly like `get_signature`.
+    /// Permanent declarations are built once and then returned from a cache on the
+    /// [`EngineState`]; declarations in the delta are rebuilt on every call, exactly like
+    /// `get_signature`, because `def` replaces a predeclaration's signature in place while parsing.
     pub fn get_signature_shared(&self, decl_id: DeclId) -> Arc<Signature> {
         if decl_id.get() >= self.permanent_state.num_decls() {
             return Arc::new(self.get_signature(self.get_decl(decl_id)));
         }
-        let mut cache = self
-            .permanent_signatures
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let mut cache = SignatureCache::lock(&self.permanent_state.signature_cache.effective);
         Arc::clone(
             cache
                 .entry(decl_id)
@@ -835,19 +838,75 @@ impl<'a> StateWorkingSet<'a> {
     /// Shared version of `Command::signature()` for the declaration `decl_id`, i.e. the
     /// declaration's own signature rather than the one on its block.
     ///
-    /// Cached for permanent declarations, rebuilt on every call for delta declarations.
+    /// Cached for permanent declarations, rebuilt on every call for delta declarations. A
+    /// declaration without a block has no other signature, so this shares the one
+    /// [`StateWorkingSet::get_signature_shared`] returns instead of building and caching a copy.
     pub fn get_decl_signature_shared(&self, decl_id: DeclId) -> Arc<Signature> {
+        if self.get_decl(decl_id).block_id().is_none() {
+            return self.get_signature_shared(decl_id);
+        }
         if decl_id.get() >= self.permanent_state.num_decls() {
             return Arc::new(self.get_decl(decl_id).signature());
         }
-        let mut cache = self
-            .permanent_decl_signatures
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let mut cache = SignatureCache::lock(&self.permanent_state.signature_cache.declared);
         Arc::clone(
             cache
                 .entry(decl_id)
                 .or_insert_with(|| Arc::new(self.get_decl(decl_id).signature())),
+        )
+    }
+
+    /// The output type of a call to `decl_id` whose pipeline input is `input_type`, as the parser
+    /// assigns it when it parses the call: what the effective signature of `decl_id` (see
+    /// [`StateWorkingSet::get_signature_shared`]) gives for the input with `Nothing` added to it,
+    /// so that commands which ignore their input still type-check.
+    ///
+    /// `signature` is that effective signature, which the caller already has. It is only used for
+    /// delta declarations, whose output type is computed on every call. For permanent declarations
+    /// the answer is remembered per input type (see [`EngineState`]'s signature cache), so it is
+    /// computed from the cached effective signature of `decl_id` instead of from `signature`,
+    /// because the cache is keyed by the declaration alone and must not depend on what a caller
+    /// passes.
+    pub fn call_output_type(
+        &self,
+        decl_id: DeclId,
+        signature: &Signature,
+        input_type: Option<&Type>,
+    ) -> Option<Type> {
+        let output_type = |signature: &Signature| {
+            signature.get_output_type(
+                input_type
+                    .map(|ty| ty.clone().union(Type::Nothing))
+                    .as_ref(),
+            )
+        };
+        if decl_id.get() >= self.permanent_state.num_decls() {
+            return output_type(signature);
+        }
+        SignatureCache::output_type(
+            &self.permanent_state.signature_cache.call_outputs,
+            decl_id,
+            input_type,
+            || output_type(&self.get_signature_shared(decl_id)),
+        )
+    }
+
+    /// The output type the declaration's own signature (see
+    /// [`StateWorkingSet::get_decl_signature_shared`]) gives for `input_type`, as pipeline type
+    /// checking asks for it. Remembered like [`StateWorkingSet::call_output_type`].
+    pub fn decl_output_type(&self, decl_id: DeclId, input_type: Option<&Type>) -> Option<Type> {
+        let compute = || {
+            self.get_decl_signature_shared(decl_id)
+                .get_output_type(input_type)
+        };
+        if decl_id.get() >= self.permanent_state.num_decls() {
+            return compute();
+        }
+        SignatureCache::output_type(
+            &self.permanent_state.signature_cache.declared_outputs,
+            decl_id,
+            input_type,
+            compute,
         )
     }
 

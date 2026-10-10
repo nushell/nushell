@@ -209,6 +209,11 @@ fn split_whitespace_indices(s: &str, span: Span) -> impl Iterator<Item = (&str, 
 }
 
 fn compound_to_duration(s: &str, span: Span) -> Result<i64, ShellError> {
+    // first try the newly added clock-style parser
+    if let Some(parsed) = parse_clock_duration(s.trim(), span)? {
+        return Ok(parsed);
+    }
+
     let mut duration_ns: i64 = 0;
 
     for (substring, substring_span) in split_whitespace_indices(s, span) {
@@ -293,11 +298,6 @@ fn parse_clock_duration(s: &str, span: Span) -> Result<Option<i64>, ShellError> 
 }
 
 fn string_to_duration(s: &str, span: Span) -> Result<i64, ShellError> {
-    // first try the newly added clock-style parser
-    if let Some(parsed) = parse_clock_duration(s, span)? {
-        return Ok(parsed);
-    }
-
     if let Some(Ok(expression)) = parse_unit_value(
         s.as_bytes(),
         span,
@@ -525,15 +525,17 @@ mod test {
     #[case("1sec", NS_PER_SEC)]
     #[case("7min", 7 * NS_PER_MINUTE)]
     #[case("42hr", 42 * NS_PER_HOUR)]
-    #[case("123day", 123 * NS_PER_DAY)]
+    #[case(" 123day ", 123 * NS_PER_DAY)]
     #[case("3wk", 3 * NS_PER_WEEK)]
-    #[case("86hr 26ns", 86 * 3600 * NS_PER_SEC + 26)] // compound duration string
-    #[case("14ns 3hr 17sec", 14 + 3 * NS_PER_HOUR + 17 * NS_PER_SEC)] // compound string with units in random order
+    // \u{0009} is tab
+    #[case("86hr \u{0009}26ns", 86 * 3600 * NS_PER_SEC + 26)] // compound duration string,
+    #[case("14ns  3hr 17sec", 14 + 3 * NS_PER_HOUR + 17 * NS_PER_SEC)] // compound string with units in random order
     #[case("3:34:00", 3 * NS_PER_HOUR + 34 * NS_PER_MINUTE)]
+    #[case(" \u{0009}3:34:00 ", 3 * NS_PER_HOUR + 34 * NS_PER_MINUTE)]
     #[case("2:45:31.2", 2 * NS_PER_HOUR + 45 * NS_PER_MINUTE + 31 * NS_PER_SEC + 200 * NS_PER_MS)]
     #[case("2:45:31.23", 2 * NS_PER_HOUR + 45 * NS_PER_MINUTE + 31 * NS_PER_SEC + 230 * NS_PER_MS)]
     #[case("2:45:31.2345", 2 * NS_PER_HOUR + 45 * NS_PER_MINUTE + 31 * NS_PER_SEC + 234 * NS_PER_MS + 500 * NS_PER_US)]
-    #[case("16:59:58.235", 16 * NS_PER_HOUR + 59 * NS_PER_MINUTE + 58 * NS_PER_SEC + 235 * NS_PER_MS)]
+    #[case("16:59:58.235  ", 16 * NS_PER_HOUR + 59 * NS_PER_MINUTE + 58 * NS_PER_SEC + 235 * NS_PER_MS)]
     #[case("16:59:58.235123", 16 * NS_PER_HOUR + 59 * NS_PER_MINUTE + 58 * NS_PER_SEC + 235 * NS_PER_MS + 123 * NS_PER_US)]
     #[case("16:59:58.235123456", 16 * NS_PER_HOUR + 59 * NS_PER_MINUTE + 58 * NS_PER_SEC + 235 * NS_PER_MS + 123 * NS_PER_US + 456)]
     // decimal with unit should bypass clock parser and succeed

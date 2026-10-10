@@ -2,7 +2,8 @@
 
 use crate::{
     Token, TokenContents,
-    lex::{LexState, interp_subexpr_step, lex, lex_n_tokens},
+    lex::{LexState, interp_subexpr_step},
+    lex_once::{find_bracket_table, lex_n_tokens_in, lex_span},
     parse_helpers::{
         SPREAD_OPERATOR_STR, extract_spread_record, garbage, is_variable, trim_quotes,
     },
@@ -51,13 +52,9 @@ fn parse_binary_with_base(
     if let Some(token) = token.strip_prefix(prefix)
         && let Some(token) = token.strip_suffix(suffix)
     {
-        let (lexed, err) = lex(
-            token,
-            span.start + prefix.len(),
-            &[b',', b'\r', b'\n'],
-            &[],
-            true,
-        );
+        let digits_start = span.start + prefix.len();
+        let digits_span = Span::new(digits_start, digits_start + token.len());
+        let (lexed, err) = lex_span(working_set, digits_span, &[b',', b'\r', b'\n'], &[], true);
         if let Some(err) = err {
             working_set.error(err);
         }
@@ -143,8 +140,14 @@ fn strip_underscores(token: &[u8]) -> Cow<'_, str> {
     }
 }
 
+/// The first byte of `token` that is not a `_` digit separator, if any.
+fn first_non_separator(token: &[u8]) -> Option<u8> {
+    token.iter().copied().find(|&byte| byte != b'_')
+}
+
 /// Outcome of reading an integer literal, decided before touching the working set so the
 /// token bytes can stay borrowed from it.
+#[derive(Debug, PartialEq)]
 enum IntLiteral {
     Value(i64),
     Empty,
@@ -152,33 +155,48 @@ enum IntLiteral {
     NotInt,
 }
 
-pub fn parse_int(working_set: &mut StateWorkingSet, span: Span) -> Expression {
-    let literal = {
-        let token = strip_underscores(working_set.get_span_contents(span));
-
-        // Parse as a u64, then cast to i64, otherwise, for numbers like "0xffffffffffffffef",
-        // you'll get `Error parsing hex string: number too large to fit in target type`.
-        let extract_int = |digits: &str, radix: u32| match u64::from_str_radix(digits, radix) {
-            Ok(num) => IntLiteral::Value(num as i64),
-            Err(_) => IntLiteral::InvalidDigits { radix },
-        };
-
-        if token.is_empty() {
-            IntLiteral::Empty
-        } else if let Some(num) = token.strip_prefix("0b") {
-            extract_int(num, 2)
-        } else if let Some(num) = token.strip_prefix("0o") {
-            extract_int(num, 8)
-        } else if let Some(num) = token.strip_prefix("0x") {
-            extract_int(num, 16)
-        } else if let Ok(num) = token.parse::<i64>() {
-            IntLiteral::Value(num)
-        } else {
+/// Read `token` as an integer literal: decimal, or binary/octal/hex after `0b`/`0o`/`0x`, with
+/// `_` digit separators.
+fn read_int(token: &[u8]) -> IntLiteral {
+    match first_non_separator(token) {
+        // Every integer literal starts with a digit (the radix prefixes included) or a sign.
+        // Most tokens that get here are bare words tried as numbers speculatively, so reject
+        // them before decoding them.
+        Some(first) if !(first.is_ascii_digit() || first == b'+' || first == b'-') => {
             IntLiteral::NotInt
         }
+        _ => decode_int(token),
+    }
+}
+
+/// [`read_int`] without rejecting tokens by their first byte first: what decoding `token` gives.
+fn decode_int(token: &[u8]) -> IntLiteral {
+    let token = strip_underscores(token);
+
+    // Parse as a u64, then cast to i64, otherwise, for numbers like "0xffffffffffffffef",
+    // you'll get `Error parsing hex string: number too large to fit in target type`.
+    let extract_int = |digits: &str, radix: u32| match u64::from_str_radix(digits, radix) {
+        Ok(num) => IntLiteral::Value(num as i64),
+        Err(_) => IntLiteral::InvalidDigits { radix },
     };
 
-    match literal {
+    if token.is_empty() {
+        IntLiteral::Empty
+    } else if let Some(num) = token.strip_prefix("0b") {
+        extract_int(num, 2)
+    } else if let Some(num) = token.strip_prefix("0o") {
+        extract_int(num, 8)
+    } else if let Some(num) = token.strip_prefix("0x") {
+        extract_int(num, 16)
+    } else if let Ok(num) = token.parse::<i64>() {
+        IntLiteral::Value(num)
+    } else {
+        IntLiteral::NotInt
+    }
+}
+
+pub fn parse_int(working_set: &mut StateWorkingSet, span: Span) -> Expression {
+    match read_int(working_set.get_span_contents(span)) {
         IntLiteral::Value(num) => Expression::new(working_set, Expr::Int(num), span, Type::Int),
         IntLiteral::Empty | IntLiteral::NotInt => {
             working_set.error(ParseError::Expected("int", span));
@@ -195,10 +213,20 @@ pub fn parse_int(working_set: &mut StateWorkingSet, span: Span) -> Expression {
     }
 }
 
-pub fn parse_float(working_set: &mut StateWorkingSet, span: Span) -> Expression {
-    let parsed = strip_underscores(working_set.get_span_contents(span)).parse::<f64>();
+/// Read `token` as a float literal, with `_` digit separators.
+fn read_float(token: &[u8]) -> Option<f64> {
+    // `f64::from_str` only accepts a sign, a digit, `.`, or `inf`/`infinity`/`nan` in any case
+    // at the start, so reject everything else before decoding it (see `read_int`).
+    let first = first_non_separator(token)?;
+    if !(first.is_ascii_digit() || matches!(first, b'+' | b'-' | b'.' | b'i' | b'I' | b'n' | b'N'))
+    {
+        return None;
+    }
+    strip_underscores(token).parse::<f64>().ok()
+}
 
-    if let Ok(x) = parsed {
+pub fn parse_float(working_set: &mut StateWorkingSet, span: Span) -> Expression {
+    if let Some(x) = read_float(working_set.get_span_contents(span)) {
         Expression::new(working_set, Expr::Float(x), span, Type::Float)
     } else {
         working_set.error(ParseError::Expected("float", span));
@@ -226,6 +254,13 @@ pub fn parse_number(working_set: &mut StateWorkingSet, span: Span) -> Expression
 
     working_set.error(ParseError::Expected("number", span));
     garbage(working_set, span)
+}
+
+/// Whether `token` contains `..`. Without one, [`parse_range`] only reports an error, so callers
+/// that try a token as a range speculatively and discard the error can skip the attempt (and its
+/// UTF-8 validation of the token).
+pub(crate) fn has_range_operator(token: &[u8]) -> bool {
+    memchr::memmem::find(token, b"..").is_some()
 }
 
 pub fn parse_range(working_set: &mut StateWorkingSet, span: Span) -> Option<Expression> {
@@ -262,14 +297,22 @@ pub fn parse_range(working_set: &mut StateWorkingSet, span: Span) -> Option<Expr
         return None;
     }
 
+    // The `..`s outside parentheses: those with as many `(` as `)` before them. The parens are
+    // counted from one `..` to the next instead of from the start of the token for each `..`, which
+    // made a large subexpression with many `..`s in it (`../` paths) quadratic to parse.
+    let mut paren_depth = 0isize;
+    let mut counted = 0;
     let dotdot_pos: Vec<_> = token
         .match_indices("..")
         .filter_map(|(pos, _)| {
-            // paren_depth = count of unclosed parens prior to pos
-            let before = &token[..pos];
-            let paren_opened = before.chars().filter(|&c| c == '(').count();
-            let paren_closed = before.chars().filter(|&c| c == ')').count();
-            let paren_depth = paren_opened.checked_sub(paren_closed)?;
+            for byte in &token.as_bytes()[counted..pos] {
+                match byte {
+                    b'(' => paren_depth += 1,
+                    b')' => paren_depth -= 1,
+                    _ => {}
+                }
+            }
+            counted = pos;
             (paren_depth == 0).then_some(pos)
         })
         .collect();
@@ -288,9 +331,9 @@ pub fn parse_range(working_set: &mut StateWorkingSet, span: Span) -> Option<Expr
     // Avoid calling sub-parsers on unmatched parens, to prevent quadratic time on things like ((((1..2))))
     // No need to call the expensive parse_value on "((((1"
     if dotdot_pos[0] > 0 {
-        let (_tokens, err) = lex(
-            &contents[..dotdot_pos[0]],
-            span.start,
+        let (_tokens, err) = lex_span(
+            working_set,
+            Span::new(span.start, span.start + dotdot_pos[0]),
             &[],
             &[b'.', b'?', b'!'],
             true,
@@ -432,7 +475,9 @@ pub(crate) fn parse_dollar_expr(
     } else {
         let starting_error_count = working_set.parse_errors.len();
 
-        if let Some(expr) = parse_range(working_set, span) {
+        if has_range_operator(contents)
+            && let Some(expr) = parse_range(working_set, span)
+        {
             expr
         } else {
             working_set.parse_errors.truncate(starting_error_count);
@@ -501,7 +546,9 @@ pub fn parse_paren_expr(
 ) -> Expression {
     let starting_error_count = working_set.parse_errors.len();
 
-    if let Some(expr) = parse_range(working_set, span) {
+    if has_range_operator(working_set.get_span_contents(span))
+        && let Some(expr) = parse_range(working_set, span)
+    {
         return expr;
     }
 
@@ -565,19 +612,27 @@ pub fn parse_brace_expr(
         ));
         return Expression::garbage(working_set, span);
     }
-    let bytes = working_set.get_span_contents(Span::new(span.start + 1, span.end - 1));
+    let inner_span = Span::new(span.start + 1, span.end - 1);
     // Only the first two tokens decide the kind of value, so lex just those instead of the
     // whole body: the body is lexed again by whichever parser is chosen below, and for nested
     // closures that repeated full scan dominated parse time. Newlines are additional whitespace
     // and comments are skipped here, so no token depends on a later one and the first two
     // tokens are the same as a full lex would produce. Lex errors are ignored as before.
+    let table = find_bracket_table(working_set, inner_span);
     let mut lex_state = LexState {
-        input: bytes,
+        input: working_set.get_span_contents(inner_span),
         output: Vec::new(),
         error: None,
         span_offset: span.start + 1,
     };
-    lex_n_tokens(&mut lex_state, &[b'\r', b'\n', b'\t'], &[b':'], true, 2);
+    lex_n_tokens_in(
+        &mut lex_state,
+        &[b'\r', b'\n', b'\t'],
+        &[b':'],
+        true,
+        2,
+        table,
+    );
     let tokens = lex_state.output;
 
     match tokens.as_slice() {
@@ -1031,11 +1086,9 @@ pub fn parse_cell_path(
 }
 
 pub fn parse_simple_cell_path(working_set: &mut StateWorkingSet, span: Span) -> Expression {
-    let source = working_set.get_span_contents(span);
-
-    let (tokens, err) = lex(
-        source,
-        span.start,
+    let (tokens, err) = lex_span(
+        working_set,
+        span,
         &[b'\n', b'\r'],
         &[b'.', b'?', b'!'],
         true,
@@ -1064,11 +1117,9 @@ pub fn parse_full_cell_path(
 ) -> Expression {
     trace!("parsing: full cell path");
     let full_cell_span = span;
-    let source = working_set.get_span_contents(span);
-
-    let (tokens, err) = lex(
-        source,
-        span.start,
+    let (tokens, err) = lex_span(
+        working_set,
+        span,
         &[b'\n', b'\r'],
         &[b'.', b'?', b'!'],
         true,
@@ -1104,9 +1155,7 @@ pub fn parse_full_cell_path(
 
             let span = Span::new(start, end);
 
-            let source = working_set.get_span_contents(span);
-
-            let (output, err) = lex(source, span.start, &[b'\n', b'\r'], &[], true);
+            let (output, err) = lex_span(working_set, span, &[b'\n', b'\r'], &[], true);
             if let Some(err) = err {
                 working_set.error(err)
             }
@@ -2034,5 +2083,91 @@ pub fn parse_string_strict(working_set: &mut StateWorkingSet, span: Span) -> Exp
     } else {
         working_set.error(ParseError::Expected("string", span));
         garbage(working_set, span)
+    }
+}
+
+#[cfg(test)]
+mod number_tests {
+    use super::*;
+
+    const TOKENS: &[&[u8]] = &[
+        b"",
+        b"_",
+        b"___",
+        b"1",
+        b"-1",
+        b"+1",
+        b"+",
+        b"-",
+        b"1_000",
+        b"_1",
+        b"1_",
+        b"0x_ff",
+        b"_0xff",
+        b"0_xff",
+        b"0xZZ",
+        b"0b102",
+        b"0o8",
+        b"0x",
+        b"99999999999999999999",
+        b"-9223372036854775808",
+        b"abc",
+        b"foo_bar",
+        b"_foo",
+        b"e5",
+        b"1e5",
+        b".5",
+        b"5.",
+        b"-.5e-3",
+        b"inf",
+        b"+inf",
+        b"-Infinity",
+        b"INFINITY",
+        b"nan",
+        b"NaN",
+        b"-nan",
+        b"i",
+        b"n",
+        b"infinite",
+        b"\xc3\xa91",
+        b"1\xc3\xa9",
+        b"\xff1",
+        b"1\xff",
+        b"_\xff",
+        b"$x",
+        b"(1)",
+        b"[1]",
+        b"1kb",
+        b"1sec",
+        b"1..2",
+    ];
+
+    #[test]
+    fn integers_read_as_before() {
+        // Rejecting tokens by their first byte changes nothing: `read_int` gives what decoding them
+        // gives, as integers were read before.
+        for token in TOKENS {
+            assert_eq!(
+                read_int(token),
+                decode_int(token),
+                "{:?}",
+                String::from_utf8_lossy(token)
+            );
+        }
+    }
+
+    #[test]
+    fn floats_read_as_before() {
+        for token in TOKENS {
+            let before = strip_underscores(token).parse::<f64>().ok();
+            let after = read_float(token);
+            // Compare bit patterns so that NaN equals NaN.
+            assert_eq!(
+                after.map(f64::to_bits),
+                before.map(f64::to_bits),
+                "{:?}",
+                String::from_utf8_lossy(token)
+            );
+        }
     }
 }

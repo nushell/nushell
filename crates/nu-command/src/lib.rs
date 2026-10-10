@@ -24,6 +24,7 @@ mod platform;
 mod progress_bar;
 #[cfg(feature = "rand")]
 mod random;
+mod record;
 mod removed;
 mod semver;
 mod shells;
@@ -61,6 +62,7 @@ pub use path::*;
 pub use platform::*;
 #[cfg(feature = "rand")]
 pub use random::*;
+pub use record::*;
 pub use removed::*;
 pub use semver::*;
 pub use shells::*;
