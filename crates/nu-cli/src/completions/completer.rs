@@ -707,38 +707,57 @@ fn isolated_stack(parent: Arc<Stack>, suppress_stdin: bool) -> Arc<Stack> {
     })
 }
 
-/// The user completer that would run first at `site`, mirroring dispatch order. `None` when
-/// no user completer runs there.
-fn site_completer(site: &CompletionSite, working_set: &StateWorkingSet) -> Option<SiteCompleter> {
+/// User sources that dispatch can reach, in order. Earlier sources may decline or
+/// contribute, so interactive routing must consider the whole fallback chain.
+fn site_completers(
+    site: &CompletionSite,
+    working_set: &StateWorkingSet,
+) -> [Option<SiteCompleter>; 3] {
     let call = match &site.kind {
-        SiteKind::ExternalArg { .. } => return Some(SiteCompleter::External),
-        kind => kind.call_site()?.call,
+        SiteKind::ExternalArg { .. } => return [Some(SiteCompleter::External), None, None],
+        kind => match kind.call_site() {
+            Some(site) => site.call,
+            None => return [None, None, None],
+        },
     };
     let signature = working_set.get_decl(call.decl_id).signature();
 
     // An argument's own completer runs before the command-wide one.
-    let argument_completer = match &site.kind {
-        SiteKind::FlagValue { flag, .. } => {
-            find_flag(&signature, *flag).and_then(|flag| flag.completion)
-        }
-        SiteKind::Positional { sig_positional, .. } => signature
-            .get_positional(*sig_positional)
-            .and_then(|positional| positional.completion.clone()),
+    let (argument_completer, implicit_external) = match &site.kind {
+        SiteKind::FlagValue { flag, .. } => (
+            find_flag(&signature, *flag).and_then(|flag| flag.completion),
+            true,
+        ),
+        SiteKind::Positional { sig_positional, .. } => (
+            signature
+                .get_positional(*sig_positional)
+                .and_then(|positional| positional.completion.clone()),
+            true,
+        ),
         // Dispatch also runs the positional completer here for `def --wrapped`.
-        SiteKind::FlagName { sig_positional, .. } if signature.allows_unknown_args => signature
-            .get_positional(*sig_positional)
-            .and_then(|positional| positional.completion.clone()),
-        _ => None,
+        SiteKind::FlagName { sig_positional, .. } if signature.allows_unknown_args => {
+            let completion = signature
+                .get_positional(*sig_positional)
+                .and_then(|positional| positional.completion.clone());
+            let implicit_external = completion.is_some();
+            (completion, implicit_external)
+        }
+        _ => (None, false),
     };
-    if let Some(Completion::Command(decl_id)) = argument_completer {
-        return Some(SiteCompleter::Decl(decl_id));
-    }
 
-    match signature.complete {
-        Some(CommandWideCompleter::Command(decl_id)) => Some(SiteCompleter::Decl(decl_id)),
-        Some(CommandWideCompleter::External) => Some(SiteCompleter::External),
-        None => None,
-    }
+    [
+        match argument_completer {
+            Some(Completion::Command(decl_id)) => Some(SiteCompleter::Decl(decl_id)),
+            _ => None,
+        },
+        match signature.complete {
+            Some(CommandWideCompleter::Command(decl_id)) => Some(SiteCompleter::Decl(decl_id)),
+            Some(CommandWideCompleter::External) => Some(SiteCompleter::External),
+            None => None,
+        },
+        (implicit_external && !matches!(signature.complete, Some(CommandWideCompleter::External)))
+            .then_some(SiteCompleter::External),
+    ]
 }
 
 /// The user completer a site would run.
@@ -1153,20 +1172,24 @@ impl<'engine> CompletionEngine<'engine> {
                 .unwrap_or(false)
     }
 
-    /// Whether the completer that would run first at `site` is interactive.
+    /// Whether any potentially reached source needs the terminal. Dispatch schedules a
+    /// whole query, so a chain with an interactive fallback must run inline even when
+    /// an earlier source might answer without reaching it.
     fn site_is_interactive(&self, site: &CompletionSite, working_set: &StateWorkingSet) -> bool {
-        match site_completer(site, working_set) {
-            Some(SiteCompleter::Decl(decl_id)) => decl_is_interactive(working_set, decl_id),
-            Some(SiteCompleter::External) => self
-                .stack
-                .get_config(self.engine_state)
-                .completions
-                .external
-                .completer
-                .as_ref()
-                .is_some_and(|closure| closure_is_interactive(working_set, closure)),
-            None => false,
-        }
+        site_completers(site, working_set)
+            .into_iter()
+            .flatten()
+            .any(|completer| match completer {
+                SiteCompleter::Decl(decl_id) => decl_is_interactive(working_set, decl_id),
+                SiteCompleter::External => self
+                    .stack
+                    .get_config(self.engine_state)
+                    .completions
+                    .external
+                    .completer
+                    .as_ref()
+                    .is_some_and(|closure| closure_is_interactive(working_set, closure)),
+            })
     }
 
     fn dispatch_completions_at(&self, line: &str, position: usize) -> Fetched {
@@ -2016,7 +2039,7 @@ impl<'engine> CompletionEngine<'engine> {
     fn complete_argument_value(
         &self,
         custom: Option<Completion>,
-        mut arg_value: ArgValueCompletion,
+        arg_value: ArgValueCompletion,
         context: &Context,
         signature: &Signature,
     ) -> Fetched {
@@ -2052,9 +2075,28 @@ impl<'engine> CompletionEngine<'engine> {
             return results;
         }
 
-        // A fallthrough result keeps type-based completion enabled.
-        arg_value.need_fallback &= results.is_empty() || !results.answered();
-        results.merge(arg_value.fetch(context));
+        if let Some(attempt) = arg_value.fetch_dynamic_completion(context)
+            && results.absorb(attempt)
+        {
+            return results;
+        }
+
+        // Restore the configured external completer after native sources and before
+        // type/filesystem fallback. An explicit `@complete external` already tried it.
+        if !matches!(signature.complete, Some(CommandWideCompleter::External))
+            && let Some(closure) = self
+                .stack
+                .get_config(self.engine_state)
+                .completions
+                .external
+                .completer
+                .as_ref()
+            && results.absorb(UserCompletion::closure(context.working_set, closure).fetch(context))
+        {
+            return results;
+        }
+
+        results.merge(arg_value.fetch_fallback(context));
         results
     }
 
@@ -3048,8 +3090,10 @@ mod completer_tests {
 
     /// A stack-local external completer change must not keep serving the previous
     /// completer's cached suggestions.
-    #[test]
-    fn cache_is_not_reused_after_stack_local_external_completer_changes() {
+    #[rstest::rstest]
+    #[case::external("extcommand x")]
+    #[case::internal("cd x")]
+    fn cache_is_not_reused_after_stack_local_external_completer_changes(#[case] line: &str) {
         let mut engine = (*test_engine()).clone();
         let mut first_stack = Stack::new();
         apply_stack_local_source(
@@ -3069,7 +3113,7 @@ mod completer_tests {
         let mut filling_prompt =
             NuCompleter::with_cache(engine.clone(), Arc::new(first_stack), cache.clone());
         let first_values: Vec<_> = filling_prompt
-            .complete_blocking("extcommand x", 12)
+            .complete_blocking(line, line.len())
             .iter()
             .map(|s| s.value.clone())
             .collect();
@@ -3078,12 +3122,12 @@ mod completer_tests {
 
         let mut next_prompt = NuCompleter::with_cache(engine, Arc::new(second_stack), cache);
         assert!(
-            next_prompt.complete("extcommand x", 12).is_pending(),
+            next_prompt.complete(line, line.len()).is_pending(),
             "the cached result from the first stack-local completer must not answer"
         );
 
         let second_values: Vec<_> = next_prompt
-            .complete_blocking("extcommand x", 12)
+            .complete_blocking(line, line.len())
             .iter()
             .map(|s| s.value.clone())
             .collect();
