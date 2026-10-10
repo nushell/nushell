@@ -2,7 +2,7 @@ use crate::test_util::TestCaseExt;
 
 use super::{EngineInterface, EngineInterfaceManager, ReceivedPluginCall};
 use nu_engine::command_prelude::IoError;
-use nu_plugin_core::{Interface, InterfaceManager, interface_test_util::TestCase};
+use nu_plugin_core::{Interface, InterfaceManager, PluginWrite, interface_test_util::TestCase};
 use nu_plugin_protocol::{
     ByteStreamInfo, CallInfo, CustomValueOp, EngineCall, EngineCallId, EngineCallResponse,
     EvaluatedCall, ListStreamInfo, PipelineDataHeader, PluginCall, PluginCallResponse,
@@ -10,14 +10,16 @@ use nu_plugin_protocol::{
     test_util::{TestCustomValue, expected_test_custom_value, test_plugin_custom_value},
 };
 use nu_protocol::{
-    BlockId, ByteStreamType, Config, CustomValue, IntoInterruptiblePipelineData, LabeledError,
-    ListStream, PipelineData, PluginSignature, ShellError, Signals, Span, Spanned, Value, VarId,
+    BlockId, ByteStreamType, Config, CustomValue, DeclId, IntoInterruptiblePipelineData,
+    LabeledError, PipelineData, PluginSignature, ShellError, Signals, Span, Spanned, Value, VarId,
     engine::Closure, shell_error,
 };
+use nu_utils::time::Instant;
 use std::{
     collections::HashMap,
     sync::{
-        Arc,
+        Arc, Mutex,
+        atomic::Ordering as AtomicOrdering,
         mpsc::{self, TryRecvError},
     },
     time::Duration,
@@ -49,6 +51,13 @@ fn receive_run(
         ReceivedPluginCall::Run { engine, call } => Ok((engine, call.input)),
         other => panic!("expected Run, got {other:?}"),
     }
+}
+
+#[track_caller]
+fn assert_interrupted(values: impl IntoIterator<Item = Value>) {
+    let values = values.into_iter().collect::<Vec<_>>();
+    assert!(matches!(values.as_slice(), [Value::Error { error, .. }]
+        if matches!(error.as_ref(), ShellError::Interrupted { .. })));
 }
 
 #[test]
@@ -104,7 +113,7 @@ fn input_completion_isolates_calls_and_engine_call_results() -> Result<(), Shell
         manager.consume(PluginInput::End(10))?;
     }
     worker.join().expect("reader panicked");
-    assert!(result.expect("input A did not stop").is_empty());
+    assert_interrupted(result.expect("input A did not stop"));
     assert!(!engine_b.signals().interrupted());
     manager.consume(PluginInput::Data(11, Value::test_int(42).into()))?;
     manager.consume(PluginInput::End(11))?;
@@ -170,7 +179,10 @@ fn input_completion_wakes_list_and_byte_streams_after_run_response() -> Result<(
         let (done, done_rx) = mpsc::channel();
         let worker = std::thread::spawn(move || {
             let result = match input {
-                PipelineData::ListStream(stream, _) => Ok(stream.into_iter().next().is_none()),
+                PipelineData::ListStream(stream, _) => match stream.into_iter().next() {
+                    Some(Value::Error { error, .. }) => Err(*error),
+                    value => Ok(value.is_none()),
+                },
                 PipelineData::ByteStream(stream, _) => {
                     stream.into_bytes().map(|bytes| bytes.is_empty())
                 }
@@ -185,7 +197,10 @@ fn input_completion_wakes_list_and_byte_streams_after_run_response() -> Result<(
             manager.consume(PluginInput::End(10))?;
         }
         worker.join().expect("reader panicked");
-        assert!(result.expect("reader did not stop")?);
+        assert!(matches!(
+            result.expect("reader did not stop"),
+            Err(ShellError::Interrupted { .. })
+        ));
     }
     Ok(())
 }
@@ -226,12 +241,13 @@ fn input_completion_does_not_retract_buffered_bytes() -> Result<(), ShellError> 
         manager.consume(PluginInput::End(10))?;
     }
     worker.join().expect("reader panicked");
-    assert_eq!(
-        result
-            .expect("reader waited for new transport bytes")
-            .expect("read failed"),
-        0
-    );
+    let error = result
+        .expect("reader waited for new transport bytes")
+        .expect_err("cancellation looked like EOF");
+    let nu_protocol::shell_error::bridge::ShellErrorBridge(error) =
+        nu_protocol::shell_error::bridge::ShellErrorBridge::try_from(error)
+            .expect("missing shell error");
+    assert!(matches!(error, ShellError::Interrupted { .. }));
     Ok(())
 }
 
@@ -254,16 +270,271 @@ fn input_completion_uses_plugin_wide_gc_option_at_completion() -> Result<(), She
         assert!(!engine.signals().interrupted());
         manager.consume(PluginInput::Data(10, Value::test_int(42).into()))?;
         manager.consume(PluginInput::End(10))?;
-        let expected = if disabled {
-            vec![Value::test_int(42)]
+        if disabled {
+            assert_eq!(
+                input.into_iter().collect::<Vec<_>>(),
+                vec![Value::test_int(42)]
+            );
         } else {
-            vec![]
-        };
-        assert_eq!(input.into_iter().collect::<Vec<_>>(), expected);
+            assert_interrupted(input);
+        }
         assert!(test.written().any(|msg| matches!(
             msg,
             PluginOutput::Option(PluginOption::GcDisabled(value)) if value == disabled
         )));
+    }
+    Ok(())
+}
+
+#[test]
+fn input_completion_waits_for_all_sdk_forwarders() -> Result<(), ShellError> {
+    for disabled in [false, true] {
+        let mut manager = TestCase::new().engine();
+        set_default_protocol_info(&mut manager)?;
+        let (engine, input) = receive_run(
+            &mut manager,
+            0,
+            PipelineDataHeader::list_stream(ListStreamInfo::new(10, Span::test_data())),
+        )?;
+        engine.set_gc_disabled(disabled)?;
+        let call_input = engine.input.as_ref().expect("missing call input");
+        let first = call_input.begin_forwarding()?;
+        let last = call_input.begin_forwarding()?;
+        engine.finish_input()?;
+        drop(first);
+        manager.consume(PluginInput::Data(10, Value::test_int(42).into()))?;
+        let mut input = input.into_iter();
+        assert_eq!(input.next(), Some(Value::test_int(42)));
+        drop(last);
+        assert_eq!(call_input.lock()?.active, 0);
+        // Real End also bounds the receive if deferred cleanup regresses.
+        manager.consume(PluginInput::End(10))?;
+        if disabled {
+            assert!(input.next().is_none());
+        } else {
+            assert_interrupted(input);
+        }
+    }
+    Ok(())
+}
+
+#[test]
+fn input_completion_does_not_truncate_call_decl_forwarding() -> Result<(), ShellError> {
+    let test = TestCase::new();
+    let mut manager = test.engine();
+    set_default_protocol_info(&mut manager)?;
+    let (engine, input) = receive_run(
+        &mut manager,
+        0,
+        PipelineDataHeader::list_stream(ListStreamInfo::new(10, Span::test_data())),
+    )?;
+    let caller = engine.clone();
+    let (done, done_rx) = mpsc::channel();
+    let worker = std::thread::spawn(move || {
+        let result = caller.call_decl(
+            DeclId::new(42),
+            EvaluatedCall::new(Span::test_data()),
+            input,
+            false,
+            false,
+        );
+        let _ = done.send(result);
+    });
+    let (id, subscription) = manager
+        .engine_call_subscription_receiver
+        .recv_timeout(INPUT_TIMEOUT)
+        .expect("engine call was not registered");
+    manager.engine_call_subscriptions.insert(id, subscription);
+    // Like a non-redirected external, the engine responds without consuming the forwarded input.
+    manager.consume(PluginInput::EngineCallResponse(
+        id,
+        EngineCallResponse::PipelineData(PipelineDataHeader::Empty),
+    ))?;
+    let response = done_rx
+        .recv_timeout(INPUT_TIMEOUT)
+        .expect("engine call did not return")?;
+    worker.join().expect("caller panicked");
+    engine
+        .write_response(Ok::<_, ShellError>(response))?
+        .write()?;
+    // Establish completion synchronously, rather than depending on the peer's response timing.
+    engine.finish_input()?;
+    assert_eq!(
+        engine
+            .input
+            .as_ref()
+            .expect("missing call input")
+            .lock()?
+            .active,
+        1
+    );
+    for n in 1..=5 {
+        manager.consume(PluginInput::Data(10, Value::test_int(n).into()))?;
+    }
+    manager.consume(PluginInput::End(10))?;
+    let started = Instant::now();
+    let mut values = Vec::new();
+    loop {
+        match test.next_written() {
+            Some(PluginOutput::Data(_, StreamData::List(value))) => values.push(value),
+            Some(PluginOutput::End(_)) => break,
+            Some(_) => (),
+            None => {
+                assert!(
+                    started.elapsed() < INPUT_TIMEOUT,
+                    "forwarder did not finish"
+                );
+                std::thread::sleep(Duration::from_millis(1));
+            }
+        }
+    }
+    assert_eq!(values, (1..=5).map(Value::test_int).collect::<Vec<_>>());
+    assert_eq!(
+        engine
+            .input
+            .as_ref()
+            .expect("missing call input")
+            .lock()?
+            .active,
+        0
+    );
+    Ok(())
+}
+
+#[test]
+fn input_completion_races_last_sdk_forwarder() -> Result<(), ShellError> {
+    for _ in 0..64 {
+        let mut manager = TestCase::new().engine();
+        set_default_protocol_info(&mut manager)?;
+        let (engine, input) = receive_run(
+            &mut manager,
+            0,
+            PipelineDataHeader::list_stream(ListStreamInfo::new(10, Span::test_data())),
+        )?;
+        let guard = engine
+            .input
+            .as_ref()
+            .expect("missing call input")
+            .begin_forwarding()?;
+        let barrier = Arc::new(std::sync::Barrier::new(2));
+        let worker_barrier = barrier.clone();
+        let worker = std::thread::spawn(move || {
+            worker_barrier.wait();
+            drop(guard);
+        });
+        barrier.wait();
+        engine.finish_input()?;
+        worker.join().expect("forwarder panicked");
+        manager.consume(PluginInput::End(10))?;
+        assert_interrupted(input);
+    }
+    Ok(())
+}
+
+#[test]
+fn input_output_drop_rolls_back_instead_of_committing_prefix() -> Result<(), ShellError> {
+    for byte_stream in [false, true] {
+        for early_drop in [false, true] {
+            let test = TestCase::new();
+            let mut manager = test.engine();
+            set_default_protocol_info(&mut manager)?;
+            let header = if byte_stream {
+                PipelineDataHeader::byte_stream(ByteStreamInfo::new(
+                    10,
+                    Span::test_data(),
+                    ByteStreamType::Binary,
+                ))
+            } else {
+                PipelineDataHeader::list_stream(ListStreamInfo::new(10, Span::test_data()))
+            };
+            let (engine, input) = receive_run(&mut manager, 0, header)?;
+            engine.set_gc_disabled(true)?;
+            let output =
+                std::iter::empty::<Value>().into_pipeline_data(Span::test_data(), Signals::empty());
+            let writer = engine.write_response(Ok::<_, ShellError>(output))?;
+            let output_id = test
+                .written()
+                .find_map(|message| match message {
+                    PluginOutput::CallResponse(0, PluginCallResponse::PipelineData(header)) => {
+                        header.stream_id()
+                    }
+                    _ => None,
+                })
+                .expect("missing output id");
+            let (read, read_rx) = mpsc::channel();
+            let (done, done_rx) = mpsc::channel();
+            let worker = std::thread::spawn(move || {
+                let result = match input {
+                    PipelineData::ListStream(stream, _) => {
+                        stream.into_iter().try_for_each(|value| {
+                            if let Value::Error { error, .. } = value {
+                                Err(*error)
+                            } else {
+                                let _ = read.send(());
+                                Ok(())
+                            }
+                        })
+                    }
+                    PipelineData::ByteStream(stream, _) => {
+                        use nu_protocol::shell_error::bridge::ShellErrorBridge;
+                        use std::io::Read;
+                        let mut reader = stream.reader().expect("missing reader");
+                        let mut buffer = [0; 16];
+                        loop {
+                            match reader.read(&mut buffer) {
+                                Ok(0) => break Ok(()),
+                                Ok(_) => {
+                                    let _ = read.send(());
+                                }
+                                Err(error) => {
+                                    break Err(ShellErrorBridge::try_from(error)
+                                        .expect("missing shell error")
+                                        .0);
+                                }
+                            }
+                        }
+                    }
+                    other => panic!("expected stream, got {other:?}"),
+                };
+                // A transaction commits only on successful EOF, and rolls back on interruption.
+                let committed = result.is_ok();
+                let _ = done.send((result, committed));
+            });
+            let data = if byte_stream {
+                StreamData::Raw(Ok(vec![1, 2]))
+            } else {
+                Value::test_int(42).into()
+            };
+            manager.consume(PluginInput::Data(10, data))?;
+            read_rx
+                .recv_timeout(INPUT_TIMEOUT)
+                .expect("consumer did not read the prefix");
+            if early_drop {
+                manager.consume(PluginInput::Drop(output_id))?;
+            } else {
+                manager.consume(PluginInput::End(10))?;
+            }
+            let result = done_rx.recv_timeout(INPUT_TIMEOUT);
+            if early_drop {
+                manager.consume(PluginInput::End(10))?;
+            }
+            worker.join().expect("consumer panicked");
+            let (result, committed) = result.expect("consumer did not stop");
+            assert_eq!(committed, !early_drop);
+            if early_drop {
+                assert!(matches!(result, Err(ShellError::Interrupted { .. })));
+            } else {
+                result?;
+                manager.consume(PluginInput::Drop(output_id))?;
+            }
+            writer.write()?;
+            engine.finish_input()?;
+            assert!(
+                !test
+                    .written()
+                    .any(|message| matches!(message, PluginOutput::Data(..)))
+            );
+        }
     }
     Ok(())
 }
@@ -309,7 +580,7 @@ fn input_gc_option_write_failure_does_not_disable_cleanup() -> Result<(), ShellE
     engine.finish_input()?;
     manager.consume(PluginInput::Data(10, Value::test_int(42).into()))?;
     manager.consume(PluginInput::End(10))?;
-    assert!(input.into_iter().next().is_none());
+    assert_interrupted(input);
     Ok(())
 }
 
@@ -344,18 +615,122 @@ fn input_gc_option_matches_wire_order_for_concurrent_calls() -> Result<(), Shell
         .last()
         .expect("no GC option was sent");
     assert_eq!(
-        *interface
-            .state
-            .gc_disabled
-            .lock()
-            .expect("GC mutex poisoned"),
+        interface.state.gc_disabled.load(AtomicOrdering::Acquire),
         last
     );
     Ok(())
 }
 
 #[test]
-fn input_failed_response_header_releases_output_association() -> Result<(), ShellError> {
+fn input_gc_option_flush_failure_preserves_last_successful_setting() -> Result<(), ShellError> {
+    for previously_disabled in [false, true] {
+        let test = TestCase::new();
+        let mut manager = test.engine();
+        set_default_protocol_info(&mut manager)?;
+        let (engine, input) = receive_run(
+            &mut manager,
+            0,
+            PipelineDataHeader::list_stream(ListStreamInfo::new(10, Span::test_data())),
+        )?;
+        engine.set_gc_disabled(previously_disabled)?;
+        test.set_flush_error(ShellError::NushellFailed {
+            msg: "flush failed".into(),
+        });
+        assert!(matches!(
+            engine.set_gc_disabled(!previously_disabled),
+            Err(ShellError::NushellFailed { msg }) if msg == "flush failed"
+        ));
+        assert!(!test.was_flushed());
+        engine.finish_input()?;
+        manager.consume(PluginInput::Data(10, Value::test_int(42).into()))?;
+        manager.consume(PluginInput::End(10))?;
+        if previously_disabled {
+            assert_eq!(
+                input.into_iter().collect::<Vec<_>>(),
+                vec![Value::test_int(42)]
+            );
+        } else {
+            assert_interrupted(input);
+        }
+    }
+    Ok(())
+}
+
+#[test]
+fn input_completion_does_not_wait_for_gc_option_write_or_flush() -> Result<(), ShellError> {
+    struct BlockingWriter {
+        test: TestCase<PluginInput, PluginOutput>,
+        block_flush: bool,
+        waiting: mpsc::Sender<()>,
+        resume: Mutex<Option<mpsc::Receiver<()>>>,
+    }
+
+    impl BlockingWriter {
+        fn pause(&self) {
+            let resume = self.resume.lock().expect("GC gate poisoned").take();
+            if let Some(resume) = resume {
+                self.waiting.send(()).expect("GC observer disconnected");
+                resume
+                    .recv_timeout(INPUT_TIMEOUT)
+                    .expect("GC write was not released");
+            }
+        }
+    }
+
+    impl PluginWrite<PluginOutput> for BlockingWriter {
+        fn write(&self, data: &PluginOutput) -> Result<(), ShellError> {
+            if !self.block_flush && matches!(data, PluginOutput::Option(_)) {
+                self.pause();
+            }
+            self.test.write(data)
+        }
+
+        fn flush(&self) -> Result<(), ShellError> {
+            if self.block_flush {
+                self.pause();
+            }
+            self.test.flush()
+        }
+    }
+
+    for block_flush in [false, true] {
+        let (waiting, waiting_rx) = mpsc::channel();
+        let (resume, resume_rx) = mpsc::channel();
+        let mut manager = EngineInterfaceManager::new(BlockingWriter {
+            test: TestCase::new(),
+            block_flush,
+            waiting,
+            resume: Mutex::new(Some(resume_rx)),
+        });
+        set_default_protocol_info(&mut manager)?;
+        let (engine, input) = receive_run(
+            &mut manager,
+            0,
+            PipelineDataHeader::list_stream(ListStreamInfo::new(10, Span::test_data())),
+        )?;
+        let global = manager.get_interface();
+        let option_writer = std::thread::spawn(move || global.set_gc_disabled(true));
+        waiting_rx
+            .recv_timeout(INPUT_TIMEOUT)
+            .expect("GC write did not block");
+        let (done, done_rx) = mpsc::channel();
+        let cleanup = std::thread::spawn(move || {
+            let _ = done.send(engine.finish_input());
+        });
+        let result = done_rx.recv_timeout(INPUT_TIMEOUT);
+        // Release both workers before asserting, even if cleanup still waits for the I/O lock.
+        let _ = resume.send(());
+        option_writer.join().expect("GC option writer panicked")?;
+        cleanup.join().expect("input cleanup panicked");
+        result.expect("input completion waited for unrelated transport I/O")?;
+        manager.consume(PluginInput::End(10))?;
+        assert_interrupted(input);
+    }
+    Ok(())
+}
+
+#[test]
+fn input_failed_response_header_still_cleans_up_input() -> Result<(), ShellError> {
     let test = TestCase::new();
     let mut manager = test.engine();
     set_default_protocol_info(&mut manager)?;
@@ -364,10 +739,8 @@ fn input_failed_response_header_releases_output_association() -> Result<(), Shel
         0,
         PipelineDataHeader::list_stream(ListStreamInfo::new(10, Span::test_data())),
     )?;
-    let output = PipelineData::list_stream(
-        ListStream::new(std::iter::empty(), Span::test_data(), Signals::empty()),
-        None,
-    );
+    let output =
+        std::iter::empty::<Value>().into_pipeline_data(Span::test_data(), Signals::empty());
     test.set_write_error(ShellError::NushellFailed {
         msg: "response write failed".into(),
     });
@@ -376,11 +749,10 @@ fn input_failed_response_header_releases_output_association() -> Result<(), Shel
         .err()
         .expect("header write succeeded");
     assert!(matches!(error, ShellError::NushellFailed { msg } if msg == "response write failed"));
-    assert!(engine.state.output_inputs()?.is_empty());
     engine.finish_input()?;
     manager.consume(PluginInput::Data(10, Value::test_int(42).into()))?;
     manager.consume(PluginInput::End(10))?;
-    assert!(input.into_iter().next().is_none());
+    assert_interrupted(input);
     Ok(())
 }
 
@@ -396,17 +768,17 @@ fn input_output_drop_ends_input_even_with_gc_disabled() -> Result<(), ShellError
             PipelineDataHeader::list_stream(ListStreamInfo::new(10, Span::test_data())),
         )?;
         engine.set_gc_disabled(disabled)?;
-        let output = PipelineData::list_stream(
-            ListStream::new(std::iter::empty(), Span::test_data(), Signals::empty()),
-            None,
-        );
+        let output =
+            std::iter::empty::<Value>().into_pipeline_data(Span::test_data(), Signals::empty());
         let writer = engine.write_response(Ok::<_, ShellError>(output))?;
-        let output_id = *engine
-            .input
-            .as_ref()
-            .expect("missing call input")
-            .output_stream_id
-            .get()
+        let output_id = test
+            .written()
+            .find_map(|message| match message {
+                PluginOutput::CallResponse(0, PluginCallResponse::PipelineData(header)) => {
+                    header.stream_id()
+                }
+                _ => None,
+            })
             .expect("missing output id");
         let (done, done_rx) = mpsc::channel();
         let worker = std::thread::spawn(move || {
@@ -419,8 +791,7 @@ fn input_output_drop_ends_input_even_with_gc_disabled() -> Result<(), ShellError
             manager.consume(PluginInput::End(10))?;
         }
         worker.join().expect("reader panicked");
-        assert!(result.expect("output Drop did not end input").is_none());
-        assert!(engine.state.output_inputs()?.is_empty());
+        assert_interrupted(result.expect("output Drop did not end input"));
         writer.write()?;
         engine.finish_input()?;
         assert_eq!(
@@ -436,7 +807,8 @@ fn input_output_drop_ends_input_even_with_gc_disabled() -> Result<(), ShellError
 #[test]
 fn input_output_association_is_removed_after_completion() -> Result<(), ShellError> {
     for disabled in [false, true] {
-        let mut manager = TestCase::new().engine();
+        let test = TestCase::new();
+        let mut manager = test.engine();
         set_default_protocol_info(&mut manager)?;
         let (engine, input) = receive_run(
             &mut manager,
@@ -444,35 +816,34 @@ fn input_output_association_is_removed_after_completion() -> Result<(), ShellErr
             PipelineDataHeader::list_stream(ListStreamInfo::new(10, Span::test_data())),
         )?;
         engine.set_gc_disabled(disabled)?;
-        let output = PipelineData::list_stream(
-            ListStream::new(std::iter::empty(), Span::test_data(), Signals::empty()),
-            None,
-        );
+        let output =
+            std::iter::empty::<Value>().into_pipeline_data(Span::test_data(), Signals::empty());
         let writer = engine.write_response(Ok::<_, ShellError>(output))?;
-        let output_id = *engine
-            .input
-            .as_ref()
-            .expect("missing call input")
-            .output_stream_id
-            .get()
+        let output_id = test
+            .written()
+            .find_map(|message| match message {
+                PluginOutput::CallResponse(0, PluginCallResponse::PipelineData(header)) => {
+                    header.stream_id()
+                }
+                _ => None,
+            })
             .expect("missing output id");
-        assert_eq!(engine.state.output_inputs()?.len(), 1);
         writer.write()?;
-        assert!(engine.state.output_inputs()?.is_empty());
         // A Drop acknowledging natural End can arrive before the runner's completion hook.
         manager.consume(PluginInput::Drop(output_id))?;
         engine.finish_input()?;
-        assert!(engine.state.output_inputs()?.is_empty());
         // A late Drop must not revoke the GC opt-out after the response already completed.
         manager.consume(PluginInput::Drop(output_id))?;
         manager.consume(PluginInput::Data(10, Value::test_int(42).into()))?;
         manager.consume(PluginInput::End(10))?;
-        let expected = if disabled {
-            vec![Value::test_int(42)]
+        if disabled {
+            assert_eq!(
+                input.into_iter().collect::<Vec<_>>(),
+                vec![Value::test_int(42)]
+            );
         } else {
-            vec![]
-        };
-        assert_eq!(input.into_iter().collect::<Vec<_>>(), expected);
+            assert_interrupted(input);
+        }
     }
     Ok(())
 }
@@ -486,15 +857,11 @@ fn input_engine_call_stream_drop_does_not_cancel_original_input() -> Result<(), 
         0,
         PipelineDataHeader::list_stream(ListStreamInfo::new(10, Span::test_data())),
     )?;
-    let data = PipelineData::list_stream(
-        ListStream::new(std::iter::empty(), Span::test_data(), Signals::empty()),
-        None,
-    );
+    let data = std::iter::empty::<Value>().into_pipeline_data(Span::test_data(), Signals::empty());
     let (header, writer) = engine.init_write_pipeline_data(data, &())?;
     manager.consume(PluginInput::Drop(
         header.stream_id().expect("missing stream id"),
     ))?;
-    assert!(engine.state.output_inputs()?.is_empty());
     manager.consume(PluginInput::Data(10, Value::test_int(42).into()))?;
     manager.consume(PluginInput::End(10))?;
     assert_eq!(

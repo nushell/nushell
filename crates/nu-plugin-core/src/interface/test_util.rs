@@ -19,6 +19,7 @@ pub struct TestCase<I, O> {
 pub struct TestData<T> {
     data: VecDeque<T>,
     error: Option<ShellError>,
+    flush_error: Option<ShellError>,
     flushed: bool,
 }
 
@@ -27,6 +28,7 @@ impl<T> Default for TestData<T> {
         TestData {
             data: VecDeque::new(),
             error: None,
+            flush_error: None,
             flushed: false,
         }
     }
@@ -62,6 +64,9 @@ where
 
     fn flush(&self) -> Result<(), ShellError> {
         let mut lock = self.out.lock().expect(FAILED);
+        if let Some(err) = lock.flush_error.take() {
+            return Err(err);
+        }
         lock.flushed = true;
         Ok(())
     }
@@ -99,6 +104,11 @@ impl<I, O> TestCase<I, O> {
     /// Return an error from the next write operation.
     pub fn set_write_error(&self, err: ShellError) {
         self.out.lock().expect(FAILED).error = Some(err);
+    }
+
+    /// Return an error from the next flush operation.
+    pub fn set_flush_error(&self, err: ShellError) {
+        self.out.lock().expect(FAILED).flush_error = Some(err);
     }
 
     /// Get the next output that was written.

@@ -2,8 +2,9 @@
 
 use nu_plugin_protocol::{ByteStreamInfo, ListStreamInfo, PipelineDataHeader, StreamMessage};
 use nu_protocol::{
-    ByteStream, ListStream, PipelineData, Reader, ShellError, Signals, engine::Sequence,
-    shell_error::io::IoError,
+    ByteStream, ListStream, PipelineData, Reader, ShellError, Signals,
+    engine::Sequence,
+    shell_error::{bridge::ShellErrorBridge, io::IoError},
 };
 use std::{
     io::{Read, Write},
@@ -333,6 +334,17 @@ impl<W> PipelineDataWriter<W>
 where
     W: WriteStreamMessage + Send + 'static,
 {
+    /// Arrange for an early peer Drop of this response stream to cancel its call's input.
+    #[doc(hidden)]
+    pub fn cancel_input_on_drop(&self, input: StreamReaderSignal) -> Result<(), ShellError> {
+        match self {
+            Self::None => Ok(()),
+            Self::ListStream(writer, _) | Self::ByteStream(writer, _) => {
+                writer.cancel_input_on_drop(input)
+            }
+        }
+    }
+
     /// Write all of the data in each of the streams. This method waits for completion.
     pub fn write(self) -> Result<(), ShellError> {
         match self {
@@ -350,7 +362,10 @@ where
                 writer.write_all(std::iter::from_fn(move || match reader.read(buf) {
                     Ok(0) => None,
                     Ok(len) => Some(Ok(buf[..len].to_vec())),
-                    Err(err) => Some(Err(ShellError::from(IoError::new(err, span, None)))),
+                    Err(err) => Some(Err(match ShellErrorBridge::try_from(err) {
+                        Ok(ShellErrorBridge(err)) => err,
+                        Err(err) => IoError::new(err, span, None).into(),
+                    })),
                 }))?;
                 Ok(())
             }
@@ -384,5 +399,22 @@ where
                     })?,
             )),
         }
+    }
+
+    /// Keep SDK-owned input forwarding alive until the background write finishes or its consumer
+    /// drops the stream. The guard is also released on write or thread-spawn failure. This uses
+    /// the existing writer thread, and doesn't wait for an early engine-call response.
+    #[doc(hidden)]
+    pub fn write_background_with_guard(
+        self,
+        guard: impl std::fmt::Debug + Send + 'static,
+    ) -> Result<Option<thread::JoinHandle<Result<(), ShellError>>>, ShellError> {
+        match &self {
+            Self::None => {}
+            Self::ListStream(writer, _) | Self::ByteStream(writer, _) => {
+                writer.keep_input_alive(guard)?;
+            }
+        }
+        self.write_background()
     }
 }

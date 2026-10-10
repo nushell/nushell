@@ -8,7 +8,7 @@ use nu_plugin_core::{
 use nu_plugin_protocol::{
     CallInfo, CustomValueOp, EngineCall, EngineCallId, EngineCallResponse, EvaluatedCall,
     GetCompletionInfo, Ordering, PluginCall, PluginCallId, PluginCallResponse, PluginCustomValue,
-    PluginInput, PluginOption, PluginOutput, ProtocolInfo, StreamId, StreamMessage,
+    PluginInput, PluginOption, PluginOutput, ProtocolInfo,
 };
 #[cfg(unix)]
 use nu_protocol::shell_error::generic::GenericError;
@@ -21,7 +21,11 @@ use nu_protocol::{
 use nu_utils::SharedCow;
 use std::{
     collections::{BTreeMap, HashMap, btree_map},
-    sync::{Arc, Mutex, MutexGuard, OnceLock, atomic::AtomicBool, mpsc},
+    sync::{
+        Arc, Mutex, MutexGuard,
+        atomic::{AtomicBool, Ordering as AtomicOrdering},
+        mpsc,
+    },
 };
 
 /// Plugin calls that are received by the [`EngineInterfaceManager`] for handling.
@@ -76,22 +80,11 @@ struct EngineInterfaceState {
     signals: Signals,
     /// Registered signal handlers
     signal_handlers: Handlers,
-    /// Plugin-wide GC opt-out, also used to preserve background input reads after a response.
-    gc_disabled: Mutex<bool>,
-    /// Call output streams whose Drop should cancel their original input reader.
-    output_inputs: Mutex<BTreeMap<StreamId, StreamReaderSignal>>,
-}
-
-impl EngineInterfaceState {
-    fn output_inputs(
-        &self,
-    ) -> Result<MutexGuard<'_, BTreeMap<StreamId, StreamReaderSignal>>, ShellError> {
-        self.output_inputs
-            .lock()
-            .map_err(|_| ShellError::NushellFailed {
-                msg: "Call output inputs mutex poisoned due to panic".into(),
-            })
-    }
+    /// Last successfully written and flushed GC option. Completion reads this without waiting
+    /// for transport I/O, and uses it to preserve background input reads after a response.
+    gc_disabled: AtomicBool,
+    /// Serialize GC option updates so the local state follows the same order as wire messages.
+    gc_option_lock: Mutex<()>,
 }
 
 impl std::fmt::Debug for EngineInterfaceState {
@@ -147,8 +140,8 @@ impl EngineInterfaceManager {
                 writer: Box::new(writer),
                 signals: Signals::new(Arc::new(AtomicBool::new(false))),
                 signal_handlers: Handlers::new(),
-                gc_disabled: Mutex::new(false),
-                output_inputs: Mutex::new(BTreeMap::new()),
+                gc_disabled: AtomicBool::new(false),
+                gc_option_lock: Mutex::new(()),
             }),
             protocol_info_mut,
             plugin_call_sender: Some(plug_tx),
@@ -315,7 +308,7 @@ impl InterfaceManager for EngineInterfaceManager {
                     interface.input = cancellation.map(|cancellation| {
                         Arc::new(CallInput {
                             cancellation,
-                            output_stream_id: OnceLock::new(),
+                            forwarding: Mutex::new(CallInputForwarding::default()),
                         })
                     });
                     Ok(data)
@@ -394,24 +387,6 @@ impl InterfaceManager for EngineInterfaceManager {
         &self.stream_manager
     }
 
-    fn consume_stream_message(&mut self, message: StreamMessage) -> Result<(), ShellError> {
-        let dropped = match &message {
-            StreamMessage::Drop(id) => Some(*id),
-            _ => None,
-        };
-        // Mark the output writer dropped before waking its input reader. Do not hold the stream
-        // manager's lock while notifying another reader or running plugin code.
-        self.stream_manager.handle_message(message)?;
-        if let Some(id) = dropped {
-            let cancellation = self.state.output_inputs()?.remove(&id);
-            if let Some(cancellation) = cancellation {
-                // An explicit output Drop ends input consumption even if GC is disabled.
-                cancellation.cancel();
-            }
-        }
-        Ok(())
-    }
-
     fn prepare_pipeline_data(&self, mut data: PipelineData) -> Result<PipelineData, ShellError> {
         // Deserialize custom values in the pipeline data
         match data {
@@ -444,11 +419,75 @@ fn deserialize_call_args(call: &mut crate::EvaluatedCall) -> Result<(), ShellErr
         .try_for_each(PluginCustomValue::deserialize_custom_values_in)
 }
 
-/// Original input and output association for one Run call. Neither keeps the reader alive.
+/// Original input for one Run call. The signal does not keep the reader alive.
 #[derive(Debug)]
 struct CallInput {
     cancellation: StreamReaderSignal,
-    output_stream_id: OnceLock<StreamId>,
+    forwarding: Mutex<CallInputForwarding>,
+}
+
+#[derive(Debug, Default)]
+struct CallInputForwarding {
+    active: usize,
+    /// Completion requested cleanup, but SDK-owned forwarding may still be reading the input.
+    finished: bool,
+}
+
+impl CallInput {
+    fn lock(&self) -> Result<MutexGuard<'_, CallInputForwarding>, ShellError> {
+        self.forwarding
+            .lock()
+            .map_err(|_| ShellError::NushellFailed {
+                msg: "Call input forwarding mutex poisoned due to panic".into(),
+            })
+    }
+
+    fn begin_forwarding(self: &Arc<Self>) -> Result<InputForwarder, ShellError> {
+        let mut forwarding = self.lock()?;
+        forwarding.active =
+            forwarding
+                .active
+                .checked_add(1)
+                .ok_or_else(|| ShellError::NushellFailed {
+                    msg: "Too many active plugin input forwarders".into(),
+                })?;
+        Ok(InputForwarder(self.clone()))
+    }
+
+    fn finish(&self) -> Result<(), ShellError> {
+        let mut forwarding = self.lock()?;
+        forwarding.finished = true;
+        if forwarding.active == 0 {
+            self.cancellation.cancel();
+        }
+        Ok(())
+    }
+}
+
+/// Lives in the SDK's forwarding writer signal, not in plugin-owned reader threads. An engine
+/// call can respond before consuming its input, so completion cleanup must wait for this guard.
+#[derive(Debug)]
+struct InputForwarder(Arc<CallInput>);
+
+impl Drop for InputForwarder {
+    fn drop(&mut self) {
+        let result = self.0.lock().and_then(|mut forwarding| {
+            forwarding.active =
+                forwarding
+                    .active
+                    .checked_sub(1)
+                    .ok_or_else(|| ShellError::NushellFailed {
+                        msg: "Plugin input forwarder counter underflow".into(),
+                    })?;
+            if forwarding.active == 0 && forwarding.finished {
+                self.0.cancellation.cancel();
+            }
+            Ok(())
+        });
+        if let Err(err) = result {
+            log::warn!("Failed to finish forwarding plugin input: {err}");
+        }
+    }
 }
 
 /// A reference through which the nushell engine can be interacted with during execution.
@@ -506,21 +545,10 @@ impl EngineInterface {
                     // instead
                     Err(err) => return self.write_response(Err(err)),
                 };
-                // Register before publishing the header, so even an immediate Drop can wake the
-                // original input. Engine-call input streams must not register this association.
-                if let Some(input) = &self.input
-                    && let Some(id) = header.stream_id()
-                {
-                    input
-                        .output_stream_id
-                        .set(id)
-                        .map_err(|_| ShellError::NushellFailed {
-                            msg: "Tried to write more than one output stream for a plugin call"
-                                .into(),
-                        })?;
-                    self.state
-                        .output_inputs()?
-                        .insert(id, input.cancellation.clone());
+                // Link before publishing the header, so even an immediate Drop can wake the
+                // original input. Engine-call input writers must not have this link.
+                if let Some(input) = &self.input {
+                    writer.cancel_input_on_drop(input.cancellation.clone())?;
                 }
                 // Write pipeline data header response, and the full stream
                 let response = PluginCallResponse::PipelineData(header);
@@ -539,21 +567,12 @@ impl EngineInterface {
 
     /// Release this call's original input after the entire response has finished writing.
     /// Plugins opting out of GC may keep consuming input in the background after completion.
+    /// SDK-owned forwarding to an engine call also keeps the input readable until it finishes.
     pub(crate) fn finish_input(&self) -> Result<(), ShellError> {
-        if let Some(input) = &self.input {
-            if let Some(id) = input.output_stream_id.get() {
-                self.state.output_inputs()?.remove(id);
-            }
-            let gc_disabled =
-                self.state
-                    .gc_disabled
-                    .lock()
-                    .map_err(|_| ShellError::NushellFailed {
-                        msg: "GC option mutex poisoned due to panic".into(),
-                    })?;
-            if !*gc_disabled {
-                input.cancellation.cancel();
-            }
+        if let Some(input) = &self.input
+            && !self.state.gc_disabled.load(AtomicOrdering::Acquire)
+        {
+            input.finish()?;
         }
         Ok(())
     }
@@ -635,8 +654,23 @@ impl EngineInterface {
     ) -> Result<EngineCallResponse<PipelineData>, ShellError> {
         let (writer, rx) = self.write_engine_call(call)?;
 
-        // Finish writing stream in the background
-        writer.write_background()?;
+        // Engine calls may return before their input has been consumed (for example, when stdout
+        // isn't redirected). Keep our original input alive while any SDK-owned stream forwarder
+        // for this call is active. PipelineData is opaque here, so the guard is conservative and
+        // is released as soon as the forwarding writer finishes, fails, or is dropped.
+        let guard = if matches!(writer, PipelineDataWriter::None) {
+            None
+        } else {
+            self.input
+                .as_ref()
+                .map(CallInput::begin_forwarding)
+                .transpose()?
+        };
+        if let Some(guard) = guard {
+            writer.write_background_with_guard(guard)?;
+        } else {
+            writer.write_background()?;
+        }
 
         // Wait on receiver to get the response
         rx.recv().map_err(|_| ShellError::NushellFailed {
@@ -1123,19 +1157,29 @@ impl EngineInterface {
     ///
     /// The user can still stop the plugin if they want to with the `plugin stop` command.
     /// While disabled, the SDK also preserves original call inputs after their responses finish.
-    /// Dropping a call's output stream still ends its input consumption.
+    /// Dropping a call's output stream still interrupts its input consumption. Cancelled input
+    /// reads report [`ShellError::Interrupted`], rather than successful end-of-stream.
+    /// This setting is plugin-wide and last write wins, for both garbage collection and input
+    /// retention. The SDK checks it when each response finishes. Overlapping calls that toggle
+    /// the setting must coordinate their updates, keeping GC disabled until all background
+    /// consumers have finished. Disabling GC in Nushell's configuration alone does not opt out
+    /// of completion cleanup in the SDK.
+    /// Failed writes or flushes leave the SDK's last successful setting unchanged.
     pub fn set_gc_disabled(&self, disabled: bool) -> Result<(), ShellError> {
-        // Serialize option changes so the local state follows the same order as the wire messages.
-        let mut gc_disabled =
+        // Keep successful updates in wire order, without blocking input cleanup on transport I/O.
+        let _gc_option_lock =
             self.state
-                .gc_disabled
+                .gc_option_lock
                 .lock()
                 .map_err(|_| ShellError::NushellFailed {
                     msg: "GC option mutex poisoned due to panic".into(),
                 })?;
         self.write(PluginOutput::Option(PluginOption::GcDisabled(disabled)))?;
-        *gc_disabled = disabled;
-        self.flush()
+        self.flush()?;
+        self.state
+            .gc_disabled
+            .store(disabled, AtomicOrdering::Release);
+        Ok(())
     }
 
     /// Write a call response of [`Ordering`], for `partial_cmp`.
@@ -1159,11 +1203,6 @@ impl Interface for EngineInterface {
 
     fn write(&self, output: PluginOutput) -> Result<(), ShellError> {
         log::trace!("to engine: {output:?}");
-        if let PluginOutput::End(id) = &output {
-            // The consumer also sends Drop after natural EOF. Stop linking it to input before
-            // publishing End, otherwise that acknowledgement can revoke the GC opt-out.
-            self.state.output_inputs()?.remove(id);
-        }
         self.state.writer.write(&output)
     }
 
