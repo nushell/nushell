@@ -97,6 +97,50 @@ fn reedline_hint_policy_pty() {
     );
     external_whole.wait_success();
 
+    let mut interpolation_array = spawn_pty_child("interpolation-array");
+    send_and_expect(
+        &mut interpolation_array,
+        b"",
+        r#"echo $"([1"#,
+        10,
+        " 2] | length)\"",
+    );
+    send_and_expect(
+        &mut interpolation_array,
+        b"\x06",
+        r#"echo $"([1 2] | length)""#,
+        r#"echo $"([1 2] | length)""#.len(),
+        r#"echo $"([1 2] | length)""#,
+    );
+    send_and_wait(
+        &mut interpolation_array,
+        b"\r",
+        r#"__REEDLINE_RESULT__echo $"([1 2] | length)""#,
+    );
+    interpolation_array.wait_success();
+
+    let mut interpolation_record = spawn_pty_child("interpolation-record");
+    send_and_expect(
+        &mut interpolation_record,
+        b"",
+        r#"echo $"([{x: 1"#,
+        14,
+        ", y: 2}] | length)\"",
+    );
+    send_and_expect(
+        &mut interpolation_record,
+        b"\x06",
+        r#"echo $"([{x: 1, y: 2}] | length)""#,
+        r#"echo $"([{x: 1, y: 2}] | length)""#.len(),
+        r#"echo $"([{x: 1, y: 2}] | length)""#,
+    );
+    send_and_wait(
+        &mut interpolation_record,
+        b"\r",
+        r#"__REEDLINE_RESULT__echo $"([{x: 1, y: 2}] | length)""#,
+    );
+    interpolation_record.wait_success();
+
     for (index, quote) in ['"', '\'', '`'].into_iter().enumerate() {
         let scenario = format!("quote-{index}");
         let mut child = spawn_pty_child(&scenario);
@@ -141,6 +185,18 @@ fn run_read_line_child(scenario: &str) {
     let (source, cursor, candidate, external) = match scenario {
         "cwd" | "cwd-whole" => ("(gs)".to_owned(), 3, "(gstat).branch".to_owned(), false),
         "external" | "external-whole" => ("f()".to_owned(), 2, String::new(), true),
+        "interpolation-array" => (
+            r#"echo $"([1])""#.to_owned(),
+            10,
+            r#"echo $"([1 2] | length)""#.to_owned(),
+            false,
+        ),
+        "interpolation-record" => (
+            r#"echo $"([{x: 1}])""#.to_owned(),
+            14,
+            r#"echo $"([{x: 1, y: 2}] | length)""#.to_owned(),
+            false,
+        ),
         "quote-0" => quote_case('"'),
         "quote-1" => quote_case('\''),
         "quote-2" => quote_case('`'),
@@ -195,6 +251,12 @@ fn run_read_line_child(scenario: &str) {
         }
         "external-whole" => {
             assert_eq!(buffer, "f(\")\").field");
+        }
+        "interpolation-array" => {
+            assert_eq!(buffer, r#"echo $"([1 2] | length)""#);
+        }
+        "interpolation-record" => {
+            assert_eq!(buffer, r#"echo $"([{x: 1, y: 2}] | length)""#);
         }
         _ => {
             let quote = match scenario {

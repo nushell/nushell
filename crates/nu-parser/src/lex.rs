@@ -174,6 +174,11 @@ pub(crate) trait Brackets: Copy {
     /// closed at the second. Dense bracket tables intentionally ignore these extra pairs.
     #[inline(always)]
     fn record_hint_pair(self, _open: usize, _close: usize) {}
+
+    /// Observe bytes inside an interpolated expression. Sparse collectors can use the existing
+    /// quote/paren stack to collect additional bracket pairs without changing parser lexing.
+    #[inline(always)]
+    fn collect_interpolation_byte(self, _byte: u8, _position: usize, _stack: &[(u8, Span)]) {}
 }
 
 /// The lexer without a bracket table: every group is scanned.
@@ -191,19 +196,104 @@ impl Brackets for &BracketTable {
     }
 }
 
+#[derive(Default)]
+struct DelimiterCollector {
+    pairs: Vec<(usize, usize)>,
+    interpolation_brackets: Vec<EmbeddedDelimiter>,
+    invalid: bool,
+}
+
+struct EmbeddedDelimiter {
+    expected: u8,
+    open: usize,
+    paren_depth: usize,
+}
+
+impl DelimiterCollector {
+    fn record(&mut self, open: usize, close: usize) {
+        if !self.invalid {
+            self.pairs.push((open, close));
+        }
+    }
+
+    fn invalidate(&mut self) {
+        self.invalid = true;
+        self.pairs.clear();
+        self.interpolation_brackets.clear();
+    }
+
+    fn interpolation_byte(&mut self, byte: u8, position: usize, stack: &[(u8, Span)]) {
+        if self.invalid || stack.last().is_some_and(|(expected, _)| *expected != b')') {
+            return;
+        }
+
+        // The lexer and parser have specialized handling for comments and raw strings. Do not
+        // duplicate those scanners here; leave delimiter mapping unavailable for such candidates.
+        if byte == b'#' {
+            self.invalidate();
+            return;
+        }
+
+        // A quote stack top returns above, so every remaining entry is a parenthesis.
+        let paren_depth = stack.len();
+        match byte {
+            b'[' | b'{' => self.interpolation_brackets.push(EmbeddedDelimiter {
+                expected: if byte == b'[' { b']' } else { b'}' },
+                open: position,
+                paren_depth,
+            }),
+            b']' | b'}' => {
+                let expected = byte;
+                if let Some(open) = self.interpolation_brackets.last()
+                    && open.expected == expected
+                    && open.paren_depth == paren_depth
+                {
+                    if let Some(open) = self.interpolation_brackets.pop() {
+                        self.record(open.open, position);
+                    } else {
+                        self.invalidate();
+                    }
+                } else {
+                    self.invalidate();
+                }
+            }
+            b')' if self
+                .interpolation_brackets
+                .last()
+                .is_some_and(|open| open.paren_depth >= paren_depth) =>
+            {
+                self.invalidate();
+            }
+            _ => {}
+        }
+    }
+
+    fn into_pairs(mut self) -> Vec<(usize, usize)> {
+        if !self.interpolation_brackets.is_empty() {
+            self.invalidate();
+        }
+        self.pairs
+    }
+}
+
 /// Collects matched delimiter positions without allocating an entry for every input byte.
 ///
 /// Unlike [`RecordBrackets`], this collector is not used to accelerate later lexer passes. It is
 /// intended for callers that need the matched positions from one lexing pass.
-impl Brackets for &RefCell<Vec<(usize, usize)>> {
+impl Brackets for &RefCell<DelimiterCollector> {
     #[inline]
     fn record(self, open: usize, close: usize) {
-        self.borrow_mut().push((open, close));
+        self.borrow_mut().record(open, close);
     }
 
     #[inline]
     fn record_hint_pair(self, open: usize, close: usize) {
-        self.borrow_mut().push((open, close));
+        self.borrow_mut().record(open, close);
+    }
+
+    #[inline]
+    fn collect_interpolation_byte(self, byte: u8, position: usize, stack: &[(u8, Span)]) {
+        self.borrow_mut().interpolation_byte(byte, position, stack);
     }
 }
 
@@ -490,6 +580,11 @@ fn lex_item_scan<B: Brackets>(
                 // same rules, so the token ends where the parser ends the
                 // string.
                 let open = Span::new(span_offset + *curr_offset, span_offset + *curr_offset + 1);
+                brackets.collect_interpolation_byte(
+                    c,
+                    span_offset + *curr_offset,
+                    &interp_expr_level,
+                );
                 let matched_open = interp_expr_level
                     .last()
                     .filter(|(expected, _)| *expected == c)
@@ -1123,9 +1218,13 @@ pub fn lex(
 /// Positions use the same absolute coordinates as token spans: `span_offset` is added to each
 /// input-relative byte position. The pairs are reported in closing-delimiter order. Brackets
 /// inside ordinary string literal contents and comments are ignored, while delimiter pairs inside
-/// interpolated-string subexpressions are reported. Quote pairs include single, double, and
-/// backtick strings, including quotes in interpolated subexpressions. Raw string boundaries are
-/// not reported because their closing delimiter also includes `#` bytes.
+/// interpolated-string subexpressions are reported, including nested `[]` and `{}` pairs. Quote
+/// pairs include single, double, and backtick strings, including quotes in interpolated
+/// subexpressions. Delimiter crossings or a `)` that crosses an open `[]`/`{}` make the
+/// interpolation mapping unavailable. Raw string boundaries are not reported because their
+/// closing delimiter also includes `#` bytes. Since comment and raw string syntax inside
+/// interpolation needs more context than the shared quote/paren scanner provides, the collector
+/// returns no pairs for an interpolation expression containing an unquoted `#` or `r#`.
 ///
 /// Callers that need the result for a safety decision should reject the input when the returned
 /// parse error is `Some`, since the pair list may then describe only the portion lexed before the
@@ -1137,7 +1236,7 @@ pub fn lex_with_delimiter_pairs(
     special_tokens: &[u8],
     skip_comment: bool,
 ) -> (Vec<Token>, Option<ParseError>, Vec<(usize, usize)>) {
-    let pairs = RefCell::new(Vec::new());
+    let pairs = RefCell::new(DelimiterCollector::default());
     let (tokens, error) = lex_with(
         input,
         span_offset,
@@ -1146,7 +1245,7 @@ pub fn lex_with_delimiter_pairs(
         skip_comment,
         &pairs,
     );
-    (tokens, error, pairs.into_inner())
+    (tokens, error, pairs.into_inner().into_pairs())
 }
 
 /// [`lex`], jumping over the groups whose closers `brackets` knows.
@@ -1390,5 +1489,56 @@ mod delimiter_pair_tests {
         assert_eq!(pairs, vec![(107, 124), (106, 125), (104, 126), (101, 129)]);
         assert_eq!(&input[17..18], b")");
         assert_eq!(&input[15..16], b"\"");
+    }
+
+    #[test]
+    fn interpolated_square_brackets_are_reported() {
+        let input = br#"echo $"([1 2] | length)""#;
+        let (_, error, pairs) = lex_with_delimiter_pairs(input, 0, b"", b"", true);
+
+        assert!(error.is_none());
+        assert_eq!(pairs, vec![(8, 12), (7, 22), (6, 23)]);
+
+        let input = br#"echo $"([{x: 1}] | length)""#;
+        let (_, error, pairs) = lex_with_delimiter_pairs(input, 0, b"", b"", true);
+
+        assert!(error.is_none());
+        assert_eq!(pairs, vec![(9, 14), (8, 15), (7, 25), (6, 26)]);
+    }
+
+    #[test]
+    fn interpolated_brackets_ignore_quoted_fake_closers() {
+        let input = br#"echo $"([")]} ", 1] | length)""#;
+        let (_, error, pairs) = lex_with_delimiter_pairs(input, 0, b"", b"", true);
+
+        assert!(error.is_none());
+        assert_eq!(pairs, vec![(9, 14), (8, 18), (7, 28), (6, 29)]);
+    }
+
+    #[test]
+    fn mismatched_interpolated_brackets_are_not_reported_as_pairs() {
+        let input = br#"echo $"([1} | length)""#;
+        let (_, error, pairs) = lex_with_delimiter_pairs(input, 0, b"", b"", true);
+
+        assert!(error.is_none());
+        assert!(pairs.is_empty());
+
+        let input = br#"echo $"([)]""#;
+        let (_, error, pairs) = lex_with_delimiter_pairs(input, 0, b"", b"", true);
+
+        assert!(error.is_none());
+        assert!(pairs.is_empty());
+    }
+
+    #[test]
+    fn comments_and_raw_strings_in_interpolation_disable_pair_collection() {
+        let commented = b"$\"x ([1] # comment\n)\"";
+        let (_, _error, pairs) = lex_with_delimiter_pairs(commented, 0, b"", b"", true);
+        assert!(pairs.is_empty());
+
+        let raw = b"$\"x (r#'raw ]'#)\"";
+        let (_, error, pairs) = lex_with_delimiter_pairs(raw, 0, b"", b"", true);
+        assert!(error.is_none());
+        assert!(pairs.is_empty());
     }
 }

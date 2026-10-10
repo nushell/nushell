@@ -1,13 +1,15 @@
 use nu_parser::lex_with_delimiter_pairs;
-use reedline::{HintContext, HintEdit, HintPlan, HintPolicy, HintPreview, HintQuery};
+use reedline::{HintContext, HintEdit, HintPolicy, HintQuery};
 
 /// Applies Nushell's lexer-backed delimiter mapping to hints shown around auto-pairs.
 ///
-/// The lexer reports matched brackets and ordinary single, double, and backtick quotes. Raw string
-/// boundaries are not paired because their closer includes `#` bytes. A lexical error, unsupported
-/// tail character, or ambiguous ordered mapping suppresses the hint. The source buffer itself may
-/// be incomplete after an earlier partial acceptance; the candidate is the syntax input for
-/// delimiter matching.
+/// The lexer reports matched brackets and ordinary single, double, and backtick quotes, including
+/// pairs inside interpolated expressions. Raw string boundaries are not paired because their
+/// closer includes `#` bytes. Interpolation candidates containing an unquoted `#` suppress all
+/// delimiter mappings, which also rejects raw strings without duplicating lexer rules. A lexical
+/// error, unsupported tail character, or
+/// ambiguous ordered mapping also suppresses the hint. The source buffer itself may be incomplete
+/// after an earlier partial acceptance; the candidate is the syntax input for delimiter matching.
 pub(crate) struct AutoPairHintPolicy {
     external_hinter: bool,
     prepared_tail: Option<PreparedTail>,
@@ -41,7 +43,7 @@ impl HintPolicy for AutoPairHintPolicy {
         }
     }
 
-    fn plan(&mut self, context: &HintContext<'_>, candidate: &str) -> Option<HintPlan> {
+    fn plan(&mut self, context: &HintContext<'_>, candidate: &str) -> Option<HintEdit> {
         self.prepared_tail = None;
         if context.selection().is_some() || candidate.is_empty() {
             return None;
@@ -51,10 +53,7 @@ impl HintPolicy for AutoPairHintPolicy {
         else {
             return if context.at_buffer_end() {
                 let end = context.source().len();
-                Some(HintPlan::new(
-                    HintEdit::new(end..end, candidate, end + candidate.len()),
-                    None,
-                ))
+                Some(HintEdit::new(end..end, candidate, end + candidate.len()))
             } else {
                 None
             };
@@ -74,9 +73,10 @@ impl HintPolicy for AutoPairHintPolicy {
         });
         let cursor = context.cursor();
         let end = context.source().len();
-        Some(HintPlan::new(
-            HintEdit::new(cursor..end, candidate, cursor + candidate.len()),
-            Some(HintPreview::new(cursor..end)),
+        Some(HintEdit::new(
+            cursor..end,
+            candidate,
+            cursor + candidate.len(),
         ))
     }
 
@@ -271,6 +271,49 @@ mod tests {
             .expect("the quote and outer paren each have a unique candidate pair");
 
         assert_eq!(targets, vec![8, 9]);
+    }
+
+    #[test]
+    fn interpolation_array_and_record_closers_map_in_order() {
+        let source = r#"echo $"([1])""#;
+        let targets =
+            candidate_closer_targets(source, 10, " 2] | length)\"", PAIRS.into_iter(), "])\"")
+                .expect("the candidate maps the array, interpolation, and string closers");
+        assert_eq!(targets, vec![12, 22, 23]);
+
+        let source = r#"echo $"([{x: 1}])""#;
+        let targets = candidate_closer_targets(
+            source,
+            14,
+            ", y: 2}] | length)\"",
+            PAIRS.into_iter(),
+            "}])\"",
+        )
+        .expect("the candidate maps record, array, interpolation, and string closers");
+        assert_eq!(targets, vec![20, 21, 31, 32]);
+    }
+
+    #[test]
+    fn interpolation_fake_closers_and_mismatches_are_safe() {
+        let source = r#"echo $"([])""#;
+        let targets = candidate_closer_targets(
+            source,
+            9,
+            r#"")]} ", 1] | length)""#,
+            PAIRS.into_iter(),
+            "])\"",
+        )
+        .expect("closers inside the interpolation string do not match the source tail");
+        assert_eq!(targets, vec![18, 28, 29]);
+
+        let targets = candidate_closer_targets(
+            r#"echo $"([1])""#,
+            10,
+            "} | length)\"",
+            PAIRS.into_iter(),
+            "])\"",
+        );
+        assert!(targets.is_none());
     }
 
     #[test]
