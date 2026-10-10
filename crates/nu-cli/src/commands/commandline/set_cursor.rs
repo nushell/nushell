@@ -49,9 +49,11 @@ impl Command for CommandlineSetCursor {
                     .nth(pos as usize)
                     .unwrap_or(repl.buffer.len())
             };
+            repl.selection = None;
             Ok(Value::nothing(call.head).into_pipeline_data())
         } else if call.has_flag(engine_state, stack, "end")? {
             repl.cursor_pos = repl.buffer.len();
+            repl.selection = None;
             Ok(Value::nothing(call.head).into_pipeline_data())
         } else {
             Err(ShellError::Generic(GenericError::new_internal(
