@@ -51,10 +51,13 @@ pub(crate) fn rest_param_is_type_annotated(signature_source: &[u8], rest_name: &
 
 /// Whether `def`, `extern` or `alias` may define a command named `name`: a call can never
 /// reach a name that contains `#`, `^` or `%`, or that reads as a number or a filesize.
+/// A call is also looked up by its words joined with single spaces, so a name with any
+/// other whitespace could never be called (#15539).
 pub(crate) fn is_valid_command_name(name: &str) -> bool {
     !name.contains(['#', '^', '%'])
         && name.parse::<bytesize::ByteSize>().is_err()
         && name.parse::<f64>().is_err()
+        && name.split_ascii_whitespace().collect::<Vec<_>>().join(" ") == name
 }
 
 /// Report at `span` a name `def` or `extern` cannot define: one [`is_valid_command_name`]

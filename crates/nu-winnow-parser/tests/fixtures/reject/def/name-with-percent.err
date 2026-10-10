@@ -4,4 +4,4 @@ error: command name not supported
 1 | extern "a%b" []
   |        ^^^^^
   = while parsing extern
-  = help: a name may not contain `#`, `^` or `%`, or read as a number or filesize
+  = help: a name may not contain `#`, `^` or `%`, read as a number or filesize, or use whitespace other than single spaces between words

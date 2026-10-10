@@ -382,8 +382,10 @@ fn has_untyped_rest(working_set: &WorkingSet<'_>, signature: Span) -> bool {
 /// Reject a `def`/`extern`/`alias` name that is a parser keyword, or that
 /// nu refuses because it could never be called: one containing `#`, `^` or
 /// `%`, or one that Rust reads as a float (`1e3`, `inf`) or the `bytesize`
-/// crate as a size (`1k`, `2.5gib`, `"1 kb"`). Nushell's own number syntax
-/// does not count: `def 0x10` and `def 1_000` are fine.
+/// crate as a size (`1k`, `2.5gib`, `"1 kb"`), or one whose whitespace is not
+/// single spaces between words (a call is looked up by its words joined with
+/// single spaces, so `"foo  bar"` or `" foo"` could never be called). Nushell's
+/// own number syntax does not count: `def 0x10` and `def 1_000` are fine.
 pub fn check_definition_name(name: &Spanned<Cow<'_, str>>, what: &str) -> ParseResult<()> {
     if is_parser_keyword(&name.item) {
         return Err(cut(Diagnostic::message(
@@ -393,9 +395,14 @@ pub fn check_definition_name(name: &Spanned<Cow<'_, str>>, what: &str) -> ParseR
         .with_help("choose a different name; this word is parsed specially by Nushell")));
     }
     let text: &str = &name.item;
-    if text.contains(['#', '^', '%']) || is_byte_size(text) || text.parse::<f64>().is_ok() {
-        return Err(cut(Diagnostic::message(format!("{what} name not supported"), name.span)
-            .with_help("a name may not contain `#`, `^` or `%`, or read as a number or filesize")));
+    if text.contains(['#', '^', '%'])
+        || is_byte_size(text)
+        || text.parse::<f64>().is_ok()
+        || text.split_ascii_whitespace().collect::<Vec<_>>().join(" ") != text
+    {
+        return Err(cut(Diagnostic::message(format!("{what} name not supported"), name.span).with_help(
+            "a name may not contain `#`, `^` or `%`, read as a number or filesize, or use whitespace other than single spaces between words",
+        )));
     }
     Ok(())
 }
