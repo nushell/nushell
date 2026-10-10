@@ -8,7 +8,7 @@ use crate::prompt_update::{
 use crate::{
     NuHighlighter, NuValidator, NushellPrompt,
     completions::{NarrowingCache, NuCompleter, flush_completion_warnings},
-    hints::ExternalHinter,
+    hints::{AutoPairHintPolicy, ExternalHinter},
     prompt_update,
     reedline_config::{KeybindingsMode, add_menus, create_keybindings},
     syntax_highlight::NoOpHighlighter,
@@ -39,9 +39,9 @@ use reedline::Helix;
 #[cfg(feature = "sqlite")]
 use reedline::SqliteBackedHistory;
 use reedline::{
-    CursorConfig, CwdAwareHinter, DefaultCompleter, EditCommand, Emacs, FileBackedHistory,
-    HistorySessionId, MouseClickMode, Osc133ClickEventsMarkers, Osc633Markers, Reedline,
-    SemanticPromptMarkers, Vi,
+    AutoPairs, CursorConfig, CwdAwareHinter, DefaultCompleter, EditCommand, Emacs,
+    FileBackedHistory, HistorySessionId, MouseClickMode, Osc133ClickEventsMarkers, Osc633Markers,
+    Reedline, SemanticPromptMarkers, Vi,
 };
 use std::ffi::OsStr;
 use std::sync::atomic::Ordering;
@@ -725,6 +725,22 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         } else {
             MouseClickMode::Disabled
         });
+
+    line_editor = if config.auto_pairs.enable {
+        line_editor
+            .with_auto_pairs(AutoPairs::new(
+                config
+                    .auto_pairs
+                    .pairs
+                    .iter()
+                    .map(|pair| (pair.open, pair.close)),
+            ))
+            .with_hint_policy(Box::new(AutoPairHintPolicy::new(
+                config.hinter.closure.is_some(),
+            )))
+    } else {
+        line_editor.disable_auto_pairs().without_hint_policy()
+    };
 
     perf!("reedline builder", start_time, use_color);
 

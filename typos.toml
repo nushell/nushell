@@ -31,6 +31,10 @@ extend-ignore-re = [
     "strat: 3",
     "discription: hi",
     "fiter: false",
+    # Intentional shortened hello prefixes in auto-pair history hint tests
+    "echo [\"'`]h[e]l\\b",
+    "echo \\{quote\\}h[e]l\\b",
+    "f\\(\"h[e]l\\b",
 ]
 
 [type.rust.extend-words]
