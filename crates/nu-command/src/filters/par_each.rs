@@ -1,5 +1,5 @@
 use super::utils::wrap_error_with_input;
-use nu_engine::{ClosureEval, ClosureEvalOnce, command_prelude::*};
+use nu_engine::{ClosureEval, command_prelude::*};
 use nu_protocol::{Signals, engine::Closure, shell_error::generic::GenericError};
 use rayon::prelude::*;
 use std::{
@@ -46,6 +46,9 @@ fn lock_pool_cache(
 fn build_pool(num_threads: usize, head: Span) -> Result<Arc<rayon::ThreadPool>, ShellError> {
     rayon::ThreadPoolBuilder::new()
         .num_threads(num_threads)
+        // Match a typical main-thread stack so the default `recursion_limit` (50)
+        // of closure calls fits on a worker instead of overflowing it.
+        .stack_size(8 * 1024 * 1024)
         .build()
         .map(Arc::new)
         .map_err(|e| {
@@ -214,6 +217,15 @@ impl Command for ParEach {
             ));
         }
 
+        // Construct the evaluator once here, so a stale closure reports a single
+        // error like `each` does instead of one error value per item. Empty input
+        // never constructs an evaluator, so it stays a no-op like in `each`.
+        // Every worker clones this evaluator instead of building its own.
+        if matches!(input, PipelineData::Empty) {
+            return Ok(PipelineData::empty());
+        }
+        let mut closure_eval = ClosureEval::try_new(engine_state, stack, closure, head)?;
+
         let mut input = input.into_stream_or_original(engine_state);
         let metadata = input.take_metadata();
 
@@ -238,17 +250,14 @@ impl Command for ParEach {
                         if keep_order {
                             Ok(pool.install(|| {
                                 let par_iter = vals.into_owned().into_par_iter().enumerate();
-                                let mapped =
-                                    parallel_closure_map(engine_state, stack, &closure, par_iter);
+                                let mapped = parallel_closure_map(closure_eval, par_iter);
                                 apply_order(mapped.collect())
                                     .into_pipeline_data(span, signals.clone())
                             }))
                         } else {
                             let par_iter = vals.into_owned().into_par_iter();
                             Ok(stream_parallel_values(
-                                engine_state,
-                                stack,
-                                closure.clone(),
+                                closure_eval,
                                 pool,
                                 span,
                                 signals.clone(),
@@ -264,17 +273,14 @@ impl Command for ParEach {
                                     .into_range_iter(span, signals.clone())
                                     .enumerate()
                                     .par_bridge();
-                                let mapped =
-                                    parallel_closure_map(engine_state, stack, &closure, par_iter);
+                                let mapped = parallel_closure_map(closure_eval, par_iter);
                                 apply_order(mapped.collect())
                                     .into_pipeline_data(span, signals.clone())
                             }))
                         } else {
                             let par_iter = val.into_range_iter(span, signals.clone()).par_bridge();
                             Ok(stream_parallel_values(
-                                engine_state,
-                                stack,
-                                closure.clone(),
+                                closure_eval,
                                 pool,
                                 span,
                                 signals.clone(),
@@ -284,9 +290,7 @@ impl Command for ParEach {
                     }
                     // This match allows non-iterables to be accepted,
                     // which is currently considered undesirable (Nov 2022).
-                    value => {
-                        ClosureEvalOnce::new(engine_state, stack, closure).run_with_value(value)
-                    }
+                    value => closure_eval.run_with_value(value),
                 }
             }
             PipelineData::ListStream(stream, ..) => {
@@ -294,15 +298,13 @@ impl Command for ParEach {
                 if keep_order {
                     Ok(pool.install(|| {
                         let par_iter = stream.into_iter().enumerate().par_bridge();
-                        let mapped = parallel_closure_map(engine_state, stack, &closure, par_iter);
+                        let mapped = parallel_closure_map(closure_eval, par_iter);
                         apply_order(mapped.collect()).into_pipeline_data(head, signals.clone())
                     }))
                 } else {
                     let par_iter = stream.into_iter().par_bridge();
                     Ok(stream_parallel_values(
-                        engine_state,
-                        stack,
-                        closure.clone(),
+                        closure_eval,
                         pool,
                         head,
                         signals.clone(),
@@ -321,8 +323,7 @@ impl Command for ParEach {
                                     (idx, val.unwrap_or_else(|err| Value::error(err, head)))
                                 })
                                 .par_bridge();
-                            let mapped =
-                                parallel_closure_map(engine_state, stack, &closure, par_iter);
+                            let mapped = parallel_closure_map(closure_eval, par_iter);
                             apply_order(mapped.collect()).into_pipeline_data(head, signals.clone())
                         }))
                     } else {
@@ -330,9 +331,7 @@ impl Command for ParEach {
                             .map(move |val| val.unwrap_or_else(|err| Value::error(err, head)))
                             .par_bridge();
                         Ok(stream_parallel_values(
-                            engine_state,
-                            stack,
-                            closure.clone(),
+                            closure_eval,
                             pool,
                             head,
                             signals.clone(),
@@ -350,19 +349,17 @@ impl Command for ParEach {
 }
 
 fn stream_parallel_values(
-    engine_state: &EngineState,
-    stack: &Stack,
-    closure: Closure,
+    closure_eval: ClosureEval,
     pool: Arc<rayon::ThreadPool>,
     span: Span,
     signals: Signals,
     input: impl ParallelIterator<Item = Value> + 'static,
 ) -> PipelineData {
     let (tx, rx) = mpsc::sync_channel(STREAM_BUFFER_SIZE);
-    let worker_engine_state = engine_state.clone();
-    // The worker outlives the borrow of `stack`, so it gets its own copy. `ClosureEval::new`
-    // builds the closure's stack from it, the same as the `--keep-order` path does from `stack`.
-    let worker_stack = stack.clone();
+    // Each worker clones the evaluator, whose stack already carries the
+    // `recursion_count + 1` from `captures_to_stack`, so closure calls in
+    // workers count toward `recursion_limit` exactly once, like the
+    // `--keep-order` path.
     let worker_signals = signals.clone();
 
     // Keep an Arc for the lifetime of the spawned producer. For cached pools this keeps
@@ -374,7 +371,7 @@ fn stream_parallel_values(
 
         let _ = input
             .map_init(
-                move || ClosureEval::new(&worker_engine_state, &worker_stack, closure.clone()),
+                move || closure_eval.clone(),
                 move |closure_eval, value| {
                     if map_signals.interrupted() {
                         return Err(());
@@ -447,18 +444,12 @@ fn run_closure_on_value(closure_eval: &mut ClosureEval, value: Value) -> Value {
 }
 
 fn parallel_closure_map(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    closure: &Closure,
+    closure_eval: ClosureEval,
     input: impl ParallelIterator<Item = (usize, Value)>,
 ) -> impl ParallelIterator<Item = (usize, Value)> {
     input.map_init(
-        move || ClosureEval::new(engine_state, stack, closure.clone()),
-        |closure_eval, (index, value)| {
-            let value = run_closure_on_value(closure_eval, value);
-
-            (index, value)
-        },
+        move || closure_eval.clone(),
+        |closure_eval, (index, value)| (index, run_closure_on_value(closure_eval, value)),
     )
 }
 

@@ -94,7 +94,7 @@ impl Command for MetadataSet {
             let record = extend_record_with_metadata(Record::new(), Some(&metadata), head);
             let metadata_value = record.into_value(head);
 
-            let result = ClosureEvalOnce::new(engine_state, stack, closure)
+            let result = ClosureEvalOnce::try_new(engine_state, stack, closure, head)?
                 .run_with_value(metadata_value)?
                 .into_value(head)?;
 
