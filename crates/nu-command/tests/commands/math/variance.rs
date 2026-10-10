@@ -72,6 +72,31 @@ fn variance_large_close_ints() -> Result {
 }
 
 #[test]
+fn variance_of_equal_huge_floats_is_exact_zero() -> Result {
+    test()
+        .run("[1e308 1e308] | math variance")
+        .expect_value_eq(0.0)
+}
+
+#[test]
+fn variance_constant_huge_floats_is_exact_zero() -> Result {
+    // Plain summation overflows here; summing shifted residuals cannot, and every
+    // residual of a constant sequence is exactly 0.
+    test()
+        .run("1..64 | each { 1e150 } | math variance")
+        .expect_value_eq(0.0)
+}
+
+#[test]
+fn variance_large_close_ints_just_above_2_pow_52() -> Result {
+    // Exact as f64 (2^52 and 2^52 + 1 are both representable), so the shifted
+    // two-pass form gives the exact variance rather than a rounded approximation.
+    test()
+        .run("[4503599627370496 4503599627370497] | math variance")
+        .expect_value_eq(0.25)
+}
+
+#[test]
 fn sample_variance_large_close_floats() -> Result {
     // Same input, `--sample` divides by n - 1.
     test()
@@ -99,9 +124,10 @@ fn variance_ints_whose_square_overflows_i64() -> Result {
 #[test]
 fn variance_ints_above_2_pow_53_are_approximate() -> Result {
     // Documented trade-off, not a regression: these are exact as i64 but not as
-    // f64, so the result is approximate (the true variance is 0.25) instead of an
-    // error. `math avg` already behaves the same way.
+    // f64, where they land on 2^53 and 2^53 + 2 — whose variance is exactly 1.0.
+    // So the answer is approximate for the original integers (their true variance
+    // is 0.25) rather than an error. `math avg` already behaves the same way.
     test()
         .run("[9007199254740993 9007199254740994] | math variance")
-        .expect_value_eq(2.0)
+        .expect_value_eq(1.0)
 }

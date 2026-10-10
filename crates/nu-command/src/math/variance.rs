@@ -153,14 +153,17 @@ impl Command for MathVariance {
 /// Numerically-stable two-pass variance in `f64` base units.
 ///
 /// All numeric types (int/float/duration/filesize) are converted to `f64` and
-/// the mean-deviation form `Σ(x − mean)² / denom` is used, where `denom` is `n`
-/// for the population variance and `n − 1` with `--sample`. This avoids the
-/// catastrophic cancellation of the single-pass `Σx² − (Σx)²/n` formula, which
-/// loses precision (and can even go negative) when values are large but close
-/// together. The result is a plain `f64`: squared base units (B² / ns²) for
-/// filesize/duration, or a plain number for int/float. Integer inputs above
-/// `2^53` are exact as `i64` but not as `f64`, so their variance is approximate
-/// rather than an error.
+/// the mean-deviation form `Σ(r − mean_r)² / denom` is used, where `denom` is
+/// `n` for the population variance and `n − 1` with `--sample`. The deviations
+/// are taken from residuals `r = x − min` rather than from `x` itself: shifting
+/// the origin to the smallest value keeps every residual of a constant sequence
+/// exactly `0`, and summing residuals cannot overflow the way summing `x` does
+/// for large-magnitude floats. This avoids the catastrophic cancellation of the
+/// single-pass `Σx² − (Σx)²/n` formula, which loses precision (and can even go
+/// negative) when values are large but close together. The result is a plain
+/// `f64`: squared base units (B² / ns²) for filesize/duration, or a plain number
+/// for int/float. Integer inputs above `2^53` are exact as `i64` but not as
+/// `f64`, so their variance is approximate rather than an error.
 fn variance_unit_f64(
     values: &[Value],
     sample: bool,
@@ -173,11 +176,15 @@ fn variance_unit_f64(
         nums.push(n);
     }
     let denom = variance_denominator(nums.len(), sample, head, span)? as f64;
-    let mean = nums.iter().sum::<f64>() / nums.len() as f64;
+    // Shift the origin to the smallest value, then average and accumulate the
+    // deviations of the residuals. The shift is exact for every input, so a
+    // constant sequence yields all-zero residuals and an exact variance of 0.
+    let origin = nums.iter().copied().fold(f64::INFINITY, f64::min);
+    let mean = nums.iter().map(|x| x - origin).sum::<f64>() / nums.len() as f64;
     let ss = nums
         .iter()
         .map(|x| {
-            let d = x - mean;
+            let d = (x - origin) - mean;
             d * d
         })
         .sum::<f64>();
