@@ -234,6 +234,19 @@ mod tests {
     }
 
     #[test]
+    fn closure_receives_the_full_buffer_and_absolute_byte_position() {
+        let mut hinter = create_hinter(
+            r#"{|ctx| {hint: $"($ctx.line)@($ctx.pos)", next_token: $"pos=($ctx.pos)"}}"#,
+        );
+        let history = history();
+
+        let hint = hinter.handle("echo 🎉)", 9, &history, false, "/tmp");
+
+        assert_eq!(hint, "echo 🎉)@9");
+        assert_eq!(hinter.next_hint_token(), "pos=9");
+    }
+
+    #[test]
     fn record_return_with_hint_and_next_token() {
         let mut hinter = create_hinter("{|ctx| {hint: 'hello there', next_token: 'hello'}}");
         let history = history();

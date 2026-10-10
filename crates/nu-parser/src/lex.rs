@@ -1,5 +1,5 @@
 use nu_protocol::{ParseError, Span, engine::BracketTable};
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 
 #[path = "delimiter_diagnostics.rs"]
 mod delimiter_diagnostics;
@@ -183,6 +183,17 @@ impl Brackets for &BracketTable {
     #[inline]
     fn close_of(self, open: usize) -> Option<usize> {
         BracketTable::close_of(self, open)
+    }
+}
+
+/// Collects matched bracket positions without allocating an entry for every input byte.
+///
+/// Unlike [`RecordBrackets`], this collector is not used to accelerate later lexer passes. It is
+/// intended for callers that need the matched positions from one lexing pass.
+impl Brackets for &RefCell<Vec<(usize, usize)>> {
+    #[inline]
+    fn record(self, open: usize, close: usize) {
+        self.borrow_mut().push((open, close));
     }
 }
 
@@ -1089,6 +1100,35 @@ pub fn lex(
     )
 }
 
+/// Lex input and return the positions of matched `()`, `[]`, and `{}` delimiters.
+///
+/// Positions use the same absolute coordinates as token spans: `span_offset` is added to each
+/// input-relative byte position. The pairs are reported in closing-delimiter order. Delimiters
+/// inside strings and comments are ignored according to Nushell's lexer rules. Quote boundaries
+/// themselves are not included.
+///
+/// Callers that need the result for a safety decision should reject the input when the returned
+/// parse error is `Some`, since the pair list may then describe only the portion lexed before the
+/// error.
+pub fn lex_with_bracket_pairs(
+    input: &[u8],
+    span_offset: usize,
+    additional_whitespace: &[u8],
+    special_tokens: &[u8],
+    skip_comment: bool,
+) -> (Vec<Token>, Option<ParseError>, Vec<(usize, usize)>) {
+    let pairs = RefCell::new(Vec::new());
+    let (tokens, error) = lex_with(
+        input,
+        span_offset,
+        additional_whitespace,
+        special_tokens,
+        skip_comment,
+        &pairs,
+    );
+    (tokens, error, pairs.into_inner())
+}
+
 /// [`lex`], jumping over the groups whose closers `brackets` knows.
 pub(crate) fn lex_with<B: Brackets>(
     input: &[u8],
@@ -1116,6 +1156,30 @@ pub(crate) fn lex_with<B: Brackets>(
         brackets,
     );
     (state.output, state.error)
+}
+
+#[cfg(test)]
+mod bracket_pair_tests {
+    use super::{lex, lex_with_bracket_pairs};
+
+    #[test]
+    fn bracket_pairs_are_sparse_nested_and_ignore_string_contents() {
+        let input = br#"f(([1], {x: ")"}))"#;
+        let (tokens, error, pairs) = lex_with_bracket_pairs(input, 40, b"", b"", false);
+
+        assert!(error.is_none());
+        assert_eq!(tokens, lex(input, 40, b"", b"", false).0);
+        assert_eq!(pairs, vec![(43, 45), (48, 55), (42, 56), (41, 57)]);
+        assert_eq!(&input[pairs[0].0 - 40..=pairs[0].1 - 40], b"[1]");
+        assert_eq!(&input[pairs[1].0 - 40..=pairs[1].1 - 40], br#"{x: ")"}"#);
+    }
+
+    #[test]
+    fn bracket_pairs_return_the_lexer_error_for_ambiguous_input() {
+        let (_, error, _) = lex_with_bracket_pairs(b"f([)]", 0, b"", b"", false);
+
+        assert!(error.is_some());
+    }
 }
 
 fn lex_internal<B: Brackets>(
