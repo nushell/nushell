@@ -7,7 +7,7 @@ use crate::{
     type_check::type_compatible,
 };
 use log::trace;
-use nu_engine::DIR_VAR_PARSER_INFO;
+use nu_engine::env::var;
 use nu_protocol::{
     DeclId, Flag, IntoSpanned, ParseError, PositionalArg, ShellError, Signature, Span, Spanned,
     SyntaxShape, Type, TypeSet,
@@ -1049,7 +1049,7 @@ pub fn parse_internal_call(
 
     if let Some(var_id) = lib_dirs_var_id {
         call.set_parser_info(
-            DIR_VAR_PARSER_INFO.to_owned(),
+            var::DIR_VAR_PARSER_INFO.to_owned(),
             Expression::new(working_set, Expr::Var(var_id), call.head, Type::Any),
         );
     }

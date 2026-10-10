@@ -1,4 +1,7 @@
 use nu_engine::command_prelude::*;
+use nu_engine::env::is_automatic_env_var;
+use nu_engine::env::var;
+use nu_protocol::engine::env_var_eq;
 
 #[derive(Clone)]
 pub struct LoadEnv;
@@ -41,36 +44,48 @@ impl Command for LoadEnv {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let arg: Option<Record> = call.opt(engine_state, stack, 0)?;
+        let arg = call.opt(engine_state, stack, 0)?;
         let span = call.head;
+        let input_span = input.span().unwrap_or(span);
 
-        let record = match arg {
-            Some(record) => record,
-            None => match input {
-                PipelineData::Value(Value::Record { val, .. }, ..) => val.into_owned(),
-                _ => {
-                    return Err(ShellError::UnsupportedInput {
-                        msg: "'load-env' expects a single record".into(),
-                        input: "value originated from here".into(),
-                        msg_span: span,
-                        input_span: input.span().unwrap_or(span),
-                    });
-                }
-            },
+        let record = if let Some(record) = arg {
+            record
+        } else if let PipelineData::Value(value, ..) = input
+            && let Ok(record) = value.into_record()
+        {
+            record.into_spanned(input_span)
+        } else {
+            return Err(ShellError::UnsupportedInput {
+                msg: "'load-env' expects a single record".into(),
+                input: "value originated from here".into(),
+                msg_span: span,
+                input_span,
+            });
         };
 
-        for prohibited in ["FILE_PWD", "CURRENT_FILE", "PWD"] {
-            if record.contains(prohibited) {
+        for (env_var, _) in &record.item {
+            if is_automatic_env_var(env_var) {
                 return Err(ShellError::AutomaticEnvVarSetManually {
-                    envvar_name: prohibited.to_string(),
-                    span: call.head,
+                    envvar_name: env_var.to_owned(),
+                    span: record.span,
                 });
             }
         }
 
-        for (env_var, rhs) in record {
+        let mut loaded_config = false;
+
+        for (env_var, rhs) in record.item {
+            if env_var_eq(&env_var, var::CONFIG) {
+                loaded_config = true;
+            }
+
             stack.add_env_var(env_var, rhs);
         }
+
+        if loaded_config {
+            stack.update_config(engine_state)?
+        }
+
         Ok(PipelineData::empty())
     }
 

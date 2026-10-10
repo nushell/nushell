@@ -1,3 +1,5 @@
+use crate::env::is_automatic_env_var;
+use crate::env::var;
 #[allow(deprecated)]
 use crate::get_full_help;
 use crate::named_flags::{
@@ -12,11 +14,12 @@ use nu_protocol::{
         PathMember,
     },
     debugger::{DebugContext, WithDebug, WithoutDebug},
-    engine::{Argument as EngineArgument, Closure, EngineState, EnvName, EnvVars, Stack},
+    engine::{
+        Argument as EngineArgument, Closure, EngineState, EnvName, EnvVars, Stack, env_var_eq,
+    },
     eval_base::Eval,
     shell_error::generic::GenericError,
 };
-use nu_utils::IgnoreCaseExt;
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -906,7 +909,7 @@ impl Eval for EvalRuntime {
                                         .iter()
                                         .rev()
                                         .map(|(k, _)| k)
-                                        .find(|x| x.eq_ignore_case(&key))
+                                        .find(|x| env_var_eq(x, &key))
                                         .cloned()
                                         .unwrap_or(key)
                                 } else {
@@ -929,7 +932,7 @@ impl Eval for EvalRuntime {
                                     });
                                 }
 
-                                let is_config = original_key == "config";
+                                let is_config = env_var_eq(&original_key, var::CONFIG);
 
                                 stack.add_env_var(original_key, value.into_owned());
 
@@ -1001,20 +1004,4 @@ impl Eval for EvalRuntime {
     fn unreachable(engine_state: &EngineState, expr: &Expression) -> Result<Value, ShellError> {
         Ok(Value::nothing(expr.span(&engine_state)))
     }
-}
-
-/// Returns whether a string, when used as the name of an environment variable,
-/// is considered an automatic environment variable.
-///
-/// An automatic environment variable cannot be assigned to by user code.
-/// Current there are three of them: $env.PWD, $env.FILE_PWD, $env.CURRENT_FILE
-pub(crate) fn is_automatic_env_var(var: &str) -> bool {
-    let names = ["PWD", "FILE_PWD", "CURRENT_FILE"];
-    names.iter().any(|&name| {
-        if cfg!(windows) {
-            name.eq_ignore_case(var)
-        } else {
-            name.eq(var)
-        }
-    })
 }

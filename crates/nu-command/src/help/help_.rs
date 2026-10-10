@@ -1,5 +1,5 @@
 use crate::help::{help_aliases, help_commands, help_modules};
-use nu_engine::{HELP_DECL_ID_PARSER_INFO, command_prelude::*, find_builtin_decl, get_full_help};
+use nu_engine::{command_prelude::*, env::var, find_builtin_decl, get_full_help};
 use nu_protocol::{DeclId, ast::Expr};
 
 #[derive(Clone)]
@@ -161,7 +161,7 @@ You can also learn more at https://www.nushell.sh/book/"#;
 // `compile_call` rewrites `<cmd> --help` to `help <name>`. This helper restores the original
 // resolved declaration identity from parser info so help output stays tied to the original call.
 fn resolved_help_decl_id(call: &Call, stack: &Stack, engine_state: &EngineState) -> Option<DeclId> {
-    call.get_parser_info(stack, HELP_DECL_ID_PARSER_INFO)
+    call.get_parser_info(stack, var::HELP_DECL_ID_PARSER_INFO)
         .and_then(|expr| match expr.expr {
             Expr::Int(id) => usize::try_from(id).ok().map(DeclId::new),
             _ => None,

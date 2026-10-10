@@ -31,6 +31,7 @@ use crate::{
 };
 use itertools::Itertools;
 use log::trace;
+use nu_engine::env::var;
 use nu_protocol::{
     CompareTypes, IntoSpanned, ParseError, PositionalArg, Signature, Span, Spanned, SyntaxShape,
     Type, TypeSet, VarId, ast::*, engine::StateWorkingSet,
@@ -1734,12 +1735,17 @@ pub fn parse_expression(
                 )),
             ];
 
-            let expr = Expr::Call(Box::new(Call {
+            let mut call = Call {
                 head: Span::unknown(),
                 decl_id,
                 arguments,
                 parser_info: HashMap::new(),
-            }));
+            };
+            call.set_parser_info(
+                var::HAS_SHORTHAND_ENV_PARSER_INFO.to_owned(),
+                Expression::new_unknown(Expr::Bool(true), Span::unknown(), Type::Bool),
+            );
+            let expr = Expr::Call(Box::new(call));
 
             Expression::new(working_set, expr, Span::concat(spans), ty)
         } else {
