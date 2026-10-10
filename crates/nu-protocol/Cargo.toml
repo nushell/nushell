@@ -43,6 +43,7 @@ fancy-regex = { workspace = true }
 heck = { workspace = true }
 humantime = { workspace = true }
 indexmap = { workspace = true }
+itertools = { workspace = true }
 lru = { workspace = true }
 memchr = { workspace = true }
 miette = { workspace = true, features = ["fancy-no-backtrace"] }

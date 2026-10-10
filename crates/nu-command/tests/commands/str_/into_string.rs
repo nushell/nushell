@@ -424,3 +424,65 @@ fn float_into_string_negative_respects_system_locale_ar() -> Result {
 
     test().run(code).expect_value_eq("\u{61c}-123456")
 }
+
+#[test]
+fn float_into_string_decimals_above_u16_range_errors() -> Result {
+    let code = "
+    1.5 | into string -d 2147483648
+    ";
+
+    test()
+        .run(code)
+        .expect_error_code_eq("nu::shell::incorrect_value")
+}
+
+#[test]
+fn float_into_string_decimals_wrapping_to_small_exponent_errors() -> Result {
+    let code = "
+    1.5 | into string -d 4294967296
+    ";
+
+    test()
+        .run(code)
+        .expect_error_code_eq("nu::shell::incorrect_value")
+}
+
+#[test]
+fn int_into_string_decimals_above_u16_range_errors() -> Result {
+    let code = "
+    5 | into string -d 70000
+    ";
+
+    test()
+        .run(code)
+        .expect_error_code_eq("nu::shell::incorrect_value")
+}
+
+#[test]
+fn filesize_into_string_group_digits_decimals_above_u16_range_errors() -> Result {
+    let code = "
+    1kB | into string --group-digits -d 70000
+    ";
+
+    test()
+        .run(code)
+        .expect_error_code_eq("nu::shell::incorrect_value")
+}
+
+#[test]
+fn float_into_string_large_decimals_returns_nan() -> Result {
+    let code = "
+    1.5 | into string -d 400
+    ";
+
+    test().run(code).expect_value_eq("NaN")
+}
+
+#[test]
+fn float_into_string_precision_overflow_returns_inf() -> Result {
+    let code = "
+    1e300 | into string -d 10
+    ";
+
+    test().run(code).expect_value_eq("inf")
+}
