@@ -57,6 +57,30 @@ pub(crate) struct ParsedCli {
     pub(crate) args_to_script: Vec<String>,
 }
 
+impl ParsedCli {
+    /// Whether Nu runs the REPL: there are no commands (`-c`) or script to run, and no `--lsp`,
+    /// `--dap` or `--mcp` server to start.
+    ///
+    /// `-i` makes commands and scripts interactive, but they still exit when done rather than
+    /// return to a prompt.
+    pub(crate) fn is_repl(&self) -> bool {
+        #[cfg(feature = "lsp")]
+        let is_lsp = self.nu.lsp;
+        #[cfg(not(feature = "lsp"))]
+        let is_lsp = false;
+        #[cfg(feature = "dap")]
+        let is_dap = self.nu.dap;
+        #[cfg(not(feature = "dap"))]
+        let is_dap = false;
+        #[cfg(feature = "mcp")]
+        let is_mcp = self.nu.mcp;
+        #[cfg(not(feature = "mcp"))]
+        let is_mcp = false;
+
+        self.nu.commands.is_none() && self.script_name.is_empty() && !is_lsp && !is_dap && !is_mcp
+    }
+}
+
 // Categories for grouping CLI flags in help output.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum CliCategory {
@@ -1572,6 +1596,36 @@ pub(crate) struct NushellCliArgs {
 mod tests {
     use super::*;
     use std::ffi::OsString;
+
+    fn parse_nu_args(args: &[&str]) -> ParsedCli {
+        let args = std::iter::once("nu")
+            .chain(args.iter().copied())
+            .map(OsString::from)
+            .collect();
+        parse_cli_args(args).expect("should parse args")
+    }
+
+    #[rstest::rstest]
+    #[case::no_arguments(&[], true)]
+    #[case::execute(&["-e", "ls"], true)]
+    #[case::interactive(&["-i"], true)]
+    #[case::commands(&["-c", "ls"], false)]
+    #[case::interactive_commands(&["-i", "-c", "ls"], false)]
+    #[case::script(&["script.nu"], false)]
+    #[case::interactive_script(&["-i", "script.nu"], false)]
+    fn is_repl(#[case] args: &[&str], #[case] expected: bool) {
+        assert_eq!(parse_nu_args(args).is_repl(), expected);
+    }
+
+    #[test]
+    fn servers_are_not_repl() {
+        #[cfg(feature = "lsp")]
+        assert!(!parse_nu_args(&["--lsp"]).is_repl());
+        #[cfg(feature = "dap")]
+        assert!(!parse_nu_args(&["--dap"]).is_repl());
+        #[cfg(feature = "mcp")]
+        assert!(!parse_nu_args(&["--mcp"]).is_repl());
+    }
 
     #[test]
     fn test_log_file_parsing() {

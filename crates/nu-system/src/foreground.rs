@@ -35,6 +35,26 @@ pub fn prepare_background_command(command: &mut Command) {
     }
 }
 
+/// Keep Ctrl-C meant for the foreground away from `command`, run by a background job.
+///
+/// On Windows, Ctrl-C reaches every process attached to the console, so the job's process would
+/// be interrupted along with the foreground command. Starting it in a new process group disables
+/// Ctrl-C for it, much like [`ForegroundChild::spawn`] putting background processes in their own
+/// process group on Unix. No-op on other platforms.
+///
+/// Both this and [`prepare_background_command`] set the Windows creation flags, so only call
+/// one of them; a process without a console, as started by the latter, gets no Ctrl-C anyway.
+pub fn prepare_background_job_command(command: &mut Command) {
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        command.creation_flags(::windows::Win32::System::Threading::CREATE_NEW_PROCESS_GROUP.0);
+    }
+
+    #[cfg(not(windows))]
+    let _ = command;
+}
+
 #[cfg(unix)]
 use nix::{sys::signal, sys::wait, unistd::Pid};
 

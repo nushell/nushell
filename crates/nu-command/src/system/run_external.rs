@@ -7,7 +7,9 @@ use nu_protocol::{
     process::{ChildProcess, PostWaitCallback},
     shell_error::io::IoError,
 };
-use nu_system::{ForegroundChild, kill_by_pid, prepare_background_command};
+use nu_system::{
+    ForegroundChild, kill_by_pid, prepare_background_command, prepare_background_job_command,
+};
 use nu_utils::IgnoreCaseExt;
 use pathdiff::diff_paths;
 #[cfg(windows)]
@@ -280,6 +282,10 @@ If you create a custom command with this name, that will be used instead."
         // the child keeps `/dev/tty` and races reedline from a completion thread.
         if engine_state.is_mcp || stack.suppress_stdin {
             prepare_background_command(&mut command);
+        } else if engine_state.is_background_job() {
+            // On Unix, `ForegroundChild::spawn` keeps Ctrl-C away from the job's process with its
+            // own process group; this does the same on Windows.
+            prepare_background_job_command(&mut command);
         }
 
         // Log the command we're about to run in case it's useful for debugging purposes.

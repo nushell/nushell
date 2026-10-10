@@ -1,7 +1,7 @@
 #![allow(clippy::byte_char_slices)]
 
 use nu_cmd_base::hook::eval_hook;
-use nu_engine::{eval_block, eval_block_with_early_return};
+use nu_engine::{eval_block, eval_block_with_early_return, exit::kill_jobs_and_exit};
 use nu_parser::{Token, TokenContents, lex, parse, unescape_unquote_string};
 use nu_protocol::{
     ByteStream, ByteStreamSource, ListStream, PipelineData, PipelineMetadata, ShellError, Signals,
@@ -295,7 +295,7 @@ fn map_eval_error_to_exit_code(
     err: ShellError,
 ) -> i32 {
     if let ShellError::Exit { code, .. } = &err {
-        std::process::exit(*code)
+        kill_jobs_and_exit(engine_state, *code)
     }
     report_shell_error(Some(stack), engine_state, &err);
     let code = err.exit_code();
