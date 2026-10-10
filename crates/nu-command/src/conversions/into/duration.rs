@@ -1,3 +1,4 @@
+use itertools::Itertools;
 use std::str::FromStr;
 
 use nu_cmd_base::input_handler::{CmdArgument, operate};
@@ -5,13 +6,11 @@ use nu_engine::command_prelude::*;
 use nu_parser::{DURATION_UNIT_GROUPS, parse_unit_value};
 use nu_protocol::{SUPPORTED_DURATION_UNITS, Unit, ast::Expr};
 
-const NS_PER_US: i64 = 1_000;
 const NS_PER_MS: i64 = 1_000_000;
 const NS_PER_SEC: i64 = 1_000_000_000;
 const NS_PER_MINUTE: i64 = 60 * NS_PER_SEC;
 const NS_PER_HOUR: i64 = 60 * NS_PER_MINUTE;
 const NS_PER_DAY: i64 = 24 * NS_PER_HOUR;
-const NS_PER_WEEK: i64 = 7 * NS_PER_DAY;
 
 const ALLOWED_COLUMNS: [&str; 9] = [
     "week",
@@ -24,7 +23,6 @@ const ALLOWED_COLUMNS: [&str; 9] = [
     "nanosecond",
     "sign",
 ];
-const ALLOWED_SIGNS: [&str; 2] = ["+", "-"];
 
 #[derive(Clone, Debug)]
 struct Arguments {
@@ -208,25 +206,50 @@ fn split_whitespace_indices(s: &str, span: Span) -> impl Iterator<Item = (&str, 
     })
 }
 
-fn compound_to_duration(s: &str, span: Span) -> Result<i64, ShellError> {
-    // first try the newly added clock-style parser
+type DurationPart = (Unit, i64, Span);
+
+fn sum_durations(
+    mut durations: impl Iterator<Item = DurationPart>,
+    span: Span,
+) -> Result<Value, ShellError> {
+    durations.try_fold(
+        Value::duration(0, span),
+        |accum, (unit, count, sub_span)| {
+            unit.build_value(count, sub_span)
+                .and_then(|val| accum.add(sub_span, &val, sub_span))
+        },
+    )
+}
+
+fn parse_string_duration(s: &str, span: Span) -> Result<Value, ShellError> {
     if let Some(parsed) = parse_clock_duration(s.trim(), span)? {
-        return Ok(parsed);
+        Ok(parsed)
+    } else {
+        compound_to_duration(s, span)
     }
+}
 
-    let mut duration_ns: i64 = 0;
+fn compound_to_duration(s: &str, span: Span) -> Result<Value, ShellError> {
+    let mut parts = split_whitespace_indices(s, span)
+        .map(|(substring, substring_span)| string_to_duration(substring, substring_span))
+        .peekable();
 
-    for (substring, substring_span) in split_whitespace_indices(s, span) {
-        let sub_ns = string_to_duration(substring, substring_span)?;
-        duration_ns += sub_ns;
+    if parts.peek().is_none() {
+        Err(ShellError::IncorrectValue {
+            msg: "empty duration string".to_string(),
+            val_span: span,
+            call_span: span,
+        })
+    } else {
+        parts
+            .process_results(|duration_parts| sum_durations(duration_parts, span))
+            .and_then(|r| r)
     }
-
-    Ok(duration_ns)
 }
 
 // Try to parse a string formatted as `hh:mm:ss` with an optional fractional
 // seconds component using 1 to 9 digits of sub-second precision.
-fn parse_clock_duration(s: &str, span: Span) -> Result<Option<i64>, ShellError> {
+fn parse_clock_duration(s: &str, span: Span) -> Result<Option<Value>, ShellError> {
     if !s.contains(':') {
         return Ok(None);
     }
@@ -292,12 +315,20 @@ fn parse_clock_duration(s: &str, span: Span) -> Result<Option<i64>, ShellError> 
         return Err(clock_range_error(span));
     }
 
-    Ok(Some(
-        hours * NS_PER_HOUR + minutes * NS_PER_MINUTE + seconds * NS_PER_SEC + fractional_ns,
-    ))
+    sum_durations(
+        [
+            (Unit::Hour, hours, span),
+            (Unit::Minute, minutes, span),
+            (Unit::Second, seconds, span),
+            (Unit::Nanosecond, fractional_ns, span),
+        ]
+        .into_iter(),
+        span,
+    )
+    .map(Some)
 }
 
-fn string_to_duration(s: &str, span: Span) -> Result<i64, ShellError> {
+fn string_to_duration(s: &str, span: Span) -> Result<DurationPart, ShellError> {
     if let Some(Ok(expression)) = parse_unit_value(
         s.as_bytes(),
         span,
@@ -307,17 +338,7 @@ fn string_to_duration(s: &str, span: Span) -> Result<i64, ShellError> {
     ) && let Expr::ValueWithUnit(value) = expression.expr
         && let Expr::Int(x) = value.expr.expr
     {
-        match value.unit.item {
-            Unit::Nanosecond => return Ok(x),
-            Unit::Microsecond => return Ok(x * 1000),
-            Unit::Millisecond => return Ok(x * 1000 * 1000),
-            Unit::Second => return Ok(x * NS_PER_SEC),
-            Unit::Minute => return Ok(x * 60 * NS_PER_SEC),
-            Unit::Hour => return Ok(x * 60 * 60 * NS_PER_SEC),
-            Unit::Day => return Ok(x * 24 * 60 * 60 * NS_PER_SEC),
-            Unit::Week => return Ok(x * 7 * 24 * 60 * 60 * NS_PER_SEC),
-            _ => {}
-        }
+        return Ok((value.unit.item, x, span));
     }
 
     Err(ShellError::InvalidUnit {
@@ -349,29 +370,30 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
         None => &Unit::Nanosecond,
     };
 
+    let float_to_duration = |f: f64| {
+        unit.build_value(1, head)
+            .and_then(|val| val.mul(head, &Value::float(f, head), head))
+            .unwrap_or_else(|e| Value::error(e, head))
+    };
+
     match input {
         Value::Duration { .. } => input.clone(),
         Value::Record { val, .. } => {
-            merge_record(val, head, value_span).unwrap_or_else(|err| Value::error(err, value_span))
+            merge_record(val, head, value_span).unwrap_or_else(|e| Value::error(e, value_span))
         }
         Value::String { val, .. } => {
             if let Ok(num) = val.parse::<f64>() {
-                let ns = unit_to_ns_factor(unit);
-                return Value::duration((num * (ns as f64)) as i64, head);
+                float_to_duration(num)
+            } else {
+                parse_string_duration(val, value_span)
+                    .map(|val| val.with_span(head))
+                    .unwrap_or_else(|e| Value::error(e, head))
             }
-            match compound_to_duration(val, value_span) {
-                Ok(val) => Value::duration(val, head),
-                Err(error) => Value::error(error, head),
-            }
         }
-        Value::Float { val, .. } => {
-            let ns = unit_to_ns_factor(unit);
-            Value::duration((*val * (ns as f64)) as i64, head)
-        }
-        Value::Int { val, .. } => {
-            let ns = unit_to_ns_factor(unit);
-            Value::duration(*val * ns, head)
-        }
+        Value::Float { val, .. } => float_to_duration(*val),
+        Value::Int { val, .. } => unit
+            .build_value(*val, head)
+            .unwrap_or_else(|e| Value::error(e, head)),
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => input.clone(),
         other => Value::error(
@@ -402,68 +424,53 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Result<Value, ShellE
         });
     };
 
-    let mut duration: i64 = 0;
-
-    if let Some(col_val) = record.get("week") {
-        let week = parse_number_from_record(col_val, &head)?;
-        duration += week * NS_PER_WEEK;
-    };
-    if let Some(col_val) = record.get("day") {
-        let day = parse_number_from_record(col_val, &head)?;
-        duration += day * NS_PER_DAY;
-    };
-    if let Some(col_val) = record.get("hour") {
-        let hour = parse_number_from_record(col_val, &head)?;
-        duration += hour * NS_PER_HOUR;
-    };
-    if let Some(col_val) = record.get("minute") {
-        let minute = parse_number_from_record(col_val, &head)?;
-        duration += minute * NS_PER_MINUTE;
-    };
-    if let Some(col_val) = record.get("second") {
-        let second = parse_number_from_record(col_val, &head)?;
-        duration += second * NS_PER_SEC;
-    };
-    if let Some(col_val) = record.get("millisecond") {
-        let millisecond = parse_number_from_record(col_val, &head)?;
-        duration += millisecond * NS_PER_MS;
-    };
-    if let Some(col_val) = record.get("microsecond") {
-        let microsecond = parse_number_from_record(col_val, &head)?;
-        duration += microsecond * NS_PER_US;
-    };
-    if let Some(col_val) = record.get("nanosecond") {
-        let nanosecond = parse_number_from_record(col_val, &head)?;
-        duration += nanosecond;
-    };
-
-    if let Some(sign) = record.get("sign") {
-        match sign {
-            Value::String { val, .. } => {
-                if !ALLOWED_SIGNS.contains(&val.as_str()) {
-                    let allowed_signs = ALLOWED_SIGNS.join(", ");
+    let sign = if let Some(sign_value) = record.get("sign") {
+        match sign_value {
+            Value::String { val, .. } => match val.as_str() {
+                "+" => 1,
+                "-" => -1,
+                other => {
                     return Err(ShellError::IncorrectValue {
-                        msg: format!("Invalid sign. Allowed signs are {allowed_signs}").to_string(),
-                        val_span: sign.span(),
+                        msg: format!("Invalid sign '{other}'. Allowed signs are +, -"),
+                        val_span: sign_value.span(),
                         call_span: head,
                     });
                 }
-                if val == "-" {
-                    duration = -duration;
-                }
-            }
+            },
             other => {
                 return Err(ShellError::OnlySupportsThisInputType {
-                    exp_input_type: "int".to_string(),
+                    exp_input_type: "string".to_string(),
                     wrong_type: other.get_type().to_string(),
                     dst_span: head,
                     src_span: other.span(),
                 });
             }
         }
+    } else {
+        1
     };
 
-    Ok(Value::duration(duration, span))
+    [
+        ("week", Unit::Week),
+        ("day", Unit::Day),
+        ("hour", Unit::Hour),
+        ("minute", Unit::Minute),
+        ("second", Unit::Second),
+        ("millisecond", Unit::Millisecond),
+        ("microsecond", Unit::Microsecond),
+        ("nanosecond", Unit::Nanosecond),
+    ]
+    .iter()
+    .try_fold(Value::duration(0, span), |accum, (column_name, unit)| {
+        if let Some(col_val) = record.get(column_name) {
+            parse_number_from_record(col_val, &head)
+                .map(|dur| dur * sign)
+                .and_then(|dur_count| unit.build_value(dur_count, head))
+                .and_then(|dur| accum.add(span, &dur, span))
+        } else {
+            Ok(accum)
+        }
+    })
 }
 
 fn parse_number_from_record(col_val: &Value, head: &Span) -> Result<i64, ShellError> {
@@ -490,23 +497,10 @@ fn parse_number_from_record(col_val: &Value, head: &Span) -> Result<i64, ShellEr
     Ok(value)
 }
 
-fn unit_to_ns_factor(unit: &Unit) -> i64 {
-    match unit {
-        Unit::Nanosecond => 1,
-        Unit::Microsecond => NS_PER_US,
-        Unit::Millisecond => NS_PER_MS,
-        Unit::Second => NS_PER_SEC,
-        Unit::Minute => NS_PER_MINUTE,
-        Unit::Hour => NS_PER_HOUR,
-        Unit::Day => NS_PER_DAY,
-        Unit::Week => NS_PER_WEEK,
-        _ => 0,
-    }
-}
-
 #[cfg(test)]
 mod test {
     use super::*;
+    use nu_protocol::test_value;
     use rstest::rstest;
 
     #[test]
@@ -515,46 +509,95 @@ mod test {
     }
 
     const NS_PER_SEC: i64 = 1_000_000_000;
+    const NS_PER_US: i64 = 1_000;
+    const NS_PER_WEEK: i64 = 7 * NS_PER_DAY;
 
     #[rstest]
-    #[case("3ns", 3)]
-    #[case("4us", 4 * NS_PER_US)]
-    #[case("4\u{00B5}s", 4 * NS_PER_US)] // micro sign
-    #[case("4\u{03BC}s", 4 * NS_PER_US)] // mu symbol
-    #[case("5ms", 5 * NS_PER_MS)]
-    #[case("1sec", NS_PER_SEC)]
-    #[case("7min", 7 * NS_PER_MINUTE)]
-    #[case("42hr", 42 * NS_PER_HOUR)]
-    #[case(" 123day ", 123 * NS_PER_DAY)]
-    #[case("3wk", 3 * NS_PER_WEEK)]
+    #[case(test_value!{"3ns"}, 3)]
+    #[case(test_value!{"4us"}, 4 * NS_PER_US)]
+    #[case(test_value!{"4\u{00B5}s"}, 4 * NS_PER_US)] // micro sign
+    #[case(test_value!{"4\u{03BC}s"}, 4 * NS_PER_US)] // mu symbol
+    #[case(test_value!{"5ms"}, 5 * NS_PER_MS)]
+    #[case(test_value!{"1sec"}, NS_PER_SEC)]
+    #[case(test_value!{"7min"}, 7 * NS_PER_MINUTE)]
+    #[case(test_value!{"42hr"}, 42 * NS_PER_HOUR)]
+    #[case(test_value!{" 123day "}, 123 * NS_PER_DAY)]
+    #[case(test_value!{"3wk"}, 3 * NS_PER_WEEK)]
     // \u{0009} is tab
-    #[case("86hr \u{0009}26ns", 86 * 3600 * NS_PER_SEC + 26)] // compound duration string,
-    #[case("14ns  3hr 17sec", 14 + 3 * NS_PER_HOUR + 17 * NS_PER_SEC)] // compound string with units in random order
-    #[case("3:34:00", 3 * NS_PER_HOUR + 34 * NS_PER_MINUTE)]
-    #[case(" \u{0009}3:34:00 ", 3 * NS_PER_HOUR + 34 * NS_PER_MINUTE)]
-    #[case("2:45:31.2", 2 * NS_PER_HOUR + 45 * NS_PER_MINUTE + 31 * NS_PER_SEC + 200 * NS_PER_MS)]
-    #[case("2:45:31.23", 2 * NS_PER_HOUR + 45 * NS_PER_MINUTE + 31 * NS_PER_SEC + 230 * NS_PER_MS)]
-    #[case("2:45:31.2345", 2 * NS_PER_HOUR + 45 * NS_PER_MINUTE + 31 * NS_PER_SEC + 234 * NS_PER_MS + 500 * NS_PER_US)]
-    #[case("16:59:58.235  ", 16 * NS_PER_HOUR + 59 * NS_PER_MINUTE + 58 * NS_PER_SEC + 235 * NS_PER_MS)]
-    #[case("16:59:58.235123", 16 * NS_PER_HOUR + 59 * NS_PER_MINUTE + 58 * NS_PER_SEC + 235 * NS_PER_MS + 123 * NS_PER_US)]
-    #[case("16:59:58.235123456", 16 * NS_PER_HOUR + 59 * NS_PER_MINUTE + 58 * NS_PER_SEC + 235 * NS_PER_MS + 123 * NS_PER_US + 456)]
+    #[case(test_value!{"86hr \u{0009}26ns"}, 86 * 3600 * NS_PER_SEC + 26)] // compound duration string
+    #[case(test_value!{"14ns  3hr 17sec"}, 14 + 3 * NS_PER_HOUR + 17 * NS_PER_SEC)] // compound string with units in random order
+    #[case(test_value!{"3:34:00 "}, 3 * NS_PER_HOUR + 34 * NS_PER_MINUTE)]
+    #[case(test_value!{" \u{0009}3:34:00 "}, 3 * NS_PER_HOUR + 34 * NS_PER_MINUTE)]
+    #[case(test_value!{"2:45:31.2"}, 2 * NS_PER_HOUR + 45 * NS_PER_MINUTE + 31 * NS_PER_SEC + 200 * NS_PER_MS)]
+    #[case(test_value!{"2:45:31.23"}, 2 * NS_PER_HOUR + 45 * NS_PER_MINUTE + 31 * NS_PER_SEC + 230 * NS_PER_MS)]
+    #[case(test_value!{"2:45:31.2345"}, 2 * NS_PER_HOUR + 45 * NS_PER_MINUTE + 31 * NS_PER_SEC + 234 * NS_PER_MS + 500 * NS_PER_US)]
+    #[case(test_value!{"16:59:58.235  "}, 16 * NS_PER_HOUR + 59 * NS_PER_MINUTE + 58 * NS_PER_SEC + 235 * NS_PER_MS)]
+    #[case(test_value!{"16:59:58.235123"}, 16 * NS_PER_HOUR + 59 * NS_PER_MINUTE + 58 * NS_PER_SEC + 235 * NS_PER_MS + 123 * NS_PER_US)]
+    #[case(test_value!{"16:59:58.235123456"}, 16 * NS_PER_HOUR + 59 * NS_PER_MINUTE + 58 * NS_PER_SEC + 235 * NS_PER_MS + 123 * NS_PER_US + 456)]
     // decimal with unit should bypass clock parser and succeed
-    #[case("78.797877879789789sec",
+    #[case(test_value!{"78.797877879789789sec"},
         NS_PER_MINUTE // 1 * NS_PER_MINUTE
         + 18 * NS_PER_SEC
         + 797 * NS_PER_MS
         + 877 * NS_PER_US
         + 879)]
+    #[case(test_value!({
+            sign: "-",
+            week: 3,
+            day: 1,
+            hour: 3,
+            minute: 20,
+            second: 10,
+            millisecond: 5,
+            microsecond: 30,
+            nanosecond: 15,
+        }), -(15 // * NS_PER_NS
+            + 30 * NS_PER_US
+            + 5 * NS_PER_MS
+            + 10 * NS_PER_SEC
+            + 20 * NS_PER_MINUTE
+            + 3 * NS_PER_HOUR
+            + NS_PER_DAY
+            + 3 * NS_PER_WEEK)
+        )]
+    fn turns_value_to_duration(#[case] value: Value, #[case] expected_duration_val: i64) {
+        let args = Arguments {
+            unit: None,
+            cell_paths: None,
+        };
+        let actual = action(&value, &args, Span::test_data());
+        match actual {
+            Value::Duration {
+                val: observed_val, ..
+            } => {
+                assert_eq!(expected_duration_val, observed_val, "expected != observed")
+            }
+            other => {
+                panic!("Expected Value::Duration, observed {other:?}");
+            }
+        }
+    }
 
-    fn turns_string_to_duration(#[case] phrase: &str, #[case] expected_duration_val: i64) {
+    #[rstest]
+    #[case(test_value!{1e5}, Unit::Second, NS_PER_SEC * 100000)]
+    #[case(test_value!{"1e5"}, Unit::Second, NS_PER_SEC * 100000)]
+    #[case(test_value!{1f64}, Unit::Nanosecond, 1)]
+    #[case(test_value!{1e-3}, Unit::Second, NS_PER_MS)]
+    #[case(test_value!{10}, Unit::Second, NS_PER_SEC * 10)]
+    #[case(test_value!{"10"}, Unit::Hour, NS_PER_HOUR * 10)]
+    fn turns_unit_value_to_duration(
+        #[case] value: Value,
+        #[case] unit: Unit,
+        #[case] expected_duration_val: i64,
+    ) {
         let args = Arguments {
             unit: Some(Spanned {
-                item: Unit::Nanosecond,
+                item: unit,
                 span: Span::test_data(),
             }),
             cell_paths: None,
         };
-        let actual = action(&Value::test_string(phrase), &args, Span::test_data());
+        let actual = action(&value, &args, Span::test_data());
         match actual {
             Value::Duration {
                 val: observed_val, ..

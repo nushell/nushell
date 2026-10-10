@@ -1,4 +1,5 @@
 use nu_protocol::SUPPORTED_DURATION_UNITS;
+use nu_protocol::shell_error::generic::GenericError;
 use nu_test_support::prelude::*;
 use pretty_assertions::assert_matches;
 use rstest::rstest;
@@ -163,7 +164,7 @@ fn into_duration_from_record_fails_with_invalid_sign() -> Result {
 
     assert_matches!(
         err,
-        ShellError::IncorrectValue { msg, .. } if msg == "Invalid sign. Allowed signs are +, -"
+        ShellError::IncorrectValue { msg, .. } if msg == "Invalid sign 'x'. Allowed signs are +, -"
     );
     Ok(())
 }
@@ -216,5 +217,60 @@ fn into_duration_from_record_incompatible_with_unit_flag() -> Result {
         } if left_message == "got a record as input"
             && right_message == "the units should be included in the record"
     );
+    Ok(())
+}
+
+#[test]
+fn into_duration_too_large_single() -> Result {
+    let code = "
+      '11111111111111wk' | into duration
+    ";
+
+    let err = test().run(code).expect_shell_error()?;
+
+    assert_matches!(
+        err,
+        ShellError::Generic(GenericError{
+            msg,
+            ..
+        }) if msg.contains("duration too large")
+    );
+
+    Ok(())
+}
+
+#[test]
+fn into_duration_too_large_composite() -> Result {
+    let code = "
+      '11111wk 11111wk' | into duration
+    ";
+
+    let err = test().run(code).expect_shell_error()?;
+
+    assert_matches!(
+        err,
+        ShellError::OperatorOverflow {
+            msg, ..
+        } if msg.contains("operation overflowed")
+    );
+
+    Ok(())
+}
+
+#[test]
+fn into_duration_empty_string() -> Result {
+    let code = "
+        '' | into duration
+    ";
+
+    let err = test().run(code).expect_shell_error()?;
+
+    assert_matches!(
+        err,
+        ShellError::IncorrectValue {
+            msg, ..
+        } if msg == "empty duration string"
+    );
+
     Ok(())
 }
