@@ -122,22 +122,30 @@ fn parses_csv() -> Result {
     })
 }
 
-/// A `from <ext>` alias runs the call it stands for, flags included, instead of failing with
+/// A `from <ext>` alias is rejected with an error suggesting a `def`, instead of failing with
 /// "Can't run alias directly" (#18725).
 #[test]
-fn opens_with_a_from_alias() -> Result {
+fn open_with_a_from_alias_suggests_def() -> Result {
     Playground::setup("open_with_from_alias", |dirs, sandbox| {
         sandbox.with_files(&[
             FileWithContent("deno.jsonc", r#"{"name": "nu"}"#),
             FileWithContent("plain.foo", "a,b\n1,2\n"),
         ]);
 
-        let code = r#"alias "from jsonc" = from json; open deno.jsonc | get name"#;
-        test().cwd(dirs.test()).run(code).expect_value_eq("nu")?;
+        let code = r#"alias "from jsonc" = from json; open deno.jsonc"#;
+        let err = test().cwd(dirs.test()).run(code).expect_error()?;
+        assert_contains("Can't open file with alias `from jsonc`", err.to_string());
+        assert_contains("def 'from jsonc' [] { from json }", format!("{err:?}"));
+        assert!(!format!("{err:?}").contains("Can't run alias directly"));
 
-        // With `--noheaders` the first line is data, not the column names.
-        let code = r#"alias "from foo" = from csv --noheaders; open plain.foo | get column0.0"#;
-        test().cwd(dirs.test()).run(code).expect_value_eq("a")
+        // The suggestion keeps the alias's flags.
+        let code = r#"alias "from foo" = from csv --noheaders; open plain.foo"#;
+        let err = test().cwd(dirs.test()).run(code).expect_error()?;
+        assert_contains(
+            "def 'from foo' [] { from csv --noheaders }",
+            format!("{err:?}"),
+        );
+        Ok(())
     })
 }
 

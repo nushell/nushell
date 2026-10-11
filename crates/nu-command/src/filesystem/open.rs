@@ -1,4 +1,4 @@
-use nu_engine::{command_prelude::*, eval_call, get_eval_expression_with_input};
+use nu_engine::{command_prelude::*, eval_call};
 use nu_path::is_windows_device_path;
 use nu_protocol::{
     DataSource, NuGlob, PipelineMetadata, ast,
@@ -214,34 +214,42 @@ impl Command for Open {
 
                     match converter {
                         Some((converter_id, ext)) => {
-                            let command_output = if let Some(alias) =
-                                engine_state.get_decl(converter_id).as_alias()
-                            {
-                                // An alias can't run by itself: run the call it stands for, with
-                                // its arguments (`alias "from jsonc" = from json`, #18725).
-                                get_eval_expression_with_input(engine_state)(
-                                    engine_state,
-                                    stack,
-                                    &alias.wrapped_call,
-                                    stream,
-                                )
-                            } else {
-                                let open_call = ast::Call {
-                                    decl_id: converter_id,
-                                    head: call_span,
-                                    arguments: vec![],
-                                    parser_info: HashMap::new(),
+                            // `open` runs the `from <ext>` converter by looking it up by name,
+                            // but an alias can't be run on its own. Rather than failing with an
+                            // internal error, point the user at a custom command, which `open`
+                            // can run (#18725).
+                            if let Some(alias) = engine_state.get_decl(converter_id).as_alias() {
+                                // Suggest a `def` that wraps the same call as the alias.
+                                let wrapped = String::from_utf8_lossy(
+                                    engine_state.get_span_contents(alias.wrapped_call.span),
+                                );
+                                let body = match wrapped.trim() {
+                                    "" => "...",
+                                    wrapped => wrapped,
                                 };
-                                if engine_state.is_debugging() {
-                                    eval_call::<WithDebug>(engine_state, stack, &open_call, stream)
-                                } else {
-                                    eval_call::<WithoutDebug>(
-                                        engine_state,
-                                        stack,
-                                        &open_call,
-                                        stream,
+                                return Err(ShellError::Generic(
+                                    GenericError::new(
+                                        format!("Can't open file with alias `{}`", alias.name),
+                                        format!("`{}` is an alias, not a command", alias.name),
+                                        arg_span,
                                     )
-                                }
+                                    .with_help(format!(
+                                        "`open` can only use a command as a converter. Define one with `def` instead: `def '{}' [] {{ {body} }}`",
+                                        alias.name
+                                    )),
+                                ));
+                            }
+
+                            let open_call = ast::Call {
+                                decl_id: converter_id,
+                                head: call_span,
+                                arguments: vec![],
+                                parser_info: HashMap::new(),
+                            };
+                            let command_output = if engine_state.is_debugging() {
+                                eval_call::<WithDebug>(engine_state, stack, &open_call, stream)
+                            } else {
+                                eval_call::<WithoutDebug>(engine_state, stack, &open_call, stream)
                             };
                             output.push(command_output.map_err(|inner| {
                                 ShellError::Generic(

@@ -600,17 +600,18 @@ fn save_with_custom_converter() -> Result {
     })
 }
 
-/// A `to <ext>` alias runs the call it stands for, flags included, instead of failing with
+/// A `to <ext>` alias is rejected with an error suggesting a `def`, instead of failing with
 /// "Can't run alias directly" (#18725).
 #[test]
-fn save_with_a_to_alias() -> Result {
+fn save_with_a_to_alias_suggests_def() -> Result {
     Playground::setup("save_with_to_alias", |dirs, _| {
-        let file = dirs.test().join("test.jsonc");
-
         let code = r#"alias "to jsonc" = to json --raw; {a: 1, b: 2} | save test.jsonc"#;
-        let () = test().cwd(dirs.test()).run(code)?;
+        let err = test().cwd(dirs.test()).run(code).expect_error()?;
 
-        assert_eq!(fs::read_to_string(file)?, r#"{"a":1,"b":2}"#);
+        assert_contains("Can't save file with alias `to jsonc`", err.to_string());
+        assert_contains("def 'to jsonc' [] { to json --raw }", format!("{err:?}"));
+        assert!(!format!("{err:?}").contains("Can't run alias directly"));
+        assert!(!dirs.test().join("test.jsonc").exists());
         Ok(())
     })
 }
