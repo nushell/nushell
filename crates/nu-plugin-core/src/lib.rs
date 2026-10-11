@@ -20,7 +20,7 @@ pub use interface::{
 
 // Required for SDK-managed input cleanup, not part of the plugin author API.
 #[doc(hidden)]
-pub use interface::stream::StreamReaderSignal;
+pub use interface::stream::{StreamReaderHold, StreamReaderSignal};
 pub use serializers::{
     Encoder, EncodingType, PluginEncoder, json::JsonSerializer, msgpack::MsgPackSerializer,
 };

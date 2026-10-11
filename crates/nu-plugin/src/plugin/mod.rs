@@ -530,8 +530,8 @@ where
                     .and_then(|writer| writer.write());
                 // A returned lazy stream is still part of the response. Only release input after
                 // writing it has ended, including write failures, preserving the original error.
-                let cleanup_result = engine.finish_input();
-                let write_result = write_result.and(cleanup_result).try_to_report(&engine);
+                engine.finish_input();
+                let write_result = write_result.try_to_report(&engine);
                 if let Err(err) = write_result {
                     let _ = error_tx.send(err);
                 }

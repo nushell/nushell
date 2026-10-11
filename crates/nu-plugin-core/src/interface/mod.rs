@@ -17,7 +17,8 @@ pub mod stream;
 use crate::Encoder;
 
 use self::stream::{
-    StreamManager, StreamManagerHandle, StreamReaderSignal, StreamWriter, WriteStreamMessage,
+    StreamManager, StreamManagerHandle, StreamReaderHold, StreamReaderSignal, StreamWriter,
+    WriteStreamMessage,
 };
 
 pub mod test_util;
@@ -196,14 +197,18 @@ pub trait InterfaceManager {
             PipelineDataHeader::Value(value, metadata) => PipelineData::value(value, metadata),
             PipelineDataHeader::ListStream(info) => {
                 let handle = self.stream_manager().get_handle();
-                let reader = handle.read_stream(info.id, self.get_interface())?;
+                let reader = handle
+                    .read_stream(info.id, self.get_interface())?
+                    .with_span(info.span);
                 cancellation = Some(reader.cancellation());
                 let ls = ListStream::new(reader, info.span, signals.clone());
                 PipelineData::list_stream(ls, info.metadata)
             }
             PipelineDataHeader::ByteStream(info) => {
                 let handle = self.stream_manager().get_handle();
-                let reader = handle.read_stream(info.id, self.get_interface())?;
+                let reader = handle
+                    .read_stream(info.id, self.get_interface())?
+                    .with_span(info.span);
                 cancellation = Some(reader.cancellation());
                 let bs =
                     ByteStream::from_result_iter(reader, info.span, signals.clone(), info.type_);
@@ -336,9 +341,9 @@ where
 {
     /// Arrange for an early peer Drop of this response stream to cancel its call's input.
     #[doc(hidden)]
-    pub fn cancel_input_on_drop(&self, input: StreamReaderSignal) -> Result<(), ShellError> {
+    pub fn cancel_input_on_drop(&self, input: StreamReaderSignal) {
         match self {
-            Self::None => Ok(()),
+            Self::None => (),
             Self::ListStream(writer, _) | Self::ByteStream(writer, _) => {
                 writer.cancel_input_on_drop(input)
             }
@@ -401,20 +406,18 @@ where
         }
     }
 
-    /// Keep SDK-owned input forwarding alive until the background write finishes or its consumer
-    /// drops the stream. The guard is also released on write or thread-spawn failure. This uses
-    /// the existing writer thread, and doesn't wait for an early engine-call response.
+    /// Attach an SDK-owned input hold before publishing an engine-call input header. The hold is
+    /// released when forwarding finishes, fails, or its consumer drops the stream. A writer
+    /// without a stream releases the hold immediately.
     #[doc(hidden)]
-    pub fn write_background_with_guard(
-        self,
-        guard: impl std::fmt::Debug + Send + 'static,
-    ) -> Result<Option<thread::JoinHandle<Result<(), ShellError>>>, ShellError> {
-        match &self {
-            Self::None => {}
-            Self::ListStream(writer, _) | Self::ByteStream(writer, _) => {
-                writer.keep_input_alive(guard)?;
+    pub fn keep_input_alive(&self, guard: Option<StreamReaderHold>) {
+        if let Some(guard) = guard {
+            match self {
+                Self::None => (),
+                Self::ListStream(writer, _) | Self::ByteStream(writer, _) => {
+                    writer.keep_input_alive(guard);
+                }
             }
         }
-        self.write_background()
     }
 }

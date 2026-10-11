@@ -48,6 +48,16 @@ impl SdkTest {
     }
 
     fn run(&self, call_id: usize, name: &str, byte_stream: bool) -> Result<(), ShellError> {
+        self.run_with_flags(call_id, name, byte_stream, &[])
+    }
+
+    fn run_with_flags(
+        &self,
+        call_id: usize,
+        name: &str,
+        byte_stream: bool,
+        flags: &[&str],
+    ) -> Result<(), ShellError> {
         let input_id = 10 + call_id;
         let input = if byte_stream {
             PipelineDataHeader::byte_stream(ByteStreamInfo::new(
@@ -58,11 +68,18 @@ impl SdkTest {
         } else {
             PipelineDataHeader::list_stream(ListStreamInfo::new(input_id, Span::test_data()))
         };
+        let mut call = EvaluatedCall::new(Span::test_data());
+        for flag in flags {
+            call.add_flag(Spanned {
+                item: *flag,
+                span: call.head,
+            });
+        }
         self.peer.write(&PluginInput::Call(
             call_id,
             PluginCall::Run(CallInfo {
                 name: name.into(),
-                call: EvaluatedCall::new(Span::test_data()),
+                call,
                 input,
             }),
         ))
@@ -262,17 +279,23 @@ impl PluginCommand for ForwardInput {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
+            .switch("redirect", "Return the engine call's output stream", None)
+            .switch("progress", "Return an independent progress stream", None)
     }
 
     fn run(
         &self,
-        _plugin: &InputPlugin,
+        plugin: &InputPlugin,
         engine: &EngineInterface,
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        if self.0 {
-            Ok(engine.eval_closure_with_stream(
+        if plugin.gc_disabled {
+            engine.set_gc_disabled(true)?;
+        }
+        let redirect_stdout = call.has_flag("redirect")?;
+        let response = if self.0 {
+            engine.eval_closure_with_stream(
                 &Spanned {
                     item: Closure {
                         block_id: BlockId::new(42),
@@ -282,128 +305,550 @@ impl PluginCommand for ForwardInput {
                 },
                 vec![],
                 input,
+                redirect_stdout,
                 false,
-                false,
-            )?)
+            )?
         } else {
-            Ok(engine.call_decl(
+            engine.call_decl(
                 DeclId::new(42),
                 EvaluatedCall::new(call.head),
                 input,
+                redirect_stdout,
                 false,
-                false,
-            )?)
+            )?
+        };
+        if call.has_flag("progress")? {
+            // More than the flow-control window: the output can't finish before the peer Drop.
+            Ok((0..200)
+                .map(Value::test_int)
+                .into_pipeline_data(call.head, Signals::empty()))
+        } else {
+            Ok(response)
         }
     }
 }
 
-/// A non-redirected engine call can respond Empty while its SDK-owned input writer is still idle.
-/// Completing the plugin response must preserve that writer, but dropping its stream must release
-/// deferred cleanup without waiting for the upstream producer to send data.
-#[test]
-fn sdk_completion_preserves_engine_call_forwarding_until_consumed_or_dropped()
--> Result<(), ShellError> {
-    for name in ["forward-decl", "forward-closure"] {
-        for byte_stream in [false, true] {
-            for drop_forwarded_input in [false, true] {
-                let sdk = SdkTest::new(InputPlugin {
-                    gc_disabled: false,
-                    background: None,
-                })?;
-                let peer = &sdk.peer;
-                let output = &sdk.output;
-                sdk.run(0, name, byte_stream)?;
-                let (engine_call_id, forwarded_id) =
-                    match output.0.recv_timeout(TIMEOUT).expect("missing engine call") {
-                        PluginOutput::EngineCall {
-                            id,
-                            call:
-                                EngineCall::CallDecl {
-                                    input,
-                                    redirect_stdout: false,
-                                    ..
-                                }
-                                | EngineCall::EvalClosure {
-                                    input,
-                                    redirect_stdout: false,
-                                    ..
-                                },
-                            ..
-                        } => (id, input.stream_id().expect("missing forwarded stream")),
-                        other => panic!("unexpected output: {other:?}"),
-                    };
-                peer.write(&PluginInput::EngineCallResponse(
-                    engine_call_id,
-                    EngineCallResponse::PipelineData(PipelineDataHeader::Empty),
-                ))?;
-                assert!(matches!(
-                    output.0.recv_timeout(TIMEOUT),
-                    Ok(PluginOutput::CallResponse(
-                        0,
-                        PluginCallResponse::PipelineData(PipelineDataHeader::Empty)
-                    ))
-                ));
-                if drop_forwarded_input {
-                    peer.write(&PluginInput::Drop(forwarded_id))?;
-                } else {
-                    // Only start producing input after the plugin's own response has completed.
-                    for n in 1..=5 {
-                        let data = if byte_stream {
-                            StreamData::Raw(Ok(vec![n]))
-                        } else {
-                            Value::test_int(n.into()).into()
-                        };
-                        peer.write(&PluginInput::Data(10, data))?;
-                    }
-                    peer.write(&PluginInput::End(10))?;
+#[derive(Clone, Copy)]
+enum ForwardingResponse {
+    Empty,
+    Redirected,
+    DroppedProgress,
+}
+
+/// Run one SDK lifecycle. Keep upstream idle until every Run runner has finished, so response
+/// timing cannot hide premature cleanup. A redirected engine result closes before its input
+/// consumer finishes; an independent progress response is dropped while forwarding is active.
+fn check_forwarding(
+    name: &str,
+    byte_stream: bool,
+    response: ForwardingResponse,
+    drop_forwarded_input: bool,
+    gc_disabled: bool,
+) -> Result<(), ShellError> {
+    let mut sdk = SdkTest::new(InputPlugin {
+        gc_disabled,
+        background: None,
+    })?;
+    let flags: &[&str] = match response {
+        ForwardingResponse::Empty => &[],
+        ForwardingResponse::Redirected => &["redirect"],
+        ForwardingResponse::DroppedProgress => &["progress"],
+    };
+    sdk.run_with_flags(0, name, byte_stream, flags)?;
+    if gc_disabled {
+        assert!(matches!(
+            sdk.output.0.recv_timeout(TIMEOUT),
+            Ok(PluginOutput::Option(PluginOption::GcDisabled(true)))
+        ));
+    }
+    let redirected = matches!(response, ForwardingResponse::Redirected);
+    let (engine_call_id, forwarded_id) = match sdk
+        .output
+        .0
+        .recv_timeout(TIMEOUT)
+        .expect("missing engine call")
+    {
+        PluginOutput::EngineCall {
+            id,
+            call:
+                EngineCall::CallDecl {
+                    input,
+                    redirect_stdout,
+                    ..
                 }
-                let mut forwarded_values = Vec::new();
-                let mut forwarded_bytes = Vec::new();
-                let mut input_drops = 0;
-                let mut output_ended = false;
-                while input_drops == 0 || !output_ended {
-                    match output
-                        .0
-                        .recv_timeout(TIMEOUT)
-                        .expect("forwarder did not finish")
-                    {
-                        PluginOutput::Ack(10) if !drop_forwarded_input => (),
-                        PluginOutput::Data(id, StreamData::List(value)) if id == forwarded_id => {
-                            forwarded_values.push(value)
-                        }
-                        PluginOutput::Data(id, StreamData::Raw(bytes)) if id == forwarded_id => {
-                            forwarded_bytes.extend(bytes?)
-                        }
-                        PluginOutput::Drop(10) => input_drops += 1,
-                        PluginOutput::End(id) if id == forwarded_id => output_ended = true,
-                        other => panic!("unexpected forwarding output: {other:?}"),
-                    }
-                }
-                if drop_forwarded_input {
-                    assert!(forwarded_values.is_empty() && forwarded_bytes.is_empty());
-                    let late_data = if byte_stream {
-                        StreamData::Raw(Ok(vec![99]))
-                    } else {
-                        Value::test_int(99).into()
-                    };
-                    peer.write(&PluginInput::Data(10, late_data))?;
-                    peer.write(&PluginInput::End(10))?;
-                } else if byte_stream {
-                    assert_eq!(forwarded_bytes, vec![1, 2, 3, 4, 5]);
-                    assert!(forwarded_values.is_empty());
-                } else {
-                    assert_eq!(
-                        forwarded_values,
-                        (1..=5).map(Value::test_int).collect::<Vec<_>>()
-                    );
-                    assert!(forwarded_bytes.is_empty());
-                }
-                assert_eq!(input_drops, 1);
-                sdk.stop()?;
+                | EngineCall::EvalClosure {
+                    input,
+                    redirect_stdout,
+                    ..
+                },
+            ..
+        } => {
+            assert_eq!(redirect_stdout, redirected);
+            (id, input.stream_id().expect("missing forwarded stream"))
+        }
+        other => panic!("unexpected output: {other:?}"),
+    };
+    let result_header = if redirected {
+        if byte_stream {
+            PipelineDataHeader::byte_stream(ByteStreamInfo::new(
+                20,
+                Span::test_data(),
+                ByteStreamType::Binary,
+            ))
+        } else {
+            PipelineDataHeader::list_stream(ListStreamInfo::new(20, Span::test_data()))
+        }
+    } else {
+        PipelineDataHeader::Empty
+    };
+    sdk.peer.write(&PluginInput::EngineCallResponse(
+        engine_call_id,
+        EngineCallResponse::PipelineData(result_header),
+    ))?;
+    if redirected {
+        // Like an external closing stdout early while it keeps consuming stdin.
+        sdk.peer.write(&PluginInput::End(20))?;
+    }
+    let response_id = match sdk
+        .output
+        .0
+        .recv_timeout(TIMEOUT)
+        .expect("missing plugin response")
+    {
+        PluginOutput::CallResponse(0, PluginCallResponse::PipelineData(header)) => {
+            header.stream_id()
+        }
+        other => panic!("unexpected plugin response: {other:?}"),
+    };
+    if matches!(response, ForwardingResponse::DroppedProgress) {
+        let id = response_id.expect("missing progress stream");
+        assert!(matches!(
+            sdk.output.0.recv_timeout(TIMEOUT),
+            Ok(PluginOutput::Data(data_id, StreamData::List(_))) if data_id == id
+        ));
+        sdk.peer.write(&PluginInput::Drop(id))?;
+    } else {
+        assert_eq!(response_id.is_some(), redirected);
+    }
+
+    // This barrier proves finish_input ran while the forwarding writer still had idle input.
+    // The transport and SDK-owned forwarding thread remain alive.
+    sdk.finish_calls()?;
+    if drop_forwarded_input {
+        sdk.peer.write(&PluginInput::Drop(forwarded_id))?;
+    } else {
+        for n in 1..=5 {
+            let data = if byte_stream {
+                StreamData::Raw(Ok(vec![n]))
+            } else {
+                Value::test_int(n.into()).into()
+            };
+            sdk.peer.write(&PluginInput::Data(10, data))?;
+        }
+        sdk.peer.write(&PluginInput::End(10))?;
+    }
+    let mut forwarded_values = Vec::new();
+    let mut forwarded_bytes = Vec::new();
+    let mut input_drops = 0;
+    let mut forward_ended = false;
+    let mut response_ended = response_id.is_none();
+    while input_drops == 0 || !forward_ended || !response_ended {
+        match sdk
+            .output
+            .0
+            .recv_timeout(TIMEOUT)
+            .expect("forwarder did not finish")
+        {
+            PluginOutput::Ack(10) if !drop_forwarded_input => (),
+            PluginOutput::Data(id, StreamData::List(value)) if id == forwarded_id => {
+                forwarded_values.push(value)
             }
+            PluginOutput::Data(id, StreamData::Raw(bytes)) if id == forwarded_id => {
+                forwarded_bytes.extend(bytes?)
+            }
+            PluginOutput::Data(id, StreamData::List(_)) if Some(id) == response_id => (),
+            PluginOutput::Drop(10) => input_drops += 1,
+            PluginOutput::Drop(20) if redirected => (),
+            PluginOutput::End(id) if id == forwarded_id => forward_ended = true,
+            PluginOutput::End(id) if Some(id) == response_id => response_ended = true,
+            other => panic!("unexpected forwarding output: {other:?}"),
         }
     }
-    Ok(())
+    if drop_forwarded_input {
+        assert!(forwarded_values.is_empty() && forwarded_bytes.is_empty());
+        // Goodbye already closed call intake. With the last forwarder gone the SDK may close
+        // transport, so don't race that shutdown with late messages. Live-manager tests cover
+        // accepting in-flight Data and End after cancellation.
+    } else if byte_stream {
+        assert_eq!(forwarded_bytes, vec![1, 2, 3, 4, 5]);
+        assert!(forwarded_values.is_empty());
+    } else {
+        assert_eq!(
+            forwarded_values,
+            (1..=5).map(Value::test_int).collect::<Vec<_>>()
+        );
+        assert!(forwarded_bytes.is_empty());
+    }
+    assert_eq!(input_drops, 1);
+    sdk.stop()
+}
+
+#[test]
+fn sdk_completion_preserves_call_decl_list_forwarding() -> Result<(), ShellError> {
+    check_forwarding(
+        "forward-decl",
+        false,
+        ForwardingResponse::Empty,
+        false,
+        false,
+    )
+}
+
+#[test]
+fn sdk_completion_releases_dropped_call_decl_list_forwarding() -> Result<(), ShellError> {
+    check_forwarding(
+        "forward-decl",
+        false,
+        ForwardingResponse::Empty,
+        true,
+        false,
+    )
+}
+
+#[test]
+fn sdk_completion_preserves_call_decl_list_forwarding_redirected() -> Result<(), ShellError> {
+    check_forwarding(
+        "forward-decl",
+        false,
+        ForwardingResponse::Redirected,
+        false,
+        false,
+    )
+}
+
+#[test]
+fn sdk_completion_releases_dropped_call_decl_list_forwarding_redirected() -> Result<(), ShellError>
+{
+    check_forwarding(
+        "forward-decl",
+        false,
+        ForwardingResponse::Redirected,
+        true,
+        false,
+    )
+}
+
+#[test]
+fn sdk_output_drop_preserves_call_decl_list_forwarding() -> Result<(), ShellError> {
+    check_forwarding(
+        "forward-decl",
+        false,
+        ForwardingResponse::DroppedProgress,
+        false,
+        false,
+    )
+}
+
+#[test]
+fn sdk_output_drop_releases_dropped_call_decl_list_forwarding() -> Result<(), ShellError> {
+    check_forwarding(
+        "forward-decl",
+        false,
+        ForwardingResponse::DroppedProgress,
+        true,
+        false,
+    )
+}
+
+#[test]
+fn sdk_output_drop_preserves_call_decl_list_forwarding_with_gc_disabled() -> Result<(), ShellError>
+{
+    check_forwarding(
+        "forward-decl",
+        false,
+        ForwardingResponse::DroppedProgress,
+        false,
+        true,
+    )
+}
+
+#[test]
+fn sdk_output_drop_releases_dropped_call_decl_list_forwarding_with_gc_disabled()
+-> Result<(), ShellError> {
+    check_forwarding(
+        "forward-decl",
+        false,
+        ForwardingResponse::DroppedProgress,
+        true,
+        true,
+    )
+}
+
+#[test]
+fn sdk_completion_preserves_call_decl_byte_forwarding() -> Result<(), ShellError> {
+    check_forwarding(
+        "forward-decl",
+        true,
+        ForwardingResponse::Empty,
+        false,
+        false,
+    )
+}
+
+#[test]
+fn sdk_completion_releases_dropped_call_decl_byte_forwarding() -> Result<(), ShellError> {
+    check_forwarding("forward-decl", true, ForwardingResponse::Empty, true, false)
+}
+
+#[test]
+fn sdk_completion_preserves_call_decl_byte_forwarding_redirected() -> Result<(), ShellError> {
+    check_forwarding(
+        "forward-decl",
+        true,
+        ForwardingResponse::Redirected,
+        false,
+        false,
+    )
+}
+
+#[test]
+fn sdk_completion_releases_dropped_call_decl_byte_forwarding_redirected() -> Result<(), ShellError>
+{
+    check_forwarding(
+        "forward-decl",
+        true,
+        ForwardingResponse::Redirected,
+        true,
+        false,
+    )
+}
+
+#[test]
+fn sdk_output_drop_preserves_call_decl_byte_forwarding() -> Result<(), ShellError> {
+    check_forwarding(
+        "forward-decl",
+        true,
+        ForwardingResponse::DroppedProgress,
+        false,
+        false,
+    )
+}
+
+#[test]
+fn sdk_output_drop_releases_dropped_call_decl_byte_forwarding() -> Result<(), ShellError> {
+    check_forwarding(
+        "forward-decl",
+        true,
+        ForwardingResponse::DroppedProgress,
+        true,
+        false,
+    )
+}
+
+#[test]
+fn sdk_output_drop_preserves_call_decl_byte_forwarding_with_gc_disabled() -> Result<(), ShellError>
+{
+    check_forwarding(
+        "forward-decl",
+        true,
+        ForwardingResponse::DroppedProgress,
+        false,
+        true,
+    )
+}
+
+#[test]
+fn sdk_output_drop_releases_dropped_call_decl_byte_forwarding_with_gc_disabled()
+-> Result<(), ShellError> {
+    check_forwarding(
+        "forward-decl",
+        true,
+        ForwardingResponse::DroppedProgress,
+        true,
+        true,
+    )
+}
+
+#[test]
+fn sdk_completion_preserves_eval_closure_list_forwarding() -> Result<(), ShellError> {
+    check_forwarding(
+        "forward-closure",
+        false,
+        ForwardingResponse::Empty,
+        false,
+        false,
+    )
+}
+
+#[test]
+fn sdk_completion_releases_dropped_eval_closure_list_forwarding() -> Result<(), ShellError> {
+    check_forwarding(
+        "forward-closure",
+        false,
+        ForwardingResponse::Empty,
+        true,
+        false,
+    )
+}
+
+#[test]
+fn sdk_completion_preserves_eval_closure_list_forwarding_redirected() -> Result<(), ShellError> {
+    check_forwarding(
+        "forward-closure",
+        false,
+        ForwardingResponse::Redirected,
+        false,
+        false,
+    )
+}
+
+#[test]
+fn sdk_completion_releases_dropped_eval_closure_list_forwarding_redirected()
+-> Result<(), ShellError> {
+    check_forwarding(
+        "forward-closure",
+        false,
+        ForwardingResponse::Redirected,
+        true,
+        false,
+    )
+}
+
+#[test]
+fn sdk_output_drop_preserves_eval_closure_list_forwarding() -> Result<(), ShellError> {
+    check_forwarding(
+        "forward-closure",
+        false,
+        ForwardingResponse::DroppedProgress,
+        false,
+        false,
+    )
+}
+
+#[test]
+fn sdk_output_drop_releases_dropped_eval_closure_list_forwarding() -> Result<(), ShellError> {
+    check_forwarding(
+        "forward-closure",
+        false,
+        ForwardingResponse::DroppedProgress,
+        true,
+        false,
+    )
+}
+
+#[test]
+fn sdk_output_drop_preserves_eval_closure_list_forwarding_with_gc_disabled()
+-> Result<(), ShellError> {
+    check_forwarding(
+        "forward-closure",
+        false,
+        ForwardingResponse::DroppedProgress,
+        false,
+        true,
+    )
+}
+
+#[test]
+fn sdk_output_drop_releases_dropped_eval_closure_list_forwarding_with_gc_disabled()
+-> Result<(), ShellError> {
+    check_forwarding(
+        "forward-closure",
+        false,
+        ForwardingResponse::DroppedProgress,
+        true,
+        true,
+    )
+}
+
+#[test]
+fn sdk_completion_preserves_eval_closure_byte_forwarding() -> Result<(), ShellError> {
+    check_forwarding(
+        "forward-closure",
+        true,
+        ForwardingResponse::Empty,
+        false,
+        false,
+    )
+}
+
+#[test]
+fn sdk_completion_releases_dropped_eval_closure_byte_forwarding() -> Result<(), ShellError> {
+    check_forwarding(
+        "forward-closure",
+        true,
+        ForwardingResponse::Empty,
+        true,
+        false,
+    )
+}
+
+#[test]
+fn sdk_completion_preserves_eval_closure_byte_forwarding_redirected() -> Result<(), ShellError> {
+    check_forwarding(
+        "forward-closure",
+        true,
+        ForwardingResponse::Redirected,
+        false,
+        false,
+    )
+}
+
+#[test]
+fn sdk_completion_releases_dropped_eval_closure_byte_forwarding_redirected()
+-> Result<(), ShellError> {
+    check_forwarding(
+        "forward-closure",
+        true,
+        ForwardingResponse::Redirected,
+        true,
+        false,
+    )
+}
+
+#[test]
+fn sdk_output_drop_preserves_eval_closure_byte_forwarding() -> Result<(), ShellError> {
+    check_forwarding(
+        "forward-closure",
+        true,
+        ForwardingResponse::DroppedProgress,
+        false,
+        false,
+    )
+}
+
+#[test]
+fn sdk_output_drop_releases_dropped_eval_closure_byte_forwarding() -> Result<(), ShellError> {
+    check_forwarding(
+        "forward-closure",
+        true,
+        ForwardingResponse::DroppedProgress,
+        true,
+        false,
+    )
+}
+
+#[test]
+fn sdk_output_drop_preserves_eval_closure_byte_forwarding_with_gc_disabled()
+-> Result<(), ShellError> {
+    check_forwarding(
+        "forward-closure",
+        true,
+        ForwardingResponse::DroppedProgress,
+        false,
+        true,
+    )
+}
+
+#[test]
+fn sdk_output_drop_releases_dropped_eval_closure_byte_forwarding_with_gc_disabled()
+-> Result<(), ShellError> {
+    check_forwarding(
+        "forward-closure",
+        true,
+        ForwardingResponse::DroppedProgress,
+        true,
+        true,
+    )
 }
 
 #[test]

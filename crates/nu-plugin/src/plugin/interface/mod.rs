@@ -22,7 +22,7 @@ use nu_utils::SharedCow;
 use std::{
     collections::{BTreeMap, HashMap, btree_map},
     sync::{
-        Arc, Mutex, MutexGuard,
+        Arc, Mutex,
         atomic::{AtomicBool, Ordering as AtomicOrdering},
         mpsc,
     },
@@ -305,12 +305,7 @@ impl InterfaceManager for EngineInterfaceManager {
                 let call = match call.map_data(|input| {
                     let (data, cancellation) =
                         self.read_pipeline_data_with_cancellation(input, &Signals::empty())?;
-                    interface.input = cancellation.map(|cancellation| {
-                        Arc::new(CallInput {
-                            cancellation,
-                            forwarding: Mutex::new(CallInputForwarding::default()),
-                        })
-                    });
+                    interface.input = cancellation;
                     Ok(data)
                 }) {
                     Ok(call) => call,
@@ -419,77 +414,6 @@ fn deserialize_call_args(call: &mut crate::EvaluatedCall) -> Result<(), ShellErr
         .try_for_each(PluginCustomValue::deserialize_custom_values_in)
 }
 
-/// Original input for one Run call. The signal does not keep the reader alive.
-#[derive(Debug)]
-struct CallInput {
-    cancellation: StreamReaderSignal,
-    forwarding: Mutex<CallInputForwarding>,
-}
-
-#[derive(Debug, Default)]
-struct CallInputForwarding {
-    active: usize,
-    /// Completion requested cleanup, but SDK-owned forwarding may still be reading the input.
-    finished: bool,
-}
-
-impl CallInput {
-    fn lock(&self) -> Result<MutexGuard<'_, CallInputForwarding>, ShellError> {
-        self.forwarding
-            .lock()
-            .map_err(|_| ShellError::NushellFailed {
-                msg: "Call input forwarding mutex poisoned due to panic".into(),
-            })
-    }
-
-    fn begin_forwarding(self: &Arc<Self>) -> Result<InputForwarder, ShellError> {
-        let mut forwarding = self.lock()?;
-        forwarding.active =
-            forwarding
-                .active
-                .checked_add(1)
-                .ok_or_else(|| ShellError::NushellFailed {
-                    msg: "Too many active plugin input forwarders".into(),
-                })?;
-        Ok(InputForwarder(self.clone()))
-    }
-
-    fn finish(&self) -> Result<(), ShellError> {
-        let mut forwarding = self.lock()?;
-        forwarding.finished = true;
-        if forwarding.active == 0 {
-            self.cancellation.cancel();
-        }
-        Ok(())
-    }
-}
-
-/// Lives in the SDK's forwarding writer signal, not in plugin-owned reader threads. An engine
-/// call can respond before consuming its input, so completion cleanup must wait for this guard.
-#[derive(Debug)]
-struct InputForwarder(Arc<CallInput>);
-
-impl Drop for InputForwarder {
-    fn drop(&mut self) {
-        let result = self.0.lock().and_then(|mut forwarding| {
-            forwarding.active =
-                forwarding
-                    .active
-                    .checked_sub(1)
-                    .ok_or_else(|| ShellError::NushellFailed {
-                        msg: "Plugin input forwarder counter underflow".into(),
-                    })?;
-            if forwarding.active == 0 && forwarding.finished {
-                self.0.cancellation.cancel();
-            }
-            Ok(())
-        });
-        if let Err(err) = result {
-            log::warn!("Failed to finish forwarding plugin input: {err}");
-        }
-    }
-}
-
 /// A reference through which the nushell engine can be interacted with during execution.
 #[derive(Debug, Clone)]
 pub struct EngineInterface {
@@ -500,7 +424,7 @@ pub struct EngineInterface {
     /// The plugin call this interface belongs to.
     context: Option<PluginCallId>,
     /// Original transport input, shared by interface clones but never exposed to plugin code.
-    input: Option<Arc<CallInput>>,
+    input: Option<StreamReaderSignal>,
 }
 
 impl EngineInterface {
@@ -548,7 +472,7 @@ impl EngineInterface {
                 // Link before publishing the header, so even an immediate Drop can wake the
                 // original input. Engine-call input writers must not have this link.
                 if let Some(input) = &self.input {
-                    writer.cancel_input_on_drop(input.cancellation.clone())?;
+                    writer.cancel_input_on_drop(input.clone());
                 }
                 // Write pipeline data header response, and the full stream
                 let response = PluginCallResponse::PipelineData(header);
@@ -568,13 +492,12 @@ impl EngineInterface {
     /// Release this call's original input after the entire response has finished writing.
     /// Plugins opting out of GC may keep consuming input in the background after completion.
     /// SDK-owned forwarding to an engine call also keeps the input readable until it finishes.
-    pub(crate) fn finish_input(&self) -> Result<(), ShellError> {
+    pub(crate) fn finish_input(&self) {
         if let Some(input) = &self.input
             && !self.state.gc_disabled.load(AtomicOrdering::Acquire)
         {
-            input.finish()?;
+            input.cancel_when_released();
         }
-        Ok(())
     }
 
     /// Write a call response of plugin metadata.
@@ -627,6 +550,10 @@ impl EngineInterface {
 
         let call = call.map_data(|input| {
             let (input_header, input_writer) = self.init_write_pipeline_data(input, &())?;
+            // PipelineData is opaque, so conservatively hold the original input while any SDK
+            // forwarding stream still has a consumer. Attach before publishing the engine call:
+            // its response, or a concurrent Drop of our own output, can arrive immediately.
+            input_writer.keep_input_alive(self.input.as_ref().map(StreamReaderSignal::hold));
             writer = Some(input_writer);
             Ok(input_header)
         })?;
@@ -654,23 +581,7 @@ impl EngineInterface {
     ) -> Result<EngineCallResponse<PipelineData>, ShellError> {
         let (writer, rx) = self.write_engine_call(call)?;
 
-        // Engine calls may return before their input has been consumed (for example, when stdout
-        // isn't redirected). Keep our original input alive while any SDK-owned stream forwarder
-        // for this call is active. PipelineData is opaque here, so the guard is conservative and
-        // is released as soon as the forwarding writer finishes, fails, or is dropped.
-        let guard = if matches!(writer, PipelineDataWriter::None) {
-            None
-        } else {
-            self.input
-                .as_ref()
-                .map(CallInput::begin_forwarding)
-                .transpose()?
-        };
-        if let Some(guard) = guard {
-            writer.write_background_with_guard(guard)?;
-        } else {
-            writer.write_background()?;
-        }
+        writer.write_background()?;
 
         // Wait on receiver to get the response
         rx.recv().map_err(|_| ShellError::NushellFailed {
@@ -1157,7 +1068,8 @@ impl EngineInterface {
     ///
     /// The user can still stop the plugin if they want to with the `plugin stop` command.
     /// While disabled, the SDK also preserves original call inputs after their responses finish.
-    /// Dropping a call's output stream still interrupts its input consumption. Cancelled input
+    /// Dropping a call's output stream still requests input cleanup, waiting for SDK-owned
+    /// forwarding to finish or for its consumer to drop the forwarded stream. Cancelled input
     /// reads report [`ShellError::Interrupted`], rather than successful end-of-stream.
     /// This setting is plugin-wide and last write wins, for both garbage collection and input
     /// retention. The SDK checks it when each response finishes. Overlapping calls that toggle

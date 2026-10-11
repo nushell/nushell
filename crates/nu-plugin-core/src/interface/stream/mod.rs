@@ -30,15 +30,62 @@ enum ReaderMessage {
 #[derive(Debug, Clone)]
 #[doc(hidden)]
 pub struct StreamReaderSignal {
-    cancelled: Arc<AtomicBool>,
+    state: Arc<StreamReaderSignalState>,
     sender: Weak<mpsc::Sender<ReaderMessage>>,
 }
+
+#[derive(Debug, Default)]
+struct StreamReaderSignalState {
+    cancelled: AtomicBool,
+    holds: Mutex<StreamReaderHolds>,
+}
+
+#[derive(Debug, Default)]
+struct StreamReaderHolds {
+    active: usize,
+    cancel_requested: bool,
+}
+
+/// Keeps a reader open while an SDK-owned forwarding writer still has a consumer.
+///
+/// This does not keep the reader or transport alive. Releasing the last hold publishes any
+/// deferred cancellation without transport I/O or stream-manager callbacks.
+#[derive(Debug)]
+#[doc(hidden)]
+pub struct StreamReaderHold(StreamReaderSignal);
 
 impl StreamReaderSignal {
     fn new(sender: &Arc<mpsc::Sender<ReaderMessage>>) -> Self {
         Self {
-            cancelled: Arc::new(AtomicBool::new(false)),
+            state: Arc::new(StreamReaderSignalState::default()),
             sender: Arc::downgrade(sender),
+        }
+    }
+
+    fn holds(&self) -> MutexGuard<'_, StreamReaderHolds> {
+        // This private bookkeeping has no user callbacks. Setup and terminal cleanup must remain
+        // infallible even if a panic while formatting the state poisoned the mutex.
+        self.state
+            .holds
+            .lock()
+            .unwrap_or_else(|err| err.into_inner())
+    }
+
+    /// Defer cancellation requests while an SDK-owned writer is forwarding input.
+    /// Acquiring a hold cannot revive a reader that has already been cancelled or ended.
+    pub fn hold(&self) -> StreamReaderHold {
+        // Each increment creates one non-cloneable guard with exactly one matching decrement.
+        self.holds().active += 1;
+        StreamReaderHold(self.clone())
+    }
+
+    /// Request cancellation after all SDK-owned forwarding consumers have finished or dropped
+    /// their streams. With no holds this wakes the reader immediately, independently of GC.
+    pub fn cancel_when_released(&self) {
+        let mut holds = self.holds();
+        holds.cancel_requested = true;
+        if holds.active == 0 {
+            self.cancel();
         }
     }
 
@@ -50,11 +97,21 @@ impl StreamReaderSignal {
     /// Calling this after the reader has ended
     /// or been dropped is harmless. There is no reset operation.
     pub fn cancel(&self) {
-        if !self.cancelled.swap(true, Ordering::AcqRel)
+        if !self.state.cancelled.swap(true, Ordering::AcqRel)
             && let Some(sender) = self.sender.upgrade()
         {
             // The flag takes priority over queued data; the message wakes a blocking recv().
             let _ = sender.send(ReaderMessage::Cancel);
+        }
+    }
+}
+
+impl Drop for StreamReaderHold {
+    fn drop(&mut self) {
+        let mut holds = self.0.holds();
+        holds.active -= 1;
+        if holds.active == 0 && holds.cancel_requested {
+            self.0.cancel();
         }
     }
 }
@@ -82,6 +139,7 @@ where
     receiver: Option<mpsc::Receiver<ReaderMessage>>,
     writer: W,
     cancellation: StreamReaderSignal,
+    span: Span,
     drop_sent: bool,
     /// Iterator requires the item type to be fixed, so we have to keep it as part of the type,
     /// even though we're actually receiving dynamic data.
@@ -105,9 +163,15 @@ where
             receiver: Some(receiver),
             writer,
             cancellation,
+            span: Span::unknown(),
             drop_sent: false,
             marker: PhantomData,
         }
+    }
+
+    pub(super) fn with_span(mut self, span: Span) -> Self {
+        self.span = span;
+        self
     }
 
     /// Get a handle that cancels only this reader's transport input.
@@ -125,8 +189,9 @@ where
     /// * writing an acknowledgement or writing/flushing the cancellation's Drop failed
     /// * flushing pending acknowledgements before waiting failed
     ///
-    /// Cancellation discards queued data without acknowledging it, but preserves an error that
-    /// has already been received. Only a producer's End is a successful end-of-stream.
+    /// Cancellation discards queued data without acknowledging it. An error dequeued by this
+    /// call takes precedence over cancellation; errors behind that message are discarded with
+    /// the queue. Only a producer's End is a successful end-of-stream.
     pub fn recv(&mut self) -> Result<Option<T>, ShellError> {
         let connection_lost = || {
             ShellError::Generic(GenericError::new_internal(
@@ -155,7 +220,7 @@ where
                 ReaderMessage::Incoming(msg) => msg?,
                 ReaderMessage::Cancel => return self.cancelled(),
             };
-            if self.cancellation.cancelled.load(Ordering::Acquire) {
+            if self.cancellation.state.cancelled.load(Ordering::Acquire) {
                 return self.cancelled();
             }
 
@@ -180,9 +245,7 @@ where
 impl<T, W: WriteStreamMessage> StreamReader<T, W> {
     fn cancelled(&mut self) -> Result<Option<T>, ShellError> {
         self.finish()?;
-        Err(ShellError::Interrupted {
-            span: Span::unknown(),
-        })
+        Err(ShellError::Interrupted { span: self.span })
     }
 
     /// Close the local queue before notifying the producer, even when notification fails.
@@ -292,20 +355,19 @@ where
     /// Link a plugin response to its original input before publishing the response header.
     /// Only an explicit peer Drop cancels the input; ending the writer removes the link.
     #[doc(hidden)]
-    pub fn cancel_input_on_drop(&self, input: StreamReaderSignal) -> Result<(), ShellError> {
-        self.signal.lock()?.input_on_drop = Some(input);
-        Ok(())
+    pub fn cancel_input_on_drop(&self, input: StreamReaderSignal) {
+        // Linking before publishing the header must not introduce a fallible setup phase: a
+        // dropped unpublished writer would send End for a stream the peer has never seen.
+        self.signal.lock_for_cleanup().input_on_drop = Some(input);
     }
 
     /// Preserve the call input while this SDK-owned forwarding stream is still being consumed.
     /// Guard cleanup must not perform transport I/O or reenter the stream manager.
     #[doc(hidden)]
-    pub fn keep_input_alive(
-        &self,
-        guard: impl std::fmt::Debug + Send + 'static,
-    ) -> Result<(), ShellError> {
-        self.signal.lock()?.input_guard = Some(Box::new(guard));
-        Ok(())
+    pub fn keep_input_alive(&self, guard: StreamReaderHold) {
+        let previous = self.signal.lock_for_cleanup().input_guard.replace(guard);
+        // A hold has its own bookkeeping lock, so release it outside the writer lock.
+        drop(previous);
     }
 
     /// Write a single piece of data to the stream.
@@ -378,7 +440,7 @@ where
             // A Drop acknowledging natural EOF must not cancel input. Serialize unlinking with
             // peer Drop, which cancels the input before waking this writer.
             let guard = {
-                let mut state = self.signal.lock()?;
+                let mut state = self.signal.lock_for_cleanup();
                 state.input_on_drop = None;
                 state.input_guard.take()
             };
@@ -423,7 +485,7 @@ pub struct StreamWriterSignalState {
     /// Original call input to cancel when the engine drops a plugin response early.
     input_on_drop: Option<StreamReaderSignal>,
     /// Keeps original input readable while an SDK-owned engine-call forwarder is being consumed.
-    input_guard: Option<Box<dyn std::fmt::Debug + Send>>,
+    input_guard: Option<StreamReaderHold>,
 }
 
 impl StreamWriterSignal {
@@ -453,6 +515,15 @@ impl StreamWriterSignal {
         })
     }
 
+    fn lock_for_cleanup(&self) -> MutexGuard<'_, StreamWriterSignalState> {
+        // Only local associations are changed through this guard. Preserve ordinary flow-control
+        // errors, but don't let poisoning skip setup or the terminal End write.
+        self.mutex.lock().unwrap_or_else(|err| {
+            log::warn!("Recovering poisoned StreamWriterSignal for stream setup or cleanup");
+            err.into_inner()
+        })
+    }
+
     /// True if the stream was dropped and the consumer is no longer interested in it. Indicates
     /// that no more messages should be sent, other than `End`.
     pub fn is_dropped(&self) -> Result<bool, ShellError> {
@@ -474,7 +545,7 @@ impl StreamWriterSignal {
         if let Some(input) = state.input_on_drop.take() {
             // This only sets a flag and sends a local, non-blocking notification. Keep the writer
             // locked until cancellation is published so End cannot unlink the input first.
-            input.cancel();
+            input.cancel_when_released();
         }
         let guard = state.input_guard.take();
         drop(state);

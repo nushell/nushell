@@ -1,7 +1,7 @@
 use std::{
     sync::{
         Arc, Weak,
-        atomic::{AtomicBool, Ordering::Relaxed},
+        atomic::{AtomicBool, AtomicUsize, Ordering::Relaxed},
         mpsc,
     },
     time::Duration,
@@ -58,6 +58,34 @@ impl WriteStreamMessage for TestSink {
 
     fn flush(&mut self) -> Result<(), ShellError> {
         Ok(())
+    }
+}
+
+struct FailingSink {
+    writes: Arc<AtomicUsize>,
+    fail_flush: bool,
+}
+
+impl WriteStreamMessage for FailingSink {
+    fn write_stream_message(&mut self, msg: StreamMessage) -> Result<(), ShellError> {
+        assert!(matches!(
+            msg,
+            StreamMessage::Drop(_) | StreamMessage::End(_)
+        ));
+        self.writes.fetch_add(1, Relaxed);
+        if self.fail_flush {
+            Ok(())
+        } else {
+            Err(ShellError::NushellFailed {
+                msg: "notification failure".into(),
+            })
+        }
+    }
+
+    fn flush(&mut self) -> Result<(), ShellError> {
+        Err(ShellError::NushellFailed {
+            msg: "flush failure".into(),
+        })
     }
 }
 
@@ -389,38 +417,13 @@ fn reader_old_cancellation_does_not_cancel_reused_stream_id() -> Result<(), Shel
 
 #[test]
 fn reader_cancellation_notification_error_closes_queue_once() -> Result<(), ShellError> {
-    use std::sync::atomic::AtomicUsize;
-
-    struct FailingSink {
-        drops: Arc<AtomicUsize>,
-        fail_flush: bool,
-    }
-    impl WriteStreamMessage for FailingSink {
-        fn write_stream_message(&mut self, msg: StreamMessage) -> Result<(), ShellError> {
-            assert!(matches!(msg, StreamMessage::Drop(0)));
-            self.drops.fetch_add(1, Relaxed);
-            if self.fail_flush {
-                Ok(())
-            } else {
-                Err(ShellError::NushellFailed {
-                    msg: "drop failure".into(),
-                })
-            }
-        }
-        fn flush(&mut self) -> Result<(), ShellError> {
-            Err(ShellError::NushellFailed {
-                msg: "flush failure".into(),
-            })
-        }
-    }
-
     for fail_flush in [false, true] {
         let manager = StreamManager::new();
         let drops = Arc::new(AtomicUsize::new(0));
         let mut reader = manager.get_handle().read_stream::<Value, _>(
             0,
             FailingSink {
-                drops: drops.clone(),
+                writes: drops.clone(),
                 fail_flush,
             },
         )?;
@@ -431,7 +434,7 @@ fn reader_cancellation_notification_error_closes_queue_once() -> Result<(), Shel
         assert!(error.to_string().contains(if fail_flush {
             "flush failure"
         } else {
-            "drop failure"
+            "notification failure"
         }));
         assert!(weak.upgrade().is_none());
         assert!(reader.receiver.is_none());
@@ -535,7 +538,7 @@ fn reader_cancellation_races_data_end_and_disconnection() -> Result<(), ShellErr
 }
 
 #[test]
-fn reader_cancellation_preserves_queued_error() -> Result<(), ShellError> {
+fn reader_cancellation_preserves_error_dequeued_by_recv() -> Result<(), ShellError> {
     let manager = StreamManager::new();
     let mut reader = manager
         .get_handle()
@@ -560,6 +563,152 @@ fn reader_cancellation_preserves_queued_error() -> Result<(), ShellError> {
         matches!(received, Some(Value::Error { error: received, .. }) if received.to_string() == error.to_string())
     );
     assert!(next.is_none());
+    Ok(())
+}
+
+#[test]
+fn reader_cancellation_discards_errors_behind_data_or_cancel() -> Result<(), ShellError> {
+    for data_first in [false, true] {
+        let manager = StreamManager::new();
+        let mut reader = manager
+            .get_handle()
+            .read_stream::<Value, _>(0, TestSink::default())?;
+        let cancellation = reader.cancellation();
+        if data_first {
+            manager.handle_message(StreamMessage::Data(0, Value::test_int(42).into()))?;
+        } else {
+            cancellation.cancel();
+        }
+        manager.broadcast_read_error(ShellError::PluginFailedToDecode {
+            msg: "error behind the first message".into(),
+        })?;
+        cancellation.cancel();
+        manager.handle_message(StreamMessage::End(0))?;
+        assert_interrupted(reader.next());
+        assert!(reader.next().is_none());
+        assert!(
+            reader
+                .writer
+                .0
+                .iter()
+                .all(|msg| !matches!(msg, StreamMessage::Ack(_))),
+            "discarded data must not be acknowledged"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn reader_holds_defer_cancellation_until_the_last_release() -> Result<(), ShellError> {
+    let manager = StreamManager::new();
+    let mut reader = manager
+        .get_handle()
+        .read_stream::<Value, _>(0, TestSink::default())?;
+    let signal = reader.cancellation();
+    let first = signal.hold();
+    let last = signal.hold();
+    signal.cancel_when_released();
+    signal.cancel_when_released();
+    drop(first);
+    manager.handle_message(StreamMessage::Data(0, Value::test_int(42).into()))?;
+    assert_eq!(reader.next(), Some(Value::test_int(42)));
+    drop(last);
+    manager.handle_message(StreamMessage::End(0))?;
+    assert_interrupted(reader.next());
+    assert!(reader.next().is_none());
+    assert_eq!(
+        reader
+            .writer
+            .0
+            .iter()
+            .filter(|msg| matches!(msg, StreamMessage::Drop(0)))
+            .count(),
+        1
+    );
+    Ok(())
+}
+
+#[test]
+fn reader_hold_release_without_cancellation_preserves_input() -> Result<(), ShellError> {
+    let manager = StreamManager::new();
+    let mut reader = manager
+        .get_handle()
+        .read_stream::<Value, _>(0, TestSink::default())?;
+    drop(reader.cancellation().hold());
+    manager.handle_message(StreamMessage::Data(0, Value::test_int(42).into()))?;
+    manager.handle_message(StreamMessage::End(0))?;
+    assert_eq!(reader.next(), Some(Value::test_int(42)));
+    assert!(reader.next().is_none());
+    Ok(())
+}
+
+#[test]
+fn reader_hold_does_not_keep_reader_queue_or_manager_alive() -> Result<(), ShellError> {
+    let manager = StreamManager::new();
+    let weak_manager = Arc::downgrade(&manager.state);
+    let reader = manager
+        .get_handle()
+        .read_stream::<Value, _>(0, TestSink::default())?;
+    let signal = reader.cancellation();
+    let hold = signal.hold();
+    let (value, weak_buffer) = tracked_list(42);
+    manager.handle_message(StreamMessage::Data(0, value.into()))?;
+    signal.cancel_when_released();
+    drop(reader);
+    assert!(weak_buffer.upgrade().is_none());
+    drop(manager);
+    assert!(weak_manager.upgrade().is_none());
+    assert!(signal.sender.upgrade().is_none());
+    drop(hold);
+    assert!(signal.state.cancelled.load(Relaxed));
+    Ok(())
+}
+
+#[test]
+fn reader_cancellation_races_last_hold_release() -> Result<(), ShellError> {
+    for _ in 0..64 {
+        let manager = StreamManager::new();
+        let mut reader = manager
+            .get_handle()
+            .read_stream::<Value, _>(0, TestSink::default())?;
+        let signal = reader.cancellation();
+        let hold = signal.hold();
+        let barrier = Arc::new(std::sync::Barrier::new(2));
+        let worker_barrier = barrier.clone();
+        let worker = std::thread::spawn(move || {
+            worker_barrier.wait();
+            drop(hold);
+        });
+        barrier.wait();
+        signal.cancel_when_released();
+        worker.join().expect("hold release panicked");
+        manager.handle_message(StreamMessage::End(0))?;
+        assert_interrupted(reader.next());
+        assert!(reader.next().is_none());
+    }
+    Ok(())
+}
+
+#[test]
+fn reader_deferred_cancellation_recovers_poisoned_bookkeeping() -> Result<(), ShellError> {
+    let manager = StreamManager::new();
+    let mut reader = manager
+        .get_handle()
+        .read_stream::<Value, _>(0, TestSink::default())?;
+    let signal = reader.cancellation();
+    let hold = signal.hold();
+    assert!(
+        std::panic::catch_unwind(|| {
+            let _state = signal.state.holds.lock().unwrap();
+            panic!("poison private cancellation bookkeeping");
+        })
+        .is_err()
+    );
+    signal.cancel_when_released();
+    drop(hold);
+    manager.handle_message(StreamMessage::End(0))?;
+    assert_interrupted(reader.next());
+    assert!(reader.next().is_none());
     Ok(())
 }
 
@@ -776,14 +925,14 @@ fn writer_peer_drop_cancels_input_before_releasing_flow_control() -> Result<(), 
     let cancellation = input.cancellation();
     let (messages, messages_rx) = mpsc::channel();
     let mut writer = handle.write_stream(1, messages, 1)?;
-    writer.cancel_input_on_drop(cancellation.clone())?;
+    writer.cancel_input_on_drop(cancellation.clone());
     let signal = writer.signal.clone();
     let (done, done_rx) = mpsc::channel();
     let worker = std::thread::spawn(move || {
         let result = writer
             .write(Value::test_int(42))
             .and_then(|()| writer.end());
-        let cancelled = cancellation.cancelled.load(Relaxed);
+        let cancelled = cancellation.state.cancelled.load(Relaxed);
         let _ = done.send((result, cancelled));
     });
     assert!(matches!(
@@ -815,12 +964,108 @@ fn writer_peer_drop_cancels_input_before_releasing_flow_control() -> Result<(), 
 }
 
 #[test]
+fn writer_peer_drop_preserves_input_until_forwarding_consumer_drops() -> Result<(), ShellError> {
+    let manager = StreamManager::new();
+    let handle = manager.get_handle();
+    let mut input = handle.read_stream::<Value, _>(0, TestSink::default())?;
+    let signal = input.cancellation();
+    let response = handle.write_stream(1, TestSink::default(), 1)?;
+    response.cancel_input_on_drop(signal.clone());
+    let forwarded = handle.write_stream(2, TestSink::default(), 1)?;
+    forwarded.keep_input_alive(signal.hold());
+    manager.handle_message(StreamMessage::Drop(1))?;
+    manager.handle_message(StreamMessage::Data(0, Value::test_int(42).into()))?;
+    assert_eq!(input.next(), Some(Value::test_int(42)));
+    manager.handle_message(StreamMessage::Drop(2))?;
+    manager.handle_message(StreamMessage::End(0))?;
+    assert_interrupted(input.next());
+    assert!(input.next().is_none());
+    assert!(response.is_dropped()?);
+    assert!(forwarded.is_dropped()?);
+    Ok(())
+}
+
+#[test]
+fn writer_poisoned_setup_and_cleanup_still_unlink_and_send_end_once() -> Result<(), ShellError> {
+    let manager = StreamManager::new();
+    let handle = manager.get_handle();
+    let input = handle.read_stream::<Value, _>(0, TestSink::default())?;
+    let cancellation = input.cancellation();
+    let (messages, messages_rx) = mpsc::channel();
+    let mut writer = handle.write_stream(1, messages, 1)?;
+    assert!(
+        std::panic::catch_unwind(|| {
+            let _state = writer.signal.mutex.lock().unwrap();
+            panic!("poison stream writer signal");
+        })
+        .is_err()
+    );
+    writer.cancel_input_on_drop(cancellation.clone());
+    writer.keep_input_alive(cancellation.hold());
+    assert!(
+        messages_rx.try_recv().is_err(),
+        "setup must not send an unpublished End"
+    );
+    writer.end()?;
+    {
+        let state = writer.signal.mutex.lock().unwrap_err().into_inner();
+        assert!(state.input_on_drop.is_none());
+        assert!(state.input_guard.is_none());
+    }
+    assert!(
+        writer.is_dropped().is_err(),
+        "ordinary flow-control errors must remain visible"
+    );
+    assert_eq!(cancellation.holds().active, 0);
+    assert!(!cancellation.state.cancelled.load(Relaxed));
+    drop(writer);
+    assert!(matches!(messages_rx.try_recv(), Ok(StreamMessage::End(1))));
+    assert!(
+        messages_rx.try_recv().is_err(),
+        "End must not be retried by Drop"
+    );
+    Ok(())
+}
+
+#[test]
+fn writer_poisoned_cleanup_preserves_end_write_and_flush_errors() -> Result<(), ShellError> {
+    for fail_flush in [false, true] {
+        let manager = StreamManager::new();
+        let writes = Arc::new(AtomicUsize::new(0));
+        let mut writer = manager.get_handle().write_stream(
+            1,
+            FailingSink {
+                writes: writes.clone(),
+                fail_flush,
+            },
+            1,
+        )?;
+        assert!(
+            std::panic::catch_unwind(|| {
+                let _state = writer.signal.mutex.lock().unwrap();
+                panic!("poison stream writer signal before failed End");
+            })
+            .is_err()
+        );
+        let error = writer.end().expect_err("End notification must fail");
+        assert!(error.to_string().contains(if fail_flush {
+            "flush failure"
+        } else {
+            "notification failure"
+        }));
+        drop(writer);
+        assert_eq!(writes.load(Relaxed), 1);
+    }
+    Ok(())
+}
+
+#[test]
 fn writer_natural_end_unlinks_input_before_peer_drop() -> Result<(), ShellError> {
     let manager = StreamManager::new();
     let handle = manager.get_handle();
     let mut input = handle.read_stream::<Value, _>(0, TestSink::default())?;
     let mut writer = handle.write_stream(1, TestSink::default(), 1)?;
-    writer.cancel_input_on_drop(input.cancellation())?;
+    writer.cancel_input_on_drop(input.cancellation());
     // Keep the writer alive: the link must be removed by End, not just by dropping its signal.
     writer.end()?;
     manager.handle_message(StreamMessage::Drop(1))?;
@@ -837,14 +1082,14 @@ fn writer_transport_loss_does_not_cancel_linked_input() -> Result<(), ShellError
     let handle = manager.get_handle();
     let mut input = handle.read_stream::<Value, _>(0, TestSink::default())?;
     let writer = handle.write_stream(1, TestSink::default(), 1)?;
-    writer.cancel_input_on_drop(input.cancellation())?;
+    writer.cancel_input_on_drop(input.cancellation());
     let error = ShellError::PluginFailedToDecode {
         msg: "original transport error".into(),
     };
     manager.broadcast_read_error(error.clone())?;
     drop(manager);
     assert!(writer.is_dropped()?);
-    assert!(!input.cancellation.cancelled.load(Relaxed));
+    assert!(!input.cancellation.state.cancelled.load(Relaxed));
     assert!(
         matches!(input.next(), Some(Value::Error { error: received, .. }) if received.to_string() == error.to_string())
     );
