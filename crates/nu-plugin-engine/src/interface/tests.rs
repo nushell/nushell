@@ -9,15 +9,15 @@ use nu_engine::command_prelude::IoError;
 use nu_plugin_core::{Interface, InterfaceManager, interface_test_util::TestCase};
 use nu_plugin_protocol::{
     ByteStreamInfo, CallInfo, CustomValueOp, DynamicCompletionCall, EngineCall, EngineCallResponse,
-    EvaluatedCall, GetCompletionInfo, ListStreamInfo, PipelineDataHeader, PluginCall, PluginCallId,
-    PluginCallResponse, PluginCustomValue, PluginInput, PluginOutput, Protocol, ProtocolInfo,
-    StreamData, StreamMessage,
+    EvaluatedCall, GetCompletionInfo, ListStreamInfo, PLUGIN_PROTOCOL_VERSION, PipelineDataHeader,
+    PluginCall, PluginCallId, PluginCallResponse, PluginCustomValue, PluginInput, PluginOutput,
+    Protocol, ProtocolInfo, StreamData, StreamMessage,
     test_util::{expected_test_custom_value, test_plugin_custom_value},
 };
 use nu_protocol::{
     BlockId, ByteStreamType, CustomValue, DynamicSuggestion, Id, IntoInterruptiblePipelineData,
-    IntoSpanned, PipelineData, PipelineMetadata, PluginMetadata, PluginSignature, ShellError,
-    Signals, Span, Spanned, Value,
+    IntoSpanned, LabeledError, PipelineData, PipelineMetadata, PluginMetadata, PluginSignature,
+    ShellError, Signals, Span, Spanned, Value,
     ast::{Math, Operator},
     engine::Closure,
     shell_error,
@@ -137,13 +137,24 @@ fn invalid_output() -> PluginOutput {
     PluginOutput::Hello(ProtocolInfo {
         protocol: Protocol::NuPlugin,
         version: "0.0.0".into(),
+        nushell_version: None,
         features: vec![],
     })
 }
 
 fn check_invalid_output_error(error: &ShellError) {
-    // the error message should include something about the version...
-    assert!(format!("{error:?}").contains("0.0.0"), "error: {error}");
+    // The error names the plugin's protocol version, not a Nushell version, and says what to do.
+    let text = format!("{error:?}");
+    assert!(
+        text.contains("plugin protocol 0.0.0")
+            && text.contains("not compatible")
+            && text.contains("Rebuild the plugin"),
+        "error: {error}"
+    );
+    assert!(
+        !text.to_lowercase().contains("nushell version"),
+        "error: {error}"
+    );
 }
 
 #[test]
@@ -288,29 +299,10 @@ fn manager_consume_sets_protocol_info_on_hello() -> Result<(), ShellError> {
 fn manager_consume_errors_on_wrong_protocol_version() -> Result<(), ShellError> {
     let mut manager = TestCase::new().plugin("test");
 
-    let info = ProtocolInfo {
-        protocol: Protocol::NuPlugin,
-        version: "0.0.0".into(),
-        features: vec![],
-    };
-
     let err = manager
-        .consume(PluginOutput::Hello(info))
+        .consume(invalid_output())
         .expect_err("version 0.0.0 should cause an error");
-
-    let err_text = format!("{err:?}");
-    assert!(
-        err_text.contains("not compatible"),
-        "expected compatibility failure, got: {err_text}"
-    );
-    assert!(
-        err_text.contains("plugin protocol"),
-        "error should mention plugin protocol (not nushell version), got: {err_text}"
-    );
-    assert!(
-        !err_text.to_lowercase().contains("nushell version"),
-        "error should not claim nushell version incompatibility, got: {err_text}"
-    );
+    check_invalid_output_error(&err);
     Ok(())
 }
 
@@ -330,9 +322,22 @@ fn manager_consume_errors_on_sending_other_messages_before_hello() -> Result<(),
 }
 
 fn set_default_protocol_info(manager: &mut PluginInterfaceManager) -> Result<(), ShellError> {
-    manager
-        .protocol_info_mut
-        .set(Arc::new(ProtocolInfo::default()))
+    set_protocol_info(manager, ProtocolInfo::default())
+}
+
+fn set_protocol_info(
+    manager: &mut PluginInterfaceManager,
+    info: ProtocolInfo,
+) -> Result<(), ShellError> {
+    manager.protocol_info_mut.set(Arc::new(info))
+}
+
+/// Protocol info for a plugin built from a different Nushell version than the engine.
+fn other_nushell_version_protocol_info() -> ProtocolInfo {
+    ProtocolInfo {
+        nushell_version: Some("0.0.0-other".into()),
+        ..ProtocolInfo::default()
+    }
 }
 
 #[test]
@@ -1013,6 +1018,64 @@ fn interface_receive_plugin_call_handles_engine_call() -> Result<(), ShellError>
     Ok(())
 }
 
+/// Handle `GetBlockIR` for a plugin call made at `span` and return the engine's response.
+fn get_block_ir_response(
+    info: ProtocolInfo,
+    span: Option<Span>,
+) -> Result<EngineCallResponse<PipelineDataHeader>, ShellError> {
+    let test = TestCase::new();
+    let mut manager = test.plugin("test");
+    set_protocol_info(&mut manager, info)?;
+    manager.get_interface().handle_engine_call(
+        0,
+        EngineCall::GetBlockIR(BlockId::new(0)),
+        &mut CurrentCallState {
+            span,
+            ..CurrentCallState::default()
+        },
+        Some(&mut PluginExecutionBogusContext),
+    )?;
+
+    match test
+        .next_written()
+        .expect("no engine call response written")
+    {
+        PluginInput::EngineCallResponse(0, resp) => Ok(resp),
+        other => panic!("unexpected message: {other:?}"),
+    }
+}
+
+#[test]
+fn interface_handle_engine_call_get_block_ir_requires_same_nushell_version()
+-> Result<(), ShellError> {
+    let span = Span::new(10, 20);
+    match get_block_ir_response(other_nushell_version_protocol_info(), Some(span))? {
+        EngineCallResponse::Error(err) => {
+            let text = format!("{err:?}");
+            assert!(text.contains("GetBlockIR"), "wrong error: {text}");
+            assert!(text.contains("0.0.0-other"), "wrong error: {text}");
+            // The plugin receives the error as a `LabeledError`, so its label has to point at the
+            // plugin call and not into a source that only the engine has.
+            let labels = LabeledError::from_diagnostic(&err).labels;
+            assert_eq!(
+                labels.iter().map(|label| label.span).collect::<Vec<_>>(),
+                [span],
+                "wrong labels: {labels:?}"
+            );
+        }
+        resp => panic!("expected an error response, got {resp:?}"),
+    }
+
+    // With the same Nushell version, the call reaches the (bogus) context.
+    match get_block_ir_response(ProtocolInfo::default(), Some(span))? {
+        EngineCallResponse::Error(err) => {
+            assert!(err.to_string().contains("bogus"), "wrong error: {err}");
+        }
+        resp => panic!("expected an error from the bogus context, got {resp:?}"),
+    }
+    Ok(())
+}
+
 /// Fake responses to requests for plugin call messages
 fn start_fake_plugin_call_responder(
     manager: PluginInterfaceManager,
@@ -1043,7 +1106,8 @@ fn start_fake_plugin_call_responder(
 #[test]
 fn interface_get_metadata() -> Result<(), ShellError> {
     let test = TestCase::new();
-    let manager = test.plugin("test");
+    let mut manager = test.plugin("test");
+    set_default_protocol_info(&mut manager)?;
     let interface = manager.get_interface();
 
     start_fake_plugin_call_responder(manager, 1, |_| {
@@ -1055,7 +1119,50 @@ fn interface_get_metadata() -> Result<(), ShellError> {
     let metadata = interface.get_metadata()?;
 
     assert_eq!(Some("test"), metadata.version.as_deref());
+    // The versions come from the plugin's Hello.
+    assert_eq!(
+        Some(PLUGIN_PROTOCOL_VERSION),
+        metadata.protocol_version.as_deref()
+    );
+    assert_eq!(
+        ProtocolInfo::default().nushell_version,
+        metadata.nushell_version
+    );
     assert!(test.has_unconsumed_write());
+    Ok(())
+}
+
+#[test]
+fn interface_get_metadata_keeps_reported_nushell_version_if_hello_has_none()
+-> Result<(), ShellError> {
+    let test = TestCase::new();
+    let mut manager = test.plugin("test");
+    set_protocol_info(
+        &mut manager,
+        ProtocolInfo {
+            nushell_version: None,
+            ..ProtocolInfo::default()
+        },
+    )?;
+    let interface = manager.get_interface();
+
+    start_fake_plugin_call_responder(manager, 1, |_| {
+        vec![ReceivedPluginCallMessage::Response(
+            PluginCallResponse::Metadata(
+                PluginMetadata::new()
+                    .with_protocol_version("9.9.9")
+                    .with_nushell_version("0.0.0-script"),
+            ),
+        )]
+    });
+
+    let metadata = interface.get_metadata()?;
+
+    assert_eq!(
+        Some(PLUGIN_PROTOCOL_VERSION),
+        metadata.protocol_version.as_deref()
+    );
+    assert_eq!(Some("0.0.0-script"), metadata.nushell_version.as_deref());
     Ok(())
 }
 
@@ -1138,7 +1245,8 @@ fn interface_custom_value_to_base_value() -> Result<(), ShellError> {
 #[test]
 fn interface_get_dynamic_completion() -> Result<(), ShellError> {
     let test = TestCase::new();
-    let manager = test.plugin("test");
+    let mut manager = test.plugin("test");
+    set_default_protocol_info(&mut manager)?;
     let interface = manager.get_interface();
 
     start_fake_plugin_call_responder(manager, 2, move |_| {
@@ -1610,4 +1718,31 @@ fn prepare_plugin_call_custom_value_op() {
             );
         }
     }
+}
+
+#[test]
+fn interface_get_dynamic_completion_skips_plugin_from_other_nushell_version()
+-> Result<(), ShellError> {
+    let test = TestCase::new();
+    let mut manager = test.plugin("test");
+    set_protocol_info(&mut manager, other_nushell_version_protocol_info())?;
+    let interface = manager.get_interface();
+
+    let result = interface.get_dynamic_completion(
+        GetCompletionInfo {
+            name: "test".to_string(),
+            arg_type: nu_plugin_protocol::GetCompletionArgType::Positional(0),
+            call: DynamicCompletionCall {
+                call: nu_protocol::ast::Call::new(Span::test_data()),
+                pos: 0,
+                strip: true,
+            },
+        },
+        &mut PluginExecutionBogusContext,
+    )?;
+
+    // No completion, and nothing was sent to the plugin.
+    assert_eq!(None, result);
+    assert!(!test.has_unconsumed_write());
+    Ok(())
 }

@@ -221,7 +221,11 @@ def write_error [id: int, text: string, span?: record<start: int, end: int>] {
 def handle_input []: any -> nothing {
   match $in {
     { Hello: $hello } => {
-      if ($hello.version != $PLUGIN_PROTOCOL_VERSION) {
+      # Nushell checks semver compatibility: the same major version, and on 0.x also the same
+      # minor version.
+      let expected = $PLUGIN_PROTOCOL_VERSION | split row "."
+      let line = if $expected.0 == "0" { 2 } else { 1 }
+      if ($hello.version | split row "." | first $line) != ($expected | first $line) {
         exit 1
       }
     }
@@ -234,7 +238,8 @@ def handle_input []: any -> nothing {
           write_response $id {
             Metadata: {
               version: $PLUGIN_VERSION
-              protocol_version: $PLUGIN_PROTOCOL_VERSION
+              # The Nushell version this plugin was developed against, shown by `plugin list`.
+              # Nushell fills in the protocol version from `Hello`.
               nushell_version: $NUSHELL_VERSION
             }
           }

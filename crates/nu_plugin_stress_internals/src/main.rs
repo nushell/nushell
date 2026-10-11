@@ -10,6 +10,8 @@ use interprocess::local_socket::{
 use serde::Deserialize;
 use serde_json::{Value, json};
 
+/// Must match `PLUGIN_PROTOCOL_VERSION` in `nu-plugin-protocol`. This plugin writes the raw
+/// protocol on purpose, so it does not depend on that crate.
 const PLUGIN_PROTOCOL_VERSION: &str = "0.1.0";
 
 #[derive(Debug)]
@@ -147,8 +149,6 @@ fn handle_message(
                         {
                             "Metadata": {
                                 "version": env!("CARGO_PKG_VERSION"),
-                                "protocol_version": PLUGIN_PROTOCOL_VERSION,
-                                "nushell_version": env!("CARGO_PKG_VERSION"),
                             }
                         }
                     ]

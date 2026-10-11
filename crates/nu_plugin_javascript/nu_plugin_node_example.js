@@ -10,7 +10,7 @@
  */
 
 // Configuration constants
-const NUSHELL_VERSION = '0.114.2';
+const NUSHELL_VERSION = '0.116.2';
 const PLUGIN_PROTOCOL_VERSION = '0.1.0';
 const PLUGIN_VERSION = '0.1.1';
 
@@ -168,8 +168,15 @@ function handleInputMessage (input) {
 	}
 }
 
+// Nushell checks semver compatibility: the same major version, and on 0.x also the same minor
+// version.
+const protocolLine = (version) => {
+	const [major, minor] = version.split('.');
+	return major === '0' ? `${major}.${minor}` : major;
+};
+
 function handleHelloMessage ({ version }) {
-	if (version !== PLUGIN_PROTOCOL_VERSION) {
+	if (protocolLine(version) !== protocolLine(PLUGIN_PROTOCOL_VERSION)) {
 		process.stderr.write(`Plugin protocol mismatch: expected ${PLUGIN_PROTOCOL_VERSION}, got ${version}\n`);
 		process.exit(1);
 	}
@@ -181,7 +188,8 @@ function handleCallMessage (id, call) {
 			writeResponse(id, {
 				Metadata: {
 					version: PLUGIN_VERSION,
-					protocol_version: PLUGIN_PROTOCOL_VERSION,
+					// The Nushell version this plugin was developed against, shown by
+					// `plugin list`. Nushell fills in the protocol version from `Hello`.
 					nushell_version: NUSHELL_VERSION,
 				},
 			});

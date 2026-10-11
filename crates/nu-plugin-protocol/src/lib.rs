@@ -9,24 +9,17 @@
 //! byte-level encoding scheme is not implemented here. See the protocol ref or `nu_plugin_core` for
 //! more details on how that works.
 //!
-//! # Protocol version vs Nushell version
+//! # Protocol version
 //!
-//! Compatibility is based on [`PLUGIN_PROTOCOL_VERSION`] (the `Hello` handshake), not the Nushell
-//! package version.
-//!
-//! # Wire mapping (maintainer tripwire)
-//!
-//! Serde for public protocol types goes through a private [`wire`] module (in-crate shim):
-//! exhaustive `From` mappings into derive-based wire DTOs. Adding a `Value` variant or a
-//! top-level protocol message case fails to compile until the mapping is updated. Nested engine
-//! payloads (`ShellError`, `Config`, AST/IR, …) still use their own derives; prefer
-//! `protocol_snapshots/` when those wire shapes change, and bump the protocol version on 0.x
-//! **minor** for incompatible wire changes.
+//! Compatibility is decided by [`PLUGIN_PROTOCOL_VERSION`] in the `Hello` handshake, not by the
+//! Nushell version, so a plugin keeps working across Nushell releases until the protocol changes.
+//! The documentation of [`PLUGIN_PROTOCOL_VERSION`] lists which types the version covers and when
+//! to bump it.
 
 mod evaluated_call;
 mod plugin_custom_value;
 mod protocol_info;
-mod wire;
+mod wire_witness;
 
 #[cfg(test)]
 mod tests;
@@ -46,6 +39,7 @@ use nu_protocol::{
     ir::IrBlock,
 };
 use nu_utils::SharedCow;
+use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, path::PathBuf};
 
 pub use evaluated_call::EvaluatedCall;
@@ -65,7 +59,7 @@ pub type EngineCallId = usize;
 /// Information about a plugin command invocation. This includes an [`EvaluatedCall`] as a
 /// serializable representation of [`nu_protocol::ast::Call`]. The type parameter determines
 /// the input type.
-#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CallInfo<D> {
     /// The name of the command to be run
     pub name: String,
@@ -75,7 +69,7 @@ pub struct CallInfo<D> {
     pub input: D,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum GetCompletionArgType {
     Flag(String),
     Positional(usize),
@@ -94,7 +88,7 @@ impl<'a> From<GetCompletionArgType> for ArgType<'a> {
 
 /// A simple wrapper for [`ast::Call`] which contains additional context about completion.
 /// It's used in plugin side.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct DynamicCompletionCall {
     /// the real call, which is generated during parse time.
     pub call: ast::Call,
@@ -115,7 +109,7 @@ impl From<&DynamicCompletionCallRef<'_>> for DynamicCompletionCall {
 }
 
 /// Information about `get_dynamic_completion` of a plugin call invocation.
-#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct GetCompletionInfo {
     /// The name of the command to be run.
     pub name: String,
@@ -142,7 +136,7 @@ impl<D> CallInfo<D> {
 /// The initial (and perhaps only) part of any [`nu_protocol::PipelineData`] sent over the wire.
 ///
 /// This may contain a single value, or may initiate a stream with a [`StreamId`].
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub enum PipelineDataHeader {
     /// No input
     Empty,
@@ -183,7 +177,7 @@ impl PipelineDataHeader {
 }
 
 /// Additional information about list (value) streams
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct ListStreamInfo {
     pub id: StreamId,
     pub span: Span,
@@ -202,10 +196,11 @@ impl ListStreamInfo {
 }
 
 /// Additional information about byte streams
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct ByteStreamInfo {
     pub id: StreamId,
     pub span: Span,
+    #[serde(rename = "type")]
     pub type_: ByteStreamType,
     pub metadata: Option<PipelineMetadata>,
 }
@@ -223,7 +218,7 @@ impl ByteStreamInfo {
 }
 
 /// Calls that a plugin can execute. The type parameter determines the input type.
-#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum PluginCall<D> {
     Metadata,
     Signature,
@@ -263,7 +258,7 @@ impl<D> PluginCall<D> {
 }
 
 /// Operations supported for custom values.
-#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum CustomValueOp {
     /// [`to_base_value()`](nu_protocol::CustomValue::to_base_value)
     ToBaseValue,
@@ -308,7 +303,7 @@ impl CustomValueOp {
 }
 
 /// Any data sent to the plugin
-#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum PluginInput {
     /// This must be the first message. Indicates supported protocol
     Hello(ProtocolInfo),
@@ -359,7 +354,7 @@ impl From<StreamMessage> for PluginInput {
 }
 
 /// A single item of stream data for a stream.
-#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum StreamData {
     List(Value),
     Raw(Result<Vec<u8>, LabeledError>),
@@ -418,7 +413,7 @@ impl TryFrom<StreamData> for Result<Vec<u8>, ShellError> {
 }
 
 /// A stream control or data message.
-#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum StreamMessage {
     /// Append data to the stream. Sent by the stream producer.
     Data(StreamId, StreamData),
@@ -433,7 +428,7 @@ pub enum StreamMessage {
 }
 
 /// Response to a [`PluginCall`]. The type parameter determines the output type for pipeline data.
-#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum PluginCallResponse<D> {
     Ok,
     Error(ShellError),
@@ -492,7 +487,7 @@ impl PluginCallResponse<PipelineData> {
 }
 
 /// Options that can be changed to affect how the engine treats the plugin
-#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum PluginOption {
     /// Send `GcDisabled(true)` to stop the plugin from being automatically garbage collected, or
     /// `GcDisabled(false)` to enable it again.
@@ -502,7 +497,7 @@ pub enum PluginOption {
 }
 
 /// This is just a serializable version of [`std::cmp::Ordering`], and can be converted 1:1
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Ordering {
     Less,
     Equal,
@@ -530,7 +525,7 @@ impl From<Ordering> for std::cmp::Ordering {
 }
 
 /// Information received from the plugin
-#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum PluginOutput {
     /// This must be the first message. Indicates supported protocol
     Hello(ProtocolInfo),
@@ -586,7 +581,7 @@ impl From<StreamMessage> for PluginOutput {
 /// A remote call back to the engine during the plugin's execution.
 ///
 /// The type parameter determines the input type, for calls that take pipeline data.
-#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum EngineCall<D> {
     /// Get the full engine configuration
     GetConfig,
@@ -714,14 +709,70 @@ impl<D> EngineCall<D> {
 
 /// The response to an [`EngineCall`]. The type parameter determines the output type for pipeline
 /// data.
-#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum EngineCallResponse<D> {
     Error(ShellError),
     PipelineData(D),
-    Config(SharedCow<Config>),
+    Config(#[serde(with = "config_record")] SharedCow<Config>),
     ValueMap(HashMap<String, Value>),
     Identifier(DeclId),
     IrBlock(Box<IrBlock>),
+}
+
+/// Serde for [`EngineCallResponse::Config`].
+///
+/// The config travels as a record and is read back with [`Config::update_from_value`], the same
+/// parser `$env.config` uses. Options that one side doesn't know are skipped and options it
+/// doesn't receive keep their defaults, so config changes between Nushell versions never break
+/// the protocol.
+mod config_record {
+    use nu_protocol::{Config, HistoryFileFormat, IntoValue, Span, Value};
+    use nu_utils::SharedCow;
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+    use std::sync::LazyLock;
+
+    pub fn serialize<S: Serializer>(
+        config: &SharedCow<Config>,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
+        Config::clone(config)
+            .into_value(Span::unknown())
+            .serialize(serializer)
+    }
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(
+        deserializer: D,
+    ) -> Result<SharedCow<Config>, D::Error> {
+        static DEFAULT: LazyLock<Config> = LazyLock::new(Config::default);
+
+        let value = Value::deserialize(deserializer)?;
+        let record = value.as_record().map_err(serde::de::Error::custom)?;
+
+        let mut config = Config::clone(&DEFAULT);
+        // `update_from_value` merges keybindings into the current list, which keeps the defaults
+        // for `$env.config` edits. The record holds the sender's whole list, so start from an
+        // empty one, or bindings the sender removed would come back. If that list doesn't parse,
+        // this side ends up with no keybindings instead of the defaults.
+        if record.contains("keybindings") {
+            config.keybindings.clear();
+        }
+        // The errors and warnings name options this side can't use. Skipping those options is
+        // what makes the record tolerant, so they are dropped.
+        let _ = config.update_from_value(&DEFAULT, &value);
+        // Without nu-protocol's `sqlite` feature, which plugins built outside the workspace
+        // don't enable, the parser above turns a sqlite history into plaintext. The record
+        // describes the sender's history, so keep the format it names.
+        if let Some(format) = record
+            .get("history")
+            .and_then(|history| history.as_record().ok())
+            .and_then(|history| history.get("file_format"))
+            .and_then(|format| format.as_str().ok())
+            .and_then(|format| format.parse::<HistoryFileFormat>().ok())
+        {
+            config.history.file_format = format;
+        }
+        Ok(SharedCow::new(config))
+    }
 }
 
 impl<D> EngineCallResponse<D> {

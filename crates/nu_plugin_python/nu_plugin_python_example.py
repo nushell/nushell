@@ -226,7 +226,12 @@ def write_error(id, text, span=None):
 
 def handle_input(input):
     if "Hello" in input:
-        if input["Hello"]["version"] != PLUGIN_PROTOCOL_VERSION:
+        # Nushell checks semver compatibility: the same major version, and on 0.x also the
+        # same minor version.
+        version = input["Hello"]["version"].split(".")
+        expected = PLUGIN_PROTOCOL_VERSION.split(".")
+        line = 2 if expected[0] == "0" else 1
+        if version[:line] != expected[:line]:
             exit(1)
         else:
             return
@@ -240,7 +245,8 @@ def handle_input(input):
                 {
                     "Metadata": {
                         "version": PLUGIN_VERSION,
-                        "protocol_version": PLUGIN_PROTOCOL_VERSION,
+                        # The Nushell version this plugin was developed against, shown by
+                        # `plugin list`. Nushell fills in the protocol version from `Hello`.
                         "nushell_version": NUSHELL_VERSION,
                     }
                 },

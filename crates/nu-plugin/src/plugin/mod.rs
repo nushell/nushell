@@ -16,8 +16,7 @@ use nu_plugin_core::{
     PluginWrite,
 };
 use nu_plugin_protocol::{
-    CallInfo, CustomValueOp, GetCompletionInfo, PLUGIN_PROTOCOL_VERSION, PluginCustomValue,
-    PluginInput, PluginOutput,
+    CallInfo, CustomValueOp, GetCompletionInfo, PluginCustomValue, PluginInput, PluginOutput,
 };
 use nu_protocol::{
     CustomValue, IntoSpanned, LabeledError, PipelineData, PluginMetadata, ShellError, Span,
@@ -359,6 +358,15 @@ pub fn serve_plugin(plugin: &impl Plugin, encoder: impl PluginEncoder + 'static)
                 move || (write, encoder),
             )
         }
+        // `nu-plugin-core` has the local socket variant whenever its own `local-socket` feature
+        // is on, which another crate in the build (such as `nu-plugin-engine`) can enable
+        // without enabling this crate's. Local socket mode was refused above then, so the arm
+        // can't be reached, but the match must still cover the variant.
+        #[allow(unreachable_patterns)]
+        Ok(_) => {
+            eprintln!("{plugin_name}: local socket mode is not supported");
+            std::process::exit(1);
+        }
         Err(err) => {
             eprintln!("{plugin_name}: failed to connect: {err:?}");
             std::process::exit(1);
@@ -594,12 +602,7 @@ where
                 // Send metadata back to nushell so it can be stored with the plugin signatures
                 ReceivedPluginCall::Metadata { engine } => {
                     engine
-                        .write_metadata(
-                            PluginMetadata::new()
-                                .with_version(plugin.version())
-                                .with_protocol_version(PLUGIN_PROTOCOL_VERSION)
-                                .with_nushell_version(env!("CARGO_PKG_VERSION")),
-                        )
+                        .write_metadata(PluginMetadata::new().with_version(plugin.version()))
                         .try_to_report(&engine)?;
                 }
                 // Sending the signature back to nushell to create the declaration definition

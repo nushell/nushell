@@ -158,6 +158,10 @@ pub trait PluginCommand: Sync {
     /// It's useful when you want to get auto completion items of a flag or positional argument
     /// dynamically.
     ///
+    /// The `call` holds the parsed AST, which changes with the Nushell parser and is not covered
+    /// by the plugin protocol version. The engine only calls this when the plugin was built from
+    /// the same Nushell version as the engine, and uses the default completions otherwise.
+    ///
     /// The implementation can returns 3 types of return values:
     /// - None: I couldn't find any suggestions, please fall back to default completions
     /// - Some(vec![]): there are no suggestions
@@ -314,6 +318,10 @@ pub trait SimplePluginCommand: Sync {
     ///
     /// It's useful when you want to get auto completion items of a flag or positional argument
     /// dynamically.
+    ///
+    /// The `call` holds the parsed AST, which changes with the Nushell parser and is not covered
+    /// by the plugin protocol version. The engine only calls this when the plugin was built from
+    /// the same Nushell version as the engine, and uses the default completions otherwise.
     ///
     /// The implementation can returns 3 types of return values:
     /// - None: I couldn't find any suggestions, please fall back to default completions

@@ -92,6 +92,10 @@ Version columns:
 - `protocol_version`: plugin protocol the binary was built for (compatibility)
 - `nushell_version`: Nushell SDK version used to build the plugin (informational)
 
+When the engine has no value for a version column of a loaded plugin, the
+value from the plugin registry file is shown instead, unless the registry
+entry was written for a different build of the plugin.
+
 Missing protocol/nushell version fields usually mean the plugin was registered
 before those fields existed; re-add the plugin to refresh registry metadata.
 
@@ -211,7 +215,7 @@ fn get_plugins_in_engine(engine_state: &EngineState) -> Vec<PluginInfo> {
         .plugins()
         .iter()
         .map(|plugin| {
-            let metadata = plugin.metadata();
+            let metadata = plugin.metadata().unwrap_or_default();
 
             // Find commands that belong to the plugin
             let commands: Vec<(String, String)> = decls
@@ -227,9 +231,9 @@ fn get_plugins_in_engine(engine_state: &EngineState) -> Vec<PluginInfo> {
 
             PluginInfo {
                 name: plugin.identity().name().into(),
-                version: metadata.as_ref().and_then(|m| m.version.clone()),
-                protocol_version: metadata.as_ref().and_then(|m| m.protocol_version.clone()),
-                nushell_version: metadata.as_ref().and_then(|m| m.nushell_version.clone()),
+                version: metadata.version,
+                protocol_version: metadata.protocol_version,
+                nushell_version: metadata.nushell_version,
                 status: if plugin.pid().is_some() {
                     PluginStatus::Running
                 } else {
@@ -329,53 +333,60 @@ fn merge_plugin_info(
             // Exists in the registry file, but not in the engine
             EitherOrBoth::Right(info) => info,
             // Exists in both
-            EitherOrBoth::Both(info_engine, info_registry) => {
-                let info_engine = info_engine.with_metadata_fallback_from(&info_registry);
-                let info_registry = info_registry.with_metadata_fallback_from(&info_engine);
-
-                PluginInfo {
-                    status: match (info_engine.status, info_registry.status) {
-                        // Above all, `running` should be displayed if the plugin is running
-                        (PluginStatus::Running, _) => PluginStatus::Running,
-                        // `invalid` takes precedence over other states because the user probably wants
-                        // to fix it
-                        (_, PluginStatus::Invalid) => PluginStatus::Invalid,
-                        // Display `modified` if the state in the registry is different somehow
-                        _ if info_engine.is_modified(&info_registry) => PluginStatus::Modified,
-                        // Otherwise, `loaded` (it's not running)
-                        _ => PluginStatus::Loaded,
-                    },
-                    ..info_engine
-                }
-            }
+            EitherOrBoth::Both(info_engine, info_registry) => PluginInfo {
+                status: match (info_engine.status, info_registry.status) {
+                    // Above all, `running` should be displayed if the plugin is running
+                    (PluginStatus::Running, _) => PluginStatus::Running,
+                    // `invalid` takes precedence over other states because the user probably wants
+                    // to fix it
+                    (_, PluginStatus::Invalid) => PluginStatus::Invalid,
+                    // Display `modified` if the state in the registry is different somehow
+                    _ if info_engine.is_modified(&info_registry) => PluginStatus::Modified,
+                    // Otherwise, `loaded` (it's not running)
+                    _ => PluginStatus::Loaded,
+                },
+                ..info_engine.with_metadata_fallback_from(&info_registry)
+            },
         })
         .sorted()
         .collect()
 }
 
 impl PluginInfo {
-    // Fills missing metadata fields from another PluginInfo while preserving existing values.
+    /// Fills the versions this row is missing from `other`, unless the two rows describe
+    /// different builds of the plugin. Mixing those would show a combination no build has.
     fn with_metadata_fallback_from(mut self, other: &PluginInfo) -> Self {
-        self.version = self.version.or_else(|| other.version.clone());
-        self.protocol_version = self
-            .protocol_version
-            .or_else(|| other.protocol_version.clone());
-        self.nushell_version = self
-            .nushell_version
-            .or_else(|| other.nushell_version.clone());
+        if !self.versions_differ(other) {
+            self.version = self.version.or_else(|| other.version.clone());
+            self.protocol_version = self
+                .protocol_version
+                .or_else(|| other.protocol_version.clone());
+            self.nushell_version = self
+                .nushell_version
+                .or_else(|| other.nushell_version.clone());
+        }
         self
     }
 
+    /// True if a version that both rows know differs between them. A version that only one side
+    /// knows, such as one missing from a registry entry written before that column existed,
+    /// doesn't count.
+    fn versions_differ(&self, other: &PluginInfo) -> bool {
+        let differs =
+            |a: &Option<String>, b: &Option<String>| matches!((a, b), (Some(a), Some(b)) if a != b);
+        differs(&self.version, &other.version)
+            || differs(&self.protocol_version, &other.protocol_version)
+            || differs(&self.nushell_version, &other.nushell_version)
+    }
+
     /// True if the plugin info shows some kind of change (other than status/pid) relative to the
-    /// other
+    /// other.
     fn is_modified(&self, other: &PluginInfo) -> bool {
         self.name != other.name
             || self.filename != other.filename
             || self.shell != other.shell
             || self.commands != other.commands
-            || self.version != other.version
-            || self.protocol_version != other.protocol_version
-            || self.nushell_version != other.nushell_version
+            || self.versions_differ(other)
     }
 }
 
@@ -455,6 +466,32 @@ mod tests {
             merged.protocol_version.as_deref()
         );
         assert_eq!(Some("0.112.3"), merged.nushell_version.as_deref());
+        assert_eq!(PluginStatus::Modified, merged.status);
+    }
+
+    // A registry entry rewritten for another build must not fill in the loaded build's versions.
+    #[test]
+    fn merge_plugin_info_does_not_mix_versions_of_different_builds() {
+        let engine = PluginInfo {
+            version: Some("0.116.0".into()),
+            ..plugin_info("gstat")
+        };
+        let registry = PluginInfo {
+            version: Some("0.116.2".into()),
+            protocol_version: Some(PLUGIN_PROTOCOL_VERSION.into()),
+            nushell_version: Some("0.116.2".into()),
+            ..plugin_info("gstat")
+        };
+
+        let merged = merge_plugin_info(vec![engine], vec![registry]);
+        let merged = merged
+            .into_iter()
+            .next()
+            .expect("expected merged plugin info");
+
+        assert_eq!(Some("0.116.0"), merged.version.as_deref());
+        assert_eq!(None, merged.protocol_version);
+        assert_eq!(None, merged.nushell_version);
         assert_eq!(PluginStatus::Modified, merged.status);
     }
 }

@@ -3,6 +3,8 @@ use std::{cmp::Ordering, path::Path};
 use nu_protocol::{CustomValue, ShellError, Span, Spanned, Value, ast::Operator, casing::Casing};
 use nu_utils::SharedCow;
 
+use serde::{Deserialize, Serialize};
+
 #[cfg(test)]
 mod tests;
 
@@ -21,11 +23,11 @@ mod tests;
 /// Most of the [`CustomValue`] methods on this type will result in a panic. The source must be
 /// added (see `nu_plugin_engine::PluginCustomValueWithSource`) in order to implement the
 /// functionality via plugin calls.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PluginCustomValue(SharedCow<SharedContent>);
 
 /// Content shared across copies of a plugin custom value.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 struct SharedContent {
     /// The name of the type of the custom value as defined by the plugin (`type_name()`)
     name: String,
@@ -34,7 +36,21 @@ struct SharedContent {
     /// True if the custom value should notify the source if all copies of it are dropped.
     ///
     /// This is not serialized if `false`, since most custom values don't need it.
+    #[serde(default, skip_serializing_if = "is_false")]
     notify_on_drop: bool,
+}
+
+// Wire witness for the private fields above; see `src/wire_witness.rs`.
+const _: fn(&SharedContent) = |content| {
+    let SharedContent {
+        name: _,
+        data: _,
+        notify_on_drop: _,
+    } = content;
+};
+
+fn is_false(b: &bool) -> bool {
+    !b
 }
 
 #[typetag::serde]
