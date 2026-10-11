@@ -264,24 +264,23 @@ pub fn http_parse_url(
         requested_url = format!("http://{requested_url}");
     }
 
+    let invalid_url = || ShellError::UnsupportedInput {
+        msg: "Incomplete or incorrect URL. Expected a full URL, e.g., https://www.example.com"
+            .to_string(),
+        input: format!("value: '{requested_url:?}'"),
+        msg_span: call.head,
+        input_span: span,
+    };
     let url = match url::Url::parse(&requested_url) {
         Ok(u) => u,
-        // `url::Url` does not support IPv6 zone IDs (e.g. `http://[fe80::13%eth0]`),
-        // while `http::Uri` does. Fall back to `http::Uri` so that such URLs are
-        // accepted; the request itself is made with the raw `requested_url` string.
-        Err(_) if requested_url.contains("%") && requested_url.parse::<http::Uri>().is_ok() => {
-            // Strip the zone ID so the returned `Url` remains valid if it is ever used.
-            let sanitized = strip_ipv6_zone_id(&requested_url);
-            url::Url::parse(&sanitized).unwrap_or_else(|_| url::Url::parse("http://localhost").unwrap())
-        }
-        Err(_e) => {
-            return Err(ShellError::UnsupportedInput {
-                msg: "Incomplete or incorrect URL. Expected a full URL, e.g., https://www.example.com".to_string(),
-                input: format!("value: '{requested_url:?}'"),
-                msg_span: call.head,
-                input_span: span,
-            });
-        }
+        // `url::Url` does not support IPv6 zone IDs (e.g. `http://[fe80::13%eth0]`).
+        // Strip the zone ID and re-parse so that such URLs are accepted; the request
+        // itself is made with the raw `requested_url` string.
+        Err(_) if requested_url.contains('%') => match strip_ipv6_zone_id(&requested_url).parse() {
+            Ok(u) => u,
+            Err(_) => return Err(invalid_url()),
+        },
+        Err(_e) => return Err(invalid_url()),
     };
 
     Ok((requested_url, url).into_spanned(url_span))
@@ -289,9 +288,8 @@ pub fn http_parse_url(
 
 /// Remove the IPv6 zone ID (e.g. `%eth0`) from a URL so that `url::Url` can parse it.
 ///
-/// `url::Url` does not support IPv6 zone IDs, but `http::Uri` does. This is used to
-/// produce a parseable `Url` when the original URL contains a zone ID (e.g.
-/// `http://[fe80::13%eth0]`).
+/// `url::Url` does not support IPv6 zone IDs, so this is used to produce a parseable
+/// `Url` when the original URL contains a zone ID (e.g. `http://[fe80::13%eth0]`).
 fn strip_ipv6_zone_id(url: &str) -> String {
     // Only strip the zone ID when it appears inside IPv6 brackets: `[fe80::13%eth0]`
     let mut result = String::with_capacity(url.len());
@@ -1484,5 +1482,24 @@ mod test {
         assert_eq!(parsed.item.0, "http://[fe80::13%eth0]");
         // The returned `Url` has the zone ID stripped so it remains valid
         assert_eq!(parsed.item.1.as_str(), "http://[fe80::13]/");
+    }
+
+    #[test]
+    fn test_http_parse_url_rejects_invalid_ipv6_with_zone_id() {
+        let call = Call::new(Span::test_data());
+        let span = Span::test_data();
+        // A URL with a zone ID but invalid characters after the bracket must be
+        // rejected, not silently rewritten (e.g. to localhost).
+        for bad in [
+            "http://[fe80::13%eth0]foo",
+            "http://[fe80::13%eth0]:abc",
+            "http://[fe80::13%eth0",
+        ] {
+            let raw_url = Value::test_string(bad);
+            assert!(
+                http_parse_url(&call, span, raw_url).is_err(),
+                "expected {bad:?} to be rejected"
+            );
+        }
     }
 }
