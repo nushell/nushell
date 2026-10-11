@@ -63,6 +63,8 @@ impl Command for JobSpawn {
 
         let mut job_state = engine_state.clone();
         job_state.is_interactive = false;
+        // A background job never returns to the prompt, even when spawned by the REPL.
+        job_state.is_repl = false;
 
         // the new job should have its ctrl-c independent of foreground
         let job_signals = Signals::new(Arc::new(AtomicBool::new(false)));

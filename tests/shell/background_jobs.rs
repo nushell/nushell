@@ -1,16 +1,17 @@
 //! How background jobs end with Nu, checked against real `nu` processes.
 //!
-//! Nu is interrupted with `kill --signal 2 $nu.pid` and runs Unix commands, so these tests only run
-//! on Unix.
+//! Exit cleanup is tested on all platforms; signal delivery tests use Unix signals.
 
+#[cfg(unix)]
 use nix::libc;
 use nu_test_support::{fs::Stub::FileWithContent, prelude::*};
 use nu_utils::time::Instant;
 use pretty_assertions::assert_eq;
 use rstest::rstest;
+#[cfg(unix)]
+use std::os::{fd::AsRawFd, unix::process::CommandExt};
 use std::{
     io::{self, Read},
-    os::{fd::AsRawFd, unix::process::CommandExt},
     path::Path,
     process::{Child, Command, Output, Stdio},
     sync::mpsc,
@@ -31,12 +32,27 @@ const NU_TIMEOUT: Duration = Duration::from_secs(180);
 /// The process ends by itself after two minutes: long enough to still run when a test checks for
 /// it, and short enough not to linger long after a test that leaks it.
 const SPAWN_BACKGROUND_PROCESS: &str = "
-    job spawn { ^sleep 120 } | ignore
-    while (job list | get pids | flatten | is-empty) { sleep 10ms }
+    job spawn { ^$nu.current-exe --no-config-file --no-std-lib -c 'sleep 2min' } | ignore
+    let deadline = (date now) + 30sec
+    while (job list | get pids | flatten | is-empty) {
+        if (job list | is-empty) { error make {msg: 'background process failed to start'} }
+        if (date now) > $deadline { error make {msg: 'background process did not register its PID'} }
+        sleep 10ms
+    }
     job list | get pids | flatten | first | save background.pid
+    if $nu.os-info.family == 'windows' {
+        # Let the test open a process handle before Nu can exit and the PID can be reused.
+        '' | save background.ready
+        let deadline = (date now) + 30sec
+        while not ('allow-exit' | path exists) {
+            if (date now) > $deadline { error make {msg: 'test did not release Nu'} }
+            sleep 10ms
+        }
+    }
 ";
 
 /// Interrupts Nu and catches the interrupt, which leaves the code running.
+#[cfg(unix)]
 const CATCH_INTERRUPT: &str = "
     try { kill --signal 2 $nu.pid; sleep 1min } catch {|err| $err.msg | save interrupt.txt }
 ";
@@ -111,6 +127,7 @@ fn read_in_background(
 /// A process that outlives `nu` is left to end by itself. The open pipe only shows that some
 /// process `nu` started still holds it, not which one, so the recorded PID may already belong to
 /// an unrelated process.
+#[cfg(unix)]
 fn assert_nothing_outlives_nu(dir: &Path, args: &[&str], exit_code: i32) -> Result {
     let (mut reader, writer) = io::pipe()?;
     let fd = writer.as_raw_fd();
@@ -142,6 +159,56 @@ fn assert_nothing_outlives_nu(dir: &Path, args: &[&str], exit_code: i32) -> Resu
     Ok(())
 }
 
+/// Check the background process using a handle opened while Nu still owns its PID.
+///
+/// Unlike polling a PID after Nu exits, the handle cannot refer to an unrelated process.
+#[cfg(windows)]
+fn assert_nothing_outlives_nu(dir: &Path, args: &[&str], exit_code: i32) -> Result {
+    use std::os::windows::io::{AsRawHandle, FromRawHandle, OwnedHandle};
+    use windows_sys::Win32::{
+        Foundation::WAIT_OBJECT_0,
+        System::Threading::{OpenProcess, PROCESS_SYNCHRONIZE, WaitForSingleObject},
+    };
+
+    let mut child = nu(dir, args).spawn()?;
+    let deadline = Instant::now() + TIMEOUT;
+    let pid = loop {
+        if dir.join("background.ready").exists()
+            && let Ok(pid) = read(dir, "background.pid")
+            && let Ok(pid) = pid.trim().parse::<u32>()
+        {
+            break pid;
+        }
+        if child.try_wait()?.is_some() || Instant::now() >= deadline {
+            let _ = child.kill();
+            panic!(
+                "nu didn't start the background process: {:?}",
+                wait_for(child)?
+            );
+        }
+        thread::sleep(Duration::from_millis(10));
+    };
+
+    // SAFETY: OpenProcess only uses plain values; Nu waits for allow-exit before cleaning up.
+    let handle = unsafe { OpenProcess(PROCESS_SYNCHRONIZE, 0, pid) };
+    if handle.is_null() {
+        return Err(io::Error::last_os_error().into());
+    }
+    // SAFETY: OpenProcess returned a valid handle, and this is its sole owner.
+    let process = unsafe { OwnedHandle::from_raw_handle(handle) };
+    std::fs::write(dir.join("allow-exit"), "")?;
+    let output = wait_for(child)?;
+
+    // SAFETY: process owns the handle throughout this wait.
+    let wait = unsafe { WaitForSingleObject(process.as_raw_handle(), TIMEOUT.as_millis() as u32) };
+    assert_eq!(
+        wait, WAIT_OBJECT_0,
+        "a background process outlived nu: {output:?}"
+    );
+    assert_eq!(output.status.code(), Some(exit_code), "{output:?}");
+    Ok(())
+}
+
 /// Run `code` as commands (`-c`) or as a script, optionally with `-i`.
 fn code_args<'a>(
     dir: &Path,
@@ -167,6 +234,7 @@ fn read(dir: &Path, file: &str) -> Result<String> {
 }
 
 /// Interrupting foreground work must not kill the REPL's background jobs.
+#[cfg(unix)]
 #[test]
 #[deps(NU)]
 fn repl_interrupt_keeps_background_jobs() -> Result {
@@ -178,8 +246,7 @@ fn repl_interrupt_keeps_background_jobs() -> Result {
             "
             job spawn {{ sleep 10min }} | ignore
             {CATCH_INTERRUPT}
-            # Jobs that the interrupt kills would be gone by now.
-            sleep 500ms
+            # Non-REPL cleanup finishes before the interrupt is visible to evaluation.
             job list | length | save jobs.txt
             "
         );
@@ -197,8 +264,56 @@ fn repl_interrupt_keeps_background_jobs() -> Result {
     })
 }
 
+/// Only an exit at the REPL prompt warns first; the next exit terminates the remaining jobs.
+#[test]
+#[deps(NU)]
+fn repl_exit_warns_once_before_killing_background_jobs() -> Result {
+    Playground::setup(
+        "repl_exit_warns_once_before_killing_background_jobs",
+        |dirs, _| {
+            let dir = dirs.test().as_std_path();
+            let code = format!(
+                "
+            {SPAWN_BACKGROUND_PROCESS}
+            exit 3
+            'warned' | save first-exit.txt
+            exit 42
+            'continued' | save after-exit.txt
+            "
+            );
+            assert_nothing_outlives_nu(dir, &["-n", "--no-history", "-e", &code], 42)?;
+            assert_eq!(read(dir, "first-exit.txt")?, "warned");
+            assert!(!dir.join("after-exit.txt").exists());
+            Ok(())
+        },
+    )
+}
+
+/// An exit in a background job ends the closure, rather than warning and continuing as at
+/// the REPL prompt. The foreground shell can still finish normally.
+#[test]
+#[deps(NU)]
+fn background_exit_does_not_warn() -> Result {
+    Playground::setup("background_exit_does_not_warn", |dirs, _| {
+        let dir = dirs.test().as_std_path();
+        let code = "
+            job spawn { exit 42; 'continued' | save after-exit.txt } | ignore
+            let deadline = (date now) + 30sec
+            while (job list | is-not-empty) and (date now) < $deadline { sleep 10ms }
+            if (job list | is-not-empty) { error make {msg: 'background exit timed out'} }
+            exit 0
+        ";
+        let output = wait_for(nu(dir, &["-n", "--no-history", "-e", code]).spawn()?)?;
+        assert_eq!(output.status.code(), Some(0), "{output:?}");
+        assert!(output.stdout.is_empty(), "{output:?}");
+        assert!(!dir.join("after-exit.txt").exists());
+        Ok(())
+    })
+}
+
 /// Commands and scripts don't return to a prompt, so an interrupt kills their background jobs,
 /// even with `-i`, and even if they catch it.
+#[cfg(unix)]
 #[rstest]
 #[nu_test_support::test]
 #[deps(NU)]
@@ -212,12 +327,8 @@ fn interrupt_outside_repl_kills_background_jobs(
             "
             job spawn {{ sleep 10min }} | ignore
             {CATCH_INTERRUPT}
-            # The interrupt handler kills the jobs from its own thread.
-            let deadline = (date now) + {}sec
-            while (job list | is-not-empty) and (date now) < $deadline {{ sleep 10ms }}
             job list | length | save jobs.txt
-            ",
-            TIMEOUT.as_secs()
+            "
         );
         let args = code_args(dir, script, interactive, &code)?;
         let output = wait_for(nu(dir, &args).spawn()?)?;
@@ -236,8 +347,9 @@ fn interrupt_outside_repl_kills_background_jobs(
 /// processes end with them.
 #[rstest]
 #[case::finish("", 0)]
+#[case::exit("exit 42; error make {msg: continued}", 42)]
 #[case::error("error make {msg: boom}", 1)]
-#[case::interrupt("kill --signal 2 $nu.pid; sleep 1min", 1)]
+#[cfg_attr(unix, case::interrupt("kill --signal 2 $nu.pid; sleep 1min", 1))]
 #[nu_test_support::test]
 #[deps(NU)]
 fn background_processes_end_with_commands_and_scripts(
@@ -255,6 +367,25 @@ fn background_processes_end_with_commands_and_scripts(
             assert_nothing_outlives_nu(dir, &args, exit_code)
         },
     )
+}
+
+/// Exercise shutdown while jobs transition between short-lived and long-lived externals.
+/// The inherited pipe detects children leaked before their PID was registered.
+#[cfg(unix)]
+#[test]
+#[deps(NU)]
+fn chained_background_processes_end_with_nu() -> Result {
+    for _ in 0..20 {
+        Playground::setup("chained_background_processes_end_with_nu", |dirs, _| {
+            let code = format!(
+                "{SPAWN_BACKGROUND_PROCESS}
+                 for _ in 1..8 {{ job spawn {{ ^true; ^sleep 120 }} | ignore }}
+                 sleep 1ms"
+            );
+            assert_nothing_outlives_nu(dirs.test().as_std_path(), &["-n", "-c", &code], 0)
+        })?;
+    }
+    Ok(())
 }
 
 /// Nu exits without returning to a prompt when the startup files, the code or the REPL fail

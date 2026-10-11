@@ -57,27 +57,49 @@ pub(crate) struct ParsedCli {
     pub(crate) args_to_script: Vec<String>,
 }
 
-impl ParsedCli {
-    /// Whether Nu runs the REPL: there are no commands (`-c`) or script to run, and no `--lsp`,
-    /// `--dap` or `--mcp` server to start.
-    ///
-    /// `-i` makes commands and scripts interactive, but they still exit when done rather than
-    /// return to a prompt.
-    pub(crate) fn is_repl(&self) -> bool {
-        #[cfg(feature = "lsp")]
-        let is_lsp = self.nu.lsp;
-        #[cfg(not(feature = "lsp"))]
-        let is_lsp = false;
-        #[cfg(feature = "dap")]
-        let is_dap = self.nu.dap;
-        #[cfg(not(feature = "dap"))]
-        let is_dap = false;
-        #[cfg(feature = "mcp")]
-        let is_mcp = self.nu.mcp;
-        #[cfg(not(feature = "mcp"))]
-        let is_mcp = false;
+/// The single dispatch decision used for both interrupt policy and execution.
+pub(crate) enum RunMode {
+    Repl,
+    Commands(Spanned<String>),
+    Script,
+    #[cfg(feature = "mcp")]
+    Mcp,
+    #[cfg(feature = "lsp")]
+    Lsp,
+    #[cfg(feature = "dap")]
+    Dap,
+}
 
-        self.nu.commands.is_none() && self.script_name.is_empty() && !is_lsp && !is_dap && !is_mcp
+impl RunMode {
+    pub(crate) fn is_repl(&self) -> bool {
+        matches!(self, Self::Repl)
+    }
+}
+
+impl ParsedCli {
+    /// `-i` makes commands and scripts interactive, but they still exit when done rather than
+    /// return to a prompt. Server modes take precedence over commands and scripts.
+    pub(crate) fn run_mode(&self) -> RunMode {
+        #[cfg(feature = "mcp")]
+        if self.nu.is_mcp() {
+            return RunMode::Mcp;
+        }
+        #[cfg(feature = "lsp")]
+        if self.nu.is_lsp() {
+            return RunMode::Lsp;
+        }
+        #[cfg(feature = "dap")]
+        if self.nu.is_dap() {
+            return RunMode::Dap;
+        }
+
+        if let Some(commands) = &self.nu.commands {
+            RunMode::Commands(commands.clone())
+        } else if self.script_name.is_empty() {
+            RunMode::Repl
+        } else {
+            RunMode::Script
+        }
     }
 }
 
@@ -1510,6 +1532,41 @@ pub(crate) struct NushellCliArgs {
     pub(crate) mcp_host: Option<String>,
 }
 
+impl NushellCliArgs {
+    pub(crate) fn is_lsp(&self) -> bool {
+        #[cfg(feature = "lsp")]
+        {
+            self.lsp
+        }
+        #[cfg(not(feature = "lsp"))]
+        {
+            false
+        }
+    }
+
+    pub(crate) fn is_dap(&self) -> bool {
+        #[cfg(feature = "dap")]
+        {
+            self.dap
+        }
+        #[cfg(not(feature = "dap"))]
+        {
+            false
+        }
+    }
+
+    pub(crate) fn is_mcp(&self) -> bool {
+        #[cfg(feature = "mcp")]
+        {
+            self.mcp
+        }
+        #[cfg(not(feature = "mcp"))]
+        {
+            false
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1532,17 +1589,17 @@ mod tests {
     #[case::script(&["script.nu"], false)]
     #[case::interactive_script(&["-i", "script.nu"], false)]
     fn is_repl(#[case] args: &[&str], #[case] expected: bool) {
-        assert_eq!(parse_nu_args(args).is_repl(), expected);
+        assert_eq!(parse_nu_args(args).run_mode().is_repl(), expected);
     }
 
     #[test]
     fn servers_are_not_repl() {
         #[cfg(feature = "lsp")]
-        assert!(!parse_nu_args(&["--lsp"]).is_repl());
+        assert!(matches!(parse_nu_args(&["--lsp"]).run_mode(), RunMode::Lsp));
         #[cfg(feature = "dap")]
-        assert!(!parse_nu_args(&["--dap"]).is_repl());
+        assert!(matches!(parse_nu_args(&["--dap"]).run_mode(), RunMode::Dap));
         #[cfg(feature = "mcp")]
-        assert!(!parse_nu_args(&["--mcp"]).is_repl());
+        assert!(matches!(parse_nu_args(&["--mcp"]).run_mode(), RunMode::Mcp));
     }
 
     #[test]

@@ -37,7 +37,6 @@ mod windows;
 
 pub use self::exit_status::ExitStatus;
 pub use self::foreground::prepare_background_command;
-pub use self::foreground::prepare_background_job_command;
 #[cfg(unix)]
 pub use self::foreground::stdin_fd;
 pub use self::foreground::{

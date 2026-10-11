@@ -381,6 +381,9 @@ nix = { workspace = true, default-features = false, features = [
   "term",
 ] }
 
+[target.'cfg(windows)'.dev-dependencies]
+windows-sys = { workspace = true, features = ["Win32_Foundation", "Win32_System_Threading"] }
+
 [dev-dependencies]
 nu-plugin-core = { path = "./crates/nu-plugin-core", version = "0.116.2" }
 nu-plugin-protocol = { path = "./crates/nu-plugin-protocol", version = "0.116.2" }
