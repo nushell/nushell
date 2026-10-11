@@ -99,6 +99,8 @@ fn into_duration_table_column() -> Result {
 #[case::millis("'16:59:58.235' | into duration", "16hr 59min 58sec 235ms")]
 #[case::tenths("'2:45:31.2' | into duration", "2hr 45min 31sec 200ms")]
 #[case::hundredths("'2:45:31.23' | into duration", "2hr 45min 31sec 230ms")]
+#[case::hundredths("'45:31.23' | into duration", "45min 31sec 230ms")]
+#[case::hundredths("'45:31' | into duration", "45min 31sec")]
 #[case::four_fraction_digits("'2:45:31.2345' | into duration", "2hr 45min 31sec 234ms 500µs")]
 #[case::micros("'16:59:58.235123' | into duration", "16hr 59min 58sec 235ms 123µs")]
 #[case::nanos(
@@ -109,19 +111,6 @@ fn into_duration_colon_string(#[case] code: &str, #[case] expected: &str) -> Res
     test()
         .run(format!("{code} | into string"))
         .expect_value_eq(expected)
-}
-
-#[test]
-fn into_duration_clock_error_two() -> Result {
-    let err = test().run("'3:34' | into duration").expect_shell_error()?;
-
-    match err {
-        ShellError::IncorrectValue { msg, .. } => {
-            assert_contains("hh:mm:ss", msg);
-            Ok(())
-        }
-        err => Err(err.into()),
-    }
 }
 
 // Tests error paths

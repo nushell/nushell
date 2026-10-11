@@ -257,7 +257,7 @@ fn parse_clock_duration(s: &str, span: Span) -> Result<Option<Value>, ShellError
     // helper for consistent error messaging
     fn clock_format_error(span: Span) -> ShellError {
         ShellError::IncorrectValue {
-            msg: "invalid clock-style duration; please use hh:mm:ss with optional .f up to .fffffffff"
+            msg: "invalid clock-style duration; please use hh:mm:ss or mm:ss with optional .f up to .fffffffff"
                 .to_string(),
             val_span: span,
             call_span: span,
@@ -273,22 +273,21 @@ fn parse_clock_duration(s: &str, span: Span) -> Result<Option<Value>, ShellError
         }
     }
 
-    let parts: Vec<&str> = s.split(':').collect();
+    let parse_clock_i64 = |s: &str| s.parse::<i64>().map_err(|_| clock_format_error(span));
 
-    if parts.len() != 3 {
-        return Err(clock_format_error(span));
-    }
+    let (hours, minutes, seconds_tail) = match s.split(":").collect::<Vec<_>>().as_slice() {
+        [hours_str, minutes_str, tail] => (
+            parse_clock_i64(hours_str)?,
+            parse_clock_i64(minutes_str)?,
+            *tail,
+        ),
+        [minutes_str, tail] => (0, parse_clock_i64(minutes_str)?, *tail),
+        _ => return Err(clock_format_error(span)),
+    };
 
-    let hours = parts[0]
-        .parse::<i64>()
-        .map_err(|_| clock_format_error(span))?;
-    let minutes = parts[1]
-        .parse::<i64>()
-        .map_err(|_| clock_format_error(span))?;
-
-    let (seconds_part, fractional_part) = match parts[2].split_once('.') {
+    let (seconds_part, fractional_part) = match seconds_tail.split_once('.') {
         Some((seconds, fractional)) => (seconds, Some(fractional)),
-        None => (parts[2], None),
+        None => (seconds_tail, None),
     };
 
     let seconds = seconds_part
@@ -607,30 +606,6 @@ mod test {
             other => {
                 panic!("Expected Value::Duration, observed {other:?}");
             }
-        }
-    }
-
-    #[test]
-    fn invalid_clock_string() {
-        let args = Arguments {
-            unit: Some(Spanned {
-                item: Unit::Nanosecond,
-                span: Span::test_data(),
-            }),
-            cell_paths: None,
-        };
-
-        // two‑field string must fail with helpful message
-        let actual = action(&Value::test_string("1:02"), &args, Span::test_data());
-        match actual {
-            Value::Error { error, .. } => {
-                if let ShellError::IncorrectValue { msg, .. } = *error {
-                    assert!(msg.contains("hh:mm:ss"), "msg was {msg}");
-                } else {
-                    panic!("wrong error variant: {error:?}");
-                }
-            }
-            other => panic!("expected error, got {other:?}"),
         }
     }
 
