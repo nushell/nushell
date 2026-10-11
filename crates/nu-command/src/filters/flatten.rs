@@ -230,15 +230,6 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
             let mut out = IndexMap::<String, Value>::new();
             let mut inner_table = None;
 
-            let overwrite_error = Value::error(
-                ShellError::UnsupportedInput {
-                    msg: "overwriting columns is not allowed".into(),
-                    input: "value originates from here".into(),
-                    msg_span: Span::unknown(),
-                    input_span: Span::unknown(),
-                },
-                Span::unknown(),
-            );
             for (column_index, (column, value)) in val.into_iter().enumerate() {
                 let column_requested = columns.iter().find(|c| c.to_column_name() == column);
                 let need_flatten = { columns.is_empty() || column_requested.is_some() };
@@ -248,6 +239,7 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
                     Value::Record { ref val, .. } => {
                         if need_flatten {
                             for (col, val) in val.clone().into_owned() {
+                                let val_span = val.span();
                                 let name = if out.contains_key(&col)
                                     || retained_outer_columns.contains(&col)
                                     || reserved_renames.contains(&col)
@@ -256,12 +248,15 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
                                 } else {
                                     col
                                 };
-                                if out.insert(name, val).is_some() {
-                                    return vec![overwrite_error];
+                                if let Some(previous) = out.insert(name.clone(), val) {
+                                    let error =
+                                        column_defined_twice(name, previous.span(), val_span);
+                                    return vec![error];
                                 }
                             }
-                        } else if out.insert(column, value).is_some() {
-                            return vec![overwrite_error];
+                        } else if let Some(previous) = out.insert(column.clone(), value) {
+                            let error = column_defined_twice(column, previous.span(), span);
+                            return vec![error];
                         }
                     }
                     Value::List { vals, .. } => {
@@ -290,8 +285,11 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
                                     parent_column_name: column,
                                     parent_column_index: column_index,
                                 });
-                            } else if out.insert(column, Value::list_shared(vals, span)).is_some() {
-                                return vec![overwrite_error];
+                            } else if let Some(previous) =
+                                out.insert(column.clone(), Value::list_shared(vals, span))
+                            {
+                                let error = column_defined_twice(column, previous.span(), span);
+                                return vec![error];
                             }
                         } else if !columns.is_empty() {
                             let cell_path =
@@ -306,8 +304,11 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
                                     vals.into_owned(),
                                     column_index,
                                 ));
-                            } else if out.insert(column, Value::list_shared(vals, span)).is_some() {
-                                return vec![overwrite_error];
+                            } else if let Some(previous) =
+                                out.insert(column.clone(), Value::list_shared(vals, span))
+                            {
+                                let error = column_defined_twice(column, previous.span(), span);
+                                return vec![error];
                             }
                         } else {
                             inner_table = Some(TableInside::Entries(
@@ -318,8 +319,9 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
                         }
                     }
                     _ => {
-                        if out.insert(column, value).is_some() {
-                            return vec![overwrite_error];
+                        if let Some(previous) = out.insert(column.clone(), value) {
+                            let error = column_defined_twice(column, previous.span(), span);
+                            return vec![error];
                         }
                     }
                 }
@@ -335,21 +337,23 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
                         for (col, val) in base.into_iter() {
                             // meet the flattened column, push them to result record first
                             // this can avoid output column order changed.
-                            if index == parent_column_index
-                                && !push_unique(&mut record, column.clone(), entry.clone())
-                            {
-                                return vec![overwrite_error];
+                            if index == parent_column_index {
+                                if let Err(error) =
+                                    push_unique(&mut record, column.clone(), entry.clone())
+                                {
+                                    return vec![error];
+                                }
                             }
-                            if !push_unique(&mut record, col, val) {
-                                return vec![overwrite_error];
+                            if let Err(error) = push_unique(&mut record, col, val) {
+                                return vec![error];
                             }
                             index += 1;
                         }
                         // the flattened column may be the last column in the original table.
-                        if index == parent_column_index
-                            && !push_unique(&mut record, column.clone(), entry)
-                        {
-                            return vec![overwrite_error];
+                        if index == parent_column_index {
+                            if let Err(error) = push_unique(&mut record, column.clone(), entry) {
+                                return vec![error];
+                            }
                         }
                         expanded.push(Value::record(record, tag));
                     }
@@ -376,13 +380,14 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
                                     } else {
                                         col.clone()
                                     };
-                                    if !push_unique(&mut record, name, val.clone()) {
-                                        return vec![overwrite_error];
+                                    if let Err(error) = push_unique(&mut record, name, val.clone())
+                                    {
+                                        return vec![error];
                                     }
                                 }
                             }
-                            if !push_unique(&mut record, base_col, base_val) {
-                                return vec![overwrite_error];
+                            if let Err(error) = push_unique(&mut record, base_col, base_val) {
+                                return vec![error];
                             }
                             index += 1;
                         }
@@ -397,8 +402,8 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
                                 } else {
                                     col
                                 };
-                                if !push_unique(&mut record, name, val) {
-                                    return vec![overwrite_error];
+                                if let Err(error) = push_unique(&mut record, name, val) {
+                                    return vec![error];
                                 }
                             }
                         }
@@ -416,13 +421,25 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
     }
 }
 
+fn column_defined_twice(col_name: String, first_use: Span, second_use: Span) -> Value {
+    Value::error(
+        ShellError::ColumnDefinedTwice {
+            col_name,
+            second_use,
+            first_use,
+        },
+        second_use,
+    )
+}
+
 /// Push `name`: `val` onto `record` if `name` is not present in `record`
-fn push_unique(record: &mut Record, name: String, val: Value) -> bool {
-    if record.get(&name).is_some() {
-        return false;
+fn push_unique(record: &mut Record, name: String, val: Value) -> Result<(), Value> {
+    if let Some(previous) = record.get(&name) {
+        let error = column_defined_twice(name, previous.span(), val.span());
+        return Err(error);
     }
     record.push(name, val);
-    true
+    Ok(())
 }
 
 #[cfg(test)]
