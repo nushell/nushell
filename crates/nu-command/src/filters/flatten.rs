@@ -33,10 +33,11 @@ impl Command for Flatten {
     }
 
     fn extra_description(&self) -> &str {
-        "A record is treated as a one-row table, so the output is always a table.
-Fields of a nested record are lifted to the top level and the parent key is dropped.
-If a lifted field would collide with a top-level column, it is renamed to `<parent>_<field>`.
-A nested list is expanded into one row per element."
+        "A record is treated as a one-row table, so the output is always a table.\n\
+         Fields of a nested record are lifted to the top level and the parent key is dropped.\n\
+         If a lifted field would collide with a top-level column, it is renamed to `<parent>_<field>`.\n\
+         If a lifted and renamed field would still collide with a top-level column, an error is raised.\n\
+         A nested list is expanded into one row per element."
     }
 
     fn run(
