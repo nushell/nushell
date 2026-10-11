@@ -21,6 +21,16 @@ impl Resolver for DnsLookupResolver {
         _timeout: NextTimeout,
     ) -> Result<ResolvedSocketAddrs, ureq::Error> {
         let host = uri.host();
+        // `uri.host()` returns IPv6 addresses wrapped in square brackets (e.g.
+        // `[fe80::13%eth0]`), which `getaddrinfo` cannot resolve. Strip the brackets
+        // so that zone IDs (e.g. `%eth0`) are handled correctly by the resolver.
+        let host = host
+            .map(|h| {
+                h.strip_prefix('[')
+                    .and_then(|inner| inner.strip_suffix(']'))
+                    .unwrap_or(h)
+            })
+            .unwrap_or_default();
         // Determine the port: use explicit port if provided, otherwise derive from scheme
         let port = uri.port_u16().unwrap_or_else(|| match uri.scheme_str() {
             Some("https") => 443,
@@ -30,7 +40,7 @@ impl Resolver for DnsLookupResolver {
         // Pass None as service to avoid "Service not supported for this socket type" errors
         // in certain environments (e.g., Docker containers on some Linux distributions).
         // We'll set the port manually on each resolved address.
-        let addr_info_iter = dns_lookup::getaddrinfo(host, None, None)
+        let addr_info_iter = dns_lookup::getaddrinfo(Some(host), None, None)
             .map_err(|err| ureq::Error::Other(Box::new(LookupError(err))))?;
 
         let ip_family = config.ip_family();

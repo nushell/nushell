@@ -266,6 +266,14 @@ pub fn http_parse_url(
 
     let url = match url::Url::parse(&requested_url) {
         Ok(u) => u,
+        // `url::Url` does not support IPv6 zone IDs (e.g. `http://[fe80::13%eth0]`),
+        // while `http::Uri` does. Fall back to `http::Uri` so that such URLs are
+        // accepted; the request itself is made with the raw `requested_url` string.
+        Err(_) if requested_url.contains("%") && requested_url.parse::<http::Uri>().is_ok() => {
+            // Strip the zone ID so the returned `Url` remains valid if it is ever used.
+            let sanitized = strip_ipv6_zone_id(&requested_url);
+            url::Url::parse(&sanitized).unwrap_or_else(|_| url::Url::parse("http://localhost").unwrap())
+        }
         Err(_e) => {
             return Err(ShellError::UnsupportedInput {
                 msg: "Incomplete or incorrect URL. Expected a full URL, e.g., https://www.example.com".to_string(),
@@ -277,6 +285,41 @@ pub fn http_parse_url(
     };
 
     Ok((requested_url, url).into_spanned(url_span))
+}
+
+/// Remove the IPv6 zone ID (e.g. `%eth0`) from a URL so that `url::Url` can parse it.
+///
+/// `url::Url` does not support IPv6 zone IDs, but `http::Uri` does. This is used to
+/// produce a parseable `Url` when the original URL contains a zone ID (e.g.
+/// `http://[fe80::13%eth0]`).
+fn strip_ipv6_zone_id(url: &str) -> String {
+    // Only strip the zone ID when it appears inside IPv6 brackets: `[fe80::13%eth0]`
+    let mut result = String::with_capacity(url.len());
+    let mut in_brackets = false;
+    let mut chars = url.chars().peekable();
+    while let Some(c) = chars.next() {
+        match c {
+            '[' => {
+                in_brackets = true;
+                result.push(c);
+            }
+            ']' => {
+                in_brackets = false;
+                result.push(c);
+            }
+            '%' if in_brackets => {
+                // Skip everything until the closing `]`
+                while let Some(&next) = chars.peek() {
+                    if next == ']' {
+                        break;
+                    }
+                    chars.next();
+                }
+            }
+            _ => result.push(c),
+        }
+    }
+    result
 }
 
 pub fn http_parse_redirect_mode(mode: Option<Spanned<String>>) -> Result<RedirectMode, ShellError> {
@@ -1404,5 +1447,42 @@ mod test {
         let expanded = expand_unix_socket_path(with_tilde, &cwd).unwrap();
         assert!(expanded.is_absolute());
         assert!(!expanded.to_string_lossy().contains('~'));
+    }
+
+    #[test]
+    fn test_strip_ipv6_zone_id() {
+        // Zone ID inside brackets is stripped
+        assert_eq!(
+            strip_ipv6_zone_id("http://[fe80::13%eth0]/path"),
+            "http://[fe80::13]/path"
+        );
+        // Percent-encoded zone ID is also stripped
+        assert_eq!(
+            strip_ipv6_zone_id("http://[fe80::13%25eth0]/path"),
+            "http://[fe80::13]/path"
+        );
+        // No zone ID: unchanged
+        assert_eq!(
+            strip_ipv6_zone_id("http://[fe80::13]/path"),
+            "http://[fe80::13]/path"
+        );
+        // Percent outside brackets is left alone (e.g. URL-encoded path)
+        assert_eq!(
+            strip_ipv6_zone_id("http://example.com/%20path"),
+            "http://example.com/%20path"
+        );
+    }
+
+    #[test]
+    fn test_http_parse_url_with_ipv6_zone_id() {
+        let call = Call::new(Span::test_data());
+        let span = Span::test_data();
+        let raw_url = Value::test_string("http://[fe80::13%eth0]");
+
+        let parsed = http_parse_url(&call, span, raw_url).unwrap();
+        // The raw requested URL is preserved (used for the actual request)
+        assert_eq!(parsed.item.0, "http://[fe80::13%eth0]");
+        // The returned `Url` has the zone ID stripped so it remains valid
+        assert_eq!(parsed.item.1.as_str(), "http://[fe80::13]/");
     }
 }
