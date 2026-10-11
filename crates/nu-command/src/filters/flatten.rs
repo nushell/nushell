@@ -183,15 +183,8 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
                     let will_flatten = match value {
                         Value::Record { .. } => need_flatten,
                         Value::List { vals, .. } => {
-                            if all && vals.iter().all(|value| value.as_record().is_ok()) {
-                                need_flatten
-                            } else {
-                                matches!(
-                                    column_requested
-                                        .and_then(|cell_path| cell_path.members.first()),
-                                    Some(PathMember::String { .. })
-                                )
-                            }
+                            all && vals.iter().all(|value| value.as_record().is_ok())
+                                && need_flatten
                         }
                         _ => false,
                     };
@@ -373,9 +366,7 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
                             // this can avoid output column order changed.
                             if index == parent_column_index {
                                 for (col, val) in &inner_record {
-                                    let name = if record.contains(col)
-                                        || (!columns.is_empty() && out.contains_key(col))
-                                    {
+                                    let name = if record.contains(col) || out.contains_key(col) {
                                         format!("{parent_column_name}_{col}")
                                     } else {
                                         col.clone()
@@ -395,9 +386,7 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
                         // the flattened column may be the last column in the original table.
                         if index == parent_column_index {
                             for (col, val) in inner_record {
-                                let name = if record.contains(&col)
-                                    || (!columns.is_empty() && out.contains_key(&col))
-                                {
+                                let name = if record.contains(&col) || out.contains_key(&col) {
                                     format!("{parent_column_name}_{col}")
                                 } else {
                                     col
@@ -445,24 +434,9 @@ fn push_unique(record: &mut Record, name: String, val: Value) -> Result<(), Valu
 #[cfg(test)]
 mod test {
     use super::*;
-    use nu_test_support::TestResultExt;
 
     #[test]
     fn test_examples() -> nu_test_support::Result {
         nu_test_support::test().examples(Flatten)
-    }
-
-    #[test]
-    fn test_column_overwrites_lifted_column() -> nu_test_support::Result {
-        nu_test_support::test()
-            .run("{a: {b: 1, c: 2}, a_c: 3, c: 4} | flatten")
-            .expect_error_code_eq("nu::shell::unsupported_input")
-    }
-
-    #[test]
-    fn test_lifted_column_overwrites_column() -> nu_test_support::Result {
-        nu_test_support::test()
-            .run("{a_c: 3, a: {b: 1, c: 2}, c: 4} | flatten")
-            .expect_error_code_eq("nu::shell::unsupported_input")
     }
 }
