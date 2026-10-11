@@ -221,6 +221,12 @@ pub(crate) fn run_repl(
     trace!("run_repl");
     let start_time = nu_utils::time::Instant::now();
 
+    // Create the history session id before the startup config is evaluated so
+    // that `history session` reports the real id during initialization (#18321).
+    if let Some(session_id) = reedline::Reedline::create_history_session_id() {
+        engine_state.history_session_id = session_id.into();
+    }
+
     if parsed_nu_cli_args.no_config_file.is_none() {
         setup_config(
             engine_state,
