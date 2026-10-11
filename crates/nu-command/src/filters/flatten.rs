@@ -325,9 +325,7 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
                             // this can avoid output column order changed.
                             if index == parent_column_index {
                                 for (col, val) in &inner_record {
-                                    if record.contains(col)
-                                        || (!columns.is_empty() && out.contains_key(col))
-                                    {
+                                    if record.contains(col) || out.contains_key(col) {
                                         record.push(
                                             format!("{parent_column_name}_{col}"),
                                             val.clone(),
@@ -345,9 +343,7 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
                         // the flattened column may be the last column in the original table.
                         if index == parent_column_index {
                             for (col, val) in inner_record {
-                                if record.contains(&col)
-                                    || (!columns.is_empty() && out.contains_key(&col))
-                                {
+                                if record.contains(&col) || out.contains_key(&col) {
                                     record.push(format!("{parent_column_name}_{col}"), val);
                                 } else {
                                     record.push(col, val);
