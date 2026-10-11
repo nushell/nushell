@@ -330,12 +330,11 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
                         for (col, val) in base.into_iter() {
                             // meet the flattened column, push them to result record first
                             // this can avoid output column order changed.
-                            if index == parent_column_index {
-                                if let Err(error) =
+                            if index == parent_column_index
+                                && let Err(error) =
                                     push_unique(&mut record, column.clone(), entry.clone())
-                                {
-                                    return vec![error];
-                                }
+                            {
+                                return vec![error];
                             }
                             if let Err(error) = push_unique(&mut record, col, val) {
                                 return vec![error];
@@ -343,10 +342,10 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
                             index += 1;
                         }
                         // the flattened column may be the last column in the original table.
-                        if index == parent_column_index {
-                            if let Err(error) = push_unique(&mut record, column.clone(), entry) {
-                                return vec![error];
-                            }
+                        if index == parent_column_index
+                            && let Err(error) = push_unique(&mut record, column.clone(), entry)
+                        {
+                            return vec![error];
                         }
                         expanded.push(Value::record(record, tag));
                     }
