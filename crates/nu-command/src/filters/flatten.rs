@@ -1,6 +1,7 @@
 use indexmap::IndexMap;
 use nu_engine::command_prelude::*;
 use nu_protocol::ast::PathMember;
+use std::collections::HashSet;
 
 #[derive(Clone)]
 pub struct Flatten;
@@ -198,43 +199,69 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
                     (!will_flatten).then_some(column.clone())
                 })
                 .collect();
+
+            // Reserve the new names of the columns that will be renamed to `<parent>_<field>`,
+            // so that we can handle situations where the lifted field will first collide and
+            // be renamed, and then collide again with the new name. No further renaming is
+            // allowed after the first rename, so an error will be thrown instead.
+            let reserved_renames: HashSet<String> = val
+                .iter()
+                .filter_map(|(column, value)| match value {
+                    Value::Record { val, .. } => {
+                        let column_requested =
+                            columns.iter().find(|c| c.to_column_name() == *column);
+                        let need_flatten = columns.is_empty() || column_requested.is_some();
+                        if !need_flatten {
+                            return None;
+                        }
+
+                        let renames: Vec<String> = val
+                            .columns()
+                            .filter(|col| retained_outer_columns.contains(col))
+                            .map(|col| format!("{column}_{col}"))
+                            .collect();
+                        Some(renames)
+                    }
+                    _ => None,
+                })
+                .flatten()
+                .collect();
+
             let mut out = IndexMap::<String, Value>::new();
             let mut inner_table = None;
 
+            let overwrite_error = Value::error(
+                ShellError::UnsupportedInput {
+                    msg: "overwriting columns is not allowed".into(),
+                    input: "value originates from here".into(),
+                    msg_span: Span::unknown(),
+                    input_span: Span::unknown(),
+                },
+                Span::unknown(),
+            );
             for (column_index, (column, value)) in val.into_iter().enumerate() {
                 let column_requested = columns.iter().find(|c| c.to_column_name() == column);
                 let need_flatten = { columns.is_empty() || column_requested.is_some() };
                 let span = value.span();
-                let overwrite_error = Value::error(
-                    ShellError::UnsupportedInput {
-                        msg: "overwriting columns is not allowed".into(),
-                        input: "value originates from here".into(),
-                        msg_span: tag,
-                        input_span: span,
-                    },
-                    span,
-                );
 
                 match value {
                     Value::Record { ref val, .. } => {
                         if need_flatten {
                             for (col, val) in val.clone().into_owned() {
-                                if out.contains_key(&col)
-                                    || retained_outer_columns.iter().any(|column| column == &col)
+                                let name = if out.contains_key(&col)
+                                    || retained_outer_columns.contains(&col)
+                                    || reserved_renames.contains(&col)
                                 {
-                                    if out.insert(format!("{column}_{col}"), val).is_some() {
-                                        return vec![overwrite_error];
-                                    }
+                                    format!("{column}_{col}")
                                 } else {
-                                    out.insert(col, val);
+                                    col
+                                };
+                                if out.insert(name, val).is_some() {
+                                    return vec![overwrite_error];
                                 }
                             }
-                        } else if out.contains_key(&column) {
-                            if out.insert(format!("{column}_{column}"), value).is_some() {
-                                return vec![overwrite_error];
-                            }
-                        } else {
-                            out.insert(column, value);
+                        } else if out.insert(column, value).is_some() {
+                            return vec![overwrite_error];
                         }
                     }
                     Value::List { vals, .. } => {
@@ -263,18 +290,8 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
                                     parent_column_name: column,
                                     parent_column_index: column_index,
                                 });
-                            } else if out.contains_key(&column) {
-                                if out
-                                    .insert(
-                                        format!("{column}_{column}"),
-                                        Value::list_shared(vals, span),
-                                    )
-                                    .is_some()
-                                {
-                                    return vec![overwrite_error];
-                                }
-                            } else {
-                                out.insert(column, Value::list_shared(vals, span));
+                            } else if out.insert(column, Value::list_shared(vals, span)).is_some() {
+                                return vec![overwrite_error];
                             }
                         } else if !columns.is_empty() {
                             let cell_path =
@@ -289,10 +306,8 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
                                     vals.into_owned(),
                                     column_index,
                                 ));
-                            } else {
-                                if out.insert(column, Value::list_shared(vals, span)).is_some() {
-                                    return vec![overwrite_error];
-                                }
+                            } else if out.insert(column, Value::list_shared(vals, span)).is_some() {
+                                return vec![overwrite_error];
                             }
                         } else {
                             inner_table = Some(TableInside::Entries(
@@ -320,15 +335,21 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
                         for (col, val) in base.into_iter() {
                             // meet the flattened column, push them to result record first
                             // this can avoid output column order changed.
-                            if index == parent_column_index {
-                                record.push(column.clone(), entry.clone());
+                            if index == parent_column_index
+                                && !push_unique(&mut record, column.clone(), entry.clone())
+                            {
+                                return vec![overwrite_error];
                             }
-                            record.push(col, val);
+                            if !push_unique(&mut record, col, val) {
+                                return vec![overwrite_error];
+                            }
                             index += 1;
                         }
                         // the flattened column may be the last column in the original table.
-                        if index == parent_column_index {
-                            record.push(column.clone(), entry);
+                        if index == parent_column_index
+                            && !push_unique(&mut record, column.clone(), entry)
+                        {
+                            return vec![overwrite_error];
                         }
                         expanded.push(Value::record(record, tag));
                     }
@@ -348,32 +369,36 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
                             // this can avoid output column order changed.
                             if index == parent_column_index {
                                 for (col, val) in &inner_record {
-                                    if record.contains(col)
+                                    let name = if record.contains(col)
                                         || (!columns.is_empty() && out.contains_key(col))
                                     {
-                                        record.push(
-                                            format!("{parent_column_name}_{col}"),
-                                            val.clone(),
-                                        );
+                                        format!("{parent_column_name}_{col}")
                                     } else {
-                                        record.push(col, val.clone());
+                                        col.clone()
                                     };
+                                    if !push_unique(&mut record, name, val.clone()) {
+                                        return vec![overwrite_error];
+                                    }
                                 }
                             }
-
-                            record.push(base_col, base_val);
+                            if !push_unique(&mut record, base_col, base_val) {
+                                return vec![overwrite_error];
+                            }
                             index += 1;
                         }
 
                         // the flattened column may be the last column in the original table.
                         if index == parent_column_index {
                             for (col, val) in inner_record {
-                                if record.contains(&col)
+                                let name = if record.contains(&col)
                                     || (!columns.is_empty() && out.contains_key(&col))
                                 {
-                                    record.push(format!("{parent_column_name}_{col}"), val);
+                                    format!("{parent_column_name}_{col}")
                                 } else {
-                                    record.push(col, val);
+                                    col
+                                };
+                                if !push_unique(&mut record, name, val) {
+                                    return vec![overwrite_error];
                                 }
                             }
                         }
@@ -389,6 +414,15 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
         Value::List { vals, .. } => vals.into_owned(),
         item => vec![item],
     }
+}
+
+/// Push `name`: `val` onto `record` if `name` is not present in `record`
+fn push_unique(record: &mut Record, name: String, val: Value) -> bool {
+    if record.get(&name).is_some() {
+        return false;
+    }
+    record.push(name, val);
+    true
 }
 
 #[cfg(test)]
