@@ -111,9 +111,15 @@ fn into_duration_colon_string(#[case] code: &str, #[case] expected: &str) -> Res
         .expect_value_eq(expected)
 }
 
-#[test]
-fn into_duration_clock_error_two() -> Result {
-    let err = test().run("'3:34' | into duration").expect_shell_error()?;
+#[rstest]
+#[case("11:1113:34")]
+#[case("3:34")]
+#[case("11:0:34")]
+#[case("11:0:340.000")]
+fn into_duration_clock_format_error(#[case] value: &str) -> Result {
+    let err = test()
+        .run(format!("'{value}' | into duration"))
+        .expect_shell_error()?;
 
     match err {
         ShellError::IncorrectValue { msg, .. } => {
