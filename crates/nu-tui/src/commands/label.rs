@@ -19,7 +19,7 @@ impl Command for TuiLabel {
     fn extra_description(&self) -> &str {
         "Without a flag the text is drawn where it appears in the layout. `--titlebar` puts it on the one-line bar at the top (also used as the dialog title). `--status` puts it on the bottom bar, where live focus/filter/row hints are appended.\n\
          \n\
-         A closure instead of text makes the label follow a list: it receives the highlighted row of `--from` (or the nearest table/tree/select) and its output is shown."
+         A closure instead of text makes the label follow a list: it receives the highlighted row of `--from` (or the nearest table/tree/select) and its output is shown. A closure with no table, tree, or select to follow is an error when the TUI starts."
     }
 
     fn signature(&self) -> Signature {
@@ -128,6 +128,7 @@ impl Command for TuiLabel {
                 WidgetKind::Label(LabelWidget { text, slot }),
                 Vec::new(),
                 closure,
+                None,
             )
         })
     }

@@ -20,7 +20,7 @@ impl Command for TuiTable {
     fn extra_description(&self) -> &str {
         "Up/Down, j/k, PageUp/PageDown, Home/End, and mouse wheel move the selection. Enter submits the current row (`--index` submits its index). With `--multi`, Space checks rows and the selection is the checked rows. A `tui search` widget filters rows as you type. Streams append while the TUI runs; a stream keeps its newest 100,000 rows.\n\
          \n\
-         `--data` gives this table its own rows; `--from <id>` with a closure makes it a detail view of another widget's highlighted row: `tui table --from tree-0 {|node| ls $node.name }`. `--on-select` runs a hook whenever the highlight moves.\n\
+         `--data` gives this table its own rows; a closure makes it a detail view of the highlighted row of another table, tree, or select (the one named by `--from`, else the focused one, else the nearest, which may be on another tab page): `tui table --from tree-0 {|node| ls $node.name }`. A closure with no other table, tree, or select to follow is an error when the TUI starts. `--on-select` runs a hook whenever the highlight moves.\n\
          \n\
          `--capture-keys` turns a chord pressed on the focused table (for example Ctrl+R) into the filter query, so a keybinding table filters to bindings that match that chord. Rows with `modifier`/`keycode` fields match reedline-style chords."
     }
@@ -32,7 +32,7 @@ impl Command for TuiTable {
                 .optional(
                     "source",
                     SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
-                    "Closure over the --from row whose output is this table's rows.",
+                    "Closure over the highlighted row of --from, or of the nearest other table, tree, or select, whose output is this table's rows.",
                 )
                 .named(
                     "columns",
@@ -103,6 +103,7 @@ impl Command for TuiTable {
                 WidgetKind::Table(widget),
                 Vec::new(),
                 source,
+                None,
             )
         })
     }
