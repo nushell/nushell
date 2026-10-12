@@ -7,7 +7,7 @@ use crate::{
     Token, TokenContents,
     lex::lex_signature,
     parse_helpers::{SPREAD_OPERATOR, garbage, is_variable},
-    parse_shape_specs::{parse_completer, parse_shape_name, parse_type},
+    parse_shape_specs::{parse_param_type, parse_type},
     type_check::type_compatible,
 };
 use log::trace;
@@ -981,24 +981,8 @@ pub fn parse_signature_helper(
                         }
                         ParseMode::Type => {
                             if let Some(last) = args.last_mut() {
-                                let (syntax_shape, completer) = contents
-                                    .iter()
-                                    .position(|b| *b == b'@')
-                                    .and_then(|idx| {
-                                        let (shape, completer) = contents.split_at_checked(idx)?;
-                                        let (shape_span, completer_span) = span.split_at(idx)?;
-
-                                        let completer = completer.strip_prefix(b"@")?;
-                                        let (_, completer_span) = completer_span.split_at(1)?;
-
-                                        Some((
-                                            parse_shape_name(working_set, shape, shape_span),
-                                            parse_completer(working_set, completer, completer_span),
-                                        ))
-                                    })
-                                    .unwrap_or_else(|| {
-                                        (parse_shape_name(working_set, &contents, span), None)
-                                    });
+                                let (syntax_shape, completer) =
+                                    parse_param_type(working_set, &contents, span);
 
                                 //TODO check if we're replacing a custom parameter already
                                 match last {

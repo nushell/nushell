@@ -13,8 +13,8 @@ use crate::{
         is_unaliasable_parser_keyword, parse_alias, parse_attribute_block, parse_const, parse_def,
         parse_export_env, parse_export_in_block, parse_extern, parse_for, parse_hide,
         parse_keyword, parse_let, parse_module, parse_mut, parse_overlay_hide, parse_overlay_new,
-        parse_overlay_use, parse_run, parse_run_expr, parse_source, parse_use, parse_where,
-        parse_where_expr,
+        parse_overlay_use, parse_run, parse_run_expr, parse_source, parse_type_alias, parse_use,
+        parse_where, parse_where_expr,
     },
     parse_literals::has_range_operator,
     parse_patterns::parse_pattern,
@@ -1630,8 +1630,8 @@ pub fn parse_expression(
         // need an owned name.
         let head = working_set.get_span_contents(spans[pos]);
         let head_kind = match head {
-            b"def" | b"extern" | b"for" | b"module" | b"use" | b"source" | b"alias" | b"export"
-            | b"export-env" | b"hide" => HeadKind::Builtin,
+            b"def" | b"extern" | b"for" | b"module" | b"type" | b"use" | b"source" | b"alias"
+            | b"export" | b"export-env" | b"hide" => HeadKind::Builtin,
             b"const" | b"mut" => HeadKind::Assign,
             b"overlay" => HeadKind::Overlay,
             b"where" => HeadKind::Where,
@@ -1810,6 +1810,7 @@ pub fn parse_builtin_commands(
         b"export-env" => parse_export_env(working_set, &lite_command.parts).0,
         // Other definitions can't have attributes, so we handle attributes here with parse_attribute_block
         _ if lite_command.has_attributes() => parse_attribute_block(working_set, lite_command),
+        b"type" => parse_type_alias(working_set, lite_command).0,
         b"let" => parse_let(
             working_set,
             &lite_command

@@ -17,6 +17,7 @@ use crate::parse_bindings::parse_const;
 use crate::parse_def::{
     has_flag_const, parse_attribute_block, parse_def, parse_def_predecl, parse_extern,
 };
+use crate::parse_type_alias::parse_type_alias;
 
 use nu_protocol::{
     BlockId, Module, ModuleId, ParseError, Span, Type,
@@ -83,6 +84,7 @@ pub fn parse_export_in_block(
             b"use" => "export use",
             b"module" => "export module",
             b"const" => "export const",
+            b"type" => "export type",
             _ => "export",
         }
     } else {
@@ -102,6 +104,7 @@ pub fn parse_export_in_block(
         "export const" => parse_const(working_set, &lite_command.parts[1..]).0,
         "export use" => parse_use(working_set, lite_command, None).0,
         "export module" => parse_module(working_set, lite_command, None).0,
+        "export type" => parse_type_alias(working_set, lite_command).0,
         _ => {
             if let Some(decl_id) = working_set.find_decl(full_name.as_bytes()) {
                 let starting_error_count = working_set.parse_errors.len();
@@ -310,6 +313,20 @@ pub fn parse_export_in_module(
 
                 (pipeline, result)
             }
+            b"type" => {
+                let (mut pipeline, type_alias) = parse_type_alias(working_set, lite_command);
+
+                if !warp_export_call(working_set, &mut pipeline, "export type", spans) {
+                    return (garbage_pipeline(working_set, spans), vec![]);
+                }
+
+                let result = type_alias
+                    .map(|(name, id)| Exportable::TypeAlias { name, id })
+                    .into_iter()
+                    .collect();
+
+                (pipeline, result)
+            }
             b"const" => {
                 let (mut pipeline, var_name_span) = parse_const(working_set, &spans[1..]);
 
@@ -344,7 +361,7 @@ pub fn parse_export_in_module(
             }
             _ => {
                 working_set.error(ParseError::Expected(
-                    "def, alias, use, module, const or extern keyword",
+                    "def, alias, use, module, const, extern or type keyword",
                     spans[1],
                 ));
 
@@ -353,9 +370,9 @@ pub fn parse_export_in_module(
         }
     } else {
         working_set.error(ParseError::MissingPositional(
-            "def, alias, use, module, const or extern keyword".to_string(),
+            "def, alias, use, module, const, extern or type keyword".to_string(),
             Span::new(export_span.end, export_span.end),
-            "def, alias, use, module, const or extern keyword".to_string(),
+            "def, alias, use, module, const, extern or type keyword".to_string(),
         ));
 
         (garbage_pipeline(working_set, spans), vec![])
@@ -568,13 +585,27 @@ pub fn parse_module_block(
                             }
                             Exportable::Module { name, id } => {
                                 if &name == b"mod" {
-                                    let (submodule_main, submodule_decls, submodule_submodules) = {
+                                    let (
+                                        submodule_main,
+                                        submodule_decls,
+                                        submodule_submodules,
+                                        submodule_type_aliases,
+                                    ) = {
                                         let submodule = working_set.get_module(id);
-                                        (submodule.main, submodule.decls(), submodule.submodules())
+                                        (
+                                            submodule.main,
+                                            submodule.decls(),
+                                            submodule.submodules(),
+                                            submodule.type_aliases.clone(),
+                                        )
                                     };
 
                                     for (decl_name, decl_id) in submodule_decls {
                                         module.add_decl(decl_name, decl_id);
+                                    }
+
+                                    for (alias_name, type_alias_id) in submodule_type_aliases {
+                                        module.add_type_alias(alias_name, type_alias_id);
                                     }
 
                                     if let Some(main_decl_id) = submodule_main {
@@ -609,6 +640,9 @@ pub fn parse_module_block(
                             Exportable::VarDecl { name, id } => {
                                 module.add_variable(name, id);
                             }
+                            Exportable::TypeAlias { name, id } => {
+                                module.add_type_alias(name, id);
+                            }
                         }
                     }
 
@@ -623,6 +657,9 @@ pub fn parse_module_block(
                 b"alias" => block
                     .pipelines
                     .push(parse_alias(working_set, command, None)),
+                b"type" => block
+                    .pipelines
+                    .push(parse_type_alias(working_set, command).0),
                 b"use" => {
                     let (pipeline, _) = parse_use(working_set, command, Some(&mut module));
 
@@ -644,7 +681,7 @@ pub fn parse_module_block(
                 }
                 _ => {
                     working_set.error(ParseError::ExpectedKeyword(
-                        "def, const, extern, alias, use, module, export or export-env keyword"
+                        "def, const, extern, alias, type, use, module, export or export-env keyword"
                             .into(),
                         command.parts[0],
                     ));
@@ -1315,6 +1352,15 @@ pub fn parse_use(
                     id: *variable_id,
                 }),
         )
+        .chain(
+            definitions
+                .type_aliases
+                .iter()
+                .map(|(name, type_alias_id)| Exportable::TypeAlias {
+                    name: name.clone(),
+                    id: *type_alias_id,
+                }),
+        )
         .collect();
 
     import_pattern.constants = constants.iter().map(|(_, id)| *id).collect();
@@ -1324,6 +1370,7 @@ pub fn parse_use(
     }
     working_set.use_decls(definitions.decls);
     working_set.use_modules(definitions.modules);
+    working_set.use_type_aliases(definitions.type_aliases);
     working_set.use_variables(constants);
 
     let import_pattern_expr = Expression::new(
@@ -1563,7 +1610,7 @@ pub fn parse_overlay_new(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
     working_set.add_overlay(
         overlay_name.as_bytes().to_vec(),
         module_id,
-        nu_protocol::ResolvedImportPattern::new(vec![], vec![], vec![], vec![]),
+        nu_protocol::ResolvedImportPattern::new(vec![], vec![], vec![], vec![], vec![]),
         false,
     );
 
@@ -1765,7 +1812,7 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
         }
     } else {
         (
-            nu_protocol::ResolvedImportPattern::new(vec![], vec![], vec![], vec![]),
+            nu_protocol::ResolvedImportPattern::new(vec![], vec![], vec![], vec![], vec![]),
             vec![],
         )
     };

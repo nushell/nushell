@@ -683,6 +683,32 @@ fn custom_completions_wraps_builtin_commandline_complete_path() {
     vec!["-B".into()],
     2
 )]
+#[case::type_alias_completer(
+    "def animals [] { [cat dog eel] }; type Animal = string@animals; def adopt [animal: Animal] {}",
+    "adopt ", None,
+    vec!["cat".into(), "dog".into(), "eel".into()],
+    0
+)]
+#[case::type_alias_completer_on_flag(
+    "type Animal = string@[cat dog]; def adopt [--animal: Animal] {}",
+    "adopt --animal ", None,
+    vec!["cat".into(), "dog".into()],
+    0
+)]
+#[case::type_alias_completer_replaced(
+    "type Animal = string@[cat dog]; def visit [animal: Animal@[lion tiger]] {}",
+    "visit ", None,
+    vec!["lion".into(), "tiger".into()],
+    0
+)]
+#[case::type_alias_completer_not_exported(
+    "module zoo { def animals [] { [cat dog eel] }; export type Animal = string@animals }
+    use zoo Animal
+    def adopt [animal: Animal] {}",
+    "adopt ", None,
+    vec!["cat".into(), "dog".into(), "eel".into()],
+    0
+)]
 fn command_argument_completions(
     #[case] command: &str,
     #[case] input: &str,

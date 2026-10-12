@@ -66,6 +66,17 @@ pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) {
         match working_set.get_span_contents(spans[pos - 1]) {
             b"def" => false,
             b"extern" => true,
+            b"type" => {
+                // Only the name and position of a type alias are recorded, so that a use above
+                // the definition can be reported as such. Its type is parsed in order.
+                if let [name, equals, ..] = spans[pos..]
+                    && working_set.get_span_contents(equals) == b"="
+                {
+                    let name = working_set.get_span_contents(name).to_vec();
+                    working_set.add_type_predecl(name, Span::concat(spans));
+                }
+                return;
+            }
             _ => return,
         }
     } else {
