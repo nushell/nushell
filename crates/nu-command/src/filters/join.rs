@@ -105,10 +105,12 @@ impl Command for Join {
             (
                 Value::List { vals: rows_1, .. },
                 Value::List { vals: rows_2, .. },
-                Value::String { val: l_on, .. },
-                Value::String { val: r_on, .. },
+                Value::String { val: l_key, .. },
+                Value::String { val: r_key, .. },
             ) => {
-                let result = join(rows_1, rows_2, l_on, r_on, join_type, &rename, span);
+                check_join_column(rows_1, l_key, l_on.span(), collected_input.span())?;
+                check_join_column(rows_2, r_key, r_on.span(), table_2.span())?;
+                let result = join(rows_1, rows_2, l_key, r_key, join_type, &rename, span);
                 Ok(PipelineData::value(result, metadata))
             }
             _ => Err(ShellError::UnsupportedInput {
@@ -304,16 +306,6 @@ fn join_rows(
     rename: &RightColumnRename,
     span: Span,
 ) {
-    if !this
-        .iter()
-        .any(|this_record| match this_record.as_record() {
-            Ok(record) => record.contains(this_join_key),
-            Err(_) => false,
-        })
-    {
-        // `this` table does not contain the join column; do nothing
-        return;
-    }
     for this_row in this {
         if let Value::Record {
             val: this_record, ..
@@ -379,6 +371,29 @@ fn join_rows(
                 result.push(Value::record(record, span))
             }
         };
+    }
+}
+
+// Fail when a non-empty table has no row with the join column, so a misspelled
+// column name is reported instead of producing an empty or all-null join.
+// Empty tables pass because they have no rows to show which columns they
+// hold. Rows that lack the column in a table where other rows have it are
+// still joined as non-matching rows.
+fn check_join_column(
+    rows: &[Value],
+    column: &str,
+    column_span: Span,
+    table_span: Span,
+) -> Result<(), ShellError> {
+    let has_column = |row: &Value| row.as_record().is_ok_and(|record| record.contains(column));
+    if rows.is_empty() || rows.iter().any(has_column) {
+        Ok(())
+    } else {
+        Err(ShellError::CantFindColumn {
+            col_name: column.into(),
+            span: Some(column_span),
+            src_span: table_span,
+        })
     }
 }
 

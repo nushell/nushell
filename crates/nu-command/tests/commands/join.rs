@@ -1,4 +1,7 @@
+use nu_protocol::ShellError;
 use nu_test_support::prelude::*;
+use pretty_assertions::assert_matches;
+use rstest::rstest;
 
 #[test]
 fn cases_where_result_is_same_between_join_types_inner() -> Result {
@@ -59,10 +62,9 @@ fn do_cases_where_result_is_same_between_join_types(join_type: &str) -> Result {
     // .mode column
     // .headers on
     for ((left, right, on), expected) in [
+        // Empty tables have no rows that could hold the join column, so any
+        // column name is accepted for them.
         (("[]", "[]", "_"), "[]"),
-        (("[]", "[{a: 1}]", "_"), "[]"),
-        (("[{a: 1}]", "[]", "_"), "[]"),
-        (("[{a: 1}]", "[{a: 1}]", "_"), "[]"),
         (("[{a: 1}]", "[{a: 1}]", "a"), "[[a]; [1]]"),
         (("[{a: 1} {a: 1}]", "[{a: 1}]", "a"), "[[a]; [1], [1]]"),
         (("[{a: 1}]", "[{a: 1} {a: 1}]", "a"), "[[a]; [1], [1]]"),
@@ -407,6 +409,30 @@ fn test_alternative_table_syntax() -> Result {
         let expr = format!("{left} | join {right} {join_type} {on} | to nuon");
         assert_join_output(&expr, expected)?;
     }
+    Ok(())
+}
+
+// A non-empty table where no row has the join column is an error, for every
+// join type and for streamed input. `right_and_keys` is the `join` arguments
+// after the flag: the right table, `left-on` and the optional `right-on`.
+#[rstest]
+#[case::neither_table_has_key("[[a b]; [1 2] [3 4]]", "[[a c]; [1 3] [4 5]] d", "d")]
+#[case::left_table_lacks_key("[{b: 1}]", "[{a: 1}] a", "a")]
+#[case::right_table_lacks_key("[{a: 1}]", "[{b: 1}] a", "a")]
+#[case::left_table_lacks_left_on("[{a: 1}]", "[{z: 1}] b z", "b")]
+#[case::right_table_lacks_right_on("[{a: 1}]", "[{z: 1}] a y", "y")]
+#[case::left_empty_right_lacks_key("[]", "[{b: 1}] a", "a")]
+#[case::right_empty_left_lacks_key("[{b: 1}]", "[] a", "a")]
+fn join_errors_when_table_has_no_join_column(
+    #[case] left: &str,
+    #[case] right_and_keys: &str,
+    #[case] missing: &str,
+    #[values("--inner", "--left", "--right", "--outer")] join_type: &str,
+    #[values("", "each { |i| $i } | ")] to_list_stream: &str,
+) -> Result {
+    let code = format!("{left} | {to_list_stream}join {join_type} {right_and_keys}");
+    let err = test().run(code).expect_shell_error()?;
+    assert_matches!(err, ShellError::CantFindColumn { col_name, .. } if col_name == missing);
     Ok(())
 }
 
