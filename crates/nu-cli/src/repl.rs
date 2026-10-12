@@ -441,6 +441,12 @@ fn run_command(ctx: RunContext) -> Reedline {
     // For pre_exec_hook
     let mut start_time = Instant::now();
 
+    // The top of the REPL loop already cleared the interrupt flag, but that happens before the
+    // prompt waits for input. An interrupt that arrived while we sat at the prompt (on Windows,
+    // a console Ctrl+C event from another process on the same console, or a handler that ran
+    // late for the previous command) belongs to no command, so drop it before running this one.
+    engine_state.reset_signals();
+
     // Right before we start running the code the user gave us, fire the `pre_execution`
     // hook
     {
@@ -2029,5 +2035,68 @@ mod test_auto_cd {
         let input = "now🍪is";
         let actual = escape_special_vscode_bytes(input).unwrap();
         assert_eq!(input, actual);
+    }
+}
+
+#[cfg(test)]
+mod stale_interrupt_tests {
+    use super::{RunContext, eval_source, run_command};
+    use nu_protocol::{PipelineData, ShellIntegrationConfig, Signals, Value, engine::Stack};
+    use reedline::Reedline;
+    use std::sync::{Arc, atomic::AtomicBool};
+
+    /// An interrupt that lands while the REPL waits at the prompt (#19142) belongs to no
+    /// command: the `pre_execution` hooks and the line the user enters next must still run.
+    #[test]
+    fn interrupt_while_idle_at_prompt_does_not_fail_next_command() {
+        let mut engine_state =
+            nu_command::add_shell_command_context(nu_cmd_lang::create_default_context());
+        engine_state.set_signals(Signals::new(Arc::new(AtomicBool::new(false))));
+        let mut stack = Stack::new();
+        eval_source(
+            &mut engine_state,
+            &mut stack,
+            b"$env.config.hooks.pre_execution = [{ $env.HOOK_RAN = true }]",
+            "config",
+            PipelineData::empty(),
+            false,
+        );
+        engine_state.merge_env(&mut stack).unwrap();
+
+        // The interrupt arrives after the top of the loop has already cleared the flag.
+        engine_state.signals().trigger();
+
+        let shell_integration = ShellIntegrationConfig {
+            osc2: false,
+            osc7: false,
+            osc8: false,
+            osc9_9: false,
+            osc133: false,
+            osc633: false,
+            reset_application_mode: false,
+        };
+        run_command(RunContext {
+            engine_state: &mut engine_state,
+            stack: &mut stack,
+            line_editor: Reedline::create(),
+            command: "$env.CMD_RAN = true".into(),
+            hostname: None,
+            use_color: false,
+            shell_integration: &shell_integration,
+            entry_num: &mut 0,
+        });
+
+        assert_eq!(
+            stack.get_env_var(&engine_state, "HOOK_RAN"),
+            Some(&Value::test_bool(true))
+        );
+        assert_eq!(
+            stack.get_env_var(&engine_state, "CMD_RAN"),
+            Some(&Value::test_bool(true))
+        );
+        assert_eq!(
+            stack.get_env_var(&engine_state, "LAST_EXIT_CODE"),
+            Some(&Value::test_int(0))
+        );
     }
 }

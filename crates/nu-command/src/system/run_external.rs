@@ -92,7 +92,19 @@ If you create a custom command with this name, that will be used instead."
             _ => Path::new(&*name_str).to_owned(),
         };
 
-        let paths = nu_engine::env::path_str(engine_state, stack, call.head).unwrap_or_default();
+        // Without a usable PATH we can still run absolute paths, the cwd and CMD builtins
+        // (#16409). That covers a missing PATH and one that cannot be joined into a string (an
+        // entry holding the platform's separator), which `env_to_strings` also leaves out of the
+        // child's environment. Any other failure, such as an `ENV_CONVERSIONS` closure that
+        // errors or is interrupted, is reported as is: searching an empty PATH would turn it into
+        // "command not found".
+        let paths = match nu_engine::env::path_str(engine_state, stack, call.head) {
+            Ok(paths) => paths,
+            Err(
+                ShellError::EnvVarNotFoundAtRuntime { .. } | ShellError::EnvVarNotAString { .. },
+            ) => String::new(),
+            Err(err) => return Err(err),
+        };
 
         // On Windows, the user could have run the cmd.exe built-in commands "assoc"
         // and "ftype" to create a file association for an arbitrary file extension.

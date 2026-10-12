@@ -548,6 +548,48 @@ fn can_run_external_without_path_env(#[case] prefix: &str) -> Result {
     })
 }
 
+// A PATH that cannot be joined into one string is left out like a missing one, so absolute paths
+// still run.
+#[rstest]
+#[case::caret("^")]
+#[case::run_external("run-external ")]
+#[nu_test_support::test]
+#[deps(TESTBIN_COCOCO)]
+fn can_run_external_with_unjoinable_path_env(#[case] prefix: &str) -> Result {
+    let bin = TESTBIN_COCOCO.path().to_string_lossy().into_owned();
+    // `std::env::join_paths` rejects `"` in an entry on Windows and `:` elsewhere.
+    let bad_entry = if cfg!(windows) { r#"C:\a"b"# } else { "/a:b" };
+    let code = format!(
+        "
+            $env.PATH = [ '{bad_entry}' ]
+            $env.Path = [ '{bad_entry}' ]
+            let bin = $in
+            {prefix}$bin
+        "
+    );
+
+    test().run_with_data(code, bin).expect_value_eq("cococo")
+}
+
+// A PATH conversion that fails (or is interrupted, #19142) must report its own error instead of
+// searching an empty PATH and claiming the command was not found.
+#[apply(run_external_prefixes)]
+#[nu_test_support::test]
+#[deps(TESTBIN_COCOCO)]
+fn path_conversion_error_is_not_command_not_found(prefix: &str) -> Result {
+    let code = format!(
+        r#"
+            let fail = {{ from_string: {{|s| $s }}, to_string: {{|v| error make {{msg: "PATH conversion failed"}} }} }}
+            $env.ENV_CONVERSIONS = {{ PATH: $fail, Path: $fail }}
+            {prefix}cococo
+        "#
+    );
+
+    let err = test().run(code).expect_shell_error()?;
+    assert_eq!(err.into_labeled()?.msg, "PATH conversion failed");
+    Ok(())
+}
+
 #[rstest]
 #[case::caret("^")]
 #[case::run_external("run-external ")]
