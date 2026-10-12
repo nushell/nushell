@@ -13,6 +13,7 @@ enum JoinType {
     Left,
     Right,
     Outer,
+    Anti,
 }
 
 // The input table that `join_rows` iterates over (`this`). The other table is
@@ -26,7 +27,8 @@ enum Side {
 enum IncludeRows {
     // Rows with a match in the lookup table (inner join).
     Matched,
-    // Rows without a match, padded with nulls (second pass of an outer join).
+    // Rows without a match, padded with nulls (anti join, and the second pass
+    // of an outer join).
     Unmatched,
     // Both (left and right joins, and the first pass of an outer join).
     All,
@@ -76,6 +78,7 @@ impl Command for Join {
             .switch("left", "Left-outer join.", Some('l'))
             .switch("right", "Right-outer join.", Some('r'))
             .switch("outer", "Outer join.", Some('o'))
+            .switch("anti", "Anti join: keep rows with no match in right.", Some('a'))
             .input_output_types(vec![(Type::table(), Type::table())])
             .category(Category::Filters)
     }
@@ -85,7 +88,7 @@ impl Command for Join {
     }
 
     fn extra_description(&self) -> &str {
-        "If the input table or the right table has rows but none of them has its join column (`left-on` for the input, `right-on` for the right table), the join fails with a column-not-found error. This applies to every join type, including --left, --right and --outer. An empty table passes this check. In a table where only some rows have the join column, the other rows join as non-matching rows. To join a table whose rows all lack the column, add it first, for example with `default null <column>`."
+        "If the input table or the right table has rows but none of them has its join column (`left-on` for the input, `right-on` for the right table), the join fails with a column-not-found error. This applies to every join type, including --left, --right, --outer and --anti. An empty table passes this check. In a table where only some rows have the join column, the other rows join as non-matching rows. To join a table whose rows all lack the column, add it first, for example with `default null <column>`."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -109,6 +112,21 @@ impl Command for Join {
             .unwrap_or_else(|| l_on.clone());
         let span = call.head;
         let join_type = join_type(engine_state, stack, call)?;
+
+        if matches!(join_type, JoinType::Anti) {
+            let unsupported_anti_flags = ["prefix", "suffix"];
+            for flag in unsupported_anti_flags {
+                if call.has_flag(engine_state, stack, flag)? {
+                    return Err(ShellError::UnsupportedInput {
+                        msg: format!("--{flag} is a no-op under --anti"),
+                        input: "".into(),
+                        msg_span: call.head,
+                        input_span: call.head,
+                    });
+                }
+            }
+        }
+
         let rename = RightColumnRename {
             prefix: call.get_flag(engine_state, stack, "prefix")?,
             suffix: call.get_flag(engine_state, stack, "suffix")?,
@@ -173,6 +191,14 @@ impl Command for Join {
                 })])),
             },
             Example {
+                description: "Pick a subset of rows without a matching row in the right table",
+                example: "[{id: 1 x: 10}, {id: 2 x: 9}] | join --anti [{id: 1}] id",
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "id" => Value::test_int(2),
+                    "x" => Value::test_int(9),
+                })])),
+            },
+            Example {
                 description: "Left join a table whose rows all lack the join column by adding the column first",
                 example: "[{id: 1 x: 10}] | join --left ([{y: 20}] | default null id) id",
                 result: Some(Value::test_list(vec![Value::test_record(record! {
@@ -195,13 +221,15 @@ fn join_type(
         call.has_flag(engine_state, stack, "left")?,
         call.has_flag(engine_state, stack, "right")?,
         call.has_flag(engine_state, stack, "outer")?,
+        call.has_flag(engine_state, stack, "anti")?,
     ) {
-        (_, false, false, false) => Ok(JoinType::Inner),
-        (false, true, false, false) => Ok(JoinType::Left),
-        (false, false, true, false) => Ok(JoinType::Right),
-        (false, false, false, true) => Ok(JoinType::Outer),
+        (_, false, false, false, false) => Ok(JoinType::Inner),
+        (false, true, false, false, false) => Ok(JoinType::Left),
+        (false, false, true, false, false) => Ok(JoinType::Right),
+        (false, false, false, true, false) => Ok(JoinType::Outer),
+        (false, false, false, false, true) => Ok(JoinType::Anti),
         _ => Err(ShellError::UnsupportedInput {
-            msg: "Choose one of: --inner, --left, --right, --outer".into(),
+            msg: "Choose one of: --inner, --left, --right, --outer, --anti".into(),
             input: "".into(),
             msg_span: call.head,
             input_span: call.head,
@@ -242,6 +270,13 @@ fn join(
     // ----------
     // Perform Left Join procedure
     // Perform Right Join procedure, but excluding rows in Inner Join
+    //
+    // Anti Join
+    // ----------
+    // Make look-up table from rows on right
+    // For each row l on left:
+    //      If not any matching rows on right:
+    //          Emit (l)
 
     let config = Config::default();
     let sep = ",";
@@ -259,6 +294,7 @@ fn join(
     let include_rows = match join_type {
         JoinType::Inner => IncludeRows::Matched,
         JoinType::Left | JoinType::Right | JoinType::Outer => IncludeRows::All,
+        JoinType::Anti => IncludeRows::Unmatched,
     };
     let (this, this_join_key, other, other_keys, this_side) = match join_type {
         JoinType::Left | JoinType::Outer => (
@@ -268,6 +304,15 @@ fn join(
             column_names(right),
             // For Outer we do a Left pass and a Right pass; this is the Left
             // pass.
+            Side::Left,
+        ),
+        JoinType::Anti => (
+            left,
+            left_join_key,
+            lookup_table(right, right_join_key, sep, cap, &config),
+            // An anti join adds no columns from the right table, so the
+            // unmatched left rows are emitted as they are.
+            Vec::new(),
             Side::Left,
         ),
         JoinType::Inner | JoinType::Right => (

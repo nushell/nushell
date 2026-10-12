@@ -1,10 +1,11 @@
 use itertools::Itertools;
 use std::str::FromStr;
-
+use fancy_regex::Regex;
 use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
 use nu_parser::{DURATION_UNIT_GROUPS, parse_unit_value};
 use nu_protocol::{SUPPORTED_DURATION_UNITS, Unit, ast::Expr};
+use std::sync::LazyLock;
 
 const NS_PER_MS: i64 = 1_000_000;
 const NS_PER_SEC: i64 = 1_000_000_000;
@@ -247,6 +248,23 @@ pub(crate) fn compound_to_duration(s: &str, span: Span) -> Result<Value, ShellEr
     }
 }
 
+const CLOCKTIME_PATTERN: &str = r#"(?x)
+        ^
+        (?<hours>\d+)
+        :                           
+        (?<minutes>\d{2})
+        :
+        (?<seconds>\d{2})
+        (
+            \.
+            (?<fractional>\d+)
+        )?
+        $
+"#;
+
+static CLOCKTIME_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(CLOCKTIME_PATTERN).expect("clocktime_pattern should be valid"));
+
 // Try to parse a string formatted as `hh:mm:ss` with an optional fractional
 // seconds component using 1 to 9 digits of sub-second precision.
 fn parse_clock_duration(s: &str, span: Span) -> Result<Option<Value>, ShellError> {
@@ -273,23 +291,30 @@ fn parse_clock_duration(s: &str, span: Span) -> Result<Option<Value>, ShellError
         }
     }
 
-    let parts: Vec<&str> = s.split(':').collect();
+    let caps = CLOCKTIME_RE
+        .captures(s)
+        .map_err(|_| clock_format_error(span))?
+        .ok_or_else(|| clock_format_error(span))?;
 
-    if parts.len() != 3 {
-        return Err(clock_format_error(span));
-    }
+    let (hours_part, minutes_part, seconds_part, fractional_part) = (
+        caps.name("hours")
+            .ok_or_else(|| clock_format_error(span))?
+            .as_str(),
+        caps.name("minutes")
+            .ok_or_else(|| clock_format_error(span))?
+            .as_str(),
+        caps.name("seconds")
+            .ok_or_else(|| clock_format_error(span))?
+            .as_str(),
+        caps.name("fractional").map(|s| s.as_str()),
+    );
 
-    let hours = parts[0]
+    let hours = hours_part
         .parse::<i64>()
         .map_err(|_| clock_format_error(span))?;
-    let minutes = parts[1]
+    let minutes = minutes_part
         .parse::<i64>()
         .map_err(|_| clock_format_error(span))?;
-
-    let (seconds_part, fractional_part) = match parts[2].split_once('.') {
-        Some((seconds, fractional)) => (seconds, Some(fractional)),
-        None => (parts[2], None),
-    };
 
     let seconds = seconds_part
         .parse::<i64>()
@@ -689,5 +714,17 @@ mod test {
             }
             other => panic!("expected error, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn test_clocktime_pattern() {
+        assert!(CLOCKTIME_RE.is_match("11:11:11").unwrap());
+        assert!(CLOCKTIME_RE.is_match("11:11:11.123").unwrap());
+        assert!(CLOCKTIME_RE.is_match("1:11:11.123").unwrap());
+        assert!(CLOCKTIME_RE.is_match("11111:11:11.123").unwrap());
+        assert!(!CLOCKTIME_RE.is_match("1:1.123").unwrap());
+        assert!(!CLOCKTIME_RE.is_match("11:1.123").unwrap());
+        assert!(!CLOCKTIME_RE.is_match("00:1:21").unwrap());
+        assert!(!CLOCKTIME_RE.is_match("1").unwrap());
     }
 }

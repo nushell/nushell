@@ -1,5 +1,6 @@
 use nu_protocol::{ShellError, shell_error::ErrorSite};
 use nu_test_support::prelude::*;
+use pretty_assertions::assert_matches;
 use rstest::rstest;
 
 #[test]
@@ -57,6 +58,16 @@ fn cases_where_result_differs_between_join_types_with_different_join_keys_outer(
     do_cases_where_result_differs_between_join_types_with_different_join_keys("--outer")
 }
 
+#[test]
+fn cases_where_result_differs_between_join_types_anti() -> Result {
+    do_cases_where_result_differs_between_join_types("--anti")
+}
+
+#[test]
+fn cases_where_result_differs_between_join_types_with_different_join_keys_anti() -> Result {
+    do_cases_where_result_differs_between_join_types_with_different_join_keys("--anti")
+}
+
 fn do_cases_where_result_is_same_between_join_types(join_type: &str) -> Result {
     // .mode column
     // .headers on
@@ -106,6 +117,7 @@ fn do_cases_where_result_differs_between_join_types(join_type: &str) -> Result {
                 ("--left", "[]"),
                 ("--right", "[[a]; [1]]"),
                 ("--outer", "[[a]; [1]]"),
+                ("--anti", "[]"),
             ],
         ),
         (
@@ -115,6 +127,7 @@ fn do_cases_where_result_differs_between_join_types(join_type: &str) -> Result {
                 ("--left", "[[a]; [1]]"),
                 ("--right", "[]"),
                 ("--outer", "[[a]; [1]]"),
+                ("--anti", "[[a]; [1]]"),
             ],
         ),
         (
@@ -124,6 +137,7 @@ fn do_cases_where_result_differs_between_join_types(join_type: &str) -> Result {
                 ("--left", "[[a, b]; [2, 1]]"),
                 ("--right", "[[a, b]; [1, null]]"),
                 ("--outer", "[[a, b]; [2, 1], [1, null]]"),
+                ("--anti", "[[a, b]; [2, 1]]"),
             ],
         ),
         (
@@ -133,6 +147,7 @@ fn do_cases_where_result_differs_between_join_types(join_type: &str) -> Result {
                 ("--left", "[[a, b]; [1, null]]"),
                 ("--right", "[[a, b]; [2, 1]]"),
                 ("--outer", "[[a, b]; [1, null], [2, 1]]"),
+                ("--anti", "[[a]; [1]]"),
             ],
         ),
         (
@@ -147,6 +162,7 @@ fn do_cases_where_result_differs_between_join_types(join_type: &str) -> Result {
                 // select * from l right outer join r on l.a = r.a;
                 ("--right", "[[a, b, b_]; [2, null, 1]]"),
                 ("--outer", "[[a, b, b_]; [1, 2, null], [2, null, 1]]"),
+                ("--anti", "[[a, b]; [1, 2]]"),
             ],
         ),
         (
@@ -156,6 +172,7 @@ fn do_cases_where_result_differs_between_join_types(join_type: &str) -> Result {
                 ("--left", "[[a, b, b_]; [1, 2, 1]]"),
                 ("--right", "[[a, b, b_]; [2, null, 1], [1, 2, 1]]"),
                 ("--outer", "[[a, b, b_]; [1, 2, 1], [2, null, 1]]"),
+                ("--anti", "[]"),
             ],
         ),
         (
@@ -169,6 +186,7 @@ fn do_cases_where_result_differs_between_join_types(join_type: &str) -> Result {
                 ("--left", "[[a, b, c]; [1, 1, 1], [2, 2, null], [3, 3, 3]]"),
                 ("--right", "[[a, b, c]; [1, 1, 1], [3, 3, 3]]"),
                 ("--outer", "[[a, b, c]; [1, 1, 1], [2, 2, null], [3, 3, 3]]"),
+                ("--anti", "[[a, b]; [2, 2]]"),
             ],
         ),
         (
@@ -190,6 +208,7 @@ fn do_cases_where_result_differs_between_join_types(join_type: &str) -> Result {
                     "--outer",
                     "[[a, c, b]; [1, 1, 1], [2, 2, null], [3, 3, 3], [4, null, 4]]",
                 ),
+                ("--anti", "[[a, c]; [2, 2]]"),
             ],
         ),
         (
@@ -213,6 +232,7 @@ fn do_cases_where_result_differs_between_join_types(join_type: &str) -> Result {
                     "--outer",
                     "[[a, ref, b]; [1, 1, 1], [2, 2, 2], [3, null, null], [null, 3, 3]]",
                 ),
+                ("--anti", "[[a]; [3]]"),
             ],
         ),
         (
@@ -236,6 +256,7 @@ fn do_cases_where_result_differs_between_join_types(join_type: &str) -> Result {
                     "--outer",
                     "[[a, ref, b]; [1, 1, 1], [2, 2, 2], [3, 3, null], [null, null, 3]]",
                 ),
+                ("--anti", "[[a, ref]; [3, 3]]"),
             ],
         ),
     ] {
@@ -268,6 +289,7 @@ fn do_cases_where_result_differs_between_join_types_with_different_join_keys(
                 ("--left", "[]"),
                 ("--right", "[[z]; [1]]"),
                 ("--outer", "[[z]; [1]]"),
+                ("--anti", "[]"),
             ],
         ),
         (
@@ -277,6 +299,7 @@ fn do_cases_where_result_differs_between_join_types_with_different_join_keys(
                 ("--left", "[[a]; [1]]"),
                 ("--right", "[]"),
                 ("--outer", "[[a]; [1]]"),
+                ("--anti", "[[a]; [1]]"),
             ],
         ),
         (
@@ -286,6 +309,7 @@ fn do_cases_where_result_differs_between_join_types_with_different_join_keys(
                 ("--left", "[[a, b, z]; [2, 1, null]]"),
                 ("--right", "[[a, b, z]; [null, null, 1]]"),
                 ("--outer", "[[a, b, z]; [2, 1, null], [null, null, 1]]"),
+                ("--anti", "[[a, b]; [2, 1]]"),
             ],
         ),
         (
@@ -295,6 +319,7 @@ fn do_cases_where_result_differs_between_join_types_with_different_join_keys(
                 ("--left", "[[a, z, b]; [1, null, null]]"),
                 ("--right", "[[a, z, b]; [null, 2, 1]]"),
                 ("--outer", "[[a, z, b]; [1, null, null], [null, 2, 1]]"),
+                ("--anti", "[[a]; [1]]"),
             ],
         ),
         (
@@ -312,6 +337,7 @@ fn do_cases_where_result_differs_between_join_types_with_different_join_keys(
                     "--outer",
                     "[[a, b, z, b_]; [1, 2, null, null], [null, null, 2, 1]]",
                 ),
+                ("--anti", "[[a, b]; [1, 2]]"),
             ],
         ),
         (
@@ -327,6 +353,7 @@ fn do_cases_where_result_differs_between_join_types_with_different_join_keys(
                     "--outer",
                     "[[a, b, z, b_]; [1, 2, 1, 1], [null, null, 2, 1]]",
                 ),
+                ("--anti", "[]"),
             ],
         ),
         (
@@ -347,6 +374,7 @@ fn do_cases_where_result_differs_between_join_types_with_different_join_keys(
                     "--outer",
                     "[[a, b, z, c]; [1, 1, 1, 1], [2, 2, null, null], [3, 3, 3, 3]]",
                 ),
+                ("--anti", "[[a, b]; [2, 2]]"),
             ],
         ),
         (
@@ -375,6 +403,7 @@ fn do_cases_where_result_differs_between_join_types_with_different_join_keys(
                     "--outer",
                     "[[a, c, z, b]; [1, 1, 1, 1], [2, 2, null, null], [3, 3, 3, 3], [null, null, 4, 4]]",
                 ),
+                ("--anti", "[[a, c]; [2, 2]]"),
             ],
         ),
     ] {
@@ -392,6 +421,34 @@ fn do_cases_where_result_differs_between_join_types_with_different_join_keys(
                 assert_join_output(&expr, expected)?;
             }
         }
+    }
+    Ok(())
+}
+
+#[test]
+fn test_anti_join() -> Result {
+    for ((left, right, on), expected) in [
+        (
+            (
+                "[[a, ref]; [1, 2] [1, 2] [5, 3]]",
+                "[[ref]; [3] [4] [5]]",
+                "ref",
+            ),
+            "[[a, ref]; [1, 2], [1, 2]]",
+        ),
+        (
+            ("[[a, ref]; [5, 3]]", "[[ref]; [3], [3], [4]]", "ref"),
+            "[]",
+        ),
+    ] {
+        let expr = format!("{left} | join {right} --anti {on} | to nuon");
+
+        assert_join_output(&expr, expected)?;
+
+        // Test again with streaming input (using `each` to convert the input into a ListStream)
+        // let to_list_stream = "each { |i| $i } | ";
+        // let expr = format!("{left} | {to_list_stream} join {right} --anti {on} | to nuon");
+        // assert_join_output(&expr, expected)?;
     }
     Ok(())
 }
@@ -429,7 +486,7 @@ fn join_errors_when_table_has_no_join_column(
     #[case] right_and_keys: &str,
     #[case] table: &str,
     #[case] missing: &str,
-    #[values("--inner", "--left", "--right", "--outer")] join_type: &str,
+    #[values("--inner", "--left", "--right", "--outer", "--anti")] join_type: &str,
     #[values("", "each { |i| $i } | ")] to_list_stream: &str,
 ) -> Result {
     let code = format!("{left} | {to_list_stream}join {join_type} {right_and_keys}");
@@ -449,6 +506,29 @@ fn join_errors_when_table_has_no_join_column(
     };
     let span_text = String::from_utf8_lossy(tester.engine_state.get_span_contents(span));
     assert_eq!(span_text, missing);
+    Ok(())
+}
+
+#[test]
+fn test_incompatible_anti_join_args() -> Result {
+    let err = test()
+        .run("[] | join --anti --prefix r_ [] ref")
+        .expect_shell_error()?;
+    assert_matches!(
+        err,
+        ShellError::UnsupportedInput { msg, .. }
+        if msg == "--prefix is a no-op under --anti"
+    );
+
+    let err = test()
+        .run("[] | join --anti --suffix r_ [] ref")
+        .expect_shell_error()?;
+    assert_matches!(
+        err,
+        ShellError::UnsupportedInput { msg, .. }
+        if msg == "--suffix is a no-op under --anti"
+    );
+
     Ok(())
 }
 
