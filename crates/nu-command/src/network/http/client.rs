@@ -263,20 +263,62 @@ pub fn http_parse_url(
         requested_url = format!("http://{requested_url}");
     }
 
+    let invalid_url = || ShellError::UnsupportedInput {
+        msg: "Incomplete or incorrect URL. Expected a full URL, e.g., https://www.example.com"
+            .to_string(),
+        input: format!("value: '{requested_url:?}'"),
+        msg_span: call.head,
+        input_span: span,
+    };
+
     // Validate with `http::Uri`, the same parser ureq uses to send the request.
     // Unlike `url::Url`, it accepts IPv6 zone IDs (e.g. `http://[fe80::13%eth0]`),
     // so nushell and ureq agree on which URLs are valid.
-    if requested_url.parse::<http::Uri>().is_err() {
-        return Err(ShellError::UnsupportedInput {
-            msg: "Incomplete or incorrect URL. Expected a full URL, e.g., https://www.example.com"
-                .to_string(),
-            input: format!("value: '{requested_url:?}'"),
-            msg_span: call.head,
-            input_span: span,
-        });
+    match requested_url.parse::<http::Uri>() {
+        Ok(uri) if authority_is_well_formed(&uri) => {}
+        _ => return Err(invalid_url()),
     }
 
     Ok(requested_url.into_spanned(url_span))
+}
+
+/// Check that the authority of a parsed URI is well formed.
+///
+/// `http::Uri` is lenient: it silently drops trailing garbage after an IPv6
+/// literal's closing bracket (e.g. `[fe80::13%eth0]foo`) and non-numeric or
+/// out-of-range ports (e.g. `host:abc`, `host:99999`). Accepting those would
+/// silently send the request to a different host or port than the user typed,
+/// so they are rejected instead.
+fn authority_is_well_formed(uri: &http::Uri) -> bool {
+    let Some(authority) = uri.authority() else {
+        return true;
+    };
+    // Ignore any userinfo (`user:pass@`).
+    let host_port = authority
+        .as_str()
+        .rsplit_once('@')
+        .map_or(authority.as_str(), |(_, host_port)| host_port);
+    // Everything after the host must be empty or `:<port>`.
+    let rest = if let Some(after_bracket) = host_port.strip_prefix('[') {
+        match after_bracket.split_once(']') {
+            Some((_, rest)) => rest,
+            None => return false,
+        }
+    } else {
+        match host_port.find(':') {
+            Some(idx) => &host_port[idx..],
+            None => return true,
+        }
+    };
+    if rest.is_empty() {
+        return true;
+    }
+    match rest.strip_prefix(':') {
+        None => false,
+        // `host:` has an empty port, which `url::Url` accepts.
+        Some("") => true,
+        Some(port) => port.parse::<u16>().is_ok(),
+    }
 }
 
 pub fn http_parse_redirect_mode(mode: Option<Spanned<String>>) -> Result<RedirectMode, ShellError> {
@@ -1485,6 +1527,48 @@ mod test {
             assert!(
                 http_parse_url(&call, span, raw_url).is_err(),
                 "expected {bad:?} to be rejected"
+            );
+        }
+    }
+
+    #[test]
+    fn test_authority_is_well_formed() {
+        let valid = [
+            "http://example.com",
+            "http://example.com:8080",
+            "http://example.com:080",
+            "http://example.com:",
+            "http://example.com:0",
+            "http://example.com:65535",
+            "http://user:pass@example.com:8080/",
+            "http://[fe80::13%eth0]",
+            "http://[fe80::13%eth0]:8080",
+            "http://[fe80::13%eth0]:080",
+            "http://[fe80::13%eth0]:",
+            "http://[fe80::13%eth0]/a.txt",
+            "http://user:pass@[fe80::13%eth0]:8080/",
+        ];
+        for url in valid {
+            let uri = url.parse::<http::Uri>().unwrap();
+            assert!(
+                authority_is_well_formed(&uri),
+                "expected {url:?} to be well formed"
+            );
+        }
+
+        let invalid = [
+            "http://example.com:abc",
+            "http://example.com:99999",
+            "http://example.com:65536",
+            "http://[fe80::13%eth0]foo",
+            "http://[fe80::13%eth0]:abc",
+            "http://[fe80::13%eth0]:99999",
+        ];
+        for url in invalid {
+            let uri = url.parse::<http::Uri>().unwrap();
+            assert!(
+                !authority_is_well_formed(&uri),
+                "expected {url:?} to be rejected"
             );
         }
     }
