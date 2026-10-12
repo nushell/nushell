@@ -13,6 +13,7 @@ enum JoinType {
     Left,
     Right,
     Outer,
+    Anti,
 }
 
 enum IncludeInner {
@@ -64,6 +65,7 @@ impl Command for Join {
             .switch("left", "Left-outer join.", Some('l'))
             .switch("right", "Right-outer join.", Some('r'))
             .switch("outer", "Outer join.", Some('o'))
+            .switch("anti", "Anti join: keep rows with no match in right.", Some('a'))
             .input_output_types(vec![(Type::table(), Type::table())])
             .category(Category::Filters)
     }
@@ -93,6 +95,21 @@ impl Command for Join {
             .unwrap_or_else(|| l_on.clone());
         let span = call.head;
         let join_type = join_type(engine_state, stack, call)?;
+
+        if matches!(join_type, JoinType::Anti) {
+            let unsupported_anti_flags = ["prefix", "suffix"];
+            for flag in unsupported_anti_flags {
+                if call.has_flag(engine_state, stack, flag)? {
+                    return Err(ShellError::UnsupportedInput {
+                        msg: format!("--{flag} is a no-op under --anti"),
+                        input: "".into(),
+                        msg_span: call.head,
+                        input_span: call.head,
+                    });
+                }
+            }
+        }
+
         let rename = RightColumnRename {
             prefix: call.get_flag(engine_state, stack, "prefix")?,
             suffix: call.get_flag(engine_state, stack, "suffix")?,
@@ -154,6 +171,14 @@ impl Command for Join {
                     "r_x" => Value::test_int(20),
                 })])),
             },
+            Example {
+                description: "Pick a subset of rows without a matching row in the right table",
+                example: "[{id: 1 x: 10}, {id: 2 x: 9}] | join --anti [{id: 1}] id",
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "id" => Value::test_int(2),
+                    "x" => Value::test_int(9),
+                })])),
+            },
         ]
     }
 }
@@ -168,13 +193,15 @@ fn join_type(
         call.has_flag(engine_state, stack, "left")?,
         call.has_flag(engine_state, stack, "right")?,
         call.has_flag(engine_state, stack, "outer")?,
+        call.has_flag(engine_state, stack, "anti")?,
     ) {
-        (_, false, false, false) => Ok(JoinType::Inner),
-        (false, true, false, false) => Ok(JoinType::Left),
-        (false, false, true, false) => Ok(JoinType::Right),
-        (false, false, false, true) => Ok(JoinType::Outer),
+        (_, false, false, false, false) => Ok(JoinType::Inner),
+        (false, true, false, false, false) => Ok(JoinType::Left),
+        (false, false, true, false, false) => Ok(JoinType::Right),
+        (false, false, false, true, false) => Ok(JoinType::Outer),
+        (false, false, false, false, true) => Ok(JoinType::Anti),
         _ => Err(ShellError::UnsupportedInput {
-            msg: "Choose one of: --inner, --left, --right, --outer".into(),
+            msg: "Choose one of: --inner, --left, --right, --outer, --anti".into(),
             input: "".into(),
             msg_span: call.head,
             input_span: call.head,
@@ -215,6 +242,13 @@ fn join(
     // ----------
     // Perform Left Join procedure
     // Perform Right Join procedure, but excluding rows in Inner Join
+    //
+    // Anti Join
+    // ----------
+    // Make look-up table from rows on right
+    // For each row l on left:
+    //      If not any matching rows on right:
+    //          Emit (l)
 
     let config = Config::default();
     let sep = ",";
@@ -229,7 +263,7 @@ fn join(
     // rows having that value.
     let mut result: Vec<Value> = Vec::new();
     let is_outer = matches!(join_type, JoinType::Outer);
-    let (this, this_join_key, other, other_keys, join_type) = match join_type {
+    let (this, this_join_key, other, other_keys, join_type, include_inner) = match join_type {
         JoinType::Left | JoinType::Outer => (
             left,
             left_join_key,
@@ -238,6 +272,15 @@ fn join(
             // For Outer we do a Left pass and a Right pass; this is the Left
             // pass.
             JoinType::Left,
+            IncludeInner::Yes,
+        ),
+        JoinType::Anti => (
+            left,
+            left_join_key,
+            lookup_table(right, right_join_key, sep, cap, &config),
+            column_names(right),
+            JoinType::Anti,
+            IncludeInner::No,
         ),
         JoinType::Inner | JoinType::Right => (
             right,
@@ -245,6 +288,7 @@ fn join(
             lookup_table(left, left_join_key, sep, cap, &config),
             column_names(left),
             join_type,
+            IncludeInner::Yes,
         ),
     };
     join_rows(
@@ -255,7 +299,7 @@ fn join(
         other_keys,
         shared_join_key,
         &join_type,
-        IncludeInner::Yes,
+        include_inner,
         sep,
         &config,
         rename,
@@ -338,7 +382,7 @@ fn join_rows(
                                 shared_join_key,
                                 rename,
                             ),
-                            _ => panic!("not implemented"),
+                            JoinType::Outer | JoinType::Anti => panic!("not implemented"),
                         };
                         result.push(Value::record(record, span))
                     }
@@ -350,33 +394,38 @@ fn join_rows(
                 // `other` table did not contain any rows matching
                 // `this` row on the join column; emit a single joined
                 // row with null values for columns not present
-                let other_record = other_keys
-                    .iter()
-                    .map(|&key| {
-                        let val = if Some(key.as_ref()) == shared_join_key {
-                            this_record
-                                .get(key)
-                                .cloned()
-                                .unwrap_or_else(|| Value::nothing(span))
-                        } else {
-                            Value::nothing(span)
-                        };
+                let other_record = || -> Record {
+                    other_keys
+                        .iter()
+                        .map(|&key| {
+                            let val = if Some(key.as_ref()) == shared_join_key {
+                                this_record
+                                    .get(key)
+                                    .cloned()
+                                    .unwrap_or_else(|| Value::nothing(span))
+                            } else {
+                                Value::nothing(span)
+                            };
 
-                        (key.clone(), val)
-                    })
-                    .collect();
-
-                let record = match join_type {
-                    JoinType::Inner | JoinType::Right => {
-                        merge_records(&other_record, this_record, shared_join_key, rename)
-                    }
-                    JoinType::Left => {
-                        merge_records(this_record, &other_record, shared_join_key, rename)
-                    }
-                    _ => panic!("not implemented"),
+                            (key.clone(), val)
+                        })
+                        .collect()
                 };
 
-                result.push(Value::record(record, span))
+                let value = match join_type {
+                    JoinType::Inner | JoinType::Right => Value::record(
+                        merge_records(&other_record(), this_record, shared_join_key, rename),
+                        span,
+                    ),
+                    JoinType::Left => Value::record(
+                        merge_records(this_record, &other_record(), shared_join_key, rename),
+                        span,
+                    ),
+                    JoinType::Anti => this_row.clone(),
+                    JoinType::Outer => panic!("not implemented"),
+                };
+
+                result.push(value)
             }
         };
     }
