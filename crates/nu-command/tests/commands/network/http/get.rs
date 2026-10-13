@@ -1,4 +1,4 @@
-use mockito::Server;
+use mockito::{Server, ServerOpts};
 use nu_protocol::shell_error;
 use nu_test_support::prelude::*;
 use std::{thread, time::Duration};
@@ -166,6 +166,27 @@ fn http_get_follows_redirect() -> Result {
     test()
         .run_with_data("let url = $in; http get $'($url)/foo'", server.url())
         .expect_value_eq("bar")
+}
+
+// IPv6 literals are wrapped in brackets in URLs (e.g. `http://[::1]:8080/`).
+// `url::Url` handles the brackets, but the resolver used to pass the bracketed
+// host to `getaddrinfo`, which cannot resolve it. This exercises the resolver
+// and the `text/plain` extension lookup with a real request to an IPv6 literal.
+#[test]
+fn http_get_ipv6_literal() -> Result {
+    let mut server = Server::new_with_opts(ServerOpts {
+        host: "::1",
+        ..Default::default()
+    });
+
+    let _mock = server
+        .mock("GET", "/a.txt")
+        .with_header("content-type", "text/plain")
+        .with_body("hello")
+        .create();
+
+    let code = format!("http get {url}/a.txt", url = server.url());
+    test().run(code).expect_value_eq("hello")
 }
 
 #[test]
