@@ -666,44 +666,52 @@ pub fn parse_module_block(
     (block, module, module_comments)
 }
 
+/// Returns true if any module reachable from `module_id` (through submodules or imports)
+/// has changed on disk since it was parsed.
+///
+/// Each module is checked at most once per call: modules are commonly reachable through many
+/// paths (e.g. a utility module imported by most siblings), and without the `seen` set the walk
+/// re-reads the same files once per path, which is very slow where file opens are expensive.
 fn module_needs_reloading(working_set: &StateWorkingSet, module_id: ModuleId) -> bool {
+    module_needs_reloading_inner(working_set, module_id, &mut HashSet::new())
+}
+
+fn module_needs_reloading_inner(
+    working_set: &StateWorkingSet,
+    module_id: ModuleId,
+    seen: &mut HashSet<ModuleId>,
+) -> bool {
     let module = working_set.get_module(module_id);
 
-    fn submodule_need_reloading(working_set: &StateWorkingSet, submodule_id: ModuleId) -> bool {
-        let submodule = working_set.get_module(submodule_id);
-        let submodule_changed = if let Some((file_path, file_id)) = &submodule.file {
-            let existing_contents = working_set.get_contents_of_file(*file_id);
-            let file_contents = file_path.read(working_set);
-
-            if let (Some(existing), Some(new)) = (existing_contents, file_contents) {
-                existing != new
-            } else {
-                false
-            }
-        } else {
-            false
-        };
-
-        if submodule_changed {
-            true
-        } else {
-            module_needs_reloading(working_set, submodule_id)
-        }
-    }
-
-    let export_submodule_changed = module
+    module
         .submodules
         .iter()
-        .any(|(_, submodule_id)| submodule_need_reloading(working_set, *submodule_id));
+        .map(|(_, submodule_id)| *submodule_id)
+        .chain(module.imported_modules.iter().copied())
+        .any(|submodule_id| {
+            // already checked during this walk, and found unchanged (any() stops at the first change)
+            if !seen.insert(submodule_id) {
+                return false;
+            }
+            module_file_changed(working_set, submodule_id)
+                || module_needs_reloading_inner(working_set, submodule_id, seen)
+        })
+}
 
-    if export_submodule_changed {
-        return true;
+fn module_file_changed(working_set: &StateWorkingSet, module_id: ModuleId) -> bool {
+    let module = working_set.get_module(module_id);
+    if let Some((file_path, file_id)) = &module.file {
+        let existing_contents = working_set.get_contents_of_file(*file_id);
+        let file_contents = file_path.read(working_set);
+
+        if let (Some(existing), Some(new)) = (existing_contents, file_contents) {
+            existing != new
+        } else {
+            false
+        }
+    } else {
+        false
     }
-
-    module
-        .imported_modules
-        .iter()
-        .any(|submodule_id| submodule_need_reloading(working_set, *submodule_id))
 }
 
 fn parse_module_file(
