@@ -30,8 +30,8 @@ impl Command for TypeKeyword {
         the name is used as a type: in parameters, input/output types, variable annotations and \
         other types. The alias is visible from its definition to the end of the block.
 
-A completer written on the type, as in `type Animal = string@animals`, applies to parameters \
-        whose whole type is the alias.
+A completer belongs to a parameter, not to its type, so `type` takes no `@completer`. Write \
+        it on the parameter instead, as in `color: Color@[red green blue]`.
 
 `type` is reserved, so a custom command or alias can't be named `type`. To run an external \
         `type` command, use `^type`.
@@ -76,9 +76,9 @@ For details, check:
                 result: Some(Value::test_int(3)),
             },
             Example {
-                description: "Give a type a completer, which parameters of that type use.",
-                example: "type Color = string@[red green blue]
-    def paint [color: Color] { $\"painting it ($color)\" }
+                description: "Give a parameter of an aliased type a completer.",
+                example: "type Color = string
+    def paint [color: Color@[red green blue]] { $\"painting it ($color)\" }
     paint red",
                 result: Some(Value::test_string("painting it red")),
             },

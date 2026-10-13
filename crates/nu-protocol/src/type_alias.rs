@@ -1,4 +1,4 @@
-use crate::{Completion, Span, SyntaxShape};
+use crate::{Span, SyntaxShape};
 
 /// A named type annotation defined with `type Name = <type>`.
 ///
@@ -9,9 +9,6 @@ pub struct TypeAlias {
     pub name: String,
     /// What the alias expands to at every use.
     pub shape: SyntaxShape,
-    /// Completer given with `@` on the right-hand side. Only a parameter whose whole type is the
-    /// alias uses it.
-    pub completion: Option<Completion>,
     /// The whole `type` statement.
     pub span: Span,
 }

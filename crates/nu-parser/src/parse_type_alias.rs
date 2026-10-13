@@ -4,7 +4,7 @@ use crate::{
     parse_helpers::garbage_pipeline,
     parse_keywords::find_keyword_decl,
     parse_pipelines::redirecting_builtin_error,
-    parse_shape_specs::{BUILTIN_TYPE_NAMES, parse_param_type},
+    parse_shape_specs::{BUILTIN_TYPE_NAMES, parse_shape_name},
     parser::{ArgumentParsingLevel, CallKind, ParsedInternalCall, parse_internal_call},
 };
 use nu_protocol::{
@@ -29,8 +29,9 @@ fn is_valid_type_alias_name(name: &[u8]) -> bool {
 
 /// Parse `[export] type <name> = <type>` and define the type alias in the current scope.
 ///
-/// The right-hand side is anything a parameter annotation accepts, including `@completer`. A
-/// right-hand side that doesn't parse still defines the name, as `any`, so each mistake is
+/// The right-hand side is any type a parameter annotation accepts, without a `@completer`: a
+/// completer belongs to a parameter, so it is written there, as in `c: Color@[red green blue]`.
+/// A right-hand side that doesn't parse still defines the name, as `any`, so each mistake is
 /// reported once, here, and not again at every use.
 ///
 /// Returns the call to the `type` keyword and, unless the name was rejected, the new alias.
@@ -147,9 +148,9 @@ pub fn parse_type_alias(
         return (garbage_pipeline(working_set, spans), None);
     }
 
-    let (type_span, (shape, completion)) = if type_spans.is_empty() {
+    let (type_span, shape) = if type_spans.is_empty() {
         working_set.error(ParseError::MissingType(equals_span));
-        (Span::point(equals_span.end), (SyntaxShape::Any, None))
+        (Span::point(equals_span.end), SyntaxShape::Any)
     } else {
         // A generic type such as `record<a: int, b: string>` is split into several spans at its
         // spaces. Join them and read them again as one type, as a `let` annotation does.
@@ -165,7 +166,7 @@ pub fn parse_type_alias(
             (None, [token]) => {
                 let bytes = working_set.get_span_contents(token.span).to_vec();
                 let starting_error_count = working_set.parse_errors.len();
-                let parsed = parse_param_type(working_set, &bytes, token.span);
+                let parsed = parse_shape_name(working_set, &bytes, token.span);
                 (working_set.parse_errors.len() == starting_error_count).then_some(parsed)
             }
             (None, [_, extra, ..]) => {
@@ -180,13 +181,12 @@ pub fn parse_type_alias(
                 None
             }
         };
-        (type_span, parsed.unwrap_or((SyntaxShape::Any, None)))
+        (type_span, parsed.unwrap_or(SyntaxShape::Any))
     };
 
     let type_alias_id = working_set.add_type_alias(TypeAlias {
         name: String::from_utf8_lossy(&name).into_owned(),
         shape,
-        completion,
         span: call_span,
     });
 

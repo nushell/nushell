@@ -42,38 +42,6 @@ pub fn parse_type(working_set: &mut StateWorkingSet, bytes: &[u8], span: Span) -
     parse_shape_name(working_set, bytes, span).to_type()
 }
 
-/// Parse a parameter's type annotation: a type, optionally followed by `@` and a completer.
-///
-/// Without `@`, a type alias brings its own completer, if it was defined with one.
-pub fn parse_param_type(
-    working_set: &mut StateWorkingSet,
-    bytes: &[u8],
-    span: Span,
-) -> (SyntaxShape, Option<Completion>) {
-    bytes
-        .iter()
-        .position(|b| *b == b'@')
-        .and_then(|idx| {
-            let (shape, completer) = bytes.split_at_checked(idx)?;
-            let (shape_span, completer_span) = span.split_at(idx)?;
-
-            let completer = completer.strip_prefix(b"@")?;
-            let (_, completer_span) = completer_span.split_at(1)?;
-
-            Some((
-                parse_shape_name(working_set, shape, shape_span),
-                parse_completer(working_set, completer, completer_span),
-            ))
-        })
-        .unwrap_or_else(|| match working_set.find_type_alias(bytes) {
-            Some(type_alias_id) => {
-                let type_alias = working_set.get_type_alias(type_alias_id);
-                (type_alias.shape.clone(), type_alias.completion.clone())
-            }
-            None => (parse_shape_name(working_set, bytes, span), None),
-        })
-}
-
 /// Parse the literals of [`Type`]-like [`SyntaxShape`]s including inner types.
 ///
 /// A word that isn't a built-in type is looked up as a type alias. A new built-in type word

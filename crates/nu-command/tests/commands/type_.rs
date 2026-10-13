@@ -134,10 +134,21 @@ fn alias_name_can_start_with_a_generic_type_name(#[case] name: &str) -> Result {
 #[case::missing_type("type Foo =", "nu::parser::missing_type")]
 #[case::extra_tokens("type Foo = int string", "nu::parser::extra_tokens")]
 #[case::unknown_type_on_the_right("type Foo = vec<int>", "nu::parser::unknown_type")]
-#[case::unknown_completer("type Animal = string@nope", "nu::parser::unknown_command")]
 #[case::unknown_alias("def f [x: Nope] {}", "nu::parser::unknown_type")]
 fn type_alias_errors(#[case] code: &str, #[case] error: &str) -> Result {
     test().run(code).expect_error_code_eq(error)
+}
+
+#[test]
+fn completer_on_the_right_is_an_error() -> Result {
+    let err = test()
+        .run("type Color = string@[red green blue]")
+        .expect_parse_error()?;
+    assert!(
+        matches!(&err, ParseError::LabeledError(msg, ..) if msg == "Unexpected custom completer in type spec"),
+        "unexpected error: {err:?}"
+    );
+    Ok(())
 }
 
 #[test]
@@ -273,24 +284,23 @@ fn help_shows_the_expanded_type() -> Result {
 }
 
 #[test]
-fn completer_applies_only_to_a_whole_parameter_type() -> Result {
+fn parameter_of_an_aliased_type_takes_a_completer() -> Result {
     let code = "
-        type Animal = string@[cat dog]
-        type Pet = Animal
-        def f [a: Animal, p: Pet, list: list<Animal>, --flag: Animal, v: Animal@[lion]] {}
+        def animals [] { [cat dog eel] }
+        type Animal = string
+        def f [a: Animal@animals, b: Animal, --flag: Animal@[lion]] {}
         scope commands | where name == f | get signatures.0 | values | flatten
-        | where parameter_name in [a p list flag v]
-        | select parameter_name completion | sort-by parameter_name | to nuon
+        | where parameter_name in [a b flag]
+        | select parameter_name syntax_shape completion | sort-by parameter_name | to nuon
     ";
     test().run(code).expect_value_eq(
-        "[[parameter_name, completion]; [a, [cat, dog]], [flag, [cat, dog]], [list, null], [p, [cat, dog]], [v, [lion]]]",
+        "[[parameter_name, syntax_shape, completion]; [a, string, animals], [b, string, null], [flag, string, [lion]]]",
     )
 }
 
 const ZOO: &str = "
     module zoo {
-      def animals [] { [cat dog eel] }
-      export type Animal = string@animals
+      export type Animal = string
       export def feed [animal: Animal] { $\"feeding the ($animal)\" }
       export module keepers {
         export type Keeper = string
@@ -383,7 +393,7 @@ fn alias_goes_away_with_its_overlay() -> Result {
 }
 
 #[test]
-fn alias_and_completer_come_from_a_module_file() -> Result {
+fn alias_comes_from_a_module_file() -> Result {
     Playground::setup("type_alias_module_file", |dirs, playground| {
         playground.with_files(&[FileWithContent(
             "geo.nu",
