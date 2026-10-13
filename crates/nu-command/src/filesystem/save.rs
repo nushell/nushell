@@ -151,7 +151,9 @@ impl Command for Save {
                 let ext = extract_extension(&input, &path.item, raw);
                 let converted = match ext {
                     None => input,
-                    Some(ext) => convert_to_extension(engine_state, &ext, stack, input, span)?,
+                    Some(ext) => {
+                        convert_to_extension(engine_state, &ext, stack, input, span, path.span)?
+                    }
                 };
 
                 // Save custom value however they implement saving
@@ -309,36 +311,27 @@ fn extract_extension<'e>(input: &PipelineData, path: &'e Path, raw: bool) -> Opt
 
 /// Convert given data into content of file of specified extension if
 /// corresponding `to` command exists. Otherwise attempt to convert
-/// data to bytes as is
+/// data to bytes as is. `path_span` is the file argument, which an error about the converter
+/// points at.
 fn convert_to_extension(
     engine_state: &EngineState,
     extension: &str,
     stack: &mut Stack,
     input: PipelineData,
     span: Span,
+    path_span: Span,
 ) -> Result<PipelineData, ShellError> {
     if let Some(decl_id) = engine_state.find_decl(format!("to {extension}").as_bytes(), &[]) {
         let decl = engine_state.get_decl(decl_id);
         if let Some(alias) = decl.as_alias() {
-            // `save` runs the `to <ext>` converter by looking it up by name, but an alias can't
-            // be run on its own. Rather than failing with an internal error, point the user at a
-            // custom command, which `save` can run (#18725).
-            let wrapped =
-                String::from_utf8_lossy(engine_state.get_span_contents(alias.wrapped_call.span));
-            let body = match wrapped.trim() {
-                "" => "...",
-                wrapped => wrapped,
-            };
-            Err(ShellError::Generic(
-                GenericError::new(
-                    format!("Can't save file with alias `{}`", alias.name),
-                    format!("`{}` is an alias, not a command", alias.name),
-                    span,
-                )
-                .with_help(format!(
-                    "`save` can only use a command as a converter. Define one with `def` instead: `def '{}' [] {{ {body} }}`",
-                    alias.name
-                )),
+            let file = String::from_utf8_lossy(engine_state.get_span_contents(path_span));
+            Err(crate::formats::alias_converter_error(
+                engine_state,
+                alias,
+                "save",
+                "save file",
+                &format!("... | {{}} | save {file}"),
+                path_span,
             ))
         } else if let Some(block_id) = decl.block_id() {
             let block = engine_state.get_block(block_id);

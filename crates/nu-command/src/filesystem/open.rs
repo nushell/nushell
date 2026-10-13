@@ -219,24 +219,16 @@ impl Command for Open {
                             // internal error, point the user at a custom command, which `open`
                             // can run (#18725).
                             if let Some(alias) = engine_state.get_decl(converter_id).as_alias() {
-                                // Suggest a `def` that wraps the same call as the alias.
-                                let wrapped = String::from_utf8_lossy(
-                                    engine_state.get_span_contents(alias.wrapped_call.span),
+                                let file = String::from_utf8_lossy(
+                                    engine_state.get_span_contents(arg_span),
                                 );
-                                let body = match wrapped.trim() {
-                                    "" => "...",
-                                    wrapped => wrapped,
-                                };
-                                return Err(ShellError::Generic(
-                                    GenericError::new(
-                                        format!("Can't open file with alias `{}`", alias.name),
-                                        format!("`{}` is an alias, not a command", alias.name),
-                                        arg_span,
-                                    )
-                                    .with_help(format!(
-                                        "`open` can only use a command as a converter. Define one with `def` instead: `def '{}' [] {{ {body} }}`",
-                                        alias.name
-                                    )),
+                                return Err(crate::formats::alias_converter_error(
+                                    engine_state,
+                                    alias,
+                                    "open",
+                                    "open file",
+                                    &format!("open --raw {file} | {{}}"),
+                                    arg_span,
                                 ));
                             }
 

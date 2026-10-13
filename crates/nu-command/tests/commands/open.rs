@@ -149,6 +149,25 @@ fn open_with_a_from_alias_suggests_def() -> Result {
     })
 }
 
+/// An alias over the converter it shadows (`alias "from json" = from json --objects`) can't
+/// become a `def` of that name, which would call itself, so the help shows the explicit pipeline.
+#[test]
+fn open_with_a_shadowing_from_alias_suggests_a_pipeline() -> Result {
+    Playground::setup("open_with_shadowing_from_alias", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent("data.json", r#"{"name": "nu"}"#)]);
+
+        let code = r#"alias "from json" = from json --objects; open data.json"#;
+        let err = test().cwd(dirs.test()).run(code).expect_error()?;
+        assert_contains("Can't open file with alias `from json`", err.to_string());
+        assert_contains(
+            "open --raw data.json | from json --objects",
+            format!("{err:?}"),
+        );
+        assert!(!format!("{err:?}").contains("def 'from json'"));
+        Ok(())
+    })
+}
+
 // sample.db has the following format:
 //
 // ╭─────────┬────────────────╮

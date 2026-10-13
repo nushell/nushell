@@ -399,3 +399,28 @@ fn http_get_with_socks5_proxy(#[case] proxy_env: &str) -> Result {
     assert_eq!(outcome, "🦆");
     Ok(())
 }
+
+/// `http get` converts a response by its `from <ext>` command too, so an alias there is reported
+/// as `open` and `save` report it, instead of failing with "Can't run alias directly" (#18725).
+#[test]
+fn http_get_with_a_from_alias_reports_it() -> Result {
+    let mut server = Server::new();
+    let _mock = server
+        .mock("GET", "/x.json")
+        .with_header("content-type", "application/json")
+        .with_body(r#"{"a": 1}"#)
+        .create();
+    let url = format!("{}/x.json", server.url());
+    let code = format!(r#"alias "from json" = from json --objects; http get {url}"#);
+    let err = test().run(code).expect_error()?;
+    assert_contains(
+        "Can't convert the response with alias `from json`",
+        err.to_string(),
+    );
+    assert_contains(
+        format!("http ... --raw {url} | from json --objects"),
+        format!("{err:?}"),
+    );
+    assert!(!format!("{err:?}").contains("Can't run alias directly"));
+    Ok(())
+}

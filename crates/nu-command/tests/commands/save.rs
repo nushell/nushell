@@ -616,6 +616,28 @@ fn save_with_a_to_alias_suggests_def() -> Result {
     })
 }
 
+/// The error points at the file, as `open`'s does, and an alias over the converter it shadows gets
+/// the explicit pipeline instead of a `def` that would call itself.
+#[test]
+fn save_with_a_shadowing_to_alias_labels_the_file() -> Result {
+    Playground::setup("save_with_shadowing_to_alias", |dirs, _| {
+        let code = r#"alias "to json" = to json --raw; {a: 1} | save out.json"#;
+        let mut tester = test().cwd(dirs.test());
+        let err = tester.run::<nu_protocol::Value>(code).expect_error()?;
+        assert_contains("Can't save file with alias `to json`", err.to_string());
+        assert_contains("... | to json --raw | save out.json", format!("{err:?}"));
+        let nu_protocol::ShellError::Generic(generic) = &err else {
+            panic!("a generic error: {err:?}")
+        };
+        let nu_protocol::shell_error::ErrorSite::Span(span) = generic.site else {
+            panic!("a span: {generic:?}")
+        };
+        assert_eq!(tester.engine_state.get_span_contents(span), b"out.json");
+        assert!(!dirs.test().join("out.json").exists());
+        Ok(())
+    })
+}
+
 #[test]
 fn save_same_file_with_collect() -> Result {
     Playground::setup("save_test_20", |dirs, _sandbox| {
