@@ -1118,12 +1118,20 @@ fn transform_response_using_content_type(
         Ok(output)
     } else if let Some(ext) = ext {
         match engine_state.find_decl(format!("from {ext}").as_bytes(), &[]) {
-            Some(converter_id) => engine_state.get_decl(converter_id).run(
-                engine_state,
-                stack,
-                &Call::new(span),
-                output,
-            ),
+            Some(converter_id) => {
+                let decl = engine_state.get_decl(converter_id);
+                if let Some(alias) = decl.as_alias() {
+                    return Err(crate::formats::alias_converter_error(
+                        engine_state,
+                        alias,
+                        "http",
+                        "convert the response",
+                        &format!("http ... --raw {requested_url} | {{}}"),
+                        span,
+                    ));
+                }
+                decl.run(engine_state, stack, &Call::new(span), output)
+            }
             None => Ok(output),
         }
     } else {
