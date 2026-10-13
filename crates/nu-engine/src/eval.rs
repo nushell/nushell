@@ -377,7 +377,11 @@ pub fn eval_call<D: DebugContext>(
         // To prevent a stack overflow in user code from crashing the shell,
         // we limit the recursion depth of function calls.
         // Picked 50 arbitrarily, should work on all architectures.
-        let maximum_call_stack_depth: u64 = engine_state.config.recursion_limit as u64;
+        let config = caller_stack
+            .config
+            .as_deref()
+            .unwrap_or(&engine_state.config);
+        let maximum_call_stack_depth: u64 = config.recursion_limit as u64;
         callee_stack.recursion_count += 1;
         if callee_stack.recursion_count > maximum_call_stack_depth {
             callee_stack.recursion_count = 0;

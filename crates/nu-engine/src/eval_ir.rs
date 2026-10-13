@@ -55,7 +55,10 @@ pub fn eval_ir_block<D: DebugContext>(
     // But nu programs run in the same process as the shell.
     // To prevent a stack overflow in user code from crashing the shell,
     // we limit the recursion depth of function calls.
-    let maximum_call_stack_depth: u64 = engine_state.config.recursion_limit as u64;
+    // Read the stack's config so `$env.config.recursion_limit` set earlier in the same script
+    // applies. Borrowing avoids the `Arc` clone `Stack::get_config` does on this hot path.
+    let config = stack.config.as_deref().unwrap_or(&engine_state.config);
+    let maximum_call_stack_depth: u64 = config.recursion_limit as u64;
     if stack.recursion_count > maximum_call_stack_depth {
         return Err(ShellError::RecursionLimitReached {
             recursion_limit: maximum_call_stack_depth,
