@@ -97,6 +97,7 @@ impl Command for TuiSearch {
                 WidgetKind::Search(widget),
                 Vec::new(),
                 None,
+                None,
             )
         })
     }
