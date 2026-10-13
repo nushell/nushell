@@ -288,6 +288,77 @@ fn infinite_mutual_recursion_does_not_panic() -> Result {
 }
 
 #[test]
+fn infinite_closure_recursion_does_not_panic() -> Result {
+    let mut tester = test();
+    let mut config = tester.engine_state.get_config().as_ref().clone();
+    config.recursion_limit = 5;
+    tester.engine_state.set_config(config);
+    let err = tester
+        .run("let M = {|x| do $x $x}; do $M $M")
+        .expect_shell_error()?;
+    assert_matches!(
+        err,
+        ShellError::RecursionLimitReached {
+            recursion_limit: 5,
+            ..
+        }
+    );
+    Ok(())
+}
+
+#[rstest]
+#[case::within_limit(2, true)]
+#[case::past_limit(3, false)]
+fn closure_calls_count_toward_recursion_limit(#[case] depth: i64, #[case] ok: bool) -> Result {
+    // Each level of `f` is one custom command call plus one closure call, so depth 2 nests
+    // 5 calls (within the limit of 5) and depth 3 nests 7.
+    let mut tester = test();
+    let mut config = tester.engine_state.get_config().as_ref().clone();
+    config.recursion_limit = 5;
+    tester.engine_state.set_config(config);
+    let code =
+        format!("def f [n] {{ if $n > 0 {{ do {{ f ($n - 1) }} }} else {{ 'ok' }} }}; f {depth}");
+    if ok {
+        return tester.run(code).expect_value_eq("ok");
+    }
+    let err = tester.run(code).expect_shell_error()?;
+    assert_matches!(
+        err,
+        ShellError::RecursionLimitReached {
+            recursion_limit: 5,
+            ..
+        }
+    );
+    Ok(())
+}
+
+#[test]
+fn closure_called_per_item_does_not_count_toward_recursion_limit() -> Result {
+    // `each` evaluates one closure call per item on the same callee stack, so a long
+    // stream must not add one recursion level per item.
+    let mut tester = test();
+    let mut config = tester.engine_state.get_config().as_ref().clone();
+    config.recursion_limit = 5;
+    tester.engine_state.set_config(config);
+    tester
+        .run("1..100 | each {|x| $x } | length")
+        .expect_value_eq(100)
+}
+
+#[test]
+fn par_each_closure_counts_one_recursion_level() -> Result {
+    // `par-each` trims the caller's stack before building the closure's stack from it, so
+    // the trimming must not count as a second level.
+    let mut tester = test();
+    let mut config = tester.engine_state.get_config().as_ref().clone();
+    config.recursion_limit = 2;
+    tester.engine_state.set_config(config);
+    tester
+        .run("[1 2] | par-each { [1 2] | par-each { 1 } | math sum } | math sum")
+        .expect_value_eq(4)
+}
+
+#[test]
 fn type_check_for_during_eval() -> Result {
     let err = test()
         .run("def spam [foo: string] { $foo | describe }; def outer [--foo: string] { spam $foo }; outer")

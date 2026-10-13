@@ -362,7 +362,10 @@ fn stream_parallel_values(
     let worker_engine_state = engine_state.clone();
     // Only clone the captured variables, not the entire stack.
     // This avoids deep-copying all in-scope variables that the closure does not reference.
-    let worker_stack = stack.captures_to_stack(closure.captures.clone());
+    let mut worker_stack = stack.captures_to_stack(closure.captures.clone());
+    // `worker_stack` is a trimmed copy of the caller's stack, not a closure call. The
+    // `ClosureEval` built from it below adds the closure call's recursion level.
+    worker_stack.recursion_count = stack.recursion_count;
     let worker_signals = signals.clone();
 
     // Keep an Arc for the lifetime of the spawned producer. For cached pools this keeps

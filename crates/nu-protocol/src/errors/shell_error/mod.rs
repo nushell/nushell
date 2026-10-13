@@ -1197,11 +1197,11 @@ pub enum ShellError {
     )]
     Exit { code: i32, abort: bool },
 
-    /// The code being executed called itself too many times.
+    /// The code being executed nested custom command or closure calls too deeply.
     ///
     /// ## Resolution
     ///
-    /// Adjust your Nu code to
+    /// Adjust your Nu code to recurse less deeply, or raise `$env.config.recursion_limit`.
     #[error("Recursion limit ({recursion_limit}) reached")]
     #[diagnostic(code(nu::shell::recursion_limit_reached))]
     RecursionLimitReached {
