@@ -8,6 +8,7 @@ pub enum CompletionAlgorithm {
     Prefix,
     Substring,
     Fuzzy,
+    Fallback,
 }
 
 impl FromStr for CompletionAlgorithm {
@@ -18,7 +19,8 @@ impl FromStr for CompletionAlgorithm {
             "prefix" => Ok(Self::Prefix),
             "substring" => Ok(Self::Substring),
             "fuzzy" => Ok(Self::Fuzzy),
-            _ => Err("'prefix' or 'fuzzy' or 'substring'"),
+            "fallback" => Ok(Self::Fallback),
+            _ => Err("'prefix' or 'fuzzy' or 'substring' or 'fallback'"),
         }
     }
 }
