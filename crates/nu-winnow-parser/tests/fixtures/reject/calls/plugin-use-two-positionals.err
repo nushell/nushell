@@ -1,0 +1,7 @@
+error: extra positional argument
+  --> reject/calls/plugin-use-two-positionals.nu:1:14
+  |
+1 | plugin use x y
+  |              ^
+  = while parsing command call
+  = help: `plugin use` takes at most 1 positional arguments

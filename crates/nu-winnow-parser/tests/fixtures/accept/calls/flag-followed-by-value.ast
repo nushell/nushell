@@ -1,0 +1,17 @@
+Block 0..66
+  Pipeline 0..27
+    Call `ls` 0..2
+    | 3..4
+    Call `sort-by` 5..17
+      String Bare "name" 13..17
+    | 18..19
+    Call `first` 20..27
+      Int 3 26..27
+  Pipeline 28..65
+    String Single "x" 28..31
+    | 32..33
+    Call `fill` 34..65
+      Flag --width 39..46
+      Int 10 47..49
+      Flag --character 50..61
+      String Single "-" 62..65

@@ -1,0 +1,6 @@
+error: expected signature
+  --> reject/def/extern-missing-signature.nu:1:11
+  |
+1 | extern cmd
+  |           ^
+  = while parsing extern

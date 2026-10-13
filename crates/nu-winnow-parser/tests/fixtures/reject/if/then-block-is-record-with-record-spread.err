@@ -1,0 +1,7 @@
+error: expected block after the condition
+  --> reject/if/then-block-is-record-with-record-spread.nu:2:9
+  |
+2 | if true { a: 1, ...{b: 2} }
+  |         ^^^^^^^^^^^^^^^^^^^
+  = while parsing if
+  = help: found a record

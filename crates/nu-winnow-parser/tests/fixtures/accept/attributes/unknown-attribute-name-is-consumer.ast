@@ -1,0 +1,8 @@
+Block 0..27
+  Pipeline 0..26
+    AttributeBlock 0..26
+      Attribute `nonexistent` 0..14
+        Int 1 13..14
+      Def `x` 15..26
+        Signature 21..23
+        Body 25..25

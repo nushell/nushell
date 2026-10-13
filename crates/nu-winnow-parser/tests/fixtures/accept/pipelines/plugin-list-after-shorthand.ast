@@ -1,0 +1,6 @@
+Block 0..18
+  Pipeline 0..17
+    EnvShorthand 0..17
+      Env FOO 0..5
+        String Bare "1" 4..5
+      Call `plugin list` 6..17

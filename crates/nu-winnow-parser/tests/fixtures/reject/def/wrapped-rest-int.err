@@ -1,0 +1,7 @@
+error: type mismatch
+  --> reject/def/wrapped-rest-int.nu:1:29
+  |
+1 | def --wrapped foo [...rest: int] {}
+  |                             ^^^
+  = while parsing def
+  = help: the ...rest-like positional argument of `def --wrapped` supports only strings; change the type of ...rest to `string`

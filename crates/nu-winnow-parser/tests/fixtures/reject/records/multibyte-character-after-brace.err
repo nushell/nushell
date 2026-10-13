@@ -1,0 +1,7 @@
+error: unclosed delimiter: expected `}`
+  --> reject/records/multibyte-character-after-brace.nu:1:13
+  |
+1 | echo {a: 1}╮
+  |             ^
+  = note: opened at 1:6
+  = while parsing command call

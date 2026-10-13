@@ -1,0 +1,6 @@
+error: extra tokens after the end of the expression
+  --> reject/match/help-then-extra.nu:1:19
+  |
+1 | match 1 --help {} x
+  |                   ^
+  = while parsing match

@@ -1,0 +1,7 @@
+error: unclosed delimiter: expected `}`
+  --> reject/records/spread-with-cell-path.nu:2:15
+  |
+2 | echo {...$r}.a
+  |               ^
+  = note: opened at 2:6
+  = while parsing command call

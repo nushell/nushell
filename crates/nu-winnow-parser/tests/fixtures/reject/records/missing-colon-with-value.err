@@ -1,0 +1,6 @@
+error: expected `:` after record key
+  --> reject/records/missing-colon-with-value.nu:1:10
+  |
+1 | { a: 2 b 3 }
+  |          ^
+  = help: record fields look like `key: value`; a missing colon often makes this parse as a block or closure

@@ -1,0 +1,5 @@
+Block 0..23
+  Pipeline 0..22
+    BinaryOp + 0..22
+      Duration 420 min 0..7
+      Duration 1000000 sec 10..22

@@ -1,0 +1,6 @@
+error: expected match block
+  --> reject/match/block-is-list.nu:1:9
+  |
+1 | match 1 [a]
+  |         ^^^
+  = while parsing match

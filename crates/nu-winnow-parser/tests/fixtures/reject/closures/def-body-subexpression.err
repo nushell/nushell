@@ -1,0 +1,6 @@
+error: expected definition body closure { ... }
+  --> reject/closures/def-body-subexpression.nu:1:10
+  |
+1 | def a [] (echo 4)
+  |          ^^^^^^^^
+  = while parsing def

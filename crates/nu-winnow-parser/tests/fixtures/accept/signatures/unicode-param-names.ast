@@ -1,0 +1,7 @@
+Block 0..33
+  Pipeline 0..32
+    Def `f` 0..32
+      Signature 6..28
+        Param positional `ünïcode` 7..21 : int
+        Param positional `🧼` 23..27
+      Body 30..31

@@ -1,0 +1,8 @@
+Block 0..23
+  Pipeline 0..6
+    ExternalCall 0..6
+      String Bare "../foo" 0..6
+  Pipeline 7..22
+    ExternalCall 7..22
+      String Bare "./script.sh" 7..18
+      String Bare "--x" 19..22

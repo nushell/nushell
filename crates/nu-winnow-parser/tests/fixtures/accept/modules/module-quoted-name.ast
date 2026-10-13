@@ -1,0 +1,10 @@
+Block 0..40
+  Pipeline 0..39
+    Module 0..39
+      String Double "my mod" 7..15
+      Body 17..38
+        Pipeline 18..37
+          Export 18..37
+            Def `f` 25..37
+              Signature 31..33
+              Body 35..36

@@ -1,0 +1,6 @@
+error: expected `=`
+  --> reject/alias/double-dash-before-equals.nu:1:9
+  |
+1 | alias x -- = ls
+  |         ^^
+  = while parsing alias

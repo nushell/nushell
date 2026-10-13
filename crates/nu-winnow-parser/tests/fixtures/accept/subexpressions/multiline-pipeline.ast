@@ -1,0 +1,12 @@
+Block 0..58
+  Pipeline 0..57
+    Subexpression 0..57 1..56
+      Pipeline 6..55
+        Call `ls` 6..8
+        | 13..14
+        Call `sort-by` 15..41
+          String Bare "modified" 23..31
+          Flag --reverse 32..41
+        | 46..47
+        Call `first` 48..55
+          Int 3 54..55

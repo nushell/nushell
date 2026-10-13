@@ -1,0 +1,9 @@
+Block 0..25
+  Pipeline 0..24
+    Record 0..24
+      Pair
+        String Bare "héllo" 1..7
+        Int 1 9..10
+      Pair
+        String Double "日本" 12..20
+        Int 2 22..23

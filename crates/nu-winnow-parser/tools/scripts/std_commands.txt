@@ -1,0 +1,230 @@
+($test_function_name)
+add
+aggregate
+aliases
+align
+assert compare
+assert equal
+assert error
+assert greater
+assert greater or equal
+assert length
+assert less
+assert less or equal
+assert main
+assert not
+assert not equal
+assert str contains
+banner
+bar
+baz
+bench main
+choice
+clear
+clip copy52
+clip paste52
+clip prefix
+columns-into-table
+commands
+commons format-message
+commons now
+compare
+config dark-theme
+config env-conversions
+config light-theme
+conversions columns-into-table
+conversions into list
+conversions name-values
+conversions record-into-columns
+conversions table-into-columns
+copy52
+critical
+custom
+dark-theme
+date ceil
+date date ceil
+date date floor
+date floor
+datetime-diff
+debug
+dedent
+dice
+dirs add
+dirs drop
+dirs goto
+dirs main
+dirs next
+dirs prev
+display
+drop
+dt datetime-diff
+dt pretty-print-duration
+ellie
+env-conversions
+equal
+error
+externs
+filter-map
+find
+find-index
+flat-map
+format-message
+formats from jsonl
+formats from ndjson
+formats from ndnuon
+formats to jsonl
+formats to ndjson
+formats to ndnuon
+from jsonl
+from ndjson
+from ndnuon
+goto
+greater
+greater or equal
+help aliases
+help bar
+help baz
+help commands
+help externs
+help main
+help modules
+help operators
+indeterminate
+info
+input display
+intersperse
+into list
+iter filter-map
+iter find
+iter find-index
+iter flat-map
+iter intersperse
+iter only
+iter prod
+iter recurse
+iter scan
+iter zip-into-record
+iter zip-with
+kv drop
+kv get
+kv kv drop
+kv kv get
+kv kv list
+kv kv set
+kv kv universal-variable-hook
+kv list
+kv set
+kv universal-variable-hook
+lcp
+length
+less
+less or equal
+light-theme
+log critical
+log custom
+log debug
+log error
+log info
+log log-ansi
+log log-level
+log log-prefix
+log log-short-prefix
+log main
+log set-level
+log warning
+log-ansi
+log-level
+log-prefix
+log-short-prefix
+main
+modules
+name-values
+next
+not
+not equal
+now
+null-device
+only
+operators
+paste52
+path add
+path with-extension
+path with-parent
+path with-stem
+pause
+pb clear
+pb error
+pb indeterminate
+pb pause
+pb set
+pb set-idx
+prefix
+prelude banner
+prelude pwd
+pretty-print-duration
+prev
+prod
+pwd
+random choice
+random dice
+record-into-columns
+recurse
+reject column-slices
+reject slices
+repeat
+replace
+run-tests
+scan
+select column-slices
+select slices
+set
+set-idx
+set-level
+str align
+str contains
+str dedent
+str lcp
+str unindent
+structure
+table-into-columns
+tables aggregate
+tables reject column-slices
+tables reject slices
+tables select column-slices
+tables select slices
+testing ($test_function_name)
+testing run-tests
+to jsonl
+to ndjson
+to ndnuon
+unindent
+url replace
+url with-fragment
+url with-host
+url with-params
+url with-path
+url with-port
+util ellie
+util null-device
+util path add
+util repeat
+util structure
+warning
+with-extension
+with-fragment
+with-host
+with-params
+with-parent
+with-path
+with-port
+with-stem
+xaccess
+xinsert
+xml xaccess
+xml xinsert
+xml xtype
+xml xupdate
+xtype
+xupdate
+zip-into-record
+zip-with

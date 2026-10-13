@@ -1,0 +1,6 @@
+error: unexpected token in record value
+  --> reject/records/pipe-value.nu:1:6
+  |
+1 | { a: || }
+  |      ^^
+  = help: after `key:`, provide a value (string, number, record, list, ...)

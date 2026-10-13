@@ -1,0 +1,11 @@
+Block 0..100
+  Pipeline 64..70 comments=1
+    Call `f` 64..70
+      String Bare "x$" 66..70
+  Pipeline 71..99
+    Def `f` [Wrapped] 71..99
+      Signature 87..96
+        Param rest `rest` 88..95
+      Body 98..98
+Comments (1)
+  0..63 "# The predeclaration already knows that the command is wrapped."

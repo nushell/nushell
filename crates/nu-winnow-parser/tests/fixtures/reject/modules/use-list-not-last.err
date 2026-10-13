@@ -1,0 +1,6 @@
+error: a `*` or `[...]` member can only be at the end of an import pattern
+  --> reject/modules/use-list-not-last.nu:1:15
+  |
+1 | use std [log] assert
+  |               ^^^^^^
+  = while parsing use

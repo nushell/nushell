@@ -1,0 +1,77 @@
+Block 0..174
+  Pipeline 0..173
+    Match 0..173
+      Int 1 6..7
+      Arm 12..18
+        Pattern value 12..13
+          Int 1 12..13
+        ExternalCall 17..18
+          String Bare "a" 17..18
+      Arm 21..28
+        Pattern value 21..23
+          Int -1 21..23
+        ExternalCall 27..28
+          String Bare "b" 27..28
+      Arm 31..39
+        Pattern value 31..34
+          Float 1.5 31..34
+        ExternalCall 38..39
+          String Bare "c" 38..39
+      Arm 42..50
+        Pattern value 42..45
+          String Double "s" 42..45
+        ExternalCall 49..50
+          String Bare "d" 49..50
+      Arm 53..61
+        Pattern value 53..56
+          String Single "s" 53..56
+        ExternalCall 60..61
+          String Bare "e" 60..61
+      Arm 64..73
+        Pattern value 64..68
+          Bool true 64..68
+        ExternalCall 72..73
+          String Bare "f" 72..73
+      Arm 76..85
+        Pattern value 76..80
+          Nothing 76..80
+        ExternalCall 84..85
+          String Bare "g" 84..85
+      Arm 88..96
+        Pattern value 88..91
+          Filesize 1 kB 88..91
+        ExternalCall 95..96
+          String Bare "h" 95..96
+      Arm 99..114
+        Pattern value 99..109
+          DateTime 2024-01-02 99..109
+        ExternalCall 113..114
+          String Bare "i" 113..114
+      Arm 117..126
+        Pattern value 117..121
+          Range Inclusive 117..121
+            From
+              Int 1 117..118
+            To
+              Int 3 120..121
+        ExternalCall 125..126
+          String Bare "j" 125..126
+      Arm 129..141
+        Pattern value 129..136
+          Subexpression 129..136 130..135
+            Pipeline 130..135
+              BinaryOp + 130..135
+                Int 1 130..131
+                Int 1 134..135
+        ExternalCall 140..141
+          String Bare "l" 140..141
+      Arm 144..155
+        Pattern value 144..150
+          Binary radix=16 [255] 144..150
+        ExternalCall 154..155
+          String Bare "m" 154..155
+      Arm 158..171
+        Pattern value 158..166
+          String Raw(1) "raw" 158..166
+        ExternalCall 170..171
+          String Bare "o" 170..171

@@ -1,0 +1,9 @@
+Block 0..43
+  Pipeline 0..42
+    Def `f` 0..42
+      Signature 6..38
+        Param positional `if` 7..14 : int
+        Param positional `def` 16..19
+        Param positional `let` 21..32 : string
+        Param positional `for` 34..37
+      Body 40..41

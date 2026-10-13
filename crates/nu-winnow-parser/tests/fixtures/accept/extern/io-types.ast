@@ -1,0 +1,10 @@
+Block 0..88
+  Pipeline 0..52
+    Extern `cmd` 0..52
+      Signature 11..52
+        IoType nothing -> string
+        IoType string -> string
+  Pipeline 53..87
+    Extern `cmd2` 53..87
+      Signature 65..87
+        IoType nothing -> string

@@ -1,0 +1,44 @@
+[package]
+authors.workspace = true
+description = "A fast, lossless parser for the Nushell language built on winnow (experimental front end for nu-parser)"
+repository = "https://github.com/nushell/nushell/tree/main/crates/nu-winnow-parser"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+name = "nu-winnow-parser"
+version.workspace = true
+keywords = ["nushell", "parser", "winnow", "shell", "formatter"]
+categories = ["parser-implementations", "development-tools"]
+# The comparison harness under `tools/` is its own workspace (it links the whole shell).
+exclude = ["/tools"]
+
+[lib]
+bench = false
+
+[lints]
+workspace = true
+
+[dependencies]
+winnow = { workspace = true }
+serde = { workspace = true, features = ["derive"], optional = true }
+
+[dev-dependencies]
+rstest = { workspace = true, default-features = false }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+tango-bench = { workspace = true }
+
+[features]
+default = ["builtin-commands"]
+# Embed the table of Nushell's built-in command names so that multi-word
+# commands such as `str trim` are resolved to a single call head.
+builtin-commands = []
+# Derive `serde::Serialize`/`Deserialize` for the AST (used by `--json` in the example).
+serde = ["dep:serde"]
+
+[[bench]]
+name = "parse"
+harness = false
+
+[[example]]
+name = "parse"

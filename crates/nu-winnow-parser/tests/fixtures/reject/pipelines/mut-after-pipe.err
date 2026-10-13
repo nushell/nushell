@@ -1,0 +1,6 @@
+error: `mut` is a statement and cannot be used inside a pipeline
+  --> reject/pipelines/mut-after-pipe.nu:1:6
+  |
+1 | ls | mut x = 1
+  |      ^^^
+  = help: declarations and the module, source, overlay and plugin commands are statements of their own

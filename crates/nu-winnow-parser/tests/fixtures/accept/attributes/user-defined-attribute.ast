@@ -1,0 +1,13 @@
+Block 0..42
+  Pipeline 0..24
+    Def `attr foo` 0..24
+      Signature 15..17
+      Body 19..23
+        Pipeline 20..22
+          Record 20..22
+  Pipeline 25..41
+    AttributeBlock 25..41
+      Attribute `foo` 25..29
+      Def `x` 30..41
+        Signature 36..38
+        Body 40..40

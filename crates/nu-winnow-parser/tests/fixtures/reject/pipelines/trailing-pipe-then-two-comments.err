@@ -1,0 +1,13 @@
+error: unexpected end of input, expected command after `|`
+  --> reject/pipelines/trailing-pipe-then-two-comments.nu:1:4
+  |
+1 | ls |
+  |    ^
+  = while parsing pipeline
+  = help: the pipeline has no end: add a command after the `|` or remove it
+
+error: expected command
+  --> reject/pipelines/trailing-pipe-then-two-comments.nu:3:4
+  |
+3 | # d
+  |    ^

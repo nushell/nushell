@@ -1,0 +1,18 @@
+Block 0..46
+  Pipeline 0..9
+    let x 0..9
+      Value 8..9
+        Pipeline 8..9
+          Int 1 8..9
+  Pipeline 10..45
+    EnvShorthand 10..45
+      Env FOO 10..17
+        String Bare "bar" 14..17
+      Env BAZ 18..24
+        Var $x 22..24
+      Env EMPTY 25..31
+        String Bare "" 31..31
+      Call `echo` 32..45
+        FullCellPath 37..45
+          Var $env 37..41
+          Member "FOO" 42..45

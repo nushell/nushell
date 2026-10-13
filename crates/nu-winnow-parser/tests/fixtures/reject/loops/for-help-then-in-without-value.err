@@ -1,0 +1,7 @@
+error: missing argument to `in`
+  --> reject/loops/for-help-then-in-without-value.nu:1:14
+  |
+1 | for x --help in
+  |              ^^
+  = while parsing for
+  = help: `for` needs a value to iterate and a block: `for x in [1 2] { }`

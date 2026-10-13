@@ -1,0 +1,9 @@
+Block 0..31
+  Pipeline 0..30
+    Interpolation Double 0..30
+      Text "ś" 2..10
+      Subexpression 10..26 11..25
+        Pipeline 11..25
+          Call `char` 11..25
+            String Bare "hamburger" 16..25
+      Text "abc" 26..29

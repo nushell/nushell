@@ -1,0 +1,6 @@
+error: invalid string literal: the string is not valid UTF-8 after decoding its escapes
+  --> reject/strings/hex-escape-non-ascii.nu:1:2
+  |
+1 | "\xff"
+  |  ^^^^
+  = help: `\xHH` escapes must form UTF-8 sequences; use `\u{...}` for a code point

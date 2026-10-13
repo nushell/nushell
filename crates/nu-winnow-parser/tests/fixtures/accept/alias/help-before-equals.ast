@@ -1,0 +1,6 @@
+Block 0..18
+  Pipeline 0..17
+    Call `alias` 0..17
+      Flag --help 6..12
+      String Bare "=" 13..14
+      String Bare "ls" 15..17

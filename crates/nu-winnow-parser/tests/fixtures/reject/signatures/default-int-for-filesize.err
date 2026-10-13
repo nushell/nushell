@@ -1,0 +1,6 @@
+error: expected filesize with valid units
+  --> reject/signatures/default-int-for-filesize.nu:1:24
+  |
+1 | def foo [x: filesize = 1] {}
+  |                        ^
+  = while parsing signature

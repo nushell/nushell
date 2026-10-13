@@ -1,0 +1,14 @@
+Block 0..75
+  Pipeline 0..74
+    String Double "1" 0..3
+    | 4..5
+    Call `into int` 6..14
+    | 15..16
+    Call `into string` 17..28
+    | 29..30
+    Call `str upcase` 31..41
+    | 42..43
+    Call `str downcase` 44..56
+    | 57..58
+    Call `str trim` 59..74
+      Flag --left 68..74

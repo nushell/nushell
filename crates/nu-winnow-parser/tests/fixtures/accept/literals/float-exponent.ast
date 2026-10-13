@@ -1,0 +1,7 @@
+Block 0..21
+  Pipeline 0..20
+    BinaryOp + 0..20
+      BinaryOp + 0..11
+        Float 30000000000 0..4
+        Float 0.001 7..11
+      Float 250 14..20

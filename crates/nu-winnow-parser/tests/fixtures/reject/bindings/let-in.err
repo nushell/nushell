@@ -1,0 +1,7 @@
+error: `in` used as variable name
+  --> reject/bindings/let-in.nu:1:5
+  |
+1 | let in = 1
+  |     ^^
+  = while parsing let
+  = help: `$in` is a built-in variable and cannot be declared

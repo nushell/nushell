@@ -1,0 +1,7 @@
+error: missing required positional argument
+  --> reject/calls/plugin-use-flag-value-without-argument.nu:1:11
+  |
+1 | plugin use --plugin-config x
+  |           ^
+  = while parsing command call
+  = help: `plugin use` takes 1 positional argument(s)

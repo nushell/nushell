@@ -1,0 +1,11 @@
+Block 0..9
+  Pipeline 0..8
+    Range Inclusive 0..8
+      From
+        Int 1 0..1
+      To
+        FullCellPath 3..8
+          Subexpression 3..6 4..5
+            Pipeline 4..5
+              Int 2 4..5
+          Member 0 7..8

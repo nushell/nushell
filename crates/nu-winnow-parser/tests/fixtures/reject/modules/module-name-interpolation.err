@@ -1,0 +1,7 @@
+error: expected string
+  --> reject/modules/module-name-interpolation.nu:1:8
+  |
+1 | module $"a" {}
+  |        ^^^^
+  = while parsing module
+  = help: the name of a module must be a literal

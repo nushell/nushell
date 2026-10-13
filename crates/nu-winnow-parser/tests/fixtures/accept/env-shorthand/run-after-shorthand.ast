@@ -1,0 +1,7 @@
+Block 0..15
+  Pipeline 0..14
+    EnvShorthand 0..14
+      Env FOO 0..5
+        String Bare "1" 4..5
+      Call `run` 6..14
+        Nothing 10..14

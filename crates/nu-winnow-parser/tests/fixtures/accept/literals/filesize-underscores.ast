@@ -1,0 +1,5 @@
+Block 0..20
+  Pipeline 0..19
+    BinaryOp + 0..19
+      Filesize 420 MB 0..6
+      Filesize 1000000 B 9..19

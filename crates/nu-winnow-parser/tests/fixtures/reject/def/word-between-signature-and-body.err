@@ -1,0 +1,6 @@
+error: expected `:` before the input/output types
+  --> reject/def/word-between-signature-and-body.nu:1:12
+  |
+1 | def foo [] int {}
+  |            ^^^
+  = while parsing def

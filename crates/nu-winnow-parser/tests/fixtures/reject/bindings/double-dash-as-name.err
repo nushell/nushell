@@ -1,0 +1,7 @@
+error: expected valid variable name
+  --> reject/bindings/double-dash-as-name.nu:1:5
+  |
+1 | let -- x = 1
+  |     ^^
+  = while parsing let
+  = help: variable names may not contain spaces, quotes or `.[({+-*^%/=!<>&|`

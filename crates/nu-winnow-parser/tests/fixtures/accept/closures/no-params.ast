@@ -1,0 +1,7 @@
+Block 0..13
+  Pipeline 0..12
+    Closure 0..12
+      Body 2..11
+        Pipeline 2..10
+          Call `print` 2..10
+            String Bare "hi" 8..10

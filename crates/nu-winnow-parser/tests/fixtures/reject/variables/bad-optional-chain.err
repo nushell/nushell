@@ -1,0 +1,5 @@
+error: expected `.` or `?`
+  --> reject/variables/bad-optional-chain.nu:2:12
+  |
+2 | $x.a?.b?.c!!
+  |            ^

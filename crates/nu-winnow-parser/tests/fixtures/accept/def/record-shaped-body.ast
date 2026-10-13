@@ -1,0 +1,14 @@
+Block 0..38
+  Pipeline 0..37
+    Def `q` 0..37
+      Signature 6..25
+        Param positional `x` 7..16 : string
+        Param positional `y` 18..24 : int
+      Body 27..36
+        Pipeline 27..36
+          ExternalCall 27..36
+            String Bare "a:" 27..29
+            Record 30..36
+              Pair
+                String Bare "a" 31..32
+                Int 1 34..35

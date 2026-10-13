@@ -1,0 +1,18 @@
+Block 0..36
+  Pipeline 0..9
+    mut i 0..9
+      Value 8..9
+        Pipeline 8..9
+          Int 0 8..9
+  Pipeline 10..35
+    While 10..35
+      BinaryOp < 16..23
+        Var $i 16..18
+        Int 10 21..23
+      Body 25..34
+        Pipeline 26..33
+          Assignment += 26..33
+            Var $i 26..28
+            Value 32..33
+              Pipeline 32..33
+                Int 1 32..33

@@ -1,0 +1,6 @@
+error: expected block
+  --> reject/loops/loop-alone.nu:1:5
+  |
+1 | loop
+  |     ^
+  = while parsing loop

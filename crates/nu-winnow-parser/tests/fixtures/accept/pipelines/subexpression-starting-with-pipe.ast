@@ -1,0 +1,10 @@
+Block 0..22
+  Pipeline 0..21
+    List 0..5
+      String Bare "a" 1..2
+      String Bare "b" 3..4
+    | 6..7
+    Subexpression 8..21 9..20
+      Pipeline 10..20
+        | 10..11
+        Call `str join` 12..20

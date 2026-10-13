@@ -1,0 +1,6 @@
+error: colon in bare word specifying record value
+  --> reject/records/url-value-colon.nu:1:9
+  |
+1 | {a: http://x.y, b: https://api.github.com/search/issues?q=repo:nushell/}
+  |         ^
+  = help: quote the value if the `:` is part of it

@@ -1,0 +1,4 @@
+Block 0..7
+  Pipeline 0..6
+    Call `ls` 0..6
+      Flag -al 3..6

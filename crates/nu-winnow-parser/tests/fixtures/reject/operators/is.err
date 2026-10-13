@@ -1,0 +1,6 @@
+error: unknown operator `is`
+  --> reject/operators/is.nu:1:3
+  |
+1 | 1 is 2
+  |   ^^
+  = help: use `==` for equality

@@ -1,0 +1,11 @@
+Block 0..39
+  Pipeline 0..38
+    List 0..38
+      Int 1 1..2
+      String Bare "+" 3..4
+      Int 1 5..6
+      String Bare "Assignment" 7..17
+      String Bare "=" 19..20
+      String Bare "Assign" 22..28
+      String Bare "o>" 30..32
+      String Bare "++=" 34..37

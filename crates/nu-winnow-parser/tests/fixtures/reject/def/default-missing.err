@@ -1,0 +1,6 @@
+error: expected default value
+  --> reject/def/default-missing.nu:1:18
+  |
+1 | def foo [x: int = ] { }
+  |                  ^
+  = while parsing signature

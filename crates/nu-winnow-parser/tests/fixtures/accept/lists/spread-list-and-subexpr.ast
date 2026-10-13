@@ -1,0 +1,21 @@
+Block 0..52
+  Pipeline 0..51
+    List 0..51
+      Int 1 1..2
+      Int 2 3..4
+      Spread 5..8
+        List 8..20
+          List 9..12
+            Int 3 10..11
+          Record 13..19
+            Pair
+              String Bare "x" 14..15
+              Int 1 17..18
+      Int 5 21..22
+      Spread 23..26
+        Subexpression 26..47 27..46
+          Pipeline 27..46
+            String Double "foo" 27..32
+            | 33..34
+            Call `split chars` 35..46
+      Int 10 48..50

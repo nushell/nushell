@@ -1,0 +1,57 @@
+Block 0..176
+  Pipeline 0..31
+    Def `f` 0..31
+      Signature 6..8
+      Body 10..30
+        Pipeline 11..29
+          Match 11..29
+            Int 1 17..18
+            Arm 21..27
+              Pattern _ 21..22
+              Int 1 26..27
+  Pipeline 32..61
+    Def `g` 32..61
+      Signature 38..40
+      Body 42..60
+        Pipeline 43..59
+          For $x 43..59
+            List 52..55
+              Int 1 53..54
+            Body 57..58
+  Pipeline 62..90
+    Def `h` 62..90
+      Signature 68..70
+      Body 72..89
+        Pipeline 73..88
+          While 73..88
+            Bool false 79..84
+            Body 86..87
+  Pipeline 91..118
+    Def `i` 91..118
+      Signature 97..99
+      Body 101..117
+        Pipeline 102..116
+          Loop 102..116 108..115
+            Pipeline 109..114
+              Break 109..114
+  Pipeline 119..153
+    Def `j` 119..153
+      Signature 125..127
+      Body 129..152
+        Pipeline 130..151
+          Try 130..151
+            Body 135..138
+              Pipeline 136..137
+                Int 1 136..137
+            Catch 140..145
+              Closure 146..151
+                Body 148..150
+                  Pipeline 148..149
+                    Int 2 148..149
+  Pipeline 154..175
+    Def `k` 154..175
+      Signature 160..162
+      Body 164..174
+        Pipeline 165..173
+          Return 165..173
+            Int 1 172..173

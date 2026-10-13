@@ -1,0 +1,7 @@
+error: expected keyword `def, const, extern, alias, use, module, export or export-env`
+  --> reject/modules/body-with-command.nu:1:12
+  |
+1 | module m { ls }
+  |            ^^
+  = while parsing module
+  = help: a module body can only declare things; put code in `export-env` or a `def`

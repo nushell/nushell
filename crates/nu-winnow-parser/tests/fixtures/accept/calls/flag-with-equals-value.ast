@@ -1,0 +1,11 @@
+Block 0..62
+  Pipeline 0..61
+    String Single "nushell" 0..9
+    | 10..11
+    Call `fill` 12..61
+      Flag --alignment 17..28
+      String Bare "right" 29..34
+      Flag --width 35..45
+        Int 10 43..45
+      Flag --character 46..61
+        String Single "-" 58..61

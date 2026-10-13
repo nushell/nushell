@@ -1,0 +1,6 @@
+Block 0..27
+  Pipeline 0..26
+    Def `foo` 0..26
+      Signature 8..23
+        Param positional `x` 9..22 : list<,int>
+      Body 25..25

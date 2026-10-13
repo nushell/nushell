@@ -1,0 +1,14 @@
+Block 0..79
+  Pipeline 0..35
+    Def `nu-complete list` 0..35
+      Signature 23..25
+      Body 27..34
+        Pipeline 28..33
+          List 28..33
+            String Bare "a" 29..30
+            String Bare "b" 31..32
+  Pipeline 36..78
+    Def `foo` 36..78
+      Signature 44..74
+        Param positional `x` 45..73 : string @"nu-complete list"
+      Body 76..77

@@ -1,0 +1,7 @@
+error: extra tokens after the end of the expression
+  --> reject/try/three-handlers.nu:1:35
+  |
+1 | try { 1 } catch { 2 } catch { 3 } finally { 4 }
+  |                                   ^^^^^^^
+  = while parsing try
+  = help: `try` takes at most two handlers (`catch` and `finally`)

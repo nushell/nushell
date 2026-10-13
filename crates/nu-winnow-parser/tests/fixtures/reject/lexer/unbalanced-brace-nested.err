@@ -1,0 +1,5 @@
+error: unbalanced delimiter: found `}` without a matching `{`
+  --> reject/lexer/unbalanced-brace-nested.nu:1:10
+  |
+1 | {a:{b:5}}}
+  |          ^

@@ -1,0 +1,6 @@
+error: a `*` or `[...]` member can only be at the end of an import pattern
+  --> reject/modules/use-glob-not-last.nu:1:11
+  |
+1 | use std * log
+  |           ^^^
+  = while parsing use

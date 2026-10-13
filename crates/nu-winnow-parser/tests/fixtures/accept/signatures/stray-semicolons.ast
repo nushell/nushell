@@ -1,0 +1,15 @@
+Block 0..51
+  Pipeline 0..13
+    Def `f` 0..13
+      Signature 6..10
+        Param positional `a` 8..9
+      Body 12..12
+  Pipeline 14..27
+    Def `g` 14..27
+      Signature 20..24
+        Param positional `a` 21..22
+      Body 26..26
+  Pipeline 28..50
+    Extern `m` 28..50
+      Signature 37..50
+        Param rest `args` 40..47

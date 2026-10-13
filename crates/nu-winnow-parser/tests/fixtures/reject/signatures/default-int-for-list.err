@@ -1,0 +1,6 @@
+error: expected list
+  --> reject/signatures/default-int-for-list.nu:1:25
+  |
+1 | def foo [x: list<int> = 1] {}
+  |                         ^
+  = while parsing signature

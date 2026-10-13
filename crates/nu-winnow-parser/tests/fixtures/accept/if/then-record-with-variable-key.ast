@@ -1,0 +1,14 @@
+Block 0..111
+  Pipeline 90..110 comments=1
+    If 90..110
+      Condition
+        Bool true 93..97
+      ThenValue
+        Record 98..110
+          Pair
+            FullCellPath 100..106
+              Var $env 100..104
+              Member "A" 105..106
+            String Bare "b" 107..108
+Comments (1)
+  0..89 "# A record whose key is not a plain string is typed `any` by nu, which passes as a block."

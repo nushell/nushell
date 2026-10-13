@@ -1,0 +1,6 @@
+error: expected operator
+  --> reject/where/help-then-extra.nu:1:16
+  |
+1 | where --help 1 2
+  |                ^
+  = while parsing where

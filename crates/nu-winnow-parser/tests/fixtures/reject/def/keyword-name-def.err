@@ -1,0 +1,7 @@
+error: cannot use parser keyword `def` as command name
+  --> reject/def/keyword-name-def.nu:1:5
+  |
+1 | def def [] {}
+  |     ^^^
+  = while parsing def
+  = help: choose a different name; this word is parsed specially by Nushell

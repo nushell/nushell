@@ -3,6 +3,8 @@ extend-exclude = [
     ".git/",
     "crates/nu-command/tests/commands/**",
     "crates/nu-cmd-extra/assets/228_themes.json",
+    # Verbatim copies of upstream Nushell sources used as a parse corpus
+    "crates/nu-winnow-parser/tests/corpus/",
     "tests/fixtures/formats/",
 ]
 ignore-hidden = false

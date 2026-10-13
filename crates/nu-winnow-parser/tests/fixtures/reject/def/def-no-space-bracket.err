@@ -1,0 +1,7 @@
+error: no space between name and parameters
+  --> reject/def/def-no-space-bracket.nu:1:8
+  |
+1 | def cmd[] {}
+  |        ^
+  = while parsing def
+  = help: consider adding a space between the command's name and its parameters

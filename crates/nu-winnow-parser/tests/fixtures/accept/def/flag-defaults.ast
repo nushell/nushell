@@ -1,0 +1,61 @@
+Block 0..286
+  Pipeline 0..30
+    Def `test1` 0..30
+      Signature 10..27
+        Param flag --a `a` 12..25 : any
+          Default
+            Int 32 23..25
+      Body 29..29
+  Pipeline 31..64
+    Def `test2` 31..64
+      Signature 41..61
+        Param flag --a `a` 43..59 : number
+          Default
+            Int 32 57..59
+      Body 63..63
+  Pipeline 65..100
+    Def `test3` 65..100
+      Signature 75..97
+        Param flag --a `a` 77..95 : number
+          Default
+            Float 32 91..95
+      Body 99..99
+  Pipeline 101..144
+    Def `test4` 101..144
+      Signature 111..141
+        Param flag --a `a` 113..139 : list<any>
+          Default
+            List 130..139
+              Int 1 132..133
+              Int 2 134..135
+              Int 3 136..137
+      Body 143..143
+  Pipeline 145..221
+    Def `test5` 145..221
+      Signature 155..218
+        Param flag --a `a` 157..216 : record<a: int b: string>
+          Default
+            Record 189..216
+              Pair
+                String Bare "a" 191..192
+                Int 32 194..196
+              Pair
+                String Bare "b" 197..198
+                String Single "qwe" 200..205
+              Pair
+                String Bare "c" 206..207
+                String Single "wqe" 209..214
+      Body 220..220
+  Pipeline 222..285
+    Def `test6` 222..285
+      Signature 232..282
+        Param flag --a `a` 234..280 : record<a: any b: any>
+          Default
+            Record 263..280
+              Pair
+                String Bare "a" 265..266
+                Int 32 268..270
+              Pair
+                String Bare "b" 271..272
+                String Single "qwe" 274..279
+      Body 284..284

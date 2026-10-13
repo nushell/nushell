@@ -154,8 +154,6 @@ pub fn parse_block(
     }
 
     let mut block = Block::new_with_capacity(lite_block.block.len());
-    block.span = Some(span);
-    block.parsed_scoped = scoped;
 
     if let [first, rest @ ..] = lite_block.block.as_slice() {
         // only the first pipeline receives the block's pipeline input
@@ -167,6 +165,30 @@ pub fn parse_block(
             block.pipelines.push(pipeline);
         }
     }
+
+    finish_block(
+        working_set,
+        block,
+        span,
+        scoped,
+        is_subexpression,
+        input_type,
+    )
+}
+
+/// The end of [`parse_block`], once the pipelines of `block` are parsed (in the scope it entered
+/// when `scoped`): gather the pipelines that use `$in` under one `collect`, leave the scope and
+/// check the block's input and output types.
+pub(crate) fn finish_block(
+    working_set: &mut StateWorkingSet,
+    mut block: Block,
+    span: Span,
+    scoped: bool,
+    is_subexpression: bool,
+    input_type: Option<&Type>,
+) -> Block {
+    block.span = Some(span);
+    block.parsed_scoped = scoped;
 
     // If this is not a subexpression and there are any pipelines where the first element has $in,
     // we can wrap the whole block in collect so that they all reference the same $in

@@ -1,0 +1,14 @@
+Block 0..93
+  Pipeline 76..92 comments=1
+    If 76..92
+      Condition
+        Bool true 79..83
+      ThenValue
+        FullCellPath 84..92
+          Record 84..90
+            Pair
+              String Bare "a" 85..86
+              Int 1 88..89
+          Member "a" 91..92
+Comments (1)
+  0..75 "# `{a: 1}.a` where a block belongs is a cell path on a record, typed `any`."

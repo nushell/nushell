@@ -1,0 +1,51 @@
+Block 0..127
+  Pipeline 0..56
+    Try 0..56
+      Body 5..28
+        Pipeline 6..27
+          Call `error make` 6..27
+            Record 17..27
+              Pair
+                String Bare "msg" 18..21
+                String Double "x" 23..26
+      Catch 30..35
+        Closure 36..56
+          Signature 38..41
+            Param positional `e` 39..40
+          Body 42..55
+            Pipeline 42..54
+              Call `print` 42..54
+                FullCellPath 48..54
+                  Var $e 48..50
+                  Member "msg" 51..54
+  Pipeline 57..78
+    Try 57..78
+      Body 62..65
+        Pipeline 63..64
+          Int 1 63..64
+      Catch 67..72
+        Closure 73..78
+          Body 75..77
+            Pipeline 75..76
+              Int 2 75..76
+  Pipeline 79..102
+    Try 79..102
+      Body 84..87
+        Pipeline 85..86
+          Int 1 85..86
+      Catch 89..94
+        Closure 95..102
+          Signature 97..100
+            Param positional `e` 98..99
+          Body 101..101
+  Pipeline 103..126
+    Try 103..126
+      Body 108..111
+        Pipeline 109..110
+          Int 1 109..110
+      Catch 113..118
+        Closure 119..126
+          Signature 120..122
+          Body 123..125
+            Pipeline 123..124
+              Int 2 123..124

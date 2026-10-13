@@ -1,0 +1,7 @@
+error: missing required positional argument
+  --> reject/bindings/let-colon-then-nothing.nu:1:13
+  |
+1 | const x: int
+  |             ^
+  = while parsing const
+  = help: `const` needs a value: `const x = <value>`

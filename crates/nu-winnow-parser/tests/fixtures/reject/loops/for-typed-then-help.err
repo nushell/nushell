@@ -1,0 +1,6 @@
+error: unknown type `int --help`
+  --> reject/loops/for-typed-then-help.nu:1:8
+  |
+1 | for x: int --help in [] {}
+  |        ^^^^^^^^^^
+  = while parsing for

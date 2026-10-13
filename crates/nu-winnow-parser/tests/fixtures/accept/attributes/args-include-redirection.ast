@@ -1,0 +1,10 @@
+Block 0..33
+  Pipeline 0..32
+    AttributeBlock 0..32
+      Attribute `search-terms` 0..20
+        String Bare "a" 14..15
+        String Bare "o>" 16..18
+        String Bare "b" 19..20
+      Def `x` 21..32
+        Signature 27..29
+        Body 31..31

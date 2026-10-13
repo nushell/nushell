@@ -1,0 +1,7 @@
+error: cannot use parser keyword `plugin use` as alias name
+  --> reject/alias/name-is-plugin-use.nu:1:7
+  |
+1 | alias 'plugin use' = ls
+  |       ^^^^^^^^^^^^
+  = while parsing alias
+  = help: choose a different name; this word is parsed specially by Nushell

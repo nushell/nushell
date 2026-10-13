@@ -1,0 +1,7 @@
+error: unclosed delimiter: expected `>`
+  --> reject/def/io-unclosed-record-generic.nu:1:42
+  |
+1 | def q []: nothing -> record<c: int e: int {{c: 1 e: 1}}
+  |                                          ^
+  = note: opened at 1:28
+  = while parsing def

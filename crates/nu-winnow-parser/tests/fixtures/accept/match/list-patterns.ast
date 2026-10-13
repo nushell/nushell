@@ -1,0 +1,68 @@
+Block 0..229
+  Pipeline 0..228
+    Match 0..228
+      List 6..13
+        Int 1 7..8
+        Int 2 9..10
+        Int 3 11..12
+      Arm 18..29
+        Pattern list 18..20
+        ExternalCall 24..29
+          String Bare "empty" 24..29
+      Arm 32..43
+        Pattern list 32..36
+          Pattern $a 33..35
+        ExternalCall 40..43
+          String Bare "one" 40..43
+      Arm 46..60
+        Pattern list 46..53
+          Pattern $a 47..49
+          Pattern $b 50..52
+        ExternalCall 57..60
+          String Bare "two" 57..60
+      Arm 63..84
+        Pattern list 63..75
+          Pattern $a 64..66
+          Pattern $b 68..70
+          Pattern $c 72..74
+        ExternalCall 79..84
+          String Bare "three" 79..84
+      Arm 87..102
+        Pattern list 87..95
+          Pattern value 88..89
+            Int 1 88..89
+          Pattern $b 90..92
+          Pattern _ 93..94
+        ExternalCall 99..102
+          String Bare "lit" 99..102
+      Arm 105..128
+        Pattern list 105..120
+          Pattern $head 106..111
+          Pattern rest $tail 112..119
+        ExternalCall 124..128
+          String Bare "rest" 124..128
+      Arm 131..153
+        Pattern list 131..140
+          Pattern rest $last 132..139
+        ExternalCall 144..153
+          String Bare "last_only" 144..153
+      Arm 156..172
+        Pattern list 156..160
+          Pattern rest  157..159
+        ExternalCall 164..172
+          String Bare "anything" 164..172
+      Arm 175..196
+        Pattern list 175..186
+          Pattern list 176..180
+            Pattern $x 177..179
+          Pattern list 181..185
+            Pattern $y 182..184
+        ExternalCall 190..196
+          String Bare "nested" 190..196
+      Arm 199..226
+        Pattern list 199..208
+          Pattern record 200..207
+            Field "a"
+              Pattern $v 204..206
+        ExternalCall 212..226
+          String Bare "record_in_list" 212..226

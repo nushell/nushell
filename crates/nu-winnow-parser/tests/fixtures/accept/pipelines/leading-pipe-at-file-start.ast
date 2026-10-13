@@ -1,0 +1,4 @@
+Block 0..5
+  Pipeline 0..4
+    | 0..1
+    Call `ls` 2..4

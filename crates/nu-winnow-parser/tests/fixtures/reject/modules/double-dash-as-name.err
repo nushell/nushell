@@ -1,0 +1,6 @@
+error: expected block
+  --> reject/modules/double-dash-as-name.nu:1:11
+  |
+1 | module -- x {}
+  |           ^
+  = while parsing module

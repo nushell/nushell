@@ -1,0 +1,1 @@
+extern foo --help --help

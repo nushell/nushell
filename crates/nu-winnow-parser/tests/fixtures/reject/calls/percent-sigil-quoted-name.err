@@ -1,0 +1,7 @@
+error: percent sigil requires a built-in command
+  --> reject/calls/percent-sigil-quoted-name.nu:1:2
+  |
+1 | %"ls"
+  |  ^^^^
+  = while parsing command call
+  = help: write the built-in command's name bare (`%ls`), or `%$var` / `%(expr)` to name it at run time

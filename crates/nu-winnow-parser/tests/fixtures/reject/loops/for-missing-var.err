@@ -1,0 +1,7 @@
+error: `in` used as variable name
+  --> reject/loops/for-missing-var.nu:1:5
+  |
+1 | for in
+  |     ^^
+  = while parsing for
+  = help: `$in` is a built-in variable and cannot be declared

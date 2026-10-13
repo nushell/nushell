@@ -1,0 +1,45 @@
+Block 0..78
+  Pipeline 0..77
+    List 0..77
+      Subexpression 1..8 2..7
+        Pipeline 2..7
+          BinaryOp + 2..7
+            Int 1 2..3
+            Int 2 6..7
+      Subexpression 9..16 10..15
+        Pipeline 10..15
+          BinaryOp - 10..15
+            Int 3 10..11
+            Int 4 14..15
+      Subexpression 17..24 18..23
+        Pipeline 18..23
+          BinaryOp * 18..23
+            Int 5 18..19
+            Int 6 22..23
+      Subexpression 25..32 26..31
+        Pipeline 26..31
+          BinaryOp / 26..31
+            Int 7 26..27
+            Int 8 30..31
+      Subexpression 33..42 34..41
+        Pipeline 34..41
+          BinaryOp // 34..41
+            Int 9 34..35
+            Int 10 39..41
+      Subexpression 43..54 44..53
+        Pipeline 44..53
+          BinaryOp mod 44..53
+            Int 11 44..46
+            Int 12 51..53
+      Subexpression 55..63 56..62
+        Pipeline 56..62
+          BinaryOp ** 56..62
+            Int 2 56..57
+            Int 3 61..62
+      Subexpression 64..76 65..75
+        Pipeline 65..75
+          BinaryOp ++ 65..75
+            List 65..68
+              Int 1 66..67
+            List 72..75
+              Int 2 73..74

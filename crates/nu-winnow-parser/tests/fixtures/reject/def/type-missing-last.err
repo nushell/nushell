@@ -1,0 +1,6 @@
+error: expected type
+  --> reject/def/type-missing-last.nu:1:20
+  |
+1 | def foo [x: int, y:] { }
+  |                    ^
+  = while parsing signature

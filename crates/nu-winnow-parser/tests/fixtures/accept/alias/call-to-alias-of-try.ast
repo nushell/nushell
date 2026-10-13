@@ -1,0 +1,14 @@
+Block 0..34
+  Pipeline 0..13
+    Alias `t` 0..13
+      Call `try` 10..13
+  Pipeline 14..33
+    Try 14..33
+      Body 17..20
+        Pipeline 18..19
+          Int 1 18..19
+      Catch 22..27
+        Closure 28..33
+          Body 30..32
+            Pipeline 30..31
+              Int 2 30..31

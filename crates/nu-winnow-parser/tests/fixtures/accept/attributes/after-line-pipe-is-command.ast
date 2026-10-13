@@ -1,0 +1,6 @@
+Block 0..10
+  Pipeline 0..9
+    Call `ls` 0..2
+    | 3..4
+    ExternalCall 5..9
+      String Bare "@foo" 5..9

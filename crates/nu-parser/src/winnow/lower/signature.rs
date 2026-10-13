@@ -1,0 +1,360 @@
+//! Signatures, parameters and their types (the classic parser's `parse_signature_helper` and
+//! `parse_full_signature`), and the predeclaration of commands (`parse_def_predecl`).
+
+use nu_protocol::{
+    Flag, ParseError, PositionalArg, Signature, SyntaxShape, Type, VarId,
+    ast::{Expr, Expression},
+    engine::CommandType,
+};
+use nu_winnow_parser::{Span as WSpan, ast as w};
+
+use super::{Lower, Lowered, Unlowered};
+use crate::{
+    parse_def::{reject_command_name, rest_param_is_type_annotated},
+    parse_shape_specs::{parse_completer, parse_shape_name},
+    parse_signatures::{
+        Arg, assemble_signature, ensure_not_reserved_variable_name, parse_input_output_types,
+    },
+};
+
+/// What the predeclaration of a command needs.
+pub(in crate::winnow) struct Predecl<'d, 's> {
+    /// The command's name, unquoted.
+    pub(in crate::winnow) name: &'d str,
+    /// The span of the name's item in the source.
+    pub(in crate::winnow) name_span: WSpan,
+    /// The signature, when the statement has one that parses.
+    pub(in crate::winnow) signature: Option<&'d w::Signature<'s>>,
+    /// Whether the definition has the `--wrapped` flag.
+    pub(in crate::winnow) wrapped: bool,
+    /// Whether it is an `extern`.
+    pub(in crate::winnow) external: bool,
+    /// Where the statement ends: the classic predeclaration reads the input and output types
+    /// from everything after the signature, a `def`'s body included.
+    pub(in crate::winnow) statement_end: usize,
+}
+
+impl<'s> Lower<'_, '_, 's> {
+    /// Declare a command before the statements of its block are lowered, so calls to it
+    /// resolve (`parse_def_predecl`). Returns `false` when the lowering cannot read the
+    /// signature, for the classic predeclaration to do it.
+    ///
+    /// Unlike a statement's lowering, this is the classic predeclaration done from the winnow
+    /// tree, with no statement to hand back: it reports what `parse_def_predecl` reports (an
+    /// invalid name, a duplicate definition), and `true` means done, errors included. In order:
+    /// the name checks; the signature, read in a scope of its own that takes its parameters'
+    /// variables away again, with its errors dropped (the definition reports them); `--wrapped`
+    /// making the rest parameter take external arguments unless the signature's text types it;
+    /// the declaration.
+    pub(in crate::winnow) fn predecl(&mut self, predecl: Predecl<'_, 's>) -> bool {
+        // Without a signature the winnow parser could read (none, or one with an error), the
+        // classic predeclaration decides, name checks included.
+        let Some(written) = predecl.signature else {
+            return false;
+        };
+        // A name item in brackets or parentheses (`def [foo] ...`): the classic predeclaration
+        // reads the signature from it, or gives up.
+        if self.text(predecl.name_span).starts_with(['[', '(']) {
+            return false;
+        }
+        let name = predecl.name;
+        let name_span = self.span(predecl.name_span);
+        // The name checks of `parse_def_predecl`, shared with it.
+        if reject_command_name(self.working_set, name, name_span) {
+            return true;
+        }
+        let errors = self.working_set.parse_errors.len();
+        self.working_set.enter_scope();
+        let lowered = self.signature_params(written, predecl.external);
+        let lowered = lowered.map(|mut sig| {
+            if let Some(types) = written.input_output_span {
+                // To the statement's end, as the classic predeclaration reads them.
+                let span = self.span(WSpan::new(types.start, predecl.statement_end));
+                sig.input_output_types = parse_input_output_types(self.working_set, &[span]);
+            }
+            sig
+        });
+        self.working_set.parse_errors.truncate(errors);
+        self.working_set.exit_scope();
+        let Ok(mut signature) = lowered else {
+            return false;
+        };
+        signature.name = name.to_string();
+        if predecl.wrapped {
+            // `parse_def_predecl` decides whether the rest parameter is typed from the text of
+            // the `[...]` item (`rest_param_is_type_annotated`), where a comment counts too.
+            let params = WSpan::new(
+                written.span.start,
+                written
+                    .input_output_span
+                    .map_or(written.span.end, |types| types.start),
+            );
+            if let Some(rest) = &mut signature.rest_positional
+                && !rest_param_is_type_annotated(self.text(params).as_bytes(), &rest.name)
+            {
+                rest.shape = SyntaxShape::ExternalArgument;
+            }
+            signature.allows_unknown_args = true;
+        }
+        let command_type = if predecl.external {
+            CommandType::External
+        } else {
+            CommandType::Custom
+        };
+        let decl = signature.predeclare_with_command_type(command_type);
+        if self.working_set.add_predecl(decl).is_some() {
+            self.working_set
+                .error(ParseError::DuplicateCommandDef(name_span));
+        }
+        true
+    }
+
+    /// Declare the command a `def` or `extern` statement of a nested block defines, through an
+    /// `export` or attributes; any other statement declares nothing. A definition the lowering
+    /// cannot predeclare is `Unsupported`, which leaves the whole block to the classic parser:
+    /// it predeclares a block's definitions before parsing its statements.
+    pub(super) fn predecl_statement(&mut self, e: &w::Expression<'s>) -> Lowered<()> {
+        let (name, signature, wrapped, external) = match &e.expr {
+            w::Expr::Def(def) => (
+                &def.name,
+                &def.signature,
+                def.flags
+                    .iter()
+                    .any(|flag| flag.item == w::DefFlag::Wrapped),
+                false,
+            ),
+            w::Expr::Extern(extern_def) => (&extern_def.name, &extern_def.signature, false, true),
+            w::Expr::Export(export) => return self.predecl_statement(&export.item),
+            w::Expr::AttributeBlock(block) => return self.predecl_statement(&block.item),
+            _ => return Ok(()),
+        };
+        let lowered = self.predecl(Predecl {
+            name: &name.item,
+            name_span: name.span,
+            signature: Some(signature),
+            wrapped,
+            external,
+            statement_end: e.span.end,
+        });
+        if lowered {
+            Ok(())
+        } else {
+            Err(Unlowered::Unsupported("predeclaration"))
+        }
+    }
+
+    /// A signature with its input and output types, as an expression (`parse_full_signature`).
+    pub(super) fn signature_expression(
+        &mut self,
+        signature: &w::Signature<'s>,
+        is_external: bool,
+    ) -> Lowered<Expression> {
+        let sig = self.full_signature(signature, is_external)?;
+        let span = self.span(signature.span);
+        Ok(self.node(Expr::Signature(sig), span, Type::Any))
+    }
+
+    /// A signature with its input and output types.
+    fn full_signature(
+        &mut self,
+        signature: &w::Signature<'s>,
+        is_external: bool,
+    ) -> Lowered<Box<Signature>> {
+        let mut sig = self.signature_params(signature, is_external)?;
+        if let Some(types) = signature.input_output_span {
+            let span = self.span(types);
+            sig.input_output_types =
+                self.checked(|working_set| parse_input_output_types(working_set, &[span]))?;
+        }
+        Ok(sig)
+    }
+
+    /// The parameters of a signature (`parse_signature_helper`). The parameters of a command
+    /// get variables, declared once every parameter is read so that default values refer to
+    /// variables outside the signature, not to sibling parameters; an `extern`'s get none.
+    /// In two passes, as the classic parser makes it:
+    ///
+    /// 1. Each parameter in order: its variable, created outside any scope with the span of the
+    ///    parameter's item (typed `bool` for a flag, `any` otherwise); its type, which the
+    ///    variable takes, and its completer; its description; its default value.
+    /// 2. The variables put in scope, then the signature assembled: an optional parameter or a
+    ///    typed flag without a default can be `null`.
+    ///
+    /// What the classic parser reports is handed back: a `bool` type on a flag, a required
+    /// parameter after an optional one, an unnamed or second rest parameter, and whatever the
+    /// classic shape, completer and name checks report.
+    pub(super) fn signature_params(
+        &mut self,
+        signature: &w::Signature<'s>,
+        is_external: bool,
+    ) -> Lowered<Box<Signature>> {
+        let mut parameters: Vec<Arg> = Vec::with_capacity(signature.params.len());
+        let mut pending: Vec<(Vec<u8>, VarId)> = Vec::new();
+        for param in &signature.params {
+            let token = self.span(parameter_token(param));
+            // A flag's variable is named after its long name (`-` made `_`), else its short one.
+            let (var_name, initial_ty) = match &param.kind {
+                w::ParameterKind::Flag {
+                    long: Some(long), ..
+                } => (long.item.replace('-', "_").into_bytes(), Type::Bool),
+                w::ParameterKind::Flag {
+                    short: Some(short), ..
+                } => (short.item.to_string().into_bytes(), Type::Bool),
+                w::ParameterKind::Flag { .. } => return Err(Unlowered::Error),
+                _ => (param.name.item.as_bytes().to_vec(), Type::Any),
+            };
+            let var_id = if is_external {
+                None
+            } else {
+                self.checked(|working_set| {
+                    ensure_not_reserved_variable_name(working_set, &var_name, token)
+                })?;
+                let var_id = self
+                    .working_set
+                    .add_variable_without_scope(token, initial_ty, false);
+                pending.push((var_name, var_id));
+                Some(var_id)
+            };
+
+            let (shape, completion) = match &param.ty {
+                Some(ty) => {
+                    let span = self.span(ty.span);
+                    let text = self.text(ty.span).as_bytes();
+                    let shape =
+                        self.checked(|working_set| parse_shape_name(working_set, text, span))?;
+                    let completion = match &param.completer {
+                        Some(completer) => {
+                            let span = self.span(completer.span);
+                            let text = completer.item.as_bytes();
+                            self.checked(|working_set| parse_completer(working_set, text, span))?
+                        }
+                        None => None,
+                    };
+                    (Some(shape), completion)
+                }
+                None => (None, None),
+            };
+            let type_annotated = shape.is_some();
+            let desc = self.parameter_description(param);
+
+            let mut parameter = match &param.kind {
+                w::ParameterKind::Flag { long, short } => {
+                    if shape == Some(SyntaxShape::Boolean) {
+                        return Err(Unlowered::Error);
+                    }
+                    if let (Some(var_id), Some(shape)) = (var_id, &shape) {
+                        self.working_set.set_variable_type(var_id, shape.to_type());
+                    }
+                    Arg::Flag {
+                        flag: Flag {
+                            arg: shape.clone(),
+                            desc,
+                            long: long.map(|long| long.item.to_string()).unwrap_or_default(),
+                            short: short.map(|short| short.item),
+                            required: false,
+                            var_id,
+                            default_value: None,
+                            completion,
+                        },
+                        type_annotated,
+                    }
+                }
+                w::ParameterKind::Rest => {
+                    let shape = shape.clone().unwrap_or(SyntaxShape::Any);
+                    if let (Some(var_id), true) = (var_id, type_annotated) {
+                        self.working_set
+                            .set_variable_type(var_id, Type::List(Box::new(shape.to_type())));
+                    }
+                    Arg::RestPositional(PositionalArg {
+                        name: param.name.item.to_string(),
+                        desc,
+                        shape,
+                        var_id,
+                        default_value: None,
+                        completion,
+                    })
+                }
+                w::ParameterKind::Required | w::ParameterKind::Optional => {
+                    let arg_shape = shape.clone().unwrap_or(SyntaxShape::Any);
+                    if let (Some(var_id), true) = (var_id, type_annotated) {
+                        self.working_set
+                            .set_variable_type(var_id, arg_shape.to_type());
+                    }
+                    Arg::Positional {
+                        arg: PositionalArg {
+                            name: param.name.item.to_string(),
+                            desc,
+                            shape: arg_shape,
+                            var_id,
+                            default_value: None,
+                            completion,
+                        },
+                        required: matches!(param.kind, w::ParameterKind::Required),
+                        type_annotated,
+                    }
+                }
+            };
+
+            if let (Some(default), false) = (&param.default, is_external) {
+                // `parse_signature_helper` reads each `= value` after the first with the shape
+                // the one before gave; the winnow tree keeps only the last.
+                if param.extra_default {
+                    return Err(Unlowered::Unsupported("second default value"));
+                }
+                let expression = self.value(default, &parameter.default_value_shape(), None)?;
+                self.checked(|working_set| parameter.set_default_value(working_set, expression))?;
+            }
+            parameters.push(parameter);
+        }
+
+        for (name, var_id) in pending {
+            self.working_set.insert_variable_into_scope(name, var_id);
+        }
+        let span = self.span(signature.span);
+        self.checked(|working_set| assemble_signature(working_set, parameters, span))
+    }
+
+    /// A parameter's description: the comments after it, each without its `#`, one per line.
+    fn parameter_description(&self, param: &w::Parameter<'s>) -> String {
+        let mut desc = String::new();
+        for comment in &param.description {
+            let text = self
+                .text(WSpan::new(comment.span.start + 1, comment.span.end))
+                .trim();
+            if !desc.is_empty() {
+                desc.push('\n');
+            }
+            desc.push_str(text);
+        }
+        desc
+    }
+}
+
+/// The item of a parameter as the classic lexer splits it: `x`, `x?`, `...x`, `--flag`,
+/// `--flag(-f)` or `-f`, which its variable's span covers.
+fn parameter_token(param: &w::Parameter<'_>) -> WSpan {
+    let name = param.name.span;
+    match &param.kind {
+        w::ParameterKind::Required => name,
+        w::ParameterKind::Optional => WSpan::new(name.start, name.end + 1),
+        w::ParameterKind::Rest => WSpan::new(name.start - 3, name.end),
+        w::ParameterKind::Flag {
+            long: Some(long),
+            short,
+        } => {
+            let start = long.span.start - 2;
+            match short {
+                // `--flag(-f)` is one item; `--flag (-f)` two.
+                Some(short) if short.span.start == long.span.end + 2 => {
+                    WSpan::new(start, short.span.end + 1)
+                }
+                _ => WSpan::new(start, long.span.end),
+            }
+        }
+        w::ParameterKind::Flag {
+            long: None,
+            short: Some(short),
+        } => WSpan::new(short.span.start - 1, short.span.end),
+        w::ParameterKind::Flag { .. } => param.span,
+    }
+}

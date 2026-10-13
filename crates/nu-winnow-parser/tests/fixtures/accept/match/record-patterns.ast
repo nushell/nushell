@@ -1,0 +1,76 @@
+Block 0..244
+  Pipeline 0..243
+    Match 0..243
+      Record 6..23
+        Pair
+          String Bare "a" 7..8
+          Int 1 10..11
+        Pair
+          String Bare "b" 13..14
+          Record 16..22
+            Pair
+              String Bare "c" 17..18
+              Int 2 20..21
+      Arm 28..39
+        Pattern record 28..30
+        ExternalCall 34..39
+          String Bare "empty" 34..39
+      Arm 42..55
+        Pattern record 42..48
+          Field "a"
+            Pattern value 46..47
+              Int 1 46..47
+        ExternalCall 52..55
+          String Bare "lit" 52..55
+      Arm 58..73
+        Pattern record 58..65
+          Field "a"
+            Pattern $a 62..64
+        ExternalCall 69..73
+          String Bare "bind" 69..73
+      Arm 76..97
+        Pattern record 76..90
+          Field "a"
+            Pattern $a 80..82
+          Field "b"
+            Pattern $b 87..89
+        ExternalCall 94..97
+          String Bare "two" 94..97
+      Arm 100..128
+        Pattern record 100..118
+          Field "a"
+            Pattern $a 104..106
+          Field "b"
+            Pattern record 110..117
+              Field "c"
+                Pattern $c 114..116
+        ExternalCall 122..128
+          String Bare "nested" 122..128
+      Arm 131..148
+        Pattern record 131..135
+          Field "a"
+            Pattern $a 132..134
+        ExternalCall 139..148
+          String Bare "shorthand" 139..148
+      Arm 151..172
+        Pattern record 151..158
+          Field "a"
+            Pattern $a 152..154
+          Field "b"
+            Pattern $b 155..157
+        ExternalCall 162..172
+          String Bare "shorthands" 162..172
+      Arm 175..203
+        Pattern record 175..193
+          Field "\"quoted key\""
+            Pattern $q 190..192
+        ExternalCall 197..203
+          String Bare "quoted" 197..203
+      Arm 206..241
+        Pattern record 206..223
+          Field "a"
+            Pattern list 210..222
+              Pattern $x 211..213
+              Pattern rest $rest 214..221
+        ExternalCall 227..241
+          String Bare "list_in_record" 227..241

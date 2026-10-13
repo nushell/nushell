@@ -1,0 +1,23 @@
+Block 0..61
+  Pipeline 0..60
+    Try 0..60
+      Body 5..12
+        Pipeline 6..11
+          ExternalCall 6..11
+            String Bare "risky" 6..11
+      Catch 14..19
+        Closure 20..40
+          Signature 22..25
+            Param positional `e` 23..24
+          Body 26..39
+            Pipeline 26..38
+              Call `print` 26..38
+                FullCellPath 32..38
+                  Var $e 32..34
+                  Member "msg" 35..38
+      Finally 41..48
+        Closure 49..60
+          Body 51..59
+            Pipeline 51..58
+              ExternalCall 51..58
+                String Bare "cleanup" 51..58

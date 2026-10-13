@@ -1,0 +1,7 @@
+error: unexpected end of input, expected command after `|`
+  --> reject/alias/target-ends-with-pipe-at-eof.nu:1:14
+  |
+1 | alias x = ls |
+  |              ^
+  = while parsing pipeline
+  = help: the pipeline has no end: add a command after the `|` or remove it

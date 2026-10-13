@@ -1,0 +1,6 @@
+error: expected string
+  --> reject/calls/hide-null.nu:1:6
+  |
+1 | hide null
+  |      ^^^^
+  = while parsing command call

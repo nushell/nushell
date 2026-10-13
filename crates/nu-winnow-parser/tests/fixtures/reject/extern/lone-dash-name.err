@@ -1,0 +1,7 @@
+error: command name not supported
+  --> reject/extern/lone-dash-name.nu:1:8
+  |
+1 | extern - []
+  |        ^
+  = while parsing extern
+  = help: a bare command name cannot start with `-` or be a spread; quote it

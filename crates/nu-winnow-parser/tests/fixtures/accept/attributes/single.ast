@@ -1,0 +1,7 @@
+Block 0..27
+  Pipeline 0..26
+    AttributeBlock 0..26
+      Attribute `deprecated` 0..11
+      Def `old` 12..26
+        Signature 20..22
+        Body 24..25

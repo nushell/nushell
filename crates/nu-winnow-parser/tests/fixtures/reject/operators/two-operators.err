@@ -1,0 +1,5 @@
+error: expected operator
+  --> reject/operators/two-operators.nu:1:7
+  |
+1 | 1 + + 2
+  |       ^

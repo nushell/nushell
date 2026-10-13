@@ -1,0 +1,7 @@
+error: unclosed delimiter: expected `}`
+  --> reject/where/closure-with-tail.nu:2:31
+  |
+2 | [0 1 2] | where {|x| $x > 1}.a
+  |                               ^
+  = note: opened at 2:17
+  = while parsing where

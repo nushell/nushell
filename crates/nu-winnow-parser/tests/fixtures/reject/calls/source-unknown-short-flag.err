@@ -1,0 +1,7 @@
+error: the `source` command doesn't have flag `-x`
+  --> reject/calls/source-unknown-short-flag.nu:1:8
+  |
+1 | source -x null
+  |        ^^
+  = while parsing command call
+  = help: use `--help` to see available flags

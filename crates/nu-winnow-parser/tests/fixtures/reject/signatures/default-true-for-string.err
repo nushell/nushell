@@ -1,0 +1,7 @@
+error: expected string
+  --> reject/signatures/default-true-for-string.nu:1:22
+  |
+1 | def foo [x: string = true] {}
+  |                      ^^^^
+  = while parsing signature
+  = help: `true` is a value; quote it to use it as a string

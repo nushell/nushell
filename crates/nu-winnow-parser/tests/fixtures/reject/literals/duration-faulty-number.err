@@ -1,0 +1,6 @@
+error: invalid duration literal: value must be a number
+  --> reject/literals/duration-faulty-number.nu:1:7
+  |
+1 | sleep 4-ms
+  |       ^^^^
+  = while parsing command call

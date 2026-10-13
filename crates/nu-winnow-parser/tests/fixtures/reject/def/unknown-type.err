@@ -1,0 +1,6 @@
+error: unknown type `unknown`
+  --> reject/def/unknown-type.nu:1:13
+  |
+1 | def foo [x: unknown] { }
+  |             ^^^^^^^
+  = while parsing signature

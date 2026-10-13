@@ -757,20 +757,28 @@ fn parse_with_block_cache(
     // A bracket table recorded for the file serves only this parse (see `lex_file`).
     let bracket_tables = working_set.bracket_tables.len();
 
-    let mut output = {
-        let (output, err) = lex_file(working_set, new_span, &[], &[], false);
-        if let Some(err) = err {
-            working_set.error(err)
-        }
+    let winnow_block = if crate::winnow::enabled() {
+        crate::winnow::parse_file_block(working_set, contents, new_span, scoped)
+    } else {
+        None
+    };
+    let mut output = match winnow_block {
+        Some(block) => Arc::new(block),
+        None => {
+            let (output, err) = lex_file(working_set, new_span, &[], &[], false);
+            if let Some(err) = err {
+                working_set.error(err)
+            }
 
-        Arc::new(parse_block(
-            working_set,
-            &output,
-            new_span,
-            scoped,
-            false,
-            None,
-        ))
+            Arc::new(parse_block(
+                working_set,
+                &output,
+                new_span,
+                scoped,
+                false,
+                None,
+            ))
+        }
     };
     working_set.bracket_tables.truncate(bracket_tables);
 

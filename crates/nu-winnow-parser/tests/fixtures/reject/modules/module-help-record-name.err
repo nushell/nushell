@@ -1,0 +1,7 @@
+error: expected string
+  --> reject/modules/module-help-record-name.nu:2:15
+  |
+2 | module --help {a: 1}
+  |               ^^^^^^
+  = while parsing module
+  = help: found a record

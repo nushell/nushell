@@ -1,0 +1,14 @@
+Block 0..25
+  Pipeline 0..24
+    Call `do` 0..24
+      Closure 3..20
+        Signature 4..10
+          Param positional `a` 5..6
+          Param positional `b` 8..9
+        Body 11..19
+          Pipeline 11..18
+            BinaryOp + 11..18
+              Var $a 11..13
+              Var $b 16..18
+      Int 1 21..22
+      Int 2 23..24

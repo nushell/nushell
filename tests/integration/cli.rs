@@ -610,6 +610,35 @@ fn ide_check_missing_file_reports_error() -> TestResult {
     Ok(())
 }
 
+/// `export` outside a module is one error, at the keyword; it used to add an internal error
+/// with an unknown span, which `--ide-check` could not place in the file.
+#[test]
+fn ide_check_lone_export_reports_one_error() -> TestResult {
+    let script_path = unique_temp_script_path("ide_check_lone_export");
+    std::fs::write(&script_path, "export\n")?;
+
+    let mut cmd = Command::new(cargo_bin!());
+    let output = cmd
+        .args(["--no-config-file", "--no-std-lib", "--ide-check", "5"])
+        .arg(&script_path)
+        .output()?;
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let _ = std::fs::remove_file(&script_path);
+
+    assert!(output.status.success());
+    let diagnostics: Vec<_> = stdout
+        .lines()
+        .filter(|line| line.contains("\"diagnostic\""))
+        .collect();
+    assert_eq!(
+        diagnostics,
+        [
+            r#"{"type":"diagnostic","severity":"Error","message":"Unexpected keyword.","span":{"start":0,"end":6}}"#
+        ]
+    );
+    Ok(())
+}
+
 #[test]
 fn ide_ast_flag_runs() -> TestResult {
     let mut cmd = Command::new(cargo_bin!());

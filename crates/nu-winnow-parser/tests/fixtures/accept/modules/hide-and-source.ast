@@ -1,0 +1,25 @@
+Block 0..103
+  Pipeline 0..11
+    Use 0..11
+      String Bare "std/log" 4..11
+  Pipeline 12..20
+    Call `hide` 12..20
+      String Bare "log" 17..20
+  Pipeline 21..33
+    Call `hide` 21..33
+      String Bare "std" 26..29
+      String Bare "log" 30..33
+  Pipeline 34..46
+    Call `hide-env` 34..46
+      String Bare "FOO" 43..46
+  Pipeline 47..61
+    Call `source` 47..61
+      String Bare "file.nu" 54..61
+  Pipeline 62..79
+    Call `source-env` 62..79
+      String Bare "env.nu" 73..79
+  Pipeline 80..102
+    Call `source` 80..102
+      FullCellPath 87..102
+        Var $nu 87..90
+        Member "config-path" 91..102

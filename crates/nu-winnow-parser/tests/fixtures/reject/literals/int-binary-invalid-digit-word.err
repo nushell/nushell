@@ -1,0 +1,6 @@
+error: invalid int literal: invalid digits for radix 2
+  --> reject/literals/int-binary-invalid-digit-word.nu:1:6
+  |
+1 | echo 0b2
+  |      ^^^
+  = while parsing command call

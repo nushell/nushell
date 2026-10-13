@@ -1,0 +1,10 @@
+Block 0..39
+  Pipeline 0..38
+    Call `do` 0..38
+      Closure 3..38
+        Body 4..37
+          Pipeline 9..36
+            Call `echo` 9..19
+              String Bare "hello" 14..19
+            | 20..21
+            Call `str length` 26..36

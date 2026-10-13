@@ -1,0 +1,7 @@
+error: the `where` command doesn't have flag `-1`
+  --> reject/where/negative-number-first.nu:1:7
+  |
+1 | where -1 > 0
+  |       ^^
+  = while parsing where
+  = help: use `--help` to see available flags

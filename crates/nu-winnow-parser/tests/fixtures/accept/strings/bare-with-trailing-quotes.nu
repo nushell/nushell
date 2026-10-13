@@ -1,0 +1,1 @@
+echo foo"bar" foo'bar'

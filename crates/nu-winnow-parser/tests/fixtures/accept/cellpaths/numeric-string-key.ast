@@ -1,0 +1,8 @@
+Block 0..13
+  Pipeline 0..12
+    FullCellPath 0..12
+      Record 0..8
+        Pair
+          String Bare "1kb" 1..4
+          Int 1 6..7
+      Member "1kb" 9..12

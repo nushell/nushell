@@ -1,0 +1,13 @@
+Block 0..97
+  Pipeline 0..96
+    Record 0..71
+      Pair
+        String Bare "explore" 6..13
+        Record 15..69
+    | 72..73
+    Call `get` 74..85
+      String Bare "explore" 78..85
+    | 86..87
+    Call `is-empty` 88..96
+Comments (1)
+  25..63 "# command_bar_text: { fg: '#C4C9C6' },"

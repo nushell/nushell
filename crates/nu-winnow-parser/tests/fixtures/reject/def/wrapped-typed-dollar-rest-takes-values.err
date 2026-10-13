@@ -1,0 +1,7 @@
+error: extra tokens after the end of the expression
+  --> reject/def/wrapped-typed-dollar-rest-takes-values.nu:3:6
+  |
+3 | f 'x'$
+  |      ^
+  = while parsing command call
+  = help: invalid characters after the closing quote; quote the whole string or remove them

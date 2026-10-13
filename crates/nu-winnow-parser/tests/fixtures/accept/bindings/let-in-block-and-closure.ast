@@ -1,0 +1,33 @@
+Block 0..70
+  Pipeline 0..26
+    Def `f` 0..26
+      Signature 6..8
+      Body 10..25
+        Pipeline 11..20 terminator=20..21
+          let x 11..20
+            Value 19..20
+              Pipeline 19..20
+                Int 1 19..20
+        Pipeline 22..24
+          Var $x 22..24
+  Pipeline 27..47
+    Call `do` 27..47
+      Closure 30..47
+        Body 32..46
+          Pipeline 32..41 terminator=41..42
+            let y 32..41
+              Value 40..41
+                Pipeline 40..41
+                  Int 2 40..41
+          Pipeline 43..45
+            Var $y 43..45
+  Pipeline 48..69
+    If 48..69
+      Condition
+        Bool true 51..55
+      Then 57..68
+        Pipeline 58..67
+          let z 58..67
+            Value 66..67
+              Pipeline 66..67
+                Int 3 66..67

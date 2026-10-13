@@ -1,0 +1,7 @@
+error: expected string
+  --> reject/def/name-is-interpolation.nu:1:5
+  |
+1 | def $"foo" [] {}
+  |     ^^^^^^
+  = while parsing def
+  = help: the name of a definition is a string

@@ -1,0 +1,9 @@
+Block 0..11
+  Pipeline 0..1 dangling_pipe=2..3
+    ExternalCall 0..1
+      String Bare "a" 0..1
+  Pipeline 9..10 comments=1
+    ExternalCall 9..10
+      String Bare "b" 9..10
+Comments (1)
+  4..7 "# c"

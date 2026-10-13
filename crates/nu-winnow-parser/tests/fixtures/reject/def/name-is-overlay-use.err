@@ -1,0 +1,7 @@
+error: cannot use parser keyword `overlay use` as command name
+  --> reject/def/name-is-overlay-use.nu:1:5
+  |
+1 | def "overlay use" [] {}
+  |     ^^^^^^^^^^^^^
+  = while parsing def
+  = help: choose a different name; this word is parsed specially by Nushell

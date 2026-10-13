@@ -1,0 +1,6 @@
+error: expected block
+  --> reject/modules/export-env-missing-block.nu:1:11
+  |
+1 | export-env
+  |           ^
+  = while parsing export-env
