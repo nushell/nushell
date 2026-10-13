@@ -392,7 +392,7 @@ fn join_rows(
             if let Some(this_valkey) = this_record.get(this_join_key)
                 && let Some(other_rows) = other.get(&this_valkey.to_expanded_string(sep, config))
             {
-                if !matches!(include_rows, IncludeRows::Unmatched) {
+                if matches!(include_rows, IncludeRows::Matched | IncludeRows::All) {
                     for other_record in other_rows {
                         // `other` table contains rows matching `this` row on the join column
                         result.push(Value::record(merge(this_record, other_record), span))
@@ -400,7 +400,7 @@ fn join_rows(
                 }
                 continue;
             }
-            if !matches!(include_rows, IncludeRows::Matched) {
+            if matches!(include_rows, IncludeRows::Unmatched | IncludeRows::All) {
                 // Either `this` row is missing a value for the join column or
                 // `other` table did not contain any rows matching
                 // `this` row on the join column; emit a single joined
