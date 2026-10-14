@@ -544,6 +544,11 @@ fn note_end_of_options_delimiter(parser: &mut lexopt::Parser, seen_end_of_option
 }
 
 // Parse CLI args into nushell options and script details.
+//
+// On Windows, `parse_cli_args_from_env` calls `parse_cli_args_with_command_line`
+// directly so it can pass the raw command line; this entry point is kept for
+// unit tests and non-Windows builds.
+#[cfg_attr(all(windows, not(test)), allow(dead_code))]
 pub(crate) fn parse_cli_args(args: Vec<OsString>) -> Result<ParsedCli, CliError> {
     parse_cli_args_with_command_line(args, None)
 }
