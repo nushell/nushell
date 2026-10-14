@@ -5627,6 +5627,7 @@ dependencies = [
  "git2",
  "nu-plugin",
  "nu-protocol",
+ "tempfile",
 ]
 
 [[package]]
