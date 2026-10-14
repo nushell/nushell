@@ -92,7 +92,8 @@ fn get_prompt_string(
 
 /// Re-evaluate `$env.PROMPT_COMMAND` and friends and install the result as the
 /// prompt's per-cycle baseline. This overwrites anything a background job pushed
-/// during the previous cycle, resetting the prompt for the next line.
+/// during the previous cycle, resetting the prompt for the next line; the pushes
+/// this cycle's `PromptState::begin_update` kept stay on top.
 pub fn update_prompt(config: &Config, engine_state: &EngineState, stack: &mut Stack) {
     let new_contents = build_prompt_contents(config, engine_state, stack);
 
@@ -181,7 +182,7 @@ mod tests {
 
     #[test]
     fn transient_prompt_override_still_wins_over_the_live_baseline() {
-        use nu_protocol::engine::PromptSegment;
+        use nu_protocol::{JobId, engine::PromptSegment};
 
         let config = Config::default();
         let engine_state = EngineState::new();
@@ -196,7 +197,7 @@ mod tests {
         // The configured TRANSIENT_PROMPT_INDICATOR beats a later live change.
         engine_state
             .prompt_state
-            .set(PromptSegment::Indicator, "live> ");
+            .set(PromptSegment::Indicator, "live> ", JobId::new(1));
 
         assert_eq!(
             transient_prompt.render_prompt_indicator(reedline::PromptEditMode::Emacs),

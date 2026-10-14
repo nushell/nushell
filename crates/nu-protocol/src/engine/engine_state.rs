@@ -336,6 +336,7 @@ impl EngineState {
             jobs: Arc::new(Mutex::new(Jobs::default())),
             current_job: CurrentJob {
                 id: JobId::new(0),
+                root: JobId::new(0),
                 background_thread_job: None,
                 mailbox: Arc::new(Mutex::new(Mailbox::new(recv))),
             },
@@ -1278,6 +1279,7 @@ impl EngineState {
         self.jobs = Default::default();
         self.current_job = CurrentJob {
             id: JobId::new(0),
+            root: JobId::new(0),
             background_thread_job: None,
             mailbox: Arc::new(Mutex::new(Mailbox::new(recv))),
         };
