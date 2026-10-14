@@ -1,11 +1,10 @@
-use itertools::Itertools;
-use std::str::FromStr;
-
 use fancy_regex::Regex;
+use itertools::Itertools;
 use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
 use nu_parser::{DURATION_UNIT_GROUPS, parse_unit_value};
 use nu_protocol::{SUPPORTED_DURATION_UNITS, Unit, ast::Expr};
+use std::str::FromStr;
 use std::sync::LazyLock;
 
 const NS_PER_MS: i64 = 1_000_000;

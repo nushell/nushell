@@ -192,6 +192,8 @@ jobs:
       with:
         cache: false
         rustflags: ''
+        # Keep static glibc linker warnings visible without failing release builds.
+        build-warnings: warn
 
     - name: Setup Nushell
       uses: hustcer/setup-nu@95cd3bfe252450ef7d35dd9a7ddecf3484341134 # v3.28

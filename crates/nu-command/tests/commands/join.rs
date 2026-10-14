@@ -1,5 +1,7 @@
+use nu_protocol::{ShellError, shell_error::ErrorSite};
 use nu_test_support::prelude::*;
 use pretty_assertions::assert_matches;
+use rstest::rstest;
 
 #[test]
 fn cases_where_result_is_same_between_join_types_inner() -> Result {
@@ -70,10 +72,9 @@ fn do_cases_where_result_is_same_between_join_types(join_type: &str) -> Result {
     // .mode column
     // .headers on
     for ((left, right, on), expected) in [
+        // Empty tables have no rows that could hold the join column, so any
+        // column name is accepted for them.
         (("[]", "[]", "_"), "[]"),
-        (("[]", "[{a: 1}]", "_"), "[]"),
-        (("[{a: 1}]", "[]", "_"), "[]"),
-        (("[{a: 1}]", "[{a: 1}]", "_"), "[]"),
         (("[{a: 1}]", "[{a: 1}]", "a"), "[[a]; [1]]"),
         (("[{a: 1} {a: 1}]", "[{a: 1}]", "a"), "[[a]; [1], [1]]"),
         (("[{a: 1}]", "[{a: 1} {a: 1}]", "a"), "[[a]; [1], [1]]"),
@@ -464,6 +465,47 @@ fn test_alternative_table_syntax() -> Result {
         let expr = format!("{left} | join {right} {join_type} {on} | to nuon");
         assert_join_output(&expr, expected)?;
     }
+    Ok(())
+}
+
+// A non-empty table where no row has the join column is an error, for every
+// join type and for streamed input. `right_and_keys` is the `join` arguments
+// after the flag: the right table, `left-on` and the optional `right-on`. The
+// error names `table` and points at the `missing` column argument, so the
+// checks of the two tables cannot swap their key or table without failing.
+#[rstest]
+#[case::neither_table_has_key("[[a b]; [1 2] [3 4]]", "[[a c]; [1 3] [4 5]] d", "input", "d")]
+#[case::left_table_lacks_key("[{b: 1}]", "[{a: 1}] a", "input", "a")]
+#[case::right_table_lacks_key("[{a: 1}]", "[{b: 1}] a", "right", "a")]
+#[case::left_table_lacks_left_on("[{a: 1}]", "[{z: 1}] b z", "input", "b")]
+#[case::right_table_lacks_right_on("[{a: 1}]", "[{z: 1}] a y", "right", "y")]
+#[case::left_empty_right_lacks_key("[]", "[{b: 1}] a", "right", "a")]
+#[case::right_empty_left_lacks_key("[{b: 1}]", "[] a", "input", "a")]
+fn join_errors_when_table_has_no_join_column(
+    #[case] left: &str,
+    #[case] right_and_keys: &str,
+    #[case] table: &str,
+    #[case] missing: &str,
+    #[values("--inner", "--left", "--right", "--outer", "--anti")] join_type: &str,
+    #[values("", "each { |i| $i } | ")] to_list_stream: &str,
+) -> Result {
+    let code = format!("{left} | {to_list_stream}join {join_type} {right_and_keys}");
+    let mut tester = test();
+    let err = match tester.run(code).expect_shell_error()? {
+        ShellError::Generic(err) => err,
+        err => panic!("expected a generic error, got {err:?}"),
+    };
+    assert_eq!(err.code, "nu::shell::column_not_found");
+    assert_eq!(err.error, format!("Cannot find column '{missing}'"));
+    assert_eq!(
+        err.msg,
+        format!("no row in the {table} table has this column")
+    );
+    let ErrorSite::Span(span) = err.site else {
+        panic!("expected the error to point at the column argument");
+    };
+    let span_text = String::from_utf8_lossy(tester.engine_state.get_span_contents(span));
+    assert_eq!(span_text, missing);
     Ok(())
 }
 

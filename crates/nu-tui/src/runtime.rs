@@ -58,7 +58,7 @@ impl Default for RunOptions {
     }
 }
 
-/// Check `app` and build its session. Its streams are not read yet: the
+/// Build `app`'s session and check it. Its streams are not read yet: the
 /// caller opens [`Readers`] once nothing else can fail first, so an early
 /// error leaves a saved `tui` value's stream unread.
 fn prepare_session(
@@ -66,24 +66,82 @@ fn prepare_session(
     engine_state: &EngineState,
     stack: &Stack,
     cwd: PathBuf,
-    span: Span,
 ) -> Result<Session, ShellError> {
-    if let Some((id, from)) = Session::unknown_sources(&app).into_iter().next() {
-        let ids: Vec<String> = app.iter().map(|w| w.id.clone()).collect();
-        return Err(ShellError::Generic(GenericError::new(
-            "unknown --from id",
+    let session = Session::with_engine(app, cwd, Some((engine_state.clone(), stack.clone())));
+    check_sources(&session)?;
+    Ok(session)
+}
+
+/// A widget with `--from` or a source closure that has no table, tree, or
+/// select to follow would stay empty with no hint why, so it is an error
+/// pointing at its builder. [`Session::sources`] decides what each widget
+/// follows; whether it finds one does not depend on focus or the page, so
+/// the starting state is enough to check. A preview without `--from` is not
+/// checked: it says "(nothing to preview)".
+fn check_sources(session: &Session) -> Result<(), ShellError> {
+    let sources = session.sources();
+    let Some((id, source)) = session.app.iter().find_map(|w| {
+        let source = w.source.as_ref()?;
+        (!sources.contains_key(&w.id)).then_some((&w.id, source))
+    }) else {
+        return Ok(());
+    };
+    let row_sources = || {
+        let ids: Vec<&str> = session
+            .app
+            .iter()
+            .filter(|w| w.kind.is_row_source() && w.id != *id)
+            .map(|w| w.id.as_str())
+            .collect();
+        if ids.is_empty() {
+            "none".to_string()
+        } else {
+            ids.join(", ")
+        }
+    };
+    let (title, detail) = match source.from.as_deref() {
+        None => (
+            "nothing for the closure to follow",
             format!(
-                "`{id}` follows '{from}', but no widget has that id. Widgets: {}",
-                ids.join(", ")
+                "`{id}` runs its closure on the highlighted row of a table, tree, or select, but none can be followed: a widget never follows its own row, or one that follows it. Add one, or drop the closure"
             ),
-            span,
-        )));
-    }
-    Ok(Session::with_engine(
-        app,
-        cwd,
-        Some((engine_state.clone(), stack.clone())),
-    ))
+        ),
+        Some(from) => match session.kind(from) {
+            None => (
+                "unknown --from id",
+                format!(
+                    "`{id}` follows '{from}', but no widget has that id. Tables, trees, and selects: {}",
+                    row_sources()
+                ),
+            ),
+            Some(kind) if !kind.is_row_source() => (
+                "--from must name a table, tree, or select",
+                format!(
+                    "`{id}` follows '{from}', which is a {}. Tables, trees, and selects: {}",
+                    kind.type_name(),
+                    row_sources()
+                ),
+            ),
+            Some(_) if from == id => (
+                "a widget cannot follow itself",
+                format!(
+                    "`{id}` names its own id in --from. Name another table, tree, or select: {}",
+                    row_sources()
+                ),
+            ),
+            Some(_) => (
+                "--from ids form a loop",
+                format!(
+                    "`{id}` follows '{from}', which follows `{id}` in turn, so none of them has a row to show"
+                ),
+            ),
+        },
+    };
+    Err(ShellError::Generic(GenericError::new(
+        title,
+        detail,
+        source.span,
+    )))
 }
 
 /// Render without a TTY. Replays `--keys` if given, then returns the result
@@ -95,7 +153,7 @@ pub fn debug(
     opts: RunOptions,
     cwd: PathBuf,
 ) -> Result<PipelineData, ShellError> {
-    let mut session = prepare_session(app, engine_state, stack, cwd, opts.span)?;
+    let mut session = prepare_session(app, engine_state, stack, cwd)?;
     let frame = Rect {
         x: 0,
         y: 0,
@@ -167,7 +225,7 @@ pub fn run(
     opts: RunOptions,
     cwd: PathBuf,
 ) -> Result<PipelineData, ShellError> {
-    let mut session = prepare_session(app, engine_state, stack, cwd, opts.span)?;
+    let mut session = prepare_session(app, engine_state, stack, cwd)?;
     let _raw = RawModeGuard::acquire(stack, opts.span)?;
     let (term_w, term_h) = crossterm::terminal::size()
         .map_err(|e| io_error("failed to read terminal size", e.to_string(), opts.span))?;
