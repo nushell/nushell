@@ -530,6 +530,19 @@ fn is_slash_command_alias(value: &str) -> bool {
     value == "/c" || value == "/C"
 }
 
+// Record that the next token is the `--` end-of-options delimiter before lexopt
+// consumes it. Needed so `/c` after `--` is treated as a script name, not the
+// ComSpec alias.
+#[cfg(windows)]
+fn note_end_of_options_delimiter(parser: &mut lexopt::Parser, seen_end_of_options: &mut bool) {
+    if !*seen_end_of_options
+        && let Some(raw) = parser.try_raw_args()
+        && raw.peek() == Some(std::ffi::OsStr::new("--"))
+    {
+        *seen_end_of_options = true;
+    }
+}
+
 // Parse CLI args into nushell options and script details.
 pub(crate) fn parse_cli_args(args: Vec<OsString>) -> Result<ParsedCli, CliError> {
     parse_cli_args_with_command_line(args, None)
@@ -575,19 +588,11 @@ fn parse_cli_args_with_command_line(
     #[cfg(windows)]
     let mut seen_end_of_options = false;
 
-    loop {
+    while let Some(arg) = {
         #[cfg(windows)]
-        if !seen_end_of_options
-            && let Some(raw) = parser.try_raw_args()
-            && raw.peek() == Some(std::ffi::OsStr::new("--"))
-        {
-            seen_end_of_options = true;
-        }
-
-        let Some(arg) = parser.next().map_err(map_lexopt_error)? else {
-            break;
-        };
-
+        note_end_of_options_delimiter(&mut parser, &mut seen_end_of_options);
+        parser.next().map_err(map_lexopt_error)?
+    } {
         let mut consume_remaining_args = |parser: &mut lexopt::Parser| {
             let rest = parser
                 .raw_args()
