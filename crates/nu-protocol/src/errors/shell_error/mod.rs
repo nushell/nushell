@@ -562,15 +562,15 @@ pub enum ShellError {
         span: Span,
     },
 
-    /// You attempted to access an index when it's empty.
+    /// You attempted to access a value from empty content.
     ///
     /// ## Resolution
     ///
-    /// Check your lengths and try again.
-    #[error("Row number too large (empty content).")]
-    #[diagnostic(code(nu::shell::access_beyond_end))]
+    /// Check that the content is not empty and try again.
+    #[error("Cannot access empty content.")]
+    #[diagnostic(code(nu::shell::access_empty_content))]
     AccessEmptyContent {
-        #[label = "index too large (empty content)"]
+        #[label = "content is empty"]
         span: Span,
     },
 
