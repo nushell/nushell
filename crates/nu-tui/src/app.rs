@@ -161,8 +161,9 @@ impl TuiApp {
     /// root widgets, so each child can show its own rows. A stream stays
     /// unread: the roots share it and start with an empty list, so they
     /// never show the outer data while they wait for their first row. Only
-    /// roots without their own `--data` take piped data; a child with none
-    /// is an error.
+    /// roots without their own `--data` or a source (`--from`, a source
+    /// closure) take piped data, since a widget's own data would hide what
+    /// its source gives; a child with none is an error.
     pub fn adopt_children(
         &self,
         children: Vec<TuiApp>,
@@ -211,14 +212,16 @@ impl TuiApp {
                 }
             }
             let piped = child.stream.is_some() || !child.data.is_nothing();
-            let mut roots: Vec<&mut Widget> =
-                widgets.iter_mut().filter(|w| w.data.is_none()).collect();
+            let mut roots: Vec<&mut Widget> = widgets
+                .iter_mut()
+                .filter(|w| w.data.is_none() && w.source.is_none())
+                .collect();
             if piped && roots.is_empty() {
                 // Dropping it silently would also leave an external
                 // producer running with nobody reading it.
                 return Err(ShellError::Generic(GenericError::new(
                     "piped data has no widget to show it",
-                    "no widget in this child can show the data piped into it: each has its own --data, or there are none",
+                    "no widget in this child can show the data piped into it: each has its own --data or follows another widget's row, or there are none",
                     span,
                 )));
             }

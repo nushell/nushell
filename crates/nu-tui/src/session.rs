@@ -133,6 +133,13 @@ fn clamp_dialog(rect: Rect, screen: Rect) -> Rect {
     }
 }
 
+/// Whether following `from` would make `id` follow itself: `from` is `id`,
+/// or its chain of sources reaches `id`. The chains in `sources` end,
+/// because [`Session::sources`] adds no link that closes a loop.
+fn leads_to(sources: &HashMap<String, String>, from: &str, id: &str) -> bool {
+    std::iter::successors(Some(from), |at| sources.get(*at).map(String::as_str)).any(|at| at == id)
+}
+
 #[derive(Debug, Clone)]
 pub struct Session {
     pub app: TuiApp,
@@ -177,16 +184,6 @@ pub struct Session {
 }
 
 impl Session {
-    /// The `--from` ids that name no widget, for an early error.
-    pub fn unknown_sources(app: &TuiApp) -> Vec<(String, String)> {
-        app.iter()
-            .filter_map(|w| {
-                let from = w.source.as_ref()?.from.as_deref()?;
-                (app.widget(from).is_none()).then(|| (w.id.clone(), from.to_string()))
-            })
-            .collect()
-    }
-
     #[cfg(test)]
     pub fn new(app: TuiApp) -> Self {
         Self::with_engine(app, PathBuf::from("."), None)
@@ -542,37 +539,74 @@ impl Session {
         best.map(|(_, id)| id)
     }
 
-    /// Which widget drives `id`: `--from` if given, else the focused row
-    /// source, else the nearest one in an enclosing container, else the first
-    /// visible one. `None` for widgets that do not follow anything.
+    /// Which widget drives `id` (see [`Session::sources`]). `None` for
+    /// widgets that follow nothing.
     pub fn source_id(&self, id: &str) -> Option<String> {
-        let widget = self.widget(id)?;
-        if !widget.follows_source() {
-            return None;
+        self.sources().remove(id)
+    }
+
+    /// The table, tree, or select each follower follows, keyed by follower
+    /// id. A follower follows its `--from`, unless that names itself, a
+    /// widget that is not a table, tree, or select, or one whose `--from`
+    /// chain leads back to it. Every other follower takes the focused one,
+    /// else the nearest in an enclosing container, else the first visible,
+    /// else the first on a hidden tab page. It skips one that follows it,
+    /// directly or along a chain, so followers never follow each other in a
+    /// loop. A follower missing from the map has nothing to
+    /// follow. Focus and the page change only which one a follower takes,
+    /// never whether it finds one.
+    pub fn sources(&self) -> HashMap<String, String> {
+        let is_row_source = |id: &str| self.kind(id).is_some_and(|k| k.is_row_source());
+        let followers: Vec<&Widget> = self.app.iter().filter(|w| w.follows_source()).collect();
+        let mut sources = HashMap::new();
+        // `--from` first: a follower that picks its own source must see
+        // every fixed link, or it could pick one that leads back to it.
+        for widget in &followers {
+            if let Some(from) = widget.source.as_ref().and_then(|s| s.from.as_deref())
+                && is_row_source(from)
+                && !leads_to(&sources, from, &widget.id)
+            {
+                sources.insert(widget.id.clone(), from.to_string());
+            }
         }
-        if let Some(from) = widget.source.as_ref().and_then(|s| s.from.clone()) {
-            return Some(from);
-        }
-        let is_source =
-            |other: &str| other != id && self.kind(other).is_some_and(|k| k.is_row_source());
-        if let Some(focused) = &self.focused
-            && is_source(focused)
-        {
-            return Some(focused.clone());
-        }
-        if let Some(path) = self.paths.get(id) {
-            for depth in (1..path.len()).rev() {
-                if let Some(found) = subtree_ids(&self.app, &path[..depth])
+        let picking: Vec<&Widget> = followers
+            .into_iter()
+            .filter(|w| w.source.as_ref().is_none_or(|s| s.from.is_none()))
+            .collect();
+        let nearest = |id: &str| -> Vec<String> {
+            let Some(path) = self.paths.get(id) else {
+                return Vec::new();
+            };
+            (1..path.len())
+                .rev()
+                .flat_map(|depth| subtree_ids(&self.app, &path[..depth]))
+                .collect()
+        };
+        /// The ids one tier offers a follower, best first.
+        type Tier<'a> = &'a dyn Fn(&str) -> Vec<String>;
+        let tiers: [Tier; 4] = [
+            &|_| self.focused.iter().cloned().collect(),
+            &nearest,
+            &|_| self.visible_ids(),
+            &|_| self.app.iter().map(|w| w.id.clone()).collect(),
+        ];
+        // Each tier is tried for every follower before the next, so a
+        // follower takes the focused widget before that widget can take the
+        // follower as its own nearest one.
+        for candidates in tiers {
+            for widget in &picking {
+                if sources.contains_key(&widget.id) {
+                    continue;
+                }
+                if let Some(found) = candidates(&widget.id)
                     .into_iter()
-                    .find(|other| is_source(other))
+                    .find(|other| is_row_source(other) && !leads_to(&sources, other, &widget.id))
                 {
-                    return Some(found);
+                    sources.insert(widget.id.clone(), found);
                 }
             }
         }
-        self.visible_ids()
-            .into_iter()
-            .find(|other| is_source(other))
+        sources
     }
 
     /// The highlighted row of widget `id`.
@@ -617,10 +651,11 @@ impl Session {
             .filter(|w| w.follows_source())
             .map(|w| w.id.clone())
             .collect();
+        let sources = self.sources();
         for _ in 0..3 {
             let mut changed = false;
             for id in &ids {
-                changed |= self.refresh_one(id);
+                changed |= self.refresh_one(id, sources.get(id).map(String::as_str));
             }
             if !changed {
                 break;
@@ -655,11 +690,11 @@ impl Session {
         Some(stack)
     }
 
-    fn refresh_one(&mut self, id: &str) -> bool {
-        let source = self.source_id(id);
-        let row = source.as_ref().and_then(|src| self.row_of(src));
+    /// Recompute what `id` shows from the highlighted row of `source`.
+    fn refresh_one(&mut self, id: &str, source: Option<&str>) -> bool {
+        let row = source.and_then(|src| self.row_of(src));
         let key = (
-            source.unwrap_or_default(),
+            source.unwrap_or_default().to_string(),
             row.clone()
                 .unwrap_or_else(|| Value::nothing(Span::unknown())),
             self.inner_size(id),
@@ -2059,6 +2094,36 @@ mod tests {
     }
 
     #[test]
+    fn followers_never_follow_each_other() {
+        // Each table in the split is the other's nearest; the second skips
+        // the first, which already follows it, and takes the outer table.
+        let follower = |id: &str| {
+            let mut widget = table(id, &["name"]);
+            widget.source = Some(Source::default());
+            widget
+        };
+        let mut session = Session::new(app(
+            vec![
+                table("table-a", &["name"]),
+                split(
+                    "split-0",
+                    SplitDir::Horizontal,
+                    vec![follower("table-b"), follower("table-c")],
+                ),
+            ],
+            rows(&["x"]),
+        ));
+        session.focused = None;
+        assert_eq!(session.source_id("table-b").as_deref(), Some("table-c"));
+        assert_eq!(session.source_id("table-c").as_deref(), Some("table-a"));
+        // Focus wins over nearness: the sibling follows the focused table,
+        // which then takes the outer one.
+        session.focused = Some("table-b".into());
+        assert_eq!(session.source_id("table-c").as_deref(), Some("table-b"));
+        assert_eq!(session.source_id("table-b").as_deref(), Some("table-a"));
+    }
+
+    #[test]
     fn child_data_wins_over_shared_data() {
         let mut detail = table("table-1", &["name"]);
         detail.data = Some(rows(&["own-a", "own-b", "own-c", "own-d"]));
@@ -2093,6 +2158,7 @@ mod tests {
         follower.source = Some(Source {
             from: Some("table-0".into()),
             closure: None,
+            ..Source::default()
         });
         let mut session = Session::new(app(
             vec![split(
@@ -2884,6 +2950,7 @@ mod tests {
         follower.source = Some(Source {
             from: Some("table-0".into()),
             closure: None,
+            ..Source::default()
         });
         let mut session = Session::new(app(
             vec![split(

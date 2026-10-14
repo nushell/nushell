@@ -304,12 +304,17 @@ fn main() -> Result<()> {
     let is_dap = false;
     engine_state.is_dap = is_dap;
     #[cfg(feature = "mcp")]
-    {
-        engine_state.is_mcp = parsed_nu_cli_args.mcp;
-    }
+    let is_mcp = parsed_nu_cli_args.mcp;
+    #[cfg(not(feature = "mcp"))]
+    let is_mcp = false;
+    engine_state.is_mcp = is_mcp;
     // keep this condition in sync with the branches at the end
     engine_state.is_interactive = parsed_nu_cli_args.interactive_shell.is_some()
-        || (parsed_nu_cli_args.commands.is_none() && script_name.is_empty() && !is_lsp && !is_dap);
+        || (parsed_nu_cli_args.commands.is_none()
+            && script_name.is_empty()
+            && !is_lsp
+            && !is_dap
+            && !is_mcp);
 
     engine_state.is_login = parsed_nu_cli_args.login_shell.is_some();
     engine_state.history_enabled = parsed_nu_cli_args.no_history.is_none();
@@ -625,6 +630,16 @@ fn main() -> Result<()> {
             Some("http") => nu_mcp::McpTransport::http(
                 parsed_nu_cli_args.mcp_host.clone(),
                 parsed_nu_cli_args.mcp_port,
+            )
+            .with_allowed_hosts(
+                parsed_nu_cli_args
+                    .mcp_allowed_hosts
+                    .map(|hosts| hosts.into_iter().map(|s| s.item).collect()),
+            )
+            .with_allowed_origins(
+                parsed_nu_cli_args
+                    .mcp_allowed_origins
+                    .map(|origins| origins.into_iter().map(|s| s.item).collect()),
             ),
             _ => nu_mcp::McpTransport::Stdio,
         };

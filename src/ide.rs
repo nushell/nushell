@@ -641,10 +641,10 @@ pub fn complete(engine_reference: Arc<EngineState>, file_path: &str, location: &
         });
 
     if let Ok(location) = location.as_int() {
-        let results = completer.complete_blocking(
-            &String::from_utf8_lossy(&file)[..location as usize],
-            location as usize,
-        );
+        let contents = String::from_utf8_lossy(&file);
+        let location = (location.max(0) as usize).min(contents.len());
+        let location = contents.floor_char_boundary(location);
+        let results = completer.complete_blocking(&contents[..location], location);
         print!("{{\"completions\": [");
         let mut first = true;
         for result in results.iter() {

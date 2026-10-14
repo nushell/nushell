@@ -3,7 +3,7 @@
 # Warning: This file is intended for documentation purposes only and
 # is not intended to be used as an actual configuration file as-is.
 #
-# version = "0.116.0"
+# version = "0.116.2"
 #
 # A `config.nu` file is used to override default Nushell settings,
 # define (or import) custom commands, or run any other startup tasks.
@@ -113,8 +113,9 @@ $env.config.show_banner = true
 # Default: false
 $env.config.rm.always_trash = false
 
-# recursion_limit (int): Maximum times a command can call itself recursively.
-# Prevents infinite recursion by generating an error when exceeded.
+# recursion_limit (int): Maximum depth of nested custom command and closure calls.
+# Each call to a custom command or closure (`do`, `each`, `where`, hooks, etc.) adds one level.
+# Prevents infinite recursion from crashing Nushell by generating an error when exceeded.
 # Must be greater than 1.
 # Default: 50
 $env.config.recursion_limit = 50
@@ -760,7 +761,7 @@ $env.config.abbreviations = {}
 # $env.config.abbreviations = {
 #   gs: "git status",
 #   ll: "ls -l",
-#   ptop: "ps | sort-by -r cpu | first 10"
+#   ptop: "ps | compact cpu | sort-by -r cpu | first 10"
 # }
 
 # -----

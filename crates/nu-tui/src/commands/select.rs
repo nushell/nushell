@@ -97,6 +97,7 @@ impl Command for TuiSelect {
                 WidgetKind::Select(widget),
                 Vec::new(),
                 None,
+                None,
             )
         })
     }

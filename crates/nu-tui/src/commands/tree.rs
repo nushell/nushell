@@ -27,7 +27,7 @@ impl Command for TuiTree {
                 .optional(
                     "source",
                     SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
-                    "Closure over the --from row whose output is this tree's data.",
+                    "Closure over the highlighted row of --from, or of the nearest other table, tree, or select, whose output is this tree's data.",
                 )
                 .switch(
                     "walk",
@@ -83,6 +83,7 @@ impl Command for TuiTree {
                 WidgetKind::Tree(widget),
                 Vec::new(),
                 source,
+                None,
             )
         })
     }

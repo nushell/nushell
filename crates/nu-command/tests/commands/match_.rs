@@ -97,6 +97,46 @@ fn list_rest_empty() -> Result {
 }
 
 #[rstest]
+#[case::at_start("match [2] { [1, ..] => false, [2, ..] => true }")]
+#[case::at_end("match [2] { [.., 1] => false, [.., 2] => true }")]
+#[case::in_middle("match [1 2 3] { [1, .., 2] => false, [1, .., 3] => true }")]
+#[case::empty_in_middle("match [1 2] { [1, .., 2] => true }")]
+#[case::list_too_short("match [1 2] { [1, .., 1, 2] => false, _ => true }")]
+#[case::list_too_short_capture("match [1 2] { [1, ..$rest, 1, 2] => false, _ => true }")]
+#[case::empty_list("match [] { [.., 2] => false, _ => true }")]
+#[case::nested("match [[1 2] 3] { [[.., 1], ..] => false, [[.., 2], ..] => true }")]
+fn list_rest_position(#[case] code: &str) -> Result {
+    test().run(code).expect_value_eq(true)
+}
+
+#[rstest]
+#[case::in_middle(
+    "match [1 2 3 4] { [$a, ..$rest, $b] => [$a $rest $b] }",
+    test_value!([1, [2, 3], 4])
+)]
+#[case::empty_in_middle(
+    "match [1 2] { [$a, ..$rest, $b] => [$a $rest $b] }",
+    test_value!([1, [], 2])
+)]
+#[case::at_start(
+    "match [1 2 3] { [..$rest, $b] => [$rest $b] }",
+    test_value!([[1, 2], 3])
+)]
+fn list_rest_capture_position(#[case] code: &str, #[case] expected: Value) -> Result {
+    test().run(code).expect_value_eq(expected)
+}
+
+#[rstest]
+#[case::ignore("match [2] { [.., 2, ..] => true }")]
+#[case::capture("match [2] { [..$a, 2, ..$b] => true }")]
+#[case::mixed("match [2] { [..$a, 2, ..] => true }")]
+fn list_rest_used_twice(#[case] code: &str) -> Result {
+    let err = test().run(code).expect_parse_error()?;
+    assert_contains("can only be used once per list pattern", err.to_string());
+    Ok(())
+}
+
+#[rstest]
 #[case::int(["1", "2", "3"])]
 #[case::float(["1.4", "2.3", "3"])]
 #[case::bool(["false", "true", "3"])]

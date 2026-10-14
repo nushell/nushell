@@ -67,6 +67,7 @@ impl Command for TuiTextBox {
                 WidgetKind::TextBox(widget),
                 Vec::new(),
                 None,
+                None,
             )
         })
     }

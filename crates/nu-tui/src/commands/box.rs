@@ -61,6 +61,7 @@ impl Command for TuiBox {
                 WidgetKind::Box(BoxWidget { title }),
                 children,
                 None,
+                None,
             )
         })
     }
