@@ -673,45 +673,37 @@ pub fn parse_module_block(
 /// paths (e.g. a utility module imported by most siblings), and without the `seen` set the walk
 /// re-reads the same files once per path, which is very slow where file opens are expensive.
 fn module_needs_reloading(working_set: &StateWorkingSet, module_id: ModuleId) -> bool {
-    module_needs_reloading_inner(working_set, module_id, &mut HashSet::new())
-}
-
-fn module_needs_reloading_inner(
-    working_set: &StateWorkingSet,
-    module_id: ModuleId,
-    seen: &mut HashSet<ModuleId>,
-) -> bool {
-    let module = working_set.get_module(module_id);
-
-    module
-        .submodules
-        .iter()
-        .map(|(_, submodule_id)| *submodule_id)
-        .chain(module.imported_modules.iter().copied())
-        .any(|submodule_id| {
-            // already checked during this walk, and found unchanged (any() stops at the first change)
-            if !seen.insert(submodule_id) {
-                return false;
-            }
-            module_file_changed(working_set, submodule_id)
-                || module_needs_reloading_inner(working_set, submodule_id, seen)
-        })
-}
-
-fn module_file_changed(working_set: &StateWorkingSet, module_id: ModuleId) -> bool {
-    let module = working_set.get_module(module_id);
-    if let Some((file_path, file_id)) = &module.file {
-        let existing_contents = working_set.get_contents_of_file(*file_id);
-        let file_contents = file_path.read(working_set);
-
-        if let (Some(existing), Some(new)) = (existing_contents, file_contents) {
-            existing != new
-        } else {
-            false
-        }
-    } else {
-        false
+    /// Returns true if the module's file has changed on disk. Modules without a file, and files
+    /// that can no longer be read, count as unchanged.
+    fn file_changed(working_set: &StateWorkingSet, module_id: ModuleId) -> bool {
+        let Some((file_path, file_id)) = &working_set.get_module(module_id).file else {
+            return false;
+        };
+        matches!(
+            (working_set.get_contents_of_file(*file_id), file_path.read(working_set)),
+            (Some(existing), Some(new)) if existing != new
+        )
     }
+
+    /// Recursive step. A module already in `seen` is skipped: `any()` stops at the first change,
+    /// so a module reached again has already been found unchanged.
+    fn walk(
+        working_set: &StateWorkingSet,
+        module_id: ModuleId,
+        seen: &mut HashSet<ModuleId>,
+    ) -> bool {
+        let module = working_set.get_module(module_id);
+        module
+            .submodules
+            .iter()
+            .map(|(_, id)| *id)
+            .chain(module.imported_modules.iter().copied())
+            .any(|id| {
+                seen.insert(id) && (file_changed(working_set, id) || walk(working_set, id, seen))
+            })
+    }
+
+    walk(working_set, module_id, &mut HashSet::new())
 }
 
 fn parse_module_file(
