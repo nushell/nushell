@@ -32,7 +32,7 @@ use chrono::{DateTime, Datelike, Duration, FixedOffset, Local, Locale, TimeZone}
 use chrono_humanize::HumanTime;
 use nu_utils::{ObviousFloat, SharedCow, contains_emoji, get_locale_from_env_vars};
 pub use semver::Version as SemVerVersion;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, ser::Error};
 use std::{
     borrow::Cow,
     cmp::Ordering,
@@ -4480,6 +4480,448 @@ impl Value {
                 |val| matches!(val, Value::Bool { .. }),
             )),
         }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ValueSerializer {
+    span: Span,
+}
+impl ValueSerializer {
+    pub fn from_span(span: Span) -> Self {
+        Self { span }
+    }
+    pub fn into_value<V: IntoValue>(&self, value: V) -> Value {
+        value.into_value(self.span.clone())
+    }
+}
+#[derive(Debug)]
+pub enum ValueSerializerError {
+    RecordHasNonStringKey,
+}
+impl std::fmt::Display for ValueSerializerError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("Record has a key with a non-String value")
+    }
+}
+impl serde::ser::StdError for ValueSerializerError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        None
+    }
+
+    fn description(&self) -> &str {
+        "description() is deprecated; use Display"
+    }
+
+    fn cause(&self) -> Option<&dyn std::error::Error> {
+        self.source()
+    }
+}
+impl Error for ValueSerializerError {
+    fn custom<T: Display>(_msg: T) -> Self {
+        Self::RecordHasNonStringKey
+    }
+}
+impl serde::Serializer for ValueSerializer {
+    type Ok = Value;
+    type Error = ValueSerializerError;
+    type SerializeSeq = ValueListSerializer;
+    type SerializeTuple = ValueListSerializer;
+    type SerializeTupleStruct = ValueListSerializer;
+    type SerializeTupleVariant = ValueListSerializer;
+    type SerializeMap = ValueRecordSerializer;
+    type SerializeStruct = ValueRecordSerializer;
+    type SerializeStructVariant = ValueRecordSerializer;
+
+    fn serialize_bool(self, v: bool) -> Result<Self::Ok, Self::Error> {
+        Ok(self.into_value(v))
+    }
+
+    fn serialize_i8(self, v: i8) -> Result<Self::Ok, Self::Error> {
+        Ok(self.into_value(v))
+    }
+
+    fn serialize_i16(self, v: i16) -> Result<Self::Ok, Self::Error> {
+        Ok(self.into_value(v))
+    }
+
+    fn serialize_i32(self, v: i32) -> Result<Self::Ok, Self::Error> {
+        Ok(self.into_value(v))
+    }
+
+    fn serialize_i64(self, v: i64) -> Result<Self::Ok, Self::Error> {
+        Ok(self.into_value(v))
+    }
+
+    fn serialize_u8(self, v: u8) -> Result<Self::Ok, Self::Error> {
+        Ok(self.into_value(v))
+    }
+
+    fn serialize_u16(self, v: u16) -> Result<Self::Ok, Self::Error> {
+        Ok(self.into_value(v))
+    }
+
+    fn serialize_u32(self, v: u32) -> Result<Self::Ok, Self::Error> {
+        Ok(self.into_value(v))
+    }
+
+    fn serialize_u64(self, v: u64) -> Result<Self::Ok, Self::Error> {
+        Ok(self.into_value(v as i64))
+    }
+
+    fn serialize_f32(self, v: f32) -> Result<Self::Ok, Self::Error> {
+        Ok(self.into_value(v))
+    }
+
+    fn serialize_f64(self, v: f64) -> Result<Self::Ok, Self::Error> {
+        Ok(self.into_value(v))
+    }
+
+    fn serialize_char(self, v: char) -> Result<Self::Ok, Self::Error> {
+        Ok(self.into_value(v))
+    }
+
+    fn serialize_str(self, v: &str) -> Result<Self::Ok, Self::Error> {
+        Ok(self.into_value(v))
+    }
+
+    fn serialize_bytes(self, v: &[u8]) -> Result<Self::Ok, Self::Error> {
+        Ok(Value::Binary {
+            val: v.to_vec().into(),
+            internal_span: self.span.clone(),
+        })
+    }
+
+    fn serialize_none(self) -> Result<Self::Ok, Self::Error> {
+        Ok(Value::Nothing {
+            internal_span: self.span.clone(),
+        })
+    }
+
+    fn serialize_some<T>(self, value: &T) -> Result<Self::Ok, Self::Error>
+    where
+        T: ?Sized + Serialize,
+    {
+        value.serialize(self.clone())
+    }
+
+    fn serialize_unit(self) -> Result<Self::Ok, Self::Error> {
+        Ok(Value::Nothing {
+            internal_span: self.span.clone(),
+        })
+    }
+
+    fn serialize_unit_struct(self, name: &'static str) -> Result<Self::Ok, Self::Error> {
+        Ok(Value::Record {
+            val: [(
+                name.into(),
+                Value::Nothing {
+                    internal_span: self.span.clone(),
+                },
+            )]
+            .into_iter()
+            .collect::<Record>()
+            .into(),
+            internal_span: self.span.clone(),
+        })
+    }
+
+    fn serialize_unit_variant(
+        self,
+        name: &'static str,
+        _variant_index: u32,
+        variant: &'static str,
+    ) -> Result<Self::Ok, Self::Error> {
+        Ok(Value::record(
+            [(name.to_string(), Value::string(variant, self.span.clone()))]
+                .into_iter()
+                .collect(),
+            self.span.clone(),
+        ))
+    }
+
+    fn serialize_newtype_struct<T>(
+        self,
+        name: &'static str,
+        value: &T,
+    ) -> Result<Self::Ok, Self::Error>
+    where
+        T: ?Sized + Serialize,
+    {
+        let value = value.serialize(self.clone())?;
+        Ok(Value::record(
+            [(name.to_string(), value)].into_iter().collect(),
+            self.span.clone(),
+        ))
+    }
+
+    fn serialize_newtype_variant<T>(
+        self,
+        name: &'static str,
+        _variant_index: u32,
+        _variant: &'static str,
+        value: &T,
+    ) -> Result<Self::Ok, Self::Error>
+    where
+        T: ?Sized + Serialize,
+    {
+        let value = value.serialize(self.clone())?;
+        Ok(Value::record(
+            [(name.to_string(), value)].into_iter().collect(),
+            self.span.clone(),
+        ))
+    }
+
+    fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq, Self::Error> {
+        Ok(ValueListSerializer {
+            serializer: self.clone(),
+            list: len.map(Vec::with_capacity).unwrap_or_default(),
+        })
+    }
+
+    fn serialize_tuple(self, len: usize) -> Result<Self::SerializeTuple, Self::Error> {
+        Ok(ValueListSerializer {
+            serializer: self.clone(),
+            list: Vec::with_capacity(len),
+        })
+    }
+
+    fn serialize_tuple_struct(
+        self,
+        _name: &'static str,
+        len: usize,
+    ) -> Result<Self::SerializeTupleStruct, Self::Error> {
+        Ok(ValueListSerializer {
+            serializer: self.clone(),
+            list: Vec::with_capacity(len),
+        })
+    }
+
+    fn serialize_tuple_variant(
+        self,
+        _name: &'static str,
+        _variant_index: u32,
+        _variant: &'static str,
+        len: usize,
+    ) -> Result<Self::SerializeTupleVariant, Self::Error> {
+        Ok(ValueListSerializer {
+            serializer: self.clone(),
+            list: Vec::with_capacity(len),
+        })
+    }
+
+    fn serialize_map(self, len: Option<usize>) -> Result<Self::SerializeMap, Self::Error> {
+        Ok(ValueRecordSerializer {
+            serializer: self.clone(),
+            record: len.map(Vec::with_capacity).unwrap_or_default(),
+        })
+    }
+
+    fn serialize_struct(
+        self,
+        _name: &'static str,
+        len: usize,
+    ) -> Result<Self::SerializeStruct, Self::Error> {
+        Ok(ValueRecordSerializer {
+            serializer: self.clone(),
+            record: Vec::with_capacity(len),
+        })
+    }
+
+    fn serialize_struct_variant(
+        self,
+        _name: &'static str,
+        _variant_index: u32,
+        _variant: &'static str,
+        len: usize,
+    ) -> Result<Self::SerializeStructVariant, Self::Error> {
+        Ok(ValueRecordSerializer {
+            serializer: self.clone(),
+            record: Vec::with_capacity(len),
+        })
+    }
+}
+
+pub struct ValueRecordSerializer {
+    serializer: ValueSerializer,
+    record: Vec<(String, Value)>,
+}
+
+impl ValueRecordSerializer {
+    fn serialize_field<T: ?Sized + Serialize>(
+        &mut self,
+        key: &'static str,
+        value: &T,
+    ) -> Result<(), ValueSerializerError> {
+        self.record
+            .push((key.into(), value.serialize(self.serializer.clone())?));
+        Ok(())
+    }
+
+    fn end(self) -> Value {
+        Value::Record {
+            val: self.record.into_iter().collect::<Record>().into(),
+            internal_span: self.serializer.span.clone(),
+        }
+    }
+}
+
+pub struct ValueListSerializer {
+    serializer: ValueSerializer,
+    list: Vec<Value>,
+}
+
+impl ValueListSerializer {
+    fn serialize_element<T: ?Sized + Serialize>(
+        &mut self,
+        value: &T,
+    ) -> Result<(), ValueSerializerError> {
+        self.list.push(value.serialize(self.serializer.clone())?);
+        Ok(())
+    }
+    fn end(self) -> Value {
+        Value::List {
+            vals: self.list.into(),
+            signals: None,
+            internal_span: self.serializer.span.clone(),
+        }
+    }
+}
+
+impl serde::ser::SerializeSeq for ValueListSerializer {
+    type Ok = Value;
+    type Error = ValueSerializerError;
+
+    fn serialize_element<T>(&mut self, value: &T) -> Result<(), Self::Error>
+    where
+        T: ?Sized + Serialize,
+    {
+        self.serialize_element(value)
+    }
+
+    fn end(self) -> Result<Self::Ok, Self::Error> {
+        Ok(self.end())
+    }
+}
+
+impl serde::ser::SerializeTuple for ValueListSerializer {
+    type Ok = Value;
+    type Error = ValueSerializerError;
+
+    fn serialize_element<T>(&mut self, value: &T) -> Result<(), Self::Error>
+    where
+        T: ?Sized + Serialize,
+    {
+        self.serialize_element(value)
+    }
+
+    fn end(self) -> Result<Self::Ok, Self::Error> {
+        Ok(self.end())
+    }
+}
+
+impl serde::ser::SerializeTupleStruct for ValueListSerializer {
+    type Ok = Value;
+    type Error = ValueSerializerError;
+
+    fn serialize_field<T>(&mut self, value: &T) -> Result<(), Self::Error>
+    where
+        T: ?Sized + Serialize,
+    {
+        self.serialize_element(value)
+    }
+
+    fn end(self) -> Result<Self::Ok, Self::Error> {
+        Ok(self.end())
+    }
+}
+
+impl serde::ser::SerializeTupleVariant for ValueListSerializer {
+    type Ok = Value;
+    type Error = ValueSerializerError;
+
+    fn serialize_field<T>(&mut self, value: &T) -> Result<(), Self::Error>
+    where
+        T: ?Sized + Serialize,
+    {
+        self.serialize_element(value)
+    }
+
+    fn end(self) -> Result<Self::Ok, Self::Error> {
+        Ok(self.end())
+    }
+}
+
+impl serde::ser::SerializeMap for ValueRecordSerializer {
+    type Ok = Value;
+    type Error = ValueSerializerError;
+
+    fn serialize_key<T>(&mut self, key: &T) -> Result<(), Self::Error>
+    where
+        T: ?Sized + Serialize,
+    {
+        let key = key.serialize(self.serializer.clone())?;
+        let Value::String {
+            val,
+            internal_span: _,
+        } = key
+        else {
+            return Err(ValueSerializerError::RecordHasNonStringKey);
+        };
+        self.record.push((
+            val,
+            Value::Nothing {
+                internal_span: self.serializer.span.clone(),
+            },
+        ));
+        Ok(())
+    }
+
+    fn serialize_value<T>(&mut self, value: &T) -> Result<(), Self::Error>
+    where
+        T: ?Sized + Serialize,
+    {
+        let value = value.serialize(self.serializer.clone())?;
+        let Some((_record_key, record_value)) = self.record.iter_mut().last() else {
+            panic!();
+        };
+        *record_value = value;
+        Ok(())
+    }
+
+    fn end(self) -> Result<Self::Ok, Self::Error> {
+        Ok(self.end())
+    }
+}
+
+impl serde::ser::SerializeStruct for ValueRecordSerializer {
+    type Ok = Value;
+    type Error = ValueSerializerError;
+
+    fn serialize_field<T>(&mut self, key: &'static str, value: &T) -> Result<(), Self::Error>
+    where
+        T: ?Sized + Serialize,
+    {
+        self.serialize_field(key, value)
+    }
+
+    fn end(self) -> Result<Self::Ok, Self::Error> {
+        Ok(self.end())
+    }
+}
+impl serde::ser::SerializeStructVariant for ValueRecordSerializer {
+    type Ok = Value;
+    type Error = ValueSerializerError;
+
+    fn serialize_field<T>(&mut self, key: &'static str, value: &T) -> Result<(), Self::Error>
+    where
+        T: ?Sized + Serialize,
+    {
+        self.serialize_field(key, value)
+    }
+
+    fn end(self) -> Result<Self::Ok, Self::Error> {
+        Ok(self.end())
     }
 }
 
