@@ -1,3 +1,4 @@
+mod commandline_set_prompt;
 mod keybindings_list;
 mod nu_highlight;
 

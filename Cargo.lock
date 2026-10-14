@@ -5026,7 +5026,6 @@ dependencies = [
  "sysinfo",
  "tabled",
  "tempfile",
- "titlecase",
  "toml",
  "toml_edit",
  "trash",
@@ -9439,15 +9438,6 @@ name = "tinyvec_macros"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
-
-[[package]]
-name = "titlecase"
-version = "3.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eb567088a91d59b492520c8149e2be5ce10d5deb2d9a383f3378df3259679d40"
-dependencies = [
- "regex",
-]
 
 [[package]]
 name = "tokio"

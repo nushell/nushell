@@ -634,6 +634,15 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
 
     start_time = Instant::now();
 
+    // Keep the pushes made for this prompt even if they land before `update_prompt` installs the
+    // new baseline; `PromptState::begin_update` says which pushes count.
+    let first_job = engine_state
+        .jobs
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .next_id();
+    engine_state.prompt_state.begin_update(first_job);
+
     // Juhan said to do this :)
     let mut repl = engine_state.repl_state.lock().expect("repl state mutex");
     repl.cursor_pos = line_editor.current_insertion_point();
@@ -812,8 +821,8 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
 
     start_time = Instant::now();
     let config = &engine_state.get_config().clone();
-    // Re-evaluate the prompt into the shared `prompt_state`; this also resets any
-    // segment a background job pushed during the previous cycle.
+    // Re-evaluate the prompt into the shared `prompt_state`, replacing the segments pushed for
+    // the previous prompt but not the pushes `begin_update` above kept.
     prompt_update::update_prompt(
         config,
         engine_state,

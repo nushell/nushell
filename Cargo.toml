@@ -271,7 +271,6 @@ sysinfo = "0.39.6"
 tabled = { version = "0.22", default-features = false }
 tempfile = "3.27"
 thiserror = "2.0.20"
-titlecase = "3.6"
 tokio = { version = "1.53.1" }
 toml = "1.1.4"
 toml_edit = "0.25.13"

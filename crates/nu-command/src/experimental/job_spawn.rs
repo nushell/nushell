@@ -85,6 +85,11 @@ impl Command for JobSpawn {
 
             job_state.current_job = CurrentJob {
                 id,
+                root: if engine_state.is_background_job() {
+                    engine_state.current_job.root
+                } else {
+                    id
+                },
                 background_thread_job: Some(thread_job),
                 mailbox: Arc::new(Mutex::new(Mailbox::new(recv))),
             };
