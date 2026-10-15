@@ -441,8 +441,8 @@ if $score >= 90 {
 }
 ```
 
-The `if` command returns a nushell value, so it can be store in a variable or
-use in a pipeline:
+The `if` command returns a nushell value, so it can be stored in a variable or
+used in a pipeline:
 ```
 let result = if 10 > 5 { "yes" } else { "no" }
 $result
