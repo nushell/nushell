@@ -305,42 +305,39 @@ fn get_command_documentation(
 
     // TODO: improve the subcommand name resolution
     // issues:
-    // - Aliases are included
-    //   - https://github.com/nushell/nushell/issues/11657
     // - Subcommands are included violating module scoping
     //   - https://github.com/nushell/nushell/issues/11447
     //   - https://github.com/nushell/nushell/issues/11625
     // - Duplicate entries may appear when a single declaration is visible under multiple names (e.g. script `main` rewritten to filename plus an alias).
     //   See https://github.com/nushell/nushell/issues/17719.
     let mut subcommands = vec![];
-    let signatures = engine_state.get_signatures_and_declids(true);
     // track which declarations we've already added to `subcommands`
     let mut seen = HashSet::new();
-    for (sig, decl_id) in signatures {
-        // Prefer the overlay-visible declaration name (if any) for display and matching.
-        // Fall back to the signature's name if not present.
-        let display_name = engine_state
-            .find_decl_name(decl_id, &[])
-            .map(|bytes| String::from_utf8_lossy(bytes).to_string())
-            .unwrap_or_else(|| sig.name.clone());
+    let subcommand_prefix = format!("{cmd_name} ");
+    // A declaration can appear here under several overlay names (a script's `main bar` is also
+    // registered as `script.nu bar`), so every name is checked, not just one per declaration.
+    for (name, decl_id) in engine_state.get_decls_sorted(true) {
+        let decl = engine_state.get_decl(decl_id);
+        let sig = engine_state.get_signature(decl).update_from_command(decl);
+        let name = String::from_utf8_lossy(&name);
 
-        // Don't display removed/deprecated commands in the Subcommands list. We consider a signature a subcommand when either the overlay-visible
-        // `display_name` begins with `cmd_name ` *or* the canonical signature name does; the latter covers cases where `display_name` returns the
-        // alias instead of the script-qualified name due to hashmap ordering.
-        if (display_name.starts_with(&format!("{cmd_name} "))
-            || sig.name.starts_with(&format!("{cmd_name} ")))
-            && !matches!(sig.category, Category::Removed)
-            && seen.insert(decl_id)
-        {
-            let command_type = engine_state.get_decl(decl_id).command_type();
+        // The declared name, used when no overlay name matches: a module command is registered as
+        // `spam foo bar` but documented under its bare signature name `foo bar`. An alias reuses
+        // the signature of the command it wraps, so `sig.name` is not a name the alias answers to.
+        let canonical_name = decl.as_alias().map_or(&sig.name, |alias| &alias.name);
 
-            // choose which name to show: prefer the overlay-visible one if it actually matches the prefix, otherwise fall back to the canonical
-            // signature name (which is usually the script-qualified form).
-            let name_to_print = if display_name.starts_with(&format!("{cmd_name} ")) {
-                display_name.clone()
-            } else {
-                sig.name.clone()
-            };
+        // Prefer the overlay name for display, falling back to the canonical name.
+        let name_to_print = if name.starts_with(&subcommand_prefix) {
+            name.into_owned()
+        } else if canonical_name.starts_with(&subcommand_prefix) {
+            canonical_name.clone()
+        } else {
+            continue;
+        };
+
+        // Don't display removed/deprecated commands in the Subcommands list.
+        if !matches!(sig.category, Category::Removed) && seen.insert(decl_id) {
+            let command_type = decl.command_type();
 
             // If it's a plugin, alias, or custom command, display that information in the help
             if command_type == CommandType::Plugin

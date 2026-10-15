@@ -2,6 +2,7 @@ use nu_experimental::NATIVE_CLIP;
 use nu_test_support::fs::Stub::FileWithContent;
 use nu_test_support::playground::Playground;
 use nu_test_support::prelude::*;
+use rstest::rstest;
 
 // Note: These tests might slightly overlap with tests/scope/mod.rs
 
@@ -487,6 +488,58 @@ fn help_commands_shows_overlay_name_for_module_decls() -> Result {
             .run(r#"help commands | where name == "spam prefix" | length"#)
             .expect_value_eq(1)
     })
+}
+
+// Regression tests for #11657: an alias reuses the signature of the command it wraps, so the
+// Subcommands list must match it by its own name rather than the wrapped command's name.
+#[rstest]
+#[case::custom_command(
+    r#"def foo [] {}; def "foo bar" [] {}; alias fb = foo bar; help foo | ansi strip"#,
+    "foo bar (custom)"
+)]
+#[case::builtin_command("alias st = str trim; help str | ansi strip", "str trim - ")]
+#[case::hidden_alias(
+    r#"def foo [] {}; def "foo bar" [] {}; alias fb = foo bar; hide fb; help foo | ansi strip"#,
+    "foo bar (custom)"
+)]
+fn help_subcommands_omit_alias_named_outside_command(
+    #[case] code: &str,
+    #[case] subcommand: &str,
+) -> Result {
+    let outcome: String = test().run(code)?;
+    assert_contains(subcommand, &outcome);
+    assert_contains_not("(alias)", &outcome);
+    Ok(())
+}
+
+#[rstest]
+#[case::top_level(
+    r#"
+        def foo [] {}
+        def "foo bar" [] {}
+        alias "foo baz" = foo bar
+        help foo | ansi strip
+    "#
+)]
+// Module subcommands are listed under their bare names (`foo bar`, not `spam foo bar`); that is
+// the module-scoping TODO in `get_command_documentation` (#11447), not something this test pins.
+#[case::module_prefixed(
+    r#"
+        module spam {
+            export def foo [] {}
+            export def "foo bar" [] {}
+            export alias "foo baz" = foo bar
+        }
+        use spam
+        help spam foo | ansi strip
+    "#
+)]
+fn help_subcommands_list_alias_under_its_own_name(#[case] code: &str) -> Result {
+    let outcome: String = test().run(code)?;
+    assert_contains("foo bar (custom)", &outcome);
+    assert_contains("foo baz (alias)", &outcome);
+    assert_contains_not("foo bar (alias)", &outcome);
+    Ok(())
 }
 
 #[test]
