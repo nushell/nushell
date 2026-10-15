@@ -1315,6 +1315,24 @@ pub fn parse_operator(working_set: &mut StateWorkingSet, span: Span) -> Expressi
     Expression::new(working_set, Expr::Operator(operator), span, Type::Any)
 }
 
+/// Expands the bare-word operands of a row-condition binary operation to `$it` cell paths.
+///
+/// A bare word on the left of any operator is a column (`where size > 1kb`). On the right it
+/// stays a string after a comparison (`where name == foo`), but `and`/`or`/`xor` need booleans
+/// on both sides, so there it is a column too (`where a and not b`).
+fn expand_row_condition_operands(
+    working_set: &mut StateWorkingSet,
+    lhs: &mut Expression,
+    op: &Expression,
+    rhs: &mut Expression,
+    row_var_id: VarId,
+) {
+    expand_to_cell_path(working_set, lhs, row_var_id, None);
+    if matches!(op.expr, Expr::Operator(Operator::Boolean(_))) {
+        expand_to_cell_path(working_set, rhs, row_var_id, None);
+    }
+}
+
 pub fn parse_math_expression(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
@@ -1488,7 +1506,7 @@ pub fn parse_math_expression(
                 .expect("internal error: expression stack empty");
 
             if let Some(row_var_id) = lhs_row_var_id {
-                expand_to_cell_path(working_set, &mut lhs, row_var_id, None);
+                expand_row_condition_operands(working_set, &mut lhs, &op, &mut rhs, row_var_id);
             }
 
             let (result_ty, err) = math_result_type(working_set, &mut lhs, &mut op, &mut rhs);
@@ -1524,7 +1542,7 @@ pub fn parse_math_expression(
             .expect("internal error: expression stack empty");
 
         if let Some(row_var_id) = lhs_row_var_id {
-            expand_to_cell_path(working_set, &mut lhs, row_var_id, None);
+            expand_row_condition_operands(working_set, &mut lhs, &op, &mut rhs, row_var_id);
         }
 
         let (result_ty, err) = math_result_type(working_set, &mut lhs, &mut op, &mut rhs);
