@@ -31,3 +31,5 @@ pub use semver::IntoSemver;
 pub use semver_range::IntoSemverRange;
 pub use string::IntoString;
 pub use value::IntoValue;
+
+pub(crate) use duration::compound_to_duration;

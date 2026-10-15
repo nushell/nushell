@@ -1,7 +1,7 @@
 use crate::{
     Token, TokenContents,
     exportable::Exportable,
-    lex,
+    lex_once::lex_file,
     lite_parser::{LiteCommand, lite_parse},
     parse_helpers::{garbage_pipeline, trim_quotes},
     parse_pipelines::redirecting_builtin_error,
@@ -495,9 +495,9 @@ pub fn parse_module_block(
 ) -> (Block, Module, Vec<Span>) {
     working_set.enter_scope();
 
-    let source = working_set.get_span_contents(span);
-
-    let (output, err) = lex(source, span.start, &[], &[], false);
+    // A bracket table recorded for the module's file serves only this parse (see `lex_file`).
+    let bracket_tables = working_set.bracket_tables.len();
+    let (output, err) = lex_file(working_set, span, &[], &[], false);
     if let Some(err) = err {
         working_set.error(err)
     }
@@ -660,49 +660,50 @@ pub fn parse_module_block(
         }
     }
 
+    working_set.bracket_tables.truncate(bracket_tables);
     working_set.exit_scope();
 
     (block, module, module_comments)
 }
 
+/// Returns true if any module reachable from `module_id` (through submodules or imports)
+/// has changed on disk since it was parsed.
+///
+/// Each module is checked at most once per call: modules are commonly reachable through many
+/// paths (e.g. a utility module imported by most siblings), and without the `seen` set the walk
+/// re-reads the same files once per path, which is very slow where file opens are expensive.
 fn module_needs_reloading(working_set: &StateWorkingSet, module_id: ModuleId) -> bool {
-    let module = working_set.get_module(module_id);
-
-    fn submodule_need_reloading(working_set: &StateWorkingSet, submodule_id: ModuleId) -> bool {
-        let submodule = working_set.get_module(submodule_id);
-        let submodule_changed = if let Some((file_path, file_id)) = &submodule.file {
-            let existing_contents = working_set.get_contents_of_file(*file_id);
-            let file_contents = file_path.read(working_set);
-
-            if let (Some(existing), Some(new)) = (existing_contents, file_contents) {
-                existing != new
-            } else {
-                false
-            }
-        } else {
-            false
+    /// Returns true if the module's file has changed on disk. Modules without a file, and files
+    /// that can no longer be read, count as unchanged.
+    fn file_changed(working_set: &StateWorkingSet, module_id: ModuleId) -> bool {
+        let Some((file_path, file_id)) = &working_set.get_module(module_id).file else {
+            return false;
         };
-
-        if submodule_changed {
-            true
-        } else {
-            module_needs_reloading(working_set, submodule_id)
-        }
+        matches!(
+            (working_set.get_contents_of_file(*file_id), file_path.read(working_set)),
+            (Some(existing), Some(new)) if existing != new
+        )
     }
 
-    let export_submodule_changed = module
-        .submodules
-        .iter()
-        .any(|(_, submodule_id)| submodule_need_reloading(working_set, *submodule_id));
-
-    if export_submodule_changed {
-        return true;
+    /// Recursive step. A module already in `seen` is skipped: `any()` stops at the first change,
+    /// so a module reached again has already been found unchanged.
+    fn walk(
+        working_set: &StateWorkingSet,
+        module_id: ModuleId,
+        seen: &mut HashSet<ModuleId>,
+    ) -> bool {
+        let module = working_set.get_module(module_id);
+        module
+            .submodules
+            .iter()
+            .map(|(_, id)| *id)
+            .chain(module.imported_modules.iter().copied())
+            .any(|id| {
+                seen.insert(id) && (file_changed(working_set, id) || walk(working_set, id, seen))
+            })
     }
 
-    module
-        .imported_modules
-        .iter()
-        .any(|submodule_id| submodule_need_reloading(working_set, *submodule_id))
+    walk(working_set, module_id, &mut HashSet::new())
 }
 
 fn parse_module_file(

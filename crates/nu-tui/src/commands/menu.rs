@@ -69,6 +69,7 @@ impl Command for TuiMenu {
                 WidgetKind::Menu(MenuWidget { items }),
                 Vec::new(),
                 None,
+                None,
             )
         })
     }

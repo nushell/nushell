@@ -761,6 +761,34 @@ fn use_submodules() -> Result {
     })
 }
 
+#[rstest]
+// `shared.nu` is reached through both `a.nu` and `b.nu`: changing it must reload both.
+#[case(r#""export def s [] { 'woem' }" | save -f shared.nu"#, ["woem", "woem"])]
+// The walk finds `a.nu` and `shared.nu` unchanged first; marking them as seen must not stop it
+// from going on to find the change in `b.nu`.
+#[case(r#""use shared.nu; export def y [] { 'woem' }" | save -f b.nu"#, ["meow", "woem"])]
+fn reload_module_reached_through_several_imports(
+    #[case] change: &str,
+    #[case] expected: [&str; 2],
+) -> Result {
+    Playground::setup("reload_shared_module", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[
+            FileWithContent("lib.nu", "export use a.nu; export use b.nu"),
+            FileWithContent("a.nu", "use shared.nu; export def x [] { shared s }"),
+            FileWithContent("b.nu", "use shared.nu; export def y [] { shared s }"),
+            FileWithContent("shared.nu", "export def s [] { 'meow' }"),
+        ]);
+
+        let mut tester = test().cwd(dirs.test());
+        let () = tester.run("use lib.nu")?;
+        let () = tester.run(change)?;
+        let () = tester.run("use lib.nu")?;
+        tester
+            .run("[(lib a x) (lib b y)]")
+            .expect_value_eq(expected.to_vec())
+    })
+}
+
 #[test]
 fn use_nested_submodules() -> Result {
     Playground::setup("use_submodules", |dirs, sandbox| -> Result {

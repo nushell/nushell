@@ -562,15 +562,15 @@ pub enum ShellError {
         span: Span,
     },
 
-    /// You attempted to access an index when it's empty.
+    /// You attempted to access a value from empty content.
     ///
     /// ## Resolution
     ///
-    /// Check your lengths and try again.
-    #[error("Row number too large (empty content).")]
-    #[diagnostic(code(nu::shell::access_beyond_end))]
+    /// Check that the content is not empty and try again.
+    #[error("Cannot access empty content.")]
+    #[diagnostic(code(nu::shell::access_empty_content))]
     AccessEmptyContent {
-        #[label = "index too large (empty content)"]
+        #[label = "content is empty"]
         span: Span,
     },
 
@@ -1197,11 +1197,11 @@ pub enum ShellError {
     )]
     Exit { code: i32, abort: bool },
 
-    /// The code being executed called itself too many times.
+    /// The code being executed nested custom command or closure calls too deeply.
     ///
     /// ## Resolution
     ///
-    /// Adjust your Nu code to
+    /// Adjust your Nu code to recurse less deeply, or raise `$env.config.recursion_limit`.
     #[error("Recursion limit ({recursion_limit}) reached")]
     #[diagnostic(code(nu::shell::recursion_limit_reached))]
     RecursionLimitReached {

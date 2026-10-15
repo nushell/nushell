@@ -28,3 +28,12 @@ fn stddev_duration_keeps_unit() -> Result {
         .run("[1sec 3sec] | math stddev")
         .expect_value_eq(expected)
 }
+
+#[test]
+fn stddev_large_close_values() -> Result {
+    // Regression: the single-pass formula produced a negative variance here,
+    // so the square root was `NaN`.
+    test()
+        .run("[506250000.0 506250001.0] | math stddev")
+        .expect_value_eq(0.5)
+}

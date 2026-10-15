@@ -1,7 +1,9 @@
 #![allow(clippy::byte_char_slices)]
 
 use crate::{
-    TokenContents, lex, lite_parse,
+    TokenContents,
+    lex_once::lex_span,
+    lite_parse,
     parse_helpers::is_variable,
     parser::{ensure_not_reserved_variable_name, parse_value},
 };
@@ -118,9 +120,7 @@ pub fn parse_list_pattern(working_set: &mut StateWorkingSet, span: Span) -> Matc
     }
 
     let inner_span = Span::new(start, end);
-    let source = working_set.get_span_contents(inner_span);
-
-    let (output, err) = lex(source, inner_span.start, &[b'\n', b'\r', b','], &[], true);
+    let (output, err) = lex_span(working_set, inner_span, &[b'\n', b'\r', b','], &[], true);
     if let Some(err) = err {
         working_set.error(err);
     }
@@ -143,48 +143,53 @@ pub fn parse_list_pattern(working_set: &mut StateWorkingSet, span: Span) -> Matc
     }
 
     let mut args = vec![];
+    // Like a Rust slice pattern, a list pattern may hold one `..` or `..$name`, at any position.
+    let mut has_rest = false;
 
     if !output.block.is_empty() {
         for command in &output.block[0].commands {
-            let mut spans_idx = 0;
+            for &part in &command.parts {
+                let contents = working_set.get_span_contents(part);
 
-            while spans_idx < command.parts.len() {
-                let contents = working_set.get_span_contents(command.parts[spans_idx]);
-                if contents == b".." {
-                    args.push(MatchPattern {
+                let arg = if contents == b".." {
+                    MatchPattern {
                         pattern: Pattern::IgnoreRest,
                         guard: None,
-                        span: command.parts[spans_idx],
-                    });
-                    break;
+                        span: part,
+                    }
                 } else if contents.starts_with(b"..$") {
                     if let Some(var_id) = parse_variable_pattern_helper(
                         working_set,
-                        Span::new(
-                            command.parts[spans_idx].start + 2,
-                            command.parts[spans_idx].end,
-                        ),
+                        Span::new(part.start + 2, part.end),
                     ) {
-                        args.push(MatchPattern {
+                        MatchPattern {
                             pattern: Pattern::Rest(var_id),
                             guard: None,
-                            span: command.parts[spans_idx],
-                        });
-                        break;
+                            span: part,
+                        }
                     } else {
-                        args.push(garbage(command.parts[spans_idx]));
-                        working_set.error(ParseError::Expected(
-                            "valid variable name",
-                            command.parts[spans_idx],
-                        ));
+                        working_set.error(ParseError::Expected("valid variable name", part));
+                        garbage(part)
                     }
                 } else {
-                    let arg = parse_pattern(working_set, command.parts[spans_idx]);
-
-                    args.push(arg);
+                    parse_pattern(working_set, part)
                 };
 
-                spans_idx += 1;
+                let is_rest = matches!(arg.pattern, Pattern::IgnoreRest | Pattern::Rest(_));
+                if is_rest && has_rest {
+                    // An extra `..$name` was still parsed above, so its variable is declared
+                    // and the arm body reports only this error, not also "Variable not found".
+                    working_set.error(ParseError::LabeledErrorWithHelp {
+                        error: "`..` can only be used once per list pattern".into(),
+                        label: "extra rest pattern".into(),
+                        help: "Keep one `..` or `..$name` and remove the others.".into(),
+                        span: part,
+                    });
+                    args.push(garbage(part));
+                } else {
+                    has_rest |= is_rest;
+                    args.push(arg);
+                }
             }
         }
     }
@@ -217,9 +222,13 @@ pub fn parse_record_pattern(working_set: &mut StateWorkingSet, span: Span) -> Ma
     }
 
     let inner_span = Span::new(start, end);
-    let source = working_set.get_span_contents(inner_span);
-
-    let (tokens, err) = lex(source, start, &[b'\n', b'\r', b','], &[b':'], true);
+    let (tokens, err) = lex_span(
+        working_set,
+        inner_span,
+        &[b'\n', b'\r', b','],
+        &[b':'],
+        true,
+    );
     if let Some(err) = err {
         working_set.error(err);
     }

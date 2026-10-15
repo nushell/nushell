@@ -4,6 +4,7 @@ mod exportable;
 mod flatten;
 mod known_external;
 mod lex;
+mod lex_once;
 mod lite_parser;
 mod parse_alias;
 mod parse_bindings;

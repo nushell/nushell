@@ -14,6 +14,7 @@ use nu_protocol::{
 };
 use nu_std::load_standard_library;
 use nu_table::{NuTable, TableTheme};
+use nu_test_support::{fs::nu_files, tester::parse_file};
 use std::{
     env,
     fmt::Write,
@@ -31,7 +32,26 @@ fn load_bench_commands() -> EngineState {
 }
 
 fn setup_engine() -> EngineState {
-    let mut engine_state = load_bench_commands();
+    finish_engine_setup(load_bench_commands())
+}
+
+/// Build the engine the way the `nu` binary does (`src/command_context.rs` plus the standard
+/// library), so that real scripts and modules parse exactly as they do in the shell.
+fn setup_shell_engine() -> EngineState {
+    let engine_state = nu_cmd_lang::create_default_context();
+    #[cfg(feature = "plugin")]
+    let engine_state = nu_cmd_plugin::add_plugin_command_context(engine_state);
+    let engine_state = nu_command::add_shell_command_context(engine_state);
+    let engine_state = nu_cmd_extra::add_extra_command_context(engine_state);
+    let engine_state = nu_cli::add_cli_context(engine_state);
+    let engine_state = nu_explore::add_explore_context(engine_state);
+    let mut engine_state = finish_engine_setup(nu_tui::add_tui_context(engine_state));
+    load_standard_library(&mut engine_state).expect("the standard library loads");
+    engine_state
+}
+
+/// Set `PWD` and the `$nu` constant, which parsing needs regardless of the command set.
+fn finish_engine_setup(mut engine_state: EngineState) -> EngineState {
     let cwd = std::env::current_dir()
         .unwrap()
         .into_os_string()
@@ -1192,31 +1212,12 @@ const PARSER_STD_HELP_MOD: &str = include_str!("../crates/nu-std/std/help/mod.nu
 const PARSER_STD_LOG_MOD: &str = include_str!("../crates/nu-std/std/log/mod.nu");
 const PARSER_DOC_CONFIG: &str = include_str!("../crates/nu-config/default_files/doc_config.nu");
 
-/// Recursively discover all .nu files under a directory.
-fn collect_nu_files_recursive(root: &Path, files: &mut Vec<PathBuf>) {
-    let Ok(entries) = fs::read_dir(root) else {
-        return;
-    };
-
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if path.is_dir() {
-            collect_nu_files_recursive(&path, files);
-        } else if path.extension().is_some_and(|ext| ext == "nu") {
-            files.push(path);
-        }
-    }
-}
-
 /// Collect all .nu source files from crates/nu-std/std into a single concatenated string.
 /// Files are sorted by path for deterministic output across runs.
-/// Returns None if the directory cannot be read (will panic at benchmark time to fail loudly).
+/// Returns None if no file could be read (will panic at benchmark time to fail loudly).
 fn collect_all_std_nu_sources() -> Option<String> {
     let std_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("crates/nu-std/std");
-    let mut files = Vec::new();
-    collect_nu_files_recursive(&std_root, &mut files);
-
-    files.sort();
+    let files = nu_files(std_root);
 
     let mut combined = String::new();
     for path in files {
@@ -1396,6 +1397,74 @@ fn bench_parser_full_parse_ctx(dataset: &str, source: String) -> impl IntoBenchm
     })]
 }
 
+/// Real files for the `parser_parse_shell_*` benchmarks: every standard-library module, the
+/// default and documented config files, and the `toolkit` module, which `use`s its submodules
+/// from disk.
+fn parser_shell_corpus() -> Vec<(String, PathBuf)> {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let std_root = root.join("crates/nu-std/std");
+    let mut corpus: Vec<(String, PathBuf)> = nu_files(&std_root)
+        .into_iter()
+        .map(|path| {
+            // `std/mod.nu` is "std", `std/help/mod.nu` is "std_help".
+            let dir = path
+                .parent()
+                .and_then(|dir| dir.strip_prefix(&std_root).ok());
+            let dataset = match dir {
+                Some(dir) if !dir.as_os_str().is_empty() => {
+                    format!("std_{}", dir.to_string_lossy())
+                }
+                _ => "std".to_string(),
+            };
+            (dataset, path)
+        })
+        .collect();
+    for name in ["default_config", "default_env", "doc_config", "doc_env"] {
+        let path = root.join(format!("crates/nu-config/default_files/{name}.nu"));
+        corpus.push((name.to_string(), path));
+    }
+    corpus.push(("toolkit".to_string(), root.join("toolkit/mod.nu")));
+    corpus
+}
+
+/// Benchmark the full parse of real files in the shell's engine (see [`setup_shell_engine`]).
+/// Unlike the `parser_parse_ctx_*` benchmarks, `use std/...` and relative module paths resolve,
+/// so every input parses without errors and IR compilation runs as it does in `nu`. Setup
+/// fails loudly if an input stops parsing cleanly, since it would no longer measure that
+/// workload.
+/// Benchmark name format: parser_parse_shell_<dataset>_<size>b_<chars>c
+fn bench_parser_parse_shell() -> impl IntoBenchmarks {
+    parser_shell_corpus()
+        .into_iter()
+        .map(|(dataset, path)| {
+            let source = fs::read_to_string(&path)
+                .unwrap_or_else(|err| panic!("cannot read {}: {err}", path.display()));
+            let bench_name = parser_bench_name("parse_shell", &dataset, &source);
+            let input = source.into_bytes();
+
+            benchmark_fn(bench_name, move |b| {
+                let engine_state = setup_shell_engine();
+                let input = input.clone();
+                let path = path.clone();
+                {
+                    let (working_set, _) = parse_file(&engine_state, &path, &input, true);
+                    assert!(
+                        working_set.parse_errors.is_empty()
+                            && working_set.compile_errors.is_empty(),
+                        "{} must parse without errors: {:?} {:?}",
+                        path.display(),
+                        working_set.parse_errors,
+                        working_set.compile_errors,
+                    );
+                }
+                b.iter(move || {
+                    black_box(parse_file(&engine_state, &path, &input, true));
+                })
+            })
+        })
+        .collect::<Vec<_>>()
+}
+
 /// Small parser benchmark input: synthetic short pipeline (~127 bytes).
 /// Measures lex/parse overhead with minimal variability for signal clarity.
 fn parser_input_small() -> String {
@@ -1526,6 +1595,8 @@ tango_benchmarks!(
     bench_parser_full_parse_ctx("std_help", parser_input_std_help()),
     bench_parser_full_parse_ctx("doc_config", parser_input_doc_config()),
     bench_parser_full_parse_ctx("large", parser_input_large()),
+    // Full parse of real files in the shell's engine (the speed target for parser work)
+    bench_parser_parse_shell(),
     // Data types
     // Binary
     bench_binary_value_clone(2 * 1024 * 1024),
