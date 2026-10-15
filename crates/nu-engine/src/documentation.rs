@@ -316,47 +316,70 @@ fn get_command_documentation(
     let subcommand_prefix = format!("{cmd_name} ");
     // A declaration can appear here under several overlay names (a script's `main bar` is also
     // registered as `script.nu bar`), so every name is checked, not just one per declaration.
-    for (name, decl_id) in engine_state.get_decls_sorted(true) {
+    for (overlay_name, decl_id) in engine_state.get_decls_sorted(true) {
         let decl = engine_state.get_decl(decl_id);
+        let alias = decl.as_alias();
         let sig = engine_state.get_signature(decl).update_from_command(decl);
-        let name = String::from_utf8_lossy(&name);
+        let name = String::from_utf8_lossy(&overlay_name);
 
         // The declared name, used when no overlay name matches: a module command is registered as
         // `spam foo bar` but documented under its bare signature name `foo bar`. An alias reuses
         // the signature of the command it wraps, so `sig.name` is not a name the alias answers to.
-        let canonical_name = decl.as_alias().map_or(&sig.name, |alias| &alias.name);
+        let canonical_name = alias.map_or(&sig.name, |alias| &alias.name);
 
-        // Prefer the overlay name for display, falling back to the canonical name.
-        let name_to_print = if name.starts_with(&subcommand_prefix) {
-            name.into_owned()
+        // Prefer the overlay name for display, falling back to the canonical name. An alias of a
+        // subcommand (`alias st = str trim` under `help str`) is listed under the name it's called
+        // by, and `wraps` keeps the subcommand's name so the alias sorts right after it.
+        let (name_to_print, wraps) = if name.starts_with(&subcommand_prefix) {
+            (name.into_owned(), None)
         } else if canonical_name.starts_with(&subcommand_prefix) {
-            canonical_name.clone()
+            (canonical_name.clone(), None)
+        } else if alias.is_some() && sig.name.starts_with(&subcommand_prefix) {
+            (name.into_owned(), Some(sig.name.clone()))
         } else {
             continue;
         };
 
+        // A hidden alias can't be called, so it isn't listed. `find_decl` also rejects a name that
+        // now resolves to another declaration.
+        let callable =
+            alias.is_none() || engine_state.find_decl(&overlay_name, &[]) == Some(decl_id);
+
         // Don't display removed/deprecated commands in the Subcommands list.
-        if !matches!(sig.category, Category::Removed) && seen.insert(decl_id) {
+        if callable && !matches!(sig.category, Category::Removed) && seen.insert(decl_id) {
             let command_type = decl.command_type();
 
+            // Every alias shows what it runs. A doc comment on the alias replaces its default
+            // "Alias for `...`" description, but the comment still shows in the alias's own help.
+            let description = match alias {
+                Some(alias) => Cow::Owned(format!(
+                    "Alias for `{}`",
+                    String::from_utf8_lossy(
+                        engine_state.get_span_contents(alias.wrapped_call.span)
+                    )
+                )),
+                None => Cow::Borrowed(sig.description.as_str()),
+            };
+            let description = highlight_code(&description, engine_state, stack, head);
+
             // If it's a plugin, alias, or custom command, display that information in the help
-            if command_type == CommandType::Plugin
+            let line = if command_type == CommandType::Plugin
                 || command_type == CommandType::Alias
                 || command_type == CommandType::Custom
             {
-                subcommands.push(format!(
-                    "  {help_subcolor_one}{} {help_section_name}({}){RESET} - {}",
-                    name_to_print,
-                    command_type,
-                    highlight_code(&sig.description, engine_state, stack, head)
-                ));
+                format!(
+                    "  {help_subcolor_one}{name_to_print} {help_section_name}({command_type}){RESET} - {description}"
+                )
             } else {
-                subcommands.push(format!(
-                    "  {help_subcolor_one}{}{RESET} - {}",
-                    name_to_print,
-                    highlight_code(&sig.description, engine_state, stack, head)
-                ));
-            }
+                format!("  {help_subcolor_one}{name_to_print}{RESET} - {description}")
+            };
+
+            // Sorted by name, except that an alias of a subcommand goes right after that subcommand.
+            let (sort_name, after_wrapped) = match wraps {
+                Some(wrapped) => (wrapped, true),
+                None => (name_to_print, false),
+            };
+            subcommands.push((sort_name, after_wrapped, line));
         }
     }
 
@@ -366,8 +389,10 @@ fn get_command_documentation(
         subcommands.sort();
         // sort may not remove duplicates when two different names map to the same description string; dedup to be safe.
         subcommands.dedup();
-        long_desc.push_str(&subcommands.join("\n"));
-        long_desc.push('\n');
+        for (_, _, line) in subcommands {
+            long_desc.push_str(&line);
+            long_desc.push('\n');
+        }
     }
 
     if !sig.named.is_empty() {
