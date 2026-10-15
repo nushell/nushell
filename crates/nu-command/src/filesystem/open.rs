@@ -214,6 +214,24 @@ impl Command for Open {
 
                     match converter {
                         Some((converter_id, ext)) => {
+                            // `open` runs the `from <ext>` converter by looking it up by name,
+                            // but an alias can't be run on its own. Rather than failing with an
+                            // internal error, point the user at a custom command, which `open`
+                            // can run (#18725).
+                            if let Some(alias) = engine_state.get_decl(converter_id).as_alias() {
+                                let file = String::from_utf8_lossy(
+                                    engine_state.get_span_contents(arg_span),
+                                );
+                                return Err(crate::formats::alias_converter_error(
+                                    engine_state,
+                                    alias,
+                                    "open",
+                                    "open file",
+                                    &format!("open --raw {file} | {{}}"),
+                                    arg_span,
+                                ));
+                            }
+
                             let open_call = ast::Call {
                                 decl_id: converter_id,
                                 head: call_span,

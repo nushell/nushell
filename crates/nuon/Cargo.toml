@@ -15,6 +15,7 @@ nu-parser.workspace = true
 nu-protocol.workspace = true
 nu-engine.workspace = true
 nu-utils.workspace = true
+unicode-width = { workspace = true }
 
 [dev-dependencies]
 chrono = { workspace = true }

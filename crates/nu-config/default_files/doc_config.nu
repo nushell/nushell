@@ -113,8 +113,9 @@ $env.config.show_banner = true
 # Default: false
 $env.config.rm.always_trash = false
 
-# recursion_limit (int): Maximum times a command can call itself recursively.
-# Prevents infinite recursion by generating an error when exceeded.
+# recursion_limit (int): Maximum depth of nested custom command and closure calls.
+# Each call to a custom command or closure (`do`, `each`, `where`, hooks, etc.) adds one level.
+# Prevents infinite recursion from crashing Nushell by generating an error when exceeded.
 # Must be greater than 1.
 # Default: 50
 $env.config.recursion_limit = 50

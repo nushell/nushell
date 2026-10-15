@@ -107,6 +107,7 @@ impl Command for TuiSplit {
                 WidgetKind::Split(SplitWidget { direction, sizes }),
                 children,
                 None,
+                None,
             )
         })
     }

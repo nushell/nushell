@@ -107,6 +107,8 @@ impl Widget {
 pub struct Source {
     pub from: Option<String>,
     pub closure: Option<Closure>,
+    /// The builder call, which errors about this source point at.
+    pub span: Span,
 }
 
 /// Every widget kind. Each variant wraps the struct that implements

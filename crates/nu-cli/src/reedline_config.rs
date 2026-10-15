@@ -15,9 +15,9 @@ use reedline::{
     EditCommandDiscriminants, FindStop, Granularity, IdeMenu, InputMode, Keybindings, ListMenu,
     Menu, MenuBuilder, MotionTarget, OutputMode, PromptEditMode, PromptEditModeDiscriminants,
     PromptHelixMode, PromptViMode, Reedline, ReedlineEvent, ReedlineEventDiscriminants,
-    ReedlineMenu, TextObject, TextObjectScope, TextObjectType, TraversalDirection, WordEdge,
-    WordKind, default_emacs_keybindings, default_vi_insert_keybindings,
-    default_vi_normal_keybindings, default_vi_visual_keybindings,
+    ReedlineMenu, TextObject, TextObjectBracket, TextObjectQuote, TextObjectScope, TextObjectType,
+    TraversalDirection, WordEdge, WordKind, default_emacs_keybindings,
+    default_vi_insert_keybindings, default_vi_normal_keybindings, default_vi_visual_keybindings,
 };
 use reedline::{
     default_helix_insert_keybindings, default_helix_normal_keybindings,
@@ -1120,6 +1120,9 @@ fn edit_from_record(
     span: Span,
 ) -> Result<EditCommand, ShellError> {
     use EditCommandDiscriminants as ECD;
+    if let Some(edit) = legacy_pair_edit(name, record, span)? {
+        return Ok(edit);
+    }
     // When updating this implementation, also update `display_edit_command` function
     let edit = match ECD::from_str(name) {
         Ok(ECD::MoveToStart) => EditCommand::MoveToStart {
@@ -1390,34 +1393,6 @@ fn edit_from_record(
         Ok(ECD::CopySelectionSystem) => EditCommand::CopySelectionSystem,
         #[cfg(feature = "system-clipboard")]
         Ok(ECD::PasteSystem) => EditCommand::PasteSystem,
-        Ok(ECD::CutInsidePair) => {
-            let value = extract_value("left", record, span)?;
-            let left = extract_char(value)?;
-            let value = extract_value("right", record, span)?;
-            let right = extract_char(value)?;
-            EditCommand::CutInsidePair { left, right }
-        }
-        Ok(ECD::CopyInsidePair) => {
-            let value = extract_value("left", record, span)?;
-            let left = extract_char(value)?;
-            let value = extract_value("right", record, span)?;
-            let right = extract_char(value)?;
-            EditCommand::CopyInsidePair { left, right }
-        }
-        Ok(ECD::CutAroundPair) => {
-            let value = extract_value("left", record, span)?;
-            let left = extract_char(value)?;
-            let value = extract_value("right", record, span)?;
-            let right = extract_char(value)?;
-            EditCommand::CutAroundPair { left, right }
-        }
-        Ok(ECD::CopyAroundPair) => {
-            let value = extract_value("left", record, span)?;
-            let left = extract_char(value)?;
-            let value = extract_value("right", record, span)?;
-            let right = extract_char(value)?;
-            EditCommand::CopyAroundPair { left, right }
-        }
         Ok(ECD::CopyTextObject) => EditCommand::CopyTextObject {
             text_object: parse_text_object(record, config, span)?,
         },
@@ -1452,6 +1427,19 @@ fn edit_from_record(
                 .ok()
                 .and_then(|count| usize::try_from(count).ok())
                 .unwrap_or(1),
+        },
+        Ok(ECD::SelectTextObject) => {
+            EditCommand::SelectTextObject(parse_text_object(record, config, span)?)
+        }
+        Ok(ECD::AddTextObject) => EditCommand::AddTextObject {
+            text_object: parse_pair_type("object_type", record, config, span)?,
+        },
+        Ok(ECD::RemoveTextObject) => EditCommand::RemoveTextObject {
+            text_object: parse_pair_type("object_type", record, config, span)?,
+        },
+        Ok(ECD::ReplaceTextObject) => EditCommand::ReplaceTextObject {
+            old: parse_pair_type("old", record, config, span)?,
+            new: parse_pair_type("new", record, config, span)?,
         },
         // `EditCommand::ReplaceChars` - Internal hack not sanely implementable as a
         // standalone binding
@@ -1574,12 +1562,12 @@ pub(crate) fn display_edit_command(edit: EditCommandDiscriminants) -> Option<&'s
         ECD::CopySelectionSystem => "CopySelectionSystem",
         #[cfg(feature = "system-clipboard")]
         ECD::PasteSystem => "PasteSystem",
-        ECD::CutInsidePair => "CutInsidePair left: <char>, right <char>",
-        ECD::CopyInsidePair => "CopyInsidePair left: <char>, right <char>",
-        ECD::CutAroundPair => "CutAroundPair left: <char>, right <char>",
-        ECD::CopyAroundPair => "CopyAroundPair left: <char>, right <char>",
-        ECD::CutTextObject => "CutTextObject scope: <string>, object_type: <string>",
-        ECD::CopyTextObject => "CopyTextObject scope: <string>, object_type: <string>",
+        ECD::CutTextObject => {
+            "CutTextObject scope: <string>, object_type: <string | record>, check_next?: <bool>"
+        }
+        ECD::CopyTextObject => {
+            "CopyTextObject scope: <string>, object_type: <string | record>, check_next?: <bool>"
+        }
         ECD::Move => {
             "Move motion: <string>, direction: <string>, word_kind?: <string>, edge?: <string>, char?: <char>, stop?: <string>"
         }
@@ -1603,6 +1591,14 @@ pub(crate) fn display_edit_command(edit: EditCommandDiscriminants) -> Option<&'s
         }
         ECD::CollapseSelection => "CollapseSelection direction: <string>",
         ECD::PasteAtSelectionEdge => "PasteAtSelectionEdge direction: <string>, count?: <int>",
+        ECD::SelectTextObject => {
+            "SelectTextObject scope: <string>, object_type: <string | record>, check_next?: <bool>"
+        }
+        ECD::AddTextObject => "AddTextObject object_type: <string | record>",
+        ECD::RemoveTextObject => "RemoveTextObject object_type: <string | record>",
+        ECD::ReplaceTextObject => {
+            "ReplaceTextObject old: <string | record>, new: <string | record>"
+        }
         ECD::ReplaceChars => return None,
     })
 }
@@ -1645,22 +1641,116 @@ fn parse_text_object(
         },
     )?;
 
-    let object_type = extract_enum_field(
-        "object_type",
-        record,
-        config,
-        span,
-        "'word', 'bigword', 'brackets', or 'quote'",
-        |name| match name {
-            "word" => Some(TextObjectType::Word),
-            "bigword" => Some(TextObjectType::BigWord),
-            "brackets" | "bracket" => Some(TextObjectType::Brackets),
-            "quote" | "quotes" => Some(TextObjectType::Quote),
-            _ => None,
-        },
-    )?;
+    let object_type = parse_object_type("object_type", record, config, span)?;
 
-    Ok(TextObject { scope, object_type })
+    // With the cursor outside any match, act on the next one unless told
+    // otherwise, as these commands did before reedline made it optional.
+    let check_next = extract_value("check_next", record, span)
+        .and_then(|value| value.as_bool())
+        .unwrap_or(true);
+
+    Ok(TextObject {
+        scope,
+        object_type,
+        check_next,
+    })
+}
+
+const OBJECT_TYPES: &str = "'word', 'bigword', 'brackets', 'quotes', 'parentheses', \
+    'square_brackets', 'curly_brackets', 'angle_brackets', 'single_quotes', 'double_quotes', \
+    'backticks', or a record { left: <char>, right: <char> }";
+
+/// A text object type by name. `brackets` and `quotes` match any of their kind,
+/// the others one pair.
+fn object_type_by_name(name: &str) -> Option<TextObjectType> {
+    use TextObjectBracket as B;
+    use TextObjectQuote as Q;
+    Some(match name {
+        "word" => TextObjectType::Word,
+        "bigword" => TextObjectType::BigWord,
+        "brackets" | "bracket" => TextObjectType::Brackets(B::All),
+        "quotes" | "quote" => TextObjectType::Quotes(Q::All),
+        "parentheses" | "parenthesis" => TextObjectType::Brackets(B::Parenthesis),
+        "square_brackets" | "square_bracket" => TextObjectType::Brackets(B::SquareBracket),
+        "curly_brackets" | "curly_bracket" => TextObjectType::Brackets(B::CurlyBracket),
+        "angle_brackets" | "angle_bracket" => TextObjectType::Brackets(B::AngleBracket),
+        "single_quotes" | "single_quote" => TextObjectType::Quotes(Q::SingleQuote),
+        "double_quotes" | "double_quote" => TextObjectType::Quotes(Q::DoubleQuote),
+        "backticks" | "backtick" => TextObjectType::Quotes(Q::Tick),
+        _ => return None,
+    })
+}
+
+/// Read a text object type from `field`: one of the names above, or a
+/// `{ left: <char>, right: <char> }` record for any other pair.
+fn parse_object_type(
+    field: &'static str,
+    record: &Record,
+    config: &Config,
+    span: Span,
+) -> Result<TextObjectType, ShellError> {
+    let value = extract_value(field, record, span)?;
+    if let Ok(pair) = value.as_record() {
+        let left = extract_char(extract_value("left", pair, value.span())?)?;
+        let right = extract_char(extract_value("right", pair, value.span())?)?;
+        return Ok(TextObjectType::Pair { left, right });
+    }
+    let name = value.to_expanded_string("", config).to_ascii_lowercase();
+    object_type_by_name(&name).ok_or_else(|| ShellError::InvalidValue {
+        valid: OBJECT_TYPES.into(),
+        actual: format!("'{name}'"),
+        span: value.span(),
+    })
+}
+
+/// Like [`parse_object_type`], for the commands that insert or remove the
+/// pair itself and so need exactly one: not a word, nor a whole kind.
+fn parse_pair_type(
+    field: &'static str,
+    record: &Record,
+    config: &Config,
+    span: Span,
+) -> Result<TextObjectType, ShellError> {
+    let object_type = parse_object_type(field, record, config, span)?;
+    if object_type.to_chars().is_none() {
+        let value = extract_value(field, record, span)?;
+        return Err(ShellError::InvalidValue {
+            valid: "a single pair, such as 'parentheses' or { left: <char>, right: <char> }".into(),
+            actual: format!("'{}'", value.to_expanded_string("", config)),
+            span: value.span(),
+        });
+    }
+    Ok(object_type)
+}
+
+/// `CutInsidePair`, `CopyInsidePair`, `CutAroundPair` and `CopyAroundPair`
+/// left reedline for the text object commands (nushell/reedline#1188). They
+/// still parse, onto the text object over their `left`/`right` pair, so
+/// existing configs keep working.
+fn legacy_pair_edit(
+    name: &str,
+    record: &Record,
+    span: Span,
+) -> Result<Option<EditCommand>, ShellError> {
+    let (cut, scope) = match name.to_ascii_lowercase().as_str() {
+        "cutinsidepair" => (true, TextObjectScope::Inner),
+        "copyinsidepair" => (false, TextObjectScope::Inner),
+        "cutaroundpair" => (true, TextObjectScope::Around),
+        "copyaroundpair" => (false, TextObjectScope::Around),
+        _ => return Ok(None),
+    };
+    let left = extract_char(extract_value("left", record, span)?)?;
+    let right = extract_char(extract_value("right", record, span)?)?;
+    let text_object = TextObject {
+        scope,
+        object_type: TextObjectType::Pair { left, right },
+        check_next: true,
+    };
+    Ok(Some(if cut {
+        EditCommand::CutTextObject { text_object }
+    } else {
+        EditCommand::CopyTextObject { text_object }
+    }))
 }
 
 /// Read a lowercased string field from `record` and map it to an enum value,
@@ -1903,6 +1993,150 @@ mod test {
                     stop: FindStop::Before,
                 }
             )]))
+        );
+    }
+
+    // The pair commands left reedline (nushell/reedline#1188); configs that
+    // still use them get the text object command that does the same.
+    #[test]
+    fn test_edit_legacy_pair_commands_map_to_text_objects() {
+        let config = Config::default();
+        let pair = |name: &str| {
+            Value::test_record(record! {
+                "edit" => Value::test_string(name),
+                "left" => Value::test_string("("),
+                "right" => Value::test_string(")"),
+            })
+        };
+        let text_object = |scope| TextObject {
+            scope,
+            object_type: TextObjectType::Pair {
+                left: '(',
+                right: ')',
+            },
+            check_next: true,
+        };
+
+        assert_eq!(
+            parse_event(&pair("CutInsidePair"), &config).unwrap(),
+            Some(ReedlineEvent::Edit(vec![EditCommand::CutTextObject {
+                text_object: text_object(TextObjectScope::Inner)
+            }]))
+        );
+        assert_eq!(
+            parse_event(&pair("copyaroundpair"), &config).unwrap(),
+            Some(ReedlineEvent::Edit(vec![EditCommand::CopyTextObject {
+                text_object: text_object(TextObjectScope::Around)
+            }]))
+        );
+    }
+
+    #[test]
+    fn test_edit_text_object_brackets() {
+        let event = Value::test_record(record! {
+            "edit" => Value::test_string("CutTextObject"),
+            "scope" => Value::test_string("inner"),
+            "object_type" => Value::test_string("brackets"),
+        });
+        let config = Config::default();
+
+        assert_eq!(
+            parse_event(&event, &config).unwrap(),
+            Some(ReedlineEvent::Edit(vec![EditCommand::CutTextObject {
+                text_object: TextObject {
+                    scope: TextObjectScope::Inner,
+                    object_type: TextObjectType::Brackets(TextObjectBracket::All),
+                    check_next: true,
+                }
+            }]))
+        );
+    }
+
+    fn parse_edit(fields: Record) -> Result<Option<ReedlineEvent>, ShellError> {
+        parse_event(&Value::test_record(fields), &Config::default())
+    }
+
+    #[test]
+    fn test_edit_text_object_named_pair_and_check_next() {
+        assert_eq!(
+            parse_edit(record! {
+                "edit" => Value::test_string("CutTextObject"),
+                "scope" => Value::test_string("around"),
+                "object_type" => Value::test_string("parentheses"),
+                "check_next" => Value::test_bool(false),
+            })
+            .unwrap(),
+            Some(ReedlineEvent::Edit(vec![EditCommand::CutTextObject {
+                text_object: TextObject {
+                    scope: TextObjectScope::Around,
+                    object_type: TextObjectType::Brackets(TextObjectBracket::Parenthesis),
+                    check_next: false,
+                }
+            }]))
+        );
+    }
+
+    #[test]
+    fn test_edit_text_object_custom_pair() {
+        assert_eq!(
+            parse_edit(record! {
+                "edit" => Value::test_string("SelectTextObject"),
+                "scope" => Value::test_string("inner"),
+                "object_type" => Value::test_record(record! {
+                    "left" => Value::test_string("|"),
+                    "right" => Value::test_string("|"),
+                }),
+            })
+            .unwrap(),
+            Some(ReedlineEvent::Edit(vec![EditCommand::SelectTextObject(
+                TextObject {
+                    scope: TextObjectScope::Inner,
+                    object_type: TextObjectType::Pair {
+                        left: '|',
+                        right: '|',
+                    },
+                    check_next: true,
+                }
+            )]))
+        );
+    }
+
+    #[test]
+    fn test_edit_add_and_replace_text_object() {
+        assert_eq!(
+            parse_edit(record! {
+                "edit" => Value::test_string("AddTextObject"),
+                "object_type" => Value::test_string("double_quotes"),
+            })
+            .unwrap(),
+            Some(ReedlineEvent::Edit(vec![EditCommand::AddTextObject {
+                text_object: TextObjectType::Quotes(TextObjectQuote::DoubleQuote),
+            }]))
+        );
+        assert_eq!(
+            parse_edit(record! {
+                "edit" => Value::test_string("ReplaceTextObject"),
+                "old" => Value::test_string("parentheses"),
+                "new" => Value::test_string("square_brackets"),
+            })
+            .unwrap(),
+            Some(ReedlineEvent::Edit(vec![EditCommand::ReplaceTextObject {
+                old: TextObjectType::Brackets(TextObjectBracket::Parenthesis),
+                new: TextObjectType::Brackets(TextObjectBracket::SquareBracket),
+            }]))
+        );
+    }
+
+    // Adding or removing needs one pair to insert or delete; a whole kind
+    // would silently do nothing, so it is refused at config time.
+    #[test]
+    fn test_edit_remove_text_object_needs_a_single_pair() {
+        assert!(
+            parse_edit(record! {
+                "edit" => Value::test_string("RemoveTextObject"),
+                "object_type" => Value::test_string("brackets"),
+            })
+            .is_err()
         );
     }
 
