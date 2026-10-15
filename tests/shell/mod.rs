@@ -42,6 +42,47 @@ fn plugins_are_declared_with_wix() -> Result {
 }
 
 #[test]
+#[deps(NU)]
+fn exit_inside_each_keeps_exit_code() -> Result {
+    let result: CompleteResult = test().run("^nu -n -c '[0] | each { exit 3 }' | complete")?;
+    assert_eq!(result.exit_code, 3);
+    assert!(result.stderr.is_empty());
+    Ok(())
+}
+
+#[test]
+#[deps(NU)]
+fn exit_keeps_exit_code_in_other_streaming_commands() -> Result {
+    // `try` cannot catch `exit` (as in `try { exit 3 }`), and a stored result exits
+    // as soon as it is read.
+    for code in [
+        "[0] | par-each { exit 3 }",
+        "{a: 1} | items {|k, v| exit 3 }",
+        "try { [0] | each { exit 3 } } catch { print caught }",
+        "let r = ([0] | each { exit 3 } | wrap a); $r.a.0",
+    ] {
+        let result: CompleteResult = test().run(format!("^nu -n -c '{code}' | complete"))?;
+        assert_eq!(result.exit_code, 3, "{code}");
+        assert!(result.stdout.is_empty(), "{code}");
+        assert!(result.stderr.is_empty(), "{code}");
+    }
+    Ok(())
+}
+
+#[test]
+#[deps(NU)]
+fn exit_keeps_exit_code_with_backtrace() -> Result {
+    for code in ["exit 3", "[0] | each { exit 3 }"] {
+        let result: CompleteResult = test().run(format!(
+            "with-env {{ NU_BACKTRACE: 1 }} {{ ^nu -n -c '{code}' | complete }}"
+        ))?;
+        assert_eq!(result.exit_code, 3, "{code}");
+        assert!(result.stderr.is_empty(), "{code}");
+    }
+    Ok(())
+}
+
+#[test]
 #[deps(NU, TESTBIN_FAIL)]
 fn do_not_panic_if_broken_pipe() -> Result {
     // `nu -h | fail` used to panic with a BrokenPipe error.

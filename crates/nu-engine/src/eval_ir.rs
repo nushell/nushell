@@ -435,7 +435,7 @@ fn unwind_through_handlers(
         match handler {
             TryHandler::Catch(handler) => match unwind {
                 // `exit` is not something `catch` can handle; only `finally` runs for it.
-                Unwind::Error(err) if !matches!(err.item, ShellError::Exit { .. }) => {
+                Unwind::Error(err) if !err.item.is_exit() => {
                     reset_signals_if_interrupted(ctx, &err.item);
                     prepare_error_handler(ctx, handler, Some(err));
                     return Unwound::Branch(handler.handler_index);
@@ -461,7 +461,7 @@ fn unwind_through_handlers(
                 // The block gets to see the error that led to it (but not `exit`), otherwise
                 // its register is set to empty.
                 let error = match &unwind {
-                    Unwind::Error(err) if !matches!(err.item, ShellError::Exit { .. }) => {
+                    Unwind::Error(err) if !err.item.is_exit() => {
                         reset_signals_if_interrupted(ctx, &err.item);
                         Some(err.clone())
                     }
@@ -2104,6 +2104,11 @@ fn drain(
             let span = stream.span();
             let callback_spans = stream.get_caller_spans().clone();
             if let Err(mut err) = stream.drain() {
+                // `exit` must reach the top level as is, so it keeps its exit code
+                // and does not become `$env.LAST_EXIT_CODE`.
+                if err.is_exit() {
+                    return Err(err);
+                }
                 ctx.stack.set_last_error(&err);
                 if callback_spans.is_empty() {
                     return Err(err);
@@ -2123,7 +2128,8 @@ fn drain(
         PipelineData::ListStream(stream, ..) => {
             let callback_spans = stream.get_caller_spans().clone();
             if let Err(mut err) = stream.drain() {
-                if callback_spans.is_empty() {
+                // `exit` must reach the top level as is, so it keeps its exit code.
+                if callback_spans.is_empty() || err.is_exit() {
                     return Err(err);
                 } else {
                     for s in callback_spans {

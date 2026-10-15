@@ -1498,6 +1498,11 @@ impl ShellError {
         Some(Spanned { item, span })
     }
 
+    /// Whether this is the error raised by `exit`, which the top level turns into a process exit.
+    pub fn is_exit(&self) -> bool {
+        matches!(self, Self::Exit { .. })
+    }
+
     pub fn exit_code(&self) -> Option<i32> {
         // `Return` is deprecated but still a valid variant to match on here.
         #[allow(deprecated)]
@@ -1542,6 +1547,10 @@ impl ShellError {
 
     /// Convert self error to a [`ShellError::ChainedError`] variant.
     pub fn into_chained(self, span: Span) -> Self {
+        // `exit` is not an error to report: chaining it would hide the requested exit code.
+        if self.is_exit() {
+            return self;
+        }
         Self::ChainedError(match self {
             Self::ChainedError(inner) => ChainedError::new_chained(inner, span),
             other => {
