@@ -15,7 +15,9 @@ use nu_protocol::{
         StateWorkingSet, TryHandler,
     },
     ir::{Call, DataSlice, Instruction, IrAstRef, IrBlock, Literal, RedirectMode},
-    shell_error::{generic::GenericError, io::IoError},
+    shell_error::{
+        eval_block_with_input::EvalBlockWithInputError, generic::GenericError, io::IoError,
+    },
 };
 use nu_utils::IgnoreCaseExt;
 
@@ -484,12 +486,7 @@ fn unwind_through_handlers(
 /// An interrupt (ctrl-c) that is about to be handled by `catch` or `finally` must not keep
 /// interrupting the handler block itself.
 fn reset_signals_if_interrupted(ctx: &EvalContext<'_>, err: &ShellError) {
-    #[cfg(unix)]
-    let is_terminated_by_signal = matches!(err, ShellError::TerminatedBySignal { .. });
-    #[cfg(not(unix))]
-    let is_terminated_by_signal = false;
-
-    if matches!(err, ShellError::Interrupted { .. }) || is_terminated_by_signal {
+    if err.is_interrupt() {
         ctx.engine_state.signals().reset();
     }
 }
@@ -2109,10 +2106,7 @@ fn drain(
                     return Err(err);
                 } else {
                     for s in callback_spans {
-                        err = ShellError::EvalBlockWithInput {
-                            span: s,
-                            sources: vec![err],
-                        }
+                        err = EvalBlockWithInputError::wrap(err, s, EvalBlockWithInputError::CALLER)
                     }
                     return Err(err);
                 }
@@ -2127,10 +2121,7 @@ fn drain(
                     return Err(err);
                 } else {
                     for s in callback_spans {
-                        err = ShellError::EvalBlockWithInput {
-                            span: s,
-                            sources: vec![err],
-                        }
+                        err = EvalBlockWithInputError::wrap(err, s, EvalBlockWithInputError::CALLER)
                     }
                     return Err(err);
                 }

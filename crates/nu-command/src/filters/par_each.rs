@@ -1,4 +1,4 @@
-use super::utils::chain_error_with_input;
+use super::utils::wrap_error_with_input;
 use nu_engine::{ClosureEval, ClosureEvalOnce, command_prelude::*};
 use nu_protocol::{Signals, engine::Closure, shell_error::generic::GenericError};
 use rayon::prelude::*;
@@ -443,7 +443,7 @@ fn run_closure_on_value(closure_eval: &mut ClosureEval, value: Value) -> Value {
     closure_eval
         .run_with_value(value)
         .and_then(|data| data.into_value(span))
-        .unwrap_or_else(|err| Value::error(chain_error_with_input(err, is_error, span), span))
+        .unwrap_or_else(|err| Value::error(wrap_error_with_input(err, is_error, span), span))
 }
 
 fn parallel_closure_map(

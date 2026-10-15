@@ -11,5 +11,5 @@ def show_help_on_commands [] {
 @test
 def show_help_on_error_make [] {
     let help_result = (help error make)
-    assert ("Error: nu::shell::eval_block_with_input" not-in $help_result)
+    assert ("Error: nu::shell::" not-in $help_result)
 }

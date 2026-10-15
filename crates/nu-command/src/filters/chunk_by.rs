@@ -1,4 +1,4 @@
-use super::utils::chain_error_with_input;
+use super::utils::wrap_error_with_input;
 use nu_engine::{ClosureEval, command_prelude::*};
 use nu_protocol::Signals;
 use nu_protocol::engine::Closure;
@@ -232,10 +232,10 @@ where
     chunk_iter_by(iterator, signals, move |value| {
         match closure.run_with_value(value.clone()) {
             Ok(data) => data.into_value(head).unwrap_or_else(|error| {
-                Value::error(chain_error_with_input(error, value.is_error(), head), head)
+                Value::error(wrap_error_with_input(error, value.is_error(), head), head)
             }),
 
-            Err(error) => Value::error(chain_error_with_input(error, value.is_error(), head), head),
+            Err(error) => Value::error(wrap_error_with_input(error, value.is_error(), head), head),
         }
     })
     .map(move |it| Value::list(it, head))
