@@ -43,6 +43,12 @@ impl Jobs {
         self.jobs.iter().map(|(k, v)| (*k, v))
     }
 
+    /// The id the next job added to the table will get. Ids only grow, so a job with a lower id
+    /// was started before this call.
+    pub fn next_id(&self) -> JobId {
+        JobId::new(self.next_job_id)
+    }
+
     /// Whether there are no tracked jobs (running or frozen).
     pub fn is_empty(&self) -> bool {
         self.jobs.is_empty()
@@ -71,7 +77,7 @@ impl Jobs {
     }
 
     pub fn add_job(&mut self, job: Job) -> JobId {
-        let this_id = JobId::new(self.next_job_id);
+        let this_id = self.next_id();
 
         self.assign_last_frozen_id_if_frozen(this_id, &job);
 
@@ -261,6 +267,11 @@ impl FrozenJob {
 #[derive(Clone, Debug)]
 pub struct CurrentJob {
     pub id: JobId,
+
+    /// The job the main thread spawned that this one descends from: `id` itself when the main
+    /// thread spawned this job, the spawning job's `root` otherwise, and `JobId::ZERO` on the
+    /// main thread.
+    pub root: JobId,
 
     // The background thread job associated with this thread.
     // If None, it indicates this thread is currently the main job
