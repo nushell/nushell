@@ -416,6 +416,16 @@ fn float_into_string_negative_grouping_three_chars() -> Result {
 }
 
 #[test]
+#[env(NU_TEST_LOCALE_OVERRIDE = "hi_IN.UTF-8")]
+fn float_into_string_negative_grouping_three_chars_in() -> Result {
+    let code = "
+    -123.45 | into string --group-digits
+    ";
+
+    test().run(code).expect_value_eq("-123.45")
+}
+
+#[test]
 #[env(NU_TEST_LOCALE_OVERRIDE = "ar_AE.UTF-8")]
 fn int_into_string_negative_respects_system_locale_ar() -> Result {
     let code = "
