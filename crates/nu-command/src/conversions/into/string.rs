@@ -251,7 +251,7 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             if !group_digits
                 || match locale.grouping() {
                     Grouping::Posix => true,
-                    Grouping::Standard | Grouping::Indian => decimal < 4,
+                    Grouping::Standard | Grouping::Indian => decimal_len < 4,
                 }
             {
                 let basic = format!(
