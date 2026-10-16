@@ -231,20 +231,22 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             Value::string(res, span)
         }
         Value::Float { val, .. } => {
-            if !val.is_finite() {
-                return Value::string(val.to_string(), span);
-            }
-
-            let basic = digits.map_or_else(
-                || val.to_string(),
-                |precision| {
+            let negative = val.is_sign_negative();
+            let (val, basic) = match digits {
+                None => (*val, val.to_string()),
+                Some(precision) => {
                     let scale = 10_f64.powi(precision as i32);
                     let rounded = (val * scale).round() / scale;
-                    format!("{:.*}", precision as usize, rounded)
-                },
-            );
+                    let basic = format!("{:.*}", precision as usize, rounded);
+                    (rounded, basic)
+                }
+            };
 
-            let first_digit = if val.is_sign_negative() { 1 } else { 0 };
+            if !val.is_finite() {
+                return Value::string(basic, span);
+            }
+
+            let first_digit = if negative { 1 } else { 0 };
             let decimal = basic.find('.').unwrap_or(basic.len());
             let decimal_len = decimal - first_digit;
             let locale = get_system_locale();
@@ -256,11 +258,7 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             {
                 let basic = format!(
                     "{}{}{}{}",
-                    if val.is_sign_negative() {
-                        locale.minus_sign()
-                    } else {
-                        ""
-                    },
+                    if negative { locale.minus_sign() } else { "" },
                     &basic[first_digit..decimal],
                     if decimal < basic.len() {
                         locale.decimal()
@@ -300,7 +298,7 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                 ),
             };
             let mut result = String::with_capacity(size);
-            if val.is_sign_negative() {
+            if negative {
                 result.push_str(locale.minus_sign());
             }
             result.push_str(&basic[first_digit..start]);
