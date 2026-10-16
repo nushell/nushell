@@ -231,7 +231,6 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             Value::string(res, span)
         }
         Value::Float { val, .. } => {
-            let negative = val.is_sign_negative();
             let (val, basic) = match digits {
                 None => (*val, val.to_string()),
                 Some(precision) => {
@@ -246,6 +245,7 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                 return Value::string(basic, span);
             }
 
+            let negative = basic.starts_with('-');
             let first_digit = if negative { 1 } else { 0 };
             let decimal = basic.find('.').unwrap_or(basic.len());
             let decimal_len = decimal - first_digit;
