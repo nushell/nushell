@@ -1081,21 +1081,61 @@ impl EngineState {
         }
     }
 
+    /// Get the signature of a command as a call by `name` in the current scope sees it.
+    ///
+    /// The signature is named `name`, which can differ from the declared name: a module command
+    /// declared as `foo bar` is `spam foo bar` after `use spam`, and an alias of an internal
+    /// command carries a copy of the wrapped command's signature, so `alias st = str trim` would
+    /// otherwise be named `str trim`.
+    ///
+    /// For an alias of an internal command, the positional parameters the alias already passes
+    /// are dropped, because the parser matches a call's arguments to the parameters after them
+    /// (see `parse_internal_call`): `alias home = cd ~` takes no `path`. Flags the alias passes
+    /// stay listed.
+    pub fn get_signature_in_scope(&self, name: String, decl_id: DeclId) -> Signature {
+        let decl = self.get_decl(decl_id);
+        let mut signature = self.get_signature(decl).update_from_command(decl);
+        signature.name = name;
+
+        if let Some(alias) = decl.as_alias()
+            && let Expr::Call(call) = &alias.wrapped_call.expr
+        {
+            // Arguments fill the required parameters first, then the optional ones, and
+            // `...rest` takes any number, the order `Signature::get_positional` uses.
+            let passed = call.positional_iter().count();
+            let required = passed.min(signature.required_positional.len());
+            signature.required_positional.drain(..required);
+            let optional = (passed - required).min(signature.optional_positional.len());
+            signature.optional_positional.drain(..optional);
+        }
+
+        signature
+    }
+
     /// Get signatures of all commands within scope with their decl ids, sorted by name.
     ///
-    /// Each signature's `name` is the name the command is called by in the current scope, which
-    /// can differ from the declared name: a module command declared as `foo bar` is `spam foo bar`
-    /// after `use spam`, and an alias's signature is a copy of the command it wraps, so
-    /// `alias st = str trim` would otherwise be named `str trim`. A command in scope under several
-    /// names is listed once per name.
+    /// Each signature is the one [`get_signature_in_scope`](Self::get_signature_in_scope) gives
+    /// for the name. A command in scope under several names is listed once per name.
+    ///
+    /// Unless `include_hidden` is set, each name is resolved with `find_decl`, the lookup the
+    /// parser uses, so the list holds the names a call can use, each with the command it runs.
+    /// `get_decls_sorted(false)` isn't enough on its own: it checks each overlay against its own
+    /// visibility, but a `hide` of a command from an earlier overlay is recorded in the overlay
+    /// active at the time.
     pub fn get_signatures_and_declids(&self, include_hidden: bool) -> Vec<(Signature, DeclId)> {
-        self.get_decls_sorted(include_hidden)
+        self.get_decls_sorted(true)
             .into_iter()
+            .filter_map(|(name, id)| {
+                let id = if include_hidden {
+                    id
+                } else {
+                    self.find_decl(&name, &[])?
+                };
+                Some((name, id))
+            })
             .map(|(name, id)| {
-                let decl = self.get_decl(id);
-                let mut signature = self.get_signature(decl).update_from_command(decl);
-                signature.name = String::from_utf8_lossy(&name).into_owned();
-                (signature, id)
+                let name = String::from_utf8_lossy(&name).into_owned();
+                (self.get_signature_in_scope(name, id), id)
             })
             .collect()
     }
