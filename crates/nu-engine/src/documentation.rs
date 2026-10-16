@@ -1,8 +1,8 @@
 use crate::eval_call;
 use fancy_regex::{Captures, Regex};
 use nu_protocol::{
-    Category, Config, IntoPipelineData, PipelineData, PositionalArg, Signature, Span, SpanId,
-    Spanned, SyntaxShape, Type, Value,
+    Alias, Category, Config, IntoPipelineData, PipelineData, PositionalArg, Signature, Span,
+    SpanId, Spanned, SyntaxShape, Type, Value,
     ast::{Argument, Call, Expr, Expression, RecordItem},
     debugger::WithoutDebug,
     engine::CommandType,
@@ -145,18 +145,13 @@ fn nu_highlight_string(
         .unwrap_or_else(|| code_string.to_string())
 }
 
-/// Apply code highlighting to code in a capture group
-fn highlight_capture_group(
-    captures: &Captures<'_, str>,
+/// Highlight a code snippet the way [`highlight_code`] highlights text between backticks
+fn highlight_inline_code(
+    content: &str,
     engine_state: &EngineState,
     stack: &mut Stack,
     head: Span,
 ) -> String {
-    let Some(content) = captures.get(1) else {
-        // this shouldn't happen
-        return String::new();
-    };
-
     // Save current color config
     let config_old = stack.get_config(engine_state);
     let mut config = (*config_old).clone();
@@ -179,7 +174,7 @@ fn highlight_capture_group(
     stack.config = Some(Arc::new(config));
 
     // Highlight and reject invalid syntax
-    let highlighted = try_nu_highlight(content.into(), true, engine_state, stack, head)
+    let highlighted = try_nu_highlight(content, true, engine_state, stack, head)
         // // Make highlighted string italic
         .map(|text| {
             let resets = text.match_indices(RESET).count();
@@ -197,7 +192,7 @@ fn highlight_capture_group(
     stack.config = Some(config_old);
 
     // Use fallback style if highlight failed/syntax was invalid
-    highlighted.unwrap_or_else(|| highlight_fallback(content.into()))
+    highlighted.unwrap_or_else(|| highlight_fallback(content))
 }
 
 /// Apply fallback code style
@@ -229,9 +224,17 @@ fn highlight_code<'a>(
     ";
     static RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(PATTERN).expect("valid regex"));
 
-    let do_try_highlight =
-        |captures: &Captures<'_, str>| highlight_capture_group(captures, engine_state, stack, head);
+    let do_try_highlight = |captures: &Captures<'_, str>| match captures.get(1) {
+        Some(content) => highlight_inline_code(content.as_str(), engine_state, stack, head),
+        // this shouldn't happen
+        None => String::new(),
+    };
     RE.replace_all(text, do_try_highlight)
+}
+
+/// The source text an alias expands to, as written: `str trim` for `alias st = str trim`
+fn alias_expansion<'a>(alias: &Alias, engine_state: &'a EngineState) -> Cow<'a, str> {
+    String::from_utf8_lossy(engine_state.get_span_contents(alias.wrapped_call.span))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -260,13 +263,15 @@ fn get_alias_documentation(
         return;
     };
 
-    let alias_expansion =
-        String::from_utf8_lossy(engine_state.get_span_contents(alias.wrapped_call.span));
-
     write!(
         long_desc,
         "{help_section_name}Expansion{RESET}:\n  {}",
-        nu_highlight_string(&alias_expansion, engine_state, stack, head)
+        nu_highlight_string(
+            &alias_expansion(alias, engine_state),
+            engine_state,
+            stack,
+            head
+        )
     )
     .expect("writing to a String is infallible");
 }
@@ -308,86 +313,119 @@ fn get_command_documentation(
     // - Subcommands are included violating module scoping
     //   - https://github.com/nushell/nushell/issues/11447
     //   - https://github.com/nushell/nushell/issues/11625
-    // - Duplicate entries may appear when a single declaration is visible under multiple names (e.g. script `main` rewritten to filename plus an alias).
-    //   See https://github.com/nushell/nushell/issues/17719.
-    let mut subcommands = vec![];
-    // track which declarations we've already added to `subcommands`
-    let mut seen = HashSet::new();
     let subcommand_prefix = format!("{cmd_name} ");
-    // A declaration can appear here under several overlay names (a script's `main bar` is also
-    // registered as `script.nu bar`), so every name is checked, not just one per declaration.
-    for (overlay_name, decl_id) in engine_state.get_decls_sorted(true) {
+    // Every name in scope that lists a declaration as a subcommand, with the name to print and,
+    // for an alias of a subcommand, the name of the subcommand it runs. A declaration can be
+    // registered under several names (a script's `main bar` is also `script.nu bar`, #17719) and
+    // only some of them may match, so every name is checked.
+    let mut candidates: Vec<_> = engine_state
+        .get_decls_sorted(false)
+        .into_iter()
+        .filter_map(|(overlay_name, decl_id)| {
+            let decl = engine_state.get_decl(decl_id);
+            let name = String::from_utf8_lossy(&overlay_name);
+
+            // Prefer the overlay name for display, falling back to the declared name: a module
+            // command is registered as `spam foo bar` but documented under its bare name
+            // `foo bar`. An alias of a subcommand (`alias st = str trim` under `help str`) is
+            // listed under the name it's called by, and `wraps` keeps the subcommand's name so the
+            // alias sorts right after it. That name comes from the wrapped declaration, not from
+            // the alias's signature, which is a copy taken before a script's `main bar` was
+            // renamed to `script.nu bar`.
+            let (name_to_print, wraps) = if name.starts_with(&subcommand_prefix) {
+                (name.into_owned(), None)
+            } else if decl.name().starts_with(&subcommand_prefix) {
+                (decl.name().to_owned(), None)
+            } else {
+                let Expr::Call(call) = &decl.as_alias()?.wrapped_call.expr else {
+                    return None;
+                };
+                let wrapped = engine_state
+                    .get_signature(engine_state.get_decl(call.decl_id))
+                    .name;
+                if !wrapped.starts_with(&subcommand_prefix) {
+                    return None;
+                }
+                (name.into_owned(), Some(wrapped))
+            };
+
+            // A hidden declaration can't be called, so it isn't listed. `find_decl` also rejects a
+            // name that now resolves to another declaration.
+            (engine_state.find_decl(&overlay_name, &[]) == Some(decl_id)).then_some((
+                decl_id,
+                name_to_print,
+                wraps,
+            ))
+        })
+        .collect();
+    // A declaration that matches under one of its own names is listed under that name, not as an
+    // alias of the subcommand it runs: a script's `alias "main baz" = main bar` is registered as
+    // both `main baz` and `script.nu baz`, and is listed as `script.nu baz`. The sort is stable,
+    // so within each group the names stay in alphabetical order and the first one wins.
+    candidates.sort_by_key(|(_, _, wraps)| wraps.is_some());
+
+    let mut subcommands = vec![];
+    // Declarations already added to `subcommands`, so each one is listed once.
+    let mut seen = HashSet::new();
+    for (decl_id, name_to_print, wraps) in candidates {
         let decl = engine_state.get_decl(decl_id);
-        let alias = decl.as_alias();
-        let sig = engine_state.get_signature(decl).update_from_command(decl);
-        let name = String::from_utf8_lossy(&overlay_name);
-
-        // The declared name, used when no overlay name matches: a module command is registered as
-        // `spam foo bar` but documented under its bare signature name `foo bar`. An alias reuses
-        // the signature of the command it wraps, so `sig.name` is not a name the alias answers to.
-        let canonical_name = alias.map_or(&sig.name, |alias| &alias.name);
-
-        // Prefer the overlay name for display, falling back to the canonical name. An alias of a
-        // subcommand (`alias st = str trim` under `help str`) is listed under the name it's called
-        // by, and `wraps` keeps the subcommand's name so the alias sorts right after it.
-        let (name_to_print, wraps) = if name.starts_with(&subcommand_prefix) {
-            (name.into_owned(), None)
-        } else if canonical_name.starts_with(&subcommand_prefix) {
-            (canonical_name.clone(), None)
-        } else if alias.is_some() && sig.name.starts_with(&subcommand_prefix) {
-            (name.into_owned(), Some(sig.name.clone()))
-        } else {
-            continue;
-        };
-
-        // A hidden alias can't be called, so it isn't listed. `find_decl` also rejects a name that
-        // now resolves to another declaration.
-        let callable =
-            alias.is_none() || engine_state.find_decl(&overlay_name, &[]) == Some(decl_id);
 
         // Don't display removed/deprecated commands in the Subcommands list.
-        if callable && !matches!(sig.category, Category::Removed) && seen.insert(decl_id) {
-            let command_type = decl.command_type();
+        if !seen.insert(decl_id)
+            || matches!(engine_state.get_signature(decl).category, Category::Removed)
+        {
+            continue;
+        }
 
+        let description = match decl.as_alias() {
             // Every alias shows what it runs. A doc comment on the alias replaces its default
             // "Alias for `...`" description, but the comment still shows in the alias's own help.
-            let description = match alias {
-                Some(alias) => Cow::Owned(format!(
-                    "Alias for `{}`",
-                    String::from_utf8_lossy(
-                        engine_state.get_span_contents(alias.wrapped_call.span)
-                    )
-                )),
-                None => Cow::Borrowed(sig.description.as_str()),
-            };
-            let description = highlight_code(&description, engine_state, stack, head);
+            // The expansion is joined onto one line to keep one entry per line, and highlighted
+            // directly because it may contain backticks of its own.
+            Some(alias) => {
+                let expansion = alias_expansion(alias, engine_state)
+                    .lines()
+                    .map(str::trim)
+                    .filter(|line| !line.is_empty())
+                    .collect::<Vec<_>>()
+                    .join(" ");
+                let expansion = if nu_config.use_ansi_coloring.get(engine_state) {
+                    highlight_inline_code(&expansion, engine_state, stack, head)
+                } else {
+                    format!("`{expansion}`")
+                };
+                Cow::Owned(format!("Alias for {expansion}"))
+            }
+            None => highlight_code(decl.description(), engine_state, stack, head),
+        };
 
-            // If it's a plugin, alias, or custom command, display that information in the help
-            let line = if command_type == CommandType::Plugin
-                || command_type == CommandType::Alias
-                || command_type == CommandType::Custom
-            {
-                format!(
-                    "  {help_subcolor_one}{name_to_print} {help_section_name}({command_type}){RESET} - {description}"
-                )
-            } else {
-                format!("  {help_subcolor_one}{name_to_print}{RESET} - {description}")
-            };
+        // If it's a plugin, alias, or custom command, display that information in the help
+        let command_type = decl.command_type();
+        let line = if command_type == CommandType::Plugin
+            || command_type == CommandType::Alias
+            || command_type == CommandType::Custom
+        {
+            format!(
+                "  {help_subcolor_one}{name_to_print} {help_section_name}({command_type}){RESET} - {description}"
+            )
+        } else {
+            format!("  {help_subcolor_one}{name_to_print}{RESET} - {description}")
+        };
 
-            // Sorted by name, except that an alias of a subcommand goes right after that subcommand.
-            let (sort_name, after_wrapped) = match wraps {
-                Some(wrapped) => (wrapped, true),
-                None => (name_to_print, false),
-            };
-            subcommands.push((sort_name, after_wrapped, line));
-        }
+        // Sorted by name, except that an alias of a subcommand goes right after that subcommand.
+        let (sort_name, after_wrapped) = match wraps {
+            Some(wrapped) => (wrapped, true),
+            None => (name_to_print, false),
+        };
+        subcommands.push((sort_name, after_wrapped, line));
     }
 
     if !subcommands.is_empty() {
         write!(long_desc, "\n{help_section_name}Subcommands{RESET}:\n")
             .expect("writing to a String is infallible");
         subcommands.sort();
-        // sort may not remove duplicates when two different names map to the same description string; dedup to be safe.
+        // `seen` lists each declaration once, but two declarations can still print the same line,
+        // such as a top-level `foo bar` and a module's `foo bar` shown under its bare name.
         subcommands.dedup();
         for (_, _, line) in subcommands {
             long_desc.push_str(&line);

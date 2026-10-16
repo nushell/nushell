@@ -527,6 +527,31 @@ fn help_commands_shows_overlay_name_for_module_decls() -> Result {
     "str trim - ",
     "st (alias) - Alias for `str trim`"
 )]
+// The list has one line per entry, so an expansion written over several lines is joined.
+#[case::multiline_expansion(
+    r#"
+        def foo [] {}
+        def "foo bar" [x] {}
+        alias fm = foo bar (
+            'a'
+        )
+        help foo | ansi strip
+    "#,
+    "foo bar (custom)",
+    "fm (alias) - Alias for `foo bar ( 'a' )`"
+)]
+// With color, the expansion is highlighted as a whole, so its own backticks aren't left over.
+#[case::backticks_in_expansion(
+    r#"
+        $env.config.use_ansi_coloring = true
+        def foo [] {}
+        def "foo bar" [x] {}
+        alias fq = foo bar `x y`
+        help foo | ansi strip
+    "#,
+    "foo bar (custom)",
+    "fq (alias) - Alias for foo bar `x y`"
+)]
 fn help_subcommands_list_alias_after_wrapped_subcommand(
     #[case] code: &str,
     #[case] wrapped: &str,
@@ -546,13 +571,20 @@ fn help_subcommands_list_alias_after_wrapped_subcommand(
     Ok(())
 }
 
-#[test]
-fn help_subcommands_omit_hidden_alias() -> Result {
-    let code =
-        r#"def foo [] {}; def "foo bar" [] {}; alias fb = foo bar; hide fb; help foo | ansi strip"#;
+// A hidden subcommand can't be called, so it isn't listed.
+#[rstest]
+#[case::alias(
+    r#"def foo [] {}; def "foo bar" [] {}; alias fb = foo bar; hide fb; help foo | ansi strip"#,
+    "fb ("
+)]
+#[case::custom_command(
+    r#"def foo [] {}; def "foo bar" [] {}; def "foo qux" [] {}; hide "foo qux"; help foo | ansi strip"#,
+    "foo qux ("
+)]
+fn help_subcommands_omit_hidden_subcommand(#[case] code: &str, #[case] hidden: &str) -> Result {
     let outcome: String = test().run(code)?;
     assert_contains("foo bar (custom)", &outcome);
-    assert_contains_not("(alias)", &outcome);
+    assert_contains_not(hidden, &outcome);
     Ok(())
 }
 
@@ -580,9 +612,20 @@ fn help_subcommands_omit_hidden_alias() -> Result {
 )]
 fn help_subcommands_list_alias_under_its_own_name(#[case] code: &str) -> Result {
     let outcome: String = test().run(code)?;
-    assert_contains("foo bar (custom)", &outcome);
-    assert_contains("foo baz (alias)", &outcome);
-    assert_contains_not("foo bar (alias)", &outcome);
+    let lines: Vec<&str> = outcome.lines().map(str::trim).collect();
+    assert_eq!(
+        lines
+            .iter()
+            .skip_while(|line| !line.starts_with("foo bar (custom)"))
+            .take(2)
+            .copied()
+            .collect::<Vec<_>>(),
+        [
+            "foo bar (custom) -",
+            "foo baz (alias) - Alias for `foo bar`"
+        ],
+        "got:\n{outcome}"
+    );
     Ok(())
 }
 
