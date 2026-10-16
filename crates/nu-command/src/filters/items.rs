@@ -47,7 +47,7 @@ impl Command for Items {
                 let span = value.span();
                 match value {
                     Value::Record { val, .. } => {
-                        let mut closure = ClosureEval::new(engine_state, stack, closure);
+                        let mut closure = ClosureEval::try_new(engine_state, stack, closure, head)?;
                         Ok(val
                             .into_owned()
                             .into_iter()

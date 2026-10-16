@@ -105,13 +105,6 @@ Given a list of records, each record is filtered on its own and the results are 
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let closure: Closure = call.req(engine_state, stack, 0)?;
-        // The parser turns a row condition such as `value > 1` into a block whose
-        // only parameter is `$it` (see `parse_row_condition`), while a closure
-        // literal or a closure in a variable keeps the parameters it declares.
-        let row_condition = matches!(
-            engine_state.get_block(closure.block_id).signature.required_positional.as_slice(),
-            [param] if param.name == "$it"
-        );
         let keys_only = call.has_flag(engine_state, stack, "keys")?;
         let values_only = call.has_flag(engine_state, stack, "values")?;
         if keys_only && values_only {
@@ -122,8 +115,14 @@ Given a list of records, each record is filtered on its own and the results are 
                 right_span: call.get_flag_span(stack, "values").unwrap_or(head),
             });
         }
-
-        let mut closure = ClosureEval::new(engine_state, stack, closure);
+        let mut closure = ClosureEval::try_new(engine_state, stack, closure, head)?;
+        // The parser turns a row condition such as `value > 1` into a block whose
+        // only parameter is `$it` (see `parse_row_condition`), while a closure
+        // literal or a closure in a variable keeps the parameters it declares.
+        let row_condition = matches!(
+            closure.block().signature.required_positional.as_slice(),
+            [param] if param.name == "$it"
+        );
         map_records(input, head, engine_state.signals(), move |record, span| {
             let mut kept = Record::new();
             for (key, value) in record {

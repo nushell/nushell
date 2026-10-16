@@ -99,7 +99,7 @@ Given a list of records, the transforms are applied to each record in turn and t
         let transforms: Record = call.req(engine_state, stack, 0)?;
         let strict = call.has_flag(engine_state, stack, "strict")?;
 
-        let mut transforms = prepare(engine_state, stack, transforms)?;
+        let mut transforms = prepare(engine_state, stack, transforms, head)?;
         map_records(
             input,
             head,
@@ -129,28 +129,30 @@ fn prepare(
     engine_state: &EngineState,
     stack: &Stack,
     transforms: Record,
+    head: Span,
 ) -> Result<Transforms, ShellError> {
     transforms
         .into_iter()
         .map(|(key, transform)| {
             let span = transform.span();
-            let transform = match transform {
-                Value::Closure { val, .. } => {
-                    Transform::Closure(Box::new(ClosureEval::new(engine_state, stack, *val)))
-                }
-                Value::Record { val, .. } => {
-                    Transform::Record(prepare(engine_state, stack, val.into_owned())?)
-                }
-                other => {
-                    return Err(ShellError::TypeMismatch {
-                        err_message: format!(
-                            "expected a closure or a record of closures, found {}",
-                            other.get_type()
-                        ),
-                        span,
-                    });
-                }
-            };
+            let transform =
+                match transform {
+                    Value::Closure { val, .. } => Transform::Closure(Box::new(
+                        ClosureEval::try_new(engine_state, stack, *val, head)?,
+                    )),
+                    Value::Record { val, .. } => {
+                        Transform::Record(prepare(engine_state, stack, val.into_owned(), head)?)
+                    }
+                    other => {
+                        return Err(ShellError::TypeMismatch {
+                            err_message: format!(
+                                "expected a closure or a record of closures, found {}",
+                                other.get_type()
+                            ),
+                            span,
+                        });
+                    }
+                };
             Ok((key, span, transform))
         })
         .collect()

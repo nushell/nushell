@@ -327,6 +327,36 @@ fn closure_calls_count_toward_recursion_limit(#[case] depth: i64, #[case] ok: bo
 }
 
 #[test]
+fn infinite_closure_recursion_in_par_each_does_not_panic() -> Result {
+    // A par-each worker that recurses without end must hit the recursion
+    // limit like the main thread does. This only holds when the worker
+    // threads have a stack big enough for the limit; an overflow would
+    // abort the whole process instead of raising this error.
+    // The default limit (50) is the case that needs the deeper worker stack:
+    // with Rayon's smaller default stack the worker overflows and aborts the
+    // process before the limit check can fire.
+    let err = test_with_recursion_limit(50)
+        .run("[1] | par-each {|_| let M = {|x| do $x $x}; do $M $M}")
+        .expect_shell_error()?;
+    let hit_limit = matches!(
+        &err,
+        ShellError::RecursionLimitReached {
+            recursion_limit: 50,
+            ..
+        }
+    ) || matches!(
+        &err,
+        ShellError::EvalBlockWithInput(wrapped)
+            if matches!(
+                wrapped.error.as_ref(),
+                ShellError::RecursionLimitReached { recursion_limit: 50, .. }
+            )
+    );
+    assert!(hit_limit, "expected the recursion limit, got: {err}");
+    Ok(())
+}
+
+#[test]
 fn recursion_limit_set_in_script_applies() -> Result {
     // The limit is read from the stack's config, so setting it earlier in the same script
     // takes effect without going through `config.nu`.
