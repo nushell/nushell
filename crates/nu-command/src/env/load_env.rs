@@ -16,7 +16,7 @@ impl Command for LoadEnv {
     }
 
     fn extra_description(&self) -> &str {
-        "Environment conversions are not applied automatically. To apply the conversions configured in $env.ENV_CONVERSIONS after loading an update, assign $env.ENV_CONVERSIONS to itself."
+        "A config record updates the current configuration. Environment conversions are not applied automatically. To apply the conversions configured in $env.ENV_CONVERSIONS after loading an update, assign $env.ENV_CONVERSIONS to itself."
     }
 
     fn signature(&self) -> nu_protocol::Signature {
@@ -102,6 +102,11 @@ impl Command for LoadEnv {
                 description: "Load variables from an argument.",
                 example: "load-env {NAME: ABE, AGE: UNKNOWN}; $env.NAME",
                 result: Some(Value::test_string("ABE")),
+            },
+            Example {
+                description: "Update the configuration from a config record.",
+                example: "load-env {config: {show_banner: false}}; $env.config.show_banner",
+                result: Some(Value::test_bool(false)),
             },
             Example {
                 description: "Load a variable, then apply its environment conversion.",
