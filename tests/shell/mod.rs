@@ -5,6 +5,7 @@ use nu_test_support::{
 use pretty_assertions::assert_eq;
 use rstest::rstest;
 
+mod background_jobs;
 mod environment;
 mod pipeline;
 mod repl;

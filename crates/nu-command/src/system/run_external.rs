@@ -7,7 +7,9 @@ use nu_protocol::{
     process::{ChildProcess, PostWaitCallback},
     shell_error::io::IoError,
 };
-use nu_system::{ForegroundChild, kill_by_pid, prepare_background_command};
+use nu_system::ForegroundChild;
+#[cfg(unix)]
+use nu_system::prepare_background_command;
 use nu_utils::IgnoreCaseExt;
 use pathdiff::diff_paths;
 #[cfg(windows)]
@@ -278,6 +280,7 @@ If you create a custom command with this name, that will be used instead."
 
         // Detach even when stdin is a pipe of candidates (`ls | fzf`). Otherwise
         // the child keeps `/dev/tty` and races reedline from a completion thread.
+        #[cfg(unix)]
         if engine_state.is_mcp || stack.suppress_stdin {
             prepare_background_command(&mut command);
         }
@@ -287,33 +290,39 @@ If you create a custom command with this name, that will be used instead."
 
         // Spawn the child process. On Unix, also put the child process to
         // foreground if we're in an interactive session.
-        #[cfg(windows)]
-        let child = ForegroundChild::spawn(command);
-        #[cfg(unix)]
-        let child = ForegroundChild::spawn(
-            command,
-            // `suppress_stdin` children are already detached; do not also take
-            // the foreground pgrp from the completion thread.
-            engine_state.is_interactive && !stack.suppress_stdin,
-            engine_state.is_background_job(),
-            &engine_state.pipeline_externals_state,
-        );
+        let spawn = || {
+            #[cfg(windows)]
+            {
+                ForegroundChild::spawn_with_job_control(
+                    command,
+                    engine_state.is_background_job(),
+                    engine_state.is_mcp || stack.suppress_stdin,
+                )
+            }
+            #[cfg(unix)]
+            {
+                ForegroundChild::spawn(
+                    command,
+                    // `suppress_stdin` children are already detached; do not also take
+                    // the foreground pgrp from the completion thread.
+                    engine_state.is_interactive && !stack.suppress_stdin,
+                    engine_state.is_background_job(),
+                    &engine_state.pipeline_externals_state,
+                )
+            }
+        };
+        let child = if let Some(thread_job) = engine_state.current_thread_job() {
+            thread_job.try_spawn(spawn)
+        } else {
+            spawn().map(Some)
+        };
 
-        let mut child = child.map_err(|err| {
-            let context = format!("Could not spawn foreground child: {err}");
-            IoError::new_internal(err, context)
-        })?;
-
-        if let Some(thread_job) = engine_state.current_thread_job()
-            && !thread_job.try_add_pid(child.pid())
-        {
-            kill_by_pid(child.pid().into()).map_err(|err| {
-                ShellError::Io(IoError::new_internal(
-                    err,
-                    "Could not spawn external stdin worker",
-                ))
-            })?;
-        }
+        let mut child = child
+            .map_err(|err| {
+                let context = format!("Could not spawn foreground child: {err}");
+                IoError::new_internal(err, context)
+            })?
+            .ok_or(ShellError::Interrupted { span: call.head })?;
 
         // If we need to copy data into the child process, do it now.
         if let Some(data) = data_to_copy_into_stdin {

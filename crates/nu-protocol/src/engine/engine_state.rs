@@ -200,6 +200,8 @@ pub struct EngineState {
     pub file: Option<PathBuf>,
     pub regex_cache: Arc<Mutex<LruCache<String, Regex>>>,
     pub is_interactive: bool,
+    /// Whether evaluation returns to a REPL prompt, unlike commands or scripts run with `-i`.
+    pub is_repl: bool,
     /// When true with [`Self::is_interactive`], REPL user-line evaluation may store `$ans`.
     ///
     /// Set only around true REPL command evaluation (`do_run_cmd`), not config/env/banner
@@ -326,6 +328,7 @@ impl EngineState {
                 NonZeroUsize::new(REGEX_CACHE_SIZE).expect("tried to create cache of size zero"),
             ))),
             is_interactive: false,
+            is_repl: false,
             capture_repl_last_result: false,
             is_login: false,
             is_lsp: false,
