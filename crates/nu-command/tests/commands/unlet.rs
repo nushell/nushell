@@ -69,3 +69,26 @@ fn unlet_multiple_deletes_both() -> Result {
     assert_matches!(err, ShellError::VariableNotFoundAtRuntime { .. });
     Ok(())
 }
+
+/// In a pipeline the parser replaces `$in` with a fresh variable named `$in`, which must still be
+/// treated as the built-in.
+#[test]
+fn unlet_builtin_in() -> Result {
+    let err = test().run("unlet $in").expect_compile_error()?;
+    assert_matches!(
+        err,
+        CompileError::InvalidLiteral { msg, .. } if msg.contains("'$in' is a built-in variable")
+    );
+    Ok(())
+}
+
+/// A constant can't be deleted: reading it afterwards would still give its value.
+#[test]
+fn unlet_constant() -> Result {
+    let err = test().run("const x = 1; unlet $x").expect_compile_error()?;
+    assert_matches!(
+        err,
+        CompileError::InvalidLiteral { msg, .. } if msg.contains("constants cannot be deleted")
+    );
+    Ok(())
+}

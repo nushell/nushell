@@ -7,7 +7,7 @@ use rstest::rstest;
 fn record_with_redefined_key() -> Result {
     test()
         .run("{x: 1, x: 2}")
-        .expect_error_code_eq("nu::shell::column_defined_twice")
+        .expect_error_code_eq("nu::parser::column_defined_twice")
 }
 
 #[test]

@@ -25,6 +25,8 @@ pub enum Expr {
     Operator(Operator),
     RowCondition(BlockId),
     UnaryNot(Box<Expression>),
+    /// Negation of a number, duration or filesize, written `-$x` or `-(expr)`.
+    UnaryMinus(Box<Expression>),
     BinaryOp(Box<Expression>, Box<Expression>, Box<Expression>), //lhs, op, rhs
     Collect(VarId, Box<Expression>),
     Subexpression(BlockId),
@@ -82,6 +84,7 @@ impl Expr {
             Expr::Operator(_) => "an operator",
             Expr::RowCondition(_) => "a row condition",
             Expr::UnaryNot(_) => "a negation",
+            Expr::UnaryMinus(_) => "a numeric negation",
             Expr::BinaryOp(_, _, _) => "a binary operation",
             Expr::Collect(_, _) => "a collect expression",
             Expr::Subexpression(_) => "a subexpression",
@@ -134,6 +137,7 @@ impl Expr {
             | Expr::Range(_)
             | Expr::Var(_)
             | Expr::UnaryNot(_)
+            | Expr::UnaryMinus(_)
             | Expr::BinaryOp(_, _, _)
             | Expr::Closure(_) // piping into a closure value, not into a closure call
             | Expr::List(_)

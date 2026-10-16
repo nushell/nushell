@@ -715,8 +715,8 @@ fn table_with_commas() -> Result {
 fn duration_overflow() -> Result {
     let err = test()
         .run("ls | get modified | each { |it| $it + 10000000000000000day }")
-        .expect_compile_error()?;
-    assert_matches!(err, CompileError::InvalidLiteral { msg, .. } if msg == "duration too large");
+        .expect_parse_error()?;
+    assert_matches!(err, ParseError::LiteralTooLarge(..));
     Ok(())
 }
 
@@ -724,8 +724,8 @@ fn duration_overflow() -> Result {
 fn date_and_duration_overflow() -> Result {
     let err = test()
         .run("ls | get modified | each { |it| $it + 1000000000day }")
-        .expect_compile_error()?;
-    assert_matches!(err, CompileError::InvalidLiteral { msg, .. } if msg == "duration too large");
+        .expect_parse_error()?;
+    assert_matches!(err, ParseError::LiteralTooLarge(..));
     Ok(())
 }
 

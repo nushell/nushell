@@ -5,6 +5,7 @@ use std::sync::Arc;
 use crate::{
     Token,
     lite_parser::{LiteCommand, LitePipeline, LiteRedirection, LiteRedirectionTarget, lite_parse},
+    parse_expressions::is_env_variable_name,
     parse_keywords::parse_def_predecl,
     parser::{
         parse_builtin_commands, parse_expression, parse_value, wrap_element_with_collect,
@@ -93,6 +94,25 @@ pub fn parse_pipeline(
         [] => unreachable!("at this point the pipeline must have at least one element"),
         [single] => parse_builtin_commands(working_set, single, input_type),
         [first, rest @ ..] => {
+            // Loops are statements without output, so like `for` (rejected in
+            // `parse_expression`), `while` and `loop` can't be part of a pipeline. The head is
+            // the first part after any `NAME=value` environment shorthands, as there.
+            for command in &pipeline.commands {
+                let is_env_shorthand = |part: &&Span| {
+                    let bytes = working_set.get_span_contents(**part);
+                    bytes
+                        .iter()
+                        .position(|&b| b == b'=')
+                        .is_some_and(|equals| is_env_variable_name(&bytes[..equals]))
+                };
+                if let Some(&head) = command.parts.iter().find(|part| !is_env_shorthand(part))
+                    && let keyword @ (b"while" | b"loop") = working_set.get_span_contents(head)
+                {
+                    let keyword = String::from_utf8_lossy(keyword).into_owned();
+                    working_set.error(ParseError::BuiltinCommandInPipeline(keyword, head));
+                }
+            }
+
             let mut current_pipeline_type = input_type.cloned().unwrap_or(Type::Any);
 
             let mut elements = Vec::new();

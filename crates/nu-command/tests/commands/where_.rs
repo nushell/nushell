@@ -223,3 +223,22 @@ fn nested_stored_condition() -> Result {
         .run("let nested = {cond: { $in mod 2 == 0 }}; 1..10 | where $nested.cond")
         .expect_value_eq([2, 4, 6, 8, 10])
 }
+
+/// A `where` closure is a row condition, so like `where $it > $x` it can read a `mut` variable.
+#[test]
+fn closure_reads_mutable_variable() -> Result {
+    test()
+        .run("mut x = 1; [1 2 3] | where {|v| $v > $x }")
+        .expect_value_eq([2, 3])
+}
+
+/// A row condition runs over copies of the variables it uses, so assigning to a `mut` variable
+/// in one is an error instead of an update that is silently lost.
+#[rstest::rstest]
+#[case::closure("mut x = 0; [1 2 3] | where {|v| $x += 1; true }")]
+#[case::block("mut x = 0; [1 2 3] | where { $x = 5; true }")]
+fn assigning_mutable_variable_is_an_error(#[case] code: &str) -> Result {
+    let err = test().run(code).expect_parse_error()?;
+    pretty_assertions::assert_matches!(err, ParseError::CaptureOfMutableVar(_));
+    Ok(())
+}

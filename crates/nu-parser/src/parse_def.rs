@@ -660,6 +660,19 @@ rest.name
         if let Some(decl_id) = working_set.find_predecl(name.as_bytes()) {
             signature.name.clone_from(&name);
             if !has_wrapped {
+                // `--help` always shows the command's help before the body runs, so a flag of
+                // that name could never be set. (`-h` stays usable as another flag's short form.)
+                if let Some(flag) = signature.get_long_flag("help") {
+                    let span = flag.var_id.map_or(call_span, |var_id| {
+                        working_set.get_variable(var_id).declaration_span
+                    });
+                    working_set.error(ParseError::LabeledErrorWithHelp {
+                        error: "The `--help` flag is reserved".into(),
+                        label: "every command already has `--help`".into(),
+                        help: "Rename this flag. `--help` always shows the command's help.".into(),
+                        span,
+                    });
+                }
                 *signature = signature.add_help();
             }
             signature.description = desc;

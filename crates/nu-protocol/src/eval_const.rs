@@ -378,7 +378,17 @@ fn eval_const_if(
             span: then_expr.span,
         })?;
 
-    if eval_constant(working_set, cond)?.as_bool()? {
+    // A non-bool condition is the same type mismatch as when `if` runs.
+    let condition = match eval_constant(working_set, cond)? {
+        Value::Bool { val, .. } => val,
+        other => {
+            return Err(ShellError::TypeMismatch {
+                err_message: "expected bool".into(),
+                span: other.span(),
+            });
+        }
+    };
+    if condition {
         let block = working_set.get_block(then_block);
         eval_const_subexpression(working_set, block, input, block.span.unwrap_or(call.head))
     } else if let Some(else_case) = else_case {

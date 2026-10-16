@@ -222,6 +222,11 @@ pub trait Eval {
                     }),
                 }
             }
+            Expr::UnaryMinus(operand) => {
+                // Negation is multiplication by -1, as in the IR compiler.
+                let value = Self::eval::<D>(state, mut_state, operand)?;
+                value.mul(expr_span, &Value::int(-1, expr_span), expr_span)
+            }
             Expr::BinaryOp(lhs, op, rhs) => {
                 let op_span = op.span(&state);
                 let op = eval_operator(op)?;

@@ -1,5 +1,6 @@
 use nu_protocol::{
-    DEFAULT_ERROR_CONTEXT, Filesize, IntoValue, Range, Record, ShellError, Span, Type, Unit, Value,
+    DEFAULT_ERROR_CONTEXT, Filesize, IntoValue, ParseError, Range, Record, ShellError, Span, Type,
+    Unit, Value,
     ast::{Expr, Expression, ListItem, RecordItem},
     engine::{EngineState, StateWorkingSet},
     shell_error::generic::GenericError,
@@ -14,6 +15,22 @@ fn truncated_nuon_error(src: &str, err_span: Span, msg: impl Into<String>) -> Sh
         error: "Error when loading".into(),
         msg: msg.into(),
         span,
+    }
+}
+
+/// The error for a filesize or duration (`ty`) at `err_span` that doesn't fit in 64 bits.
+fn too_large_error(src: &str, err_span: Span, ty: &str) -> ShellError {
+    let msg = format!("{ty} too large");
+    if ty == "filesize" {
+        let (src, span) = truncated_source_window(src, err_span, DEFAULT_ERROR_CONTEXT);
+        ShellError::OutsideSpannedLabeledError {
+            src,
+            error: msg.clone(),
+            msg,
+            span,
+        }
+    } else {
+        truncated_nuon_error(src, err_span, msg)
     }
 }
 
@@ -115,6 +132,22 @@ pub fn from_nuon(input: &str, span: Option<Span>) -> Result<Value, ShellError> {
         }
     };
 
+    // The parser rejects a repeated key and a filesize or duration too large for 64 bits; report
+    // them as the errors they are rather than as a general parse failure.
+    match working_set.parse_errors.first() {
+        Some(ParseError::ColumnDefinedTwice(col_name, second_use, first_use)) => {
+            return Err(ShellError::ColumnDefinedTwice {
+                col_name: col_name.clone(),
+                second_use: *second_use,
+                first_use: *first_use,
+            });
+        }
+        Some(ParseError::LiteralTooLarge(ty, span)) => {
+            return Err(too_large_error(input, *span, ty));
+        }
+        _ => {}
+    }
+
     if let Some(err) = working_set.parse_errors.first() {
         let (src, label_span) = truncated_source_window(input, err.span(), DEFAULT_ERROR_CONTEXT);
         return Err(ShellError::Generic(
@@ -164,7 +197,7 @@ fn convert_to_value(
             expr.span,
             "binary operators not supported in nuon",
         )),
-        Expr::UnaryNot(..) => Err(truncated_nuon_error(
+        Expr::UnaryNot(..) | Expr::UnaryMinus(..) => Err(truncated_nuon_error(
             original_text,
             expr.span,
             "unary operators not supported in nuon",
@@ -290,8 +323,8 @@ fn convert_to_value(
         }
         Expr::Record(key_vals) => {
             let mut record = Record::with_capacity(key_vals.len());
-            let mut key_spans = Vec::with_capacity(key_vals.len());
 
+            // The parser has already rejected a key used twice (see `from_nuon`).
             for key_val in key_vals {
                 match key_val {
                     RecordItem::Pair(key, val) => {
@@ -306,16 +339,7 @@ fn convert_to_value(
                             }
                         };
 
-                        if let Some(i) = record.index_of(&key_str) {
-                            return Err(ShellError::ColumnDefinedTwice {
-                                col_name: key_str,
-                                second_use: key.span,
-                                first_use: key_spans[i],
-                            });
-                        } else {
-                            key_spans.push(key.span);
-                            record.push(key_str, convert_to_value(val, span, original_text)?);
-                        }
+                        record.push(key_str, convert_to_value(val, span, original_text)?);
                     }
                     RecordItem::Spread(_, inner) => {
                         return Err(truncated_nuon_error(
@@ -365,6 +389,7 @@ fn convert_to_value(
 
             let mut output = vec![];
 
+            // The parser has already rejected a column named twice (see `from_nuon`).
             for key in table.columns.as_mut() {
                 let key_str = match &mut key.expr {
                     Expr::String(key_str) => key_str,
@@ -377,15 +402,7 @@ fn convert_to_value(
                     }
                 };
 
-                if let Some(idx) = cols.iter().position(|existing| existing == key_str) {
-                    return Err(ShellError::ColumnDefinedTwice {
-                        col_name: key_str.clone(),
-                        second_use: key.span,
-                        first_use: table.columns[idx].span,
-                    });
-                } else {
-                    cols.push(std::mem::take(key_str));
-                }
+                cols.push(std::mem::take(key_str));
             }
 
             for row in table.rows.into_vec() {
@@ -422,34 +439,22 @@ fn convert_to_value(
                 }
             };
 
+            // The parser stores every filesize in bytes and every duration in nanoseconds, and
+            // rejects one too large for 64 bits, so parsed text always fits here. A value with
+            // a larger unit still has to be checked against the 64-bit range.
             match value.unit.item {
                 Unit::Filesize(unit) => match Filesize::from_unit(size, unit) {
                     Some(val) => Ok(val.into_value(span)),
-                    None => {
-                        let (src, label_span) = truncated_source_window(
-                            original_text,
-                            expr.span,
-                            DEFAULT_ERROR_CONTEXT,
-                        );
-                        Err(ShellError::OutsideSpannedLabeledError {
-                            src,
-                            error: "filesize too large".into(),
-                            msg: "filesize too large".into(),
-                            span: label_span,
-                        })
-                    }
+                    None => Err(too_large_error(original_text, expr.span, "filesize")),
                 },
 
-                // Every duration unit goes through `Unit::build_value`, which
-                // already checks the multiplication against the 64-bit range.
-                // A plain `size * factor` would panic in debug builds and wrap
-                // to a negative duration in release ones, and the nuon spec
-                // requires an error. The unit is not named in the message: the
-                // parser has already folded the one that was written, so
-                // `1e30sec` arrives as a millisecond count.
-                unit => unit.build_value(size, span).map_err(|_| {
-                    truncated_nuon_error(original_text, expr.span, "duration too large")
-                }),
+                // Every duration unit goes through `Unit::build_value`, which checks the
+                // multiplication against the 64-bit range. A plain `size * factor` would panic
+                // in debug builds and wrap to a negative duration in release ones, and the nuon
+                // spec requires an error.
+                unit => unit
+                    .build_value(size, span)
+                    .map_err(|_| too_large_error(original_text, expr.span, "duration")),
             }
         }
         Expr::Var(..) => Err(truncated_nuon_error(
@@ -481,21 +486,10 @@ mod tests {
     // says: "overflow is an **error**; it must not wrap or saturate. a positive
     // literal must never read back as a negative duration."
     //
-    // The parser clamps an out-of-range head to i64::MAX and keeps the unit it
-    // folded to, so `[1e30sec]` reaches this function as Int(i64::MAX) plus
-    // Unit::Millisecond. `size * 1000 * 1000` then overflowed: a panic in debug
-    // builds and -1000000ns in release ones. Unit::Day and Unit::Week already
-    // used checked_mul; the units that real `ms`/`sec`/`min`/`hr`/`day` literals
-    // fold to did not.
-    //
-    // `ns` and `us` fold to Unit::Nanosecond, which multiplies by nothing, so
-    // they are not covered here.
-    //
-    // A negative head is specified to be allowed (the spec shows `-1_000ns` as
-    // valid), so `[-1sec]` has to keep decoding — but the clamped negative head
-    // is the same i64::MIN the positive one is, and the raw multiplies it used
-    // to reach turned it into exactly 0ns, which is neither the number written
-    // nor an error. Both signs go through the same arms, so both are pinned.
+    // The parser rejects a duration too large for 64 bits in nanoseconds, of
+    // either sign, and `from_nuon` reports that as the error below. Both signs
+    // are pinned, since a negative head is allowed (the spec shows `-1_000ns`
+    // as valid) and has to keep decoding when it fits.
     #[test]
     fn duration_overflow_is_rejected() {
         for unit in ["ms", "sec", "min", "hr", "day", "wk"] {
@@ -509,9 +503,7 @@ mod tests {
                         panic!("`{input}` should report a labeled duration overflow, got {other:?}")
                     }
                 };
-                // The unit is deliberately not named: the parser folds the one that
-                // was written, so `1e30sec` reaches the reader as a millisecond
-                // count and `1e30wk` as a day count.
+                // The message names the type, not the unit that was written.
                 assert_eq!(
                     msg, "duration too large",
                     "unexpected message for `{input}`"

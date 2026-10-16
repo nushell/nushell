@@ -10,6 +10,7 @@ use nu_protocol::{
 use rustc_hash::FxBuildHasher;
 use std::{
     collections::{HashMap, HashSet},
+    ops::ControlFlow,
     sync::Arc,
 };
 
@@ -253,6 +254,38 @@ pub fn discover_captures_in_pattern(pattern: &MatchPattern, seen: &mut SeenVars)
     }
 }
 
+/// The span of the target of an assignment in `block` (`$x = …`, `$x.a += …`) to a `mut`
+/// variable among `captures`.
+fn assigned_mutable_capture(
+    working_set: &StateWorkingSet,
+    block: &Block,
+    captures: &[(VarId, Span)],
+) -> Option<Span> {
+    block.find_map(working_set, &|expr: &Expression| {
+        let Expr::BinaryOp(lhs, op, _) = &expr.expr else {
+            return ControlFlow::Continue(());
+        };
+        let target = match &lhs.expr {
+            Expr::Var(var_id) => Some(*var_id),
+            Expr::FullCellPath(path) => match path.head.expr {
+                Expr::Var(var_id) => Some(var_id),
+                _ => None,
+            },
+            _ => None,
+        };
+        match target {
+            Some(var_id)
+                if matches!(op.expr, Expr::Operator(Operator::Assignment(_)))
+                    && captures.iter().any(|(captured, _)| *captured == var_id)
+                    && working_set.get_variable(var_id).mutable =>
+            {
+                ControlFlow::Break(Some(lhs.span))
+            }
+            _ => ControlFlow::Continue(()),
+        }
+    })
+}
+
 pub fn discover_captures_in_expr(
     working_set: &StateWorkingSet,
     expr: &Expression,
@@ -268,7 +301,7 @@ pub fn discover_captures_in_expr(
             discover_captures_in_expr(working_set, lhs, seen, seen_blocks, output)?;
             discover_captures_in_expr(working_set, rhs, seen, seen_blocks, output)?;
         }
-        Expr::UnaryNot(expr) => {
+        Expr::UnaryNot(expr) | Expr::UnaryMinus(expr) => {
             discover_captures_in_expr(working_set, expr, seen, seen_blocks, output)?;
         }
         Expr::Closure(block_id) => {
@@ -491,6 +524,15 @@ pub fn discover_captures_in_expr(
                 )?;
                 results
             };
+
+            // A row condition (`where {|v| ...}` included) runs as a closure over copies of what
+            // it captures. Reading a `mut` variable there is fine (`where size > $limit`), but an
+            // assignment would only change the copy, so it is the same error as in a closure.
+            if matches!(expr.expr, Expr::RowCondition(_))
+                && let Some(span) = assigned_mutable_capture(working_set, block, &results)
+            {
+                return Err(ParseError::CaptureOfMutableVar(span));
+            }
 
             for &(var_id, span) in &results {
                 if !seen.contains(&var_id) {
