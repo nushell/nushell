@@ -629,7 +629,6 @@ pub fn command_not_found(
 
         if let Some((last, others)) = signatures
             .iter()
-            .map(|(sig, _)| sig)
             .filter(|sig| {
                 let name = name.to_folded_case(); // do not allocate new strings in any()
                 sig.name
@@ -657,7 +656,7 @@ pub fn command_not_found(
         }
 
         // Try a fuzzy search on the names of all existing commands.
-        if let Some(cmd) = did_you_mean(signatures.iter().map(|(sig, _)| &sig.name), name) {
+        if let Some(cmd) = did_you_mean(signatures.iter().map(|sig| &sig.name), name) {
             // The user is invoking an external command with the same name as a
             // built-in command. Remind them of this.
             if cmd == name {
@@ -685,10 +684,7 @@ pub fn command_not_found(
     }
 }
 
-fn suggestion_signatures(
-    engine_state: &EngineState,
-    command_span: Span,
-) -> Vec<(Signature, DeclId)> {
+fn suggestion_signatures(engine_state: &EngineState, command_span: Span) -> Vec<Signature> {
     fn suggestion_span(engine_state: &EngineState, decl_id: DeclId) -> Option<Span> {
         let decl = engine_state.get_decl(decl_id);
 
@@ -701,16 +697,13 @@ fn suggestion_signatures(
     engine_state
         .get_signatures_and_declids(false)
         .into_iter()
+        // Avoid suggesting commands declared after this command. When the declaration order
+        // can't be determined, keep the suggestion.
         .filter(|(_, decl_id)| {
-            if let Some(sugg_span) = suggestion_span(engine_state, *decl_id) {
-                // avoid suggesting commands declared after this command
-                sugg_span.start < command_span.start
-            } else {
-                // we can't determine declaration order,
-                // so default to keeping this suggestion
-                true
-            }
+            suggestion_span(engine_state, *decl_id)
+                .is_none_or(|sugg_span| sugg_span.start < command_span.start)
         })
+        .map(|(sig, _)| sig)
         .collect()
 }
 
