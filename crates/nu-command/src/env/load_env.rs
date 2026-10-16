@@ -77,9 +77,11 @@ impl Command for LoadEnv {
         for (env_var, rhs) in record.item {
             if env_var_eq(&env_var, var::CONFIG) {
                 loaded_config = true;
+                let name = stack.get_env_var_name(engine_state, &env_var).into_owned();
+                stack.add_env_var(name, rhs);
+            } else {
+                stack.add_env_var(env_var, rhs);
             }
-
-            stack.add_env_var(env_var, rhs);
         }
 
         if loaded_config {

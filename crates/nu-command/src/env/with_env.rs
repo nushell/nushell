@@ -118,8 +118,22 @@ fn with_env(
     let block = engine_state.get_block(capture_block.block_id);
     let mut stack = stack.captures_to_stack_preserve_out_dest(capture_block.captures);
 
+    let mut last_config_var = None;
+
     for (k, v) in env {
-        stack.add_env_var(k, v);
+        if env_var_eq(&k, var::CONFIG) {
+            last_config_var = Some((k, v));
+        } else {
+            stack.add_env_var(k, v);
+        }
+    }
+
+    if let Some((k, v)) = last_config_var {
+        if matches!(&v, Value::Record { .. }) {
+            stack.add_env_var(var::CONFIG.to_owned(), v); // preserve canonical casing
+        } else {
+            stack.add_env_var(k, v);
+        }
     }
 
     if loaded_config {

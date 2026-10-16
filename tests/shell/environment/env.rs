@@ -167,6 +167,26 @@ fn config_updates(#[case] code: &str) -> Result {
     test().run(code).expect_value_eq(true)
 }
 
+#[rstest]
+#[case::load_env(
+    "
+        load-env { CoNfIg: { show_banner: false } }
+        let names = $env | columns | where $it =~ '(?i)^config$'
+        $names == [config] and ($env | get config).show_banner == false
+    "
+)]
+#[case::with_env(
+    "
+        with-env { CoNfIg: { show_banner: false } } {
+            let names = $env | columns | where $it =~ '(?i)^config$'
+            $names == [config] and ($env | get config).show_banner == false
+        }
+    "
+)]
+fn config_update_keeps_one_env_key(#[case] code: &str) -> Result {
+    test().run(code).expect_value_eq(true)
+}
+
 #[test]
 #[deps(TESTBIN_ECHO_ENV)]
 fn passes_with_env_env_var_to_external_process() -> Result {
