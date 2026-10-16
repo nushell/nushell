@@ -406,6 +406,16 @@ fn float_into_string_negative_grouping() -> Result {
 }
 
 #[test]
+#[env(NU_TEST_LOCALE_OVERRIDE = "en_US.UTF-8")]
+fn float_into_string_negative_grouping_three_chars() -> Result {
+    let code = "
+    -123.45 | into string --group-digits
+    ";
+
+    test().run(code).expect_value_eq("-123.45")
+}
+
+#[test]
 #[env(NU_TEST_LOCALE_OVERRIDE = "ar_AE.UTF-8")]
 fn int_into_string_negative_respects_system_locale_ar() -> Result {
     let code = "
@@ -479,10 +489,28 @@ fn float_into_string_large_decimals_returns_nan() -> Result {
 }
 
 #[test]
+fn float_into_string_large_negative_decimals_returns_nan() -> Result {
+    let code = "
+    -1.5 | into string -d 400
+    ";
+
+    test().run(code).expect_value_eq("NaN")
+}
+
+#[test]
 fn float_into_string_precision_overflow_returns_inf() -> Result {
     let code = "
     1e300 | into string -d 10
     ";
 
     test().run(code).expect_value_eq("inf")
+}
+
+#[test]
+fn float_into_string_negative_max() -> Result {
+    let code = "
+    -9223372036854775808 | into string
+    ";
+
+    test().run(code).expect_value_eq("-9223372036854775808")
 }
