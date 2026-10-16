@@ -280,7 +280,7 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                     unreachable!("Posix locale grouping should already have returned")
                 }
                 Grouping::Standard => (
-                    basic.len() + (decimal - first_digit) / 3 * locale.separator().len(),
+                    basic.len() + decimal_len / 3 * locale.separator().len(),
                     if decimal_len.is_multiple_of(3) {
                         first_digit + 3
                     } else {
