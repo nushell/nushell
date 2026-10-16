@@ -645,17 +645,8 @@ pub fn complete(engine_reference: Arc<EngineState>, file_path: &str, location: &
         let location = (location.max(0) as usize).min(contents.len());
         let location = contents.floor_char_boundary(location);
         let results = completer.complete_blocking(&contents[..location], location);
-        print!("{{\"completions\": [");
-        let mut first = true;
-        for result in results.iter() {
-            if !first {
-                print!(", ")
-            } else {
-                first = false;
-            }
-            print!("\"{}\"", result.value,)
-        }
-        println!("]}}");
+        let values: Vec<_> = results.iter().map(|result| &result.value).collect();
+        println!("{}", json!({ "completions": values }));
     }
 }
 
