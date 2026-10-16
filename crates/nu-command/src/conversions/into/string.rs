@@ -240,11 +240,14 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                 Some(precision) => {
                     let scale = 10_f64.powi(precision as i32);
                     let scaled = val * scale;
-                    let rounded = if scaled.is_finite() { scaled.round() / scale } else { *val };
+                    let rounded = if scaled.is_finite() {
+                        scaled.round() / scale
+                    } else {
+                        *val
+                    };
                     format!("{:.*}", precision as usize, rounded)
                 }
             };
-
 
             let negative = basic.starts_with('-');
             let first_digit = if negative { 1 } else { 0 };
