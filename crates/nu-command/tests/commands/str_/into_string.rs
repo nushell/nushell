@@ -507,7 +507,8 @@ fn float_into_string_precision_overflow_returns_inf() -> Result {
 }
 
 #[test]
-fn float_into_string_negative_max() -> Result {
+#[env(NU_TEST_LOCALE_OVERRIDE = "en_US.UTF-8")]
+fn int_into_string_i64_min() -> Result {
     let code = "
     -9223372036854775808 | into string
     ";
