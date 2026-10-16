@@ -280,3 +280,10 @@ fn into_duration_empty_string() -> Result {
 
     Ok(())
 }
+
+#[test]
+fn into_duration_i64_min() -> Result {
+    test()
+        .run("-9223372036854775808 | into duration | into string")
+        .expect_value_eq("-15250wk 1day 23hr 47min 16sec 854ms 775µs 807ns")
+}
