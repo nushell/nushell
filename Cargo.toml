@@ -184,7 +184,7 @@ interprocess = "2.4.3"
 is_executable = "1.0.6"
 itertools = "0.15"
 kitest = "0.6.0"
-lean_string = { version = "0.7.0", features = ["serde"] }
+lean_string = { version = "0.8.0", features = ["serde"] }
 lexopt = "0.3.2"
 libc = "0.2.189"
 libproc = "0.14.11"
@@ -253,7 +253,7 @@ rustc-hash = "2.1.2"
 # because we use unversioned api to allow users set up their own
 # crypto providers (grep for "unversioned").
 # Patch updates are allowed though.
-rustls = { version = "~0.23.45", default-features = false, features = ["std", "tls12"] }
+rustls = { version = "~0.23.46", default-features = false, features = ["std", "tls12"] }
 rustls-native-certs = "0.8.4"
 serde-saphyr = "1.2.0"
 scopeguard = { version = "1.2.0" }
@@ -271,7 +271,6 @@ sysinfo = "0.39.6"
 tabled = { version = "0.22", default-features = false }
 tempfile = "3.27"
 thiserror = "2.0.20"
-titlecase = "3.6"
 tokio = { version = "1.53.1" }
 toml = "1.1.4"
 toml_edit = "0.25.13"
@@ -381,6 +380,11 @@ nix = { workspace = true, default-features = false, features = [
   "fs",
   "term",
 ] }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+# `GetCommandLineW` lets us recover the raw, still-quoted command line for the
+# `/c` ComSpec alias.
+windows-sys = { workspace = true, features = ["Win32_System_Environment"] }
 
 [target.'cfg(windows)'.dev-dependencies]
 windows-sys = { workspace = true, features = ["Win32_Foundation", "Win32_System_Threading"] }
