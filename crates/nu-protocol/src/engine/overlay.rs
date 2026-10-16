@@ -1,4 +1,4 @@
-use crate::{DeclId, ModuleId, OverlayId, VarId};
+use crate::{DeclId, ModuleId, OverlayId, Span, TypeAliasId, VarId};
 use rustc_hash::FxBuildHasher;
 use std::{
     collections::HashMap,
@@ -269,6 +269,10 @@ pub struct ScopeFrame {
 
     /// temporary storage for predeclarations
     pub predecls: DeclNameMap,
+
+    /// Where each `type` statement of the block being parsed is, by alias name; filled in with
+    /// the predeclarations and used only to tell a use before the definition from an unknown type.
+    pub type_predecls: HashMap<Vec<u8>, Vec<Span>>,
 }
 
 impl ScopeFrame {
@@ -278,6 +282,7 @@ impl ScopeFrame {
             active_overlays: vec![],
             removed_overlays: vec![],
             predecls: DeclNameMap::new(),
+            type_predecls: HashMap::new(),
         }
     }
 
@@ -287,6 +292,7 @@ impl ScopeFrame {
             active_overlays: vec![OverlayId::new(0)],
             removed_overlays: vec![],
             predecls: DeclNameMap::new(),
+            type_predecls: HashMap::new(),
         }
     }
 
@@ -404,6 +410,7 @@ pub struct OverlayFrame {
     pub predecls: DeclNameMap, // temporary storage for predeclarations
     pub decls: DeclNameMap,
     pub modules: HashMap<Vec<u8>, ModuleId>,
+    pub type_aliases: HashMap<Vec<u8>, TypeAliasId>,
     pub shadowed_vars: Vec<VarId>,
     pub visibility: Visibility,
     pub origin: ModuleId, // The original module the overlay was created from
@@ -417,6 +424,7 @@ impl OverlayFrame {
             predecls: DeclNameMap::new(),
             decls: DeclNameMap::new(),
             modules: HashMap::new(),
+            type_aliases: HashMap::new(),
             shadowed_vars: Vec::new(),
             visibility: Visibility::new(),
             origin,

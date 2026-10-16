@@ -123,6 +123,7 @@ mod terminal;
 mod to_text;
 mod transpose;
 mod try_;
+mod type_;
 #[cfg(feature = "os")]
 mod ucp;
 #[cfg(unix)]

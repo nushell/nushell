@@ -1,7 +1,7 @@
 use crate::{
     BlockId, Config, DeclId, FileId, GetSpan, Handlers, HistoryConfig, JobId, Module, ModuleId,
-    OverlayId, ShellError, SignalAction, Signals, Signature, Span, SpanId, Type, Value, VarId,
-    VirtualPathId,
+    OverlayId, ShellError, SignalAction, Signals, Signature, Span, SpanId, Type, TypeAlias,
+    TypeAliasId, Value, VarId, VirtualPathId,
     ast::{Block, Expr},
     debugger::{Debugger, NoopDebugger},
     engine::{
@@ -147,6 +147,8 @@ pub struct EngineState {
     pub(super) blocks: Arc<Vec<Arc<Block>>>,
     #[debug("{:?}", modules.iter().map(|m| String::from_utf8_lossy(&m.name)))]
     pub(super) modules: Arc<Vec<Arc<Module>>>,
+    #[debug("{:?}", type_aliases.iter().map(|alias| &alias.name))]
+    pub(super) type_aliases: Arc<Vec<TypeAlias>>,
     pub spans: Vec<Span>,
     doccomments: Doccomments,
     pub scope: ScopeFrame,
@@ -283,6 +285,7 @@ impl EngineState {
             modules: Arc::new(vec![Arc::new(Module::new(
                 DEFAULT_OVERLAY_NAME.as_bytes().to_vec(),
             ))]),
+            type_aliases: Arc::new(vec![]),
             spans: vec![Span::unknown()],
             doccomments: Doccomments::new(),
             // make sure we have some default overlay:
@@ -412,6 +415,9 @@ impl EngineState {
         if !delta.modules.is_empty() {
             Arc::make_mut(&mut self.modules).extend(delta.modules);
         }
+        if !delta.type_aliases.is_empty() {
+            Arc::make_mut(&mut self.type_aliases).extend(delta.type_aliases);
+        }
 
         let first = delta.scope.remove(0);
 
@@ -432,6 +438,9 @@ impl EngineState {
                 for item in delta_overlay.modules.into_iter() {
                     existing_overlay.modules.insert(item.0, item.1);
                 }
+                existing_overlay
+                    .type_aliases
+                    .extend(delta_overlay.type_aliases);
 
                 existing_overlay
                     .visibility
@@ -858,6 +867,19 @@ impl EngineState {
         None
     }
 
+    /// Find the [`TypeAliasId`] corresponding to `name`.
+    ///
+    /// Searches within active overlays, and filtering out overlays in `removed_overlays`.
+    pub fn find_type_alias(
+        &self,
+        name: &[u8],
+        removed_overlays: &[Vec<u8>],
+    ) -> Option<TypeAliasId> {
+        self.active_overlays(removed_overlays)
+            .rev()
+            .find_map(|overlay_frame| overlay_frame.type_aliases.get(name).copied())
+    }
+
     pub fn get_module_comments(&self, module_id: ModuleId) -> Option<&[Span]> {
         self.doccomments.get_module_comments(module_id)
     }
@@ -1077,6 +1099,16 @@ impl EngineState {
         self.modules
             .get(module_id.get())
             .expect("internal error: missing module")
+    }
+
+    pub fn get_type_alias(&self, type_alias_id: TypeAliasId) -> &TypeAlias {
+        self.type_aliases
+            .get(type_alias_id.get())
+            .expect("internal error: missing type alias")
+    }
+
+    pub fn num_type_aliases(&self) -> usize {
+        self.type_aliases.len()
     }
 
     pub fn get_virtual_path(&self, virtual_path_id: VirtualPathId) -> &(String, VirtualPath) {
