@@ -456,9 +456,9 @@ const CLI_FLAGS: &[CliFlag] = &[
         "mcp-host",
         None,
         ValueHint::String,
-        "host for MCP HTTP transhost (default 127.0.0.1)",
+        "address the MCP HTTP transport binds to (default 127.0.0.1)",
         CliCategory::Startup,
-        "nu --mcp --mcp-transhost http --mcp-host 0.0.0.0",
+        "nu --mcp --mcp-transport http --mcp-host 0.0.0.0",
     ),
     #[cfg(feature = "mcp")]
     CliFlag::value(
@@ -1888,6 +1888,27 @@ mod tests {
     #[case::interactive_script(&["-i", "script.nu"], false)]
     fn is_repl(#[case] args: &[&str], #[case] expected: bool) {
         assert_eq!(parse_nu_args(args).run_mode().is_repl(), expected);
+    }
+
+    // The examples are printed by `nu --help`, so a flag they mention must exist.
+    #[test]
+    fn flag_examples_only_use_known_flags() {
+        for flag in CLI_FLAGS {
+            for name in flag
+                .example
+                .split_whitespace()
+                .filter_map(|word| word.strip_prefix("--"))
+                .filter_map(|word| word.split('=').next())
+                .filter(|name| !name.is_empty())
+            {
+                assert!(
+                    CLI_FLAGS.iter().any(|known| known.long == name),
+                    "the example for `--{}` uses the unknown flag `--{name}`: {}",
+                    flag.long,
+                    flag.example
+                );
+            }
+        }
     }
 
     #[test]
