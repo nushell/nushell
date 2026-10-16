@@ -58,14 +58,14 @@ fn with_env(
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let env: Record = call.req(engine_state, stack, 0)?;
+    let env: Spanned<Record> = call.req(engine_state, stack, 0)?;
     let capture_block: Closure = call.req(engine_state, stack, 1)?;
 
-    for (env_var, _) in &env {
+    for (env_var, _) in &env.item {
         if is_automatic_env_var(env_var) {
             return Err(ShellError::AutomaticEnvVarSetManually {
                 envvar_name: env_var.to_owned(),
-                span: call.head,
+                span: env.span,
             });
         }
     }
@@ -75,7 +75,7 @@ fn with_env(
 
     let mut last_config_var = None;
 
-    for (k, v) in env {
+    for (k, v) in env.item {
         if env_var_eq(&k, var::CONFIG) {
             last_config_var = Some((k, v));
         } else {
