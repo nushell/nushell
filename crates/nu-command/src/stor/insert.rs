@@ -30,7 +30,7 @@ impl Command for StorInsert {
             .named(
                 "data-record",
                 SyntaxShape::record(),
-                "A record of column names and column values to insert into the specified table.",
+                "A record of column names and column values to insert into the specified table. Takes precedence over pipeline input.",
                 Some('d'),
             )
             .allow_variants_without_examples(true)
@@ -106,15 +106,9 @@ fn handle(
     data_record: Option<Record>,
     input: PipelineData,
 ) -> Result<Vec<Record>, ShellError> {
-    // Check for conflicting use of both pipeline input and flag
+    // The flag wins over the input: the first statement of a block receives the block's
+    // input implicitly, so `each {|r| stor insert -t t -d $r }` gets both.
     if let Some(record) = data_record {
-        if !matches!(input, PipelineData::Empty) {
-            return Err(ShellError::Generic(GenericError::new(
-                "Pipeline and Flag both being used",
-                "Use either pipeline input or '--data-record' parameter",
-                span,
-            )));
-        }
         return Ok(vec![record]);
     }
 
