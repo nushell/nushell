@@ -1,7 +1,7 @@
 use crate::network::http::client::{
     HttpBody, RedirectMode, RequestFlags, RequestMetadata, add_unix_socket_flag,
-    check_response_redirection, expand_unix_socket_path, http_client, http_client_pool,
-    http_parse_redirect_mode, http_parse_url, request_add_authorization_header,
+    check_response_redirection, expand_unix_socket_path, handle_transport_error, http_client,
+    http_client_pool, http_parse_redirect_mode, http_parse_url, request_add_authorization_header,
     request_add_custom_headers, request_handle_response, request_set_host_header,
     request_set_timeout, send_request, send_request_no_body,
 };
@@ -270,7 +270,10 @@ fn helper(
         full: args.full,
         allow_errors: args.allow_errors,
     };
-    let response = response?;
+    let response = handle_transport_error(response, args.allow_errors)?;
+    let Some(response) = response else {
+        return Ok(Value::nothing(span).into_pipeline_data());
+    };
 
     check_response_redirection(redirect_mode, span, &response)?;
     request_handle_response(

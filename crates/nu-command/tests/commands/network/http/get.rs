@@ -352,6 +352,47 @@ fn http_get_timeout() -> Result {
 }
 
 #[test]
+fn http_get_timeout_with_allow_errors_returns_nothing() -> Result {
+    let mut server = Server::new();
+    let _mock = server
+        .mock("GET", "/")
+        .with_chunked_body(|w| {
+            thread::sleep(Duration::from_secs(10));
+            w.write_all(b"Delayed response!")
+        })
+        .create();
+
+    let code = format!(
+        "http get --allow-errors --max-time 100ms {url} | describe",
+        url = server.url()
+    );
+
+    test().run(code).expect_value_eq("nothing")
+}
+
+#[test]
+fn http_get_header_timeout_with_allow_errors_returns_nothing() -> Result {
+    // Bind a socket that accepts the connection but never sends a response,
+    // so the request times out while waiting for the response headers.
+    let listener =
+        std::net::TcpListener::bind("127.0.0.1:0").expect("could not bind test listener");
+    let addr = listener
+        .local_addr()
+        .expect("could not get test listener address");
+    std::thread::spawn(move || {
+        // Hold the connection open without responding; the client times out.
+        if let Ok((stream, _)) = listener.accept() {
+            std::thread::sleep(Duration::from_secs(10));
+            drop(stream);
+        }
+    });
+
+    let code = format!("http get --allow-errors --max-time 100ms http://{addr} | describe");
+
+    test().run(code).expect_value_eq("nothing")
+}
+
+#[test]
 fn http_get_response_metadata() -> Result {
     let mut server = Server::new();
 
