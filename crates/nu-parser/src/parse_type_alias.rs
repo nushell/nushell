@@ -92,6 +92,24 @@ pub fn parse_type_alias(
     }
 
     let keyword = String::from_utf8_lossy(working_set.get_span_contents(head)).into_owned();
+    // `type ls` is how Bash and cmd.exe look up a command, so a bare `type` without `=` also
+    // points to `which`.
+    let missing_equals = |name_span: Span| {
+        let name = String::from_utf8_lossy(working_set.get_span_contents(name_span));
+        let lookup = if keyword == "type" {
+            format!(
+                " To see what the command `{name}` is, use `which {name}`. To run an external `type` program, use `^type {name}`."
+            )
+        } else {
+            String::new()
+        };
+        let help =
+            format!("`{keyword}` defines a type alias: `{keyword} {name} = <type>`.{lookup}");
+        ParseError::TypeAliasMissingEquals {
+            help,
+            span: name_span,
+        }
+    };
     let layout_error = match rest_spans {
         [] => Some(ParseError::MissingPositional(
             "name".into(),
@@ -113,19 +131,11 @@ pub fn parse_type_alias(
                     *word,
                     format!("Make sure to put spaces around '=': {keyword} {name} = {ty}"),
                 ),
-                None => ParseError::AssignmentMismatch(
-                    format!("{keyword} missing sign"),
-                    "missing equal sign".into(),
-                    Span::point(word.end),
-                ),
+                None => missing_equals(*word),
             })
         }
-        [_, equals, ..] if working_set.get_span_contents(*equals) != b"=" => {
-            Some(ParseError::AssignmentMismatch(
-                format!("{keyword} missing sign"),
-                "missing equal sign".into(),
-                *equals,
-            ))
+        [name, equals, ..] if working_set.get_span_contents(*equals) != b"=" => {
+            Some(missing_equals(*name))
         }
         _ => None,
     };

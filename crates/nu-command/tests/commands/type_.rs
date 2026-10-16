@@ -128,7 +128,8 @@ fn alias_name_can_start_with_a_generic_type_name(#[case] name: &str) -> Result {
     "type Foo = int; def f [x: list<Foo<int>>] {}",
     "nu::parser::type_alias_with_params"
 )]
-#[case::missing_sign("type Foo int", "nu::parser::assignment_mismatch")]
+#[case::missing_sign("type Foo int", "nu::parser::type_alias_missing_equals")]
+#[case::name_only("type Foo", "nu::parser::type_alias_missing_equals")]
 #[case::missing_name("type = int", "nu::parser::assignment_mismatch")]
 #[case::no_spaces_around_sign("type Foo=int", "nu::parser::incorrect_value")]
 #[case::missing_type("type Foo =", "nu::parser::missing_type")]
@@ -137,6 +138,26 @@ fn alias_name_can_start_with_a_generic_type_name(#[case] name: &str) -> Result {
 #[case::unknown_alias("def f [x: Nope] {}", "nu::parser::unknown_type")]
 fn type_alias_errors(#[case] code: &str, #[case] error: &str) -> Result {
     test().run(code).expect_error_code_eq(error)
+}
+
+#[rstest]
+#[case::bare_type("type ls", Some("which ls"))]
+#[case::bare_type_with_arguments("type ls -a", Some("which ls"))]
+#[case::export_type("module m { export type Foo }", None)]
+fn missing_equals_help_shows_the_alias_form(
+    #[case] code: &str,
+    #[case] lookup_hint: Option<&str>,
+) -> Result {
+    let err = test().run(code).expect_parse_error()?;
+    let ParseError::TypeAliasMissingEquals { help, .. } = err else {
+        panic!("unexpected error: {err:?}");
+    };
+    assert_contains("= <type>`", &help);
+    match lookup_hint {
+        Some(hint) => assert_contains(hint, &help),
+        None => assert_contains_not("which", &help),
+    }
+    Ok(())
 }
 
 #[test]

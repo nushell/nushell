@@ -485,6 +485,20 @@ pub enum ParseError {
     #[diagnostic(code(nu::parser::type_alias_with_params))]
     TypeAliasWithParams(String, #[label("unexpected type parameters")] Span),
 
+    /// A `type` statement has a name but no `=` after it, as in `type ls`.
+    ///
+    /// ## Resolution
+    ///
+    /// Write `type Name = <type>`. In Bash and cmd.exe, `type ls` shows what the command `ls`
+    /// is; in Nushell, that's `which ls`, and an external `type` program runs as `^type ls`.
+    #[error("Missing `=` in type alias.")]
+    #[diagnostic(code(nu::parser::type_alias_missing_equals), help("{help}"))]
+    TypeAliasMissingEquals {
+        help: String,
+        #[label("expected `=` and a type after this name")]
+        span: Span,
+    },
+
     #[error("Missing flag argument.")]
     #[diagnostic(code(nu::parser::missing_flag_param))]
     MissingFlagParam(String, #[label = "flag missing {0} argument"] Span),
@@ -809,6 +823,7 @@ impl ParseError {
             ParseError::TypeAliasShadowsBuiltin(_, s) => *s,
             ParseError::TypeAliasNameNotValid(s) => *s,
             ParseError::TypeAliasWithParams(_, s) => *s,
+            ParseError::TypeAliasMissingEquals { span: s, .. } => *s,
             ParseError::MissingFlagParam(_, s) => *s,
             ParseError::OnlyLastFlagInBatchCanTakeArg(s) => *s,
             ParseError::MissingPositional(_, s, _) => *s,
