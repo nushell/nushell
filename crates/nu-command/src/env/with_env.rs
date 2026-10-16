@@ -1,4 +1,5 @@
-use nu_engine::{command_prelude::*, env::var, eval_block, is_automatic_env_var};
+use nu_engine::env::{is_automatic_env_var, var};
+use nu_engine::{command_prelude::*, eval_block};
 use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::engine::{Closure, env_var_eq};
 

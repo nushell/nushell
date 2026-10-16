@@ -17,11 +17,12 @@ pub mod var {
     pub const CONFIG: &str = "config";
     pub const PATH: &str = "path";
     pub const AUTOMATIC_VARS: &[&str] = &["PWD", "FILE_PWD", "CURRENT_FILE"];
-    pub const DIR_VAR_PARSER_INFO: &str = "dirs_var";
-    // Parser info key used when `<cmd> --help` is rewritten to `help <name>` so `help`
-    // can render documentation for the already-resolved declaration.
-    pub const HELP_DECL_ID_PARSER_INFO: &str = "help_decl_id";
 }
+
+pub const DIR_VAR_PARSER_INFO: &str = "dirs_var";
+// Parser info key used when `<cmd> --help` is rewritten to `help <name>` so `help`
+// can render documentation for the already-resolved declaration.
+pub const HELP_DECL_ID_PARSER_INFO: &str = "help_decl_id";
 
 /// Returns whether a string, when used as the name of an environment variable,
 /// is considered an automatic environment variable.
@@ -231,7 +232,7 @@ pub fn path_str(
 }
 
 pub fn get_dirs_var_from_call(stack: &Stack, call: &Call) -> Option<VarId> {
-    call.get_parser_info(stack, var::DIR_VAR_PARSER_INFO)
+    call.get_parser_info(stack, DIR_VAR_PARSER_INFO)
         .and_then(|x| {
             if let Expr::Var(id) = x.expr {
                 Some(id)

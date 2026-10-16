@@ -5,7 +5,7 @@ use nu_protocol::{
     ir::{Instruction, Literal},
 };
 
-use crate::is_automatic_env_var;
+use crate::env::is_automatic_env_var;
 
 use super::{BlockBuilder, CompileError, RedirectModes, compile_expression};
 

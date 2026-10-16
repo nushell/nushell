@@ -18,9 +18,9 @@ use nu_protocol::{
     shell_error::{generic::GenericError, io::IoError},
 };
 
+use crate::env::{is_automatic_env_var, var};
 use crate::{
-    convert_env_vars, env::is_automatic_env_var, env::var, eval_block_with_early_return,
-    named_flags::normalize_engine_arguments,
+    convert_env_vars, eval_block_with_early_return, named_flags::normalize_engine_arguments,
 };
 
 /// For `def --wrapped` and `known extern` rest params (`SyntaxShape::ExternalArgument`), convert
