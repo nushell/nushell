@@ -1273,6 +1273,70 @@ mod tests {
         );
     }
 
+    /// An evaluator with a documented `foo bar`, an alias `fb` of it, and a module command that
+    /// is called as `spam baz` but declared as `baz`.
+    async fn evaluator_with_alias_and_module_command() -> Evaluator {
+        let evaluator = Evaluator::new(nu_cmd_lang::create_default_context());
+        let result = evaluator
+            .eval_async(
+                "# Runs bar\ndef \"foo bar\" [] {}\nalias fb = foo bar\nmodule spam { export def baz [] {} }\nuse spam",
+                CancellationToken::new(),
+            )
+            .await;
+        assert_tool_success(&result);
+        evaluator
+    }
+
+    #[tokio::test]
+    async fn list_commands_shows_names_in_scope() -> Result<(), Box<dyn std::error::Error>> {
+        let evaluator = evaluator_with_alias_and_module_command().await;
+        let names = |listed: &str| -> Vec<String> {
+            listed
+                .lines()
+                .filter_map(|line| line.split(" - ").next())
+                .map(|name| name.trim().to_owned())
+                .collect()
+        };
+
+        // The alias is listed as `fb`, not as a second `foo bar`.
+        let listed = evaluator
+            .list_available_commands(Some("foo bar".into()))
+            .await?;
+        assert_eq!(names(&listed), ["fb", "foo bar"], "got:\n{listed}");
+
+        let listed = evaluator
+            .list_available_commands(Some("baz".into()))
+            .await?;
+        assert_eq!(names(&listed), ["spam baz"], "got:\n{listed}");
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn command_help_finds_commands_by_names_in_scope()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let evaluator = evaluator_with_alias_and_module_command().await;
+
+        let help = evaluator.command_help("fb").await?;
+        assert!(help.starts_with("Command: fb\n"), "got:\n{help}");
+        assert!(
+            help.contains("Description: Alias for `foo bar`"),
+            "got:\n{help}"
+        );
+
+        // `fb` sorts before `foo bar`, so an alias carrying the wrapped name would answer here.
+        let help = evaluator.command_help("foo bar").await?;
+        assert!(help.contains("Description: Runs bar"), "got:\n{help}");
+
+        let help = evaluator.command_help("spam baz").await?;
+        assert!(help.starts_with("Command: spam baz\n"), "got:\n{help}");
+
+        // `baz` is the declared name, but the command can't be called by it.
+        assert!(evaluator.command_help("baz").await.is_err());
+
+        Ok(())
+    }
+
     #[cfg(unix)]
     #[test]
     fn test_failing_external_command_returns_captured_output()
