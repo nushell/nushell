@@ -2,6 +2,7 @@ use nu_experimental::NATIVE_CLIP;
 use nu_test_support::fs::Stub::FileWithContent;
 use nu_test_support::playground::Playground;
 use nu_test_support::prelude::*;
+use rstest::rstest;
 
 // Note: These tests might slightly overlap with tests/scope/mod.rs
 
@@ -487,6 +488,102 @@ fn help_commands_shows_overlay_name_for_module_decls() -> Result {
             .run(r#"help commands | where name == "spam prefix" | length"#)
             .expect_value_eq(1)
     })
+}
+
+// Regression tests for #11657: an alias reuses the signature of the command it wraps. An alias of
+// a subcommand is listed under the name it's called by, says what it runs, and sorts right after
+// the subcommand it wraps.
+#[rstest]
+#[case::custom_command(
+    r#"def foo [] {}; def "foo bar" [] {}; alias fb = foo bar; help foo | ansi strip"#,
+    "foo bar (custom)",
+    "fb (alias) - Alias for `foo bar`"
+)]
+#[case::builtin_command(
+    "alias st = str trim; help str | ansi strip",
+    "str trim - ",
+    "st (alias) - Alias for `str trim`"
+)]
+#[case::module_alias(
+    r#"
+        module spam {
+            export def foo [] {}
+            export def "foo bar" [] {}
+            export alias fb = foo bar
+        }
+        use spam
+        help spam foo | ansi strip
+    "#,
+    "foo bar (custom)",
+    "spam fb (alias) - Alias for `foo bar`"
+)]
+// A doc comment replaces the alias's description, but the list still says what the alias runs.
+#[case::doc_comment(
+    "
+        # trim both ends
+        alias st = str trim
+        help str | ansi strip
+    ",
+    "str trim - ",
+    "st (alias) - Alias for `str trim`"
+)]
+fn help_subcommands_list_alias_after_wrapped_subcommand(
+    #[case] code: &str,
+    #[case] wrapped: &str,
+    #[case] alias_line: &str,
+) -> Result {
+    let outcome: String = test().run(code)?;
+    let lines: Vec<&str> = outcome.lines().map(str::trim).collect();
+    let wrapped_at = lines
+        .iter()
+        .position(|line| line.starts_with(wrapped))
+        .unwrap_or_else(|| panic!("no `{wrapped}` line in:\n{outcome}"));
+    assert_eq!(
+        lines.get(wrapped_at + 1),
+        Some(&alias_line),
+        "got:\n{outcome}"
+    );
+    Ok(())
+}
+
+#[test]
+fn help_subcommands_omit_hidden_alias() -> Result {
+    let code =
+        r#"def foo [] {}; def "foo bar" [] {}; alias fb = foo bar; hide fb; help foo | ansi strip"#;
+    let outcome: String = test().run(code)?;
+    assert_contains("foo bar (custom)", &outcome);
+    assert_contains_not("(alias)", &outcome);
+    Ok(())
+}
+
+#[rstest]
+#[case::top_level(
+    r#"
+        def foo [] {}
+        def "foo bar" [] {}
+        alias "foo baz" = foo bar
+        help foo | ansi strip
+    "#
+)]
+// Module subcommands are listed under their bare names (`foo bar`, not `spam foo bar`); that is
+// the module-scoping TODO in `get_command_documentation` (#11447), not something this test pins.
+#[case::module_prefixed(
+    r#"
+        module spam {
+            export def foo [] {}
+            export def "foo bar" [] {}
+            export alias "foo baz" = foo bar
+        }
+        use spam
+        help spam foo | ansi strip
+    "#
+)]
+fn help_subcommands_list_alias_under_its_own_name(#[case] code: &str) -> Result {
+    let outcome: String = test().run(code)?;
+    assert_contains("foo bar (custom)", &outcome);
+    assert_contains("foo baz (alias)", &outcome);
+    assert_contains_not("foo bar (alias)", &outcome);
+    Ok(())
 }
 
 #[test]

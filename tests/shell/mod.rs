@@ -472,6 +472,29 @@ fn script_help_shows_single_subcommand() -> Result {
     })
 }
 
+// regression test for https://github.com/nushell/nushell/issues/11657: an alias named like a
+// `main` subcommand is listed under its script-qualified name, not as the command it wraps.
+#[test]
+#[deps(NU)]
+fn script_help_lists_main_alias_under_its_own_name() -> Result {
+    Playground::setup("main_alias_help", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[FileWithContent(
+            "script.nu",
+            r#"def "main bar" [] {}
+               alias "main baz" = main bar
+               def "main" [] { help main }"#,
+        )]);
+
+        let out: String = test()
+            .cwd(dirs.test())
+            .run("nu script.nu --help | ansi strip")?;
+        assert_contains("script.nu baz (alias)", &out);
+        assert_eq!(out.matches("bar (").count(), 1, "got:\n{out}");
+
+        Ok(())
+    })
+}
+
 #[test]
 #[deps(NU)]
 fn source_empty_file() -> Result {
