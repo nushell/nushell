@@ -384,7 +384,7 @@ fn format_int(int: i64, group_digits: bool, decimals: usize) -> String {
     let str = if group_digits {
         int.to_formatted_string(&locale)
     } else if int < 0 {
-        format!("{}{}", locale.minus_sign(), int.abs())
+        format!("{}{}", locale.minus_sign(), int.unsigned_abs())
     } else {
         int.to_string()
     };
