@@ -490,30 +490,33 @@ fn filesize_into_string_group_digits_decimals_above_u16_range_errors() -> Result
 }
 
 #[test]
-fn float_into_string_large_decimals_returns_nan() -> Result {
+fn float_into_string_large_decimals() -> Result {
     let code = "
     1.5 | into string -d 400
     ";
 
-    test().run(code).expect_value_eq("NaN")
+    let result = format!("1.5{}", "0".repeat(399));
+    test().run(code).expect_value_eq(result)
 }
 
 #[test]
-fn float_into_string_large_negative_decimals_returns_nan() -> Result {
+fn float_into_string_large_negative_decimals() -> Result {
     let code = "
     -1.5 | into string -d 400
     ";
 
-    test().run(code).expect_value_eq("NaN")
+    let result = format!("-1.5{}", "0".repeat(399));
+    test().run(code).expect_value_eq(result)
 }
 
 #[test]
-fn float_into_string_precision_overflow_returns_inf() -> Result {
+fn float_into_string_precision_overflow() -> Result {
     let code = "
     1e300 | into string -d 10
     ";
 
-    test().run(code).expect_value_eq("inf")
+    let result = "1000000000000000052504760255204420248704468581108159154915854115511802457988908195786371375080447864043704443832883878176942523235360430575644792184786706982848387200926575803737830233794788090059368953234970799945081119038967640880074652742780142494579258788820056842838115669472196386865459400540160.0000000000";
+    test().run(code).expect_value_eq(result)
 }
 
 #[test]

@@ -231,19 +231,20 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             Value::string(res, span)
         }
         Value::Float { val, .. } => {
-            let (val, basic) = match digits {
-                None => (*val, val.to_string()),
+            if !val.is_finite() {
+                return Value::string(val.to_string(), span);
+            }
+
+            let basic = match digits {
+                None => val.to_string(),
                 Some(precision) => {
                     let scale = 10_f64.powi(precision as i32);
-                    let rounded = (val * scale).round() / scale;
-                    let basic = format!("{:.*}", precision as usize, rounded);
-                    (rounded, basic)
+                    let scaled = val * scale;
+                    let rounded = if scaled.is_finite() { scaled.round() / scale } else { *val };
+                    format!("{:.*}", precision as usize, rounded)
                 }
             };
 
-            if !val.is_finite() {
-                return Value::string(basic, span);
-            }
 
             let negative = basic.starts_with('-');
             let first_digit = if negative { 1 } else { 0 };
