@@ -15,6 +15,7 @@ use std::{error::Error as StdError, num::NonZeroI32, sync::Arc};
 use thiserror::Error;
 
 pub mod bridge;
+pub mod eval_block_with_input;
 pub mod generic;
 pub mod io;
 pub mod job;
@@ -1145,16 +1146,13 @@ pub enum ShellError {
         span: Span,
     },
 
-    // It should be only used by commands accepts block, and accept inputs from pipeline.
-    /// Failed to eval block with specific pipeline input.
-    #[error("Eval block failed with pipeline input")]
-    #[diagnostic(code(nu::shell::eval_block_with_input))]
-    EvalBlockWithInput {
-        #[label("source value")]
-        span: Span,
-        #[related]
-        sources: Vec<ShellError>,
-    },
+    /// A closure failed while running on one pipeline input value.
+    ///
+    /// Reports as the closure's error, with an extra label at the input value.
+    /// See [`EvalBlockWithInputError`](eval_block_with_input::EvalBlockWithInputError).
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    EvalBlockWithInput(eval_block_with_input::EvalBlockWithInputError),
 
     /// Break event, which may become an error if used outside of a loop
     #[error("Break used outside of loop")]
@@ -1493,9 +1491,21 @@ impl ShellError {
             #[cfg(unix)]
             Self::TerminatedBySignal { signal, span, .. }
             | Self::CoreDumped { signal, span, .. } => (-signal, span),
+            // Reports as the closure's error, so it carries that error's exit code too.
+            Self::EvalBlockWithInput(ref err) => return err.error.external_exit_code(),
             _ => return None,
         };
         Some(Spanned { item, span })
+    }
+
+    /// Whether this error comes from an interrupt: ctrl-c, or an external process ended by a
+    /// signal.
+    pub fn is_interrupt(&self) -> bool {
+        #[cfg(unix)]
+        if matches!(self, Self::TerminatedBySignal { .. }) {
+            return true;
+        }
+        matches!(self, Self::Interrupted { .. })
     }
 
     pub fn exit_code(&self) -> Option<i32> {

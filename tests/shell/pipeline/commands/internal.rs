@@ -1019,10 +1019,8 @@ fn liststream_error_with_backtrace_custom() -> Result {
         .env("NU_BACKTRACE", 1)
         .run(code)
         .expect_shell_error()?;
-    let [err] = match err {
-        ShellError::EvalBlockWithInput { sources, .. } => sources.try_into().unwrap(),
-        _ => return Err(err.into()),
-    };
+    assert_matches!(err, ShellError::EvalBlockWithInput(..));
+    let err = err.into_inner()?;
 
     // is this enough to test that backtracing is on?
     assert_eq!(err.into_inner()?.into_labeled()?.msg, "a custom error");
@@ -1051,7 +1049,7 @@ fn liststream_error_with_backtrace_function() -> Result {
         b
     ";
 
-    let [err, _] = test()
+    let [err] = test()
         .env("NU_BACKTRACE", 1)
         .run(code)
         .expect_shell_error()?
@@ -1060,9 +1058,9 @@ fn liststream_error_with_backtrace_function() -> Result {
         .collect_array()
         .unwrap();
 
-    assert_matches!(err, ShellError::EvalBlockWithInput { .. });
+    assert_matches!(err, ShellError::EvalBlockWithInput(..));
     let err = err.into_inner()?;
-    assert_matches!(err, ShellError::EvalBlockWithInput { .. });
+    assert_matches!(err, ShellError::EvalBlockWithInput(..));
     let err = err.into_inner()?;
     assert_matches!(err, ShellError::ChainedError(..));
     assert_eq!(err.into_inner()?.into_labeled()?.msg, "a custom error");
@@ -1077,7 +1075,7 @@ fn liststream_error_with_backtrace_single_stream() -> Result {
         .run(code)
         .expect_shell_error()?;
 
-    assert_matches!(err, ShellError::EvalBlockWithInput { .. });
+    assert_matches!(err, ShellError::EvalBlockWithInput(..));
     let err = err.into_inner()?;
     assert_matches!(err, ShellError::ChainedError(..));
     assert_eq!(err.into_inner()?.into_labeled()?.msg, "a custom err");

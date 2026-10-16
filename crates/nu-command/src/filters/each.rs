@@ -1,4 +1,4 @@
-use super::utils::chain_error_with_input;
+use super::utils::wrap_error_with_input;
 use nu_engine::{ClosureEval, ClosureEvalOnce, command_prelude::*};
 use nu_protocol::engine::Closure;
 
@@ -284,7 +284,7 @@ fn each_map(value: Value, closure: &mut ClosureEval, head: Span) -> Result<Value
     closure
         .run_with_value(value)
         .and_then(|pipeline_data| pipeline_data.into_value(head))
-        .map_err(|error| chain_error_with_input(error, is_error, span))
+        .map_err(|error| wrap_error_with_input(error, is_error, span))
 }
 
 #[cfg(test)]
