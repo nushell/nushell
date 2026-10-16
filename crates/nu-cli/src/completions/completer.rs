@@ -1210,11 +1210,12 @@ impl<'engine> CompletionEngine<'engine> {
             return Vec::new();
         };
 
+        let cursor = contents.floor_char_boundary(position.min(contents.len()));
         self.fetch_completions_by_block(
             block,
             &working_set,
             Buffer {
-                text: contents.get(..position).unwrap_or(contents),
+                text: &contents[..cursor],
                 offset: file_span.start,
             },
             contents,
