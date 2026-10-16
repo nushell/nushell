@@ -717,6 +717,22 @@ fn calculate_end_span(
     }
 }
 
+/// Check if a syntax shape accepts nearly any bare word without error. `string`, `path` and
+/// `directory` take `5` or `5sec` as a string, `glob` and `external_arg` as a glob, `cell-path`
+/// takes `5` as `$.5`, and `any` falls back to a string. `parse_oneof` tries these shapes last.
+fn accepts_any_bareword(shape: &SyntaxShape) -> bool {
+    matches!(
+        shape,
+        SyntaxShape::String
+            | SyntaxShape::Filepath
+            | SyntaxShape::Directory
+            | SyntaxShape::GlobPattern
+            | SyntaxShape::CellPath
+            | SyntaxShape::ExternalArgument
+            | SyntaxShape::Any
+    )
+}
+
 pub(crate) fn parse_oneof(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
@@ -728,10 +744,35 @@ pub(crate) fn parse_oneof(
     let starting_spans_idx = *spans_idx;
     let mut best_guess = None;
     let mut best_guess_errors = Vec::new();
+    let mut best_guess_warnings = Vec::new();
+    let mut best_guess_scopes = Vec::new();
     let mut max_first_error_offset = 0;
     let mut propagate_error = false;
-    for shape in possible_shapes {
+    // The first shape that parses without error wins. Shapes that accept any bare word go
+    // last (keeping their declared order among themselves), the same way `SyntaxShape::Any`
+    // tries `String` last, so `oneof<string, list<string>>` parses `[a b]` as a list and
+    // `oneof<string, int>` parses `5` as an int.
+    // `parse_value` handles a value starting with `$`, `(` or `{` (variable, subexpression,
+    // interpolation, record, closure) by its first byte under nearly every shape, so no shape
+    // claims it the way `string` claims `5`. Such a value keeps the declared order, which still
+    // decides the few cases where the shape matters: `oneof<glob, list<glob>>` takes
+    // `$"*.($ext)"` as a glob, and `oneof<any, closure>` takes `{...$r}` as a record.
+    let defer_barewords = !matches!(
+        working_set
+            .get_span_contents(spans[starting_spans_idx])
+            .first(),
+        Some(b'$' | b'(' | b'{')
+    );
+    let deferred = |shape: &SyntaxShape| defer_barewords && accepts_any_bareword(shape);
+    let ordered_shapes = possible_shapes
+        .iter()
+        .filter(|shape| !deferred(shape))
+        .chain(possible_shapes.iter().filter(|shape| deferred(shape)));
+    let starting_scope_count = working_set.delta.scope.len();
+    for shape in ordered_shapes {
         let starting_error_count = working_set.parse_errors.len();
+        let starting_warning_count = working_set.parse_warnings.len();
+        let starting_compile_error_count = working_set.compile_errors.len();
         *spans_idx = starting_spans_idx;
         let value = match multispan {
             true => parse_multispan_value(working_set, spans, spans_idx, shape, input_type),
@@ -743,6 +784,13 @@ pub(crate) fn parse_oneof(
         let Some(first_error_offset) = new_errors.iter().map(|e| e.span().start).min() else {
             return value;
         };
+
+        // A closure with no closing `}` leaves its scope open. Take this attempt's open scopes
+        // off the stack, so the next shape doesn't resolve names through them and later
+        // definitions don't land in them. Only the best guess's go back, below, because
+        // completions inside the unfinished closure need them.
+        let scopes = &mut working_set.delta.scope;
+        let open_scopes = scopes.split_off(starting_scope_count.min(scopes.len()));
 
         if first_error_offset > max_first_error_offset {
             // while trying the possible shapes, ignore Expected type errors
@@ -761,14 +809,28 @@ pub(crate) fn parse_oneof(
             best_guess = Some(value);
             best_guess_errors.clear();
             best_guess_errors.extend_from_slice(new_errors);
+            best_guess_warnings.clear();
+            best_guess_warnings
+                .extend_from_slice(&working_set.parse_warnings[starting_warning_count..]);
+            best_guess_scopes = open_scopes;
         }
+        // Discard this attempt's errors, warnings and compile errors. A later shape parses the
+        // same code again, or the attempt's closures go unused, so keeping them would report
+        // duplicate or spurious problems. If every shape fails, the best guess's errors and
+        // warnings are restored below.
         working_set.parse_errors.truncate(starting_error_count);
+        working_set.parse_warnings.truncate(starting_warning_count);
+        working_set
+            .compile_errors
+            .truncate(starting_compile_error_count);
     }
 
     // if best_guess results in new errors further than current span, then accept it
     // or propagate_error is marked as true for it
     if max_first_error_offset > spans[starting_spans_idx].start || propagate_error {
         working_set.parse_errors.extend(best_guess_errors);
+        working_set.parse_warnings.extend(best_guess_warnings);
+        working_set.delta.scope.extend(best_guess_scopes);
         best_guess.expect("best_guess should not be None here!")
     } else {
         working_set.error(ParseError::ExpectedWithStringMsg(
