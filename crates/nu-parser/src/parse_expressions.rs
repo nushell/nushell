@@ -1704,13 +1704,12 @@ pub fn parse_expression(
                 )),
             ];
 
-            let call = Call {
+            let expr = Expr::Call(Box::new(Call {
                 head: Span::unknown(),
                 decl_id,
                 arguments,
                 parser_info: HashMap::new(),
-            };
-            let expr = Expr::Call(Box::new(call));
+            }));
 
             Expression::new(working_set, expr, Span::concat(spans), ty)
         } else {
