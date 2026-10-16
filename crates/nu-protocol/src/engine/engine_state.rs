@@ -1071,14 +1071,21 @@ impl EngineState {
         }
     }
 
-    /// Get signatures of all commands within scope with their decl ids.
+    /// Get signatures of all commands within scope with their decl ids, sorted by name.
+    ///
+    /// Each signature's `name` is the name the command is called by in the current scope, which
+    /// can differ from the declared name: a module command declared as `foo bar` is `spam foo bar`
+    /// after `use spam`, and an alias's signature is a copy of the command it wraps, so
+    /// `alias st = str trim` would otherwise be named `str trim`. A command in scope under several
+    /// names is listed once per name.
     pub fn get_signatures_and_declids(&self, include_hidden: bool) -> Vec<(Signature, DeclId)> {
         self.get_decls_sorted(include_hidden)
             .into_iter()
-            .map(|(_, id)| {
+            .map(|(name, id)| {
                 let decl = self.get_decl(id);
-
-                (self.get_signature(decl).update_from_command(decl), id)
+                let mut signature = self.get_signature(decl).update_from_command(decl);
+                signature.name = String::from_utf8_lossy(&name).into_owned();
+                (signature, id)
             })
             .collect()
     }

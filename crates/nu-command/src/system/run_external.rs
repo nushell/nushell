@@ -711,14 +711,6 @@ fn suggestion_signatures(
                 true
             }
         })
-        .map(|(mut sig, decl_id)| {
-            sig.name = engine_state
-                .find_decl_name(decl_id, &[])
-                .map(String::from_utf8_lossy)
-                .map(Cow::into_owned)
-                .unwrap_or(sig.name);
-            (sig, decl_id)
-        })
         .collect()
 }
 
