@@ -1,12 +1,17 @@
 use crate::{
-    lex::lex, parse_helpers::PERCENT_FORCED_BUILTIN_PARSER_INFO, parse_pipelines::parse_block,
+    lex_once::lex_file, parse_helpers::PERCENT_FORCED_BUILTIN_PARSER_INFO,
+    parse_pipelines::parse_block,
 };
 use log::trace;
 use nu_protocol::{
     BlockId, IN_VARIABLE_ID, LAST_VARIABLE_ID, ParseError, Span, Type, VarId, ast::*,
     engine::StateWorkingSet,
 };
-use std::{collections::HashMap, sync::Arc};
+use rustc_hash::FxBuildHasher;
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 
 pub fn compile_block(working_set: &mut StateWorkingSet<'_>, block: &mut Block) {
     if !working_set.parse_errors.is_empty() {
@@ -44,10 +49,47 @@ pub fn compile_block_with_id(working_set: &mut StateWorkingSet<'_>, block_id: Bl
     };
 }
 
+/// The variables declared in the block being walked, which uses of them there are not captures of.
+///
+/// Every variable use checks it, and a block can declare many variables (the walk of a module's
+/// definitions shares one), so it answers from a set once it holds more than a few dozen; small
+/// ones, which most closures and blocks have, stay a plain list. The set hashes the ids with the
+/// Fx hash. They are small integers the parser assigns, so SipHash's resistance to chosen keys
+/// would only cost time.
+#[derive(Default)]
+pub(crate) struct SeenVars {
+    vars: Vec<VarId>,
+    set: HashSet<VarId, FxBuildHasher>,
+}
+
+impl SeenVars {
+    /// Up to this many variables are kept in a list and searched linearly.
+    const LIST_LEN: usize = 32;
+
+    fn push(&mut self, var_id: VarId) {
+        if self.set.is_empty() {
+            self.vars.push(var_id);
+            if self.vars.len() > Self::LIST_LEN {
+                self.set.extend(self.vars.drain(..));
+            }
+        } else {
+            self.set.insert(var_id);
+        }
+    }
+
+    fn contains(&self, var_id: &VarId) -> bool {
+        if self.set.is_empty() {
+            self.vars.contains(var_id)
+        } else {
+            self.set.contains(var_id)
+        }
+    }
+}
+
 pub fn discover_captures_in_closure(
     working_set: &StateWorkingSet,
     block: &Block,
-    seen: &mut Vec<VarId>,
+    seen: &mut SeenVars,
     seen_blocks: &mut HashMap<BlockId, Vec<(VarId, Span)>>,
     output: &mut Vec<(VarId, Span)>,
 ) -> Result<(), ParseError> {
@@ -80,10 +122,70 @@ pub fn discover_captures_in_closure(
     Ok(())
 }
 
+fn parser_info_block_id(call: &Call) -> Option<BlockId> {
+    match &call.get_parser_info("block_id")?.expr {
+        Expr::Int(id) if *id >= 0 => Some(BlockId::new(*id as usize)),
+        _ => None,
+    }
+}
+
+fn bubble_captures_from_block_id(
+    working_set: &StateWorkingSet,
+    block_id: BlockId,
+    seen: &SeenVars,
+    seen_blocks: &mut HashMap<BlockId, Vec<(VarId, Span)>>,
+    output: &mut Vec<(VarId, Span)>,
+) -> Result<(), ParseError> {
+    match seen_blocks.get(&block_id) {
+        Some(capture_list) => {
+            for capture in capture_list {
+                if !seen.contains(&capture.0) {
+                    output.push(*capture);
+                }
+            }
+            Ok(())
+        }
+        None => {
+            let block = working_set.get_block(block_id);
+            if !block.captures.is_empty() {
+                for (capture, span) in &block.captures {
+                    if !seen.contains(capture) {
+                        output.push((*capture, *span));
+                    }
+                }
+                Ok(())
+            } else {
+                let result = {
+                    let mut inner_seen = SeenVars::default();
+                    seen_blocks.insert(block_id, vec![]);
+
+                    let mut result = vec![];
+                    discover_captures_in_closure(
+                        working_set,
+                        block,
+                        &mut inner_seen,
+                        seen_blocks,
+                        &mut result,
+                    )?;
+
+                    result
+                };
+                for capture in &result {
+                    if !seen.contains(&capture.0) {
+                        output.push(*capture);
+                    }
+                }
+                seen_blocks.insert(block_id, result);
+                Ok(())
+            }
+        }
+    }
+}
+
 fn discover_captures_in_pipeline(
     working_set: &StateWorkingSet,
     pipeline: &Pipeline,
-    seen: &mut Vec<VarId>,
+    seen: &mut SeenVars,
     seen_blocks: &mut HashMap<BlockId, Vec<(VarId, Span)>>,
     output: &mut Vec<(VarId, Span)>,
 ) -> Result<(), ParseError> {
@@ -97,7 +199,7 @@ fn discover_captures_in_pipeline(
 pub fn discover_captures_in_pipeline_element(
     working_set: &StateWorkingSet,
     element: &PipelineElement,
-    seen: &mut Vec<VarId>,
+    seen: &mut SeenVars,
     seen_blocks: &mut HashMap<BlockId, Vec<(VarId, Span)>>,
     output: &mut Vec<(VarId, Span)>,
 ) -> Result<(), ParseError> {
@@ -124,7 +226,7 @@ pub fn discover_captures_in_pipeline_element(
     Ok(())
 }
 
-pub fn discover_captures_in_pattern(pattern: &MatchPattern, seen: &mut Vec<VarId>) {
+pub fn discover_captures_in_pattern(pattern: &MatchPattern, seen: &mut SeenVars) {
     match &pattern.pattern {
         Pattern::Variable(var_id) => seen.push(*var_id),
         Pattern::List(items) => {
@@ -154,7 +256,7 @@ pub fn discover_captures_in_pattern(pattern: &MatchPattern, seen: &mut Vec<VarId
 pub fn discover_captures_in_expr(
     working_set: &StateWorkingSet,
     expr: &Expression,
-    seen: &mut Vec<VarId>,
+    seen: &mut SeenVars,
     seen_blocks: &mut HashMap<BlockId, Vec<(VarId, Span)>>,
     output: &mut Vec<(VarId, Span)>,
 ) -> Result<(), ParseError> {
@@ -172,7 +274,7 @@ pub fn discover_captures_in_expr(
         Expr::Closure(block_id) => {
             let block = working_set.get_block(*block_id);
             let results = {
-                let mut seen = vec![];
+                let mut seen = SeenVars::default();
                 let mut results = vec![];
 
                 discover_captures_in_closure(
@@ -194,18 +296,18 @@ pub fn discover_captures_in_expr(
 
                 results
             };
-            seen_blocks.insert(*block_id, results.clone());
-            for (var_id, span) in results.into_iter() {
+            for &(var_id, span) in &results {
                 if !seen.contains(&var_id) {
                     output.push((var_id, span))
                 }
             }
+            seen_blocks.insert(*block_id, results);
         }
         Expr::Block(block_id) => {
             let block = working_set.get_block(*block_id);
             // FIXME: is this correct?
             let results = {
-                let mut seen = vec![];
+                let mut seen = SeenVars::default();
                 let mut results = vec![];
                 discover_captures_in_closure(
                     working_set,
@@ -217,12 +319,12 @@ pub fn discover_captures_in_expr(
                 results
             };
 
-            seen_blocks.insert(*block_id, results.clone());
-            for (var_id, span) in results.into_iter() {
+            for &(var_id, span) in &results {
                 if !seen.contains(&var_id) {
                     output.push((var_id, span))
                 }
             }
+            seen_blocks.insert(*block_id, results);
         }
         Expr::Binary(_) => {}
         Expr::Bool(_) => {}
@@ -232,50 +334,24 @@ pub fn discover_captures_in_expr(
             } else {
                 let decl = working_set.get_decl(call.decl_id);
                 if let Some(block_id) = decl.block_id() {
-                    match seen_blocks.get(&block_id) {
-                        Some(capture_list) => {
-                            // Push captures onto the outer closure that aren't created by that outer closure
-                            for capture in capture_list {
-                                if !seen.contains(&capture.0) {
-                                    output.push(*capture);
-                                }
-                            }
-                        }
-                        None => {
-                            let block = working_set.get_block(block_id);
-                            if !block.captures.is_empty() {
-                                for (capture, span) in &block.captures {
-                                    if !seen.contains(capture) {
-                                        output.push((*capture, *span));
-                                    }
-                                }
-                            } else {
-                                let result = {
-                                    let mut seen = vec![];
-                                    seen_blocks.insert(block_id, vec![]);
-
-                                    let mut result = vec![];
-                                    discover_captures_in_closure(
-                                        working_set,
-                                        block,
-                                        &mut seen,
-                                        seen_blocks,
-                                        &mut result,
-                                    )?;
-
-                                    result
-                                };
-                                // Push captures onto the outer closure that aren't created by that outer closure
-                                for capture in &result {
-                                    if !seen.contains(&capture.0) {
-                                        output.push(*capture);
-                                    }
-                                }
-
-                                seen_blocks.insert(block_id, result);
-                            }
-                        }
-                    }
+                    bubble_captures_from_block_id(
+                        working_set,
+                        block_id,
+                        seen,
+                        seen_blocks,
+                        output,
+                    )?;
+                }
+                // `source` / `source-env` store the sourced file as parser_info
+                // `block_id` (Expr::Int), not as decl.block_id() or a call argument.
+                if let Some(block_id) = parser_info_block_id(call) {
+                    bubble_captures_from_block_id(
+                        working_set,
+                        block_id,
+                        seen,
+                        seen_blocks,
+                        output,
+                    )?;
                 }
             }
 
@@ -405,7 +481,7 @@ pub fn discover_captures_in_expr(
 
             let results = {
                 let mut results = vec![];
-                let mut seen = vec![];
+                let mut seen = SeenVars::default();
                 discover_captures_in_closure(
                     working_set,
                     block,
@@ -416,12 +492,12 @@ pub fn discover_captures_in_expr(
                 results
             };
 
-            seen_blocks.insert(*block_id, results.clone());
-            for (var_id, span) in results.into_iter() {
+            for &(var_id, span) in &results {
                 if !seen.contains(&var_id) {
                     output.push((var_id, span))
                 }
             }
+            seen_blocks.insert(*block_id, results);
         }
         Expr::Table(table) => {
             for header in table.columns.as_ref() {
@@ -526,9 +602,9 @@ pub fn parse(
 
 /// Like [`parse`], but never returns a span-matched cached block.
 ///
-/// Required for `source` / `source-env`: free variables rebind to new VarIds
-/// when `let`/`mut` are re-declared, so a block cached by span alone is stale.
-/// See https://github.com/nushell/nushell/issues/18515
+/// `source` / `source-env` use [`parse`], which reuses a cached block only when
+/// every free-variable capture still resolves to the current `VarId`. Use this
+/// when a caller must re-lex and re-bind regardless.
 pub fn parse_fresh(
     working_set: &mut StateWorkingSet,
     fname: Option<&str>,
@@ -536,6 +612,117 @@ pub fn parse_fresh(
     scoped: bool,
 ) -> Arc<Block> {
     parse_with_block_cache(working_set, fname, contents, scoped, false)
+}
+
+fn cached_block_reusable(working_set: &StateWorkingSet, block: &Block, scoped: bool) -> bool {
+    block.parsed_scoped == scoped && cached_block_captures_still_valid(working_set, block)
+}
+
+/// Child sourced blocks can hold captures that are not on this block yet.
+fn cached_block_captures_still_valid(working_set: &StateWorkingSet, block: &Block) -> bool {
+    if !block
+        .captures
+        .iter()
+        .all(|(var_id, span)| capture_binding_is_current(working_set, *var_id, *span))
+    {
+        return false;
+    }
+    nested_source_blocks_still_valid(working_set, block, &mut HashSet::new())
+}
+
+fn nested_source_blocks_still_valid(
+    working_set: &StateWorkingSet,
+    block: &Block,
+    visited: &mut HashSet<BlockId>,
+) -> bool {
+    for pipeline in &block.pipelines {
+        for element in &pipeline.elements {
+            if !expr_nested_source_blocks_still_valid(working_set, &element.expr, visited) {
+                return false;
+            }
+        }
+    }
+    true
+}
+
+fn expr_nested_source_blocks_still_valid(
+    working_set: &StateWorkingSet,
+    expr: &Expression,
+    visited: &mut HashSet<BlockId>,
+) -> bool {
+    match &expr.expr {
+        Expr::Call(call) => {
+            if let Some(block_id) = parser_info_block_id(call)
+                && visited.insert(block_id)
+            {
+                let nested = working_set.get_block(block_id);
+                if !nested
+                    .captures
+                    .iter()
+                    .all(|(var_id, span)| capture_binding_is_current(working_set, *var_id, *span))
+                {
+                    return false;
+                }
+                if !nested_source_blocks_still_valid(working_set, nested, visited) {
+                    return false;
+                }
+            }
+            for arg in &call.arguments {
+                let inner = match arg {
+                    Argument::Named(named) => named.2.as_ref(),
+                    Argument::Positional(expr)
+                    | Argument::Unknown(expr)
+                    | Argument::Spread(expr) => Some(expr),
+                };
+                if let Some(inner) = inner
+                    && !expr_nested_source_blocks_still_valid(working_set, inner, visited)
+                {
+                    return false;
+                }
+            }
+            true
+        }
+        Expr::Closure(block_id)
+        | Expr::Block(block_id)
+        | Expr::Subexpression(block_id)
+        | Expr::RowCondition(block_id) => {
+            if visited.insert(*block_id) {
+                nested_source_blocks_still_valid(
+                    working_set,
+                    working_set.get_block(*block_id),
+                    visited,
+                )
+            } else {
+                true
+            }
+        }
+        Expr::AttributeBlock(ab) => {
+            expr_nested_source_blocks_still_valid(working_set, &ab.item, visited)
+        }
+        Expr::Collect(_, inner) => {
+            expr_nested_source_blocks_still_valid(working_set, inner, visited)
+        }
+        _ => true,
+    }
+}
+
+fn capture_binding_is_current(working_set: &StateWorkingSet, var_id: VarId, span: Span) -> bool {
+    // Specials (`$nu`, `$env`, `$in`, …) are not rebound by `let`/`mut`.
+    if var_id <= LAST_VARIABLE_ID {
+        return true;
+    }
+
+    let from_var = working_set
+        .get_variable_if_possible(var_id)
+        .and_then(|variable| variable.name.as_deref());
+    let name = match from_var {
+        Some(name) if !name.is_empty() => name,
+        _ => working_set.get_span_contents(span),
+    };
+    if name.is_empty() {
+        return false;
+    }
+    working_set.find_variable(name) == Some(var_id)
 }
 
 fn parse_with_block_cache(
@@ -556,13 +743,22 @@ fn parse_with_block_cache(
 
     let new_span = working_set.get_span_for_file(file_id);
 
-    // Reuse a previously-parsed block with the same span when safe (e.g. LSP).
-    // Callers that need fresh free-variable bindings use `parse_fresh`.
-    if use_block_cache && let Some(block) = working_set.find_block_by_span(new_span) {
-        return block;
+    // Reuse when scoped-ness matches and free vars still bind to these VarIds.
+    if use_block_cache {
+        for cached in working_set.blocks_with_span_newest_first(new_span) {
+            if cached_block_reusable(working_set, &cached, scoped) {
+                return cached;
+            }
+        }
     }
+
+    // Only blocks created by this parse. Older delta entries already have captures.
+    let first_new_delta_block = working_set.delta.blocks.len();
+    // A bracket table recorded for the file serves only this parse (see `lex_file`).
+    let bracket_tables = working_set.bracket_tables.len();
+
     let mut output = {
-        let (output, err) = lex(contents, new_span.start, &[], &[], false);
+        let (output, err) = lex_file(working_set, new_span, &[], &[], false);
         if let Some(err) = err {
             working_set.error(err)
         }
@@ -576,6 +772,7 @@ fn parse_with_block_cache(
             None,
         ))
     };
+    working_set.bracket_tables.truncate(bracket_tables);
 
     // Top level `Block`s are compiled eagerly, as they don't have a parent which would cause them
     // to be compiled later.
@@ -583,8 +780,15 @@ fn parse_with_block_cache(
         compile_block(working_set, Arc::make_mut(&mut output));
     }
 
-    let mut seen = vec![];
-    let mut seen_blocks = HashMap::new();
+    let mut seen = SeenVars::default();
+    // Every block this parse created is walked at most once.
+    let mut seen_blocks = HashMap::with_capacity(
+        working_set
+            .delta
+            .blocks
+            .len()
+            .saturating_sub(first_new_delta_block),
+    );
 
     let mut captures = vec![];
     match discover_captures_in_closure(
@@ -600,14 +804,15 @@ fn parse_with_block_cache(
         Err(err) => working_set.error(err),
     }
 
-    // Also check other blocks that might have been imported
+    // Also check other blocks that might have been imported during this parse
     let mut errors = vec![];
-    for (block_idx, block) in working_set.delta.blocks.iter().enumerate() {
-        let block_id = block_idx + working_set.permanent_state.num_blocks();
-        let block_id = BlockId::new(block_id);
+    let permanent_blocks = working_set.permanent_state.num_blocks();
+    for block_idx in first_new_delta_block..working_set.delta.blocks.len() {
+        let block_id = BlockId::new(permanent_blocks + block_idx);
 
         if !seen_blocks.contains_key(&block_id) {
             let mut captures = vec![];
+            let block = &working_set.delta.blocks[block_idx];
 
             match discover_captures_in_closure(
                 working_set,

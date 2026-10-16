@@ -345,6 +345,17 @@ fn test_alternate_config_path() -> Result {
 }
 
 #[test]
+fn nu_home_dir_is_an_error_without_home() -> Result {
+    let mut tester = test();
+    tester.engine_state.config_dirs.home_dir = PathBuf::new();
+    tester.engine_state.generate_nu_constant();
+    let err = tester.run("$nu.home-dir").expect_shell_error()?;
+    assert!(err.to_string().contains("home-dir"), "{err}");
+
+    Ok(())
+}
+
+#[test]
 fn use_last_config_path() -> Result {
     let config_file = "crates/nu-config/default_files/scaffold_config.nu";
     let env_file = "crates/nu-config/default_files/scaffold_env.nu";

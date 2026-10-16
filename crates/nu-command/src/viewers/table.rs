@@ -61,7 +61,7 @@ impl Command for Table {
                     .short('t')
                     .arg(SyntaxShape::String)
                     .desc("Set a table mode/theme.")
-                    .completion(Completion::new_list(SUPPORTED_TABLE_MODES)),
+                    .completion(Completion::new_list(TableMode::NAMES)),
             )
             .named(
                 "index",
@@ -1241,7 +1241,7 @@ fn create_empty_placeholder(
 
     let cell = format!("empty {value_type_name}");
     let mut table = NuTable::new(1, 1);
-    table.insert((0, 0), cell);
+    table.insert((0, 0), cell.clone());
     table.set_data_style(TextStyle::default().dimmed());
     let mut out = TableOutput::from_table(table, false, false);
 
@@ -1252,9 +1252,8 @@ fn create_empty_placeholder(
         out.table.clear_all_colors();
     }
 
-    out.table
-        .draw(termwidth)
-        .expect("Could not create empty table placeholder")
+    // a terminal too narrow for the bordered placeholder still gets the bare text
+    out.table.draw(termwidth).unwrap_or(cell)
 }
 
 fn convert_table_to_output(
@@ -1287,31 +1286,8 @@ fn convert_table_to_output(
     }
 }
 
-const SUPPORTED_TABLE_MODES: &[&str] = &[
-    "basic",
-    "compact",
-    "compact_double",
-    "default",
-    "frameless",
-    "heavy",
-    "light",
-    "none",
-    "reinforced",
-    "rounded",
-    "thin",
-    "with_love",
-    "psql",
-    "markdown",
-    "dots",
-    "restructured",
-    "ascii_rounded",
-    "basic_compact",
-    "single",
-    "double",
-];
-
 fn supported_table_modes() -> Vec<Value> {
-    SUPPORTED_TABLE_MODES
+    TableMode::NAMES
         .iter()
         .copied()
         .map(Value::test_string)

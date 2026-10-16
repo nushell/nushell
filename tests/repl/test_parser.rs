@@ -1881,8 +1881,8 @@ fn external_arg_correctness() -> Result {
                 nu script.nu
                     --flag=false
                     --flag2=0001
-                    --flag3={fake: null}
-                    false 0001 {fake: null} false 0001 {fake: null}
+                    --flag3='{fake: null}'
+                    false 0001 '{fake: null}' false 0001 '{fake: null}'
             )
             | from nuon
         ";

@@ -26,6 +26,20 @@ fn help_shows_usage() -> TestResult {
 }
 
 #[test]
+fn help_has_no_ansi_when_stdout_is_not_terminal() -> TestResult {
+    let mut cmd = Command::new(cargo_bin!());
+    let output = cmd.arg("--help").output()?;
+
+    assert!(output.status.success());
+    assert!(
+        !output.stdout.contains(&0x1b),
+        "redirected help output should not contain ANSI escape sequences"
+    );
+
+    Ok(())
+}
+
+#[test]
 fn help_lists_all_flags() -> TestResult {
     let mut cmd = Command::new(cargo_bin!());
     let output = cmd.arg("--help").output()?;
@@ -579,6 +593,24 @@ fn ide_flags_accept_values() -> TestResult {
 }
 
 #[test]
+fn ide_check_missing_file_reports_error() -> TestResult {
+    let script_path = unique_temp_script_path("ide_check_missing");
+    let mut cmd = Command::new(cargo_bin!());
+    let output = cmd
+        .args(["--no-config-file", "--no-std-lib", "--ide-check", "5"])
+        .arg(&script_path)
+        .output()?;
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    assert!(!output.status.success());
+    assert!(stderr.contains("Could not read file"));
+    assert!(stderr.contains("File not found"));
+    assert!(stderr.contains("does not exist"));
+
+    Ok(())
+}
+
+#[test]
 fn ide_ast_flag_runs() -> TestResult {
     let mut cmd = Command::new(cargo_bin!());
     let output = cmd
@@ -593,6 +625,34 @@ fn ide_ast_flag_runs() -> TestResult {
 
     assert!(output.status.success());
 
+    Ok(())
+}
+
+#[test]
+fn ide_complete_out_of_range_locations() -> TestResult {
+    let script_path = unique_temp_script_path("ide_complete_bounds");
+    std::fs::write(&script_path, "ä")?;
+
+    for location in ["-1", "1", "99"] {
+        let mut cmd = Command::new(cargo_bin!());
+        let output = cmd
+            .args([
+                "--no-config-file",
+                "--no-std-lib",
+                "--ide-complete",
+                location,
+                script_path.to_str().unwrap(),
+            ])
+            .output()?;
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+
+        assert!(output.status.success());
+        assert!(stdout.starts_with("{\"completions\":"));
+        assert!(!stderr.contains("panicked"));
+    }
+
+    let _ = std::fs::remove_file(&script_path);
     Ok(())
 }
 

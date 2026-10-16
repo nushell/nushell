@@ -223,3 +223,93 @@ fn mkdir_verbose_reports_errors_without_failing() -> Result {
         Ok(())
     })
 }
+
+#[test]
+fn verbose_does_not_report_existing_directory_as_created() -> Result {
+    Playground::setup("mkdir_verbose_existing", |dirs, _| {
+        let () = test().cwd(dirs.test()).run("mkdir already_there")?;
+
+        let actual: String = test()
+            .cwd(dirs.test())
+            .run("mkdir -v already_there | get 0.created | to text")?;
+
+        assert_eq!("false", actual.trim());
+        Ok(())
+    })
+}
+
+#[test]
+fn verbose_reports_newly_created_directory_as_created() -> Result {
+    Playground::setup("mkdir_verbose_new", |dirs, _| {
+        let actual: String = test()
+            .cwd(dirs.test())
+            .run("mkdir -v brand_new | get 0.created | to text")?;
+
+        assert!(dirs.test().join("brand_new").is_dir());
+        assert_eq!("true", actual.trim());
+        Ok(())
+    })
+}
+
+#[test]
+fn verbose_reports_the_expanded_path() -> Result {
+    Playground::setup("mkdir_verbose_absolute", |dirs, _| {
+        let actual: String = test()
+            .cwd(dirs.test())
+            .run("mkdir -v foo/bar | get 0.path | to text")?;
+
+        // The path is expanded against the working directory before it is
+        // reported, so it is the absolute path and not the argument as typed.
+        let expected = dirs.test().join("foo").join("bar");
+        assert_eq!(expected.display().to_string(), actual.trim());
+        Ok(())
+    })
+}
+
+#[test]
+fn fail_if_exists_errors_on_existing_directory() -> Result {
+    Playground::setup("mkdir_fail_if_exists", |dirs, _| {
+        let () = test().cwd(dirs.test()).run("mkdir already_there")?;
+
+        let _ = test()
+            .cwd(dirs.test())
+            .run("mkdir --fail-if-exists already_there")
+            .expect_error()?;
+        Ok(())
+    })
+}
+
+#[test]
+fn fail_if_exists_creates_new_directory() -> Result {
+    Playground::setup("mkdir_fail_if_exists_new", |dirs, _| {
+        let () = test()
+            .cwd(dirs.test())
+            .run("mkdir --fail-if-exists brand_new")?;
+
+        assert!(dirs.test().join("brand_new").is_dir());
+        Ok(())
+    })
+}
+
+#[test]
+fn fail_if_exists_verbose_reports_existing_as_error() -> Result {
+    Playground::setup("mkdir_fail_if_exists_verbose", |dirs, _| {
+        let () = test().cwd(dirs.test()).run("mkdir already_there")?;
+
+        let created: String = test()
+            .cwd(dirs.test())
+            .run("mkdir -v --fail-if-exists already_there | get 0.created | to text")?;
+        assert_eq!("false", created.trim());
+
+        // Assert the verbose `error` field so the new `--fail-if-exists` branch
+        // is actually exercised (a plain existing dir reports created=false too).
+        let error: String = test()
+            .cwd(dirs.test())
+            .run("mkdir -v --fail-if-exists already_there | get 0.error | to text")?;
+        assert!(
+            error.contains("File exists"),
+            "expected `File exists` error, got: {error:?}"
+        );
+        Ok(())
+    })
+}

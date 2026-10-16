@@ -104,7 +104,7 @@ impl<'a> StyleComputer<'a> {
     // Used only by the `table` command.
     pub fn style_primitive(&self, value: &Value) -> TextStyle {
         use Alignment::*;
-        let s = self.compute(&value.get_type().get_non_specified_string(), value);
+        let s = self.compute(&value.get_type_shallow().get_non_specified_string(), value);
         match *value {
             Value::Bool { .. } => TextStyle::with_style(Left, s),
             Value::Int { .. } => TextStyle::with_style(Right, s),

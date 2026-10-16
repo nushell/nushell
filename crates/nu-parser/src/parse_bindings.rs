@@ -1,5 +1,6 @@
 use crate::{
-    lex, parse_block,
+    lex_once::lex_span,
+    parse_block,
     parse_helpers::garbage_pipeline,
     parser::{
         ArgumentParsingLevel, ParsedInternalCall, parse_internal_call, parse_var_with_opt_type,
@@ -29,9 +30,9 @@ pub fn parse_let(
             for span in spans.iter().enumerate() {
                 let item = working_set.get_span_contents(*span.1);
                 if item == b"=" && spans.len() > (span.0 + 1) && span.0 > 1 {
-                    let (tokens, parse_error) = lex(
-                        working_set.get_span_contents(Span::concat(&spans[(span.0 + 1)..])),
-                        spans[span.0 + 1].start,
+                    let (tokens, parse_error) = lex_span(
+                        working_set,
+                        Span::concat(&spans[(span.0 + 1)..]),
                         &[],
                         &[],
                         false,
@@ -155,13 +156,8 @@ pub fn parse_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeli
                 if item == b"=" && spans.len() > (span.0 + 1) && span.0 > 1 {
                     let rvalue_span = Span::concat(&spans[(span.0 + 1)..]);
 
-                    let (rvalue_tokens, rvalue_error) = lex(
-                        working_set.get_span_contents(rvalue_span),
-                        rvalue_span.start,
-                        &[],
-                        &[],
-                        false,
-                    );
+                    let (rvalue_tokens, rvalue_error) =
+                        lex_span(working_set, rvalue_span, &[], &[], false);
                     working_set.parse_errors.extend(rvalue_error);
 
                     trace!("parsing: const right-hand side subexpression");
@@ -303,9 +299,9 @@ pub fn parse_mut(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
             for span in spans.iter().enumerate() {
                 let item = working_set.get_span_contents(*span.1);
                 if item == b"=" && spans.len() > (span.0 + 1) && span.0 > 1 {
-                    let (tokens, parse_error) = lex(
-                        working_set.get_span_contents(Span::concat(&spans[(span.0 + 1)..])),
-                        spans[span.0 + 1].start,
+                    let (tokens, parse_error) = lex_span(
+                        working_set,
+                        Span::concat(&spans[(span.0 + 1)..]),
                         &[],
                         &[],
                         false,

@@ -1,7 +1,7 @@
 mod common;
 
 use nu_protocol::TrimStrategy;
-use nu_table::{NuTable, TableTheme as theme};
+use nu_table::{NuTable, TableTheme as theme, string_width};
 
 use common::{TestCase, cell, create_row, test_table};
 
@@ -69,6 +69,42 @@ fn termwidth_too_small() {
 
             assert!(table.is_none());
         }
+    }
+}
+
+#[test]
+fn termwidth_too_small_single_column() {
+    let tests = [
+        TrimStrategy::truncate(None),
+        TrimStrategy::truncate(Some(String::from("**"))),
+        TrimStrategy::wrap(false),
+        TrimStrategy::wrap(true),
+    ];
+
+    let data = vec![
+        vec![cell("abcdefghijklmnop")],
+        vec![cell("qrstuvwxyzabcdef")],
+        vec![cell("1234567890123456")],
+    ];
+
+    for case in tests {
+        // the table cannot fit anything but the borders below width 8,
+        // so it must report that it cannot be drawn rather than panic
+        for i in 0..8 {
+            let mut table = NuTable::from(data.clone());
+            table.set_theme(theme::heavy());
+            table.set_structure(false, true, false);
+            table.set_trim(case.clone());
+
+            assert!(table.draw(i).is_none(), "termwidth={i}");
+        }
+
+        let mut table = NuTable::from(data.clone());
+        table.set_theme(theme::heavy());
+        table.set_structure(false, true, false);
+        table.set_trim(case.clone());
+
+        assert!(table.draw(8).is_some());
     }
 }
 
@@ -397,21 +433,21 @@ fn width_control_test_0() {
         ),
         (
             121,
-            "┏━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━┓\n\
-             ┃ xxxxxxxxxx... ┃ xxxxxxx... ┃ xxxxxxx... ┃ xxxxxxx... ┃ xxxxxxx... ┃ xxxxxxx... ┃ xxxxxxx... ┃ xxxxxxx... ┃ ... ┃\n\
-             ┣━━━━━━━━━━━━━━━╋━━━━━━━━━━━━╋━━━━━━━━━━━━╋━━━━━━━━━━━━╋━━━━━━━━━━━━╋━━━━━━━━━━━━╋━━━━━━━━━━━━╋━━━━━━━━━━━━╋━━━━━┫\n\
-             ┃ yyyyyyyyyy... ┃ yyyyyyy... ┃ yyyyyyy... ┃ yyyyyyy... ┃ yyyyyyy... ┃ yyyyyyy... ┃ yyyyyyy... ┃ yyyyyyy... ┃ ... ┃\n\
-             ┃ zzzzzzzzzz... ┃ zzzzzzz... ┃ zzzzzzz... ┃ zzzzzzz... ┃ zzzzzzz... ┃ zzzzzzz... ┃ zzzzzzz... ┃ zzzzzzz... ┃ ... ┃\n\
-             ┗━━━━━━━━━━━━━━━┻━━━━━━━━━━━━┻━━━━━━━━━━━━┻━━━━━━━━━━━━┻━━━━━━━━━━━━┻━━━━━━━━━━━━┻━━━━━━━━━━━━┻━━━━━━━━━━━━┻━━━━━┛",
+            "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━┓\n\
+             ┃ xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx... ┃ ... ┃\n\
+             ┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╋━━━━━┫\n\
+             ┃ yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy... ┃ ... ┃\n\
+             ┃ zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz... ┃ ... ┃\n\
+             ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┻━━━━━┛",
         ),
         (
             150,
-            "┏━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━┓\n\
-             ┃ xxxxxxxxxxxxx... ┃ xxxxxxx... ┃ xxxxxxx... ┃ xxxxxxx... ┃ xxxxxxx... ┃ xxxxxxx... ┃ xxxxxxx... ┃ xxxxxxx... ┃ xxxxxxx... ┃ xxxxxxx... ┃ ... ┃\n\
-             ┣━━━━━━━━━━━━━━━━━━╋━━━━━━━━━━━━╋━━━━━━━━━━━━╋━━━━━━━━━━━━╋━━━━━━━━━━━━╋━━━━━━━━━━━━╋━━━━━━━━━━━━╋━━━━━━━━━━━━╋━━━━━━━━━━━━╋━━━━━━━━━━━━╋━━━━━┫\n\
-             ┃ yyyyyyyyyyyyy... ┃ yyyyyyy... ┃ yyyyyyy... ┃ yyyyyyy... ┃ yyyyyyy... ┃ yyyyyyy... ┃ yyyyyyy... ┃ yyyyyyy... ┃ yyyyyyy... ┃ yyyyyyy... ┃ ... ┃\n\
-             ┃ zzzzzzzzzzzzz... ┃ zzzzzzz... ┃ zzzzzzz... ┃ zzzzzzz... ┃ zzzzzzz... ┃ zzzzzzz... ┃ zzzzzzz... ┃ zzzzzzz... ┃ zzzzzzz... ┃ zzzzzzz... ┃ ... ┃\n\
-             ┗━━━━━━━━━━━━━━━━━━┻━━━━━━━━━━━━┻━━━━━━━━━━━━┻━━━━━━━━━━━━┻━━━━━━━━━━━━┻━━━━━━━━━━━━┻━━━━━━━━━━━━┻━━━━━━━━━━━━┻━━━━━━━━━━━━┻━━━━━━━━━━━━┻━━━━━┛",
+            "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━┓\n\
+             ┃ xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx ┃ xxxxxxxxxxxxxxxxxxxxx... ┃ ... ┃\n\
+             ┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╋━━━━━━━━━━━━━━━━━━━━━━━━━━╋━━━━━┫\n\
+             ┃ yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy ┃ yyyyyyyyyyyyyyyyyyyyy... ┃ ... ┃\n\
+             ┃ zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz ┃ zzzzzzzzzzzzzzzzzzzzz... ┃ ... ┃\n\
+             ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┻━━━━━━━━━━━━━━━━━━━━━━━━━━┻━━━━━┛",
         ),
         (
             usize::MAX,
@@ -686,6 +722,43 @@ fn single_left_priority_drops_trailing_columns_for_wider_values() {
     );
 }
 
+#[test]
+fn trailing_column_fits_when_wider_than_the_column_it_replaces() {
+    // The `...` column (3 + padding) takes the place of the last fitted
+    // column. One-letter columns are narrower than that, which used to make
+    // the table one or two columns wider than the terminal.
+    let header = ["#", "name", "a", "description", "b", "notes", "c", "extra"];
+    let row = [
+        "0",
+        "a long name",
+        "x",
+        "a longer description",
+        "y",
+        "notes",
+        "z",
+        "more",
+    ];
+    let data = vec![header.map(cell).to_vec(), row.map(cell).to_vec()];
+
+    for hos in [false, true] {
+        for width in 10..=80 {
+            let mut table = NuTable::from(data.clone());
+            table.set_theme(theme::rounded());
+            table.set_structure(true, true, false);
+            table.set_trim(TrimStrategy::wrap(true));
+            table.set_border_header(hos);
+            let Some(rendered) = table.draw(width) else {
+                continue;
+            };
+
+            assert!(
+                rendered.lines().all(|line| string_width(line) <= width),
+                "wider than {width} (header_on_separator: {hos}):\n{rendered}"
+            );
+        }
+    }
+}
+
 fn parse_heavy_header_column_widths(rendered: &str) -> Vec<usize> {
     let header_line = rendered
         .lines()
@@ -697,6 +770,77 @@ fn parse_heavy_header_column_widths(rendered: &str) -> Vec<usize> {
         .iter()
         .map(|cell| cell.chars().count())
         .collect()
+}
+
+#[test]
+fn ls_like_table_at_146_does_not_make_one_char_size_column() {
+    let long_name = "grok-continue-115-caching-regression.txt";
+    let header = vec![
+        cell("#"),
+        cell("name"),
+        cell("type"),
+        cell("target"),
+        cell("readonly"),
+        cell("mode"),
+        cell("num_links"),
+        cell("inode"),
+        cell("user"),
+        cell("group"),
+        cell("size"),
+        cell("created"),
+        cell("accessed"),
+        cell("modified"),
+    ];
+    let row = vec![
+        cell("45"),
+        cell(long_name),
+        cell("dir"),
+        cell(""),
+        cell("false"),
+        cell("rwxr-xr-x"),
+        cell("4"),
+        cell("216175737"),
+        cell("fdncred"),
+        cell("staff"),
+        cell("128 B"),
+        cell("2 years ago"),
+        cell("2 years ago"),
+        cell("2 years ago"),
+    ];
+    let data = vec![header, row.clone(), row];
+
+    for (label, trim) in [
+        ("wrap", TrimStrategy::wrap(true)),
+        ("trunc", TrimStrategy::truncate(Some(String::from("...")))),
+    ] {
+        for hos in [false, true] {
+            for width in 130..=160 {
+                let mut table = NuTable::from(data.clone());
+                table.set_theme(theme::rounded());
+                table.set_structure(true, true, true);
+                table.set_trim(trim.clone());
+                table.set_border_header(hos);
+                // `ls` compact listings mark `name` as a width-priority column.
+                table.set_width_priority_columns(&[1]);
+                let Some(rendered) = table.draw(width) else {
+                    continue;
+                };
+
+                let has_one_char_size_ladder = rendered.lines().any(|line| {
+                    let parts: Vec<&str> = line.split('│').collect();
+                    parts.iter().any(|part| {
+                        let t = part.trim();
+                        t == "s" || t == "i" || t == "z" || t == "e"
+                    })
+                });
+                if has_one_char_size_ladder {
+                    panic!(
+                        "{label} hos={hos} w={width} rendered a 1-character size ladder:\n{rendered}"
+                    );
+                }
+            }
+        }
+    }
 }
 
 fn parse_heavy_header_cells(rendered: &str) -> Vec<String> {

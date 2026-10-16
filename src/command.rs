@@ -4,12 +4,13 @@ use nu_parser::escape_for_script_arg;
 use nu_protocol::{
     LabeledError, ShellError, Span, Spanned, Value, config::TableMode, did_you_mean,
 };
-use nu_utils::stdout_write_all_and_flush;
+use nu_utils::{stdout_write_all_and_flush, strip_ansi_string_likely};
 #[cfg(feature = "plugin")]
 use std::path::Path;
 use std::{
     ffi::OsString,
     fmt::{self, Write},
+    io::IsTerminal,
 };
 
 const HELP_SECTION_COLOR: &str = "\x1b[32m";
@@ -313,6 +314,14 @@ const CLI_FLAGS: &[CliFlag] = &[
         CliCategory::Ide,
         "nu --lsp",
     ),
+    #[cfg(feature = "dap")]
+    CliFlag::switch(
+        "dap",
+        None,
+        "start nu's debug adapter protocol server (over stdio)",
+        CliCategory::Ide,
+        "nu --dap",
+    ),
     CliFlag::value(
         "ide-goto-def",
         None,
@@ -396,6 +405,33 @@ const CLI_FLAGS: &[CliFlag] = &[
         CliCategory::Startup,
         "nu --mcp --mcp-transport http --mcp-port 3000",
     ),
+    #[cfg(feature = "mcp")]
+    CliFlag::value(
+        "mcp-host",
+        None,
+        ValueHint::String,
+        "host for MCP HTTP transhost (default 127.0.0.1)",
+        CliCategory::Startup,
+        "nu --mcp --mcp-transhost http --mcp-host 0.0.0.0",
+    ),
+    #[cfg(feature = "mcp")]
+    CliFlag::value(
+        "mcp-allowed-hosts",
+        None,
+        ValueHint::ListString,
+        "list of allowed `Host` header values, guarding against DNS-rebinding attacks (default: loopback-only)",
+        CliCategory::Startup,
+        r#"nu --mcp --mcp-transport http --mcp-allowed-hosts="example.com,localhost""#,
+    ),
+    #[cfg(feature = "mcp")]
+    CliFlag::value(
+        "mcp-allowed-origins",
+        None,
+        ValueHint::ListString,
+        "list of allowed CORS origins (default: none, which disables Origin validation for backward compatibility)",
+        CliCategory::Startup,
+        r#"nu --mcp --mcp-transport http --mcp-allowed-origins="https://example.com,https://localhost""#,
+    ),
 ];
 
 // Container for parsed CLI values before conversion to NushellCliArgs.
@@ -427,6 +463,8 @@ struct CliValues {
     include_path: Option<Spanned<String>>,
     #[cfg(feature = "lsp")]
     lsp: bool,
+    #[cfg(feature = "dap")]
+    dap: bool,
     ide_goto_def: Option<Value>,
     ide_hover: Option<Value>,
     ide_complete: Option<Value>,
@@ -439,6 +477,12 @@ struct CliValues {
     mcp_transport: Option<Spanned<String>>,
     #[cfg(feature = "mcp")]
     mcp_port: Option<u16>,
+    #[cfg(feature = "mcp")]
+    mcp_host: Option<String>,
+    #[cfg(feature = "mcp")]
+    mcp_allowed_hosts: Option<Vec<Spanned<String>>>,
+    #[cfg(feature = "mcp")]
+    mcp_allowed_origins: Option<Vec<Spanned<String>>>,
 }
 
 // Error type for CLI parsing with optional help text.
@@ -486,13 +530,61 @@ impl From<CliError> for ShellError {
 }
 
 // Parse CLI args from the current process environment.
+#[cfg(windows)]
+pub(crate) fn parse_cli_args_from_env() -> Result<ParsedCli, CliError> {
+    let args = std::env::args_os().collect::<Vec<_>>();
+    // On Windows the raw command line is captured so the `/c` ComSpec alias can
+    // forward the remaining text with its original quoting intact.
+    let raw_command_line = raw_command_line();
+    parse_cli_args_with_command_line(args, raw_command_line.as_deref())
+}
+
+// Parse CLI args from the current process environment.
+#[cfg(not(windows))]
 pub(crate) fn parse_cli_args_from_env() -> Result<ParsedCli, CliError> {
     let args = std::env::args_os().collect::<Vec<_>>();
     parse_cli_args(args)
 }
 
+// Check for the Windows command-execution alias accepted for ComSpec compatibility.
+#[cfg(windows)]
+fn is_slash_command_alias(value: &str) -> bool {
+    value == "/c" || value == "/C"
+}
+
+// Record that the next token is the `--` end-of-options delimiter before lexopt
+// consumes it. Needed so `/c` after `--` is treated as a script name, not the
+// ComSpec alias.
+#[cfg(windows)]
+fn note_end_of_options_delimiter(parser: &mut lexopt::Parser, seen_end_of_options: &mut bool) {
+    if !*seen_end_of_options
+        && let Some(raw) = parser.try_raw_args()
+        && raw.peek() == Some(std::ffi::OsStr::new("--"))
+    {
+        *seen_end_of_options = true;
+    }
+}
+
 // Parse CLI args into nushell options and script details.
+//
+// On Windows, `parse_cli_args_from_env` calls `parse_cli_args_with_command_line`
+// directly so it can pass the raw command line; this entry point is kept for
+// unit tests and non-Windows builds.
+#[cfg_attr(all(windows, not(test)), allow(dead_code))]
 pub(crate) fn parse_cli_args(args: Vec<OsString>) -> Result<ParsedCli, CliError> {
+    parse_cli_args_with_command_line(args, None)
+}
+
+// Parse CLI args into nushell options and script details.
+//
+// `raw_command_line` is the unparsed Windows command line (from `GetCommandLineW`)
+// when available. It lets the `/c` alias forward the trailing text verbatim; it is
+// unused on other platforms and when the caller has no raw command line.
+#[cfg_attr(not(windows), expect(unused_variables))]
+fn parse_cli_args_with_command_line(
+    args: Vec<OsString>,
+    raw_command_line: Option<&str>,
+) -> Result<ParsedCli, CliError> {
     if args.is_empty() {
         return Err(CliError::new(
             "Missing argv0",
@@ -515,7 +607,19 @@ pub(crate) fn parse_cli_args(args: Vec<OsString>) -> Result<ParsedCli, CliError>
         cli.login_shell = Some(spanned_true());
     }
 
-    while let Some(arg) = parser.next().map_err(map_lexopt_error)? {
+    // Tracks whether the `--` end-of-options delimiter has been seen. lexopt
+    // consumes `--` silently and returns the arguments after it as `Value`, with
+    // no public way to report the delimiter, so we detect it ourselves. This is
+    // only needed on Windows to stop `/c` after `--` from being taken as the
+    // command alias (e.g. `nu -- /c '42 + 1'` runs the script `/c`).
+    #[cfg(windows)]
+    let mut seen_end_of_options = false;
+
+    while let Some(arg) = {
+        #[cfg(windows)]
+        note_end_of_options_delimiter(&mut parser, &mut seen_end_of_options);
+        parser.next().map_err(map_lexopt_error)?
+    } {
         let mut consume_remaining_args = |parser: &mut lexopt::Parser| {
             let rest = parser
                 .raw_args()
@@ -530,6 +634,11 @@ pub(crate) fn parse_cli_args(args: Vec<OsString>) -> Result<ParsedCli, CliError>
         match arg {
             Short('h') | Long("help") => {
                 let help = cli_help_text();
+                let help = if std::io::stdout().is_terminal() {
+                    help
+                } else {
+                    strip_ansi_string_likely(help)
+                };
                 let _ = std::panic::catch_unwind(move || stdout_write_all_and_flush(help));
                 std::process::exit(0);
             }
@@ -648,6 +757,8 @@ pub(crate) fn parse_cli_args(args: Vec<OsString>) -> Result<ParsedCli, CliError>
             }
             #[cfg(feature = "lsp")]
             Long("lsp") => cli.lsp = true,
+            #[cfg(feature = "dap")]
+            Long("dap") => cli.dap = true,
             Long("ide-goto-def") => {
                 cli.ide_goto_def = Some(parse_ide_int_option(&mut parser, "ide-goto-def")?)
             }
@@ -718,11 +829,43 @@ pub(crate) fn parse_cli_args(args: Vec<OsString>) -> Result<ParsedCli, CliError>
                 let value = parse_port_value(&mut parser, "mcp-port")?;
                 cli.mcp_port = Some(value);
             }
+            #[cfg(feature = "mcp")]
+            Long("mcp-host") => {
+                let value = parse_string_value(&mut parser, "mcp-host")?;
+                cli.mcp_host = Some(value);
+            }
+            #[cfg(feature = "mcp")]
+            Long("mcp-allowed-hosts") => {
+                let values = parse_list_values(&mut parser, "mcp-allowed-hosts")?;
+                let parsed = split_list_values(values);
+                cli.mcp_allowed_hosts
+                    .get_or_insert_with(Vec::new)
+                    .extend(parsed.into_iter().map(spanned_value));
+            }
+            #[cfg(feature = "mcp")]
+            Long("mcp-allowed-origins") => {
+                let values = parse_list_values(&mut parser, "mcp-allowed-origins")?;
+                let parsed = split_list_values(values);
+                cli.mcp_allowed_origins
+                    .get_or_insert_with(Vec::new)
+                    .extend(parsed.into_iter().map(spanned_value));
+            }
             Value(value) => {
                 let value = value.string().map_err(|_| {
                     CliError::new("Invalid argument", "argument is not valid unicode")
                         .with_help("Use UTF-8 arguments when calling nushell.")
                 })?;
+
+                #[cfg(windows)]
+                if script_name.is_empty()
+                    && cli.commands.is_none()
+                    && !seen_end_of_options
+                    && is_slash_command_alias(&value)
+                {
+                    let command = parse_slash_c_command(&mut parser, raw_command_line)?;
+                    cli.commands = Some(spanned_value(command));
+                    break;
+                }
 
                 if script_name.is_empty() && cli.commands.is_none() {
                     script_name = value;
@@ -765,6 +908,8 @@ pub(crate) fn parse_cli_args(args: Vec<OsString>) -> Result<ParsedCli, CliError>
             include_path: cli.include_path,
             #[cfg(feature = "lsp")]
             lsp: cli.lsp,
+            #[cfg(feature = "dap")]
+            dap: cli.dap,
             ide_goto_def: cli.ide_goto_def,
             ide_hover: cli.ide_hover,
             ide_complete: cli.ide_complete,
@@ -777,6 +922,12 @@ pub(crate) fn parse_cli_args(args: Vec<OsString>) -> Result<ParsedCli, CliError>
             mcp_transport: cli.mcp_transport,
             #[cfg(feature = "mcp")]
             mcp_port: cli.mcp_port,
+            #[cfg(feature = "mcp")]
+            mcp_host: cli.mcp_host,
+            #[cfg(feature = "mcp")]
+            mcp_allowed_hosts: cli.mcp_allowed_hosts,
+            #[cfg(feature = "mcp")]
+            mcp_allowed_origins: cli.mcp_allowed_origins,
         },
         script_name,
         args_to_script,
@@ -799,6 +950,111 @@ fn spanned_value(value: String) -> Spanned<String> {
         item: value,
         span: Span::unknown(),
     }
+}
+
+// Parse the Windows `/c` alias into the command text that follows it.
+//
+// `cmd`'s `/c` runs the rest of the command line, so the whole remainder is
+// forwarded as nushell code. When the raw command line is available it is used
+// verbatim to keep the original quoting (e.g. `/c echo "a b"`); otherwise the
+// remaining argv entries are joined with spaces as a best effort.
+#[cfg(windows)]
+fn parse_slash_c_command(
+    parser: &mut lexopt::Parser,
+    raw_command_line: Option<&str>,
+) -> Result<String, CliError> {
+    let command = raw_command_line
+        .and_then(command_line_after_slash_c)
+        .map(|rest| rest.to_string())
+        .unwrap_or_else(|| join_remaining_raw_args(parser));
+
+    if command.is_empty() {
+        Err(
+            CliError::new("Missing command after `/c`", "expected command string")
+                .with_help("Provide a command to run after `/c`."),
+        )
+    } else {
+        Ok(command)
+    }
+}
+
+// Join the remaining argv entries with spaces. Used as a fallback when the raw
+// command line is unavailable; quoting that argv splitting already dropped
+// cannot be recovered here.
+#[cfg(windows)]
+fn join_remaining_raw_args(parser: &mut lexopt::Parser) -> String {
+    parser
+        .raw_args()
+        .map(|raw| {
+            raw.map(|arg| arg.to_string_lossy().to_string())
+                .collect::<Vec<_>>()
+                .join(" ")
+        })
+        .unwrap_or_default()
+}
+
+// Return the verbatim text following the first unquoted `/c` or `/C` token in a
+// Windows command line, preserving the original quoting. Returns `None` when no
+// such token exists, or `Some("")` when `/c` is the final token.
+//
+// Whitespace and the double-quote delimiter are ASCII, so slicing at those byte
+// positions always lands on a UTF-8 boundary.
+#[cfg(any(windows, test))]
+fn command_line_after_slash_c(command_line: &str) -> Option<&str> {
+    let bytes = command_line.as_bytes();
+    let mut in_quotes = false;
+    let mut token_start: Option<usize> = None;
+
+    for index in 0..bytes.len() {
+        let byte = bytes[index];
+        if byte == b'"' {
+            in_quotes = !in_quotes;
+            token_start.get_or_insert(index);
+        } else if byte.is_ascii_whitespace() && !in_quotes {
+            if let Some(start) = token_start.take()
+                && is_slash_command_alias_str(&command_line[start..index])
+            {
+                return Some(command_line[index..].trim_start());
+            }
+        } else {
+            token_start.get_or_insert(index);
+        }
+    }
+
+    // A trailing `/c` with nothing after it still counts as the alias token.
+    match token_start {
+        Some(start) if is_slash_command_alias_str(&command_line[start..]) => Some(""),
+        _ => None,
+    }
+}
+
+// Platform-independent form of `is_slash_command_alias` for command-line parsing.
+#[cfg(any(windows, test))]
+fn is_slash_command_alias_str(value: &str) -> bool {
+    value == "/c" || value == "/C"
+}
+
+// Read the raw, still-quoted process command line from the OS.
+#[cfg(windows)]
+fn raw_command_line() -> Option<String> {
+    use windows_sys::Win32::System::Environment::GetCommandLineW;
+
+    // SAFETY: `GetCommandLineW` returns a pointer to a null-terminated UTF-16
+    // string owned by the OS for the lifetime of the process.
+    let ptr = unsafe { GetCommandLineW() };
+    if ptr.is_null() {
+        return None;
+    }
+
+    let mut len = 0usize;
+    // SAFETY: the string is null-terminated, so reading stops at the first null.
+    while unsafe { *ptr.add(len) } != 0 {
+        len += 1;
+    }
+
+    // SAFETY: `ptr` is valid for `len` u16 code units as counted above.
+    let slice = unsafe { std::slice::from_raw_parts(ptr, len) };
+    String::from_utf16(slice).ok()
 }
 
 // Parse a UTF-8 string value from lexopt for a named option.
@@ -880,9 +1136,30 @@ fn parse_ide_int_option(parser: &mut lexopt::Parser, name: &str) -> Result<Value
 
 // Parse a list of UTF-8 values for options that accept repeated values.
 fn parse_list_values(parser: &mut lexopt::Parser, name: &str) -> Result<Vec<String>, CliError> {
-    let values = parser.values().map_err(map_lexopt_error)?;
     let mut parsed = Vec::new();
-    for value in values {
+    let mut raw_args = match parser.raw_args() {
+        Ok(raw_args) => raw_args,
+        Err(lexopt::Error::UnexpectedValue { value, .. }) => {
+            parsed.push(value_to_string(value, name)?);
+            return Ok(parsed);
+        }
+        Err(err) => return Err(map_lexopt_error(err)),
+    };
+
+    while let Some(value) = raw_args.peek() {
+        #[cfg(windows)]
+        if value.to_str().is_some_and(is_slash_command_alias) {
+            break;
+        }
+
+        if value
+            .to_str()
+            .is_some_and(|value| value.starts_with('-') && value != "-")
+        {
+            break;
+        }
+
+        let value = raw_args.next().expect("peeked value");
         let value = value.string().map_err(|_| {
             CliError::new(
                 format!("Invalid value for `--{name}`"),
@@ -892,7 +1169,26 @@ fn parse_list_values(parser: &mut lexopt::Parser, name: &str) -> Result<Vec<Stri
         })?;
         parsed.push(value);
     }
+    if parsed.is_empty() {
+        // Reuse the shared lexopt error mapping so the message and the
+        // option-specific help (e.g. "Valid log levels: …") match what the
+        // single-value options produce.
+        return Err(map_lexopt_error(lexopt::Error::MissingValue {
+            option: Some(format!("--{name}")),
+        }));
+    }
     Ok(parsed)
+}
+
+// Convert an option value into UTF-8 with the same error style as other CLI parsers.
+fn value_to_string(value: OsString, name: &str) -> Result<String, CliError> {
+    value.into_string().map_err(|_| {
+        CliError::new(
+            format!("Invalid value for `--{name}`"),
+            "value is not valid unicode",
+        )
+        .with_help("Use UTF-8 values when calling nushell.")
+    })
 }
 
 /// Parse a single `--plugins` value into a list of plugin paths.
@@ -1032,32 +1328,63 @@ fn parse_experimental_options(parser: &mut lexopt::Parser) -> Result<Vec<String>
     Ok(parsed)
 }
 
-// Parse log filters and ensure they match known log levels.
-// Supports multiple formats: [error,warn], [error, warn], error warn, etc.
-fn parse_log_filters(values: Vec<String>) -> Vec<String> {
+// Strip list-delimiting brackets from a single argument while keeping brackets that
+// belong to an item, such as the IPv6 authority in `[::1]:8080`.
+//
+// An unquoted list like `[a, b]` reaches us split by the shell as `[a,` and `b]`, so a
+// leading `[` is removed when it is never closed or is closed by the final character,
+// and a trailing `]` is removed when it has no opening `[` or closes the leading one.
+fn strip_list_brackets(value: &str) -> &str {
+    let last = value.len().saturating_sub(1);
+    let mut open = Vec::new();
+    let mut leading_closed_at = None;
+    let mut trailing_unmatched = false;
+    for (i, c) in value.char_indices() {
+        match c {
+            '[' => open.push(i),
+            ']' => match open.pop() {
+                Some(0) => leading_closed_at = Some(i),
+                Some(_) => {}
+                None => trailing_unmatched |= i == last,
+            },
+            _ => {}
+        }
+    }
+    let encloses = leading_closed_at == Some(last);
+    let mut stripped = value;
+    if value.starts_with('[') && (leading_closed_at.is_none() || encloses) {
+        stripped = &stripped[1..];
+    }
+    if value.ends_with(']') && (trailing_unmatched || encloses) {
+        stripped = &stripped[..stripped.len() - 1];
+    }
+    stripped
+}
+
+// Split list-flag values on commas and strip list brackets, so `--flag="a,b"`,
+// `--flag="[a, b]"`, `--flag [a, b]` (split by the shell), and `--flag a --flag b`
+// all parse the same way.
+fn split_list_values(values: Vec<String>) -> Vec<String> {
     let mut parsed = Vec::new();
-
-    // Process each value, handling brackets and comma-delimited forms
     for value in values {
-        let trimmed = value.trim();
-        let trimmed = trimmed.strip_prefix('[').unwrap_or(trimmed);
-        let trimmed = trimmed.strip_suffix(']').unwrap_or(trimmed);
-
-        // Split on commas if present, otherwise treat as single value
-        if trimmed.contains(',') {
-            for item in trimmed.split(',') {
-                let item = item.trim();
-                if !item.is_empty() {
-                    let normalized = item.to_ascii_lowercase();
-                    parsed.push(normalized);
-                }
+        let trimmed = strip_list_brackets(value.trim());
+        for item in trimmed.split(',') {
+            let item = item.trim();
+            if !item.is_empty() {
+                parsed.push(item.to_string());
             }
-        } else if !trimmed.is_empty() {
-            let normalized = trimmed.to_ascii_lowercase();
-            parsed.push(normalized);
         }
     }
     parsed
+}
+
+// Parse log filters and ensure they match known log levels.
+// Supports multiple formats: [error,warn], [error, warn], error warn, etc.
+fn parse_log_filters(values: Vec<String>) -> Vec<String> {
+    split_list_values(values)
+        .into_iter()
+        .map(|value| value.to_ascii_lowercase())
+        .collect()
 }
 
 // Validate an experimental option name against the known list.
@@ -1435,6 +1762,8 @@ pub(crate) struct NushellCliArgs {
     pub(crate) include_path: Option<Spanned<String>>,
     #[cfg(feature = "lsp")]
     pub(crate) lsp: bool,
+    #[cfg(feature = "dap")]
+    pub(crate) dap: bool,
     pub(crate) ide_goto_def: Option<Value>,
     pub(crate) ide_hover: Option<Value>,
     pub(crate) ide_complete: Option<Value>,
@@ -1447,6 +1776,12 @@ pub(crate) struct NushellCliArgs {
     pub(crate) mcp_transport: Option<Spanned<String>>,
     #[cfg(feature = "mcp")]
     pub(crate) mcp_port: Option<u16>,
+    #[cfg(feature = "mcp")]
+    pub(crate) mcp_host: Option<String>,
+    #[cfg(feature = "mcp")]
+    pub(crate) mcp_allowed_hosts: Option<Vec<Spanned<String>>>,
+    #[cfg(feature = "mcp")]
+    pub(crate) mcp_allowed_origins: Option<Vec<Spanned<String>>>,
 }
 
 #[cfg(test)]
@@ -1475,6 +1810,126 @@ mod tests {
         assert_eq!(parsed.nu.log_level.as_ref().unwrap().item, "info");
     }
 
+    #[cfg(feature = "mcp")]
+    fn items(values: Option<Vec<Spanned<String>>>) -> Vec<String> {
+        values
+            .expect("list should be set")
+            .into_iter()
+            .map(|v| v.item)
+            .collect()
+    }
+
+    #[cfg(feature = "mcp")]
+    #[test]
+    fn mcp_allowed_hosts_accepts_comma_bracketed_and_repeated_forms() {
+        let args = vec![
+            OsString::from("nu"),
+            OsString::from("--mcp-allowed-hosts"),
+            OsString::from("localhost,example.com"),
+            OsString::from("--mcp-allowed-hosts=[a.test, b.test:8080]"),
+            OsString::from("--mcp-allowed-hosts"),
+            OsString::from("c.test"),
+        ];
+
+        let parsed = parse_cli_args(args).expect("should parse args");
+        assert_eq!(
+            items(parsed.nu.mcp_allowed_hosts),
+            vec![
+                "localhost",
+                "example.com",
+                "a.test",
+                "b.test:8080",
+                "c.test"
+            ]
+        );
+    }
+
+    #[cfg(feature = "mcp")]
+    #[test]
+    fn mcp_allowed_hosts_preserves_ipv6_authorities() {
+        let args = vec![
+            OsString::from("nu"),
+            OsString::from("--mcp-allowed-hosts=[::1]:8080"),
+            OsString::from("--mcp-allowed-hosts=[[::1]:9090, localhost]"),
+        ];
+
+        let parsed = parse_cli_args(args).expect("should parse args");
+        assert_eq!(
+            items(parsed.nu.mcp_allowed_hosts),
+            vec!["[::1]:8080", "[::1]:9090", "localhost"]
+        );
+    }
+
+    #[cfg(feature = "mcp")]
+    #[test]
+    fn mcp_allowed_lists_accept_empty_input() {
+        let args = vec![
+            OsString::from("nu"),
+            OsString::from("--mcp-allowed-hosts=[]"),
+            OsString::from("--mcp-allowed-origins="),
+        ];
+
+        let parsed = parse_cli_args(args).expect("should parse args");
+        assert!(items(parsed.nu.mcp_allowed_hosts).is_empty());
+        assert!(items(parsed.nu.mcp_allowed_origins).is_empty());
+    }
+
+    #[cfg(feature = "mcp")]
+    #[test]
+    fn mcp_allowed_origins_parses_list() {
+        let args = vec![
+            OsString::from("nu"),
+            OsString::from("--mcp-allowed-origins=[http://localhost:3000, https://example.com]"),
+        ];
+
+        let parsed = parse_cli_args(args).expect("should parse args");
+        assert_eq!(
+            items(parsed.nu.mcp_allowed_origins),
+            vec!["http://localhost:3000", "https://example.com"]
+        );
+    }
+
+    #[cfg(feature = "mcp")]
+    #[test]
+    fn mcp_allowed_hosts_accepts_unquoted_shell_split_list() {
+        // `--mcp-allowed-hosts [[::1]:8080, localhost]` without quotes
+        let args = vec![
+            OsString::from("nu"),
+            OsString::from("--mcp-allowed-hosts"),
+            OsString::from("[[::1]:8080,"),
+            OsString::from("localhost]"),
+        ];
+
+        let parsed = parse_cli_args(args).expect("should parse args");
+        assert_eq!(
+            items(parsed.nu.mcp_allowed_hosts),
+            vec!["[::1]:8080", "localhost"]
+        );
+    }
+
+    #[test]
+    fn log_include_accepts_unquoted_shell_split_list() {
+        // `--log-include [error, warn]` without quotes
+        let args = vec![
+            OsString::from("nu"),
+            OsString::from("--log-include"),
+            OsString::from("[error,"),
+            OsString::from("warn]"),
+        ];
+
+        let parsed = parse_cli_args(args).expect("should parse args");
+        assert_eq!(
+            parsed
+                .nu
+                .log_include
+                .expect("log include")
+                .into_iter()
+                .map(|v| v.item)
+                .collect::<Vec<_>>(),
+            vec!["error", "warn"]
+        );
+    }
+
     #[test]
     fn test_log_target_validation() {
         let args = vec![
@@ -1485,6 +1940,266 @@ mod tests {
 
         let result = parse_cli_args(args);
         assert!(result.is_err());
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn slash_c_parses_as_commands() {
+        let args = vec![
+            OsString::from("nu"),
+            OsString::from("/c"),
+            OsString::from("git"),
+            OsString::from("status"),
+        ];
+
+        let parsed = parse_cli_args(args).expect("should parse /c as commands");
+
+        assert_eq!(parsed.nu.commands.expect("commands").item, "git status");
+        assert!(parsed.script_name.is_empty());
+        assert!(parsed.args_to_script.is_empty());
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn slash_c_fallback_joins_remaining_args_without_raw_command_line() {
+        // `parse_cli_args` passes no raw command line, so this exercises the
+        // best-effort argv join. Quoting fidelity from the real command line is
+        // covered by the `command_line_after_slash_c_*` tests.
+        let args = vec![
+            OsString::from("nu"),
+            OsString::from("/c"),
+            OsString::from("echo"),
+            OsString::from("hello"),
+        ];
+
+        let parsed = parse_cli_args(args).expect("should parse /c as commands");
+
+        assert_eq!(parsed.nu.commands.expect("commands").item, "echo hello");
+        assert!(parsed.args_to_script.is_empty());
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn slash_c_is_script_name_on_non_windows() {
+        let args = vec![
+            OsString::from("nu"),
+            OsString::from("/c"),
+            OsString::from("42 + 1"),
+        ];
+
+        let parsed = parse_cli_args(args).expect("should parse /c as script name");
+
+        assert!(parsed.nu.commands.is_none());
+        assert_eq!(parsed.script_name, "/c");
+        assert_eq!(parsed.args_to_script, vec![r#""42 + 1""#.to_string()]);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn slash_c_after_end_of_options_is_script_name_on_windows() {
+        // After `--`, `/c` must be treated as the script name, not the command
+        // alias, so `nu -- /c '42 + 1'` runs the script at `/c`.
+        for slash_alias in ["/c", "/C"] {
+            let args = vec![
+                OsString::from("nu"),
+                OsString::from("--"),
+                OsString::from(slash_alias),
+                OsString::from("42 + 1"),
+            ];
+
+            let parsed = parse_cli_args(args).expect("should parse args after --");
+
+            assert!(parsed.nu.commands.is_none());
+            assert_eq!(parsed.script_name, slash_alias);
+            assert_eq!(parsed.args_to_script, vec![r#""42 + 1""#.to_string()]);
+        }
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn slash_c_after_end_of_options_is_script_name() {
+        for slash_alias in ["/c", "/C"] {
+            let args = vec![
+                OsString::from("nu"),
+                OsString::from("--"),
+                OsString::from(slash_alias),
+                OsString::from("42 + 1"),
+            ];
+
+            let parsed = parse_cli_args(args).expect("should parse args after --");
+
+            assert!(parsed.nu.commands.is_none());
+            assert_eq!(parsed.script_name, slash_alias);
+            assert_eq!(parsed.args_to_script, vec![r#""42 + 1""#.to_string()]);
+        }
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn slash_c_after_log_filters_parses_as_commands() {
+        for (log_option, slash_alias) in [
+            ("--log-include", "/c"),
+            ("--log-include", "/C"),
+            ("--log-exclude", "/c"),
+            ("--log-exclude", "/C"),
+        ] {
+            let args = vec![
+                OsString::from("nu"),
+                OsString::from(log_option),
+                OsString::from("nu_cli"),
+                OsString::from(slash_alias),
+                OsString::from("42 + 1"),
+            ];
+
+            let parsed = parse_cli_args(args).expect("should parse slash command alias");
+
+            assert_eq!(parsed.nu.commands.expect("commands").item, "42 + 1");
+            assert!(parsed.script_name.is_empty());
+        }
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn slash_c_after_experimental_options_parses_as_commands() {
+        let cases = [
+            vec![
+                OsString::from("nu"),
+                OsString::from("--experimental-options"),
+                OsString::from("all"),
+                OsString::from("/c"),
+                OsString::from("42 + 1"),
+            ],
+            vec![
+                OsString::from("nu"),
+                OsString::from("--experimental-options=[example=true, pipefail=false]"),
+                OsString::from("/C"),
+                OsString::from("42 + 1"),
+            ],
+            vec![
+                OsString::from("nu"),
+                OsString::from("--experimental-options"),
+                OsString::from("[example=true"),
+                OsString::from("pipefail=false]"),
+                OsString::from("/c"),
+                OsString::from("42 + 1"),
+            ],
+        ];
+
+        for args in cases {
+            let parsed = parse_cli_args(args).expect("should parse slash command alias");
+
+            assert_eq!(parsed.nu.commands.expect("commands").item, "42 + 1");
+            assert!(parsed.script_name.is_empty());
+        }
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn slash_c_after_commands_flag_remains_command_argument() {
+        for args in [
+            vec![
+                OsString::from("nu"),
+                OsString::from("-c"),
+                OsString::from("42"),
+                OsString::from("/c"),
+            ],
+            vec![
+                OsString::from("nu"),
+                OsString::from("--commands=42"),
+                OsString::from("/C"),
+            ],
+            vec![
+                OsString::from("nu"),
+                OsString::from("-nc=42"),
+                OsString::from("/c"),
+            ],
+        ] {
+            let parsed = parse_cli_args(args).expect("should parse commands");
+
+            assert_eq!(parsed.nu.commands.expect("commands").item, "42");
+            assert!(parsed.args_to_script[0].starts_with('/'));
+        }
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn slash_c_after_attached_short_option_value_parses_as_commands() {
+        let args = vec![
+            OsString::from("nu"),
+            OsString::from("-I=."),
+            OsString::from("/c"),
+            OsString::from("42 + 1"),
+        ];
+
+        let parsed = parse_cli_args(args).expect("should parse slash command alias");
+
+        assert_eq!(parsed.nu.commands.expect("commands").item, "42 + 1");
+        assert!(parsed.script_name.is_empty());
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn slash_c_after_grouped_short_option_value_uses_value_boundaries() {
+        let args = vec![
+            OsString::from("nu"),
+            OsString::from("-nI"),
+            OsString::from("."),
+            OsString::from("/c"),
+            OsString::from("42 + 1"),
+        ];
+
+        let parsed = parse_cli_args(args).expect("should parse slash command alias");
+
+        assert_eq!(parsed.nu.commands.expect("commands").item, "42 + 1");
+        assert_eq!(parsed.nu.include_path.expect("include path").item, ".");
+        assert!(parsed.script_name.is_empty());
+
+        let args = vec![
+            OsString::from("nu"),
+            OsString::from("-nI"),
+            OsString::from("/c"),
+            OsString::from("script.nu"),
+        ];
+
+        let parsed = parse_cli_args(args).expect("should preserve include path value");
+
+        assert!(parsed.nu.commands.is_none());
+        assert_eq!(parsed.nu.include_path.expect("include path").item, "/c");
+        assert_eq!(parsed.script_name, "script.nu");
+    }
+
+    #[test]
+    fn command_line_after_slash_c_preserves_quoting() {
+        assert_eq!(
+            command_line_after_slash_c(r#"nu.exe /c echo "a b""#),
+            Some(r#"echo "a b""#)
+        );
+        assert_eq!(
+            command_line_after_slash_c(r#""C:\path\nu.exe" /c git status"#),
+            Some("git status")
+        );
+    }
+
+    #[test]
+    fn command_line_after_slash_c_skips_flags_and_accepts_uppercase() {
+        assert_eq!(
+            command_line_after_slash_c("nu.exe --no-config-file /C git status"),
+            Some("git status")
+        );
+    }
+
+    #[test]
+    fn command_line_after_slash_c_handles_missing_or_trailing_alias() {
+        // No alias present.
+        assert_eq!(command_line_after_slash_c("nu.exe script.nu"), None);
+        // Trailing alias with nothing after it yields an empty command.
+        assert_eq!(command_line_after_slash_c("nu.exe /c"), Some(""));
+    }
+
+    #[test]
+    fn command_line_after_slash_c_ignores_alias_inside_quotes() {
+        // A quoted `/c` is not a standalone alias token.
+        assert_eq!(command_line_after_slash_c(r#"nu.exe "/c" rest"#), None);
     }
 
     #[test]

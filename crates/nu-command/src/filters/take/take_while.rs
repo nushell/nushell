@@ -26,7 +26,7 @@ impl Command for TakeWhile {
             )
             .required(
                 "predicate",
-                SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
+                SyntaxShape::RowCondition,
                 "The predicate that element(s) must match.",
             )
             .category(Category::Filters)
@@ -40,7 +40,7 @@ impl Command for TakeWhile {
         vec![
             Example {
                 description: "Take while the element is negative.",
-                example: "[-1 -2 9 1] | take while {|x| $x < 0 }",
+                example: "[-1 -2 9 1] | take while $it < 0",
                 result: Some(test_value!([-1, -2])),
             },
             Example {
@@ -50,7 +50,7 @@ impl Command for TakeWhile {
             },
             Example {
                 description: "Take while the field value is negative.",
-                example: "[{a: -1} {a: -2} {a: 9} {a: 1}] | take while {|x| $x.a < 0 }",
+                example: "[{a: -1} {a: -2} {a: 9} {a: 1}] | take while a < 0",
                 result: Some(test_value!([{a: (-1)}, {a: (-2)}])),
             },
             Example {

@@ -331,6 +331,31 @@ fn idx_search_finds_content() -> Result {
 
 #[test]
 #[serial]
+fn idx_search_limit_is_not_capped_per_file() -> Result {
+    Playground::setup(
+        "idx_search_limit_is_not_capped_per_file",
+        |dirs, _sandbox| {
+            test()
+            .cwd(dirs.test())
+            .run("1..250 | each {|i| $'line ($i) match' } | str join (char nl) | save many.txt; idx init . --wait | ignore; idx search match --limit 1000 | length")
+            .expect_value_eq(250)
+        },
+    )
+}
+
+#[test]
+#[serial]
+fn idx_search_limit_is_exact() -> Result {
+    Playground::setup("idx_search_limit_is_exact", |dirs, _sandbox| {
+        test()
+            .cwd(dirs.test())
+            .run("1..250 | each {|i| $'line ($i) match' } | str join (char nl) | save many.txt; idx init . --wait | ignore; idx search match --limit 10 | length")
+            .expect_value_eq(10)
+    })
+}
+
+#[test]
+#[serial]
 fn idx_search_uses_relative_path_from_current_directory() -> Result {
     Playground::setup(
         "idx_search_uses_relative_path_from_current_directory",

@@ -1,16 +1,24 @@
-//! Inventory guard for commands that still opt into IR argument AST retention.
+//! Regression guard for `Command::requires_ast_for_arguments`.
 //!
-//! New entries must be deliberate — see `devdocs/ir_call_migration.md`.
-//! Prefer redesigning the command so it does not need `requires_ast_for_arguments`.
+//! When true, the IR compiler retains full argument AST nodes (`IrAstRef`) for that
+//! decl — expensive and an obstacle to IR-only calls. After migration phases 0–1, no
+//! builtin should opt in.
+//!
+//! This test walks all decls and asserts the set of opt-ins equals
+//! [`ALLOWED_REQUIRES_AST_FOR_ARGUMENTS`]. That list is **empty on purpose**: it locks
+//! in “zero opt-ins.” If someone adds `requires_ast_for_arguments => true` without
+//! updating the allowlist, CI fails. Prefer redesigning the command instead of
+//! re-adding an entry; see `devdocs/ir_call_migration.md`.
 
 use nu_protocol::engine::EngineState;
 use std::collections::BTreeSet;
 
-/// Commands that are still allowed to require AST argument nodes under IR evaluation.
+/// Expected names of decls that may still set `requires_ast_for_arguments` to true.
 ///
-/// Update this list only when adding or removing a deliberate opt-in.
-const ALLOWED_REQUIRES_AST_FOR_ARGUMENTS: &[&str] =
-    &["attr example", "default", "export-env", "metadata"];
+/// Empty after phase 1 — not dead code. An empty allowlist means we expect *none* and
+/// will fail if any appear. Only add a name for a deliberate, temporary exception
+/// (and document it in `devdocs/ir_call_migration.md`).
+const ALLOWED_REQUIRES_AST_FOR_ARGUMENTS: &[&str] = &[];
 
 fn engine_state_with_commands() -> EngineState {
     let engine_state = nu_cmd_lang::create_default_context();

@@ -115,12 +115,14 @@ pub struct NushellConfigDirs {
     /// Maps to `$nu.cache-dir`.
     pub cache_home: PathBuf,
 
-    /// The user's home directory. Maps to `$nu.home-dir`.
+    /// The user's home directory, or empty if none could be found.
+    /// Maps to `$nu.home-dir`.
     pub home_dir: PathBuf,
 
     /// Vendor autoload directories — directories from which Nushell
     /// automatically loads `.nu` files at startup. These come from
-    /// `XDG_DATA_DIRS`, platform-specific paths, and `$NU_VENDOR_AUTOLOAD_DIR`.
+    /// absolute `XDG_DATA_DIRS` entries, platform-specific paths, and an
+    /// absolute `$NU_VENDOR_AUTOLOAD_DIR`.
     /// Maps to `$nu.vendor-autoload-dirs`.
     ///
     /// Order matters: files are evaluated in list order, so later entries

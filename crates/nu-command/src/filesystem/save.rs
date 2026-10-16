@@ -55,7 +55,11 @@ impl Command for Save {
             )
             .switch("raw", "Save file as raw binary.", Some('r'))
             .switch("append", "Append input to the end of the file.", Some('a'))
-            .switch("force", "Overwrite the destination.", Some('f'))
+            .switch(
+                "force",
+                "Overwrite the destination, creating missing parent directories.",
+                Some('f'),
+            )
             .switch("progress", "Enable progress bar.", Some('p'))
             .category(Category::FileSystem)
     }
@@ -147,7 +151,9 @@ impl Command for Save {
                 let ext = extract_extension(&input, &path.item, raw);
                 let converted = match ext {
                     None => input,
-                    Some(ext) => convert_to_extension(engine_state, &ext, stack, input, span)?,
+                    Some(ext) => {
+                        convert_to_extension(engine_state, &ext, stack, input, span, path.span)?
+                    }
                 };
 
                 // Save custom value however they implement saving
@@ -305,17 +311,29 @@ fn extract_extension<'e>(input: &PipelineData, path: &'e Path, raw: bool) -> Opt
 
 /// Convert given data into content of file of specified extension if
 /// corresponding `to` command exists. Otherwise attempt to convert
-/// data to bytes as is
+/// data to bytes as is. `path_span` is the file argument, which an error about the converter
+/// points at.
 fn convert_to_extension(
     engine_state: &EngineState,
     extension: &str,
     stack: &mut Stack,
     input: PipelineData,
     span: Span,
+    path_span: Span,
 ) -> Result<PipelineData, ShellError> {
     if let Some(decl_id) = engine_state.find_decl(format!("to {extension}").as_bytes(), &[]) {
         let decl = engine_state.get_decl(decl_id);
-        if let Some(block_id) = decl.block_id() {
+        if let Some(alias) = decl.as_alias() {
+            let file = String::from_utf8_lossy(engine_state.get_span_contents(path_span));
+            Err(crate::formats::alias_converter_error(
+                engine_state,
+                alias,
+                "save",
+                "save file",
+                &format!("... | {{}} | save {file}"),
+                path_span,
+            ))
+        } else if let Some(block_id) = decl.block_id() {
             let block = engine_state.get_block(block_id);
             let eval_block = get_eval_block(engine_state);
             eval_block(engine_state, stack, block, input).map(|p| p.body)
@@ -485,6 +503,20 @@ fn get_files(
         .as_ref()
         .map(|stderr_path| prepare_path(stderr_path, append, force))
         .transpose()?;
+
+    // With --force, create missing parent directories for both destinations
+    if force {
+        let mut destinations = vec![(path, path_span)];
+        if let Some((stderr_path, stderr_path_span)) = &stderr_path_and_span {
+            destinations.push((stderr_path, *stderr_path_span));
+        }
+        for (destination, span) in destinations {
+            if let Some(parent) = destination.parent() {
+                std::fs::create_dir_all(parent)
+                    .map_err(|err| ShellError::Io(IoError::new(err, span, parent.to_path_buf())))?;
+            }
+        }
+    }
 
     // Only if both files can be used open and possibly truncate them
     let file = open_file(engine_state, path, path_span, append)?;

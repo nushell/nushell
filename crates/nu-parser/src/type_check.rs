@@ -716,11 +716,8 @@ pub fn check_pipeline_type(
             continue;
         }
 
-        let signature = working_set.get_decl(call.decl_id).signature();
-
-        let output_type = signature
-            // NOTE[2]: unlike `parse_internal_call`, `Type::Nothing` is not added to input types.
-            .get_output_type(Some(&input_type));
+        // NOTE[2]: unlike `parse_internal_call`, `Type::Nothing` is not added to input types.
+        let output_type = working_set.decl_output_type(call.decl_id, Some(&input_type));
 
         if let Some(output_type) = output_type {
             input_type = output_type;
@@ -742,7 +739,9 @@ pub fn check_pipeline_type(
 
         output_errors.push(ParseError::InputMismatch(types_string, call.head));
 
-        input_type = signature.get_output_type(None).unwrap_or(Type::Any);
+        input_type = working_set
+            .decl_output_type(call.decl_id, None)
+            .unwrap_or(Type::Any);
     }
 
     if output_errors.is_empty() {

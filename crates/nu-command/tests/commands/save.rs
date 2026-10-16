@@ -600,6 +600,44 @@ fn save_with_custom_converter() -> Result {
     })
 }
 
+/// A `to <ext>` alias is rejected with an error suggesting a `def`, instead of failing with
+/// "Can't run alias directly" (#18725).
+#[test]
+fn save_with_a_to_alias_suggests_def() -> Result {
+    Playground::setup("save_with_to_alias", |dirs, _| {
+        let code = r#"alias "to jsonc" = to json --raw; {a: 1, b: 2} | save test.jsonc"#;
+        let err = test().cwd(dirs.test()).run(code).expect_error()?;
+
+        assert_contains("Can't save file with alias `to jsonc`", err.to_string());
+        assert_contains("def 'to jsonc' [] { to json --raw }", format!("{err:?}"));
+        assert!(!format!("{err:?}").contains("Can't run alias directly"));
+        assert!(!dirs.test().join("test.jsonc").exists());
+        Ok(())
+    })
+}
+
+/// The error points at the file, as `open`'s does, and an alias over the converter it shadows gets
+/// the explicit pipeline instead of a `def` that would call itself.
+#[test]
+fn save_with_a_shadowing_to_alias_labels_the_file() -> Result {
+    Playground::setup("save_with_shadowing_to_alias", |dirs, _| {
+        let code = r#"alias "to json" = to json --raw; {a: 1} | save out.json"#;
+        let mut tester = test().cwd(dirs.test());
+        let err = tester.run::<nu_protocol::Value>(code).expect_error()?;
+        assert_contains("Can't save file with alias `to json`", err.to_string());
+        assert_contains("... | to json --raw | save out.json", format!("{err:?}"));
+        let nu_protocol::ShellError::Generic(generic) = &err else {
+            panic!("a generic error: {err:?}")
+        };
+        let nu_protocol::shell_error::ErrorSite::Span(span) = generic.site else {
+            panic!("a span: {generic:?}")
+        };
+        assert_eq!(tester.engine_state.get_span_contents(span), b"out.json");
+        assert!(!dirs.test().join("out.json").exists());
+        Ok(())
+    })
+}
+
 #[test]
 fn save_same_file_with_collect() -> Result {
     Playground::setup("save_test_20", |dirs, _sandbox| {
@@ -723,6 +761,49 @@ fn save_missing_parent_dir() -> Result {
             .expect_error()?;
 
         assert_contains("Directory not found", err.to_string());
+        Ok(())
+    })
+}
+
+#[test]
+fn save_force_long_creates_missing_parent_directories() -> Result {
+    Playground::setup("save_test_parents", |dirs, sandbox| {
+        sandbox.with_files(&[]);
+
+        let expected_file = dirs.test().join("a/b/c/hello.txt");
+
+        let () = test()
+            .cwd(dirs.root())
+            .run("'hello' | save --force save_test_parents/a/b/c/hello.txt")?;
+
+        let actual = fs::read_to_string(expected_file)?;
+        assert_eq!(actual, "hello");
+        Ok(())
+    })
+}
+
+#[test]
+#[deps(TESTBIN_ECHO_ENV_MIXED)]
+fn save_force_short_creates_missing_stderr_parent_directories() -> Result {
+    Playground::setup("save_test_parents_stderr", |dirs, sandbox| {
+        sandbox.with_files(&[]);
+
+        let expected_file = dirs.test().join("log.txt");
+        let expected_stderr_file = dirs.test().join("logs/err.txt");
+
+        let code = r#"
+            $env.FOO = "bar";
+            $env.BAZ = "ZZZ";
+            echo_env_mixed out-err FOO BAZ | save -f -r save_test_parents_stderr/log.txt --stderr save_test_parents_stderr/logs/err.txt
+        "#;
+
+        let () = test().cwd(dirs.root()).run(code)?;
+
+        let actual = fs::read_to_string(expected_file)?;
+        assert!(actual.contains("bar"));
+
+        let actual = fs::read_to_string(expected_stderr_file)?;
+        assert!(actual.contains("ZZZ"));
         Ok(())
     })
 }

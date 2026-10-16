@@ -57,10 +57,11 @@ impl Command for MathMedian {
     fn run_const(
         &self,
         working_set: &StateWorkingSet,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        run_with_function_with_cell_paths_const(working_set, call, input, median)
+        run_with_function_with_cell_paths_const(working_set, stack, call, input, median)
     }
 
     fn examples(&self) -> Vec<Example<'_>> {

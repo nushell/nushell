@@ -52,7 +52,9 @@ fn rest_param_is_type_annotated(signature_source: &[u8], rest_name: &str) -> boo
 pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) {
     let mut pos = 0;
 
-    let def_type_name = if spans.len() >= 3 {
+    // This runs for every pipeline of every block, so decide on the borrowed head bytes
+    // whether there is anything to predeclare before doing any work.
+    let is_extern = if spans.len() >= 3 {
         let first_word = working_set.get_span_contents(spans[0]);
 
         if first_word == b"export" {
@@ -61,14 +63,14 @@ pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) {
             pos += 1;
         }
 
-        working_set.get_span_contents(spans[pos - 1]).to_vec()
+        match working_set.get_span_contents(spans[pos - 1]) {
+            b"def" => false,
+            b"extern" => true,
+            _ => return,
+        }
     } else {
         return;
     };
-
-    if def_type_name != b"def" && def_type_name != b"extern" {
-        return;
-    }
 
     while pos < spans.len() && working_set.get_span_contents(spans[pos]).starts_with(b"-") {
         pos += 1;
@@ -84,11 +86,14 @@ pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) {
         return;
     };
 
+    // A call is looked up by its words joined with single spaces, so a name
+    // with any other whitespace could never be called (#15539).
     if name.contains('#')
         || name.contains('^')
         || name.contains('%')
         || name.parse::<bytesize::ByteSize>().is_ok()
         || name.parse::<f64>().is_ok()
+        || name.split_ascii_whitespace().collect::<Vec<_>>().join(" ") != name
     {
         working_set.error(ParseError::CommandDefNotValid(spans[name_pos]));
         return;
@@ -118,7 +123,7 @@ pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) {
     let mut allow_unknown_args = false;
 
     for span in spans {
-        if working_set.get_span_contents(*span) == b"--wrapped" && def_type_name == b"def" {
+        if working_set.get_span_contents(*span) == b"--wrapped" && !is_extern {
             allow_unknown_args = true;
         }
     }
@@ -126,11 +131,7 @@ pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) {
     let starting_error_count = working_set.parse_errors.len();
 
     working_set.enter_scope();
-    let sig = parse_full_signature(
-        working_set,
-        &spans[signature_pos..],
-        def_type_name == b"extern",
-    );
+    let sig = parse_full_signature(working_set, &spans[signature_pos..], is_extern);
     working_set.parse_errors.truncate(starting_error_count);
     working_set.exit_scope();
 
@@ -152,7 +153,7 @@ pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) {
         signature.allows_unknown_args = true;
     }
 
-    let command_type = if def_type_name == b"extern" {
+    let command_type = if is_extern {
         CommandType::External
     } else {
         CommandType::Custom
@@ -482,6 +483,9 @@ fn parse_def_inner(
     }
 
     let starting_error_count = working_set.parse_errors.len();
+    // The body is the last word; this compiles it below, after closing its scope.
+    let outer_def_body_span =
+        std::mem::replace(&mut working_set.def_body_span, rest_spans.last().copied());
     let ParsedInternalCall {
         call,
         output,
@@ -494,6 +498,7 @@ fn parse_def_inner(
         ArgumentParsingLevel::Full,
         None,
     );
+    working_set.def_body_span = outer_def_body_span;
 
     if working_set
         .parse_errors
@@ -517,7 +522,7 @@ fn parse_def_inner(
             ..
         }) => {
             compile_block_with_id(working_set, *block_id);
-            *working_set.get_block_mut(*block_id).signature = sig.clone();
+            *working_set.get_block_mut(*block_id).signature = sig;
         }
         Some(arg) => working_set.error(ParseError::Expected(
             "definition body closure { ... }",
@@ -527,6 +532,17 @@ fn parse_def_inner(
     }
 
     if call_kind != CallKind::Valid {
+        // `def --help` only shows the help of `def`. It defines nothing, so drop the predeclaration
+        // the definition would have replaced. A call to the name then fails to resolve instead of
+        // reaching a declaration without a body.
+        if call_kind == CallKind::Help
+            && let Some(name) = call
+                .positional_iter()
+                .next()
+                .and_then(Expression::as_string)
+        {
+            working_set.remove_predecl(name.as_bytes());
+        }
         return (
             Expression::new(working_set, Expr::Call(call), call_span, output),
             None,

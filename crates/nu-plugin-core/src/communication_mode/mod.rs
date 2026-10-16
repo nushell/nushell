@@ -1,5 +1,7 @@
 use std::ffi::OsStr;
 use std::io::{Stdin, Stdout};
+#[cfg(all(feature = "local-socket", unix))]
+use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -96,18 +98,38 @@ impl CommunicationMode {
             CommunicationMode::LocalSocket(name) => {
                 use interprocess::local_socket::ListenerOptions;
 
-                let listener = interpret_local_socket_name(name)
+                #[cfg(unix)]
+                let socket_dir = prepare_local_socket_path(name).map_err(|err| {
+                    IoError::new_internal(
+                        err,
+                        format!(
+                            "Could not prepare local socket path {:?}",
+                            name.to_string_lossy()
+                        ),
+                    )
+                })?;
+
+                let listener = match interpret_local_socket_name(name)
                     .and_then(|name| ListenerOptions::new().name(name).create_sync())
-                    .map_err(|err| {
-                        IoError::new_internal(
+                {
+                    Ok(listener) => listener,
+                    Err(err) => {
+                        #[cfg(unix)]
+                        cleanup_local_socket_dir(socket_dir.as_ref());
+                        return Err(ShellError::Io(IoError::new_internal(
                             err,
                             format!(
                                 "Could not interpret local socket name {:?}",
                                 name.to_string_lossy()
                             ),
-                        )
-                    })?;
-                Ok(PreparedServerCommunication::LocalSocket { listener })
+                        )));
+                    }
+                };
+                Ok(PreparedServerCommunication::LocalSocket {
+                    listener,
+                    #[cfg(unix)]
+                    socket_dir,
+                })
             }
         }
     }
@@ -158,7 +180,130 @@ pub enum PreparedServerCommunication {
     #[cfg(feature = "local-socket")]
     LocalSocket {
         listener: interprocess::local_socket::Listener,
+        #[cfg(unix)]
+        socket_dir: Option<PathBuf>,
     },
+}
+
+#[cfg(all(feature = "local-socket", unix))]
+fn prepare_local_socket_path(name: &OsStr) -> Result<Option<PathBuf>, std::io::Error> {
+    use std::os::unix::fs::DirBuilderExt;
+
+    let path = Path::new(name);
+    let Some(parent) = path.parent() else {
+        return Ok(None);
+    };
+
+    let mut builder = std::fs::DirBuilder::new();
+    builder.mode(0o700).create(parent)?;
+    Ok(Some(parent.to_path_buf()))
+}
+
+#[cfg(all(feature = "local-socket", unix))]
+fn cleanup_local_socket_dir(socket_dir: Option<&PathBuf>) {
+    if let Some(socket_dir) = socket_dir {
+        let _ = std::fs::remove_dir_all(socket_dir);
+    }
+}
+
+#[cfg(all(test, feature = "local-socket", unix))]
+mod tests {
+    use super::{CommunicationMode, make_local_socket_name};
+    use std::os::unix::fs::PermissionsExt;
+    use std::path::Path;
+    use std::process::Command;
+
+    const OWNER_ONLY_UMASK_CHILD: &str = "NU_PLUGIN_CORE_OWNER_ONLY_UMASK_CHILD";
+
+    #[test]
+    fn local_socket_dir_is_owner_only() {
+        if std::env::var_os(OWNER_ONLY_UMASK_CHILD).is_none() {
+            let test_binary =
+                std::env::current_exe().expect("test binary path should be available");
+            let status = Command::new("sh")
+                .args(["-c", "umask 000; exec \"$@\"", "sh"])
+                .arg(test_binary)
+                .args([
+                    "--exact",
+                    "communication_mode::tests::local_socket_dir_is_owner_only",
+                ])
+                .env(OWNER_ONLY_UMASK_CHILD, "1")
+                .status()
+                .expect("owner-only test should run in a child process");
+
+            assert!(status.success(), "owner-only child test failed");
+            return;
+        }
+
+        let name = make_local_socket_name("owner-only-test");
+        let socket_dir = Path::new(&name)
+            .parent()
+            .expect("socket should have a parent dir")
+            .to_owned();
+
+        let mode = CommunicationMode::LocalSocket(name)
+            .serve()
+            .expect("local socket should bind");
+
+        let permissions = std::fs::metadata(&socket_dir)
+            .expect("local socket dir should exist")
+            .permissions()
+            .mode();
+
+        drop(mode);
+
+        assert_eq!(0o700, permissions & 0o777);
+        assert!(!socket_dir.exists());
+    }
+
+    #[test]
+    fn pre_existing_local_socket_dir_is_rejected() {
+        let name = make_local_socket_name("pre-existing-dir-test");
+        let socket_path = Path::new(&name);
+        let socket_dir = socket_path
+            .parent()
+            .expect("socket should have a parent dir");
+
+        std::fs::create_dir(socket_dir).expect("pre-existing socket dir should be created");
+        std::fs::set_permissions(socket_dir, std::fs::Permissions::from_mode(0o777))
+            .expect("pre-existing socket dir should be world-accessible");
+        let permissions = std::fs::metadata(socket_dir)
+            .expect("pre-existing socket dir should exist")
+            .permissions()
+            .mode();
+        assert_eq!(0o777, permissions & 0o777);
+
+        let result = CommunicationMode::LocalSocket(name.clone()).serve();
+
+        assert!(
+            result.is_err(),
+            "a pre-existing socket dir must be rejected"
+        );
+        assert!(
+            socket_dir.exists(),
+            "the pre-existing dir must not be removed"
+        );
+        assert!(!socket_path.exists(), "the socket must not be bound");
+
+        std::fs::remove_dir(socket_dir).expect("pre-existing socket dir should be removed");
+    }
+}
+
+impl Drop for PreparedServerCommunication {
+    fn drop(&mut self) {
+        match self {
+            PreparedServerCommunication::Stdio => {}
+            #[cfg(feature = "local-socket")]
+            PreparedServerCommunication::LocalSocket {
+                #[cfg(unix)]
+                socket_dir,
+                ..
+            } => {
+                #[cfg(unix)]
+                cleanup_local_socket_dir(socket_dir.as_ref());
+            }
+        }
+    }
 }
 
 impl PreparedServerCommunication {

@@ -270,3 +270,30 @@ fn table_theme_arg() -> Result {
             \x202   1   2                3 
         "})
 }
+
+#[test]
+fn table_markup_themes_ignore_header_on_separator() -> Result {
+    let cmd = |theme: &str| {
+        format!(
+            "let data = $in\n$env.config.table.header_on_separator = true\n$data | table --width=80 --theme {theme}"
+        )
+    };
+    let mut tester = test();
+
+    tester
+        .run_with_data(cmd("markdown"), test_table![["a", "b"]; [1, 2]])
+        .expect_value_eq(indoc! {"
+            | # | a | b |
+            |---|---|---|
+            | 0 | 1 | 2 |
+        "})?;
+    tester
+        .run_with_data(cmd("restructured"), test_table![["a", "b"]; [1, 2]])
+        .expect_value_eq(indoc! {"
+            === === ===
+            \x20#   a   b\x20
+            === === ===
+            \x200   1   2\x20
+            === === ===
+        "})
+}

@@ -25,7 +25,7 @@ pub use input::InputListen;
 pub use is_redirected::IsRedirected;
 pub use is_terminal::IsTerminal;
 pub use kill::Kill;
-pub(crate) use raw_mode::RawModeGuard;
+pub use raw_mode::RawModeGuard;
 pub use sleep::Sleep;
 pub use term::{Term, TermQuery, TermSize};
 #[cfg(unix)]

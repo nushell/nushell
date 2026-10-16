@@ -1,6 +1,6 @@
 use crossterm::{
     cursor::Show,
-    event::{self, Event, KeyCode, KeyModifiers},
+    event::{self, Event, KeyCode, KeyEventKind, KeyModifiers},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode},
 };
@@ -46,8 +46,11 @@ fn get_interactive_confirmation(prompt: String) -> Result<bool, Box<dyn Error>> 
     let mut input = String::new();
 
     loop {
+        // Only react to key presses. On Windows, crossterm also reports the
+        // release of each key, which would otherwise answer the next prompt.
         if event::poll(std::time::Duration::from_millis(100))?
             && let Event::Key(key_event) = event::read()?
+            && key_event.kind == KeyEventKind::Press
         {
             // Handle Ctrl+C
             if key_event.modifiers.contains(KeyModifiers::CONTROL)

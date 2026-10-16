@@ -3,14 +3,23 @@ use std/assert
 
 def run-command [
     system_level,
-    message_level
+    message_level,
+    --context :record
     --short
 ] {
+    mut args = []
+
     if $short {
-        ^$nu.current-exe --no-config-file --commands $'use std; use std/log; NU_LOG_LEVEL=($system_level) log ($message_level) --short "test message"'
-    } else {
-        ^$nu.current-exe --no-config-file --commands $'use std; use std/log; NU_LOG_LEVEL=($system_level) log ($message_level) "test message"'
+      $args = $args | append ["--short"]
     }
+
+    if $context != null {
+      $args = $args | append ["--context" ($context | to nuon)]
+    }
+
+    let args = $args | str join ' '
+
+    ^$nu.current-exe --no-config-file --commands $'use std; use std/log; NU_LOG_LEVEL=($system_level) log ($message_level) ($args) "test message"'
     | complete | get --optional stderr
 }
 
@@ -42,6 +51,17 @@ def "assert message short" [
     assert str contains $output "test message"
 }
 
+def "assert context" [
+  system_level,
+  message_level,
+  message_level_str
+] {
+    let output = (run-command $system_level --context {varA: valueA varB: valueB} $message_level)
+    assert str contains $output $message_level_str
+    assert str contains $output "test message"
+    assert str contains $output 'varA="valueA" varB="valueB"'
+}
+
 @test
 def critical [] {
     assert no message 99 critical
@@ -51,6 +71,11 @@ def critical [] {
 @test
 def critical_short [] {
     assert message short CRITICAL critical C
+}
+
+@test
+def critical_context [] {
+    assert context CRITICAL critical CRT
 }
 
 @test
@@ -65,6 +90,11 @@ def error_short [] {
 }
 
 @test
+def error_context [] {
+    assert context ERROR error E
+}
+
+@test
 def warning [] {
     assert no message ERROR warning
     assert message WARNING warning WRN
@@ -73,6 +103,11 @@ def warning [] {
 @test
 def warning_short [] {
     assert message short WARNING warning W
+}
+
+@test
+def warning_context [] {
+    assert context WARNING warning W
 }
 
 @test
@@ -87,6 +122,11 @@ def info_short [] {
 }
 
 @test
+def info_context [] {
+    assert context INFO info I
+}
+
+@test
 def debug [] {
     assert no message INFO debug
     assert message DEBUG debug DBG
@@ -95,4 +135,9 @@ def debug [] {
 @test
 def debug_short [] {
     assert message short DEBUG debug D
+}
+
+@test
+def debug_context [] {
+    assert context DEBUG debug D
 }

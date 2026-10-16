@@ -1,5 +1,6 @@
 use nu_experimental::PIPE_FAIL;
 use nu_test_support::prelude::*;
+use rstest::rstest;
 
 #[test]
 fn try_succeed() -> Result {
@@ -459,4 +460,369 @@ fn try_with_just_finally_wont_pop_enclosing_error_handler() -> Result {
     "#;
 
     test().run(code).expect_value_eq("outer")
+}
+
+// The cases below record the order in which `try`, `catch` and `finally` blocks run in
+// `$env.LOG`, so that the handler order (and not just the final value) is asserted. `finally`
+// blocks are closures, so a `mut` variable can't be updated there, but the environment can.
+#[rstest]
+#[case::nested_finally_runs_before_outer_catch(
+    r#"
+        try {
+            try {
+                $env.LOG ++= ["try"]
+                error make { msg: "bad" }
+            } finally {
+                $env.LOG ++= ["inner finally"]
+            }
+        } catch {
+            $env.LOG ++= ["outer catch"]
+        }
+    "#,
+    vec!["try", "inner finally", "outer catch"]
+)]
+#[case::error_after_finally_does_not_continue_the_block(
+    r#"
+        try {
+            try { error make { msg: "bad" } } finally { $env.LOG ++= ["finally"] }
+            $env.LOG ++= ["after"]
+        } catch {
+            $env.LOG ++= ["caught"]
+        }
+    "#,
+    vec!["finally", "caught"]
+)]
+#[case::error_in_catch_runs_finally_before_outer_catch(
+    r#"
+        try {
+            try {
+                error make { msg: "a" }
+            } catch {
+                error make { msg: "b" }
+            } finally {
+                $env.LOG ++= ["finally"]
+            }
+        } catch {|err|
+            $env.LOG ++= [$"caught ($err.msg)"]
+        }
+    "#,
+    vec!["finally", "caught b"]
+)]
+#[case::rethrow_in_catch_runs_finally_before_outer_catch(
+    r#"
+        try {
+            try {
+                error make { msg: "a" }
+            } catch {|err|
+                error make { msg: $"re-($err.msg)" }
+            } finally {
+                $env.LOG ++= ["finally"]
+            }
+        } catch {|err|
+            $env.LOG ++= [$err.msg]
+        }
+    "#,
+    vec!["finally", "re-a"]
+)]
+#[case::error_in_finally_replaces_the_original_error(
+    r#"
+        try {
+            try { error make { msg: "a" } } finally { error make { msg: "b" } }
+        } catch {|err|
+            $env.LOG ++= [$"caught ($err.msg)"]
+        }
+    "#,
+    vec!["caught b"]
+)]
+#[case::finally_parameter_sees_the_error_when_nested(
+    r#"
+        try {
+            try { error make { msg: "a" } } finally {|err| $env.LOG ++= [$"finally ($err.msg)"] }
+        } catch {|err|
+            $env.LOG ++= [$"caught ($err.msg)"]
+        }
+    "#,
+    vec!["finally a", "caught a"]
+)]
+#[case::finally_parameter_is_nothing_on_return(
+    "
+        def --env foo [] {
+            try { return 1 } finally {|value| $env.LOG ++= [($value | describe)] }
+        }
+        foo
+    ",
+    vec!["nothing"]
+)]
+#[case::every_nested_finally_runs_in_order(
+    r#"
+        try {
+            try {
+                try { error make { msg: "a" } } finally { $env.LOG ++= ["1"] }
+            } finally {
+                $env.LOG ++= ["2"]
+            }
+        } catch {
+            $env.LOG ++= ["3"]
+        }
+    "#,
+    vec!["1", "2", "3"]
+)]
+#[case::error_in_finally_with_nested_catch_does_not_continue_the_block(
+    r#"
+        try {
+            try {
+                error make { msg: "a" }
+            } finally {
+                try { error make { msg: "b" } } catch { $env.LOG ++= ["inner caught"] }
+            }
+            $env.LOG ++= ["after"]
+        } catch {|err|
+            $env.LOG ++= [$"caught ($err.msg)"]
+        }
+    "#,
+    vec!["inner caught", "caught a"]
+)]
+#[case::finally_inside_finally_on_error(
+    r#"
+        try {
+            try {
+                error make { msg: "a" }
+            } finally {
+                try { $env.LOG ++= ["inner try"] } finally { $env.LOG ++= ["inner finally"] }
+                $env.LOG ++= ["outer finally"]
+            }
+            $env.LOG ++= ["after"]
+        } catch {
+            $env.LOG ++= ["caught"]
+        }
+    "#,
+    vec!["inner try", "inner finally", "outer finally", "caught"]
+)]
+#[case::return_through_nested_finally_skips_the_rest_of_the_block(
+    r#"
+        def --env foo [] {
+            try {
+                try { return 1 } finally { $env.LOG ++= ["inner"] }
+                $env.LOG ++= ["after"]
+            } finally {
+                $env.LOG ++= ["outer"]
+            }
+            2
+        }
+        let value = foo
+        $env.LOG ++= [$value]
+    "#,
+    vec![Value::test_string("inner"), Value::test_string("outer"), Value::test_int(1)]
+)]
+#[case::return_in_try_skips_catch_but_runs_finally(
+    r#"
+        def --env foo [] {
+            try { return 7 } catch { $env.LOG ++= ["catch"] } finally { $env.LOG ++= ["finally"] }
+        }
+        let value = foo
+        $env.LOG ++= [$value]
+    "#,
+    vec![Value::test_string("finally"), Value::test_int(7)]
+)]
+#[case::return_in_nested_finally_wins_over_the_error(
+    r#"
+        def --env foo [] {
+            try {
+                try { error make { msg: "a" } } finally { return 5 }
+            } finally {
+                $env.LOG ++= ["outer"]
+            }
+        }
+        let value = foo
+        $env.LOG ++= [$value]
+    "#,
+    vec![Value::test_string("outer"), Value::test_int(5)]
+)]
+#[case::return_value_stream_is_collected_before_nested_finally(
+    r#"
+        def --env foo [] {
+            try {
+                try { return (1..3 | each { $in * 10 }) } finally { $env.LOG ++= ["inner"] }
+            } finally {
+                $env.LOG ++= ["outer"]
+            }
+        }
+        let value = foo
+        $env.LOG ++= [$value]
+    "#,
+    vec![
+        Value::test_string("inner"),
+        Value::test_string("outer"),
+        Value::test_list(vec![Value::test_int(10), Value::test_int(20), Value::test_int(30)]),
+    ]
+)]
+#[case::handlers_of_a_called_command_run_before_the_callers(
+    r#"
+        def --env boom [] {
+            try { error make { msg: "a" } } finally { $env.LOG ++= ["def finally"] }
+        }
+        try {
+            boom
+        } catch {|err|
+            $env.LOG ++= [$"caught ($err.msg)"]
+        } finally {
+            $env.LOG ++= ["caller finally"]
+        }
+    "#,
+    vec!["def finally", "caught a", "caller finally"]
+)]
+#[case::break_in_try_runs_finally(
+    r#"
+        for x in [1 2] {
+            try { $env.LOG ++= [$"try ($x)"]; break } finally { $env.LOG ++= ["finally"] }
+        }
+    "#,
+    vec!["try 1", "finally"]
+)]
+#[case::continue_in_try_runs_finally(
+    r#"
+        for x in [1 2] {
+            try { continue } finally { $env.LOG ++= [$"finally ($x)"] }
+            $env.LOG ++= ["after"]
+        }
+    "#,
+    vec!["finally 1", "finally 2"]
+)]
+#[case::break_in_try_skips_catch_but_runs_finally(
+    r#"
+        for x in [1 2] {
+            try { break } catch { $env.LOG ++= ["catch"] } finally { $env.LOG ++= ["finally"] }
+        }
+    "#,
+    vec!["finally"]
+)]
+#[case::break_in_catch_runs_finally(
+    r#"
+        for x in [1 2] {
+            try { error make { msg: "a" } } catch { break } finally { $env.LOG ++= ["finally"] }
+        }
+    "#,
+    vec!["finally"]
+)]
+#[case::break_in_finally_abandons_the_error(
+    r#"
+        for x in [1 2] {
+            try { error make { msg: "a" } } finally { $env.LOG ++= [$"finally ($x)"]; break }
+        }
+        $env.LOG ++= ["done"]
+    "#,
+    vec!["finally 1", "done"]
+)]
+#[case::break_through_nested_try_finally(
+    r#"
+        for x in [1 2] {
+            try {
+                try { break } finally { $env.LOG ++= ["inner"] }
+            } finally {
+                $env.LOG ++= ["outer"]
+            }
+        }
+    "#,
+    vec!["inner", "outer"]
+)]
+#[case::break_in_try_finally_leaves_no_stale_finally_behind(
+    r#"
+        for x in [1 2] {
+            try { break } finally { $env.LOG ++= ["finally"] }
+        }
+        try { error make { msg: "boom" } } catch { $env.LOG ++= ["caught"] }
+    "#,
+    vec!["finally", "caught"]
+)]
+#[case::break_in_try_finally_keeps_the_enclosing_catch(
+    r#"
+        try {
+            for x in [1] {
+                try { break } finally { $env.LOG ++= ["finally"] }
+            }
+            error make { msg: "boom" }
+        } catch {
+            $env.LOG ++= ["caught"]
+        }
+    "#,
+    vec!["finally", "caught"]
+)]
+#[case::break_unwinds_every_handler_between_the_loop_and_the_break(
+    r#"
+        for x in [1] {
+            try {
+                try {
+                    try { break } catch {} finally { $env.LOG ++= ["a"] }
+                } finally {
+                    $env.LOG ++= ["b"]
+                }
+            } catch {} finally {
+                $env.LOG ++= ["c"]
+            }
+        }
+        try { error make { msg: "boom" } } catch { $env.LOG ++= ["caught"] }
+    "#,
+    vec!["a", "b", "c", "caught"]
+)]
+fn try_handlers_run_in_order(#[case] code: &str, #[case] expected: Vec<impl IntoValue>) -> Result {
+    test()
+        .run_multiple(["$env.LOG = []", code, "$env.LOG"])
+        .expect_value_eq(expected)
+}
+
+#[test]
+fn error_in_try_with_only_finally_still_propagates_after_nested_finally() -> Result {
+    let code = r#"
+        try {
+            try { error make { msg: "bad" } } finally { "inner" }
+        } finally {
+            "outer"
+        }
+    "#;
+
+    let err = test().run(code).expect_error()?;
+    assert_contains("bad", err.to_string());
+    Ok(())
+}
+
+#[test]
+fn nested_try_finally_value_is_seen_by_outer_catch() -> Result {
+    test()
+        .run("try { try { error make { msg: 'a' } } finally { 'ignored' } } catch { 'caught' }")
+        .expect_value_eq("caught")?;
+
+    test()
+        .run("try { try { 5 } finally { 'ignored' } } finally { 'ignored too' }")
+        .expect_value_eq(5)
+}
+
+#[test]
+#[deps(NU)]
+fn exit_in_nested_try_skips_catch_but_runs_finally() -> Result {
+    let code = "
+        try {
+            try {
+                exit 5
+            } finally {
+                print 'inner finally'
+            }
+        } catch {
+            print 'catch'
+        }
+        print 'after'
+    ";
+    let result: CompleteResult =
+        test().run_with_data("let code; nu -n -c $code | complete", code)?;
+    assert_eq!(result.stdout.trim_end(), "inner finally");
+    assert_eq!(result.exit_code, 5);
+
+    let code = "
+        try { error make { msg: 'a' } } catch { exit 2 } finally { print 'finally' }
+        print 'after'
+    ";
+    let result: CompleteResult =
+        test().run_with_data("let code; nu -n -c $code | complete", code)?;
+    assert_eq!(result.stdout.trim_end(), "finally");
+    assert_eq!(result.exit_code, 2);
+    Ok(())
 }

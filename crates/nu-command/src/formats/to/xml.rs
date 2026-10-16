@@ -4,7 +4,8 @@ use nu_engine::command_prelude::*;
 
 use quick_xml::{
     escape,
-    events::{BytesEnd, BytesPI, BytesStart, BytesText, Event},
+    events::{BytesEnd, BytesPI, BytesStart, BytesText, Event, attributes::Attribute},
+    name::QName,
 };
 use std::{borrow::Cow, io::Cursor};
 
@@ -152,41 +153,43 @@ impl Job {
     ) {
         for (k, v) in attributes {
             if self.partial_escape {
-                element.push_attribute((k.as_bytes(), Self::partial_escape_attribute(v).as_ref()))
+                // Attribute::from re-escapes, so pre-escaped values must be set directly.
+                element.push_attribute(Attribute {
+                    key: QName(k.as_str()),
+                    value: Self::partial_escape_attribute(v),
+                });
             } else {
-                element.push_attribute((k.as_bytes(), escape::escape(v).as_bytes()))
-            };
+                element.push_attribute((k.as_str(), v.as_str()));
+            }
         }
     }
 
-    fn partial_escape_attribute(raw: &str) -> Cow<'_, [u8]> {
-        let bytes = raw.as_bytes();
-        let mut escaped: Vec<u8> = Vec::new();
-        let mut iter = bytes.iter().enumerate();
-        let mut pos = 0;
-        while let Some((new_pos, byte)) =
-            iter.find(|(_, ch)| matches!(ch, b'<' | b'>' | b'&' | b'"'))
-        {
-            escaped.extend_from_slice(&bytes[pos..new_pos]);
-            match byte {
-                b'<' => escaped.extend_from_slice(b"&lt;"),
-                b'>' => escaped.extend_from_slice(b"&gt;"),
-                b'&' => escaped.extend_from_slice(b"&amp;"),
-                b'"' => escaped.extend_from_slice(b"&quot;"),
-
-                _ => unreachable!("Only '<', '>','&', '\"' are escaped"),
+    fn partial_escape_attribute(raw: &str) -> Cow<'_, str> {
+        let mut escaped = String::new();
+        let mut last = 0;
+        for (idx, ch) in raw.char_indices() {
+            let replacement = match ch {
+                '<' => Some("&lt;"),
+                '>' => Some("&gt;"),
+                '&' => Some("&amp;"),
+                '"' => Some("&quot;"),
+                _ => None,
+            };
+            if let Some(replacement) = replacement {
+                if escaped.is_empty() {
+                    escaped.reserve(raw.len());
+                }
+                escaped.push_str(&raw[last..idx]);
+                escaped.push_str(replacement);
+                last = idx + ch.len_utf8();
             }
-            pos = new_pos + 1;
         }
 
-        if !escaped.is_empty() {
-            if let Some(raw) = bytes.get(pos..) {
-                escaped.extend_from_slice(raw);
-            }
-
-            Cow::Owned(escaped)
+        if escaped.is_empty() {
+            Cow::Borrowed(raw)
         } else {
-            Cow::Borrowed(bytes)
+            escaped.push_str(&raw[last..]);
+            Cow::Owned(escaped)
         }
     }
 

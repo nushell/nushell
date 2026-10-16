@@ -8,7 +8,7 @@ use nu_protocol::{ShellError, Span, engine::Stack, shell_error::io::IoError};
 /// must not `disable_raw_mode` on drop — that leaves the line editor cooked and
 /// breaks backspace. If raw mode was already enabled, drop re-applies it.
 #[must_use = "dropping the guard restores the previous raw-mode state"]
-pub(crate) struct RawModeGuard {
+pub struct RawModeGuard {
     /// When true, the terminal was already in raw mode; leave it that way.
     leave_raw: bool,
 }
@@ -16,14 +16,14 @@ pub(crate) struct RawModeGuard {
 impl RawModeGuard {
     /// Enter raw mode, or error per [`Stack::require_stdin`]. `span` points at the offending
     /// call.
-    pub(crate) fn acquire(stack: &Stack, span: Span) -> Result<Self, ShellError> {
+    pub fn acquire(stack: &Stack, span: Span) -> Result<Self, ShellError> {
         stack.require_stdin(span)?;
         Self::enter(span)
     }
 
     /// Enable raw mode without the stdin check. Caller must have already called
     /// [`Stack::require_stdin`] if this context can be detached from the terminal.
-    pub(crate) fn enter(span: Span) -> Result<Self, ShellError> {
+    pub fn enter(span: Span) -> Result<Self, ShellError> {
         let was_raw = crossterm::terminal::is_raw_mode_enabled()
             .map_err(|err| IoError::new(err, span, None))?;
         if !was_raw {

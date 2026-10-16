@@ -1,4 +1,4 @@
-use nu_protocol::{Flag, PositionalArg, Signature, SyntaxShape};
+use nu_protocol::{CompareTypes, Flag, PositionalArg, Signature, SyntaxShape, Type, TypeSet};
 
 #[test]
 fn test_signature() {
@@ -189,4 +189,94 @@ fn test_signature_round_trip() {
         .for_each(|(lhs, rhs)| assert_eq!(lhs, rhs));
 
     assert_eq!(signature.rest_positional, returned.rest_positional,);
+}
+
+fn into_string_like_signature() -> Signature {
+    Signature::new("into string").input_output_types(vec![
+        (Type::Int, Type::String),
+        (Type::custom("semver"), Type::String),
+        (
+            Type::List(Box::new(Type::Any)),
+            Type::List(Box::new(Type::String)),
+        ),
+        (Type::table(), Type::table()),
+        (Type::record(), Type::record()),
+    ])
+}
+
+#[test]
+fn get_output_type_custom_does_not_use_structured_fallback() {
+    let sig = into_string_like_signature();
+
+    assert_eq!(
+        sig.get_output_type(Some(&Type::custom("semver"))),
+        Some(Type::String)
+    );
+    assert_eq!(sig.get_output_type(Some(&Type::Int)), Some(Type::String));
+    assert_eq!(
+        sig.get_output_type(Some(&Type::record())),
+        Some(Type::record())
+    );
+}
+
+#[test]
+fn get_output_type_list_of_custom_uses_list_pair() {
+    let sig = into_string_like_signature();
+    let list_string = Type::list(Type::String);
+
+    let from_list_any = sig.get_output_type(Some(&Type::list(Type::Any))).unwrap();
+    assert!(from_list_any.is_assignable_to(&list_string));
+
+    let from_list_custom = sig
+        .get_output_type(Some(&Type::list(Type::custom("semver"))))
+        .unwrap();
+    assert!(from_list_custom.is_assignable_to(&list_string));
+}
+
+#[test]
+fn get_output_type_custom_unioned_with_nothing_is_still_string() {
+    let sig = into_string_like_signature();
+    let input = Type::custom("semver").union(Type::Nothing);
+
+    assert_eq!(sig.get_output_type(Some(&input)), Some(Type::String));
+}
+
+#[test]
+fn get_output_type_returns_none_when_no_pair_matches() {
+    let sig = Signature::new("only-int").input_output_types(vec![(Type::Int, Type::String)]);
+
+    assert_eq!(sig.get_output_type(Some(&Type::Bool)), None);
+}
+
+#[test]
+fn get_output_type_nothing_union_does_not_collapse_get_to_nothing() {
+    // `parse_internal_call` unions pipeline input with `nothing`. Ranking by
+    // compare_types made `get`'s `(nothing, nothing)` pair win over `(list, any)`,
+    // so `list | get $i | split chars` inferred error input.
+    let sig = Signature::new("get").input_output_types(vec![
+        (Type::list(Type::Any), Type::Any),
+        (Type::table(), Type::Any),
+        (Type::record(), Type::Any),
+        (Type::Nothing, Type::Nothing),
+    ]);
+    let input = Type::list(Type::String).union(Type::Nothing);
+    let output = sig.get_output_type(Some(&input)).unwrap();
+
+    assert_ne!(output, Type::Nothing);
+    assert!(output.is_assignable_to(&Type::Any) || matches!(output, Type::Any));
+}
+
+#[test]
+fn get_output_type_any_input_on_into_datetime_includes_datetime() {
+    let sig = Signature::new("into datetime").input_output_types(vec![
+        (Type::Date, Type::Date),
+        (Type::String, Type::Date),
+        (Type::table(), Type::table()),
+        (Type::record(), Type::record()),
+        (Type::Any, Type::table()),
+    ]);
+
+    let from_any = sig.get_output_type(Some(&Type::Any)).unwrap();
+    assert_ne!(from_any, Type::table());
+    assert!(from_any.is_assignable_to(&Type::Date));
 }

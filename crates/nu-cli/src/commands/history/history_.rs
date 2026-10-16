@@ -1,10 +1,8 @@
 use super::fields;
 use nu_engine::command_prelude::*;
-#[cfg(not(feature = "sqlite"))]
-use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{
     HistoryFileFormat,
-    shell_error::{self, io::IoError},
+    shell_error::{self, generic::GenericError, io::IoError},
 };
 #[cfg(feature = "sqlite")]
 use reedline::SqliteBackedHistory;
@@ -78,8 +76,30 @@ impl Command for History {
         };
 
         if call.has_flag(engine_state, stack, "clear")? {
-            let _ = std::fs::remove_file(history_path);
-            // TODO: FIXME also clear the auxiliary files when using sqlite
+            match history.file_format {
+                // Clear the database through SQL instead of deleting the file.
+                // The REPL keeps its own connection open, so unlinking the
+                // database (but not its `-wal`/`-shm` files) leaves the next
+                // session with a corrupted history, and Windows refuses to
+                // delete files that are in use.
+                #[cfg(feature = "sqlite")]
+                HistoryFileFormat::Sqlite => {
+                    if history_path.exists() {
+                        SqliteBackedHistory::with_file(history_path, None, None)
+                            .and_then(|mut history| history.clear())
+                            .map_err(|err| {
+                                ShellError::Generic(GenericError::new(
+                                    "Could not clear history",
+                                    err.to_string(),
+                                    head,
+                                ))
+                            })?;
+                    }
+                }
+                _ => {
+                    let _ = std::fs::remove_file(history_path);
+                }
+            }
             return Ok(PipelineData::empty());
         }
 
