@@ -55,7 +55,7 @@ impl Command for HideEnv {
                     span: name.span,
                 });
             } else if env_var_eq(&name.item, var::CONFIG) {
-                return Err(ShellError::ConfigEnvVarSetManually { span: name.span });
+                return Err(ShellError::CannotHideConfigEnvVar { span: name.span });
             }
         }
 

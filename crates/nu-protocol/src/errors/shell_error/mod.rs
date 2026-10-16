@@ -495,18 +495,18 @@ pub enum ShellError {
         span: Span,
     },
 
-    /// Some commands are not allowed to change the config environment variable.
+    /// The config environment variable cannot be hidden.
     ///
     /// ## Resolution
     ///
-    /// Assign to `$env.config` to update the configuration.
-    #[error("'config' cannot be changed with this command.")]
+    /// Assign a new record to `$env.config` instead of hiding it.
+    #[error("'config' cannot be hidden.")]
     #[diagnostic(
-        code(nu::shell::config_env_var_set_manually),
-        help("Assign to `$env.config` to update the configuration.")
+        code(nu::shell::cannot_hide_config_env_var),
+        help("Assign a new record to `$env.config` instead of hiding it.")
     )]
-    ConfigEnvVarSetManually {
-        #[label("cannot change 'config' with this command")]
+    CannotHideConfigEnvVar {
+        #[label("cannot hide 'config'")]
         span: Span,
     },
 

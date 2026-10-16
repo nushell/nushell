@@ -127,7 +127,7 @@ fn protected_env_names_are_checked_before_mutation(#[case] command: &str) -> Res
 }
 
 #[rstest]
-#[case::hide_env("hide-env CoNfIg", "nu::shell::config_env_var_set_manually")]
+#[case::hide_env("hide-env CoNfIg", "nu::shell::cannot_hide_config_env_var")]
 #[case::load_env("load-env { CoNfIg: 'bad' }", "nu::shell::invalid_config")]
 fn config_env_validation_errors(#[case] code: &str, #[case] error_code: &str) -> Result {
     test().run(code).expect_error_code_eq(error_code)
