@@ -878,9 +878,19 @@ impl EngineState {
         name: &[u8],
         removed_overlays: &[Vec<u8>],
     ) -> Option<TypeAliasId> {
-        self.active_overlays(removed_overlays)
-            .rev()
-            .find_map(|overlay_frame| overlay_frame.type_aliases.get(name).copied())
+        let mut visibility = VisibilityStack::default();
+
+        for overlay_frame in self.active_overlays(removed_overlays).rev() {
+            visibility.push(&overlay_frame.visibility);
+
+            if let Some(type_alias_id) = overlay_frame.type_aliases.get(name)
+                && visibility.is_type_alias_id_visible(type_alias_id)
+            {
+                return Some(*type_alias_id);
+            }
+        }
+
+        None
     }
 
     pub fn get_module_comments(&self, module_id: ModuleId) -> Option<&[Span]> {

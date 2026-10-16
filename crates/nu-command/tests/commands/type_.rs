@@ -360,6 +360,58 @@ fn alias_is_not_imported(#[case] import: &str, #[case] code: &str) -> Result {
         .expect_error_code_eq("nu::parser::unknown_type")
 }
 
+#[rstest]
+#[case::by_name("type Animal = string; hide Animal")]
+#[case::module_member("use zoo Animal; hide zoo Animal")]
+#[case::module_member_list("use zoo [Animal feed]; hide zoo [Animal]")]
+#[case::module_glob("use zoo *; hide zoo *")]
+fn hidden_alias_is_unknown(#[case] code: &str) -> Result {
+    test()
+        .run(format!("{ZOO}\n{code}\nlet a: Animal = 'cat'"))
+        .expect_error_code_eq("nu::parser::unknown_type")
+}
+
+#[test]
+fn hiding_a_module_member_alias_keeps_the_module_commands() -> Result {
+    test()
+        .run(format!(
+            "{ZOO}\nuse zoo [Animal feed]\nhide zoo Animal\nfeed cat"
+        ))
+        .expect_value_eq("feeding the cat")
+}
+
+#[test]
+fn hidden_alias_stays_hidden_on_later_repl_lines() -> Result {
+    let mut tester = test();
+    let () = tester.run("type Id = int")?;
+    let () = tester.run("hide Id")?;
+    tester
+        .run("let x: Id = 1")
+        .expect_error_code_eq("nu::parser::unknown_type")
+}
+
+#[rstest]
+#[case::imported_again(
+    &format!("{ZOO}\nuse zoo Animal\nhide Animal\nuse zoo Animal\nlet a: Animal = 'cat'; $a"),
+    test_value!("cat")
+)]
+#[case::defined_again("type Id = int; hide Id; type Id = string; let x: Id = 'a'; $x", test_value!("a"))]
+#[case::command_of_the_same_name_hidden_first(
+    "def Id [] { 'cmd' }; type Id = int; hide Id; let x: Id = 5; $x",
+    test_value!(5)
+)]
+#[case::unknown_name("hide Nope; 'ok'", test_value!("ok"))]
+fn hide_and_type_aliases(#[case] code: &str, #[case] expected: Value) -> Result {
+    test().run(code).expect_value_eq(expected)
+}
+
+#[test]
+fn hiding_a_missing_module_member_is_still_an_error() -> Result {
+    test()
+        .run(format!("{ZOO}\nhide zoo Nope"))
+        .expect_error_code_eq("nu::parser::export_not_found")
+}
+
 #[test]
 fn missing_export_is_still_reported() -> Result {
     test()
