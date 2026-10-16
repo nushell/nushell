@@ -1,5 +1,7 @@
 use nu_protocol::{ParseError, ShellError, parser_path::MAX_RUN_SCRIPT_BYTES};
 use nu_test_support::{fs::Stub::FileWithContentToBeTrimmed, prelude::*};
+use pretty_assertions::assert_matches;
+use rstest::rstest;
 use std::io::Write;
 
 #[test]
@@ -790,5 +792,455 @@ fn run_full_reparse_oversized_file_errors() -> Result {
             .expect_shell_error()?;
         assert_contains("too large", err.to_string());
         Ok(())
+    })
+}
+
+/// The script from issue #19266.
+const FLAGS_SCRIPT: &str = "
+    def main [--foo(-f): string, --bar(-b)] {
+        {foo: $foo, bar: $bar}
+    }
+";
+
+#[rstest]
+#[case::issue_19266(r#"run flags.nu --foo "23" --bar=true"#, Some("23"), true)]
+// `-f` after the path is `main`'s `--foo`, not `run --full-reparse`.
+#[case::flags_after_the_path("run flags.nu -f x -b", Some("x"), true)]
+#[case::full_reparse(r#"run --full-reparse flags.nu -f "23" --bar=true"#, Some("23"), true)]
+#[case::caller_variables(
+    r#"do {|value| run flags.nu --foo $value } "from closure""#,
+    Some("from closure"),
+    false
+)]
+// The path follows `--`, even when it starts with `-`.
+#[case::path_after_double_dash("run -- -flags.nu --foo x", Some("x"), false)]
+// The parser splits `--name=value`, so the value is evaluated.
+#[case::inline_value(r#"let v = "hi"; run flags.nu --foo=$v"#, Some("hi"), false)]
+// A flag takes the next argument as its value, as in a call to `main`.
+#[case::dash_value("run flags.nu --foo -b", Some("-b"), false)]
+// As in a call to `main`, `null` leaves out a flag that doesn't take it.
+#[case::null_value("let v = null; run flags.nu --foo $v", None, false)]
+// A batch of short flags sets each one, and the last one takes the next argument.
+#[case::short_flag_batch("run flags.nu -bf x", Some("x"), true)]
+// A spread taken as a flag's value is the word as written, as in a call to `main`.
+#[case::spread_as_a_flag_value("let l = [a b]; run flags.nu --foo ...$l", Some("...$l"), false)]
+fn run_binds_main_flags(
+    #[case] code: &str,
+    #[case] foo: Option<&str>,
+    #[case] bar: bool,
+) -> Result {
+    Playground::setup("run_binds_main_flags", |dirs, sandbox| {
+        sandbox.with_files(&[
+            FileWithContentToBeTrimmed("flags.nu", FLAGS_SCRIPT),
+            FileWithContentToBeTrimmed("-flags.nu", FLAGS_SCRIPT),
+        ]);
+
+        test()
+            .cwd(dirs.test())
+            .run(code)
+            .expect_value_eq(test_record! {"foo" => foo, "bar" => bar})
+    })
+}
+
+#[rstest]
+#[case::unknown_flag(r#"run flags.nu --foo "23" --huh?"#, "nu::parser::unknown_flag")]
+#[case::extra_positional(r#"run flags.nu --foo "23" hello"#, "nu::parser::extra_positional")]
+#[case::missing_flag_value("run flags.nu --foo", "nu::parser::missing_flag_param")]
+#[case::bad_switch_value("run flags.nu --bar=maybe", "nu::shell::cant_convert")]
+#[case::unknown_null_flag("run flags.nu --huh=null", "nu::parser::unknown_flag")]
+#[case::value_flag_inside_a_batch(
+    "run flags.nu -fb x",
+    "nu::parser::only_last_flag_in_batch_can_take_arg"
+)]
+#[case::unknown_flag_in_a_batch("run flags.nu -bx", "nu::parser::unknown_flag")]
+// The parser can't tell that `--foo` takes the `--`, so it leaves `--bar=false` a word whose value
+// is only text. A call to `main` binds `false`; `run` can't, but it doesn't turn `--bar` on either.
+#[case::switch_value_after_a_dash_value(
+    "run flags.nu --foo -- --bar=false",
+    "nu::shell::cant_convert"
+)]
+// A record spread naming `run`'s `--full-reparse` is unknown to `main`, not `main`'s `-f`.
+#[case::spread_of_a_run_flag(
+    "let opts = {full-reparse: true}; run flags.nu ...$opts",
+    "nu::parser::unknown_flag"
+)]
+#[case::full_reparse_unknown_flag("run --full-reparse flags.nu --huh?", "nu::parser::unknown_flag")]
+fn run_rejects_arguments_main_does_not_accept(
+    #[case] code: &str,
+    #[case] error_code: &str,
+) -> Result {
+    Playground::setup(
+        "run_rejects_arguments_main_does_not_accept",
+        |dirs, sandbox| {
+            sandbox.with_files(&[FileWithContentToBeTrimmed("flags.nu", FLAGS_SCRIPT)]);
+
+            test()
+                .cwd(dirs.test())
+                .run(code)
+                .expect_error_code_eq(error_code)
+        },
+    )
+}
+
+#[rstest]
+#[case::flag("run flags.nu --foo 23")]
+#[case::positional("run word.nu 23")]
+fn run_does_not_convert_script_arguments(#[case] code: &str) -> Result {
+    Playground::setup("run_does_not_convert_script_arguments", |dirs, sandbox| {
+        sandbox.with_files(&[
+            FileWithContentToBeTrimmed("flags.nu", FLAGS_SCRIPT),
+            FileWithContentToBeTrimmed(
+                "word.nu",
+                "
+                def main [word: string] { $word }
+            ",
+            ),
+        ]);
+
+        // The arguments are parsed without `main`'s signature, so `23` stays an `int`.
+        let err = test().cwd(dirs.test()).run(code).expect_shell_error()?;
+        assert_matches!(
+            err,
+            ShellError::CantConvert { to_type, help: Some(help), .. }
+                if to_type == "string" && help.contains("quote the value")
+        );
+        Ok(())
+    })
+}
+
+#[test]
+fn run_script_arguments_use_the_callers_scope() -> Result {
+    Playground::setup(
+        "run_script_arguments_use_the_callers_scope",
+        |dirs, sandbox| {
+            sandbox.with_files(&[FileWithContentToBeTrimmed(
+                "shadow.nu",
+                r#"
+                const name = "script"
+                def helper [] { "script" }
+                def main [a: string, b: string] { [$a $b] }
+            "#,
+            )]);
+
+            // This parse of the script doesn't change what the arguments mean. A second `run` of
+            // it in the same scope would see the definitions the first one declared.
+            test()
+                .cwd(dirs.test())
+                .run(r#"let name = "caller"; def helper [] { "caller" }; run shadow.nu $name (helper)"#)
+                .expect_value_eq(test_value!(["caller", "caller"]))
+        },
+    )
+}
+
+#[rstest]
+// A call to `main` can't spread a list into it without a rest parameter either.
+#[case::list_without_rest(
+    "let args = [--bar]; run flags.nu ...$args",
+    "Cannot spread a list into this command"
+)]
+// A known limitation, not something `main` rejects: the evaluator expands a record spread against
+// `run`'s own flags before `run` sees it, so `main`'s `--foo` is unknown to it.
+#[case::record_against_run("run flags.nu ...{foo: x}", "Unknown flag `foo` in spread record")]
+fn run_rejects_spreads(#[case] code: &str, #[case] message: &str) -> Result {
+    Playground::setup("run_rejects_spreads", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContentToBeTrimmed("flags.nu", FLAGS_SCRIPT)]);
+
+        let err = test().cwd(dirs.test()).run(code).expect_shell_error()?;
+        assert_contains(message, err.to_string());
+        Ok(())
+    })
+}
+
+#[test]
+fn run_rejects_unknown_flags_before_the_script_path() -> Result {
+    Playground::setup(
+        "run_rejects_unknown_flags_before_the_script_path",
+        |dirs, sandbox| {
+            sandbox.with_files(&[FileWithContentToBeTrimmed("flags.nu", FLAGS_SCRIPT)]);
+
+            let err = test()
+                .cwd(dirs.test())
+                .run("run --foo x flags.nu")
+                .expect_parse_error()?;
+            assert_matches!(
+                err,
+                ParseError::UnknownFlag(command, flag, _, _) if command == "run" && flag == "foo"
+            );
+            Ok(())
+        },
+    )
+}
+
+#[rstest]
+#[case::cached("run flags.nu --help")]
+#[case::full_reparse("run --full-reparse flags.nu --help")]
+// The help is a string even when `main` declares other input and output types.
+#[case::typed_main(r#""input" | run typed.nu --help"#)]
+// A record spread asks for help as `run`'s own `--help`.
+#[case::record_spread("run flags.nu ...{help: true}")]
+fn run_help_after_the_script_path_shows_main_help(#[case] code: &str) -> Result {
+    Playground::setup(
+        "run_help_after_the_script_path_shows_main_help",
+        |dirs, sandbox| {
+            sandbox.with_files(&[
+                FileWithContentToBeTrimmed("flags.nu", FLAGS_SCRIPT),
+                FileWithContentToBeTrimmed(
+                    "typed.nu",
+                    "
+                    def main [--foo(-f): string]: nothing -> int { 1 }
+                ",
+                ),
+            ]);
+
+            let help: String = test().cwd(dirs.test()).run(code)?;
+            assert_contains("-f, --foo <string>", help);
+            Ok(())
+        },
+    )
+}
+
+#[test]
+fn run_binds_short_flags_like_a_call_to_main() -> Result {
+    Playground::setup(
+        "run_binds_short_flags_like_a_call_to_main",
+        |dirs, sandbox| {
+            sandbox.with_files(&[FileWithContentToBeTrimmed(
+                "short.nu",
+                "
+                def main [-a, -b, --g, --other(-g), --eh(-é)] {
+                    {a: $a, b: $b, g: $g, other: $other, eh: $eh}
+                }
+            ",
+            )]);
+
+            // `-b` is a short-only flag, `-g` is `--other`'s short, and `-é` isn't a letter.
+            test()
+                .cwd(dirs.test())
+                .run("run short.nu -b -g -é")
+                .expect_value_eq(test_record! {
+                    "a" => false,
+                    "b" => true,
+                    "g" => false,
+                    "other" => true,
+                    "eh" => true,
+                })
+        },
+    )
+}
+
+#[rstest]
+#[case::words("run wrapped.nu --verbose build -- x")]
+#[case::spread("let args = [--verbose build]; run wrapped.nu ...$args -- x")]
+fn run_passes_unknown_flags_to_a_wrapped_main(#[case] code: &str) -> Result {
+    Playground::setup(
+        "run_passes_unknown_flags_to_a_wrapped_main",
+        |dirs, sandbox| {
+            sandbox.with_files(&[FileWithContentToBeTrimmed(
+                "wrapped.nu",
+                "
+                def --wrapped main [...rest] { $rest }
+            ",
+            )]);
+
+            test()
+                .cwd(dirs.test())
+                .run(code)
+                .expect_value_eq(test_value!(["--verbose", "build", "--", "x"]))
+        },
+    )
+}
+
+#[test]
+fn run_calls_main_with_attributes() -> Result {
+    Playground::setup("run_calls_main_with_attributes", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
+            "attr.nu",
+            r#"
+            @example "greet" { main --foo x }
+            def main [--foo: string] { $foo }
+        "#,
+        )]);
+
+        test()
+            .cwd(dirs.test())
+            .run("run attr.nu --foo x")
+            .expect_value_eq("x")
+    })
+}
+
+#[test]
+fn run_main_arguments_fill_positionals_and_rest() -> Result {
+    Playground::setup(
+        "run_main_arguments_fill_positionals_and_rest",
+        |dirs, sandbox| {
+            sandbox.with_files(&[FileWithContentToBeTrimmed(
+                "rest.nu",
+                "
+                def main [first: string, ...rest: int] {
+                    {first: $first, rest: $rest, in: $in}
+                }
+            ",
+            )]);
+
+            test()
+                .cwd(dirs.test())
+                .run(r#"let more = [2 3]; "input" | run rest.nu a 1 ...$more"#)
+                .expect_value_eq(test_value!({first: "a", rest: [1, 2, 3], in: "input"}))
+        },
+    )
+}
+
+#[test]
+fn run_main_arguments_after_double_dash_are_positional() -> Result {
+    Playground::setup(
+        "run_main_arguments_after_double_dash_are_positional",
+        |dirs, sandbox| {
+            sandbox.with_files(&[FileWithContentToBeTrimmed(
+                "word.nu",
+                "
+                def main [word: string, --flag] { $word }
+            ",
+            )]);
+
+            test()
+                .cwd(dirs.test())
+                .run("run word.nu -- --flag")
+                .expect_value_eq("--flag")
+        },
+    )
+}
+
+#[test]
+fn run_full_reparse_flag_after_the_script_path_is_mains() -> Result {
+    Playground::setup(
+        "run_full_reparse_flag_after_the_script_path_is_mains",
+        |dirs, sandbox| {
+            sandbox.with_files(&[FileWithContentToBeTrimmed(
+                "reparse.nu",
+                "
+                def main [--full-reparse: string] { $full_reparse }
+            ",
+            )]);
+
+            // `run` reads its own `--full-reparse` only before the path, so this value isn't
+            // evaluated as a constant for `run`.
+            test()
+                .cwd(dirs.test())
+                .run(r#"let v = "x"; run reparse.nu --full-reparse=$v"#)
+                .expect_value_eq("x")
+        },
+    )
+}
+
+#[rstest]
+// `--foo=null` reaches `main`, so a flag that takes `null` gets it instead of its default.
+#[case::null_flag("run defaults.nu --foo=null", test_value!({foo: (), bb: false}))]
+// `--bb` names the flag that declares it, not an earlier one with the same short.
+#[case::shared_short("run defaults.nu --bb", test_value!({foo: 5, bb: true}))]
+fn run_binds_flags_by_their_long_name(#[case] code: &str, #[case] expected: Value) -> Result {
+    Playground::setup("run_binds_flags_by_their_long_name", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
+            "defaults.nu",
+            "
+            def main [--foo: any = 5, -a, --bb(-a)] { {foo: $foo, bb: $bb} }
+        ",
+        )]);
+
+        test().cwd(dirs.test()).run(code).expect_value_eq(expected)
+    })
+}
+
+#[rstest]
+// Quoting a variable would pass its name, so there's no hint for it.
+#[case::variable("let n = 5; run word.nu $n", None)]
+#[case::number_for_a_float("run float.nu 5", Some("pass a value of type `float`"))]
+fn run_type_errors_hint_only_at_literals(#[case] code: &str, #[case] hint: Option<&str>) -> Result {
+    Playground::setup("run_type_errors_hint_only_at_literals", |dirs, sandbox| {
+        sandbox.with_files(&[
+            FileWithContentToBeTrimmed(
+                "word.nu",
+                "
+                def main [word: string] { $word }
+            ",
+            ),
+            FileWithContentToBeTrimmed(
+                "float.nu",
+                "
+                def main [x: float] { $x }
+            ",
+            ),
+        ]);
+
+        let err = test().cwd(dirs.test()).run(code).expect_shell_error()?;
+        match hint {
+            None => assert_matches!(err, ShellError::CantConvert { help: None, .. }),
+            Some(hint) => assert_matches!(
+                err,
+                ShellError::CantConvert { help: Some(help), .. } if help.contains(hint)
+            ),
+        }
+        Ok(())
+    })
+}
+
+#[test]
+fn run_null_spread_into_main_without_rest_adds_nothing() -> Result {
+    Playground::setup(
+        "run_null_spread_into_main_without_rest_adds_nothing",
+        |dirs, sandbox| {
+            sandbox.with_files(&[FileWithContentToBeTrimmed(
+                "optional.nu",
+                "
+                def main [word?: string] { $word }
+            ",
+            )]);
+
+            test()
+                .cwd(dirs.test())
+                .run("let n = null; run optional.nu ...$n hello")
+                .expect_value_eq("hello")
+        },
+    )
+}
+
+#[test]
+fn run_does_not_pass_record_spread_flags_to_a_wrapped_main() -> Result {
+    Playground::setup(
+        "run_does_not_pass_record_spread_flags_to_a_wrapped_main",
+        |dirs, sandbox| {
+            sandbox.with_files(&[FileWithContentToBeTrimmed(
+                "wrapped.nu",
+                "
+                def --wrapped main [...rest] { $rest }
+            ",
+            )]);
+
+            // A call to `main` rejects the spread too, instead of passing the record's text on.
+            test()
+                .cwd(dirs.test())
+                .run("let o = {help: true}; run wrapped.nu a ...$o b")
+                .expect_error_code_eq("nu::parser::unknown_flag")
+        },
+    )
+}
+
+#[test]
+fn run_counts_toward_the_recursion_limit() -> Result {
+    Playground::setup("run_counts_toward_the_recursion_limit", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
+            "rec.nu",
+            r#"
+            def main [n: int] {
+                if $n > 0 { run --full-reparse rec.nu ($n - 1) } else { "bottom" }
+            }
+        "#,
+        )]);
+
+        // Each level is a call to `main`, so the limit stops the recursion before the stack
+        // overflows.
+        test()
+            .cwd(dirs.test())
+            .run("$env.config.recursion_limit = 10; run --full-reparse rec.nu 30")
+            .expect_error_code_eq("nu::shell::recursion_limit_reached")
     })
 }

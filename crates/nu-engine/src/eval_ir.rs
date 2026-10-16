@@ -1642,7 +1642,7 @@ fn find_named_var_id(
         .and_then(|flag| expect_named_var_id(flag, span))
 }
 
-fn expect_named_var_id(arg: &Flag, span: Span) -> Result<VarId, ShellError> {
+pub(crate) fn expect_named_var_id(arg: &Flag, span: Span) -> Result<VarId, ShellError> {
     arg.var_id.ok_or_else(|| ShellError::IrEvalError {
         msg: format!(
             "block signature is missing var id for named arg `{}`",
@@ -1663,7 +1663,7 @@ fn expect_positional_var_id(arg: &PositionalArg, span: Span) -> Result<VarId, Sh
 }
 
 /// Normalize call arguments: expand record spreads into named flags; drop null
-/// named values unless the flag type accepts `nothing`.
+/// named values unless the flag type accepts `nothing` or the signature doesn't declare the flag.
 ///
 /// Returns the new argument list length after rewriting the frame starting at `args_base`.
 fn normalize_call_arguments(
