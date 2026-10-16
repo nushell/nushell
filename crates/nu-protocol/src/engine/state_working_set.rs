@@ -175,7 +175,12 @@ impl<'a> StateWorkingSet<'a> {
     }
 
     pub fn use_type_aliases(&mut self, type_aliases: Vec<(Vec<u8>, TypeAliasId)>) {
-        self.last_overlay_mut().type_aliases.extend(type_aliases);
+        let overlay_frame = self.last_overlay_mut();
+
+        for (name, type_alias_id) in type_aliases {
+            overlay_frame.type_aliases.insert(name, type_alias_id);
+            overlay_frame.visibility.use_type_alias_id(&type_alias_id);
+        }
     }
 
     pub fn use_variables(&mut self, variables: Vec<(Vec<u8>, VarId)>) {
@@ -297,6 +302,60 @@ impl<'a> StateWorkingSet<'a> {
         }
 
         None
+    }
+
+    /// Hide the type alias `name`, the way [`Self::hide_decl`] hides a declaration.
+    ///
+    /// Returns the alias that was hidden, or `None` if no type alias `name` was visible.
+    pub fn hide_type_alias(&mut self, name: &[u8]) -> Option<TypeAliasId> {
+        let mut removed_overlays = vec![];
+        let mut visibility: Visibility = Visibility::new();
+
+        // Since we can mutate scope frames in delta, hide the id in the frame that has it
+        for scope_frame in self.delta.scope.iter_mut().rev() {
+            for overlay_id in scope_frame
+                .active_overlay_ids(&mut removed_overlays)
+                .iter()
+                .rev()
+            {
+                let overlay_frame = scope_frame.get_overlay_mut(*overlay_id);
+
+                visibility.append(&overlay_frame.visibility);
+
+                if let Some(type_alias_id) = overlay_frame.type_aliases.get(name).copied()
+                    && visibility.is_type_alias_id_visible(&type_alias_id)
+                {
+                    overlay_frame.visibility.hide_type_alias_id(&type_alias_id);
+                    return Some(type_alias_id);
+                }
+            }
+        }
+
+        // We cannot mutate the permanent state => store the information in the current overlay frame
+        for overlay_frame in self
+            .permanent_state
+            .active_overlays(&removed_overlays)
+            .rev()
+        {
+            visibility.append(&overlay_frame.visibility);
+
+            if let Some(type_alias_id) = overlay_frame.type_aliases.get(name).copied()
+                && visibility.is_type_alias_id_visible(&type_alias_id)
+            {
+                self.last_overlay_mut()
+                    .visibility
+                    .hide_type_alias_id(&type_alias_id);
+                return Some(type_alias_id);
+            }
+        }
+
+        None
+    }
+
+    pub fn hide_type_aliases(&mut self, type_aliases: &[Vec<u8>]) {
+        for type_alias in type_aliases {
+            self.hide_type_alias(type_alias);
+        }
     }
 
     pub fn hide_decls(&mut self, decls: &[Vec<u8>]) {
@@ -629,9 +688,15 @@ impl<'a> StateWorkingSet<'a> {
     pub fn find_type_alias(&self, name: &[u8]) -> Option<TypeAliasId> {
         let mut removed_overlays = vec![];
 
+        let mut visibility = VisibilityStack::default();
+
         for scope_frame in self.delta.scope.iter().rev() {
             for overlay_frame in scope_frame.active_overlays(&mut removed_overlays).rev() {
-                if let Some(type_alias_id) = overlay_frame.type_aliases.get(name) {
+                visibility.push(&overlay_frame.visibility);
+
+                if let Some(type_alias_id) = overlay_frame.type_aliases.get(name)
+                    && visibility.is_type_alias_id_visible(type_alias_id)
+                {
                     return Some(*type_alias_id);
                 }
             }

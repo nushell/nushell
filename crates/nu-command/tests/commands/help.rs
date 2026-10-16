@@ -638,6 +638,23 @@ fn clip_command_shows_module_qualified_decls_after_use() -> Result {
     Ok(())
 }
 #[test]
+fn help_module_lists_exported_type_aliases() -> Result {
+    let code = "
+        module geo {
+            type Private = int
+            export type Point = int
+            export type Id = int
+        }
+        help modules geo
+    ";
+
+    let outcome: String = test().run(code)?;
+    assert_contains("Exported type aliases:\n  Id, Point", &outcome);
+    assert_contains_not("Private", &outcome);
+    Ok(())
+}
+
+#[test]
 fn nothing_type_annotation() -> Result {
     let mut tester = test();
     let () = tester.run("def foo []: nothing -> nothing {}")?;

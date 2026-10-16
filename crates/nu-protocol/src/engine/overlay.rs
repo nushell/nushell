@@ -125,6 +125,8 @@ pub static DEFAULT_OVERLAY_NAME: &str = "zero";
 #[derive(Debug, Clone)]
 pub struct Visibility {
     decl_ids: HashMap<DeclId, bool, FxBuildHasher>,
+    /// Type aliases hidden with `hide`, or imported again after that, kept like `decl_ids`.
+    type_alias_ids: HashMap<TypeAliasId, bool, FxBuildHasher>,
 }
 
 /// Name bindings introduced while parsing a single block/closure scope.
@@ -176,6 +178,7 @@ impl Visibility {
     pub fn new() -> Self {
         Visibility {
             decl_ids: HashMap::default(),
+            type_alias_ids: HashMap::default(),
         }
     }
 
@@ -191,9 +194,22 @@ impl Visibility {
         self.decl_ids.insert(*decl_id, true);
     }
 
+    pub fn is_type_alias_id_visible(&self, type_alias_id: &TypeAliasId) -> bool {
+        *self.type_alias_ids.get(type_alias_id).unwrap_or(&true) // by default it's visible
+    }
+
+    pub fn hide_type_alias_id(&mut self, type_alias_id: &TypeAliasId) {
+        self.type_alias_ids.insert(*type_alias_id, false);
+    }
+
+    pub fn use_type_alias_id(&mut self, type_alias_id: &TypeAliasId) {
+        self.type_alias_ids.insert(*type_alias_id, true);
+    }
+
     /// Overwrite own values with the other
     pub fn merge_with(&mut self, other: Visibility) {
         self.decl_ids.extend(other.decl_ids);
+        self.type_alias_ids.extend(other.type_alias_ids);
     }
 
     /// Take new values from the other but keep own values
@@ -202,6 +218,11 @@ impl Visibility {
             if !self.decl_ids.contains_key(decl_id) {
                 self.decl_ids.insert(*decl_id, *visible);
             }
+        }
+        for (type_alias_id, visible) in other.type_alias_ids.iter() {
+            self.type_alias_ids
+                .entry(*type_alias_id)
+                .or_insert(*visible);
         }
     }
 }
@@ -228,9 +249,11 @@ impl<'a> VisibilityStack<'a> {
     /// Add the visibility of the next (outer) frame. Frames pushed earlier take precedence.
     ///
     /// A frame that hides nothing can never answer a lookup, so it is not recorded; this keeps
-    /// the common lookup (no hidden declarations anywhere) free of allocation.
+    /// the common lookup (no hidden declarations anywhere) free of allocation. A frame that only
+    /// hides type aliases is recorded too, so `find_decl` walks it without finding an answer
+    /// there; `hide` on a type alias is rare enough that this costs nothing in practice.
     pub fn push(&mut self, visibility: &'a Visibility) {
-        if visibility.decl_ids.is_empty() {
+        if visibility.decl_ids.is_empty() && visibility.type_alias_ids.is_empty() {
             return;
         }
         match self.inline.iter_mut().find(|layer| layer.is_none()) {
@@ -246,6 +269,17 @@ impl<'a> VisibilityStack<'a> {
             .map_while(|layer| *layer)
             .chain(self.spilled.iter().copied())
             .find_map(|visibility| visibility.decl_ids.get(decl_id))
+            .copied()
+            .unwrap_or(true) // by default it's visible
+    }
+
+    /// Whether `type_alias_id` is visible given the frames pushed so far.
+    pub fn is_type_alias_id_visible(&self, type_alias_id: &TypeAliasId) -> bool {
+        self.inline
+            .iter()
+            .map_while(|layer| *layer)
+            .chain(self.spilled.iter().copied())
+            .find_map(|visibility| visibility.type_alias_ids.get(type_alias_id))
             .copied()
             .unwrap_or(true) // by default it's visible
     }

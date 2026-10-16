@@ -1487,17 +1487,33 @@ pub fn parse_hide(working_set: &mut StateWorkingSet, lite_command: &LiteCommand)
                 return garbage_pipeline(working_set, spans);
             };
 
-        let decls_to_hide = if import_pattern.members.is_empty() {
+        // A type alias comes after aliases and commands in `hide`'s priority: a bare name hides
+        // the type alias of that name only when it doesn't name an alias or a command.
+        let (decls_to_hide, type_aliases_to_hide) = if import_pattern.members.is_empty() {
             if is_module {
-                module.decl_names_with_head(&import_pattern.head.name)
+                // `use <module>` doesn't import type aliases, so there are none to hide.
+                (
+                    module.decl_names_with_head(&import_pattern.head.name),
+                    vec![],
+                )
             } else {
-                module.decl_names()
+                let decls = module.decl_names();
+                let type_aliases = if decls.is_empty() {
+                    vec![import_pattern.head.name.clone()]
+                } else {
+                    vec![]
+                };
+                (decls, type_aliases)
             }
         } else {
             match &import_pattern.members[0] {
-                ImportPatternMember::Glob { .. } => module.decl_names(),
+                ImportPatternMember::Glob { .. } => (
+                    module.decl_names(),
+                    module.type_aliases.keys().cloned().collect(),
+                ),
                 ImportPatternMember::Name { name, span } => {
                     let mut decls = vec![];
+                    let mut type_aliases = vec![];
 
                     if name == b"main" {
                         if module.main.is_some() {
@@ -1509,14 +1525,17 @@ pub fn parse_hide(working_set: &mut StateWorkingSet, lite_command: &LiteCommand)
                         module.decl_name_with_head(name, &import_pattern.head.name)
                     {
                         decls.push(item);
+                    } else if module.type_aliases.contains_key(name) {
+                        type_aliases.push(name.clone());
                     } else {
                         working_set.error(ParseError::ExportNotFound(*span));
                     }
 
-                    decls
+                    (decls, type_aliases)
                 }
                 ImportPatternMember::List { names } => {
                     let mut decls = vec![];
+                    let mut type_aliases = vec![];
 
                     for (name, span) in names {
                         if name == b"main" {
@@ -1530,13 +1549,15 @@ pub fn parse_hide(working_set: &mut StateWorkingSet, lite_command: &LiteCommand)
                             module.decl_name_with_head(name, &import_pattern.head.name)
                         {
                             decls.push(item);
+                        } else if module.type_aliases.contains_key(name) {
+                            type_aliases.push(name.clone());
                         } else {
                             working_set.error(ParseError::ExportNotFound(*span));
                             break;
                         }
                     }
 
-                    decls
+                    (decls, type_aliases)
                 }
             }
         };
@@ -1548,6 +1569,7 @@ pub fn parse_hide(working_set: &mut StateWorkingSet, lite_command: &LiteCommand)
         };
 
         working_set.hide_decls(&decls_to_hide);
+        working_set.hide_type_aliases(&type_aliases_to_hide);
 
         let import_pattern_expr = Expression::new(
             working_set,

@@ -128,7 +128,8 @@ fn alias_name_can_start_with_a_generic_type_name(#[case] name: &str) -> Result {
     "type Foo = int; def f [x: list<Foo<int>>] {}",
     "nu::parser::type_alias_with_params"
 )]
-#[case::missing_sign("type Foo int", "nu::parser::assignment_mismatch")]
+#[case::missing_sign("type Foo int", "nu::parser::type_alias_missing_equals")]
+#[case::name_only("type Foo", "nu::parser::type_alias_missing_equals")]
 #[case::missing_name("type = int", "nu::parser::assignment_mismatch")]
 #[case::no_spaces_around_sign("type Foo=int", "nu::parser::incorrect_value")]
 #[case::missing_type("type Foo =", "nu::parser::missing_type")]
@@ -137,6 +138,26 @@ fn alias_name_can_start_with_a_generic_type_name(#[case] name: &str) -> Result {
 #[case::unknown_alias("def f [x: Nope] {}", "nu::parser::unknown_type")]
 fn type_alias_errors(#[case] code: &str, #[case] error: &str) -> Result {
     test().run(code).expect_error_code_eq(error)
+}
+
+#[rstest]
+#[case::bare_type("type ls", Some("which ls"))]
+#[case::bare_type_with_arguments("type ls -a", Some("which ls"))]
+#[case::export_type("module m { export type Foo }", None)]
+fn missing_equals_help_shows_the_alias_form(
+    #[case] code: &str,
+    #[case] lookup_hint: Option<&str>,
+) -> Result {
+    let err = test().run(code).expect_parse_error()?;
+    let ParseError::TypeAliasMissingEquals { help, .. } = err else {
+        panic!("unexpected error: {err:?}");
+    };
+    assert_contains("= <type>`", &help);
+    match lookup_hint {
+        Some(hint) => assert_contains(hint, &help),
+        None => assert_contains_not("which", &help),
+    }
+    Ok(())
 }
 
 #[test]
@@ -337,6 +358,58 @@ fn alias_is_not_imported(#[case] import: &str, #[case] code: &str) -> Result {
     test()
         .run(format!("{ZOO}\n{import}\n{code}"))
         .expect_error_code_eq("nu::parser::unknown_type")
+}
+
+#[rstest]
+#[case::by_name("type Animal = string; hide Animal")]
+#[case::module_member("use zoo Animal; hide zoo Animal")]
+#[case::module_member_list("use zoo [Animal feed]; hide zoo [Animal]")]
+#[case::module_glob("use zoo *; hide zoo *")]
+fn hidden_alias_is_unknown(#[case] code: &str) -> Result {
+    test()
+        .run(format!("{ZOO}\n{code}\nlet a: Animal = 'cat'"))
+        .expect_error_code_eq("nu::parser::unknown_type")
+}
+
+#[test]
+fn hiding_a_module_member_alias_keeps_the_module_commands() -> Result {
+    test()
+        .run(format!(
+            "{ZOO}\nuse zoo [Animal feed]\nhide zoo Animal\nfeed cat"
+        ))
+        .expect_value_eq("feeding the cat")
+}
+
+#[test]
+fn hidden_alias_stays_hidden_on_later_repl_lines() -> Result {
+    let mut tester = test();
+    let () = tester.run("type Id = int")?;
+    let () = tester.run("hide Id")?;
+    tester
+        .run("let x: Id = 1")
+        .expect_error_code_eq("nu::parser::unknown_type")
+}
+
+#[rstest]
+#[case::imported_again(
+    &format!("{ZOO}\nuse zoo Animal\nhide Animal\nuse zoo Animal\nlet a: Animal = 'cat'; $a"),
+    test_value!("cat")
+)]
+#[case::defined_again("type Id = int; hide Id; type Id = string; let x: Id = 'a'; $x", test_value!("a"))]
+#[case::command_of_the_same_name_hidden_first(
+    "def Id [] { 'cmd' }; type Id = int; hide Id; let x: Id = 5; $x",
+    test_value!(5)
+)]
+#[case::unknown_name("hide Nope; 'ok'", test_value!("ok"))]
+fn hide_and_type_aliases(#[case] code: &str, #[case] expected: Value) -> Result {
+    test().run(code).expect_value_eq(expected)
+}
+
+#[test]
+fn hiding_a_missing_module_member_is_still_an_error() -> Result {
+    test()
+        .run(format!("{ZOO}\nhide zoo Nope"))
+        .expect_error_code_eq("nu::parser::export_not_found")
 }
 
 #[test]

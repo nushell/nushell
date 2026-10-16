@@ -186,13 +186,19 @@ def build-module-page [module: record] {
         ""
     ]} else { [] })
 
+    let type_aliases = (if ($module.type_aliases? | is-not-empty) {[
+        (build-help-header "Exported type aliases")
+        ($module.type_aliases.name | each {|name| $"    ($name)" } | str join (char newline))
+        ""
+    ]} else { [] })
+
     let env_block = (if not $module.has_env_block {[
         $"This module (ansi cyan)does not export(ansi reset) environment."
     ]} else {[
         $"This module (ansi cyan)exports(ansi reset) environment."
     ]})
 
-    [$description $name $submodules $commands $aliases $env_block] | flatten | str join "\n"
+    [$description $name $submodules $commands $aliases $type_aliases $env_block] | flatten | str join "\n"
 }
 
 # Show help on nushell modules.

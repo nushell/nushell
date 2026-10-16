@@ -15,6 +15,15 @@ def show_help_on_commands [] {
 }
 
 @test
+def module_page_lists_exported_type_aliases [] {
+    let help_code = "module geo { type Private = int; export type Point = int; export type Id = int }; use std/help; help modules geo | ansi strip"
+    let help_result = (^$nu.current-exe --no-config-file --commands $help_code)
+
+    assert ("Exported type aliases:\n    Id\n    Point" in $help_result)
+    assert ("Private" not-in $help_result)
+}
+
+@test
 def show_help_on_error_make [] {
     let help_result = (help error make)
     assert ("Error: nu::shell::" not-in $help_result)
