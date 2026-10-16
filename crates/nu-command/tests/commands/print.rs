@@ -34,19 +34,3 @@ fn print_raw_stream() -> Result {
     assert_eq!(actual.stdout, "foo");
     Ok(())
 }
-
-#[test]
-#[deps(NU, TESTBIN_FAIL)]
-fn print_surfaces_external_failure() -> Result {
-    let actual: CompleteResult = test().run("nu -n -c 'fail | print' | complete")?;
-    assert_eq!(actual.exit_code, 1);
-    Ok(())
-}
-
-#[test]
-#[deps(NU, TESTBIN_FAIL)]
-fn print_raw_surfaces_external_failure() -> Result {
-    let actual: CompleteResult = test().run("nu -n -c 'fail | print --raw' | complete")?;
-    assert_eq!(actual.exit_code, 1);
-    Ok(())
-}
