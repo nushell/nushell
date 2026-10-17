@@ -1179,13 +1179,24 @@ fn invalid_input() -> PluginInput {
     PluginInput::Hello(ProtocolInfo {
         protocol: Protocol::NuPlugin,
         version: "0.0.0".into(),
+        nushell_version: None,
         features: vec![],
     })
 }
 
 fn check_invalid_input_error(error: &ShellError) {
-    // the error message should include something about the version...
-    assert!(format!("{error:?}").contains("0.0.0"), "error: {error}");
+    // The error names the engine's protocol version, not a Nushell version, and says what to do.
+    let text = format!("{error:?}");
+    assert!(
+        text.contains("plugin protocol 0.0.0")
+            && text.contains("not compatible")
+            && text.contains("Rebuild the plugin"),
+        "error: {error}"
+    );
+    assert!(
+        !text.to_lowercase().contains("nushell version"),
+        "error: {error}"
+    );
 }
 
 #[test]
@@ -1306,18 +1317,13 @@ fn manager_consume_sets_protocol_info_on_hello() -> Result<(), ShellError> {
 }
 
 #[test]
-fn manager_consume_errors_on_wrong_nushell_version() -> Result<(), ShellError> {
+fn manager_consume_errors_on_wrong_protocol_version() -> Result<(), ShellError> {
     let mut manager = TestCase::new().engine();
 
-    let info = ProtocolInfo {
-        protocol: Protocol::NuPlugin,
-        version: "0.0.0".into(),
-        features: vec![],
-    };
-
-    manager
-        .consume(PluginInput::Hello(info))
+    let err = manager
+        .consume(invalid_input())
         .expect_err("version 0.0.0 should cause an error");
+    check_invalid_input_error(&err);
     Ok(())
 }
 

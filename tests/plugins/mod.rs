@@ -5,6 +5,7 @@ mod custom_values;
 mod env;
 mod formats;
 mod nu_plugin_nu_example;
+mod protocol_version;
 mod register;
 mod registry_file;
 mod stream;

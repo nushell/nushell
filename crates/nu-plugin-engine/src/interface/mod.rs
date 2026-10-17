@@ -471,6 +471,12 @@ impl InterfaceManager for PluginInterfaceManager {
             PluginOutput::Hello(info) => {
                 let info = Arc::new(info);
                 self.protocol_info_mut.set(info.clone())?;
+                // Start the countdown to stopping the plugin when idle. A plugin that is started
+                // but never called, like one that dynamic completion skips after its `Hello`,
+                // would otherwise run until Nushell exits.
+                if let Some(ref gc) = self.gc {
+                    gc.mark_activity();
+                }
 
                 let local_info = ProtocolInfo::default();
                 if local_info.is_compatible_with(&info)? {
@@ -478,8 +484,9 @@ impl InterfaceManager for PluginInterfaceManager {
                 } else {
                     Err(ShellError::PluginFailedToLoad {
                         msg: format!(
-                            "Plugin `{}` is compiled for nushell version {}, \
-                                which is not compatible with version {}",
+                            "Plugin `{}` speaks plugin protocol {}, \
+                                which is not compatible with this engine's protocol {}. \
+                                Rebuild the plugin against this version of Nushell",
                             self.state.source.name(),
                             info.version,
                             local_info.version,
@@ -649,6 +656,45 @@ impl PluginInterface {
                 ),
             })
         })
+    }
+
+    /// Check that the plugin was built from the same Nushell version as the engine.
+    ///
+    /// Engine-internal types (IR blocks, the parsed call sent for dynamic completion) change
+    /// with the compiler and parser, so they are outside the plugin protocol version and are
+    /// only exchanged when both sides were built from the same Nushell version. `what` names the
+    /// operation in the error, and `span` is the plugin call that asked for it.
+    fn require_same_nushell_version(
+        &self,
+        what: &str,
+        span: Option<Span>,
+    ) -> Result<(), ShellError> {
+        let plugin_info = self.protocol_info()?;
+        let engine_info = ProtocolInfo::default();
+        if engine_info.same_nushell_version(&plugin_info) {
+            return Ok(());
+        }
+        let error = format!(
+            "{what} needs the `{}` plugin to be built from Nushell {}",
+            self.state.source.identity.name(),
+            engine_info.nushell_version.as_deref().unwrap_or("unknown"),
+        );
+        let msg = match &plugin_info.nushell_version {
+            Some(version) => format!("the plugin was built from Nushell {version}"),
+            None => "the plugin doesn't report which Nushell version it was built from".into(),
+        };
+        // The plugin receives this error as a `LabeledError`, which keeps the label's offsets but
+        // not the text an internal error's label points into. If the plugin returns the error,
+        // the engine shows whatever its own sources hold at those offsets (the host environment
+        // variables), so label the plugin call when there is one.
+        let error = match span {
+            Some(span) => GenericError::new(error, msg, span),
+            None => GenericError::new_internal(error, msg),
+        };
+        Err(ShellError::Generic(error.with_help(format!(
+            "only a plugin built from the same Nushell version as the engine can read what \
+             {what} returns"
+        ))))
     }
 
     /// Write the protocol info. This should be done after initialization
@@ -898,8 +944,15 @@ impl PluginInterface {
         context: Option<&mut (dyn PluginExecutionContext + '_)>,
     ) -> Result<(), ShellError> {
         let process = self.state.process.as_ref();
-        let resp = handle_engine_call(engine_call, state, context, process)
-            .unwrap_or_else(EngineCallResponse::Error);
+        let resp = match engine_call {
+            // IR is engine-internal; see `require_same_nushell_version`.
+            EngineCall::GetBlockIR(_) => {
+                self.require_same_nushell_version(engine_call.name(), state.span)
+            }
+            _ => Ok(()),
+        }
+        .and_then(|()| handle_engine_call(engine_call, state, context, process))
+        .unwrap_or_else(EngineCallResponse::Error);
         // Handle stream
         let mut writer = None;
         let resp = resp
@@ -969,9 +1022,18 @@ impl PluginInterface {
     }
 
     /// Get the metadata from the plugin.
+    ///
+    /// The protocol version, and the Nushell version when the plugin reports one, come from the
+    /// plugin's `Hello` rather than from the plugin's metadata, so they always describe the
+    /// running binary.
     pub fn get_metadata(&self) -> Result<PluginMetadata, ShellError> {
         match self.plugin_call(PluginCall::Metadata, None)? {
-            PluginCallResponse::Metadata(meta) => Ok(meta),
+            PluginCallResponse::Metadata(mut meta) => {
+                let info = self.protocol_info()?;
+                meta.protocol_version = Some(info.version.clone());
+                meta.nushell_version = info.nushell_version.clone().or(meta.nushell_version);
+                Ok(meta)
+            }
             PluginCallResponse::Error(err) => Err(err),
             _ => Err(ShellError::PluginFailedToDecode {
                 msg: "Received unexpected response to plugin Metadata call".into(),
@@ -1011,6 +1073,12 @@ impl PluginInterface {
         info: GetCompletionInfo,
         context: &mut dyn PluginExecutionContext,
     ) -> Result<Option<Vec<DynamicSuggestion>>, ShellError> {
+        // The call carries the parsed AST, which only a plugin built from this Nushell version
+        // can read. Other plugins get no dynamic completion and the default completion applies.
+        let plugin_info = self.protocol_info()?;
+        if !ProtocolInfo::default().same_nushell_version(&plugin_info) {
+            return Ok(None);
+        }
         match self.plugin_call(PluginCall::GetCompletion(info), Some(context))? {
             PluginCallResponse::CompletionItems(items) => Ok(items),
             PluginCallResponse::Error(err) => Err(err),
