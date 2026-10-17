@@ -38,7 +38,7 @@ impl Command for JobSpawn {
             )
             .switch(
                 "auto-kill",
-                "Allow nushell to terminate this job automatically, such as when calling `exit`",
+                "Kill this job on `exit` without warning that it is still running.",
                 Some('k'),
             )
             .required(
@@ -137,11 +137,18 @@ impl Command for JobSpawn {
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
-        vec![Example {
-            example: "job spawn { sleep 5sec; rm evidence.pdf }",
-            description: "Spawn a background job to do some time consuming work.",
-            result: None,
-        }]
+        vec![
+            Example {
+                example: "job spawn { sleep 5sec; rm evidence.pdf }",
+                description: "Spawn a background job to do some time consuming work.",
+                result: None,
+            },
+            Example {
+                example: "job spawn --auto-kill { loop { sleep 1sec } }",
+                description: "Spawn a job that `exit` kills without warning about it.",
+                result: None,
+            },
+        ]
     }
 
     fn extra_description(&self) -> &str {
@@ -149,6 +156,10 @@ impl Command for JobSpawn {
 and registers this task in the background job table, which can be retrieved with `job list`.
 
 This command returns the job id of the newly created job.
+
+The --auto-kill flag applies to the spawned thread job. If an external process
+inside it is suspended and registered as a separate frozen job, it would still
+trigger the exit warning.
             "
     }
 }
