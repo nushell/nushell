@@ -5,7 +5,7 @@ use crate::{
     engine::{
         ArgumentStack, DEFAULT_OVERLAY_NAME, EngineState, EnvName, ErrorHandlerStack, Redirection,
         ScopeBindings, StackCallArgGuard, StackCollectValueGuard, StackIoGuard, StackOutDest,
-        StackWithInvocation,
+        StackWithInvocation, env_var_eq,
     },
     ir::ScopeRegion,
     record, report_shell_warning,
@@ -13,6 +13,7 @@ use crate::{
     truncate_value_to_budget,
 };
 use std::{
+    borrow::Cow,
     collections::{HashMap, HashSet},
     fs::File,
     path::{Component, MAIN_SEPARATOR},
@@ -562,7 +563,8 @@ impl Stack {
                 engine_state.history_locked_after_startup,
             );
             // The config value is modified by the update, so we should add it again
-            self.add_env_var("config".into(), config.clone().into_value(value.span()));
+            let name = self.get_env_var_name(engine_state, "config").into_owned();
+            self.add_env_var(name, config.clone().into_value(value.span()));
             self.config = Some(config.into());
             if let Some(warning) = result? {
                 report_shell_warning(Some(self), engine_state, &warning);
@@ -917,6 +919,30 @@ impl Stack {
         }
 
         result
+    }
+
+    /// Get an environment variable's existing spelling, if any.
+    pub fn get_env_var_name<'a>(&self, engine_state: &EngineState, name: &'a str) -> Cow<'a, str> {
+        self.env_vars
+            .iter()
+            .rev()
+            .chain(std::iter::once(&engine_state.env_vars))
+            .flat_map(|overlays| {
+                self.active_overlays
+                    .iter()
+                    .rev()
+                    .filter_map(|overlay| overlays.get(overlay))
+            })
+            .find_map(|map| {
+                if map.contains_key(&EnvName::from(name)) {
+                    map.keys()
+                        .find(|key| env_var_eq(key.as_str(), name))
+                        .map(|key| Cow::Owned(key.as_str().to_owned()))
+                } else {
+                    None
+                }
+            })
+            .unwrap_or(Cow::Borrowed(name))
     }
 
     pub fn get_env_var<'a>(
