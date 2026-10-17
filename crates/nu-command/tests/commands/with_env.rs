@@ -1,4 +1,5 @@
 use nu_test_support::prelude::*;
+use rstest::rstest;
 
 #[test]
 fn with_env_extends_environment() -> Result {
@@ -12,6 +13,27 @@ fn with_env_shorthand() -> Result {
     test()
         .run("FOO=BARRRR echo $env | get FOO")
         .expect_value_eq("BARRRR")
+}
+
+#[rstest]
+#[case::shorthand("CONFIG=Release echo_env CONFIG")]
+#[case::with_env("with-env {CONFIG: Release} { echo_env CONFIG }")]
+#[nu_test_support::test]
+#[deps(TESTBIN_ECHO_ENV)]
+fn string_config_reaches_external(#[case] code: &str) -> Result {
+    test().run(code).expect_value_eq("Release")
+}
+
+#[rstest]
+#[case::shorthand(
+    "let cfg = { show_banner: false }; CONFIG=$cfg config=Release do { $env.config }"
+)]
+#[case::with_env(
+    "let cfg = { show_banner: false }; with-env {CONFIG: $cfg, config: Release} { $env.config }"
+)]
+#[nu_test_support::test]
+fn last_config_value_wins(#[case] code: &str) -> Result {
+    test().run(code).expect_value_eq("Release")
 }
 
 #[test]

@@ -209,9 +209,17 @@ fn trailing_gap_element<'a>(
         .then_some(expression)
 }
 
-/// The span a command-name completion replaces.
-fn command_name_span(head: Span, element: Span) -> Span {
-    Span::new(head.start, head.end.max(element.end))
+/// The span a command-name completion replaces. A parsed file may have arguments after the
+/// cursor; those are not part of the command name. Keep the wider interactive span for an
+/// unfinished multiword command, where the parser may read its last word as an argument.
+fn command_name_span(head: Span, element: Span, cursor: usize) -> Span {
+    if cursor < head.start {
+        Span::point(cursor)
+    } else if element.end > cursor {
+        head
+    } else {
+        Span::new(head.start, head.end.max(element.end))
+    }
 }
 
 /// Whether the token starts a flag; in-progress flags parse as positionals.
@@ -953,7 +961,7 @@ pub(crate) struct CompletionSite<'a> {
 }
 
 impl<'a> CompletionSite<'a> {
-    /// Site at cursor; asserts span contains cursor.
+    /// Site whose replacement span contains the cursor.
     fn at(cursor: usize, kind: SiteKind<'a>, span: Span) -> Self {
         debug_assert!(
             touches(span, cursor),
@@ -1210,11 +1218,12 @@ impl<'engine> CompletionEngine<'engine> {
             return Vec::new();
         };
 
+        let cursor = contents.floor_char_boundary(position.min(contents.len()));
         self.fetch_completions_by_block(
             block,
             &working_set,
             Buffer {
-                text: contents.get(..position).unwrap_or(contents),
+                text: &contents[..cursor],
                 offset: file_span.start,
             },
             contents,
@@ -1321,6 +1330,15 @@ impl<'engine> CompletionEngine<'engine> {
 
         match &site.kind {
             SiteKind::Command { node } => {
+                // A cursor before a leading `^`/`%` is outside the command name.
+                // Inserting a name there would put it in front of the sigil.
+                if node.is_some_and(|node| match &node.expr {
+                    Expr::Call(call) => site.cursor < call.head.start,
+                    Expr::ExternalCall(head, _) => site.cursor < head.span.start,
+                    _ => false,
+                }) {
+                    return Fetched::default();
+                }
                 let completions = self.command_completion_helper(
                     working_set,
                     buffer,
@@ -1708,7 +1726,7 @@ impl<'engine> CompletionEngine<'engine> {
             return CompletionSite::at(
                 absolute_position,
                 SiteKind::command(expression),
-                command_name_span(head.span, expression.span),
+                command_name_span(head.span, expression.span, absolute_position),
             );
         }
 
@@ -1743,7 +1761,7 @@ impl<'engine> CompletionEngine<'engine> {
             return CompletionSite::at(
                 absolute_position,
                 SiteKind::command(site.element),
-                command_name_span(site.call.head, site.element.span),
+                command_name_span(site.call.head, site.element.span, absolute_position),
             );
         }
         Self::argument_touching(site, absolute_position, working_set)
@@ -2113,7 +2131,10 @@ impl<'engine> CompletionEngine<'engine> {
         span: Span,
         mut command_completion: CommandCompletion,
     ) -> Fetched {
-        let prefix = working_set.get_span_contents(span);
+        // Replace the whole token, including an untyped suffix in a parsed file,
+        // but match only the text before the cursor (also for sudo/doas arguments).
+        let prefix_span = Span::new(span.start, span.end.min(buffer.absolute_cursor()));
+        let prefix = working_set.get_span_contents(prefix_span);
         let ctx = self.context(working_set, buffer, span, prefix);
         command_completion.fetch(&ctx)
     }
