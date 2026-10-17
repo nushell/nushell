@@ -30,6 +30,42 @@ fn from_float() -> Result {
 }
 
 #[test]
+fn from_nan() -> Result {
+    let code = "
+        echo nan | into string
+    ";
+
+    test().run(code).expect_value_eq("NaN")
+}
+
+#[test]
+fn from_inf() -> Result {
+    let code = "
+        echo inf | into string
+    ";
+
+    test().run(code).expect_value_eq("inf")
+}
+
+#[test]
+fn from_negative_zero() -> Result {
+    let code = "
+        echo -- -0.0 | into string
+    ";
+
+    test().run(code).expect_value_eq("-0")
+}
+
+#[test]
+fn from_int_negative_zero() -> Result {
+    let code = "
+        echo -- -0 | into string
+    ";
+
+    test().run(code).expect_value_eq("0")
+}
+
+#[test]
 fn from_boolean() -> Result {
     let code = "
         echo true | into string
@@ -124,6 +160,33 @@ fn from_int_float_trim_trailing_zeros() -> Result {
     let outcome: String = test().run(code)?;
     assert_contains("1 flat", outcome);
     Ok(())
+}
+
+#[test]
+fn from_float_rounding() -> Result {
+    let code = "
+        1.23450 | into string -d 3
+    ";
+
+    test().run(code).expect_value_eq("1.235")
+}
+
+#[test]
+fn from_float_int_rounding() -> Result {
+    let code = "
+        1.995 | into string -d 2
+    ";
+
+    test().run(code).expect_value_eq("2.00")
+}
+
+#[test]
+fn from_float_neg_rounding() -> Result {
+    let code = "
+        -1.23450 | into string -d 3
+    ";
+
+    test().run(code).expect_value_eq("-1.235")
 }
 
 #[test]
@@ -250,4 +313,218 @@ fn int_into_string_decimals_respects_system_locale_en() -> Result {
     ";
 
     test().run(code).expect_value_eq("10.0")
+}
+
+#[test]
+#[env(NU_TEST_LOCALE_OVERRIDE = "de_DE.UTF-8")]
+fn float_into_string_decimals_respects_system_locale_de() -> Result {
+    let code = "
+    10.0 | into string --decimals 1
+    ";
+
+    test().run(code).expect_value_eq("10,0")
+}
+
+#[test]
+#[env(NU_TEST_LOCALE_OVERRIDE = "en_US.UTF-8")]
+fn int_into_string_grouping_respects_system_locale_en() -> Result {
+    let code = "
+    1234 | into string --group-digits
+    ";
+
+    test().run(code).expect_value_eq("1,234")
+}
+
+#[test]
+#[env(NU_TEST_LOCALE_OVERRIDE = "en_US.UTF-8")]
+fn float_into_string_decimals_respects_system_locale_en() -> Result {
+    let code = "
+    10.0 | into string --decimals 1
+    ";
+
+    test().run(code).expect_value_eq("10.0")
+}
+
+#[test]
+#[env(NU_TEST_LOCALE_OVERRIDE = "de_DE.UTF-8")]
+fn int_into_string_grouping_respects_system_locale_de() -> Result {
+    let code = "
+    1234 | into string --group-digits
+    ";
+
+    test().run(code).expect_value_eq("1.234")
+}
+
+#[test]
+#[env(NU_TEST_LOCALE_OVERRIDE = "de_DE.UTF-8")]
+fn float_into_string_grouping_respects_system_locale_de() -> Result {
+    let code = "
+    1234.0 | into string --group-digits
+    ";
+
+    test().run(code).expect_value_eq("1.234")
+}
+
+#[test]
+#[env(NU_TEST_LOCALE_OVERRIDE = "hi_IN.UTF-8")]
+fn int_into_string_grouping_respects_system_locale_in() -> Result {
+    let code = "
+    123456 | into string --group-digits
+    ";
+
+    test().run(code).expect_value_eq("1,23,456")
+}
+
+#[test]
+#[env(NU_TEST_LOCALE_OVERRIDE = "hi_IN.UTF-8")]
+fn float_into_string_grouping_respects_system_locale_in() -> Result {
+    let code = "
+    123456.0 | into string --group-digits
+    ";
+
+    test().run(code).expect_value_eq("1,23,456")
+}
+
+#[test]
+#[env(NU_TEST_LOCALE_OVERRIDE = "en_US.UTF-8")]
+fn int_into_string_negative_grouping() -> Result {
+    let code = "
+    -123456 | into string --group-digits
+    ";
+
+    test().run(code).expect_value_eq("-123,456")
+}
+
+#[test]
+#[env(NU_TEST_LOCALE_OVERRIDE = "en_US.UTF-8")]
+fn float_into_string_negative_grouping() -> Result {
+    let code = "
+    -123456.0 | into string --group-digits
+    ";
+
+    test().run(code).expect_value_eq("-123,456")
+}
+
+#[test]
+#[env(NU_TEST_LOCALE_OVERRIDE = "en_US.UTF-8")]
+fn float_into_string_negative_grouping_three_chars() -> Result {
+    let code = "
+    -123.45 | into string --group-digits
+    ";
+
+    test().run(code).expect_value_eq("-123.45")
+}
+
+#[test]
+#[env(NU_TEST_LOCALE_OVERRIDE = "hi_IN.UTF-8")]
+fn float_into_string_negative_grouping_three_chars_in() -> Result {
+    let code = "
+    -123.45 | into string --group-digits
+    ";
+
+    test().run(code).expect_value_eq("-123.45")
+}
+
+#[test]
+#[env(NU_TEST_LOCALE_OVERRIDE = "ar_AE.UTF-8")]
+fn int_into_string_negative_respects_system_locale_ar() -> Result {
+    let code = "
+    -123456 | into string
+    ";
+
+    test().run(code).expect_value_eq("\u{61c}-123456")
+}
+
+#[test]
+#[env(NU_TEST_LOCALE_OVERRIDE = "ar_AE.UTF-8")]
+fn float_into_string_negative_respects_system_locale_ar() -> Result {
+    let code = "
+    -123456.0 | into string
+    ";
+
+    test().run(code).expect_value_eq("\u{61c}-123456")
+}
+
+#[test]
+fn float_into_string_decimals_above_u16_range_errors() -> Result {
+    let code = "
+    1.5 | into string -d 2147483648
+    ";
+
+    test()
+        .run(code)
+        .expect_error_code_eq("nu::shell::incorrect_value")
+}
+
+#[test]
+fn float_into_string_decimals_wrapping_to_small_exponent_errors() -> Result {
+    let code = "
+    1.5 | into string -d 4294967296
+    ";
+
+    test()
+        .run(code)
+        .expect_error_code_eq("nu::shell::incorrect_value")
+}
+
+#[test]
+fn int_into_string_decimals_above_u16_range_errors() -> Result {
+    let code = "
+    5 | into string -d 70000
+    ";
+
+    test()
+        .run(code)
+        .expect_error_code_eq("nu::shell::incorrect_value")
+}
+
+#[test]
+fn filesize_into_string_group_digits_decimals_above_u16_range_errors() -> Result {
+    let code = "
+    1kB | into string --group-digits -d 70000
+    ";
+
+    test()
+        .run(code)
+        .expect_error_code_eq("nu::shell::incorrect_value")
+}
+
+#[test]
+fn float_into_string_large_decimals() -> Result {
+    let code = "
+    1.5 | into string -d 400
+    ";
+
+    let result = format!("1.5{}", "0".repeat(399));
+    test().run(code).expect_value_eq(result)
+}
+
+#[test]
+fn float_into_string_large_negative_decimals() -> Result {
+    let code = "
+    -1.5 | into string -d 400
+    ";
+
+    let result = format!("-1.5{}", "0".repeat(399));
+    test().run(code).expect_value_eq(result)
+}
+
+#[test]
+fn float_into_string_precision_overflow() -> Result {
+    let code = "
+    1e300 | into string -d 10
+    ";
+
+    let result = "1000000000000000052504760255204420248704468581108159154915854115511802457988908195786371375080447864043704443832883878176942523235360430575644792184786706982848387200926575803737830233794788090059368953234970799945081119038967640880074652742780142494579258788820056842838115669472196386865459400540160.0000000000";
+    test().run(code).expect_value_eq(result)
+}
+
+#[test]
+#[env(NU_TEST_LOCALE_OVERRIDE = "en_US.UTF-8")]
+fn int_into_string_i64_min() -> Result {
+    let code = "
+    -9223372036854775808 | into string
+    ";
+
+    test().run(code).expect_value_eq("-9223372036854775808")
 }

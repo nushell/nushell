@@ -5,6 +5,7 @@ use nu_test_support::{
 use pretty_assertions::assert_eq;
 use rstest::rstest;
 
+mod background_jobs;
 mod environment;
 mod pipeline;
 mod repl;
@@ -467,6 +468,42 @@ fn script_help_shows_single_subcommand() -> Result {
             "help output should list exactly one of 'script.nu bar' or 'main bar', got:\n{}",
             out
         );
+
+        Ok(())
+    })
+}
+
+// regression test for https://github.com/nushell/nushell/issues/11657: an alias of a `main`
+// subcommand is listed under its own name right after that subcommand, and an alias named like a
+// `main` subcommand is listed under its script-qualified name, not as the command it wraps.
+#[test]
+#[deps(NU)]
+fn script_help_lists_main_alias_under_its_own_name() -> Result {
+    Playground::setup("main_alias_help", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[FileWithContent(
+            "script.nu",
+            r#"def "main bar" [] {}
+               alias mb = main bar
+               alias "main baz" = main bar
+               def "main" [] { help main }"#,
+        )]);
+
+        let out: String = test()
+            .cwd(dirs.test())
+            .run("nu script.nu --help | ansi strip")?;
+        let lines: Vec<&str> = out.lines().map(str::trim).collect();
+        let bar_at = lines
+            .iter()
+            .position(|line| line.starts_with("script.nu bar (custom)"))
+            .unwrap_or_else(|| panic!("no `script.nu bar` line in:\n{out}"));
+        assert!(
+            lines
+                .get(bar_at + 1)
+                .is_some_and(|line| line.starts_with("mb (alias) - Alias for ")),
+            "got:\n{out}"
+        );
+        assert_contains("script.nu baz (alias)", &out);
+        assert_eq!(out.matches("bar (").count(), 1, "got:\n{out}");
 
         Ok(())
     })

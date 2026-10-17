@@ -47,50 +47,45 @@ impl Matcher for Pattern {
             }
             Pattern::List(items) => match &value {
                 Value::List { vals, .. } => {
-                    if items.len() > vals.len() {
-                        // We only allow this is to have a rest pattern in the n+1 position
-                        if items.len() == (vals.len() + 1) {
-                            match &items[vals.len()].pattern {
-                                Pattern::IgnoreRest => {}
-                                Pattern::Rest(var_id) => matches.push((
-                                    *var_id,
-                                    Value::list(Vec::new(), items[vals.len()].span),
-                                )),
-                                _ => {
-                                    // There is a pattern which can't skip missing values, so we fail
-                                    return false;
-                                }
-                            }
-                        } else {
-                            // There are patterns that can't be matches, so we fail
-                            return false;
-                        }
-                    }
-                    for (val_idx, val) in vals.iter().enumerate() {
-                        // We require that the pattern and the value have the same number of items, or the pattern does not match
-                        // The only exception is if the pattern includes a `..` pattern
-                        if let Some(pattern) = items.get(val_idx) {
-                            match &pattern.pattern {
-                                Pattern::IgnoreRest => {
-                                    break;
-                                }
-                                Pattern::Rest(var_id) => {
-                                    let rest_vals = vals[val_idx..].to_vec();
-                                    matches.push((*var_id, Value::list(rest_vals, pattern.span)));
-                                    break;
-                                }
-                                _ => {
-                                    if !pattern.match_value(val, matches) {
-                                        return false;
-                                    }
-                                }
-                            }
-                        } else {
-                            return false;
-                        }
-                    }
+                    // The parser allows at most one `..` or `..$name` per list pattern, at any
+                    // position. Items before it match the start of the list, items after it
+                    // match the end, and the rest pattern takes whatever is left in between.
+                    let rest_idx = items.iter().position(|item| {
+                        matches!(item.pattern, Pattern::IgnoreRest | Pattern::Rest(_))
+                    });
+                    let (before, rest, after) = match rest_idx {
+                        Some(idx) => (&items[..idx], Some(&items[idx]), &items[idx + 1..]),
+                        None => (&items[..], None, &[][..]),
+                    };
 
-                    true
+                    // Without a rest pattern the lengths must be equal; with one the list may be longer.
+                    let fixed_len = before.len() + after.len();
+                    if vals.len() < fixed_len || (rest.is_none() && vals.len() > fixed_len) {
+                        return false;
+                    }
+                    let after_start = vals.len() - after.len();
+
+                    // Bind left to right, so a variable used twice keeps its rightmost value.
+                    if !before
+                        .iter()
+                        .zip(vals)
+                        .all(|(pattern, val)| pattern.match_value(val, matches))
+                    {
+                        return false;
+                    }
+                    if let Some(MatchPattern {
+                        pattern: Pattern::Rest(var_id),
+                        span,
+                        ..
+                    }) = rest
+                    {
+                        let rest_vals = vals[before.len()..after_start].to_vec();
+                        matches.push((*var_id, Value::list(rest_vals, *span)));
+                    }
+                    after
+                        .iter()
+                        .zip(&vals[after_start..])
+                        .all(|(pattern, val)| pattern.match_value(val, matches))
                 }
                 _ => false,
             },

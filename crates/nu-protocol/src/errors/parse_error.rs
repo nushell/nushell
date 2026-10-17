@@ -299,13 +299,15 @@ pub enum ParseError {
     #[error("Alias name not supported.")]
     #[diagnostic(code(nu::parser::variable_not_valid))]
     AliasNotValid(
-        #[label = "alias name can't be a number, a filesize, or contain #, ^, or %"] Span,
+        #[label = "alias name must not be a number or filesize, contain #, ^, or %, or use whitespace other than single spaces between words"]
+         Span,
     ),
 
     #[error("Command name not supported.")]
     #[diagnostic(code(nu::parser::variable_not_valid))]
     CommandDefNotValid(
-        #[label = "command name can't be a number, a filesize, or contain #, ^, or %"] Span,
+        #[label = "command name can't be a number, a filesize, contain #, ^, or %, or have whitespace other than single spaces between words"]
+         Span,
     ),
 
     #[error("Module not found.")]
@@ -430,8 +432,72 @@ pub enum ParseError {
     UnknownFlag(String, String, #[label = "unknown flag"] Span, String),
 
     #[error("Unknown type.")]
-    #[diagnostic(code(nu::parser::unknown_type))]
+    #[diagnostic(
+        code(nu::parser::unknown_type),
+        help(
+            "check the spelling; a type alias must be defined with `type Name = <type>` above this line, or imported with `use <module> Name`"
+        )
+    )]
     UnknownType(#[label = "unknown type"] Span),
+
+    /// A type alias was used above its `type` statement.
+    ///
+    /// ## Resolution
+    ///
+    /// Type aliases are visible from their definition onwards, like `alias` and `const`. Move the
+    /// `type` statement above the first use.
+    #[error("Type alias `{0}` is used before its definition.")]
+    #[diagnostic(
+        code(nu::parser::type_alias_used_before_definition),
+        help("move the `type` statement above its first use")
+    )]
+    TypeAliasUsedBeforeDefinition(
+        String,
+        #[label(primary, "used here")] Span,
+        #[label("defined here")] Span,
+    ),
+
+    /// The right-hand side of a `type` statement refers to the alias it defines.
+    #[error("Type alias `{0}` refers to itself.")]
+    #[diagnostic(
+        code(nu::parser::type_alias_self_reference),
+        help("type aliases can't be recursive")
+    )]
+    TypeAliasSelfReference(String, #[label("refers to itself")] Span),
+
+    /// A `type` statement tried to define a built-in type name, which the parser always reads as
+    /// the built-in type.
+    #[error("`{0}` is a built-in type.")]
+    #[diagnostic(
+        code(nu::parser::type_alias_shadows_builtin),
+        help("choose a name that isn't a built-in type")
+    )]
+    TypeAliasShadowsBuiltin(String, #[label("built-in type")] Span),
+
+    #[error("Type alias name not valid.")]
+    #[diagnostic(code(nu::parser::type_alias_name_not_valid))]
+    TypeAliasNameNotValid(
+        #[label = "a type alias name starts with a letter or `_` and continues with letters, digits, `_` and `-`"]
+         Span,
+    ),
+
+    #[error("Type alias `{0}` takes no type parameters.")]
+    #[diagnostic(code(nu::parser::type_alias_with_params))]
+    TypeAliasWithParams(String, #[label("unexpected type parameters")] Span),
+
+    /// A `type` statement has a name but no `=` after it, as in `type ls`.
+    ///
+    /// ## Resolution
+    ///
+    /// Write `type Name = <type>`. In Bash and cmd.exe, `type ls` shows what the command `ls`
+    /// is; in Nushell, that's `which ls`, and an external `type` program runs as `^type ls`.
+    #[error("Missing `=` in type alias.")]
+    #[diagnostic(code(nu::parser::type_alias_missing_equals), help("{help}"))]
+    TypeAliasMissingEquals {
+        help: String,
+        #[label("expected `=` and a type after this name")]
+        span: Span,
+    },
 
     #[error("Missing flag argument.")]
     #[diagnostic(code(nu::parser::missing_flag_param))]
@@ -752,6 +818,12 @@ impl ParseError {
             ParseError::UnknownFlag(_, _, s, _) => *s,
             ParseError::RequiredAfterOptional(_, s) => *s,
             ParseError::UnknownType(s) => *s,
+            ParseError::TypeAliasUsedBeforeDefinition(_, s, _) => *s,
+            ParseError::TypeAliasSelfReference(_, s) => *s,
+            ParseError::TypeAliasShadowsBuiltin(_, s) => *s,
+            ParseError::TypeAliasNameNotValid(s) => *s,
+            ParseError::TypeAliasWithParams(_, s) => *s,
+            ParseError::TypeAliasMissingEquals { span: s, .. } => *s,
             ParseError::MissingFlagParam(_, s) => *s,
             ParseError::OnlyLastFlagInBatchCanTakeArg(s) => *s,
             ParseError::MissingPositional(_, s, _) => *s,

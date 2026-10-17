@@ -63,12 +63,19 @@ impl Command for JobSpawn {
 
         let closure: Closure = call.req(engine_state, stack, 0)?;
 
+        // The job thread's engine state is a clone of this one, so an unavailable
+        // block can be reported here, where the caller's `try`/`catch` sees it,
+        // instead of from the background thread after the job was registered.
+        engine_state.get_closure_block(&closure, head)?;
+
         let description: Option<String> = call.get_flag(engine_state, stack, "description")?;
         let auto_kill = call.has_flag(engine_state, stack, "auto-kill")?;
         let job_stack = stack.clone();
 
         let mut job_state = engine_state.clone();
         job_state.is_interactive = false;
+        // A background job never returns to the prompt, even when spawned by the REPL.
+        job_state.is_repl = false;
 
         // the new job should have its ctrl-c independent of foreground
         let job_signals = Signals::new(Arc::new(AtomicBool::new(false)));
@@ -91,6 +98,11 @@ impl Command for JobSpawn {
 
             job_state.current_job = CurrentJob {
                 id,
+                root: if engine_state.is_background_job() {
+                    engine_state.current_job.root
+                } else {
+                    id
+                },
                 background_thread_job: Some(thread_job),
                 mailbox: Arc::new(Mutex::new(Mailbox::new(recv))),
             };
@@ -106,8 +118,8 @@ impl Command for JobSpawn {
                     Some(Redirection::Pipe(OutDest::Null)),
                     Some(Redirection::Pipe(OutDest::Null)),
                 );
-                ClosureEvalOnce::new_preserve_out_dest(&job_state, &stack, closure)
-                    .run_with_input(PipelineData::Empty)
+                ClosureEvalOnce::try_new_preserve_out_dest(&job_state, &stack, closure, head)
+                    .and_then(|eval| eval.run_with_input(PipelineData::Empty))
                     .and_then(|data| data.drain())
                     .unwrap_or_else(|err| {
                         if !job_state.signals().interrupted() {

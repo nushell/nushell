@@ -15,6 +15,7 @@ use std::{error::Error as StdError, num::NonZeroI32, sync::Arc};
 use thiserror::Error;
 
 pub mod bridge;
+pub mod eval_block_with_input;
 pub mod generic;
 pub mod io;
 pub mod job;
@@ -562,15 +563,15 @@ pub enum ShellError {
         span: Span,
     },
 
-    /// You attempted to access an index when it's empty.
+    /// You attempted to access a value from empty content.
     ///
     /// ## Resolution
     ///
-    /// Check your lengths and try again.
-    #[error("Row number too large (empty content).")]
-    #[diagnostic(code(nu::shell::access_beyond_end))]
+    /// Check that the content is not empty and try again.
+    #[error("Cannot access empty content.")]
+    #[diagnostic(code(nu::shell::access_empty_content))]
     AccessEmptyContent {
-        #[label = "index too large (empty content)"]
+        #[label = "content is empty"]
         span: Span,
     },
 
@@ -1145,16 +1146,13 @@ pub enum ShellError {
         span: Span,
     },
 
-    // It should be only used by commands accepts block, and accept inputs from pipeline.
-    /// Failed to eval block with specific pipeline input.
-    #[error("Eval block failed with pipeline input")]
-    #[diagnostic(code(nu::shell::eval_block_with_input))]
-    EvalBlockWithInput {
-        #[label("source value")]
-        span: Span,
-        #[related]
-        sources: Vec<ShellError>,
-    },
+    /// A closure failed while running on one pipeline input value.
+    ///
+    /// Reports as the closure's error, with an extra label at the input value.
+    /// See [`EvalBlockWithInputError`](eval_block_with_input::EvalBlockWithInputError).
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    EvalBlockWithInput(eval_block_with_input::EvalBlockWithInputError),
 
     /// Break event, which may become an error if used outside of a loop
     #[error("Break used outside of loop")]
@@ -1197,11 +1195,11 @@ pub enum ShellError {
     )]
     Exit { code: i32, abort: bool },
 
-    /// The code being executed called itself too many times.
+    /// The code being executed nested custom command or closure calls too deeply.
     ///
     /// ## Resolution
     ///
-    /// Adjust your Nu code to
+    /// Adjust your Nu code to recurse less deeply, or raise `$env.config.recursion_limit`.
     #[error("Recursion limit ({recursion_limit}) reached")]
     #[diagnostic(code(nu::shell::recursion_limit_reached))]
     RecursionLimitReached {
@@ -1493,9 +1491,21 @@ impl ShellError {
             #[cfg(unix)]
             Self::TerminatedBySignal { signal, span, .. }
             | Self::CoreDumped { signal, span, .. } => (-signal, span),
+            // Reports as the closure's error, so it carries that error's exit code too.
+            Self::EvalBlockWithInput(ref err) => return err.error.external_exit_code(),
             _ => return None,
         };
         Some(Spanned { item, span })
+    }
+
+    /// Whether this error comes from an interrupt: ctrl-c, or an external process ended by a
+    /// signal.
+    pub fn is_interrupt(&self) -> bool {
+        #[cfg(unix)]
+        if matches!(self, Self::TerminatedBySignal { .. }) {
+            return true;
+        }
+        matches!(self, Self::Interrupted { .. })
     }
 
     pub fn exit_code(&self) -> Option<i32> {

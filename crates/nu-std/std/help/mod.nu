@@ -186,13 +186,19 @@ def build-module-page [module: record] {
         ""
     ]} else { [] })
 
+    let type_aliases = (if ($module.type_aliases? | is-not-empty) {[
+        (build-help-header "Exported type aliases")
+        ($module.type_aliases.name | each {|name| $"    ($name)" } | str join (char newline))
+        ""
+    ]} else { [] })
+
     let env_block = (if not $module.has_env_block {[
         $"This module (ansi cyan)does not export(ansi reset) environment."
     ]} else {[
         $"This module (ansi cyan)exports(ansi reset) environment."
     ]})
 
-    [$description $name $submodules $commands $aliases $env_block] | flatten | str join "\n"
+    [$description $name $submodules $commands $aliases $type_aliases $env_block] | flatten | str join "\n"
 }
 
 # Show help on nushell modules.
@@ -744,12 +750,20 @@ def scope-commands [
 def external-commands [
     ...command: string@"nu-complete list-commands",
 ] {
-    let target_command = $command | str join " " | str replace "^" "" | str replace "%" ""
-    print $"(ansi default_italic)Help pages from external command ($target_command | pretty-cmd):(ansi reset)"
+    let target_command = (
+        $command
+        | each { split row " " }
+        | flatten
+        | if ($in | is-empty) { $in } else {
+            update 0 { str replace --regex '^[\^%]' "" }
+        }
+    )
+
+    print $"(ansi default_italic)Help pages from external command (($target_command | str join " ") | pretty-cmd):(ansi reset)"
     if $env.NU_HELPER? == "--help" {
-        run-external ($target_command | split row " ") "--help" | if $nu.os-info.name == "windows" { collect } else {}
+        run-external ...$target_command "--help" | if $nu.os-info.name == "windows" { collect } else {}
     } else {
-        ^($env.NU_HELPER? | default "man") $target_command
+        ^($env.NU_HELPER? | default "man") ...$target_command
     }
 }
 
@@ -774,7 +788,7 @@ def pretty-cmd [] {
 #
 # `help word` searches for "word" in commands, aliases and modules, in that order.
 # If not found as internal to nushell, you can set `$env.NU_HELPER` to a program
-# (default: man) and "word" will be passed as the first argument.
+# (default: man) and each word will be passed as its own argument.
 # Alternatively, you can set `$env.NU_HELPER` to `--help` and it will run "word" as
 # an external and pass `--help` as the last argument (this could cause unintended
 # behaviour if it doesn't support the flag, use it carefully).
@@ -819,5 +833,5 @@ export def main [
     }
     # use external tool (e.g: `man`) to search help for $target_item
     # the stdout and stderr of external tool will follow `main` call.
-    external-commands $target_item
+    external-commands ...$item
 }

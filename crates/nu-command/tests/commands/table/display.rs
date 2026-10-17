@@ -969,6 +969,73 @@ fn expand_truncate_keeps_each_line_of_a_multiline_cell() -> Result {
     Ok(())
 }
 
+#[test]
+fn expand_nested_tables_fit_the_final_column_plan() -> Result {
+    // Shrinking nested tables to fit changes the widths the final draw plans
+    // from. That plan used to squeeze a nested table below its own width, which
+    // panicked in debug builds and hung until OOM in release builds (#19211).
+    let code = "
+        def x [n: int] { '' | fill --character x --width $n }
+        $env.config.table.trim = { methodology: 'wrapping', wrapping_try_keep_words: true }
+        [{
+            a: [[k, v]; [(x 31), (x 32)]]
+            b: 4371
+            c: [[k, v]; [1521, (x 26)]]
+            d: (x 38)
+            e: false
+            f: { g: [[x, y, z]; [(x 13), (x 29), false]], h: (x 25) }
+        }]
+        | table --expand --width 183 --theme rounded
+        | ansi strip
+    ";
+    let rendered: String = test().run(code)?;
+    // The outer table plus at least one nested table, not only collapsed text.
+    assert!(
+        rendered.matches('╭').count() > 1,
+        "no nested table:\n{rendered}"
+    );
+    for line in rendered.lines() {
+        assert!(
+            line.chars().count() <= 183,
+            "line wider than 183:\n{rendered}"
+        );
+        // A nested table cut to fit its column loses its right border.
+        assert_eq!(
+            line.matches('╭').count(),
+            line.matches('╮').count(),
+            "nested table cut:\n{rendered}"
+        );
+        assert_eq!(
+            line.matches('╰').count(),
+            line.matches('╯').count(),
+            "nested table cut:\n{rendered}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn expand_hidden_column_does_not_set_row_height() -> Result {
+    // `b` is hidden behind `...`, so its tall nested table must not pad row 0
+    // with blank lines.
+    test()
+        .run(
+            "
+                [{ a: ('' | fill --character x --width 30), b: (1..10 | each {|i| { k: $i } }) }]
+                | table --expand --width 40 --theme basic
+                | ansi strip
+            ",
+        )
+        .expect_value_eq(indoc! {"
+            +---+----------------------------+-----+
+            | # |             a              | ... |
+            +---+----------------------------+-----+
+            | 0 | xxxxxxxxxxxxxxxxxxxxxxxxxx | ... |
+            |   | xxxx                       |     |
+            +---+----------------------------+-----+
+        "})
+}
+
 #[rstest]
 fn table_missing_value(#[values(false, true)] expand: bool) -> Result {
     let mut tester = test();

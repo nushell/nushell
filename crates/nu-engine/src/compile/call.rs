@@ -117,8 +117,8 @@ pub(crate) fn compile_call(
                 // and will get a const value though, is it really necessary to do that?
                 return builder.load_empty(io_reg);
             }
-            "alias" | "export alias" => {
-                // Alias does nothing
+            "alias" | "export alias" | "type" | "export type" => {
+                // Alias and type alias do nothing at run time
                 return builder.load_empty(io_reg);
             }
             "let" | "mut" => {

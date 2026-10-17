@@ -92,6 +92,7 @@ impl Command for TuiPreview {
                 }),
                 Vec::new(),
                 None,
+                None,
             )
         })
     }

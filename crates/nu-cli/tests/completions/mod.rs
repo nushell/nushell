@@ -683,6 +683,12 @@ fn custom_completions_wraps_builtin_commandline_complete_path() {
     vec!["-B".into()],
     2
 )]
+#[case::type_alias_parameter_completer(
+    "def animals [] { [cat dog eel] }; type Animal = string; def adopt [animal: Animal@animals] {}",
+    "adopt ", None,
+    vec!["cat".into(), "dog".into(), "eel".into()],
+    0
+)]
 fn command_argument_completions(
     #[case] command: &str,
     #[case] input: &str,

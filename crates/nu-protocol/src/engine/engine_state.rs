@@ -1,13 +1,14 @@
 use crate::{
     BlockId, Config, DeclId, FileId, GetSpan, Handlers, HistoryConfig, JobId, Module, ModuleId,
-    OverlayId, ShellError, SignalAction, Signals, Signature, Span, SpanId, Type, Value, VarId,
-    VirtualPathId,
+    OverlayId, ShellError, SignalAction, Signals, Signature, Span, SpanId, Type, TypeAlias,
+    TypeAliasId, Value, VarId, VirtualPathId,
     ast::{Block, Expr},
     debugger::{Debugger, NoopDebugger},
     engine::{
         CachedFile, Command, DEFAULT_OVERLAY_NAME, EnvName, EnvVars, OverlayFrame, PromptState,
         ScopeFrame, Stack, StateDelta, Variable, VisibilityStack,
         description::{Doccomments, build_desc},
+        signature_cache::SignatureCache,
     },
     eval_const::create_nu_constant,
     report_error::ReportLog,
@@ -24,7 +25,7 @@ use std::{
     path::PathBuf,
     sync::{
         Arc, Mutex, MutexGuard, PoisonError,
-        atomic::{AtomicBool, AtomicU32, Ordering},
+        atomic::{AtomicBool, AtomicU32, AtomicUsize, Ordering},
         mpsc::Sender,
         mpsc::channel,
     },
@@ -36,7 +37,7 @@ type PoisonDebuggerError<'a> = PoisonError<MutexGuard<'a, Box<dyn Debugger>>>;
 #[cfg(feature = "plugin")]
 use crate::{PluginRegistryFile, PluginRegistryItem, RegisteredPlugin};
 
-use super::{CurrentJob, Jobs, Mail, Mailbox, ThreadJob};
+use super::{Closure, CurrentJob, Jobs, Mail, Mailbox, ThreadJob};
 
 /// Configure whether the current working directory may be updated when [`EngineState::merge_env`]
 /// is called.
@@ -74,6 +75,43 @@ impl Clone for IsDebugging {
     }
 }
 
+/// A file index remembered across lookups (see [`FileHint::contents`]). An `EngineState` is shared
+/// between threads, and a `StateWorkingSet` must be `Sync`, so this is an atomic; a clone starts
+/// from the same index.
+#[derive(Default)]
+pub(super) struct FileHint(AtomicUsize);
+
+impl Clone for FileHint {
+    fn clone(&self) -> Self {
+        Self(AtomicUsize::new(self.0.load(Ordering::Relaxed)))
+    }
+}
+
+impl FileHint {
+    /// The contents of `span` in the file of `files` that contains it, if any.
+    ///
+    /// The parser looks up span after span in the same file, so this checks the file the last
+    /// lookup found before scanning `files`, and remembers the file a scan finds. Only an empty
+    /// span on a boundary between files is in more than one file, and each gives the same empty
+    /// slice, so the result is always what the scan alone returns.
+    pub(super) fn contents<'a>(&self, files: &'a [CachedFile], span: Span) -> Option<&'a [u8]> {
+        let file = match files.get(self.0.load(Ordering::Relaxed)) {
+            Some(file) if file.covered_span.contains_span(span) => file,
+            _ => {
+                let (index, file) = files
+                    .iter()
+                    .enumerate()
+                    .find(|(_, file)| file.covered_span.contains_span(span))?;
+                self.0.store(index, Ordering::Relaxed);
+                file
+            }
+        };
+        let start = span.start - file.covered_span.start;
+        let end = span.end - file.covered_span.start;
+        Some(&file.content[start..end])
+    }
+}
+
 /// The core global engine state. This includes all global definitions as well as any global state that
 /// will persist for the whole session.
 ///
@@ -94,6 +132,10 @@ impl Clone for IsDebugging {
 #[derive(Clone, derive_more::Debug)]
 pub struct EngineState {
     files: Vec<CachedFile>,
+    /// The index in `files` of the file the last span lookup found (see
+    /// [`Self::try_get_file_contents`]).
+    #[debug(skip)]
+    last_file_hit: FileHint,
     pub(super) virtual_paths: Vec<(String, VirtualPath)>,
     vars: Vec<Variable>,
     #[debug("{:?}", decls.iter().map(|c| c.name()).collect::<Vec<_>>())]
@@ -105,6 +147,8 @@ pub struct EngineState {
     pub(super) blocks: Arc<Vec<Arc<Block>>>,
     #[debug("{:?}", modules.iter().map(|m| String::from_utf8_lossy(&m.name)))]
     pub(super) modules: Arc<Vec<Arc<Module>>>,
+    #[debug("{:?}", type_aliases.iter().map(|alias| &alias.name))]
+    pub(super) type_aliases: Arc<Vec<TypeAlias>>,
     pub spans: Vec<Span>,
     doccomments: Doccomments,
     pub scope: ScopeFrame,
@@ -125,6 +169,11 @@ pub struct EngineState {
     /// engine state.
     pub prompt_state: Arc<PromptState>,
     pub table_decl_id: Option<DeclId>,
+    /// Signatures of [`Self::decls`], built on first use by the parser. Clones share it, so that
+    /// cloning stays cheap; a clone that appends declarations while sharing it starts over with an
+    /// empty cache of its own (see [`Self::merge_delta`]).
+    #[debug(skip)]
+    pub(super) signature_cache: Arc<SignatureCache>,
     #[cfg(feature = "plugin")]
     pub plugin_path: Option<PathBuf>,
     #[cfg(feature = "plugin")]
@@ -151,6 +200,8 @@ pub struct EngineState {
     pub file: Option<PathBuf>,
     pub regex_cache: Arc<Mutex<LruCache<String, Regex>>>,
     pub is_interactive: bool,
+    /// Whether evaluation returns to a REPL prompt, unlike commands or scripts run with `-i`.
+    pub is_repl: bool,
     /// When true with [`Self::is_interactive`], REPL user-line evaluation may store `$ans`.
     ///
     /// Set only around true REPL command evaluation (`do_run_cmd`), not config/env/banner
@@ -222,6 +273,7 @@ impl EngineState {
 
         Self {
             files: vec![],
+            last_file_hit: FileHint::default(),
             virtual_paths: vec![],
             vars: vec![
                 Variable::new(Span::new(0, 0), Type::Any, false),
@@ -235,6 +287,7 @@ impl EngineState {
             modules: Arc::new(vec![Arc::new(Module::new(
                 DEFAULT_OVERLAY_NAME.as_bytes().to_vec(),
             ))]),
+            type_aliases: Arc::new(vec![]),
             spans: vec![Span::unknown()],
             doccomments: Doccomments::new(),
             // make sure we have some default overlay:
@@ -261,6 +314,7 @@ impl EngineState {
             })),
             prompt_state: Arc::new(PromptState::new()),
             table_decl_id: None,
+            signature_cache: Arc::default(),
             #[cfg(feature = "plugin")]
             plugin_path: None,
             #[cfg(feature = "plugin")]
@@ -274,6 +328,7 @@ impl EngineState {
                 NonZeroUsize::new(REGEX_CACHE_SIZE).expect("tried to create cache of size zero"),
             ))),
             is_interactive: false,
+            is_repl: false,
             capture_repl_last_result: false,
             is_login: false,
             is_lsp: false,
@@ -287,6 +342,7 @@ impl EngineState {
             jobs: Arc::new(Mutex::new(Jobs::default())),
             current_job: CurrentJob {
                 id: JobId::new(0),
+                root: JobId::new(0),
                 background_thread_job: None,
                 mailbox: Arc::new(Mutex::new(Mailbox::new(recv))),
             },
@@ -346,6 +402,14 @@ impl EngineState {
 
         // Avoid potentially cloning the Arcs if we aren't adding anything
         if !delta.decls.is_empty() {
+            // Clones that share the signature cache must agree on every declaration it holds, so
+            // an engine that adds declarations the other clones don't have stops sharing it. It
+            // starts over with an empty cache rather than a copy. Copying would clone every
+            // signature and remembered output type, while later parses rebuild only the entries
+            // they use.
+            if Arc::get_mut(&mut self.signature_cache).is_none() {
+                self.signature_cache = Arc::default();
+            }
             Arc::make_mut(&mut self.decls).extend(delta.decls);
         }
         if !delta.blocks.is_empty() {
@@ -353,6 +417,9 @@ impl EngineState {
         }
         if !delta.modules.is_empty() {
             Arc::make_mut(&mut self.modules).extend(delta.modules);
+        }
+        if !delta.type_aliases.is_empty() {
+            Arc::make_mut(&mut self.type_aliases).extend(delta.type_aliases);
         }
 
         let first = delta.scope.remove(0);
@@ -374,6 +441,9 @@ impl EngineState {
                 for item in delta_overlay.modules.into_iter() {
                     existing_overlay.modules.insert(item.0, item.1);
                 }
+                existing_overlay
+                    .type_aliases
+                    .extend(delta_overlay.type_aliases);
 
                 existing_overlay
                     .visibility
@@ -800,6 +870,29 @@ impl EngineState {
         None
     }
 
+    /// Find the [`TypeAliasId`] corresponding to `name`.
+    ///
+    /// Searches within active overlays, and filtering out overlays in `removed_overlays`.
+    pub fn find_type_alias(
+        &self,
+        name: &[u8],
+        removed_overlays: &[Vec<u8>],
+    ) -> Option<TypeAliasId> {
+        let mut visibility = VisibilityStack::default();
+
+        for overlay_frame in self.active_overlays(removed_overlays).rev() {
+            visibility.push(&overlay_frame.visibility);
+
+            if let Some(type_alias_id) = overlay_frame.type_aliases.get(name)
+                && visibility.is_type_alias_id_visible(type_alias_id)
+            {
+                return Some(*type_alias_id);
+            }
+        }
+
+        None
+    }
+
     pub fn get_module_comments(&self, module_id: ModuleId) -> Option<&[Span]> {
         self.doccomments.get_module_comments(module_id)
     }
@@ -854,15 +947,7 @@ impl EngineState {
     }
 
     pub fn try_get_file_contents(&self, span: Span) -> Option<&[u8]> {
-        self.files.iter().find_map(|file| {
-            if file.covered_span.contains_span(span) {
-                let start = span.start - file.covered_span.start;
-                let end = span.end - file.covered_span.start;
-                Some(&file.content[start..end])
-            } else {
-                None
-            }
-        })
+        self.last_file_hit.contents(&self.files, span)
     }
 
     /// If the span's content starts with the given prefix, return two subspans
@@ -996,14 +1081,61 @@ impl EngineState {
         }
     }
 
-    /// Get signatures of all commands within scope with their decl ids.
-    pub fn get_signatures_and_declids(&self, include_hidden: bool) -> Vec<(Signature, DeclId)> {
-        self.get_decls_sorted(include_hidden)
-            .into_iter()
-            .map(|(_, id)| {
-                let decl = self.get_decl(id);
+    /// Get the signature of a command as a call by `name` in the current scope sees it.
+    ///
+    /// The signature is named `name`, which can differ from the declared name: a module command
+    /// declared as `foo bar` is `spam foo bar` after `use spam`, and an alias of an internal
+    /// command carries a copy of the wrapped command's signature, so `alias st = str trim` would
+    /// otherwise be named `str trim`.
+    ///
+    /// For an alias of an internal command, the positional parameters the alias already passes
+    /// are dropped, because the parser matches a call's arguments to the parameters after them
+    /// (see `parse_internal_call`): `alias home = cd ~` takes no `path`. Flags the alias passes
+    /// stay listed.
+    pub fn get_signature_in_scope(&self, name: String, decl_id: DeclId) -> Signature {
+        let decl = self.get_decl(decl_id);
+        let mut signature = self.get_signature(decl).update_from_command(decl);
+        signature.name = name;
 
-                (self.get_signature(decl).update_from_command(decl), id)
+        if let Some(alias) = decl.as_alias()
+            && let Expr::Call(call) = &alias.wrapped_call.expr
+        {
+            // Arguments fill the required parameters first, then the optional ones, and
+            // `...rest` takes any number, the order `Signature::get_positional` uses.
+            let passed = call.positional_iter().count();
+            let required = passed.min(signature.required_positional.len());
+            signature.required_positional.drain(..required);
+            let optional = (passed - required).min(signature.optional_positional.len());
+            signature.optional_positional.drain(..optional);
+        }
+
+        signature
+    }
+
+    /// Get signatures of all commands within scope with their decl ids, sorted by name.
+    ///
+    /// Each signature is the one [`get_signature_in_scope`](Self::get_signature_in_scope) gives
+    /// for the name. A command in scope under several names is listed once per name.
+    ///
+    /// Unless `include_hidden` is set, each name is resolved with `find_decl`, the lookup the
+    /// parser uses, so the list holds the names a call can use, each with the command it runs.
+    /// `get_decls_sorted(false)` isn't enough on its own: it checks each overlay against its own
+    /// visibility, but a `hide` of a command from an earlier overlay is recorded in the overlay
+    /// active at the time.
+    pub fn get_signatures_and_declids(&self, include_hidden: bool) -> Vec<(Signature, DeclId)> {
+        self.get_decls_sorted(true)
+            .into_iter()
+            .filter_map(|(name, id)| {
+                let id = if include_hidden {
+                    id
+                } else {
+                    self.find_decl(&name, &[])?
+                };
+                Some((name, id))
+            })
+            .map(|(name, id)| {
+                let name = String::from_utf8_lossy(&name).into_owned();
+                (self.get_signature_in_scope(name, id), id)
             })
             .collect()
     }
@@ -1016,17 +1148,53 @@ impl EngineState {
 
     /// Optionally get a block by id, if it exists
     ///
-    /// Prefer to use [`.get_block()`](Self::get_block) in most cases - `BlockId`s that don't exist
-    /// are normally a compiler error. This only exists to stop plugins from crashing the engine if
-    /// they send us something invalid.
+    /// Use this instead of [`.get_block()`](Self::get_block) whenever the
+    /// `BlockId` comes from a runtime value instead of the current parse,
+    /// because such a block may legitimately be missing (see
+    /// [`get_closure_block`](Self::get_closure_block)).
     pub fn try_get_block(&self, block_id: BlockId) -> Option<&Arc<Block>> {
         self.blocks.get(block_id.get())
+    }
+
+    /// Get the block a closure refers to, or an error when that block is not
+    /// available in this engine state.
+    ///
+    /// Closures can be passed between jobs. A job may have been spawned before
+    /// the closure was parsed, so its cloned engine state may not contain the
+    /// referenced block. Unlike [`get_block`](Self::get_block), this reports
+    /// that case as a regular shell error instead of panicking.
+    pub fn get_closure_block(
+        &self,
+        closure: &Closure,
+        span: Span,
+    ) -> Result<&Arc<Block>, ShellError> {
+        self.try_get_block(closure.block_id).ok_or_else(|| {
+            ShellError::Generic(GenericError::new(
+                "Closure cannot be evaluated",
+                format!(
+                    "the closure refers to a block that is not available in this engine state (block {})",
+                    closure.block_id.get()
+                ),
+                span,
+            )
+            .with_help(super::MISSING_CLOSURE_BLOCK_HELP))
+        })
     }
 
     pub fn get_module(&self, module_id: ModuleId) -> &Module {
         self.modules
             .get(module_id.get())
             .expect("internal error: missing module")
+    }
+
+    pub fn get_type_alias(&self, type_alias_id: TypeAliasId) -> &TypeAlias {
+        self.type_aliases
+            .get(type_alias_id.get())
+            .expect("internal error: missing type alias")
+    }
+
+    pub fn num_type_aliases(&self) -> usize {
+        self.type_aliases.len()
     }
 
     pub fn get_virtual_path(&self, virtual_path_id: VirtualPathId) -> &(String, VirtualPath) {
@@ -1229,6 +1397,7 @@ impl EngineState {
         self.jobs = Default::default();
         self.current_job = CurrentJob {
             id: JobId::new(0),
+            root: JobId::new(0),
             background_thread_job: None,
             mailbox: Arc::new(Mutex::new(Mailbox::new(recv))),
         };
@@ -1338,6 +1507,64 @@ mod engine_state_tests {
         let id = engine_state.add_file("test.nu", &[]);
 
         assert_eq!(id, FileId::new(0));
+    }
+
+    /// An engine that appends declarations to a signature cache it shares with a clone starts
+    /// over with its own empty cache; one that doesn't share it keeps it.
+    #[test]
+    fn merging_declarations_stops_sharing_the_signature_cache() {
+        let merge_a_decl = |engine_state: &mut EngineState| {
+            let mut working_set = StateWorkingSet::new(engine_state);
+            working_set.add_decl(Signature::new("foo").predeclare());
+            let delta = working_set.render();
+            engine_state
+                .merge_delta(delta)
+                .expect("merging a declaration");
+        };
+
+        let mut engine_state = EngineState::new();
+        let clone = engine_state.clone();
+        assert!(Arc::ptr_eq(
+            &engine_state.signature_cache,
+            &clone.signature_cache
+        ));
+        merge_a_decl(&mut engine_state);
+        assert!(!Arc::ptr_eq(
+            &engine_state.signature_cache,
+            &clone.signature_cache
+        ));
+
+        let cache = Arc::as_ptr(&engine_state.signature_cache);
+        merge_a_decl(&mut engine_state);
+        assert_eq!(Arc::as_ptr(&engine_state.signature_cache), cache);
+    }
+
+    #[test]
+    fn file_contents_lookup_finds_what_a_scan_finds() {
+        let mut engine_state = EngineState::new();
+        for (index, content) in ["", "abc", "", "", "de", "f", ""].iter().enumerate() {
+            engine_state.add_file(format!("file{index}").into(), content.as_bytes().into());
+        }
+        let end = engine_state.next_span_start();
+        let scan = |span: Span| {
+            engine_state.files.iter().find_map(|file| {
+                file.covered_span.contains_span(span).then(|| {
+                    &file.content
+                        [span.start - file.covered_span.start..span.end - file.covered_span.start]
+                })
+            })
+        };
+        let spans: Vec<Span> = (0..=end + 1)
+            .flat_map(|start| (start..=end + 1).map(move |span_end| Span::new(start, span_end)))
+            .collect();
+        // Both orders, so that the remembered file is sometimes right and sometimes not.
+        for span in spans.iter().chain(spans.iter().rev()) {
+            assert_eq!(
+                engine_state.try_get_file_contents(*span),
+                scan(*span),
+                "{span:?}"
+            );
+        }
     }
 
     #[test]

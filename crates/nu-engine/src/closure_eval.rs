@@ -13,7 +13,7 @@ use std::{
 /// [`ClosureEval`] is used to repeatedly evaluate a closure with different values/inputs.
 ///
 /// [`ClosureEval`] has a builder API.
-/// It is first created via [`ClosureEval::new`],
+/// It is first created via [`ClosureEval::try_new`],
 /// then has arguments added via [`ClosureEval::add_arg`],
 /// and then can be run using [`ClosureEval::run_with_input`].
 ///
@@ -23,7 +23,8 @@ use std::{
 /// # let engine_state = unimplemented!();
 /// # let stack = unimplemented!();
 /// # let closure = unimplemented!();
-/// let mut closure = ClosureEval::new(engine_state, stack, closure);
+/// # let span = unimplemented!();
+/// let mut closure = ClosureEval::try_new(engine_state, stack, closure, span).unwrap();
 /// let iter = Vec::<Value>::new()
 ///     .into_iter()
 ///     .map(move |value| closure.add_arg(value).unwrap().run_with_input(PipelineData::empty()));
@@ -38,7 +39,8 @@ use std::{
 /// # let engine_state = unimplemented!();
 /// # let stack = unimplemented!();
 /// # let closure = unimplemented!();
-/// let mut closure = ClosureEval::new(engine_state, stack, closure);
+/// # let span = unimplemented!();
+/// let mut closure = ClosureEval::try_new(engine_state, stack, closure, span).unwrap();
 /// let iter = Vec::<Value>::new()
 ///     .into_iter()
 ///     .map(move |value| closure.run_with_value(value));
@@ -61,37 +63,48 @@ pub struct ClosureEval {
 }
 
 impl ClosureEval {
-    /// Create a new [`ClosureEval`].
-    pub fn new(engine_state: &EngineState, stack: &Stack, closure: Closure) -> Self {
-        let engine_state = engine_state.clone();
-        let callee_stack = stack.captures_to_stack(closure.captures);
-        let block = engine_state.get_block(closure.block_id).clone();
-        let env_vars = stack.env_vars.clone();
-        let env_hidden = stack.env_hidden.clone();
-        let call_eval = CallEval::new(
-            callee_stack,
-            Span::unknown(),
-            block.span.unwrap_or(Span::unknown()),
-            get_eval_block_with_early_return(&engine_state),
-        );
-
-        Self {
-            engine_state,
-            block,
-            env_vars,
-            env_hidden,
-            call_eval,
-        }
-    }
-
-    pub fn new_preserve_out_dest(
+    /// Create a new [`ClosureEval`], or return an error when the closure's
+    /// block is not available in this engine state.
+    ///
+    /// Closures can be passed between jobs. A job may have been spawned before
+    /// the closure was parsed, so its cloned engine state may not contain the
+    /// referenced block. Keep that case as a regular shell error instead of
+    /// panicking while looking up the block. The `span` points at the call or
+    /// closure value that triggered the error.
+    pub fn try_new(
         engine_state: &EngineState,
         stack: &Stack,
         closure: Closure,
-    ) -> Self {
+        span: Span,
+    ) -> Result<Self, ShellError> {
+        Self::try_new_impl(engine_state, stack, closure, span, false)
+    }
+
+    /// Create a new [`ClosureEval`] while preserving the caller's output
+    /// destination, or return an error when the closure's block is unavailable.
+    pub fn try_new_preserve_out_dest(
+        engine_state: &EngineState,
+        stack: &Stack,
+        closure: Closure,
+        span: Span,
+    ) -> Result<Self, ShellError> {
+        Self::try_new_impl(engine_state, stack, closure, span, true)
+    }
+
+    fn try_new_impl(
+        engine_state: &EngineState,
+        stack: &Stack,
+        closure: Closure,
+        span: Span,
+        preserve_out_dest: bool,
+    ) -> Result<Self, ShellError> {
+        let block = engine_state.get_closure_block(&closure, span)?.clone();
         let engine_state = engine_state.clone();
-        let callee_stack = stack.captures_to_stack_preserve_out_dest(closure.captures);
-        let block = engine_state.get_block(closure.block_id).clone();
+        let callee_stack = if preserve_out_dest {
+            stack.captures_to_stack_preserve_out_dest(closure.captures)
+        } else {
+            stack.captures_to_stack(closure.captures)
+        };
         let env_vars = stack.env_vars.clone();
         let env_hidden = stack.env_hidden.clone();
         let call_eval = CallEval::new(
@@ -101,13 +114,18 @@ impl ClosureEval {
             get_eval_block_with_early_return(&engine_state),
         );
 
-        Self {
+        Ok(Self {
             engine_state,
             block,
             env_vars,
             env_hidden,
             call_eval,
-        }
+        })
+    }
+
+    /// The block this evaluator runs.
+    pub fn block(&self) -> &Block {
+        &self.block
     }
 
     /// Sets whether to enable debugging when evaluating the closure.
@@ -165,7 +183,7 @@ impl ClosureEval {
 /// [`ClosureEvalOnce`] is used to evaluate a closure a single time.
 ///
 /// [`ClosureEvalOnce`] has a builder API.
-/// It is first created via [`ClosureEvalOnce::new`],
+/// It is first created via [`ClosureEvalOnce::try_new`],
 /// then has arguments added via [`ClosureEvalOnce::add_arg`],
 /// and then can be run using [`ClosureEvalOnce::run_with_input`].
 ///
@@ -176,7 +194,9 @@ impl ClosureEval {
 /// # let stack = unimplemented!();
 /// # let closure = unimplemented!();
 /// # let value = unimplemented!();
-/// let result = ClosureEvalOnce::new(engine_state, stack, closure)
+/// # let span = unimplemented!();
+/// let result = ClosureEvalOnce::try_new(engine_state, stack, closure, span)
+///     .unwrap()
 ///     .add_arg(value)
 ///     .unwrap()
 ///     .run_with_input(PipelineData::empty());
@@ -192,7 +212,10 @@ impl ClosureEval {
 /// # let stack = unimplemented!();
 /// # let closure = unimplemented!();
 /// # let value = unimplemented!();
-/// let result = ClosureEvalOnce::new(engine_state, stack, closure).run_with_value(value);
+/// # let span = unimplemented!();
+/// let result = ClosureEvalOnce::try_new(engine_state, stack, closure, span)
+///     .unwrap()
+///     .run_with_value(value);
 /// ```
 ///
 /// In contrast to [`ClosureEval`], the lifetime of [`ClosureEvalOnce`] is bound
@@ -205,10 +228,12 @@ pub struct ClosureEvalOnce<'a> {
 }
 
 impl<'a> ClosureEvalOnce<'a> {
-    /// Create a new [`ClosureEvalOnce`].
-    pub fn new(engine_state: &'a EngineState, stack: &Stack, closure: Closure) -> Self {
-        let block = engine_state.get_block(closure.block_id);
-        let callee_stack = stack.captures_to_stack(closure.captures);
+    fn with_block(
+        engine_state: &'a EngineState,
+        block: &'a Block,
+        callee_stack: Stack,
+        caller_stack: Option<&'a mut Stack>,
+    ) -> Self {
         let call_eval = CallEval::new(
             callee_stack,
             Span::unknown(),
@@ -219,50 +244,64 @@ impl<'a> ClosureEvalOnce<'a> {
             engine_state,
             block,
             call_eval,
-            caller_stack: None,
+            caller_stack,
         }
     }
 
-    pub fn new_preserve_out_dest(
+    /// Create a new [`ClosureEvalOnce`] or return an error when the closure's
+    /// block is not available in this engine state.
+    ///
+    /// Closures can be passed between jobs. A job may have been spawned before
+    /// the closure was parsed, so its cloned engine state may not contain the
+    /// referenced block. Keep that case as a regular shell error instead of
+    /// panicking while looking up the block. The `span` points at the call or
+    /// closure value that triggered the error.
+    pub fn try_new(
         engine_state: &'a EngineState,
         stack: &Stack,
         closure: Closure,
-    ) -> Self {
-        let block = engine_state.get_block(closure.block_id);
-        let callee_stack = stack.captures_to_stack_preserve_out_dest(closure.captures);
-        let call_eval = CallEval::new(
-            callee_stack,
-            Span::unknown(),
-            block.span.unwrap_or(Span::unknown()),
-            get_eval_block_with_early_return(engine_state),
-        );
-        Self {
-            engine_state,
-            block,
-            call_eval,
-            caller_stack: None,
-        }
+        span: Span,
+    ) -> Result<Self, ShellError> {
+        let block = engine_state.get_closure_block(&closure, span)?;
+        let callee_stack = stack.captures_to_stack(closure.captures);
+        Ok(Self::with_block(engine_state, block, callee_stack, None))
     }
 
-    pub fn new_env_preserve_out_dest(
+    /// Create a new [`ClosureEvalOnce`] while preserving the caller's output
+    /// destination, or return an error when the closure's block is unavailable.
+    pub fn try_new_preserve_out_dest(
+        engine_state: &'a EngineState,
+        stack: &Stack,
+        closure: Closure,
+        span: Span,
+    ) -> Result<Self, ShellError> {
+        let block = engine_state.get_closure_block(&closure, span)?;
+        let callee_stack = stack.captures_to_stack_preserve_out_dest(closure.captures);
+        Ok(Self::with_block(engine_state, block, callee_stack, None))
+    }
+
+    /// Create a new [`ClosureEvalOnce`] while preserving the caller's
+    /// environment and output destination, or return an error when the
+    /// closure's block is unavailable.
+    pub fn try_new_env_preserve_out_dest(
         engine_state: &'a EngineState,
         stack: &'a mut Stack,
         closure: Closure,
-    ) -> Self {
-        let block = engine_state.get_block(closure.block_id);
+        span: Span,
+    ) -> Result<Self, ShellError> {
+        let block = engine_state.get_closure_block(&closure, span)?;
         let callee_stack = stack.captures_to_stack_preserve_out_dest(closure.captures);
-        let call_eval = CallEval::new(
-            callee_stack,
-            Span::unknown(),
-            block.span.unwrap_or(Span::unknown()),
-            get_eval_block_with_early_return(engine_state),
-        );
-        Self {
+        Ok(Self::with_block(
             engine_state,
             block,
-            call_eval,
-            caller_stack: Some(stack),
-        }
+            callee_stack,
+            Some(stack),
+        ))
+    }
+
+    /// The block this evaluator runs.
+    pub fn block(&self) -> &Block {
+        self.block
     }
 
     /// Sets whether to enable debugging when evaluating the closure.

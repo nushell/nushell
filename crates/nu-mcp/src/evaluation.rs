@@ -398,19 +398,14 @@ impl Evaluator {
 
     pub async fn command_help(&self, command_name: &str) -> Result<String, String> {
         let state = self.state.lock().await;
+        let engine_state = &state.engine_state;
 
-        let signature = state
-            .engine_state
-            .get_signatures_and_declids(false)
-            .into_iter()
-            .find_map(|(sig, _)| {
-                if sig.name == command_name {
-                    Some(sig)
-                } else {
-                    None
-                }
-            })
-            .ok_or_else(|| format!("command `{}` not found", command_name))?;
+        // Resolve the name the way the parser does, so the help describes the command that
+        // calling `command_name` runs.
+        let decl_id = engine_state
+            .find_decl(command_name.as_bytes(), &[])
+            .ok_or_else(|| format!("command `{command_name}` not found"))?;
+        let signature = engine_state.get_signature_in_scope(command_name.to_owned(), decl_id);
 
         Ok(format_command_help(&signature))
     }
@@ -1272,6 +1267,188 @@ mod tests {
             output.contains("hello_repl"),
             "Env var should be 'hello_repl', got: {output}"
         );
+    }
+
+    /// An evaluator with a documented `foo bar`, an alias `fb` of it, and a module command that
+    /// is called as `spam baz` but declared as `baz`.
+    async fn evaluator_with_alias_and_module_command() -> Evaluator {
+        let evaluator = Evaluator::new(nu_cmd_lang::create_default_context());
+        let result = evaluator
+            .eval_async(
+                "# Runs bar\ndef \"foo bar\" [] {}\nalias fb = foo bar\nmodule spam { export def baz [] {} }\nuse spam",
+                CancellationToken::new(),
+            )
+            .await;
+        assert_tool_success(&result);
+        evaluator
+    }
+
+    /// The usages in `list_commands` output, whose lines are `<usage> - <description>`. A command
+    /// without parameters has its name as its usage.
+    fn listed_usages(listed: &str) -> Vec<&str> {
+        listed
+            .lines()
+            .filter_map(|line| line.split_once(" - "))
+            .map(|(usage, _)| usage.trim())
+            .collect()
+    }
+
+    #[tokio::test]
+    async fn list_commands_shows_names_in_scope() -> Result<(), Box<dyn std::error::Error>> {
+        let evaluator = evaluator_with_alias_and_module_command().await;
+
+        // The alias is listed as `fb`, not as a second `foo bar`.
+        let listed = evaluator
+            .list_available_commands(Some("foo bar".into()))
+            .await?;
+        assert_eq!(listed_usages(&listed), ["fb", "foo bar"], "got:\n{listed}");
+
+        let listed = evaluator
+            .list_available_commands(Some("baz".into()))
+            .await?;
+        assert_eq!(listed_usages(&listed), ["spam baz"], "got:\n{listed}");
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn commands_hidden_from_a_later_overlay_are_not_offered()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let evaluator = evaluator_with_alias_and_module_command().await;
+        // Separate calls, the way a client sends them. `fb` belongs to overlay `zero`, so hiding
+        // it while `x` is active records the hide in `x`.
+        for source in ["overlay new x", "hide fb"] {
+            assert_tool_success(&evaluator.eval_async(source, CancellationToken::new()).await);
+        }
+
+        let listed = evaluator
+            .list_available_commands(Some("foo bar".into()))
+            .await?;
+        assert_eq!(listed_usages(&listed), ["foo bar"], "got:\n{listed}");
+        assert!(evaluator.command_help("fb").await.is_err());
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn commands_are_described_by_the_command_a_name_runs()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let evaluator = Evaluator::new(nu_cmd_lang::create_default_context());
+        // Overlay `x` shadows `foo`, and hiding it from overlay `y` makes `foo` run `zero`'s
+        // `foo` again.
+        for source in [
+            "# zero foo\ndef foo [] {}",
+            "overlay new x",
+            "# x foo\ndef foo [--xflag] {}",
+            "overlay new y",
+            "hide foo",
+        ] {
+            assert_tool_success(&evaluator.eval_async(source, CancellationToken::new()).await);
+        }
+
+        let help = evaluator.command_help("foo").await?;
+        assert!(help.contains("Description: zero foo"), "got:\n{help}");
+        assert!(!help.contains("--xflag"), "got:\n{help}");
+
+        let listed = evaluator
+            .list_available_commands(Some("zero foo".into()))
+            .await?;
+        assert_eq!(listed_usages(&listed), ["foo"], "got:\n{listed}");
+        // `x`'s `foo` can't be called by any name, so it isn't listed.
+        assert!(
+            evaluator
+                .list_available_commands(Some("x foo".into()))
+                .await
+                .is_err()
+        );
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn commands_imported_again_after_hide_are_offered()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let evaluator = Evaluator::new(nu_cmd_lang::create_default_context());
+        // `hide foo` hides the command in overlay `zero`, and `use spam` in overlay `x` makes it
+        // callable again, both as `spam foo` and as `foo`.
+        for source in [
+            "module spam {\n# Runs spam foo\nexport def foo [] {}\n}",
+            "use spam foo",
+            "hide foo",
+            "overlay new x",
+            "use spam",
+        ] {
+            assert_tool_success(&evaluator.eval_async(source, CancellationToken::new()).await);
+        }
+
+        let help = evaluator.command_help("foo").await?;
+        assert!(help.contains("Description: Runs spam foo"), "got:\n{help}");
+
+        let listed = evaluator
+            .list_available_commands(Some("Runs spam foo".into()))
+            .await?;
+        assert_eq!(
+            listed_usages(&listed),
+            ["foo", "spam foo"],
+            "got:\n{listed}"
+        );
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn aliases_omit_positionals_they_pass() -> Result<(), Box<dyn std::error::Error>> {
+        let evaluator = Evaluator::new(nu_cmd_lang::create_default_context());
+        // `fb` passes `x`, so a call to it starts at `y`. `fbr` passes more positionals than
+        // `foo bar` has, so only `...rest` is left.
+        let result = evaluator
+            .eval_async(
+                "def \"foo bar\" [x: int, y?: int, ...rest: int] {}\nalias fb = foo bar 1\nalias fbr = foo bar 1 2 3",
+                CancellationToken::new(),
+            )
+            .await;
+        assert_tool_success(&result);
+
+        let help = evaluator.command_help("fb").await?;
+        assert!(help.contains("Usage: fb (y) ...(rest)"), "got:\n{help}");
+        assert!(help.contains("  [y]:"), "got:\n{help}");
+        assert!(!help.contains("  x:"), "got:\n{help}");
+
+        let listed = evaluator
+            .list_available_commands(Some("alias for `foo bar".into()))
+            .await?;
+        assert_eq!(
+            listed_usages(&listed),
+            ["fb (y) ...(rest)", "fbr ...(rest)"],
+            "got:\n{listed}"
+        );
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn command_help_finds_commands_by_names_in_scope()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let evaluator = evaluator_with_alias_and_module_command().await;
+
+        let help = evaluator.command_help("fb").await?;
+        assert!(help.starts_with("Command: fb\n"), "got:\n{help}");
+        assert!(
+            help.contains("Description: Alias for `foo bar`"),
+            "got:\n{help}"
+        );
+
+        // `fb` sorts before `foo bar`, so an alias carrying the wrapped name would answer here.
+        let help = evaluator.command_help("foo bar").await?;
+        assert!(help.contains("Description: Runs bar"), "got:\n{help}");
+
+        let help = evaluator.command_help("spam baz").await?;
+        assert!(help.starts_with("Command: spam baz\n"), "got:\n{help}");
+
+        // `baz` is the declared name, but the command can't be called by it.
+        assert!(evaluator.command_help("baz").await.is_err());
+
+        Ok(())
     }
 
     #[cfg(unix)]

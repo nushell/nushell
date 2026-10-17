@@ -2,8 +2,9 @@
 
 use nu_plugin_protocol::{ByteStreamInfo, ListStreamInfo, PipelineDataHeader, StreamMessage};
 use nu_protocol::{
-    ByteStream, ListStream, PipelineData, Reader, ShellError, Signals, engine::Sequence,
-    shell_error::io::IoError,
+    ByteStream, ListStream, PipelineData, Reader, ShellError, Signals,
+    engine::Sequence,
+    shell_error::{bridge::ShellErrorBridge, io::IoError},
 };
 use std::{
     io::{Read, Write},
@@ -15,7 +16,10 @@ pub mod stream;
 
 use crate::Encoder;
 
-use self::stream::{StreamManager, StreamManagerHandle, StreamWriter, WriteStreamMessage};
+use self::stream::{
+    StreamManager, StreamManagerHandle, StreamReaderHold, StreamReaderSignal, StreamWriter,
+    WriteStreamMessage,
+};
 
 pub mod test_util;
 
@@ -175,23 +179,43 @@ pub trait InterfaceManager {
         header: PipelineDataHeader,
         signals: &Signals,
     ) -> Result<PipelineData, ShellError> {
-        self.prepare_pipeline_data(match header {
+        self.read_pipeline_data_with_cancellation(header, signals)
+            .map(|(data, _)| data)
+    }
+
+    /// Read pipeline data and retain a cancellation handle for its transport reader, if any.
+    /// Dropping the handle leaves the stream's ordinary behavior unchanged.
+    #[doc(hidden)]
+    fn read_pipeline_data_with_cancellation(
+        &self,
+        header: PipelineDataHeader,
+        signals: &Signals,
+    ) -> Result<(PipelineData, Option<StreamReaderSignal>), ShellError> {
+        let mut cancellation = None;
+        let data = match header {
             PipelineDataHeader::Empty => PipelineData::empty(),
             PipelineDataHeader::Value(value, metadata) => PipelineData::value(value, metadata),
             PipelineDataHeader::ListStream(info) => {
                 let handle = self.stream_manager().get_handle();
-                let reader = handle.read_stream(info.id, self.get_interface())?;
+                let reader = handle
+                    .read_stream(info.id, self.get_interface())?
+                    .with_span(info.span);
+                cancellation = Some(reader.cancellation());
                 let ls = ListStream::new(reader, info.span, signals.clone());
                 PipelineData::list_stream(ls, info.metadata)
             }
             PipelineDataHeader::ByteStream(info) => {
                 let handle = self.stream_manager().get_handle();
-                let reader = handle.read_stream(info.id, self.get_interface())?;
+                let reader = handle
+                    .read_stream(info.id, self.get_interface())?
+                    .with_span(info.span);
+                cancellation = Some(reader.cancellation());
                 let bs =
                     ByteStream::from_result_iter(reader, info.span, signals.clone(), info.type_);
                 PipelineData::byte_stream(bs, info.metadata)
             }
-        })
+        };
+        Ok((self.prepare_pipeline_data(data)?, cancellation))
     }
 }
 
@@ -315,6 +339,17 @@ impl<W> PipelineDataWriter<W>
 where
     W: WriteStreamMessage + Send + 'static,
 {
+    /// Arrange for an early peer Drop of this response stream to cancel its call's input.
+    #[doc(hidden)]
+    pub fn cancel_input_on_drop(&self, input: StreamReaderSignal) {
+        match self {
+            Self::None => (),
+            Self::ListStream(writer, _) | Self::ByteStream(writer, _) => {
+                writer.cancel_input_on_drop(input)
+            }
+        }
+    }
+
     /// Write all of the data in each of the streams. This method waits for completion.
     pub fn write(self) -> Result<(), ShellError> {
         match self {
@@ -332,7 +367,10 @@ where
                 writer.write_all(std::iter::from_fn(move || match reader.read(buf) {
                     Ok(0) => None,
                     Ok(len) => Some(Ok(buf[..len].to_vec())),
-                    Err(err) => Some(Err(ShellError::from(IoError::new(err, span, None)))),
+                    Err(err) => Some(Err(match ShellErrorBridge::try_from(err) {
+                        Ok(ShellErrorBridge(err)) => err,
+                        Err(err) => IoError::new(err, span, None).into(),
+                    })),
                 }))?;
                 Ok(())
             }
@@ -365,6 +403,21 @@ where
                         )
                     })?,
             )),
+        }
+    }
+
+    /// Attach an SDK-owned input hold before publishing an engine-call input header. The hold is
+    /// released when forwarding finishes, fails, or its consumer drops the stream. A writer
+    /// without a stream releases the hold immediately.
+    #[doc(hidden)]
+    pub fn keep_input_alive(&self, guard: Option<StreamReaderHold>) {
+        if let Some(guard) = guard {
+            match self {
+                Self::None => (),
+                Self::ListStream(writer, _) | Self::ByteStream(writer, _) => {
+                    writer.keep_input_alive(guard);
+                }
+            }
         }
     }
 }

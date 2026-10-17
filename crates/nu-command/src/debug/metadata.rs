@@ -1,6 +1,5 @@
-use super::util::{build_metadata_record, extend_record_with_metadata};
+use super::util::build_metadata_record;
 use nu_engine::command_prelude::*;
-use nu_protocol::PipelineMetadata;
 
 #[derive(Clone)]
 pub struct Metadata;
@@ -14,6 +13,10 @@ impl Command for Metadata {
         "Get the metadata for items in the stream."
     }
 
+    fn extra_description(&self) -> &str {
+        "With an expression, the result describes only that expression (its span) and pipeline input is ignored. Without one, the result is the input's pipeline metadata."
+    }
+
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("metadata")
             .input_output_types(vec![(Type::Any, Type::record())])
@@ -21,7 +24,7 @@ impl Command for Metadata {
             .optional(
                 "expression",
                 SyntaxShape::Any,
-                "The expression you want metadata for.",
+                "The expression you want metadata for. When given, pipeline input is ignored.",
             )
             .category(Category::Debug)
     }
@@ -44,25 +47,14 @@ impl Command for Metadata {
             None
         };
 
-        if !matches!(input, PipelineData::Empty)
-            && let Some(ref arg_val) = arg
-        {
-            return Err(ShellError::IncompatibleParameters {
-                left_message: "pipeline input was provided".into(),
-                left_span: head,
-                right_message: "but a positional metadata expression was also given".into(),
-                right_span: arg_val.span(),
-            });
-        }
-
-        match arg {
-            Some(val) => Ok(
-                build_metadata_record_value(&val, input.metadata_ref(), head).into_pipeline_data(),
-            ),
-            None => {
-                Ok(Value::record(build_metadata_record(&input, head), head).into_pipeline_data())
-            }
-        }
+        // An expression wins over the input: the first statement of a block receives the
+        // block's input implicitly, so `each {|x| metadata $x }` gets both. The record then
+        // describes only the expression; pipeline metadata comes from `metadata` alone.
+        let record = match arg {
+            Some(val) => record! { "span" => val.span().into_value(head) },
+            None => build_metadata_record(&input, head),
+        };
+        Ok(Value::record(record, head).into_pipeline_data())
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
@@ -77,18 +69,13 @@ impl Command for Metadata {
                 example: "ls | metadata",
                 result: None,
             },
+            Example {
+                description: "Get the metadata of a closure parameter. The closure's input is ignored.",
+                example: "[1] | each {|x| metadata $x } | columns",
+                result: Some(Value::test_list(vec![Value::test_string("span")])),
+            },
         ]
     }
-}
-
-fn build_metadata_record_value(
-    arg: &Value,
-    metadata: Option<&PipelineMetadata>,
-    head: Span,
-) -> Value {
-    let mut record = Record::new();
-    record.push("span", arg.span().into_value(head));
-    Value::record(extend_record_with_metadata(record, metadata, head), head)
 }
 
 #[cfg(test)]

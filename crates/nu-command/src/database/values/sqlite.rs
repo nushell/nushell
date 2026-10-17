@@ -12,9 +12,11 @@ use rusqlite::{
 };
 use serde::{Deserialize, Serialize};
 use std::{
+    cmp::Ordering,
     collections::BTreeMap,
     fmt::Write,
     fs::File,
+    hash::{Hash, Hasher},
     io::Read,
     ops::{Deref, DerefMut},
     path::{Path, PathBuf},
@@ -444,6 +446,20 @@ impl CustomValue for SQLiteDatabase {
 
     fn as_mut_any(&mut self) -> &mut dyn std::any::Any {
         self
+    }
+
+    /// Databases have no order; two values are equal when they open the same path.
+    fn partial_cmp(&self, other: &Value) -> Option<Ordering> {
+        let other = other
+            .as_custom_value()
+            .ok()?
+            .as_any()
+            .downcast_ref::<Self>()?;
+        (self.path == other.path).then_some(Ordering::Equal)
+    }
+
+    fn hash_value(&self, mut state: &mut dyn Hasher) {
+        self.path.hash(&mut state);
     }
 
     fn follow_path_int(

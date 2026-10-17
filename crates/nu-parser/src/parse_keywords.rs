@@ -23,6 +23,7 @@ pub const UNALIASABLE_PARSER_KEYWORDS: &[&[u8]] = &[
     b"def",
     b"extern",
     b"module",
+    b"type",
     b"use",
     b"export",
     b"export alias",
@@ -30,6 +31,7 @@ pub const UNALIASABLE_PARSER_KEYWORDS: &[&[u8]] = &[
     b"export def",
     b"export extern",
     b"export module",
+    b"export type",
     b"export use",
     b"for",
     b"loop",
@@ -198,6 +200,7 @@ pub use crate::parse_source::{
 };
 #[cfg(feature = "plugin")]
 pub use crate::parse_source::{PLUGIN_DIRS_VAR, parse_plugin_use};
+pub use crate::parse_type_alias::parse_type_alias;
 
 #[cfg(test)]
 mod tests {
@@ -210,6 +213,7 @@ mod tests {
         assert!(is_parser_keyword(b"if")); // aliasable
         assert!(is_parser_keyword(b"overlay")); // aliasable
         assert!(is_parser_keyword(b"where"));
+        assert!(is_parser_keyword(b"type"));
     }
 
     #[test]

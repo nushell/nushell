@@ -595,11 +595,27 @@ impl<'e, 's> ScopeData<'e, 's> {
             })
             .collect();
 
+        let mut export_type_aliases: Vec<Value> = module
+            .type_aliases
+            .iter()
+            .map(|(name_bytes, type_alias_id)| {
+                Value::record(
+                    record! {
+                        "name" => Value::string(String::from_utf8_lossy(name_bytes), span),
+                        "type" => Value::string(self.engine_state.get_type_alias(*type_alias_id).shape.to_string(), span),
+                        "type_alias_id" => Value::int(type_alias_id.get() as i64, span),
+                    },
+                    span,
+                )
+            })
+            .collect();
+
         sort_rows(&mut export_commands);
         sort_rows(&mut export_aliases);
         sort_rows(&mut export_externs);
         sort_rows(&mut export_submodules);
         sort_rows(&mut export_consts);
+        sort_rows(&mut export_type_aliases);
 
         let (module_desc, module_extra_desc) = self
             .engine_state
@@ -614,6 +630,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                 "externs" => Value::list(export_externs, span),
                 "submodules" => Value::list(export_submodules, span),
                 "constants" => Value::list(export_consts, span),
+                "type_aliases" => Value::list(export_type_aliases, span),
                 "has_env_block" => Value::bool(module.env_block.is_some(), span),
                 "description" => Value::string(module_desc, span),
                 "extra_description" => Value::string(module_extra_desc, span),
