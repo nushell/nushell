@@ -1,12 +1,64 @@
 use super::{BlockBuilder, CompileError, RedirectModes, compile_expression, keyword::*};
 use crate::HELP_DECL_ID_PARSER_INFO;
 use nu_protocol::{
-    DeclId, IntoSpanned, RegId, Span, Spanned, Type,
+    BlockId, DeclId, IntoSpanned, RegId, Span, Spanned, Type,
     ast::{Argument, Call, Expr, Expression, ExternalArgument, FlagRef},
     engine::{ENV_VARIABLE_ID, IN_VARIABLE_ID, NU_VARIABLE_ID, StateWorkingSet, UNKNOWN_SPAN_ID},
     ir::{Instruction, IrAstRef, Literal},
 };
 use std::sync::Arc;
+
+/// Resolve the declaration that owns a `run` script's `main`, when that call forwards an
+/// explicit `--help`/`-h`.
+///
+/// `run` records the script's `main` block id in parser info. Matching the owning
+/// declaration by block id keeps help tied to the declaration that actually defined
+/// `main` — a `find_decl("main")` lookup could resolve to a hidden or unrelated
+/// declaration. Returns `None` for any other command, for a `run` call without a
+/// forwarded help token, and for `run --full-reparse`, whose script is only parsed at
+/// runtime and therefore has no block id here.
+fn run_forwarded_main_decl(working_set: &StateWorkingSet, call: &Call) -> Option<DeclId> {
+    if working_set.get_decl(call.decl_id).name() != "run"
+        || !call_forwards_help_token(working_set, call)
+    {
+        return None;
+    }
+
+    let main_block_id = match call.parser_info.get("main_block_id")? {
+        Expression {
+            expr: Expr::Int(id),
+            ..
+        } => BlockId::new(usize::try_from(*id).ok()?),
+        _ => return None,
+    };
+
+    (0..working_set.num_decls())
+        .map(DeclId::new)
+        .find(|decl_id| working_set.get_decl(*decl_id).block_id() == Some(main_block_id))
+}
+
+/// Whether a `run` call forwards an explicit unquoted `--help`/`-h` to the script.
+///
+/// Tokens after `--` are parsed as positionals rather than flags, so both the named form
+/// and the post-`--` positional form have to be considered. Quoted literals such as
+/// `"--help"` are ordinary positional values and are not treated as a help request.
+fn call_forwards_help_token(working_set: &StateWorkingSet, call: &Call) -> bool {
+    if call.named_iter().any(|(name, _, _)| name.item == "help") {
+        return true;
+    }
+
+    // Skip the leading filename positional.
+    call.positional_iter().skip(1).any(|expr| {
+        let contents = working_set.get_span_contents(expr.span);
+        let Ok(token) = std::str::from_utf8(contents) else {
+            return false;
+        };
+        if token.starts_with('"') || token.starts_with('\'') {
+            return false;
+        }
+        token == "--help" || token == "-h"
+    })
+}
 
 pub(crate) fn compile_call(
     working_set: &StateWorkingSet,
@@ -48,6 +100,23 @@ pub(crate) fn compile_call(
     }
 
     let decl = working_set.get_decl(call.decl_id);
+
+    // `run` forwards trailing arguments to a script's `main`. When an explicit
+    // `--help`/`-h` is forwarded, show the script's `main` help instead of running it.
+    //
+    // This mirrors the generic `<cmd> --help` rewrite below and has to happen at compile
+    // time: the IR evaluator materializes call arguments before the command body runs, so
+    // a runtime check would already be too late and a forwarded argument that fails or has
+    // side effects would pre-empt the help request.
+    if let Some(main_decl_id) = run_forwarded_main_decl(working_set, call) {
+        return compile_help(
+            working_set,
+            builder,
+            "main".into_spanned(call.head),
+            Some(main_decl_id),
+            io_reg,
+        );
+    }
 
     // Check if this call has --help - if so, just redirect to `help`
     // FIXME: This `<cmd> --help` -> `help <name>` rewrite is a historical detour that

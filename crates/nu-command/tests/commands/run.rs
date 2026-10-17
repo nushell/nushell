@@ -775,6 +775,281 @@ fn run_control_heavy_file_errors_without_parsing() -> Result {
     )
 }
 
+/// `--help` forwarded to a script `main` must show help, not panic (#18940).
+#[test]
+fn run_script_main_help_flag_shows_help() -> Result {
+    Playground::setup("run_script_main_help_flag_shows_help", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
+            "help_me.nu",
+            "
+                def main [--a, --b] { 'should not run' }
+            ",
+        )]);
+
+        let out: String = test()
+            .cwd(dirs.test())
+            .run("run help_me.nu -- --help | to text")?;
+        assert_contains("Usage", &out);
+        assert_contains("--a", &out);
+        Ok(())
+    })
+}
+
+#[test]
+fn run_script_main_short_help_flag_shows_help() -> Result {
+    Playground::setup(
+        "run_script_main_short_help_flag_shows_help",
+        |dirs, sandbox| {
+            sandbox.with_files(&[FileWithContentToBeTrimmed(
+                "help_short.nu",
+                "
+                def main [--a, --b] { 'should not run' }
+            ",
+            )]);
+
+            let out: String = test()
+                .cwd(dirs.test())
+                .run("run help_short.nu -- -h | to text")?;
+            assert_contains("Usage", &out);
+            assert_contains("--a", &out);
+            Ok(())
+        },
+    )
+}
+
+#[test]
+fn run_script_main_help_flag_with_full_reparse_shows_help() -> Result {
+    Playground::setup(
+        "run_script_main_help_flag_with_full_reparse_shows_help",
+        |dirs, sandbox| {
+            sandbox.with_files(&[FileWithContentToBeTrimmed(
+                "help_reparse.nu",
+                "
+                def main [--a, --b] { 'should not run' }
+            ",
+            )]);
+
+            let out: String = test()
+                .cwd(dirs.test())
+                .run("run --full-reparse help_reparse.nu -- --help | to text")?;
+            assert_contains("Usage", &out);
+            assert_contains("--b", &out);
+            Ok(())
+        },
+    )
+}
+
+/// A forwarded `--help` must win over a forwarded argument that fails to evaluate.
+///
+/// Help short-circuits at compile time, so the argument expression is never evaluated
+/// and its error cannot pre-empt the help request.
+#[test]
+fn run_script_main_help_wins_over_failing_forwarded_argument() -> Result {
+    Playground::setup(
+        "run_script_main_help_wins_over_failing_forwarded_argument",
+        |dirs, sandbox| {
+            sandbox.with_files(&[FileWithContentToBeTrimmed(
+                "help_err.nu",
+                "
+                def main [--a] { 'should not run' }
+            ",
+            )]);
+
+            let out: String = test()
+                .cwd(dirs.test())
+                .run("run help_err.nu -- (error make {msg: 'bad arg'}) --help | to text")?;
+
+            assert_contains("Usage", &out);
+            assert_contains("--a", &out);
+            Ok(())
+        },
+    )
+}
+
+/// Forwarded arguments must not run at all when `--help` is requested.
+#[test]
+fn run_script_main_help_does_not_run_forwarded_argument_side_effects() -> Result {
+    Playground::setup(
+        "run_script_main_help_does_not_run_forwarded_argument_side_effects",
+        |dirs, sandbox| {
+            sandbox.with_files(&[FileWithContentToBeTrimmed(
+                "help_side_effect.nu",
+                "
+                def main [--a] { 'should not run' }
+            ",
+            )]);
+
+            test()
+                .cwd(dirs.test())
+                .run::<()>("run help_side_effect.nu -- (touch side_effect.txt) --help | ignore")?;
+
+            assert!(
+                !dirs.test().join("side_effect.txt").exists(),
+                "forwarded argument was evaluated even though --help was requested"
+            );
+            Ok(())
+        },
+    )
+}
+
+/// A `main` carrying attributes (`@example`, `@category`, ...) is still the script's
+/// entrypoint: `run` must call it rather than evaluate the script block.
+#[test]
+fn run_script_main_with_attribute_is_invoked() -> Result {
+    Playground::setup(
+        "run_script_main_with_attribute_is_invoked",
+        |dirs, sandbox| {
+            sandbox.with_files(&[FileWithContentToBeTrimmed(
+                "attr_main.nu",
+                "
+                @example 'greet' 'run attr_main.nu bob'
+                def main [name: string] { $'ran ($name)' }
+            ",
+            )]);
+
+            let out: String = test()
+                .cwd(dirs.test())
+                .run("run attr_main.nu bob | to text")?;
+            assert_eq!(out, "ran bob");
+            Ok(())
+        },
+    )
+}
+
+/// `@example` documentation lives on the declaration rather than the signature, so
+/// forwarded `main` help must keep it and match plain `main --help`.
+#[test]
+fn run_script_main_help_preserves_custom_examples() -> Result {
+    Playground::setup(
+        "run_script_main_help_preserves_custom_examples",
+        |dirs, sandbox| {
+            sandbox.with_files(&[FileWithContentToBeTrimmed(
+                "attr_help.nu",
+                "
+                    # A demo script
+                    @example 'how to greet' 'run attr_help.nu --name bob'
+                    def main [--name: string] { 'should not run' }
+                ",
+            )]);
+
+            let via_main: String = test()
+                .cwd(dirs.test())
+                .run("source attr_help.nu; main --help | to text")?;
+            assert_contains("Examples:", &via_main);
+            assert_contains("how to greet", &via_main);
+
+            let via_run: String = test()
+                .cwd(dirs.test())
+                .run("run attr_help.nu -- --help | to text")?;
+            assert_contains("Examples:", &via_run);
+            assert_contains("how to greet", &via_run);
+
+            assert_eq!(
+                via_main, via_run,
+                "forwarded `main` help dropped documentation from the declaration"
+            );
+
+            let short: String = test()
+                .cwd(dirs.test())
+                .run("run attr_help.nu -- -h | to text")?;
+            assert_contains("how to greet", &short);
+
+            let reparsed: String = test()
+                .cwd(dirs.test())
+                .run("run --full-reparse attr_help.nu -- --help | to text")?;
+            assert_eq!(
+                via_main, reparsed,
+                "forwarded `main` help diverged under --full-reparse"
+            );
+            Ok(())
+        },
+    )
+}
+
+/// Forwarded `main` help renders from the script's own `main` declaration, so it must
+/// match what plain `main --help` shows for the same declaration.
+#[test]
+fn run_script_main_help_matches_main_help() -> Result {
+    Playground::setup("run_script_main_help_matches_main_help", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
+            "help_match.nu",
+            "
+                # A demo script
+                def main [--a, --b] { 'should not run' }
+            ",
+        )]);
+
+        let via_main: String = test()
+            .cwd(dirs.test())
+            .run("source help_match.nu; main --help | to text")?;
+        let via_run: String = test()
+            .cwd(dirs.test())
+            .run("run help_match.nu -- --help | to text")?;
+
+        assert_eq!(
+            via_main, via_run,
+            "forwarded `main` help diverged from `main --help`"
+        );
+        Ok(())
+    })
+}
+
+/// Without `--`, `--help` belongs to `run` itself: `run`'s own flags are recognised
+/// wherever they appear on the line, so forwarding to a script's `main` requires the
+/// `--` separator.
+#[test]
+fn run_bare_help_flag_shows_run_help_not_script_help() -> Result {
+    Playground::setup(
+        "run_bare_help_flag_shows_run_help_not_script_help",
+        |dirs, sandbox| {
+            sandbox.with_files(&[FileWithContentToBeTrimmed(
+                "bare_help.nu",
+                "
+                def main [--marker: string] { 'should not run' }
+            ",
+            )]);
+
+            let out: String = test()
+                .cwd(dirs.test())
+                .run("run bare_help.nu --help | to text")?;
+
+            assert_contains("Runs a script file in an isolated scope", &out);
+            assert_contains_not("--marker", &out);
+
+            let short: String = test()
+                .cwd(dirs.test())
+                .run("run bare_help.nu -h | to text")?;
+            assert_contains("Runs a script file in an isolated scope", &short);
+            assert_contains_not("--marker", &short);
+            Ok(())
+        },
+    )
+}
+
+/// A quoted `"--help"` is an ordinary positional value, not a help request.
+#[test]
+fn run_script_main_quoted_help_token_is_a_value() -> Result {
+    Playground::setup(
+        "run_script_main_quoted_help_token_is_a_value",
+        |dirs, sandbox| {
+            sandbox.with_files(&[FileWithContentToBeTrimmed(
+                "quoted_help.nu",
+                "
+                def main [...rest] { $rest | to json }
+            ",
+            )]);
+
+            let out: String = test()
+                .cwd(dirs.test())
+                .run("run quoted_help.nu -- '--help' | to text")?;
+
+            assert_contains("--help", &out);
+            assert_contains_not("Usage", &out);
+            Ok(())
+        },
+    )
+}
+
 /// `--full-reparse` skips parse-time load, so oversized files must still be rejected at runtime.
 #[test]
 fn run_full_reparse_oversized_file_errors() -> Result {

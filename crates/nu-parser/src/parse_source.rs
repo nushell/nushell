@@ -439,6 +439,12 @@ pub fn find_main_block_id_in_script(
         }
 
         let expr = &pipeline.elements[0].expr;
+        // A `main` carrying attributes (`@example`, `@category`, ...) parses as an
+        // attribute block wrapping the definition, so unwrap to reach the `def` call.
+        let expr = match &expr.expr {
+            Expr::AttributeBlock(attribute_block) => &attribute_block.item,
+            _ => expr,
+        };
         let Expr::Call(call) = &expr.expr else {
             return None;
         };
