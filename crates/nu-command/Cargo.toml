@@ -77,6 +77,7 @@ http = { workspace = true }
 human-date-parser = { workspace = true }
 indexmap = { workspace = true }
 indicatif = { workspace = true }
+jiff = { workspace = true }
 itertools = { workspace = true }
 log = { workspace = true }
 nucleo-matcher = { workspace = true }
