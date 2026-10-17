@@ -1,7 +1,9 @@
 [advisories]
 ignore = [
-  # quickxml@0.39 is used by calamine, we need to wait for a patch upstream
-  # untrusted .xlsx files could be get OOM or CPU DoS
+  # quick-xml@0.39 is used by object_store 0.13 (polars cloud storage in
+  # nu_plugin_polars) to parse S3/Azure/GCS responses; a malicious endpoint
+  # could cause OOM or CPU DoS. Remove once polars moves to object_store >= 0.14
+  # (quick-xml >= 0.41).
   "RUSTSEC-2026-0194",
   "RUSTSEC-2026-0195",
   # zip@8.6 is used by calamine, which only reads entries into memory
