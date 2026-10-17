@@ -218,10 +218,6 @@ impl ThreadJob {
 
         pids.remove(&pid);
     }
-
-    pub fn auto_kill(&self) -> bool {
-        self.auto_kill
-    }
 }
 
 impl Job {
@@ -236,6 +232,13 @@ impl Job {
         match self {
             Job::Thread(thread_job) => thread_job.description.as_ref(),
             Job::Frozen(frozen_job) => frozen_job.description.as_ref(),
+        }
+    }
+
+    pub fn is_auto_kill(&self) -> bool {
+        match self {
+            Job::Thread(job) => job.auto_kill,
+            Job::Frozen(_) => false,
         }
     }
 

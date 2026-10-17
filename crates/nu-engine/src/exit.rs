@@ -1,4 +1,4 @@
-use nu_protocol::engine::{EngineState, Job};
+use nu_protocol::engine::EngineState;
 use nu_protocol::{ShellWarning, report_shell_warning};
 use std::sync::atomic::Ordering;
 
@@ -25,13 +25,7 @@ pub fn cleanup_exit<T>(tag: T, engine_state: &EngineState, exit_code: i32) -> T 
 pub fn cleanup<T>(tag: T, engine_state: &EngineState) -> Option<T> {
     let mut jobs = engine_state.jobs.lock().expect("failed to lock job table");
 
-    let job_count = jobs
-        .iter()
-        .filter(|(_, job)| match job {
-            Job::Thread(job) => !job.auto_kill(),
-            Job::Frozen(_) => true,
-        })
-        .count();
+    let job_count = jobs.iter().filter(|(_, job)| !job.is_auto_kill()).count();
 
     if engine_state.is_interactive
         && job_count > 0
