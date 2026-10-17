@@ -49,3 +49,65 @@ pub fn cleanup<T>(tag: T, engine_state: &EngineState) -> Option<T> {
     drop(tag);
     None
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use nu_protocol::Signals;
+    use nu_protocol::engine::Job;
+    use nu_protocol::engine::ThreadJob;
+    use rstest::rstest;
+    use std::ops::Not;
+    use std::sync::mpsc;
+
+    #[rstest]
+    #[case(&[true])]
+    #[case(&[false])]
+    #[case(&[true, false])]
+    #[case(&[false, false, true])]
+    fn interactive_cleanup_respects_auto_kill(#[case] auto_kill_flags: &[bool]) {
+        let mut engine_state = EngineState::new();
+        engine_state.is_interactive = true;
+
+        let mut signals_handles = vec![];
+
+        for auto_kill in auto_kill_flags {
+            let signals_handle = Signals::new(Default::default());
+            signals_handles.push(signals_handle.clone());
+
+            let (send, _) = mpsc::channel();
+
+            let job = ThreadJob::new(signals_handle, None, *auto_kill, send);
+            let job = Job::Thread(job);
+            engine_state.jobs.lock().unwrap().add_job(job);
+        }
+
+        let should_warn = auto_kill_flags.contains(&false);
+
+        let exited = cleanup((), &engine_state).is_none();
+        assert_eq!(exited, !should_warn);
+
+        let warned = engine_state.exit_warning_given.load(Ordering::SeqCst);
+        assert_eq!(warned, should_warn);
+
+        if should_warn {
+            assert_eq!(
+                engine_state.jobs.lock().unwrap().iter().count(),
+                signals_handles.len()
+            );
+
+            assert!(
+                signals_handles
+                    .iter()
+                    .all(|signals| signals.interrupted().not())
+            );
+
+            let exited = cleanup((), &engine_state).is_none();
+            assert!(exited);
+        }
+
+        assert!(engine_state.jobs.lock().unwrap().is_empty());
+
+        assert!(signals_handles.iter().all(Signals::interrupted));
+    }
+}

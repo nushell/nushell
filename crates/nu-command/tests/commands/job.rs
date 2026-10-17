@@ -5,6 +5,31 @@ use nu_test_support::prelude::*;
 use rstest::rstest;
 use std::time::Duration;
 
+#[rstest]
+#[case(None)]
+#[case(Some("-k"))]
+#[case(Some("--auto-kill"))]
+#[cfg_attr(ci, serial)]
+fn job_list_reports_auto_kill(#[case] auto_kill_flag: Option<&str>) -> Result {
+    let is_auto_kill = auto_kill_flag.is_some();
+
+    let spawn_command = match auto_kill_flag {
+        Some(auto_kill_flag) => format!("job spawn {auto_kill_flag} {{ job recv }}"),
+        None => "job spawn { job recv }".to_owned(),
+    };
+
+    let code = format!(
+        "
+        let id = {spawn_command}
+        let auto_kill = job list | where id == $id | get auto_kill.0
+        job kill $id
+        $auto_kill
+    "
+    );
+
+    test().run(&code).expect_value_eq(is_auto_kill)
+}
+
 #[test]
 fn job_spawn_runs_with_empty_pipeline_not_null_value() -> Result {
     let code = "
