@@ -5,9 +5,10 @@ use nu_engine::{
 use nu_parser::{find_main_block_id_in_script, parse};
 use nu_path::{absolute_with, is_windows_device_path};
 use nu_protocol::{
-    BlockId, Value,
-    ast::Block,
-    engine::{CommandType, StateWorkingSet},
+    BlockId, DeclId, Value,
+    ast::{Block, Call as AstCall},
+    engine::{CallImpl, CommandType, StateWorkingSet},
+    ir::Call as IrCall,
     parser_path::{MAX_RUN_SCRIPT_BYTES, ScriptLoadError, read_run_script_file},
     shell_error::{generic::GenericError, io::IoError},
 };
@@ -97,30 +98,29 @@ impl Command for Run {
         };
 
         let mut full_reparse_engine_state = None;
-        let (block, main_block) = if full_reparse {
+        // `main` is tracked as a `(BlockId, Block)` pair: the id resolves the owning
+        // declaration, which is where `main`'s documentation metadata lives.
+        let (block, main) = if full_reparse {
             let (reparsed_engine_state, reparsed_block, reparsed_main_block_id) =
                 parse_run_script_fresh(engine_state, &file_path, call.head)?;
-            let reparsed_main_block =
-                reparsed_main_block_id.map(|id| reparsed_engine_state.get_block(id).clone());
+            let reparsed_main =
+                reparsed_main_block_id.map(|id| (id, reparsed_engine_state.get_block(id).clone()));
             full_reparse_engine_state = Some(reparsed_engine_state);
-            (reparsed_block, reparsed_main_block)
+            (reparsed_block, reparsed_main)
         } else {
             // - `block_id`: block compiled from the resolved script file
             let block_id: i64 = call.req_parser_info(engine_state, stack, "block_id")?;
             let block_id = BlockId::new(block_id as usize);
             let block = engine_state.get_block(block_id).clone();
-            let main_block = if call.get_parser_info(stack, "main_block_id").is_some() {
+            let main = if call.get_parser_info(stack, "main_block_id").is_some() {
                 let main_block_id: i64 =
                     call.req_parser_info(engine_state, stack, "main_block_id")?;
-                Some(
-                    engine_state
-                        .get_block(BlockId::new(main_block_id as usize))
-                        .clone(),
-                )
+                let main_block_id = BlockId::new(main_block_id as usize);
+                Some((main_block_id, engine_state.get_block(main_block_id).clone()))
             } else {
                 None
             };
-            (block, main_block)
+            (block, main)
         };
         let eval_engine_state = full_reparse_engine_state.as_ref().unwrap_or(engine_state);
 
@@ -143,24 +143,23 @@ impl Command for Run {
         let return_result = (|| {
             // If parser metadata includes a `main` entrypoint, invoke that specific declaration.
             // Otherwise evaluate the full script block as a pipeline transform.
-            if let Some(main_block) = main_block.clone() {
+            if let Some((main_block_id, main_block)) = main.clone() {
                 let signature = (*main_block.signature).clone();
-                // Collect forwarded arguments once so help detection and binding share
-                // a single evaluation (no double-eval side effects).
-                let rest_values = collect_explicit_run_arguments(eval_engine_state, stack, call)?;
 
-                // Mirror normal `eval_call` behaviour: an explicit unquoted
-                // `--help`/`-h` shows help instead of executing `main`.
-                // Uses the script block's own signature directly rather than a
-                // `find_decl("main")` lookup, which could resolve to a hidden or
-                // unrelated declaration.
-                if forwarded_help_requested(eval_engine_state, &rest_values, &signature) {
-                    let help_cmd = MainHelpCommand {
-                        signature: signature.clone(),
-                    };
-                    let help = get_full_help(&help_cmd, eval_engine_state, stack, call.head);
+                // Mirror normal `eval_call` behaviour: an explicit unquoted `--help`/`-h`
+                // shows help instead of executing `main`.
+                //
+                // `compile_call` already short-circuits the common case before arguments are
+                // evaluated; this covers `run --full-reparse`, which cannot be resolved at
+                // compile time because its script is parsed here.
+                if forwarded_help_requested(eval_engine_state, stack, call, &signature) {
+                    let help = main_help(eval_engine_state, stack, call.head, main_block_id)?;
                     return Ok(Value::string(help, call.head).into_pipeline_data());
                 }
+
+                // Only reached on the execution path; collected once so binding does not
+                // re-evaluate forwarded expressions.
+                let rest_values = collect_explicit_run_arguments(eval_engine_state, stack, call)?;
 
                 let callee_stack = stack.gather_captures(eval_engine_state, &main_block.captures);
                 let mut call_eval = CallEval::new(
@@ -394,14 +393,59 @@ fn resolve_named_flag<'a>(
         .find(|named| matches_named_flag(named, long, short))
 }
 
-/// Minimal [`Command`] wrapper so `get_full_help` can render a script `main`
-/// signature without resolving a (possibly hidden or unrelated) `main` decl.
+/// Resolve the declaration that owns a given block.
+///
+/// A script's `main` renders help from its `BlockCommand`, which carries documentation
+/// metadata that lives on the declaration rather than the `Signature` — notably
+/// `@example` entries, which `get_full_help` reads via `Command::examples`. Matching on
+/// `block_id` keeps that metadata without a `find_decl("main")` lookup, which could
+/// resolve to a hidden or unrelated declaration.
+fn decl_id_for_block(engine_state: &EngineState, block_id: BlockId) -> Option<DeclId> {
+    (0..engine_state.num_decls())
+        .map(DeclId::new)
+        .find(|decl_id| engine_state.get_decl(*decl_id).block_id() == Some(block_id))
+}
+
+/// Render full help for a script `main` declaration.
+///
+/// Help is rendered from the declaration that owns `main`'s block so documentation
+/// metadata stored on the declaration — `@example` entries in particular, which
+/// `get_full_help` reads through `Command::examples` rather than `Signature` — is
+/// preserved, matching what plain `main --help` shows.
+fn main_help(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    head: Span,
+    main_block_id: BlockId,
+) -> Result<String, ShellError> {
+    match decl_id_for_block(engine_state, main_block_id) {
+        Some(decl_id) => Ok(get_full_help(
+            engine_state.get_decl(decl_id),
+            engine_state,
+            stack,
+            head,
+        )),
+        // No owning declaration (a `main` synthesized by a reparse that never registered
+        // one): fall back to the block's signature so help is still shown.
+        None => {
+            let signature = *engine_state.get_block(main_block_id).signature.clone();
+            let fallback = BlockSignatureHelp { signature };
+            Ok(get_full_help(&fallback, engine_state, stack, head))
+        }
+    }
+}
+
+/// Signature-only [`Command`] wrapper used as the fallback renderer for `main` help.
+///
+/// A script's `main` normally renders through its own declaration so that documentation
+/// metadata such as `@example` is preserved; this fallback carries only the signature and
+/// therefore intentionally has no examples.
 #[derive(Clone)]
-struct MainHelpCommand {
+struct BlockSignatureHelp {
     signature: Signature,
 }
 
-impl Command for MainHelpCommand {
+impl Command for BlockSignatureHelp {
     fn name(&self) -> &str {
         &self.signature.name
     }
@@ -426,7 +470,7 @@ impl Command for MainHelpCommand {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         Err(ShellError::Generic(GenericError::new_internal(
-            "Internal error: MainHelpCommand is help-only",
+            "Internal error: BlockSignatureHelp is help-only",
             "",
         )))
     }
@@ -436,24 +480,75 @@ impl Command for MainHelpCommand {
     }
 }
 
-/// Check whether already-collected forwarded arguments contain an explicit
-/// unquoted `--help`/`-h` token that resolves to the signature's `help` flag.
+/// Check whether the call forwards an explicit unquoted `--help`/`-h` to the script `main`.
 ///
-/// Operates on evaluated `rest_values` (no re-evaluation) and reuses
-/// `parse_flag_token` so quoted `"--help"` stays a positional value.
+/// Most `run` calls are already short-circuited at compile time
+/// (`crates/nu-engine/src/compile/call.rs`), before any argument is evaluated. This is the
+/// runtime fallback for `run --full-reparse`, whose script is parsed too late to be
+/// resolved during compilation. Quoted literals such as `"--help"` remain ordinary
+/// positional values.
 fn forwarded_help_requested(
     engine_state: &EngineState,
-    rest_values: &[Value],
+    stack: &Stack,
+    call: &Call,
     signature: &Signature,
 ) -> bool {
-    rest_values.iter().any(|value| {
-        if let Some((long, short)) = parse_flag_token(engine_state, value)
-            && let Some(flag) = resolve_named_flag(signature, &long, short.as_deref())
-        {
-            return flag.long == "help";
-        }
-        false
-    })
+    let resolves_to_help = |long: &str, short: Option<&str>| {
+        resolve_named_flag(signature, long, short).is_some_and(|flag| flag.long == "help")
+    };
+
+    match &call.inner {
+        // AST calls: inspect the unevaluated arguments, so nothing forwarded is run.
+        CallImpl::AstRef(ast) => ast_call_help_requested(engine_state, ast, &resolves_to_help),
+        CallImpl::AstBox(ast) => ast_call_help_requested(engine_state, ast, &resolves_to_help),
+        // IR calls: arguments are already materialized in the stack, so reading them adds
+        // no evaluation and no further side effects.
+        CallImpl::IrRef(ir) => ir_call_help_requested(engine_state, stack, ir, &resolves_to_help),
+        CallImpl::IrBox(ir) => ir_call_help_requested(engine_state, stack, ir, &resolves_to_help),
+    }
+}
+
+/// Detect forwarded help on an unevaluated AST call.
+fn ast_call_help_requested(
+    engine_state: &EngineState,
+    call: &AstCall,
+    resolves_to_help: &impl Fn(&str, Option<&str>) -> bool,
+) -> bool {
+    // `--help`/`-h` forwarded as a named flag.
+    if call.named_iter().any(|(name, _, _)| name.item == "help") {
+        return true;
+    }
+
+    // Tokens after `--` are parsed as positionals rather than flags, so an unquoted
+    // `--help`/`-h` there still reaches `main`. Skip the leading filename positional.
+    call.positional_iter()
+        .skip(1)
+        .filter_map(|expr| {
+            let contents = engine_state.get_span_contents(expr.span);
+            let token = std::str::from_utf8(contents).ok()?;
+            if token.starts_with('"') || token.starts_with('\'') {
+                return None;
+            }
+            parse_flag_name(token)
+        })
+        .any(|(long, short)| resolves_to_help(&long, short.as_deref()))
+}
+
+/// Detect forwarded help on an IR call whose arguments are already in the stack.
+fn ir_call_help_requested(
+    engine_state: &EngineState,
+    stack: &Stack,
+    call: &IrCall,
+    resolves_to_help: &impl Fn(&str, Option<&str>) -> bool,
+) -> bool {
+    if call.named_iter(stack).any(|(name, _)| name.item == "help") {
+        return true;
+    }
+
+    call.positional_iter(stack)
+        .skip(1)
+        .filter_map(|value| parse_flag_token(engine_state, value))
+        .any(|(long, short)| resolves_to_help(&long, short.as_deref()))
 }
 
 /// Bind explicit `run file.nu ...args` arguments onto a script `def main` call evaluator.
