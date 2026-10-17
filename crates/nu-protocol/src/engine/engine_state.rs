@@ -179,10 +179,10 @@ pub struct EngineState {
 
     pub root_job_sender: Sender<Mail>,
 
-    // When there are background jobs running, the interactive behavior of `exit` changes depending on
-    // the value of this flag:
-    // - if this is false, then a warning about running jobs is shown and `exit` enables this flag
-    // - if this is true, then `exit` will `std::process::exit`
+    // When there are background jobs that are not auto_kill, interactive `exit` checks this flag:
+    // - if false, it warns about those jobs and sets this flag
+    // - if true, it kills all jobs and exits
+    // If all jobs have auto_kill, exit kills them and exits without warning.
     //
     // This ensures that running exit twice will terminate the program correctly
     pub exit_warning_given: Arc<AtomicBool>,

@@ -4,9 +4,9 @@ use std::sync::atomic::Ordering;
 
 /// Exit the process or clean jobs if appropriate.
 ///
-/// Drops `tag` and exits the current process if there are no running jobs, or if `exit_warning_given` is true.
-/// When running in an interactive session, warns the user if there
-/// were jobs and sets `exit_warning_given` instead, returning `tag` itself in that case.
+/// In an interactive session, warns if any jobs are not `auto_kill` and
+/// `exit_warning_given` is false. Sets that flag and returns `tag` in that case.
+/// Otherwise, kills all jobs, drops `tag`, and exits the current process.
 ///
 // Currently, this `tag` argument exists mostly so that a LineEditor can be dropped before exiting the process.
 pub fn cleanup_exit<T>(tag: T, engine_state: &EngineState, exit_code: i32) -> T {
@@ -17,12 +17,11 @@ pub fn cleanup_exit<T>(tag: T, engine_state: &EngineState, exit_code: i32) -> T 
     std::process::exit(exit_code);
 }
 
-/// clean jobs if appropriate.
+/// Clean jobs if appropriate.
 ///
-/// Drops `tag` and exits the current process if there are no running jobs, or if `exit_warning_given` is true.
-/// When running in an interactive session, warns the user if there
-/// were jobs and sets `exit_warning_given` instead, returning `Some(tag)` itself in that case.
-/// Otherwise return None
+/// In an interactive session, warns if any jobs are not `auto_kill` and
+/// `exit_warning_given` is false. Sets that flag and returns `Some(tag)` in that case.
+/// Otherwise, kills all jobs, drops `tag`, and returns `None`.
 pub fn cleanup<T>(tag: T, engine_state: &EngineState) -> Option<T> {
     let mut jobs = engine_state.jobs.lock().expect("failed to lock job table");
 
