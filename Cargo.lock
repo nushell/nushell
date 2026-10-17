@@ -4804,6 +4804,7 @@ dependencies = [
  "crossterm",
  "fancy-regex",
  "is_executable",
+ "libc",
  "log",
  "lru",
  "lscolors",
@@ -5424,6 +5425,7 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.20",
  "typetag",
+ "unicode-segmentation",
  "web-time",
  "windows 0.62.2",
  "windows-sys 0.61.2",
@@ -7867,7 +7869,7 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.52.1"
-source = "git+https://github.com/nushell/reedline?branch=main#d704744fcb2ba2b38c3d73598f5df96e9b020114"
+source = "git+https://github.com/nushell/reedline?rev=73cb1179f9cc597796b7c69908900da25a997c4d#73cb1179f9cc597796b7c69908900da25a997c4d"
 dependencies = [
  "arboard",
  "chrono",
