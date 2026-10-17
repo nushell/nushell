@@ -9,13 +9,12 @@ use crate::{ConfigWarning, ReportMode, Reportable};
 #[derive(Clone, Debug, Error, Diagnostic)]
 #[diagnostic(severity(Warning))]
 pub enum ShellWarning {
-    #[error("There are still background jobs running ({job_count}).")]
+    /// Running jobs (without auto-kill) prevented interactive shell from exiting.
+    #[error("Running background jobs that won't be killed automatically: {job_count}.")]
     #[diagnostic(
         code(nu::shell::background_jobs_running),
         help(
-            "{}\n{}",
-            "Run `exit` again to kill all jobs.",
-            "Use `job spawn -k` to suppress this warning for a job."
+            "Run `exit` again to kill all jobs.\nUse `job spawn --auto-kill` when spawning thread jobs to exclude them from this warning."
         )
     )]
     BackgroundJobsRunning { job_count: usize },
