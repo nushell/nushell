@@ -14,7 +14,9 @@
 //! the same opening bracket inside a group. The exception is signature lexing, where `<` and `>`
 //! nest too, so it neither records nor jumps.
 
-use crate::lex::{LexState, NoBrackets, RecordBrackets, Token, lex_n_tokens_with, lex_with};
+use crate::lex::{
+    LexMode, LexState, NoBrackets, RecordBrackets, Token, lex_in_mode, lex_n_tokens_with, lex_with,
+};
 use nu_protocol::{
     ParseError, Span,
     engine::{BracketTable, StateWorkingSet},
@@ -107,22 +109,53 @@ pub(crate) fn lex_span(
     special_tokens: &[u8],
     skip_comment: bool,
 ) -> (Vec<Token>, Option<ParseError>) {
+    lex_span_in_mode(
+        working_set,
+        span,
+        additional_whitespace,
+        special_tokens,
+        skip_comment,
+        LexMode::Code,
+    )
+}
+
+/// Lex the inside of a list literal (`span`, without its brackets) as [`lex_span`] does, with the
+/// items separated by whitespace, newlines or commas, and a `]` that closes no `[` an error (see
+/// [`LexMode::ListItems`]).
+pub(crate) fn lex_list_items(
+    working_set: &StateWorkingSet,
+    span: Span,
+) -> (Vec<Token>, Option<ParseError>) {
+    lex_span_in_mode(working_set, span, b"\n\r,", &[], true, LexMode::ListItems)
+}
+
+/// [`lex_span`], reading the span as `mode` says.
+fn lex_span_in_mode(
+    working_set: &StateWorkingSet,
+    span: Span,
+    additional_whitespace: &[u8],
+    special_tokens: &[u8],
+    skip_comment: bool,
+    mode: LexMode,
+) -> (Vec<Token>, Option<ParseError>) {
     let input = working_set.get_span_contents(span);
     match find_bracket_table(working_set, span) {
-        Some(table) => lex_with(
+        Some(table) => lex_in_mode(
             input,
             span.start,
             additional_whitespace,
             special_tokens,
             skip_comment,
+            mode,
             table,
         ),
-        None => lex_with(
+        None => lex_in_mode(
             input,
             span.start,
             additional_whitespace,
             special_tokens,
             skip_comment,
+            mode,
             NoBrackets,
         ),
     }

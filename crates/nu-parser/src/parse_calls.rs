@@ -119,6 +119,13 @@ fn parse_unknown_arg(
         .map(|arg| arg.shape.clone())
         .unwrap_or(SyntaxShape::Any);
 
+    // The argument goes to another program, which reads a leading `-` as a flag, so `-$x` and
+    // `-(expr)` stay the strings they spell, as they do for `^cmd`, instead of negating.
+    let shape = match (shape, working_set.get_span_contents(span)) {
+        (SyntaxShape::Any, [b'-', b'$' | b'(', ..]) => SyntaxShape::String,
+        (shape, _) => shape,
+    };
+
     crate::parser::parse_value(working_set, span, &shape, None)
 }
 

@@ -451,8 +451,8 @@ mod float_range {
                     return false;
                 }
                 match self.end {
-                    Bound::Included(end) if value <= end => return false,
-                    Bound::Excluded(end) if value < end => return false,
+                    Bound::Included(end) if value < end => return false,
+                    Bound::Excluded(end) if value <= end => return false,
                     _ => {}
                 };
             } else {
@@ -461,8 +461,8 @@ mod float_range {
                     return false;
                 }
                 match self.end {
-                    Bound::Included(end) if value >= end => return false,
-                    Bound::Excluded(end) if value > end => return false,
+                    Bound::Included(end) if value > end => return false,
+                    Bound::Excluded(end) if value >= end => return false,
                     _ => {}
                 };
             }

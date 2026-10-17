@@ -1,5 +1,6 @@
 use nu_protocol::Type;
 use nu_test_support::prelude::*;
+use pretty_assertions::assert_matches;
 
 use crate::repl::tests::{TestResult, fail_test, run_test};
 use rstest::rstest;
@@ -465,4 +466,60 @@ fn oneof_annotations_with_extra_characters() -> TestResult {
 #[case("do { |a $a } 1 2")]
 fn closure_param_list_not_terminated(#[case] input: &str) -> TestResult {
     fail_test(input, "expected `|`")
+}
+
+/// The rest parameter takes every remaining positional argument, so no positional parameter can
+/// follow it. Flags can.
+#[rstest]
+#[case::required("def f [...r, a] { }")]
+#[case::optional("def f [...r, a?] { }")]
+fn positional_after_rest(#[case] code: &str) -> Result {
+    test()
+        .run(code)
+        .expect_error_code_eq("nu::parser::positional_after_rest")
+}
+
+#[test]
+fn flag_after_rest() -> Result {
+    test()
+        .run("def f [...r, --x] { [$r $x] }; f 1 --x")
+        .expect_value_eq(test_value!([[1], true]))
+}
+
+/// Parameters and flags share one variable namespace, and short flags need distinct letters.
+#[rstest]
+#[case::positionals("def f [a, a] { }")]
+#[case::long_flags("def f [--x, --x] { }")]
+#[case::short_flags("def f [--x (-x), --y (-x)] { }")]
+#[case::positional_and_flag("def f [foo_bar, --foo-bar] { }")]
+#[case::closure_params("{|a, a| $a}")]
+// `$a` and `a` bind the same variable.
+#[case::dollar_spelling("def f [$a, a] { }")]
+#[case::dollar_and_flag("def f [$a, --a] { }")]
+fn duplicate_parameters(#[case] code: &str) -> Result {
+    test()
+        .run(code)
+        .expect_error_code_eq("nu::parser::duplicate_parameter")
+}
+
+/// `_` may name several parameters, to ignore those arguments.
+#[rstest]
+#[case::closure("[1 2 3] | reduce {|_, _| 7 }", 7)]
+#[case::def("def f [_, _] { 1 }; f 2 3", 1)]
+fn repeated_underscore_parameters(#[case] code: &str, #[case] expected: i64) -> Result {
+    test().run(code).expect_value_eq(expected)
+}
+
+/// Every command has `--help`, so a custom `--help` flag could never be set. `-h` can still be
+/// another flag's short form.
+#[test]
+fn help_flag_is_reserved() -> Result {
+    let err = test().run("def f [--help] { }").expect_parse_error()?;
+    assert_matches!(
+        err,
+        ParseError::LabeledErrorWithHelp { error, .. } if error.contains("`--help` flag is reserved")
+    );
+    test()
+        .run("def f [--host (-h)] { $host }; f -h")
+        .expect_value_eq(true)
 }

@@ -113,7 +113,7 @@ impl Expression {
             Expr::BinaryOp(left, _, right) => {
                 left.has_in_variable(working_set) || right.has_in_variable(working_set)
             }
-            Expr::UnaryNot(expr) => expr.has_in_variable(working_set),
+            Expr::UnaryNot(expr) | Expr::UnaryMinus(expr) => expr.has_in_variable(working_set),
             Expr::Block(block_id) | Expr::Closure(block_id) => {
                 let block = working_set.get_block(*block_id);
                 block
@@ -294,7 +294,7 @@ impl Expression {
                 left.replace_span(working_set, replaced, new_span);
                 right.replace_span(working_set, replaced, new_span);
             }
-            Expr::UnaryNot(expr) => {
+            Expr::UnaryNot(expr) | Expr::UnaryMinus(expr) => {
                 expr.replace_span(working_set, replaced, new_span);
             }
             Expr::Block(block_id) => {
@@ -507,7 +507,7 @@ impl Expression {
                     *working_set.get_block_mut(*block_id) = block;
                 }
             }
-            Expr::UnaryNot(expr) => {
+            Expr::UnaryNot(expr) | Expr::UnaryMinus(expr) => {
                 expr.replace_in_variable(working_set, new_var_id);
             }
             Expr::BinaryOp(lhs, op, rhs) => {

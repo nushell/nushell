@@ -3,6 +3,7 @@ use crate::{Span, Type, ast::RedirectionSource, did_you_mean};
 use miette::Diagnostic;
 use serde::{Deserialize, Serialize};
 use std::{
+    borrow::Cow,
     fmt::Display,
     str::{Utf8Error, from_utf8},
 };
@@ -40,13 +41,45 @@ pub enum ParseError {
         #[label = "required parameter {0} after optional parameter"] Span,
     ),
 
+    /// A positional parameter follows the rest parameter, which takes every remaining
+    /// positional argument.
+    #[error("Positional parameter after the rest parameter.")]
+    #[diagnostic(
+        code(nu::parser::positional_after_rest),
+        help(
+            "The rest parameter takes all remaining positional arguments, so it must be the last positional parameter. Flags can still follow it."
+        )
+    )]
+    PositionalAfterRest(
+        String,
+        #[label = "parameter {0} after the rest parameter"] Span,
+    ),
+
+    /// Two parameters or flags of a signature share a name, or two flags share a short flag.
+    ///
+    /// - `0`: the repeated name as written (`a`, `--name`, `-n`)
+    /// - `1`: span of the repeat
+    /// - `2`: span of the first use
+    #[error("Duplicate parameter or flag.")]
+    #[diagnostic(
+        code(nu::parser::duplicate_parameter),
+        help(
+            "Each parameter and flag needs its own name, and each short flag its own letter. A long flag's variable replaces `-` with `_`, so `--foo-bar` and `foo_bar` clash."
+        )
+    )]
+    DuplicateParameter(
+        String,
+        #[label(primary, "`{0}` uses a name that is already taken")] Span,
+        #[label("first used here")] Span,
+    ),
+
     #[error("Unexpected end of code.")]
     #[diagnostic(code(nu::parser::unexpected_eof))]
     UnexpectedEof(String, #[label("expected closing {0}")] Span),
 
     /// A delimiter was opened but never closed.
     ///
-    /// - `0`: expected closer (e.g. `"}"`, `"]"`, `")"`)
+    /// - `0`: expected closer (e.g. `"}"`, `"]"`, `")"`, or a raw string's `'##`)
     /// - `1`: span of the **opening** delimiter
     /// - `2`: span where the closer was expected (primary — often mid-file or EOF)
     /// - `3`: help text (generic or heuristic structure hint)
@@ -56,7 +89,7 @@ pub enum ParseError {
     #[error("Unclosed delimiter.")]
     #[diagnostic(code(nu::parser::unclosed_delimiter), help("{3}"))]
     Unclosed(
-        &'static str,
+        Cow<'static, str>,
         #[label("unclosed — opens here (need `{0}`)")] Span,
         #[label(primary, "expected `{0}` here")] Span,
         String,
@@ -193,6 +226,16 @@ pub enum ParseError {
     #[error("Capture of mutable variable.")]
     #[diagnostic(code(nu::parser::expected_keyword))]
     CaptureOfMutableVar(#[label("capture of mutable variable")] Span),
+
+    /// A record or table literal names the same field or column twice. The parse-time
+    /// counterpart of `ShellError::ColumnDefinedTwice`, for keys written as literals.
+    #[error("Record field or table column used twice: {0}")]
+    #[diagnostic(code(nu::parser::column_defined_twice))]
+    ColumnDefinedTwice(
+        String,
+        #[label(primary, "field redefined here")] Span,
+        #[label("field first defined here")] Span,
+    ),
 
     #[error("Expected keyword.")]
     #[diagnostic(code(nu::parser::expected_keyword))]
@@ -662,6 +705,13 @@ pub enum ParseError {
     #[diagnostic()]
     InvalidLiteral(String, String, #[label("{0} in {1}")] Span),
 
+    /// A filesize or duration literal is outside the 64-bit range of its type.
+    ///
+    /// - `0`: the type, `filesize` or `duration`
+    #[error("Invalid literal")]
+    #[diagnostic(code(nu::parser::literal_too_large))]
+    LiteralTooLarge(String, #[label("{0} too large")] Span),
+
     #[error("{0}")]
     #[diagnostic()]
     LabeledError(String, String, #[label("{1}")] Span),
@@ -734,29 +784,25 @@ impl ParseError {
     }
 
     /// Build an [`Unclosed`](ParseError::Unclosed) with default help text.
-    pub fn unclosed(delimiter: &'static str, open_span: Span, end_span: Span) -> Self {
-        Self::Unclosed(
-            delimiter,
-            open_span,
-            end_span,
-            default_unclosed_help(delimiter, None),
-        )
+    pub fn unclosed(
+        delimiter: impl Into<Cow<'static, str>>,
+        open_span: Span,
+        end_span: Span,
+    ) -> Self {
+        Self::unclosed_with_hint(delimiter, open_span, end_span, None)
     }
 
     /// Build an [`Unclosed`](ParseError::Unclosed) with an optional structure hint
     /// (e.g. `record field ls`, `def foo`). Empty/`None` uses generic help.
     pub fn unclosed_with_hint(
-        delimiter: &'static str,
+        delimiter: impl Into<Cow<'static, str>>,
         open_span: Span,
         end_span: Span,
         structure_hint: Option<&str>,
     ) -> Self {
-        Self::Unclosed(
-            delimiter,
-            open_span,
-            end_span,
-            default_unclosed_help(delimiter, structure_hint),
-        )
+        let delimiter = delimiter.into();
+        let help = default_unclosed_help(&delimiter, structure_hint);
+        Self::Unclosed(delimiter, open_span, end_span, help)
     }
 
     /// Build an [`Unbalanced`](ParseError::Unbalanced) with default help text.
@@ -792,6 +838,7 @@ impl ParseError {
             ParseError::NameIsBuiltinVar(_, s) => *s,
             ParseError::NameIsKeyword(_, _, s) => *s,
             ParseError::CaptureOfMutableVar(s) => *s,
+            ParseError::ColumnDefinedTwice(_, s, _) => *s,
             ParseError::IncorrectValue(_, s, _) => *s,
             ParseError::InvalidBinaryString(s, _) => *s,
             ParseError::MultipleRestParams(s) => *s,
@@ -817,6 +864,8 @@ impl ParseError {
             ParseError::NonUtf8(s) => *s,
             ParseError::UnknownFlag(_, _, s, _) => *s,
             ParseError::RequiredAfterOptional(_, s) => *s,
+            ParseError::PositionalAfterRest(_, s) => *s,
+            ParseError::DuplicateParameter(_, s, _) => *s,
             ParseError::UnknownType(s) => *s,
             ParseError::TypeAliasUsedBeforeDefinition(_, s, _) => *s,
             ParseError::TypeAliasSelfReference(_, s) => *s,
@@ -861,6 +910,7 @@ impl ParseError {
             ParseError::UnexpectedRedirection { span } => *span,
             ParseError::UnknownOperator(_, _, s) => *s,
             ParseError::InvalidLiteral(_, _, s) => *s,
+            ParseError::LiteralTooLarge(_, s) => *s,
             ParseError::LabeledErrorWithHelp { span: s, .. } => *s,
             ParseError::RedirectingBuiltinCommand(_, s, _) => *s,
             ParseError::UnexpectedSpreadArg(_, s) => *s,

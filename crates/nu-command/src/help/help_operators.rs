@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::ast::{Assignment, Bits, Boolean, Comparison, Math, Operator};
+use nu_protocol::ast::{Assignment, Bits, Boolean, Comparison, Math, NOT_PRECEDENCE, Operator};
 use strum::IntoEnumIterator;
 
 #[derive(Clone)]
@@ -79,7 +79,7 @@ impl Command for HelpOperators {
                 "operator" => Value::string("not", head),
                 "name" => Value::string("Not", head),
                 "description" => Value::string("Negates a value or expression.", head),
-                "precedence" => Value::int(55, head),
+                "precedence" => Value::int(NOT_PRECEDENCE.into(), head),
             },
             head,
         ));

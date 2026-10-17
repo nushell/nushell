@@ -4086,6 +4086,9 @@ fn operator_completions(mut custom_completer: NuCompleter) {
     let suggestions = custom_completer.complete_blocking("1 bit-s", 7);
     let expected: Vec<_> = vec!["bit-shl", "bit-shr"];
     match_suggestions(&expected, &suggestions);
+    // A negated int takes the operators of an int.
+    let suggestions = custom_completer.complete_blocking("-(1) ", 5);
+    assert_eq!(20, suggestions.len());
 
     let suggestions = custom_completer.complete_blocking("'str' ", 6);
     // == != > < >= <= in not-in

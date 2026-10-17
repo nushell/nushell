@@ -2436,11 +2436,12 @@ impl PartialOrd for Value {
         // scaled as the value being compared increases in magnitude (using relative epsilon-based
         // tolerance). Implementation is similar to python's `math.isclose()` function:
         // https://docs.python.org/3/library/math.html#math.isclose. Fallback to the default strict
-        // float comparison if the difference exceeds the error epsilon.
+        // float comparison if the difference exceeds the error epsilon. Infinities skip the
+        // tolerance: with an infinite operand it would be infinite and match every number.
         fn compare_floats(val: f64, other: f64) -> Option<Ordering> {
             let prec = f64::EPSILON.max(val.abs().max(other.abs()) * f64::EPSILON);
 
-            if (other - val).abs() <= prec {
+            if val.is_finite() && other.is_finite() && (other - val).abs() <= prec {
                 return Some(Ordering::Equal);
             }
 
@@ -3558,8 +3559,14 @@ impl Value {
     }
 
     pub fn modulo(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
-        // Based off the unstable `div_floor` function in the std library.
+        // Based off the unstable `div_floor` function in the std library. Returns `None` only for
+        // a zero divisor.
         fn checked_mod_i64(dividend: i64, divisor: i64) -> Option<i64> {
+            // `checked_rem` also fails for `i64::MIN % -1`, because the matching division
+            // overflows, but any number mod -1 is 0. Only a zero divisor is an error.
+            if divisor == -1 {
+                return Some(0);
+            }
             let remainder = dividend.checked_rem(divisor)?;
             if (remainder > 0 && divisor < 0) || (remainder < 0 && divisor > 0) {
                 // Note that `remainder + divisor` cannot overflow, because `remainder` and
@@ -3587,14 +3594,8 @@ impl Value {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
                 if let Some(val) = checked_mod_i64(*lhs, *rhs) {
                     Ok(Value::int(val, span))
-                } else if *rhs == 0 {
-                    Err(ShellError::DivisionByZero { span: op })
                 } else {
-                    Err(ShellError::OperatorOverflow {
-                        msg: "modulo operation overflowed".into(),
-                        span,
-                        help: None,
-                    })
+                    Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
@@ -3621,27 +3622,15 @@ impl Value {
             (Value::Filesize { val: lhs, .. }, Value::Filesize { val: rhs, .. }) => {
                 if let Some(val) = checked_mod_i64(lhs.get(), rhs.get()) {
                     Ok(Value::filesize(val, span))
-                } else if *rhs == Filesize::ZERO {
-                    Err(ShellError::DivisionByZero { span: op })
                 } else {
-                    Err(ShellError::OperatorOverflow {
-                        msg: "modulo operation overflowed".into(),
-                        span,
-                        help: None,
-                    })
+                    Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Filesize { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
                 if let Some(val) = checked_mod_i64(lhs.get(), *rhs) {
                     Ok(Value::filesize(val, span))
-                } else if *rhs == 0 {
-                    Err(ShellError::DivisionByZero { span: op })
                 } else {
-                    Err(ShellError::OperatorOverflow {
-                        msg: "modulo operation overflowed".into(),
-                        span,
-                        help: None,
-                    })
+                    Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Filesize { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
@@ -3662,27 +3651,15 @@ impl Value {
             (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
                 if let Some(val) = checked_mod_i64(*lhs, *rhs) {
                     Ok(Value::duration(val, span))
-                } else if *rhs == 0 {
-                    Err(ShellError::DivisionByZero { span: op })
                 } else {
-                    Err(ShellError::OperatorOverflow {
-                        msg: "division operation overflowed".into(),
-                        span,
-                        help: None,
-                    })
+                    Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Duration { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
                 if let Some(val) = checked_mod_i64(*lhs, *rhs) {
                     Ok(Value::duration(val, span))
-                } else if *rhs == 0 {
-                    Err(ShellError::DivisionByZero { span: op })
                 } else {
-                    Err(ShellError::OperatorOverflow {
-                        msg: "division operation overflowed".into(),
-                        span,
-                        help: None,
-                    })
+                    Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Duration { val: lhs, .. }, Value::Float { val: rhs, .. }) => {

@@ -1,6 +1,26 @@
 use nu_protocol::{Span, Spanned, ast::*, engine::StateWorkingSet};
+use std::{
+    collections::{HashMap, hash_map::Entry},
+    hash::Hash,
+};
 
 pub(crate) const PERCENT_FORCED_BUILTIN_PARSER_INFO: &str = "percent_forced_builtin";
+
+/// Record that `name` is used at `span`, and give the span of its first use if it was used
+/// before. Callers report a repeated record field, table column or parameter with their own error.
+pub(crate) fn earlier_use<T: Eq + Hash>(
+    uses: &mut HashMap<T, Span>,
+    name: T,
+    span: Span,
+) -> Option<Span> {
+    match uses.entry(name) {
+        Entry::Occupied(first) => Some(*first.get()),
+        Entry::Vacant(entry) => {
+            entry.insert(span);
+            None
+        }
+    }
+}
 
 /// three dots b"..."
 pub(crate) const SPREAD_OPERATOR: &[u8; 3] = b"...";

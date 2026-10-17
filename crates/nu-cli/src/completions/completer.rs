@@ -255,7 +255,9 @@ fn is_operator_lhs(expr: &Expr) -> bool {
         | Expr::Nothing
         | Expr::Subexpression(_)
         | Expr::Block(_)
-        | Expr::Closure(_) => true,
+        | Expr::Closure(_)
+        // `-$x` is one operand that binds tighter than every operator, like `-5`.
+        | Expr::UnaryMinus(_) => true,
         Expr::AttributeBlock(_)
         | Expr::VarDecl(_)
         | Expr::Call(_)
