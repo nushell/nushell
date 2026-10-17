@@ -4,4 +4,11 @@ ignore = [
   # untrusted .xlsx files could be get OOM or CPU DoS
   "RUSTSEC-2026-0194",
   "RUSTSEC-2026-0195",
+  # zip@8.6 is used by calamine, which only reads entries into memory
+  # (`ZipArchive::by_name`/`by_index`) and never calls the vulnerable
+  # `extract()` APIs (symlinks and Unix permissions on extraction).
+  # Remove once calamine releases with zip >= 9 (tafia/calamine#741).
+  "RUSTSEC-2026-0367",
+  "RUSTSEC-2026-0368",
+  "RUSTSEC-2026-0369",
 ]
