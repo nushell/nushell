@@ -47,8 +47,8 @@ built on a large module can pull in a lot of output.
 A constant is rebuilt the same way, as `const <name> = <value>`, because only
 the name is recorded with a source span. So the value is the one the command
 actually reads: an expression such as `path self` shows up already resolved,
-and an explicit type annotation is lost. `$nu` and the record bound by `use
-<module>` are left out — neither is written as a `const` anywhere."
+and an explicit type annotation is lost. `$nu` and the record bound by
+`use <module>` are left out — neither is written as a `const` anywhere."
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
@@ -264,7 +264,7 @@ and an explicit type annotation is lost. `$nu` and the record bound by `use
             }
             value => {
                 if let Ok(closure) = value.as_closure() {
-                    let block = engine_state.get_block(closure.block_id);
+                    let block = engine_state.get_closure_block(closure, call.head)?;
 
                     if let Some(span) = block.span {
                         let contents = engine_state.get_span_contents(span);

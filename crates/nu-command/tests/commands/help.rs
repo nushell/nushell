@@ -2,6 +2,7 @@ use nu_experimental::NATIVE_CLIP;
 use nu_test_support::fs::Stub::FileWithContent;
 use nu_test_support::playground::Playground;
 use nu_test_support::prelude::*;
+use rstest::rstest;
 
 // Note: These tests might slightly overlap with tests/scope/mod.rs
 
@@ -489,6 +490,145 @@ fn help_commands_shows_overlay_name_for_module_decls() -> Result {
     })
 }
 
+// Regression tests for #11657: an alias reuses the signature of the command it wraps. An alias of
+// a subcommand is listed under the name it's called by, says what it runs, and sorts right after
+// the subcommand it wraps.
+#[rstest]
+#[case::custom_command(
+    r#"def foo [] {}; def "foo bar" [] {}; alias fb = foo bar; help foo | ansi strip"#,
+    "foo bar (custom)",
+    "fb (alias) - Alias for `foo bar`"
+)]
+#[case::builtin_command(
+    "alias st = str trim; help str | ansi strip",
+    "str trim - ",
+    "st (alias) - Alias for `str trim`"
+)]
+#[case::module_alias(
+    r#"
+        module spam {
+            export def foo [] {}
+            export def "foo bar" [] {}
+            export alias fb = foo bar
+        }
+        use spam
+        help spam foo | ansi strip
+    "#,
+    "foo bar (custom)",
+    "spam fb (alias) - Alias for `foo bar`"
+)]
+// A doc comment replaces the alias's description, but the list still says what the alias runs.
+#[case::doc_comment(
+    "
+        # trim both ends
+        alias st = str trim
+        help str | ansi strip
+    ",
+    "str trim - ",
+    "st (alias) - Alias for `str trim`"
+)]
+// The list has one line per entry, so an expansion written over several lines is joined.
+#[case::multiline_expansion(
+    r#"
+        def foo [] {}
+        def "foo bar" [x] {}
+        alias fm = foo bar (
+            'a'
+        )
+        help foo | ansi strip
+    "#,
+    "foo bar (custom)",
+    "fm (alias) - Alias for `foo bar ( 'a' )`"
+)]
+// With color, the expansion is highlighted as a whole, so its own backticks aren't left over.
+#[case::backticks_in_expansion(
+    r#"
+        $env.config.use_ansi_coloring = true
+        def foo [] {}
+        def "foo bar" [x] {}
+        alias fq = foo bar `x y`
+        help foo | ansi strip
+    "#,
+    "foo bar (custom)",
+    "fq (alias) - Alias for foo bar `x y`"
+)]
+fn help_subcommands_list_alias_after_wrapped_subcommand(
+    #[case] code: &str,
+    #[case] wrapped: &str,
+    #[case] alias_line: &str,
+) -> Result {
+    let outcome: String = test().run(code)?;
+    let lines: Vec<&str> = outcome.lines().map(str::trim).collect();
+    let wrapped_at = lines
+        .iter()
+        .position(|line| line.starts_with(wrapped))
+        .unwrap_or_else(|| panic!("no `{wrapped}` line in:\n{outcome}"));
+    assert_eq!(
+        lines.get(wrapped_at + 1),
+        Some(&alias_line),
+        "got:\n{outcome}"
+    );
+    Ok(())
+}
+
+// A hidden subcommand can't be called, so it isn't listed.
+#[rstest]
+#[case::alias(
+    r#"def foo [] {}; def "foo bar" [] {}; alias fb = foo bar; hide fb; help foo | ansi strip"#,
+    "fb ("
+)]
+#[case::custom_command(
+    r#"def foo [] {}; def "foo bar" [] {}; def "foo qux" [] {}; hide "foo qux"; help foo | ansi strip"#,
+    "foo qux ("
+)]
+fn help_subcommands_omit_hidden_subcommand(#[case] code: &str, #[case] hidden: &str) -> Result {
+    let outcome: String = test().run(code)?;
+    assert_contains("foo bar (custom)", &outcome);
+    assert_contains_not(hidden, &outcome);
+    Ok(())
+}
+
+#[rstest]
+#[case::top_level(
+    r#"
+        def foo [] {}
+        def "foo bar" [] {}
+        alias "foo baz" = foo bar
+        help foo | ansi strip
+    "#
+)]
+// Module subcommands are listed under their bare names (`foo bar`, not `spam foo bar`); that is
+// the module-scoping TODO in `get_command_documentation` (#11447), not something this test pins.
+#[case::module_prefixed(
+    r#"
+        module spam {
+            export def foo [] {}
+            export def "foo bar" [] {}
+            export alias "foo baz" = foo bar
+        }
+        use spam
+        help spam foo | ansi strip
+    "#
+)]
+fn help_subcommands_list_alias_under_its_own_name(#[case] code: &str) -> Result {
+    let outcome: String = test().run(code)?;
+    let lines: Vec<&str> = outcome.lines().map(str::trim).collect();
+    assert_eq!(
+        lines
+            .iter()
+            .skip_while(|line| !line.starts_with("foo bar (custom)"))
+            .take(2)
+            .copied()
+            .collect::<Vec<_>>(),
+        [
+            "foo bar (custom) -",
+            "foo baz (alias) - Alias for `foo bar`"
+        ],
+        "got:\n{outcome}"
+    );
+    Ok(())
+}
+
 #[test]
 #[exp(NATIVE_CLIP)]
 fn clip_command_shows_module_qualified_decls_after_use() -> Result {
@@ -497,6 +637,23 @@ fn clip_command_shows_module_qualified_decls_after_use() -> Result {
     assert_contains("clip prefix", &outcome);
     Ok(())
 }
+#[test]
+fn help_module_lists_exported_type_aliases() -> Result {
+    let code = "
+        module geo {
+            type Private = int
+            export type Point = int
+            export type Id = int
+        }
+        help modules geo
+    ";
+
+    let outcome: String = test().run(code)?;
+    assert_contains("Exported type aliases:\n  Id, Point", &outcome);
+    assert_contains_not("Private", &outcome);
+    Ok(())
+}
+
 #[test]
 fn nothing_type_annotation() -> Result {
     let mut tester = test();

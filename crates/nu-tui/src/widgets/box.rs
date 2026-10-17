@@ -33,13 +33,13 @@ impl TuiWidget for BoxWidget {
 
     fn render(
         &self,
-        _id: &str,
+        id: &str,
         _state: &WidgetState,
         frame: &mut Frame,
         area: Rect,
         session: &Session,
         _focused: bool,
     ) {
-        frame.render_widget(super::framed(&self.title, false, &session.theme), area);
+        frame.render_widget(super::framed(&self.title, false, session, id), area);
     }
 }

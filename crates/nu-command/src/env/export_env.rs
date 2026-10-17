@@ -42,7 +42,7 @@ impl Command for ExportEnv {
     ) -> Result<PipelineData, ShellError> {
         // Blocks compile to closure values under IR; use the block id from the evaluated arg.
         let closure: Closure = call.req(engine_state, caller_stack, 0)?;
-        let block = engine_state.get_block(closure.block_id);
+        let block = engine_state.get_closure_block(&closure, call.head)?;
         let mut callee_stack = caller_stack
             .gather_captures(engine_state, &block.captures)
             .reset_pipes();

@@ -1,7 +1,7 @@
 mod common;
 
 use nu_protocol::TrimStrategy;
-use nu_table::{NuTable, TableTheme as theme};
+use nu_table::{NuTable, TableTheme as theme, string_width};
 
 use common::{TestCase, cell, create_row, test_table};
 
@@ -720,6 +720,43 @@ fn single_left_priority_drops_trailing_columns_for_wider_values() {
         !header_cells.iter().any(|cell| cell == "c11"),
         "expected trailing columns to be dropped first; header cells: {header_cells:?}\n{rendered}"
     );
+}
+
+#[test]
+fn trailing_column_fits_when_wider_than_the_column_it_replaces() {
+    // The `...` column (3 + padding) takes the place of the last fitted
+    // column. One-letter columns are narrower than that, which used to make
+    // the table one or two columns wider than the terminal.
+    let header = ["#", "name", "a", "description", "b", "notes", "c", "extra"];
+    let row = [
+        "0",
+        "a long name",
+        "x",
+        "a longer description",
+        "y",
+        "notes",
+        "z",
+        "more",
+    ];
+    let data = vec![header.map(cell).to_vec(), row.map(cell).to_vec()];
+
+    for hos in [false, true] {
+        for width in 10..=80 {
+            let mut table = NuTable::from(data.clone());
+            table.set_theme(theme::rounded());
+            table.set_structure(true, true, false);
+            table.set_trim(TrimStrategy::wrap(true));
+            table.set_border_header(hos);
+            let Some(rendered) = table.draw(width) else {
+                continue;
+            };
+
+            assert!(
+                rendered.lines().all(|line| string_width(line) <= width),
+                "wider than {width} (header_on_separator: {hos}):\n{rendered}"
+            );
+        }
+    }
 }
 
 fn parse_heavy_header_column_widths(rendered: &str) -> Vec<usize> {

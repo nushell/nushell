@@ -5,6 +5,7 @@ use nu_test_support::{
 use pretty_assertions::assert_eq;
 use rstest::rstest;
 
+mod background_jobs;
 mod environment;
 mod pipeline;
 mod repl;
@@ -258,6 +259,44 @@ fn run_in_noninteractive_mode() {
     assert!(child_output.stderr.is_empty());
 }
 
+// `$nu.startup-time` must be a real duration wherever it can be read, also before startup has
+// finished and in engines that never ran nushell's `main`.
+#[test]
+fn startup_time_in_embedded_engine() -> Result {
+    let startup: std::time::Duration = test().run("$nu.startup-time")?;
+    assert!(
+        startup > std::time::Duration::ZERO,
+        "startup time {startup:?}"
+    );
+    Ok(())
+}
+
+#[test]
+#[deps(NU)]
+fn startup_time_while_config_is_evaluated() -> Result {
+    Playground::setup(
+        "startup_time_while_config_is_evaluated",
+        |dirs, sandbox| -> Result {
+            sandbox.with_files(&[FileWithContent(
+                "config.nu",
+                "$env.STARTUP_IN_CONFIG = $nu.startup-time",
+            )]);
+            let code = "
+            nu --no-std-lib --config config.nu -c '$env.STARTUP_IN_CONFIG | into int'
+            | into int
+            | into duration
+        ";
+            let startup: std::time::Duration = test().cwd(dirs.test()).run(code)?;
+
+            assert!(
+                startup > std::time::Duration::ZERO,
+                "startup time {startup:?}"
+            );
+            Ok(())
+        },
+    )
+}
+
 // A `try` with a `catch` or `finally` block collects the block's output to know whether
 // it failed. When the tried external's stdout is inherited, its output already went to
 // the terminal; collecting used to turn the data-less stream into an empty string, which
@@ -429,6 +468,42 @@ fn script_help_shows_single_subcommand() -> Result {
             "help output should list exactly one of 'script.nu bar' or 'main bar', got:\n{}",
             out
         );
+
+        Ok(())
+    })
+}
+
+// regression test for https://github.com/nushell/nushell/issues/11657: an alias of a `main`
+// subcommand is listed under its own name right after that subcommand, and an alias named like a
+// `main` subcommand is listed under its script-qualified name, not as the command it wraps.
+#[test]
+#[deps(NU)]
+fn script_help_lists_main_alias_under_its_own_name() -> Result {
+    Playground::setup("main_alias_help", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[FileWithContent(
+            "script.nu",
+            r#"def "main bar" [] {}
+               alias mb = main bar
+               alias "main baz" = main bar
+               def "main" [] { help main }"#,
+        )]);
+
+        let out: String = test()
+            .cwd(dirs.test())
+            .run("nu script.nu --help | ansi strip")?;
+        let lines: Vec<&str> = out.lines().map(str::trim).collect();
+        let bar_at = lines
+            .iter()
+            .position(|line| line.starts_with("script.nu bar (custom)"))
+            .unwrap_or_else(|| panic!("no `script.nu bar` line in:\n{out}"));
+        assert!(
+            lines
+                .get(bar_at + 1)
+                .is_some_and(|line| line.starts_with("mb (alias) - Alias for ")),
+            "got:\n{out}"
+        );
+        assert_contains("script.nu baz (alias)", &out);
+        assert_eq!(out.matches("bar (").count(), 1, "got:\n{out}");
 
         Ok(())
     })

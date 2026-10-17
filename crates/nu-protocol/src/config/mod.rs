@@ -197,7 +197,10 @@ impl UpdateFromValue for Config {
                 "table" => self.table.update(val, current_path, errors),
                 "filesize" => self.filesize.update(val, current_path, errors),
                 "explore" => self.explore.update(val, current_path, errors),
-                "tui" => self.tui.update(val, current_path, errors),
+                "tui" => {
+                    self.tui.update(val, current_path, errors);
+                    check_tui_border_type(&mut self.tui, current_path, errors);
+                }
                 "color_config" => self.color_config.update(val, current_path, errors),
                 "clip" => self.clip.update(val, current_path, errors),
                 "footer_mode" => self.footer_mode.update(val, current_path, errors),
@@ -292,6 +295,34 @@ impl UpdateFromValue for Config {
             }
         }
     }
+}
+
+/// `$env.config.tui` is a free-form map of colors, except `border_type`,
+/// which must name a tui border (see [`TableMode::from_tui_border`]). A bad
+/// value is reported here, where it is set, and the previous one is kept,
+/// like a typed field that fails to update.
+fn check_tui_border_type(
+    tui: &mut HashMap<String, Value>,
+    path: &mut ConfigPath,
+    errors: &mut ConfigErrors,
+) {
+    const KEY: &str = "border_type";
+    let Some(value) = tui.get(KEY) else {
+        return;
+    };
+    let path = &mut path.push(KEY);
+    match value.as_str() {
+        Ok(name) if TableMode::from_tui_border(name).is_some() => return,
+        Ok(_) => {
+            let names = TableMode::tui_border_names().collect::<Vec<_>>().join(", ");
+            errors.invalid_value(path, format!("one of {names}"), value);
+        }
+        Err(_) => errors.type_mismatch(path, Type::String, value),
+    }
+    match errors.config().tui.get(KEY).cloned() {
+        Some(old) => tui.insert(KEY.into(), old),
+        None => tui.remove(KEY),
+    };
 }
 
 impl UpdateFromValue for Filesize {
@@ -511,6 +542,59 @@ mod tests {
             expected,
             "reassigning `keybindings` duplicated the unnamed binding"
         );
+    }
+
+    /// `tui.border_type` is checked where it is set: a name that is not a tui
+    /// border is an error and the previous border stays.
+    #[test]
+    fn tui_border_type_rejects_non_borders_and_keeps_the_old_one() {
+        let old = Config::default();
+        let tui = |border_type: Value| {
+            Value::test_record(record! {
+                "tui" => Value::test_record(record! { "border_type" => border_type }),
+            })
+        };
+
+        let mut new = old.clone();
+        new.update_from_value(&old, &tui(Value::test_string("Double")))
+            .expect("a table theme name is a border");
+        assert_eq!(
+            new.tui.get("border_type"),
+            Some(&Value::test_string("Double"))
+        );
+
+        for bad in [
+            Value::test_string("none"),
+            Value::test_string("default"),
+            Value::test_string("wavy"),
+            Value::test_int(1),
+        ] {
+            let mut new = old.clone();
+            let err = new
+                .update_from_value(&old, &tui(bad.clone()))
+                .expect_err("not a tui border");
+            assert!(
+                format!("{err:?}").contains("$env.config.tui.border_type"),
+                "{bad:?}: {err:?}"
+            );
+            assert_eq!(new.tui.get("border_type"), old.tui.get("border_type"));
+        }
+    }
+
+    /// `TableMode::NAMES` feeds `table --theme` and `tui --border`
+    /// completions, so it must hold every name `from_str` accepts: the ones
+    /// its error lists, plus `default`.
+    #[test]
+    fn table_mode_names_match_from_str() {
+        for name in TableMode::NAMES {
+            assert!(name.parse::<TableMode>().is_ok(), "{name}");
+        }
+        let listed = "wavy".parse::<TableMode>().expect_err("not a table mode");
+        let listed: Vec<&str> = listed.split('\'').skip(1).step_by(2).collect();
+        for name in &listed {
+            assert!(TableMode::NAMES.contains(name), "{name} is not in NAMES");
+        }
+        assert_eq!(listed.len() + 1, TableMode::NAMES.len());
     }
 
     // --- merge semantics: replace on same name+key, append+warn on shared name ---

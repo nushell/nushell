@@ -115,6 +115,29 @@ fn def_keyword_name_does_not_panic_on_subsequent_parse() -> Result {
     Ok(())
 }
 
+/// `def --help` only shows the help of `def`. It defines nothing, so the name isn't a command
+/// afterwards (a call to it used to reach the predeclaration `def` makes, and panic).
+#[rstest]
+#[case::flag_first("def --help foo [] { 1 }; foo")]
+#[case::flag_last("def foo [] { 1 } --help; foo")]
+#[case::in_module(
+    "module m { export def --help foo [] { 1 }; export def bar [] { foo } }; use m bar; bar"
+)]
+fn def_help_defines_nothing(#[case] code: &str) -> Result {
+    test()
+        .run(code)
+        .expect_error_code_eq("nu::shell::external_command")
+}
+
+/// A call parsed before `def --help` declined to define its name still resolves to the name's
+/// predeclaration; running that is an error, not a panic.
+#[test]
+fn running_a_predeclaration_is_an_error() -> Result {
+    test()
+        .run("def bar [] { foo }; def --help foo [] { 1 }; bar")
+        .expect_error_code_eq("nu::shell::nushell_failed_spanned")
+}
+
 #[test]
 fn export_def_fails_with_keyword_name() -> Result {
     let err = test()

@@ -295,15 +295,16 @@ impl TuiWidget for TableWidget {
                 Row::new(cells).height(1)
             })
             .collect();
+        let name = super::custom_title(session, id, "table");
         let title = if self.multi && !list.checked.is_empty() {
-            format!("table ({count}, {} checked)", list.checked.len())
+            format!("{name} ({count}, {} checked)", list.checked.len())
         } else {
-            format!("table ({count})")
+            format!("{name} ({count})")
         };
         let table = Table::new(rows, widths)
             .header(Row::new(header_cells).height(1))
             .style(theme.text())
-            .block(super::framed(&title, focused, theme))
+            .block(super::framed(&title, focused, session, id))
             .row_highlight_style(theme.selected())
             .highlight_symbol("▶ ");
         let mut table_state = TableState::default();

@@ -2,7 +2,7 @@ use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
 use nu_protocol::Config;
 use nu_utils::get_system_locale;
-use num_format::ToFormattedString;
+use num_format::{Grouping, ToFormattedString};
 use std::sync::Arc;
 
 struct Arguments {
@@ -175,6 +175,18 @@ fn string_helper(
             span: head,
         });
     }
+    if let Some(decimal_val) = decimals_value
+        && decimal_val > u16::MAX as i64
+    {
+        return Err(ShellError::IncorrectValue {
+            msg: format!(
+                "Cannot accept more than {} decimal digits for the decimals argument",
+                u16::MAX
+            ),
+            val_span: head,
+            call_span: head,
+        });
+    }
     let cell_paths = call.rest(engine_state, stack, 0)?;
     let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
 
@@ -219,12 +231,92 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             Value::string(res, span)
         }
         Value::Float { val, .. } => {
-            if let Some(decimal_value) = digits {
-                let decimal_value = decimal_value as usize;
-                Value::string(format!("{val:.decimal_value$}"), span)
-            } else {
-                Value::string(val.to_string(), span)
+            if !val.is_finite() {
+                return Value::string(val.to_string(), span);
             }
+
+            let basic = match digits {
+                None => val.to_string(),
+                Some(precision) => {
+                    let scale = 10_f64.powi(precision as i32);
+                    let scaled = val * scale;
+                    let rounded = if scaled.is_finite() {
+                        scaled.round() / scale
+                    } else {
+                        *val
+                    };
+                    format!("{:.*}", precision as usize, rounded)
+                }
+            };
+
+            let negative = basic.starts_with('-');
+            let first_digit = if negative { 1 } else { 0 };
+            let decimal = basic.find('.').unwrap_or(basic.len());
+            let decimal_len = decimal - first_digit;
+            let locale = get_system_locale();
+            if !group_digits
+                || match locale.grouping() {
+                    Grouping::Posix => true,
+                    Grouping::Standard | Grouping::Indian => decimal_len < 4,
+                }
+            {
+                let basic = format!(
+                    "{}{}{}{}",
+                    if negative { locale.minus_sign() } else { "" },
+                    &basic[first_digit..decimal],
+                    if decimal < basic.len() {
+                        locale.decimal()
+                    } else {
+                        ""
+                    },
+                    if decimal < basic.len() {
+                        &basic[decimal + 1..]
+                    } else {
+                        ""
+                    }
+                );
+                return Value::string(basic, span);
+            }
+
+            let (size, start, step) = match locale.grouping() {
+                Grouping::Posix => {
+                    unreachable!("Posix locale grouping should already have returned")
+                }
+                Grouping::Standard => (
+                    basic.len() + decimal_len / 3 * locale.separator().len(),
+                    if decimal_len.is_multiple_of(3) {
+                        first_digit + 3
+                    } else {
+                        first_digit + decimal_len % 3
+                    },
+                    3,
+                ),
+                Grouping::Indian => (
+                    basic.len() + ((decimal_len - 3) / 2 + 1) * locale.separator().len(),
+                    if (decimal_len - 3).is_multiple_of(2) {
+                        first_digit + 2
+                    } else {
+                        first_digit + (decimal_len - 3) % 2
+                    },
+                    2,
+                ),
+            };
+            let mut result = String::with_capacity(size);
+            if negative {
+                result.push_str(locale.minus_sign());
+            }
+            result.push_str(&basic[first_digit..start]);
+            for start in (start..(decimal - 3)).step_by(step) {
+                result.push_str(locale.separator());
+                result.push_str(&basic[start..(start + step)])
+            }
+            result.push_str(locale.separator());
+            result.push_str(&basic[(decimal - 3)..decimal]);
+            if decimal < basic.len() {
+                result.push_str(locale.decimal());
+                result.push_str(&basic[decimal + 1..]);
+            }
+            Value::string(result, span)
         }
         Value::Bool { val, .. } => Value::string(val.to_string(), span),
         Value::Date { val, .. } => Value::string(val.format("%c").to_string(), span),
@@ -293,6 +385,8 @@ fn format_int(int: i64, group_digits: bool, decimals: usize) -> String {
 
     let str = if group_digits {
         int.to_formatted_string(&locale)
+    } else if int < 0 {
+        format!("{}{}", locale.minus_sign(), int.unsigned_abs())
     } else {
         int.to_string()
     };

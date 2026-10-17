@@ -1,8 +1,11 @@
 use nu_test_support::prelude::*;
+use rstest::rstest;
 
-#[test]
-fn test_char_list_outputs_table() -> Result {
-    test().run("char --list | length").expect_value_eq(113)
+#[rstest]
+#[case("char --list | length", 56)]
+#[case("char --list | get aliases | flatten | length", 62)]
+fn test_char_list_outputs_table(#[case] code: &str, #[case] expect: u32) -> Result {
+    test().run(code).expect_value_eq(expect)
 }
 
 #[test]

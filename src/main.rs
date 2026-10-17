@@ -12,20 +12,23 @@ mod terminal;
 #[cfg(feature = "lsp")]
 use crate::run::run_lsp;
 use crate::{
-    command::{ParsedCli, parse_cli_args_from_env},
+    command::{ParsedCli, RunMode, parse_cli_args_from_env},
     logger::{configure, logger},
 };
 use log::{Level, trace};
 use miette::Result;
 use nu_cli::gather_parent_env_vars;
 use nu_config::{CliOverrides, ConfigError, ConfigWarning, SystemEnv, resolve_paths};
-use nu_engine::{convert_env_values, exit::cleanup_exit};
+use nu_engine::{
+    convert_env_values,
+    exit::{kill_all_jobs, kill_jobs_and_exit},
+};
+#[cfg(feature = "plugin")]
 use nu_path::absolute_with;
 use nu_protocol::{
     ByteStream, Config, IntoValue, PipelineData, ShellError, Span, Spanned, Type, Value,
     engine::{EngineState, Stack},
     record, report_shell_error,
-    shell_error::generic::GenericError,
 };
 use nu_std::load_standard_library;
 use nu_utils::perf;
@@ -94,15 +97,13 @@ impl miette::Diagnostic for Panic {
 }
 
 fn main() -> Result<()> {
-    // `$nu.startup-time` runs from process creation to the moment the shell is ready: the first
-    // prompt in the REPL, or the start of evaluation for `-c` and script runs. The time spent
-    // before `main` (loader, runtime setup) comes from `nu_system::time_since_process_start`,
-    // which documents what each platform can measure; without it the clock starts here.
-    let main_entry_time = nu_utils::time::Instant::now();
-    let entire_start_time = nu_system::time_since_process_start()
-        .and_then(|before_main| main_entry_time.checked_sub(before_main))
-        .unwrap_or(main_entry_time);
-    let mut start_time = main_entry_time;
+    // `$nu.startup-time` runs from here to the moment the shell is ready: the first prompt in the
+    // REPL, the start of evaluation for `-c` and script runs, or the start of serving for the
+    // `--lsp`, `--mcp` and `--dap` servers. It starts inside the shell, as bash's and zsh's timers
+    // do, rather than at process creation: the process keeps its creation time and CPU time across
+    // `exec`, so after `exec nu` those would also count the program that ran before.
+    let entire_start_time = nu_utils::time::Instant::now();
+    let mut start_time = entire_start_time;
     // Replicated from `miette::set_panic_hook`, but writes via `writeln!(io::stderr(), …)`
     // instead of `eprintln!`. `eprintln!`/`println!` panic on a broken stderr/stdout
     // (parent terminal/pty closed), so when our parent (Codex, Ghostty, an MCP host, …)
@@ -112,7 +113,7 @@ fn main() -> Result<()> {
     std::panic::set_hook(Box::new(|info| {
         // Completion sources are isolated and convert their panics into ShellErrors. The hook
         // runs before catch_unwind, so do not print a second, misleading prompt-level panic.
-        if nu_cli::completion_panic_is_active() {
+        if nu_cli::completion_source_is_active() {
             return;
         }
         use miette::Context;
@@ -138,7 +139,8 @@ fn main() -> Result<()> {
         }
     }));
 
-    let engine_state = EngineState::new();
+    let mut engine_state = EngineState::new();
+    engine_state.set_startup_start(entire_start_time);
 
     // Parse commandline args very early and load experimental options to allow loading different
     // commands based on experimental options.
@@ -146,6 +148,8 @@ fn main() -> Result<()> {
         report_shell_error(None, &engine_state, &err.into());
         std::process::exit(1)
     });
+    let run_mode = parsed.run_mode();
+    let is_repl = run_mode.is_repl();
     let parsed_nu_cli_args = parsed.nu;
     let script_name = parsed.script_name;
     let args_to_script = parsed.args_to_script;
@@ -170,12 +174,8 @@ fn main() -> Result<()> {
     // Get the current working directory from the environment.
     let init_cwd = current_dir_from_environment();
 
-    #[cfg(feature = "mcp")]
-    let handle_ctrlc = !parsed_nu_cli_args.mcp;
-    #[cfg(not(feature = "mcp"))]
-    let handle_ctrlc = true;
-    if handle_ctrlc {
-        ctrlc_protection(&mut engine_state);
+    if !parsed_nu_cli_args.is_mcp() {
+        ctrlc_protection(&mut engine_state, is_repl);
     }
 
     #[cfg(all(feature = "rustls-tls", feature = "network"))]
@@ -219,17 +219,6 @@ fn main() -> Result<()> {
                 },
             );
             // Minimal fallback so the engine can still start
-            (nu_config::NushellConfigDirs::empty(), vec![])
-        }
-        Err(ConfigError::NoHomeDir) => {
-            report_shell_error(
-                None,
-                &engine_state,
-                &ShellError::Generic(GenericError::new_internal(
-                    "Config path resolution failed",
-                    ConfigError::NoHomeDir.to_string(),
-                )),
-            );
             (nu_config::NushellConfigDirs::empty(), vec![])
         }
     };
@@ -304,21 +293,13 @@ fn main() -> Result<()> {
     #[cfg(feature = "sqlite")]
     nu_command::init_shared_memory_db()?;
 
-    #[cfg(feature = "lsp")]
-    let is_lsp = parsed_nu_cli_args.lsp;
-    #[cfg(not(feature = "lsp"))]
-    let is_lsp = false;
-    engine_state.is_lsp = is_lsp;
-    // Here, not in the `--dap` branch at the end: `generate_nu_constant()`
-    // below bakes `$nu.is-dap`, and that branch's startup files must see it.
-    #[cfg(feature = "dap")]
-    let is_dap = parsed_nu_cli_args.dap;
-    #[cfg(not(feature = "dap"))]
-    let is_dap = false;
-    engine_state.is_dap = is_dap;
-    // keep this condition in sync with the branches at the end
-    engine_state.is_interactive = parsed_nu_cli_args.interactive_shell.is_some()
-        || (parsed_nu_cli_args.commands.is_none() && script_name.is_empty() && !is_lsp && !is_dap);
+    engine_state.is_lsp = parsed_nu_cli_args.is_lsp();
+    // Here, not in the `--dap` and `--mcp` branches at the end: `generate_nu_constant()`
+    // below bakes `$nu.is-dap` and `$nu.is-mcp`, and those branches' startup files must see them.
+    engine_state.is_dap = parsed_nu_cli_args.is_dap();
+    engine_state.is_mcp = parsed_nu_cli_args.is_mcp();
+    engine_state.is_interactive = parsed_nu_cli_args.interactive_shell.is_some() || is_repl;
+    engine_state.is_repl = is_repl;
 
     engine_state.is_login = parsed_nu_cli_args.login_shell.is_some();
     engine_state.history_enabled = parsed_nu_cli_args.no_history.is_none();
@@ -387,11 +368,6 @@ fn main() -> Result<()> {
         // info!("start logging {}:{}:{}", file!(), line!(), column!());
         perf!("start logging", start_time, use_color);
         // Phases that ran before the logger existed.
-        perf!(
-            "before main (exec, loader, runtime init)",
-            elapsed: main_entry_time.duration_since(entire_start_time),
-            use_color
-        );
         perf!(
             "create engine state, parse args, register commands",
             elapsed: engine_setup_elapsed,
@@ -525,6 +501,11 @@ fn main() -> Result<()> {
         perf!("load standard library", start_time, use_color);
     }
 
+    start_time = nu_utils::time::Instant::now();
+    // Set up the $nu constant before the IDE commands and the config files, which both read it
+    engine_state.generate_nu_constant();
+    perf!("create_nu_constant", start_time, use_color);
+
     // IDE commands
     if let Some(ide_goto_def) = parsed_nu_cli_args.ide_goto_def {
         ide::goto_def(&mut engine_state, &script_name, &ide_goto_def);
@@ -560,11 +541,6 @@ fn main() -> Result<()> {
         PipelineData::empty()
     };
     perf!("redirect stdin", start_time, use_color);
-
-    start_time = nu_utils::time::Instant::now();
-    // Set up the $nu constant before evaluating config files (need to have $nu available in them)
-    engine_state.generate_nu_constant();
-    perf!("create_nu_constant", start_time, use_color);
 
     #[cfg(feature = "plugin")]
     if let Some(plugins) = &parsed_nu_cli_args.plugins {
@@ -611,153 +587,163 @@ fn main() -> Result<()> {
         perf!("load plugins specified in --plugins", start_time, use_color)
     }
 
-    #[cfg(feature = "mcp")]
-    if parsed_nu_cli_args.mcp {
-        start_time = nu_utils::time::Instant::now();
-        // Mark MCP mode before config evaluation so startup scripts can adapt behavior.
-        engine_state.is_mcp = true;
-        let mcp_transport_kind = parsed_nu_cli_args
-            .mcp_transport
-            .as_ref()
-            .map(|value| value.item.as_str());
-        let is_stdio_transport = !matches!(mcp_transport_kind, Some("http"));
+    match run_mode {
+        #[cfg(feature = "mcp")]
+        RunMode::Mcp => {
+            start_time = nu_utils::time::Instant::now();
+            let mcp_transport_kind = parsed_nu_cli_args
+                .mcp_transport
+                .as_ref()
+                .map(|value| value.item.as_str());
+            let is_stdio_transport = !matches!(mcp_transport_kind, Some("http"));
 
-        if parsed_nu_cli_args.no_config_file.is_none() {
-            let mut stack = if is_stdio_transport {
-                // Keep MCP stdio transport clean by capturing startup stdout in stack output.
-                // This is cross-platform and avoid spilling stdout into mcp messages.
-                // The `print` command also checks for MCP/LCP before printing to stdout.
-                nu_protocol::engine::Stack::new().collect_value()
-            } else {
-                nu_protocol::engine::Stack::new()
-            };
-            config_files::setup_config(
-                &mut engine_state,
-                &mut stack,
-                parsed_nu_cli_args.login_shell.is_some(),
-            );
-        }
-        let transport = match mcp_transport_kind {
-            Some("http") => nu_mcp::McpTransport::http(
-                parsed_nu_cli_args.mcp_host.clone(),
-                parsed_nu_cli_args.mcp_port,
-            ),
-            _ => nu_mcp::McpTransport::Stdio,
-        };
-        nu_mcp::initialize_mcp_server(engine_state, transport)?;
-        perf!("mcp started", start_time, use_color);
-        return Ok(());
-    }
-
-    #[cfg(feature = "lsp")]
-    if is_lsp {
-        start_time = nu_utils::time::Instant::now();
-        return run_lsp(engine_state, parsed_nu_cli_args, use_color, start_time);
-    }
-
-    // `nu --dap`: hand the fully built engine to the Debug Adapter Protocol
-    // server. It owns process stdio from here (the DAP wire is stdout), and
-    // clones this engine for each debug run, so nothing else in `main`
-    // applies — return as soon as the DAP client disconnects.
-    #[cfg(feature = "dap")]
-    if is_dap {
-        start_time = nu_utils::time::Instant::now();
-
-        // Debugged scripts should see the same shell the user has: aliases and
-        // custom commands from config.nu, `$env` from env.nu, and `$env.config`
-        // — which also drives how the adapter renders values in the variables
-        // pane.
-        if parsed_nu_cli_args.no_config_file.is_none() {
-            let mut config_stack = Stack::new();
-            config_files::setup_config(
-                &mut engine_state,
-                &mut config_stack,
-                parsed_nu_cli_args.login_shell.is_some(),
-            );
-            // Each debug run starts from a fresh `Stack`, so whatever the
-            // startup files left on this one has to be folded into the engine
-            // or the debuggee would never see it.
-            if let Err(err) = engine_state.merge_env(&mut config_stack) {
-                report_shell_error(Some(&config_stack), &engine_state, &err);
+            if parsed_nu_cli_args.no_config_file.is_none() {
+                let mut stack = if is_stdio_transport {
+                    // Keep MCP stdio transport clean by capturing startup stdout in stack output.
+                    // This is cross-platform and avoid spilling stdout into mcp messages.
+                    // The `print` command also checks for MCP/LCP before printing to stdout.
+                    nu_protocol::engine::Stack::new().collect_value()
+                } else {
+                    nu_protocol::engine::Stack::new()
+                };
+                config_files::setup_config(
+                    &mut engine_state,
+                    &mut stack,
+                    parsed_nu_cli_args.login_shell.is_some(),
+                );
             }
+            let transport = match mcp_transport_kind {
+                Some("http") => nu_mcp::McpTransport::http(
+                    parsed_nu_cli_args.mcp_host.clone(),
+                    parsed_nu_cli_args.mcp_port,
+                )
+                .with_allowed_hosts(
+                    parsed_nu_cli_args
+                        .mcp_allowed_hosts
+                        .map(|hosts| hosts.into_iter().map(|s| s.item).collect()),
+                )
+                .with_allowed_origins(
+                    parsed_nu_cli_args
+                        .mcp_allowed_origins
+                        .map(|origins| origins.into_iter().map(|s| s.item).collect()),
+                ),
+                _ => nu_mcp::McpTransport::Stdio,
+            };
+            engine_state.finish_startup();
+            perf!("mcp started", start_time, use_color);
+            nu_mcp::initialize_mcp_server(engine_state, transport)?;
+            Ok(())
         }
-        perf!("dap setup_config", start_time, use_color);
 
-        nu_dap::run_stdio(engine_state);
-        return Ok(());
+        #[cfg(feature = "lsp")]
+        RunMode::Lsp => {
+            start_time = nu_utils::time::Instant::now();
+            run_lsp(engine_state, parsed_nu_cli_args, use_color, start_time)
+        }
+
+        // `nu --dap`: hand the fully built engine to the Debug Adapter Protocol
+        // server. It owns process stdio from here (the DAP wire is stdout), and
+        // clones this engine for each debug run, so nothing else in `main`
+        // applies — return as soon as the DAP client disconnects.
+        #[cfg(feature = "dap")]
+        RunMode::Dap => {
+            start_time = nu_utils::time::Instant::now();
+
+            // Debugged scripts should see the same shell the user has: aliases and
+            // custom commands from config.nu, `$env` from env.nu, and `$env.config`
+            // — which also drives how the adapter renders values in the variables
+            // pane.
+            if parsed_nu_cli_args.no_config_file.is_none() {
+                let mut config_stack = Stack::new();
+                config_files::setup_config(
+                    &mut engine_state,
+                    &mut config_stack,
+                    parsed_nu_cli_args.login_shell.is_some(),
+                );
+                // Each debug run starts from a fresh `Stack`, so whatever the
+                // startup files left on this one has to be folded into the engine
+                // or the debuggee would never see it.
+                if let Err(err) = engine_state.merge_env(&mut config_stack) {
+                    report_shell_error(Some(&config_stack), &engine_state, &err);
+                }
+            }
+            perf!("dap setup_config", start_time, use_color);
+
+            engine_state.finish_startup();
+            nu_dap::run_stdio(engine_state);
+            Ok(())
+        }
+
+        RunMode::Repl => {
+            // Environment variables that apply only when in REPL
+            engine_state.add_env_var("PROMPT_INDICATOR".to_string(), Value::test_string("> "));
+            engine_state.add_env_var(
+                "PROMPT_INDICATOR_VI_NORMAL".to_string(),
+                Value::test_string("> "),
+            );
+            engine_state.add_env_var(
+                "PROMPT_INDICATOR_VI_INSERT".to_string(),
+                Value::test_string(": "),
+            );
+            engine_state.add_env_var(
+                "PROMPT_MULTILINE_INDICATOR".to_string(),
+                Value::test_string("::: "),
+            );
+            engine_state.add_env_var(
+                "TRANSIENT_PROMPT_MULTILINE_INDICATOR".to_string(),
+                Value::test_string(""),
+            );
+            engine_state.add_env_var(
+                "TRANSIENT_PROMPT_COMMAND_RIGHT".to_string(),
+                Value::test_string(""),
+            );
+            let mut shlvl = engine_state
+                .get_env_var("SHLVL")
+                .map(|x| x.as_str().unwrap_or("0").parse::<i64>().unwrap_or(0))
+                .unwrap_or(0);
+            shlvl += 1;
+            // No source span — startup env var
+            engine_state.add_env_var("SHLVL".to_string(), Value::int(shlvl, Span::unknown()));
+
+            let result = run_repl(&mut engine_state, stack, parsed_nu_cli_args);
+
+            // The REPL exits Nu itself, so this only returns when the REPL can't keep running (for
+            // example, when stdin isn't a terminal), with no prompt left to warn about jobs at.
+            kill_all_jobs(&engine_state.jobs);
+            result
+        }
+        RunMode::Commands(commands) => {
+            run_commands(
+                &mut engine_state,
+                stack,
+                ParsedCli {
+                    nu: parsed_nu_cli_args,
+                    script_name,
+                    args_to_script,
+                },
+                use_color,
+                &commands,
+                input,
+            );
+
+            // Commands exit when done, even with `-i`: their jobs must not outlive Nu.
+            kill_jobs_and_exit(&engine_state, 0)
+        }
+        RunMode::Script => {
+            run_file(
+                &mut engine_state,
+                stack,
+                ParsedCli {
+                    nu: parsed_nu_cli_args,
+                    script_name,
+                    args_to_script,
+                },
+                use_color,
+                input,
+            );
+
+            // Scripts exit when done, even with `-i`: their jobs must not outlive Nu.
+            kill_jobs_and_exit(&engine_state, 0)
+        }
     }
-
-    if let Some(commands) = parsed_nu_cli_args.commands.clone() {
-        run_commands(
-            &mut engine_state,
-            stack,
-            ParsedCli {
-                nu: parsed_nu_cli_args,
-                script_name,
-                args_to_script,
-            },
-            use_color,
-            &commands,
-            input,
-            entire_start_time,
-        );
-
-        cleanup_exit(0, &engine_state, 0);
-    } else if !script_name.is_empty() {
-        run_file(
-            &mut engine_state,
-            stack,
-            ParsedCli {
-                nu: parsed_nu_cli_args,
-                script_name,
-                args_to_script,
-            },
-            use_color,
-            input,
-            entire_start_time,
-        );
-
-        cleanup_exit(0, &engine_state, 0);
-    } else {
-        // Environment variables that apply only when in REPL
-        engine_state.add_env_var("PROMPT_INDICATOR".to_string(), Value::test_string("> "));
-        engine_state.add_env_var(
-            "PROMPT_INDICATOR_VI_NORMAL".to_string(),
-            Value::test_string("> "),
-        );
-        engine_state.add_env_var(
-            "PROMPT_INDICATOR_VI_INSERT".to_string(),
-            Value::test_string(": "),
-        );
-        engine_state.add_env_var(
-            "PROMPT_MULTILINE_INDICATOR".to_string(),
-            Value::test_string("::: "),
-        );
-        engine_state.add_env_var(
-            "TRANSIENT_PROMPT_MULTILINE_INDICATOR".to_string(),
-            Value::test_string(""),
-        );
-        engine_state.add_env_var(
-            "TRANSIENT_PROMPT_COMMAND_RIGHT".to_string(),
-            Value::test_string(""),
-        );
-        let mut shlvl = engine_state
-            .get_env_var("SHLVL")
-            .map(|x| x.as_str().unwrap_or("0").parse::<i64>().unwrap_or(0))
-            .unwrap_or(0);
-        shlvl += 1;
-        // No source span — startup env var
-        engine_state.add_env_var("SHLVL".to_string(), Value::int(shlvl, Span::unknown()));
-
-        run_repl(
-            &mut engine_state,
-            stack,
-            parsed_nu_cli_args,
-            entire_start_time,
-        )?;
-
-        cleanup_exit(0, &engine_state, 0);
-    }
-
-    Ok(())
 }

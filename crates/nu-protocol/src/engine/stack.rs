@@ -89,6 +89,10 @@ pub struct Stack {
     pub arguments: ArgumentStack,
     /// Error handler stack for IR evaluation
     pub error_handlers: ErrorHandlerStack,
+    /// Number of nested custom command and closure calls that led to this stack.
+    ///
+    /// Block evaluation fails with `RecursionLimitReached` once this exceeds
+    /// `$env.config.recursion_limit`, before deep recursion can overflow the Rust stack.
     pub recursion_count: u64,
     pub parent_stack: Option<Arc<Stack>>,
     /// Variables that have been deleted (this is used to hide values from parent stack lookups)
@@ -704,6 +708,9 @@ impl Stack {
     /// The caller is retained as [`Self::parent_stack`] so outer variables remain visible to
     /// `scope variables` (and other stack lookups that walk parents). Captured values are still
     /// copied onto this stack for isolation of the closure’s own locals.
+    ///
+    /// Every closure call builds its stack here, so this is where a closure call adds one to
+    /// [`Self::recursion_count`].
     pub fn captures_to_stack_preserve_out_dest(&self, captures: Vec<(VarId, Value)>) -> Stack {
         let mut env_vars = self.env_vars.clone();
         env_vars.push(Arc::new(HashMap::new()));
@@ -716,7 +723,9 @@ impl Stack {
             active_overlays: self.active_overlays.clone(),
             arguments: ArgumentStack::new(),
             error_handlers: ErrorHandlerStack::new(),
-            recursion_count: self.recursion_count,
+            // A closure body is a nested call like a custom command body, so it counts toward
+            // the recursion limit. Stack overflows are not recoverable in Rust.
+            recursion_count: self.recursion_count + 1,
             // Keep the caller as parent so global/outer locals stay nameable for `scope`
             // (values are still resolved via the parent chain when not captured).
             parent_stack: Some(Arc::new(self.clone())),

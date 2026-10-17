@@ -3,7 +3,7 @@
 //! This enables you to assign `const`-constants and execute parse-time code dependent on this.
 //! e.g. `source $my_const`
 use crate::{
-    BlockId, Config, HistoryPath, PipelineData, Record, ShellError, Span, Value, VarId,
+    BlockId, Config, HistoryPath, IntoValue, PipelineData, Record, ShellError, Span, Value, VarId,
     ast::{self, Assignment, Block, Call, Expr, Expression, ExternalArgument},
     debugger::{DebugContext, WithoutDebug},
     engine::{
@@ -120,12 +120,24 @@ pub(crate) fn create_nu_constant(engine_state: &EngineState, span: Span) -> Valu
         );
     }
 
+    let home_dir = &engine_state.config_dirs.home_dir;
     record.push(
         "home-dir",
-        Value::string(
-            canonicalize_path(engine_state, &engine_state.config_dirs.home_dir).to_string_lossy(),
-            span,
-        ),
+        if home_dir.as_os_str().is_empty() {
+            Value::error(
+                ShellError::Generic(GenericError::new(
+                    "setting $nu.home-dir failed",
+                    "Could not get home directory",
+                    span,
+                )),
+                span,
+            )
+        } else {
+            Value::string(
+                canonicalize_path(engine_state, home_dir).to_string_lossy(),
+                span,
+            )
+        },
     );
 
     record.push(
@@ -190,10 +202,7 @@ pub(crate) fn create_nu_constant(engine_state: &EngineState, span: Span) -> Valu
         )
     });
 
-    record.push(
-        "startup-time",
-        Value::duration(engine_state.get_startup_time(), span),
-    );
+    record.push("startup-time", engine_state.startup_time().into_value(span));
 
     record.push(
         "is-interactive",

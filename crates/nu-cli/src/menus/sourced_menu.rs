@@ -60,13 +60,17 @@ impl SourceMode {
     }
 }
 
-/// Menu wrapper carrying the editor line to its source, and abandoning the menu on a
-/// fresh empty answer so a cancelled picker (fzf Esc / `input list` Esc) cannot leave
-/// an empty menu that relaunches on type.
+/// Menu wrapper carrying the editor line to its source, and abandoning the menu when
+/// the first fresh answer after activation is empty, so a cancelled picker (fzf Esc /
+/// `input list` Esc) cannot leave an empty menu that relaunches on type.
 pub struct SourcedMenu<M> {
     menu: M,
     line: Option<MenuLine>,
     mode: SourceMode,
+    /// Whether the menu has shown values since it was last activated. Once it has,
+    /// an empty answer means the typed text matches nothing, and the menu stays open
+    /// to refill as the text changes (#19096).
+    answered: bool,
 }
 
 impl<M> SourcedMenu<M> {
@@ -75,6 +79,7 @@ impl<M> SourcedMenu<M> {
             menu,
             line: Some(line),
             mode,
+            answered: false,
         }
     }
 
@@ -84,6 +89,7 @@ impl<M> SourcedMenu<M> {
             menu,
             line: None,
             mode: SourceMode::Live,
+            answered: false,
         }
     }
 
@@ -93,13 +99,16 @@ impl<M> SourcedMenu<M> {
         }
     }
 
-    /// Close on a fresh empty answer; provisional/awaiting emptiness is still computing.
+    /// Close when the first fresh answer is empty; provisional/awaiting emptiness is
+    /// still computing, and emptiness after values is a filter that matches nothing.
     fn abandon_if_empty(&mut self)
     where
         M: Menu,
     {
-        if self.menu.is_active()
-            && self.menu.get_values().is_empty()
+        if !self.menu.get_values().is_empty() {
+            self.answered = true;
+        } else if self.menu.is_active()
+            && !self.answered
             && !self.menu.results_are_provisional()
             && !self.menu.is_awaiting_first_answer()
         {
@@ -142,6 +151,9 @@ impl<M: Menu> Menu for SourcedMenu<M> {
     }
 
     fn menu_event(&mut self, event: MenuEvent) {
+        if matches!(event, MenuEvent::Activate(_)) {
+            self.answered = false;
+        }
         self.menu.menu_event(event);
     }
 
@@ -156,23 +168,23 @@ impl<M: Menu> Menu for SourcedMenu<M> {
         completer: &mut dyn Completer,
     ) -> bool {
         self.record(editor);
-        // No abandon check here!!! reedline probes partial completion when a menu
-        // opens, even before the source has ever run, so the values are legitimately
-        // empty.
         let spliced = self
             .menu
             .can_partially_complete(values_updated, editor, completer);
-        if spliced {
+        if spliced && matches!((self.mode, &self.line), (SourceMode::Diff, Some(_))) {
             // The splice ran past this wrapper, so a `Diff` source would answer
             // with pre-splice spans without a refresh (#19053); anything else
             // already saw the spliced buffer through the handed line.
-            match (self.mode, &self.line) {
-                (SourceMode::Diff, Some(_)) => self.update_values(editor, completer),
-                _ => {
-                    self.record(editor);
-                    self.abandon_if_empty();
-                }
+            self.update_values(editor, completer);
+        } else {
+            if spliced {
+                self.record(editor);
             }
+            // Reedline probes partial completion as a menu opens, and with quick
+            // completions off that probe is the first fetch: a cancelled picker
+            // answers empty here. Abandon now, before the prompt paints the menu
+            // indicator; a probe that fetched nothing is still awaiting its answer.
+            self.abandon_if_empty();
         }
         spliced
     }
@@ -354,6 +366,28 @@ mod tests {
         assert_eq!(menu.get_values().len(), 1);
     }
 
+    /// Typing past all matches empties a menu that already showed values; it must stay
+    /// open and refill, since only a first empty answer is a cancelled picker (#19096).
+    #[test]
+    fn empty_after_values_stays_open_until_reactivated() {
+        let (mut editor, mut menu) = active_menu();
+        menu.update_values(&mut editor, &mut Recorder::default());
+        menu.menu_event(MenuEvent::Edit(false));
+        menu.update_values(&mut editor, &mut Empty);
+        assert!(menu.is_active(), "no match after values must stay open");
+
+        menu.menu_event(MenuEvent::Edit(false));
+        menu.update_values(&mut editor, &mut Recorder::default());
+        assert!(menu.is_active());
+        assert_eq!(menu.get_values().len(), 1, "matching again must refill");
+
+        // A new activation starts over: its first empty answer abandons again.
+        menu.menu_event(MenuEvent::Deactivate);
+        menu.menu_event(MenuEvent::Activate(false));
+        menu.update_values(&mut editor, &mut Empty);
+        assert!(!menu.is_active());
+    }
+
     /// A partial splice must refresh a `Diff` source against the spliced line (#19053).
     /// `Diff` is the one mode where the recorded line is the source's only view of the
     /// full buffer, so the wrapper re-evaluation is required here -- and only here.
@@ -519,11 +553,11 @@ mod tests {
 
     #[test]
     fn opening_probe_does_not_abandon_before_the_first_fetch() {
-        // Reedline probes partial completion right after Activate, while the
-        // source has not run yet and the values are still empty. That probe
-        // must not close the menu; the first real fetch decides.
+        // A probe told the values are current fetches nothing, so right after
+        // Activate the values are empty only because the source has not run yet.
+        // That probe must not close the menu; the first real fetch decides.
         let (mut editor, mut menu) = active_menu();
-        menu.can_partially_complete(false, &mut editor, &mut Empty);
+        menu.can_partially_complete(true, &mut editor, &mut Empty);
         assert!(
             menu.is_active(),
             "a just-opened menu with no values yet must survive the opening probe"
@@ -531,6 +565,16 @@ mod tests {
 
         // The subsequent fetch is what may abandon it.
         menu.update_values(&mut editor, &mut Empty);
+        assert!(!menu.is_active());
+    }
+
+    /// With quick completions off, the opening probe is the first fetch. A cancelled
+    /// picker answers empty there, and the menu must close before it is painted, or
+    /// the prompt keeps its indicator until the next keypress.
+    #[test]
+    fn opening_probe_that_fetches_empty_abandons() {
+        let (mut editor, mut menu) = active_menu();
+        menu.can_partially_complete(false, &mut editor, &mut Empty);
         assert!(!menu.is_active());
     }
 }

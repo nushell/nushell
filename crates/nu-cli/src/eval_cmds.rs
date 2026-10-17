@@ -1,5 +1,5 @@
 use log::info;
-use nu_engine::eval_block;
+use nu_engine::{eval_block, exit::kill_jobs_and_exit};
 use nu_parser::{find_main_block_id_in_script, parse};
 use nu_protocol::{
     PipelineData, ShellError, Spanned, Value,
@@ -70,12 +70,12 @@ pub fn evaluate_commands(
 
             if let Some(err) = working_set.parse_errors.first() {
                 report_parse_error(Some(stack), working_set, err);
-                std::process::exit(1);
+                kill_jobs_and_exit(working_set.permanent_state, 1);
             }
 
             if let Some(err) = working_set.compile_errors.first() {
                 report_compile_error(Some(stack), working_set, err);
-                std::process::exit(1);
+                kill_jobs_and_exit(working_set.permanent_state, 1);
             }
         };
 

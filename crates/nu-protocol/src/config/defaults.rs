@@ -321,6 +321,7 @@ pub fn default_tui() -> HashMap<String, Value> {
         ),
         ("border", rec(record! { "fg" => str("dark_gray") })),
         ("border_focused", rec(record! { "fg" => str("cyan") })),
+        ("border_type", str("single")),
         ("selected", rec(record! { "attr" => str("r") })),
         (
             "header",

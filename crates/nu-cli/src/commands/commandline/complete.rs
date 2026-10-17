@@ -189,7 +189,6 @@ completions, which is the supported way to develop and test a completer from ins
             cursor_position,
         );
 
-        // Flush warnings now.
         flush_completion_warnings(engine_state, stack);
 
         let result_values: Vec<Value> = completions

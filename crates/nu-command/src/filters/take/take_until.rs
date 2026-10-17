@@ -79,7 +79,7 @@ impl Command for TakeUntil {
 
         let metadata = input.take_metadata();
 
-        let mut closure = ClosureEval::new(engine_state, stack, closure);
+        let mut closure = ClosureEval::try_new(engine_state, stack, closure, head)?;
         let predicate = move |value: &Value| {
             closure
                 .run_with_value(value.clone())

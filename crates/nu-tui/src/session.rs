@@ -6,6 +6,7 @@ use crate::filter::Filter;
 use crate::hooks::{self, HookOutcome, call_closure};
 use crate::keys::{KeyPress, normalize_bind, single_char};
 use crate::layout::{SplitterHandle, assign_areas, subtree_ids};
+use crate::stream::trim_front;
 use crate::theme::Theme;
 use crate::tree::TreeRow;
 use crate::widget::{Effect, Widget, WidgetKind, WidgetState};
@@ -132,6 +133,13 @@ fn clamp_dialog(rect: Rect, screen: Rect) -> Rect {
     }
 }
 
+/// Whether following `from` would make `id` follow itself: `from` is `id`,
+/// or its chain of sources reaches `id`. The chains in `sources` end,
+/// because [`Session::sources`] adds no link that closes a loop.
+fn leads_to(sources: &HashMap<String, String>, from: &str, id: &str) -> bool {
+    std::iter::successors(Some(from), |at| sources.get(*at).map(String::as_str)).any(|at| at == id)
+}
+
 #[derive(Debug, Clone)]
 pub struct Session {
     pub app: TuiApp,
@@ -159,6 +167,8 @@ pub struct Session {
     /// unit tests.
     pub engine: Option<(EngineState, Stack)>,
     pub stream_live: bool,
+    /// A hook replaced the shared data, so streamed rows no longer go there.
+    data_from_hook: bool,
     pub dialog: Option<DialogFrame>,
     pub theme: Theme,
     pub ls_colors: LsColors,
@@ -174,16 +184,6 @@ pub struct Session {
 }
 
 impl Session {
-    /// The `--from` ids that name no widget, for an early error.
-    pub fn unknown_sources(app: &TuiApp) -> Vec<(String, String)> {
-        app.iter()
-            .filter_map(|w| {
-                let from = w.source.as_ref()?.from.as_deref()?;
-                (app.widget(from).is_none()).then(|| (w.id.clone(), from.to_string()))
-            })
-            .collect()
-    }
-
     #[cfg(test)]
     pub fn new(app: TuiApp) -> Self {
         Self::with_engine(app, PathBuf::from("."), None)
@@ -227,6 +227,7 @@ impl Session {
             cwd,
             engine,
             stream_live: false,
+            data_from_hook: false,
             dialog: None,
             theme,
             ls_colors,
@@ -243,8 +244,11 @@ impl Session {
 
     // ----- tree queries -------------------------------------------------
 
+    /// The widget with `id`, found by its child-index path. The tree does not
+    /// change after [`Session::new`], so `paths` stays valid, and the lookup
+    /// walks one branch instead of every widget.
     pub fn widget(&self, id: &str) -> Option<&Widget> {
-        self.app.widget(id)
+        self.paths.get(id).and_then(|path| self.app.at_path(path))
     }
 
     pub fn kind(&self, id: &str) -> Option<&WidgetKind> {
@@ -535,37 +539,74 @@ impl Session {
         best.map(|(_, id)| id)
     }
 
-    /// Which widget drives `id`: `--from` if given, else the focused row
-    /// source, else the nearest one in an enclosing container, else the first
-    /// visible one. `None` for widgets that do not follow anything.
+    /// Which widget drives `id` (see [`Session::sources`]). `None` for
+    /// widgets that follow nothing.
     pub fn source_id(&self, id: &str) -> Option<String> {
-        let widget = self.widget(id)?;
-        if !widget.follows_source() {
-            return None;
+        self.sources().remove(id)
+    }
+
+    /// The table, tree, or select each follower follows, keyed by follower
+    /// id. A follower follows its `--from`, unless that names itself, a
+    /// widget that is not a table, tree, or select, or one whose `--from`
+    /// chain leads back to it. Every other follower takes the focused one,
+    /// else the nearest in an enclosing container, else the first visible,
+    /// else the first on a hidden tab page. It skips one that follows it,
+    /// directly or along a chain, so followers never follow each other in a
+    /// loop. A follower missing from the map has nothing to
+    /// follow. Focus and the page change only which one a follower takes,
+    /// never whether it finds one.
+    pub fn sources(&self) -> HashMap<String, String> {
+        let is_row_source = |id: &str| self.kind(id).is_some_and(|k| k.is_row_source());
+        let followers: Vec<&Widget> = self.app.iter().filter(|w| w.follows_source()).collect();
+        let mut sources = HashMap::new();
+        // `--from` first: a follower that picks its own source must see
+        // every fixed link, or it could pick one that leads back to it.
+        for widget in &followers {
+            if let Some(from) = widget.source.as_ref().and_then(|s| s.from.as_deref())
+                && is_row_source(from)
+                && !leads_to(&sources, from, &widget.id)
+            {
+                sources.insert(widget.id.clone(), from.to_string());
+            }
         }
-        if let Some(from) = widget.source.as_ref().and_then(|s| s.from.clone()) {
-            return Some(from);
-        }
-        let is_source =
-            |other: &str| other != id && self.kind(other).is_some_and(|k| k.is_row_source());
-        if let Some(focused) = &self.focused
-            && is_source(focused)
-        {
-            return Some(focused.clone());
-        }
-        if let Some(path) = self.paths.get(id) {
-            for depth in (1..path.len()).rev() {
-                if let Some(found) = subtree_ids(&self.app, &path[..depth])
+        let picking: Vec<&Widget> = followers
+            .into_iter()
+            .filter(|w| w.source.as_ref().is_none_or(|s| s.from.is_none()))
+            .collect();
+        let nearest = |id: &str| -> Vec<String> {
+            let Some(path) = self.paths.get(id) else {
+                return Vec::new();
+            };
+            (1..path.len())
+                .rev()
+                .flat_map(|depth| subtree_ids(&self.app, &path[..depth]))
+                .collect()
+        };
+        /// The ids one tier offers a follower, best first.
+        type Tier<'a> = &'a dyn Fn(&str) -> Vec<String>;
+        let tiers: [Tier; 4] = [
+            &|_| self.focused.iter().cloned().collect(),
+            &nearest,
+            &|_| self.visible_ids(),
+            &|_| self.app.iter().map(|w| w.id.clone()).collect(),
+        ];
+        // Each tier is tried for every follower before the next, so a
+        // follower takes the focused widget before that widget can take the
+        // follower as its own nearest one.
+        for candidates in tiers {
+            for widget in &picking {
+                if sources.contains_key(&widget.id) {
+                    continue;
+                }
+                if let Some(found) = candidates(&widget.id)
                     .into_iter()
-                    .find(|other| is_source(other))
+                    .find(|other| is_row_source(other) && !leads_to(&sources, other, &widget.id))
                 {
-                    return Some(found);
+                    sources.insert(widget.id.clone(), found);
                 }
             }
         }
-        self.visible_ids()
-            .into_iter()
-            .find(|other| is_source(other))
+        sources
     }
 
     /// The highlighted row of widget `id`.
@@ -610,10 +651,11 @@ impl Session {
             .filter(|w| w.follows_source())
             .map(|w| w.id.clone())
             .collect();
+        let sources = self.sources();
         for _ in 0..3 {
             let mut changed = false;
             for id in &ids {
-                changed |= self.refresh_one(id);
+                changed |= self.refresh_one(id, sources.get(id).map(String::as_str));
             }
             if !changed {
                 break;
@@ -648,11 +690,11 @@ impl Session {
         Some(stack)
     }
 
-    fn refresh_one(&mut self, id: &str) -> bool {
-        let source = self.source_id(id);
-        let row = source.as_ref().and_then(|src| self.row_of(src));
+    /// Recompute what `id` shows from the highlighted row of `source`.
+    fn refresh_one(&mut self, id: &str, source: Option<&str>) -> bool {
+        let row = source.and_then(|src| self.row_of(src));
         let key = (
-            source.unwrap_or_default(),
+            source.unwrap_or_default().to_string(),
             row.clone()
                 .unwrap_or_else(|| Value::nothing(Span::unknown())),
             self.inner_size(id),
@@ -714,43 +756,28 @@ impl Session {
         }
     }
 
-    /// Append streamed rows to the shared data. Tables keep their highlight
-    /// (a stream that lands while you read should not move it), even when
-    /// the oldest rows are dropped to stay under the cap; logs follow the
-    /// tail unless scrolled up, resolved when they draw.
-    pub fn append_values(&mut self, values: Vec<Value>) {
-        if values.is_empty() {
+    /// Append streamed rows to the data of `owners` (the widgets a child
+    /// list's stream feeds), or to the shared data when `owners` is empty.
+    /// Tables keep their highlight (a stream that lands while you read
+    /// should not move it), even when the oldest rows are dropped to stay
+    /// under the cap; logs follow the tail unless scrolled up, resolved when
+    /// they draw. Once a hook has replaced the shared data, rows for it are
+    /// ignored: the hook's rows win.
+    pub fn append_values(&mut self, owners: &[String], values: Vec<Value>) {
+        if values.is_empty() || (owners.is_empty() && self.data_from_hook) {
             return;
         }
-        // Take the list out rather than clone it: this runs on every poll
-        // tick of a live stream.
-        let span = self.app.data.span();
-        let mut rows = match std::mem::replace(&mut self.app.data, Value::nothing(span)) {
-            Value::List { vals, .. } => vals.into_owned(),
-            Value::Nothing { .. } => Vec::new(),
-            other => vec![other],
-        };
-        rows.extend(values);
-        let cap = self.stream_row_cap();
-        let drop_n = rows.len().saturating_sub(cap);
-        if drop_n > 0 {
-            rows.drain(0..drop_n);
-        }
-        let span = rows.first().map(|v| v.span()).unwrap_or(span);
-        self.app.data = Value::list(rows, span);
-        if drop_n > 0 {
-            // Highlights and check marks are row indexes; shift them so
-            // they stay on the same rows.
-            let shared: Vec<String> = self
-                .states
-                .keys()
-                .filter(|id| self.shows_shared_list(id))
-                .cloned()
-                .collect();
-            for id in shared {
-                if let Some(list) = self.states.get_mut(&id).and_then(WidgetState::as_list_mut) {
-                    list.drop_front(drop_n);
+        let cap = self.app.stream_row_cap();
+        match owners.split_last() {
+            None => {
+                let dropped = append_capped(&mut self.app.data, values, cap);
+                self.shift_rows(None, dropped);
+            }
+            Some((last, rest)) => {
+                for owner in rest {
+                    self.append_to_widget(owner, values.clone(), cap);
                 }
+                self.append_to_widget(last, values, cap);
             }
         }
         self.invalidate_rows();
@@ -758,34 +785,62 @@ impl Session {
         self.refresh_derived();
     }
 
-    /// Whether widget `id` is a table or select whose rows are the shared
-    /// data list, so trimming that list moves its rows.
-    fn shows_shared_list(&self, id: &str) -> bool {
+    fn append_to_widget(&mut self, id: &str, values: Vec<Value>, cap: usize) {
+        let Some(path) = self.paths.get(id) else {
+            return;
+        };
+        let Some(data) = self.app.at_path_mut(path).and_then(|w| w.data.as_mut()) else {
+            return;
+        };
+        let dropped = append_capped(data, values, cap);
+        self.shift_rows(Some(id), dropped);
+    }
+
+    /// After `dropped` rows left the front of a list (the shared data, or
+    /// widget `owner`'s), move the highlights and check marks of the tables
+    /// and selects showing it, so they stay on the same rows.
+    fn shift_rows(&mut self, owner: Option<&str>, dropped: usize) {
+        if dropped == 0 {
+            return;
+        }
+        let list = match owner {
+            None => Some(&self.app.data),
+            Some(id) => self.widget(id).and_then(|w| w.data.as_ref()),
+        };
+        let Some(list) = list else {
+            return;
+        };
+        let showing: Vec<String> = self
+            .states
+            .keys()
+            .filter(|id| self.shows_list(id, list))
+            .cloned()
+            .collect();
+        for id in showing {
+            if let Some(list) = self.states.get_mut(&id).and_then(WidgetState::as_list_mut) {
+                list.drop_front(dropped);
+            }
+        }
+    }
+
+    /// Whether widget `id` is a table or select whose rows are `list`, so
+    /// trimming that list moves its rows.
+    fn shows_list(&self, id: &str, list: &Value) -> bool {
         match self.kind(id) {
             Some(WidgetKind::Table(_)) => {}
             Some(WidgetKind::Select(select)) if select.items.is_empty() => {}
             _ => return false,
         }
-        std::ptr::eq(self.data_for(id), &self.app.data)
-    }
-
-    /// Rows a live stream may accumulate before the oldest are dropped.
-    pub fn stream_row_cap(&self) -> usize {
-        const DEFAULT: usize = 10_000;
-        self.app
-            .iter()
-            .filter_map(|w| match &w.kind {
-                WidgetKind::Log(log) => Some(log.max_lines),
-                _ => None,
-            })
-            .max()
-            .unwrap_or(DEFAULT)
-            .max(DEFAULT)
+        std::ptr::eq(self.data_for(id), list)
     }
 
     /// Replace the shared data list (from a hook or the refresh closure).
+    /// From then on the hook owns it: a piped stream still producing no
+    /// longer adds to it, or `ls | tui table | tui run --refresh 1sec { ls }`
+    /// would show the listing twice.
     pub fn replace_data(&mut self, value: Value) {
         self.app.data = as_rows(value);
+        self.data_from_hook = true;
         for state in self.states.values_mut() {
             if let Some(tree) = state.as_tree_mut() {
                 tree.expanded.clear();
@@ -1311,16 +1366,12 @@ impl Session {
         else {
             return;
         };
-        let area = handle.split_area;
-        let (len, total) = match handle.direction {
-            SplitDir::Horizontal => (mouse.column.saturating_sub(area.x), area.width),
-            SplitDir::Vertical => (mouse.row.saturating_sub(area.y), area.height),
+        let at = match handle.direction {
+            SplitDir::Horizontal => mouse.column,
+            SplitDir::Vertical => mouse.row,
         };
-        // The handle's own edge is relative to the start of the child it
-        // sizes, which for later children is not the split's origin.
-        let start = handle.child_start;
         if let Some(split) = self.states.get_mut(id).and_then(WidgetState::as_split_mut) {
-            SplitWidget::place_handle(split, index, len.saturating_sub(start), total);
+            SplitWidget::place_handle(split, handle.direction, index, handle.split_area, at);
         }
     }
 
@@ -1631,6 +1682,24 @@ fn expand_range(value: Value) -> Value {
     }
 }
 
+/// Append `values` to the list in `data`, dropping the oldest rows once it
+/// is over `cap` (see [`trim_front`]). Returns how many rows were dropped.
+fn append_capped(data: &mut Value, values: Vec<Value>, cap: usize) -> usize {
+    // Take the list out rather than clone it: this runs on every poll tick
+    // of a live stream.
+    let span = data.span();
+    let mut rows = match std::mem::replace(data, Value::nothing(span)) {
+        Value::List { vals, .. } => vals.into_owned(),
+        Value::Nothing { .. } => Vec::new(),
+        other => vec![other],
+    };
+    rows.extend(values);
+    let dropped = trim_front(&mut rows, cap);
+    let span = rows.first().map(|v| v.span()).unwrap_or(span);
+    *data = Value::list(rows, span);
+    dropped
+}
+
 /// A hook's output as a data list: lists as they are, bounded ranges
 /// expanded, `null` as no rows, and any other value as one row.
 fn as_rows(value: Value) -> Value {
@@ -1820,6 +1889,11 @@ mod tests {
 
     fn frame() -> Rect {
         Rect::new(0, 0, 80, 24)
+    }
+
+    /// Streamed rows `from..to`, as ints.
+    fn ints(from: usize, to: usize) -> Vec<Value> {
+        (from..to).map(|i| Value::test_int(i as i64)).collect()
     }
 
     #[test]
@@ -2020,6 +2094,36 @@ mod tests {
     }
 
     #[test]
+    fn followers_never_follow_each_other() {
+        // Each table in the split is the other's nearest; the second skips
+        // the first, which already follows it, and takes the outer table.
+        let follower = |id: &str| {
+            let mut widget = table(id, &["name"]);
+            widget.source = Some(Source::default());
+            widget
+        };
+        let mut session = Session::new(app(
+            vec![
+                table("table-a", &["name"]),
+                split(
+                    "split-0",
+                    SplitDir::Horizontal,
+                    vec![follower("table-b"), follower("table-c")],
+                ),
+            ],
+            rows(&["x"]),
+        ));
+        session.focused = None;
+        assert_eq!(session.source_id("table-b").as_deref(), Some("table-c"));
+        assert_eq!(session.source_id("table-c").as_deref(), Some("table-a"));
+        // Focus wins over nearness: the sibling follows the focused table,
+        // which then takes the outer one.
+        session.focused = Some("table-b".into());
+        assert_eq!(session.source_id("table-c").as_deref(), Some("table-b"));
+        assert_eq!(session.source_id("table-b").as_deref(), Some("table-a"));
+    }
+
+    #[test]
     fn child_data_wins_over_shared_data() {
         let mut detail = table("table-1", &["name"]);
         detail.data = Some(rows(&["own-a", "own-b", "own-c", "own-d"]));
@@ -2054,6 +2158,7 @@ mod tests {
         follower.source = Some(Source {
             from: Some("table-0".into()),
             closure: None,
+            ..Source::default()
         });
         let mut session = Session::new(app(
             vec![split(
@@ -2195,6 +2300,163 @@ mod tests {
         assert!((18..=22).contains(&left.width), "got {left:?}");
     }
 
+    /// A session holding one split, `split-0`, of two tables.
+    fn two_panes(direction: SplitDir) -> Session {
+        Session::new(app(
+            vec![split(
+                "split-0",
+                direction,
+                vec![table("table-0", &["name"]), table("table-1", &["name"])],
+            )],
+            rows(&["x"]),
+        ))
+    }
+
+    /// First-child lengths after each of `presses` presses of `code` on a
+    /// focused two-pane split drawn in `area`.
+    fn nudge_lengths(direction: SplitDir, area: Rect, code: KeyCode, presses: usize) -> Vec<u16> {
+        let mut session = two_panes(direction);
+        session.layout(area);
+        session.focused = Some("split-0".into());
+        let len = |session: &Session| {
+            let child = session.areas["table-0"];
+            match direction {
+                SplitDir::Horizontal => child.width,
+                SplitDir::Vertical => child.height,
+            }
+        };
+        let mut lengths = vec![len(&session)];
+        for _ in 0..presses {
+            press(&mut session, code, KeyModifiers::NONE);
+            session.layout(area);
+            lengths.push(len(&session));
+        }
+        lengths
+    }
+
+    #[test]
+    fn arrow_keys_move_a_split_handle_one_cell_each_way() {
+        // 81 columns and 40 rows are not multiples of 100: a one-percent
+        // step used to round back to the same cell and stick.
+        let wide = Rect::new(0, 0, 81, 24);
+        let tall = Rect::new(0, 0, 80, 40);
+        let cases = [
+            (SplitDir::Horizontal, wide, KeyCode::Right, 40, 1),
+            (SplitDir::Horizontal, wide, KeyCode::Left, 40, -1),
+            (SplitDir::Vertical, tall, KeyCode::Down, 20, 1),
+            (SplitDir::Vertical, tall, KeyCode::Up, 20, -1),
+        ];
+        for (direction, area, code, start, step) in cases {
+            let lengths = nudge_lengths(direction, area, code, 5);
+            let expected: Vec<u16> = (0..=5).map(|n| (start + step * n) as u16).collect();
+            assert_eq!(lengths, expected, "{direction:?} {code:?}");
+        }
+    }
+
+    #[test]
+    fn arrow_keys_move_a_wide_split_handle_every_press() {
+        // Past 100 cells a percent is more than a cell, so a press may skip
+        // one, but it must always move.
+        let area = Rect::new(0, 0, 250, 24);
+        for code in [KeyCode::Right, KeyCode::Left] {
+            let lengths = nudge_lengths(SplitDir::Horizontal, area, code, 5);
+            for pair in lengths.windows(2) {
+                assert!(pair[0].abs_diff(pair[1]) >= 1, "{code:?}: {lengths:?}");
+                assert!(pair[0].abs_diff(pair[1]) <= 3, "{code:?}: {lengths:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn splitter_drag_lands_on_the_mouse_column() {
+        let area = Rect::new(0, 0, 81, 24);
+        let mut session = two_panes(SplitDir::Horizontal);
+        session.layout(area);
+        let handle = session.handles.first().cloned().expect("handle");
+        click(&mut session, handle.area.x, handle.area.y);
+        for column in [30, 42, 57] {
+            drag(&mut session, column, handle.area.y);
+            session.layout(area);
+            assert_eq!(session.areas["table-0"].width, column);
+        }
+    }
+
+    #[test]
+    fn dragging_a_later_split_handle_lands_on_the_mouse_column() {
+        // Fills before the dragged child shrink as it grows, and a percent
+        // before it can end partway into a cell; both used to leave the
+        // handle short of the pointer.
+        let cases = [
+            (vec![Size::Fill(1), Size::Fill(1), Size::Fill(1)], 60),
+            (vec![Size::Percent(33), Size::Fill(1), Size::Fill(1)], 34),
+        ];
+        for (sizes, column) in cases {
+            let tables = (0..3)
+                .map(|i| table(&format!("table-{i}"), &["name"]))
+                .collect();
+            let mut w = split("split-0", SplitDir::Horizontal, tables);
+            if let WidgetKind::Split(split) = &mut w.kind {
+                split.sizes = sizes.clone();
+            }
+            let mut session = Session::new(app(vec![w], rows(&["x"])));
+            session.layout(frame());
+            let handle = session.handles[1].clone();
+            click(&mut session, handle.area.x, handle.area.y);
+            drag(&mut session, column, handle.area.y);
+            session.layout(frame());
+            assert_eq!(session.handles[1].area.x, column, "{sizes:?}");
+        }
+    }
+
+    #[test]
+    fn a_centred_split_handle_is_fifty_percent() {
+        // 49%, 50% and 51% of 40 rows all end on row 20.
+        let area = Rect::new(0, 0, 80, 40);
+        let mut session = two_panes(SplitDir::Vertical);
+        session.layout(area);
+        let handle = session.handles.first().cloned().expect("handle");
+        click(&mut session, handle.area.x, handle.area.y);
+        drag(&mut session, handle.area.x, 20);
+        let first = session
+            .state("split-0")
+            .and_then(WidgetState::as_split)
+            .and_then(|split| split.sizes.first().copied());
+        assert_eq!(first, Some(Size::Percent(50)));
+    }
+
+    #[test]
+    fn arrow_keys_step_from_the_sizes_not_the_last_frame() {
+        // Keys that arrive together are all handled before the next frame.
+        let area = Rect::new(0, 0, 81, 24);
+        let mut session = two_panes(SplitDir::Horizontal);
+        session.layout(area);
+        session.focused = Some("split-0".into());
+        for _ in 0..3 {
+            press(&mut session, KeyCode::Right, KeyModifiers::NONE);
+        }
+        session.layout(area);
+        assert_eq!(session.areas["table-0"].width, 43);
+    }
+
+    #[test]
+    fn arrow_keys_never_empty_a_pane() {
+        // On short splits 95% plus the one-cell handle used to leave the
+        // far pane no rows at all.
+        for height in [8, 12, 15, 24] {
+            let area = Rect::new(0, 0, 80, height);
+            for (code, far) in [(KeyCode::Down, "table-1"), (KeyCode::Up, "table-0")] {
+                let mut session = two_panes(SplitDir::Vertical);
+                session.layout(area);
+                session.focused = Some("split-0".into());
+                for _ in 0..40 {
+                    press(&mut session, code, KeyModifiers::NONE);
+                    session.layout(area);
+                }
+                assert_eq!(session.areas[far].height, 1, "{height} rows, {code:?}");
+            }
+        }
+    }
+
     #[test]
     fn split_sizes_honour_fixed_lengths() {
         let mut w = Widget::new(
@@ -2228,7 +2490,7 @@ mod tests {
             Value::test_list((0..50).map(|i| Value::test_string(i.to_string())).collect()),
         ));
         session.layout(frame());
-        session.append_values(vec![Value::test_string("50")]);
+        session.append_values(&[], vec![Value::test_string("50")]);
         let log = |s: &Session| s.state("log-0").and_then(WidgetState::as_log).cloned();
         assert!(log(&session).is_some_and(|l| l.follow), "follows the tail");
         // 51 lines in a 22-row viewport: the tail sits at offset 29.
@@ -2249,8 +2511,8 @@ mod tests {
             vec![table("table-0", &["name"])],
             Value::test_nothing(),
         ));
-        session.append_values(as_list(&rows(&["a"])).to_vec());
-        session.append_values(as_list(&rows(&["b", "c"])).to_vec());
+        session.append_values(&[], as_list(&rows(&["a"])).to_vec());
+        session.append_values(&[], as_list(&rows(&["b", "c"])).to_vec());
         assert_eq!(selected_index(&session, "table-0"), 0);
         assert_eq!(session.rows("table-0").len(), 3);
     }
@@ -2307,6 +2569,14 @@ mod tests {
         assert_eq!(session.areas["button-1"].y, 1, "stacked, no handle gap");
         assert!(session.handles.is_empty(), "fixed splits are not resizable");
         assert_eq!(session.areas["table-0"].y, 2);
+        // Not from the keyboard either.
+        session.focused = Some("split-0".into());
+        for code in [KeyCode::Down, KeyCode::Up] {
+            press(&mut session, code, KeyModifiers::NONE);
+            session.layout(frame());
+            assert_eq!(session.areas["button-0"].height, 1, "{code:?}");
+            assert_eq!(session.areas["button-1"].height, 1, "{code:?}");
+        }
     }
 
     #[test]
@@ -2574,28 +2844,70 @@ mod tests {
             )],
             Value::test_nothing(),
         ));
-        let cap = session.stream_row_cap();
-        let rows = |from: usize, to: usize| -> Vec<Value> {
-            (from..to).map(|i| Value::test_int(i as i64)).collect()
-        };
-        session.append_values(rows(0, cap));
+        let cap = session.app.stream_row_cap();
+        let batch = cap / 8;
+        session.append_values(&[], ints(0, cap));
+        // Check the first row, then highlight and check the last.
         key(&mut session, ' ');
-        for _ in 0..5 {
-            press(&mut session, KeyCode::Down, KeyModifiers::NONE);
-        }
+        press(&mut session, KeyCode::End, KeyModifiers::NONE);
         key(&mut session, ' ');
-        assert_eq!(session.row_of("table-0"), Some(Value::test_int(5)));
-        // Three more rows: the first three are dropped, the highlight and
-        // the checks stay on the same values.
-        session.append_values(rows(cap, cap + 3));
-        assert_eq!(session.rows("table-0").len(), cap);
-        assert_eq!(session.row_of("table-0"), Some(Value::test_int(5)));
+        let last = Some(Value::test_int(cap as i64 - 1));
+        assert_eq!(session.row_of("table-0"), last);
+        // Past the cap, rows are dropped a batch at a time, not one by one.
+        session.append_values(&[], ints(cap, cap + 3));
+        assert_eq!(session.rows("table-0").len(), cap + 3);
+        // A batch more drops the oldest batch. The highlight and the check
+        // stay on the same values; the check on row 0 went with it.
+        session.append_values(&[], ints(cap + 3, cap + 3 + batch));
+        assert_eq!(session.rows("table-0").len(), cap + 3);
+        assert_eq!(session.row_of("table-0"), last);
         let checked = session
             .state("table-0")
             .and_then(WidgetState::as_list)
             .map(|l| l.checked.iter().copied().collect::<Vec<_>>())
             .unwrap_or_default();
-        assert_eq!(checked, vec![2], "row 0 was dropped, row 5 is now index 2");
+        assert_eq!(checked, vec![cap - 1 - batch]);
+    }
+
+    #[test]
+    fn a_child_lists_stream_fills_its_own_rows_and_keeps_their_highlight() {
+        // `tui split [(1.. | tui table) (1.. | tui box [(tui table)])]`:
+        // table-0 owns its list; table-1 shows its container's.
+        let mut own = table("table-0", &[]);
+        own.data = Some(Value::test_list(Vec::new()));
+        let mut container = split("split-0", SplitDir::Vertical, vec![table("table-1", &[])]);
+        container.data = Some(Value::test_list(Vec::new()));
+        let mut session = Session::new(app(vec![own, container], rows(&["outer"])));
+        let cap = session.app.stream_row_cap();
+        let owners = ["table-0".to_string(), "split-0".to_string()];
+        session.append_values(&owners, ints(0, cap));
+        for id in ["table-0", "table-1"] {
+            if let Some(list) = session
+                .states
+                .get_mut(id)
+                .and_then(WidgetState::as_list_mut)
+            {
+                list.selected = cap - 1;
+            }
+        }
+        session.append_values(&owners, ints(cap, cap + cap / 8));
+        for id in ["table-0", "table-1"] {
+            assert_eq!(session.rows(id).len(), cap, "{id} dropped a batch");
+            assert_eq!(
+                session.row_of(id),
+                Some(Value::test_int(cap as i64 - 1)),
+                "{id} keeps its highlight"
+            );
+        }
+        assert_eq!(as_list(&session.app.data).len(), 1, "shared data untouched");
+    }
+
+    #[test]
+    fn a_hook_that_replaces_the_data_wins_over_the_stream() {
+        let mut session = Session::new(app(vec![table("table-0", &["name"])], rows(&["a", "b"])));
+        session.replace_data(rows(&["from hook"]));
+        session.append_values(&[], as_list(&rows(&["streamed"])).to_vec());
+        assert_eq!(session.rows("table-0").len(), 1);
     }
 
     #[test]
@@ -2638,6 +2950,7 @@ mod tests {
         follower.source = Some(Source {
             from: Some("table-0".into()),
             closure: None,
+            ..Source::default()
         });
         let mut session = Session::new(app(
             vec![split(

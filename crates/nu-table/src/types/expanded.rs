@@ -1,4 +1,7 @@
-use std::cmp::{max, min};
+use std::{
+    cmp::{max, min},
+    collections::HashSet,
+};
 
 use nu_color_config::{Alignment, StyleComputer, TextStyle};
 use nu_engine::column::get_columns;
@@ -75,7 +78,7 @@ impl ExpandedTable {
             cfg.opts.mode,
         );
 
-        refit_nested_tables(&mut output, vals, cfg.clone())?;
+        refit_nested_tables(&mut output, vals, &cfg)?;
         maybe_expand_table(output, cfg.opts.width)
     }
 }
@@ -500,7 +503,7 @@ fn expand_value(value: &Value, width: usize, cfg: &Cfg<'_>) -> CellResult {
             match table {
                 Some(mut out) => {
                     table_apply_config(&mut out, cfg);
-                    refit_nested_tables(&mut out, vals, inner_cfg)?;
+                    refit_nested_tables(&mut out, vals, &inner_cfg)?;
                     let value = out.table.draw(width);
                     match value {
                         Some(value) => Ok(Some(CellOutput::clean(value, out.count_rows, true))),
@@ -608,7 +611,7 @@ fn expand_entry(item: &Value, cfg: Cfg<'_>) -> CellOutput {
             };
 
             table_apply_config(&mut out, &cfg);
-            if refit_nested_tables(&mut out, vals, inner_cfg).is_err() {
+            if refit_nested_tables(&mut out, vals, &inner_cfg).is_err() {
                 let value = nu_value_to_string(item, cfg.opts.config, &cfg.opts.style_computer);
                 let value = nutext_wrap(value, &cfg);
                 return CellOutput::styled(value);
@@ -669,19 +672,52 @@ fn list_to_string(
     buf
 }
 
+/// Re-expands list and record cells that are wider than the column `draw` will give them.
+///
+/// Shrinking cells changes the widths `draw` plans from, so the next plan can
+/// narrow a column again or bring back a column the last plan dropped. Re-plan
+/// until no cell has to shrink. A cell is only replaced by a strictly narrower
+/// one, so every repeated pass shrinks the table and the loop ends.
 fn refit_nested_tables(
     out: &mut TableOutput,
     input: &[Value],
-    cfg: Cfg<'_>,
+    cfg: &Cfg<'_>,
 ) -> Result<(), ShellError> {
     if out.table.total_width() <= cfg.opts.width {
         return Ok(());
     }
 
+    let with_index = out.with_index;
+    let headers = get_columns(input);
+    let headers: Vec<_> = headers
+        .into_iter()
+        .filter(|header| !with_index || header != INDEX_COLUMN_NAME)
+        .collect();
+
+    // `(row, column, content width)` of re-expansions that did not shrink the
+    // cell. The same width gives the same text, so later passes skip them.
+    let mut no_progress = HashSet::new();
+    while refit_nested_tables_once(out, input, &headers, cfg, &mut no_progress)? {}
+
+    Ok(())
+}
+
+/// One planning pass of [`refit_nested_tables`]; returns whether a cell shrank.
+fn refit_nested_tables_once(
+    out: &mut TableOutput,
+    input: &[Value],
+    headers: &[String],
+    cfg: &Cfg<'_>,
+    no_progress: &mut HashSet<(usize, usize, usize)>,
+) -> Result<bool, ShellError> {
+    if out.table.total_width() <= cfg.opts.width {
+        return Ok(false);
+    }
+
     out.table.prefer_nested_table_columns();
 
     let Some((needed, trail)) = out.table.plan_column_widths(cfg.opts.width) else {
-        return Ok(());
+        return Ok(false);
     };
 
     let pad = cfg.opts.config.table.padding.left + cfg.opts.config.table.padding.right;
@@ -691,16 +727,11 @@ fn refit_nested_tables(
         needed.len()
     };
     if real_columns == 0 {
-        return Ok(());
+        return Ok(false);
     }
 
     let with_index = out.with_index;
     let with_header = out.with_header;
-    let headers = get_columns(input);
-    let headers: Vec<_> = headers
-        .into_iter()
-        .filter(|header| !with_index || header != INDEX_COLUMN_NAME)
-        .collect();
 
     let mut replaced = false;
     for (col, col_width) in needed
@@ -730,7 +761,10 @@ fn refit_nested_tables(
                 break;
             }
 
-            if out.table.cell_content_width(table_row, col) <= content_width {
+            let current_width = out.table.cell_content_width(table_row, col);
+            if current_width <= content_width
+                || no_progress.contains(&(table_row, col, content_width))
+            {
                 continue;
             }
 
@@ -749,10 +783,20 @@ fn refit_nested_tables(
             inner_cfg.clip_columns = true;
             inner_cfg.raise_row_errors = false;
             let cell = expand_entry(value, inner_cfg);
-            let expanded = cell.is_expanded;
-            out.table.insert((table_row, col), cell.text);
-            if expanded {
-                out.table.mark_nested_cell((table_row, col));
+            let text = NuTable::create(cell.text);
+            if text.width() >= current_width {
+                // No progress; `draw` cuts what still does not fit.
+                no_progress.insert((table_row, col, content_width));
+                continue;
+            }
+
+            let pos = (table_row, col);
+            out.table.insert_value(pos, text);
+            // A nested table and its collapsed `[table N rows]` text are styled differently.
+            out.table.reset_style(pos);
+            out.table.insert_style(pos, cell.style);
+            if cell.is_expanded {
+                out.table.mark_nested_cell(pos);
             }
             replaced = true;
         }
@@ -762,7 +806,7 @@ fn refit_nested_tables(
         out.table.recalculate_dimensions();
     }
 
-    Ok(())
+    Ok(replaced)
 }
 
 fn maybe_expand_table(mut out: TableOutput, term_width: usize) -> StringResult {

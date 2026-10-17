@@ -191,7 +191,7 @@ impl Command for SubCommand {
         let split = split.unwrap_or(Split::On);
         let matcher = match separator {
             Value::Closure { val, .. } => {
-                Matcher::from_closure(ClosureEval::new(engine_state, stack, *val))
+                Matcher::from_closure(ClosureEval::try_new(engine_state, stack, *val, call.head)?)
             }
             _ => Matcher::new(engine_state, has_regex, separator)?,
         };

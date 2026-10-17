@@ -21,9 +21,9 @@ use std::path::{Path, PathBuf};
 ///
 /// # Errors
 ///
-/// Returns [`ConfigError`] if no config directory or home directory can be
-/// determined. Non-fatal warnings (e.g. an empty XDG config dir) are returned
-/// in the [`ConfigWarning`] vec.
+/// Returns [`ConfigError`] if no config directory can be determined.
+/// Non-fatal warnings (e.g. an empty XDG config dir) are returned in the
+/// [`ConfigWarning`] vec.
 pub fn resolve_paths(
     env: &impl EnvAccess,
     cli: &CliOverrides,
@@ -48,7 +48,9 @@ pub fn resolve_paths(
         .join("nushell");
 
     // ── home_dir ─────────────────────────────────────────────────────────
-    let home_dir = env.home_dir().ok_or(ConfigError::NoHomeDir)?;
+    // A missing home is not fatal: a user without one can still keep config
+    // under XDG_CONFIG_HOME, so leave it empty and let `$nu.home-dir` report it.
+    let home_dir = env.home_dir().unwrap_or_default();
 
     // ── vendor_autoload_dirs ─────────────────────────────────────────────
     let vendor_autoload_dirs = resolve_vendor_autoload_dirs(env);
@@ -475,11 +477,16 @@ mod tests {
     }
 
     #[test]
-    fn test_resolve_paths_missing_home_errors() {
-        let env = TestEnv::new(HashMap::new()).with_config_dir(abs_path(&["cfg"]));
-        // no home_dir set → NoHomeDir
-        let err = resolve_paths(&env, &CliOverrides::default()).unwrap_err();
-        assert_eq!(err, ConfigError::NoHomeDir);
+    fn test_resolve_paths_missing_home_keeps_xdg_config() {
+        let xdg_base = abs_path(&["xdg-no-home"]);
+        let mut vars = HashMap::new();
+        vars.insert("XDG_CONFIG_HOME".into(), xdg_base.to_string_lossy().into());
+        // no home_dir and no platform config_dir set
+        let env = TestEnv::new(vars);
+        let (dirs, _) = resolve_paths(&env, &CliOverrides::default())
+            .expect("missing home should not discard XDG config");
+        assert_eq!(dirs.config_home, xdg_base.join("nushell"));
+        assert_eq!(dirs.home_dir, PathBuf::new());
     }
 
     #[cfg(unix)]

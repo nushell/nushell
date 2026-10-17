@@ -115,7 +115,8 @@ pub struct NushellConfigDirs {
     /// Maps to `$nu.cache-dir`.
     pub cache_home: PathBuf,
 
-    /// The user's home directory. Maps to `$nu.home-dir`.
+    /// The user's home directory, or empty if none could be found.
+    /// Maps to `$nu.home-dir`.
     pub home_dir: PathBuf,
 
     /// Vendor autoload directories — directories from which Nushell
