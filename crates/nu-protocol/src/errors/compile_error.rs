@@ -158,21 +158,22 @@ pub enum CompileError {
         span: Span,
     },
 
-    /// This environment variable cannot be set manually.
+    /// This environment variable cannot be changed manually.
     ///
     /// ## Resolution
     ///
-    /// This environment variable is set automatically by Nushell and cannot not be set manually.
-    #[error("{envvar_name} cannot be set manually.")]
+    /// This environment variable is set automatically by Nushell and cannot be set manually.
+    #[error("'{}' cannot be changed manually.", .envvar_name.to_ascii_uppercase())]
     #[diagnostic(
         code(nu::compile::automatic_env_var_set_manually),
         help(
-            "The environment variable '{envvar_name}' is set automatically by Nushell and cannot be set manually."
+            "The environment variable '{}' is set automatically by Nushell and cannot be changed manually.",
+            .envvar_name.to_ascii_uppercase()
         )
     )]
     AutomaticEnvVarSetManually {
         envvar_name: String,
-        #[label("cannot set '{envvar_name}' manually")]
+        #[label("cannot change '{}' manually", .envvar_name.to_ascii_uppercase())]
         span: Span,
     },
 

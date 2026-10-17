@@ -1,5 +1,5 @@
 use log::info;
-use nu_engine::eval_block;
+use nu_engine::{eval_block, exit::kill_jobs_and_exit};
 use nu_parser::{find_main_block_id_in_script, parse};
 use nu_protocol::{
     PipelineData, ShellError, Spanned, Value,
@@ -7,11 +7,11 @@ use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
     process::check_exit_status_future,
     report_error::report_compile_error,
-    report_parse_error, report_parse_warning,
+    report_parse_error,
     shell_error::generic::GenericError,
 };
 
-use crate::util::print_pipeline;
+use crate::util::{print_pipeline, report_parse_warnings};
 
 #[derive(Default)]
 pub struct EvaluateCommandsOpts {
@@ -64,18 +64,16 @@ pub fn evaluate_commands(
         let mut working_set = StateWorkingSet::new(engine_state);
 
         let check_errors = |working_set: &StateWorkingSet| {
-            if let Some(warning) = working_set.parse_warnings.first() {
-                report_parse_warning(Some(stack), working_set, warning);
-            }
+            report_parse_warnings(Some(stack), working_set);
 
             if let Some(err) = working_set.parse_errors.first() {
                 report_parse_error(Some(stack), working_set, err);
-                std::process::exit(1);
+                kill_jobs_and_exit(working_set.permanent_state, 1);
             }
 
             if let Some(err) = working_set.compile_errors.first() {
                 report_compile_error(Some(stack), working_set, err);
-                std::process::exit(1);
+                kill_jobs_and_exit(working_set.permanent_state, 1);
             }
         };
 
@@ -83,6 +81,8 @@ pub fn evaluate_commands(
         check_errors(&working_set);
 
         if find_main_block_id_in_script(&working_set, &output).is_some() {
+            // The script's warnings are reported, so only the `main` call's are left to report.
+            working_set.parse_warnings.clear();
             // The CLI parser has already escaped script arguments via `args_to_script`, so we must not
             // escape them again here or we would double-quote values like `"arg 2"`.
             output = parse(

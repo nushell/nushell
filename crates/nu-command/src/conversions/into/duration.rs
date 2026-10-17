@@ -3,7 +3,9 @@ use itertools::Itertools;
 use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
 use nu_parser::{DURATION_UNIT_GROUPS, parse_unit_value};
-use nu_protocol::{SUPPORTED_DURATION_UNITS, Unit, ast::Expr};
+use nu_protocol::{
+    ParseError, SUPPORTED_DURATION_UNITS, Unit, ast::Expr, shell_error::generic::GenericError,
+};
 use std::str::FromStr;
 use std::sync::LazyLock;
 
@@ -354,16 +356,28 @@ fn parse_clock_duration(s: &str, span: Span) -> Result<Option<Value>, ShellError
 }
 
 fn string_to_duration(s: &str, span: Span) -> Result<DurationPart, ShellError> {
-    if let Some(Ok(expression)) = parse_unit_value(
+    match parse_unit_value(
         s.as_bytes(),
         span,
         DURATION_UNIT_GROUPS,
         Type::Duration,
         |x| x,
-    ) && let Expr::ValueWithUnit(value) = expression.expr
-        && let Expr::Int(x) = value.expr.expr
-    {
-        return Ok((value.unit.item, x, span));
+    ) {
+        Some(Ok(expression)) => {
+            if let Expr::ValueWithUnit(value) = expression.expr
+                && let Expr::Int(x) = value.expr.expr
+            {
+                return Ok((value.unit.item, x, span));
+            }
+        }
+        Some(Err(mk_err)) if matches!(mk_err("duration"), ParseError::LiteralTooLarge(..)) => {
+            return Err(ShellError::Generic(GenericError::new(
+                "duration too large",
+                "duration too large",
+                span,
+            )));
+        }
+        _ => {}
     }
 
     Err(ShellError::InvalidUnit {

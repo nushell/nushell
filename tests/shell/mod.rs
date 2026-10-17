@@ -5,6 +5,7 @@ use nu_test_support::{
 use pretty_assertions::assert_eq;
 use rstest::rstest;
 
+mod background_jobs;
 mod environment;
 mod pipeline;
 mod repl;
@@ -258,6 +259,58 @@ fn run_in_noninteractive_mode() {
     assert!(child_output.stderr.is_empty());
 }
 
+/// `nu -c` reports every parse warning, not only the first. `@deprecated --report every` warns
+/// at each call, and the default `--report first` warns once per deprecated command.
+#[rstest]
+#[case::report_every("@deprecated --report every\ndef g [] { 1 }\ng; g; g", 3)]
+#[case::report_first("@deprecated\ndef g [] { 1 }\ng; g; g", 1)]
+#[case::two_commands("@deprecated\ndef g [] { 1 }\n@deprecated\ndef k [] { 2 }\ng; k", 2)]
+// The `main` call is parsed after the script, whose warnings are not reported again.
+#[case::with_main(
+    "@deprecated --report every\ndef g [] { 1 }\ndef main [] { g; g; g }",
+    3
+)]
+// Code the parser tries more than once still warns once per call.
+#[case::retried_parse("@deprecated --report every\ndef g [] { 1 }\n[-(g)(2)] | ignore", 1)]
+#[case::range_bound("@deprecated --report every\ndef g [] { 1 }\n1..(g) | ignore", 1)]
+#[nu_test_support::test]
+#[deps(NU)]
+fn commands_report_every_parse_warning(#[case] code: &str, #[case] expected: usize) -> Result {
+    let output = std::process::Command::new(NU.path())
+        .args(["-n", "-c", code])
+        .output()?;
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert_eq!(
+        stderr.matches("nu::parser::deprecated").count(),
+        expected,
+        "{stderr}"
+    );
+    Ok(())
+}
+
+/// A script file reports every parse warning too.
+#[test]
+#[deps(NU)]
+fn script_reports_every_parse_warning() -> Result {
+    Playground::setup("script_parse_warnings", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[FileWithContent(
+            "deprecated.nu",
+            "@deprecated\ndef g [] { 1 }\n@deprecated\ndef k [] { 2 }\ng; k\n",
+        )]);
+        let output = std::process::Command::new(NU.path())
+            .args(["-n", "deprecated.nu"])
+            .current_dir(dirs.test())
+            .output()?;
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert_eq!(
+            stderr.matches("nu::parser::deprecated").count(),
+            2,
+            "{stderr}"
+        );
+        Ok(())
+    })
+}
+
 // `$nu.startup-time` must be a real duration wherever it can be read, also before startup has
 // finished and in engines that never ran nushell's `main`.
 #[test]
@@ -467,6 +520,42 @@ fn script_help_shows_single_subcommand() -> Result {
             "help output should list exactly one of 'script.nu bar' or 'main bar', got:\n{}",
             out
         );
+
+        Ok(())
+    })
+}
+
+// regression test for https://github.com/nushell/nushell/issues/11657: an alias of a `main`
+// subcommand is listed under its own name right after that subcommand, and an alias named like a
+// `main` subcommand is listed under its script-qualified name, not as the command it wraps.
+#[test]
+#[deps(NU)]
+fn script_help_lists_main_alias_under_its_own_name() -> Result {
+    Playground::setup("main_alias_help", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[FileWithContent(
+            "script.nu",
+            r#"def "main bar" [] {}
+               alias mb = main bar
+               alias "main baz" = main bar
+               def "main" [] { help main }"#,
+        )]);
+
+        let out: String = test()
+            .cwd(dirs.test())
+            .run("nu script.nu --help | ansi strip")?;
+        let lines: Vec<&str> = out.lines().map(str::trim).collect();
+        let bar_at = lines
+            .iter()
+            .position(|line| line.starts_with("script.nu bar (custom)"))
+            .unwrap_or_else(|| panic!("no `script.nu bar` line in:\n{out}"));
+        assert!(
+            lines
+                .get(bar_at + 1)
+                .is_some_and(|line| line.starts_with("mb (alias) - Alias for ")),
+            "got:\n{out}"
+        );
+        assert_contains("script.nu baz (alias)", &out);
+        assert_eq!(out.matches("bar (").count(), 1, "got:\n{out}");
 
         Ok(())
     })

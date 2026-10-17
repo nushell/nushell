@@ -210,6 +210,32 @@ fn catches_exit_code_in_expr() -> Result {
         .expect_value_eq(42)
 }
 
+/// An external failing inside a closure keeps its exit code through the input-value wrapper.
+#[rstest]
+#[case::error_record("$e.exit_code")]
+#[case::last_exit_code("$env.LAST_EXIT_CODE")]
+#[nu_test_support::test]
+#[deps(TESTBIN_FAIL)]
+fn exit_code_of_external_failing_in_each(#[case] expr: &str) -> Result {
+    test()
+        .run(format!(
+            "try {{ [1] | each {{ fail 42 }} }} catch {{|e| {expr} }}"
+        ))
+        .expect_value_eq(42)
+}
+
+#[test]
+#[deps(NU)]
+fn exit_in_each_is_not_caught() -> Result {
+    let code = "try { [1] | each { exit 4 } } catch { print 'caught' }";
+    let result: CompleteResult =
+        test().run_with_data("let code; nu -n -c $code | complete", code)?;
+    assert_contains_not("caught", &result.stdout);
+    assert_eq!(result.stderr, "");
+    assert_eq!(result.exit_code, 4);
+    Ok(())
+}
+
 #[test]
 fn prints_only_if_last_pipeline() -> Result {
     test()

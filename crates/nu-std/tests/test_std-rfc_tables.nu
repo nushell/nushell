@@ -312,7 +312,7 @@ def throw_error_on_non-existing_column [] {
         get details
     }
 
-    assert equal $error.inner.0.msg "Cannot find column '$.items.NotInTheDataSet'"
+    assert equal $error.msg "Cannot find column '$.items.NotInTheDataSet'"
 }
 
 @test

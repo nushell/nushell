@@ -138,7 +138,9 @@ fn rename(
     };
     let closure: Option<Closure> = call.get_flag(engine_state, stack, "block")?;
 
-    let mut closure = closure.map(|closure| ClosureEval::new(engine_state, stack, closure));
+    let mut closure = closure
+        .map(|closure| ClosureEval::try_new(engine_state, stack, closure, call.head))
+        .transpose()?;
 
     let metadata = input.take_metadata();
     input

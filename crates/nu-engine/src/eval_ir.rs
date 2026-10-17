@@ -1,4 +1,4 @@
-use std::{borrow::Cow, fs::File, sync::Arc};
+use std::{fs::File, sync::Arc};
 
 use nu_path::{dots::expand_ndots_safe, expand_path, expand_path_with, expand_tilde};
 #[cfg(feature = "os")]
@@ -12,16 +12,17 @@ use nu_protocol::{
     debugger::DebugContext,
     engine::{
         Argument, Closure, EngineState, EnvName, ErrorHandler, Matcher, Redirection, Stack,
-        StateWorkingSet, TryHandler,
+        StateWorkingSet, TryHandler, env_var_eq,
     },
     ir::{Call, DataSlice, Instruction, IrAstRef, IrBlock, Literal, RedirectMode},
-    shell_error::{generic::GenericError, io::IoError},
+    shell_error::{
+        eval_block_with_input::EvalBlockWithInputError, generic::GenericError, io::IoError,
+    },
 };
-use nu_utils::IgnoreCaseExt;
 
+use crate::env::{is_automatic_env_var, var};
 use crate::{
-    ENV_CONVERSIONS, convert_env_vars, eval::is_automatic_env_var, eval_block_with_early_return,
-    named_flags::normalize_engine_arguments,
+    convert_env_vars, eval_block_with_early_return, named_flags::normalize_engine_arguments,
 };
 
 /// For `def --wrapped` and `known extern` rest params (`SyntaxShape::ExternalArgument`), convert
@@ -484,12 +485,7 @@ fn unwind_through_handlers(
 /// An interrupt (ctrl-c) that is about to be handled by `catch` or `finally` must not keep
 /// interrupting the handler block itself.
 fn reset_signals_if_interrupted(ctx: &EvalContext<'_>, err: &ShellError) {
-    #[cfg(unix)]
-    let is_terminated_by_signal = matches!(err, ShellError::TerminatedBySignal { .. });
-    #[cfg(not(unix))]
-    let is_terminated_by_signal = false;
-
-    if matches!(err, ShellError::Interrupted { .. }) || is_terminated_by_signal {
+    if err.is_interrupt() {
         ctx.engine_state.signals().reset();
     }
 }
@@ -701,11 +697,11 @@ fn eval_instruction<D: DebugContext>(
             let key = ctx.get_str(*key, *span)?;
             let value = ctx.collect_reg(*src, *span)?;
 
-            let key = get_env_var_name(ctx, key);
+            let key = ctx.stack.get_env_var_name(ctx.engine_state, key);
 
             if !is_automatic_env_var(&key) {
-                let is_config = key == "config";
-                let update_conversions = key == ENV_CONVERSIONS;
+                let is_config = env_var_eq(&key, var::CONFIG);
+                let update_conversions = env_var_eq(&key, var::ENV_CONVERSIONS);
 
                 ctx.stack.add_env_var(key.into_owned(), value.clone());
 
@@ -1645,7 +1641,7 @@ fn find_named_var_id(
         .and_then(|flag| expect_named_var_id(flag, span))
 }
 
-fn expect_named_var_id(arg: &Flag, span: Span) -> Result<VarId, ShellError> {
+pub(crate) fn expect_named_var_id(arg: &Flag, span: Span) -> Result<VarId, ShellError> {
     arg.var_id.ok_or_else(|| ShellError::IrEvalError {
         msg: format!(
             "block signature is missing var id for named arg `{}`",
@@ -2020,39 +2016,6 @@ fn get_env_var<'a>(ctx: &'a mut EvalContext<'_>, key: &str) -> Option<&'a Value>
     None
 }
 
-/// Get the existing name of an environment variable (case-insensitive lookup is handled by EnvName).
-/// This is used to implement case preservation of environment variables, so that changing an
-/// environment variable that already exists always uses the same case.
-fn get_env_var_name<'a>(ctx: &mut EvalContext<'_>, key: &'a str) -> Cow<'a, str> {
-    // Read scopes in order
-    ctx.stack
-        .env_vars
-        .iter()
-        .rev()
-        .chain(std::iter::once(&ctx.engine_state.env_vars))
-        .flat_map(|overlays| {
-            // Read overlays in order
-            ctx.stack
-                .active_overlays
-                .iter()
-                .rev()
-                .filter_map(|name| overlays.get(name))
-        })
-        .find_map(|map| {
-            // Check if it exists (case-insensitive due to EnvName)
-            if map.contains_key(&EnvName::from(key)) {
-                // Find the existing key to preserve its case
-                map.keys()
-                    .find(|k| k.as_str().eq_ignore_case(key))
-                    .map(|k| Cow::Owned(k.as_str().to_owned()))
-            } else {
-                None
-            }
-        })
-        // didn't exist, use the provided key
-        .unwrap_or(Cow::Borrowed(key))
-}
-
 /// Helper to collect values into [`PipelineData`], preserving original span and metadata
 ///
 /// The metadata is removed if it is the file data source, as that's just meant to mark streams.
@@ -2109,10 +2072,7 @@ fn drain(
                     return Err(err);
                 } else {
                     for s in callback_spans {
-                        err = ShellError::EvalBlockWithInput {
-                            span: s,
-                            sources: vec![err],
-                        }
+                        err = EvalBlockWithInputError::wrap(err, s, EvalBlockWithInputError::CALLER)
                     }
                     return Err(err);
                 }
@@ -2127,10 +2087,7 @@ fn drain(
                     return Err(err);
                 } else {
                     for s in callback_spans {
-                        err = ShellError::EvalBlockWithInput {
-                            span: s,
-                            sources: vec![err],
-                        }
+                        err = EvalBlockWithInputError::wrap(err, s, EvalBlockWithInputError::CALLER)
                     }
                     return Err(err);
                 }

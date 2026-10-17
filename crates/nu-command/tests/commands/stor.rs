@@ -34,6 +34,31 @@ fn stor_update_with_quote() -> Result {
         .expect_value_eq("This didn't work, but should now.")
 }
 
+// The first statement of a block receives the block's input, so these calls get both that
+// input and the record flag. The flag wins.
+#[test]
+fn stor_insert_data_record_in_block() -> Result {
+    let code = "
+        stor create --table-name stor_insert_block_table --columns { a: int };
+        [{a: 1} {a: 2}] | each {|r| stor insert -t stor_insert_block_table -d $r };
+        stor open | query db 'select a from stor_insert_block_table' | get a
+    ";
+
+    test().run(code).expect_value_eq([1, 2])
+}
+
+#[test]
+fn stor_update_update_record_in_block() -> Result {
+    let code = "
+        stor create --table-name stor_update_block_table --columns { a: int };
+        stor insert -t stor_update_block_table -d {a: 1};
+        {a: 9} | do { stor update -t stor_update_block_table -u {a: 2} };
+        stor open | query db 'select a from stor_update_block_table' | get a
+    ";
+
+    test().run(code).expect_value_eq([2])
+}
+
 // `stor import` hands the path to sqlite, which resolves a relative one against the process
 // working directory. The test harness does not keep that in sync with `$env.PWD`, so these
 // tests use an absolute path inside the playground rather than setting `cwd`.

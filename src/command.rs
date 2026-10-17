@@ -57,6 +57,52 @@ pub(crate) struct ParsedCli {
     pub(crate) args_to_script: Vec<String>,
 }
 
+/// The single dispatch decision used for both interrupt policy and execution.
+pub(crate) enum RunMode {
+    Repl,
+    Commands(Spanned<String>),
+    Script,
+    #[cfg(feature = "mcp")]
+    Mcp,
+    #[cfg(feature = "lsp")]
+    Lsp,
+    #[cfg(feature = "dap")]
+    Dap,
+}
+
+impl RunMode {
+    pub(crate) fn is_repl(&self) -> bool {
+        matches!(self, Self::Repl)
+    }
+}
+
+impl ParsedCli {
+    /// `-i` makes commands and scripts interactive, but they still exit when done rather than
+    /// return to a prompt. Server modes take precedence over commands and scripts.
+    pub(crate) fn run_mode(&self) -> RunMode {
+        #[cfg(feature = "mcp")]
+        if self.nu.is_mcp() {
+            return RunMode::Mcp;
+        }
+        #[cfg(feature = "lsp")]
+        if self.nu.is_lsp() {
+            return RunMode::Lsp;
+        }
+        #[cfg(feature = "dap")]
+        if self.nu.is_dap() {
+            return RunMode::Dap;
+        }
+
+        if let Some(commands) = &self.nu.commands {
+            RunMode::Commands(commands.clone())
+        } else if self.script_name.is_empty() {
+            RunMode::Repl
+        } else {
+            RunMode::Script
+        }
+    }
+}
+
 // Categories for grouping CLI flags in help output.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum CliCategory {
@@ -410,9 +456,9 @@ const CLI_FLAGS: &[CliFlag] = &[
         "mcp-host",
         None,
         ValueHint::String,
-        "host for MCP HTTP transhost (default 127.0.0.1)",
+        "address the MCP HTTP transport binds to (default 127.0.0.1)",
         CliCategory::Startup,
-        "nu --mcp --mcp-transhost http --mcp-host 0.0.0.0",
+        "nu --mcp --mcp-transport http --mcp-host 0.0.0.0",
     ),
     #[cfg(feature = "mcp")]
     CliFlag::value(
@@ -1784,10 +1830,96 @@ pub(crate) struct NushellCliArgs {
     pub(crate) mcp_allowed_origins: Option<Vec<Spanned<String>>>,
 }
 
+impl NushellCliArgs {
+    pub(crate) fn is_lsp(&self) -> bool {
+        #[cfg(feature = "lsp")]
+        {
+            self.lsp
+        }
+        #[cfg(not(feature = "lsp"))]
+        {
+            false
+        }
+    }
+
+    pub(crate) fn is_dap(&self) -> bool {
+        #[cfg(feature = "dap")]
+        {
+            self.dap
+        }
+        #[cfg(not(feature = "dap"))]
+        {
+            false
+        }
+    }
+
+    pub(crate) fn is_mcp(&self) -> bool {
+        #[cfg(feature = "mcp")]
+        {
+            self.mcp
+        }
+        #[cfg(not(feature = "mcp"))]
+        {
+            false
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::ffi::OsString;
+
+    fn parse_nu_args(args: &[&str]) -> ParsedCli {
+        let args = std::iter::once("nu")
+            .chain(args.iter().copied())
+            .map(OsString::from)
+            .collect();
+        parse_cli_args(args).expect("should parse args")
+    }
+
+    #[rstest::rstest]
+    #[case::no_arguments(&[], true)]
+    #[case::execute(&["-e", "ls"], true)]
+    #[case::interactive(&["-i"], true)]
+    #[case::commands(&["-c", "ls"], false)]
+    #[case::interactive_commands(&["-i", "-c", "ls"], false)]
+    #[case::script(&["script.nu"], false)]
+    #[case::interactive_script(&["-i", "script.nu"], false)]
+    fn is_repl(#[case] args: &[&str], #[case] expected: bool) {
+        assert_eq!(parse_nu_args(args).run_mode().is_repl(), expected);
+    }
+
+    // The examples are printed by `nu --help`, so a flag they mention must exist.
+    #[test]
+    fn flag_examples_only_use_known_flags() {
+        for flag in CLI_FLAGS {
+            for name in flag
+                .example
+                .split_whitespace()
+                .filter_map(|word| word.strip_prefix("--"))
+                .filter_map(|word| word.split('=').next())
+                .filter(|name| !name.is_empty())
+            {
+                assert!(
+                    CLI_FLAGS.iter().any(|known| known.long == name),
+                    "the example for `--{}` uses the unknown flag `--{name}`: {}",
+                    flag.long,
+                    flag.example
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn servers_are_not_repl() {
+        #[cfg(feature = "lsp")]
+        assert!(matches!(parse_nu_args(&["--lsp"]).run_mode(), RunMode::Lsp));
+        #[cfg(feature = "dap")]
+        assert!(matches!(parse_nu_args(&["--dap"]).run_mode(), RunMode::Dap));
+        #[cfg(feature = "mcp")]
+        assert!(matches!(parse_nu_args(&["--mcp"]).run_mode(), RunMode::Mcp));
+    }
 
     #[test]
     fn test_log_file_parsing() {

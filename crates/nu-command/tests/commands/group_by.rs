@@ -1,5 +1,6 @@
 use nu_protocol::test_value;
 use nu_test_support::prelude::*;
+use pretty_assertions::assert_matches;
 use rstest::rstest;
 
 #[test]
@@ -299,9 +300,12 @@ fn to_table_checks_column_names(#[case] code: &str, #[case] message: &str) -> Re
 
 #[test]
 fn errors_in_the_input_are_raised() -> Result {
-    test()
+    let err = test()
         .run("1..3 | each {|n| error make { msg: 'boom' } } | group-by")
-        .expect_error_code_eq("nu::shell::eval_block_with_input")
+        .expect_shell_error()?;
+    assert_matches!(err, ShellError::EvalBlockWithInput(..));
+    assert_eq!(err.into_inner()?.into_labeled()?.msg, "boom");
+    Ok(())
 }
 
 #[test]

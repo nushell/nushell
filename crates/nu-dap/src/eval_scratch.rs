@@ -344,7 +344,7 @@ mod tests {
             .expect_err("cannot set PWD");
 
         assert!(
-            err.contains("PWD cannot be set manually"),
+            err.contains("'PWD' cannot be changed manually."),
             "unexpected message: {err}"
         );
     }

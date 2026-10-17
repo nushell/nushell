@@ -65,9 +65,14 @@ impl Command for Do {
         let has_env = call.has_flag(engine_state, caller_stack, "env")?;
 
         let result = if has_env {
-            ClosureEvalOnce::new_env_preserve_out_dest(engine_state, caller_stack, closure)
+            ClosureEvalOnce::try_new_env_preserve_out_dest(
+                engine_state,
+                caller_stack,
+                closure,
+                head,
+            )?
         } else {
-            ClosureEvalOnce::new_preserve_out_dest(engine_state, caller_stack, closure)
+            ClosureEvalOnce::try_new_preserve_out_dest(engine_state, caller_stack, closure, head)?
         }
         .add_args(rest)?
         .run_with_input(input);

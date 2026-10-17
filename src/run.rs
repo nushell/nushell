@@ -7,6 +7,7 @@ use log::trace;
 use nu_cli::read_plugin_file;
 use nu_cli::{EvaluateCommandsOpts, evaluate_commands, evaluate_file, evaluate_repl};
 use nu_config::ConfigFileKind;
+use nu_engine::exit::kill_jobs_and_exit;
 use nu_protocol::{
     PipelineData, ShellError,
     engine::{EngineState, Stack},
@@ -114,10 +115,10 @@ pub(crate) fn run_commands(
 
     if let Err(err) = result {
         if let ShellError::Exit { code, .. } = &err {
-            std::process::exit(*code)
+            kill_jobs_and_exit(engine_state, *code)
         }
         report_shell_error(Some(&stack), engine_state, &err);
-        std::process::exit(err.exit_code().unwrap_or(0));
+        kill_jobs_and_exit(engine_state, err.exit_code().unwrap_or(0));
     }
 }
 
@@ -206,10 +207,10 @@ pub(crate) fn run_file(
 
     if let Err(err) = result {
         if let ShellError::Exit { code, .. } = &err {
-            std::process::exit(*code)
+            kill_jobs_and_exit(engine_state, *code)
         }
         report_shell_error(Some(&stack), engine_state, &err);
-        std::process::exit(err.exit_code().unwrap_or(0));
+        kill_jobs_and_exit(engine_state, err.exit_code().unwrap_or(0));
     }
 }
 

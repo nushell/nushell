@@ -122,13 +122,13 @@ fn update_recursive(
                 if matches!(cell_paths.first(), Some(PathMember::Int { .. })) {
                     update_single_value_by_closure(
                         &mut value,
-                        ClosureEvalOnce::new(engine_state, stack, *val),
+                        ClosureEvalOnce::try_new(engine_state, stack, *val, head_span)?,
                         head_span,
                         cell_paths,
                         false,
                     )?;
                 } else {
-                    let mut closure = ClosureEval::new(engine_state, stack, *val);
+                    let mut closure = ClosureEval::try_new(engine_state, stack, *val, head_span)?;
                     update_value_by_closure(&mut value, &mut closure, head_span, cell_paths)?;
                 }
             } else {
@@ -177,7 +177,7 @@ fn update_recursive(
                 if let Value::Closure { val, .. } = replacement {
                     update_single_value_by_closure(
                         value,
-                        ClosureEvalOnce::new(engine_state, stack, *val),
+                        ClosureEvalOnce::try_new(engine_state, stack, *val, head_span)?,
                         head_span,
                         path,
                         true,
@@ -204,7 +204,7 @@ fn update_recursive(
                     &new_cell_paths,
                 )
             } else if let Value::Closure { val, .. } = replacement {
-                let mut closure = ClosureEval::new(engine_state, stack, *val);
+                let mut closure = ClosureEval::try_new(engine_state, stack, *val, head_span)?;
                 let cell_paths = cell_paths.to_vec();
                 let stream = stream.map(move |mut value| {
                     let err =

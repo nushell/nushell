@@ -1,4 +1,5 @@
 use crate::repl::tests::{TestResult, fail_test, run_test};
+use nu_test_support::prelude::*;
 use rstest::rstest;
 
 #[test]
@@ -75,6 +76,20 @@ fn float_in_unbounded_stepped_range() -> TestResult {
 #[test]
 fn float_not_in_unbounded_stepped_range() -> TestResult {
     run_test("2.1 in 1.2..3..", "false")
+}
+
+/// A float range includes its end with `..` and excludes it with `..<`, like an int range.
+#[rstest]
+#[case::inclusive_end("2.0 in 1.0..2.0", true)]
+#[case::exclusive_end("2.0 in 1.0..<2.0", false)]
+#[case::int_in_float_range("2 in 1.0..2.0", true)]
+#[case::float_in_int_range("2.0 in 1..2", true)]
+#[case::float_past_end("2.5 in 1.0..2.0", false)]
+#[case::decreasing_inclusive_end("0.0 in 2.0..1.0..0.0", true)]
+#[case::decreasing_exclusive_end("0.0 in 2.0..1.0..<0.0", false)]
+#[case::match_pattern("match 2.0 { 1..2 => true, _ => false }", true)]
+fn float_range_end_bound(#[case] code: &str, #[case] expected: bool) -> Result {
+    test().run(code).expect_value_eq(expected)
 }
 
 #[rstest]

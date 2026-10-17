@@ -525,7 +525,7 @@ fn group_closure(
     stack: &mut Stack,
 ) -> Result<IndexMap<GroupKey, Vec<Value>>, ShellError> {
     let mut groups = IndexMap::<_, Vec<_>>::new();
-    let mut closure = ClosureEval::new(engine_state, stack, closure);
+    let mut closure = ClosureEval::try_new(engine_state, stack, closure, span)?;
 
     for value in values {
         let key_val = closure.run_with_value(value.clone())?.into_value(span)?;

@@ -15,6 +15,7 @@ use std::{error::Error as StdError, num::NonZeroI32, sync::Arc};
 use thiserror::Error;
 
 pub mod bridge;
+pub mod eval_block_with_input;
 pub mod generic;
 pub mod io;
 pub mod job;
@@ -476,21 +477,37 @@ pub enum ShellError {
         span: Span,
     },
 
-    /// This environment variable cannot be set manually.
+    /// This environment variable cannot be changed manually.
     ///
     /// ## Resolution
     ///
-    /// This environment variable is set automatically by Nushell and cannot not be set manually.
-    #[error("{envvar_name} cannot be set manually.")]
+    /// This environment variable is set automatically by Nushell and cannot be set manually or hidden.
+    #[error("'{}' cannot be changed manually.", .envvar_name.to_ascii_uppercase())]
     #[diagnostic(
         code(nu::shell::automatic_env_var_set_manually),
         help(
-            "The environment variable '{envvar_name}' is set automatically by Nushell and cannot be set manually."
+            "The environment variable '{}' is set automatically by Nushell and cannot be changed manually.",
+            .envvar_name.to_ascii_uppercase()
         )
     )]
     AutomaticEnvVarSetManually {
         envvar_name: String,
-        #[label("cannot set '{envvar_name}' manually")]
+        #[label("cannot change '{}' manually", .envvar_name.to_ascii_uppercase())]
+        span: Span,
+    },
+
+    /// The config environment variable cannot be hidden.
+    ///
+    /// ## Resolution
+    ///
+    /// Assign a new record to `$env.config` instead of hiding it.
+    #[error("'config' cannot be hidden.")]
+    #[diagnostic(
+        code(nu::shell::cannot_hide_config_env_var),
+        help("Assign a new record to `$env.config` instead of hiding it.")
+    )]
+    CannotHideConfigEnvVar {
+        #[label("cannot hide 'config'")]
         span: Span,
     },
 
@@ -1145,16 +1162,13 @@ pub enum ShellError {
         span: Span,
     },
 
-    // It should be only used by commands accepts block, and accept inputs from pipeline.
-    /// Failed to eval block with specific pipeline input.
-    #[error("Eval block failed with pipeline input")]
-    #[diagnostic(code(nu::shell::eval_block_with_input))]
-    EvalBlockWithInput {
-        #[label("source value")]
-        span: Span,
-        #[related]
-        sources: Vec<ShellError>,
-    },
+    /// A closure failed while running on one pipeline input value.
+    ///
+    /// Reports as the closure's error, with an extra label at the input value.
+    /// See [`EvalBlockWithInputError`](eval_block_with_input::EvalBlockWithInputError).
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    EvalBlockWithInput(eval_block_with_input::EvalBlockWithInputError),
 
     /// Break event, which may become an error if used outside of a loop
     #[error("Break used outside of loop")]
@@ -1493,9 +1507,21 @@ impl ShellError {
             #[cfg(unix)]
             Self::TerminatedBySignal { signal, span, .. }
             | Self::CoreDumped { signal, span, .. } => (-signal, span),
+            // Reports as the closure's error, so it carries that error's exit code too.
+            Self::EvalBlockWithInput(ref err) => return err.error.external_exit_code(),
             _ => return None,
         };
         Some(Spanned { item, span })
+    }
+
+    /// Whether this error comes from an interrupt: ctrl-c, or an external process ended by a
+    /// signal.
+    pub fn is_interrupt(&self) -> bool {
+        #[cfg(unix)]
+        if matches!(self, Self::TerminatedBySignal { .. }) {
+            return true;
+        }
+        matches!(self, Self::Interrupted { .. })
     }
 
     pub fn exit_code(&self) -> Option<i32> {

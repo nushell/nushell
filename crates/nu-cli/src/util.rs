@@ -1,7 +1,7 @@
 #![allow(clippy::byte_char_slices)]
 
 use nu_cmd_base::hook::eval_hook;
-use nu_engine::{eval_block, eval_block_with_early_return};
+use nu_engine::{eval_block, eval_block_with_early_return, exit::kill_jobs_and_exit};
 use nu_parser::{Token, TokenContents, lex, parse, unescape_unquote_string};
 use nu_protocol::{
     ByteStream, ByteStreamSource, ListStream, PipelineData, PipelineMetadata, ShellError, Signals,
@@ -295,7 +295,7 @@ fn map_eval_error_to_exit_code(
     err: ShellError,
 ) -> i32 {
     if let ShellError::Exit { code, .. } = &err {
-        std::process::exit(*code)
+        kill_jobs_and_exit(engine_state, *code)
     }
     report_shell_error(Some(stack), engine_state, &err);
     let code = err.exit_code();
@@ -327,6 +327,20 @@ fn finish_eval_source(
     exit_code
 }
 
+/// Report every parse warning in `working_set`, each once. The parser can try a piece of code more
+/// than once and leave the same warning behind each time, so a repeat at the same place is
+/// skipped. [`report_parse_warning`] itself drops repeats of `--report first` warnings.
+pub(crate) fn report_parse_warnings(stack: Option<&Stack>, working_set: &StateWorkingSet) {
+    let mut reported: Vec<(Span, String)> = vec![];
+    for warning in &working_set.parse_warnings {
+        let key = (warning.span(), warning.to_string());
+        if !reported.contains(&key) {
+            report_parse_warning(stack, working_set, warning);
+            reported.push(key);
+        }
+    }
+}
+
 pub(crate) fn evaluate_source(
     engine_state: &mut EngineState,
     stack: &mut Stack,
@@ -343,9 +357,7 @@ pub(crate) fn evaluate_source(
             source,
             false,
         );
-        if let Some(warning) = working_set.parse_warnings.first() {
-            report_parse_warning(Some(stack), &working_set, warning);
-        }
+        report_parse_warnings(Some(stack), &working_set);
 
         if let Some(err) = working_set.parse_errors.first() {
             report_parse_error(Some(stack), &working_set, err);

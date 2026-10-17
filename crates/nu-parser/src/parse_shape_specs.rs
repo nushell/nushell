@@ -9,12 +9,43 @@ use nu_protocol::{
 };
 use nu_utils::NuCow;
 
+/// The words [`parse_shape_name`] reads as built-in types, which a type alias can't be named.
+pub const BUILTIN_TYPE_NAMES: &[&[u8]] = &[
+    b"any",
+    b"binary",
+    b"block",
+    b"bool",
+    b"cell-path",
+    b"closure",
+    b"datetime",
+    b"directory",
+    b"duration",
+    b"error",
+    b"external_arg",
+    b"filesize",
+    b"float",
+    b"glob",
+    b"int",
+    b"list",
+    b"nothing",
+    b"number",
+    b"oneof",
+    b"path",
+    b"range",
+    b"record",
+    b"string",
+    b"table",
+];
+
 /// [`parse_shape_name`] then convert to Type
 pub fn parse_type(working_set: &mut StateWorkingSet, bytes: &[u8], span: Span) -> Type {
     parse_shape_name(working_set, bytes, span).to_type()
 }
 
 /// Parse the literals of [`Type`]-like [`SyntaxShape`]s including inner types.
+///
+/// A word that isn't a built-in type is looked up as a type alias. A new built-in type word
+/// also goes in [`BUILTIN_TYPE_NAMES`], so that no alias can take the name.
 ///
 /// NOTE: Does not provide a mapping to every [`SyntaxShape`]
 pub fn parse_shape_name(
@@ -51,26 +82,63 @@ pub fn parse_shape_name(
         b"path" => SyntaxShape::Filepath,
         b"range" => SyntaxShape::Range,
         b"string" => SyntaxShape::String,
-        _ if bytes.starts_with(b"oneof")
-            || bytes.starts_with(b"list")
-            || bytes.starts_with(b"record")
-            || bytes.starts_with(b"table") =>
-        {
+        _ if matches!(type_name(bytes), b"oneof" | b"list" | b"record" | b"table") => {
             parse_generic_shape(working_set, bytes, span)
         }
-        _ => {
-            if bytes.contains(&b'@') {
-                working_set.error(ParseError::LabeledError(
-                    "Unexpected custom completer in type spec".into(),
-                    "Type specifications do not support custom completers".into(),
-                    span,
-                ));
-            }
-            //TODO: Handle error case for unknown shapes
+        _ if bytes.contains(&b'@') => {
+            working_set.error(ParseError::LabeledError(
+                "Unexpected custom completer in type spec".into(),
+                "Type specifications do not support custom completers".into(),
+                span,
+            ));
             working_set.error(ParseError::UnknownType(span));
             SyntaxShape::Any
         }
+        _ => expand_type_alias(working_set, bytes, span),
     }
+}
+
+/// The part of a type before its type parameters: `list` for `list<int>`.
+fn type_name(bytes: &[u8]) -> &[u8] {
+    bytes
+        .iter()
+        .position(|b| *b == b'<')
+        .map_or(bytes, |idx| &bytes[..idx])
+}
+
+/// Return what the type alias `bytes` expands to, or report why `bytes` names no type.
+fn expand_type_alias(working_set: &mut StateWorkingSet, bytes: &[u8], span: Span) -> SyntaxShape {
+    let name = type_name(bytes);
+
+    if let Some(type_alias_id) = working_set.find_type_alias(name) {
+        if name.len() < bytes.len() {
+            working_set.error(ParseError::TypeAliasWithParams(
+                String::from_utf8_lossy(name).into_owned(),
+                Span::new(span.start + name.len(), span.end),
+            ));
+        }
+        return working_set.get_type_alias(type_alias_id).shape.clone();
+    }
+
+    // A `type` statement for this name further on, recorded with the predeclarations, makes this
+    // a use before the definition, or a use inside it.
+    let definition = working_set
+        .find_type_predecls(name)
+        .find(|definition| definition.end > span.start);
+    let error = match definition {
+        Some(definition) if definition.contains_span(span) => {
+            ParseError::TypeAliasSelfReference(String::from_utf8_lossy(name).into_owned(), span)
+        }
+        Some(definition) => ParseError::TypeAliasUsedBeforeDefinition(
+            String::from_utf8_lossy(name).into_owned(),
+            span,
+            definition,
+        ),
+        None => ParseError::UnknownType(span),
+    };
+    working_set.error(error);
+
+    SyntaxShape::Any
 }
 
 /// Handles the specification of custom completions with `type@completer`.

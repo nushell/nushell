@@ -1,6 +1,6 @@
-use crate::util::{eval_parsed_block_source, eval_source, print_pipeline};
+use crate::util::{eval_parsed_block_source, eval_source, print_pipeline, report_parse_warnings};
 use log::{info, trace};
-use nu_engine::eval_block;
+use nu_engine::{eval_block, exit::kill_jobs_and_exit};
 use nu_parser::parse;
 use nu_path::absolute_with;
 use nu_protocol::{
@@ -8,7 +8,7 @@ use nu_protocol::{
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
     report_error::report_compile_error,
-    report_parse_error, report_parse_warning,
+    report_parse_error,
     shell_error::io::*,
 };
 use std::{path::PathBuf, sync::Arc};
@@ -98,19 +98,17 @@ pub fn evaluate_file(
     trace!("parsing file: {file_path_str}");
     let block = parse(&mut working_set, Some(file_path_str), &file, false);
 
-    if let Some(warning) = working_set.parse_warnings.first() {
-        report_parse_warning(None, &working_set, warning);
-    }
+    report_parse_warnings(None, &working_set);
 
     // If any parse errors were found, report the first error and exit.
     if let Some(err) = working_set.parse_errors.first() {
         report_parse_error(None, &working_set, err);
-        std::process::exit(1);
+        kill_jobs_and_exit(engine_state, 1);
     }
 
     if let Some(err) = working_set.compile_errors.first() {
         report_compile_error(None, &working_set, err);
-        std::process::exit(1);
+        kill_jobs_and_exit(engine_state, 1);
     }
 
     // Look for blocks whose name is `main` or begins with `main `; if any are
@@ -208,7 +206,7 @@ pub fn evaluate_file(
     };
 
     if exit_code != 0 {
-        std::process::exit(exit_code);
+        kill_jobs_and_exit(engine_state, exit_code);
     }
 
     info!("evaluate {}:{}:{}", file!(), line!(), column!());

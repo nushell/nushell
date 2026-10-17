@@ -3,7 +3,7 @@ use nu_path::absolute_with;
 use nu_protocol::{
     ShellError, Span, Type, Value, VarId,
     ast::Expr,
-    engine::{Call, EngineState, EnvName, Stack},
+    engine::{Call, EngineState, EnvName, Stack, env_var_eq},
     shell_error::generic::GenericError,
 };
 use std::{
@@ -12,11 +12,26 @@ use std::{
     sync::Arc,
 };
 
-pub const ENV_CONVERSIONS: &str = "ENV_CONVERSIONS";
+pub mod var {
+    pub const ENV_CONVERSIONS: &str = "ENV_CONVERSIONS";
+    pub const CONFIG: &str = "config";
+    pub const PATH: &str = "path";
+    pub const AUTOMATIC_VARS: &[&str] = &["PWD", "FILE_PWD", "CURRENT_FILE"];
+}
+
 pub const DIR_VAR_PARSER_INFO: &str = "dirs_var";
 // Parser info key used when `<cmd> --help` is rewritten to `help <name>` so `help`
 // can render documentation for the already-resolved declaration.
 pub const HELP_DECL_ID_PARSER_INFO: &str = "help_decl_id";
+
+/// Returns whether a string, when used as the name of an environment variable,
+/// is considered an automatic environment variable.
+///
+/// An automatic environment variable cannot be set or hidden by user code.
+/// Currently there are three of them: $env.PWD, $env.FILE_PWD, $env.CURRENT_FILE.
+pub fn is_automatic_env_var(var: &str) -> bool {
+    var::AUTOMATIC_VARS.iter().any(|name| env_var_eq(name, var))
+}
 
 enum ConversionError {
     ShellError(ShellError),
@@ -52,10 +67,11 @@ pub fn convert_env_vars(
                 })?
                 .as_closure()?;
 
-            let new_val = ClosureEvalOnce::new(engine_state, stack, conversion.clone())
-                .debug(false)
-                .run_with_value(val.clone())?
-                .into_value(val.span())?;
+            let new_val =
+                ClosureEvalOnce::try_new(engine_state, stack, conversion.clone(), val.span())?
+                    .debug(false)
+                    .run_with_value(val.clone())?
+                    .into_value(val.span())?;
 
             stack.add_env_var(key.to_string(), new_val);
         }
@@ -139,7 +155,7 @@ pub fn env_to_string(
         Err(ConversionError::CellPathError) => match value.coerce_string() {
             Ok(s) => Ok(s),
             Err(_) => {
-                if env_name.to_lowercase() == "path" {
+                if env_var_eq(env_name, var::PATH) {
                     // Try to convert PATH/Path list to a string
                     match value {
                         Value::List { vals, .. } => {
@@ -198,7 +214,7 @@ pub fn path_str(
     stack: &Stack,
     span: Span,
 ) -> Result<String, ShellError> {
-    let pathval = match stack.get_env_var(engine_state, "path") {
+    let pathval = match stack.get_env_var(engine_state, var::PATH) {
         Some(v) => Ok(v),
         None => Err(ShellError::EnvVarNotFoundAtRuntime {
             envvar_name: if cfg!(windows) {
@@ -303,7 +319,7 @@ fn get_converted_value(
     direction: &str,
 ) -> Result<Value, ConversionError> {
     let conversion = stack
-        .get_env_var(engine_state, ENV_CONVERSIONS)
+        .get_env_var(engine_state, var::ENV_CONVERSIONS)
         .ok_or(ConversionError::CellPathError)?
         .as_record()?
         .get(name)
@@ -314,7 +330,7 @@ fn get_converted_value(
         .as_closure()?;
 
     Ok(
-        ClosureEvalOnce::new(engine_state, stack, conversion.clone())
+        ClosureEvalOnce::try_new(engine_state, stack, conversion.clone(), orig_val.span())?
             .debug(false)
             .run_with_value(orig_val.clone())?
             .into_value(orig_val.span())?,
