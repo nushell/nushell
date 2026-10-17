@@ -1,6 +1,6 @@
 use crate::{
-    BlockId, DeclId, FileId, ModuleId, ParseError, Span, Value, VarId, ast::ImportPatternMember,
-    engine::StateWorkingSet,
+    BlockId, DeclId, FileId, ModuleId, ParseError, Span, TypeAliasId, Value, VarId,
+    ast::ImportPatternMember, engine::StateWorkingSet,
 };
 
 use crate::parser_path::ParserPath;
@@ -17,6 +17,7 @@ pub struct ResolvedImportPattern {
     ///
     /// Each record comes from [`Module::constants_record`] of the given module.
     pub constant_values: Vec<(Vec<u8>, ModuleId, Value)>,
+    pub type_aliases: Vec<(Vec<u8>, TypeAliasId)>,
 }
 
 impl ResolvedImportPattern {
@@ -25,12 +26,14 @@ impl ResolvedImportPattern {
         modules: Vec<(Vec<u8>, ModuleId)>,
         constants: Vec<(Vec<u8>, VarId)>,
         constant_values: Vec<(Vec<u8>, ModuleId, Value)>,
+        type_aliases: Vec<(Vec<u8>, TypeAliasId)>,
     ) -> Self {
         ResolvedImportPattern {
             decls,
             modules,
             constants,
             constant_values,
+            type_aliases,
         }
     }
 }
@@ -42,6 +45,7 @@ pub struct Module {
     pub decls: IndexMap<Vec<u8>, DeclId>,
     pub submodules: IndexMap<Vec<u8>, ModuleId>,
     pub constants: IndexMap<Vec<u8>, VarId>,
+    pub type_aliases: IndexMap<Vec<u8>, TypeAliasId>,
     pub env_block: Option<BlockId>, // `export-env { ... }` block
     pub main: Option<DeclId>,       // `export def main`
     pub span: Option<Span>,
@@ -70,6 +74,7 @@ impl Module {
             decls: IndexMap::new(),
             submodules: IndexMap::new(),
             constants: IndexMap::new(),
+            type_aliases: IndexMap::new(),
             env_block: None,
             main: None,
             span: None,
@@ -84,6 +89,7 @@ impl Module {
             decls: IndexMap::new(),
             submodules: IndexMap::new(),
             constants: IndexMap::new(),
+            type_aliases: IndexMap::new(),
             env_block: None,
             main: None,
             span: Some(span),
@@ -106,6 +112,10 @@ impl Module {
 
     pub fn add_variable(&mut self, name: Vec<u8>, var_id: VarId) -> Option<VarId> {
         self.constants.insert(name, var_id)
+    }
+
+    pub fn add_type_alias(&mut self, name: Vec<u8>, type_alias_id: TypeAliasId) {
+        self.type_aliases.insert(name, type_alias_id);
     }
 
     pub fn add_env_block(&mut self, block_id: BlockId) {
@@ -156,11 +166,14 @@ impl Module {
                 .collect();
 
             return (
+                // A type alias name can't take the `module ` prefix, so a bare import brings in
+                // no type aliases.
                 ResolvedImportPattern::new(
                     decls,
                     vec![(final_name.clone(), self_id)],
                     vec![],
                     constant_values,
+                    vec![],
                 ),
                 errors,
             );
@@ -182,6 +195,24 @@ impl Module {
                     vec![]
                 };
 
+                // Types and commands are separate namespaces, so the name can be a type alias as
+                // well as a command, constant or submodule. Importing it brings in both, and it's
+                // only missing when it matches no export of any kind.
+                let type_aliases: Vec<_> = self
+                    .type_aliases
+                    .get(name)
+                    .map(|type_alias_id| (name.clone(), *type_alias_id))
+                    .into_iter()
+                    .collect();
+                let is_type_alias = !type_aliases.is_empty();
+                let not_found = move |errors| {
+                    if is_type_alias {
+                        errors
+                    } else {
+                        vec![ParseError::ExportNotFound(*span)]
+                    }
+                };
+
                 if name == b"main" {
                     if let Some(main_decl_id) = self.main {
                         (
@@ -190,13 +221,20 @@ impl Module {
                                 vec![],
                                 vec![],
                                 vec![],
+                                type_aliases,
                             ),
                             errors,
                         )
                     } else {
                         (
-                            ResolvedImportPattern::new(vec![], vec![], vec![], vec![]),
-                            vec![ParseError::ExportNotFound(*span)],
+                            ResolvedImportPattern::new(
+                                vec![],
+                                vec![],
+                                vec![],
+                                vec![],
+                                type_aliases,
+                            ),
+                            not_found(errors),
                         )
                     }
                 } else if let Some(decl_id) = self.decls.get(name) {
@@ -206,6 +244,7 @@ impl Module {
                             vec![],
                             vec![],
                             vec![],
+                            type_aliases,
                         ),
                         errors,
                     )
@@ -217,28 +256,33 @@ impl Module {
                                 vec![],
                                 vec![(name.clone(), *var_id)],
                                 vec![],
+                                type_aliases,
                             ),
                             errors,
                         ),
                         Err(err) => (
-                            ResolvedImportPattern::new(vec![], vec![], vec![], vec![]),
+                            ResolvedImportPattern::new(vec![], vec![], vec![], vec![], vec![]),
                             vec![err],
                         ),
                     }
                 } else if let Some(submodule_id) = self.submodules.get(name) {
                     let submodule = working_set.get_module(*submodule_id);
-                    submodule.resolve_import_pattern(
+                    let (mut definitions, errors) = submodule.resolve_import_pattern(
                         working_set,
                         *submodule_id,
                         rest,
                         None,
                         self.span.unwrap_or(backup_span),
                         imported_modules,
-                    )
+                    );
+                    if rest.is_empty() {
+                        definitions.type_aliases.extend(type_aliases);
+                    }
+                    (definitions, errors)
                 } else {
                     (
-                        ResolvedImportPattern::new(vec![], vec![], vec![], vec![]),
-                        vec![ParseError::ExportNotFound(*span)],
+                        ResolvedImportPattern::new(vec![], vec![], vec![], vec![], type_aliases),
+                        not_found(errors),
                     )
                 }
             }
@@ -279,9 +323,20 @@ impl Module {
                     }
                 }
                 submodules.extend(self.submodules());
+                let type_aliases = self
+                    .type_aliases
+                    .iter()
+                    .map(|(name, type_alias_id)| (name.clone(), *type_alias_id))
+                    .collect();
 
                 (
-                    ResolvedImportPattern::new(decls, submodules, constants, constant_values),
+                    ResolvedImportPattern::new(
+                        decls,
+                        submodules,
+                        constants,
+                        constant_values,
+                        type_aliases,
+                    ),
                     errors,
                 )
             }
@@ -290,13 +345,20 @@ impl Module {
                 let mut modules = vec![];
                 let mut constants = vec![];
                 let mut constant_values = vec![];
+                let mut type_aliases = vec![];
                 let mut errors = vec![];
 
                 for (name, span) in names {
+                    // As for a single name, a type alias is looked up separately.
+                    let type_alias = self.type_aliases.get(name);
+                    if let Some(type_alias_id) = type_alias {
+                        type_aliases.push((name.clone(), *type_alias_id));
+                    }
+
                     if name == b"main" {
                         if let Some(main_decl_id) = self.main {
                             decls.push((final_name.clone(), main_decl_id));
-                        } else {
+                        } else if type_alias.is_none() {
                             errors.push(ParseError::ExportNotFound(*span));
                         }
                     } else if let Some(decl_id) = self.decls.get(name) {
@@ -322,13 +384,19 @@ impl Module {
                         constants.extend(sub_results.constants);
                         constant_values.extend(sub_results.constant_values);
                         errors.extend(sub_errors);
-                    } else {
+                    } else if type_alias.is_none() {
                         errors.push(ParseError::ExportNotFound(*span));
                     }
                 }
 
                 (
-                    ResolvedImportPattern::new(decls, modules, constants, constant_values),
+                    ResolvedImportPattern::new(
+                        decls,
+                        modules,
+                        constants,
+                        constant_values,
+                        type_aliases,
+                    ),
                     errors,
                 )
             }

@@ -91,7 +91,9 @@ pub enum SyntaxShape {
     /// Only a numeric (integer or float) value is allowed
     Number,
 
-    /// One of a list of possible items, checked in order
+    /// One of a list of possible items, checked in order, except that for an argument not
+    /// starting with `$`, `(` or `{`, shapes accepting any bare word (string, path, directory,
+    /// glob, cell-path, external-argument, any) are checked last
     OneOf(Vec<SyntaxShape>),
 
     /// An operator, eg `+`

@@ -1,23 +1,21 @@
 use crate::{
     lite_parser::LiteCommand,
     parse_def::has_flag_const,
-    parse_helpers::{garbage, garbage_pipeline},
+    parse_helpers::{extract_spread_list, extract_spread_record, garbage, garbage_pipeline},
     parse_keywords::find_keyword_decl,
     parse_pipelines::{parse_redirection, redirecting_builtin_error},
     parser::{
         ArgumentParsingLevel, CallKind, ParsedInternalCall, compile_block, parse,
-        parse_internal_call,
+        parse_internal_call, parse_value,
     },
     pickle,
 };
 
 use log::trace;
 use nu_path::{absolute_with, is_windows_device_path};
-#[cfg(feature = "plugin")]
-use nu_protocol::ast::Call;
 use nu_protocol::{
-    BlockId, ParseError, Span, Type, VarId,
-    ast::{Block, Expr, Expression, Pipeline, PipelineElement},
+    BlockId, IntoSpanned, ParseError, Span, Spanned, SyntaxShape, Type, VarId,
+    ast::{Argument, Block, Call, Expr, Expression, ListItem, Pipeline, PipelineElement},
     engine::StateWorkingSet,
     eval_const::eval_constant,
     parser_path::{MAX_RUN_SCRIPT_BYTES, ParserPath, ScriptLoadError},
@@ -247,37 +245,63 @@ fn parse_run_expr_internal(
             #[allow(deprecated)]
             let cwd = working_set.get_cwd();
 
+            // `run`'s own flags come before the script path, and everything after the path
+            // belongs to the script, like `nu [flags] script.nu [args]`. So `run x.nu -f` passes
+            // `-f` to the script's `main` instead of turning on `--full-reparse`. The path is the
+            // first word that isn't a flag or a spread (`run ...$opts x.nu`), or the word after
+            // `--`.
+            let run_spans_end = match spans.iter().skip(1).position(|&span| {
+                let word = working_set.get_span_contents(span);
+                let is_spread = extract_spread_record(word.into_spanned(span)).is_some()
+                    || extract_spread_list(word.into_spanned(span)).is_some();
+                word == b"--" || !(word.starts_with(b"-") || is_spread)
+            }) {
+                Some(idx) if working_set.get_span_contents(spans[idx + 1]) == b"--" => {
+                    (idx + 3).min(spans.len())
+                }
+                Some(idx) => idx + 2,
+                None => spans.len(),
+            };
+            let (run_spans, script_args) = spans.split_at(run_spans_end);
+
             let ParsedInternalCall {
-                call,
+                mut call,
                 output,
                 call_kind,
             } = parse_internal_call(
                 working_set,
                 spans[0],
-                &spans[1..],
+                &run_spans[1..],
                 decl_id,
                 ArgumentParsingLevel::Full,
                 None,
             );
 
-            if call_kind == CallKind::Help {
-                return Expression::new(working_set, Expr::Call(call), Span::concat(spans), output);
-            }
-
-            let do_full_reparse = match has_flag_const(working_set, &call, "full-reparse") {
-                Ok(value) => value,
-                Err(()) => {
-                    return Expression::new(
-                        working_set,
-                        Expr::Call(call),
-                        Span::concat(spans),
-                        output,
-                    );
-                }
+            // Read `run`'s own `--full-reparse` before the script arguments join the call, so a
+            // `--full-reparse=...` after the path stays the script's.
+            let do_full_reparse = if call_kind == CallKind::Help {
+                Err(())
+            } else {
+                has_flag_const(working_set, &call, "full-reparse")
             };
 
-            let first_expr = call.positional_iter().next();
+            // The script arguments are parsed in the caller's scope before this parse of the
+            // script, so its definitions can't change what they mean. (A script that `run` parsed
+            // earlier in the same scope has already declared its definitions there.)
+            add_script_arguments(working_set, &mut call, script_args);
+
+            let Ok(do_full_reparse) = do_full_reparse else {
+                return Expression::new(working_set, Expr::Call(call), Span::concat(spans), output);
+            };
+
+            // The path is the first positional argument. `positional_iter` would stop at a spread
+            // of `run`'s flags before it.
+            let first_expr = call.arguments.iter().find_map(|arg| match arg {
+                Argument::Positional(expr) => Some(expr),
+                _ => None,
+            });
             if let Some(expr) = first_expr {
+                let path_span = expr.span;
                 let val = match eval_constant(working_set, expr) {
                     Ok(val) => val,
                     Err(err) => {
@@ -292,7 +316,6 @@ fn parse_run_expr_internal(
                 };
 
                 if val.is_nothing() {
-                    let mut call = call;
                     call.set_parser_info(
                         "noop".to_string(),
                         Expression::new_unknown(Expr::Nothing, Span::unknown(), Type::Nothing),
@@ -326,8 +349,7 @@ fn parse_run_expr_internal(
                     if do_full_reparse
                         || matches!(&path, ParserPath::RealPath(path) if pickle::is_pickle_file(path))
                     {
-                        let mut call_with_block = call;
-                        call_with_block.set_parser_info(
+                        call.set_parser_info(
                             "block_id_name".to_string(),
                             Expression::new(
                                 working_set,
@@ -336,19 +358,19 @@ fn parse_run_expr_internal(
                                 Type::String,
                             ),
                         );
-                        call_with_block.set_parser_info(
+                        call.set_parser_info(
                             "full_reparse".to_string(),
                             Expression::new(working_set, Expr::Bool(true), spans[1], Type::Bool),
                         );
                         return Expression::new(
                             working_set,
-                            Expr::Call(call_with_block),
+                            Expr::Call(call),
                             Span::concat(spans),
                             Type::Any,
                         );
                     }
 
-                    let contents = match read_run_script_for_parse(&path, working_set, spans[1]) {
+                    let contents = match read_run_script_for_parse(&path, working_set, path_span) {
                         Ok(contents) => contents,
                         Err(err) => {
                             working_set.error(err);
@@ -361,7 +383,7 @@ fn parse_run_expr_internal(
                         }
                     };
 
-                    if let Err(e) = working_set.files.push(path.clone().path_buf(), spans[1]) {
+                    if let Err(e) = working_set.files.push(path.clone().path_buf(), path_span) {
                         working_set.error(e);
                         return garbage(working_set, Span::concat(spans));
                     }
@@ -381,11 +403,12 @@ fn parse_run_expr_internal(
 
                     let script_main_block_id = find_main_block_id_in_script(working_set, &block);
 
-                    let block_id = working_set.add_block(block);
+                    // A parse from the cache returns a block that's registered already.
+                    let block_id = working_set
+                        .find_block_id_of(&block)
+                        .unwrap_or_else(|| working_set.add_block(block));
 
-                    let mut call_with_block = call;
-
-                    call_with_block.set_parser_info(
+                    call.set_parser_info(
                         "block_id".to_string(),
                         Expression::new(
                             working_set,
@@ -395,7 +418,7 @@ fn parse_run_expr_internal(
                         ),
                     );
 
-                    call_with_block.set_parser_info(
+                    call.set_parser_info(
                         "block_id_name".to_string(),
                         Expression::new(
                             working_set,
@@ -405,7 +428,7 @@ fn parse_run_expr_internal(
                         ),
                     );
                     if let Some(main_block_id) = script_main_block_id {
-                        call_with_block.set_parser_info(
+                        call.set_parser_info(
                             "main_block_id".to_string(),
                             Expression::new(
                                 working_set,
@@ -417,12 +440,12 @@ fn parse_run_expr_internal(
                     }
                     return Expression::new(
                         working_set,
-                        Expr::Call(call_with_block),
+                        Expr::Call(call),
                         Span::concat(spans),
                         Type::Any,
                     );
                 } else {
-                    working_set.error(ParseError::SourcedFileNotFound(filename, spans[1]));
+                    working_set.error(ParseError::SourcedFileNotFound(filename, path_span));
                 }
             }
             return Expression::new(
@@ -440,6 +463,76 @@ fn parse_run_expr_internal(
     garbage(working_set, Span::concat(spans))
 }
 
+/// Append the arguments after `run <script>` to the `run` call, parsed without `main`'s signature.
+///
+/// Each argument is parsed as `any`, like an unknown argument of an external command, and `run`
+/// matches them to `main`'s parameters when it executes. `--name=value` before any `--` becomes a
+/// named argument whose value is parsed, as the parser does for a flag it knows. `--help=...` stays
+/// a word, because a named `help` would make the compiler turn the whole call into `help run`.
+///
+/// The value of a spread or of a `--name=value` reaches `run` wrapped in a one-item list, and
+/// `run` takes the item out. The evaluator checks a call's arguments against `run`'s own
+/// signature: it would expand a record spread against `run`'s flags, and drop `--full-reparse=null`
+/// because `run`'s `--full-reparse` doesn't take `null`. It passes a list on as it is.
+fn add_script_arguments(working_set: &mut StateWorkingSet, call: &mut Call, args: &[Span]) {
+    let mut end_of_options = false;
+    for &span in args {
+        let contents = working_set.get_span_contents(span);
+        end_of_options |= contents == b"--";
+        let spread = extract_spread_list(contents.into_spanned(span))
+            .map(|list| (list.span, SyntaxShape::Any))
+            .or_else(|| {
+                extract_spread_record(contents.into_spanned(span))
+                    .map(|record| (record.span, SyntaxShape::record()))
+            });
+        let inline_flag = contents
+            .strip_prefix(b"--")
+            .filter(|_| !end_of_options)
+            .and_then(|flag| {
+                let name = &flag[..flag.iter().position(|&byte| byte == b'=')?];
+                (!name.is_empty() && name != b"help").then(|| {
+                    let name_end = span.start + 2 + name.len();
+                    let name = String::from_utf8_lossy(name).into_owned();
+                    (
+                        name,
+                        Span::new(span.start, name_end),
+                        Span::new(name_end + 1, span.end),
+                    )
+                })
+            });
+
+        let (value_span, shape, flag_name) = if let Some((spread_span, shape)) = spread {
+            (spread_span, shape, None)
+        } else if let Some((name, name_span, value_span)) = inline_flag {
+            (value_span, SyntaxShape::Any, Some((name, name_span)))
+        } else {
+            let arg = parse_value(working_set, span, &SyntaxShape::Any, None);
+            call.add_unknown(arg);
+            continue;
+        };
+
+        let value = parse_value(working_set, value_span, &shape, None);
+        let ty = Type::list(value.ty.clone());
+        let wrapped = Expression::new(
+            working_set,
+            Expr::List(vec![ListItem::Item(value)]),
+            value_span,
+            ty,
+        );
+        match flag_name {
+            Some((name, name_span)) => call.add_named((
+                Spanned {
+                    item: name,
+                    span: name_span,
+                },
+                None,
+                Some(wrapped),
+            )),
+            None => call.add_spread(wrapped),
+        }
+    }
+}
+
 pub fn find_main_block_id_in_script(
     working_set: &StateWorkingSet<'_>,
     script_block: &Block,
@@ -450,6 +543,11 @@ pub fn find_main_block_id_in_script(
         }
 
         let expr = &pipeline.elements[0].expr;
+        // An attribute like `@example` wraps the `def main` call.
+        let expr = match &expr.expr {
+            Expr::AttributeBlock(attribute_block) => attribute_block.item.as_ref(),
+            _ => expr,
+        };
         let Expr::Call(call) = &expr.expr else {
             return None;
         };

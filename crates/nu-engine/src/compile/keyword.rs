@@ -19,12 +19,17 @@ pub(crate) fn compile_if(
     // Pseudocode:
     //
     //        %io_reg <- <condition>
-    //        not %io_reg
-    //        branch-if %io_reg, FALSE
+    //        collect %io_reg
+    //        branch-if %io_reg, TRUE
+    //        jump FALSE
     // TRUE:  ...<true_block>...
     //        jump END
     // FALSE: ...<else_expr>... OR drop %io_reg
     // END:
+    //
+    // Branching on the condition itself, as `while` does, makes a non-bool condition the same
+    // "expected bool" type mismatch in both keywords. Collecting it first runs a stream to its
+    // end, so a failing command in the condition reports its own error.
     let invalid = || CompileError::InvalidKeywordCall {
         keyword: "if".into(),
         span: call.head,
@@ -41,31 +46,27 @@ pub(crate) fn compile_if(
     let false_label = builder.label(None);
     let end_label = builder.label(None);
 
-    let not_condition_reg = {
-        // Compile the condition first
-        let condition_reg = builder.next_register()?;
-        compile_expression(
-            working_set,
-            builder,
-            condition,
-            RedirectModes::value(condition.span),
-            None,
-            condition_reg,
-        )?;
+    // Compile the condition first
+    let condition_reg = builder.next_register()?;
+    compile_expression(
+        working_set,
+        builder,
+        condition,
+        RedirectModes::value(condition.span),
+        None,
+        condition_reg,
+    )?;
 
-        // Negate the condition - we basically only want to jump if the condition is false
-        builder.push(
-            Instruction::Not {
-                src_dst: condition_reg,
-            }
-            .into_spanned(call.head),
-        )?;
-
-        condition_reg
-    };
-
-    // Set up a branch if the condition is false.
-    builder.branch_if(not_condition_reg, false_label, call.head)?;
+    // Branch to the true case, and jump to the false case otherwise.
+    builder.push(
+        Instruction::Collect {
+            src_dst: condition_reg,
+        }
+        .into_spanned(condition.span),
+    )?;
+    builder.branch_if(condition_reg, true_label, call.head)?;
+    builder.add_comment("if true");
+    builder.jump(false_label, call.head)?;
     builder.add_comment("if false");
 
     // Compile the true case
@@ -894,6 +895,8 @@ pub(crate) fn compile_while(
         io_reg,
     )?;
 
+    // Collect the condition first, as `if` does, so a failing command in it reports its own error.
+    builder.push(Instruction::Collect { src_dst: io_reg }.into_spanned(cond_arg.span))?;
     builder.branch_if(io_reg, true_label, call.head)?;
     builder.add_comment("while");
     builder.jump(loop_.break_label, call.head)?;

@@ -122,7 +122,7 @@ impl Command for Reduce {
             ShellError::Generic(GenericError::new("Expected input", "needs input", head))
         })?;
 
-        let mut closure = ClosureEval::new(engine_state, stack, closure);
+        let mut closure = ClosureEval::try_new(engine_state, stack, closure, head)?;
 
         for value in iter {
             engine_state.signals().check(&head)?;

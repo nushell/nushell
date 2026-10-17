@@ -999,6 +999,89 @@ fn unknown_from_id_is_an_error() -> Result {
 }
 
 #[test]
+fn from_must_name_a_row_source() -> Result {
+    let err = test()
+        .run("[a] | tui label hi --id note | tui log --from note | tui debug")
+        .expect_error()?;
+    assert_contains(
+        "--from must name a table, tree, or select",
+        &format!("{err:?}"),
+    );
+    Ok(())
+}
+
+#[test]
+fn from_cannot_name_the_widget_itself() -> Result {
+    let err = test()
+        .run(r#"[a b] | tui table --from table-0 {|row| [$"x($row)"] } | tui debug"#)
+        .expect_error()?;
+    assert_contains("cannot follow itself", &format!("{err:?}"));
+    Ok(())
+}
+
+#[test]
+fn from_ids_in_a_loop_are_an_error() -> Result {
+    let err = test()
+        .run("tui table --from table-1 {|row| [x] } | tui table --from table-0 {|row| [y] } | tui debug")
+        .expect_error()?;
+    assert_contains("--from ids form a loop", &format!("{err:?}"));
+    Ok(())
+}
+
+#[test]
+fn closure_follows_a_table_on_another_tab_page() -> Result {
+    let screen: String = test().run(
+        r#"[a b] | tui tab one [(tui table)] | tui tab two [(tui log {|row| [$"f ($row)"] })] | tui debug --keys ["2"] | get screen"#,
+    )?;
+    assert_contains("f a", &screen);
+    Ok(())
+}
+
+#[test]
+fn closure_with_no_row_to_follow_is_an_error() -> Result {
+    // #19217: the closure used to hide the piped stream and leave the log empty.
+    for code in [
+        r#"1.. | each {|n| $"tick ($n)"} | tui label --titlebar ticks | tui log { $in } | tui debug"#,
+        // A table does not follow its own row.
+        "[a] | tui table {|row| [x] } | tui debug",
+        "tui label {|row| $row } | tui progress {|row| 1 } | tui debug",
+        // Two tables that could only follow each other.
+        "tui table {|row| [x] } | tui table {|row| [y] } | tui debug",
+    ] {
+        let err = test().run(code).expect_error()?;
+        assert_contains("nothing for the closure to follow", &format!("{err:?}"));
+    }
+    Ok(())
+}
+
+#[test]
+fn own_data_and_a_source_are_incompatible() -> Result {
+    for code in [
+        "tui log --data [a] {|row| $row }",
+        "[a] | tui table | tui table --data [b] --from table-0",
+        "[a] | tui table | tui progress --value 0.5 {|row| 1 }",
+        "[a] | tui table | tui progress --value 0.5 --from table-0",
+    ] {
+        let err = test().run(code).expect_error()?;
+        assert_contains("not both", &format!("{err:?}"));
+    }
+    Ok(())
+}
+
+#[test]
+fn data_piped_into_a_child_skips_widgets_that_follow_a_row() -> Result {
+    let screen: String = test().run(
+        r#"tui split [([a b] | tui table | tui log {|row| [$"follows ($row)"] })] | tui debug --size [40 6] | get screen"#,
+    )?;
+    assert_contains("follows a", &screen);
+    let err = test()
+        .run("[a] | tui table | tui split [([b] | tui log --from table-0)] | tui debug")
+        .expect_error()?;
+    assert_contains("piped data has no widget", &format!("{err:?}"));
+    Ok(())
+}
+
+#[test]
 fn root_search_sits_above_the_content() -> Result {
     let ys: Vec<i64> = test()
         .run("[a b] | tui search | tui table | tui debug --size [40 12] | get widgets.rect.y")?;

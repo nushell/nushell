@@ -1,6 +1,7 @@
 use indexmap::IndexMap;
 use nu_engine::command_prelude::*;
 use nu_protocol::ast::PathMember;
+use std::collections::HashSet;
 
 #[derive(Clone)]
 pub struct Flatten;
@@ -33,10 +34,11 @@ impl Command for Flatten {
     }
 
     fn extra_description(&self) -> &str {
-        "A record is treated as a one-row table, so the output is always a table.
-Fields of a nested record are lifted to the top level and the parent key is dropped.
-If a lifted field would collide with a top-level column, it is renamed to `<parent>_<field>`.
-A nested list is expanded into one row per element."
+        "A record is treated as a one-row table, so the output is always a table.\n\
+         Fields of a nested record are lifted to the top level and the parent key is dropped.\n\
+         If a lifted field would collide with a top-level column, it is renamed to `<parent>_<field>`.\n\
+         If a lifted and renamed field would still collide with a top-level column, an error is raised.\n\
+         A nested list is expanded into one row per element."
     }
 
     fn run(
@@ -181,15 +183,8 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
                     let will_flatten = match value {
                         Value::Record { .. } => need_flatten,
                         Value::List { vals, .. } => {
-                            if all && vals.iter().all(|value| value.as_record().is_ok()) {
-                                need_flatten
-                            } else {
-                                matches!(
-                                    column_requested
-                                        .and_then(|cell_path| cell_path.members.first()),
-                                    Some(PathMember::String { .. })
-                                )
-                            }
+                            all && vals.iter().all(|value| value.as_record().is_ok())
+                                && need_flatten
                         }
                         _ => false,
                     };
@@ -197,6 +192,34 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
                     (!will_flatten).then_some(column.clone())
                 })
                 .collect();
+
+            // Reserve the new names of the columns that will be renamed to `<parent>_<field>`,
+            // so that we can handle situations where the lifted field will first collide and
+            // be renamed, and then collide again with the new name. No further renaming is
+            // allowed after the first rename, so an error will be thrown instead.
+            let reserved_renames: HashSet<String> = val
+                .iter()
+                .filter_map(|(column, value)| match value {
+                    Value::Record { val, .. } => {
+                        let column_requested =
+                            columns.iter().find(|c| c.to_column_name() == *column);
+                        let need_flatten = columns.is_empty() || column_requested.is_some();
+                        if !need_flatten {
+                            return None;
+                        }
+
+                        let renames: Vec<String> = val
+                            .columns()
+                            .filter(|col| retained_outer_columns.contains(col))
+                            .map(|col| format!("{column}_{col}"))
+                            .collect();
+                        Some(renames)
+                    }
+                    _ => None,
+                })
+                .flatten()
+                .collect();
+
             let mut out = IndexMap::<String, Value>::new();
             let mut inner_table = None;
 
@@ -209,18 +232,24 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
                     Value::Record { ref val, .. } => {
                         if need_flatten {
                             for (col, val) in val.clone().into_owned() {
-                                if out.contains_key(&col)
-                                    || retained_outer_columns.iter().any(|column| column == &col)
+                                let val_span = val.span();
+                                let name = if out.contains_key(&col)
+                                    || retained_outer_columns.contains(&col)
+                                    || reserved_renames.contains(&col)
                                 {
-                                    out.insert(format!("{column}_{col}"), val);
+                                    format!("{column}_{col}")
                                 } else {
-                                    out.insert(col, val);
+                                    col
+                                };
+                                if let Some(previous) = out.insert(name.clone(), val) {
+                                    let error =
+                                        column_defined_twice(name, previous.span(), val_span);
+                                    return vec![error];
                                 }
                             }
-                        } else if out.contains_key(&column) {
-                            out.insert(format!("{column}_{column}"), value);
-                        } else {
-                            out.insert(column, value);
+                        } else if let Some(previous) = out.insert(column.clone(), value) {
+                            let error = column_defined_twice(column, previous.span(), span);
+                            return vec![error];
                         }
                     }
                     Value::List { vals, .. } => {
@@ -249,13 +278,11 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
                                     parent_column_name: column,
                                     parent_column_index: column_index,
                                 });
-                            } else if out.contains_key(&column) {
-                                out.insert(
-                                    format!("{column}_{column}"),
-                                    Value::list_shared(vals, span),
-                                );
-                            } else {
-                                out.insert(column, Value::list_shared(vals, span));
+                            } else if let Some(previous) =
+                                out.insert(column.clone(), Value::list_shared(vals, span))
+                            {
+                                let error = column_defined_twice(column, previous.span(), span);
+                                return vec![error];
                             }
                         } else if !columns.is_empty() {
                             let cell_path =
@@ -270,8 +297,11 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
                                     vals.into_owned(),
                                     column_index,
                                 ));
-                            } else {
-                                out.insert(column, Value::list_shared(vals, span));
+                            } else if let Some(previous) =
+                                out.insert(column.clone(), Value::list_shared(vals, span))
+                            {
+                                let error = column_defined_twice(column, previous.span(), span);
+                                return vec![error];
                             }
                         } else {
                             inner_table = Some(TableInside::Entries(
@@ -282,7 +312,10 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
                         }
                     }
                     _ => {
-                        out.insert(column, value);
+                        if let Some(previous) = out.insert(column.clone(), value) {
+                            let error = column_defined_twice(column, previous.span(), span);
+                            return vec![error];
+                        }
                     }
                 }
             }
@@ -297,15 +330,22 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
                         for (col, val) in base.into_iter() {
                             // meet the flattened column, push them to result record first
                             // this can avoid output column order changed.
-                            if index == parent_column_index {
-                                record.push(column.clone(), entry.clone());
+                            if index == parent_column_index
+                                && let Err(error) =
+                                    push_unique(&mut record, column.clone(), entry.clone())
+                            {
+                                return vec![error];
                             }
-                            record.push(col, val);
+                            if let Err(error) = push_unique(&mut record, col, val) {
+                                return vec![error];
+                            }
                             index += 1;
                         }
                         // the flattened column may be the last column in the original table.
-                        if index == parent_column_index {
-                            record.push(column.clone(), entry);
+                        if index == parent_column_index
+                            && let Err(error) = push_unique(&mut record, column.clone(), entry)
+                        {
+                            return vec![error];
                         }
                         expanded.push(Value::record(record, tag));
                     }
@@ -325,32 +365,33 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
                             // this can avoid output column order changed.
                             if index == parent_column_index {
                                 for (col, val) in &inner_record {
-                                    if record.contains(col)
-                                        || (!columns.is_empty() && out.contains_key(col))
-                                    {
-                                        record.push(
-                                            format!("{parent_column_name}_{col}"),
-                                            val.clone(),
-                                        );
+                                    let name = if record.contains(col) || out.contains_key(col) {
+                                        format!("{parent_column_name}_{col}")
                                     } else {
-                                        record.push(col, val.clone());
+                                        col.clone()
                                     };
+                                    if let Err(error) = push_unique(&mut record, name, val.clone())
+                                    {
+                                        return vec![error];
+                                    }
                                 }
                             }
-
-                            record.push(base_col, base_val);
+                            if let Err(error) = push_unique(&mut record, base_col, base_val) {
+                                return vec![error];
+                            }
                             index += 1;
                         }
 
                         // the flattened column may be the last column in the original table.
                         if index == parent_column_index {
                             for (col, val) in inner_record {
-                                if record.contains(&col)
-                                    || (!columns.is_empty() && out.contains_key(&col))
-                                {
-                                    record.push(format!("{parent_column_name}_{col}"), val);
+                                let name = if record.contains(&col) || out.contains_key(&col) {
+                                    format!("{parent_column_name}_{col}")
                                 } else {
-                                    record.push(col, val);
+                                    col
+                                };
+                                if let Err(error) = push_unique(&mut record, name, val) {
+                                    return vec![error];
                                 }
                             }
                         }
@@ -368,9 +409,31 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
     }
 }
 
+fn column_defined_twice(col_name: String, first_use: Span, second_use: Span) -> Value {
+    Value::error(
+        ShellError::ColumnDefinedTwice {
+            col_name,
+            second_use,
+            first_use,
+        },
+        second_use,
+    )
+}
+
+/// Push `name`: `val` onto `record` if `name` is not present in `record`
+fn push_unique(record: &mut Record, name: String, val: Value) -> Result<(), Value> {
+    if let Some(previous) = record.get(&name) {
+        let error = column_defined_twice(name, previous.span(), val.span());
+        return Err(error);
+    }
+    record.push(name, val);
+    Ok(())
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
+
     #[test]
     fn test_examples() -> nu_test_support::Result {
         nu_test_support::test().examples(Flatten)

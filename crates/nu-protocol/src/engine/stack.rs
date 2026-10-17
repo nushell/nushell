@@ -5,7 +5,7 @@ use crate::{
     engine::{
         ArgumentStack, DEFAULT_OVERLAY_NAME, EngineState, EnvName, ErrorHandlerStack, Redirection,
         ScopeBindings, StackCallArgGuard, StackCollectValueGuard, StackIoGuard, StackOutDest,
-        StackWithInvocation,
+        StackWithInvocation, env_var_eq,
     },
     ir::ScopeRegion,
     record, report_shell_warning,
@@ -13,6 +13,7 @@ use crate::{
     truncate_value_to_budget,
 };
 use std::{
+    borrow::Cow,
     collections::{HashMap, HashSet},
     fs::File,
     path::{Component, MAIN_SEPARATOR},
@@ -88,6 +89,10 @@ pub struct Stack {
     pub arguments: ArgumentStack,
     /// Error handler stack for IR evaluation
     pub error_handlers: ErrorHandlerStack,
+    /// Number of nested custom command and closure calls that led to this stack.
+    ///
+    /// Block evaluation fails with `RecursionLimitReached` once this exceeds
+    /// `$env.config.recursion_limit`, before deep recursion can overflow the Rust stack.
     pub recursion_count: u64,
     pub parent_stack: Option<Arc<Stack>>,
     /// Variables that have been deleted (this is used to hide values from parent stack lookups)
@@ -558,7 +563,8 @@ impl Stack {
                 engine_state.history_locked_after_startup,
             );
             // The config value is modified by the update, so we should add it again
-            self.add_env_var("config".into(), config.clone().into_value(value.span()));
+            let name = self.get_env_var_name(engine_state, "config").into_owned();
+            self.add_env_var(name, config.clone().into_value(value.span()));
             self.config = Some(config.into());
             if let Some(warning) = result? {
                 report_shell_warning(Some(self), engine_state, &warning);
@@ -702,6 +708,9 @@ impl Stack {
     /// The caller is retained as [`Self::parent_stack`] so outer variables remain visible to
     /// `scope variables` (and other stack lookups that walk parents). Captured values are still
     /// copied onto this stack for isolation of the closure’s own locals.
+    ///
+    /// Every closure call builds its stack here, so this is where a closure call adds one to
+    /// [`Self::recursion_count`].
     pub fn captures_to_stack_preserve_out_dest(&self, captures: Vec<(VarId, Value)>) -> Stack {
         let mut env_vars = self.env_vars.clone();
         env_vars.push(Arc::new(HashMap::new()));
@@ -714,7 +723,9 @@ impl Stack {
             active_overlays: self.active_overlays.clone(),
             arguments: ArgumentStack::new(),
             error_handlers: ErrorHandlerStack::new(),
-            recursion_count: self.recursion_count,
+            // A closure body is a nested call like a custom command body, so it counts toward
+            // the recursion limit. Stack overflows are not recoverable in Rust.
+            recursion_count: self.recursion_count + 1,
             // Keep the caller as parent so global/outer locals stay nameable for `scope`
             // (values are still resolved via the parent chain when not captured).
             parent_stack: Some(Arc::new(self.clone())),
@@ -908,6 +919,30 @@ impl Stack {
         }
 
         result
+    }
+
+    /// Get an environment variable's existing spelling, if any.
+    pub fn get_env_var_name<'a>(&self, engine_state: &EngineState, name: &'a str) -> Cow<'a, str> {
+        self.env_vars
+            .iter()
+            .rev()
+            .chain(std::iter::once(&engine_state.env_vars))
+            .flat_map(|overlays| {
+                self.active_overlays
+                    .iter()
+                    .rev()
+                    .filter_map(|overlay| overlays.get(overlay))
+            })
+            .find_map(|map| {
+                if map.contains_key(&EnvName::from(name)) {
+                    map.keys()
+                        .find(|key| env_var_eq(key.as_str(), name))
+                        .map(|key| Cow::Owned(key.as_str().to_owned()))
+                } else {
+                    None
+                }
+            })
+            .unwrap_or(Cow::Borrowed(name))
     }
 
     pub fn get_env_var<'a>(

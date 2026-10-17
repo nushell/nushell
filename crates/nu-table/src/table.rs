@@ -166,12 +166,7 @@ impl NuTable {
         for i in 0..count {
             let col = self.count_cols + i;
             for row in 0..self.count_rows {
-                self.styles
-                    .cfg
-                    .set_alignment_horizontal(Entity::Cell(row, col), self.styles.alignments.data);
-                self.styles
-                    .cfg
-                    .set_color(Entity::Cell(row, col), ANSIBuf::default());
+                self.reset_style((row, col));
             }
         }
     }
@@ -332,7 +327,9 @@ impl NuTable {
     ///
     /// `trail` is true when the last planned column is the trailing `...` column.
     pub(crate) fn plan_column_widths(&self, termwidth: usize) -> Option<(Vec<usize>, bool)> {
-        let mut data = self.data.clone();
+        // The planners read only the first row (header widths) and drop or add
+        // columns on every row, so planning on a copy of row 0 gives the same widths.
+        let mut data = vec![self.data.first()?.clone()];
         let widths =
             maybe_truncate_columns(&mut data, self.widths.clone(), &self.config, termwidth);
         if widths.needed.is_empty() {
@@ -346,28 +343,33 @@ impl NuTable {
         NuRecordsValue::width(&self.data[row][col])
     }
 
-    /// Prefer keeping columns that already contain nested tables.
+    /// Makes the columns that currently hold nested tables the width priorities.
+    ///
+    /// Expanded tables set no other priorities, so the list is rebuilt from
+    /// `nested_cells` on every call: a column whose nested tables were all
+    /// collapsed to text stops taking width from the columns that still have one.
     pub(crate) fn prefer_nested_table_columns(&mut self) {
-        if self.nested_cells.is_empty() {
-            return;
-        }
+        // `nested_cells` is a HashSet, so sort the columns to keep the
+        // priority order (and with it the column plan) the same on every run.
+        let mut nested_cols: Vec<usize> = self.nested_cells.iter().map(|&(_, col)| col).collect();
+        nested_cols.sort_unstable();
+        nested_cols.dedup();
 
-        let mut cols = self.config.width_priority_columns.clone();
-        for &(_, col) in &self.nested_cells {
-            if !cols.contains(&col) {
-                cols.push(col);
-            }
-        }
-        self.set_width_priority_columns(&cols);
+        self.set_width_priority_columns(&nested_cols);
     }
 
     pub(crate) fn recalculate_dimensions(&mut self) {
         table_recalculate_widths(self);
-        self.heights = self
-            .data
-            .iter()
-            .map(|row| row.iter().map(|cell| cell.count_lines()).max().unwrap_or(0))
-            .collect();
+        table_recalculate_heights(self);
+    }
+
+    /// Resets a cell to the default data alignment and color.
+    pub(crate) fn reset_style(&mut self, pos: (usize, usize)) {
+        let entity = Entity::Cell(pos.0, pos.1);
+        self.styles
+            .cfg
+            .set_alignment_horizontal(entity, self.styles.alignments.data);
+        self.styles.cfg.set_color(entity, ANSIBuf::default());
     }
 }
 
@@ -393,6 +395,14 @@ impl From<Vec<Vec<Text<String>>>> for NuTable {
 fn table_recalculate_widths(t: &mut NuTable) {
     let pad = indent_sum(t.config.indent);
     t.widths = build_width(&t.data, t.count_cols, t.count_rows, pad);
+}
+
+fn table_recalculate_heights(t: &mut NuTable) {
+    t.heights = t
+        .data
+        .iter()
+        .map(|row| row.iter().map(|cell| cell.count_lines()).max().unwrap_or(0))
+        .collect();
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Copy, Hash)]
@@ -545,13 +555,11 @@ fn table_truncate(t: &mut NuTable, termwidth: usize) -> Option<WidthEstimation> 
     if widths.trail {
         let col = widths.needed.len() - 1;
         for row in 0..t.count_rows {
-            t.styles
-                .cfg
-                .set_alignment_horizontal(Entity::Cell(row, col), t.styles.alignments.data);
-            t.styles
-                .cfg
-                .set_color(Entity::Cell(row, col), ANSIBuf::default());
+            t.reset_style((row, col));
         }
+
+        // Columns hidden behind `...` no longer set the row heights.
+        table_recalculate_heights(t);
     }
 
     Some(widths)
@@ -866,6 +874,7 @@ fn width_ctrl_truncate(
                         cfg,
                         col,
                         heights.len(),
+                        width,
                         &ctrl.nested_cells,
                         truncate,
                     );
@@ -876,6 +885,7 @@ fn width_ctrl_truncate(
                         cfg,
                         col,
                         heights.len(),
+                        width,
                         &ctrl.nested_cells,
                         wrap,
                     );
@@ -899,6 +909,7 @@ fn width_ctrl_truncate(
                     cfg,
                     col,
                     heights.len(),
+                    width,
                     &ctrl.nested_cells,
                     truncate,
                 );
@@ -920,40 +931,40 @@ fn width_ctrl_truncate(
     dims.set_widths(ctrl.width.needed);
 }
 
+/// Applies `opt` (wrap or truncate) to the plain cells of column `col`.
+///
+/// Wrapping a pre-rendered nested table scrambles its borders, so nested cells
+/// are not wrapped. A nested cell can still be wider than the column: `draw`
+/// re-plans widths after `refit_nested_tables` ran, and the inner table cannot
+/// always shrink to fit. papergrid then subtracts the cell width from the
+/// column width and underflows (a panic in debug builds, a run-away padding
+/// loop in release builds), so such a cell is cut to `width` line by line.
 fn apply_width_skipping_nested_tables<O>(
     recs: &mut NuRecords,
     cfg: &mut ColoredConfig,
     col: usize,
     count_rows: usize,
+    width: usize,
     nested_cells: &HashSet<(usize, usize)>,
     opt: O,
 ) where
     O: CellOption<NuRecords, ColoredConfig> + Clone,
 {
-    let mut has_nested = false;
-    let mut has_plain = false;
-    for row in 0..count_rows {
-        if nested_cells.contains(&(row, col)) {
-            has_nested = true;
-        } else {
-            has_plain = true;
-        }
-    }
-
+    let has_nested = (0..count_rows).any(|row| nested_cells.contains(&(row, col)));
     if !has_nested {
         CellOption::<NuRecords, _>::change(opt, recs, cfg, Entity::Column(col));
         return;
     }
 
-    if !has_plain {
-        return;
-    }
-
     for row in 0..count_rows {
+        let pos = Entity::Cell(row, col);
         if nested_cells.contains(&(row, col)) {
-            continue;
+            // `Truncate` leaves cells that already fit untouched.
+            let cut = Width::truncate(width).multiline(true);
+            CellOption::<NuRecords, _>::change(cut, recs, cfg, pos);
+        } else {
+            CellOption::<NuRecords, _>::change(opt.clone(), recs, cfg, pos);
         }
-        CellOption::<NuRecords, _>::change(opt.clone(), recs, cfg, Entity::Cell(row, col));
     }
 }
 
@@ -1496,10 +1507,34 @@ fn truncate_columns_by_columns(
         return WidthEstimation::new(widths_original, widths, width, true, true);
     }
 
-    truncate_rows(data, truncate_pos - 1);
+    // The trailing column takes the place (and the separator) of the last
+    // fitted column, but it can be wider than that column. Take the difference
+    // from the width other columns got above their floor, and drop more
+    // columns only when that is not enough.
     let w = widths.pop().expect("ok");
     width -= w;
+    let mut excess = (width + trailing_column_width).saturating_sub(termwidth);
+    for (i, col_width) in widths.iter_mut().enumerate().rev() {
+        let floor = content_column_floor(data, i, pad, min_column_width, header_on_border);
+        let take = min(
+            excess,
+            col_width.saturating_sub(min(floor, widths_original[i])),
+        );
+        *col_width -= take;
+        width -= take;
+        excess -= take;
+    }
+    while excess > 0 && widths.len() > 1 {
+        let w = widths.pop().expect("ok");
+        width -= w + vertical;
+        excess = excess.saturating_sub(w + vertical);
+    }
+    if excess > 0 {
+        // nothing to show anyhow
+        return WidthEstimation::new(widths_original, vec![], width, false, false);
+    }
 
+    truncate_rows(data, widths.len());
     push_empty_column(data);
     widths.push(trailing_column_width);
     width += trailing_column_width;
@@ -2067,5 +2102,31 @@ pub fn get_color_if_exists(c: &Color) -> Option<Color> {
         Some(c.clone())
     } else {
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn draw_cuts_nested_table_wider_than_its_column() {
+        // A nested table squeezed below its width used to reach papergrid as is
+        // and underflow its padding math (#19211). It is cut to the column now.
+        let border = "─".repeat(48);
+        let nested = format!("╭{border}╮\n│{:<48}│\n╰{border}╯", " nested");
+
+        let mut table = NuTable::new(2, 1);
+        table.set_structure(false, true, false);
+        table.set_trim(TrimStrategy::wrap(true));
+        table.insert((0, 0), String::from("a"));
+        table.insert((1, 0), nested);
+        table.mark_nested_cell((1, 0));
+
+        let out = table.draw(40).expect("a one-column table always fits");
+        assert!(out.lines().all(|line| string_width(line) <= 40), "{out}");
+        // Cut line by line: all three lines of the nested table are kept.
+        let kept = ["╭─", "│ nested", "╰─"];
+        assert!(kept.iter().all(|line| out.contains(line)), "{out}");
     }
 }

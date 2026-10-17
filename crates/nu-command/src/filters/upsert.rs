@@ -178,7 +178,7 @@ fn upsert_recursive(
             if let Value::Closure { val, .. } = replacement {
                 upsert_single_value_by_closure(
                     &mut value,
-                    ClosureEvalOnce::new(engine_state, stack, *val),
+                    ClosureEvalOnce::try_new(engine_state, stack, *val, head_span)?,
                     head_span,
                     cell_paths,
                     false,
@@ -215,7 +215,7 @@ fn upsert_recursive(
                 let value = if path.is_empty() {
                     let value = stream.next().unwrap_or(Value::nothing(head_span));
                     if let Value::Closure { val, .. } = replacement {
-                        ClosureEvalOnce::new(engine_state, stack, *val)
+                        ClosureEvalOnce::try_new(engine_state, stack, *val, head_span)?
                             .run_with_value(value)?
                             .into_value(head_span)?
                     } else {
@@ -225,7 +225,7 @@ fn upsert_recursive(
                     if let Value::Closure { val, .. } = replacement {
                         upsert_single_value_by_closure(
                             &mut value,
-                            ClosureEvalOnce::new(engine_state, stack, *val),
+                            ClosureEvalOnce::try_new(engine_state, stack, *val, head_span)?,
                             head_span,
                             path,
                             true,
@@ -263,7 +263,7 @@ fn upsert_recursive(
                     &new_cell_paths,
                 )
             } else if let Value::Closure { val, .. } = replacement {
-                let mut closure = ClosureEval::new(engine_state, stack, *val);
+                let mut closure = ClosureEval::try_new(engine_state, stack, *val, head_span)?;
                 let cell_paths = cell_paths.to_vec();
                 let stream = stream.map(move |mut value| {
                     let err =

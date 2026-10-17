@@ -242,6 +242,11 @@ pub enum Operator {
     Assignment(Assignment),
 }
 
+/// Precedence of the prefix `not`: it binds looser than comparisons and bitwise operators and
+/// tighter than `and`, `xor` and `or`, so `not a == b` is `not (a == b)` and `not a and b` is
+/// `(not a) and b`. `not` is not an [`Operator`], since it takes one operand.
+pub const NOT_PRECEDENCE: u8 = 55;
+
 impl Operator {
     pub const fn as_str(&self) -> &'static str {
         match self {

@@ -463,6 +463,47 @@ fn pickled_parse_time_values_come_from_where_it_runs() -> Result {
 
 #[test]
 #[deps(NU)]
+fn pickled_type_aliases_relink_into_a_shell_with_its_own() -> Result {
+    Playground::setup("pickle_type_aliases", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[
+            FileWithContent(
+                "script.nu",
+                "
+                    use lib.nu [Name shout]
+                    type Count = int
+
+                    def main [n: Count, name: Name] {
+                        print ($n + 1) (shout $name)
+                        print (scope modules | where name == lib | get 0.type_aliases.type | to nuon)
+                    }
+                ",
+            ),
+            FileWithContent(
+                "lib.nu",
+                "export type Name = string\nexport def shout [s: Name] { $s | str uppercase }",
+            ),
+            // Type aliases of the shell come before the pickle's and shift their ids.
+            FileWithContent("config.nu", "type Elapsed = duration\ntype Size = filesize"),
+            FileWithContent("env.nu", ""),
+        ]);
+
+        let result: CompleteResult = test()
+            .cwd(dirs.test())
+            .run("nu -n -c 'pickle script.nu' | complete")?;
+        assert_eq!(result.exit_code, 0);
+
+        // `scope modules` reads the module's type alias from the engine state.
+        let result: CompleteResult = test()
+            .cwd(dirs.test())
+            .run("nu --config config.nu --env-config env.nu script.nupkl 2 hi | complete")?;
+        assert_eq!(result.stderr, "");
+        assert_eq!(result.stdout, "3\nHI\n[string]\n");
+        Ok(())
+    })
+}
+
+#[test]
+#[deps(NU)]
 fn depickle_writes_the_sources_back() -> Result {
     Playground::setup("depickle", |dirs, sandbox| -> Result {
         sandbox.mkdir("project/lib").mkdir("shared").mkdir("out");

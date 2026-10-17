@@ -40,6 +40,7 @@ pub enum IdKind {
     Decl,
     Block,
     Module,
+    TypeAlias,
     File,
     /// [`SpanId`](crate::SpanId), an index into the engine's span table (not a [`Span`]).
     ///
@@ -65,6 +66,7 @@ pub struct IdBases {
     pub decls: usize,
     pub blocks: usize,
     pub modules: usize,
+    pub type_aliases: usize,
     pub files: usize,
     /// First global [`Span`] offset after the files of the engine state.
     pub span_start: usize,
@@ -78,6 +80,7 @@ impl IdBases {
             decls: engine_state.num_decls(),
             blocks: engine_state.num_blocks(),
             modules: engine_state.num_modules(),
+            type_aliases: engine_state.num_type_aliases(),
             files: engine_state.num_files(),
             span_start: engine_state.next_span_start(),
         }
@@ -90,6 +93,7 @@ impl IdBases {
             IdKind::Decl => Some(self.decls),
             IdKind::Block => Some(self.blocks),
             IdKind::Module => Some(self.modules),
+            IdKind::TypeAlias => Some(self.type_aliases),
             IdKind::File => Some(self.files),
             IdKind::Span => None,
         }
@@ -292,6 +296,7 @@ mod tests {
             decls: n,
             blocks: n,
             modules: n,
+            type_aliases: n,
             files: n,
             span_start,
         }

@@ -4,7 +4,7 @@
 //! An [`IrBlock`](nu_protocol::ir::IrBlock) alone is not executable: its instructions refer to
 //! declarations, blocks, variables, modules and source spans by index into engine-state tables.
 //! So a pickle holds everything a parse adds to the working set (files, variables, declarations,
-//! blocks, modules and the scope frames that name them) plus the top-level block. The program is
+//! blocks, modules, type aliases and the scope frames that name them) plus the top-level block. The program is
 //! parsed [`standalone`](StateWorkingSet::standalone), so that is everything it parsed, the
 //! standard library modules it uses included.
 //!
@@ -29,7 +29,7 @@ use crate::{KnownExternal, type_check::type_compatible};
 use nu_engine::HELP_DECL_ID_PARSER_INFO;
 use nu_protocol::{
     Alias, BlockId, Category, CustomExample, DeclId, LAST_VARIABLE_ID, LabeledError, Module,
-    ModuleId, ParseError, ShellError, Signature, Span, Type, Value, VarId,
+    ModuleId, ParseError, ShellError, Signature, Span, Type, TypeAlias, TypeAliasId, Value, VarId,
     ast::{Block, Expr, Expression, Traverse},
     engine::{
         Command, CommandType, EngineState, ParseTimeValue, ScopeFrame, StateWorkingSet, Variable,
@@ -55,7 +55,7 @@ pub const MAGIC: &[u8] = b"\0nu-pickle\0";
 
 /// Bump whenever the layout of [`PickleHeader`], [`Linkage`] or [`Body`] changes. It is written as
 /// four little-endian bytes right after [`MAGIC`], so any later layout can still be told apart.
-const FORMAT_VERSION: u32 = 8;
+const FORMAT_VERSION: u32 = 9;
 
 /// The git commit of this build (see `build.rs`), empty when the build couldn't tell.
 const NU_COMMIT_HASH: &str = env!("NU_COMMIT_HASH");
@@ -223,6 +223,9 @@ struct Body {
     decls: Vec<PickledDecl>,
     blocks: Vec<Block>,
     modules: Vec<PickledModule>,
+    /// Only the scope frames and modules name type aliases: where one is used, the parser stores
+    /// its expansion.
+    type_aliases: Vec<TypeAlias>,
     scope: Vec<ScopeFrame>,
     block: Block,
 }
@@ -535,6 +538,9 @@ pub fn save(
                 }
             })
             .collect(),
+        type_aliases: (bases.type_aliases..working_set.num_type_aliases())
+            .map(|id| working_set.get_type_alias(TypeAliasId::new(id)).clone())
+            .collect(),
         scope: working_set.delta.scope.clone(),
         block: stored_block(block, false),
     };
@@ -677,7 +683,7 @@ pub fn load(
 
     let delta = &working_set.delta;
     if delta.num_files() + delta.num_vars() + delta.num_decls() + delta.num_blocks() > 0
-        || delta.num_modules() > 0
+        || delta.num_modules() + delta.num_type_aliases() > 0
     {
         return Err(load_error("the working set already has changes"));
     }
@@ -743,6 +749,9 @@ pub fn load(
         let name = String::from_utf8_lossy(&module.name).into_owned();
         working_set.add_module(&name, module, comments);
     }
+    for type_alias in body.type_aliases {
+        working_set.add_type_alias(type_alias);
+    }
     let mut defaults = HashMap::new();
     for (var_id, value) in body.parse_time_values {
         let value = match value {
@@ -806,8 +815,8 @@ pub fn load(
         let decl = decl.into_command(working_set);
         working_set.add_decl(decl);
     }
-    // `add_decl` and `add_module` bound names in the current overlay; the pickled scope frames
-    // are the ones the parser left behind.
+    // `add_decl`, `add_module` and `add_type_alias` bound names in the current overlay; the pickled
+    // scope frames are the ones the parser left behind.
     working_set.delta.scope = body.scope;
 
     Ok(Arc::new(body.block))

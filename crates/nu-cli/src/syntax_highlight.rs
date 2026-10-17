@@ -541,7 +541,6 @@ fn find_matching_block_end_in_expr<'a>(
             Expr::VarDecl(_) => None,
             Expr::ExternalCall(..) => None,
             Expr::Operator(_) => None,
-            Expr::UnaryNot(_) => None,
             Expr::Keyword(..) => None,
             Expr::ValueWithUnit(..) => None,
             Expr::DateTime(_) => None,
@@ -672,13 +671,15 @@ fn find_matching_block_end_in_expr<'a>(
                 )
             }),
 
-            Expr::Collect(_, expr) => find_matching_block_end_in_expr(
-                line,
-                get_block,
-                expr,
-                global_span_offset,
-                global_cursor_offset,
-            ),
+            Expr::UnaryNot(expr) | Expr::UnaryMinus(expr) | Expr::Collect(_, expr) => {
+                find_matching_block_end_in_expr(
+                    line,
+                    get_block,
+                    expr,
+                    global_span_offset,
+                    global_cursor_offset,
+                )
+            }
 
             Expr::Block(block_id)
             | Expr::Closure(block_id)
@@ -773,6 +774,22 @@ mod tests {
         let on_open_again = h.highlight(line, 8);
         assert_eq!(on_open.render_simple(), on_open_again.render_simple());
         assert_eq!(on_open.raw_string(), line);
+    }
+
+    /// A bracket inside a negated operand still finds its match, with the cursor after it.
+    #[rstest]
+    #[case::unary_minus("-(1 + 2)")]
+    #[case::not_comparison("let a = true; not $a == (1 == 2)")]
+    fn matching_brackets_inside_negation(#[case] line: &str) {
+        let h = make_highlighter();
+        let styled = h.highlight(line, line.len());
+        let underlined: String = styled
+            .buffer
+            .iter()
+            .filter(|(style, _)| style.is_underline)
+            .map(|(_, text)| text.as_str())
+            .collect();
+        assert_eq!(underlined, "()", "matching brackets in {line:?}");
     }
 
     #[test]

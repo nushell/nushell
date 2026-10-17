@@ -117,8 +117,8 @@ pub(crate) fn compile_call(
                 // and will get a const value though, is it really necessary to do that?
                 return builder.load_empty(io_reg);
             }
-            "alias" | "export alias" => {
-                // Alias does nothing
+            "alias" | "export alias" | "type" | "export type" => {
+                // Alias and type alias do nothing at run time
                 return builder.load_empty(io_reg);
             }
             "let" | "mut" => {
@@ -476,7 +476,7 @@ fn bare_var_id(expr: &Expression) -> Option<nu_protocol::VarId> {
 }
 
 pub(crate) fn compile_unlet(
-    _working_set: &StateWorkingSet,
+    working_set: &StateWorkingSet,
     builder: &mut BlockBuilder,
     call: &Call,
     io_reg: RegId,
@@ -494,28 +494,32 @@ pub(crate) fn compile_unlet(
 
         match var_id {
             Some(var_id) => {
-                // Prevent deletion of built-in variables that are essential for nushell operation
-                if var_id == NU_VARIABLE_ID
-                    || var_id == ENV_VARIABLE_ID
-                    || var_id == IN_VARIABLE_ID
-                    || var_id == nu_protocol::LAST_VARIABLE_ID
-                {
-                    // Determine the variable name for the error message
-                    let var_name = match var_id {
-                        NU_VARIABLE_ID => "nu",
-                        ENV_VARIABLE_ID => "env",
-                        IN_VARIABLE_ID => "in",
-                        _ if var_id == nu_protocol::LAST_VARIABLE_ID => {
-                            nu_protocol::LAST_RESULT_VAR_NAME
-                        }
-                        _ => "unknown", // This should never happen due to the check above
-                    };
-
+                let variable = working_set.get_variable(var_id);
+                // Prevent deletion of built-in variables that are essential for nushell
+                // operation. In a pipeline the parser replaces `$in` with a fresh variable that
+                // it names `$in` (see `wrap_expr_with_collect`), which is the built-in too.
+                let builtin_name = match var_id {
+                    NU_VARIABLE_ID => Some("nu"),
+                    ENV_VARIABLE_ID => Some("env"),
+                    IN_VARIABLE_ID => Some("in"),
+                    nu_protocol::LAST_VARIABLE_ID => Some(nu_protocol::LAST_RESULT_VAR_NAME),
+                    _ if variable.name.as_deref() == Some(b"$in") => Some("in"),
+                    _ => None,
+                };
+                if let Some(var_name) = builtin_name {
                     return Err(CompileError::InvalidLiteral {
-                        msg: format!(
-                            "'${}' is a built-in variable and cannot be deleted",
-                            var_name
-                        ),
+                        msg: format!("'${var_name}' is a built-in variable and cannot be deleted"),
+                        span: arg.span,
+                    });
+                }
+
+                // A constant lives in the engine state, not on the stack, and reading it after
+                // a `DropVariable` falls back to its value. It was also already inlined where
+                // the parser evaluated constants, so deleting it can't work. (`$nu` is a constant
+                // too, which is why the built-ins are checked first.)
+                if variable.const_val.is_some() {
+                    return Err(CompileError::InvalidLiteral {
+                        msg: "constants cannot be deleted".into(),
                         span: arg.span,
                     });
                 }

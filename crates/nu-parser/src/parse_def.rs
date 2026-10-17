@@ -66,6 +66,17 @@ pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) {
         match working_set.get_span_contents(spans[pos - 1]) {
             b"def" => false,
             b"extern" => true,
+            b"type" => {
+                // Only the name and position of a type alias are recorded, so that a use above
+                // the definition can be reported as such. Its type is parsed in order.
+                if let [name, equals, ..] = spans[pos..]
+                    && working_set.get_span_contents(equals) == b"="
+                {
+                    let name = working_set.get_span_contents(name).to_vec();
+                    working_set.add_type_predecl(name, Span::concat(spans));
+                }
+                return;
+            }
             _ => return,
         }
     } else {
@@ -86,11 +97,14 @@ pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) {
         return;
     };
 
+    // A call is looked up by its words joined with single spaces, so a name
+    // with any other whitespace could never be called (#15539).
     if name.contains('#')
         || name.contains('^')
         || name.contains('%')
         || name.parse::<bytesize::ByteSize>().is_ok()
         || name.parse::<f64>().is_ok()
+        || name.split_ascii_whitespace().collect::<Vec<_>>().join(" ") != name
     {
         working_set.error(ParseError::CommandDefNotValid(spans[name_pos]));
         return;
@@ -649,6 +663,19 @@ rest.name
         if let Some(decl_id) = working_set.find_predecl(name.as_bytes()) {
             signature.name.clone_from(&name);
             if !has_wrapped {
+                // `--help` always shows the command's help before the body runs, so a flag of
+                // that name could never be set. (`-h` stays usable as another flag's short form.)
+                if let Some(flag) = signature.get_long_flag("help") {
+                    let span = flag.var_id.map_or(call_span, |var_id| {
+                        working_set.get_variable(var_id).declaration_span
+                    });
+                    working_set.error(ParseError::LabeledErrorWithHelp {
+                        error: "The `--help` flag is reserved".into(),
+                        label: "every command already has `--help`".into(),
+                        help: "Rename this flag. `--help` always shows the command's help.".into(),
+                        span,
+                    });
+                }
                 *signature = signature.add_help();
             }
             signature.description = desc;

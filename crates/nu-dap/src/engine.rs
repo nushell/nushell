@@ -535,7 +535,7 @@ mod tests {
         );
 
         assert!(
-            err.contains("PWD cannot be set manually"),
+            err.contains("'PWD' cannot be changed manually."),
             "should carry nushell's own message: {err}"
         );
     }

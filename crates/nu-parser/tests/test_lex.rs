@@ -659,7 +659,7 @@ fn parse_unclosed_quotes_still_report() {
     // Quote failures may surface as Unclosed("\"") or similar string errors.
     let msg = format!("{err:?}");
     assert!(
-        matches!(err, ParseError::Unclosed(d, ..) if d.contains('"') || d.contains('\''))
+        matches!(&err, ParseError::Unclosed(d, ..) if d.contains('"') || d.contains('\''))
             || msg.to_lowercase().contains("quote")
             || msg.contains('\"'),
         "expected quote-related error, got {err:?}"
@@ -675,7 +675,7 @@ fn parse_unclosed_quotes_multiline_still_report(#[case] file: &[u8]) {
     let err = parse_first_error(file);
     let msg = format!("{err:?}");
     assert!(
-        matches!(err, ParseError::Unclosed(d, ..) if d.contains('"') || d.contains('\''))
+        matches!(&err, ParseError::Unclosed(d, ..) if d.contains('"') || d.contains('\''))
             || msg.to_lowercase().contains("quote")
             || msg.contains('\"')
             || msg.contains('\''),
