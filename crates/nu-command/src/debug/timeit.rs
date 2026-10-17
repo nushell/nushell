@@ -53,7 +53,7 @@ This command will bubble up any errors encountered when running the closure. The
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["timing", "timer", "benchmark", "measure"]
+        vec!["time", "timing", "timer", "benchmark", "measure"]
     }
 
     fn run(
