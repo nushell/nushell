@@ -1,3 +1,4 @@
+mod regressions;
 pub mod support;
 
 use std::{
