@@ -159,8 +159,9 @@ impl CallEval {
         self.rest_args.clear();
     }
 
-    /// Spread a list into rest (IR parity). Errors if required positionals remain unbound.
-    pub fn add_list_spread(
+    /// Spread a list into rest (IR parity), and send further positionals to rest too. A `null`
+    /// spread is an empty list here. Errors if required positionals remain unbound.
+    fn add_list_spread(
         &mut self,
         signature: &Signature,
         vals: Vec<Value>,
@@ -171,19 +172,6 @@ impl CallEval {
         }
         for v in vals {
             self.push_rest(signature, Cow::Owned(v))?;
-        }
-        self.always_spread = true;
-        Ok(self)
-    }
-
-    /// Null rest-mode spread (IR parity). Errors if required positionals remain unbound.
-    pub fn add_null_spread(
-        &mut self,
-        signature: &Signature,
-        spread_span: Span,
-    ) -> Result<&mut Self, ShellError> {
-        if self.arg_index < signature.required_positional.len() && !self.always_spread {
-            return Err(list_spread_before_required_error(spread_span));
         }
         self.always_spread = true;
         Ok(self)
@@ -224,7 +212,7 @@ impl CallEval {
             Value::List { vals, .. } => {
                 self.add_list_spread(signature, vals.into_owned(), spread_span)
             }
-            Value::Nothing { .. } => self.add_null_spread(signature, spread_span),
+            Value::Nothing { .. } => self.add_list_spread(signature, Vec::new(), spread_span),
             Value::Error { error, .. } => Err(*error),
             other => Err(ShellError::CannotSpreadAsList { span: other.span() }),
         }

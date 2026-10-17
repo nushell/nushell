@@ -1663,7 +1663,7 @@ fn expect_positional_var_id(arg: &PositionalArg, span: Span) -> Result<VarId, Sh
 }
 
 /// Normalize call arguments: expand record spreads into named flags; drop null
-/// named values unless the flag type accepts `nothing` or the signature doesn't declare the flag.
+/// named values unless the flag type accepts `nothing`.
 ///
 /// Returns the new argument list length after rewriting the frame starting at `args_base`.
 fn normalize_call_arguments(

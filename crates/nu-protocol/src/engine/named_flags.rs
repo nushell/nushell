@@ -159,9 +159,6 @@ pub fn list_spread_before_required_error(spread_span: Span) -> ShellError {
 
 /// Apply signature-aware null handling and expand record spreads for engine [`Argument`]s.
 ///
-/// A null named value is dropped when its flag's type doesn't accept `nothing`, and kept for a
-/// flag the signature doesn't declare.
-///
 /// List spreads are rejected when the command has no rest parameter (and does not allow
 /// unknown args), so `...$list` cannot be silently dropped on named-only commands.
 pub fn normalize_engine_arguments(
@@ -180,10 +177,8 @@ pub fn normalize_engine_arguments(
                 val: Value::Nothing { .. },
                 ast,
             } => {
-                // A flag the signature doesn't declare keeps its null for the command to judge:
-                // `run` passes `--name=null` after the script path on to the script's `main`.
                 let accepts = find_signature_flag(signature, &data[name], &data[short])
-                    .is_none_or(flag_type_accepts_nothing);
+                    .is_some_and(flag_type_accepts_nothing);
                 if accepts {
                     expanded.push(Argument::Named {
                         data,
