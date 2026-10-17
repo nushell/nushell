@@ -1641,7 +1641,7 @@ fn find_named_var_id(
         .and_then(|flag| expect_named_var_id(flag, span))
 }
 
-fn expect_named_var_id(arg: &Flag, span: Span) -> Result<VarId, ShellError> {
+pub(crate) fn expect_named_var_id(arg: &Flag, span: Span) -> Result<VarId, ShellError> {
     arg.var_id.ok_or_else(|| ShellError::IrEvalError {
         msg: format!(
             "block signature is missing var id for named arg `{}`",
