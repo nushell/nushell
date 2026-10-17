@@ -16,7 +16,7 @@ use nu_protocol::{
     DidYouMean, FilesizeUnit, IntoSpanned, ParseError, Span, Spanned, SyntaxShape, Type, Unit,
     VarId, ast::*, casing::Casing, engine::StateWorkingSet,
 };
-use std::{borrow::Cow, sync::Arc};
+use std::{borrow::Cow, num::IntErrorKind, sync::Arc};
 
 use crate::parse_expressions::{
     parse_block_expression, parse_closure_expression, parse_match_block_expression, parse_record,
@@ -1473,15 +1473,53 @@ pub fn parse_unit_value<'res>(
             return None;
         }
 
-        // Whole-number literals are parsed as an integer as well, so that large exact
-        // values can be preserved. The `f64` used below for fractional literals would
-        // silently round them, e.g. `6504534684301572998b` became
-        // `6504534684301573120b` (issue #10612).
-        let lhs_int = if lhs.contains(['.', 'e', 'E']) {
-            None
+        // Convert all durations to nanoseconds, and filesizes to bytes,
+        // to minimize loss of precision.
+        let base_unit = if ty == Type::Filesize {
+            Unit::Filesize(FilesizeUnit::B)
         } else {
-            lhs.parse::<i64>().ok()
+            Unit::Nanosecond
         };
+        let factor_of = |unit: &Unit| match ty {
+            Type::Filesize => unit_to_byte_factor(unit),
+            Type::Duration => unit_to_ns_factor(unit),
+            _ => None,
+        };
+
+        // Whole-number literals are converted with integer arithmetic, so large
+        // values stay exact. The `f64` path below would silently round them, e.g.
+        // `6504534684301572998b` became `6504534684301573120b` (issue #10612).
+        // `i64::from_str` rejects `.`, `e` and `E`, so those take the float path.
+        let whole = match lhs.parse::<i64>() {
+            Ok(n) => Some(Some(n)),
+            Err(e)
+                if matches!(
+                    e.kind(),
+                    IntErrorKind::PosOverflow | IntErrorKind::NegOverflow
+                ) =>
+            {
+                Some(None)
+            }
+            Err(_) => None,
+        };
+        if let (Some(whole), Some(factor)) = (whole, factor_of(unit)) {
+            // The factor of the unit as written equals the conversion step times
+            // the converted unit's factor (`MB` = 1000 x 1000 B), so one exact
+            // multiply is enough.
+            let Some(num) = whole.and_then(|n| n.checked_mul(factor)) else {
+                let mk_err = move |name| {
+                    ParseError::LabeledError(
+                        format!("{name} value is too large"),
+                        "does not fit in a 64-bit integer".into(),
+                        lhs_span,
+                    )
+                };
+                return Some(Err(Box::new(mk_err)));
+            };
+            return Some(Ok(unit_value_expr(
+                num, base_unit, lhs_span, unit_span, span, ty,
+            )));
+        }
 
         let (decimal_part, number_part) = modf(match lhs.parse::<f64>() {
             Ok(it) => it,
@@ -1509,72 +1547,46 @@ pub fn parse_unit_value<'res>(
             None => number_part,
         };
 
-        // Convert all durations to nanoseconds, and filesizes to bytes,
-        // to minimize loss of precision
-        let factor = match ty {
-            Type::Filesize => unit_to_byte_factor(&unit),
-            Type::Duration => unit_to_ns_factor(&unit),
-            _ => None,
-        };
-
-        let num = match factor {
+        let num = match factor_of(&unit) {
             Some(factor) => {
-                // Integer fast-path: keep full precision when the literal is a whole
-                // number and the conversion to the base unit (bytes/nanoseconds) is
-                // exact. All the factors in the tables above are whole numbers, so
-                // `factor as i64` is lossless when `factor.fract() == 0.0`. On overflow
-                // we fall back to the (lossy) `f64` computation below.
-                let convert_factor = match convert {
-                    Some(convert_to) => convert_to.1,
-                    None => 1,
-                };
-                let exact = if factor.fract() == 0.0 {
-                    lhs_int
-                        .and_then(|n| n.checked_mul(convert_factor))
-                        .and_then(|n| n.checked_mul(factor as i64))
+                let num_base = num_float * factor as f64;
+                if i64::MIN as f64 <= num_base && num_base <= i64::MAX as f64 {
+                    unit = base_unit;
+                    num_base as i64
                 } else {
-                    None
-                };
-
-                if let Some(num_base) = exact {
-                    unit = if ty == Type::Filesize {
-                        Unit::Filesize(FilesizeUnit::B)
-                    } else {
-                        Unit::Nanosecond
-                    };
-                    num_base
-                } else {
-                    let num_base = num_float * factor;
-                    if i64::MIN as f64 <= num_base && num_base <= i64::MAX as f64 {
-                        unit = if ty == Type::Filesize {
-                            Unit::Filesize(FilesizeUnit::B)
-                        } else {
-                            Unit::Nanosecond
-                        };
-                        num_base as i64
-                    } else {
-                        // not safe to convert, because of the overflow
-                        num_float as i64
-                    }
+                    // Out of range: `as i64` saturates (clamps) the value and the
+                    // converted unit is kept. Whole numbers report an error above.
+                    num_float as i64
                 }
             }
-            None => lhs_int.unwrap_or(num_float as i64),
+            None => num_float as i64,
         };
 
-        trace!("-- found {num} {unit:?}");
-        let value = ValueWithUnit {
-            expr: Expression::new_unknown(Expr::Int(num), lhs_span, Type::Number),
-            unit: Spanned {
-                item: unit,
-                span: unit_span,
-            },
-        };
-        let expr = Expression::new_unknown(Expr::ValueWithUnit(Box::new(value)), span, ty);
-
-        Some(Ok(expr))
+        Some(Ok(unit_value_expr(
+            num, unit, lhs_span, unit_span, span, ty,
+        )))
     } else {
         None
     }
+}
+
+fn unit_value_expr(
+    num: i64,
+    unit: Unit,
+    lhs_span: Span,
+    unit_span: Span,
+    span: Span,
+    ty: Type,
+) -> Expression {
+    trace!("-- found {num} {unit:?}");
+    let value = ValueWithUnit {
+        expr: Expression::new_unknown(Expr::Int(num), lhs_span, Type::Number),
+        unit: Spanned {
+            item: unit,
+            span: unit_span,
+        },
+    };
+    Expression::new_unknown(Expr::ValueWithUnit(Box::new(value)), span, ty)
 }
 
 pub const FILESIZE_UNIT_GROUPS: &[UnitGroup] = &[
@@ -1665,37 +1677,23 @@ pub const DURATION_UNIT_GROUPS: &[UnitGroup] = &[
     (Unit::Week, "wk", Some((Unit::Day, 7))),
 ];
 
-fn unit_to_ns_factor(unit: &Unit) -> Option<f64> {
+fn unit_to_ns_factor(unit: &Unit) -> Option<i64> {
     match unit {
-        Unit::Nanosecond => Some(1.0),
-        Unit::Microsecond => Some(1_000.0),
-        Unit::Millisecond => Some(1_000_000.0),
-        Unit::Second => Some(1_000_000_000.0),
-        Unit::Minute => Some(60.0 * 1_000_000_000.0),
-        Unit::Hour => Some(60.0 * 60.0 * 1_000_000_000.0),
-        Unit::Day => Some(24.0 * 60.0 * 60.0 * 1_000_000_000.0),
-        Unit::Week => Some(7.0 * 24.0 * 60.0 * 60.0 * 1_000_000_000.0),
+        Unit::Nanosecond => Some(1),
+        Unit::Microsecond => Some(1_000),
+        Unit::Millisecond => Some(1_000_000),
+        Unit::Second => Some(1_000_000_000),
+        Unit::Minute => Some(60 * 1_000_000_000),
+        Unit::Hour => Some(60 * 60 * 1_000_000_000),
+        Unit::Day => Some(24 * 60 * 60 * 1_000_000_000),
+        Unit::Week => Some(7 * 24 * 60 * 60 * 1_000_000_000),
         _ => None,
     }
 }
 
-fn unit_to_byte_factor(unit: &Unit) -> Option<f64> {
+fn unit_to_byte_factor(unit: &Unit) -> Option<i64> {
     match unit {
-        Unit::Filesize(FilesizeUnit::B) => Some(1.0),
-        Unit::Filesize(FilesizeUnit::KB) => Some(1_000.0),
-        Unit::Filesize(FilesizeUnit::MB) => Some(1_000_000.0),
-        Unit::Filesize(FilesizeUnit::GB) => Some(1_000_000_000.0),
-        Unit::Filesize(FilesizeUnit::TB) => Some(1_000_000_000_000.0),
-        Unit::Filesize(FilesizeUnit::PB) => Some(1_000_000_000_000_000.0),
-        Unit::Filesize(FilesizeUnit::EB) => Some(1_000_000_000_000_000_000.0),
-        Unit::Filesize(FilesizeUnit::KiB) => Some(1024.0),
-        Unit::Filesize(FilesizeUnit::MiB) => Some(1024.0 * 1024.0),
-        Unit::Filesize(FilesizeUnit::GiB) => Some(1024.0 * 1024.0 * 1024.0),
-        Unit::Filesize(FilesizeUnit::TiB) => Some(1024.0 * 1024.0 * 1024.0 * 1024.0),
-        Unit::Filesize(FilesizeUnit::PiB) => Some(1024.0 * 1024.0 * 1024.0 * 1024.0 * 1024.0),
-        Unit::Filesize(FilesizeUnit::EiB) => {
-            Some(1024.0 * 1024.0 * 1024.0 * 1024.0 * 1024.0 * 1024.0)
-        }
+        Unit::Filesize(unit) => Some(unit.as_bytes() as i64),
         _ => None,
     }
 }
