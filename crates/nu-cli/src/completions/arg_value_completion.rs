@@ -30,10 +30,17 @@ pub struct ArgValueCompletion<'a> {
 
 impl<'a> Completer for ArgValueCompletion<'a> {
     fn fetch(&mut self, context: &Context) -> Fetched {
-        if let Some(fetched_completion) = self.try_fetch_dynamic_completion(context) {
+        if let Some(fetched_completion) = self.fetch_dynamic_completion(context) {
             return fetched_completion;
         }
 
+        self.fetch_fallback(context)
+    }
+}
+
+impl<'a> ArgValueCompletion<'a> {
+    /// Type and filesystem completion, after all command and user sources decline.
+    pub(crate) fn fetch_fallback(&self, context: &Context) -> Fetched {
         let prefix_string = context.prefix_str();
 
         let completion_context = Context {
@@ -42,16 +49,16 @@ impl<'a> Completer for ArgValueCompletion<'a> {
         };
 
         // Command-specific completions are dispatched earlier via `BuiltinCompletion`;
-        // here we handle only the generic argument-value fallbacks.
+        // here we handle only the final generic argument-value fallbacks.
         self.fetch_fallback_completion(self.arg_expr(), &completion_context)
     }
-}
 
-impl<'a> ArgValueCompletion<'a> {
-    fn try_fetch_dynamic_completion(&self, context: &Context) -> Option<Fetched> {
+    pub(crate) fn fetch_dynamic_completion(&self, context: &Context) -> Option<Fetched> {
         let working_set = context.working_set;
         let declaration = working_set.get_decl(self.call.decl_id);
-        let mut stack = context.stack.to_owned();
+        // Native/plugin sources are noninteractive even when a later user picker
+        // makes this query run on the line-editor thread.
+        let mut stack = context.stack.to_owned().suppress_stdin();
 
         let dynamic_completion_call = DynamicCompletionCallRef {
             call: self.call,

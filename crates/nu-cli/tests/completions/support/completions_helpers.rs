@@ -39,6 +39,18 @@ impl Command for FakeCmd {
                 Some('f'),
             )
             .named(
+                "stdin-probe",
+                SyntaxShape::String,
+                "Dynamic completion that requires stdin.",
+                None,
+            )
+            .named(
+                "empty",
+                SyntaxShape::String,
+                "Dynamic completion that answers with no suggestions.",
+                None,
+            )
+            .named(
                 "plugin-config",
                 SyntaxShape::Int,
                 "Example flag which support auto completion from plugin config.",
@@ -50,8 +62,8 @@ impl Command for FakeCmd {
     fn get_dynamic_completion(
         &self,
         engine_state: &EngineState,
-        _stack: &mut Stack,
-        _call: DynamicCompletionCallRef,
+        stack: &mut Stack,
+        call: DynamicCompletionCallRef,
         arg_type: &ArgType,
         _experimental: nu_protocol::engine::ExperimentalMarker,
     ) -> Result<Option<Vec<DynamicSuggestion>>, ShellError> {
@@ -89,6 +101,14 @@ impl Command for FakeCmd {
                         })
                         .collect(),
                 ),
+                "stdin-probe" => {
+                    stack.require_stdin(call.call.head)?;
+                    Some(vec![DynamicSuggestion {
+                        value: "stdin-was-enabled".to_string(),
+                        ..Default::default()
+                    }])
+                }
+                "empty" => Some(vec![]),
                 "plugin-config" => engine_state
                     .get_plugin_config("fake-cmd")
                     .and_then(|config| {
