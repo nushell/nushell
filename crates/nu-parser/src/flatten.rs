@@ -402,9 +402,38 @@ fn flatten_expression_into(
         Expr::Int(_) => output.push((expr.span, FlatShape::Int)),
         Expr::Float(_) => output.push((expr.span, FlatShape::Float)),
         Expr::MatchBlock(matches) => {
+            let outer_span = expr.span;
+            let mut last_end = outer_span.start;
+
             for (pattern, expr) in matches {
-                flatten_pattern_into(pattern, output);
-                flatten_expression_into(working_set, expr, output);
+                let mut flattened = Vec::new();
+                flatten_pattern_into(pattern, &mut flattened);
+                if let Some(guard) = &pattern.guard {
+                    let guard_prefix = Span::new(pattern.span.end, guard.span.start);
+                    if let Some(if_start) = working_set
+                        .get_span_contents(guard_prefix)
+                        .windows(2)
+                        .position(|window| window == b"if")
+                    {
+                        let start = guard_prefix.start + if_start;
+                        flattened.push((Span::new(start, start + 2), FlatShape::Keyword));
+                    }
+                    flatten_expression_into(working_set, guard, &mut flattened);
+                }
+                flatten_expression_into(working_set, expr, &mut flattened);
+                flattened.sort();
+
+                for (span, shape) in flattened {
+                    if span.start > last_end {
+                        output.push((Span::new(last_end, span.start), FlatShape::Block));
+                    }
+                    last_end = span.end;
+                    output.push((span, shape));
+                }
+            }
+
+            if last_end < outer_span.end {
+                output.push((Span::new(last_end, outer_span.end), FlatShape::Block));
             }
         }
         Expr::ValueWithUnit(value) => {

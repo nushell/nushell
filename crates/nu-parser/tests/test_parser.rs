@@ -3986,6 +3986,81 @@ fn reject_second_list_pattern_rest(#[case] arm: &str, #[case] extra_rest: &str) 
 }
 
 #[test]
+fn flatten_match_block_includes_its_delimiters_and_separators() {
+    let input = r#"match 1 { 1 if 2 > 0 => { "a" }, _ => "b" }"#;
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    working_set.add_decl(Box::new(MatchMocked));
+
+    let block = parse(&mut working_set, None, input.as_bytes(), true);
+    assert!(
+        working_set.parse_errors.is_empty(),
+        "{:?}",
+        working_set.parse_errors
+    );
+
+    let flattened = flatten_block(&working_set, &block);
+    for token in ["{", "}", "=>", ","] {
+        for (start, _) in input.match_indices(token) {
+            let end = start + token.len();
+            assert!(
+                flattened.iter().any(|(span, shape)| {
+                    shape == &FlatShape::Block && span.start <= start && end <= span.end
+                }),
+                "expected {token:?} at {start} to have shape_block"
+            );
+        }
+    }
+
+    let guard_keyword = input.find("if").unwrap();
+    assert!(flattened.iter().any(|(span, shape)| {
+        shape == &FlatShape::Keyword && span.start <= guard_keyword && guard_keyword + 2 <= span.end
+    }));
+
+    let guard_value = input.find("2").unwrap();
+    assert!(flattened.iter().any(|(span, shape)| {
+        shape == &FlatShape::Int && span.start == guard_value && span.end == guard_value + 1
+    }));
+}
+
+#[test]
+fn flatten_match_block_inside_a_definition_keeps_its_closing_brace() {
+    let input = "def f [] { match 1 { _ => 2 } }";
+    let mut engine_state = EngineState::new();
+    let delta = {
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        working_set.add_decl(Box::new(Def));
+        working_set.add_decl(Box::new(MatchMocked));
+        working_set.render()
+    };
+    engine_state
+        .merge_delta(delta)
+        .expect("Error merging delta");
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    let block = parse(&mut working_set, None, input.as_bytes(), true);
+    assert!(
+        working_set.parse_errors.is_empty(),
+        "{:?}",
+        working_set.parse_errors
+    );
+
+    let flattened = flatten_block(&working_set, &block);
+    let match_start = input.find("match").unwrap();
+    let match_source = &input[match_start..];
+    for token in ["{", "}"] {
+        let start = match_start + match_source.find(token).unwrap();
+        let end = start + token.len();
+        assert!(
+            flattened.iter().any(|(span, shape)| {
+                shape == &FlatShape::Block && span.start <= start && end <= span.end
+            }),
+            "expected match {token:?} to have shape_block"
+        );
+    }
+}
+
+#[test]
 fn record_semicolon_gives_separator_help() {
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
