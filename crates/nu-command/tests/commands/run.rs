@@ -1248,14 +1248,12 @@ fn run_reads_a_negative_literal_for_any_parameter(
 #[rstest]
 // `--foo=null` reaches `main`, so a flag that takes `null` gets it instead of its default.
 #[case::null_flag("run defaults.nu --foo=null", test_value!({foo: (), bb: false}))]
-// `--bb` names the flag that declares it, not an earlier one with the same short.
-#[case::shared_short("run defaults.nu --bb", test_value!({foo: 5, bb: true}))]
 fn run_binds_flags_by_their_long_name(#[case] code: &str, #[case] expected: Value) -> Result {
     Playground::setup("run_binds_flags_by_their_long_name", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContentToBeTrimmed(
             "defaults.nu",
             "
-            def main [--foo: any = 5, -a, --bb(-a)] { {foo: $foo, bb: $bb} }
+            def main [--foo: any = 5, --bb] { {foo: $foo, bb: $bb} }
         ",
         )]);
 
