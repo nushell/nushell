@@ -1,7 +1,11 @@
 use std::borrow::Cow;
 
 use nu_engine::command_prelude::*;
-use nu_protocol::{DeprecationEntry, DeprecationType, ReportMode, Signals, ast::PathMember};
+use nu_protocol::{
+    DeprecationEntry, DeprecationType, ReportMode, Signals,
+    ast::{self, PathMember},
+    engine::CallImpl,
+};
 
 #[derive(Clone)]
 pub struct Get;
@@ -18,7 +22,9 @@ impl Command for Get {
     fn extra_description(&self) -> &str {
         "This is equivalent to using the cell path access syntax: `$env.OS` is the same as `$env | get OS`.
 
-If multiple cell paths are given, this will produce a list of values."
+With no cell path, the input is returned unchanged. With one literal cell path, this returns the value at that path. If multiple cell paths are given, or any argument is a spread (`...$paths`), this produces a list with one value per path, so the result has the same shape however many paths the spread holds, and an empty spread produces an empty list.
+
+Strings in a spread are single column names: `...[a.b]` looks for a column named `a.b`. To spread nested paths, use cell-path values such as `$.a.b`, or convert with `into cell-path`."
     }
 
     fn signature(&self) -> nu_protocol::Signature {
@@ -115,24 +121,35 @@ If multiple cell paths are given, this will produce a list of values."
             Example {
                 description: "Get multiple columns from a table using a spread list.",
                 example: "[[a b c]; [1 2 3]] | get ...[a c]",
-                result: Some(Value::list(
-                    vec![
-                        Value::list(vec![Value::test_int(1)], Span::test_data()),
-                        Value::list(vec![Value::test_int(3)], Span::test_data()),
-                    ],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(vec![
+                    Value::test_list(vec![Value::test_int(1)]),
+                    Value::test_list(vec![Value::test_int(3)]),
+                ])),
             },
             Example {
                 description: "Get columns from a table using a spread variable.",
                 example: "let cols = [a b]; [{a: 1, b: 2, c: 3}] | get ...$cols",
-                result: Some(Value::list(
-                    vec![
-                        Value::list(vec![Value::test_int(1)], Span::test_data()),
-                        Value::list(vec![Value::test_int(2)], Span::test_data()),
-                    ],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(vec![
+                    Value::test_list(vec![Value::test_int(1)]),
+                    Value::test_list(vec![Value::test_int(2)]),
+                ])),
+            },
+            Example {
+                description: "A spread always produces a list of values, even when it holds a single path.",
+                example: "let cols = [a]; [{a: 1, b: 2}] | get ...$cols",
+                result: Some(Value::test_list(vec![Value::test_list(vec![
+                    Value::test_int(1),
+                ])])),
+            },
+            Example {
+                description: "An empty spread produces an empty list.",
+                example: "let cols = []; [{a: 1, b: 2}] | get ...$cols",
+                result: Some(Value::test_list(vec![])),
+            },
+            Example {
+                description: "Spread nested paths as cell-path values, since spread strings are single column names.",
+                example: "let paths = [$.a.b]; {a: {b: 1}} | get ...$paths",
+                result: Some(Value::test_list(vec![Value::test_int(1)])),
             },
             Example {
                 description: "Extract the name of the 3rd record in a list (same as `ls | $in.name.2`).",
@@ -173,17 +190,15 @@ If multiple cell paths are given, this will produce a list of values."
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let Some((cell_path, rest)) = split_cell_paths(call.rest_const(working_set, stack, 0)?)
-        else {
-            return Ok(input);
-        };
+        let cell_paths = call.rest_const(working_set, stack, 0)?;
+        let has_spread = has_spread_argument(call, stack);
         let optional = call.has_flag_const(working_set, stack, "optional")?
             || call.has_flag_const(working_set, stack, "ignore-errors")?;
         let ignore_case = call.has_flag_const(working_set, stack, "ignore-case")?;
         action(
             input,
-            cell_path,
-            rest,
+            cell_paths,
+            has_spread,
             optional,
             ignore_case,
             working_set.permanent().signals().clone(),
@@ -198,16 +213,15 @@ If multiple cell paths are given, this will produce a list of values."
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let Some((cell_path, rest)) = split_cell_paths(call.rest(engine_state, stack, 0)?) else {
-            return Ok(input);
-        };
+        let cell_paths = call.rest(engine_state, stack, 0)?;
+        let has_spread = has_spread_argument(call, stack);
         let optional = call.has_flag(engine_state, stack, "optional")?
             || call.has_flag(engine_state, stack, "ignore-errors")?;
         let ignore_case = call.has_flag(engine_state, stack, "ignore-case")?;
         action(
             input,
-            cell_path,
-            rest,
+            cell_paths,
+            has_spread,
             optional,
             ignore_case,
             engine_state.signals().clone(),
@@ -235,32 +249,45 @@ If multiple cell paths are given, this will produce a list of values."
     }
 }
 
-fn split_cell_paths(cell_paths: Vec<CellPath>) -> Option<(CellPath, Vec<CellPath>)> {
-    let mut cell_paths = cell_paths.into_iter();
-    cell_paths
-        .next()
-        .map(|cell_path| (cell_path, cell_paths.collect()))
+/// Returns whether any argument to the rest parameter is a spread (`...$paths`).
+///
+/// A spread's length is only known at runtime, so `get` always returns a list for it
+/// rather than letting a one-element spread collapse to a single value.
+fn has_spread_argument(call: &Call, stack: &Stack) -> bool {
+    match &call.inner {
+        CallImpl::AstRef(call) => ast_has_spread(call),
+        CallImpl::AstBox(call) => ast_has_spread(call),
+        CallImpl::IrRef(call) => call.rest_iter(stack, 0).any(|(_, spread)| spread),
+        CallImpl::IrBox(call) => call.rest_iter(stack, 0).any(|(_, spread)| spread),
+    }
 }
 
+fn ast_has_spread(call: &ast::Call) -> bool {
+    call.arguments
+        .iter()
+        .any(|arg| matches!(arg, ast::Argument::Spread(_)))
+}
+
+/// Follows `cell_paths` into `input`.
+///
+/// With no path and no spread, the input is returned unchanged, after the same
+/// empty-pipeline check the other cases get. One path with no spread returns the value at
+/// that path, streaming where possible. Several paths, or any spread, return a list with
+/// one value per path, so an empty spread returns an empty list.
 fn action(
     mut input: PipelineData,
-    mut cell_path: CellPath,
-    mut rest: Vec<CellPath>,
+    mut cell_paths: Vec<CellPath>,
+    has_spread: bool,
     optional: bool,
     ignore_case: bool,
     signals: Signals,
     span: Span,
 ) -> Result<PipelineData, ShellError> {
-    if optional {
-        cell_path.make_optional();
-        for path in &mut rest {
+    for path in &mut cell_paths {
+        if optional {
             path.make_optional();
         }
-    }
-
-    if ignore_case {
-        cell_path.make_insensitive();
-        for path in &mut rest {
+        if ignore_case {
             path.make_insensitive();
         }
     }
@@ -269,9 +296,14 @@ fn action(
         return Err(ShellError::PipelineEmpty { dst_span: span });
     }
 
+    if cell_paths.is_empty() && !has_spread {
+        return Ok(input);
+    }
+
     let mut metadata = input.take_metadata();
 
-    if rest.is_empty() {
+    if cell_paths.len() == 1 && !has_spread {
+        let cell_path = cell_paths.remove(0);
         let cell_path_is_index = matches!(&cell_path.members[..], &[PathMember::Int { .. }]);
         follow_cell_path_into_stream(input, signals, cell_path.members, span).map(|data| {
             if !cell_path_is_index && let Some(metadata) = &mut metadata {
@@ -280,15 +312,12 @@ fn action(
             data.set_metadata(metadata)
         })
     } else {
-        let mut output = vec![];
-
-        let paths = std::iter::once(cell_path).chain(rest);
-
         let input = input.into_value(span)?;
 
+        let mut output = Vec::with_capacity(cell_paths.len());
         let mut any_cell_path_is_index = false;
 
-        for path in paths {
+        for path in cell_paths {
             any_cell_path_is_index |= matches!(&path.members[..], &[PathMember::Int { .. }]);
             output.push(input.follow_cell_path(&path.members)?.into_owned());
         }

@@ -124,6 +124,76 @@ fn fetches_columns_with_variable_list_spread() -> Result {
 }
 
 #[test]
+fn fetches_columns_with_literal_before_spread() -> Result {
+    test()
+        .run("[{a: 1, b: 2, c: 3}] | get b ...[a c]")
+        .expect_value_eq(test_value!([[2], [1], [3]]))
+}
+
+#[test]
+fn fetches_columns_with_spread_before_literal() -> Result {
+    test()
+        .run("[{a: 1, b: 2, c: 3}] | get ...[a c] b")
+        .expect_value_eq(test_value!([[1], [3], [2]]))
+}
+
+#[test]
+fn one_element_spread_returns_a_list() -> Result {
+    test()
+        .run("let cols = [a]; [{a: 1, b: 2}] | get ...$cols")
+        .expect_value_eq(test_value!([[1]]))
+}
+
+#[test]
+fn one_element_spread_on_record_returns_a_list() -> Result {
+    test()
+        .run("let cols = [a]; {a: 1, b: 2} | get ...$cols")
+        .expect_value_eq(test_value!([1]))
+}
+
+#[test]
+fn empty_literal_spread_returns_empty_list() -> Result {
+    test()
+        .run("[{a: 1, b: 2}] | get ...[]")
+        .expect_value_eq(test_value!([]))
+}
+
+#[test]
+fn empty_variable_spread_returns_empty_list() -> Result {
+    test()
+        .run("let cols = []; [{a: 1, b: 2}] | get ...$cols")
+        .expect_value_eq(test_value!([]))
+}
+
+#[test]
+fn spread_of_nested_cell_paths() -> Result {
+    test()
+        .run("let paths = [$.a.b]; {a: {b: 1}} | get ...$paths")
+        .expect_value_eq(test_value!([1]))
+}
+
+#[test]
+fn no_cell_path_with_empty_pipeline_errors() -> Result {
+    let err = test().run("get").expect_shell_error()?;
+    assert_matches!(err, ShellError::PipelineEmpty { .. });
+    Ok(())
+}
+
+#[test]
+fn empty_spread_with_empty_pipeline_errors() -> Result {
+    let err = test().run("get ...[]").expect_shell_error()?;
+    assert_matches!(err, ShellError::PipelineEmpty { .. });
+    Ok(())
+}
+
+#[test]
+fn test_const_with_spread() -> Result {
+    test()
+        .run("const x = [{a: 1, b: 2}] | get ...[a]; $x")
+        .expect_value_eq(test_value!([[1]]))
+}
+
+#[test]
 fn no_cell_path_returns_input_unchanged() -> Result {
     test()
         .run_with_data("$in | get", test_value!([1, 2, 3]))
