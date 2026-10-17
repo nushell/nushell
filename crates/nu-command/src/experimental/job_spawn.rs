@@ -36,6 +36,11 @@ impl Command for JobSpawn {
                 "An optional description for this job.",
                 Some('d'),
             )
+            .switch(
+                "auto-kill",
+                "Kill this job on `exit` without warning that it is still running.",
+                Some('k'),
+            )
             .required(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
@@ -64,6 +69,7 @@ impl Command for JobSpawn {
         engine_state.get_closure_block(&closure, head)?;
 
         let description: Option<String> = call.get_flag(engine_state, stack, "description")?;
+        let auto_kill = call.has_flag(engine_state, stack, "auto-kill")?;
         let job_stack = stack.clone();
 
         let mut job_state = engine_state.clone();
@@ -86,7 +92,7 @@ impl Command for JobSpawn {
         let (send, recv) = mpsc::channel();
 
         let id = {
-            let thread_job = ThreadJob::new(job_signals, description, send);
+            let thread_job = ThreadJob::new(job_signals, description, auto_kill, send);
 
             let id = jobs.add_job(Job::Thread(thread_job.clone()));
 
@@ -143,11 +149,18 @@ impl Command for JobSpawn {
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
-        vec![Example {
-            example: "job spawn { sleep 5sec; rm evidence.pdf }",
-            description: "Spawn a background job to do some time consuming work.",
-            result: None,
-        }]
+        vec![
+            Example {
+                example: "job spawn { sleep 5sec; rm evidence.pdf }",
+                description: "Spawn a background job to do some time consuming work.",
+                result: None,
+            },
+            Example {
+                example: "job spawn --auto-kill { loop { sleep 1sec } }",
+                description: "Spawn a job that `exit` kills without warning about it.",
+                result: None,
+            },
+        ]
     }
 
     fn extra_description(&self) -> &str {
@@ -155,6 +168,10 @@ impl Command for JobSpawn {
 and registers this task in the background job table, which can be retrieved with `job list`.
 
 This command returns the job id of the newly created job.
+
+The --auto-kill flag applies to the spawned thread job. If an external process
+inside it is suspended and registered as a separate frozen job, it would still
+trigger the exit warning.
             "
     }
 }

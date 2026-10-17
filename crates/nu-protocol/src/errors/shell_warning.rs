@@ -9,6 +9,15 @@ use crate::{ConfigWarning, ReportMode, Reportable};
 #[derive(Clone, Debug, Error, Diagnostic)]
 #[diagnostic(severity(Warning))]
 pub enum ShellWarning {
+    /// Running jobs (without auto-kill) prevented interactive shell from exiting.
+    #[error("Running background jobs that won't be killed automatically: {job_count}.")]
+    #[diagnostic(
+        code(nu::shell::background_jobs_running),
+        help(
+            "Run `exit` again to kill all jobs.\nUse `job spawn --auto-kill` when spawning thread jobs to exclude them from this warning."
+        )
+    )]
+    BackgroundJobsRunning { job_count: usize },
     /// A parse-time deprecation. Indicates that something will be removed in a future release.
     ///
     /// Use [`ParseWarning::Deprecated`](crate::ParseWarning::Deprecated) if this is a deprecation
@@ -55,6 +64,7 @@ impl Reportable for ShellWarning {
             ShellWarning::Deprecated { report_mode, .. }
             | ShellWarning::LastResultTruncated { report_mode, .. } => *report_mode,
             ShellWarning::InvalidConfig { .. } => ReportMode::FirstUse,
+            ShellWarning::BackgroundJobsRunning { .. } => ReportMode::EveryUse,
         }
     }
 }
@@ -63,6 +73,7 @@ impl Reportable for ShellWarning {
 impl Hash for ShellWarning {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         match self {
+            ShellWarning::BackgroundJobsRunning { job_count } => job_count.hash(state),
             ShellWarning::Deprecated {
                 dep_type, label, ..
             } => {

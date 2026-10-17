@@ -160,16 +160,23 @@ pub struct ThreadJob {
     signals: Signals,
     pids: Arc<Mutex<HashSet<u32>>>,
     description: Option<String>,
+    auto_kill: bool,
     pub sender: Sender<Mail>,
 }
 
 impl ThreadJob {
-    pub fn new(signals: Signals, description: Option<String>, sender: Sender<Mail>) -> Self {
+    pub fn new(
+        signals: Signals,
+        description: Option<String>,
+        auto_kill: bool,
+        sender: Sender<Mail>,
+    ) -> Self {
         ThreadJob {
             signals,
             pids: Arc::new(Mutex::new(HashSet::default())),
             sender,
             description,
+            auto_kill,
         }
     }
 
@@ -250,6 +257,13 @@ impl Job {
         match self {
             Job::Thread(thread_job) => thread_job.description.as_ref(),
             Job::Frozen(frozen_job) => frozen_job.description.as_ref(),
+        }
+    }
+
+    pub fn is_auto_kill(&self) -> bool {
+        match self {
+            Job::Thread(job) => job.auto_kill,
+            Job::Frozen(_) => false,
         }
     }
 
@@ -452,7 +466,7 @@ mod tests {
     fn interrupted_job_does_not_spawn() {
         let (sender, _) = mpsc::channel();
         let signals = Signals::new(Arc::new(AtomicBool::new(false)));
-        let job = ThreadJob::new(signals.clone(), None, sender);
+        let job = ThreadJob::new(signals.clone(), None, false, sender);
         signals.trigger();
 
         let child = job.try_spawn(|| panic!("interrupted job must not spawn"));
@@ -463,7 +477,7 @@ mod tests {
     fn spawned_process_is_registered_before_returning() {
         let (sender, _) = mpsc::channel();
         let signals = Signals::new(Arc::new(AtomicBool::new(false)));
-        let job = ThreadJob::new(signals, None, sender);
+        let job = ThreadJob::new(signals, None, false, sender);
         // Listing this test binary's tests needs no platform-specific executable, and the
         // child terminates by itself if an assertion fails.
         let mut command = std::process::Command::new(std::env::current_exe().unwrap());
@@ -503,7 +517,7 @@ mod tests {
     fn spawn_holds_pid_lock_until_registration() {
         let (sender, _) = mpsc::channel();
         let signals = Signals::new(Arc::new(AtomicBool::new(false)));
-        let job = ThreadJob::new(signals, None, sender);
+        let job = ThreadJob::new(signals, None, false, sender);
         let (started_tx, started_rx) = mpsc::channel();
         let (release_tx, release_rx) = mpsc::channel();
 

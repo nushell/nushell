@@ -5115,6 +5115,7 @@ dependencies = [
  "nu-protocol",
  "nu-test-support",
  "nu-utils",
+ "rstest",
 ]
 
 [[package]]

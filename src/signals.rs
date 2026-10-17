@@ -55,7 +55,7 @@ mod tests {
         let jobs = Arc::new(Mutex::new(Jobs::default()));
         let job_signals = Signals::new(Arc::new(AtomicBool::new(false)));
         let (sender, _receiver) = mpsc::channel();
-        let job = ThreadJob::new(job_signals.clone(), None, sender);
+        let job = ThreadJob::new(job_signals.clone(), None, false, sender);
         let id = jobs.lock().unwrap().add_job(Job::Thread(job));
 
         (jobs, id, job_signals)
