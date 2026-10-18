@@ -12,7 +12,11 @@ impl Command for Hide {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("hide")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
-            .required("module", SyntaxShape::String, "Module or module file.")
+            .required(
+                "name",
+                SyntaxShape::String,
+                "Alias, command, type alias, or module to hide.",
+            )
             .optional(
                 "members",
                 SyntaxShape::Any,
