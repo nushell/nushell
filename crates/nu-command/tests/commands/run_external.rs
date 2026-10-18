@@ -581,3 +581,36 @@ fn error_when_command_list_empty(#[case] prefix: &str) -> Result {
         Ok(())
     })
 }
+
+#[cfg(unix)]
+#[apply(direct_external_prefixes)]
+#[nu_test_support::test]
+fn missing_shebang_interpreter_error(prefix: &str) -> Result {
+    use nu_test_support::fs::Stub::FileWithContent;
+    use std::os::unix::fs::PermissionsExt;
+
+    Playground::setup("missing shebang interpreter", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent(
+            "script.sh",
+            "#!/nonexistent/interpreter\necho hi\n",
+        )]);
+        let script = dirs.test().join("script.sh");
+        let mut permissions = fs::metadata(&script)?.permissions();
+        permissions.set_mode(0o755);
+        fs::set_permissions(&script, permissions)?;
+
+        let err = test()
+            .cwd(dirs.test())
+            .run(format!("{prefix}./script.sh"))
+            .expect_shell_error()?;
+
+        match err {
+            ShellError::ExternalCommand { label, help, .. } => {
+                assert_eq!(label, "`./script.sh` exists but could not be started");
+                assert_contains("may be missing", help);
+                Ok(())
+            }
+            err => Err(err.into()),
+        }
+    })
+}

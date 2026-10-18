@@ -319,8 +319,18 @@ If you create a custom command with this name, that will be used instead."
 
         let mut child = child
             .map_err(|err| {
+                // `which` already found the executable, so "not found" here means that
+                // something the OS needs to start it is missing, such as the interpreter
+                // in its shebang line or a shared library.
+                if err.kind() == std::io::ErrorKind::NotFound {
+                    return ShellError::ExternalCommand {
+                        label: format!("`{name_str}` exists but could not be started"),
+                        help: "The interpreter in its shebang line (`#!`) or a file it requires may be missing".into(),
+                        span: call.head,
+                    };
+                }
                 let context = format!("Could not spawn foreground child: {err}");
-                IoError::new_internal(err, context)
+                IoError::new_internal(err, context).into()
             })?
             .ok_or(ShellError::Interrupted { span: call.head })?;
 
