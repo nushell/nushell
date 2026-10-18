@@ -176,7 +176,13 @@ mod tests {
             let category = cmd.signature().category;
 
             for search_term in search_terms {
-                if cmd_name.contains(search_term) {
+                // A term that only starts a longer word of the name (like "time" for
+                // `timeit`) is still useful: "command not found" suggestions match
+                // whole words of command names, so they wouldn't find it otherwise.
+                let starts_longer_word = cmd_name
+                    .split_whitespace()
+                    .any(|word| word != search_term && word.starts_with(search_term));
+                if cmd_name.contains(search_term) && !starts_longer_word {
                     failures.push(format!("{cmd_name} ({category:?}): Search term \"{search_term}\" is substring of command name \"{cmd_name}\""));
                 }
             }
