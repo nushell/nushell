@@ -25,6 +25,10 @@ fn vertical_rotate_value(
     let span = value.span();
     match value {
         Value::List { mut vals, .. } => {
+            // Rolling an empty list is a no-op, and `n % 0` would panic.
+            if vals.is_empty() {
+                return Ok(Value::list(vec![], span));
+            }
             let rotations = by.map(|n| n % vals.len()).unwrap_or(1);
             let values = vals.to_mut().as_mut_slice();
 
@@ -56,6 +60,10 @@ fn horizontal_rotate_value(
     let span = value.span();
     match value {
         Value::Record { val: record, .. } => {
+            // Rolling an empty record is a no-op, and `n % 0` would panic.
+            if record.is_empty() {
+                return Ok(Value::record(record.into_owned(), span));
+            }
             let rotations = by.map(|n| n % record.len()).unwrap_or(1);
 
             let (mut cols, mut vals): (Vec<_>, Vec<_>) = record.into_owned().into_iter().unzip();
