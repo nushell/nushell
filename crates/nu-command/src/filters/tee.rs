@@ -67,9 +67,9 @@ use it in your pipeline."
                 result: None,
             },
             Example {
-                example: "10000 | tee { 1..$in | print } | $in * 5",
+                example: "100 | tee { 1..$in | print } | $in * 5",
                 description: "Do something with a value on another thread, while also passing through the value.",
-                result: Some(Value::test_int(50000)),
+                result: Some(Value::test_int(500)),
             },
         ]
     }
@@ -660,4 +660,9 @@ fn tee_other_thread_ignore_values_but_output_all_others() {
     // the other thread will consume only two values
     let other_threads_result = rx.into_iter().take(2).collect::<Vec<_>>();
     assert_eq!(expected_values[0..2], other_threads_result);
+}
+
+#[test]
+fn test_examples() -> nu_test_support::Result {
+    nu_test_support::test().examples(Tee)
 }
