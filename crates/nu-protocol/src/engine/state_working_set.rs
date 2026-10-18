@@ -738,7 +738,17 @@ impl<'a> StateWorkingSet<'a> {
             .flat_map(|overlay_frame| overlay_frame.vars.keys().map(|k| &k[..]));
 
         variables.extend(permanent_vars);
-        variables.into_iter().collect()
+        // A variable that `unlet` hid is still bound in its frame, so while anything is hidden,
+        // list only the names that still resolve.
+        let any_hidden = self
+            .delta
+            .scope
+            .iter()
+            .any(|scope_frame| !scope_frame.hidden_vars.is_empty());
+        variables
+            .into_iter()
+            .filter(|name| !any_hidden || self.find_variable(name).is_some())
+            .collect()
     }
 
     pub fn find_variable(&self, name: &[u8]) -> Option<VarId> {
@@ -747,11 +757,20 @@ impl<'a> StateWorkingSet<'a> {
             name.insert(0, b'$');
         }
         let mut removed_overlays = vec![];
+        // A variable that `unlet` hid in the scope frame that binds it, or in a frame inside that
+        // one, isn't found, and the lookup doesn't go on to a variable of the same name further
+        // out. A permanent variable is bound outside every frame of the delta.
+        let unless_hidden = |var_id: VarId, binding_frame: usize| {
+            let hidden = self.delta.scope[binding_frame..]
+                .iter()
+                .any(|scope_frame| scope_frame.hidden_vars.contains(&var_id));
+            (!hidden).then_some(var_id)
+        };
 
-        for scope_frame in self.delta.scope.iter().rev() {
+        for (frame_idx, scope_frame) in self.delta.scope.iter().enumerate().rev() {
             for overlay_frame in scope_frame.active_overlays(&mut removed_overlays).rev() {
                 if let Some(var_id) = overlay_frame.vars.get(&name) {
-                    return Some(*var_id);
+                    return unless_hidden(*var_id, frame_idx);
                 }
             }
         }
@@ -762,11 +781,19 @@ impl<'a> StateWorkingSet<'a> {
             .rev()
         {
             if let Some(var_id) = overlay_frame.vars.get(&name) {
-                return Some(*var_id);
+                return unless_hidden(*var_id, 0);
             }
         }
 
         None
+    }
+
+    /// Hide `var_id` for the rest of the current scope frame, as `unlet` does for a constant:
+    /// [`find_variable`](Self::find_variable) no longer finds it under any name, until it's bound
+    /// again. At the top level, merging the delta removes the variable from the overlays, so
+    /// later source can't find it either.
+    pub fn hide_variable(&mut self, var_id: VarId) {
+        self.delta.last_scope_frame_mut().hidden_vars.push(var_id);
     }
 
     pub fn find_variable_in_current_frame(&self, name: &[u8]) -> Option<VarId> {
@@ -811,6 +838,12 @@ impl<'a> StateWorkingSet<'a> {
         if let Some(var) = self.get_variable_mut(var_id) {
             var.name = Some(name.clone());
         }
+        // Binding a variable again, like a module constant imported a second time, undoes an
+        // `unlet` of it in this frame (see `hide_variable`).
+        self.delta
+            .last_scope_frame_mut()
+            .hidden_vars
+            .retain(|hidden| *hidden != var_id);
         self.last_overlay_mut().insert_variable(name, var_id);
     }
 

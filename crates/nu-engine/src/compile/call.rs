@@ -243,7 +243,7 @@ pub(crate) fn compile_call(
                 let arg_reg = builder.next_register()?;
 
                 // Bare variables for `metadata` load with origin span preserved.
-                if preserve_var_origin && let Some(var_id) = bare_var_id(expr) {
+                if preserve_var_origin && let Some(var_id) = expr.as_bare_var() {
                     builder.push(
                         Instruction::LoadVariable {
                             dst: arg_reg,
@@ -463,18 +463,6 @@ pub(crate) fn compile_external_call(
     )
 }
 
-/// Extract a bare variable id from `$var` or a FullCellPath with empty tail.
-fn bare_var_id(expr: &Expression) -> Option<nu_protocol::VarId> {
-    match &expr.expr {
-        Expr::Var(var_id) => Some(*var_id),
-        Expr::FullCellPath(cell_path) if cell_path.tail.is_empty() => match &cell_path.head.expr {
-            Expr::Var(var_id) => Some(*var_id),
-            _ => None,
-        },
-        _ => None,
-    }
-}
-
 pub(crate) fn compile_unlet(
     working_set: &StateWorkingSet,
     builder: &mut BlockBuilder,
@@ -488,11 +476,7 @@ pub(crate) fn compile_unlet(
     for arg in call.positional_iter() {
         iter_empty = false;
 
-        // Handle both direct variable references (Expr::Var) and full cell paths (Expr::FullCellPath)
-        // that represent simple variables (e.g., $var parsed as FullCellPath with empty tail).
-        let var_id = bare_var_id(arg);
-
-        match var_id {
+        match arg.as_bare_var() {
             Some(var_id) => {
                 let variable = working_set.get_variable(var_id);
                 // Prevent deletion of built-in variables that are essential for nushell
@@ -513,18 +497,10 @@ pub(crate) fn compile_unlet(
                     });
                 }
 
-                // A constant lives in the engine state, not on the stack, and reading it after
-                // a `DropVariable` falls back to its value. It was also already inlined where
-                // the parser evaluated constants, so deleting it can't work. (`$nu` is a constant
-                // too, which is why the built-ins are checked first.)
-                if variable.const_val.is_some() {
-                    return Err(CompileError::InvalidLiteral {
-                        msg: "constants cannot be deleted".into(),
-                        span: arg.span,
-                    });
-                }
-
-                // Emit instruction to drop the variable
+                // The parser already hid a constant for the rest of the block (see
+                // `parse_pipeline_element`). A constant isn't on the stack, but dropping it
+                // still records the deletion, which `scope variables` reads. nu-cli's cleanup
+                // after each source unit skips constants (see `evaluate_parsed_block`).
                 builder.push(Instruction::DropVariable { var_id }.into_spanned(call.head))?;
             }
             None => {

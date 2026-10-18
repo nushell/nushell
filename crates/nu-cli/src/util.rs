@@ -394,8 +394,13 @@ pub(crate) fn evaluate_parsed_block(
     }?;
     let mut pipeline_data = pipeline.body;
 
-    // Update engine_state with deleted variables
+    // Update engine_state with deleted variables. `unlet` on a constant already took effect
+    // while parsing, for the block it's in (see `parse_pipeline_element`), so a constant
+    // unlet in a nested block stays for later source.
     for var_id in &stack.deletions {
+        if engine_state.get_constant(*var_id).is_some() {
+            continue;
+        }
         if let Some(active_id) = engine_state.scope.active_overlays.last()
             && let Some((_, overlay)) = engine_state.scope.overlays.get_mut((*active_id).get())
         {
@@ -686,5 +691,32 @@ mod test {
         assert!(matches!(env.get(symbols), Some(&Value::String { val, .. }) if val == "symbols"));
         assert!(env.contains_key("PWD"));
         assert_eq!(env.len(), 4);
+    }
+
+    /// `unlet` on a constant in a nested block hides it only in that block, so the next source
+    /// unit (like the next REPL line) still has it, though the block ran on the same stack.
+    #[test]
+    fn unlet_constant_in_nested_block_keeps_it_for_later_source() -> Result<(), ShellError> {
+        let mut engine_state =
+            nu_command::add_shell_command_context(nu_cmd_lang::create_default_context());
+        let mut stack = Stack::new();
+        for source in ["const x = 1", "if true { unlet $x }"] {
+            let failed = evaluate_source(
+                &mut engine_state,
+                &mut stack,
+                source.as_bytes(),
+                "test",
+                PipelineData::empty(),
+                false,
+            )?;
+            assert!(!failed, "`{source}` failed");
+        }
+
+        assert!(
+            StateWorkingSet::new(&engine_state)
+                .find_variable(b"$x")
+                .is_some()
+        );
+        Ok(())
     }
 }

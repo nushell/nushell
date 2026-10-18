@@ -454,6 +454,15 @@ impl EngineState {
             }
         }
 
+        // A variable that `unlet` hid at the top level is gone for later source too, from
+        // whichever overlay binds it. This comes after the merge above, which records the
+        // variables that the delta's own bindings shadow.
+        for var_id in &first.hidden_vars {
+            for (_, overlay) in &mut self.scope.overlays {
+                overlay.vars.retain(|_, bound| *bound != *var_id);
+            }
+        }
+
         let mut activated_ids = self.translate_overlay_ids(&first);
 
         let mut removed_ids = vec![];

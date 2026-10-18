@@ -86,6 +86,21 @@ impl Expression {
         }
     }
 
+    /// The variable a bare `$name` refers to: an [`Expr::Var`], or a cell path on one with no
+    /// members, which is how `$name` is parsed as an argument.
+    pub fn as_bare_var(&self) -> Option<VarId> {
+        match &self.expr {
+            Expr::Var(var_id) => Some(*var_id),
+            Expr::FullCellPath(cell_path) if cell_path.tail.is_empty() => {
+                match cell_path.head.expr {
+                    Expr::Var(var_id) => Some(var_id),
+                    _ => None,
+                }
+            }
+            _ => None,
+        }
+    }
+
     pub fn as_string(&self) -> Option<String> {
         match &self.expr {
             Expr::String(string) => Some(string.clone()),
