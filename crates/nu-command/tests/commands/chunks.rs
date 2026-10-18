@@ -34,16 +34,30 @@ fn empty() -> Result {
 }
 
 #[test]
-fn chunk_size_larger_than_list() -> Result {
+fn huge_chunk_size_list() -> Result {
     test()
         .run("([0 1 2] | chunks 9223372036854775807) == [[0 1 2]]")
         .expect_value_eq(true)
 }
 
 #[test]
-fn chunk_size_larger_than_binary() -> Result {
+fn huge_chunk_size_list_stream() -> Result {
     test()
-        .run("(0x[11 22 33] | chunks 9223372036854775807 | length) == 1")
+        .run("([0 1 2] | every 1 | chunks 9223372036854775807) == [[0 1 2]]")
+        .expect_value_eq(true)
+}
+
+#[test]
+fn huge_chunk_size_binary() -> Result {
+    test()
+        .run("(0x[11 22 33] | chunks 9223372036854775807) == [0x[11 22 33]]")
+        .expect_value_eq(true)
+}
+
+#[test]
+fn huge_chunk_size_byte_stream() -> Result {
+    test()
+        .run("(random binary 16b | chunks 9223372036854775807 | each { length }) == [16]")
         .expect_value_eq(true)
 }
 

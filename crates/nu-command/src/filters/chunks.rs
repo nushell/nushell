@@ -230,10 +230,11 @@ impl<I: Iterator<Item = Value>> Iterator for ChunksIter<I> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let first = self.iter.next()?;
-        // `self.size` comes straight from the user and can be much larger than the input, so don't
-        // reserve it up front. `extend` reserves based on the iterator's size hint instead.
-        let mut chunk = vec![first];
-        chunk.extend((&mut self.iter).take(self.size - 1));
+        // `self.size` comes straight from the user and can be far larger than the input, so don't
+        // reserve it. The chain has an exact size hint for list input, so `collect` allocates once.
+        let chunk: Vec<_> = std::iter::once(first)
+            .chain((&mut self.iter).take(self.size - 1))
+            .collect();
         Some(Value::list(chunk, self.span))
     }
 }
