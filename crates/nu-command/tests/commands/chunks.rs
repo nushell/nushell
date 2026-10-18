@@ -34,6 +34,20 @@ fn empty() -> Result {
 }
 
 #[test]
+fn chunk_size_larger_than_list() -> Result {
+    test()
+        .run("([0 1 2] | chunks 9223372036854775807) == [[0 1 2]]")
+        .expect_value_eq(true)
+}
+
+#[test]
+fn chunk_size_larger_than_binary() -> Result {
+    test()
+        .run("(0x[11 22 33] | chunks 9223372036854775807 | length) == 1")
+        .expect_value_eq(true)
+}
+
+#[test]
 fn list_stream() -> Result {
     test()
         .run("([0 1 2] | every 1 | chunks 2) == ([0 1 2] | chunks 2)")
