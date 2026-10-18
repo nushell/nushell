@@ -581,3 +581,22 @@ fn error_when_command_list_empty(#[case] prefix: &str) -> Result {
         Ok(())
     })
 }
+
+#[nu_test_support::test]
+fn suggests_timeit_for_time() -> Result {
+    // Hide PATH so a system `time` binary doesn't get run instead.
+    let code = "
+        hide-env -i PATH
+        hide-env -i Path
+        time
+    ";
+
+    let err = test().run(code).expect_shell_error()?;
+    match err {
+        ShellError::ExternalCommand { help, .. } => {
+            assert!(help.contains("`timeit`"), "unexpected help: {help}");
+            Ok(())
+        }
+        err => Err(err.into()),
+    }
+}
