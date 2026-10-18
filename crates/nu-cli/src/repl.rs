@@ -791,6 +791,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
             HashMap::default()
         });
         command.args(args).envs(envs);
+        let command = reedline::EditorCommand::new(command);
         line_editor.with_buffer_editor(command, temp_file.to_path_buf())
     } else {
         line_editor
