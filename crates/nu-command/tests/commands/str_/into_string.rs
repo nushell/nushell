@@ -1,4 +1,5 @@
 use nu_test_support::{fs::Stub::FileWithContentToBeTrimmed, prelude::*};
+use pretty_assertions::assert_matches;
 
 #[test]
 fn from_range() -> Result {
@@ -527,4 +528,28 @@ fn int_into_string_i64_min() -> Result {
     ";
 
     test().run(code).expect_value_eq("-9223372036854775808")
+}
+
+#[test]
+fn from_binary_errors_with_decode_hint() -> Result {
+    let code = "
+    0x[31 32 33] | into string
+    ";
+
+    let err = test().run(code).expect_shell_error()?;
+    assert_matches!(
+        err,
+        ShellError::CantConvert { to_type, from_type, help: Some(help), .. }
+            if to_type == "string" && from_type == "binary" && help.contains("`decode`")
+    );
+    Ok(())
+}
+
+#[test]
+fn help_says_binary_needs_decode() -> Result {
+    let code = "
+    help into string | str contains 'decode'
+    ";
+
+    test().run(code).expect_value_eq(true)
 }

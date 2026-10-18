@@ -73,6 +73,10 @@ impl Command for IntoString {
         "Convert value to a string."
     }
 
+    fn extra_description(&self) -> &str {
+        "Binary input is accepted only to point you to the right command: `into string` does not decode bytes, so it returns an error that suggests `decode`. Use `decode` (for example `decode utf-8`) to turn binary data into a string."
+    }
+
     fn search_terms(&self) -> Vec<&str> {
         vec!["convert", "text"]
     }
@@ -200,12 +204,7 @@ fn string_helper(
                 metadata,
             ))
         } else {
-            Err(ShellError::CantConvert {
-                to_type: "string".into(),
-                from_type: "binary".into(),
-                span: stream.span(),
-                help: Some("try using the `decode` command".into()),
-            })
+            Err(binary_input_error(stream.span()))
         }
     } else {
         let config = stack.get_config(engine_state);
@@ -343,15 +342,7 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             },
             span,
         ),
-        Value::Binary { .. } => Value::error(
-            ShellError::CantConvert {
-                to_type: "string".into(),
-                from_type: "binary".into(),
-                span,
-                help: Some("try using the `decode` command".into()),
-            },
-            span,
-        ),
+        Value::Binary { .. } => Value::error(binary_input_error(span), span),
         Value::Custom { val, .. } => {
             // Only custom values that have a base value that can be converted to string are
             // accepted.
@@ -376,6 +367,20 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                 help: None,
             },
             span,
+        ),
+    }
+}
+
+/// `into string` never decodes bytes, so binary input always ends up here.
+/// The help points to `decode`, which is the command that does that conversion.
+fn binary_input_error(span: Span) -> ShellError {
+    ShellError::CantConvert {
+        to_type: "string".into(),
+        from_type: "binary".into(),
+        span,
+        help: Some(
+            "`into string` does not decode bytes; use the `decode` command instead, for example `decode utf-8`"
+                .into(),
         ),
     }
 }
