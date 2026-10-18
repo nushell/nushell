@@ -1,7 +1,7 @@
 use crate::util::{eval_parsed_block_source, eval_source, print_pipeline, report_parse_warnings};
 use log::{info, trace};
 use nu_engine::{eval_block, exit::kill_jobs_and_exit};
-use nu_parser::parse;
+use nu_parser::{is_parser_keyword, parse};
 use nu_path::absolute_with;
 use nu_protocol::{
     PipelineData, ShellError, Span, Value,
@@ -216,27 +216,39 @@ pub fn evaluate_file(
 
 /// Returns the command line that calls the script's `main` with `args`.
 ///
-/// `main` is called by the script's name when that parses as the same call, so errors about the
-/// arguments (like a missing positional) show `script.nu` instead of `main`. A name that parses
-/// as something else (such as one with a space in it) keeps using `main`.
+/// `main` is called by the script's name when that resolves to the script's own commands, so
+/// errors about the arguments (like a missing positional) show `script.nu` instead of `main`.
+/// Otherwise (a parser keyword such as `for`, or a name the parser doesn't read as a command,
+/// such as `10kb` or `it's`) the call keeps using `main`.
 fn main_command_line(engine_state: &EngineState, script_name: &str, args: &[String]) -> String {
     let args = args.join(" ");
     let main_call = format!("main {args}");
-    let script_call = format!("{script_name} {args}");
 
-    let head_decl = |source: &str| {
-        let mut working_set = StateWorkingSet::new(engine_state);
-        let block = parse(&mut working_set, None, source.as_bytes(), false);
-        match &block.pipelines.first()?.elements.first()?.expr.expr {
-            Expr::Call(call) => Some(call.decl_id),
-            _ => None,
-        }
+    // Parsing a call to a parser keyword runs its keyword parser, which can panic or report
+    // errors for arguments that were meant for `main`.
+    if is_parser_keyword(script_name.as_bytes()) {
+        return main_call;
+    }
+
+    let script_call = format!("{script_name} {args}");
+    let mut working_set = StateWorkingSet::new(engine_state);
+    let block = parse(&mut working_set, None, script_call.as_bytes(), false);
+    let calls_script = match block.pipelines.first().and_then(|p| p.elements.first()) {
+        Some(element) => match &element.expr.expr {
+            // The blocks of the script's commands were renamed after the script above, which
+            // distinguishes them from any other command that shares the name.
+            Expr::Call(call) => working_set
+                .get_decl(call.decl_id)
+                .block_id()
+                .map(|block_id| working_set.get_block(block_id).signature.name.as_str())
+                .and_then(|name| name.strip_prefix(script_name))
+                .is_some_and(|rest| rest.is_empty() || rest.starts_with(' ')),
+            _ => false,
+        },
+        None => false,
     };
 
-    match head_decl(&script_call) {
-        Some(decl_id) if head_decl(&main_call) == Some(decl_id) => script_call,
-        _ => main_call,
-    }
+    if calls_script { script_call } else { main_call }
 }
 
 #[cfg(test)]

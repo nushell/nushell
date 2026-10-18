@@ -1057,7 +1057,8 @@ fn main_script_subcommand_missing_argument_uses_script_name() -> Result {
 
 #[test]
 #[deps(NU)]
-fn main_script_with_space_in_name_still_runs() -> Result {
+fn main_script_with_space_in_name_uses_script_name() -> Result {
+    // The multi-word name resolves to the script's `main` through the overlay, so the call uses it.
     Playground::setup("script_space_name", |dirs, sandbox| -> Result {
         sandbox.with_files(&[FileWithContent(
             "my script.nu",
@@ -1066,7 +1067,48 @@ fn main_script_with_space_in_name_still_runs() -> Result {
         test()
             .cwd(dirs.test())
             .run("nu 'my script.nu' ok | to text | str trim")
-            .expect_value_eq("ok")
+            .expect_value_eq("ok")?;
+
+        let stderr: String = test()
+            .cwd(dirs.test())
+            .run("nu 'my script.nu' | complete | get stderr")?;
+        assert!(stderr.contains("missing foo"));
+        assert!(stderr.contains("my script.nu"));
+        assert!(!stderr.contains("main"), "error mentioned `main`: {stderr}");
+        Ok(())
+    })
+}
+
+#[test]
+#[deps(NU)]
+fn main_script_named_like_a_parser_keyword_still_runs() -> Result {
+    // Parsing `<keyword> ok` would run the keyword's own parser: `for` panics, and `source`, `use`,
+    // `module` and `alias` report parse errors. `main` is called directly for these names.
+    for name in ["for", "source", "source-env", "use", "module", "alias"] {
+        Playground::setup("script_keyword_name", |dirs, sandbox| -> Result {
+            sandbox.with_files(&[FileWithContent(
+                name,
+                "def main [foo: string] { print $\"got ($foo)\" }",
+            )]);
+            test()
+                .cwd(dirs.test())
+                .run(format!("nu {name} ok | to text | str trim"))
+                .expect_value_eq("got ok")
+        })?;
+    }
+    Ok(())
+}
+
+#[test]
+#[deps(NU)]
+fn script_without_main_is_unaffected() -> Result {
+    // The script name is only used to call a `main`, so a script without one runs as before.
+    Playground::setup("script_without_main", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[FileWithContent("script.nu", "print hello")]);
+        test()
+            .cwd(dirs.test())
+            .run("nu script.nu | to text | str trim")
+            .expect_value_eq("hello")
     })
 }
 
