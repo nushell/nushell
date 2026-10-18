@@ -114,7 +114,7 @@ impl Command for Http {
     }
 
     fn extra_description(&self) -> &str {
-        "Without a subcommand but with a URL provided, it performs a GET request by default or a POST request if positional data is provided. Use --method to select a method dynamically. POST, PUT, PATCH, and DELETE accept a positional or piped body; GET, HEAD, and OPTIONS do not accept a body. HEAD and OPTIONS return response headers, like their subcommands. Using this command as-is will only display this help message."
+        "Without a subcommand but with a URL provided, it performs a GET request by default or a POST request if positional data is provided. Use --method to select a method dynamically. Sending a piped body without positional data requires --method; null input counts as no body. POST, PUT, PATCH, and DELETE accept a positional or piped body; GET, HEAD, and OPTIONS do not accept a body. HEAD and OPTIONS return response headers, like their subcommands. Using this command as-is will only display this help message."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -155,6 +155,19 @@ impl Command for Http {
 
         if let Some(method) = method {
             return run_with_method(engine_state, stack, call, input, method);
+        }
+
+        // The broad input signature permits explicit methods with piped bodies.
+        // Without a selected method, never silently discard that body in GET.
+        if !has_data && !input.is_nothing() {
+            return Err(ShellError::Generic(
+                GenericError::new(
+                    "Piped request data requires --method",
+                    "Select POST, PUT, PATCH, or DELETE to send a piped body",
+                    input.span().unwrap_or(call.head),
+                )
+                .with_help("For example: data | http --method post URL"),
+            ));
         }
 
         match (url, has_data) {

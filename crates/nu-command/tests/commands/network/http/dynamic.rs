@@ -161,6 +161,30 @@ fn defaults_still_infer_get_and_post() -> Result {
     Ok(())
 }
 
+#[test]
+fn piped_body_without_method_does_not_send_get() -> Result {
+    let mut server = Server::new();
+    let get = server.mock("GET", "/").expect(0).create();
+    let err = test()
+        .run(format!("'payload' | http {}", server.url()))
+        .expect_shell_error()?
+        .generic_error()?;
+    assert_contains("--method", err);
+    get.assert();
+    Ok(())
+}
+
+#[test]
+fn null_pipeline_without_method_keeps_default_get() -> Result {
+    let mut server = Server::new();
+    let get = server.mock("GET", "/").with_body("get").create();
+    test()
+        .run(format!("null | http {}", server.url()))
+        .expect_value_eq("get")?;
+    get.assert();
+    Ok(())
+}
+
 #[rstest]
 #[case::dedicated("http patch")]
 #[case::dynamic("http --method patch")]
