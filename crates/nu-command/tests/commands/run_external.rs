@@ -582,32 +582,102 @@ fn error_when_command_list_empty(#[case] prefix: &str) -> Result {
     })
 }
 
+/// Writes an executable `name` with `content` in the playground and returns its path.
 #[cfg(unix)]
-#[apply(direct_external_prefixes)]
-#[nu_test_support::test]
-fn missing_shebang_interpreter_error(prefix: &str) -> Result {
-    use nu_test_support::fs::Stub::FileWithContent;
+fn write_executable(
+    dirs: &nu_test_support::playground::Dirs,
+    name: &str,
+    content: &str,
+    mode: u32,
+) -> std::path::PathBuf {
     use std::os::unix::fs::PermissionsExt;
 
-    Playground::setup("missing shebang interpreter", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContent(
+    let path = dirs.test().join(name).into();
+    fs::write(&path, content).expect("write the script");
+    fs::set_permissions(&path, fs::Permissions::from_mode(mode)).expect("set permissions");
+    path
+}
+
+/// Runs `code` in the playground and returns the shell error it fails with.
+///
+/// A script that was just written can fail to start with "Text file busy" when another test
+/// forks while its file is still open for writing, so that is retried
+/// (see https://github.com/rust-lang/rust/issues/114554).
+#[cfg(unix)]
+fn run_expecting_start_error(
+    dirs: &nu_test_support::playground::Dirs,
+    code: &str,
+) -> Result<ShellError> {
+    use nu_protocol::shell_error::io::ErrorKind;
+
+    let mut attempts = 0;
+    loop {
+        let err = test().cwd(dirs.test()).run(code).expect_shell_error()?;
+        let busy = matches!(
+            &err,
+            ShellError::Io(err) if matches!(err.kind, ErrorKind::Std(std::io::ErrorKind::ExecutableFileBusy, ..))
+        );
+        attempts += 1;
+        if !busy || attempts == 5 {
+            return Ok(err);
+        }
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
+}
+
+#[cfg(unix)]
+#[apply(run_external_prefixes)]
+#[nu_test_support::test]
+fn missing_shebang_interpreter_error(prefix: &str) -> Result {
+    Playground::setup("missing_shebang_interpreter", |dirs, _| {
+        write_executable(
+            &dirs,
             "script.sh",
             "#!/nonexistent/interpreter\necho hi\n",
-        )]);
-        let script = dirs.test().join("script.sh");
-        let mut permissions = fs::metadata(&script)?.permissions();
-        permissions.set_mode(0o755);
-        fs::set_permissions(&script, permissions)?;
+            0o755,
+        );
 
-        let err = test()
-            .cwd(dirs.test())
-            .run(format!("{prefix}./script.sh"))
-            .expect_shell_error()?;
+        let err = run_expecting_start_error(&dirs, &format!("{prefix}./script.sh"))?;
 
         match err {
             ShellError::ExternalCommand { label, help, .. } => {
                 assert_eq!(label, "`./script.sh` exists but could not be started");
-                assert_contains("may be missing", help);
+                assert_contains("`#!/nonexistent/interpreter`", &help);
+                assert_contains("was not found", &help);
+                assert_contains("No such file or directory", &help);
+                Ok(())
+            }
+            err => Err(err.into()),
+        }
+    })
+}
+
+#[cfg(unix)]
+#[apply(run_external_prefixes)]
+#[nu_test_support::test]
+fn non_executable_shebang_interpreter_error(prefix: &str) -> Result {
+    use nu_protocol::shell_error::io::ErrorKind;
+
+    Playground::setup("non_executable_shebang_interpreter", |dirs, _| {
+        let interpreter = write_executable(&dirs, "interpreter", "not a program\n", 0o644);
+        let script = write_executable(
+            &dirs,
+            "script.sh",
+            &format!("#!{}\necho hi\n", interpreter.display()),
+            0o755,
+        );
+
+        let err = run_expecting_start_error(&dirs, &format!("{prefix}./script.sh"))?;
+
+        match err {
+            // Not an internal error that points at a line of Rust code.
+            ShellError::Io(err) => {
+                assert!(matches!(
+                    err.kind,
+                    ErrorKind::Std(std::io::ErrorKind::PermissionDenied, ..)
+                ));
+                assert_eq!(err.path, Some(script));
+                assert!(err.location.is_none());
                 Ok(())
             }
             err => Err(err.into()),
