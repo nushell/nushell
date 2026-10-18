@@ -1019,6 +1019,78 @@ fn main_script_subcommand_help_uses_script_name2() -> Result {
 
 #[test]
 #[deps(NU)]
+fn main_script_missing_argument_uses_script_name() -> Result {
+    Playground::setup("script_missing_arg", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[FileWithContent(
+            "script.nu",
+            "def main [foo: string] { print $foo }",
+        )]);
+        let stderr: String = test()
+            .cwd(dirs.test())
+            .run("nu script.nu | complete | get stderr")?;
+        assert!(stderr.contains("missing foo"));
+        assert!(stderr.contains("script.nu"));
+        assert!(!stderr.contains("main"), "error mentioned `main`: {stderr}");
+        Ok(())
+    })
+}
+
+#[test]
+#[deps(NU)]
+fn main_script_subcommand_missing_argument_uses_script_name() -> Result {
+    Playground::setup("script_sub_missing_arg", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[FileWithContent(
+            "script.nu",
+            "def main [] {}
+            def 'main foo' [bar: string] {}
+            ",
+        )]);
+        let stderr: String = test()
+            .cwd(dirs.test())
+            .run("nu script.nu foo | complete | get stderr")?;
+        assert!(stderr.contains("Missing required positional argument"));
+        assert!(stderr.contains("script.nu foo"));
+        assert!(!stderr.contains("main"), "error mentioned `main`: {stderr}");
+        Ok(())
+    })
+}
+
+#[test]
+#[deps(NU)]
+fn main_script_with_space_in_name_still_runs() -> Result {
+    Playground::setup("script_space_name", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[FileWithContent(
+            "my script.nu",
+            "def main [foo: string] { $foo }",
+        )]);
+        test()
+            .cwd(dirs.test())
+            .run("nu 'my script.nu' ok | to text | str trim")
+            .expect_value_eq("ok")
+    })
+}
+
+#[test]
+#[deps(NU)]
+fn main_script_named_like_a_value_still_runs() -> Result {
+    // `10kb` parses as a filesize, so `main` is called as `main` here.
+    Playground::setup("script_value_name", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[FileWithContent("10kb", "def main [foo: string] { $foo }")]);
+        test()
+            .cwd(dirs.test())
+            .run("nu 10kb ok | to text | str trim")
+            .expect_value_eq("ok")?;
+
+        let stderr: String = test()
+            .cwd(dirs.test())
+            .run("nu 10kb | complete | get stderr")?;
+        assert!(stderr.contains("missing foo"));
+        Ok(())
+    })
+}
+
+#[test]
+#[deps(NU)]
 fn script_file_not_found() -> Result {
     let stderr: String = test().run("nu non-existent-script.nu foo bar | complete | get stderr")?;
     assert!(

@@ -5,6 +5,7 @@ use nu_parser::parse;
 use nu_path::absolute_with;
 use nu_protocol::{
     PipelineData, ShellError, Span, Value,
+    ast::Expr,
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
     report_error::report_compile_error,
@@ -183,12 +184,11 @@ pub fn evaluate_file(
         // Print the pipeline output of the last command of the file.
         print_pipeline(engine_state, stack, pipeline, true)?;
 
-        // Invoke the main command with arguments. Keep using `main` as the internal command name
-        // so the parser reliably resolves it; the block's signature was already rewritten to the
-        // script filename above, so help messages will show the correct `script.nu`-qualified name.
+        // Invoke the main command with arguments. The block's signature was already rewritten to
+        // the script filename above, so help messages show the `script.nu`-qualified name.
         // The CLI parser has already escaped script arguments via `args_to_script`, so we must not
         // escape them again here or we would double-quote values like `"arg 2"`.
-        let command_line = format!("main {}", args.join(" "));
+        let command_line = main_command_line(engine_state, &script_name, args);
         eval_source(
             engine_state,
             stack,
@@ -212,6 +212,31 @@ pub fn evaluate_file(
     info!("evaluate {}:{}:{}", file!(), line!(), column!());
 
     Ok(())
+}
+
+/// Returns the command line that calls the script's `main` with `args`.
+///
+/// `main` is called by the script's name when that parses as the same call, so errors about the
+/// arguments (like a missing positional) show `script.nu` instead of `main`. A name that parses
+/// as something else (such as one with a space in it) keeps using `main`.
+fn main_command_line(engine_state: &EngineState, script_name: &str, args: &[String]) -> String {
+    let args = args.join(" ");
+    let main_call = format!("main {args}");
+    let script_call = format!("{script_name} {args}");
+
+    let head_decl = |source: &str| {
+        let mut working_set = StateWorkingSet::new(engine_state);
+        let block = parse(&mut working_set, None, source.as_bytes(), false);
+        match &block.pipelines.first()?.elements.first()?.expr.expr {
+            Expr::Call(call) => Some(call.decl_id),
+            _ => None,
+        }
+    };
+
+    match head_decl(&script_call) {
+        Some(decl_id) if head_decl(&main_call) == Some(decl_id) => script_call,
+        _ => main_call,
+    }
 }
 
 #[cfg(test)]
