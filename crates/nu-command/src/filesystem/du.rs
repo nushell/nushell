@@ -221,13 +221,7 @@ fn du_for_one_pattern(
     let max_depth = args.max_depth.map(|f| f.item as u64);
     let min_size = args.min_size.map(|f| f.item as u64);
 
-    let params = DirBuilder {
-        tag: span,
-        min: min_size,
-        deref,
-        exclude,
-        long,
-    };
+    let params = DirBuilder::new(span, min_size, deref, exclude, long);
 
     Ok(paths.filter_map(move |p| match p {
         Ok(a) => {

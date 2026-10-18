@@ -26,6 +26,10 @@ pub struct DirBuilder {
     pub deref: bool,
     pub exclude: Option<ExcludeGlob>,
     pub long: bool,
+    /// (device, inode) pairs already counted during a `du` walk, so that files
+    /// with multiple hard links are only counted once. Unix only.
+    #[cfg(unix)]
+    seen: std::cell::RefCell<std::collections::HashSet<(u64, u64)>>,
 }
 
 impl DirBuilder {
@@ -42,6 +46,8 @@ impl DirBuilder {
             deref,
             exclude,
             long,
+            #[cfg(unix)]
+            seen: std::cell::RefCell::new(std::collections::HashSet::new()),
         }
     }
 }
@@ -65,6 +71,10 @@ pub struct FileInfo {
     blocks: Option<u64>,
     tag: Span,
     long: bool,
+    /// (device, inode) identifying the file, used to count hard-linked files
+    /// only once during a `du` walk. Unix only.
+    #[cfg(unix)]
+    file_id: (u64, u64),
 }
 
 impl FileInfo {
@@ -84,6 +94,11 @@ impl FileInfo {
         match m {
             Ok(d) => {
                 let block_size = file_real_size_fast(&path, &d).ok();
+                #[cfg(unix)]
+                let file_id = {
+                    use std::os::unix::fs::MetadataExt;
+                    (d.dev(), d.ino())
+                };
 
                 Ok(FileInfo {
                     path,
@@ -91,6 +106,8 @@ impl FileInfo {
                     size: d.len(),
                     tag,
                     long,
+                    #[cfg(unix)]
+                    file_id,
                 })
             }
             Err(e) => Err(IoError::new(e, tag, path).into()),
@@ -179,6 +196,14 @@ impl DirInfo {
         if include {
             match FileInfo::new(f, params.deref, self.tag, self.long) {
                 Ok(file) => {
+                    // A file reached through multiple hard links must only be
+                    // counted once, like POSIX and GNU/BSD du do.
+                    #[cfg(unix)]
+                    {
+                        if !params.seen.borrow_mut().insert(file.file_id) {
+                            return self;
+                        }
+                    }
                     let inc = params.min.is_none_or(|s| file.size >= s);
                     if inc {
                         self.size += file.size;

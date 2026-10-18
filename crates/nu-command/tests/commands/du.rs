@@ -1,4 +1,4 @@
-use nu_test_support::fs::Stub::EmptyFile;
+use nu_test_support::fs::Stub::{EmptyFile, FileWithContent};
 use nu_test_support::prelude::*;
 use rstest::rstest;
 
@@ -99,5 +99,42 @@ fn du_wildcards() -> Result {
             .cwd(dirs.test())
             .run("du -a * | length")
             .expect_value_eq(1)
+    })
+}
+
+#[test]
+#[cfg(unix)]
+fn du_counts_hard_links_once() -> Result {
+    Playground::setup("du_hard_links", |dirs, sandbox| {
+        // 1 MiB of real (allocated) bytes; the directory entry overhead stays
+        // orders of magnitude below the assertion bound either way.
+        let body = "x".repeat(1024 * 1024);
+        sandbox
+            .within("links")
+            .with_files(&[FileWithContent("a", &body)]);
+        drop(body);
+
+        let links = dirs.test().join("links");
+        std::fs::hard_link(links.join("a"), links.join("b")).expect("link b");
+        std::fs::hard_link(links.join("a"), links.join("c")).expect("link c");
+
+        // `a`, `b` and `c` are the same file: both columns must report ~1 MiB,
+        // not ~3 MiB.
+        let apparent: i64 = test()
+            .cwd(dirs.test())
+            .run("du links | first | get apparent | into int")?;
+        let physical: i64 = test()
+            .cwd(dirs.test())
+            .run("du links | first | get physical | into int")?;
+
+        assert!(
+            apparent < 2 * 1024 * 1024,
+            "hard-linked file counted more than once: apparent = {apparent}"
+        );
+        assert!(
+            physical < 2 * 1024 * 1024,
+            "hard-linked file counted more than once: physical = {physical}"
+        );
+        Ok(())
     })
 }
