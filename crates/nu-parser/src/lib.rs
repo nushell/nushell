@@ -23,6 +23,7 @@ mod parse_signatures;
 mod parse_source;
 mod parse_type_alias;
 mod parser;
+pub mod pickle;
 mod type_check;
 
 pub use deparse::escape_for_script_arg;

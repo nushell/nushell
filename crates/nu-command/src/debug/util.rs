@@ -1,4 +1,15 @@
-use nu_protocol::{DataSource, IntoValue, PipelineData, PipelineMetadata, Record, Span, Value};
+use nu_engine::CallExt;
+use nu_parser::pickle;
+use nu_path::expand_path_with;
+use nu_protocol::{
+    DataSource, IntoValue, PipelineData, PipelineMetadata, Record, ShellError, Span, Spanned,
+    Value,
+    engine::{Call, EngineState, Stack},
+    shell_error::{
+        generic::GenericError,
+        io::{IoError, IoErrorExt, NotFound},
+    },
+};
 use std::path::PathBuf;
 
 pub fn extend_record_with_metadata(
@@ -92,4 +103,28 @@ pub fn build_metadata_record(pipeline: &PipelineData, head: Span) -> Record {
         record.insert("span", span.into_value(head));
     }
     extend_record_with_metadata(record, pipeline.metadata_ref(), head)
+}
+
+/// Read the pickle named by the command's first argument, relative to the current directory.
+pub fn read_pickle(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    call: &Call,
+) -> Result<(PathBuf, Vec<u8>), ShellError> {
+    let pickle: Spanned<String> = call.req(engine_state, stack, 0)?;
+    let cwd = engine_state.cwd(Some(stack))?;
+    let path = expand_path_with(&pickle.item, &cwd, true);
+    let contents = std::fs::read(&path)
+        .map_err(|err| IoError::new(err.not_found_as(NotFound::File), pickle.span, path.clone()))?;
+    if !pickle::is_pickle(&contents) {
+        return Err(ShellError::Generic(
+            GenericError::new(
+                "Not a pickle",
+                "this file wasn't made by `pickle`",
+                pickle.span,
+            )
+            .with_help("make one with `pickle script.nu`"),
+        ));
+    }
+    Ok((path, contents))
 }

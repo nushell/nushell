@@ -1,6 +1,7 @@
 use crate::{Span, Type, Value};
+use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Variable {
     pub declaration_span: Span,
     pub ty: Type,

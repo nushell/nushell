@@ -1,4 +1,5 @@
 use crate::{Span, SyntaxShape};
+use serde::{Deserialize, Serialize};
 
 /// A named type annotation defined with `type Name = <type>`.
 ///
@@ -13,7 +14,7 @@ use crate::{Span, SyntaxShape};
 ///
 /// Only the expansion is stored where the alias is used, so the alias name never reaches a
 /// [`Signature`](crate::Signature), a [`Type`](crate::Type) or the plugin protocol.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TypeAlias {
     pub name: String,
     /// The right-hand side, parsed as it would be in a parameter annotation.

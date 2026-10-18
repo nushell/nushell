@@ -7,6 +7,7 @@ use rstest::rstest;
 
 mod background_jobs;
 mod environment;
+mod pickle;
 mod pipeline;
 mod repl;
 

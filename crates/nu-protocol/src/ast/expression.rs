@@ -1,7 +1,7 @@
 use crate::{
     BlockId, GetSpan, IN_VARIABLE_ID, Signature, Span, SpanId, Type, VarId,
     ast::{Argument, Block, Expr, ExternalArgument, ImportPattern, MatchPattern, RecordItem},
-    engine::StateWorkingSet,
+    engine::{StateWorkingSet, UNKNOWN_SPAN_ID},
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -618,7 +618,13 @@ impl Expression {
         }
     }
 
+    /// The span of this expression in `state`'s span table, or its `span` if it has no entry
+    /// there, like an expression of a loaded pickle (which doesn't carry the table).
     pub fn span(&self, state: &impl GetSpan) -> Span {
-        state.get_span(self.span_id)
+        if self.span_id == UNKNOWN_SPAN_ID {
+            self.span
+        } else {
+            state.get_span(self.span_id)
+        }
     }
 }
