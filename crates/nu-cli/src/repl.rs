@@ -978,7 +978,7 @@ fn prepare_history_metadata(
     if !s.is_empty() && line_editor.has_last_command_context() {
         let result = line_editor
             .update_last_command_context(&|mut c| {
-                c.start_timestamp = Some(chrono::Utc::now());
+                c.start_timestamp = Some(reedline::HistoryTimestamp::now());
                 c.hostname = hostname.map(str::to_string);
                 c.cwd = engine_state
                     .cwd(None)
@@ -1529,7 +1529,7 @@ fn update_line_editor_history(
             match SqliteBackedHistory::with_file(
                 history_path.clone(),
                 history_session_id,
-                Some(chrono::Utc::now()),
+                Some(reedline::HistoryTimestamp::now()),
             ) {
                 Ok(h) => Some(Box::new(h)),
                 Err(err) => {
