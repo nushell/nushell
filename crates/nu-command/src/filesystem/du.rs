@@ -1,9 +1,10 @@
-use crate::{DirBuilder, DirInfo, ExcludeGlob, FileInfo};
+use crate::{DirBuilder, DirInfo, ExcludeGlob, FileInfo, SeenSet};
 use nu_engine::command_prelude::*;
 use nu_glob::MatchOptions;
 use nu_protocol::{NuGlob, PipelineMetadata, Signals};
 use serde::Deserialize;
 use std::path::Path;
+use std::sync::{Arc, Mutex};
 
 #[derive(Clone)]
 pub struct Du;
@@ -112,6 +113,11 @@ impl Command for Du {
             Some(paths)
         };
 
+        // Hard links are counted once per invocation, not once per path operand,
+        // so a link shared between two operands is only reported under the first
+        // one. The lock is only there to keep the lazy iterators `Send`.
+        let seen = Arc::<Mutex<SeenSet>>::default();
+
         match paths {
             None => {
                 let args = DuArgs {
@@ -123,17 +129,21 @@ impl Command for Du {
                     max_depth,
                     min_size,
                 };
-                Ok(
-                    du_for_one_pattern(args, &current_dir, tag, engine_state.signals().clone())?
-                        .into_pipeline_data_with_metadata(
-                            tag,
-                            engine_state.signals().clone(),
-                            PipelineMetadata {
-                                path_columns: vec![String::from("path")],
-                                ..Default::default()
-                            },
-                        ),
-                )
+                Ok(du_for_one_pattern(
+                    args,
+                    &current_dir,
+                    tag,
+                    engine_state.signals().clone(),
+                    seen,
+                )?
+                .into_pipeline_data_with_metadata(
+                    tag,
+                    engine_state.signals().clone(),
+                    PipelineMetadata {
+                        path_columns: vec![String::from("path")],
+                        ..Default::default()
+                    },
+                ))
             }
             Some(paths) => {
                 let mut result_iters = vec![];
@@ -152,6 +162,7 @@ impl Command for Du {
                         &current_dir,
                         tag,
                         engine_state.signals().clone(),
+                        seen.clone(),
                     )?)
                 }
 
@@ -185,6 +196,7 @@ fn du_for_one_pattern(
     current_dir: &Path,
     span: Span,
     signals: Signals,
+    seen: Arc<Mutex<SeenSet>>,
 ) -> Result<impl Iterator<Item = Value> + Send + use<>, ShellError> {
     let exclude = args
         .exclude
@@ -225,14 +237,24 @@ fn du_for_one_pattern(
 
     Ok(paths.filter_map(move |p| match p {
         Ok(a) => {
+            let mut seen = seen.lock().unwrap_or_else(|e| e.into_inner());
             if a.is_dir() {
-                match DirInfo::new(a, &params, max_depth, span, &signals) {
+                match DirInfo::new(a, &params, max_depth, span, &signals, &mut seen) {
                     Ok(v) => Some(Value::from(v)),
                     Err(_) => None,
                 }
             } else {
                 match FileInfo::new(a, deref, span, params.long) {
-                    Ok(v) => Some(Value::from(v)),
+                    // A file operand goes through the same check as a file
+                    // inside a directory: another link to an already counted
+                    // file gets no row.
+                    Ok(v) => {
+                        if v.count_once(&mut seen) {
+                            Some(Value::from(v))
+                        } else {
+                            None
+                        }
+                    }
                     Err(_) => None,
                 }
             }

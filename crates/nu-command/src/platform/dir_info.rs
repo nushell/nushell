@@ -19,6 +19,14 @@ impl ExcludeGlob {
     }
 }
 
+/// Files already counted while walking, so that a file with several hard links
+/// is only counted once. On `wasm32` no file identity is available, so the set
+/// is a unit type and the walking signatures stay the same everywhere.
+#[cfg(not(target_arch = "wasm32"))]
+pub type SeenSet = std::collections::HashSet<uucore::fs::FileInformation>;
+#[cfg(target_arch = "wasm32")]
+pub type SeenSet = ();
+
 #[derive(Debug, Clone)]
 pub struct DirBuilder {
     pub tag: Span,
@@ -26,10 +34,6 @@ pub struct DirBuilder {
     pub deref: bool,
     pub exclude: Option<ExcludeGlob>,
     pub long: bool,
-    /// (device, inode) pairs already counted during a `du` walk, so that files
-    /// with multiple hard links are only counted once. Unix only.
-    #[cfg(unix)]
-    seen: std::cell::RefCell<std::collections::HashSet<(u64, u64)>>,
 }
 
 impl DirBuilder {
@@ -46,8 +50,6 @@ impl DirBuilder {
             deref,
             exclude,
             long,
-            #[cfg(unix)]
-            seen: std::cell::RefCell::new(std::collections::HashSet::new()),
         }
     }
 }
@@ -64,17 +66,31 @@ pub struct DirInfo {
     long: bool,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct FileInfo {
     path: PathBuf,
     size: u64,
     blocks: Option<u64>,
     tag: Span,
     long: bool,
-    /// (device, inode) identifying the file, used to count hard-linked files
-    /// only once during a `du` walk. Unix only.
-    #[cfg(unix)]
-    file_id: (u64, u64),
+    /// Identity of the file, used to count hard-linked files only once while
+    /// walking. `None` for files with a single link, which never reach the set.
+    /// Not available on `wasm32`.
+    #[cfg(not(target_arch = "wasm32"))]
+    file_id: Option<uucore::fs::FileInformation>,
+}
+
+// `uucore`'s file identity has no `Debug`, so this one cannot be derived.
+impl std::fmt::Debug for FileInfo {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("FileInfo")
+            .field("path", &self.path)
+            .field("size", &self.size)
+            .field("blocks", &self.blocks)
+            .field("tag", &self.tag)
+            .field("long", &self.long)
+            .finish_non_exhaustive()
+    }
 }
 
 impl FileInfo {
@@ -94,11 +110,23 @@ impl FileInfo {
         match m {
             Ok(d) => {
                 let block_size = file_real_size_fast(&path, &d).ok();
+                // `FileInformation` asks the filesystem again, so on Unix it is
+                // only built for files the metadata already reported as linked.
                 #[cfg(unix)]
                 let file_id = {
                     use std::os::unix::fs::MetadataExt;
-                    (d.dev(), d.ino())
+                    if d.nlink() > 1 {
+                        uucore::fs::FileInformation::from_path(&path, deref).ok()
+                    } else {
+                        None
+                    }
                 };
+                // Off Unix the metadata has neither a link count nor a file id,
+                // so the identity needs its own look at the file.
+                #[cfg(not(any(unix, target_arch = "wasm32")))]
+                let file_id = uucore::fs::FileInformation::from_path(&path, deref)
+                    .ok()
+                    .filter(|info| info.number_of_links() > 1);
 
                 Ok(FileInfo {
                     path,
@@ -106,12 +134,27 @@ impl FileInfo {
                     size: d.len(),
                     tag,
                     long,
-                    #[cfg(unix)]
+                    #[cfg(not(target_arch = "wasm32"))]
                     file_id,
                 })
             }
             Err(e) => Err(IoError::new(e, tag, path).into()),
         }
+    }
+
+    /// Counts this file, unless another link to it was counted already, in
+    /// which case `false` is returned and the caller must skip it.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn count_once(&self, seen: &mut SeenSet) -> bool {
+        self.file_id
+            .as_ref()
+            .is_none_or(|id| seen.insert(id.clone()))
+    }
+
+    /// Nothing is tracked on `wasm32`, so every file counts.
+    #[cfg(target_arch = "wasm32")]
+    pub fn count_once(&self, _seen: &mut SeenSet) -> bool {
+        true
     }
 }
 
@@ -122,6 +165,7 @@ impl DirInfo {
         depth: Option<u64>,
         span: Span,
         signals: &Signals,
+        seen: &mut SeenSet,
     ) -> Result<Self, ShellError> {
         let path = path.into();
         let from_io_error = IoError::factory(span, path.as_path());
@@ -153,9 +197,9 @@ impl DirInfo {
                     match f {
                         Ok(i) => match i.file_type() {
                             Ok(t) if t.is_dir() => {
-                                s = s.add_dir(i.path(), depth, params, span, signals)?
+                                s = s.add_dir(i.path(), depth, params, span, signals, seen)?
                             }
-                            Ok(_t) => s = s.add_file(i.path(), params),
+                            Ok(_t) => s = s.add_file(i.path(), params, seen),
                             Err(e) => s = s.add_error(from_io_error(e).into()),
                         },
                         Err(e) => s = s.add_error(from_io_error(e).into()),
@@ -174,6 +218,7 @@ impl DirInfo {
         params: &DirBuilder,
         span: Span,
         signals: &Signals,
+        seen: &mut SeenSet,
     ) -> Result<Self, ShellError> {
         if let Some(current) = depth {
             if let Some(new) = current.checked_sub(1) {
@@ -183,14 +228,14 @@ impl DirInfo {
             }
         }
 
-        let d = DirInfo::new(path, params, depth, span, signals)?;
+        let d = DirInfo::new(path, params, depth, span, signals, seen)?;
         self.size += d.size;
         self.blocks += d.blocks;
         self.dirs.push(d);
         Ok(self)
     }
 
-    fn add_file(mut self, f: impl Into<PathBuf>, params: &DirBuilder) -> Self {
+    fn add_file(mut self, f: impl Into<PathBuf>, params: &DirBuilder, seen: &mut SeenSet) -> Self {
         let f = f.into();
         let include = params.exclude.as_ref().is_none_or(|x| !x.matches_path(&f));
         if include {
@@ -198,11 +243,8 @@ impl DirInfo {
                 Ok(file) => {
                     // A file reached through multiple hard links must only be
                     // counted once, like POSIX and GNU/BSD du do.
-                    #[cfg(unix)]
-                    {
-                        if !params.seen.borrow_mut().insert(file.file_id) {
-                            return self;
-                        }
+                    if !file.count_once(seen) {
+                        return self;
                     }
                     let inc = params.min.is_none_or(|s| file.size >= s);
                     if inc {
