@@ -1,13 +1,13 @@
 //! Pickles made in one engine state and loaded into another.
 //!
-//! The loading engine gets one extra declaration, file, variable, block and module before
-//! anything else, so every id and span the program uses moves. A pickle that ran without being
+//! The loading engine gets one extra declaration, file, variable, block, module and type alias
+//! before anything else, so every id and span the program uses moves. A pickle that ran without being
 //! relinked would call the wrong commands or fail to find its blocks.
 
 use nu_engine::eval_block;
 use nu_parser::{parse, pickle};
 use nu_protocol::{
-    Module, PipelineData, Signature, Span, Type, Value,
+    Module, PipelineData, Signature, Span, SyntaxShape, Type, TypeAlias, Value,
     ast::Block,
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateDelta, StateWorkingSet},
@@ -20,11 +20,13 @@ const PROGRAM: &str = r#"
     module inner {
         export def twice [x: int] { $x * 2 }
         export const K = 10
+        export type Num = int
     }
-    use inner [twice K]
+    use inner [twice K Num]
+    type Count = int
     def --env mark [] { $env.PICKLED = "yes" }
     alias dbl = twice
-    const base = 5
+    const base: Count = 5
     let offset = 1
     let adder = {|x| $x + $offset }
     mark
@@ -38,6 +40,7 @@ const PROGRAM: &str = r#"
         caught: (try { error make {msg: "boom"} } catch {|e| $e.msg })
         filtered: ([1 2 3 4] | where $it > 2)
         help: (twice --help)
+        type_aliases: (scope modules | where name == inner | get 0.type_aliases.type)
     }
 "#;
 
@@ -56,6 +59,11 @@ fn engine(shifted: bool) -> Result<EngineState> {
             Module::new(b"pickle-shift".to_vec()),
             vec![],
         );
+        working_set.add_type_alias(TypeAlias {
+            name: "PickleShift".into(),
+            shape: SyntaxShape::Any,
+            span: Span::unknown(),
+        });
         engine_state.merge_delta(working_set.render())?;
     }
     let mut engine_state = nu_command::add_shell_command_context(engine_state);
@@ -139,6 +147,11 @@ fn pickled_program_runs_like_source_in_shifted_engine() -> Result {
     assert_eq!(record.get("const"), Some(&Value::test_int(10)));
     assert_eq!(record.get("env"), Some(&Value::test_string("yes")));
     assert_eq!(record.get("caught"), Some(&Value::test_string("boom")));
+    // Read from the type alias table, where the shifted engine has its own alias in front.
+    assert_eq!(
+        record.get("type_aliases"),
+        Some(&Value::test_list(vec![Value::test_string("int")]))
+    );
     Ok(())
 }
 

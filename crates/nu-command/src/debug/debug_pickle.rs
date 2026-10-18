@@ -2,7 +2,8 @@ use super::util::read_pickle;
 use nu_engine::command_prelude::*;
 use nu_parser::pickle;
 use nu_protocol::{
-    BlockId, DeclId, ModuleId, VarId, engine::StateWorkingSet, ir::Instruction, relocation::IdBases,
+    BlockId, DeclId, ModuleId, TypeAliasId, VarId, engine::StateWorkingSet, ir::Instruction,
+    relocation::IdBases,
 };
 use std::{collections::BTreeSet, path::Path};
 
@@ -29,7 +30,7 @@ impl Command for DebugPickle {
         "`loads` says whether this nushell can run the pickle, and `problems` lists exactly what \
 keeps it from loading. When it loads, the program is linked into a copy of the current engine \
 and described: its files, commands, variables, blocks (with their IR, as `view ir` shows it), \
-modules and the commands it uses from this nushell. The engine has this shell's experimental \
+modules, type aliases and the commands it uses from this nushell. The engine has this shell's experimental \
 options, while `nu script.nupkl` uses the pickle's own. A pickle that calls a command only one of \
 them registers can show a problem here and still run."
     }
@@ -229,6 +230,19 @@ fn describe_program(
                 }),
                 "commands" => names(module.decls.keys().cloned().collect()),
                 "constants" => names(module.constants.keys().cloned().collect()),
+                "type_aliases" => names(module.type_aliases.keys().cloned().collect()),
+            }
+        })
+        .collect();
+
+    let type_aliases: Vec<Record> = (bases.type_aliases..scratch.num_type_aliases())
+        .map(TypeAliasId::new)
+        .map(|type_alias_id| {
+            let type_alias = scratch.get_type_alias(type_alias_id);
+            record! {
+                "id" => Value::int(type_alias_id.get() as i64, head),
+                "name" => Value::string(&type_alias.name, head),
+                "type" => Value::string(type_alias.shape.to_string(), head),
             }
         })
         .collect();
@@ -239,6 +253,7 @@ fn describe_program(
         "variables" => variables.into_value(head),
         "blocks" => blocks.into_value(head),
         "modules" => modules.into_value(head),
+        "type_aliases" => type_aliases.into_value(head),
         "uses" => Vec::from_iter(used).into_value(head),
     };
     Ok((program, errors))

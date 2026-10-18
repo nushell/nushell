@@ -213,6 +213,7 @@ fn run_runs_a_pickle_like_its_source() -> Result {
                 "greet.nu",
                 "
                     use lib/upper.nu
+                    # Greets by name.
                     def main [name: string, --loud] {
                         let msg = $'hi ($name) ($in)'
                         if $loud { upper $msg } else { $msg }
@@ -246,6 +247,23 @@ fn run_runs_a_pickle_like_its_source() -> Result {
             .cwd(dirs.test())
             .run("module spam {}; overlay use spam; 'x' | run greet.nupkl bob")
             .expect_value_eq("hi bob x")?;
+
+        // The arguments are bound to the pickle's `main` as to a script's: flags from a record
+        // spread or written `--name=value`, its help, and an error for a flag it doesn't have.
+        for args in ["bob ...{loud: true}", "bob --loud=true"] {
+            test()
+                .cwd(dirs.test())
+                .run(format!("'x' | run greet.nupkl {args}"))
+                .expect_value_eq("HI BOB X")?;
+        }
+        test()
+            .cwd(dirs.test())
+            .run("run greet.nupkl --help | str contains 'Greets by name.'")
+            .expect_value_eq(true)?;
+        test()
+            .cwd(dirs.test())
+            .run("run greet.nupkl bob --huh")
+            .expect_error_code_eq("nu::parser::unknown_flag")?;
 
         // Without a `main` of its own, the pickle runs on the input, whatever `main` the shell has.
         for run in ["run", "run --full-reparse"] {
@@ -430,11 +448,12 @@ fn pickled_parse_time_values_come_from_where_it_runs() -> Result {
                 use lib/ids.nu
                 use lib/ids.nu [PID]
                 const pid = $nu.pid
+                const neg = -$pid
                 const here = path self
 
                 # `$nu.pid` differs between the nu that pickles and the one that runs.
                 def main [--default: int = $pid] {
-                    print ([$pid $default $PID $ids.PID] | all { $in == $nu.pid })
+                    print ([$pid $default $PID $ids.PID (-$neg)] | all { $in == $nu.pid })
                     print ($here | path dirname | path basename)
                 }
             ",
@@ -498,6 +517,11 @@ fn pickled_type_aliases_relink_into_a_shell_with_its_own() -> Result {
             .run("nu --config config.nu --env-config env.nu script.nupkl 2 hi | complete")?;
         assert_eq!(result.stderr, "");
         assert_eq!(result.stdout, "3\nHI\n[string]\n");
+
+        let result: CompleteResult = test()
+            .cwd(dirs.test())
+            .run("nu -n -c 'debug pickle script.nupkl | [$in.type_aliases.name $in.modules.type_aliases] | to nuon' | complete")?;
+        assert_eq!(result.stdout.trim(), "[[Name, Count], [[Name]]]");
         Ok(())
     })
 }
