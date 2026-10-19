@@ -558,7 +558,6 @@ fn write_pipeline_data(
     Ok(())
 }
 
-/// Returns a helpful error message given an invalid command name.
 /// Explains why an `executable` that exists could not be started, given the "not found" `err`
 /// from spawning it.
 ///
@@ -588,6 +587,7 @@ fn start_failure_help(executable: &Path, cwd: &AbsolutePath, err: &std::io::Erro
     }
 }
 
+/// Returns a helpful error message given an invalid command name.
 pub fn command_not_found(
     name: &str,
     span: Span,
