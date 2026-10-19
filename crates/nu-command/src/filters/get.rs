@@ -22,7 +22,7 @@ impl Command for Get {
     fn extra_description(&self) -> &str {
         "This is equivalent to using the cell path access syntax: `$env.OS` is the same as `$env | get OS`.
 
-With no cell path, the input is returned unchanged. With one literal cell path, this returns the value at that path. If multiple cell paths are given, or any argument is a spread (`...$paths`), this produces a list with one value per path, so the result has the same shape however many paths the spread holds, and an empty spread produces an empty list.
+With no cell path, the input is returned unchanged. With one cell path and no spread, this returns the value at that path. If multiple cell paths are given, or any argument is a spread (`...$paths`), this produces a list with one value per path, so the result has the same shape however many paths the spread holds, and an empty spread produces an empty list.
 
 Strings in a spread are single column names: `...[a.b]` looks for a column named `a.b`. To spread nested paths, use cell-path values such as `$.a.b`, or convert with `into cell-path`."
     }
