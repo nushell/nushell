@@ -17,7 +17,8 @@ use std::os::windows::process::CommandExt;
 use std::{
     borrow::Cow,
     ffi::{OsStr, OsString},
-    io::Write,
+    fs::File,
+    io::{BufRead, BufReader, Read, Write},
     path::{Path, PathBuf},
     process::Stdio,
     thread,
@@ -174,7 +175,7 @@ If you create a custom command with this name, that will be used instead."
         let mut command = std::process::Command::new(&executable);
 
         // Configure PWD.
-        command.current_dir(cwd);
+        command.current_dir(&cwd);
 
         // Configure environment variables.
         let envs = env_to_strings(engine_state, stack)?;
@@ -318,9 +319,24 @@ If you create a custom command with this name, that will be used instead."
         };
 
         let mut child = child
-            .map_err(|err| {
-                let context = format!("Could not spawn foreground child: {err}");
-                IoError::new_internal(err, context)
+            .map_err(|err| -> ShellError {
+                // `which` found the executable, so "not found" here means that something the OS
+                // needs to start it is missing. Only Unix has shebang lines, and if the
+                // executable was removed since `which` found it, the path is what is missing.
+                if cfg!(unix) && err.kind() == std::io::ErrorKind::NotFound && executable.exists() {
+                    return ShellError::ExternalCommand {
+                        label: format!("`{name_str}` exists but could not be started"),
+                        help: start_failure_help(&executable, &cwd, &err),
+                        span: call.head,
+                    };
+                }
+                IoError::new_with_additional_context(
+                    err,
+                    call.head,
+                    Some(executable.clone()),
+                    "Could not start the external command",
+                )
+                .into()
             })?
             .ok_or(ShellError::Interrupted { span: call.head })?;
 
@@ -540,6 +556,35 @@ fn write_pipeline_data(
         }
     }
     Ok(())
+}
+
+/// Explains why an `executable` that exists could not be started, given the "not found" `err`
+/// from spawning it.
+///
+/// If its first line is a shebang (`#!`) that names an interpreter that doesn't exist, that is
+/// the interpreter to blame. Otherwise a file it needs, such as a shared library or its program
+/// loader, is missing.
+fn start_failure_help(executable: &Path, cwd: &AbsolutePath, err: &std::io::Error) -> String {
+    let shebang_interpreter = || {
+        let mut first_line = Vec::new();
+        BufReader::new(File::open(executable).ok()?.take(256))
+            .read_until(b'\n', &mut first_line)
+            .ok()?;
+        let first_line = String::from_utf8_lossy(&first_line).into_owned();
+        let interpreter = first_line.strip_prefix("#!")?.split_whitespace().next()?;
+        Some(interpreter.to_owned())
+    };
+
+    match shebang_interpreter() {
+        Some(interpreter) if !cwd.as_std_path().join(&interpreter).exists() => format!(
+            "`{}` starts with `#!{interpreter}`, but `{interpreter}` was not found ({err})",
+            executable.display()
+        ),
+        _ => format!(
+            "`{}` exists, but a file it needs to start, such as a shared library or its program loader, was not found ({err})",
+            executable.display()
+        ),
+    }
 }
 
 /// Returns a helpful error message given an invalid command name.
