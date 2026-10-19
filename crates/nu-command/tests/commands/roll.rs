@@ -29,19 +29,19 @@ mod rows {
 
     #[test]
     fn roll_down_empty_list_is_unchanged() -> Result {
-        test().run("([] | roll down) == []").expect_value_eq(true)
+        test().run("[] | roll down").expect_value_eq(test_list![])
     }
 
     #[test]
     fn roll_up_empty_list_is_unchanged() -> Result {
-        test().run("([] | roll up) == []").expect_value_eq(true)
+        test().run("[] | roll up").expect_value_eq(test_list![])
     }
 
     #[test]
     fn roll_up_empty_list_with_by_is_unchanged() -> Result {
         test()
-            .run("([] | roll up --by 3) == []")
-            .expect_value_eq(true)
+            .run("[] | roll up --by 3")
+            .expect_value_eq(test_list![])
     }
 }
 
@@ -91,18 +91,29 @@ mod columns {
 
     #[test]
     fn roll_left_empty_record_is_unchanged() -> Result {
-        test().run("({} | roll left) == {}").expect_value_eq(true)
+        test()
+            .run("{} | roll left")
+            .expect_value_eq(test_record! {})
     }
 
     #[test]
     fn roll_right_empty_record_is_unchanged() -> Result {
-        test().run("({} | roll right) == {}").expect_value_eq(true)
+        test()
+            .run("{} | roll right")
+            .expect_value_eq(test_record! {})
     }
 
     #[test]
     fn roll_left_empty_record_in_a_list_is_unchanged() -> Result {
         test()
             .run("([{} {}] | roll left --by 2) == [{} {}]")
+            .expect_value_eq(true)
+    }
+
+    #[test]
+    fn roll_left_skips_empty_row_in_a_table() -> Result {
+        test()
+            .run("([{a: 1, b: 2} {}] | roll left) == [{b: 2, a: 1} {}]")
             .expect_value_eq(true)
     }
 
