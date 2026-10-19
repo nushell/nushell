@@ -6,6 +6,7 @@ use crate::{
     Token,
     lite_parser::{LiteCommand, LitePipeline, LiteRedirection, LiteRedirectionTarget, lite_parse},
     parse_expressions::is_env_variable_name,
+    parse_helpers::PERCENT_FORCED_BUILTIN_PARSER_INFO,
     parse_keywords::parse_def_predecl,
     parser::{
         parse_builtin_commands, parse_expression, parse_value, wrap_element_with_collect,
@@ -61,6 +62,28 @@ pub(crate) fn parse_pipeline_element(
         .redirection
         .as_ref()
         .map(|r| parse_redirection(working_set, r));
+
+    // `unlet` on a constant takes effect while parsing, as `hide` does for a command: the parser
+    // reads a constant's value wherever it evaluates constants, so the constant is hidden for
+    // the rest of the current block, like any other definition made there. The redirection is
+    // parsed first because its target is evaluated before the command runs. A call with
+    // `--help` only shows help (see `compile_call`), and a dynamic percent dispatch call has
+    // only a placeholder declaration until the IR compiler rewrites it.
+    if let Expr::Call(call) = &expr.expr
+        && !call
+            .parser_info
+            .contains_key(PERCENT_FORCED_BUILTIN_PARSER_INFO)
+        && working_set.get_decl(call.decl_id).name() == "unlet"
+        && call.get_named_arg("help").is_none()
+    {
+        for arg in call.positional_iter() {
+            if let Some(var_id) = arg.as_bare_var()
+                && working_set.get_variable(var_id).const_val.is_some()
+            {
+                working_set.hide_variable(var_id);
+            }
+        }
+    }
 
     PipelineElement {
         pipe: command.pipe,

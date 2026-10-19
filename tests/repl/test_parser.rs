@@ -1480,6 +1480,21 @@ fn unit_literal_out_of_range(#[case] code: &str) -> Result {
     Ok(())
 }
 
+/// Overflow is also caught after scaling by a multi-byte or multi-second unit, at the start of a
+/// pipeline and on the right of `let`.
+#[rstest]
+#[case::kilobytes("9223372036854776KB")]
+#[case::kibibytes("9007199254740993KiB")]
+#[case::minutes("153722868min")]
+#[case::negative_minutes("-153722868min")]
+#[case::let_exabytes("let x = 10EB")]
+#[case::let_minutes("let x = 153722868min")]
+fn unit_literal_scaled_out_of_range(#[case] code: &str) -> Result {
+    let err = test().run(code).expect_parse_error()?;
+    assert_matches!(err, ParseError::LiteralTooLarge(..));
+    Ok(())
+}
+
 /// The largest and smallest values fit exactly, also when NUON writes them and reads them back.
 #[rstest]
 #[case::largest_duration("9223372036854775807ns | into int", i64::MAX)]

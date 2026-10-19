@@ -307,6 +307,12 @@ pub struct ScopeFrame {
     /// Where each `type` statement of the block being parsed is, by alias name; filled in with
     /// the predeclarations and used only to tell a use before the definition from an unknown type.
     pub type_predecls: HashMap<Vec<u8>, Vec<Span>>,
+
+    /// Variables that `unlet` hid while this frame was parsed (see
+    /// [`StateWorkingSet::hide_variable`](crate::engine::StateWorkingSet::hide_variable)). Only
+    /// the parser's frames use it: merging a delta removes the variables its top frame hid
+    /// from the overlays instead.
+    pub hidden_vars: Vec<VarId>,
 }
 
 impl ScopeFrame {
@@ -317,6 +323,7 @@ impl ScopeFrame {
             removed_overlays: vec![],
             predecls: DeclNameMap::new(),
             type_predecls: HashMap::new(),
+            hidden_vars: vec![],
         }
     }
 
@@ -327,6 +334,7 @@ impl ScopeFrame {
             removed_overlays: vec![],
             predecls: DeclNameMap::new(),
             type_predecls: HashMap::new(),
+            hidden_vars: vec![],
         }
     }
 
