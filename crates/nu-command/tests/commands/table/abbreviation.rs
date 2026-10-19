@@ -424,3 +424,20 @@ fn table_abbreviation_cut() -> Result {
     assert_eq!(actual, output);
     Ok(())
 }
+
+#[test]
+fn huge_abbreviated_count_shows_every_row() -> Result {
+    let expected: String = test().run("0..4 | table --width=80 -a 100")?;
+    let actual: String = test().run("0..4 | table --width=80 -a 9223372036854775807")?;
+    assert_eq!(actual, expected);
+    Ok(())
+}
+
+#[test]
+fn huge_abbreviated_count_shows_every_row_of_a_stream() -> Result {
+    let expected: String = test().run("[[a]; [1] [2] [3]] | table --width=80 -a 100")?;
+    let actual: String =
+        test().run("[[a]; [1] [2] [3]] | every 1 | table --width=80 -a 9223372036854775807")?;
+    assert_eq!(actual, expected);
+    Ok(())
+}

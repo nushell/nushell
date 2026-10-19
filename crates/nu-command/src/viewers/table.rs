@@ -1076,8 +1076,10 @@ fn stream_collect_abbreviated(
 ) -> (Vec<Value>, usize, bool) {
     let mut end = true;
     let mut read = 0;
-    let mut head = Vec::with_capacity(size);
-    let mut tail = VecDeque::with_capacity(size);
+    // `size` is user supplied (`--abbreviated`) and can be far larger than the input, so don't
+    // reserve it. The buffers only hold what is actually read.
+    let mut head = Vec::new();
+    let mut tail = VecDeque::new();
 
     if size == 0 {
         return (vec![], 0, false);
