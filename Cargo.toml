@@ -277,7 +277,7 @@ toml_edit = "0.25.13"
 kdl = { version = "6.7.1", features = ["v1"] }
 trash = "=5.2.9"
 typetag = "0.2.21"
-update-informer = { version = "1.3.0", default-features = false, features = ["github", "ureq"] }
+update-informer = { version = "1.3.0", default-features = false, features = ["ureq"] }
 umask = "2.1"
 unicode-segmentation = "1.13"
 unicode-width = "0.2"
