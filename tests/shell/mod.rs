@@ -1127,8 +1127,69 @@ fn main_script_named_like_a_value_still_runs() -> Result {
             .cwd(dirs.test())
             .run("nu 10kb | complete | get stderr")?;
         assert!(stderr.contains("missing foo"));
+        // The snippet shows the call that was run.
+        assert!(
+            stderr.contains("1 | main"),
+            "error didn't fall back to `main`: {stderr}"
+        );
+        assert!(!stderr.contains("1 | 10kb"), "call used `10kb`: {stderr}");
         Ok(())
     })
+}
+
+#[test]
+#[deps(NU)]
+fn main_script_with_helper_named_after_script_runs_main() -> Result {
+    // `build.nu docs` resolves to the script's own `build.nu docs` helper, not to `main`, so
+    // `main` is called directly and gets `docs` as its argument.
+    Playground::setup("script_helper_name", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[FileWithContent(
+            "build.nu",
+            "def main [target: string] { print $\"building ($target)\" }
+            def 'build.nu docs' [] { print helper }
+            ",
+        )]);
+        test()
+            .cwd(dirs.test())
+            .run("nu build.nu docs | to text | str trim")
+            .expect_value_eq("building docs")
+    })
+}
+
+#[test]
+#[deps(NU)]
+fn main_script_name_with_separator_is_not_run_as_code() -> Result {
+    // The parser stops a call at `;`, `#` or `|`, so the rest of these names must not be run as
+    // code or swallow the arguments.
+    Playground::setup("script_semicolon_name", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[FileWithContent(
+            "main;print injected",
+            "def main [] { print 'main ran' }",
+        )]);
+        test()
+            .cwd(dirs.test())
+            .run("nu 'main;print injected' | to text | str trim")
+            .expect_value_eq("main ran")
+    })?;
+
+    let mut names = vec!["main #2.nu"];
+    if !cfg!(windows) {
+        // `|` isn't allowed in Windows file names.
+        names.push("main|str upcase");
+    }
+    for name in names {
+        Playground::setup("script_separator_name", |dirs, sandbox| -> Result {
+            sandbox.with_files(&[FileWithContent(
+                name,
+                "def main [foo: string] { print $\"got ($foo)\" }",
+            )]);
+            test()
+                .cwd(dirs.test())
+                .run(format!("nu '{name}' ok | to text | str trim"))
+                .expect_value_eq("got ok")
+        })?;
+    }
+    Ok(())
 }
 
 #[test]

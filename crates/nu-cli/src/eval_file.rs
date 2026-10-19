@@ -218,8 +218,9 @@ pub fn evaluate_file(
 ///
 /// `main` is called by the script's name when that resolves to the script's own commands, so
 /// errors about the arguments (like a missing positional) show `script.nu` instead of `main`.
-/// Otherwise (a parser keyword such as `for`, or a name the parser doesn't read as a command,
-/// such as `10kb` or `it's`) the call keeps using `main`.
+/// Otherwise (a parser keyword such as `for`, a name the parser doesn't read as a command, such
+/// as `10kb` or `it's`, a name that stops the call early, such as `main;x`, or a helper named
+/// after the script) the call keeps using `main`.
 fn main_command_line(engine_state: &EngineState, script_name: &str, args: &[String]) -> String {
     let args = args.join(" ");
     let main_call = format!("main {args}");
@@ -235,14 +236,15 @@ fn main_command_line(engine_state: &EngineState, script_name: &str, args: &[Stri
     let block = parse(&mut working_set, None, script_call.as_bytes(), false);
     let calls_script = match block.pipelines.first().and_then(|p| p.elements.first()) {
         Some(element) => match &element.expr.expr {
-            // The blocks of the script's commands were renamed after the script above, which
-            // distinguishes them from any other command that shares the name.
-            Expr::Call(call) => working_set
-                .get_decl(call.decl_id)
-                .block_id()
-                .map(|block_id| working_set.get_block(block_id).signature.name.as_str())
-                .and_then(|name| name.strip_prefix(script_name))
-                .is_some_and(|rest| rest.is_empty() || rest.starts_with(' ')),
+            // The call has to name the whole script (plus any subcommand words) and resolve to
+            // `main` with the same subcommand words. A helper named after the script keeps its own
+            // decl name, and a name like `main;...` stops the call at `main`, so neither passes.
+            Expr::Call(call) => {
+                let head = working_set.get_span_contents(call.head);
+                let decl_name = working_set.get_decl(call.decl_id).name().as_bytes();
+                head.strip_prefix(script_name.as_bytes())
+                    .is_some_and(|sub| decl_name.strip_prefix(b"main") == Some(sub))
+            }
             _ => false,
         },
         None => false,
