@@ -23,11 +23,15 @@ fn raw_string_opening_quote_may_close_it() -> Result {
         .expect_error_code_eq("nu::parser::unclosed_delimiter")
 }
 
-/// A `#` after a vertical tab starts a comment, so the `]` after it does not close the list.
+/// A `#` after a vertical tab starts a comment, so the block's lexer reads the list to the
+/// second line. The list's items are lexed again, where the space after the `#` ends the word
+/// `1<VT>#`, so the `]` on the first line closes no `[`: an error, as `[1 2]]` is.
 #[test]
 #[exp(nu_experimental::WINNOW_PARSER)]
-fn hash_after_a_vertical_tab_starts_a_comment() -> Result {
-    test().run("[1\u{b}# x ]\n 2] | length").expect_value_eq(4)
+fn hash_after_a_vertical_tab_then_a_stray_bracket() -> Result {
+    test()
+        .run("[1\u{b}# x ]\n 2] | length")
+        .expect_error_code_eq("nu::parser::unbalanced_delimiter")
 }
 
 /// In a `where` condition a raw string is a value, not a column of the row.

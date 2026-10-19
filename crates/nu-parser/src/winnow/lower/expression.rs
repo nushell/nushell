@@ -50,6 +50,7 @@ impl<'s> Lower<'_, '_, 's> {
             | w::Expr::Def(_)
             | w::Expr::Extern(_)
             | w::Expr::Alias(_)
+            | w::Expr::TypeAlias(_)
             | w::Expr::Use(_)
             | w::Expr::Module(_)
             | w::Expr::Export(_)

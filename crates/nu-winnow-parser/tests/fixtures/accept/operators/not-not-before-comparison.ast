@@ -1,0 +1,7 @@
+Block 0..22
+  Pipeline 0..21
+    Not 0..21
+      Not 4..21
+        BinaryOp == 8..21
+          Bool true 8..12
+          Bool false 16..21

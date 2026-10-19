@@ -19,7 +19,7 @@ use crate::{
     lite_parser::lite_parse,
     parse_captures_compile::wrap_element_with_collect,
     parse_module::{double_main_span, parse_module_pipeline, set_module_main},
-    parse_pipelines::{finish_block, parse_pipeline},
+    parse_pipelines::{finish_block, hide_unlet_constants, parse_pipeline},
     winnow::{
         driver::{BlockKind, parse_block, statement_changes_names},
         stats,
@@ -48,10 +48,11 @@ pub(in crate::winnow) enum StatementTarget<'t> {
 impl<'s> Lower<'_, '_, 's> {
     /// A statement lowered, or parsed by the classic parser from `span` when the lowering gives
     /// it back, added to `out`; returns whether the classic parser parsed it. The errors,
-    /// warnings and compile errors the lowering reported before giving up are dropped; what
-    /// else it added to the working set stays, unreachable from `out` (see the module
-    /// documentation of `lower`). `block_errors` is where the block's errors start
-    /// ([`parse_classic`]).
+    /// warnings and compile errors the lowering reported before giving up are dropped, and so
+    /// are the constants an `unlet` it lowered hid in the current scope (which the classic
+    /// parser must still find, in the `unlet` itself); what else it added to the working set
+    /// stays, unreachable from `out` (see the module documentation of `lower`). `block_errors`
+    /// is where the block's errors start ([`parse_classic`]).
     pub(in crate::winnow) fn statement_or_classic(
         &mut self,
         pipeline: &w::Pipeline<'s>,
@@ -63,6 +64,13 @@ impl<'s> Lower<'_, '_, 's> {
         let errors = self.working_set.parse_errors.len();
         let warnings = self.working_set.parse_warnings.len();
         let compile_errors = self.working_set.compile_errors.len();
+        // Empty, and so free to copy, unless an `unlet` in the block hid a constant.
+        let hidden_vars = self
+            .working_set
+            .delta
+            .last_scope_frame_mut()
+            .hidden_vars
+            .clone();
         match self.statement(pipeline, target) {
             Ok(pipeline) => {
                 stats::record_lowered_statement();
@@ -73,6 +81,7 @@ impl<'s> Lower<'_, '_, 's> {
                 self.working_set.parse_errors.truncate(errors);
                 self.working_set.parse_warnings.truncate(warnings);
                 self.working_set.compile_errors.truncate(compile_errors);
+                self.working_set.delta.last_scope_frame_mut().hidden_vars = hidden_vars;
                 stats::record_unlowered(span, &reason, self.working_set);
                 parse_classic(self.working_set, span, target, out, block_errors);
                 true
@@ -285,6 +294,8 @@ impl<'s> Lower<'_, '_, 's> {
             w::Expr::Mut(binding) => return self.mut_statement(element, binding),
             w::Expr::For(for_loop) => self.for_statement(element, for_loop)?,
             w::Expr::Alias(_) => return Err(Unlowered::Unsupported("alias")),
+            // `parse_type_alias` defines the alias as it parses the statement.
+            w::Expr::TypeAlias(_) => return Err(Unlowered::Unsupported("type alias")),
             w::Expr::Module(_) => return Err(Unlowered::Unsupported("module")),
             w::Expr::Use(_) => return Err(Unlowered::Unsupported("use")),
             _ => {
@@ -385,7 +396,8 @@ impl<'s> Lower<'_, '_, 's> {
     }
 
     /// One command of a pipeline with its redirection (`parse_pipeline_element`); `pipe` is
-    /// the `|` the classic parser keeps with it.
+    /// the `|` the classic parser keeps with it. An `unlet` of a constant hides it from here on,
+    /// as there.
     fn pipeline_element(
         &mut self,
         element: &w::PipelineElement<'s>,
@@ -397,6 +409,7 @@ impl<'s> Lower<'_, '_, 's> {
             Some(redirection) => Some(self.redirection(redirection)?),
             None => None,
         };
+        hide_unlet_constants(self.working_set, &expr);
         Ok(PipelineElement {
             pipe: pipe.map(|pipe| self.span(pipe)),
             expr,

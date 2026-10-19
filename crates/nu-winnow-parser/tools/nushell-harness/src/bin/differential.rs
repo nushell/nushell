@@ -130,6 +130,13 @@ fn is_syntax_error(err: &ParseError) -> bool {
     {
         return false;
     }
+    // A type name nu does not know: any name a type alias could have is one
+    // for this crate (`SyntaxShape::TypeAlias`), and only the `type`
+    // statements in scope tell whether it is defined. A name no alias can have
+    // is refused here too, so the two agree on it.
+    if name == "UnknownType" {
+        return false;
+    }
     // `use a b c` where `b` is not a submodule of `a`: found when the import
     // pattern is resolved against the module's contents.
     if let ParseError::WrongImportPattern(message, _) = err
@@ -165,7 +172,6 @@ fn is_syntax_error(err: &ParseError) -> bool {
             | "VariableNotValid"
             | "AliasNotValid"
             | "CommandDefNotValid"
-            | "UnknownType"
             | "KeywordMissingArgument"
             | "MissingType"
             | "RestNeedsName"
@@ -175,6 +181,13 @@ fn is_syntax_error(err: &ParseError) -> bool {
             | "AssignmentRequiresVar"
             | "AttributeRequiresDefinition"
             | "BuiltinCommandInPipeline"
+            | "PositionalAfterRest"
+            | "DuplicateParameter"
+            | "ColumnDefinedTwice"
+            | "LiteralTooLarge"
+            | "TypeAliasShadowsBuiltin"
+            | "TypeAliasNameNotValid"
+            | "TypeAliasMissingEquals"
     )
 }
 

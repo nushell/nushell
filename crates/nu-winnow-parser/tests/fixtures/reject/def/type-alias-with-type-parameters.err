@@ -1,0 +1,6 @@
+error: unknown type `Foo<int>`
+  --> reject/def/type-alias-with-type-parameters.nu:1:11
+  |
+1 | def f [x: Foo<int>] { }
+  |           ^^^^^^^^
+  = while parsing signature

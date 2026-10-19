@@ -417,6 +417,10 @@ impl<'a> Visitor<'a> for Flattener<'_> {
                 self.push(not.not_span, FlatShape::Boolean);
                 self.visit_expression(&not.expr);
             }
+            Expr::UnaryMinus(minus) => {
+                self.push(minus.minus_span, FlatShape::Operator);
+                self.visit_expression(&minus.expr);
+            }
             Expr::Assignment(assignment) => {
                 self.visit_expression(&assignment.lhs);
                 self.push(assignment.op.span, FlatShape::Operator);
@@ -515,6 +519,11 @@ impl<'a> Visitor<'a> for Flattener<'_> {
                 if let Some(value) = &alias.value {
                     self.visit_expression(value);
                 }
+            }
+            Expr::TypeAlias(alias) => {
+                self.push(alias.name.span, FlatShape::Definition);
+                self.push(alias.eq, FlatShape::Operator);
+                self.push(alias.ty.span, FlatShape::Type);
             }
             Expr::Use(use_statement) => {
                 self.visit_expression(&use_statement.module);

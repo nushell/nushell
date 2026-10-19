@@ -275,7 +275,9 @@ attribute_line = "@", item_rest, { item | pipe | pipe_pipe | redirection_op | as
    nu: lite_parser.rs:239-257, 379-383, 455-469; parse_pipelines.rs parse_pipeline_element
    here: src/parser/lite_parser.rs::lite_attribute_lines (for the first command of a
    pipeline and a command that starts a line; every token of the line becomes a
-   word), src/parser/parse_pipelines.rs::parse_pipeline_element *)
+   word), src/parser/parse_pipelines.rs::parse_pipeline_element
+   DIFF 2: attribute lines that a blank line and then a "|" line follow end at the blank
+   line here; nu goes on with the pipeline (`@a x`, a blank line, `| y`), see 9.2 *)
 
 (* ==== 2.1 Which parser sees a command ==== *)
 
@@ -369,17 +371,23 @@ math_expression = keyword_expression
 keyword_expression = if | match ;  (* (6.6) *)
 (* a leading "if"/"match" hands ALL remaining items to parse_call (6.5); alone it
    is Expected("expression") *)
-operand = { "not" }, value ;
-(* "not" may repeat; "not" with nothing after it is Expected("expression") *)
+operand = value
+          | "not", negated ;
+negated = operand, { tight_operator, operand_or_keyword } ;
+(* "not" negates everything up to the next operator that binds looser than it
+   (precedence 55: "and", "xor", "or") or the end: `not $a == $b` is
+   `not ($a == $b)`, `not $a and $b` is `(not $a) and $b`. "not" may repeat; "not"
+   with nothing after it is Expected("expression") *)
+tight_operator = operator ;  (* precedence above 55 *)
 operand_or_keyword = operand
                      | if | match ;  (* takes all remaining items *)
 (* An operator with no operand after it is IncompleteMathExpression.
    Folding: a stack that grows while precedence rises and collapses while it falls
    or stays level; "**" never collapses on equal precedence (right associative);
    every other operator is left associative.
-   nu: parse_expressions.rs:1288 parse_math_expression, 1314-1467
+   nu: parse_expressions.rs parse_math_expression, parse_math_operand
    here: src/parser/parse_expressions.rs::parse_math_expression, parse_math_operand,
-   fold_binary_op *)
+   negated_operand_end, fold_binary_op *)
 
 operator = "==" | "!=" | "<" | "<=" | ">" | ">="
            | "=~" | "like" | "!~" | "not-like"
@@ -572,6 +580,15 @@ shaped_value = any_value  (* shape Any *)
                | cell_path_literal_body  (* CellPath (members without "$.") *)
                | external_arg ;  (* ExternalArgument (4) *)
 (* Block, Closure and Record shapes are satisfied only by a "{" item.
+   Any, Number, Int, Float, Duration and Filesize first try a <negation>. *)
+
+negation = "-", dollar_expr  (* not a range: "-$x..5" is one, with a negated bound *)
+           | "-", paren_expr ;  (* the "(" closes at the end of the item *)
+(* the negation of a number, duration or filesize (Expr::UnaryMinus); whether the
+   operand’s type can be negated is the consumer’s check. "-(1)px" and "-(1)+(2)" are
+   bare interpolations. A call’s argument starting with "-" is read as a flag first, and
+   an external command’s stays the text it spells.
+   nu: parse_expressions.rs parse_negation   here: src/parser/parse_expressions.rs::parse_negation, is_negation
    nu: parse_expressions.rs:893-1004
    here: src/parser/parse_expressions.rs::parse_value with
    ExpectedShape::{Any,Number,String,Closure,MatchArmBody,Declared}:
@@ -584,7 +601,9 @@ any_value = nothing | bool
             | filesize  (* 3rd: unit suffix with a bad number = hard error *)
             | duration  (* 4th: same *)
             | datetime  (* 5th *)
-            | int  (* 6th: "0x"/"0o"/"0b" prefix with bad digits = hard error *)
+            | negation  (* before all: "-$..." or "-(...)" (5.1) *)
+            | int  (* 6th: "0x"/"0o"/"0b" prefix with bad digits, or digits *)
+            (* too many for 64 bits = hard error *)
             | float  (* 7th *)
             | string ;  (* 8th: any remaining text *)
 (* "hard error" = not an `Expected` error, so the item is garbage, never a string
@@ -598,41 +617,49 @@ nothing = "null" ;
 (* nu: parse_expressions.rs:912-920   here: src/parser/parse_expressions.rs::parse_any_value *)
 
 int = int_text ;  (* after deleting every "_" *)
-int_text = "0b", digit_2, { digit_2 } | "0o", digit_8, { digit_8 } | "0x", digit_16, { digit_16 }
-           | [ "+" | "-" ], digit_10, { digit_10 } ;
-(* radix literals are parsed as u64 and reinterpreted (0xffffffffffffffff = -1); no
-   sign after a radix prefix; decimal must fit in i64 ("+7" is fine). "_" may appear
-   anywhere ("_1", "1_", "0x_f"). A radix prefix followed by anything that is not all
-   digits of that radix is the hard error "invalid digits for radix N".
-   nu: parse_literals.rs:155 parse_int, 137 strip_underscores
-   here: src/parser/parse_literals.rs::parse_int, radix_prefix;
+int_text = [ "+" | "-" ], ( "0b", digit_2, { digit_2 } | "0o", digit_8, { digit_8 } | "0x", digit_16, { digit_16 }
+           | digit_10, { digit_10 } ) ;
+(* radix literals are parsed as u64; unsigned they are reinterpreted
+   (0xffffffffffffffff = -1), signed they are a number that must fit
+   (-0x8000000000000000 is i64::MIN, +0x8000000000000000 is too large). Decimal must
+   fit in i64 ("+7" is fine). Digits too many for 64 bits are the hard error "number too
+   large", never a float ("9223372036854775808.0" is one). "_" may appear anywhere
+   ("_1", "1_", "0x_f"). A radix prefix followed by anything that is not all digits of
+   that radix is the hard error "invalid digits for radix N" (at a pipeline head such a
+   word is a command: `0xdump`).
+   nu: parse_literals.rs read_int, decode_int, parse_int, strip_underscores
+   here: src/parser/parse_literals.rs::read_int (IntLiteral), parse_int;
    src/parser/parse_expressions.rs::parse_any_value *)
 
 float = float_text ;  (* after deleting every "_" *)
 float_text = [ "+" | "-" ], ( digit, { digit }, [ ".", { digit } ] | ".", digit, { digit } ),
              [ ( "e" | "E" ), [ "+" | "-" ], digit, { digit } ]
-             | [ "+" | "-" ], ( "inf" | "infinity" | "nan" ) ;  (* case-insensitive *)
-(* exactly what Rust’s f64::from_str accepts
-   nu: parse_literals.rs:198 parse_float, 210 parse_number
-   here: src/parser/parse_literals.rs::parse_float, parse_number *)
+             | [ "+" | "-" ], ( "inf" | "nan" | "NaN" ) ;  (* exactly these spellings *)
+(* what Rust’s f64::from_str accepts, except its other special spellings ("INF",
+   "Infinity", "Nan", "i_n_f"), which are words
+   nu: parse_literals.rs read_float, SPECIAL_FLOAT_NAMES, parse_number
+   here: src/parser/parse_literals.rs::parse_float, SPECIAL_FLOAT_NAMES, parse_number *)
 
 (* ==== 5.3 Filesize and duration ==== *)
 
 (* a unit value is <unit-number> followed by a filesize or duration unit: *)
-unit_number = ( digit | ".", digit | "-", digit ), any_chars ;
+unit_number = ( digit | ( "." | "-" | "+" ), digit ), any_chars ;
 (* the first two bytes gate the attempt; the text before the unit, minus "_", must
-   then parse as f64 ("1e3kb", ".5kb", "-3sec", "1_000kb" are fine; "1..2sec" is the
-   hard error "value must be a number"); a number ending in "$" is never a unit value *)
-filesize = unit_number, filesize_unit ;  (* never when the item starts with "0x" *)
+   then parse as f64 ("1e3kb", ".5kb", "-3sec", "+5sec", "1_000kb" are fine; "1..2sec"
+   is the hard error "value must be a number"); a number ending in "$" is never a unit
+   value. The value in bytes or nanoseconds must fit in an i64, else it is the hard
+   error "too large" (LiteralTooLarge): an integer is scaled exactly
+   (9223372036854775807ns fits), a fraction as an f64 through the next smaller unit. *)
+filesize = unit_number, filesize_unit ;  (* never when the item starts with "0x", "-0x" or "+0x" *)
 filesize_unit = "KB" | "MB" | "GB" | "TB" | "PB" | "EB"
                 | "KIB" | "MIB" | "GIB" | "TIB" | "PIB" | "EIB" | "B" ;
 (* matched against the ASCII-uppercased item (case-insensitive), in this order *)
 duration = unit_number, duration_unit ;
 duration_unit = "ns" | "us" | "µs" | "μs" | "ms" | "sec" | "min" | "hr" | "day" | "wk" ;
 (* U+00B5 and U+03BC both spell microseconds; units are case-sensitive
-   nu: parse_literals.rs:1398 parse_unit_value, 1344, 1366, 1495, 1559
+   nu: parse_literals.rs parse_unit_value, FILESIZE_UNIT_GROUPS, DURATION_UNIT_GROUPS
    here: src/parser/parse_literals.rs::parse_unit_value, parse_filesize, parse_duration
-   (same tables, same order) *)
+   (same tables, same order, UnitError) *)
 
 (* ==== 5.4 Datetime ==== *)
 
@@ -646,10 +673,12 @@ offset = "Z" | "z" | ( "+" | "-" | "−" ), 2 * digit, ":", 2 * digit ;
 (* Validity is chrono’s parse_from_rfc3339: month 1-12, day valid for that month and
    year (2023-02-30 is a string), hour < 24, minute < 60, second <= 60, offset
    hours < 24; seconds are mandatory; "+0530" (no colon) is not an offset; the minus
-   of an offset may be U+2212 ("−") as well as "-". Anything that fails is a plain
-   string.
-   nu: parse_literals.rs:1304 parse_datetime
-   here: src/parser/parse_literals.rs::is_datetime, days_in_month *)
+   of an offset may be U+2212 ("−") as well as "-". A word written like a date that
+   names no day ("YYYY-MM-DD" alone or before "T"/"t" and "HH:MM", such as 2023-02-29)
+   is the hard error "not a valid date"; anything else that fails is a plain string
+   (2023-02-29.log, 2024-01-15T10:00).
+   nu: parse_literals.rs parse_datetime, is_invalid_date_literal
+   here: src/parser/parse_literals.rs::is_datetime, days_in_month, is_invalid_date_literal *)
 
 (* ==== 5.5 Binary ==== *)
 
@@ -863,12 +892,15 @@ list_sep = whitespace | "," | eol | "|" | comment ;
    semicolon in list"; a redirection token (`o> file`) is consumed by the lite parser
    and silently dropped ([a o> b] is ["a"]; nothing before it, no target, or a second
    one for the same stream is an error); an assignment-op item ("=") is a bare word
-   and, as in every lite parse, everything after it is one (`[a = b | c]` has five). *)
+   and, as in every lite parse, everything after it is one (`[a = b | c]` has five).
+   A "]" in the body that closes no "[" there is Unbalanced: it would close the list
+   early (`[1 2]]`); outside a list such a "]" is text (1.3). *)
 list_item = value | spread ;
 spread = "...", ( "[", list_body, "]" | variable, [ cell_path_tail ] | "(", block_tokens, ")" ) ;
 (* "...x" with any other first byte is the bare word "...x"
-   nu: parse_expressions.rs:105 parse_list_expression; parse_helpers.rs:12-31
-   here: src/parser/lite_parser.rs::lite_parse_parts (the lite parse of a bracket’s tokens;
+   nu: parse_expressions.rs parse_list_expression; lex.rs LexMode::ListItems; parse_helpers.rs
+   here: src/lex.rs::LexOptions::LIST (LexMode::ListItems),
+   src/parser/lite_parser.rs::lite_parse_parts (the lite parse of a bracket’s tokens;
    dropped redirections are recorded as ignored text),
    src/parser/parse_expressions.rs::parse_list_expression, parse_list_item;
    value.rs::is_spread *)
@@ -877,13 +909,16 @@ table = "[", list, ";", list, { list_sep, list }, "]" ;
 (* The item is a table iff its body’s first token starts with "[" and its second is
    ";". Then: no row after ";" is "expected table row"; every row token must start
    with "[" (a second ";" is an error); no spreads in header or rows; each row must
-   have exactly as many items as the header (MissingColumns / ExtraColumns); every
-   header item must be a string or it is "Table column name not string".
-   nu: parse_expressions.rs:240 parse_table_expression, 217, 376
-   here: src/parser/parse_expressions.rs::parse_table_expression, parse_table_row (all four
-   checks; a column name is a string when it is a string, an interpolation, a
-   variable, a cell path or a subexpression: the type of the last three is the
-   consumer’s) *)
+   have exactly as many items as the header (MissingColumns / ExtraColumns); each
+   header item is a name, read as a record key (5.15), so `[[1 true]; [a b]]` has the
+   columns "1" and "true", and every header item must be a string or it is "Table
+   column name not string". A column named twice is ColumnDefinedTwice.
+   nu: parse_expressions.rs parse_table_expression, parse_table_row, parse_field_name,
+   check_duplicate_name
+   here: src/parser/parse_expressions.rs::parse_table_expression, parse_table_row,
+   parse_field_name, check_duplicate_name (all the checks; a column name is a
+   string when it is a string, an interpolation, a variable, a cell path or a
+   subexpression: the type of the last three is the consumer’s) *)
 
 (* ==== 5.15 Records ==== *)
 
@@ -891,21 +926,25 @@ record = "{", { record_sep }, { record_entry, { record_sep } }, "}" ;
 record_sep = whitespace | "," | eol | comment ;
 record_entry = record_key, ":", record_value
                | record_spread ;
-record_key = ? <value> with shape String, lexed with ":" special (so "a:1" splits): <bare-word> (no ":"; not "true"/"false"/"null"; a "(" makes it an interpolation whose literal parts may not contain ":"), <double-quoted> | <single-quoted> | <backtick-quoted> | <raw-string>, <variable> [ <cell-path-tail> ], "(" <block-tokens> ")" [ <cell-path-tail> ], "[" ... "]" [ <cell-path-tail> ], "$\"...\"" ? ;
+record_key = ? <value> with shape String, lexed with ":" special (so "a:1" splits): <bare-word> (no ":"; "true", "false", "null", "1" and "2023-02-29" are the names they spell; a "(" makes it an interpolation whose literal parts may not contain ":"), <double-quoted> | <single-quoted> | <backtick-quoted> | <raw-string>, <variable> [ <cell-path-tail> ], "(" <block-tokens> ")" [ <cell-path-tail> ], "[" ... "]" [ <cell-path-tail> ], "$\"...\"" ? ;
 (* a "{" key is "non-block value" unless it is itself "{k: v}" *)
 record_value = ? <value> with shape Any, lexed with NO special bytes ("http://x" is one item), but a bare word or bare interpolation containing ":" is "colon in bare word specifying record value" ? ;
 record_spread = "...", ( "{", record_body, "}" | variable, [ cell_path_tail ] | "(", block_tokens, ")" ) ;
 (* Key, ":" and value are lexed one token at a time in that order; the ":" must be
    its own token ("a:1", "a: 1", "a : 1" all work). A key, ":" or value token that is
    not an item ("|", "||", ";", "=", "+=", "o>") is "Unexpected token in record";
-   a key with no ":" is "Incomplete record field"; ":" then nothing is an error.
-   nu: parse_expressions.rs:1943 parse_record, 1877 check_record_key_or_value
-   here: src/parser/parse_expressions.rs::parse_record, check_record_key_or_value *)
+   a key with no ":" is "Incomplete record field"; ":" then nothing is an error. A key
+   written twice (as a word or a quoted or raw string) is ColumnDefinedTwice; a key known
+   only when the record runs (`$k`, a spread) is checked then.
+   nu: parse_expressions.rs parse_record, parse_field_name, check_duplicate_name,
+   check_record_key_or_value
+   here: src/parser/parse_expressions.rs::parse_record, parse_field_name,
+   check_duplicate_name, check_record_key_or_value *)
 
 (* ==== 6.1 Keyword table and pipeline restrictions ==== *)
 
 keyword_statement = def | extern | export | export_env | attribute_block
-                    | let | const | mut | for | alias | module | use
+                    | let | const | mut | for | alias | type_alias | module | use
                     | overlay_stmt | source | source_env | run | hide
                     | where | plugin_use ;
 (* only for a single-command pipeline (2.1)
@@ -935,16 +974,19 @@ keyword_statement = def | extern | export | export_env | attribute_block
    here: src/parser/parse_keywords.rs::keyword_boundary, KeywordCall::flags,
    seen_end_of_options, KeywordCall::positional, parse_help_call *)
 
-pipeline_forbidden_head = ? "def" | "extern" | "for" | "module" | "use" | "source" | "alias" | "export" | "export-env" | "hide" | "const" | "mut" | "overlay" (unless followed by "list") | "plugin" "use" ? ;
+pipeline_forbidden_head = ? "def" | "extern" | "for" | "module" | "type" | "use" | "source" | "alias" | "export" | "export-env" | "hide" | "const" | "mut" | "overlay" (unless followed by "list") | "plugin" "use" | "while" | "loop" ? ;
 (* refused with "statement used in pipeline" at ANY position of a multi-element
    pipeline, including the first, and after env shorthand (3.1). `let` is not in
    the list, but `ls | let x = 1` fails because the "=" routes it to assignment.
-   nu: parse_expressions.rs:1602-1685
+   `while` and `loop` (statements without output, like `for`) are refused by the
+   pipeline itself, at the first item after any env shorthand of each element.
+   nu: parse_expressions.rs parse_expression (HeadKind::Builtin), parse_pipelines.rs
+   parse_pipeline
    here: src/parser/parse_expressions.rs::check_builtin_command_in_pipeline (every element
    of a multi-command pipeline and the command after shorthand are parsed in
-   Position::Element) *)
+   Position::Element), src/parser/parse_pipelines.rs::check_loop_in_pipeline *)
 
-(* Redirections are refused on: def, extern, alias, use, module, for, source,
+(* Redirections are refused on: def, extern, alias, type, use, module, for, source,
    source-env, run, hide, overlay* (by the word "overlay" alone, before its
    arguments), plugin use, export*. A redirection on these is
    RedirectingBuiltinCommand. On export-env it is dropped without a look. `let x =
@@ -957,9 +999,10 @@ pipeline_forbidden_head = ? "def" | "extern" | "for" | "module" | "use" | "sourc
 
 parser_keyword = "if" | "match" | "try" | "overlay" | "overlay hide"
                  | "overlay new" | "overlay use"  (* aliasable *)
-                 | "alias" | "const" | "def" | "extern" | "module" | "use" | "export"
-                 | "export alias" | "export const" | "export def" | "export extern"
-                 | "export module" | "export use" | "for" | "loop" | "while"
+                 | "alias" | "const" | "def" | "extern" | "module" | "type" | "use"
+                 | "export" | "export alias" | "export const" | "export def"
+                 | "export extern" | "export module" | "export type" | "export use"
+                 | "for" | "loop" | "while"
                  | "return" | "break" | "continue" | "let" | "mut" | "hide"
                  | "export-env" | "source-env" | "source" | "run" | "where"
                  | "plugin use" ;  (* unaliasable *)
@@ -983,8 +1026,12 @@ bad_definition_name = ? a name containing "#" | "^" | "%" | a name parsing as a 
    or the end of the line after an "e>|") does not join the def to another command,
    so the def is still a single-command pipeline; a def after an attribute line
    inside a pipeline is not.
-   nu: parse_def.rs:52 parse_def_predecl, 161
-   here: src/parser/parse_def.rs::parse_def_predecl (whether a pipe joins the next
+   A `type` statement with a name and "=" after the keyword is recorded too, its name and
+   span only, so that a use of the alias above it (or inside it) can be told from an
+   unknown type; the alias itself is defined when the statement is parsed.
+   nu: parse_def.rs parse_def_predecl (add_type_predecl)
+   here: src/parser/parse_def.rs::parse_def_predecl, scan_predecls (TypeAliasPredecl,
+   for the engine’s BlockSink::predecl_type_alias; whether a pipe joins the next
    command: src/parser/lite_parser.rs::after_pipe_lines, the statement parser’s
    rule; the name: src/parser/parse_signatures.rs::parse_definition_name) *)
 
@@ -1075,7 +1122,7 @@ extern = "extern", def_name, full_signature ;
    here: src/parser/parse_def.rs::parse_extern,
    src/parser/parse_signatures.rs::parse_full_signature *)
 
-(* ==== 6.4 alias ==== *)
+(* ==== 6.4 alias, type ==== *)
 
 alias = "alias", def_name, "=", alias_target
         | "export", "alias", def_name, "=" ;  (* no target: accepted (see below) *)
@@ -1092,6 +1139,27 @@ alias_target = ? <call> over ALL remaining items, pipes and redirections include
    of a keyword target are forgiven as in nu, `alias x = overlay new`)
    DIFF 1: a missing positional nested in the target is not forgiven here
    (`alias i = if if x y`), see 9.2 *)
+
+type_alias = [ "export" ], "type", type_alias_name, "=", type_alias_type ;
+type_alias_name = ( ? a letter of any script ? | "_" ),
+                  { ? a letter of any script ? | digit_10 | "_" | "-" } ;
+                  (* not a built-in type name (`int`, `list`, `record`, ...) *)
+type_alias_type = ? one or more items that, joined and lexed again as a type (1.4, `<` and `>` nest, "," special), are exactly one <type> (7.2) ? ;
+(* A help flag among the first two items after the keyword makes the statement a call
+   (`type --help`). Then, in nu’s order: no name is MissingPositional; "=" first is
+   "missing name"; one item is "put spaces around '='" when it holds a "=" (`type T=int`)
+   and TypeAliasMissingEquals otherwise (`type ls`, with a hint to use `which`); a second
+   item that is not "=" is TypeAliasMissingEquals; a built-in name is
+   TypeAliasShadowsBuiltin; any other name that is not a <type-alias-name> is
+   TypeAliasNameNotValid; nothing after "=" is MissingType; two types are ExtraTokens;
+   a "@completer" in the type is an error (a completer belongs to a parameter,
+   `c: Color@[red green]`). What the alias names, where it may be used and `hide` are the
+   consumer’s: it is defined in order, as `alias` and `const` are, and the
+   predeclaration (6.1) records where it is.
+   nu: parse_type_alias.rs parse_type_alias, is_valid_type_alias_name;
+   parse_shape_specs.rs BUILTIN_TYPE_NAMES
+   here: src/parser/parse_type_alias.rs::parse_type_alias,
+   src/parser/parse_shape_specs.rs::{BUILTIN_TYPE_NAMES, is_valid_type_alias_name} *)
 
 (* ==== 6.5 Modules ==== *)
 
@@ -1292,9 +1360,9 @@ short_alias = "(-", short_char, ")" ;  (* a separate item after a flag: `--long 
               (* a short form, or with no preceding flag *)
 flag_name = ( identifier_byte | "-" ), { ( identifier_byte | "-" ) } ;
 decl_name = [ "$" ], identifier_byte, { identifier_byte } ;  (* digits, "?", ":", "@", "#" are allowed *)
-(* nu: parse_signatures.rs:948, 887, 919, 715, 805, 849; parse_helpers.rs:49 is_variable
+(* nu: parse_signatures.rs parse_signature_helper, assemble_signature; parse_helpers.rs is_variable
    here: src/parser/parse_signatures.rs::parse_parameter, parse_parameters,
-   check_parameter_order *)
+   check_parameters, check_unique_name *)
 
 param_type = shape, [ "@", completer ] ;
 (* split at the FIRST "@" in the token regardless of "<" ">" nesting (so
@@ -1334,13 +1402,18 @@ shape = "any" | "binary" | "bool" | "cell-path" | "closure" | "datetime"
         | "list", [ "<", shape_list, ">" ]
         | "record", [ "<", named_shapes, ">" ]
         | "table", [ "<", named_shapes, ">" ]
-        | "oneof", [ "<", shape_list, ">" ] ;
-(* "block" is the explicit error "Use 'closure' instead of 'block'"; every other word
-   is UnknownType (with a hint when it contains "@"). Types: path/directory -> string,
-   glob -> glob, datetime -> date, external_arg -> any.
-   nu: parse_shape_specs.rs:20 parse_shape_name, 13 parse_type
+        | "oneof", [ "<", shape_list, ">" ]
+        | type_alias_name ;  (* (6.4) *)
+(* "block" is the explicit error "Use 'closure' instead of 'block'"; a generic is one
+   of the four names before any "<" ("listing" is no list); any other word that a type
+   alias could have is a type alias, which the consumer looks up (an unknown one is
+   UnknownType, one used above its `type` statement TypeAliasUsedBeforeDefinition, one
+   with "<...>" TypeAliasWithParams); every other word is UnknownType (with a hint when
+   it contains "@"). Types: path/directory -> string, glob -> glob, datetime -> date,
+   external_arg -> any.
+   nu: parse_shape_specs.rs parse_shape_name, type_name, expand_type_alias, parse_type
    here: src/parser/parse_shape_specs.rs::parse_type, parse_generic_shape (same list, same
-   error) *)
+   error; SyntaxShape::TypeAlias) *)
 
 (* The "<" ... ">" of a generic type is split at the FIRST "<"; the token must END with ">" (a ">" elsewhere is "Extra
    characters", none is Unclosed ">")
@@ -1462,13 +1535,15 @@ row_condition = closure
                 | math_expression ;
 (* the whole span is first tried as a closure (`{|x| ..}`, `{ .. }`, `{}`); otherwise,
    as for a brace item with a tail (`{}.a`, `{a: 1}.a`, 5.13), it is a math expression with a fresh `$it` in scope in which every bare-string
-   operand, also under `not`, becomes a cell path on `$it` (`size` -> `$it.size`).
+   left operand, and right operand of "and", "xor" and "or", also under `not`, becomes a
+   cell path on `$it` (`size` -> `$it.size`, `a and not b`); the right operand of any
+   other operator stays a value (`name == foo`).
    A plain `$var` or a cell path on another variable is returned as-is (a closure at
    run time); anything else must be bool-typed (TypeMismatch otherwise). `where` is
    parsed through its command signature, so `where` alone is MissingPositional and
    flags are flags.
-   nu: parse_signatures.rs:462 parse_row_condition, 296 expand_to_cell_path;
-   nu-command filters/where_.rs
+   nu: parse_signatures.rs parse_row_condition, expand_to_cell_path;
+   parse_expressions.rs expand_row_condition_operands; nu-command filters/where_.rs
    here: src/parser/parse_source.rs::parse_where,
    src/parser/parse_expressions.rs::parse_row_condition, expand_row_condition,
    expand_to_cell_path (bool typing: consumer) *)

@@ -177,6 +177,7 @@ pub fn walk_expression<'a, V: Visitor<'a> + ?Sized>(visitor: &mut V, expr: &Expr
             visitor.visit_expression(&binary.rhs);
         }
         Expr::UnaryNot(not) => visitor.visit_expression(&not.expr),
+        Expr::UnaryMinus(minus) => visitor.visit_expression(&minus.expr),
         Expr::Assignment(assignment) => {
             visitor.visit_expression(&assignment.lhs);
             visitor.visit_block(&assignment.rhs);
@@ -229,6 +230,7 @@ pub fn walk_expression<'a, V: Visitor<'a> + ?Sized>(visitor: &mut V, expr: &Expr
                 visitor.visit_expression(v_);
             }
         }
+        Expr::TypeAlias(alias) => visitor.visit_type_annotation(&alias.ty),
         Expr::Use(use_statement) => {
             visitor.visit_expression(&use_statement.module);
             for member in &use_statement.members {

@@ -6,12 +6,13 @@
 //! Nushell's order.
 
 use std::borrow::Cow;
+use std::num::IntErrorKind;
 
 use winnow::ascii::digit1;
 use winnow::combinator::{alt, delimited, opt, preceded, repeat};
 use winnow::error::{EmptyError, ErrMode};
 use winnow::prelude::*;
-use winnow::token::{any, one_of, rest, take_till, take_while};
+use winnow::token::{any, one_of, take_till, take_while};
 
 use crate::ast::{
     BinaryLiteral, CellPath, Duration, DurationUnit, Expr, Expression, Filesize, FilesizeUnit, FullCellPath,
@@ -25,7 +26,7 @@ use crate::span::Span;
 
 use super::WorkingSet;
 use super::parse_expressions::{
-    BraceShape, ExpectedShape, parse_list_expression, parse_record, parse_subexpression, parse_value,
+    BraceShape, ExpectedShape, is_negation, parse_list_expression, parse_record, parse_subexpression, parse_value,
 };
 use super::parse_helpers::is_identifier;
 use super::tokens::{Tokens, item, keyword};
@@ -35,167 +36,278 @@ fn strip_underscores(text: &str) -> Cow<'_, str> {
     if text.contains('_') { Cow::Owned(text.replace('_', "")) } else { Cow::Borrowed(text) }
 }
 
-/// An integer literal (nu's `parse_int`), with `_` separators anywhere:
+/// What a word is as an integer literal (nu's `IntLiteral`), with `_` separators anywhere:
 ///
 /// ```text
-/// int = decimal | "0x" hex-digits | "0o" octal-digits | "0b" binary-digits
+/// int = [ "+" | "-" ] ( decimal | "0x" hex-digits | "0o" octal-digits | "0b" binary-digits )
 /// ```
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum IntLiteral {
+    /// An int.
+    Value(i64),
+    /// A radix prefix followed by digits of no number in that radix (`0b2`, `0xdump`).
+    InvalidDigits {
+        /// The radix the prefix announced.
+        radix: u32,
+    },
+    /// Valid digits for a number that doesn't fit in an `i64` (`9223372036854775808`).
+    OutOfRange {
+        /// The radix of the digits.
+        radix: u32,
+    },
+    /// No int: a word, a float, or empty.
+    NotInt,
+}
+
+impl IntLiteral {
+    /// The int at `span` as a value of the word (nu's `parse_int`): its value, `None` when the
+    /// word is no int at all, or the error the word reports. Only a decimal number can be
+    /// written as a float instead: an int literal never silently becomes a float that has lost
+    /// precision.
+    pub fn checked(self, span: Span) -> ParseResult<Option<i64>> {
+        let message = match self {
+            IntLiteral::Value(value) => return Ok(Some(value)),
+            IntLiteral::NotInt => return Ok(None),
+            IntLiteral::InvalidDigits { radix } => format!("invalid digits for radix {radix}"),
+            IntLiteral::OutOfRange { radix: 10 } => "number too large (add `.0` for a float)".to_string(),
+            IntLiteral::OutOfRange { .. } => "number too large for 64 bits".to_string(),
+        };
+        Err(cut(Diagnostic::new(ErrorKind::InvalidLiteral { kind: "int", message }, span)))
+    }
+}
+
+/// Read `text` as an integer literal (nu's `read_int` and `decode_int`).
 ///
 /// Like Nushell, radix literals are parsed as `u64` and reinterpreted, so
-/// `0xffffffffffffffff` is `-1`.
-pub fn parse_int(text: &str) -> Option<i64> {
+/// `0xffffffffffffffff` is `-1`; a sign makes the literal a number that has to
+/// fit, so `-0x8000000000000000` is `i64::MIN` and `+0x8000000000000000` is too
+/// large.
+pub fn read_int(text: &str) -> IntLiteral {
     // Most words asked about are no number. Like nu's `read_int`, refuse them at their first
     // byte (past `_` separators): an int starts with a digit, its radix prefix included, or a sign.
-    let first = text.bytes().find(|&byte| byte != b'_')?;
+    let Some(first) = text.bytes().find(|&byte| byte != b'_') else {
+        return IntLiteral::NotInt;
+    };
     if !(first.is_ascii_digit() || first == b'+' || first == b'-') {
-        return None;
-    }
-    // An int has a digit.
-    if !text.bytes().any(|byte| byte.is_ascii_digit()) {
-        return None;
+        return IntLiteral::NotInt;
     }
     let text = strip_underscores(text);
-    alt((
-        rest.try_map(str::parse::<i64>),
-        preceded("0x", radix_digits(16)),
-        preceded("0o", radix_digits(8)),
-        preceded("0b", radix_digits(2)),
-    ))
-    .parse(&text)
-    .ok()
+    let (sign, unsigned) = match text.as_bytes().first() {
+        Some(&sign @ (b'-' | b'+')) => (Some(sign), &text[1..]),
+        _ => (None, &text[..]),
+    };
+    // Rust reports an overflow as soon as the digits read so far overflow, before it reaches a
+    // later non-digit, so a word is only out of range if it is all digits.
+    let all_digits = |digits: &str, radix: u32| digits.chars().all(|c| c.is_digit(radix));
+    let radix_int = |digits: &str, radix: u32| match u64::from_str_radix(digits, radix) {
+        Ok(number) => {
+            let value = match sign {
+                Some(b'-') => 0i64.checked_sub_unsigned(number),
+                Some(_) => i64::try_from(number).ok(),
+                None => Some(number as i64),
+            };
+            value.map_or(IntLiteral::OutOfRange { radix }, IntLiteral::Value)
+        }
+        Err(error) if *error.kind() == IntErrorKind::PosOverflow && all_digits(digits, radix) => {
+            IntLiteral::OutOfRange { radix }
+        }
+        Err(_) => IntLiteral::InvalidDigits { radix },
+    };
+    if let Some(digits) = unsigned.strip_prefix("0b") {
+        radix_int(digits, 2)
+    } else if let Some(digits) = unsigned.strip_prefix("0o") {
+        radix_int(digits, 8)
+    } else if let Some(digits) = unsigned.strip_prefix("0x") {
+        radix_int(digits, 16)
+    } else {
+        match text.parse::<i64>() {
+            Ok(value) => IntLiteral::Value(value),
+            Err(error)
+                if matches!(error.kind(), IntErrorKind::PosOverflow | IntErrorKind::NegOverflow)
+                    && all_digits(unsigned, 10) =>
+            {
+                IntLiteral::OutOfRange { radix: 10 }
+            }
+            Err(_) => IntLiteral::NotInt,
+        }
+    }
 }
 
-/// The rest of the input as the digits of an unsigned number in `radix`,
-/// reinterpreted as an `i64`.
-fn radix_digits<'i>(radix: u32) -> impl Parser<&'i str, i64, EmptyError> {
-    rest.try_map(move |digits| u64::from_str_radix(digits, radix)).map(|value| value as i64)
-}
-
-/// The radix announced by a `0x`, `0o` or `0b` prefix, if any. Like nu's `read_int`, which
-/// strips the `_` separators before it reads the prefix, `0_xzz` claims to be hex.
-pub fn radix_prefix(text: &str) -> Option<u32> {
-    let mut bytes = text.bytes().filter(|&byte| byte != b'_');
-    match (bytes.next(), bytes.next()) {
-        (Some(b'0'), Some(b'x')) => Some(16),
-        (Some(b'0'), Some(b'o')) => Some(8),
-        (Some(b'0'), Some(b'b')) => Some(2),
+/// An integer literal's value (nu's `parse_int` without its errors): `None` for anything
+/// [`read_int`] does not read as an int.
+pub fn parse_int(text: &str) -> Option<i64> {
+    match read_int(text) {
+        IntLiteral::Value(value) => Some(value),
         _ => None,
     }
 }
 
-/// A float literal (nu's `parse_float`): everything Rust's `f64::from_str`
-/// accepts (including `inf`, `NaN`, `1e5`, `.5`), with `_` separators.
+/// The names `f64::from_str` takes for special floats that are also Nushell's: `inf` and
+/// `nan`, plus `NaN`, the spelling Nushell prints (nu's `SPECIAL_FLOAT_NAMES`). Rust also
+/// accepts `infinity` and any letter case, which would make bare words like `Nan` floats.
+const SPECIAL_FLOAT_NAMES: [&str; 3] = ["inf", "nan", "NaN"];
+
+/// A float literal (nu's `read_float`): everything Rust's `f64::from_str`
+/// accepts (`1e5`, `.5`, `5.`), with `_` separators, except that the only
+/// special floats are `inf`, `nan` and `NaN`, signed or not.
 pub fn parse_float(text: &str) -> Option<f64> {
     // Most words asked about are no number. Like nu's `read_float`, refuse them at their first
-    // byte (past `_` separators): `f64::from_str` only takes a sign, a digit, `.`, or `inf`,
-    // `infinity` and `nan` in any case there.
+    // byte (past `_` separators): `f64::from_str` only takes a sign, a digit, `.`, or a special
+    // name there.
     let first = text.bytes().find(|&byte| byte != b'_')?;
-    if !matches!(first, b'0'..=b'9' | b'+' | b'-' | b'.' | b'i' | b'I' | b'n' | b'N') {
+    if !matches!(first, b'0'..=b'9' | b'+' | b'-' | b'.' | b'i' | b'n' | b'N') {
         return None;
     }
-    // A float has a digit, unless it is `inf`, `infinity` or `NaN` (in any case, signed, with
-    // separators).
-    let special_float_byte =
-        |byte: u8| matches!(byte.to_ascii_lowercase(), b'+' | b'-' | b'_' | b'i' | b'n' | b'f' | b'a' | b't' | b'y');
-    if !text.bytes().any(|byte| byte.is_ascii_digit()) && !text.bytes().all(special_float_byte) {
+    let stripped = strip_underscores(text);
+    let unsigned = stripped.strip_prefix(['+', '-']).unwrap_or(&stripped);
+    // A special float is spelled exactly as one of the names, with no `_` in it (`i_n_f` is a
+    // bare word).
+    let written = text.strip_prefix(['+', '-']).unwrap_or(text);
+    if unsigned.starts_with(|c: char| c.is_ascii_alphabetic()) && !SPECIAL_FLOAT_NAMES.contains(&written) {
         return None;
     }
-    let text = strip_underscores(text);
-    if text.is_empty() {
-        return None;
-    }
-    text.parse::<f64>().ok()
+    stripped.parse::<f64>().ok()
 }
 
-/// An int or a float (nu's `parse_number`).
+/// An int or a float (nu's `parse_number`). An int too large for 64 bits is an
+/// error, not a float that lost precision; a word with bad radix digits is no
+/// number (`0xdump`).
 pub fn parse_number<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResult<Expression<'a>> {
     let text = working_set.get_span_contents(span);
-    match (parse_int(text), parse_float(text)) {
-        (Some(int), _) => Ok(Expression::new(Expr::Int(int), span)),
-        (None, Some(float)) => Ok(Expression::new(Expr::Float(float), span)),
-        (None, None) => Err(cut(Diagnostic::expected("number", span))),
+    match read_int(text) {
+        IntLiteral::Value(int) => return Ok(Expression::new(Expr::Int(int), span)),
+        literal @ IntLiteral::OutOfRange { .. } => {
+            literal.checked(span)?;
+        }
+        IntLiteral::InvalidDigits { .. } | IntLiteral::NotInt => {}
+    }
+    match parse_float(text) {
+        Some(float) => Ok(Expression::new(Expr::Float(float), span)),
+        None => Err(cut(Diagnostic::expected("number", span))),
     }
 }
 
-/// `true` if `text` could start a unit literal: a digit, `.digit` or `-digit`.
+/// `true` if `text` could start a unit literal: a digit, or `.`, `-` or `+` and a digit.
 fn unit_literal_start(text: &[u8]) -> bool {
-    text.len() >= 2
-        && (text[0].is_ascii_digit()
-            || (text[0] == b'.' && text[1].is_ascii_digit())
-            || (text[0] == b'-' && text[1].is_ascii_digit()))
+    text.len() >= 2 && (text[0].is_ascii_digit() || (matches!(text[0], b'.' | b'-' | b'+') && text[1].is_ascii_digit()))
 }
 
-/// The filesize units in upper case. [`parse_unit_value`] takes the first one
-/// the text ends with, so `B`, the end of every other unit, comes last.
-const FILESIZE_UNITS: &[(&str, FilesizeUnit)] = &[
-    ("KB", FilesizeUnit::KB),
-    ("MB", FilesizeUnit::MB),
-    ("GB", FilesizeUnit::GB),
-    ("TB", FilesizeUnit::TB),
-    ("PB", FilesizeUnit::PB),
-    ("EB", FilesizeUnit::EB),
-    ("KIB", FilesizeUnit::KiB),
-    ("MIB", FilesizeUnit::MiB),
-    ("GIB", FilesizeUnit::GiB),
-    ("TIB", FilesizeUnit::TiB),
-    ("PIB", FilesizeUnit::PiB),
-    ("EIB", FilesizeUnit::EiB),
-    ("B", FilesizeUnit::B),
+/// The filesize units in upper case, each with the multiplier nu's `FILESIZE_UNIT_GROUPS`
+/// converts it to the next smaller unit with (`None` for bytes). [`parse_unit_value`] takes
+/// the first one the text ends with, so `B`, the end of every other unit, comes last.
+const FILESIZE_UNITS: &[(&str, FilesizeUnit, Option<i64>)] = &[
+    ("KB", FilesizeUnit::KB, Some(1000)),
+    ("MB", FilesizeUnit::MB, Some(1000)),
+    ("GB", FilesizeUnit::GB, Some(1000)),
+    ("TB", FilesizeUnit::TB, Some(1000)),
+    ("PB", FilesizeUnit::PB, Some(1000)),
+    ("EB", FilesizeUnit::EB, Some(1000)),
+    ("KIB", FilesizeUnit::KiB, Some(1024)),
+    ("MIB", FilesizeUnit::MiB, Some(1024)),
+    ("GIB", FilesizeUnit::GiB, Some(1024)),
+    ("TIB", FilesizeUnit::TiB, Some(1024)),
+    ("PIB", FilesizeUnit::PiB, Some(1024)),
+    ("EIB", FilesizeUnit::EiB, Some(1024)),
+    ("B", FilesizeUnit::B, None),
 ];
 
-/// The duration units; `µs` is spelled with the micro sign or the Greek mu.
-const DURATION_UNITS: &[(&str, DurationUnit)] = &[
-    ("ns", DurationUnit::Nanosecond),
-    ("us", DurationUnit::Microsecond),
-    ("\u{00B5}s", DurationUnit::Microsecond),
-    ("\u{03BC}s", DurationUnit::Microsecond),
-    ("ms", DurationUnit::Millisecond),
-    ("sec", DurationUnit::Second),
-    ("min", DurationUnit::Minute),
-    ("hr", DurationUnit::Hour),
-    ("day", DurationUnit::Day),
-    ("wk", DurationUnit::Week),
+/// The duration units, each with the multiplier nu's `DURATION_UNIT_GROUPS` converts it to a
+/// smaller unit with (`None` for nanoseconds); `µs` is spelled with the micro sign or the
+/// Greek mu.
+const DURATION_UNITS: &[(&str, DurationUnit, Option<i64>)] = &[
+    ("ns", DurationUnit::Nanosecond, None),
+    ("us", DurationUnit::Microsecond, Some(1000)),
+    ("\u{00B5}s", DurationUnit::Microsecond, Some(1000)),
+    ("\u{03BC}s", DurationUnit::Microsecond, Some(1000)),
+    ("ms", DurationUnit::Millisecond, Some(1000)),
+    ("sec", DurationUnit::Second, Some(1000)),
+    ("min", DurationUnit::Minute, Some(60)),
+    ("hr", DurationUnit::Hour, Some(60)),
+    ("day", DurationUnit::Day, Some(1440)),
+    ("wk", DurationUnit::Week, Some(7)),
 ];
+
+/// Why a word that ends in a unit is no unit literal.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum UnitError {
+    /// What comes before the unit is not a number (`1..2sec`): the word is no literal at all.
+    NotANumber,
+    /// The value does not fit in 64 bits once converted to bytes or nanoseconds (`8EiB`).
+    TooLarge,
+}
+
+impl UnitError {
+    /// The error's message.
+    pub fn message(self) -> &'static str {
+        match self {
+            UnitError::NotANumber => "value must be a number",
+            UnitError::TooLarge => "too large",
+        }
+    }
+}
 
 /// A number followed by one of `units` (nu's `parse_unit_value`), compared
-/// in upper case when `uppercase` is set. `Err` when the text ends in a unit
-/// but what comes before it is not a number.
+/// in upper case when `uppercase` is set; `scale` gives a unit's size in the
+/// smallest unit (bytes, nanoseconds), which nu stores the value in as an
+/// `i64`. `Err` when the text ends in a unit but what comes before it is not
+/// a number, or the value does not fit.
 fn parse_unit_value<'u, U: Copy>(
     text: &str,
-    units: &'u [(&'u str, U)],
+    units: &'u [(&'u str, U, Option<i64>)],
     uppercase: bool,
-) -> Option<Result<(f64, U), &'static str>> {
+    scale: fn(U) -> i64,
+) -> Option<Result<(f64, U), UnitError>> {
     if !unit_literal_start(text.as_bytes()) {
         return None;
     }
     let normalized: Cow<'_, str> = if uppercase { Cow::Owned(text.to_ascii_uppercase()) } else { Cow::Borrowed(text) };
-    let (name, unit) = units.iter().find(|(name, _)| normalized.ends_with(name))?;
+    let (name, unit, convert) = units.iter().find(|(name, ..)| normalized.ends_with(name))?;
     // Like nu, the check for a variable before the unit (`$x..1kb`) comes
     // after the underscores are stripped, so `42m$_b` is no filesize either.
     let number = strip_underscores(&text[..text.len() - name.len()]);
     if number.ends_with('$') {
         return None;
     }
-    match number.parse::<f64>() {
-        Ok(value) => Some(Ok((value, *unit))),
-        Err(_) => Some(Err("value must be a number")),
-    }
+    let Ok(value) = number.parse::<f64>() else {
+        return Some(Err(UnitError::NotANumber));
+    };
+    // As nu converts it: an integer is scaled exactly, so the largest value fits
+    // (`9223372036854775807ns`) and the next one doesn't; a fraction is scaled as an `f64`,
+    // through the next smaller unit, where `i64::MAX as f64` rounds up to 2^63, which doesn't
+    // fit, so its upper bound is exclusive.
+    let total = scale(*unit);
+    let fits = match number.parse::<i128>() {
+        Ok(int) => int.checked_mul(i128::from(total)).is_some_and(|scaled| i64::try_from(scaled).is_ok()),
+        Err(_) => {
+            let scaled = match convert {
+                Some(multiplier) => {
+                    let multiplier_f = *multiplier as f64;
+                    (value.trunc() * multiplier_f + value.fract() * multiplier_f) * (total / multiplier) as f64
+                }
+                None => value.trunc(),
+            };
+            (i64::MIN as f64..i64::MAX as f64).contains(&scaled)
+        }
+    };
+    Some(if fits { Ok((value, *unit)) } else { Err(UnitError::TooLarge) })
 }
 
 /// A filesize literal such as `10kb` or `1.5MiB` (nu's `parse_filesize`;
 /// units are case-insensitive).
-pub fn parse_filesize(text: &str) -> Option<Result<Filesize, &'static str>> {
-    // `0x1b` would otherwise look like `0x1` bytes.
-    if text.starts_with("0x") {
+pub fn parse_filesize(text: &str) -> Option<Result<Filesize, UnitError>> {
+    // The hex digit `b` might be mistaken for the unit `b` (`0x1b`, `-0x1b`), so rule hex out first.
+    if matches!(text.as_bytes(), [b'0', b'x', ..] | [b'-' | b'+', b'0', b'x', ..]) {
         return None;
     }
-    parse_unit_value(text, FILESIZE_UNITS, true).map(|result| result.map(|(value, unit)| Filesize { value, unit }))
+    parse_unit_value(text, FILESIZE_UNITS, true, FilesizeUnit::bytes)
+        .map(|result| result.map(|(value, unit)| Filesize { value, unit }))
 }
 
 /// A duration literal such as `1sec` or `2.5hr` (nu's `parse_duration`;
 /// units are case-sensitive).
-pub fn parse_duration(text: &str) -> Option<Result<Duration, &'static str>> {
-    parse_unit_value(text, DURATION_UNITS, false).map(|result| result.map(|(value, unit)| Duration { value, unit }))
+pub fn parse_duration(text: &str) -> Option<Result<Duration, UnitError>> {
+    parse_unit_value(text, DURATION_UNITS, false, DurationUnit::nanoseconds)
+        .map(|result| result.map(|(value, unit)| Duration { value, unit }))
 }
 
 /// Exactly `count` ASCII digits, as a number.
@@ -225,6 +337,26 @@ fn days_in_month(year: u32, month: u32) -> u32 {
 /// ```
 pub fn is_datetime(text: &str) -> bool {
     (date, opt((time, opt(offset)))).parse(text).is_ok()
+}
+
+/// Whether `text` is written like a date literal but names a day that doesn't exist
+/// (`2023-02-29`, `2023-13-01`; nu's `is_invalid_date_literal`). Such a word is a typo, an
+/// error, not a bare string. A date literal is `YYYY-MM-DD`, alone or followed by `T` or `t`
+/// and a time that starts `HH:MM`. Any other text after the date (`2023-02-29.log`,
+/// `2024-01-15T10-30-00.log`) makes the word a bare string, and so does a real day with a time
+/// that isn't a valid one (`2024-01-15T10:00`).
+pub fn is_invalid_date_literal(text: &str) -> bool {
+    let bytes = text.as_bytes();
+    let digits =
+        |range: std::ops::Range<usize>| bytes.get(range).is_some_and(|digits| digits.iter().all(u8::is_ascii_digit));
+    let date_shape =
+        digits(0..4) && bytes.get(4) == Some(&b'-') && digits(5..7) && bytes.get(7) == Some(&b'-') && digits(8..10);
+    let time_follows = match bytes.get(10) {
+        None => true,
+        Some(b'T' | b't') => digits(11..13) && bytes.get(13) == Some(&b':') && digits(14..16),
+        Some(_) => false,
+    };
+    date_shape && time_follows && date.parse(&text[..10]).is_err()
 }
 
 /// The `date` of [`is_datetime`]: `YYYY-MM-DD`, a day that exists in that month.
@@ -896,10 +1028,13 @@ fn find_range_operators(text: &str) -> Option<(Option<usize>, usize)> {
 /// reads as a value, as its first two tokens tell: a record, a closure or `{}`, or a cell path
 /// on a record (`{a: 1}.a`). [`parse_range`] refuses the bounds that are no number, as nu's
 /// `check_range_types` does. A block (`5..{ls}`) is no value of the `number` shape: like nu,
-/// the item is then no range.
+/// the item is then no range. An int too large for 64 bits is a bound, which `parse_range`
+/// then reports (`1..0x10000000000000000`), and so is a negation (`-$x..5`).
 fn is_range_bound(text: &str) -> bool {
     match text.as_bytes() {
         [b'$', ..] | [b'r', b'#', ..] => true,
+        // `-$x` and `-(expr)`, which the `number` shape negates.
+        [b'-', b'$' | b'(', ..] => is_negation(text),
         [b'(', ..] => group_end(text).is_some(),
         // nu probes the text between the first and the last character, a tail included.
         [b'{', _, ..] => {
@@ -907,7 +1042,10 @@ fn is_range_bound(text: &str) -> bool {
             lex_n_tokens(inner, 0, LexOptions::BRACE_PROBE, 2)
                 .is_ok_and(|probe| BraceShape::of_probe(&probe, inner) != BraceShape::Other)
         }
-        _ => parse_int(text).is_some() || parse_float(text).is_some(),
+        _ => {
+            matches!(read_int(text), IntLiteral::Value(_) | IntLiteral::OutOfRange { .. })
+                || parse_float(text).is_some()
+        }
     }
 }
 
@@ -923,7 +1061,7 @@ pub fn is_range_syntax(text: &str) -> bool {
 /// Whether `text` holds `..` anywhere. The search goes from `.` to `.` (a
 /// `memchr`), since it also runs over whole subexpressions.
 #[inline]
-fn has_range_operator(text: &str) -> bool {
+pub(super) fn has_range_operator(text: &str) -> bool {
     let mut rest = text;
     while let Some(dot) = rest.find('.') {
         rest = &rest[dot + 1..];

@@ -1,4 +1,0 @@
-Block 0..16
-  Pipeline 0..15
-    Call `echo` 0..15
-      String Bare "2023-02-29" 5..15

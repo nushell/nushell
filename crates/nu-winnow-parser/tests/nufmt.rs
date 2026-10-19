@@ -126,7 +126,8 @@ fn splits_compact_row_conditions() {
     assert_eq!(fmt("ls | where size>=1kb and name=~Cargo").0, "ls | where size >= 1kb and name =~ Cargo\n");
     assert_eq!(fmt("ls | where not type==dir").0, "ls | where not type == dir\n");
     assert_eq!(fmt("ls | where modified<2024-01-01").0, "ls | where modified < 2024-01-01\n");
-    assert_eq!(fmt("ls | where size > 1kb and name!=Cargo").0, "ls | where size > 1kb and name != Cargo\n");
+    // After `and` a bare word is a column too, and `name!=Cargo` no cell path.
+    assert_eq!(fmt("ls | where size > 1kb and name==Cargo").0, "ls | where size > 1kb and name == Cargo\n");
     assert_eq!(fmt("ls | where size>1kb | where name=~Cargo").1.len(), 2);
 
     // Not a comparison, or not a row condition: left alone, no note.
@@ -218,9 +219,11 @@ fn options_change_layout() {
         fmt("each {|x|\n    $x * 2\n}", &with(|o| o.compact_simple_closures = false)),
         "each {|x|\n    $x * 2\n}\n"
     );
-    let long = format!("each {{|x|\n    $x + {}\n}}", "1".repeat(80));
-    assert_eq!(fmt(&long, &default), format!("each {{|x|\n    $x + {}\n}}\n", "1".repeat(80)));
-    assert_eq!(fmt(&long, &with(|o| o.line_length = 200)), format!("each {{|x| $x + {} }}\n", "1".repeat(80)));
+    // An 80-character float: an int that long is too large for 64 bits.
+    let number = format!("1.{}", "1".repeat(78));
+    let long = format!("each {{|x|\n    $x + {number}\n}}");
+    assert_eq!(fmt(&long, &default), format!("each {{|x|\n    $x + {number}\n}}\n"));
+    assert_eq!(fmt(&long, &with(|o| o.line_length = 200)), format!("each {{|x| $x + {number} }}\n"));
 
     // unquote_match_patterns
     let arms = "match $x {\n    \"allow\" => 1\n    \"true\" => 2\n    \"a-b\" => 3\n    \"_\" => 4\n}\n";

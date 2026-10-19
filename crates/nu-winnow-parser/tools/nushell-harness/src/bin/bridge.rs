@@ -322,9 +322,7 @@ impl<'ws, 'e, 'a> Lower<'ws, 'e, 'a> {
                 (Expr::Range(Box::new(Range { from, next, to, operator })), Type::Range)
             }
             w::Expr::Var(v) => (Expr::Var(self.resolve_var(v.name, span)?), Type::Any),
-            w::Expr::CellPath(c) => {
-                (Expr::CellPath(CellPath { members: self.members(&c.members) }), Type::CellPath)
-            }
+            w::Expr::CellPath(c) => (Expr::CellPath(CellPath { members: self.members(&c.members) }), Type::CellPath),
             w::Expr::FullCellPath(p) => {
                 let head = self.expr(&p.head)?;
                 let tail = self.members(&p.tail);
@@ -374,6 +372,7 @@ impl<'ws, 'e, 'a> Lower<'ws, 'e, 'a> {
                 (Expr::BinaryOp(Box::new(lhs), Box::new(op), Box::new(rhs)), Type::Any)
             }
             w::Expr::UnaryNot(n) => (Expr::UnaryNot(Box::new(self.expr(&n.expr)?)), Type::Bool),
+            w::Expr::UnaryMinus(n) => (Expr::UnaryMinus(Box::new(self.expr(&n.expr)?)), Type::Any),
             w::Expr::Assignment(a) => {
                 let lhs = self.expr(&a.lhs)?;
                 let op = self.expression(
@@ -577,7 +576,9 @@ impl<'ws, 'e, 'a> Lower<'ws, 'e, 'a> {
                                 Some(self.expr(v)?)
                             } else {
                                 match args.next() {
-                                    Some(w::Argument::Positional(v)) => Some(self.expr_with_shape(v, flag.arg.as_ref())?),
+                                    Some(w::Argument::Positional(v)) => {
+                                        Some(self.expr_with_shape(v, flag.arg.as_ref())?)
+                                    }
                                     _ => return Err(format!("flag `--{}` needs a value", flag.long)),
                                 }
                             }
@@ -826,9 +827,7 @@ impl<'ws, 'e, 'a> Lower<'ws, 'e, 'a> {
             w::Pattern::Expression(e) => Pattern::Expression(Box::new(self.expr(e)?)),
             w::Pattern::Variable(name) => Pattern::Variable(self.declare_var(name, span, false)),
             w::Pattern::IgnoreValue => Pattern::IgnoreValue,
-            w::Pattern::List(items) => {
-                Pattern::List(items.iter().map(|i| self.pattern(i)).collect::<LResult<_>>()?)
-            }
+            w::Pattern::List(items) => Pattern::List(items.iter().map(|i| self.pattern(i)).collect::<LResult<_>>()?),
             w::Pattern::Record(fields) => {
                 let mut out = Vec::with_capacity(fields.len());
                 for (name, pat) in fields {

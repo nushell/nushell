@@ -1,4 +1,4 @@
-error: expected `def`, `extern`, `alias`, `use`, `module` or `const` after `export`
+error: expected `def`, `extern`, `alias`, `type`, `use`, `module` or `const` after `export`
   --> reject/modules/export-alone.nu:1:7
   |
 1 | export

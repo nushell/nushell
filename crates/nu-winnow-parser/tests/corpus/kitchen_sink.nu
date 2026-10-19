@@ -25,6 +25,8 @@ def --env "set up" [] { $env.SET_UP = true }
 def --wrapped wrap [...args] { ^echo ...$args }
 extern ext [--flag: string, positional?: int]
 alias ll = ls -la
+type Point = record<x: int, y: int>
+def origin []: nothing -> Point { {x: 0, y: 0} }
 module inner {
     export def f []: int -> int { $in + 1 }
     export const c = 3
@@ -46,6 +48,7 @@ let raw = r#'raw "string" with 'quotes''#
 let interp = $'single (1 + 1)' + $"double \(escaped\) ($list | length)"
 let math = (1 + 2) * 3 ** 2 ** 1 // 4 mod 3 - -1
 let logic = not ($math > 1) and $list.0? in [1 2] or $raw =~ 'raw' xor true
+let negated = [(-$math) (not $math == 1) -(1 + 2)]
 let bits = 1 bit-shl 2 bit-or 4 bit-and 7 bit-xor 1 bit-shr 0
 let cmp = "a" starts-with "a" and "b" not-ends-with "c" and 1 not-in [2] and [1] has 1
 let closure = {|x: int, y?| $x + ($y | default 0) }

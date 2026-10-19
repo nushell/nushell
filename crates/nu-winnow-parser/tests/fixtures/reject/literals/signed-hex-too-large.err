@@ -1,0 +1,5 @@
+error: invalid int literal: number too large for 64 bits
+  --> reject/literals/signed-hex-too-large.nu:1:1
+  |
+1 | +0x8000000000000000
+  | ^^^^^^^^^^^^^^^^^^^

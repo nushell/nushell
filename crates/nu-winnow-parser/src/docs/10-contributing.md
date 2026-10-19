@@ -199,8 +199,9 @@ Suppose Nushell gains `unless COND { }`.
 1. `src/parser/parse_literals.rs`: a recogniser over `&str` returning
    `Option` (like `parse_filesize`), or a winnow parser over `&str` if it has
    structure worth expressing with combinators: `is_datetime` is
-   `(date, opt((time, opt(offset))))` and `parse_int` an `alt` of the decimal
-   form and the `0x`, `0o` and `0b` prefixes.
+   `(date, opt((time, opt(offset))))`; `read_int`, whose rules are mostly
+   about which errors a word gets, is plain code that mirrors nu's
+   `decode_int`.
 2. `parse_any_value` in `src/parser/parse_expressions.rs`: insert the
    attempt at the right place in nu's order (`null`, booleans, binary, range,
    filesize, duration, datetime, int, float, string). Also update

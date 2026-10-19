@@ -1,0 +1,7 @@
+error: cannot use parser keyword `type` as command name
+  --> reject/def/type-keyword-as-command-name.nu:1:5
+  |
+1 | def type [] { }
+  |     ^^^^
+  = while parsing def
+  = help: choose a different name; this word is parsed specially by Nushell

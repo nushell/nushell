@@ -82,9 +82,18 @@ string (bare or quoted: the name of a command) or a list, and refuses a
 subexpression or a record; whether the command exists is the consumer's
 business, since it may come from a `use`d module.
 
-After the loop `check_parameter_order` applies nu's two post-checks: a
-required positional after an optional one or one with a default (nu's
-`RequiredAfterOptional`) and a second `...rest` (nu's `MultipleRestParams`).
+After the loop `check_parameters` applies nu's post-checks (nu's
+`assemble_signature`): a required positional after an optional one or one
+with a default (`RequiredAfterOptional`) and a second `...rest`
+(`MultipleRestParams`). Outside an `extern`, which only describes another
+program's arguments and binds no variables, a positional after the rest
+parameter is `PositionalAfterRest`, and `check_unique_name` refuses two
+parameters or flags with one variable name (`a` and `$a`, `foo_bar` and
+`--foo-bar`, a short-only `-x` and `x`) or two flags with one short letter
+(`DuplicateParameter`); a positional `_` may repeat. A `def` that is not
+`--wrapped` may not have its own `--help` flag (`check_no_help_flag`, nu's
+check in `finish_def`): `--help` always shows the command's help. Closure
+parameters get the same checks.
 
 ```rust
 use nu_winnow_parser::{parse, ast::{Expr, ParameterKind, SyntaxShape}};
@@ -114,8 +123,24 @@ the generics `list<T>`, `record<a: T, b>`, `table<...>` and `oneof<A, B>`.
 Each becomes the nu-protocol `SyntaxShape` variant nu uses for it; the
 variants not named after the spelling are `bool` → `Boolean`, `path` →
 `Filepath`, `glob` → `GlobPattern` and `external_arg` → `ExternalArgument`. `block` is
-rejected with nu's help text ("use closure"), and anything else is
-`ErrorKind::UnknownType`.
+rejected with nu's help text ("use closure"). A generic is one of the four
+names before any `<` (`listing` is none). Any other name a type alias could
+have (`is_valid_type_alias_name`: a letter or `_`, then letters, digits, `_`
+and `-`) is `SyntaxShape::TypeAlias`, which the consumer looks up where it
+is used, as nu's `expand_type_alias` does (`type Point = ...` defines one,
+see below); anything else is `ErrorKind::UnknownType`.
+
+`type Name = <type>` (`parse_type_alias.rs`, nu's `parse_type_alias`) names a
+type: `Expr::TypeAlias` with the name, the `=` and the type, whose items are
+joined and lexed again as one type, as a `let` annotation's are. It checks
+what nu checks without knowing any alias: the layout (a name, a `=` that
+stands alone, one type; `type ls` is "missing `=`" with a hint to use
+`which`), the name (no built-in type name, `BUILTIN_TYPE_NAMES`, and a valid
+alias name) and the type (no `@completer`, which belongs to a parameter:
+`c: Color@[red green]`). `export type` exports one from a module. The
+predeclaration scan records where each `type` statement of a block is
+(`TypeAliasPredecl`, `BlockSink::predecl_type_alias`), so that an engine can
+tell a use above the definition from an unknown type.
 
 Generic shapes go through `parse_generic_shape`, which splits at the first
 `<` and requires a trailing `>`. `list<T>` and `oneof<A, B>` read their

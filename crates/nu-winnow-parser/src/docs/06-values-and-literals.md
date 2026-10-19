@@ -59,7 +59,7 @@ pub fn parse_value<'a>(
 | `Closure` | the default of a `closure` parameter | `{}` and `{ code }` are closures |
 | `MatchArmBody` | the body of a `match` arm | `{}` is a block, unless it is written as a closure (`{\|x\| ..}`) or a record (`{a: 1}`) |
 | `Number` | range bounds | a bare word must be a number; the `$`, `(`, `{` and `r#` forms are what they always are, and `parse_range` refuses the ones that are no number (below) |
-| `String` | record keys, `module` and `use` names, `record<...>` field names, completers | bare or quoted string, `$var`, `(expr)`, interpolation; `true`, `false` and `null` are refused ("`true` is a value; quote it") and `[a b]` is a bare word, as with nu's `SyntaxShape::String` |
+| `String` | `module` and `use` names, `record<...>` field names, completers, record keys and table column names (`parse_field_name`, where `true`, `false` and `null` are the names they spell) | bare or quoted string, `$var`, `(expr)`, interpolation; `true`, `false` and `null` are refused ("`true` is a value; quote it") and `[a b]` is a bare word, as with nu's `SyntaxShape::String` |
 | `Declared(&SyntaxShape)` | the default value of a typed parameter, and the items of a `list<T>` default | the value is parsed with the declared shape (below) |
 
 Statement bodies (`if`, `for`, `while`, ...) do not go through `parse_value`
@@ -80,10 +80,25 @@ finally string. The order matters: `1..3` must be tested as a range before
 `1.` could be read as a float, and `1kb` as a filesize before `1` as an int.
 A matched unit with a bad number (`1..2sec`) is an error, not a fallback, as
 in nu, and so is a word with a radix prefix that is not a number (`0b2`,
-`0x`, `0x[13]=`): nu commits to an int as soon as it sees `0x`/`0o`/`0b`
-(`radix_prefix`, which reads past `_` separators as nu does, so `0_xzz` is
-a bad hex int too), and `parse_binary` only claims a bracketed literal that
-closes with `]`.
+`0x`, `0x[13]=`): nu commits to an int as soon as it sees `0x`/`0o`/`0b`,
+after an optional sign (`read_int`, which reads past `_` separators as nu
+does, so `0_xzz` is a bad hex int too), and `parse_binary` only claims a
+bracketed literal that closes with `]`. A literal that a kind rejects as an
+invalid one of its own is an error too: digits too many for 64 bits
+(`9223372036854775808`, never silently a float; `IntLiteral::OutOfRange`), a
+filesize or duration whose value in bytes or nanoseconds does not fit
+(`8EiB`, `UnitError::TooLarge`) and a word written like a date that names no
+day (`2023-02-29`, `is_invalid_date_literal`). At a pipeline head such a
+word is a value too, whose error is then reported, not an external command
+(`is_math_expression_like`). The special floats are `inf`, `nan` and `NaN`
+only, signed or not (`INF`, `Infinity` and `Nan` are words).
+
+Before the shape decides anything, a word `-$x` or `-(expr)` is the negation
+`Expr::UnaryMinus` for the shapes that hold numbers (`any`, `number`, and the
+declared `int`, `float`, `duration`, `filesize`; `parse_negation`), unless
+the word is a range (`-$x..5`, whose bound is negated) or the `(` closes
+before its end (`-(1)px` is a bare interpolation). Whether the operand's type
+can be negated is the consumer's check.
 
 `parse_value_for_shape` is nu's `parse_value` with a declared `SyntaxShape`,
 used for `[x: int = 1]`. A `$` or `(` item is what it always is. A `{` item
@@ -96,7 +111,11 @@ int", found a block or closure). `[` is allowed for `any`, `table`,
 `x: int = "a"`, `x: bool = 1` and `x: list<int> = 1` are errors that name the
 shape ("expected int", "expected bool", "expected list"), `x: string = 1` is
 the string `1`, and `oneof<A, B>` takes the first shape that parses
-(`parse_oneof`). `shape_description` supplies the word nu uses in the
+(`parse_oneof`), trying `string`, `path`, `directory`, `glob`, `cell-path`,
+`external_arg` and `any` last unless the item starts with `$`, `(` or `{`
+(`accepts_any_bareword`), so `oneof<string, int>` takes `5` as an int. A type
+alias (`SyntaxShape::TypeAlias`) is parsed as `any`: what it names is the
+consumer's. `shape_description` supplies the word nu uses in the
 message.
 
 `is_math_expression_like` is nu's function of the same name: it decides
@@ -329,7 +348,8 @@ Three functions parse the body:
 ## Lists, tables, records
 
 * `parse_list_expression`: `lex_bracket_interior` lexes the interior with
-  `LIST` (comments recorded with `working_set.add_comments` and dropped); if
+  `LIST` (comments recorded with `working_set.add_comments` and dropped; a
+  `]` that closes no `[` there is an error, `[1 2]]`); if
   the tokens are `[..]` `;` `[..]...`, it is a table
   (`parse_table_expression`); otherwise `reject_semicolon` makes any `;` an
   error ("unexpected semicolon in list", as nu) and the rest is a list.
@@ -349,12 +369,14 @@ Three functions parse the body:
   `[Assignment, =, Assign]`, and everything after it) is a bare word; the
   rest go through `parse_value`.
 * `parse_table_expression`: the header and each row go through
-  `parse_table_row` (a list without spreads); nu's checks are applied at
-  parse time: at least one row, every row a list ("table item not list"),
-  every row with exactly as many items as there are columns ("missing
-  columns" / "extra columns"), and every column name a string, an
-  interpolation, a variable, a cell path or a subexpression ("table column
-  name not string" for `[[1 2]; [3 4]]`; the type of the last three is the
+  `parse_table_row` (a list without spreads), the header's items read as
+  names like record keys (`parse_field_name`: `[[1 true]; [a b]]` has the
+  columns `1` and `true`); nu's checks are applied at parse time: no column
+  named twice (`check_duplicate_name`), at least one row, every row a list
+  ("table item not list"), every row with exactly as many items as there are
+  columns ("missing columns" / "extra columns"), and every column name a
+  string, an interpolation, a variable, a cell path or a subexpression
+  ("table column name not string"; the type of the last three is the
   consumer's).
 * `parse_record` reads its interior from an `Input` character stream, one
   token at a time with the lexer's `next_token`, so each token is lexed with
@@ -369,9 +391,12 @@ Three functions parse the body:
 
   A key and a value must be items (`{a: =}` and `{a: o>}` are "unexpected
   token in record value"), and a key must be followed by `:` (`{a: 1 b}` is
-  "expected `:` after record key"). Keys are parsed with
-  `ExpectedShape::String` (bare, quoted, `$var`, `(expr)`, interpolation),
-  which refuses `true`, `false` and `null`. Spreads `...$r` are allowed. Like
+  "expected `:` after record key"). Keys are names (`parse_field_name`): a
+  bare word is the string it spells, `true`, `false`, `null`, `1` and
+  `2023-02-29` included, and the rest is parsed with `ExpectedShape::String`
+  (quoted, `$var`, `(expr)`, interpolation). A key written twice as a string
+  is refused (`check_duplicate_name`, nu's `ColumnDefinedTwice`); one known
+  only when the record runs (`$k`) is checked then. Spreads `...$r` are allowed. Like
   nu (`check_record_key_or_value`), a bare word or bare interpolation
   containing `:` is refused as a key or value (`{a: http://x}`, `{ :: x }`):
   quote it.

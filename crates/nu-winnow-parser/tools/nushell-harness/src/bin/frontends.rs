@@ -753,6 +753,10 @@ impl Renderer<'_, '_> {
                 self.line(&format!("UnaryNot {head}"));
                 self.nested(|this| this.expression(inner));
             }
+            Expr::UnaryMinus(inner) => {
+                self.line(&format!("UnaryMinus {head}"));
+                self.nested(|this| this.expression(inner));
+            }
             Expr::BinaryOp(lhs, op, rhs) => {
                 self.line(&format!("BinaryOp {head}"));
                 self.nested(|this| {

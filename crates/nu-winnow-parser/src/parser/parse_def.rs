@@ -31,7 +31,19 @@ use super::working_set::{CommandLookup, DeclKind};
 /// `alias` is declared when its statement is parsed (`WorkingSet::add_alias`),
 /// so a call before it is an unknown command.
 pub fn parse_def_predecl(working_set: &WorkingSet<'_>, tokens: &[Token]) {
-    scan_definitions(working_set, tokens, |_| {});
+    scan_definitions(working_set, tokens, |_| {}, |_| {});
+}
+
+/// A `type` statement of a block found by the predeclaration scan (nu's `parse_def_predecl`
+/// records it with `add_type_predecl`): only the name and where the statement is, so that an
+/// engine can tell a use of the alias above its definition, or inside it, from an unknown type.
+/// The type itself is read when the statement is parsed, in order.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct TypeAliasPredecl {
+    /// The name item, as written.
+    pub name: Span,
+    /// The statement's items, from `type` (or the `export` before it) to its last item.
+    pub span: Span,
 }
 
 /// A `def` or `extern` of a block found by the predeclaration scan, with its
@@ -60,22 +72,38 @@ pub struct PredeclaredDef<'a> {
 /// [`Definitions::parse`] parses later: the statements need only the declared
 /// names, so they can be parsed meanwhile (see [`crate::BlockStatements::new`]).
 pub(super) fn scan_predecls(working_set: &WorkingSet<'_>, tokens: &[Token]) -> Definitions {
-    let mut found = Vec::new();
-    scan_definitions(working_set, tokens, |definition| {
-        // Copied, so that `Definitions` borrows nothing.
-        let items = definition.items.to_vec();
-        found.push(definition.with_items(items));
-    });
-    Definitions(found)
+    let mut definitions = Definitions::default();
+    scan_definitions(
+        working_set,
+        tokens,
+        |definition| {
+            // Copied, so that `Definitions` borrows nothing.
+            let items = definition.items.to_vec();
+            definitions.defs.push(definition.with_items(items));
+        },
+        |type_alias| definitions.type_aliases.push(type_alias),
+    );
+    definitions
 }
 
 /// The `def`/`extern` statements of a block, as the predeclaration scan found
 /// them (see [`crate::BlockStatements::new`]), their signatures not yet
-/// parsed.
+/// parsed, and its `type` statements.
 #[derive(Debug, Default)]
-pub struct Definitions(Vec<FoundDefinition<Vec<Token>>>);
+pub struct Definitions {
+    /// The `def`/`extern` statements.
+    defs: Vec<FoundDefinition<Vec<Token>>>,
+    /// The `type` statements, in source order.
+    type_aliases: Vec<TypeAliasPredecl>,
+}
 
 impl Definitions {
+    /// The block's `type` statements, in source order, which an engine records before it
+    /// takes any statement, as it declares the definitions.
+    pub fn type_aliases(&self) -> &[TypeAliasPredecl] {
+        &self.type_aliases
+    }
+
     /// Each definition with its signature, parsed in `source` with the
     /// commands `lookup` knows. A signature is parsed as the scan would have
     /// parsed it: with the names of the block's definitions up to and
@@ -84,7 +112,7 @@ impl Definitions {
     /// again when parsed).
     pub fn parse<'a>(self, source: &'a str, span: Span, lookup: impl CommandLookup + 'a) -> Vec<PredeclaredDef<'a>> {
         let working_set = WorkingSet::with_lookup(source, span, lookup);
-        self.0
+        self.defs
             .into_iter()
             .map(|found| {
                 // A new working set: the scan's names are declared again, in its order.
@@ -165,7 +193,8 @@ fn predeclared_def<'a>(working_set: &WorkingSet<'a>, found: FoundDefinition<&[To
 /// The predeclaration scan: declare every `def`/`extern` of a block that has a
 /// signature item after its name, report a name declared twice, and hand each
 /// definition with a name (a statement of at least three items, as nu
-/// requires) to `on_definition`.
+/// requires) to `on_definition`, and each `type` statement with a name and an
+/// `=` after it to `on_type_alias`.
 ///
 /// It runs before the lite parse, over the block's tokens, so it finds where
 /// statements start itself: at an item first on its line or after a `;`, past
@@ -177,6 +206,7 @@ fn scan_definitions<'a>(
     working_set: &WorkingSet<'a>,
     tokens: &[Token],
     mut on_definition: impl FnMut(FoundDefinition<&[Token]>),
+    mut on_type_alias: impl FnMut(TypeAliasPredecl),
 ) {
     let mut declared: Vec<Cow<'a, str>> = Vec::new();
     // A `|`, or a redirection into one (`e>|`).
@@ -250,7 +280,7 @@ fn scan_definitions<'a>(
                     "export" => (words.next().map_or("", |(word, _)| word), index + 1),
                     head => (head, index),
                 };
-                if !matches!(head, "def" | "extern") {
+                if !matches!(head, "def" | "extern" | "type") {
                     continue;
                 }
                 let items_end = items_start
@@ -286,6 +316,18 @@ fn scan_definitions<'a>(
                     }
                 };
                 if pipes_to_another_command {
+                    continue;
+                }
+                if head == "type" {
+                    // A name and `=` after the keyword (the `=` is a token of its own).
+                    if let [name, equals, ..] = tokens.get(items_start..).unwrap_or(&[])
+                        && name.contents == TokenContents::Item
+                        && working_set.get_span_contents(equals.span) == "="
+                    {
+                        let last_part = command.iter().rev().find(|token| token.contents != TokenContents::Comment);
+                        let span = last_part.map_or(token.span, |last| token.span.merge(last.span));
+                        on_type_alias(TypeAliasPredecl { name: name.span, span });
+                    }
                     continue;
                 }
                 // nu looks at a definition only when its statement has at least three parts.
@@ -493,6 +535,8 @@ pub fn parse_def<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> 
     };
     if flags.iter().any(|flag| flag.item == DefFlag::Wrapped) {
         check_wrapped_signature(&signature, name.span)?;
+    } else {
+        check_no_help_flag(&signature)?;
     }
     let span = call.keyword.span.merge(body.map_or(signature.span, |token| token.span));
     let def = Def { flags, name, signature, body_params, body: body_block };
@@ -515,6 +559,20 @@ fn parse_def_body<'a>(
             Ok((closure.params, closure.body))
         }
         _ => Ok((None, parse_block_body_unchecked(working_set, token.span)?)),
+    }
+}
+
+/// A command's own `--help` flag (nu's check in `finish_def`): `--help` always shows the
+/// command's help before the body runs, so a flag of that name could never be set. `-h` stays
+/// usable as another flag's short form, and a `def --wrapped` passes `--help` on.
+fn check_no_help_flag(signature: &Signature<'_>) -> ParseResult<()> {
+    let help = signature.params.iter().find(|parameter| {
+        matches!(&parameter.kind, crate::ast::ParameterKind::Flag { long: Some(long), .. } if long.item == "help")
+    });
+    match help {
+        Some(parameter) => Err(cut(Diagnostic::message("the `--help` flag is reserved", parameter.span)
+            .with_help("every command already has `--help`, which shows its help; rename this flag"))),
+        None => Ok(()),
     }
 }
 

@@ -1,0 +1,28 @@
+Block 0..79
+  Pipeline 0..9
+    let x 0..9
+      Value 8..9
+        Pipeline 8..9
+          Int 5 8..9
+  Pipeline 10..78
+    Table 10..78
+      Columns
+        List 11..62
+          String Bare "2023-02-29" 12..22
+          Interpolation Bare 23..27
+            Text "-" 23..24
+            Subexpression 24..27 25..26
+              Pipeline 25..26
+                Int 1 25..26
+          String Bare "-$x" 28..31
+          String Bare "99999999999999999999" 32..52
+          String Bare "true" 53..57
+          String Bare "1kb" 58..61
+      Row
+        List 64..77
+          String Bare "a" 65..66
+          String Bare "b" 67..68
+          String Bare "c" 69..70
+          String Bare "d" 71..72
+          String Bare "e" 73..74
+          String Bare "f" 75..76

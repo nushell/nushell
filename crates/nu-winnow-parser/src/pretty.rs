@@ -395,6 +395,10 @@ impl<'a> Printer<'a> {
                 self.line(format_args!("Not {span}"));
                 self.nested(|printer| printer.expr(&not.expr));
             }
+            Expr::UnaryMinus(minus) => {
+                self.line(format_args!("Minus {span}"));
+                self.nested(|printer| printer.expr(&minus.expr));
+            }
             Expr::Assignment(assignment) => {
                 self.line(format_args!("Assignment {} {span}", assignment.op.item.as_str()));
                 self.nested(|printer| {
@@ -477,6 +481,9 @@ impl<'a> Printer<'a> {
             Expr::Extern(extern_declaration) => {
                 self.line(format_args!("Extern `{}` {span}", extern_declaration.name.item));
                 self.nested(|printer| printer.signature(&extern_declaration.signature));
+            }
+            Expr::TypeAlias(alias) => {
+                self.line(format_args!("TypeAlias `{}` = {} {span}", alias.name.item, self.text(alias.ty.span)));
             }
             Expr::Alias(alias) => {
                 self.line(format_args!("Alias `{}` {span}", alias.name.item));

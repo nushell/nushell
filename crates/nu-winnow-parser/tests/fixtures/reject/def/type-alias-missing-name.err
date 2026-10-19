@@ -1,0 +1,7 @@
+error: expected type alias name
+  --> reject/def/type-alias-missing-name.nu:1:6
+  |
+1 | type = int
+  |      ^
+  = while parsing type
+  = help: the name comes before `=`

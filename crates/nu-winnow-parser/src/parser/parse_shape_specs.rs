@@ -62,8 +62,49 @@ fn parse_completer(working_set: &WorkingSet<'_>, completer: Spanned<&str>) -> Pa
     }
 }
 
+/// The words [`parse_type`] reads as built-in types, which a type alias can't be named (nu's
+/// `BUILTIN_TYPE_NAMES`).
+pub const BUILTIN_TYPE_NAMES: &[&str] = &[
+    "any",
+    "binary",
+    "block",
+    "bool",
+    "cell-path",
+    "closure",
+    "datetime",
+    "directory",
+    "duration",
+    "error",
+    "external_arg",
+    "filesize",
+    "float",
+    "glob",
+    "int",
+    "list",
+    "nothing",
+    "number",
+    "oneof",
+    "path",
+    "range",
+    "record",
+    "string",
+    "table",
+];
+
+/// Whether `name` can name a type alias (nu's `is_valid_type_alias_name`): a letter or `_`, then
+/// letters, digits, `_` and `-`. Other characters would be split off wherever the name is used:
+/// `@` starts a completer, `:` and `,` separate record fields, and `<` and `>` hold type
+/// parameters.
+pub fn is_valid_type_alias_name(name: &str) -> bool {
+    let mut chars = name.chars();
+    chars.next().is_some_and(|first| first.is_alphabetic() || first == '_')
+        && chars.all(|c| c.is_alphabetic() || c.is_ascii_digit() || c == '_' || c == '-')
+}
+
 /// A type annotation such as `int`, `list<string>` or `record<a: int>` (nu's
-/// `parse_type`, with `parse_shape_name`'s table of names).
+/// `parse_type`, with `parse_shape_name`'s table of names). Any other name
+/// that a type alias could have is one ([`SyntaxShape::TypeAlias`]), for the
+/// consumer to look up; a name no alias can have is an unknown type.
 pub fn parse_type<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResult<TypeAnnotation<'a>> {
     let text = working_set.get_span_contents(span);
     let shape = match text {
@@ -90,13 +131,11 @@ pub fn parse_type<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResult<T
             return Err(cut(Diagnostic::message("blocks are not supported as first-class values", span)
                 .with_help("use `closure` instead of `block`")));
         }
-        _ if text.starts_with("list")
-            || text.starts_with("record")
-            || text.starts_with("table")
-            || text.starts_with("oneof") =>
-        {
+        // The name before any type parameters: `list` for `list<int>`, but `listing` is no list.
+        _ if matches!(text.split_once('<').map_or(text, |(name, _)| name), "list" | "record" | "table" | "oneof") => {
             parse_generic_shape(working_set, span)?
         }
+        _ if is_valid_type_alias_name(text) => SyntaxShape::TypeAlias(text),
         _ => {
             let mut diagnostic = Diagnostic::new(ErrorKind::UnknownType(text.to_string()), span);
             if text.contains('@') {

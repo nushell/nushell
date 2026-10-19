@@ -13,6 +13,7 @@
 //! | [`parse_def`] | `def`, `extern`, `for`, predeclaration | `parse_def.rs` |
 //! | [`parse_bindings`] | `let`, `mut`, `const` | `parse_bindings.rs` |
 //! | [`parse_alias`] | `alias` | `parse_alias.rs` |
+//! | [`parse_type_alias`] | `type` | `parse_type_alias.rs` |
 //! | [`parse_module`] | `module`, `use`, `export`, `export-env` | `parse_module.rs` |
 //! | [`parse_source`] | `where` | `parse_source.rs` |
 //! | [`parse_control_flow`] | `if`, `match`, `while`, `loop`, `try`, `return`, `break`, `continue` | (ordinary commands in nu) |
@@ -47,6 +48,7 @@ pub(crate) mod parse_pipelines;
 pub(crate) mod parse_shape_specs;
 pub(crate) mod parse_signatures;
 pub(crate) mod parse_source;
+pub(crate) mod parse_type_alias;
 pub(crate) mod tokens;
 pub(crate) mod working_set;
 
@@ -59,7 +61,7 @@ use crate::error::Diagnostic;
 use crate::lex::LexOptions;
 use crate::span::Span;
 
-pub use parse_def::{Definitions, PredeclaredDef};
+pub use parse_def::{Definitions, PredeclaredDef, TypeAliasPredecl};
 pub use parse_pipelines::{BlockSink, BlockStatements};
 use working_set::Collected;
 pub(crate) use working_set::WorkingSet;
@@ -324,6 +326,9 @@ pub(crate) fn parse_block_streaming<'a>(
     sink: &mut dyn BlockSink<'a>,
 ) -> Result<(), Vec<Diagnostic>> {
     let (mut statements, definitions) = BlockStatements::new(source, span, lookup, false)?;
+    for type_alias in definitions.type_aliases() {
+        sink.predecl_type_alias(*type_alias);
+    }
     for def in definitions.parse(source, span, lookup) {
         sink.predecl(def);
     }

@@ -14,8 +14,10 @@ use super::lite_parser::{
     take_pipe_on_later_line,
 };
 use super::parse_calls::{keyword_signature_of_call, parse_attribute};
-use super::parse_def::{Definitions, PredeclaredDef, parse_def_predecl, scan_predecls};
-use super::parse_expressions::{ExpectedShape, Position, parse_builtin_commands, parse_expression, parse_value};
+use super::parse_def::{Definitions, PredeclaredDef, TypeAliasPredecl, parse_def_predecl, scan_predecls};
+use super::parse_expressions::{
+    ExpectedShape, Position, is_env_variable_name, parse_builtin_commands, parse_expression, parse_value,
+};
 use super::parse_helpers::garbage_pipeline;
 use super::tokens::Tokens;
 use super::working_set::{CommandLookup, ParseState};
@@ -72,6 +74,13 @@ pub trait BlockSink<'a> {
     /// A `def` or `extern` of the block, found before any statement is parsed
     /// (nu's `parse_def_predecl`), with its signature parsed.
     fn predecl(&mut self, def: PredeclaredDef<'a>);
+
+    /// A `type` statement of the block, found before any statement is parsed (nu's
+    /// `parse_def_predecl` records its name and span): an engine that expands type aliases
+    /// records it, to tell a use above the definition from an unknown type.
+    fn predecl_type_alias(&mut self, type_alias: TypeAliasPredecl) {
+        let _ = type_alias;
+    }
 
     /// The next statement of the block, parsed only after every earlier one
     /// was handed over, so that what an earlier statement declares (a `use`,
@@ -554,6 +563,11 @@ fn parse_pipeline<'a>(
         return Ok(None);
     }
     let single = lite_commands.len() == 1;
+    if !single {
+        for (_, lite_command) in &lite_commands {
+            check_loop_in_pipeline(working_set, lite_command)?;
+        }
+    }
     let mut elements: Vec<PipelineElement<'a>> = Vec::with_capacity(lite_commands.len());
     for (pipe, lite_command) in &lite_commands {
         let (expr, redirection) = parse_pipeline_element(working_set, lite_command, !single)?;
@@ -573,6 +587,26 @@ fn parse_pipeline<'a>(
     let leading_comments = take_leading_comments(leading_comments, carried_comments);
     *carried_comments = carried_on;
     Ok(Some(Pipeline { span, elements, leading_comments, trailing_comments, terminator, dangling_pipe }))
+}
+
+/// Refuse a `while` or `loop` that is one command of a longer pipeline (nu's `parse_pipeline`):
+/// loops are statements without output, so like `for` (refused in `parse_expression`) they
+/// can't be piped. The head is the first item after any `NAME=value` environment shorthands, as
+/// there, and an attribute line's first item counts as one.
+fn check_loop_in_pipeline(working_set: &WorkingSet<'_>, lite_command: &LiteCommand) -> ParseResult<()> {
+    let is_env_shorthand = |token: &&Token| {
+        let text = working_set.get_span_contents(token.span);
+        text.find('=').is_some_and(|equals| is_env_variable_name(&text[..equals]))
+    };
+    let head =
+        lite_command.attributes.iter().flatten().chain(&lite_command.parts).find(|token| !is_env_shorthand(token));
+    match head.map(|head| (head, working_set.get_span_contents(head.span))) {
+        Some((head, keyword @ ("while" | "loop"))) => {
+            Err(cut(Diagnostic::new(ErrorKind::KeywordInPipeline(keyword.to_string()), head.span)
+                .with_help("a loop has no output to pipe; collect values with `each`, `reduce` or a `mut` variable")))
+        }
+        _ => Ok(()),
+    }
 }
 
 /// One command of a pipeline, as collected by the lite parse (nu's
@@ -670,6 +704,7 @@ fn rejects_redirection(expr: &Expression<'_>) -> bool {
         | Expr::Const(_)
         | Expr::For(_)
         | Expr::Alias(_)
+        | Expr::TypeAlias(_)
         | Expr::Module(_)
         | Expr::Use(_)
         | Expr::Export(_)

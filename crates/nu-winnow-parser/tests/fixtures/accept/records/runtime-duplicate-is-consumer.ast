@@ -1,0 +1,14 @@
+Block 0..26
+  Pipeline 0..11
+    let k 0..11
+      Value 8..11
+        Pipeline 8..11
+          String Single "a" 8..11
+  Pipeline 12..25
+    Record 12..25
+      Pair
+        String Bare "a" 13..14
+        Int 1 16..17
+      Pair
+        Var $k 19..21
+        Int 2 23..24

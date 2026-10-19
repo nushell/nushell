@@ -727,7 +727,7 @@ fn calculate_end_span(
 /// Check if a syntax shape accepts nearly any bare word without error. `string`, `path` and
 /// `directory` take `5` or `5sec` as a string, `glob` and `external_arg` as a glob, `cell-path`
 /// takes `5` as `$.5`, and `any` falls back to a string. `parse_oneof` tries these shapes last.
-fn accepts_any_bareword(shape: &SyntaxShape) -> bool {
+pub(crate) fn accepts_any_bareword(shape: &SyntaxShape) -> bool {
     matches!(
         shape,
         SyntaxShape::String

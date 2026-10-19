@@ -1,0 +1,7 @@
+error: the `--help` flag is reserved
+  --> reject/def/help-flag.nu:1:8
+  |
+1 | def f [--help] { 'mine' }
+  |        ^^^^^^
+  = while parsing def
+  = help: every command already has `--help`, which shows its help; rename this flag

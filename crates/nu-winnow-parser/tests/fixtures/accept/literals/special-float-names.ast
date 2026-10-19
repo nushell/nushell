@@ -1,0 +1,8 @@
+Block 0..24
+  Pipeline 0..23
+    List 0..23
+      Float inf 1..4
+      Float -inf 5..9
+      Float NaN 10..13
+      Float NaN 14..17
+      Float NaN 18..22

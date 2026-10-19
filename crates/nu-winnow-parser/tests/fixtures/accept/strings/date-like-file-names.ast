@@ -1,0 +1,7 @@
+Block 0..77
+  Pipeline 0..76
+    List 0..76
+      String Bare "2023-02-29.log" 1..15
+      String Bare "2024-01-15T10-30-00.log" 16..39
+      String Bare "2024-01-15test.txt" 40..58
+      String Bare "2024-01-15T10:00" 59..75

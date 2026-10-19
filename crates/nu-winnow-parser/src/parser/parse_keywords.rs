@@ -26,7 +26,18 @@ use super::tokens::Tokens;
 pub fn is_statement_keyword(text: &str) -> bool {
     matches!(
         text,
-        "def" | "extern" | "let" | "mut" | "const" | "for" | "alias" | "module" | "use" | "export" | "export-env"
+        "def"
+            | "extern"
+            | "let"
+            | "mut"
+            | "const"
+            | "for"
+            | "alias"
+            | "type"
+            | "module"
+            | "use"
+            | "export"
+            | "export-env"
     )
 }
 
@@ -41,6 +52,7 @@ pub const UNALIASABLE_PARSER_KEYWORDS: &[&str] = &[
     "def",
     "extern",
     "module",
+    "type",
     "use",
     "export",
     "export alias",
@@ -48,6 +60,7 @@ pub const UNALIASABLE_PARSER_KEYWORDS: &[&str] = &[
     "export def",
     "export extern",
     "export module",
+    "export type",
     "export use",
     "for",
     "loop",

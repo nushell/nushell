@@ -76,6 +76,7 @@ fn sexpr(src: &str, e: &Expression<'_>) -> String {
     match &e.expr {
         Expr::BinaryOp(b) => format!("({} {} {})", sexpr(src, &b.lhs), b.op.item, sexpr(src, &b.rhs)),
         Expr::UnaryNot(n) => format!("(not {})", sexpr(src, &n.expr)),
+        Expr::UnaryMinus(n) => format!("(- {})", sexpr(src, &n.expr)),
         Expr::Subexpression(b) => {
             let inner = &b.pipelines[0].elements[0].expr;
             sexpr(src, inner)

@@ -55,9 +55,9 @@ The `Expr` variants, grouped as in the source:
 | Literals | `Bool`, `Nothing`, `Int`, `Float`, `String(StringLiteral)`, `StringInterpolation`, `Binary(BinaryLiteral)`, `Duration`, `Filesize`, `DateTime`, `Range` |
 | Variables and paths | `Var`, `CellPath` (`$.a`), `FullCellPath` (`head` + `tail`, `implicit_head` for `$it`) |
 | Collections | `List(Vec<ListItem>)`, `Table`, `Record(Vec<RecordItem>)`, `Closure`, `Block`, `Subexpression` |
-| Operators | `BinaryOp`, `UnaryNot`, `Assignment` (rhs is a `Block`) |
+| Operators | `BinaryOp`, `UnaryNot`, `UnaryMinus` (`-$x`, `-(expr)`), `Assignment` (rhs is a `Block`) |
 | Calls | `Call { head, arguments, sigil, wrapped }`, `DynamicCall` (`%$cmd`), `ExternalCall`, `EnvShorthand`, `AttributeBlock` |
-| Declarations | `Let`, `Mut`, `Const` (all `Binding`), `Def`, `Extern`, `Alias`, `Use`, `Module`, `Export`, `ExportEnv` |
+| Declarations | `Let`, `Mut`, `Const` (all `Binding`), `Def`, `Extern`, `Alias`, `TypeAlias` (`type Name = <type>`), `Use`, `Module`, `Export`, `ExportEnv` |
 | Control flow | `If`, `Match`, `For`, `While`, `Loop`, `Break`, `Continue`, `Return`, `Try`, `Where` |
 | Recovery | `Garbage` |
 
@@ -110,13 +110,18 @@ the commands a `use`d module brings into scope (without them in the
 `ParseConfig`, `use std/log; log info x` is an external call to `log`);
 spread validity; constant evaluation
 (defaults, completers, match value patterns, `use` and `source` arguments);
-whether a completer's or an attribute's command exists; types; module, file,
+whether a completer's or an attribute's command exists; types (whether a
+negated value holds a number among them); what a type alias names
+(`SyntaxShape::TypeAlias` holds the name; a block's `type` statements are
+reported before its statements, `BlockSink::predecl_type_alias`, so a use
+above one can be told from an unknown type); module, file,
 overlay and plugin resolution; variable existence. The keyword commands that
 nu parses by signature (`hide`, `source`, `source-env`, `run`, `overlay *`,
 `plugin use`) and the built-in attributes *are* checked here
 (`check_call` in `parse_calls.rs`), as are reserved variable names, nu's
-`RequiredAfterOptional` and `MultipleRestParams`, defaults against their
-declared type and duplicate definitions in a block.
+`RequiredAfterOptional`, `MultipleRestParams`, `PositionalAfterRest` and
+`DuplicateParameter`, a record field or table column written twice,
+defaults against their declared type and duplicate definitions in a block.
 
 ## The visitor
 

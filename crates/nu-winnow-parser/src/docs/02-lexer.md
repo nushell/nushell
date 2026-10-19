@@ -210,8 +210,11 @@ the two are easy to compare.
 
 Errors from the scanner are *cut* errors (fatal for the current block): an
 unclosed quote or bracket and a stray `)` or `}`. Note that a stray `]` at
-depth zero is *not* an error; nu treats it as an ordinary character, and so
-does this crate.
+depth zero is *not* an error (`a]`, the glob `[]]*`); nu treats it as an
+ordinary character, and so does this crate. The exception is the inside of a
+list, lexed with `LexOptions::LIST` (nu's `LexMode::ListItems`), where such a
+`]` would close the list before its end (`[1 2]]`), so `close_bracket` reports
+it.
 
 `item_contents` turns the exact spellings of assignment and redirection
 operators into `TokenContents::AssignmentOperator` and

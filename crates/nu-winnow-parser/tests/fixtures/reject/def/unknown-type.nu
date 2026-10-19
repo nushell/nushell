@@ -1,1 +1,1 @@
-def foo [x: unknown] { }
+def foo [x: unknown!] { }

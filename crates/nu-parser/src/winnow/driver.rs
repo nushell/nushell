@@ -54,7 +54,7 @@ use nu_protocol::{
     engine::StateWorkingSet,
 };
 use nu_winnow_parser::{
-    BlockSink, BlockStatements, Definitions, Diagnostic, PredeclaredDef, ast as w,
+    BlockSink, BlockStatements, Definitions, Diagnostic, PredeclaredDef, TypeAliasPredecl, ast as w,
 };
 
 use super::{
@@ -259,7 +259,8 @@ fn parse_statements(
 }
 
 /// Declare the block's `definitions` in the working set (what the classic parser's
-/// `parse_block` does with `parse_def_predecl`), their signatures parsed in `source`.
+/// `parse_block` does with `parse_def_predecl`), their signatures parsed in `source`, and
+/// record its `type` statements.
 fn declare(
     definitions: Definitions,
     source: &str,
@@ -267,6 +268,9 @@ fn declare(
     lookup: &EngineLookup,
     driver: &mut Driver,
 ) {
+    for type_alias in definitions.type_aliases() {
+        driver.predecl_type_alias(*type_alias);
+    }
     for def in definitions.parse(source, span, lookup) {
         driver.predecl(def);
     }
@@ -624,6 +628,14 @@ impl<'a> BlockSink<'a> for Driver<'_, '_, '_, '_> {
                 parse_def_predecl(working_set, lite_command.command_parts());
             }
         }
+    }
+
+    /// Record where a `type` statement is, as `parse_def_predecl` does, so that a use of the
+    /// alias above it is reported as a use before the definition.
+    fn predecl_type_alias(&mut self, type_alias: TypeAliasPredecl) {
+        let name = type_alias.name.slice(self.source).as_bytes().to_vec();
+        let span = self.global(type_alias.span);
+        self.working_set.borrow_mut().add_type_predecl(name, span);
     }
 
     fn statement(&mut self, pipeline: w::Pipeline<'a>, diagnostics: Vec<Diagnostic>) -> bool {

@@ -19,6 +19,7 @@ use super::parse_keywords::{
     KeywordCall, keyword_boundary, keyword_boundary_with, parse_block_argument, parse_help_call,
 };
 use super::parse_literals::parse_full_cell_path;
+use super::parse_type_alias::parse_type_alias;
 use super::tokens::Tokens;
 
 /// The name of a `module`: a string literal, quoted or not. nu's `module`
@@ -184,6 +185,7 @@ fn is_module_item(expr: &Expression<'_>) -> bool {
         Expr::Def(_)
         | Expr::Extern(_)
         | Expr::Alias(_)
+        | Expr::TypeAlias(_)
         | Expr::Use(_)
         | Expr::Module(_)
         | Expr::Export(_)
@@ -337,13 +339,13 @@ pub fn parse_export_in_block<'a>(tokens: Tokens<'_, 'a>) -> ParseResult<Expressi
         Some(token) if token.contents == TokenContents::Item => token,
         _ => {
             return Err(cut(Diagnostic::expected(
-                "`def`, `extern`, `alias`, `use`, `module` or `const` after `export`",
+                "`def`, `extern`, `alias`, `type`, `use`, `module` or `const` after `export`",
                 keyword.span.past(),
             )));
         }
     };
     match working_set.get_span_contents(next.span) {
-        "def" | "extern" | "alias" | "use" | "module" | "const" => {}
+        "def" | "extern" | "alias" | "type" | "use" | "module" | "const" => {}
         "--help" | "-h" => {
             // `export` has no positionals and no flag but help, so `export --help
             // -h` shows help and `export --help x` is one positional too many.
@@ -355,12 +357,13 @@ pub fn parse_export_in_block<'a>(tokens: Tokens<'_, 'a>) -> ParseResult<Expressi
         }
         other => {
             return Err(cut(Diagnostic::message(format!("`export {other}` is not a valid export"), next.span)
-                .with_help("expected `def`, `extern`, `alias`, `use`, `module` or `const`")));
+                .with_help("expected `def`, `extern`, `alias`, `type`, `use`, `module` or `const`")));
         }
     }
     let rest = tokens.slice(1..items.len());
     let item = match working_set.get_span_contents(next.span) {
         "alias" => parse_alias(rest, true).map_err(|error| error.map(|failure| failure.with_context("alias")))?,
+        "type" => parse_type_alias(rest, true).map_err(|error| error.map(|failure| failure.with_context("type")))?,
         _ => parse_builtin_commands(rest)?,
     };
     let span = keyword.span.merge(item.span);

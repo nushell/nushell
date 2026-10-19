@@ -1,0 +1,9 @@
+Block 0..16
+  Pipeline 0..11
+    let x 0..11
+      Value 8..11
+        Pipeline 8..11
+          String Single "a" 8..11
+  Pipeline 12..15
+    Minus 12..15
+      Var $x 13..15

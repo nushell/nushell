@@ -16,4 +16,6 @@ Block 0..52
               Member "name" 26..30
             String Single "x" 34..37
         Not 41..51
-          String Bare "active" 45..51
+          FullCellPath implicit-head 45..51
+            Var $it 45..45
+            Member "active" 45..51

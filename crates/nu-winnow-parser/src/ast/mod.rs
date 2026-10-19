@@ -297,6 +297,8 @@ pub enum Expr<'a> {
     BinaryOp(BinaryOp<'a>),
     /// `not expr`.
     UnaryNot(UnaryNot<'a>),
+    /// `-$x` or `-(expr)`: the negation of a number, duration or filesize.
+    UnaryMinus(UnaryMinus<'a>),
     /// `$x = ...`, `$x += ...`.
     Assignment(Assignment<'a>),
 
@@ -326,6 +328,8 @@ pub enum Expr<'a> {
     Extern(Box<Extern<'a>>),
     /// `alias name = command`.
     Alias(Alias<'a>),
+    /// `type Name = <type>`.
+    TypeAlias(TypeAlias<'a>),
     /// `use module [members]`.
     Use(Use<'a>),
     /// `module name { ... }` or `module path`.
@@ -375,6 +379,7 @@ impl<'a> Expr<'a> {
             Expr::Def(_) => "def",
             Expr::Extern(_) => "extern",
             Expr::Alias(_) => "alias",
+            Expr::TypeAlias(_) => "type",
             Expr::Use(_) => "use",
             Expr::Module(_) => "module",
             Expr::Export(_) => "export",
@@ -830,6 +835,18 @@ pub struct UnaryNot<'a> {
     pub expr: Box<Expression<'a>>,
 }
 
+/// `-$x` or `-(expr)` (nu-protocol's `Expr::UnaryMinus`). Only a variable, a
+/// cell path on one or a subexpression is negated this way; `-5` is the int
+/// literal, and `-$x..5` is a range.
+#[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+pub struct UnaryMinus<'a> {
+    /// The span of the `-`.
+    pub minus_span: Span,
+    /// The operand: a `$` expression or a subexpression.
+    pub expr: Box<Expression<'a>>,
+}
+
 /// An assignment. The right-hand side is a whole pipeline (Nushell parses
 /// `$x = ls | length` as `$x = (ls | length)`).
 #[derive(Clone, Debug, PartialEq)]
@@ -944,6 +961,12 @@ pub enum Operator {
     /// Bitwise.
     Bits(Bits),
 }
+
+/// The binding power of the prefix `not` (`nu-protocol`'s `NOT_PRECEDENCE`): looser than
+/// comparisons and bitwise operators, tighter than `and`, `xor` and `or`, so `not a == b` is
+/// `not (a == b)` and `not a and b` is `(not a) and b`. `not` is no [`Operator`], since it takes
+/// one operand.
+pub const NOT_PRECEDENCE: u8 = 55;
 
 impl Operator {
     /// Binding power, higher binds tighter. Matches `nu-protocol`.
@@ -1314,6 +1337,9 @@ pub enum SyntaxShape<'a> {
     Table(Vec<TypeField<'a>>),
     /// `oneof<int, string>`
     OneOf(Vec<TypeAnnotation<'a>>),
+    /// Any other name: a type alias (`type Point = record<x: float>`), which
+    /// the consumer looks up where it is used (nu's `expand_type_alias`).
+    TypeAlias(&'a str),
 }
 
 /// A parameter in a signature or closure parameter list.
@@ -1453,6 +1479,20 @@ pub struct Alias<'a> {
     /// The aliased command. `None` only for `export alias x =`, which nu
     /// accepts through a quirk of its length check (`alias x =` is an error).
     pub value: Option<Box<Expression<'a>>>,
+}
+
+/// `type Name = <type>` (nu-parser's `parse_type_alias`): a name for a type,
+/// which the consumer expands wherever the name is used as one
+/// ([`SyntaxShape::TypeAlias`]).
+#[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+pub struct TypeAlias<'a> {
+    /// The alias name.
+    pub name: Spanned<&'a str>,
+    /// The span of the `=`.
+    pub eq: Span,
+    /// The type it names.
+    pub ty: TypeAnnotation<'a>,
 }
 
 /// A member selector in a `use` statement.

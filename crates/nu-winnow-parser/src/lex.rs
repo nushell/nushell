@@ -191,41 +191,45 @@ impl LexOptions {
     }
 
     /// The options used for blocks and the top level of a file.
-    pub const BLOCK: LexOptions = LexOptions::with_stops(&StopBytes::new(&[], &[], false), false);
+    pub const BLOCK: LexOptions = LexOptions::with_stops(&StopBytes::new(&[], &[], LexMode::Code), false);
     /// Options for subexpressions `( ... )`: newlines are whitespace, so a
     /// parenthesised pipeline may span several lines.
-    pub const SUBEXPRESSION: LexOptions = LexOptions::with_stops(&StopBytes::new(b"\n\r", &[], false), false);
-    /// Options for list interiors: commas and newlines are whitespace.
-    pub const LIST: LexOptions = LexOptions::with_stops(&StopBytes::new(b"\n\r,", &[], false), false);
+    pub const SUBEXPRESSION: LexOptions = LexOptions::with_stops(&StopBytes::new(b"\n\r", &[], LexMode::Code), false);
+    /// Options for list interiors: commas and newlines are whitespace, and a `]` that closes no
+    /// `[` is an error (nu's `lex_list_items`, see [`LexMode::ListItems`]).
+    pub const LIST: LexOptions = LexOptions::with_stops(&StopBytes::new(b"\n\r,", &[], LexMode::ListItems), false);
     /// Options for record interiors: like lists, and `:` is special.
-    pub const RECORD_KEY: LexOptions = LexOptions::with_stops(&StopBytes::new(b"\n\r,", b":", false), false);
+    pub const RECORD_KEY: LexOptions = LexOptions::with_stops(&StopBytes::new(b"\n\r,", b":", LexMode::Code), false);
     /// Options for record values: like lists, but nothing is special.
-    pub const RECORD_VALUE: LexOptions = LexOptions::with_stops(&StopBytes::new(b"\n\r,", &[], false), false);
+    pub const RECORD_VALUE: LexOptions = LexOptions::with_stops(&StopBytes::new(b"\n\r,", &[], LexMode::Code), false);
     /// Options for signatures `[a: int, --flag(-f)]`.
-    pub const SIGNATURE: LexOptions = LexOptions::with_stops(&StopBytes::new(b"\n\r", b":=,", true), false);
+    pub const SIGNATURE: LexOptions =
+        LexOptions::with_stops(&StopBytes::new(b"\n\r", b":=,", LexMode::Signature), false);
     /// Options for type parameters `list<int>`, `oneof<a, b>`, `record<a: int>`
     /// (nu's `lex_signature` in `parse_type_params`): `:` and `,` are special.
     /// nu skips comments here; the parser records them and drops them.
-    pub const TYPE_PARAMS: LexOptions = LexOptions::with_stops(&StopBytes::new(b"\n\r", b":,", true), false);
+    pub const TYPE_PARAMS: LexOptions =
+        LexOptions::with_stops(&StopBytes::new(b"\n\r", b":,", LexMode::Signature), false);
     /// Options for the type of a declared variable `let x: record<a: int>`
     /// (nu's `lex_signature` in `parse_var_with_opt_type`): `<`/`>` pair up,
     /// so a stray `]` or `}` inside them is unbalanced.
-    pub const VAR_TYPE: LexOptions = LexOptions::with_stops(&StopBytes::new(b"", b",", true), true);
+    pub const VAR_TYPE: LexOptions = LexOptions::with_stops(&StopBytes::new(b"", b",", LexMode::Signature), true);
     /// Options for input/output type lists `[int -> string, nothing -> nothing]`.
-    pub const IO_TYPES: LexOptions = LexOptions::with_stops(&StopBytes::new(b"\n\r,", &[], true), false);
+    pub const IO_TYPES: LexOptions = LexOptions::with_stops(&StopBytes::new(b"\n\r,", &[], LexMode::Signature), false);
     /// Options for cell paths: `.`, `?` and `!` are special.
-    pub const CELL_PATH: LexOptions = LexOptions::with_stops(&StopBytes::new(b"\n\r", b".?!", false), true);
+    pub const CELL_PATH: LexOptions = LexOptions::with_stops(&StopBytes::new(b"\n\r", b".?!", LexMode::Code), true);
     /// Options for match blocks: commas and newlines are whitespace. A `|` still lexes as a
     /// [`TokenContents::Pipe`], which separates the alternatives of an or-pattern (`1 | 2 => x`).
-    pub const MATCH: LexOptions = LexOptions::with_stops(&StopBytes::new(b" \r\n,", &[], false), false);
+    pub const MATCH: LexOptions = LexOptions::with_stops(&StopBytes::new(b" \r\n,", &[], LexMode::Code), false);
     /// Options for the first two tokens of a `{...}` body, used to decide what it is.
-    pub const BRACE_PROBE: LexOptions = LexOptions::with_stops(&StopBytes::new(b"\r\n\t", b":", false), true);
+    pub const BRACE_PROBE: LexOptions = LexOptions::with_stops(&StopBytes::new(b"\r\n\t", b":", LexMode::Code), true);
     /// Options for binary literals `0x[ff 00]`.
-    pub const BINARY: LexOptions = LexOptions::with_stops(&StopBytes::new(b",\r\n", &[], false), false);
+    pub const BINARY: LexOptions = LexOptions::with_stops(&StopBytes::new(b",\r\n", &[], LexMode::Code), false);
     /// Options for match list patterns.
-    pub const PATTERN_LIST: LexOptions = LexOptions::with_stops(&StopBytes::new(b"\n\r,", &[], false), false);
+    pub const PATTERN_LIST: LexOptions = LexOptions::with_stops(&StopBytes::new(b"\n\r,", &[], LexMode::Code), false);
     /// Options for record patterns.
-    pub const PATTERN_RECORD: LexOptions = LexOptions::with_stops(&StopBytes::new(b"\n\r,", b":", false), false);
+    pub const PATTERN_RECORD: LexOptions =
+        LexOptions::with_stops(&StopBytes::new(b"\n\r,", b":", LexMode::Code), false);
 }
 
 /// Where the bracket groups of a block's source close, as scanning its items found them.
@@ -412,7 +416,7 @@ enum Bracket {
     Square,
     /// `{`
     Curly,
-    /// `<`, paired only in a signature (`StopBytes::in_signature`).
+    /// `<`, paired only in a signature (`LexMode::Signature`).
     Angle,
 }
 
@@ -579,7 +583,7 @@ fn item_length(
     let mut previous: Option<u8> = None;
     let mut offset = 0usize;
     let stops = options.stops;
-    let in_signature = stops.in_signature;
+    let in_signature = stops.mode == LexMode::Signature;
 
     // nu's `is_item_terminator`: only at bracket depth zero does a terminator end the item.
     let is_terminator =
@@ -690,7 +694,7 @@ fn item_length(
                     }
                 }
                 b']' | b'}' | b')' => {
-                    if let Some(open) = close_bracket(&mut brackets, byte, absolute(offset))?
+                    if let Some(open) = close_bracket(&mut brackets, byte, absolute(offset), stops.mode)?
                         && !in_signature
                     {
                         groups.record(open, absolute(offset));
@@ -742,9 +746,23 @@ struct StopBytes {
     special_tokens: ByteSet,
     /// The bytes skipped between tokens: space, tab, `\r` and the options' own.
     whitespace: ByteSet,
-    /// Whether `<` and `>` nest as brackets (type annotations such as `list<int>`). Such a scan
-    /// neither records nor jumps over bracket groups (see [`GroupEnds`]).
-    in_signature: bool,
+    /// What the text is: in a signature `<` and `>` nest as brackets (type annotations such as
+    /// `list<int>`), and such a scan neither records nor jumps over bracket groups (see
+    /// [`GroupEnds`]); in a list's interior a stray `]` is an error.
+    mode: LexMode,
+}
+
+/// What the lexer is reading, for the few rules that depend on it (nu's `LexMode`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum LexMode {
+    /// Code.
+    Code,
+    /// A signature or type, where `<` and `>` nest like brackets.
+    Signature,
+    /// The inside of a list literal, without its own brackets. A `]` that closes no `[` there
+    /// would close the list's `[` before the list ends (`[1 2]]`), so it is an error instead of
+    /// part of a bare word.
+    ListItems,
 }
 
 impl StopBytes {
@@ -753,9 +771,9 @@ impl StopBytes {
     ///   `\r`); including `\n` suppresses [`TokenContents::Eol`] tokens.
     /// - `special_tokens`: bytes that are emitted as single-character items when they start a
     ///   token and that terminate the item otherwise (e.g. `:` in records).
-    /// - `in_signature`: whether `<` and `>` nest as brackets.
-    const fn new(additional_whitespace: &[u8], special_tokens: &[u8], in_signature: bool) -> Self {
-        let brackets: &[u8] = if in_signature { b"[]{}()<>" } else { b"[]{}()" };
+    /// - `mode`: what the text is ([`LexMode`]).
+    const fn new(additional_whitespace: &[u8], special_tokens: &[u8], mode: LexMode) -> Self {
+        let brackets: &[u8] = if matches!(mode, LexMode::Signature) { b"[]{}()<>" } else { b"[]{}()" };
         let terminators = ByteSet::EMPTY.with(b" \t\n\r|;").with(additional_whitespace).with(special_tokens);
         StopBytes {
             item: terminators.with(b"#'\"`").with(brackets),
@@ -763,7 +781,7 @@ impl StopBytes {
             terminators,
             special_tokens: ByteSet::EMPTY.with(special_tokens),
             whitespace: ByteSet::EMPTY.with(b" \t\r").with(additional_whitespace),
-            in_signature,
+            mode,
         }
     }
 }
@@ -802,10 +820,16 @@ fn unclosed_error(delimiter: &'static str, open_at: usize, at: usize) -> winnow:
 }
 
 /// Pop the bracket closed by `closer`, returning where it opened, or report the
-/// mismatch. With no bracket open, a `]` is ordinary text (`a]`) and gives `None`,
-/// while a `}` or `)` is an error; a closer that does not match the innermost open
-/// bracket (`(a]`) is always an error.
-fn close_bracket(brackets: &mut Vec<(Bracket, usize)>, closer: u8, at: usize) -> ParseResult<Option<usize>> {
+/// mismatch. With no bracket open, a `]` is ordinary text (`a]`, the glob `[]]*`) and
+/// gives `None`, except inside a list (`mode` [`LexMode::ListItems`]), where it would
+/// close the list early (`[1 2]]`); a `}` or `)` is an error; a closer that does not
+/// match the innermost open bracket (`(a]`) is always an error.
+fn close_bracket(
+    brackets: &mut Vec<(Bracket, usize)>,
+    closer: u8,
+    at: usize,
+    mode: LexMode,
+) -> ParseResult<Option<usize>> {
     let (expected, found) = match closer {
         b']' => (Bracket::Square, "]"),
         b'}' => (Bracket::Curly, "}"),
@@ -817,7 +841,7 @@ fn close_bracket(brackets: &mut Vec<(Bracket, usize)>, closer: u8, at: usize) ->
             Ok(Some(open_at))
         }
         Some(&(open, open_at)) => Err(unbalanced_error(found, open, open_at, at)),
-        None if closer == b']' => Ok(None),
+        None if closer == b']' && mode != LexMode::ListItems => Ok(None),
         None => Err(cut(Diagnostic::new(
             ErrorKind::Unbalanced { found, expected: expected.opener() },
             Span::new(at, at + 1),

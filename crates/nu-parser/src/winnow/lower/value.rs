@@ -12,10 +12,12 @@ use nu_winnow_parser::{Span as WSpan, ast as w};
 
 use super::{Lower, Lowered, Unlowered};
 use crate::{
+    parse_calls::accepts_any_bareword,
     parse_captures_compile::compile_block,
     parse_expressions::parse_value as classic_value,
     parse_expressions::{check_record_key_or_value, table_type},
     parse_literals::{is_quoted, parse_variable_expr},
+    type_check::negation_type,
 };
 
 impl<'s> Lower<'_, '_, 's> {
@@ -30,6 +32,21 @@ impl<'s> Lower<'_, '_, 's> {
         if let SyntaxShape::OneOf(shapes) = shape {
             return self.one_of(e, shapes, input_type);
         }
+        // `parse_value` negates `-$x` and `-(expr)` for the shapes that hold numbers; for any
+        // other, the classic leaf parser reads the word (`-$x` is a string for `string`).
+        if let w::Expr::UnaryMinus(minus) = &e.expr
+            && matches!(
+                shape,
+                SyntaxShape::Any
+                    | SyntaxShape::Number
+                    | SyntaxShape::Int
+                    | SyntaxShape::Float
+                    | SyntaxShape::Duration
+                    | SyntaxShape::Filesize
+            )
+        {
+            return self.unary_minus(e, minus, input_type);
+        }
         match self.text(e.span).as_bytes() {
             [] => Err(Unlowered::Error),
             [b'$', ..] => self.dollar(e, shape, input_type),
@@ -43,18 +60,35 @@ impl<'s> Lower<'_, '_, 's> {
     /// The first of `shapes` that reads the item without an error (`parse_oneof`). When none
     /// does, the classic parser picks the error to report. A shape that is handed back, or that
     /// lowers but leaves errors (from a statement of a nested block the classic parser parsed),
-    /// does not end the search: its errors are dropped and the next shape is tried.
+    /// does not end the search: its errors, warnings and compile errors (a closure it compiled)
+    /// are dropped and the next shape is tried. As there, the shapes that take nearly any bare
+    /// word go last unless the item starts with `$`, `(` or `{`.
     pub(super) fn one_of(
         &mut self,
         e: &w::Expression<'s>,
         shapes: &[SyntaxShape],
         input_type: Option<&Type>,
     ) -> Lowered<Expression> {
-        for shape in shapes {
-            let before = self.working_set.parse_errors.len();
+        let defer_barewords = !matches!(
+            self.text(e.span).as_bytes().first(),
+            Some(b'$' | b'(' | b'{')
+        );
+        let deferred = |shape: &&SyntaxShape| defer_barewords && accepts_any_bareword(shape);
+        let ordered = shapes
+            .iter()
+            .filter(|shape| !deferred(shape))
+            .chain(shapes.iter().filter(|shape| deferred(shape)));
+        for shape in ordered {
+            let errors = self.working_set.parse_errors.len();
+            let warnings = self.working_set.parse_warnings.len();
+            let compile_errors = self.working_set.compile_errors.len();
             match self.value(e, shape, input_type) {
-                Ok(value) if self.working_set.parse_errors.len() == before => return Ok(value),
-                _ => self.working_set.parse_errors.truncate(before),
+                Ok(value) if self.working_set.parse_errors.len() == errors => return Ok(value),
+                _ => {
+                    self.working_set.parse_errors.truncate(errors);
+                    self.working_set.parse_warnings.truncate(warnings);
+                    self.working_set.compile_errors.truncate(compile_errors);
+                }
             }
         }
         Err(Unlowered::Error)
@@ -116,6 +150,21 @@ impl<'s> Lower<'_, '_, 's> {
             }
         };
         Ok(self.node(expr, span, ty))
+    }
+
+    /// `-$x` or `-(expr)` (`parse_negation`): the operand, read with any shape, negated. Its
+    /// type is what multiplying it by an int gives (`negation_type`); one that can't be negated
+    /// is the classic parser's error.
+    fn unary_minus(
+        &mut self,
+        e: &w::Expression<'s>,
+        minus: &w::UnaryMinus<'s>,
+        input_type: Option<&Type>,
+    ) -> Lowered<Expression> {
+        let operand = self.value(&minus.expr, &SyntaxShape::Any, input_type)?;
+        let ty = negation_type(&operand.ty).ok_or(Unlowered::Error)?;
+        let span = self.span(e.span);
+        Ok(self.node(Expr::UnaryMinus(Box::new(operand)), span, ty))
     }
 
     /// An item starting with `$` (`parse_dollar_expr`).

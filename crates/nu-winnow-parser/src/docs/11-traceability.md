@@ -48,26 +48,26 @@ enum name), with which its default value is parsed
 | `ExternalArgument` | `parse_calls::parse_external_arg`, `parse_external_string`, `check_external_list_argument` (a `[` argument must end with `]`) | `accept/externals/arg-*.nu` `reject/externals/*.nu` | `external_call_string_args` `external_call_structured_args` |
 | `Filepath` | bare string; n/a without a signature | `accept/strings/bare-word.nu` `accept/externals/relative-path-command.nu` | `relative_path_is_an_external_command` |
 | `Filesize` | `parse_literals::parse_filesize` | `accept/literals/filesize-*.nu` `reject/literals/filesize-*.nu` | `filesizes` |
-| `Float` | `parse_literals::parse_float` | `accept/literals/float-*.nu` | `floats` |
+| `Float` | `parse_literals::parse_float` (the special floats are `inf`, `nan` and `NaN` only, signed or not; `SPECIAL_FLOAT_NAMES`) | `accept/literals/float-*.nu` `accept/literals/special-float-names.nu` `accept/strings/special-float-lookalikes.nu` | `floats` `number_literals_are_checked_for_range_and_spelling` |
 | `FullCellPath` | `parse_literals::parse_full_cell_path` | `accept/cellpaths/*.nu` `reject/variables/*.nu` | `variables_and_cell_paths` `cell_path_members` |
 | `GlobPattern` | bare string; n/a without a signature | `accept/strings/bare-word.nu` `accept/externals/head-forms.nu` | `external_call_heads` |
-| `Int` | `parse_literals::parse_int`, `radix_prefix` | `accept/literals/int-*.nu` `reject/literals/int-*.nu` | `ints` `radix_prefixed_words_must_be_ints` |
+| `Int` | `parse_literals::read_int` (`IntLiteral`: a sign before a radix prefix, digits too many for 64 bits an error), `parse_int` | `accept/literals/int-*.nu` `reject/literals/int-*.nu` `reject/literals/hex-too-large.nu` | `ints` `radix_prefixed_words_must_be_ints` `number_literals_are_checked_for_range_and_spelling` |
 | `ImportPattern` | `parse_module::parse_use`, `parse_import_pattern_member`, `parse_import_pattern_list` (dropped members are `ImportPatternMemberKind::Ignored` or ignored spans) | `accept/modules/use-*.nu` `reject/modules/use-*.nu` | `use_forms` |
 | `Keyword` | keyword arguments inside statements (`in`, `else`, `catch`, `=`), mostly matched with the token parsers `tokens::keyword` and `tokens_until` | `accept/loops/for-*.nu` `accept/if/else*.nu` `accept/try/*.nu` `reject/loops/for-missing-in.nu` | `loops_and_jumps` `if_forms` |
-| `List` | `parse_expressions::parse_list_expression` over `lite_parser::lite_parse_parts` (nu's lite parse of the bracket: `\|` splits, `;` is refused, a redirection is dropped) | `accept/lists/*.nu` `reject/lists/*.nu` | `lists` |
-| `MathExpression` | `parse_expressions::parse_math_expression` (winnow's `expression` with `infix_operator` and `fold_binary_op`) | `accept/operators/*.nu` `reject/operators/*.nu` | `precedence` `unknown_operators_get_help` |
+| `List` | `parse_expressions::parse_list_expression` over `lite_parser::lite_parse_parts` (nu's lite parse of the bracket: `\|` splits, `;` is refused, a redirection is dropped); the interior is lexed with `LexOptions::LIST`, where a `]` that closes no `[` is an error | `accept/lists/*.nu` `reject/lists/*.nu` | `lists` `list_items_refuse_a_stray_closing_bracket` |
+| `MathExpression` | `parse_expressions::parse_math_expression` (winnow's `expression` with `infix_operator` and `fold_binary_op`); `parse_math_operand` gives `not` its precedence (`NOT_PRECEDENCE`, `negated_operand_end`) and `parse_negation` reads `-$x` and `-(expr)` | `accept/operators/*.nu` `reject/operators/*.nu` | `precedence` `unknown_operators_get_help` `not_binds_looser_than_comparisons` `unary_minus_negates_variables_and_subexpressions` |
 | `MatchBlock` | `parse_expressions::parse_match_block_expression`; `parse_control_flow::parse_match` keeps a closure, record, variable or subexpression in that position as `Match::value_block` | `accept/match/*.nu` `accept/match/block-is-*.nu` `reject/match/*.nu` | `match_forms` |
-| `Nothing` | `parse_expressions::parse_any_value` (`null`) | `accept/literals/null.nu` `reject/records/null-key.nu` | `numbers` |
+| `Nothing` | `parse_expressions::parse_any_value` (`null`) | `accept/literals/null.nu` `accept/records/null-key.nu` | `numbers` |
 | `Number` | `parse_literals::parse_number` (range bounds, `ExpectedShape::Number`) | `accept/ranges/float-bounds.nu` `accept/ranges/negative-bounds.nu` | `ranges` |
-| `OneOf` | the `else` branch: block or expression (`parse_control_flow::parse_block_or_value`); a default declared `oneof<...>` goes through `parse_expressions::parse_oneof` | `accept/if/else-expression.nu` `accept/if/else-call-with-closure-arg.nu` | `if_forms` |
+| `OneOf` | the `else` branch: block or expression (`parse_control_flow::parse_block_or_value`); a default declared `oneof<...>` goes through `parse_expressions::parse_oneof`, which tries the shapes that take any bare word last (`accepts_any_bareword`) | `accept/if/else-expression.nu` `accept/if/else-call-with-closure-arg.nu` `accept/signatures/oneof-*.nu` | `if_forms` `oneof_defaults_try_bareword_shapes_last` |
 | `Operator` | `parse_expressions::parse_operator`, `Operator::from_spelling` | `accept/operators/*.nu` `reject/operators/*.nu` | `all_operators_parse` `unknown_operators_get_help` |
 | `Range` | `parse_literals::parse_range`, `is_range_syntax` | `accept/ranges/*.nu` `reject/ranges/*.nu` | `ranges` `bad_ranges` |
-| `Record` | `parse_expressions::parse_record` (the interior is read token by token with `lex::next_token`) | `accept/records/*.nu` `reject/records/*.nu` | `records` `bare_colons_in_records_are_refused` |
-| `RowCondition` | `parse_source::parse_where`, `parse_source::parse_condition` (also for `DeclKind::RowCondition` calls), `parse_expressions::parse_row_condition` (`expand_to_cell_path` makes a bare left operand a `$it` cell path) | `accept/where/*.nu` `reject/where/*.nu` `accept/calls/row-condition-*.nu` | `where_row_conditions` `empty_braces_as_row_condition` |
+| `Record` | `parse_expressions::parse_record` (the interior is read token by token with `lex::next_token`; a key is a name, `parse_field_name`, and one written twice is refused, `check_duplicate_name`) | `accept/records/*.nu` `reject/records/*.nu` | `records` `bare_colons_in_records_are_refused` `record_keys_and_column_names_are_names` |
+| `RowCondition` | `parse_source::parse_where`, `parse_source::parse_condition` (also for `DeclKind::RowCondition` calls), `parse_expressions::parse_row_condition` (`expand_row_condition` makes a bare left operand, and a bare right operand of `and`, `xor` or `or`, a `$it` cell path) | `accept/where/*.nu` `reject/where/*.nu` `accept/calls/row-condition-*.nu` | `where_row_conditions` `empty_braces_as_row_condition` `row_condition_columns_after_boolean_operators` |
 | `Signature` | `parse_signatures::parse_signature`, `check_parameter_order` | `accept/signatures/*.nu` `reject/signatures/*.nu` `accept/def/*.nu` `reject/def/*.nu` | `def_forms` `signature_forms_from_nushell_tests` |
 | `ExternalSignature` | `parse_def::parse_extern` (same signature parser) | `accept/extern/*.nu` `reject/def/extern-*.nu` | `extern_alias_module_use_export` |
 | `String` | `parse_literals::parse_string`, `parse_string_literal` | `accept/strings/*.nu` `reject/strings/*.nu` | `strings_all_quote_styles` `string_values` `string_escape_errors` |
-| `Table` | `parse_expressions::parse_table_expression` (row shape, column count and column-name kind checked as nu does) | `accept/tables/*.nu` `reject/tables/*.nu` | `tables` |
+| `Table` | `parse_expressions::parse_table_expression` (row shape, column count and column-name kind checked as nu does; the header's names are read like record keys, and one written twice is refused) | `accept/tables/*.nu` `reject/tables/*.nu` | `tables` `record_keys_and_column_names_are_names` |
 | `VarWithOptType` | `parse_signatures::parse_var_with_opt_type`, `parse_type_after_var`; `parse_def::parse_for` (the type runs up to `in`: `tokens_until("in")`) | `accept/bindings/let-typed.nu` `reject/bindings/let-*.nu` `accept/loops/for-typed-record-with-spaces.nu` `reject/loops/for-typed-then-help.nu` | `let_mut_const` `let_type_annotations` `let_type_without_colon_is_extra_tokens` |
 
 ## Keyword commands
@@ -94,6 +94,7 @@ nu-parser does not have. `parse_keywords::KeywordCall` and
 | `export def` | `parse_module::parse_export_in_block` + `parse_def::parse_def` | `accept/modules/export-forms.nu` `accept/attributes/before-export.nu` | `extern_alias_module_use_export` |
 | `export extern` | `parse_module::parse_export_in_block` + `parse_def::parse_extern` | `accept/modules/export-forms.nu` | `extern_alias_module_use_export` |
 | `export module` | `parse_module::parse_export_in_block` + `parse_module::parse_module` | `accept/modules/export-forms.nu` | `extern_alias_module_use_export` |
+| `export type` | `parse_module::parse_export_in_block` + `parse_type_alias::parse_type_alias` | `accept/modules/export-type.nu` | `type_alias_statements` |
 | `export use` | `parse_module::parse_export_in_block` + `parse_module::parse_use` | `accept/modules/export-forms.nu` | `extern_alias_module_use_export` |
 | `export-env` | `parse_module::parse_export_env` | `accept/modules/export-env-multiline.nu` `reject/modules/export-env-*.nu` | `extern_alias_module_use_export` |
 | `extern` | `parse_def::parse_extern` | `accept/extern/*.nu` `reject/def/extern-*.nu` | `extern_alias_module_use_export` |
@@ -102,7 +103,7 @@ nu-parser does not have. `parse_keywords::KeywordCall` and
 | `hide-env` | an ordinary `Call` | `accept/calls/keyword-named-commands.nu` | `use_forms` |
 | `if` | `parse_control_flow::parse_if` | `accept/if/*.nu` `reject/if/*.nu` | `if_forms` |
 | `let` | `parse_bindings::parse_let` | `accept/bindings/let-*.nu` `reject/bindings/let-*.nu` | `let_mut_const` |
-| `loop` | `parse_control_flow::parse_loop` | `accept/loops/loop-*.nu` `reject/loops/loop-*.nu` | `loops_and_jumps` |
+| `loop` | `parse_control_flow::parse_loop`; refused in a longer pipeline (`parse_pipelines::check_loop_in_pipeline`) | `accept/loops/loop-*.nu` `reject/loops/loop-*.nu` | `loops_and_jumps` `loops_cannot_be_piped` |
 | `match` | `parse_control_flow::parse_match`, `parse_patterns.rs` | `accept/match/*.nu` `reject/match/*.nu` | `match_forms` |
 | `module` | `parse_module::parse_module` | `accept/modules/module-*.nu` `reject/modules/module-*.nu` | `extern_alias_module_use_export` |
 | `mut` | `parse_bindings::parse_mut` | `accept/bindings/mut-forms.nu` `reject/bindings/mut-*.nu` | `let_mut_const` |
@@ -115,10 +116,11 @@ nu-parser does not have. `parse_keywords::KeywordCall` and
 | `run` | an ordinary `Call` checked by `parse_calls::check_call` (unknown flags pass through); `run` is refused as a definition name | `reject/def/keyword-name-run.nu` `reject/calls/run-without-argument.nu` `reject/redirections/run-redirected.nu` | `definitions_cannot_use_parser_keywords` |
 | `source` | an ordinary `Call` checked by `parse_calls::check_call`; file resolution is semantic | `accept/modules/hide-and-source.nu` `reject/calls/source-*.nu` `reject/pipelines/source-*.nu` `reject/redirections/source-redirected.nu` | `use_forms` |
 | `source-env` | an ordinary `Call` checked by `parse_calls::check_call` | `accept/modules/hide-and-source.nu` | `use_forms` |
+| `type` | `parse_type_alias::parse_type_alias` (the type through `parse_shape_specs::parse_type`; what the alias names, its uses and `hide` are the consumer's) | `accept/def/type-alias*.nu` `reject/def/type-alias-*.nu` `reject/pipelines/type-alias-after-pipe.nu` | `type_alias_statements` |
 | `try` | `parse_control_flow::parse_try` | `accept/try/*.nu` `reject/try/*.nu` | `try_forms` |
 | `use` | `parse_module::parse_use` | `accept/modules/use-*.nu` `reject/modules/use-*.nu` | `use_forms` |
 | `where` | `parse_source::parse_where` | `accept/where/*.nu` `reject/where/*.nu` | `where_row_conditions` |
-| `while` | `parse_control_flow::parse_while` | `accept/loops/while-*.nu` `reject/loops/while-*.nu` | `loops_and_jumps` |
+| `while` | `parse_control_flow::parse_while`; refused in a longer pipeline (`parse_pipelines::check_loop_in_pipeline`) | `accept/loops/while-*.nu` `reject/loops/while-*.nu` | `loops_and_jumps` `loops_cannot_be_piped` |
 
 ## TokenContents
 
@@ -164,7 +166,7 @@ with `item_length`, a byte loop like the one in nu's `lex_item`, and
 | `"`, `'`, `` ` `` quotes, `\` escapes only in `"` | `item_length` (`quote`) | `accept/strings/*.nu` `reject/lexer/unclosed-*-quote*.nu` | `lex_unclosed_delimiters_point_at_the_opener` |
 | `$"..("..")"` subexpression delimiters inside interpolation | `interp_subexpr_step` (nu's name) | `accept/interpolation/quotes-inside-subexpression.nu` `reject/lexer/unclosed-interpolation-*.nu` | `lex_interpolation_is_one_item` `unclosed_interpolation_subexpression_names_the_paren` |
 | `r#'..'#` raw strings | `lex_raw_string` (nu's name) | `accept/strings/raw-string*.nu` `reject/lexer/unclosed-raw-string.nu` `reject/lexer/raw-string-missing-quote.nu` | `strings_all_quote_styles` |
-| `(`, `[`, `{` nest; `)`, `]`, `}` must match; a stray `]` is text | `close_bracket`, `group_end` | `reject/lexer/mismatched-*.nu` `reject/lexer/unbalanced-*.nu` `reject/lexer/extra-*.nu` | `lex_mismatched_closers` `valid_layouts_never_get_delimiter_errors` |
+| `(`, `[`, `{` nest; `)`, `]`, `}` must match; a stray `]` is text, except inside a list (`LexMode::ListItems`) | `close_bracket`, `group_end` | `reject/lexer/mismatched-*.nu` `reject/lexer/unbalanced-*.nu` `reject/lexer/extra-*.nu` | `lex_mismatched_closers` `valid_layouts_never_get_delimiter_errors` |
 | `<` and `>` nest inside signatures | `StopBytes::in_signature` | `accept/signatures/generic-types*.nu` `reject/def/io-unclosed-*.nu` | `lex_signatures` `lex_unterminated_type_annotations` |
 | `\|` ends an item and is a pipe; `\|\|` is one token | `lex_token` | `accept/pipelines/double-pipe-tolerated.nu` `reject/lexer/or-or.nu` | `simple_call_and_pipeline` |
 | `;` ends an item | `lex_token` | `accept/pipelines/semicolon-separated.nu` | `statements_separated_by_semicolons_and_newlines` |
@@ -234,10 +236,10 @@ signatures, types or files and is left to the consumer.
 | `ExtraTokens` | `ErrorKind::ExtraTokens` | `reject/bindings/let-missing-colon.nu` `reject/lexer/text-after-closing-quote.nu` | `let_type_without_colon_is_extra_tokens` |
 | `ExtraTokensAfterClosingDelimiter` | `ErrorKind::ExtraTokens` | `reject/lexer/text-after-closing-brace.nu` | `malformed_input_does_not_panic` |
 | `ExtraPositional` | `ErrorKind::Message` for the keyword commands with a fixed signature (`parse_calls::check_call` against a `KeywordSignature`); n/a for ordinary commands | `reject/calls/hide-extra-positional.nu` `reject/calls/overlay-new-two-positionals.nu` `accept/calls/positional-args.nu` | `multiword_commands_and_flags` |
-| `RequiredAfterOptional` | `parse_signatures::check_parameter_order` | `reject/signatures/required-after-optional.nu` `accept/signatures/optional-positional.nu` | `def_forms` |
+| `RequiredAfterOptional` | `parse_signatures::check_parameters` | `reject/signatures/required-after-optional.nu` `accept/signatures/optional-positional.nu` | `def_forms` |
 | `UnexpectedEof` | `ErrorKind::UnexpectedEof` | `reject/pipelines/pipe-then-semicolon.nu` `reject/pipelines/trailing-pipe-in-block.nu` | `redirecting_nothing_is_an_error` |
 | `Unclosed` | `ErrorKind::Unclosed` | `reject/lexer/unclosed-*.nu` | `unclosed_delimiters_report_opener` `lex_unclosed_delimiters_point_at_the_opener` |
-| `Unbalanced` | `ErrorKind::Unbalanced` | `reject/lexer/unbalanced-*.nu` `reject/lexer/mismatched-*.nu` | `lex_mismatched_closers` |
+| `Unbalanced` | `ErrorKind::Unbalanced` | `reject/lexer/unbalanced-*.nu` `reject/lexer/mismatched-*.nu` `reject/lists/stray-closing-bracket*.nu` | `lex_mismatched_closers` `list_items_refuse_a_stray_closing_bracket` |
 | `Expected` | `ErrorKind::Expected` | `reject/if/no-block.nu` `reject/match/no-arrow.nu` | `unknown_operator_hints` |
 | `ExpectedWithStringMsg` | `ErrorKind::Expected`, `ErrorKind::Message` | `reject/def/missing-body.nu` | `declaration_errors_from_nushell_tests` |
 | `ExpectedWithDidYouMean` | `ErrorKind::UnknownOperator` with help | `reject/operators/bits-and.nu` | `unknown_operators_get_help` |
@@ -256,13 +258,13 @@ signatures, types or files and is left to the consumer.
 | `CantAliasKeyword` | `ErrorKind::Message` (parser keyword as alias name) | `reject/def/alias-keyword-name.nu` | `definitions_cannot_use_parser_keywords` |
 | `CantAliasExpression` | `ErrorKind::Expected` (`command after =`) | `reject/def/alias-missing-target.nu` | `extern_alias_module_use_export` |
 | `UnknownOperator` | `ErrorKind::UnknownOperator` | `reject/operators/*.nu` | `unknown_operators_get_help` |
-| `BuiltinCommandInPipeline` | `parse_expressions::check_builtin_command_in_pipeline` (nu's head table for every element of a multi-command pipeline and after env shorthand; `ls \| let x` without a value is allowed, as in nu) | `reject/pipelines/def-in-pipeline.nu` `reject/pipelines/hide-after-pipe.nu` `accept/bindings/let-after-pipe.nu` | `let_after_pipe_is_a_statement` |
+| `BuiltinCommandInPipeline` | `parse_expressions::check_builtin_command_in_pipeline` (nu's head table for every element of a multi-command pipeline and after env shorthand; `ls \| let x` without a value is allowed, as in nu), `parse_pipelines::check_loop_in_pipeline` (`while` and `loop`, anywhere in a longer pipeline) | `reject/pipelines/def-in-pipeline.nu` `reject/pipelines/hide-after-pipe.nu` `accept/bindings/let-after-pipe.nu` `reject/loops/while-piped.nu` `reject/loops/loop-piped.nu` | `let_after_pipe_is_a_statement` `loops_cannot_be_piped` |
 | `AssignInPipeline` | `parse_expressions::check_builtin_command_in_pipeline` (`ls \| let x = 1`, `ls \| mut x = 1`) | `reject/pipelines/let-with-value-after-pipe.nu` `reject/pipelines/mut-after-pipe.nu` `accept/assignments/rhs-pipeline.nu` | `assignments` |
 | `NameIsBuiltinVar` | `parse_signatures::ensure_not_reserved_variable_name` (`in`, `nu`, `env`, `ans`; skipped for `extern`) | `reject/signatures/reserved-param-in.nu` `reject/signatures/reserved-flag-env.nu` `reject/match/variable-pattern-in.nu` `reject/loops/for-reserved-var.nu` `accept/def/reserved-param-names-in-extern.nu` | `reserved_variable_names_are_errors` `signature_forms_from_nushell_tests` |
-| `NameIsKeyword` | `ErrorKind::Message` (`cannot use parser keyword`) | `reject/def/keyword-name-*.nu` | `definitions_cannot_use_parser_keywords` |
+| `NameIsKeyword` | `ErrorKind::Message` (`cannot use parser keyword`) | `reject/def/keyword-name-*.nu` `reject/def/type-keyword-as-command-name.nu` | `definitions_cannot_use_parser_keywords` |
 | `IncorrectValue` | n/a (semantic: constant evaluation) | `accept/attributes/values-of-every-kind.nu` | `attribute_values` |
 | `InvalidBinaryString` | `ErrorKind::InvalidLiteral` (`binary`) | `reject/literals/binary-*.nu` | `invalid_binary_literals` |
-| `MultipleRestParams` | `parse_signatures::check_parameter_order` | `reject/signatures/two-rest-params.nu` `accept/def/rest-param.nu` | `def_forms` |
+| `MultipleRestParams` | `parse_signatures::check_parameters` | `reject/signatures/two-rest-params.nu` `accept/def/rest-param.nu` | `def_forms` |
 | `VariableNotFound` | n/a (semantic: scopes) | `accept/variables/simple.nu` | `variables_and_cell_paths` |
 | `EnvVarNotVar` | n/a (semantic) | `accept/env-shorthand/single.nu` | `env_shorthand` |
 | `VariableNotValid` | `ErrorKind::Expected` (`valid variable name`) | `reject/bindings/let-quoted-name.nu` `reject/variables/name-with-dash.nu` | `declaration_errors_from_nushell_tests` |
@@ -307,7 +309,17 @@ signatures, types or files and is left to the consumer.
 | `SourcedFileNotFound` | n/a (semantic: files) | `accept/modules/hide-and-source.nu` | `use_forms` |
 | `RegisteredFileNotFound` | n/a (semantic: files) | `accept/modules/plugin.nu` | `use_forms` |
 | `FileNotFound` | n/a (semantic: files) | `accept/modules/const-and-source.nu` | `use_forms` |
-| `InvalidLiteral` | `ErrorKind::InvalidLiteral`, `ErrorKind::Message` (record colons) | `reject/strings/*.nu` `reject/records/*-colon*.nu` | `string_escape_errors` `bare_colons_in_records_are_refused` |
+| `InvalidLiteral` | `ErrorKind::InvalidLiteral`, `ErrorKind::Message` (record colons); an int too large for 64 bits (`IntLiteral::error`) and a date that names no day (`parse_literals::is_invalid_date_literal`) | `reject/strings/*.nu` `reject/records/*-colon*.nu` `reject/literals/int-too-large*.nu` `reject/literals/invalid-date-*.nu` | `string_escape_errors` `bare_colons_in_records_are_refused` `number_literals_are_checked_for_range_and_spelling` |
+| `LiteralTooLarge` | `ErrorKind::InvalidLiteral` (`parse_literals::parse_unit_value`, `UnitError::TooLarge`: the value in bytes or nanoseconds doesn't fit in 64 bits) | `reject/literals/duration-*.nu` `reject/literals/filesize-*.nu` `accept/literals/unit-limits.nu` | `number_literals_are_checked_for_range_and_spelling` |
+| `PositionalAfterRest` | `parse_signatures::check_parameters` (not in an `extern`) | `reject/signatures/parameter-after-rest.nu` `accept/extern/positional-after-rest.nu` | `signature_names_must_be_unique` |
+| `DuplicateParameter` | `parse_signatures::check_unique_name` (not in an `extern`; a positional `_` may repeat) | `reject/signatures/duplicate-*.nu` `reject/signatures/flag-and-parameter-share-a-variable.nu` `reject/closures/duplicate-parameter.nu` `accept/signatures/repeated-underscore-parameters.nu` `accept/extern/repeated-names.nu` | `signature_names_must_be_unique` |
+| `ColumnDefinedTwice` | `parse_expressions::check_duplicate_name` (names written as literals; one known only when the literal runs is the consumer's) | `reject/records/duplicate-key*.nu` `reject/tables/duplicate-column.nu` `accept/records/runtime-duplicate-is-consumer.nu` | `record_keys_and_column_names_are_names` |
+| `TypeAliasUsedBeforeDefinition` | n/a (semantic: what a type name means); the predeclaration scan reports where the block's `type` statements are (`parse_def::TypeAliasPredecl`, `BlockSink::predecl_type_alias`) | `accept/def/type-alias.nu` | `type_alias_statements` |
+| `TypeAliasSelfReference` | n/a (semantic: what a type name means) | `accept/def/type-alias-in-generic.nu` | `type_alias_statements` |
+| `TypeAliasShadowsBuiltin` | `ErrorKind::Message` (`parse_type_alias::parse_type_alias`, `parse_shape_specs::BUILTIN_TYPE_NAMES`) | `reject/def/type-alias-builtin-name.nu` | `type_alias_statements` |
+| `TypeAliasNameNotValid` | `ErrorKind::Message` (`parse_type_alias::parse_type_alias`, `parse_shape_specs::is_valid_type_alias_name`) | `reject/def/type-alias-invalid-name.nu` | `type_alias_statements` |
+| `TypeAliasWithParams` | `ErrorKind::UnknownType` (`parse_shape_specs::parse_type`: no alias name has a `<`) | `reject/def/type-alias-with-type-parameters.nu` | `type_alias_statements` |
+| `TypeAliasMissingEquals` | `ErrorKind::Message` (`parse_type_alias::parse_type_alias`) | `reject/def/type-alias-missing-equals.nu` | `type_alias_statements` |
 | `LabeledError` | n/a (semantic: constant evaluation) | `accept/attributes/values-of-every-kind.nu` | `attribute_values` |
 | `RedirectingBuiltinCommand` | `ErrorKind::Message` (`this statement cannot be redirected`; `parse_pipelines::rejects_redirection` covers the statements, every `overlay ...` and the keyword commands whose signature is not redirectable) | `reject/def/redirect-after-def.nu` `reject/redirections/*-redirected.nu` | `redirections` |
 | `UnexpectedSpreadArg` | n/a (semantic: signature) | `accept/calls/spread-args.nu` | `multiword_commands_and_flags` |
@@ -380,7 +392,7 @@ drive.
 | `parse_hide` | an ordinary `Call` checked by `parse_calls::check_call` | `accept/modules/hide-and-source.nu` `reject/calls/hide-*.nu` | `use_forms` |
 | `parse_import_pattern` | `parse_module::parse_use`, `parse_import_pattern_member`, `parse_import_pattern_list` | `accept/modules/use-list-forms.nu` `reject/modules/use-*.nu` | `use_forms` |
 | `parse_input_output_types` | `parse_signatures::parse_input_output_types` (`repeat_to_end(input_output_type)`) | `accept/def/io-types-*.nu` | `def_forms` |
-| `parse_int` | `parse_literals::parse_int` | `accept/literals/int-*.nu` | `ints` |
+| `parse_int` | `parse_literals::read_int`, `parse_int` | `accept/literals/int-*.nu` | `ints` |
 | `parse_internal_call` | `parse_calls::parse_call`, `parse_call_arguments`, `check_call` for the keyword commands; `parse_keywords::KeywordCall` for the flags at a statement's positional boundaries | `accept/calls/*.nu` `reject/calls/*.nu` | `multiword_commands_and_flags` |
 | `parse_keyword` | `parse_expressions::parse_builtin_commands`; `parse_keywords::KeywordCall` gives the statements nu's handling of flags and `--help` | `accept/misc/every-statement-in-closure.nu` | `if_forms` |
 | `parse_let` | `parse_bindings::parse_let` | `accept/bindings/let-*.nu` | `let_mut_const` |
@@ -393,7 +405,7 @@ drive.
 | `parse_module_file_or_dir` | n/a (files) | `accept/modules/module-path.nu` | `extern_alias_module_use_export` |
 | `parse_multispan_value` | the keyword arguments of the statements, read with `KeywordCall` and token parsers such as `tokens_until("else")` and `opt(keyword("else"))` (`parse_control_flow.rs`, `parse_def.rs`) | `accept/if/else-if-chain.nu` | `if_forms` |
 | `parse_mut` | `parse_bindings::parse_mut` | `accept/bindings/mut-forms.nu` | `let_mut_const` |
-| `parse_number` | `parse_literals::parse_number` | `accept/ranges/float-bounds.nu` | `ranges` |
+| `parse_number` | `parse_literals::parse_number` (an int too large for 64 bits is an error, not a float) | `accept/ranges/float-bounds.nu` `reject/ranges/bound-too-large.nu` | `ranges` |
 | `parse_operator` | `parse_expressions::parse_operator` | `accept/operators/*.nu` | `all_operators_parse` |
 | `parse_overlay_hide` | an ordinary `Call` checked by `parse_calls::check_call` | `accept/modules/overlay.nu` `reject/calls/overlay-hide-*.nu` | `use_forms` |
 | `parse_overlay_new` | an ordinary `Call` checked by `parse_calls::check_call` | `accept/modules/overlay.nu` `reject/calls/overlay-new-*.nu` | `use_forms` |
@@ -418,8 +430,9 @@ drive.
 | `parse_string` | `parse_literals::parse_string` | `accept/strings/*.nu` | `string_values` |
 | `parse_string_interpolation` | `parse_literals::parse_string_interpolation`, `parse_interpolation_parts` | `accept/interpolation/*.nu` | `interpolation_parts` |
 | `parse_string_strict` | `parse_literals::parse_string_literal` (env shorthand values) | `accept/env-shorthand/quoted-value.nu` | `env_shorthand` |
-| `parse_type` | `parse_shape_specs::parse_type` | `accept/signatures/generic-types.nu` | `types_in_signatures` |
-| `parse_unit_value` | `parse_literals::parse_unit_value` | `accept/literals/filesize-units.nu` | `filesizes` `durations` |
+| `parse_type` | `parse_shape_specs::parse_type` (any other name an alias could have is `SyntaxShape::TypeAlias`) | `accept/signatures/generic-types.nu` `accept/def/type-alias-name-like-generic.nu` | `types_in_signatures` `type_alias_statements` |
+| `parse_type_alias` | `parse_type_alias::parse_type_alias` | `accept/def/type-alias*.nu` `reject/def/type-alias-*.nu` | `type_alias_statements` |
+| `parse_unit_value` | `parse_literals::parse_unit_value` (a `+` sign; the value must fit in 64 bits as nu stores it) | `accept/literals/filesize-units.nu` `accept/literals/unit-plus-sign.nu` | `filesizes` `durations` |
 | `parse_use` | `parse_module::parse_use` | `accept/modules/use-std.nu` | `use_forms` |
 | `parse_value` | `parse_expressions::parse_value` | `accept/calls/args-of-every-kind.nu` | `barewords_in_argument_position_are_strings` |
 | `parse_var_with_opt_type` | `parse_signatures::parse_var_with_opt_type` | `accept/bindings/let-typed.nu` | `let_mut_const` |

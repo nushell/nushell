@@ -54,11 +54,11 @@ case applies. Details that are easy to miss:
   math, `"ls"` is a string not a call, and `1 + 1` at a pipeline head is
   arithmetic, all without parsing anything twice.
 * Statement keywords (`is_statement_keyword`: `def`, `let`, `mut`, `const`,
-  `for`, `alias`, `module`, `use`, `export`, `export-env`, `extern`) are
-  checked *before* the assignment test because `let x = 1` contains an
-  `AssignmentOperator` token.
+  `for`, `alias`, `type`, `module`, `use`, `export`, `export-env`, `extern`)
+  are checked *before* the assignment test because `let x = 1` and
+  `type T = int` contain an `AssignmentOperator` token.
 * `check_builtin_command_in_pipeline` is nu's head table for an element: the
-  declaration keywords, `for`, `module`, `use`, `source`, `hide`, `export`,
+  declaration keywords (`type` among them), `for`, `module`, `use`, `source`, `hide`, `export`,
   `export-env` (nu's `BuiltinCommandInPipeline`), `const` and `mut` (nu's
   `AssignInPipeline`), `overlay` unless the second item of the command is
   `list`, and `plugin` when the second item is `use` are errors there. So
@@ -67,7 +67,10 @@ case applies. Details that are easy to miss:
   the command, shorthand included, as nu counts its spans. `let` is not in
   the table: `ls | let x` parses (nu accepts it too), and `ls | let x = 1` is
   refused as an assignment whose left side is not a variable, because after
-  a `|` the keyword is not a statement.
+  a `|` the keyword is not a statement. `while` and `loop`, which have no
+  output, are refused in a longer pipeline by the pipeline itself
+  (`parse_pipelines::check_loop_in_pipeline`, nu's `parse_pipeline`): at the
+  first item of each element after any shorthand, the first element too.
 
 ## Keyword forms (`parse_builtin_commands`)
 
@@ -281,8 +284,14 @@ its spelling.
 
 Precedence lives on `ast::Operator::precedence` (100 for `**` down to 40 for
 `or`, nu-protocol's values); `**` is the only right-associative operator.
-`parse_math_operand` reads `not` prefixes with `repeat(0.., keyword("not"))`
-and then one value. `if` and `match` are allowed as operands and consume the
+`parse_math_operand` reads `not` prefixes with `repeat(0.., keyword("not"))`.
+Without one, the operand is one value. With them, it is everything up to the
+next operator that binds looser than `not` (`NOT_PRECEDENCE`, 55: `and`,
+`xor`, `or`), found by `negated_operand_end` and parsed as a math expression
+of its own, so `not $a == $b` is `not ($a == $b)` and `not $a and $b` is
+`(not $a) and $b`, as `help operators` says. A value `-$x` or `-(expr)` is
+the negation `Expr::UnaryMinus` (`parse_negation`, for the shapes that hold
+numbers). `if` and `match` are allowed as operands and consume the
 rest of the items (`1 + if $x { 2 } else { 3 }`). Unknown operators get
 targeted help from `parse_operator` (`^` → use `**`, `%` → `mod`,
 `contains` → `has`, ...).
@@ -310,10 +319,12 @@ assert!(matches!(power.rhs.expr, Expr::BinaryOp(_)));
 
 `where` parses its condition with `parse_row_condition`: the math expression
 is parsed as above, then `expand_row_condition` rewrites the finished tree in
-place. Any *string* operand on the left of an operator, or a lone operand,
+place. Any *string* operand on the left of an operator, on either side of
+`and`, `xor` and `or` (which need booleans on both sides), or alone,
 becomes a cell path on the implicit `$it` (`expand_to_cell_path`, nu-parser's
 name): `where size > 1kb` yields `FullCellPath { head: Var it (empty span),
-implicit_head: true, tail: [size] }`. Only left operands are expanded, as in
+implicit_head: true, tail: [size] }`, and `where a and not b` two of them. The
+right operand of any other operator stays a value (`where name == foo`), as in
 nu-parser.
 
 ```rust

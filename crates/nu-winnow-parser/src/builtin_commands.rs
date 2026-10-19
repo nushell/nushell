@@ -1,6 +1,6 @@
 //! Every command a fresh `nu` resolves at the top level, with its kind: the
 //! built-in and keyword commands of the `nu` binary and the standard
-//! library's prelude, at nushell `4ee1f836d`. Used, when the
+//! library's prelude, at nushell `62ae19603`. Used, when the
 //! `builtin-commands` feature is enabled, to resolve multi-word command names
 //! such as `str trim`, to tell a known command from an external one, to
 //! check that `%name` names a built-in command, and to parse the arguments of
@@ -134,6 +134,7 @@ pub static BUILTIN_COMMANDS: &[(&str, CommandType)] = &[
     ("export def", Keyword),
     ("export extern", Keyword),
     ("export module", Keyword),
+    ("export type", Keyword),
     ("export use", Keyword),
     ("export-env", Keyword),
     ("extern", Keyword),
@@ -515,6 +516,7 @@ pub static BUILTIN_COMMANDS: &[(&str, CommandType)] = &[
     ("tui textbox", Builtin),
     ("tui tree", Builtin),
     ("tutor", Builtin),
+    ("type", Keyword),
     ("ulimit", Builtin),
     ("umask", Builtin),
     ("uname", Builtin),

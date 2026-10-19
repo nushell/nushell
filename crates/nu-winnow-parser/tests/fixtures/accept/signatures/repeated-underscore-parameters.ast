@@ -1,0 +1,7 @@
+Block 0..17
+  Pipeline 0..16
+    Def `f` 0..16
+      Signature 6..12
+        Param positional `_` 7..8
+        Param positional `_` 10..11
+      Body 14..15

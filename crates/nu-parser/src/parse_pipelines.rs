@@ -63,12 +63,23 @@ pub(crate) fn parse_pipeline_element(
         .as_ref()
         .map(|r| parse_redirection(working_set, r));
 
-    // `unlet` on a constant takes effect while parsing, as `hide` does for a command: the parser
-    // reads a constant's value wherever it evaluates constants, so the constant is hidden for
-    // the rest of the current block, like any other definition made there. The redirection is
-    // parsed first because its target is evaluated before the command runs. A call with
-    // `--help` only shows help (see `compile_call`), and a dynamic percent dispatch call has
-    // only a placeholder declaration until the IR compiler rewrites it.
+    // The redirection is parsed first because its target is evaluated before the command runs.
+    hide_unlet_constants(working_set, &expr);
+
+    PipelineElement {
+        pipe: command.pipe,
+        expr,
+        redirection,
+    }
+}
+
+/// Apply the effect of `expr` when it is an `unlet` call: `unlet` on a constant takes effect
+/// while parsing, as `hide` does for a command. The parser reads a constant's value wherever it
+/// evaluates constants, so the constant is hidden for the rest of the current block, like any
+/// other definition made there. A call with `--help` only shows help (see `compile_call`), and a
+/// dynamic percent dispatch call has only a placeholder declaration until the IR compiler
+/// rewrites it. Called once a pipeline element and its redirection are parsed.
+pub(crate) fn hide_unlet_constants(working_set: &mut StateWorkingSet, expr: &Expression) {
     if let Expr::Call(call) = &expr.expr
         && !call
             .parser_info
@@ -83,12 +94,6 @@ pub(crate) fn parse_pipeline_element(
                 working_set.hide_variable(var_id);
             }
         }
-    }
-
-    PipelineElement {
-        pipe: command.pipe,
-        expr,
-        redirection,
     }
 }
 

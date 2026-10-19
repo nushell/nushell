@@ -768,9 +768,12 @@ fn where_row_conditions() {
     assert!(path.implicit_head);
     kind!(path.head, Expr::Var(Var { name: "it" }));
     assert!(path.head.span.is_empty());
-    // Only the left operand of each operator is expanded, as in Nushell.
+    // As in Nushell, the left operand of each operator is expanded, and so is the right
+    // operand of `and`, `xor` and `or`; that of a comparison stays a value.
     let not = kind!(or.rhs, Expr::UnaryNot(n) => n);
-    kind!(not.expr, Expr::String(_));
+    kind!(not.expr, Expr::FullCellPath(p) => assert!(p.implicit_head));
+    let name = kind!(and.rhs, Expr::BinaryOp(b) => b);
+    kind!(name.rhs, Expr::String(_));
     let ast = ok("where not active");
     let not = kind!(kind!(expr(&ast), Expr::Where(w) => w).condition, Expr::UnaryNot(n) => n);
     kind!(not.expr, Expr::FullCellPath(p) => assert!(p.implicit_head));
@@ -887,7 +890,12 @@ fn def_forms() {
     assert_eq!(kind!(expr(&ast), Expr::Def(d) => d).signature.input_output_types.len(), 2);
     assert!(parse("def foo [] int -> int { }").is_err());
     assert!(parse("def foo { }").is_err());
-    assert!(parse("def foo [x: unknown] { }").is_err());
+    // Any other name a type alias could have is one, for the consumer to look up.
+    let ast = ok("def foo [x: unknown] { }");
+    let param = &kind!(expr(&ast), Expr::Def(d) => d).signature.params[0];
+    assert!(matches!(param.ty.as_ref().unwrap().shape, SyntaxShape::TypeAlias("unknown")));
+    assert!(parse("def foo [x: unknown!] { }").is_err());
+    assert!(parse("def foo [x: Point<int>] { }").is_err());
     assert!(parse("def foo [x: block] { }").is_err());
     assert!(parse("def foo [x: int = ] { }").is_err());
 }
@@ -1340,4 +1348,223 @@ fn unicode_source() {
     let ast = ok("let 🧼 = 'ünïcödé'; print $\"héllo (🧼)\" # cömment é");
     assert_eq!(ast.block.pipelines.len(), 2);
     assert_eq!(kind!(ast.block.pipelines[0].elements[0].expr, Expr::Let(b) => b).name.item, "🧼");
+}
+
+// --- nu-parser changes of 0.116.x: the conformance fixes and type aliases -------------------
+
+#[test]
+fn not_binds_looser_than_comparisons() {
+    // `not` negates up to the next `and`, `xor` or `or`: `not ($a == $b)`.
+    let ast = ok("not $a == $b");
+    let not = kind!(expr(&ast), Expr::UnaryNot(n) => n);
+    kind!(not.expr, Expr::BinaryOp(b) => assert_eq!(b.op.item, Operator::Comparison(Comparison::Equal)));
+    // ...and over everything that binds tighter: `not (1 + 2 == 3)`.
+    let ast = ok("not 1 + 2 == 3");
+    let not = kind!(expr(&ast), Expr::UnaryNot(n) => n);
+    kind!(not.expr, Expr::BinaryOp(b) => assert_eq!(b.op.item, Operator::Comparison(Comparison::Equal)));
+    // `(not true) and false`.
+    let ast = ok("not true and false");
+    let and = kind!(expr(&ast), Expr::BinaryOp(b) => b);
+    assert_eq!(and.op.item, Operator::Boolean(Boolean::And));
+    kind!(and.lhs, Expr::UnaryNot(_));
+    // After an operator: `true and (not (1 == 2))`.
+    let ast = ok("true and not 1 == 2");
+    let and = kind!(expr(&ast), Expr::BinaryOp(b) => b);
+    let not = kind!(and.rhs, Expr::UnaryNot(n) => n);
+    kind!(not.expr, Expr::BinaryOp(_));
+    assert!(parse("true and not").is_err());
+}
+
+#[test]
+fn unary_minus_negates_variables_and_subexpressions() {
+    let ast = ok("-$x");
+    let minus = kind!(expr(&ast), Expr::UnaryMinus(m) => m);
+    assert_eq!(text(&ast, minus.minus_span), "-");
+    kind!(minus.expr, Expr::Var(_));
+    let ast = ok("-(2 + 3)");
+    kind!(kind!(expr(&ast), Expr::UnaryMinus(m) => m).expr, Expr::Subexpression(_));
+    let ast = ok("1 + -$x.a");
+    let sum = kind!(expr(&ast), Expr::BinaryOp(b) => b);
+    kind!(kind!(sum.rhs, Expr::UnaryMinus(m) => m).expr, Expr::FullCellPath(_));
+    // A range's bound is negated, the whole word is no negation.
+    let ast = ok("-$x..10");
+    let range = kind!(expr(&ast), Expr::Range(r) => r);
+    kind!(range.from.as_ref().unwrap(), Expr::UnaryMinus(_));
+    // A `(` that closes before the end of the word makes a bare interpolation.
+    kind!(expr(&ok("-(1)px")), Expr::StringInterpolation(_));
+    kind!(expr(&ok("-(1)+(2)")), Expr::StringInterpolation(_));
+    // A command's argument is read as a flag first, and an external's stays text.
+    let ast = ok("ls -$x");
+    assert!(matches!(call(expr(&ast)).arguments[0], Argument::Named(_)));
+    // Only the shapes that hold numbers negate: a list of strings keeps the word.
+    let ast = ok("def f [x: list<string> = [-$y]] { }");
+    let default = kind!(expr(&ast), Expr::Def(d) => d).signature.params[0].default.clone().unwrap();
+    let items = kind!(default, Expr::List(items) => items.clone());
+    assert!(matches!(&items[0], ListItem::Item(e) if matches!(e.expr, Expr::String(_))));
+}
+
+#[test]
+fn number_literals_are_checked_for_range_and_spelling() {
+    let int = |src: &str| kind!(expr(&ok(src)), Expr::Int(i) => *i);
+    assert_eq!(int("-0x10"), -16);
+    assert_eq!(int("+0b11"), 3);
+    assert_eq!(int("-0x8000000000000000"), i64::MIN);
+    assert_eq!(int("0xffffffffffffffff"), -1);
+    assert_eq!(int("9223372036854775807"), i64::MAX);
+    for too_large in ["9223372036854775808", "-9223372036854775809", "0x10000000000000000", "+0x8000000000000000"] {
+        let error = err(too_large);
+        assert!(
+            matches!(&error.diagnostics[0].kind, ErrorKind::InvalidLiteral { message, .. } if message.contains("too large")),
+            "{too_large}"
+        );
+    }
+    kind!(expr(&ok("9223372036854775808.0")), Expr::Float(_));
+    // Only `inf`, `nan` and `NaN` are special floats; other spellings are words.
+    kind!(expr(&ok("-inf")), Expr::Float(f) => assert!(f.is_infinite()));
+    kind!(expr(&ok("+NaN")), Expr::Float(f) => assert!(f.is_nan()));
+    for word in ["[INF]", "[Nan]", "[Infinity]", "[i_n_f]"] {
+        let ast = ok(word);
+        let items = kind!(expr(&ast), Expr::List(items) => items);
+        assert!(matches!(&items[0], ListItem::Item(e) if matches!(e.expr, Expr::String(_))), "{word}");
+    }
+    // A unit literal may have a `+`, and must fit in 64 bits once in bytes or nanoseconds.
+    kind!(expr(&ok("+5sec")), Expr::Duration(_));
+    kind!(expr(&ok("+1kB")), Expr::Filesize(_));
+    kind!(expr(&ok("9223372036854775807ns")), Expr::Duration(_));
+    for too_large in ["9223372036854775808ns", "8EiB", "106752day", "9223372036854776KB"] {
+        assert!(parse(too_large).is_err(), "{too_large}");
+    }
+    // A word written like a date that names no day is an error; one with more after the
+    // date is a word.
+    assert!(parse("[2023-02-29]").is_err());
+    assert!(parse("2023-02-29").is_err());
+    assert!(parse("[2023-02-29T10:00:00]").is_err());
+    ok("[2023-02-29.log 2024-01-15T10:00]");
+    // A word with bad radix digits is still a command name.
+    kind!(expr(&ok("0xdump")), Expr::Call(_) | Expr::ExternalCall(_));
+}
+
+#[test]
+fn record_keys_and_column_names_are_names() {
+    let ast = ok("{true: 1, null: 2, 1: 3}");
+    let items = kind!(expr(&ast), Expr::Record(items) => items);
+    for item in items {
+        let RecordItem::Pair { key, .. } = item else { panic!("expected a pair") };
+        kind!(key, Expr::String(_));
+    }
+    let ast = ok("[[1 true]; [a b]]");
+    let table = kind!(expr(&ast), Expr::Table(t) => t);
+    let columns = kind!(table.columns, Expr::List(items) => items);
+    assert!(columns.iter().all(|item| matches!(item, ListItem::Item(e) if matches!(e.expr, Expr::String(_)))));
+    for twice in ["{a: 1, a: 2}", "{a: 1, \"a\": 2}", "{a: 1, r#'a'#: 2}", "[[a a]; [1 2]]"] {
+        assert!(parse(twice).is_err(), "{twice}");
+    }
+    // A name known only when the literal runs is checked then.
+    ok("{a: 1, $k: 2}");
+}
+
+#[test]
+fn list_items_refuse_a_stray_closing_bracket() {
+    for src in ["[1 2]]", "[[a]; [1]]]", "[1 [2]]]"] {
+        let error = err(src);
+        assert!(matches!(error.diagnostics[0].kind, ErrorKind::Unbalanced { found: "]", .. }), "{src}");
+    }
+    // Outside a list a stray `]` is text, as in a glob.
+    kind!(expr(&ok("ls a]")), Expr::Call(_));
+}
+
+#[test]
+fn row_condition_columns_after_boolean_operators() {
+    let ast = ok("where a and not b");
+    let and = kind!(kind!(expr(&ast), Expr::Where(w) => w).condition, Expr::BinaryOp(b) => b);
+    kind!(and.rhs, Expr::UnaryNot(n) => kind!(n.expr, Expr::FullCellPath(p) => assert!(p.implicit_head)));
+    // `not a == 1` negates the comparison, whose left operand is the column.
+    let ast = ok("where not a == 1");
+    let not = kind!(kind!(expr(&ast), Expr::Where(w) => w).condition, Expr::UnaryNot(n) => n);
+    let cmp = kind!(not.expr, Expr::BinaryOp(b) => b);
+    kind!(cmp.lhs, Expr::FullCellPath(p) => assert!(p.implicit_head));
+    kind!(cmp.rhs, Expr::Int(1));
+}
+
+#[test]
+fn loops_cannot_be_piped() {
+    for src in [
+        "while false { } | describe",
+        "loop { break } | describe",
+        "ls | while false { }",
+        "FOO=1 while false { } | ignore",
+    ] {
+        assert!(matches!(err(src).diagnostics[0].kind, ErrorKind::KeywordInPipeline(_)), "{src}");
+    }
+    ok("while false { }");
+}
+
+#[test]
+fn signature_names_must_be_unique() {
+    for src in [
+        "def f [a, a] { }",
+        "def f [a, ...a] { }",
+        "def f [--x, --x] { }",
+        "def f [-x, -x] { }",
+        "def f [--a(-x), --b(-x)] { }",
+        "def f [foo_bar, --foo-bar] { }",
+        "def f [...r, a] { }",
+        "def f [--help] { }",
+        "{|a, a| $a }",
+    ] {
+        assert!(parse(src).is_err(), "{src}");
+    }
+    // `_` may repeat; an `extern` describes another program, whose arguments may repeat or
+    // follow a list; a `def --wrapped` passes `--help` on.
+    ok("def f [_, _] { }");
+    ok("extern e [a, a, --x, --x, ...r, b]");
+    ok("def --wrapped f [--help, ...rest] { }");
+}
+
+#[test]
+fn oneof_defaults_try_bareword_shapes_last() {
+    let default_is = |src: &str, check: fn(&Expr<'_>) -> bool| {
+        let ast = ok(src);
+        let def = kind!(expr(&ast), Expr::Def(d) => d);
+        check(&def.signature.params[0].default.as_ref().unwrap().expr)
+    };
+    assert!(default_is("def f [x: oneof<string, int> = 5] { }", |e| matches!(e, Expr::Int(5))));
+    assert!(default_is("def f [x: oneof<string, list<string>> = [a b]] { }", |e| matches!(e, Expr::List(_))));
+    assert!(default_is("def f [x: oneof<int, string> = a] { }", |e| matches!(e, Expr::String(_))));
+}
+
+#[test]
+fn type_alias_statements() {
+    let ast = ok("type Point = record<x: float, y: float>");
+    let alias = kind!(expr(&ast), Expr::TypeAlias(a) => a);
+    assert_eq!(alias.name.item, "Point");
+    assert_eq!(text(&ast, alias.eq), "=");
+    assert!(matches!(alias.ty.shape, SyntaxShape::Record(ref fields) if fields.len() == 2));
+    let ast = ok("export type T = int");
+    kind!(kind!(expr(&ast), Expr::Export(e) => e).item, Expr::TypeAlias(_));
+    // An alias is used like any type name.
+    let ast = ok("def f [p: Point]: nothing -> Point { $p }");
+    let param = &kind!(expr(&ast), Expr::Def(d) => d).signature.params[0];
+    assert!(matches!(param.ty.as_ref().unwrap().shape, SyntaxShape::TypeAlias("Point")));
+    // `listing` is no `list`.
+    let ast = ok("let x: listing = 1");
+    kind!(expr(&ast), Expr::Let(b) => assert!(matches!(b.ty.as_ref().unwrap().shape, SyntaxShape::TypeAlias("listing"))));
+    for src in [
+        "type ls",
+        "type T=int",
+        "type = int",
+        "type T =",
+        "type int = string",
+        "type 1x = int",
+        "type T = int string",
+        "type C = string@[a b]",
+        "def type [] { }",
+        "alias ty = type",
+        "ls | type T = int",
+        "type T = int o> out.txt",
+    ] {
+        assert!(parse(src).is_err(), "{src}");
+    }
+    // `type --help` is a help call.
+    kind!(expr(&ok("type --help")), Expr::Call(_));
 }

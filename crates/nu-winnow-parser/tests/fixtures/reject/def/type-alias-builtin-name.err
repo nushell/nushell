@@ -1,0 +1,7 @@
+error: `int` is a built-in type
+  --> reject/def/type-alias-builtin-name.nu:1:6
+  |
+1 | type int = string
+  |      ^^^
+  = while parsing type
+  = help: choose a name that isn't a built-in type

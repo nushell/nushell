@@ -90,6 +90,15 @@ fn check_alias_name(working_set: &WorkingSet<'_>, items: &[Token]) -> ParseResul
     }
 }
 
+/// Whether `text` is a batch of short flags with an `h` in it (`-h`, `-xh`), which makes nu's
+/// call parser see a help call whatever else the batch holds. A negative number (`-1`) or `-.5`
+/// is no batch.
+pub(super) fn short_flags_ask_for_help(text: &str) -> bool {
+    text.strip_prefix('-').is_some_and(|batch| {
+        !batch.starts_with(['-', '.']) && !batch.starts_with(|c: char| c.is_ascii_digit()) && batch.contains('h')
+    })
+}
+
 /// The statement as an ordinary call to `alias`, with `=` an ordinary word,
 /// which is what nu keeps when it shows help (`alias --help = ls`) or when an
 /// exported alias has one item and no `=` after its name (`export alias h home`).
@@ -118,14 +127,7 @@ pub fn parse_alias<'a>(mut tokens: Tokens<'_, 'a>, exported: bool) -> ParseResul
         .remaining()
         .iter()
         .take_while(|token| token.contents == TokenContents::Item)
-        .map(|token| working_set.get_span_contents(token.span))
-        .any(|text| {
-            text.strip_prefix('-').is_some_and(|batch| {
-                !batch.starts_with(['-', '.'])
-                    && !batch.starts_with(|c: char| c.is_ascii_digit())
-                    && batch.contains('h')
-            })
-        });
+        .any(|token| short_flags_ask_for_help(working_set.get_span_contents(token.span)));
     if asks_for_help {
         return parse_alias_as_call(statement);
     }

@@ -1,0 +1,7 @@
+error: `--foo-bar` uses a name that is already taken
+  --> reject/signatures/flag-and-parameter-share-a-variable.nu:1:17
+  |
+1 | def f [foo_bar, --foo-bar] { }
+  |                 ^^^^^^^^^
+  = while parsing def
+  = help: it is first used at byte 7

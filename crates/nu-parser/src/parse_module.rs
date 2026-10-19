@@ -665,8 +665,7 @@ pub(crate) fn parse_module_pipeline(
         }
         _ => {
             working_set.error(ParseError::ExpectedKeyword(
-                "def, const, extern, alias, type, use, module, export or export-env keyword"
-                    .into(),
+                "def, const, extern, alias, type, use, module, export or export-env keyword".into(),
                 command.parts[0],
             ));
 

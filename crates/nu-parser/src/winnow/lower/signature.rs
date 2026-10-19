@@ -110,10 +110,26 @@ impl<'s> Lower<'_, '_, 's> {
     }
 
     /// Declare the command a `def` or `extern` statement of a nested block defines, through an
-    /// `export` or attributes; any other statement declares nothing. A definition the lowering
-    /// cannot predeclare is `Unsupported`, which leaves the whole block to the classic parser:
-    /// it predeclares a block's definitions before parsing its statements.
+    /// `export` or attributes, and record where a `type` statement is; any other statement
+    /// declares nothing. A definition the lowering cannot predeclare is `Unsupported`, which
+    /// leaves the whole block to the classic parser: it predeclares a block's definitions
+    /// before parsing its statements.
     pub(super) fn predecl_statement(&mut self, e: &w::Expression<'s>) -> Lowered<()> {
+        let type_alias = match &e.expr {
+            w::Expr::TypeAlias(alias) => Some(alias),
+            w::Expr::Export(export) => match &export.item.expr {
+                w::Expr::TypeAlias(alias) => Some(alias),
+                _ => None,
+            },
+            _ => None,
+        };
+        if let Some(alias) = type_alias {
+            // The whole statement, `export` included, as `parse_def_predecl` records it.
+            let name = alias.name.item.as_bytes().to_vec();
+            let span = self.span(e.span);
+            self.working_set.add_type_predecl(name, span);
+            return Ok(());
+        }
         let (name, signature, wrapped, external) = match &e.expr {
             w::Expr::Def(def) => (
                 &def.name,

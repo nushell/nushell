@@ -928,6 +928,7 @@ impl<'a> Formatter<'a> {
                 Expr::FullCellPath(p) => simple(&p.head),
                 Expr::BinaryOp(b) => simple(&b.lhs) && simple(&b.rhs),
                 Expr::UnaryNot(n) => simple(&n.expr),
+                Expr::UnaryMinus(n) => simple(&n.expr),
                 _ => false,
             }
         }
@@ -1498,6 +1499,8 @@ impl<'a> Formatter<'a> {
             | Expr::CellPath(_)
             | Expr::StringInterpolation(_)
             | Expr::Range(_)
+            // `-$x` and `-(expr)`: the `-` must stay glued to its operand, so the word is copied.
+            | Expr::UnaryMinus(_)
             | Expr::Garbage => self.spanned(span),
             Expr::FullCellPath(p) => {
                 if p.implicit_head && p.tail.len() == 1 && self.compact_comparison(span) {

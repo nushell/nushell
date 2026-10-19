@@ -2,6 +2,8 @@
 //! input/output type lists (nu-parser's `parse_signatures.rs`).
 
 use std::borrow::Cow;
+use std::collections::HashMap;
+use std::collections::hash_map::Entry;
 
 use winnow::Parser;
 
@@ -48,18 +50,33 @@ pub fn parse_signature_helper<'a>(
     let tokens = working_set.lex(inner, LexOptions::SIGNATURE).map_err(cut)?;
     let parameters = parse_parameters(working_set, &tokens, external)
         .map_err(|error| error.map(|failure| failure.with_context("signature")))?;
-    check_parameter_order(&parameters, outer)?;
+    check_parameters(&parameters, outer, external)?;
     Ok(Signature { span: outer, params: parameters, input_output_types: Vec::new(), input_output_span: None })
 }
 
-/// nu's checks over the finished list (`RequiredAfterOptional`,
-/// `MultipleRestParams`): a required parameter after an optional one and more
-/// than one rest parameter are errors. A positional with a default value
-/// counts as optional.
-fn check_parameter_order(parameters: &[Parameter<'_>], span: Span) -> ParseResult<()> {
+/// nu's checks over the finished list (`assemble_signature`): a required
+/// parameter after an optional one and more than one rest parameter are errors
+/// (`RequiredAfterOptional`, `MultipleRestParams`). A positional with a default
+/// value counts as optional. Outside an `extern` (`external`), which only
+/// describes another program's arguments and binds no variables, so are a
+/// positional parameter after the rest parameter (`PositionalAfterRest`) and the
+/// repeats [`check_unique_name`] refuses (`DuplicateParameter`).
+fn check_parameters(parameters: &[Parameter<'_>], span: Span, external: bool) -> ParseResult<()> {
     let mut optional_seen = false;
     let mut rest_seen = false;
+    let mut variable_names = HashMap::new();
+    let mut short_flags = HashMap::new();
     for parameter in parameters {
+        if !external {
+            check_unique_name(parameter, &mut variable_names, &mut short_flags)?;
+            if matches!(parameter.kind, ParameterKind::Required | ParameterKind::Optional) && rest_seen {
+                return Err(cut(Diagnostic::message(
+                    format!("parameter `{}` after the rest parameter", parameter.name.item),
+                    parameter.span,
+                )
+                .with_help("the rest parameter takes every remaining argument, so it must come last")));
+            }
+        }
         match parameter.kind {
             ParameterKind::Optional => optional_seen = true,
             ParameterKind::Required if parameter.default.is_some() => optional_seen = true,
@@ -76,6 +93,59 @@ fn check_parameter_order(parameters: &[Parameter<'_>], span: Span) -> ParseResul
             }
             ParameterKind::Rest => rest_seen = true,
             _ => {}
+        }
+    }
+    Ok(())
+}
+
+/// Refuse a parameter whose variable name or short flag an earlier one has (nu's checks in
+/// `assemble_signature`). Parameters and flags share one variable namespace (`--foo-bar` binds
+/// `$foo_bar`, as do `foo_bar` and `$foo_bar`; a flag with only a short form binds one named
+/// after its letter), and each short flag needs its own letter: a repeat would silently shadow
+/// or swallow the earlier one. Only a positional `_` may repeat, to ignore several arguments.
+fn check_unique_name<'a>(
+    parameter: &Parameter<'a>,
+    variable_names: &mut HashMap<Cow<'a, str>, Span>,
+    short_flags: &mut HashMap<char, Span>,
+) -> ParseResult<()> {
+    let taken = |display: String, first: Span| {
+        cut(Diagnostic::message(format!("`{display}` uses a name that is already taken"), parameter.span)
+            .with_help(format!("it is first used at byte {}", first.start)))
+    };
+    let mut earlier_use = |name: Cow<'a, str>| match variable_names.entry(name) {
+        Entry::Occupied(first) => Some(*first.get()),
+        Entry::Vacant(entry) => {
+            entry.insert(parameter.span);
+            None
+        }
+    };
+    match &parameter.kind {
+        ParameterKind::Flag { long, short } => {
+            let (name, display) = match (long, short) {
+                (Some(long), _) => (Cow::Owned(long.item.replace('-', "_")), format!("--{}", long.item)),
+                (None, Some(short)) => (Cow::Owned(short.item.to_string()), format!("-{}", short.item)),
+                (None, None) => return Ok(()),
+            };
+            if let Some(first) = earlier_use(name) {
+                return Err(taken(display, first));
+            }
+            if let Some(short) = short {
+                match short_flags.entry(short.item) {
+                    Entry::Occupied(first) => return Err(taken(format!("-{}", short.item), *first.get())),
+                    Entry::Vacant(entry) => {
+                        entry.insert(parameter.span);
+                    }
+                }
+            }
+        }
+        _ => {
+            let name = parameter.name.item.trim_start_matches('$');
+            if name != "_"
+                && let Some(first) = earlier_use(Cow::Borrowed(name))
+            {
+                let prefix = if parameter.kind == ParameterKind::Rest { "..." } else { "" };
+                return Err(taken(format!("{prefix}{}", parameter.name.item), first));
+            }
         }
     }
     Ok(())
