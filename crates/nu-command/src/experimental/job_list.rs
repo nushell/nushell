@@ -56,6 +56,7 @@ impl Command for JobList {
                             Value::list(vec![ Value::int(unfreeze.pid() as i64, head) ], head)
                         }
                     },
+                    "auto_kill" => Value::bool(job.is_auto_kill(), head),
                 };
 
                 if let Some(description) = job.description() {

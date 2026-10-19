@@ -57,3 +57,14 @@ fn failed_loop_should_break_running() -> Result {
         .run(code)
         .expect_error_code_eq("nu::shell::non_zero_exit_code")
 }
+
+/// `loop` is a statement without output, so like `for` it can't be part of a pipeline, also
+/// after an environment shorthand.
+#[rstest::rstest]
+#[case::bare("loop { break } | describe")]
+#[case::env_shorthand("FOO=1 loop { break } | describe")]
+fn loop_in_pipeline_is_an_error(#[case] code: &str) -> Result {
+    test()
+        .run(code)
+        .expect_error_code_eq("nu::parser::unexpected_keyword")
+}

@@ -1,7 +1,7 @@
 use crate::{
     BlockId, Config, DeclId, FileId, GetSpan, Handlers, HistoryConfig, JobId, Module, ModuleId,
-    OverlayId, ShellError, SignalAction, Signals, Signature, Span, SpanId, Type, Value, VarId,
-    VirtualPathId,
+    OverlayId, ShellError, SignalAction, Signals, Signature, Span, SpanId, Type, TypeAlias,
+    TypeAliasId, Value, VarId, VirtualPathId,
     ast::{Block, Expr},
     debugger::{Debugger, NoopDebugger},
     engine::{
@@ -37,7 +37,7 @@ type PoisonDebuggerError<'a> = PoisonError<MutexGuard<'a, Box<dyn Debugger>>>;
 #[cfg(feature = "plugin")]
 use crate::{PluginRegistryFile, PluginRegistryItem, RegisteredPlugin};
 
-use super::{CurrentJob, Jobs, Mail, Mailbox, ThreadJob};
+use super::{Closure, CurrentJob, Jobs, Mail, Mailbox, ThreadJob};
 
 /// Configure whether the current working directory may be updated when [`EngineState::merge_env`]
 /// is called.
@@ -147,6 +147,8 @@ pub struct EngineState {
     pub(super) blocks: Arc<Vec<Arc<Block>>>,
     #[debug("{:?}", modules.iter().map(|m| String::from_utf8_lossy(&m.name)))]
     pub(super) modules: Arc<Vec<Arc<Module>>>,
+    #[debug("{:?}", type_aliases.iter().map(|alias| &alias.name))]
+    pub(super) type_aliases: Arc<Vec<TypeAlias>>,
     pub spans: Vec<Span>,
     doccomments: Doccomments,
     pub scope: ScopeFrame,
@@ -198,6 +200,8 @@ pub struct EngineState {
     pub file: Option<PathBuf>,
     pub regex_cache: Arc<Mutex<LruCache<String, Regex>>>,
     pub is_interactive: bool,
+    /// Whether evaluation returns to a REPL prompt, unlike commands or scripts run with `-i`.
+    pub is_repl: bool,
     /// When true with [`Self::is_interactive`], REPL user-line evaluation may store `$ans`.
     ///
     /// Set only around true REPL command evaluation (`do_run_cmd`), not config/env/banner
@@ -226,10 +230,10 @@ pub struct EngineState {
 
     pub root_job_sender: Sender<Mail>,
 
-    // When there are background jobs running, the interactive behavior of `exit` changes depending on
-    // the value of this flag:
-    // - if this is false, then a warning about running jobs is shown and `exit` enables this flag
-    // - if this is true, then `exit` will `std::process::exit`
+    // When there are background jobs that are not auto_kill, interactive `exit` checks this flag:
+    // - if false, it warns about those jobs and sets this flag
+    // - if true, it kills all jobs and exits
+    // If all jobs have auto_kill, exit kills them and exits without warning.
     //
     // This ensures that running exit twice will terminate the program correctly
     pub exit_warning_given: Arc<AtomicBool>,
@@ -283,6 +287,7 @@ impl EngineState {
             modules: Arc::new(vec![Arc::new(Module::new(
                 DEFAULT_OVERLAY_NAME.as_bytes().to_vec(),
             ))]),
+            type_aliases: Arc::new(vec![]),
             spans: vec![Span::unknown()],
             doccomments: Doccomments::new(),
             // make sure we have some default overlay:
@@ -323,6 +328,7 @@ impl EngineState {
                 NonZeroUsize::new(REGEX_CACHE_SIZE).expect("tried to create cache of size zero"),
             ))),
             is_interactive: false,
+            is_repl: false,
             capture_repl_last_result: false,
             is_login: false,
             is_lsp: false,
@@ -336,6 +342,7 @@ impl EngineState {
             jobs: Arc::new(Mutex::new(Jobs::default())),
             current_job: CurrentJob {
                 id: JobId::new(0),
+                root: JobId::new(0),
                 background_thread_job: None,
                 mailbox: Arc::new(Mutex::new(Mailbox::new(recv))),
             },
@@ -411,6 +418,9 @@ impl EngineState {
         if !delta.modules.is_empty() {
             Arc::make_mut(&mut self.modules).extend(delta.modules);
         }
+        if !delta.type_aliases.is_empty() {
+            Arc::make_mut(&mut self.type_aliases).extend(delta.type_aliases);
+        }
 
         let first = delta.scope.remove(0);
 
@@ -431,6 +441,9 @@ impl EngineState {
                 for item in delta_overlay.modules.into_iter() {
                     existing_overlay.modules.insert(item.0, item.1);
                 }
+                existing_overlay
+                    .type_aliases
+                    .extend(delta_overlay.type_aliases);
 
                 existing_overlay
                     .visibility
@@ -438,6 +451,15 @@ impl EngineState {
             } else {
                 // New overlay was added to the delta
                 self.scope.overlays.push((delta_name, delta_overlay));
+            }
+        }
+
+        // A variable that `unlet` hid at the top level is gone for later source too, from
+        // whichever overlay binds it. This comes after the merge above, which records the
+        // variables that the delta's own bindings shadow.
+        for var_id in &first.hidden_vars {
+            for (_, overlay) in &mut self.scope.overlays {
+                overlay.vars.retain(|_, bound| *bound != *var_id);
             }
         }
 
@@ -857,6 +879,29 @@ impl EngineState {
         None
     }
 
+    /// Find the [`TypeAliasId`] corresponding to `name`.
+    ///
+    /// Searches within active overlays, and filtering out overlays in `removed_overlays`.
+    pub fn find_type_alias(
+        &self,
+        name: &[u8],
+        removed_overlays: &[Vec<u8>],
+    ) -> Option<TypeAliasId> {
+        let mut visibility = VisibilityStack::default();
+
+        for overlay_frame in self.active_overlays(removed_overlays).rev() {
+            visibility.push(&overlay_frame.visibility);
+
+            if let Some(type_alias_id) = overlay_frame.type_aliases.get(name)
+                && visibility.is_type_alias_id_visible(type_alias_id)
+            {
+                return Some(*type_alias_id);
+            }
+        }
+
+        None
+    }
+
     pub fn get_module_comments(&self, module_id: ModuleId) -> Option<&[Span]> {
         self.doccomments.get_module_comments(module_id)
     }
@@ -1045,14 +1090,61 @@ impl EngineState {
         }
     }
 
-    /// Get signatures of all commands within scope with their decl ids.
-    pub fn get_signatures_and_declids(&self, include_hidden: bool) -> Vec<(Signature, DeclId)> {
-        self.get_decls_sorted(include_hidden)
-            .into_iter()
-            .map(|(_, id)| {
-                let decl = self.get_decl(id);
+    /// Get the signature of a command as a call by `name` in the current scope sees it.
+    ///
+    /// The signature is named `name`, which can differ from the declared name: a module command
+    /// declared as `foo bar` is `spam foo bar` after `use spam`, and an alias of an internal
+    /// command carries a copy of the wrapped command's signature, so `alias st = str trim` would
+    /// otherwise be named `str trim`.
+    ///
+    /// For an alias of an internal command, the positional parameters the alias already passes
+    /// are dropped, because the parser matches a call's arguments to the parameters after them
+    /// (see `parse_internal_call`): `alias home = cd ~` takes no `path`. Flags the alias passes
+    /// stay listed.
+    pub fn get_signature_in_scope(&self, name: String, decl_id: DeclId) -> Signature {
+        let decl = self.get_decl(decl_id);
+        let mut signature = self.get_signature(decl).update_from_command(decl);
+        signature.name = name;
 
-                (self.get_signature(decl).update_from_command(decl), id)
+        if let Some(alias) = decl.as_alias()
+            && let Expr::Call(call) = &alias.wrapped_call.expr
+        {
+            // Arguments fill the required parameters first, then the optional ones, and
+            // `...rest` takes any number, the order `Signature::get_positional` uses.
+            let passed = call.positional_iter().count();
+            let required = passed.min(signature.required_positional.len());
+            signature.required_positional.drain(..required);
+            let optional = (passed - required).min(signature.optional_positional.len());
+            signature.optional_positional.drain(..optional);
+        }
+
+        signature
+    }
+
+    /// Get signatures of all commands within scope with their decl ids, sorted by name.
+    ///
+    /// Each signature is the one [`get_signature_in_scope`](Self::get_signature_in_scope) gives
+    /// for the name. A command in scope under several names is listed once per name.
+    ///
+    /// Unless `include_hidden` is set, each name is resolved with `find_decl`, the lookup the
+    /// parser uses, so the list holds the names a call can use, each with the command it runs.
+    /// `get_decls_sorted(false)` isn't enough on its own: it checks each overlay against its own
+    /// visibility, but a `hide` of a command from an earlier overlay is recorded in the overlay
+    /// active at the time.
+    pub fn get_signatures_and_declids(&self, include_hidden: bool) -> Vec<(Signature, DeclId)> {
+        self.get_decls_sorted(true)
+            .into_iter()
+            .filter_map(|(name, id)| {
+                let id = if include_hidden {
+                    id
+                } else {
+                    self.find_decl(&name, &[])?
+                };
+                Some((name, id))
+            })
+            .map(|(name, id)| {
+                let name = String::from_utf8_lossy(&name).into_owned();
+                (self.get_signature_in_scope(name, id), id)
             })
             .collect()
     }
@@ -1065,17 +1157,53 @@ impl EngineState {
 
     /// Optionally get a block by id, if it exists
     ///
-    /// Prefer to use [`.get_block()`](Self::get_block) in most cases - `BlockId`s that don't exist
-    /// are normally a compiler error. This only exists to stop plugins from crashing the engine if
-    /// they send us something invalid.
+    /// Use this instead of [`.get_block()`](Self::get_block) whenever the
+    /// `BlockId` comes from a runtime value instead of the current parse,
+    /// because such a block may legitimately be missing (see
+    /// [`get_closure_block`](Self::get_closure_block)).
     pub fn try_get_block(&self, block_id: BlockId) -> Option<&Arc<Block>> {
         self.blocks.get(block_id.get())
+    }
+
+    /// Get the block a closure refers to, or an error when that block is not
+    /// available in this engine state.
+    ///
+    /// Closures can be passed between jobs. A job may have been spawned before
+    /// the closure was parsed, so its cloned engine state may not contain the
+    /// referenced block. Unlike [`get_block`](Self::get_block), this reports
+    /// that case as a regular shell error instead of panicking.
+    pub fn get_closure_block(
+        &self,
+        closure: &Closure,
+        span: Span,
+    ) -> Result<&Arc<Block>, ShellError> {
+        self.try_get_block(closure.block_id).ok_or_else(|| {
+            ShellError::Generic(GenericError::new(
+                "Closure cannot be evaluated",
+                format!(
+                    "the closure refers to a block that is not available in this engine state (block {})",
+                    closure.block_id.get()
+                ),
+                span,
+            )
+            .with_help(super::MISSING_CLOSURE_BLOCK_HELP))
+        })
     }
 
     pub fn get_module(&self, module_id: ModuleId) -> &Module {
         self.modules
             .get(module_id.get())
             .expect("internal error: missing module")
+    }
+
+    pub fn get_type_alias(&self, type_alias_id: TypeAliasId) -> &TypeAlias {
+        self.type_aliases
+            .get(type_alias_id.get())
+            .expect("internal error: missing type alias")
+    }
+
+    pub fn num_type_aliases(&self) -> usize {
+        self.type_aliases.len()
     }
 
     pub fn get_virtual_path(&self, virtual_path_id: VirtualPathId) -> &(String, VirtualPath) {
@@ -1278,6 +1406,7 @@ impl EngineState {
         self.jobs = Default::default();
         self.current_job = CurrentJob {
             id: JobId::new(0),
+            root: JobId::new(0),
             background_thread_job: None,
             mailbox: Arc::new(Mutex::new(Mailbox::new(recv))),
         };

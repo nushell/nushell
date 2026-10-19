@@ -73,6 +73,10 @@ impl Command for IntoString {
         "Convert value to a string."
     }
 
+    fn extra_description(&self) -> &str {
+        "Binary input is accepted only to point you to the right command: `into string` does not decode bytes, so it returns an error that suggests `decode`. Use `decode` (for example `decode utf-8`) to turn binary data into a string."
+    }
+
     fn search_terms(&self) -> Vec<&str> {
         vec!["convert", "text"]
     }
@@ -200,12 +204,7 @@ fn string_helper(
                 metadata,
             ))
         } else {
-            Err(ShellError::CantConvert {
-                to_type: "string".into(),
-                from_type: "binary".into(),
-                span: stream.span(),
-                help: Some("try using the `decode` command".into()),
-            })
+            Err(binary_input_error(stream.span()))
         }
     } else {
         let config = stack.get_config(engine_state);
@@ -235,32 +234,34 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                 return Value::string(val.to_string(), span);
             }
 
-            let basic = digits.map_or_else(
-                || val.to_string(),
-                |precision| {
+            let basic = match digits {
+                None => val.to_string(),
+                Some(precision) => {
                     let scale = 10_f64.powi(precision as i32);
-                    let rounded = (val * scale).round() / scale;
+                    let scaled = val * scale;
+                    let rounded = if scaled.is_finite() {
+                        scaled.round() / scale
+                    } else {
+                        *val
+                    };
                     format!("{:.*}", precision as usize, rounded)
-                },
-            );
+                }
+            };
 
-            let first_digit = if val.is_sign_negative() { 1 } else { 0 };
+            let negative = basic.starts_with('-');
+            let first_digit = if negative { 1 } else { 0 };
             let decimal = basic.find('.').unwrap_or(basic.len());
             let decimal_len = decimal - first_digit;
             let locale = get_system_locale();
             if !group_digits
                 || match locale.grouping() {
                     Grouping::Posix => true,
-                    Grouping::Standard | Grouping::Indian => decimal < 4,
+                    Grouping::Standard | Grouping::Indian => decimal_len < 4,
                 }
             {
                 let basic = format!(
                     "{}{}{}{}",
-                    if val.is_sign_negative() {
-                        locale.minus_sign()
-                    } else {
-                        ""
-                    },
+                    if negative { locale.minus_sign() } else { "" },
                     &basic[first_digit..decimal],
                     if decimal < basic.len() {
                         locale.decimal()
@@ -281,7 +282,7 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                     unreachable!("Posix locale grouping should already have returned")
                 }
                 Grouping::Standard => (
-                    basic.len() + (decimal - first_digit) / 3 * locale.separator().len(),
+                    basic.len() + decimal_len / 3 * locale.separator().len(),
                     if decimal_len.is_multiple_of(3) {
                         first_digit + 3
                     } else {
@@ -300,7 +301,7 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                 ),
             };
             let mut result = String::with_capacity(size);
-            if val.is_sign_negative() {
+            if negative {
                 result.push_str(locale.minus_sign());
             }
             result.push_str(&basic[first_digit..start]);
@@ -341,15 +342,7 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             },
             span,
         ),
-        Value::Binary { .. } => Value::error(
-            ShellError::CantConvert {
-                to_type: "string".into(),
-                from_type: "binary".into(),
-                span,
-                help: Some("try using the `decode` command".into()),
-            },
-            span,
-        ),
+        Value::Binary { .. } => Value::error(binary_input_error(span), span),
         Value::Custom { val, .. } => {
             // Only custom values that have a base value that can be converted to string are
             // accepted.
@@ -378,13 +371,27 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
     }
 }
 
+/// `into string` never decodes bytes, so binary input always ends up here.
+/// The help points to `decode`, which is the command that does that conversion.
+fn binary_input_error(span: Span) -> ShellError {
+    ShellError::CantConvert {
+        to_type: "string".into(),
+        from_type: "binary".into(),
+        span,
+        help: Some(
+            "`into string` does not decode bytes; use the `decode` command instead, for example `decode utf-8`"
+                .into(),
+        ),
+    }
+}
+
 fn format_int(int: i64, group_digits: bool, decimals: usize) -> String {
     let locale = get_system_locale();
 
     let str = if group_digits {
         int.to_formatted_string(&locale)
     } else if int < 0 {
-        format!("{}{}", locale.minus_sign(), int.abs())
+        format!("{}{}", locale.minus_sign(), int.unsigned_abs())
     } else {
         int.to_string()
     };

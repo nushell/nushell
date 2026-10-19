@@ -316,7 +316,7 @@ fn table_collapse_hearts() -> Result {
 fn table_collapse_does_wrapping_for_long_strings() -> Result {
     test()
         .run("
-            [[a]; [11111111111111111111111111111111111111111111111111111111111111111111111111111111]]
+            [[a]; [11111111111111111111111111111111111111111111111111111111111111111111111111111111.0]]
             | table --width=80 --collapse
         ")
         .expect_value_eq(indoc! {"

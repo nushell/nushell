@@ -294,6 +294,52 @@ pub fn parse_filesize() {
     assert_eq!(value.unit.item, Unit::Filesize(FilesizeUnit::B));
 }
 
+// Whole-number literals must convert exactly (see issue #10612). Both types are
+// backed by an `i64`, but the literal used to go through an `f64`, which
+// silently rounded large values (e.g. `6504534684301572998b` became
+// `6504534684301573120`). `KB`, `MB`, `us` and `min` go through the unit
+// conversion multiply.
+#[rstest]
+#[case(
+    b"6504534684301572998b",
+    6504534684301572998,
+    Unit::Filesize(FilesizeUnit::B)
+)]
+#[case(b"-6504534684301572998b", -6504534684301572998, Unit::Filesize(FilesizeUnit::B))]
+#[case(
+    b"9007199254740993KB",
+    9007199254740993000,
+    Unit::Filesize(FilesizeUnit::B)
+)]
+#[case(
+    b"9007199254741MB",
+    9_007_199_254_741_000_000,
+    Unit::Filesize(FilesizeUnit::B)
+)]
+#[case(b"8191PiB", 8191 * 1024_i64.pow(5), Unit::Filesize(FilesizeUnit::B))]
+#[case(b"6504534684301572998ns", 6504534684301572998, Unit::Nanosecond)]
+#[case(b"9007199254740993us", 9007199254740993000, Unit::Nanosecond)]
+#[case(b"-153722867min", -153722867 * 60_000_000_000, Unit::Nanosecond)]
+fn parse_unit_integer_is_exact(#[case] input: &[u8], #[case] expected: i64, #[case] unit: Unit) {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    let block = parse(&mut working_set, None, input, true);
+
+    assert!(
+        working_set.parse_errors.is_empty(),
+        "{:?}",
+        working_set.parse_errors
+    );
+    let element = &block.pipelines[0].elements[0];
+    let Expr::ValueWithUnit(value) = &element.expr.expr else {
+        panic!("should be a ValueWithUnit");
+    };
+
+    assert_eq!(value.expr.expr, Expr::Int(expected));
+    assert_eq!(value.unit.item, unit);
+}
+
 #[test]
 pub fn parse_non_utf8_fails() {
     let engine_state = EngineState::new();

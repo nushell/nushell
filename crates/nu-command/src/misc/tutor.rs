@@ -302,8 +302,9 @@ tutor echo
 
 fn echo_tutor() -> &'static str {
     r#"
-The `echo` command in Nushell is a powerful tool for not only seeing values,
-but also for creating new ones.
+The `echo` command returns the values you give it. Most of the time you
+don't need it: a value on its own, like `"Hello"`, does the same thing as
+`echo "Hello"`.
 ```
 echo "Hello"
 ```
@@ -318,7 +319,7 @@ example, `echo` will create the values from 1 to 10 as a list.
 echo 1 2 3 4 5
 ```
 You can also create lists of values by passing `echo` multiple arguments.
-This can be helpful if you want to later processes these values.
+This can be helpful if you want to process these values later.
 
 The `echo` command can pair well with the `each` command which can run
 code on each row, or item, of input.
@@ -441,8 +442,8 @@ if $score >= 90 {
 }
 ```
 
-The `if` command returns a nushell value, so it can be store in a variable or
-use in a pipeline:
+The `if` command returns a nushell value, so it can be stored in a variable or
+used in a pipeline:
 ```
 let result = if 10 > 5 { "yes" } else { "no" }
 $result

@@ -126,7 +126,8 @@ pub fn main() -> ExitCode {
         .with_thread_count(args.test_threads.unwrap_or(*DEFAULT_THREAD_COUNT))
         .with_exact(args.exact);
 
-    let ignore = match args.include_ignored {
+    // `--ignored` selects ignored tests and must also allow them to run.
+    let ignore = match args.include_ignored || args.ignored {
         false => DefaultIgnore::Default,
         true => DefaultIgnore::IncludeIgnored,
     };

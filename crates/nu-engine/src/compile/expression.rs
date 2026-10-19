@@ -5,7 +5,7 @@ use super::{
 
 use nu_protocol::{
     ENV_VARIABLE_ID, IN_VARIABLE_ID, IntoSpanned, RegId, Value,
-    ast::{CellPath, Expr, Expression, ListItem, RecordItem, ValueWithUnit},
+    ast::{CellPath, Expr, Expression, ListItem, Math, Operator, RecordItem, ValueWithUnit},
     engine::StateWorkingSet,
     ir::{DataSlice, Instruction, Literal},
 };
@@ -195,6 +195,29 @@ pub(crate) fn compile_expression(
                 out_reg,
             )?;
             builder.push(Instruction::Not { src_dst: out_reg }.into_spanned(expr.span))?;
+            Ok(())
+        }
+        Expr::UnaryMinus(operand) => {
+            drop_input(builder)?;
+            compile_expression(
+                working_set,
+                builder,
+                operand,
+                RedirectModes::value(operand.span),
+                None,
+                out_reg,
+            )?;
+            // Negate by multiplying by -1, which works for every type that can be negated
+            // (ints, floats, durations and filesizes).
+            let minus_one = builder.literal(Literal::Int(-1).into_spanned(expr.span))?;
+            builder.push(
+                Instruction::BinaryOp {
+                    lhs_dst: out_reg,
+                    op: Operator::Math(Math::Multiply),
+                    rhs: minus_one,
+                }
+                .into_spanned(expr.span),
+            )?;
             Ok(())
         }
         Expr::BinaryOp(lhs, op, rhs) => {

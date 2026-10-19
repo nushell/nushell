@@ -1,4 +1,5 @@
 use nu_test_support::{fs::Stub::FileWithContentToBeTrimmed, prelude::*};
+use pretty_assertions::assert_matches;
 
 #[test]
 fn from_range() -> Result {
@@ -406,6 +407,26 @@ fn float_into_string_negative_grouping() -> Result {
 }
 
 #[test]
+#[env(NU_TEST_LOCALE_OVERRIDE = "en_US.UTF-8")]
+fn float_into_string_negative_grouping_three_chars() -> Result {
+    let code = "
+    -123.45 | into string --group-digits
+    ";
+
+    test().run(code).expect_value_eq("-123.45")
+}
+
+#[test]
+#[env(NU_TEST_LOCALE_OVERRIDE = "hi_IN.UTF-8")]
+fn float_into_string_negative_grouping_three_chars_in() -> Result {
+    let code = "
+    -123.45 | into string --group-digits
+    ";
+
+    test().run(code).expect_value_eq("-123.45")
+}
+
+#[test]
 #[env(NU_TEST_LOCALE_OVERRIDE = "ar_AE.UTF-8")]
 fn int_into_string_negative_respects_system_locale_ar() -> Result {
     let code = "
@@ -470,19 +491,65 @@ fn filesize_into_string_group_digits_decimals_above_u16_range_errors() -> Result
 }
 
 #[test]
-fn float_into_string_large_decimals_returns_nan() -> Result {
+fn float_into_string_large_decimals() -> Result {
     let code = "
     1.5 | into string -d 400
     ";
 
-    test().run(code).expect_value_eq("NaN")
+    let result = format!("1.5{}", "0".repeat(399));
+    test().run(code).expect_value_eq(result)
 }
 
 #[test]
-fn float_into_string_precision_overflow_returns_inf() -> Result {
+fn float_into_string_large_negative_decimals() -> Result {
+    let code = "
+    -1.5 | into string -d 400
+    ";
+
+    let result = format!("-1.5{}", "0".repeat(399));
+    test().run(code).expect_value_eq(result)
+}
+
+#[test]
+fn float_into_string_precision_overflow() -> Result {
     let code = "
     1e300 | into string -d 10
     ";
 
-    test().run(code).expect_value_eq("inf")
+    let result = "1000000000000000052504760255204420248704468581108159154915854115511802457988908195786371375080447864043704443832883878176942523235360430575644792184786706982848387200926575803737830233794788090059368953234970799945081119038967640880074652742780142494579258788820056842838115669472196386865459400540160.0000000000";
+    test().run(code).expect_value_eq(result)
+}
+
+#[test]
+#[env(NU_TEST_LOCALE_OVERRIDE = "en_US.UTF-8")]
+fn int_into_string_i64_min() -> Result {
+    let code = "
+    -9223372036854775808 | into string
+    ";
+
+    test().run(code).expect_value_eq("-9223372036854775808")
+}
+
+#[test]
+fn from_binary_errors_with_decode_hint() -> Result {
+    let code = "
+    0x[31 32 33] | into string
+    ";
+
+    let err = test().run(code).expect_shell_error()?;
+    assert_matches!(
+        err,
+        ShellError::CantConvert { to_type, from_type, help: Some(help), .. }
+            if to_type == "string" && from_type == "binary" && help.contains("`decode`")
+    );
+    Ok(())
+}
+
+#[test]
+fn help_says_binary_needs_decode() -> Result {
+    let code = "
+    help into string | str contains 'decode'
+    ";
+
+    test().run(code).expect_value_eq(true)
 }

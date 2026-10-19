@@ -677,11 +677,36 @@ fn ide_complete_out_of_range_locations() -> TestResult {
         let stderr = String::from_utf8_lossy(&output.stderr);
 
         assert!(output.status.success());
-        assert!(stdout.starts_with("{\"completions\":"));
+        let json: serde_json::Value = serde_json::from_str(&stdout)?;
+        assert!(json["completions"].is_array());
         assert!(!stderr.contains("panicked"));
     }
 
     let _ = std::fs::remove_file(&script_path);
+    Ok(())
+}
+
+#[test]
+fn ide_complete_escapes_suggestion_values() -> TestResult {
+    let script_path = unique_temp_script_path("ide_complete_json");
+    let script = "def comp [] { ['a\\b' 'a\"b' \"a\\nb\"] }; def cmd [x: string@comp] {}; cmd a";
+    std::fs::write(&script_path, script)?;
+    let output = Command::new(cargo_bin!())
+        .args([
+            "--no-config-file",
+            "--no-std-lib",
+            "--ide-complete",
+            &script.len().to_string(),
+        ])
+        .arg(&script_path)
+        .output()?;
+    assert!(output.status.success());
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout)?;
+    assert_eq!(
+        json["completions"],
+        serde_json::json!(["a\nb", "a\"b", "a\\b"])
+    );
+    let _ = std::fs::remove_file(script_path);
     Ok(())
 }
 

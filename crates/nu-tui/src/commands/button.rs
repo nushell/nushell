@@ -65,6 +65,7 @@ impl Command for TuiButton {
                 WidgetKind::Button(ButtonWidget { label, action }),
                 Vec::new(),
                 None,
+                None,
             )
         })
     }

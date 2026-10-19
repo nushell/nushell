@@ -1,7 +1,7 @@
 use crate::{
     BlockId, Category, CompileError, Config, DeclId, FileId, GetSpan, Module, ModuleId, OverlayId,
     ParseError, ParseWarning, ResolvedImportPattern, ResolvedSpan, Signature, Span, SpanId, Type,
-    TypeSet, Value, VarId, VirtualPathId,
+    TypeAlias, TypeAliasId, TypeSet, Value, VarId, VirtualPathId,
     ast::Block,
     engine::{
         BracketTable, CachedFile, Command, CommandType, EngineState, OverlayFrame, ScopeBindings,
@@ -118,6 +118,10 @@ impl<'a> StateWorkingSet<'a> {
         self.delta.num_modules() + self.permanent_state.num_modules()
     }
 
+    pub fn num_type_aliases(&self) -> usize {
+        self.delta.num_type_aliases() + self.permanent_state.num_type_aliases()
+    }
+
     pub fn unique_overlay_names(&self) -> HashSet<&[u8]> {
         let mut names: HashSet<&[u8]> = self.permanent_state.active_overlay_names(&[]).collect();
 
@@ -167,6 +171,15 @@ impl<'a> StateWorkingSet<'a> {
         for (name, module_id) in modules {
             overlay_frame.insert_module(name, module_id);
             // overlay_frame.visibility.use_module_id(&module_id);  // TODO: Add hiding modules
+        }
+    }
+
+    pub fn use_type_aliases(&mut self, type_aliases: Vec<(Vec<u8>, TypeAliasId)>) {
+        let overlay_frame = self.last_overlay_mut();
+
+        for (name, type_alias_id) in type_aliases {
+            overlay_frame.type_aliases.insert(name, type_alias_id);
+            overlay_frame.visibility.use_type_alias_id(&type_alias_id);
         }
     }
 
@@ -291,6 +304,60 @@ impl<'a> StateWorkingSet<'a> {
         None
     }
 
+    /// Hide the type alias `name`, the way [`Self::hide_decl`] hides a declaration.
+    ///
+    /// Returns the alias that was hidden, or `None` if no type alias `name` was visible.
+    pub fn hide_type_alias(&mut self, name: &[u8]) -> Option<TypeAliasId> {
+        let mut removed_overlays = vec![];
+        let mut visibility: Visibility = Visibility::new();
+
+        // Since we can mutate scope frames in delta, hide the id in the frame that has it
+        for scope_frame in self.delta.scope.iter_mut().rev() {
+            for overlay_id in scope_frame
+                .active_overlay_ids(&mut removed_overlays)
+                .iter()
+                .rev()
+            {
+                let overlay_frame = scope_frame.get_overlay_mut(*overlay_id);
+
+                visibility.append(&overlay_frame.visibility);
+
+                if let Some(type_alias_id) = overlay_frame.type_aliases.get(name).copied()
+                    && visibility.is_type_alias_id_visible(&type_alias_id)
+                {
+                    overlay_frame.visibility.hide_type_alias_id(&type_alias_id);
+                    return Some(type_alias_id);
+                }
+            }
+        }
+
+        // We cannot mutate the permanent state => store the information in the current overlay frame
+        for overlay_frame in self
+            .permanent_state
+            .active_overlays(&removed_overlays)
+            .rev()
+        {
+            visibility.append(&overlay_frame.visibility);
+
+            if let Some(type_alias_id) = overlay_frame.type_aliases.get(name).copied()
+                && visibility.is_type_alias_id_visible(&type_alias_id)
+            {
+                self.last_overlay_mut()
+                    .visibility
+                    .hide_type_alias_id(&type_alias_id);
+                return Some(type_alias_id);
+            }
+        }
+
+        None
+    }
+
+    pub fn hide_type_aliases(&mut self, type_aliases: &[Vec<u8>]) {
+        for type_alias in type_aliases {
+            self.hide_type_alias(type_alias);
+        }
+    }
+
     pub fn hide_decls(&mut self, decls: &[Vec<u8>]) {
         for decl in decls.iter() {
             self.hide_decl(decl); // let's assume no errors
@@ -325,6 +392,46 @@ impl<'a> StateWorkingSet<'a> {
         self.last_overlay_mut().modules.insert(name, module_id);
 
         module_id
+    }
+
+    /// Define a type alias in the current scope. A later definition of the same name replaces it
+    /// from here on.
+    pub fn add_type_alias(&mut self, type_alias: TypeAlias) -> TypeAliasId {
+        let name = type_alias.name.as_bytes().to_vec();
+
+        self.delta.type_aliases.push(type_alias);
+        let type_alias_id = TypeAliasId::new(self.num_type_aliases() - 1);
+
+        self.last_overlay_mut()
+            .type_aliases
+            .insert(name, type_alias_id);
+
+        type_alias_id
+    }
+
+    /// Record that the block being parsed has a `type` statement for `name` at `span`.
+    ///
+    /// The record lasts as long as the scope frame and is only used to report a use before the
+    /// definition (see [`Self::find_type_predecls`]).
+    pub fn add_type_predecl(&mut self, name: Vec<u8>, span: Span) {
+        self.delta
+            .last_scope_frame_mut()
+            .type_predecls
+            .entry(name)
+            .or_default()
+            .push(span);
+    }
+
+    /// Spans of the `type` statements recorded for `name` by [`Self::add_type_predecl`] in every
+    /// enclosing scope, innermost first.
+    pub fn find_type_predecls<'b>(&'b self, name: &'b [u8]) -> impl Iterator<Item = Span> + 'b {
+        self.delta
+            .scope
+            .iter()
+            .rev()
+            .filter_map(move |scope_frame| scope_frame.type_predecls.get(name))
+            .flatten()
+            .copied()
     }
 
     pub fn get_module_comments(&self, module_id: ModuleId) -> Option<&[Span]> {
@@ -577,6 +684,40 @@ impl<'a> StateWorkingSet<'a> {
         None
     }
 
+    /// Find the [`TypeAliasId`] of the type alias `name` visible in the current scope.
+    pub fn find_type_alias(&self, name: &[u8]) -> Option<TypeAliasId> {
+        let mut removed_overlays = vec![];
+
+        let mut visibility = VisibilityStack::default();
+
+        for scope_frame in self.delta.scope.iter().rev() {
+            for overlay_frame in scope_frame.active_overlays(&mut removed_overlays).rev() {
+                visibility.push(&overlay_frame.visibility);
+
+                if let Some(type_alias_id) = overlay_frame.type_aliases.get(name)
+                    && visibility.is_type_alias_id_visible(type_alias_id)
+                {
+                    return Some(*type_alias_id);
+                }
+            }
+        }
+
+        self.permanent_state
+            .find_type_alias(name, &removed_overlays)
+    }
+
+    pub fn get_type_alias(&self, type_alias_id: TypeAliasId) -> &TypeAlias {
+        let num_permanent_type_aliases = self.permanent_state.num_type_aliases();
+        if type_alias_id.get() < num_permanent_type_aliases {
+            self.permanent_state.get_type_alias(type_alias_id)
+        } else {
+            self.delta
+                .type_aliases
+                .get(type_alias_id.get() - num_permanent_type_aliases)
+                .expect("internal error: missing type alias")
+        }
+    }
+
     pub fn next_var_id(&self) -> VarId {
         let num_permanent_vars = self.permanent_state.num_vars();
         VarId::new(num_permanent_vars + self.delta.vars.len())
@@ -597,7 +738,17 @@ impl<'a> StateWorkingSet<'a> {
             .flat_map(|overlay_frame| overlay_frame.vars.keys().map(|k| &k[..]));
 
         variables.extend(permanent_vars);
-        variables.into_iter().collect()
+        // A variable that `unlet` hid is still bound in its frame, so while anything is hidden,
+        // list only the names that still resolve.
+        let any_hidden = self
+            .delta
+            .scope
+            .iter()
+            .any(|scope_frame| !scope_frame.hidden_vars.is_empty());
+        variables
+            .into_iter()
+            .filter(|name| !any_hidden || self.find_variable(name).is_some())
+            .collect()
     }
 
     pub fn find_variable(&self, name: &[u8]) -> Option<VarId> {
@@ -606,11 +757,20 @@ impl<'a> StateWorkingSet<'a> {
             name.insert(0, b'$');
         }
         let mut removed_overlays = vec![];
+        // A variable that `unlet` hid in the scope frame that binds it, or in a frame inside that
+        // one, isn't found, and the lookup doesn't go on to a variable of the same name further
+        // out. A permanent variable is bound outside every frame of the delta.
+        let unless_hidden = |var_id: VarId, binding_frame: usize| {
+            let hidden = self.delta.scope[binding_frame..]
+                .iter()
+                .any(|scope_frame| scope_frame.hidden_vars.contains(&var_id));
+            (!hidden).then_some(var_id)
+        };
 
-        for scope_frame in self.delta.scope.iter().rev() {
+        for (frame_idx, scope_frame) in self.delta.scope.iter().enumerate().rev() {
             for overlay_frame in scope_frame.active_overlays(&mut removed_overlays).rev() {
                 if let Some(var_id) = overlay_frame.vars.get(&name) {
-                    return Some(*var_id);
+                    return unless_hidden(*var_id, frame_idx);
                 }
             }
         }
@@ -621,11 +781,19 @@ impl<'a> StateWorkingSet<'a> {
             .rev()
         {
             if let Some(var_id) = overlay_frame.vars.get(&name) {
-                return Some(*var_id);
+                return unless_hidden(*var_id, 0);
             }
         }
 
         None
+    }
+
+    /// Hide `var_id` for the rest of the current scope frame, as `unlet` does for a constant:
+    /// [`find_variable`](Self::find_variable) no longer finds it under any name, until it's bound
+    /// again. At the top level, merging the delta removes the variable from the overlays, so
+    /// later source can't find it either.
+    pub fn hide_variable(&mut self, var_id: VarId) {
+        self.delta.last_scope_frame_mut().hidden_vars.push(var_id);
     }
 
     pub fn find_variable_in_current_frame(&self, name: &[u8]) -> Option<VarId> {
@@ -670,6 +838,12 @@ impl<'a> StateWorkingSet<'a> {
         if let Some(var) = self.get_variable_mut(var_id) {
             var.name = Some(name.clone());
         }
+        // Binding a variable again, like a module constant imported a second time, undoes an
+        // `unlet` of it in this frame (see `hide_variable`).
+        self.delta
+            .last_scope_frame_mut()
+            .hidden_vars
+            .retain(|hidden| *hidden != var_id);
         self.last_overlay_mut().insert_variable(name, var_id);
     }
 
@@ -1046,7 +1220,7 @@ impl<'a> StateWorkingSet<'a> {
             self.add_overlay(
                 name,
                 origin,
-                ResolvedImportPattern::new(vec![], vec![], vec![], vec![]),
+                ResolvedImportPattern::new(vec![], vec![], vec![], vec![], vec![]),
                 prefixed,
             );
         }
@@ -1056,29 +1230,36 @@ impl<'a> StateWorkingSet<'a> {
             .expect("internal error: missing added overlay")
     }
 
+    /// Every frame of the overlay `name`, from the permanent state outwards to the current scope.
+    fn frames_of_overlay<'b>(&'b self, name: &'b [u8]) -> impl Iterator<Item = &'b OverlayFrame> {
+        let permanent = self
+            .permanent_state
+            .find_overlay(name)
+            .map(|overlay_id| self.permanent_state.get_overlay(overlay_id));
+
+        let delta = self.delta.scope.iter().filter_map(move |scope_frame| {
+            scope_frame
+                .find_overlay(name)
+                .map(|overlay_id| scope_frame.get_overlay(overlay_id))
+        });
+
+        permanent.into_iter().chain(delta)
+    }
+
     /// Collect all decls that belong to an overlay
     pub fn decls_of_overlay(&self, name: &[u8]) -> HashMap<Vec<u8>, DeclId> {
-        let mut result = HashMap::new();
+        self.frames_of_overlay(name)
+            .flat_map(|overlay_frame| &overlay_frame.decls)
+            .map(|(decl_key, decl_id)| (decl_key.to_owned(), *decl_id))
+            .collect()
+    }
 
-        if let Some(overlay_id) = self.permanent_state.find_overlay(name) {
-            let overlay_frame = self.permanent_state.get_overlay(overlay_id);
-
-            for (decl_key, decl_id) in &overlay_frame.decls {
-                result.insert(decl_key.to_owned(), *decl_id);
-            }
-        }
-
-        for scope_frame in self.delta.scope.iter() {
-            if let Some(overlay_id) = scope_frame.find_overlay(name) {
-                let overlay_frame = scope_frame.get_overlay(overlay_id);
-
-                for (decl_key, decl_id) in &overlay_frame.decls {
-                    result.insert(decl_key.to_owned(), *decl_id);
-                }
-            }
-        }
-
-        result
+    /// Collect all type aliases that belong to an overlay
+    pub fn type_aliases_of_overlay(&self, name: &[u8]) -> HashMap<Vec<u8>, TypeAliasId> {
+        self.frames_of_overlay(name)
+            .flat_map(|overlay_frame| &overlay_frame.type_aliases)
+            .map(|(alias_name, type_alias_id)| (alias_name.to_owned(), *type_alias_id))
+            .collect()
     }
 
     pub fn add_overlay(
@@ -1112,6 +1293,7 @@ impl<'a> StateWorkingSet<'a> {
 
         self.use_decls(definitions.decls);
         self.use_modules(definitions.modules);
+        self.use_type_aliases(definitions.type_aliases);
 
         let mut constants = vec![];
 
@@ -1154,8 +1336,14 @@ impl<'a> StateWorkingSet<'a> {
                     .into_iter()
                     .filter(|(n, _)| !origin_module.has_decl(n))
                     .collect();
+                let type_aliases = self
+                    .type_aliases_of_overlay(name)
+                    .into_iter()
+                    .filter(|(n, _)| !origin_module.type_aliases.contains_key(n))
+                    .collect();
 
                 self.use_decls(decls);
+                self.use_type_aliases(type_aliases);
             }
         }
     }

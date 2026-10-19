@@ -311,7 +311,7 @@ impl<'s> Lower<'_, '_, 's> {
             self.working_set.insert_variable_into_scope(name, var_id);
         }
         let span = self.span(signature.span);
-        self.checked(|working_set| assemble_signature(working_set, parameters, span))
+        self.checked(|working_set| assemble_signature(working_set, parameters, span, is_external))
     }
 
     /// A parameter's description: the comments after it, each without its `#`, one per line.

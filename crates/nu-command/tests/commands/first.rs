@@ -1,7 +1,7 @@
 use chrono::DateTime;
 use nu_protocol::{
-    Filesize, IntRange, IntoPipelineData, ListStream, PipelineData, PipelineMetadata, Range,
-    Signals, Span, Value, ast::RangeInclusion,
+    Filesize, IntRange, IntoPipelineData, LabeledError, ListStream, PipelineData, PipelineMetadata,
+    Range, Signals, Span, Value, ast::RangeInclusion,
 };
 use nu_test_support::prelude::*;
 use pretty_assertions::assert_matches;
@@ -152,11 +152,47 @@ fn does_not_error_on_empty_list_when_no_rows_given() -> Result {
 
 #[test]
 fn error_on_empty_list_when_no_rows_given_in_strict_mode() -> Result {
-    let err = test()
-        .run("[] | first --strict | describe")
-        .expect_shell_error()?;
+    assert_empty_content_diagnostic("[] | first --strict")
+}
 
+#[test]
+fn error_on_empty_list_stream_in_strict_mode() -> Result {
+    assert_empty_content_diagnostic("[1] | where {|x| $x > 1 } | first --strict")
+}
+
+#[test]
+fn error_on_empty_binary_in_strict_mode() -> Result {
+    assert_empty_content_diagnostic("0x[] | first --strict")
+}
+
+fn assert_empty_content_diagnostic(code: &str) -> Result {
+    test()
+        .run(code)
+        .expect_error_code_eq("nu::shell::access_empty_content")?;
+
+    let err = test().run(code).expect_shell_error()?;
     assert_matches!(err, ShellError::AccessEmptyContent { .. });
+    let message = err.to_string();
+    assert_eq!(message, "Cannot access empty content.");
+    assert_contains_not("too large", &message);
+
+    let labeled = LabeledError::from_diagnostic(&err);
+    assert_eq!(
+        labeled
+            .labels
+            .iter()
+            .map(|label| label.text.as_str())
+            .collect::<Vec<_>>(),
+        ["content is empty"]
+    );
+    assert!(
+        labeled
+            .labels
+            .iter()
+            .all(|label| !label.text.contains("too large")),
+        "empty-content span label should not describe a row or index as too large: {:?}",
+        labeled.labels
+    );
     Ok(())
 }
 

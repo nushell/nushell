@@ -123,7 +123,6 @@ sha2 = { workspace = true }
 strum = { workspace = true }
 sysinfo = { workspace = true }
 tabled = { workspace = true, features = ["ansi"], default-features = false }
-titlecase = { workspace = true }
 toml = { workspace = true, features = ["preserve_order"] }
 toml_edit = { workspace = true }
 kdl = { workspace = true }

@@ -139,6 +139,15 @@ pub fn can_rest_spread(signature: &Signature) -> bool {
     signature.rest_positional.is_some() || signature.allows_unknown_args
 }
 
+/// Error when a list is spread into a command that has no rest parameter to receive it.
+pub fn list_spread_without_rest_error(spread_span: Span) -> ShellError {
+    ShellError::Generic(GenericError::new(
+        "Cannot spread a list into this command",
+        "This command has no ...rest parameter to receive a list spread. Use a record to spread named flags, e.g. ...{flag: value}",
+        spread_span,
+    ))
+}
+
 /// Error when a list (or null rest-mode) is spread while required positionals remain unbound.
 pub fn list_spread_before_required_error(spread_span: Span) -> ShellError {
     ShellError::Generic(GenericError::new(
@@ -196,11 +205,7 @@ pub fn normalize_engine_arguments(
                 }
                 Value::List { .. } => {
                     if !can_rest_spread(signature) {
-                        return Err(ShellError::Generic(GenericError::new(
-                            "Cannot spread a list into this command",
-                            "This command has no ...rest parameter to receive a list spread. Use a record to spread named flags, e.g. ...{flag: value}",
-                            spread_span,
-                        )));
+                        return Err(list_spread_without_rest_error(spread_span));
                     }
                     expanded.push(Argument::Spread {
                         vals,

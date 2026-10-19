@@ -235,7 +235,8 @@ pub(super) fn changed_answer(
     })
 }
 
-/// `frame` with only what resolving a command name reads: no variables or modules.
+/// `frame` with only what resolving a command name reads: no variables, modules, type alias
+/// predeclarations or hidden variables.
 fn names_only(frame: &ScopeFrame) -> ScopeFrame {
     ScopeFrame {
         overlays: frame
@@ -254,6 +255,7 @@ fn names_only(frame: &ScopeFrame) -> ScopeFrame {
         active_overlays: frame.active_overlays.clone(),
         removed_overlays: frame.removed_overlays.clone(),
         predecls: frame.predecls.clone(),
+        ..ScopeFrame::new()
     }
 }
 

@@ -89,6 +89,8 @@ pub mod marker {
     #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
     pub struct Module;
     #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+    pub struct TypeAlias;
+    #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
     pub struct Overlay;
     #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
     pub struct File;
@@ -106,6 +108,7 @@ pub type VarId = Id<marker::Var>;
 pub type DeclId = Id<marker::Decl>;
 pub type BlockId = Id<marker::Block>;
 pub type ModuleId = Id<marker::Module>;
+pub type TypeAliasId = Id<marker::TypeAlias>;
 pub type OverlayId = Id<marker::Overlay>;
 pub type FileId = Id<marker::File>;
 pub type VirtualPathId = Id<marker::VirtualPath>;

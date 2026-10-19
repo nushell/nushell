@@ -6,7 +6,7 @@ use crate::parse_literals::parse_full_cell_path;
 use crate::{
     Token, TokenContents,
     lex::lex_signature,
-    parse_helpers::{SPREAD_OPERATOR, garbage, is_variable},
+    parse_helpers::{SPREAD_OPERATOR, earlier_use, garbage, is_variable},
     parse_shape_specs::{parse_completer, parse_shape_name, parse_type},
     type_check::type_compatible,
 };
@@ -15,7 +15,10 @@ use nu_protocol::{
     Flag, ParseError, PositionalArg, Signature, Span, SyntaxShape, Type, TypeSet, Value, VarId,
     ast::*, engine::StateWorkingSet, eval_const::eval_constant,
 };
-use std::{collections::HashSet, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 
 pub fn parse_import_pattern<'a>(
     working_set: &mut StateWorkingSet,
@@ -1215,20 +1218,81 @@ pub fn parse_signature_helper(
         working_set.insert_variable_into_scope(name, var_id);
     }
 
-    assemble_signature(working_set, args, span)
+    assemble_signature(working_set, args, span, is_external)
 }
 
 /// The signature of the parameters `args`, read from `span`, whose variables are in scope: an
 /// optional parameter or a typed flag without a default can be `null`. A required parameter
-/// after an optional one, an unnamed rest parameter and a second one are errors.
+/// after an optional one, an unnamed rest parameter and a second one are errors, and so, unless
+/// the signature is an `extern`'s (`is_external`), are repeated names and short flags and a
+/// parameter after the rest parameter.
 pub(crate) fn assemble_signature(
     working_set: &mut StateWorkingSet,
     args: Vec<Arg>,
     span: Span,
+    is_external: bool,
 ) -> Box<Signature> {
     let mut sig = Signature::new(String::new());
 
+    // Parameters and flags share one variable namespace (`--foo-bar` binds `$foo_bar`, as do
+    // `foo_bar` and `$foo_bar`), and each short flag needs its own letter. A repeat would silently
+    // shadow or swallow the earlier one. Only `_` may repeat, to ignore several arguments.
+    let mut variable_names = HashMap::new();
+    let mut short_flags = HashMap::new();
+    let declaration_span = |working_set: &StateWorkingSet, var_id: Option<VarId>| {
+        var_id.map_or(span, |var_id| {
+            working_set.get_variable(var_id).declaration_span
+        })
+    };
+
     for arg in args {
+        // An `extern` only describes another program's arguments for completions and binds no
+        // variables, so it is not checked: generated completions often list a flag twice, and
+        // a real program's last argument may follow a list.
+        if !is_external {
+            match &arg {
+                Arg::Positional {
+                    arg: positional, ..
+                }
+                | Arg::RestPositional(positional) => {
+                    let at = declaration_span(working_set, positional.var_id);
+                    let name = positional.name.trim_start_matches('$');
+                    let is_rest = matches!(arg, Arg::RestPositional(_));
+                    if name != "_"
+                        && let Some(first) = earlier_use(&mut variable_names, name.to_string(), at)
+                    {
+                        let prefix = if is_rest { "..." } else { "" };
+                        let display = format!("{prefix}{}", positional.name);
+                        working_set.error(ParseError::DuplicateParameter(display, at, first));
+                    }
+                    if !is_rest && sig.rest_positional.is_some() {
+                        working_set
+                            .error(ParseError::PositionalAfterRest(positional.name.clone(), at));
+                    }
+                }
+                Arg::Flag { flag, .. } => {
+                    let at = declaration_span(working_set, flag.var_id);
+                    // A long flag binds a variable named after it, with `-` replaced by `_`; a
+                    // flag with only a short form binds one named after its letter.
+                    let (name, display) = match flag.short {
+                        Some(short) if flag.long.is_empty() => {
+                            (short.to_string(), format!("-{short}"))
+                        }
+                        _ => (flag.long.replace('-', "_"), format!("--{}", flag.long)),
+                    };
+                    if let Some(first) = earlier_use(&mut variable_names, name, at) {
+                        working_set.error(ParseError::DuplicateParameter(display, at, first));
+                    }
+                    if let Some(short) = flag.short
+                        && let Some(first) = earlier_use(&mut short_flags, short, at)
+                    {
+                        let display = format!("-{short}");
+                        working_set.error(ParseError::DuplicateParameter(display, at, first));
+                    }
+                }
+            }
+        }
+
         match arg {
             Arg::Positional {
                 arg: positional,

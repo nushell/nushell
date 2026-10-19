@@ -695,7 +695,17 @@ fn external_error_with_backtrace() -> Result {
             1
         );
         assert_contains("non_zero_exit_code", &result.stderr);
-        assert_eq!(result.stderr.matches("eval_block_with_input").count(), 1);
+        // The stream's caller span `a 3` is a label on the external's error, not a separate
+        // report; the other label of that text is the chained error's call `b`.
+        assert_contains_not("eval_block_with_input", &result.stderr);
+        assert_contains_not("source value", &result.stderr);
+        assert_eq!(
+            result
+                .stderr
+                .matches("error happened when running this")
+                .count(),
+            2
+        );
 
         let result: CompleteResult = test().cwd(dirs.test()).run(
             r#"nu --env-config tmp_env.nu --no-std-lib --error-style plain --commands "fail" | complete"#,

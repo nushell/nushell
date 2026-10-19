@@ -16,7 +16,7 @@ use nu_protocol::{
     DidYouMean, FilesizeUnit, IntoSpanned, ParseError, Span, Spanned, SyntaxShape, Type, Unit,
     VarId, ast::*, casing::Casing, engine::StateWorkingSet,
 };
-use std::{borrow::Cow, sync::Arc};
+use std::{borrow::Cow, num::IntErrorKind, sync::Arc};
 
 use crate::parse_expressions::{
     parse_block_expression, parse_closure_expression, parse_match_block_expression, parse_record,
@@ -151,7 +151,13 @@ fn first_non_separator(token: &[u8]) -> Option<u8> {
 enum IntLiteral {
     Value(i64),
     Empty,
-    InvalidDigits { radix: u32 },
+    InvalidDigits {
+        radix: u32,
+    },
+    /// Valid digits for a number that doesn't fit in an `i64`.
+    OutOfRange {
+        radix: u32,
+    },
     NotInt,
 }
 
@@ -173,25 +179,54 @@ fn read_int(token: &[u8]) -> IntLiteral {
 fn decode_int(token: &[u8]) -> IntLiteral {
     let token = strip_underscores(token);
 
-    // Parse as a u64, then cast to i64, otherwise, for numbers like "0xffffffffffffffef",
-    // you'll get `Error parsing hex string: number too large to fit in target type`.
+    // A sign can come before a radix prefix too, as in `-0x10`.
+    let (sign, unsigned) = match token.as_bytes().first() {
+        Some(&sign @ (b'-' | b'+')) => (Some(sign), &token[1..]),
+        _ => (None, &token[..]),
+    };
+
+    // Parse as a u64, so that an unsigned 64-bit pattern such as "0xffffffffffffffef" wraps to a
+    // negative int instead of being too large. A signed literal is a number that has to fit:
+    // `-0x8000000000000000` is `i64::MIN`, and `+0x8000000000000000` is too large.
+    // Rust reports an overflow as soon as the digits read so far overflow, before it reaches a
+    // later non-digit, so a token is only out of range if it is all digits.
+    let all_digits = |digits: &str, radix: u32| digits.chars().all(|c| c.is_digit(radix));
     let extract_int = |digits: &str, radix: u32| match u64::from_str_radix(digits, radix) {
-        Ok(num) => IntLiteral::Value(num as i64),
+        Ok(num) => {
+            let value = match sign {
+                Some(b'-') => 0i64.checked_sub_unsigned(num),
+                Some(_) => i64::try_from(num).ok(),
+                None => Some(num as i64),
+            };
+            value.map_or(IntLiteral::OutOfRange { radix }, IntLiteral::Value)
+        }
+        Err(err) if *err.kind() == IntErrorKind::PosOverflow && all_digits(digits, radix) => {
+            IntLiteral::OutOfRange { radix }
+        }
         Err(_) => IntLiteral::InvalidDigits { radix },
     };
 
     if token.is_empty() {
         IntLiteral::Empty
-    } else if let Some(num) = token.strip_prefix("0b") {
+    } else if let Some(num) = unsigned.strip_prefix("0b") {
         extract_int(num, 2)
-    } else if let Some(num) = token.strip_prefix("0o") {
+    } else if let Some(num) = unsigned.strip_prefix("0o") {
         extract_int(num, 8)
-    } else if let Some(num) = token.strip_prefix("0x") {
+    } else if let Some(num) = unsigned.strip_prefix("0x") {
         extract_int(num, 16)
-    } else if let Ok(num) = token.parse::<i64>() {
-        IntLiteral::Value(num)
     } else {
-        IntLiteral::NotInt
+        match token.parse::<i64>() {
+            Ok(num) => IntLiteral::Value(num),
+            Err(err)
+                if matches!(
+                    err.kind(),
+                    IntErrorKind::PosOverflow | IntErrorKind::NegOverflow
+                ) && all_digits(unsigned, 10) =>
+            {
+                IntLiteral::OutOfRange { radix: 10 }
+            }
+            Err(_) => IntLiteral::NotInt,
+        }
     }
 }
 
@@ -210,19 +245,49 @@ pub fn parse_int(working_set: &mut StateWorkingSet, span: Span) -> Expression {
             ));
             garbage(working_set, span)
         }
+        // An int literal never silently becomes a float that has lost precision. Only a decimal
+        // number can be written as a float instead: `0x10000000000000000.0` isn't one.
+        IntLiteral::OutOfRange { radix } => {
+            let msg = if radix == 10 {
+                "number too large (add `.0` for a float)"
+            } else {
+                "number too large for 64 bits"
+            };
+            working_set.error(ParseError::InvalidLiteral(msg.into(), "int".into(), span));
+            garbage(working_set, span)
+        }
     }
 }
 
+/// The names `f64::from_str` takes for special floats that are also Nushell's: `inf` and `nan`,
+/// plus `NaN`, the spelling Nushell prints (so NUON output reads back in). Rust also accepts
+/// `infinity` and any letter case, which would make bare words like `Nan` floats.
+const SPECIAL_FLOAT_NAMES: [&str; 3] = ["inf", "nan", "NaN"];
+
 /// Read `token` as a float literal, with `_` digit separators.
 fn read_float(token: &[u8]) -> Option<f64> {
-    // `f64::from_str` only accepts a sign, a digit, `.`, or `inf`/`infinity`/`nan` in any case
-    // at the start, so reject everything else before decoding it (see `read_int`).
+    // `f64::from_str` only accepts a sign, a digit, `.`, or a special name at the start, so
+    // reject everything else before decoding it (see `read_int`).
     let first = first_non_separator(token)?;
-    if !(first.is_ascii_digit() || matches!(first, b'+' | b'-' | b'.' | b'i' | b'I' | b'n' | b'N'))
+    if !(first.is_ascii_digit() || matches!(first, b'+' | b'-' | b'.' | b'i' | b'n' | b'N')) {
+        return None;
+    }
+    let text = strip_underscores(token);
+    let unsigned = text.strip_prefix(['+', '-']).unwrap_or(&text);
+    // A special float is spelled exactly as one of the names, with no `_` in it (`i_n_f` is a
+    // bare word).
+    let written = match token {
+        [b'+' | b'-', rest @ ..] => rest,
+        _ => token,
+    };
+    if unsigned.starts_with(|c: char| c.is_ascii_alphabetic())
+        && !SPECIAL_FLOAT_NAMES
+            .iter()
+            .any(|name| name.as_bytes() == written)
     {
         return None;
     }
-    strip_underscores(token).parse::<f64>().ok()
+    text.parse::<f64>().ok()
 }
 
 pub fn parse_float(working_set: &mut StateWorkingSet, span: Span) -> Expression {
@@ -239,11 +304,18 @@ pub fn parse_number(working_set: &mut StateWorkingSet, span: Span) -> Expression
     let starting_error_count = working_set.parse_errors.len();
 
     let result = parse_int(working_set, span);
-    if starting_error_count == working_set.parse_errors.len() {
+    // An int too large for 64 bits isn't retried as a float, which would lose precision.
+    if working_set.parse_errors.len() == starting_error_count
+        || matches!(
+            read_int(working_set.get_span_contents(span)),
+            IntLiteral::OutOfRange { .. }
+        )
+    {
         return result;
-    } else if let Some(ParseError::Expected(_, _)) = working_set.parse_errors.last() {
-        working_set.parse_errors.truncate(starting_error_count);
     }
+    // Any other token may still be a float. One with bad radix digits isn't, and ends as
+    // "expected number", so that a word like `0xdump` can still name a command.
+    working_set.parse_errors.truncate(starting_error_count);
 
     let result = parse_float(working_set, span);
 
@@ -539,6 +611,17 @@ pub fn parse_raw_string(working_set: &mut StateWorkingSet, span: Span) -> Expres
     }
 }
 
+/// Whether `error` is an unmatched `(` or `)`. As the first error of a word that starts with `(`,
+/// it shows that the word isn't one parenthesized expression (`(1)+(2)`), so it is read as a
+/// string interpolation instead.
+pub(crate) fn is_unmatched_paren(error: &ParseError) -> bool {
+    match error {
+        ParseError::Unclosed(right, ..) => *right == ")",
+        ParseError::Unbalanced(left, right, ..) => *left == "(" && *right == ")",
+        _ => false,
+    }
+}
+
 pub fn parse_paren_expr(
     working_set: &mut StateWorkingSet,
     span: Span,
@@ -568,11 +651,7 @@ pub fn parse_paren_expr(
     if fcp_error_count > starting_error_count {
         let malformed_subexpr = working_set.parse_errors[starting_error_count..]
             .first()
-            .is_some_and(|e| match e {
-                ParseError::Unclosed(right, ..) if (*right == ")") => true,
-                ParseError::Unbalanced(left, right, ..) if *left == "(" && *right == ")" => true,
-                _ => false,
-            });
+            .is_some_and(is_unmatched_paren);
         if malformed_subexpr {
             working_set.parse_errors.truncate(starting_error_count);
             while working_set.delta.scope.len() > starting_scope_count {
@@ -1347,6 +1426,35 @@ pub fn parse_filepath(working_set: &mut StateWorkingSet, span: Span) -> Expressi
     parse_path_like(working_set, span, PathLikeKind::Filepath)
 }
 
+/// Whether `bytes` is written like a date literal but names a day that doesn't exist
+/// (`2023-02-29`, `2023-13-01`). A date literal is `YYYY-MM-DD`, alone or followed by `T` or `t`
+/// and a time that starts `HH:MM`. Any other text after the date (`2023-02-29.log`,
+/// `2024-01-15T10-30-00.log`) makes the word a bare string, and so does a real day with a time
+/// that isn't a valid one (`2024-01-15T10:00`).
+fn is_invalid_date_literal(bytes: &[u8]) -> bool {
+    let digits = |range: std::ops::Range<usize>| {
+        bytes
+            .get(range)
+            .is_some_and(|digits| digits.iter().all(u8::is_ascii_digit))
+    };
+    let date_shape = digits(0..4)
+        && bytes.get(4) == Some(&b'-')
+        && digits(5..7)
+        && bytes.get(7) == Some(&b'-')
+        && digits(8..10);
+    let time_follows = match bytes.get(10) {
+        None => true,
+        Some(b'T' | b't') => digits(11..13) && bytes.get(13) == Some(&b':') && digits(14..16),
+        Some(_) => false,
+    };
+    date_shape
+        && time_follows
+        && str::from_utf8(&bytes[..10])
+            .ok()
+            .and_then(|date| chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d").ok())
+            .is_none()
+}
+
 pub fn parse_datetime(working_set: &mut StateWorkingSet, span: Span) -> Expression {
     trace!("parsing: datetime");
 
@@ -1379,6 +1487,17 @@ pub fn parse_datetime(working_set: &mut StateWorkingSet, span: Span) -> Expressi
     let datetime = token + "+00:00";
     if let Ok(datetime) = chrono::DateTime::parse_from_rfc3339(&datetime) {
         return Expression::new(working_set, Expr::DateTime(datetime), span, Type::Date);
+    }
+
+    // A token written like a date that isn't a real day (`2023-02-29`) is a typo, not a bare
+    // string, the same way `0xZZ` is a bad hex literal rather than a string.
+    if is_invalid_date_literal(working_set.get_span_contents(span)) {
+        working_set.error(ParseError::InvalidLiteral(
+            "not a valid date".into(),
+            "datetime".into(),
+            span,
+        ));
+        return garbage(working_set, span);
     }
 
     working_set.error(ParseError::Expected("datetime", span));
@@ -1414,8 +1533,8 @@ pub fn parse_filesize(working_set: &mut StateWorkingSet, span: Span) -> Expressi
 
     let bytes = working_set.get_span_contents(span);
 
-    // the hex digit `b` might be mistaken for the unit `b`, so check that first
-    if bytes.starts_with(b"0x") {
+    // The hex digit `b` might be mistaken for the unit `b` (`0x1b`, `-0x1b`), so rule hex out first.
+    if matches!(bytes, [b'0', b'x', ..] | [b'-' | b'+', b'0', b'x', ..]) {
         working_set.error(ParseError::Expected("filesize with valid units", span));
         return garbage(working_set, span);
     }
@@ -1448,10 +1567,10 @@ pub fn parse_unit_value<'res>(
     ty: Type,
     transform: fn(String) -> String,
 ) -> Option<ParseUnitResult<'res>> {
+    // A unit value starts like a number: a digit, `.digit`, or a sign and a digit.
     if bytes.len() < 2
         || !(bytes[0].is_ascii_digit()
-            || (bytes[0] == b'.' && bytes[1].is_ascii_digit())
-            || (bytes[0] == b'-' && bytes[1].is_ascii_digit()))
+            || (matches!(bytes[0], b'.' | b'-' | b'+') && bytes[1].is_ascii_digit()))
     {
         return None;
     }
@@ -1484,49 +1603,51 @@ pub fn parse_unit_value<'res>(
             }
         });
 
-        let mut unit = match convert {
+        let unit = match convert {
             Some(convert_to) => convert_to.0,
             None => *unit,
         };
 
-        let num_float = match convert {
-            Some(convert_to) => {
-                (number_part * convert_to.1 as f64) + (decimal_part * convert_to.1 as f64)
+        // Store every filesize in bytes and every duration in nanoseconds, to minimize loss of
+        // precision.
+        let (base_unit, factor) = if ty == Type::Filesize {
+            (Unit::Filesize(FilesizeUnit::B), unit_to_byte_factor(&unit)?)
+        } else {
+            (Unit::Nanosecond, unit_to_ns_factor(&unit)?)
+        };
+
+        // An integer is scaled exactly, so the largest value fits (`9223372036854775807ns`) and the
+        // next one doesn't. A fraction is scaled as an `f64`, where `i64::MAX as f64` rounds up to
+        // 2^63, which doesn't fit, so its upper bound is exclusive.
+        let num = match lhs.parse::<i128>() {
+            Ok(int) => {
+                let scale =
+                    i128::from(convert.map_or(1, |convert_to| convert_to.1)) * factor as i128;
+                int.checked_mul(scale)
+                    .and_then(|num| i64::try_from(num).ok())
             }
-            None => number_part,
-        };
-
-        // Convert all durations to nanoseconds, and filesizes to bytes,
-        // to minimize loss of precision
-        let factor = match ty {
-            Type::Filesize => unit_to_byte_factor(&unit),
-            Type::Duration => unit_to_ns_factor(&unit),
-            _ => None,
-        };
-
-        let num = match factor {
-            Some(factor) => {
-                let num_base = num_float * factor;
-                if i64::MIN as f64 <= num_base && num_base <= i64::MAX as f64 {
-                    unit = if ty == Type::Filesize {
-                        Unit::Filesize(FilesizeUnit::B)
-                    } else {
-                        Unit::Nanosecond
-                    };
-                    num_base as i64
-                } else {
-                    // not safe to convert, because of the overflow
-                    num_float as i64
-                }
+            Err(_) => {
+                let num_float = match convert {
+                    Some(convert_to) => {
+                        (number_part * convert_to.1 as f64) + (decimal_part * convert_to.1 as f64)
+                    }
+                    None => number_part,
+                } * factor;
+                (i64::MIN as f64..i64::MAX as f64)
+                    .contains(&num_float)
+                    .then_some(num_float as i64)
             }
-            None => num_float as i64,
+        };
+        let Some(num) = num else {
+            let mk_err = move |name: &str| ParseError::LiteralTooLarge(name.into(), span);
+            return Some(Err(Box::new(mk_err)));
         };
 
-        trace!("-- found {num} {unit:?}");
+        trace!("-- found {num} {base_unit:?}");
         let value = ValueWithUnit {
             expr: Expression::new_unknown(Expr::Int(num), lhs_span, Type::Number),
             unit: Spanned {
-                item: unit,
+                item: base_unit,
                 span: unit_span,
             },
         };
@@ -1944,14 +2065,25 @@ pub fn unescape_string(bytes: &[u8], span: Span) -> (Vec<u8>, Option<ParseError>
 pub fn unescape_unquote_string(bytes: &[u8], span: Span) -> (String, Option<ParseError>) {
     if bytes.starts_with(b"\"") {
         // Needs unescaping
-        let bytes = trim_quotes(bytes);
+        let quoted = trim_quotes(bytes);
 
-        let (bytes, err) = unescape_string(bytes, span);
+        let (unescaped, err) = unescape_string(quoted, span);
 
-        if let Ok(token) = String::from_utf8(bytes) {
-            (token, err)
-        } else {
-            (String::new(), Some(ParseError::Expected("string", span)))
+        match String::from_utf8(unescaped) {
+            Ok(token) => (token, err),
+            // The source text is UTF-8, so the bytes that aren't came from `\x` escapes.
+            Err(_) if err.is_none() && str::from_utf8(quoted).is_ok() => (
+                String::new(),
+                Some(ParseError::InvalidLiteral(
+                    "invalid UTF-8 from `\\x` escapes".into(),
+                    "string".into(),
+                    span,
+                )),
+            ),
+            Err(_) => (
+                String::new(),
+                err.or(Some(ParseError::Expected("string", span))),
+            ),
         }
     } else {
         let bytes = trim_quotes(bytes);
@@ -1964,6 +2096,11 @@ pub fn unescape_unquote_string(bytes: &[u8], span: Span) -> (String, Option<Pars
     }
 }
 
+/// Reject a quoted string with text after its closing quote, such as `'a'b` or `'a'"b"`.
+///
+/// A quoted word runs from its opening quote to the last quote of the same kind in the word, and
+/// quotes of that kind in between are part of the string: `"[{a: "b"}]"` is `[{a: "b"}]` and
+/// `'a''b'` is `a''b`. Scripts rely on this for text such as JSON and HTML templates.
 fn check_string_no_trailing_tokens(
     bytes: &[u8],
     span: Span,
@@ -2155,7 +2292,10 @@ mod number_tests {
 
     #[test]
     fn floats_read_as_before() {
-        for token in TOKENS {
+        // Special float names other than `inf`, `nan` and `NaN` are rejected on purpose; see
+        // `special_float_names` below.
+        let renamed = [&b"-Infinity"[..], b"INFINITY"];
+        for token in TOKENS.iter().filter(|token| !renamed.contains(token)) {
             let before = strip_underscores(token).parse::<f64>().ok();
             let after = read_float(token);
             // Compare bit patterns so that NaN equals NaN.
@@ -2166,5 +2306,87 @@ mod number_tests {
                 String::from_utf8_lossy(token)
             );
         }
+    }
+
+    #[test]
+    fn special_float_names() {
+        for token in ["inf", "+inf", "-inf", "nan", "NaN", "-nan", "+NaN"] {
+            assert!(read_float(token.as_bytes()).is_some(), "{token}");
+        }
+        for token in [
+            "INF",
+            "Inf",
+            "NAN",
+            "Nan",
+            "infinity",
+            "Infinity",
+            "-INFINITY",
+            // `_` separators belong in numbers, not in names.
+            "i_n_f",
+            "n_an",
+            "_inf",
+            "-_inf",
+            "inf_",
+        ] {
+            assert_eq!(read_float(token.as_bytes()), None, "{token}");
+        }
+    }
+
+    #[test]
+    fn signed_radix_ints() {
+        assert_eq!(decode_int(b"-0x10"), IntLiteral::Value(-16));
+        assert_eq!(decode_int(b"+0b11"), IntLiteral::Value(3));
+        assert_eq!(decode_int(b"-0o17"), IntLiteral::Value(-15));
+        assert_eq!(
+            decode_int(b"-0x8000000000000000"),
+            IntLiteral::Value(i64::MIN)
+        );
+        assert_eq!(
+            decode_int(b"-0x8000000000000001"),
+            IntLiteral::OutOfRange { radix: 16 }
+        );
+        assert_eq!(
+            decode_int(b"+0x7fffffffffffffff"),
+            IntLiteral::Value(i64::MAX)
+        );
+        // A `+` makes the literal a positive number, which has to fit.
+        assert_eq!(
+            decode_int(b"+0x8000000000000000"),
+            IntLiteral::OutOfRange { radix: 16 }
+        );
+        // Without a sign, 64-bit patterns still wrap to negative ints.
+        assert_eq!(decode_int(b"0xffffffffffffffff"), IntLiteral::Value(-1));
+    }
+
+    #[test]
+    fn out_of_range_ints() {
+        assert_eq!(
+            decode_int(b"9223372036854775807"),
+            IntLiteral::Value(i64::MAX)
+        );
+        assert_eq!(
+            decode_int(b"-9223372036854775808"),
+            IntLiteral::Value(i64::MIN)
+        );
+        assert_eq!(
+            decode_int(b"9223372036854775808"),
+            IntLiteral::OutOfRange { radix: 10 }
+        );
+        assert_eq!(
+            decode_int(b"-9223372036854775809"),
+            IntLiteral::OutOfRange { radix: 10 }
+        );
+        assert_eq!(
+            decode_int(b"0x10000000000000000"),
+            IntLiteral::OutOfRange { radix: 16 }
+        );
+        assert_eq!(decode_int(b"0xZZ"), IntLiteral::InvalidDigits { radix: 16 });
+        // Overflowing digits before a non-digit are not an out-of-range int.
+        assert_eq!(decode_int(b"9223372036854775808.0"), IntLiteral::NotInt);
+        assert_eq!(decode_int(b"99999999999999999999e3"), IntLiteral::NotInt);
+        assert_eq!(
+            decode_int(b"0x10000000000000000g"),
+            IntLiteral::InvalidDigits { radix: 16 }
+        );
     }
 }

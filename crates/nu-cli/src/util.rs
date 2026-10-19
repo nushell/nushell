@@ -1,7 +1,7 @@
 #![allow(clippy::byte_char_slices)]
 
 use nu_cmd_base::hook::eval_hook;
-use nu_engine::{eval_block, eval_block_with_early_return};
+use nu_engine::{eval_block, eval_block_with_early_return, exit::kill_jobs_and_exit};
 use nu_parser::{Token, TokenContents, lex, parse, unescape_unquote_string};
 use nu_protocol::{
     ByteStream, ByteStreamSource, ListStream, PipelineData, PipelineMetadata, ShellError, Signals,
@@ -295,7 +295,7 @@ fn map_eval_error_to_exit_code(
     err: ShellError,
 ) -> i32 {
     if let ShellError::Exit { code, .. } = &err {
-        std::process::exit(*code)
+        kill_jobs_and_exit(engine_state, *code)
     }
     report_shell_error(Some(stack), engine_state, &err);
     let code = err.exit_code();
@@ -327,6 +327,20 @@ fn finish_eval_source(
     exit_code
 }
 
+/// Report every parse warning in `working_set`, each once. The parser can try a piece of code more
+/// than once and leave the same warning behind each time, so a repeat at the same place is
+/// skipped. [`report_parse_warning`] itself drops repeats of `--report first` warnings.
+pub(crate) fn report_parse_warnings(stack: Option<&Stack>, working_set: &StateWorkingSet) {
+    let mut reported: Vec<(Span, String)> = vec![];
+    for warning in &working_set.parse_warnings {
+        let key = (warning.span(), warning.to_string());
+        if !reported.contains(&key) {
+            report_parse_warning(stack, working_set, warning);
+            reported.push(key);
+        }
+    }
+}
+
 pub(crate) fn evaluate_source(
     engine_state: &mut EngineState,
     stack: &mut Stack,
@@ -343,9 +357,7 @@ pub(crate) fn evaluate_source(
             source,
             false,
         );
-        if let Some(warning) = working_set.parse_warnings.first() {
-            report_parse_warning(Some(stack), &working_set, warning);
-        }
+        report_parse_warnings(Some(stack), &working_set);
 
         if let Some(err) = working_set.parse_errors.first() {
             report_parse_error(Some(stack), &working_set, err);
@@ -382,8 +394,13 @@ pub(crate) fn evaluate_parsed_block(
     }?;
     let mut pipeline_data = pipeline.body;
 
-    // Update engine_state with deleted variables
+    // Update engine_state with deleted variables. `unlet` on a constant already took effect
+    // while parsing, for the block it's in (see `parse_pipeline_element`), so a constant
+    // unlet in a nested block stays for later source.
     for var_id in &stack.deletions {
+        if engine_state.get_constant(*var_id).is_some() {
+            continue;
+        }
         if let Some(active_id) = engine_state.scope.active_overlays.last()
             && let Some((_, overlay)) = engine_state.scope.overlays.get_mut((*active_id).get())
         {
@@ -674,5 +691,32 @@ mod test {
         assert!(matches!(env.get(symbols), Some(&Value::String { val, .. }) if val == "symbols"));
         assert!(env.contains_key("PWD"));
         assert_eq!(env.len(), 4);
+    }
+
+    /// `unlet` on a constant in a nested block hides it only in that block, so the next source
+    /// unit (like the next REPL line) still has it, though the block ran on the same stack.
+    #[test]
+    fn unlet_constant_in_nested_block_keeps_it_for_later_source() -> Result<(), ShellError> {
+        let mut engine_state =
+            nu_command::add_shell_command_context(nu_cmd_lang::create_default_context());
+        let mut stack = Stack::new();
+        for source in ["const x = 1", "if true { unlet $x }"] {
+            let failed = evaluate_source(
+                &mut engine_state,
+                &mut stack,
+                source.as_bytes(),
+                "test",
+                PipelineData::empty(),
+                false,
+            )?;
+            assert!(!failed, "`{source}` failed");
+        }
+
+        assert!(
+            StateWorkingSet::new(&engine_state)
+                .find_variable(b"$x")
+                .is_some()
+        );
+        Ok(())
     }
 }
