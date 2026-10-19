@@ -1,7 +1,8 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::shell_error::generic::GenericError;
 use serde::Deserialize;
 use update_informer::{
-    Check, Package, Registry, Result as UpdateResult,
+    Check, Package, Registry, Result as UpdateResult, UpdateInformer,
     http_client::{GenericHttpClient, HttpClient},
     registry,
 };
@@ -40,10 +41,10 @@ impl Command for VersionCheck {
         &self,
         _engine_state: &EngineState,
         _stack: &mut Stack,
-        _call: &Call,
+        call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let version_check = check_for_latest_nushell_version();
+        let version_check = check_for_latest_nushell_version(call.head)?;
         Ok(version_check.into_pipeline_data())
     }
 }
@@ -83,7 +84,7 @@ impl Registry for NuShellNightly {
     }
 }
 
-pub fn check_for_latest_nushell_version() -> Value {
+pub fn check_for_latest_nushell_version(span: Span) -> Result<Value, ShellError> {
     let current_version = env!("CARGO_PKG_VERSION").to_string();
 
     let mut rec = Record::new();
@@ -99,15 +100,7 @@ pub fn check_for_latest_nushell_version() -> Value {
             update_informer::new(NuShellNightly, nightly_pkg_name, current_version.clone())
                 .interval(std::time::Duration::ZERO);
 
-        if let Ok(Some(new_version)) = informer.check_version() {
-            rec.push("current", Value::test_bool(false));
-            rec.push("latest", Value::test_string(format!("{new_version}")));
-            Value::test_record(rec)
-        } else {
-            rec.push("current", Value::test_bool(true));
-            rec.push("latest", Value::test_string(current_version.clone()));
-            Value::test_record(rec)
-        }
+        check_informer(informer, current_version, &mut rec, span)?;
     } else {
         rec.push("channel", Value::test_string("release"));
 
@@ -119,14 +112,40 @@ pub fn check_for_latest_nushell_version() -> Value {
             update_informer::new(registry::GitHub, normal_pkg_name, current_version.clone())
                 .interval(std::time::Duration::ZERO);
 
-        if let Ok(Some(new_version)) = informer.check_version() {
+        check_informer(informer, current_version, &mut rec, span)?;
+    }
+
+    Ok(Value::test_record(rec))
+}
+
+fn check_informer<R, N: AsRef<str>>(
+    informer: UpdateInformer<R, N, String>,
+    current_version: String,
+    rec: &mut Record,
+    span: Span,
+) -> Result<(), ShellError>
+where
+    R: Registry,
+{
+    match informer.check_version() {
+        Ok(Some(new_version)) => {
             rec.push("current", Value::test_bool(false));
             rec.push("latest", Value::test_string(format!("{new_version}")));
-            Value::test_record(rec)
-        } else {
+        }
+        Err(err) => {
+            return Err(ShellError::Generic(
+                GenericError::new(
+                    "failed to check for the latest version",
+                    format!("{err}"),
+                    span,
+                )
+                .with_help("you may have exceeded the GitHub API rate limit"),
+            ));
+        }
+        Ok(None) => {
             rec.push("current", Value::test_bool(true));
-            rec.push("latest", Value::test_string(current_version.clone()));
-            Value::test_record(rec)
+            rec.push("latest", Value::test_string(current_version));
         }
     }
+    Ok(())
 }
