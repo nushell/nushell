@@ -315,7 +315,8 @@ impl Command for Last {
                         // Have to be a bit tricky here, but just consume into a VecDeque that we
                         // shrink to fit each time
                         const TAKE: u64 = 8192;
-                        let mut buf = VecDeque::with_capacity(rows + TAKE as usize);
+                        // `rows` is user supplied and can be far larger than the input, so don't reserve it.
+                        let mut buf = VecDeque::new();
                         loop {
                             let taken = std::io::copy(&mut (&mut reader).take(TAKE), &mut buf)
                                 .map_err(|err| IoError::new(err, span, None))?;
