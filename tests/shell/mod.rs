@@ -1019,6 +1019,181 @@ fn main_script_subcommand_help_uses_script_name2() -> Result {
 
 #[test]
 #[deps(NU)]
+fn main_script_missing_argument_uses_script_name() -> Result {
+    Playground::setup("script_missing_arg", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[FileWithContent(
+            "script.nu",
+            "def main [foo: string] { print $foo }",
+        )]);
+        let stderr: String = test()
+            .cwd(dirs.test())
+            .run("nu script.nu | complete | get stderr")?;
+        assert!(stderr.contains("missing foo"));
+        assert!(stderr.contains("script.nu"));
+        assert!(!stderr.contains("main"), "error mentioned `main`: {stderr}");
+        Ok(())
+    })
+}
+
+#[test]
+#[deps(NU)]
+fn main_script_subcommand_missing_argument_uses_script_name() -> Result {
+    Playground::setup("script_sub_missing_arg", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[FileWithContent(
+            "script.nu",
+            "def main [] {}
+            def 'main foo' [bar: string] {}
+            ",
+        )]);
+        let stderr: String = test()
+            .cwd(dirs.test())
+            .run("nu script.nu foo | complete | get stderr")?;
+        assert!(stderr.contains("Missing required positional argument"));
+        assert!(stderr.contains("script.nu foo"));
+        assert!(!stderr.contains("main"), "error mentioned `main`: {stderr}");
+        Ok(())
+    })
+}
+
+#[test]
+#[deps(NU)]
+fn main_script_with_space_in_name_uses_script_name() -> Result {
+    // The multi-word name resolves to the script's `main` through the overlay, so the call uses it.
+    Playground::setup("script_space_name", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[FileWithContent(
+            "my script.nu",
+            "def main [foo: string] { $foo }",
+        )]);
+        test()
+            .cwd(dirs.test())
+            .run("nu 'my script.nu' ok | to text | str trim")
+            .expect_value_eq("ok")?;
+
+        let stderr: String = test()
+            .cwd(dirs.test())
+            .run("nu 'my script.nu' | complete | get stderr")?;
+        assert!(stderr.contains("missing foo"));
+        assert!(stderr.contains("my script.nu"));
+        assert!(!stderr.contains("main"), "error mentioned `main`: {stderr}");
+        Ok(())
+    })
+}
+
+#[test]
+#[deps(NU)]
+fn main_script_named_like_a_parser_keyword_still_runs() -> Result {
+    // Parsing `<keyword> ok` would run the keyword's own parser: `for` panics, and `source`, `use`,
+    // `module` and `alias` report parse errors. `main` is called directly for these names.
+    for name in ["for", "source", "source-env", "use", "module", "alias"] {
+        Playground::setup("script_keyword_name", |dirs, sandbox| -> Result {
+            sandbox.with_files(&[FileWithContent(
+                name,
+                "def main [foo: string] { print $\"got ($foo)\" }",
+            )]);
+            test()
+                .cwd(dirs.test())
+                .run(format!("nu {name} ok | to text | str trim"))
+                .expect_value_eq("got ok")
+        })?;
+    }
+    Ok(())
+}
+
+#[test]
+#[deps(NU)]
+fn script_without_main_is_unaffected() -> Result {
+    // The script name is only used to call a `main`, so a script without one runs as before.
+    Playground::setup("script_without_main", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[FileWithContent("script.nu", "print hello")]);
+        test()
+            .cwd(dirs.test())
+            .run("nu script.nu | to text | str trim")
+            .expect_value_eq("hello")
+    })
+}
+
+#[test]
+#[deps(NU)]
+fn main_script_named_like_a_value_still_runs() -> Result {
+    // `10kb` parses as a filesize, so `main` is called as `main` here.
+    Playground::setup("script_value_name", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[FileWithContent("10kb", "def main [foo: string] { $foo }")]);
+        test()
+            .cwd(dirs.test())
+            .run("nu 10kb ok | to text | str trim")
+            .expect_value_eq("ok")?;
+
+        let stderr: String = test()
+            .cwd(dirs.test())
+            .run("nu 10kb | complete | get stderr")?;
+        assert!(stderr.contains("missing foo"));
+        // The snippet shows the call that was run.
+        assert!(
+            stderr.contains("1 | main"),
+            "error didn't fall back to `main`: {stderr}"
+        );
+        assert!(!stderr.contains("1 | 10kb"), "call used `10kb`: {stderr}");
+        Ok(())
+    })
+}
+
+#[test]
+#[deps(NU)]
+fn main_script_with_helper_named_after_script_runs_main() -> Result {
+    // `build.nu docs` resolves to the script's own `build.nu docs` helper, not to `main`, so
+    // `main` is called directly and gets `docs` as its argument.
+    Playground::setup("script_helper_name", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[FileWithContent(
+            "build.nu",
+            "def main [target: string] { print $\"building ($target)\" }
+            def 'build.nu docs' [] { print helper }
+            ",
+        )]);
+        test()
+            .cwd(dirs.test())
+            .run("nu build.nu docs | to text | str trim")
+            .expect_value_eq("building docs")
+    })
+}
+
+#[test]
+#[deps(NU)]
+fn main_script_name_with_separator_is_not_run_as_code() -> Result {
+    // The parser stops a call at `;`, `#` or `|`, so the rest of these names must not be run as
+    // code or swallow the arguments.
+    Playground::setup("script_semicolon_name", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[FileWithContent(
+            "main;print injected",
+            "def main [] { print 'main ran' }",
+        )]);
+        test()
+            .cwd(dirs.test())
+            .run("nu 'main;print injected' | to text | str trim")
+            .expect_value_eq("main ran")
+    })?;
+
+    let mut names = vec!["main #2.nu"];
+    if !cfg!(windows) {
+        // `|` isn't allowed in Windows file names.
+        names.push("main|str upcase");
+    }
+    for name in names {
+        Playground::setup("script_separator_name", |dirs, sandbox| -> Result {
+            sandbox.with_files(&[FileWithContent(
+                name,
+                "def main [foo: string] { print $\"got ($foo)\" }",
+            )]);
+            test()
+                .cwd(dirs.test())
+                .run(format!("nu '{name}' ok | to text | str trim"))
+                .expect_value_eq("got ok")
+        })?;
+    }
+    Ok(())
+}
+
+#[test]
+#[deps(NU)]
 fn script_file_not_found() -> Result {
     let stderr: String = test().run("nu non-existent-script.nu foo bar | complete | get stderr")?;
     assert!(

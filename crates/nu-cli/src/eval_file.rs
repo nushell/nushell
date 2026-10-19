@@ -1,10 +1,11 @@
 use crate::util::{eval_parsed_block_source, eval_source, print_pipeline, report_parse_warnings};
 use log::{info, trace};
 use nu_engine::{eval_block, exit::kill_jobs_and_exit};
-use nu_parser::parse;
+use nu_parser::{is_parser_keyword, parse};
 use nu_path::absolute_with;
 use nu_protocol::{
     PipelineData, ShellError, Span, Value,
+    ast::Expr,
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
     report_error::report_compile_error,
@@ -183,12 +184,11 @@ pub fn evaluate_file(
         // Print the pipeline output of the last command of the file.
         print_pipeline(engine_state, stack, pipeline, true)?;
 
-        // Invoke the main command with arguments. Keep using `main` as the internal command name
-        // so the parser reliably resolves it; the block's signature was already rewritten to the
-        // script filename above, so help messages will show the correct `script.nu`-qualified name.
+        // Invoke the main command with arguments. The block's signature was already rewritten to
+        // the script filename above, so help messages show the `script.nu`-qualified name.
         // The CLI parser has already escaped script arguments via `args_to_script`, so we must not
         // escape them again here or we would double-quote values like `"arg 2"`.
-        let command_line = format!("main {}", args.join(" "));
+        let command_line = main_command_line(engine_state, &script_name, args);
         eval_source(
             engine_state,
             stack,
@@ -212,6 +212,45 @@ pub fn evaluate_file(
     info!("evaluate {}:{}:{}", file!(), line!(), column!());
 
     Ok(())
+}
+
+/// Returns the command line that calls the script's `main` with `args`.
+///
+/// `main` is called by the script's name when that resolves to the script's own commands, so
+/// errors about the arguments (like a missing positional) show `script.nu` instead of `main`.
+/// Otherwise (a parser keyword such as `for`, a name the parser doesn't read as a command, such
+/// as `10kb` or `it's`, a name that stops the call early, such as `main;x`, or a helper named
+/// after the script) the call keeps using `main`.
+fn main_command_line(engine_state: &EngineState, script_name: &str, args: &[String]) -> String {
+    let args = args.join(" ");
+    let main_call = format!("main {args}");
+
+    // Parsing a call to a parser keyword runs its keyword parser, which can panic or report
+    // errors for arguments that were meant for `main`.
+    if is_parser_keyword(script_name.as_bytes()) {
+        return main_call;
+    }
+
+    let script_call = format!("{script_name} {args}");
+    let mut working_set = StateWorkingSet::new(engine_state);
+    let block = parse(&mut working_set, None, script_call.as_bytes(), false);
+    let calls_script = match block.pipelines.first().and_then(|p| p.elements.first()) {
+        Some(element) => match &element.expr.expr {
+            // The call has to name the whole script (plus any subcommand words) and resolve to
+            // `main` with the same subcommand words. A helper named after the script keeps its own
+            // decl name, and a name like `main;...` stops the call at `main`, so neither passes.
+            Expr::Call(call) => {
+                let head = working_set.get_span_contents(call.head);
+                let decl_name = working_set.get_decl(call.decl_id).name().as_bytes();
+                head.strip_prefix(script_name.as_bytes())
+                    .is_some_and(|sub| decl_name.strip_prefix(b"main") == Some(sub))
+            }
+            _ => false,
+        },
+        None => false,
+    };
+
+    if calls_script { script_call } else { main_call }
 }
 
 #[cfg(test)]
