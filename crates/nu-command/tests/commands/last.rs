@@ -258,3 +258,17 @@ fn last_preserves_pipeline_metadata(#[case] input: InputKind, #[case] code: &str
     assert_eq!(expected, out);
     Ok(())
 }
+
+#[test]
+fn last_with_huge_count_on_a_byte_stream() -> Result {
+    test()
+        .run("(random binary 16b | last 9223372036854775807 | length) == 16")
+        .expect_value_eq(true)
+}
+
+#[test]
+fn last_with_huge_count_on_binary() -> Result {
+    test()
+        .run("(0x[11 22 33] | last 9223372036854775807) == 0x[11 22 33]")
+        .expect_value_eq(true)
+}
