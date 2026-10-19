@@ -129,6 +129,11 @@ impl Command for DetectType {
                 example: "'not-a-number' | detect type",
                 result: Some(Value::test_string("not-a-number")),
             },
+            Example {
+                description: "Preserve whitespace around numeric strings",
+                example: "' 42' | detect type",
+                result: Some(Value::test_string(" 42")),
+            },
         ]
     }
 
@@ -485,25 +490,27 @@ static DATETIME_MDY_RE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(DATETIME_MDY_PATTERN).expect("datetime_mdy_pattern should be valid")
 });
 
+// Numeric and boolean patterns reject surrounding whitespace so padded values
+// remain strings rather than matching a pattern and failing during parsing.
 // Examples: "0.1", "3.0", "3.00001", "-9.9990e-003", "inf", "NaN"
 static FLOAT_RE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"^\s*[-+]?((\d*\.\d+)([eE][-+]?\d+)?|inf|NaN|(\d+)[eE][-+]?\d+|\d+\.)$")
+    Regex::new(r"^[-+]?((\d*\.\d+)([eE][-+]?\d+)?|inf|NaN|(\d+)[eE][-+]?\d+|\d+\.)$")
         .expect("float pattern should be valid")
 });
 
 // Examples: "0", "1", "10", "100", "1000"
 static INTEGER_RE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^\s*-?(\d+)$").expect("integer pattern should be valid"));
+    LazyLock::new(|| Regex::new(r"^-?(\d+)$").expect("integer pattern should be valid"));
 
 // Examples: "1_000", "10_000", "100_000", "1,000", "10,000"
 static INTEGER_WITH_DELIMS_RE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"^\s*-?(\d{1,3}([,_]\d{3})+)$")
+    Regex::new(r"^-?(\d{1,3}([,_]\d{3})+)$")
         .expect("integer with delimiters pattern should be valid")
 });
 
 // Examples: "true", "false", "True", "FALSE"
 static BOOLEAN_RE: LazyLock<Regex> = LazyLock::new(|| {
-    RegexBuilder::new(r"^\s*(true)$|^(false)$")
+    RegexBuilder::new("^(true|false)$")
         .case_insensitive(true)
         .build()
         .expect("boolean pattern should be valid")

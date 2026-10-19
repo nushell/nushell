@@ -8,6 +8,33 @@ enum ExpectTo {
 }
 
 #[rstest]
+#[case("42")]
+#[case("-42")]
+#[case("3.14")]
+#[case("6.02e23")]
+#[case("inf")]
+#[case("NaN")]
+#[case("1_000")]
+#[case("1,000")]
+#[case("true")]
+#[case("FALSE")]
+fn whitespace_padded_values_remain_strings(#[case] input: &str) -> Result {
+    let mut tester = test();
+    for whitespace in [" ", "\t", "\n", "\u{a0}"] {
+        for padded in [
+            format!("{whitespace}{input}"),
+            format!("{input}{whitespace}"),
+            format!("{whitespace}{input}{whitespace}"),
+        ] {
+            tester
+                .run_with_data("detect type", padded.clone())
+                .expect_value_eq(padded)?;
+        }
+    }
+    Ok(())
+}
+
+#[rstest]
 #[case("1", ExpectTo::Drop)]
 #[case("01/02/2026", ExpectTo::Drop)]
 #[case("true", ExpectTo::Drop)]
@@ -16,6 +43,10 @@ enum ExpectTo {
 #[case("test", ExpectTo::Keep)]
 #[case("", ExpectTo::Keep)]
 #[case(" ", ExpectTo::Keep)]
+#[case(" 42", ExpectTo::Keep)]
+#[case(" 3.14", ExpectTo::Keep)]
+#[case(" 1_000", ExpectTo::Keep)]
+#[case(" true", ExpectTo::Keep)]
 fn content_type_metadata(#[case] input: &str, #[case] expect_to: ExpectTo) -> Result {
     let in_meta = Some(
         PipelineMetadata::default()
