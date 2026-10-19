@@ -137,6 +137,8 @@ impl Command for Window {
 struct WindowOverlapIter<I: Iterator<Item = Value>> {
     iter: I,
     window: Vec<Value>,
+    // The window size lives here and not in `window.capacity()`, because `window` is not
+    // allocated up front: the size is user supplied and can be far larger than the input.
     size: usize,
     stride: usize,
     remainder: bool,
@@ -153,6 +155,7 @@ impl<I: Iterator<Item = Value>> WindowOverlapIter<I> {
     ) -> Self {
         Self {
             iter: iter.into_iter(),
+            // Don't reserve `size`: it comes from the user and can be much larger than the input.
             window: Vec::new(),
             size: size.into(),
             stride: stride.into(),
@@ -219,12 +222,11 @@ impl<I: Iterator<Item = Value>> Iterator for WindowGapIter<I> {
 
     fn next(&mut self) -> Option<Self::Item> {
         // `self.size` is user supplied and can be far larger than the input, so don't reserve it.
-        let mut window = Vec::new();
-        window.extend(
-            (&mut self.iter)
-                .skip(if self.first { 0 } else { self.skip })
-                .take(self.size),
-        );
+        // `Take` passes the size hint of the input through, so `collect` allocates once.
+        let window: Vec<_> = (&mut self.iter)
+            .skip(if self.first { 0 } else { self.skip })
+            .take(self.size)
+            .collect();
 
         self.first = false;
 

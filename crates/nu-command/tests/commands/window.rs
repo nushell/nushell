@@ -85,6 +85,27 @@ fn huge_window_size_list_stream() -> Result {
 }
 
 #[test]
+fn huge_window_size_and_stride_list_stream() -> Result {
+    test()
+        .run("[0 1 2] | every 1 | window 9223372036854775807 --stride 9223372036854775807 | is-empty")
+        .expect_value_eq(true)
+}
+
+#[test]
+fn huge_window_size_with_remainder() -> Result {
+    test()
+        .run("([0 1 2] | window 9223372036854775807 --remainder) == [[0 1 2] [1 2] [2]]")
+        .expect_value_eq(true)
+}
+
+#[test]
+fn huge_window_size_and_stride_with_remainder() -> Result {
+    test()
+        .run("([0 1 2] | window 9223372036854775807 --stride 9223372036854775807 --remainder) == [[0 1 2]]")
+        .expect_value_eq(true)
+}
+
+#[test]
 fn list_stream() -> Result {
     test()
         .run("([0 1 2] | every 1 | window 2) == ([0 1 2] | window 2)")
