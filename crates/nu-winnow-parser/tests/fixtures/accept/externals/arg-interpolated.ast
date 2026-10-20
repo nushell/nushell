@@ -1,0 +1,21 @@
+Block 0..51
+  Pipeline 0..50
+    ExternalCall 0..50
+      String Bare "foo" 1..4
+      Interpolation Bare 5..15
+        Text "~/.foo/" 5..12
+        Subexpression 12..15 13..14
+          Pipeline 13..14
+            Int 1 13..14
+      Interpolation Double 16..29
+        Text "~/.foo/" 18..25
+        Subexpression 25..28 26..27
+          Pipeline 26..27
+            Int 1 26..27
+      Interpolation Bare 30..50
+        Subexpression 30..45 31..44
+          Pipeline 31..44
+            FullCellPath 31..44
+              Var $nu 31..34
+              Member "home-path" 35..44
+        Text "/path" 45..50

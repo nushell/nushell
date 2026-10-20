@@ -1,0 +1,6 @@
+error: missing argument to `as`
+  --> reject/calls/overlay-use-as-without-name.nu:1:20
+  |
+1 | overlay use null as
+  |                    ^
+  = while parsing command call

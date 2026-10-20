@@ -1,0 +1,6 @@
+error: assignment requires a variable
+  --> reject/pipelines/let-in-after-pipe.nu:1:7
+  |
+1 | [1] | let x = $in
+  |       ^^^^^
+  = help: only variables (`$x`) and their cell paths (`$x.a`, `$env.FOO`) can be assigned to

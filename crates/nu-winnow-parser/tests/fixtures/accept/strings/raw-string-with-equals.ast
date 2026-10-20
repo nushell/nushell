@@ -1,0 +1,8 @@
+Block 0..91
+  Pipeline 0..76
+    let query_prefix 0..76
+      Value 19..76
+        Pipeline 19..76
+          String Raw(1) "https://api.github.com/search/issues?q=repo:nushell/" 19..76
+  Pipeline 77..90
+    Var $query_prefix 77..90

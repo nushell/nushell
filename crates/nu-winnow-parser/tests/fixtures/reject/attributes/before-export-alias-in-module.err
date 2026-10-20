@@ -1,0 +1,14 @@
+error: expected keyword `def, const, extern, alias, use, module, export or export-env`
+  --> reject/attributes/before-export-alias-in-module.nu:2:3
+  |
+2 |   @example "x" { 1 }
+  |   ^^^^^^^^^^^^^^^^^^
+  = while parsing module
+  = help: a module body can only declare things; put code in `export-env` or a `def`
+
+error: attributes must be followed by a definition
+  --> reject/attributes/before-export-alias-in-module.nu:3:3
+  |
+3 |   export alias y = ls
+  |   ^^^^^^
+  = help: only `def`, `extern`, `export def` and `export extern` take attributes

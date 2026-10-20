@@ -1,0 +1,10 @@
+Block 0..14
+  Pipeline 0..13 comments=2
+    ExternalCall 0..1
+      String Bare "a" 0..1
+    | 10..11
+    ExternalCall 12..13
+      String Bare "b" 12..13
+Comments (2)
+  2..5 "# c"
+  6..9 "# d"

@@ -1,0 +1,13 @@
+Block 0..46
+  Pipeline 0..45
+    Def `outer` 0..45
+      Signature 10..12
+      Body 14..44
+        Pipeline 17..35
+          Def `inner` 17..35
+            Signature 27..29
+            Body 31..34
+              Pipeline 32..33
+                Int 1 32..33
+        Pipeline 38..43
+          Call `inner` 38..43

@@ -1,0 +1,6 @@
+error: attributes must be followed by a definition
+  --> reject/attributes/before-export-use.nu:2:1
+  |
+2 | export use std
+  | ^^^^^^
+  = help: only `def`, `extern`, `export def` and `export extern` take attributes

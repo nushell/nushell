@@ -1,0 +1,6 @@
+error: expected expression
+  --> reject/alias/target-if-invalid-condition.nu:1:17
+  |
+1 | alias i = if not
+  |                 ^
+  = while parsing alias

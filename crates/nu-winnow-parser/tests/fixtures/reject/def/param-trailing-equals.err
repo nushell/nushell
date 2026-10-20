@@ -1,0 +1,6 @@
+error: expected default value
+  --> reject/def/param-trailing-equals.nu:1:10
+  |
+1 | def f [x=] {}
+  |          ^
+  = while parsing signature

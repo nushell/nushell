@@ -1,0 +1,6 @@
+error: invalid datetime literal: not a valid date
+  --> reject/literals/invalid-date-feb-29-common-year.nu:1:6
+  |
+1 | echo 2023-02-29
+  |      ^^^^^^^^^^
+  = while parsing command call

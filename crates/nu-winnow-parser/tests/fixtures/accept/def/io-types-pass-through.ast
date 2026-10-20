@@ -1,0 +1,11 @@
+Block 0..93
+  Pipeline 0..23
+    Def `q` 0..23
+      Signature 6..20
+        IoType int -> int
+      Body 22..22
+  Pipeline 24..92
+    Def `q2` 24..92
+      Signature 31..89
+        IoType record<a: int, b: string> -> record<a: int, b: string>
+      Body 91..91

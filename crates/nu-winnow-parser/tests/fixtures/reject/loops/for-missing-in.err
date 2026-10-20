@@ -1,0 +1,6 @@
+error: expected keyword `in`
+  --> reject/loops/for-missing-in.nu:1:7
+  |
+1 | for x [1] { }
+  |       ^^^
+  = while parsing for

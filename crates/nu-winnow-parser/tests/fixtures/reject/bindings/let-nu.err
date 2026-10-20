@@ -1,0 +1,7 @@
+error: `nu` used as variable name
+  --> reject/bindings/let-nu.nu:1:5
+  |
+1 | let nu = 1
+  |     ^^
+  = while parsing let
+  = help: `$nu` is a built-in variable and cannot be declared

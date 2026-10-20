@@ -1,0 +1,10 @@
+Block 0..13
+  Pipeline 0..12
+    ExternalCall 0..12
+      String Bare "cmd" 0..3
+      FullCellPath 4..12
+        Record 4..10
+          Pair
+            String Bare "a" 5..6
+            Int 1 8..9
+        Member "a" 11..12

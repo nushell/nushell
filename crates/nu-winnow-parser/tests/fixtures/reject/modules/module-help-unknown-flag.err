@@ -1,0 +1,7 @@
+error: the `module` command doesn't have flag `--foo`
+  --> reject/modules/module-help-unknown-flag.nu:2:17
+  |
+2 | module x --help --foo
+  |                 ^^^^^
+  = while parsing module
+  = help: use `--help` to see available flags

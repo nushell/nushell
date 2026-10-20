@@ -1,0 +1,7 @@
+error: command name not supported
+  --> reject/def/lone-dash-name.nu:1:5
+  |
+1 | def - [] {}
+  |     ^
+  = while parsing def
+  = help: a bare command name cannot start with `-` or be a spread; quote it

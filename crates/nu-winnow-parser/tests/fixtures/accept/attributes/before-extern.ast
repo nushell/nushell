@@ -1,0 +1,7 @@
+Block 0..29
+  Pipeline 0..28
+    AttributeBlock 0..28
+      Attribute `category` 0..16
+        String Bare "custom" 10..16
+      Extern `e` 17..28
+        Signature 26..28

@@ -1,0 +1,11 @@
+Block 0..41
+  Pipeline 0..40
+    Def `foo` 0..40
+      Signature 8..36
+        Param positional `a` 9..10
+        Param positional `b` 11..17 : int
+        Param optional `c` 18..28 : string
+        Param optional `d` 29..35
+          Default
+            Int 3 34..35
+      Body 38..39

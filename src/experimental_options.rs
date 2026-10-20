@@ -13,7 +13,14 @@ use crate::command::NushellCliArgs;
 pub fn load(engine_state: &EngineState, cli_args: &NushellCliArgs, has_script: bool) {
     let working_set = StateWorkingSet::new(engine_state);
 
-    if !should_disable_experimental_options(has_script, cli_args) {
+    if should_disable_experimental_options(has_script, cli_args) {
+        // `ExperimentalOption::get` reads the env for an option nothing set, so each one is
+        // set to its default here for the env not to apply.
+        for option in nu_experimental::ALL {
+            // SAFETY: options are set at startup, before anything reads them.
+            unsafe { option.set(option.status().default_value()) };
+        }
+    } else {
         let env_content = std::env::var(nu_experimental::ENV).unwrap_or_default();
         let env_offset = format!("{}=", nu_experimental::ENV).len();
 

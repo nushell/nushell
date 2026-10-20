@@ -1,0 +1,10 @@
+Block 0..65
+  Pipeline 0..19
+    TypeAlias `Color` = string 0..19
+  Pipeline 20..64
+    Def `paint` 20..64
+      Signature 30..57
+        Param positional `c` 31..56 : Color @[red green blue]
+      Body 59..63
+        Pipeline 60..62
+          Var $c 60..62

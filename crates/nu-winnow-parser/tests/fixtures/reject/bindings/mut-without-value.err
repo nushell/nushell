@@ -1,0 +1,7 @@
+error: missing required positional argument
+  --> reject/bindings/mut-without-value.nu:1:6
+  |
+1 | mut x
+  |      ^
+  = while parsing mut
+  = help: `mut` needs a value: `mut x = <value>`

@@ -1,0 +1,62 @@
+Block 0..144
+  Pipeline 0..13
+    let key 0..13
+      Value 10..13
+        Pipeline 10..13
+          String Single "k" 10..13
+  Pipeline 14..143
+    Record 14..143
+      Pair
+        String Bare "a" 15..16
+        Filesize 1 kB 18..21
+      Pair
+        String Bare "b" 23..24
+        DateTime 2024-01-02 26..36
+      Pair
+        String Bare "c" 38..39
+        Binary radix=16 [255] 41..47
+      Pair
+        String Bare "d" 49..50
+        Range Inclusive 52..56
+          From
+            Int 1 52..53
+          To
+            Int 3 55..56
+      Pair
+        String Bare "e" 58..59
+        FullCellPath 61..69
+          Var $env 61..65
+          Member "PWD" 66..69
+      Pair
+        String Bare "f" 71..72
+        Subexpression 74..81 75..80
+          Pipeline 75..80
+            BinaryOp + 75..80
+              Int 1 75..76
+              Int 1 79..80
+      Pair
+        String Bare "g" 83..84
+        Closure 86..92
+          Signature 87..89
+          Body 90..91
+            Pipeline 90..91
+              Int 1 90..91
+      Pair
+        String Bare "h" 94..95
+        Nothing 97..101
+      Pair
+        String Bare "i" 103..104
+        Bool true 106..110
+      Pair
+        String Bare "j" 112..113
+        Int -1 115..117
+      Pair
+        String Bare "k" 119..120
+        Interpolation Double 122..129
+          Text "x" 124..125
+          Subexpression 125..128 126..127
+            Pipeline 126..127
+              Int 1 126..127
+      Pair
+        String Bare "l" 131..132
+        String Raw(1) "raw" 134..142

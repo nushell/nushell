@@ -1,0 +1,7 @@
+error: `in` used as variable name
+  --> reject/signatures/reserved-flag-in.nu:1:12
+  |
+1 | def foo [--in] {}
+  |            ^^
+  = while parsing signature
+  = help: `$in` is a built-in variable and cannot be declared

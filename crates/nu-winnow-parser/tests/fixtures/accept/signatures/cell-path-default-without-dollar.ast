@@ -1,0 +1,14 @@
+Block 0..88
+  Pipeline 54..87 comments=1
+    Def `f` 54..87
+      Signature 60..80
+        Param positional `x` 61..79 : cell-path
+          Default
+            CellPath 76..79
+              Member "a" 76..77
+              Member "b" 78..79
+      Body 82..86
+        Pipeline 83..85
+          Var $x 83..85
+Comments (1)
+  0..53 "# The `cell-path` default of a parameter has no `$.`."

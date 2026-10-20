@@ -1,0 +1,7 @@
+Block 0..19
+  Pipeline 0..18
+    Call `module` 0..18
+      String Bare "x" 7..8
+      Flag --help 9..15
+Ignored (1)
+  16..18 "{}"

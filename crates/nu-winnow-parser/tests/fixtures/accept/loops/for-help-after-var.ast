@@ -1,0 +1,8 @@
+Block 0..22
+  Pipeline 0..21
+    Call `for` 0..21
+      String Bare "x" 4..5
+      Flag --help 6..12
+      String Bare "in" 13..15
+      List 16..18
+      Record 19..21

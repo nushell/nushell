@@ -1,0 +1,23 @@
+Block 0..72
+  Pipeline 0..32
+    Def `dummy` 0..32
+      Signature 10..24
+        IoType int -> int
+      Body 26..31
+        Pipeline 27..30
+          Var $in 27..30
+  Pipeline 33..44
+    mut foo 33..44
+      Value 43..44
+        Pipeline 43..44
+          Int 1 43..44
+  Pipeline 45..71 comments=1
+    Assignment = 45..71
+      Var $foo 45..49
+      Value 52..71
+        Pipeline 52..71
+          Int 1 52..53
+          | 54..55
+          Call `dummy` 66..71
+Comments (1)
+  56..65 "# comment"

@@ -108,7 +108,7 @@ pub(crate) fn check_call(
     CallKind::Valid
 }
 
-fn parse_unknown_arg(
+pub(crate) fn parse_unknown_arg(
     working_set: &mut StateWorkingSet,
     span: Span,
     signature: &Signature,
@@ -129,7 +129,7 @@ fn parse_unknown_arg(
     crate::parser::parse_value(working_set, span, &shape, None)
 }
 
-fn parse_external_string(working_set: &mut StateWorkingSet, span: Span) -> Expression {
+pub(crate) fn parse_external_string(working_set: &mut StateWorkingSet, span: Span) -> Expression {
     let contents = working_set.get_span_contents(span);
 
     if contents.starts_with(b"r#") {
@@ -587,7 +587,7 @@ fn parse_long_flag(
 
 /// Check if a syntax shape can accept a negative number (for distinguishing short flags from
 /// negative numeric arguments like `-1`).
-fn shape_allows_negative_number(shape: &SyntaxShape) -> bool {
+pub(crate) fn shape_allows_negative_number(shape: &SyntaxShape) -> bool {
     matches!(
         shape,
         SyntaxShape::Int | SyntaxShape::Number | SyntaxShape::Float
@@ -727,7 +727,7 @@ fn calculate_end_span(
 /// Check if a syntax shape accepts nearly any bare word without error. `string`, `path` and
 /// `directory` take `5` or `5sec` as a string, `glob` and `external_arg` as a glob, `cell-path`
 /// takes `5` as `$.5`, and `any` falls back to a string. `parse_oneof` tries these shapes last.
-fn accepts_any_bareword(shape: &SyntaxShape) -> bool {
+pub(crate) fn accepts_any_bareword(shape: &SyntaxShape) -> bool {
     matches!(
         shape,
         SyntaxShape::String
@@ -1874,7 +1874,7 @@ pub fn parse_call(
     }
 }
 
-fn find_decl_with_command_type(
+pub(crate) fn find_decl_with_command_type(
     working_set: &StateWorkingSet<'_>,
     name: &[u8],
     command_type: CommandType,

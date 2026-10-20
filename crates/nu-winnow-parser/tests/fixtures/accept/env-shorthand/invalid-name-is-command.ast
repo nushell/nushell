@@ -1,0 +1,5 @@
+Block 0..16
+  Pipeline 0..15
+    ExternalCall 0..15
+      String Bare "foo-bar=4" 1..10
+      String Bare "true" 11..15

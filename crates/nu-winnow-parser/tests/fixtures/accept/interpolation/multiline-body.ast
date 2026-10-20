@@ -1,0 +1,9 @@
+Block 0..25
+  Pipeline 0..24
+    Interpolation Double 0..24
+      Text "line one\nline " 2..16
+      Subexpression 16..23 17..22
+        Pipeline 17..22
+          BinaryOp + 17..22
+            Int 1 17..18
+            Int 1 21..22

@@ -1,0 +1,6 @@
+error: unbalanced delimiter: found `]` without a matching `(`
+  --> reject/def/short-alias-unclosed.nu:1:14
+  |
+1 | def f [--a(-a] {}
+  |              ^
+  = help: the innermost open delimiter is `(` at byte 10

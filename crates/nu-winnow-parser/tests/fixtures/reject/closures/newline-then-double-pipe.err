@@ -1,0 +1,6 @@
+error: `||` is not Nushell syntax; use `or` instead
+  --> reject/closures/newline-then-double-pipe.nu:2:1
+  |
+2 | || 1}
+  | ^^
+  = help: use `or` for boolean logic, or `try { } catch { }` to run a fallback command

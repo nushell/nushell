@@ -1,0 +1,6 @@
+error: extra positional argument
+  --> reject/attributes/category-two-arguments.nu:1:13
+  |
+1 | @category a b
+  |             ^
+  = help: `attr category` takes at most 1 positional arguments

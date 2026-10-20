@@ -1,0 +1,6 @@
+error: expected condition and block before `else`
+  --> reject/if/else-before-condition.nu:1:4
+  |
+1 | if else { }
+  |    ^^^^
+  = while parsing if

@@ -1,0 +1,7 @@
+error: the `def` command doesn't have flag `--foo`
+  --> reject/def/unknown-def-flag.nu:1:5
+  |
+1 | def --foo x [] { }
+  |     ^^^^^
+  = while parsing def
+  = help: `def` accepts `--env` and `--wrapped`

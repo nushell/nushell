@@ -1,0 +1,5 @@
+Block 0..16
+  Pipeline 0..15
+    Call `ls` 0..2
+    Redirect Out 3..5
+      String Bare "/dev/null" 6..15

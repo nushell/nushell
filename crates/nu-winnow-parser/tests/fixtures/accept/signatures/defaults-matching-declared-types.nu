@@ -1,0 +1,31 @@
+def foo [
+  a: number = 1
+  b: string = 1
+  c: string = 1.5
+  d: float = 1
+  e: list<int> = [1]
+  f: record = {a: 1}
+  g: bool = true
+  h: duration = 1sec
+  i: filesize = 1kb
+  j: datetime = 2024-01-01
+  k: range = 1..2
+  l: cell-path = $.a
+  m: binary = 0x[ff]
+  n: glob = *.rs
+  o: path = a/b
+  p: nothing = null
+  q: external_arg = 1
+  r: any = ls
+  s: string = ls
+  t: table = [[a]; [1]]
+  u: string = $"a"
+  v: string = (1)
+  w: int = -1
+  x: string = -1
+  y: int = (1 + 1)
+  z: oneof<int, string> = 1
+  --f1 = 1
+  --f2: string = 1
+  --f3(-y) = 1
+] {}

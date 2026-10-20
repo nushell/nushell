@@ -1,0 +1,6 @@
+error: expected single-character short flag
+  --> reject/def/short-alias-multi-char.nu:1:8
+  |
+1 | def f [--a(-ab)] {}
+  |        ^^^^^^^^
+  = while parsing signature

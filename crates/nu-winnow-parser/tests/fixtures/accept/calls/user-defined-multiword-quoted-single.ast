@@ -1,0 +1,11 @@
+Block 0..33
+  Pipeline 0..23
+    Def `my cmd` 0..23
+      Signature 13..16
+        Param positional `x` 14..15
+      Body 18..22
+        Pipeline 19..21
+          Var $x 19..21
+  Pipeline 24..32
+    Call `my cmd` 24..32
+      Int 1 31..32

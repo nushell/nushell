@@ -1,0 +1,6 @@
+error: expected value after `=`
+  --> reject/calls/flag-equals-no-value.nu:1:11
+  |
+1 | ls --flag=
+  |           ^
+  = while parsing command call

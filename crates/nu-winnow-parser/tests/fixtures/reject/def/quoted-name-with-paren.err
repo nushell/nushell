@@ -1,0 +1,7 @@
+error: no space between name and parameters
+  --> reject/def/quoted-name-with-paren.nu:1:7
+  |
+1 | def "a(b" [] {}
+  |       ^
+  = while parsing def
+  = help: consider adding a space between the command's name and its parameters

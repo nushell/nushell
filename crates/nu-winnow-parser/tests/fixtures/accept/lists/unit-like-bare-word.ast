@@ -1,0 +1,7 @@
+Block 0..17
+  Pipeline 0..16
+    List 0..8
+      String Bare ".foons" 1..7
+    | 9..10
+    Call `get` 11..16
+      Int 0 15..16

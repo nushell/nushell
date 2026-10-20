@@ -1,0 +1,5 @@
+error: this statement cannot be redirected
+  --> reject/redirections/source-redirected.nu:1:13
+  |
+1 | source null o> x
+  |             ^^

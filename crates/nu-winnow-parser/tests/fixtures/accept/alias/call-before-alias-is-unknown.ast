@@ -1,0 +1,8 @@
+Block 0..21
+  Pipeline 0..5
+    ExternalCall 0..5
+      String Bare "g" 0..1
+      String Bare "0b2" 2..5
+  Pipeline 6..20
+    Alias `g` 6..20
+      Call `echo` 16..20

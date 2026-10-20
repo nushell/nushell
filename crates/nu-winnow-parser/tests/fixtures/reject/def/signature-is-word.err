@@ -1,0 +1,6 @@
+error: expected signature like `[param: type]`
+  --> reject/def/signature-is-word.nu:1:9
+  |
+1 | def foo bar { }
+  |         ^^^
+  = while parsing def

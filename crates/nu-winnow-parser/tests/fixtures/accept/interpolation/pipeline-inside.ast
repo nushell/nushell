@@ -1,0 +1,18 @@
+Block 0..47
+  Pipeline 0..46
+    Interpolation Double 0..46
+      Text "count: " 2..9
+      Subexpression 9..27 10..26
+        Pipeline 10..26
+          List 10..17
+            Int 1 11..12
+            Int 2 13..14
+            Int 3 15..16
+          | 18..19
+          Call `length` 20..26
+      Text " and " 27..32
+      Subexpression 32..45 33..44
+        Pipeline 33..44
+          Call `ls` 33..35
+          | 36..37
+          Call `length` 38..44

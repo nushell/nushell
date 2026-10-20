@@ -1,0 +1,1 @@
+try { ls } | length

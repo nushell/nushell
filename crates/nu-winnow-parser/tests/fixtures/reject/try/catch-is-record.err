@@ -1,0 +1,7 @@
+error: expected closure
+  --> reject/try/catch-is-record.nu:1:14
+  |
+1 | try {} catch { a: 1 }
+  |              ^^^^^^^^
+  = while parsing try
+  = help: found a record

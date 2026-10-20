@@ -1,0 +1,12 @@
+Block 0..54
+  Pipeline 0..53
+    Def `f` 0..53
+      Signature 6..46
+        Param positional `x` 7..45 : oneof<string, list<string>>
+          Default
+            List 40..45
+              String Bare "a" 41..42
+              String Bare "b" 43..44
+      Body 48..52
+        Pipeline 49..51
+          Var $x 49..51

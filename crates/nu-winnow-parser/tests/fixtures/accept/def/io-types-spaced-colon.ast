@@ -1,0 +1,50 @@
+Block 0..261
+  Pipeline 0..25
+    Def `q` 0..25
+      Signature 6..21
+        IoType int -> int
+      Body 23..24
+        Pipeline 23..24
+          Int 1 23..24
+  Pipeline 26..59
+    Def `q2` 26..59
+      Signature 33..55
+        Param positional `x` 34..41 : bool
+        IoType int -> int
+      Body 57..58
+        Pipeline 57..58
+          Int 2 57..58
+  Pipeline 60..99
+    Def `q3` 60..99
+      Signature 67..91
+        IoType string -> string
+      Body 93..98
+        Pipeline 93..98
+          String Single "qwe" 93..98
+  Pipeline 100..140
+    Def `q4` 100..140
+      Signature 107..133
+        IoType nothing -> nothing
+      Body 135..139
+        Pipeline 135..139
+          Nothing 135..139
+  Pipeline 141..187
+    Def `q5` 141..187
+      Signature 148..182
+        IoType list<string> -> list<string>
+      Body 184..186
+        Pipeline 184..186
+          List 184..186
+  Pipeline 188..260
+    Def `q6` 188..260
+      Signature 195..246
+        IoType record<a: int b: int> -> record<c: int e: int>
+      Body 248..259
+        Pipeline 248..259
+          Record 248..259
+            Pair
+              String Bare "c" 249..250
+              Int 1 252..253
+            Pair
+              String Bare "e" 254..255
+              Int 1 257..258

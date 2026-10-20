@@ -1,0 +1,6 @@
+error: attributes must be followed by a definition
+  --> reject/attributes/blank-line-before-def.nu:2:1
+  |
+2 | 
+  | ^
+  = help: put the `def`, `extern` or `export` on the line right after the attributes

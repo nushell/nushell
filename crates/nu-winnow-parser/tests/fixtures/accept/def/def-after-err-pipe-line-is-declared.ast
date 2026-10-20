@@ -1,0 +1,11 @@
+Block 0..22
+  Pipeline 0..1
+    Call `f` 0..1
+  Pipeline 2..9
+    ExternalCall 2..5
+      String Bare "ls" 3..5
+    Redirect ErrPipe 6..9
+  Pipeline 10..21
+    Def `f` 10..21
+      Signature 16..18
+      Body 20..20

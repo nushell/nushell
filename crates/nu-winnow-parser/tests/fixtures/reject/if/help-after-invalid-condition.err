@@ -1,0 +1,6 @@
+error: expected condition
+  --> reject/if/help-after-invalid-condition.nu:1:6
+  |
+1 | if if --help
+  |      ^
+  = while parsing if

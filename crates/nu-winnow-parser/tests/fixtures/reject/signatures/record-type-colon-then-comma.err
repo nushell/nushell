@@ -1,0 +1,6 @@
+error: unknown type `,`
+  --> reject/signatures/record-type-colon-then-comma.nu:1:22
+  |
+1 | def foo [x: record<a:, b: int>] {}
+  |                      ^
+  = while parsing signature

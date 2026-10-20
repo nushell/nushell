@@ -1,0 +1,7 @@
+error: the `return` command doesn't have flag `-1`
+  --> reject/loops/return-negative-number.nu:1:8
+  |
+1 | return -1
+  |        ^^
+  = while parsing return
+  = help: use `--help` to see available flags

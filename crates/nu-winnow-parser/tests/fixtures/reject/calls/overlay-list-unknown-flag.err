@@ -1,0 +1,7 @@
+error: the `overlay list` command doesn't have flag `--foo`
+  --> reject/calls/overlay-list-unknown-flag.nu:1:14
+  |
+1 | overlay list --foo
+  |              ^^^^^
+  = while parsing command call
+  = help: use `--help` to see available flags

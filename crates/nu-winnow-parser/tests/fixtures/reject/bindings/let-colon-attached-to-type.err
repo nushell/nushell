@@ -1,0 +1,6 @@
+error: extra tokens after the end of the expression
+  --> reject/bindings/let-colon-attached-to-type.nu:1:7
+  |
+1 | let b :int = 2
+  |       ^^^^
+  = while parsing let

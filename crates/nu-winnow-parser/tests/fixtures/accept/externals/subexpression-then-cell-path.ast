@@ -1,0 +1,9 @@
+Block 0..14
+  Pipeline 0..13
+    ExternalCall 0..13
+      String Bare "cmd" 0..3
+      FullCellPath 4..13
+        Subexpression 4..8 5..7
+          Pipeline 5..7
+            Call `ls` 5..7
+        Member "name" 9..13

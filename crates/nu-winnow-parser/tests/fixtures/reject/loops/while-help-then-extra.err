@@ -1,0 +1,6 @@
+error: expected operator
+  --> reject/loops/while-help-then-extra.nu:1:19
+  |
+1 | while --help true {} y
+  |                   ^^
+  = while parsing while

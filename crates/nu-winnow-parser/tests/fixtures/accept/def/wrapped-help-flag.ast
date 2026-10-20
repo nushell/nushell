@@ -1,0 +1,7 @@
+Block 0..38
+  Pipeline 0..37
+    Def `f` [Wrapped] 0..37
+      Signature 16..33
+        Param flag --help `help` 17..23
+        Param rest `rest` 25..32
+      Body 35..36

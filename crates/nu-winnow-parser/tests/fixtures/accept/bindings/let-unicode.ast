@@ -1,0 +1,14 @@
+Block 0..49
+  Pipeline 0..24 terminator=24..25
+    let 🧼 0..24
+      Value 11..24
+        Pipeline 11..24
+          String Single "ünïcödé" 11..24
+  Pipeline 26..48
+    Call `print` 26..48
+      Interpolation Double 32..48
+        Text "héllo " 34..41
+        Subexpression 41..47 42..46
+          Pipeline 42..46
+            ExternalCall 42..46
+              String Bare "🧼" 42..46

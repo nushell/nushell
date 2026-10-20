@@ -1,0 +1,7 @@
+error: missing required positional argument
+  --> reject/calls/overlay-use-flag-without-argument.nu:1:12
+  |
+1 | overlay use --prefix
+  |            ^
+  = while parsing command call
+  = help: `overlay use` takes 1 positional argument(s)

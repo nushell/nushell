@@ -1,0 +1,6 @@
+error: invalid int literal: invalid digits for radix 16
+  --> reject/match/list-pattern-invalid-item-after-rest.nu:1:21
+  |
+1 | match [1 2] { [1 .. 0xzz] => 1 }
+  |                     ^^^^
+  = while parsing match

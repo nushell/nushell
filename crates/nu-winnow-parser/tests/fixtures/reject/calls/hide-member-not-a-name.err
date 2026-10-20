@@ -1,0 +1,7 @@
+error: wrong import pattern structure
+  --> reject/calls/hide-member-not-a-name.nu:1:10
+  |
+1 | hide foo null
+  |          ^^^^
+  = while parsing command call
+  = help: only strings and lists of strings can be imported

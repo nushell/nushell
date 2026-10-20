@@ -1,0 +1,11 @@
+Block 0..29
+  Pipeline 0..7
+    Call `later` 0..7
+      Int 1 6..7
+  Pipeline 8..28
+    Def `later` 8..28
+      Signature 18..21
+        Param positional `x` 19..20
+      Body 23..27
+        Pipeline 24..26
+          Var $x 24..26

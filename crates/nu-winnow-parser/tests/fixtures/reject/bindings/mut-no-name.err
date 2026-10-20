@@ -1,0 +1,6 @@
+error: expected variable name
+  --> reject/bindings/mut-no-name.nu:1:5
+  |
+1 | mut = 1
+  |     ^
+  = while parsing mut

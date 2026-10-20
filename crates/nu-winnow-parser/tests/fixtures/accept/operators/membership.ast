@@ -1,0 +1,36 @@
+Block 0..79
+  Pipeline 0..78
+    List 0..78
+      Subexpression 1..13 2..12
+        Pipeline 2..12
+          BinaryOp in 2..12
+            Int 1 2..3
+            List 7..12
+              Int 1 8..9
+              Int 2 10..11
+      Subexpression 14..30 15..29
+        Pipeline 15..29
+          BinaryOp not-in 15..29
+            Int 3 15..16
+            List 24..29
+              Int 1 25..26
+              Int 2 27..28
+      Subexpression 31..44 32..43
+        Pipeline 32..43
+          BinaryOp has 32..43
+            List 32..37
+              Int 1 33..34
+              Int 2 35..36
+            Int 1 42..43
+      Subexpression 45..62 46..61
+        Pipeline 46..61
+          BinaryOp not-has 46..61
+            List 46..51
+              Int 1 47..48
+              Int 2 49..50
+            Int 3 60..61
+      Subexpression 63..77 64..76
+        Pipeline 64..76
+          BinaryOp in 64..76
+            String Double "a" 64..67
+            String Double "abc" 71..76

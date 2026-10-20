@@ -1,0 +1,5 @@
+error: unbalanced delimiter: found `}` without a matching `{`
+  --> reject/lexer/extra-brace-after-while-without-block.nu:5:1
+  |
+5 | }
+  | ^

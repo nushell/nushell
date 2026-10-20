@@ -1,0 +1,21 @@
+Block 0..78
+  Pipeline 0..15
+    Def `a$b` 0..15
+      Signature 10..12
+      Body 14..14
+  Pipeline 16..29
+    Def `a.b` 16..29
+      Signature 24..26
+      Body 28..28
+  Pipeline 30..45
+    Def `a|b` 30..45
+      Signature 40..42
+      Body 44..44
+  Pipeline 46..61
+    Def `a b` 46..61
+      Signature 56..58
+      Body 60..60
+  Pipeline 62..77
+    Def `a-b_c` 62..77
+      Signature 72..74
+      Body 76..76

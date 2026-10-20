@@ -1,0 +1,77 @@
+Block 0..178
+  Pipeline 0..163
+    let deep 0..163
+      Value 11..163
+        Pipeline 11..163
+          List 11..163
+            Record 15..77
+              Pair
+                String Bare "a" 16..17
+                List 19..76
+                  Int 1 20..21
+                  Record 22..75
+                    Pair
+                      String Bare "b" 23..24
+                      Interpolation Double 26..74
+                        Text "x" 28..29
+                        Subexpression 29..73 30..72
+                          Pipeline 30..72
+                            List 30..35
+                              Int 1 31..32
+                              Int 2 33..34
+                            | 36..37
+                            Call `each` 38..63
+                              Closure 43..63
+                                Signature 44..47
+                                  Param positional `i` 45..46
+                                Body 48..62
+                                  Pipeline 48..61
+                                    Record 48..61
+                                      Pair
+                                        String Bare "c" 49..50
+                                        Subexpression 52..60 53..59
+                                          Pipeline 53..59
+                                            BinaryOp + 53..59
+                                              Int 1 53..54
+                                              Var $i 57..59
+                            | 64..65
+                            Call `length` 66..72
+            Subexpression 80..161 81..160
+              Pipeline 81..160
+                Call `ls` 81..83
+                | 84..85
+                Where 86..102
+                  BinaryOp > 92..102
+                    FullCellPath implicit-head 92..96
+                      Var $it 92..92
+                      Member "size" 92..96
+                    Filesize 1 kB 99..102
+                | 103..104
+                Call `each` 105..160
+                  Closure 110..160
+                    Signature 112..115
+                      Param positional `f` 113..114
+                    Body 116..159
+                      Pipeline 116..158
+                        Record 116..158
+                          Pair
+                            String Bare "name" 117..121
+                            FullCellPath 123..130
+                              Var $f 123..125
+                              Member "name" 126..130
+                          Pair
+                            String Bare "n" 132..133
+                            Subexpression 135..157 136..156
+                              Pipeline 136..156
+                                FullCellPath 136..143
+                                  Var $f 136..138
+                                  Member "name" 139..143
+                                | 144..145
+                                Call `str length` 146..156
+  Pipeline 164..177
+    FullCellPath 164..177
+      Var $deep 164..169
+      Member 0 170..171
+      Member "a" 172..173
+      Member 1 174..175
+      Member "b" 176..177

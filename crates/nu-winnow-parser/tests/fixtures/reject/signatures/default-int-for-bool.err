@@ -1,0 +1,6 @@
+error: expected bool
+  --> reject/signatures/default-int-for-bool.nu:1:20
+  |
+1 | def foo [x: bool = 1] {}
+  |                    ^
+  = while parsing signature

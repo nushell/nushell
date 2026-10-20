@@ -1,0 +1,28 @@
+Block 0..71
+  Pipeline 0..70
+    List 0..70
+      Subexpression 1..13 2..12
+        Pipeline 2..12
+          BinaryOp bit-or 2..12
+            Int 1 2..3
+            Int 2 11..12
+      Subexpression 14..27 15..26
+        Pipeline 15..26
+          BinaryOp bit-xor 15..26
+            Int 3 15..16
+            Int 1 25..26
+      Subexpression 28..41 29..40
+        Pipeline 29..40
+          BinaryOp bit-and 29..40
+            Int 3 29..30
+            Int 1 39..40
+      Subexpression 42..55 43..54
+        Pipeline 43..54
+          BinaryOp bit-shl 43..54
+            Int 1 43..44
+            Int 2 53..54
+      Subexpression 56..69 57..68
+        Pipeline 57..68
+          BinaryOp bit-shr 57..68
+            Int 4 57..58
+            Int 1 67..68

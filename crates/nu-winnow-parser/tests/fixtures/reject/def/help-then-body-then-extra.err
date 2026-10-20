@@ -1,0 +1,6 @@
+error: expected definition body closure { ... }
+  --> reject/def/help-then-body-then-extra.nu:1:22
+  |
+1 | def foo --help [] {} y
+  |                      ^
+  = while parsing def

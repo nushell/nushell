@@ -1,0 +1,6 @@
+error: `hide` is a statement and cannot be used inside a pipeline
+  --> reject/pipelines/hide-after-pipe.nu:1:6
+  |
+1 | ls | hide foo
+  |      ^^^^
+  = help: declarations and the module, source, overlay and plugin commands are statements of their own

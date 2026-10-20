@@ -1,0 +1,20 @@
+Block 0..36
+  Pipeline 0..35
+    Range Inclusive 0..4
+      From
+        Int 1 0..1
+      To
+        Int 4 3..4
+    | 5..6
+    Call `each` 7..27
+      Closure 12..27
+        Signature 14..17
+          Param positional `y` 15..16
+        Body 18..26
+          Pipeline 18..25
+            BinaryOp + 18..25
+              Var $y 18..20
+              Int 10 23..25
+    | 28..29
+    Call `get` 30..35
+      Int 0 34..35

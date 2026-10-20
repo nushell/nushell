@@ -1,0 +1,18 @@
+Block 0..26
+  Pipeline 0..25
+    List 0..25
+      Closure 1..9
+        Signature 2..5
+          Param positional `x` 3..4
+        Body 6..8
+          Pipeline 6..8
+            Var $x 6..8
+      Closure 10..17
+        Body 12..16
+          Pipeline 12..15
+            Var $in 12..15
+      Closure 18..24
+        Signature 19..21
+        Body 22..23
+          Pipeline 22..23
+            Int 1 22..23

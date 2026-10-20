@@ -1,0 +1,7 @@
+error: cannot use parser keyword `while` as command name
+  --> reject/def/extern-keyword-name.nu:1:8
+  |
+1 | extern "while" []
+  |        ^^^^^^^
+  = while parsing extern
+  = help: choose a different name; this word is parsed specially by Nushell

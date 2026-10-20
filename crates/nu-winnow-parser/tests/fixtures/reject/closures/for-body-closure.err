@@ -1,0 +1,7 @@
+error: expected block
+  --> reject/closures/for-body-closure.nu:1:14
+  |
+1 | for x in [1] { |y| $y }
+  |              ^^^^^^^^^^
+  = while parsing for
+  = help: found closure parameters; blocks cannot have parameters

@@ -1,0 +1,6 @@
+error: expected type after `=`
+  --> reject/def/type-alias-missing-type.nu:1:9
+  |
+1 | type T =
+  |         ^
+  = while parsing type

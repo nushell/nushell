@@ -1,0 +1,9 @@
+Block 0..18
+  Pipeline 0..17
+    Interpolation Double 0..17
+      Text "hello " 2..8
+      Subexpression 8..16 9..15
+        Pipeline 9..15
+          BinaryOp + 9..15
+            Int 39 9..11
+            Int 3 14..15

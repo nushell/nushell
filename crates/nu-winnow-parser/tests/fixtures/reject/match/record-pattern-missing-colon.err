@@ -1,0 +1,7 @@
+error: expected record
+  --> reject/match/record-pattern-missing-colon.nu:1:16
+  |
+1 | match {a: 1} { {a 1} => 1 }
+  |                ^^^^^
+  = while parsing match
+  = help: record patterns look like `{key: pattern}`; a `:` must follow the field name

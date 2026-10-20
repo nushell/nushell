@@ -1,0 +1,20 @@
+Block 0..36
+  Pipeline 0..35
+    List 0..35
+      Interpolation Double 1..17
+        Subexpression 3..16 4..15
+          Pipeline 4..15
+            Interpolation Double 4..15
+              Text "in" 6..8
+              Subexpression 8..11 9..10
+                Pipeline 9..10
+                  Int 2 9..10
+              Text "ner" 11..14
+      Interpolation Single 18..34
+        Subexpression 20..33 21..32
+          Pipeline 21..32
+            BinaryOp + 21..32
+              Interpolation Double 21..25
+                Text "a" 23..24
+              Interpolation Single 28..32
+                Text "b" 30..31

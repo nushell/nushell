@@ -1,0 +1,6 @@
+error: expected module name or path
+  --> reject/modules/module-missing-name.nu:1:7
+  |
+1 | module
+  |       ^
+  = while parsing module

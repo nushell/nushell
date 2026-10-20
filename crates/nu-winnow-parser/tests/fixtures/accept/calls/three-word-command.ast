@@ -1,0 +1,7 @@
+Block 0..17
+  Pipeline 0..16
+    List 0..5
+      Int 1 1..2
+      Int 2 3..4
+    | 6..7
+    Call `math sum` 8..16

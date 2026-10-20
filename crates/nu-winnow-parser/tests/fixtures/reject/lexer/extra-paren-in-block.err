@@ -1,0 +1,6 @@
+error: unbalanced delimiter: found `)` without a matching `{`
+  --> reject/lexer/extra-paren-in-block.nu:3:28
+  |
+3 |         print -n ansi green)
+  |                            ^
+  = help: the innermost open delimiter is `{` at byte 21

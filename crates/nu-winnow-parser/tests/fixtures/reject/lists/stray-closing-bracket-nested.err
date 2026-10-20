@@ -1,0 +1,5 @@
+error: unbalanced delimiter: found `]` without a matching `[`
+  --> reject/lists/stray-closing-bracket-nested.nu:1:7
+  |
+1 | [1 [2]]]
+  |       ^

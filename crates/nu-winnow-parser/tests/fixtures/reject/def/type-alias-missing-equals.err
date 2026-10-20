@@ -1,0 +1,7 @@
+error: missing `=` in type alias
+  --> reject/def/type-alias-missing-equals.nu:1:6
+  |
+1 | type ls
+  |      ^^
+  = while parsing type
+  = help: `type` defines a type alias: `type ls = <type>`. To see what the command `ls` is, use `which ls`; to run an external `type` program, use `^type ls`.

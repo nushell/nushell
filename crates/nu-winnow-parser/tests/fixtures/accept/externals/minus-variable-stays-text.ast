@@ -1,0 +1,15 @@
+Block 0..29
+  Pipeline 0..12
+    let s 0..12
+      Value 8..12
+        Pipeline 8..12
+          String Single "tf" 8..12
+  Pipeline 13..28
+    ExternalCall 13..28
+      String Bare "echo" 14..18
+      String Bare "-$s" 19..22
+      Interpolation Bare 23..28
+        Text "-" 23..24
+        Subexpression 24..28 25..27
+          Pipeline 25..27
+            Var $s 25..27

@@ -1,0 +1,7 @@
+error: cannot create an alias to a parser keyword
+  --> reject/alias/target-where.nu:1:11
+  |
+1 | alias w = where
+  |           ^^^^^
+  = while parsing alias
+  = help: only if, match, try, overlay, overlay hide, overlay new, overlay use can be aliased

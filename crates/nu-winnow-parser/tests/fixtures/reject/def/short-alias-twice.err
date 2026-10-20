@@ -1,0 +1,6 @@
+error: this flag already has a short form
+  --> reject/def/short-alias-twice.nu:1:16
+  |
+1 | def f [--a(-a) (-b)] {}
+  |                ^^^^
+  = while parsing signature

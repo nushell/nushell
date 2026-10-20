@@ -1,0 +1,17 @@
+Block 0..29
+  Pipeline 0..21
+    let l 0..21
+      Value 8..21
+        Pipeline 8..21
+          List 8..21
+            List 9..14
+              Int 1 10..11
+              Int 2 12..13
+            List 15..20
+              Int 3 16..17
+              Int 4 18..19
+  Pipeline 22..28
+    FullCellPath 22..28
+      Var $l 22..24
+      Member 0 25..26
+      Member 1 27..28

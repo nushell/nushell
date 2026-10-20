@@ -1,0 +1,7 @@
+error: missing argument to `in`
+  --> reject/loops/for-missing-block.nu:1:7
+  |
+1 | for x in [1]
+  |       ^^
+  = while parsing for
+  = help: `for` needs a value to iterate and a block: `for x in [1 2] { }`

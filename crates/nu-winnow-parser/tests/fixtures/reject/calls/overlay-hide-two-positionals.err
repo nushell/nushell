@@ -1,0 +1,7 @@
+error: extra positional argument
+  --> reject/calls/overlay-hide-two-positionals.nu:1:16
+  |
+1 | overlay hide a b
+  |                ^
+  = while parsing command call
+  = help: `overlay hide` takes at most 1 positional arguments

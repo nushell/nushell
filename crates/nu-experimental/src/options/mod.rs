@@ -12,6 +12,7 @@ mod example;
 mod native_clip;
 mod pipefail;
 mod reorder_cell_paths;
+mod winnow_parser;
 
 pub(crate) type Version = (u16, u16, u16);
 
@@ -68,6 +69,7 @@ pub use example::EXAMPLE;
 pub use native_clip::NATIVE_CLIP;
 pub use pipefail::PIPE_FAIL;
 pub use reorder_cell_paths::REORDER_CELL_PATHS;
+pub use winnow_parser::WINNOW_PARSER;
 
 // Include all experimental option statics in here.
 // This will test them and add them to the parsing list.
@@ -84,6 +86,7 @@ pub static ALL: &[&ExperimentalOption] = &[
     &ENFORCE_RUNTIME_ANNOTATIONS,
     &NATIVE_CLIP,
     &CELL_PATH_TYPES,
+    &WINNOW_PARSER,
 ];
 
 #[cfg(test)]

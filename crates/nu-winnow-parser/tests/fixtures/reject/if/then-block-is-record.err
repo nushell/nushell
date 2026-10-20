@@ -1,0 +1,7 @@
+error: expected block after the condition
+  --> reject/if/then-block-is-record.nu:1:9
+  |
+1 | if true {a: 1}
+  |         ^^^^^^
+  = while parsing if
+  = help: found a record

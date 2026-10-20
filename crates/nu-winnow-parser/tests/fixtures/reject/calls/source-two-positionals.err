@@ -1,0 +1,7 @@
+error: extra positional argument
+  --> reject/calls/source-two-positionals.nu:1:13
+  |
+1 | source null null
+  |             ^^^^
+  = while parsing command call
+  = help: `source` takes at most 1 positional arguments

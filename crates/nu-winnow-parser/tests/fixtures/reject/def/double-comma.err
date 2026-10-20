@@ -1,0 +1,6 @@
+error: expected parameter or flag
+  --> reject/def/double-comma.nu:1:12
+  |
+1 | def foo [a,, b] { }
+  |            ^
+  = while parsing signature

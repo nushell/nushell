@@ -1,0 +1,7 @@
+error: cannot use parser keyword `run` as command name
+  --> reject/def/keyword-name-run.nu:1:5
+  |
+1 | def run [] { 1 }
+  |     ^^^
+  = while parsing def
+  = help: choose a different name; this word is parsed specially by Nushell

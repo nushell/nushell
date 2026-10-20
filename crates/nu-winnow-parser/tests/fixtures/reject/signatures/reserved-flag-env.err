@@ -1,0 +1,7 @@
+error: `env` used as variable name
+  --> reject/signatures/reserved-flag-env.nu:1:12
+  |
+1 | def foo [--env] {}
+  |            ^^^
+  = while parsing signature
+  = help: `$env` is a built-in variable and cannot be declared

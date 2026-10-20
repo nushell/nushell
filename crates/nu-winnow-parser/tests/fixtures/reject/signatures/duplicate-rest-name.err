@@ -1,0 +1,7 @@
+error: `...a` uses a name that is already taken
+  --> reject/signatures/duplicate-rest-name.nu:1:11
+  |
+1 | def f [a, ...a] { }
+  |           ^^^^
+  = while parsing def
+  = help: it is first used at byte 7

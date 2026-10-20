@@ -1,0 +1,5 @@
+error: expected operator
+  --> reject/operators/missing-operator.nu:2:4
+  |
+2 | $x foo
+  |    ^^^

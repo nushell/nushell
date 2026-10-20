@@ -1,0 +1,8 @@
+Block 0..48
+  Pipeline 0..47
+    Def `f` 0..47
+      Signature 6..43
+        Param flag --dash-name `dash-name` 7..18
+        Param flag --n1 `n1` 20..24
+        Param flag --a-b-c -x `a-b-c` 26..42 : int
+      Body 45..46

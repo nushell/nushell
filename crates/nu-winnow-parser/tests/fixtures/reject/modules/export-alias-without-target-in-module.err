@@ -1,0 +1,7 @@
+error: incomplete alias
+  --> reject/modules/export-alias-without-target-in-module.nu:1:12
+  |
+1 | module m { export alias x = }
+  |            ^^^^^^^^^^^^^^^^
+  = while parsing module
+  = help: an alias needs a name, `=` and a command: `export alias x = ls`

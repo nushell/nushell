@@ -1,0 +1,7 @@
+error: alias name not supported
+  --> reject/alias/variable-as-name.nu:1:7
+  |
+1 | alias $x = a
+  |       ^^
+  = while parsing alias
+  = help: a bare alias name cannot start with `-`; quote it

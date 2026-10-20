@@ -1,0 +1,21 @@
+Block 0..65
+  Pipeline 0..64
+    Table 0..44
+      Columns
+        List 1..16
+          String Bare "name" 2..6
+          String Bare "present" 8..15
+      Row
+        List 18..29
+          String Bare "abc" 19..22
+          Bool true 24..28
+      Row
+        List 31..43
+          String Bare "def" 32..35
+          Bool false 37..42
+    | 45..46
+    Where 47..64
+      Not 53..64
+        FullCellPath implicit-head 57..64
+          Var $it 57..57
+          Member "present" 57..64

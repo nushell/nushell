@@ -1,0 +1,5 @@
+error: invalid int literal: number too large (add `.0` for a float)
+  --> reject/literals/int-too-large-negative.nu:1:1
+  |
+1 | -9223372036854775809
+  | ^^^^^^^^^^^^^^^^^^^^

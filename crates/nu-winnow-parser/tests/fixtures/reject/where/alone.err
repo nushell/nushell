@@ -1,0 +1,6 @@
+error: expected row condition or closure
+  --> reject/where/alone.nu:1:12
+  |
+1 | [1] | where
+  |            ^
+  = while parsing where

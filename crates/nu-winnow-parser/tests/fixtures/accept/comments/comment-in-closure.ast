@@ -1,0 +1,18 @@
+Block 0..53
+  Pipeline 0..52
+    List 0..5
+      Int 1 1..2
+      Int 2 3..4
+    | 6..7
+    Call `each` 8..52
+      Closure 13..52
+        Signature 15..19
+          Param positional `it` 16..18
+        Body 19..51
+          Pipeline 34..41 comments=2
+            BinaryOp * 34..41
+              Var $it 34..37
+              Int 2 40..41
+Comments (2)
+  22..31 "# comment"
+  42..50 "# double"

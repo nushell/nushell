@@ -1,0 +1,9 @@
+Block 0..17
+  Pipeline 0..16
+    If 0..16
+      Condition
+        Bool true 3..7
+      ThenValue
+        FullCellPath 8..16
+          Var $env 8..12
+          Member "FOO" 13..16

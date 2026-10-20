@@ -1,0 +1,6 @@
+error: extra positional argument
+  --> reject/calls/attribute-with-pipe.nu:1:14
+  |
+1 | @example x | y
+  |              ^
+  = help: `attr example` takes at most 2 positional arguments

@@ -1,0 +1,6 @@
+error: expected arrow (->)
+  --> reject/def/io-missing-arrow.nu:1:16
+  |
+1 | def foo []: int { 3 }
+  |                ^
+  = while parsing def

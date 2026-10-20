@@ -1,0 +1,6 @@
+error: expected valid variable name for this short flag
+  --> reject/signatures/double-dash-alone.nu:1:10
+  |
+1 | def foo [--] {}
+  |          ^^
+  = while parsing signature

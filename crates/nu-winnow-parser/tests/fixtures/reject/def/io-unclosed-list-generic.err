@@ -1,0 +1,7 @@
+error: unclosed delimiter: expected `>`
+  --> reject/def/io-unclosed-list-generic.nu:1:33
+  |
+1 | def q []: nothing -> list<string {[]}
+  |                                 ^
+  = note: opened at 1:26
+  = while parsing def

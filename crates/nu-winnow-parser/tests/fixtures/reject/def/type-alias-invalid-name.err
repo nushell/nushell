@@ -1,0 +1,7 @@
+error: type alias name not valid
+  --> reject/def/type-alias-invalid-name.nu:1:6
+  |
+1 | type 1x = int
+  |      ^^
+  = while parsing type
+  = help: a type alias name starts with a letter or `_` and continues with letters, digits, `_` and `-`

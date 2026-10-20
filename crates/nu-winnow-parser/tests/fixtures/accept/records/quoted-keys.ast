@@ -1,0 +1,15 @@
+Block 0..38
+  Pipeline 0..37
+    Record 0..37
+      Pair
+        String Double "d e" 1..6
+        Int 1 8..9
+      Pair
+        String Single "f" 11..14
+        Int 2 16..17
+      Pair
+        String Backtick "g" 19..22
+        Int 3 24..25
+      Pair
+        String Double "type" 27..33
+        Int 4 35..36

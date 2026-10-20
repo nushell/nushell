@@ -1,0 +1,6 @@
+error: unbalanced delimiter: found `)` without a matching `{`
+  --> reject/lexer/extra-paren-after-balanced.nu:1:30
+  |
+1 | def f [] { print (ansi green)) }
+  |                              ^
+  = help: the innermost open delimiter is `{` at byte 9

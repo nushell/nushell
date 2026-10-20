@@ -1,0 +1,1 @@
+ls -la --all | where size > 1kb and name =~ 'x' | sort-by -r modified | select name size | each { |r| $"($r.name): ($r.size)" } | str join "\n" | lines | length | $in + 1 | into string | ^cat o> /dev/null

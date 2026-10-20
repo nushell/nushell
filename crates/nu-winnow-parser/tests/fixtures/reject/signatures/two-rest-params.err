@@ -1,0 +1,7 @@
+error: multiple rest params
+  --> reject/signatures/two-rest-params.nu:1:9
+  |
+1 | def foo [...a ...b] {}
+  |         ^^^^^^^^^^^
+  = while parsing def
+  = help: a signature can have only one `...rest` parameter

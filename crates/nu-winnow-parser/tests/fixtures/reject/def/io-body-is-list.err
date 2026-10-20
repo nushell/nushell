@@ -1,0 +1,5 @@
+error: unbalanced delimiter: found `}` without a matching `{`
+  --> reject/def/io-body-is-list.nu:1:17
+  |
+1 | def q []: int []}
+  |                 ^

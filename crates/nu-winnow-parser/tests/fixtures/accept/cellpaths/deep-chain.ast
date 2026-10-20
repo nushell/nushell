@@ -1,0 +1,61 @@
+Block 0..128
+  Pipeline 0..25
+    let foo 0..25
+      Value 10..25
+        Pipeline 10..25
+          List 10..25
+            Record 11..24
+              Pair
+                String Bare "a" 12..13
+                Record 15..23
+                  Pair
+                    String Bare "b" 16..17
+                    List 19..22
+                      Int 1 20..21
+  Pipeline 26..127
+    List 26..127
+      FullCellPath 27..33
+        Var $foo 27..31
+        Member 0 32..33
+      FullCellPath 34..42
+        Var $foo 34..38
+        Member 0 39..40
+        Member "a" 41..42
+      FullCellPath 43..53
+        Var $foo 43..47
+        Member 0 48..49
+        Member "a" 50..51
+        Member "b" 52..53
+      FullCellPath 54..66
+        Var $foo 54..58
+        Member 0 59..60
+        Member "a" 61..62
+        Member "b" 63..64
+        Member 0 65..66
+      FullCellPath 67..73
+        Var $foo 67..71
+        Member "a" 72..73
+      FullCellPath 74..82
+        Var $foo 74..78
+        Member "a" 79..80
+        Member 0 81..82
+      FullCellPath 83..93
+        Var $foo 83..87
+        Member "a" 88..89
+        Member 0 90..91
+        Member "b" 92..93
+      FullCellPath 94..102
+        Var $foo 94..98
+        Member "a" 99..100
+        Member "b" 101..102
+      FullCellPath 103..113
+        Var $foo 103..107
+        Member "a" 108..109
+        Member "b" 110..111
+        Member 0 112..113
+      FullCellPath 114..126
+        Var $foo 114..118
+        Member "a" 119..120
+        Member "b" 121..122
+        Member 0 123..124
+        Member 0 125..126

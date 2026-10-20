@@ -1,0 +1,16 @@
+Block 0..33
+  Pipeline 0..32
+    List 0..7
+      Int 1 1..2
+      Int 2 3..4
+      Int 3 5..6
+    | 8..9
+    BinaryOp + 10..32
+      FullCellPath 10..15
+        Var $in 10..13
+        Member 0 14..15
+      Subexpression 18..32 19..31
+        Pipeline 19..31
+          Var $in 19..22
+          | 23..24
+          Call `length` 25..31

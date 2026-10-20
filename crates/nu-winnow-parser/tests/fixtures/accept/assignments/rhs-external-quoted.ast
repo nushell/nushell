@@ -1,0 +1,11 @@
+Block 0..26
+  Pipeline 0..25
+    Assignment = 0..25
+      FullCellPath 0..8
+        Var $env 0..4
+        Member "FOO" 5..8
+      Value 11..25
+        Pipeline 11..25
+          ExternalCall 11..25
+            String Bare "echo" 12..18
+            String Bare "cococo" 19..25

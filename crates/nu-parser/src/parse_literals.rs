@@ -966,12 +966,6 @@ pub fn parse_variable_expr(
         );
     }
 
-    let name = if contents.starts_with(b"$") {
-        String::from_utf8_lossy(&contents[1..]).to_string()
-    } else {
-        String::from_utf8_lossy(contents).to_string()
-    };
-
     let bytes = working_set.get_span_contents(span);
     let suggestion = || {
         DidYouMean::new(
@@ -1007,11 +1001,14 @@ pub fn parse_variable_expr(
             span,
             working_set.get_variable(id).ty.clone(),
         )
-    } else if working_set.get_env_var(&name).is_some() {
-        working_set.error(ParseError::EnvVarNotVar(name, span));
-        garbage(working_set, span)
     } else {
-        working_set.error(ParseError::VariableNotFound(suggestion(), span));
+        // The name without its `$`, made only for this error path.
+        let name = String::from_utf8_lossy(bytes.strip_prefix(b"$").unwrap_or(bytes)).to_string();
+        if working_set.get_env_var(&name).is_some() {
+            working_set.error(ParseError::EnvVarNotVar(name, span));
+        } else {
+            working_set.error(ParseError::VariableNotFound(suggestion(), span));
+        }
         garbage(working_set, span)
     }
 }
@@ -2160,7 +2157,7 @@ pub fn parse_string(working_set: &mut StateWorkingSet, span: Span) -> Expression
     Expression::new(working_set, Expr::String(s), span, Type::String)
 }
 
-fn is_quoted(bytes: &[u8]) -> bool {
+pub(crate) fn is_quoted(bytes: &[u8]) -> bool {
     matches!(bytes, [b'\'', .., b'\''] | [b'"', .., b'"'])
 }
 

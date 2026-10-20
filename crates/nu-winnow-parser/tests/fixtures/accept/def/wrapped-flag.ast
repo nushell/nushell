@@ -1,0 +1,11 @@
+Block 0..48
+  Pipeline 0..47
+    Def `wrap` [Wrapped] 0..47
+      Signature 19..28
+        Param rest `args` 20..27
+      Body 30..46
+        Pipeline 31..45
+          ExternalCall 31..45
+            String Bare "echo" 32..36
+            Spread 37..40
+              Var $args 40..45

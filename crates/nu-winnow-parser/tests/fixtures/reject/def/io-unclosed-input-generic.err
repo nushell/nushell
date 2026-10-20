@@ -1,0 +1,6 @@
+error: expected arrow (->)
+  --> reject/def/io-unclosed-input-generic.nu:1:35
+  |
+1 | def q []: record<c: int e: int -> record<a: int> {{a: 1}}
+  |                                   ^^^^^^^^^^^^^^
+  = while parsing def

@@ -1,0 +1,15 @@
+Block 0..40
+  Pipeline 0..39
+    List 0..9
+      Int 1 1..2
+      Int 2 4..5
+      Int 3 7..8
+    | 10..11
+    If 12..39
+      Condition
+        Bool true 15..19
+      Then 21..29
+        Pipeline 22..28
+          Call `length` 22..28
+      Else 31..35
+        BlockExpr 36..39 37..38

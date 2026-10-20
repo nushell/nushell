@@ -1,0 +1,29 @@
+Block 0..109
+  Pipeline 0..108
+    Def `foo` 0..108
+      Signature 8..39
+        IoType int -> int
+        IoType string -> int
+      Body 41..107
+        Pipeline 46..57
+          let x 46..57
+            Value 54..57
+              Pipeline 54..57
+                Var $in 54..57
+        Pipeline 62..106
+          If 62..106
+            Condition
+              BinaryOp == 65..89
+                Subexpression 65..80 66..79
+                  Pipeline 66..79
+                    Var $x 66..68
+                    | 69..70
+                    Call `describe` 71..79
+                String Double "int" 84..89
+            Then 91..94
+              Pipeline 92..93
+                Int 3 92..93
+            Else 96..100
+              BlockExpr 101..106 102..105
+                Pipeline 103..104
+                  Int 4 103..104

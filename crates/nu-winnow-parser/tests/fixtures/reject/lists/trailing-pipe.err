@@ -1,0 +1,5 @@
+error: unexpected end of input, expected list item after `|`
+  --> reject/lists/trailing-pipe.nu:1:6
+  |
+1 | [1 2 |]
+  |      ^

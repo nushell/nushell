@@ -1,0 +1,7 @@
+error: `-x` uses a name that is already taken
+  --> reject/signatures/duplicate-short-only-flag.nu:1:12
+  |
+1 | def f [-x, -x] { }
+  |            ^^
+  = while parsing def
+  = help: it is first used at byte 7

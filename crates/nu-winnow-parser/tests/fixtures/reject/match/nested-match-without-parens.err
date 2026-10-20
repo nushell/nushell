@@ -1,0 +1,6 @@
+error: expected value to match on
+  --> reject/match/nested-match-without-parens.nu:1:21
+  |
+1 | match 1 { 1 => match 2 { 2 => a, _ => b } }
+  |                     ^
+  = while parsing match

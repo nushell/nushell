@@ -1,0 +1,6 @@
+Block 0..13
+  Pipeline 0..12
+    FullCellPath 0..12
+      Var $env 0..4
+      Member "PATH" 5..9
+      Member 0? 10..12

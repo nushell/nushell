@@ -1,0 +1,1 @@
+def f [a: list<record<x: int, y: list<string>>>, b: oneof<int, string>, c: table, d: record, e: list, f: closure, g: cell-path, h: glob, i: path, j: directory, k: duration, l: filesize, m: datetime, n: binary, o: bool, p: float, q: number, r: range, s: any, t: nothing, u: error, v: external_arg, w: int, x: string] { }

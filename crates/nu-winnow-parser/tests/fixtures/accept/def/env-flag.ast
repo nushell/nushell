@@ -1,0 +1,13 @@
+Block 0..45
+  Pipeline 0..44
+    Def `set up` [Env] 0..44
+      Signature 19..21
+      Body 23..43
+        Pipeline 24..42
+          Assignment = 24..42
+            FullCellPath 24..35
+              Var $env 24..28
+              Member "SET_UP" 29..35
+            Value 38..42
+              Pipeline 38..42
+                Bool true 38..42

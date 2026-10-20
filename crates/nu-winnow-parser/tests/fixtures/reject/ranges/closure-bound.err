@@ -1,0 +1,7 @@
+error: the `..` operator does not work on a closure
+  --> reject/ranges/closure-bound.nu:2:10
+  |
+2 | print 5..{|| 1}
+  |          ^^^^^^
+  = while parsing command call
+  = help: a range bound is a number, a variable or a subexpression

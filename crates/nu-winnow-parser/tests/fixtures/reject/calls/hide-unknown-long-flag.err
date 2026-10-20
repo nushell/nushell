@@ -1,0 +1,7 @@
+error: the `hide` command doesn't have flag `--foo`
+  --> reject/calls/hide-unknown-long-flag.nu:1:9
+  |
+1 | hide ls --foo
+  |         ^^^^^
+  = while parsing command call
+  = help: use `--help` to see available flags

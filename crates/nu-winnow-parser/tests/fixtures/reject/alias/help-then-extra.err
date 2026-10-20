@@ -1,0 +1,6 @@
+error: expected `=`
+  --> reject/alias/help-then-extra.nu:1:9
+  |
+1 | alias x --help extra
+  |         ^^^^^^
+  = while parsing alias

@@ -1,0 +1,13 @@
+Block 0..28
+  Pipeline 0..27
+    Closure 0..27
+      Signature 1..17
+        Param positional `x` 2..3 desc="the x"
+        Param positional `y` 15..16
+      Body 18..26
+        Pipeline 18..25
+          BinaryOp + 18..25
+            Var $x 18..20
+            Var $y 23..25
+Comments (1)
+  5..12 "# the x"

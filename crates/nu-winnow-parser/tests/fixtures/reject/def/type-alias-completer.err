@@ -1,0 +1,7 @@
+error: unknown type `string@[red green]`
+  --> reject/def/type-alias-completer.nu:1:14
+  |
+1 | type Color = string@[red green]
+  |              ^^^^^^^^^^^^^^^^^^
+  = while parsing type
+  = help: type specifications do not support custom completers here

@@ -1,0 +1,6 @@
+error: `type` is a statement and cannot be used inside a pipeline
+  --> reject/pipelines/type-alias-after-pipe.nu:1:6
+  |
+1 | ls | type T = int
+  |      ^^^^
+  = help: declarations and the module, source, overlay and plugin commands are statements of their own

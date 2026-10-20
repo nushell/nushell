@@ -1,0 +1,7 @@
+error: `=` must stand alone
+  --> reject/def/type-alias-equals-attached.nu:1:6
+  |
+1 | type T=int
+  |      ^^^^^
+  = while parsing type
+  = help: put spaces around `=`: `type T = int`

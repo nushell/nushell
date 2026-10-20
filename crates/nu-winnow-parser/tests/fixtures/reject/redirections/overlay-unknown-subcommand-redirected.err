@@ -1,0 +1,5 @@
+error: this statement cannot be redirected
+  --> reject/redirections/overlay-unknown-subcommand-redirected.nu:1:13
+  |
+1 | overlay foo o> x
+  |             ^^

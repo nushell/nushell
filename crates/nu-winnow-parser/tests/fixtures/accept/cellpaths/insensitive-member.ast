@@ -1,0 +1,17 @@
+Block 0..38
+  Pipeline 0..17
+    let x 0..17
+      Value 8..17
+        Pipeline 8..17
+          Record 8..17
+            Pair
+              String Bare "Name" 9..13
+              Int 1 15..16
+  Pipeline 18..37
+    List 18..37
+      FullCellPath 19..27
+        Var $x 19..21
+        Member "name"! 22..27
+      FullCellPath 28..36
+        Var $x 28..30
+        Member "NAME"! 31..36

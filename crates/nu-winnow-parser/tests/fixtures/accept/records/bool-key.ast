@@ -1,0 +1,6 @@
+Block 0..10
+  Pipeline 0..9
+    Record 0..9
+      Pair
+        String Bare "true" 1..5
+        Int 4 7..8

@@ -1,0 +1,6 @@
+error: extra tokens after the end of the expression
+  --> reject/pipelines/pipe-then-semicolon.nu:1:15
+  |
+1 | let x = 300 | ;
+  |               ^
+  = help: a `|` must be followed by a command before the `;`

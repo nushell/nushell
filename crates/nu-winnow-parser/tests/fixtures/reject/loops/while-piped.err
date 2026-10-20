@@ -1,0 +1,6 @@
+error: `while` is a statement and cannot be used inside a pipeline
+  --> reject/loops/while-piped.nu:1:1
+  |
+1 | while false { } | describe
+  | ^^^^^
+  = help: a loop has no output to pipe; collect values with `each`, `reduce` or a `mut` variable
