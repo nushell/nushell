@@ -2,7 +2,7 @@ use nu_engine::command_prelude::*;
 use nu_protocol::shell_error::generic::GenericError;
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
-use std::sync::OnceLock;
+use std::sync::Mutex;
 use update_informer::{
     Check, Package, Registry, Result as UpdateResult,
     http_client::{GenericHttpClient, HttpClient},
@@ -52,42 +52,43 @@ impl Command for VersionCheck {
 }
 
 /// The `Authorization` header value used for GitHub API requests.
-static GITHUB_AUTH_HEADER: OnceLock<String> = OnceLock::new();
+static GITHUB_AUTH_HEADER: Mutex<Option<String>> = Mutex::new(None);
 
-/// Looks up `GITHUB_TOKEN` (or `GH_TOKEN`) and caches the `Authorization` header value to send.
+/// Looks up `GITHUB_TOKEN` (or `GH_TOKEN`) and sets the `Authorization` header value to send.
 fn init_github_auth_header(engine_state: &EngineState, stack: &Stack) {
-    if GITHUB_AUTH_HEADER.get().is_some() {
-        return;
-    }
-
-    let Some(token) = ["GITHUB_TOKEN", "GH_TOKEN"]
+    let token = ["GITHUB_TOKEN", "GH_TOKEN"]
         .iter()
         .find_map(|name| stack.get_env_var(engine_state, name))
         .and_then(|value| value.coerce_str().ok())
         .map(|token| token.trim().to_owned())
         .filter(|token| !token.is_empty())
-    else {
-        return;
-    };
+        .map(|token| format!("Bearer {token}"));
 
-    let _ = GITHUB_AUTH_HEADER.set(format!("Bearer {token}"));
+    *GITHUB_AUTH_HEADER
+        .lock()
+        .unwrap_or_else(|err| err.into_inner()) = token;
 }
 
-fn github_auth_header() -> Option<&'static str> {
-    GITHUB_AUTH_HEADER.get().map(String::as_str)
+fn github_auth_header() -> Option<String> {
+    GITHUB_AUTH_HEADER
+        .lock()
+        .unwrap_or_else(|err| err.into_inner())
+        .clone()
 }
 
 fn github_get<'a, T: HttpClient, D: DeserializeOwned>(
     client: GenericHttpClient<'a, T>,
     url: &str,
 ) -> UpdateResult<D> {
+    let auth_header = github_auth_header();
     let client = client
         .add_header("Accept", "application/vnd.github.v3+json")
         .add_header("User-Agent", "update-informer");
-    match github_auth_header() {
-        Some(token) => client.add_header("Authorization", token).get::<D>(url),
-        None => client.get::<D>(url),
-    }
+    let client = match &auth_header {
+        Some(header) => client.add_header("Authorization", header),
+        None => client,
+    };
+    client.get::<D>(url)
 }
 
 /// A GitHub registry that authenticates with the `Authorization` header when a token is available.
