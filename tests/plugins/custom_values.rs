@@ -1,4 +1,5 @@
 use nu_test_support::prelude::*;
+use pretty_assertions::assert_matches;
 
 #[test]
 #[deps(NU_PLUGIN_CUSTOM_VALUES)]
@@ -221,4 +222,25 @@ fn save_custom_values() -> Result {
 
         Ok(())
     })
+}
+
+#[test]
+#[deps(NU_PLUGIN_CUSTOM_VALUES)]
+fn plugin_custom_type_usable_in_signatures() -> Result {
+    test()
+        .run(
+            "def f [h: HandleCustomValue]: HandleCustomValue -> string { 'ok' }
+             1 | custom-value handle make | f (2 | custom-value handle make)",
+        )
+        .expect_value_eq("ok")
+}
+
+#[test]
+#[deps(NU_PLUGIN_CUSTOM_VALUES)]
+fn unknown_custom_type_still_errors() -> Result {
+    let err = test()
+        .run("def f [h: NotARealCustomValue] { }")
+        .expect_parse_error()?;
+    assert_matches!(err, ParseError::UnknownType(_));
+    Ok(())
 }

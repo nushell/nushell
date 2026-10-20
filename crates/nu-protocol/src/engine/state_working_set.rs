@@ -706,6 +706,25 @@ impl<'a> StateWorkingSet<'a> {
             .find_type_alias(name, &removed_overlays)
     }
 
+    /// Whether `name` is a custom value type that some plugin command declares in its
+    /// input/output types, e.g. `polars_dataframe`.
+    ///
+    /// Plugins don't register their types separately, so this scans the plugin declarations'
+    /// signatures (cached for permanent declarations). The parser only calls it for names that
+    /// are neither built-in types nor type aliases.
+    pub fn find_custom_type(&self, name: &[u8]) -> bool {
+        (0..self.num_decls())
+            .map(DeclId::new)
+            .filter(|decl_id| self.get_decl(*decl_id).command_type() == CommandType::Plugin)
+            .any(|decl_id| {
+                self.get_decl_signature_shared(decl_id)
+                    .input_output_types
+                    .iter()
+                    .flat_map(|(input, output)| [input, output])
+                    .any(|ty| matches!(ty, Type::Custom(custom) if custom.as_bytes() == name))
+            })
+    }
+
     pub fn get_type_alias(&self, type_alias_id: TypeAliasId) -> &TypeAlias {
         let num_permanent_type_aliases = self.permanent_state.num_type_aliases();
         if type_alias_id.get() < num_permanent_type_aliases {
