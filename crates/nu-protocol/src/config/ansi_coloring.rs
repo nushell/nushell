@@ -39,8 +39,15 @@ impl UseAnsiColoring {
     /// By prioritizing the `UseAnsiColoring` value, we ensure predictable behavior and prevent
     /// conflicts with internal overrides that depend on this configuration.
     pub fn get(self, engine_state: &EngineState) -> bool {
+        self.get_for(engine_state, std::io::stdout().is_terminal())
+    }
+
+    /// As [`get`](Self::get), for output that does not go to stdout:
+    /// `is_terminal` says whether where it goes is a terminal, which decides
+    /// `Auto` in place of stdout.
+    pub fn get_for(self, engine_state: &EngineState, is_terminal: bool) -> bool {
         let is_terminal = match self {
-            Self::Auto => std::io::stdout().is_terminal(),
+            Self::Auto => is_terminal,
             Self::True => return true,
             Self::False => return false,
         };

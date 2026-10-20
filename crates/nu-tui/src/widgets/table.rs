@@ -5,6 +5,8 @@ use crate::widget::{Caps, Effect, ListState, TuiWidget, WidgetState};
 use nu_protocol::{Record, Span, Value};
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Rect};
+use ratatui::style::Style;
+use ratatui::text::Line;
 use ratatui::widgets::{Cell, Row, Table, TableState};
 use serde::{Deserialize, Serialize};
 
@@ -18,6 +20,13 @@ pub struct TableWidget {
     pub multi: bool,
     /// Return row indexes instead of rows.
     pub index: bool,
+    /// Put each path cell's file icon before it (`table --icons`).
+    #[serde(default)]
+    pub icons: bool,
+    /// A column to color (and icon) as paths, besides
+    /// those the data marks.
+    #[serde(default)]
+    pub color: Option<String>,
 }
 
 /// Chords `--capture-keys` leaves alone: list navigation, and the global
@@ -188,6 +197,10 @@ impl TuiWidget for TableWidget {
         rec.insert("capture_keys", Value::bool(self.capture_keys, span));
         rec.insert("multi", Value::bool(self.multi, span));
         rec.insert("index", Value::bool(self.index, span));
+        rec.insert("icons", Value::bool(self.icons, span));
+        if let Some(color) = &self.color {
+            rec.insert("color", Value::string(color, span));
+        }
     }
 
     fn handle_key(
@@ -257,61 +270,94 @@ impl TuiWidget for TableWidget {
         let computer = session.style_computer();
         let rows_data = session.rows(id);
         let count = rows_data.len();
-        // Only the rows on screen are built and styled; a list of a hundred
-        // thousand rows must not cost a hundred thousand cells a frame.
-        let height = area.height.saturating_sub(3).max(1) as usize;
-        let selected = list.selected.min(count.saturating_sub(1));
-        let scroll = list.scroll_for(height);
-        let mut header_cells: Vec<Cell> = Vec::new();
-        let mut widths: Vec<Constraint> = Vec::new();
-        if self.multi {
-            header_cells.push(Cell::from(" ").style(theme.header()));
-            widths.push(Constraint::Length(3));
-        }
-        let n = columns.len().max(1);
-        for c in &columns {
-            header_cells.push(Cell::from(c.as_str()).style(theme.header()));
-            widths.push(Constraint::Percentage((100 / n) as u16));
-        }
-        let rows: Vec<Row> = rows_data
-            .iter()
-            .enumerate()
-            .skip(scroll)
-            .take(height)
-            .map(|(i, row)| {
-                let mut cells: Vec<Cell> = Vec::new();
-                if self.multi {
-                    let mark = if list.checked.contains(&i) {
-                        "[x]"
-                    } else {
-                        "[ ]"
-                    };
-                    cells.push(Cell::from(mark).style(theme.highlight()));
-                }
-                for col in &columns {
-                    let (text, style) = session.styled_cell(row, col, computer.as_ref());
-                    cells.push(Cell::from(text).style(style));
-                }
-                Row::new(cells).height(1)
-            })
-            .collect();
         let name = super::custom_title(session, id, "table");
         let title = if self.multi && !list.checked.is_empty() {
             format!("{name} ({count}, {} checked)", list.checked.len())
         } else {
             format!("{name} ({count})")
         };
+        let block = super::framed(&title, focused, session, id);
+        let inner = super::capped(block.inner(area), theme);
+        frame.render_widget(block, area);
+        // Only the rows on screen are built and styled; a list of a hundred
+        // thousand rows must not cost a hundred thousand cells a frame.
+        let height = inner.height.saturating_sub(1).max(1) as usize;
+        let selected = list.selected.min(count.saturating_sub(1));
+        let scroll = list.scroll_for(height);
+        let mut header_cells: Vec<Cell> = Vec::new();
+        let mut widths: Vec<Constraint> = Vec::new();
+        let check = &theme.glyphs.check;
+        if self.multi {
+            header_cells.push(Cell::from(" ").style(theme.header()));
+            widths.push(Constraint::Length(check.width() as u16));
+        }
+        let n = columns.len().max(1);
+        for c in &columns {
+            header_cells.push(Cell::from(c.as_str()).style(theme.header()));
+            widths.push(Constraint::Percentage((100 / n) as u16));
+        }
+        // The style the highlighted row shows: its path cell's, else plain.
+        let path_column = self.color.as_deref();
+        let base_style = |row: &Value| {
+            columns
+                .iter()
+                .find(|c| session.is_path_column(c, row, path_column))
+                .map_or(theme.text(), |col| {
+                    session
+                        .styled_cell(row, col, computer.as_ref(), path_column)
+                        .1
+                })
+        };
+        let rows: Vec<Row> = rows_data
+            .iter()
+            .enumerate()
+            .skip(scroll)
+            .take(height)
+            .map(|(i, row)| {
+                // The highlighted row is one color, as yazi draws its hovered
+                // line: every cell, the icon included, takes the path cell's
+                // style, and `selected` (reversed by default) goes over it all.
+                let row_style = (i == selected).then(|| base_style(row));
+                let mut cells: Vec<Cell> = Vec::new();
+                if self.multi {
+                    let mark = check.get(list.checked.contains(&i)).to_string();
+                    cells.push(Cell::from(mark).style(row_style.unwrap_or(theme.highlight())));
+                }
+                for col in &columns {
+                    let (text, style) =
+                        session.styled_cell(row, col, computer.as_ref(), path_column);
+                    let mut line = Line::default();
+                    if self.icons
+                        && let Some(icon) = session.path_icon(row, col, path_column)
+                    {
+                        line.push_span(match row_style {
+                            Some(_) => icon.style(Style::default()),
+                            None => icon,
+                        });
+                    }
+                    line.push_span(text);
+                    cells.push(Cell::from(line).style(row_style.unwrap_or(style)));
+                }
+                // The row's style also fills the gaps between the columns.
+                Row::new(cells)
+                    .height(1)
+                    .style(row_style.unwrap_or_default())
+            })
+            .collect();
         let table = Table::new(rows, widths)
             .header(Row::new(header_cells).height(1))
             .style(theme.text())
-            .block(super::framed(&title, focused, session, id))
-            .row_highlight_style(theme.selected())
-            .highlight_symbol("▶ ");
+            .row_highlight_style(theme.selected());
         let mut table_state = TableState::default();
         if count > 0 {
             table_state.select(Some(selected - scroll));
         }
-        frame.render_stateful_widget(table, area, &mut table_state);
+        frame.render_stateful_widget(table, inner, &mut table_state);
+        if let Some(row) = rows_data.get(selected) {
+            // Below the header row.
+            let y = inner.top() + 1 + (selected - scroll) as u16;
+            super::draw_selected_caps(frame, inner, y, base_style(row), theme);
+        }
     }
 
     fn value(&self, id: &str, state: &WidgetState, session: &Session) -> Value {

@@ -30,16 +30,20 @@ nu-system.workspace = true
 nu-ansi-term.workspace = true
 
 ansi-str = { workspace = true }
+base64 = { workspace = true }
 crossterm = { workspace = true }
-lscolors = { workspace = true, default-features = false, features = [
-    "nu-ansi-term",
-] }
+devicons = { workspace = true }
+image = { workspace = true }
 mime_guess = { workspace = true }
 nucleo-matcher = { workspace = true }
 ratatui = { workspace = true }
+ratatui-image = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 typetag = { workspace = true }
 unicode-width = { workspace = true }
+
+[target.'cfg(target_family = "unix")'.dependencies]
+nix = { workspace = true, default-features = false, features = ["mman"] }
 
 [dev-dependencies]
 nu-cmd-lang = { workspace = true, features = ["os"] }

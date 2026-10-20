@@ -324,6 +324,7 @@ pub fn default_tui() -> HashMap<String, Value> {
         ("border", rec(record! { "fg" => str("dark_gray") })),
         ("border_focused", rec(record! { "fg" => str("cyan") })),
         ("border_type", str("single")),
+        ("image_protocol", str("auto")),
         ("selected", rec(record! { "attr" => str("r") })),
         (
             "header",
@@ -346,6 +347,32 @@ pub fn default_tui() -> HashMap<String, Value> {
         ),
         ("surface", rec(record! { "bg" => str("default") })),
         ("backdrop", rec(record! { "bg" => str("default") })),
+        // Path cells by kind of file, as yazi's default `[filetype]` rules.
+        ("file_dir", rec(record! { "fg" => str("blue") })),
+        ("file_orphan", rec(record! { "bg" => str("red") })),
+        ("file_exec", rec(record! { "fg" => str("green") })),
+        ("file_image", rec(record! { "fg" => str("yellow") })),
+        ("file_media", rec(record! { "fg" => str("magenta") })),
+        ("file_archive", rec(record! { "fg" => str("red") })),
+        ("file_document", rec(record! { "fg" => str("cyan") })),
+        // Glyphs: caps round the bars and tabs (`title_caps`, `status_caps`,
+        // `selected_caps` are unset: the bars fill their line), marks,
+        // tree arrows, and the gauge fill.
+        (
+            "tab_caps",
+            rec(record! { "open" => str(""), "close" => str("") }),
+        ),
+        (
+            "check",
+            rec(record! { "on" => str("[x]"), "off" => str("[ ]") }),
+        ),
+        (
+            "radio",
+            rec(record! { "on" => str("(•)"), "off" => str("( )") }),
+        ),
+        ("tree_open", str("▾")),
+        ("tree_closed", str("▸")),
+        ("progress_fill", str("█")),
     ]
     .into_iter()
     .map(|(k, v)| (k.to_string(), v))

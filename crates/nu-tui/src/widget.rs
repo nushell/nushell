@@ -86,9 +86,17 @@ impl Widget {
 
     /// Whether this widget shows something derived from another widget's
     /// highlighted row: it has `--from` or a source closure, or it is a
-    /// preview (which always follows the nearest row source).
+    /// preview (which always follows the nearest row source). A `tui image`
+    /// shows a fixed source and follows nothing.
     pub fn follows_source(&self) -> bool {
-        self.source.is_some() || matches!(self.kind, WidgetKind::Preview(_))
+        self.source.is_some() || matches!(&self.kind, WidgetKind::Preview(p) if p.fixed.is_none())
+    }
+
+    /// Whether this widget is recomputed from its own source rather than a
+    /// followed row: a `tui image`, which still re-encodes when its pane
+    /// changes size.
+    pub fn is_fixed_image(&self) -> bool {
+        matches!(&self.kind, WidgetKind::Preview(p) if p.fixed.is_some())
     }
 
     /// Visit this widget and its descendants, preorder.
@@ -471,8 +479,20 @@ pub struct MenuState {
 pub struct PreviewState {
     /// The previewed file's name, or empty when nothing is previewed.
     pub title: String,
+    /// The pane text, or a one-line summary while an image is shown.
     pub text: String,
     pub scroll: usize,
+    /// The image on show, or the job still decoding and encoding it.
+    pub image: Option<crate::widgets::preview::ImageState>,
+    /// The Kitty id this widget transmits its images under: `--image-id`,
+    /// or one allocated when images were enabled for the run.
+    pub kitty_id: Option<u32>,
+    /// Zoom and pan applied to the image on show; reset when the previewed
+    /// file changes.
+    pub view: crate::image::View,
+    /// The row on show, set before `--on-change` runs so the hook finds it
+    /// in `values.<id>.row`.
+    pub row: Option<Value>,
 }
 
 #[derive(Debug, Clone)]
@@ -562,6 +582,11 @@ pub trait TuiWidget {
 
     /// Builder flags, for `tui debug` and `to_base_value`.
     fn describe(&self, _rec: &mut Record, _span: Span) {}
+
+    /// Key hints for the status bar while this widget is focused.
+    fn hint(&self, _id: &str, _state: &WidgetState, _session: &Session) -> Option<String> {
+        None
+    }
 
     /// `true` while the widget wants keys before the global bindings: while
     /// typing, or while a dropdown is open.

@@ -3,14 +3,13 @@
 //! Every color slot is a `color_config`-style value (a color name, `#RRGGBB`,
 //! or `{fg, bg, attr}`); see `default_tui` in nu-protocol for the defaults.
 //! `border_type` names the `table --theme` whose outline borders draw.
-//! Table cells follow `color_config` per value type and `LS_COLORS` for path
-//! columns, through the converters shared with `explore`.
+//! Table cells follow `color_config` per value type, through the converters
+//! shared with `explore`. Path cells follow the `file_*` slots: yazi's
+//! palette by kind of file (directory, executable, image, …), not
+//! `LS_COLORS`, whose default theme paints some names on a background.
 
-use lscolors::LsColors;
-use nu_color_config::{StyleComputer, get_color_map};
-use nu_explore::style::{
-    get_path_style, nu_ansi_color_to_tui_color, nu_style_to_tui, text_style_to_tui_style,
-};
+use nu_color_config::{StyleComputer, get_color_map, lookup_ansi_color_style};
+use nu_explore::style::{nu_ansi_color_to_tui_color, nu_style_to_tui, text_style_to_tui_style};
 use nu_protocol::{
     ShellError, TableMode, Value,
     engine::{EngineState, Stack},
@@ -18,11 +17,211 @@ use nu_protocol::{
 };
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::symbols::border;
-use std::path::Path;
+use std::collections::HashMap;
+use std::ops::RangeInclusive;
+use unicode_width::UnicodeWidthStr;
 
 /// The border of widgets without their own `--border` when
 /// `$env.config.tui.border_type` is unset: the plain ratatui lines.
 const DEFAULT_BORDER: TableMode = TableMode::Single;
+
+/// The color slots `$env.config.tui` and `tui theme` take, and the two
+/// fills.
+pub const COLOR_SLOTS: [&str; 21] = [
+    "title_bar",
+    "status_bar",
+    "border",
+    "border_focused",
+    "selected",
+    "header",
+    "muted",
+    "highlight",
+    "tab_active",
+    "tab_inactive",
+    "progress",
+    "button",
+    "surface",
+    "backdrop",
+    "file_dir",
+    "file_orphan",
+    "file_exec",
+    "file_image",
+    "file_media",
+    "file_archive",
+    "file_document",
+];
+
+/// The glyph slots: strings, or `{open, close}` and `{on, off}` records.
+/// See [`Glyphs`].
+pub const GLYPH_SLOTS: [&str; 9] = [
+    "title_caps",
+    "status_caps",
+    "tab_caps",
+    "selected_caps",
+    "check",
+    "radio",
+    "tree_open",
+    "tree_closed",
+    "progress_fill",
+];
+
+/// Every key `$env.config.tui` and `tui theme` take.
+pub fn is_slot(name: &str) -> bool {
+    name == "border_type" || COLOR_SLOTS.contains(&name) || GLYPH_SLOTS.contains(&name)
+}
+
+/// Two glyphs round a run of text, as `{open: "\u{e0b6}", close:
+/// "\u{e0b4}"}` (powerline's half circles): each is one cell, or empty
+/// for no cap on that side.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Caps {
+    pub open: String,
+    pub close: String,
+}
+
+/// The two faces of a mark, as `{on: "[x]", off: "[ ]"}`, of one width
+/// so rows line up.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Mark {
+    pub on: String,
+    pub off: String,
+}
+
+impl Mark {
+    pub fn get(&self, on: bool) -> &str {
+        if on { &self.on } else { &self.off }
+    }
+
+    /// Cells the mark takes.
+    pub fn width(&self) -> usize {
+        self.on.width()
+    }
+}
+
+/// The glyphs widgets draw, from the string slots of `$env.config.tui`.
+/// Plain by default; a theme can give the bars powerline caps, a tree
+/// chevrons, a gauge another fill.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Glyphs {
+    /// `title_caps`: round the title bar's text, which then no longer
+    /// fills the bar: a pill, as yazi's mode.
+    pub title_caps: Option<Caps>,
+    /// `status_caps`: round each segment of the status bar.
+    pub status_caps: Option<Caps>,
+    /// `tab_caps`: round each tab's title.
+    pub tab_caps: Caps,
+    /// `selected_caps`: in a cell kept free at each side of a table,
+    /// select, or tree, beside the highlighted row.
+    pub selected_caps: Option<Caps>,
+    /// `check`: a `--multi` row's mark.
+    pub check: Mark,
+    /// `radio`: a `tui select` row's mark.
+    pub radio: Mark,
+    /// `tree_open`, `tree_closed`: before a tree node with children.
+    pub tree_open: String,
+    pub tree_closed: String,
+    /// `progress_fill`: a gauge's bar, in the progress color as far as
+    /// the value reaches and muted beyond.
+    pub progress_fill: String,
+}
+
+impl Default for Glyphs {
+    fn default() -> Self {
+        Self {
+            title_caps: None,
+            status_caps: None,
+            tab_caps: Caps {
+                open: String::new(),
+                close: String::new(),
+            },
+            selected_caps: None,
+            check: Mark {
+                on: "[x]".into(),
+                off: "[ ]".into(),
+            },
+            radio: Mark {
+                on: "(•)".into(),
+                off: "( )".into(),
+            },
+            tree_open: "▾".into(),
+            tree_closed: "▸".into(),
+            progress_fill: "█".into(),
+        }
+    }
+}
+
+impl Glyphs {
+    /// Set the slot `name` from a config value. The error says what the
+    /// slot takes; a name that is not a glyph slot changes nothing.
+    pub fn apply(&mut self, name: &str, value: &Value) -> Result<(), ShellError> {
+        match name {
+            "title_caps" => self.title_caps = Some(caps(value)?),
+            "status_caps" => self.status_caps = Some(caps(value)?),
+            "tab_caps" => self.tab_caps = caps(value)?,
+            "selected_caps" => self.selected_caps = Some(caps(value)?),
+            "check" => self.check = mark(value)?,
+            "radio" => self.radio = mark(value)?,
+            "tree_open" => self.tree_open = glyph(value, 1..=2)?,
+            "tree_closed" => self.tree_closed = glyph(value, 1..=2)?,
+            "progress_fill" => self.progress_fill = glyph(value, 1..=1)?,
+            _ => {}
+        }
+        Ok(())
+    }
+}
+
+/// A string `width` cells wide.
+fn glyph(value: &Value, width: RangeInclusive<usize>) -> Result<String, ShellError> {
+    let text = value.as_str()?;
+    if !width.contains(&text.width()) {
+        return Err(ShellError::InvalidValue {
+            valid: match (width.start(), width.end()) {
+                (lo, hi) if lo == hi => format!("{lo} cell wide"),
+                (lo, hi) => format!("{lo} to {hi} cells wide"),
+            },
+            actual: text.to_string(),
+            span: value.span(),
+        });
+    }
+    Ok(text.to_string())
+}
+
+/// A record of two glyphs under `keys`.
+fn pair(
+    value: &Value,
+    keys: [&str; 2],
+    width: RangeInclusive<usize>,
+) -> Result<(String, String), ShellError> {
+    let rec = value.as_record()?;
+    let get = |key: &str| {
+        let Some(glyph_value) = rec.get(key) else {
+            return Err(ShellError::Generic(GenericError::new(
+                format!("`{key}` is missing"),
+                format!("a record of {{{}, {}}}", keys[0], keys[1]),
+                value.span(),
+            )));
+        };
+        glyph(glyph_value, width.clone())
+    };
+    Ok((get(keys[0])?, get(keys[1])?))
+}
+
+fn caps(value: &Value) -> Result<Caps, ShellError> {
+    let (open, close) = pair(value, ["open", "close"], 0..=1)?;
+    Ok(Caps { open, close })
+}
+
+fn mark(value: &Value) -> Result<Mark, ShellError> {
+    let (on, off) = pair(value, ["on", "off"], 1..=4)?;
+    if on.width() != off.width() {
+        return Err(ShellError::InvalidValue {
+            valid: "`on` and `off` of one width".into(),
+            actual: format!("{on:?} and {off:?}"),
+            span: value.span(),
+        });
+    }
+    Ok(Mark { on, off })
+}
 
 /// Read a `--border` flag: one of [`TableMode::tui_border_names`].
 /// `$env.config.tui.border_type` is checked the same way when it is set.
@@ -130,9 +329,13 @@ pub struct Theme {
     tab_inactive: Style,
     progress: Style,
     button: Style,
+    /// `file_<kind>`: what a path cell of each [`FileKind`] looks like.
+    files: [(FileKind, Style); 7],
     /// `$env.config.tui.border_type`: the border of widgets without their
     /// own `--border`.
     border_type: TableMode,
+    /// The glyph slots.
+    pub glyphs: Glyphs,
 }
 
 impl Default for Theme {
@@ -162,8 +365,77 @@ impl Default for Theme {
             tab_inactive: Style::default().fg(Color::DarkGray),
             progress: Style::default().fg(Color::Green),
             button: Style::default().fg(Color::White).bg(Color::Blue),
+            files: [
+                (FileKind::Dir, Style::default().fg(Color::Blue)),
+                (FileKind::Orphan, Style::default().bg(Color::Red)),
+                (FileKind::Exec, Style::default().fg(Color::Green)),
+                (FileKind::Image, Style::default().fg(Color::Yellow)),
+                (FileKind::Media, Style::default().fg(Color::Magenta)),
+                (FileKind::Archive, Style::default().fg(Color::Red)),
+                (FileKind::Document, Style::default().fg(Color::Cyan)),
+            ],
             border_type: DEFAULT_BORDER,
+            glyphs: Glyphs::default(),
         }
+    }
+}
+
+/// What a path cell is, for its color: the kinds yazi's default
+/// `[filetype]` rules tell apart. `Other` is every remaining file and
+/// draws as plain text.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FileKind {
+    Dir,
+    /// A symlink whose target is gone.
+    Orphan,
+    Exec,
+    Image,
+    /// Audio or video.
+    Media,
+    Archive,
+    /// PDF, Word, RTF.
+    Document,
+    Other,
+}
+
+impl FileKind {
+    /// The kind a mime type names, for a file that is not a directory,
+    /// an orphan, or executable: yazi's rules on the type and subtype.
+    pub fn from_mime(mime: &str) -> Self {
+        let Some((kind, subtype)) = mime.split_once('/') else {
+            return Self::Other;
+        };
+        // `x-` and `vnd.` prefixes say nothing about the kind.
+        let subtype = subtype.trim_start_matches("x-").trim_start_matches("vnd.");
+        let is = |names: &[&str]| names.iter().any(|name| subtype.starts_with(name));
+        match kind {
+            "image" => Self::Image,
+            "audio" | "video" => Self::Media,
+            "application"
+                if is(&[
+                    "zip", "rar", "7z", "tar", "gzip", "xz", "zstd", "bzip", "lzma", "compress",
+                    "archive", "cpio", "arj", "xar", "ms-cab",
+                ]) =>
+            {
+                Self::Archive
+            }
+            "application" if is(&["pdf", "doc", "msword", "rtf"]) => Self::Document,
+            _ => Self::Other,
+        }
+    }
+
+    /// The `$env.config.tui` slot for this kind, if it has one.
+    fn slot(self) -> Option<&'static str> {
+        Some(match self {
+            Self::Dir => "file_dir",
+            Self::Orphan => "file_orphan",
+            Self::Exec => "file_exec",
+            Self::Image => "file_image",
+            Self::Media => "file_media",
+            Self::Archive => "file_archive",
+            Self::Document => "file_document",
+            Self::Other => return None,
+        })
     }
 }
 
@@ -186,29 +458,51 @@ impl Theme {
             tab_inactive: Style::default(),
             progress: Style::default(),
             button: Style::default().add_modifier(Modifier::REVERSED),
+            files: Self::default()
+                .files
+                .map(|(kind, _)| (kind, Style::default())),
             border_type: DEFAULT_BORDER,
+            glyphs: Glyphs::default(),
         }
     }
 
-    /// Read `$env.config.tui`. Slots missing from the config, or holding a
-    /// value that is not a color or border, keep the built-in default.
-    pub fn from_config(engine_state: &EngineState, stack: &Stack) -> Self {
+    /// Read `$env.config.tui`, with `overrides` (from `tui theme`) on top.
+    /// Slots missing from both, or holding a value that is not a color or
+    /// border, keep the built-in default.
+    pub fn from_config(
+        engine_state: &EngineState,
+        stack: &Stack,
+        overrides: &HashMap<String, Value>,
+    ) -> Self {
         let config = stack.get_config(engine_state);
-        let border_type = config
-            .tui
+        let mut tui = config.tui.clone();
+        tui.extend(overrides.iter().map(|(k, v)| (k.clone(), v.clone())));
+        let border_type = tui
             .get("border_type")
             .and_then(|value| value.as_str().ok())
             .and_then(TableMode::from_tui_border)
             .unwrap_or(DEFAULT_BORDER);
-        if !config.use_ansi_coloring.get(engine_state) {
+        let mut glyphs = Glyphs::default();
+        for name in GLYPH_SLOTS {
+            if let Some(value) = tui.get(name) {
+                // A bad glyph keeps the default, as a bad color does.
+                let _ = glyphs.apply(name, value);
+            }
+        }
+        // Colors follow the terminal the TUI draws on, which is not stdout
+        // when that is a pipe (`nu browse.nu | get name`).
+        let is_terminal = crate::runtime::Tty::open().is_terminal();
+        if !config.use_ansi_coloring.get_for(engine_state, is_terminal) {
             return Self {
                 border_type,
+                glyphs,
                 ..Self::plain()
             };
         }
-        let colors = get_color_map(&config.tui);
+        let colors = get_color_map(&tui);
         let mut theme = Self {
             border_type,
+            glyphs,
             ..Self::default()
         };
         let slot = |name: &str, target: &mut Style| {
@@ -228,11 +522,16 @@ impl Theme {
         slot("tab_inactive", &mut theme.tab_inactive);
         slot("progress", &mut theme.progress);
         slot("button", &mut theme.button);
+        for (kind, style) in &mut theme.files {
+            if let Some(name) = kind.slot() {
+                slot(name, style);
+            }
+        }
         // A fill is one color: a record's `bg`, or a bare color
         // (`surface: default`), which parses as a foreground.
         let fill = |name: &str, target: &mut Color| {
             let style = colors.get(name);
-            let color = match config.tui.get(name) {
+            let color = match tui.get(name) {
                 Some(Value::String { .. }) => style.and_then(|s| s.foreground),
                 _ => style.and_then(|s| s.background),
             };
@@ -293,6 +592,18 @@ impl Theme {
         self.selected
     }
 
+    /// The style of a cap glyph beside text drawn in `inner`: the glyph
+    /// takes the text's fill color on the surface, so the run ends in the
+    /// glyph's shape. Reverse video fills with the foreground; text with
+    /// no background of its own (only the surface) gets caps in its
+    /// foreground, shapes beside it rather than round it.
+    pub fn cap_style(&self, inner: Style) -> Style {
+        let reversed = inner.add_modifier.contains(Modifier::REVERSED);
+        let bg = inner.bg.filter(|bg| *bg != self.surface);
+        let fill = if reversed { inner.fg } else { bg.or(inner.fg) };
+        self.on_surface(Style::default().fg(fill.unwrap_or(Color::Reset)))
+    }
+
     pub fn text(&self) -> Style {
         self.surface()
     }
@@ -339,16 +650,24 @@ impl Theme {
         self.on_surface(text_style_to_tui_style(computer.style_primitive(value)))
     }
 
-    /// Style a filesystem path with `LS_COLORS`. Regular files with `fi=0`
-    /// get no foreground, the same rule `table` and `explore` use.
-    pub fn path_cell(&self, path: &str, cwd: &Path, ls_colors: &LsColors) -> Style {
+    /// Style a path cell by what the file is. `Other` files are plain
+    /// text, as in yazi.
+    pub fn path_cell(&self, kind: FileKind) -> Style {
         if !self.colored {
             return self.text();
         }
-        match get_path_style(path, &cwd.to_string_lossy(), ls_colors) {
-            Some(style) => self.on_surface(nu_style_to_tui(style)),
-            None => self.text(),
+        self.files
+            .iter()
+            .find(|(k, _)| *k == kind)
+            .map_or_else(|| self.text(), |(_, style)| self.on_surface(*style))
+    }
+
+    /// Style for a file icon, from the `#rrggbb` devicons gives it.
+    pub fn icon(&self, color: &str) -> Style {
+        if !self.colored {
+            return self.text();
         }
+        self.on_surface(nu_style_to_tui(lookup_ansi_color_style(color)))
     }
 }
 
@@ -357,7 +676,6 @@ mod tests {
     use super::*;
     use nu_color_config::ComputableStyle;
     use nu_protocol::engine::{EngineState, Stack};
-    use nu_utils::get_ls_colors;
     use std::collections::HashMap;
 
     #[test]
@@ -383,11 +701,134 @@ mod tests {
     }
 
     #[test]
-    fn regular_file_with_fi_0_has_no_forced_foreground() {
-        let ls = get_ls_colors(Some("fi=0:di=0;38;5;81:ex=1;38;5;203".into()));
+    fn path_cells_follow_yazi_palette_and_plain_files_have_no_foreground() {
         let theme = Theme::default();
-        let style = theme.path_cell("no-such-file-for-style.txt", Path::new("/tmp"), &ls);
-        assert_eq!(style.fg, None);
+        assert_eq!(theme.path_cell(FileKind::Other).fg, None);
+        assert_eq!(theme.path_cell(FileKind::Dir).fg, Some(Color::Blue));
+        assert_eq!(theme.path_cell(FileKind::Orphan).bg, Some(Color::Red));
+        assert_eq!(theme.path_cell(FileKind::Exec).fg, Some(Color::Green));
+        // Every kind draws on the surface, as other cells do.
+        assert_eq!(theme.path_cell(FileKind::Dir).bg, Some(theme.surface));
+        assert_eq!(Theme::plain().path_cell(FileKind::Dir).fg, None);
+    }
+
+    #[test]
+    fn tui_theme_overrides_go_over_the_config_slots() {
+        use nu_protocol::{Config, UseAnsiColoring, record};
+        let mut engine_state = EngineState::new();
+        // No terminal here; the test is about the slots, not `auto`.
+        engine_state.set_config(Config {
+            use_ansi_coloring: UseAnsiColoring::True,
+            ..Config::default()
+        });
+        let stack = Stack::new();
+        let overrides = HashMap::from([
+            ("file_dir".to_string(), Value::test_string("red")),
+            (
+                "selected".to_string(),
+                Value::test_record(record! { "bg" => Value::test_string("white") }),
+            ),
+        ]);
+        let theme = Theme::from_config(&engine_state, &stack, &overrides);
+        assert_eq!(theme.path_cell(FileKind::Dir).fg, Some(Color::Red));
+        assert_eq!(theme.selected().bg, Some(Color::White));
+        // Untouched slots keep the config's value.
+        assert_eq!(theme.path_cell(FileKind::Exec).fg, Some(Color::Green));
+        assert_eq!(
+            Theme::from_config(&engine_state, &stack, &HashMap::new())
+                .path_cell(FileKind::Dir)
+                .fg,
+            Some(Color::Blue)
+        );
+    }
+
+    #[test]
+    fn glyph_slots_take_shaped_values_and_refuse_odd_widths() {
+        use nu_protocol::record;
+        let pair = |a: &str, b: &str, x: &str, y: &str| {
+            Value::test_record(record! { a => Value::test_string(x), b => Value::test_string(y) })
+        };
+        let mut glyphs = Glyphs::default();
+        glyphs
+            .apply("tab_caps", &pair("open", "close", "\u{e0b6}", "\u{e0b4}"))
+            .expect("one-cell powerline caps");
+        assert_eq!(glyphs.tab_caps.open, "\u{e0b6}");
+        assert_eq!(glyphs.tab_caps.close, "\u{e0b4}");
+        glyphs
+            .apply("check", &pair("on", "off", "▍", " "))
+            .expect("marks of one width");
+        assert_eq!(glyphs.check.get(false), " ");
+        assert_eq!(glyphs.check.width(), 1);
+        glyphs
+            .apply("progress_fill", &Value::test_string("━"))
+            .expect("a one-cell fill");
+        assert!(
+            glyphs
+                .apply("check", &pair("on", "off", "x", "oo"))
+                .is_err()
+        );
+        assert!(
+            glyphs
+                .apply("progress_fill", &Value::test_string("ab"))
+                .is_err()
+        );
+        assert!(
+            glyphs
+                .apply("selected_caps", &pair("open", "close", "<<", ">"))
+                .is_err()
+        );
+        assert!(glyphs.apply("radio", &Value::test_string("x")).is_err());
+        assert!(
+            glyphs
+                .apply("radio", &pair("on", "close", "x", "y"))
+                .is_err()
+        );
+        // Nothing above changed what it refused.
+        assert_eq!(glyphs.check.on, "▍");
+        assert_eq!(glyphs.radio, Glyphs::default().radio);
+    }
+
+    #[test]
+    fn cap_style_takes_the_fill_of_the_text() {
+        let theme = Theme::default();
+        let solid = Style::default().fg(Color::Black).bg(Color::Blue);
+        assert_eq!(theme.cap_style(solid).fg, Some(Color::Blue));
+        assert_eq!(theme.cap_style(solid).bg, Some(theme.surface));
+        let reversed = Style::default()
+            .fg(Color::Red)
+            .add_modifier(Modifier::REVERSED);
+        assert_eq!(theme.cap_style(reversed).fg, Some(Color::Red));
+        assert!(
+            !theme
+                .cap_style(reversed)
+                .add_modifier
+                .contains(Modifier::REVERSED)
+        );
+        // On the surface alone, the foreground is all there is to match.
+        let on_surface = theme.on_surface(Style::default().fg(Color::Green));
+        assert_eq!(theme.cap_style(on_surface).fg, Some(Color::Green));
+    }
+
+    #[test]
+    fn mime_types_map_to_yazi_kinds() {
+        use FileKind::*;
+        for (mime, kind) in [
+            ("image/png", Image),
+            ("audio/mpeg", Media),
+            ("video/mp4", Media),
+            ("application/zip", Archive),
+            ("application/x-tar", Archive),
+            ("application/x-7z-compressed", Archive),
+            ("application/vnd.rar", Archive),
+            ("application/gzip", Archive),
+            ("application/pdf", Document),
+            ("application/msword", Document),
+            ("application/json", Other),
+            ("text/plain", Other),
+            ("dir", Other),
+        ] {
+            assert_eq!(FileKind::from_mime(mime), kind, "{mime}");
+        }
     }
 
     #[test]
@@ -472,7 +913,7 @@ mod tests {
         );
         let mut engine_state = EngineState::new();
         engine_state.set_config(config);
-        let theme = Theme::from_config(&engine_state, &Stack::new());
+        let theme = Theme::from_config(&engine_state, &Stack::new(), &HashMap::new());
         assert!(theme.colored);
         assert_eq!(theme.surface, Color::Rgb(0x11, 0x22, 0x33));
         assert_eq!(theme.backdrop, Color::Rgb(0x44, 0x55, 0x66));
