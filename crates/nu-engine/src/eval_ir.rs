@@ -1918,8 +1918,16 @@ fn check_input_types(
     match input {
         // early return error directly if detected
         PipelineData::Value(Value::Error { error, .. }, ..) => return Err(*error.clone()),
-        // bypass run-time typechecking for custom types
-        PipelineData::Value(Value::Custom { .. }, ..) => return Ok(()),
+        // Custom values are left to the command at runtime, since many commands accept them as
+        // lists, tables or records. A command that only takes plugin custom types does get
+        // checked, so a `polars_dataframe` command rejects some other plugin's custom value.
+        PipelineData::Value(Value::Custom { .. }, ..)
+            if !io_types
+                .iter()
+                .all(|(input_type, _)| matches!(input_type, Type::Custom(_))) =>
+        {
+            return Ok(());
+        }
         _ => (),
     }
 

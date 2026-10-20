@@ -13,7 +13,6 @@ use std::sync::Arc;
 
 fn type_short_name(t: &Type) -> String {
     match t {
-        Type::Custom(_) => String::from("custom"),
         Type::Record(_) => String::from("record"),
         Type::Table(_) => String::from("table"),
         Type::List(_) => String::from("list"),

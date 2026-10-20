@@ -244,3 +244,13 @@ fn unknown_custom_type_still_errors() -> Result {
     assert_matches!(err, ParseError::UnknownType(_));
     Ok(())
 }
+
+#[test]
+#[deps(NU_PLUGIN_CUSTOM_VALUES)]
+fn plugin_custom_type_input_rejects_other_custom_values() -> Result {
+    let err = test()
+        .run("def f []: HandleCustomValue -> any { }; custom-value generate | f")
+        .expect_shell_error()?;
+    assert_matches!(err, ShellError::OnlySupportsThisInputType { .. });
+    Ok(())
+}
