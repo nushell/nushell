@@ -288,6 +288,54 @@ mod tests {
     }
 
     #[test]
+    fn negated_character_classes_exclude_members() {
+        for (pattern, path, expected) in [
+            ("[!f]*", "foo", false),
+            ("[!f]*", "bar", true),
+            ("[!a-c]", "a", false),
+            ("[!a-c]", "b", false),
+            ("[!a-c]", "c", false),
+            ("[!a-c]", "d", true),
+            ("[!é]", "é", false),
+            ("[!é]", "日", true),
+            ("[!α-γ]", "β", false),
+            ("[!α-γ]", "δ", true),
+            ("[!!]", "!", false),
+            ("[!!]", "f", true),
+            ("[!f]", "/", false),
+            ("[!f]*", "dir/file", false),
+            ("[^f]", "^", true),
+            ("[^f]", "f", true),
+            ("[!f]", "", false),
+            ("[!f]", "ab", false),
+            ("[f!]", "!", true),
+            ("[f!]", "f", true),
+            ("[f!]", "b", false),
+        ] {
+            assert_eq!(
+                debug_matches(pattern, path).unwrap(),
+                expected,
+                "{pattern}: {path}"
+            );
+        }
+        let pattern = DcPattern::with_ignore_case("[!a-c]").unwrap();
+        assert!(!pattern.matches_path(Path::new("B")));
+        assert!(pattern.matches_path(Path::new("D")));
+    }
+
+    #[test]
+    fn glob_with_negated_character_class_excludes_files() {
+        let root = unique_test_dir("negated_class");
+        fs::create_dir_all(&root).unwrap();
+        write_file(&root.join("foo"));
+        write_file(&root.join("bar"));
+        let result = glob_with(&root, "[!f]*", &GlobWalkOptions::default()).unwrap();
+        let paths = collect_ok_paths(result).unwrap();
+        let _ = fs::remove_dir_all(&root);
+        assert_eq!(paths, vec!["bar"]);
+    }
+
+    #[test]
     fn glob_with_streams_and_matches_simple_pattern() {
         let root = unique_test_dir("basic");
         fs::create_dir_all(&root).expect("failed to create root test directory");
