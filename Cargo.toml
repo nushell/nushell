@@ -400,7 +400,7 @@ fancy-regex = { workspace = true }
 itertools = { workspace = true }
 pretty_assertions = { workspace = true }
 rstest = { workspace = true, default-features = false }
-tango-bench = "0.8.0"
+tango-bench = "0.9.0"
 tempfile = { workspace = true }
 
 [features]
