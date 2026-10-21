@@ -9168,9 +9168,9 @@ dependencies = [
 
 [[package]]
 name = "tango-bench"
-version = "0.8.0"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "046b4d8c503bdcd19f78c1ac59d6d504e8675fdd95fadba71f47c86eb3688f93"
+checksum = "9b0ba05a1f5afd669746c89634423b3423020050b81405bb3e9a4364f56f64d9"
 dependencies = [
  "anyhow",
  "clap",
