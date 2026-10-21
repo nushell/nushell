@@ -782,10 +782,23 @@ fn pipefail_feature(#[case] inp: &str, #[case] expect_code: i64) -> Result {
 fn pipefail_print_keeps_output_before_failure() -> Result {
     let result: CompleteResult = test().run_with_data(
         "let code = $in; nu --no-config-file --no-std-lib --experimental-options=pipefail=true --commands $code | complete",
-        "nu -c 'print hi; exit 3' | print",
+        "nu --no-config-file --no-std-lib -c 'print hi; exit 3' | print",
     )?;
 
     assert_contains("hi", result.stdout);
+    assert_eq!(result.exit_code, 3);
+    Ok(())
+}
+
+#[test]
+#[deps(NU)]
+fn pipefail_print_stderr_keeps_output_before_failure() -> Result {
+    let result: CompleteResult = test().run_with_data(
+        "let code = $in; nu --no-config-file --no-std-lib --experimental-options=pipefail=true --commands $code | complete",
+        "nu --no-config-file --no-std-lib -c 'print hi; exit 3' | print -e",
+    )?;
+
+    assert_contains("hi", result.stderr);
     assert_eq!(result.exit_code, 3);
     Ok(())
 }
