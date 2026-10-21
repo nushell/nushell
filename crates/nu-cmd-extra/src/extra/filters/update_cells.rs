@@ -24,9 +24,9 @@ impl Command for UpdateCells {
                 "The closure to run an update for each cell.",
             )
             .rest(
-                "columns",
-                SyntaxShape::String,
-                "The columns to update. If none are given, every column is updated.",
+                "rest",
+                SyntaxShape::Any,
+                "The columns to update. If no columns are given and `--columns` isn't used, every column is updated.",
             )
             .named(
                 "columns",
@@ -55,7 +55,7 @@ With `--recursive`, nested records and lists are descended into instead and the 
         vec![DeprecationEntry {
             ty: DeprecationType::Flag("columns".into()),
             report_mode: ReportMode::FirstUse,
-            since: Some("0.116.0".into()),
+            since: Some("0.117.0".into()),
             expected_removal: None,
             help: Some(
                 "Pass the columns as rest arguments instead: `update cells { ... } col1 col2`."
@@ -143,22 +143,25 @@ With `--recursive`, nested records and lists are descended into instead and the 
         let head = call.head;
         let closure: Closure = call.req(engine_state, stack, 0)?;
         let recursive = call.has_flag(engine_state, stack, "recursive")?;
-        let rest: Vec<String> = call.rest(engine_state, stack, 1)?;
-        // `-c []` has always meant "update no columns", so only an absent flag
-        // with no rest arguments falls back to updating every column.
+        let flag_columns: Option<Value> = call.get_flag(engine_state, stack, "columns")?;
+        // `-c []` has always meant "update no columns", and an empty spread like
+        // `...[]` means the same, so only passing no columns at all updates every column.
         let columns: Option<HashSet<String>> =
-            match call.get_flag::<Value>(engine_state, stack, "columns")? {
-                Some(val) => {
-                    let mut columns = val
-                        .into_list()?
+            if flag_columns.is_none() && !call.has_positional_args(stack, 1) {
+                None
+            } else {
+                let flag_columns = match flag_columns {
+                    Some(val) => val.into_list()?,
+                    None => vec![],
+                };
+                let rest_columns: Vec<Value> = call.rest(engine_state, stack, 1)?;
+                Some(
+                    flag_columns
                         .into_iter()
+                        .chain(rest_columns)
                         .map(Value::coerce_into_string)
-                        .collect::<Result<HashSet<String>, ShellError>>()?;
-                    columns.extend(rest);
-                    Some(columns)
-                }
-                None if rest.is_empty() => None,
-                None => Some(rest.into_iter().collect()),
+                        .collect::<Result<HashSet<String>, ShellError>>()?,
+                )
             };
 
         let span = input.span();
