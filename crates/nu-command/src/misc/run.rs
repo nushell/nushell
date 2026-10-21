@@ -168,7 +168,13 @@ impl Command for Run {
                 );
 
                 // Forward the arguments after the script path (`run file.nu ...args`) to `main`.
-                if bind_main_arguments(engine_state, signature, args.main, &mut call_eval)? {
+                // A forwarded `--help`/`-h` (including one hidden behind a `--` separator, which
+                // arrives here as a positional `"--help"` token) shows `main`'s help without
+                // evaluating or binding the remaining arguments.
+                let forwarded_help = runtime_forwarded_help_requested(engine_state, signature, &args.main);
+                if forwarded_help
+                    || bind_main_arguments(engine_state, signature, args.main, &mut call_eval)?
+                {
                     // The help shows `main`'s examples, which are on its declaration.
                     let main_decl = (0..eval_engine_state.num_decls())
                         .rev()
@@ -826,4 +832,44 @@ fn bind_main_arguments(
     }
 
     Ok(help)
+}
+
+/// Runtime check for a forwarded help request that `bind_main_arguments` would not detect on its
+/// own — in particular a `--help`/`-h` that arrives as a positional token after a `--`
+/// separator (which `bind` sees as an ordinary positional and rejects as extra).
+fn runtime_forwarded_help_requested(
+    engine_state: &EngineState,
+    signature: &Signature,
+    args: &[MainArgument],
+) -> bool {
+    if find_signature_flag(signature, b"help", b"").is_none() {
+        return false;
+    }
+    // Mirror `bind_main_arguments`'s end-of-options tracking: only a `--help`/`-h` that
+    // arrives *after* a `--` separator is invisible to `bind`, so only that case needs
+    // pre-detection here. Other help requests are handled by `bind` itself, which
+    // validates the remaining arguments first.
+    let mut end_of_options = false;
+    args.iter().any(|arg| match arg {
+        MainArgument::Positional(val, span) => {
+            let token = std::str::from_utf8(engine_state.get_span_contents(*span)).unwrap_or("");
+            if token == "--" {
+                end_of_options = true;
+                return false;
+            }
+            if end_of_options {
+                let quoted = token.starts_with('"') || token.starts_with('\'');
+                if quoted {
+                    return false;
+                }
+                match val {
+                    Value::String { val: s, .. } => s == "--help" || s == "-h",
+                    _ => false,
+                }
+            } else {
+                false
+            }
+        }
+        _ => false,
+    })
 }
