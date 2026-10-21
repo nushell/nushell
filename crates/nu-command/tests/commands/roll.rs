@@ -106,15 +106,15 @@ mod columns {
     #[test]
     fn roll_left_empty_record_in_a_list_is_unchanged() -> Result {
         test()
-            .run("([{} {}] | roll left --by 2) == [{} {}]")
-            .expect_value_eq(true)
+            .run("[{} {}] | roll left --by 2 | to nuon")
+            .expect_value_eq("[{}, {}]")
     }
 
     #[test]
     fn roll_left_skips_empty_row_in_a_table() -> Result {
         test()
-            .run("([{a: 1, b: 2} {}] | roll left) == [{b: 2, a: 1} {}]")
-            .expect_value_eq(true)
+            .run("[{a: 1, b: 2} {}] | roll left | to nuon")
+            .expect_value_eq("[{b: 2, a: 1}, {}]")
     }
 
     #[test]
