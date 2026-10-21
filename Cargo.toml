@@ -255,7 +255,7 @@ rustc-hash = "2.1.2"
 # Patch updates are allowed though.
 rustls = { version = "~0.23.46", default-features = false, features = ["std", "tls12"] }
 rustls-native-certs = "0.8.4"
-serde-saphyr = "1.2.0"
+serde-saphyr = "2.0.0"
 scopeguard = { version = "1.2.0" }
 ndarray = { version = "0.17", features = ["serde", "approx", "rayon", "matrixmultiply-threading"] }
 semver = "1.0.28"
