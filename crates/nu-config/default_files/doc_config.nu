@@ -534,12 +534,12 @@ $env.config.table.padding.left = 1
 # Default: 1
 $env.config.table.padding.right = 1
 
-# table.trim (record): How overflow cells are fitted after extra columns are dropped
-# (dropped columns become a trailing `...`, which is not truncating_suffix).
-# wrapping: show as many columns as will fit (wide terminals, or header_on_separator)
-#   and wrap undersized cells onto extra lines.
-# truncating: keep one line per row; squeeze leftover into the last visible column
-#   and cut it with truncating_suffix.
+# table.trim (record): How cells narrower than their text are fitted. A table that
+# does not fit shows as many columns as fit with each at least 10 characters wide (or
+# its natural width when less), shrinks the widest first, and drops the rest behind a
+# trailing `...` column (which is not truncating_suffix).
+# wrapping: wrap cells that do not fit onto extra lines.
+# truncating: keep one line per row and cut cells that do not fit with truncating_suffix.
 # wrapping_try_keep_words (bool): Prefer wrapping on word boundaries.
 # truncating_suffix (string): Marker appended to a cut cell (truncating only).
 # Default: { methodology: "wrapping", wrapping_try_keep_words: true }
@@ -548,7 +548,9 @@ $env.config.table.trim = {methodology: "wrapping", wrapping_try_keep_words: true
 # $env.config.table.trim = { methodology: "truncating", truncating_suffix: "..." }
 
 # table.header_on_separator (bool): Display column headers on table border.
-# true: Headers appear embedded in top/bottom border.
+# true: Headers appear embedded in top/bottom border, unless a visible header has
+#   characters wider or narrower than one column (CJK, emoji, a newline): then the
+#   headers keep their own row. Columns stay at least as wide as their header.
 # false: Headers in their own row with separator below.
 # Default: false
 $env.config.table.header_on_separator = false
