@@ -1966,7 +1966,7 @@ pub fn parse_builtin_commands(
     match name {
         // `parse_def` and `parse_extern` work both with and without attributes
         b"def" => parse_def(working_set, lite_command, None).0,
-        b"extern" => parse_extern(working_set, lite_command, None),
+        b"extern" => parse_extern(working_set, lite_command, None).0,
         // `parse_export_in_block` also handles attributes by itself
         b"export" => parse_export_in_block(working_set, lite_command),
         b"export-env" => parse_export_env(working_set, &lite_command.parts).0,
