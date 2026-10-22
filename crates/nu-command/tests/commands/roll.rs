@@ -26,6 +26,23 @@ mod rows {
 
         test().run_with_data(code, table()).expect_value_eq("HERE")
     }
+
+    #[test]
+    fn roll_down_empty_list_is_unchanged() -> Result {
+        test().run("[] | roll down").expect_value_eq(test_list![])
+    }
+
+    #[test]
+    fn roll_up_empty_list_is_unchanged() -> Result {
+        test().run("[] | roll up").expect_value_eq(test_list![])
+    }
+
+    #[test]
+    fn roll_up_empty_list_with_by_is_unchanged() -> Result {
+        test()
+            .run("[] | roll up --by 3")
+            .expect_value_eq(test_list![])
+    }
 }
 
 mod columns {
@@ -70,6 +87,34 @@ mod columns {
         test()
             .run_with_data(code, bitstring_to_nu_table("00000100"))
             .expect_value_eq(expected_value.1)
+    }
+
+    #[test]
+    fn roll_left_empty_record_is_unchanged() -> Result {
+        test()
+            .run("{} | roll left")
+            .expect_value_eq(test_record! {})
+    }
+
+    #[test]
+    fn roll_right_empty_record_is_unchanged() -> Result {
+        test()
+            .run("{} | roll right")
+            .expect_value_eq(test_record! {})
+    }
+
+    #[test]
+    fn roll_left_empty_record_in_a_list_is_unchanged() -> Result {
+        test()
+            .run("[{} {}] | roll left --by 2 | to nuon")
+            .expect_value_eq("[{}, {}]")
+    }
+
+    #[test]
+    fn roll_left_skips_empty_row_in_a_table() -> Result {
+        test()
+            .run("[{a: 1, b: 2} {}] | roll left | to nuon")
+            .expect_value_eq("[{b: 2, a: 1}, {}]")
     }
 
     #[test]

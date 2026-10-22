@@ -1,6 +1,6 @@
 use nu_color_config::TextStyle;
 use nu_engine::column::get_columns;
-use nu_protocol::{Config, Record, ShellError, Value};
+use nu_protocol::{Record, ShellError, Value};
 
 use crate::{
     NuRecordsValue, NuTable, StringResult, TableOpts, TableOutput, TableResult, clean_charset,
@@ -9,7 +9,7 @@ use crate::{
         INDEX_COLUMN_NAME, NuText, check_value, configure_table, error_sign, get_header_style,
         get_index_style, get_value_style, nu_value_to_string_colored,
     },
-    types::has_index,
+    types::{get_table_row_index, has_index, resolve_priority_columns},
 };
 
 pub struct JustTable;
@@ -228,16 +228,6 @@ fn get_string_value(item: &Value, opts: &TableOpts) -> NuText {
     (text, style)
 }
 
-fn get_table_row_index(item: &Value, config: &Config, row: usize, offset: usize) -> String {
-    match item {
-        Value::Record { val, .. } => val
-            .get(INDEX_COLUMN_NAME)
-            .map(|value| value.to_expanded_string("", config))
-            .unwrap_or_else(|| (row + offset).to_string()),
-        _ => (row + offset).to_string(),
-    }
-}
-
 fn collect_headers(headers: Vec<String>, index: bool) -> Vec<NuRecordsValue> {
     // The header with the INDEX is removed from the table headers since
     // it is added to the natural table index
@@ -263,45 +253,4 @@ fn collect_headers(headers: Vec<String>, index: bool) -> Vec<NuRecordsValue> {
     }
 
     v
-}
-
-/// Resolves configured priority column names into concrete table column indexes.
-///
-/// The returned indexes preserve caller order and contain no duplicates.
-fn resolve_priority_columns(
-    headers: &[String],
-    width_priority_columns: &[String],
-    with_index: bool,
-) -> Vec<usize> {
-    let mut resolved = Vec::new();
-
-    for priority_column in width_priority_columns {
-        let mut resolved_index = None;
-
-        if with_index && priority_column == INDEX_COLUMN_NAME {
-            resolved_index = Some(0);
-        } else {
-            let mut table_index = usize::from(with_index);
-            for header in headers {
-                if header == INDEX_COLUMN_NAME && with_index {
-                    continue;
-                }
-
-                if header == priority_column {
-                    resolved_index = Some(table_index);
-                    break;
-                }
-
-                table_index += 1;
-            }
-        }
-
-        if let Some(index) = resolved_index
-            && !resolved.contains(&index)
-        {
-            resolved.push(index);
-        }
-    }
-
-    resolved
 }

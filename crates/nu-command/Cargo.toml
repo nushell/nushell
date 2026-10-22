@@ -127,7 +127,6 @@ toml = { workspace = true, features = ["preserve_order"] }
 toml_edit = { workspace = true }
 kdl = { workspace = true }
 unicode-segmentation = { workspace = true }
-update-informer = { workspace = true, optional = true }
 ureq = { workspace = true, default-features = false, features = [
 	"charset",
 	"gzip",
@@ -240,18 +239,16 @@ network = [
 	"dns-lookup",
 	"multipart-rs",
 	"nu-test-support/network",
-	"update-informer",
 	"ureq",
 	"uuid",
 ]
 
-native-tls = ["dep:native-tls", "update-informer/native-tls", "ureq/native-tls"]
+native-tls = ["dep:native-tls", "ureq/native-tls"]
 rustls-tls = [
 	"dep:rustls-native-certs",
 	"dep:rustls",
 	"dep:webpki-roots",
 	"nu-test-support/rustls-tls",
-	"update-informer/rustls-tls",
 	"ureq/rustls",
 ]
 
