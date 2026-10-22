@@ -272,6 +272,22 @@ mod tests {
             }
         ])
     )]
+    // Custom value types are hinted by name, and the hint must also parse when written out: the
+    // annotated `let typed: semver` gives `$copy` its type, and `v: semver` shows in the tooltip
+    #[case::custom_value_type(
+        "custom_type.nu",
+        false,
+        serde_json::json!([
+            { "position": { "line": 0, "character": 11 }, "label": ": semver", "kind": 1 },
+            { "position": { "line": 2, "character": 8 }, "label": ": semver", "kind": 1 },
+            {
+                "position": { "line": 4, "character": 5 },
+                "label": "v:",
+                "kind": 2,
+                "tooltip": { "kind": "markdown", "value": "`semver: `" }
+            }
+        ])
+    )]
     #[case::script_loaded_on_init(
         "type.nu",
         true,
