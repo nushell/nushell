@@ -87,6 +87,8 @@ fn make_schema_drift_error(format_name: &str, new_column: &str, head: Span) -> S
 pub struct ToDelimitedDataArgs {
     pub noheaders: bool,
     pub separator: Spanned<char>,
+    pub quote: char,
+    pub escape: Option<char>,
     pub columns: Option<Vec<String>>,
     pub format_name: &'static str,
     pub input: PipelineData,
@@ -154,6 +156,8 @@ pub fn to_delimited_data(
     ToDelimitedDataArgs {
         noheaders,
         separator,
+        quote,
+        escape,
         columns,
         format_name,
         mut input,
@@ -175,6 +179,19 @@ pub fn to_delimited_data(
         val_span: separator.span,
         call_span: head,
     })?;
+    let quote = u8::try_from(quote).map_err(|_| ShellError::IncorrectValue {
+        msg: "quote must be an ASCII character".into(),
+        val_span: head,
+        call_span: head,
+    })?;
+    let escape = escape
+        .map(u8::try_from)
+        .transpose()
+        .map_err(|_| ShellError::IncorrectValue {
+            msg: "escape must be an ASCII character".into(),
+            val_span: head,
+            call_span: head,
+        })?;
 
     // Check to ensure the input is likely one of our supported types first. We can't check a stream
     // without consuming it though
@@ -207,9 +224,14 @@ pub fn to_delimited_data(
             Signals::empty(),
             ByteStreamType::String,
             move |buffer| {
-                let mut wtr = WriterBuilder::new()
-                    .delimiter(separator)
-                    .from_writer(buffer);
+                let mut builder = WriterBuilder::new();
+                builder.delimiter(separator).quote(quote);
+                if let Some(escape) = escape {
+                    // The escape character only has an effect once double_quote (the default
+                    // doubled-quote escaping) is turned off.
+                    builder.double_quote(false).escape(escape);
+                }
+                let mut wtr = builder.from_writer(buffer);
 
                 // Write header once if not already written
                 if !header_written {
@@ -249,9 +271,14 @@ pub fn to_delimited_data(
         Signals::empty(),
         ByteStreamType::String,
         move |buffer| {
-            let mut wtr = WriterBuilder::new()
-                .delimiter(separator)
-                .from_writer(buffer);
+            let mut builder = WriterBuilder::new();
+            builder.delimiter(separator).quote(quote);
+            if let Some(escape) = escape {
+                // The escape character only has an effect once double_quote (the default
+                // doubled-quote escaping) is turned off.
+                builder.double_quote(false).escape(escape);
+            }
+            let mut wtr = builder.from_writer(buffer);
 
             if explicit_columns && !header_written {
                 wtr.write_record(&columns)

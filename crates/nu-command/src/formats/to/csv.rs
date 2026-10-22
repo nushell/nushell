@@ -26,6 +26,18 @@ impl Command for ToCsv {
                 "A character to separate columns, defaults to ','.",
                 Some('s'),
             )
+            .named(
+                "quote",
+                SyntaxShape::String,
+                "A quote character to wrap fields containing the separator, defaults to '\"'.",
+                Some('q'),
+            )
+            .named(
+                "escape",
+                SyntaxShape::String,
+                "An escape character for fields containing the quote character, instead of the default doubled-quote escaping.",
+                Some('e'),
+            )
             .switch(
                 "noheaders",
                 "Do not output the columns names as the first row.",
@@ -62,6 +74,16 @@ impl Command for ToCsv {
                 example: "[[foo bar baz]; [1 2 3]] | to csv --columns [baz foo]",
                 result: Some(Value::test_string("baz,foo\n3,1\n")),
             },
+            Example {
+                description: "Outputs a CSV string, quoting fields with a custom character.",
+                example: "[[foo]; ['a,b']] | to csv --quote '|'",
+                result: Some(Value::test_string("foo\n|a,b|\n")),
+            },
+            Example {
+                description: "Outputs a CSV string, escaping quotes in fields with a custom character instead of doubling them.",
+                example: r#"[[foo]; ['say "hi"']] | to csv --escape '\'"#,
+                result: Some(Value::test_string("foo\n\"say \\\"hi\\\"\"\n")),
+            },
         ]
     }
 
@@ -79,9 +101,26 @@ impl Command for ToCsv {
         let head = call.head;
         let noheaders = call.has_flag(engine_state, stack, "noheaders")?;
         let separator: Option<Spanned<String>> = call.get_flag(engine_state, stack, "separator")?;
+        let quote = call
+            .get_flag(engine_state, stack, "quote")?
+            .map(|v: Value| v.as_char())
+            .transpose()?
+            .unwrap_or('"');
+        let escape = call
+            .get_flag(engine_state, stack, "escape")?
+            .map(|v: Value| v.as_char())
+            .transpose()?;
         let columns: Option<Vec<String>> = call.get_flag(engine_state, stack, "columns")?;
         let config = engine_state.config.clone();
-        to_csv(input, noheaders, separator, columns, head, config)
+        to_csv(
+            input,
+            noheaders,
+            separator,
+            (quote, escape),
+            columns,
+            head,
+            config,
+        )
     }
 }
 
@@ -89,6 +128,7 @@ fn to_csv(
     input: PipelineData,
     noheaders: bool,
     separator: Option<Spanned<String>>,
+    (quote, escape): (char, Option<char>),
     columns: Option<Vec<String>>,
     head: Span,
     config: Arc<Config>,
@@ -122,6 +162,8 @@ fn to_csv(
         ToDelimitedDataArgs {
             noheaders,
             separator: sep,
+            quote,
+            escape,
             columns,
             format_name: "CSV",
             input,
