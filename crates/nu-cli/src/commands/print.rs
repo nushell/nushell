@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::{ByteStreamSource, OutDest};
+use nu_protocol::OutDest;
 
 #[derive(Clone)]
 pub struct Print;
@@ -52,7 +52,7 @@ In protocol modes (`--lsp`, `--mcp`), `print` always writes to stderr to keep st
         engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
-        mut input: PipelineData,
+        input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let args: Vec<Value> = call.rest(engine_state, stack, 0)?;
         let no_newline = call.has_flag(engine_state, stack, "no-newline")?;
@@ -81,11 +81,6 @@ In protocol modes (`--lsp`, `--mcp`), `print` always writes to stderr to keep st
                 }
             }
         } else if !input.is_nothing() {
-            if let PipelineData::ByteStream(stream, _) = &mut input
-                && let ByteStreamSource::Child(child) = stream.source_mut()
-            {
-                child.ignore_error(true);
-            }
             if raw {
                 input.print_raw(engine_state, no_newline, to_stderr)?;
             } else {
