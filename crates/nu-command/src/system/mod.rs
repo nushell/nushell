@@ -1,5 +1,6 @@
 mod complete;
 mod exec;
+mod generate_completions;
 mod nu_check;
 #[cfg(any(
     target_os = "android",
@@ -23,6 +24,7 @@ mod which_;
 
 pub use complete::Complete;
 pub use exec::Exec;
+pub use generate_completions::GenerateCompletions;
 pub use nu_check::NuCheck;
 #[cfg(any(
     target_os = "android",

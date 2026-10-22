@@ -1782,6 +1782,61 @@ fn command_wide_completion_external() {
     match_suggestions(&expected, &suggestions);
 }
 
+#[test]
+fn extern_external_argument_rest_completion() {
+    let (_, _, mut engine, mut stack) = new_engine();
+    // `generate completions` attaches positional completions this way, keeping how the arguments parse.
+    let setup = /* lang=nu */ r#"
+        def "nu-complete tool remotes" [] { [{value: origin} {value: upstream}] }
+
+        @complete external
+        extern "tool push" [...args: external_arg@"nu-complete tool remotes"]
+    "#;
+    assert!(support::merge_input(setup.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let input = "tool push up";
+    let suggestions = completer.complete_blocking(input, input.len());
+    match_suggestions(&vec!["upstream"], &suggestions);
+}
+
+#[test]
+fn command_wide_completion_sees_every_word_of_an_extern() {
+    let (_, _, mut engine, mut stack) = new_engine();
+    // A cobra tool's completer passes these words, minus the tool's name, to `<tool> __complete`.
+    // The extern's name comes as one word.
+    let setup = /* lang=nu */ r#"
+        def "nu-complete tool" [place: record] { [{value: ($place.command | to nuon)}] }
+
+        @complete "nu-complete tool"
+        extern "tool issue list" [--state: string]
+    "#;
+    assert!(support::merge_input(setup.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let input = "tool issue list --state ";
+    let suggestions = completer.complete_blocking(input, input.len());
+    match_suggestions(&vec![r#"["tool issue list", --state, ""]"#], &suggestions);
+}
+
+#[test]
+fn command_wide_completion_external_skips_declared_flags() {
+    let (_, _, mut engine, mut stack) = new_engine();
+    // Carapace and other external completers list the flags the signature declares too.
+    let setup = /* lang=nu */ r#"
+        $env.config.completions.external.completer = {|buffer| [--short --porcelain] }
+
+        @complete external
+        extern "gs" [--short(-s)]
+    "#;
+    assert!(support::merge_input(setup.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let input = "gs --";
+    let suggestions = completer.complete_blocking(input, input.len());
+    match_suggestions(&vec!["--short", "--porcelain"], &suggestions);
+}
+
 #[rstest]
 // https://github.com/nushell/nushell/issues/18007
 #[case::explicit_return("return")]
