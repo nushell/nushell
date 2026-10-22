@@ -15,7 +15,7 @@ pub enum SyntaxShape {
     Any,
 
     /// A plugin-defined custom value, named by its `CustomValue::type_name`
-    /// (e.g. `polars_dataframe`). Parses like [`SyntaxShape::Any`].
+    /// (e.g. `polars_dataframe`).
     Custom(Box<str>),
 
     /// A binary literal
