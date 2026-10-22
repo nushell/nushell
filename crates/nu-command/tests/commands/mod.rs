@@ -3,6 +3,7 @@ mod all;
 mod any;
 mod append;
 mod assignment;
+mod attr_structured;
 mod base;
 mod break_;
 mod bytes;
