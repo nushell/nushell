@@ -43,9 +43,9 @@ fn run_forwarded_main_decl(working_set: &StateWorkingSet, call: &Call) -> Option
 /// and the post-`--` positional form have to be considered. Quoted literals such as
 /// `"--help"` are ordinary positional values and are not treated as a help request.
 fn call_forwards_help_token(working_set: &StateWorkingSet, call: &Call) -> bool {
-    // Only tokens that come after an explicit `--` separator count as forwarded: a bare
-    // `--help`/`-h` belongs to `run` itself (see the bare-help test). Track `--` like the
-    // runtime binder does.
+    // Only tokens that come after an explicit `--` separator need this special handling:
+    // a bare `--help`/`-h` after the script path is already covered by the generic
+    // `<cmd> --help` rewrite above. Track `--` like the runtime binder does.
     let mut end_of_options = false;
     call.positional_iter().skip(1).any(|expr| {
         let contents = working_set.get_span_contents(expr.span);

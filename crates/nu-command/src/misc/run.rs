@@ -171,7 +171,8 @@ impl Command for Run {
                 // A forwarded `--help`/`-h` (including one hidden behind a `--` separator, which
                 // arrives here as a positional `"--help"` token) shows `main`'s help without
                 // evaluating or binding the remaining arguments.
-                let forwarded_help = runtime_forwarded_help_requested(engine_state, signature, &args.main);
+                let forwarded_help =
+                    runtime_forwarded_help_requested(engine_state, signature, &args.main);
                 if forwarded_help
                     || bind_main_arguments(engine_state, signature, args.main, &mut call_eval)?
                 {
