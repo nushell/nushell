@@ -1918,13 +1918,20 @@ fn check_input_types(
     match input {
         // early return error directly if detected
         PipelineData::Value(Value::Error { error, .. }, ..) => return Err(*error.clone()),
-        // Custom values are left to the command at runtime, since many commands accept them as
-        // lists, tables or records. A command that only takes plugin custom types does get
-        // checked, so a `polars_dataframe` command rejects some other plugin's custom value.
+        // A custom value may stand in for a list, table or record (it converts to its base value
+        // at runtime), so a command taking any of those, directly or inside a `oneof`, is left to
+        // decide at runtime, as `Type::is_assignable_to` does. Otherwise the custom value is
+        // checked like any other input, so `[nothing -> X, polars_dataframe -> X]` rejects some
+        // other plugin's custom value the same way `polars_dataframe -> X` does.
         PipelineData::Value(Value::Custom { .. }, ..)
-            if !io_types
-                .iter()
-                .all(|(input_type, _)| matches!(input_type, Type::Custom(_))) =>
+            if io_types.iter().any(|(input_type, _)| {
+                let is_collection =
+                    |ty: &Type| matches!(ty, Type::List(_) | Type::Table(_) | Type::Record(_));
+                match input_type {
+                    Type::OneOf(oneof) => oneof.iter().any(is_collection),
+                    ty => is_collection(ty),
+                }
+            }) =>
         {
             return Ok(());
         }

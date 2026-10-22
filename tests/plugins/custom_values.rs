@@ -254,3 +254,35 @@ fn plugin_custom_type_input_rejects_other_custom_values() -> Result {
     assert_matches!(err, ShellError::OnlySupportsThisInputType { .. });
     Ok(())
 }
+
+#[test]
+#[deps(NU_PLUGIN_CUSTOM_VALUES)]
+fn plugin_custom_type_input_checked_alongside_other_types() -> Result {
+    let err = test()
+        .run(
+            "def f []: [nothing -> string, HandleCustomValue -> string] { 'ran' }
+             custom-value generate | f",
+        )
+        .expect_shell_error()?;
+    assert_matches!(err, ShellError::OnlySupportsThisInputType { .. });
+
+    let err = test()
+        .run(
+            "def f []: oneof<HandleCustomValue, string> -> string { 'ran' }
+             custom-value generate | f",
+        )
+        .expect_shell_error()?;
+    assert_matches!(err, ShellError::OnlySupportsThisInputType { .. });
+    Ok(())
+}
+
+#[test]
+#[deps(NU_PLUGIN_CUSTOM_VALUES)]
+fn custom_value_input_left_to_runtime_for_collections() -> Result {
+    test()
+        .run(
+            "def f []: [nothing -> string, oneof<HandleCustomValue, list<any>> -> string] { 'ran' }
+             custom-value generate | f",
+        )
+        .expect_value_eq("ran")
+}
