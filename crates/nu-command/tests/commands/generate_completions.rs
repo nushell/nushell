@@ -1,3 +1,4 @@
+use nu_test_support::playground::Playground;
 use nu_test_support::prelude::*;
 use pretty_assertions::assert_matches;
 use rstest::rstest;
@@ -76,6 +77,22 @@ fn generated_module_parses(
     test()
         .run_with_data(code, data)
         .expect_value_eq(test_record! { "parses" => true, "defines" => true })
+}
+
+/// `use` names the module after the file, and a module can't export an extern with its own
+/// name, so a module loaded with `use` is saved under a name other than the tool's.
+#[test]
+fn loads_with_use_from_a_completions_file() -> Result {
+    Playground::setup("generate_completions_use", |dirs, _| {
+        let mut tester = test().cwd(dirs.test());
+        let () = tester.run_with_data(
+            "generate completions tool --source fish | save tool-completions.nu",
+            FISH,
+        )?;
+        tester
+            .run("use tool-completions.nu *; scope externs | get name | where $it starts-with tool | sort")
+            .expect_value_eq(["tool", "tool build"])
+    })
 }
 
 #[test]

@@ -62,8 +62,10 @@ disagree. carapace, fish and zsh also know the subcommands; man and help give th
 named command only. The help source runs the command with --help.
 
 The result is the text of a module of `export extern` definitions. Externs exist only once \
-nushell has parsed them, so save the text to a file and load it with `use`, or save it in one \
-of $nu.user-autoload-dirs to load it at startup.
+nushell has parsed them, so save the text to a file and load it with `use` or `source`, or save \
+it in one of $nu.user-autoload-dirs to load it at startup. For `use`, name the file something \
+other than the command, such as git-completions.nu: `use` names the module after the file, and \
+a module can't export an extern with its own name.
 
 Flag values and arguments the source lists, such as --color's always, never and auto, become \
 completions. Values that fish or zsh compute become completer commands in the module when they \
