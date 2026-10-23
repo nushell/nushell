@@ -252,9 +252,7 @@ fn external_command_ndots_args(prefix: &str) -> Result {
             // change everything to backslashes too. Would be good to fix that
             r"foo/. foo/.. foo\..\.. foo/./bar foo/../bar foo\..\..\bar ./bar ../bar ..\..\bar"
         }
-        _ => {
-            "foo/. foo/.. foo/../.. foo/./bar foo/../bar foo/../../bar ./bar ../bar ../../bar"
-        }
+        _ => "foo/. foo/.. foo/../.. foo/./bar foo/../bar foo/../../bar ./bar ../bar ../../bar"
     })
 }
 
