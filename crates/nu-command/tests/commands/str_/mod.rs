@@ -1,3 +1,4 @@
+mod index_of;
 mod into_string;
 mod join;
 

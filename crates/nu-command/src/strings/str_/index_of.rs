@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::ops::Bound;
 
 use crate::{grapheme_flags, grapheme_flags_const};
@@ -32,8 +33,11 @@ impl Command for StrIndexOf {
     fn signature(&self) -> Signature {
         Signature::build("str index-of")
             .input_output_types(vec![
-                (Type::String, Type::Any),
-                (Type::List(Box::new(Type::String)), Type::Any),
+                (Type::String, Type::one_of([Type::Int, Type::list(Type::Int)])),
+                (
+                    Type::List(Box::new(Type::String)),
+                    Type::list(Type::one_of([Type::Int, Type::list(Type::Int)])),
+                ),
                 (Type::table(), Type::table()),
                 (Type::record(), Type::record()),
             ])
@@ -70,7 +74,8 @@ impl Command for StrIndexOf {
     }
 
     fn extra_description(&self) -> &str {
-        "Use --all to return a list of every matched index instead of just the first (or last, with --end)."
+        "Use --all to return a list of every matched index instead of just the first (or last, with --end). \
+         Matches don't overlap, so --all --end can return a different set of indices than --all, not just the same set in reverse order."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -89,6 +94,12 @@ impl Command for StrIndexOf {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let substring: Spanned<String> = call.req(engine_state, stack, 0)?;
+        if substring.item.is_empty() {
+            return Err(ShellError::TypeMismatch {
+                err_message: "the pattern to find cannot be empty".to_string(),
+                span: substring.span,
+            });
+        }
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
         let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
         let args = Arguments {
@@ -110,6 +121,12 @@ impl Command for StrIndexOf {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let substring: Spanned<String> = call.req_const(working_set, stack, 0)?;
+        if substring.item.is_empty() {
+            return Err(ShellError::TypeMismatch {
+                err_message: "the pattern to find cannot be empty".to_string(),
+                span: substring.span,
+            });
+        }
         let cell_paths: Vec<CellPath> = call.rest_const(working_set, stack, 1)?;
         let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
         let args = Arguments {
@@ -235,23 +252,38 @@ fn action(
                 (s.as_str(), 0)
             };
 
-            // Having found a substring's byte index, convert to grapheme index if needed.
-            // grapheme_indices iterates graphemes alongside their UTF-8 byte indices, so .enumerate()
-            // is used to get the grapheme index alongside it.
-            let to_reported_index = |byte_index: usize| -> i64 {
-                if *graphemes {
-                    s.grapheme_indices(true)
-                        .enumerate()
-                        .find(|e| e.1.0 >= byte_index)
-                        .map_or(-1, |e| e.0 as i64)
-                } else {
-                    byte_index as i64
-                }
-            };
+            if *graphemes {
+                // Map each byte offset in `s` to its grapheme index in a single pass, so scoring
+                // any number of matches against it costs one walk of `s`, not one walk per match.
+                let grapheme_index_by_byte_offset: HashMap<usize, i64> = s
+                    .grapheme_indices(true)
+                    .enumerate()
+                    .map(|(grapheme_index, (byte_offset, _))| (byte_offset, grapheme_index as i64))
+                    .collect();
 
-            if *all {
-                let indices = search_all_indices(search_str, substring, *end)
-                    .map(|result| Value::int(to_reported_index(result + start_index), head));
+                // A match that doesn't start exactly on a grapheme boundary falls inside a
+                // cluster, so it isn't a real grapheme-level match and is dropped rather than
+                // rounded up to the next cluster (or past the end of the string).
+                let offsets = match_offsets(search_str, substring, *end)
+                    .into_iter()
+                    .map(|offset| offset + start_index);
+
+                if *all {
+                    let indices = offsets
+                        .filter_map(|offset| grapheme_index_by_byte_offset.get(&offset).copied())
+                        .map(|index| Value::int(index, head));
+                    Value::list(indices.collect(), head)
+                } else {
+                    let result = offsets
+                        .filter_map(|offset| grapheme_index_by_byte_offset.get(&offset).copied())
+                        .next()
+                        .unwrap_or(-1);
+                    Value::int(result, head)
+                }
+            } else if *all {
+                let indices = match_offsets(search_str, substring, *end)
+                    .into_iter()
+                    .map(|offset| Value::int((offset + start_index) as i64, head));
                 Value::list(indices.collect(), head)
             } else if let Some(result) = if *end {
                 // When the -e flag is present, search using rfind instead of find.
@@ -259,7 +291,7 @@ fn action(
             } else {
                 search_str.find(&**substring)
             } {
-                Value::int(to_reported_index(result + start_index), head)
+                Value::int((result + start_index) as i64, head)
             } else {
                 Value::int(-1, head)
             }
@@ -277,47 +309,18 @@ fn action(
     }
 }
 
-/// Returns every non-overlapping start index at which `pattern` matches within `haystack`, as
-/// byte offsets into `haystack`. When `from_end` is set, matches are found working backward from
-/// the end, and so are yielded in descending order (mirrors `bytes index-of --all --end`).
-fn search_all_indices<'a>(
-    haystack: &'a str,
-    pattern: &'a str,
-    from_end: bool,
-) -> impl Iterator<Item = usize> + 'a {
-    let haystack = haystack.as_bytes();
-    let pattern = pattern.as_bytes();
-    let pattern_len = pattern.len();
-
-    let mut matches = Vec::new();
-    if pattern_len == 0 || pattern_len > haystack.len() {
-        return matches.into_iter();
-    }
-
+/// Every non-overlapping start byte offset at which `pattern` matches within `haystack`. When
+/// `from_end` is set, offsets are found working backward from the end, so they come out in
+/// descending order (mirrors `bytes index-of --all --end`); matches don't overlap, so the set of
+/// offsets found from the end can differ from the forward set, not just its order.
+///
+/// `pattern` is assumed non-empty -- callers reject an empty pattern before reaching this point.
+fn match_offsets(haystack: &str, pattern: &str, from_end: bool) -> Vec<usize> {
     if from_end {
-        let mut right = haystack.len();
-        while right >= pattern_len {
-            let left = right - pattern_len;
-            if &haystack[left..right] == pattern {
-                matches.push(left);
-                right -= pattern_len;
-            } else {
-                right -= 1;
-            }
-        }
+        haystack.rmatch_indices(pattern).map(|(i, _)| i).collect()
     } else {
-        let mut left = 0;
-        while left + pattern_len <= haystack.len() {
-            if &haystack[left..left + pattern_len] == pattern {
-                matches.push(left);
-                left += pattern_len;
-            } else {
-                left += 1;
-            }
-        }
+        haystack.match_indices(pattern).map(|(i, _)| i).collect()
     }
-
-    matches.into_iter()
 }
 
 #[cfg(test)]
@@ -580,20 +583,48 @@ mod tests {
     }
 
     #[test]
-    fn returns_no_matches_for_empty_pattern_with_all() {
-        let word = Value::test_string("abc");
+    fn all_grapheme_clusters_drops_matches_that_fall_inside_a_cluster() {
+        // "🇯🇵" is a single grapheme cluster made of two 4-byte regional-indicator codepoints, so
+        // a match of just the second one (the 'P') starts mid-cluster and isn't a real match at
+        // the grapheme level. It should be dropped, not rounded to the next (or an invalid)
+        // grapheme index.
+        let cases = [("🇯🇵🇵", vec![1]), ("🇯🇵🇯🇵", vec![]), ("🇯🇵🇯🇵x", vec![])];
+
+        for (input, expected) in cases {
+            let word = Value::test_string(input);
+            let options = Arguments {
+                substring: String::from("🇵"),
+                range: None,
+                cell_paths: None,
+                end: false,
+                all: true,
+                graphemes: true,
+            };
+
+            let actual = action(&word, &options, Span::test_data());
+            assert_eq!(
+                actual,
+                Value::test_list(expected.into_iter().map(Value::test_int).collect()),
+                "input: {input:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn single_grapheme_clusters_skips_a_match_that_falls_inside_a_cluster() {
+        let word = Value::test_string("🇯🇵🇵");
 
         let options = Arguments {
-            substring: String::new(),
+            substring: String::from("🇵"),
             range: None,
             cell_paths: None,
             end: false,
-            all: true,
-            graphemes: false,
+            all: false,
+            graphemes: true,
         };
 
         let actual = action(&word, &options, Span::test_data());
-        assert_eq!(actual, Value::test_list(vec![]));
+        assert_eq!(actual, Value::test_int(1));
     }
 
     #[test]
