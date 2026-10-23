@@ -306,6 +306,7 @@ fn write_to_out_dest(
         OutDest::Print
         | OutDest::Inherit
         | OutDest::Pipe
+        | OutDest::PipeRaw
         | OutDest::PipeSeparate
         | OutDest::Value => {
             if stdout_fallback {

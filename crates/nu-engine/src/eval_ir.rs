@@ -2176,6 +2176,7 @@ fn eval_redirection(
 ) -> Result<Option<Redirection>, ShellError> {
     match mode {
         RedirectMode::Pipe => Ok(Some(Redirection::Pipe(OutDest::Pipe))),
+        RedirectMode::PipeRaw => Ok(Some(Redirection::Pipe(OutDest::PipeRaw))),
         RedirectMode::PipeSeparate => Ok(Some(Redirection::Pipe(OutDest::PipeSeparate))),
         RedirectMode::Value => Ok(Some(Redirection::Pipe(OutDest::Value))),
         RedirectMode::Null => Ok(Some(Redirection::Pipe(OutDest::Null))),

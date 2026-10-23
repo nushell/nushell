@@ -1,6 +1,7 @@
 use crate::{
-    known_external::KnownExternal,
+    known_external::{KnownExternal, StructuredOutput},
     lite_parser::LiteCommand,
+    parse_captures_compile::discover_closure_captures,
     parse_helpers::{SPREAD_OPERATOR, garbage},
     parse_keywords::{find_keyword_decl, reject_parser_keyword_name},
     parse_pipelines::redirecting_builtin_error,
@@ -21,6 +22,7 @@ use nu_protocol::{
     eval_const::eval_constant,
     shell_error::generic::GenericError,
 };
+use std::collections::HashMap;
 
 fn rest_param_is_type_annotated(signature_source: &[u8], rest_name: &str) -> bool {
     let mut needle = Vec::with_capacity(rest_name.len() + 3);
@@ -838,6 +840,27 @@ fn parse_extern_inner(
                 signature.allows_unknown_args = true;
                 signature.rejects_unknown_flags = strict;
 
+                // `@structured` belongs to a `KnownExternal`, so it is taken out before the
+                // attributes shared with `def`. When there is more than one, the last one wins.
+                let (structured, attributes): (Vec<_>, Vec<_>) = attributes
+                    .into_iter()
+                    .partition(|(name, _)| name == "structured");
+                let structured = structured.into_iter().last().and_then(|(_, value)| {
+                    let span = value.span();
+                    StructuredOutput::from_value(value)
+                        .map_err(|err| working_set.error(err.wrap(working_set, span)))
+                        .ok()
+                });
+                // Like a `def` body, the decode block reads the `let` variables around it when
+                // it runs, and can't use `mut` ones.
+                if let Some(structured) = &structured {
+                    let block = working_set.get_block(structured.decode.block_id);
+                    match discover_closure_captures(working_set, block, &mut HashMap::new()) {
+                        Ok(_) => compile_block_with_id(working_set, structured.decode.block_id),
+                        Err(err) => working_set.error(err),
+                    }
+                }
+
                 let (attribute_vals, examples) =
                     handle_special_attributes(attributes, working_set, &mut signature);
 
@@ -871,6 +894,7 @@ fn parse_extern_inner(
                         signature,
                         attributes: attribute_vals,
                         examples,
+                        structured,
                         span: call_span,
                     };
 
@@ -980,6 +1004,12 @@ fn handle_special_attributes(
                     working_set.error(e.wrap(working_set, val_span));
                 }
             },
+            // `parse_extern_inner` takes `@structured` out before it gets here.
+            "structured" => working_set.error(ParseError::LabeledError(
+                "`@structured` only applies to `extern`".into(),
+                "not an extern".into(),
+                val_span,
+            )),
             "complete external" => match value {
                 nu_protocol::Value::Nothing { .. } => {
                     signature.complete = Some(CommandWideCompleter::External);

@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::OutDest;
 
 #[derive(Clone)]
 pub struct Print;
@@ -108,5 +109,11 @@ In protocol modes (`--lsp`, `--mcp`), `print` always writes to stderr to keep st
                 result: None,
             },
         ]
+    }
+
+    // Output piped into `print` looks the same as at the terminal, so an extern with
+    // `@structured` runs as written here too.
+    fn pipe_redirection(&self) -> (Option<OutDest>, Option<OutDest>) {
+        (Some(OutDest::PipeRaw), None)
     }
 }

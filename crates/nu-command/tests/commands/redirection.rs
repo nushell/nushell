@@ -650,3 +650,16 @@ fn file_redirection_not_allowed_on_for() -> Result {
         Ok(())
     })
 }
+
+// `e>|` pipes only stderr into a command that reads its input as text, as into any other.
+#[rstest]
+#[case::external("relay")]
+#[case::run_external("run-external relay")]
+#[nu_test_support::test]
+#[deps(TESTBIN_ECHO_ENV_MIXED, TESTBIN_RELAY)]
+fn stderr_pipe_into_external_leaves_stdout_alone(#[case] consumer: &str) -> Result {
+    let code = format!(
+        r#"$env.FOO = "out"; $env.BAR = "err"; echo_env_mixed out-err FOO BAR e>| {consumer} | str trim"#
+    );
+    test().run(code).expect_value_eq("err")
+}
