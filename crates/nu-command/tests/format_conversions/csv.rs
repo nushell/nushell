@@ -226,7 +226,7 @@ fn from_csv_text_with_custom_quotes_to_table() -> Result {
 
 #[test]
 fn to_csv_quote_round_trips() -> Result {
-    let code = r#"[[foo]; ['a,b']] | to csv --quote '|' | from csv --quote '|' | get 0.foo"#;
+    let code = "[[foo]; ['a,b']] | to csv --quote '|' | from csv --quote '|' | get 0.foo";
     test().run(code).expect_value_eq("a,b")
 }
 
@@ -294,7 +294,7 @@ fn to_csv_quote_equal_to_separator_is_rejected() -> Result {
 
 #[test]
 fn to_csv_escape_equal_to_separator_is_rejected() -> Result {
-    let code = r"[[foo bar]; ['a,b' c]] | to csv --escape ','";
+    let code = "[[foo bar]; ['a,b' c]] | to csv --escape ','";
     let outcome = test().run(code).expect_shell_error()?;
     assert!(matches!(outcome, ShellError::IncompatibleParameters { .. }));
     Ok(())
