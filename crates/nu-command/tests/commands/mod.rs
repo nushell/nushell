@@ -36,6 +36,7 @@ mod every;
 mod exec;
 mod export;
 mod export_def;
+mod extern_;
 mod fill;
 mod filter;
 mod find;

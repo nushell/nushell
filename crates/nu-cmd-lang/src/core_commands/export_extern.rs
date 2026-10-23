@@ -26,12 +26,20 @@ impl Command for ExportExtern {
                 SyntaxShape::ExternalSignature,
                 "The parameters for the external command signature.",
             )
+            .switch(
+                "strict",
+                "Reject flags the signature doesn't declare (`--help` still reaches the command).",
+                None,
+            )
             .category(Category::Core)
     }
 
     fn extra_description(&self) -> &str {
         "This command is a parser keyword. For details, check:
-  https://www.nushell.sh/book/thinking_in_nu.html"
+  https://www.nushell.sh/book/thinking_in_nu.html
+
+`--strict` checks flags when the call is parsed. A count like `-10`, a flag spelled at run time \
+(`-$x`, `--(expr)`) and the items of a list spread (`...$args`) still pass through unchecked."
     }
 
     fn command_type(&self) -> CommandType {

@@ -129,6 +129,21 @@ fn parse_unknown_arg(
     crate::parser::parse_value(working_set, span, &shape, None)
 }
 
+/// Whether `extern --strict` still forwards a flag its signature doesn't declare. `--help`
+/// reaches every command, a flag spelled at run time (`-$x`, `--(expr)`) can't be checked when
+/// parsing, and `-10` (as in `git log -10`) is a count rather than a cluster of short flags.
+fn strict_extern_forwards(word: &[u8]) -> bool {
+    match word {
+        [b'-', b'-', b'$' | b'(', ..] | [b'-', b'$' | b'(', ..] => true,
+        [b'-', b'-', flag @ ..] => flag
+            .split(|byte| *byte == b'=')
+            .next()
+            .is_some_and(|name| name == b"help"),
+        [b'-', count @ ..] => !count.is_empty() && count.iter().all(u8::is_ascii_digit),
+        _ => false,
+    }
+}
+
 fn parse_external_string(working_set: &mut StateWorkingSet, span: Span) -> Expression {
     let contents = working_set.get_span_contents(span);
 
@@ -447,11 +462,15 @@ fn ensure_flag_arg_type(
 
 /// Result of attempting to parse a long flag.
 ///
-/// This tri-state enum indicates whether a long flag was found, no flag was found,
-/// or the end-of-options delimiter `--` was found (which stops all flag parsing).
+/// This enum indicates whether a declared long flag was found, an undeclared one was found,
+/// no flag was found, or the end-of-options delimiter `--` was found (which stops all flag
+/// parsing).
 enum LongFlagParseResult {
     /// A long flag was successfully parsed: (flag_name, value_expression)
     FoundFlag(Spanned<String>, Option<Expression>),
+    /// A long flag the signature doesn't declare. Its `UnknownFlag` error is already reported,
+    /// and commands that pass unknown arguments through drop it to forward the word instead.
+    UnknownFlag(Spanned<String>),
     /// No long flag found at this position
     NoFlag,
     /// End-of-options delimiter `--` found; stop flag parsing
@@ -562,13 +581,10 @@ fn parse_long_flag(
                     suggestion,
                 ));
                 // Move `long_name`; the clone was already consumed above.
-                LongFlagParseResult::FoundFlag(
-                    Spanned {
-                        item: long_name,
-                        span: arg_span,
-                    },
-                    None,
-                )
+                LongFlagParseResult::UnknownFlag(Spanned {
+                    item: long_name,
+                    span: arg_span,
+                })
             }
         } else {
             working_set.error(ParseError::NonUtf8(arg_span));
@@ -1129,6 +1145,14 @@ pub fn parse_internal_call(
 
     let mut end_of_options = false;
 
+    // Commands that pass unknown arguments through (extern, def --wrapped, exec, etc.) forward
+    // a flag the signature doesn't declare to the program instead of reporting it.
+    // `extern --strict` reports it, except for the words `strict_extern_forwards` accepts.
+    let forwards_unknown_flag = |word: &[u8]| {
+        signature.allows_unknown_args
+            && (!signature.rejects_unknown_flags || strict_extern_forwards(word))
+    };
+
     while spans_idx < spans.len() {
         let arg_span = spans[spans_idx];
 
@@ -1155,18 +1179,21 @@ pub fn parse_internal_call(
                     continue;
                 }
                 LongFlagParseResult::FoundFlag(long_name, arg) => {
-                    // We found a long flag, like --bar
-                    if working_set.parse_errors[starting_error_count..]
-                        .iter()
-                        .any(|x| matches!(x, ParseError::UnknownFlag(_, _, _, _)))
-                        && signature.allows_unknown_args
-                    {
+                    // We found a long flag, like --bar. Errors in its value (an unknown flag
+                    // in `--bar (ls --baz)`) stay reported.
+                    call.add_named((long_name, None, arg));
+
+                    spans_idx += 1;
+                    continue;
+                }
+                LongFlagParseResult::UnknownFlag(long_name) => {
+                    if forwards_unknown_flag(working_set.get_span_contents(arg_span)) {
                         working_set.parse_errors.truncate(starting_error_count);
                         let arg = parse_unknown_arg(working_set, arg_span, &signature);
 
                         call.add_unknown(arg);
                     } else {
-                        call.add_named((long_name, None, arg));
+                        call.add_named((long_name, None, None));
                     }
 
                     spans_idx += 1;
@@ -1195,7 +1222,7 @@ pub fn parse_internal_call(
                 if working_set.parse_errors[starting_error_count..]
                     .iter()
                     .any(|x| matches!(x, ParseError::UnknownFlag(_, _, _, _)))
-                    && signature.allows_unknown_args
+                    && forwards_unknown_flag(working_set.get_span_contents(arg_span))
                 {
                     working_set.parse_errors.truncate(starting_error_count);
                     let arg = parse_unknown_arg(working_set, arg_span, &signature);
