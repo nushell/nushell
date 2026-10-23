@@ -94,7 +94,8 @@ pub(super) fn parse(text: &str, path: Vec<String>, read_subcommands: bool) -> Ve
 ///
 /// A line of the list is a name, or names separated by commas (`build, b`), then two spaces
 /// and a description, which can continue on deeper lines. An alias, given after a comma or
-/// as clap's `[aliases: c]`, gets a spec of its own, as carapace gives it.
+/// as clap's `[aliases: c]`, gets a spec of its own, as carapace gives it, that names its
+/// command in `alias_of`.
 fn subcommands(lines: &[(usize, &str)], path: &[String]) -> Vec<CommandSpec> {
     let mut entries: Vec<(Vec<&str>, String)> = vec![];
     let mut in_section = false;
@@ -126,11 +127,15 @@ fn subcommands(lines: &[(usize, &str)], path: &[String]) -> Vec<CommandSpec> {
     let mut specs: Vec<CommandSpec> = vec![];
     for (names, description) in &entries {
         let (description, aliases) = split_aliases(description.trim());
+        // The first name of an entry is the command, and the others are its aliases.
+        let mut command: Option<&str> = None;
         for name in names.iter().chain(&aliases) {
             let sub_path = path.iter().cloned().chain([name.to_string()]).collect();
             if is_command_word(name) && !specs.iter().any(|spec| spec.path == sub_path) {
                 let mut spec = CommandSpec::new(sub_path);
                 spec.description = first_sentence(&description).to_string();
+                spec.alias_of = command.map(str::to_string);
+                command.get_or_insert(name);
                 specs.push(spec);
             }
         }
@@ -751,6 +756,15 @@ Environment variables:
             .map(|(path, description)| (path.to_string(), description.to_string()))
         );
         assert_eq!(parse(text, vec![], true)[0].flags.len(), 1);
+        let aliases = parse(text, vec![], true)
+            .into_iter()
+            .filter_map(|spec| Some((spec.path.join(" "), spec.alias_of?)))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            aliases,
+            [("i", "install"), ("add", "install"), ("b", "build")]
+                .map(|(alias, command)| (alias.to_string(), command.to_string()))
+        );
     }
 
     #[test]

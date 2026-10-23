@@ -155,23 +155,26 @@ fn runs_only_listed_subcommands_for_their_help() -> Result {
     Ok(())
 }
 
-/// A tool whose `--help` lists `pip`, and that writes `ran` when it runs with arguments it
-/// doesn't read as help.
+/// A tool whose `--help` lists `pip`, with its alias `p` and its subcommand `install`, `same`,
+/// which prints the help of `tool`, and `help`, and gives `--verbose` a value, which
+/// `man tool` doesn't. It writes `ran` when it runs with arguments it doesn't read as help.
 #[cfg(unix)]
 const TOOL_SCRIPT: &str = r#"#!/bin/sh
 case "$*" in
-    --help) printf 'Usage: tool <COMMAND>\n\nCommands:\n  pip  Manage packages\n' ;;
-    "pip --help") printf 'Options:\n      --user  Install for the user\n' ;;
+    --help|"same --help") printf 'Usage: tool <COMMAND>\n\nCommands:\n  pip   Manage packages [aliases: p]\n  same  Print the help of tool\n  help  Print help\n\nOptions:\n  -v, --verbose <LEVEL>  Say more\n' ;;
+    "pip --help") printf 'Usage: tool pip <COMMAND>\n\nCommands:\n  install  Install packages\n\nOptions:\n      --user  Install for the user\n' ;;
+    "pip install --help") printf 'Options:\n  -U, --upgrade  Upgrade packages\n' ;;
     "status --help") printf 'Options:\n  -s, --short  Show status concisely\n' ;;
     *) : > ran ;;
 esac
 "#;
 
-/// A man with a page for `tool status` only.
+/// A man with pages for `tool` and `tool status`.
 #[cfg(unix)]
 const MAN_SCRIPT: &str = r#"#!/bin/sh
 case "$1" in
-    tool-status) printf 'TOOL-STATUS(1)    Tool Manual    TOOL-STATUS(1)\n' ;;
+    tool) printf 'TOOL(1)    Tool Manual    TOOL(1)\n\nOPTIONS\n       -v, --verbose\n              Say more\n' ;;
+    tool-status) printf 'TOOL-STATUS(1)    Tool Manual    TOOL-STATUS(1)\n\nOPTIONS\n       --porcelain\n              Print for scripts\n' ;;
     *) echo "No manual entry for $1" >&2; exit 1 ;;
 esac
 "#;
@@ -211,19 +214,133 @@ fn runs_subcommands_that_the_help_lists_or_man_knows(
     })
 }
 
+/// The help source reads the help of each subcommand that the help above it lists. An alias gets
+/// its command's flags, and neither `help` nor a subcommand that prints the help of `tool`
+/// is walked further.
+#[cfg(unix)]
+#[test]
+fn walks_the_subcommands_that_the_help_lists() -> Result {
+    Playground::setup("generate_completions_help_walk", |dirs, _| {
+        write_script(&dirs, "tool", TOOL_SCRIPT);
+        let mut tester = test().cwd(dirs.test());
+        let module: String =
+            tester.run("with-env { PATH: (pwd) } { generate completions tool --source help }")?;
+        let externs = module
+            .lines()
+            .filter_map(|line| line.strip_prefix("export extern \""))
+            .filter_map(|line| line.split('"').next())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            externs,
+            [
+                "tool",
+                "tool pip",
+                "tool pip install",
+                "tool p",
+                "tool same",
+                "tool help"
+            ]
+        );
+        assert_contains("export extern \"tool pip\" [\n    --user", &module);
+        assert_contains(
+            "export extern \"tool pip install\" [\n    --upgrade(-U)",
+            &module,
+        );
+        assert_contains("export extern \"tool p\" [\n    --user", &module);
+        assert_contains("export extern \"tool same\" []", &module);
+        assert!(!dirs.test().join("ran").exists(), "the tool ran");
+        Ok(())
+    })
+}
+
+/// Without --source, a man page is used with the subcommands that the help lists, or alone when
+/// the help lists none.
+#[cfg(unix)]
+#[rstest]
+#[case::with_subcommands(
+    "tool",
+    "from:\n# - `man tool`\n# - `tool --help`\n",
+    &[
+        "\n# Sources disagree on whether --verbose takes a value, so it's a switch: yes in \
+         `tool --help`, no in `man tool`\n@complete external\nexport extern \"tool\" [\n    \
+         --verbose(-v)                  # Say more\n]",
+        "export extern \"tool pip install\" [\n    --upgrade(-U)",
+    ]
+)]
+#[case::without_subcommands("tool status", "from `man tool-status`.\n", &["--porcelain"])]
+fn man_takes_the_subcommands_that_the_help_lists(
+    #[case] target: &str,
+    #[case] origins: &str,
+    #[case] contains: &[&str],
+) -> Result {
+    Playground::setup("generate_completions_man_walk", |dirs, _| {
+        write_script(&dirs, "tool", TOOL_SCRIPT);
+        write_script(&dirs, "man", MAN_SCRIPT);
+        let module: String = test().cwd(dirs.test()).run(format!(
+            "with-env {{ PATH: (pwd) }} {{ generate completions '{target}' }}"
+        ))?;
+        assert_contains(origins, &module);
+        for &text in contains {
+            assert_contains(text, &module);
+        }
+        assert!(!dirs.test().join("ran").exists(), "the tool ran");
+        Ok(())
+    })
+}
+
+/// A tool that prints more than any help text, as macOS's `yes --help` does.
+#[cfg(unix)]
+const FLOOD_SCRIPT: &str = "#!/bin/sh\nPATH=/usr/bin:/bin exec yes '  --flood  Flood'\n";
+
+/// Output longer than any help text gives no text, and the program is stopped. Without
+/// --source, the man page is then used alone.
+#[cfg(unix)]
+#[rstest]
+#[case::help_source("--source help", Err("couldn't generate completions for `tool`"))]
+#[case::after_man("", Ok("# Generated by `generate completions` from `man tool`.\n"))]
+fn stops_a_tool_that_prints_too_much(
+    #[case] source: &str,
+    #[case] expected: std::result::Result<&str, &str>,
+) -> Result {
+    Playground::setup("generate_completions_flood", |dirs, _| {
+        write_script(&dirs, "tool", FLOOD_SCRIPT);
+        write_script(&dirs, "man", MAN_SCRIPT);
+        let code = format!("with-env {{ PATH: (pwd) }} {{ generate completions tool {source} }}");
+        let mut tester = test().cwd(dirs.test());
+        match expected {
+            Ok(origin) => {
+                let module: String = tester.run(code)?;
+                assert_contains(origin, &module);
+                assert!(!module.contains("--flood"), "the flood was read");
+            }
+            Err(error) => {
+                assert_contains(error, tester.run(code).expect_shell_error()?.to_string())
+            }
+        }
+        Ok(())
+    })
+}
+
 /// Writes an executable script in the playground. Another test that forks while the file is
 /// still open for writing keeps it busy until that child runs its own program, so this waits
-/// for that (see https://github.com/rust-lang/rust/issues/114554).
+/// for that (see https://github.com/rust-lang/rust/issues/114554). Starting the script shows
+/// it's no longer busy, so it is stopped right away: it may not end on its own.
 #[cfg(unix)]
 fn write_script(dirs: &nu_test_support::playground::Dirs, name: &str, content: &str) {
     use std::os::unix::fs::PermissionsExt;
+    use std::process::{Command, Stdio};
 
     let path: std::path::PathBuf = dirs.test().join(name).into();
     std::fs::write(&path, content).expect("write the script");
     std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755))
         .expect("make the script executable");
     while matches!(
-        std::process::Command::new(&path).arg("--help").output(),
+        Command::new(&path)
+            .arg("--help")
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .and_then(|mut child| child.kill().and_then(|()| child.wait())),
         Err(err) if err.kind() == std::io::ErrorKind::ExecutableFileBusy
     ) {}
 }

@@ -3,7 +3,7 @@
 
 use super::completers::{self, Completers, Dynamic};
 use nu_protocol::SyntaxShape;
-use std::fmt::Write;
+use std::{collections::HashMap, fmt::Write};
 
 /// One command or subcommand of the tool, such as `git` or `git remote add`.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -16,6 +16,23 @@ pub(super) struct CommandSpec {
     pub skipped: Vec<String>,
     /// What the command's arguments, other than flags, complete to.
     pub args: Completions,
+    /// For a subcommand that help text lists as an alias of another, such as `i` in clap's
+    /// `install  Install packages [aliases: i]`, the name of that command, whose flags the help
+    /// source gives it instead of running its `--help`.
+    pub alias_of: Option<String>,
+    /// The flags that [`merge`] declared as switches because the sources disagree on whether
+    /// they take a value.
+    pub disputes: Vec<Dispute>,
+}
+
+/// A flag that some sources list with a value and others without. The sources are indices
+/// into the list that [`merge`] was given.
+#[derive(Clone, Debug, PartialEq)]
+pub(super) struct Dispute {
+    /// The flag as the extern declares it, `--color` or `-c`.
+    pub flag: String,
+    pub with_value: Vec<usize>,
+    pub without_value: Vec<usize>,
 }
 
 /// The completions of an argument: fixed values, and completers that run when you press Tab.
@@ -141,15 +158,19 @@ impl CommandSpec {
     /// lacked. When the sources disagree about whether the flag takes a value, it becomes a
     /// switch: a value after a switch still reaches the command, while a typed flag would take
     /// an argument that isn't its value.
-    fn merge_flag(&mut self, flag: FlagSpec) {
+    ///
+    /// Returns the index of the flag it merged into or added, or `None` when none of the
+    /// flag's names could be declared.
+    fn merge_flag(&mut self, flag: FlagSpec) -> Option<usize> {
         // A flag with a long name is the same flag only under that name: `--size(-s)` isn't
         // `--short(-s)`, it just can't have `-s` too.
         let Some(index) = self.flags.iter().position(|known| match &flag.long {
             Some(_) => known.long == flag.long,
             None => flag.short.is_some() && known.short == flag.short,
         }) else {
+            let count = self.flags.len();
             self.add_flag(flag);
-            return;
+            return (self.flags.len() > count).then_some(count);
         };
         let long_taken = flag.long.is_some() && self.flags.iter().any(|f| f.long == flag.long);
         let short_taken = flag.short.is_some() && self.flags.iter().any(|f| f.short == flag.short);
@@ -169,6 +190,7 @@ impl CommandSpec {
         } else if known.arg.is_some() {
             known.completions.extend(flag.completions);
         }
+        Some(index)
     }
 }
 
@@ -177,31 +199,43 @@ impl CommandSpec {
 ///
 /// A command is in the result when any source has it. Its description comes from the first
 /// source that has one, and its flags are merged by [`CommandSpec::merge_flag`]. A name any
-/// source lists as not declarable stays undeclared.
+/// source lists as not declarable stays undeclared. A flag that the sources disagree on taking
+/// a value is a switch, recorded in `disputes`.
 pub(super) fn merge(sources: Vec<Vec<CommandSpec>>) -> Vec<CommandSpec> {
     let mut merged: Vec<CommandSpec> = vec![];
-    for spec in sources.into_iter().flatten() {
-        // Unlike `spec_at`, no parents are added: learning `git status` gives no `git`.
-        let index = match merged.iter().position(|known| known.path == spec.path) {
-            Some(index) => index,
-            None => {
-                merged.push(CommandSpec::new(spec.path.clone()));
-                merged.len() - 1
+    // By command and flag index, the sources that list the flag without a value and with one.
+    let mut takes_value: HashMap<(usize, usize), [Vec<usize>; 2]> = HashMap::new();
+    for (source, specs) in sources.into_iter().enumerate() {
+        for spec in specs {
+            // Unlike `spec_at`, no parents are added: learning `git status` gives no `git`.
+            let index = match merged.iter().position(|known| known.path == spec.path) {
+                Some(index) => index,
+                None => {
+                    merged.push(CommandSpec::new(spec.path.clone()));
+                    merged.len() - 1
+                }
+            };
+            let known = &mut merged[index];
+            if known.description.is_empty() {
+                known.description = spec.description;
             }
-        };
-        let known = &mut merged[index];
-        if known.description.is_empty() {
-            known.description = spec.description;
+            for skipped in spec.skipped {
+                known.skip(skipped);
+            }
+            for flag in spec.flags {
+                let with_value = flag.arg.is_some();
+                if let Some(flag_index) = known.merge_flag(flag) {
+                    let sources = &mut takes_value.entry((index, flag_index)).or_default()
+                        [usize::from(with_value)];
+                    if !sources.contains(&source) {
+                        sources.push(source);
+                    }
+                }
+            }
+            known.args.extend(spec.args);
         }
-        for skipped in spec.skipped {
-            known.skip(skipped);
-        }
-        for flag in spec.flags {
-            known.merge_flag(flag);
-        }
-        known.args.extend(spec.args);
     }
-    for spec in &mut merged {
+    for (index, spec) in merged.iter_mut().enumerate() {
         let skipped = std::mem::take(&mut spec.skipped);
         for flag in &mut spec.flags {
             if flag
@@ -216,6 +250,19 @@ pub(super) fn merge(sources: Vec<Vec<CommandSpec>>) -> Vec<CommandSpec> {
                 .is_some_and(|short| skipped.contains(&format!("-{short}")))
             {
                 flag.short = None;
+            }
+        }
+        for (flag_index, flag) in spec.flags.iter().enumerate() {
+            if let Some([without_value, with_value]) = takes_value.remove(&(index, flag_index))
+                && !without_value.is_empty()
+                && !with_value.is_empty()
+                && (flag.long.is_some() || flag.short.is_some())
+            {
+                spec.disputes.push(Dispute {
+                    flag: flag.spelling(),
+                    with_value,
+                    without_value,
+                });
             }
         }
         spec.flags
@@ -330,16 +377,27 @@ pub(super) fn render(tool: &str, origins: &[String], specs: &[CommandSpec], cobr
         if !spec.description.is_empty() {
             let _ = writeln!(externs, "# {}", one_line(&spec.description));
         }
-        // After a blank comment line, the note becomes the extern's extra description.
+        let mut notes = vec![];
         if !spec.skipped.is_empty() {
-            if !spec.description.is_empty() {
-                externs.push_str("#\n");
-            }
-            let _ = writeln!(
-                externs,
-                "# Not declared (optional value or unsupported name): {}",
+            notes.push(format!(
+                "Not declared (optional value or unsupported name): {}",
                 spec.skipped.join(", ")
-            );
+            ));
+        }
+        for dispute in &spec.disputes {
+            notes.push(format!(
+                "Sources disagree on whether {} takes a value, so it's a switch: yes in {}, no in {}",
+                dispute.flag,
+                list_origins(origins, &dispute.with_value),
+                list_origins(origins, &dispute.without_value)
+            ));
+        }
+        // After a blank comment line, the notes become the extern's extra description.
+        if !notes.is_empty() && !spec.description.is_empty() {
+            externs.push_str("#\n");
+        }
+        for note in notes {
+            let _ = writeln!(externs, "# {note}");
         }
         let mut params = vec![];
         for flag in &spec.flags {
@@ -394,6 +452,19 @@ pub(super) fn render(tool: &str, origins: &[String], specs: &[CommandSpec], cobr
     out.push_str(&completers.render());
     out.push_str(&externs);
     out
+}
+
+/// The origins of the sources at `indices`, as `a`, `a and b` or `a, b and c`.
+fn list_origins(origins: &[String], indices: &[usize]) -> String {
+    let names = indices
+        .iter()
+        .filter_map(|&index| origins.get(index).map(String::as_str))
+        .collect::<Vec<_>>();
+    match names.split_last() {
+        Some((last, [])) => last.to_string(),
+        Some((last, rest)) => format!("{} and {last}", rest.join(", ")),
+        None => String::new(),
+    }
 }
 
 /// A flag as `(long, short, value type, description)`, for comparing in tests.
@@ -573,6 +644,44 @@ mod tests {
             ]
         );
         assert_eq!(root.skipped, ["--porcelain"]);
+        assert_eq!(
+            root.disputes,
+            [Dispute {
+                flag: "--message".into(),
+                with_value: vec![0],
+                without_value: vec![1],
+            }]
+        );
         assert_eq!(merged[1].path, ["add"]);
+    }
+
+    #[test]
+    fn render_names_the_sources_that_disagree() {
+        let source = |arg: Option<SyntaxShape>| {
+            let mut spec = CommandSpec::new(vec![]);
+            spec.add_flag(flag(Some("verbose"), Some('v'), arg));
+            vec![spec]
+        };
+        let merged = merge(vec![
+            source(None),
+            source(Some(SyntaxShape::String)),
+            source(Some(SyntaxShape::Int)),
+        ]);
+        let origins = [
+            "`man tool`",
+            "`tool --help`",
+            "the fish completions of `tool`",
+        ]
+        .map(str::to_string);
+        let module = render("tool", &origins, &merged, false);
+        assert!(module.ends_with(
+            "\n\
+             # Sources disagree on whether --verbose takes a value, so it's a switch: yes in \
+             `tool --help` and the fish completions of `tool`, no in `man tool`\n\
+             @complete external\n\
+             export extern \"tool\" [\n    \
+                 --verbose(-v)                  # desc\n\
+             ]\n"
+        ));
     }
 }

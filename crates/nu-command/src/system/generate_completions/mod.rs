@@ -15,6 +15,7 @@ use nu_protocol::{engine::CommandType, shell_error::generic::GenericError};
 use spec::{CommandSpec, is_command_word};
 use std::{
     collections::HashMap,
+    io::Read,
     process::{Command as Process, Stdio},
 };
 
@@ -56,14 +57,17 @@ impl Command for GenerateCompletions {
 
     fn extra_description(&self) -> &str {
         "Without --source, the sources are tried in the order carapace, fish, zsh, man, help, and \
-the first one that knows any flags or subcommands is used. With --source all, every source that \
-knows any is used and their commands and flags are merged, the earlier source winning when they \
-disagree. carapace, fish and zsh know the whole tree of subcommands. man gives the flags of the \
-named command only, and help also gives the subcommands its --help lists, without their flags, \
-since those are in each subcommand's own help. The help source runs the command with --help. \
-It runs a subcommand that way only when another source knows it, the --help of the command \
-above it lists it, or it has a man page, as git's subcommands do, since a command that doesn't \
-read --help first would run instead.
+the first one that knows any flags or subcommands is used. A man page lists no subcommands, so \
+when man is used and the command's --help lists some, what help finds is merged in as with \
+--source all. With --source all, every source \
+that knows any is used and their commands and flags are merged, the earlier source winning when \
+they disagree. A flag they disagree on taking a value is declared as a switch, and the comment \
+above its extern names the sources on each side. carapace, fish and zsh know the whole tree of subcommands, and man gives the \
+flags of the named command only. The help source runs the command with --help, then each \
+subcommand that help lists, and theirs in turn, to read the whole tree. It runs a subcommand \
+that way only when another source knows it, the --help of the command above it lists it, or it \
+has a man page, as git's subcommands do, since a command that doesn't read --help first would \
+run instead.
 
 The result is the text of a module of `export extern` definitions. Externs exist only once \
 nushell has parsed them, so save the text to a file and load it with `use` or `source`, or save \
@@ -200,6 +204,10 @@ command."
         // Why the help source didn't run the subcommand, for the error.
         let mut unlisted = None;
         for source in sources {
+            // In the default order, the loop only goes on past a source that knew anything
+            // when that source is man, whose page lists no subcommands. The help source then
+            // adds the subcommands its --help lists, or nothing.
+            let after_man = !merge_all && !learned.is_empty();
             // `<tool> <words> --help` runs the subcommand when the tool doesn't read --help
             // first: `rm notes.txt --help` removes notes.txt. So each word must be a
             // subcommand that another source knows, that the help above it lists, or that has
@@ -246,12 +254,27 @@ command."
                     // Whatever the program printed instead of an export.
                     Err(_) => continue,
                 };
+                // The first spec is the command's own, and any others are its subcommands.
+                if after_man && specs.len() < 2 {
+                    continue;
+                }
+                let specs = match (source, &runner) {
+                    (Source::Help, Some(runner)) => walk_help(
+                        runner,
+                        &words,
+                        &mut vec![text],
+                        specs,
+                        engine_state.signals(),
+                        head,
+                    )?,
+                    _ => specs,
+                };
                 if knows_anything(&specs) {
                     learned.push((specs, origin));
                     break;
                 }
             }
-            if !learned.is_empty() && !merge_all {
+            if !learned.is_empty() && !merge_all && !matches!(source, Source::Man) {
                 break;
             }
         }
@@ -316,6 +339,66 @@ command."
             },
         ]
     }
+}
+
+/// Reads the `--help` of each subcommand that the help of the command `words` lists, and of
+/// theirs in turn, so the specs of the whole tree have their flags, as carapace, fish and zsh
+/// give them. `specs` is what that help gave: the command's own spec, then one without flags
+/// for each subcommand it lists. `helps` holds that help text and those of the commands above.
+///
+/// Each subcommand that runs this way is one that the help above it lists, as the help source
+/// requires before running a subcommand. clap's `help` reads the word after it as a command to
+/// describe, so it isn't run. An alias gets the flags of its command, without subcommands, as
+/// carapace gives it. A subcommand that prints the help of a command above it didn't read its
+/// name, so the subcommands that help lists aren't its own and aren't walked.
+fn walk_help(
+    runner: &Runner,
+    words: &[String],
+    helps: &mut Vec<String>,
+    specs: Vec<CommandSpec>,
+    signals: &nu_protocol::Signals,
+    span: Span,
+) -> Result<Vec<CommandSpec>, ShellError> {
+    let mut specs = specs.into_iter();
+    let mut tree: Vec<CommandSpec> = specs.next().into_iter().collect();
+    for listed in specs {
+        let Some(name) = listed.path.last() else {
+            continue;
+        };
+        if let Some(command) = &listed.alias_of {
+            let command_path = [&words[1..], std::slice::from_ref(command)].concat();
+            match tree.iter().find(|spec| spec.path == command_path) {
+                Some(walked) => tree.push(CommandSpec {
+                    path: listed.path,
+                    description: listed.description,
+                    alias_of: listed.alias_of,
+                    ..walked.clone()
+                }),
+                None => tree.push(listed),
+            }
+            continue;
+        }
+        let sub_words = [words, std::slice::from_ref(name)].concat();
+        signals.check(&span)?;
+        let text = match name.as_str() {
+            "help" => None,
+            _ => Source::Help.fetch(runner, &sub_words).into_iter().next(),
+        };
+        let Some(text) = text.filter(|text| !helps.contains(text)) else {
+            tree.push(listed);
+            continue;
+        };
+        let mut sub_specs = help_text::parse(&text, listed.path.clone(), true);
+        if let Some(own) = sub_specs.first_mut() {
+            own.description = listed.description;
+        }
+        helps.push(text);
+        tree.extend(walk_help(
+            runner, &sub_words, helps, sub_specs, signals, span,
+        )?);
+        helps.pop();
+    }
+    Ok(tree)
 }
 
 /// Whether the specs declare anything beyond an empty signature for the command.
@@ -511,25 +594,55 @@ impl Runner {
     /// Runs `program` without input and returns its stdout, or its stderr when stdout is
     /// empty, since some commands print their help there. The exit status is ignored: many
     /// commands exit with an error after printing their help.
+    ///
+    /// A stream longer than [`MAX_TEXT`] isn't help, and gives no text. Once it is read that
+    /// far, it is closed, so the program gets SIGPIPE when it writes more, and a program still
+    /// writing to stdout is killed.
     fn stdout(&self, program: &str, args: &[&str], envs: &[(&str, &str)]) -> Option<String> {
         let executable = crate::which(program, &self.paths, self.cwd.as_ref())?;
-        let output = Process::new(executable)
+        let mut child = Process::new(executable)
             .args(args)
             .current_dir(&self.cwd)
             .env_clear()
             .envs(&self.envs)
             .envs(envs.iter().copied())
             .stdin(Stdio::null())
-            .output()
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
             .ok()?;
-        let text = if output.stdout.is_empty() {
-            output.stderr
-        } else {
-            output.stdout
+        // stderr is read on a thread of its own, so a program that fills it while stdout is
+        // read doesn't wait forever.
+        let stderr = child
+            .stderr
+            .take()
+            .map(|stderr| std::thread::spawn(move || read_text(stderr)));
+        let stdout = child.stdout.take().and_then(read_text);
+        if stdout.is_none() {
+            let _ = child.kill();
+        }
+        let stderr = stderr.and_then(|reader| reader.join().ok().flatten());
+        let _ = child.wait();
+
+        let text = match stdout? {
+            stdout if stdout.is_empty() => stderr?,
+            stdout => stdout,
         };
         let text = String::from_utf8_lossy(&text).into_owned();
         (!text.trim().is_empty()).then_some(text)
     }
+}
+
+/// The most text read from a stream of a program that prints source text. The longest text a
+/// source gives here is `man ffmpeg-all`, at 2.2 MB. A program that prints more isn't printing
+/// help: macOS's `yes --help` prints `--help` forever.
+const MAX_TEXT: u64 = 16 * 1024 * 1024;
+
+/// Reads a stream to its end, or returns `None` when it is longer than [`MAX_TEXT`].
+fn read_text(stream: impl Read) -> Option<Vec<u8>> {
+    let mut text = vec![];
+    stream.take(MAX_TEXT + 1).read_to_end(&mut text).ok()?;
+    (text.len() as u64 <= MAX_TEXT).then_some(text)
 }
 
 #[cfg(test)]
