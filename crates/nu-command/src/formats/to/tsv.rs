@@ -4,7 +4,7 @@ use crate::formats::to::delimited::to_delimited_data;
 use nu_engine::command_prelude::*;
 use nu_protocol::Config;
 
-use super::delimited::ToDelimitedDataArgs;
+use super::delimited::{ToDelimitedDataArgs, parse_single_char_flag};
 
 #[derive(Clone)]
 pub struct ToTsv;
@@ -28,7 +28,7 @@ impl Command for ToTsv {
             .named(
                 "quote",
                 SyntaxShape::String,
-                "A quote character to wrap fields containing the separator, defaults to '\"'.",
+                "A quote character to wrap fields that need quoting, defaults to '\"'.",
                 Some('q'),
             )
             .named(
@@ -72,6 +72,11 @@ impl Command for ToTsv {
                 example: r#"[[foo]; ['say "hi"']] | to tsv --escape '\'"#,
                 result: Some(Value::test_string("foo\n\"say \\\"hi\\\"\"\n")),
             },
+            Example {
+                description: "Outputs a TSV string, quoting fields with a custom character.",
+                example: r#"[[foo]; ["a\tb"]] | to tsv --quote '|'"#,
+                result: Some(Value::test_string("foo\n|a\tb|\n")),
+            },
         ]
     }
 
@@ -86,12 +91,15 @@ impl Command for ToTsv {
         let noheaders = call.has_flag(engine_state, stack, "noheaders")?;
         let quote = call
             .get_flag(engine_state, stack, "quote")?
-            .map(|v: Value| v.as_char())
+            .map(|v: Value| parse_single_char_flag(v, "quote"))
             .transpose()?
-            .unwrap_or('"');
+            .unwrap_or(Spanned {
+                item: '"',
+                span: head,
+            });
         let escape = call
             .get_flag(engine_state, stack, "escape")?
-            .map(|v: Value| v.as_char())
+            .map(|v: Value| parse_single_char_flag(v, "escape"))
             .transpose()?;
         let columns: Option<Vec<String>> = call.get_flag(engine_state, stack, "columns")?;
         let config = engine_state.config.clone();
@@ -102,8 +110,8 @@ impl Command for ToTsv {
 fn to_tsv(
     input: PipelineData,
     noheaders: bool,
-    quote: char,
-    escape: Option<char>,
+    quote: Spanned<char>,
+    escape: Option<Spanned<char>>,
     columns: Option<Vec<String>>,
     head: Span,
     config: Arc<Config>,

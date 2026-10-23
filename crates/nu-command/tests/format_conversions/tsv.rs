@@ -151,6 +151,30 @@ fn from_tsv_text_with_custom_quotes_to_table(playground: Playground) -> Result {
 }
 
 #[test]
+fn to_tsv_quote_round_trips() -> Result {
+    let code = "[[foo]; [\"a\\tb\"]] | to tsv --quote '|' | from tsv --quote '|' | get 0.foo";
+    test().run(code).expect_value_eq("a\tb")
+}
+
+#[test]
+fn to_tsv_escape_round_trips_data_containing_the_escape_char() -> Result {
+    let code = r#"[[foo]; ['a\b']] | to tsv --escape '\' | from tsv --escape '\' | get 0.foo"#;
+    test().run(code).expect_value_eq(r"a\b")
+}
+
+#[test]
+fn streaming_to_tsv_escape_round_trips() -> Result {
+    let code = r#"
+        1..2 | each {|i| {foo: $"a\\($i)b"} }
+        | to tsv --escape '\'
+        | from tsv --escape '\'
+        | get foo
+        | to nuon
+    "#;
+    test().run(code).expect_value_eq(r#"["a\\1b", "a\\2b"]"#)
+}
+
+#[test]
 fn from_tsv_text_with_custom_escapes_to_table(playground: Playground) -> Result {
     playground.file(
         "los_tres_caballeros.txt",
