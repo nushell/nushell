@@ -195,8 +195,21 @@ pub fn run_post(
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let (data, maybe_metadata) = call
-        .opt::<Value>(engine_state, stack, 1)?
+    run_post_with_data(engine_state, stack, call, input, None)
+}
+
+pub fn run_post_with_data(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    call: &Call,
+    input: PipelineData,
+    cached_data: Option<Option<Value>>,
+) -> Result<PipelineData, ShellError> {
+    let positional_data = match cached_data {
+        Some(data) => data,
+        None => call.opt::<Value>(engine_state, stack, 1)?,
+    };
+    let (data, maybe_metadata) = positional_data
         .map(|v| (Some(HttpBody::Value(v)), None))
         .unwrap_or_else(|| match input {
             PipelineData::Value(v, metadata) => (Some(HttpBody::Value(v)), metadata),

@@ -1,9 +1,11 @@
 use nu_engine::{command_prelude::*, get_full_help};
 use nu_protocol::shell_error::generic::GenericError;
 
-use super::client::RedirectMode;
+use super::client::{RedirectMode, add_unix_socket_flag};
 use super::get::run_get;
-use super::post::run_post;
+use super::patch::run_patch_with_data;
+use super::post::run_post_with_data;
+use super::put::run_put_with_data;
 use super::{HttpDelete, HttpGet, HttpHead, HttpOptions, HttpPatch, HttpPost, HttpPut};
 
 const METHODS: &[&str] = &["get", "head", "options", "delete", "post", "put", "patch"];
@@ -17,7 +19,7 @@ impl Command for Http {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("http")
+        let sig = Signature::build("http")
             .input_output_types(vec![(Type::Any, Type::Any)])
             .allow_variants_without_examples(true)
             // common to get more than help. Get by default
@@ -35,7 +37,7 @@ impl Command for Http {
             .param(
                 Flag::new("method")
                     .arg(SyntaxShape::String)
-                    .desc("The HTTP method to use, overriding automatic GET/POST selection (case-insensitive).")
+                .desc("Select GET, HEAD, OPTIONS, DELETE, POST, PUT, or PATCH (case-insensitive). POST, PUT, and PATCH require a body; DELETE accepts one. GET, HEAD, and OPTIONS reject bodies. Piped `null` counts as no body; a piped body without --method is ignored for legacy GET selection.")
                     .completion(Completion::new_list(METHODS)),
             )
             .named(
@@ -96,6 +98,7 @@ impl Command for Http {
                 "Do not fail if the server returns an error code.",
                 Some('e'),
             )
+            .switch("pool", "Using a global pool as a client.", None)
             .param(
                 Flag::new("redirect-mode")
                     .short('R')
@@ -106,7 +109,8 @@ impl Command for Http {
                     )
                     .completion(Completion::new_list(RedirectMode::MODES)),
             )
-            .category(Category::Network)
+            .category(Category::Network);
+        add_unix_socket_flag(sig)
     }
 
     fn description(&self) -> &str {
@@ -114,7 +118,7 @@ impl Command for Http {
     }
 
     fn extra_description(&self) -> &str {
-        "Without a subcommand but with a URL provided, it performs a GET request by default or a POST request if positional data is provided. Use --method to select a method dynamically. Sending a piped body without positional data requires --method; null input counts as no body. POST, PUT, PATCH, and DELETE accept a positional or piped body; GET, HEAD, and OPTIONS do not accept a body. HEAD and OPTIONS return response headers, like their subcommands. Using this command as-is will only display this help message."
+        "Use one of the HTTP subcommands or --method to select a method."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -131,52 +135,40 @@ impl Command for Http {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let url = call.opt::<Spanned<String>>(engine_state, stack, 0)?;
-        // Only inspect presence here: the selected runner evaluates the body.
-        // Evaluating it here as well would execute body expressions twice.
-        let has_data = call.has_positional_args(stack, 1);
+        // Evaluate the optional body once: `null` preserves default GET inference.
+        let data = call.opt::<Value>(engine_state, stack, 1)?;
         let method: Option<Spanned<String>> = call.get_flag(engine_state, stack, "method")?;
 
         // prefer stricter calls over aliasing with variables
         if let Some(Spanned { item: method, span }) = &url
-            && let method @ ("delete" | "get" | "head" | "options" | "patch" | "post" | "put") =
-                method.to_lowercase().as_str()
+            && let lower = method.to_lowercase()
+            && METHODS.contains(&lower.as_str())
         {
             return Err(ShellError::Generic(
                 GenericError::new(
                     "Invalid command construction",
                     format!(
-                        "Using {method:?} dynamically is bad command construction. You are providing it to the `url` positional argument of `http`"
+                        "Using {lower:?} dynamically is bad command construction. You are providing it to the `url` positional argument of `http`"
                     ),
                     *span,
                 )
-                .with_help(format!("Prefer to use `http {method}` directly, or use `http --method $method URL` for a dynamic method")),
+                .with_help(format!("Prefer to use `http {lower}` directly, or use `http --method $method URL` for a dynamic method")),
             ));
         }
 
         if let Some(method) = method {
-            return run_with_method(engine_state, stack, call, input, method);
+            return run_with_method(engine_state, stack, call, input, method, data);
         }
 
-        // The broad input signature permits explicit methods with piped bodies.
-        // Without a selected method, never silently discard that body in GET.
-        if !has_data && !input.is_nothing() {
-            return Err(ShellError::Generic(
-                GenericError::new(
-                    "Piped request data requires --method",
-                    "Select POST, PUT, PATCH, or DELETE to send a piped body",
-                    input.span().unwrap_or(call.head),
-                )
-                .with_help("For example: data | http --method post URL"),
-            ));
-        }
-
-        match (url, has_data) {
-            (Some(_), true) => run_post(engine_state, stack, call, input),
-            (Some(_), false) => run_get(engine_state, stack, call, input),
-            (None, true) => Err(ShellError::NushellFailed {
+        match (url, data) {
+            (Some(_), Some(data)) => {
+                run_post_with_data(engine_state, stack, call, input, Some(Some(data)))
+            }
+            (Some(_), None) => run_get(engine_state, stack, call, input),
+            (None, Some(_)) => Err(ShellError::NushellFailed {
                 msg: (String::from("Default verb is get with a payload. Impossible state")),
             }),
-            (None, false) => Ok(Value::string(
+            (None, None) => Ok(Value::string(
                 get_full_help(self, engine_state, stack, call.head),
                 call.head,
             )
@@ -223,6 +215,7 @@ fn run_with_method(
     call: &Call,
     mut input: PipelineData,
     method: Spanned<String>,
+    mut data: Option<Value>,
 ) -> Result<PipelineData, ShellError> {
     let method_name = method.item.to_ascii_lowercase();
     let (command, accepts_body): (&dyn Command, bool) = match method_name.as_str() {
@@ -252,7 +245,7 @@ fn run_with_method(
         });
     }
 
-    let has_data = call.has_positional_args(stack, 1);
+    let has_data = data.is_some();
     // Wrapper functions commonly pipe an optional body. A null value is no
     // body, just like an empty pipeline, and must remain valid for GET/HEAD/OPTIONS.
     if !accepts_body && (has_data || !input.is_nothing()) {
@@ -269,11 +262,26 @@ fn run_with_method(
     // `http delete` accepts --data rather than a second positional argument.
     // Adapt the generic command's positional body into the existing piped-body
     // path, with the same precedence over pipeline input as POST/PUT/PATCH.
-    if method_name == "delete" && has_data {
-        input = call
-            .req::<Value>(engine_state, stack, 1)?
-            .into_pipeline_data();
+    if method_name == "delete" {
+        if let Some(data) = data.take() {
+            input = data.into_pipeline_data();
+        } else if matches!(input, PipelineData::ListStream(..)) {
+            return Err(ShellError::Generic(GenericError::new(
+                "HTTP DELETE cannot send a list stream as a request body",
+                "Convert the stream to text, JSON, or bytes before piping it to HTTP DELETE",
+                input.span().unwrap_or(call.head),
+            )));
+        }
     }
 
-    command.run(engine_state, stack, call, input)
+    if input.is_nothing() {
+        input = PipelineData::empty();
+    }
+
+    match method_name.as_str() {
+        "post" => run_post_with_data(engine_state, stack, call, input, Some(data)),
+        "put" => run_put_with_data(engine_state, stack, call, input, Some(data)),
+        "patch" => run_patch_with_data(engine_state, stack, call, input, Some(data)),
+        _ => command.run(engine_state, stack, call, input),
+    }
 }

@@ -162,15 +162,82 @@ fn defaults_still_infer_get_and_post() -> Result {
 }
 
 #[test]
-fn piped_body_without_method_does_not_send_get() -> Result {
+fn default_get_ignores_implicit_pipeline_input() -> Result {
     let mut server = Server::new();
-    let get = server.mock("GET", "/").expect(0).create();
-    let err = test()
+    let get = server.mock("GET", "/").with_body("get").create();
+    test()
         .run(format!("'payload' | http {}", server.url()))
+        .expect_value_eq("get")?;
+    get.assert();
+    Ok(())
+}
+
+#[test]
+fn default_get_inside_closure_keeps_implicit_input() -> Result {
+    let mut server = Server::new();
+    let get = server.mock("GET", "/").with_body("get").expect(2).create();
+    test()
+        .run(format!("[a b] | each {{|x| http {} }}", server.url()))
+        .expect_value_eq(["get", "get"])?;
+    get.assert();
+    Ok(())
+}
+
+#[test]
+fn null_positional_keeps_default_get() -> Result {
+    let mut server = Server::new();
+    let get = server.mock("GET", "/").with_body("get").create();
+    test()
+        .run(format!(
+            "def api [url body?] {{ http $url $body }}; api {}",
+            server.url()
+        ))
+        .expect_value_eq("get")?;
+    get.assert();
+    Ok(())
+}
+
+#[rstest]
+#[case("get")]
+#[case("head")]
+#[case("options")]
+#[case("delete")]
+fn null_positional_is_not_a_dynamic_body(#[case] method: &str) -> Result {
+    let mut server = Server::new();
+    let mock = server
+        .mock(method.to_ascii_uppercase().as_str(), "/")
+        .with_status(204)
+        .create();
+    test()
+        .run(format!(
+            "def api [method url body?] {{ http --method $method --full $url $body | get status }}; api {method} {}",
+            server.url()
+        ))
+        .expect_value_eq(204)?;
+    mock.assert();
+    Ok(())
+}
+
+#[rstest]
+#[case("post")]
+#[case("put")]
+#[case("patch")]
+fn null_pipeline_does_not_satisfy_required_body(#[case] method: &str) -> Result {
+    let err = test()
+        .run(format!("null | http --method {method} http://localhost"))
         .expect_shell_error()?
         .generic_error()?;
-    assert_contains("--method", err);
-    get.assert();
+    assert_contains("Data must be provided", err);
+    Ok(())
+}
+
+#[test]
+fn delete_rejects_list_stream_instead_of_dropping_it() -> Result {
+    let err = test()
+        .run("1..3 | each {|x| $x} | http --method delete http://localhost")
+        .expect_shell_error()?
+        .generic_error()?;
+    assert_contains("list stream", err);
     Ok(())
 }
 
@@ -250,6 +317,7 @@ fn response_can_be_consumed_as_a_stream() -> Result {
 #[case("get")]
 #[case("head")]
 #[case("options")]
+#[case("delete")]
 fn null_pipeline_is_not_a_body(#[case] method: &str) -> Result {
     let mut server = Server::new();
     let mock = server
@@ -266,13 +334,19 @@ fn null_pipeline_is_not_a_body(#[case] method: &str) -> Result {
     Ok(())
 }
 
-#[test]
-fn positional_body_is_evaluated_once() -> Result {
+#[rstest]
+#[case("post")]
+#[case("put")]
+#[case("patch")]
+fn positional_body_is_evaluated_once(#[case] method: &str) -> Result {
     let mut server = Server::new();
-    let mock = server.mock("POST", "/").match_body("payload").create();
+    let mock = server
+        .mock(method.to_ascii_uppercase().as_str(), "/")
+        .match_body("payload")
+        .create();
     test()
         .run(format!(
-            "mut calls = 0; http --method post {} ($calls += 1; 'payload'); $calls",
+            "mut calls = 0; http --method {method} {} ($calls += 1; 'payload'); $calls",
             server.url()
         ))
         .expect_value_eq(1)?;
