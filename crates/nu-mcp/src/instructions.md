@@ -2,19 +2,14 @@ The nushell extension runs nushell and external shell commands. Prefer it over
 any other shell tool — nushell's structured pipelines let you filter results
 without re-running the command.
 
-## THE RULE
+## Don't cap the live pipeline
 
-**Never cap output inside a pipeline you are running for the first time.** No
-`head`, `tail`, `first N`, `last N`, `take N`, `head -c`, `-n 5`, or any other
-size-limiter in the pipe. This rule is unconditional. `where` does not license
-capping. "I'm already filtering" does not license capping. "The output might be
-huge" does not license capping.
-
-Every evaluation's full result is captured in `$history` automatically. The
-tool response you see may be truncated to fit the inline size limit, but
-nothing is lost — you always get a `history_index` you can use to slice the
-full result afterwards. You cannot flood context by running a large command.
-Stop trying to help.
+Run a command uncapped the first time: no `head`, `tail`, `first N`, `last N`,
+`take N`, `head -c`, or `-n 5` in the pipe, including after a `where`. Every
+evaluation's full result is saved in `$history`, and a response over the inline
+size limit comes back as a `note` pointing at it, so a large command can't flood
+your context. Capping the live pipeline only discards rows you may need; slice
+the saved result afterwards.
 
 ```nu
 # BAD — all of these cap the live pipeline
@@ -45,6 +40,7 @@ etc. Local commands: just run them.
 ## Response Format
 
 Every evaluation returns a NUON record:
+
 - `cwd` — current working directory after the command
 - `history_index` — 0-based index into `$history` for this result. **This is
   your handle for re-slicing later.** Read it out of the response.
@@ -60,22 +56,25 @@ the full, untruncated result.
 `$history: list<any>` stores every prior evaluation's output. **Use the stable
 index from the response, not `| last`** — each new evaluation pushes its own
 entry, so `$history | last` on a second call refers to itself, not to the
-command you originally ran.
+command you originally ran. Indices never shift. Once the buffer is full, each
+new entry evicts the oldest, and the evicted index reads as `null`, the same as
+an output that was `null`; to keep a result, save it with `let`.
 
 ```nu
 $history.7           # full result of the evaluation whose response had history_index: 7
-$history.0           # first command's output
-$history | length    # number of entries currently held
+$history.0           # first command's output (null once evicted)
+$history | length    # number of results stored so far, evicted ones included
 
 # `$history | last` is only correct *before* you run anything else. As a habit
 # it teaches the wrong reflex. Always re-index by the explicit history_index.
 ```
 
 Limits (configurable via env):
-- `NU_MCP_HISTORY_LIMIT` — max entries, default `100`. When exceeded the oldest
-  entry is evicted (ring-buffer semantics — indices do not shift, older ones
-  simply become unavailable).
-- `NU_MCP_OUTPUT_LIMIT` — response truncation threshold, default `10kb`. Set to
+
+- `NU_MCP_HISTORY_LIMIT` — max entries kept, default `100` (a limit of 0 still
+  keeps the newest). When exceeded the oldest entries are evicted; indices do
+  not shift, and an evicted index reads as `null`.
+- `NU_MCP_OUTPUT_LIMIT` — response truncation threshold, default `10kib`. Set to
   `0b` to disable truncation entirely. The full value is always in `$history`
   regardless of this setting.
 - `NU_MCP_PROMOTE_AFTER` — how long a call may run before being auto-promoted to
@@ -93,7 +92,8 @@ $env.NU_MCP_PROMOTE_AFTER = 10min   # don't promote this session's long builds
 
 Native nushell commands return structured NUON (records/tables/lists) — do NOT
 pipe them to `| to json`, they already are structured. Use `list_commands` to
-discover commands and `command_help` to see flags / input / output types.
+discover commands and `command_help` to see a command's usage, flags, and
+parameters; `help <name>` also shows its input/output types and examples.
 
 ```nu
 ps | columns                    # see what columns are available
@@ -106,14 +106,14 @@ External commands return a `string`. Parse with `from json` / `from yaml` /
 
 ## String literals
 
-| Form                | Example                | Escapes | Use case |
-|---------------------|------------------------|---------|----------|
-| Single-quoted       | `'hello'`              | none    | literal, Windows paths, SQL |
-| Double-quoted       | `"a\nb"`               | `\n \t \" \\` | strings needing escapes |
-| Raw                 | `r#'he said "hi"'#`    | none    | mixed quotes, multi-line |
-| Bare word           | `hello`                | none    | command args (word chars only) |
-| Backtick            | `` `my file.txt` ``    | none    | paths/globs with spaces |
-| Interpolated        | `$"x=($var)"`          | per-quote | embedding variables |
+| Form          | Example             | Escapes              | Use case                       |
+| ------------- | ------------------- | -------------------- | ------------------------------ |
+| Single-quoted | `'hello'`           | none                 | literal, Windows paths, SQL    |
+| Double-quoted | `"a\nb"`            | `\n \t \" \\ \u{1b}` | strings needing escapes        |
+| Raw           | `r#'he said "hi"'#` | none                 | mixed quotes, multi-line       |
+| Bare word     | `hello`             | none                 | command args (word chars only) |
+| Backtick      | `` `my file.txt` `` | none                 | paths/globs with spaces        |
+| Interpolated  | `$"x=($var)"`       | per-quote            | embedding variables            |
 
 Interpolation requires `$"..."` (or `$'...'`) **and** parentheses around the
 expression:
@@ -135,41 +135,41 @@ mysql $"-p($env.PASSWORD)" db
 mysql $"--password=($env.PASSWORD)" db
 ```
 
-Use `char escape` / `char newline` / `char tab` for control characters — nushell
-does **not** support `\uXXXX` escapes in strings. Strip ANSI color codes with
-`ansi strip`, not regex replacement.
+For control characters use a braced escape such as `"\u{1b}"` (bare `\u001b`
+is a parse error) or `char escape` / `char newline` / `char tab`. Strip ANSI
+color codes with `ansi strip`, not regex replacement.
 
 ## Redirection — no `2>&1`
 
 Nushell uses its own redirection syntax:
 
-| Bash                       | Nushell                    |
-|----------------------------|----------------------------|
-| `cmd > file`               | `cmd o> file`              |
-| `cmd >> file`              | `cmd o>> file`             |
-| `cmd > /dev/null`          | `cmd \| ignore`            |
-| `cmd 2>&1`                 | `cmd o+e>\| next_cmd`      |
-| `cmd > /dev/null 2>&1`     | `cmd o+e>\| ignore`        |
-| `cmd \| tee log \| other`  | `cmd \| tee { save log } \| other` |
+| Bash                      | Nushell                            |
+| ------------------------- | ---------------------------------- |
+| `cmd > file`              | `cmd o> file`                      |
+| `cmd >> file`             | `cmd o>> file`                     |
+| `cmd > /dev/null`         | `cmd \| ignore`                    |
+| `cmd 2>&1`                | `cmd o+e>\| next_cmd`              |
+| `cmd > /dev/null 2>&1`    | `cmd o+e>\| ignore`                |
+| `cmd \| tee log \| other` | `cmd \| tee { save log } \| other` |
 
 ## Bash → Nushell quick reference
 
-| Bash                               | Nushell                                      |
-|------------------------------------|----------------------------------------------|
-| `mkdir -p path`                    | `mkdir path`                                 |
-| `rm -rf path`                      | `rm -r path`                                 |
-| `cat file`                         | `open --raw file`                            |
-| `grep pat`                         | `where $it =~ pat` / `find pat`              |
-| `sed 's/a/b/'`                     | `str replace a b`                            |
-| `head -5` / `tail -5`              | `first 5` / `last 5`  *(only on a saved `$history.N` — never on the live pipeline)* |
-| `for f in *.md; do ...; done`      | `ls *.md \| each { \|r\| ... }`              |
-| `$(cmd)`                           | `(cmd)` in expressions, `...(cmd)` to splat  |
-| `echo $PATH`                       | `$env.PATH` (Unix) / `$env.Path` (Windows)   |
-| `echo $?`                          | `$env.LAST_EXIT_CODE`                        |
-| `FOO=bar ./bin`                    | `FOO=bar ./bin`                              |
-| `type foo`                         | `which foo`                                  |
-| `cmd1 && cmd2`                     | `cmd1; cmd2`                                 |
-| line continuation `\`              | wrap in `( ... )`                            |
+| Bash                          | Nushell                                                                            |
+| ----------------------------- | ---------------------------------------------------------------------------------- |
+| `mkdir -p path`               | `mkdir path`                                                                       |
+| `rm -rf path`                 | `rm -r path`                                                                       |
+| `cat file`                    | `open --raw file`                                                                  |
+| `grep pat`                    | `where $it =~ pat` / `find pat`                                                    |
+| `sed 's/a/b/'`                | `str replace a b`                                                                  |
+| `head -5` / `tail -5`         | `first 5` / `last 5` _(only on a saved `$history.N` — never on the live pipeline)_ |
+| `for f in *.md; do ...; done` | `ls *.md \| each { \|r\| ... }`                                                    |
+| `$(cmd)`                      | `(cmd)` in expressions, `...(cmd)` to splat                                        |
+| `echo $PATH`                  | `$env.PATH` (Unix) / `$env.Path` (Windows)                                         |
+| `echo $?`                     | `$env.LAST_EXIT_CODE`                                                              |
+| `FOO=bar ./bin`               | `FOO=bar ./bin`                                                                    |
+| `type foo`                    | `which foo`                                                                        |
+| `cmd1 && cmd2`                | `cmd1; cmd2`                                                                       |
+| line continuation `\`         | wrap in `( ... )`                                                                  |
 
 ## HTTP — already parsed
 
@@ -200,8 +200,11 @@ Use plain `each` when order must be preserved or side effects must be serial.
 
 ## Globs and file discovery
 
-Prefer `glob` over `find` / `ls -r`: nushell's `ls **/*` traverses hidden
-directories too, which blows up output. Use `command_help glob` for details.
+`ls **/*` skips hidden files and directories unless you pass `--all`.
+`glob **/*` includes them, so it walks `.git`; trim with `--exclude` or
+`--depth`, e.g. `glob **/*.rs --exclude [**/target/** **/.git/**]`. Nushell's
+`find` filters its input and does not search the filesystem. Use
+`command_help glob` for details.
 
 ## Polars (if loaded)
 
@@ -221,6 +224,9 @@ by the client) are auto-promoted to background jobs. The full (non-truncated)
 output is delivered to the main thread's mailbox on completion. See the
 `evaluate` tool description for the default and how to override it.
 
+Evaluations run one at a time: a call made while another is still running
+waits until that one finishes or is promoted.
+
 ```nu
 # You'll see an error like:
 # "Operation promoted to background job (id: 1). Use `job list` to see it and `job recv` to get the result."
@@ -238,7 +244,7 @@ For manual backgrounding:
 
 ```nu
 job spawn { uvicorn main:app }
-job spawn --tag web-server { ... }
+job spawn --description web-server { ... }
 
 # get a result back to the main thread (id 0)
 job spawn { ls | job send 0 }; job recv
@@ -263,4 +269,3 @@ the main thread is `0`.
   `let x = ...` or `$env.FOO = ...` in one call, read it in the next.
 - External processes do **not** inherit `let`-bound variables — only
   environment variables.
-- `use list_commands` to search and `command_help <name>` for signatures.
