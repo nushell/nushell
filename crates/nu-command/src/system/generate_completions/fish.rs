@@ -36,7 +36,7 @@ pub(super) fn parse(script: &str, tool: &str, path: &[String]) -> Vec<CommandSpe
             continue;
         };
         match first.as_str() {
-            "function" | "if" | "for" | "while" | "begin" | "switch" => depth += 1,
+            _ if BLOCKS.contains(&first.as_str()) => depth += 1,
             "end" => depth = depth.saturating_sub(1),
             "set" if depth == 0 => {
                 let mut args = words[1..].iter().skip_while(|word| word.starts_with('-'));
@@ -57,6 +57,9 @@ pub(super) fn parse(script: &str, tool: &str, path: &[String]) -> Vec<CommandSpe
     specs.retain(|spec| spec.path.starts_with(path));
     specs
 }
+
+/// The keywords that start a block, which `end` closes.
+const BLOCKS: &[&str] = &["function", "if", "for", "while", "begin", "switch"];
 
 /// The options of one `complete` statement that matter for a signature.
 #[derive(Default)]
@@ -282,7 +285,7 @@ impl Position {
 
         for part in parts {
             let mut words = expand(part, variables);
-            let negated = words.first().is_some_and(|word| word == "not");
+            let mut negated = words.first().is_some_and(|word| word == "not");
             if negated {
                 words.remove(0);
             }
@@ -290,9 +293,12 @@ impl Position {
                 continue;
             };
             let args = &words[1..];
-            let is_sub_pattern = SUBCOMMAND_SUFFIXES
+            let sub_pattern = SUBCOMMAND_SUFFIXES
                 .iter()
-                .any(|suffix| function.ends_with(suffix));
+                .find_map(|suffix| function.strip_suffix(suffix));
+            let is_sub_pattern = sub_pattern.is_some();
+            // `__fish_git_not_using_command add` holds outside `add`, like `not ...`.
+            negated |= sub_pattern.is_some_and(|prefix| prefix.ends_with("not_"));
 
             if negated {
                 // `not __fish_seen_subcommand_from add rm` means no subcommand is typed yet.
@@ -357,7 +363,7 @@ fn arguments(text: &str, variables: &HashMap<String, Vec<String>>) -> (Vec<Strin
     let mut substitutions = vec![];
     for word in tokens(text) {
         if let Some(name) = word.text.strip_prefix('$') {
-            values.extend(variables.get(name).cloned().unwrap_or_default());
+            values.extend(variable(name, variables));
         } else if let Some(inside) = word
             .text
             .strip_prefix('(')
@@ -365,16 +371,31 @@ fn arguments(text: &str, variables: &HashMap<String, Vec<String>>) -> (Vec<Strin
             .filter(|_| word.expands)
         {
             substitutions.push(inside.to_string());
-        } else if !word.expands {
-            // A candidate may carry a description after a tab: `add\tAdd files`.
-            let value = word.text.replace("\\t", "\t");
-            let value = value.split('\t').next().unwrap_or_default();
-            if !value.is_empty() {
-                values.push(value.to_string());
-            }
+        } else if !word.expands && !candidate(&word.text).is_empty() {
+            values.push(candidate(&word.text).to_string());
         }
     }
     (values, substitutions)
+}
+
+/// A candidate without the description fish allows after a tab: `add\tAdd files`. The tab is
+/// a tab character when the word was unquoted, and `\t` when it was quoted.
+fn candidate(word: &str) -> &str {
+    let word = word.split("\\t").next().unwrap_or_default();
+    word.split('\t').next().unwrap_or_default()
+}
+
+/// The values of the variable `$name`. Command substitutions that `set` recorded are dropped,
+/// as are variables the script doesn't set.
+fn variable(name: &str, variables: &HashMap<String, Vec<String>>) -> Vec<String> {
+    variables
+        .get(name)
+        .into_iter()
+        .flatten()
+        .filter(|value| !value.contains('('))
+        .map(|value| candidate(value).to_string())
+        .filter(|value| !value.is_empty())
+        .collect()
 }
 
 /// The helper functions a script defines at its top level, as their statements.
@@ -393,7 +414,7 @@ fn functions(statements: &[String]) -> HashMap<String, Vec<String>> {
                 depth += 1;
                 continue;
             }
-            "function" | "if" | "for" | "while" | "begin" | "switch" => depth += 1,
+            _ if BLOCKS.contains(&first.as_str()) => depth += 1,
             "end" => {
                 depth = depth.saturating_sub(1);
                 if depth == 0 {
@@ -418,17 +439,17 @@ fn expand(text: &str, variables: &HashMap<String, Vec<String>>) -> Vec<String> {
     words(text)
         .into_iter()
         .flat_map(|word| match word.strip_prefix('$') {
-            Some(name) => variables.get(name).cloned().unwrap_or_default(),
+            Some(name) => variable(name, variables),
             None if word.contains('(') => vec![],
-            // A candidate may carry a description after a tab: `add\tAdd files`.
-            None => vec![word.split("\\t").next().unwrap_or_default().to_string()],
+            None => vec![candidate(&word).to_string()],
         })
         .collect()
 }
 
-/// The statements of the script, with `\` line continuations joined and comments removed.
+/// The statements of the script, with `\` line continuations joined. A line holds several
+/// statements when they are separated by `;`, as in `function f; ...; end`.
 fn statements(script: &str) -> Vec<String> {
-    let mut statements = vec![];
+    let mut lines = vec![];
     let mut current = String::new();
     for line in script.lines() {
         let line = line.trim();
@@ -438,10 +459,45 @@ fn statements(script: &str) -> Vec<String> {
             current.push(' ');
         } else {
             current.push_str(line);
-            statements.push(std::mem::take(&mut current));
+            lines.push(std::mem::take(&mut current));
         }
     }
-    statements.push(current);
+    lines.push(current);
+    lines
+        .iter()
+        .flat_map(|line| split_statements(line))
+        .collect()
+}
+
+/// Splits a line at each `;` that ends a statement: outside quotes and command substitutions,
+/// and before a comment.
+fn split_statements(line: &str) -> Vec<String> {
+    let mut statements = vec![];
+    let mut start = 0;
+    let mut quote = None;
+    let mut parens = 0usize;
+    let mut word_start = true;
+    let mut chars = line.char_indices();
+    while let Some((index, c)) = chars.next() {
+        match (quote, c) {
+            (_, '\\') => {
+                chars.next();
+            }
+            (Some(q), _) if c == q => quote = None,
+            (Some(_), _) => {}
+            (None, '\'' | '"') => quote = Some(c),
+            (None, '(') => parens += 1,
+            (None, ')') => parens = parens.saturating_sub(1),
+            (None, '#') if word_start && parens == 0 => break,
+            (None, ';') if parens == 0 => {
+                statements.push(line[start..index].trim().to_string());
+                start = index + 1;
+            }
+            _ => {}
+        }
+        word_start = c.is_whitespace() || c == ';';
+    }
+    statements.push(line[start..].trim().to_string());
     statements
 }
 
@@ -705,6 +761,47 @@ complete -x -c tool -l kind -a '(tool kinds | string match -v "*internal*")'
             body,
             "try { ^tool kinds | complete | get stdout | lines | where $it !~ '^.*internal.*$' | nu-complete tool records } catch { [] }"
         );
+    }
+
+    #[test]
+    fn reads_one_line_blocks_variables_and_negated_helpers() {
+        let script = r#"
+function __fish_tool_x; command tool list; end
+if true; set -l unused a; end
+function __fish_tool_targets
+    if test -f Makefile
+        tool targets
+    else
+        tool defaults
+    end
+end
+set -l formats (tool --list-formats) json
+complete -c tool -l alpha -x -a "$formats"
+complete -c tool -n '__fish_tool_not_using_command build' -l nobuild
+complete -c tool -n '__fish_tool_using_command build' -l release; complete -c tool -l beta # ; complete -c tool -l gamma
+complete -c tool -l kind -x -a '(__fish_tool_x)'
+complete -c tool -l target -x -a '(__fish_tool_targets)'
+complete -c tool -l tag -x -a '(tool tags | string match -n "v*")'
+"#;
+        let specs = parse(script, "tool", &[]);
+        assert_eq!(names(&specs), ["", "build"]);
+        let root = &specs[0];
+        let longs = root
+            .flags
+            .iter()
+            .filter_map(|flag| flag.long.as_deref())
+            .collect::<Vec<_>>();
+        assert_eq!(longs, ["alpha", "nobuild", "beta", "kind", "target", "tag"]);
+        // `set` recorded the command substitution, which fish ran when it loaded the script.
+        assert_eq!(root.flags[0].completions.values, ["json"]);
+        let [Dynamic::Code { body, .. }] = &root.flags[3].completions.dynamic[..] else {
+            panic!("expected a completer for --kind");
+        };
+        assert!(body.starts_with("try { ^tool list | complete"));
+        // A helper with `if`, and `string match -n`, which prints positions, don't translate.
+        assert!(root.flags[4].completions.dynamic.is_empty());
+        assert!(root.flags[5].completions.dynamic.is_empty());
+        assert_eq!(specs[1].flags[0].long.as_deref(), Some("release"));
     }
 
     #[test]

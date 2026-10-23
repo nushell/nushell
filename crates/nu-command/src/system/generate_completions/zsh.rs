@@ -106,6 +106,8 @@ fn pair_short_and_long(groups: Vec<Group>) -> Vec<Group> {
             && last.description == group.description
         {
             last.names.extend(group.names);
+            last.completions.extend(group.completions);
+            last.directory |= group.directory;
             continue;
         }
         paired.push(group);
@@ -151,13 +153,28 @@ impl Walk<'_> {
     fn token(&mut self, token: Token) {
         match token {
             Token::Separator => {}
+            // `|` separates the alternatives of a case pattern, as in `add|rm)`.
+            Token::Pipe => {
+                if let Some(Case {
+                    state: CaseState::Pattern(pattern),
+                    ..
+                }) = self.cases.last_mut()
+                    && !pattern.is_empty()
+                {
+                    pattern.push('|');
+                }
+            }
             Token::ArmEnd => {
                 if let Some(case) = self.cases.last_mut() {
                     case.state = CaseState::Pattern(String::new());
                 }
             }
-            Token::Word(expansions) => {
-                self.word(&expansions);
+            Token::Word {
+                expansions,
+                opens_array,
+                closes,
+            } => {
+                self.word(&expansions, opens_array, closes);
                 if let Some(first) = expansions.into_iter().next() {
                     self.previous_word = first;
                 }
@@ -165,7 +182,9 @@ impl Walk<'_> {
         }
     }
 
-    fn word(&mut self, expansions: &[String]) {
+    /// Reads one word, which may start an array (`opens_array`) or end an array or a case
+    /// pattern (`closes`).
+    fn word(&mut self, expansions: &[String], opens_array: bool, closes: bool) {
         let Some(word) = expansions.first() else {
             return;
         };
@@ -185,7 +204,7 @@ impl Walk<'_> {
                 }
                 CaseState::Pattern(pattern) if word != "esac" => {
                     pattern.push_str(word);
-                    if pattern.ends_with(')') {
+                    if closes {
                         let names = pattern_names(pattern);
                         case.state = CaseState::Arm(names);
                         if case.on_word {
@@ -259,7 +278,7 @@ impl Walk<'_> {
 
         // `name=( items... )`: the first item may follow `=(` in the same word.
         let mut expansions = expansions.to_vec();
-        if let Some((name, _)) = word.split_once("=(") {
+        if opens_array && let Some((name, _)) = word.split_once("=(") {
             self.array = Some(name.contains("command") || name.contains("cmds"));
             for expansion in &mut expansions {
                 if let Some((_, first_item)) = expansion.split_once("=(") {
@@ -267,7 +286,7 @@ impl Walk<'_> {
                 }
             }
         }
-        let closes_array = self.array.is_some() && word.ends_with(')');
+        let closes_array = self.array.is_some() && closes;
         if closes_array {
             for expansion in &mut expansions {
                 expansion.pop();
@@ -543,8 +562,14 @@ fn action(tail: &str) -> (Completions, bool) {
         let items = &items[..unescaped(items, ')').unwrap_or(items.len())];
         items.split_whitespace().map(unescape).collect()
     } else {
-        let function = action.split_whitespace().next().unwrap_or_default();
-        return match completers::zsh_shared(function) {
+        let mut words = action.split_whitespace();
+        let function = words.next().unwrap_or_default();
+        let shared = match completers::zsh_shared(function) {
+            // `_files -/` completes directories only.
+            Some(Shared::Files) if words.any(|word| word == "-/") => Some(Shared::Directory),
+            shared => shared,
+        };
+        return match shared {
             Some(Shared::Directory) => (Completions::default(), true),
             Some(Shared::Dynamic(dynamic)) => (
                 Completions {
@@ -631,10 +656,20 @@ fn unescape(text: &str) -> String {
 /// A word of the script after quote removal, or a separator.
 #[derive(Debug, PartialEq)]
 enum Token {
-    /// The expansions of one word: more than one when it has an unquoted `{a,b}`.
-    Word(Vec<String>),
-    /// A newline, `;`, `&&`, `||` or `|`.
+    /// One word. Quote removal can't tell an unquoted `(` or `)` from a quoted one, so the
+    /// word says whether it has the ones that start and end an array.
+    Word {
+        /// The expansions of the word: more than one when it has an unquoted `{a,b}`.
+        expansions: Vec<String>,
+        /// Whether an unquoted `(` follows `name=`, which starts an array.
+        opens_array: bool,
+        /// Whether the word ends with an unquoted `)`, which ends an array or a case pattern.
+        closes: bool,
+    },
+    /// A newline, `;`, `&&`, `||` or `&`.
     Separator,
+    /// A `|` between commands, or between the alternatives of a case pattern.
+    Pipe,
     /// `;;`, `;&` or `;|`, which end a `case` arm.
     ArmEnd,
 }
@@ -655,7 +690,7 @@ fn tokens(script: &str) -> Vec<Token> {
                 word.started = true;
                 i += 1;
                 while let Some(&q) = chars.get(i).filter(|q| **q != '\'') {
-                    word.text.push(q);
+                    word.push(q);
                     i += 1;
                 }
                 i += 1;
@@ -667,7 +702,7 @@ fn tokens(script: &str) -> Vec<Token> {
                     if q == '\\' && matches!(chars.get(i + 1), Some('"' | '\\' | '$' | '`')) {
                         i += 1;
                     }
-                    word.text.extend(chars.get(i));
+                    word.extend(chars.get(i));
                     i += 1;
                 }
                 i += 1;
@@ -679,7 +714,7 @@ fn tokens(script: &str) -> Vec<Token> {
                     if q == '\\' {
                         i += 1;
                     }
-                    word.text.extend(chars.get(i));
+                    word.extend(chars.get(i));
                     i += 1;
                 }
                 i += 1;
@@ -693,10 +728,10 @@ fn tokens(script: &str) -> Vec<Token> {
                     ('{', '}')
                 };
                 let mut depth = 0usize;
-                word.text.push('$');
+                word.push('$');
                 i += 1;
                 while let Some(&q) = chars.get(i) {
-                    word.text.push(q);
+                    word.push(q);
                     i += 1;
                     if q == open {
                         depth += 1;
@@ -712,7 +747,7 @@ fn tokens(script: &str) -> Vec<Token> {
                 i += 2;
                 if next != Some('\n') {
                     word.started = true;
-                    word.text.extend(next);
+                    word.extend(next.as_ref());
                 }
             }
             '#' if !word.started => {
@@ -732,7 +767,11 @@ fn tokens(script: &str) -> Vec<Token> {
             }
             '&' | '|' if word.parens == 0 => {
                 word.finish(&mut tokens);
-                tokens.push(Token::Separator);
+                tokens.push(match (c, next) {
+                    ('|', Some(n)) if n != '|' => Token::Pipe,
+                    ('|', None) => Token::Pipe,
+                    _ => Token::Separator,
+                });
                 i += if next == Some(c) { 2 } else { 1 };
             }
             ' ' | '\t' | '\r' if word.parens == 0 => {
@@ -742,24 +781,28 @@ fn tokens(script: &str) -> Vec<Token> {
             '{' => match brace_alternatives(&chars[i..]) {
                 Some((alternatives, len)) => {
                     word.started = true;
+                    word.closes = false;
                     word.parts.push(vec![std::mem::take(&mut word.text)]);
                     word.parts.push(alternatives);
                     i += len;
                 }
                 None => {
                     word.started = true;
-                    word.text.push(c);
+                    word.push(c);
                     i += 1;
                 }
             },
             _ => {
                 word.started = true;
                 match c {
+                    // `name=(` starts an array, whose items are words of their own.
+                    '(' if word.text.ends_with('=') => word.opens_array = true,
                     '(' => word.parens += 1,
                     ')' => word.parens = word.parens.saturating_sub(1),
                     _ => {}
                 }
-                word.text.push(c);
+                word.push(c);
+                word.closes = c == ')';
                 i += 1;
             }
         }
@@ -776,9 +819,24 @@ struct WordBuilder {
     text: String,
     /// Unquoted parentheses still open, as in a case pattern `(add|rm)`.
     parens: usize,
+    /// Whether an unquoted `(` follows `name=`.
+    opens_array: bool,
+    /// Whether the last character added is an unquoted `)`.
+    closes: bool,
 }
 
 impl WordBuilder {
+    fn push(&mut self, c: char) {
+        self.text.push(c);
+        self.closes = false;
+    }
+
+    fn extend(&mut self, c: Option<&char>) {
+        if let Some(&c) = c {
+            self.push(c);
+        }
+    }
+
     fn finish(&mut self, tokens: &mut Vec<Token>) {
         if !self.started {
             return;
@@ -797,7 +855,11 @@ impl WordBuilder {
                 })
                 .collect();
         }
-        tokens.push(Token::Word(expansions));
+        tokens.push(Token::Word {
+            expansions,
+            opens_array: self.opens_array,
+            closes: self.closes,
+        });
         *self = Self::default();
     }
 }
@@ -981,16 +1043,69 @@ _tool-connect () {
     }
 
     #[test]
+    fn reads_case_patterns_and_described_commands() {
+        let script = r#"#compdef tool
+_tool() {
+    local cmds="(-x --exclusive)"
+    case $words[1] in
+        add|rm) _arguments '--force[force it]' ;;
+    esac
+    _arguments '-C+[run in]:dir:_files -/' '-c+[color]:when:(always never)' '--color=[color]:when:(auto)'
+}
+_tool_commands() {
+    local commands; commands=('build:Compile the package (debug)' 'clean:Remove artifacts' 'help:Print help of the given subcommand(s)')
+}
+"#;
+        let specs = parse(script, "tool", &[]);
+        assert_eq!(names(&specs), ["", "add", "rm", "build", "clean", "help"]);
+        assert_eq!(specs[1].flags[0].long.as_deref(), Some("force"));
+        assert_eq!(specs[3].description, "Compile the package (debug)");
+        assert_eq!(
+            specs[5].description,
+            "Print help of the given subcommand(s)"
+        );
+        let root = &specs[0];
+        assert_eq!(root.flags[0].arg, Some(SyntaxShape::Directory));
+        assert_eq!(
+            (root.flags[1].long.as_deref(), root.flags[1].short),
+            (Some("color"), Some('c'))
+        );
+        assert_eq!(
+            root.flags[1].completions.values,
+            ["always", "never", "auto"]
+        );
+    }
+
+    fn word(expansions: &[&str], closes: bool) -> Token {
+        Token::Word {
+            expansions: expansions.iter().map(|text| text.to_string()).collect(),
+            opens_array: false,
+            closes,
+        }
+    }
+
+    #[test]
     fn splits_words_like_zsh() {
         assert_eq!(
-            tokens("a '(x y)'{-s,--short}'[it'\\''s]' \"${opts[@]}\" # comment\n(b|c) ;;"),
+            tokens(
+                "a '(x y)'{-s,--short}'[it'\\''s]' \"${opts[@]}\" # comment\n(b|c) ;; d|e) 'f)' g=(h"
+            ),
             [
-                Token::Word(vec!["a".into()]),
-                Token::Word(vec!["(x y)-s[it's]".into(), "(x y)--short[it's]".into()]),
-                Token::Word(vec!["${opts[@]}".into()]),
+                word(&["a"], false),
+                word(&["(x y)-s[it's]", "(x y)--short[it's]"], false),
+                word(&["${opts[@]}"], false),
                 Token::Separator,
-                Token::Word(vec!["(b|c)".into()]),
+                word(&["(b|c)"], true),
                 Token::ArmEnd,
+                word(&["d"], false),
+                Token::Pipe,
+                word(&["e)"], true),
+                word(&["f)"], false),
+                Token::Word {
+                    expansions: vec!["g=(h".into()],
+                    opens_array: true,
+                    closes: false,
+                },
             ]
         );
     }

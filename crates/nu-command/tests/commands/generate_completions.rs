@@ -13,6 +13,18 @@ Options:
   -h, --help            Print help
 ";
 
+/// clap lists a command's subcommands in its help.
+const CLAP_HELP: &str = "\
+Usage: tool pip <COMMAND>
+
+Commands:
+  install  Install packages [aliases: i]
+  list     List installed packages
+
+Options:
+  -h, --help  Print help
+";
+
 const FISH: &str = "\
 complete -c tool -n __fish_use_subcommand -a build -d 'Compile the package'
 complete -c tool -n '__fish_seen_subcommand_from build' -l release -d 'Build in release mode'
@@ -57,6 +69,7 @@ fn reads_piped_help_text() -> Result {
 #[rstest]
 #[case::help("help", HELP, "tool")]
 #[case::man("man", HELP, "tool")]
+#[case::help_subcommands("help", CLAP_HELP, "tool install")]
 #[case::fish("fish", FISH, "tool build")]
 #[case::zsh("zsh", ZSH, "tool build")]
 #[case::carapace("carapace", CARAPACE, "tool build")]
@@ -95,6 +108,19 @@ fn loads_with_use_from_a_completions_file() -> Result {
     })
 }
 
+/// A man page's command list is left out: it is mostly the commands of an interactive prompt.
+#[rstest]
+#[case::help("help", &["tool pip", "tool pip install", "tool pip i", "tool pip list"])]
+#[case::man("man", &["tool pip"])]
+fn reads_the_subcommands_the_help_lists(#[case] source: &str, #[case] externs: &[&str]) -> Result {
+    let code = format!(
+        "generate completions 'tool pip' --source {source} | lines | parse --regex '^export extern \"(?<name>[^\"]+)\"' | get name"
+    );
+    test()
+        .run_with_data(code, CLAP_HELP)
+        .expect_value_eq(externs.to_vec())
+}
+
 #[test]
 fn generates_a_subcommand_only() -> Result {
     test()
@@ -112,6 +138,94 @@ fn runs_the_command_for_its_help() -> Result {
     assert_contains("export extern \"cococo\" [", &module);
     assert_contains("--help(-h)", &module);
     Ok(())
+}
+
+/// `cococo notes.txt --help` would run `cococo` with `notes.txt`, which `cococo --help` doesn't
+/// list as a subcommand.
+#[test]
+#[deps(TESTBIN_COCOCO)]
+fn runs_only_listed_subcommands_for_their_help() -> Result {
+    let err = test()
+        .run("generate completions 'cococo notes.txt' --source help")
+        .expect_shell_error()?;
+    assert_contains(
+        "`cococo --help` doesn't list `notes.txt` as a subcommand",
+        format!("{err:?}"),
+    );
+    Ok(())
+}
+
+/// A tool whose `--help` lists `pip`, and that writes `ran` when it runs with arguments it
+/// doesn't read as help.
+#[cfg(unix)]
+const TOOL_SCRIPT: &str = r#"#!/bin/sh
+case "$*" in
+    --help) printf 'Usage: tool <COMMAND>\n\nCommands:\n  pip  Manage packages\n' ;;
+    "pip --help") printf 'Options:\n      --user  Install for the user\n' ;;
+    "status --help") printf 'Options:\n  -s, --short  Show status concisely\n' ;;
+    *) : > ran ;;
+esac
+"#;
+
+/// A man with a page for `tool status` only.
+#[cfg(unix)]
+const MAN_SCRIPT: &str = r#"#!/bin/sh
+case "$1" in
+    tool-status) printf 'TOOL-STATUS(1)    Tool Manual    TOOL-STATUS(1)\n' ;;
+    *) echo "No manual entry for $1" >&2; exit 1 ;;
+esac
+"#;
+
+/// The help source runs `tool <word> --help` only when `tool --help` lists the word or man has
+/// a page for it.
+#[cfg(unix)]
+#[rstest]
+#[case::listed_by_the_help("tool pip", Ok("--user"))]
+#[case::with_a_man_page("tool status", Ok("--short(-s)"))]
+#[case::neither(
+    "tool notes.txt",
+    Err(
+        "`tool --help` doesn't list `notes.txt` as a subcommand and there's no `man tool-notes.txt`"
+    )
+)]
+fn runs_subcommands_that_the_help_lists_or_man_knows(
+    #[case] target: &str,
+    #[case] expected: std::result::Result<&str, &str>,
+) -> Result {
+    Playground::setup("generate_completions_help_guard", |dirs, _| {
+        write_script(&dirs, "tool", TOOL_SCRIPT);
+        write_script(&dirs, "man", MAN_SCRIPT);
+        let code = format!(
+            "with-env {{ PATH: (pwd) }} {{ generate completions '{target}' --source help }}"
+        );
+        let mut tester = test().cwd(dirs.test());
+        match expected {
+            Ok(flag) => assert_contains(flag, tester.run::<String>(code)?),
+            Err(help) => assert_contains(
+                help,
+                format!("{:?}", tester.run(code).expect_shell_error()?),
+            ),
+        }
+        assert!(!dirs.test().join("ran").exists(), "the tool ran");
+        Ok(())
+    })
+}
+
+/// Writes an executable script in the playground. Another test that forks while the file is
+/// still open for writing keeps it busy until that child runs its own program, so this waits
+/// for that (see https://github.com/rust-lang/rust/issues/114554).
+#[cfg(unix)]
+fn write_script(dirs: &nu_test_support::playground::Dirs, name: &str, content: &str) {
+    use std::os::unix::fs::PermissionsExt;
+
+    let path: std::path::PathBuf = dirs.test().join(name).into();
+    std::fs::write(&path, content).expect("write the script");
+    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755))
+        .expect("make the script executable");
+    while matches!(
+        std::process::Command::new(&path).arg("--help").output(),
+        Err(err) if err.kind() == std::io::ErrorKind::ExecutableFileBusy
+    ) {}
 }
 
 /// fish computes these values with commands, which become nushell completers.
@@ -179,6 +293,18 @@ fn rejects_a_keyword_as_the_tool() -> Result {
     assert_matches!(
         err,
         ShellError::IncorrectValue { msg, .. } if msg.contains("`if` is a nushell keyword")
+    );
+    Ok(())
+}
+
+#[test]
+fn rejects_a_builtin_command_as_the_tool() -> Result {
+    let err = test()
+        .run_with_data("generate completions ls --source help", HELP)
+        .expect_shell_error()?;
+    assert_matches!(
+        err,
+        ShellError::IncorrectValue { msg, .. } if msg.contains("`ls` is a nushell built-in command")
     );
     Ok(())
 }

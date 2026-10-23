@@ -226,7 +226,8 @@ pub(super) fn merge(sources: Vec<Vec<CommandSpec>>) -> Vec<CommandSpec> {
 }
 
 impl FlagSpec {
-    /// How the source spells the flag, for the list of skipped flags.
+    /// How the source spells the flag, `--color` or `-c`, for the list of skipped flags and
+    /// the names of completers.
     fn spelling(&self) -> String {
         match (&self.long, self.short) {
             (Some(long), _) => format!("--{long}"),
@@ -356,7 +357,7 @@ pub(super) fn render(tool: &str, origins: &[String], specs: &[CommandSpec], cobr
                 } else {
                     &flag.completions.dynamic[..]
                 };
-                let site = format!("{} {}", spec.path.join(" "), param_name(flag));
+                let site = format!("{} {}", spec.path.join(" "), flag.spelling());
                 if let Some(attach) =
                     completers.attach(site.trim(), &flag.completions.values, dynamic)
                 {
@@ -393,15 +394,6 @@ pub(super) fn render(tool: &str, origins: &[String], specs: &[CommandSpec], cobr
     out.push_str(&completers.render());
     out.push_str(&externs);
     out
-}
-
-/// A flag's name in the name of its completer: `--color` or `-c`.
-fn param_name(flag: &FlagSpec) -> String {
-    match (&flag.long, flag.short) {
-        (Some(long), _) => format!("--{long}"),
-        (None, Some(short)) => format!("-{short}"),
-        (None, None) => String::new(),
-    }
 }
 
 /// A flag as `(long, short, value type, description)`, for comparing in tests.

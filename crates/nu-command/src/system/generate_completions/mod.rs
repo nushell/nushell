@@ -56,10 +56,14 @@ impl Command for GenerateCompletions {
 
     fn extra_description(&self) -> &str {
         "Without --source, the sources are tried in the order carapace, fish, zsh, man, help, and \
-the first one that knows any flags is used. With --source all, every source that knows any \
-flags is used and their commands and flags are merged, the earlier source winning when they \
-disagree. carapace, fish and zsh also know the subcommands; man and help give the flags of the \
-named command only. The help source runs the command with --help.
+the first one that knows any flags or subcommands is used. With --source all, every source that \
+knows any is used and their commands and flags are merged, the earlier source winning when they \
+disagree. carapace, fish and zsh know the whole tree of subcommands. man gives the flags of the \
+named command only, and help also gives the subcommands its --help lists, without their flags, \
+since those are in each subcommand's own help. The help source runs the command with --help. \
+It runs a subcommand that way only when another source knows it, the --help of the command \
+above it lists it, or it has a man page, as git's subcommands do, since a command that doesn't \
+read --help first would run instead.
 
 The result is the text of a module of `export extern` definitions. Externs exist only once \
 nushell has parsed them, so save the text to a file and load it with `use` or `source`, or save \
@@ -123,12 +127,25 @@ command."
                 call_span: head,
             });
         }
-        if engine_state
+        // An extern named like a built-in or plugin command replaces it, and a keyword's name
+        // can't be an extern's.
+        if let Some(command_type) = engine_state
             .find_decl(tool.as_bytes(), &[])
-            .is_some_and(|decl| engine_state.get_decl(decl).command_type() == CommandType::Keyword)
+            .map(|decl| engine_state.get_decl(decl).command_type())
+            && matches!(
+                command_type,
+                CommandType::Keyword | CommandType::Builtin | CommandType::Plugin
+            )
         {
             return Err(ShellError::IncorrectValue {
-                msg: format!("`{tool}` is a nushell keyword, so an extern can't have its name"),
+                msg: match command_type {
+                    CommandType::Keyword => {
+                        format!("`{tool}` is a nushell keyword, so an extern can't have its name")
+                    }
+                    _ => format!(
+                        "`{tool}` is a nushell {command_type} command, and an extern with its name would replace it"
+                    ),
+                },
                 val_span: target.span,
                 call_span: head,
             });
@@ -179,8 +196,33 @@ command."
         };
         let merge_all = matches!(selection, Some(None));
 
-        let mut learned = vec![];
+        let mut learned: Vec<(Vec<CommandSpec>, String)> = vec![];
+        // Why the help source didn't run the subcommand, for the error.
+        let mut unlisted = None;
         for source in sources {
+            // `<tool> <words> --help` runs the subcommand when the tool doesn't read --help
+            // first: `rm notes.txt --help` removes notes.txt. So each word must be a
+            // subcommand that another source knows, that the help above it lists, or that has
+            // a man page, as git's subcommands do.
+            if let Some(runner) = &runner
+                && matches!(source, Source::Help)
+                && !learned
+                    .iter()
+                    .any(|(specs, _)| specs.iter().any(|spec| spec.path == path))
+                && let Some(end) = (2..=words.len()).find(|&end| {
+                    !help_lists(runner, &words[..end]) && !has_man_page(runner, &words[..end])
+                })
+            {
+                unlisted = Some(format!(
+                    "`{} --help` doesn't list `{}` as a subcommand and there's no \
+                     `man {}`, so `{} --help` wasn't run. Pipe its help text in with --source help",
+                    words[..end - 1].join(" "),
+                    words[end - 1],
+                    words[..end].join("-"),
+                    words.join(" ")
+                ));
+                continue;
+            }
             let (texts, origin) = match (&piped, &runner) {
                 (Some(text), _) => (
                     vec![text.clone()],
@@ -219,7 +261,7 @@ command."
             let specs = spec::merge(specs);
             let cobra = runner
                 .as_ref()
-                .is_some_and(|runner| completes_itself(runner, tool, &specs));
+                .is_some_and(|runner| completes_itself(runner, &words, &specs));
             let module = spec::render(tool, &origins, &specs, cobra);
             return Ok(Value::string(module, head).into_pipeline_data());
         }
@@ -235,7 +277,9 @@ command."
                 format!("no flags or subcommands found in {tried}"),
                 target.span,
             )
-            .with_help("install carapace or fish, or pipe the help text in with --source help"),
+            .with_help(unlisted.unwrap_or_else(|| {
+                "install carapace or fish, or pipe the help text in with --source help".into()
+            })),
         ))
     }
 
@@ -288,8 +332,16 @@ fn knows_anything(specs: &[CommandSpec]) -> bool {
 /// Running a tool with an argument it doesn't know can do something, so the tool is only asked
 /// when it has a `completion` subcommand, as every cobra tool does. It answers with candidates
 /// and a last line such as `:4` that tells the shell how to use them.
-fn completes_itself(runner: &Runner, tool: &str, specs: &[CommandSpec]) -> bool {
-    specs.iter().any(|spec| spec.path == ["completion"])
+///
+/// The specs of a subcommand such as `gh pr` don't include the tool's own `completion`, so
+/// then the tool's help is read.
+fn completes_itself(runner: &Runner, words: &[String], specs: &[CommandSpec]) -> bool {
+    let tool = words[0].as_str();
+    let has_completion = match words.len() {
+        1 => specs.iter().any(|spec| spec.path == ["completion"]),
+        _ => help_lists(runner, &[tool.to_string(), "completion".to_string()]),
+    };
+    has_completion
         && runner
             .stdout(tool, &["__complete", ""], &[])
             .is_some_and(|text| {
@@ -299,6 +351,31 @@ fn completes_itself(runner: &Runner, tool: &str, specs: &[CommandSpec]) -> bool 
                     .and_then(|line| line.strip_prefix(':'))
                     .is_some_and(|directive| directive.chars().all(|c| c.is_ascii_digit()))
             })
+}
+
+/// Whether the help of the command `words` without its last word lists that word as a
+/// subcommand, as `cargo --help` lists `build`.
+fn help_lists(runner: &Runner, words: &[String]) -> bool {
+    let [parent @ .., _] = words else {
+        return false;
+    };
+    let [_, parent_path @ ..] = parent else {
+        return false;
+    };
+    Source::Help.fetch(runner, parent).iter().any(|text| {
+        help_text::parse(text, parent_path.to_vec(), true)
+            .iter()
+            .any(|spec| spec.path == words[1..])
+    })
+}
+
+/// Whether man has a page for the command `words`, such as `man git-status` for `git status`:
+/// its header names the page, and man prints an error instead when it has none.
+fn has_man_page(runner: &Runner, words: &[String]) -> bool {
+    let page = words.join("-");
+    Source::Man.fetch(runner, words).iter().any(|text| {
+        help_text::man_page_name(text).is_some_and(|name| name.eq_ignore_ascii_case(&page))
+    })
 }
 
 #[derive(Clone, Copy)]
@@ -391,7 +468,9 @@ impl Source {
             Source::Carapace => carapace::parse(text, path),
             Source::Fish => Ok(fish::parse(text, tool, path)),
             Source::Zsh => Ok(zsh::parse(text, tool, path)),
-            Source::Man | Source::Help => Ok(vec![help_text::parse(text, path.to_vec())]),
+            // A man page's command list is mostly the commands of an interactive prompt.
+            Source::Man => Ok(help_text::parse(text, path.to_vec(), false)),
+            Source::Help => Ok(help_text::parse(text, path.to_vec(), true)),
         }
     }
 }

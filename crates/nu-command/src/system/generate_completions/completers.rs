@@ -272,8 +272,24 @@ fn fish_pipelines(words: &[FishWord], script: &FishScript, depth: usize) -> Opti
 /// The stdout of the external commands as lines; their errors and exit code are ignored.
 const LINES: &str = " | complete | get stdout | lines";
 
-/// Commands that fish runs itself, which have no external program.
+/// Commands that fish runs itself, which have no external program. The keywords are among
+/// them, so a helper with `if` or `for` isn't translated.
 const FISH_BUILTINS: &[&str] = &[
+    "if",
+    "else",
+    "end",
+    "for",
+    "while",
+    "switch",
+    "case",
+    "begin",
+    "and",
+    "or",
+    "not",
+    "return",
+    "break",
+    "continue",
+    "function",
     "string",
     "echo",
     "printf",
@@ -342,7 +358,8 @@ fn string_filter(args: &[FishWord]) -> Option<String> {
                     .is_some_and(|long| long.starts_with(flag))
         })
     };
-    if has('i') {
+    // `-i` ignores case, `-q` prints nothing, `-n` prints positions and `-m` limits matches.
+    if has('i') || has('q') || has('n') || has('m') {
         return None;
     }
     match (subcommand.text.as_str(), &operands[..]) {
@@ -407,15 +424,16 @@ fn glob_to_regex(glob: &str) -> String {
 }
 
 /// A word for nushell: as it is when it can't be read as anything but a string, quoted
-/// otherwise.
+/// otherwise. A word that starts with a digit can be a number, filesize, duration, date or
+/// range, and a comma separates the items of a list.
 pub(super) fn nu_word(text: &str) -> String {
     let plain = text
         .chars()
         .next()
-        .is_some_and(|c| c.is_ascii_alphanumeric() || c == '_' || c == '/')
+        .is_some_and(|c| c.is_ascii_alphabetic() || c == '_' || c == '/')
         && text
             .chars()
-            .all(|c| c.is_ascii_alphanumeric() || "-_./:=@+,".contains(c))
+            .all(|c| c.is_ascii_alphanumeric() || "-_./:=@+".contains(c))
         && text.parse::<f64>().is_err()
         && !matches!(text, "true" | "false" | "null");
     if plain {
@@ -599,4 +617,37 @@ pub(super) fn cobra(tool: &str) -> (String, String) {
          }}\n"
     );
     (name, def)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn quotes_words_nushell_reads_as_other_types() {
+        let words = [
+            "always",
+            "refs/heads/",
+            "1kb",
+            "0x10",
+            "5sec",
+            "2024-01-01",
+            "a,b",
+            "true",
+        ]
+        .map(nu_word);
+        assert_eq!(
+            words,
+            [
+                "always",
+                "refs/heads/",
+                "'1kb'",
+                "'0x10'",
+                "'5sec'",
+                "'2024-01-01'",
+                "'a,b'",
+                "'true'"
+            ]
+        );
+    }
 }

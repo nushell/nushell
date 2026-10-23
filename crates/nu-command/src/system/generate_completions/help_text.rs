@@ -1,12 +1,13 @@
 //! Reads the option lines of `--help` output and of man pages, such as
 //! `-o, --output <FILE>   Write output to FILE`, followed by an indented description when the
-//! line has none.
+//! line has none, and the subcommands listed under a heading such as `Commands:`.
 
-use super::spec::{CommandSpec, Completions, FlagSpec};
+use super::spec::{CommandSpec, Completions, FlagSpec, is_command_word};
 use nu_protocol::SyntaxShape;
 
-/// Reads the flags of the command at `path` from its help text or man page.
-pub(super) fn parse(text: &str, path: Vec<String>) -> CommandSpec {
+/// Reads the flags of the command at `path` from its help text or man page, followed, with
+/// `read_subcommands`, by a spec without flags for each subcommand the text lists.
+pub(super) fn parse(text: &str, path: Vec<String>, read_subcommands: bool) -> Vec<CommandSpec> {
     // ANSI stripping also drops backspaces and tabs, so overstrike and tabs go first.
     let text = text
         .lines()
@@ -42,6 +43,12 @@ pub(super) fn parse(text: &str, path: Vec<String>) -> CommandSpec {
             && description_indent.is_none_or(|description| lines[index].0 < description)
     };
 
+    // The commands a man page lists are mostly those of an interactive prompt, as in `man less`
+    // or `man sftp`. git's subcommands print their man page for `--help`.
+    let subcommands = match read_subcommands && man_page_name(&text).is_none() {
+        true => subcommands(&lines, &path),
+        false => vec![],
+    };
     let mut spec = CommandSpec::new(path);
     for (index, option) in options.iter().enumerate() {
         let Some((spellings, rest)) = option else {
@@ -78,7 +85,121 @@ pub(super) fn parse(text: &str, path: Vec<String>) -> CommandSpec {
         };
         add_flags(&mut spec, spellings, flag);
     }
-    spec
+    std::iter::once(spec).chain(subcommands).collect()
+}
+
+/// The subcommands listed under a heading such as clap's `Commands:`, cobra's
+/// `Available Commands:` or gh's `CORE COMMANDS`, as specs at `path` and the subcommand's
+/// name. Only their names and descriptions are known: their flags are in their own help.
+///
+/// A line of the list is a name, or names separated by commas (`build, b`), then two spaces
+/// and a description, which can continue on deeper lines. An alias, given after a comma or
+/// as clap's `[aliases: c]`, gets a spec of its own, as carapace gives it.
+fn subcommands(lines: &[(usize, &str)], path: &[String]) -> Vec<CommandSpec> {
+    let mut entries: Vec<(Vec<&str>, String)> = vec![];
+    let mut in_section = false;
+    // The indent of the list's lines. A deeper line continues the description above it, up to
+    // a blank line.
+    let mut entry_indent = None;
+    let mut continues = false;
+    for &(indent, line) in lines {
+        if indent == 0 && !line.is_empty() {
+            in_section = is_commands_heading(line);
+            entry_indent = None;
+            continues = false;
+        } else if !in_section || line.is_empty() {
+            continues = false;
+        } else if entry_indent.is_some_and(|entry| indent > entry) {
+            if continues && let Some((_, description)) = entries.last_mut() {
+                description.push(' ');
+                description.push_str(line);
+            }
+        } else if let Some((names, description)) = parse_command_line(line) {
+            entry_indent = Some(indent);
+            entries.push((names, description.to_string()));
+            continues = true;
+        } else {
+            continues = false;
+        }
+    }
+
+    let mut specs: Vec<CommandSpec> = vec![];
+    for (names, description) in &entries {
+        let (description, aliases) = split_aliases(description.trim());
+        for name in names.iter().chain(&aliases) {
+            let sub_path = path.iter().cloned().chain([name.to_string()]).collect();
+            if is_command_word(name) && !specs.iter().any(|spec| spec.path == sub_path) {
+                let mut spec = CommandSpec::new(sub_path);
+                spec.description = first_sentence(&description).to_string();
+                specs.push(spec);
+            }
+        }
+    }
+    specs
+}
+
+/// The name in the header a man page starts with, such as `GIT-STASH` in
+/// `GIT-STASH(1)   Git Manual   GIT-STASH(1)`, or `None` when the text isn't a man page.
+pub(super) fn man_page_name(text: &str) -> Option<&str> {
+    let (name, section) = text
+        .lines()
+        .find(|line| !line.trim().is_empty())?
+        .split_whitespace()
+        .next()?
+        .strip_suffix(')')?
+        .rsplit_once('(')?;
+    (!name.is_empty() && section.starts_with(|c: char| c.is_ascii_digit())).then_some(name)
+}
+
+/// Whether a heading at the start of a line introduces a list of subcommands: a heading that
+/// ends with `:` or is in capitals, and whose last word, before any `(...)`, is `commands` or
+/// `subcommands`, such as `Basic Commands (Beginner):`.
+fn is_commands_heading(line: &str) -> bool {
+    let heading = line.strip_suffix(':');
+    (heading.is_some() || !line.chars().any(char::is_lowercase))
+        && heading
+            .unwrap_or(line)
+            .split(" (")
+            .next()
+            .and_then(|text| text.split_whitespace().last())
+            .is_some_and(|word| {
+                word.eq_ignore_ascii_case("commands") || word.eq_ignore_ascii_case("subcommands")
+            })
+}
+
+/// Splits a line of a list of subcommands into the names, separated by commas, and the
+/// description after two spaces, or returns `None` when the line doesn't start with names.
+/// gh ends each name with `:`, and a word that ends with `.` ends a sentence.
+fn parse_command_line(line: &str) -> Option<(Vec<&str>, &str)> {
+    let (names, description) = line.split_once("  ").unwrap_or((line, ""));
+    let names = names
+        .split(',')
+        .map(|name| name.trim().trim_end_matches(':'))
+        .filter(|name| !name.is_empty())
+        .collect::<Vec<_>>();
+    (!names.is_empty()
+        && names
+            .iter()
+            .all(|name| is_command_word(name) && !name.ends_with('.')))
+    .then_some((names, description.trim()))
+}
+
+/// Takes clap's `[aliases: c, cp]` or `[alias: c]` out of a subcommand's description, and
+/// returns the description and the aliases.
+fn split_aliases(description: &str) -> (String, Vec<&str>) {
+    ["[aliases: ", "[alias: "]
+        .iter()
+        .find_map(|tag| {
+            let (before, rest) = description.split_once(tag)?;
+            let (aliases, after) = rest.split_once(']')?;
+            Some((
+                format!("{} {}", before.trim_end(), after.trim_start())
+                    .trim()
+                    .to_string(),
+                aliases.split(", ").map(str::trim).collect(),
+            ))
+        })
+        .unwrap_or_else(|| (description.to_string(), vec![]))
 }
 
 /// The values clap lists for an option, as `[possible values: auto, always, never]` or as a
@@ -394,7 +515,7 @@ Options:
   -v, --verbose...           More output per occurrence
   -h, --help                 Print help
 ";
-        let spec = parse(text, vec![]);
+        let spec = &parse(text, vec![], true)[0];
         assert_eq!(
             spec.flag_tuples(),
             [
@@ -442,7 +563,7 @@ Options:
 
   -q, --quiet         Print less
 ";
-        let spec = parse(text, vec![]);
+        let spec = &parse(text, vec![], true)[0];
         assert_eq!(
             spec.flags[0].completions.values,
             ["auto", "always", "never"]
@@ -463,7 +584,7 @@ Options:
   -n, --namespace string   If present, the namespace scope
       --chunk-size int     Return large lists in chunks
 ";
-        let spec = parse(text, vec![]);
+        let spec = &parse(text, vec![], true)[0];
         assert_eq!(
             spec.flag_tuples(),
             [
@@ -518,7 +639,7 @@ Options:
      -name pattern
              True if the last component of the pathname matches pattern.
 ";
-        let spec = parse(text, vec![]);
+        let spec = &parse(text, vec![], true)[0];
         assert_eq!(
             spec.flag_tuples(),
             [
@@ -559,7 +680,7 @@ BACKGROUND REFRESH
      To avoid this, pass the
      --no-optional-locks option to git.
 ";
-        let spec = parse(text, vec![]);
+        let spec = &parse(text, vec![], true)[0];
         assert_eq!(
             spec.flag_tuples(),
             [(
@@ -579,6 +700,115 @@ usage: git status [<options>] [--] [<pathspec>...]
   --------------------
   --  end of options
 ";
-        assert_eq!(parse(text, vec![]), CommandSpec::new(vec![]));
+        assert_eq!(parse(text, vec![], true), [CommandSpec::new(vec![])]);
+    }
+
+    /// The paths and descriptions of the subcommands that `text` lists for `tool pip`.
+    fn subcommands_of(text: &str) -> Vec<(String, String)> {
+        parse(text, vec!["pip".into()], true)
+            .into_iter()
+            .skip(1)
+            .map(|spec| (spec.path.join(" "), spec.description))
+            .collect()
+    }
+
+    #[test]
+    fn reads_clap_and_cargo_subcommands() {
+        // clap, with aliases in the description, and cargo, with aliases after commas.
+        let text = "\
+Usage: tool pip [OPTIONS] <COMMAND>
+
+Commands:
+  install  Install packages [aliases: i, add] (needs network)
+  list     List installed packages
+           and their versions
+  help     Print this message or the help of the given subcommand(s)
+
+Options:
+  -q, --quiet  Print less
+
+Commands:
+    build, b    Compile the current package
+    ...         See all commands with --list
+
+Environment variables:
+  TOOL_DIR  Where the tool keeps its data
+";
+        assert_eq!(
+            subcommands_of(text),
+            [
+                ("pip install", "Install packages (needs network)"),
+                ("pip i", "Install packages (needs network)"),
+                ("pip add", "Install packages (needs network)"),
+                ("pip list", "List installed packages and their versions"),
+                (
+                    "pip help",
+                    "Print this message or the help of the given subcommand(s)"
+                ),
+                ("pip build", "Compile the current package"),
+                ("pip b", "Compile the current package"),
+            ]
+            .map(|(path, description)| (path.to_string(), description.to_string()))
+        );
+        assert_eq!(parse(text, vec![], true)[0].flags.len(), 1);
+    }
+
+    #[test]
+    fn reads_cobra_and_gh_subcommands() {
+        let text = "\
+CORE COMMANDS
+  auth:          Authenticate gh and git with GitHub
+  browse:        Open repositories in the browser
+
+Basic Commands (Beginner):
+  create
+      Create a resource from a file
+
+Available Commands:
+  completion  Generate the autocompletion script for the specified shell
+
+Common commands:
+
+  Update the toolchains
+    $ tool update
+";
+        assert_eq!(
+            subcommands_of(text),
+            [
+                ("pip auth", "Authenticate gh and git with GitHub"),
+                ("pip browse", "Open repositories in the browser"),
+                ("pip create", "Create a resource from a file"),
+                (
+                    "pip completion",
+                    "Generate the autocompletion script for the specified shell"
+                ),
+            ]
+            .map(|(path, description)| (path.to_string(), description.to_string()))
+        );
+    }
+
+    #[test]
+    fn ignores_the_commands_of_a_man_page() {
+        // What `git stash --help` prints.
+        let text = "\
+GIT-STASH(1)                      Git Manual                      GIT-STASH(1)
+
+NAME
+       git-stash - Stash the changes in a dirty working directory away
+
+COMMANDS
+       clear
+           Remove all the stash entries. Note that those entries will then be
+           subject to pruning.
+";
+        assert_eq!(man_page_name(text), Some("GIT-STASH"));
+        assert_eq!(man_page_name("No manual entry for git-notes.txt"), None);
+        assert_eq!(parse(text, vec!["stash".into()], true).len(), 1);
+        // Without the header, the same list is read.
+        let list = text.split_once("\n\n").map_or("", |(_, rest)| rest);
+        assert_eq!(
+            subcommands_of(list),
+            [("pip clear".into(), "Remove all the stash entries.".into())]
+        );
     }
 }
