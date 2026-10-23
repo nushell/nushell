@@ -337,7 +337,14 @@ fn parse_option_line(line: &str) -> Option<(Vec<Spelling>, &str)> {
     let mut spellings = vec![];
     let mut rest = line;
     while rest.starts_with('-') {
-        let (spelling, after) = parse_spelling(rest)?;
+        // `-?`, which dotnet lists before `-h, --help`, is a name an extern can't declare, so
+        // it is left out rather than taking the line's `--help` with it.
+        let (spelling, after) = match rest.strip_prefix("-?") {
+            Some(after) if after.is_empty() || after.starts_with([',', '|', ' ']) => {
+                (vec![], after)
+            }
+            _ => parse_spelling(rest)?,
+        };
         spellings.extend(spelling);
         rest = after;
 
@@ -622,6 +629,21 @@ Options:
             ]
         );
         assert_eq!(spec.skipped, ["--porcelain", "--no-porcelain"]);
+    }
+
+    #[test]
+    fn leaves_out_a_question_mark_name() {
+        let text = "\
+Options:
+  -?, -h, --help  Show command line help.
+  -?              Show help.
+";
+        let spec = &parse(text, vec![], true)[0];
+        assert_eq!(
+            spec.flag_tuples(),
+            [(Some("help"), Some('h'), None, "Show command line help.")]
+        );
+        assert!(spec.skipped.is_empty());
     }
 
     #[test]

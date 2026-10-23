@@ -161,8 +161,8 @@ fn runs_only_listed_subcommands_for_their_help() -> Result {
 #[cfg(unix)]
 const TOOL_SCRIPT: &str = r#"#!/bin/sh
 case "$*" in
-    --help|"same --help") printf 'Usage: tool <COMMAND>\n\nCommands:\n  pip   Manage packages [aliases: p]\n  same  Print the help of tool\n  help  Print help\n\nOptions:\n  -v, --verbose <LEVEL>  Say more\n' ;;
-    "pip --help") printf 'Usage: tool pip <COMMAND>\n\nCommands:\n  install  Install packages\n\nOptions:\n      --user  Install for the user\n' ;;
+    --help|"same --help") printf 'Usage: tool <COMMAND>\n\nCommands:\n  pip   Manage packages [aliases: p]\n  same  Print the help of tool\n  help  Print help\n\nOptions:\n  -v, --verbose <LEVEL>  Say more\n  -h, --help             Print help\n' ;;
+    "pip --help") printf 'Usage: tool pip <COMMAND>\n\nCommands:\n  install  Install packages\n\nOptions:\n      --user  Install for the user\n  -h, --help  Print help\n' ;;
     "pip install --help") printf 'Options:\n  -U, --upgrade  Upgrade packages\n' ;;
     "status --help") printf 'Options:\n  -s, --short  Show status concisely\n' ;;
     *) : > ran ;;
@@ -263,7 +263,7 @@ fn walks_the_subcommands_that_the_help_lists() -> Result {
     &[
         "\n# Sources disagree on whether --verbose takes a value, so it's a switch: yes in \
          `tool --help`, no in `man tool`\n@complete external\nexport extern \"tool\" [\n    \
-         --verbose(-v)                  # Say more\n]",
+         --verbose(-v)                  # Say more\n    --help(-h)",
         "export extern \"tool pip install\" [\n    --upgrade(-U)",
     ]
 )]
@@ -282,6 +282,103 @@ fn man_takes_the_subcommands_that_the_help_lists(
         assert_contains(origins, &module);
         for &text in contains {
             assert_contains(text, &module);
+        }
+        assert!(!dirs.test().join("ran").exists(), "the tool ran");
+        Ok(())
+    })
+}
+
+/// Without --source, fish's completions of `tool` are used. When they list `pip` without its
+/// flags, as fish's own ouch.fish lists ouch's subcommands, the subcommands that the help lists
+/// are merged in, but not zsh's, which come after fish's. A `help` subcommand without flags
+/// doesn't count: clap tools list one.
+#[cfg(unix)]
+#[rstest]
+#[case::without_its_flags(
+    "complete -c tool -n __fish_use_subcommand -a pip -d 'Manage packages'",
+    "from:\n# - the fish completions of `tool`\n# - `tool --help`\n",
+    &[
+        "export extern \"tool pip\" [\n    --user",
+        "export extern \"tool pip install\" [\n    --upgrade(-U)",
+    ]
+)]
+#[case::with_its_flags(
+    "complete -c tool -n __fish_use_subcommand -a 'pip help'
+complete -c tool -n '__fish_seen_subcommand_from pip' -l user",
+    "from the fish completions of `tool`.\n",
+    &["export extern \"tool pip\" [\n    --user", "export extern \"tool help\" []"]
+)]
+fn help_adds_the_subcommands_fish_knows_nothing_about(
+    #[case] fish: &str,
+    #[case] origins: &str,
+    #[case] contains: &[&str],
+) -> Result {
+    Playground::setup("generate_completions_fish_walk", |dirs, _| {
+        write_script(&dirs, "tool", TOOL_SCRIPT);
+        write_script(
+            &dirs,
+            "fish",
+            &format!("#!/bin/sh\n/bin/cat <<'EOF'\n{fish}\nEOF\n"),
+        );
+        let zsh_file = dirs.test().join("_tool");
+        std::fs::write(&zsh_file, ZSH).expect("write the zsh completions");
+        write_script(
+            &dirs,
+            "zsh",
+            &format!("#!/bin/sh\necho '{}'\n", zsh_file.display()),
+        );
+        let module: String = test()
+            .cwd(dirs.test())
+            .run("with-env { PATH: (pwd) } { generate completions tool }")?;
+        assert_contains(origins, &module);
+        for &text in contains {
+            assert_contains(text, &module);
+        }
+        assert!(
+            !module.contains("tool build"),
+            "zsh's completions were merged"
+        );
+        assert!(!dirs.test().join("ran").exists(), "the tool ran");
+        Ok(())
+    })
+}
+
+/// A tool whose help lists `reboot` but no --help option, as launchctl's does: `launchctl
+/// --help` says --help is an unrecognized subcommand. It writes `ran` when it runs with
+/// arguments other than --help.
+#[cfg(unix)]
+const LAUNCHER_SCRIPT: &str = r#"#!/bin/sh
+case "$*" in
+    --help) printf 'Unrecognized subcommand: --help\nUsage: tool <subcommand>\n\nSubcommands:\n  reboot  Reboot the system\n' ;;
+    *) : > ran ;;
+esac
+"#;
+
+/// A subcommand that a help without a --help option lists may read --help as an argument, so
+/// it isn't run, whether the help lists it or it is named.
+#[cfg(unix)]
+#[rstest]
+#[case::listed("tool", Ok("export extern \"tool reboot\" []"))]
+#[case::named(
+    "tool reboot",
+    Err("`tool --help` lists `reboot` but no --help option, and there's no `man tool-reboot`")
+)]
+fn runs_no_subcommand_when_the_help_lists_no_help_option(
+    #[case] target: &str,
+    #[case] expected: std::result::Result<&str, &str>,
+) -> Result {
+    Playground::setup("generate_completions_no_help_option", |dirs, _| {
+        write_script(&dirs, "tool", LAUNCHER_SCRIPT);
+        let code = format!(
+            "with-env {{ PATH: (pwd) }} {{ generate completions '{target}' --source help }}"
+        );
+        let mut tester = test().cwd(dirs.test());
+        match expected {
+            Ok(text) => assert_contains(text, tester.run::<String>(code)?),
+            Err(help) => assert_contains(
+                help,
+                format!("{:?}", tester.run(code).expect_shell_error()?),
+            ),
         }
         assert!(!dirs.test().join("ran").exists(), "the tool ran");
         Ok(())

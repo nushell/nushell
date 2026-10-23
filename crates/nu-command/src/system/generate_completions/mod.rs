@@ -57,17 +57,20 @@ impl Command for GenerateCompletions {
 
     fn extra_description(&self) -> &str {
         "Without --source, the sources are tried in the order carapace, fish, zsh, man, help, and \
-the first one that knows any flags or subcommands is used. A man page lists no subcommands, so \
-when man is used and the command's --help lists some, what help finds is merged in as with \
---source all. With --source all, every source \
+the first one that knows any flags or subcommands is used. A man page lists no subcommands, and \
+a source may list a subcommand without any of its flags, as fish's own completions for ouch do. \
+So when man is used, or a source that lists a subcommand it knows nothing else about, and the \
+command's --help lists subcommands, what help finds is merged in as with --source all. With \
+--source all, every source \
 that knows any is used and their commands and flags are merged, the earlier source winning when \
 they disagree. A flag they disagree on taking a value is declared as a switch, and the comment \
 above its extern names the sources on each side. carapace, fish and zsh know the whole tree of subcommands, and man gives the \
 flags of the named command only. The help source runs the command with --help, then each \
 subcommand that help lists, and theirs in turn, to read the whole tree. It runs a subcommand \
-that way only when another source knows it, the --help of the command above it lists it, or it \
-has a man page, as git's subcommands do, since a command that doesn't read --help first would \
-run instead.
+that way only when another source knows it, the --help of the command above it lists it along \
+with a --help option, or it has a man page, as git's subcommands do, since a command that \
+doesn't read --help first would run instead. launchctl's help lists reboot, but no --help \
+option, so `launchctl reboot --help` isn't run.
 
 The result is the text of a module of `export extern` definitions. Externs exist only once \
 nushell has parsed them, so save the text to a file and load it with `use` or `source`, or save \
@@ -204,28 +207,39 @@ command."
         // Why the help source didn't run the subcommand, for the error.
         let mut unlisted = None;
         for source in sources {
-            // In the default order, the loop only goes on past a source that knew anything
-            // when that source is man, whose page lists no subcommands. The help source then
-            // adds the subcommands its --help lists, or nothing.
-            let after_man = !merge_all && !learned.is_empty();
+            // In the default order, the loop only goes on past a source that knew anything to
+            // the help source, when help may know subcommands that source doesn't (see
+            // `leaves_subcommands_to_help`). Help then adds the subcommands its --help lists,
+            // or nothing.
+            let after_first = !merge_all && !learned.is_empty();
+            if after_first && !matches!(source, Source::Help) {
+                continue;
+            }
             // `<tool> <words> --help` runs the subcommand when the tool doesn't read --help
             // first: `rm notes.txt --help` removes notes.txt. So each word must be a
-            // subcommand that another source knows, that the help above it lists, or that has
-            // a man page, as git's subcommands do.
+            // subcommand that another source knows, that the help above it lists along with a
+            // --help option, or that has a man page, as git's subcommands do.
             if let Some(runner) = &runner
                 && matches!(source, Source::Help)
                 && !learned
                     .iter()
                     .any(|(specs, _)| specs.iter().any(|spec| spec.path == path))
-                && let Some(end) = (2..=words.len()).find(|&end| {
-                    !help_lists(runner, &words[..end]) && !has_man_page(runner, &words[..end])
+                && let Some((end, listing)) = (2..=words.len()).find_map(|end| {
+                    let listing = listing_command(runner, &words[..end]);
+                    (!listing.as_ref().is_some_and(CommandSpec::lists_help)
+                        && !has_man_page(runner, &words[..end]))
+                    .then_some((end, listing))
                 })
             {
+                let word = &words[end - 1];
                 unlisted = Some(format!(
-                    "`{} --help` doesn't list `{}` as a subcommand and there's no \
-                     `man {}`, so `{} --help` wasn't run. Pipe its help text in with --source help",
+                    "`{} --help` {} and there's no `man {}`, so `{} --help` wasn't run. Pipe its \
+                     help text in with --source help",
                     words[..end - 1].join(" "),
-                    words[end - 1],
+                    match listing {
+                        Some(_) => format!("lists `{word}` but no --help option,"),
+                        None => format!("doesn't list `{word}` as a subcommand"),
+                    },
                     words[..end].join("-"),
                     words.join(" ")
                 ));
@@ -255,7 +269,7 @@ command."
                     Err(_) => continue,
                 };
                 // The first spec is the command's own, and any others are its subcommands.
-                if after_man && specs.len() < 2 {
+                if after_first && specs.len() < 2 {
                     continue;
                 }
                 let specs = match (source, &runner) {
@@ -274,7 +288,10 @@ command."
                     break;
                 }
             }
-            if !learned.is_empty() && !merge_all && !matches!(source, Source::Man) {
+            if !merge_all
+                && let Some((specs, _)) = learned.last()
+                && !leaves_subcommands_to_help(source, specs, path)
+            {
                 break;
             }
         }
@@ -346,11 +363,13 @@ command."
 /// give them. `specs` is what that help gave: the command's own spec, then one without flags
 /// for each subcommand it lists. `helps` holds that help text and those of the commands above.
 ///
-/// Each subcommand that runs this way is one that the help above it lists, as the help source
-/// requires before running a subcommand. clap's `help` reads the word after it as a command to
-/// describe, so it isn't run. An alias gets the flags of its command, without subcommands, as
-/// carapace gives it. A subcommand that prints the help of a command above it didn't read its
-/// name, so the subcommands that help lists aren't its own and aren't walked.
+/// Each subcommand that runs this way is one that the help above it lists along with a --help
+/// option, as the help source requires before running a subcommand: launchctl's help lists
+/// `reboot` but says --help is an unrecognized subcommand, so `launchctl reboot` may read --help
+/// as an argument. clap's `help` reads the word after it as a command to describe, so it isn't
+/// run. An alias gets the flags of its command, without subcommands, as carapace gives it. A
+/// subcommand that prints the help of a command above it didn't read its name, so the
+/// subcommands that help lists aren't its own and aren't walked.
 fn walk_help(
     runner: &Runner,
     words: &[String],
@@ -361,6 +380,7 @@ fn walk_help(
 ) -> Result<Vec<CommandSpec>, ShellError> {
     let mut specs = specs.into_iter();
     let mut tree: Vec<CommandSpec> = specs.next().into_iter().collect();
+    let lists_help = tree.first().is_some_and(CommandSpec::lists_help);
     for listed in specs {
         let Some(name) = listed.path.last() else {
             continue;
@@ -382,7 +402,8 @@ fn walk_help(
         signals.check(&span)?;
         let text = match name.as_str() {
             "help" => None,
-            _ => Source::Help.fetch(runner, &sub_words).into_iter().next(),
+            _ if lists_help => Source::Help.fetch(runner, &sub_words).into_iter().next(),
+            _ => None,
         };
         let Some(text) = text.filter(|text| !helps.contains(text)) else {
             tree.push(listed);
@@ -403,10 +424,20 @@ fn walk_help(
 
 /// Whether the specs declare anything beyond an empty signature for the command.
 fn knows_anything(specs: &[CommandSpec]) -> bool {
-    specs.len() > 1
-        || specs
-            .iter()
-            .any(|spec| !spec.flags.is_empty() || !spec.skipped.is_empty() || !spec.args.is_empty())
+    specs.len() > 1 || specs.iter().any(CommandSpec::declares_anything)
+}
+
+/// Whether the help source may know subcommands of the command at `path` that the specs from
+/// `source` don't: a man page lists none, and a source may list a subcommand without any of its
+/// flags, as fish's own ouch.fish lists ouch's, with every flag on ouch itself. A `help`
+/// subcommand and those under it don't count, since the help source doesn't run them either.
+fn leaves_subcommands_to_help(source: Source, specs: &[CommandSpec], path: &[String]) -> bool {
+    matches!(source, Source::Man)
+        || specs.iter().any(|spec| {
+            spec.path.len() > path.len()
+                && spec.path[path.len()..].iter().all(|word| word != "help")
+                && !spec.declares_anything()
+        })
 }
 
 /// Whether the tool is built with cobra, which completes its own command lines through a
@@ -422,7 +453,7 @@ fn completes_itself(runner: &Runner, words: &[String], specs: &[CommandSpec]) ->
     let tool = words[0].as_str();
     let has_completion = match words.len() {
         1 => specs.iter().any(|spec| spec.path == ["completion"]),
-        _ => help_lists(runner, &[tool.to_string(), "completion".to_string()]),
+        _ => listing_command(runner, &[tool.to_string(), "completion".to_string()]).is_some(),
     };
     has_completion
         && runner
@@ -436,19 +467,21 @@ fn completes_itself(runner: &Runner, words: &[String], specs: &[CommandSpec]) ->
             })
 }
 
-/// Whether the help of the command `words` without its last word lists that word as a
-/// subcommand, as `cargo --help` lists `build`.
-fn help_lists(runner: &Runner, words: &[String]) -> bool {
+/// The spec that the help of the command `words` without its last word gives that command, when
+/// it lists that word as a subcommand, as `cargo --help` lists `build`.
+fn listing_command(runner: &Runner, words: &[String]) -> Option<CommandSpec> {
     let [parent @ .., _] = words else {
-        return false;
+        return None;
     };
     let [_, parent_path @ ..] = parent else {
-        return false;
+        return None;
     };
-    Source::Help.fetch(runner, parent).iter().any(|text| {
-        help_text::parse(text, parent_path.to_vec(), true)
-            .iter()
-            .any(|spec| spec.path == words[1..])
+    Source::Help.fetch(runner, parent).iter().find_map(|text| {
+        let specs = help_text::parse(text, parent_path.to_vec(), true);
+        match specs.iter().any(|spec| spec.path == words[1..]) {
+            true => specs.into_iter().next(),
+            false => None,
+        }
     })
 }
 

@@ -144,6 +144,18 @@ impl CommandSpec {
         }
     }
 
+    /// Whether the source gave the command any flags or arguments.
+    pub fn declares_anything(&self) -> bool {
+        !self.flags.is_empty() || !self.skipped.is_empty() || !self.args.is_empty()
+    }
+
+    /// Whether the command lists a --help option.
+    pub fn lists_help(&self) -> bool {
+        self.flags
+            .iter()
+            .any(|flag| flag.long.as_deref() == Some("help"))
+    }
+
     pub fn skip(&mut self, spelling: impl Into<String>) {
         let spelling = spelling.into();
         if !self.skipped.contains(&spelling) {
