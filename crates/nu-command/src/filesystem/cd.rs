@@ -4,6 +4,18 @@ use nu_engine::command_prelude::*;
 use nu_protocol::shell_error::{self, io::IoError};
 use nu_utils::filesystem::{PermissionResult, have_permission};
 
+/// On Windows, treat a bare drive such as `d:` as the root of that drive (`d:\`)
+/// instead of the legacy drive-relative path, which can't be used as `$env.PWD`.
+fn drive_root(path: &str) -> String {
+    let is_bare_drive =
+        cfg!(windows) && matches!(path.as_bytes(), [letter, b':'] if letter.is_ascii_alphabetic());
+    if is_bare_drive {
+        format!("{path}\\")
+    } else {
+        path.to_string()
+    }
+}
+
 #[derive(Clone)]
 pub struct Cd;
 
@@ -61,7 +73,8 @@ impl Command for Cd {
                 } else {
                     // Trim whitespace from the end of path.
                     let path_no_whitespace =
-                        &v.item.trim_end_matches(|x| matches!(x, '\x09'..='\x0d'));
+                        v.item.trim_end_matches(|x| matches!(x, '\x09'..='\x0d'));
+                    let path_no_whitespace = &drive_root(path_no_whitespace);
 
                     // If `--physical` is specified, canonicalize the path; otherwise expand the path.
                     if physical {

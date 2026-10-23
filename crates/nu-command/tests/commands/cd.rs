@@ -18,6 +18,18 @@ fn cd_works_with_in_var() -> Result {
     })
 }
 
+#[cfg(windows)]
+#[test]
+fn cd_bare_drive_goes_to_drive_root() -> Result {
+    Playground::setup("cd_bare_drive", |dirs, _| {
+        let drive = dirs.test().to_string_lossy()[..2].to_lowercase();
+        test()
+            .cwd(dirs.test())
+            .run(format!("cd {drive}; $env.PWD | str downcase"))
+            .expect_value_eq(format!("{drive}\\"))
+    })
+}
+
 #[test]
 fn filesystem_change_from_current_directory_using_relative_path() -> Result {
     Playground::setup("cd_test_1", |dirs, _| {
