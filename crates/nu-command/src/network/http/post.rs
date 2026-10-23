@@ -205,6 +205,17 @@ pub fn run_post_with_data(
     input: PipelineData,
     cached_data: Option<Option<Value>>,
 ) -> Result<PipelineData, ShellError> {
+    run_post_with_data_and_url(engine_state, stack, call, input, cached_data, None)
+}
+
+pub fn run_post_with_data_and_url(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    call: &Call,
+    input: PipelineData,
+    cached_data: Option<Option<Value>>,
+    cached_url: Option<Value>,
+) -> Result<PipelineData, ShellError> {
     let positional_data = match cached_data {
         Some(data) => data,
         None => call.opt::<Value>(engine_state, stack, 1)?,
@@ -231,7 +242,10 @@ pub fn run_post_with_data(
     };
 
     let args = Arguments {
-        url: call.req(engine_state, stack, 0)?,
+        url: match cached_url {
+            Some(url) => url,
+            None => call.req(engine_state, stack, 0)?,
+        },
         headers: call.get_flag(engine_state, stack, "headers")?,
         data,
         content_type,

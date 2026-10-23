@@ -2,9 +2,9 @@ use nu_engine::{command_prelude::*, get_full_help};
 use nu_protocol::shell_error::generic::GenericError;
 
 use super::client::{RedirectMode, add_unix_socket_flag};
-use super::get::run_get;
+use super::get::run_get_with_url;
 use super::patch::run_patch_with_data;
-use super::post::run_post_with_data;
+use super::post::{run_post_with_data, run_post_with_data_and_url};
 use super::put::run_put_with_data;
 use super::{HttpDelete, HttpGet, HttpHead, HttpOptions, HttpPatch, HttpPost, HttpPut};
 
@@ -134,10 +134,17 @@ impl Command for Http {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let method: Option<Spanned<String>> = call.get_flag(engine_state, stack, "method")?;
+        // Explicit methods dispatch directly, so the selected command evaluates
+        // the URL only once. The implicit path caches it for the same reason.
+        if let Some(method) = method {
+            let data = call.opt::<Value>(engine_state, stack, 1)?;
+            return run_with_method(engine_state, stack, call, input, method, data);
+        }
+
         let url = call.opt::<Spanned<String>>(engine_state, stack, 0)?;
         // Evaluate the optional body once: `null` preserves default GET inference.
         let data = call.opt::<Value>(engine_state, stack, 1)?;
-        let method: Option<Spanned<String>> = call.get_flag(engine_state, stack, "method")?;
 
         // prefer stricter calls over aliasing with variables
         if let Some(Spanned { item: method, span }) = &url
@@ -156,15 +163,22 @@ impl Command for Http {
             ));
         }
 
-        if let Some(method) = method {
-            return run_with_method(engine_state, stack, call, input, method, data);
-        }
-
         match (url, data) {
-            (Some(_), Some(data)) => {
-                run_post_with_data(engine_state, stack, call, input, Some(Some(data)))
-            }
-            (Some(_), None) => run_get(engine_state, stack, call, input),
+            (Some(url), Some(data)) => run_post_with_data_and_url(
+                engine_state,
+                stack,
+                call,
+                input,
+                Some(Some(data)),
+                Some(Value::string(url.item, url.span)),
+            ),
+            (Some(url), None) => run_get_with_url(
+                engine_state,
+                stack,
+                call,
+                input,
+                Some(Value::string(url.item, url.span)),
+            ),
             (None, Some(_)) => Err(ShellError::NushellFailed {
                 msg: (String::from("Default verb is get with a payload. Impossible state")),
             }),

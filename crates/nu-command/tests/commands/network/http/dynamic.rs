@@ -354,6 +354,27 @@ fn positional_body_is_evaluated_once(#[case] method: &str) -> Result {
     Ok(())
 }
 
+#[rstest]
+#[case("", "GET", "")]
+#[case("--method get", "GET", "")]
+#[case("", "POST", "'payload'")]
+fn positional_url_is_evaluated_once(
+    #[case] method: &str,
+    #[case] http_method: &str,
+    #[case] body: &str,
+) -> Result {
+    let mut server = Server::new();
+    let mock = server.mock(http_method, "/").create();
+    test()
+        .run(format!(
+            "mut calls = 0; http {method} ($calls += 1; '{}') {body}; $calls",
+            server.url()
+        ))
+        .expect_value_eq(1)?;
+    mock.assert();
+    Ok(())
+}
+
 #[test]
 fn redirect_mode_is_preserved() -> Result {
     let mut server = Server::new();
