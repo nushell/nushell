@@ -110,17 +110,21 @@ pub fn expand_dots(path: impl AsRef<Path>) -> PathBuf {
 pub fn expand_ndots_safe(path: impl AsRef<Path>) -> PathBuf {
     let string = path.as_ref().to_string_lossy();
 
-    // Use ndots only if some component consists solely of at least `...`. A mere substring
-    // such as `origin/main...` is not an n-dots component, and normalizing it would needlessly
-    // rewrite the separators (e.g. to backslashes on Windows).
     // Don't use it if it contains ://, because that looks like a URL scheme and the path normalization
     // will mess with that.
     // Don't use it if it starts with `./`, as to not break golang wildcard syntax
     // (since generally you're probably not using `./` with ndots)
-    let has_ndots_component = string
-        .split(['/', '\\'])
-        .any(|component| is_ndots(component.as_ref()));
-    if has_ndots_component && !string.contains("://") && !string.starts_with("./") {
+    // Otherwise use it only if some component consists solely of at least `...`. A mere substring
+    // such as `origin/main...` is not an n-dots component, and normalizing it would needlessly
+    // rewrite the separators (e.g. to backslashes on Windows). Splitting with `components()` keeps
+    // this check in line with how `expand_ndots` tokenizes the path.
+    if !string.contains("://")
+        && !string.starts_with("./")
+        && path
+            .as_ref()
+            .components()
+            .any(|c| matches!(c, Component::Normal(s) if is_ndots(s)))
+    {
         expand_ndots(path)
     } else {
         path.as_ref().to_owned()
@@ -229,6 +233,26 @@ mod test_expand_ndots {
         // `...` only counts as n-dots when it is a whole path component (#16858)
         assert_path_eq!(expand_ndots_safe("origin/main..."), "origin/main...");
         assert_path_eq!(expand_ndots_safe("a.../b"), "a.../b");
+        // a non-ndots path is returned as is, so the doubled slash survives
+        assert_path_eq!(expand_ndots_safe("origin//main..."), "origin//main...");
+    }
+
+    #[test]
+    fn drive_relative_ndots() {
+        // `C:...` is the prefix `C:` followed by an n-dots component
+        let expected = if cfg!(windows) { r"C:..\.." } else { "C:..." };
+        assert_path_eq!(expand_ndots_safe("C:..."), expected);
+    }
+
+    #[test]
+    fn backslash_separated_ndots() {
+        // `\` is a separator only on Windows; elsewhere `a\...\b` is a single file name
+        let expected = if cfg!(windows) {
+            r"a\..\..\b"
+        } else {
+            r"a\...\b"
+        };
+        assert_path_eq!(expand_ndots_safe(r"a\...\b"), expected);
     }
 
     #[test]
