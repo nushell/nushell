@@ -4,7 +4,7 @@ use nu_protocol::{
     ByteStream, ByteStreamType, Config, PipelineData, ShellError, Signals, Span, Spanned, Value,
     shell_error::generic::GenericError, shell_error::io::IoError,
 };
-use std::{iter, sync::Arc};
+use std::{borrow::Cow, iter, sync::Arc};
 
 fn make_csv_error(error: csv::Error, format_name: &str, head: Span) -> ShellError {
     if let csv::ErrorKind::Io(error) = error.kind() {
@@ -87,13 +87,55 @@ fn make_schema_drift_error(format_name: &str, new_column: &str, head: Span) -> S
 pub struct ToDelimitedDataArgs {
     pub noheaders: bool,
     pub separator: Spanned<char>,
-    pub quote: char,
-    pub escape: Option<char>,
+    pub quote: Spanned<char>,
+    pub escape: Option<Spanned<char>>,
     pub columns: Option<Vec<String>>,
     pub format_name: &'static str,
     pub input: PipelineData,
     pub head: Span,
     pub content_type: Option<String>,
+}
+
+/// Parses a flag's `Value` as a single character, producing an error that names the flag
+/// (rather than `Value::as_char`'s hardcoded "separator") when the value isn't one character.
+pub fn parse_single_char_flag(value: Value, flag_name: &str) -> Result<Spanned<char>, ShellError> {
+    let span = value.span();
+    match value.as_char() {
+        Ok(item) => Ok(Spanned { item, span }),
+        Err(ShellError::MissingParameter { span, .. }) => Err(ShellError::MissingParameter {
+            param_name: format!("single character {flag_name}"),
+            span,
+        }),
+        Err(err) => Err(err),
+    }
+}
+
+/// Validates that a flag's character is ASCII and converts it to the byte the `csv` crate wants,
+/// pointing any error at the flag's own value instead of the command's head.
+fn ascii_char_flag(value: Spanned<char>, flag_name: &str, head: Span) -> Result<u8, ShellError> {
+    if value.item.is_ascii() {
+        Ok(value.item as u8)
+    } else {
+        Err(ShellError::IncorrectValue {
+            msg: format!("{flag_name} must be an ASCII character"),
+            val_span: value.span,
+            call_span: head,
+        })
+    }
+}
+
+/// Doubles every occurrence of the escape byte already present in `field`, so that
+/// `WriterBuilder::escape` (which only ever rewrites the quote byte, never a pre-existing
+/// escape byte) round-trips through the matching `from`/`ReaderBuilder::escape` reader.
+fn escape_delimited_field(field: &str, escape: Option<u8>) -> Cow<'_, str> {
+    if let Some(escape) = escape {
+        let escape_char = escape as char;
+        if field.contains(escape_char) {
+            let doubled = format!("{escape_char}{escape_char}");
+            return Cow::Owned(field.replace(escape_char, &doubled));
+        }
+    }
+    Cow::Borrowed(field)
 }
 
 /// Helper function to extract column names from a Value
@@ -138,18 +180,36 @@ fn write_csv_row(
     config: &Config,
     format_name: &'static str,
     head: Span,
+    escape: Option<u8>,
 ) -> Result<(), ShellError> {
     for column in columns {
         let field = record
             .get(column)
             .map(|v| to_string_tagged_value(v, config, format_name))
             .unwrap_or(Ok(String::new()))?;
-        wtr.write_field(field)
+        wtr.write_field(escape_delimited_field(&field, escape).as_bytes())
             .map_err(|err| make_csv_error(err, format_name, head))?;
     }
     wtr.write_record(iter::empty::<String>())
         .map_err(|err| make_csv_error(err, format_name, head))?;
     Ok(())
+}
+
+/// Writes a header row, escaping column names the same way data fields are escaped (comment 1
+/// applies to headers too: a column name can contain the escape character).
+fn write_csv_header(
+    wtr: &mut csv::Writer<&mut Vec<u8>>,
+    columns: &[String],
+    escape: Option<u8>,
+    format_name: &'static str,
+    head: Span,
+) -> Result<(), ShellError> {
+    wtr.write_record(
+        columns
+            .iter()
+            .map(|c| escape_delimited_field(c, escape).into_owned()),
+    )
+    .map_err(|err| make_csv_error(err, format_name, head))
 }
 
 pub fn to_delimited_data(
@@ -174,24 +234,39 @@ pub fn to_delimited_data(
             .with_content_type(content_type),
     );
 
-    let separator = u8::try_from(separator.item).map_err(|_| ShellError::IncorrectValue {
-        msg: "separator must be an ASCII character".into(),
-        val_span: separator.span,
-        call_span: head,
-    })?;
-    let quote = u8::try_from(quote).map_err(|_| ShellError::IncorrectValue {
-        msg: "quote must be an ASCII character".into(),
-        val_span: head,
-        call_span: head,
-    })?;
+    let separator_span = separator.span;
+    let separator = ascii_char_flag(separator, "separator", head)?;
+    let quote_span = quote.span;
+    let quote = ascii_char_flag(quote, "quote", head)?;
+    let escape_span = escape.as_ref().map(|e| e.span);
     let escape = escape
-        .map(u8::try_from)
-        .transpose()
-        .map_err(|_| ShellError::IncorrectValue {
-            msg: "escape must be an ASCII character".into(),
-            val_span: head,
-            call_span: head,
-        })?;
+        .map(|e| ascii_char_flag(e, "escape", head))
+        .transpose()?;
+
+    if quote == separator {
+        return Err(ShellError::IncompatibleParameters {
+            left_message: "separator".into(),
+            left_span: separator_span,
+            right_message: "quote".into(),
+            right_span: quote_span,
+        });
+    }
+    if escape == Some(separator) {
+        return Err(ShellError::IncompatibleParameters {
+            left_message: "separator".into(),
+            left_span: separator_span,
+            right_message: "escape".into(),
+            right_span: escape_span.expect("escape is Some, so escape_span is Some"),
+        });
+    }
+
+    let mut builder = WriterBuilder::new();
+    builder.delimiter(separator).quote(quote);
+    if let Some(escape) = escape {
+        // The escape character only has an effect once double_quote (the default
+        // doubled-quote escaping) is turned off.
+        builder.double_quote(false).escape(escape);
+    }
 
     // Check to ensure the input is likely one of our supported types first. We can't check a stream
     // without consuming it though
@@ -224,19 +299,11 @@ pub fn to_delimited_data(
             Signals::empty(),
             ByteStreamType::String,
             move |buffer| {
-                let mut builder = WriterBuilder::new();
-                builder.delimiter(separator).quote(quote);
-                if let Some(escape) = escape {
-                    // The escape character only has an effect once double_quote (the default
-                    // doubled-quote escaping) is turned off.
-                    builder.double_quote(false).escape(escape);
-                }
                 let mut wtr = builder.from_writer(buffer);
 
                 // Write header once if not already written
                 if !header_written {
-                    wtr.write_record(&columns)
-                        .map_err(|err| make_csv_error(err, format_name, head))?;
+                    write_csv_header(&mut wtr, &columns, escape, format_name, head)?;
                     header_written = true;
                 }
 
@@ -245,7 +312,15 @@ pub fn to_delimited_data(
                         return Err(*error.clone());
                     }
                     let record = row.into_record()?;
-                    write_csv_row(&mut wtr, &record, &columns, &config, format_name, head)?;
+                    write_csv_row(
+                        &mut wtr,
+                        &record,
+                        &columns,
+                        &config,
+                        format_name,
+                        head,
+                        escape,
+                    )?;
                     Ok(true)
                 } else {
                     Ok(false)
@@ -271,18 +346,10 @@ pub fn to_delimited_data(
         Signals::empty(),
         ByteStreamType::String,
         move |buffer| {
-            let mut builder = WriterBuilder::new();
-            builder.delimiter(separator).quote(quote);
-            if let Some(escape) = escape {
-                // The escape character only has an effect once double_quote (the default
-                // doubled-quote escaping) is turned off.
-                builder.double_quote(false).escape(escape);
-            }
             let mut wtr = builder.from_writer(buffer);
 
             if explicit_columns && !header_written {
-                wtr.write_record(&columns)
-                    .map_err(|err| make_csv_error(err, format_name, head))?;
+                write_csv_header(&mut wtr, &columns, escape, format_name, head)?;
                 header_written = true;
             }
 
@@ -307,13 +374,12 @@ pub fn to_delimited_data(
                         )?;
 
                         if !header_written {
-                            wtr.write_record(cols)
-                                .map_err(|err| make_csv_error(err, format_name, head))?;
+                            write_csv_header(&mut wtr, cols, escape, format_name, head)?;
                             header_written = true;
                         }
 
                         let record = row.into_record()?;
-                        write_csv_row(&mut wtr, &record, cols, &config, format_name, head)?;
+                        write_csv_row(&mut wtr, &record, cols, &config, format_name, head, escape)?;
 
                         first_row_processed = true;
                         Ok(true)
@@ -349,7 +415,7 @@ pub fn to_delimited_data(
                             }
                         }
 
-                        write_csv_row(&mut wtr, &record, cols, &config, format_name, head)?;
+                        write_csv_row(&mut wtr, &record, cols, &config, format_name, head, escape)?;
 
                         Ok(true)
                     }
