@@ -28,7 +28,7 @@ impl Command for Uniq {
             )
             .switch(
                 "keep-last",
-                "Return the last occurrence of each unique value instead of the first.",
+                "Keep the last occurrence of each unique value, in the position of its first occurrence.",
                 Some('l'),
             )
             .switch(
@@ -128,7 +128,7 @@ impl Command for Uniq {
                 ])),
             },
             Example {
-                description: "Ignore differences in case when comparing input values, keeping the casing of the last occurrence of each duplicate.",
+                description: "Ignore differences in case when comparing input values, keeping the casing of the last occurrence of each duplicate. --keep-last only has a visible effect like this when combined with something like --ignore-case, since otherwise duplicate values are already identical.",
                 example: "['Hello' 'HELLO' 'hello'] | uniq --ignore-case --keep-last",
                 result: Some(Value::test_list(vec![Value::test_string("hello")])),
             },
@@ -245,7 +245,7 @@ pub fn uniq(
     let flag_ignore_case = call.has_flag(engine_state, stack, "ignore-case")?;
     let flag_only_uniques = call.has_flag(engine_state, stack, "unique")?;
 
-    // for uniq-by command
+    // shared by both uniq and uniq-by
     let flag_keep_last = call.has_flag(engine_state, stack, "keep-last")?;
 
     let signals = engine_state.signals().clone();
