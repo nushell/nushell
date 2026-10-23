@@ -4,18 +4,6 @@ use nu_engine::command_prelude::*;
 use nu_protocol::shell_error::{self, io::IoError};
 use nu_utils::filesystem::{PermissionResult, have_permission};
 
-/// On Windows, treat a bare drive such as `d:` as the root of that drive (`d:\`)
-/// instead of the legacy drive-relative path, which can't be used as `$env.PWD`.
-fn drive_root(path: &str) -> String {
-    let is_bare_drive =
-        cfg!(windows) && matches!(path.as_bytes(), [letter, b':'] if letter.is_ascii_alphabetic());
-    if is_bare_drive {
-        format!("{path}\\")
-    } else {
-        path.to_string()
-    }
-}
-
 #[derive(Clone)]
 pub struct Cd;
 
@@ -74,11 +62,15 @@ impl Command for Cd {
                     // Trim whitespace from the end of path.
                     let path_no_whitespace =
                         v.item.trim_end_matches(|x| matches!(x, '\x09'..='\x0d'));
-                    let path_no_whitespace = &drive_root(path_no_whitespace);
+                    // On Windows, resolve drive-relative paths like `d:` or `d:foo` the way cmd does.
+                    let target = nu_path::resolve_drive_relative(
+                        std::path::Path::new(path_no_whitespace),
+                        &cwd,
+                    );
 
                     // If `--physical` is specified, canonicalize the path; otherwise expand the path.
                     if physical {
-                        if let Ok(path) = nu_path::canonicalize_with(path_no_whitespace, &cwd) {
+                        if let Ok(path) = nu_path::canonicalize_with(&target, &cwd) {
                             if !path.is_dir() {
                                 return Err(shell_error::io::IoError::new(
                                     shell_error::io::ErrorKind::from_std(
@@ -99,7 +91,7 @@ impl Command for Cd {
                             .into());
                         }
                     } else {
-                        let path = nu_path::expand_path_with(path_no_whitespace, &cwd, true);
+                        let path = nu_path::expand_path_with(&target, &cwd, true);
                         if !path.exists() {
                             return Err(shell_error::io::IoError::new(
                                 ErrorKind::DirectoryNotFound,
@@ -167,6 +159,11 @@ impl Command for Cd {
             Example {
                 description: "Move two directories up in the tree (the parent directory's parent). Additional dots can be added for additional levels.",
                 example: "cd ...",
+                result: None,
+            },
+            Example {
+                description: "On Windows, switch to drive D:. Stays put if already on D:, otherwise goes to the current directory of D: inherited from the parent process, or its root.",
+                example: "cd d:",
                 result: None,
             },
             Example {
