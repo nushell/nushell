@@ -208,7 +208,7 @@ fn keep_last_with_repeated() -> Result {
 fn keep_last_preserves_position_with_differing_key_order() -> Result {
     // `expect_value_eq` sorts record columns before comparing, which would hide a
     // regression here, so compare the column order itself instead.
-    let code = r#"[{a: 1, b: 2}, {b: 2, a: 1}] | uniq --keep-last | get 0 | columns"#;
+    let code = "[{a: 1, b: 2}, {b: 2, a: 1}] | uniq --keep-last | get 0 | columns";
     test().run(code).expect_value_eq(["b", "a"])
 }
 
