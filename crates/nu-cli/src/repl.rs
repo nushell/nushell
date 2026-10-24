@@ -1057,7 +1057,8 @@ fn parse_operation(
         orig = trim_quotes_str(&orig).to_string()
     }
 
-    let path = nu_path::expand_path_with(&orig, &cwd, true);
+    let target = nu_path::resolve_drive_relative(Path::new(&orig), Path::new(&cwd));
+    let path = nu_path::expand_path_with(&target, &cwd, true);
     if (engine_state.get_config().auto_cd_implicit || looks_like_path(&orig))
         && path.is_dir()
         && tokens.0.len() == 1
@@ -1907,6 +1908,23 @@ mod test_auto_cd {
         let input = if cfg!(windows) { r"C:\" } else { "/" };
         let root = AbsolutePath::try_new(input).unwrap();
         check(tempdir, input, root);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn auto_cd_bare_drive_on_current_drive() {
+        let tempdir = tempdir().unwrap();
+        let tempdir = AbsolutePath::try_new(tempdir.path()).unwrap();
+        let dir = tempdir.join("foo");
+        std::fs::create_dir_all(&dir).unwrap();
+
+        let Some(std::path::Component::Prefix(drive)) = tempdir.as_std_path().components().next()
+        else {
+            panic!("{tempdir:?} has no drive prefix")
+        };
+        let drive = drive.as_os_str().to_string_lossy();
+        check(&dir, &drive, &dir);
+        check(tempdir, &format!("{drive}foo"), &dir);
     }
 
     #[test]
