@@ -139,6 +139,7 @@ nuon = { path = "crates/nuon", version = "0.116.2", default-features = false }
 aegis-password-generator = "0.1.1"
 alphanumeric-sort = "1.5.8"
 ansi-str = "0.9"
+ansiopt = { version = "0.4.0", default-features = false }
 anyhow = "1.0.104"
 base64 = "0.23.1"
 better_default = "1.0.5"
