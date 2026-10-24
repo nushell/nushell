@@ -465,8 +465,8 @@ pub(crate) fn compile_try(
     // where %closure_reg was evaluated before the handlers were pushed.
     //
     // `try-collect` leaves an external whose stderr has its own pipe (the next command is
-    // `complete`, `ignore`, `save` or `tee`) as a buffered stream, and `clone %result_reg`
-    // moves that stream instead of copying it, so `finally` sees nothing (#19335).
+    // `complete`, `ignore`, `save` or `tee`) as a stream, and `clone %result_reg` moves that
+    // stream instead of copying it, so `finally` sees nothing (#19335).
     //
     // At runtime, `begin-finally` swaps the `finally` handler for a "running" marker, and
     // `end-finally` pops that marker. When control unwinds into the `finally` block instead (an

@@ -929,9 +929,7 @@ fn failing_external_piped_to_ignore_still_runs_catch() -> Result {
 #[test]
 #[deps(TESTBIN_ECHO_ENV_MIXED)]
 fn try_with_catch_passes_external_to_save_stderr() -> Result {
-    Playground::setup("try_catch_save_stderr", |dirs, sandbox| {
-        sandbox.with_files(&[]);
-
+    Playground::setup("try_catch_save_stderr", |dirs, _sandbox| {
         let code = "
             $env.OUT = 'out'
             $env.ERR = 'err'
@@ -959,12 +957,13 @@ fn try_with_finally_passes_external_to_complete() -> Result {
     tester.run("$env.LOG").expect_value_eq(["nothing"])
 }
 
-/// The output is read before pipefail waits for the exit status: a child that fills a pipe
-/// nobody reads never exits. If that order breaks, this test hangs instead of failing.
+/// Pipefail waits for the exit status before anything reads the output, so the pipes are read
+/// ahead: a child that fills a pipe nobody reads never exits. If that breaks, this test hangs
+/// instead of failing.
 #[test]
 #[exp(PIPE_FAIL)]
 #[deps(TESTBIN_REPEATER)]
-fn try_with_catch_reads_big_output_before_waiting_for_exit() -> Result {
+fn try_with_catch_waits_for_big_output_without_hanging() -> Result {
     let result: CompleteResult =
         test().run("try { repeater x 300000 } catch { 'catch' } | complete")?;
     assert_eq!(result.stdout.len(), 300000);
@@ -972,8 +971,8 @@ fn try_with_catch_reads_big_output_before_waiting_for_exit() -> Result {
     Ok(())
 }
 
-/// Pipefail waits on the exit statuses, so `try` reads the output into memory first, keeping
-/// a byte stream a byte stream. If that order breaks, the big-output cases hang.
+/// Pipefail waits on the exit statuses before `try` hands the output on, so the pipes are read
+/// ahead, keeping a byte stream a byte stream. If that breaks, the big-output cases hang.
 #[rstest]
 #[case::plain("try { repeater x 300000 } | str length", 300000)]
 #[case::catch("try { repeater x 300000 } catch { 'catch' } | str length", 300000)]
@@ -983,11 +982,34 @@ fn try_with_catch_reads_big_output_before_waiting_for_exit() -> Result {
 #[nu_test_support::test]
 #[exp(PIPE_FAIL)]
 #[deps(TESTBIN_REPEATER, TESTBIN_FAIL)]
-fn try_reads_output_before_pipefail_waits(
+fn try_pipefail_waits_without_hanging_on_big_output(
     #[case] code: &str,
     #[case] expected: impl IntoValue,
 ) -> Result {
     test().run(code).expect_value_eq(expected)
+}
+
+/// Waiting on the external doesn't run the steps after it: they stay lazy, so `first 1` runs
+/// `each` once, and a failure reaches `catch` before they run at all. `log.txt` records each run.
+#[rstest]
+#[case::lazy(
+    "try { cococo a b c | split row ' ' | each {|x| $x | save -a log.txt; $x } } | first 1",
+    "a"
+)]
+#[case::failure_skips_them(
+    "$env.ERR = 'boom'; try { echo_env_stderr_fail ERR o+e>| lines | each {|x| $x | save -a log.txt; $x } } catch { '' }",
+    ""
+)]
+#[nu_test_support::test]
+#[exp(PIPE_FAIL)]
+#[deps(TESTBIN_COCOCO, TESTBIN_ECHO_ENV_STDERR_FAIL)]
+fn try_waits_without_running_later_steps(#[case] code: &str, #[case] runs: &str) -> Result {
+    Playground::setup("try_waits_without_running_later_steps", |dirs, _sandbox| {
+        let _: Value = test().cwd(dirs.test()).run(code)?;
+        let log = fs::read_to_string(dirs.test().join("log.txt")).unwrap_or_default();
+        assert_eq!(log, runs);
+        Ok(())
+    })
 }
 
 /// When the external fails, the error takes the place of its output and nothing is left to read
@@ -1010,9 +1032,7 @@ fn failing_external_stderr_is_shown_when_try_takes_over(#[case] child_code: &str
 #[test]
 #[deps(TESTBIN_ECHO_ENV_STDERR_FAIL)]
 fn failing_external_stderr_follows_stderr_redirection() -> Result {
-    Playground::setup("try_catch_failed_stderr_redirect", |dirs, sandbox| {
-        sandbox.with_files(&[]);
-
+    Playground::setup("try_catch_failed_stderr_redirect", |dirs, _sandbox| {
         let code = "
             $env.ERR = 'boom'
             do { try { echo_env_stderr_fail ERR } catch { 'catch' } | ignore } e> err.txt

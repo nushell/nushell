@@ -145,8 +145,9 @@ pub enum Instruction {
     /// But it's different from `Collect` in that if there is an error in the stream, it will be
     /// returned as an error instead of being ignored.
     ///
-    /// An external whose stderr has its own pipe stays a stream over its buffered output, so the
-    /// next command still gets stdout and stderr apart.
+    /// An external whose stderr has its own pipe stays a stream, so the next command still gets
+    /// stdout and stderr apart. Its exit status is checked, and its output is read ahead into
+    /// memory meanwhile.
     TryCollect { src_dst: RegId },
     /// Change the span of the contents of a register to the span of this instruction.
     Span { src_dst: RegId },

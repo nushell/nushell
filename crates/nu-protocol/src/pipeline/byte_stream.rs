@@ -44,6 +44,7 @@ impl ByteStreamSource {
             ByteStreamSource::Child(mut child) => child.stdout.take().map(|stdout| match stdout {
                 ChildPipe::Pipe(pipe) => SourceReader::File(convert_file(pipe)),
                 ChildPipe::Tee(tee) => SourceReader::Read(tee),
+                ChildPipe::ReadAhead(pipe) => SourceReader::Read(Box::new(pipe)),
             }),
         }
     }
@@ -561,7 +562,8 @@ impl ByteStream {
     ///
     /// This will succeed if the [`ByteStreamSource`] of the [`ByteStream`] is either:
     /// - [`File`](ByteStreamSource::File)
-    /// - [`Child`](ByteStreamSource::Child) and the child has a stdout that is `Some(ChildPipe::Pipe(..))`.
+    /// - [`Child`](ByteStreamSource::Child) and the child has a stdout that is `Some(ChildPipe::Pipe(..))`,
+    ///   or a `Some(ChildPipe::ReadAhead(..))` that hasn't read anything ahead.
     ///
     /// All other cases return an `Err` with the original [`ByteStream`] in it.
     pub fn into_stdio(mut self) -> Result<Stdio, Self> {
@@ -569,18 +571,28 @@ impl ByteStream {
             ByteStreamSource::Read(..) => Err(self),
             ByteStreamSource::File(file) => Ok(file.into()),
             #[cfg(feature = "os")]
-            ByteStreamSource::Child(child) => {
-                if let ChildProcess {
-                    stdout: Some(ChildPipe::Pipe(stdout)),
-                    stderr,
-                    ..
-                } = *child
-                {
-                    debug_assert!(stderr.is_none(), "stderr should not exist");
-                    Ok(stdout.into())
-                } else {
-                    self.stream = ByteStreamSource::Child(child);
-                    Err(self)
+            ByteStreamSource::Child(mut child) => {
+                let stdout = match child.stdout.take() {
+                    Some(ChildPipe::Pipe(stdout)) => Ok(stdout),
+                    Some(ChildPipe::ReadAhead(stdout)) => {
+                        stdout.into_pipe().map_err(ChildPipe::ReadAhead)
+                    }
+                    Some(stdout) => Err(stdout),
+                    None => {
+                        self.stream = ByteStreamSource::Child(child);
+                        return Err(self);
+                    }
+                };
+                match stdout {
+                    Ok(stdout) => {
+                        debug_assert!(child.stderr.is_none(), "stderr should not exist");
+                        Ok(stdout.into())
+                    }
+                    Err(stdout) => {
+                        child.stdout = Some(stdout);
+                        self.stream = ByteStreamSource::Child(child);
+                        Err(self)
+                    }
                 }
             }
         }
@@ -748,12 +760,25 @@ impl ByteStream {
                         ChildPipe::Tee(tee) => {
                             copy_with_signals(tee, dest, span, signals)?;
                         }
+                        ChildPipe::ReadAhead(pipe) => {
+                            copy_with_signals(pipe, dest, span, signals)?;
+                        }
                     }
                 }
                 child.wait()?;
             }
         }
         Ok(())
+    }
+
+    /// The process of an external whose stderr has its own pipe, which happens when the next
+    /// command reads stdout and stderr apart (`complete`, `ignore`, `save`, `tee`).
+    #[cfg(feature = "os")]
+    pub fn child_with_separate_stderr(&mut self) -> Option<&mut ChildProcess> {
+        match &mut self.stream {
+            ByteStreamSource::Child(child) if child.stderr.is_some() => Some(child),
+            _ => None,
+        }
     }
 }
 

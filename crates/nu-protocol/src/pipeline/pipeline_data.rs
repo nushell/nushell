@@ -883,6 +883,23 @@ impl PipelineData {
             },
         }
     }
+
+    /// Like [`clone_exit_status_future`](Self::clone_exit_status_future), but the guard can also
+    /// read the process's pipes ahead before it waits (see
+    /// [`ReadAheadPipe`](crate::process::ReadAheadPipe)), so waiting can't hang on a pipe that
+    /// nobody reads yet.
+    #[cfg(feature = "os")]
+    pub fn exit_status_guard_reading_ahead(&mut self) -> Option<ExitStatusGuard> {
+        let PipelineData::ByteStream(stream, ..) = self else {
+            return None;
+        };
+        let ByteStreamSource::Child(child) = stream.source_mut() else {
+            return None;
+        };
+        let guard =
+            ExitStatusGuard::new(child.clone_exit_status_future(), child.clone_ignore_error());
+        Some(guard.with_read_ahead(child.read_ahead_handles()))
+    }
 }
 
 impl CompareTypes<Type> for PipelineData {
