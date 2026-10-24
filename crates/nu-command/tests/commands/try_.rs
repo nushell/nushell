@@ -971,3 +971,21 @@ fn try_with_catch_reads_big_output_before_waiting_for_exit() -> Result {
     assert_eq!(result.exit_code, 0);
     Ok(())
 }
+
+/// Pipefail waits on the exit statuses, so `try` reads the output into memory first, keeping
+/// a byte stream a byte stream. If that order breaks, the big-output cases hang.
+#[rstest]
+#[case::plain("try { repeater x 300000 } | str length", 300000)]
+#[case::catch("try { repeater x 300000 } catch { 'catch' } | str length", 300000)]
+#[case::lines("try { repeater x 300000 | lines } | length", 1)]
+#[case::keeps_byte_stream("try { repeater x 300000 } | describe", "byte stream")]
+#[case::still_catches_failure("try { fail 3 | lines } | length", 0)]
+#[nu_test_support::test]
+#[exp(PIPE_FAIL)]
+#[deps(TESTBIN_REPEATER, TESTBIN_FAIL)]
+fn try_reads_output_before_pipefail_waits(
+    #[case] code: &str,
+    #[case] expected: impl IntoValue,
+) -> Result {
+    test().run(code).expect_value_eq(expected)
+}

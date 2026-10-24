@@ -2056,29 +2056,33 @@ fn collect(
     fallback_span: Span,
     #[cfg(feature = "os")] ignore_error: bool,
 ) -> Result<PipelineData, ShellError> {
-    let mut data = pipe.body;
+    let data = collect_body(pipe.body, fallback_span);
+    // The pipefail check waits on the exit statuses, so it runs after the output is read (or
+    // dropped on an error): a child that fills a pipe nobody reads never exits. A pipefail
+    // error still wins over an error from reading the output.
+    #[cfg(feature = "os")]
+    if nu_experimental::PIPE_FAIL.get() && !ignore_error {
+        check_exit_status_future(pipe.exit)?;
+    }
+    data
+}
+
+/// The part of [`collect`] that reads the output, without the pipefail check.
+fn collect_body(mut data: PipelineData, fallback_span: Span) -> Result<PipelineData, ShellError> {
     let span = data.span().unwrap_or(fallback_span);
     // A child whose stderr has its own pipe is headed for a command that reads both pipes
     // itself (`complete`, `ignore`, `save`, `tee`), and a value can't carry stderr. Buffer the
     // output instead: a failure still surfaces here, and the next command gets the child back
-    // with its output intact (#19335). The pipes are read before the pipefail wait, as a child
-    // that fills a pipe nobody reads never exits.
+    // with its output intact (#19335).
     #[cfg(feature = "os")]
     if let PipelineData::ByteStream(stream, ..) = &mut data
         && let nu_protocol::ByteStreamSource::Child(child) = stream.source_mut()
         && child.stderr.is_some()
     {
         child.buffer_output()?;
-        if nu_experimental::PIPE_FAIL.get() && !ignore_error {
-            check_exit_status_future(pipe.exit)?;
-        }
         return Ok(data);
     }
     let metadata = data.take_metadata().and_then(|m| m.for_collect());
-    #[cfg(feature = "os")]
-    if nu_experimental::PIPE_FAIL.get() && !ignore_error {
-        check_exit_status_future(pipe.exit)?;
-    }
     // A child stream without captured stdout carries no data: the external already wrote
     // its output to the inherited stdout or a redirection target. Collecting it into a
     // value would fabricate an empty string, which prints as a stray blank line when the
@@ -2170,10 +2174,47 @@ fn drain_if_end(
     }
     #[cfg(feature = "os")]
     {
-        check_exit_status_future(data.exit).map(|_| result)
+        // A stream going on to the next command is read into memory before the check waits on
+        // the exit statuses: a child that fills a pipe nobody reads never exits.
+        let result = if data.exit.iter().any(Option::is_some) {
+            buffer_stream(result)
+        } else {
+            Ok(result)
+        };
+        check_exit_status_future(data.exit)?;
+        result
     }
     #[cfg(not(feature = "os"))]
     Ok(result)
+}
+
+/// Read a stream into memory, keeping its shape: an external stays an external with its exit
+/// status known, and other byte and list streams stay streams.
+#[cfg(feature = "os")]
+fn buffer_stream(data: PipelineData) -> Result<PipelineData, ShellError> {
+    Ok(match data {
+        PipelineData::ByteStream(mut stream, metadata) => {
+            if let nu_protocol::ByteStreamSource::Child(child) = stream.source_mut() {
+                child.buffer_output()?;
+            } else {
+                let (span, signals, type_) =
+                    (stream.span(), stream.signals().clone(), stream.type_());
+                let bytes = stream.into_bytes()?;
+                stream = nu_protocol::ByteStream::read(
+                    std::io::Cursor::new(bytes),
+                    span,
+                    signals,
+                    type_,
+                );
+            }
+            PipelineData::byte_stream(stream, metadata)
+        }
+        PipelineData::ListStream(stream, metadata) => {
+            let stream = stream.modify(|values| values.collect::<Vec<_>>().into_iter());
+            PipelineData::list_stream(stream, metadata)
+        }
+        data => data,
+    })
 }
 
 enum RedirectionStream {
