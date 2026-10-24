@@ -388,6 +388,49 @@ fn try_catch_inherited_external_output_has_no_extra_blank_line(
     );
 }
 
+// `ignore` asks for an external's stderr on its own pipe, but a `try` with `catch` collects the
+// block's output into a value, which only holds stdout. Collecting a child that still had a
+// stderr pipe failed with "internal error: stderr should not exist", so `catch` ran for an
+// external that succeeded.
+// https://github.com/nushell/nushell/issues/19335
+#[rstest]
+#[case::success(
+    "try { ^$env.TEST_NU_BIN -n -c 'print hi' } catch { print caught } | ignore; print done",
+    "done\n"
+)]
+#[case::success_with_stderr(
+    "try { ^$env.TEST_NU_BIN -n -c 'print -e oops' } catch { print caught } | ignore; print done",
+    "done\n"
+)]
+#[case::in_a_def(
+    "def f [] { try { ^$env.TEST_NU_BIN -n -c 'print hi' } catch { print caught } }; f | ignore; print done",
+    "done\n"
+)]
+// A failing external is still caught.
+#[case::failure(
+    "try { ^$env.TEST_NU_BIN -n -c 'exit 1' } catch { print caught } | ignore; print done",
+    "caught\ndone\n"
+)]
+#[nu_test_support::test]
+#[deps(NU)]
+fn try_catch_piped_into_ignore_does_not_catch_a_successful_external(
+    #[case] script: &str,
+    #[case] expected: &str,
+) {
+    let child_output = std::process::Command::new(NU.path())
+        .args(["-n", "-c", script])
+        .env("TEST_NU_BIN", NU.path())
+        .output()
+        .expect("failed to run nu");
+
+    assert_eq!(expected, String::from_utf8_lossy(&child_output.stdout));
+    assert!(
+        child_output.stderr.is_empty(),
+        "unexpected stderr: {}",
+        String::from_utf8_lossy(&child_output.stderr),
+    );
+}
+
 #[test]
 #[deps(NU)]
 fn run_with_no_newline() {
