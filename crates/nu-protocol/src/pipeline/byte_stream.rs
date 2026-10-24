@@ -788,6 +788,19 @@ impl ByteStream {
         }
     }
 
+    /// For an external whose stderr has its own pipe, a copy of the stream without the stderr,
+    /// reading the rest of stdout from memory: what collecting the stream into a value reads. The
+    /// stream itself still reads the same. `None` for any other stream.
+    #[cfg(feature = "os")]
+    pub fn copy_stdout(&mut self) -> Result<Option<Self>, ShellError> {
+        let (span, signals, type_) = (self.span, self.signals.clone(), self.type_);
+        let Some(child) = self.child_with_separate_stderr() else {
+            return Ok(None);
+        };
+        let copy = ByteStreamSource::Child(Box::new(child.copy_stdout()?));
+        Ok(Some(Self::new(copy, span, signals, type_)))
+    }
+
     /// Write the stream to `dest` like [`write_to`](Self::write_to), unless it's an external
     /// whose stderr has its own pipe, meaning the next command reads stdout and stderr apart.
     /// Then only stdout is written, and the stream comes back with the process and its stderr.

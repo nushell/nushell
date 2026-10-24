@@ -207,6 +207,13 @@ impl<'a> EvalContext<'a> {
         &self.registers[reg_id.get() as usize]
     }
 
+    /// Borrow the contents of a register mutably.
+    #[cfg(feature = "os")]
+    #[inline]
+    fn borrow_reg_mut(&mut self, reg_id: RegId) -> &mut PipelineData {
+        &mut self.registers[reg_id.get() as usize]
+    }
+
     /// Replace the contents of a register with `Empty` and then return the value that it contained
     #[inline]
     fn take_reg(&mut self, reg_id: RegId) -> PipelineExecutionData {
@@ -449,7 +456,7 @@ fn unwind_through_handlers(
                 // produced: collect it first, like `try-collect` does on the fall-through path.
                 if let Unwind::Return(data) = unwind {
                     #[cfg(feature = "os")]
-                    let collected = collect(data, span, false, ctx.stack.stderr());
+                    let collected = collect(data, span, false, Some(ctx.stack.stderr()));
                     #[cfg(not(feature = "os"))]
                     let collected = collect(data, span);
                     unwind = match collected {
@@ -578,17 +585,21 @@ fn eval_instruction<D: DebugContext>(
             Ok(Continue)
         }
         Instruction::Clone { dst, src } => {
-            // The only child stream that reaches a clone is one `try` passed through with its
-            // stderr pipe (see `collect`), cloned by `finally` to keep the result while the block
-            // runs. A stream can't be cloned, so move it: the `finally` block sees nothing, as it
-            // does when unwinding a `return`, and the result goes on to the next command.
+            // `try` passes an external whose stderr has its own pipe through uncollected (see
+            // `collect`), and `finally` clones it to keep the result while its block runs. The
+            // stream goes to `dst`, so the next command still reads stdout and stderr apart, and
+            // `src` gets what its stdout collects to.
             #[cfg(feature = "os")]
-            if let PipelineData::ByteStream(stream, ..) = ctx.borrow_reg(*src)
-                && let nu_protocol::ByteStreamSource::Child(child) = stream.source()
-                && child.stderr.is_some()
+            if let PipelineData::ByteStream(stream, ..) = ctx.borrow_reg_mut(*src)
+                && let Some(copy) = stream.copy_stdout()?
             {
+                let value = copy.into_value()?;
                 let data = ctx.take_reg(*src);
                 ctx.put_reg(*dst, data);
+                ctx.put_reg(
+                    *src,
+                    PipelineExecutionData::from(PipelineData::value(value, None)),
+                );
                 return Ok(Continue);
             }
             let data = ctx.clone_reg(*src, *span)?;
@@ -598,7 +609,7 @@ fn eval_instruction<D: DebugContext>(
         Instruction::Collect { src_dst } => {
             let data = ctx.take_reg(*src_dst);
             #[cfg(feature = "os")]
-            let value = collect(data, *span, true, ctx.stack.stderr())?;
+            let value = collect(data, *span, true, None)?;
             #[cfg(not(feature = "os"))]
             let value = collect(data, *span)?;
             ctx.put_reg(*src_dst, PipelineExecutionData::from(value));
@@ -607,7 +618,7 @@ fn eval_instruction<D: DebugContext>(
         Instruction::TryCollect { src_dst } => {
             let data = ctx.take_reg(*src_dst);
             #[cfg(feature = "os")]
-            let value = collect(data, *span, false, ctx.stack.stderr())?;
+            let value = collect(data, *span, false, Some(ctx.stack.stderr()))?;
             #[cfg(not(feature = "os"))]
             let value = collect(data, *span)?;
             ctx.put_reg(*src_dst, PipelineExecutionData::from(value));
@@ -2065,16 +2076,16 @@ fn get_env_var<'a>(ctx: &'a mut EvalContext<'_>, key: &str) -> Option<&'a Value>
 ///
 /// The metadata is removed if it is the file data source, as that's just meant to mark streams.
 ///
-/// An external whose stderr has its own pipe stays a stream, because the next command reads
-/// stdout and stderr apart.
+/// It doesn't check pipefail if `ignore_error` is true.
 ///
-/// It doesn't check pipefail if `ignore_error` is true. `stderr` is where a failed external's
-/// captured stderr goes.
+/// With `pass_through`, an external whose stderr has its own pipe stays a stream, because the
+/// next command reads stdout and stderr apart. If an error takes the place of its output, the
+/// stderr it captured goes to `pass_through`.
 fn collect(
     pipe: PipelineExecutionData,
     fallback_span: Span,
     #[cfg(feature = "os")] ignore_error: bool,
-    #[cfg(feature = "os")] stderr: &OutDest,
+    #[cfg(feature = "os")] pass_through: Option<&OutDest>,
 ) -> Result<PipelineData, ShellError> {
     let mut data = pipe.body;
     let span = data.span().unwrap_or(fallback_span);
@@ -2085,13 +2096,16 @@ fn collect(
         && !ignore_error
         && let Err(err) = check_exit_status_future(pipe.exit)
     {
-        show_failed_stderr(data, stderr);
+        if let Some(stderr) = pass_through {
+            show_failed_stderr(data, stderr);
+        }
         return Err(err);
     }
     // A value can't carry stderr. Wait for the child instead: a failure still surfaces here, and
     // the next command gets the child back with its output intact (#19335).
     #[cfg(feature = "os")]
-    if let PipelineData::ByteStream(stream, ..) = &mut data
+    if let Some(stderr) = pass_through
+        && let PipelineData::ByteStream(stream, ..) = &mut data
         && let Some(child) = stream.child_with_separate_stderr()
     {
         if let Err(err) = child.wait_keeping_output() {

@@ -943,18 +943,21 @@ fn try_with_catch_passes_external_to_save_stderr() -> Result {
     })
 }
 
-/// `finally` can't copy a stream, so its parameter is nothing while the stream goes on.
-#[test]
+/// `finally` gets what the stdout collects to, while the stream goes on with stdout and stderr.
+#[rstest]
+#[case::parameter(
+    "try { echo_env_mixed out-err OUT ERR } finally {|value| $env.LOG ++= [$value] } | complete"
+)]
+#[case::input("try { echo_env_mixed out-err OUT ERR } finally { $env.LOG ++= [$in] } | complete")]
+#[nu_test_support::test]
 #[deps(TESTBIN_ECHO_ENV_MIXED)]
-fn try_with_finally_passes_external_to_complete() -> Result {
+fn try_with_finally_passes_external_to_complete(#[case] code: &str) -> Result {
     let mut tester = test();
     let () = tester.run("$env.LOG = []; $env.OUT = 'out'; $env.ERR = 'err'")?;
-    let result: CompleteResult = tester.run(
-        "try { echo_env_mixed out-err OUT ERR } finally {|value| $env.LOG ++= [($value | describe)] } | complete",
-    )?;
+    let result: CompleteResult = tester.run(code)?;
     assert_eq!(result.stdout, "out\n");
     assert_eq!(result.stderr, "err\n");
-    tester.run("$env.LOG").expect_value_eq(["nothing"])
+    tester.run("$env.LOG").expect_value_eq(["out"])
 }
 
 /// Pipefail waits for the exit status before anything reads the output, so the pipes are read
@@ -1013,10 +1016,14 @@ fn try_waits_without_running_later_steps(#[case] code: &str, #[case] runs: &str)
 }
 
 /// When the external fails, the error takes the place of its output and nothing is left to read
-/// its captured stderr, so it goes to the shell's stderr, as an uncaptured stderr would.
+/// its captured stderr, so it goes to the shell's stderr, as an uncaptured stderr would. That
+/// includes `ignore --stderr`, which only gets the `catch` output.
 #[rstest]
 #[case::catch("$env.ERR = 'boom'; try { echo_env_stderr_fail ERR } catch { 'catch' } | ignore")]
 #[case::plain_try("$env.ERR = 'boom'; try { echo_env_stderr_fail ERR } | ignore")]
+#[case::ignore_stderr(
+    "$env.ERR = 'boom'; try { echo_env_stderr_fail ERR } catch { 'catch' } | ignore --stderr | ignore"
+)]
 #[nu_test_support::test]
 #[deps(NU, TESTBIN_ECHO_ENV_STDERR_FAIL)]
 fn failing_external_stderr_is_shown_when_try_takes_over(#[case] child_code: &str) -> Result {

@@ -355,6 +355,23 @@ impl ReadAheadPipe {
         drop(state);
         Err(self)
     }
+
+    /// Copy the rest of the output without reading it, once the read-ahead thread is done.
+    fn copy_rest(&self) -> io::Result<Vec<u8>> {
+        self.handle().start();
+        let mut state = self.shared.lock();
+        loop {
+            match &state.finished {
+                Some(None) => return Ok(state.buffer.iter().copied().collect()),
+                Some(Some(err)) => return Err(io::Error::new(err.kind(), err.to_string())),
+                None => {
+                    state = (self.shared.progress)
+                        .wait(state)
+                        .unwrap_or_else(PoisonError::into_inner);
+                }
+            }
+        }
+    }
 }
 
 impl ReadAheadHandle {
@@ -670,6 +687,27 @@ impl ChildProcess {
         self.check_exit()
     }
 
+    /// A copy of the process without its stderr, which reads the rest of stdout from memory
+    /// and shares the exit status. The pipes are read ahead to make it, so the process can't block.
+    pub fn copy_stdout(&mut self) -> Result<Self, ShellError> {
+        self.read_pipes_ahead();
+        let stdout = match &self.stdout {
+            Some(ChildPipe::ReadAhead(pipe)) => Some(
+                pipe.copy_rest()
+                    .map_err(|err| IoError::new(err, self.span, None))?,
+            ),
+            _ => None,
+        };
+        Ok(Self {
+            stdout: stdout.map(|bytes| ChildPipe::Tee(Box::new(io::Cursor::new(bytes)))),
+            stderr: None,
+            exit_status: self.exit_status.clone(),
+            ignore_error: self.ignore_error.clone(),
+            pid: None,
+            span: self.span,
+        })
+    }
+
     fn read_pipes_ahead(&mut self) {
         for pipe in [&mut self.stdout, &mut self.stderr].into_iter().flatten() {
             pipe.start_read_ahead();
@@ -819,6 +857,21 @@ mod tests {
     }
 
     #[test]
+    fn read_ahead_pipe_keeps_what_it_read_ahead() {
+        let mut pipe = ChildPipe::Pipe(pipe_with(b"out"));
+        pipe.start_read_ahead();
+        let ChildPipe::ReadAhead(pipe) = pipe else {
+            panic!("not a read-ahead pipe");
+        };
+        // Waits for the read-ahead thread to finish.
+        assert_eq!(pipe.copy_rest().expect("copy the rest"), b"out");
+        let mut pipe = pipe.into_pipe().expect_err("the pipe was read ahead");
+        let mut bytes = Vec::new();
+        pipe.read_to_end(&mut bytes).expect("read");
+        assert_eq!(bytes, b"out");
+    }
+
+    #[test]
     fn into_bytes_returns_stdout_with_a_separate_stderr() {
         let child = ChildProcess::from_raw(
             Some(pipe_with(b"out")),
@@ -827,5 +880,22 @@ mod tests {
             Span::test_data(),
         );
         assert_eq!(child.into_bytes().expect("into_bytes"), b"out");
+    }
+
+    #[test]
+    fn copy_stdout_leaves_the_process_output_alone() {
+        let mut child = ChildProcess::from_raw(
+            Some(pipe_with(b"out")),
+            Some(pipe_with(b"err")),
+            None,
+            Span::test_data(),
+        );
+        let copy = child.copy_stdout().expect("copy stdout");
+        assert!(copy.stderr.is_none());
+        assert_eq!(copy.into_bytes().expect("copy into_bytes"), b"out");
+
+        let output = child.wait_with_output().expect("wait_with_output");
+        assert_eq!(output.stdout.as_deref(), Some(&b"out"[..]));
+        assert_eq!(output.stderr.as_deref(), Some(&b"err"[..]));
     }
 }
