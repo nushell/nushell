@@ -2111,7 +2111,8 @@ impl<'engine> CompletionEngine<'engine> {
         signature: &Signature,
     ) -> Fetched {
         let mut results = FlagCompletion { decl_id }.fetch(context);
-        results.merge(self.command_wide_completion_helper(signature, context));
+        // A command-wide completer, such as an external one, often lists the declared flags too.
+        results.merge_new(self.command_wide_completion_helper(signature, context));
         results
     }
 
