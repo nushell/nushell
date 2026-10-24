@@ -108,6 +108,125 @@ fn mutate_nu_config_nested_completion() -> TestResult {
 }
 
 #[test]
+fn mutate_nu_config_nested_auto_pairs() -> TestResult {
+    run_test_std(
+        "$env.config.auto_pairs.enable = true; $env.config.auto_pairs.enable",
+        "true",
+    )
+}
+
+#[test]
+fn reject_nu_config_auto_pairs_non_record() -> TestResult {
+    fail_test("$env.config.auto_pairs = true", "Type mismatch")
+}
+
+#[test]
+fn default_nu_config_auto_pairs() -> TestResult {
+    run_test(
+        r#"
+            [
+                ($env.config.auto_pairs.pairs == ["()" "[]" "{}" '""' "''" "``"])
+                ($env.config.auto_pairs.also | values | all { is-empty })
+            ] | all {|x| $x }
+        "#,
+        "true",
+    )
+}
+
+#[test]
+fn round_trip_nu_config_auto_pairs() -> TestResult {
+    run_test(
+        r#"
+            $env.config.auto_pairs.pairs = ["()" "<>"]
+            $env.config.auto_pairs.also.in_string = ["()"]
+            $env.config = $env.config
+            $env.config.auto_pairs | to nuon
+        "#,
+        r#"{enable: false, pairs: ["()", <>], also: {in_string: ["()"], in_comment: [], after_word: [], before_text: []}}"#,
+    )
+}
+
+#[test]
+fn keep_nu_config_auto_pairs_pairs_on_invalid_element() -> TestResult {
+    run_test(
+        r#"
+            try { $env.config.auto_pairs.pairs = ["<>" "("] }
+            $env.config.auto_pairs.pairs | length
+        "#,
+        "6",
+    )
+}
+
+#[test]
+fn mutate_nu_config_auto_pairs_also_warning() -> TestResult {
+    fail_test(
+        r#"$env.config.auto_pairs.pairs = ["()"]; $env.config.auto_pairs.also.in_string = ["<>"]"#,
+        "this pair is not in auto_pairs.pairs",
+    )?;
+    run_test(
+        r#"
+            $env.config.auto_pairs.pairs = ["()"]
+            $env.config.auto_pairs.also.in_string = ["<>"]
+            $env.config.auto_pairs.also.in_string.0
+        "#,
+        "<>",
+    )
+}
+
+#[test]
+fn reject_nu_config_auto_pairs_pair_of_wrong_length() -> TestResult {
+    fail_test(
+        r#"$env.config.auto_pairs.pairs = ["()" "("]"#,
+        "a string of two characters",
+    )?;
+    fail_test(
+        r#"$env.config.auto_pairs.also.after_word = ["(a)"]"#,
+        "a string of two characters",
+    )
+}
+
+#[test]
+fn reject_nu_config_auto_pairs_non_string_pair() -> TestResult {
+    fail_test(
+        r#"$env.config.auto_pairs.pairs = ["()" 3]"#,
+        "Type mismatch",
+    )
+}
+
+#[test]
+fn reject_nu_config_auto_pairs_pair_of_one_grapheme() -> TestResult {
+    fail_test(
+        r#"$env.config.auto_pairs.pairs = ["e\u{301}"]"#,
+        "a string of two characters",
+    )?;
+    fail_test(
+        r#"$env.config.auto_pairs.pairs = ["\r\n"]"#,
+        "a string of two characters",
+    )
+}
+
+#[test]
+fn mutate_nu_config_auto_pairs_non_ascii_pair() -> TestResult {
+    run_test(
+        r#"$env.config.auto_pairs.pairs = ["«»"]; $env.config.auto_pairs.pairs.0"#,
+        "«»",
+    )
+}
+
+#[test]
+fn reject_nu_config_auto_pairs_also_non_record() -> TestResult {
+    fail_test("$env.config.auto_pairs.also = []", "Type mismatch")
+}
+
+#[test]
+fn reject_nu_config_auto_pairs_unknown_also_key() -> TestResult {
+    fail_test(
+        r#"$env.config.auto_pairs.also.in_word = ["()"]"#,
+        "Unknown config option",
+    )
+}
+
+#[test]
 fn mutate_nu_config_nested_history() -> TestResult {
     run_test_std(
         "$env.config.history.max_size = 100; $env.config.history.max_size",
