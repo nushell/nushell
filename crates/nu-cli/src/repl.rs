@@ -428,6 +428,10 @@ fn run_command(ctx: RunContext) -> Reedline {
         entry_num,
     } = ctx;
 
+    // Prompt or line editor evaluation may have been interrupted since this REPL iteration
+    // started. Do not carry that interruption into the new command or its pre-execution hooks.
+    engine_state.reset_signals();
+
     let history_supports_meta = match engine_state.history_config().map(|h| h.file_format) {
         #[cfg(feature = "sqlite")]
         Some(HistoryFileFormat::Sqlite) => true,
@@ -1784,6 +1788,46 @@ fn trailing_slash_looks_like_path() {
 #[test]
 fn trailing_slash_looks_like_path() {
     assert!(looks_like_path("foo/"))
+}
+
+#[test]
+fn command_after_interrupted_prompt_runs_hooks_and_command() -> nu_test_support::Result {
+    use nu_test_support::TestResultExt;
+
+    let mut tester = nu_test_support::test();
+    let () = tester.run(
+        r#"
+        $env.hook_ran = false
+        $env.command_ran = false
+        $env.PROMPT_COMMAND = { match 1 { 1 => "prompt" } }
+        $env.config.hooks.pre_execution = [{||
+            $env.hook_ran = (match 1 { 1 => true })
+        }]
+        "#,
+    )?;
+    tester.engine_state.merge_env(&mut tester.stack)?;
+    let signals = nu_protocol::Signals::new(Arc::default());
+    tester.engine_state.set_signals(signals.clone());
+    signals.trigger();
+
+    let config = tester.engine_state.get_config().clone();
+    prompt_update::update_prompt(&config, &tester.engine_state, &mut tester.stack);
+    assert!(signals.interrupted());
+
+    run_command(RunContext {
+        engine_state: &mut tester.engine_state,
+        stack: &mut tester.stack,
+        line_editor: Reedline::create(),
+        command: "$env.command_ran = (match 1 { 1 => true })".into(),
+        hostname: None,
+        use_color: false,
+        shell_integration: &config.shell_integration,
+        entry_num: &mut 0,
+    });
+
+    tester
+        .run("$env.hook_ran and $env.command_ran")
+        .expect_value_eq(true)
 }
 
 #[test]
