@@ -307,12 +307,14 @@ fn string_or_comment_at_end(mut text: &str) -> Option<StringOrComment> {
     loop {
         let (tokens, err) = lex(text.as_bytes(), 0, &[], &[], false);
         let resume = match err {
-            Some(ParseError::Unclosed(quote @ ("\"" | "'" | "`"), ..)) => {
+            // an unclosed string, or a raw string, which needs a closer like `'#`
+            Some(ParseError::Unclosed(quote, ..))
+                if matches!(quote.as_ref(), "\"" | "`")
+                    || quote
+                        .strip_prefix('\'')
+                        .is_some_and(|sharps| sharps.bytes().all(|b| b == b'#')) =>
+            {
                 return quote.chars().next().map(StringOrComment::String);
-            }
-            // an unclosed raw string, which expects a closer like `'#`
-            Some(ParseError::UnexpectedEof(expected, _)) if expected.starts_with('\'') => {
-                return Some(StringOrComment::String('\''));
             }
             Some(ParseError::Unclosed(_, open, ..)) => open.end,
             Some(err) => err.span().end,
