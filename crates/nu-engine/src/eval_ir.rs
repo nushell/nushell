@@ -578,6 +578,19 @@ fn eval_instruction<D: DebugContext>(
             Ok(Continue)
         }
         Instruction::Clone { dst, src } => {
+            // The only child stream that reaches a clone is one `try` passed through with its
+            // stderr pipe (see `collect`), cloned by `finally` to keep the result while the block
+            // runs. A stream can't be cloned, so move it: the `finally` block sees nothing, as it
+            // does when unwinding a `return`, and the result goes on to the next command.
+            #[cfg(feature = "os")]
+            if let PipelineData::ByteStream(stream, ..) = ctx.borrow_reg(*src)
+                && let nu_protocol::ByteStreamSource::Child(child) = stream.source()
+                && child.stderr.is_some()
+            {
+                let data = ctx.take_reg(*src);
+                ctx.put_reg(*dst, data);
+                return Ok(Continue);
+            }
             let data = ctx.clone_reg(*src, *span)?;
             ctx.put_reg(*dst, PipelineExecutionData::from(data));
             Ok(Continue)
@@ -2035,6 +2048,8 @@ fn get_env_var<'a>(ctx: &'a mut EvalContext<'_>, key: &str) -> Option<&'a Value>
 ///
 /// The metadata is removed if it is the file data source, as that's just meant to mark streams.
 ///
+/// An external whose stderr has its own pipe stays a stream, with its output buffered.
+///
 /// It doesn't check pipefail if `ignore_error` is true.
 fn collect(
     pipe: PipelineExecutionData,
@@ -2043,6 +2058,22 @@ fn collect(
 ) -> Result<PipelineData, ShellError> {
     let mut data = pipe.body;
     let span = data.span().unwrap_or(fallback_span);
+    // A child whose stderr has its own pipe is headed for a command that reads both pipes
+    // itself (`complete`, `ignore`, `save`, `tee`), and a value can't carry stderr. Buffer the
+    // output instead: a failure still surfaces here, and the next command gets the child back
+    // with its output intact (#19335). The pipes are read before the pipefail wait, as a child
+    // that fills a pipe nobody reads never exits.
+    #[cfg(feature = "os")]
+    if let PipelineData::ByteStream(stream, ..) = &mut data
+        && let nu_protocol::ByteStreamSource::Child(child) = stream.source_mut()
+        && child.stderr.is_some()
+    {
+        child.buffer_output()?;
+        if nu_experimental::PIPE_FAIL.get() && !ignore_error {
+            check_exit_status_future(pipe.exit)?;
+        }
+        return Ok(data);
+    }
     let metadata = data.take_metadata().and_then(|m| m.for_collect());
     #[cfg(feature = "os")]
     if nu_experimental::PIPE_FAIL.get() && !ignore_error {

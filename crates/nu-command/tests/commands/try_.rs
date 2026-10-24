@@ -1,6 +1,7 @@
 use nu_experimental::PIPE_FAIL;
 use nu_test_support::prelude::*;
 use rstest::rstest;
+use std::fs;
 
 #[test]
 fn try_succeed() -> Result {
@@ -850,5 +851,123 @@ fn exit_in_nested_try_skips_catch_but_runs_finally() -> Result {
         test().run_with_data("let code; nu -n -c $code | complete", code)?;
     assert_eq!(result.stdout.trim_end(), "finally");
     assert_eq!(result.exit_code, 2);
+    Ok(())
+}
+
+// `complete`, `ignore`, `save` and `tee` read an external's stdout and stderr on separate pipes.
+// A `try` with a handler sits between the two and must hand the external through untouched
+// (#19335). `ignore` swallows the `catch` output as well, so `$env.LOG` records whether the
+// handlers ran.
+#[rstest]
+#[case::direct("try { cococo hi } catch { $env.LOG ++= ['catch'] } | ignore", Vec::<&str>::new())]
+#[case::closure(
+    "do --env { try { cococo hi } catch { $env.LOG ++= ['catch'] } } | ignore",
+    Vec::<&str>::new()
+)]
+#[case::custom_command(
+    "def --env f [] { try { cococo hi } catch { $env.LOG ++= ['catch'] } }; f | ignore",
+    Vec::<&str>::new()
+)]
+#[case::finally("try { cococo hi } finally { $env.LOG ++= ['finally'] } | ignore", vec!["finally"])]
+#[case::catch_and_finally(
+    "try { cococo hi } catch { $env.LOG ++= ['catch'] } finally { $env.LOG ++= ['finally'] } | ignore",
+    vec!["finally"]
+)]
+#[nu_test_support::test]
+#[deps(TESTBIN_COCOCO)]
+fn try_with_handler_passes_succeeding_external_to_ignore(
+    #[case] code: &str,
+    #[case] expected: Vec<&str>,
+) -> Result {
+    test()
+        .run_multiple(["$env.LOG = []", code, "$env.LOG"])
+        .expect_value_eq(expected)
+}
+
+#[test]
+#[deps(TESTBIN_COCOCO)]
+fn rethrowing_catch_in_custom_command_piped_to_ignore() -> Result {
+    let code = "
+        def run-checked [...cmd] {
+            try { run-external ...$cmd } catch { error make {msg: 'command failed'} }
+        }
+        run-checked cococo hi | ignore
+    ";
+
+    test().run(code).expect_value_eq(())
+}
+
+#[rstest]
+#[case::direct("try { echo_env_mixed out-err OUT ERR } catch { 'catch' } | complete")]
+#[case::closure("do { try { echo_env_mixed out-err OUT ERR } catch { 'catch' } } | complete")]
+#[case::custom_command(
+    "def f [] { try { echo_env_mixed out-err OUT ERR } catch { 'catch' } }; f | complete"
+)]
+#[nu_test_support::test]
+#[deps(TESTBIN_ECHO_ENV_MIXED)]
+fn try_with_catch_passes_external_to_complete(#[case] code: &str) -> Result {
+    let result: CompleteResult =
+        test().run_multiple(["$env.OUT = 'out'; $env.ERR = 'err'", code])?;
+    assert_eq!(result.stdout, "out\n");
+    assert_eq!(result.stderr, "err\n");
+    assert_eq!(result.exit_code, 0);
+    Ok(())
+}
+
+#[test]
+#[deps(TESTBIN_FAIL)]
+fn failing_external_piped_to_ignore_still_runs_catch() -> Result {
+    test()
+        .run_multiple([
+            "$env.LOG = []",
+            "try { fail 3 } catch {|err| $env.LOG ++= [$err.exit_code] } | ignore",
+            "$env.LOG",
+        ])
+        .expect_value_eq([3])
+}
+
+#[test]
+#[deps(TESTBIN_ECHO_ENV_MIXED)]
+fn try_with_catch_passes_external_to_save_stderr() -> Result {
+    Playground::setup("try_catch_save_stderr", |dirs, sandbox| {
+        sandbox.with_files(&[]);
+
+        let code = "
+            $env.OUT = 'out'
+            $env.ERR = 'err'
+            try { echo_env_mixed out-err OUT ERR } catch { 'catch' } | save -r out.txt --stderr err.txt
+        ";
+
+        let () = test().cwd(dirs.test()).run(code)?;
+        assert_eq!(fs::read_to_string(dirs.test().join("out.txt"))?, "out\n");
+        assert_eq!(fs::read_to_string(dirs.test().join("err.txt"))?, "err\n");
+        Ok(())
+    })
+}
+
+/// `finally` can't copy a stream, so its parameter is nothing while the stream goes on.
+#[test]
+#[deps(TESTBIN_ECHO_ENV_MIXED)]
+fn try_with_finally_passes_external_to_complete() -> Result {
+    let mut tester = test();
+    let () = tester.run("$env.LOG = []; $env.OUT = 'out'; $env.ERR = 'err'")?;
+    let result: CompleteResult = tester.run(
+        "try { echo_env_mixed out-err OUT ERR } finally {|value| $env.LOG ++= [($value | describe)] } | complete",
+    )?;
+    assert_eq!(result.stdout, "out\n");
+    assert_eq!(result.stderr, "err\n");
+    tester.run("$env.LOG").expect_value_eq(["nothing"])
+}
+
+/// The output is read before pipefail waits for the exit status: a child that fills a pipe
+/// nobody reads never exits. If that order breaks, this test hangs instead of failing.
+#[test]
+#[exp(PIPE_FAIL)]
+#[deps(TESTBIN_REPEATER)]
+fn try_with_catch_reads_big_output_before_waiting_for_exit() -> Result {
+    let result: CompleteResult =
+        test().run("try { repeater x 300000 } catch { 'catch' } | complete")?;
+    assert_eq!(result.stdout.len(), 300000);
+    assert_eq!(result.exit_code, 0);
     Ok(())
 }
