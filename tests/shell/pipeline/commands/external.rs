@@ -695,7 +695,17 @@ fn external_error_with_backtrace() -> Result {
             1
         );
         assert_contains("non_zero_exit_code", &result.stderr);
-        assert_eq!(result.stderr.matches("eval_block_with_input").count(), 1);
+        // The stream's caller span `a 3` is a label on the external's error, not a separate
+        // report; the other label of that text is the chained error's call `b`.
+        assert_contains_not("eval_block_with_input", &result.stderr);
+        assert_contains_not("source value", &result.stderr);
+        assert_eq!(
+            result
+                .stderr
+                .matches("error happened when running this")
+                .count(),
+            2
+        );
 
         let result: CompleteResult = test().cwd(dirs.test()).run(
             r#"nu --env-config tmp_env.nu --no-std-lib --error-style plain --commands "fail" | complete"#,
@@ -756,6 +766,9 @@ fn bad_config_file_restrict_cmd_running_with_commands() -> Result {
 // #[case("30 | fail | fail 30", 1)]
 #[rstest]
 #[case::fail_before_print("fail | print aa", 1)]
+#[case::fail_code_into_print("fail 30 | print", 30)]
+#[case::fail_code_into_print_raw("fail 30 | print --raw", 30)]
+#[case::fail_code_into_print_stderr("fail 30 | print -e", 30)]
 #[case::successful_external_before_print("nonu a | print bb", 0)]
 #[case::fail_then_success_then_print("fail 30 | nonu a | print aa", 30)]
 #[case::prints_then_fail("print aa | print cc | fail 40", 40)]
@@ -771,5 +784,31 @@ fn pipefail_feature(#[case] inp: &str, #[case] expect_code: i64) -> Result {
     )?;
 
     assert_eq!(result.exit_code, expect_code);
+    Ok(())
+}
+
+#[test]
+#[deps(NU)]
+fn pipefail_print_keeps_output_before_failure() -> Result {
+    let result: CompleteResult = test().run_with_data(
+        "let code = $in; nu --no-config-file --no-std-lib --experimental-options=pipefail=true --commands $code | complete",
+        "nu --no-config-file --no-std-lib -c 'print hi; exit 3' | print",
+    )?;
+
+    assert_contains("hi", result.stdout);
+    assert_eq!(result.exit_code, 3);
+    Ok(())
+}
+
+#[test]
+#[deps(NU)]
+fn pipefail_print_stderr_keeps_output_before_failure() -> Result {
+    let result: CompleteResult = test().run_with_data(
+        "let code = $in; nu --no-config-file --no-std-lib --experimental-options=pipefail=true --commands $code | complete",
+        "nu --no-config-file --no-std-lib -c 'print hi; exit 3' | print -e",
+    )?;
+
+    assert_contains("hi", result.stderr);
+    assert_eq!(result.exit_code, 3);
     Ok(())
 }

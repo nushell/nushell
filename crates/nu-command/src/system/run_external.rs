@@ -7,7 +7,9 @@ use nu_protocol::{
     process::{ChildProcess, PostWaitCallback},
     shell_error::io::IoError,
 };
-use nu_system::{ForegroundChild, kill_by_pid, prepare_background_command};
+use nu_system::ForegroundChild;
+#[cfg(unix)]
+use nu_system::prepare_background_command;
 use nu_utils::IgnoreCaseExt;
 use pathdiff::diff_paths;
 #[cfg(windows)]
@@ -15,7 +17,8 @@ use std::os::windows::process::CommandExt;
 use std::{
     borrow::Cow,
     ffi::{OsStr, OsString},
-    io::Write,
+    fs::File,
+    io::{BufRead, BufReader, Read, Write},
     path::{Path, PathBuf},
     process::Stdio,
     thread,
@@ -172,7 +175,7 @@ If you create a custom command with this name, that will be used instead."
         let mut command = std::process::Command::new(&executable);
 
         // Configure PWD.
-        command.current_dir(cwd);
+        command.current_dir(&cwd);
 
         // Configure environment variables.
         let envs = env_to_strings(engine_state, stack)?;
@@ -278,6 +281,7 @@ If you create a custom command with this name, that will be used instead."
 
         // Detach even when stdin is a pipe of candidates (`ls | fzf`). Otherwise
         // the child keeps `/dev/tty` and races reedline from a completion thread.
+        #[cfg(unix)]
         if engine_state.is_mcp || stack.suppress_stdin {
             prepare_background_command(&mut command);
         }
@@ -287,33 +291,54 @@ If you create a custom command with this name, that will be used instead."
 
         // Spawn the child process. On Unix, also put the child process to
         // foreground if we're in an interactive session.
-        #[cfg(windows)]
-        let child = ForegroundChild::spawn(command);
-        #[cfg(unix)]
-        let child = ForegroundChild::spawn(
-            command,
-            // `suppress_stdin` children are already detached; do not also take
-            // the foreground pgrp from the completion thread.
-            engine_state.is_interactive && !stack.suppress_stdin,
-            engine_state.is_background_job(),
-            &engine_state.pipeline_externals_state,
-        );
+        let spawn = || {
+            #[cfg(windows)]
+            {
+                ForegroundChild::spawn_with_job_control(
+                    command,
+                    engine_state.is_background_job(),
+                    engine_state.is_mcp || stack.suppress_stdin,
+                )
+            }
+            #[cfg(unix)]
+            {
+                ForegroundChild::spawn(
+                    command,
+                    // `suppress_stdin` children are already detached; do not also take
+                    // the foreground pgrp from the completion thread.
+                    engine_state.is_interactive && !stack.suppress_stdin,
+                    engine_state.is_background_job(),
+                    &engine_state.pipeline_externals_state,
+                )
+            }
+        };
+        let child = if let Some(thread_job) = engine_state.current_thread_job() {
+            thread_job.try_spawn(spawn)
+        } else {
+            spawn().map(Some)
+        };
 
-        let mut child = child.map_err(|err| {
-            let context = format!("Could not spawn foreground child: {err}");
-            IoError::new_internal(err, context)
-        })?;
-
-        if let Some(thread_job) = engine_state.current_thread_job()
-            && !thread_job.try_add_pid(child.pid())
-        {
-            kill_by_pid(child.pid().into()).map_err(|err| {
-                ShellError::Io(IoError::new_internal(
+        let mut child = child
+            .map_err(|err| -> ShellError {
+                // `which` found the executable, so "not found" here means that something the OS
+                // needs to start it is missing. Only Unix has shebang lines, and if the
+                // executable was removed since `which` found it, the path is what is missing.
+                if cfg!(unix) && err.kind() == std::io::ErrorKind::NotFound && executable.exists() {
+                    return ShellError::ExternalCommand {
+                        label: format!("`{name_str}` exists but could not be started"),
+                        help: start_failure_help(&executable, &cwd, &err),
+                        span: call.head,
+                    };
+                }
+                IoError::new_with_additional_context(
                     err,
-                    "Could not spawn external stdin worker",
-                ))
-            })?;
-        }
+                    call.head,
+                    Some(executable.clone()),
+                    "Could not start the external command",
+                )
+                .into()
+            })?
+            .ok_or(ShellError::Interrupted { span: call.head })?;
 
         // If we need to copy data into the child process, do it now.
         if let Some(data) = data_to_copy_into_stdin {
@@ -378,6 +403,11 @@ If you create a custom command with this name, that will be used instead."
                 result: None,
             },
         ]
+    }
+
+    // Like `^cmd`, the external command reads its input as text.
+    fn pipe_redirection(&self) -> (Option<OutDest>, Option<OutDest>) {
+        (Some(OutDest::PipeRaw), None)
     }
 }
 
@@ -533,6 +563,35 @@ fn write_pipeline_data(
     Ok(())
 }
 
+/// Explains why an `executable` that exists could not be started, given the "not found" `err`
+/// from spawning it.
+///
+/// If its first line is a shebang (`#!`) that names an interpreter that doesn't exist, that is
+/// the interpreter to blame. Otherwise a file it needs, such as a shared library or its program
+/// loader, is missing.
+fn start_failure_help(executable: &Path, cwd: &AbsolutePath, err: &std::io::Error) -> String {
+    let shebang_interpreter = || {
+        let mut first_line = Vec::new();
+        BufReader::new(File::open(executable).ok()?.take(256))
+            .read_until(b'\n', &mut first_line)
+            .ok()?;
+        let first_line = String::from_utf8_lossy(&first_line).into_owned();
+        let interpreter = first_line.strip_prefix("#!")?.split_whitespace().next()?;
+        Some(interpreter.to_owned())
+    };
+
+    match shebang_interpreter() {
+        Some(interpreter) if !cwd.as_std_path().join(&interpreter).exists() => format!(
+            "`{}` starts with `#!{interpreter}`, but `{interpreter}` was not found ({err})",
+            executable.display()
+        ),
+        _ => format!(
+            "`{}` exists, but a file it needs to start, such as a shared library or its program loader, was not found ({err})",
+            executable.display()
+        ),
+    }
+}
+
 /// Returns a helpful error message given an invalid command name.
 pub fn command_not_found(
     name: &str,
@@ -620,7 +679,6 @@ pub fn command_not_found(
 
         if let Some((last, others)) = signatures
             .iter()
-            .map(|(sig, _)| sig)
             .filter(|sig| {
                 let name = name.to_folded_case(); // do not allocate new strings in any()
                 sig.name
@@ -648,7 +706,7 @@ pub fn command_not_found(
         }
 
         // Try a fuzzy search on the names of all existing commands.
-        if let Some(cmd) = did_you_mean(signatures.iter().map(|(sig, _)| &sig.name), name) {
+        if let Some(cmd) = did_you_mean(signatures.iter().map(|sig| &sig.name), name) {
             // The user is invoking an external command with the same name as a
             // built-in command. Remind them of this.
             if cmd == name {
@@ -676,10 +734,7 @@ pub fn command_not_found(
     }
 }
 
-fn suggestion_signatures(
-    engine_state: &EngineState,
-    command_span: Span,
-) -> Vec<(Signature, DeclId)> {
+fn suggestion_signatures(engine_state: &EngineState, command_span: Span) -> Vec<Signature> {
     fn suggestion_span(engine_state: &EngineState, decl_id: DeclId) -> Option<Span> {
         let decl = engine_state.get_decl(decl_id);
 
@@ -692,24 +747,13 @@ fn suggestion_signatures(
     engine_state
         .get_signatures_and_declids(false)
         .into_iter()
+        // Avoid suggesting commands declared after this command. When the declaration order
+        // can't be determined, keep the suggestion.
         .filter(|(_, decl_id)| {
-            if let Some(sugg_span) = suggestion_span(engine_state, *decl_id) {
-                // avoid suggesting commands declared after this command
-                sugg_span.start < command_span.start
-            } else {
-                // we can't determine declaration order,
-                // so default to keeping this suggestion
-                true
-            }
+            suggestion_span(engine_state, *decl_id)
+                .is_none_or(|sugg_span| sugg_span.start < command_span.start)
         })
-        .map(|(mut sig, decl_id)| {
-            sig.name = engine_state
-                .find_decl_name(decl_id, &[])
-                .map(String::from_utf8_lossy)
-                .map(Cow::into_owned)
-                .unwrap_or(sig.name);
-            (sig, decl_id)
-        })
+        .map(|(sig, _)| sig)
         .collect()
 }
 

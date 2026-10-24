@@ -5,6 +5,32 @@ use nu_test_support::prelude::*;
 use rstest::rstest;
 use std::time::Duration;
 
+#[rstest]
+#[case(None)]
+#[case(Some("-k"))]
+#[case(Some("--auto-kill"))]
+#[nu_test_support::test]
+#[cfg_attr(ci, serial)]
+fn job_list_reports_auto_kill(#[case] auto_kill_flag: Option<&str>) -> Result {
+    let is_auto_kill = auto_kill_flag.is_some();
+
+    let spawn_command = match auto_kill_flag {
+        Some(auto_kill_flag) => format!("job spawn {auto_kill_flag} {{ job recv }}"),
+        None => "job spawn { job recv }".to_owned(),
+    };
+
+    let code = format!(
+        "
+        let id = {spawn_command}
+        let auto_kill = job list | where id == $id | get auto_kill.0
+        job kill $id
+        $auto_kill
+    "
+    );
+
+    test().run(&code).expect_value_eq(is_auto_kill)
+}
+
 #[test]
 fn job_spawn_runs_with_empty_pipeline_not_null_value() -> Result {
     let code = "
@@ -36,6 +62,335 @@ fn job_send_background_job_works() -> Result {
     ";
 
     test().run(code).expect_value_eq("boop")
+}
+
+#[test]
+#[cfg_attr(ci, serial)]
+fn job_send_closure_parsed_after_spawn_returns_an_error() -> Result {
+    let mut tester = test();
+
+    tester.run::<()>(
+        "
+        let queue = job spawn {
+            job recv | try { do $in } catch { |err| $err | job send 0 }
+        }
+    ",
+    )?;
+
+    tester.run::<()>("{ 1 + 1 } | job send $queue")?;
+
+    tester
+        .run("job recv --timeout 10sec | get msg")
+        .expect_value_eq("Closure cannot be evaluated")
+}
+
+#[test]
+#[cfg_attr(ci, serial)]
+fn job_send_closure_parsed_after_spawn_zip_returns_an_error() -> Result {
+    let mut tester = test();
+
+    tester.run::<()>(
+        "
+        let queue = job spawn {
+            let closure = job recv
+            try { [1 2 3] | zip $closure } catch { |err| $err | job send 0 }
+        }
+    ",
+    )?;
+
+    tester.run::<()>("{ |it| $it + 1 } | job send $queue")?;
+
+    tester
+        .run("job recv --timeout 10sec | get msg")
+        .expect_value_eq("Closure cannot be evaluated")
+}
+
+#[test]
+#[cfg_attr(ci, serial)]
+fn job_send_closure_parsed_after_spawn_each_returns_an_error() -> Result {
+    let mut tester = test();
+
+    tester.run::<()>(
+        "
+        let queue = job spawn {
+            job recv | try { $in | each $in } catch { |err| $err | job send 0 }
+        }
+    ",
+    )?;
+
+    tester.run::<()>("{ |it| $it + 1 } | job send $queue")?;
+
+    tester
+        .run("job recv --timeout 10sec | get msg")
+        .expect_value_eq("Closure cannot be evaluated")
+}
+
+#[test]
+#[cfg_attr(ci, serial)]
+fn job_send_closure_parsed_after_spawn_tee_returns_an_error() -> Result {
+    let mut tester = test();
+
+    tester.run::<()>(
+        "
+        let queue = job spawn {
+            let closure = job recv
+            try { [1 2 3] | tee $closure | ignore } catch { |err| $err | job send 0 }
+        }
+    ",
+    )?;
+
+    tester.run::<()>("{ |it| $it + 1 } | job send $queue")?;
+
+    tester
+        .run("job recv --timeout 10sec | get msg")
+        .expect_value_eq("Closure cannot be evaluated")
+}
+
+#[test]
+#[cfg_attr(ci, serial)]
+fn job_send_closure_parsed_after_spawn_par_each_returns_one_error() -> Result {
+    let mut tester = test();
+
+    tester.run::<()>(
+        "
+        let queue = job spawn {
+            let closure = job recv
+            try { [1 2 3] | par-each $closure | ignore } catch { |err| $err | job send 0 }
+        }
+    ",
+    )?;
+
+    tester.run::<()>("{ |it| $it + 1 } | job send $queue")?;
+
+    tester
+        .run("job recv --timeout 10sec | get msg")
+        .expect_value_eq("Closure cannot be evaluated")
+}
+
+#[test]
+#[cfg_attr(ci, serial)]
+fn job_send_closure_parsed_after_spawn_record_each_returns_an_error() -> Result {
+    let mut tester = test();
+
+    tester.run::<()>(
+        "
+        let queue = job spawn {
+            let closure = job recv
+            try { {a: 1} | record each $closure | ignore } catch { |err| $err | job send 0 }
+        }
+    ",
+    )?;
+
+    tester.run::<()>("{ |key, value| {($key): $value} } | job send $queue")?;
+
+    tester
+        .run("job recv --timeout 10sec | get msg")
+        .expect_value_eq("Closure cannot be evaluated")
+}
+
+#[test]
+#[cfg_attr(ci, serial)]
+fn job_send_closure_parsed_after_spawn_view_source_returns_an_error() -> Result {
+    let mut tester = test();
+
+    tester.run::<()>(
+        "
+        let queue = job spawn {
+            let closure = job recv
+            try { view source $closure | ignore } catch { |err| $err | job send 0 }
+        }
+    ",
+    )?;
+
+    tester.run::<()>("{ |it| $it + 1 } | job send $queue")?;
+
+    tester
+        .run("job recv --timeout 10sec | get msg")
+        .expect_value_eq("Closure cannot be evaluated")
+}
+
+#[test]
+#[cfg_attr(ci, serial)]
+fn job_send_closure_parsed_after_spawn_describe_detailed_does_not_panic() -> Result {
+    let mut tester = test();
+
+    tester.run::<()>(
+        "
+        let queue = job spawn {
+            let closure = job recv
+            try { $closure | describe --detailed | get type | job send 0 } catch { |err| $err.msg | job send 0 }
+        }
+    ",
+    )?;
+
+    tester.run::<()>("{ |it| $it + 1 } | job send $queue")?;
+
+    tester
+        .run("job recv --timeout 10sec")
+        .expect_value_eq("closure")
+}
+
+#[test]
+#[cfg_attr(ci, serial)]
+fn job_send_closure_parsed_after_spawn_debug_profile_does_not_leave_debugger_active() -> Result {
+    let mut tester = test();
+
+    tester.run::<()>(
+        "
+        let queue = job spawn {
+            let closure = job recv
+            try { debug profile $closure | ignore } catch { |err| $err.msg | job send 0 }
+        }
+    ",
+    )?;
+
+    tester.run::<()>("{ |it| $it + 1 } | job send $queue")?;
+
+    // Once the error arrives, the `debug profile` call has finished. Its failure
+    // must not leave the profiler installed: the debugger slot is shared with
+    // the job, so a leaked profiler shows up here as a non-Noop debugger.
+    let msg = tester.run::<String>("job recv --timeout 10sec")?;
+    assert_eq!(msg, "Closure cannot be evaluated");
+
+    let debugger = tester
+        .engine_state
+        .debugger
+        .lock()
+        .expect("debugger lock is poisoned");
+    assert!(
+        format!("{debugger:?}").contains("NoopDebugger"),
+        "debug profile left an active debugger installed: {debugger:?}"
+    );
+    Ok(())
+}
+
+#[test]
+#[cfg_attr(ci, serial)]
+fn job_send_closure_parsed_after_spawn_job_spawn_is_catchable() -> Result {
+    let mut tester = test();
+
+    tester.run::<()>(
+        "
+        let queue = job spawn {
+            let closure = job recv
+            try { job spawn $closure | ignore; '' } catch { |err| $err.msg } | job send 0
+        }
+    ",
+    )?;
+
+    tester.run::<()>("{ |it| $it + 1 } | job send $queue")?;
+
+    tester
+        .run("job recv --timeout 10sec")
+        .expect_value_eq("Closure cannot be evaluated")
+}
+
+#[test]
+#[cfg_attr(ci, serial)]
+fn job_send_closure_parsed_after_spawn_error_labels_render() -> Result {
+    let mut tester = test();
+
+    // The stale closure's own span points into source this job's engine state
+    // does not have. Errors must label themselves with a call-site span
+    // instead, or the label fails to render (`OutOfBounds`).
+    tester.run::<()>(
+        "
+        let queue = job spawn {
+            let closure = job recv
+            [
+                (try { [{a: 1}] | update a $closure | ignore; '' } catch { |err| $err | to text })
+                (try { [1 2 3] | tee $closure | ignore; '' } catch { |err| $err | to text })
+                (try { ['b'] | str replace 'b' $closure | ignore; '' } catch { |err| $err | to text })
+                (try { 5 | default (job recv) | ignore; '' } catch { |err| $err | to text })
+            ] | job send 0
+        }
+    ",
+    )?;
+
+    // The second closure feeds the inline `(job recv)` in the `default` site.
+    tester.run::<()>("{ |it| $it + 1 } | job send $queue")?;
+    tester.run::<()>("{ |it| $it + 1 } | job send $queue")?;
+
+    let rendered: Vec<String> = tester.run("job recv --timeout 10sec")?;
+    for text in &rendered {
+        assert!(
+            text.contains("Closure cannot be evaluated"),
+            "error not rendered: {text}"
+        );
+        // A label span pointing into the sender's source fails to render.
+        assert!(
+            !text.contains("OutOfBounds"),
+            "error label failed to render: {text}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+#[cfg_attr(ci, serial)]
+fn job_send_closure_parsed_after_spawn_default_returns_an_error() -> Result {
+    let mut tester = test();
+
+    tester.run::<()>(
+        "
+        let queue = job spawn {
+            try { 5 | default (job recv) | ignore; '' } catch { |err| $err.msg } | job send 0
+        }
+    ",
+    )?;
+
+    tester.run::<()>("{ 1 + 1 } | job send $queue")?;
+
+    tester
+        .run("job recv --timeout 10sec")
+        .expect_value_eq("Closure cannot be evaluated")
+}
+
+#[test]
+#[cfg_attr(ci, serial)]
+fn job_send_closure_parsed_after_spawn_other_consumers_return_errors() -> Result {
+    let mut tester = test();
+
+    tester.run::<()>(
+        "
+        let queue = job spawn {
+            let closure = job recv
+            [
+                (try { with-env {X: 1} $closure | ignore; '' } catch { |err| $err.msg })
+                (try { explain $closure | ignore; '' } catch { |err| $err.msg })
+                (try { generate $closure 1 | ignore; '' } catch { |err| $err.msg })
+                (try { {a: 1} | record where $closure | ignore; '' } catch { |err| $err.msg })
+                (try { {a: {b: 1}} | record walk $closure | ignore; '' } catch { |err| $err.msg })
+                (try { [2 1] | sort-by $closure | ignore; '' } catch { |err| $err.msg })
+            ] | job send 0
+        }
+    ",
+    )?;
+
+    tester.run::<()>("{ |it| $it + 1 } | job send $queue")?;
+
+    tester
+        .run("job recv --timeout 10sec")
+        .expect_value_eq(vec!["Closure cannot be evaluated"; 6])
+}
+
+#[test]
+#[cfg_attr(ci, serial)]
+fn job_send_closure_parsed_after_spawn_to_text_serialize_does_not_panic() -> Result {
+    let mut tester = test();
+
+    tester.run::<()>(
+        "
+        let queue = job spawn {
+            let closure = job recv
+            try { $closure | to text --serialize | str starts-with 'unable to retrieve' | job send 0 } catch { |err| $err.msg | job send 0 }
+        }
+    ",
+    )?;
+
+    tester.run::<()>("{ |it| $it + 1 } | job send $queue")?;
+
+    tester.run("job recv --timeout 10sec").expect_value_eq(true)
 }
 
 #[test]

@@ -1,4 +1,5 @@
 use nu_protocol::SUPPORTED_DURATION_UNITS;
+use nu_protocol::shell_error::generic::GenericError;
 use nu_test_support::prelude::*;
 use pretty_assertions::assert_matches;
 use rstest::rstest;
@@ -110,9 +111,15 @@ fn into_duration_colon_string(#[case] code: &str, #[case] expected: &str) -> Res
         .expect_value_eq(expected)
 }
 
-#[test]
-fn into_duration_clock_error_two() -> Result {
-    let err = test().run("'3:34' | into duration").expect_shell_error()?;
+#[rstest]
+#[case("11:1113:34")]
+#[case("3:34")]
+#[case("11:0:34")]
+#[case("11:0:340.000")]
+fn into_duration_clock_format_error(#[case] value: &str) -> Result {
+    let err = test()
+        .run(format!("'{value}' | into duration"))
+        .expect_shell_error()?;
 
     match err {
         ShellError::IncorrectValue { msg, .. } => {
@@ -163,7 +170,7 @@ fn into_duration_from_record_fails_with_invalid_sign() -> Result {
 
     assert_matches!(
         err,
-        ShellError::IncorrectValue { msg, .. } if msg == "Invalid sign. Allowed signs are +, -"
+        ShellError::IncorrectValue { msg, .. } if msg == "Invalid sign 'x'. Allowed signs are +, -"
     );
     Ok(())
 }
@@ -217,4 +224,66 @@ fn into_duration_from_record_incompatible_with_unit_flag() -> Result {
             && right_message == "the units should be included in the record"
     );
     Ok(())
+}
+
+#[test]
+fn into_duration_too_large_single() -> Result {
+    let code = "
+      '11111111111111wk' | into duration
+    ";
+
+    let err = test().run(code).expect_shell_error()?;
+
+    assert_matches!(
+        err,
+        ShellError::Generic(GenericError{
+            msg,
+            ..
+        }) if msg.contains("duration too large")
+    );
+
+    Ok(())
+}
+
+#[test]
+fn into_duration_too_large_composite() -> Result {
+    let code = "
+      '11111wk 11111wk' | into duration
+    ";
+
+    let err = test().run(code).expect_shell_error()?;
+
+    assert_matches!(
+        err,
+        ShellError::OperatorOverflow {
+            msg, ..
+        } if msg.contains("operation overflowed")
+    );
+
+    Ok(())
+}
+
+#[test]
+fn into_duration_empty_string() -> Result {
+    let code = "
+        '' | into duration
+    ";
+
+    let err = test().run(code).expect_shell_error()?;
+
+    assert_matches!(
+        err,
+        ShellError::IncorrectValue {
+            msg, ..
+        } if msg == "empty duration string"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn into_duration_i64_min() -> Result {
+    test()
+        .run("-9223372036854775808 | into duration | into string")
+        .expect_value_eq("-15250wk 1day 23hr 47min 16sec 854ms 775µs 807ns")
 }

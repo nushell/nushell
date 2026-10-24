@@ -310,10 +310,25 @@ fn str_cmp_op(lhs: &Type, rhs: &Type) -> Option<Type> {
     operator_check(op, None, lhs, rhs)
 }
 
+/// The type of `-x` for an operand of type `ty`, or `None` if values of that type can't be
+/// negated. Negation multiplies by -1, so it is typed like that multiplication.
+pub fn negation_type(ty: &Type) -> Option<Type> {
+    math::multiply(ty, &Type::Int)
+}
+
 fn in_op(lhs: &Type, rhs: &Type) -> Option<Type> {
+    /// Whether a value of type `t` can be equal to an element of type `u`. Ints and floats
+    /// compare by value at runtime (`1 == 1.0`), so they are compatible here too.
+    fn element_compatible(t: &Type, u: &Type) -> bool {
+        match u {
+            Type::OneOf(members) => members.iter().any(|u| element_compatible(t, u)),
+            u => type_compatible(t, u) || number_types(t, u).is_some(),
+        }
+    }
+
     fn op(lhs: &Type, rhs: &Type) -> Option<Type> {
         Some(match (lhs, rhs) {
-            (t, Type::List(u)) if type_compatible(t, u) => Type::Bool,
+            (t, Type::List(u)) if element_compatible(t, u) => Type::Bool,
             (Type::Int | Type::Float | Type::Number, Type::Range) => Type::Bool,
             (Type::String, Type::String) => Type::Bool,
             (Type::String, Type::Record(_)) => Type::Bool,

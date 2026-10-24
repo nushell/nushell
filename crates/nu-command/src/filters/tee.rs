@@ -67,9 +67,9 @@ use it in your pipeline."
                 result: None,
             },
             Example {
-                example: "10000 | tee { 1..$in | print } | $in * 5",
+                example: "100 | tee { 1..$in | print } | $in * 5",
                 description: "Do something with a value on another thread, while also passing through the value.",
-                result: Some(Value::test_int(50000)),
+                result: Some(Value::test_int(500)),
             },
         ]
     }
@@ -86,13 +86,16 @@ use it in your pipeline."
         let use_stderr = call.has_flag(engine_state, stack, "stderr")?;
 
         let closure: Spanned<Closure> = call.req(engine_state, stack, 0)?;
-        let closure_span = closure.span;
+        let closure_span = call.head;
         let closure = closure.item;
 
         let engine_state_arc = Arc::new(engine_state.clone());
 
         let mut eval_block = {
             let closure_engine_state = engine_state_arc.clone();
+            let block = closure_engine_state
+                .get_closure_block(&closure, closure_span)?
+                .clone();
             let mut closure_stack = stack
                 .captures_to_stack_preserve_out_dest(closure.captures)
                 .reset_pipes();
@@ -102,7 +105,7 @@ use it in your pipeline."
                 let result = eval_block_with_early_return(
                     &closure_engine_state,
                     &mut closure_stack,
-                    closure_engine_state.get_block(closure.block_id),
+                    &block,
                     input,
                 )
                 .map(|p| p.body);
@@ -161,7 +164,10 @@ use it in your pipeline."
                             let tee_thread = spawn_tee(info.clone(), eval_block)?;
                             let tee = IoTee::new(stderr, tee_thread);
                             match stack.stderr() {
-                                OutDest::Pipe | OutDest::PipeSeparate | OutDest::Value => {
+                                OutDest::Pipe
+                                | OutDest::PipeRaw
+                                | OutDest::PipeSeparate
+                                | OutDest::Value => {
                                     child.stderr = Some(ChildPipe::Tee(Box::new(tee)));
                                     Ok(None)
                                 }
@@ -179,7 +185,10 @@ use it in your pipeline."
 
                         if let Some(stdout) = child.stdout.take() {
                             match stack.stdout() {
-                                OutDest::Pipe | OutDest::PipeSeparate | OutDest::Value => {
+                                OutDest::Pipe
+                                | OutDest::PipeRaw
+                                | OutDest::PipeSeparate
+                                | OutDest::Value => {
                                     child.stdout = Some(stdout);
                                     Ok(())
                                 }
@@ -196,7 +205,10 @@ use it in your pipeline."
                         let stderr_thread = if let Some(stderr) = child.stderr.take() {
                             let info = info.clone();
                             match stack.stderr() {
-                                OutDest::Pipe | OutDest::PipeSeparate | OutDest::Value => {
+                                OutDest::Pipe
+                                | OutDest::PipeRaw
+                                | OutDest::PipeSeparate
+                                | OutDest::Value => {
                                     child.stderr = Some(stderr);
                                     Ok(None)
                                 }
@@ -218,7 +230,10 @@ use it in your pipeline."
                             let tee_thread = spawn_tee(info.clone(), eval_block)?;
                             let tee = IoTee::new(stdout, tee_thread);
                             match stack.stdout() {
-                                OutDest::Pipe | OutDest::PipeSeparate | OutDest::Value => {
+                                OutDest::Pipe
+                                | OutDest::PipeRaw
+                                | OutDest::PipeSeparate
+                                | OutDest::Value => {
                                     child.stdout = Some(ChildPipe::Tee(Box::new(tee)));
                                     Ok(())
                                 }
@@ -657,4 +672,9 @@ fn tee_other_thread_ignore_values_but_output_all_others() {
     // the other thread will consume only two values
     let other_threads_result = rx.into_iter().take(2).collect::<Vec<_>>();
     assert_eq!(expected_values[0..2], other_threads_result);
+}
+
+#[test]
+fn test_examples() -> nu_test_support::Result {
+    nu_test_support::test().examples(Tee)
 }

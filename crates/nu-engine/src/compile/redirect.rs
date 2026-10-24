@@ -148,6 +148,7 @@ pub(crate) fn out_dest_to_redirect_mode(
     out_dest
         .map(|out_dest| match out_dest {
             OutDest::Pipe => Ok(RedirectMode::Pipe),
+            OutDest::PipeRaw => Ok(RedirectMode::PipeRaw),
             OutDest::PipeSeparate => Ok(RedirectMode::PipeSeparate),
             OutDest::Value => Ok(RedirectMode::Value),
             OutDest::Null => Ok(RedirectMode::Null),

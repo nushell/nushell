@@ -3,6 +3,7 @@ mod all;
 mod any;
 mod append;
 mod assignment;
+mod attr_structured;
 mod base;
 mod break_;
 mod bytes;
@@ -36,6 +37,7 @@ mod every;
 mod exec;
 mod export;
 mod export_def;
+mod extern_;
 mod fill;
 mod filter;
 mod find;
@@ -89,6 +91,7 @@ mod print;
 #[cfg(feature = "sqlite")]
 mod query;
 mod random;
+mod record;
 mod redirection;
 mod reduce;
 mod reject;
@@ -122,6 +125,7 @@ mod terminal;
 mod to_text;
 mod transpose;
 mod try_;
+mod type_;
 #[cfg(feature = "os")]
 mod ucp;
 #[cfg(unix)]

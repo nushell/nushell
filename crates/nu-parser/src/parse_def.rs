@@ -1,6 +1,7 @@
 use crate::{
-    known_external::KnownExternal,
+    known_external::{KnownExternal, StructuredOutput},
     lite_parser::LiteCommand,
+    parse_captures_compile::discover_closure_captures,
     parse_helpers::{SPREAD_OPERATOR, garbage},
     parse_keywords::{find_keyword_decl, reject_parser_keyword_name},
     parse_pipelines::redirecting_builtin_error,
@@ -21,6 +22,7 @@ use nu_protocol::{
     eval_const::eval_constant,
     shell_error::generic::GenericError,
 };
+use std::collections::HashMap;
 
 fn rest_param_is_type_annotated(signature_source: &[u8], rest_name: &str) -> bool {
     let mut needle = Vec::with_capacity(rest_name.len() + 3);
@@ -66,6 +68,17 @@ pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) {
         match working_set.get_span_contents(spans[pos - 1]) {
             b"def" => false,
             b"extern" => true,
+            b"type" => {
+                // Only the name and position of a type alias are recorded, so that a use above
+                // the definition can be reported as such. Its type is parsed in order.
+                if let [name, equals, ..] = spans[pos..]
+                    && working_set.get_span_contents(equals) == b"="
+                {
+                    let name = working_set.get_span_contents(name).to_vec();
+                    working_set.add_type_predecl(name, Span::concat(spans));
+                }
+                return;
+            }
             _ => return,
         }
     } else {
@@ -86,11 +99,14 @@ pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) {
         return;
     };
 
+    // A call is looked up by its words joined with single spaces, so a name
+    // with any other whitespace could never be called (#15539).
     if name.contains('#')
         || name.contains('^')
         || name.contains('%')
         || name.parse::<bytesize::ByteSize>().is_ok()
         || name.parse::<f64>().is_ok()
+        || name.split_ascii_whitespace().collect::<Vec<_>>().join(" ") != name
     {
         working_set.error(ParseError::CommandDefNotValid(spans[name_pos]));
         return;
@@ -367,11 +383,13 @@ pub fn parse_def(
     (Pipeline::from_vec(vec![expr]), decl)
 }
 
+/// Parse an `extern` definition. Like `parse_def`, it also returns the name and id of the
+/// declaration it added, so `export extern` can export it.
 pub fn parse_extern(
     working_set: &mut StateWorkingSet,
     lite_command: &LiteCommand,
     module_name: Option<&[u8]>,
-) -> Pipeline {
+) -> (Pipeline, Option<(Vec<u8>, DeclId)>) {
     let mut attributes = vec![];
     let mut attribute_vals = vec![];
 
@@ -387,7 +405,7 @@ pub fn parse_extern(
         attributes.push(attr);
     }
 
-    let expr = parse_extern_inner(working_set, attribute_vals, lite_command, module_name);
+    let (expr, decl) = parse_extern_inner(working_set, attribute_vals, lite_command, module_name);
 
     let ty = expr.ty.clone();
 
@@ -413,7 +431,7 @@ pub fn parse_extern(
         )
     };
 
-    Pipeline::from_vec(vec![expr])
+    (Pipeline::from_vec(vec![expr]), decl)
 }
 
 fn parse_def_inner(
@@ -463,16 +481,7 @@ fn parse_def_inner(
     working_set.enter_scope();
     let (command_spans, rest_spans) = spans.split_at(split_id);
 
-    let mut decl_name_span = None;
-
-    for span in rest_spans {
-        if !working_set.get_span_contents(*span).starts_with(b"-") {
-            decl_name_span = Some(*span);
-            break;
-        }
-    }
-
-    if let Some(name_span) = decl_name_span
+    if let Some(name_span) = decl_name_span(working_set, rest_spans)
         && let Some(err) = detect_params_in_name(working_set, name_span, decl_id)
     {
         working_set.error(err);
@@ -646,6 +655,19 @@ rest.name
         if let Some(decl_id) = working_set.find_predecl(name.as_bytes()) {
             signature.name.clone_from(&name);
             if !has_wrapped {
+                // `--help` always shows the command's help before the body runs, so a flag of
+                // that name could never be set. (`-h` stays usable as another flag's short form.)
+                if let Some(flag) = signature.get_long_flag("help") {
+                    let span = flag.var_id.map_or(call_span, |var_id| {
+                        working_set.get_variable(var_id).declaration_span
+                    });
+                    working_set.error(ParseError::LabeledErrorWithHelp {
+                        error: "The `--help` flag is reserved".into(),
+                        label: "every command already has `--help`".into(),
+                        help: "Rename this flag. `--help` always shows the command's help.".into(),
+                        span,
+                    });
+                }
                 *signature = signature.add_help();
             }
             signature.description = desc;
@@ -702,7 +724,7 @@ fn parse_extern_inner(
     attributes: Vec<(String, Value)>,
     lite_command: &LiteCommand,
     module_name: Option<&[u8]>,
-) -> Expression {
+) -> (Expression, Option<(Vec<u8>, DeclId)>) {
     let spans = lite_command.command_parts();
 
     let (description, extra_description) = working_set.build_desc(&lite_command.comments);
@@ -720,11 +742,11 @@ fn parse_extern_inner(
             "internal error: Wrong call name for extern command".into(),
             Span::concat(spans),
         ));
-        return garbage(working_set, Span::concat(spans));
+        return (garbage(working_set, Span::concat(spans)), None);
     }
     if let Some(redirection) = lite_command.redirection.as_ref() {
         working_set.error(redirecting_builtin_error("extern", redirection));
-        return garbage(working_set, Span::concat(spans));
+        return (garbage(working_set, Span::concat(spans)), None);
     }
 
     let (call, call_span) = match find_keyword_decl(working_set, extern_call)
@@ -735,18 +757,18 @@ fn parse_extern_inner(
                 "internal error: extern declaration not found".into(),
                 Span::concat(spans),
             ));
-            return garbage(working_set, Span::concat(spans));
+            return (garbage(working_set, Span::concat(spans)), None);
         }
         Some(decl_id) => {
             working_set.enter_scope();
 
             let (command_spans, rest_spans) = spans.split_at(split_id);
 
-            if let Some(name_span) = rest_spans.first()
-                && let Some(err) = detect_params_in_name(working_set, *name_span, decl_id)
+            if let Some(name_span) = decl_name_span(working_set, rest_spans)
+                && let Some(err) = detect_params_in_name(working_set, name_span, decl_id)
             {
                 working_set.error(err);
-                return garbage(working_set, Span::concat(spans));
+                return (garbage(working_set, Span::concat(spans)), None);
             }
 
             let ParsedInternalCall { call, .. } = parse_internal_call(
@@ -765,6 +787,12 @@ fn parse_extern_inner(
         }
     };
 
+    let Ok(strict) = has_flag_const(working_set, &call, "strict") else {
+        return (garbage(working_set, Span::concat(spans)), None);
+    };
+
+    let mut result = None;
+
     let (name_and_sig_exprs, body_expr) = {
         let mut positional_iter = call.positional_iter();
         (positional_iter.next_array::<2>(), positional_iter.next())
@@ -773,7 +801,10 @@ fn parse_extern_inner(
     if let Some([name_expr, sig]) = name_and_sig_exprs {
         if let (Some(name), Some(mut signature)) = (&name_expr.as_string(), sig.as_signature()) {
             if reject_parser_keyword_name(working_set, name, "command", name_expr.span) {
-                return Expression::new(working_set, Expr::Call(call), call_span, Type::Any);
+                return (
+                    Expression::new(working_set, Expr::Call(call), call_span, Type::Any),
+                    None,
+                );
             }
 
             if let Some(mod_name) = module_name
@@ -786,7 +817,10 @@ fn parse_extern_inner(
                     "main".to_string(),
                     name_expr_span,
                 ));
-                return Expression::new(working_set, Expr::Call(call), call_span, Type::Any);
+                return (
+                    Expression::new(working_set, Expr::Call(call), call_span, Type::Any),
+                    None,
+                );
             }
 
             if let Some(decl_id) = working_set.find_predecl(name.as_bytes()) {
@@ -804,6 +838,28 @@ fn parse_extern_inner(
                 signature.description = description;
                 signature.extra_description = extra_description;
                 signature.allows_unknown_args = true;
+                signature.rejects_unknown_flags = strict;
+
+                // `@structured` belongs to a `KnownExternal`, so it is taken out before the
+                // attributes shared with `def`. When there is more than one, the last one wins.
+                let (structured, attributes): (Vec<_>, Vec<_>) = attributes
+                    .into_iter()
+                    .partition(|(name, _)| name == "structured");
+                let structured = structured.into_iter().last().and_then(|(_, value)| {
+                    let span = value.span();
+                    StructuredOutput::from_value(value)
+                        .map_err(|err| working_set.error(err.wrap(working_set, span)))
+                        .ok()
+                });
+                // Like a `def` body, the decode block reads the `let` variables around it when
+                // it runs, and can't use `mut` ones.
+                if let Some(structured) = &structured {
+                    let block = working_set.get_block(structured.decode.block_id);
+                    match discover_closure_captures(working_set, block, &mut HashMap::new()) {
+                        Ok(_) => compile_block_with_id(working_set, structured.decode.block_id),
+                        Err(err) => working_set.error(err),
+                    }
+                }
 
                 let (attribute_vals, examples) =
                     handle_special_attributes(attributes, working_set, &mut signature);
@@ -838,11 +894,14 @@ fn parse_extern_inner(
                         signature,
                         attributes: attribute_vals,
                         examples,
+                        structured,
                         span: call_span,
                     };
 
                     *declaration = Box::new(decl);
                 }
+
+                result = Some((name.as_bytes().to_vec(), decl_id));
             } else {
                 working_set.error(ParseError::InternalError(
                     "Predeclaration failed to add declaration".into(),
@@ -860,7 +919,10 @@ fn parse_extern_inner(
         }
     }
 
-    Expression::new(working_set, Expr::Call(call), call_span, Type::Any)
+    (
+        Expression::new(working_set, Expr::Call(call), call_span, Type::Any),
+        result,
+    )
 }
 
 fn handle_special_attributes(
@@ -942,6 +1004,12 @@ fn handle_special_attributes(
                     working_set.error(e.wrap(working_set, val_span));
                 }
             },
+            // `parse_extern_inner` takes `@structured` out before it gets here.
+            "structured" => working_set.error(ParseError::LabeledError(
+                "`@structured` only applies to `extern`".into(),
+                "not an extern".into(),
+                val_span,
+            )),
             "complete external" => match value {
                 nu_protocol::Value::Nothing { .. } => {
                     signature.complete = Some(CommandWideCompleter::External);
@@ -968,6 +1036,15 @@ fn handle_special_attributes(
     signature.category = category_from_string(&category);
 
     (attribute_vals, examples)
+}
+
+/// The span of the name in the words after `def` or `extern`, which follows any flags, as in
+/// `extern --strict name [...]`.
+fn decl_name_span(working_set: &StateWorkingSet, rest_spans: &[Span]) -> Option<Span> {
+    rest_spans
+        .iter()
+        .copied()
+        .find(|span| !working_set.get_span_contents(*span).starts_with(b"-"))
 }
 
 fn detect_params_in_name(

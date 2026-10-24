@@ -12,7 +12,11 @@ impl Command for Hide {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("hide")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
-            .required("module", SyntaxShape::String, "Module or module file.")
+            .required(
+                "name",
+                SyntaxShape::String,
+                "Alias, command, type alias, or module to hide.",
+            )
             .optional(
                 "members",
                 SyntaxShape::Any,
@@ -26,7 +30,7 @@ impl Command for Hide {
     }
 
     fn extra_description(&self) -> &str {
-        "Definitions are hidden by priority: First aliases, then custom commands.
+        "Definitions are hidden by priority: First aliases, then custom commands, then type aliases.
 
 This command is a parser keyword. For details, check:
   https://www.nushell.sh/book/thinking_in_nu.html"
@@ -60,6 +64,11 @@ This command is a parser keyword. For details, check:
             Example {
                 description: "Hide a custom command.",
                 example: "def say-hi [] { echo 'Hi!' }; hide say-hi",
+                result: None,
+            },
+            Example {
+                description: "Hide a type alias.",
+                example: "type Id = int; hide Id",
                 result: None,
             },
         ]

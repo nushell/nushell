@@ -357,13 +357,26 @@ const NESTED_FAST_CLASS: [u8; 256] = {
     table
 };
 
+/// What the lexer is reading, for the few rules that depend on it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum LexMode {
+    /// Code.
+    Code,
+    /// A signature, where `<` and `>` nest like brackets.
+    Signature,
+    /// The inside of a list literal, without its own brackets. A `]` that closes no `[` there
+    /// would close the list's `[` before the list ends (`[1 2]]`), so it is an error instead of
+    /// part of a bare word.
+    ListItems,
+}
+
 fn lex_item<B: Brackets>(
     input: &[u8],
     curr_offset: &mut usize,
     span_offset: usize,
     additional_whitespace: &[u8],
     special_tokens: &[u8],
-    in_signature: bool,
+    mode: LexMode,
     brackets: B,
 ) -> (Token, Option<ParseError>) {
     let token_start = *curr_offset;
@@ -373,7 +386,7 @@ fn lex_item<B: Brackets>(
         span_offset,
         additional_whitespace,
         special_tokens,
-        in_signature,
+        mode,
         brackets,
     );
     if B::JUMPS && err.is_some() {
@@ -389,7 +402,7 @@ fn lex_item<B: Brackets>(
             span_offset,
             additional_whitespace,
             special_tokens,
-            in_signature,
+            mode,
             Rescan,
         );
     }
@@ -403,7 +416,7 @@ fn lex_item_scan<B: Brackets>(
     span_offset: usize,
     additional_whitespace: &[u8],
     special_tokens: &[u8],
-    in_signature: bool,
+    mode: LexMode,
     brackets: B,
 ) -> (Token, Option<ParseError>) {
     // Tracks the opening quote character and its span while inside a string.
@@ -693,7 +706,7 @@ fn lex_item_scan<B: Brackets>(
             last_sig_char = Some(c);
             at_line_start = false;
         } else if B::JUMPS
-            && !in_signature
+            && mode != LexMode::Signature
             && (c == b'[' || c == b'{' || c == b'(')
             && let Some(close) = brackets.close_of(span_offset + *curr_offset)
             && close - span_offset < input.len()
@@ -716,7 +729,7 @@ fn lex_item_scan<B: Brackets>(
             });
             last_sig_char = Some(c);
             at_line_start = false;
-        } else if c == b'<' && in_signature {
+        } else if c == b'<' && mode == LexMode::Signature {
             let open_span = Span::new(span_offset + *curr_offset, span_offset + *curr_offset + 1);
             block_level.push(OpenFrame {
                 kind: BlockKind::AngleBracket,
@@ -724,7 +737,7 @@ fn lex_item_scan<B: Brackets>(
             });
             last_sig_char = Some(c);
             at_line_start = false;
-        } else if c == b'>' && in_signature {
+        } else if c == b'>' && mode == LexMode::Signature {
             if let Some(OpenFrame {
                 kind: BlockKind::AngleBracket,
                 ..
@@ -735,12 +748,14 @@ fn lex_item_scan<B: Brackets>(
             last_sig_char = Some(c);
             at_line_start = false;
         } else if c == b']' {
-            // Closing `]` — pop matching `[`, else real mismatch if another opener is open.
+            // Closing `]` — pop matching `[`, else real mismatch if another opener is open. A
+            // stray `]` in a bare word (`a]`, the glob `[]]*`) is allowed, except inside a list,
+            // where it closes the list early: `[1 2]]` would otherwise parse as `[1, "2]"]`.
             if let Some(frame) =
                 block_level.pop_if(|frame| matches!(frame.kind, BlockKind::SquareBracket))
             {
                 brackets.record(frame.open_span.start, span_offset + *curr_offset);
-            } else if !block_level.is_empty() {
+            } else if !block_level.is_empty() || mode == LexMode::ListItems {
                 *curr_offset += 1;
                 let span = Span::new(span_offset + token_start, span_offset + *curr_offset);
                 let close_span = Span::new(span.end - 1, span.end);
@@ -1101,11 +1116,21 @@ fn lex_raw_string(
         *curr_offset += 1
     }
     if !matches {
+        // Report it like any other unclosed string, with the closer this raw string needs.
         let mut expected = '\''.to_string();
         expected.push_str(&"#".repeat(prefix_sharp_cnt));
-        return Err(ParseError::UnexpectedEof(
+        let opener = Span::new(
+            span_offset + start,
+            span_offset + start + prefix_sharp_cnt + 2,
+        );
+        // Label the last byte, as the other unclosed strings do.
+        let end = span_offset + *curr_offset;
+        return Err(unclosed_from_open(
+            input,
+            span_offset,
             expected,
-            Span::new(span_offset + *curr_offset - 1, span_offset + *curr_offset),
+            opener,
+            Span::new(end - 1, end),
         ));
     }
     Ok(())
@@ -1129,7 +1154,7 @@ pub fn lex_signature(
         additional_whitespace,
         special_tokens,
         skip_comment,
-        true,
+        LexMode::Signature,
         None,
         NoBrackets,
     );
@@ -1181,7 +1206,7 @@ pub(crate) fn lex_n_tokens_with<B: Brackets>(
         additional_whitespace,
         special_tokens,
         skip_comment,
-        false,
+        LexMode::Code,
         Some(max_tokens),
         brackets,
     );
@@ -1257,6 +1282,27 @@ pub(crate) fn lex_with<B: Brackets>(
     skip_comment: bool,
     brackets: B,
 ) -> (Vec<Token>, Option<ParseError>) {
+    lex_in_mode(
+        input,
+        span_offset,
+        additional_whitespace,
+        special_tokens,
+        skip_comment,
+        LexMode::Code,
+        brackets,
+    )
+}
+
+/// [`lex_with`], reading `input` as `mode` says.
+pub(crate) fn lex_in_mode<B: Brackets>(
+    input: &[u8],
+    span_offset: usize,
+    additional_whitespace: &[u8],
+    special_tokens: &[u8],
+    skip_comment: bool,
+    mode: LexMode,
+    brackets: B,
+) -> (Vec<Token>, Option<ParseError>) {
     let mut state = LexState {
         input,
         // Rough token density of Nushell source; avoids most regrowth of the output while
@@ -1270,7 +1316,7 @@ pub(crate) fn lex_with<B: Brackets>(
         additional_whitespace,
         special_tokens,
         skip_comment,
-        false,
+        mode,
         None,
         brackets,
     );
@@ -1282,8 +1328,7 @@ fn lex_internal<B: Brackets>(
     additional_whitespace: &[u8],
     special_tokens: &[u8],
     skip_comment: bool,
-    // within signatures we want to treat `<` and `>` specially
-    in_signature: bool,
+    mode: LexMode,
     max_tokens: Option<usize>,
     brackets: B,
 ) {
@@ -1425,7 +1470,7 @@ fn lex_internal<B: Brackets>(
                 state.span_offset,
                 additional_whitespace,
                 special_tokens,
-                in_signature,
+                mode,
                 brackets,
             );
             if state.error.is_none() {

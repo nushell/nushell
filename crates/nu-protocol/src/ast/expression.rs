@@ -86,6 +86,21 @@ impl Expression {
         }
     }
 
+    /// The variable a bare `$name` refers to: an [`Expr::Var`], or a cell path on one with no
+    /// members, which is how `$name` is parsed as an argument.
+    pub fn as_bare_var(&self) -> Option<VarId> {
+        match &self.expr {
+            Expr::Var(var_id) => Some(*var_id),
+            Expr::FullCellPath(cell_path) if cell_path.tail.is_empty() => {
+                match cell_path.head.expr {
+                    Expr::Var(var_id) => Some(var_id),
+                    _ => None,
+                }
+            }
+            _ => None,
+        }
+    }
+
     pub fn as_string(&self) -> Option<String> {
         match &self.expr {
             Expr::String(string) => Some(string.clone()),
@@ -113,7 +128,7 @@ impl Expression {
             Expr::BinaryOp(left, _, right) => {
                 left.has_in_variable(working_set) || right.has_in_variable(working_set)
             }
-            Expr::UnaryNot(expr) => expr.has_in_variable(working_set),
+            Expr::UnaryNot(expr) | Expr::UnaryMinus(expr) => expr.has_in_variable(working_set),
             Expr::Block(block_id) | Expr::Closure(block_id) => {
                 let block = working_set.get_block(*block_id);
                 block
@@ -294,7 +309,7 @@ impl Expression {
                 left.replace_span(working_set, replaced, new_span);
                 right.replace_span(working_set, replaced, new_span);
             }
-            Expr::UnaryNot(expr) => {
+            Expr::UnaryNot(expr) | Expr::UnaryMinus(expr) => {
                 expr.replace_span(working_set, replaced, new_span);
             }
             Expr::Block(block_id) => {
@@ -507,7 +522,7 @@ impl Expression {
                     *working_set.get_block_mut(*block_id) = block;
                 }
             }
-            Expr::UnaryNot(expr) => {
+            Expr::UnaryNot(expr) | Expr::UnaryMinus(expr) => {
                 expr.replace_in_variable(working_set, new_var_id);
             }
             Expr::BinaryOp(lhs, op, rhs) => {

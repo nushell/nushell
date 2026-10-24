@@ -108,6 +108,13 @@ fn ignores_duplicate_columns_selected() -> Result {
 }
 
 #[test]
+fn ignores_duplicate_column_differing_only_in_casing() -> Result {
+    test()
+        .run("{a: 1, b: 2} | select a a! | columns")
+        .expect_value_eq(["a"])
+}
+
+#[test]
 fn selects_a_row() -> Result {
     Playground::setup("selects_a_row", |dirs, sandbox| {
         sandbox.with_files(&[EmptyFile("notes.txt"), EmptyFile("arepas.txt")]);

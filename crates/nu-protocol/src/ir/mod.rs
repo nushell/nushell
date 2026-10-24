@@ -536,6 +536,7 @@ pub enum Literal {
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum RedirectMode {
     Pipe,
+    PipeRaw,
     PipeSeparate,
     Value,
     Null,

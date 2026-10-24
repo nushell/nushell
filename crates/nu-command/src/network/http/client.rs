@@ -41,7 +41,6 @@ use ureq::{
     typestate::{WithBody, WithoutBody},
     unversioned::transport::{ConnectProxyConnector, Connector, SocksConnector},
 };
-use url::Url;
 
 #[cfg(feature = "native-tls")]
 use ureq::unversioned::transport::NativeTlsConnector;
@@ -255,7 +254,7 @@ pub fn http_parse_url(
     call: &Call,
     span: Span,
     raw_url: Value,
-) -> Result<Spanned<(String, Url)>, ShellError> {
+) -> Result<Spanned<String>, ShellError> {
     let url_span = raw_url.span();
     let mut requested_url = raw_url.coerce_into_string()?;
     if requested_url.starts_with(':') {
@@ -264,19 +263,62 @@ pub fn http_parse_url(
         requested_url = format!("http://{requested_url}");
     }
 
-    let url = match url::Url::parse(&requested_url) {
-        Ok(u) => u,
-        Err(_e) => {
-            return Err(ShellError::UnsupportedInput {
-                msg: "Incomplete or incorrect URL. Expected a full URL, e.g., https://www.example.com".to_string(),
-                input: format!("value: '{requested_url:?}'"),
-                msg_span: call.head,
-                input_span: span,
-            });
-        }
+    let invalid_url = || ShellError::UnsupportedInput {
+        msg: "Incomplete or incorrect URL. Expected a full URL, e.g., https://www.example.com"
+            .to_string(),
+        input: format!("value: '{requested_url:?}'"),
+        msg_span: call.head,
+        input_span: span,
     };
 
-    Ok((requested_url, url).into_spanned(url_span))
+    // Validate with `http::Uri`, the same parser ureq uses to send the request.
+    // Unlike `url::Url`, it accepts IPv6 zone IDs (e.g. `http://[fe80::13%eth0]`),
+    // so nushell and ureq agree on which URLs are valid.
+    match requested_url.parse::<http::Uri>() {
+        Ok(uri) if authority_is_well_formed(&uri) => {}
+        _ => return Err(invalid_url()),
+    }
+
+    Ok(requested_url.into_spanned(url_span))
+}
+
+/// Check that the authority of a parsed URI is well formed.
+///
+/// `http::Uri` is lenient: it silently drops trailing garbage after an IPv6
+/// literal's closing bracket (e.g. `[fe80::13%eth0]foo`) and non-numeric or
+/// out-of-range ports (e.g. `host:abc`, `host:99999`). Accepting those would
+/// silently send the request to a different host or port than the user typed,
+/// so they are rejected instead.
+fn authority_is_well_formed(uri: &http::Uri) -> bool {
+    let Some(authority) = uri.authority() else {
+        return true;
+    };
+    // Ignore any userinfo (`user:pass@`).
+    let host_port = authority
+        .as_str()
+        .rsplit_once('@')
+        .map_or(authority.as_str(), |(_, host_port)| host_port);
+    // Everything after the host must be empty or `:<port>`.
+    let rest = if let Some(after_bracket) = host_port.strip_prefix('[') {
+        match after_bracket.split_once(']') {
+            Some((_, rest)) => rest,
+            None => return false,
+        }
+    } else {
+        match host_port.find(':') {
+            Some(idx) => &host_port[idx..],
+            None => return true,
+        }
+    };
+    if rest.is_empty() {
+        return true;
+    }
+    match rest.strip_prefix(':') {
+        None => false,
+        // `host:` has an empty port, which `url::Url` accepts.
+        Some("") => true,
+        Some(port) => port.parse::<u16>().is_ok(),
+    }
 }
 
 pub fn http_parse_redirect_mode(mode: Option<Spanned<String>>) -> Result<RedirectMode, ShellError> {
@@ -886,6 +928,54 @@ pub fn request_add_custom_headers<B>(
     Ok(request)
 }
 
+/// Set the `Host` header for a request whose URL contains an IPv6 zone ID.
+///
+/// ureq derives the `Host` header from the URI authority, which includes the
+/// zone ID (e.g. `[fe80::13%eth0]`). The zone ID is only meaningful on the
+/// client machine, so sending it would make strict servers reject the request.
+/// curl strips it, and so do we. A `Host` header set by the user is left alone.
+pub fn request_set_host_header<B>(
+    requested_url: &str,
+    request: RequestBuilder<B>,
+) -> RequestBuilder<B> {
+    // Respect a `Host` header the user set explicitly.
+    if request
+        .headers_ref()
+        .is_some_and(|headers| headers.contains_key("host"))
+    {
+        return request;
+    }
+    let Ok(uri) = requested_url.parse::<http::Uri>() else {
+        return request;
+    };
+    let Some(authority) = uri.authority() else {
+        return request;
+    };
+    let host = authority.host();
+    if !host.contains('%') {
+        return request;
+    }
+    let host = host
+        .strip_prefix('[')
+        .and_then(|inner| inner.strip_suffix(']'))
+        .unwrap_or(host);
+    let host = match host.split_once('%') {
+        Some((addr, _)) => addr,
+        None => host,
+    };
+    // Match ureq: omit the port when it is the scheme's default.
+    let default_port = match uri.scheme_str() {
+        Some("https") => Some(443),
+        Some("http") => Some(80),
+        _ => None,
+    };
+    let value = match authority.port() {
+        Some(port) if Some(port.as_u16()) != default_port => format!("[{host}]:{port}"),
+        _ => format!("[{host}]"),
+    };
+    request.header("Host", &value)
+}
+
 fn handle_status_error(span: Span, requested_url: &str, response: &mut Response) -> ShellError {
     let msg = if response.header("content-type") == Some("application/json") {
         // We use a json response as a heuristic to mean the body will contain a relevant error message.
@@ -999,15 +1089,19 @@ fn transform_response_using_content_type(
         .expect("Failed to parse content type, and failed to default to text/plain");
 
     let ext = match (content_type.type_(), content_type.subtype()) {
-        (mime::TEXT, mime::PLAIN) => url::Url::parse(requested_url)
+        // Use `http::Uri` (the parser ureq uses) so that URLs `url::Url` cannot
+        // parse, such as IPv6 zone IDs, still resolve to the right extension.
+        (mime::TEXT, mime::PLAIN) => requested_url
+            .parse::<http::Uri>()
             .map_err(|err| {
                 LabeledError::new(err.to_string())
                     .with_help("cannot parse")
                     .with_label(format!("Cannot parse URL: {requested_url}"), span)
             })?
-            .path_segments()
-            .and_then(|mut segments| segments.next_back())
-            .filter(|&name| !name.is_empty())
+            .path()
+            .rsplit('/')
+            .next()
+            .filter(|name| !name.is_empty())
             .and_then(|name| {
                 PathBuf::from(name)
                     .extension()
@@ -1024,12 +1118,20 @@ fn transform_response_using_content_type(
         Ok(output)
     } else if let Some(ext) = ext {
         match engine_state.find_decl(format!("from {ext}").as_bytes(), &[]) {
-            Some(converter_id) => engine_state.get_decl(converter_id).run(
-                engine_state,
-                stack,
-                &Call::new(span),
-                output,
-            ),
+            Some(converter_id) => {
+                let decl = engine_state.get_decl(converter_id);
+                if let Some(alias) = decl.as_alias() {
+                    return Err(crate::formats::alias_converter_error(
+                        engine_state,
+                        alias,
+                        "http",
+                        "convert the response",
+                        &format!("http ... --raw {requested_url} | {{}}"),
+                        span,
+                    ));
+                }
+                decl.run(engine_state, stack, &Call::new(span), output)
+            }
             None => Ok(output),
         }
     } else {
@@ -1404,5 +1506,111 @@ mod test {
         let expanded = expand_unix_socket_path(with_tilde, &cwd).unwrap();
         assert!(expanded.is_absolute());
         assert!(!expanded.to_string_lossy().contains('~'));
+    }
+
+    #[test]
+    fn test_http_parse_url_with_ipv6_zone_id() {
+        let call = Call::new(Span::test_data());
+        let span = Span::test_data();
+        let raw_url = Value::test_string("http://[fe80::13%eth0]");
+
+        let parsed = http_parse_url(&call, span, raw_url).unwrap();
+        // The requested URL is preserved verbatim, including the zone ID, because
+        // it is what ureq uses to send the request.
+        assert_eq!(parsed.item, "http://[fe80::13%eth0]");
+    }
+
+    #[test]
+    fn test_http_parse_url_rejects_invalid_ipv6_with_zone_id() {
+        let call = Call::new(Span::test_data());
+        let span = Span::test_data();
+        // A URL with a zone ID but invalid characters after the bracket must be
+        // rejected, not silently rewritten (e.g. to localhost).
+        for bad in [
+            "http://[fe80::13%eth0]foo",
+            "http://[fe80::13%eth0]:abc",
+            "http://[fe80::13%eth0",
+        ] {
+            let raw_url = Value::test_string(bad);
+            assert!(
+                http_parse_url(&call, span, raw_url).is_err(),
+                "expected {bad:?} to be rejected"
+            );
+        }
+    }
+
+    #[test]
+    fn test_authority_is_well_formed() {
+        let valid = [
+            "http://example.com",
+            "http://example.com:8080",
+            "http://example.com:080",
+            "http://example.com:",
+            "http://example.com:0",
+            "http://example.com:65535",
+            "http://user:pass@example.com:8080/",
+            "http://[fe80::13%eth0]",
+            "http://[fe80::13%eth0]:8080",
+            "http://[fe80::13%eth0]:080",
+            "http://[fe80::13%eth0]:",
+            "http://[fe80::13%eth0]/a.txt",
+            "http://user:pass@[fe80::13%eth0]:8080/",
+        ];
+        for url in valid {
+            let uri = url.parse::<http::Uri>().unwrap();
+            assert!(
+                authority_is_well_formed(&uri),
+                "expected {url:?} to be well formed"
+            );
+        }
+
+        let invalid = [
+            "http://example.com:abc",
+            "http://example.com:99999",
+            "http://example.com:65536",
+            "http://[fe80::13%eth0]foo",
+            "http://[fe80::13%eth0]:abc",
+            "http://[fe80::13%eth0]:99999",
+        ];
+        for url in invalid {
+            let uri = url.parse::<http::Uri>().unwrap();
+            assert!(
+                !authority_is_well_formed(&uri),
+                "expected {url:?} to be rejected"
+            );
+        }
+    }
+
+    #[test]
+    fn test_request_set_host_header_strips_zone_id() {
+        let request = ureq::Agent::config_builder()
+            .build()
+            .new_agent()
+            .get("http://[fe80::13%eth0]:8080/");
+        let request = request_set_host_header("http://[fe80::13%eth0]:8080/", request);
+
+        assert_eq!(
+            request
+                .headers_ref()
+                .and_then(|headers| headers.get("host"))
+                .map(|v| v.to_str().unwrap()),
+            Some("[fe80::13]:8080")
+        );
+    }
+
+    #[test]
+    fn test_request_set_host_header_leaves_other_urls_alone() {
+        let request = ureq::Agent::config_builder()
+            .build()
+            .new_agent()
+            .get("http://example.com:8080/");
+        let request = request_set_host_header("http://example.com:8080/", request);
+
+        assert!(
+            request
+                .headers_ref()
+                .and_then(|headers| headers.get("host"))
+                .is_none()
+        );
     }
 }

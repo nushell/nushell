@@ -96,7 +96,7 @@ pub(super) fn data_flags(sig: Signature) -> Signature {
         .named(
             "data",
             SyntaxShape::Any,
-            "Data for this widget alone, instead of the outer pipeline's.",
+            "Data for this widget alone, instead of the outer pipeline's. Not with --from or a closure.",
             None,
         )
         .named(
@@ -280,6 +280,10 @@ pub(super) fn session_cwd(engine_state: &EngineState, stack: &Stack) -> std::pat
 /// bordered widgets `--title` (which must not be empty) and `--border`,
 /// and for data widgets `--data`, `--from`, `--on-select`. `source_closure` is the
 /// positional closure that turns the source row into this widget's data.
+/// `own_value` is the name and span of a builder flag that, like `--data`,
+/// sets what the widget shows (`tui progress --value`); neither can be
+/// combined with `--from` or a source closure.
+#[allow(clippy::too_many_arguments)]
 pub(super) fn push_widget(
     engine_state: &EngineState,
     stack: &mut Stack,
@@ -288,6 +292,7 @@ pub(super) fn push_widget(
     kind: WidgetKind,
     children: Vec<TuiApp>,
     source_closure: Option<Closure>,
+    own_value: Option<(&str, Span)>,
 ) -> Result<(), ShellError> {
     let requested: Option<String> = call.get_flag(engine_state, stack, "id")?;
     // Only a string is a border title: `tui label` keeps a deprecated
@@ -309,13 +314,27 @@ pub(super) fn push_widget(
     let source = (from.is_some() || source_closure.is_some()).then_some(Source {
         from,
         closure: source_closure,
+        span: call.head,
     });
+    let data: Option<Value> = call.get_flag(engine_state, stack, "data")?;
+    let own = data
+        .as_ref()
+        .map(|data| ("--data", data.span()))
+        .or(own_value);
+    if let (Some((flag, span)), Some(_)) = (own, &source) {
+        // A widget shows its own data before what its source gives, so the
+        // source would never appear.
+        return Err(ShellError::IncompatibleParametersSingle {
+            msg: format!("use either {flag} or --from/a closure, not both"),
+            span,
+        });
+    }
     app.push(Widget {
         id,
         auto_id,
         kind,
         children,
-        data: call.get_flag(engine_state, stack, "data")?,
+        data,
         stream: None,
         source,
         on_select: call.get_flag(engine_state, stack, "on-select")?,
@@ -346,7 +365,7 @@ impl Command for Tui {
          \n\
          Builders (`tui table`, `tui split`, ...) append widgets to a `tui` value. `tui run` shows it and returns one record: `{action, focused, selected, page, values, rows, live}`, where `values` holds every widget's state by id. `tui debug` returns the same record plus the painted `screen` and the resolved layout, for scripts and tests.\n\
          \n\
-         Data: a value piped into a builder is the shared data list. Builders never read a stream: a list stream, a range, or an external command's output is kept in the `tui` value and read while the TUI runs, so its rows appear as they are produced (`1.. | each {|n| sleep 1sec; $n} | tui log`). A stream keeps its newest 100k rows (older rows are dropped in batches, so up to 12.5k more may show). When the TUI closes, a stream still producing is stopped: an external command piped straight into a builder at once, and one behind other commands (`^tail -f app.log | lines | tui log`) at once in an interactive shell, elsewhere the next time it writes. Nushell code in a stream (an `each` closure) finishes the row it is on, and what it prints while the TUI runs lands on the TUI's screen. A `tui` value saved with `let` reads its stream the first time it runs; if that run read it to the end, later runs show the same rows. A widget can have its own rows with `--data`, or by piping into it inside a container's child list: `tui split [(ls | tui table) (ps | tui table)]`. `--from <id>` (with an optional closure) makes a widget follow another's highlighted row.\n\
+         Data: a value piped into a builder is the shared data list. Builders never read a stream: a list stream, a range, or an external command's output is kept in the `tui` value and read while the TUI runs, so its rows appear as they are produced (`1.. | each {|n| sleep 1sec; $n} | tui log`). A stream keeps its newest 100k rows (older rows are dropped in batches, so up to 12.5k more may show). When the TUI closes, a stream still producing is stopped: an external command piped straight into a builder at once, and one behind other commands (`^tail -f app.log | lines | tui log`) at once in an interactive shell, elsewhere the next time it writes. Nushell code in a stream (an `each` closure) finishes the row it is on, and what it prints while the TUI runs lands on the TUI's screen. A `tui` value saved with `let` reads its stream the first time it runs; if that run read it to the end, later runs show the same rows. A widget can have its own rows with `--data`, or by piping into it inside a container's child list: `tui split [(ls | tui table) (ps | tui table)]`. A widget can also follow the highlighted row of a table, tree, or select. A closure on `tui table`, `tree`, `log`, `progress`, or `label` turns that row into what the widget shows, and `--from <id>` picks which one to follow; without it the widget follows the focused one, else the nearest, else one on another tab page, but never one that follows it back. `--from` without a closure shows the row itself. A widget with nothing to follow is an error when the TUI starts, and `--data` cannot be combined with `--from` or a closure.\n\
          \n\
          Hooks: `tui bind`, menu actions, `tui button`, `--on-select`, and the `tui run` refresh closure all receive the state record and may return nothing, a new data list, or `{action: submit|quit, selected: ...}`. A new data list replaces the shared data for the rest of the run: a piped stream no longer adds to it.\n\
          \n\

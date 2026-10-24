@@ -295,8 +295,8 @@ impl PipelineData {
 
     /// Drain this [`PipelineData`] according to the current stdout [`OutDest`]s in `stack`.
     ///
-    /// For [`OutDest::Pipe`] and [`OutDest::PipeSeparate`], this will return the [`PipelineData`]
-    /// as is. For [`OutDest::Value`], this will collect into a value and return it. For
+    /// For [`OutDest::Pipe`], [`OutDest::PipeRaw`] and [`OutDest::PipeSeparate`], this will return
+    /// the [`PipelineData`] as is. For [`OutDest::Value`], this will collect into a value and return it. For
     /// [`OutDest::Print`], the [`PipelineData`] is drained and printed. Otherwise, the
     /// [`PipelineData`] is drained, but only printed if it is the output of an external command.
     pub fn drain_to_out_dests(
@@ -309,7 +309,7 @@ impl PipelineData {
                 self.print_table(engine_state, stack, false, false)?;
                 Ok(Self::Empty)
             }
-            OutDest::Pipe | OutDest::PipeSeparate => Ok(self),
+            OutDest::Pipe | OutDest::PipeRaw | OutDest::PipeSeparate => Ok(self),
             OutDest::Value => {
                 let metadata = self.take_metadata();
                 let span = self.span().unwrap_or(Span::unknown());

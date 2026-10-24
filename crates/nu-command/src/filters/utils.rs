@@ -3,20 +3,19 @@ use nu_engine::{CallExt, ClosureEval};
 use nu_protocol::{
     IntoPipelineData, PipelineData, ShellError, Span, Value,
     engine::{Call, Closure, EngineState, Stack},
+    shell_error::eval_block_with_input::EvalBlockWithInputError,
 };
 
-pub fn chain_error_with_input(
-    error_source: ShellError,
-    input_is_error: bool,
-    span: Span,
-) -> ShellError {
-    if !input_is_error {
-        return ShellError::EvalBlockWithInput {
-            span,
-            sources: vec![error_source],
-        };
+/// Wraps an error a closure raised while running on one input value, so the error reports as
+/// itself with a `source value` label at `span`, the input value's span.
+///
+/// An input that is already an error is not labeled: the closure most likely re-raised it.
+/// See [`EvalBlockWithInputError::wrap`] for the errors that are never wrapped.
+pub fn wrap_error_with_input(error: ShellError, input_is_error: bool, span: Span) -> ShellError {
+    if input_is_error {
+        return error;
     }
-    error_source
+    EvalBlockWithInputError::wrap(error, span, EvalBlockWithInputError::SOURCE_VALUE)
 }
 
 /// Recursively sort the keys of records in a `Value` tree.
@@ -98,7 +97,7 @@ pub fn boolean_fold(
     let head = call.head;
     let closure: Closure = call.req(engine_state, stack, 0)?;
 
-    let mut closure = ClosureEval::new(engine_state, stack, closure);
+    let mut closure = ClosureEval::try_new(engine_state, stack, closure, head)?;
 
     for value in input {
         engine_state.signals().check(&head)?;

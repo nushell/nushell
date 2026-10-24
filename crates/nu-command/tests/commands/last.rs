@@ -1,7 +1,7 @@
 use chrono::DateTime;
 use nu_protocol::{
-    Filesize, IntRange, IntoPipelineData, ListStream, PipelineData, PipelineMetadata, Range,
-    Signals, Span, Value, ast::RangeInclusion,
+    Filesize, IntRange, IntoPipelineData, LabeledError, ListStream, PipelineData, PipelineMetadata,
+    Range, Signals, Span, Value, ast::RangeInclusion,
 };
 use nu_test_support::prelude::*;
 use pretty_assertions::assert_matches;
@@ -102,9 +102,47 @@ fn fail_on_non_iterator() -> Result {
 
 #[test]
 fn errors_on_empty_list_when_no_rows_given_in_strict_mode() -> Result {
-    let err = test().run("[] | last --strict").expect_shell_error()?;
+    assert_empty_content_diagnostic("[] | last --strict")
+}
 
+#[test]
+fn error_on_empty_list_stream_in_strict_mode() -> Result {
+    assert_empty_content_diagnostic("[1] | where {|x| $x > 1 } | last --strict")
+}
+
+#[test]
+fn error_on_empty_binary_in_strict_mode() -> Result {
+    assert_empty_content_diagnostic("0x[] | last --strict")
+}
+
+fn assert_empty_content_diagnostic(code: &str) -> Result {
+    test()
+        .run(code)
+        .expect_error_code_eq("nu::shell::access_empty_content")?;
+
+    let err = test().run(code).expect_shell_error()?;
     assert_matches!(err, ShellError::AccessEmptyContent { .. });
+    let message = err.to_string();
+    assert_eq!(message, "Cannot access empty content.");
+    assert_contains_not("too large", &message);
+
+    let labeled = LabeledError::from_diagnostic(&err);
+    assert_eq!(
+        labeled
+            .labels
+            .iter()
+            .map(|label| label.text.as_str())
+            .collect::<Vec<_>>(),
+        ["content is empty"]
+    );
+    assert!(
+        labeled
+            .labels
+            .iter()
+            .all(|label| !label.text.contains("too large")),
+        "empty-content span label should not describe a row or index as too large: {:?}",
+        labeled.labels
+    );
     Ok(())
 }
 
@@ -219,4 +257,18 @@ fn last_preserves_pipeline_metadata(#[case] input: InputKind, #[case] code: &str
     };
     assert_eq!(expected, out);
     Ok(())
+}
+
+#[test]
+fn last_with_huge_count_on_a_byte_stream() -> Result {
+    test()
+        .run("(random binary 16b | last 9223372036854775807 | length) == 16")
+        .expect_value_eq(true)
+}
+
+#[test]
+fn last_with_huge_count_on_binary() -> Result {
+    test()
+        .run("(0x[11 22 33] | last 9223372036854775807) == 0x[11 22 33]")
+        .expect_value_eq(true)
 }

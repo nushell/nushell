@@ -1,9 +1,15 @@
+use crate::env::is_automatic_env_var;
+use crate::env::var;
 #[allow(deprecated)]
 use crate::get_full_help;
 use crate::named_flags::{
-    expand_flag_record, flag_type_accepts_nothing, list_spread_before_required_error,
+    can_rest_spread, expand_flag_record, find_signature_flag, flag_type_accepts_nothing,
+    list_spread_before_required_error, list_spread_without_rest_error,
 };
-use crate::{EvalBlockWithEarlyReturnFn, eval_ir::eval_ir_block};
+use crate::{
+    EvalBlockWithEarlyReturnFn,
+    eval_ir::{eval_ir_block, expect_named_var_id},
+};
 use nu_protocol::{
     BlockId, CompareTypes, Config, ENV_VARIABLE_ID, IntoPipelineData, PipelineData,
     PipelineExecutionData, ShellError, Signature, Span, Value, VarId,
@@ -12,11 +18,11 @@ use nu_protocol::{
         PathMember,
     },
     debugger::{DebugContext, WithDebug, WithoutDebug},
-    engine::{Argument as EngineArgument, Closure, EngineState, EnvName, EnvVars, Stack},
+    engine::{
+        Argument as EngineArgument, Closure, EngineState, EnvName, EnvVars, Stack, env_var_eq,
+    },
     eval_base::Eval,
-    shell_error::generic::GenericError,
 };
-use nu_utils::IgnoreCaseExt;
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -38,7 +44,8 @@ pub struct CallEval {
     head_span: Span,
     callee_span: Span,
     arg_index: usize,
-    named_args: Vec<String>,
+    /// The variables of the flags bound so far.
+    named_args: Vec<VarId>,
     rest_args: Vec<Value>,
     /// After a list/null rest spread, further positionals go to rest (matches IR `always_spread`).
     always_spread: bool,
@@ -96,6 +103,7 @@ impl CallEval {
         if let Some(param) = maybe_param {
             let param_type = param.shape.to_type();
             if !value.is_subtype_of(&param_type) {
+                self.reset_arguments();
                 return Err(ShellError::CantConvert {
                     to_type: param_type.to_string(),
                     from_type: value.get_type().to_string(),
@@ -129,6 +137,7 @@ impl CallEval {
 
         let param_type = rest_positional.shape.to_type();
         if !value.is_subtype_of(&param_type) {
+            self.reset_arguments();
             return Err(ShellError::CantConvert {
                 to_type: param_type.to_string(),
                 from_type: value.get_type().to_string(),
@@ -141,8 +150,21 @@ impl CallEval {
         Ok(self)
     }
 
-    /// Spread a list into rest (IR parity). Errors if required positionals remain unbound.
-    pub fn add_list_spread(
+    /// Forget the positional arguments bound so far, so the next call made with
+    /// this [`CallEval`] binds its arguments from the first parameter again.
+    ///
+    /// This runs after every call, and also when an argument can't be bound,
+    /// because the caller can't run that call but may go on to make another one
+    /// (for example a command that maps a closure over a stream and keeps going
+    /// after an item fails).
+    fn reset_arguments(&mut self) {
+        self.arg_index = 0;
+        self.rest_args.clear();
+    }
+
+    /// Spread a list into rest (IR parity), and send further positionals to rest too. A `null`
+    /// spread is an empty list here. Errors if required positionals remain unbound.
+    fn add_list_spread(
         &mut self,
         signature: &Signature,
         vals: Vec<Value>,
@@ -158,20 +180,52 @@ impl CallEval {
         Ok(self)
     }
 
-    /// Null rest-mode spread (IR parity). Errors if required positionals remain unbound.
-    pub fn add_null_spread(
+    /// Spread a value into the call, as `...value` does in a call to a custom command.
+    ///
+    /// A record sets named flags, a list fills the rest parameter, and `null` sends further
+    /// positional arguments to the rest parameter (IR parity).
+    pub fn add_spread(
         &mut self,
         signature: &Signature,
+        value: Value,
         spread_span: Span,
     ) -> Result<&mut Self, ShellError> {
-        if self.arg_index < signature.required_positional.len() && !self.always_spread {
-            return Err(list_spread_before_required_error(spread_span));
+        match value {
+            Value::Record { val, .. } => {
+                for arg in expand_flag_record(signature, val.into_owned(), spread_span)? {
+                    match arg {
+                        EngineArgument::Flag { data, name, .. } => {
+                            let long = std::str::from_utf8(&data[name]).unwrap_or_default();
+                            self.add_named(signature, long, None, None)?;
+                        }
+                        EngineArgument::Named {
+                            data, name, val, ..
+                        } => {
+                            let long = std::str::from_utf8(&data[name]).unwrap_or_default();
+                            self.add_named(signature, long, None, Some(Cow::Owned(val)))?;
+                        }
+                        _ => {}
+                    }
+                }
+                Ok(self)
+            }
+            Value::List { .. } if !can_rest_spread(signature) => {
+                Err(list_spread_without_rest_error(spread_span))
+            }
+            Value::List { vals, .. } => {
+                self.add_list_spread(signature, vals.into_owned(), spread_span)
+            }
+            Value::Nothing { .. } => self.add_list_spread(signature, Vec::new(), spread_span),
+            Value::Error { error, .. } => Err(*error),
+            other => Err(ShellError::CannotSpreadAsList { span: other.span() }),
         }
-        self.always_spread = true;
-        Ok(self)
     }
 
     /// Add a named parameter to the call stack.
+    ///
+    /// The flag is found by `long`, or by `short` when `long` is empty, as for a flag that only
+    /// has a short name. Returns an error for a flag without a variable to bind, like the
+    /// built-in `--help`.
     pub fn add_named(
         &mut self,
         signature: &Signature,
@@ -179,28 +233,17 @@ impl CallEval {
         short: Option<String>,
         value: Option<Cow<Value>>,
     ) -> Result<&mut Self, ShellError> {
-        let named = signature.named.iter().find(|named| {
-            long == named.long
-                || short
-                    .as_deref()
-                    .zip(named.short)
-                    .is_some_and(|(arg, param)| {
-                        let mut buf = [0; 4];
-                        param.encode_utf8(&mut buf) == arg
-                    })
-        });
-
-        if let Some(named) = named {
-            let var_id = named
-                .var_id
-                .expect("internal error: all custom parameters must have var_ids");
+        // Another flag may declare the same short, so a short only names a flag without a long name.
+        let short = short.filter(|_| long.is_empty()).unwrap_or_default();
+        if let Some(named) = find_signature_flag(signature, long.as_bytes(), short.as_bytes()) {
+            let var_id = expect_named_var_id(named, self.head_span)?;
 
             let value = value
                 .or_else(|| named.default_value.as_ref().map(Cow::Borrowed))
                 .unwrap_or_else(|| Cow::Owned(Value::bool(true, self.head_span)));
 
             self.callee_stack.add_var(var_id, value.into_owned());
-            self.named_args.push(long.to_string());
+            self.named_args.push(var_id);
         }
 
         Ok(self)
@@ -233,33 +276,10 @@ impl CallEval {
         block: &Block,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        self.finalize_arguments(&block.signature)?;
-        self.arg_index = 0;
-        self.rest_args.clear();
-        (self.eval)(engine_state, &mut self.callee_stack, block, input).map(|p| p.body)
-    }
-
-    /// Finalize missing/default/rest arguments without evaluating the block yet.
-    ///
-    /// This is useful for callers that need to bind arguments against one signature and then
-    /// evaluate a modified copy of the block without re-running the argument finalization step.
-    pub fn finalize_for_signature(
-        &mut self,
-        signature: &Signature,
-    ) -> Result<&mut Self, ShellError> {
-        self.finalize_arguments(signature)?;
-        Ok(self)
-    }
-
-    /// Run a block after arguments have already been fully bound onto the callee stack.
-    pub fn run_prebound(
-        &mut self,
-        engine_state: &EngineState,
-        block: &Block,
-        input: PipelineData,
-    ) -> Result<PipelineData, ShellError> {
-        self.arg_index = 0;
-        self.rest_args.clear();
+        // Reset even when a parameter is missing, so the error doesn't leak into the next call.
+        let finalized = self.finalize_arguments(&block.signature);
+        self.reset_arguments();
+        finalized?;
         (self.eval)(engine_state, &mut self.callee_stack, block, input).map(|p| p.body)
     }
 
@@ -317,11 +337,11 @@ impl CallEval {
         let remaining_flags = signature
             .named
             .iter()
-            // Skip provided flags
-            .filter(|flag| !self.named_args.contains(&flag.long))
             // Ignore named arguments without var_id.
             // There is some code in nu_cli::completions that relies on this behavior of `eval_call`.
-            .filter_map(|flag| Some((flag.var_id?, flag)));
+            .filter_map(|flag| Some((flag.var_id?, flag)))
+            // Skip provided flags
+            .filter(|(var_id, _)| !self.named_args.contains(var_id));
 
         for (var_id, flag) in remaining_flags {
             if flag.arg.is_none() {
@@ -363,7 +383,11 @@ pub fn eval_call<D: DebugContext>(
         // To prevent a stack overflow in user code from crashing the shell,
         // we limit the recursion depth of function calls.
         // Picked 50 arbitrarily, should work on all architectures.
-        let maximum_call_stack_depth: u64 = engine_state.config.recursion_limit as u64;
+        let config = caller_stack
+            .config
+            .as_deref()
+            .unwrap_or(&engine_state.config);
+        let maximum_call_stack_depth: u64 = config.recursion_limit as u64;
         callee_stack.recursion_count += 1;
         if callee_stack.recursion_count > maximum_call_stack_depth {
             callee_stack.recursion_count = 0;
@@ -421,52 +445,7 @@ pub fn eval_call<D: DebugContext>(
                 // for residual AST `eval_call` consumers.
                 AstArgument::Spread(expr) => {
                     let val = eval_expression::<D>(engine_state, caller_stack, expr)?;
-                    match val {
-                        Value::Record { val, .. } => {
-                            for engine_arg in
-                                expand_flag_record(&signature, val.into_owned(), expr.span)?
-                            {
-                                match engine_arg {
-                                    EngineArgument::Flag { data, name, .. } => {
-                                        let long =
-                                            std::str::from_utf8(&data[name]).unwrap_or_default();
-                                        call_eval.add_named(&signature, long, None, None)?;
-                                    }
-                                    EngineArgument::Named {
-                                        data, name, val, ..
-                                    } => {
-                                        let long =
-                                            std::str::from_utf8(&data[name]).unwrap_or_default();
-                                        call_eval.add_named(
-                                            &signature,
-                                            long,
-                                            None,
-                                            Some(Cow::Owned(val)),
-                                        )?;
-                                    }
-                                    _ => {}
-                                }
-                            }
-                        }
-                        Value::List { vals, .. } => {
-                            if signature.rest_positional.is_none() && !signature.allows_unknown_args
-                            {
-                                return Err(ShellError::Generic(GenericError::new(
-                                    "Cannot spread a list into this command",
-                                    "This command has no ...rest parameter to receive a list spread. Use a record to spread named flags, e.g. ...{flag: value}",
-                                    expr.span,
-                                )));
-                            }
-                            call_eval.add_list_spread(&signature, vals.into_owned(), expr.span)?;
-                        }
-                        Value::Nothing { .. } => {
-                            call_eval.add_null_spread(&signature, expr.span)?;
-                        }
-                        Value::Error { error, .. } => return Err(*error),
-                        other => {
-                            return Err(ShellError::CannotSpreadAsList { span: other.span() });
-                        }
-                    }
+                    call_eval.add_spread(&signature, val, expr.span)?;
                 }
             }
         }
@@ -892,7 +871,7 @@ impl Eval for EvalRuntime {
                                         .iter()
                                         .rev()
                                         .map(|(k, _)| k)
-                                        .find(|x| x.eq_ignore_case(&key))
+                                        .find(|x| env_var_eq(x, &key))
                                         .cloned()
                                         .unwrap_or(key)
                                 } else {
@@ -915,7 +894,7 @@ impl Eval for EvalRuntime {
                                     });
                                 }
 
-                                let is_config = original_key == "config";
+                                let is_config = env_var_eq(&original_key, var::CONFIG);
 
                                 stack.add_env_var(original_key, value.into_owned());
 
@@ -987,20 +966,4 @@ impl Eval for EvalRuntime {
     fn unreachable(engine_state: &EngineState, expr: &Expression) -> Result<Value, ShellError> {
         Ok(Value::nothing(expr.span(&engine_state)))
     }
-}
-
-/// Returns whether a string, when used as the name of an environment variable,
-/// is considered an automatic environment variable.
-///
-/// An automatic environment variable cannot be assigned to by user code.
-/// Current there are three of them: $env.PWD, $env.FILE_PWD, $env.CURRENT_FILE
-pub(crate) fn is_automatic_env_var(var: &str) -> bool {
-    let names = ["PWD", "FILE_PWD", "CURRENT_FILE"];
-    names.iter().any(|&name| {
-        if cfg!(windows) {
-            name.eq_ignore_case(var)
-        } else {
-            name.eq(var)
-        }
-    })
 }

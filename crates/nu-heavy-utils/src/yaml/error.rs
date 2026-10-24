@@ -572,6 +572,15 @@ impl From<SerializeError> for ShellError {
                 .with_code("shell::yaml::serialize::non_roundtrippable::closure")
                 .with_help("Try `--serialize` or `--non-roundtrip`")
             }
+            SerError::Message { msg } if msg == SerializeError::CLOSURE_BLOCK_NOT_FOUND => {
+                GenericError::new(
+                    "Closure block not found",
+                    "The closure refers to a block that is not available in this engine state",
+                    span,
+                )
+                .with_code("shell::yaml::serialize::closure_block_not_found")
+                .with_help(nu_protocol::engine::MISSING_CLOSURE_BLOCK_HELP)
+            }
             SerError::Message { msg } if msg == SerializeError::NON_ROUNDTRIPPABLE_ERROR => {
                 GenericError::new(
                     "Found non-roundtrippable error",
@@ -612,4 +621,5 @@ impl SerializeError {
         concat!(module_path!(), "::non_roundtrippable::closure");
     pub const NON_ROUNDTRIPPABLE_ERROR: &str =
         concat!(module_path!(), "::non_roundtrippable::error");
+    pub const CLOSURE_BLOCK_NOT_FOUND: &str = concat!(module_path!(), "::closure_block_not_found");
 }

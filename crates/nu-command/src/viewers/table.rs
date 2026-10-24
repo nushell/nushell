@@ -1076,8 +1076,12 @@ fn stream_collect_abbreviated(
 ) -> (Vec<Value>, usize, bool) {
     let mut end = true;
     let mut read = 0;
-    let mut head = Vec::with_capacity(size);
-    let mut tail = VecDeque::with_capacity(size);
+    // `size` is user supplied (`--abbreviated`) and can be far larger than the input, so size the
+    // buffers from what the iterator says it has. They only ever hold rows that are actually read.
+    // `head` ends up with `size` rows, the `...` row and the tail, so reserve that final length.
+    let hint = stream.size_hint().0;
+    let mut head = Vec::with_capacity(hint.min(size.saturating_mul(2).saturating_add(1)));
+    let mut tail = VecDeque::with_capacity(hint.saturating_sub(size).min(size));
 
     if size == 0 {
         return (vec![], 0, false);

@@ -1,4 +1,6 @@
 use nu_test_support::fs::Stub::EmptyFile;
+#[cfg(not(target_arch = "wasm32"))]
+use nu_test_support::fs::Stub::FileWithContent;
 use nu_test_support::prelude::*;
 use rstest::rstest;
 
@@ -99,5 +101,89 @@ fn du_wildcards() -> Result {
             .cwd(dirs.test())
             .run("du -a * | length")
             .expect_value_eq(1)
+    })
+}
+
+#[test]
+#[cfg(not(target_arch = "wasm32"))]
+fn du_counts_hard_links_once() -> Result {
+    Playground::setup("du_hard_links", |dirs, sandbox| {
+        // 1 MiB of real (allocated) bytes; the directory entry overhead stays
+        // orders of magnitude below the assertion bound either way.
+        let body = "x".repeat(1024 * 1024);
+        sandbox
+            .within("links")
+            .with_files(&[FileWithContent("a", &body)]);
+        drop(body);
+
+        let links = dirs.test().join("links");
+        std::fs::hard_link(links.join("a"), links.join("b")).expect("link b");
+        std::fs::hard_link(links.join("a"), links.join("c")).expect("link c");
+
+        // `a`, `b` and `c` are the same file: both columns must report ~1 MiB,
+        // not ~3 MiB. The lower bound catches a walk that counted nothing.
+        let sizes: Vec<i64> = test()
+            .cwd(dirs.test())
+            .run("du links | first | select apparent physical | values | into int")?;
+
+        assert!(
+            sizes[0] >= 1024 * 1024,
+            "hard-linked file not counted: apparent = {}",
+            sizes[0]
+        );
+        assert!(
+            sizes[0] < 2 * 1024 * 1024,
+            "hard-linked file counted more than once: apparent = {}",
+            sizes[0]
+        );
+        // No lower bound for `physical`: file systems with transparent
+        // compression report less than the allocated bytes.
+        assert!(
+            sizes[1] < 2 * 1024 * 1024,
+            "hard-linked file counted more than once: physical = {}",
+            sizes[1]
+        );
+        Ok(())
+    })
+}
+
+#[test]
+#[cfg(not(target_arch = "wasm32"))]
+fn du_counts_hard_links_once_across_paths() -> Result {
+    Playground::setup("du_hard_links_across_paths", |dirs, sandbox| {
+        let body = "x".repeat(1024 * 1024);
+        sandbox
+            .within("d1")
+            .with_files(&[FileWithContent("a", &body)]);
+        drop(body);
+        sandbox.mkdir("d2");
+
+        std::fs::hard_link(
+            dirs.test().join("d1").join("a"),
+            dirs.test().join("d2").join("b"),
+        )
+        .expect("link b");
+
+        // The link lives under both operands, so only the first row carries its
+        // size; the second one is directory entry overhead.
+        let sizes: Vec<i64> = test()
+            .cwd(dirs.test())
+            .run("du d1 d2 | get apparent | into int")?;
+
+        assert!(
+            sizes.len() == 2,
+            "expected one row per path operand, got {sizes:?}"
+        );
+        assert!(
+            sizes[0] >= 1024 * 1024 && sizes[0] < 2 * 1024 * 1024,
+            "hard-linked file not counted exactly once: apparent = {}",
+            sizes[0]
+        );
+        assert!(
+            sizes[1] <= 4096,
+            "hard-linked file counted under the second path too: apparent = {}",
+            sizes[1]
+        );
+        Ok(())
     })
 }

@@ -1,3 +1,4 @@
+mod alias_converter;
 mod from;
 pub(crate) mod kdl;
 mod nu_xml_format;
@@ -7,4 +8,5 @@ mod toml_utils;
 pub use from::*;
 pub use to::*;
 
+pub(crate) use alias_converter::alias_converter_error;
 pub(crate) use toml_utils::{preserve_toml_document, read_toml_source_from_metadata};

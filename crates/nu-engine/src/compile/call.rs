@@ -117,8 +117,8 @@ pub(crate) fn compile_call(
                 // and will get a const value though, is it really necessary to do that?
                 return builder.load_empty(io_reg);
             }
-            "alias" | "export alias" => {
-                // Alias does nothing
+            "alias" | "export alias" | "type" | "export type" => {
+                // Alias and type alias do nothing at run time
                 return builder.load_empty(io_reg);
             }
             "let" | "mut" => {
@@ -243,7 +243,7 @@ pub(crate) fn compile_call(
                 let arg_reg = builder.next_register()?;
 
                 // Bare variables for `metadata` load with origin span preserved.
-                if preserve_var_origin && let Some(var_id) = bare_var_id(expr) {
+                if preserve_var_origin && let Some(var_id) = expr.as_bare_var() {
                     builder.push(
                         Instruction::LoadVariable {
                             dst: arg_reg,
@@ -463,20 +463,8 @@ pub(crate) fn compile_external_call(
     )
 }
 
-/// Extract a bare variable id from `$var` or a FullCellPath with empty tail.
-fn bare_var_id(expr: &Expression) -> Option<nu_protocol::VarId> {
-    match &expr.expr {
-        Expr::Var(var_id) => Some(*var_id),
-        Expr::FullCellPath(cell_path) if cell_path.tail.is_empty() => match &cell_path.head.expr {
-            Expr::Var(var_id) => Some(*var_id),
-            _ => None,
-        },
-        _ => None,
-    }
-}
-
 pub(crate) fn compile_unlet(
-    _working_set: &StateWorkingSet,
+    working_set: &StateWorkingSet,
     builder: &mut BlockBuilder,
     call: &Call,
     io_reg: RegId,
@@ -488,39 +476,31 @@ pub(crate) fn compile_unlet(
     for arg in call.positional_iter() {
         iter_empty = false;
 
-        // Handle both direct variable references (Expr::Var) and full cell paths (Expr::FullCellPath)
-        // that represent simple variables (e.g., $var parsed as FullCellPath with empty tail).
-        let var_id = bare_var_id(arg);
-
-        match var_id {
+        match arg.as_bare_var() {
             Some(var_id) => {
-                // Prevent deletion of built-in variables that are essential for nushell operation
-                if var_id == NU_VARIABLE_ID
-                    || var_id == ENV_VARIABLE_ID
-                    || var_id == IN_VARIABLE_ID
-                    || var_id == nu_protocol::LAST_VARIABLE_ID
-                {
-                    // Determine the variable name for the error message
-                    let var_name = match var_id {
-                        NU_VARIABLE_ID => "nu",
-                        ENV_VARIABLE_ID => "env",
-                        IN_VARIABLE_ID => "in",
-                        _ if var_id == nu_protocol::LAST_VARIABLE_ID => {
-                            nu_protocol::LAST_RESULT_VAR_NAME
-                        }
-                        _ => "unknown", // This should never happen due to the check above
-                    };
-
+                let variable = working_set.get_variable(var_id);
+                // Prevent deletion of built-in variables that are essential for nushell
+                // operation. In a pipeline the parser replaces `$in` with a fresh variable that
+                // it names `$in` (see `wrap_expr_with_collect`), which is the built-in too.
+                let builtin_name = match var_id {
+                    NU_VARIABLE_ID => Some("nu"),
+                    ENV_VARIABLE_ID => Some("env"),
+                    IN_VARIABLE_ID => Some("in"),
+                    nu_protocol::LAST_VARIABLE_ID => Some(nu_protocol::LAST_RESULT_VAR_NAME),
+                    _ if variable.name.as_deref() == Some(b"$in") => Some("in"),
+                    _ => None,
+                };
+                if let Some(var_name) = builtin_name {
                     return Err(CompileError::InvalidLiteral {
-                        msg: format!(
-                            "'${}' is a built-in variable and cannot be deleted",
-                            var_name
-                        ),
+                        msg: format!("'${var_name}' is a built-in variable and cannot be deleted"),
                         span: arg.span,
                     });
                 }
 
-                // Emit instruction to drop the variable
+                // The parser already hid a constant for the rest of the block (see
+                // `parse_pipeline_element`). A constant isn't on the stack, but dropping it
+                // still records the deletion, which `scope variables` reads. nu-cli's cleanup
+                // after each source unit skips constants (see `evaluate_parsed_block`).
                 builder.push(Instruction::DropVariable { var_id }.into_spanned(call.head))?;
             }
             None => {

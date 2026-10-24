@@ -86,6 +86,51 @@ fn table_general_header_on_separator_trim_algorithm() -> Result {
         "})
 }
 
+// The border holds one character per column of width, so a header with a wide
+// character on it would shift the border: that header keeps its own row.
+#[test]
+fn header_on_separator_keeps_wide_char_header_in_its_own_row() -> Result {
+    test()
+        .run_with_data(
+            "
+                let data = $in
+                $env.config.table.header_on_separator = true
+                $data | table --theme basic
+            ",
+            test_table![
+                ["名前", "size"];
+                ["漢字", 1],
+            ],
+        )
+        .expect_value_eq(indoc! {"
+            +---+------+------+
+            | # | 名前 | size |
+            +---+------+------+
+            | 0 | 漢字 |    1 |
+            +---+------+------+
+        "})
+}
+
+#[test]
+fn header_on_separator_is_decided_per_nested_table() -> Result {
+    test()
+        .run(
+            "
+                $env.config.table.header_on_separator = true
+                [[id inner]; [1 [[名前 a]; [x 1]]]] | table --expand --theme basic
+            ",
+        )
+        .expect_value_eq(indoc! {"
+            +-#-+-id-+------inner-------+
+            | 0 |  1 | +---+------+---+ |
+            |   |    | | # | 名前 | a | |
+            |   |    | +---+------+---+ |
+            |   |    | | 0 | x    | 1 | |
+            |   |    | +---+------+---+ |
+            +---+----+------------------+
+        "})
+}
+
 fn issue_18966_table() -> Value {
     test_value!([{
         name: "whatever",
@@ -111,17 +156,18 @@ fn table_trim_wrapping_wraps_squeezed_column() -> Result {
             "
                 let data = $in
                 $env.config.table.trim = { methodology: 'wrapping', wrapping_try_keep_words: true }
-                $data | table --width 110 --theme basic
+                $data | select name created | table --width 36 --theme basic
             ",
             issue_18966_table(),
         )
         .expect_value_eq(indoc! {"
-            +---+----------+---------+------------+----------+-----------+-----------+----------+---------+--------+-----+
-            | # |   name   |  type   |   target   | readonly |   mode    | num_links |  inode   |  user   | group  | ... |
-            +---+----------+---------+------------+----------+-----------+-----------+----------+---------+--------+-----+
-            | 0 | whatever | symlink | /some/path | false    | rwxrwxrwx |         1 | 12653657 | gibbert | gibber | ... |
-            |   |          |         |            |          |           |           |          |         | t      |     |
-            +---+----------+---------+------------+----------+-----------+-----------+----------+---------+--------+-----+
+            +---+----------+-------------------+
+            | # |   name   |      created      |
+            +---+----------+-------------------+
+            | 0 | whatever | 2026-04-03T22:09: |
+            |   |          | 22.526691315+07:0 |
+            |   |          | 0                 |
+            +---+----------+-------------------+
         "})
 }
 
@@ -132,16 +178,16 @@ fn table_trim_truncating_keeps_squeezed_column_on_one_line() -> Result {
             "
                 let data = $in
                 $env.config.table.trim = { methodology: 'truncating', truncating_suffix: '...' }
-                $data | table --width 110 --theme basic
+                $data | select name created | table --width 36 --theme basic
             ",
             issue_18966_table(),
         )
         .expect_value_eq(indoc! {"
-            +---+----------+---------+------------+----------+-----------+-----------+----------+---------+--------+-----+
-            | # |   name   |  type   |   target   | readonly |   mode    | num_links |  inode   |  user   | group  | ... |
-            +---+----------+---------+------------+----------+-----------+-----------+----------+---------+--------+-----+
-            | 0 | whatever | symlink | /some/path | false    | rwxrwxrwx |         1 | 12653657 | gibbert | gib... | ... |
-            +---+----------+---------+------------+----------+-----------+-----------+----------+---------+--------+-----+
+            +---+----------+-------------------+
+            | # |   name   |      created      |
+            +---+----------+-------------------+
+            | 0 | whatever | 2026-04-03T22:... |
+            +---+----------+-------------------+
         "})
 }
 
@@ -190,11 +236,11 @@ fn table_trim_truncating_stays_one_line_above_width_threshold() -> Result {
             issue_18966_table(),
         )
         .expect_value_eq(indoc! {"
-            +---+----------+---------+------------+----------+-----------+-----------+----------+---------+---------+------+-------------------------------------+-----+
-            | # |   name   |  type   |   target   | readonly |   mode    | num_links |  inode   |  user   |  group  | size |               created               | ... |
-            +---+----------+---------+------------+----------+-----------+-----------+----------+---------+---------+------+-------------------------------------+-----+
-            | 0 | whatever | symlink | /some/path | false    | rwxrwxrwx |         1 | 12653657 | gibbert | gibbert |   10 | 2026-04-03T22:09:22.526691315+07:00 | ... |
-            +---+----------+---------+------------+----------+-----------+-----------+----------+---------+---------+------+-------------------------------------+-----+
+            +---+----------+---------+------------+----------+-----------+-----------+----------+---------+---------+------+---------------+---------------+---------------+
+            | # |   name   |  type   |   target   | readonly |   mode    | num_links |  inode   |  user   |  group  | size |    created    |   accessed    |   modified    |
+            +---+----------+---------+------------+----------+-----------+-----------+----------+---------+---------+------+---------------+---------------+---------------+
+            | 0 | whatever | symlink | /some/path | false    | rwxrwxrwx |         1 | 12653657 | gibbert | gibbert |   10 | 2026-04-03... | 2026-09-04... | 2026-04-03... |
+            +---+----------+---------+------------+----------+-----------+-----------+----------+---------+---------+------+---------------+---------------+---------------+
         "})
 }
 
@@ -597,9 +643,9 @@ fn table_trim_header_on_separator_keeps_header_text() -> Result {
             issue_18966_table(),
         )
         .expect_value_eq(indoc! {"
-            +-#-+---name---+--type---+---target---+-readonly-+---mode----+-num_links-+--inode---+--user---+-group--+-...-+
-            | 0 | whatever | symlink | /some/path | false    | rwxrwxrwx |         1 | 12653657 | gibbert | gib... | ... |
-            +---+----------+---------+------------+----------+-----------+-----------+----------+---------+--------+-----+
+            +-#-+---name---+--type---+---target---+-readonly-+---mode----+-num_links-+--inode---+--user---+-...-+
+            | 0 | whatever | symlink | /some/path | false    | rwxrwxrwx |         1 | 12653657 | gibbert | ... |
+            +---+----------+---------+------------+----------+-----------+-----------+----------+---------+-----+
         "})
 }
 
@@ -834,21 +880,21 @@ fn expand_nested_tables_keep_intact_boxes() -> Result {
             issue_19002_plugin_list_table(),
         )
         .expect_value_eq(indoc! {r#"
-            +------+---------+-------------------+----------+-------+--------------------------------------------+---------+-----------------------------------------------+
-            |    # |  name   |      version      |  status  |  pid  |                  filename                  |  shell  |                   commands                    |
-            +------+---------+-------------------+----------+-------+--------------------------------------------+---------+-----------------------------------------------+
-            |    0 | dns     | 4.0.13-alpha.1    | loaded   |       | C:\Users\x\.cargo\bin\nu_plugin_dns.exe    |         | +---+-----------+---------------------+       |
-            |      |         |                   |          |       |                                            |         | | # |   name    |     description     |       |
-            |      |         |                   |          |       |                                            |         | +---+-----------+---------------------+       |
-            |      |         |                   |          |       |                                            |         | | 0 | dns query | Perform a DNS query |       |
-            |      |         |                   |          |       |                                            |         | +---+-----------+---------------------+       |
-            +------+---------+-------------------+----------+-------+--------------------------------------------+---------+-----------------------------------------------+
-            |    1 | file    | 0.27.0            | loaded   |       | C:\Users\x\.cargo\bin\nu_plugin_file.exe   |         | +---+------+------------------------------+   |
-            |      |         |                   |          |       |                                            |         | | # | name |         description          |   |
-            |      |         |                   |          |       |                                            |         | +---+------+------------------------------+   |
-            |      |         |                   |          |       |                                            |         | | 0 | file | View file format information |   |
-            |      |         |                   |          |       |                                            |         | +---+------+------------------------------+   |
-            +------+---------+-------------------+----------+-------+--------------------------------------------+---------+-----------------------------------------------+
+            +---+---------+-------------------+-----------+--------+---------------------------------------------+---------+-----------------------------------------------+
+            | # |  name   |      version      |  status   |  pid   |                  filename                   |  shell  |                   commands                    |
+            +---+---------+-------------------+-----------+--------+---------------------------------------------+---------+-----------------------------------------------+
+            | 0 | dns     | 4.0.13-alpha.1    | loaded    |        | C:\Users\x\.cargo\bin\nu_plugin_dns.exe     |         | +---+-----------+---------------------+       |
+            |   |         |                   |           |        |                                             |         | | # |   name    |     description     |       |
+            |   |         |                   |           |        |                                             |         | +---+-----------+---------------------+       |
+            |   |         |                   |           |        |                                             |         | | 0 | dns query | Perform a DNS query |       |
+            |   |         |                   |           |        |                                             |         | +---+-----------+---------------------+       |
+            +---+---------+-------------------+-----------+--------+---------------------------------------------+---------+-----------------------------------------------+
+            | 1 | file    | 0.27.0            | loaded    |        | C:\Users\x\.cargo\bin\nu_plugin_file.exe    |         | +---+------+------------------------------+   |
+            |   |         |                   |           |        |                                             |         | | # | name |         description          |   |
+            |   |         |                   |           |        |                                             |         | +---+------+------------------------------+   |
+            |   |         |                   |           |        |                                             |         | | 0 | file | View file format information |   |
+            |   |         |                   |           |        |                                             |         | +---+------+------------------------------+   |
+            +---+---------+-------------------+-----------+--------+---------------------------------------------+---------+-----------------------------------------------+
         "#})
 }
 
@@ -899,26 +945,23 @@ fn expand_nested_tables_wrapping_squeezes_inner_cells() -> Result {
             issue_19002_plugin_list_table(),
         )
         .expect_value_eq(indoc! {r#"
-            +---+------+----------------+--------+-----+------------------------------------------+-------+------------------------+
-            | # | name |    version     | status | pid |                 filename                 | shell |        commands        |
-            +---+------+----------------+--------+-----+------------------------------------------+-------+------------------------+
-            | 0 | dns  | 4.0.13-alpha.1 | loaded |     | C:\Users\x\.cargo\bin\nu_plugin_dns.exe  |       | +---+-----------+      |
-            |   |      |                |        |     |                                          |       | | # |   name    |      |
-            |   |      |                |        |     |                                          |       | +---+-----------+      |
-            |   |      |                |        |     |                                          |       | | 0 | dns query |      |
-            |   |      |                |        |     |                                          |       | +---+-----------+      |
-            +---+------+----------------+--------+-----+------------------------------------------+-------+------------------------+
-            | 1 | file | 0.27.0         | loaded |     | C:\Users\x\.cargo\bin\nu_plugin_file.exe |       | +---+------+---------+ |
-            |   |      |                |        |     |                                          |       | | # | name | descrip | |
-            |   |      |                |        |     |                                          |       | |   |      | tion    | |
-            |   |      |                |        |     |                                          |       | +---+------+---------+ |
-            |   |      |                |        |     |                                          |       | | 0 | file | View    | |
-            |   |      |                |        |     |                                          |       | |   |      | file    | |
-            |   |      |                |        |     |                                          |       | |   |      | format  | |
-            |   |      |                |        |     |                                          |       | |   |      | informa | |
-            |   |      |                |        |     |                                          |       | |   |      | tion    | |
-            |   |      |                |        |     |                                          |       | +---+------+---------+ |
-            +---+------+----------------+--------+-----+------------------------------------------+-------+------------------------+
+            +---+------+----------------+--------+-----+---------------------------------+-------+---------------------------------+
+            | # | name |    version     | status | pid |            filename             | shell |            commands             |
+            +---+------+----------------+--------+-----+---------------------------------+-------+---------------------------------+
+            | 0 | dns  | 4.0.13-alpha.1 | loaded |     | C:\Users\x\.cargo\bin\nu_plugin |       | +---+-----------+-------------+ |
+            |   |      |                |        |     | _dns.exe                        |       | | # |   name    | description | |
+            |   |      |                |        |     |                                 |       | +---+-----------+-------------+ |
+            |   |      |                |        |     |                                 |       | | 0 | dns query | Perform a   | |
+            |   |      |                |        |     |                                 |       | |   |           | DNS query   | |
+            |   |      |                |        |     |                                 |       | +---+-----------+-------------+ |
+            +---+------+----------------+--------+-----+---------------------------------+-------+---------------------------------+
+            | 1 | file | 0.27.0         | loaded |     | C:\Users\x\.cargo\bin\nu_plugin |       | +---+------+------------------+ |
+            |   |      |                |        |     | _file.exe                       |       | | # | name |   description    | |
+            |   |      |                |        |     |                                 |       | +---+------+------------------+ |
+            |   |      |                |        |     |                                 |       | | 0 | file | View file format | |
+            |   |      |                |        |     |                                 |       | |   |      |  information     | |
+            |   |      |                |        |     |                                 |       | +---+------+------------------+ |
+            +---+------+----------------+--------+-----+---------------------------------+-------+---------------------------------+
         "#})
 }
 
@@ -934,21 +977,21 @@ fn expand_nested_tables_truncating_squeezes_inner_cells() -> Result {
             issue_19002_plugin_list_table(),
         )
         .expect_value_eq(indoc! {r#"
-            +---+------+----------------+--------+-----+------------------------------------------+-------+------------------------+
-            | # | name |    version     | status | pid |                 filename                 | shell |        commands        |
-            +---+------+----------------+--------+-----+------------------------------------------+-------+------------------------+
-            | 0 | dns  | 4.0.13-alpha.1 | loaded |     | C:\Users\x\.cargo\bin\nu_plugin_dns.exe  |       | +---+-----------+      |
-            |   |      |                |        |     |                                          |       | | # |   name    |      |
-            |   |      |                |        |     |                                          |       | +---+-----------+      |
-            |   |      |                |        |     |                                          |       | | 0 | dns query |      |
-            |   |      |                |        |     |                                          |       | +---+-----------+      |
-            +---+------+----------------+--------+-----+------------------------------------------+-------+------------------------+
-            | 1 | file | 0.27.0         | loaded |     | C:\Users\x\.cargo\bin\nu_plugin_file.exe |       | +---+------+---------+ |
-            |   |      |                |        |     |                                          |       | | # | name | desc... | |
-            |   |      |                |        |     |                                          |       | +---+------+---------+ |
-            |   |      |                |        |     |                                          |       | | 0 | file | View... | |
-            |   |      |                |        |     |                                          |       | +---+------+---------+ |
-            +---+------+----------------+--------+-----+------------------------------------------+-------+------------------------+
+            +---+------+----------------+--------+-----+---------------------------------+-------+---------------------------------+
+            | # | name |    version     | status | pid |            filename             | shell |            commands             |
+            +---+------+----------------+--------+-----+---------------------------------+-------+---------------------------------+
+            | 0 | dns  | 4.0.13-alpha.1 | loaded |     | C:\Users\x\.cargo\bin\nu_plu... |       | +---+-----------+-------------+ |
+            |   |      |                |        |     |                                 |       | | # |   name    | description | |
+            |   |      |                |        |     |                                 |       | +---+-----------+-------------+ |
+            |   |      |                |        |     |                                 |       | | 0 | dns query | Perform ... | |
+            |   |      |                |        |     |                                 |       | +---+-----------+-------------+ |
+            +---+------+----------------+--------+-----+---------------------------------+-------+---------------------------------+
+            | 1 | file | 0.27.0         | loaded |     | C:\Users\x\.cargo\bin\nu_plu... |       | +---+------+------------------+ |
+            |   |      |                |        |     |                                 |       | | # | name |   description    | |
+            |   |      |                |        |     |                                 |       | +---+------+------------------+ |
+            |   |      |                |        |     |                                 |       | | 0 | file | View file for... | |
+            |   |      |                |        |     |                                 |       | +---+------+------------------+ |
+            +---+------+----------------+--------+-----+---------------------------------+-------+---------------------------------+
         "#})
 }
 
@@ -967,6 +1010,74 @@ fn expand_truncate_keeps_each_line_of_a_multiline_cell() -> Result {
     assert_contains("world", &rendered);
     assert_contains(">>", &rendered);
     Ok(())
+}
+
+#[test]
+fn expand_nested_tables_fit_the_final_column_plan() -> Result {
+    // Shrinking nested tables to fit changes the widths the final draw plans
+    // from. That plan used to squeeze a nested table below its own width, which
+    // panicked in debug builds and hung until OOM in release builds (#19211).
+    let code = "
+        def x [n: int] { '' | fill --character x --width $n }
+        $env.config.table.trim = { methodology: 'wrapping', wrapping_try_keep_words: true }
+        [{
+            a: [[k, v]; [(x 31), (x 32)]]
+            b: 4371
+            c: [[k, v]; [1521, (x 26)]]
+            d: (x 38)
+            e: false
+            f: { g: [[x, y, z]; [(x 13), (x 29), false]], h: (x 25) }
+        }]
+        | table --expand --width 183 --theme rounded
+        | ansi strip
+    ";
+    let rendered: String = test().run(code)?;
+    // The outer table plus at least one nested table, not only collapsed text.
+    assert!(
+        rendered.matches('╭').count() > 1,
+        "no nested table:\n{rendered}"
+    );
+    for line in rendered.lines() {
+        assert!(
+            line.chars().count() <= 183,
+            "line wider than 183:\n{rendered}"
+        );
+        // A nested table cut to fit its column loses its right border.
+        assert_eq!(
+            line.matches('╭').count(),
+            line.matches('╮').count(),
+            "nested table cut:\n{rendered}"
+        );
+        assert_eq!(
+            line.matches('╰').count(),
+            line.matches('╯').count(),
+            "nested table cut:\n{rendered}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn expand_hidden_column_does_not_set_row_height() -> Result {
+    // `b` is hidden behind `...`, so its tall nested table must not pad row 0
+    // with blank lines.
+    test()
+        .run(
+            "
+                [{ a: ('' | fill --character x --width 30), b: (1..10 | each {|i| { k: $i } }) }]
+                | table --expand --width 28 --theme basic
+                | ansi strip
+            ",
+        )
+        .expect_value_eq(indoc! {"
+            +---+----------------+-----+
+            | # |       a        | ... |
+            +---+----------------+-----+
+            | 0 | xxxxxxxxxxxxxx | ... |
+            |   | xxxxxxxxxxxxxx |     |
+            |   | xx             |     |
+            +---+----------------+-----+
+        "})
 }
 
 #[rstest]

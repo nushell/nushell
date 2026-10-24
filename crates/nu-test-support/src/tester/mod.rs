@@ -948,13 +948,13 @@ impl TestResultExt for Result<Value> {
 pub trait ShellErrorExt {
     /// Tries to convert into an inner value from a [`ShellError`].
     ///
-    /// Useful if the error is expected to be a generic error that contains an inner error or a
-    /// chained error that chained another error.
+    /// Useful if the error is expected to be a generic error that contains an inner error, a
+    /// chained error that chained another error, or a [`ShellError::EvalBlockWithInput`] that
+    /// wraps a closure's error.
     ///
     /// However, this function returns [`TestErrorKind::NoInner`]
     /// - if `inner` of [`ShellError::Generic`] is empty
     /// - if `sources` of [`ShellError::ChainedError`] is empty
-    /// - if `sources` of [`ShellError::EvalBlockWithInput`] is empty
     /// - the error is none of the above types
     ///
     /// Also if multiple inner values are found a [`TestErrorKind::MultipleInner`] is returned.
@@ -985,7 +985,7 @@ impl ShellErrorExt for ShellError {
         let iter: &mut dyn Iterator<Item = ShellError> = match self {
             ShellError::Generic(err) => &mut err.inner.into_iter(),
             ShellError::ChainedError(err) => &mut err.sources_iter(),
-            ShellError::EvalBlockWithInput { sources, .. } => &mut sources.into_iter(),
+            ShellError::EvalBlockWithInput(err) => &mut std::iter::once(*err.error),
             _ => return Err(no_inner),
         };
 

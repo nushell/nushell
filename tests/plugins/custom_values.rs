@@ -1,4 +1,5 @@
 use nu_test_support::prelude::*;
+use pretty_assertions::assert_matches;
 
 #[test]
 #[deps(NU_PLUGIN_CUSTOM_VALUES)]
@@ -221,4 +222,129 @@ fn save_custom_values() -> Result {
 
         Ok(())
     })
+}
+
+#[test]
+#[deps(NU_PLUGIN_CUSTOM_VALUES)]
+fn plugin_custom_type_usable_in_signatures() -> Result {
+    test()
+        .run(
+            "def f [h: HandleCustomValue]: HandleCustomValue -> string { 'ok' }
+             1 | custom-value handle make | f (2 | custom-value handle make)",
+        )
+        .expect_value_eq("ok")
+}
+
+#[test]
+#[deps(NU_PLUGIN_CUSTOM_VALUES)]
+fn plugin_custom_type_usable_as_output_type() -> Result {
+    test()
+        .run(
+            "def f []: nothing -> HandleCustomValue { 42 | custom-value handle make }
+             f | custom-value handle get",
+        )
+        .expect_value_eq(42)
+}
+
+#[test]
+#[deps(NU_PLUGIN_CUSTOM_VALUES)]
+fn plugin_custom_type_usable_in_let_annotation() -> Result {
+    test()
+        .run(
+            "let h: HandleCustomValue = 42 | custom-value handle make
+             $h | custom-value handle get",
+        )
+        .expect_value_eq(42)?;
+
+    // Rejected while parsing when the value's type is known, and at runtime otherwise
+    test()
+        .run("let h: HandleCustomValue = 42")
+        .expect_error_code_eq("nu::parser::type_mismatch")?;
+
+    test()
+        .run("let h: HandleCustomValue = (custom-value generate)")
+        .expect_error_code_eq("nu::shell::type_mismatch")
+}
+
+#[test]
+#[deps(NU_PLUGIN_CUSTOM_VALUES)]
+fn plugin_custom_type_usable_in_list_type() -> Result {
+    test()
+        .run(
+            "def f [hs: list<HandleCustomValue>] { $hs | each { custom-value handle get } }
+             f [(1 | custom-value handle make) (2 | custom-value handle make)]",
+        )
+        .expect_value_eq([1, 2])?;
+
+    test()
+        .run("def f [hs: list<HandleCustomValue>] { }; f [1 2]")
+        .expect_error_code_eq("nu::parser::parse_mismatch_with_full_string_msg")
+}
+
+#[test]
+#[deps(NU_PLUGIN_CUSTOM_VALUES)]
+fn unknown_custom_type_still_errors() -> Result {
+    let err = test()
+        .run("def f [h: NotARealCustomValue] { }")
+        .expect_parse_error()?;
+    assert_matches!(err, ParseError::UnknownType(_));
+    Ok(())
+}
+
+#[test]
+#[deps(NU_PLUGIN_CUSTOM_VALUES)]
+fn plugin_custom_type_input_rejects_other_custom_values() -> Result {
+    let err = test()
+        .run("def f []: HandleCustomValue -> any { }; custom-value generate | f")
+        .expect_shell_error()?;
+    assert_matches!(err, ShellError::OnlySupportsThisInputType { .. });
+    Ok(())
+}
+
+#[test]
+#[deps(NU_PLUGIN_CUSTOM_VALUES)]
+fn plugin_custom_type_input_checked_alongside_other_types() -> Result {
+    // The matching custom value is accepted by both the mixed and the `oneof` forms...
+    test()
+        .run(
+            "def f []: [nothing -> string, HandleCustomValue -> string] { 'ran' }
+             1 | custom-value handle make | f",
+        )
+        .expect_value_eq("ran")?;
+
+    test()
+        .run(
+            "def f []: oneof<HandleCustomValue, string> -> string { 'ran' }
+             1 | custom-value handle make | f",
+        )
+        .expect_value_eq("ran")?;
+
+    // ...while a different custom value is rejected by both
+    let err = test()
+        .run(
+            "def f []: [nothing -> string, HandleCustomValue -> string] { 'ran' }
+             custom-value generate | f",
+        )
+        .expect_shell_error()?;
+    assert_matches!(err, ShellError::OnlySupportsThisInputType { .. });
+
+    let err = test()
+        .run(
+            "def f []: oneof<HandleCustomValue, string> -> string { 'ran' }
+             custom-value generate | f",
+        )
+        .expect_shell_error()?;
+    assert_matches!(err, ShellError::OnlySupportsThisInputType { .. });
+    Ok(())
+}
+
+#[test]
+#[deps(NU_PLUGIN_CUSTOM_VALUES)]
+fn custom_value_input_left_to_runtime_for_collections() -> Result {
+    test()
+        .run(
+            "def f []: [nothing -> string, oneof<HandleCustomValue, list<any>> -> string] { 'ran' }
+             custom-value generate | f",
+        )
+        .expect_value_eq("ran")
 }

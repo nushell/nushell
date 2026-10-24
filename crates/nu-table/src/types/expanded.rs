@@ -1,21 +1,32 @@
-use std::cmp::{max, min};
+use std::{cmp::max, sync::Arc};
 
 use nu_color_config::{Alignment, StyleComputer, TextStyle};
 use nu_engine::column::get_columns;
 use nu_protocol::{Config, Record, ShellError, Span, Value};
-use tabled::grid::records::vec_records::Cell;
 
 use crate::{
-    NuTable, TableOpts, TableOutput,
+    NuTable, StringResult, TableOpts, TableOutput, TableTheme,
     common::{
-        INDEX_COLUMN_NAME, NuText, StringResult, TableResult, check_value, configure_table,
-        error_sign, get_header_style, get_index_style, load_theme, nu_value_to_string,
+        INDEX_COLUMN_NAME, NuText, check_value, configure_table_with_theme, error_sign,
+        get_header_style, get_index_style, is_footer_needed, load_theme, nu_value_to_string,
         nu_value_to_string_clean, nu_value_to_string_colored, wrap_text,
     },
     string_width,
-    types::has_index,
+    table::{WidthEstimation, total_width},
+    types::{get_table_row_index, has_index, resolve_priority_columns},
 };
 
+/// An expanded table first turns values into cells, recording the natural and
+/// the minimum width of every column (nested tables included), then draws
+/// top-down: a table plans its columns for the width it gets and draws each
+/// nested table into the width of its column, with the same rules. Once its
+/// nested tables are drawn, a table re-plans its visible columns once: a nested
+/// table that came out narrower than its column, or fell back to text, gives
+/// the room back to the other columns.
+///
+/// A nested table is only built when the width it could get at most leaves
+/// room for one: the width each column could get follows from the columns
+/// before it at their floors.
 #[derive(Debug, Clone)]
 pub struct ExpandedTable {
     expand_limit: Option<usize>,
@@ -33,50 +44,47 @@ impl ExpandedTable {
     }
 
     pub fn build_value(self, item: &Value, opts: TableOpts<'_>) -> NuText {
-        let cfg = Cfg {
-            opts,
-            format: self,
-            raise_row_errors: false,
-            clip_columns: true,
-        };
-        let cell = expand_entry(item, cfg);
-        (cell.text, cell.style)
+        let width = opts.width;
+        let cfg = Cfg::new(opts, self, false);
+
+        match build_cell(item, &cfg, CellKind::ListItem, width) {
+            Cell::Text((text, style)) => (wrap_text(&text, width, cfg.opts.config), style),
+            Cell::Table {
+                layout,
+                value,
+                kind,
+            } => match layout.draw_stretched(width, width, &cfg) {
+                Some(drawn) => (drawn.text, TextStyle::default()),
+                None => {
+                    let (text, style) = fallback_text(value, kind, &cfg);
+                    (wrap_text(&text, width, cfg.opts.config), style)
+                }
+            },
+        }
     }
 
     pub fn build_map(self, record: &Record, opts: TableOpts<'_>) -> StringResult {
-        let cfg = Cfg {
-            opts,
-            format: self,
-            raise_row_errors: false,
-            clip_columns: true,
-        };
-        expanded_table_kv(record, cfg).map(|cell| cell.map(|cell| cell.text))
+        let width = opts.width;
+        let cfg = Cfg::new(opts, self, false);
+
+        let layout = record_layout(record, &cfg, width)?;
+        let drawn = layout.draw_stretched(width, width, &cfg);
+        // Drawing stops on an interrupt: report it instead of a partial table.
+        cfg.opts.signals.check(&cfg.opts.span)?;
+        Ok(drawn.map(|drawn| drawn.text))
     }
 
     pub fn build_list(self, vals: &[Value], opts: TableOpts<'_>) -> StringResult {
-        let cfg = Cfg {
-            opts,
-            format: self,
-            raise_row_errors: true,
-            // Keep natural cell widths; `maybe_expand_table` applies wrapping vs
-            // truncating when the table is wider than the terminal.
-            clip_columns: false,
-        };
-        let output = expand_list(vals, cfg.clone())?;
-        let mut output = match output {
-            Some(out) => out,
-            None => return Ok(None),
-        };
+        let width = opts.width;
+        let cfg = Cfg::new(opts, self, true);
 
-        configure_table(
-            &mut output,
-            cfg.opts.config,
-            &cfg.opts.style_computer,
-            cfg.opts.mode,
-        );
-
-        refit_nested_tables(&mut output, vals, cfg.clone())?;
-        maybe_expand_table(output, cfg.opts.width)
+        let Some(layout) = list_layout(vals, &cfg, width)? else {
+            return Ok(None);
+        };
+        let drawn = layout.draw_stretched(width, width, &cfg);
+        // Drawing stops on an interrupt: report it instead of a partial table.
+        cfg.opts.signals.check(&cfg.opts.span)?;
+        Ok(drawn.map(|drawn| drawn.text))
     }
 }
 
@@ -87,558 +95,441 @@ struct Cfg<'a> {
     /// When true, a `Value::Error` row is re-raised (top-level `table --expand`).
     /// Nested expansion leaves errors as cells so wrapping records (e.g. `$ans`) stay printable.
     raise_row_errors: bool,
-    /// When true (nested tables), drop columns that do not fit the remaining
-    /// width. Top-level lists leave overflow for `table.trim` (wrap vs truncate).
-    clip_columns: bool,
+    /// The theme every table of the expansion shares.
+    theme: Arc<TableTheme>,
 }
 
-#[derive(Debug, Clone)]
-struct CellOutput {
-    text: String,
-    style: TextStyle,
-    size: usize,
-    is_expanded: bool,
-}
-
-impl CellOutput {
-    fn new(text: String, style: TextStyle, size: usize, is_expanded: bool) -> Self {
+impl<'a> Cfg<'a> {
+    fn new(opts: TableOpts<'a>, format: ExpandedTable, raise_row_errors: bool) -> Self {
+        let theme = Arc::new(load_theme(opts.mode));
         Self {
-            text,
-            style,
-            size,
-            is_expanded,
+            opts,
+            format,
+            raise_row_errors,
+            theme,
         }
     }
+}
 
-    fn clean(text: String, size: usize, is_expanded: bool) -> Self {
-        Self::new(text, Default::default(), size, is_expanded)
+/// A table whose nested tables are drawn once the widths of their columns are known.
+struct Layout<'v> {
+    /// The table with every text cell filled in. A nested table's cell stays
+    /// empty until it is drawn, but its column is already as wide as the
+    /// nested table, and no narrower than the nested table can be drawn.
+    out: TableOutput,
+    nested: Vec<Nested<'v>>,
+    /// A record table: keys in the first column, values in the second.
+    record: bool,
+}
+
+struct Nested<'v> {
+    pos: (usize, usize),
+    layout: Box<Layout<'v>>,
+    /// The value the table shows, and how, for the text shown instead when
+    /// the table does not fit its column, e.g. `[table 3 rows]`.
+    value: &'v Value,
+    kind: CellKind,
+    /// The key of a record value, moved down to the first row of the nested table.
+    key: Option<String>,
+}
+
+/// A drawn table.
+struct Drawn {
+    text: String,
+    /// Rows of the table and of the nested tables drawn in it, counted for
+    /// `footer_inheritance`.
+    rows: usize,
+}
+
+impl Layout<'_> {
+    /// Draws the table at most `width` wide, or returns `None` when not even
+    /// one column fits or drawing was interrupted.
+    fn draw(self, width: usize, cfg: &Cfg<'_>) -> Option<Drawn> {
+        let plan = self.out.table.plan(width)?;
+        self.draw_planned(plan, width, cfg, true)
     }
 
-    fn text(text: String) -> Self {
-        Self::styled((text, Default::default()))
+    /// Draws the table stretched to `width` when it already fills most of
+    /// `room` (`width` itself, or the room a nested table's cell has once the
+    /// columns before it are drawn): the data columns (a record's values, a
+    /// list's columns) share the rest.
+    fn draw_stretched(mut self, width: usize, room: usize, cfg: &Cfg<'_>) -> Option<Drawn> {
+        const EXPAND_THRESHOLD: f32 = 0.80;
+
+        let total_width = self.out.table.total_width();
+        let fills_most = total_width < width && total_width as f32 / room as f32 > EXPAND_THRESHOLD;
+        if !fills_most {
+            return self.draw(width, cfg);
+        }
+
+        self.out.table.set_strategy(true);
+        let plan = self.out.table.plan(width)?;
+        // The stretched width is the point: no re-plan narrows it again.
+        self.draw_planned(plan, width, cfg, false)
     }
 
-    fn styled(text: NuText) -> Self {
-        Self::new(text.0, text.1, 1, false)
+    /// Draws the table `width` wide at most with the column widths of `plan`,
+    /// nested tables included, re-planning once they are drawn when `replan`
+    /// is set.
+    fn draw_planned(
+        self,
+        plan: WidthEstimation,
+        width: usize,
+        cfg: &Cfg<'_>,
+        replan: bool,
+    ) -> Option<Drawn> {
+        let Layout {
+            mut out, nested, ..
+        } = self;
+        let table = &mut out.table;
+        let pad = table.pad();
+        // Columns holding drawn nested tables, at the widest of them: they
+        // cannot change width once drawn.
+        let mut pinned: Vec<(usize, usize)> = vec![];
+        // Rows the nested tables of each column add.
+        let mut nested_rows = vec![0usize; table.count_columns()];
+
+        for nested in nested {
+            if cfg.opts.signals.interrupted() {
+                return None;
+            }
+
+            let Nested {
+                pos,
+                layout,
+                value,
+                kind,
+                key,
+            } = nested;
+            let Some(column_width) = plan.column_width(pos.1) else {
+                continue;
+            };
+
+            let cell_width = column_width.saturating_sub(pad);
+            // A nested record that fills most of the width left for it, once
+            // the columns before it are drawn, fills its cell like the outer
+            // table; a nested list does not.
+            let drawn = if layout.record {
+                let room = table.cell_width_left(&plan, pos.1, width);
+                layout.draw_stretched(cell_width, room, cfg)
+            } else {
+                layout.draw(cell_width, cfg)
+            };
+            // A nested table is drawn into its cell, so it never comes out
+            // wider; if one did, its text keeps the table around it whole.
+            let drawn = drawn.filter(|drawn| {
+                let fits = string_width(&drawn.text) <= cell_width;
+                debug_assert!(fits, "a nested table came out wider than its cell");
+                fits
+            });
+
+            match drawn {
+                Some(Drawn { text, rows }) => {
+                    if let Some(key) = key {
+                        table.insert((pos.0, 0), format!("\n{key}"));
+                    }
+
+                    let width = string_width(&text) + pad;
+                    match pinned.iter_mut().find(|(col, _)| *col == pos.1) {
+                        Some((_, pinned)) => *pinned = max(*pinned, width),
+                        None => pinned.push((pos.1, width)),
+                    }
+                    nested_rows[pos.1] += rows.saturating_sub(1);
+                    table.insert(pos, text);
+                }
+                None => {
+                    let (text, style) = fallback_text(value, kind, cfg);
+                    table.insert(pos, text);
+                    table.reset_style(pos);
+                    table.insert_style(pos, style);
+                }
+            }
+        }
+
+        table.recalculate_dimensions();
+        let plan = if replan {
+            table.replan(&plan, &pinned)
+        } else {
+            plan
+        };
+
+        let data_rows = table.count_rows() - usize::from(out.with_header);
+        out.count_rows = data_rows + nested_rows.into_iter().max().unwrap_or(0);
+        let with_footer = is_footer_needed(cfg.opts.config, &out);
+        out.table
+            .set_structure(out.with_index, out.with_header, with_footer);
+
+        let rows = out.count_rows;
+        let text = out.table.draw_planned(plan)?;
+        Some(Drawn { text, rows })
     }
 }
 
-type CellResult = Result<Option<CellOutput>, ShellError>;
+/// A cell before drawing: text, or a nested table.
+enum Cell<'v> {
+    Text(NuText),
+    Table {
+        layout: Box<Layout<'v>>,
+        value: &'v Value,
+        kind: CellKind,
+    },
+}
 
-/// Nested expand columns narrower than this wrap into unreadable ladders.
-const MIN_CELL_WIDTH: usize = 4;
+/// List items and record values are shown differently: a record value is colored
+/// in its text and left-aligned, and is never flattened.
+#[derive(Clone, Copy, PartialEq)]
+enum CellKind {
+    ListItem,
+    RecordValue,
+}
 
-fn expand_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
-    const SPLIT_LINE_SPACE: usize = 1;
-    const TRUNCATE_CONTENT_WIDTH: usize = 3;
+/// Text for a list or record that is not drawn as a table.
+fn fallback_text(value: &Value, kind: CellKind, cfg: &Cfg<'_>) -> NuText {
+    let (text, style) = nu_value_to_string(value, cfg.opts.config, &cfg.opts.style_computer);
+    match kind {
+        CellKind::ListItem => (text, style),
+        CellKind::RecordValue => (text, TextStyle::default()),
+    }
+}
 
-    if input.is_empty() {
+/// Lays out a list as a table at most `width` wide.
+fn list_layout<'v>(
+    vals: &'v [Value],
+    cfg: &Cfg<'_>,
+    width: usize,
+) -> Result<Option<Layout<'v>>, ShellError> {
+    if vals.is_empty() {
         return Ok(None);
     }
 
-    let pad_width = cfg.opts.config.table.padding.left + cfg.opts.config.table.padding.right;
-    let extra_width = pad_width + SPLIT_LINE_SPACE;
-    let truncate_column_width = TRUNCATE_CONTENT_WIDTH + pad_width;
-
-    // 2 - split lines
-    let mut available_width = cfg
-        .opts
-        .width
-        .saturating_sub(SPLIT_LINE_SPACE + SPLIT_LINE_SPACE);
-    if available_width < MIN_CELL_WIDTH {
-        return Ok(None);
-    }
-
-    let headers = get_columns(input);
+    let headers = get_columns(vals);
     let with_index = has_index(&cfg.opts, &headers);
-
-    // The header with the INDEX is removed from the table headers since
-    // it is added to the natural table index (only when with_index is true)
+    // The INDEX header is dropped: its values fill the index column instead.
     let headers: Vec<_> = headers
         .into_iter()
         .filter(|header| !with_index || header != INDEX_COLUMN_NAME)
         .collect();
     let with_header = !headers.is_empty();
-    let row_offset = cfg.opts.index_offset;
+    let first_row = with_header as usize;
+    let first_column = with_index as usize;
+    let count_data_columns = max(headers.len(), 1);
 
-    let mut total_rows = 0usize;
-
-    if !with_index && !with_header {
-        if available_width <= extra_width {
-            // it means we have no space left for actual content;
-            // which means there's no point in index itself if it was even used.
-            // so we do not print it.
-            return Ok(None);
-        }
-
-        available_width -= pad_width;
-
-        let mut table = NuTable::new(input.len(), 1);
-        table.set_index_style(get_index_style(&cfg.opts.style_computer));
-        table.set_header_style(get_header_style(&cfg.opts.style_computer));
-        table.set_indent(cfg.opts.config.table.padding);
-
-        for (row, item) in input.iter().enumerate() {
-            cfg.opts.signals.check(&cfg.opts.span)?;
-            cfg.check_row(item)?;
-
-            let inner_cfg = cfg_expand_reset_table(cfg.clone(), available_width);
-            let cell = expand_entry(item, inner_cfg);
-            insert_expanded_cell(&mut table, (row, 0), cell, &mut total_rows);
-        }
-
-        return Ok(Some(TableOutput::new(table, false, false, total_rows)));
-    }
-
-    if !with_header && with_index {
-        let mut table = NuTable::new(input.len(), 2);
-        table.set_index_style(get_index_style(&cfg.opts.style_computer));
-        table.set_header_style(get_header_style(&cfg.opts.style_computer));
-        table.set_indent(cfg.opts.config.table.padding);
-
-        let mut index_column_width = 0;
-
-        for (row, item) in input.iter().enumerate() {
-            cfg.opts.signals.check(&cfg.opts.span)?;
-            cfg.check_row(item)?;
-
-            let index = row + row_offset;
-            let index_value = item
-                .as_record()
-                .ok()
-                .and_then(|val| val.get(INDEX_COLUMN_NAME))
-                .map(|value| value.to_expanded_string("", cfg.opts.config))
-                .unwrap_or_else(|| index.to_string());
-            let index_value = NuTable::create(index_value);
-            let index_width = index_value.width();
-            if available_width <= index_width + extra_width + pad_width {
-                // NOTE: we don't wanna wrap index; so we return
-                return Ok(None);
-            }
-
-            table.insert_value((row, 0), index_value);
-
-            index_column_width = max(index_column_width, index_width);
-        }
-
-        available_width -= index_column_width + extra_width + pad_width;
-
-        for (row, item) in input.iter().enumerate() {
-            cfg.opts.signals.check(&cfg.opts.span)?;
-            cfg.check_row(item)?;
-
-            let inner_cfg = cfg_expand_reset_table(cfg.clone(), available_width);
-            let cell = expand_entry(item, inner_cfg);
-            insert_expanded_cell(&mut table, (row, 1), cell, &mut total_rows);
-        }
-
-        return Ok(Some(TableOutput::new(table, false, true, total_rows)));
-    }
-
-    // NOTE: redefine to not break above logic (fixme)
-    let mut available_width = cfg.opts.width - SPLIT_LINE_SPACE;
-
-    let mut table = NuTable::new(input.len() + 1, headers.len() + with_index as usize);
+    let mut table = NuTable::new(vals.len() + first_row, count_data_columns + first_column);
     table.set_index_style(get_index_style(&cfg.opts.style_computer));
     table.set_header_style(get_header_style(&cfg.opts.style_computer));
     table.set_indent(cfg.opts.config.table.padding);
+    // Width priorities from pipeline metadata name columns of the outer table only.
+    let priorities =
+        resolve_priority_columns(&headers, &cfg.opts.width_priority_columns, with_index);
+    table.set_width_priority_columns(&priorities);
 
-    let mut widths = Vec::new();
+    let mut out = TableOutput::new(table, with_header, with_index, vals.len());
+    configure(&mut out, cfg);
+    let table = &mut out.table;
 
     if with_index {
-        table.insert((0, 0), String::from("#"));
+        if with_header {
+            table.insert((0, 0), String::from("#"));
+        }
 
-        let mut index_column_width = 1;
-
-        for (row, item) in input.iter().enumerate() {
+        for (row, item) in vals.iter().enumerate() {
             cfg.opts.signals.check(&cfg.opts.span)?;
             cfg.check_row(item)?;
 
-            let index = row + row_offset;
-            let index_value = item
-                .as_record()
-                .ok()
-                .and_then(|val| val.get(INDEX_COLUMN_NAME))
-                .map(|value| value.to_expanded_string("", cfg.opts.config))
-                .unwrap_or_else(|| index.to_string());
-            let index_value = NuTable::create(index_value);
-            let index_width = index_value.width();
-
-            table.insert_value((row + 1, 0), index_value);
-            index_column_width = max(index_column_width, index_width);
+            let index = get_table_row_index(item, cfg.opts.config, row, cfg.opts.index_offset);
+            table.insert((row + first_row, 0), index);
         }
-
-        if available_width <= index_column_width + extra_width {
-            // NOTE: we don't wanna wrap index; so we return
-            return Ok(None);
-        }
-
-        available_width -= index_column_width + extra_width;
-        widths.push(index_column_width);
     }
 
-    let count_columns = headers.len();
-    let mut truncate = false;
-    let mut rendered_column = 0;
-    for (col, header) in headers.into_iter().enumerate() {
-        let column = col + with_index as usize;
-        if cfg.clip_columns && available_width <= extra_width {
-            table.pop_column(table.count_columns() - column);
-            truncate = true;
-            break;
+    let mut nested = vec![];
+    for col in 0..count_data_columns {
+        let column = col + first_column;
+        let header = headers.get(col);
+        if let Some(header) = header {
+            table.insert((0, column), header.clone());
         }
 
-        let mut available = available_width.saturating_sub(extra_width);
-        if cfg.clip_columns && available < MIN_CELL_WIDTH {
-            table.pop_column(table.count_columns() - column);
-            truncate = true;
-            break;
-        }
-
-        // Nested tables clip to leftover. Top-level lists keep natural widths;
-        // `maybe_expand_table` applies wrap vs truncate.
-        let is_last_column = col + 1 == count_columns;
-        if cfg.clip_columns && !is_last_column {
-            let reserve = if col + 2 == count_columns {
-                MIN_CELL_WIDTH + SPLIT_LINE_SPACE
-            } else {
-                truncate_column_width + SPLIT_LINE_SPACE
-            };
-            if available >= reserve + MIN_CELL_WIDTH {
-                available -= reserve;
-            }
-        } else if !cfg.clip_columns {
-            available = cfg
-                .opts
-                .width
-                .saturating_sub(extra_width)
-                .max(MIN_CELL_WIDTH);
-        }
-
-        let mut total_column_rows = 0usize;
-        let mut column_width = 0;
-
-        for (row, item) in input.iter().enumerate() {
+        // The columns before this one are filled in: at their floors, they
+        // leave this one at most this much.
+        let cell_width = table.cell_width_bound(column, width);
+        for (row, item) in vals.iter().enumerate() {
             cfg.opts.signals.check(&cfg.opts.span)?;
             cfg.check_row(item)?;
 
-            let inner_cfg = cfg_expand_reset_table(cfg.clone(), available);
-            let cell = expand_entry_with_header(item, &header, inner_cfg);
-            let expanded = cell.is_expanded;
-            let text = if cfg.clip_columns && string_width(&cell.text) > available && !expanded {
-                wrap_text(&cell.text, available, cfg.opts.config)
-            } else {
-                cell.text
+            let cell = match header {
+                Some(header) => build_cell_with_header(item, header, cfg, cell_width),
+                None => build_cell(item, cfg, CellKind::ListItem, cell_width),
             };
-            let value = NuTable::create(text);
-            let value_width = if cfg.clip_columns {
-                min(value.width(), available)
-            } else {
-                value.width()
-            };
-
-            column_width = max(column_width, value_width);
-
-            table.insert_value((row + 1, column), value);
-            table.insert_style((row + 1, column), cell.style);
-            if expanded {
-                table.mark_nested_cell((row + 1, column));
-            }
-
-            total_column_rows = total_column_rows.saturating_add(cell.size);
-        }
-
-        let mut head_width = string_width(&header);
-        let mut header = header;
-        if cfg.clip_columns && head_width > available {
-            header = wrap_text(&header, available, cfg.opts.config);
-            head_width = available;
-        }
-
-        table.insert((0, column), header);
-
-        column_width = max(column_width, head_width);
-        if cfg.clip_columns {
-            assert!(column_width <= available);
-            available_width -= column_width + extra_width;
-        }
-
-        widths.push(column_width);
-
-        rendered_column += 1;
-
-        total_rows = std::cmp::max(total_rows, total_column_rows);
-    }
-
-    if truncate {
-        if rendered_column == 0 {
-            // it means that no actual data was rendered, there might be only index present,
-            // so there's no point in rendering the table.
-            //
-            // It's actually quite important in case it's called recursively,
-            // cause we will back up to the basic table view as a string e.g. '[table 123 columns]'.
-            //
-            // But potentially if its reached as a 1st called function we might would love to see the index.
-
-            return Ok(None);
-        }
-
-        if available_width < truncate_column_width {
-            // back up by removing last column.
-            // it's LIKELY that removing only 1 column will leave us enough space for a shift column.
-            while let Some(width) = widths.pop() {
-                table.pop_column(1);
-
-                available_width += width + pad_width;
-                if !widths.is_empty() {
-                    available_width += SPLIT_LINE_SPACE;
-                }
-
-                if available_width > truncate_column_width {
-                    break;
-                }
-            }
-        }
-
-        // this must be a RARE case or even NEVER happen,
-        // but we do check it just in case.
-        if available_width < truncate_column_width {
-            return Ok(None);
-        }
-
-        let is_last_column = widths.len() == count_columns;
-        if !is_last_column {
-            table.push_column(String::from("..."));
-            widths.push(3);
+            insert_cell(table, &mut nested, (row + first_row, column), cell, None);
         }
     }
 
-    Ok(Some(TableOutput::new(table, true, with_index, total_rows)))
+    Ok(Some(Layout {
+        out,
+        nested,
+        record: false,
+    }))
 }
 
-fn expanded_table_kv(record: &Record, cfg: Cfg<'_>) -> CellResult {
-    let theme = load_theme(cfg.opts.mode);
-    let theme = theme.as_base();
-    let key_width = record
-        .columns()
-        .map(|col| string_width(col))
-        .max()
-        .unwrap_or(0);
-    let count_borders = theme.borders_has_vertical() as usize
-        + theme.borders_has_right() as usize
-        + theme.borders_has_left() as usize;
-    let pad = cfg.opts.config.table.padding.left + cfg.opts.config.table.padding.right;
-    if key_width + count_borders + pad + pad > cfg.opts.width {
-        return Ok(None);
-    }
-
-    let value_width = cfg.opts.width - key_width - count_borders - pad - pad;
-    if value_width < MIN_CELL_WIDTH {
-        return Ok(None);
-    }
-
-    let mut total_rows = 0usize;
-
+/// Lays out a record as a key-value table at most `width` wide.
+fn record_layout<'v>(
+    record: &'v Record,
+    cfg: &Cfg<'_>,
+    width: usize,
+) -> Result<Layout<'v>, ShellError> {
     let mut table = NuTable::new(record.len(), 2);
-    table.set_index_style(get_key_style(&cfg));
+    table.set_index_style(get_key_style(cfg));
     table.set_indent(cfg.opts.config.table.padding);
 
-    for (i, (key, value)) in record.iter().enumerate() {
+    let mut out = TableOutput::new(table, false, true, record.len());
+    configure(&mut out, cfg);
+    let table = &mut out.table;
+
+    // The keys come first: they bound the width left for the values.
+    for (row, key) in record.columns().enumerate() {
+        table.insert((row, 0), key.clone());
+    }
+    let cell_width = table.cell_width_bound(1, width);
+
+    // A key sits beside the first row of its nested table, below the top border.
+    let key_beside_first_row = cfg.theme.as_base().borders_has_top();
+
+    let mut nested = vec![];
+    for (row, (key, value)) in record.iter().enumerate() {
         cfg.opts.signals.check(&cfg.opts.span)?;
 
-        let cell = match expand_value(value, value_width, &cfg)? {
-            Some(val) => val,
-            None => return Ok(None),
-        };
-
-        let value = cell.text;
-        let mut key = key.to_owned();
-
-        // we want to have a key being aligned to 2nd line,
-        // we could use Padding for it but,
-        // the easiest way to do so is just push a new_line char before
-        let is_key_on_next_line = !key.is_empty() && cell.is_expanded && theme.borders_has_top();
-        if is_key_on_next_line {
-            key.insert(0, '\n');
-        }
-
-        table.insert((i, 0), key);
-        table.insert((i, 1), value);
-        if cell.is_expanded {
-            table.mark_nested_cell((i, 1));
-        }
-
-        total_rows = total_rows.saturating_add(cell.size);
+        let cell = build_cell(value, cfg, CellKind::RecordValue, cell_width);
+        let moved_key = (key_beside_first_row && !key.is_empty()).then(|| key.clone());
+        insert_cell(table, &mut nested, (row, 1), cell, moved_key);
     }
 
-    let mut out = TableOutput::new(table, false, true, total_rows);
+    Ok(Layout {
+        out,
+        nested,
+        record: true,
+    })
+}
 
-    configure_table(
-        &mut out,
+/// Sets up a table of the expansion: theme, trim, header placement. Its footer
+/// is decided when it is drawn, once the rows of its nested tables are known.
+fn configure(out: &mut TableOutput, cfg: &Cfg<'_>) {
+    configure_table_with_theme(
+        out,
         cfg.opts.config,
         &cfg.opts.style_computer,
         cfg.opts.mode,
+        Arc::clone(&cfg.theme),
     );
-
-    maybe_expand_table(out, cfg.opts.width)
-        .map(|value| value.map(|value| CellOutput::clean(value, total_rows, true)))
 }
 
-// the flag is used as an optimization to not do `value.lines().count()` search.
-fn expand_value(value: &Value, width: usize, cfg: &Cfg<'_>) -> CellResult {
+/// Puts `cell` at `pos`. A nested table only reserves the width of its column here.
+fn insert_cell<'v>(
+    table: &mut NuTable,
+    nested: &mut Vec<Nested<'v>>,
+    pos: (usize, usize),
+    cell: Cell<'v>,
+    key: Option<String>,
+) {
+    match cell {
+        Cell::Text((text, style)) => {
+            table.insert(pos, text);
+            table.insert_style(pos, style);
+        }
+        Cell::Table {
+            layout,
+            value,
+            kind,
+        } => {
+            let natural = layout.out.table.total_width();
+            table.reserve_width(pos.1, natural, layout.out.table.min_widths());
+            table.insert_style(pos, TextStyle::default());
+            nested.push(Nested {
+                pos,
+                layout,
+                value,
+                kind,
+                key,
+            });
+        }
+    }
+}
+
+fn build_cell_with_header<'v>(
+    item: &'v Value,
+    header: &str,
+    cfg: &Cfg<'_>,
+    width: usize,
+) -> Cell<'v> {
+    match item {
+        Value::Record { val, .. } => match val.get(header) {
+            Some(val) => build_cell(val, cfg, CellKind::ListItem, width),
+            None => Cell::Text(error_sign(
+                cfg.opts.config.table.missing_value_symbol.clone(),
+                &cfg.opts.style_computer,
+            )),
+        },
+        _ => build_cell(item, cfg, CellKind::ListItem, width),
+    }
+}
+
+/// Turns `value` into a cell at most `width` wide. A list or record becomes a
+/// nested table when it could be drawn that wide, and text otherwise.
+fn build_cell<'v>(value: &'v Value, cfg: &Cfg<'_>, kind: CellKind, width: usize) -> Cell<'v> {
+    let config = cfg.opts.config;
+    let style_computer = &cfg.opts.style_computer;
+
     if is_limit_reached(cfg) {
-        let value = value_to_string_clean(value, cfg);
-        return Ok(Some(CellOutput::clean(value, 1, false)));
+        let (text, style) = nu_value_to_string_clean(value, config, style_computer);
+        return match kind {
+            CellKind::ListItem => Cell::Text((text, style)),
+            CellKind::RecordValue => Cell::Text((text, TextStyle::default())),
+        };
     }
 
-    let span = value.span();
-    match value {
+    // The narrowest table there is: its borders around one empty column.
+    let padding = config.table.padding;
+    let narrowest = total_width(&[padding.left + padding.right], &cfg.theme);
+    let fits = width >= narrowest;
+    let inner_cfg = || cfg_expand_next_level(cfg.clone(), value.span());
+    let layout = match value {
+        Value::Record { val, .. } if !val.is_empty() && fits => {
+            record_layout(val, &inner_cfg(), width).ok()
+        }
         Value::List { vals, .. } => {
-            let inner_cfg = cfg_expand_reset_table(cfg_expand_next_level(cfg.clone(), span), width);
-            let table = expand_list(vals, inner_cfg.clone())?;
-
-            match table {
-                Some(mut out) => {
-                    table_apply_config(&mut out, cfg);
-                    refit_nested_tables(&mut out, vals, inner_cfg)?;
-                    let value = out.table.draw(width);
-                    match value {
-                        Some(value) => Ok(Some(CellOutput::clean(value, out.count_rows, true))),
-                        None => Ok(None),
-                    }
-                }
-                None => {
-                    // it means that the list is empty
-                    let value = value_to_wrapped_string(value, cfg, width);
-                    Ok(Some(CellOutput::text(value)))
-                }
-            }
-        }
-        Value::Record { val: record, .. } => {
-            if record.is_empty() {
-                // Like list case return styled string instead of empty value
-                let value = value_to_wrapped_string(value, cfg, width);
-                return Ok(Some(CellOutput::text(value)));
+            if kind == CellKind::ListItem && cfg.format.flatten && is_simple_list(vals) {
+                let text = list_to_string(vals, config, style_computer, &cfg.format.flatten_sep);
+                return Cell::Text((text, TextStyle::default()));
             }
 
-            let inner_cfg = cfg_expand_reset_table(cfg_expand_next_level(cfg.clone(), span), width);
-            let result = expanded_table_kv(record, inner_cfg)?;
-            match result {
-                Some(result) => Ok(Some(CellOutput::clean(result.text, result.size, true))),
-                None => {
-                    let value = value_to_wrapped_string(value, cfg, width);
-                    Ok(Some(CellOutput::text(value)))
-                }
-            }
+            fits.then(|| list_layout(vals, &inner_cfg(), width).ok().flatten())
+                .flatten()
         }
+        Value::Record { .. } => None,
         _ => {
-            let value = value_to_wrapped_string_clean(value, cfg, width);
-            Ok(Some(CellOutput::text(value)))
+            return match kind {
+                CellKind::ListItem => {
+                    Cell::Text(nu_value_to_string_clean(value, config, style_computer))
+                }
+                CellKind::RecordValue => {
+                    let text = nu_value_to_string_colored(value, config, style_computer);
+                    Cell::Text((text, TextStyle::default()))
+                }
+            };
         }
+    };
+
+    match layout {
+        Some(layout) => Cell::Table {
+            layout: Box::new(layout),
+            value,
+            kind,
+        },
+        None => Cell::Text(fallback_text(value, kind, cfg)),
     }
 }
 
 fn get_key_style(cfg: &Cfg<'_>) -> TextStyle {
     get_header_style(&cfg.opts.style_computer).alignment(Alignment::Left)
-}
-
-fn expand_entry_with_header(item: &Value, header: &str, cfg: Cfg<'_>) -> CellOutput {
-    match item {
-        Value::Record { val, .. } => match val.get(header) {
-            Some(val) => expand_entry(val, cfg),
-            None => CellOutput::styled(error_sign(
-                cfg.opts.config.table.missing_value_symbol.clone(),
-                &cfg.opts.style_computer,
-            )),
-        },
-        _ => expand_entry(item, cfg),
-    }
-}
-
-fn expand_entry(item: &Value, cfg: Cfg<'_>) -> CellOutput {
-    if is_limit_reached(&cfg) {
-        let value = nu_value_to_string_clean(item, cfg.opts.config, &cfg.opts.style_computer);
-        let value = nutext_wrap(value, &cfg);
-        return CellOutput::styled(value);
-    }
-
-    let span = item.span();
-    match &item {
-        Value::Record { val: record, .. } => {
-            if record.is_empty() {
-                let value = nu_value_to_string(item, cfg.opts.config, &cfg.opts.style_computer);
-                let value = nutext_wrap(value, &cfg);
-                return CellOutput::styled(value);
-            }
-
-            // we verify what is the structure of a Record cause it might represent
-            let inner_cfg = cfg_expand_next_level(cfg.clone(), span);
-            let table = expanded_table_kv(record, inner_cfg);
-
-            match table {
-                Ok(Some(table)) => table,
-                _ => {
-                    let value = nu_value_to_string(item, cfg.opts.config, &cfg.opts.style_computer);
-                    let value = nutext_wrap(value, &cfg);
-                    CellOutput::styled(value)
-                }
-            }
-        }
-        Value::List { vals, .. } => {
-            if cfg.format.flatten && is_simple_list(vals) {
-                let value = list_to_string(
-                    vals,
-                    cfg.opts.config,
-                    &cfg.opts.style_computer,
-                    &cfg.format.flatten_sep,
-                );
-                return CellOutput::text(value);
-            }
-
-            let inner_cfg = cfg_expand_next_level(cfg.clone(), span);
-            let table = expand_list(vals, inner_cfg.clone());
-
-            let mut out = match table {
-                Ok(Some(out)) => out,
-                _ => {
-                    let value = nu_value_to_string(item, cfg.opts.config, &cfg.opts.style_computer);
-                    let value = nutext_wrap(value, &cfg);
-                    return CellOutput::styled(value);
-                }
-            };
-
-            table_apply_config(&mut out, &cfg);
-            if refit_nested_tables(&mut out, vals, inner_cfg).is_err() {
-                let value = nu_value_to_string(item, cfg.opts.config, &cfg.opts.style_computer);
-                let value = nutext_wrap(value, &cfg);
-                return CellOutput::styled(value);
-            }
-
-            let table = out.table.draw(cfg.opts.width);
-            match table {
-                Some(table) => CellOutput::clean(table, out.count_rows, true),
-                None => {
-                    let value = nu_value_to_string(item, cfg.opts.config, &cfg.opts.style_computer);
-                    let value = nutext_wrap(value, &cfg);
-                    CellOutput::styled(value)
-                }
-            }
-        }
-        _ => {
-            let value = nu_value_to_string_clean(item, cfg.opts.config, &cfg.opts.style_computer);
-            let value = nutext_wrap(value, &cfg);
-            CellOutput::styled(value)
-        }
-    }
-}
-
-fn nutext_wrap(mut text: NuText, cfg: &Cfg<'_>) -> NuText {
-    let width = string_width(&text.0);
-    if width > cfg.opts.width {
-        text.0 = wrap_text(&text.0, cfg.opts.width, cfg.opts.config);
-    }
-
-    text
 }
 
 fn is_limit_reached(cfg: &Cfg<'_>) -> bool {
@@ -669,163 +560,6 @@ fn list_to_string(
     buf
 }
 
-fn refit_nested_tables(
-    out: &mut TableOutput,
-    input: &[Value],
-    cfg: Cfg<'_>,
-) -> Result<(), ShellError> {
-    if out.table.total_width() <= cfg.opts.width {
-        return Ok(());
-    }
-
-    out.table.prefer_nested_table_columns();
-
-    let Some((needed, trail)) = out.table.plan_column_widths(cfg.opts.width) else {
-        return Ok(());
-    };
-
-    let pad = cfg.opts.config.table.padding.left + cfg.opts.config.table.padding.right;
-    let real_columns = if trail {
-        needed.len().saturating_sub(1)
-    } else {
-        needed.len()
-    };
-    if real_columns == 0 {
-        return Ok(());
-    }
-
-    let with_index = out.with_index;
-    let with_header = out.with_header;
-    let headers = get_columns(input);
-    let headers: Vec<_> = headers
-        .into_iter()
-        .filter(|header| !with_index || header != INDEX_COLUMN_NAME)
-        .collect();
-
-    let mut replaced = false;
-    for (col, col_width) in needed
-        .iter()
-        .enumerate()
-        .take(real_columns.min(out.table.count_columns()))
-    {
-        if with_index && col == 0 {
-            continue;
-        }
-
-        let content_width = col_width.saturating_sub(pad);
-        if content_width < MIN_CELL_WIDTH {
-            continue;
-        }
-
-        let header_idx = col - with_index as usize;
-        let Some(header) = headers.get(header_idx) else {
-            continue;
-        };
-
-        for (i, item) in input.iter().enumerate() {
-            cfg.opts.signals.check(&cfg.opts.span)?;
-
-            let table_row = i + with_header as usize;
-            if table_row >= out.table.count_rows() {
-                break;
-            }
-
-            if out.table.cell_content_width(table_row, col) <= content_width {
-                continue;
-            }
-
-            let value = match item {
-                Value::Record { val, .. } => val.get(header),
-                _ => Some(item),
-            };
-            let Some(value) = value else {
-                continue;
-            };
-            if !matches!(value, Value::List { .. } | Value::Record { .. }) {
-                continue;
-            }
-
-            let mut inner_cfg = cfg_expand_reset_table(cfg.clone(), content_width);
-            inner_cfg.clip_columns = true;
-            inner_cfg.raise_row_errors = false;
-            let cell = expand_entry(value, inner_cfg);
-            let expanded = cell.is_expanded;
-            out.table.insert((table_row, col), cell.text);
-            if expanded {
-                out.table.mark_nested_cell((table_row, col));
-            }
-            replaced = true;
-        }
-    }
-
-    if replaced {
-        out.table.recalculate_dimensions();
-    }
-
-    Ok(())
-}
-
-fn maybe_expand_table(mut out: TableOutput, term_width: usize) -> StringResult {
-    out.table.prefer_nested_table_columns();
-    let total_width = out.table.total_width();
-    if total_width > term_width {
-        // Overflow: wrapping vs truncating is applied in NuTable::draw.
-        return Ok(out.table.draw(term_width));
-    }
-
-    if total_width < term_width {
-        const EXPAND_THRESHOLD: f32 = 0.80;
-        let used_percent = total_width as f32 / term_width as f32;
-        let need_expansion = used_percent > EXPAND_THRESHOLD;
-        if need_expansion {
-            out.table.set_strategy(true);
-        }
-    }
-
-    Ok(out.table.draw_unchecked(term_width))
-}
-
-fn insert_expanded_cell(
-    table: &mut NuTable,
-    pos: (usize, usize),
-    cell: CellOutput,
-    total_rows: &mut usize,
-) {
-    let expanded = cell.is_expanded;
-    *total_rows = total_rows.saturating_add(cell.size);
-    table.insert(pos, cell.text);
-    table.insert_style(pos, cell.style);
-    if expanded {
-        table.mark_nested_cell(pos);
-    }
-}
-
-fn table_apply_config(out: &mut TableOutput, cfg: &Cfg<'_>) {
-    configure_table(
-        out,
-        cfg.opts.config,
-        &cfg.opts.style_computer,
-        cfg.opts.mode,
-    )
-}
-
-fn value_to_string(value: &Value, cfg: &Cfg<'_>) -> String {
-    nu_value_to_string(value, cfg.opts.config, &cfg.opts.style_computer).0
-}
-
-fn value_to_string_clean(value: &Value, cfg: &Cfg<'_>) -> String {
-    nu_value_to_string_clean(value, cfg.opts.config, &cfg.opts.style_computer).0
-}
-
-fn value_to_wrapped_string(value: &Value, cfg: &Cfg<'_>, value_width: usize) -> String {
-    wrap_text(&value_to_string(value, cfg), value_width, cfg.opts.config)
-}
-
-fn value_to_wrapped_string_clean(value: &Value, cfg: &Cfg<'_>, value_width: usize) -> String {
-    let text = nu_value_to_string_colored(value, cfg.opts.config, &cfg.opts.style_computer);
-    wrap_text(&text, value_width, cfg.opts.config)
-}
-
 impl Cfg<'_> {
     fn check_row(&self, item: &Value) -> Result<(), ShellError> {
         if self.raise_row_errors {
@@ -837,17 +571,12 @@ impl Cfg<'_> {
 
 fn cfg_expand_next_level(mut cfg: Cfg<'_>, span: Span) -> Cfg<'_> {
     cfg.opts.span = span;
+    cfg.opts.index_offset = 0;
+    cfg.opts.width_priority_columns.clear();
     cfg.raise_row_errors = false;
-    cfg.clip_columns = true;
     if let Some(deep) = cfg.format.expand_limit.as_mut() {
         *deep -= 1
     }
 
-    cfg
-}
-
-fn cfg_expand_reset_table(mut cfg: Cfg<'_>, width: usize) -> Cfg<'_> {
-    cfg.opts.width = width;
-    cfg.opts.index_offset = 0;
     cfg
 }

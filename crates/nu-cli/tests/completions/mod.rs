@@ -1,3 +1,4 @@
+mod regressions;
 pub mod support;
 
 use std::{
@@ -682,6 +683,12 @@ fn custom_completions_wraps_builtin_commandline_complete_path() {
     "foo -B cat", Some("foo -B".len()),
     vec!["-B".into()],
     2
+)]
+#[case::type_alias_parameter_completer(
+    "def animals [] { [cat dog eel] }; type Animal = string; def adopt [animal: Animal@animals] {}",
+    "adopt ", None,
+    vec!["cat".into(), "dog".into(), "eel".into()],
+    0
 )]
 fn command_argument_completions(
     #[case] command: &str,
@@ -4079,6 +4086,9 @@ fn operator_completions(mut custom_completer: NuCompleter) {
     let suggestions = custom_completer.complete_blocking("1 bit-s", 7);
     let expected: Vec<_> = vec!["bit-shl", "bit-shr"];
     match_suggestions(&expected, &suggestions);
+    // A negated int takes the operators of an int.
+    let suggestions = custom_completer.complete_blocking("-(1) ", 5);
+    assert_eq!(20, suggestions.len());
 
     let suggestions = custom_completer.complete_blocking("'str' ", 6);
     // == != > < >= <= in not-in

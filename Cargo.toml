@@ -184,7 +184,7 @@ interprocess = "2.4.3"
 is_executable = "1.0.6"
 itertools = "0.15"
 kitest = "0.6.0"
-lean_string = { version = "0.7.0", features = ["serde"] }
+lean_string = { version = "0.8.0", features = ["serde"] }
 lexopt = "0.3.2"
 libc = "0.2.189"
 libproc = "0.14.11"
@@ -253,9 +253,9 @@ rustc-hash = "2.1.2"
 # because we use unversioned api to allow users set up their own
 # crypto providers (grep for "unversioned").
 # Patch updates are allowed though.
-rustls = { version = "~0.23.45", default-features = false, features = ["std", "tls12"] }
+rustls = { version = "~0.23.46", default-features = false, features = ["std", "tls12"] }
 rustls-native-certs = "0.8.4"
-serde-saphyr = "1.2.0"
+serde-saphyr = "2.0.0"
 scopeguard = { version = "1.2.0" }
 ndarray = { version = "0.17", features = ["serde", "approx", "rayon", "matrixmultiply-threading"] }
 semver = "1.0.28"
@@ -271,14 +271,12 @@ sysinfo = "0.39.6"
 tabled = { version = "0.22", default-features = false }
 tempfile = "3.27"
 thiserror = "2.0.20"
-titlecase = "3.6"
 tokio = { version = "1.53.1" }
 toml = "1.1.4"
 toml_edit = "0.25.13"
 kdl = { version = "6.7.1", features = ["v1"] }
 trash = "=5.2.9"
 typetag = "0.2.21"
-update-informer = { version = "1.3.0", default-features = false, features = ["github", "ureq"] }
 umask = "2.1"
 unicode-segmentation = "1.13"
 unicode-width = "0.2"
@@ -297,7 +295,7 @@ v_htmlescape = "0.17.0"
 memchr = "2.8.0"
 wax = "0.7.0"
 web-time = "1.1.0"
-webpki-roots = "1.0.9"
+webpki-roots = "1.0.10"
 which = "8.0.6"
 win_uds = "=0.2.4"
 windows = "0.62.2"
@@ -382,6 +380,14 @@ nix = { workspace = true, default-features = false, features = [
   "term",
 ] }
 
+[target.'cfg(target_os = "windows")'.dependencies]
+# `GetCommandLineW` lets us recover the raw, still-quoted command line for the
+# `/c` ComSpec alias.
+windows-sys = { workspace = true, features = ["Win32_System_Environment"] }
+
+[target.'cfg(windows)'.dev-dependencies]
+windows-sys = { workspace = true, features = ["Win32_Foundation", "Win32_System_Threading"] }
+
 [dev-dependencies]
 nu-plugin-core = { path = "./crates/nu-plugin-core", version = "0.116.2" }
 nu-plugin-protocol = { path = "./crates/nu-plugin-protocol", version = "0.116.2" }
@@ -394,7 +400,7 @@ fancy-regex = { workspace = true }
 itertools = { workspace = true }
 pretty_assertions = { workspace = true }
 rstest = { workspace = true, default-features = false }
-tango-bench = "0.8.0"
+tango-bench = "0.9.0"
 tempfile = { workspace = true }
 
 [features]

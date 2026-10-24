@@ -43,6 +43,7 @@ use reedline::{
     FileBackedHistory, HistorySessionId, MouseClickMode, Osc133ClickEventsMarkers, Osc633Markers,
     Reedline, SemanticPromptMarkers, Vi,
 };
+use std::ffi::OsStr;
 use std::sync::atomic::Ordering;
 use std::{
     collections::HashMap,
@@ -583,6 +584,21 @@ fn run_command(ctx: RunContext) -> Reedline {
     line_editor
 }
 
+/// Check whether `cmd` exists in the current directory or in `$env.PATH`
+fn editor_is_resolved(engine_state: &EngineState, stack: &Stack, cmd: &str) -> bool {
+    let paths = nu_engine::env::path_str(engine_state, stack, Span::unknown()).ok();
+    let cmd_os = OsStr::new(cmd);
+    let paths_os = paths.as_deref().map(OsStr::new);
+    if let Ok(cwd) = engine_state.cwd(Some(stack)) {
+        which::which_in(cmd_os, paths_os, cwd).is_ok()
+    } else {
+        which::which_in_global(cmd_os, paths_os)
+            .ok()
+            .and_then(|mut i| i.next())
+            .is_some()
+    }
+}
+
 /// Perform one iteration of the REPL loop
 /// Result is bool: continue loop, current reedline
 #[inline]
@@ -617,6 +633,15 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     perf!("reset signals", start_time, use_color);
 
     start_time = Instant::now();
+
+    // Keep the pushes made for this prompt even if they land before `update_prompt` installs the
+    // new baseline; `PromptState::begin_update` says which pushes count.
+    let first_job = engine_state
+        .jobs
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .next_id();
+    engine_state.prompt_state.begin_update(first_job);
 
     // Juhan said to do this :)
     let mut repl = engine_state.repl_state.lock().expect("repl state mutex");
@@ -773,7 +798,9 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     // No call span available in the REPL loop for editor lookup
     let buffer_editor = get_editor(engine_state, &stack_arc, Span::unknown());
 
-    line_editor = if let Ok((cmd, args)) = buffer_editor {
+    line_editor = if let Ok((cmd, args)) = buffer_editor
+        && editor_is_resolved(engine_state, &stack_arc, &cmd)
+    {
         let mut command = std::process::Command::new(cmd);
         let envs = env_to_strings(engine_state, &stack_arc).unwrap_or_else(|e| {
             warn!("Couldn't convert environment variable values to strings: {e}");
@@ -810,8 +837,8 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
 
     start_time = Instant::now();
     let config = &engine_state.get_config().clone();
-    // Re-evaluate the prompt into the shared `prompt_state`; this also resets any
-    // segment a background job pushed during the previous cycle.
+    // Re-evaluate the prompt into the shared `prompt_state`, replacing the segments pushed for
+    // the previous prompt but not the pushes `begin_update` above kept.
     prompt_update::update_prompt(
         config,
         engine_state,
@@ -967,7 +994,7 @@ fn prepare_history_metadata(
     if !s.is_empty() && line_editor.has_last_command_context() {
         let result = line_editor
             .update_last_command_context(&|mut c| {
-                c.start_timestamp = Some(chrono::Utc::now());
+                c.start_timestamp = Some(reedline::HistoryTimestamp::now());
                 c.hostname = hostname.map(str::to_string);
                 c.cwd = engine_state
                     .cwd(None)
@@ -1518,7 +1545,7 @@ fn update_line_editor_history(
             match SqliteBackedHistory::with_file(
                 history_path.clone(),
                 history_session_id,
-                Some(chrono::Utc::now()),
+                Some(reedline::HistoryTimestamp::now()),
             ) {
                 Ok(h) => Some(Box::new(h)),
                 Err(err) => {
