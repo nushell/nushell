@@ -23,7 +23,9 @@ use nu_engine::env_to_strings;
 use nu_engine::exit::cleanup_exit;
 use nu_parser::{lex, trim_quotes_str};
 use nu_protocol::shell_error::io::IoError;
-use nu_protocol::{BannerKind, ShellIntegrationConfig, shell_error};
+use nu_protocol::{
+    BannerKind, IntoInterruptiblePipelineData, Record, ShellIntegrationConfig, Signals, shell_error,
+};
 use nu_protocol::{
     Config, HistoryConfig, HistoryFileFormat, PipelineData, ShellError, Span, Spanned, Value,
     config::NuCursorShape,
@@ -36,14 +38,15 @@ use nu_utils::{
     perf, stderr_write_all_and_flush, stdout_write_all_and_flush,
 };
 use reedline::Helix;
-#[cfg(feature = "sqlite")]
-use reedline::SqliteBackedHistory;
 use reedline::{
     CursorConfig, CwdAwareHinter, DefaultCompleter, EditCommand, Emacs, FileBackedHistory,
     HistorySessionId, MouseClickMode, Osc133ClickEventsMarkers, Osc633Markers, Reedline,
-    SemanticPromptMarkers, Vi,
+    ReedlineError, ReedlineErrorVariants, SemanticPromptMarkers, Vi,
 };
 use std::ffi::OsStr;
+#[cfg(feature = "sqlite")]
+use reedline::{HistoryItem, SqliteBackedHistory};
+use std::collections::VecDeque;
 use std::sync::atomic::Ordering;
 use std::{
     collections::HashMap,
@@ -1508,8 +1511,37 @@ fn update_line_editor_history(
     // moved dotfiles repo). Prefer starting without history over locking the user out.
     let history_backend: Option<Box<dyn reedline::History>> = match history.file_format {
         HistoryFileFormat::Plaintext => {
-            match FileBackedHistory::with_file(history.max_size as usize, history_path.clone()) {
-                Ok(h) => Some(Box::new(h)),
+            match FileBackedHistory::with_file(
+                history
+                    .max_size
+                    .try_into()
+                    .expect("Invalid History Max Size"),
+                history_path.clone(),
+            ) {
+                Ok(mut h) => {
+                    // register archive hook, if any
+                    if let Some(hook) = history.archival_hook.clone() {
+                        let keep_len = history.archival_keep;
+                        let mut engine = engine_state.clone();
+                        let mut stack = Stack::new();
+                        h.set_archival_handler(move |e: &mut VecDeque<_>, all| {
+                            let entries_take = e.len().saturating_sub(if all {
+                                0
+                            } else {
+                                usize::try_from(keep_len)
+                                    .expect("Invalid History archive keep size")
+                            });
+                            let removed: Vec<_> = e.drain(..entries_take).collect();
+                            convert_string_and_call_archival_hook(
+                                &mut engine,
+                                &mut stack,
+                                removed,
+                                &hook,
+                            )
+                        });
+                    }
+                    Some(Box::new(h))
+                }
                 Err(err) => {
                     warn_history_unavailable(&history_path, &err);
                     None
@@ -1531,7 +1563,33 @@ fn update_line_editor_history(
                 history_session_id,
                 Some(reedline::HistoryTimestamp::now()),
             ) {
-                Ok(h) => Some(Box::new(h)),
+                Ok(mut h) => {
+                    // register archive hook, if any
+                    if let Some(hook) = history.archival_hook.clone() {
+                        let mut engine = engine_state.clone();
+                        let mut stack = Stack::new();
+                        let handler = move |mut e: reedline::SqliteBackedArchivalData, all| {
+                            let remove_len = if all {
+                                e.number_of_entries()
+                            } else {
+                                e.number_of_entries()
+                                    .min(history.max_size.saturating_sub(history.archival_keep))
+                            };
+                            if remove_len != 0 {
+                                let entries = e.consume(remove_len)?;
+                                convert_history_and_call_archival_hook(
+                                    &mut engine,
+                                    &mut stack,
+                                    entries,
+                                    &hook,
+                                )?;
+                            }
+                            Ok(())
+                        };
+                        h.set_archival_handler(handler, history.max_size);
+                    }
+                    Some(Box::new(h))
+                }
                 Err(err) => {
                     warn_history_unavailable(&history_path, &err);
                     None
@@ -1718,6 +1776,70 @@ fn looks_like_path(orig: &str) -> bool {
         || orig.starts_with('/')
         || orig.starts_with('\\')
         || orig.ends_with(std::path::MAIN_SEPARATOR)
+}
+
+#[cfg(feature = "sqlite")]
+fn convert_history_and_call_archival_hook(
+    engine: &mut EngineState,
+    stack: &mut Stack,
+    entries: Vec<HistoryItem>,
+    hook: &Value,
+) -> reedline::Result<()> {
+    let items_archive = entries
+        .into_iter()
+        .map(|entry| {
+            serde::Serialize::serialize(
+                &entry,
+                nu_protocol::ValueSerializer::from_span(Span::unknown()),
+            )
+            .map_err(|_e| {
+                reedline::ReedlineError(reedline::ReedlineErrorVariants::OtherHistoryError(
+                    "Unable to serialize history entry into a nu Value",
+                ))
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    call_archival_hook(engine, stack, items_archive, hook)
+}
+
+fn convert_string_and_call_archival_hook(
+    engine: &mut EngineState,
+    stack: &mut Stack,
+    entries: Vec<String>,
+    hook: &Value,
+) -> reedline::Result<()> {
+    let items_archive = entries.into_iter().map(|entry| {
+        Value::record(
+            [(
+                "command_line".to_string(),
+                Value::string(entry, Span::unknown()),
+            )]
+            .into_iter()
+            .collect::<Record>(),
+            Span::unknown(),
+        )
+    });
+    call_archival_hook(engine, stack, items_archive, hook)
+}
+
+fn call_archival_hook<I>(
+    engine: &mut EngineState,
+    stack: &mut Stack,
+    entries: I,
+    hook: &Value,
+) -> reedline::Result<()>
+where
+    I: IntoInterruptiblePipelineData,
+{
+    let entries = entries.into_pipeline_data(Span::unknown(), Signals::empty());
+    nu_cmd_base::hook::eval_hook(engine, stack, Some(entries), vec![], hook, "archival_hook")
+        // ignore hook returned value
+        .map(|_| ())
+        .map_err(|_e| {
+            ReedlineError(ReedlineErrorVariants::OtherHistoryError(
+                "Unable to execute user archival hook",
+            ))
+        })
 }
 
 #[cfg(test)]
@@ -2038,5 +2160,239 @@ mod test_auto_cd {
         let input = "now🍪is";
         let actual = escape_special_vscode_bytes(input).unwrap();
         assert_eq!(input, actual);
+    }
+}
+
+#[cfg(test)]
+mod history_archival {
+    use super::*;
+    use nu_engine::eval_block;
+    use nu_parser::parse;
+    use nu_protocol::engine::StateWorkingSet;
+    use nu_protocol::{debugger::WithoutDebug, record};
+    use std::collections::VecDeque;
+    use std::fs::File;
+    use std::sync::Arc;
+    use std::sync::Mutex;
+
+    use chrono::DateTime;
+    use reedline::{FileBackedHistory, History, HistoryItem, SearchQuery};
+    #[cfg(feature = "sqlite")]
+    use reedline::{HistorySessionId, SqliteBackedHistory};
+
+    fn gen_history_item(id: i64) -> HistoryItem {
+        let line = format!("line{id}");
+        let mut item = HistoryItem::from_command_line(line);
+        item.start_timestamp = DateTime::from_timestamp_millis(id);
+        item
+    }
+
+    fn multiple_history<H: History>(mut session1: H, mut session2: H) {
+        let mut id = 0;
+        let mut gen_history_item = || {
+            let item = gen_history_item(id);
+            id += 1;
+            item
+        };
+
+        // "sqlite" store the entry in order, independent of session
+        // "file" store the order somewhat arbitrarily
+        session1.save(gen_history_item()).unwrap(); // 0
+        session1.save(gen_history_item()).unwrap(); // 1
+        session2.save(gen_history_item()).unwrap(); // 2
+        session1.save(gen_history_item()).unwrap(); // 3
+        session1.save(gen_history_item()).unwrap(); // 4
+        session2.save(gen_history_item()).unwrap(); // 5
+
+        session1.sync().unwrap();
+        session2.save(gen_history_item()).unwrap(); // 6
+        session2.sync().unwrap();
+        // close sessions
+    }
+
+    #[cfg(feature = "sqlite")]
+    fn multiple_sqlite_history(with_archival: bool) {
+        let tmp_file = tempfile::Builder::new()
+            .make(|path| File::create(path))
+            .unwrap();
+        let archival = Arc::new(Mutex::new(vec![]));
+        let mut session1 = SqliteBackedHistory::with_file(
+            tmp_file.path().into(),
+            Some(HistorySessionId::new(1)),
+            None,
+        )
+        .unwrap();
+        let mut session2 = SqliteBackedHistory::with_file(
+            tmp_file.path().into(),
+            Some(HistorySessionId::new(2)),
+            None,
+        )
+        .unwrap();
+        if with_archival {
+            let archival_moved1 = Arc::clone(&archival);
+            let handler = move |mut conn: reedline::SqliteBackedArchivalData, all| {
+                let num_entries = conn.number_of_entries();
+                let consume_len = num_entries - if all { 0 } else { 1 };
+                archival_moved1
+                    .lock()
+                    .unwrap()
+                    .extend(conn.consume(consume_len.try_into().unwrap()).unwrap());
+                Ok(())
+            };
+            session1.set_archival_handler(handler.clone(), 5);
+            session2.set_archival_handler(handler, 5);
+        }
+        multiple_history(session1, session2);
+
+        let results = SqliteBackedHistory::with_file(tmp_file.path().into(), None, None)
+            .unwrap()
+            .search(SearchQuery::everything(
+                reedline::SearchDirection::Forward,
+                None,
+            ))
+            .unwrap();
+        let cmds: Vec<_> = if with_archival {
+            // combine the archived entries with those returned from the database
+            std::mem::take::<Vec<_>>(archival.lock().unwrap().as_mut())
+                .into_iter()
+                .chain(results)
+                .map(|entry| entry.command_line)
+                .collect()
+        } else {
+            // just use the database result
+            results
+                .into_iter()
+                .map(|entry| entry.command_line)
+                .collect()
+        };
+        assert_eq!(cmds, (0..7).map(|i| format!("line{i}")).collect::<Vec<_>>());
+    }
+
+    fn multiple_file_history(with_archival: bool) -> (Vec<String>, Vec<String>) {
+        let tmp_file = tempfile::Builder::new()
+            .make(|path| File::create(path))
+            .unwrap();
+        let archival = Arc::new(Mutex::new(vec![]));
+        let mut session1 = FileBackedHistory::with_file(4, tmp_file.path().into()).unwrap();
+        let mut session2 = FileBackedHistory::with_file(4, tmp_file.path().into()).unwrap();
+        if with_archival {
+            let archival_moved = Arc::clone(&archival);
+            let handler = move |entries: &mut VecDeque<_>, all| {
+                if !entries.is_empty() {
+                    archival_moved
+                        .lock()
+                        .unwrap()
+                        .extend(entries.drain(..entries.len() - if all { 0 } else { 1 }));
+                }
+                Ok(())
+            };
+            session1.set_archival_handler(handler.clone());
+            session2.set_archival_handler(handler);
+        }
+        multiple_history(session1, session2);
+
+        let results = FileBackedHistory::with_file(100, tmp_file.path().into())
+            .unwrap()
+            .search(SearchQuery::everything(
+                reedline::SearchDirection::Forward,
+                None,
+            ))
+            .unwrap()
+            .into_iter()
+            .map(|entry| entry.command_line)
+            .collect();
+        (
+            results,
+            std::mem::take::<Vec<_>>(archival.lock().unwrap().as_mut()),
+        )
+    }
+
+    #[test]
+    #[cfg(feature = "sqlite")]
+    fn test_multiple_sqlite_history() {
+        multiple_sqlite_history(false)
+    }
+
+    #[test]
+    #[cfg(feature = "sqlite")]
+    fn test_multiple_sqlite_history_with_archival() {
+        multiple_sqlite_history(true)
+    }
+
+    #[test]
+    fn test_multiple_file_history() {
+        let (cmds, archival) = multiple_file_history(false);
+        assert!(archival.is_empty());
+        // session 2 is the last to close, so it's entries are the ones
+        // archived
+        assert_eq!(cmds, &["line4", "line2", "line5", "line6"]);
+    }
+
+    #[test]
+    fn test_multiple_file_history_with_archival() {
+        let (cmds, archival) = multiple_file_history(true);
+        let mut all: Vec<_> = archival.into_iter().chain(cmds).collect();
+        // depending on which session is closed first, the order of the entries
+        // change
+        all.sort();
+        assert_eq!(all, (0..7).map(|i| format!("line{i}")).collect::<Vec<_>>());
+    }
+
+    /// Evaluate `src` and return the resulting value. Evaluating (rather than returning
+    /// the raw parsed block) is what gives a closure literal a `block_id` that lives in
+    /// `engine`, and populates `Closure.captures` for the `let`-bound case.
+    fn eval_to_value(engine: &mut EngineState, stack: &mut Stack, src: &str) -> Value {
+        let mut working_set = StateWorkingSet::new(engine);
+        let block = parse(&mut working_set, None, src.as_bytes(), false);
+        assert!(
+            working_set.parse_errors.is_empty(),
+            "{:?}",
+            working_set.parse_errors
+        );
+        engine
+            .merge_delta(working_set.render())
+            .expect("merge_delta");
+        let block_val = eval_block::<WithoutDebug>(engine, stack, &block, PipelineData::empty())
+            .expect("eval source");
+        PipelineData::into_value(block_val.body, Span::unknown()).unwrap()
+    }
+
+    #[test]
+    fn closure_hook_with_capture_runs() {
+        let dir = tempfile::tempdir().unwrap();
+        let file_name = "archive.json";
+        let archive = dir.path().join(file_name);
+
+        let mut engine =
+            nu_command::add_shell_command_context(nu_cmd_lang::create_default_context());
+        let mut stack = Stack::new();
+        stack.set_cwd(dir.path()).unwrap();
+
+        let hook = eval_to_value(
+            &mut engine,
+            &mut stack,
+            &format!("{{ to json | save --append \"{file_name}\" }}",),
+        );
+
+        let entries_raw = ["a", "b", "c"];
+        let entries: Vec<_> = entries_raw
+            .into_iter()
+            .map(|cmd| Value::test_record(record! { "command_line" => Value::test_string(cmd) }))
+            .collect();
+        call_archival_hook(&mut engine, &mut stack, entries, &hook).unwrap();
+
+        let contents = std::fs::read_to_string(&archive).unwrap();
+        #[derive(serde::Deserialize)]
+        struct History {
+            command_line: String,
+            #[serde(flatten)]
+            _others: HashMap<String, serde_json::Value>,
+        }
+        let cmds: Vec<String> = serde_json::from_str::<Vec<History>>(&contents)
+            .unwrap()
+            .into_iter()
+            .map(|c| c.command_line)
+            .collect();
+        assert_eq!(cmds, entries_raw);
     }
 }
