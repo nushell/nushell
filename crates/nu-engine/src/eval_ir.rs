@@ -449,7 +449,7 @@ fn unwind_through_handlers(
                 // produced: collect it first, like `try-collect` does on the fall-through path.
                 if let Unwind::Return(data) = unwind {
                     #[cfg(feature = "os")]
-                    let collected = collect(data, span, false);
+                    let collected = collect(data, span, false, ctx.stack.stderr());
                     #[cfg(not(feature = "os"))]
                     let collected = collect(data, span);
                     unwind = match collected {
@@ -598,7 +598,7 @@ fn eval_instruction<D: DebugContext>(
         Instruction::Collect { src_dst } => {
             let data = ctx.take_reg(*src_dst);
             #[cfg(feature = "os")]
-            let value = collect(data, *span, true)?;
+            let value = collect(data, *span, true, ctx.stack.stderr())?;
             #[cfg(not(feature = "os"))]
             let value = collect(data, *span)?;
             ctx.put_reg(*src_dst, PipelineExecutionData::from(value));
@@ -607,7 +607,7 @@ fn eval_instruction<D: DebugContext>(
         Instruction::TryCollect { src_dst } => {
             let data = ctx.take_reg(*src_dst);
             #[cfg(feature = "os")]
-            let value = collect(data, *span, false)?;
+            let value = collect(data, *span, false, ctx.stack.stderr())?;
             #[cfg(not(feature = "os"))]
             let value = collect(data, *span)?;
             ctx.put_reg(*src_dst, PipelineExecutionData::from(value));
@@ -2050,12 +2050,17 @@ fn get_env_var<'a>(ctx: &'a mut EvalContext<'_>, key: &str) -> Option<&'a Value>
 ///
 /// An external whose stderr has its own pipe stays a stream, with its output buffered.
 ///
-/// It doesn't check pipefail if `ignore_error` is true.
+/// It doesn't check pipefail if `ignore_error` is true. `stderr` is where a failed external's
+/// buffered stderr goes.
 fn collect(
     pipe: PipelineExecutionData,
     fallback_span: Span,
     #[cfg(feature = "os")] ignore_error: bool,
+    #[cfg(feature = "os")] stderr: &OutDest,
 ) -> Result<PipelineData, ShellError> {
+    #[cfg(feature = "os")]
+    let data = collect_body(pipe.body, fallback_span, stderr);
+    #[cfg(not(feature = "os"))]
     let data = collect_body(pipe.body, fallback_span);
     // The pipefail check waits on the exit statuses, so it runs after the output is read (or
     // dropped on an error): a child that fills a pipe nobody reads never exits. A pipefail
@@ -2068,7 +2073,11 @@ fn collect(
 }
 
 /// The part of [`collect`] that reads the output, without the pipefail check.
-fn collect_body(mut data: PipelineData, fallback_span: Span) -> Result<PipelineData, ShellError> {
+fn collect_body(
+    mut data: PipelineData,
+    fallback_span: Span,
+    #[cfg(feature = "os")] stderr: &OutDest,
+) -> Result<PipelineData, ShellError> {
     let span = data.span().unwrap_or(fallback_span);
     // A child whose stderr has its own pipe is headed for a command that reads both pipes
     // itself (`complete`, `ignore`, `save`, `tee`), and a value can't carry stderr. Buffer the
@@ -2076,10 +2085,9 @@ fn collect_body(mut data: PipelineData, fallback_span: Span) -> Result<PipelineD
     // with its output intact (#19335).
     #[cfg(feature = "os")]
     if let PipelineData::ByteStream(stream, ..) = &mut data
-        && let nu_protocol::ByteStreamSource::Child(child) = stream.source_mut()
-        && child.stderr.is_some()
+        && matches!(stream.source(), nu_protocol::ByteStreamSource::Child(child) if child.stderr.is_some())
     {
-        child.buffer_output()?;
+        buffer_child_output(stream, stderr)?;
         return Ok(data);
     }
     let metadata = data.take_metadata().and_then(|m| m.for_collect());
@@ -2163,6 +2171,8 @@ fn drain_if_end(
     ctx: &mut EvalContext<'_>,
     data: PipelineExecutionData,
 ) -> Result<PipelineData, ShellError> {
+    #[cfg(feature = "os")]
+    let stderr = ctx.stack.stderr().clone();
     let stack = &mut ctx
         .stack
         .push_redirection(ctx.redirect_out.clone(), ctx.redirect_err.clone());
@@ -2177,7 +2187,7 @@ fn drain_if_end(
         // A stream going on to the next command is read into memory before the check waits on
         // the exit statuses: a child that fills a pipe nobody reads never exits.
         let result = if data.exit.iter().any(Option::is_some) {
-            buffer_stream(result)
+            buffer_stream(result, &stderr)
         } else {
             Ok(result)
         };
@@ -2189,13 +2199,14 @@ fn drain_if_end(
 }
 
 /// Read a stream into memory, keeping its shape: an external stays an external with its exit
-/// status known, and other byte and list streams stay streams.
+/// status known, and other byte and list streams stay streams. `stderr` is where a failed
+/// external's buffered stderr goes.
 #[cfg(feature = "os")]
-fn buffer_stream(data: PipelineData) -> Result<PipelineData, ShellError> {
+fn buffer_stream(data: PipelineData, stderr: &OutDest) -> Result<PipelineData, ShellError> {
     Ok(match data {
         PipelineData::ByteStream(mut stream, metadata) => {
-            if let nu_protocol::ByteStreamSource::Child(child) = stream.source_mut() {
-                child.buffer_output()?;
+            if matches!(stream.source(), nu_protocol::ByteStreamSource::Child(_)) {
+                buffer_child_output(&mut stream, stderr)?;
             } else {
                 let (span, signals, type_) =
                     (stream.span(), stream.signals().clone(), stream.type_());
@@ -2215,6 +2226,33 @@ fn buffer_stream(data: PipelineData) -> Result<PipelineData, ShellError> {
         }
         data => data,
     })
+}
+
+/// Buffer an external's output with [`ChildProcess::buffer_output`]. If the external failed, the
+/// error takes the place of its output and nothing is left to read its stderr, so the stderr goes
+/// to `stderr`, where it would have gone uncaptured.
+///
+/// [`ChildProcess::buffer_output`]: nu_protocol::process::ChildProcess::buffer_output
+#[cfg(feature = "os")]
+fn buffer_child_output(
+    stream: &mut nu_protocol::ByteStream,
+    stderr: &OutDest,
+) -> Result<(), ShellError> {
+    let signals = stream.signals().clone();
+    let nu_protocol::ByteStreamSource::Child(child) = stream.source_mut() else {
+        return Ok(());
+    };
+    let result = child.buffer_output();
+    if result.is_err()
+        && let Some(mut pipe) = child.stderr.take()
+    {
+        let mut bytes = Vec::new();
+        // The exit error is what reaches `catch`, so a failure to show stderr isn't reported.
+        if std::io::Read::read_to_end(&mut pipe, &mut bytes).is_ok() {
+            let _ = nu_protocol::write_to_out_dest(&bytes, stderr, child.span(), false, &signals);
+        }
+    }
+    result
 }
 
 enum RedirectionStream {

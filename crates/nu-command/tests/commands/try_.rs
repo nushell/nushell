@@ -989,3 +989,37 @@ fn try_reads_output_before_pipefail_waits(
 ) -> Result {
     test().run(code).expect_value_eq(expected)
 }
+
+/// When the external fails, the error takes the place of its output and nothing is left to read
+/// its captured stderr, so it goes to the shell's stderr, as an uncaptured stderr would.
+#[rstest]
+#[case::catch("$env.ERR = 'boom'; try { echo_env_stderr_fail ERR } catch { 'catch' } | ignore")]
+#[case::plain_try("$env.ERR = 'boom'; try { echo_env_stderr_fail ERR } | ignore")]
+#[nu_test_support::test]
+#[deps(NU, TESTBIN_ECHO_ENV_STDERR_FAIL)]
+fn failing_external_stderr_is_shown_when_try_takes_over(#[case] child_code: &str) -> Result {
+    let result: CompleteResult = test().run_with_data(
+        "let child_code; nu -n --experimental-options '[pipefail=true]' -c $child_code | complete",
+        child_code,
+    )?;
+    assert_eq!(result.stdout, "");
+    assert_eq!(result.stderr, "boom\n");
+    Ok(())
+}
+
+#[test]
+#[deps(TESTBIN_ECHO_ENV_STDERR_FAIL)]
+fn failing_external_stderr_follows_stderr_redirection() -> Result {
+    Playground::setup("try_catch_failed_stderr_redirect", |dirs, sandbox| {
+        sandbox.with_files(&[]);
+
+        let code = "
+            $env.ERR = 'boom'
+            do { try { echo_env_stderr_fail ERR } catch { 'catch' } | ignore } e> err.txt
+        ";
+
+        let () = test().cwd(dirs.test()).run(code)?;
+        assert_eq!(fs::read_to_string(dirs.test().join("err.txt"))?, "boom\n");
+        Ok(())
+    })
+}

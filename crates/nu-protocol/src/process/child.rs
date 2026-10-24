@@ -494,9 +494,12 @@ impl ChildProcess {
     ///
     /// Afterwards the child reads the same as before, from the buffered output, and its exit
     /// status is already known. Like [`wait`](Self::wait), this returns an error if the process
-    /// failed, unless its errors are ignored.
+    /// failed, unless its errors are ignored. The output stays buffered either way.
     pub fn buffer_output(&mut self) -> Result<(), ShellError> {
         let (stdout, stderr) = collect_pipes(self.stdout.take(), self.stderr.take(), self.span)?;
+        let buffered = |bytes| ChildPipe::Tee(Box::new(io::Cursor::new(bytes)));
+        self.stdout = stdout.map(buffered);
+        self.stderr = stderr.map(buffered);
 
         let mut exit_status = self
             .exit_status
@@ -509,12 +512,7 @@ impl ChildProcess {
                 .expect("lock ignore error should success");
             *guard
         };
-        check_ok(exit_status.wait(self.span)?, ignore_error, self.span)?;
-
-        let buffered = |bytes| ChildPipe::Tee(Box::new(io::Cursor::new(bytes)));
-        self.stdout = stdout.map(buffered);
-        self.stderr = stderr.map(buffered);
-        Ok(())
+        check_ok(exit_status.wait(self.span)?, ignore_error, self.span)
     }
 
     pub fn clone_exit_status_future(&self) -> Arc<Mutex<ExitStatusFuture>> {

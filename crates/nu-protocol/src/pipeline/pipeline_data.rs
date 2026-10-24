@@ -956,6 +956,44 @@ where
     Ok(())
 }
 
+/// Write collected bytes to the requested output destination.
+///
+/// A pipe, value, or inherited destination has nothing to write the bytes into, so they go to
+/// the process's stdout when `stdout_fallback` is set, and to its stderr otherwise.
+pub fn write_to_out_dest(
+    bytes: &[u8],
+    out_dest: &OutDest,
+    span: Span,
+    stdout_fallback: bool,
+    signals: &Signals,
+) -> Result<(), ShellError> {
+    if bytes.is_empty() {
+        return Ok(());
+    }
+
+    match out_dest {
+        OutDest::Null => Ok(()),
+        OutDest::File(file) => {
+            let mut file = file.as_ref();
+            write_all_and_flush(bytes, &mut file, "file", Some(span), signals)
+        }
+        OutDest::Print
+        | OutDest::Inherit
+        | OutDest::Pipe
+        | OutDest::PipeRaw
+        | OutDest::PipeSeparate
+        | OutDest::Value => {
+            if stdout_fallback {
+                let mut stdout = std::io::stdout();
+                write_all_and_flush(bytes, &mut stdout, "stdout", Some(span), signals)
+            } else {
+                let mut stderr = std::io::stderr();
+                write_all_and_flush(bytes, &mut stderr, "stderr", Some(span), signals)
+            }
+        }
+    }
+}
+
 enum PipelineIteratorInner {
     Empty,
     Value(Value),
