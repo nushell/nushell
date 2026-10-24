@@ -358,6 +358,15 @@ pub fn serve_plugin(plugin: &impl Plugin, encoder: impl PluginEncoder + 'static)
                 move || (write, encoder),
             )
         }
+        // `nu-plugin-core` has the local socket variant whenever its own `local-socket` feature
+        // is on, which another crate in the build (such as `nu-plugin-engine`) can enable
+        // without enabling this crate's. Local socket mode was refused above then, so the arm
+        // can't be reached, but the match must still cover the variant.
+        #[allow(unreachable_patterns)]
+        Ok(_) => {
+            eprintln!("{plugin_name}: local socket mode is not supported");
+            std::process::exit(1);
+        }
         Err(err) => {
             eprintln!("{plugin_name}: failed to connect: {err:?}");
             std::process::exit(1);

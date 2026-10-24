@@ -1,0 +1,191 @@
+[
+  {
+    "category": [
+      "Bits",
+      "Bytes",
+      "Chart",
+      "Conversions",
+      "Core",
+      {
+        "Custom": "custom"
+      },
+      "Database",
+      "Date",
+      "Debug",
+      "Default",
+      "Deprecated",
+      "Removed",
+      "Env",
+      "Experimental",
+      "FileSystem",
+      "Filters",
+      "Formats",
+      "Generators",
+      "Hash",
+      "History",
+      "Math",
+      "Misc",
+      "Network",
+      "Path",
+      "Platform",
+      "Plugin",
+      "Random",
+      "Shells",
+      "Strings",
+      "System",
+      "Viewers"
+    ],
+    "operator": [
+      {
+        "Comparison": "Equal"
+      },
+      {
+        "Comparison": "NotEqual"
+      },
+      {
+        "Comparison": "LessThan"
+      },
+      {
+        "Comparison": "GreaterThan"
+      },
+      {
+        "Comparison": "LessThanOrEqual"
+      },
+      {
+        "Comparison": "GreaterThanOrEqual"
+      },
+      {
+        "Comparison": "RegexMatch"
+      },
+      {
+        "Comparison": "NotRegexMatch"
+      },
+      {
+        "Comparison": "In"
+      },
+      {
+        "Comparison": "NotIn"
+      },
+      {
+        "Comparison": "Has"
+      },
+      {
+        "Comparison": "NotHas"
+      },
+      {
+        "Comparison": "StartsWith"
+      },
+      {
+        "Comparison": "NotStartsWith"
+      },
+      {
+        "Comparison": "EndsWith"
+      },
+      {
+        "Comparison": "NotEndsWith"
+      },
+      {
+        "Math": "Add"
+      },
+      {
+        "Math": "Subtract"
+      },
+      {
+        "Math": "Multiply"
+      },
+      {
+        "Math": "Divide"
+      },
+      {
+        "Math": "FloorDivide"
+      },
+      {
+        "Math": "Modulo"
+      },
+      {
+        "Math": "Pow"
+      },
+      {
+        "Math": "Concatenate"
+      },
+      {
+        "Boolean": "Or"
+      },
+      {
+        "Boolean": "Xor"
+      },
+      {
+        "Boolean": "And"
+      },
+      {
+        "Bits": "BitOr"
+      },
+      {
+        "Bits": "BitXor"
+      },
+      {
+        "Bits": "BitAnd"
+      },
+      {
+        "Bits": "ShiftLeft"
+      },
+      {
+        "Bits": "ShiftRight"
+      },
+      {
+        "Assignment": "Assign"
+      },
+      {
+        "Assignment": "AddAssign"
+      },
+      {
+        "Assignment": "SubtractAssign"
+      },
+      {
+        "Assignment": "MultiplyAssign"
+      },
+      {
+        "Assignment": "DivideAssign"
+      },
+      {
+        "Assignment": "ConcatenateAssign"
+      }
+    ],
+    "casing": [
+      "Sensitive",
+      "Insensitive"
+    ],
+    "suggestion_kind": [
+      {
+        "Command": [
+          "Builtin",
+          null
+        ]
+      },
+      {
+        "Value": "String"
+      },
+      "CellPath",
+      "Directory",
+      "File",
+      "Flag",
+      "Module",
+      "Operator",
+      "Variable"
+    ],
+    "command_type": [
+      "Builtin",
+      "Custom",
+      "Keyword",
+      "External",
+      "Alias",
+      "Plugin"
+    ],
+    "command_wide_completer": [
+      "External",
+      {
+        "Command": 10
+      }
+    ]
+  }
+]

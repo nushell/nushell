@@ -10,7 +10,8 @@
  */
 
 // Configuration constants
-const NUSHELL_VERSION = '0.103.1';
+const NUSHELL_VERSION = '0.116.2';
+const PLUGIN_PROTOCOL_VERSION = '0.1.0';
 const PLUGIN_VERSION = '0.1.1';
 
 // Core protocol functions
@@ -167,9 +168,16 @@ function handleInputMessage (input) {
 	}
 }
 
+// Nushell checks semver compatibility: the same major version, and on 0.x also the same minor
+// version.
+const protocolLine = (version) => {
+	const [major, minor] = version.split('.');
+	return major === '0' ? `${major}.${minor}` : major;
+};
+
 function handleHelloMessage ({ version }) {
-	if (version !== NUSHELL_VERSION) {
-		process.stderr.write(`Version mismatch: Expected ${NUSHELL_VERSION}, got ${version}\n`);
+	if (protocolLine(version) !== protocolLine(PLUGIN_PROTOCOL_VERSION)) {
+		process.stderr.write(`Plugin protocol mismatch: expected ${PLUGIN_PROTOCOL_VERSION}, got ${version}\n`);
 		process.exit(1);
 	}
 }
@@ -177,7 +185,14 @@ function handleHelloMessage ({ version }) {
 function handleCallMessage (id, call) {
 	try {
 		if (call === 'Metadata') {
-			writeResponse(id, { Metadata: { version: PLUGIN_VERSION } });
+			writeResponse(id, {
+				Metadata: {
+					version: PLUGIN_VERSION,
+					// The Nushell version this plugin was developed against, shown by
+					// `plugin list`. Nushell fills in the protocol version from `Hello`.
+					nushell_version: NUSHELL_VERSION,
+				},
+			});
 		} else if (call === 'Signature') {
 			writeResponse(id, getPluginSignature());
 		} else if (call.Run) {
@@ -209,7 +224,7 @@ function initializePlugin () {
 	process.stdout.write(JSON.stringify({
 		Hello: {
 			protocol: 'nu-plugin',
-			version: NUSHELL_VERSION,
+			version: PLUGIN_PROTOCOL_VERSION,
 			features: []
 		}
 	}) + '\n');

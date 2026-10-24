@@ -66,6 +66,12 @@ impl PluginGc {
         let _ = self.sender.send(PluginGcMsg::AddLocks(-amount));
     }
 
+    /// Count as activity without adding a lock. The GC only starts counting down to stopping an
+    /// idle plugin after the first activity.
+    pub fn mark_activity(&self) {
+        let _ = self.sender.send(PluginGcMsg::AddLocks(0));
+    }
+
     /// Set whether the GC is disabled by explicit request from the plugin. This is separate from
     /// the `enabled` option in the config, and overrides that option.
     pub fn set_disabled(&self, disabled: bool) {
@@ -302,5 +308,18 @@ mod tests {
         state.last_update = original_last_update;
         state.handle_message(PluginGcMsg::AddLocks(1));
         assert_ne!(original_last_update, state.last_update, "not updated");
+    }
+
+    // `PluginGc::mark_activity` sends this message to start the countdown without a lock.
+    #[test]
+    fn adding_zero_locks_starts_timeout_without_locking() {
+        let mut state = test_state();
+        state.config.enabled = true;
+        state.config.stop_after = Duration::from_secs(1).as_nanos() as i64;
+        assert_eq!(None, state.next_timeout(Instant::now()), "no activity yet");
+
+        state.handle_message(PluginGcMsg::AddLocks(0));
+        assert_eq!(0, state.locks);
+        assert!(state.next_timeout(Instant::now()).is_some(), "not started");
     }
 }
