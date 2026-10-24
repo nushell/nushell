@@ -247,6 +247,21 @@ impl<M: Menu> Menu for SourcedMenu<M> {
     fn set_cursor_pos(&mut self, pos: (u16, u16)) {
         self.menu.set_cursor_pos(pos);
     }
+
+    fn selection_at(
+        &self,
+        column: u16,
+        menu_row: u16,
+        terminal_columns: u16,
+        available_lines: u16,
+    ) -> Option<usize> {
+        self.menu
+            .selection_at(column, menu_row, terminal_columns, available_lines)
+    }
+
+    fn set_selection(&mut self, index: usize) {
+        self.menu.set_selection(index);
+    }
 }
 
 #[cfg(test)]
