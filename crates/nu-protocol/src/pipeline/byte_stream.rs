@@ -748,9 +748,13 @@ impl ByteStream {
             #[cfg(feature = "os")]
             ByteStreamSource::Child(mut child) => {
                 // All `OutDest`s except `OutDest::PipeSeparate` will cause `stderr` to be `None`.
-                // Only `save`, `tee`, and `complete` set the stderr `OutDest` to `OutDest::PipeSeparate`,
-                // and those commands have proper simultaneous handling of stdout and stderr.
-                debug_assert!(child.stderr.is_none(), "stderr should not exist");
+                // The commands that ask for that read the stream themselves, so a stderr that
+                // ends up here goes where an uncaptured stderr goes. It's read ahead meanwhile,
+                // so the child can't block on it while stdout is written.
+                let mut stderr = child.stderr.take();
+                if let Some(stderr) = &mut stderr {
+                    stderr.start_read_ahead();
+                }
 
                 if let Some(stdout) = child.stdout.take() {
                     match stdout {
@@ -764,6 +768,9 @@ impl ByteStream {
                             copy_with_signals(pipe, dest, span, signals)?;
                         }
                     }
+                }
+                if let Some(stderr) = stderr {
+                    copy_with_signals(stderr, io::stderr(), span, signals)?;
                 }
                 child.wait()?;
             }
@@ -779,6 +786,25 @@ impl ByteStream {
             ByteStreamSource::Child(child) if child.stderr.is_some() => Some(child),
             _ => None,
         }
+    }
+
+    /// Write the stream to `dest` like [`write_to`](Self::write_to), unless it's an external
+    /// whose stderr has its own pipe, meaning the next command reads stdout and stderr apart.
+    /// Then only stdout is written, and the stream comes back with the process and its stderr.
+    #[cfg(feature = "os")]
+    pub fn write_stdout_to(mut self, dest: impl Write) -> Result<Option<Self>, ShellError> {
+        let ByteStreamSource::Child(child) = &mut self.stream else {
+            return self.write_to(dest).map(|()| None);
+        };
+        let Some(stderr) = &mut child.stderr else {
+            return self.write_to(dest).map(|()| None);
+        };
+        if let Some(stdout) = child.stdout.take() {
+            // The child can't block on stderr while stdout is written.
+            stderr.start_read_ahead();
+            copy_with_signals(stdout, dest, self.span, &self.signals)?;
+        }
+        Ok(Some(self))
     }
 }
 

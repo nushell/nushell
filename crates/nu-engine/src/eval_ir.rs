@@ -840,8 +840,11 @@ fn eval_instruction<D: DebugContext>(
             ctx.files[*file_num as usize] = Some(file);
             Ok(Continue)
         }
-        Instruction::WriteFile { file_num, src } => {
-            let src = ctx.take_reg(*src);
+        Instruction::WriteFile {
+            file_num,
+            src: src_reg,
+        } => {
+            let src = ctx.take_reg(*src_reg);
             let file = ctx
                 .files
                 .get(*file_num as usize)
@@ -856,13 +859,23 @@ fn eval_instruction<D: DebugContext>(
             } else {
                 false
             };
-            if let Err(err) = src.body.write_to(file.as_ref()) {
-                if is_external {
-                    ctx.stack.set_last_error(&err);
+            match src.body.write_stdout_to(file.as_ref()) {
+                Ok(rest) => {
+                    let mut rest = PipelineExecutionData::from(rest);
+                    // An external left with its stderr for the next command, which waits for it.
+                    #[cfg(feature = "os")]
+                    if !matches!(rest.body, PipelineData::Empty) {
+                        rest.exit = src.exit;
+                    }
+                    ctx.put_reg(*src_reg, rest);
+                    Ok(Continue)
                 }
-                Err(err)?
-            } else {
-                Ok(Continue)
+                Err(err) => {
+                    if is_external {
+                        ctx.stack.set_last_error(&err);
+                    }
+                    Err(err)?
+                }
             }
         }
         Instruction::CloseFile { file_num } => {

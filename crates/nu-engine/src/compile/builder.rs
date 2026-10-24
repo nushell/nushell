@@ -243,7 +243,7 @@ impl BlockBuilder {
                 path,
                 append: _,
             } => allocate(&[*path], &[]),
-            Instruction::WriteFile { file_num: _, src } => allocate(&[*src], &[]),
+            Instruction::WriteFile { file_num: _, src } => allocate(&[*src], &[*src]),
             Instruction::CloseFile { file_num: _ } => Ok(()),
             Instruction::Call {
                 decl_id: _,

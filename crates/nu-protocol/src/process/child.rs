@@ -10,7 +10,7 @@ use os_pipe::PipeReader;
 use std::{
     collections::VecDeque,
     fmt::Debug,
-    io::{self, Read},
+    io::{self, Read, Write},
     sync::mpsc::{self, Receiver, RecvError, TryRecvError},
     sync::{
         Arc, Condvar, Mutex, MutexGuard, PoisonError,
@@ -586,24 +586,17 @@ impl ChildProcess {
     }
 
     pub fn into_bytes(mut self) -> Result<Vec<u8>, ShellError> {
-        if self.stderr.is_some() {
-            debug_assert!(false, "stderr should not exist");
-            return Err(ShellError::Generic(GenericError::new(
-                "internal error",
-                "stderr should not exist",
-                self.span,
-            )));
+        // A value has no place for a stderr on its own pipe, so it goes where an uncaptured
+        // stderr goes. It's read alongside stdout, so the child can't block on either pipe.
+        let (stdout, stderr) = collect_pipes(self.stdout.take(), self.stderr.take(), self.span)?;
+        if let Some(stderr) = stderr {
+            io::stderr()
+                .write_all(&stderr)
+                .map_err(|err| IoError::new(err, self.span, None))?;
         }
-
-        let bytes = (self.stdout.take())
-            .map(collect_bytes)
-            .transpose()
-            .map_err(|err| IoError::new(err, self.span, None))?
-            .unwrap_or_default();
-
         self.check_exit()?;
 
-        Ok(bytes)
+        Ok(stdout.unwrap_or_default())
     }
 
     pub fn wait(mut self) -> Result<(), ShellError> {
@@ -823,5 +816,16 @@ mod tests {
             panic!("not a read-ahead pipe");
         };
         assert!(pipe.into_pipe().is_ok());
+    }
+
+    #[test]
+    fn into_bytes_returns_stdout_with_a_separate_stderr() {
+        let child = ChildProcess::from_raw(
+            Some(pipe_with(b"out")),
+            Some(pipe_with(b"err")),
+            None,
+            Span::test_data(),
+        );
+        assert_eq!(child.into_bytes().expect("into_bytes"), b"out");
     }
 }

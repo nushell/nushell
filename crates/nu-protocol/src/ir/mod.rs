@@ -219,6 +219,10 @@ pub enum Instruction {
     },
     /// Write data from the register to a file. This is done to finish a file redirection, in case
     /// an internal command or expression was evaluated rather than an external one.
+    ///
+    /// The register is left empty, except for an external whose stderr has its own pipe (the next
+    /// command reads stdout and stderr apart): only its stdout is written, and the register keeps
+    /// the external, so the next command still gets its stderr.
     WriteFile { file_num: u32, src: RegId },
     /// Pop a file used for redirection from the file stack.
     CloseFile { file_num: u32 },

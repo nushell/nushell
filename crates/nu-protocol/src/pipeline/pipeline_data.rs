@@ -293,6 +293,24 @@ impl PipelineData {
         }
     }
 
+    /// Write the data to `dest` like [`write_to`](Self::write_to), for an `o>` redirection, and
+    /// return what is left for the next command.
+    ///
+    /// That's nothing, except for an external whose stderr has its own pipe, meaning the next
+    /// command reads stdout and stderr apart: only its stdout is written, and it comes back with
+    /// its stderr (see [`ByteStream::write_stdout_to`]).
+    pub fn write_stdout_to(self, dest: impl Write) -> Result<Self, ShellError> {
+        match self {
+            #[cfg(feature = "os")]
+            PipelineData::ByteStream(stream, metadata) => Ok(stream
+                .write_stdout_to(dest)?
+                .map_or(PipelineData::Empty, |stream| {
+                    PipelineData::byte_stream(stream, metadata)
+                })),
+            data => data.write_to(dest).map(|()| PipelineData::Empty),
+        }
+    }
+
     /// Drain this [`PipelineData`] according to the current stdout [`OutDest`]s in `stack`.
     ///
     /// For [`OutDest::Pipe`], [`OutDest::PipeRaw`] and [`OutDest::PipeSeparate`], this will return
@@ -315,10 +333,7 @@ impl PipelineData {
                 let span = self.span().unwrap_or(Span::unknown());
                 self.into_value(span).map(|val| Self::Value(val, metadata))
             }
-            OutDest::File(file) => {
-                self.write_to(file.as_ref())?;
-                Ok(Self::Empty)
-            }
+            OutDest::File(file) => self.write_stdout_to(file.as_ref()),
             OutDest::Null | OutDest::Inherit => {
                 self.drain()?;
                 Ok(Self::Empty)
