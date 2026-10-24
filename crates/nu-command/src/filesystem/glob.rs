@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use nu_engine::command_prelude::*;
 use nu_protocol::{ListStream, Signals, shell_error::generic::GenericError};
 use wax::{
@@ -46,6 +48,11 @@ impl Command for Glob {
                 "follow-symlinks",
                 "Whether to follow symbolic links to their targets.",
                 Some('l'),
+            )
+            .switch(
+                "relative-paths",
+                "Whether to return relative paths for relative pattern.",
+                Some('r'),
             )
             .named(
                 "exclude",
@@ -242,6 +249,7 @@ impl Command for Glob {
         let no_files = call.has_flag(engine_state, stack, "no-file")?;
         let no_symlinks = call.has_flag(engine_state, stack, "no-symlink")?;
         let follow_symlinks = call.has_flag(engine_state, stack, "follow-symlinks")?;
+        let relative_paths = call.has_flag(engine_state, stack, "relative-paths")?;
         let paths_to_exclude: Option<Value> = call.get_flag(engine_state, stack, "exclude")?;
 
         let (not_patterns, not_pattern_span): (Vec<String>, Span) = match paths_to_exclude {
@@ -302,6 +310,7 @@ impl Command for Glob {
                     no_dirs,
                     no_files,
                     no_symlinks,
+                    relative_paths,
                     ignore_case,
                     span,
                 )
@@ -323,6 +332,7 @@ impl Command for Glob {
                     no_dirs,
                     no_files,
                     no_symlinks,
+                    relative_paths,
                     span,
                 )
             }
@@ -354,6 +364,7 @@ fn run_dc_glob(
     no_dirs: bool,
     no_files: bool,
     no_symlinks: bool,
+    relative_paths: bool,
     ignore_case: bool,
     span: Span,
 ) -> Result<PipelineData, ShellError> {
@@ -382,7 +393,11 @@ fn run_dc_glob(
 
     let matches = matches.map(move |item| {
         item.map(|path| {
-            if path.is_absolute() {
+            if relative_paths && path.as_os_str().is_empty() {
+                // dc-glob represents the start dir itself (first match of '**') as
+                // an empty path; turn it into '.' instead
+                ".".into()
+            } else if relative_paths || path.is_absolute() {
                 path
             } else {
                 cwd_for_matches.join(path)
@@ -422,6 +437,7 @@ fn run_legacy_glob(
     no_dirs: bool,
     no_files: bool,
     no_symlinks: bool,
+    relative_paths: bool,
     span: Span,
 ) -> Result<PipelineData, ShellError> {
     // below we have to check / instead of MAIN_SEPARATOR because glob uses / as separator
@@ -439,8 +455,9 @@ fn run_legacy_glob(
         }
     };
 
-    let path = engine_state.cwd_as_string(Some(stack))?;
-    let path = nu_path::absolute_with(prefix, path).map_err(|e| {
+    let cwd = engine_state.cwd_as_string(Some(stack))?;
+
+    let path = nu_path::absolute_with(&prefix, &cwd).map_err(|e| {
         ShellError::Generic(GenericError::new("invalid path", format!("{e}"), glob_span))
     })?;
     let path = match path.try_exists() {
@@ -454,6 +471,10 @@ fn run_legacy_glob(
             )));
         }
     };
+
+    // only make output relative if the pattern itself was relative
+    let relative_to_cwd =
+        (relative_paths && !nu_path::expand_tilde(prefix).is_absolute()).then_some(cwd);
 
     let link_behavior = match follow_symlinks {
         true => LinkBehavior::ReadTarget,
@@ -507,6 +528,7 @@ fn run_legacy_glob(
             no_dirs,
             no_files,
             no_symlinks,
+            relative_to_cwd,
             span,
         )
     } else {
@@ -519,6 +541,7 @@ fn run_legacy_glob(
             no_dirs,
             no_files,
             no_symlinks,
+            relative_to_cwd,
             span,
         )
     };
@@ -568,6 +591,7 @@ fn glob_to_value(
     no_dirs: bool,
     no_files: bool,
     no_symlinks: bool,
+    relative_to_cwd: Option<impl AsRef<Path> + Send + 'static>,
     span: Span,
 ) -> ListStream {
     let map_signals = signals.clone();
@@ -581,10 +605,17 @@ fn glob_to_value(
             || no_files && file_type.is_file()
             || no_symlinks && file_type.is_symlink())
         {
-            Some(Value::string(
-                entry.into_path().to_string_lossy().into_owned(),
-                span,
-            ))
+            let path = entry.into_path();
+            let path = match &relative_to_cwd {
+                Some(cwd) if path == cwd.as_ref() => {
+                    // path == cwd happens for pattern '.' or the first match of '**';
+                    // strip_prefix would give an empty string, so return '.' instead
+                    Path::new(".")
+                }
+                Some(cwd) => path.strip_prefix(cwd).unwrap_or(&path),
+                None => &path,
+            };
+            Some(Value::string(path.to_string_lossy().into_owned(), span))
         } else {
             None
         }
