@@ -1157,6 +1157,43 @@ pub fn check_response_redirection(
     Ok(())
 }
 
+/// Converts the outcome of sending a request into a [`Response`], honoring
+/// `--allow-errors` for transport-level failures.
+///
+/// The `allow_errors` branch is otherwise only consulted in
+/// [`handle_response_status`], which runs after a response was received. A
+/// transport-level failure (timeout, DNS error, refused connection, …)
+/// therefore raised before that check, making `--allow-errors` useless for
+/// them. With `allow_errors` such a failure is swallowed and `None` is
+/// returned, so callers can emit an empty value instead of an error.
+pub(crate) fn handle_transport_error(
+    result: Result<Response, ShellError>,
+    allow_errors: bool,
+) -> Result<Option<Response>, ShellError> {
+    match result {
+        Ok(response) => Ok(Some(response)),
+        Err(err) if !allow_errors => Err(err),
+        Err(_) => Ok(None),
+    }
+}
+
+/// Reads a response body [`PipelineData`] into a [`Value`], honoring `--allow-errors`.
+///
+/// Transport-level failures (e.g. timeouts) can also surface while the response
+/// body is read, after the headers were received. With `allow_errors` such a
+/// failure becomes [`Value::nothing`] instead of an error.
+pub(crate) fn read_body_allow_errors(
+    body: PipelineData,
+    span: Span,
+    allow_errors: bool,
+) -> Result<Value, ShellError> {
+    match body.into_value(span) {
+        Ok(value) => Ok(value),
+        Err(err) if !allow_errors => Err(err),
+        Err(_) => Ok(Value::nothing(span)),
+    }
+}
+
 pub(crate) fn handle_response_status(
     resp: &mut Response,
     redirect_mode: RedirectMode,
@@ -1245,7 +1282,8 @@ pub(crate) fn request_handle_response(
                 .collect(),
             span,
         );
-        let body = consume_response_body(resp)?.into_value(span)?;
+        let body = consume_response_body(resp)?;
+        let body = read_body_allow_errors(body, span, flags.allow_errors)?;
 
         let full_response = Value::record(
             record! {
@@ -1260,7 +1298,16 @@ pub(crate) fn request_handle_response(
 
         Ok(full_response.into_pipeline_data())
     } else {
-        Ok(consume_response_body(resp)?)
+        let body = consume_response_body(resp)?;
+        if flags.allow_errors {
+            // `--allow-errors` also swallows transport failures (e.g. timeouts) that
+            // surface while the response body is read, after the headers arrived.
+            // Read the body eagerly so such a failure becomes an empty value
+            // instead of an error.
+            Ok(read_body_allow_errors(body, span, flags.allow_errors)?.into_pipeline_data())
+        } else {
+            Ok(body)
+        }
     }
 }
 
