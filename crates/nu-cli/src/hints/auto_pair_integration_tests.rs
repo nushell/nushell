@@ -20,10 +20,11 @@ use reedline::{
     History, HistoryItem, Reedline, Signal,
 };
 
-use super::{AutoPairHintPolicy, ExternalHinter};
+use super::ExternalHinter;
+use crate::NuHighlighter;
 
 const CHILD_SCENARIO: &str = "NU_REEDLINE_HINT_PTY_SCENARIO";
-const TEST_FILTER: &str = "hints::auto_pair_integration_tests::reedline_hint_policy_pty";
+const TEST_FILTER: &str = "hints::auto_pair_integration_tests::reedline_hint_closers_pty";
 const TIMEOUT: Duration = Duration::from_secs(10);
 const PAIRS: [(char, char); 6] = [
     ('(', ')'),
@@ -35,7 +36,7 @@ const PAIRS: [(char, char); 6] = [
 ];
 
 #[test]
-fn reedline_hint_policy_pty() {
+fn reedline_hint_closers_pty() {
     if let Ok(scenario) = std::env::var(CHILD_SCENARIO) {
         run_read_line_child(&scenario);
         return;
@@ -67,35 +68,14 @@ fn reedline_hint_policy_pty() {
     send_and_wait(&mut cwd_whole, b"\r", "__REEDLINE_RESULT__(gstat).branch");
     cwd_whole.wait_success();
 
+    // A hinter that does not continue the text before the cursor keeps the whole buffer, its
+    // hint is not inserted before the closers, and it can only be accepted at the buffer end.
     let mut external = spawn_pty_child("external");
     send_and_expect(&mut external, b"", "f()", 2, r#"")").field"#);
-    send_and_expect(&mut external, b"\x1b[1;5C", r#"f(")")"#, 5, ").field");
-    send_and_expect(&mut external, b"\x1b[1;5C", r#"f(")")"#, 6, ".field");
-    send_and_expect(
-        &mut external,
-        b"\x06",
-        r#"f(")").field"#,
-        r#"f(")").field"#.len(),
-        r#"f(")").field"#,
-    );
-    send_and_wait(&mut external, b"\r", r#"__REEDLINE_RESULT__f(")").field"#);
+    send_and_expect(&mut external, b"\x06", "f()", 3, ".field");
+    send_and_expect(&mut external, b"\x06", "f().field", 9, "");
+    send_and_wait(&mut external, b"\r", "__REEDLINE_RESULT__f().field");
     external.wait_success();
-
-    let mut external_whole = spawn_pty_child("external-whole");
-    send_and_expect(&mut external_whole, b"", "f()", 2, r#"")").field"#);
-    send_and_expect(
-        &mut external_whole,
-        b"\x06",
-        r#"f(")").field"#,
-        r#"f(")").field"#.len(),
-        r#"f(")").field"#,
-    );
-    send_and_wait(
-        &mut external_whole,
-        b"\r",
-        r#"__REEDLINE_RESULT__f(")").field"#,
-    );
-    external_whole.wait_success();
 
     let mut interpolation_array = spawn_pty_child("interpolation-array");
     send_and_expect(
@@ -184,7 +164,7 @@ fn run_read_line_child(scenario: &str) {
     let mut history = FileBackedHistory::new(16).expect("in-memory history");
     let (source, cursor, candidate, external) = match scenario {
         "cwd" | "cwd-whole" => ("(gs)".to_owned(), 3, "(gstat).branch".to_owned(), false),
-        "external" | "external-whole" => ("f()".to_owned(), 2, String::new(), true),
+        "external" => ("f()".to_owned(), 2, String::new(), true),
         "interpolation-array" => (
             r#"echo $"([1])""#.to_owned(),
             10,
@@ -220,7 +200,10 @@ fn run_read_line_child(scenario: &str) {
         .with_edit_mode(Box::<Emacs>::default())
         .with_history(Box::new(history))
         .with_auto_pairs(AutoPairs::new(PAIRS))
-        .with_hint_policy(Box::new(AutoPairHintPolicy::new(external)))
+        .with_highlighter(Box::new(NuHighlighter::new(
+            Arc::new(nu_cmd_lang::create_default_context()),
+            Arc::new(Stack::new()),
+        )))
         .with_hinter(Box::new(hinter))
         .with_cwd(Some("/tmp".to_owned()))
         .with_ansi_colors(false);
@@ -247,10 +230,7 @@ fn run_read_line_child(scenario: &str) {
             assert_eq!(buffer, "(gstat).branch");
         }
         "external" => {
-            assert_eq!(buffer, "f(\")\").field");
-        }
-        "external-whole" => {
-            assert_eq!(buffer, "f(\")\").field");
+            assert_eq!(buffer, "f().field");
         }
         "interpolation-array" => {
             assert_eq!(buffer, r#"echo $"([1 2] | length)""#);
@@ -285,10 +265,8 @@ fn make_external_hinter() -> ExternalHinter {
         r#"{|ctx|
             if $ctx.line == 'f()' and $ctx.pos == 2 {
                 {hint: '")").field', next_token: '")"'}
-            } else if $ctx.line == 'f(")")' and $ctx.pos == 5 {
-                {hint: ').field', next_token: ')'}
-            } else if $ctx.line == 'f(")")' and $ctx.pos == 6 {
-                {hint: '.field', next_token: '.'}
+            } else if $ctx.line == 'f()' and $ctx.pos == 3 {
+                {hint: '.field', next_token: '.field'}
             } else {
                 {hint: '', next_token: ''}
             }
@@ -353,6 +331,10 @@ impl Hinter for RecordingHinter {
 
     fn next_hint_token(&self) -> String {
         self.inner.next_hint_token()
+    }
+
+    fn continues_text_before_cursor(&self) -> bool {
+        self.inner.continues_text_before_cursor()
     }
 }
 

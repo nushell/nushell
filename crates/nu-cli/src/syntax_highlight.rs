@@ -2,7 +2,7 @@ use log::trace;
 use nu_ansi_term::Style;
 use nu_color_config::{get_matching_brackets_style, get_shape_color};
 use nu_engine::env;
-use nu_parser::{FlatShape, TokenContents, flatten_block, lex, parse};
+use nu_parser::{FlatShape, TokenContents, flatten_block, lex, lex_with_delimiter_pairs, parse};
 use nu_protocol::{
     AutoPair, AutoPairsConfig, BlockId, ParseError, Span,
     ast::{Block, Expr, Expression, PipelineRedirection, RecordItem},
@@ -126,6 +126,17 @@ impl Highlighter for NuHighlighter {
             _ => true,
         }
     }
+
+    fn hint_closer_offsets(
+        &self,
+        line: &str,
+        cursor: usize,
+        candidate: &str,
+        closers: &str,
+    ) -> Option<Vec<usize>> {
+        let config = self.stack.get_config(&self.engine_state);
+        candidate_closer_offsets(line, cursor, candidate, closers, &config.auto_pairs.pairs)
+    }
 }
 
 impl NuHighlighter {
@@ -149,6 +160,88 @@ impl NuHighlighter {
         });
         parsed
     }
+}
+
+/// Maps each of `closers`, the text after `cursor` in `line`, to the closer of the same pair in
+/// `hint`, the history hint that would follow the cursor. Offsets are relative to `hint`.
+///
+/// The lexer reports matched brackets and ordinary single, double, and backtick quotes, including
+/// pairs inside interpolated expressions. Raw string boundaries are not paired because their
+/// closer includes `#` bytes. Interpolation candidates containing an unquoted `#` suppress all
+/// delimiter mappings, which also rejects raw strings without duplicating lexer rules. A lexical
+/// error, an unsupported (multibyte) closer, or an ambiguous ordered mapping also yields `None`.
+/// `line` may be incomplete after an earlier partial acceptance; the text before `cursor` plus
+/// `hint` is the syntax input for delimiter matching.
+fn candidate_closer_offsets(
+    line: &str,
+    cursor: usize,
+    hint: &str,
+    closers: &str,
+    pairs: &[AutoPair],
+) -> Option<Vec<usize>> {
+    let prefix = line.get(..cursor)?;
+    let candidate = format!("{prefix}{hint}");
+    let (_, error, pairs_found) = lex_with_delimiter_pairs(candidate.as_bytes(), 0, b"", b"", true);
+    if error.is_some() {
+        return None;
+    }
+
+    // Only pairs opened before the cursor and closed at or after it can close the existing closers.
+    let candidate_closes: Vec<(usize, char)> = pairs_found
+        .into_iter()
+        .filter_map(|(open, close)| {
+            if open >= cursor || close < cursor {
+                return None;
+            }
+            let open = candidate.get(open..)?.chars().next()?;
+            let close_char = candidate.get(close..)?.chars().next()?;
+            pairs
+                .contains(&AutoPair {
+                    open,
+                    close: close_char,
+                })
+                .then_some((close, close_char))
+        })
+        .collect();
+    let offsets = unique_ordered_matches(closers, &candidate_closes)?;
+    Some(offsets.into_iter().map(|at| at - cursor).collect())
+}
+
+/// Matches each of `closers` in order to exactly one position in `candidate_closes`.
+///
+/// Returns `None` when a closer has no match, when the assignment is ambiguous, or when a closer
+/// is not a single byte.
+fn unique_ordered_matches(closers: &str, candidate_closes: &[(usize, char)]) -> Option<Vec<usize>> {
+    let wanted: Vec<char> = closers.chars().collect();
+    if wanted.iter().any(|ch| ch.len_utf8() != 1) {
+        return None;
+    }
+
+    let mut earliest = Vec::with_capacity(wanted.len());
+    let mut candidate_index = 0;
+    for wanted_close in &wanted {
+        let (matched_index, (position, _)) = candidate_closes
+            .iter()
+            .enumerate()
+            .skip(candidate_index)
+            .find(|(_, (_, close))| close == wanted_close)?;
+        earliest.push(*position);
+        candidate_index = matched_index + 1;
+    }
+
+    let mut latest = vec![0; wanted.len()];
+    let mut candidate_index = candidate_closes.len();
+    for (wanted_index, wanted_close) in wanted.iter().enumerate().rev() {
+        let (matched_index, (position, _)) = candidate_closes[..candidate_index]
+            .iter()
+            .enumerate()
+            .rev()
+            .find(|(_, (_, close))| close == wanted_close)?;
+        latest[wanted_index] = *position;
+        candidate_index = matched_index;
+    }
+
+    (earliest == latest).then_some(earliest)
 }
 
 /// Whether typing the opening character of `pair` at `cursor` should also insert the closing one.
@@ -863,8 +956,8 @@ fn get_char_length(c: char) -> usize {
 #[cfg(test)]
 mod tests {
     use super::{
-        NuHighlighter, StringOrComment, is_escaped_quote, is_quote_in_code, should_insert_pair,
-        string_or_comment_at_end,
+        NuHighlighter, StringOrComment, candidate_closer_offsets, is_escaped_quote,
+        is_quote_in_code, should_insert_pair, string_or_comment_at_end, unique_ordered_matches,
     };
     use nu_protocol::{
         AutoPair, AutoPairsAlso, AutoPairsConfig, Config,
@@ -1241,5 +1334,129 @@ mod tests {
             EditCommand::InsertChar('('),
         ]);
         assert_eq!(line_editor.current_buffer_contents(), "echo \"(foo)\"");
+    }
+
+    fn closer_offsets(line: &str, cursor: usize, hint: &str, closers: &str) -> Option<Vec<usize>> {
+        candidate_closer_offsets(
+            line,
+            cursor,
+            hint,
+            closers,
+            &AutoPairsConfig::default().pairs,
+        )
+    }
+
+    #[test]
+    fn candidate_pair_mapping_ignores_string_delimiters() {
+        let hint = r#"")")"#;
+        let offsets = closer_offsets("f()", 2, hint, ")")
+            .expect("the existing closer maps to the outer call");
+
+        assert_eq!(offsets, vec![3]);
+        assert_ne!(offsets[0], 1);
+        assert_eq!(hint.as_bytes()[offsets[0]], b')');
+
+        let offsets = closer_offsets(r#"f(")"#, 3, r#")")"#, ")")
+            .expect("an incomplete source string still maps through the candidate opener");
+        assert_eq!(offsets, vec![2]);
+    }
+
+    #[test]
+    fn nested_tail_closers_map_in_order() {
+        let offsets =
+            closer_offsets("f(())", 3, "x))", "))").expect("both nested closers map in order");
+        assert_eq!(offsets, vec![1, 2]);
+    }
+
+    #[test]
+    fn quote_tail_closers_map_to_candidate_quotes() {
+        let cases = [
+            (r#"echo "hel""#, 9, r#"lo""#, r#"""#),
+            ("echo 'hel'", 9, "lo'", "'"),
+            ("echo `hel`", 9, "lo`", "`"),
+        ];
+
+        for (source, cursor, hint, closers) in cases {
+            let offsets = closer_offsets(source, cursor, hint, closers)
+                .expect("the candidate's quote opener identifies its closer");
+
+            assert_eq!(offsets, vec![2], "candidate: {source}{hint}");
+        }
+    }
+
+    #[test]
+    fn escaped_quote_is_not_a_candidate_quote_closer() {
+        let source = r#"echo "hel\"""#;
+        let offsets = closer_offsets(source, 11, r#"lo""#, r#"""#)
+            .expect("the final unescaped quote closes the candidate string");
+
+        assert_eq!(offsets, vec![2]);
+        assert_eq!(source.as_bytes()[10], b'"');
+    }
+
+    #[test]
+    fn quote_and_outer_bracket_tail_closers_map_in_order() {
+        let offsets = closer_offsets(r#"f("hel")"#, 6, r#"lo")"#, r#"")"#)
+            .expect("the quote and outer paren each have a unique candidate pair");
+
+        assert_eq!(offsets, vec![2, 3]);
+    }
+
+    #[test]
+    fn interpolation_array_and_record_closers_map_in_order() {
+        let offsets = closer_offsets(r#"echo $"([1])""#, 10, r#" 2] | length)""#, r#"])""#)
+            .expect("the candidate maps the array, interpolation, and string closers");
+        assert_eq!(offsets, vec![2, 12, 13]);
+
+        let offsets = closer_offsets(
+            r#"echo $"([{x: 1}])""#,
+            14,
+            r#", y: 2}] | length)""#,
+            r#"}])""#,
+        )
+        .expect("the candidate maps record, array, interpolation, and string closers");
+        assert_eq!(offsets, vec![6, 7, 17, 18]);
+    }
+
+    #[test]
+    fn interpolation_fake_closers_and_mismatches_are_safe() {
+        let offsets = closer_offsets(r#"echo $"([])""#, 9, r#"")]} ", 1] | length)""#, r#"])""#)
+            .expect("closers inside the interpolation string do not match the source tail");
+        assert_eq!(offsets, vec![9, 19, 20]);
+
+        let offsets = closer_offsets(r#"echo $"([1])""#, 10, r#"} | length)""#, r#"])""#);
+        assert!(offsets.is_none());
+    }
+
+    #[test]
+    fn matching_rejects_non_unique_and_multibyte_closers() {
+        assert!(unique_ordered_matches(")", &[(4, ')'), (5, ')')]).is_none());
+        assert!(unique_ordered_matches("🎉", &[(4, '🎉')]).is_none());
+    }
+
+    #[test]
+    fn closer_offsets_require_a_configured_pair() {
+        let pairs: [AutoPair; 1] = ["()".parse().unwrap()];
+        assert_eq!(
+            candidate_closer_offsets("f()", 2, r#"")")"#, ")", &pairs),
+            Some(vec![3])
+        );
+        assert!(candidate_closer_offsets("f()", 2, "x)", ")", &[]).is_none());
+        assert!(candidate_closer_offsets(r#"echo "hel""#, 9, r#"lo""#, r#"""#, &pairs).is_none());
+    }
+
+    #[test]
+    fn highlighter_hint_closer_offsets_use_the_configured_pairs() {
+        let mut config = Config::default();
+        config.auto_pairs.pairs = vec!["()".parse().unwrap()];
+        let mut engine_state = EngineState::new();
+        engine_state.set_config(config);
+        let h = NuHighlighter::new(Arc::new(engine_state), Arc::new(Stack::new()));
+
+        assert_eq!(h.hint_closer_offsets("f()", 2, "x)", ")"), Some(vec![1]));
+        assert_eq!(h.hint_closer_offsets("[]", 1, "x]", "]"), None);
+
+        let h = NuHighlighter::new(Arc::new(EngineState::new()), Arc::new(Stack::new()));
+        assert_eq!(h.hint_closer_offsets("[]", 1, "x]", "]"), Some(vec![1]));
     }
 }
