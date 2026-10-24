@@ -2065,6 +2065,18 @@ fn collect(
             data.drain()?;
             return Ok(PipelineData::empty());
         }
+        // A downstream `ignore` asks for stderr on its own pipe, but the collected value can
+        // only hold stdout, and a child that still has a stderr pipe can't be collected (#19335).
+        // Drain stderr on its own thread, so the child can't block on a full pipe either.
+        if let PipelineData::ByteStream(stream, ..) = &mut data
+            && let ByteStreamSource::Child(child) = stream.source_mut()
+            && let Some(mut stderr) = child.stderr.take()
+        {
+            std::thread::Builder::new()
+                .name("try stderr drain".into())
+                .spawn(move || std::io::copy(&mut stderr, &mut std::io::sink()))
+                .map_err(|err| IoError::new(err, span, None))?;
+        }
     }
     let value = data.into_value(span)?;
     Ok(PipelineData::value(value, metadata))
