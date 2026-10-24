@@ -25,6 +25,7 @@ workspace = true
 
 [dependencies]
 ansi-str = { workspace = true }
+ansiopt = { workspace = true, features = ["render"] }
 nu-ansi-term.workspace = true
 nu-cmd-base.workspace = true
 nu-color-config.workspace = true
