@@ -4930,6 +4930,7 @@ dependencies = [
  "indicatif",
  "indoc",
  "itertools 0.15.0",
+ "jiff",
  "kdl 6.7.1",
  "log",
  "lscolors",
