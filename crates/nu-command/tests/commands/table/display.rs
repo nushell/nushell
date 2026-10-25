@@ -712,8 +712,8 @@ fn table_colors() -> Result {
     let mut tester = test();
     let colored = indoc! {"
         \u{1b}[39m╭───┬───╮\u{1b}[0m
-        \u{1b}[39m│\u{1b}[0m \u{1b}[1;32ma\u{1b}[0m \u{1b}[39m│\u{1b}[0m \u{1b}[39m1\u{1b}[0m \u{1b}[39m│\u{1b}[0m
-        \u{1b}[39m│\u{1b}[0m \u{1b}[1;32mb\u{1b}[0m \u{1b}[39m│\u{1b}[0m \u{1b}[39m2\u{1b}[0m \u{1b}[39m│\u{1b}[0m
+        \u{1b}[39m│\u{1b}[0m \u{1b}[1;32ma\u{1b}[0m │ \u{1b}[39m1\u{1b}[0m │
+        \u{1b}[39m│\u{1b}[0m \u{1b}[1;32mb\u{1b}[0m │ \u{1b}[39m2\u{1b}[0m │
         \u{1b}[39m╰───┴───╯\u{1b}[0m"};
     tester
         .run_with_data(
@@ -755,8 +755,8 @@ fn table_semver_list_colors() -> Result {
     // cyan_bold = bold cyan (1;36)
     let colored = indoc! {"
         \u{1b}[39m╭───┬───────╮\u{1b}[0m
-        \u{1b}[39m│\u{1b}[0m \u{1b}[1;32m0\u{1b}[0m \u{1b}[39m│\u{1b}[0m \u{1b}[1;36m1.0.0\u{1b}[0m \u{1b}[39m│\u{1b}[0m
-        \u{1b}[39m│\u{1b}[0m \u{1b}[1;32m1\u{1b}[0m \u{1b}[39m│\u{1b}[0m \u{1b}[1;36m2.0.0\u{1b}[0m \u{1b}[39m│\u{1b}[0m
+        \u{1b}[39m│\u{1b}[0m \u{1b}[1;32m0\u{1b}[0m │ \u{1b}[1;36m1.0.0\u{1b}[0m │
+        \u{1b}[39m│\u{1b}[0m \u{1b}[1;32m1\u{1b}[0m │ \u{1b}[1;36m2.0.0\u{1b}[0m │
         \u{1b}[39m╰───┴───────╯\u{1b}[0m
     "};
     tester
@@ -786,12 +786,12 @@ fn table_empty_colors() -> Result {
     let mut tester = test();
     let empty_list_colored = indoc! {"
         \u{1b}[39m╭────────────╮\u{1b}[0m
-        \u{1b}[39m│\u{1b}[0m \u{1b}[2mempty list\u{1b}[0m \u{1b}[39m│\u{1b}[0m
+        \u{1b}[39m│\u{1b}[0m \u{1b}[2mempty list\u{1b}[0m │
         \u{1b}[39m╰────────────╯\u{1b}[0m
     "};
     let empty_record_colored = indoc! {"
         \u{1b}[39m╭──────────────╮\u{1b}[0m
-        \u{1b}[39m│\u{1b}[0m \u{1b}[2mempty record\u{1b}[0m \u{1b}[39m│\u{1b}[0m
+        \u{1b}[39m│\u{1b}[0m \u{1b}[2mempty record\u{1b}[0m │
         \u{1b}[39m╰──────────────╯\u{1b}[0m"};
     tester
         .run("$env.config.use_ansi_coloring = true; [] | table")
