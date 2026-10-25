@@ -19,7 +19,10 @@ pub enum AstNode {
     LiteralString(Vec<u8>),
     AnyCharacter,
     Wildcard,
-    Characters(Vec<CharacterClass>),
+    Characters {
+        classes: Vec<CharacterClass>,
+        negated: bool,
+    },
     Alternatives {
         choices: Vec<Pattern>,
     },
@@ -176,6 +179,11 @@ fn node_character_class<'a, 'b>((mut string, out): NodeInput<'a, 'b>) -> NodeRes
     let original_string = string;
     if string.first() == Some(&b'[') {
         string = &string[1..];
+        // Only a leading exclamation mark negates a character class.
+        let negated = string.first() == Some(&b'!');
+        if negated {
+            string = &string[1..];
+        }
         let mut classes = vec![];
         loop {
             let Some((start_char, next_string)) = get_utf8_char(string) else {
@@ -204,7 +212,7 @@ fn node_character_class<'a, 'b>((mut string, out): NodeInput<'a, 'b>) -> NodeRes
                 None => return Err((original_string, out)),
             }
         }
-        out.push(AstNode::Characters(classes));
+        out.push(AstNode::Characters { classes, negated });
         Ok((string, out))
     } else {
         Err((original_string, out))
