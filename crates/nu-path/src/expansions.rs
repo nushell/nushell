@@ -1,5 +1,6 @@
 #[cfg(windows)]
 use omnipath::WinPathExt;
+use std::borrow::Cow;
 use std::io;
 use std::path::{Path, PathBuf, absolute};
 
@@ -155,6 +156,91 @@ where
                 }
             }
             found.ok_or(err)
+        }
+    }
+}
+
+/// Resolves a Windows drive-relative path such as `d:` or `d:foo` the way Windows does.
+///
+/// On the drive of `cwd`, the path is relative to `cwd`. On another drive, it is relative to
+/// that drive's current directory as Windows tracks it (the `=D:` environment variable),
+/// which falls back to the drive's root. Any other path, and every path on other platforms,
+/// is returned unchanged without allocating.
+pub fn resolve_drive_relative<'a>(path: &'a Path, cwd: &Path) -> Cow<'a, Path> {
+    #[cfg(windows)]
+    {
+        use std::path::{Component, Prefix};
+
+        fn disk(path: &Path) -> Option<u8> {
+            match path.components().next() {
+                Some(Component::Prefix(prefix)) => match prefix.kind() {
+                    Prefix::Disk(letter) | Prefix::VerbatimDisk(letter) => Some(letter),
+                    _ => None,
+                },
+                _ => None,
+            }
+        }
+
+        let Some(letter) = disk(path).filter(|_| !path.has_root()) else {
+            return Cow::Borrowed(path);
+        };
+        let mut components = path.components();
+        components.next();
+        let rest = components.as_path();
+
+        if disk(cwd).is_some_and(|cwd_letter| cwd_letter.eq_ignore_ascii_case(&letter)) {
+            return if rest.as_os_str().is_empty() {
+                Cow::Owned(cwd.to_path_buf())
+            } else {
+                Cow::Owned(cwd.join(rest))
+            };
+        }
+        match absolute(expand_ndots(path)) {
+            Ok(resolved) => Cow::Owned(resolved),
+            Err(_) => Cow::Borrowed(path),
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = cwd;
+        Cow::Borrowed(path)
+    }
+}
+
+#[cfg(all(test, windows))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn drive_relative_on_current_drive_uses_cwd() {
+        let cwd = Path::new(r"C:\Users\me");
+        assert_eq!(resolve_drive_relative(Path::new("c:"), cwd), cwd);
+        assert_eq!(resolve_drive_relative(Path::new("C:"), cwd), cwd);
+        assert_eq!(
+            resolve_drive_relative(Path::new("c:src"), cwd),
+            Path::new(r"C:\Users\me\src")
+        );
+        assert_eq!(
+            resolve_drive_relative(Path::new("c:.."), cwd),
+            Path::new(r"C:\Users\me\..")
+        );
+    }
+
+    #[test]
+    fn drive_relative_on_other_drive_is_absolute() {
+        let resolved = resolve_drive_relative(Path::new("q:"), Path::new(r"C:\Users\me"));
+        assert!(resolved.is_absolute(), "{resolved:?}");
+        assert!(resolved.starts_with(r"Q:\"), "{resolved:?}");
+    }
+
+    #[test]
+    fn other_paths_are_borrowed() {
+        let cwd = Path::new(r"C:\Users\me");
+        for path in [r"d:\", r"C:\Windows", "foo", r"\server\share", "~"] {
+            assert!(matches!(
+                resolve_drive_relative(Path::new(path), cwd),
+                Cow::Borrowed(_)
+            ));
         }
     }
 }

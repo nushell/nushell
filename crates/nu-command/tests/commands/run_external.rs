@@ -269,6 +269,19 @@ fn external_command_ndots_leading_dot_slash(prefix: &str) -> Result {
 #[apply(run_external_prefixes)]
 #[nu_test_support::test]
 #[deps(TESTBIN_COCOCO)]
+fn external_command_dots_inside_component_args(prefix: &str) -> Result {
+    // `...` at the end of a component (git revision ranges) is not ndots, so the arg is passed
+    // through untouched: no separator rewrite, no collapsed `//`
+    test()
+        .run(format!(
+            "{prefix}cococo origin/main... origin//main... a.../b"
+        ))
+        .expect_value_eq("origin/main... origin//main... a.../b")
+}
+
+#[apply(run_external_prefixes)]
+#[nu_test_support::test]
+#[deps(TESTBIN_COCOCO)]
 fn external_command_url_args(prefix: &str) -> Result {
     // If ndots is not handled correctly, we can lose the double forward slashes that are needed
     // here

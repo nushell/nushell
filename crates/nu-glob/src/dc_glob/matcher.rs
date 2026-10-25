@@ -117,7 +117,8 @@ struct Matcher<'a> {
 
 impl<'a> Matcher<'a> {
     fn advance(&mut self, program: &Program) -> bool {
-        match &program.instructions[self.state.pc.0] {
+        let instruction = &program.instructions[self.state.pc.0];
+        match instruction {
             // Separator between path components. Require that the previous
             // component was opened and fully consumed (`Some(b"")`). A bare
             // `None` means no component was bound yet — allowing Separator to
@@ -241,7 +242,7 @@ impl<'a> Matcher<'a> {
                     NextString::EndOfInput => self.end_of_input(),
                 }
             }
-            Instruction::Characters(classes) => {
+            Instruction::Characters { classes, negated } => {
                 match next_string(
                     &mut self.state.path_components,
                     &mut self.state.current_string,
@@ -253,18 +254,20 @@ impl<'a> Matcher<'a> {
                             return self.try_alternative();
                         };
 
-                        let mut chars = chunk.valid().chars();
-                        let Some(ch) = chars.next() else {
-                            return self.try_alternative();
+                        let length = match chunk.valid().chars().next() {
+                            Some(ch)
+                                if char_matches_classes(ch, classes, program.case_insensitive)
+                                    != *negated =>
+                            {
+                                ch.len_utf8()
+                            }
+                            // An undecodable byte is not a class member; consume it like `?`.
+                            None if *negated => 1,
+                            _ => return self.try_alternative(),
                         };
-
-                        if char_matches_classes(ch, classes, program.case_insensitive) {
-                            *current_string = &current_string[ch.len_utf8()..];
-                            self.state.fresh_string = false;
-                            self.next()
-                        } else {
-                            self.try_alternative()
-                        }
+                        *current_string = &current_string[length..];
+                        self.state.fresh_string = false;
+                        self.next()
                     }
                     NextString::NotNormal => self.try_alternative(),
                     NextString::EndOfInput => self.end_of_input(),

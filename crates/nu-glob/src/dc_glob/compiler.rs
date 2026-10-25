@@ -43,7 +43,10 @@ pub enum Instruction {
     LiteralString(Box<[u8]>),
     AnyCharacter,
     AnyString,
-    Characters(Box<[CharacterClass]>),
+    Characters {
+        classes: Box<[CharacterClass]>,
+        negated: bool,
+    },
     /// Succeed only at a path-component boundary (no unconsumed bytes left in
     /// the current component). Clears a finished `Some([])` to `None`.
     ///
@@ -74,8 +77,13 @@ impl std::fmt::Display for Instruction {
             }
             Instruction::AnyCharacter => f.write_str("any-character"),
             Instruction::AnyString => f.write_str("any-string"),
-            Instruction::Characters(character_classes) => {
-                write!(f, "{:<WIDTH$} {:?}", "characters", character_classes)
+            Instruction::Characters { classes, negated } => {
+                let name = if *negated {
+                    "negated-characters"
+                } else {
+                    "characters"
+                };
+                write!(f, "{name:<WIDTH$} {classes:?}")
             }
             Instruction::ComponentBoundary => f.write_str("component-boundary"),
             Instruction::Jump(index) => {
@@ -215,9 +223,11 @@ fn append_program(out: &mut Program, node: &AstNode) -> anyhow::Result<()> {
             out.instructions.push(Instruction::AnyCharacter);
             Ok(())
         }
-        AstNode::Characters(character_classes) => {
-            out.instructions
-                .push(Instruction::Characters(character_classes.as_slice().into()));
+        AstNode::Characters { classes, negated } => {
+            out.instructions.push(Instruction::Characters {
+                classes: classes.as_slice().into(),
+                negated: *negated,
+            });
             Ok(())
         }
         AstNode::Wildcard => append_wildcard_gadget(out),

@@ -428,6 +428,12 @@ fn run_command(ctx: RunContext) -> Reedline {
         entry_num,
     } = ctx;
 
+    // Prompt or line editor evaluation may have been interrupted since this REPL iteration
+    // started. Do not carry that interruption into the new command or its pre-execution hooks.
+    if engine_state.signals().interrupted() {
+        engine_state.reset_signals();
+    }
+
     let history_supports_meta = match engine_state.history_config().map(|h| h.file_format) {
         #[cfg(feature = "sqlite")]
         Some(HistoryFileFormat::Sqlite) => true,
@@ -597,6 +603,27 @@ fn editor_is_resolved(engine_state: &EngineState, stack: &Stack, cmd: &str) -> b
             .and_then(|mut i| i.next())
             .is_some()
     }
+}
+
+/// Evaluate the normal prompt, then recover before preparing the transient prompt.
+fn prepare_prompt(
+    config: &Config,
+    engine_state: &mut EngineState,
+    stack: &Arc<Stack>,
+) -> Box<dyn reedline::Prompt> {
+    prompt_update::update_prompt(config, engine_state, &mut Stack::with_parent(stack.clone()));
+
+    // Prompt errors have already been reported. Start the transient prompt and line editor
+    // callbacks without carrying over the prompt's interruption.
+    if engine_state.signals().interrupted() {
+        engine_state.reset_signals();
+    }
+
+    prompt_update::make_transient_prompt(
+        config,
+        engine_state,
+        &mut Stack::with_parent(stack.clone()),
+    )
 }
 
 /// Perform one iteration of the REPL loop
@@ -823,16 +850,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     let config = &engine_state.get_config().clone();
     // Re-evaluate the prompt into the shared `prompt_state`, replacing the segments pushed for
     // the previous prompt but not the pushes `begin_update` above kept.
-    prompt_update::update_prompt(
-        config,
-        engine_state,
-        &mut Stack::with_parent(stack_arc.clone()),
-    );
-    let transient_prompt = prompt_update::make_transient_prompt(
-        config,
-        engine_state,
-        &mut Stack::with_parent(stack_arc.clone()),
-    );
+    let transient_prompt = prepare_prompt(config, engine_state, &stack_arc);
 
     perf!("update_prompt", start_time, use_color);
 
@@ -1057,7 +1075,8 @@ fn parse_operation(
         orig = trim_quotes_str(&orig).to_string()
     }
 
-    let path = nu_path::expand_path_with(&orig, &cwd, true);
+    let target = nu_path::resolve_drive_relative(Path::new(&orig), Path::new(&cwd));
+    let path = nu_path::expand_path_with(&target, &cwd, true);
     if (engine_state.get_config().auto_cd_implicit || looks_like_path(&orig))
         && path.is_dir()
         && tokens.0.len() == 1
@@ -1787,6 +1806,78 @@ fn trailing_slash_looks_like_path() {
 }
 
 #[test]
+fn command_after_interrupted_prompt_runs_hooks_and_command() -> nu_test_support::Result {
+    use nu_protocol::engine::PromptContents;
+    use nu_test_support::TestResultExt;
+
+    let mut tester = nu_test_support::test();
+    // `match` polls interruption signals; plain assignments do not.
+    let () = tester.run(
+        r#"
+        def interrupted-completion [] { match 1 { 1 => ["completion"] } }
+        def complete-me [arg: string@interrupted-completion] { $arg }
+        $env.hook_ran = false
+        $env.command_ran = false
+        $env.PROMPT_COMMAND = { match 1 { 1 => "prompt" } }
+        $env.TRANSIENT_PROMPT_COMMAND = { match 1 { 1 => "transient" } }
+        $env.config.hooks.pre_execution = [{||
+            $env.hook_ran = (match 1 { 1 => true })
+        }]
+        $env.config.shell_integration = {
+            osc2: false, osc7: false, osc8: false, osc9_9: false,
+            osc133: false, osc633: false, reset_application_mode: false
+        }
+        "#,
+    )?;
+    tester.engine_state.merge_env(&mut tester.stack)?;
+    let signals = nu_protocol::Signals::new(Arc::default());
+    tester.engine_state.set_signals(signals.clone());
+    // Seed old contents so skipping prompt evaluation also fails the assertion.
+    tester
+        .engine_state
+        .prompt_state
+        .set_contents(PromptContents {
+            left: Some("previous prompt".into()),
+            ..Default::default()
+        });
+    signals.trigger();
+
+    let config = tester.engine_state.get_config().clone();
+    let stack = Arc::new(tester.stack.clone());
+    let transient_prompt = prepare_prompt(&config, &mut tester.engine_state, &stack);
+    assert!(tester.engine_state.prompt_state.contents().left.is_none());
+    assert_eq!(transient_prompt.render_prompt_left(), "transient");
+
+    let completion_line = "complete-me ";
+    let completions = NuCompleter::new(Arc::new(tester.engine_state.clone()), stack)
+        .complete_blocking(completion_line, completion_line.len());
+    assert_eq!(
+        completions
+            .iter()
+            .map(|suggestion| suggestion.value.as_str())
+            .collect::<Vec<_>>(),
+        ["completion"]
+    );
+
+    // An interruption during line editing must not reach the submitted command either.
+    signals.trigger();
+    run_command(RunContext {
+        engine_state: &mut tester.engine_state,
+        stack: &mut tester.stack,
+        line_editor: Reedline::create(),
+        command: "$env.command_ran = (match 1 { 1 => true })".into(),
+        hostname: None,
+        use_color: false,
+        shell_integration: &config.shell_integration,
+        entry_num: &mut 0,
+    });
+
+    tester
+        .run("$env.hook_ran and $env.command_ran")
+        .expect_value_eq(true)
+}
+
+#[test]
 fn are_session_ids_in_sync() {
     let engine_state = &mut EngineState::new();
     // Tests need a resolved config home; use a temp-style path under the process cwd.
@@ -1907,6 +1998,23 @@ mod test_auto_cd {
         let input = if cfg!(windows) { r"C:\" } else { "/" };
         let root = AbsolutePath::try_new(input).unwrap();
         check(tempdir, input, root);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn auto_cd_bare_drive_on_current_drive() {
+        let tempdir = tempdir().unwrap();
+        let tempdir = AbsolutePath::try_new(tempdir.path()).unwrap();
+        let dir = tempdir.join("foo");
+        std::fs::create_dir_all(&dir).unwrap();
+
+        let Some(std::path::Component::Prefix(drive)) = tempdir.as_std_path().components().next()
+        else {
+            panic!("{tempdir:?} has no drive prefix")
+        };
+        let drive = drive.as_os_str().to_string_lossy();
+        check(&dir, &drive, &dir);
+        check(tempdir, &format!("{drive}foo"), &dir);
     }
 
     #[test]

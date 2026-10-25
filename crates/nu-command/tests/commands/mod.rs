@@ -46,6 +46,7 @@ mod flatten;
 mod for_;
 mod format;
 mod generate;
+mod generate_completions;
 mod get;
 mod glob;
 mod griddle;
