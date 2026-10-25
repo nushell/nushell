@@ -2,13 +2,13 @@ use log::trace;
 use nu_ansi_term::Style;
 use nu_color_config::{get_matching_brackets_style, get_shape_color};
 use nu_engine::env;
-use nu_parser::{FlatShape, flatten_block, parse};
+use nu_parser::{FlatShape, TokenContents, flatten_block, lex, lex_with_delimiter_pairs, parse};
 use nu_protocol::{
-    BlockId, Span,
+    AutoPair, AutoPairsConfig, BlockId, ParseError, Span,
     ast::{Block, Expr, Expression, PipelineRedirection, RecordItem},
     engine::{EngineState, Stack, StateWorkingSet},
 };
-use reedline::{AbbrExpandContext, Highlighter, StyledText};
+use reedline::{AbbrExpandContext, AutoPairAction, AutoPairContext, Highlighter, StyledText};
 use std::{
     borrow::Cow,
     ffi::OsStr,
@@ -101,6 +101,42 @@ impl Highlighter for NuHighlighter {
                 }
         })
     }
+
+    fn should_auto_pair(&self, context: &AutoPairContext<'_>) -> bool {
+        let (open, close) = context.pair();
+        let (line, cursor) = (context.buffer(), context.insertion_point());
+        let config = self.stack.get_config(&self.engine_state);
+        match context.action() {
+            AutoPairAction::Open if context.selection().is_none() => {
+                should_insert_pair(line, cursor, AutoPair { open, close }, &config.auto_pairs)
+            }
+            // reedline may pass another pair with this closer, like `«"`, so look up `""` itself.
+            AutoPairAction::SkipExistingCloser => {
+                let quote = AutoPair { open: close, close };
+                !config.auto_pairs.pairs.contains(&quote)
+                    || !(is_quote_in_code(line, cursor, close)
+                        || is_escaped_quote(line, cursor, close))
+            }
+            AutoPairAction::BackspacePair => {
+                open != close
+                    || !(is_quote_in_code(line, cursor, close)
+                        || is_escaped_quote(line, cursor.saturating_sub(open.len_utf8()), open))
+            }
+            // Wrapping a selection is always allowed, and so is any action reedline adds later.
+            _ => true,
+        }
+    }
+
+    fn hint_closer_offsets(
+        &self,
+        line: &str,
+        cursor: usize,
+        candidate: &str,
+        closers: &str,
+    ) -> Option<Vec<usize>> {
+        let config = self.stack.get_config(&self.engine_state);
+        candidate_closer_offsets(line, cursor, candidate, closers, &config.auto_pairs.pairs)
+    }
 }
 
 impl NuHighlighter {
@@ -123,6 +159,177 @@ impl NuHighlighter {
             parsed: parsed.clone(),
         });
         parsed
+    }
+}
+
+/// Maps each of `closers`, the text after `cursor` in `line`, to the closer of the same pair in
+/// `hint`, the history hint that would follow the cursor. Offsets are relative to `hint`.
+///
+/// The lexer reports matched brackets and ordinary single, double, and backtick quotes, including
+/// pairs inside interpolated expressions. Raw string boundaries are not paired because their
+/// closer includes `#` bytes. Interpolation candidates containing an unquoted `#` suppress all
+/// delimiter mappings, which also rejects raw strings without duplicating lexer rules. A lexical
+/// error, an unsupported (multibyte) closer, or an ambiguous ordered mapping also yields `None`.
+/// `line` may be incomplete after an earlier partial acceptance; the text before `cursor` plus
+/// `hint` is the syntax input for delimiter matching.
+fn candidate_closer_offsets(
+    line: &str,
+    cursor: usize,
+    hint: &str,
+    closers: &str,
+    pairs: &[AutoPair],
+) -> Option<Vec<usize>> {
+    let prefix = line.get(..cursor)?;
+    let candidate = format!("{prefix}{hint}");
+    let (_, error, pairs_found) = lex_with_delimiter_pairs(candidate.as_bytes(), 0, b"", b"", true);
+    if error.is_some() {
+        return None;
+    }
+
+    // Only pairs opened before the cursor and closed at or after it can close the existing closers.
+    let candidate_closes: Vec<(usize, char)> = pairs_found
+        .into_iter()
+        .filter_map(|(open, close)| {
+            if open >= cursor || close < cursor {
+                return None;
+            }
+            let open = candidate.get(open..)?.chars().next()?;
+            let close_char = candidate.get(close..)?.chars().next()?;
+            pairs
+                .contains(&AutoPair {
+                    open,
+                    close: close_char,
+                })
+                .then_some((close, close_char))
+        })
+        .collect();
+    let offsets = unique_ordered_matches(closers, &candidate_closes)?;
+    Some(offsets.into_iter().map(|at| at - cursor).collect())
+}
+
+/// Matches each of `closers` in order to exactly one position in `candidate_closes`.
+///
+/// Returns `None` when a closer has no match, when the assignment is ambiguous, or when a closer
+/// is not a single byte.
+fn unique_ordered_matches(closers: &str, candidate_closes: &[(usize, char)]) -> Option<Vec<usize>> {
+    let wanted: Vec<char> = closers.chars().collect();
+    if wanted.iter().any(|ch| ch.len_utf8() != 1) {
+        return None;
+    }
+
+    let mut earliest = Vec::with_capacity(wanted.len());
+    let mut candidate_index = 0;
+    for wanted_close in &wanted {
+        let (matched_index, (position, _)) = candidate_closes
+            .iter()
+            .enumerate()
+            .skip(candidate_index)
+            .find(|(_, (_, close))| close == wanted_close)?;
+        earliest.push(*position);
+        candidate_index = matched_index + 1;
+    }
+
+    let mut latest = vec![0; wanted.len()];
+    let mut candidate_index = candidate_closes.len();
+    for (wanted_index, wanted_close) in wanted.iter().enumerate().rev() {
+        let (matched_index, (position, _)) = candidate_closes[..candidate_index]
+            .iter()
+            .enumerate()
+            .rev()
+            .find(|(_, (_, close))| close == wanted_close)?;
+        latest[wanted_index] = *position;
+        candidate_index = matched_index;
+    }
+
+    (earliest == latest).then_some(earliest)
+}
+
+/// Whether typing the opening character of `pair` at `cursor` should also insert the closing one.
+fn should_insert_pair(line: &str, cursor: usize, pair: AutoPair, config: &AutoPairsConfig) -> bool {
+    let Some((before, after)) = line.split_at_checked(cursor) else {
+        return true;
+    };
+    let AutoPairsConfig { pairs, also, .. } = config;
+
+    // Right after a letter or digit, as in `don't`, an opener rarely starts a pair.
+    if before.ends_with(char::is_alphanumeric) && !also.after_word.contains(&pair) {
+        return false;
+    }
+
+    // Before other text, pair only if the next char closes a bracket, or is a quote in a string.
+    let place = string_or_comment_at_end(before);
+    let next_allows_pair = after.chars().next().is_none_or(|next| {
+        next.is_whitespace()
+            || pairs.iter().any(|p| p.open != p.close && p.close == next)
+            || (matches!(place, Some(StringOrComment::String(_)))
+                && matches!(next, '"' | '\'' | '`'))
+    });
+    if !next_allows_pair && !also.before_text.contains(&pair) {
+        return false;
+    }
+
+    match place {
+        Some(StringOrComment::String(_)) => also.in_string.contains(&pair),
+        Some(StringOrComment::Comment) => also.in_comment.contains(&pair),
+        None => true,
+    }
+}
+
+/// Whether `quote` is a quote and `cursor` is outside strings and comments, as right after `"a"`
+/// in `"a""b"`.
+fn is_quote_in_code(line: &str, cursor: usize, quote: char) -> bool {
+    matches!(quote, '"' | '\'' | '`')
+        && line
+            .get(..cursor)
+            .is_some_and(|before| string_or_comment_at_end(before).is_none())
+}
+
+/// Whether `quote` at `at` is a `"` escaped by a backslash inside a `"` string.
+fn is_escaped_quote(line: &str, at: usize, quote: char) -> bool {
+    quote == '"'
+        && line.get(..at).is_some_and(|before| {
+            (before.len() - before.trim_end_matches('\\').len()) % 2 == 1
+                && string_or_comment_at_end(before) == Some(StringOrComment::String('"'))
+        })
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum StringOrComment {
+    /// A string opened with this quote.
+    String(char),
+    Comment,
+}
+
+/// Which of a string or a comment the end of `text` is inside, if any.
+///
+/// `lex` reports only the first error, so lexing resumes after it, or inside an unclosed bracket.
+fn string_or_comment_at_end(mut text: &str) -> Option<StringOrComment> {
+    loop {
+        let (tokens, err) = lex(text.as_bytes(), 0, &[], &[], false);
+        let resume = match err {
+            // an unclosed string, or a raw string, which needs a closer like `'#`
+            Some(ParseError::Unclosed(quote, ..))
+                if matches!(quote.as_ref(), "\"" | "`")
+                    || quote
+                        .strip_prefix('\'')
+                        .is_some_and(|sharps| sharps.bytes().all(|b| b == b'#')) =>
+            {
+                return quote.chars().next().map(StringOrComment::String);
+            }
+            Some(ParseError::Unclosed(_, open, ..)) => open.end,
+            Some(err) => err.span().end,
+            None => {
+                let ends_in_comment = tokens.last().is_some_and(|token| {
+                    token.contents == TokenContents::Comment && token.span.end == text.len()
+                });
+                return ends_in_comment.then_some(StringOrComment::Comment);
+            }
+        };
+        match text.get(resume..) {
+            // `resume > 0` keeps an error span ending at 0 from looping forever.
+            Some(rest) if resume > 0 => text = rest,
+            _ => return None,
+        }
     }
 }
 
@@ -750,9 +957,15 @@ fn get_char_length(c: char) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use super::NuHighlighter;
-    use nu_protocol::engine::{EngineState, Stack};
-    use reedline::{AbbrExpandContext, Highlighter};
+    use super::{
+        NuHighlighter, StringOrComment, candidate_closer_offsets, is_escaped_quote,
+        is_quote_in_code, should_insert_pair, string_or_comment_at_end, unique_ordered_matches,
+    };
+    use nu_protocol::{
+        AutoPair, AutoPairsAlso, AutoPairsConfig, Config,
+        engine::{EngineState, Stack},
+    };
+    use reedline::{AbbrExpandContext, AutoPairs, EditCommand, Highlighter, Reedline};
     use rstest::rstest;
     use std::sync::Arc;
 
@@ -883,5 +1096,369 @@ mod tests {
             h.should_expand_abbr(line, cursor, AbbrExpandContext::BangExpansion),
             expected
         );
+    }
+
+    #[rstest]
+    // strings
+    #[case("echo \"abc", Some(StringOrComment::String('"')))]
+    #[case("echo \"abc\"", None)]
+    #[case("echo 'ab\"c", Some(StringOrComment::String('\'')))]
+    #[case("echo `abc", Some(StringOrComment::String('`')))]
+    #[case("echo r#'abc", Some(StringOrComment::String('\'')))]
+    #[case("echo r#'abc'#", None)]
+    #[case("echo r##'abc'#", Some(StringOrComment::String('\'')))]
+    #[case("echo \"a\nb", Some(StringOrComment::String('"')))]
+    #[case("echo \"a\\\"b", Some(StringOrComment::String('"')))]
+    #[case("echo 'a\\'", None)]
+    // strings nested in brackets
+    #[case("echo (\"x", Some(StringOrComment::String('"')))]
+    #[case("if true {\n  echo \"x", Some(StringOrComment::String('"')))]
+    // string interpolation: the inside of `(...)` is code
+    #[case("echo $\"abc ", Some(StringOrComment::String('"')))]
+    #[case("echo $\"abc (", None)]
+    #[case("echo $\"abc (1 + ", None)]
+    #[case("echo $\"abc (\"x", Some(StringOrComment::String('"')))]
+    #[case("echo $\"abc (1) ", Some(StringOrComment::String('"')))]
+    // comments
+    #[case("echo foo # c", Some(StringOrComment::Comment))]
+    #[case("# c", Some(StringOrComment::Comment))]
+    #[case("def f [] {\n  # c", Some(StringOrComment::Comment))]
+    #[case("echo foo#bar", None)]
+    #[case("echo foo # c\necho ", None)]
+    #[case("echo foo # \"c", Some(StringOrComment::Comment))]
+    // lex errors earlier in the line
+    #[case("echo ) \"x", Some(StringOrComment::String('"')))]
+    #[case("echo ) x", None)]
+    #[case("ls && echo \"abc", Some(StringOrComment::String('"')))]
+    fn test_string_or_comment_at_end(
+        #[case] text: &str,
+        #[case] expected: Option<StringOrComment>,
+    ) {
+        assert_eq!(string_or_comment_at_end(text), expected);
+    }
+
+    #[rstest]
+    // plain code
+    #[case("echo ", 5, "()", true)]
+    #[case("echo ", 5, "\"\"", true)]
+    #[case("echo ()", 6, "[]", true)]
+    #[case("echo  x", 5, "()", true)]
+    #[case("echo \nls", 5, "()", true)]
+    // inside a string or comment
+    #[case("echo \"abc ", 10, "()", false)]
+    #[case("echo \"abc \"", 10, "()", false)]
+    #[case("echo \"abc ", 10, "''", false)]
+    #[case("echo foo # ", 11, "()", false)]
+    // right after a word
+    #[case("echo don", 8, "''", false)]
+    #[case("echo foo", 8, "()", false)]
+    #[case("echo $", 6, "\"\"", true)]
+    #[case("echo foo_", 9, "[]", true)]
+    // in front of other text
+    #[case("echo foo", 5, "()", false)]
+    #[case("echo foo", 5, "\"\"", false)]
+    #[case("echo \"foo\"", 5, "()", false)]
+    fn test_should_insert_pair(
+        #[case] line: &str,
+        #[case] cursor: usize,
+        #[case] pair: AutoPair,
+        #[case] expected: bool,
+    ) {
+        assert_eq!(
+            should_insert_pair(line, cursor, pair, &AutoPairsConfig::default()),
+            expected
+        );
+    }
+
+    #[rstest]
+    // the closer of a pair whose two characters differ
+    #[case(&["<>"], "echo <>", 6, "<>", true)]
+    #[case(&["\\/"], "echo \\/", 6, "\\/", true)]
+    #[case(&["()", "<)"], "echo )", 5, "<)", true)]
+    #[case(&["()", "**"], "echo *", 5, "()", false)]
+    #[case(&["()", "[]"], "echo >", 5, "()", false)]
+    fn test_should_insert_pair_with_pairs(
+        #[case] pairs: &[&str],
+        #[case] line: &str,
+        #[case] cursor: usize,
+        #[case] pair: AutoPair,
+        #[case] expected: bool,
+    ) {
+        let config = AutoPairsConfig {
+            pairs: pairs.iter().map(|pair| pair.parse().unwrap()).collect(),
+            ..Default::default()
+        };
+        assert_eq!(should_insert_pair(line, cursor, pair, &config), expected);
+    }
+
+    const PAREN: AutoPair = AutoPair {
+        open: '(',
+        close: ')',
+    };
+    const BRACKET: AutoPair = AutoPair {
+        open: '[',
+        close: ']',
+    };
+
+    #[rstest]
+    #[case("echo \"abc ", 10, AutoPairsAlso { in_string: vec![PAREN], ..Default::default() })]
+    #[case("echo \"abc \"", 10, AutoPairsAlso { in_string: vec![PAREN], ..Default::default() })]
+    #[case("echo r#'abc '#", 12, AutoPairsAlso { in_string: vec![PAREN], ..Default::default() })]
+    #[case("echo foo # ", 11, AutoPairsAlso { in_comment: vec![PAREN], ..Default::default() })]
+    #[case("echo foo", 8, AutoPairsAlso { after_word: vec![PAREN], ..Default::default() })]
+    #[case("echo foo", 5, AutoPairsAlso { before_text: vec![PAREN], ..Default::default() })]
+    fn test_should_insert_pair_with_also(
+        #[case] line: &str,
+        #[case] cursor: usize,
+        #[case] also: AutoPairsAlso,
+    ) {
+        let config = AutoPairsConfig {
+            also,
+            ..Default::default()
+        };
+        assert!(should_insert_pair(line, cursor, PAREN, &config));
+        assert!(!should_insert_pair(line, cursor, BRACKET, &config));
+    }
+
+    #[test]
+    fn test_should_insert_pair_with_also_for_another_place() {
+        let config = AutoPairsConfig {
+            also: AutoPairsAlso {
+                after_word: vec![PAREN],
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        assert!(!should_insert_pair("echo \"a foo", 11, PAREN, &config));
+    }
+
+    #[rstest]
+    // in code
+    #[case("echo \"foo\"", 5, '"', true)]
+    #[case("echo 'a''b'", 8, '\'', true)]
+    #[case("echo ``", 5, '`', true)]
+    // inside a string or comment
+    #[case("echo r#'abc'#", 11, '\'', false)]
+    #[case("echo $\"a (\"x\")\"", 12, '"', false)]
+    #[case("echo foo # \"\"", 12, '"', false)]
+    // not a quote
+    #[case("{||}", 2, '|', false)]
+    fn test_is_quote_in_code(
+        #[case] line: &str,
+        #[case] cursor: usize,
+        #[case] quote: char,
+        #[case] expected: bool,
+    ) {
+        assert_eq!(is_quote_in_code(line, cursor, quote), expected);
+    }
+
+    #[rstest]
+    // in a `"` string
+    #[case("echo \"a\\", 8, true)]
+    #[case("echo \"a\\\\", 9, false)]
+    #[case("echo \"a\\\\\\", 10, true)]
+    #[case("echo $\"a\\", 9, true)]
+    // where a backslash does not escape
+    #[case("echo 'a\\", 8, false)]
+    #[case("echo `a\\", 8, false)]
+    #[case("echo r#'a\\", 10, false)]
+    #[case("echo # a\\", 9, false)]
+    #[case("echo $\"(ls C:\\", 14, false)]
+    fn test_is_escaped_quote(#[case] line: &str, #[case] at: usize, #[case] expected: bool) {
+        assert_eq!(is_escaped_quote(line, at, '"'), expected);
+    }
+
+    #[rstest]
+    // moves over or deletes the pair
+    #[case(&["\"\""], "echo \"abc\"", 9, EditCommand::InsertChar('"'), "echo \"abc\"", 10)]
+    #[case(&["\"\""], "echo \"\"", 6, EditCommand::Backspace, "echo ", 5)]
+    #[case(&["«\""], "echo «x\"", 8, EditCommand::InsertChar('"'), "echo «x\"", 9)]
+    #[case(&["«\"", "\"\""], "echo «\"", 7, EditCommand::Backspace, "echo ", 5)]
+    #[case(&["\"\""], "echo \"a\\\\\"", 9, EditCommand::InsertChar('"'), "echo \"a\\\\\"", 10)]
+    #[case(&["''"], "echo 'a\\'", 8, EditCommand::InsertChar('\''), "echo 'a\\'", 9)]
+    // types or deletes one character as usual
+    #[case(&["\"\""], "echo \"foo\"", 5, EditCommand::InsertChar('"'), "echo \"\"foo\"", 6)]
+    #[case(&["\"\""], "echo \"a\"\"b\"", 8, EditCommand::Backspace, "echo \"a\"b\"", 7)]
+    #[case(&["\"\""], "echo \"a\\\"", 8, EditCommand::InsertChar('"'), "echo \"a\\\"\"", 9)]
+    #[case(&["\"\""], "echo \"a\\\"\"", 9, EditCommand::Backspace, "echo \"a\\\"", 8)]
+    // a `"` is a quote whenever `""` is a pair
+    #[case(&["«\"", "\"\""], "echo \"foo\"", 5, EditCommand::InsertChar('"'), "echo \"\"foo\"", 6)]
+    #[case(&["«\"", "\"\""], "echo «x\"", 8, EditCommand::InsertChar('"'), "echo «x\"\"", 9)]
+    fn test_should_auto_pair(
+        #[case] pairs: &[&str],
+        #[case] line: &str,
+        #[case] cursor: usize,
+        #[case] command: EditCommand,
+        #[case] expected_line: &str,
+        #[case] expected_cursor: usize,
+    ) {
+        let mut config = Config::default();
+        config.auto_pairs.pairs = pairs.iter().map(|pair| pair.parse().unwrap()).collect();
+        let auto_pairs = AutoPairs::new(config.auto_pairs.pairs.iter().map(|p| (p.open, p.close)));
+        let mut engine_state = EngineState::new();
+        engine_state.set_config(config);
+        let h = NuHighlighter::new(Arc::new(engine_state), Arc::new(Stack::new()));
+        let mut line_editor = Reedline::create()
+            .with_highlighter(Box::new(h))
+            .with_auto_pairs(auto_pairs);
+        line_editor.run_edit_commands(&[
+            EditCommand::InsertString(line.into()),
+            EditCommand::MoveToPosition {
+                position: cursor,
+                select: false,
+            },
+            command,
+        ]);
+        assert_eq!(line_editor.current_buffer_contents(), expected_line);
+        assert_eq!(line_editor.current_insertion_point(), expected_cursor);
+    }
+
+    #[test]
+    fn test_should_auto_pair_wraps_selection_in_string() {
+        let config = Config::default();
+        let auto_pairs = AutoPairs::new(config.auto_pairs.pairs.iter().map(|p| (p.open, p.close)));
+        let mut engine_state = EngineState::new();
+        engine_state.set_config(config);
+        let h = NuHighlighter::new(Arc::new(engine_state), Arc::new(Stack::new()));
+        let mut line_editor = Reedline::create()
+            .with_highlighter(Box::new(h))
+            .with_auto_pairs(auto_pairs);
+        line_editor.run_edit_commands(&[
+            EditCommand::InsertString("echo \"foo\"".into()),
+            EditCommand::MoveToPosition {
+                position: 6,
+                select: false,
+            },
+            EditCommand::MoveToPosition {
+                position: 9,
+                select: true,
+            },
+            EditCommand::InsertChar('('),
+        ]);
+        assert_eq!(line_editor.current_buffer_contents(), "echo \"(foo)\"");
+    }
+
+    fn closer_offsets(line: &str, cursor: usize, hint: &str, closers: &str) -> Option<Vec<usize>> {
+        candidate_closer_offsets(
+            line,
+            cursor,
+            hint,
+            closers,
+            &AutoPairsConfig::default().pairs,
+        )
+    }
+
+    #[test]
+    fn candidate_pair_mapping_ignores_string_delimiters() {
+        let hint = r#"")")"#;
+        let offsets = closer_offsets("f()", 2, hint, ")")
+            .expect("the existing closer maps to the outer call");
+
+        assert_eq!(offsets, vec![3]);
+        assert_ne!(offsets[0], 1);
+        assert_eq!(hint.as_bytes()[offsets[0]], b')');
+
+        let offsets = closer_offsets(r#"f(")"#, 3, r#")")"#, ")")
+            .expect("an incomplete source string still maps through the candidate opener");
+        assert_eq!(offsets, vec![2]);
+    }
+
+    #[test]
+    fn nested_tail_closers_map_in_order() {
+        let offsets =
+            closer_offsets("f(())", 3, "x))", "))").expect("both nested closers map in order");
+        assert_eq!(offsets, vec![1, 2]);
+    }
+
+    #[test]
+    fn quote_tail_closers_map_to_candidate_quotes() {
+        let cases = [
+            (r#"echo "hel""#, 9, r#"lo""#, r#"""#),
+            ("echo 'hel'", 9, "lo'", "'"),
+            ("echo `hel`", 9, "lo`", "`"),
+        ];
+
+        for (source, cursor, hint, closers) in cases {
+            let offsets = closer_offsets(source, cursor, hint, closers)
+                .expect("the candidate's quote opener identifies its closer");
+
+            assert_eq!(offsets, vec![2], "candidate: {source}{hint}");
+        }
+    }
+
+    #[test]
+    fn escaped_quote_is_not_a_candidate_quote_closer() {
+        let source = r#"echo "hel\"""#;
+        let offsets = closer_offsets(source, 11, r#"lo""#, r#"""#)
+            .expect("the final unescaped quote closes the candidate string");
+
+        assert_eq!(offsets, vec![2]);
+        assert_eq!(source.as_bytes()[10], b'"');
+    }
+
+    #[test]
+    fn quote_and_outer_bracket_tail_closers_map_in_order() {
+        let offsets = closer_offsets(r#"f("hel")"#, 6, r#"lo")"#, r#"")"#)
+            .expect("the quote and outer paren each have a unique candidate pair");
+
+        assert_eq!(offsets, vec![2, 3]);
+    }
+
+    #[test]
+    fn interpolation_array_and_record_closers_map_in_order() {
+        let offsets = closer_offsets(r#"echo $"([1])""#, 10, r#" 2] | length)""#, r#"])""#)
+            .expect("the candidate maps the array, interpolation, and string closers");
+        assert_eq!(offsets, vec![2, 12, 13]);
+
+        let offsets = closer_offsets(
+            r#"echo $"([{x: 1}])""#,
+            14,
+            r#", y: 2}] | length)""#,
+            r#"}])""#,
+        )
+        .expect("the candidate maps record, array, interpolation, and string closers");
+        assert_eq!(offsets, vec![6, 7, 17, 18]);
+    }
+
+    #[test]
+    fn interpolation_fake_closers_and_mismatches_are_safe() {
+        let offsets = closer_offsets(r#"echo $"([])""#, 9, r#"")]} ", 1] | length)""#, r#"])""#)
+            .expect("closers inside the interpolation string do not match the source tail");
+        assert_eq!(offsets, vec![9, 19, 20]);
+
+        let offsets = closer_offsets(r#"echo $"([1])""#, 10, r#"} | length)""#, r#"])""#);
+        assert!(offsets.is_none());
+    }
+
+    #[test]
+    fn matching_rejects_non_unique_and_multibyte_closers() {
+        assert!(unique_ordered_matches(")", &[(4, ')'), (5, ')')]).is_none());
+        assert!(unique_ordered_matches("🎉", &[(4, '🎉')]).is_none());
+    }
+
+    #[test]
+    fn closer_offsets_require_a_configured_pair() {
+        let pairs: [AutoPair; 1] = ["()".parse().unwrap()];
+        assert_eq!(
+            candidate_closer_offsets("f()", 2, r#"")")"#, ")", &pairs),
+            Some(vec![3])
+        );
+        assert!(candidate_closer_offsets("f()", 2, "x)", ")", &[]).is_none());
+        assert!(candidate_closer_offsets(r#"echo "hel""#, 9, r#"lo""#, r#"""#, &pairs).is_none());
+    }
+
+    #[test]
+    fn highlighter_hint_closer_offsets_use_the_configured_pairs() {
+        let mut config = Config::default();
+        config.auto_pairs.pairs = vec!["()".parse().unwrap()];
+        let mut engine_state = EngineState::new();
+        engine_state.set_config(config);
+        let h = NuHighlighter::new(Arc::new(engine_state), Arc::new(Stack::new()));
+
+        assert_eq!(h.hint_closer_offsets("f()", 2, "x)", ")"), Some(vec![1]));
+        assert_eq!(h.hint_closer_offsets("[]", 1, "x]", "]"), None);
+
+        let h = NuHighlighter::new(Arc::new(EngineState::new()), Arc::new(Stack::new()));
+        assert_eq!(h.hint_closer_offsets("[]", 1, "x]", "]"), Some(vec![1]));
     }
 }
