@@ -114,6 +114,7 @@ fn run_is_redirected(stack: &mut Stack) -> bool {
 #[rstest]
 #[case::print(OutDest::Print, true, false)]
 #[case::pipe(OutDest::Pipe, true, true)]
+#[case::pipe_raw(OutDest::PipeRaw, true, true)]
 #[case::value(OutDest::Value, false, true)]
 #[case::null(OutDest::Null, false, true)]
 #[case::inherit(OutDest::Inherit, false, true)]

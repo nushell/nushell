@@ -123,6 +123,30 @@ pub fn discover_captures_in_closure(
     Ok(())
 }
 
+/// Finds the variables that a closure's block captures from around it. A closure runs on copies
+/// of what it captures, so an assignment to a captured `mut` variable would be lost, and
+/// capturing one is an error.
+pub(crate) fn discover_closure_captures(
+    working_set: &StateWorkingSet,
+    block: &Block,
+    seen_blocks: &mut HashMap<BlockId, Vec<(VarId, Span)>>,
+) -> Result<Vec<(VarId, Span)>, ParseError> {
+    let mut seen = SeenVars::default();
+    let mut results = vec![];
+    discover_captures_in_closure(working_set, block, &mut seen, seen_blocks, &mut results)?;
+
+    for (var_id, span) in results.iter() {
+        if !seen.contains(var_id)
+            && let Some(variable) = working_set.get_variable_if_possible(*var_id)
+            && variable.mutable
+        {
+            return Err(ParseError::CaptureOfMutableVar(*span));
+        }
+    }
+
+    Ok(results)
+}
+
 fn parser_info_block_id(call: &Call) -> Option<BlockId> {
     match &call.get_parser_info("block_id")?.expr {
         Expr::Int(id) if *id >= 0 => Some(BlockId::new(*id as usize)),
@@ -306,29 +330,7 @@ pub fn discover_captures_in_expr(
         }
         Expr::Closure(block_id) => {
             let block = working_set.get_block(*block_id);
-            let results = {
-                let mut seen = SeenVars::default();
-                let mut results = vec![];
-
-                discover_captures_in_closure(
-                    working_set,
-                    block,
-                    &mut seen,
-                    seen_blocks,
-                    &mut results,
-                )?;
-
-                for (var_id, span) in results.iter() {
-                    if !seen.contains(var_id)
-                        && let Some(variable) = working_set.get_variable_if_possible(*var_id)
-                        && variable.mutable
-                    {
-                        return Err(ParseError::CaptureOfMutableVar(*span));
-                    }
-                }
-
-                results
-            };
+            let results = discover_closure_captures(working_set, block, seen_blocks)?;
             for &(var_id, span) in &results {
                 if !seen.contains(&var_id) {
                     output.push((var_id, span))

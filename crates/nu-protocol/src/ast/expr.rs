@@ -121,10 +121,14 @@ impl Expr {
         match self {
             Expr::AttributeBlock(ab) => ab.item.expr.pipe_redirection(working_set),
             Expr::Call(call) => working_set.get_decl(call.decl_id).pipe_redirection(),
-            Expr::Collect(_, _) => {
+            Expr::Collect(_, expr) => {
                 // A collect expression always has default redirection, it's just going to collect
-                // stdout unless another type of redirection is specified
-                (None, None)
+                // stdout unless another type of redirection is specified. A command that reads
+                // the output as text (`^cmd $in`) still gets it as text.
+                match expr.expr.pipe_redirection(working_set) {
+                    (Some(OutDest::PipeRaw), _) => (Some(OutDest::PipeRaw), None),
+                    _ => (None, None),
+                }
             },
             Expr::Subexpression(block_id) | Expr::Block(block_id) => working_set
                 .get_block(*block_id)
@@ -175,8 +179,8 @@ impl Expr {
                 (None, None)
             }
             Expr::ExternalCall(_, _) => {
-                // No override necessary, pipes will always be created in eval
-                (None, None)
+                // An external command reads its input as text
+                (Some(OutDest::PipeRaw), None)
             }
             Expr::Keyword(_) => {
                 // Not sure about this; let's return no redirection override for now.

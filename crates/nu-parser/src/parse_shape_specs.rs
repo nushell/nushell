@@ -120,6 +120,11 @@ fn expand_type_alias(working_set: &mut StateWorkingSet, bytes: &[u8], span: Span
         return working_set.get_type_alias(type_alias_id).shape.clone();
     }
 
+    // Plugin-defined custom value types, such as `polars_dataframe`, take no type parameters.
+    if name.len() == bytes.len() && working_set.find_custom_type(name) {
+        return SyntaxShape::Custom(String::from_utf8_lossy(name).into());
+    }
+
     // A `type` statement for this name further on, recorded with the predeclarations, makes this
     // a use before the definition, or a use inside it.
     let definition = working_set

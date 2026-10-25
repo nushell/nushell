@@ -404,6 +404,11 @@ If you create a custom command with this name, that will be used instead."
             },
         ]
     }
+
+    // Like `^cmd`, the external command reads its input as text.
+    fn pipe_redirection(&self) -> (Option<OutDest>, Option<OutDest>) {
+        (Some(OutDest::PipeRaw), None)
+    }
 }
 
 /// Evaluate all arguments, performing expansions when necessary.

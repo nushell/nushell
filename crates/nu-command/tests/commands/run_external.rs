@@ -252,9 +252,7 @@ fn external_command_ndots_args(prefix: &str) -> Result {
             // change everything to backslashes too. Would be good to fix that
             r"foo/. foo/.. foo\..\.. foo/./bar foo/../bar foo\..\..\bar ./bar ../bar ..\..\bar"
         }
-        _ => {
-            "foo/. foo/.. foo/../.. foo/./bar foo/../bar foo/../../bar ./bar ../bar ../../bar"
-        }
+        _ => "foo/. foo/.. foo/../.. foo/./bar foo/../bar foo/../../bar ./bar ../bar ../../bar",
     })
 }
 
@@ -266,6 +264,19 @@ fn external_command_ndots_leading_dot_slash(prefix: &str) -> Result {
     test()
         .run(format!("{prefix}cococo ./... ./...."))
         .expect_value_eq("./... ./....")
+}
+
+#[apply(run_external_prefixes)]
+#[nu_test_support::test]
+#[deps(TESTBIN_COCOCO)]
+fn external_command_dots_inside_component_args(prefix: &str) -> Result {
+    // `...` at the end of a component (git revision ranges) is not ndots, so the arg is passed
+    // through untouched: no separator rewrite, no collapsed `//`
+    test()
+        .run(format!(
+            "{prefix}cococo origin/main... origin//main... a.../b"
+        ))
+        .expect_value_eq("origin/main... origin//main... a.../b")
 }
 
 #[apply(run_external_prefixes)]

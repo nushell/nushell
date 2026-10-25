@@ -371,6 +371,10 @@ pub struct Signature {
     pub is_filter: bool,
     pub creates_scope: bool,
     pub allows_unknown_args: bool,
+    /// Set by `extern --strict`: a flag the signature doesn't declare is a parse error, even
+    /// though `allows_unknown_args` still passes `--` and other arguments through.
+    #[serde(default)]
+    pub rejects_unknown_flags: bool,
     pub complete: Option<CommandWideCompleter>,
     // Signature category used to classify commands stored in the list of declarations
     pub category: Category,
@@ -429,6 +433,7 @@ impl Signature {
             creates_scope: false,
             category: Category::Default,
             allows_unknown_args: false,
+            rejects_unknown_flags: false,
             complete: None,
         }
     }

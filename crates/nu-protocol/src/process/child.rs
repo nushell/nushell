@@ -475,34 +475,7 @@ impl ChildProcess {
     }
 
     pub fn wait_with_output(self) -> Result<ProcessOutput, ShellError> {
-        let from_io_error = IoError::factory(self.span, None);
-
-        let (stdout, stderr) = match (self.stdout, self.stderr) {
-            (None, None) => (None, None),
-            (None, Some(stderr)) => (None, Some(collect_bytes(stderr).map_err(&from_io_error)?)),
-            (Some(stdout), None) => (Some(collect_bytes(stdout).map_err(&from_io_error)?), None),
-            (Some(stdout), Some(stderr)) => {
-                let stderr = thread::Builder::new()
-                    .spawn(move || collect_bytes(stderr))
-                    .map_err(&from_io_error)?;
-
-                let stdout = collect_bytes(stdout).map_err(&from_io_error)?;
-
-                let stderr = stderr
-                    .join()
-                    .map_err(|e| match e.downcast::<io::Error>() {
-                        Ok(io) => from_io_error(*io).into(),
-                        Err(err) => ShellError::Generic(GenericError::new(
-                            "Unknown error",
-                            format!("{err:?}"),
-                            self.span,
-                        )),
-                    })?
-                    .map_err(&from_io_error)?;
-
-                (Some(stdout), Some(stderr))
-            }
-        };
+        let (stdout, stderr) = collect_pipes(self.stdout, self.stderr, self.span)?;
 
         let mut exit_status = self
             .exit_status
@@ -517,6 +490,30 @@ impl ChildProcess {
         })
     }
 
+    /// Reads stdout and stderr to the end and waits for the child, then puts what was read
+    /// back so it can still be read, e.g. by a command that wants the stderr of a child whose
+    /// output had to be collected first. Fails like [`into_bytes`](Self::into_bytes) if the
+    /// child did.
+    pub fn buffer_output(&mut self) -> Result<(), ShellError> {
+        let (stdout, stderr) = collect_pipes(self.stdout.take(), self.stderr.take(), self.span)?;
+        let replay = |buf: Vec<u8>| ChildPipe::Tee(Box::new(io::Cursor::new(buf)));
+        self.stdout = stdout.map(replay);
+        self.stderr = stderr.map(replay);
+        // The process has exited, so there is nothing left to kill.
+        self.pid = None;
+
+        let exit_status = self
+            .exit_status
+            .lock()
+            .expect("lock exit_status future should success")
+            .wait(self.span)?;
+        let ignore_error = *self
+            .ignore_error
+            .lock()
+            .expect("lock ignore error should success");
+        check_ok(exit_status, ignore_error, self.span)
+    }
+
     pub fn clone_exit_status_future(&self) -> Arc<Mutex<ExitStatusFuture>> {
         self.exit_status.clone()
     }
@@ -524,6 +521,46 @@ impl ChildProcess {
     pub fn clone_ignore_error(&self) -> Arc<Mutex<bool>> {
         self.ignore_error.clone()
     }
+}
+
+/// Stdout and stderr as read by [`collect_pipes`], for the pipes the child had.
+type PipeOutput = (Option<Vec<u8>>, Option<Vec<u8>>);
+
+/// Reads both pipes to the end. With two, stderr is read on its own thread, so a child that
+/// fills one pipe can't block while the other one is being read.
+fn collect_pipes(
+    stdout: Option<ChildPipe>,
+    stderr: Option<ChildPipe>,
+    span: Span,
+) -> Result<PipeOutput, ShellError> {
+    let from_io_error = IoError::factory(span, None);
+
+    Ok(match (stdout, stderr) {
+        (None, None) => (None, None),
+        (None, Some(stderr)) => (None, Some(collect_bytes(stderr).map_err(&from_io_error)?)),
+        (Some(stdout), None) => (Some(collect_bytes(stdout).map_err(&from_io_error)?), None),
+        (Some(stdout), Some(stderr)) => {
+            let stderr = thread::Builder::new()
+                .spawn(move || collect_bytes(stderr))
+                .map_err(&from_io_error)?;
+
+            let stdout = collect_bytes(stdout).map_err(&from_io_error)?;
+
+            let stderr = stderr
+                .join()
+                .map_err(|e| match e.downcast::<io::Error>() {
+                    Ok(io) => from_io_error(*io).into(),
+                    Err(err) => ShellError::Generic(GenericError::new(
+                        "Unknown error",
+                        format!("{err:?}"),
+                        span,
+                    )),
+                })?
+                .map_err(&from_io_error)?;
+
+            (Some(stdout), Some(stderr))
+        }
+    })
 }
 
 fn collect_bytes(pipe: ChildPipe) -> io::Result<Vec<u8>> {

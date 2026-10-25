@@ -723,7 +723,7 @@ impl<'s> Lower<'_, '_, 's> {
     /// `extern` expression or the `export` expression around it. As for `def`, the call (the
     /// name and the signature, whose parameters get no variables) is lowered in a scope of its
     /// own; once the scope is left, `finish_extern` makes the predeclared command a known
-    /// external.
+    /// external. Returns the definition's expression and the command's name and declaration.
     pub(super) fn extern_def(
         &mut self,
         pipeline: &w::Pipeline<'s>,
@@ -731,7 +731,7 @@ impl<'s> Lower<'_, '_, 's> {
         extern_def: &w::Extern<'s>,
         attributes: &[w::Attribute<'s>],
         module_name: Option<&[u8]>,
-    ) -> Lowered<Expression> {
+    ) -> Lowered<Definition> {
         let (desc, extra_desc) = self.description(pipeline, attributes, command);
         let (lowered_attributes, attribute_values) = self.attributes(attributes)?;
         let decl_id = find_keyword_decl(self.working_set, b"extern")
@@ -754,7 +754,7 @@ impl<'s> Lower<'_, '_, 's> {
             this.finish_keyword_call(&call, decl_id, None)?;
             Ok(call)
         })?;
-        let expression = finish_extern(
+        let (expression, decl) = finish_extern(
             self.working_set,
             Box::new(call),
             call_span,
@@ -764,14 +764,15 @@ impl<'s> Lower<'_, '_, 's> {
             attribute_values,
             module_name,
         );
-        self.definition_expression(
+        let expression = self.definition_expression(
             expression,
             lowered_attributes,
             command,
             attributes,
             module_name,
             "export extern",
-        )
+        )?;
+        Ok((expression, decl))
     }
 
     /// `const name = value` (`parse_const`): the value is evaluated now and the variable holds

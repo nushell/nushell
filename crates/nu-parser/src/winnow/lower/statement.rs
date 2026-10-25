@@ -123,6 +123,7 @@ impl<'s> Lower<'_, '_, 's> {
             w::Expr::Def(def) => self.def(pipeline, command, def, attributes, None)?.0,
             w::Expr::Extern(extern_def) => {
                 self.extern_def(pipeline, command, extern_def, attributes, None)?
+                    .0
             }
             w::Expr::Const(binding) if attributes.is_empty() => {
                 self.const_statement(command, binding)?.0
@@ -142,23 +143,15 @@ impl<'s> Lower<'_, '_, 's> {
                     expression
                 }
                 w::Expr::Extern(extern_def) => {
-                    let expression = self.extern_def(
+                    let (expression, decl) = self.extern_def(
                         pipeline,
                         command,
                         extern_def,
                         attributes,
                         Some(module_name),
                     )?;
-                    let name = extern_def.name.item.as_bytes();
-                    match self.working_set.find_decl(name) {
-                        Some(decl_id) => self.add_export_decl(
-                            module,
-                            module_name,
-                            name.to_vec(),
-                            decl_id,
-                            &expression,
-                        ),
-                        None => return Err(Unlowered::Error),
+                    if let Some((name, decl_id)) = decl {
+                        self.add_export_decl(module, module_name, name, decl_id, &expression);
                     }
                     expression
                 }
@@ -262,6 +255,7 @@ impl<'s> Lower<'_, '_, 's> {
             w::Expr::Def(def) => self.def(pipeline, &element.expr, def, &[], None)?.0,
             w::Expr::Extern(extern_def) => {
                 self.extern_def(pipeline, &element.expr, extern_def, &[], None)?
+                    .0
             }
             w::Expr::Const(binding) => self.const_statement(&element.expr, binding)?.0,
             w::Expr::ExportEnv(export_env) => self.export_env(&element.expr, export_env)?.0,
@@ -271,6 +265,7 @@ impl<'s> Lower<'_, '_, 's> {
                 w::Expr::Def(def) => self.def(pipeline, &element.expr, def, &[], None)?.0,
                 w::Expr::Extern(extern_def) => {
                     self.extern_def(pipeline, &element.expr, extern_def, &[], None)?
+                        .0
                 }
                 w::Expr::Const(binding) => self.export_const(&element.expr, export, binding)?.0,
                 _ => return Err(Unlowered::Unsupported("export")),
@@ -286,6 +281,7 @@ impl<'s> Lower<'_, '_, 's> {
                     w::Expr::Def(def) => self.def(pipeline, command, def, attributes, None)?.0,
                     w::Expr::Extern(extern_def) => {
                         self.extern_def(pipeline, command, extern_def, attributes, None)?
+                            .0
                     }
                     _ => return Err(Unlowered::Unsupported("attributes")),
                 }

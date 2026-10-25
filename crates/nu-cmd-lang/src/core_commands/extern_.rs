@@ -26,12 +26,20 @@ impl Command for Extern {
                 SyntaxShape::ExternalSignature,
                 "The parameters for the external command signature.",
             )
+            .switch(
+                "strict",
+                "Reject flags the signature doesn't declare (`--help` still reaches the command).",
+                None,
+            )
             .category(Category::Core)
     }
 
     fn extra_description(&self) -> &str {
         "This command is a parser keyword. For details, check:
-  https://www.nushell.sh/book/thinking_in_nu.html"
+  https://www.nushell.sh/book/thinking_in_nu.html
+
+`--strict` checks flags when the call is parsed. A count like `-10`, a flag spelled at run time \
+(`-$x`, `--(expr)`) and the items of a list spread (`...$args`) still pass through unchecked."
     }
 
     fn command_type(&self) -> CommandType {
@@ -49,10 +57,17 @@ impl Command for Extern {
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
-        vec![Example {
-            description: "Write a signature for an external command.",
-            example: "extern echo [text: string]",
-            result: None,
-        }]
+        vec![
+            Example {
+                description: "Write a signature for an external command.",
+                example: "extern echo [text: string]",
+                result: None,
+            },
+            Example {
+                description: "Make flags the signature doesn't declare a parse error.",
+                example: r#"extern --strict "git status" [--short(-s)]"#,
+                result: None,
+            },
+        ]
     }
 }
