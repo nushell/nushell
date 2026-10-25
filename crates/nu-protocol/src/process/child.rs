@@ -10,7 +10,7 @@ use os_pipe::PipeReader;
 use std::{
     collections::VecDeque,
     fmt::Debug,
-    io::{self, Read, Write},
+    io::{self, Read},
     sync::mpsc::{self, Receiver, RecvError, TryRecvError},
     sync::{
         Arc, Condvar, Mutex, MutexGuard, PoisonError,
@@ -603,17 +603,24 @@ impl ChildProcess {
     }
 
     pub fn into_bytes(mut self) -> Result<Vec<u8>, ShellError> {
-        // A value has no place for a stderr on its own pipe, so it goes where an uncaptured
-        // stderr goes. It's read alongside stdout, so the child can't block on either pipe.
-        let (stdout, stderr) = collect_pipes(self.stdout.take(), self.stderr.take(), self.span)?;
-        if let Some(stderr) = stderr {
-            io::stderr()
-                .write_all(&stderr)
-                .map_err(|err| IoError::new(err, self.span, None))?;
+        if self.stderr.is_some() {
+            debug_assert!(false, "stderr should not exist");
+            return Err(ShellError::Generic(GenericError::new(
+                "internal error",
+                "stderr should not exist",
+                self.span,
+            )));
         }
+
+        let bytes = (self.stdout.take())
+            .map(collect_bytes)
+            .transpose()
+            .map_err(|err| IoError::new(err, self.span, None))?
+            .unwrap_or_default();
+
         self.check_exit()?;
 
-        Ok(stdout.unwrap_or_default())
+        Ok(bytes)
     }
 
     pub fn wait(mut self) -> Result<(), ShellError> {
@@ -682,14 +689,22 @@ impl ChildProcess {
     /// output had to be collected first. Fails like [`into_bytes`](Self::into_bytes) if the
     /// child did.
     pub fn buffer_output(&mut self) -> Result<(), ShellError> {
-        let (stdout, stderr) = collect_pipes(self.stdout.take(), self.stderr.take(), self.span)?;
-        let replay = |buf: Vec<u8>| ChildPipe::Tee(Box::new(io::Cursor::new(buf)));
-        self.stdout = stdout.map(replay);
-        self.stderr = stderr.map(replay);
+        self.buffer_pipes()?;
         // The process has exited, so there is nothing left to kill.
         self.pid = None;
 
         self.check_exit()
+    }
+
+    /// Reads stdout and stderr to the end, without waiting for the child, and puts what was read
+    /// back so it can still be read. Both are read at the same time, so the child can't block on
+    /// one pipe while the other one is being read.
+    pub fn buffer_pipes(&mut self) -> Result<(), ShellError> {
+        let (stdout, stderr) = collect_pipes(self.stdout.take(), self.stderr.take(), self.span)?;
+        let replay = |buf: Vec<u8>| ChildPipe::Tee(Box::new(io::Cursor::new(buf)));
+        self.stdout = stdout.map(replay);
+        self.stderr = stderr.map(replay);
+        Ok(())
     }
 
     /// A copy of the process without its stderr, which reads the rest of stdout from memory
@@ -877,14 +892,17 @@ mod tests {
     }
 
     #[test]
-    fn into_bytes_returns_stdout_with_a_separate_stderr() {
-        let child = ChildProcess::from_raw(
+    fn buffer_pipes_keeps_both_outputs_readable() {
+        let mut child = ChildProcess::from_raw(
             Some(pipe_with(b"out")),
             Some(pipe_with(b"err")),
             None,
             Span::test_data(),
         );
-        assert_eq!(child.into_bytes().expect("into_bytes"), b"out");
+        child.buffer_pipes().expect("buffer_pipes");
+        let output = child.wait_with_output().expect("wait_with_output");
+        assert_eq!(output.stdout.as_deref(), Some(&b"out"[..]));
+        assert_eq!(output.stderr.as_deref(), Some(&b"err"[..]));
     }
 
     #[test]
