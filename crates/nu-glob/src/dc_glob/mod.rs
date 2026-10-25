@@ -323,6 +323,30 @@ mod tests {
         assert!(pattern.matches_path(Path::new("D")));
     }
 
+    #[cfg(unix)]
+    #[test]
+    fn negated_character_classes_match_undecodable_bytes() {
+        use std::{ffi::OsStr, os::unix::ffi::OsStrExt};
+
+        for (bytes, pattern, expected) in [
+            (&b"\xffoo"[..], "?oo", true),
+            (&b"\xffoo"[..], "[!f]oo", true),
+            (&b"\xffoo"[..], "[!f]*", true),
+            (&b"\xffoo"[..], "[f]*", false),
+            (&b"a\xffoo"[..], "a[!f]oo", true),
+            (&b"\xff\xfeoo"[..], "[!f][!f]oo", true),
+            (&b"\xff\xfeoo"[..], "[!f]oo", false),
+            (&b"foo"[..], "[!f]oo", false),
+            (&b"oo"[..], "[!f]oo", false),
+        ] {
+            assert_eq!(
+                debug_matches(pattern, Path::new(OsStr::from_bytes(bytes))).unwrap(),
+                expected,
+                "pattern {pattern:?}, path {bytes:?}"
+            );
+        }
+    }
+
     #[test]
     fn glob_with_negated_character_class_excludes_files() {
         let root = unique_test_dir("negated_class");
@@ -574,7 +598,10 @@ mod tests {
         let p = parser::parse("[a-z]");
         assert_eq!(p.nodes.len(), 1);
         match &p.nodes[0] {
-            AstNode::Characters(classes) => {
+            AstNode::Characters {
+                classes,
+                negated: false,
+            } => {
                 assert_eq!(classes.len(), 1);
                 assert_eq!(classes[0], CharacterClass::Range('a', 'z'));
             }
@@ -587,7 +614,10 @@ mod tests {
         let p = parser::parse("[abc]");
         assert_eq!(p.nodes.len(), 1);
         match &p.nodes[0] {
-            AstNode::Characters(classes) => {
+            AstNode::Characters {
+                classes,
+                negated: false,
+            } => {
                 assert_eq!(classes.len(), 3);
                 assert!(classes.contains(&CharacterClass::Single('a')));
                 assert!(classes.contains(&CharacterClass::Single('b')));

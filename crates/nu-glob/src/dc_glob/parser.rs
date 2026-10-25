@@ -19,8 +19,10 @@ pub enum AstNode {
     LiteralString(Vec<u8>),
     AnyCharacter,
     Wildcard,
-    Characters(Vec<CharacterClass>),
-    NegatedCharacters(Vec<CharacterClass>),
+    Characters {
+        classes: Vec<CharacterClass>,
+        negated: bool,
+    },
     Alternatives {
         choices: Vec<Pattern>,
     },
@@ -210,11 +212,7 @@ fn node_character_class<'a, 'b>((mut string, out): NodeInput<'a, 'b>) -> NodeRes
                 None => return Err((original_string, out)),
             }
         }
-        out.push(if negated {
-            AstNode::NegatedCharacters(classes)
-        } else {
-            AstNode::Characters(classes)
-        });
+        out.push(AstNode::Characters { classes, negated });
         Ok((string, out))
     } else {
         Err((original_string, out))

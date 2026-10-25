@@ -242,7 +242,7 @@ impl<'a> Matcher<'a> {
                     NextString::EndOfInput => self.end_of_input(),
                 }
             }
-            Instruction::Characters(classes) | Instruction::NegatedCharacters(classes) => {
+            Instruction::Characters { classes, negated } => {
                 match next_string(
                     &mut self.state.path_components,
                     &mut self.state.current_string,
@@ -254,19 +254,20 @@ impl<'a> Matcher<'a> {
                             return self.try_alternative();
                         };
 
-                        let mut chars = chunk.valid().chars();
-                        let Some(ch) = chars.next() else {
-                            return self.try_alternative();
+                        let length = match chunk.valid().chars().next() {
+                            Some(ch)
+                                if char_matches_classes(ch, classes, program.case_insensitive)
+                                    != *negated =>
+                            {
+                                ch.len_utf8()
+                            }
+                            // An undecodable byte is not a class member; consume it like `?`.
+                            None if *negated => 1,
+                            _ => return self.try_alternative(),
                         };
-
-                        let negated = matches!(instruction, Instruction::NegatedCharacters(_));
-                        if char_matches_classes(ch, classes, program.case_insensitive) != negated {
-                            *current_string = &current_string[ch.len_utf8()..];
-                            self.state.fresh_string = false;
-                            self.next()
-                        } else {
-                            self.try_alternative()
-                        }
+                        *current_string = &current_string[length..];
+                        self.state.fresh_string = false;
+                        self.next()
                     }
                     NextString::NotNormal => self.try_alternative(),
                     NextString::EndOfInput => self.end_of_input(),
