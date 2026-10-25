@@ -456,7 +456,7 @@ fn unwind_through_handlers(
                 // produced: collect it first, like `try-collect` does on the fall-through path.
                 if let Unwind::Return(data) = unwind {
                     #[cfg(feature = "os")]
-                    let collected = try_collect(data, span);
+                    let collected = try_collect(data, span, ctx.stack.stderr());
                     #[cfg(not(feature = "os"))]
                     let collected = collect(data, span);
                     unwind = match collected {
@@ -616,7 +616,7 @@ fn eval_instruction<D: DebugContext>(
         Instruction::TryCollect { src_dst } => {
             let data = ctx.take_reg(*src_dst);
             #[cfg(feature = "os")]
-            let value = try_collect(data, *span)?;
+            let value = try_collect(data, *span, ctx.stack.stderr())?;
             #[cfg(not(feature = "os"))]
             let value = collect(data, *span)?;
             ctx.put_reg(*src_dst, PipelineExecutionData::from(value));
@@ -2135,11 +2135,13 @@ fn show_failed_stderr(data: PipelineData, stderr: &OutDest) {
 /// A value can only hold stdout, but the next command may have asked for the external's stderr
 /// on its own pipe (`ignore`, `save --stderr`, `complete`, `tee --stderr`). Such a child is
 /// buffered instead: both pipes are read to the end, its exit status is checked here, and it is
-/// passed on as a finished external that still has its stderr (#19335).
+/// passed on as a finished external that still has its stderr (#19335). If an error takes the
+/// place of its output, the stderr it captured goes to `stderr`.
 #[cfg(feature = "os")]
 fn try_collect(
     mut pipe: PipelineExecutionData,
     fallback_span: Span,
+    stderr: &OutDest,
 ) -> Result<PipelineData, ShellError> {
     if let PipelineData::ByteStream(stream, ..) = &mut pipe.body
         && let nu_protocol::ByteStreamSource::Child(child) = stream.source_mut()
@@ -2147,9 +2149,13 @@ fn try_collect(
     {
         // Read the pipes before waiting on the pipeline's exit statuses: a child that fills a
         // pipe nobody reads never exits.
-        child.buffer_output()?;
-        if nu_experimental::PIPE_FAIL.get() {
-            check_exit_status_future(pipe.exit)?;
+        let mut checked = child.buffer_output();
+        if checked.is_ok() && nu_experimental::PIPE_FAIL.get() {
+            checked = check_exit_status_future(pipe.exit);
+        }
+        if let Err(err) = checked {
+            show_failed_stderr(pipe.body, stderr);
+            return Err(err);
         }
         return Ok(pipe.body);
     }
