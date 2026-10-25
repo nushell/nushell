@@ -677,13 +677,18 @@ impl ChildProcess {
         })
     }
 
-    /// Wait for the process without reading its output, and check its exit status like
-    /// [`wait`](Self::wait) does.
-    ///
-    /// The pipes are read ahead into memory meanwhile, so the process can't block on a full
-    /// pipe, and they read the same as before afterwards.
-    pub fn wait_keeping_output(&mut self) -> Result<(), ShellError> {
-        self.read_pipes_ahead();
+    /// Reads stdout and stderr to the end and waits for the child, then puts what was read
+    /// back so it can still be read, e.g. by a command that wants the stderr of a child whose
+    /// output had to be collected first. Fails like [`into_bytes`](Self::into_bytes) if the
+    /// child did.
+    pub fn buffer_output(&mut self) -> Result<(), ShellError> {
+        let (stdout, stderr) = collect_pipes(self.stdout.take(), self.stderr.take(), self.span)?;
+        let replay = |buf: Vec<u8>| ChildPipe::Tee(Box::new(io::Cursor::new(buf)));
+        self.stdout = stdout.map(replay);
+        self.stderr = stderr.map(replay);
+        // The process has exited, so there is nothing left to kill.
+        self.pid = None;
+
         self.check_exit()
     }
 
@@ -745,16 +750,16 @@ impl ChildProcess {
     }
 }
 
-/// The bytes read from a child's stdout and stderr, `None` for a pipe it doesn't have.
-type PipeBytes = (Option<Vec<u8>>, Option<Vec<u8>>);
+/// Stdout and stderr as read by [`collect_pipes`], for the pipes the child had.
+type PipeOutput = (Option<Vec<u8>>, Option<Vec<u8>>);
 
-/// Read both pipes to the end at the same time, so a child that fills one pipe while the
-/// other is being read can't block.
+/// Reads both pipes to the end. With two, stderr is read on its own thread, so a child that
+/// fills one pipe can't block while the other one is being read.
 fn collect_pipes(
     stdout: Option<ChildPipe>,
     stderr: Option<ChildPipe>,
     span: Span,
-) -> Result<PipeBytes, ShellError> {
+) -> Result<PipeOutput, ShellError> {
     let from_io_error = IoError::factory(span, None);
 
     Ok(match (stdout, stderr) {
