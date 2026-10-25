@@ -585,20 +585,18 @@ fn eval_instruction<D: DebugContext>(
             Ok(Continue)
         }
         Instruction::Clone { dst, src } => {
-            // `try` passes an external whose stderr has its own pipe through uncollected (see
-            // `collect`), and `finally` clones it to keep the result while its block runs. The
-            // stream goes to `dst`, so the next command still reads stdout and stderr apart, and
-            // `src` gets what its stdout collects to.
+            // `try` passes on an external whose stderr has its own pipe uncollected, and
+            // `finally` copies its result. The copy is what the stdout collects to, read from
+            // memory, and `src` keeps the external, so the next command still gets its stderr.
             #[cfg(feature = "os")]
-            if let PipelineData::ByteStream(stream, ..) = ctx.borrow_reg_mut(*src)
+            if let PipelineData::ByteStream(stream, metadata) = ctx.borrow_reg_mut(*src)
                 && let Some(copy) = stream.copy_stdout()?
             {
+                let metadata = metadata.clone().and_then(|m| m.for_collect());
                 let value = copy.into_value()?;
-                let data = ctx.take_reg(*src);
-                ctx.put_reg(*dst, data);
                 ctx.put_reg(
-                    *src,
-                    PipelineExecutionData::from(PipelineData::value(value, None)),
+                    *dst,
+                    PipelineExecutionData::from(PipelineData::value(value, metadata)),
                 );
                 return Ok(Continue);
             }
@@ -1314,17 +1312,7 @@ fn eval_instruction<D: DebugContext>(
             // Fall-through entry into a `finally` block: swap the handler for a running marker
             // with nothing to resume afterwards. Unwinding entries do this swap themselves.
             match ctx.stack.error_handlers.pop(ctx.error_handler_base) {
-                Some(TryHandler::Finally(handler)) => {
-                    #[cfg(feature = "os")]
-                    if let Some(reg) = handler.error_register
-                        && let Err(err) = collect_for_finally(ctx, reg)
-                    {
-                        // Still run `finally`, now for this error.
-                        ctx.stack.error_handlers.push(TryHandler::Finally(handler));
-                        return Err(err);
-                    }
-                    #[cfg(not(feature = "os"))]
-                    let _ = handler;
+                Some(TryHandler::Finally(_)) => {
                     ctx.stack.error_handlers.push(TryHandler::RunningFinally);
                     ctx.finally_resumes.push(None);
                     Ok(Continue)
@@ -2166,36 +2154,6 @@ fn try_collect(
         return Ok(pipe.body);
     }
     collect(pipe, fallback_span, false)
-}
-
-/// `finally` gets a copy of the `try` result, and only a value can be copied. A finished
-/// external that [`try_collect`] passed on with its stderr becomes its stdout here, and its stderr
-/// goes where this block's stderr goes, as for an external whose output is captured into a variable.
-#[cfg(feature = "os")]
-fn collect_for_finally(ctx: &mut EvalContext<'_>, reg: RegId) -> Result<(), ShellError> {
-    let PipelineData::ByteStream(stream, _) = &mut ctx.registers[reg.get() as usize].body else {
-        return Ok(());
-    };
-    let span = stream.span();
-    let nu_protocol::ByteStreamSource::Child(child) = stream.source_mut() else {
-        return Ok(());
-    };
-    let Some(mut stderr) = child.stderr.take() else {
-        return Ok(());
-    };
-    match ctx.stack.stderr() {
-        OutDest::Null => Ok(0),
-        OutDest::File(file) => std::io::copy(&mut stderr, &mut file.as_ref()),
-        _ => std::io::copy(&mut stderr, &mut std::io::stderr()),
-    }
-    .map_err(|err| IoError::new(err, span, None))?;
-
-    let mut data = ctx.take_reg(reg);
-    let metadata = data.body.take_metadata();
-    let value = data.body.into_value(span)?;
-    data.body = PipelineData::value(value, metadata);
-    ctx.put_reg(reg, data);
-    Ok(())
 }
 
 /// Helper for drain behavior.

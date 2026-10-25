@@ -355,23 +355,6 @@ impl ReadAheadPipe {
         drop(state);
         Err(self)
     }
-
-    /// Copy the rest of the output without reading it, once the read-ahead thread is done.
-    fn copy_rest(&self) -> io::Result<Vec<u8>> {
-        self.handle().start();
-        let mut state = self.shared.lock();
-        loop {
-            match &state.finished {
-                Some(None) => return Ok(state.buffer.iter().copied().collect()),
-                Some(Some(err)) => return Err(io::Error::new(err.kind(), err.to_string())),
-                None => {
-                    state = (self.shared.progress)
-                        .wait(state)
-                        .unwrap_or_else(PoisonError::into_inner);
-                }
-            }
-        }
-    }
 }
 
 impl ReadAheadHandle {
@@ -701,37 +684,26 @@ impl ChildProcess {
     /// one pipe while the other one is being read.
     pub fn buffer_pipes(&mut self) -> Result<(), ShellError> {
         let (stdout, stderr) = collect_pipes(self.stdout.take(), self.stderr.take(), self.span)?;
-        let replay = |buf: Vec<u8>| ChildPipe::Tee(Box::new(io::Cursor::new(buf)));
         self.stdout = stdout.map(replay);
         self.stderr = stderr.map(replay);
         Ok(())
     }
 
-    /// A copy of the process without its stderr, which reads the rest of stdout from memory
-    /// and shares the exit status. The pipes are read ahead to make it, so the process can't block.
+    /// A copy of the process without its stderr, which reads the same stdout from memory and
+    /// shares the exit status. Both pipes are read into memory to make it, so the child can't
+    /// block, and they still read the same afterwards.
     pub fn copy_stdout(&mut self) -> Result<Self, ShellError> {
-        self.read_pipes_ahead();
-        let stdout = match &self.stdout {
-            Some(ChildPipe::ReadAhead(pipe)) => Some(
-                pipe.copy_rest()
-                    .map_err(|err| IoError::new(err, self.span, None))?,
-            ),
-            _ => None,
-        };
+        let (stdout, stderr) = collect_pipes(self.stdout.take(), self.stderr.take(), self.span)?;
+        self.stdout = stdout.clone().map(replay);
+        self.stderr = stderr.map(replay);
         Ok(Self {
-            stdout: stdout.map(|bytes| ChildPipe::Tee(Box::new(io::Cursor::new(bytes)))),
+            stdout: stdout.map(replay),
             stderr: None,
             exit_status: self.exit_status.clone(),
             ignore_error: self.ignore_error.clone(),
             pid: None,
             span: self.span,
         })
-    }
-
-    fn read_pipes_ahead(&mut self) {
-        for pipe in [&mut self.stdout, &mut self.stderr].into_iter().flatten() {
-            pipe.start_read_ahead();
-        }
     }
 
     /// Turn the pipes into [`ReadAheadPipe`]s and get their handles, for an [`ExitStatusGuard`].
@@ -805,6 +777,11 @@ fn collect_pipes(
     })
 }
 
+/// A pipe that reads `buf` from memory, for output that was read ahead of its reader.
+fn replay(buf: Vec<u8>) -> ChildPipe {
+    ChildPipe::Tee(Box::new(io::Cursor::new(buf)))
+}
+
 fn collect_bytes(pipe: ChildPipe) -> io::Result<Vec<u8>> {
     let mut buf = Vec::new();
     match pipe {
@@ -874,21 +851,6 @@ mod tests {
             panic!("not a read-ahead pipe");
         };
         assert!(pipe.into_pipe().is_ok());
-    }
-
-    #[test]
-    fn read_ahead_pipe_keeps_what_it_read_ahead() {
-        let mut pipe = ChildPipe::Pipe(pipe_with(b"out"));
-        pipe.start_read_ahead();
-        let ChildPipe::ReadAhead(pipe) = pipe else {
-            panic!("not a read-ahead pipe");
-        };
-        // Waits for the read-ahead thread to finish.
-        assert_eq!(pipe.copy_rest().expect("copy the rest"), b"out");
-        let mut pipe = pipe.into_pipe().expect_err("the pipe was read ahead");
-        let mut bytes = Vec::new();
-        pipe.read_to_end(&mut bytes).expect("read");
-        assert_eq!(bytes, b"out");
     }
 
     #[test]

@@ -449,7 +449,8 @@ pub(crate) fn compile_try(
     //       try-collect %io_reg                     // `finally`
     //       begin-finally                           // `finally`
     // FINALLY:                                      // `finally`; unwinding jumps here as well
-    //       clone %result_reg, %io_reg
+    //       move %result_reg, %io_reg
+    //       clone %io_reg, %result_reg
     //       store-variable $finally_var, %io_reg    // `finally` with a parameter (via a clone)
     //       %io_reg <- <...finally block...> <- %io_reg
     //       move %io_reg, %result_reg
@@ -465,8 +466,8 @@ pub(crate) fn compile_try(
     // where %closure_reg was evaluated before the handlers were pushed.
     //
     // `try-collect` leaves an external whose stderr has its own pipe (the next command is
-    // `complete`, `ignore`, `save` or `tee`) as a stream, and `clone %result_reg` hands that
-    // stream to %result_reg, leaving its stdout as a value for `finally` (#19335).
+    // `complete`, `ignore`, `save` or `tee`) as a stream. %result_reg keeps that stream, so the
+    // next command still gets its stderr, and `clone` gives `finally` its stdout as a value.
     //
     // At runtime, `begin-finally` swaps the `finally` handler for a "running" marker, and
     // `end-finally` pops that marker. When control unwinds into the `finally` block instead (an
@@ -713,11 +714,26 @@ pub(crate) fn compile_try(
         // Only the running marker of this `finally` is on the handler stack while it runs.
         builder.begin_try(1);
 
-        // Preserve the value produced by `try`/`catch`: `finally` can observe it
+        // Preserve the value produced by `try`/`catch`: `finally` can observe a copy of it
         // but its own pipeline result should not replace the overall `try` expression result.
-        let preserved_result_reg = builder.clone_reg(io_reg, call.head)?;
+        // The original is kept rather than the copy, so a passed-on external keeps its stderr.
+        let preserved_result_reg = builder.next_register()?;
+        builder.push(
+            Instruction::Move {
+                dst: preserved_result_reg,
+                src: io_reg,
+            }
+            .into_spanned(call.head),
+        )?;
+        builder.push(
+            Instruction::Clone {
+                dst: io_reg,
+                src: preserved_result_reg,
+            }
+            .into_spanned(call.head),
+        )?;
         if let Some(var_id) = finally_part.var_id {
-            let value_reg = builder.clone_reg(io_reg, call.head)?;
+            let value_reg = builder.clone_reg(preserved_result_reg, call.head)?;
             builder.push(
                 Instruction::StoreVariable {
                     var_id,

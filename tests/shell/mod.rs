@@ -441,11 +441,11 @@ fn try_catch_keeps_a_piped_stderr_of_a_successful_external(
     "done\n",
     "oops\n"
 )]
-// `finally` sees the result as a value, so the stderr goes where the block's stderr goes.
+// `finally` sees the stdout as a value, and the stderr still goes to the next command.
 #[case::finally(
     "try { ^$env.TEST_NU_BIN -n -c 'print hi; print -e oops' } catch { print caught } finally {|v| print $'fin ($v | str trim)' } | ignore --stderr; print done",
     "fin hi\ndone\n",
-    "oops\n"
+    ""
 )]
 #[case::finally_without_catch(
     "try { ^$env.TEST_NU_BIN -n -c 'print -e oops' } finally { print fin } | ignore; print done",

@@ -134,8 +134,9 @@ pub enum Instruction {
     Move { dst: RegId, src: RegId },
     /// Copy a register (must be a collected value). Value is still in `src` after this instruction.
     ///
-    /// The one exception is an external whose stderr has its own pipe, which `try` passes
-    /// through uncollected: `dst` gets the stream, and `src` the value its stdout collects to.
+    /// The one exception is an external whose stderr has its own pipe, which `try` passes on
+    /// uncollected (see `TryCollect`): `dst` gets the value its stdout collects to, and `src`
+    /// keeps the external.
     Clone { dst: RegId, src: RegId },
     /// Collect a stream in a register to a value.
     /// Because it collects to a value, nushell will ignore the errors in the stream.
@@ -146,8 +147,7 @@ pub enum Instruction {
     /// returned as an error instead of being ignored.
     ///
     /// An external whose stderr has its own pipe stays a stream, so the next command still gets
-    /// stdout and stderr apart. Its exit status is checked, and its output is read ahead into
-    /// memory meanwhile.
+    /// stdout and stderr apart. Its output is read into memory and its exit status checked.
     TryCollect { src_dst: RegId },
     /// Change the span of the contents of a register to the span of this instruction.
     Span { src_dst: RegId },
