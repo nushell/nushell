@@ -8,28 +8,20 @@ use nu_system::{ExitStatus, ForegroundChild, ForegroundWaitStatus};
 
 use os_pipe::PipeReader;
 use std::{
-    collections::VecDeque,
     fmt::Debug,
     io::{self, Read},
     sync::mpsc::{self, Receiver, RecvError, TryRecvError},
-    sync::{
-        Arc, Condvar, Mutex, MutexGuard, PoisonError,
-        atomic::{AtomicBool, Ordering},
-    },
+    sync::{Arc, Mutex},
     thread,
 };
 
 /// Check the exit status of each pipeline element.
 ///
-/// This is used to implement pipefail. The pipes the guards can read ahead are read into memory
-/// first, so a process can't block on a pipe that nobody reads yet.
+/// This is used to implement pipefail.
 #[cfg(feature = "os")]
 pub fn check_exit_status_future(
     exit_status: Vec<Option<ExitStatusGuard>>,
 ) -> Result<(), ShellError> {
-    for guard in exit_status.iter().flatten() {
-        guard.read_ahead.iter().for_each(ReadAheadHandle::start);
-    }
     for one_status in exit_status.into_iter().rev().flatten() {
         check_exit_status_future_ok(one_status)?
     }
@@ -106,8 +98,6 @@ pub struct ExitStatusGuard {
     pub exit_status_future: Arc<Mutex<ExitStatusFuture>>,
     pub ignore_error: Arc<Mutex<bool>>,
     pub span: Option<Span>,
-    /// The process's pipes that [`check_exit_status_future`] reads ahead before it waits.
-    pub read_ahead: Vec<ReadAheadHandle>,
 }
 
 impl ExitStatusGuard {
@@ -119,19 +109,15 @@ impl ExitStatusGuard {
             exit_status_future,
             ignore_error,
             span: None,
-            read_ahead: Vec::new(),
         }
     }
 
     pub fn with_span(self, span: Span) -> Self {
         Self {
+            exit_status_future: self.exit_status_future,
+            ignore_error: self.ignore_error,
             span: Some(span),
-            ..self
         }
-    }
-
-    pub fn with_read_ahead(self, read_ahead: Vec<ReadAheadHandle>) -> Self {
-        Self { read_ahead, ..self }
     }
 }
 
@@ -215,30 +201,6 @@ pub enum ChildPipe {
 
     #[debug("ChildPipe::Tee")]
     Tee(Box<dyn Read + Send + 'static>),
-
-    #[debug("ChildPipe::ReadAhead")]
-    ReadAhead(ReadAheadPipe),
-}
-
-impl ChildPipe {
-    /// Start reading the pipe into memory on another thread (see [`ReadAheadPipe`]).
-    pub fn start_read_ahead(&mut self) {
-        self.read_ahead_handle().start();
-    }
-
-    /// Turn the pipe into a [`ReadAheadPipe`], unless it is one already, and get its handle.
-    fn read_ahead_handle(&mut self) -> ReadAheadHandle {
-        if let ChildPipe::ReadAhead(pipe) = self {
-            return pipe.handle();
-        }
-        let pipe = ReadAheadPipe::new(std::mem::replace(
-            self,
-            ChildPipe::Tee(Box::new(io::empty())),
-        ));
-        let handle = pipe.handle();
-        *self = ChildPipe::ReadAhead(pipe);
-        handle
-    }
 }
 
 impl From<PipeReader> for ChildPipe {
@@ -252,168 +214,7 @@ impl Read for ChildPipe {
         match self {
             ChildPipe::Pipe(pipe) => pipe.read(buf),
             ChildPipe::Tee(tee) => tee.read(buf),
-            ChildPipe::ReadAhead(pipe) => pipe.read(buf),
         }
-    }
-}
-
-/// A child's pipe that can be read into memory on another thread before anyone asks for it.
-///
-/// Waiting for a process before reading its output can hang: a process that fills a pipe nobody
-/// reads never exits. [`check_exit_status_future`] and [`ChildProcess::wait_keeping_output`]
-/// start reading ahead before they wait, so the process can finish, and the output stays
-/// readable from memory. Until then, reads go straight to the pipe, and dropping the reader drops
-/// the pipe, as with any other [`ChildPipe`].
-#[derive(Debug)]
-pub struct ReadAheadPipe {
-    shared: Arc<ReadAheadShared>,
-}
-
-/// A handle to start reading a [`ReadAheadPipe`] ahead.
-#[derive(Debug, Clone)]
-pub struct ReadAheadHandle(Arc<ReadAheadShared>);
-
-#[derive(Debug)]
-struct ReadAheadShared {
-    state: Mutex<ReadAheadState>,
-    /// Signaled when the read-ahead thread adds bytes or finishes.
-    progress: Condvar,
-    started: AtomicBool,
-}
-
-#[derive(Debug)]
-struct ReadAheadState {
-    /// The pipe, until the read-ahead thread takes it.
-    pipe: Option<ChildPipe>,
-    /// What the read-ahead thread has read and the reader hasn't.
-    buffer: VecDeque<u8>,
-    /// Set when the read-ahead thread is done: `None` at the end of the pipe, or the error it hit.
-    finished: Option<Option<io::Error>>,
-    /// The reader was dropped, so the read-ahead thread stops and drops the pipe.
-    closed: bool,
-}
-
-impl ReadAheadShared {
-    fn lock(&self) -> MutexGuard<'_, ReadAheadState> {
-        self.state.lock().unwrap_or_else(PoisonError::into_inner)
-    }
-
-    /// Read the pipe to the end into the buffer. Runs on the read-ahead thread.
-    fn read_ahead(&self) {
-        let Some(mut pipe) = self.lock().pipe.take() else {
-            return;
-        };
-        let mut chunk = [0; 8192];
-        let finished = loop {
-            match pipe.read(&mut chunk) {
-                Ok(0) => break None,
-                Ok(n) => {
-                    let mut state = self.lock();
-                    if state.closed {
-                        return;
-                    }
-                    state.buffer.extend(&chunk[..n]);
-                    self.progress.notify_all();
-                }
-                Err(err) if err.kind() == io::ErrorKind::Interrupted => {}
-                Err(err) => break Some(err),
-            }
-        };
-        self.lock().finished = Some(finished);
-        self.progress.notify_all();
-    }
-}
-
-impl ReadAheadPipe {
-    fn new(pipe: ChildPipe) -> Self {
-        Self {
-            shared: Arc::new(ReadAheadShared {
-                state: Mutex::new(ReadAheadState {
-                    pipe: Some(pipe),
-                    buffer: VecDeque::new(),
-                    finished: None,
-                    closed: false,
-                }),
-                progress: Condvar::new(),
-                started: AtomicBool::new(false),
-            }),
-        }
-    }
-
-    fn handle(&self) -> ReadAheadHandle {
-        ReadAheadHandle(self.shared.clone())
-    }
-
-    /// Get the OS pipe back, if nothing has been read ahead yet, so it can become another
-    /// process's stdin.
-    pub fn into_pipe(self) -> Result<PipeReader, Self> {
-        let mut state = self.shared.lock();
-        match state.pipe.take() {
-            Some(ChildPipe::Pipe(pipe)) if state.buffer.is_empty() => return Ok(pipe),
-            pipe => state.pipe = pipe,
-        }
-        drop(state);
-        Err(self)
-    }
-}
-
-impl ReadAheadHandle {
-    /// Start reading the pipe into memory on another thread, unless that started already or the
-    /// reader is gone.
-    pub fn start(&self) {
-        if self.0.started.swap(true, Ordering::Relaxed) {
-            return;
-        }
-        // Usually the reader is done by the time pipefail waits, so there is nothing to read.
-        // A reader in the middle of a read holds the lock; the thread waits for it instead.
-        if let Ok(state) = self.0.state.try_lock()
-            && (state.pipe.is_none() || state.closed)
-        {
-            return;
-        }
-        let shared = self.0.clone();
-        // If the thread can't start, the pipe stays with the reader and waiting can block, as
-        // it did before reading ahead existed.
-        let _ = thread::Builder::new()
-            .name("pipe read-ahead".into())
-            .spawn(move || shared.read_ahead());
-    }
-}
-
-impl Read for ReadAheadPipe {
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        if buf.is_empty() {
-            return Ok(0);
-        }
-        let mut state = self.shared.lock();
-        loop {
-            if !state.buffer.is_empty() {
-                return state.buffer.read(buf);
-            }
-            // Not taken by the read-ahead thread (yet): read the pipe directly. The thread waits
-            // for the lock, so the bytes stay in order.
-            if let Some(pipe) = &mut state.pipe {
-                return pipe.read(buf);
-            }
-            // Otherwise the read-ahead thread has it.
-            match &mut state.finished {
-                Some(err) => return err.take().map_or(Ok(0), Err),
-                None => {
-                    state = (self.shared.progress)
-                        .wait(state)
-                        .unwrap_or_else(PoisonError::into_inner);
-                }
-            }
-        }
-    }
-}
-
-impl Drop for ReadAheadPipe {
-    fn drop(&mut self) {
-        let mut state = self.shared.lock();
-        state.closed = true;
-        state.pipe = None;
-        state.buffer = VecDeque::new();
     }
 }
 
@@ -706,15 +507,6 @@ impl ChildProcess {
         })
     }
 
-    /// Turn the pipes into [`ReadAheadPipe`]s and get their handles, for an [`ExitStatusGuard`].
-    pub fn read_ahead_handles(&mut self) -> Vec<ReadAheadHandle> {
-        [&mut self.stdout, &mut self.stderr]
-            .into_iter()
-            .flatten()
-            .map(ChildPipe::read_ahead_handle)
-            .collect()
-    }
-
     /// Wait for the process, then return an error if it failed, unless its errors are ignored.
     fn check_exit(&self) -> Result<(), ShellError> {
         let ignore_error = *self
@@ -787,7 +579,6 @@ fn collect_bytes(pipe: ChildPipe) -> io::Result<Vec<u8>> {
     match pipe {
         ChildPipe::Pipe(mut pipe) => pipe.read_to_end(&mut buf),
         ChildPipe::Tee(mut tee) => tee.read_to_end(&mut buf),
-        ChildPipe::ReadAhead(mut pipe) => pipe.read_to_end(&mut buf),
     }?;
     Ok(buf)
 }
@@ -796,7 +587,6 @@ fn consume_pipe(pipe: ChildPipe) -> io::Result<()> {
     match pipe {
         ChildPipe::Pipe(mut pipe) => io::copy(&mut pipe, &mut io::sink()),
         ChildPipe::Tee(mut tee) => io::copy(&mut tee, &mut io::sink()),
-        ChildPipe::ReadAhead(mut pipe) => io::copy(&mut pipe, &mut io::sink()),
     }?;
     Ok(())
 }
@@ -817,40 +607,6 @@ mod tests {
         let (reader, mut writer) = os_pipe::pipe().expect("create pipe");
         writer.write_all(bytes).expect("write pipe");
         reader
-    }
-
-    #[test]
-    fn read_ahead_lets_the_writer_finish_and_keeps_the_order() {
-        let (reader, mut writer) = os_pipe::pipe().expect("create pipe");
-        // Bigger than a pipe's buffer, so the writer only finishes if something reads.
-        let data: Vec<u8> = (0..300_000).map(|i| (i % 251) as u8).collect();
-        let written = data.clone();
-        let writer = thread::spawn(move || writer.write_all(&written));
-
-        let mut pipe = ChildPipe::Pipe(reader);
-        let handle = pipe.read_ahead_handle();
-        let mut head = [0; 10];
-        pipe.read_exact(&mut head)
-            .expect("read before reading ahead");
-        handle.start();
-        writer
-            .join()
-            .expect("writer thread")
-            .expect("write the whole pipe");
-
-        let mut rest = Vec::new();
-        pipe.read_to_end(&mut rest).expect("read the rest");
-        assert_eq!([&head[..], &rest[..]].concat(), data);
-    }
-
-    #[test]
-    fn read_ahead_pipe_hands_the_os_pipe_over_before_reading_ahead() {
-        let mut pipe = ChildPipe::Pipe(pipe_with(b"out"));
-        pipe.read_ahead_handle();
-        let ChildPipe::ReadAhead(pipe) = pipe else {
-            panic!("not a read-ahead pipe");
-        };
-        assert!(pipe.into_pipe().is_ok());
     }
 
     #[test]

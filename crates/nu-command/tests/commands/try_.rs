@@ -960,9 +960,8 @@ fn try_with_finally_passes_external_to_complete(#[case] code: &str) -> Result {
     tester.run("$env.LOG").expect_value_eq(["out"])
 }
 
-/// Pipefail waits for the exit status before anything reads the output, so the pipes are read
-/// ahead: a child that fills a pipe nobody reads never exits. If that breaks, this test hangs
-/// instead of failing.
+/// With pipefail on, `try` reads the output before it waits for the exit status: a child that
+/// fills a pipe nobody reads never exits. If that breaks, this test hangs instead of failing.
 #[test]
 #[exp(PIPE_FAIL)]
 #[deps(TESTBIN_REPEATER)]
@@ -974,45 +973,72 @@ fn try_with_catch_waits_for_big_output_without_hanging() -> Result {
     Ok(())
 }
 
-/// Pipefail waits on the exit statuses before `try` hands the output on, so the pipes are read
-/// ahead, keeping a byte stream a byte stream. If that breaks, the big-output cases hang.
+/// A plain `try` hands a stream on without waiting for its externals to exit, and `try` with
+/// `catch` reads the output before it waits, so neither hangs on more output than a pipe holds.
+/// If that breaks, the big-output cases hang.
 #[rstest]
 #[case::plain("try { repeater x 300000 } | str length", 300000)]
 #[case::catch("try { repeater x 300000 } catch { 'catch' } | str length", 300000)]
 #[case::lines("try { repeater x 300000 | lines } | length", 1)]
 #[case::keeps_byte_stream("try { repeater x 300000 } | describe", "byte stream")]
-#[case::still_catches_failure("try { fail 3 | lines } | length", 0)]
+#[case::still_catches_failure("try { fail 3 | lines } catch { 'caught' }", "caught")]
 #[nu_test_support::test]
 #[exp(PIPE_FAIL)]
 #[deps(TESTBIN_REPEATER, TESTBIN_FAIL)]
-fn try_pipefail_waits_without_hanging_on_big_output(
+fn try_pipefail_does_not_hang_on_big_output(
     #[case] code: &str,
     #[case] expected: impl IntoValue,
 ) -> Result {
     test().run(code).expect_value_eq(expected)
 }
 
-/// Waiting on the external doesn't run the steps after it: they stay lazy, so `first 1` runs
-/// `each` once, and a failure reaches `catch` before they run at all. `log.txt` records each run.
+/// A plain `try` hands the stream on, so the steps after the external stay lazy: `first 1` runs
+/// `each` once. `try` with `catch` reads its output first, like `collect`, so the steps run before
+/// the failure reaches `catch`. `log.txt` records each run.
 #[rstest]
 #[case::lazy(
     "try { cococo a b c | split row ' ' | each {|x| $x | save -a log.txt; $x } } | first 1",
     "a"
 )]
-#[case::failure_skips_them(
+#[case::catch_reads_first(
     "$env.ERR = 'boom'; try { echo_env_stderr_fail ERR o+e>| lines | each {|x| $x | save -a log.txt; $x } } catch { '' }",
-    ""
+    "boom"
 )]
 #[nu_test_support::test]
 #[exp(PIPE_FAIL)]
 #[deps(TESTBIN_COCOCO, TESTBIN_ECHO_ENV_STDERR_FAIL)]
-fn try_waits_without_running_later_steps(#[case] code: &str, #[case] runs: &str) -> Result {
-    Playground::setup("try_waits_without_running_later_steps", |dirs, _sandbox| {
-        let _: Value = test().cwd(dirs.test()).run(code)?;
-        let log = fs::read_to_string(dirs.test().join("log.txt")).unwrap_or_default();
-        assert_eq!(log, runs);
-        Ok(())
-    })
+fn try_runs_later_steps_as_their_output_is_read(#[case] code: &str, #[case] runs: &str) -> Result {
+    Playground::setup(
+        "try_runs_later_steps_as_their_output_is_read",
+        |dirs, _sandbox| {
+            let _: Value = test().cwd(dirs.test()).run(code)?;
+            let log = fs::read_to_string(dirs.test().join("log.txt")).unwrap_or_default();
+            assert_eq!(log, runs);
+            Ok(())
+        },
+    )
+}
+
+/// A plain `try` doesn't wait for the externals of a stream it hands on: they may only exit once
+/// the next command reads them. A failure after that is ignored, as without pipefail. A stream
+/// that `try` drains itself (here, into a value) is still waited for, so its failure is caught.
+#[rstest]
+#[case::output_goes_on("try { nu -n -c 'print hi; exit 3' | lines } | length", 1)]
+// More output than a pipe holds, but finite, so a child that outlives the closed pipe still ends.
+#[case::big_producer(
+    "try { nu -n -c 'for _ in 1..200000 { print y }' } | lines | first 3",
+    vec!["y", "y", "y"]
+)]
+#[case::complete_gets_exit_code("try { fail 3 } | complete | get exit_code", 3)]
+#[case::drained_failure_is_caught("try { fail 3 }", ())]
+#[nu_test_support::test]
+#[exp(PIPE_FAIL)]
+#[deps(NU, TESTBIN_FAIL)]
+fn plain_try_hands_a_stream_on_without_waiting(
+    #[case] code: &str,
+    #[case] expected: impl IntoValue,
+) -> Result {
+    test().run(code).expect_value_eq(expected)
 }
 
 /// When the external fails, the error takes the place of its output and nothing is left to read

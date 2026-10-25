@@ -44,7 +44,6 @@ impl ByteStreamSource {
             ByteStreamSource::Child(mut child) => child.stdout.take().map(|stdout| match stdout {
                 ChildPipe::Pipe(pipe) => SourceReader::File(convert_file(pipe)),
                 ChildPipe::Tee(tee) => SourceReader::Read(tee),
-                ChildPipe::ReadAhead(pipe) => SourceReader::Read(Box::new(pipe)),
             }),
         }
     }
@@ -562,8 +561,7 @@ impl ByteStream {
     ///
     /// This will succeed if the [`ByteStreamSource`] of the [`ByteStream`] is either:
     /// - [`File`](ByteStreamSource::File)
-    /// - [`Child`](ByteStreamSource::Child) and the child has a stdout that is `Some(ChildPipe::Pipe(..))`,
-    ///   or a `Some(ChildPipe::ReadAhead(..))` that hasn't read anything ahead.
+    /// - [`Child`](ByteStreamSource::Child) and the child has a stdout that is `Some(ChildPipe::Pipe(..))`.
     ///
     /// All other cases return an `Err` with the original [`ByteStream`] in it.
     pub fn into_stdio(mut self) -> Result<Stdio, Self> {
@@ -571,28 +569,18 @@ impl ByteStream {
             ByteStreamSource::Read(..) => Err(self),
             ByteStreamSource::File(file) => Ok(file.into()),
             #[cfg(feature = "os")]
-            ByteStreamSource::Child(mut child) => {
-                let stdout = match child.stdout.take() {
-                    Some(ChildPipe::Pipe(stdout)) => Ok(stdout),
-                    Some(ChildPipe::ReadAhead(stdout)) => {
-                        stdout.into_pipe().map_err(ChildPipe::ReadAhead)
-                    }
-                    Some(stdout) => Err(stdout),
-                    None => {
-                        self.stream = ByteStreamSource::Child(child);
-                        return Err(self);
-                    }
-                };
-                match stdout {
-                    Ok(stdout) => {
-                        debug_assert!(child.stderr.is_none(), "stderr should not exist");
-                        Ok(stdout.into())
-                    }
-                    Err(stdout) => {
-                        child.stdout = Some(stdout);
-                        self.stream = ByteStreamSource::Child(child);
-                        Err(self)
-                    }
+            ByteStreamSource::Child(child) => {
+                if let ChildProcess {
+                    stdout: Some(ChildPipe::Pipe(stdout)),
+                    stderr,
+                    ..
+                } = *child
+                {
+                    debug_assert!(stderr.is_none(), "stderr should not exist");
+                    Ok(stdout.into())
+                } else {
+                    self.stream = ByteStreamSource::Child(child);
+                    Err(self)
                 }
             }
         }
@@ -760,9 +748,6 @@ impl ByteStream {
                         ChildPipe::Tee(tee) => {
                             copy_with_signals(tee, dest, span, signals)?;
                         }
-                        ChildPipe::ReadAhead(pipe) => {
-                            copy_with_signals(pipe, dest, span, signals)?;
-                        }
                     }
                 }
                 child.wait()?;
@@ -782,8 +767,8 @@ impl ByteStream {
     }
 
     /// For an external whose stderr has its own pipe, a copy of the stream without the stderr,
-    /// reading the rest of stdout from memory: what collecting the stream into a value reads. The
-    /// stream itself still reads the same. `None` for any other stream.
+    /// reading the same stdout from memory (see [`ChildProcess::copy_stdout`]). The stream itself
+    /// still reads the same. `None` for any other stream.
     #[cfg(feature = "os")]
     pub fn copy_stdout(&mut self) -> Result<Option<Self>, ShellError> {
         let (span, signals, type_) = (self.span, self.signals.clone(), self.type_);

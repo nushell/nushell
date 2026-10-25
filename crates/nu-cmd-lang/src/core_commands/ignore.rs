@@ -295,7 +295,6 @@ fn consume_child_pipe_on_thread(pipe: ChildPipe, span: Span) -> Result<(), Shell
             match pipe {
                 ChildPipe::Pipe(mut pipe) => io::copy(&mut pipe, &mut sink),
                 ChildPipe::Tee(mut tee) => io::copy(&mut tee, &mut sink),
-                ChildPipe::ReadAhead(mut pipe) => io::copy(&mut pipe, &mut sink),
             }?;
             Ok::<(), io::Error>(())
         })

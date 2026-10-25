@@ -921,13 +921,9 @@ fn eval_instruction<D: DebugContext>(
                 if ctx.engine_state.get_decl(*decl_id).name() == "complete" {
                     original_exit.clear();
                 }
-                // Pipefail waits on the guard, maybe before anything reads the output.
-                let result_exit_status_future = if nu_experimental::PIPE_FAIL.get() {
-                    result.exit_status_guard_reading_ahead()
-                } else {
-                    result.clone_exit_status_future()
-                }
-                .map(|f| f.with_span(*span));
+                let result_exit_status_future = result
+                    .clone_exit_status_future()
+                    .map(|f| f.with_span(*span));
                 original_exit.push(result_exit_status_future);
                 ctx.put_reg(
                     *src_dst,
@@ -2082,13 +2078,11 @@ fn collect(
 ) -> Result<PipelineData, ShellError> {
     let mut data = pipe.body;
     let span = data.span().unwrap_or(fallback_span);
-    // The guards read the pipes ahead before they wait, so a child can't block on output that
-    // nobody has read yet.
+    let metadata = data.take_metadata().and_then(|m| m.for_collect());
     #[cfg(feature = "os")]
     if nu_experimental::PIPE_FAIL.get() && !ignore_error {
         check_exit_status_future(pipe.exit)?;
     }
-    let metadata = data.take_metadata().and_then(|m| m.for_collect());
     // A child stream without captured stdout carries no data: the external already wrote
     // its output to the inherited stdout or a redirection target. Collecting it into a
     // value would fabricate an empty string, which prints as a stray blank line when the
@@ -2159,7 +2153,14 @@ fn try_collect(
         }
         return Ok(pipe.body);
     }
-    collect(pipe, fallback_span, false)
+    // Here too, the output is read before the exit statuses are waited on. A failure still takes
+    // the place of the collected output.
+    let exit = std::mem::take(&mut pipe.exit);
+    let collected = collect(pipe, fallback_span, true)?;
+    if nu_experimental::PIPE_FAIL.get() {
+        check_exit_status_future(exit)?;
+    }
+    Ok(collected)
 }
 
 /// Helper for drain behavior.
@@ -2215,17 +2216,15 @@ fn drain(
     Ok(Continue)
 }
 
-/// Helper for drainIfEnd behavior
+/// Helper for drainIfEnd behavior, which only a `try` without `catch` or `finally` uses
 fn drain_if_end(
     ctx: &mut EvalContext<'_>,
     data: PipelineExecutionData,
 ) -> Result<PipelineData, ShellError> {
-    let result = {
-        let stack = &mut ctx
-            .stack
-            .push_redirection(ctx.redirect_out.clone(), ctx.redirect_err.clone());
-        data.body.drain_to_out_dests(ctx.engine_state, stack)?
-    };
+    let stack = &mut ctx
+        .stack
+        .push_redirection(ctx.redirect_out.clone(), ctx.redirect_err.clone());
+    let result = data.body.drain_to_out_dests(ctx.engine_state, stack)?;
 
     let pipefail = nu_experimental::PIPE_FAIL.get();
     if !pipefail {
@@ -2233,11 +2232,22 @@ fn drain_if_end(
     }
     #[cfg(feature = "os")]
     {
-        if let Err(err) = check_exit_status_future(data.exit) {
-            show_failed_stderr(result, ctx.stack.stderr());
-            return Err(err);
+        // A stream that goes on to the next command can't wait for its externals to exit: they
+        // may only finish once it reads them. Their exit statuses are ignored instead, as without
+        // pipefail, so a failure after the `try` doesn't escape it.
+        if matches!(
+            result,
+            PipelineData::ByteStream(..) | PipelineData::ListStream(..)
+        ) {
+            for guard in data.exit.into_iter().flatten() {
+                *guard
+                    .ignore_error
+                    .lock()
+                    .expect("lock ignore error should success") = true;
+            }
+            return Ok(result);
         }
-        Ok(result)
+        check_exit_status_future(data.exit).map(|_| result)
     }
     #[cfg(not(feature = "os"))]
     Ok(result)

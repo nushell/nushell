@@ -552,13 +552,11 @@ fn write_or_consume_stderr(
         match stderr {
             ChildPipe::Pipe(pipe) => stream_to_file(pipe, None, signals, file, span, progress),
             ChildPipe::Tee(tee) => stream_to_file(tee, None, signals, file, span, progress),
-            ChildPipe::ReadAhead(pipe) => stream_to_file(pipe, None, signals, file, span, progress),
         }?
     } else {
         match stderr {
             ChildPipe::Pipe(mut pipe) => io::copy(&mut pipe, &mut io::stderr()),
             ChildPipe::Tee(mut tee) => io::copy(&mut tee, &mut io::stderr()),
-            ChildPipe::ReadAhead(mut pipe) => io::copy(&mut pipe, &mut io::stderr()),
         }
         .map_err(|err| IoError::new(err, span, None))?;
     }
@@ -632,9 +630,6 @@ fn stream_byte_stream_to_file(
                         }
                         ChildPipe::Tee(tee) => {
                             stream_to_file(tee, None, signals, file, span, progress)
-                        }
-                        ChildPipe::ReadAhead(pipe) => {
-                            stream_to_file(pipe, None, signals, file, span, progress)
                         }
                     };
                     if let Some(h) = handler {

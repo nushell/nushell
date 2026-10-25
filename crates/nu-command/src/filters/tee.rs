@@ -508,7 +508,6 @@ fn copy_pipe(pipe: ChildPipe, dest: impl Write, info: &StreamInfo) -> Result<(),
     match pipe {
         ChildPipe::Pipe(pipe) => copy(pipe, dest, info),
         ChildPipe::Tee(tee) => copy(tee, dest, info),
-        ChildPipe::ReadAhead(pipe) => copy(pipe, dest, info),
     }
 }
 
@@ -540,7 +539,6 @@ fn copy_pipe_on_thread(
     match pipe {
         ChildPipe::Pipe(pipe) => copy_on_thread(pipe, dest, info),
         ChildPipe::Tee(tee) => copy_on_thread(tee, dest, info),
-        ChildPipe::ReadAhead(pipe) => copy_on_thread(pipe, dest, info),
     }
 }
 
