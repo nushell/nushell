@@ -1,5 +1,6 @@
 use itertools::Itertools;
-use nu_engine::command_prelude::*;
+use nu_engine::{command_prelude::*, eval_ir_call};
+use nu_protocol::ir;
 
 #[derive(Clone)]
 pub struct Tutor;
@@ -722,11 +723,10 @@ fn display(help: &str, engine_state: &EngineState, stack: &mut Stack, span: Span
 
             //TODO: support no-color mode
             if let Some(highlighter) = engine_state.find_decl(b"nu-highlight", &[]) {
-                let decl = engine_state.get_decl(highlighter);
-                let result = decl.run(
+                let result = eval_ir_call(
                     engine_state,
                     stack,
-                    &Call::new(span),
+                    &ir::Call::build(highlighter, span).finish(),
                     Value::string(item, span).into_pipeline_data(),
                 );
 

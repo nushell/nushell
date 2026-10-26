@@ -1,18 +1,17 @@
-use crate::eval_call;
+use crate::eval_ir_call;
 use fancy_regex::{Captures, Regex};
 use nu_protocol::{
     Alias, Category, Config, IntoPipelineData, PipelineData, PositionalArg, Signature, Span,
-    SpanId, Spanned, SyntaxShape, Type, Value,
-    ast::{Argument, Call, Expr, Expression, RecordItem},
-    debugger::WithoutDebug,
+    SyntaxShape, Value,
+    ast::Expr,
     engine::CommandType,
-    engine::{Command, EngineState, Stack, UNKNOWN_SPAN_ID},
-    record,
+    engine::{Command, EngineState, Stack},
+    ir, record,
 };
 use nu_utils::terminal_size;
 use std::{
     borrow::Cow,
-    collections::{HashMap, HashSet},
+    collections::HashSet,
     fmt::Write,
     sync::{Arc, LazyLock},
 };
@@ -110,28 +109,23 @@ fn try_nu_highlight(
 ) -> Option<String> {
     let highlighter = engine_state.find_decl(b"nu-highlight", &[])?;
 
-    let decl = engine_state.get_decl(highlighter);
-    let mut call = Call::new(head);
+    let mut call = ir::Call::build(highlighter, head);
     if reject_garbage {
-        call.add_named((
-            Spanned {
-                item: "reject-garbage".into(),
-                span: head,
-            },
-            None,
-            None,
-        ));
+        call.add_flag(stack, "reject-garbage", "", head);
     }
-
-    decl.run(
+    let call = call.finish();
+    let highlighted = eval_ir_call(
         engine_state,
         stack,
-        &(&call).into(),
+        &call,
         Value::string(code_string, head).into_pipeline_data(),
-    )
-    .and_then(|pipe| pipe.into_value(head))
-    .and_then(|val| val.coerce_into_string())
-    .ok()
+    );
+    call.leave(stack);
+
+    highlighted
+        .and_then(|pipe| pipe.into_value(head))
+        .and_then(|val| val.coerce_into_string())
+        .ok()
 }
 
 /// Syntax highlight code using the `nu-highlight` command if available, falling back to the given string
@@ -523,26 +517,14 @@ fn get_command_documentation(
         }
 
         let caller_stack = &mut Stack::new().collect_value();
-        if let Ok(result) = eval_call::<WithoutDebug>(
+        let mut table_call = ir::Call::build(decl_id, head);
+        // padding, see below
+        let width = Value::int(get_term_width() as i64 - 2, head);
+        table_call.add_named(caller_stack, "width", "", head, width);
+        if let Ok(result) = eval_ir_call(
             engine_state,
             caller_stack,
-            &Call {
-                decl_id,
-                head,
-                arguments: vec![Argument::Named((
-                    Spanned {
-                        item: "width".to_string(),
-                        span: head,
-                    },
-                    None,
-                    Some(Expression::new_unknown(
-                        Expr::Int(get_term_width() as i64 - 2), // padding, see below
-                        head,
-                        Type::Int,
-                    )),
-                ))],
-                parser_info: HashMap::new(),
-            },
+            &table_call.finish(),
             PipelineData::value(Value::list(vals, head), None),
         ) && let Ok((str, ..)) = result.collect_string_strict(head)
         {
@@ -580,54 +562,27 @@ fn get_command_documentation(
         };
 
         if let Some(result) = &example.result {
-            let mut table_call = Call::new(head);
-            if example.example.ends_with("--collapse") {
-                // collapse the result
-                table_call.add_named((
-                    Spanned {
-                        item: "collapse".to_string(),
-                        span: head,
-                    },
-                    None,
-                    None,
-                ))
-            } else {
-                // expand the result
-                table_call.add_named((
-                    Spanned {
-                        item: "expand".to_string(),
-                        span: head,
-                    },
-                    None,
-                    None,
-                ))
-            }
-            table_call.add_named((
-                Spanned {
-                    item: "width".to_string(),
-                    span: head,
-                },
-                None,
-                Some(Expression::new_unknown(
-                    Expr::Int(get_term_width() as i64 - 2),
-                    head,
-                    Type::Int,
-                )),
-            ));
-
-            let table = engine_state
-                .find_decl("table".as_bytes(), &[])
-                .and_then(|decl_id| {
-                    engine_state
-                        .get_decl(decl_id)
-                        .run(
-                            engine_state,
-                            stack,
-                            &(&table_call).into(),
-                            PipelineData::value(result.clone(), None),
-                        )
-                        .ok()
-                });
+            let table = engine_state.find_decl(b"table", &[]).and_then(|decl_id| {
+                let mut table_call = ir::Call::build(decl_id, head);
+                // collapse or expand the result
+                let layout = if example.example.ends_with("--collapse") {
+                    "collapse"
+                } else {
+                    "expand"
+                };
+                table_call.add_flag(stack, layout, "", head);
+                let width = Value::int(get_term_width() as i64 - 2, head);
+                table_call.add_named(stack, "width", "", head, width);
+                let table_call = table_call.finish();
+                let table = eval_ir_call(
+                    engine_state,
+                    stack,
+                    &table_call,
+                    PipelineData::value(result.clone(), None),
+                );
+                table_call.leave(stack);
+                table.ok()
+            });
 
             for item in table.into_iter().flatten() {
                 writeln!(
@@ -653,80 +608,46 @@ fn update_ansi_from_config(
     theme_component: &str,
     head: Span,
 ) {
-    if let Some(color) = &nu_config.color_config.get(theme_component) {
-        let caller_stack = &mut Stack::new().collect_value();
-        let span_id = UNKNOWN_SPAN_ID;
+    let Some(color) = nu_config
+        .color_config
+        .get(theme_component)
+        .and_then(|color| color_value_for_ansi(nu_config, color, head))
+    else {
+        return;
+    };
+    let Some(decl_id) = engine_state.find_decl(b"ansi", &[]) else {
+        return;
+    };
 
-        let argument_opt = get_argument_for_color_value(nu_config, color, head, span_id);
-
-        // Call ansi command using argument
-        if let Some(argument) = argument_opt
-            && let Some(decl_id) = engine_state.find_decl(b"ansi", &[])
-            && let Ok(result) = eval_call::<WithoutDebug>(
-                engine_state,
-                caller_stack,
-                &Call {
-                    decl_id,
-                    head,
-                    arguments: vec![argument],
-                    parser_info: HashMap::new(),
-                },
-                PipelineData::empty(),
-            )
-            && let Ok((str, ..)) = result.collect_string_strict(head)
-        {
-            *ansi_code = str;
-        }
+    // Call ansi command using the color
+    let caller_stack = &mut Stack::new().collect_value();
+    let mut ansi_call = ir::Call::build(decl_id, head);
+    ansi_call.add_positional(caller_stack, head, color);
+    if let Ok(result) = eval_ir_call(
+        engine_state,
+        caller_stack,
+        &ansi_call.finish(),
+        PipelineData::empty(),
+    ) && let Ok((str, ..)) = result.collect_string_strict(head)
+    {
+        *ansi_code = str;
     }
 }
 
-fn get_argument_for_color_value(
-    nu_config: &Config,
-    color: &Value,
-    span: Span,
-    span_id: SpanId,
-) -> Option<Argument> {
+/// The `ansi` argument for a configured color: a color name, or a style record with its values
+/// as strings.
+fn color_value_for_ansi(nu_config: &Config, color: &Value, span: Span) -> Option<Value> {
     match color {
-        Value::Record { val, .. } => {
-            let record_exp: Vec<RecordItem> = (**val)
-                .iter()
+        Value::Record { val, .. } => Some(Value::record(
+            val.iter()
                 .map(|(k, v)| {
-                    RecordItem::Pair(
-                        Expression::new_existing(
-                            Expr::String(k.clone()),
-                            span,
-                            span_id,
-                            Type::String,
-                        ),
-                        Expression::new_existing(
-                            Expr::String(v.clone().to_expanded_string("", nu_config)),
-                            span,
-                            span_id,
-                            Type::String,
-                        ),
-                    )
+                    let v = Value::string(v.to_expanded_string("", nu_config), span);
+                    (k.clone(), v)
                 })
-                .collect();
-
-            Some(Argument::Positional(Expression::new_existing(
-                Expr::Record(record_exp),
-                span,
-                span_id,
-                Type::Record(
-                    vec![
-                        ("fg".to_string(), Type::String),
-                        ("attr".to_string(), Type::String),
-                    ]
-                    .into(),
-                ),
-            )))
-        }
-        Value::String { val, .. } => Some(Argument::Positional(Expression::new_existing(
-            Expr::String(val.clone()),
+                .collect(),
             span,
-            span_id,
-            Type::String,
-        ))),
+        )),
+        Value::String { val, .. } => Some(Value::string(val.clone(), span)),
         _ => None,
     }
 }

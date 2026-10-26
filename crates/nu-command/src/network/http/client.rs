@@ -1423,6 +1423,7 @@ fn retrieve_credential_from_authority(
 #[cfg(test)]
 mod test {
     use super::*;
+    use nu_protocol::DeclId;
 
     #[test]
     fn test_retrieving_credentials_from_authority() {
@@ -1511,7 +1512,8 @@ mod test {
 
     #[test]
     fn test_http_parse_url_with_ipv6_zone_id() {
-        let call = Call::new(Span::test_data());
+        let ir_call = ir::Call::build(DeclId::new(0), Span::test_data()).finish();
+        let call = Call::from(&ir_call);
         let span = Span::test_data();
         let raw_url = Value::test_string("http://[fe80::13%eth0]");
 
@@ -1523,7 +1525,8 @@ mod test {
 
     #[test]
     fn test_http_parse_url_rejects_invalid_ipv6_with_zone_id() {
-        let call = Call::new(Span::test_data());
+        let ir_call = ir::Call::build(DeclId::new(0), Span::test_data()).finish();
+        let call = Call::from(&ir_call);
         let span = Span::test_data();
         // A URL with a zone ID but invalid characters after the bracket must be
         // rejected, not silently rewritten (e.g. to localhost).
