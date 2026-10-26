@@ -510,6 +510,9 @@ impl<'a> Visitor<'a> for Flattener<'_> {
                 }
             }
             Expr::Extern(extern_declaration) => {
+                for flag in &extern_declaration.flags {
+                    self.push(flag.span, FlatShape::Flag);
+                }
                 self.push(extern_declaration.name.span, FlatShape::Definition);
                 self.visit_signature(&extern_declaration.signature);
             }

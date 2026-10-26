@@ -1,6 +1,6 @@
 //! Every command a fresh `nu` resolves at the top level, with its kind: the
 //! built-in and keyword commands of the `nu` binary and the standard
-//! library's prelude, at nushell `62ae19603`. Used, when the
+//! library's prelude, at nushell `6d66334b0`. Used, when the
 //! `builtin-commands` feature is enabled, to resolve multi-word command names
 //! such as `str trim`, to tell a known command from an external one, to
 //! check that `%name` names a built-in command, and to parse the arguments of
@@ -19,6 +19,7 @@ pub static BUILTIN_COMMANDS: &[(&str, CommandType)] = &[
     ("ansi", Builtin),
     ("ansi gradient", Builtin),
     ("ansi link", Builtin),
+    ("ansi opt", Builtin),
     ("ansi strip", Builtin),
     ("any", Builtin),
     ("append", Builtin),
@@ -31,6 +32,7 @@ pub static BUILTIN_COMMANDS: &[(&str, CommandType)] = &[
     ("attr example", Builtin),
     ("attr interactive", Builtin),
     ("attr search-terms", Builtin),
+    ("attr structured", Builtin),
     ("banner", Custom),
     ("bits", Builtin),
     ("bits and", Builtin),
@@ -169,6 +171,7 @@ pub static BUILTIN_COMMANDS: &[(&str, CommandType)] = &[
     ("from yaml", Builtin),
     ("from yml", Builtin),
     ("generate", Builtin),
+    ("generate completions", Builtin),
     ("get", Builtin),
     ("glob", Builtin),
     ("grid", Builtin),

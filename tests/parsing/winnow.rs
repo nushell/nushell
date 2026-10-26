@@ -7,6 +7,7 @@
 //! thread at a time they pass without exercising it.
 
 use nu_protocol::{
+    ParseError,
     ast::{Expr, Expression},
     engine::StateWorkingSet,
 };
@@ -88,4 +89,37 @@ fn dollar_string_in_a_glob_position(#[case] code: &str, #[case] glob: bool) -> R
         Some(Expr::StringInterpolation(..)) if !glob => Ok(()),
         other => panic!("`{code}`: expected {expected}, got {other:?}"),
     }
+}
+
+/// A call to an `extern --strict` command with a flag its signature does not declare is an
+/// unknown flag, as in the classic parser (`parse_internal_call`); `--help`, a count like `-10`
+/// and a flag spelled at run time still reach the command. The extern comes from a module so
+/// that the call is in a block of its own, which the winnow parser lowers.
+#[rstest]
+#[case::unknown_long("foo --baz", true)]
+#[case::unknown_short("foo -x", true)]
+#[case::known("foo --bar -b", false)]
+#[case::count("foo -10", false)]
+#[case::help("foo --help", false)]
+#[case::runtime_flag("let x = 'y'; foo --$x", false)]
+#[case::after_end_of_options("foo -- --baz", false)]
+#[nu_test_support::test]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn strict_extern_rejects_undeclared_flags(#[case] call: &str, #[case] rejected: bool) -> Result {
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let code = format!(
+        "module m {{ export extern --strict foo [--bar(-b), ...rest] }}\nuse m foo\n{call}"
+    );
+    nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    let unknown_flag = working_set
+        .parse_errors
+        .iter()
+        .any(|error| matches!(error, ParseError::UnknownFlag(..)));
+    assert_eq!(
+        unknown_flag, rejected,
+        "`{call}`: {:?}",
+        working_set.parse_errors
+    );
+    Ok(())
 }

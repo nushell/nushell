@@ -667,16 +667,11 @@ impl<'s> Lower<'_, '_, 's> {
                 .flags
                 .iter()
                 .map(|flag| {
-                    let span = this.span(flag.span);
                     let long = match flag.item {
                         w::DefFlag::Env => "env",
                         w::DefFlag::Wrapped => "wrapped",
                     };
-                    let name = Spanned {
-                        item: long.to_string(),
-                        span,
-                    };
-                    (span.start, Argument::Named((name, None, None)))
+                    this.definition_flag(flag.span, long)
                 })
                 .collect();
             arguments.push((name.span.start, Argument::Positional(name)));
@@ -719,11 +714,12 @@ impl<'s> Lower<'_, '_, 's> {
         Ok((expression, decl))
     }
 
-    /// `extern name [signature]` (`parse_extern`), with its `attributes`; `command` is the
-    /// `extern` expression or the `export` expression around it. As for `def`, the call (the
-    /// name and the signature, whose parameters get no variables) is lowered in a scope of its
-    /// own; once the scope is left, `finish_extern` makes the predeclared command a known
-    /// external. Returns the definition's expression and the command's name and declaration.
+    /// `extern [--strict] name [signature]` (`parse_extern`), with its `attributes`; `command`
+    /// is the `extern` expression or the `export` expression around it. As for `def`, the call
+    /// (the flags, the name and the signature, whose parameters get no variables) is lowered in
+    /// a scope of its own; once the scope is left, `finish_extern` makes the predeclared
+    /// command a known external, strict when the call has `--strict`. Returns the
+    /// definition's expression and the command's name and declaration.
     pub(super) fn extern_def(
         &mut self,
         pipeline: &w::Pipeline<'s>,
@@ -748,9 +744,26 @@ impl<'s> Lower<'_, '_, 's> {
             if !matches!(&name.expr, Expr::String(s) if *s == *extern_def.name.item) {
                 return Err(Unlowered::Error);
             }
-            call.add_positional(name);
             let signature = this.signature_expression(&extern_def.signature, true)?;
-            call.add_positional(signature);
+            // The arguments in source order: the flags, before or after the name, then the
+            // name and the signature.
+            let mut arguments: Vec<(usize, Argument)> = extern_def
+                .flags
+                .iter()
+                .map(|flag| {
+                    let long = match flag.item {
+                        w::ExternFlag::Strict => "strict",
+                    };
+                    this.definition_flag(flag.span, long)
+                })
+                .collect();
+            arguments.push((name.span.start, Argument::Positional(name)));
+            arguments.push((signature.span.start, Argument::Positional(signature)));
+            arguments.sort_by_key(|(start, _)| *start);
+            call.arguments = arguments
+                .into_iter()
+                .map(|(_, argument)| argument)
+                .collect();
             this.finish_keyword_call(&call, decl_id, None)?;
             Ok(call)
         })?;
@@ -773,6 +786,18 @@ impl<'s> Lower<'_, '_, 's> {
             "export extern",
         )?;
         Ok((expression, decl))
+    }
+
+    /// A flag of `def` or `extern` at `span`, named `long`: the named argument without a value
+    /// that the classic call parser makes of it, keyed by where it starts, for putting the
+    /// call's arguments in source order.
+    fn definition_flag(&self, span: WSpan, long: &str) -> (usize, Argument) {
+        let span = self.span(span);
+        let name = Spanned {
+            item: long.to_string(),
+            span,
+        };
+        (span.start, Argument::Named((name, None, None)))
     }
 
     /// `const name = value` (`parse_const`): the value is evaluated now and the variable holds

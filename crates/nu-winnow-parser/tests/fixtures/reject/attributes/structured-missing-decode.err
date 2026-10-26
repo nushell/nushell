@@ -1,0 +1,6 @@
+error: missing required positional argument
+  --> reject/attributes/structured-missing-decode.nu:1:23
+  |
+1 | @structured ["--json"]
+  |                       ^
+  = help: `attr structured` takes 2 positional argument(s)

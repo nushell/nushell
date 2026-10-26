@@ -1071,7 +1071,8 @@
 ; flag between the signature and the body breaks the multi-span signature and one
 ; after the body leaves the body missing: in practice only before/after the name.
 ; nu: parse_def.rs:321 parse_def (via parse_internal_call)
-; here: src/parser/parse_def.rs::parse_def, parse_def_flags (before or after the name)
+; here: src/parser/parse_def.rs::parse_def, parse_definition_flags (before or after the
+;       name)
 
 <def-name>        ::= <string> - <reserved-definition-name>   ; bare or quoted (multi-word)
 <reserved-definition-name> ::= <parser-keyword> | <bad-definition-name>
@@ -1124,16 +1125,23 @@
 ;       its type from the text); src/parser/parse_calls.rs::parse_call_lenient (which
 ;       records it as Call::wrapped)
 
-<extern>          ::= "extern" <def-name> <full-signature>
+<extern>          ::= "extern" { <extern-flag> } <def-name> { <extern-flag> } <full-signature>
+<extern-flag>     ::= "--strict"
 ; The signature argument takes every remaining item, so a body (the former
 ; `extern-wrapped`, still in nu's signature) never reaches it: `extern foo [] {}`
 ; drops the `{}` unparsed, the body positional in parse_extern_inner is dead code,
-; and `extern foo [] {} {}` is "colon (:) before type signature". No flags. For
-; extern signatures a default-value token is not parsed at all (`extern foo [x = 0x]`
+; and `extern foo [] {} {}` is "colon (:) before type signature". For the same
+; reason `--strict`, like the flags of a def, comes before or after the name only:
+; `extern foo [] --strict` is "colon (:) before type signature". For extern
+; signatures a default-value token is not parsed at all (`extern foo [x = 0x]`
 ; parses; the token is ignored text).
-; nu: parse_def.rs:370 parse_extern, 685 parse_extern_inner, 753-798; parse_calls.rs:655
-; here: src/parser/parse_def.rs::parse_extern,
-;       src/parser/parse_signatures.rs::parse_full_signature
+; `--strict` makes a call with a flag the signature doesn't declare an unknown flag
+; (the consumer's, 9.4: it needs the signature), except `--help`, a count (`-10`) and a
+; flag spelled at run time (`-$x`, `--(expr)`).
+; nu: parse_def.rs:388 parse_extern, 722 parse_extern_inner, 790 (`strict`), 841;
+;     parse_calls.rs:135 strict_extern_forwards, 1151; parse_calls.rs:655
+; here: src/parser/parse_def.rs::parse_extern, parse_definition_flags (before or after
+;       the name), src/parser/parse_signatures.rs::parse_full_signature
 
 ; ==== 6.4 alias, type ====
 

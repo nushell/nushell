@@ -1632,6 +1632,10 @@ impl<'a> Formatter<'a> {
             }
             Expr::Extern(x) => {
                 self.word("extern");
+                for f in &x.flags {
+                    self.spanned(f.span);
+                }
+                // `extern -- f`, `extern --strict -- f`.
                 self.end_of_options_before(x.name.span.start);
                 self.spanned(x.name.span);
                 self.signature(&x.signature);

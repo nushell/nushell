@@ -1,0 +1,6 @@
+error: expected `:` before the input/output types
+  --> reject/extern/strict-flag-after-signature.nu:1:20
+  |
+1 | extern foo [--bar] --strict
+  |                    ^^^^^^^^
+  = while parsing extern

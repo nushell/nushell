@@ -9,7 +9,7 @@ annotated with where `nu-winnow-parser` implements it. Section 9 is the
 scoreboard of differences between the two parsers, each one verified by
 running both; it was re-verified on 2026-09-26 against commit `7de074cfe`
 (the differential harness's), whose line numbers the rules added then cite.
-It stands at **1 open** (9.2); the rows closed so far are counted there and
+It stands at **3 open** (9.2); the rows closed so far are counted there and
 pinned as fixtures under `tests/fixtures/`, and 9.4 lists the checks that are
 a consumer's by design.
 
@@ -1220,7 +1220,8 @@ Vocabulary: `<expression>` is a `<pipeline-element>` (3.1); `<block>` is a
 ; flag between the signature and the body breaks the multi-span signature and one
 ; after the body leaves the body missing: in practice only before/after the name.
 ; nu: parse_def.rs:321 parse_def (via parse_internal_call)
-; here: src/parser/parse_def.rs::parse_def, parse_def_flags (before or after the name)
+; here: src/parser/parse_def.rs::parse_def, parse_definition_flags (before or after the
+;       name)
 
 <def-name>        ::= <string> - <reserved-definition-name>   ; bare or quoted (multi-word)
 <reserved-definition-name> ::= <parser-keyword> | <bad-definition-name>
@@ -1273,16 +1274,23 @@ Vocabulary: `<expression>` is a `<pipeline-element>` (3.1); `<block>` is a
 ;       its type from the text); src/parser/parse_calls.rs::parse_call_lenient (which
 ;       records it as Call::wrapped)
 
-<extern>          ::= "extern" <def-name> <full-signature>
+<extern>          ::= "extern" { <extern-flag> } <def-name> { <extern-flag> } <full-signature>
+<extern-flag>     ::= "--strict"
 ; The signature argument takes every remaining item, so a body (the former
 ; `extern-wrapped`, still in nu's signature) never reaches it: `extern foo [] {}`
 ; drops the `{}` unparsed, the body positional in parse_extern_inner is dead code,
-; and `extern foo [] {} {}` is "colon (:) before type signature". No flags. For
-; extern signatures a default-value token is not parsed at all (`extern foo [x = 0x]`
+; and `extern foo [] {} {}` is "colon (:) before type signature". For the same
+; reason `--strict`, like the flags of a def, comes before or after the name only:
+; `extern foo [] --strict` is "colon (:) before type signature". For extern
+; signatures a default-value token is not parsed at all (`extern foo [x = 0x]`
 ; parses; the token is ignored text).
-; nu: parse_def.rs:370 parse_extern, 685 parse_extern_inner, 753-798; parse_calls.rs:655
-; here: src/parser/parse_def.rs::parse_extern,
-;       src/parser/parse_signatures.rs::parse_full_signature
+; `--strict` makes a call with a flag the signature doesn't declare an unknown flag
+; (the consumer's, 9.4: it needs the signature), except `--help`, a count (`-10`) and a
+; flag spelled at run time (`-$x`, `--(expr)`).
+; nu: parse_def.rs:388 parse_extern, 722 parse_extern_inner, 790 (`strict`), 841;
+;     parse_calls.rs:135 strict_extern_forwards, 1151; parse_calls.rs:655
+; here: src/parser/parse_def.rs::parse_extern, parse_definition_flags (before or after
+;       the name), src/parser/parse_signatures.rs::parse_full_signature
 ```
 
 ### 6.4 alias, type
@@ -1769,14 +1777,14 @@ get nu-parser's full behaviour; none of it is decidable from the text alone.
 | module, file, overlay and plugin resolution; variable existence | files, module table, scope | `Call` heads, `Var` |
 | the commands a `use`d module brings into scope (`use std/log; log info`) | module resolution | `ParseConfig::add_commands`; without them such a head is an `ExternalCall` |
 
-## 9. Verified differences between nu-parser and this crate: 2 open
+## 9. Verified differences between nu-parser and this crate: 3 open
 
 Last verified on 2026-09-26 against nushell `7de074cfe` and `nu` 0.115.2.
 
 | section | kind of difference | closed | open |
 | --- | --- | --- | --- |
 | 9.1 | nu-parser rejects, this crate accepts | 31 | **0** |
-| 9.2 | nu-parser accepts, this crate rejects | 29 | **2** |
+| 9.2 | nu-parser accepts, this crate rejects | 29 | **3** |
 | 9.3 | both accept, but the parse differs | 11 | **0** |
 | 9.4 | needs a signature, a declaration, const-eval, a type or a file | | not a grammar difference: the consumer's checks, listed below |
 
@@ -1793,8 +1801,11 @@ command table is generated from that engine (`tools/scripts/gen-builtin-commands
 so both know the same commands. The harness keeps no list of tolerated
 differences; every disagreement it finds is counted and printed. Over the
 fixtures, the corpus, nu-std, nushell's own tests, nu_scripts, the command
-examples and the book it finds no syntactic disagreement; over their mutants
-with seed 1 it finds the two open rows of 9.2 and nothing else. Differences that nu reports only through type checking,
+examples and the book it finds no syntactic disagreement. The mutants (seed 1)
+move whenever the inputs do; the first two open rows of 9.2 were found that way.
+Over today's mutants the one disagreement is `use ~/.cargo/bin/nu_plugin_query`,
+on a machine with that plugin installed: nu parses the binary as a module file and
+reports its unbalanced delimiters (a file, 9.4). Differences that nu reports only through type checking,
 constant evaluation, signatures or module resolution are in 9.4, not counted
 as grammar gaps.
 
@@ -1802,7 +1813,7 @@ as grammar gaps.
 
 None known.
 
-### 9.2 nu-parser accepts, this crate rejects: 2 open
+### 9.2 nu-parser accepts, this crate rejects: 3 open
 
 An alias target whose first error is a missing positional nested inside it
 (`alias i = if if x y`, `alias i = if (if x) {}`, `alias i = if 1 + if x y`).
@@ -1827,6 +1838,13 @@ This crate ends the attribute lines at the blank line and reports "attributes
 must be followed by a definition". It predates the sync with nushell
 `2deff7fc5`: mutation fuzzing with seed 1 reached it once the fixtures grew. No
 real script is known to hit it.
+
+A flag of `def` or `extern` written with a value (`def --env=true f [] {}`,
+`extern --strict=false f []`). nu evaluates the value as a constant and sets the
+flag when it is true; this crate takes each flag as written (`--env`, `--wrapped`,
+`--strict`) and reports "doesn't have flag" for any other spelling. Closing it needs
+a value on `DefFlag`/`ExternFlag` and its lowering. Found while porting `extern
+--strict` (nushell `706259d6f`); no real script is known to hit it.
 
 ### 9.3 Both accept, but the parse differs: 0 open
 
@@ -1856,12 +1874,16 @@ submodule), and `2 | skip 0x[01 23 45 67]` (InvalidLiteral: `skip` takes an
   here (`def f [x: Pointt]`); nu reports an unknown one as UnknownType, one used above
   its `type` statement as TypeAliasUsedBeforeDefinition, one inside its own
   definition as TypeAliasSelfReference, and `Point<int>` for an alias as
-  TypeAliasWithParams (an unknown generic-looking name is an error here too).
+  TypeAliasWithParams (an unknown generic-looking name is an error here too). A name
+  no alias has is still a type in nu when some command declares it as an input or
+  output type: a custom value type such as `semver` or a plugin's `polars_dataframe`
+  (`find_custom_type`).
 - Negating a value that holds no number: `let s = 'a'; -$s` is OperatorUnsupportedType
   in nu, a negation here (5.1).
 - Flags of ordinary commands: unknown long or short flags (`foo --unknown`, `ls
-  -lx`, `ls ---all`, `ls --=a`); `--flag` without its value; `--switch=5`;
-  `--switch 1`; a non-last short flag taking a value.
+  -lx`, `ls ---all`, `ls --=a`), also those of an `extern --strict` command (6.3);
+  `--flag` without its value; `--switch=5`; `--switch 1`; a non-last short flag
+  taking a value.
 - Negative numbers: `echo -1`, `echo -.5`, `echo -1kb`, `echo -..3`, `ls -1`, `f -1`
   for a `string`/`any` parameter are "doesn't have flag" in nu; `-<digit>` after an
   ordinary command is a number here. `f -1` for `int`/`number` is accepted by both,

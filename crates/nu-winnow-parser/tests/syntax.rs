@@ -924,7 +924,16 @@ fn extern_alias_module_use_export() {
     let ast = ok("extern gh [--repo: string, ...args]: nothing -> string");
     let x = kind!(expr(&ast), Expr::Extern(x) => x);
     assert_eq!(x.name.item, "gh");
+    assert!(x.flags.is_empty());
     assert_eq!(x.signature.params.len(), 2);
+    // `--strict` before or after the name, as for the flags of `def`.
+    for src in ["extern --strict gh [--repo: string]", "extern gh --strict [--repo: string]"] {
+        let ast = ok(src);
+        let x = kind!(expr(&ast), Expr::Extern(x) => x);
+        assert_eq!(x.name.item, "gh", "{src}");
+        assert_eq!(x.flags.iter().map(|f| f.item).collect::<Vec<_>>(), vec![ExternFlag::Strict], "{src}");
+    }
+    assert!(parse("extern --wrapped gh [...args]").is_err());
     let ast = ok("alias ll = ls -l");
     let a = kind!(expr(&ast), Expr::Alias(a) => a);
     assert_eq!(a.name.item, "ll");

@@ -132,7 +132,7 @@ pub(crate) fn parse_unknown_arg(
 /// Whether `extern --strict` still forwards a flag its signature doesn't declare. `--help`
 /// reaches every command, a flag spelled at run time (`-$x`, `--(expr)`) can't be checked when
 /// parsing, and `-10` (as in `git log -10`) is a count rather than a cluster of short flags.
-fn strict_extern_forwards(word: &[u8]) -> bool {
+pub(crate) fn strict_extern_forwards(word: &[u8]) -> bool {
     match word {
         [b'-', b'-', b'$' | b'(', ..] | [b'-', b'$' | b'(', ..] => true,
         [b'-', b'-', flag @ ..] => flag

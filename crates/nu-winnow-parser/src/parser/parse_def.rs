@@ -6,7 +6,7 @@ use std::borrow::Cow;
 use winnow::Parser;
 use winnow::combinator::repeat;
 
-use crate::ast::{Block, Def, DefFlag, Expr, Expression, Extern, For, Signature};
+use crate::ast::{Block, Def, DefFlag, Expr, Expression, Extern, ExternFlag, For, Signature};
 use crate::error::{Diagnostic, ErrorKind};
 use crate::input::{ParseResult, cut};
 use crate::lex::{LexOptions, Token, TokenContents};
@@ -501,12 +501,12 @@ fn parse_def_name<'a>(working_set: &WorkingSet<'a>, token: &Token) -> ParseResul
 pub fn parse_def<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
     let working_set = tokens.working_set;
     let mut call = KeywordCall::start(&mut tokens)?;
-    let mut flags = parse_def_flags(&mut tokens)?;
+    let mut flags = parse_definition_flags(&mut tokens, "def", DEF_FLAGS)?;
     let Some(name) = call.positional(&mut tokens, "command name")? else { return call.help_call() };
     reject_name_item(working_set, &name)?;
     let name = parse_def_name(working_set, &name)?;
     check_definition_name(&name, "command")?;
-    flags.extend(parse_def_flags(&mut tokens)?);
+    flags.extend(parse_definition_flags(&mut tokens, "def", DEF_FLAGS)?);
     call.flags(&mut tokens)?;
     // The signature positional takes every remaining item but the last, which
     // is the body's: `def foo [] {} --help` drops the `{}` (two-item form of
@@ -594,16 +594,32 @@ fn check_wrapped_signature(signature: &Signature<'_>, name_span: Span) -> ParseR
     }
 }
 
-/// The `--env` and `--wrapped` flags of a `def`, up to a `--help`, a `--` or
-/// an item that is not a long flag.
-fn parse_def_flags(tokens: &mut Tokens<'_, '_>) -> ParseResult<Vec<Spanned<DefFlag>>> {
-    repeat(0.., def_flag).parse_next(tokens)
+/// The flags of a `def`.
+const DEF_FLAGS: &[(&str, DefFlag)] = &[("--env", DefFlag::Env), ("--wrapped", DefFlag::Wrapped)];
+
+/// The flags of an `extern`.
+const EXTERN_FLAGS: &[(&str, ExternFlag)] = &[("--strict", ExternFlag::Strict)];
+
+/// The flags of a `def` or an `extern` (its keyword), each written exactly as
+/// `known` lists it, up to a `--help`, a `--` or an item that is not a long
+/// flag.
+fn parse_definition_flags<Flag: Copy>(
+    tokens: &mut Tokens<'_, '_>,
+    keyword: &str,
+    known: &[(&str, Flag)],
+) -> ParseResult<Vec<Spanned<Flag>>> {
+    repeat(0.., |tokens: &mut Tokens<'_, '_>| definition_flag(tokens, keyword, known)).parse_next(tokens)
 }
 
-/// One `--env` or `--wrapped`. Backtracks at a `--help`, a `--` or an item
-/// that is not a long flag, which ends the `repeat` of [`parse_def_flags`]; any
-/// other long flag is an error.
-fn def_flag(tokens: &mut Tokens<'_, '_>) -> ParseResult<Spanned<DefFlag>> {
+/// One of the `known` flags. Backtracks at a `--help`, a `--` or an item that
+/// is not a long flag, which ends the `repeat` of [`parse_definition_flags`];
+/// any other long flag is an error, and so is a known one with a value
+/// (`--env=true`), which nu evaluates.
+fn definition_flag<Flag: Copy>(
+    tokens: &mut Tokens<'_, '_>,
+    keyword: &str,
+    known: &[(&str, Flag)],
+) -> ParseResult<Spanned<Flag>> {
     let working_set = tokens.working_set;
     let flag = item
         .verify(|token| {
@@ -611,22 +627,28 @@ fn def_flag(tokens: &mut Tokens<'_, '_>) -> ParseResult<Spanned<DefFlag>> {
             text.starts_with("--") && !matches!(text, "--help" | "--")
         })
         .parse_next(tokens)?;
-    match tokens.text(&flag) {
-        "--env" => Ok(Spanned::new(DefFlag::Env, flag.span)),
-        "--wrapped" => Ok(Spanned::new(DefFlag::Wrapped, flag.span)),
-        other => Err(cut(Diagnostic::message(format!("the `def` command doesn't have flag `{other}`"), flag.span)
-            .with_help("`def` accepts `--env` and `--wrapped`"))),
+    let text = tokens.text(&flag);
+    match known.iter().find(|(name, _)| *name == text) {
+        Some((_, value)) => Ok(Spanned::new(*value, flag.span)),
+        None => {
+            let accepted: Vec<String> = known.iter().map(|(name, _)| format!("`{name}`")).collect();
+            Err(cut(Diagnostic::message(format!("the `{keyword}` command doesn't have flag `{text}`"), flag.span)
+                .with_help(format!("`{keyword}` accepts {}", accepted.join(" and ")))))
+        }
     }
 }
 
-/// `extern name signature [: input/output types]`.
+/// `extern [--strict] name signature [: input/output types]`; nu also
+/// accepts the flag after the name.
 pub fn parse_extern<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
     let working_set = tokens.working_set;
     let mut call = KeywordCall::start(&mut tokens)?;
+    let mut flags = parse_definition_flags(&mut tokens, "extern", EXTERN_FLAGS)?;
     let Some(name) = call.positional(&mut tokens, "command name")? else { return call.help_call() };
     reject_name_item(working_set, &name)?;
     let name = parse_def_name(working_set, &name)?;
     check_definition_name(&name, "command")?;
+    flags.extend(parse_definition_flags(&mut tokens, "extern", EXTERN_FLAGS)?);
     call.flags(&mut tokens)?;
     let rest = tokens.remaining();
     let Some(last) = rest.last() else {
@@ -639,7 +661,7 @@ pub fn parse_extern<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a
     // (the old `extern-wrapped`) is dropped by nu without a look.
     let signature = parse_full_signature(working_set, rest, true)?;
     let span = call.keyword.span.merge(last.span);
-    call.finish(Expression::new(Expr::Extern(Box::new(Extern { name, signature })), span))
+    call.finish(Expression::new(Expr::Extern(Box::new(Extern { flags, name, signature })), span))
 }
 
 /// `for variable[: type] in iterable { block }`.

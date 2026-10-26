@@ -14,7 +14,7 @@
 use std::fmt::Write;
 
 use crate::ast::*;
-use crate::span::Span;
+use crate::span::{Span, Spanned};
 
 /// Render the AST as an indented tree, one node per line, with spans,
 /// followed by `Comments (n)` and `Ignored (n)` sections when they are not empty.
@@ -466,8 +466,7 @@ impl<'a> Printer<'a> {
                 }
             }
             Expr::Def(def) => {
-                let flags: Vec<_> = def.flags.iter().map(|flag| format!("{:?}", flag.item)).collect();
-                let flags = if flags.is_empty() { String::new() } else { format!(" [{}]", flags.join(", ")) };
+                let flags = flag_list(&def.flags);
                 self.line(format_args!("Def `{}`{flags} {span}", def.name.item));
                 self.nested(|printer| {
                     printer.signature(&def.signature);
@@ -479,7 +478,8 @@ impl<'a> Printer<'a> {
                 });
             }
             Expr::Extern(extern_declaration) => {
-                self.line(format_args!("Extern `{}` {span}", extern_declaration.name.item));
+                let flags = flag_list(&extern_declaration.flags);
+                self.line(format_args!("Extern `{}`{flags} {span}", extern_declaration.name.item));
                 self.nested(|printer| printer.signature(&extern_declaration.signature));
             }
             Expr::TypeAlias(alias) => {
@@ -611,4 +611,10 @@ impl<'a> Printer<'a> {
             Expr::Garbage => self.line(format_args!("Garbage {span}")),
         }
     }
+}
+
+/// The flags of a definition as ` [Env, Wrapped]`, or nothing when it has none.
+fn flag_list<Flag: std::fmt::Debug>(flags: &[Spanned<Flag>]) -> String {
+    let flags: Vec<_> = flags.iter().map(|flag| format!("{:?}", flag.item)).collect();
+    if flags.is_empty() { String::new() } else { format!(" [{}]", flags.join(", ")) }
 }

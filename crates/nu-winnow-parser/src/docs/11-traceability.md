@@ -35,6 +35,7 @@ enum name), with which its default value is parsed
 | nu-parser | here | fixtures | tests |
 | --- | --- | --- | --- |
 | `Any` | `parse_expressions::parse_value` with `ExpectedShape::Any` | `accept/calls/args-of-every-kind.nu` `accept/lists/mixed-values.nu` | `barewords_in_argument_position_are_strings` |
+| `Custom` | n/a (semantic: a custom value type a command declares, `semver` or a plugin's `polars_dataframe`); its name is an `ast::SyntaxShape::TypeAlias` here, which the consumer resolves (`parse_shape_specs::parse_type`) | `accept/signatures/custom-value-type-is-consumer.nu` | `types_in_signatures` |
 | `Binary` | `parse_literals::parse_binary` | `accept/literals/binary-*.nu` `reject/literals/binary-*.nu` | `binary_literals` `invalid_binary_literals` |
 | `Block` | `parse_expressions::parse_block_body`, reached through `parse_keywords::parse_block_argument` (statement bodies; `BraceShape::ClosureParams` and `BraceShape::Record` are refused first) | `accept/if/*.nu` `accept/loops/*.nu` `reject/closures/*-in-block-position.nu` `reject/if/then-block-is-record.nu` | `closures_and_blocks` |
 | `Boolean` | `parse_expressions::parse_any_value` (`true`/`false`) | `accept/literals/bool-true-false.nu` | `numbers` |
@@ -92,12 +93,12 @@ nu-parser does not have. `parse_keywords::KeywordCall` and
 | `export alias` | `parse_module::parse_export_in_block` + `parse_alias::parse_alias` | `accept/modules/export-forms.nu` | `extern_alias_module_use_export` |
 | `export const` | `parse_module::parse_export_in_block` + `parse_bindings::parse_const` | `accept/modules/export-forms.nu` | `extern_alias_module_use_export` |
 | `export def` | `parse_module::parse_export_in_block` + `parse_def::parse_def` | `accept/modules/export-forms.nu` `accept/attributes/before-export.nu` | `extern_alias_module_use_export` |
-| `export extern` | `parse_module::parse_export_in_block` + `parse_def::parse_extern` | `accept/modules/export-forms.nu` | `extern_alias_module_use_export` |
+| `export extern` | `parse_module::parse_export_in_block` + `parse_def::parse_extern` | `accept/modules/export-forms.nu` `accept/extern/export-strict-flag.nu` | `extern_alias_module_use_export` |
 | `export module` | `parse_module::parse_export_in_block` + `parse_module::parse_module` | `accept/modules/export-forms.nu` | `extern_alias_module_use_export` |
 | `export type` | `parse_module::parse_export_in_block` + `parse_type_alias::parse_type_alias` | `accept/modules/export-type.nu` | `type_alias_statements` |
 | `export use` | `parse_module::parse_export_in_block` + `parse_module::parse_use` | `accept/modules/export-forms.nu` | `extern_alias_module_use_export` |
 | `export-env` | `parse_module::parse_export_env` | `accept/modules/export-env-multiline.nu` `reject/modules/export-env-*.nu` | `extern_alias_module_use_export` |
-| `extern` | `parse_def::parse_extern` | `accept/extern/*.nu` `reject/def/extern-*.nu` | `extern_alias_module_use_export` |
+| `extern` | `parse_def::parse_extern`, `parse_definition_flags` (`--strict`, `ast::ExternFlag`) | `accept/extern/*.nu` `reject/def/extern-*.nu` `reject/extern/*.nu` | `extern_alias_module_use_export` |
 | `for` | `parse_def::parse_for` | `accept/loops/for-*.nu` `reject/loops/for-*.nu` | `loops_and_jumps` |
 | `hide` | an ordinary `Call` checked against its `KeywordSignature` (`parse_calls::check_call`); module resolution is semantic | `accept/modules/hide-and-source.nu` `reject/calls/hide-*.nu` `reject/pipelines/hide-*.nu` `reject/redirections/hide-redirected.nu` | `use_forms` |
 | `hide-env` | an ordinary `Call` | `accept/calls/keyword-named-commands.nu` | `use_forms` |

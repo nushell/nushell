@@ -636,6 +636,7 @@ fn keyword_signature(name: &str) -> Option<KeywordSignature> {
             KeywordSignature { required: 2, flags: const { &[flag_with_value("result")] }, redirectable: true, ..NONE }
         }
         "attr interactive" => KeywordSignature { redirectable: true, ..NONE },
+        "attr structured" => KeywordSignature { required: 2, redirectable: true, ..NONE },
         "attr search-terms" => KeywordSignature { rest: true, redirectable: true, ..NONE },
         _ => return None,
     })

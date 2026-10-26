@@ -335,6 +335,7 @@ fn keeps_end_of_options_after_keywords() {
         "let -- x\n",
         "def --env -- f [] { }\n",
         "extern foo -- []\n",
+        "extern --strict -- foo []\n",
         "use -- std\n",
     ] {
         assert_eq!(fmt(src), src, "{src}");
@@ -344,6 +345,18 @@ fn keeps_end_of_options_after_keywords() {
     // them, and never becomes an item.
     let out = fmt("[a o> -- b]\n");
     assert!(!out.contains("a -- b"), "{out}");
+}
+
+/// The flags of `def` and `extern` are written back; one written after the name moves before
+/// it, which nu reads the same.
+#[test]
+fn keeps_definition_flags() {
+    let fmt = |s: &str| format(s, &Options::default()).unwrap();
+    for src in ["def --env --wrapped f [...rest] { }\n", "extern --strict foo [--bar]\n"] {
+        assert_eq!(fmt(src), src, "{src}");
+        check(src, src);
+    }
+    assert_eq!(fmt("extern foo --strict [--bar]\n"), "extern --strict foo [--bar]\n");
 }
 
 /// Text nu accepts and discards (`Ast::ignored`) is not in the tree: the

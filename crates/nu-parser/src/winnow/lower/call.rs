@@ -14,6 +14,7 @@ use crate::{
     parse_calls::{
         CallKind, check_call, find_longest_decl_with_prefix, parse_external_string,
         parse_regular_external_arg, parse_unknown_arg, shape_allows_negative_number,
+        strict_extern_forwards,
     },
     parse_expressions::parse_value as classic_value,
     parse_keywords::is_parser_keyword,
@@ -417,14 +418,18 @@ impl<'s> Lower<'_, '_, 's> {
     }
 
     /// A flag the signature does not have: an unknown argument when the command takes them
-    /// (`extern`, `def --wrapped`), an error otherwise.
+    /// (`extern`, `def --wrapped`), an error otherwise. An `extern --strict` command takes only
+    /// the flags `strict_extern_forwards` lets through (`parse_internal_call`).
     fn unknown_flag(
         &mut self,
         call: &mut Call,
         token: Span,
         signature: &nu_protocol::Signature,
     ) -> Lowered<()> {
-        if !signature.allows_unknown_args {
+        if !signature.allows_unknown_args
+            || signature.rejects_unknown_flags
+                && !strict_extern_forwards(self.working_set.get_span_contents(token))
+        {
             return Err(Unlowered::Error);
         }
         let value = self.checked(|ws| parse_unknown_arg(ws, token, signature))?;

@@ -1458,10 +1458,20 @@ pub struct Def<'a> {
     pub body: Block<'a>,
 }
 
-/// `extern name [params]`.
+/// Flags on `extern`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+pub enum ExternFlag {
+    /// `--strict`: a call with a flag the signature does not declare is an error.
+    Strict,
+}
+
+/// `extern [--strict] name [params]`.
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct Extern<'a> {
+    /// `--strict`.
+    pub flags: Vec<Spanned<ExternFlag>>,
     /// The command name.
     pub name: Spanned<Cow<'a, str>>,
     /// The signature.
