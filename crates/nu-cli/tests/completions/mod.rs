@@ -623,6 +623,15 @@ fn custom_completions_wraps_builtin_commandline_complete_path() {
     vec!["foo bar".into()],
     3
 )]
+#[case::fuzzy_module_alias_subcommands(r#"
+    $env.config.completions.algorithm = "fuzzy"
+    module spam { export def foo [i?: string] {}; export def "foo bar" [] {} }
+    use spam
+    alias s = spam foo"#,
+    "s b", None,
+    vec!["spam foo bar".into()],
+    3
+)]
 /// Custom function flags mixed with subcommands
 #[case::flags_and_subcommands(r#"
     def foo [--test: directory] {}
@@ -2656,12 +2665,14 @@ fn command_rm_with_globcompletion() {
 #[rstest]
 #[case::cp_prefix("cp ", "prefix")]
 #[case::mv_fuzzy("mv ", "fuzzy")]
+#[case::alias_external_fuzzy("m ", "fuzzy")]
 fn command_with_globcompletion(#[case] target_dir: &str, #[case] algorithm: &str) {
     let (_, _, mut engine, mut stack) = new_engine();
     let commands = format!(
         r#"
         $env.config.completions.algorithm = "{algorithm}"
         def "semver bump" [] {{}}
+        alias m = ^mv
         "#
     );
     assert!(support::merge_input(commands.as_bytes(), &mut engine, &mut stack).is_ok());
@@ -2815,7 +2826,6 @@ fn subcommand_vs_external_completer() {
     let commands = r#"
             $env.config.completions.algorithm = "fuzzy"
             $env.config.completions.external.completer = {|input| ["external"]}
-            def foo-test-command [] {}
             def "foo-test-command bar" [] {}
             def "foo-test-command aagap bcr" [] {}
             def "food bar" [] {}
@@ -2823,21 +2833,22 @@ fn subcommand_vs_external_completer() {
     assert!(support::merge_input(commands.as_bytes(), &mut engine, &mut stack).is_ok());
     let mut subcommand_completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
 
-    let prefix = "fod br";
+    // An external head can have internal subcommands, with fuzzy matching on the suffix.
+    let prefix = "foo-test-command br";
     let suggestions = subcommand_completer.complete_blocking(prefix, prefix.len());
     match_suggestions(
         &vec![
             "external",
-            "food bar",
             "foo-test-command bar",
             "foo-test-command aagap bcr",
         ],
         &suggestions,
     );
 
+    // At an argument site, fuzzy matching must not replace the command head.
     let prefix = "foot bar";
     let suggestions = subcommand_completer.complete_blocking(prefix, prefix.len());
-    match_suggestions(&vec!["external", "foo-test-command bar"], &suggestions);
+    match_suggestions(&vec!["external"], &suggestions);
 }
 
 #[rstest]

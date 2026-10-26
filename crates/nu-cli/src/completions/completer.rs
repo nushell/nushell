@@ -1440,8 +1440,17 @@ impl<'engine> CompletionEngine<'engine> {
             });
 
         // Subcommands extending this call suppress the file fallback.
-        let subcommands =
-            self.subcommand_suggestions(working_set, buffer, external_call.span.start, site.cursor);
+        let resolved_head = match &head.expr {
+            Expr::String(name) | Expr::GlobPattern(name, _) => Some(name.as_str()),
+            _ => None,
+        };
+        let subcommands = self.subcommand_suggestions(
+            working_set,
+            buffer,
+            Span::new(external_call.span.start, site.cursor),
+            head.span,
+            resolved_head,
+        );
 
         // Add file completion when the source leaves the slot open.
         let wants_file = subcommands.is_empty()
@@ -1472,20 +1481,18 @@ impl<'engine> CompletionEngine<'engine> {
 
         let signature = working_set.get_decl(call.decl_id).signature();
 
-        // Restrict fuzzy matches to subcommands of this call, including its alias target,
-        // so unrelated command names cannot suppress the file-path fallback.
-        let head = String::from_utf8_lossy(working_set.get_span_contents(call.head));
-        let heads = [head.as_ref(), signature.name.as_str()];
-        let mut subcommands =
-            self.subcommand_suggestions(working_set, buffer, call.head.start, site.cursor);
-        subcommands.retain(|candidate| {
-            heads.iter().any(|head| {
-                let mut words = candidate.suggestion.value.split_ascii_whitespace();
-                head.split_ascii_whitespace()
-                    .all(|word| words.next() == Some(word))
-                    && words.next().is_some()
-            })
-        });
+        // Module declarations keep their unqualified signature name, but subcommands
+        // must extend the name visible in this scope, including when reached via an alias.
+        let resolved_head = working_set
+            .find_decl_name(call.decl_id)
+            .map(String::from_utf8_lossy);
+        let subcommands = self.subcommand_suggestions(
+            working_set,
+            buffer,
+            Span::new(call.head.start, site.cursor),
+            call.head,
+            resolved_head.as_deref(),
+        );
 
         // Value kinds share one shape; only the `ArgType`, completer lookup, and the
         // `declared_shape` used for the empty-slot fallback differ.
@@ -2173,24 +2180,30 @@ impl<'engine> CompletionEngine<'engine> {
         })
     }
 
-    /// Internal commands whose name extends the line so far (`foo test⌶` also offers
-    /// `foo test bar`); externals are excluded, since a multi-word line names only
-    /// internal subcommands.
+    /// Internal subcommands extending this call's typed or resolved head. Restrict
+    /// candidates before fuzzy matching so unrelated names cannot suppress file completion.
     fn subcommand_suggestions(
         &self,
         working_set: &StateWorkingSet,
         buffer: Buffer,
-        command_start: usize,
-        cursor: usize,
+        span: Span,
+        head: Span,
+        resolved_head: Option<&str>,
     ) -> Fetched {
-        if cursor <= command_start {
+        if span.end <= span.start {
             return Fetched::default();
         }
+        let typed_head = String::from_utf8_lossy(working_set.get_span_contents(head));
+        let heads = std::iter::once(typed_head.as_ref())
+            .chain(resolved_head)
+            .filter(|head| !head.trim_ascii().is_empty())
+            .map(str::to_owned)
+            .collect();
         self.command_completion_helper(
             working_set,
             buffer,
-            Span::new(command_start, cursor),
-            CommandCompletion::new(CommandScope::InternalsOnly),
+            span,
+            CommandCompletion::subcommands(heads),
         )
     }
 
