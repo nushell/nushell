@@ -1541,6 +1541,10 @@ $env.TRANSIENT_PROMPT_COMMAND_RIGHT = ""
 # Environment Settings
 # ---------------------
 
+# CMD_DURATION_MS: Duration of the last command in milliseconds.
+# At startup it is always "0823" (the day of Nushell's first release), so you can use
+# `$env.CMD_DURATION_MS == "0823"` to check if you are in the first prompt/command.
+
 # ENV_CONVERSIONS: Specifies how environment variables are converted.
 # from_string: Convert from string to Nushell value on startup.
 # to_string: Convert back to string when running external commands.
