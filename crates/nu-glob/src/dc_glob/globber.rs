@@ -1,4 +1,4 @@
-use super::compiler::Program;
+use super::compiler::{Instruction, Program};
 use super::matcher::{MatchResult, path_matches};
 use crate::{MatchOptions, Pattern};
 use std::fs;
@@ -81,8 +81,24 @@ pub fn glob_with_options(
         .clone()
         .unwrap_or_else(|| base_dir.clone());
     let current_dir = traversal_start_dir(&program, &traversal_base);
+    let literal_pattern = program.instructions.len() > 1
+        && program.instructions.iter().all(|instruction| {
+            matches!(
+                instruction,
+                Instruction::Prefix(_)
+                    | Instruction::RootDir
+                    | Instruction::CurDir
+                    | Instruction::ParentDir
+                    | Instruction::LiteralString(_)
+                    | Instruction::Separator
+                    | Instruction::Complete
+            )
+        });
 
     rayon::spawn(move || {
+        if interrupt.is_set() {
+            return;
+        }
         // For relative programs we can start traversal at a static prefix, but we
         // still emit and match paths relative to the original base directory.
         let output_relative_to = if program.absolute_prefix.is_some() {
@@ -113,25 +129,25 @@ pub fn glob_with_options(
             fast_path: fast_path.as_ref(),
         };
 
-        // Patterns ending in bare `**` match the directory where traversal
-        // begins (rust-lang/glob / nu-glob recursive-ending behavior). For bare
-        // `**` that is the empty relative path; for `foo/**` it is `foo` (the
-        // literal prefix that `traversal_start_dir` advanced into). Apply the
-        // same exclude / depth / directory-only rules as complete-match emission.
-        if program.trailing_recursive {
-            maybe_emit_trailing_recursive_start(&current_dir, &state);
+        // A literal pattern names the start path itself. A trailing `**` also
+        // includes the start directory, but other wildcard patterns must not
+        // gain an empty match for the walk root.
+        if literal_pattern || program.trailing_recursive {
+            maybe_emit_start(&current_dir, &state);
         }
 
-        glob_to(&current_dir, 0, state)
+        if !literal_pattern {
+            glob_to(&current_dir, 0, state)
+        }
     });
     rx.into_iter()
 }
 
-/// Emit the traversal-start directory for patterns ending in bare `**`.
+/// Emit the traversal-start path for literal or trailing-recursive patterns.
 ///
 /// Walk depth for this candidate is 0 (the walk root). Uses the same exclude
 /// and `max_depth` gates as [`handle_path_candidate`].
-fn maybe_emit_trailing_recursive_start(current_dir: &Path, state: &WalkState<'_>) {
+fn maybe_emit_start(current_dir: &Path, state: &WalkState<'_>) {
     let program = state.program;
     let match_path = if program.absolute_prefix.is_some() {
         current_dir.to_path_buf()
@@ -165,11 +181,31 @@ fn maybe_emit_trailing_recursive_start(current_dir: &Path, state: &WalkState<'_>
     // Walk depth for the start directory is 0. `max_depth` is `Option<usize>`,
     // so depth 0 is always within range (same as `candidate_depth <= max` with 0).
 
-    // Trailing `**` is directory-only; only emit if the start path is a dir.
-    let is_dir = fs::metadata(current_dir)
-        .map(|m| m.is_dir())
-        .unwrap_or(false);
-    if !is_dir {
+    // Literal paths may name files or symlinks; trailing `**` is directory-only.
+    let metadata = if program.trailing_recursive {
+        fs::metadata(current_dir)
+    } else {
+        fs::symlink_metadata(current_dir)
+    };
+    let metadata = match metadata {
+        Ok(metadata) => metadata,
+        Err(err) => {
+            // Missing literal paths are ordinary non-matches. Other failures
+            // must still reach callers; recursive walks report their own errors.
+            if !program.trailing_recursive
+                && !matches!(
+                    err.kind(),
+                    std::io::ErrorKind::NotFound | std::io::ErrorKind::NotADirectory
+                )
+            {
+                let _ = state
+                    .tx
+                    .send(Err(anyhow!("{}: {}", current_dir.display(), err)));
+            }
+            return;
+        }
+    };
+    if program.trailing_recursive && !metadata.is_dir() {
         return;
     }
 
@@ -207,7 +243,10 @@ fn traversal_start_dir(program: &Program, base: &Path) -> PathBuf {
                 i += 1;
             }
             super::compiler::Instruction::ParentDir => {
-                out.pop();
+                // Keep the lexical component so paths stripped relative to
+                // the original base still match `../` in the program. This
+                // also lets the filesystem resolve parents through symlinks.
+                out.push("..");
                 i += 1;
             }
             _ => break,

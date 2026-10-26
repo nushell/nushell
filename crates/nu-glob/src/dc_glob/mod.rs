@@ -376,6 +376,211 @@ mod tests {
     }
 
     #[test]
+    fn glob_with_explicit_current_directory_prefix() {
+        let root = unique_test_dir("current_directory");
+        write_file(&root.join("one.txt"));
+        write_file(&root.join("nested/two.txt"));
+
+        let paths = collect_ok_paths(
+            glob_with(&root, "./*.txt", &GlobWalkOptions::default())
+                .expect("current-directory glob should compile"),
+        )
+        .expect("current-directory glob should traverse");
+        assert_eq!(paths, vec!["one.txt"]);
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn glob_with_explicit_parent_directory_prefix() {
+        let root = unique_test_dir("parent_directory");
+        write_file(&root.join("one.txt"));
+        write_file(&root.join("child/grandchild/local.txt"));
+
+        for (base, pattern, expected) in [
+            (
+                root.join("child"),
+                "../*.txt",
+                expected_path(&["..", "one.txt"]),
+            ),
+            (
+                root.join("child/grandchild"),
+                "../../*.txt",
+                expected_path(&["..", "..", "one.txt"]),
+            ),
+        ] {
+            let paths = collect_ok_paths(
+                glob_with(base, pattern, &GlobWalkOptions::default())
+                    .expect("parent-directory glob should compile"),
+            )
+            .expect("parent-directory glob should traverse");
+            assert_eq!(paths, vec![expected], "pattern: {pattern}");
+        }
+
+        for pattern in ["../missing", "../one.txt/missing"] {
+            let paths = collect_ok_paths(
+                glob_with(root.join("child"), pattern, &GlobWalkOptions::default())
+                    .expect("missing literal glob should compile"),
+            )
+            .expect("missing literal glob should be an ordinary non-match");
+            assert!(paths.is_empty(), "pattern: {pattern}");
+        }
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn glob_with_parent_directory_recursion() {
+        let root = unique_test_dir("parent_recursion");
+        write_file(&root.join("one.txt"));
+        write_file(&root.join("child/two.txt"));
+        write_file(&root.join("sibling/deep/three.txt"));
+
+        let paths = collect_ok_paths(
+            glob_with(
+                root.join("child"),
+                "../**/*.txt",
+                &GlobWalkOptions::default(),
+            )
+            .expect("recursive parent glob should compile"),
+        )
+        .expect("recursive parent glob should traverse");
+        let mut expected = vec![
+            expected_path(&["..", "one.txt"]),
+            expected_path(&["..", "child", "two.txt"]),
+            expected_path(&["..", "sibling", "deep", "three.txt"]),
+        ];
+        expected.sort();
+        assert_eq!(paths, expected);
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn glob_with_explicit_directory_and_literal_paths() {
+        let root = unique_test_dir("literal_relative_paths");
+        write_file(&root.join("one.txt"));
+        fs::create_dir_all(root.join("child")).expect("failed to create child directory");
+
+        for (pattern, expected) in [
+            (".", String::new()),
+            ("..", "..".to_string()),
+            ("../child", expected_path(&["..", "child"])),
+            ("../one.txt", expected_path(&["..", "one.txt"])),
+        ] {
+            let paths = collect_ok_paths(
+                glob_with(root.join("child"), pattern, &GlobWalkOptions::default())
+                    .expect("literal relative glob should compile"),
+            )
+            .expect("literal relative glob should traverse");
+            assert_eq!(paths, vec![expected], "pattern: {pattern}");
+        }
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn glob_with_parent_directory_respects_depth_and_excludes() {
+        let root = unique_test_dir("parent_options");
+        write_file(&root.join("one.txt"));
+        write_file(&root.join("child/two.txt"));
+        write_file(&root.join("skip/three.txt"));
+        let options = GlobWalkOptions {
+            max_depth: Some(2),
+            excludes: vec!["../skip/**".to_string()],
+            ..Default::default()
+        };
+
+        let paths = collect_ok_paths(
+            glob_with(root.join("child"), "../**/*.txt", &options)
+                .expect("parent glob with options should compile"),
+        )
+        .expect("parent glob with options should traverse");
+        let mut expected = vec![
+            expected_path(&["..", "one.txt"]),
+            expected_path(&["..", "child", "two.txt"]),
+        ];
+        expected.sort();
+        assert_eq!(paths, expected);
+
+        let options = GlobWalkOptions {
+            max_depth: Some(1),
+            ..options
+        };
+        let paths = collect_ok_paths(
+            glob_with(root.join("child"), "../**/*.txt", &options)
+                .expect("shallow parent glob should compile"),
+        )
+        .expect("shallow parent glob should traverse");
+        assert_eq!(paths, vec![expected_path(&["..", "one.txt"])]);
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn glob_with_literal_relative_path_respects_excludes_and_interrupt() {
+        let root = unique_test_dir("literal_options");
+        fs::create_dir_all(root.join("child")).expect("failed to create child directory");
+        let options = GlobWalkOptions {
+            excludes: vec!["..".to_string()],
+            ..Default::default()
+        };
+        let paths = collect_ok_paths(
+            glob_with(root.join("child"), "..", &options)
+                .expect("excluded literal glob should compile"),
+        )
+        .expect("excluded literal glob should traverse");
+        assert!(paths.is_empty());
+
+        let options = GlobWalkOptions {
+            interrupt: Some(Arc::new(AtomicBool::new(true))),
+            ..Default::default()
+        };
+        let paths = collect_ok_paths(
+            glob_with(&root, ".", &options).expect("interrupted literal glob should compile"),
+        )
+        .expect("interrupted literal glob should finish");
+        assert!(paths.is_empty());
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn glob_with_parent_after_symlink_uses_filesystem_parent() {
+        let root = unique_test_dir("symlink_parent");
+        write_file(&root.join("wrong.txt"));
+        write_file(&root.join("target/correct.txt"));
+        fs::create_dir_all(root.join("target/child")).expect("failed to create symlink target");
+        std::os::unix::fs::symlink(root.join("target/child"), root.join("link"))
+            .expect("failed to create directory symlink");
+
+        let paths = collect_ok_paths(
+            glob_with(&root, "link/../*.txt", &GlobWalkOptions::default())
+                .expect("symlink-parent glob should compile"),
+        )
+        .expect("symlink-parent glob should traverse");
+        assert_eq!(paths, vec![expected_path(&["link", "..", "correct.txt"])]);
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn glob_with_literal_symlink_loop_reports_error() {
+        let root = unique_test_dir("literal_symlink_loop");
+        fs::create_dir_all(&root).expect("failed to create root directory");
+        std::os::unix::fs::symlink("loop", root.join("loop"))
+            .expect("failed to create symlink loop");
+
+        let mut paths = glob_with(&root, "loop/file", &GlobWalkOptions::default())
+            .expect("literal glob should compile");
+        assert!(matches!(paths.next(), Some(Err(_))));
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
     fn glob_with_respects_depth_limit() {
         let root = unique_test_dir("depth");
         fs::create_dir_all(&root).expect("failed to create root test directory");

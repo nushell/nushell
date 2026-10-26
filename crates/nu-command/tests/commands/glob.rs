@@ -195,6 +195,54 @@ fn glob_follow_symlinks() -> Result {
 
 #[test]
 #[exp(nu_experimental::DC_GLOB)]
+fn glob_dc_glob_explicit_relative_paths() -> Result {
+    Playground::setup("glob_dc_explicit_relative_paths", |dirs, sandbox| {
+        sandbox.with_files(&[EmptyFile("root.txt")]);
+        sandbox.within("a").with_files(&[EmptyFile("parent.txt")]);
+        sandbox.within("a/b").with_files(&[EmptyFile("local.txt")]);
+        sandbox
+            .within("a/b/deep")
+            .with_files(&[EmptyFile("nested.txt")]);
+        sandbox
+            .within("a/sibling")
+            .with_files(&[EmptyFile("sibling.txt")]);
+
+        for (pattern, expected) in [
+            (".", "[$cwd]"),
+            ("..", "[$parent]"),
+            ("./*.txt", "[($cwd | path join local.txt)]"),
+            ("../*.txt", "[($parent | path join parent.txt)]"),
+            ("../../*.txt", "[($root | path join root.txt)]"),
+            (
+                "../**",
+                "[$parent $cwd ($cwd | path join deep) ($parent | path join sibling)]",
+            ),
+            (
+                "../**/*.txt",
+                "[($parent | path join parent.txt) ($cwd | path join local.txt) ($cwd | path join deep/nested.txt) ($parent | path join sibling/sibling.txt)]",
+            ),
+        ] {
+            test()
+                .cwd(dirs.test().join("a/b"))
+                .run(format!(
+                    "let cwd = (pwd | path expand); \
+                     let parent = ($cwd | path dirname); \
+                     let root = ($parent | path dirname); \
+                     let expected = ({expected} | each {{ path expand }} | sort); \
+                     (glob '{pattern}' | each {{ path expand }} | sort) == $expected"
+                ))
+                .expect_value_eq(true)
+                .expect(&format!(
+                    "relative pattern {pattern} should return its exact paths"
+                ));
+        }
+    });
+
+    Ok(())
+}
+
+#[test]
+#[exp(nu_experimental::DC_GLOB)]
 fn glob_dc_glob_supports_depth_and_exclude() -> Result {
     Playground::setup("glob_dc_depth_exclude", |dirs, sandbox| {
         sandbox.with_files(&[EmptyFile("three.txt"), EmptyFile("four.txt")]);
