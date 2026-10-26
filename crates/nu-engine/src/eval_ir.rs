@@ -14,7 +14,7 @@ use nu_protocol::{
         Argument, Closure, EngineState, EnvName, ErrorHandler, Matcher, Redirection, Stack,
         StateWorkingSet, TryHandler, env_var_eq,
     },
-    ir::{Call, DataSlice, Instruction, IrAstRef, IrBlock, Literal, RedirectMode},
+    ir::{Call, DataSlice, Instruction, IrBlock, Literal, RedirectMode},
     shell_error::{
         eval_block_with_input::EvalBlockWithInputError, generic::GenericError, io::IoError,
     },
@@ -285,14 +285,13 @@ fn eval_ir_block_impl<D: DebugContext>(
     while pc < ir_block.instructions.len() {
         let instruction = &ir_block.instructions[pc];
         let span = &ir_block.spans[pc];
-        let ast = &ir_block.ast[pc];
 
         // So `scope` can match inlined keyword-body bindings via ScopeRegion.
         ctx.stack.ir_instruction_index = Some(pc);
 
         D::enter_instruction(ctx.engine_state, ctx.stack, ir_block, pc, ctx.registers);
 
-        let result = eval_instruction::<D>(ctx, instruction, span, ast, need_backtrace);
+        let result = eval_instruction::<D>(ctx, instruction, span, need_backtrace);
 
         D::leave_instruction(
             ctx.engine_state,
@@ -549,7 +548,6 @@ fn eval_instruction<D: DebugContext>(
     ctx: &mut EvalContext<'_>,
     instruction: &Instruction,
     span: &Span,
-    ast: &Option<IrAstRef>,
     need_backtrace: bool,
 ) -> Result<InstructionResult, ShellError> {
     use self::InstructionResult::*;
@@ -723,20 +721,16 @@ fn eval_instruction<D: DebugContext>(
             // Keep the value's own span (e.g. definition span from load-variable-origin for
             // `metadata $var`). Argument::span still records where the arg appears in the call.
             let val = ctx.collect_reg(*src, *span)?;
-            ctx.stack.arguments.push(Argument::Positional {
-                span: *span,
-                val,
-                ast: ast.clone().map(|ast_ref| ast_ref.0),
-            });
+            ctx.stack
+                .arguments
+                .push(Argument::Positional { span: *span, val });
             Ok(Continue)
         }
         Instruction::AppendRest { src } => {
             let vals = ctx.collect_reg(*src, *span)?;
-            ctx.stack.arguments.push(Argument::Spread {
-                span: *span,
-                vals,
-                ast: ast.clone().map(|ast_ref| ast_ref.0),
-            });
+            ctx.stack
+                .arguments
+                .push(Argument::Spread { span: *span, vals });
             Ok(Continue)
         }
         Instruction::PushFlag { name } => {
@@ -770,7 +764,6 @@ fn eval_instruction<D: DebugContext>(
                 short: DataSlice::empty(),
                 span: *span,
                 val,
-                ast: ast.clone().map(|ast_ref| ast_ref.0),
             });
             Ok(Continue)
         }
@@ -783,7 +776,6 @@ fn eval_instruction<D: DebugContext>(
                 short: *short,
                 span: *span,
                 val,
-                ast: ast.clone().map(|ast_ref| ast_ref.0),
             });
             Ok(Continue)
         }

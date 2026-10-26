@@ -1,7 +1,7 @@
 use nu_protocol::{
     CompileError, IntoSpanned, RegId, Span, Spanned,
     ast::Pattern,
-    ir::{DataSlice, Instruction, IrAstRef, IrBlock, Literal, ScopeRegion},
+    ir::{DataSlice, Instruction, IrBlock, Literal, ScopeRegion},
 };
 
 /// A label identifier. Only exists while building code. Replaced with the actual target.
@@ -21,13 +21,11 @@ pub(crate) struct BlockBuilder {
     /// an index actually set.
     pub(crate) labels: Vec<Option<usize>>,
     pub(crate) data: Vec<u8>,
-    /// The AST of the instructions that have one, as (instruction index, AST) pairs. Only the last
-    /// instruction pushed ever gets one, so the indices increase. Few instructions have one, so
-    /// this and `comments` are only expanded to one entry per instruction by [`finish()`].
+    /// The comments of the instructions that have one, as (instruction index, comment) pairs.
+    /// Only the last instruction pushed ever gets one, so the indices increase. Few instructions
+    /// have one, so this is only expanded to one entry per instruction by [`finish()`].
     ///
     /// [`finish()`]: Self::finish
-    pub(crate) ast: Vec<(usize, IrAstRef)>,
-    /// The comments of the instructions that have one, like `ast`.
     pub(crate) comments: Vec<(usize, String)>,
     pub(crate) register_allocation_state: Vec<bool>,
     pub(crate) file_count: u32,
@@ -45,7 +43,6 @@ impl BlockBuilder {
             spans: vec![],
             labels: vec![],
             data: vec![],
-            ast: vec![],
             comments: vec![],
             register_allocation_state: vec![true],
             file_count: 0,
@@ -341,18 +338,6 @@ impl BlockBuilder {
             .expect("no last instruction")
     }
 
-    /// Set the AST of the last instruction. Separate method because it's rarely used.
-    pub(crate) fn set_last_ast(&mut self, ast_ref: Option<IrAstRef>) {
-        let index = self.last_index();
-        // An entry for the last instruction can only be the last entry.
-        if self.ast.last().is_some_and(|(last, _)| *last == index) {
-            self.ast.pop();
-        }
-        if let Some(ast_ref) = ast_ref {
-            self.ast.push((index, ast_ref));
-        }
-    }
-
     /// Add a comment to the last instruction.
     pub(crate) fn add_comment(&mut self, comment: &str) {
         let index = self.last_index();
@@ -629,17 +614,10 @@ impl BlockBuilder {
             }
         }
 
-        // One AST entry per instruction; instructions without one get `None`.
-        let mut ast = vec![None; self.instructions.len()];
-        for (index, ast_ref) in self.ast {
-            ast[index] = Some(ast_ref);
-        }
-
         Ok(IrBlock {
             instructions: self.instructions,
             spans: self.spans,
             data: self.data.into(),
-            ast,
             comments: comments.into_iter().map(String::into_boxed_str).collect(),
             register_count: self
                 .register_allocation_state

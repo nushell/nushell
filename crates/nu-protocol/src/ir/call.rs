@@ -141,23 +141,6 @@ impl Call {
         self.positional_iter(stack).nth(index)
     }
 
-    /// Get the AST node for a positional argument by index. Not usually available unless the decl
-    /// required it.
-    pub fn positional_ast<'a>(
-        &self,
-        stack: &'a Stack,
-        index: usize,
-    ) -> Option<&'a Arc<Expression>> {
-        self.arguments(stack)
-            .iter()
-            .filter_map(|arg| match arg {
-                Argument::Positional { ast, .. } => Some(ast),
-                _ => None,
-            })
-            .nth(index)
-            .and_then(|option| option.as_ref())
-    }
-
     /// Returns every argument to the rest parameter, as well as whether each argument
     /// is spread or a normal positional argument (true for spread, false for normal)
     pub fn rest_iter<'a>(
@@ -248,26 +231,12 @@ impl CallBuilder {
 
     /// Add a positional argument to the [`Stack`] and reference it from the [`Call`].
     pub fn add_positional(&mut self, stack: &mut Stack, span: Span, val: Value) -> &mut Self {
-        self.add_argument(
-            stack,
-            Argument::Positional {
-                span,
-                val,
-                ast: None,
-            },
-        )
+        self.add_argument(stack, Argument::Positional { span, val })
     }
 
     /// Add a spread argument to the [`Stack`] and reference it from the [`Call`].
     pub fn add_spread(&mut self, stack: &mut Stack, span: Span, vals: Value) -> &mut Self {
-        self.add_argument(
-            stack,
-            Argument::Spread {
-                span,
-                vals,
-                ast: None,
-            },
-        )
+        self.add_argument(stack, Argument::Spread { span, vals })
     }
 
     /// Add a flag (no-value named) argument to the [`Stack`] and reference it from the [`Call`].
@@ -308,7 +277,6 @@ impl CallBuilder {
                 short,
                 span,
                 val,
-                ast: None,
             },
         )
     }

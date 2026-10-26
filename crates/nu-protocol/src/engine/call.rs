@@ -185,18 +185,6 @@ impl Call<'_> {
             CallImpl::IrBox(call) => by_ir(call, stack, starting_pos),
         }
     }
-
-    /// Get the original AST expression for a positional argument.
-    ///
-    /// Under IR this is usually `None`: argument AST is not retained for builtins.
-    pub fn positional_nth<'a>(&'a self, stack: &'a Stack, index: usize) -> Option<&'a Expression> {
-        match &self.inner {
-            CallImpl::AstRef(call) => call.positional_iter().nth(index),
-            CallImpl::AstBox(call) => call.positional_iter().nth(index),
-            CallImpl::IrRef(call) => call.positional_ast(stack, index).map(|arc| arc.as_ref()),
-            CallImpl::IrBox(call) => call.positional_ast(stack, index).map(|arc| arc.as_ref()),
-        }
-    }
 }
 
 impl CallImpl<'_> {

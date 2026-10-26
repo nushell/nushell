@@ -39,7 +39,6 @@ pub struct IrBlock {
     pub spans: Vec<Span>,
     #[serde(with = "serde_arc_u8_array")]
     pub data: Arc<[u8]>,
-    pub ast: Vec<Option<IrAstRef>>,
     /// Additional information that can be added to help with debugging
     pub comments: Vec<Box<str>>,
     pub register_count: u32,
@@ -52,7 +51,6 @@ pub struct IrBlock {
 
 impl fmt::Debug for IrBlock {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // the ast field is too verbose and doesn't add much
         f.debug_struct("IrBlock")
             .field("instructions", &self.instructions)
             .field("spans", &self.spans)
@@ -61,7 +59,7 @@ impl fmt::Debug for IrBlock {
             .field("register_count", &self.register_count)
             .field("file_count", &self.file_count)
             .field("scope_regions", &self.scope_regions.len())
-            .finish_non_exhaustive()
+            .finish()
     }
 }
 
@@ -96,29 +94,6 @@ impl std::ops::Index<DataSlice> for [u8] {
 
     fn index(&self, index: DataSlice) -> &Self::Output {
         &self[index.start as usize..(index.start as usize + index.len as usize)]
-    }
-}
-
-/// A possible reference into the abstract syntax tree for an instruction. This is not present for
-/// most instructions and is just added when needed.
-#[derive(Debug, Clone)]
-pub struct IrAstRef(pub Arc<Expression>);
-
-impl Serialize for IrAstRef {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        self.0.as_ref().serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for IrAstRef {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        Expression::deserialize(deserializer).map(|expr| IrAstRef(Arc::new(expr)))
     }
 }
 
