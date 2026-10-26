@@ -115,3 +115,11 @@ fn split_column_number_error() -> Result {
     test().run(code).expect_shell_error()?;
     Ok(())
 }
+
+#[test]
+fn split_column_duplicate_column_error() -> Result {
+    let code = r#"'a-b' | split column '-' col col"#;
+    test()
+        .run(code)
+        .expect_error_code_eq("nu::shell::column_defined_twice")
+}

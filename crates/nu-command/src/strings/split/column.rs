@@ -151,6 +151,7 @@ impl Command for SplitColumn {
     ) -> Result<PipelineData, ShellError> {
         let separator: Spanned<String> = call.req(engine_state, stack, 0)?;
         let rest: Vec<Spanned<String>> = call.rest(engine_state, stack, 1)?;
+        check_duplicate_columns(&rest)?;
         let collapse_empty = call.has_flag(engine_state, stack, "collapse-empty")?;
         let max_split: Option<usize> = call.get_flag(engine_state, stack, "number")?;
         let split_from_right = call.has_flag(engine_state, stack, "right")?;
@@ -176,6 +177,7 @@ impl Command for SplitColumn {
     ) -> Result<PipelineData, ShellError> {
         let separator: Spanned<String> = call.req_const(working_set, stack, 0)?;
         let rest: Vec<Spanned<String>> = call.rest_const(working_set, stack, 1)?;
+        check_duplicate_columns(&rest)?;
         let collapse_empty = call.has_flag_const(working_set, stack, "collapse-empty")?;
         let max_split: Option<usize> = call.get_flag_const(working_set, stack, "number")?;
         let split_from_right = call.has_flag_const(working_set, stack, "right")?;
@@ -312,4 +314,18 @@ mod test {
     fn test_examples() -> nu_test_support::Result {
         nu_test_support::test().examples(SplitColumn)
     }
+}
+
+fn check_duplicate_columns(rest: &[Spanned<String>]) -> Result<(), ShellError> {
+    let mut seen = std::collections::HashMap::new();
+    for col in rest {
+        if let Some(prev_span) = seen.insert(&col.item, col.span) {
+            return Err(ShellError::ColumnDefinedTwice {
+                col_name: col.item.clone(),
+                second_use: col.span,
+                first_use: prev_span,
+            });
+        }
+    }
+    Ok(())
 }
