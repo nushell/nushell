@@ -276,14 +276,10 @@ fn call_argument<'a>(tokens: &mut Tokens<'_, 'a>, wrapped: bool) -> ParseResult<
     Ok(match text {
         "--" => Argument::EndOfOptions(span),
         _ if text.starts_with("--") && text.len() > 2 => {
-            let rest = &text[2..];
-            let (name, value) = match rest.split_once('=') {
-                Some((_, "")) => return Err(cut(Diagnostic::expected("value after `=`", span.past()))),
-                Some((name, _)) => {
-                    let value_span = Span::new(span.start + 3 + name.len(), span.end);
-                    (name, Some(Box::new(parse_argument_value(working_set, value_span, wrapped)?)))
-                }
-                None => (rest, None),
+            let (name, value_span) = split_long_flag(text, span)?;
+            let value = match value_span {
+                Some(value_span) => Some(Box::new(parse_argument_value(working_set, value_span, wrapped)?)),
+                None => None,
             };
             Argument::Named(NamedArgument { span, name, long: true, value })
         }
@@ -297,6 +293,52 @@ fn call_argument<'a>(tokens: &mut Tokens<'_, 'a>, wrapped: bool) -> ParseResult<
         }
         _ => Argument::Positional(parse_argument_value(working_set, span, wrapped)?),
     })
+}
+
+/// The name of the long flag `text` at `span` without its dashes, and the span
+/// of its value when it is written `--name=value`; `--name=` is an error.
+pub(super) fn split_long_flag(text: &str, span: Span) -> ParseResult<(&str, Option<Span>)> {
+    let rest = &text[2..];
+    match rest.split_once('=') {
+        Some((_, "")) => Err(cut(Diagnostic::expected("value after `=`", span.past()))),
+        Some((name, _)) => Ok((name, Some(Span::new(span.start + 3 + name.len(), span.end)))),
+        None => Ok((rest, None)),
+    }
+}
+
+/// The value of a switch written `--switch=value`, `--help=value` included:
+/// nu parses it as a `bool` (`true`, `false`, or a variable or subexpression
+/// it evaluates later), so `--help=1` is an error.
+pub(super) fn parse_switch_value<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResult<Expression<'a>> {
+    parse_value(working_set, span, ExpectedShape::Declared(&SyntaxShape::Boolean))
+}
+
+/// Check that `value`, the value of a switch that a call's arguments parsed
+/// as any value, is one [`parse_switch_value`] takes. A `true` or `false`, a
+/// variable or a subexpression parses the same way as either, so only the
+/// rest is parsed again.
+fn check_switch_value(working_set: &WorkingSet<'_>, value: &Expression<'_>) -> ParseResult<()> {
+    let text = working_set.get_span_contents(value.span);
+    if matches!(value.expr, Expr::Bool(_)) || text.starts_with(['$', '(']) {
+        return Ok(());
+    }
+    parse_switch_value(working_set, value.span).map(drop)
+}
+
+/// Check the value of every `--help=value` before a `--` in the arguments of
+/// a keyword statement parsed as a help call (`if --help=1` is an error).
+pub(super) fn check_help_values(working_set: &WorkingSet<'_>, call: &Expression<'_>) -> ParseResult<()> {
+    let Expr::Call(call) = &call.expr else { return Ok(()) };
+    for argument in &call.arguments {
+        match argument {
+            Argument::EndOfOptions(_) => break,
+            Argument::Named(NamedArgument { long: true, name: "help", value: Some(value), .. }) => {
+                check_switch_value(working_set, value)?;
+            }
+            _ => {}
+        }
+    }
+    Ok(())
 }
 
 /// The value of an argument: any value, or for a wrapped command an external
@@ -674,12 +716,13 @@ pub fn check_call(working_set: &WorkingSet<'_>, call: &Call<'_>, lenient: bool) 
     {
         name_end = subcommand.span().end;
     }
-    check_call_arguments(working_set, &call.head.name, &signature, arguments, name_end, lenient)?;
+    let help = check_call_arguments(working_set, &call.head.name, &signature, arguments, name_end, lenient)?;
     // nu's `parse_hide` hands the members to `parse_import_pattern`, like
-    // `use` (`hide foo null` is a wrong import pattern); an alias target is
-    // only parsed as a call.
+    // `use` (`hide foo null` is a wrong import pattern), unless the call shows
+    // help; an alias target is only parsed as a call.
     if call.head.name == "hide"
         && !lenient
+        && !help
         && let Some(members) = call.positional_iter().nth(1)
     {
         let token = Token { contents: TokenContents::Item, span: members.span };
@@ -692,16 +735,19 @@ pub fn check_call(working_set: &WorkingSet<'_>, call: &Call<'_>, lenient: bool) 
 fn check_call_named(working_set: &WorkingSet<'_>, name: &str, call: &Call<'_>) -> ParseResult<()> {
     let Some(signature) = keyword_signature(name) else { return Ok(()) };
     let arguments = call.arguments.iter().peekable();
-    check_call_arguments(working_set, name, &signature, arguments, call.head.span.end, false)
+    check_call_arguments(working_set, name, &signature, arguments, call.head.span.end, false).map(drop)
 }
 
 /// The arguments of a keyword command, checked against its signature in one
-/// pass, in the order nu's call parser meets them: a `--help`/`-h` before any
-/// `--` ends the checks (the call only shows help), a flag that takes a value
-/// takes the next positional, and the `keyword` (`as`) is looked for once the
-/// positionals are filled. A missing positional is reported, as nu's
-/// `check_call` reports it, past the last positional, or at `name_end`, just
-/// after the command's name, when there is none (`overlay use --prefix`).
+/// pass, in the order nu's call parser meets them: a flag that takes a value
+/// takes the next positional, a switch's `=value` must be a `bool`, a batch of
+/// short flags (`-pr`) is one flag per letter, of which only the last may take
+/// a value, and the `keyword` (`as`) is looked for once the positionals are
+/// filled. A missing positional is reported, as nu's `check_call` reports it,
+/// past the last positional, or at `name_end`, just after the command's name,
+/// when there is none (`overlay use --prefix`); a `--help` or `-h` before any
+/// `--` forgives it, since the call only shows help, but nothing else.
+/// Returns whether the call shows help.
 fn check_call_arguments<'c>(
     working_set: &WorkingSet<'_>,
     name: &str,
@@ -709,7 +755,7 @@ fn check_call_arguments<'c>(
     mut arguments: std::iter::Peekable<impl Iterator<Item = &'c Argument<'c>>>,
     name_end: usize,
     lenient: bool,
-) -> ParseResult<()> {
+) -> ParseResult<bool> {
     let no_flag = |flag: &str, span: Span| {
         cut(Diagnostic::message(format!("the `{name}` command doesn't have flag `{flag}`"), span)
             .with_help("use `--help` to see available flags"))
@@ -718,36 +764,60 @@ fn check_call_arguments<'c>(
     let mut last_positional_end = None;
     let mut keyword_seen = false;
     let mut end_of_options = false;
+    let mut help = false;
     while let Some(argument) = arguments.next() {
         match argument {
             Argument::EndOfOptions(_) => end_of_options = true,
             Argument::Named(flag) if !end_of_options => {
-                if flag.long && flag.name == "help" || !flag.long && flag.name == "h" {
-                    return Ok(());
-                }
-                let known = signature.flags.iter().find(|known| match flag.long {
-                    true => known.long == flag.name,
-                    false => flag.name.chars().count() == 1 && known.short == flag.name.chars().next(),
-                });
-                match known {
-                    None if signature.allows_unknown_flags => {}
-                    None => {
-                        return Err(no_flag(
-                            &format!("{}{}", if flag.long { "--" } else { "-" }, flag.name),
-                            flag.span,
-                        ));
+                // Whether the flag, or the last of a batch of short flags, takes the next
+                // positional as its value.
+                let mut takes_value = false;
+                if flag.long {
+                    let switch = match signature.flags.iter().find(|known| known.long == flag.name) {
+                        _ if flag.name == "help" => {
+                            help = true;
+                            true
+                        }
+                        None if signature.allows_unknown_flags => false,
+                        None => return Err(no_flag(&format!("--{}", flag.name), flag.span)),
+                        Some(known) => {
+                            takes_value = known.takes_value && flag.value.is_none();
+                            !known.takes_value
+                        }
+                    };
+                    if switch && let Some(value) = &flag.value {
+                        check_switch_value(working_set, value)?;
                     }
-                    Some(KeywordFlag { takes_value: true, .. }) if flag.value.is_none() => match arguments.peek() {
+                } else {
+                    let last = flag.name.chars().count().saturating_sub(1);
+                    for (index, (offset, short)) in flag.name.char_indices().enumerate() {
+                        let span =
+                            Span::new(flag.span.start + 1 + offset, flag.span.start + 1 + offset + short.len_utf8());
+                        match signature.flags.iter().find(|known| known.short == Some(short)) {
+                            _ if short == 'h' => help = true,
+                            None if signature.allows_unknown_flags => {}
+                            None => return Err(no_flag(&format!("-{short}"), span)),
+                            Some(known) if known.takes_value && index < last => {
+                                return Err(cut(Diagnostic::message(
+                                    "only the last flag in a batch of short flags can take a value",
+                                    span,
+                                )));
+                            }
+                            Some(known) => takes_value = known.takes_value,
+                        }
+                    }
+                }
+                if takes_value {
+                    match arguments.peek() {
                         Some(Argument::Positional(_)) => {
                             arguments.next();
                         }
                         _ if lenient => {}
                         _ => {
                             return Err(cut(Diagnostic::message("missing flag argument", flag.span)
-                                .with_help(format!("`--{}` takes a value", flag.name))));
+                                .with_help(format!("`{}` takes a value", working_set.get_span_contents(flag.span)))));
                         }
-                    },
-                    Some(_) => {}
+                    }
                 }
             }
             // After `--` a flag is a positional.
@@ -802,12 +872,12 @@ fn check_call_arguments<'c>(
             }
         }
     }
-    if positionals < signature.required && !lenient {
+    if positionals < signature.required && !lenient && !help {
         let at = Span::point(last_positional_end.unwrap_or(name_end));
         return Err(cut(Diagnostic::message("missing required positional argument", at)
             .with_help(format!("`{name}` takes {} positional argument(s)", signature.required))));
     }
-    Ok(())
+    Ok(help)
 }
 
 #[cfg(test)]

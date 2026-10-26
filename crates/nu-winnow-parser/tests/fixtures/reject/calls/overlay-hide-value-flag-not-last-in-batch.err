@@ -1,0 +1,6 @@
+error: only the last flag in a batch of short flags can take a value
+  --> reject/calls/overlay-hide-value-flag-not-last-in-batch.nu:1:15
+  |
+1 | overlay hide -ek spam
+  |               ^
+  = while parsing command call

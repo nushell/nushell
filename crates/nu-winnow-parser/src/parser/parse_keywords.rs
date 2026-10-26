@@ -17,8 +17,9 @@ use crate::lex::{Token, TokenContents};
 use crate::span::Span;
 
 use super::WorkingSet;
-use super::parse_calls::parse_call;
+use super::parse_calls::{check_help_values, parse_call};
 use super::parse_expressions::{ExpectedShape, is_typed_record, parse_block_body, parse_brace_record, parse_value};
+use super::parse_helpers::{is_help_flag, is_help_text};
 use super::tokens::Tokens;
 
 /// Keywords that start a statement and can only appear at the head of a
@@ -120,7 +121,7 @@ pub fn keyword_boundary_with(
     }
     let text = tokens.text(token);
     match text {
-        "--help" | "-h" => Ok(KeywordBoundary::Help),
+        _ if is_help_text(text) => Ok(KeywordBoundary::Help),
         "--" if end_of_options => {
             tokens.working_set.add_ignored(token.span);
             tokens.next_token();
@@ -202,6 +203,19 @@ impl<'t, 'a> KeywordCall<'t, 'a> {
         }
     }
 
+    /// Take a help flag at the head of `tokens`, before any `--`; `false` when
+    /// there is none. A `def` or an `extern` reads its own flags around it
+    /// (`def --help --env f`).
+    pub fn help_flag(&mut self, tokens: &mut Tokens<'t, 'a>) -> bool {
+        let help = tokens.peek_token().is_some_and(|token| is_help_flag(tokens.working_set, token))
+            && !(self.end_of_options && seen_end_of_options(tokens));
+        if help {
+            tokens.next_token();
+            self.help = true;
+        }
+        help
+    }
+
     /// The flags, then the next positional item; `None` when it is missing
     /// and a `--help` forgives that.
     pub fn positional(&mut self, tokens: &mut Tokens<'t, 'a>, what: &'static str) -> ParseResult<Option<Token>> {
@@ -245,8 +259,20 @@ impl<'t, 'a> KeywordCall<'t, 'a> {
     }
 }
 
-/// `keyword --help`: the statement parsed as an ordinary call, as nu does.
+/// `keyword --help`: the statement parsed as an ordinary call, as nu does,
+/// which parses the value of a `--help=value` as a `bool` (`if --help=1` is an
+/// error; `if --help=false` shows help).
 pub fn parse_help_call<'a>(statement: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
+    let working_set = statement.working_set;
+    let call = parse_unchecked_help_call(statement)?;
+    check_help_values(working_set, &call)?;
+    Ok(call)
+}
+
+/// [`parse_help_call`] without the check of a `--help=value`, for `alias` and
+/// `type`, whose call nu parses only to see whether it asks for help, dropping
+/// its errors (`type t --help=1 = int` shows help).
+pub fn parse_unchecked_help_call<'a>(statement: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
     if let Some(span) = statement.span() {
         statement.working_set.remove_ignored_from(span.start);
     }

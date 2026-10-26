@@ -290,9 +290,13 @@ does not work on a string", and a record or a closure (`5..{a: 1}`,
 At the head of a command a range is a math expression, which nu tells by
 asking `parse_range` for one without an error. `is_range_head` answers that
 for `is_math_expression_like`: it is `is_range_syntax` without an empty
-`next` and without a `$` bound nu's value parser fails on (`..$`,
-`..$x.c!!`; a variable with a cell path, `..$x.a`, and a cell-path literal,
-`1..$.a`, are fine), so `..$` and `1....5` are external commands there.
+`next` and without a bound nu's value parser fails on: a `$` bound that is
+not a variable with a valid cell path (`..$`, `..$x.c!!`; `..$x.a` and the
+cell-path literal `1..$.a` are fine), a record or raw string with text after
+it (`5..{a: 1}b`, `5..r#'a'#b`; a cell path is fine after a record), and a
+subexpression followed by a broken cell path (`5..(1)!`, `5..(1).(2)`; other
+text makes a bare interpolation, `5..(1)x`, still a range). So `..$`,
+`1....5` and these are external commands there.
 
 ## `{ ... }`: record, closure or block
 

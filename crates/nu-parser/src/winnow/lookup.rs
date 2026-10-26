@@ -109,8 +109,9 @@ pub(super) struct NamesSnapshot<'e> {
     /// among them is taken to be `Declared`, which most are; for one that is not (an imported
     /// `def --wrapped`), the live working set answers otherwise and [`changed_answer`] says so.
     kinds: RefCell<Vec<Option<DeclKind>>>,
-    /// The bound on the length of command names when the copy was made, which the thread
-    /// parses with (the winnow parser raises it for the names it declared itself).
+    /// The bound on the length of the command names the original resolved when the copy was
+    /// made ([`longest_name_in`]), which the thread parses with (the winnow parser raises it
+    /// for the names it declared itself).
     longest_name: usize,
 }
 
@@ -124,7 +125,7 @@ impl<'e> NamesSnapshot<'e> {
         Self {
             names,
             kinds: RefCell::new(lookup.kinds.borrow().clone()),
-            longest_name: longest_decl_name(),
+            longest_name: longest_name_in(&working_set),
         }
     }
 
@@ -209,15 +210,15 @@ impl CommandLookup for AskedLookup<'_> {
 /// candidate name longer than it, so a larger live bound could have found a name the thread
 /// never asked about. The thread's bound counts the names the winnow parser declared itself (the
 /// block's definitions, and the aliases and nested definitions of the statements before), which
-/// it searches as far for on either thread. The live bound is the whole process's and only
-/// grows, so a longer name declared anywhere else since the copy, in another engine too, counts
-/// as a change.
+/// it searches as far for on either thread. The live bound is the working set's own
+/// ([`longest_name_in`]): a longer name declared in it since the copy counts as a change, one
+/// declared in another engine (`longest_decl_name` counts those too) does not.
 pub(super) fn changed_answer(
     lookup: &EngineLookup,
     asked: &[Asked],
     longest_name: usize,
 ) -> Option<String> {
-    let longest = longest_decl_name();
+    let longest = longest_name_in(&lookup.working_set.borrow());
     if longest > longest_name {
         return Some(format!(
             "longest command name {longest} instead of {longest_name}"
@@ -233,6 +234,26 @@ pub(super) fn changed_answer(
             (live != *builtin).then(|| format!("`{name}` built in: {live}, not {builtin}"))
         }
     })
+}
+
+/// The length of the longest name any declaration map of `working_set` has held, its engine's
+/// included, so of every command name `find_decl` resolves there. Unlike `longest_decl_name`,
+/// which every engine in the process raises, it grows only when this working set or its engine
+/// declares a longer name.
+fn longest_name_in(working_set: &StateWorkingSet) -> usize {
+    std::iter::once(&working_set.permanent_state.scope)
+        .chain(&working_set.delta.scope)
+        .flat_map(|frame| {
+            let overlays = frame.overlays.iter().flat_map(|(_, overlay)| {
+                [
+                    overlay.predecls.longest_name(),
+                    overlay.decls.longest_name(),
+                ]
+            });
+            std::iter::once(frame.predecls.longest_name()).chain(overlays)
+        })
+        .max()
+        .unwrap_or(0)
 }
 
 /// `frame` with only what resolving a command name reads: no variables, modules, type alias
@@ -316,4 +337,54 @@ fn takes_row_condition(signature: &Signature) -> bool {
         .required_positional
         .first()
         .is_some_and(|positional| positional.shape == SyntaxShape::RowCondition)
+}
+
+#[cfg(test)]
+mod tests {
+    use nu_protocol::{
+        DeclId,
+        engine::{DeclNameMap, EngineState},
+    };
+
+    use super::*;
+
+    /// A longer command name declared in another engine (another test's, in the same process)
+    /// after a statement was parsed ahead changes nothing this working set resolves, so the
+    /// statement is not handed back.
+    #[test]
+    fn longer_name_in_another_engine_changes_nothing() {
+        let engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        let cell = RefCell::new(&mut working_set);
+        let lookup = EngineLookup::new(&cell);
+        let snapshot = NamesSnapshot::new(&lookup);
+
+        let mut elsewhere = DeclNameMap::new();
+        elsewhere.insert(vec![b'x'; longest_decl_name() + 1], DeclId::new(0));
+
+        assert_eq!(changed_answer(&lookup, &[], snapshot.longest_name), None);
+    }
+
+    /// A longer command name declared in this working set since the statement was parsed ahead
+    /// could have been found by a candidate the parser never built, so it is a change.
+    #[test]
+    fn longer_name_in_this_working_set_is_a_change() {
+        let engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        let cell = RefCell::new(&mut working_set);
+        let lookup = EngineLookup::new(&cell);
+        let snapshot = NamesSnapshot::new(&lookup);
+
+        let long = vec![b'x'; snapshot.longest_name + 1];
+        let mut live = cell.borrow_mut();
+        let frame = live
+            .delta
+            .scope
+            .last_mut()
+            .expect("a working set has a scope frame");
+        frame.predecls.insert(long, DeclId::new(0));
+        drop(live);
+
+        assert!(changed_answer(&lookup, &[], snapshot.longest_name).is_some());
+    }
 }

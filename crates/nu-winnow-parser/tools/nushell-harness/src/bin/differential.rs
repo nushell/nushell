@@ -35,7 +35,7 @@
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::path::{Path, PathBuf};
 
-use nu_protocol::ParseError;
+use nu_protocol::{ParseError, Span};
 use nu_protocol::engine::{EngineState, StateWorkingSet};
 use nu_winnow_parser::lex::{LexOptions, TokenContents, lex};
 use nu_winnow_parser::{ParseConfig, parse_lenient};
@@ -197,11 +197,23 @@ enum Verdict {
     Panic,
 }
 
+/// nu-parser's verdict on `text`, and whether its first error is a syntax error. An error in
+/// another file is not: nu read that file because the text names it (`use ~/x`), so the error
+/// depends on what is on disk.
 fn nu_verdict(engine_state: &EngineState, name: &str, text: &str) -> (Verdict, bool) {
     let result = catch_unwind(AssertUnwindSafe(|| {
         let mut working_set = StateWorkingSet::new(engine_state);
+        let input_start = working_set.next_span_start();
         let _ = nu_parser::parse(&mut working_set, Some(name), text.as_bytes(), false);
-        working_set.parse_errors.first().map(|e| (format!("{}: {e}", variant(e)), is_syntax_error(e)))
+        let in_another_file = |span: Span| {
+            working_set
+                .files()
+                .any(|file| file.covered_span.start != input_start && file.covered_span.contains_span(span))
+        };
+        working_set
+            .parse_errors
+            .first()
+            .map(|e| (format!("{}: {e}", variant(e)), is_syntax_error(e) && !in_another_file(e.span())))
     }));
     match result {
         Err(_) => (Verdict::Panic, false),

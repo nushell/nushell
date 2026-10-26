@@ -405,7 +405,7 @@ impl<'s> Lower<'_, '_, 's> {
     }
 
     /// A flag's value, type-checked against its shape (`ensure_flag_arg_type`); `null` passes.
-    fn flag_value(
+    pub(super) fn flag_value(
         &mut self,
         value: &w::Expression<'s>,
         shape: &SyntaxShape,

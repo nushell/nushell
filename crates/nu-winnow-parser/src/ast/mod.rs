@@ -1430,6 +1430,34 @@ pub struct Binding<'a> {
     pub value: Option<Block<'a>>,
 }
 
+/// A flag of a `def` or an `extern`: `--env`, or with a value, `--env=false`.
+#[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+pub struct DefinitionFlag<'a, Flag> {
+    /// The span of the whole flag, including any `=value`.
+    pub span: Span,
+    /// Which flag it is.
+    pub flag: Flag,
+    /// The value after `=`, parsed as a `bool`: nu evaluates it as a
+    /// constant and sets the flag when it is true.
+    pub value: Option<Box<Expression<'a>>>,
+}
+
+impl<Flag: PartialEq> DefinitionFlag<'_, Flag> {
+    /// Whether `flags` set `flag`, as nu reads them (`Call::has_flag_const`):
+    /// the first `flag` decides, set when it has no value, `true` or `false`
+    /// when that is its value, and `None` for any other value, which only
+    /// constant evaluation decides. `Some(false)` when `flag` is not there.
+    pub fn is_set(flags: &[Self], flag: Flag) -> Option<bool> {
+        let Some(first) = flags.iter().find(|written| written.flag == flag) else { return Some(false) };
+        match first.value.as_deref().map(|value| &value.expr) {
+            None => Some(true),
+            Some(Expr::Bool(set)) => Some(*set),
+            Some(_) => None,
+        }
+    }
+}
+
 /// Flags on `def`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
@@ -1445,7 +1473,7 @@ pub enum DefFlag {
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct Def<'a> {
     /// `--env` / `--wrapped`.
-    pub flags: Vec<Spanned<DefFlag>>,
+    pub flags: Vec<DefinitionFlag<'a, DefFlag>>,
     /// The command name (quotes removed).
     pub name: Spanned<Cow<'a, str>>,
     /// The signature.
@@ -1471,7 +1499,7 @@ pub enum ExternFlag {
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct Extern<'a> {
     /// `--strict`.
-    pub flags: Vec<Spanned<ExternFlag>>,
+    pub flags: Vec<DefinitionFlag<'a, ExternFlag>>,
     /// The command name.
     pub name: Spanned<Cow<'a, str>>,
     /// The signature.

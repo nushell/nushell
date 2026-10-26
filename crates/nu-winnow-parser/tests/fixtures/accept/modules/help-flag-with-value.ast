@@ -1,0 +1,17 @@
+Block 0..64
+  Pipeline 0..24
+    Call `module` 0..24
+      Flag --help 7..19
+        Bool false 14..19
+      String Bare "m" 20..21
+  Pipeline 25..43
+    Call `use` 25..43
+      Flag --help 29..41
+        Bool false 36..41
+      String Bare "m" 42..43
+  Pipeline 44..63
+    Call `export` 44..63
+      Flag --help 51..63
+        Bool false 58..63
+Ignored (1)
+  22..24 "{}"

@@ -218,13 +218,21 @@ pub fn walk_expression<'a, V: Visitor<'a> + ?Sized>(visitor: &mut V, expr: &Expr
             }
         }
         Expr::Def(def) => {
+            for value in def.flags.iter().filter_map(|flag| flag.value.as_deref()) {
+                visitor.visit_expression(value);
+            }
             visitor.visit_signature(&def.signature);
             if let Some(body_params) = &def.body_params {
                 visitor.visit_signature(body_params);
             }
             visitor.visit_block(&def.body);
         }
-        Expr::Extern(extern_declaration) => visitor.visit_signature(&extern_declaration.signature),
+        Expr::Extern(extern_declaration) => {
+            for value in extern_declaration.flags.iter().filter_map(|flag| flag.value.as_deref()) {
+                visitor.visit_expression(value);
+            }
+            visitor.visit_signature(&extern_declaration.signature);
+        }
         Expr::Alias(alias) => {
             if let Some(v_) = &alias.value {
                 visitor.visit_expression(v_);

@@ -14,7 +14,7 @@
 use std::fmt::Write;
 
 use crate::ast::*;
-use crate::span::{Span, Spanned};
+use crate::span::Span;
 
 /// Render the AST as an indented tree, one node per line, with spans,
 /// followed by `Comments (n)` and `Ignored (n)` sections when they are not empty.
@@ -269,6 +269,16 @@ impl<'a> Printer<'a> {
     }
 
     /// One expression's line, then its children one level deeper.
+    /// The value of each flag of a definition written `--flag=value`.
+    fn flag_values<Flag: std::fmt::Debug>(&mut self, flags: &[DefinitionFlag<'a, Flag>]) {
+        for flag in flags {
+            if let Some(value) = &flag.value {
+                self.line(format_args!("FlagValue {:?} {}", flag.flag, flag.span));
+                self.nested(|printer| printer.expr(value));
+            }
+        }
+    }
+
     fn expr(&mut self, expression: &Expression<'a>) {
         let span = expression.span;
         match &expression.expr {
@@ -469,6 +479,7 @@ impl<'a> Printer<'a> {
                 let flags = flag_list(&def.flags);
                 self.line(format_args!("Def `{}`{flags} {span}", def.name.item));
                 self.nested(|printer| {
+                    printer.flag_values(&def.flags);
                     printer.signature(&def.signature);
                     if let Some(params) = &def.body_params {
                         printer.line(format_args!("BodyParams"));
@@ -480,7 +491,10 @@ impl<'a> Printer<'a> {
             Expr::Extern(extern_declaration) => {
                 let flags = flag_list(&extern_declaration.flags);
                 self.line(format_args!("Extern `{}`{flags} {span}", extern_declaration.name.item));
-                self.nested(|printer| printer.signature(&extern_declaration.signature));
+                self.nested(|printer| {
+                    printer.flag_values(&extern_declaration.flags);
+                    printer.signature(&extern_declaration.signature);
+                });
             }
             Expr::TypeAlias(alias) => {
                 self.line(format_args!("TypeAlias `{}` = {} {span}", alias.name.item, self.text(alias.ty.span)));
@@ -614,7 +628,7 @@ impl<'a> Printer<'a> {
 }
 
 /// The flags of a definition as ` [Env, Wrapped]`, or nothing when it has none.
-fn flag_list<Flag: std::fmt::Debug>(flags: &[Spanned<Flag>]) -> String {
-    let flags: Vec<_> = flags.iter().map(|flag| format!("{:?}", flag.item)).collect();
+fn flag_list<Flag: std::fmt::Debug>(flags: &[DefinitionFlag<'_, Flag>]) -> String {
+    let flags: Vec<_> = flags.iter().map(|flag| format!("{:?}", flag.flag)).collect();
     if flags.is_empty() { String::new() } else { format!(" [{}]", flags.join(", ")) }
 }

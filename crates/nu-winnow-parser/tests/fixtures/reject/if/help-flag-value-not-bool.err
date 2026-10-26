@@ -1,0 +1,6 @@
+error: expected bool
+  --> reject/if/help-flag-value-not-bool.nu:1:11
+  |
+1 | if --help=1 true { 1 }
+  |           ^
+  = while parsing if

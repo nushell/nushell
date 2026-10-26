@@ -14,7 +14,7 @@ use super::parse_alias::parse_alias;
 use super::parse_expressions::{
     ExpectedShape, parse_block_body_unchecked, parse_builtin_commands, parse_list_expression, parse_value,
 };
-use super::parse_helpers::is_help_flag;
+use super::parse_helpers::{is_help_flag, is_help_text};
 use super::parse_keywords::{
     KeywordCall, keyword_boundary, keyword_boundary_with, parse_block_argument, parse_help_call,
 };
@@ -132,7 +132,7 @@ fn parse_module_help_call<'a>(statement: Tokens<'_, 'a>) -> Option<ParseResult<E
     for token in statement.remaining().iter().skip(1).filter(|token| token.contents == TokenContents::Item) {
         match working_set.get_span_contents(token.span) {
             "--" if !end_of_options => end_of_options = true,
-            "--help" | "-h" if !end_of_options => help = true,
+            flag if !end_of_options && is_help_text(flag) => help = true,
             flag if !end_of_options && flag.len() > 1 && flag.starts_with('-') => {
                 unknown_flag = unknown_flag.or(Some((flag, token.span)));
             }
@@ -346,7 +346,7 @@ pub fn parse_export_in_block<'a>(tokens: Tokens<'_, 'a>) -> ParseResult<Expressi
     };
     match working_set.get_span_contents(next.span) {
         "def" | "extern" | "alias" | "type" | "use" | "module" | "const" => {}
-        "--help" | "-h" => {
+        text if is_help_text(text) => {
             // `export` has no positionals and no flag but help, so `export --help
             // -h` shows help and `export --help x` is one positional too many.
             if let Some(extra) = items[2..].iter().find(|token| !is_help_flag(working_set, token)) {
@@ -373,7 +373,19 @@ pub fn parse_export_in_block<'a>(tokens: Tokens<'_, 'a>) -> ParseResult<Expressi
 /// `export-env { block }`. nu takes its one argument by position.
 pub fn parse_export_env<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
     let working_set = tokens.working_set;
+    let statement = tokens;
     let mut call = KeywordCall::start_positional(&mut tokens)?;
+    // nu hands `export-env` exactly one argument, a help flag too: anything after it is
+    // dropped (`export-env --help x`).
+    if call.help_flag(&mut tokens)
+        && let [keyword, help, dropped @ ..] = statement.remaining()
+    {
+        let help_call = parse_help_call(Tokens::new(working_set, &[*keyword, *help], help.span.end))?;
+        for ignored in dropped {
+            working_set.add_ignored(ignored.span);
+        }
+        return Ok(help_call);
+    }
     let Some(block) = call.positional(&mut tokens, "block")? else { return call.help_call() };
     let body = parse_block_argument(working_set, &block, "block")?;
     // nu hands `export-env` exactly one argument: anything after it is dropped.

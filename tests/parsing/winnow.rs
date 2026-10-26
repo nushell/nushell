@@ -123,3 +123,64 @@ fn strict_extern_rejects_undeclared_flags(#[case] call: &str, #[case] rejected: 
     );
     Ok(())
 }
+
+/// A flag of `extern` written with a value is set when the value is true: `finish_extern`
+/// evaluates it as a constant, so an `extern --strict=false` passes undeclared flags on.
+#[rstest]
+#[case::value_true("--strict=true", true)]
+#[case::value_false("--strict=false", false)]
+#[case::constant("--strict=(1 == 1)", true)]
+#[case::first_counts("--strict=false --strict", false)]
+#[nu_test_support::test]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn strict_extern_flag_value_decides(#[case] flags: &str, #[case] rejected: bool) -> Result {
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let code =
+        format!("module m {{ export extern {flags} foo [--bar, ...rest] }}\nuse m foo\nfoo --baz");
+    nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    let unknown_flag = working_set
+        .parse_errors
+        .iter()
+        .any(|error| matches!(error, ParseError::UnknownFlag(..)));
+    assert_eq!(
+        unknown_flag, rejected,
+        "`{flags}`: {:?}",
+        working_set.parse_errors
+    );
+    Ok(())
+}
+
+/// A flag of `def` written with a value is set when the value is true, as `finish_def`
+/// evaluates it: `def --env=false` is a command that does not keep its environment changes.
+#[rstest]
+#[case::without_value("--env", true)]
+#[case::value_true("--env=true", true)]
+#[case::value_false("--env=false", false)]
+#[case::constant("--env=(1 == 1)", true)]
+#[case::false_constant("--env=(1 == 2)", false)]
+#[case::first_counts("--env=false --env", false)]
+#[nu_test_support::test]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn def_flag_value_decides(#[case] flags: &str, #[case] keeps_env: bool) -> Result {
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let code = format!("def {flags} f [] {{ $env.Z = 1 }}");
+    nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    assert!(
+        working_set.parse_errors.is_empty(),
+        "`{code}`: {:?}",
+        working_set.parse_errors
+    );
+    let decl_id = working_set.find_decl(b"f").expect("`f` is declared");
+    let block_id = working_set
+        .get_decl(decl_id)
+        .block_id()
+        .expect("`f` has a body");
+    assert_eq!(
+        working_set.get_block(block_id).redirect_env,
+        keeps_env,
+        "`{code}`"
+    );
+    Ok(())
+}

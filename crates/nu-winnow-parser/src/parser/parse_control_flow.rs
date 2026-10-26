@@ -92,7 +92,17 @@ pub fn parse_if<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
                         else_keyword.span.past(),
                     )));
                 }
-                [only] if tokens.text(only).starts_with('{') => parse_block_or_value(working_set, only)?,
+                // nu's `else` argument is a block or an expression, a block first: one that
+                // only flags follow leaves them to `if` (`if c {} else {} --help`).
+                [first, rest @ ..]
+                    if tokens.text(first).starts_with('{')
+                        && rest.iter().all(|token| tokens.text(token).starts_with('-')) =>
+                {
+                    let body = parse_block_or_value(working_set, first)?;
+                    tokens.next_token();
+                    call.end(&mut tokens)?;
+                    body
+                }
                 _ => parse_expression(tokens.rest_stream(), Position::Element)?,
             };
             span = span.merge(body.span);

@@ -1,0 +1,6 @@
+error: attributes must be followed by a definition
+  --> reject/attributes/two-blank-lines-then-pipe.nu:2:1
+  |
+2 | 
+  | ^
+  = help: put the `def`, `extern` or `export` on the line right after the attributes

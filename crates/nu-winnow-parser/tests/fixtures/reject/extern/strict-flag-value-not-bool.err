@@ -1,0 +1,6 @@
+error: expected bool
+  --> reject/extern/strict-flag-value-not-bool.nu:1:17
+  |
+1 | extern --strict=[] foo [--bar]
+  |                 ^^
+  = while parsing extern

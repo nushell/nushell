@@ -846,13 +846,30 @@ fn assignments() {
     assert!(parse("$x =").is_err());
 }
 
+/// A flag of `def` written with a value keeps it, and is read as nu reads it: the first of a
+/// repeated flag decides, and a value other than `true` or `false` needs constant evaluation.
+#[test]
+fn def_flag_values() {
+    for (src, wrapped) in [
+        ("def f [...r] {}", Some(false)),
+        ("def --wrapped f [...r] {}", Some(true)),
+        ("def --wrapped=true f [...r] {}", Some(true)),
+        ("def --wrapped=false --wrapped f [...r] {}", Some(false)),
+        ("def --wrapped=(true) f [...r] {}", None),
+    ] {
+        let ast = ok(src);
+        let d = kind!(expr(&ast), Expr::Def(d) => d);
+        assert_eq!(DefinitionFlag::is_set(&d.flags, DefFlag::Wrapped), wrapped, "{src}");
+    }
+}
+
 #[test]
 fn def_forms() {
     let src = "def --env --wrapped \"my cmd\" [\n  a: int, # the a\n  name: string@completer\n  b?: string = \"x\"\n  --flag(-f): int = 3\n  -s\n  --long (-l)\n  ...rest: string\n]: [int -> string, nothing -> nothing] {\n  $a\n}";
     let ast = ok(src);
     let d = kind!(expr(&ast), Expr::Def(d) => d);
     assert_eq!(d.name.item, "my cmd");
-    assert_eq!(d.flags.iter().map(|f| f.item).collect::<Vec<_>>(), vec![DefFlag::Env, DefFlag::Wrapped]);
+    assert_eq!(d.flags.iter().map(|f| f.flag).collect::<Vec<_>>(), vec![DefFlag::Env, DefFlag::Wrapped]);
     let sig = &d.signature;
     let names: Vec<_> = sig.params.iter().map(|p| p.name.item).collect();
     assert_eq!(names, vec!["a", "name", "b", "flag", "s", "long", "rest"]);
@@ -931,7 +948,7 @@ fn extern_alias_module_use_export() {
         let ast = ok(src);
         let x = kind!(expr(&ast), Expr::Extern(x) => x);
         assert_eq!(x.name.item, "gh", "{src}");
-        assert_eq!(x.flags.iter().map(|f| f.item).collect::<Vec<_>>(), vec![ExternFlag::Strict], "{src}");
+        assert_eq!(x.flags.iter().map(|f| f.flag).collect::<Vec<_>>(), vec![ExternFlag::Strict], "{src}");
     }
     assert!(parse("extern --wrapped gh [...args]").is_err());
     let ast = ok("alias ll = ls -l");

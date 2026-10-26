@@ -663,17 +663,17 @@ impl<'s> Lower<'_, '_, 's> {
             this.working_set.def_body_span = outer_def_body_span;
             let body = body?;
             // The arguments in source order: flags, then the name, the signature and the body.
-            let mut arguments: Vec<(usize, Argument)> = def
+            let mut arguments = def
                 .flags
                 .iter()
                 .map(|flag| {
-                    let long = match flag.item {
+                    let long = match flag.flag {
                         w::DefFlag::Env => "env",
                         w::DefFlag::Wrapped => "wrapped",
                     };
-                    this.definition_flag(flag.span, long)
+                    this.definition_flag(flag, long)
                 })
-                .collect();
+                .collect::<Lowered<Vec<(usize, Argument)>>>()?;
             arguments.push((name.span.start, Argument::Positional(name)));
             arguments.push((signature.span.start, Argument::Positional(signature)));
             arguments.push((body.span.start, Argument::Positional(body)));
@@ -747,16 +747,16 @@ impl<'s> Lower<'_, '_, 's> {
             let signature = this.signature_expression(&extern_def.signature, true)?;
             // The arguments in source order: the flags, before or after the name, then the
             // name and the signature.
-            let mut arguments: Vec<(usize, Argument)> = extern_def
+            let mut arguments = extern_def
                 .flags
                 .iter()
                 .map(|flag| {
-                    let long = match flag.item {
+                    let long = match flag.flag {
                         w::ExternFlag::Strict => "strict",
                     };
-                    this.definition_flag(flag.span, long)
+                    this.definition_flag(flag, long)
                 })
-                .collect();
+                .collect::<Lowered<Vec<(usize, Argument)>>>()?;
             arguments.push((name.span.start, Argument::Positional(name)));
             arguments.push((signature.span.start, Argument::Positional(signature)));
             arguments.sort_by_key(|(start, _)| *start);
@@ -788,16 +788,28 @@ impl<'s> Lower<'_, '_, 's> {
         Ok((expression, decl))
     }
 
-    /// A flag of `def` or `extern` at `span`, named `long`: the named argument without a value
-    /// that the classic call parser makes of it, keyed by where it starts, for putting the
-    /// call's arguments in source order.
-    fn definition_flag(&self, span: WSpan, long: &str) -> (usize, Argument) {
-        let span = self.span(span);
+    /// A flag of `def` or `extern`, named `long`: the named argument that the classic call
+    /// parser makes of it, its value read as a `bool` (`--env=false`), which `finish_def` and
+    /// `finish_extern` evaluate. Keyed by where it starts, for putting the call's arguments in
+    /// source order.
+    fn definition_flag<Flag>(
+        &mut self,
+        flag: &w::DefinitionFlag<'s, Flag>,
+        long: &str,
+    ) -> Lowered<(usize, Argument)> {
+        let span = self.span(flag.span);
+        let (name_span, value) = match &flag.value {
+            Some(value) => (
+                Span::new(span.start, span.start + long.len() + 2),
+                Some(self.flag_value(value, &SyntaxShape::Boolean)?),
+            ),
+            None => (span, None),
+        };
         let name = Spanned {
             item: long.to_string(),
-            span,
+            span: name_span,
         };
-        (span.start, Argument::Named((name, None, None)))
+        Ok((span.start, Argument::Named((name, None, value))))
     }
 
     /// `const name = value` (`parse_const`): the value is evaluated now and the variable holds

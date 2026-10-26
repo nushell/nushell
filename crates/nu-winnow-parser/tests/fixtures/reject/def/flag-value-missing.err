@@ -1,0 +1,6 @@
+error: expected value after `=`
+  --> reject/def/flag-value-missing.nu:1:11
+  |
+1 | def --env= f [] {}
+  |           ^
+  = while parsing def

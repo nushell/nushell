@@ -107,7 +107,13 @@ pub fn garbage_pipeline<'a>(span: Span) -> Pipeline<'a> {
     }
 }
 
-/// Whether `token` is `--help` or `-h`.
+/// Whether `token` is `--help` or `-h`, or `--help=value`, which nu takes for
+/// `--help` whatever the value (a value that is not a `bool` is an error).
 pub fn is_help_flag(working_set: &WorkingSet<'_>, token: &Token) -> bool {
-    token.contents == TokenContents::Item && matches!(working_set.get_span_contents(token.span), "--help" | "-h")
+    token.contents == TokenContents::Item && is_help_text(working_set.get_span_contents(token.span))
+}
+
+/// [`is_help_flag`] for the text of an item.
+pub fn is_help_text(text: &str) -> bool {
+    matches!(text, "--help" | "-h") || text.starts_with("--help=")
 }

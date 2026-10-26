@@ -179,19 +179,32 @@ impl Flattener<'_> {
         for arg in args {
             match arg {
                 Argument::Positional(expr) => self.visit_expression(expr),
-                Argument::Named(flag) => match &flag.value {
-                    Some(v) => {
-                        self.push(Span::new(flag.span.start, v.span.start), FlatShape::Flag);
-                        self.visit_expression(v);
-                    }
-                    None => self.push(flag.span, FlatShape::Flag),
-                },
+                Argument::Named(flag) => self.flag(flag.span, flag.value.as_deref()),
                 Argument::Spread { dots, expr } => {
                     self.push(*dots, FlatShape::Operator);
                     self.visit_expression(expr);
                 }
                 Argument::EndOfOptions(span) => self.push(*span, FlatShape::Flag),
             }
+        }
+    }
+
+    /// A flag at `span`: a [`FlatShape::Flag`] up to its `value`, if it has
+    /// one, which is walked like a positional.
+    fn flag(&mut self, span: Span, value: Option<&Expression<'_>>) {
+        match value {
+            Some(value) => {
+                self.push(Span::new(span.start, value.span.start), FlatShape::Flag);
+                self.visit_expression(value);
+            }
+            None => self.push(span, FlatShape::Flag),
+        }
+    }
+
+    /// The flags of a `def` or an `extern`, each like a call's.
+    fn definition_flags<Flag>(&mut self, flags: &[DefinitionFlag<'_, Flag>]) {
+        for flag in flags {
+            self.flag(flag.span, flag.value.as_deref());
         }
     }
 
@@ -493,9 +506,7 @@ impl<'a> Visitor<'a> for Flattener<'_> {
                 }
             }
             Expr::Def(def) => {
-                for flag in &def.flags {
-                    self.push(flag.span, FlatShape::Flag);
-                }
+                self.definition_flags(&def.flags);
                 self.push(def.name.span, FlatShape::Definition);
                 self.visit_signature(&def.signature);
                 match &def.body_params {
@@ -510,9 +521,7 @@ impl<'a> Visitor<'a> for Flattener<'_> {
                 }
             }
             Expr::Extern(extern_declaration) => {
-                for flag in &extern_declaration.flags {
-                    self.push(flag.span, FlatShape::Flag);
-                }
+                self.definition_flags(&extern_declaration.flags);
                 self.push(extern_declaration.name.span, FlatShape::Definition);
                 self.visit_signature(&extern_declaration.signature);
             }

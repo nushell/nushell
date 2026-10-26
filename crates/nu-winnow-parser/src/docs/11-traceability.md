@@ -88,7 +88,7 @@ nu-parser does not have. `parse_keywords::KeywordCall` and
 | `collect` | an ordinary `Call` (nu marks it a keyword for `$in` handling only) | `accept/calls/closure-arg-without-pipes.nu` | `multiword_commands_and_flags` |
 | `const` | `parse_bindings::parse_const` | `accept/bindings/const-forms.nu` `reject/bindings/const-*.nu` | `let_mut_const` |
 | `continue` | `parse_control_flow::parse_break_or_continue` | `accept/loops/loop-with-continue.nu` `reject/loops/continue-with-arg.nu` | `loops_and_jumps` |
-| `def` | `parse_def::parse_def` | `accept/def/*.nu` `reject/def/*.nu` | `def_forms` `declaration_errors_from_nushell_tests` |
+| `def` | `parse_def::parse_def`, `parse_definition_flags` (`--env`, `--wrapped`, with a value: `ast::DefinitionFlag`, `DefinitionFlag::is_set` for nu's `has_flag_const`) | `accept/def/*.nu` `reject/def/*.nu` | `def_forms` `def_flag_values` `declaration_errors_from_nushell_tests` |
 | `export` | `parse_module::parse_export_in_block` | `accept/modules/export-forms.nu` `reject/modules/export-*.nu` | `extern_alias_module_use_export` |
 | `export alias` | `parse_module::parse_export_in_block` + `parse_alias::parse_alias` | `accept/modules/export-forms.nu` | `extern_alias_module_use_export` |
 | `export const` | `parse_module::parse_export_in_block` + `parse_bindings::parse_const` | `accept/modules/export-forms.nu` | `extern_alias_module_use_export` |
@@ -97,10 +97,10 @@ nu-parser does not have. `parse_keywords::KeywordCall` and
 | `export module` | `parse_module::parse_export_in_block` + `parse_module::parse_module` | `accept/modules/export-forms.nu` | `extern_alias_module_use_export` |
 | `export type` | `parse_module::parse_export_in_block` + `parse_type_alias::parse_type_alias` | `accept/modules/export-type.nu` | `type_alias_statements` |
 | `export use` | `parse_module::parse_export_in_block` + `parse_module::parse_use` | `accept/modules/export-forms.nu` | `extern_alias_module_use_export` |
-| `export-env` | `parse_module::parse_export_env` | `accept/modules/export-env-multiline.nu` `reject/modules/export-env-*.nu` | `extern_alias_module_use_export` |
-| `extern` | `parse_def::parse_extern`, `parse_definition_flags` (`--strict`, `ast::ExternFlag`) | `accept/extern/*.nu` `reject/def/extern-*.nu` `reject/extern/*.nu` | `extern_alias_module_use_export` |
+| `export-env` | `parse_module::parse_export_env` (after a help flag the rest is ignored text) | `accept/modules/export-env-multiline.nu` `accept/modules/export-env-help-drops-the-rest.nu` `reject/modules/export-env-*.nu` | `extern_alias_module_use_export` |
+| `extern` | `parse_def::parse_extern`, `parse_definition_flags` (`--strict`, with a value: `ast::ExternFlag`, `ast::DefinitionFlag`) | `accept/extern/*.nu` `reject/def/extern-*.nu` `reject/extern/*.nu` | `extern_alias_module_use_export` |
 | `for` | `parse_def::parse_for` | `accept/loops/for-*.nu` `reject/loops/for-*.nu` | `loops_and_jumps` |
-| `hide` | an ordinary `Call` checked against its `KeywordSignature` (`parse_calls::check_call`); module resolution is semantic | `accept/modules/hide-and-source.nu` `reject/calls/hide-*.nu` `reject/pipelines/hide-*.nu` `reject/redirections/hide-redirected.nu` | `use_forms` |
+| `hide` | an ordinary `Call` checked against its `KeywordSignature` (`parse_calls::check_call`; a help call does not read the members); module resolution is semantic | `accept/modules/hide-and-source.nu` `accept/calls/keyword-help-forgives-positionals.nu` `reject/calls/hide-*.nu` `reject/pipelines/hide-*.nu` `reject/redirections/hide-redirected.nu` | `use_forms` |
 | `hide-env` | an ordinary `Call` | `accept/calls/keyword-named-commands.nu` | `use_forms` |
 | `if` | `parse_control_flow::parse_if` | `accept/if/*.nu` `reject/if/*.nu` | `if_forms` |
 | `let` | `parse_bindings::parse_let` | `accept/bindings/let-*.nu` `reject/bindings/let-*.nu` | `let_mut_const` |
@@ -111,7 +111,7 @@ nu-parser does not have. `parse_keywords::KeywordCall` and
 | `overlay` | an ordinary `Call`; a redirection on any `overlay ...` is refused before its arguments are read | `accept/modules/overlay.nu` `reject/redirections/overlay-*.nu` `reject/pipelines/overlay-after-pipe.nu` | `use_forms` |
 | `overlay hide` | an ordinary `Call` (multi-word head) checked by `parse_calls::check_call` | `accept/modules/overlay.nu` `reject/calls/overlay-hide-*.nu` | `use_forms` |
 | `overlay new` | an ordinary `Call` (multi-word head) checked by `parse_calls::check_call` | `accept/modules/overlay.nu` `reject/calls/overlay-new-*.nu` `reject/pipelines/overlay-new-before-pipe.nu` | `use_forms` |
-| `overlay use` | an ordinary `Call` (multi-word head) checked by `parse_calls::check_call` (the `as NAME` keyword included) | `accept/modules/overlay.nu` `reject/calls/overlay-use-*.nu` | `use_forms` |
+| `overlay use` | an ordinary `Call` (multi-word head) checked by `parse_calls::check_call` (the `as NAME` keyword, switch values and short-flag batches included) | `accept/modules/overlay.nu` `accept/calls/keyword-switch-value.nu` `accept/calls/keyword-short-flag-batch.nu` `reject/calls/overlay-use-*.nu` | `use_forms` |
 | `plugin use` | an ordinary `Call` (multi-word head) checked by `parse_calls::check_call` | `accept/modules/plugin.nu` `reject/calls/plugin-use-*.nu` `reject/pipelines/plugin-use-before-pipe.nu` | `use_forms` |
 | `return` | `parse_control_flow::parse_return` | `accept/loops/return-forms.nu` `reject/loops/return-two-values.nu` | `loops_and_jumps` |
 | `run` | an ordinary `Call` checked by `parse_calls::check_call` (unknown flags pass through); `run` is refused as a definition name | `reject/def/keyword-name-run.nu` `reject/calls/run-without-argument.nu` `reject/redirections/run-redirected.nu` | `definitions_cannot_use_parser_keywords` |
@@ -288,7 +288,7 @@ signatures, types or files and is left to the consumer.
 | `UnknownFlag` | `ErrorKind::Message` (`doesn't have flag`) for the statements and the keyword commands (`parse_keywords::keyword_boundary`, `parse_calls::check_call`); n/a for ordinary commands | `reject/calls/hide-unknown-long-flag.nu` `reject/loops/return-unknown-flag.nu` `accept/calls/long-flags.nu` | `multiword_commands_and_flags` |
 | `UnknownType` | `ErrorKind::UnknownType` | `reject/def/unknown-type.nu` `reject/bindings/let-unknown-type.nu` | `def_forms` |
 | `MissingFlagParam` | `ErrorKind::Message` for the keyword commands (`parse_calls::check_call`); n/a for ordinary commands | `reject/calls/overlay-hide-keep-env-without-value.nu` `accept/calls/flag-followed-by-value.nu` | `multiword_commands_and_flags` |
-| `OnlyLastFlagInBatchCanTakeArg` | n/a (semantic: signature) | `accept/calls/short-flag-batch.nu` | `multiword_commands_and_flags` |
+| `OnlyLastFlagInBatchCanTakeArg` | `ErrorKind::Message` for the keyword commands (`parse_calls::check_call_arguments`); n/a for ordinary commands (semantic: signature) | `reject/calls/overlay-hide-value-flag-not-last-in-batch.nu` `accept/calls/short-flag-batch.nu` | `multiword_commands_and_flags` |
 | `MissingPositional` | `ErrorKind::Message` for the keyword commands (`parse_calls::check_call`); n/a for ordinary commands | `reject/calls/hide-without-argument.nu` `reject/calls/source-without-argument.nu` `accept/calls/no-args.nu` | `multiword_commands_and_flags` |
 | `KeywordMissingArgument` | `ErrorKind::Expected` (`block`, `condition`), `parse_def::parse_for` ("missing argument to `in`": the last item is the block's, help or not) | `reject/if/no-block.nu` `reject/loops/while-no-block.nu` `reject/loops/for-help-then-in-without-value.nu` `reject/loops/for-help-then-in-without-block.nu` | `if_forms` |
 | `MissingType` | `ErrorKind::Expected` (`type`) | `reject/def/type-missing.nu` `reject/def/io-missing-output.nu` | `def_forms` |
@@ -360,7 +360,7 @@ drive.
 | `parse_assignment_expression` | `parse_expressions::parse_assignment_expression` | `accept/assignments/*.nu` | `assignments` |
 | `parse_assignment_operator` | `lex::item_contents` (`TokenContents::AssignmentOperator`) | `accept/assignments/compound.nu` | `assignments` |
 | `parse_attribute` | `parse_calls::parse_attribute` | `accept/attributes/with-args.nu` | `attributes` |
-| `parse_attribute_block` | `lite_parser::lite_attribute_lines`, `parse_pipelines::parse_pipeline_element` | `accept/attributes/*.nu` | `attributes` |
+| `parse_attribute_block` | `lite_parser::lite_attribute_lines` (a `|` line after one blank line continues the pipeline: `take_pipe_on_later_line`), `parse_pipelines::parse_pipeline_element` | `accept/attributes/*.nu` `reject/attributes/*-then-pipe.nu` | `attributes` |
 | `parse_binary` | `parse_literals::parse_binary`, `parse_binary_with_base` | `accept/literals/binary-hex.nu` | `binary_literals` |
 | `parse_block` | `parse_pipelines::parse_block` (`lite_parser::last_non_comment_token` applies the trailing-pipe rule to the whole block) | `accept/pipelines/*.nu` `reject/pipelines/trailing-pipe-*.nu` | `statements_separated_by_semicolons_and_newlines` |
 | `parse_block_expression` | `parse_expressions::parse_block_expression`, `parse_block_body` | `accept/match/body-forms.nu` | `match_forms` |
@@ -394,7 +394,7 @@ drive.
 | `parse_import_pattern` | `parse_module::parse_use`, `parse_import_pattern_member`, `parse_import_pattern_list` | `accept/modules/use-list-forms.nu` `reject/modules/use-*.nu` | `use_forms` |
 | `parse_input_output_types` | `parse_signatures::parse_input_output_types` (`repeat_to_end(input_output_type)`) | `accept/def/io-types-*.nu` | `def_forms` |
 | `parse_int` | `parse_literals::read_int`, `parse_int` | `accept/literals/int-*.nu` | `ints` |
-| `parse_internal_call` | `parse_calls::parse_call`, `parse_call_arguments`, `check_call` for the keyword commands; `parse_keywords::KeywordCall` for the flags at a statement's positional boundaries | `accept/calls/*.nu` `reject/calls/*.nu` | `multiword_commands_and_flags` |
+| `parse_internal_call` | `parse_calls::parse_call`, `parse_call_arguments` (`split_long_flag`), `check_call` for the keyword commands (switch values: `check_switch_value`); `parse_keywords::KeywordCall` for the flags at a statement's positional boundaries (`--help=value`: `parse_helpers::is_help_text`, `parse_calls::check_help_values`) | `accept/calls/*.nu` `reject/calls/*.nu` `accept/if/help-flag-with-value.nu` `reject/if/help-flag-value-not-bool.nu` | `multiword_commands_and_flags` |
 | `parse_keyword` | `parse_expressions::parse_builtin_commands`; `parse_keywords::KeywordCall` gives the statements nu's handling of flags and `--help` | `accept/misc/every-statement-in-closure.nu` | `if_forms` |
 | `parse_let` | `parse_bindings::parse_let` | `accept/bindings/let-*.nu` | `let_mut_const` |
 | `parse_list_expression` | `parse_expressions::parse_list_expression`, `lite_parser::lite_parse_parts` | `accept/lists/*.nu` `reject/lists/*.nu` | `lists` |

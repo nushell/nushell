@@ -19,7 +19,8 @@
 #                           No difference is tolerated silently: `differential --details` prints every disagreement
 #   nucheck-compare         nu-check vs ours over nu_scripts and nu-std: 0 files nu accepts that we reject
 #   flatcmp                 nu's `ast --flatten` vs ours over nu-std: differences are the documented ones
-#   nufmt-fixtures          the formatter reproduces the nushell/nufmt reference fixtures: 114 of 130 today
+#   nufmt-fixtures          the formatter reproduces the nushell/nufmt reference fixtures ("matched of all";
+#                           the total moves with the nufmt checkout)
 #   traceability            every nu-parser construct is mapped (its ignored test, run by the cargo test rung, listed for visibility)
 
 # Run a command line, returning {ok, stdout} without failing the script.
@@ -126,8 +127,10 @@ export def main [
 
     print "nufmt-fixtures..."
     let fmt = run-capture nu tools/scripts/nufmt-fixtures.nu
-    let matched = $fmt.stdout | ansi strip | parse -r 'match\s*│\s*(?P<n>\d+)' | get -o 0.n | default "?"
-    $rows ++= [{rung: "nufmt-fixtures", metric: "reference fixtures matched", value: $matched, ok: true}]
+    let counts = $fmt.stdout | ansi strip | parse -r '(?P<status>match|differ|error)\s*│\s*(?P<n>\d+)'
+    let matched = $counts | where status == "match" | get -o 0.n | default "?"
+    let total = $counts | get n | into int | math sum
+    $rows ++= [{rung: "nufmt-fixtures", metric: "reference fixtures matched", value: $"($matched) of ($total)", ok: true}]
 
     if $save != null {
         let history = if ($save | path exists) { open $save } else { [] }

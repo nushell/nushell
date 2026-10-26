@@ -273,7 +273,13 @@ mean something else. The rules encoded in its loop:
   that `|`: `@search-terms a\n| b` gives the attribute `a`, `|` and `b`. The
   next attribute or the definition must start on the very next line; a blank
   or comment-only line in between is an error, as in nu (a trailing comment
-  on the attribute line is fine).
+  on the attribute line is fine). The one exception is a `|` line after one
+  blank line and any comment lines: the lexer's end of line before the `|` is
+  then past the blank line, so the attribute line ends at its own end of line
+  and the `|` continues the pipeline the attribute lines start, with no command
+  of their own (`take_pipe_on_later_line` after the line; `@a x`, a blank line,
+  `| y` pipes the external `@a x` into `y`, chapter 05), and so is a `|` line
+  right after an attribute line that a `;` ends (`@a x;`, `| y`).
 
 The same file holds `lite_parse_parts`, nu's lite parse of the tokens inside
 `[...]`. The list and table-row parsers run it over a bracket interior as nu

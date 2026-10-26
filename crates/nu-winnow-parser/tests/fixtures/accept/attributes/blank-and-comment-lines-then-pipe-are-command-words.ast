@@ -1,0 +1,13 @@
+Block 0..31
+  Pipeline 0..30 comments=1
+    ExternalCall 0..16
+      String Bare "@example" 0..8
+      String Double "a" 9..12
+      Closure 13..16
+        Body 14..15
+          Pipeline 14..15
+            Int 1 14..15
+    | 22..23
+    Call `length` 24..30
+Comments (1)
+  18..21 "# c"

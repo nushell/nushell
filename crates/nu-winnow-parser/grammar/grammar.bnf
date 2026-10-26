@@ -274,12 +274,19 @@
 ; closes the command and the attributes then lack a definition (6.8). In a pipeline
 ; of several commands the attribute lines are items of their element, the first of
 ; them its head (`ls |\n@a x\ndef f [] {}` calls `@a`).
-; nu: lite_parser.rs:239-257, 379-383, 455-469; parse_pipelines.rs parse_pipeline_element
+; One blank line, then any comment lines, then a line starting with "|" is the
+; exception: the lexer turns the end of line before the "|" into it, which leaves the
+; attribute line ended by the Eol before the blank line, and the "|" continues the
+; pipeline the attribute lines start with no command of their own (`@a x`, a blank
+; line, `| y` pipes an external `@a x` into `y`). The same holds for a "|" line right
+; after an attribute line ended by ";" (`@a x;`, `| y`). A comment line before the
+; blank line, a second blank line, or a blank line after the ";" ends the statement.
+; nu: lex.rs lex_internal (an Eol before "|" becomes it); lite_parser.rs:239-257,
+;     379-383, 455-469; parse_pipelines.rs parse_pipeline_element
 ; here: src/parser/lite_parser.rs::lite_attribute_lines (for the first command of a
 ;       pipeline and a command that starts a line; every token of the line becomes a
-;       word), src/parser/parse_pipelines.rs::parse_pipeline_element
-; DIFF 2: attribute lines that a blank line and then a "|" line follow end at the blank
-;         line here; nu goes on with the pipeline (`@a x`, a blank line, `| y`), see 9.2
+;       word; `take_pipe_on_later_line` after the line's Eol),
+;       src/parser/parse_pipelines.rs::parse_pipeline_element
 
 ; ==== 2.1 Which parser sees a command ====
 
@@ -358,8 +365,13 @@
 ;   | <range>                          ; whose bounds parse: a `$` bound names a
 ;                                      ; variable and a valid cell path on it, or
 ;                                      ; is a cell-path literal (`1..$.a`), and a
-;                                      ; "next" bound is not empty, so `..$`,
-;                                      ; `..$x.c!!` and `1....5` are external commands
+;                                      ; "next" bound is not empty, a record or raw
+;                                      ; string bound has nothing after it but a cell
+;                                      ; path (a raw string: nothing), and a cell path
+;                                      ; after a subexpression is valid (other text
+;                                      ; makes a bare interpolation, `5..(1)x`), so
+;                                      ; `..$`, `..$x.c!!`, `1....5`, `5..{a: 1}b`,
+;                                      ; `5..r#'a'#b` and `5..(1)!` are external commands
 ; the literal probes are the section 5 parsers run speculatively
 ; nu: parse_expressions.rs:38 is_math_expression_like
 ; here: src/parser/parse_expressions.rs::is_math_expression_like,
@@ -974,15 +986,27 @@
 ; colon, but `for x --help in []` still lacks the argument of `in` (6.6). After "--" no
 ; flag is looked for at all: a second "--" is a positional (`try {} -- catch {}
 ; --` has one too many), `return -- --help` returns a string.
+; "--help=value" is the help flag too: nu shows help whatever the value, once it
+; parses as a Boolean (`if --help=false true {}` shows help, `if --help=1 ...` is
+; "expected bool"); `alias` and `type` drop the errors of the call they parse to look
+; for help, so there any value goes (`type t --help=1 = int`). `-h=x` is the batch
+; "h", "=", "x", an unknown flag. A def or extern reads its own flags among help flags
+; (`def --help --env f`), an `if` whose else branch is one block leaves the flags after
+; it to `if` (`if c {} else {} --help`, `... else {} --`), and `export-env`, which nu
+; hands only the item after the keyword, drops everything after a help flag
+; (`export-env --help x {}`).
 ; The statements nu parses by position never see "--": `alias -- x = ls`, `alias x
 ; -- = ls`, `module -- x {}`, `module x -- {}`, `let -- x = 1`, `export-env -- {}`
 ; are errors ("missing sign", "expected block", "not a valid variable name"). An
 ; alias help call must be the whole statement: `alias --help x = ls` and `alias x
 ; --help extra` are "missing sign". `export --help x` has an extra positional.
 ; nu: parse_calls.rs:1067-1213 (parse_long_flag, parse_short_flags per positional,
-;     `end_of_options`), 30 check_call; parse_alias.rs:20 check_alias_name
+;     `end_of_options`), 30 check_call; parse_alias.rs:20 check_alias_name;
+;     parse_type_alias.rs (help call errors dropped); parse_module.rs parse_export_env
 ; here: src/parser/parse_keywords.rs::keyword_boundary, KeywordCall::flags,
-;       seen_end_of_options, KeywordCall::positional, parse_help_call
+;       KeywordCall::help_flag, seen_end_of_options, KeywordCall::positional,
+;       parse_help_call (checks a "--help=value"), parse_unchecked_help_call (alias,
+;       type); src/parser/parse_helpers.rs::is_help_text
 
 <pipeline-forbidden-head> ::= "def" | "extern" | "for" | "module" | "type" | "use" | "source"
                     | "alias" | "export" | "export-env" | "hide" | "const" | "mut"
@@ -1066,13 +1090,21 @@
 ; ==== 6.3 def, extern ====
 
 <def>             ::= "def" { <def-flag> } <def-name> { <def-flag> } <full-signature> <def-body>
-<def-flag>        ::= "--env" | "--wrapped"
+<def-flag>        ::= ( "--env" | "--wrapped" ) [ "=" <bool-value> ]
+<bool-value>      ::= <value>                  ; parsed as Boolean: `true`, `false`, `$c`, `(expr)`
 ; the flags are ordinary named arguments, so they parse anywhere in principle, but a
 ; flag between the signature and the body breaks the multi-span signature and one
 ; after the body leaves the body missing: in practice only before/after the name.
-; nu: parse_def.rs:321 parse_def (via parse_internal_call)
+; A flag with a value is set when the value, evaluated as a constant, is true
+; (`def --env=false f`); the first of a repeated flag decides (`--env=false --env`
+; is not set). The predeclaration looks for the item `--wrapped` as written, so a
+; `--wrapped=true` command takes external arguments only once it is defined. A value
+; that is not `true` or `false` needs constant evaluation, and so do the `--wrapped`
+; checks that depend on it (9.4).
+; nu: parse_def.rs:321 parse_def (via parse_internal_call), 613 `has_flag_const`;
+;     nu-protocol Call::has_flag_const
 ; here: src/parser/parse_def.rs::parse_def, parse_definition_flags (before or after the
-;       name)
+;       name), definition_flag; ast::DefinitionFlag::is_set
 
 <def-name>        ::= <string> - <reserved-definition-name>   ; bare or quoted (multi-word)
 <reserved-definition-name> ::= <parser-keyword> | <bad-definition-name>
@@ -1126,7 +1158,7 @@
 ;       records it as Call::wrapped)
 
 <extern>          ::= "extern" { <extern-flag> } <def-name> { <extern-flag> } <full-signature>
-<extern-flag>     ::= "--strict"
+<extern-flag>     ::= "--strict" [ "=" <bool-value> ]
 ; The signature argument takes every remaining item, so a body (the former
 ; `extern-wrapped`, still in nu's signature) never reaches it: `extern foo [] {}`
 ; drops the `{}` unparsed, the body positional in parse_extern_inner is dead code,
@@ -1135,6 +1167,7 @@
 ; `extern foo [] --strict` is "colon (:) before type signature". For extern
 ; signatures a default-value token is not parsed at all (`extern foo [x = 0x]`
 ; parses; the token is ignored text).
+; `--strict=value` is strict when the value, evaluated as a constant, is true (6.3 def).
 ; `--strict` makes a call with a flag the signature doesn't declare an unknown flag
 ; (the consumer's, 9.4: it needs the signature), except `--help`, a count (`-10`) and a
 ; flag spelled at run time (`-$x`, `--(expr)`).
@@ -1159,8 +1192,12 @@
 ; nu: parse_alias.rs:63 parse_alias, 186-250, 300-306
 ; here: src/parser/parse_alias.rs::parse_alias (the same three checks; missing positionals
 ;       of a keyword target are forgiven as in nu, `alias x = overlay new`)
-; DIFF 1: a missing positional nested in the target is not forgiven here
-;         (`alias i = if if x y`), see 9.2
+; DIFF 1: nu reads an `if`, `match` or `try` target through the keyword's signature
+;         (parse_call), this crate with the statement parser or as a call with flags:
+;         a missing positional nested in the target is not forgiven here
+;         (`alias i = if if x y`, 9.2) and some signature errors are missed
+;         (`alias i = try {} -- catch`, 9.1); a `%(...)` target is CantAliasKeyword in
+;         nu and accepted here (9.1)
 
 <type-alias>      ::= [ "export" ] "type" <type-alias-name> "=" <type-alias-type>
 <type-alias-name> ::= ( <a letter of any script> | "_" )
@@ -1240,13 +1277,21 @@
 ; source/source-env take exactly one positional, which must const-evaluate; `overlay`
 ; alone or `overlay foo` are errors; `as` without a name is KeywordMissingArgument;
 ; module, overlay and file names are const-evaluated and resolved against the file
-; system or the module table.
+; system or the module table. A switch written with a value takes a Boolean
+; (`overlay use --prefix=false o`; `--prefix=1` is "expected bool"); a batch of short
+; flags is one flag per letter (`overlay use -pr o`, `-hp` asks for help), of which only
+; the last may take a value (`overlay hide -ek o` is an error). "--help" or "-h" forgives
+; a missing positional and nothing else: unknown flags, extra positionals, a missing
+; flag value and a missing argument to `as` stay errors (`overlay use --help --bogus
+; x`, `hide --help a b c`), and `hide --help` does not read its members (`hide --help
+; foo null` shows help).
 ; nu: parse_module.rs:1349 parse_hide, 1529/1572/1806 overlay_*; parse_source.rs:60
 ;     parse_source, 219 parse_run, 546 parse_plugin_use; nu-cmd-lang signatures
 ; here: ordinary Call checked against its fixed signature (flags and their values,
-;       positional counts, "as", "-1" as a flag, "null" only where Nothing is allowed):
-;       src/parser/parse_calls.rs::check_call; the const-evaluation and
-;       resolution of the names: consumer
+;       short-flag batches, positional counts, "as", "-1" as a flag, "null" only where
+;       Nothing is allowed): src/parser/parse_calls.rs::check_call,
+;       check_call_arguments, check_switch_value; the type of a flag's value (`--keep-env
+;       1`), the const-evaluation and resolution of the names: consumer
 
 ; ==== 6.6 Control flow ====
 

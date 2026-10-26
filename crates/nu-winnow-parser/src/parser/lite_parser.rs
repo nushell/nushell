@@ -250,7 +250,11 @@ pub fn parse_lite_command(tokens: &mut Tokens<'_, '_>, at_line_start: bool) -> P
 /// redirections included, and the definition must follow on the very next
 /// line: a blank or comment line in between is an error. A `|` that starts a
 /// later line continues the attribute line, as in nu, whose lexer turns the end
-/// of line before it into that `|`.
+/// of line before it into that `|`. After one blank line (and any comment lines),
+/// or after a `;` ending the line, that `|` no longer reaches the attribute line
+/// but continues the pipeline the attribute lines start with no command of their
+/// own (`@a x`, a blank line, `| y`; `@a x;`, `| y`); they then become that
+/// command's words.
 fn lite_attribute_lines(tokens: &mut Tokens<'_, '_>, lite_command: &mut LiteCommand) -> ParseResult<()> {
     let working_set = tokens.working_set;
     while tokens.peek_token().is_some_and(|token| {
@@ -296,6 +300,10 @@ fn lite_attribute_lines(tokens: &mut Tokens<'_, '_>, lite_command: &mut LiteComm
             lite_command.comments.push(Comment { span: comment.span });
             tokens.next_token();
             tokens.next_token();
+        }
+        // `@a x`, a blank line, `| y`: the pipeline goes on without a command here.
+        if take_pipe_on_later_line(tokens, &mut lite_command.comments)? {
+            return Ok(());
         }
         if let Some(token) = tokens.peek_token()
             && matches!(token.contents, TokenContents::Eol | TokenContents::Comment)

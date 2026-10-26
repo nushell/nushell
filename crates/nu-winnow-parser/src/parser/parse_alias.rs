@@ -12,7 +12,8 @@ use super::parse_expressions::{
     ExpectedShape, is_math_expression_like, parse_builtin_commands, parse_math_expression, parse_value,
 };
 use super::parse_keywords::{
-    ALIASABLE_PARSER_KEYWORDS, KeywordBoundary, UNALIASABLE_PARSER_KEYWORDS, keyword_boundary_with, parse_help_call,
+    ALIASABLE_PARSER_KEYWORDS, KeywordBoundary, UNALIASABLE_PARSER_KEYWORDS, keyword_boundary_with,
+    parse_unchecked_help_call,
 };
 use super::parse_signatures::parse_definition_name;
 use super::tokens::Tokens;
@@ -99,13 +100,14 @@ pub(super) fn short_flags_ask_for_help(text: &str) -> bool {
     })
 }
 
-/// The statement as an ordinary call to `alias`, with `=` an ordinary word,
-/// which is what nu keeps when it shows help (`alias --help = ls`) or when an
-/// exported alias has one item and no `=` after its name (`export alias h home`).
-fn parse_alias_as_call<'a>(statement: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
+/// The statement as an ordinary call to `alias` or `type`, with `=` an
+/// ordinary word, which is what nu keeps when it shows help (`alias --help =
+/// ls`, `type t --help = int`) or when an exported alias has one item and no
+/// `=` after its name (`export alias h home`).
+pub(super) fn parse_alias_as_call<'a>(statement: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
     let words: Vec<Token> =
         statement.remaining().iter().map(|token| Token { contents: TokenContents::Item, span: token.span }).collect();
-    parse_help_call(Tokens::new(statement.working_set, &words, statement.end_span().start))
+    parse_unchecked_help_call(Tokens::new(statement.working_set, &words, statement.end_span().start))
 }
 
 /// `alias name = target` (nu's `parse_alias`); `exported` for `export alias`,

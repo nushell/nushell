@@ -6,8 +6,8 @@ use crate::input::{ParseResult, cut};
 use crate::lex::{LexOptions, TokenContents};
 use crate::span::{Span, Spanned};
 
-use super::parse_alias::short_flags_ask_for_help;
-use super::parse_keywords::parse_help_call;
+use super::parse_alias::{parse_alias_as_call, short_flags_ask_for_help};
+use super::parse_helpers::is_help_text;
 use super::parse_shape_specs::{BUILTIN_TYPE_NAMES, is_valid_type_alias_name, parse_type};
 use super::tokens::Tokens;
 
@@ -30,9 +30,9 @@ pub fn parse_type_alias<'a>(mut tokens: Tokens<'_, 'a>, exported: bool) -> Parse
     let rest = tokens.remaining();
     let text = |index: usize| working_set.get_span_contents(rest[index].span);
     // nu parses the name and `=` as a call to `type` only to see whether it asks for help.
-    let asks_for_help = |index: usize| text(index) == "--help" || short_flags_ask_for_help(text(index));
+    let asks_for_help = |index: usize| is_help_text(text(index)) || short_flags_ask_for_help(text(index));
     if (0..rest.len().min(2)).any(|index| rest[index].contents == TokenContents::Item && asks_for_help(index)) {
-        return parse_help_call(statement);
+        return parse_alias_as_call(statement);
     }
     let missing_equals = |index: usize| {
         let name = text(index);

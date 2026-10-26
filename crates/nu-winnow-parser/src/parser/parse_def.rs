@@ -4,9 +4,9 @@
 use std::borrow::Cow;
 
 use winnow::Parser;
-use winnow::combinator::repeat;
+use winnow::combinator::opt;
 
-use crate::ast::{Block, Def, DefFlag, Expr, Expression, Extern, ExternFlag, For, Signature};
+use crate::ast::{Block, Def, DefFlag, DefinitionFlag, Expr, Expression, Extern, ExternFlag, For, Signature};
 use crate::error::{Diagnostic, ErrorKind};
 use crate::input::{ParseResult, cut};
 use crate::lex::{LexOptions, Token, TokenContents};
@@ -14,10 +14,11 @@ use crate::span::{Span, Spanned};
 
 use super::WorkingSet;
 use super::lite_parser::{AfterPipe, after_pipe_lines, pipe_on_later_line};
+use super::parse_calls::{parse_switch_value, split_long_flag};
 use super::parse_expressions::{
     BraceShape, ExpectedShape, brace_shape, parse_block_body_unchecked, parse_closure_parts, parse_value,
 };
-use super::parse_helpers::{is_help_flag, is_spread};
+use super::parse_helpers::{is_help_flag, is_help_text, is_spread};
 use super::parse_keywords::{KeywordCall, is_parser_keyword, parse_block_or_value_argument, seen_end_of_options};
 use super::parse_signatures::{parse_definition_name, parse_full_signature, parse_var_type, parse_var_with_opt_type};
 use super::tokens::{Tokens, item, tokens_until};
@@ -501,12 +502,12 @@ fn parse_def_name<'a>(working_set: &WorkingSet<'a>, token: &Token) -> ParseResul
 pub fn parse_def<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
     let working_set = tokens.working_set;
     let mut call = KeywordCall::start(&mut tokens)?;
-    let mut flags = parse_definition_flags(&mut tokens, "def", DEF_FLAGS)?;
+    let mut flags = parse_definition_flags(&mut tokens, &mut call, "def", DEF_FLAGS)?;
     let Some(name) = call.positional(&mut tokens, "command name")? else { return call.help_call() };
     reject_name_item(working_set, &name)?;
     let name = parse_def_name(working_set, &name)?;
     check_definition_name(&name, "command")?;
-    flags.extend(parse_definition_flags(&mut tokens, "def", DEF_FLAGS)?);
+    flags.extend(parse_definition_flags(&mut tokens, &mut call, "def", DEF_FLAGS)?);
     call.flags(&mut tokens)?;
     // The signature positional takes every remaining item but the last, which
     // is the body's: `def foo [] {} --help` drops the `{}` (two-item form of
@@ -533,10 +534,12 @@ pub fn parse_def<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> 
         None if call.wants_help() => return call.help_call(),
         None => return Err(cut(Diagnostic::expected("block", signature_items[0].span.past()))),
     };
-    if flags.iter().any(|flag| flag.item == DefFlag::Wrapped) {
-        check_wrapped_signature(&signature, name.span)?;
-    } else {
-        check_no_help_flag(&signature)?;
+    // A `--wrapped` whose value is neither `true` nor `false` is decided by nu's constant
+    // evaluation, and so are these checks.
+    match DefinitionFlag::is_set(&flags, DefFlag::Wrapped) {
+        Some(true) => check_wrapped_signature(&signature, name.span)?,
+        Some(false) => check_no_help_flag(&signature)?,
+        None => {}
     }
     let span = call.keyword.span.merge(body.map_or(signature.span, |token| token.span));
     let def = Def { flags, name, signature, body_params, body: body_block };
@@ -600,42 +603,57 @@ const DEF_FLAGS: &[(&str, DefFlag)] = &[("--env", DefFlag::Env), ("--wrapped", D
 /// The flags of an `extern`.
 const EXTERN_FLAGS: &[(&str, ExternFlag)] = &[("--strict", ExternFlag::Strict)];
 
-/// The flags of a `def` or an `extern` (its keyword), each written exactly as
-/// `known` lists it, up to a `--help`, a `--` or an item that is not a long
-/// flag.
-fn parse_definition_flags<Flag: Copy>(
-    tokens: &mut Tokens<'_, '_>,
+/// The flags of a `def` or an `extern` (its keyword), each named as `known`
+/// lists it, up to a `--` or an item that is not a long flag. Help flags
+/// among them go to `call` (`def --help --env f`).
+fn parse_definition_flags<'t, 'a, Flag: Copy>(
+    tokens: &mut Tokens<'t, 'a>,
+    call: &mut KeywordCall<'t, 'a>,
     keyword: &str,
     known: &[(&str, Flag)],
-) -> ParseResult<Vec<Spanned<Flag>>> {
-    repeat(0.., |tokens: &mut Tokens<'_, '_>| definition_flag(tokens, keyword, known)).parse_next(tokens)
-}
-
-/// One of the `known` flags. Backtracks at a `--help`, a `--` or an item that
-/// is not a long flag, which ends the `repeat` of [`parse_definition_flags`];
-/// any other long flag is an error, and so is a known one with a value
-/// (`--env=true`), which nu evaluates.
-fn definition_flag<Flag: Copy>(
-    tokens: &mut Tokens<'_, '_>,
-    keyword: &str,
-    known: &[(&str, Flag)],
-) -> ParseResult<Spanned<Flag>> {
-    let working_set = tokens.working_set;
-    let flag = item
-        .verify(|token| {
-            let text = working_set.get_span_contents(token.span);
-            text.starts_with("--") && !matches!(text, "--help" | "--")
-        })
-        .parse_next(tokens)?;
-    let text = tokens.text(&flag);
-    match known.iter().find(|(name, _)| *name == text) {
-        Some((_, value)) => Ok(Spanned::new(*value, flag.span)),
-        None => {
-            let accepted: Vec<String> = known.iter().map(|(name, _)| format!("`{name}`")).collect();
-            Err(cut(Diagnostic::message(format!("the `{keyword}` command doesn't have flag `{text}`"), flag.span)
-                .with_help(format!("`{keyword}` accepts {}", accepted.join(" and ")))))
+) -> ParseResult<Vec<DefinitionFlag<'a, Flag>>> {
+    let mut flags = Vec::new();
+    loop {
+        if call.help_flag(tokens) {
+            continue;
+        }
+        match opt(|tokens: &mut Tokens<'_, 'a>| definition_flag(tokens, keyword, known)).parse_next(tokens)? {
+            Some(flag) => flags.push(flag),
+            None => return Ok(flags),
         }
     }
+}
+
+/// One of the `known` flags, with its value when it is written `--env=false`
+/// ([`parse_switch_value`]). Backtracks at a help flag, a `--` or an item that
+/// is not a long flag; any other long flag is an error.
+fn definition_flag<'a, Flag: Copy>(
+    tokens: &mut Tokens<'_, 'a>,
+    keyword: &str,
+    known: &[(&str, Flag)],
+) -> ParseResult<DefinitionFlag<'a, Flag>> {
+    let working_set = tokens.working_set;
+    let token = item
+        .verify(|token| {
+            let text = working_set.get_span_contents(token.span);
+            text.starts_with("--") && text != "--" && !is_help_text(text)
+        })
+        .parse_next(tokens)?;
+    let text = tokens.text(&token);
+    let (name, value_span) = split_long_flag(text, token.span)?;
+    let Some((_, flag)) = known.iter().find(|(known, _)| known.strip_prefix("--") == Some(name)) else {
+        let accepted: Vec<String> = known.iter().map(|(name, _)| format!("`{name}`")).collect();
+        return Err(cut(Diagnostic::message(
+            format!("the `{keyword}` command doesn't have flag `--{name}`"),
+            token.span,
+        )
+        .with_help(format!("`{keyword}` accepts {}", accepted.join(" and ")))));
+    };
+    let value = match value_span {
+        Some(span) => Some(Box::new(parse_switch_value(working_set, span)?)),
+        None => None,
+    };
+    Ok(DefinitionFlag { span: token.span, flag: *flag, value })
 }
 
 /// `extern [--strict] name signature [: input/output types]`; nu also
@@ -643,12 +661,12 @@ fn definition_flag<Flag: Copy>(
 pub fn parse_extern<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
     let working_set = tokens.working_set;
     let mut call = KeywordCall::start(&mut tokens)?;
-    let mut flags = parse_definition_flags(&mut tokens, "extern", EXTERN_FLAGS)?;
+    let mut flags = parse_definition_flags(&mut tokens, &mut call, "extern", EXTERN_FLAGS)?;
     let Some(name) = call.positional(&mut tokens, "command name")? else { return call.help_call() };
     reject_name_item(working_set, &name)?;
     let name = parse_def_name(working_set, &name)?;
     check_definition_name(&name, "command")?;
-    flags.extend(parse_definition_flags(&mut tokens, "extern", EXTERN_FLAGS)?);
+    flags.extend(parse_definition_flags(&mut tokens, &mut call, "extern", EXTERN_FLAGS)?);
     call.flags(&mut tokens)?;
     let rest = tokens.remaining();
     let Some(last) = rest.last() else {

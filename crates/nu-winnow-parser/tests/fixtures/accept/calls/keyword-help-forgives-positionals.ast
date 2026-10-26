@@ -1,0 +1,13 @@
+Block 0..62
+  Pipeline 0..20
+    Call `hide` 0..20
+      Flag --help 5..11
+      String Bare "foo" 12..15
+      Nothing 16..20
+  Pipeline 21..39
+    Call `overlay use` 21..39
+      Flag --help 33..39
+  Pipeline 40..61
+    Call `attr example` 40..61
+      Flag --help 53..59
+      String Bare "a" 60..61

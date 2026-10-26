@@ -59,6 +59,11 @@ impl DeclNameMap {
         self.map.get(name)
     }
 
+    /// The length of the longest name this map has ever held, so of every name in it.
+    pub fn longest_name(&self) -> usize {
+        self.longest_name
+    }
+
     pub fn insert(&mut self, name: Vec<u8>, decl_id: DeclId) -> Option<DeclId> {
         self.longest_name = self.longest_name.max(name.len());
         LONGEST_DECL_NAME.fetch_max(name.len(), Ordering::Relaxed);

@@ -139,10 +139,15 @@ let else_keyword = opt(keyword("else")).parse_next(&mut tokens)?;   // Some(toke
 
 `try` reads each handler keyword with
 ``expected("`catch` or `finally`", alt((keyword("catch"), keyword("finally"))))``,
-and `def` and `extern` read their flags with `repeat(0.., ..)` over
-`definition_flag`, which is `item.verify(..)` accepting an item that starts
-with `--` and is neither `--help` nor `--`, then looked up in the keyword's
-table (`DEF_FLAGS`, `EXTERN_FLAGS`).
+and `def` and `extern` read their flags with `parse_definition_flags`, a loop
+over `definition_flag`, which is `item.verify(..)` accepting an item that starts
+with `--` and is neither a help flag nor `--`, then looked up by its name in the
+keyword's table (`DEF_FLAGS`, `EXTERN_FLAGS`), with its value when it is written
+`--env=false` (`parse_switch_value`: a Boolean). The loop also hands the help flags
+among them to the `KeywordCall` (`help_flag`), as nu takes `def --help --env f`.
+`DefinitionFlag::is_set` reads the flags as nu's `has_flag_const` does: the first
+of a repeated flag decides, a value other than `true` or `false` needs constant
+evaluation.
 
 ### Positional boundaries: `--help`, `--` and `-x`
 
@@ -157,7 +162,11 @@ methods `start`, `start_positional`, `flags`, `positional`, `end`,
   call showing help (`help_call` calls `parse_help_call`, which drops the
   text the statement recorded as ignored and re-parses its items with
   `parse_call`, so `def foo [] --help` is a `Call` to `def` with three
-  arguments). nu keeps parsing the positionals that
+  arguments). `--help=value` is a help flag too (`is_help_text`): nu shows
+  help whatever the value, which must parse as a Boolean, so `parse_help_call`
+  checks it (`check_help_values`: `if --help=1` is "expected bool"); `alias`
+  and `type` use `parse_unchecked_help_call`, as nu drops the errors of the call
+  it parses for them. nu keeps parsing the positionals that
   follow the flag and only forgives the *missing* ones, so `call.flags`
   records the flag (`wants_help`) and parsing goes on: `match 1 --help :{}`
   still has no match block, `return --help 1 2` and `loop --help {} y` have
@@ -189,8 +198,9 @@ methods `start`, `start_positional`, `flags`, `positional`, `end`,
   `alias` help call must be the whole statement (`alias --help`,
   `alias x --help`); `alias --help x = ls` and `alias x --help extra` are
   "missing sign" (expected `=`). `export --help x` has an extra positional.
-  `use` looks for its flags before every argument and consumes any number of
-  `--`.
+  `export-env` hands nu only the item after the keyword, so after a help flag
+  the rest is ignored text (`export-env --help x {}`). `use` looks for its
+  flags before every argument and consumes any number of `--`.
 
 The table below is the contract each keyword implements. "items" are
 whitespace-delimited items; "rest" means everything to the end of the line
@@ -198,8 +208,8 @@ whitespace-delimited items; "rest" means everything to the end of the line
 
 | Keyword | Shape | Notes |
 | --- | --- | --- |
-| `def` | `def [--env] [--wrapped] NAME SIG[:] [TYPES] BODY` | `NAME` must be a string item (`parse_def_name`: `def $x` is "expected string", a name containing `[` or `(`, even quoted, is "no space between name and parameters"); parser keywords, names with `#`/`^`/`%`, names that read as numbers and names whose whitespace is anything but single spaces between words (`"foo  bar"`, `" foo"`, a tab) are rejected (`check_definition_name`). The flags (`parse_definition_flags`) may also follow the name. The signature argument takes every remaining item but the last (`parse_full_signature`): one item is the signature, two of which the second starts with `{` is the signature plus an item nu drops (`def foo [] {} {}`; the dropped one is `Ast::ignored`), otherwise `TYPES` follow a `:` attached to the signature or standing alone (`def foo [] : {}` is fine) and are re-lexed together in signature mode. `BODY` is parsed as a closure without a probe (`parse_def_body`): `{\|x\| }` keeps its parameters as `Def::body_params`, `{a: 1}` is a call to `a:`. `--wrapped` needs a rest parameter that is untyped or `string` (`check_wrapped_signature`). A bare name starting with `-` or a spread (`def - [] {}`, `def ...{x: 1} [] {}`) is refused, as nu reads neither as the name; a name is refused when Rust reads it as a float (`1e3`, `inf`) or the `bytesize` crate as a size (`1k`, `"1 kb"`), not by Nushell's own number syntax (`def 0x10` is fine). The help call of `def foo [] {}{} --help` leaves out the dropped item, as nu never parses it. |
-| `extern` | `extern [--strict] NAME SIG[:] [TYPES]` | `--strict` (`parse_definition_flags`, `Extern::flags`) may also follow the name; the consumer makes a call with a flag the signature does not declare an error. The signature argument takes *every* remaining item, so a body (`extern foo [] {}`) is the dropped second item, never parsed; default values in an extern signature are not parsed either (chapter 07). |
+| `def` | `def [--env] [--wrapped] NAME SIG[:] [TYPES] BODY` | `NAME` must be a string item (`parse_def_name`: `def $x` is "expected string", a name containing `[` or `(`, even quoted, is "no space between name and parameters"); parser keywords, names with `#`/`^`/`%`, names that read as numbers and names whose whitespace is anything but single spaces between words (`"foo  bar"`, `" foo"`, a tab) are rejected (`check_definition_name`). The flags (`parse_definition_flags`) may also follow the name, and take a value (`--env=false`, `--wrapped=$c`; `Def::flags` keeps it). A literal `false` turns the flag off for the checks below; any other value is evaluated by nu, so the checks that depend on it are the consumer's. The signature argument takes every remaining item but the last (`parse_full_signature`): one item is the signature, two of which the second starts with `{` is the signature plus an item nu drops (`def foo [] {} {}`; the dropped one is `Ast::ignored`), otherwise `TYPES` follow a `:` attached to the signature or standing alone (`def foo [] : {}` is fine) and are re-lexed together in signature mode. `BODY` is parsed as a closure without a probe (`parse_def_body`): `{\|x\| }` keeps its parameters as `Def::body_params`, `{a: 1}` is a call to `a:`. `--wrapped` needs a rest parameter that is untyped or `string` (`check_wrapped_signature`); the predeclaration takes only the item `--wrapped` as written for a wrapped command, as nu's does. A bare name starting with `-` or a spread (`def - [] {}`, `def ...{x: 1} [] {}`) is refused, as nu reads neither as the name; a name is refused when Rust reads it as a float (`1e3`, `inf`) or the `bytesize` crate as a size (`1k`, `"1 kb"`), not by Nushell's own number syntax (`def 0x10` is fine). The help call of `def foo [] {}{} --help` leaves out the dropped item, as nu never parses it. |
+| `extern` | `extern [--strict] NAME SIG[:] [TYPES]` | `--strict` (`parse_definition_flags`, `Extern::flags`) may also follow the name, and take a value (`--strict=false`); the consumer makes a call with a flag the signature does not declare an error. The signature argument takes *every* remaining item, so a body (`extern foo [] {}`) is the dropped second item, never parsed; default values in an extern signature are not parsed either (chapter 07). |
 | `let`/`mut`/`const` | `KW NAME[:] [TYPE...] [= rest]` | `NAME` may start with `$` (`parse_var_with_opt_type`); reserved names (`in`, `nu`, `env`, `ans`) are refused (`ensure_not_reserved_variable_name`); the type tokens are re-lexed together (`parse_type_after_var`); the value is the rest, parsed as a *block* (a pipeline). Only `let x` may leave the `=` out; `mut x` and `const x` are "missing required positional argument". A bare `$` is a name (`let $ = 1`, nu's `is_variable`). Without an `=`, nu parses `let` as an ordinary call, so a `--` before the name ends the options (`let -- x`); with one it is a name and refused. A type of several items is lexed as a signature first (`parse_var_type`), so `record<a: int, b]>` is unbalanced. |
 | `for` | `for VAR[:] [TYPE] in ITEM BODY` | |
 | `alias` | `alias NAME = rest` | The `=` must be the item right after the name (`alias x=y`, `alias x`, `alias x =`, `alias = x` are errors; `export alias x =` is accepted, a nu quirk whose length check counts the `export` word, and gives `Alias::value == None`). A bare name starting with `-` is "alias name not supported". The rest is handed to `parse_call_lenient(.., true)` as plain words (a pipe becomes a word, `alias x = FOO=1 ls` calls the external `FOO=1`), after two checks nu makes first: a target that `is_math_expression_like` (a literal, `$x`, `(..)`) is "cannot create an alias to an expression", and a target naming an unaliasable keyword (`UNALIASABLE_PARSER_KEYWORDS`: `def`, `let`, `for`, `export def`, ...) is "cannot create an alias to a parser keyword"; `if`, `match`, `try` and `overlay *` may be aliased. Lenient means a keyword-command target may miss positionals and flag values (`alias x = overlay new`). nu checks the items by position first (`check_alias_name`): with three or more after `alias` the second must be `=`, with one or two the first must not be. Any `--help` or short-flag batch with `h` before the `=` is then a help call (`alias --help = ls`, `alias -hx`). A lone `-` is a name; `$x`, `(x)`, `{x}` are not. `export alias h home` (one item, no `=`) defines nothing and is accepted, but not in a module body, where nu parses the alias without its `export`. An aliased `if`, `match` or `try` is parsed with the keyword's own rules, forgiving only missing positionals (`alias i = if x` is fine, `alias i = if x y` is not). An alias is declared once its statement is parsed; a call to an alias of an external command is an external call. |
@@ -207,7 +217,7 @@ whitespace-delimited items; "rest" means everything to the end of the line
 | `use` | `use MODULE [MEMBER...]` | `MODULE` is a string or `null` (a no-op after which the members are parsed and then ignored). Members (`parse_import_pattern_member`) are names, `*`, or a `[a b]` list (`parse_import_pattern_list`); only the last may be `*` or a list. A member that is a variable, subexpression or `key: value` record is parsed and kept as `ImportPatternMemberKind::Ignored`, as nu ignores it; non-string list items and a cell path after a list (`[math].x`) are `Ast::ignored`; anything else is "wrong import pattern structure". |
 | `export` | `export def\|extern\|alias\|use\|module\|const ...` | Wraps the inner statement (`parse_export_in_block`). |
 | `export-env` | `export-env BODY [ITEM...]` | nu hands `export-env` exactly one argument: extra items (`export-env {} extra`) and a redirection on it are `Ast::ignored`. A closure or record body is refused. |
-| `if` | `if COND... BLOCK [else BLOCK\|EXPR]` | The condition is every item before the block; the block is the item before `else` or the last item. A `key:` record where the block should be is "expected block" when nu would type it `record<...>` (every key a plain string); nu types any other record, and a cell path on one, `any`, which it accepts as a block (`if true { $env.A:b }`, `if true {a: 1}.a`), and so does `parse_brace_value`, keeping it as `If::then_value`. The else branch is a block or a whole expression (`parse_block_or_value`, or `parse_expression` in `Position::Element`, so `else if ...` recurses and `else {\|x\| }` is a closure). The condition takes every item but the last; when that last item is `--help` the statement is a help call once the condition parses (`if x --help`, but not `if if --help`). A `$` or `(...)` item where the block belongs is kept as `If::then_value`, as nu type-checks it (`if $c $env.f`); the same holds for the bodies of `while`, `loop`, `try` and `for` (`body_value`). |
+| `if` | `if COND... BLOCK [else BLOCK\|EXPR]` | The condition is every item before the block; the block is the item before `else` or the last item. A `key:` record where the block should be is "expected block" when nu would type it `record<...>` (every key a plain string); nu types any other record, and a cell path on one, `any`, which it accepts as a block (`if true { $env.A:b }`, `if true {a: 1}.a`), and so does `parse_brace_value`, keeping it as `If::then_value`. The else branch is a block or a whole expression (`parse_block_or_value`, or `parse_expression` in `Position::Element`, so `else if ...` recurses and `else {\|x\| }` is a closure). The condition takes every item but the last; when that last item is `--help` the statement is a help call once the condition parses (`if x --help`, but not `if if --help`). An else branch of one block followed only by flags leaves them to `if`, as nu's signature does (`if c {} else {} --help` is a help call, `... else {} --` drops the `--`). A `$` or `(...)` item where the block belongs is kept as `If::then_value`, as nu type-checks it (`if $c $env.f`); the same holds for the bodies of `while`, `loop`, `try` and `for` (`body_value`). |
 | `match` | `match ITEM BLOCK` | See chapter 07 for the block. nu decides what the `{ ... }` is before it knows it wants arms, so a `{\|x\| }` closure, a `{a: 1}` record, a `$x` or a `(..)` in that position is accepted and kept as `Match::value_block` (the arms are empty); `match 1 [a]` and `match 1 foo` are errors. |
 | `while` | `while COND... BLOCK` | As `if`: the condition takes every item but the last, a final `--help` is a help call once the condition parses, and a `$`/`(...)` body is `While::body_value`. |
 | `loop` | `loop BLOCK` | |
@@ -422,9 +432,12 @@ unknown flags pass (`allows_unknown_flags`, for `run`), whether `null` is
 allowed as the first positional (`accepts_nothing`) and whether the call may
 be redirected (`redirectable`). `check_call_arguments` walks the arguments
 against it and reproduces nu's checks: unknown flags, a flag without its
-value, too many positionals, `as` without its name, `-1` as a flag rather
-than a number, and `null` or `true` where a string is required
-(`hide null`). With no command table the head of `overlay use x` resolves as
+value, a switch's `=value` that is not a Boolean (`--prefix=1`,
+`check_switch_value`), a batch of short flags letter by letter (`-pr`; only the
+last may take a value), too many positionals, `as` without its name, `-1` as a
+flag rather than a number, and `null` or `true` where a string is required
+(`hide null`). A `--help` or `-h` forgives a missing positional and nothing
+else, and keeps `hide` from reading its members. With no command table the head of `overlay use x` resolves as
 `overlay` with `use` as its first argument; `keyword_signature_of_call`
 finds both spellings. `lenient` is set for an alias target, where nu
 forgives missing positionals and flag values. Whether the named module, file

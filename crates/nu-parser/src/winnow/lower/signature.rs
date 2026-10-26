@@ -134,9 +134,11 @@ impl<'s> Lower<'_, '_, 's> {
             w::Expr::Def(def) => (
                 &def.name,
                 &def.signature,
+                // `parse_def_predecl` looks for the item `--wrapped` as written, so a
+                // `--wrapped=true` is no wrapped command until `finish_def`.
                 def.flags
                     .iter()
-                    .any(|flag| flag.item == w::DefFlag::Wrapped),
+                    .any(|flag| flag.flag == w::DefFlag::Wrapped && flag.value.is_none()),
                 false,
             ),
             w::Expr::Extern(extern_def) => (&extern_def.name, &extern_def.signature, false, true),

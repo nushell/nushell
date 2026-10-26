@@ -1,0 +1,7 @@
+error: extra positional argument
+  --> reject/calls/hide-help-extra-positional.nu:1:17
+  |
+1 | hide --help a b c
+  |                 ^
+  = while parsing command call
+  = help: `hide` takes at most 2 positional arguments

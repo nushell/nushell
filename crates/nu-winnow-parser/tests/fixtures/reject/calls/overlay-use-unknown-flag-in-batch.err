@@ -1,0 +1,7 @@
+error: the `overlay use` command doesn't have flag `-z`
+  --> reject/calls/overlay-use-unknown-flag-in-batch.nu:1:15
+  |
+1 | overlay use -hz spam
+  |               ^
+  = while parsing command call
+  = help: use `--help` to see available flags

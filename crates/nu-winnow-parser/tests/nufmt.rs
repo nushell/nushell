@@ -347,12 +347,17 @@ fn keeps_end_of_options_after_keywords() {
     assert!(!out.contains("a -- b"), "{out}");
 }
 
-/// The flags of `def` and `extern` are written back; one written after the name moves before
-/// it, which nu reads the same.
+/// The flags of `def` and `extern` are written back, with their values; one written after the
+/// name moves before it, which nu reads the same.
 #[test]
 fn keeps_definition_flags() {
     let fmt = |s: &str| format(s, &Options::default()).unwrap();
-    for src in ["def --env --wrapped f [...rest] { }\n", "extern --strict foo [--bar]\n"] {
+    for src in [
+        "def --env --wrapped f [...rest] { }\n",
+        "extern --strict foo [--bar]\n",
+        "def --env=false --wrapped=(1 == 1) f [...rest] { }\n",
+        "extern --strict=false foo [--bar]\n",
+    ] {
         assert_eq!(fmt(src), src, "{src}");
         check(src, src);
     }

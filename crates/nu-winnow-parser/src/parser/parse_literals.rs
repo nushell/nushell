@@ -620,24 +620,28 @@ pub fn parse_raw_string<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseRe
     let Some(after_r) = text.strip_prefix('r') else {
         return Err(cut(Diagnostic::expected("raw string", span)));
     };
-    let hashes = after_r.bytes().take_while(|byte| *byte == b'#').count();
-    if hashes == 0 {
+    if !after_r.starts_with('#') {
         return Err(cut(Diagnostic::expected("`#` after `r` in raw string", span)));
     }
-    let body_start = 1 + hashes;
-    let body_end = text.len().checked_sub(hashes).filter(|body_end| *body_end > body_start + 1);
-    let Some(body_end) = body_end else {
+    let Some((hashes, value)) = raw_string_parts(text) else {
         return Err(cut(Diagnostic::new(ErrorKind::Unclosed { delimiter: "'", open: span }, span.past())));
     };
+    Ok(Expression::new(Expr::String(StringLiteral { value: Cow::Borrowed(value), quote: Quote::Raw(hashes) }), span))
+}
+
+/// The number of `#` and the text of the raw string `text` ([`parse_raw_string`]),
+/// when it is one, closed at its very end.
+fn raw_string_parts(text: &str) -> Option<(usize, &str)> {
+    let hashes = text.strip_prefix('r')?.bytes().take_while(|byte| *byte == b'#').count();
+    let body_start = 1 + hashes;
+    let body_end = text.len().checked_sub(hashes).filter(|body_end| hashes > 0 && *body_end > body_start + 1)?;
     // Bytes, as nu compares them: `body_end` may fall inside a character (`r#'a'#é`).
     let bytes = text.as_bytes();
-    if !bytes[body_end..].iter().all(|byte| *byte == b'#') || bytes[body_start] != b'\'' || bytes[body_end - 1] != b'\''
-    {
-        return Err(cut(Diagnostic::new(ErrorKind::Unclosed { delimiter: "'", open: span }, span.past())));
-    }
+    let closed = bytes[body_end..].iter().all(|byte| *byte == b'#')
+        && bytes[body_start] == b'\''
+        && bytes[body_end - 1] == b'\'';
     // Both quotes are ASCII, so the text between them starts and ends on a character boundary.
-    let value = &text[body_start + 1..body_end - 1];
-    Ok(Expression::new(Expr::String(StringLiteral { value: Cow::Borrowed(value), quote: Quote::Raw(hashes) }), span))
+    closed.then(|| (hashes, &text[body_start + 1..body_end - 1]))
 }
 
 /// `true` for a bare word that Nushell treats as an interpolation because it
@@ -1074,8 +1078,10 @@ pub(super) fn has_range_operator(text: &str) -> bool {
 
 /// Whether a command head is a range (nu's `is_math_expression_like`, which
 /// asks `parse_range` for a range without an error): [`is_range_syntax`] with
-/// no bare `$` bound and no empty `next`. As a head, `..$` and `1....5` are
-/// then external commands; as values they are ranges with an error.
+/// no bare `$` bound, no empty `next` and no bound that nu's value parser
+/// fails on (text after a record or a raw string, a broken cell path on a
+/// subexpression). As a head, `..$`, `1....5` and `5..{a: 1}b` are then
+/// external commands; as values they are ranges with an error.
 #[inline]
 pub fn is_range_head(text: &str) -> bool {
     // A `$` bound must name a variable and a cell path on it (`..$x.a`), or be a
@@ -1089,6 +1095,16 @@ pub fn is_range_head(text: &str) -> bool {
             let name = &rest[..name_end];
             is_identifier(name) && !name.contains(':') && is_cell_path_tail(&rest[name_end..])
         }
+        // A record must close at the end of the bound or before a cell path on it, a raw
+        // string at the end, and what follows a subexpression must be a cell path when it
+        // starts like one (other text makes it a bare interpolation, `5..(1)x`):
+        // `5..{a: 1}b`, `5..r#'a'#b` and `5..(1)!` are external commands for nu.
+        None if bound.starts_with('{') => group_end(bound).is_some_and(|end| is_cell_path_tail(&bound[end + 1..])),
+        None if bound.starts_with('(') => group_end(bound).is_some_and(|end| {
+            let tail = &bound[end + 1..];
+            !tail.starts_with(['.', '?', '!']) || is_cell_path_tail(tail)
+        }),
+        None if bound.starts_with("r#") => raw_string_parts(bound).is_some(),
         None => true,
     };
     has_range_operator(text)
