@@ -205,7 +205,7 @@ impl LexOptions {
     pub const SUBEXPRESSION: LexOptions =
         LexOptions::with_stops(&StopBytes::new(b"\n\r", &[], LexMode::Code), false);
     /// Options for list interiors: commas and newlines are whitespace, and a `]` that closes no
-    /// `[` is an error (nu's `lex_list_items`, see [`LexMode::ListItems`]).
+    /// `[` is an error (nu's `lex_list_items`, see `LexMode::ListItems`).
     pub const LIST: LexOptions =
         LexOptions::with_stops(&StopBytes::new(b"\n\r,", &[], LexMode::ListItems), false);
     /// Options for record interiors: like lists, and `:` is special.

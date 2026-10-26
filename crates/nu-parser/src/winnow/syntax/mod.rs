@@ -31,18 +31,16 @@ pub mod pretty;
 pub mod span;
 
 pub use error::{Diagnostic, ErrorKind, ParseError};
-pub use parser::{
-    AliasedKeyword, BlockSink, BlockStatements, CommandLookup, CommandType, DeclKind, Definitions,
-    ParseConfig, PredeclaredDef, TypeAliasPredecl,
-};
+pub use parser::{BlockSink, CommandLookup, CommandType, DeclKind, ParseConfig, PredeclaredDef};
+// Only the front end (`crate::winnow`) uses these.
+pub(crate) use parser::{AliasedKeyword, BlockStatements, Definitions, TypeAliasPredecl};
 pub use span::{LineCol, LineIndex, Span, Spanned};
 
 use ast::Ast;
 
 /// Parse a complete Nushell source text.
 ///
-/// Uses [`ParseConfig::new`], which knows Nushell's built-in commands when the
-/// `builtin-commands` feature is enabled (the default).
+/// Uses [`ParseConfig::new`], which knows Nushell's built-in commands.
 pub fn parse(source: &str) -> Result<Ast<'_>, ParseError> {
     parse_with(source, &ParseConfig::new())
 }

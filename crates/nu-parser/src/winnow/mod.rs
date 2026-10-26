@@ -12,7 +12,7 @@
 //!   every byte of the source, written with the `winnow` crate. It asks a
 //!   [`CommandLookup`](syntax::CommandLookup) which commands exist. [`docs`] describes it,
 //!   chapter by chapter.
-//! * `driver` parses a block with [`syntax::BlockStatements`], one statement at a
+//! * `driver` parses a block with `syntax::BlockStatements`, one statement at a
 //!   time, and hands each statement to the lowering (or to the classic parser, see below). A
 //!   `use` therefore affects how the following statements resolve their command names, as in
 //!   the classic parser. In a long block the statements are parsed on a second thread, ahead of
@@ -36,6 +36,10 @@
 //!   of `overlay use`);
 //! * a block the winnow parser cannot take as a whole (not UTF-8, it does not lex, or it has an
 //!   error about the whole block) is parsed entirely.
+//!
+//! This module is public so that nu-parser's tests, examples and benchmarks and the comparison
+//! harness in `winnow/tools` can reach the winnow parser. It is experimental, like the option,
+//! and not a stable API.
 
 pub mod docs;
 pub(super) mod driver;

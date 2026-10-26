@@ -78,7 +78,7 @@ pub struct PredeclaredDef<'a> {
 
 /// [`parse_def_predecl`], also returning the definitions found, whose signatures
 /// [`Definitions::parse`] parses later: the statements need only the declared
-/// names, so they can be parsed meanwhile (see [`crate::winnow::syntax::BlockStatements::new`]).
+/// names, so they can be parsed meanwhile (see `BlockStatements::new`).
 pub(super) fn scan_predecls(working_set: &WorkingSet<'_>, tokens: &[Token]) -> Definitions {
     let mut definitions = Definitions::default();
     scan_definitions(
@@ -95,7 +95,7 @@ pub(super) fn scan_predecls(working_set: &WorkingSet<'_>, tokens: &[Token]) -> D
 }
 
 /// The `def`/`extern` statements of a block, as the predeclaration scan found
-/// them (see [`crate::winnow::syntax::BlockStatements::new`]), their signatures not yet
+/// them (see `BlockStatements::new`), their signatures not yet
 /// parsed, and its `type` statements.
 #[derive(Debug, Default)]
 pub struct Definitions {
