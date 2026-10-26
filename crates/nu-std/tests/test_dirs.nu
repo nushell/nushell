@@ -140,6 +140,21 @@ def dirs_cd [] {
 }
 
 @test
+def dirs_drop_single_entry [] {
+    let $c = $in
+    cd $c.base_path
+
+    hide-env -i DIRS_LIST DIRS_POSITION
+    use std/dirs
+
+    # the only slot still holds base_path, but we have moved on
+    cd $c.path_a
+    dirs drop
+    assert equal $env.PWD $c.path_a "drop with a single entry keeps PWD"
+    assert length $env.DIRS_LIST 1 "drop with a single entry keeps the list"
+}
+
+@test
 def dirs_goto_bug10696 [] {
     let $c = $in
     cd $c.base_path
