@@ -1,4 +1,3 @@
-use nu_protocol::ShellError;
 use nu_test_support::prelude::*;
 
 #[test]
@@ -40,27 +39,25 @@ fn single_grapheme_clusters_skips_mid_cluster_match() -> Result {
 }
 
 #[test]
-fn empty_pattern_is_rejected() -> Result {
+fn empty_pattern_matches_at_start() -> Result {
     let code = "'abc' | str index-of ''";
-    let err = test().run(code).expect_shell_error()?;
-    match err {
-        ShellError::TypeMismatch { err_message, .. } => {
-            assert_eq!(err_message, "the pattern to find cannot be empty");
-            Ok(())
-        }
-        err => Err(err.into()),
-    }
+    test().run(code).expect_value_eq(0)
 }
 
 #[test]
-fn empty_pattern_is_rejected_with_all() -> Result {
-    let code = "'abc' | str index-of '' --all";
-    let err = test().run(code).expect_shell_error()?;
-    match err {
-        ShellError::TypeMismatch { err_message, .. } => {
-            assert_eq!(err_message, "the pattern to find cannot be empty");
-            Ok(())
-        }
-        err => Err(err.into()),
-    }
+fn empty_pattern_matches_at_end_with_end_flag() -> Result {
+    let code = "'abc' | str index-of '' --end";
+    test().run(code).expect_value_eq(3)
+}
+
+#[test]
+fn empty_pattern_with_all_returns_every_boundary() -> Result {
+    let code = "'abc' | str index-of '' --all | to nuon";
+    test().run(code).expect_value_eq("[0, 1, 2, 3]")
+}
+
+#[test]
+fn empty_pattern_with_all_and_grapheme_clusters_returns_every_grapheme_boundary() -> Result {
+    let code = "'🇯🇵a' | str index-of '' --all --grapheme-clusters | to nuon";
+    test().run(code).expect_value_eq("[0, 1, 2]")
 }

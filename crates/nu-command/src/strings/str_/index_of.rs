@@ -94,12 +94,6 @@ impl Command for StrIndexOf {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let substring: Spanned<String> = call.req(engine_state, stack, 0)?;
-        if substring.item.is_empty() {
-            return Err(ShellError::TypeMismatch {
-                err_message: "the pattern to find cannot be empty".to_string(),
-                span: substring.span,
-            });
-        }
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
         let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
         let args = Arguments {
@@ -121,12 +115,6 @@ impl Command for StrIndexOf {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let substring: Spanned<String> = call.req_const(working_set, stack, 0)?;
-        if substring.item.is_empty() {
-            return Err(ShellError::TypeMismatch {
-                err_message: "the pattern to find cannot be empty".to_string(),
-                span: substring.span,
-            });
-        }
         let cell_paths: Vec<CellPath> = call.rest_const(working_set, stack, 1)?;
         let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
         let args = Arguments {
@@ -255,11 +243,18 @@ fn action(
             if *graphemes {
                 // Map each byte offset in `s` to its grapheme index in a single pass, so scoring
                 // any number of matches against it costs one walk of `s`, not one walk per match.
-                let grapheme_index_by_byte_offset: HashMap<usize, i64> = s
-                    .grapheme_indices(true)
+                let graphemes: Vec<(usize, &str)> = s.grapheme_indices(true).collect();
+                let mut grapheme_index_by_byte_offset: HashMap<usize, i64> = graphemes
+                    .iter()
                     .enumerate()
-                    .map(|(grapheme_index, (byte_offset, _))| (byte_offset, grapheme_index as i64))
+                    .map(|(grapheme_index, (byte_offset, _))| (*byte_offset, grapheme_index as i64))
                     .collect();
+                // An empty pattern matches at the position right after the last grapheme too
+                // (mirrors how `match_indices("")` always includes the end of the string), but
+                // `grapheme_indices` has no entry there since no grapheme starts at that byte
+                // offset. Add it so that boundary resolves to the total grapheme count instead of
+                // being dropped as "inside a cluster".
+                grapheme_index_by_byte_offset.insert(s.len(), graphemes.len() as i64);
 
                 // A match that doesn't start exactly on a grapheme boundary falls inside a
                 // cluster, so it isn't a real grapheme-level match and is dropped rather than
@@ -314,7 +309,8 @@ fn action(
 /// descending order (mirrors `bytes index-of --all --end`); matches don't overlap, so the set of
 /// offsets found from the end can differ from the forward set, not just its order.
 ///
-/// `pattern` is assumed non-empty -- callers reject an empty pattern before reaching this point.
+/// An empty `pattern` matches at every char boundary in `haystack`, including the position right
+/// after the last char, same as `str::match_indices`/`rmatch_indices` with an empty pattern.
 fn match_offsets(haystack: &str, pattern: &str, from_end: bool) -> Vec<usize> {
     if from_end {
         haystack.rmatch_indices(pattern).map(|(i, _)| i).collect()
@@ -625,6 +621,66 @@ mod tests {
 
         let actual = action(&word, &options, Span::test_data());
         assert_eq!(actual, Value::test_int(1));
+    }
+
+    #[test]
+    fn empty_pattern_matches_at_every_boundary() {
+        let word = Value::test_string("abc");
+
+        let single = Arguments {
+            substring: String::new(),
+            range: None,
+            cell_paths: None,
+            end: false,
+            all: false,
+            graphemes: false,
+        };
+        assert_eq!(
+            action(&word, &single, Span::test_data()),
+            Value::test_int(0)
+        );
+
+        let single_from_end = Arguments {
+            end: true,
+            ..single
+        };
+        assert_eq!(
+            action(&word, &single_from_end, Span::test_data()),
+            Value::test_int(3)
+        );
+
+        let all = Arguments {
+            all: true,
+            end: false,
+            ..single_from_end
+        };
+        assert_eq!(
+            action(&word, &all, Span::test_data()),
+            Value::test_list([0, 1, 2, 3].into_iter().map(Value::test_int).collect())
+        );
+    }
+
+    #[test]
+    fn empty_pattern_with_grapheme_clusters_matches_at_every_grapheme_boundary() {
+        // "🇯🇵" is one grapheme cluster made of two 4-byte codepoints, so the mid-cluster byte
+        // boundary at offset 4 isn't a grapheme boundary and must be dropped, the same way a
+        // mid-cluster substring match is.
+        let word = Value::test_string("🇯🇵a");
+
+        let options = Arguments {
+            substring: String::new(),
+            range: None,
+            cell_paths: None,
+            end: false,
+            all: true,
+            graphemes: true,
+        };
+
+        let actual = action(&word, &options, Span::test_data());
+        assert_eq!(
+            actual,
+            Value::test_list([0, 1, 2].into_iter().map(Value::test_int).collect())
+        );
     }
 
     #[test]
