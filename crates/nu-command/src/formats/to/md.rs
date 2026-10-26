@@ -261,8 +261,7 @@ fn to_md(
     }
 
     // For tables/records, use the grouping logic
-    let input = Value::list(values, head).into_pipeline_data();
-    let (grouped_input, single_list) = group_by(input, head, config);
+    let (grouped_input, single_list) = group_by(&values, head, config);
     if options.per_element || single_list {
         return Ok(Value::string(
             grouped_input
@@ -330,9 +329,11 @@ fn to_md(
         )
         .into_pipeline_data_with_metadata(metadata));
     }
+    // One table for everything, so keep the rows in their input order
+    // even when some of them are missing columns
     Ok(Value::string(
         table(
-            grouped_input,
+            Value::list(values, head).into_pipeline_data(),
             options.pretty,
             &options.center,
             options.escape_md,
@@ -572,14 +573,11 @@ fn table(
     }
 }
 
-pub fn group_by(values: PipelineData, head: Span, config: &Config) -> (PipelineData, bool) {
+pub fn group_by(values: &[Value], head: Span, config: &Config) -> (PipelineData, bool) {
     let mut lists = IndexMap::new();
     let mut single_list = false;
     for val in values {
-        if let Value::Record {
-            val: ref record, ..
-        } = val
-        {
+        if let Value::Record { val: record, .. } = val {
             lists
                 .entry(record.columns().map(|c| c.as_str()).collect::<String>())
                 .and_modify(|v: &mut Vec<Value>| v.push(val.clone()))

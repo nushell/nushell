@@ -42,6 +42,14 @@ fn md_table_pretty() -> Result {
 }
 
 #[test]
+fn md_table_keeps_row_order_with_missing_columns() -> Result {
+    let code = "[{a: 1, b: 2} {a: 3} {b: 4} {a: 5}] | to md";
+    test()
+        .run(code)
+        .expect_value_eq("| a | b |\n| --- | --- |\n| 1 | 2 |\n| 3 |  |\n|  | 4 |\n| 5 |  |")
+}
+
+#[test]
 fn md_combined() -> Result {
     let code = r#"
         def title [] {
