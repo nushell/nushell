@@ -6,7 +6,7 @@ use nu_protocol::{
     ast::{Expr, Expression},
     engine::CommandType,
 };
-use nu_winnow_parser::{Span as WSpan, ast as w};
+use crate::winnow::syntax::{Span as WSpan, ast as w};
 
 use super::{Lower, Lowered, Unlowered};
 use crate::{

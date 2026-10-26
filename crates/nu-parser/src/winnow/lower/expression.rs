@@ -10,7 +10,7 @@ use nu_protocol::{
         FullCellPath, Math, Operator, Pipeline, PipelineElement, RecordItem,
     },
 };
-use nu_winnow_parser::{ast as w, lex::AssignmentOperator};
+use crate::winnow::syntax::{ast as w, lex::AssignmentOperator};
 
 use super::{Lower, Lowered, Unlowered};
 use crate::{

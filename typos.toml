@@ -4,7 +4,7 @@ extend-exclude = [
     "crates/nu-command/tests/commands/**",
     "crates/nu-cmd-extra/assets/228_themes.json",
     # Verbatim copies of upstream Nushell sources used as a parse corpus
-    "crates/nu-winnow-parser/tests/corpus/",
+    "crates/nu-parser/tests/winnow/corpus/",
     "tests/fixtures/formats/",
 ]
 ignore-hidden = false

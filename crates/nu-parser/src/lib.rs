@@ -24,7 +24,7 @@ mod parse_source;
 mod parse_type_alias;
 mod parser;
 mod type_check;
-mod winnow;
+pub mod winnow;
 
 pub use deparse::escape_for_script_arg;
 pub use flatten::{
@@ -35,7 +35,7 @@ pub use lex::{LexState, Token, TokenContents, lex, lex_n_tokens, lex_signature};
 pub use lite_parser::{LiteBlock, LiteCommand, lite_parse};
 pub use nu_protocol::parser_path::*;
 pub use parse_keywords::*;
-pub use winnow::{WinnowStats, winnow_stats};
+pub use self::winnow::{WinnowStats, winnow_stats};
 
 pub use parser::{
     DURATION_UNIT_GROUPS, is_math_expression_like, parse, parse_block, parse_expression,

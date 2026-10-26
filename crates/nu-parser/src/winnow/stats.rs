@@ -1,7 +1,7 @@
 //! Counters of what the winnow front end parsed and what it handed to the classic parser, to
 //! tell how much of an input took which path. They are always kept, for the whole process, and
 //! read with `nu_parser::winnow_stats()`: the `frontends` harness
-//! (`crates/nu-winnow-parser/tools/nushell-harness`) prints them after `compare` and `bench`.
+//! (`crates/nu-parser/winnow/tools/nushell-harness`) prints them after `compare` and `bench`.
 //!
 //! Each hand-over to the classic parser is also logged at the debug level, with its reason, to
 //! find what the lowering still lacks: a statement the lowering gives back, the rest of a block
@@ -16,7 +16,7 @@ use std::{
 
 use log::{Level, debug, log_enabled};
 use nu_protocol::{Span, engine::StateWorkingSet};
-use nu_winnow_parser::Diagnostic;
+use crate::winnow::syntax::Diagnostic;
 
 use super::lower::Unlowered;
 

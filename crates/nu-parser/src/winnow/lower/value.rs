@@ -8,7 +8,7 @@ use nu_protocol::{
     ast::{CellPath, Expr, Expression, FullCellPath, ListItem, PathMember, RecordItem, Table},
     casing::Casing,
 };
-use nu_winnow_parser::{Span as WSpan, ast as w};
+use crate::winnow::syntax::{Span as WSpan, ast as w};
 
 use super::{Lower, Lowered, Unlowered};
 use crate::{

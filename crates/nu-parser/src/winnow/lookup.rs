@@ -12,7 +12,7 @@ use nu_protocol::{
     ast::Expr,
     engine::{CommandType, OverlayFrame, ScopeFrame, StateWorkingSet, longest_decl_name},
 };
-use nu_winnow_parser::{AliasedKeyword, CommandLookup, DeclKind};
+use crate::winnow::syntax::{AliasedKeyword, CommandLookup, DeclKind};
 
 use crate::parse_calls::find_decl_with_command_type;
 

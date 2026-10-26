@@ -1,24 +1,28 @@
-//! The `winnow-parser` experimental front end.
+//! The `winnow-parser` experimental front end, and the winnow parser itself.
 //!
 //! With the `winnow-parser` experimental option on, the syntax of every block and module body is
-//! parsed by `nu-winnow-parser` instead of this crate's lexer and parser, and the resulting
-//! syntax tree is lowered into the `nu-protocol` AST that the rest of Nushell consumes. Nothing
-//! downstream changes: blocks are compiled, captures discovered and errors reported exactly as
-//! for the classic front end.
+//! parsed by the winnow parser ([`syntax`]) instead of this crate's lexer and parser, and the
+//! resulting syntax tree is lowered into the `nu-protocol` AST that the rest of Nushell consumes.
+//! Nothing downstream changes: blocks are compiled, captures discovered and errors reported exactly
+//! as for the classic front end.
 //!
 //! The pieces:
 //!
-//! * [`driver`] parses a block with `nu_winnow_parser::BlockStatements`, one statement at a
+//! * [`syntax`] is the winnow parser: a lexer and a parser that build a syntax tree keeping
+//!   every byte of the source, written with the `winnow` crate. It asks a
+//!   [`CommandLookup`](syntax::CommandLookup) which commands exist. [`docs`] describes it,
+//!   chapter by chapter.
+//! * `driver` parses a block with [`syntax::BlockStatements`], one statement at a
 //!   time, and hands each statement to the lowering (or to the classic parser, see below). A
 //!   `use` therefore affects how the following statements resolve their command names, as in
 //!   the classic parser. In a long block the statements are parsed on a second thread, ahead of
 //!   the lowering, with a copy of the command names; every name it resolved is checked against
 //!   the live working set before its statement is lowered.
-//! * [`lookup`] answers the winnow parser's questions about which commands exist from the live
+//! * `lookup` answers the winnow parser's questions about which commands exist from the live
 //!   [`StateWorkingSet`], or from a copy of its names for the second thread.
-//! * [`lower`] turns each statement's syntax tree into the AST, each of its functions the
+//! * `lower` turns each statement's syntax tree into the AST, each of its functions the
 //!   counterpart of a classic parser function, or gives the statement back.
-//! * [`stats`] counts what went where, so a benchmark can say how much of its input the winnow
+//! * `stats` counts what went where, so a benchmark can say how much of its input the winnow
 //!   front end parsed.
 //!
 //! The classic parser (lexing and parsing from the source, with its effects applied as usual)
@@ -33,10 +37,12 @@
 //! * a block the winnow parser cannot take as a whole (not UTF-8, it does not lex, or it has an
 //!   error about the whole block) is parsed entirely.
 
+pub mod docs;
 pub(super) mod driver;
 mod lookup;
 mod lower;
 mod stats;
+pub mod syntax;
 
 use nu_protocol::{Span, ast::Block, engine::StateWorkingSet};
 

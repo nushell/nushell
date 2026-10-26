@@ -5261,12 +5261,14 @@ dependencies = [
  "nu-plugin-engine",
  "nu-protocol",
  "nu-utils",
- "nu-winnow-parser",
  "rayon",
  "rstest",
  "rustc-hash",
  "semver",
+ "serde",
  "serde_json",
+ "tango-bench",
+ "winnow 1.0.4",
 ]
 
 [[package]]
@@ -5568,17 +5570,6 @@ dependencies = [
  "sys-locale",
  "unicase",
  "web-time",
-]
-
-[[package]]
-name = "nu-winnow-parser"
-version = "0.116.2"
-dependencies = [
- "rstest",
- "serde",
- "serde_json",
- "tango-bench",
- "winnow 1.0.4",
 ]
 
 [[package]]

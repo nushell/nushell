@@ -7,7 +7,7 @@ use nu_protocol::{
     DeclId, Flag, Span, Spanned, SyntaxShape, Type,
     ast::{Call, Expr, Expression, ExternalArgument},
 };
-use nu_winnow_parser::{DeclKind, ast as w};
+use crate::winnow::syntax::{DeclKind, ast as w};
 
 use super::{Lower, Lowered, Unlowered};
 use crate::{

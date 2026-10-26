@@ -14,7 +14,7 @@ use nu_protocol::{
         Pattern, Pipeline,
     },
 };
-use nu_winnow_parser::{Span as WSpan, ast as w};
+use crate::winnow::syntax::{Span as WSpan, ast as w};
 
 use super::{Lower, Lowered, Unlowered};
 use crate::{
@@ -381,7 +381,7 @@ impl<'s> Lower<'_, '_, 's> {
     /// find the variable (`let x: string = $x` reads the `x` before it).
     fn variable_declaration(
         &mut self,
-        name: &nu_winnow_parser::Spanned<&'s str>,
+        name: &crate::winnow::syntax::Spanned<&'s str>,
         ty: Option<&w::TypeAnnotation<'s>>,
         mutable: bool,
         input_type: Option<&Type>,

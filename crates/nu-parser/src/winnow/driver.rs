@@ -53,7 +53,7 @@ use nu_protocol::{
     ast::{Block, Pipeline},
     engine::StateWorkingSet,
 };
-use nu_winnow_parser::{
+use crate::winnow::syntax::{
     BlockSink, BlockStatements, Definitions, Diagnostic, PredeclaredDef, TypeAliasPredecl, ast as w,
 };
 
@@ -93,7 +93,7 @@ pub(super) fn parse_block(
     inner: Span,
     kind: BlockKind,
 ) -> Option<(Block, Option<Module>)> {
-    let local_span = nu_winnow_parser::Span::new(inner.start - offset, inner.end - offset);
+    let local_span = crate::winnow::syntax::Span::new(inner.start - offset, inner.end - offset);
     let target = match kind {
         BlockKind::Block {
             scoped,
@@ -183,7 +183,7 @@ const AHEAD_MIN_BYTES: usize = 4096;
 /// `driver`.
 fn parse_statements(
     source: &str,
-    span: nu_winnow_parser::Span,
+    span: crate::winnow::syntax::Span,
     lookup: &EngineLookup,
     driver: &mut Driver,
 ) -> Result<(), Vec<Diagnostic>> {
@@ -264,7 +264,7 @@ fn parse_statements(
 fn declare(
     definitions: Definitions,
     source: &str,
-    span: nu_winnow_parser::Span,
+    span: crate::winnow::syntax::Span,
     lookup: &EngineLookup,
     driver: &mut Driver,
 ) {
@@ -304,7 +304,7 @@ struct Ahead<'a> {
 fn parse_ahead(
     threads: &rayon::ThreadPool,
     source: &str,
-    span: nu_winnow_parser::Span,
+    span: crate::winnow::syntax::Span,
     statements: &mut BlockStatements,
     definitions: Definitions,
     lookup: &EngineLookup,
@@ -519,7 +519,7 @@ struct Driver<'c, 'w, 'e, 's> {
 
 impl Driver<'_, '_, '_, '_> {
     /// A span of the winnow parser's source, in the working set's span space.
-    fn global(&self, span: nu_winnow_parser::Span) -> Span {
+    fn global(&self, span: crate::winnow::syntax::Span) -> Span {
         Span::new(self.offset + span.start, self.offset + span.end)
     }
 

@@ -1,7 +1,7 @@
 //! The `winnow-parser` front end must parse what the classic parser parses, the same way.
 //!
 //! Most of that is checked by comparing both front ends over whole corpora (the `frontends`
-//! harness in `crates/nu-winnow-parser/tools/nushell-harness`). The tests here pin cases the
+//! harness in `crates/nu-parser/winnow/tools/nushell-harness`). The tests here pin cases the
 //! corpora do not reach. The ones about parsing ahead need a long block (`AHEAD_MIN_BYTES` in
 //! `crates/nu-parser/src/winnow/driver.rs`) and a second thread: on a machine that runs one
 //! thread at a time they pass without exercising it.

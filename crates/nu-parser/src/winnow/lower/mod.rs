@@ -41,7 +41,7 @@ use nu_protocol::{
     ast::{Expr, Expression},
     engine::StateWorkingSet,
 };
-use nu_winnow_parser::Span as WSpan;
+use crate::winnow::syntax::Span as WSpan;
 
 pub(super) use signature::Predecl;
 pub(super) use statement::{StatementTarget, parse_classic};
