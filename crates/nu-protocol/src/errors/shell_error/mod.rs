@@ -668,14 +668,20 @@ pub enum ShellError {
     ///
     /// ## Resolution
     ///
-    /// Check the record to ensure you aren't reusing the same field name
+    /// Check for reused field names or table columns. Record spreads introduce fields without
+    /// overriding existing keys. To replace a record field, use `merge` or `update` instead.
     #[error("Record field or table column used twice: {col_name}")]
-    #[diagnostic(code(nu::shell::column_defined_twice))]
+    #[diagnostic(
+        code(nu::shell::column_defined_twice),
+        help(
+            "Fields and columns must have unique names. In records, spreads introduce fields and do not override existing keys. To replace a record field, use `merge` or `update`."
+        )
+    )]
     ColumnDefinedTwice {
         col_name: String,
         #[label = "field redefined here"]
         second_use: Span,
-        #[label = "field first defined here"]
+        #[label = "existing field originates here"]
         first_use: Span,
     },
 

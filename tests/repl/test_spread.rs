@@ -1,3 +1,4 @@
+use miette::Diagnostic;
 use nu_protocol::{ParseError, ShellError};
 use nu_test_support::prelude::*;
 use pretty_assertions::assert_matches;
@@ -84,16 +85,49 @@ fn spread_in_record() -> Result {
 
 #[test]
 fn duplicate_cols() -> Result {
-    let err = test().run("{a: 1, ...{a: 3}}").expect_shell_error()?;
-    assert_matches!(err, ShellError::ColumnDefinedTwice { .. });
-
-    let err = test().run("{...{a: 4, x: 3}, x: 1}").expect_shell_error()?;
-    assert_matches!(err, ShellError::ColumnDefinedTwice { .. });
-
-    let err = test()
-        .run("{...{a: 0, x: 2}, ...{x: 5}}")
-        .expect_shell_error()?;
-    assert_matches!(err, ShellError::ColumnDefinedTwice { .. });
+    for code in [
+        "{a: 1, ...{a: 3}}",
+        "{...{a: 4, x: 3}, x: 1}",
+        "{...{a: 0, x: 2}, ...{x: 5}}",
+        "let a = {s: 1}; {...$a, s: 3}",
+        "
+            def outer [] {
+                let args = {s: 1}
+                def recurse [--s: int] {
+                    recurse ...{...$args, s: 3}
+                }
+                recurse ...$args
+            }
+            outer
+        ",
+    ] {
+        let err = test().run(code).expect_shell_error()?;
+        assert_matches!(err, ShellError::ColumnDefinedTwice { .. });
+        assert_eq!(
+            err.code().unwrap().to_string(),
+            "nu::shell::column_defined_twice"
+        );
+        let help = err.help().unwrap().to_string();
+        for fragment in [
+            "spreads introduce fields",
+            "do not override existing keys",
+            "replace a record field",
+            "`merge`",
+            "`update`",
+        ] {
+            assert!(help.contains(fragment), "{help}");
+        }
+        let labels: Vec<_> = err.labels().unwrap().collect();
+        assert_eq!(labels.len(), 2);
+        assert_eq!(labels[0].label(), Some("field redefined here"));
+        assert_eq!(labels[1].label(), Some("existing field originates here"));
+    }
+    for code in [
+        "let a = {s: 1}; $a | merge {s: 3} | get s",
+        "let a = {s: 1}; $a | update s 3 | get s",
+    ] {
+        test().run(code).expect_value_eq(3)?;
+    }
     Ok(())
 }
 
