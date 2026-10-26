@@ -206,7 +206,11 @@ impl Call {
 
     /// Resets the [`Stack`] to its state before the call was made.
     pub fn leave(&self, stack: &mut Stack) {
-        stack.arguments.leave_frame(self.args_base);
+        // A call without arguments put nothing on the stack, and its `args_base` was never set,
+        // so leaving its frame would remove every argument on the stack.
+        if self.args_len > 0 {
+            stack.arguments.leave_frame(self.args_base);
+        }
     }
 }
 
@@ -317,4 +321,23 @@ fn data_from_name_and_short(name: &str, short: &str) -> (Arc<[u8]>, DataSlice, D
         len: short.len().try_into().expect("flag short name too big"),
     };
     (data, name, short)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn leaving_a_call_without_arguments_keeps_the_stack() {
+        let mut stack = Stack::new();
+        let mut outer = Call::build(DeclId::new(0), Span::test_data());
+        outer.add_positional(&mut stack, Span::test_data(), Value::test_int(1));
+        let outer = outer.finish();
+
+        Call::build(DeclId::new(1), Span::test_data())
+            .finish()
+            .leave(&mut stack);
+
+        assert_eq!(outer.positional_len(&stack), 1);
+    }
 }

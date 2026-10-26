@@ -32,6 +32,6 @@ pub use eval::{
     eval_expression_with_input, eval_subexpression, eval_variable, redirect_env,
 };
 pub use eval_helpers::*;
-pub use eval_ir::eval_ir_block;
+pub use eval_ir::{eval_ir_block, eval_ir_call};
 pub use glob_from::glob_from;
 pub use scope::find_builtin_decl;

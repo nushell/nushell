@@ -15,10 +15,10 @@ use base64::{
 use dns_lookup::LookupErrorKind;
 use log::error;
 use multipart_rs::MultipartWriter;
-use nu_engine::command_prelude::*;
+use nu_engine::{command_prelude::*, eval_ir_call};
 use nu_path::expand_path_with;
 use nu_protocol::{
-    ByteStream, LabeledError, PipelineMetadata, Signals,
+    ByteStream, LabeledError, PipelineMetadata, Signals, ir,
     shell_error::{
         generic::GenericError,
         io::IoError,
@@ -1130,7 +1130,8 @@ fn transform_response_using_content_type(
                         span,
                     ));
                 }
-                decl.run(engine_state, stack, &Call::new(span), output)
+                let call = ir::Call::build(converter_id, span).finish();
+                eval_ir_call(engine_state, stack, &call, output)
             }
             None => Ok(output),
         }
