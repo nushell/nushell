@@ -232,9 +232,7 @@ fn glob_dc_glob_explicit_relative_paths() -> Result {
                      (glob '{pattern}' | each {{ path expand }} | sort) == $expected"
                 ))
                 .expect_value_eq(true)
-                .expect(&format!(
-                    "relative pattern {pattern} should return its exact paths"
-                ));
+                .expect("relative glob should return its exact paths");
         }
     });
 
