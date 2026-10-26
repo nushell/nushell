@@ -925,6 +925,77 @@ pub fn parse_rejects_irregular_whitespace_in_command_names(#[case] name: &str) {
     );
 }
 
+#[rstest]
+#[case::hex("0x10")]
+#[case::binary("0b101")]
+#[case::octal("0o17")]
+#[case::digit_separator("1_2")]
+#[case::float_digit_separator("1.2_345")]
+#[case::hex_digit_separator("0x_10")]
+pub fn parse_rejects_number_names_in_command_names(#[case] name: &str) {
+    // https://github.com/nushell/nushell/issues/16815
+    // A number wins at the call site, so a command or alias named after one could never be
+    // called. Nushell reads numbers with radix prefixes and digit separators, so the names have
+    // to be rejected the same way the numbers are read.
+    let first_error = |source: &str| {
+        let engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        working_set.add_decl(Box::new(Def));
+        working_set.add_decl(Box::new(Alias));
+        working_set.add_decl(Box::new(AttrEcho));
+        let _ = parse(&mut working_set, None, source.as_bytes(), false);
+        working_set.parse_errors.first().cloned()
+    };
+
+    for source in [
+        format!("def \"{name}\" [] {{}}"),
+        format!("extern \"{name}\" []"),
+    ] {
+        assert!(
+            matches!(
+                first_error(&source),
+                Some(ParseError::CommandDefNotValid(_))
+            ),
+            "{source:?}"
+        );
+    }
+
+    let source = format!("alias \"{name}\" = attr echo");
+    assert!(
+        matches!(first_error(&source), Some(ParseError::AliasNotValid(_))),
+        "{source:?}"
+    );
+}
+
+#[rstest]
+#[case::hex_without_digits("0xZZ")]
+#[case::binary_without_digits("0b2")]
+#[case::octal_without_digits("0o18")]
+#[case::bare_prefix("0x")]
+pub fn parse_accepts_bare_word_names_that_are_not_numbers(#[case] name: &str) {
+    // https://github.com/nushell/nushell/issues/16815
+    // These are read as bare words rather than as numbers, so they name a command that can
+    // still be called.
+    let mut engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    working_set.add_decl(Box::new(Def));
+    working_set.add_decl(Box::new(Alias));
+    working_set.add_decl(Box::new(AttrEcho));
+
+    let _ = engine_state.merge_delta(working_set.render());
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    let source = format!("def \"{name}\" [] {{}}\nalias \"{name}\" = attr echo\n");
+    let _ = parse(&mut working_set, None, source.as_bytes(), false);
+
+    assert!(
+        working_set.parse_errors.is_empty(),
+        "{name:?}: {:?}",
+        working_set.parse_errors
+    );
+    assert!(working_set.find_decl(name.as_bytes()).is_some());
+}
+
 #[test]
 pub fn parse_accepts_single_spaces_in_command_names() {
     let mut engine_state = EngineState::new();

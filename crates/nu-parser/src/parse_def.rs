@@ -4,6 +4,7 @@ use crate::{
     parse_captures_compile::discover_closure_captures,
     parse_helpers::{SPREAD_OPERATOR, garbage},
     parse_keywords::{find_keyword_decl, reject_parser_keyword_name},
+    parse_literals::is_number_literal,
     parse_pipelines::redirecting_builtin_error,
     parser::{
         ArgumentParsingLevel, CallKind, ParsedInternalCall, compile_block_with_id, parse_attribute,
@@ -105,7 +106,7 @@ pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) {
         || name.contains('^')
         || name.contains('%')
         || name.parse::<bytesize::ByteSize>().is_ok()
-        || name.parse::<f64>().is_ok()
+        || is_number_literal(name.as_bytes())
         || name.split_ascii_whitespace().collect::<Vec<_>>().join(" ") != name
     {
         working_set.error(ParseError::CommandDefNotValid(spans[name_pos]));

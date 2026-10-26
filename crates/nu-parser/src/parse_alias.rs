@@ -3,6 +3,7 @@ use crate::{
     lite_parser::LiteCommand,
     parse_helpers::{garbage, garbage_pipeline},
     parse_keywords::reject_parser_keyword_name,
+    parse_literals::is_number_literal,
     parse_pipelines::redirecting_builtin_error,
     parser::{
         ArgumentParsingLevel, CallKind, ParsedInternalCall, parse_call, parse_expression,
@@ -138,7 +139,7 @@ pub fn parse_alias(
                 || name.contains('^')
                 || name.contains('%')
                 || name.parse::<bytesize::ByteSize>().is_ok()
-                || name.parse::<f64>().is_ok()
+                || is_number_literal(name.as_bytes())
                 || name.split_ascii_whitespace().collect::<Vec<_>>().join(" ") != name
             {
                 working_set.error(ParseError::AliasNotValid(alias_name_expr.span));

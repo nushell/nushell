@@ -300,6 +300,28 @@ pub fn parse_float(working_set: &mut StateWorkingSet, span: Span) -> Expression 
     }
 }
 
+/// Whether `token` is a number, so that a command or alias named after it could never be
+/// called: the number wins at the call site and the name is only reachable quoted.
+///
+/// The numbers Nushell reads are not the ones Rust's `f64::from_str` reads. Nushell reads
+/// `0x10`, `0b101`, `0o17` and `1_2` as numbers, so a name spelled that way is shadowed at the
+/// call site; and it reads `0xZZ` as a bare word, so such a name is still callable.
+pub fn is_number_literal(token: &[u8]) -> bool {
+    let nushell_reads_number = match read_int(token) {
+        // A number too large for an `i64` is still a number, and it shadows a name just the
+        // same, while one with digits that aren't valid for its radix is a bare word.
+        IntLiteral::Value(_) | IntLiteral::OutOfRange { .. } => true,
+        IntLiteral::Empty | IntLiteral::NotInt | IntLiteral::InvalidDigits { .. } => {
+            read_float(token).is_some()
+        }
+    };
+
+    // Rust's own float parser also accepts the spellings `infinity`, `INF` and `Nan`, which
+    // Nushell reads as bare words rather than as floats. A command named one of them can still
+    // be called, but such a name has always been rejected here, so it stays rejected.
+    nushell_reads_number || String::from_utf8_lossy(token).parse::<f64>().is_ok()
+}
+
 pub fn parse_number(working_set: &mut StateWorkingSet, span: Span) -> Expression {
     let starting_error_count = working_set.parse_errors.len();
 
