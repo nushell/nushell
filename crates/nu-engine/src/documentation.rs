@@ -129,7 +129,7 @@ fn try_nu_highlight(
 }
 
 /// Syntax highlight code using the `nu-highlight` command if available, falling back to the given string
-fn nu_highlight_string(
+pub fn nu_highlight_string(
     code_string: &str,
     engine_state: &EngineState,
     stack: &mut Stack,

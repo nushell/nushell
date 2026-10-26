@@ -1130,6 +1130,16 @@ fn transform_response_using_content_type(
                         span,
                     ));
                 }
+                // A `charset=utf-8` response is typed as a string, but a converter picked by the
+                // URL's extension, like `from xlsx`, may want binary. Hand it the bytes untyped,
+                // as `open` does.
+                let output = match output {
+                    PipelineData::ByteStream(stream, metadata) => PipelineData::byte_stream(
+                        stream.with_type(ByteStreamType::Unknown),
+                        metadata,
+                    ),
+                    other => other,
+                };
                 let call = ir::Call::build(converter_id, span).finish();
                 eval_ir_call(engine_state, stack, &call, output)
             }

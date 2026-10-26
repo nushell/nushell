@@ -1537,7 +1537,8 @@ fn eval_call<D: DebugContext>(
 /// [`Command::run`](nu_protocol::engine::Command::run). Use this rather than calling `run` on a
 /// command found by name, like a `from <ext>` converter, because it may be a custom command.
 ///
-/// The arguments stay on the stack. Remove them with [`Call::leave`] afterwards.
+/// Call [`Call::leave`] afterwards to reset the argument stack, whether or not the command
+/// consumed the arguments.
 pub fn eval_ir_call(
     engine_state: &EngineState,
     stack: &mut Stack,
@@ -1551,12 +1552,15 @@ pub fn eval_ir_call(
         args_len,
         ..
     } = *call;
+    engine_state.signals().check(&head)?;
     // Normalizing the arguments re-pushes them at the end of the stack. A call without arguments
     // never set its `args_base`.
-    debug_assert!(
-        args_len == 0 || args_base + args_len == stack.arguments.get_base(),
-        "the call's arguments must be the last ones on the stack"
-    );
+    if args_len != 0 && args_base + args_len != stack.arguments.get_base() {
+        return Err(ShellError::IrEvalError {
+            msg: "the call's arguments must be the last ones on the stack".into(),
+            span: Some(head),
+        });
+    }
     if engine_state.is_debugging() {
         eval_call_frame::<WithDebug>(
             engine_state,
@@ -1637,6 +1641,8 @@ fn eval_call_frame<D: DebugContext>(
 
         result
     } else {
+        let signature = decl.signature();
+
         // `ignore` intentionally handles upstream error values at command level.
         // Skip early input-error propagation for the built-in `ignore` command so
         // `run()` can apply `--stderr`/`--show-errors` semantics.
@@ -1645,12 +1651,11 @@ fn eval_call_frame<D: DebugContext>(
                 .find_decl(b"ignore", &[])
                 .is_some_and(|ignore_decl_id| ignore_decl_id == decl_id);
         if !allow_error_input {
-            check_input_types(&input, &decl.signature(), head)?;
+            check_input_types(&input, &signature, head)?;
         }
 
         // Expand record spreads into named flags; drop null named values.
-        let args_len =
-            normalize_call_arguments(&decl.signature(), caller_stack, args_base, args_len)?;
+        let args_len = normalize_call_arguments(&signature, caller_stack, args_base, args_len)?;
 
         // FIXME: precalculate this and save it somewhere
         let span = Span::merge_many(
@@ -2377,4 +2382,44 @@ fn redirect_env(engine_state: &EngineState, caller_stack: &mut Stack, callee_sta
 
     // set config to callee config, to capture any updates to that
     caller_stack.config.clone_from(&callee_stack.config);
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::atomic::AtomicBool;
+
+    use super::*;
+
+    #[test]
+    fn eval_ir_call_rejects_arguments_below_the_top_of_the_stack() {
+        let engine_state = EngineState::new();
+        let mut stack = Stack::new();
+        let mut call = Call::build(DeclId::new(0), Span::test_data());
+        call.add_positional(&mut stack, Span::test_data(), Value::test_int(1));
+        let call = call.finish();
+        // Another call's argument now sits above this call's.
+        Call::build(DeclId::new(0), Span::test_data()).add_positional(
+            &mut stack,
+            Span::test_data(),
+            Value::test_int(2),
+        );
+
+        let result = eval_ir_call(&engine_state, &mut stack, &call, PipelineData::empty());
+        assert!(matches!(result, Err(ShellError::IrEvalError { .. })));
+    }
+
+    #[test]
+    fn eval_ir_call_stops_when_interrupted() {
+        let mut engine_state = EngineState::new();
+        engine_state.set_signals(Signals::new(Arc::new(AtomicBool::new(true))));
+        let call = Call::build(DeclId::new(0), Span::test_data()).finish();
+
+        let result = eval_ir_call(
+            &engine_state,
+            &mut Stack::new(),
+            &call,
+            PipelineData::empty(),
+        );
+        assert!(matches!(result, Err(ShellError::Interrupted { .. })));
+    }
 }

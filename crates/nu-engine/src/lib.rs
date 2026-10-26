@@ -25,7 +25,7 @@ pub use call_ext::CallExt;
 pub use closure_eval::*;
 pub use column::get_columns;
 pub use compile::compile;
-pub use documentation::get_full_help;
+pub use documentation::{get_full_help, nu_highlight_string};
 pub use env::*;
 pub use eval::{
     CallEval, eval_block, eval_block_with_early_return, eval_call, eval_expression,
