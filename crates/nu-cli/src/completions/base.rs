@@ -16,6 +16,8 @@ pub struct Fetched {
     answered: bool,
     /// Worth caching between keystrokes.
     reusable: bool,
+    /// Reuse only while the current prompt is active.
+    prompt_local: bool,
 }
 
 impl Fetched {
@@ -30,6 +32,7 @@ impl Fetched {
             suggestions,
             answered: true,
             reusable: false,
+            prompt_local: false,
         }
     }
 
@@ -39,6 +42,7 @@ impl Fetched {
             suggestions,
             answered: false,
             reusable: true,
+            prompt_local: false,
         }
     }
 
@@ -48,12 +52,19 @@ impl Fetched {
             suggestions: Vec::new(),
             answered: false,
             reusable: true,
+            prompt_local: false,
         }
     }
 
     /// Mark answer cacheable.
     pub(crate) fn worth_keeping(mut self) -> Self {
         self.reusable = true;
+        self
+    }
+
+    /// Dynamic answers may narrow between keystrokes but must refresh at the next prompt.
+    pub(crate) fn for_prompt(mut self) -> Self {
+        self.prompt_local = true;
         self
     }
 
@@ -72,6 +83,10 @@ impl Fetched {
         self.reusable
     }
 
+    pub(crate) fn is_prompt_local(&self) -> bool {
+        self.prompt_local
+    }
+
     /// Any suggestions yet, without consuming them.
     pub(crate) fn is_empty(&self) -> bool {
         self.suggestions.is_empty()
@@ -87,6 +102,7 @@ impl Fetched {
     pub(crate) fn merge(&mut self, other: Fetched) {
         self.answered |= other.answered;
         self.reusable |= other.reusable;
+        self.prompt_local |= other.prompt_local;
         self.suggestions.extend(other.suggestions);
     }
 
@@ -113,6 +129,7 @@ impl Fetched {
     /// ranking comes first but which never settles the site).
     pub(crate) fn prepend_from(&mut self, other: Fetched) {
         self.reusable |= other.reusable;
+        self.prompt_local |= other.prompt_local;
         let mut combined = other.suggestions;
         combined.append(&mut self.suggestions);
         self.suggestions = combined;

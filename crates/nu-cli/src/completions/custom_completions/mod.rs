@@ -451,7 +451,7 @@ impl UserCompletion {
 
 impl Completer for UserCompletion {
     fn fetch(&mut self, ctx: &Context) -> Fetched {
-        match self.eval(ctx) {
+        let fetched = match self.eval(ctx) {
             Err(err) => {
                 report(format!("failed to eval completer block: {err}"));
                 self.empty(true).worth_keeping()
@@ -460,6 +460,7 @@ impl Completer for UserCompletion {
                 None => self.empty(false),
                 Some(output) => output.into_fetched(ctx),
             },
-        }
+        };
+        fetched.for_prompt()
     }
 }
