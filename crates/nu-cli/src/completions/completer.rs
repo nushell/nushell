@@ -1472,9 +1472,20 @@ impl<'engine> CompletionEngine<'engine> {
 
         let signature = working_set.get_decl(call.decl_id).signature();
 
-        // Subcommands are always offered and suppress the file-path fallback.
-        let subcommands =
+        // Restrict fuzzy matches to subcommands of this call, including its alias target,
+        // so unrelated command names cannot suppress the file-path fallback.
+        let head = String::from_utf8_lossy(working_set.get_span_contents(call.head));
+        let heads = [head.as_ref(), signature.name.as_str()];
+        let mut subcommands =
             self.subcommand_suggestions(working_set, buffer, call.head.start, site.cursor);
+        subcommands.retain(|candidate| {
+            heads.iter().any(|head| {
+                let mut words = candidate.suggestion.value.split_ascii_whitespace();
+                head.split_ascii_whitespace()
+                    .all(|word| words.next() == Some(word))
+                    && words.next().is_some()
+            })
+        });
 
         // Value kinds share one shape; only the `ArgType`, completer lookup, and the
         // `declared_shape` used for the empty-slot fallback differ.
