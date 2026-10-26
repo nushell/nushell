@@ -242,8 +242,8 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                         _ => {
                             return Value::error(
                                 ShellError::CantConvert {
-                                    to_type: "float".to_string(),
-                                    from_type: "int".to_string(),
+                                    to_type: "int".to_string(),
+                                    from_type: "float".to_string(),
                                     span: head,
                                     help: None,
                                 },
@@ -372,8 +372,8 @@ fn convert_int(input: &Value, head: Span, radix: u32) -> Value {
                     Err(e) => {
                         return Value::error(
                             ShellError::CantConvert {
-                                to_type: "string".to_string(),
-                                from_type: "int".to_string(),
+                                to_type: "int".to_string(),
+                                from_type: "string".to_string(),
                                 span: head,
                                 help: Some(e.to_string()),
                             },
@@ -402,8 +402,8 @@ fn convert_int(input: &Value, head: Span, radix: u32) -> Value {
         Ok(n) => Value::int(n, head),
         Err(_reason) => Value::error(
             ShellError::CantConvert {
-                to_type: "string".to_string(),
-                from_type: "int".to_string(),
+                to_type: "int".to_string(),
+                from_type: "string".to_string(),
                 span: head,
                 help: None,
             },
@@ -564,6 +564,68 @@ mod test {
         );
 
         assert_eq!(actual.get_type(), Error)
+    }
+
+    #[test]
+    fn communicates_parsing_error_given_an_invalid_radix_string() {
+        let integer_str = Value::test_string("36anra");
+
+        let actual = action(
+            &integer_str,
+            &Arguments {
+                radix: 16,
+                cell_paths: None,
+                signed: false,
+                endian: Endian::Big,
+            },
+            Span::test_data(),
+        );
+
+        assert_eq!(actual.get_type(), Error);
+        if let Value::Error { error, .. } = actual {
+            if let ShellError::CantConvert {
+                to_type, from_type, ..
+            } = *error
+            {
+                assert_eq!(to_type, "int");
+                assert_eq!(from_type, "string");
+            } else {
+                panic!("expected CantConvert error, got {:?}", error);
+            }
+        } else {
+            panic!("expected error value, got {:?}", actual);
+        }
+    }
+
+    #[test]
+    fn communicates_parsing_error_given_an_invalid_radix_float() {
+        let float_val = Value::test_float(89.0);
+
+        let actual = action(
+            &float_val,
+            &Arguments {
+                radix: 8,
+                cell_paths: None,
+                signed: false,
+                endian: Endian::Big,
+            },
+            Span::test_data(),
+        );
+
+        assert_eq!(actual.get_type(), Error);
+        if let Value::Error { error, .. } = actual {
+            if let ShellError::CantConvert {
+                to_type, from_type, ..
+            } = *error
+            {
+                assert_eq!(to_type, "int");
+                assert_eq!(from_type, "float");
+            } else {
+                panic!("expected CantConvert error, got {:?}", error);
+            }
+        } else {
+            panic!("expected error value, got {:?}", actual);
+        }
     }
 
     #[rstest]

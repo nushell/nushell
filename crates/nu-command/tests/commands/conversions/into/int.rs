@@ -80,3 +80,37 @@ fn convert_into_signed_int_big_endian() -> Result {
     let code = "0x[ff 00 00 00 00 00 00 00] | into int --endian big --signed";
     test().run(code).expect_value_eq(-72057594037927936_i64)
 }
+
+#[test]
+fn convert_into_int_radix_invalid_string_error_types() -> Result {
+    for code in ["'zz' | into int -r 16", "'00zz' | into int -r 16"] {
+        let err = test().run(code).expect_shell_error()?;
+        match err {
+            ShellError::CantConvert {
+                to_type, from_type, ..
+            } => {
+                assert_eq!(to_type, "int");
+                assert_eq!(from_type, "string");
+            }
+            err => return Err(err.into()),
+        }
+    }
+
+    Ok(())
+}
+
+#[test]
+fn convert_into_int_radix_invalid_float_error_types() -> Result {
+    let err = test().run("89.0 | into int -r 8").expect_shell_error()?;
+    match err {
+        ShellError::CantConvert {
+            to_type, from_type, ..
+        } => {
+            assert_eq!(to_type, "int");
+            assert_eq!(from_type, "float");
+        }
+        err => return Err(err.into()),
+    }
+
+    Ok(())
+}

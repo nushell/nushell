@@ -119,9 +119,9 @@ fn action(input: &Value, _args: &CellPathOnlyArgs, head: Span) -> Value {
                 Err(reason) => Value::error(
                     ShellError::CantConvert {
                         to_type: "float".to_string(),
-                        from_type: reason.to_string(),
+                        from_type: "string".to_string(),
                         span,
-                        help: None,
+                        help: Some(reason.to_string()),
                     },
                     span,
                 ),
@@ -181,6 +181,23 @@ mod tests {
         let actual = action(&invalid_str, ARGS, SPAN);
 
         assert_eq!(actual.get_type(), Error);
+        if let Value::Error { error, .. } = actual {
+            if let ShellError::CantConvert {
+                to_type,
+                from_type,
+                help,
+                ..
+            } = *error
+            {
+                assert_eq!(to_type, "float");
+                assert_eq!(from_type, "string");
+                assert!(help.is_some());
+            } else {
+                panic!("expected CantConvert error, got {:?}", error);
+            }
+        } else {
+            panic!("expected error value, got {:?}", actual);
+        }
     }
 
     #[test]
