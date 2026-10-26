@@ -11,9 +11,9 @@ use winnow::error::ErrMode;
 use winnow::stream::Location;
 
 use crate::winnow::syntax::ast::{
-    Assignment, BinaryOp, Block, Closure, EnvAssignment, EnvShorthand, Expr, Expression, InterpolationPart, ListItem,
-    MatchArm, MatchPattern, NOT_PRECEDENCE, Operator, Pattern, Quote, RecordItem, Signature, StringLiteral,
-    SyntaxShape, Table, TypeAnnotation, UnaryMinus, UnaryNot,
+    Assignment, BinaryOp, Block, Closure, EnvAssignment, EnvShorthand, Expr, Expression,
+    InterpolationPart, ListItem, MatchArm, MatchPattern, NOT_PRECEDENCE, Operator, Pattern, Quote,
+    RecordItem, Signature, StringLiteral, SyntaxShape, Table, TypeAnnotation, UnaryMinus, UnaryNot,
 };
 use crate::winnow::syntax::error::{Diagnostic, ErrorKind};
 use crate::winnow::syntax::input::{Input, ParseFailure, ParseResult, backtrack, cut, input};
@@ -26,16 +26,17 @@ use super::parse_alias::parse_alias;
 use super::parse_bindings::{parse_const, parse_let, parse_mut};
 use super::parse_calls::{find_longest_decl, parse_call, parse_external_string};
 use super::parse_control_flow::{
-    parse_break_or_continue, parse_if, parse_loop, parse_match, parse_return, parse_try, parse_while,
+    parse_break_or_continue, parse_if, parse_loop, parse_match, parse_return, parse_try,
+    parse_while,
 };
 use super::parse_def::{parse_def, parse_extern, parse_for};
 use super::parse_helpers::{delimited_interior, invalid_literal, is_spread};
 use super::parse_keywords::is_statement_keyword;
 use super::parse_literals::{
-    IntLiteral, UnitError, has_range_operator, is_datetime, is_invalid_date_literal, is_range_head, is_range_syntax,
-    looks_like_binary, parse_binary, parse_dollar_expr, parse_duration, parse_filesize, parse_float,
-    parse_full_cell_path, parse_number, parse_paren_expr, parse_range, parse_raw_string, parse_simple_cell_path,
-    parse_string, parse_string_literal, read_int,
+    IntLiteral, UnitError, has_range_operator, is_datetime, is_invalid_date_literal, is_range_head,
+    is_range_syntax, looks_like_binary, parse_binary, parse_dollar_expr, parse_duration,
+    parse_filesize, parse_float, parse_full_cell_path, parse_number, parse_paren_expr, parse_range,
+    parse_raw_string, parse_simple_cell_path, parse_string, parse_string_literal, read_int,
 };
 use super::parse_module::{parse_export_env, parse_export_in_block, parse_module, parse_use};
 use super::parse_patterns::pattern;
@@ -63,7 +64,10 @@ pub enum Position {
 /// `parse_builtin_commands`), `NAME=value` environment shorthand,
 /// assignments, math expressions (when the first item looks like a value),
 /// and finally keyword expressions and calls.
-pub fn parse_expression<'a>(mut tokens: Tokens<'_, 'a>, position: Position) -> ParseResult<Expression<'a>> {
+pub fn parse_expression<'a>(
+    mut tokens: Tokens<'_, 'a>,
+    position: Position,
+) -> ParseResult<Expression<'a>> {
     let working_set = tokens.working_set;
     let Some(first) = tokens.peek_token() else {
         return Err(cut(Diagnostic::expected("command", tokens.end_span())));
@@ -76,28 +80,41 @@ pub fn parse_expression<'a>(mut tokens: Tokens<'_, 'a>, position: Position) -> P
     }
     let env_assignments = parse_env_shorthand_prefix(&mut tokens)?;
     let Some(first) = tokens.peek_token() else {
-        return Err(cut(Diagnostic::message("unknown command", tokens.all()[0].span)
-            .with_help("`NAME=value` sets an environment variable for the command that follows it")));
+        return Err(cut(Diagnostic::message(
+            "unknown command",
+            tokens.all()[0].span,
+        )
+        .with_help(
+            "`NAME=value` sets an environment variable for the command that follows it",
+        )));
     };
     // After environment shorthand nu reads the head like any pipeline element.
-    if first.contents == TokenContents::Item && (!env_assignments.is_empty() || position == Position::Element) {
+    if first.contents == TokenContents::Item
+        && (!env_assignments.is_empty() || position == Position::Element)
+    {
         check_builtin_command_in_pipeline(&tokens)?;
     }
-    let expression =
-        if tokens.remaining().iter().any(|token| matches!(token.contents, TokenContents::AssignmentOperator(_))) {
-            parse_assignment_expression(tokens.rest_stream())?
-        } else if first.contents != TokenContents::Item {
-            return Err(cut(Diagnostic::expected("command", first.span)));
-        } else if is_math_expression_like(working_set.get_span_contents(first.span)) {
-            parse_math_expression(tokens.rest_stream())?
-        } else {
-            parse_builtin_commands(tokens.rest_stream())?
-        };
+    let expression = if tokens
+        .remaining()
+        .iter()
+        .any(|token| matches!(token.contents, TokenContents::AssignmentOperator(_)))
+    {
+        parse_assignment_expression(tokens.rest_stream())?
+    } else if first.contents != TokenContents::Item {
+        return Err(cut(Diagnostic::expected("command", first.span)));
+    } else if is_math_expression_like(working_set.get_span_contents(first.span)) {
+        parse_math_expression(tokens.rest_stream())?
+    } else {
+        parse_builtin_commands(tokens.rest_stream())?
+    };
     match env_assignments.first() {
         None => Ok(expression),
         Some(first) => {
             let span = first.span.merge(expression.span);
-            let env_shorthand = EnvShorthand { vars: env_assignments, expr: Box::new(expression) };
+            let env_shorthand = EnvShorthand {
+                vars: env_assignments,
+                expr: Box::new(expression),
+            };
             Ok(Expression::new(Expr::EnvShorthand(env_shorthand), span))
         }
     }
@@ -143,7 +160,9 @@ pub fn parse_builtin_commands<'a>(tokens: Tokens<'_, 'a>) -> ParseResult<Express
         "use" => ("use", parse_use(tokens)),
         "export" => ("export", parse_export_in_block(tokens)),
         "export-env" => ("export-env", parse_export_env(tokens)),
-        "if" | "match" | "while" | "loop" | "try" | "return" | "break" | "continue" if longer_name() => {
+        "if" | "match" | "while" | "loop" | "try" | "return" | "break" | "continue"
+            if longer_name() =>
+        {
             ("command call", parse_call(tokens))
         }
         "if" => ("if", parse_if(tokens)),
@@ -168,12 +187,17 @@ pub fn parse_builtin_commands<'a>(tokens: Tokens<'_, 'a>) -> ParseResult<Express
 /// include any shorthand before it, as nu's `spans` do.
 fn check_builtin_command_in_pipeline(tokens: &Tokens<'_, '_>) -> ParseResult<()> {
     let working_set = tokens.working_set;
-    let Some(head) = tokens.peek_token() else { return Ok(()) };
+    let Some(head) = tokens.peek_token() else {
+        return Ok(());
+    };
     let text = working_set.get_span_contents(head.span);
-    let second = tokens.all().get(1).map(|token| working_set.get_span_contents(token.span));
+    let second = tokens
+        .all()
+        .get(1)
+        .map(|token| working_set.get_span_contents(token.span));
     let statement = match text {
-        "def" | "extern" | "for" | "module" | "type" | "use" | "source" | "alias" | "export" | "export-env"
-        | "hide" => true,
+        "def" | "extern" | "for" | "module" | "type" | "use" | "source" | "alias" | "export"
+        | "export-env" | "hide" => true,
         "const" | "mut" => true,
         "overlay" => second != Some("list"),
         "plugin" => second == Some("use"),
@@ -196,7 +220,9 @@ pub(super) fn is_env_variable_name(name: &str) -> bool {
 }
 
 /// The `NAME=value` items before a command (nu's environment shorthand).
-fn parse_env_shorthand_prefix<'a>(tokens: &mut Tokens<'_, 'a>) -> ParseResult<Vec<EnvAssignment<'a>>> {
+fn parse_env_shorthand_prefix<'a>(
+    tokens: &mut Tokens<'_, 'a>,
+) -> ParseResult<Vec<EnvAssignment<'a>>> {
     repeat(0.., env_assignment).parse_next(tokens)
 }
 
@@ -211,8 +237,11 @@ fn env_assignment<'a>(tokens: &mut Tokens<'_, 'a>) -> ParseResult<EnvAssignment<
             let text = working_set.get_span_contents(token.span);
             // This runs for every command, so only the name is scanned: up to the first byte
             // that cannot be part of one, which must be the `=`.
-            let equals = text.bytes().position(|byte| byte != b'_' && !byte.is_ascii_alphanumeric())?;
-            (text.as_bytes()[equals] == b'=' && is_env_variable_name(&text[..equals])).then_some(())?;
+            let equals = text
+                .bytes()
+                .position(|byte| byte != b'_' && !byte.is_ascii_alphanumeric())?;
+            (text.as_bytes()[equals] == b'=' && is_env_variable_name(&text[..equals]))
+                .then_some(())?;
             Some((token, equals))
         })
         .parse_next(tokens)?;
@@ -220,14 +249,24 @@ fn env_assignment<'a>(tokens: &mut Tokens<'_, 'a>) -> ParseResult<EnvAssignment<
     let value_span = Span::new(token.span.start + equals + 1, token.span.end);
     // Like nu, the value is a string unless it starts with `$`: `A=1` sets `A` to `"1"`.
     let value = match &text[equals + 1..] {
-        "" => Ok(Expression::new(Expr::String(StringLiteral::bare("")), value_span)),
+        "" => Ok(Expression::new(
+            Expr::String(StringLiteral::bare("")),
+            value_span,
+        )),
         value if value.starts_with('$') => parse_value(working_set, value_span, ExpectedShape::Any),
         _ => parse_string_literal(working_set, value_span)
             .map(|string| Expression::new(Expr::String(string), value_span)),
     };
     let value = value.map_err(|_| backtrack(token.span.start))?;
-    let name = Spanned::new(&text[..equals], Span::new(token.span.start, token.span.start + equals));
-    Ok(EnvAssignment { span: token.span, name, value })
+    let name = Spanned::new(
+        &text[..equals],
+        Span::new(token.span.start, token.span.start + equals),
+    );
+    Ok(EnvAssignment {
+        span: token.span,
+        name,
+        value,
+    })
 }
 
 /// `lhs = rhs` and the other assignment operators (nu's
@@ -237,16 +276,25 @@ fn parse_assignment_expression<'a>(tokens: Tokens<'_, 'a>) -> ParseResult<Expres
     let working_set = tokens.working_set;
     let items = tokens.all();
     // The caller found an assignment operator among the items.
-    let operator = items.iter().enumerate().find_map(|(index, token)| match token.contents {
-        TokenContents::AssignmentOperator(operator) => Some((index, operator)),
-        _ => None,
-    });
+    let operator = items
+        .iter()
+        .enumerate()
+        .find_map(|(index, token)| match token.contents {
+            TokenContents::AssignmentOperator(operator) => Some((index, operator)),
+            _ => None,
+        });
     let Some((operator_index, operator)) = operator else {
-        return Err(cut(Diagnostic::expected("assignment operator", tokens.here())));
+        return Err(cut(Diagnostic::expected(
+            "assignment operator",
+            tokens.here(),
+        )));
     };
     let operator_token = items[operator_index];
     if operator_index == 0 {
-        return Err(cut(Diagnostic::expected("left hand side of assignment", operator_token.span)));
+        return Err(cut(Diagnostic::expected(
+            "left hand side of assignment",
+            operator_token.span,
+        )));
     }
     let lhs = parse_expression(tokens.slice(0..operator_index), Position::Element)?;
     // nu accepts anything its `parse_full_cell_path` produces as the left side:
@@ -259,19 +307,30 @@ fn parse_assignment_expression<'a>(tokens: Tokens<'_, 'a>) -> ParseResult<Expres
         _ => false,
     };
     if !assignable {
-        return Err(cut(Diagnostic::message("assignment requires a variable", lhs.span)
-            .with_help("only variables (`$x`) and their cell paths (`$x.a`, `$env.FOO`) can be assigned to")));
+        return Err(cut(Diagnostic::message(
+            "assignment requires a variable",
+            lhs.span,
+        )
+        .with_help(
+            "only variables (`$x`) and their cell paths (`$x.a`, `$env.FOO`) can be assigned to",
+        )));
     }
     let rhs = tokens.slice(operator_index + 1..items.len());
     let Some(rhs_span) = rhs.span() else {
-        return Err(cut(Diagnostic::expected("right hand side of assignment", operator_token.span.past())));
+        return Err(cut(Diagnostic::expected(
+            "right hand side of assignment",
+            operator_token.span.past(),
+        )));
     };
     let rhs = parse_block(rhs, rhs_span);
     // Since 0.97 nu refuses an external command as the start of the value
     // unless it is written with a caret: `$x = git` is an error, `$x = ^git`
     // is not. A bare external head needs the command table (or an alias of
     // an external command), so without one this never fires.
-    if let Some(first) = rhs.pipelines.first().and_then(|pipeline| pipeline.elements.first())
+    if let Some(first) = rhs
+        .pipelines
+        .first()
+        .and_then(|pipeline| pipeline.elements.first())
         && let Expr::ExternalCall(call) = &first.expr.expr
         && call.caret.is_none()
     {
@@ -283,7 +342,11 @@ fn parse_assignment_expression<'a>(tokens: Tokens<'_, 'a>) -> ParseResult<Expres
     }
     let span = lhs.span.merge(rhs_span);
     Ok(Expression::new(
-        Expr::Assignment(Assignment { lhs: Box::new(lhs), op: Spanned::new(operator, operator_token.span), rhs }),
+        Expr::Assignment(Assignment {
+            lhs: Box::new(lhs),
+            op: Spanned::new(operator, operator_token.span),
+            rhs,
+        }),
         span,
     ))
 }
@@ -310,7 +373,11 @@ fn parse_operator(working_set: &WorkingSet<'_>, token: &Token) -> ParseResult<Sp
         "!" => "use `not` for boolean negation",
         _ => return Err(cut(Diagnostic::expected("operator", token.span))),
     };
-    Err(cut(Diagnostic::new(ErrorKind::UnknownOperator(text.to_string()), token.span).with_help(help)))
+    Err(cut(Diagnostic::new(
+        ErrorKind::UnknownOperator(text.to_string()),
+        token.span,
+    )
+    .with_help(help)))
 }
 
 /// A math expression (nu's `parse_math_expression`): operands separated by
@@ -326,13 +393,18 @@ fn parse_operator(working_set: &WorkingSet<'_>, token: &Token) -> ParseResult<Sp
 /// winnow's [`expression`] does the precedence climbing; [`infix_operator`]
 /// gives each operator its binding power and associativity.
 pub fn parse_math_expression<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
-    let Some(first) = tokens.peek_token().filter(|token| token.contents == TokenContents::Item) else {
+    let Some(first) = tokens
+        .peek_token()
+        .filter(|token| token.contents == TokenContents::Item)
+    else {
         return Err(cut(Diagnostic::expected("expression", tokens.here())));
     };
     if matches!(tokens.text(first), "if" | "match") {
         return parse_builtin_commands(tokens);
     }
-    expression(parse_math_operand).infix(infix_operator).parse_next(&mut tokens)
+    expression(parse_math_operand)
+        .infix(infix_operator)
+        .parse_next(&mut tokens)
 }
 
 /// The operator after an operand, with its binding power: `Left` for all but
@@ -359,11 +431,21 @@ fn fold_binary_op<'a>(
     lhs: Expression<'a>,
     rhs: Expression<'a>,
 ) -> ParseResult<Expression<'a>> {
-    let token = tokens.token_after(lhs.span.end).expect("an operator follows its left operand");
-    let operator = Operator::from_spelling(tokens.text(token)).expect("checked by `infix_operator`");
+    let token = tokens
+        .token_after(lhs.span.end)
+        .expect("an operator follows its left operand");
+    let operator =
+        Operator::from_spelling(tokens.text(token)).expect("checked by `infix_operator`");
     let span = lhs.span.merge(rhs.span);
     let op = Spanned::new(operator, token.span);
-    Ok(Expression::new(Expr::BinaryOp(BinaryOp { lhs: Box::new(lhs), op, rhs: Box::new(rhs) }), span))
+    Ok(Expression::new(
+        Expr::BinaryOp(BinaryOp {
+            lhs: Box::new(lhs),
+            op,
+            rhs: Box::new(rhs),
+        }),
+        span,
+    ))
 }
 
 /// A `where` condition (nu's `parse_row_condition`): a math expression in
@@ -388,9 +470,15 @@ fn expand_row_condition<'a>(
     let Expr::BinaryOp(binary) = &mut condition.expr else {
         return expand_to_cell_path(working_set, condition);
     };
-    replace_boxed(&mut binary.lhs, |lhs| expand_row_condition(working_set, lhs))?;
-    if matches!(binary.rhs.expr, Expr::BinaryOp(_)) || matches!(binary.op.item, Operator::Boolean(_)) {
-        replace_boxed(&mut binary.rhs, |rhs| expand_row_condition(working_set, rhs))?;
+    replace_boxed(&mut binary.lhs, |lhs| {
+        expand_row_condition(working_set, lhs)
+    })?;
+    if matches!(binary.rhs.expr, Expr::BinaryOp(_))
+        || matches!(binary.op.item, Operator::Boolean(_))
+    {
+        replace_boxed(&mut binary.rhs, |rhs| {
+            expand_row_condition(working_set, rhs)
+        })?;
     }
     Ok(condition)
 }
@@ -407,7 +495,10 @@ fn replace_boxed<'a>(
 }
 
 /// In a row condition, a string operand `size` means `$it.size`.
-fn expand_to_cell_path<'a>(working_set: &WorkingSet<'a>, expr: Expression<'a>) -> ParseResult<Expression<'a>> {
+fn expand_to_cell_path<'a>(
+    working_set: &WorkingSet<'a>,
+    expr: Expression<'a>,
+) -> ParseResult<Expression<'a>> {
     match expr.expr {
         // nu's `expand_to_cell_path` re-parses only an `Expr::String`: a raw string is nu's
         // `Expr::RawString`, and stays a value (`where r#'a'# == 'a'`).
@@ -417,10 +508,15 @@ fn expand_to_cell_path<'a>(working_set: &WorkingSet<'a>, expr: Expression<'a>) -
         // What a `not` negates is a math expression of its own (`not a == b`), whose operands
         // `parse_math_expression` expands as it parses them.
         Expr::UnaryNot(mut not) => {
-            replace_boxed(&mut not.expr, |operand| expand_row_condition(working_set, operand))?;
+            replace_boxed(&mut not.expr, |operand| {
+                expand_row_condition(working_set, operand)
+            })?;
             Ok(Expression::new(Expr::UnaryNot(not), expr.span))
         }
-        kind => Ok(Expression { span: expr.span, expr: kind }),
+        kind => Ok(Expression {
+            span: expr.span,
+            expr: kind,
+        }),
     }
 }
 
@@ -433,8 +529,11 @@ fn parse_math_operand<'a>(tokens: &mut Tokens<'_, 'a>) -> ParseResult<Expression
     let working_set = tokens.working_set;
     let Some(first) = tokens.peek_token() else {
         // Only after an operator: `parse_math_expression` checked the first operand.
-        return Err(cut(Diagnostic::expected("expression after operator", Span::point(tokens.previous_token_end()))
-            .with_help("this math expression is incomplete")));
+        return Err(cut(Diagnostic::expected(
+            "expression after operator",
+            Span::point(tokens.previous_token_end()),
+        )
+        .with_help("this math expression is incomplete")));
     };
     if first.contents == TokenContents::Item && matches!(tokens.text(first), "if" | "match") {
         let keyword_expression = parse_builtin_commands(tokens.rest_stream())?;
@@ -452,7 +551,13 @@ fn parse_math_operand<'a>(tokens: &mut Tokens<'_, 'a>) -> ParseResult<Expression
     tokens.reset_to(end);
     for not in nots.into_iter().rev() {
         let span = not.span.merge(expression.span);
-        expression = Expression::new(Expr::UnaryNot(UnaryNot { not_span: not.span, expr: Box::new(expression) }), span);
+        expression = Expression::new(
+            Expr::UnaryNot(UnaryNot {
+                not_span: not.span,
+                expr: Box::new(expression),
+            }),
+            span,
+        );
     }
     Ok(expression)
 }
@@ -464,7 +569,11 @@ fn parse_math_operand<'a>(tokens: &mut Tokens<'_, 'a>) -> ParseResult<Expression
 /// the expression, as in [`parse_math_expression`].
 fn negated_operand_end(tokens: &Tokens<'_, '_>, start: usize) -> usize {
     let all = tokens.all();
-    let text = |index: usize| all.get(index).filter(|token| token.is_item()).map(|token| tokens.text(token));
+    let text = |index: usize| {
+        all.get(index)
+            .filter(|token| token.is_item())
+            .map(|token| tokens.text(token))
+    };
     let mut end = start + 1;
     while let Some(operator) = text(end).and_then(Operator::from_spelling)
         && operator.precedence() > NOT_PRECEDENCE
@@ -531,7 +640,9 @@ pub fn parse_value<'a>(
         [b'{', ..] => parse_brace_expr(working_set, span, shape),
         // `parse_string` on `[a b]`: the text is a bare word.
         [b'[', ..] if shape == ExpectedShape::String => parse_string(working_set, span),
-        [b'[', ..] if shape == ExpectedShape::Number => Err(cut(Diagnostic::expected("number", span))),
+        [b'[', ..] if shape == ExpectedShape::Number => {
+            Err(cut(Diagnostic::expected("number", span)))
+        }
         [b'[', ..] => parse_full_cell_path(working_set, span, false),
         [b'r', b'#', ..] => parse_raw_string(working_set, span),
         _ => match shape {
@@ -539,7 +650,9 @@ pub fn parse_value<'a>(
             ExpectedShape::String => parse_string_value(working_set, span),
             ExpectedShape::MatchArmBody => Err(cut(Diagnostic::expected("block", span))),
             ExpectedShape::Closure => Err(cut(Diagnostic::expected("closure", span))),
-            ExpectedShape::Any | ExpectedShape::Declared(_) => parse_any_value(working_set, span, text),
+            ExpectedShape::Any | ExpectedShape::Declared(_) => {
+                parse_any_value(working_set, span, text)
+            }
         },
     }
 }
@@ -552,7 +665,10 @@ pub fn parse_value<'a>(
 /// meaning: the range `-$x..5`, and the bare string interpolations `-(1)px`
 /// and `-(1)+(2)`, whose `(` closes before the end of the word. That the
 /// operand's type can be negated is the consumer's check.
-fn parse_negation<'a>(working_set: &WorkingSet<'a>, span: Span) -> Option<ParseResult<Expression<'a>>> {
+fn parse_negation<'a>(
+    working_set: &WorkingSet<'a>,
+    span: Span,
+) -> Option<ParseResult<Expression<'a>>> {
     let text = working_set.get_span_contents(span);
     if !is_negation(text) {
         return None;
@@ -563,10 +679,15 @@ fn parse_negation<'a>(working_set: &WorkingSet<'a>, span: Span) -> Option<ParseR
         _ => parse_paren_expr(working_set, operand_span),
     };
     let minus_span = Span::new(span.start, span.start + 1);
-    Some(
-        operand
-            .map(|operand| Expression::new(Expr::UnaryMinus(UnaryMinus { minus_span, expr: Box::new(operand) }), span)),
-    )
+    Some(operand.map(|operand| {
+        Expression::new(
+            Expr::UnaryMinus(UnaryMinus {
+                minus_span,
+                expr: Box::new(operand),
+            }),
+            span,
+        )
+    }))
 }
 
 /// Whether [`parse_negation`] reads `text` as a negation: `-$x`, unless the word is a range
@@ -575,9 +696,14 @@ fn parse_negation<'a>(working_set: &WorkingSet<'a>, span: Span) -> Option<ParseR
 pub(super) fn is_negation(text: &str) -> bool {
     match text.as_bytes() {
         [b'-', b'$', _, ..] => !has_range_operator(text),
-        [b'-', b'(', .., b')'] => !lex(&text[2..text.len() - 1], 0, LexOptions::SUBEXPRESSION).is_err_and(|error| {
-            matches!(error.kind, ErrorKind::Unbalanced { found: ")", .. } | ErrorKind::Unclosed { delimiter: ")", .. })
-        }),
+        [b'-', b'(', .., b')'] => !lex(&text[2..text.len() - 1], 0, LexOptions::SUBEXPRESSION)
+            .is_err_and(|error| {
+                matches!(
+                    error.kind,
+                    ErrorKind::Unbalanced { found: ")", .. }
+                        | ErrorKind::Unclosed { delimiter: ")", .. }
+                )
+            }),
         _ => false,
     }
 }
@@ -586,7 +712,9 @@ pub(super) fn is_negation(text: &str) -> bool {
 fn parse_string_value<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResult<Expression<'a>> {
     match working_set.get_span_contents(span) {
         word @ ("true" | "false" | "null") => Err(cut(Diagnostic::expected("string", span)
-            .with_help(format!("`{word}` is a value; quote it to use it as a string")))),
+            .with_help(format!(
+                "`{word}` is a value; quote it to use it as a string"
+            )))),
         _ => parse_string(working_set, span),
     }
 }
@@ -596,7 +724,11 @@ fn parse_string_value<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResu
 /// string. A word a literal kind rejects as an invalid literal of its own
 /// (`8EiB`, `2023-02-29`, `0b2`, `9223372036854775808`) is an error, not a
 /// bare word.
-fn parse_any_value<'a>(working_set: &WorkingSet<'a>, span: Span, text: &'a str) -> ParseResult<Expression<'a>> {
+fn parse_any_value<'a>(
+    working_set: &WorkingSet<'a>,
+    span: Span,
+    text: &'a str,
+) -> ParseResult<Expression<'a>> {
     match text {
         "null" => return Ok(Expression::new(Expr::Nothing, span)),
         "true" => return Ok(Expression::new(Expr::Bool(true), span)),
@@ -610,11 +742,13 @@ fn parse_any_value<'a>(working_set: &WorkingSet<'a>, span: Span, text: &'a str) 
         return parse_range(working_set, span);
     }
     if let Some(filesize) = parse_filesize(text) {
-        let filesize = filesize.map_err(|error| invalid_literal("filesize", error.message(), span))?;
+        let filesize =
+            filesize.map_err(|error| invalid_literal("filesize", error.message(), span))?;
         return Ok(Expression::new(Expr::Filesize(filesize), span));
     }
     if let Some(duration) = parse_duration(text) {
-        let duration = duration.map_err(|error| invalid_literal("duration", error.message(), span))?;
+        let duration =
+            duration.map_err(|error| invalid_literal("duration", error.message(), span))?;
         return Ok(Expression::new(Expr::Duration(duration), span));
     }
     if is_datetime(text) {
@@ -710,7 +844,9 @@ fn parse_value_for_shape<'a>(
     match declared {
         SyntaxShape::Any | SyntaxShape::TypeAlias(_) => parse_any_value(working_set, span, text),
         SyntaxShape::Number => parse_number(working_set, span),
-        SyntaxShape::Float => parse_float(text).map_or_else(|| Err(expected()), |float| literal(Expr::Float(float))),
+        SyntaxShape::Float => {
+            parse_float(text).map_or_else(|| Err(expected()), |float| literal(Expr::Float(float)))
+        }
         // `0b2`: the error an untyped value gets, not a shape mismatch.
         SyntaxShape::Int => match read_int(text).checked(span)? {
             Some(int) => literal(Expr::Int(int)),
@@ -731,9 +867,10 @@ fn parse_value_for_shape<'a>(
         SyntaxShape::Boolean if text == "true" => literal(Expr::Bool(true)),
         SyntaxShape::Boolean if text == "false" => literal(Expr::Bool(false)),
         SyntaxShape::Nothing if text == "null" => literal(Expr::Nothing),
-        SyntaxShape::String | SyntaxShape::Filepath | SyntaxShape::Directory | SyntaxShape::GlobPattern => {
-            parse_string_value(working_set, span)
-        }
+        SyntaxShape::String
+        | SyntaxShape::Filepath
+        | SyntaxShape::Directory
+        | SyntaxShape::GlobPattern => parse_string_value(working_set, span),
         SyntaxShape::Binary => parse_binary(working_set, span).unwrap_or_else(|| Err(expected())),
         SyntaxShape::CellPath => parse_simple_cell_path(working_set, span),
         SyntaxShape::ExternalArgument => parse_external_string(working_set, span),
@@ -752,12 +889,21 @@ fn parse_oneof<'a>(
     span: Span,
     alternatives: &[TypeAnnotation<'a>],
 ) -> ParseResult<Expression<'a>> {
-    let defer_barewords = !matches!(working_set.get_span_contents(span).as_bytes().first(), Some(b'$' | b'(' | b'{'));
-    let deferred = |alternative: &&TypeAnnotation<'a>| defer_barewords && accepts_any_bareword(&alternative.shape);
+    let defer_barewords = !matches!(
+        working_set.get_span_contents(span).as_bytes().first(),
+        Some(b'$' | b'(' | b'{')
+    );
+    let deferred = |alternative: &&TypeAnnotation<'a>| {
+        defer_barewords && accepts_any_bareword(&alternative.shape)
+    };
     let ordered = alternatives
         .iter()
         .filter(|alternative| !deferred(alternative))
-        .chain(alternatives.iter().filter(|alternative| deferred(alternative)));
+        .chain(
+            alternatives
+                .iter()
+                .filter(|alternative| deferred(alternative)),
+        );
     let mut first_error = None;
     for alternative in ordered {
         match parse_value_for_shape(working_set, span, &alternative.shape) {
@@ -825,9 +971,13 @@ pub fn is_math_expression_like(text: &str) -> bool {
         b"true" | b"false" | b"null" | b"not" | b"if" | b"match" => true,
         [b'r', b'#', ..] | [b'(' | b'{' | b'[' | b'$' | b'"' | b'\'' | b'-', ..] => true,
         _ => {
-            let unit = |result: Option<Result<_, UnitError>>| matches!(result, Some(Ok(_) | Err(UnitError::TooLarge)));
-            matches!(read_int(text), IntLiteral::Value(_) | IntLiteral::OutOfRange { .. })
-                || parse_float(text).is_some()
+            let unit = |result: Option<Result<_, UnitError>>| {
+                matches!(result, Some(Ok(_) | Err(UnitError::TooLarge)))
+            };
+            matches!(
+                read_int(text),
+                IntLiteral::Value(_) | IntLiteral::OutOfRange { .. }
+            ) || parse_float(text).is_some()
                 || unit(parse_filesize(text).map(|result| result.map(drop)))
                 || unit(parse_duration(text).map(|result| result.map(drop)))
                 || is_datetime(text)
@@ -839,9 +989,14 @@ pub fn is_math_expression_like(text: &str) -> bool {
 }
 
 /// Parse `( ... )` as a subexpression. Newlines inside are whitespace.
-pub fn parse_subexpression<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResult<Expression<'a>> {
+pub fn parse_subexpression<'a>(
+    working_set: &WorkingSet<'a>,
+    span: Span,
+) -> ParseResult<Expression<'a>> {
     let inner = delimited_interior(working_set, span, "(", ")")?;
-    let tokens = working_set.lex(inner, LexOptions::SUBEXPRESSION).map_err(cut)?;
+    let tokens = working_set
+        .lex(inner, LexOptions::SUBEXPRESSION)
+        .map_err(cut)?;
     working_set.enter_scope();
     let block = parse_block(Tokens::from_lexed(working_set, &tokens), inner);
     working_set.exit_scope();
@@ -870,11 +1025,19 @@ impl BraceShape {
     /// `key:`, then a spread.
     pub fn of_probe(probe: &[Token], source: &str) -> BraceShape {
         match probe {
-            [first, ..] if matches!(first.contents, TokenContents::Pipe | TokenContents::PipePipe) => {
+            [first, ..]
+                if matches!(
+                    first.contents,
+                    TokenContents::Pipe | TokenContents::PipePipe
+                ) =>
+            {
                 BraceShape::ClosureParams
             }
             [_, second, ..] if second.text(source) == ":" => BraceShape::Record,
-            [first, ..] if first.contents == TokenContents::Item && is_spread(first.text(source), b"{$(") => {
+            [first, ..]
+                if first.contents == TokenContents::Item
+                    && is_spread(first.text(source), b"{$(") =>
+            {
                 BraceShape::Spread
             }
             [first, ..] if first.contents != TokenContents::Eof => BraceShape::Other,
@@ -892,7 +1055,9 @@ impl BraceShape {
 /// as `Empty` (`unwrap_or_default`), and the parser chosen for an `Empty` body
 /// lexes it again, where a real error is reported.
 fn probe_brace_shape(working_set: &WorkingSet<'_>, inner: Span) -> BraceShape {
-    let probe = working_set.lex_n_tokens(inner, LexOptions::BRACE_PROBE, 2).unwrap_or_default();
+    let probe = working_set
+        .lex_n_tokens(inner, LexOptions::BRACE_PROBE, 2)
+        .unwrap_or_default();
     BraceShape::of_probe(&probe, working_set.source)
 }
 
@@ -907,7 +1072,11 @@ pub fn brace_shape(working_set: &WorkingSet<'_>, span: Span) -> ParseResult<Brac
 /// is included. nu cuts one byte; here the whole last character, so that a
 /// multi-byte one (`{a: 1}╮`) is not split.
 fn brace_probe_interior(working_set: &WorkingSet<'_>, span: Span) -> Span {
-    let last = working_set.get_span_contents(span).chars().next_back().map_or(0, char::len_utf8);
+    let last = working_set
+        .get_span_contents(span)
+        .chars()
+        .next_back()
+        .map_or(0, char::len_utf8);
     Span::new(span.start + 1, (span.end - last).max(span.start + 1))
 }
 
@@ -915,8 +1084,12 @@ fn brace_probe_interior(working_set: &WorkingSet<'_>, span: Span) -> Span {
 /// shape it wants (nu's `parse_brace_expr` decides this first): the second
 /// token of [`brace_probe_interior`] is `:` (`{a: 1}`, `{ $env.A:b }`,
 /// `{a: 1}.a`). `None` for anything else.
-pub fn parse_brace_record<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResult<Option<Expression<'a>>> {
-    if probe_brace_shape(working_set, brace_probe_interior(working_set, span)) != BraceShape::Record {
+pub fn parse_brace_record<'a>(
+    working_set: &WorkingSet<'a>,
+    span: Span,
+) -> ParseResult<Option<Expression<'a>>> {
+    if probe_brace_shape(working_set, brace_probe_interior(working_set, span)) != BraceShape::Record
+    {
         return Ok(None);
     }
     parse_full_cell_path(working_set, span, false).map(Some)
@@ -926,7 +1099,9 @@ pub fn parse_brace_record<'a>(working_set: &WorkingSet<'a>, span: Span) -> Parse
 /// raw (nu's `Expr::String`) and every spread such a record. Any other record
 /// (`{ $env.A: b }`, `{(k): 1}`), and a cell path on one, is `any` to nu.
 pub fn is_typed_record(expr: &Expression<'_>) -> bool {
-    let Expr::Record(items) = &expr.expr else { return false };
+    let Expr::Record(items) = &expr.expr else {
+        return false;
+    };
     items.iter().all(|item| match item {
         RecordItem::Pair { key, .. } => {
             matches!(&key.expr, Expr::String(string) if !matches!(string.quote, Quote::Raw(_)))
@@ -961,23 +1136,40 @@ fn parse_brace_expr<'a>(
             return parse_full_cell_path(working_set, span, false);
         }
         let open = Span::new(span.start, span.start + 1);
-        return Err(cut(Diagnostic::new(ErrorKind::Unclosed { delimiter: "}", open }, span.past())));
+        return Err(cut(Diagnostic::new(
+            ErrorKind::Unclosed {
+                delimiter: "}",
+                open,
+            },
+            span.past(),
+        )));
     }
     let inner = Span::new(span.start + 1, span.end - 1);
     match (probe_brace_shape(working_set, inner), shape) {
         (BraceShape::Empty, ExpectedShape::Closure) => parse_closure_expression(working_set, span),
-        (BraceShape::Empty, ExpectedShape::MatchArmBody) => parse_block_expression(working_set, span),
+        (BraceShape::Empty, ExpectedShape::MatchArmBody) => {
+            parse_block_expression(working_set, span)
+        }
         (BraceShape::Empty, _) => parse_record(working_set, span),
         (BraceShape::ClosureParams, _) => parse_closure_expression(working_set, span),
         (BraceShape::Record, _) => parse_record(working_set, span),
         (BraceShape::Spread, ExpectedShape::Closure) => parse_closure_expression(working_set, span),
-        (BraceShape::Spread, ExpectedShape::MatchArmBody) => parse_block_expression(working_set, span),
-        (BraceShape::Spread, _) => parse_record(working_set, span),
-        (BraceShape::Other, ExpectedShape::MatchArmBody) => parse_block_expression(working_set, span),
-        (BraceShape::Other, ExpectedShape::Closure | ExpectedShape::Any) => parse_closure_expression(working_set, span),
-        (BraceShape::Other, ExpectedShape::Number | ExpectedShape::String | ExpectedShape::Declared(_)) => {
-            Err(cut(Diagnostic::expected("value", span).with_help("found a block or closure")))
+        (BraceShape::Spread, ExpectedShape::MatchArmBody) => {
+            parse_block_expression(working_set, span)
         }
+        (BraceShape::Spread, _) => parse_record(working_set, span),
+        (BraceShape::Other, ExpectedShape::MatchArmBody) => {
+            parse_block_expression(working_set, span)
+        }
+        (BraceShape::Other, ExpectedShape::Closure | ExpectedShape::Any) => {
+            parse_closure_expression(working_set, span)
+        }
+        (
+            BraceShape::Other,
+            ExpectedShape::Number | ExpectedShape::String | ExpectedShape::Declared(_),
+        ) => Err(cut(
+            Diagnostic::expected("value", span).with_help("found a block or closure")
+        )),
     }
 }
 
@@ -986,11 +1178,14 @@ pub fn parse_block_body<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseRe
     let inner = delimited_interior(working_set, span, "{", "}")?;
     match probe_brace_shape(working_set, inner) {
         BraceShape::ClosureParams => {
-            return Err(cut(Diagnostic::expected("block", span)
-                .with_help("found closure parameters; blocks cannot have parameters")));
+            return Err(cut(Diagnostic::expected("block", span).with_help(
+                "found closure parameters; blocks cannot have parameters",
+            )));
         }
         BraceShape::Record => {
-            return Err(cut(Diagnostic::expected("block", span).with_help("found a record")));
+            return Err(cut(
+                Diagnostic::expected("block", span).with_help("found a record")
+            ));
         }
         BraceShape::Empty | BraceShape::Spread | BraceShape::Other => {}
     }
@@ -999,7 +1194,10 @@ pub fn parse_block_body<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseRe
 
 /// Parse `{ ... }` as a block without looking at its shape (the body of a
 /// `def`, which nu parses as a closure whatever it starts with).
-pub fn parse_block_body_unchecked<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResult<Block<'a>> {
+pub fn parse_block_body_unchecked<'a>(
+    working_set: &WorkingSet<'a>,
+    span: Span,
+) -> ParseResult<Block<'a>> {
     let inner = delimited_interior(working_set, span, "{", "}")?;
     let tokens = working_set.lex(inner, LexOptions::BLOCK).map_err(cut)?;
     working_set.enter_scope();
@@ -1009,13 +1207,25 @@ pub fn parse_block_body_unchecked<'a>(working_set: &WorkingSet<'a>, span: Span) 
 }
 
 /// [`parse_block_body`] as an expression: a `{ ... }` match-arm body (nu's `parse_block_expression`).
-fn parse_block_expression<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResult<Expression<'a>> {
-    Ok(Expression::new(Expr::Block(parse_block_body(working_set, span)?), span))
+fn parse_block_expression<'a>(
+    working_set: &WorkingSet<'a>,
+    span: Span,
+) -> ParseResult<Expression<'a>> {
+    Ok(Expression::new(
+        Expr::Block(parse_block_body(working_set, span)?),
+        span,
+    ))
 }
 
 /// Parse `{|params| body}` or `{ body }` as a closure (nu's `parse_closure_expression`).
-pub fn parse_closure_expression<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResult<Expression<'a>> {
-    Ok(Expression::new(Expr::Closure(Box::new(parse_closure_parts(working_set, span)?)), span))
+pub fn parse_closure_expression<'a>(
+    working_set: &WorkingSet<'a>,
+    span: Span,
+) -> ParseResult<Expression<'a>> {
+    Ok(Expression::new(
+        Expr::Closure(Box::new(parse_closure_parts(working_set, span)?)),
+        span,
+    ))
 }
 
 /// The parameters and body of a closure item; `params` is `None` without pipes.
@@ -1023,14 +1233,20 @@ pub fn parse_closure_expression<'a>(working_set: &WorkingSet<'a>, span: Span) ->
 /// ```text
 /// closure = "{" [ "|" parameters "|" | "||" ] block "}"
 /// ```
-pub fn parse_closure_parts<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResult<Closure<'a>> {
+pub fn parse_closure_parts<'a>(
+    working_set: &WorkingSet<'a>,
+    span: Span,
+) -> ParseResult<Closure<'a>> {
     let inner = delimited_interior(working_set, span, "{", "}")?;
     let tokens = working_set.lex(inner, LexOptions::BLOCK).map_err(cut)?;
     // The parameter list is the first token or, as nu's lexer merges a newline
     // and the `|` after it, the `|` right after one newline (`{\n  |x| ... }`).
     // After a comment line or a blank line, and for `||` on a later line, the
     // pipes belong to the body (`{\n|| 1}` is `||` in a block).
-    let first = match (tokens.first().map(|token| token.contents), tokens.get(1).map(|token| token.contents)) {
+    let first = match (
+        tokens.first().map(|token| token.contents),
+        tokens.get(1).map(|token| token.contents),
+    ) {
         (Some(TokenContents::Eol), Some(TokenContents::Pipe)) => 1,
         _ => 0,
     };
@@ -1044,7 +1260,10 @@ pub fn parse_closure_parts<'a>(working_set: &WorkingSet<'a>, span: Span) -> Pars
                 .map(|index| index + first + 1);
             let Some(close_index) = close_index else {
                 return Err(cut(Diagnostic::new(
-                    ErrorKind::Unclosed { delimiter: "|", open: open.span },
+                    ErrorKind::Unclosed {
+                        delimiter: "|",
+                        open: open.span,
+                    },
                     inner.past(),
                 )
                 .with_context("closure parameters")));
@@ -1056,13 +1275,22 @@ pub fn parse_closure_parts<'a>(working_set: &WorkingSet<'a>, span: Span) -> Pars
             let signature = parse_signature_helper(working_set, pipes, pipes, false)?;
             (Some(signature), close_index + 1)
         }
-        Some(TokenContents::PipePipe) => {
-            (Some(Signature { span: tokens[first].span, ..Signature::default() }), first + 1)
-        }
+        Some(TokenContents::PipePipe) => (
+            Some(Signature {
+                span: tokens[first].span,
+                ..Signature::default()
+            }),
+            first + 1,
+        ),
         _ => (None, 0),
     };
     let body_tokens = &tokens[body_start..];
-    let body_span = Span::new(body_tokens.first().map_or(inner.end, |token| token.span.start), inner.end);
+    let body_span = Span::new(
+        body_tokens
+            .first()
+            .map_or(inner.end, |token| token.span.start),
+        inner.end,
+    );
     working_set.enter_scope();
     let body = parse_block(Tokens::from_lexed(working_set, body_tokens), body_span);
     working_set.exit_scope();
@@ -1076,15 +1304,26 @@ fn lex_bracket_interior(working_set: &WorkingSet<'_>, span: Span) -> ParseResult
     working_set.add_comments(&tokens);
     Ok(tokens
         .into_iter()
-        .filter(|token| !matches!(token.contents, TokenContents::Comment | TokenContents::Eol | TokenContents::Eof))
+        .filter(|token| {
+            !matches!(
+                token.contents,
+                TokenContents::Comment | TokenContents::Eol | TokenContents::Eof
+            )
+        })
         .collect())
 }
 
 /// Like nu, a `;` between list items is an error (only `[[cols]; [row]]` has one).
 fn reject_semicolon(items: &[Token], what: &'static str) -> ParseResult<()> {
-    match items.iter().find(|token| token.contents == TokenContents::Semicolon) {
-        Some(token) => Err(cut(Diagnostic::message(format!("unexpected semicolon in {what}"), token.span)
-            .with_help("use commas or whitespace to separate list items"))),
+    match items
+        .iter()
+        .find(|token| token.contents == TokenContents::Semicolon)
+    {
+        Some(token) => Err(cut(Diagnostic::message(
+            format!("unexpected semicolon in {what}"),
+            token.span,
+        )
+        .with_help("use commas or whitespace to separate list items"))),
         None => Ok(()),
     }
 }
@@ -1097,7 +1336,10 @@ fn reject_semicolon(items: &[Token], what: &'static str) -> ParseResult<()> {
 /// table = "[" "[" { column } "]" ";" row { row } "]"
 /// row   = "[" { value } "]"                            one value per column
 /// ```
-pub fn parse_list_expression<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResult<Expression<'a>> {
+pub fn parse_list_expression<'a>(
+    working_set: &WorkingSet<'a>,
+    span: Span,
+) -> ParseResult<Expression<'a>> {
     parse_list_expression_with_shape(working_set, span, None)
 }
 
@@ -1140,7 +1382,10 @@ fn parse_table_expression<'a>(
 ) -> ParseResult<Expression<'a>> {
     // The header and each row are lists in the tree.
     let list = |cells: Vec<Expression<'a>>, span: Span| {
-        Expression::new(Expr::List(cells.into_iter().map(ListItem::Item).collect()), span)
+        Expression::new(
+            Expr::List(cells.into_iter().map(ListItem::Item).collect()),
+            span,
+        )
     };
     let column_cells = parse_table_row(working_set, columns.span, true)?;
     let mut names = HashMap::new();
@@ -1148,25 +1393,35 @@ fn parse_table_expression<'a>(
         check_duplicate_name(&mut names, column)?;
     }
     if rows.is_empty() {
-        return Err(cut(Diagnostic::expected("table row", semicolon.span.past())));
+        return Err(cut(Diagnostic::expected(
+            "table row",
+            semicolon.span.past(),
+        )));
     }
     let width = column_cells.len();
     let rows = rows
         .iter()
         .map(|token| {
-            if token.contents != TokenContents::Item || !working_set.get_span_contents(token.span).starts_with('[') {
-                return Err(cut(
-                    Diagnostic::message("table item not list", token.span).with_help("all table items must be lists")
-                ));
+            if token.contents != TokenContents::Item
+                || !working_set.get_span_contents(token.span).starts_with('[')
+            {
+                return Err(cut(Diagnostic::message("table item not list", token.span)
+                    .with_help("all table items must be lists")));
             }
             let cells = parse_table_row(working_set, token.span, false)?;
             match cells.len().cmp(&width) {
-                std::cmp::Ordering::Less => Err(cut(Diagnostic::message("missing columns", token.span)
-                    .with_help(format!("expected {width} columns, found {}", cells.len())))),
+                std::cmp::Ordering::Less => {
+                    Err(cut(Diagnostic::message("missing columns", token.span)
+                        .with_help(format!(
+                            "expected {width} columns, found {}",
+                            cells.len()
+                        ))))
+                }
                 std::cmp::Ordering::Greater => {
                     let extra = cells[width].span.merge(cells[cells.len() - 1].span);
-                    Err(cut(Diagnostic::message("extra columns", extra)
-                        .with_help(format!("expected {width} columns, found {}", cells.len()))))
+                    Err(cut(Diagnostic::message("extra columns", extra).with_help(
+                        format!("expected {width} columns, found {}", cells.len()),
+                    )))
                 }
                 std::cmp::Ordering::Equal => Ok(list(cells, token.span)),
             }
@@ -1183,12 +1438,23 @@ fn parse_table_expression<'a>(
                 | Expr::Subexpression(_)
         );
         if !stringy {
-            return Err(cut(Diagnostic::message("table column name not string", column.span)
-                .with_help("table column names should be able to be converted into strings")));
+            return Err(cut(Diagnostic::message(
+                "table column name not string",
+                column.span,
+            )
+            .with_help(
+                "table column names should be able to be converted into strings",
+            )));
         }
     }
     let columns = list(column_cells, columns.span);
-    Ok(Expression::new(Expr::Table(Table { columns: Box::new(columns), rows }), span))
+    Ok(Expression::new(
+        Expr::Table(Table {
+            columns: Box::new(columns),
+            rows,
+        }),
+        span,
+    ))
 }
 
 /// One item of a list or table row, as [`lite_parse_parts`] leaves it: a
@@ -1202,13 +1468,20 @@ fn parse_list_item<'a>(
     let text = working_set.get_span_contents(token.span);
     if token.contents == TokenContents::Item && is_spread(text, b"[$(") {
         let dots = Span::new(token.span.start, token.span.start + 3);
-        let expr = parse_value(working_set, Span::new(token.span.start + 3, token.span.end), ExpectedShape::Any)?;
+        let expr = parse_value(
+            working_set,
+            Span::new(token.span.start + 3, token.span.end),
+            ExpectedShape::Any,
+        )?;
         return Ok(ListItem::Spread { dots, expr });
     }
     // `[Assignment, =, Assign]`: an operator on its own is just a word here,
     // and so is anything after it (`[a = b | c]`).
     if token.contents != TokenContents::Item {
-        return Ok(ListItem::Item(Expression::new(Expr::String(crate::winnow::syntax::ast::StringLiteral::bare(text)), token.span)));
+        return Ok(ListItem::Item(Expression::new(
+            Expr::String(crate::winnow::syntax::ast::StringLiteral::bare(text)),
+            token.span,
+        )));
     }
     let shape = match element {
         Some(element) => ExpectedShape::Declared(element),
@@ -1219,7 +1492,11 @@ fn parse_list_item<'a>(
 
 /// The cells of a table header (`names`, each read like a record key, see
 /// [`parse_field_name`]) or row (nu's `parse_table_row`): a list without spreads.
-fn parse_table_row<'a>(working_set: &WorkingSet<'a>, span: Span, names: bool) -> ParseResult<Vec<Expression<'a>>> {
+fn parse_table_row<'a>(
+    working_set: &WorkingSet<'a>,
+    span: Span,
+    names: bool,
+) -> ParseResult<Vec<Expression<'a>>> {
     let items = lex_bracket_interior(working_set, span)?;
     reject_semicolon(&items, "list")?;
     let mut cells = Vec::new();
@@ -1235,7 +1512,10 @@ fn parse_table_row<'a>(working_set: &WorkingSet<'a>, span: Span, names: bool) ->
             match cell {
                 ListItem::Item(cell) => cells.push(cell),
                 ListItem::Spread { dots, .. } => {
-                    return Err(cut(Diagnostic::message("cannot spread in a table row", dots)));
+                    return Err(cut(Diagnostic::message(
+                        "cannot spread in a table row",
+                        dots,
+                    )));
                 }
             }
         }
@@ -1283,13 +1563,19 @@ fn parse_field_name<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResult
 /// Refuse a record field or table column that a literal names twice (nu's
 /// `check_duplicate_name`); `names` holds the names seen so far, with where each was first
 /// used. Names only known when the literal runs (`$k`, spreads) are checked then.
-fn check_duplicate_name<'a>(names: &mut HashMap<Cow<'a, str>, Span>, name: &Expression<'a>) -> ParseResult<()> {
+fn check_duplicate_name<'a>(
+    names: &mut HashMap<Cow<'a, str>, Span>,
+    name: &Expression<'a>,
+) -> ParseResult<()> {
     let Expr::String(string) = &name.expr else {
         return Ok(());
     };
     match names.entry(string.value.clone()) {
         Entry::Occupied(first) => Err(cut(Diagnostic::message(
-            format!("record field or table column `{}` is defined twice", string.value),
+            format!(
+                "record field or table column `{}` is defined twice",
+                string.value
+            ),
             name.span,
         )
         .with_help(format!("it is first defined at byte {}", first.get().start)))),
@@ -1323,12 +1609,21 @@ fn parse_record_item<'a>(
     first: Token,
 ) -> ParseResult<RecordItem<'a>> {
     if first.contents != TokenContents::Item {
-        return Err(cut(Diagnostic::message("unexpected token in record", first.span)
-            .with_help("expected a record key here; fields look like `key: value`")));
+        return Err(cut(Diagnostic::message(
+            "unexpected token in record",
+            first.span,
+        )
+        .with_help(
+            "expected a record key here; fields look like `key: value`",
+        )));
     }
     if is_spread(working_set.get_span_contents(first.span), b"{$(") {
         let dots = Span::new(first.span.start, first.span.start + 3);
-        let expr = parse_value(working_set, Span::new(first.span.start + 3, first.span.end), ExpectedShape::Any)?;
+        let expr = parse_value(
+            working_set,
+            Span::new(first.span.start + 3, first.span.end),
+            ExpectedShape::Any,
+        )?;
         return Ok(RecordItem::Spread { dots, expr });
     }
     let key = parse_field_name(working_set, first.span)?;
@@ -1341,8 +1636,11 @@ fn parse_record_item<'a>(
             )));
         }
         None => {
-            return Err(cut(Diagnostic::expected("`:` after record key", first.span.past())
-                .with_help("record fields look like `key: value`")));
+            return Err(cut(Diagnostic::expected(
+                "`:` after record key",
+                first.span.past(),
+            )
+            .with_help("record fields look like `key: value`")));
         }
     };
     let value = match next_record_token(working_set, interior, LexOptions::RECORD_VALUE)? {
@@ -1350,13 +1648,27 @@ fn parse_record_item<'a>(
             parse_value(working_set, token.span, ExpectedShape::Any)?
         }
         Some(token) => {
-            return Err(cut(Diagnostic::message("unexpected token in record value", token.span)
-                .with_help("after `key:`, provide a value (string, number, record, list, ...)")));
+            return Err(cut(Diagnostic::message(
+                "unexpected token in record value",
+                token.span,
+            )
+            .with_help(
+                "after `key:`, provide a value (string, number, record, list, ...)",
+            )));
         }
-        None => return Err(cut(Diagnostic::expected("value for record field", colon.span.past()))),
+        None => {
+            return Err(cut(Diagnostic::expected(
+                "value for record field",
+                colon.span.past(),
+            )));
+        }
     };
     check_record_key_or_value(working_set, &value, "value")?;
-    Ok(RecordItem::Pair { key, colon: colon.span, value })
+    Ok(RecordItem::Pair {
+        key,
+        colon: colon.span,
+        value,
+    })
 }
 
 /// Like Nushell, refuse a bare word containing `:` as a record key or value
@@ -1369,21 +1681,26 @@ fn check_record_key_or_value(
 ) -> ParseResult<()> {
     let bare_spans: Vec<Span> = match &expr.expr {
         Expr::String(string) if string.quote == Quote::Bare => vec![expr.span],
-        Expr::StringInterpolation(interpolation) if interpolation.quote == Quote::Bare => interpolation
-            .parts
-            .iter()
-            .filter_map(|part| match part {
-                InterpolationPart::Text { span, .. } => Some(*span),
-                InterpolationPart::Expression(_) => None,
-            })
-            .collect(),
+        Expr::StringInterpolation(interpolation) if interpolation.quote == Quote::Bare => {
+            interpolation
+                .parts
+                .iter()
+                .filter_map(|part| match part {
+                    InterpolationPart::Text { span, .. } => Some(*span),
+                    InterpolationPart::Expression(_) => None,
+                })
+                .collect()
+        }
         _ => Vec::new(),
     };
     for span in bare_spans {
         if let Some(at) = working_set.get_span_contents(span).find(':') {
             let colon = Span::new(span.start + at, span.start + at + 1);
-            return Err(cut(Diagnostic::message(format!("colon in bare word specifying record {position}"), colon)
-                .with_help(format!("quote the {position} if the `:` is part of it"))));
+            return Err(cut(Diagnostic::message(
+                format!("colon in bare word specifying record {position}"),
+                colon,
+            )
+            .with_help(format!("quote the {position} if the `:` is part of it"))));
         }
     }
     Ok(())
@@ -1399,7 +1716,10 @@ fn check_record_key_or_value(
 ///
 /// Commas and newlines are whitespace. A body is one token, so the next arm
 /// starts right after it.
-pub fn parse_match_block_expression<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResult<Vec<MatchArm<'a>>> {
+pub fn parse_match_block_expression<'a>(
+    working_set: &WorkingSet<'a>,
+    span: Span,
+) -> ParseResult<Vec<MatchArm<'a>>> {
     let inner = delimited_interior(working_set, span, "{", "}")?;
     let lexed = working_set.lex(inner, LexOptions::MATCH).map_err(cut)?;
     working_set.add_comments(&lexed);
@@ -1407,16 +1727,24 @@ pub fn parse_match_block_expression<'a>(working_set: &WorkingSet<'a>, span: Span
     // operator or a redirection (`=`, `o>`) is an ordinary pattern or body.
     let lexed: Vec<Token> = lexed
         .into_iter()
-        .filter(|token| !matches!(token.contents, TokenContents::Comment | TokenContents::Eol | TokenContents::Eof))
+        .filter(|token| {
+            !matches!(
+                token.contents,
+                TokenContents::Comment | TokenContents::Eol | TokenContents::Eof
+            )
+        })
         .map(|token| match token.contents {
-            TokenContents::AssignmentOperator(_) | TokenContents::Redirection(_) => {
-                Token { contents: TokenContents::Item, span: token.span }
-            }
+            TokenContents::AssignmentOperator(_) | TokenContents::Redirection(_) => Token {
+                contents: TokenContents::Item,
+                span: token.span,
+            },
             _ => token,
         })
         .collect();
     let mut tokens = Tokens::new(working_set, &lexed, inner.end);
-    repeat_till(0.., parse_match_arm, eof).map(|(arms, _)| arms).parse_next(&mut tokens)
+    repeat_till(0.., parse_match_arm, eof)
+        .map(|(arms, _)| arms)
+        .parse_next(&mut tokens)
 }
 
 /// `pattern ( | pattern )* [if guard...] => body`.
@@ -1425,7 +1753,13 @@ fn parse_match_arm<'a>(tokens: &mut Tokens<'_, 'a>) -> ParseResult<MatchArm<'a>>
     let guard = opt(parse_match_guard).parse_next(tokens)?;
     let arrow = expected("`=>`", keyword("=>")).parse_next(tokens)?;
     let body = parse_match_arm_body(tokens)?;
-    Ok(MatchArm { span: pattern.span.merge(body.span), pattern, guard, arrow: arrow.span, body })
+    Ok(MatchArm {
+        span: pattern.span.merge(body.span),
+        pattern,
+        guard,
+        arrow: arrow.span,
+        body,
+    })
 }
 
 /// A pattern, or alternatives separated by `|`.
@@ -1433,10 +1767,15 @@ fn parse_or_pattern<'a>(tokens: &mut Tokens<'_, 'a>) -> ParseResult<MatchPattern
     let first = expected("pattern", pattern).parse_next(tokens)?;
     let mut alternatives: Vec<MatchPattern<'a>> =
         repeat(0.., preceded(pipe, expected("pattern after `|`", pattern))).parse_next(tokens)?;
-    let Some(last) = alternatives.last() else { return Ok(first) };
+    let Some(last) = alternatives.last() else {
+        return Ok(first);
+    };
     let span = first.span.merge(last.span);
     alternatives.insert(0, first);
-    Ok(MatchPattern { span, pattern: Pattern::Or(alternatives) })
+    Ok(MatchPattern {
+        span,
+        pattern: Pattern::Or(alternatives),
+    })
 }
 
 /// `if condition...`: a guard, running up to the `=>`.
@@ -1444,14 +1783,27 @@ fn parse_match_guard<'a>(tokens: &mut Tokens<'_, 'a>) -> ParseResult<Box<Express
     let if_keyword = keyword("if").parse_next(tokens)?;
     let condition = tokens_until("=>").parse_next(tokens)?;
     if condition.at_end() {
-        return Err(cut(Diagnostic::expected("expression after `if` in match guard", if_keyword.span.past())
-            .with_help("the `if` keyword must be followed by an expression")));
+        return Err(cut(Diagnostic::expected(
+            "expression after `if` in match guard",
+            if_keyword.span.past(),
+        )
+        .with_help("the `if` keyword must be followed by an expression")));
     }
     // Like nu, every token up to the `=>` is a word of the guard (`$a if ; => 1`).
-    let items: Vec<Token> =
-        condition.remaining().iter().map(|token| Token { contents: TokenContents::Item, span: token.span }).collect();
+    let items: Vec<Token> = condition
+        .remaining()
+        .iter()
+        .map(|token| Token {
+            contents: TokenContents::Item,
+            span: token.span,
+        })
+        .collect();
     let end = condition.end_span().start;
-    Ok(Box::new(parse_math_expression(Tokens::new(tokens.working_set, &items, end))?))
+    Ok(Box::new(parse_math_expression(Tokens::new(
+        tokens.working_set,
+        &items,
+        end,
+    ))?))
 }
 
 /// The body of an arm is one item: a block (or a record or closure when it
@@ -1466,11 +1818,18 @@ fn parse_match_arm_body<'a>(tokens: &mut Tokens<'_, 'a>) -> ParseResult<Expressi
     if assignment_operator(tokens.working_set.get_span_contents(body.span)).is_some() {
         return Err(cut(Diagnostic::expected("match arm body", body.span)));
     }
-    let body = Token { contents: TokenContents::Item, span: body.span };
+    let body = Token {
+        contents: TokenContents::Item,
+        span: body.span,
+    };
     match tokens.text(&body).starts_with('{') {
         true => parse_value(tokens.working_set, body.span, ExpectedShape::MatchArmBody),
         false => parse_expression(
-            Tokens::new(tokens.working_set, std::slice::from_ref(&body), body.span.end),
+            Tokens::new(
+                tokens.working_set,
+                std::slice::from_ref(&body),
+                body.span.end,
+            ),
             Position::Element,
         ),
     }

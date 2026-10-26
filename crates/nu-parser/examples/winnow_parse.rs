@@ -179,8 +179,13 @@ fn check(opts: &Options, config: &ParseConfig) -> ExitCode {
             total_errors += diagnostics.len();
             if !opts.quiet {
                 let first = &diagnostics[0];
-                let pos = nu_parser::winnow::syntax::LineIndex::new(&source).line_col(first.span.start, &source);
-                let ctx = first.context.first().map(|c| format!(" (in {c})")).unwrap_or_default();
+                let pos = nu_parser::winnow::syntax::LineIndex::new(&source)
+                    .line_col(first.span.start, &source);
+                let ctx = first
+                    .context
+                    .first()
+                    .map(|c| format!(" (in {c})"))
+                    .unwrap_or_default();
                 println!("{}:{pos}: {}{ctx}", file.display(), first.kind);
             }
         }
@@ -193,7 +198,11 @@ fn check(opts: &Options, config: &ParseConfig) -> ExitCode {
         total_bytes,
         total_bytes as f64 / 1e6 / elapsed.as_secs_f64().max(1e-9)
     );
-    if failed == 0 { ExitCode::SUCCESS } else { ExitCode::FAILURE }
+    if failed == 0 {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::FAILURE
+    }
 }
 
 /// Every `.nu` file below `path`, recursively.

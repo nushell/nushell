@@ -25,6 +25,9 @@ pub fn main() {
             .required_positional
             .first()
             .is_some_and(|positional| positional.shape == SyntaxShape::RowCondition);
-        println!("{}\t{command_type:?}\t{row_condition}", String::from_utf8_lossy(&name));
+        println!(
+            "{}\t{command_type:?}\t{row_condition}",
+            String::from_utf8_lossy(&name)
+        );
     }
 }

@@ -1,22 +1,28 @@
 //! Blocks, pipelines and pipeline elements (nu-parser's `parse_pipelines.rs`).
 
 use crate::winnow::syntax::ast::{
-    AttributeBlock, Block, Comment, Expr, Expression, Pipeline, PipelineElement, PipelineRedirection, RedirectionTarget,
+    AttributeBlock, Block, Comment, Expr, Expression, Pipeline, PipelineElement,
+    PipelineRedirection, RedirectionTarget,
 };
 use crate::winnow::syntax::error::{Diagnostic, ErrorKind};
 use crate::winnow::syntax::input::{ParseResult, cut, into_diagnostic};
-use crate::winnow::syntax::lex::{LexOptions, RedirectionSource, Token, TokenContents, assignment_operator};
+use crate::winnow::syntax::lex::{
+    LexOptions, RedirectionSource, Token, TokenContents, assignment_operator,
+};
 use crate::winnow::syntax::span::Span;
 
 use super::WorkingSet;
 use super::lite_parser::{
-    AfterPipe, LiteCommand, after_pipe, last_non_comment_token, parse_lite_command, skip_to_statement_end,
-    take_pipe_on_later_line,
+    AfterPipe, LiteCommand, after_pipe, last_non_comment_token, parse_lite_command,
+    skip_to_statement_end, take_pipe_on_later_line,
 };
 use super::parse_calls::{keyword_signature_of_call, parse_attribute};
-use super::parse_def::{Definitions, PredeclaredDef, TypeAliasPredecl, parse_def_predecl, scan_predecls};
+use super::parse_def::{
+    Definitions, PredeclaredDef, TypeAliasPredecl, parse_def_predecl, scan_predecls,
+};
 use super::parse_expressions::{
-    ExpectedShape, Position, is_env_variable_name, parse_builtin_commands, parse_expression, parse_value,
+    ExpectedShape, Position, is_env_variable_name, parse_builtin_commands, parse_expression,
+    parse_value,
 };
 use super::parse_helpers::garbage_pipeline;
 use super::tokens::Tokens;
@@ -34,7 +40,10 @@ use super::working_set::{CommandLookup, ParseState};
 pub fn parse_block<'a>(mut tokens: Tokens<'_, 'a>, span: Span) -> Block<'a> {
     let working_set = tokens.working_set;
     if working_set.defers_command_changing_blocks() && changes_commands(working_set, tokens.all()) {
-        return Block { span, pipelines: Vec::new() };
+        return Block {
+            span,
+            pipelines: Vec::new(),
+        };
     }
     parse_def_predecl(working_set, tokens.all());
     check_dangling_pipe(working_set, tokens.all());
@@ -51,13 +60,20 @@ fn changes_commands(working_set: &WorkingSet<'_>, tokens: &[Token]) -> bool {
     let mut at_command = true;
     for (index, token) in tokens.iter().enumerate() {
         match token.contents {
-            TokenContents::Eol | TokenContents::Semicolon | TokenContents::Pipe => at_command = true,
+            TokenContents::Eol | TokenContents::Semicolon | TokenContents::Pipe => {
+                at_command = true
+            }
             TokenContents::Comment => {}
             TokenContents::Item if at_command => {
                 at_command = false;
-                let next_word = || tokens.get(index + 1).map(|next| working_set.get_span_contents(next.span));
+                let next_word = || {
+                    tokens
+                        .get(index + 1)
+                        .map(|next| working_set.get_span_contents(next.span))
+                };
                 match working_set.get_span_contents(token.span) {
-                    "use" | "module" | "export" | "overlay" | "hide" | "source" | "source-env" | "run" => return true,
+                    "use" | "module" | "export" | "overlay" | "hide" | "source" | "source-env"
+                    | "run" => return true,
                     "plugin" if next_word() == Some("use") => return true,
                     _ => {}
                 }
@@ -144,8 +160,14 @@ impl BlockStatements {
         subexpression: bool,
     ) -> Result<(Self, Definitions), Vec<Diagnostic>> {
         let working_set = WorkingSet::with_lookup(source, span, lookup);
-        let options = if subexpression { LexOptions::SUBEXPRESSION } else { LexOptions::BLOCK };
-        let mut tokens = working_set.lex(span, options).map_err(|diagnostic| vec![diagnostic])?;
+        let options = if subexpression {
+            LexOptions::SUBEXPRESSION
+        } else {
+            LexOptions::BLOCK
+        };
+        let mut tokens = working_set
+            .lex(span, options)
+            .map_err(|diagnostic| vec![diagnostic])?;
         if subexpression {
             tokens.retain(|token| token.contents != TokenContents::Comment);
         }
@@ -157,7 +179,15 @@ impl BlockStatements {
             return Err(block_errors);
         }
         let parse_state = working_set.into_state();
-        Ok((Self { tokens, position: 0, statements: StatementsState::default(), parse_state }, definitions))
+        Ok((
+            Self {
+                tokens,
+                position: 0,
+                statements: StatementsState::default(),
+                parse_state,
+            },
+            definitions,
+        ))
     }
 
     /// Parse the next statements, resolving command names with `lookup`, and hand each to
@@ -182,7 +212,14 @@ impl BlockStatements {
         let working_set = WorkingSet::with_state(source, lookup, parse_state);
         let mut tokens = Tokens::from_lexed(&working_set, &self.tokens);
         tokens.reset_to(self.position);
-        parse_statements(&mut tokens, &mut self.statements, &mut StreamingSink { sink, working_set: &working_set });
+        parse_statements(
+            &mut tokens,
+            &mut self.statements,
+            &mut StreamingSink {
+                sink,
+                working_set: &working_set,
+            },
+        );
         self.position = tokens.position();
         self.parse_state = working_set.into_state();
     }
@@ -195,7 +232,10 @@ impl BlockStatements {
     /// The text of the statements still to parse: from the next token to the end of the block.
     pub fn remaining(&self) -> Span {
         let end = self.tokens.last().map_or(0, |token| token.span.end);
-        let start = self.tokens.get(self.position).map_or(end, |token| token.span.start);
+        let start = self
+            .tokens
+            .get(self.position)
+            .map_or(end, |token| token.span.start);
         Span::new(start, end)
     }
 
@@ -206,7 +246,10 @@ impl BlockStatements {
         let mut words = rest
             .iter()
             .skip_while(|token| {
-                matches!(token.contents, TokenContents::Eol | TokenContents::Comment | TokenContents::Semicolon)
+                matches!(
+                    token.contents,
+                    TokenContents::Eol | TokenContents::Comment | TokenContents::Semicolon
+                )
             })
             .map_while(|token| token.is_item().then(|| token.text(source)));
         (words.next(), words.next())
@@ -226,7 +269,10 @@ impl BlockStatements {
 /// `alias x = ls |`), whatever absorbed the pipe.
 fn check_dangling_pipe(working_set: &WorkingSet<'_>, tokens: &[Token]) {
     if last_non_comment_token(tokens) == Some(TokenContents::Pipe)
-        && let Some(last) = tokens.iter().rev().find(|token| token.contents == TokenContents::Pipe)
+        && let Some(last) = tokens
+            .iter()
+            .rev()
+            .find(|token| token.contents == TokenContents::Pipe)
     {
         working_set.error(
             Diagnostic::new(ErrorKind::UnexpectedEof("command after `|`"), last.span)
@@ -246,7 +292,12 @@ trait StatementSink<'a> {
     fn push(&mut self, pipeline: Pipeline<'a>, before: StatementStart) -> bool;
     /// Take the placeholder for a statement covering `span` that failed to
     /// parse. Returns whether to go on.
-    fn push_garbage(&mut self, span: Span, leading_comments: Vec<Comment>, before: StatementStart) -> bool;
+    fn push_garbage(
+        &mut self,
+        span: Span,
+        leading_comments: Vec<Comment>,
+        before: StatementStart,
+    ) -> bool;
     /// The pipeline pushed last, while it can still be amended (its
     /// terminator, a comment after it on its line); `None` once it was handed over.
     fn last_mut(&mut self) -> Option<&mut Pipeline<'a>>;
@@ -259,7 +310,12 @@ impl<'a> StatementSink<'a> for Vec<Pipeline<'a>> {
         true
     }
 
-    fn push_garbage(&mut self, span: Span, _leading_comments: Vec<Comment>, _before: StatementStart) -> bool {
+    fn push_garbage(
+        &mut self,
+        span: Span,
+        _leading_comments: Vec<Comment>,
+        _before: StatementStart,
+    ) -> bool {
         Vec::push(self, garbage_pipeline(span));
         true
     }
@@ -294,7 +350,12 @@ impl<'a> StatementSink<'a> for StreamingSink<'_, '_, 'a> {
         (self.sink)(pipeline, diagnostics, before.longest_name)
     }
 
-    fn push_garbage(&mut self, span: Span, leading_comments: Vec<Comment>, before: StatementStart) -> bool {
+    fn push_garbage(
+        &mut self,
+        span: Span,
+        leading_comments: Vec<Comment>,
+        before: StatementStart,
+    ) -> bool {
         // The statement's doc comments go with it, for whoever parses it again.
         let mut garbage = garbage_pipeline(span);
         garbage.leading_comments = leading_comments;
@@ -349,16 +410,28 @@ impl Default for StatementsState {
 /// A loop over the tokens rather than a combinator: what an `Eol`, `;` or
 /// comment means depends on the token before it (`state.last`), and the state
 /// must survive a stop so that a later call goes on from it.
-fn parse_statements<'a>(tokens: &mut Tokens<'_, 'a>, state: &mut StatementsState, out: &mut dyn StatementSink<'a>) {
+fn parse_statements<'a>(
+    tokens: &mut Tokens<'_, 'a>,
+    state: &mut StatementsState,
+    out: &mut dyn StatementSink<'a>,
+) {
     let working_set = tokens.working_set;
-    let StatementsState { pending, carried_comments, carried_pipe, last, pushed } = state;
+    let StatementsState {
+        pending,
+        carried_comments,
+        carried_pipe,
+        last,
+        pushed,
+    } = state;
     while let Some(token) = tokens.peek_token() {
         match token.contents {
             TokenContents::Eol => {
                 // nu's lexer turns an end of line before a `|` that starts the next line into
                 // that `|`: it ends no line, so it makes no blank line (`# d\n\n| def f`).
-                let folded =
-                    tokens.all().get(tokens.position() + 1).is_some_and(|next| next.contents == TokenContents::Pipe);
+                let folded = tokens
+                    .all()
+                    .get(tokens.position() + 1)
+                    .is_some_and(|next| next.contents == TokenContents::Pipe);
                 if !folded {
                     if *last == TokenContents::Eol {
                         pending.clear();
@@ -398,8 +471,10 @@ fn parse_statements<'a>(tokens: &mut Tokens<'_, 'a>, state: &mut StatementsState
             _ => {
                 let start = tokens.position();
                 let start_span = token.span;
-                let before =
-                    StatementStart { errors: working_set.error_count(), longest_name: working_set.longest_decl_name() };
+                let before = StatementStart {
+                    errors: working_set.error_count(),
+                    longest_name: working_set.longest_decl_name(),
+                };
                 // The state is up to date before each push: `out` may stop the loop there, and a
                 // later call goes on from the state.
                 let go_on = match parse_pipeline(tokens, pending, carried_comments, carried_pipe) {
@@ -409,8 +484,9 @@ fn parse_statements<'a>(tokens: &mut Tokens<'_, 'a>, state: &mut StatementsState
                         // A comment right after the statement, on its line, is the statement's
                         // (for a definition, part of its description), so it goes with it;
                         // after its `;` it is the next statement's, as in nu.
-                        if let Some(comment) =
-                            tokens.peek_token().filter(|next| next.contents == TokenContents::Comment)
+                        if let Some(comment) = tokens
+                            .peek_token()
+                            .filter(|next| next.contents == TokenContents::Comment)
                         {
                             working_set.add_comment(comment.span);
                             let comment_after = Comment { span: comment.span };
@@ -512,7 +588,10 @@ fn parse_pipeline<'a>(
         // `a | b`: the empty commands are dropped.
         let mut first_pipe = None;
         let from = trailing_comments.len();
-        while let Some(token) = tokens.peek_token().filter(|token| token.contents == TokenContents::Pipe) {
+        while let Some(token) = tokens
+            .peek_token()
+            .filter(|token| token.contents == TokenContents::Pipe)
+        {
             pipe = Some(token.span);
             first_pipe.get_or_insert(token.span);
             tokens.next_token();
@@ -572,10 +651,21 @@ fn parse_pipeline<'a>(
     for (pipe, lite_command) in &lite_commands {
         let (expr, redirection) = parse_pipeline_element(working_set, lite_command, !single)?;
         let start = pipe.map_or(expr.span.start, |pipe| pipe.start);
-        let end = redirection.as_ref().map_or(expr.span.end, |redirection| redirection.span().end.max(expr.span.end));
-        elements.push(PipelineElement { span: Span::new(start, end), pipe: *pipe, expr, redirection });
+        let end = redirection.as_ref().map_or(expr.span.end, |redirection| {
+            redirection.span().end.max(expr.span.end)
+        });
+        elements.push(PipelineElement {
+            span: Span::new(start, end),
+            pipe: *pipe,
+            expr,
+            redirection,
+        });
     }
-    let span = elements[0].span.merge(elements.last().map_or(elements[0].span, |element| element.span));
+    let span = elements[0].span.merge(
+        elements
+            .last()
+            .map_or(elements[0].span, |element| element.span),
+    );
     let terminator = match tokens.peek_token() {
         Some(token) if token.contents == TokenContents::Semicolon => {
             tokens.next_token();
@@ -586,20 +676,35 @@ fn parse_pipeline<'a>(
     let carried_on = carried_comments.split_off(carried_to_it);
     let leading_comments = take_leading_comments(leading_comments, carried_comments);
     *carried_comments = carried_on;
-    Ok(Some(Pipeline { span, elements, leading_comments, trailing_comments, terminator, dangling_pipe }))
+    Ok(Some(Pipeline {
+        span,
+        elements,
+        leading_comments,
+        trailing_comments,
+        terminator,
+        dangling_pipe,
+    }))
 }
 
 /// Refuse a `while` or `loop` that is one command of a longer pipeline (nu's `parse_pipeline`):
 /// loops are statements without output, so like `for` (refused in `parse_expression`) they
 /// can't be piped. The head is the first item after any `NAME=value` environment shorthands, as
 /// there, and an attribute line's first item counts as one.
-fn check_loop_in_pipeline(working_set: &WorkingSet<'_>, lite_command: &LiteCommand) -> ParseResult<()> {
+fn check_loop_in_pipeline(
+    working_set: &WorkingSet<'_>,
+    lite_command: &LiteCommand,
+) -> ParseResult<()> {
     let is_env_shorthand = |token: &&Token| {
         let text = working_set.get_span_contents(token.span);
-        text.find('=').is_some_and(|equals| is_env_variable_name(&text[..equals]))
+        text.find('=')
+            .is_some_and(|equals| is_env_variable_name(&text[..equals]))
     };
-    let head =
-        lite_command.attributes.iter().flatten().chain(&lite_command.parts).find(|token| !is_env_shorthand(token));
+    let head = lite_command
+        .attributes
+        .iter()
+        .flatten()
+        .chain(&lite_command.parts)
+        .find(|token| !is_env_shorthand(token));
     match head.map(|head| (head, working_set.get_span_contents(head.span))) {
         Some((head, keyword @ ("while" | "loop"))) => {
             Err(cut(Diagnostic::new(ErrorKind::KeywordInPipeline(keyword.to_string()), head.span)
@@ -617,7 +722,11 @@ fn parse_pipeline_element<'a>(
     lite_command: &LiteCommand,
     in_pipeline: bool,
 ) -> ParseResult<(Expression<'a>, Option<PipelineRedirection<'a>>)> {
-    let position = if in_pipeline { Position::Element } else { Position::Statement };
+    let position = if in_pipeline {
+        Position::Element
+    } else {
+        Position::Statement
+    };
     let expr = match lite_command.attributes.as_slice() {
         [] => parse_expression(lite_command.tokens(working_set), position)?,
         // nu parses an element of a longer pipeline from all its items, the
@@ -630,10 +739,15 @@ fn parse_pipeline_element<'a>(
             let items: Vec<Token> = attribute_lines
                 .iter()
                 .flatten()
-                .map(|token| match assignment_operator(working_set.get_span_contents(token.span)) {
-                    Some(operator) => Token { contents: TokenContents::AssignmentOperator(operator), span: token.span },
-                    None => *token,
-                })
+                .map(
+                    |token| match assignment_operator(working_set.get_span_contents(token.span)) {
+                        Some(operator) => Token {
+                            contents: TokenContents::AssignmentOperator(operator),
+                            span: token.span,
+                        },
+                        None => *token,
+                    },
+                )
                 .chain(lite_command.parts.iter().copied())
                 .collect();
             parse_expression(Tokens::new(working_set, &items, lite_command.end), position)?
@@ -643,29 +757,54 @@ fn parse_pipeline_element<'a>(
                 .iter()
                 .map(|attribute_line| parse_attribute(working_set, attribute_line))
                 .collect::<ParseResult<Vec<_>>>()?;
-            let words: Vec<&str> =
-                lite_command.parts.iter().take(2).map(|token| working_set.get_span_contents(token.span)).collect();
-            let is_definition = matches!(words.as_slice(), ["def" | "extern", ..] | ["export", "def" | "extern"]);
+            let words: Vec<&str> = lite_command
+                .parts
+                .iter()
+                .take(2)
+                .map(|token| working_set.get_span_contents(token.span))
+                .collect();
+            let is_definition = matches!(
+                words.as_slice(),
+                ["def" | "extern", ..] | ["export", "def" | "extern"]
+            );
             let item = match (is_definition, lite_command.parts.first()) {
                 (true, Some(first)) if in_pipeline => {
                     return Err(cut(Diagnostic::new(
-                        ErrorKind::KeywordInPipeline(working_set.get_span_contents(first.span).to_string()),
+                        ErrorKind::KeywordInPipeline(
+                            working_set.get_span_contents(first.span).to_string(),
+                        ),
                         first.span,
                     )));
                 }
                 (true, _) => parse_builtin_commands(lite_command.tokens(working_set))?,
                 (false, Some(first)) => {
-                    return Err(cut(Diagnostic::message("attributes must be followed by a definition", first.span)
-                        .with_help("only `def`, `extern`, `export def` and `export extern` take attributes")));
+                    return Err(cut(Diagnostic::message(
+                        "attributes must be followed by a definition",
+                        first.span,
+                    )
+                    .with_help(
+                        "only `def`, `extern`, `export def` and `export extern` take attributes",
+                    )));
                 }
                 (false, None) => {
-                    let last = attributes.last().map_or(Span::point(lite_command.end), |attribute| attribute.span);
-                    return Err(cut(Diagnostic::message("attributes must be followed by a definition", last.past())
-                        .with_help("put a `def` or `extern` on the line after the attributes")));
+                    let last = attributes
+                        .last()
+                        .map_or(Span::point(lite_command.end), |attribute| attribute.span);
+                    return Err(cut(Diagnostic::message(
+                        "attributes must be followed by a definition",
+                        last.past(),
+                    )
+                    .with_help("put a `def` or `extern` on the line after the attributes")));
                 }
             };
             let span = attributes[0].span.merge(item.span);
-            Expression::new(Expr::AttributeBlock(AttributeBlock { attributes, item: Box::new(item) }), span)
+            Expression::new(
+                Expr::AttributeBlock(AttributeBlock {
+                    attributes,
+                    item: Box::new(item),
+                }),
+                span,
+            )
         }
     };
     // nu's command covers all of its items, those it ignores included (`try {} --`).
@@ -688,8 +827,14 @@ fn parse_pipeline_element<'a>(
         return Ok((expr, None));
     }
     if redirection.is_some() && rejects_redirection(&expr) {
-        let at = lite_command.redirections.first().map_or(expr.span, |(operator, _)| operator.span);
-        return Err(cut(Diagnostic::message("this statement cannot be redirected", at)));
+        let at = lite_command
+            .redirections
+            .first()
+            .map_or(expr.span, |(operator, _)| operator.span);
+        return Err(cut(Diagnostic::message(
+            "this statement cannot be redirected",
+            at,
+        )));
     }
     Ok((expr, redirection))
 }
@@ -738,16 +883,34 @@ fn parse_redirection<'a>(
         redirection = Some(match (redirection.take(), operator.item.source()) {
             (None, source) => PipelineRedirection::Single { source, target },
             (
-                Some(PipelineRedirection::Single { source: RedirectionSource::Stdout, target: stdout }),
+                Some(PipelineRedirection::Single {
+                    source: RedirectionSource::Stdout,
+                    target: stdout,
+                }),
                 RedirectionSource::Stderr,
-            ) => PipelineRedirection::Separate { out: stdout, err: target },
+            ) => PipelineRedirection::Separate {
+                out: stdout,
+                err: target,
+            },
             (
-                Some(PipelineRedirection::Single { source: RedirectionSource::Stderr, target: stderr }),
+                Some(PipelineRedirection::Single {
+                    source: RedirectionSource::Stderr,
+                    target: stderr,
+                }),
                 RedirectionSource::Stdout,
-            ) => PipelineRedirection::Separate { out: target, err: stderr },
+            ) => PipelineRedirection::Separate {
+                out: target,
+                err: stderr,
+            },
             (Some(previous), _) => {
-                return Err(cut(Diagnostic::message("multiple redirections of the same stream", operator.span)
-                    .with_help(format!("the stream is already redirected at {}", previous.span()))));
+                return Err(cut(Diagnostic::message(
+                    "multiple redirections of the same stream",
+                    operator.span,
+                )
+                .with_help(format!(
+                    "the stream is already redirected at {}",
+                    previous.span()
+                ))));
             }
         });
     }
@@ -768,7 +931,10 @@ mod tests {
 
     /// The number of elements of each pipeline of `source`.
     fn pipelines(source: &str) -> Vec<usize> {
-        parse(source).iter().map(|pipeline| pipeline.elements.len()).collect()
+        parse(source)
+            .iter()
+            .map(|pipeline| pipeline.elements.len())
+            .collect()
     }
 
     #[test]
@@ -794,20 +960,45 @@ mod tests {
     /// number of arguments.
     fn attribute_arguments(source: &str) -> Vec<usize> {
         let pipelines = parse(source);
-        let [Pipeline { elements, .. }] = &pipelines[..] else { panic!("{source:?}: {pipelines:?}") };
-        let [PipelineElement { expr: Expression { expr: Expr::AttributeBlock(block), .. }, .. }] = &elements[..] else {
+        let [Pipeline { elements, .. }] = &pipelines[..] else {
+            panic!("{source:?}: {pipelines:?}")
+        };
+        let [
+            PipelineElement {
+                expr:
+                    Expression {
+                        expr: Expr::AttributeBlock(block),
+                        ..
+                    },
+                ..
+            },
+        ] = &elements[..]
+        else {
             panic!("{source:?}: {elements:?}")
         };
-        block.attributes.iter().map(|attribute| attribute.arguments.len()).collect()
+        block
+            .attributes
+            .iter()
+            .map(|attribute| attribute.arguments.len())
+            .collect()
     }
 
     #[test]
     fn attribute_lines_where_a_line_starts() {
         // A command that starts a line may have attribute lines, after a `|` too.
-        assert_eq!(attribute_arguments("|\n@search-terms foo\ndef bar [] {}"), [1]);
-        assert_eq!(pipelines("ls | length |\n@search-terms foo\ndef bar [] {}"), [3]);
+        assert_eq!(
+            attribute_arguments("|\n@search-terms foo\ndef bar [] {}"),
+            [1]
+        );
+        assert_eq!(
+            pipelines("ls | length |\n@search-terms foo\ndef bar [] {}"),
+            [3]
+        );
         // A `|` that starts the next line goes on with the attribute line.
-        assert_eq!(attribute_arguments("@search-terms foo\n| bar\ndef baz [] {}"), [3]);
+        assert_eq!(
+            attribute_arguments("@search-terms foo\n| bar\ndef baz [] {}"),
+            [3]
+        );
     }
 
     /// No commands at all: every head is an external command.
@@ -829,7 +1020,8 @@ mod tests {
 
     /// The text of each statement of the block covering `span` of `source`.
     fn statements(source: &str, span: Span, subexpression: bool) -> Vec<&str> {
-        let (mut statements, _) = BlockStatements::new(source, span, NoCommands, subexpression).unwrap();
+        let (mut statements, _) =
+            BlockStatements::new(source, span, NoCommands, subexpression).unwrap();
         let mut texts = Vec::new();
         statements.parse(source, NoCommands, &mut |pipeline, diagnostics, _| {
             assert!(diagnostics.is_empty(), "{diagnostics:?}");
@@ -844,7 +1036,13 @@ mod tests {
         // As nu's `parse_subexpression` lexes them: newlines are whitespace, comments skipped.
         let source = "(echo a\n  b # c\n  | length)";
         let inner = Span::new(1, source.len() - 1);
-        assert_eq!(statements(source, inner, true), ["echo a\n  b # c\n  | length"]);
-        assert_eq!(statements(source, inner, false), ["echo a", "b # c\n  | length"]);
+        assert_eq!(
+            statements(source, inner, true),
+            ["echo a\n  b # c\n  | length"]
+        );
+        assert_eq!(
+            statements(source, inner, false),
+            ["echo a", "b # c\n  | length"]
+        );
     }
 }

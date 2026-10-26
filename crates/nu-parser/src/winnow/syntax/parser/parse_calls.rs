@@ -7,8 +7,9 @@ use std::borrow::Cow;
 use winnow::Parser;
 
 use crate::winnow::syntax::ast::{
-    Argument, Attribute, Call, CallHead, DynamicCall, Expr, Expression, ExternalArgument, ExternalCall,
-    InterpolationPart, NamedArgument, Quote, StringInterpolation, StringLiteral, SyntaxShape,
+    Argument, Attribute, Call, CallHead, DynamicCall, Expr, Expression, ExternalArgument,
+    ExternalCall, InterpolationPart, NamedArgument, Quote, StringInterpolation, StringLiteral,
+    SyntaxShape,
 };
 use crate::winnow::syntax::error::{Diagnostic, ErrorKind};
 use crate::winnow::syntax::input::{ParseResult, cut};
@@ -47,7 +48,10 @@ pub fn parse_call<'a>(tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
 
 /// [`parse_call`]; with `lenient` set (an alias target) a keyword command
 /// may miss positionals.
-pub fn parse_call_lenient<'a>(mut tokens: Tokens<'_, 'a>, lenient: bool) -> ParseResult<Expression<'a>> {
+pub fn parse_call_lenient<'a>(
+    mut tokens: Tokens<'_, 'a>,
+    lenient: bool,
+) -> ParseResult<Expression<'a>> {
     let working_set = tokens.working_set;
     let statement = tokens;
     let first = tokens.expect_item("command")?;
@@ -61,7 +65,10 @@ pub fn parse_call_lenient<'a>(mut tokens: Tokens<'_, 'a>, lenient: bool) -> Pars
     // unknown command takes external arguments, a wrapped command `external_arg` values.
     let wrapped = match found.or_else(|| working_set.find_decl(&head.name)) {
         Some(DeclKind::ExternalAlias) => {
-            let name = StringLiteral { value: head.name, quote: Quote::Bare };
+            let name = StringLiteral {
+                value: head.name,
+                quote: Quote::Bare,
+            };
             let name = Expression::new(Expr::String(name), head.span);
             return parse_external_arguments(None, name, tokens);
         }
@@ -77,10 +84,19 @@ pub fn parse_call_lenient<'a>(mut tokens: Tokens<'_, 'a>, lenient: bool) -> Pars
         // `any $it > 2`: the arguments are one condition, unless the first is a flag, whose
         // value nu takes by the flag's shape, which the parser does not know
         // (`take while --include 2 {..}`): those are read one by one.
-        Some(DeclKind::RowCondition) if tokens.peek_token().is_some_and(|next| !tokens.text(next).starts_with('-')) => {
+        Some(DeclKind::RowCondition)
+            if tokens
+                .peek_token()
+                .is_some_and(|next| !tokens.text(next).starts_with('-')) =>
+        {
             let condition = parse_condition(tokens)?;
             let span = first.span.merge(condition.span);
-            let call = Call { head, arguments: vec![Argument::Positional(condition)], sigil: None, wrapped: false };
+            let call = Call {
+                head,
+                arguments: vec![Argument::Positional(condition)],
+                sigil: None,
+                wrapped: false,
+            };
             check_call(working_set, &call, lenient)?;
             return Ok(Expression::new(Expr::Call(call), span));
         }
@@ -91,8 +107,15 @@ pub fn parse_call_lenient<'a>(mut tokens: Tokens<'_, 'a>, lenient: bool) -> Pars
         kind => kind == Some(DeclKind::Wrapped),
     };
     let arguments = parse_call_arguments_with(tokens, wrapped)?;
-    let span = first.span.merge(arguments.last().map_or(head.span, Argument::span));
-    let call = Call { head, arguments, sigil: None, wrapped };
+    let span = first
+        .span
+        .merge(arguments.last().map_or(head.span, Argument::span));
+    let call = Call {
+        head,
+        arguments,
+        sigil: None,
+        wrapped,
+    };
     check_call(working_set, &call, lenient)?;
     Ok(Expression::new(Expr::Call(call), span))
 }
@@ -112,12 +135,17 @@ fn parse_percent_call<'a>(first: Token, mut tokens: Tokens<'_, 'a>) -> ParseResu
         1 => match tokens.next_token() {
             Some(token) if token.contents == TokenContents::Item => *token,
             _ => {
-                return Err(cut(
-                    Diagnostic::message("percent sigil requires a built-in command", sigil).with_help(PERCENT_HELP)
-                ));
+                return Err(cut(Diagnostic::message(
+                    "percent sigil requires a built-in command",
+                    sigil,
+                )
+                .with_help(PERCENT_HELP)));
             }
         },
-        _ => Token { contents: TokenContents::Item, span: Span::new(sigil.end, first.span.end) },
+        _ => Token {
+            contents: TokenContents::Item,
+            span: Span::new(sigil.end, first.span.end),
+        },
     };
     let head_text = working_set.get_span_contents(head_token.span);
     match head_text.as_bytes()[0] {
@@ -125,24 +153,53 @@ fn parse_percent_call<'a>(first: Token, mut tokens: Tokens<'_, 'a>) -> ParseResu
             let head = parse_value(working_set, head_token.span, ExpectedShape::Any)?;
             let arguments = parse_call_arguments(tokens)?;
             let span = sigil.merge(arguments.last().map_or(head.span, Argument::span));
-            Ok(Expression::new(Expr::DynamicCall(DynamicCall { sigil, head: Box::new(head), arguments }), span))
+            Ok(Expression::new(
+                Expr::DynamicCall(DynamicCall {
+                    sigil,
+                    head: Box::new(head),
+                    arguments,
+                }),
+                span,
+            ))
         }
-        b'"' | b'\'' | b'`' | b'[' | b'{' | b'^' | b'%' => {
-            Err(cut(Diagnostic::message("percent sigil requires a built-in command", head_token.span)
-                .with_help(PERCENT_HELP)))
-        }
+        b'"' | b'\'' | b'`' | b'[' | b'{' | b'^' | b'%' => Err(cut(Diagnostic::message(
+            "percent sigil requires a built-in command",
+            head_token.span,
+        )
+        .with_help(PERCENT_HELP))),
         _ => {
             // nu's `find_longest_decl_with_command_type`: the head is the longest name of a
             // built-in command, so `%ls foo` calls `ls` even where `def "ls foo"` exists.
-            let builtin = |name: &str| working_set.is_builtin_decl(name).then_some(DeclKind::Builtin);
+            let builtin = |name: &str| {
+                working_set
+                    .is_builtin_decl(name)
+                    .then_some(DeclKind::Builtin)
+            };
             let (head, found) = find_longest_name(head_token, &mut tokens, "", builtin);
-            if found.is_none() && working_set.has_builtin_decls() && !working_set.is_builtin_decl(&head.name) {
-                return Err(cut(Diagnostic::message("percent sigil requires a built-in command", head.span)
-                    .with_help(format!("`{}` is not a built-in command; {PERCENT_HELP}", head.name))));
+            if found.is_none()
+                && working_set.has_builtin_decls()
+                && !working_set.is_builtin_decl(&head.name)
+            {
+                return Err(cut(Diagnostic::message(
+                    "percent sigil requires a built-in command",
+                    head.span,
+                )
+                .with_help(format!(
+                    "`{}` is not a built-in command; {PERCENT_HELP}",
+                    head.name
+                ))));
             }
             let arguments = parse_call_arguments(tokens)?;
             let span = sigil.merge(arguments.last().map_or(head.span, Argument::span));
-            Ok(Expression::new(Expr::Call(Call { head, arguments, sigil: Some(sigil), wrapped: false }), span))
+            Ok(Expression::new(
+                Expr::Call(Call {
+                    head,
+                    arguments,
+                    sigil: Some(sigil),
+                    wrapped: false,
+                }),
+                span,
+            ))
         }
     }
 }
@@ -175,17 +232,32 @@ fn find_longest_name<'a>(
 ) -> (CallHead<'a>, Option<DeclKind>) {
     let working_set = tokens.working_set;
     let first_word = working_set.get_span_contents(first.span);
-    let first_word = if prefix.is_empty() { first_word } else { first_word.strip_prefix('@').unwrap_or(first_word) };
-    let single = CallHead { name: Cow::Borrowed(first_word), span: first.span };
+    let first_word = if prefix.is_empty() {
+        first_word
+    } else {
+        first_word.strip_prefix('@').unwrap_or(first_word)
+    };
+    let single = CallHead {
+        name: Cow::Borrowed(first_word),
+        span: first.span,
+    };
     // Fast path: most heads are single words that start no multi-word command.
-    let prefix_word = if prefix.is_empty() { first_word } else { prefix.trim_end() };
+    let prefix_word = if prefix.is_empty() {
+        first_word
+    } else {
+        prefix.trim_end()
+    };
     if !working_set.is_decl_name_prefix(prefix_word) {
         return (single, None);
     }
     // A configured command table has no longer names than `MAX_COMMAND_WORDS`; an engine's
     // commands can have any number of words (`def "a b c d e f" []`), so with one every item
     // may be part of the name, as in nu's `find_longest_decl`.
-    let max_words = if working_set.has_lookup() { usize::MAX } else { MAX_COMMAND_WORDS - 1 };
+    let max_words = if working_set.has_lookup() {
+        usize::MAX
+    } else {
+        MAX_COMMAND_WORDS - 1
+    };
     // The words after `first` that keep the name within the longest command name; each longer
     // candidate is tried first (nu's `find_longest_decl_with_prefix`).
     let bound = working_set.longest_decl_name();
@@ -207,8 +279,8 @@ fn find_longest_name<'a>(
     let single_spaced = following
         .iter()
         .take_while(|token| {
-            let one_space =
-                token.span.start == end + 1 && working_set.get_span_contents(Span::new(end, end + 1)) == " ";
+            let one_space = token.span.start == end + 1
+                && working_set.get_span_contents(Span::new(end, end + 1)) == " ";
             end = token.span.end;
             one_space
         })
@@ -218,8 +290,15 @@ fn find_longest_name<'a>(
         let name = if prefix.is_empty() && count <= single_spaced {
             Cow::Borrowed(working_set.get_span_contents(span))
         } else {
-            let words = following[..count].iter().map(|token| working_set.get_span_contents(token.span));
-            Cow::Owned(std::iter::once(first_word).chain(words).collect::<Vec<_>>().join(" "))
+            let words = following[..count]
+                .iter()
+                .map(|token| working_set.get_span_contents(token.span));
+            Cow::Owned(
+                std::iter::once(first_word)
+                    .chain(words)
+                    .collect::<Vec<_>>()
+                    .join(" "),
+            )
         };
         if let Some(kind) = known(&name) {
             for _ in 0..count {
@@ -247,7 +326,10 @@ fn parse_call_arguments<'a>(tokens: Tokens<'_, 'a>) -> ParseResult<Vec<Argument<
 
 /// The arguments of a call; `wrapped` for a [`DeclKind::Wrapped`] command,
 /// whose values are parsed with the `external_arg` shape (`f 'x'$`, `f 0b2`).
-fn parse_call_arguments_with<'a>(mut tokens: Tokens<'_, 'a>, wrapped: bool) -> ParseResult<Vec<Argument<'a>>> {
+fn parse_call_arguments_with<'a>(
+    mut tokens: Tokens<'_, 'a>,
+    wrapped: bool,
+) -> ParseResult<Vec<Argument<'a>>> {
     match wrapped {
         true => repeat_to_end(parse_wrapped_call_argument).parse_next(&mut tokens),
         false => repeat_to_end(parse_call_argument).parse_next(&mut tokens),
@@ -278,18 +360,39 @@ fn call_argument<'a>(tokens: &mut Tokens<'_, 'a>, wrapped: bool) -> ParseResult<
         _ if text.starts_with("--") && text.len() > 2 => {
             let (name, value_span) = split_long_flag(text, span)?;
             let value = match value_span {
-                Some(value_span) => Some(Box::new(parse_argument_value(working_set, value_span, wrapped)?)),
+                Some(value_span) => Some(Box::new(parse_argument_value(
+                    working_set,
+                    value_span,
+                    wrapped,
+                )?)),
                 None => None,
             };
-            Argument::Named(NamedArgument { span, name, long: true, value })
+            Argument::Named(NamedArgument {
+                span,
+                name,
+                long: true,
+                value,
+            })
         }
-        _ if text.starts_with('-') && text.len() > 1 && !is_negative_number_like(text) && !text.starts_with("-..") => {
-            Argument::Named(NamedArgument { span, name: &text[1..], long: false, value: None })
+        _ if text.starts_with('-')
+            && text.len() > 1
+            && !is_negative_number_like(text)
+            && !text.starts_with("-..") =>
+        {
+            Argument::Named(NamedArgument {
+                span,
+                name: &text[1..],
+                long: false,
+                value: None,
+            })
         }
         _ if is_spread(text, b"[$({") => {
             let dots = Span::new(span.start, span.start + 3);
             let value_span = Span::new(span.start + 3, span.end);
-            Argument::Spread { dots, expr: parse_value(working_set, value_span, ExpectedShape::Any)? }
+            Argument::Spread {
+                dots,
+                expr: parse_value(working_set, value_span, ExpectedShape::Any)?,
+            }
         }
         _ => Argument::Positional(parse_argument_value(working_set, span, wrapped)?),
     })
@@ -309,8 +412,15 @@ pub(super) fn split_long_flag(text: &str, span: Span) -> ParseResult<(&str, Opti
 /// The value of a switch written `--switch=value`, `--help=value` included:
 /// nu parses it as a `bool` (`true`, `false`, or a variable or subexpression
 /// it evaluates later), so `--help=1` is an error.
-pub(super) fn parse_switch_value<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResult<Expression<'a>> {
-    parse_value(working_set, span, ExpectedShape::Declared(&SyntaxShape::Boolean))
+pub(super) fn parse_switch_value<'a>(
+    working_set: &WorkingSet<'a>,
+    span: Span,
+) -> ParseResult<Expression<'a>> {
+    parse_value(
+        working_set,
+        span,
+        ExpectedShape::Declared(&SyntaxShape::Boolean),
+    )
 }
 
 /// Check that `value`, the value of a switch that a call's arguments parsed
@@ -327,12 +437,22 @@ fn check_switch_value(working_set: &WorkingSet<'_>, value: &Expression<'_>) -> P
 
 /// Check the value of every `--help=value` before a `--` in the arguments of
 /// a keyword statement parsed as a help call (`if --help=1` is an error).
-pub(super) fn check_help_values(working_set: &WorkingSet<'_>, call: &Expression<'_>) -> ParseResult<()> {
-    let Expr::Call(call) = &call.expr else { return Ok(()) };
+pub(super) fn check_help_values(
+    working_set: &WorkingSet<'_>,
+    call: &Expression<'_>,
+) -> ParseResult<()> {
+    let Expr::Call(call) = &call.expr else {
+        return Ok(());
+    };
     for argument in &call.arguments {
         match argument {
             Argument::EndOfOptions(_) => break,
-            Argument::Named(NamedArgument { long: true, name: "help", value: Some(value), .. }) => {
+            Argument::Named(NamedArgument {
+                long: true,
+                name: "help",
+                value: Some(value),
+                ..
+            }) => {
                 check_switch_value(working_set, value)?;
             }
             _ => {}
@@ -343,9 +463,17 @@ pub(super) fn check_help_values(working_set: &WorkingSet<'_>, call: &Expression<
 
 /// The value of an argument: any value, or for a wrapped command an external
 /// argument.
-fn parse_argument_value<'a>(working_set: &WorkingSet<'a>, span: Span, wrapped: bool) -> ParseResult<Expression<'a>> {
+fn parse_argument_value<'a>(
+    working_set: &WorkingSet<'a>,
+    span: Span,
+    wrapped: bool,
+) -> ParseResult<Expression<'a>> {
     match wrapped {
-        true => parse_value(working_set, span, ExpectedShape::Declared(&SyntaxShape::ExternalArgument)),
+        true => parse_value(
+            working_set,
+            span,
+            ExpectedShape::Declared(&SyntaxShape::ExternalArgument),
+        ),
         false => parse_value(working_set, span, ExpectedShape::Any),
     }
 }
@@ -375,21 +503,36 @@ fn parse_external_arguments<'a>(
     let arguments = repeat_to_end(parse_external_call_argument).parse_next(&mut tokens)?;
     let start = caret.unwrap_or(head.span);
     let span = start.merge(arguments.last().map_or(head.span, ExternalArgument::span));
-    Ok(Expression::new(Expr::ExternalCall(ExternalCall { caret, head: Box::new(head), arguments }), span))
+    Ok(Expression::new(
+        Expr::ExternalCall(ExternalCall {
+            caret,
+            head: Box::new(head),
+            arguments,
+        }),
+        span,
+    ))
 }
 
 /// One argument of an external call: a spread `...[a b]`, `...$list`,
 /// `...(expr)`, or a regular argument.
-fn parse_external_call_argument<'a>(tokens: &mut Tokens<'_, 'a>) -> ParseResult<ExternalArgument<'a>> {
+fn parse_external_call_argument<'a>(
+    tokens: &mut Tokens<'_, 'a>,
+) -> ParseResult<ExternalArgument<'a>> {
     let token = expected("argument", item).parse_next(tokens)?;
     let working_set = tokens.working_set;
     if !is_spread(tokens.text(&token), b"[$(") {
-        return Ok(ExternalArgument::Regular(parse_external_arg(working_set, token.span)?));
+        return Ok(ExternalArgument::Regular(parse_external_arg(
+            working_set,
+            token.span,
+        )?));
     }
     let dots = Span::new(token.span.start, token.span.start + 3);
     let value_span = Span::new(token.span.start + 3, token.span.end);
     check_external_list_argument(working_set, value_span)?;
-    Ok(ExternalArgument::Spread { dots, expr: parse_value(working_set, value_span, ExpectedShape::Any)? })
+    Ok(ExternalArgument::Spread {
+        dots,
+        expr: parse_value(working_set, value_span, ExpectedShape::Any)?,
+    })
 }
 
 /// A regular external argument (nu's `parse_regular_external_arg`): `$vars`,
@@ -441,14 +584,23 @@ enum ExternalStringSegment {
 /// interpolates. All-literal words become one string; otherwise the segments
 /// form a bare interpolation. The byte loop only finds where the segments
 /// start and end; [`parse_string`] parses each.
-pub fn parse_external_string<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResult<Expression<'a>> {
+pub fn parse_external_string<'a>(
+    working_set: &WorkingSet<'a>,
+    span: Span,
+) -> ParseResult<Expression<'a>> {
     let text = working_set.get_span_contents(span);
     let bytes = text.as_bytes();
     if text.starts_with("r#") {
         return parse_raw_string(working_set, span);
     }
-    if !bytes.iter().any(|byte| matches!(byte, b'"' | b'\'' | b'(' | b')' | b'`')) {
-        return Ok(Expression::new(Expr::String(StringLiteral::bare(text)), span));
+    if !bytes
+        .iter()
+        .any(|byte| matches!(byte, b'"' | b'\'' | b'(' | b')' | b'`'))
+    {
+        return Ok(Expression::new(
+            Expr::String(StringLiteral::bare(text)),
+            span,
+        ));
     }
     let mut segments: Vec<(usize, usize)> = Vec::new();
     let mut from = 0;
@@ -459,9 +611,15 @@ pub fn parse_external_string<'a>(working_set: &WorkingSet<'a>, span: Span) -> Pa
         match &mut state {
             ExternalStringSegment::Bare => {
                 let opener = match byte {
-                    b'"' | b'\'' => Some(ExternalStringSegment::Quote { quote: byte, escaped: false }),
+                    b'"' | b'\'' => Some(ExternalStringSegment::Quote {
+                        quote: byte,
+                        escaped: false,
+                    }),
                     b'$' if matches!(bytes.get(index + 1), Some(b'"' | b'\'')) => {
-                        Some(ExternalStringSegment::Quote { quote: bytes[index + 1], escaped: false })
+                        Some(ExternalStringSegment::Quote {
+                            quote: bytes[index + 1],
+                            escaped: false,
+                        })
                     }
                     b'`' => Some(ExternalStringSegment::Backtick),
                     b'(' => Some(ExternalStringSegment::Paren { depth: 1 }),
@@ -515,14 +673,22 @@ pub fn parse_external_string<'a>(working_set: &WorkingSet<'a>, span: Span) -> Pa
     for (start, end) in segments {
         let segment = Span::new(span.start + start, span.start + end);
         match parse_string(working_set, segment)?.expr {
-            Expr::String(literal) => parts.push(InterpolationPart::Text { span: segment, value: literal.value }),
+            Expr::String(literal) => parts.push(InterpolationPart::Text {
+                span: segment,
+                value: literal.value,
+            }),
             Expr::StringInterpolation(inner) => {
-                all_text &= inner.parts.iter().all(|part| matches!(part, InterpolationPart::Text { .. }));
+                all_text &= inner
+                    .parts
+                    .iter()
+                    .all(|part| matches!(part, InterpolationPart::Text { .. }));
                 parts.extend(inner.parts);
             }
             expr => {
                 all_text = false;
-                parts.push(InterpolationPart::Expression(Box::new(Expression::new(expr, segment))));
+                parts.push(InterpolationPart::Expression(Box::new(Expression::new(
+                    expr, segment,
+                ))));
             }
         }
     }
@@ -545,30 +711,53 @@ pub fn parse_external_string<'a>(working_set: &WorkingSet<'a>, span: Span) -> Pa
                     .collect(),
             ),
         };
-        return Ok(Expression::new(Expr::String(StringLiteral { value, quote }), span));
+        return Ok(Expression::new(
+            Expr::String(StringLiteral { value, quote }),
+            span,
+        ));
     }
-    Ok(Expression::new(Expr::StringInterpolation(StringInterpolation { quote, parts }), span))
+    Ok(Expression::new(
+        Expr::StringInterpolation(StringInterpolation { quote, parts }),
+        span,
+    ))
 }
 
 /// `@name arguments` (nu's `parse_attribute`). The name must be non-empty;
 /// whether `attr <name>` exists is the consumer's business (it may come from
 /// a `use`d module), but the built-in attributes get their arguments checked
 /// like any keyword command.
-pub fn parse_attribute<'a>(working_set: &WorkingSet<'a>, attribute_line: &[Token]) -> ParseResult<Attribute<'a>> {
+pub fn parse_attribute<'a>(
+    working_set: &WorkingSet<'a>,
+    attribute_line: &[Token],
+) -> ParseResult<Attribute<'a>> {
     let end = attribute_line.last().map_or(0, |token| token.span.end);
     let mut tokens = Tokens::new(working_set, attribute_line, end);
     let first = tokens.expect_item("attribute")?;
     if working_set.get_span_contents(first.span) == "@" {
-        return Err(cut(Diagnostic::expected("attribute name after `@`", first.span)));
+        return Err(cut(Diagnostic::expected(
+            "attribute name after `@`",
+            first.span,
+        )));
     }
     let (head, _) = find_longest_decl(first, &mut tokens, "attr ");
     let name_span = Span::new(first.span.start + 1, head.span.end);
     let full_name = format!("attr {}", head.name);
     let arguments = parse_call_arguments(tokens)?;
-    let call = Call { head, arguments, sigil: None, wrapped: false };
+    let call = Call {
+        head,
+        arguments,
+        sigil: None,
+        wrapped: false,
+    };
     check_call_named(working_set, &full_name, &call)?;
-    let Call { head, arguments, .. } = call;
-    Ok(Attribute { span: Span::new(first.span.start, end), name: Spanned::new(head.name, name_span), arguments })
+    let Call {
+        head, arguments, ..
+    } = call;
+    Ok(Attribute {
+        span: Span::new(first.span.start, end),
+        name: Spanned::new(head.name, name_span),
+        arguments,
+    })
 }
 
 /// A flag of a [`KeywordSignature`].
@@ -583,12 +772,20 @@ struct KeywordFlag {
 
 /// A flag without a value.
 const fn switch(long: &'static str, short: Option<char>) -> KeywordFlag {
-    KeywordFlag { long, short, takes_value: false }
+    KeywordFlag {
+        long,
+        short,
+        takes_value: false,
+    }
 }
 
 /// A flag that takes a value.
 const fn flag_with_value(long: &'static str) -> KeywordFlag {
-    KeywordFlag { long, short: None, takes_value: true }
+    KeywordFlag {
+        long,
+        short: None,
+        takes_value: true,
+    }
 }
 
 /// The signature nu gives a command that is a keyword there and a call here:
@@ -630,8 +827,16 @@ impl KeywordSignature {
 fn keyword_signature(name: &str) -> Option<KeywordSignature> {
     const NONE: KeywordSignature = KeywordSignature::NONE;
     Some(match name {
-        "hide" => KeywordSignature { required: 1, optional: 1, ..NONE },
-        "source" | "source-env" => KeywordSignature { required: 1, accepts_nothing: true, ..NONE },
+        "hide" => KeywordSignature {
+            required: 1,
+            optional: 1,
+            ..NONE
+        },
+        "source" | "source-env" => KeywordSignature {
+            required: 1,
+            accepts_nothing: true,
+            ..NONE
+        },
         "run" => KeywordSignature {
             required: 1,
             rest: true,
@@ -640,7 +845,11 @@ fn keyword_signature(name: &str) -> Option<KeywordSignature> {
             accepts_nothing: true,
             ..NONE
         },
-        "overlay new" => KeywordSignature { required: 1, flags: const { &[switch("reload", Some('r'))] }, ..NONE },
+        "overlay new" => KeywordSignature {
+            required: 1,
+            flags: const { &[switch("reload", Some('r'))] },
+            ..NONE
+        },
         "overlay use" => KeywordSignature {
             required: 1,
             keyword: Some("as"),
@@ -653,14 +862,26 @@ fn keyword_signature(name: &str) -> Option<KeywordSignature> {
             flags: const {
                 &[
                     switch("keep-custom", Some('k')),
-                    KeywordFlag { long: "keep-env", short: Some('e'), takes_value: true },
+                    KeywordFlag {
+                        long: "keep-env",
+                        short: Some('e'),
+                        takes_value: true,
+                    },
                 ]
             },
             ..NONE
         },
         "overlay list" => NONE,
-        "plugin use" => KeywordSignature { required: 1, flags: const { &[flag_with_value("plugin-config")] }, ..NONE },
-        "attr category" | "attr complete" => KeywordSignature { required: 1, redirectable: true, ..NONE },
+        "plugin use" => KeywordSignature {
+            required: 1,
+            flags: const { &[flag_with_value("plugin-config")] },
+            ..NONE
+        },
+        "attr category" | "attr complete" => KeywordSignature {
+            required: 1,
+            redirectable: true,
+            ..NONE
+        },
         "attr deprecated" => KeywordSignature {
             optional: 1,
             flags: const {
@@ -674,12 +895,26 @@ fn keyword_signature(name: &str) -> Option<KeywordSignature> {
             redirectable: true,
             ..NONE
         },
-        "attr example" => {
-            KeywordSignature { required: 2, flags: const { &[flag_with_value("result")] }, redirectable: true, ..NONE }
-        }
-        "attr interactive" => KeywordSignature { redirectable: true, ..NONE },
-        "attr structured" => KeywordSignature { required: 2, redirectable: true, ..NONE },
-        "attr search-terms" => KeywordSignature { rest: true, redirectable: true, ..NONE },
+        "attr example" => KeywordSignature {
+            required: 2,
+            flags: const { &[flag_with_value("result")] },
+            redirectable: true,
+            ..NONE
+        },
+        "attr interactive" => KeywordSignature {
+            redirectable: true,
+            ..NONE
+        },
+        "attr structured" => KeywordSignature {
+            required: 2,
+            redirectable: true,
+            ..NONE
+        },
+        "attr search-terms" => KeywordSignature {
+            rest: true,
+            redirectable: true,
+            ..NONE
+        },
         _ => return None,
     })
 }
@@ -706,7 +941,9 @@ pub fn keyword_signature_of_call(call: &Call<'_>) -> Option<KeywordSignature> {
 /// keyword of `overlay use`, and that `-1` is a flag rather than a number.
 /// With `lenient` (an alias target) missing positionals and flag values pass.
 pub fn check_call(working_set: &WorkingSet<'_>, call: &Call<'_>, lenient: bool) -> ParseResult<()> {
-    let Some(signature) = keyword_signature_of_call(call) else { return Ok(()) };
+    let Some(signature) = keyword_signature_of_call(call) else {
+        return Ok(());
+    };
     let mut arguments = call.arguments.iter().peekable();
     // A head resolved as a single word (`overlay` + `use`): skip the subcommand word, which ends
     // the command's name.
@@ -716,7 +953,14 @@ pub fn check_call(working_set: &WorkingSet<'_>, call: &Call<'_>, lenient: bool) 
     {
         name_end = subcommand.span().end;
     }
-    let help = check_call_arguments(working_set, &call.head.name, &signature, arguments, name_end, lenient)?;
+    let help = check_call_arguments(
+        working_set,
+        &call.head.name,
+        &signature,
+        arguments,
+        name_end,
+        lenient,
+    )?;
     // nu's `parse_hide` hands the members to `parse_import_pattern`, like
     // `use` (`hide foo null` is a wrong import pattern), unless the call shows
     // help; an alias target is only parsed as a call.
@@ -725,7 +969,10 @@ pub fn check_call(working_set: &WorkingSet<'_>, call: &Call<'_>, lenient: bool) 
         && !help
         && let Some(members) = call.positional_iter().nth(1)
     {
-        let token = Token { contents: TokenContents::Item, span: members.span };
+        let token = Token {
+            contents: TokenContents::Item,
+            span: members.span,
+        };
         parse_import_pattern_member(working_set, &token, false)?;
     }
     Ok(())
@@ -733,9 +980,19 @@ pub fn check_call(working_set: &WorkingSet<'_>, call: &Call<'_>, lenient: bool) 
 
 /// [`check_call`] for a call whose head is known by `name` (an attribute: `attr example`).
 fn check_call_named(working_set: &WorkingSet<'_>, name: &str, call: &Call<'_>) -> ParseResult<()> {
-    let Some(signature) = keyword_signature(name) else { return Ok(()) };
+    let Some(signature) = keyword_signature(name) else {
+        return Ok(());
+    };
     let arguments = call.arguments.iter().peekable();
-    check_call_arguments(working_set, name, &signature, arguments, call.head.span.end, false).map(drop)
+    check_call_arguments(
+        working_set,
+        name,
+        &signature,
+        arguments,
+        call.head.span.end,
+        false,
+    )
+    .map(drop)
 }
 
 /// The arguments of a keyword command, checked against its signature in one
@@ -757,8 +1014,11 @@ fn check_call_arguments<'c>(
     lenient: bool,
 ) -> ParseResult<bool> {
     let no_flag = |flag: &str, span: Span| {
-        cut(Diagnostic::message(format!("the `{name}` command doesn't have flag `{flag}`"), span)
-            .with_help("use `--help` to see available flags"))
+        cut(Diagnostic::message(
+            format!("the `{name}` command doesn't have flag `{flag}`"),
+            span,
+        )
+        .with_help("use `--help` to see available flags"))
     };
     let mut positionals = 0usize;
     let mut last_positional_end = None;
@@ -773,7 +1033,8 @@ fn check_call_arguments<'c>(
                 // positional as its value.
                 let mut takes_value = false;
                 if flag.long {
-                    let switch = match signature.flags.iter().find(|known| known.long == flag.name) {
+                    let switch = match signature.flags.iter().find(|known| known.long == flag.name)
+                    {
                         _ if flag.name == "help" => {
                             help = true;
                             true
@@ -791,9 +1052,15 @@ fn check_call_arguments<'c>(
                 } else {
                     let last = flag.name.chars().count().saturating_sub(1);
                     for (index, (offset, short)) in flag.name.char_indices().enumerate() {
-                        let span =
-                            Span::new(flag.span.start + 1 + offset, flag.span.start + 1 + offset + short.len_utf8());
-                        match signature.flags.iter().find(|known| known.short == Some(short)) {
+                        let span = Span::new(
+                            flag.span.start + 1 + offset,
+                            flag.span.start + 1 + offset + short.len_utf8(),
+                        );
+                        match signature
+                            .flags
+                            .iter()
+                            .find(|known| known.short == Some(short))
+                        {
                             _ if short == 'h' => help = true,
                             None if signature.allows_unknown_flags => {}
                             None => return Err(no_flag(&format!("-{short}"), span)),
@@ -814,8 +1081,14 @@ fn check_call_arguments<'c>(
                         }
                         _ if lenient => {}
                         _ => {
-                            return Err(cut(Diagnostic::message("missing flag argument", flag.span)
-                                .with_help(format!("`{}` takes a value", working_set.get_span_contents(flag.span)))));
+                            return Err(cut(Diagnostic::message(
+                                "missing flag argument",
+                                flag.span,
+                            )
+                            .with_help(format!(
+                                "`{}` takes a value",
+                                working_set.get_span_contents(flag.span)
+                            ))));
                         }
                     }
                 }
@@ -830,7 +1103,11 @@ fn check_call_arguments<'c>(
             Argument::Positional(expr) => {
                 let text = working_set.get_span_contents(expr.span);
                 // `-1` parsed as a number, but nu takes it for a flag.
-                if !end_of_options && text.starts_with('-') && text.len() > 1 && !signature.allows_unknown_flags {
+                if !end_of_options
+                    && text.starts_with('-')
+                    && text.len() > 1
+                    && !signature.allows_unknown_flags
+                {
                     return Err(no_flag(text, expr.span));
                 }
                 if let Some(keyword) = signature.keyword
@@ -838,10 +1115,16 @@ fn check_call_arguments<'c>(
                     && !signature.rest
                 {
                     if keyword_seen {
-                        return Err(cut(Diagnostic::message("extra positional argument", expr.span)));
+                        return Err(cut(Diagnostic::message(
+                            "extra positional argument",
+                            expr.span,
+                        )));
                     }
                     if text != keyword {
-                        return Err(cut(Diagnostic::new(ErrorKind::ExpectedKeyword(keyword), expr.span)));
+                        return Err(cut(Diagnostic::new(
+                            ErrorKind::ExpectedKeyword(keyword),
+                            expr.span,
+                        )));
                     }
                     match arguments.next() {
                         Some(Argument::Positional(_)) => keyword_seen = true,
@@ -856,15 +1139,25 @@ fn check_call_arguments<'c>(
                 }
                 // The first positional takes a string: a bool, record or closure never fits it,
                 // and `null` only where the signature takes it.
-                if positionals == 0 && matches!(expr.expr, Expr::Nothing) && !signature.accepts_nothing
-                    || positionals == 0 && matches!(expr.expr, Expr::Bool(_) | Expr::Record(_) | Expr::Closure(_))
+                if positionals == 0
+                    && matches!(expr.expr, Expr::Nothing)
+                    && !signature.accepts_nothing
+                    || positionals == 0
+                        && matches!(
+                            expr.expr,
+                            Expr::Bool(_) | Expr::Record(_) | Expr::Closure(_)
+                        )
                 {
                     return Err(cut(Diagnostic::expected("string", expr.span)));
                 }
                 positionals += 1;
                 last_positional_end = Some(expr.span.end);
                 if !signature.rest && positionals > signature.required + signature.optional {
-                    return Err(cut(Diagnostic::message("extra positional argument", expr.span).with_help(format!(
+                    return Err(cut(Diagnostic::message(
+                        "extra positional argument",
+                        expr.span,
+                    )
+                    .with_help(format!(
                         "`{name}` takes at most {} positional arguments",
                         signature.required + signature.optional
                     ))));
@@ -874,8 +1167,14 @@ fn check_call_arguments<'c>(
     }
     if positionals < signature.required && !lenient && !help {
         let at = Span::point(last_positional_end.unwrap_or(name_end));
-        return Err(cut(Diagnostic::message("missing required positional argument", at)
-            .with_help(format!("`{name}` takes {} positional argument(s)", signature.required))));
+        return Err(cut(Diagnostic::message(
+            "missing required positional argument",
+            at,
+        )
+        .with_help(format!(
+            "`{name}` takes {} positional argument(s)",
+            signature.required
+        ))));
     }
     Ok(help)
 }
@@ -893,17 +1192,22 @@ mod tests {
         ast.block
             .pipelines
             .into_iter()
-            .filter_map(|Pipeline { mut elements, .. }| match elements.remove(0).expr.expr {
-                Expr::Call(call) => Some(call),
-                _ => None,
-            })
+            .filter_map(
+                |Pipeline { mut elements, .. }| match elements.remove(0).expr.expr {
+                    Expr::Call(call) => Some(call),
+                    _ => None,
+                },
+            )
             .collect()
     }
 
     #[test]
     fn call_records_whether_its_head_is_wrapped() {
         let calls = calls("def --wrapped w [...rest] {}\nw 'x'$\nls x");
-        let wrapped: Vec<(&str, bool)> = calls.iter().map(|call| (&*call.head.name, call.wrapped)).collect();
+        let wrapped: Vec<(&str, bool)> = calls
+            .iter()
+            .map(|call| (&*call.head.name, call.wrapped))
+            .collect();
         assert_eq!(wrapped, [("w", true), ("ls", false)]);
     }
 
@@ -911,16 +1215,27 @@ mod tests {
     fn percent_head_is_the_longest_builtin_name() {
         // nu's `find_longest_decl_with_command_type`: a custom `ls foo` does not hide `ls`.
         let calls = calls("def \"ls foo\" [] {}\n%ls foo\n%str trim");
-        let heads: Vec<(&str, usize)> = calls.iter().map(|call| (&*call.head.name, call.arguments.len())).collect();
+        let heads: Vec<(&str, usize)> = calls
+            .iter()
+            .map(|call| (&*call.head.name, call.arguments.len()))
+            .collect();
         assert_eq!(heads, [("ls", 1), ("str trim", 0)]);
     }
 
     #[test]
     fn missing_positional_is_reported_after_the_command_name() {
         // nu's `check_call`: past the last positional, or past the name when there is none.
-        for (source, offset) in [("overlay use --prefix", 11), ("plugin use --plugin-config x", 10), ("hide", 4)] {
-            let (_, diagnostics) = crate::winnow::syntax::parser::parse(source, &ParseConfig::new());
-            let spans: Vec<Span> = diagnostics.iter().map(|diagnostic| diagnostic.span).collect();
+        for (source, offset) in [
+            ("overlay use --prefix", 11),
+            ("plugin use --plugin-config x", 10),
+            ("hide", 4),
+        ] {
+            let (_, diagnostics) =
+                crate::winnow::syntax::parser::parse(source, &ParseConfig::new());
+            let spans: Vec<Span> = diagnostics
+                .iter()
+                .map(|diagnostic| diagnostic.span)
+                .collect();
             assert_eq!(spans, [Span::point(offset)], "{source:?}");
         }
     }

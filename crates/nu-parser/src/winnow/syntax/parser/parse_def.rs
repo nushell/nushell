@@ -6,7 +6,9 @@ use std::borrow::Cow;
 use winnow::Parser;
 use winnow::combinator::opt;
 
-use crate::winnow::syntax::ast::{Block, Def, DefFlag, DefinitionFlag, Expr, Expression, Extern, ExternFlag, For, Signature};
+use crate::winnow::syntax::ast::{
+    Block, Def, DefFlag, DefinitionFlag, Expr, Expression, Extern, ExternFlag, For, Signature,
+};
 use crate::winnow::syntax::error::{Diagnostic, ErrorKind};
 use crate::winnow::syntax::input::{ParseResult, cut};
 use crate::winnow::syntax::lex::{LexOptions, Token, TokenContents};
@@ -16,11 +18,16 @@ use super::WorkingSet;
 use super::lite_parser::{AfterPipe, after_pipe_lines, pipe_on_later_line};
 use super::parse_calls::{parse_switch_value, split_long_flag};
 use super::parse_expressions::{
-    BraceShape, ExpectedShape, brace_shape, parse_block_body_unchecked, parse_closure_parts, parse_value,
+    BraceShape, ExpectedShape, brace_shape, parse_block_body_unchecked, parse_closure_parts,
+    parse_value,
 };
 use super::parse_helpers::{is_help_flag, is_help_text, is_spread};
-use super::parse_keywords::{KeywordCall, is_parser_keyword, parse_block_or_value_argument, seen_end_of_options};
-use super::parse_signatures::{parse_definition_name, parse_full_signature, parse_var_type, parse_var_with_opt_type};
+use super::parse_keywords::{
+    KeywordCall, is_parser_keyword, parse_block_or_value_argument, seen_end_of_options,
+};
+use super::parse_signatures::{
+    parse_definition_name, parse_full_signature, parse_var_type, parse_var_with_opt_type,
+};
 use super::tokens::{Tokens, item, tokens_until};
 use super::working_set::{CommandLookup, DeclKind};
 
@@ -111,7 +118,12 @@ impl Definitions {
     /// including its own declared. What parsing a name or signature reports is
     /// dropped, as nu's predeclaration drops it (the statement reports it
     /// again when parsed).
-    pub fn parse<'a>(self, source: &'a str, span: Span, lookup: impl CommandLookup + 'a) -> Vec<PredeclaredDef<'a>> {
+    pub fn parse<'a>(
+        self,
+        source: &'a str,
+        span: Span,
+        lookup: impl CommandLookup + 'a,
+    ) -> Vec<PredeclaredDef<'a>> {
         let working_set = WorkingSet::with_lookup(source, span, lookup);
         self.defs
             .into_iter()
@@ -155,8 +167,24 @@ struct FoundDefinition<Items> {
 impl<Items> FoundDefinition<Items> {
     /// This definition with `items` for its items.
     fn with_items<Other>(&self, items: Other) -> FoundDefinition<Other> {
-        let FoundDefinition { span, name, has_signature, wrapped, external, declared, .. } = *self;
-        FoundDefinition { span, items, name, has_signature, wrapped, external, declared }
+        let FoundDefinition {
+            span,
+            name,
+            has_signature,
+            wrapped,
+            external,
+            declared,
+            ..
+        } = *self;
+        FoundDefinition {
+            span,
+            items,
+            name,
+            has_signature,
+            wrapped,
+            external,
+            declared,
+        }
     }
 }
 
@@ -164,7 +192,10 @@ impl<Items> FoundDefinition<Items> {
 /// first one starting with `[` or `(` after the name, up to (not including) a
 /// `def`'s body. A name that is no string (`def "a"b`) gets no signature, so the
 /// engine predeclares nothing, as nu does.
-fn predeclared_def<'a>(working_set: &WorkingSet<'a>, found: FoundDefinition<&[Token]>) -> PredeclaredDef<'a> {
+fn predeclared_def<'a>(
+    working_set: &WorkingSet<'a>,
+    found: FoundDefinition<&[Token]>,
+) -> PredeclaredDef<'a> {
     let (name, has_signature) = match parse_definition_name(working_set, found.name.span) {
         Ok(name) => (name, found.has_signature),
         Err(_) => {
@@ -173,11 +204,17 @@ fn predeclared_def<'a>(working_set: &WorkingSet<'a>, found: FoundDefinition<&[To
         }
     };
     let signature = has_signature.then(|| {
-        let after_name = found.items.iter().position(|token| token.span == found.name.span)? + 1;
+        let after_name = found
+            .items
+            .iter()
+            .position(|token| token.span == found.name.span)?
+            + 1;
         let signature_start = after_name
-            + found.items[after_name..]
-                .iter()
-                .position(|token| working_set.get_span_contents(token.span).starts_with(['[', '(']))?;
+            + found.items[after_name..].iter().position(|token| {
+                working_set
+                    .get_span_contents(token.span)
+                    .starts_with(['[', '('])
+            })?;
         // A `def`'s last item is its body unless it is the only one (`def f []`); every
         // item of an `extern` is its signature's.
         let signature_items = match &found.items[signature_start..] {
@@ -188,7 +225,13 @@ fn predeclared_def<'a>(working_set: &WorkingSet<'a>, found: FoundDefinition<&[To
         parse_full_signature(working_set, signature_items, found.external).ok()
     });
     let signature = signature.flatten();
-    PredeclaredDef { span: found.span, name, signature, wrapped: found.wrapped, external: found.external }
+    PredeclaredDef {
+        span: found.span,
+        name,
+        signature,
+        wrapped: found.wrapped,
+        external: found.external,
+    }
 }
 
 /// The predeclaration scan: declare every `def`/`extern` of a block that has a
@@ -286,7 +329,9 @@ fn scan_definitions<'a>(
                 }
                 let items_end = items_start
                     + tokens.get(items_start..).map_or(0, |rest| {
-                        rest.iter().take_while(|token| token.contents == TokenContents::Item).count()
+                        rest.iter()
+                            .take_while(|token| token.contents == TokenContents::Item)
+                            .count()
                     });
                 let items = tokens.get(items_start..items_end).unwrap_or(&[]);
                 // The rest of the statement, to its end of line: nu's lite parser absorbs what
@@ -295,7 +340,10 @@ fn scan_definitions<'a>(
                     + tokens.get(items_start..).map_or(0, |rest| {
                         rest.iter()
                             .take_while(|token| {
-                                !matches!(token.contents, TokenContents::Eol | TokenContents::Semicolon)
+                                !matches!(
+                                    token.contents,
+                                    TokenContents::Eol | TokenContents::Semicolon
+                                )
                             })
                             .count()
                     });
@@ -304,16 +352,22 @@ fn scan_definitions<'a>(
                 // the first pipe of its line, unless an assignment comes first and takes the rest
                 // of the line into the command, with the lines a `|` continues it to; without
                 // either, a `|` on a later line may go on with the pipeline (`def f [] {}\n| ls`).
-                let command_end = rest
-                    .iter()
-                    .position(|token| is_pipe(token) || matches!(token.contents, TokenContents::AssignmentOperator(_)));
+                let command_end = rest.iter().position(|token| {
+                    is_pipe(token) || matches!(token.contents, TokenContents::AssignmentOperator(_))
+                });
                 let (command, pipes_to_another_command) = match command_end {
-                    Some(at) if is_pipe(&rest[at]) => (&rest[..at], joins_next_command(items_start + at)),
+                    Some(at) if is_pipe(&rest[at]) => {
+                        (&rest[..at], joins_next_command(items_start + at))
+                    }
                     Some(_) => (rest, false),
                     None => {
-                        let mut after = Tokens::new(working_set, tokens.get(rest_end..).unwrap_or(&[]), 0);
+                        let mut after =
+                            Tokens::new(working_set, tokens.get(rest_end..).unwrap_or(&[]), 0);
                         let pipe_below = pipe_on_later_line(&mut after).is_ok();
-                        (rest, pipe_below && joins_next_command(rest_end + after.position()))
+                        (
+                            rest,
+                            pipe_below && joins_next_command(rest_end + after.position()),
+                        )
                     }
                 };
                 if pipes_to_another_command {
@@ -325,25 +379,42 @@ fn scan_definitions<'a>(
                         && name.contents == TokenContents::Item
                         && working_set.get_span_contents(equals.span) == "="
                     {
-                        let last_part = command.iter().rev().find(|token| token.contents != TokenContents::Comment);
+                        let last_part = command
+                            .iter()
+                            .rev()
+                            .find(|token| token.contents != TokenContents::Comment);
                         let span = last_part.map_or(token.span, |last| token.span.merge(last.span));
-                        on_type_alias(TypeAliasPredecl { name: name.span, span });
+                        on_type_alias(TypeAliasPredecl {
+                            name: name.span,
+                            span,
+                        });
                     }
                     continue;
                 }
                 // nu looks at a definition only when its statement has at least three parts.
-                let parts = command.iter().filter(|token| token.contents != TokenContents::Comment).count();
+                let parts = command
+                    .iter()
+                    .filter(|token| token.contents != TokenContents::Comment)
+                    .count();
                 let statement_items = parts + if items_start > index { 2 } else { 1 };
-                let Some((_, name_span)) = words.find(|(word, _)| !word.starts_with('-')) else { continue };
+                let Some((_, name_span)) = words.find(|(word, _)| !word.starts_with('-')) else {
+                    continue;
+                };
                 if statement_items < 3 {
                     continue;
                 }
                 let has_signature = words.any(|(word, _)| word.starts_with(['[', '(']));
-                let last_part = command.iter().rev().find(|token| token.contents != TokenContents::Comment);
+                let last_part = command
+                    .iter()
+                    .rev()
+                    .find(|token| token.contents != TokenContents::Comment);
                 let found = FoundDefinition {
                     span: last_part.map_or(token.span, |last| token.span.merge(last.span)),
                     items,
-                    name: Token { contents: TokenContents::Item, span: name_span },
+                    name: Token {
+                        contents: TokenContents::Item,
+                        span: name_span,
+                    },
                     has_signature,
                     wrapped: false,
                     external: head == "extern",
@@ -364,22 +435,36 @@ fn scan_definitions<'a>(
                     && tokens[index..]
                         .iter()
                         .take_while(|token| token.contents == TokenContents::Item)
-                        .any(|token| token.span.len() == 9 && working_set.get_span_contents(token.span) == "--wrapped");
+                        .any(|token| {
+                            token.span.len() == 9
+                                && working_set.get_span_contents(token.span) == "--wrapped"
+                        });
                 let wrapped = has_wrapped_flag
                     && statement()
                         .skip_while(|(_, span)| *span != name_span)
                         .find(|(word, _)| word.starts_with(['[', '(']))
                         .is_some_and(|(_, signature)| has_untyped_rest(working_set, signature));
-                let kind = if wrapped { DeclKind::Wrapped } else { DeclKind::Declared };
+                let kind = if wrapped {
+                    DeclKind::Wrapped
+                } else {
+                    DeclKind::Declared
+                };
                 working_set.add_predecl(&name, kind);
                 if declared.contains(&name) {
                     working_set.error(
-                        Diagnostic::message("duplicate command definition within a block", name_span)
-                            .with_help(format!("`{name}` is already defined in this block")),
+                        Diagnostic::message(
+                            "duplicate command definition within a block",
+                            name_span,
+                        )
+                        .with_help(format!("`{name}` is already defined in this block")),
                     );
                 }
                 declared.push(name);
-                on_definition(FoundDefinition { wrapped: has_wrapped_flag, declared: Some(kind), ..found });
+                on_definition(FoundDefinition {
+                    wrapped: has_wrapped_flag,
+                    declared: Some(kind),
+                    ..found
+                });
             }
             _ => {
                 at_line_start = false;
@@ -401,24 +486,36 @@ fn scan_definitions<'a>(
 /// comments included, is followed by a `:` (`rest_param_is_type_annotated`).
 /// `false` without one.
 fn has_untyped_rest(working_set: &WorkingSet<'_>, signature: Span) -> bool {
-    let Some(close) = working_set.group_end(signature) else { return false };
+    let Some(close) = working_set.group_end(signature) else {
+        return false;
+    };
     let inner = Span::new(signature.start + 1, signature.start + close);
-    let Ok(parameters) = working_set.lex(inner, LexOptions::SIGNATURE) else { return false };
+    let Ok(parameters) = working_set.lex(inner, LexOptions::SIGNATURE) else {
+        return false;
+    };
     let mut after_colon_or_equals = false;
     let name = parameters
         .iter()
-        .filter(|token| matches!(token.contents, TokenContents::Item | TokenContents::AssignmentOperator(_)))
+        .filter(|token| {
+            matches!(
+                token.contents,
+                TokenContents::Item | TokenContents::AssignmentOperator(_)
+            )
+        })
         .find_map(|token| {
             let text = working_set.get_span_contents(token.span);
             let in_parameter_place = !after_colon_or_equals;
             after_colon_or_equals = matches!(text, ":" | "=");
-            text.strip_prefix("...").filter(|name| in_parameter_place && !name.is_empty())
+            text.strip_prefix("...")
+                .filter(|name| in_parameter_place && !name.is_empty())
         });
     let Some(name) = name else { return false };
     let text = working_set.get_span_contents(signature);
     let needle = format!("...{name}");
     !text.match_indices(&needle).any(|(start, _)| {
-        text[start + needle.len()..].trim_start_matches(|c: char| c.is_ascii_whitespace()).starts_with(':')
+        text[start + needle.len()..]
+            .trim_start_matches(|c: char| c.is_ascii_whitespace())
+            .starts_with(':')
     })
 }
 
@@ -435,14 +532,22 @@ pub fn check_definition_name(name: &Spanned<Cow<'_, str>>, what: &str) -> ParseR
             format!("cannot use parser keyword `{}` as {what} name", name.item),
             name.span,
         )
-        .with_help("choose a different name; this word is parsed specially by Nushell")));
+        .with_help(
+            "choose a different name; this word is parsed specially by Nushell",
+        )));
     }
     let text: &str = &name.item;
     let single_spaced = !text.starts_with(|c: char| c.is_ascii_whitespace())
         && !text.ends_with(|c: char| c.is_ascii_whitespace())
         && !text.contains("  ")
-        && text.bytes().all(|byte| byte == b' ' || !byte.is_ascii_whitespace());
-    if text.contains(['#', '^', '%']) || is_byte_size(text) || text.parse::<f64>().is_ok() || !single_spaced {
+        && text
+            .bytes()
+            .all(|byte| byte == b' ' || !byte.is_ascii_whitespace());
+    if text.contains(['#', '^', '%'])
+        || is_byte_size(text)
+        || text.parse::<f64>().is_ok()
+        || !single_spaced
+    {
         return Err(cut(Diagnostic::message(format!("{what} name not supported"), name.span).with_help(
             "a name may not contain `#`, `^` or `%`, read as a number or filesize, or use whitespace other than single spaces between words",
         )));
@@ -456,15 +561,20 @@ pub fn check_definition_name(name: &Spanned<Cow<'_, str>>, what: &str) -> ParseR
 /// `kb`, `ki`, `kib`, and the same for `m`, `g`, `t`, `p` and `e`).
 fn is_byte_size(text: &str) -> bool {
     const UNITS: [&str; 25] = [
-        "b", "k", "kb", "m", "mb", "g", "gb", "t", "tb", "p", "pb", "e", "eb", "ki", "kib", "mi", "mib", "gi", "gib",
-        "ti", "tib", "pi", "pib", "ei", "eib",
+        "b", "k", "kb", "m", "mb", "g", "gb", "t", "tb", "p", "pb", "e", "eb", "ki", "kib", "mi",
+        "mib", "gi", "gib", "ti", "tib", "pi", "pib", "ei", "eib",
     ];
     if text.parse::<u64>().is_ok() {
         return true;
     }
-    let number_end = text.find(|c: char| !(c.is_ascii_digit() || c == '.')).unwrap_or(text.len());
+    let number_end = text
+        .find(|c: char| !(c.is_ascii_digit() || c == '.'))
+        .unwrap_or(text.len());
     let (number, unit) = text.split_at(number_end);
-    number.parse::<f64>().is_ok() && UNITS.iter().any(|known| unit.trim_start().eq_ignore_ascii_case(known))
+    number.parse::<f64>().is_ok()
+        && UNITS
+            .iter()
+            .any(|known| unit.trim_start().eq_ignore_ascii_case(known))
 }
 
 /// A bare `def`/`extern` name that nu does not take for a name: one starting
@@ -475,8 +585,13 @@ fn is_byte_size(text: &str) -> bool {
 fn reject_name_item(working_set: &WorkingSet<'_>, token: &Token) -> ParseResult<()> {
     let text = working_set.get_span_contents(token.span);
     if text.starts_with('-') || is_spread(text, b"[{$(") {
-        return Err(cut(Diagnostic::message("command name not supported", token.span)
-            .with_help("a bare command name cannot start with `-` or be a spread; quote it")));
+        return Err(cut(Diagnostic::message(
+            "command name not supported",
+            token.span,
+        )
+        .with_help(
+            "a bare command name cannot start with `-` or be a spread; quote it",
+        )));
     }
     Ok(())
 }
@@ -484,15 +599,24 @@ fn reject_name_item(working_set: &WorkingSet<'_>, token: &Token) -> ParseResult<
 /// The name item of a `def`/`extern`: a string literal. Like nu, a name
 /// containing `[` or `(` (even quoted) is "no space between name and
 /// parameters", and a `$` item is not a string.
-fn parse_def_name<'a>(working_set: &WorkingSet<'a>, token: &Token) -> ParseResult<Spanned<Cow<'a, str>>> {
+fn parse_def_name<'a>(
+    working_set: &WorkingSet<'a>,
+    token: &Token,
+) -> ParseResult<Spanned<Cow<'a, str>>> {
     let text = working_set.get_span_contents(token.span);
     if let Some(at) = text.find(['[', '(']) {
         let span = Span::point(token.span.start + at);
-        return Err(cut(Diagnostic::message("no space between name and parameters", span)
-            .with_help("consider adding a space between the command's name and its parameters")));
+        return Err(cut(Diagnostic::message(
+            "no space between name and parameters",
+            span,
+        )
+        .with_help(
+            "consider adding a space between the command's name and its parameters",
+        )));
     }
     if text.starts_with('$') {
-        return Err(cut(Diagnostic::expected("string", token.span).with_help("the name of a definition is a string")));
+        return Err(cut(Diagnostic::expected("string", token.span)
+            .with_help("the name of a definition is a string")));
     }
     parse_definition_name(working_set, token.span)
 }
@@ -503,11 +627,18 @@ pub fn parse_def<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> 
     let working_set = tokens.working_set;
     let mut call = KeywordCall::start(&mut tokens)?;
     let mut flags = parse_definition_flags(&mut tokens, &mut call, "def", DEF_FLAGS)?;
-    let Some(name) = call.positional(&mut tokens, "command name")? else { return call.help_call() };
+    let Some(name) = call.positional(&mut tokens, "command name")? else {
+        return call.help_call();
+    };
     reject_name_item(working_set, &name)?;
     let name = parse_def_name(working_set, &name)?;
     check_definition_name(&name, "command")?;
-    flags.extend(parse_definition_flags(&mut tokens, &mut call, "def", DEF_FLAGS)?);
+    flags.extend(parse_definition_flags(
+        &mut tokens,
+        &mut call,
+        "def",
+        DEF_FLAGS,
+    )?);
     call.flags(&mut tokens)?;
     // The signature positional takes every remaining item but the last, which
     // is the body's: `def foo [] {} --help` drops the `{}` (two-item form of
@@ -532,7 +663,12 @@ pub fn parse_def<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> 
         }
         Some(token) => parse_def_body(working_set, token, "definition body closure { ... }")?,
         None if call.wants_help() => return call.help_call(),
-        None => return Err(cut(Diagnostic::expected("block", signature_items[0].span.past()))),
+        None => {
+            return Err(cut(Diagnostic::expected(
+                "block",
+                signature_items[0].span.past(),
+            )));
+        }
     };
     // A `--wrapped` whose value is neither `true` nor `false` is decided by nu's constant
     // evaluation, and so are these checks.
@@ -541,8 +677,17 @@ pub fn parse_def<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> 
         Some(false) => check_no_help_flag(&signature)?,
         None => {}
     }
-    let span = call.keyword.span.merge(body.map_or(signature.span, |token| token.span));
-    let def = Def { flags, name, signature, body_params, body: body_block };
+    let span = call
+        .keyword
+        .span
+        .merge(body.map_or(signature.span, |token| token.span));
+    let def = Def {
+        flags,
+        name,
+        signature,
+        body_params,
+        body: body_block,
+    };
     call.finish(Expression::new(Expr::Def(Box::new(def)), span))
 }
 
@@ -553,7 +698,9 @@ fn parse_def_body<'a>(
     token: &Token,
     what: &'static str,
 ) -> ParseResult<(Option<Signature<'a>>, Block<'a>)> {
-    if token.contents != TokenContents::Item || !working_set.get_span_contents(token.span).starts_with('{') {
+    if token.contents != TokenContents::Item
+        || !working_set.get_span_contents(token.span).starts_with('{')
+    {
         return Err(cut(Diagnostic::expected(what, token.span)));
     }
     match brace_shape(working_set, token.span)? {
@@ -573,15 +720,23 @@ fn check_no_help_flag(signature: &Signature<'_>) -> ParseResult<()> {
         matches!(&parameter.kind, crate::winnow::syntax::ast::ParameterKind::Flag { long: Some(long), .. } if long.item == "help")
     });
     match help {
-        Some(parameter) => Err(cut(Diagnostic::message("the `--help` flag is reserved", parameter.span)
-            .with_help("every command already has `--help`, which shows its help; rename this flag"))),
+        Some(parameter) => Err(cut(Diagnostic::message(
+            "the `--help` flag is reserved",
+            parameter.span,
+        )
+        .with_help(
+            "every command already has `--help`, which shows its help; rename this flag",
+        ))),
         None => Ok(()),
     }
 }
 
 /// `def --wrapped` needs a rest parameter that is untyped or a `string`.
 fn check_wrapped_signature(signature: &Signature<'_>, name_span: Span) -> ParseResult<()> {
-    let rest = signature.params.iter().find(|p| matches!(p.kind, crate::winnow::syntax::ast::ParameterKind::Rest));
+    let rest = signature
+        .params
+        .iter()
+        .find(|p| matches!(p.kind, crate::winnow::syntax::ast::ParameterKind::Rest));
     let Some(rest) = rest else {
         return Err(cut(Diagnostic::message("missing required positional argument", name_span).with_help(
             "def --wrapped must have a ...rest-like positional argument; add `...rest: string` to the signature",
@@ -617,7 +772,9 @@ fn parse_definition_flags<'t, 'a, Flag: Copy>(
         if call.help_flag(tokens) {
             continue;
         }
-        match opt(|tokens: &mut Tokens<'_, 'a>| definition_flag(tokens, keyword, known)).parse_next(tokens)? {
+        match opt(|tokens: &mut Tokens<'_, 'a>| definition_flag(tokens, keyword, known))
+            .parse_next(tokens)?
+        {
             Some(flag) => flags.push(flag),
             None => return Ok(flags),
         }
@@ -641,7 +798,10 @@ fn definition_flag<'a, Flag: Copy>(
         .parse_next(tokens)?;
     let text = tokens.text(&token);
     let (name, value_span) = split_long_flag(text, token.span)?;
-    let Some((_, flag)) = known.iter().find(|(known, _)| known.strip_prefix("--") == Some(name)) else {
+    let Some((_, flag)) = known
+        .iter()
+        .find(|(known, _)| known.strip_prefix("--") == Some(name))
+    else {
         let accepted: Vec<String> = known.iter().map(|(name, _)| format!("`{name}`")).collect();
         return Err(cut(Diagnostic::message(
             format!("the `{keyword}` command doesn't have flag `--{name}`"),
@@ -653,7 +813,11 @@ fn definition_flag<'a, Flag: Copy>(
         Some(span) => Some(Box::new(parse_switch_value(working_set, span)?)),
         None => None,
     };
-    Ok(DefinitionFlag { span: token.span, flag: *flag, value })
+    Ok(DefinitionFlag {
+        span: token.span,
+        flag: *flag,
+        value,
+    })
 }
 
 /// `extern [--strict] name signature [: input/output types]`; nu also
@@ -662,11 +826,18 @@ pub fn parse_extern<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a
     let working_set = tokens.working_set;
     let mut call = KeywordCall::start(&mut tokens)?;
     let mut flags = parse_definition_flags(&mut tokens, &mut call, "extern", EXTERN_FLAGS)?;
-    let Some(name) = call.positional(&mut tokens, "command name")? else { return call.help_call() };
+    let Some(name) = call.positional(&mut tokens, "command name")? else {
+        return call.help_call();
+    };
     reject_name_item(working_set, &name)?;
     let name = parse_def_name(working_set, &name)?;
     check_definition_name(&name, "command")?;
-    flags.extend(parse_definition_flags(&mut tokens, &mut call, "extern", EXTERN_FLAGS)?);
+    flags.extend(parse_definition_flags(
+        &mut tokens,
+        &mut call,
+        "extern",
+        EXTERN_FLAGS,
+    )?);
     call.flags(&mut tokens)?;
     let rest = tokens.remaining();
     let Some(last) = rest.last() else {
@@ -679,14 +850,23 @@ pub fn parse_extern<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a
     // (the old `extern-wrapped`) is dropped by nu without a look.
     let signature = parse_full_signature(working_set, rest, true)?;
     let span = call.keyword.span.merge(last.span);
-    call.finish(Expression::new(Expr::Extern(Box::new(Extern { flags, name, signature })), span))
+    call.finish(Expression::new(
+        Expr::Extern(Box::new(Extern {
+            flags,
+            name,
+            signature,
+        })),
+        span,
+    ))
 }
 
 /// `for variable[: type] in iterable { block }`.
 pub fn parse_for<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
     let working_set = tokens.working_set;
     let mut call = KeywordCall::start(&mut tokens)?;
-    let Some(variable) = call.positional(&mut tokens, "loop variable")? else { return call.help_call() };
+    let Some(variable) = call.positional(&mut tokens, "loop variable")? else {
+        return call.help_call();
+    };
     let (var, typed) = parse_var_with_opt_type(working_set, &variable)?;
     // The variable positional runs up to the `in` keyword, so a type after
     // `x:` is every item before it (`record<a: int, b: string>` is four items)
@@ -700,24 +880,43 @@ pub fn parse_for<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> 
         }
         false => None,
     };
-    let Some(in_keyword) = call.positional(&mut tokens, "`in`")? else { return call.help_call() };
+    let Some(in_keyword) = call.positional(&mut tokens, "`in`")? else {
+        return call.help_call();
+    };
     if tokens.text(&in_keyword) != "in" {
-        return Err(cut(Diagnostic::new(ErrorKind::ExpectedKeyword("in"), in_keyword.span)));
+        return Err(cut(Diagnostic::new(
+            ErrorKind::ExpectedKeyword("in"),
+            in_keyword.span,
+        )));
     }
     // nu reserves the last item for the block before it parses the keyword's
     // argument, so `for x in []` and `for x --help in []` lack the argument of
     // `in` (KeywordMissingArgument), help or not.
     if tokens.remaining().len() < 2 {
-        return Err(cut(Diagnostic::message("missing argument to `in`", in_keyword.span)
-            .with_help("`for` needs a value to iterate and a block: `for x in [1 2] { }`")));
+        return Err(cut(Diagnostic::message(
+            "missing argument to `in`",
+            in_keyword.span,
+        )
+        .with_help(
+            "`for` needs a value to iterate and a block: `for x in [1 2] { }`",
+        )));
     }
     let iterable = tokens.expect_item("value to iterate")?;
     let iterable = Box::new(parse_value(working_set, iterable.span, ExpectedShape::Any)?);
-    let Some(block) = call.positional(&mut tokens, "block")? else { return call.help_call() };
+    let Some(block) = call.positional(&mut tokens, "block")? else {
+        return call.help_call();
+    };
     let (body, body_value) = parse_block_or_value_argument(working_set, &block, "block")?;
     call.end(&mut tokens)?;
     let span = call.keyword.span.merge(block.span);
-    let for_loop = For { var, ty, in_keyword: in_keyword.span, iterable, body, body_value };
+    let for_loop = For {
+        var,
+        ty,
+        in_keyword: in_keyword.span,
+        iterable,
+        body,
+        body_value,
+    };
     call.finish(Expression::new(Expr::For(Box::new(for_loop)), span))
 }
 
@@ -729,8 +928,13 @@ mod tests {
     /// How the predeclaration scan of `source` declared `name`, if it did.
     fn declared(source: &str, name: &str) -> Option<DeclKind> {
         let working_set = WorkingSet::new(source, &ParseConfig::empty());
-        let tokens = working_set.lex(Span::new(0, source.len()), LexOptions::BLOCK).unwrap();
-        parse_def_predecl(&working_set, Tokens::from_lexed(&working_set, &tokens).all());
+        let tokens = working_set
+            .lex(Span::new(0, source.len()), LexOptions::BLOCK)
+            .unwrap();
+        parse_def_predecl(
+            &working_set,
+            Tokens::from_lexed(&working_set, &tokens).all(),
+        );
         working_set.find_decl(name)
     }
 
@@ -748,9 +952,16 @@ mod tests {
             "^ls e>|\ndef f [] {}",
             "^ls o+e>| # c\ndef f [] {}",
         ] {
-            assert_eq!(declared(source, "f"), Some(DeclKind::Declared), "{source:?}");
+            assert_eq!(
+                declared(source, "f"),
+                Some(DeclKind::Declared),
+                "{source:?}"
+            );
         }
-        assert_eq!(declared("extern e [] |\n\ne", "e"), Some(DeclKind::Declared));
+        assert_eq!(
+            declared("extern e [] |\n\ne", "e"),
+            Some(DeclKind::Declared)
+        );
     }
 
     #[test]
@@ -771,8 +982,15 @@ mod tests {
 
     #[test]
     fn attribute_lines_keep_their_definition() {
-        for source in ["|\n@search-terms foo\ndef f [] {}", "@search-terms foo\n| bar\ndef f [] {}"] {
-            assert_eq!(declared(source, "f"), Some(DeclKind::Declared), "{source:?}");
+        for source in [
+            "|\n@search-terms foo\ndef f [] {}",
+            "@search-terms foo\n| bar\ndef f [] {}",
+        ] {
+            assert_eq!(
+                declared(source, "f"),
+                Some(DeclKind::Declared),
+                "{source:?}"
+            );
         }
     }
 
@@ -782,9 +1000,18 @@ mod tests {
         // before it; a `...name:` anywhere in the text makes it typed, as in nu.
         for (source, kind) in [
             ("def --wrapped g [...rest] {}", DeclKind::Wrapped),
-            ("def --wrapped g [\n  # usage: g ...flags\n  ...args: string\n] {}", DeclKind::Declared),
-            ("def --wrapped g [--x: string = \"a ...b\", ...rest: string] {}", DeclKind::Declared),
-            ("def --wrapped g [\n  ...rest # see ...rest: list\n] {}", DeclKind::Declared),
+            (
+                "def --wrapped g [\n  # usage: g ...flags\n  ...args: string\n] {}",
+                DeclKind::Declared,
+            ),
+            (
+                "def --wrapped g [--x: string = \"a ...b\", ...rest: string] {}",
+                DeclKind::Declared,
+            ),
+            (
+                "def --wrapped g [\n  ...rest # see ...rest: list\n] {}",
+                DeclKind::Declared,
+            ),
             ("def --wrapped g [...$r: string] {}", DeclKind::Declared),
             ("def --wrapped g [x # ...y\n ...rest] {}", DeclKind::Wrapped),
         ] {

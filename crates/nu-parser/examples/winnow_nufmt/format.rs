@@ -207,14 +207,17 @@ fn copied_statements(ast: &Ast<'_>) -> Vec<(Span, Span)> {
             .0
             .iter()
             .map(|statement| {
-                let extent =
-                    copied.iter().find(|(copied, _)| copied == statement).map_or(*statement, |(_, extent)| *extent);
+                let extent = copied
+                    .iter()
+                    .find(|(copied, _)| copied == statement)
+                    .map_or(*statement, |(_, extent)| *extent);
                 (*statement, extent)
             })
             .filter(|(_, extent)| {
                 extent.start <= ignored.start
                     && (ignored.end <= extent.end
-                        || extent.end <= ignored.start && ast.source[extent.end..ignored.start].trim().is_empty())
+                        || extent.end <= ignored.start
+                            && ast.source[extent.end..ignored.start].trim().is_empty())
             })
             .max_by_key(|(statement, _)| statement.start);
         if let Some((statement, extent)) = owner {
@@ -267,7 +270,12 @@ impl<'a> Formatter<'a> {
             options,
             comments: ast.comments.clone(),
             next_comment: 0,
-            end_of_options: ast.ignored.iter().copied().filter(|span| span.slice(src) == "--").collect(),
+            end_of_options: ast
+                .ignored
+                .iter()
+                .copied()
+                .filter(|span| span.slice(src) == "--")
+                .collect(),
             next_end_of_options: 0,
             copied_statements: copied_statements(ast),
             row_condition: false,
@@ -311,7 +319,9 @@ impl<'a> Formatter<'a> {
     /// The column the next character will land on.
     fn column(&self) -> usize {
         let line = self.out.rsplit('\n').next().unwrap_or("");
-        line.chars().map(|c| if c == '\t' { self.options.indent } else { 1 }).sum()
+        line.chars()
+            .map(|c| if c == '\t' { self.options.indent } else { 1 })
+            .sum()
     }
 
     fn at_line_start(&self) -> bool {
@@ -411,7 +421,11 @@ impl<'a> Formatter<'a> {
     /// when it holds a comment: joined onto one line, the comment would hide
     /// the rest (a match pattern, a `use` list).
     fn copied_text(&self, span: Span) -> String {
-        if self.has_comments(span) { self.text(span).to_string() } else { Self::collapse_spaces(self.text(span)) }
+        if self.has_comments(span) {
+            self.text(span).to_string()
+        } else {
+            Self::collapse_spaces(self.text(span))
+        }
     }
 
     /// `true` if the source between `a` and `b` contains a newline.
@@ -433,7 +447,9 @@ impl<'a> Formatter<'a> {
     /// source with them (an interpolation's subexpression, a type with a
     /// comment between its parameters), so they are not written again.
     fn skip_comments_within(&mut self, span: Span) {
-        while self.next_comment < self.comments.len() && self.comments[self.next_comment].span.end <= span.end {
+        while self.next_comment < self.comments.len()
+            && self.comments[self.next_comment].span.end <= span.end
+        {
             if self.comments[self.next_comment].span.start < span.start {
                 break;
             }
@@ -454,7 +470,9 @@ impl<'a> Formatter<'a> {
     /// last one and `pos`, is kept.
     fn flush_comments(&mut self, pos: usize) {
         let mut prev_end = None;
-        while self.next_comment < self.comments.len() && self.comments[self.next_comment].span.start < pos {
+        while self.next_comment < self.comments.len()
+            && self.comments[self.next_comment].span.start < pos
+        {
             let c = self.comments[self.next_comment];
             self.next_comment += 1;
             if prev_end.is_some_and(|end| self.blank_line_between(end, c.span.start)) {
@@ -470,7 +488,11 @@ impl<'a> Formatter<'a> {
 
     fn comment_text(&self, c: Comment) -> &'a str {
         let text = c.text(self.src);
-        if self.options.trim_trailing_whitespace { text.trim_end() } else { text.trim_end_matches(['\n', '\r']) }
+        if self.options.trim_trailing_whitespace {
+            text.trim_end()
+        } else {
+            text.trim_end_matches(['\n', '\r'])
+        }
     }
 
     fn own_line_comment(&mut self, c: Comment) {
@@ -486,7 +508,9 @@ impl<'a> Formatter<'a> {
     /// Write the comments that sit on the same source line right after `pos`,
     /// appended to the current output line.
     fn trailing_comments(&mut self, pos: usize) {
-        let line_end = self.src[pos..].find('\n').map_or(self.src.len(), |i| pos + i);
+        let line_end = self.src[pos..]
+            .find('\n')
+            .map_or(self.src.len(), |i| pos + i);
         while self.next_comment < self.comments.len() {
             let c = self.comments[self.next_comment];
             if c.span.start < pos || c.span.start > line_end {
@@ -509,8 +533,13 @@ impl<'a> Formatter<'a> {
     /// [`Options::keep_alignment`].
     fn comment_gap(&mut self, from: usize, to: usize) {
         let gap = &self.src[from.min(to)..to];
-        let aligned = self.options.keep_alignment && gap.len() >= 2 && gap.bytes().all(|b| b == b' ');
-        let spaces = if aligned { gap.len() } else { self.options.comment_spacing };
+        let aligned =
+            self.options.keep_alignment && gap.len() >= 2 && gap.bytes().all(|b| b == b' ');
+        let spaces = if aligned {
+            gap.len()
+        } else {
+            self.options.comment_spacing
+        };
         for _ in 0..spaces {
             self.out.push(' ');
         }
@@ -532,7 +561,11 @@ impl<'a> Formatter<'a> {
             && marker.start < pos
         {
             self.next_end_of_options += 1;
-            if self.src.get(marker.end..pos).is_some_and(|gap| gap.trim().is_empty()) {
+            if self
+                .src
+                .get(marker.end..pos)
+                .is_some_and(|gap| gap.trim().is_empty())
+            {
                 self.word("--");
                 self.last_end = marker.end;
             }
@@ -542,7 +575,10 @@ impl<'a> Formatter<'a> {
     /// The span to copy as written for the statement covering `span`, if it is one of
     /// [`Formatter::copied_statements`].
     fn copied_extent(&self, span: Span) -> Option<Span> {
-        self.copied_statements.iter().find(|(statement, _)| *statement == span).map(|(_, extent)| *extent)
+        self.copied_statements
+            .iter()
+            .find(|(statement, _)| *statement == span)
+            .map(|(_, extent)| *extent)
     }
 
     /// Copy the statement covering `span` as written, passing over the comments and `--`
@@ -550,7 +586,11 @@ impl<'a> Formatter<'a> {
     fn copy_statement(&mut self, span: Span) {
         self.spanned(span);
         self.skip_comments_within(span);
-        while self.end_of_options.get(self.next_end_of_options).is_some_and(|marker| marker.start < span.end) {
+        while self
+            .end_of_options
+            .get(self.next_end_of_options)
+            .is_some_and(|marker| marker.start < span.end)
+        {
             self.next_end_of_options += 1;
         }
     }
@@ -565,7 +605,11 @@ impl<'a> Formatter<'a> {
             // A `|` before the first element (leading, or handed on by the `| |` ending the
             // statement before) is not written: the statement starts at its expression.
             let starts_at = pipeline.elements[0].expr.span.start;
-            let first_comment = self.comments.get(self.next_comment).map(|c| c.span.start).filter(|s| *s < starts_at);
+            let first_comment = self
+                .comments
+                .get(self.next_comment)
+                .map(|c| c.span.start)
+                .filter(|s| *s < starts_at);
             let next_start = first_comment.unwrap_or(starts_at);
             // Blank lines to add before this statement once it turns out to
             // span several lines (grouped declarations stay together only
@@ -626,7 +670,13 @@ impl<'a> Formatter<'a> {
     /// [`Options::margin`]) at the top level, where consecutive `use`s and
     /// consecutive declarations of one family are grouped and a `let` group
     /// and a `const` group are separated; the source's inside blocks.
-    fn gap_between(&self, prev: &Pipeline<'a>, next: &Pipeline<'a>, prev_end: usize, next_start: usize) -> Gap {
+    fn gap_between(
+        &self,
+        prev: &Pipeline<'a>,
+        next: &Pipeline<'a>,
+        prev_end: usize,
+        next_start: usize,
+    ) -> Gap {
         let preserved = usize::from(self.blank_line_between(prev_end, next_start));
         if self.indent > 0 {
             return Gap::Blank(preserved);
@@ -658,14 +708,18 @@ impl<'a> Formatter<'a> {
 
     /// `true` if a comment lies inside `span`.
     fn has_comments(&self, span: Span) -> bool {
-        self.comments.iter().any(|c| span.start <= c.span.start && c.span.end <= span.end)
+        self.comments
+            .iter()
+            .any(|c| span.start <= c.span.start && c.span.end <= span.end)
     }
 
     /// The pipeline inside `e` when `e` is a `( ... )` holding exactly one
     /// pipeline whose pipes and arguments are on one line, with no `;` and no
     /// comment, i.e. parentheses that may be redundant.
     fn parenthesised<'e>(&self, e: &'e Expression<'a>) -> Option<&'e Pipeline<'a>> {
-        let Expr::Subexpression(b) = &e.expr else { return None };
+        let Expr::Subexpression(b) = &e.expr else {
+            return None;
+        };
         match b.pipelines.as_slice() {
             [p] if p.terminator.is_none()
                 && !self.pipeline_is_multiline(p)
@@ -682,7 +736,9 @@ impl<'a> Formatter<'a> {
     fn args_multiline(&self, p: &Pipeline<'a>) -> bool {
         p.elements.iter().any(|e| match &e.expr.expr {
             Expr::Call(c) => self.split_after(c.head.span, c.arguments.iter().map(Argument::span)),
-            Expr::ExternalCall(c) => self.split_after(c.head.span, c.arguments.iter().map(ExternalArgument::span)),
+            Expr::ExternalCall(c) => {
+                self.split_after(c.head.span, c.arguments.iter().map(ExternalArgument::span))
+            }
             _ => false,
         })
     }
@@ -723,11 +779,13 @@ impl<'a> Formatter<'a> {
 
     /// `true` if any `|` of the pipeline starts a line in the source.
     fn pipeline_is_multiline(&self, pipeline: &Pipeline<'a>) -> bool {
-        pipeline
-            .elements
-            .iter()
-            .skip(1)
-            .any(|e| e.pipe.is_some_and(|p| self.src[..p.start].trim_end_matches([' ', '\t']).ends_with('\n')))
+        pipeline.elements.iter().skip(1).any(|e| {
+            e.pipe.is_some_and(|p| {
+                self.src[..p.start]
+                    .trim_end_matches([' ', '\t'])
+                    .ends_with('\n')
+            })
+        })
     }
 
     fn pipeline(&mut self, pipeline: &Pipeline<'a>) {
@@ -747,8 +805,13 @@ impl<'a> Formatter<'a> {
     /// `{ echo: 1 }` a record. The tokens are lexed as nu (and the winnow parser's
     /// brace probe) lexes them.
     fn starts_like_record(&self, p: &Pipeline<'a>) -> bool {
-        lex_n_tokens(self.text(p.span), p.span.start, LexOptions::BRACE_PROBE, 2)
-            .is_ok_and(|tokens| tokens.get(1).is_some_and(|second| self.text(second.span) == ":"))
+        lex_n_tokens(self.text(p.span), p.span.start, LexOptions::BRACE_PROBE, 2).is_ok_and(
+            |tokens| {
+                tokens
+                    .get(1)
+                    .is_some_and(|second| self.text(second.span) == ":")
+            },
+        )
     }
 
     fn pipeline_with(&mut self, pipeline: &Pipeline<'a>, strip: bool) {
@@ -810,7 +873,11 @@ impl<'a> Formatter<'a> {
                 && only.redirection.is_none()
                 && matches!(
                     only.expr.expr,
-                    Expr::Call(_) | Expr::DynamicCall(_) | Expr::ExternalCall(_) | Expr::Var(_) | Expr::FullCellPath(_)
+                    Expr::Call(_)
+                        | Expr::DynamicCall(_)
+                        | Expr::ExternalCall(_)
+                        | Expr::Var(_)
+                        | Expr::FullCellPath(_)
                 )
                 && !self.starts_like_record(inner)
             {
@@ -932,7 +999,8 @@ impl<'a> Formatter<'a> {
                 _ => false,
             }
         }
-        p.terminator.is_none() && matches!(p.elements.as_slice(), [e] if e.redirection.is_none() && simple(&e.expr))
+        p.terminator.is_none()
+            && matches!(p.elements.as_slice(), [e] if e.redirection.is_none() && simple(&e.expr))
     }
 
     fn closure(&mut self, c: &Closure<'a>, outer: Span) {
@@ -993,7 +1061,10 @@ impl<'a> Formatter<'a> {
         }
         let multiline = self.spans_lines(outer)
             && (block.pipelines.len() > 1
-                || block.pipelines.iter().any(|p| self.pipeline_is_multiline(p) || self.args_multiline(p)));
+                || block
+                    .pipelines
+                    .iter()
+                    .any(|p| self.pipeline_is_multiline(p) || self.args_multiline(p)));
         self.word("(");
         if multiline {
             self.newline();
@@ -1005,7 +1076,11 @@ impl<'a> Formatter<'a> {
             for (i, p) in block.pipelines.iter().enumerate() {
                 // A pipeline with its own `;` already wrote it.
                 if i > 0 {
-                    self.glue(if block.pipelines[i - 1].terminator.is_some() { " " } else { "; " });
+                    self.glue(if block.pipelines[i - 1].terminator.is_some() {
+                        " "
+                    } else {
+                        "; "
+                    });
                 }
                 self.glued(|f| f.pipeline(p));
             }
@@ -1057,7 +1132,11 @@ impl<'a> Formatter<'a> {
     fn signature_inline(&self, sig: &Signature<'a>) -> String {
         let spans: Vec<Span> = sig.params.iter().map(|p| p.span).collect();
         let sep = if self.uses_commas(&spans) { ", " } else { " " };
-        sig.params.iter().map(|p| self.param(p)).collect::<Vec<_>>().join(sep)
+        sig.params
+            .iter()
+            .map(|p| self.param(p))
+            .collect::<Vec<_>>()
+            .join(sep)
     }
 
     /// `[params]` plus `: in -> out` types.
@@ -1065,10 +1144,14 @@ impl<'a> Formatter<'a> {
         // `def f -- [] { }`.
         self.end_of_options_before(sig.span.start);
         // `[...]` without the input/output types.
-        let brackets = Span::new(sig.span.start, sig.input_output_span.map_or(sig.span.end, |io| io.start));
+        let brackets = Span::new(
+            sig.span.start,
+            sig.input_output_span.map_or(sig.span.end, |io| io.start),
+        );
         // A list with a comment keeps its lines even without parameters, or the
         // comment would be lost.
-        let multiline = self.spans_lines(sig.span) && (!sig.params.is_empty() || self.has_comments(brackets));
+        let multiline =
+            self.spans_lines(sig.span) && (!sig.params.is_empty() || self.has_comments(brackets));
         if multiline {
             self.word("[");
             self.newline();
@@ -1116,7 +1199,13 @@ impl<'a> Formatter<'a> {
             let types: Vec<String> = sig
                 .input_output_types
                 .iter()
-                .map(|t| format!("{} -> {}", self.text(t.input.span), self.text(t.output.span)))
+                .map(|t| {
+                    format!(
+                        "{} -> {}",
+                        self.text(t.input.span),
+                        self.text(t.output.span)
+                    )
+                })
                 .collect();
             if types.len() == 1 && !self.text(io).starts_with('[') {
                 self.glue(&format!(": {}", types[0]));
@@ -1125,7 +1214,9 @@ impl<'a> Formatter<'a> {
             }
         }
         // Comments inside the signature were written as parameter descriptions.
-        while self.next_comment < self.comments.len() && self.comments[self.next_comment].span.start < sig.span.end {
+        while self.next_comment < self.comments.len()
+            && self.comments[self.next_comment].span.start < sig.span.end
+        {
             self.next_comment += 1;
         }
     }
@@ -1210,12 +1301,20 @@ impl<'a> Formatter<'a> {
     }
 
     fn uses_commas(&self, spans: &[Span]) -> bool {
-        spans.windows(2).any(|w| self.src[w[0].end..w[1].start].contains(','))
+        spans
+            .windows(2)
+            .any(|w| self.src[w[0].end..w[1].start].contains(','))
     }
 
     /// The items of a multi-line list, one line per source line: items the
     /// author put on one line (`"--flag" value`) stay together.
-    fn grouped_items<T>(&mut self, items: &[T], span: impl Fn(&T) -> Span, sep: &str, write: impl Fn(&mut Self, &T)) {
+    fn grouped_items<T>(
+        &mut self,
+        items: &[T],
+        span: impl Fn(&T) -> Span,
+        sep: &str,
+        write: impl Fn(&mut Self, &T),
+    ) {
         let mut prev_end: Option<usize> = None;
         for item in items {
             let start = span(item).start;
@@ -1467,17 +1566,20 @@ impl<'a> Formatter<'a> {
     /// and not a number, literal or keyword.
     fn identifier_safe(word: &str) -> bool {
         const RESERVED: [&str; 30] = [
-            "true", "false", "null", "_", "if", "else", "match", "in", "not", "and", "or", "xor", "let", "mut",
-            "const", "def", "use", "for", "while", "loop", "break", "continue", "return", "try", "catch", "export",
-            "module", "alias", "hide", "where",
+            "true", "false", "null", "_", "if", "else", "match", "in", "not", "and", "or", "xor",
+            "let", "mut", "const", "def", "use", "for", "while", "loop", "break", "continue",
+            "return", "try", "catch", "export", "module", "alias", "hide", "where",
         ];
         // nu-parser's `read_int` and `read_float` drop the `_` separators and
         // read a word as a number when it then starts with a digit or parses as
         // an `f64` (`_1`, `_0x10`, `i_n_f`, `Infinity`, `NAN`).
         let digits: String = word.chars().filter(|c| *c != '_').collect();
-        let number = digits.starts_with(|c: char| c.is_ascii_digit()) || digits.parse::<f64>().is_ok();
+        let number =
+            digits.starts_with(|c: char| c.is_ascii_digit()) || digits.parse::<f64>().is_ok();
         let mut chars = word.chars();
-        chars.next().is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
+        chars
+            .next()
+            .is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
             && chars.all(|c| c.is_ascii_alphanumeric() || c == '_')
             && !number
             && !RESERVED.contains(&word)
@@ -1759,13 +1861,22 @@ impl<'a> Formatter<'a> {
     /// cannot exist); write it as the `if` it was meant to be, with a note.
     fn repair_packed_if(&mut self, span: Span) -> bool {
         let word = self.text(span);
-        if !word.strip_prefix("if").is_some_and(|rest| rest.starts_with(['(', '{', '$'])) {
+        if !word
+            .strip_prefix("if")
+            .is_some_and(|rest| rest.starts_with(['(', '{', '$']))
+        {
             return false;
         }
         let spaced = Self::space_brackets(word);
-        let Ok(ast) = parse_with(&spaced, &self.options.config) else { return false };
-        let [pipeline] = ast.block.pipelines.as_slice() else { return false };
-        let [element] = pipeline.elements.as_slice() else { return false };
+        let Ok(ast) = parse_with(&spaced, &self.options.config) else {
+            return false;
+        };
+        let [pipeline] = ast.block.pipelines.as_slice() else {
+            return false;
+        };
+        let [element] = pipeline.elements.as_slice() else {
+            return false;
+        };
         if !matches!(element.expr.expr, Expr::If(_)) || pipeline.terminator.is_some() {
             return false;
         }
@@ -1776,7 +1887,10 @@ impl<'a> Formatter<'a> {
         let text = sub.out.trim_start().to_string();
         self.word(&text);
         self.last_end = span.end;
-        self.notes.push(Note { offset: span.start, message: format!("`{word}` written as `{spaced}`") });
+        self.notes.push(Note {
+            offset: span.start,
+            message: format!("`{word}` written as `{spaced}`"),
+        });
         true
     }
 
@@ -1817,7 +1931,9 @@ impl<'a> Formatter<'a> {
     /// answers "did you mean 'size'?".
     fn compact_comparison(&mut self, span: Span) -> bool {
         let word = self.text(span);
-        let Some((lhs, op, rhs)) = split_compact_comparison(word) else { return false };
+        let Some((lhs, op, rhs)) = split_compact_comparison(word) else {
+            return false;
+        };
         self.word(lhs);
         self.word(op);
         self.word(rhs);
@@ -1831,10 +1947,14 @@ impl<'a> Formatter<'a> {
     /// `true` if the first command of `p`, looking through the parentheses the
     /// formatter could drop, is an external command written without `^`.
     fn bare_external_head(&self, p: &Pipeline<'a>) -> bool {
-        let Some(first) = p.elements.first() else { return false };
+        let Some(first) = p.elements.first() else {
+            return false;
+        };
         match &first.expr.expr {
             Expr::ExternalCall(c) => c.caret.is_none(),
-            _ => self.parenthesised(&first.expr).is_some_and(|inner| self.bare_external_head(inner)),
+            _ => self
+                .parenthesised(&first.expr)
+                .is_some_and(|inner| self.bare_external_head(inner)),
         }
     }
 

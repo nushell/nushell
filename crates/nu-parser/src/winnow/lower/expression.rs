@@ -10,9 +10,9 @@ use nu_protocol::{
         FullCellPath, Math, Operator, Pipeline, PipelineElement, RecordItem,
     },
 };
-use crate::winnow::syntax::{ast as w, lex::AssignmentOperator};
 
 use super::{Lower, Lowered, Unlowered};
+use crate::winnow::syntax::{ast as w, lex::AssignmentOperator};
 use crate::{
     parse_calls::CallKind, parse_captures_compile::compile_block,
     parse_literals::parse_string_strict, type_check::math_result_type, type_check::type_compatible,

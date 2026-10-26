@@ -14,9 +14,9 @@ use nu_protocol::{
         Pattern, Pipeline,
     },
 };
-use crate::winnow::syntax::{Span as WSpan, ast as w};
 
 use super::{Lower, Lowered, Unlowered};
+use crate::winnow::syntax::{Span as WSpan, ast as w};
 use crate::{
     lex::lex,
     parse_calls::{CallKind, check_call},

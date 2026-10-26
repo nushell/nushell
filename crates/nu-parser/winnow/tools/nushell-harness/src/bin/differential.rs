@@ -35,10 +35,10 @@
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::path::{Path, PathBuf};
 
-use nu_protocol::{ParseError, Span};
-use nu_protocol::engine::{EngineState, StateWorkingSet};
 use nu_parser::winnow::syntax::lex::{LexOptions, TokenContents, lex};
 use nu_parser::winnow::syntax::{ParseConfig, parse_lenient};
+use nu_protocol::engine::{EngineState, StateWorkingSet};
+use nu_protocol::{ParseError, Span};
 use nushell_harness::engine;
 use serde::Deserialize;
 
@@ -80,7 +80,10 @@ fn is_syntax_error(err: &ParseError) -> bool {
     // "expected int", "expected block, closure or record", "expected 1
     // closure parameter", "expected operator" after a complete positional:
     // the shape a signature asks for decided how the argument was read.
-    if matches!(name.as_str(), "Expected" | "ExpectedWithStringMsg" | "Mismatch") {
+    if matches!(
+        name.as_str(),
+        "Expected" | "ExpectedWithStringMsg" | "Mismatch"
+    ) {
         let message = err.to_string().to_lowercase();
         let shape_words = [
             "int",
@@ -113,7 +116,8 @@ fn is_syntax_error(err: &ParseError) -> bool {
             ". or ! or ?",
         ];
         if let Some(rest) = message.split("expected ").nth(1)
-            && (shape_words.iter().any(|w| rest.starts_with(w)) || rest.starts_with(|c: char| c.is_ascii_digit()))
+            && (shape_words.iter().any(|w| rest.starts_with(w))
+                || rest.starts_with(|c: char| c.is_ascii_digit()))
         {
             return false;
         }
@@ -206,14 +210,16 @@ fn nu_verdict(engine_state: &EngineState, name: &str, text: &str) -> (Verdict, b
         let input_start = working_set.next_span_start();
         let _ = nu_parser::parse(&mut working_set, Some(name), text.as_bytes(), false);
         let in_another_file = |span: Span| {
-            working_set
-                .files()
-                .any(|file| file.covered_span.start != input_start && file.covered_span.contains_span(span))
+            working_set.files().any(|file| {
+                file.covered_span.start != input_start && file.covered_span.contains_span(span)
+            })
         };
-        working_set
-            .parse_errors
-            .first()
-            .map(|e| (format!("{}: {e}", variant(e)), is_syntax_error(e) && !in_another_file(e.span())))
+        working_set.parse_errors.first().map(|e| {
+            (
+                format!("{}: {e}", variant(e)),
+                is_syntax_error(e) && !in_another_file(e.span()),
+            )
+        })
     }));
     match result {
         Err(_) => (Verdict::Panic, false),
@@ -265,9 +271,11 @@ impl Rng {
 /// words when the text does not lex.
 fn token_spans(text: &str) -> Vec<(usize, usize)> {
     match lex(text, 0, LexOptions::BLOCK) {
-        Ok(tokens) => {
-            tokens.iter().filter(|t| t.contents != TokenContents::Eof).map(|t| (t.span.start, t.span.end)).collect()
-        }
+        Ok(tokens) => tokens
+            .iter()
+            .filter(|t| t.contents != TokenContents::Eof)
+            .map(|t| (t.span.start, t.span.end))
+            .collect(),
         Err(_) => text
             .split_whitespace()
             .map(|w| {
@@ -283,12 +291,23 @@ fn token_spans(text: &str) -> Vec<(usize, usize)> {
 /// could plausibly have typed halfway through an edit.
 fn mutate(text: &str, rng: &mut Rng) -> String {
     let spans = token_spans(text);
-    let boundaries: Vec<usize> = text.char_indices().map(|(i, _)| i).chain(std::iter::once(text.len())).collect();
-    let delimiters = ["(", ")", "[", "]", "{", "}", "\"", "'", "|", ";", "$", "..", ":", "=", "#", "\n"];
+    let boundaries: Vec<usize> = text
+        .char_indices()
+        .map(|(i, _)| i)
+        .chain(std::iter::once(text.len()))
+        .collect();
+    let delimiters = [
+        "(", ")", "[", "]", "{", "}", "\"", "'", "|", ";", "$", "..", ":", "=", "#", "\n",
+    ];
     match rng.below(if spans.is_empty() { 3 } else { 6 }) {
         0 => {
             let at = boundaries[rng.below(boundaries.len())];
-            format!("{}{}{}", &text[..at], delimiters[rng.below(delimiters.len())], &text[at..])
+            format!(
+                "{}{}{}",
+                &text[..at],
+                delimiters[rng.below(delimiters.len())],
+                &text[at..]
+            )
         }
         1 => {
             let at = boundaries[rng.below(boundaries.len())];
@@ -296,7 +315,10 @@ fn mutate(text: &str, rng: &mut Rng) -> String {
         }
         2 => {
             let i = rng.below(boundaries.len().saturating_sub(1).max(1));
-            let (start, end) = (boundaries[i], boundaries.get(i + 1).copied().unwrap_or(text.len()));
+            let (start, end) = (
+                boundaries[i],
+                boundaries.get(i + 1).copied().unwrap_or(text.len()),
+            );
             format!("{}{}", &text[..start], &text[end..])
         }
         3 => {
@@ -314,25 +336,44 @@ fn mutate(text: &str, rng: &mut Rng) -> String {
             if a == b || a.1 > b.0 {
                 return text.to_string();
             }
-            format!("{}{}{}{}{}", &text[..a.0], &text[b.0..b.1], &text[a.1..b.0], &text[a.0..a.1], &text[b.1..])
+            format!(
+                "{}{}{}{}{}",
+                &text[..a.0],
+                &text[b.0..b.1],
+                &text[a.1..b.0],
+                &text[a.0..a.1],
+                &text[b.1..]
+            )
         }
     }
 }
 
-fn compare(engine_state: &EngineState, config: &ParseConfig, unit: &Unit, summary: &mut Summary, details: bool) {
+fn compare(
+    engine_state: &EngineState,
+    config: &ParseConfig,
+    unit: &Unit,
+    summary: &mut Summary,
+    details: bool,
+) {
     summary.total += 1;
     let (nu, syntax) = nu_verdict(engine_state, &unit.origin, &unit.text);
     let ours = our_verdict(config, &unit.text);
     let (class, report) = match (&nu, &ours) {
         (Verdict::Panic, _) | (_, Verdict::Panic) => (&mut summary.panics, Some("PANIC")),
-        (Verdict::Accept, Verdict::Accept) | (Verdict::Reject(_), Verdict::Reject(_)) => (&mut summary.agree, None),
-        (Verdict::Accept, Verdict::Reject(_)) => (&mut summary.ours_rejects, Some("ours rejects, nu accepts")),
-        (Verdict::Reject(_), Verdict::Accept) if syntax => {
-            (&mut summary.nu_syntax_rejects, Some("nu rejects (syntax), ours accepts"))
+        (Verdict::Accept, Verdict::Accept) | (Verdict::Reject(_), Verdict::Reject(_)) => {
+            (&mut summary.agree, None)
         }
-        (Verdict::Reject(_), Verdict::Accept) => {
-            (&mut summary.nu_semantic_rejects, Some("nu rejects (semantic), ours accepts"))
+        (Verdict::Accept, Verdict::Reject(_)) => {
+            (&mut summary.ours_rejects, Some("ours rejects, nu accepts"))
         }
+        (Verdict::Reject(_), Verdict::Accept) if syntax => (
+            &mut summary.nu_syntax_rejects,
+            Some("nu rejects (syntax), ours accepts"),
+        ),
+        (Verdict::Reject(_), Verdict::Accept) => (
+            &mut summary.nu_semantic_rejects,
+            Some("nu rejects (semantic), ours accepts"),
+        ),
     };
     *class += 1;
     if let Some(label) = report
@@ -365,7 +406,12 @@ pub fn main() {
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "--snippets" => snippets.push(PathBuf::from(args.next().expect("--snippets FILE"))),
-            "--mutants" => mutants = args.next().and_then(|n| n.parse().ok()).expect("--mutants N"),
+            "--mutants" => {
+                mutants = args
+                    .next()
+                    .and_then(|n| n.parse().ok())
+                    .expect("--mutants N")
+            }
             "--seed" => seed = args.next().and_then(|n| n.parse().ok()).expect("--seed S"),
             "--no-std" => std = false,
             "--details" => details = true,
@@ -382,18 +428,26 @@ pub fn main() {
     files.sort();
     for file in files {
         if let Ok(text) = std::fs::read_to_string(&file) {
-            units.push(Unit { origin: file.display().to_string(), text });
+            units.push(Unit {
+                origin: file.display().to_string(),
+                text,
+            });
         }
     }
     for path in &snippets {
-        let text = std::fs::read_to_string(path).unwrap_or_else(|e| panic!("cannot read {}: {e}", path.display()));
-        let list: Vec<Snippet> = serde_json::from_str(&text).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
-        let name = path.file_name().unwrap_or(path.as_os_str()).to_string_lossy().to_string();
-        units.extend(
-            list.into_iter()
-                .enumerate()
-                .map(|(i, s)| Unit { origin: format!("{name}#{i} ({})", s.origin), text: s.snippet }),
-        );
+        let text = std::fs::read_to_string(path)
+            .unwrap_or_else(|e| panic!("cannot read {}: {e}", path.display()));
+        let list: Vec<Snippet> =
+            serde_json::from_str(&text).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+        let name = path
+            .file_name()
+            .unwrap_or(path.as_os_str())
+            .to_string_lossy()
+            .to_string();
+        units.extend(list.into_iter().enumerate().map(|(i, s)| Unit {
+            origin: format!("{name}#{i} ({})", s.origin),
+            text: s.snippet,
+        }));
     }
 
     let engine_state = engine(std);
@@ -407,7 +461,10 @@ pub fn main() {
     for unit in &units {
         compare(&engine_state, &config, unit, &mut originals, details);
         for i in 0..mutants {
-            let mutant = Unit { origin: format!("{} mutant {i}", unit.origin), text: mutate(&unit.text, &mut rng) };
+            let mutant = Unit {
+                origin: format!("{} mutant {i}", unit.origin),
+                text: mutate(&unit.text, &mut rng),
+            };
             compare(&engine_state, &config, &mutant, &mut mutated, details);
         }
     }
@@ -417,24 +474,46 @@ pub fn main() {
         let fields = |s: &Summary| {
             format!(
                 "{{\"total\":{},\"agree\":{},\"ours_rejects\":{},\"nu_syntax_rejects\":{},\"nu_semantic_rejects\":{},\"panics\":{}}}",
-                s.total, s.agree, s.ours_rejects, s.nu_syntax_rejects, s.nu_semantic_rejects, s.panics
+                s.total,
+                s.agree,
+                s.ours_rejects,
+                s.nu_syntax_rejects,
+                s.nu_semantic_rejects,
+                s.panics
             )
         };
-        println!("{{\"originals\":{},\"mutants\":{}}}", fields(&originals), fields(&mutated));
+        println!(
+            "{{\"originals\":{},\"mutants\":{}}}",
+            fields(&originals),
+            fields(&mutated)
+        );
     } else {
         println!(
             "{:<10} {:>8} {:>8} {:>13} {:>18} {:>20} {:>7}",
-            "set", "total", "agree", "ours_rejects", "nu_syntax_rejects", "nu_semantic_rejects", "panics"
+            "set",
+            "total",
+            "agree",
+            "ours_rejects",
+            "nu_syntax_rejects",
+            "nu_semantic_rejects",
+            "panics"
         );
         for (name, s) in rows {
             if s.total > 0 {
                 println!(
                     "{name:<10} {:>8} {:>8} {:>13} {:>18} {:>20} {:>7}",
-                    s.total, s.agree, s.ours_rejects, s.nu_syntax_rejects, s.nu_semantic_rejects, s.panics
+                    s.total,
+                    s.agree,
+                    s.ours_rejects,
+                    s.nu_syntax_rejects,
+                    s.nu_semantic_rejects,
+                    s.panics
                 );
             }
         }
     }
-    let bad = rows.iter().any(|(_, s)| s.ours_rejects + s.nu_syntax_rejects + s.panics > 0);
+    let bad = rows
+        .iter()
+        .any(|(_, s)| s.ours_rejects + s.nu_syntax_rejects + s.panics > 0);
     std::process::exit(if bad { 1 } else { 0 });
 }

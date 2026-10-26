@@ -9,7 +9,8 @@ use super::WorkingSet;
 use super::parse_calls::parse_call_lenient;
 use super::parse_def::check_definition_name;
 use super::parse_expressions::{
-    ExpectedShape, is_math_expression_like, parse_builtin_commands, parse_math_expression, parse_value,
+    ExpectedShape, is_math_expression_like, parse_builtin_commands, parse_math_expression,
+    parse_value,
 };
 use super::parse_keywords::{
     ALIASABLE_PARSER_KEYWORDS, KeywordBoundary, UNALIASABLE_PARSER_KEYWORDS, keyword_boundary_with,
@@ -31,14 +32,19 @@ fn parse_aliased_keyword<'a>(
     words: &[Token],
     end: usize,
 ) -> ParseResult<Option<Expression<'a>>> {
-    let Some((head, rest)) = words.split_first() else { return Ok(None) };
+    let Some((head, rest)) = words.split_first() else {
+        return Ok(None);
+    };
     // How many items after the keyword its signature requires.
     let complete = match working_set.get_span_contents(head.span) {
         "if" | "match" => 2,
         "try" => 1,
         _ => return Ok(None),
     };
-    if rest.iter().any(|token| working_set.get_span_contents(token.span).starts_with('-')) {
+    if rest
+        .iter()
+        .any(|token| working_set.get_span_contents(token.span).starts_with('-'))
+    {
         return Ok(None);
     }
     if rest.len() >= complete {
@@ -72,7 +78,8 @@ fn call_alias_kind(working_set: &WorkingSet<'_>, call: &Call<'_>) -> DeclKind {
         Some(kind @ (DeclKind::RowCondition | DeclKind::KeywordAlias(_))) => kind,
         // A command of the file named `match` is no keyword.
         _ if working_set.is_declared(&call.head.name) => DeclKind::Declared,
-        _ => AliasedKeyword::from_name(&call.head.name).map_or(DeclKind::Declared, DeclKind::KeywordAlias),
+        _ => AliasedKeyword::from_name(&call.head.name)
+            .map_or(DeclKind::Declared, DeclKind::KeywordAlias),
     }
 }
 
@@ -96,7 +103,9 @@ fn check_alias_name(working_set: &WorkingSet<'_>, items: &[Token]) -> ParseResul
 /// is no batch.
 pub(super) fn short_flags_ask_for_help(text: &str) -> bool {
     text.strip_prefix('-').is_some_and(|batch| {
-        !batch.starts_with(['-', '.']) && !batch.starts_with(|c: char| c.is_ascii_digit()) && batch.contains('h')
+        !batch.starts_with(['-', '.'])
+            && !batch.starts_with(|c: char| c.is_ascii_digit())
+            && batch.contains('h')
     })
 }
 
@@ -105,9 +114,19 @@ pub(super) fn short_flags_ask_for_help(text: &str) -> bool {
 /// ls`, `type t --help = int`) or when an exported alias has one item and no
 /// `=` after its name (`export alias h home`).
 pub(super) fn parse_alias_as_call<'a>(statement: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
-    let words: Vec<Token> =
-        statement.remaining().iter().map(|token| Token { contents: TokenContents::Item, span: token.span }).collect();
-    parse_unchecked_help_call(Tokens::new(statement.working_set, &words, statement.end_span().start))
+    let words: Vec<Token> = statement
+        .remaining()
+        .iter()
+        .map(|token| Token {
+            contents: TokenContents::Item,
+            span: token.span,
+        })
+        .collect();
+    parse_unchecked_help_call(Tokens::new(
+        statement.working_set,
+        &words,
+        statement.end_span().start,
+    ))
 }
 
 /// `alias name = target` (nu's `parse_alias`); `exported` for `export alias`,
@@ -142,9 +161,13 @@ pub fn parse_alias<'a>(mut tokens: Tokens<'_, 'a>, exported: bool) -> ParseResul
     // A lone `-` is no flag for nu and so a name; `-x` and `--` are not, and
     // neither is a variable, subexpression or block, which is no string.
     let name_text = working_set.get_span_contents(name_token.span);
-    if (name_text.starts_with('-') && name_text.len() > 1) || name_text.starts_with(['$', '(', '{']) {
-        return Err(cut(Diagnostic::message("alias name not supported", name_token.span)
-            .with_help("a bare alias name cannot start with `-`; quote it")));
+    if (name_text.starts_with('-') && name_text.len() > 1) || name_text.starts_with(['$', '(', '{'])
+    {
+        return Err(cut(Diagnostic::message(
+            "alias name not supported",
+            name_token.span,
+        )
+        .with_help("a bare alias name cannot start with `-`; quote it")));
     }
     let name = parse_definition_name(working_set, name_token.span)?;
     // `alias alias --help` is a help call before the name is checked.
@@ -162,34 +185,71 @@ pub fn parse_alias<'a>(mut tokens: Tokens<'_, 'a>, exported: bool) -> ParseResul
         return parse_alias_as_call(statement);
     }
     let equals = match tokens.next_token() {
-        Some(token) if token.contents == TokenContents::AssignmentOperator(AssignmentOperator::Assign) => *token,
+        Some(token)
+            if token.contents == TokenContents::AssignmentOperator(AssignmentOperator::Assign) =>
+        {
+            *token
+        }
         _ => return Err(cut(Diagnostic::expected("`=`", tokens.here()))),
     };
     // Nushell hands everything after `=` to the call parser as plain words,
     // so `alias ll = ls | length` is `ls` with the arguments `|` and `length`,
     // and `alias x = FOO=1 ls` calls the external command `FOO=1`.
-    let words: Vec<Token> =
-        tokens.remaining().iter().map(|token| Token { contents: TokenContents::Item, span: token.span }).collect();
+    let words: Vec<Token> = tokens
+        .remaining()
+        .iter()
+        .map(|token| Token {
+            contents: TokenContents::Item,
+            span: token.span,
+        })
+        .collect();
     let Some(first) = words.first() else {
         if exported {
-            let alias = Alias { name, eq: equals.span, value: None };
-            return Ok(Expression::new(Expr::Alias(alias), keyword.span.merge(equals.span)));
+            let alias = Alias {
+                name,
+                eq: equals.span,
+                value: None,
+            };
+            return Ok(Expression::new(
+                Expr::Alias(alias),
+                keyword.span.merge(equals.span),
+            ));
         }
-        return Err(cut(Diagnostic::expected("command after `=`", equals.span.past())));
+        return Err(cut(Diagnostic::expected(
+            "command after `=`",
+            equals.span.past(),
+        )));
     };
     let first_text = working_set.get_span_contents(first.span);
     if !matches!(first_text, "if" | "match") && is_math_expression_like(first_text) {
-        return Err(cut(Diagnostic::message("cannot create an alias to an expression", first.span)
-            .with_help("an alias names a command and its arguments, such as `alias ll = ls -l`")));
+        return Err(cut(Diagnostic::message(
+            "cannot create an alias to an expression",
+            first.span,
+        )
+        .with_help(
+            "an alias names a command and its arguments, such as `alias ll = ls -l`",
+        )));
     }
     // Like nu, only the aliasable keywords (`if`, `match`, `try`, `overlay ...`)
     // may be aliased; `alias d = def` is an error.
-    let target: String =
-        words.iter().take(2).map(|token| working_set.get_span_contents(token.span)).collect::<Vec<_>>().join(" ");
+    let target: String = words
+        .iter()
+        .take(2)
+        .map(|token| working_set.get_span_contents(token.span))
+        .collect::<Vec<_>>()
+        .join(" ");
     let single = first_text;
-    if UNALIASABLE_PARSER_KEYWORDS.contains(&target.as_str()) || UNALIASABLE_PARSER_KEYWORDS.contains(&single) {
-        return Err(cut(Diagnostic::message("cannot create an alias to a parser keyword", first.span)
-            .with_help(format!("only {} can be aliased", ALIASABLE_PARSER_KEYWORDS.join(", ")))));
+    if UNALIASABLE_PARSER_KEYWORDS.contains(&target.as_str())
+        || UNALIASABLE_PARSER_KEYWORDS.contains(&single)
+    {
+        return Err(cut(Diagnostic::message(
+            "cannot create an alias to a parser keyword",
+            first.span,
+        )
+        .with_help(format!(
+            "only {} can be aliased",
+            ALIASABLE_PARSER_KEYWORDS.join(", ")
+        ))));
     }
     // nu forgives missing positionals and flag values in an alias target
     // (`alias x = overlay new`), but not unknown flags.
@@ -209,5 +269,12 @@ pub fn parse_alias<'a>(mut tokens: Tokens<'_, 'a>, exported: bool) -> ParseResul
     };
     working_set.add_alias(&name.item, kind);
     let span = keyword.span.merge(value.span);
-    Ok(Expression::new(Expr::Alias(Alias { name, eq: equals.span, value: Some(Box::new(value)) }), span))
+    Ok(Expression::new(
+        Expr::Alias(Alias {
+            name,
+            eq: equals.span,
+            value: Some(Box::new(value)),
+        }),
+        span,
+    ))
 }

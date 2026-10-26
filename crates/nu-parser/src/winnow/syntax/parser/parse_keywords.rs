@@ -18,7 +18,9 @@ use crate::winnow::syntax::span::Span;
 
 use super::WorkingSet;
 use super::parse_calls::{check_help_values, parse_call};
-use super::parse_expressions::{ExpectedShape, is_typed_record, parse_block_body, parse_brace_record, parse_value};
+use super::parse_expressions::{
+    ExpectedShape, is_typed_record, parse_block_body, parse_brace_record, parse_value,
+};
 use super::parse_helpers::{is_help_flag, is_help_text};
 use super::tokens::Tokens;
 
@@ -43,8 +45,15 @@ pub fn is_statement_keyword(text: &str) -> bool {
 }
 
 /// nu's `ALIASABLE_PARSER_KEYWORDS`: keywords an alias may name.
-pub const ALIASABLE_PARSER_KEYWORDS: &[&str] =
-    &["if", "match", "try", "overlay", "overlay hide", "overlay new", "overlay use"];
+pub const ALIASABLE_PARSER_KEYWORDS: &[&str] = &[
+    "if",
+    "match",
+    "try",
+    "overlay",
+    "overlay hide",
+    "overlay new",
+    "overlay use",
+];
 
 /// nu's `UNALIASABLE_PARSER_KEYWORDS`.
 pub const UNALIASABLE_PARSER_KEYWORDS: &[&str] = &[
@@ -99,7 +108,11 @@ pub enum KeywordBoundary {
 /// `--help` and `-h` are its help flag, `--` is consumed and ignored (nu keeps
 /// nothing of it), any other `-x` is a flag the keyword does not have
 /// (`return -1`), unless `extra` allows it.
-pub fn keyword_boundary(tokens: &mut Tokens<'_, '_>, keyword: &str, extra: &[&str]) -> ParseResult<KeywordBoundary> {
+pub fn keyword_boundary(
+    tokens: &mut Tokens<'_, '_>,
+    keyword: &str,
+    extra: &[&str],
+) -> ParseResult<KeywordBoundary> {
     keyword_boundary_with(tokens, keyword, extra, true)
 }
 
@@ -113,7 +126,10 @@ pub fn keyword_boundary_with(
     extra: &[&str],
     end_of_options: bool,
 ) -> ParseResult<KeywordBoundary> {
-    let Some(token) = tokens.peek_token().filter(|token| token.contents == TokenContents::Item) else {
+    let Some(token) = tokens
+        .peek_token()
+        .filter(|token| token.contents == TokenContents::Item)
+    else {
         return Ok(KeywordBoundary::Argument);
     };
     if end_of_options && seen_end_of_options(tokens) {
@@ -129,8 +145,11 @@ pub fn keyword_boundary_with(
         }
         "--" => Ok(KeywordBoundary::Argument),
         _ if text.starts_with('-') && text.len() > 1 && !extra.contains(&text) => {
-            Err(cut(Diagnostic::message(format!("the `{keyword}` command doesn't have flag `{text}`"), token.span)
-                .with_help("use `--help` to see available flags")))
+            Err(cut(Diagnostic::message(
+                format!("the `{keyword}` command doesn't have flag `{text}`"),
+                token.span,
+            )
+            .with_help("use `--help` to see available flags")))
         }
         _ => Ok(KeywordBoundary::Argument),
     }
@@ -178,13 +197,22 @@ impl<'t, 'a> KeywordCall<'t, 'a> {
     pub fn start(tokens: &mut Tokens<'t, 'a>) -> ParseResult<Self> {
         let statement = *tokens;
         let keyword = tokens.expect_item("keyword")?;
-        Ok(Self { statement, keyword, name: tokens.text(&keyword), end_of_options: true, help: false })
+        Ok(Self {
+            statement,
+            keyword,
+            name: tokens.text(&keyword),
+            end_of_options: true,
+            help: false,
+        })
     }
 
     /// [`KeywordCall::start`] for a keyword whose argument nu takes by
     /// position, for which `--` is not an end-of-options marker.
     pub fn start_positional(tokens: &mut Tokens<'t, 'a>) -> ParseResult<Self> {
-        Ok(Self { end_of_options: false, ..Self::start(tokens)? })
+        Ok(Self {
+            end_of_options: false,
+            ..Self::start(tokens)?
+        })
     }
 
     /// The flags at a positional boundary; nu takes every one of them
@@ -194,7 +222,9 @@ impl<'t, 'a> KeywordCall<'t, 'a> {
         // and refuses an unknown flag; anything else it leaves in place, which ends the flags.
         loop {
             let before = tokens.position();
-            if let KeywordBoundary::Help = keyword_boundary_with(tokens, self.name, &[], self.end_of_options)? {
+            if let KeywordBoundary::Help =
+                keyword_boundary_with(tokens, self.name, &[], self.end_of_options)?
+            {
                 tokens.next_token();
                 self.help = true;
             } else if tokens.position() == before {
@@ -207,7 +237,9 @@ impl<'t, 'a> KeywordCall<'t, 'a> {
     /// there is none. A `def` or an `extern` reads its own flags around it
     /// (`def --help --env f`).
     pub fn help_flag(&mut self, tokens: &mut Tokens<'t, 'a>) -> bool {
-        let help = tokens.peek_token().is_some_and(|token| is_help_flag(tokens.working_set, token))
+        let help = tokens
+            .peek_token()
+            .is_some_and(|token| is_help_flag(tokens.working_set, token))
             && !(self.end_of_options && seen_end_of_options(tokens));
         if help {
             tokens.next_token();
@@ -218,7 +250,11 @@ impl<'t, 'a> KeywordCall<'t, 'a> {
 
     /// The flags, then the next positional item; `None` when it is missing
     /// and a `--help` forgives that.
-    pub fn positional(&mut self, tokens: &mut Tokens<'t, 'a>, what: &'static str) -> ParseResult<Option<Token>> {
+    pub fn positional(
+        &mut self,
+        tokens: &mut Tokens<'t, 'a>,
+        what: &'static str,
+    ) -> ParseResult<Option<Token>> {
         self.flags(tokens)?;
         if self.help && tokens.at_end() {
             return Ok(None);
@@ -246,16 +282,29 @@ impl<'t, 'a> KeywordCall<'t, 'a> {
     /// second brace of `def foo [] {}{} --help`), which is recorded as ignored.
     pub fn help_call_without(self, dropped: &Token) -> ParseResult<Expression<'a>> {
         let working_set = self.statement.working_set;
-        let items: Vec<Token> =
-            self.statement.remaining().iter().filter(|token| token.span != dropped.span).copied().collect();
-        let call = parse_help_call(Tokens::new(working_set, &items, self.statement.end_span().start))?;
+        let items: Vec<Token> = self
+            .statement
+            .remaining()
+            .iter()
+            .filter(|token| token.span != dropped.span)
+            .copied()
+            .collect();
+        let call = parse_help_call(Tokens::new(
+            working_set,
+            &items,
+            self.statement.end_span().start,
+        ))?;
         working_set.add_ignored(dropped.span);
         Ok(call)
     }
 
     /// The finished statement, unless a `--help` turned it into a call.
     pub fn finish(self, expression: Expression<'a>) -> ParseResult<Expression<'a>> {
-        if self.help { self.help_call() } else { Ok(expression) }
+        if self.help {
+            self.help_call()
+        } else {
+            Ok(expression)
+        }
     }
 }
 
@@ -290,9 +339,9 @@ pub fn parse_brace_value<'a>(
     what: &'static str,
 ) -> ParseResult<Option<Expression<'a>>> {
     match parse_brace_record(working_set, span)? {
-        Some(value) if is_typed_record(&value) => {
-            Err(cut(Diagnostic::expected(what, span).with_help("found a record")))
-        }
+        Some(value) if is_typed_record(&value) => Err(cut(
+            Diagnostic::expected(what, span).with_help("found a record")
+        )),
         value => Ok(value),
     }
 }
@@ -309,11 +358,23 @@ pub fn parse_block_or_value_argument<'a>(
     match working_set.get_span_contents(token.span).as_bytes().first() {
         Some(b'$' | b'(') if token.contents == TokenContents::Item => {
             let value = parse_value(working_set, token.span, ExpectedShape::Any)?;
-            Ok((Block { span: token.span, pipelines: Vec::new() }, Some(Box::new(value))))
+            Ok((
+                Block {
+                    span: token.span,
+                    pipelines: Vec::new(),
+                },
+                Some(Box::new(value)),
+            ))
         }
         Some(b'{') if token.contents == TokenContents::Item => {
             match parse_brace_value(working_set, token.span, what)? {
-                Some(value) => Ok((Block { span: token.span, pipelines: Vec::new() }, Some(Box::new(value)))),
+                Some(value) => Ok((
+                    Block {
+                        span: token.span,
+                        pipelines: Vec::new(),
+                    },
+                    Some(Box::new(value)),
+                )),
                 None => Ok((parse_block_argument(working_set, token, what)?, None)),
             }
         }
@@ -327,7 +388,9 @@ pub fn parse_block_argument<'a>(
     token: &Token,
     what: &'static str,
 ) -> ParseResult<Block<'a>> {
-    if token.contents != TokenContents::Item || !working_set.get_span_contents(token.span).starts_with('{') {
+    if token.contents != TokenContents::Item
+        || !working_set.get_span_contents(token.span).starts_with('{')
+    {
         return Err(cut(Diagnostic::expected(what, token.span)));
     }
     parse_block_body(working_set, token.span)

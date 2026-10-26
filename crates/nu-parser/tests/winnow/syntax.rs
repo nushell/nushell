@@ -3,11 +3,17 @@
 //! Each test parses a snippet and asserts on the shape of the resulting AST.
 //! Snippets are drawn from the Nushell book, the standard library and the
 //! reference parser's own test-suite.
-#![allow(clippy::unwrap_used, clippy::format_push_string, reason = "tests may panic on failure")]
+#![allow(
+    clippy::unwrap_used,
+    clippy::format_push_string,
+    reason = "tests may panic on failure"
+)]
 
 use nu_parser::winnow::syntax::ast::*;
 use nu_parser::winnow::syntax::lex::{AssignmentOperator, RedirectionOperator, RedirectionSource};
-use nu_parser::winnow::syntax::{ErrorKind, ParseConfig, ParseError, Span, parse, parse_lenient, parse_with};
+use nu_parser::winnow::syntax::{
+    ErrorKind, ParseConfig, ParseError, Span, parse, parse_lenient, parse_with,
+};
 
 // --- helpers ------------------------------------------------------------------
 
@@ -20,16 +26,29 @@ fn ok(src: &str) -> Ast<'_> {
 
 fn err(src: &str) -> ParseError {
     match parse(src) {
-        Ok(ast) => panic!("expected {src:?} to fail, got:\n{}", nu_parser::winnow::syntax::pretty::dump(&ast)),
+        Ok(ast) => panic!(
+            "expected {src:?} to fail, got:\n{}",
+            nu_parser::winnow::syntax::pretty::dump(&ast)
+        ),
         Err(e) => e,
     }
 }
 
 /// The single expression of a one-statement, one-element source.
 fn expr<'a>(ast: &'a Ast<'a>) -> &'a Expression<'a> {
-    assert_eq!(ast.block.pipelines.len(), 1, "expected one pipeline in {:?}", ast.source);
+    assert_eq!(
+        ast.block.pipelines.len(),
+        1,
+        "expected one pipeline in {:?}",
+        ast.source
+    );
     let p = &ast.block.pipelines[0];
-    assert_eq!(p.elements.len(), 1, "expected one element in {:?}", ast.source);
+    assert_eq!(
+        p.elements.len(),
+        1,
+        "expected one element in {:?}",
+        ast.source
+    );
     &p.elements[0].expr
 }
 
@@ -93,7 +112,10 @@ fn simple_call_and_pipeline() {
     assert_eq!(text(&ast, els[1].pipe.unwrap()), "|");
     kind!(els[1].expr, Expr::Where(_));
     assert_eq!(call(&els[2].expr).head.name, "get");
-    assert_eq!(string(call(&els[2].expr).positional_iter().next().unwrap()), ("name", Quote::Bare));
+    assert_eq!(
+        string(call(&els[2].expr).positional_iter().next().unwrap()),
+        ("name", Quote::Bare)
+    );
 }
 
 #[test]
@@ -103,12 +125,22 @@ fn statements_separated_by_semicolons_and_newlines() {
     assert_eq!(text(&ast, ast.block.pipelines[0].terminator.unwrap()), ";");
     assert!(ast.block.pipelines[1].terminator.is_none());
     assert_eq!(text(&ast, ast.block.pipelines[2].terminator.unwrap()), ";");
-    assert_eq!(string(call(&ast.block.pipelines[2].elements[0].expr).positional_iter().next().unwrap()).0, "..");
+    assert_eq!(
+        string(
+            call(&ast.block.pipelines[2].elements[0].expr)
+                .positional_iter()
+                .next()
+                .unwrap()
+        )
+        .0,
+        ".."
+    );
 }
 
 #[test]
 fn multiline_pipelines_with_leading_pipes_and_comments() {
-    let src = "ls\n  | where size > 1kb # big ones\n  # another comment\n  | # trailing\n  | get name\n";
+    let src =
+        "ls\n  | where size > 1kb # big ones\n  # another comment\n  | # trailing\n  | get name\n";
     let ast = ok(src);
     let p = &ast.block.pipelines[0];
     assert_eq!(p.elements.len(), 3);
@@ -120,7 +152,10 @@ fn multiline_pipelines_with_leading_pipes_and_comments() {
     assert_eq!(elements(&ast).len(), 2);
     let ast = ok("( | str join)");
     let sub = kind!(expr(&ast), Expr::Subexpression(b) => b);
-    assert_eq!(call(&sub.pipelines[0].elements[0].expr).head.name, "str join");
+    assert_eq!(
+        call(&sub.pipelines[0].elements[0].expr).head.name,
+        "str join"
+    );
     let ast = ok("ls | | length");
     assert_eq!(elements(&ast).len(), 2);
 }
@@ -133,7 +168,10 @@ fn leading_comments_attach_to_pipeline() {
     assert_eq!(def.leading_comments.len(), 2);
     assert_eq!(def.leading_comments[0].body(src), "doc line one");
     let ls = &ast.block.pipelines[1];
-    assert!(ls.leading_comments.is_empty(), "a blank line detaches comments");
+    assert!(
+        ls.leading_comments.is_empty(),
+        "a blank line detaches comments"
+    );
     assert_eq!(ast.comments.len(), 3);
 }
 
@@ -319,8 +357,14 @@ fn units_and_datetimes() {
     kind!(expr(&ast), Expr::DateTime(_));
     // `5NS` is not a duration: units are case-sensitive, so it is a bare word.
     let ast = ok("echo 5NS");
-    kind!(call(expr(&ast)).positional_iter().next().unwrap(), Expr::String(_));
-    assert!(parse("echo 1..2sec").is_err(), "a unit suffix with a non-numeric value is an error, as in Nushell");
+    kind!(
+        call(expr(&ast)).positional_iter().next().unwrap(),
+        Expr::String(_)
+    );
+    assert!(
+        parse("echo 1..2sec").is_err(),
+        "a unit suffix with a non-numeric value is an error, as in Nushell"
+    );
 }
 
 #[test]
@@ -333,7 +377,10 @@ fn binary_literals() {
     kind!(expr(&ast), Expr::Binary(b) => assert_eq!(b.bytes, vec![255]));
     let ast = ok("0x[\n  de ad # comment\n  be ef\n]");
     kind!(expr(&ast), Expr::Binary(b) => assert_eq!(b.bytes, vec![0xde, 0xad, 0xbe, 0xef]));
-    assert!(matches!(err("0x[zz]").primary().kind, ErrorKind::InvalidLiteral { kind: "binary", .. }));
+    assert!(matches!(
+        err("0x[zz]").primary().kind,
+        ErrorKind::InvalidLiteral { kind: "binary", .. }
+    ));
     assert!(parse("0o[777]").is_err());
 }
 
@@ -354,7 +401,10 @@ fn strings_all_quote_styles() {
     let ast = ok("'it''s'");
     assert_eq!(string(expr(&ast)).0, "it''s");
     let ast = ok("echo foo\"bar\"");
-    assert_eq!(string(call(expr(&ast)).positional_iter().next().unwrap()), ("foo\"bar\"", Quote::Bare));
+    assert_eq!(
+        string(call(expr(&ast)).positional_iter().next().unwrap()),
+        ("foo\"bar\"", Quote::Bare)
+    );
 }
 
 #[test]
@@ -363,7 +413,10 @@ fn string_escapes() {
     let (value, _) = string(expr(&ast));
     assert_eq!(value, "😀A\u{1b}\t\\\"/(){}$^#|~\u{07}\u{08}\u{0c}\r\0");
     let e = err(r#""\q""#);
-    assert!(matches!(e.primary().kind, ErrorKind::InvalidLiteral { kind: "string", .. }));
+    assert!(matches!(
+        e.primary().kind,
+        ErrorKind::InvalidLiteral { kind: "string", .. }
+    ));
     assert!(parse(r#""\u{110000}""#).is_err());
     assert!(parse(r#""\x4""#).is_err());
     // Single quotes have no escapes.
@@ -373,9 +426,18 @@ fn string_escapes() {
 
 #[test]
 fn string_errors() {
-    assert!(matches!(err("\"abc\"def").primary().kind, ErrorKind::ExtraTokens));
-    assert!(matches!(err("echo 'abc").primary().kind, ErrorKind::Unclosed { delimiter: "'", .. }));
-    assert!(matches!(err("echo $\"abc").primary().kind, ErrorKind::Unclosed { .. }));
+    assert!(matches!(
+        err("\"abc\"def").primary().kind,
+        ErrorKind::ExtraTokens
+    ));
+    assert!(matches!(
+        err("echo 'abc").primary().kind,
+        ErrorKind::Unclosed { delimiter: "'", .. }
+    ));
+    assert!(matches!(
+        err("echo $\"abc").primary().kind,
+        ErrorKind::Unclosed { .. }
+    ));
 }
 
 #[test]
@@ -393,7 +455,11 @@ fn interpolation() {
         })
         .collect();
     assert_eq!(texts, vec!["hello ", " and ", " (literal) "]);
-    let exprs = i.parts.iter().filter(|p| matches!(p, InterpolationPart::Expression(_))).count();
+    let exprs = i
+        .parts
+        .iter()
+        .filter(|p| matches!(p, InterpolationPart::Expression(_)))
+        .count();
     assert_eq!(exprs, 3);
     match &i.parts[1] {
         InterpolationPart::Expression(e) => {
@@ -488,7 +554,10 @@ fn ranges() {
     assert_eq!(r.operator.inclusion, RangeInclusion::RightExclusive);
     assert_eq!(text(&ast, r.operator.span), "..<");
     let ast = ok("1..=10");
-    assert_eq!(text(&ast, kind!(expr(&ast), Expr::Range(r) => r).operator.span), "..=");
+    assert_eq!(
+        text(&ast, kind!(expr(&ast), Expr::Range(r) => r).operator.span),
+        "..="
+    );
     let ast = ok("1..3..10");
     let r = kind!(expr(&ast), Expr::Range(r) => r);
     kind!(r.next.as_ref().unwrap(), Expr::Int(3));
@@ -514,9 +583,15 @@ fn ranges() {
     kind!(expr(&ast), Expr::Range(_));
     // Not ranges.
     let ast = ok("cd ..");
-    assert_eq!(string(call(expr(&ast)).positional_iter().next().unwrap()).0, "..");
+    assert_eq!(
+        string(call(expr(&ast)).positional_iter().next().unwrap()).0,
+        ".."
+    );
     let ast = ok("echo a..b");
-    kind!(call(expr(&ast)).positional_iter().next().unwrap(), Expr::String(_));
+    kind!(
+        call(expr(&ast)).positional_iter().next().unwrap(),
+        Expr::String(_)
+    );
 }
 
 // --- collections ---------------------------------------------------------------------
@@ -532,7 +607,13 @@ fn lists() {
     assert_eq!(ast.comments.len(), 1);
     let ast = ok("[a b c]");
     let items = kind!(expr(&ast), Expr::List(l) => l);
-    assert!(items.iter().all(|i| matches!(i, ListItem::Item(Expression { expr: Expr::String(_), .. }))));
+    assert!(items.iter().all(|i| matches!(
+        i,
+        ListItem::Item(Expression {
+            expr: Expr::String(_),
+            ..
+        })
+    )));
     let ast = ok("[1 + 1]");
     assert_eq!(kind!(expr(&ast), Expr::List(l) => l).len(), 3);
     let ast = ok("[]");
@@ -544,7 +625,10 @@ fn lists() {
     assert_eq!(kind!(expr(&ast), Expr::List(l) => l).len(), 3);
     let ast = ok("[...foo]");
     let items = kind!(expr(&ast), Expr::List(l) => l);
-    assert!(matches!(items[0], ListItem::Item(_)), "`...foo` is a bare word, not a spread");
+    assert!(
+        matches!(items[0], ListItem::Item(_)),
+        "`...foo` is a bare word, not a spread"
+    );
 }
 
 #[test]
@@ -562,8 +646,7 @@ fn tables() {
 
 #[test]
 fn records() {
-    let src =
-        "{a: 1, b: \"two\" c: [3], \"d e\": {f: 4}\n g: null # comment\n ...$spread, $key: 5, (1 + 1): 6, 7: 8, h:9}";
+    let src = "{a: 1, b: \"two\" c: [3], \"d e\": {f: 4}\n g: null # comment\n ...$spread, $key: 5, (1 + 1): 6, 7: 8, h:9}";
     let ast = ok(src);
     let items = kind!(expr(&ast), Expr::Record(r) => r);
     assert_eq!(items.len(), 10);
@@ -574,7 +657,12 @@ fn records() {
             RecordItem::Spread { .. } => "...",
         })
         .collect();
-    assert_eq!(keys, vec!["a", "b", "c", "\"d e\"", "g", "...", "$key", "(1 + 1)", "7", "h"]);
+    assert_eq!(
+        keys,
+        vec![
+            "a", "b", "c", "\"d e\"", "g", "...", "$key", "(1 + 1)", "7", "h"
+        ]
+    );
     match &items[6] {
         RecordItem::Pair { key, .. } => kind!(key, Expr::Var(_)),
         _ => panic!(),
@@ -611,7 +699,10 @@ fn closures_and_blocks() {
     assert_eq!(text(&ast, sig.span), "|x, y: int|");
     assert_eq!(sig.params.len(), 2);
     assert_eq!(sig.params[1].name.item, "y");
-    assert!(matches!(sig.params[1].ty.as_ref().unwrap().shape, SyntaxShape::Int));
+    assert!(matches!(
+        sig.params[1].ty.as_ref().unwrap().shape,
+        SyntaxShape::Int
+    ));
     assert_eq!(c.body.pipelines.len(), 1);
     let ast = ok("{ || 1 }");
     let c = kind!(expr(&ast), Expr::Closure(c) => c);
@@ -627,7 +718,10 @@ fn closures_and_blocks() {
     let ast = ok("do { print a; print b }");
     let c = kind!(call(expr(&ast)).positional_iter().next().unwrap(), Expr::Closure(c) => c);
     assert_eq!(c.body.pipelines.len(), 2);
-    assert!(matches!(err("if true {|x| 1 }").primary().kind, ErrorKind::Expected("block")));
+    assert!(matches!(
+        err("if true {|x| 1 }").primary().kind,
+        ErrorKind::Expected("block")
+    ));
 }
 
 #[test]
@@ -637,9 +731,17 @@ fn subexpressions_span_lines() {
     assert_eq!(sub.pipelines.len(), 1);
     assert_eq!(sub.pipelines[0].elements.len(), 3);
     let ast = ok("(1 +\n 2)");
-    kind!(kind!(expr(&ast), Expr::Subexpression(b) => b).pipelines[0].elements[0].expr, Expr::BinaryOp(_));
+    kind!(
+        kind!(expr(&ast), Expr::Subexpression(b) => b).pipelines[0].elements[0].expr,
+        Expr::BinaryOp(_)
+    );
     let ast = ok("(ls; pwd)");
-    assert_eq!(kind!(expr(&ast), Expr::Subexpression(b) => b).pipelines.len(), 2);
+    assert_eq!(
+        kind!(expr(&ast), Expr::Subexpression(b) => b)
+            .pipelines
+            .len(),
+        2
+    );
 }
 
 // --- calls -------------------------------------------------------------------------------
@@ -673,9 +775,15 @@ fn multiword_commands_and_flags() {
             "spread:[1 2]"
         ]
     );
-    kind!(c.get_named_arg("char").unwrap().value.as_ref().unwrap(), Expr::String(_));
+    kind!(
+        c.get_named_arg("char").unwrap().value.as_ref().unwrap(),
+        Expr::String(_)
+    );
     let ast = ok("into int | date to-timezone utc | attr example x y");
-    let names: Vec<_> = elements(&ast).iter().map(|e| call(&e.expr).head.name.to_string()).collect();
+    let names: Vec<_> = elements(&ast)
+        .iter()
+        .map(|e| call(&e.expr).head.name.to_string())
+        .collect();
     assert_eq!(names, vec!["into int", "date to-timezone", "attr example"]);
 }
 
@@ -683,8 +791,16 @@ fn multiword_commands_and_flags() {
 fn user_defined_multiword_commands_resolve() {
     let src = "def \"my cmd\" [x] { $x }\nmy cmd 1\ndef later [] { }\nlater\n";
     let ast = ok(src);
-    assert_eq!(call(&ast.block.pipelines[1].elements[0].expr).head.name, "my cmd");
-    assert_eq!(call(&ast.block.pipelines[1].elements[0].expr).arguments.len(), 1);
+    assert_eq!(
+        call(&ast.block.pipelines[1].elements[0].expr).head.name,
+        "my cmd"
+    );
+    assert_eq!(
+        call(&ast.block.pipelines[1].elements[0].expr)
+            .arguments
+            .len(),
+        1
+    );
     // Without a known table, `str trim` is `str` with an argument.
     let ast = parse_with("str trim", &ParseConfig::empty()).unwrap();
     assert_eq!(call(expr(&ast)).head.name, "str");
@@ -696,7 +812,10 @@ fn user_defined_multiword_commands_resolve() {
 fn definitions_cannot_use_parser_keywords() {
     for name in ["loop", "if", "def", "where", "run", "\"break\""] {
         let e = err(&format!("def {name} [x] {{ $x }}"));
-        assert!(matches!(e.primary().kind, ErrorKind::Message(_)), "{name}: {e}");
+        assert!(
+            matches!(e.primary().kind, ErrorKind::Message(_)),
+            "{name}: {e}"
+        );
     }
     assert!(parse("extern \"while\" []").is_err());
     assert!(parse("alias if = ls").is_err());
@@ -735,9 +854,15 @@ fn external_calls() {
         other => panic!("{other:?}"),
     }
     let ast = ok("^$cmd --x");
-    kind!(kind!(expr(&ast), Expr::ExternalCall(e) => e).head, Expr::Var(_));
+    kind!(
+        kind!(expr(&ast), Expr::ExternalCall(e) => e).head,
+        Expr::Var(_)
+    );
     let ast = ok("^(which ls | get 0.path)");
-    kind!(kind!(expr(&ast), Expr::ExternalCall(e) => e).head, Expr::Subexpression(_));
+    kind!(
+        kind!(expr(&ast), Expr::ExternalCall(e) => e).head,
+        Expr::Subexpression(_)
+    );
 }
 
 #[test]
@@ -782,7 +907,10 @@ fn where_row_conditions() {
     let cmp = kind!(w.condition, Expr::BinaryOp(b) => b);
     assert_eq!(kind!(cmp.lhs, Expr::FullCellPath(p) => p).tail.len(), 2);
     let ast = ok("where {|x| $x > 1 }");
-    kind!(kind!(expr(&ast), Expr::Where(w) => w).condition, Expr::Closure(_));
+    kind!(
+        kind!(expr(&ast), Expr::Where(w) => w).condition,
+        Expr::Closure(_)
+    );
     let ast = ok("where $it.size > 1kb");
     let w = kind!(expr(&ast), Expr::Where(w) => w);
     let cmp = kind!(w.condition, Expr::BinaryOp(b) => b);
@@ -790,7 +918,10 @@ fn where_row_conditions() {
     let ast = ok("where active");
     kind!(kind!(expr(&ast), Expr::Where(w) => w).condition, Expr::FullCellPath(p) => assert!(p.implicit_head));
     let ast = ok("where ($it.a | is-empty)");
-    kind!(kind!(expr(&ast), Expr::Where(w) => w).condition, Expr::Subexpression(_));
+    kind!(
+        kind!(expr(&ast), Expr::Where(w) => w).condition,
+        Expr::Subexpression(_)
+    );
 }
 
 // --- declarations ------------------------------------------------------------------------
@@ -806,7 +937,10 @@ fn let_mut_const() {
     assert_eq!(text(&ast, value.span), "1 + 1 | into string");
     let ast = ok("mut y: list<int> = []");
     let b = kind!(expr(&ast), Expr::Mut(b) => b);
-    assert!(matches!(b.ty.as_ref().unwrap().shape, SyntaxShape::List(Some(_))));
+    assert!(matches!(
+        b.ty.as_ref().unwrap().shape,
+        SyntaxShape::List(Some(_))
+    ));
     let ast = ok("const c: record<a: int, b: string> = {a: 1, b: x}");
     let b = kind!(expr(&ast), Expr::Const(b) => b);
     assert!(matches!(b.ty.as_ref().unwrap().shape, SyntaxShape::Record(ref f) if f.len() == 2));
@@ -817,7 +951,16 @@ fn let_mut_const() {
     let ast = ok("let x = if true { 1 } else { 2 }");
     kind!(expr(&ast), Expr::Let(_));
     let ast = ok("let x = ls\n  | length");
-    assert_eq!(kind!(expr(&ast), Expr::Let(b) => b).value.as_ref().unwrap().pipelines[0].elements.len(), 2);
+    assert_eq!(
+        kind!(expr(&ast), Expr::Let(b) => b)
+            .value
+            .as_ref()
+            .unwrap()
+            .pipelines[0]
+            .elements
+            .len(),
+        2
+    );
     let ast = ok("let x = ^cmd o> file");
     let value = kind!(expr(&ast), Expr::Let(b) => b).value.as_ref().unwrap();
     assert!(value.pipelines[0].elements[0].redirection.is_some());
@@ -859,7 +1002,11 @@ fn def_flag_values() {
     ] {
         let ast = ok(src);
         let d = kind!(expr(&ast), Expr::Def(d) => d);
-        assert_eq!(DefinitionFlag::is_set(&d.flags, DefFlag::Wrapped), wrapped, "{src}");
+        assert_eq!(
+            DefinitionFlag::is_set(&d.flags, DefFlag::Wrapped),
+            wrapped,
+            "{src}"
+        );
     }
 }
 
@@ -869,7 +1016,10 @@ fn def_forms() {
     let ast = ok(src);
     let d = kind!(expr(&ast), Expr::Def(d) => d);
     assert_eq!(d.name.item, "my cmd");
-    assert_eq!(d.flags.iter().map(|f| f.flag).collect::<Vec<_>>(), vec![DefFlag::Env, DefFlag::Wrapped]);
+    assert_eq!(
+        d.flags.iter().map(|f| f.flag).collect::<Vec<_>>(),
+        vec![DefFlag::Env, DefFlag::Wrapped]
+    );
     let sig = &d.signature;
     let names: Vec<_> = sig.params.iter().map(|p| p.name.item).collect();
     assert_eq!(names, vec!["a", "name", "b", "flag", "s", "long", "rest"]);
@@ -886,31 +1036,75 @@ fn def_forms() {
         other => panic!("{other:?}"),
     }
     kind!(sig.params[3].default.as_ref().unwrap(), Expr::Int(3));
-    assert!(matches!(sig.params[4].kind, ParameterKind::Flag { long: None, short: Some(_) }));
-    assert!(matches!(sig.params[5].kind, ParameterKind::Flag { long: Some(_), short: Some(_) }));
+    assert!(matches!(
+        sig.params[4].kind,
+        ParameterKind::Flag {
+            long: None,
+            short: Some(_)
+        }
+    ));
+    assert!(matches!(
+        sig.params[5].kind,
+        ParameterKind::Flag {
+            long: Some(_),
+            short: Some(_)
+        }
+    ));
     assert!(matches!(sig.params[6].kind, ParameterKind::Rest));
     assert_eq!(sig.input_output_types.len(), 2);
-    assert!(matches!(sig.input_output_types[0].input.shape, SyntaxShape::Int));
-    assert!(matches!(sig.input_output_types[1].output.shape, SyntaxShape::Nothing));
+    assert!(matches!(
+        sig.input_output_types[0].input.shape,
+        SyntaxShape::Int
+    ));
+    assert!(matches!(
+        sig.input_output_types[1].output.shape,
+        SyntaxShape::Nothing
+    ));
     assert_eq!(d.body.pipelines.len(), 1);
     let ast = ok("def foo [] { }");
     let d = kind!(expr(&ast), Expr::Def(d) => d);
     assert!(d.body.pipelines.is_empty());
     assert!(d.signature.input_output_types.is_empty());
     let ast = ok("def foo (a b) { }");
-    assert_eq!(kind!(expr(&ast), Expr::Def(d) => d).signature.params.len(), 2);
+    assert_eq!(
+        kind!(expr(&ast), Expr::Def(d) => d).signature.params.len(),
+        2
+    );
     let ast = ok("def foo []: nothing -> string { }");
-    assert_eq!(kind!(expr(&ast), Expr::Def(d) => d).signature.input_output_types.len(), 1);
+    assert_eq!(
+        kind!(expr(&ast), Expr::Def(d) => d)
+            .signature
+            .input_output_types
+            .len(),
+        1
+    );
     let ast = ok("def foo [] : nothing -> string { }");
-    assert_eq!(kind!(expr(&ast), Expr::Def(d) => d).signature.input_output_types.len(), 1);
-    let ast = ok("def foo []: [\n  list<any> -> nothing,\n  record<a: int b: string> -> table<x: path>\n] { }");
-    assert_eq!(kind!(expr(&ast), Expr::Def(d) => d).signature.input_output_types.len(), 2);
+    assert_eq!(
+        kind!(expr(&ast), Expr::Def(d) => d)
+            .signature
+            .input_output_types
+            .len(),
+        1
+    );
+    let ast = ok(
+        "def foo []: [\n  list<any> -> nothing,\n  record<a: int b: string> -> table<x: path>\n] { }",
+    );
+    assert_eq!(
+        kind!(expr(&ast), Expr::Def(d) => d)
+            .signature
+            .input_output_types
+            .len(),
+        2
+    );
     assert!(parse("def foo [] int -> int { }").is_err());
     assert!(parse("def foo { }").is_err());
     // Any other name a type alias could have is one, for the consumer to look up.
     let ast = ok("def foo [x: unknown] { }");
     let param = &kind!(expr(&ast), Expr::Def(d) => d).signature.params[0];
-    assert!(matches!(param.ty.as_ref().unwrap().shape, SyntaxShape::TypeAlias("unknown")));
+    assert!(matches!(
+        param.ty.as_ref().unwrap().shape,
+        SyntaxShape::TypeAlias("unknown")
+    ));
     assert!(parse("def foo [x: unknown!] { }").is_err());
     assert!(parse("def foo [x: Point<int>] { }").is_err());
     assert!(parse("def foo [x: block] { }").is_err());
@@ -933,7 +1127,9 @@ fn types_in_signatures() {
         },
         other => panic!("{other:?}"),
     }
-    assert!(matches!(d.signature.params[1].ty.as_ref().unwrap().shape, SyntaxShape::OneOf(ref t) if t.len() == 2));
+    assert!(
+        matches!(d.signature.params[1].ty.as_ref().unwrap().shape, SyntaxShape::OneOf(ref t) if t.len() == 2)
+    );
 }
 
 #[test]
@@ -944,11 +1140,18 @@ fn extern_alias_module_use_export() {
     assert!(x.flags.is_empty());
     assert_eq!(x.signature.params.len(), 2);
     // `--strict` before or after the name, as for the flags of `def`.
-    for src in ["extern --strict gh [--repo: string]", "extern gh --strict [--repo: string]"] {
+    for src in [
+        "extern --strict gh [--repo: string]",
+        "extern gh --strict [--repo: string]",
+    ] {
         let ast = ok(src);
         let x = kind!(expr(&ast), Expr::Extern(x) => x);
         assert_eq!(x.name.item, "gh", "{src}");
-        assert_eq!(x.flags.iter().map(|f| f.flag).collect::<Vec<_>>(), vec![ExternFlag::Strict], "{src}");
+        assert_eq!(
+            x.flags.iter().map(|f| f.flag).collect::<Vec<_>>(),
+            vec![ExternFlag::Strict],
+            "{src}"
+        );
     }
     assert!(parse("extern --wrapped gh [...args]").is_err());
     let ast = ok("alias ll = ls -l");
@@ -966,7 +1169,18 @@ fn extern_alias_module_use_export() {
     assert_eq!(string(&m.name).0, "m");
     let body = m.body.as_ref().unwrap();
     assert_eq!(body.pipelines.len(), 7);
-    for (i, expected) in ["def", "const", "export-env", "alias", "use", "module", "extern"].iter().enumerate() {
+    for (i, expected) in [
+        "def",
+        "const",
+        "export-env",
+        "alias",
+        "use",
+        "module",
+        "extern",
+    ]
+    .iter()
+    .enumerate()
+    {
         let e = &body.pipelines[i].elements[0].expr;
         match (&e.expr, *expected) {
             (Expr::ExportEnv(_), "export-env") => {}
@@ -1000,12 +1214,18 @@ fn use_forms() {
     let u = kind!(expr(&ast), Expr::Use(u) => u);
     match &u.members[0].kind {
         ImportPatternMemberKind::List(names) => {
-            assert_eq!(names.iter().map(|n| n.item.as_ref()).collect::<Vec<_>>(), vec!["log", "assert"])
+            assert_eq!(
+                names.iter().map(|n| n.item.as_ref()).collect::<Vec<_>>(),
+                vec!["log", "assert"]
+            )
         }
         other => panic!("{other:?}"),
     }
     let ast = ok("use std *");
-    assert!(matches!(kind!(expr(&ast), Expr::Use(u) => u).members[0].kind, ImportPatternMemberKind::Glob));
+    assert!(matches!(
+        kind!(expr(&ast), Expr::Use(u) => u).members[0].kind,
+        ImportPatternMemberKind::Glob
+    ));
     let ast = ok("use std log info");
     let u = kind!(expr(&ast), Expr::Use(u) => u);
     assert_eq!(u.members.len(), 2);
@@ -1020,7 +1240,10 @@ fn use_forms() {
     for p in &ast.block.pipelines {
         kind!(p.elements[0].expr, Expr::Call(_));
     }
-    assert_eq!(call(&ast.block.pipelines[4].elements[0].expr).head.name, "overlay use");
+    assert_eq!(
+        call(&ast.block.pipelines[4].elements[0].expr).head.name,
+        "overlay use"
+    );
 }
 
 #[test]
@@ -1030,7 +1253,11 @@ fn attributes() {
     let a = kind!(expr(&ast), Expr::AttributeBlock(a) => a);
     assert_eq!(a.attributes.len(), 3);
     assert_eq!(a.attributes[0].name.item, "example");
-    assert_eq!(a.attributes[0].arguments.len(), 4, "`--result 2` is a flag followed by a positional");
+    assert_eq!(
+        a.attributes[0].arguments.len(),
+        4,
+        "`--result 2` is a flag followed by a positional"
+    );
     assert_eq!(a.attributes[1].name.item, "search-terms");
     assert_eq!(text(&ast, a.attributes[1].name.span), "search-terms");
     kind!(a.item, Expr::Export(_));
@@ -1059,10 +1286,20 @@ fn if_forms() {
     let ast = ok("if true { 1 }");
     assert!(kind!(expr(&ast), Expr::If(i) => i).else_branch.is_none());
     let ast = ok("if (ls | is-empty) { } else (print no)");
-    kind!(kind!(expr(&ast), Expr::If(i) => i).else_branch.as_ref().unwrap().body, Expr::Subexpression(_));
+    kind!(
+        kind!(expr(&ast), Expr::If(i) => i)
+            .else_branch
+            .as_ref()
+            .unwrap()
+            .body,
+        Expr::Subexpression(_)
+    );
     let ast = ok("if ($a and\n $b) { }");
     kind!(expr(&ast), Expr::If(_));
-    assert!(parse("if $a and\n $b { }").is_err(), "a newline ends the statement outside parentheses");
+    assert!(
+        parse("if $a and\n $b { }").is_err(),
+        "a newline ends the statement outside parentheses"
+    );
     assert!(parse("if { }").is_err());
     assert!(parse("if true").is_err());
     assert!(parse("if true { } else").is_err());
@@ -1091,7 +1328,10 @@ fn match_forms() {
         .collect();
     assert_eq!(
         kinds,
-        vec!["or", "value", "var", "list", "list", "record", "record", "value", "value", "record", "_", "value"]
+        vec![
+            "or", "value", "var", "list", "list", "record", "record", "value", "value", "record",
+            "_", "value"
+        ]
     );
     assert!(m.arms[2].guard.is_some());
     assert_eq!(text(&ast, m.arms[2].arrow), "=>");
@@ -1109,7 +1349,10 @@ fn match_forms() {
     match &m.arms[6].pattern.pattern {
         Pattern::Record(fields) => {
             assert_eq!(fields[0].0.item, "shorthand");
-            assert!(matches!(fields[0].1.pattern, Pattern::Variable("shorthand")));
+            assert!(matches!(
+                fields[0].1.pattern,
+                Pattern::Variable("shorthand")
+            ));
         }
         _ => panic!(),
     }
@@ -1129,14 +1372,24 @@ fn loops_and_jumps() {
     assert_eq!(text(&ast, f.in_keyword), "in");
     kind!(f.iterable, Expr::List(_));
     let ast = ok("for x: int in 1..10 { }");
-    assert!(matches!(kind!(expr(&ast), Expr::For(f) => f).ty.as_ref().unwrap().shape, SyntaxShape::Int));
+    assert!(matches!(
+        kind!(expr(&ast), Expr::For(f) => f)
+            .ty
+            .as_ref()
+            .unwrap()
+            .shape,
+        SyntaxShape::Int
+    ));
     let ast = ok("for $y in $list { }");
     assert_eq!(kind!(expr(&ast), Expr::For(f) => f).var.item, "y");
     let ast = ok("while $i < 10 { $i += 1; if $i == 5 { break } else { continue } }");
     let w = kind!(expr(&ast), Expr::While(w) => w);
     assert_eq!(w.body.pipelines.len(), 2);
     let ast = ok("loop { break }");
-    kind!(kind!(expr(&ast), Expr::Loop(l) => l).body.pipelines[0].elements[0].expr, Expr::Break);
+    kind!(
+        kind!(expr(&ast), Expr::Loop(l) => l).body.pipelines[0].elements[0].expr,
+        Expr::Break
+    );
     let ast = ok("def f [] { return 5 }");
     let d = kind!(expr(&ast), Expr::Def(d) => d);
     kind!(d.body.pipelines[0].elements[0].expr, Expr::Return(r) => kind!(r.value.as_ref().unwrap(), Expr::Int(5)));
@@ -1157,7 +1410,10 @@ fn try_forms() {
     let t = kind!(expr(&ast), Expr::Try(t) => t);
     assert!(t.handlers.is_empty());
     let ast = ok("try { 1 } catch $handler");
-    kind!(kind!(expr(&ast), Expr::Try(t) => t).catch().unwrap().body, Expr::Var(_));
+    kind!(
+        kind!(expr(&ast), Expr::Try(t) => t).catch().unwrap().body,
+        Expr::Var(_)
+    );
     let ast = ok("try { 1 } finally { 2 } catch { 3 }");
     assert_eq!(kind!(expr(&ast), Expr::Try(t) => t).handlers.len(), 2);
     // Two handlers of the same kind are accepted, as in Nushell; a third is not.
@@ -1194,13 +1450,24 @@ fn redirections() {
     let els = elements(&ast);
     assert_eq!(els.len(), 3);
     match els[0].redirection.as_ref().unwrap() {
-        PipelineRedirection::Single { source: RedirectionSource::Stderr, target: RedirectionTarget::Pipe { op } } => {
+        PipelineRedirection::Single {
+            source: RedirectionSource::Stderr,
+            target: RedirectionTarget::Pipe { op },
+        } => {
             assert_eq!(op.item, RedirectionOperator::ErrPipe);
         }
         other => panic!("{other:?}"),
     }
     assert_eq!(text(&ast, els[1].pipe.unwrap()), "e>|");
-    for op in ["out>", "err>", "out+err>", "err+out>", "o+e>>", "out+err>|", "e+o>"] {
+    for op in [
+        "out>",
+        "err>",
+        "out+err>",
+        "err+out>",
+        "o+e>>",
+        "out+err>|",
+        "e+o>",
+    ] {
         ok(&format!("cmd {op} x"));
     }
     assert!(parse("cmd o> a o> b").is_err());
@@ -1212,15 +1479,30 @@ fn redirections() {
 #[test]
 fn bashisms_are_reported_with_help() {
     let e = err("a && b");
-    assert!(matches!(e.primary().kind, ErrorKind::ShellSyntax { found: "&&", .. }));
+    assert!(matches!(
+        e.primary().kind,
+        ErrorKind::ShellSyntax { found: "&&", .. }
+    ));
     let e = err("a || b");
-    assert!(matches!(e.primary().kind, ErrorKind::ShellSyntax { found: "||", .. }));
+    assert!(matches!(
+        e.primary().kind,
+        ErrorKind::ShellSyntax { found: "||", .. }
+    ));
     let e = err("cmd 2> err");
-    assert!(matches!(e.primary().kind, ErrorKind::ShellSyntax { found: "2>", .. }));
+    assert!(matches!(
+        e.primary().kind,
+        ErrorKind::ShellSyntax { found: "2>", .. }
+    ));
     let e = err("cmd 2>&1");
-    assert!(matches!(e.primary().kind, ErrorKind::ShellSyntax { found: "2>&1", .. }));
+    assert!(matches!(
+        e.primary().kind,
+        ErrorKind::ShellSyntax { found: "2>&1", .. }
+    ));
     let e = err("cmd o>| x");
-    assert!(matches!(e.primary().kind, ErrorKind::ShellSyntax { found: "o>|", .. }));
+    assert!(matches!(
+        e.primary().kind,
+        ErrorKind::ShellSyntax { found: "o>|", .. }
+    ));
 }
 
 // --- errors, recovery and spans ------------------------------------------------------
@@ -1229,13 +1511,22 @@ fn bashisms_are_reported_with_help() {
 fn unclosed_delimiters_report_opener() {
     let e = err("let x = [1 2\nlet y = 2");
     match &e.primary().kind {
-        ErrorKind::Unclosed { delimiter: "]", open } => assert_eq!(text_of("let x = [1 2\nlet y = 2", *open), "["),
+        ErrorKind::Unclosed {
+            delimiter: "]",
+            open,
+        } => assert_eq!(text_of("let x = [1 2\nlet y = 2", *open), "["),
         other => panic!("{other:?}"),
     }
     let e = err("def f [] {");
-    assert!(matches!(e.primary().kind, ErrorKind::Unclosed { delimiter: "}", .. }));
+    assert!(matches!(
+        e.primary().kind,
+        ErrorKind::Unclosed { delimiter: "}", .. }
+    ));
     let e = err("echo )");
-    assert!(matches!(e.primary().kind, ErrorKind::Unbalanced { found: ")", .. }));
+    assert!(matches!(
+        e.primary().kind,
+        ErrorKind::Unbalanced { found: ")", .. }
+    ));
 }
 
 fn text_of(src: &str, span: Span) -> &str {
@@ -1250,7 +1541,10 @@ fn recovery_keeps_parsing_later_statements() {
     assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
     assert!(ast.block.pipelines[1].elements[0].expr.is_garbage());
     assert!(ast.block.pipelines[3].elements[0].expr.is_garbage());
-    assert_eq!(call(&ast.block.pipelines[4].elements[0].expr).head.name, "pwd");
+    assert_eq!(
+        call(&ast.block.pipelines[4].elements[0].expr).head.name,
+        "pwd"
+    );
     // Errors inside nested blocks are reported without failing the enclosing statement.
     let src = "def f [] {\n  1 +\n  ls\n}\npwd";
     let (ast, diagnostics) = parse_lenient(src, &ParseConfig::new());
@@ -1279,7 +1573,10 @@ struct SpanChecker<'s> {
 
 impl<'s> SpanChecker<'s> {
     fn check(&mut self, span: Span, what: &str) {
-        assert!(span.start <= span.end && span.end <= self.src.len(), "{what}: bad span {span}");
+        assert!(
+            span.start <= span.end && span.end <= self.src.len(),
+            "{what}: bad span {span}"
+        );
         assert!(
             self.src.is_char_boundary(span.start) && self.src.is_char_boundary(span.end),
             "{what}: {span} not on char boundary"
@@ -1346,7 +1643,11 @@ impl<'a> Visitor<'a> for SpanChecker<'_> {
 fn spans_are_nested_and_on_char_boundaries() {
     let src = include_str!("corpus/kitchen_sink.nu");
     let ast = ok(src);
-    let mut checker = SpanChecker { src, stack: vec![], count: 0 };
+    let mut checker = SpanChecker {
+        src,
+        stack: vec![],
+        count: 0,
+    };
     checker.visit_block(&ast.block);
     assert!(checker.count > 200, "walked {} nodes", checker.count);
     // Literal spellings survive.
@@ -1373,7 +1674,12 @@ fn spans_are_nested_and_on_char_boundaries() {
 fn unicode_source() {
     let ast = ok("let 🧼 = 'ünïcödé'; print $\"héllo (🧼)\" # cömment é");
     assert_eq!(ast.block.pipelines.len(), 2);
-    assert_eq!(kind!(ast.block.pipelines[0].elements[0].expr, Expr::Let(b) => b).name.item, "🧼");
+    assert_eq!(
+        kind!(ast.block.pipelines[0].elements[0].expr, Expr::Let(b) => b)
+            .name
+            .item,
+        "🧼"
+    );
 }
 
 // --- nu-parser changes of 0.116.x: the conformance fixes and type aliases -------------------
@@ -1408,10 +1714,16 @@ fn unary_minus_negates_variables_and_subexpressions() {
     assert_eq!(text(&ast, minus.minus_span), "-");
     kind!(minus.expr, Expr::Var(_));
     let ast = ok("-(2 + 3)");
-    kind!(kind!(expr(&ast), Expr::UnaryMinus(m) => m).expr, Expr::Subexpression(_));
+    kind!(
+        kind!(expr(&ast), Expr::UnaryMinus(m) => m).expr,
+        Expr::Subexpression(_)
+    );
     let ast = ok("1 + -$x.a");
     let sum = kind!(expr(&ast), Expr::BinaryOp(b) => b);
-    kind!(kind!(sum.rhs, Expr::UnaryMinus(m) => m).expr, Expr::FullCellPath(_));
+    kind!(
+        kind!(sum.rhs, Expr::UnaryMinus(m) => m).expr,
+        Expr::FullCellPath(_)
+    );
     // A range's bound is negated, the whole word is no negation.
     let ast = ok("-$x..10");
     let range = kind!(expr(&ast), Expr::Range(r) => r);
@@ -1424,7 +1736,10 @@ fn unary_minus_negates_variables_and_subexpressions() {
     assert!(matches!(call(expr(&ast)).arguments[0], Argument::Named(_)));
     // Only the shapes that hold numbers negate: a list of strings keeps the word.
     let ast = ok("def f [x: list<string> = [-$y]] { }");
-    let default = kind!(expr(&ast), Expr::Def(d) => d).signature.params[0].default.clone().unwrap();
+    let default = kind!(expr(&ast), Expr::Def(d) => d).signature.params[0]
+        .default
+        .clone()
+        .unwrap();
     let items = kind!(default, Expr::List(items) => items.clone());
     assert!(matches!(&items[0], ListItem::Item(e) if matches!(e.expr, Expr::String(_))));
 }
@@ -1437,7 +1752,12 @@ fn number_literals_are_checked_for_range_and_spelling() {
     assert_eq!(int("-0x8000000000000000"), i64::MIN);
     assert_eq!(int("0xffffffffffffffff"), -1);
     assert_eq!(int("9223372036854775807"), i64::MAX);
-    for too_large in ["9223372036854775808", "-9223372036854775809", "0x10000000000000000", "+0x8000000000000000"] {
+    for too_large in [
+        "9223372036854775808",
+        "-9223372036854775809",
+        "0x10000000000000000",
+        "+0x8000000000000000",
+    ] {
         let error = err(too_large);
         assert!(
             matches!(&error.diagnostics[0].kind, ErrorKind::InvalidLiteral { message, .. } if message.contains("too large")),
@@ -1451,13 +1771,21 @@ fn number_literals_are_checked_for_range_and_spelling() {
     for word in ["[INF]", "[Nan]", "[Infinity]", "[i_n_f]"] {
         let ast = ok(word);
         let items = kind!(expr(&ast), Expr::List(items) => items);
-        assert!(matches!(&items[0], ListItem::Item(e) if matches!(e.expr, Expr::String(_))), "{word}");
+        assert!(
+            matches!(&items[0], ListItem::Item(e) if matches!(e.expr, Expr::String(_))),
+            "{word}"
+        );
     }
     // A unit literal may have a `+`, and must fit in 64 bits once in bytes or nanoseconds.
     kind!(expr(&ok("+5sec")), Expr::Duration(_));
     kind!(expr(&ok("+1kB")), Expr::Filesize(_));
     kind!(expr(&ok("9223372036854775807ns")), Expr::Duration(_));
-    for too_large in ["9223372036854775808ns", "8EiB", "106752day", "9223372036854776KB"] {
+    for too_large in [
+        "9223372036854775808ns",
+        "8EiB",
+        "106752day",
+        "9223372036854776KB",
+    ] {
         assert!(parse(too_large).is_err(), "{too_large}");
     }
     // A word written like a date that names no day is an error; one with more after the
@@ -1475,14 +1803,25 @@ fn record_keys_and_column_names_are_names() {
     let ast = ok("{true: 1, null: 2, 1: 3}");
     let items = kind!(expr(&ast), Expr::Record(items) => items);
     for item in items {
-        let RecordItem::Pair { key, .. } = item else { panic!("expected a pair") };
+        let RecordItem::Pair { key, .. } = item else {
+            panic!("expected a pair")
+        };
         kind!(key, Expr::String(_));
     }
     let ast = ok("[[1 true]; [a b]]");
     let table = kind!(expr(&ast), Expr::Table(t) => t);
     let columns = kind!(table.columns, Expr::List(items) => items);
-    assert!(columns.iter().all(|item| matches!(item, ListItem::Item(e) if matches!(e.expr, Expr::String(_)))));
-    for twice in ["{a: 1, a: 2}", "{a: 1, \"a\": 2}", "{a: 1, r#'a'#: 2}", "[[a a]; [1 2]]"] {
+    assert!(
+        columns
+            .iter()
+            .all(|item| matches!(item, ListItem::Item(e) if matches!(e.expr, Expr::String(_))))
+    );
+    for twice in [
+        "{a: 1, a: 2}",
+        "{a: 1, \"a\": 2}",
+        "{a: 1, r#'a'#: 2}",
+        "[[a a]; [1 2]]",
+    ] {
         assert!(parse(twice).is_err(), "{twice}");
     }
     // A name known only when the literal runs is checked then.
@@ -1493,7 +1832,13 @@ fn record_keys_and_column_names_are_names() {
 fn list_items_refuse_a_stray_closing_bracket() {
     for src in ["[1 2]]", "[[a]; [1]]]", "[1 [2]]]"] {
         let error = err(src);
-        assert!(matches!(error.diagnostics[0].kind, ErrorKind::Unbalanced { found: "]", .. }), "{src}");
+        assert!(
+            matches!(
+                error.diagnostics[0].kind,
+                ErrorKind::Unbalanced { found: "]", .. }
+            ),
+            "{src}"
+        );
     }
     // Outside a list a stray `]` is text, as in a glob.
     kind!(expr(&ok("ls a]")), Expr::Call(_));
@@ -1520,7 +1865,13 @@ fn loops_cannot_be_piped() {
         "ls | while false { }",
         "FOO=1 while false { } | ignore",
     ] {
-        assert!(matches!(err(src).diagnostics[0].kind, ErrorKind::KeywordInPipeline(_)), "{src}");
+        assert!(
+            matches!(
+                err(src).diagnostics[0].kind,
+                ErrorKind::KeywordInPipeline(_)
+            ),
+            "{src}"
+        );
     }
     ok("while false { }");
 }
@@ -1554,9 +1905,18 @@ fn oneof_defaults_try_bareword_shapes_last() {
         let def = kind!(expr(&ast), Expr::Def(d) => d);
         check(&def.signature.params[0].default.as_ref().unwrap().expr)
     };
-    assert!(default_is("def f [x: oneof<string, int> = 5] { }", |e| matches!(e, Expr::Int(5))));
-    assert!(default_is("def f [x: oneof<string, list<string>> = [a b]] { }", |e| matches!(e, Expr::List(_))));
-    assert!(default_is("def f [x: oneof<int, string> = a] { }", |e| matches!(e, Expr::String(_))));
+    assert!(default_is(
+        "def f [x: oneof<string, int> = 5] { }",
+        |e| matches!(e, Expr::Int(5))
+    ));
+    assert!(default_is(
+        "def f [x: oneof<string, list<string>> = [a b]] { }",
+        |e| matches!(e, Expr::List(_))
+    ));
+    assert!(default_is(
+        "def f [x: oneof<int, string> = a] { }",
+        |e| matches!(e, Expr::String(_))
+    ));
 }
 
 #[test]
@@ -1567,11 +1927,17 @@ fn type_alias_statements() {
     assert_eq!(text(&ast, alias.eq), "=");
     assert!(matches!(alias.ty.shape, SyntaxShape::Record(ref fields) if fields.len() == 2));
     let ast = ok("export type T = int");
-    kind!(kind!(expr(&ast), Expr::Export(e) => e).item, Expr::TypeAlias(_));
+    kind!(
+        kind!(expr(&ast), Expr::Export(e) => e).item,
+        Expr::TypeAlias(_)
+    );
     // An alias is used like any type name.
     let ast = ok("def f [p: Point]: nothing -> Point { $p }");
     let param = &kind!(expr(&ast), Expr::Def(d) => d).signature.params[0];
-    assert!(matches!(param.ty.as_ref().unwrap().shape, SyntaxShape::TypeAlias("Point")));
+    assert!(matches!(
+        param.ty.as_ref().unwrap().shape,
+        SyntaxShape::TypeAlias("Point")
+    ));
     // `listing` is no `list`.
     let ast = ok("let x: listing = 1");
     kind!(expr(&ast), Expr::Let(b) => assert!(matches!(b.ty.as_ref().unwrap().shape, SyntaxShape::TypeAlias("listing"))));

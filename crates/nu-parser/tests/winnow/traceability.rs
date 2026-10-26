@@ -13,7 +13,11 @@
 //!   `cargo test`, so that a Nushell change elsewhere does not fail CI here:
 //!   `verify.nu` runs it (`cargo test --test winnow -- --include-ignored
 //!   traceability::`).
-#![allow(clippy::unwrap_used, clippy::format_push_string, reason = "tests may panic on failure")]
+#![allow(
+    clippy::unwrap_used,
+    clippy::format_push_string,
+    reason = "tests may panic on failure"
+)]
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
@@ -28,7 +32,11 @@ struct Row {
 }
 
 fn backticked(cell: &str) -> Vec<String> {
-    cell.split('`').skip(1).step_by(2).map(str::to_string).collect()
+    cell.split('`')
+        .skip(1)
+        .step_by(2)
+        .map(str::to_string)
+        .collect()
 }
 
 /// The rows of every `| nu-parser | here | fixtures | tests |` table.
@@ -54,9 +62,18 @@ fn rows() -> Vec<Row> {
             Some(name) => name.to_string(),
             None => item.to_string(),
         };
-        out.push(Row { section: section.clone(), item, fixtures: backticked(fixtures), tests: backticked(tests) });
+        out.push(Row {
+            section: section.clone(),
+            item,
+            fixtures: backticked(fixtures),
+            tests: backticked(tests),
+        });
     }
-    assert!(out.len() > 200, "the matrix should have hundreds of rows, found {}", out.len());
+    assert!(
+        out.len() > 200,
+        "the matrix should have hundreds of rows, found {}",
+        out.len()
+    );
     out
 }
 
@@ -69,17 +86,27 @@ fn fixture_root() -> PathBuf {
 fn pattern_matches(pattern: &str) -> bool {
     let root = fixture_root();
     let (dir, file) = pattern.rsplit_once('/').unwrap_or(("", pattern));
-    let Ok(entries) = std::fs::read_dir(root.join(dir)) else { return false };
-    entries.flatten().any(|e| glob_matches(file, &e.file_name().to_string_lossy()))
+    let Ok(entries) = std::fs::read_dir(root.join(dir)) else {
+        return false;
+    };
+    entries
+        .flatten()
+        .any(|e| glob_matches(file, &e.file_name().to_string_lossy()))
 }
 
 /// `*` matches any run of characters, any number of times in the pattern.
 fn glob_matches(pattern: &str, name: &str) -> bool {
     let pieces: Vec<&str> = pattern.split('*').collect();
-    let [first, middle @ .., last] = pieces.as_slice() else { return pattern == name };
-    let Some(mut rest) = name.strip_prefix(first) else { return false };
+    let [first, middle @ .., last] = pieces.as_slice() else {
+        return pattern == name;
+    };
+    let Some(mut rest) = name.strip_prefix(first) else {
+        return false;
+    };
     for piece in middle {
-        let Some(at) = rest.find(piece) else { return false };
+        let Some(at) = rest.find(piece) else {
+            return false;
+        };
         rest = &rest[at + piece.len()..];
     }
     rest.ends_with(last) && rest.len() >= last.len()
@@ -90,7 +117,10 @@ fn test_functions() -> BTreeSet<String> {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let mut names = BTreeSet::new();
     let mut files = Vec::new();
-    for entry in std::fs::read_dir(root.join("tests/winnow")).unwrap().flatten() {
+    for entry in std::fs::read_dir(root.join("tests/winnow"))
+        .unwrap()
+        .flatten()
+    {
         if entry.path().extension().is_some_and(|e| e == "rs") {
             files.push(entry.path());
         }
@@ -100,8 +130,14 @@ fn test_functions() -> BTreeSet<String> {
         let text = std::fs::read_to_string(&file).unwrap();
         for line in text.lines() {
             let line = line.trim_start();
-            if let Some(rest) = line.strip_prefix("fn ").or_else(|| line.strip_prefix("pub fn ")) {
-                let name: String = rest.chars().take_while(|c| c.is_alphanumeric() || *c == '_').collect();
+            if let Some(rest) = line
+                .strip_prefix("fn ")
+                .or_else(|| line.strip_prefix("pub fn "))
+            {
+                let name: String = rest
+                    .chars()
+                    .take_while(|c| c.is_alphanumeric() || *c == '_')
+                    .collect();
                 names.insert(name);
             }
         }
@@ -110,7 +146,9 @@ fn test_functions() -> BTreeSet<String> {
 }
 
 fn collect_rs(dir: &Path, out: &mut Vec<PathBuf>) {
-    let Ok(entries) = std::fs::read_dir(dir) else { return };
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
     for entry in entries.flatten() {
         let path = entry.path();
         if path.is_dir() {
@@ -126,16 +164,32 @@ fn every_fixture_pattern_and_test_name_exists() {
     let functions = test_functions();
     let mut problems = Vec::new();
     for row in rows() {
-        assert!(!row.fixtures.is_empty(), "{}: `{}` names no fixture", row.section, row.item);
-        assert!(!row.tests.is_empty(), "{}: `{}` names no test", row.section, row.item);
+        assert!(
+            !row.fixtures.is_empty(),
+            "{}: `{}` names no fixture",
+            row.section,
+            row.item
+        );
+        assert!(
+            !row.tests.is_empty(),
+            "{}: `{}` names no test",
+            row.section,
+            row.item
+        );
         for pattern in &row.fixtures {
             if !pattern_matches(pattern) {
-                problems.push(format!("{}: `{}`: no fixture matches {pattern}", row.section, row.item));
+                problems.push(format!(
+                    "{}: `{}`: no fixture matches {pattern}",
+                    row.section, row.item
+                ));
             }
         }
         for test in &row.tests {
             if !functions.contains(test) {
-                problems.push(format!("{}: `{}`: no test function named {test}", row.section, row.item));
+                problems.push(format!(
+                    "{}: `{}`: no test function named {test}",
+                    row.section, row.item
+                ));
             }
         }
     }
@@ -147,12 +201,17 @@ fn nushell_checkout() -> Option<PathBuf> {
         Some(p) => PathBuf::from(p),
         None => Path::new(env!("CARGO_MANIFEST_DIR")).join("../.."),
     };
-    candidate.join("crates/nu-parser/src/lib.rs").exists().then_some(candidate)
+    candidate
+        .join("crates/nu-parser/src/lib.rs")
+        .exists()
+        .then_some(candidate)
 }
 
 /// The variant names of `pub enum NAME { .. }` in `text`.
 fn enum_variants(text: &str, name: &str) -> Vec<String> {
-    let start = text.find(&format!("pub enum {name}")).unwrap_or_else(|| panic!("no enum {name}"));
+    let start = text
+        .find(&format!("pub enum {name}"))
+        .unwrap_or_else(|| panic!("no enum {name}"));
     let mut out = Vec::new();
     // Depth 1 is the enum body; brackets inside string literals do not nest.
     let mut depth = 0i32;
@@ -162,9 +221,19 @@ fn enum_variants(text: &str, name: &str) -> Vec<String> {
         }
         let code = without_string_literals(line);
         let trimmed = code.trim();
-        if depth == 1 && trimmed.chars().next().is_some_and(|c| c.is_ascii_uppercase()) && !trimmed.starts_with("Self")
+        if depth == 1
+            && trimmed
+                .chars()
+                .next()
+                .is_some_and(|c| c.is_ascii_uppercase())
+            && !trimmed.starts_with("Self")
         {
-            out.push(trimmed.chars().take_while(|c| c.is_alphanumeric()).collect());
+            out.push(
+                trimmed
+                    .chars()
+                    .take_while(|c| c.is_alphanumeric())
+                    .collect(),
+            );
         }
         depth += code.matches('{').count() as i32 + code.matches('(').count() as i32;
         depth -= code.matches('}').count() as i32 + code.matches(')').count() as i32;
@@ -193,12 +262,32 @@ fn without_string_literals(line: &str) -> String {
 
 /// `(section, upstream names)` pairs extracted from the checkout.
 fn upstream(nushell: &Path) -> BTreeMap<&'static str, Vec<String>> {
-    let read = |rel: &str| std::fs::read_to_string(nushell.join(rel)).unwrap_or_else(|e| panic!("{rel}: {e}"));
+    let read = |rel: &str| {
+        std::fs::read_to_string(nushell.join(rel)).unwrap_or_else(|e| panic!("{rel}: {e}"))
+    };
     let mut out = BTreeMap::new();
-    out.insert("SyntaxShape", enum_variants(&read("crates/nu-protocol/src/syntax_shape.rs"), "SyntaxShape"));
-    out.insert("FlatShape", enum_variants(&read("crates/nu-parser/src/flatten.rs"), "FlatShape"));
-    out.insert("TokenContents", enum_variants(&read("crates/nu-parser/src/lex.rs"), "TokenContents"));
-    out.insert("ParseError", enum_variants(&read("crates/nu-protocol/src/errors/parse_error.rs"), "ParseError"));
+    out.insert(
+        "SyntaxShape",
+        enum_variants(
+            &read("crates/nu-protocol/src/syntax_shape.rs"),
+            "SyntaxShape",
+        ),
+    );
+    out.insert(
+        "FlatShape",
+        enum_variants(&read("crates/nu-parser/src/flatten.rs"), "FlatShape"),
+    );
+    out.insert(
+        "TokenContents",
+        enum_variants(&read("crates/nu-parser/src/lex.rs"), "TokenContents"),
+    );
+    out.insert(
+        "ParseError",
+        enum_variants(
+            &read("crates/nu-protocol/src/errors/parse_error.rs"),
+            "ParseError",
+        ),
+    );
 
     let mut parse_fns = BTreeSet::new();
     let mut files = Vec::new();
@@ -209,7 +298,10 @@ fn upstream(nushell: &Path) -> BTreeMap<&'static str, Vec<String>> {
     for file in &files {
         for line in std::fs::read_to_string(file).unwrap().lines() {
             if let Some(rest) = line.strip_prefix("pub fn parse_") {
-                let name: String = rest.chars().take_while(|c| c.is_alphanumeric() || *c == '_').collect();
+                let name: String = rest
+                    .chars()
+                    .take_while(|c| c.is_alphanumeric() || *c == '_')
+                    .collect();
                 parse_fns.insert(format!("parse_{name}"));
             }
         }
@@ -218,7 +310,10 @@ fn upstream(nushell: &Path) -> BTreeMap<&'static str, Vec<String>> {
 
     let mut keywords = BTreeSet::new();
     let mut files = Vec::new();
-    collect_rs(&nushell.join("crates/nu-cmd-lang/src/core_commands"), &mut files);
+    collect_rs(
+        &nushell.join("crates/nu-cmd-lang/src/core_commands"),
+        &mut files,
+    );
     for file in &files {
         let text = std::fs::read_to_string(file).unwrap();
         if !text.contains("CommandType::Keyword") {
@@ -239,18 +334,26 @@ fn upstream(nushell: &Path) -> BTreeMap<&'static str, Vec<String>> {
 #[ignore = "upstream completeness: run by winnow/tools/scripts/verify.nu (`cargo test --test winnow -- --include-ignored traceability::`)"]
 fn every_upstream_construct_is_mapped() {
     let Some(nushell) = nushell_checkout() else {
-        eprintln!("no Nushell checkout; set NU_WINNOW_NUSHELL to run the upstream completeness check");
+        eprintln!(
+            "no Nushell checkout; set NU_WINNOW_NUSHELL to run the upstream completeness check"
+        );
         return;
     };
     let rows = rows();
     let mut missing = Vec::new();
     for (section, names) in upstream(&nushell) {
         assert!(names.len() > 5, "{section}: extracted only {names:?}");
-        let mapped: BTreeSet<&str> = rows.iter().filter(|r| r.section == section).map(|r| r.item.as_str()).collect();
+        let mapped: BTreeSet<&str> = rows
+            .iter()
+            .filter(|r| r.section == section)
+            .map(|r| r.item.as_str())
+            .collect();
         assert!(!mapped.is_empty(), "no table for {section}");
         for name in names {
             if !mapped.contains(name.as_str()) {
-                missing.push(format!("{section}: `{name}` is not in src/winnow/docs/11-traceability.md"));
+                missing.push(format!(
+                    "{section}: `{name}` is not in src/winnow/docs/11-traceability.md"
+                ));
             }
         }
     }

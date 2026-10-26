@@ -19,13 +19,21 @@ use crate::winnow::syntax::span::Span;
 /// Render the AST as an indented tree, one node per line, with spans,
 /// followed by `Comments (n)` and `Ignored (n)` sections when they are not empty.
 pub fn dump(ast: &Ast<'_>) -> String {
-    let mut printer = Printer { src: ast.source, out: String::new(), depth: 0 };
+    let mut printer = Printer {
+        src: ast.source,
+        out: String::new(),
+        depth: 0,
+    };
     printer.block("Block", &ast.block);
     if !ast.comments.is_empty() {
         printer.line(format_args!("Comments ({})", ast.comments.len()));
         printer.depth += 1;
         for comment in &ast.comments {
-            printer.line(format_args!("{} {:?}", comment.span, comment.text(ast.source)));
+            printer.line(format_args!(
+                "{} {:?}",
+                comment.span,
+                comment.text(ast.source)
+            ));
         }
         printer.depth -= 1;
     }
@@ -42,7 +50,11 @@ pub fn dump(ast: &Ast<'_>) -> String {
 
 /// Render a single expression as an indented tree.
 pub fn dump_expression(source: &str, expr: &Expression<'_>) -> String {
-    let mut printer = Printer { src: source, out: String::new(), depth: 0 };
+    let mut printer = Printer {
+        src: source,
+        out: String::new(),
+        depth: 0,
+    };
     printer.expr(expr);
     printer.out
 }
@@ -136,7 +148,9 @@ impl<'a> Printer<'a> {
                 printer.line(format_args!("Redirect {:?} {}", op.item, op.span));
                 printer.nested(|printer| printer.expr(path));
             }
-            RedirectionTarget::Pipe { op } => printer.line(format_args!("Redirect {:?} {}", op.item, op.span)),
+            RedirectionTarget::Pipe { op } => {
+                printer.line(format_args!("Redirect {:?} {}", op.item, op.span))
+            }
         };
         match r {
             PipelineRedirection::Single { target: t, .. } => target(self, t),
@@ -161,7 +175,9 @@ impl<'a> Printer<'a> {
                     ParameterKind::Flag { long, short } => format!(
                         "flag{}{}",
                         long.map(|l| format!(" --{}", l.item)).unwrap_or_default(),
-                        short.map(|short| format!(" -{}", short.item)).unwrap_or_default()
+                        short
+                            .map(|short| format!(" -{}", short.item))
+                            .unwrap_or_default()
                     ),
                 };
                 let mut extra = String::new();
@@ -172,10 +188,17 @@ impl<'a> Printer<'a> {
                     let _ = write!(extra, " @{}", completer.item);
                 }
                 if !param.description.is_empty() {
-                    let desc: Vec<&str> = param.description.iter().map(|comment| comment.body(printer.src)).collect();
+                    let desc: Vec<&str> = param
+                        .description
+                        .iter()
+                        .map(|comment| comment.body(printer.src))
+                        .collect();
                     let _ = write!(extra, " desc={:?}", desc.join("\n"));
                 }
-                printer.line(format_args!("Param {kind} `{}` {}{extra}", param.name.item, param.span));
+                printer.line(format_args!(
+                    "Param {kind} `{}` {}{extra}",
+                    param.name.item, param.span
+                ));
                 if let Some(default) = &param.default {
                     printer.nested(|printer| {
                         printer.line(format_args!("Default"));
@@ -235,7 +258,9 @@ impl<'a> Printer<'a> {
                 self.line(format_args!("Pattern value {}", pat.span));
                 self.nested(|printer| printer.expr(expr));
             }
-            Pattern::Variable(variable) => self.line(format_args!("Pattern ${variable} {}", pat.span)),
+            Pattern::Variable(variable) => {
+                self.line(format_args!("Pattern ${variable} {}", pat.span))
+            }
             Pattern::IgnoreValue => self.line(format_args!("Pattern _ {}", pat.span)),
             Pattern::List(items) => {
                 self.line(format_args!("Pattern list {}", pat.span));
@@ -254,7 +279,9 @@ impl<'a> Printer<'a> {
                     }
                 });
             }
-            Pattern::Rest(name) => self.line(format_args!("Pattern rest ${} {}", name.item, pat.span)),
+            Pattern::Rest(name) => {
+                self.line(format_args!("Pattern rest ${} {}", name.item, pat.span))
+            }
             // `..` is a rest pattern with no name, hence the two spaces.
             Pattern::IgnoreRest => self.line(format_args!("Pattern rest  {}", pat.span)),
             Pattern::Or(alts) => {
@@ -286,9 +313,15 @@ impl<'a> Printer<'a> {
             Expr::Nothing => self.line(format_args!("Nothing {span}")),
             Expr::Int(int) => self.line(format_args!("Int {int} {span}")),
             Expr::Float(float) => self.line(format_args!("Float {float} {span}")),
-            Expr::String(string) => self.line(format_args!("String {:?} {:?} {span}", string.quote, string.value)),
+            Expr::String(string) => self.line(format_args!(
+                "String {:?} {:?} {span}",
+                string.quote, string.value
+            )),
             Expr::StringInterpolation(interpolation) => {
-                self.line(format_args!("Interpolation {:?} {span}", interpolation.quote));
+                self.line(format_args!(
+                    "Interpolation {:?} {span}",
+                    interpolation.quote
+                ));
                 self.nested(|printer| {
                     for part in &interpolation.parts {
                         match part {
@@ -300,13 +333,20 @@ impl<'a> Printer<'a> {
                     }
                 });
             }
-            Expr::Binary(binary) => self.line(format_args!("Binary radix={} {:?} {span}", binary.radix, binary.bytes)),
-            Expr::Duration(duration) => {
-                self.line(format_args!("Duration {} {} {span}", duration.value, duration.unit.as_str()))
-            }
-            Expr::Filesize(filesize) => {
-                self.line(format_args!("Filesize {} {} {span}", filesize.value, filesize.unit.as_str()))
-            }
+            Expr::Binary(binary) => self.line(format_args!(
+                "Binary radix={} {:?} {span}",
+                binary.radix, binary.bytes
+            )),
+            Expr::Duration(duration) => self.line(format_args!(
+                "Duration {} {} {span}",
+                duration.value,
+                duration.unit.as_str()
+            )),
+            Expr::Filesize(filesize) => self.line(format_args!(
+                "Filesize {} {} {span}",
+                filesize.value,
+                filesize.unit.as_str()
+            )),
             Expr::DateTime(datetime) => self.line(format_args!("DateTime {datetime} {span}")),
             Expr::Range(range) => {
                 self.line(format_args!("Range {:?} {span}", range.operator.inclusion));
@@ -331,7 +371,11 @@ impl<'a> Printer<'a> {
                 self.nested(|printer| printer.members(&cell_path.members));
             }
             Expr::FullCellPath(full_cell_path) => {
-                let implicit = if full_cell_path.implicit_head { " implicit-head" } else { "" };
+                let implicit = if full_cell_path.implicit_head {
+                    " implicit-head"
+                } else {
+                    ""
+                };
                 self.line(format_args!("FullCellPath{implicit} {span}"));
                 self.nested(|printer| {
                     printer.expr(&full_cell_path.head);
@@ -410,7 +454,10 @@ impl<'a> Printer<'a> {
                 self.nested(|printer| printer.expr(&minus.expr));
             }
             Expr::Assignment(assignment) => {
-                self.line(format_args!("Assignment {} {span}", assignment.op.item.as_str()));
+                self.line(format_args!(
+                    "Assignment {} {span}",
+                    assignment.op.item.as_str()
+                ));
                 self.nested(|printer| {
                     printer.expr(&assignment.lhs);
                     printer.block("Value", &assignment.rhs);
@@ -447,7 +494,10 @@ impl<'a> Printer<'a> {
                 self.line(format_args!("EnvShorthand {span}"));
                 self.nested(|printer| {
                     for assignment in &env_shorthand.vars {
-                        printer.line(format_args!("Env {} {}", assignment.name.item, assignment.span));
+                        printer.line(format_args!(
+                            "Env {} {}",
+                            assignment.name.item, assignment.span
+                        ));
                         printer.nested(|printer| printer.expr(&assignment.value));
                     }
                     printer.expr(&env_shorthand.expr);
@@ -490,14 +540,21 @@ impl<'a> Printer<'a> {
             }
             Expr::Extern(extern_declaration) => {
                 let flags = flag_list(&extern_declaration.flags);
-                self.line(format_args!("Extern `{}`{flags} {span}", extern_declaration.name.item));
+                self.line(format_args!(
+                    "Extern `{}`{flags} {span}",
+                    extern_declaration.name.item
+                ));
                 self.nested(|printer| {
                     printer.flag_values(&extern_declaration.flags);
                     printer.signature(&extern_declaration.signature);
                 });
             }
             Expr::TypeAlias(alias) => {
-                self.line(format_args!("TypeAlias `{}` = {} {span}", alias.name.item, self.text(alias.ty.span)));
+                self.line(format_args!(
+                    "TypeAlias `{}` = {} {span}",
+                    alias.name.item,
+                    self.text(alias.ty.span)
+                ));
             }
             Expr::Alias(alias) => {
                 self.line(format_args!("Alias `{}` {span}", alias.name.item));
@@ -514,7 +571,9 @@ impl<'a> Printer<'a> {
                             ImportPatternMemberKind::Name(name) => {
                                 printer.line(format_args!("Member {name:?} {}", member.span))
                             }
-                            ImportPatternMemberKind::Glob => printer.line(format_args!("Member * {}", member.span)),
+                            ImportPatternMemberKind::Glob => {
+                                printer.line(format_args!("Member * {}", member.span))
+                            }
                             ImportPatternMemberKind::List(names) => {
                                 let names: Vec<_> = names.iter().map(|n| n.item.as_ref()).collect();
                                 printer.line(format_args!("Members {names:?} {}", member.span));
@@ -540,13 +599,19 @@ impl<'a> Printer<'a> {
                 self.line(format_args!("Export {span}"));
                 self.nested(|printer| printer.expr(&export.item));
             }
-            Expr::ExportEnv(export_env) => self.block(&format!("ExportEnv {span}"), &export_env.body),
+            Expr::ExportEnv(export_env) => {
+                self.block(&format!("ExportEnv {span}"), &export_env.body)
+            }
             Expr::If(if_expression) => {
                 self.line(format_args!("If {span}"));
                 self.nested(|printer| {
                     printer.line(format_args!("Condition"));
                     printer.nested(|printer| printer.expr(&if_expression.condition));
-                    printer.block_or_value("Then", &if_expression.then_block, if_expression.then_value.as_deref());
+                    printer.block_or_value(
+                        "Then",
+                        &if_expression.then_block,
+                        if_expression.then_value.as_deref(),
+                    );
                     if let Some(else_branch) = &if_expression.else_branch {
                         printer.line(format_args!("Else {}", else_branch.keyword));
                         printer.nested(|printer| printer.expr(&else_branch.body));
@@ -590,13 +655,19 @@ impl<'a> Printer<'a> {
                 self.line(format_args!("While {span}"));
                 self.nested(|printer| {
                     printer.expr(&while_loop.condition);
-                    printer.block_or_value("Body", &while_loop.body, while_loop.body_value.as_deref());
+                    printer.block_or_value(
+                        "Body",
+                        &while_loop.body,
+                        while_loop.body_value.as_deref(),
+                    );
                 });
             }
             Expr::Loop(loop_expression) => match &loop_expression.body_value {
                 Some(value) => {
                     self.line(format_args!("Loop {span}"));
-                    self.nested(|printer| printer.block_or_value("Body", &loop_expression.body, Some(value)));
+                    self.nested(|printer| {
+                        printer.block_or_value("Body", &loop_expression.body, Some(value))
+                    });
                 }
                 None => self.block(&format!("Loop {span}"), &loop_expression.body),
             },
@@ -611,7 +682,11 @@ impl<'a> Printer<'a> {
             Expr::Try(try_expression) => {
                 self.line(format_args!("Try {span}"));
                 self.nested(|printer| {
-                    printer.block_or_value("Body", &try_expression.body, try_expression.body_value.as_deref());
+                    printer.block_or_value(
+                        "Body",
+                        &try_expression.body,
+                        try_expression.body_value.as_deref(),
+                    );
                     for handler in &try_expression.handlers {
                         printer.line(format_args!("{:?} {}", handler.kind, handler.keyword));
                         printer.nested(|printer| printer.expr(&handler.body));
@@ -629,6 +704,13 @@ impl<'a> Printer<'a> {
 
 /// The flags of a definition as ` [Env, Wrapped]`, or nothing when it has none.
 fn flag_list<Flag: std::fmt::Debug>(flags: &[DefinitionFlag<'_, Flag>]) -> String {
-    let flags: Vec<_> = flags.iter().map(|flag| format!("{:?}", flag.flag)).collect();
-    if flags.is_empty() { String::new() } else { format!(" [{}]", flags.join(", ")) }
+    let flags: Vec<_> = flags
+        .iter()
+        .map(|flag| format!("{:?}", flag.flag))
+        .collect();
+    if flags.is_empty() {
+        String::new()
+    } else {
+        format!(" [{}]", flags.join(", "))
+    }
 }

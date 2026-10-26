@@ -16,9 +16,9 @@ use std::{
 
 use log::{Level, debug, log_enabled};
 use nu_protocol::{Span, engine::StateWorkingSet};
-use crate::winnow::syntax::Diagnostic;
 
 use super::lower::Unlowered;
+use crate::winnow::syntax::Diagnostic;
 
 // One counter per field of `WinnowStats`.
 static WINNOW_BLOCKS: AtomicU64 = AtomicU64::new(0);

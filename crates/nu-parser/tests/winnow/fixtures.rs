@@ -17,7 +17,11 @@
 //!
 //! and review the diff. The same fixtures are what
 //! `winnow/tools/scripts/fixtures-compare.nu` runs through Nushell itself.
-#![allow(clippy::unwrap_used, clippy::format_push_string, reason = "tests may panic on failure")]
+#![allow(
+    clippy::unwrap_used,
+    clippy::format_push_string,
+    reason = "tests may panic on failure"
+)]
 
 use std::path::{Path, PathBuf};
 
@@ -34,14 +38,19 @@ fn read(path: &Path) -> String {
 /// rendered diagnostics so that golden files do not depend on the checkout.
 fn display_name(path: &Path) -> String {
     let rel = path.components().rev().take(3).collect::<Vec<_>>();
-    rel.iter().rev().map(|c| c.as_os_str().to_string_lossy()).collect::<Vec<_>>().join("/")
+    rel.iter()
+        .rev()
+        .map(|c| c.as_os_str().to_string_lossy())
+        .collect::<Vec<_>>()
+        .join("/")
 }
 
 /// Compare `actual` with the golden file at `golden`, writing it when
 /// `UPDATE_FIXTURES` is set.
 fn check_golden(golden: &Path, actual: &str) {
     if std::env::var_os("UPDATE_FIXTURES").is_some() {
-        std::fs::write(golden, actual).unwrap_or_else(|e| panic!("cannot write {}: {e}", golden.display()));
+        std::fs::write(golden, actual)
+            .unwrap_or_else(|e| panic!("cannot write {}: {e}", golden.display()));
         return;
     }
     let expected = match std::fs::read_to_string(golden) {
@@ -70,7 +79,10 @@ struct SpanChecker<'s> {
 
 impl SpanChecker<'_> {
     fn check(&mut self, span: Span, what: &str) {
-        assert!(span.start <= span.end && span.end <= self.src.len(), "{what}: bad span {span}");
+        assert!(
+            span.start <= span.end && span.end <= self.src.len(),
+            "{what}: bad span {span}"
+        );
         assert!(
             self.src.is_char_boundary(span.start) && self.src.is_char_boundary(span.end),
             "{what}: {span} is not on a char boundary"
@@ -128,7 +140,11 @@ impl<'a> Visitor<'a> for SpanChecker<'_> {
         // Comments attached to a pipeline may lie outside its span.
         let saved = std::mem::take(&mut self.stack);
         self.check(c.span, "comment");
-        assert!(self.src[c.span.range()].starts_with('#'), "comment {} does not start with `#`", c.span);
+        assert!(
+            self.src[c.span.range()].starts_with('#'),
+            "comment {} does not start with `#`",
+            c.span
+        );
         self.stack = saved;
     }
 }
@@ -140,8 +156,15 @@ fn check_flatten(src: &str, ast: &Ast<'_>) {
     let mut covered = vec![false; src.len()];
     let mut last_end = 0;
     for (span, shape) in &shapes {
-        assert!(span.start >= last_end, "flatten: {span} ({shape:?}) overlaps the previous shape");
-        assert!(span.end <= src.len() && src.is_char_boundary(span.start) && src.is_char_boundary(span.end));
+        assert!(
+            span.start >= last_end,
+            "flatten: {span} ({shape:?}) overlaps the previous shape"
+        );
+        assert!(
+            span.end <= src.len()
+                && src.is_char_boundary(span.start)
+                && src.is_char_boundary(span.end)
+        );
         assert!(!span.is_empty(), "flatten: empty span for {shape:?}");
         covered[span.range()].iter_mut().for_each(|b| *b = true);
         last_end = span.end;
@@ -152,9 +175,16 @@ fn check_flatten(src: &str, ast: &Ast<'_>) {
         .char_indices()
         .filter(|(i, c)| !covered[*i] && !c.is_whitespace() && !matches!(c, ';' | '.' | '|'))
         .collect();
-    assert!(uncovered.is_empty(), "flatten left significant bytes uncovered: {uncovered:?}\n{shapes:?}");
+    assert!(
+        uncovered.is_empty(),
+        "flatten left significant bytes uncovered: {uncovered:?}\n{shapes:?}"
+    );
     for c in &ast.comments {
-        assert!(shapes.contains(&(c.span, FlatShape::Comment)), "comment {} missing from flatten", c.span);
+        assert!(
+            shapes.contains(&(c.span, FlatShape::Comment)),
+            "comment {} missing from flatten",
+            c.span
+        );
     }
 }
 
@@ -169,20 +199,43 @@ fn accept(#[files("tests/winnow/fixtures/accept/**/*.nu")] path: PathBuf) {
 
     // The lenient entry point agrees exactly.
     let (lenient, diagnostics) = parse_lenient(&src, &ParseConfig::new());
-    assert!(diagnostics.is_empty(), "{name}: parse_lenient reported {diagnostics:?}");
+    assert!(
+        diagnostics.is_empty(),
+        "{name}: parse_lenient reported {diagnostics:?}"
+    );
     // (Compared as text: `NaN` literals are never equal to themselves.)
-    assert_eq!(pretty::dump(&lenient), pretty::dump(&ast), "{name}: parse and parse_lenient differ");
+    assert_eq!(
+        pretty::dump(&lenient),
+        pretty::dump(&ast),
+        "{name}: parse and parse_lenient differ"
+    );
 
     // Structural invariants.
-    let mut checker = SpanChecker { src: &src, stack: Vec::new(), nodes: 0, garbage: 0 };
+    let mut checker = SpanChecker {
+        src: &src,
+        stack: Vec::new(),
+        nodes: 0,
+        garbage: 0,
+    };
     checker.visit_block(&ast.block);
-    assert_eq!(checker.garbage, 0, "{name}: garbage nodes without diagnostics");
+    assert_eq!(
+        checker.garbage, 0,
+        "{name}: garbage nodes without diagnostics"
+    );
     assert_eq!(ast.block.span, Span::new(0, src.len()));
     if let Some(shebang) = ast.shebang {
         assert!(src[shebang.range()].starts_with("#!"));
-        assert!(ast.comments.iter().any(|c| c.span == shebang), "{name}: the shebang is a comment");
+        assert!(
+            ast.comments.iter().any(|c| c.span == shebang),
+            "{name}: the shebang is a comment"
+        );
     }
-    assert!(ast.comments.windows(2).all(|w| w[0].span.start < w[1].span.start), "{name}: comments unsorted");
+    assert!(
+        ast.comments
+            .windows(2)
+            .all(|w| w[0].span.start < w[1].span.start),
+        "{name}: comments unsorted"
+    );
     check_flatten(&src, &ast);
 
     // The tree the parser produced, pinned by the golden file.
@@ -195,13 +248,25 @@ fn reject(#[files("tests/winnow/fixtures/reject/**/*.nu")] path: PathBuf) {
     let src = read(&path);
     let name = display_name(&path);
     let err = match parse(&src) {
-        Ok(ast) => panic!("{name} must be rejected, but parsed as:\n{}", pretty::dump(&ast)),
+        Ok(ast) => panic!(
+            "{name} must be rejected, but parsed as:\n{}",
+            pretty::dump(&ast)
+        ),
         Err(e) => e,
     };
     assert!(!err.diagnostics.is_empty());
-    assert!(err.diagnostics.windows(2).all(|w| w[0].span.start <= w[1].span.start), "{name}: unsorted");
+    assert!(
+        err.diagnostics
+            .windows(2)
+            .all(|w| w[0].span.start <= w[1].span.start),
+        "{name}: unsorted"
+    );
     for d in &err.diagnostics {
-        assert!(d.span.end <= src.len(), "{name}: diagnostic span {} out of bounds", d.span);
+        assert!(
+            d.span.end <= src.len(),
+            "{name}: diagnostic span {} out of bounds",
+            d.span
+        );
         assert!(src.is_char_boundary(d.span.start) && src.is_char_boundary(d.span.end));
         // Display and rendering never panic.
         let _ = d.to_string();
@@ -210,8 +275,17 @@ fn reject(#[files("tests/winnow/fixtures/reject/**/*.nu")] path: PathBuf) {
 
     // The lenient entry point reports the same problems and keeps going.
     let (ast, diagnostics) = parse_lenient(&src, &ParseConfig::new());
-    assert_eq!(ParseError::new(diagnostics), err, "{name}: parse and parse_lenient differ");
-    let mut checker = SpanChecker { src: &src, stack: Vec::new(), nodes: 0, garbage: 0 };
+    assert_eq!(
+        ParseError::new(diagnostics),
+        err,
+        "{name}: parse and parse_lenient differ"
+    );
+    let mut checker = SpanChecker {
+        src: &src,
+        stack: Vec::new(),
+        nodes: 0,
+        garbage: 0,
+    };
     checker.visit_block(&ast.block);
     let _ = pretty::dump(&ast);
     let _ = flatten(&ast);

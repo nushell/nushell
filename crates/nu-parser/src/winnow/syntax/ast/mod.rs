@@ -15,8 +15,8 @@
 mod visit;
 
 pub use visit::{
-    Visitor, walk_block, walk_expression, walk_match_pattern, walk_parameter, walk_pipeline, walk_pipeline_element,
-    walk_redirection, walk_signature, walk_type_annotation,
+    Visitor, walk_block, walk_expression, walk_match_pattern, walk_parameter, walk_pipeline,
+    walk_pipeline_element, walk_redirection, walk_signature, walk_type_annotation,
 };
 
 use std::borrow::Cow;
@@ -222,7 +222,9 @@ impl<'a> Expression<'a> {
             Expr::If(if_expression) => Some(if_expression.keyword),
             Expr::Match(match_expression) => Some(match_expression.keyword),
             Expr::Try(try_expression) => Some(try_expression.keyword),
-            expr => expr.keyword().map(|kw| Span::new(self.span.start, self.span.start + kw.len())),
+            expr => expr
+                .keyword()
+                .map(|kw| Span::new(self.span.start, self.span.start + kw.len())),
         }
     }
 }
@@ -417,7 +419,10 @@ pub struct StringLiteral<'a> {
 impl<'a> StringLiteral<'a> {
     /// A bare word.
     pub fn bare(value: &'a str) -> Self {
-        Self { value: Cow::Borrowed(value), quote: Quote::Bare }
+        Self {
+            value: Cow::Borrowed(value),
+            quote: Quote::Bare,
+        }
     }
 }
 
@@ -1390,7 +1395,9 @@ impl<Flag: PartialEq> DefinitionFlag<'_, Flag> {
     /// when that is its value, and `None` for any other value, which only
     /// constant evaluation decides. `Some(false)` when `flag` is not there.
     pub fn is_set(flags: &[Self], flag: Flag) -> Option<bool> {
-        let Some(first) = flags.iter().find(|written| written.flag == flag) else { return Some(false) };
+        let Some(first) = flags.iter().find(|written| written.flag == flag) else {
+            return Some(false);
+        };
         match first.value.as_deref().map(|value| &value.expr) {
             None => Some(true),
             Some(Expr::Bool(set)) => Some(*set),
@@ -1711,7 +1718,9 @@ impl<'a> Try<'a> {
 
     /// The first `finally` handler, if any.
     pub fn finally(&self) -> Option<&Handler<'a>> {
-        self.handlers.iter().find(|h| h.kind == HandlerKind::Finally)
+        self.handlers
+            .iter()
+            .find(|h| h.kind == HandlerKind::Finally)
     }
 }
 

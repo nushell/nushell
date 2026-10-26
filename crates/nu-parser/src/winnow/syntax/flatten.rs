@@ -106,18 +106,31 @@ pub enum FlatShape {
 
 /// Flatten an AST into source-ordered `(span, shape)` pairs.
 pub fn flatten(ast: &Ast<'_>) -> Vec<(Span, FlatShape)> {
-    let mut flattener = Flattener { src: ast.source, out: Vec::new() };
+    let mut flattener = Flattener {
+        src: ast.source,
+        out: Vec::new(),
+    };
     flattener.visit_block(&ast.block);
     // Comments and ignored text win over the shapes of the constructs they
     // sit in (the gaps of a list or record), so cut them out of every other shape.
-    let mut cuts: Vec<(Span, FlatShape)> =
-        ast.comments.iter().map(|comment| (comment.span, FlatShape::Comment)).collect();
-    cuts.extend(ast.ignored.iter().map(|ignored| (*ignored, FlatShape::Ignored)));
+    let mut cuts: Vec<(Span, FlatShape)> = ast
+        .comments
+        .iter()
+        .map(|comment| (comment.span, FlatShape::Comment))
+        .collect();
+    cuts.extend(
+        ast.ignored
+            .iter()
+            .map(|ignored| (*ignored, FlatShape::Ignored)),
+    );
     cuts.sort_by_key(|(cut, _)| (cut.start, cut.end));
     let mut out = Vec::with_capacity(flattener.out.len() + cuts.len());
     for (span, shape) in flattener.out {
         let mut start = span.start;
-        for (cut, _) in cuts.iter().filter(|(cut, _)| cut.start < span.end && span.start < cut.end) {
+        for (cut, _) in cuts
+            .iter()
+            .filter(|(cut, _)| cut.start < span.end && span.start < cut.end)
+        {
             if cut.start > start {
                 out.push((Span::new(start, cut.start), shape));
             }
@@ -152,8 +165,16 @@ impl Flattener<'_> {
     /// The declaration of a variable: the name plus a leading `$` and a
     /// trailing `:` when they are written (`let $x: int`, `for x: int in`).
     fn var_decl(&mut self, name: Span) {
-        let start = if self.src[..name.start].ends_with('$') { name.start - 1 } else { name.start };
-        let end = if self.src[name.end..].starts_with(':') { name.end + 1 } else { name.end };
+        let start = if self.src[..name.start].ends_with('$') {
+            name.start - 1
+        } else {
+            name.start
+        };
+        let end = if self.src[name.end..].starts_with(':') {
+            name.end + 1
+        } else {
+            name.end
+        };
         self.push(Span::new(start, end), FlatShape::VarDecl);
     }
 
@@ -224,7 +245,12 @@ impl Flattener<'_> {
     }
 
     /// A keyword's block, or the variable or subexpression standing in for it.
-    fn block_or_value(&mut self, expr_span: Span, block: &Block<'_>, value: Option<&Expression<'_>>) {
+    fn block_or_value(
+        &mut self,
+        expr_span: Span,
+        block: &Block<'_>,
+        value: Option<&Expression<'_>>,
+    ) {
         match value {
             Some(value) => self.visit_expression(value),
             None => self.block_braces(expr_span, block, FlatShape::Block),
@@ -286,7 +312,9 @@ impl<'a> Visitor<'a> for Flattener<'_> {
         // They are not in source order: a default such as `= [1 2]` pushes its gaps last.
         let mut covered: Vec<Span> = self.out[from..]
             .iter()
-            .filter(|(span, _)| signature.span.start <= span.start && span.end <= signature.span.end)
+            .filter(|(span, _)| {
+                signature.span.start <= span.start && span.end <= signature.span.end
+            })
             .map(|(span, _)| *span)
             .collect();
         covered.sort_by_key(|span| span.start);
@@ -379,7 +407,8 @@ impl<'a> Visitor<'a> for Flattener<'_> {
                 for row in &table.rows {
                     self.visit_expression(row);
                 }
-                let spans = std::iter::once(table.columns.span).chain(table.rows.iter().map(|r| r.span));
+                let spans =
+                    std::iter::once(table.columns.span).chain(table.rows.iter().map(|r| r.span));
                 self.gaps(span, spans, FlatShape::Table);
             }
             Expr::Record(items) => {
@@ -405,13 +434,19 @@ impl<'a> Visitor<'a> for Flattener<'_> {
                 self.gaps(span, spans.into_iter(), FlatShape::Record);
             }
             Expr::Closure(closure) => {
-                let body_start = closure.params.as_ref().map_or(closure.body.span.start, |params| params.span.start);
+                let body_start = closure
+                    .params
+                    .as_ref()
+                    .map_or(closure.body.span.start, |params| params.span.start);
                 self.push(Span::new(span.start, body_start), FlatShape::Closure);
                 if let Some(sig) = &closure.params {
                     self.visit_signature(sig);
                 }
                 self.visit_block(&closure.body);
-                self.push(Span::new(closure.body.span.end, span.end), FlatShape::Closure);
+                self.push(
+                    Span::new(closure.body.span.end, span.end),
+                    FlatShape::Closure,
+                );
             }
             Expr::Block(block) => self.block_braces(span, block, FlatShape::Block),
             Expr::Subexpression(block) => self.block_braces(span, block, FlatShape::Block),
@@ -480,14 +515,20 @@ impl<'a> Visitor<'a> for Flattener<'_> {
             }
             Expr::EnvShorthand(env_shorthand) => {
                 for assignment in &env_shorthand.vars {
-                    self.push(Span::new(assignment.span.start, assignment.value.span.start), FlatShape::VarDecl);
+                    self.push(
+                        Span::new(assignment.span.start, assignment.value.span.start),
+                        FlatShape::VarDecl,
+                    );
                     self.visit_expression(&assignment.value);
                 }
                 self.visit_expression(&env_shorthand.expr);
             }
             Expr::AttributeBlock(attribute_block) => {
                 for attr in &attribute_block.attributes {
-                    self.push(Span::new(attr.span.start, attr.name.span.end), FlatShape::Attribute);
+                    self.push(
+                        Span::new(attr.span.start, attr.name.span.end),
+                        FlatShape::Attribute,
+                    );
                     self.args(&attr.arguments);
                 }
                 self.visit_expression(&attribute_block.item);
@@ -511,12 +552,19 @@ impl<'a> Visitor<'a> for Flattener<'_> {
                 match &def.body_params {
                     // `def f [] {|x| }`: like a closure, the braces around the parameters.
                     Some(body_params) => {
-                        self.push(Span::new(def.signature.span.end, body_params.span.start), FlatShape::Block);
+                        self.push(
+                            Span::new(def.signature.span.end, body_params.span.start),
+                            FlatShape::Block,
+                        );
                         self.visit_signature(body_params);
                         self.visit_block(&def.body);
                         self.push(Span::new(def.body.span.end, span.end), FlatShape::Block);
                     }
-                    None => self.block_braces(Span::new(def.signature.span.end, span.end), &def.body, FlatShape::Block),
+                    None => self.block_braces(
+                        Span::new(def.signature.span.end, span.end),
+                        &def.body,
+                        FlatShape::Block,
+                    ),
                 }
             }
             Expr::Extern(extern_declaration) => {
@@ -548,7 +596,11 @@ impl<'a> Visitor<'a> for Flattener<'_> {
                         }
                         ImportPatternMemberKind::Ignored(ignored) => {
                             self.visit_expression(ignored);
-                            self.gaps(member.span, std::iter::once(ignored.span), FlatShape::Ignored);
+                            self.gaps(
+                                member.span,
+                                std::iter::once(ignored.span),
+                                FlatShape::Ignored,
+                            );
                         }
                         _ => self.push(member.span, FlatShape::String),
                     }
@@ -557,18 +609,29 @@ impl<'a> Visitor<'a> for Flattener<'_> {
             Expr::Module(module) => {
                 self.visit_expression(&module.name);
                 if let Some(body) = &module.body {
-                    self.block_braces(Span::new(module.name.span.end, span.end), body, FlatShape::Block);
+                    self.block_braces(
+                        Span::new(module.name.span.end, span.end),
+                        body,
+                        FlatShape::Block,
+                    );
                 }
             }
             Expr::Export(export) => {
                 self.visit_expression(&export.item);
             }
             Expr::ExportEnv(export_env) => {
-                self.block_braces(Span::new(keyword.end, span.end), &export_env.body, FlatShape::Block);
+                self.block_braces(
+                    Span::new(keyword.end, span.end),
+                    &export_env.body,
+                    FlatShape::Block,
+                );
             }
             Expr::If(if_expression) => {
                 self.visit_expression(&if_expression.condition);
-                let then_end = if_expression.else_branch.as_ref().map_or(span.end, |e| e.keyword.start);
+                let then_end = if_expression
+                    .else_branch
+                    .as_ref()
+                    .map_or(span.end, |e| e.keyword.start);
                 self.block_or_value(
                     Span::new(if_expression.condition.span.end, then_end),
                     &if_expression.then_block,
@@ -596,7 +659,11 @@ impl<'a> Visitor<'a> for Flattener<'_> {
                 }
                 match &match_expression.value_block {
                     Some(b) => self.visit_expression(b),
-                    None => self.gaps(match_expression.block_span, inner.into_iter(), FlatShape::Block),
+                    None => self.gaps(
+                        match_expression.block_span,
+                        inner.into_iter(),
+                        FlatShape::Block,
+                    ),
                 }
             }
             Expr::For(for_loop) => {
@@ -634,7 +701,10 @@ impl<'a> Visitor<'a> for Flattener<'_> {
                 }
             }
             Expr::Try(try_expression) => {
-                let body_end = try_expression.handlers.first().map_or(span.end, |h| h.keyword.start);
+                let body_end = try_expression
+                    .handlers
+                    .first()
+                    .map_or(span.end, |h| h.keyword.start);
                 self.block_or_value(
                     Span::new(keyword.end, body_end),
                     &try_expression.body,
@@ -669,7 +739,10 @@ mod tests {
         }
         let covered: usize = shapes.iter().map(|(s, _)| s.len()).sum();
         let significant = src.bytes().filter(|b| !b.is_ascii_whitespace()).count();
-        assert!(covered >= significant, "covered {covered} of {significant} significant bytes");
+        assert!(
+            covered >= significant,
+            "covered {covered} of {significant} significant bytes"
+        );
         assert!(shapes.iter().any(|(_, s)| *s == FlatShape::Keyword));
         assert!(shapes.iter().any(|(_, s)| *s == FlatShape::Comment));
         assert!(shapes.iter().any(|(_, s)| *s == FlatShape::Closure));

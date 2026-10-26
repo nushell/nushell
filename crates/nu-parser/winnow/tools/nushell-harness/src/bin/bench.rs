@@ -18,8 +18,8 @@
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
-use nu_protocol::engine::{EngineState, StateWorkingSet};
 use nu_parser::winnow::syntax::{ParseConfig, parse_lenient};
+use nu_protocol::engine::{EngineState, StateWorkingSet};
 use nushell_harness::engine;
 
 fn collect(path: &Path, out: &mut Vec<PathBuf>) {
@@ -34,7 +34,12 @@ fn collect(path: &Path, out: &mut Vec<PathBuf>) {
     }
 }
 
-fn time_nu_parser(engine_state: &EngineState, name: &str, src: &[u8], iters: usize) -> (Duration, usize) {
+fn time_nu_parser(
+    engine_state: &EngineState,
+    name: &str,
+    src: &[u8],
+    iters: usize,
+) -> (Duration, usize) {
     let mut total = Duration::ZERO;
     let mut errors = 0;
     for _ in 0..iters {
@@ -96,8 +101,13 @@ pub fn main() {
     );
     let (mut bytes_total, mut nu_total, mut w_total) = (0usize, Duration::ZERO, Duration::ZERO);
     for file in &files {
-        let Ok(src) = std::fs::read_to_string(file) else { continue };
-        let name = file.file_name().unwrap_or(file.as_os_str()).to_string_lossy();
+        let Ok(src) = std::fs::read_to_string(file) else {
+            continue;
+        };
+        let name = file
+            .file_name()
+            .unwrap_or(file.as_os_str())
+            .to_string_lossy();
         let (nu_t, nu_err) = time_nu_parser(&engine_state, &name, src.as_bytes(), iters);
         let (w_t, w_err) = time_winnow(&config, &src, iters);
         let nu_avg = nu_t / iters as u32;
@@ -106,8 +116,16 @@ pub fn main() {
         nu_total += nu_avg;
         w_total += w_avg;
         let ratio = nu_avg.as_secs_f64() / w_avg.as_secs_f64().max(1e-9);
-        let short: String =
-            file.display().to_string().chars().rev().take(50).collect::<Vec<_>>().into_iter().rev().collect();
+        let short: String = file
+            .display()
+            .to_string()
+            .chars()
+            .rev()
+            .take(50)
+            .collect::<Vec<_>>()
+            .into_iter()
+            .rev()
+            .collect();
         println!(
             "{short:<52} {:>8} {:>11} {:>11} {:>6.1}x {:>5} {:>5}",
             src.len(),
@@ -137,5 +155,9 @@ pub fn main() {
 
 fn fmt(d: Duration) -> String {
     let us = d.as_secs_f64() * 1e6;
-    if us >= 1000.0 { format!("{:.2} ms", us / 1000.0) } else { format!("{us:.0} µs") }
+    if us >= 1000.0 {
+        format!("{:.2} ms", us / 1000.0)
+    } else {
+        format!("{us:.0} µs")
+    }
 }

@@ -65,7 +65,9 @@ fn load_config(path: &Path, options: &mut Options) -> Result<(), String> {
             ("line_length", Expr::Int(n)) => options.line_length = usize_of(*n).ok_or_else(bad)?,
             ("margin", Expr::Int(n)) => options.margin = Some(usize_of(*n).ok_or_else(bad)?),
             ("margin", Expr::Nothing) => options.margin = None,
-            ("comment_spacing", Expr::Int(n)) => options.comment_spacing = usize_of(*n).ok_or_else(bad)?,
+            ("comment_spacing", Expr::Int(n)) => {
+                options.comment_spacing = usize_of(*n).ok_or_else(bad)?
+            }
             ("keep_alignment", Expr::Bool(b)) => options.keep_alignment = *b,
             ("trim_trailing_whitespace", Expr::Bool(b)) => options.trim_trailing_whitespace = *b,
             ("indent_pipelines", Expr::Bool(b)) => options.indent_pipelines = *b,

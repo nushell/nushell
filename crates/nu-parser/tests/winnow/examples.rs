@@ -7,7 +7,11 @@
 //! it when the checkout moves. `book.json` (the book's code blocks) is not
 //! asserted here because it contains prompts and output; the `differential`
 //! harness compares both parsers on it instead.
-#![allow(clippy::unwrap_used, clippy::format_push_string, reason = "tests may panic on failure")]
+#![allow(
+    clippy::unwrap_used,
+    clippy::format_push_string,
+    reason = "tests may panic on failure"
+)]
 
 use nu_parser::winnow::syntax::{ParseConfig, parse_lenient};
 use serde::Deserialize;
@@ -19,7 +23,10 @@ struct Snippet {
 }
 
 fn snippets(name: &str) -> Vec<Snippet> {
-    let path = format!("{}/tests/winnow/corpus/snippets/{name}", env!("CARGO_MANIFEST_DIR"));
+    let path = format!(
+        "{}/tests/winnow/corpus/snippets/{name}",
+        env!("CARGO_MANIFEST_DIR")
+    );
     let text = std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("cannot read {path}: {e}"));
     serde_json::from_str(&text).unwrap_or_else(|e| panic!("{path} is not a snippet list: {e}"))
 }
@@ -28,12 +35,21 @@ fn snippets(name: &str) -> Vec<Snippet> {
 fn every_command_example_parses() {
     let config = ParseConfig::new();
     let list = snippets("nu-command-examples.json");
-    assert!(list.len() > 1500, "expected the extracted examples, found {}", list.len());
+    assert!(
+        list.len() > 1500,
+        "expected the extracted examples, found {}",
+        list.len()
+    );
     let mut failures = Vec::new();
     for s in &list {
         let (_, diagnostics) = parse_lenient(&s.snippet, &config);
         if let Some(d) = diagnostics.first() {
-            failures.push(format!("{} :: {:?}\n{}", s.origin, s.snippet, d.render(&s.snippet, None)));
+            failures.push(format!(
+                "{} :: {:?}\n{}",
+                s.origin,
+                s.snippet,
+                d.render(&s.snippet, None)
+            ));
         }
     }
     assert!(

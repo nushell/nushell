@@ -7,9 +7,9 @@ use nu_protocol::{
     DeclId, Flag, Span, Spanned, SyntaxShape, Type,
     ast::{Call, Expr, Expression, ExternalArgument},
 };
-use crate::winnow::syntax::{DeclKind, ast as w};
 
 use super::{Lower, Lowered, Unlowered};
+use crate::winnow::syntax::{DeclKind, ast as w};
 use crate::{
     parse_calls::{
         CallKind, check_call, find_longest_decl_with_prefix, parse_external_string,

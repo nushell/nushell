@@ -27,10 +27,19 @@ pub fn parse_shape_name<'a>(
 ) -> ParseResult<(TypeAnnotation<'a>, Option<Spanned<&'a str>>)> {
     let text = working_set.get_span_contents(span);
     let (type_text, completer) = match text.find('@') {
-        Some(at) => (&text[..at], Some(Spanned::new(&text[at + 1..], Span::new(span.start + at + 1, span.end)))),
+        Some(at) => (
+            &text[..at],
+            Some(Spanned::new(
+                &text[at + 1..],
+                Span::new(span.start + at + 1, span.end),
+            )),
+        ),
         None => (text, None),
     };
-    let annotation = parse_type(working_set, Span::new(span.start, span.start + type_text.len()))?;
+    let annotation = parse_type(
+        working_set,
+        Span::new(span.start, span.start + type_text.len()),
+    )?;
     if let Some(completer) = completer {
         parse_completer(working_set, completer)?;
     }
@@ -51,7 +60,10 @@ fn parse_completer(working_set: &WorkingSet<'_>, completer: Spanned<&str>) -> Pa
         ))
     };
     match text.as_bytes().first() {
-        None => Err(cut(Diagnostic::expected("completer after `@`", completer.span))),
+        None => Err(cut(Diagnostic::expected(
+            "completer after `@`",
+            completer.span,
+        ))),
         Some(b'[') => parse_value(working_set, completer.span, ExpectedShape::Any).map(|_| ()),
         Some(b'$') => Ok(()),
         Some(b'(' | b'{') => Err(not_a_name()),
@@ -97,7 +109,9 @@ pub const BUILTIN_TYPE_NAMES: &[&str] = &[
 /// parameters.
 pub fn is_valid_type_alias_name(name: &str) -> bool {
     let mut chars = name.chars();
-    chars.next().is_some_and(|first| first.is_alphabetic() || first == '_')
+    chars
+        .next()
+        .is_some_and(|first| first.is_alphabetic() || first == '_')
         && chars.all(|c| c.is_alphabetic() || c.is_ascii_digit() || c == '_' || c == '-')
 }
 
@@ -128,18 +142,26 @@ pub fn parse_type<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResult<T
         "range" => SyntaxShape::Range,
         "string" => SyntaxShape::String,
         "block" => {
-            return Err(cut(Diagnostic::message("blocks are not supported as first-class values", span)
-                .with_help("use `closure` instead of `block`")));
+            return Err(cut(Diagnostic::message(
+                "blocks are not supported as first-class values",
+                span,
+            )
+            .with_help("use `closure` instead of `block`")));
         }
         // The name before any type parameters: `list` for `list<int>`, but `listing` is no list.
-        _ if matches!(text.split_once('<').map_or(text, |(name, _)| name), "list" | "record" | "table" | "oneof") => {
+        _ if matches!(
+            text.split_once('<').map_or(text, |(name, _)| name),
+            "list" | "record" | "table" | "oneof"
+        ) =>
+        {
             parse_generic_shape(working_set, span)?
         }
         _ if is_valid_type_alias_name(text) => SyntaxShape::TypeAlias(text),
         _ => {
             let mut diagnostic = Diagnostic::new(ErrorKind::UnknownType(text.to_string()), span);
             if text.contains('@') {
-                diagnostic = diagnostic.with_help("type specifications do not support custom completers here");
+                diagnostic = diagnostic
+                    .with_help("type specifications do not support custom completers here");
             }
             return Err(cut(diagnostic));
         }
@@ -157,14 +179,20 @@ pub fn parse_type<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResult<T
 /// ```
 ///
 /// The parameters run from the first `<` to a `>` that must end the item.
-fn parse_generic_shape<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResult<SyntaxShape<'a>> {
+fn parse_generic_shape<'a>(
+    working_set: &WorkingSet<'a>,
+    span: Span,
+) -> ParseResult<SyntaxShape<'a>> {
     let text = working_set.get_span_contents(span);
     let (name, params) = match text.find('<') {
         None => (text, None),
         Some(open) => {
             let Some(inner) = text[open + 1..].strip_suffix('>') else {
                 return Err(cut(Diagnostic::new(
-                    ErrorKind::Unclosed { delimiter: ">", open: Span::new(span.start + open, span.start + open + 1) },
+                    ErrorKind::Unclosed {
+                        delimiter: ">",
+                        open: Span::new(span.start + open, span.start + open + 1),
+                    },
                     span.past(),
                 )));
             };
@@ -179,7 +207,10 @@ fn parse_generic_shape<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseRes
                 Some(params) => {
                     let types = parse_type_params(working_set, params)?;
                     if types.len() > 1 {
-                        return Err(cut(Diagnostic::message("expected a single type parameter", params)));
+                        return Err(cut(Diagnostic::message(
+                            "expected a single type parameter",
+                            params,
+                        )));
                     }
                     types.into_iter().next().map(Box::new)
                 }
@@ -198,15 +229,25 @@ fn parse_generic_shape<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseRes
             None => Vec::new(),
             Some(params) => parse_named_type_params(working_set, params)?,
         }),
-        _ => return Err(cut(Diagnostic::new(ErrorKind::UnknownType(text.to_string()), span))),
+        _ => {
+            return Err(cut(Diagnostic::new(
+                ErrorKind::UnknownType(text.to_string()),
+                span,
+            )));
+        }
     })
 }
 
 /// The comma-separated types of `list<int>` and `oneof<int, string>` (nu's
 /// `parse_type_params`). Like nu, every token but a `,` (or a comment) is read
 /// as a type, so `list<int;>` and `list<int:>` have an unknown type.
-fn parse_type_params<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResult<Vec<TypeAnnotation<'a>>> {
-    let tokens = working_set.lex(span, LexOptions::TYPE_PARAMS).map_err(cut)?;
+fn parse_type_params<'a>(
+    working_set: &WorkingSet<'a>,
+    span: Span,
+) -> ParseResult<Vec<TypeAnnotation<'a>>> {
+    let tokens = working_set
+        .lex(span, LexOptions::TYPE_PARAMS)
+        .map_err(cut)?;
     working_set.add_comments(&tokens);
     tokens
         .iter()
@@ -226,13 +267,19 @@ fn parse_type_params<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResul
 /// Like nu, every token must be an item (a `;` or `|` is not a field name),
 /// the type after a `:` may be any token (`record<a:, b: int>` has the unknown
 /// type `,`), and a name without a type has the type `any`.
-fn parse_named_type_params<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResult<Vec<TypeField<'a>>> {
-    let mut lexed = working_set.lex(span, LexOptions::TYPE_PARAMS).map_err(cut)?;
+fn parse_named_type_params<'a>(
+    working_set: &WorkingSet<'a>,
+    span: Span,
+) -> ParseResult<Vec<TypeField<'a>>> {
+    let mut lexed = working_set
+        .lex(span, LexOptions::TYPE_PARAMS)
+        .map_err(cut)?;
     working_set.add_comments(&lexed);
     lexed.retain(|token| token.contents != TokenContents::Comment);
     let mut tokens = Tokens::from_lexed(working_set, &lexed);
     let fields: Vec<Option<TypeField<'a>>> =
-        repeat_to_end(alt((keyword(",").value(None), named_type_param.map(Some)))).parse_next(&mut tokens)?;
+        repeat_to_end(alt((keyword(",").value(None), named_type_param.map(Some))))
+            .parse_next(&mut tokens)?;
     Ok(fields.into_iter().flatten().collect())
 }
 
@@ -241,8 +288,10 @@ fn parse_named_type_params<'a>(working_set: &WorkingSet<'a>, span: Span) -> Pars
 /// span just past the name.
 fn named_type_param<'a>(tokens: &mut Tokens<'_, 'a>) -> ParseResult<TypeField<'a>> {
     let working_set = tokens.working_set;
-    let not_a_string =
-        |span| Diagnostic::message("annotation key not string", span).with_help("a field name must be a string");
+    let not_a_string = |span| {
+        Diagnostic::message("annotation key not string", span)
+            .with_help("a field name must be a string")
+    };
     let name = cut_with(item, |tokens| not_a_string(tokens.here())).parse_next(tokens)?;
     let Expr::String(key) = parse_value(working_set, name.span, ExpectedShape::String)?.expr else {
         return Err(cut(not_a_string(name.span)));
@@ -250,10 +299,19 @@ fn named_type_param<'a>(tokens: &mut Tokens<'_, 'a>) -> ParseResult<TypeField<'a
     let separator = opt(alt((keyword(":"), keyword(",")))).parse_next(tokens)?;
     let ty = match separator {
         Some(colon) if tokens.text(&colon) == ":" => {
-            let ty = cut_with(any, |_| Diagnostic::expected("type after colon", colon.span)).parse_next(tokens)?;
+            let ty = cut_with(any, |_| {
+                Diagnostic::expected("type after colon", colon.span)
+            })
+            .parse_next(tokens)?;
             parse_type(working_set, ty.span)?
         }
-        _ => TypeAnnotation { span: name.span.past(), shape: SyntaxShape::Any },
+        _ => TypeAnnotation {
+            span: name.span.past(),
+            shape: SyntaxShape::Any,
+        },
     };
-    Ok(TypeField { name: Spanned::new(key.value, name.span), ty })
+    Ok(TypeField {
+        name: Spanned::new(key.value, name.span),
+        ty,
+    })
 }

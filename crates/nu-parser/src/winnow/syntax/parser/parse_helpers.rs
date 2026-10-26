@@ -73,11 +73,17 @@ pub fn delimited_interior(
 ) -> ParseResult<Span> {
     let text = working_set.get_span_contents(span);
     if !text.starts_with(open) {
-        return Err(cut(Diagnostic::expected(open, Span::new(span.start, span.start + 1))));
+        return Err(cut(Diagnostic::expected(
+            open,
+            Span::new(span.start, span.start + 1),
+        )));
     }
     if text.len() < 2 || !text.ends_with(close) {
         return Err(cut(Diagnostic::new(
-            ErrorKind::Unclosed { delimiter: close, open: Span::new(span.start, span.start + 1) },
+            ErrorKind::Unclosed {
+                delimiter: close,
+                open: Span::new(span.start, span.start + 1),
+            },
             span.past(),
         )));
     }
@@ -85,8 +91,18 @@ pub fn delimited_interior(
 }
 
 /// A literal that was recognised but is malformed (`1..2sec`, `0b2`).
-pub fn invalid_literal(kind: &'static str, message: &str, span: Span) -> winnow::error::ErrMode<ParseFailure> {
-    cut(Diagnostic::new(ErrorKind::InvalidLiteral { kind, message: message.into() }, span))
+pub fn invalid_literal(
+    kind: &'static str,
+    message: &str,
+    span: Span,
+) -> winnow::error::ErrMode<ParseFailure> {
+    cut(Diagnostic::new(
+        ErrorKind::InvalidLiteral {
+            kind,
+            message: message.into(),
+        },
+        span,
+    ))
 }
 
 /// The placeholder expression for text that failed to parse (nu's `garbage`).
@@ -99,7 +115,12 @@ pub fn garbage<'a>(span: Span) -> Expression<'a> {
 pub fn garbage_pipeline<'a>(span: Span) -> Pipeline<'a> {
     Pipeline {
         span,
-        elements: vec![PipelineElement { span, pipe: None, expr: garbage(span), redirection: None }],
+        elements: vec![PipelineElement {
+            span,
+            pipe: None,
+            expr: garbage(span),
+            redirection: None,
+        }],
         leading_comments: Vec::new(),
         trailing_comments: Vec::new(),
         terminator: None,

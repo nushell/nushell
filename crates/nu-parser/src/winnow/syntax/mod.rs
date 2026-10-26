@@ -32,8 +32,8 @@ pub mod span;
 
 pub use error::{Diagnostic, ErrorKind, ParseError};
 pub use parser::{
-    AliasedKeyword, BlockSink, BlockStatements, CommandLookup, CommandType, DeclKind, Definitions, ParseConfig,
-    PredeclaredDef, TypeAliasPredecl,
+    AliasedKeyword, BlockSink, BlockStatements, CommandLookup, CommandType, DeclKind, Definitions,
+    ParseConfig, PredeclaredDef, TypeAliasPredecl,
 };
 pub use span::{LineCol, LineIndex, Span, Spanned};
 
@@ -50,7 +50,11 @@ pub fn parse(source: &str) -> Result<Ast<'_>, ParseError> {
 /// Parse with an explicit configuration.
 pub fn parse_with<'a>(source: &'a str, config: &ParseConfig) -> Result<Ast<'a>, ParseError> {
     let (ast, diagnostics) = parser::parse(source, config);
-    if diagnostics.is_empty() { Ok(ast) } else { Err(ParseError::new(diagnostics)) }
+    if diagnostics.is_empty() {
+        Ok(ast)
+    } else {
+        Err(ParseError::new(diagnostics))
+    }
 }
 
 /// Parse with error recovery: statements that fail to parse become

@@ -28,7 +28,10 @@ impl Span {
     /// An empty span at `offset`.
     #[inline]
     pub const fn point(offset: usize) -> Self {
-        Self { start: offset, end: offset }
+        Self {
+            start: offset,
+            end: offset,
+        }
     }
 
     /// Length in bytes.
@@ -58,7 +61,8 @@ impl Span {
     /// `true` if `offset` lies inside the span (or at its start for empty spans).
     #[inline]
     pub const fn contains(&self, offset: usize) -> bool {
-        self.start <= offset && (offset < self.end || (self.start == self.end && offset == self.end))
+        self.start <= offset
+            && (offset < self.end || (self.start == self.end && offset == self.end))
     }
 
     /// The text this span refers to.
@@ -119,7 +123,10 @@ impl<T> Spanned<T> {
 
     /// Map the inner value, keeping the span.
     pub fn map<U>(self, f: impl FnOnce(T) -> U) -> Spanned<U> {
-        Spanned { item: f(self.item), span: self.span }
+        Spanned {
+            item: f(self.item),
+            span: self.span,
+        }
     }
 }
 
@@ -152,13 +159,20 @@ impl LineIndex {
     pub fn new(source: &str) -> Self {
         let mut line_starts = vec![0];
         line_starts.extend(source.match_indices('\n').map(|(i, _)| i + 1));
-        Self { line_starts, len: source.len() }
+        Self {
+            line_starts,
+            len: source.len(),
+        }
     }
 
     /// Number of lines (a trailing newline does not start a new line).
     pub fn line_count(&self) -> usize {
         let n = self.line_starts.len();
-        if n > 1 && self.line_starts[n - 1] == self.len { n - 1 } else { n }
+        if n > 1 && self.line_starts[n - 1] == self.len {
+            n - 1
+        } else {
+            n
+        }
     }
 
     /// The 0-based line index containing `offset`: the last line that starts at or before it.
@@ -175,9 +189,16 @@ impl LineIndex {
         let start = self.line_starts[line];
         // Up to the `\n` that starts the next line (or the end of the source), then back over
         // a `\r` before it, never past `start`.
-        let end = self.line_starts.get(line + 1).map_or(source.len(), |e| e - 1);
+        let end = self
+            .line_starts
+            .get(line + 1)
+            .map_or(source.len(), |e| e - 1);
         let end = end.max(start);
-        let end = if source.as_bytes().get(end.wrapping_sub(1)) == Some(&b'\r') && end > start { end - 1 } else { end };
+        let end = if source.as_bytes().get(end.wrapping_sub(1)) == Some(&b'\r') && end > start {
+            end - 1
+        } else {
+            end
+        };
         start..end
     }
 
@@ -188,7 +209,10 @@ impl LineIndex {
         let line = self.line_of(offset);
         let start = self.line_starts[line];
         let column = source[start..offset].chars().count() + 1;
-        LineCol { line: line + 1, column }
+        LineCol {
+            line: line + 1,
+            column,
+        }
     }
 }
 

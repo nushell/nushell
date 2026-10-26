@@ -187,8 +187,16 @@ impl ParseConfig {
     /// A configuration that knows the commands of a fresh `nu`.
     pub fn new() -> Self {
         Self::default()
-            .add_typed_commands(crate::winnow::syntax::builtin_commands::BUILTIN_COMMANDS.iter().copied())
-            .add_row_condition_commands(crate::winnow::syntax::builtin_commands::ROW_CONDITION_COMMANDS.iter().copied())
+            .add_typed_commands(
+                crate::winnow::syntax::builtin_commands::BUILTIN_COMMANDS
+                    .iter()
+                    .copied(),
+            )
+            .add_row_condition_commands(
+                crate::winnow::syntax::builtin_commands::ROW_CONDITION_COMMANDS
+                    .iter()
+                    .copied(),
+            )
     }
 
     /// A configuration that knows no commands: every call head is a single word.
@@ -203,7 +211,8 @@ impl ParseConfig {
         I: IntoIterator<Item = S>,
         S: AsRef<str>,
     {
-        Self::default().add_typed_commands(names.into_iter().map(|name| (name, CommandType::Builtin)))
+        Self::default()
+            .add_typed_commands(names.into_iter().map(|name| (name, CommandType::Builtin)))
     }
 
     /// Add custom command names (e.g. from `use`d modules) to the known set.
@@ -241,7 +250,9 @@ impl ParseConfig {
         S: AsRef<str>,
     {
         let configured = Arc::make_mut(&mut self.commands);
-        configured.row_conditions.extend(names.into_iter().map(|name| Box::from(name.as_ref())));
+        configured
+            .row_conditions
+            .extend(names.into_iter().map(|name| Box::from(name.as_ref())));
         self
     }
 
@@ -254,10 +265,11 @@ impl ParseConfig {
     /// How a call to `name` parses, if it is a known command.
     #[inline]
     pub(crate) fn decl_kind(&self, name: &str) -> Option<DeclKind> {
-        self.is_known(name).then(|| match self.commands.row_conditions.contains(name) {
-            true => DeclKind::RowCondition,
-            false => DeclKind::Builtin,
-        })
+        self.is_known(name)
+            .then(|| match self.commands.row_conditions.contains(name) {
+                true => DeclKind::RowCondition,
+                false => DeclKind::Builtin,
+            })
     }
 
     /// Whether `name` is a known built-in command, which `%name` may call.
@@ -299,14 +311,33 @@ pub(crate) fn parse<'a>(source: &'a str, config: &ParseConfig) -> (Ast<'a>, Vec<
         Span::new(0, end)
     });
     let block = match working_set.lex(whole_source, LexOptions::BLOCK) {
-        Ok(tokens) => parse_pipelines::parse_block(tokens::Tokens::from_lexed(&working_set, &tokens), whole_source),
+        Ok(tokens) => parse_pipelines::parse_block(
+            tokens::Tokens::from_lexed(&working_set, &tokens),
+            whole_source,
+        ),
         Err(diagnostic) => {
             working_set.error(diagnostic);
-            Block { span: whole_source, pipelines: Vec::new() }
+            Block {
+                span: whole_source,
+                pipelines: Vec::new(),
+            }
         }
     };
-    let Collected { comments, ignored, parse_errors } = working_set.into_collected();
-    (Ast { source, block, comments, shebang, ignored }, parse_errors)
+    let Collected {
+        comments,
+        ignored,
+        parse_errors,
+    } = working_set.into_collected();
+    (
+        Ast {
+            source,
+            block,
+            comments,
+            shebang,
+            ignored,
+        },
+        parse_errors,
+    )
 }
 
 /// Parse the block covering `span` of `source` statement by statement (see
@@ -324,6 +355,8 @@ pub(crate) fn parse_block_streaming<'a>(
     for def in definitions.parse(source, span, lookup) {
         sink.predecl(def);
     }
-    statements.parse(source, lookup, &mut |pipeline, diagnostics, _| sink.statement(pipeline, diagnostics));
+    statements.parse(source, lookup, &mut |pipeline, diagnostics, _| {
+        sink.statement(pipeline, diagnostics)
+    });
     Ok(())
 }

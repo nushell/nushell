@@ -8,9 +8,9 @@ use nu_protocol::{
     ast::{CellPath, Expr, Expression, FullCellPath, ListItem, PathMember, RecordItem, Table},
     casing::Casing,
 };
-use crate::winnow::syntax::{Span as WSpan, ast as w};
 
 use super::{Lower, Lowered, Unlowered};
+use crate::winnow::syntax::{Span as WSpan, ast as w};
 use crate::{
     parse_calls::accepts_any_bareword,
     parse_captures_compile::compile_block,

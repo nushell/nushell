@@ -64,20 +64,33 @@ impl fmt::Display for ErrorKind {
         match self {
             ErrorKind::Expected(what) => write!(f, "expected {what}"),
             ErrorKind::ExpectedKeyword(kw) => write!(f, "expected keyword `{kw}`"),
-            ErrorKind::Unclosed { delimiter, .. } => write!(f, "unclosed delimiter: expected `{delimiter}`"),
+            ErrorKind::Unclosed { delimiter, .. } => {
+                write!(f, "unclosed delimiter: expected `{delimiter}`")
+            }
             ErrorKind::Unbalanced { found, expected } => {
-                write!(f, "unbalanced delimiter: found `{found}` without a matching `{expected}`")
+                write!(
+                    f,
+                    "unbalanced delimiter: found `{found}` without a matching `{expected}`"
+                )
             }
             ErrorKind::UnexpectedEof(what) => write!(f, "unexpected end of input, expected {what}"),
             ErrorKind::ExtraTokens => write!(f, "extra tokens after the end of the expression"),
-            ErrorKind::InvalidLiteral { kind, message } => write!(f, "invalid {kind} literal: {message}"),
+            ErrorKind::InvalidLiteral { kind, message } => {
+                write!(f, "invalid {kind} literal: {message}")
+            }
             ErrorKind::UnknownType(name) => write!(f, "unknown type `{name}`"),
             ErrorKind::UnknownOperator(op) => write!(f, "unknown operator `{op}`"),
             ErrorKind::ShellSyntax { found, use_instead } => {
-                write!(f, "`{found}` is not Nushell syntax; use `{use_instead}` instead")
+                write!(
+                    f,
+                    "`{found}` is not Nushell syntax; use `{use_instead}` instead"
+                )
             }
             ErrorKind::KeywordInPipeline(kw) => {
-                write!(f, "`{kw}` is a statement and cannot be used inside a pipeline")
+                write!(
+                    f,
+                    "`{kw}` is a statement and cannot be used inside a pipeline"
+                )
             }
             ErrorKind::Message(msg) => f.write_str(msg),
         }
@@ -101,7 +114,12 @@ pub struct Diagnostic {
 impl Diagnostic {
     /// Create a diagnostic.
     pub fn new(kind: ErrorKind, span: Span) -> Self {
-        Self { kind, span, context: Vec::new(), help: None }
+        Self {
+            kind,
+            span,
+            context: Vec::new(),
+            help: None,
+        }
     }
 
     /// `expected <what>` at `span`.
@@ -167,7 +185,10 @@ impl ParseError {
     /// # Panics
     /// Panics if `diagnostics` is empty.
     pub fn new(diagnostics: Vec<Diagnostic>) -> Self {
-        assert!(!diagnostics.is_empty(), "ParseError needs at least one diagnostic");
+        assert!(
+            !diagnostics.is_empty(),
+            "ParseError needs at least one diagnostic"
+        );
         Self { diagnostics }
     }
 
@@ -203,7 +224,9 @@ impl std::error::Error for ParseError {}
 
 impl From<Diagnostic> for ParseError {
     fn from(d: Diagnostic) -> Self {
-        ParseError { diagnostics: vec![d] }
+        ParseError {
+            diagnostics: vec![d],
+        }
     }
 }
 
@@ -211,7 +234,13 @@ impl From<Diagnostic> for ParseError {
 /// the line the span starts on with carets under the span, then notes for where an unclosed
 /// delimiter opened, the innermost context and the help. `index` is `source`'s, built once by
 /// the caller for every diagnostic it renders.
-fn render_into(out: &mut String, d: &Diagnostic, source: &str, name: Option<&str>, index: &LineIndex) {
+fn render_into(
+    out: &mut String,
+    d: &Diagnostic,
+    source: &str,
+    name: Option<&str>,
+    index: &LineIndex,
+) {
     use std::fmt::Write as _;
     let start = index.line_col(d.span.start, source);
     let name = name.unwrap_or("<input>");
@@ -230,9 +259,14 @@ fn render_into(out: &mut String, d: &Diagnostic, source: &str, name: Option<&str
     // below never split one.
     let span_start = source.floor_char_boundary(d.span.start);
     let span_end = source.ceil_char_boundary(d.span.end).max(span_start);
-    let col0 = source[range.start..span_start.min(range.end).max(range.start)].chars().count();
+    let col0 = source[range.start..span_start.min(range.end).max(range.start)]
+        .chars()
+        .count();
     let end_on_line = span_end.min(range.end).max(span_start.min(range.end));
-    let width = source[span_start.min(range.end)..end_on_line].chars().count().max(1);
+    let width = source[span_start.min(range.end)..end_on_line]
+        .chars()
+        .count()
+        .max(1);
     let _ = writeln!(out, "{pad} | {}{}", " ".repeat(col0), "^".repeat(width));
     if let ErrorKind::Unclosed { open, .. } = &d.kind {
         let open_pos = index.line_col(open.start, source);
@@ -253,8 +287,14 @@ mod tests {
     #[test]
     fn renders_with_caret() {
         let src = "let x = [1 2\nlet y = 2";
-        let d = Diagnostic::new(ErrorKind::Unclosed { delimiter: "]", open: Span::new(8, 9) }, Span::new(12, 12))
-            .with_context("list");
+        let d = Diagnostic::new(
+            ErrorKind::Unclosed {
+                delimiter: "]",
+                open: Span::new(8, 9),
+            },
+            Span::new(12, 12),
+        )
+        .with_context("list");
         let text = d.render(src, Some("t.nu"));
         assert!(text.contains("error: unclosed delimiter: expected `]`"));
         assert!(text.contains("--> t.nu:1:13"));

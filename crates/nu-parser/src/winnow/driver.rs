@@ -53,14 +53,14 @@ use nu_protocol::{
     ast::{Block, Pipeline},
     engine::StateWorkingSet,
 };
-use crate::winnow::syntax::{
-    BlockSink, BlockStatements, Definitions, Diagnostic, PredeclaredDef, TypeAliasPredecl, ast as w,
-};
 
 use super::{
     lookup::{Asked, AskedLookup, EngineLookup, NamesSnapshot, changed_answer},
     lower::{Lower, Predecl, StatementTarget, parse_classic},
     stats,
+};
+use crate::winnow::syntax::{
+    BlockSink, BlockStatements, Definitions, Diagnostic, PredeclaredDef, TypeAliasPredecl, ast as w,
 };
 use crate::{
     lex::lex, lite_parser::lite_parse, parse_def::parse_def_predecl, parse_pipelines::finish_block,

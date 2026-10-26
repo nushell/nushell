@@ -6,9 +6,9 @@ use nu_protocol::{
     ast::{Expr, Expression},
     engine::CommandType,
 };
-use crate::winnow::syntax::{Span as WSpan, ast as w};
 
 use super::{Lower, Lowered, Unlowered};
+use crate::winnow::syntax::{Span as WSpan, ast as w};
 use crate::{
     parse_def::{reject_command_name, rest_param_is_type_annotated},
     parse_shape_specs::{parse_completer, parse_shape_name},

@@ -73,7 +73,10 @@ pub fn walk_pipeline<'a, V: Visitor<'a> + ?Sized>(visitor: &mut V, pipeline: &Pi
 }
 
 /// Visit the children of a pipeline element.
-pub fn walk_pipeline_element<'a, V: Visitor<'a> + ?Sized>(visitor: &mut V, element: &PipelineElement<'a>) {
+pub fn walk_pipeline_element<'a, V: Visitor<'a> + ?Sized>(
+    visitor: &mut V,
+    element: &PipelineElement<'a>,
+) {
     visitor.visit_expression(&element.expr);
     if let Some(redirection) = &element.redirection {
         visitor.visit_redirection(redirection);
@@ -81,7 +84,10 @@ pub fn walk_pipeline_element<'a, V: Visitor<'a> + ?Sized>(visitor: &mut V, eleme
 }
 
 /// Visit the children of a redirection.
-pub fn walk_redirection<'a, V: Visitor<'a> + ?Sized>(visitor: &mut V, redirection: &PipelineRedirection<'a>) {
+pub fn walk_redirection<'a, V: Visitor<'a> + ?Sized>(
+    visitor: &mut V,
+    redirection: &PipelineRedirection<'a>,
+) {
     let mut visit_target = |target: &RedirectionTarget<'a>| {
         if let RedirectionTarget::File { path, .. } = target {
             visitor.visit_expression(path);
@@ -144,7 +150,9 @@ pub fn walk_expression<'a, V: Visitor<'a> + ?Sized>(visitor: &mut V, expr: &Expr
         Expr::List(items) => {
             for item in items {
                 match item {
-                    ListItem::Item(expr) | ListItem::Spread { expr, .. } => visitor.visit_expression(expr),
+                    ListItem::Item(expr) | ListItem::Spread { expr, .. } => {
+                        visitor.visit_expression(expr)
+                    }
                 }
             }
         }
@@ -228,7 +236,11 @@ pub fn walk_expression<'a, V: Visitor<'a> + ?Sized>(visitor: &mut V, expr: &Expr
             visitor.visit_block(&def.body);
         }
         Expr::Extern(extern_declaration) => {
-            for value in extern_declaration.flags.iter().filter_map(|flag| flag.value.as_deref()) {
+            for value in extern_declaration
+                .flags
+                .iter()
+                .filter_map(|flag| flag.value.as_deref())
+            {
                 visitor.visit_expression(value);
             }
             visitor.visit_signature(&extern_declaration.signature);
@@ -257,7 +269,11 @@ pub fn walk_expression<'a, V: Visitor<'a> + ?Sized>(visitor: &mut V, expr: &Expr
         Expr::ExportEnv(export_env) => visitor.visit_block(&export_env.body),
         Expr::If(if_expression) => {
             visitor.visit_expression(&if_expression.condition);
-            walk_block_or_value(visitor, &if_expression.then_block, if_expression.then_value.as_deref());
+            walk_block_or_value(
+                visitor,
+                &if_expression.then_block,
+                if_expression.then_value.as_deref(),
+            );
             if let Some(else_branch) = &if_expression.else_branch {
                 visitor.visit_expression(&else_branch.body);
             }
@@ -286,16 +302,22 @@ pub fn walk_expression<'a, V: Visitor<'a> + ?Sized>(visitor: &mut V, expr: &Expr
             visitor.visit_expression(&while_loop.condition);
             walk_block_or_value(visitor, &while_loop.body, while_loop.body_value.as_deref());
         }
-        Expr::Loop(loop_expression) => {
-            walk_block_or_value(visitor, &loop_expression.body, loop_expression.body_value.as_deref())
-        }
+        Expr::Loop(loop_expression) => walk_block_or_value(
+            visitor,
+            &loop_expression.body,
+            loop_expression.body_value.as_deref(),
+        ),
         Expr::Return(return_expression) => {
             if let Some(value) = &return_expression.value {
                 visitor.visit_expression(value);
             }
         }
         Expr::Try(try_expression) => {
-            walk_block_or_value(visitor, &try_expression.body, try_expression.body_value.as_deref());
+            walk_block_or_value(
+                visitor,
+                &try_expression.body,
+                try_expression.body_value.as_deref(),
+            );
             for handler in &try_expression.handlers {
                 visitor.visit_expression(&handler.body);
             }
@@ -321,7 +343,9 @@ fn walk_block_or_value<'a, V: Visitor<'a> + ?Sized>(
 fn walk_arguments<'a, V: Visitor<'a> + ?Sized>(visitor: &mut V, args: &[Argument<'a>]) {
     for arg in args {
         match arg {
-            Argument::Positional(expr) | Argument::Spread { expr, .. } => visitor.visit_expression(expr),
+            Argument::Positional(expr) | Argument::Spread { expr, .. } => {
+                visitor.visit_expression(expr)
+            }
             Argument::Named(flag) => {
                 if let Some(value) = &flag.value {
                     visitor.visit_expression(value);
@@ -375,7 +399,10 @@ pub fn walk_type_annotation<'a, V: Visitor<'a> + ?Sized>(visitor: &mut V, ty: &T
 }
 
 /// Visit the children of a pattern.
-pub fn walk_match_pattern<'a, V: Visitor<'a> + ?Sized>(visitor: &mut V, pattern: &MatchPattern<'a>) {
+pub fn walk_match_pattern<'a, V: Visitor<'a> + ?Sized>(
+    visitor: &mut V,
+    pattern: &MatchPattern<'a>,
+) {
     match &pattern.pattern {
         Pattern::Expression(expr) => visitor.visit_expression(expr),
         Pattern::Variable(_) | Pattern::IgnoreValue | Pattern::Rest(_) | Pattern::IgnoreRest => {}

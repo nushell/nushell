@@ -22,7 +22,10 @@ use super::tokens::Tokens;
 /// ```text
 /// type-alias = [ "export" ] "type" name "=" type
 /// ```
-pub fn parse_type_alias<'a>(mut tokens: Tokens<'_, 'a>, exported: bool) -> ParseResult<Expression<'a>> {
+pub fn parse_type_alias<'a>(
+    mut tokens: Tokens<'_, 'a>,
+    exported: bool,
+) -> ParseResult<Expression<'a>> {
     let working_set = tokens.working_set;
     let statement = tokens;
     let keyword = tokens.expect_item("type")?;
@@ -30,8 +33,11 @@ pub fn parse_type_alias<'a>(mut tokens: Tokens<'_, 'a>, exported: bool) -> Parse
     let rest = tokens.remaining();
     let text = |index: usize| working_set.get_span_contents(rest[index].span);
     // nu parses the name and `=` as a call to `type` only to see whether it asks for help.
-    let asks_for_help = |index: usize| is_help_text(text(index)) || short_flags_ask_for_help(text(index));
-    if (0..rest.len().min(2)).any(|index| rest[index].contents == TokenContents::Item && asks_for_help(index)) {
+    let asks_for_help =
+        |index: usize| is_help_text(text(index)) || short_flags_ask_for_help(text(index));
+    if (0..rest.len().min(2))
+        .any(|index| rest[index].contents == TokenContents::Item && asks_for_help(index))
+    {
         return parse_alias_as_call(statement);
     }
     let missing_equals = |index: usize| {
@@ -42,23 +48,30 @@ pub fn parse_type_alias<'a>(mut tokens: Tokens<'_, 'a>, exported: bool) -> Parse
             ),
             true => String::new(),
         };
-        cut(Diagnostic::message("missing `=` in type alias", rest[index].span)
-            .with_help(format!("`{keyword_text}` defines a type alias: `{keyword_text} {name} = <type>`.{lookup}")))
+        cut(
+            Diagnostic::message("missing `=` in type alias", rest[index].span).with_help(format!(
+                "`{keyword_text}` defines a type alias: `{keyword_text} {name} = <type>`.{lookup}"
+            )),
+        )
     };
     match rest.len() {
         0 => {
-            return Err(cut(Diagnostic::expected("type alias name", keyword.span.past())
-                .with_help(format!("{keyword_text} <name> = <type>"))));
+            return Err(cut(Diagnostic::expected(
+                "type alias name",
+                keyword.span.past(),
+            )
+            .with_help(format!("{keyword_text} <name> = <type>"))));
         }
         _ if text(0) == "=" => {
-            return Err(cut(
-                Diagnostic::expected("type alias name", rest[0].span).with_help("the name comes before `=`")
-            ));
+            return Err(cut(Diagnostic::expected("type alias name", rest[0].span)
+                .with_help("the name comes before `=`")));
         }
         1 => {
             return Err(match text(0).split_once('=') {
                 Some((name, ty)) => cut(Diagnostic::message("`=` must stand alone", rest[0].span)
-                    .with_help(format!("put spaces around `=`: `{keyword_text} {name} = {ty}`"))),
+                    .with_help(format!(
+                        "put spaces around `=`: `{keyword_text} {name} = {ty}`"
+                    ))),
                 None => missing_equals(0),
             });
         }
@@ -67,8 +80,11 @@ pub fn parse_type_alias<'a>(mut tokens: Tokens<'_, 'a>, exported: bool) -> Parse
     }
     let name = Spanned::new(text(0), rest[0].span);
     if BUILTIN_TYPE_NAMES.contains(&name.item) {
-        return Err(cut(Diagnostic::message(format!("`{}` is a built-in type", name.item), name.span)
-            .with_help("choose a name that isn't a built-in type")));
+        return Err(cut(Diagnostic::message(
+            format!("`{}` is a built-in type", name.item),
+            name.span,
+        )
+        .with_help("choose a name that isn't a built-in type")));
     }
     if !is_valid_type_alias_name(name.item) {
         return Err(cut(Diagnostic::message("type alias name not valid", name.span).with_help(
@@ -80,15 +96,28 @@ pub fn parse_type_alias<'a>(mut tokens: Tokens<'_, 'a>, exported: bool) -> Parse
         return Err(cut(Diagnostic::expected("type after `=`", eq.past())));
     };
     let type_span = first.span.merge(last.span);
-    let lexed = working_set.lex(type_span, LexOptions::VAR_TYPE).map_err(cut)?;
-    let ty = match lexed.iter().filter(|token| token.contents != TokenContents::Eof).collect::<Vec<_>>().as_slice() {
+    let lexed = working_set
+        .lex(type_span, LexOptions::VAR_TYPE)
+        .map_err(cut)?;
+    let ty = match lexed
+        .iter()
+        .filter(|token| token.contents != TokenContents::Eof)
+        .collect::<Vec<_>>()
+        .as_slice()
+    {
         [only] => parse_type(working_set, only.span)?,
         [_, extra, ..] => {
-            return Err(cut(Diagnostic::new(ErrorKind::ExtraTokens, Span::new(extra.span.start, type_span.end))
-                .with_help("a type alias names one type")));
+            return Err(cut(Diagnostic::new(
+                ErrorKind::ExtraTokens,
+                Span::new(extra.span.start, type_span.end),
+            )
+            .with_help("a type alias names one type")));
         }
         [] => return Err(cut(Diagnostic::expected("type after `=`", eq.past()))),
     };
     let span = keyword.span.merge(type_span);
-    Ok(Expression::new(Expr::TypeAlias(TypeAlias { name, eq, ty }), span))
+    Ok(Expression::new(
+        Expr::TypeAlias(TypeAlias { name, eq, ty }),
+        span,
+    ))
 }

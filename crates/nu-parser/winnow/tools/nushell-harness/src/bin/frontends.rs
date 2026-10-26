@@ -32,8 +32,8 @@ use nu_parser::{flatten_block, parse, winnow_stats};
 use nu_protocol::{
     BlockId, ENV_VARIABLE_ID, IN_VARIABLE_ID, LAST_VARIABLE_ID, NU_VARIABLE_ID, Signature, VarId,
     ast::{
-        Argument, Block, Expr, Expression, ExternalArgument, ListItem, MatchPattern, Pattern, PipelineRedirection,
-        RecordItem, RedirectionTarget,
+        Argument, Block, Expr, Expression, ExternalArgument, ListItem, MatchPattern, Pattern,
+        PipelineRedirection, RecordItem, RedirectionTarget,
     },
     engine::{EngineState, StateWorkingSet},
 };
@@ -67,7 +67,10 @@ fn main() {
     for path in &paths {
         collect(path, &mut files);
     }
-    let files: Vec<PathBuf> = files.into_iter().map(|file| std::fs::canonicalize(&file).unwrap_or(file)).collect();
+    let files: Vec<PathBuf> = files
+        .into_iter()
+        .map(|file| std::fs::canonicalize(&file).unwrap_or(file))
+        .collect();
     let engine_state = engine(true);
     // `engine` builds the engine with every experimental option at its default. The front ends
     // are compared under the options `NU_EXPERIMENTAL_OPTIONS` sets, as `nu` parses with them;
@@ -81,8 +84,12 @@ fn main() {
         files
             .into_iter()
             .filter(|file| {
-                std::fs::read(file)
-                    .is_ok_and(|source| parse_file(&engine_state, file, &source, false).0.parse_errors.is_empty())
+                std::fs::read(file).is_ok_and(|source| {
+                    parse_file(&engine_state, file, &source, false)
+                        .0
+                        .parse_errors
+                        .is_empty()
+                })
             })
             .collect()
     } else {
@@ -96,17 +103,27 @@ fn main() {
         "allocs" => counting::allocs(&engine_state, &files),
         // For a profiler: winnow's lexer alone, each file lexed whole.
         "loop-lex" => {
-            let sources: Vec<String> = files.iter().filter_map(|file| std::fs::read_to_string(file).ok()).collect();
+            let sources: Vec<String> = files
+                .iter()
+                .filter_map(|file| std::fs::read_to_string(file).ok())
+                .collect();
             for _ in 0..iters {
                 for source in &sources {
-                    let tokens = nu_parser::winnow::syntax::lex::lex(source, 0, nu_parser::winnow::syntax::lex::LexOptions::BLOCK);
+                    let tokens = nu_parser::winnow::syntax::lex::lex(
+                        source,
+                        0,
+                        nu_parser::winnow::syntax::lex::LexOptions::BLOCK,
+                    );
                     std::hint::black_box(tokens.map(|tokens| tokens.len()).ok());
                 }
             }
         }
         // For a profiler: winnow's syntax pass alone, statements dropped (no lowering).
         "loop-syntax" => {
-            let sources: Vec<String> = files.iter().filter_map(|file| std::fs::read_to_string(file).ok()).collect();
+            let sources: Vec<String> = files
+                .iter()
+                .filter_map(|file| std::fs::read_to_string(file).ok())
+                .collect();
             let working_set = StateWorkingSet::new(&engine_state);
             for _ in 0..iters {
                 for source in &sources {
@@ -117,8 +134,10 @@ fn main() {
         // For a profiler: parse the files over and over with one front end.
         "loop-classic" | "loop-winnow" => {
             let winnow = mode == "loop-winnow";
-            let sources: Vec<(PathBuf, Vec<u8>)> =
-                files.iter().filter_map(|file| Some((file.clone(), std::fs::read(file).ok()?))).collect();
+            let sources: Vec<(PathBuf, Vec<u8>)> = files
+                .iter()
+                .filter_map(|file| Some((file.clone(), std::fs::read(file).ok()?)))
+                .collect();
             for _ in 0..iters {
                 for (file, source) in &sources {
                     let (working_set, block) = parse_file(&engine_state, file, source, winnow);
@@ -158,8 +177,9 @@ fn set_winnow(on: bool) {
 
 fn collect(path: &Path, out: &mut Vec<PathBuf>) {
     if path.is_dir() {
-        let mut entries: Vec<PathBuf> =
-            std::fs::read_dir(path).map(|dir| dir.flatten().map(|entry| entry.path()).collect()).unwrap_or_default();
+        let mut entries: Vec<PathBuf> = std::fs::read_dir(path)
+            .map(|dir| dir.flatten().map(|entry| entry.path()).collect())
+            .unwrap_or_default();
         entries.sort();
         for entry in entries {
             collect(&entry, out);
@@ -178,8 +198,15 @@ fn parse_file<'e>(
 ) -> (StateWorkingSet<'e>, Arc<Block>) {
     set_winnow(winnow);
     let mut working_set = StateWorkingSet::new(engine_state);
-    let _ = working_set.files.push(path.to_path_buf(), nu_protocol::Span::unknown());
-    let block = parse(&mut working_set, Some(&path.to_string_lossy()), source, false);
+    let _ = working_set
+        .files
+        .push(path.to_path_buf(), nu_protocol::Span::unknown());
+    let block = parse(
+        &mut working_set,
+        Some(&path.to_string_lossy()),
+        source,
+        false,
+    );
     working_set.files.pop();
     set_winnow(false);
     (working_set, block)
@@ -219,8 +246,12 @@ fn compare(engine_state: &EngineState, files: &[PathBuf], show: bool) {
         {
             let offset = start - base;
             let text = String::from_utf8_lossy(&source);
-            let from = text[..offset.min(text.len())].rfind('\n').map_or(0, |i| i + 1);
-            let to = text[offset.min(text.len())..].find('\n').map_or(text.len(), |i| offset + i);
+            let from = text[..offset.min(text.len())]
+                .rfind('\n')
+                .map_or(0, |i| i + 1);
+            let to = text[offset.min(text.len())..]
+                .find('\n')
+                .map_or(text.len(), |i| offset + i);
             println!("  source  | {}", &text[from..to]);
         }
         let from = at.saturating_sub(3);
@@ -260,7 +291,9 @@ fn syntax_once(working_set: &StateWorkingSet, source: &str) {
     struct Lookup<'a, 'e>(&'a StateWorkingSet<'e>);
     impl nu_parser::winnow::syntax::CommandLookup for Lookup<'_, '_> {
         fn find_decl(&self, name: &str) -> Option<nu_parser::winnow::syntax::DeclKind> {
-            self.0.find_decl(name.as_bytes()).map(|_| nu_parser::winnow::syntax::DeclKind::Declared)
+            self.0
+                .find_decl(name.as_bytes())
+                .map(|_| nu_parser::winnow::syntax::DeclKind::Declared)
         }
         fn is_decl_name_prefix(&self, _word: &str) -> bool {
             true
@@ -287,7 +320,12 @@ fn syntax_once(working_set: &StateWorkingSet, source: &str) {
         }
     }
     let span = nu_parser::winnow::syntax::Span::new(0, source.len());
-    let _ = nu_parser::winnow::syntax::parse_block_streaming(source, span, &Lookup(working_set), &mut Drop);
+    let _ = nu_parser::winnow::syntax::parse_block_streaming(
+        source,
+        span,
+        &Lookup(working_set),
+        &mut Drop,
+    );
 }
 
 fn syntax_time_with(
@@ -299,7 +337,9 @@ fn syntax_time_with(
     struct Lookup<'a, 'e>(&'a StateWorkingSet<'e>, Option<&'a HashSet<String>>);
     impl nu_parser::winnow::syntax::CommandLookup for Lookup<'_, '_> {
         fn find_decl(&self, name: &str) -> Option<nu_parser::winnow::syntax::DeclKind> {
-            self.0.find_decl(name.as_bytes()).map(|_| nu_parser::winnow::syntax::DeclKind::Declared)
+            self.0
+                .find_decl(name.as_bytes())
+                .map(|_| nu_parser::winnow::syntax::DeclKind::Declared)
         }
         fn is_decl_name_prefix(&self, word: &str) -> bool {
             self.1.is_none_or(|prefixes| prefixes.contains(word))
@@ -329,7 +369,9 @@ fn syntax_time_with(
         .map(|_| {
             let start = Instant::now();
             for _ in 0..iters {
-                let _ = nu_parser::winnow::syntax::parse_block_streaming(source, span, &lookup, &mut Drop);
+                let _ = nu_parser::winnow::syntax::parse_block_streaming(
+                    source, span, &lookup, &mut Drop,
+                );
             }
             start.elapsed() / iters.max(1)
         })
@@ -360,7 +402,9 @@ fn syntax_old(engine_state: &EngineState, files: &[PathBuf], iters: u32) {
     struct Lookup<'a, 'e>(&'a StateWorkingSet<'e>);
     impl nu_parser::winnow::syntax::CommandLookup for Lookup<'_, '_> {
         fn find_decl(&self, name: &str) -> Option<nu_parser::winnow::syntax::DeclKind> {
-            self.0.find_decl(name.as_bytes()).map(|_| nu_parser::winnow::syntax::DeclKind::Declared)
+            self.0
+                .find_decl(name.as_bytes())
+                .map(|_| nu_parser::winnow::syntax::DeclKind::Declared)
         }
         fn is_decl_name_prefix(&self, _word: &str) -> bool {
             true
@@ -393,7 +437,8 @@ fn syntax_old(engine_state: &EngineState, files: &[PathBuf], iters: u32) {
         let span = nu_parser::winnow::syntax::Span::new(0, source.len());
         let start = Instant::now();
         for _ in 0..iters {
-            let _ = nu_parser::winnow::syntax::parse_block_streaming(&source, span, &lookup, &mut Drop);
+            let _ =
+                nu_parser::winnow::syntax::parse_block_streaming(&source, span, &lookup, &mut Drop);
         }
         let one = start.elapsed() / iters;
         let start = Instant::now();
@@ -404,7 +449,10 @@ fn syntax_old(engine_state: &EngineState, files: &[PathBuf], iters: u32) {
         let two = start.elapsed() / iters;
         streaming += one;
         plain += two;
-        println!("{:<60} streaming {one:>9.1?}  standalone {two:>9.1?}", file.display());
+        println!(
+            "{:<60} streaming {one:>9.1?}  standalone {two:>9.1?}",
+            file.display()
+        );
     }
     println!("TOTAL streaming {streaming:.2?}, standalone {plain:.2?}");
 }
@@ -417,7 +465,9 @@ fn without_span_ids(text: &str) -> String {
     while let Some(at) = rest.find("span_id: SpanId(") {
         out.push_str(&rest[..at]);
         rest = &rest[at..];
-        rest = rest.find(')').map_or("", |end| rest[end + 1..].trim_start_matches(", "));
+        rest = rest
+            .find(')')
+            .map_or("", |end| rest[end + 1..].trim_start_matches(", "));
     }
     out.push_str(rest);
     out
@@ -426,7 +476,10 @@ fn without_span_ids(text: &str) -> String {
 /// The start of the first `start..end` span in a rendered line.
 fn first_span_start(line: &str) -> Option<usize> {
     line.split(|c: char| !c.is_ascii_digit() && c != '.')
-        .find_map(|word| word.split_once("..").and_then(|(start, _)| start.parse().ok()))
+        .find_map(|word| {
+            word.split_once("..")
+                .and_then(|(start, _)| start.parse().ok())
+        })
 }
 
 fn bench(engine_state: &EngineState, files: &[PathBuf], iters: u32) {
@@ -444,8 +497,9 @@ fn bench(engine_state: &EngineState, files: &[PathBuf], iters: u32) {
         };
         benched += 1;
         bytes += source.len();
-        let syntax =
-            std::str::from_utf8(&source).map_or(Duration::ZERO, |text| syntax_time(engine_state, text, iters * 3));
+        let syntax = std::str::from_utf8(&source).map_or(Duration::ZERO, |text| {
+            syntax_time(engine_state, text, iters * 3)
+        });
         syntax_total += syntax;
         let time = |winnow: bool, iters: u32| {
             let start = Instant::now();
@@ -488,7 +542,10 @@ fn bench(engine_state: &EngineState, files: &[PathBuf], iters: u32) {
         "winnow front end per parse of the set: {:.1} statements lowered, {:.1} parsed by the classic parser ({:.0} bytes), {:.1} blocks by winnow, {:.1} blocks classic, {:.1} runs parsed ahead on a second thread ({:.1} handed to the classic parser)",
         per(after.lowered_statements, before.lowered_statements),
         per(after.classic_statements, before.classic_statements),
-        per(after.classic_statement_bytes, before.classic_statement_bytes),
+        per(
+            after.classic_statement_bytes,
+            before.classic_statement_bytes
+        ),
         per(after.winnow_blocks, before.winnow_blocks),
         per(after.classic_blocks, before.classic_blocks),
         per(after.ahead_runs, before.ahead_runs),
@@ -499,7 +556,12 @@ fn bench(engine_state: &EngineState, files: &[PathBuf], iters: u32) {
 /// The parse as text, every id resolved: the block, the declarations the parse added, the
 /// errors, and the highlighting.
 fn render(working_set: &StateWorkingSet, block: &Block) -> String {
-    let mut renderer = Renderer { working_set, out: String::new(), depth: 0, rendering: HashSet::new() };
+    let mut renderer = Renderer {
+        working_set,
+        out: String::new(),
+        depth: 0,
+        rendering: HashSet::new(),
+    };
     renderer.line("BLOCK");
     renderer.block(block);
     let permanent = working_set.permanent_state.num_decls();
@@ -555,7 +617,11 @@ impl Renderer<'_, '_> {
             LAST_VARIABLE_ID => "$ans".into(),
             _ => {
                 let var = self.working_set.get_variable(var_id);
-                let name = var.name.as_deref().map(String::from_utf8_lossy).unwrap_or_default();
+                let name = var
+                    .name
+                    .as_deref()
+                    .map(String::from_utf8_lossy)
+                    .unwrap_or_default();
                 format!(
                     "var({name}@{}..{}:{} mut={})",
                     var.declaration_span.start, var.declaration_span.end, var.ty, var.mutable
@@ -627,8 +693,11 @@ impl Renderer<'_, '_> {
     }
 
     fn block(&mut self, block: &Block) {
-        let mut captures: Vec<String> =
-            block.captures.iter().map(|(v, s)| format!("{}@{}..{}", self.var(*v), s.start, s.end)).collect();
+        let mut captures: Vec<String> = block
+            .captures
+            .iter()
+            .map(|(v, s)| format!("{}@{}..{}", self.var(*v), s.start, s.end))
+            .collect();
         captures.sort();
         self.line(&format!(
             "span={:?} scoped={} redirect_env={} compiled={} captures={captures:?}",
@@ -660,10 +729,14 @@ impl Renderer<'_, '_> {
                 this.line(&format!("REDIRECT {label} file append={append} {span:?}"));
                 this.nested(|this| this.expression(expr));
             }
-            RedirectionTarget::Pipe { span } => this.line(&format!("REDIRECT {label} pipe {span:?}")),
+            RedirectionTarget::Pipe { span } => {
+                this.line(&format!("REDIRECT {label} pipe {span:?}"))
+            }
         };
         match redirection {
-            PipelineRedirection::Single { source, target: t } => target(self, &format!("{source:?}"), t),
+            PipelineRedirection::Single { source, target: t } => {
+                target(self, &format!("{source:?}"), t)
+            }
             PipelineRedirection::Separate { out, err } => {
                 target(self, "out", out);
                 target(self, "err", err);
@@ -672,7 +745,10 @@ impl Renderer<'_, '_> {
     }
 
     fn expression(&mut self, expression: &Expression) {
-        let head = format!("{}..{} :{}", expression.span.start, expression.span.end, expression.ty);
+        let head = format!(
+            "{}..{} :{}",
+            expression.span.start, expression.span.end, expression.ty
+        );
         match &expression.expr {
             Expr::Var(var_id) => self.line(&format!("Var {} {head}", self.var(*var_id))),
             Expr::VarDecl(var_id) => self.line(&format!("VarDecl {} {head}", self.var(*var_id))),
@@ -686,7 +762,11 @@ impl Renderer<'_, '_> {
                             "{k}={:?} {:?} {:?}",
                             pattern.head,
                             pattern.members,
-                            pattern.constants.iter().map(|c| self.var(*c)).collect::<Vec<_>>()
+                            pattern
+                                .constants
+                                .iter()
+                                .map(|c| self.var(*c))
+                                .collect::<Vec<_>>()
                         ),
                         other => format!("{k}={}", without_span_ids(&format!("{other:?}"))),
                     })
@@ -738,7 +818,10 @@ impl Renderer<'_, '_> {
                     }
                 });
             }
-            Expr::RowCondition(id) | Expr::Subexpression(id) | Expr::Block(id) | Expr::Closure(id) => {
+            Expr::RowCondition(id)
+            | Expr::Subexpression(id)
+            | Expr::Block(id)
+            | Expr::Closure(id) => {
                 let kind = match &expression.expr {
                     Expr::RowCondition(_) => "RowCondition",
                     Expr::Subexpression(_) => "Subexpression",
@@ -822,7 +905,11 @@ impl Renderer<'_, '_> {
                 });
             }
             Expr::Keyword(keyword) => {
-                self.line(&format!("Keyword {} {:?} {head}", String::from_utf8_lossy(&keyword.keyword), keyword.span));
+                self.line(&format!(
+                    "Keyword {} {:?} {head}",
+                    String::from_utf8_lossy(&keyword.keyword),
+                    keyword.span
+                ));
                 self.nested(|this| this.expression(&keyword.expr));
             }
             Expr::ValueWithUnit(value) => {
@@ -835,7 +922,9 @@ impl Renderer<'_, '_> {
             }
             Expr::StringInterpolation(parts) | Expr::GlobInterpolation(parts, _) => {
                 let kind = match &expression.expr {
-                    Expr::GlobInterpolation(_, quoted) => format!("GlobInterpolation quoted={quoted}"),
+                    Expr::GlobInterpolation(_, quoted) => {
+                        format!("GlobInterpolation quoted={quoted}")
+                    }
                     _ => "StringInterpolation".to_string(),
                 };
                 self.line(&format!("{kind} {head}"));
@@ -872,7 +961,9 @@ impl Renderer<'_, '_> {
     fn pattern(&mut self, pattern: &MatchPattern) {
         let head = format!("{}..{}", pattern.span.start, pattern.span.end);
         match &pattern.pattern {
-            Pattern::Variable(var_id) => self.line(&format!("PatVariable {} {head}", self.var(*var_id))),
+            Pattern::Variable(var_id) => {
+                self.line(&format!("PatVariable {} {head}", self.var(*var_id)))
+            }
             Pattern::Rest(var_id) => self.line(&format!("PatRest {} {head}", self.var(*var_id))),
             Pattern::List(items) | Pattern::Or(items) => {
                 self.line(&format!("PatList/Or {head}"));
@@ -931,7 +1022,12 @@ mod counting {
             // SAFETY: allocated by `alloc` above with this layout.
             unsafe { std::alloc::System.dealloc(ptr, layout) }
         }
-        unsafe fn realloc(&self, ptr: *mut u8, layout: std::alloc::Layout, new_size: usize) -> *mut u8 {
+        unsafe fn realloc(
+            &self,
+            ptr: *mut u8,
+            layout: std::alloc::Layout,
+            new_size: usize,
+        ) -> *mut u8 {
             ALLOCATIONS.fetch_add(1, Relaxed);
             ALLOCATED_BYTES.fetch_add(new_size as u64, Relaxed);
             // SAFETY: the caller's pointer and layout, passed on.
@@ -944,12 +1040,17 @@ mod counting {
 
     /// Allocations (and reallocations) per parse of `files`: classic, winnow, winnow's syntax.
     pub(super) fn allocs(engine_state: &EngineState, files: &[PathBuf]) {
-        let sources: Vec<(PathBuf, Vec<u8>)> =
-            files.iter().filter_map(|file| Some((file.clone(), std::fs::read(file).ok()?))).collect();
+        let sources: Vec<(PathBuf, Vec<u8>)> = files
+            .iter()
+            .filter_map(|file| Some((file.clone(), std::fs::read(file).ok()?)))
+            .collect();
         let count = |run: &dyn Fn()| {
             let (calls, bytes) = (ALLOCATIONS.load(Relaxed), ALLOCATED_BYTES.load(Relaxed));
             run();
-            (ALLOCATIONS.load(Relaxed) - calls, ALLOCATED_BYTES.load(Relaxed) - bytes)
+            (
+                ALLOCATIONS.load(Relaxed) - calls,
+                ALLOCATED_BYTES.load(Relaxed) - bytes,
+            )
         };
         for (name, winnow) in [("classic", false), ("winnow", true)] {
             let (calls, bytes) = count(&|| {
@@ -972,7 +1073,10 @@ mod counting {
         let working_set = StateWorkingSet::new(engine_state);
         let (calls, bytes) = count(&|| {
             for (_, source) in &sources {
-                syntax_once(&working_set, std::str::from_utf8(source).unwrap_or_default());
+                syntax_once(
+                    &working_set,
+                    std::str::from_utf8(source).unwrap_or_default(),
+                );
             }
         });
         println!("syntax   {calls:>9} allocations {bytes:>11} bytes");

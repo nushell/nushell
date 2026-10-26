@@ -79,7 +79,9 @@ pub fn last_non_comment_token(tokens: &[Token]) -> Option<TokenContents> {
     let mut expect = TokenContents::Comment;
     for token in tokens.iter().rev() {
         match (token.contents, expect) {
-            (TokenContents::Comment, TokenContents::Comment | TokenContents::Eol) => expect = TokenContents::Eol,
+            (TokenContents::Comment, TokenContents::Comment | TokenContents::Eol) => {
+                expect = TokenContents::Eol
+            }
             (TokenContents::Eol, TokenContents::Eol) => expect = TokenContents::Comment,
             (kind, _) => return Some(kind),
         }
@@ -92,19 +94,32 @@ pub fn last_non_comment_token(tokens: &[Token]) -> Option<TokenContents> {
 /// the pipe (`Eol (Comment Eol)* Pipe`), which is left for the caller. A blank
 /// line in between closes the pipeline instead.
 pub fn pipe_on_later_line(tokens: &mut Tokens<'_, '_>) -> ParseResult<Vec<Token>> {
-    preceded(eol, terminated(repeat(0.., terminated(comment, eol)), peek(pipe))).parse_next(tokens)
+    preceded(
+        eol,
+        terminated(repeat(0.., terminated(comment, eol)), peek(pipe)),
+    )
+    .parse_next(tokens)
 }
 
 /// Consume the lines up to a `|` that continues the pipeline on a later
 /// line, recording their comments. `false` when no such `|` follows.
-pub fn take_pipe_on_later_line(tokens: &mut Tokens<'_, '_>, comments: &mut Vec<Comment>) -> ParseResult<bool> {
-    let Some(comment_lines) = opt(pipe_on_later_line).parse_next(tokens)? else { return Ok(false) };
+pub fn take_pipe_on_later_line(
+    tokens: &mut Tokens<'_, '_>,
+    comments: &mut Vec<Comment>,
+) -> ParseResult<bool> {
+    let Some(comment_lines) = opt(pipe_on_later_line).parse_next(tokens)? else {
+        return Ok(false);
+    };
     record_comments(tokens.working_set, &comment_lines, comments);
     Ok(true)
 }
 
 /// Record comment tokens both in the working set and in `comments`.
-fn record_comments(working_set: &WorkingSet<'_>, comment_tokens: &[Token], comments: &mut Vec<Comment>) {
+fn record_comments(
+    working_set: &WorkingSet<'_>,
+    comment_tokens: &[Token],
+    comments: &mut Vec<Comment>,
+) {
     for token in comment_tokens {
         working_set.add_comment(token.span);
         comments.push(Comment { span: token.span });
@@ -134,7 +149,10 @@ pub enum AfterPipe {
 /// is left at what follows: the command, or the blank line, `;` or end of the
 /// block that drops the pipe. A `|` that only comments follow at the end of
 /// the block is reported once, by `parse_block`, whichever command absorbed it.
-pub fn after_pipe_lines(tokens: &mut Tokens<'_, '_>, plain: bool) -> ParseResult<(Vec<Token>, AfterPipe)> {
+pub fn after_pipe_lines(
+    tokens: &mut Tokens<'_, '_>,
+    plain: bool,
+) -> ParseResult<(Vec<Token>, AfterPipe)> {
     let mut comments: Vec<Token> = repeat(0.., comment).parse_next(tokens)?;
     if plain {
         let later_lines: Option<Vec<Token>> =
@@ -149,14 +167,20 @@ pub fn after_pipe_lines(tokens: &mut Tokens<'_, '_>, plain: bool) -> ParseResult
         return Ok((comments, AfterPipe::Command));
     }
     match next {
-        None | Some(TokenContents::Eol | TokenContents::Semicolon) => Ok((comments, AfterPipe::Dangling)),
+        None | Some(TokenContents::Eol | TokenContents::Semicolon) => {
+            Ok((comments, AfterPipe::Dangling))
+        }
         Some(_) => Ok((comments, AfterPipe::Command)),
     }
 }
 
 /// What follows a pipe ([`after_pipe_lines`]), with the comments before it
 /// recorded.
-pub fn after_pipe(tokens: &mut Tokens<'_, '_>, plain: bool, comments: &mut Vec<Comment>) -> ParseResult<AfterPipe> {
+pub fn after_pipe(
+    tokens: &mut Tokens<'_, '_>,
+    plain: bool,
+    comments: &mut Vec<Comment>,
+) -> ParseResult<AfterPipe> {
     let (comment_tokens, after) = after_pipe_lines(tokens, plain)?;
     record_comments(tokens.working_set, &comment_tokens, comments);
     Ok(after)
@@ -174,7 +198,10 @@ pub fn after_pipe(tokens: &mut Tokens<'_, '_>, plain: bool, comments: &mut Vec<C
 /// pipes, `||` and redirections included, and carries on past an end of line
 /// that the pipeline continues across (a `|` ending the line or starting a
 /// later one).
-pub fn parse_lite_command(tokens: &mut Tokens<'_, '_>, at_line_start: bool) -> ParseResult<LiteCommand> {
+pub fn parse_lite_command(
+    tokens: &mut Tokens<'_, '_>,
+    at_line_start: bool,
+) -> ParseResult<LiteCommand> {
     let working_set = tokens.working_set;
     let mut lite_command = LiteCommand::default();
     if at_line_start {
@@ -189,7 +216,9 @@ pub fn parse_lite_command(tokens: &mut Tokens<'_, '_>, at_line_start: bool) -> P
                 lite_command.parts.push(token);
                 absorbing = true;
             }
-            TokenContents::Pipe | TokenContents::PipePipe | TokenContents::Redirection(_) if absorbing => {
+            TokenContents::Pipe | TokenContents::PipePipe | TokenContents::Redirection(_)
+                if absorbing =>
+            {
                 lite_command.parts.push(token)
             }
             TokenContents::Eol if absorbing => {
@@ -197,8 +226,8 @@ pub fn parse_lite_command(tokens: &mut Tokens<'_, '_>, at_line_start: bool) -> P
                 // Like nu (`last_non_comment_token`), comment lines may come after the
                 // `|`, but a blank line ends the command: `let x = 1 |\n\nls` leaves
                 // `1 |` without an end.
-                let ends_with_pipe =
-                    last_non_comment_token(&tokens.all()[..tokens.position()]) == Some(TokenContents::Pipe);
+                let ends_with_pipe = last_non_comment_token(&tokens.all()[..tokens.position()])
+                    == Some(TokenContents::Pipe);
                 if ends_with_pipe {
                     tokens.next_token();
                     continue;
@@ -215,33 +244,51 @@ pub fn parse_lite_command(tokens: &mut Tokens<'_, '_>, at_line_start: bool) -> P
             TokenContents::Redirection(operator) => {
                 tokens.next_token();
                 if lite_command.parts.is_empty() {
-                    return Err(cut(Diagnostic::message("unexpected redirection: nothing to redirect", token.span)));
+                    return Err(cut(Diagnostic::message(
+                        "unexpected redirection: nothing to redirect",
+                        token.span,
+                    )));
                 }
                 if operator.is_pipe() {
-                    lite_command.redirections.push((Spanned::new(operator, token.span), None));
+                    lite_command
+                        .redirections
+                        .push((Spanned::new(operator, token.span), None));
                     lite_command.pipe_after = Some(token.span);
                     break;
                 }
                 let target = tokens.expect_item("redirection target")?;
-                lite_command.redirections.push((Spanned::new(operator, token.span), Some(target)));
+                lite_command
+                    .redirections
+                    .push((Spanned::new(operator, token.span), Some(target)));
                 continue;
             }
             TokenContents::Pipe => break,
             TokenContents::PipePipe => {
                 return Err(cut(Diagnostic::new(
-                    ErrorKind::ShellSyntax { found: "||", use_instead: "or" },
+                    ErrorKind::ShellSyntax {
+                        found: "||",
+                        use_instead: "or",
+                    },
                     token.span,
                 )
-                .with_help("use `or` for boolean logic, or `try { } catch { }` to run a fallback command")));
+                .with_help(
+                    "use `or` for boolean logic, or `try { } catch { }` to run a fallback command",
+                )));
             }
             TokenContents::Eol | TokenContents::Semicolon | TokenContents::Eof => break,
         }
         tokens.next_token();
     }
-    if lite_command.parts.is_empty() && lite_command.attributes.is_empty() && lite_command.redirections.is_empty() {
+    if lite_command.parts.is_empty()
+        && lite_command.attributes.is_empty()
+        && lite_command.redirections.is_empty()
+    {
         return Err(cut(Diagnostic::expected("command", tokens.here())));
     }
-    lite_command.end = lite_command.parts.last().map_or(tokens.here().start, |token| token.span.end);
+    lite_command.end = lite_command
+        .parts
+        .last()
+        .map_or(tokens.here().start, |token| token.span.end);
     Ok(lite_command)
 }
 
@@ -255,10 +302,14 @@ pub fn parse_lite_command(tokens: &mut Tokens<'_, '_>, at_line_start: bool) -> P
 /// but continues the pipeline the attribute lines start with no command of their
 /// own (`@a x`, a blank line, `| y`; `@a x;`, `| y`); they then become that
 /// command's words.
-fn lite_attribute_lines(tokens: &mut Tokens<'_, '_>, lite_command: &mut LiteCommand) -> ParseResult<()> {
+fn lite_attribute_lines(
+    tokens: &mut Tokens<'_, '_>,
+    lite_command: &mut LiteCommand,
+) -> ParseResult<()> {
     let working_set = tokens.working_set;
     while tokens.peek_token().is_some_and(|token| {
-        token.contents == TokenContents::Item && working_set.get_span_contents(token.span).starts_with('@')
+        token.contents == TokenContents::Item
+            && working_set.get_span_contents(token.span).starts_with('@')
     }) {
         let mut attribute_line = Vec::new();
         let mut ends_with_pipe = false;
@@ -283,7 +334,10 @@ fn lite_attribute_lines(tokens: &mut Tokens<'_, '_>, lite_command: &mut LiteComm
                 TokenContents::Eof => break,
                 _ => {
                     ends_with_pipe = token.contents == TokenContents::Pipe;
-                    attribute_line.push(Token { contents: TokenContents::Item, span: token.span });
+                    attribute_line.push(Token {
+                        contents: TokenContents::Item,
+                        span: token.span,
+                    });
                 }
             }
             tokens.next_token();
@@ -308,8 +362,13 @@ fn lite_attribute_lines(tokens: &mut Tokens<'_, '_>, lite_command: &mut LiteComm
         if let Some(token) = tokens.peek_token()
             && matches!(token.contents, TokenContents::Eol | TokenContents::Comment)
         {
-            return Err(cut(Diagnostic::message("attributes must be followed by a definition", token.span)
-                .with_help("put the `def`, `extern` or `export` on the line right after the attributes")));
+            return Err(cut(Diagnostic::message(
+                "attributes must be followed by a definition",
+                token.span,
+            )
+            .with_help(
+                "put the `def`, `extern` or `export` on the line right after the attributes",
+            )));
         }
     }
     Ok(())
@@ -322,7 +381,10 @@ fn lite_attribute_lines(tokens: &mut Tokens<'_, '_>, lite_command: &mut LiteComm
 /// redirection of the same stream, `||` and a `|` at the end are errors.
 /// After an assignment operator everything is an item (`[a = b | c]` has
 /// five). `;` is left to the caller, which has already refused it.
-pub fn lite_parse_parts(working_set: &WorkingSet<'_>, tokens: &[Token]) -> ParseResult<Vec<Vec<Token>>> {
+pub fn lite_parse_parts(
+    working_set: &WorkingSet<'_>,
+    tokens: &[Token],
+) -> ParseResult<Vec<Vec<Token>>> {
     /// What the current command has redirected, to refuse a second redirection of a stream.
     #[derive(Clone, Copy)]
     enum Redirected {
@@ -333,8 +395,14 @@ pub fn lite_parse_parts(working_set: &WorkingSet<'_>, tokens: &[Token]) -> Parse
         /// Stdout and stderr, each to its own target: nothing more may follow.
         Separate,
     }
-    if let Some(last) = tokens.last().filter(|token| token.contents == TokenContents::Pipe) {
-        return Err(cut(Diagnostic::new(ErrorKind::UnexpectedEof("list item after `|`"), last.span)));
+    if let Some(last) = tokens
+        .last()
+        .filter(|token| token.contents == TokenContents::Pipe)
+    {
+        return Err(cut(Diagnostic::new(
+            ErrorKind::UnexpectedEof("list item after `|`"),
+            last.span,
+        )));
     }
     let mut groups: Vec<Vec<Token>> = Vec::new();
     let mut parts: Vec<Token> = Vec::new();
@@ -352,7 +420,10 @@ pub fn lite_parse_parts(working_set: &WorkingSet<'_>, tokens: &[Token]) -> Parse
             TokenContents::Item => parts.push(*token),
             TokenContents::PipePipe => {
                 return Err(cut(Diagnostic::new(
-                    ErrorKind::ShellSyntax { found: "||", use_instead: "or" },
+                    ErrorKind::ShellSyntax {
+                        found: "||",
+                        use_instead: "or",
+                    },
                     token.span,
                 )));
             }
@@ -362,7 +433,10 @@ pub fn lite_parse_parts(working_set: &WorkingSet<'_>, tokens: &[Token]) -> Parse
             }
             TokenContents::Redirection(operator) => {
                 if parts.is_empty() {
-                    return Err(cut(Diagnostic::message("unexpected redirection: nothing to redirect", token.span)));
+                    return Err(cut(Diagnostic::message(
+                        "unexpected redirection: nothing to redirect",
+                        token.span,
+                    )));
                 }
                 redirected = match (redirected, operator.source()) {
                     (Redirected::None, source) => Redirected::Single(source),
@@ -371,7 +445,10 @@ pub fn lite_parse_parts(working_set: &WorkingSet<'_>, tokens: &[Token]) -> Parse
                         Redirected::Separate
                     }
                     _ => {
-                        return Err(cut(Diagnostic::message("multiple redirections of the same stream", token.span)));
+                        return Err(cut(Diagnostic::message(
+                            "multiple redirections of the same stream",
+                            token.span,
+                        )));
                     }
                 };
                 working_set.add_ignored(token.span);
@@ -385,10 +462,18 @@ pub fn lite_parse_parts(working_set: &WorkingSet<'_>, tokens: &[Token]) -> Parse
                         working_set.add_ignored(target.span);
                         index += 1;
                     }
-                    _ => return Err(cut(Diagnostic::expected("redirection target", token.span.past()))),
+                    _ => {
+                        return Err(cut(Diagnostic::expected(
+                            "redirection target",
+                            token.span.past(),
+                        )));
+                    }
                 }
             }
-            TokenContents::Comment | TokenContents::Eol | TokenContents::Semicolon | TokenContents::Eof => {}
+            TokenContents::Comment
+            | TokenContents::Eol
+            | TokenContents::Semicolon
+            | TokenContents::Eof => {}
         }
     }
     groups.push(parts);

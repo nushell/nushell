@@ -90,7 +90,10 @@ impl Scope {
 
     /// How calls to `name`, declared in this scope, parse.
     fn kind(&self, name: &str) -> DeclKind {
-        self.kinds.iter().find(|(declared, _)| **declared == *name).map_or(DeclKind::Declared, |&(_, kind)| kind)
+        self.kinds
+            .iter()
+            .find(|(declared, _)| **declared == *name)
+            .map_or(DeclKind::Declared, |&(_, kind)| kind)
     }
 }
 
@@ -237,7 +240,11 @@ impl<'a> WorkingSet<'a> {
 
     /// A working set that goes on from `state`, what an earlier one over the same text knew
     /// ([`WorkingSet::into_state`]), with the commands `lookup` knows.
-    pub(crate) fn with_state(source: &'a str, lookup: impl CommandLookup + 'a, state: ParseState) -> Self {
+    pub(crate) fn with_state(
+        source: &'a str,
+        lookup: impl CommandLookup + 'a,
+        state: ParseState,
+    ) -> Self {
         let mut working_set = Self::new(source, &ParseConfig::empty());
         working_set.lookup = Some(Box::new(lookup));
         working_set.scopes = RefCell::new(state.scopes);
@@ -261,19 +268,38 @@ impl<'a> WorkingSet<'a> {
     }
 
     /// Lex at most `max_tokens` tokens of the text of `span` (nu's `lex_n_tokens`).
-    pub fn lex_n_tokens(&self, span: Span, options: LexOptions, max_tokens: usize) -> Result<Vec<Token>, Diagnostic> {
+    pub fn lex_n_tokens(
+        &self,
+        span: Span,
+        options: LexOptions,
+        max_tokens: usize,
+    ) -> Result<Vec<Token>, Diagnostic> {
         let mut groups = self.groups.borrow_mut();
-        lex::lex_n_tokens_with(self.get_span_contents(span), span.start, options, max_tokens, &mut groups)
+        lex::lex_n_tokens_with(
+            self.get_span_contents(span),
+            span.start,
+            options,
+            max_tokens,
+            &mut groups,
+        )
     }
 
     /// The offset in the text of `span` of the bracket closing the group it starts with
     /// ([`lex::group_end`]).
     pub fn group_end(&self, span: Span) -> Option<usize> {
-        lex::group_end_with(self.get_span_contents(span), span.start, &mut self.groups.borrow_mut())
+        lex::group_end_with(
+            self.get_span_contents(span),
+            span.start,
+            &mut self.groups.borrow_mut(),
+        )
     }
 
     /// The next token of `input`, a stream over part of the source ([`lex::next_token`]).
-    pub fn next_token(&self, input: &mut Input<'_>, options: LexOptions) -> ParseResult<Option<Token>> {
+    pub fn next_token(
+        &self,
+        input: &mut Input<'_>,
+        options: LexOptions,
+    ) -> ParseResult<Option<Token>> {
         lex::next_token(input, options, &mut self.groups.borrow_mut())
     }
 
@@ -307,8 +333,12 @@ impl<'a> WorkingSet<'a> {
 
     /// Record every comment token in `tokens`.
     pub fn add_comments(&self, tokens: &[Token]) {
-        let comments = tokens.iter().filter(|token| token.contents == TokenContents::Comment);
-        self.comments.borrow_mut().extend(comments.map(|token| Comment { span: token.span }));
+        let comments = tokens
+            .iter()
+            .filter(|token| token.contents == TokenContents::Comment);
+        self.comments
+            .borrow_mut()
+            .extend(comments.map(|token| Comment { span: token.span }));
     }
 
     /// Record text that nu-parser accepts and discards (see [`crate::winnow::syntax::ast::Ast::ignored`]).
@@ -330,7 +360,11 @@ impl<'a> WorkingSet<'a> {
     #[inline]
     pub fn find_decl(&self, name: &str) -> Option<DeclKind> {
         let scopes = self.scopes.borrow();
-        if let Some(scope) = scopes.iter().rev().find(|scope| scope.commands.names.contains(name)) {
+        if let Some(scope) = scopes
+            .iter()
+            .rev()
+            .find(|scope| scope.commands.names.contains(name))
+        {
             return Some(scope.kind(name));
         }
         match &self.lookup {
@@ -343,7 +377,10 @@ impl<'a> WorkingSet<'a> {
     /// enclosing block (and so shadows a built-in command of that name).
     #[inline]
     pub fn is_declared(&self, name: &str) -> bool {
-        self.scopes.borrow().iter().any(|scope| scope.commands.names.contains(name))
+        self.scopes
+            .borrow()
+            .iter()
+            .any(|scope| scope.commands.names.contains(name))
     }
 
     /// Whether `word` is the first word of some known multi-word command.
@@ -353,14 +390,21 @@ impl<'a> WorkingSet<'a> {
             Some(lookup) => lookup.is_decl_name_prefix(word),
             None => self.config.is_prefix(word),
         };
-        known || self.scopes.borrow().iter().any(|scope| scope.commands.prefixes.contains(word))
+        known
+            || self
+                .scopes
+                .borrow()
+                .iter()
+                .any(|scope| scope.commands.prefixes.contains(word))
     }
 
     /// Whether the lookup has nested blocks that change which commands exist left unparsed
     /// ([`CommandLookup::defers_command_changing_blocks`]).
     #[inline]
     pub fn defers_command_changing_blocks(&self) -> bool {
-        self.lookup.as_ref().is_some_and(|lookup| lookup.defers_command_changing_blocks())
+        self.lookup
+            .as_ref()
+            .is_some_and(|lookup| lookup.defers_command_changing_blocks())
     }
 
     /// An upper bound on the length of every command name: no longer name is known.
@@ -398,7 +442,8 @@ impl<'a> WorkingSet<'a> {
     /// parsed, so calls to it resolve (nu's `add_predecl`); `kind` is
     /// [`DeclKind::Wrapped`] or [`DeclKind::Declared`].
     pub fn add_predecl(&self, name: &str, kind: DeclKind) {
-        self.longest_declared.set(self.longest_declared.get().max(name.len()));
+        self.longest_declared
+            .set(self.longest_declared.get().max(name.len()));
         if let Some(scope) = self.scopes.borrow_mut().last_mut() {
             scope.declare(name, kind);
         }
@@ -439,6 +484,10 @@ impl<'a> WorkingSet<'a> {
         ignored.dedup();
         let mut parse_errors = self.parse_errors.into_inner();
         parse_errors.sort_by_key(|diagnostic| (diagnostic.span.start, diagnostic.span.end));
-        Collected { comments, ignored, parse_errors }
+        Collected {
+            comments,
+            ignored,
+            parse_errors,
+        }
     }
 }

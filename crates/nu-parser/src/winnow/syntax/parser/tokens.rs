@@ -50,14 +50,25 @@ pub struct Tokens<'t, 'a> {
 impl<'t, 'a> Tokens<'t, 'a> {
     /// A stream over `tokens`, which end at byte offset `end` in the source.
     pub fn new(working_set: &'t WorkingSet<'a>, tokens: &'t [Token], end: usize) -> Self {
-        Self { working_set, tokens, position: 0, end }
+        Self {
+            working_set,
+            tokens,
+            position: 0,
+            end,
+        }
     }
 
     /// A stream over the output of the lexer, whose last token is `Eof`.
     pub fn from_lexed(working_set: &'t WorkingSet<'a>, tokens: &'t [Token]) -> Self {
         match tokens.split_last() {
-            Some((eof, rest)) if eof.contents == TokenContents::Eof => Self::new(working_set, rest, eof.span.start),
-            _ => Self::new(working_set, tokens, tokens.last().map_or(0, |token| token.span.end)),
+            Some((eof, rest)) if eof.contents == TokenContents::Eof => {
+                Self::new(working_set, rest, eof.span.start)
+            }
+            _ => Self::new(
+                working_set,
+                tokens,
+                tokens.last().map_or(0, |token| token.span.end),
+            ),
         }
     }
 
@@ -114,7 +125,8 @@ impl<'t, 'a> Tokens<'t, 'a> {
     /// The span of the next token, or the empty span at the end.
     #[inline]
     pub fn here(&self) -> Span {
-        self.peek_token().map_or(Span::point(self.end), |token| token.span)
+        self.peek_token()
+            .map_or(Span::point(self.end), |token| token.span)
     }
 
     /// The empty span at the end of the tokens.
@@ -159,8 +171,16 @@ impl<'t, 'a> Tokens<'t, 'a> {
     /// A stream over the tokens in `range` (indices into [`Tokens::all`]),
     /// ending where the token after the range starts.
     pub fn slice(&self, range: Range<usize>) -> Tokens<'t, 'a> {
-        let end = self.tokens.get(range.end).map_or(self.end, |token| token.span.start);
-        Tokens { working_set: self.working_set, tokens: &self.tokens[range], position: 0, end }
+        let end = self
+            .tokens
+            .get(range.end)
+            .map_or(self.end, |token| token.span.start);
+        Tokens {
+            working_set: self.working_set,
+            tokens: &self.tokens[range],
+            position: 0,
+            end,
+        }
     }
 
     /// A stream over what is left, as an independent slice.
@@ -171,14 +191,19 @@ impl<'t, 'a> Tokens<'t, 'a> {
     /// The token right after byte offset `offset` (the operator after its left
     /// operand, for instance).
     pub fn token_after(&self, offset: usize) -> Option<&'t Token> {
-        let index = self.tokens.partition_point(|token| token.span.start < offset);
+        let index = self
+            .tokens
+            .partition_point(|token| token.span.start < offset);
         self.tokens.get(index)
     }
 }
 
 impl fmt::Debug for Tokens<'_, '_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Tokens").field("remaining", &self.remaining()).field("end", &self.end).finish()
+        f.debug_struct("Tokens")
+            .field("remaining", &self.remaining())
+            .field("end", &self.end)
+            .finish()
     }
 }
 
@@ -243,7 +268,10 @@ impl<'t> Stream for Tokens<'t, '_> {
 
     #[inline]
     fn offset_at(&self, tokens: usize) -> Result<usize, Needed> {
-        match tokens.checked_sub(self.eof_offset()).and_then(NonZeroUsize::new) {
+        match tokens
+            .checked_sub(self.eof_offset())
+            .and_then(NonZeroUsize::new)
+        {
             Some(needed) => Err(Needed::Size(needed)),
             None => Ok(tokens),
         }
@@ -296,7 +324,11 @@ impl StreamIsPartial for Tokens<'_, '_> {
 impl Location for Tokens<'_, '_> {
     #[inline]
     fn previous_token_end(&self) -> usize {
-        match self.position.checked_sub(1).and_then(|index| self.tokens.get(index)) {
+        match self
+            .position
+            .checked_sub(1)
+            .and_then(|index| self.tokens.get(index))
+        {
             Some(token) => token.span.end,
             None => self.here().start,
         }
@@ -321,7 +353,11 @@ impl<'t, 'a: 't> ParserError<Tokens<'t, 'a>> for ParseFailure {
 
     fn or(self, other: Self) -> Self {
         // Prefer the failure that got furthest.
-        if other.offset() >= self.offset() { other } else { self }
+        if other.offset() >= self.offset() {
+            other
+        } else {
+            self
+        }
     }
 
     fn into_inner(self) -> Result<Self::Inner, Self> {
@@ -331,7 +367,12 @@ impl<'t, 'a: 't> ParserError<Tokens<'t, 'a>> for ParseFailure {
 
 /// winnow's `.context("...")` over tokens ([`ParseFailure::with_context`]).
 impl<'t, 'a: 't> AddContext<Tokens<'t, 'a>, &'static str> for ParseFailure {
-    fn add_context(self, _tokens: &Tokens<'t, 'a>, _start: &TokenPosition, context: &'static str) -> Self {
+    fn add_context(
+        self,
+        _tokens: &Tokens<'t, 'a>,
+        _start: &TokenPosition,
+        context: &'static str,
+    ) -> Self {
         self.with_context(context)
     }
 }
@@ -363,11 +404,14 @@ pub fn item(tokens: &mut Tokens<'_, '_>) -> ParseResult<Token> {
 
 /// An item spelled exactly `word`, such as `else`, `in` or `=>`.
 #[inline]
-pub fn keyword<'t, 'a: 't>(word: &'static str) -> impl Parser<Tokens<'t, 'a>, Token, ErrMode<ParseFailure>> {
+pub fn keyword<'t, 'a: 't>(
+    word: &'static str,
+) -> impl Parser<Tokens<'t, 'a>, Token, ErrMode<ParseFailure>> {
     move |tokens: &mut Tokens<'t, 'a>| {
         let working_set = tokens.working_set;
         token_where(tokens, |token| {
-            token.contents == TokenContents::Item && working_set.get_span_contents(token.span) == word
+            token.contents == TokenContents::Item
+                && working_set.get_span_contents(token.span) == word
         })
     }
 }
@@ -397,7 +441,9 @@ pub fn expected<'t, 'a: 't, O>(
     what: &'static str,
     parser: impl Parser<Tokens<'t, 'a>, O, ErrMode<ParseFailure>>,
 ) -> impl Parser<Tokens<'t, 'a>, O, ErrMode<ParseFailure>> {
-    cut_with(parser, move |tokens| Diagnostic::expected(what, tokens.here()))
+    cut_with(parser, move |tokens| {
+        Diagnostic::expected(what, tokens.here())
+    })
 }
 
 /// Commit to `parser`: where it does not match, fail with the diagnostic
@@ -438,7 +484,8 @@ pub fn tokens_until<'t, 'a: 't>(
         let working_set = tokens.working_set;
         let start = tokens.position;
         let length = tokens.remaining().iter().position(|token| {
-            token.contents == TokenContents::Item && working_set.get_span_contents(token.span) == word
+            token.contents == TokenContents::Item
+                && working_set.get_span_contents(token.span) == word
         });
         let end = length.map_or(tokens.tokens.len(), |length| start + length);
         tokens.position = end;

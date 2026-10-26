@@ -1,8 +1,8 @@
 //! `module`, `use`, `export` and `export-env` (nu-parser's `parse_module.rs`).
 
 use crate::winnow::syntax::ast::{
-    Export, ExportEnv, Expr, Expression, ImportPatternMember, ImportPatternMemberKind, ListItem, Module, Quote,
-    RecordItem, SyntaxShape, Use,
+    Export, ExportEnv, Expr, Expression, ImportPatternMember, ImportPatternMemberKind, ListItem,
+    Module, Quote, RecordItem, SyntaxShape, Use,
 };
 use crate::winnow::syntax::error::{Diagnostic, ErrorKind};
 use crate::winnow::syntax::input::{ParseResult, cut};
@@ -12,7 +12,8 @@ use crate::winnow::syntax::span::{Span, Spanned};
 use super::WorkingSet;
 use super::parse_alias::parse_alias;
 use super::parse_expressions::{
-    ExpectedShape, parse_block_body_unchecked, parse_builtin_commands, parse_list_expression, parse_value,
+    ExpectedShape, parse_block_body_unchecked, parse_builtin_commands, parse_list_expression,
+    parse_value,
 };
 use super::parse_helpers::{is_help_flag, is_help_text};
 use super::parse_keywords::{
@@ -25,17 +26,20 @@ use super::tokens::Tokens;
 /// The name of a `module`: a string literal, quoted or not. nu's `module`
 /// takes a `string` argument and then needs a literal: a variable, a
 /// subexpression or an interpolation is not one.
-fn parse_module_name<'a>(working_set: &WorkingSet<'a>, token: &Token) -> ParseResult<Expression<'a>> {
+fn parse_module_name<'a>(
+    working_set: &WorkingSet<'a>,
+    token: &Token,
+) -> ParseResult<Expression<'a>> {
     let text = working_set.get_span_contents(token.span);
     if text.starts_with(['$', '(', '{']) {
-        return Err(
-            cut(Diagnostic::expected("string", token.span).with_help("the name of a module must be a literal")),
-        );
+        return Err(cut(Diagnostic::expected("string", token.span)
+            .with_help("the name of a module must be a literal")));
     }
     let name = parse_value(working_set, token.span, ExpectedShape::String)?;
     match name.expr {
         Expr::String(_) => Ok(name),
-        _ => Err(cut(Diagnostic::expected("string", token.span).with_help("the name of a module must be a literal"))),
+        _ => Err(cut(Diagnostic::expected("string", token.span)
+            .with_help("the name of a module must be a literal"))),
     }
 }
 
@@ -59,11 +63,19 @@ pub fn parse_module<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a
     // then takes `--` as the name.
     if working_set.get_span_contents(name_token.span) == "--" {
         match tokens.peek_token() {
-            None => return Err(cut(Diagnostic::expected("module name after `--`", name_token.span.past()))),
-            Some(token) if working_set.get_span_contents(token.span).starts_with(['{', '$', '(']) => {
-                return Err(cut(
-                    Diagnostic::expected("string", token.span).with_help("the name of a module must be a literal")
-                ));
+            None => {
+                return Err(cut(Diagnostic::expected(
+                    "module name after `--`",
+                    name_token.span.past(),
+                )));
+            }
+            Some(token)
+                if working_set
+                    .get_span_contents(token.span)
+                    .starts_with(['{', '$', '(']) =>
+            {
+                return Err(cut(Diagnostic::expected("string", token.span)
+                    .with_help("the name of a module must be a literal")));
             }
             Some(_) => {}
         }
@@ -73,7 +85,8 @@ pub fn parse_module<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a
     let mut end = name_token.span;
     let body = match tokens.peek_token() {
         Some(token)
-            if token.contents == TokenContents::Item && working_set.get_span_contents(token.span).starts_with('{') =>
+            if token.contents == TokenContents::Item
+                && working_set.get_span_contents(token.span).starts_with('{') =>
         {
             end = token.span;
             tokens.next_token();
@@ -95,7 +108,9 @@ pub fn parse_module<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a
                     && is_alias_without_target(&export.item)
                 {
                     return Err(cut(Diagnostic::message("incomplete alias", first.span)
-                        .with_help("an alias needs a name, `=` and a command: `export alias x = ls`")));
+                        .with_help(
+                            "an alias needs a name, `=` and a command: `export alias x = ls`",
+                        )));
                 }
             }
             Some(body)
@@ -114,7 +129,13 @@ pub fn parse_module<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a
         tokens.next_token();
     }
     tokens.expect_end()?;
-    Ok(Expression::new(Expr::Module(Module { name: Box::new(name), body }), keyword.span.merge(end)))
+    Ok(Expression::new(
+        Expr::Module(Module {
+            name: Box::new(name),
+            body,
+        }),
+        keyword.span.merge(end),
+    ))
 }
 
 /// `module ... --help`. nu parses `module` as a call before anything else,
@@ -129,7 +150,12 @@ fn parse_module_help_call<'a>(statement: Tokens<'_, 'a>) -> Option<ParseResult<E
     let mut end_of_options = false;
     let mut positionals = Vec::new();
     let mut unknown_flag = None;
-    for token in statement.remaining().iter().skip(1).filter(|token| token.contents == TokenContents::Item) {
+    for token in statement
+        .remaining()
+        .iter()
+        .skip(1)
+        .filter(|token| token.contents == TokenContents::Item)
+    {
         match working_set.get_span_contents(token.span) {
             "--" if !end_of_options => end_of_options = true,
             flag if !end_of_options && is_help_text(flag) => help = true,
@@ -143,29 +169,48 @@ fn parse_module_help_call<'a>(statement: Tokens<'_, 'a>) -> Option<ParseResult<E
         return None;
     }
     if let Some((flag, span)) = unknown_flag {
-        return Some(Err(cut(Diagnostic::message(format!("the `module` command doesn't have flag `{flag}`"), span)
-            .with_help("use `--help` to see available flags"))));
+        return Some(Err(cut(Diagnostic::message(
+            format!("the `module` command doesn't have flag `{flag}`"),
+            span,
+        )
+        .with_help("use `--help` to see available flags"))));
     }
     if let Some(name) = positionals.first() {
-        match parse_value(working_set, name.span, ExpectedShape::Declared(&SyntaxShape::String)) {
+        match parse_value(
+            working_set,
+            name.span,
+            ExpectedShape::Declared(&SyntaxShape::String),
+        ) {
             Err(error) => return Some(Err(error)),
             // nu type-checks the name, and a record is not a string.
-            Ok(Expression { expr: Expr::Record(_), .. }) => {
-                return Some(Err(cut(Diagnostic::expected("string", name.span).with_help("found a record"))));
+            Ok(Expression {
+                expr: Expr::Record(_),
+                ..
+            }) => {
+                return Some(Err(cut(
+                    Diagnostic::expected("string", name.span).with_help("found a record")
+                )));
             }
             Ok(_) => {}
         }
     }
     if let Some(extra) = positionals.get(2) {
-        return Some(Err(cut(
-            Diagnostic::message("extra positional argument", extra.span).with_help("`module` takes a name and a block")
-        )));
+        return Some(Err(cut(Diagnostic::message(
+            "extra positional argument",
+            extra.span,
+        )
+        .with_help("`module` takes a name and a block"))));
     }
     let mut tokens = statement;
-    Some(match (KeywordCall::start_positional(&mut tokens), positionals.get(1)) {
-        (Ok(call), Some(block)) => call.help_call_without(block),
-        _ => parse_help_call(statement),
-    })
+    Some(
+        match (
+            KeywordCall::start_positional(&mut tokens),
+            positionals.get(1),
+        ) {
+            (Ok(call), Some(block)) => call.help_call_without(block),
+            _ => parse_help_call(statement),
+        },
+    )
 }
 
 /// An `alias` that defines nothing: no target after its `=`, or kept as a
@@ -217,9 +262,16 @@ pub fn parse_use<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> 
             return parse_help_call(statement);
         }
         let text = working_set.get_span_contents(token.span);
-        if token.contents == TokenContents::Item && text.starts_with('-') && text.len() > 1 && text != "--" {
-            return Err(cut(Diagnostic::message(format!("the `use` command doesn't have flag `{text}`"), token.span)
-                .with_help("use `--help` to see available flags")));
+        if token.contents == TokenContents::Item
+            && text.starts_with('-')
+            && text.len() > 1
+            && text != "--"
+        {
+            return Err(cut(Diagnostic::message(
+                format!("the `use` command doesn't have flag `{text}`"),
+                token.span,
+            )
+            .with_help("use `--help` to see available flags")));
         }
     }
     keyword_boundary(&mut tokens, "use", &[])?;
@@ -229,7 +281,9 @@ pub fn parse_use<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> 
         _ => {
             let module = parse_value(working_set, module_token.span, ExpectedShape::String)?;
             if let Expr::Record(_) = module.expr {
-                return Err(cut(Diagnostic::expected("string", module_token.span).with_help("found a record")));
+                return Err(cut(
+                    Diagnostic::expected("string", module_token.span).with_help("found a record")
+                ));
             }
             module
         }
@@ -243,9 +297,15 @@ pub fn parse_use<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> 
             working_set.add_ignored(token.span);
             continue;
         }
-        if members.last().is_some_and(|member: &ImportPatternMember<'_>| {
-            matches!(member.kind, ImportPatternMemberKind::Glob | ImportPatternMemberKind::List(_))
-        }) {
+        if members
+            .last()
+            .is_some_and(|member: &ImportPatternMember<'_>| {
+                matches!(
+                    member.kind,
+                    ImportPatternMemberKind::Glob | ImportPatternMemberKind::List(_)
+                )
+            })
+        {
             return Err(cut(Diagnostic::message(
                 "a `*` or `[...]` member can only be at the end of an import pattern",
                 token.span,
@@ -254,7 +314,13 @@ pub fn parse_use<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> 
         members.push(parse_import_pattern_member(working_set, token, noop)?);
         end = token.span;
     }
-    Ok(Expression::new(Expr::Use(Use { module: Box::new(module), members }), keyword.span.merge(end)))
+    Ok(Expression::new(
+        Expr::Use(Use {
+            module: Box::new(module),
+            members,
+        }),
+        keyword.span.merge(end),
+    ))
 }
 
 /// One member of an import pattern, classified as nu does from the parsed
@@ -271,8 +337,10 @@ pub fn parse_import_pattern_member<'a>(
     let text = working_set.get_span_contents(token.span);
     let span = token.span;
     let wrong = |expr: &Expression<'_>| {
-        cut(Diagnostic::message("wrong import pattern structure", expr.span)
-            .with_help("only strings and lists of strings can be imported"))
+        cut(
+            Diagnostic::message("wrong import pattern structure", expr.span)
+                .with_help("only strings and lists of strings can be imported"),
+        )
     };
     let kind = match text.as_bytes()[0] {
         b'*' if text == "*" => ImportPatternMemberKind::Glob,
@@ -303,9 +371,14 @@ pub fn parse_import_pattern_member<'a>(
 
 /// The names in a `use module [a b c]` list. Items that are not strings are
 /// parsed and ignored, as is a cell path after the list (`[math].x`).
-fn parse_import_pattern_list<'a>(working_set: &WorkingSet<'a>, token: &Token) -> ParseResult<ImportPatternMember<'a>> {
+fn parse_import_pattern_list<'a>(
+    working_set: &WorkingSet<'a>,
+    token: &Token,
+) -> ParseResult<ImportPatternMember<'a>> {
     let span = token.span;
-    let list_end = working_set.group_end(span).map_or(span.end, |close| span.start + close + 1);
+    let list_end = working_set
+        .group_end(span)
+        .map_or(span.end, |close| span.start + close + 1);
     let list = parse_list_expression(working_set, Span::new(span.start, list_end))?;
     if list_end < span.end {
         // Parse the cell path for its errors, then drop it like nu.
@@ -318,16 +391,23 @@ fn parse_import_pattern_list<'a>(working_set: &WorkingSet<'a>, token: &Token) ->
     let mut names = Vec::new();
     for item in items {
         match item {
-            ListItem::Item(Expression { span, expr: Expr::String(string) }) => {
-                names.push(Spanned::new(string.value, span))
-            }
+            ListItem::Item(Expression {
+                span,
+                expr: Expr::String(string),
+            }) => names.push(Spanned::new(string.value, span)),
             ListItem::Item(other) => working_set.add_ignored(other.span),
             ListItem::Spread { dots, .. } => {
-                return Err(cut(Diagnostic::message("cannot spread in an import pattern", dots)));
+                return Err(cut(Diagnostic::message(
+                    "cannot spread in an import pattern",
+                    dots,
+                )));
             }
         }
     }
-    Ok(ImportPatternMember { span, kind: ImportPatternMemberKind::List(names) })
+    Ok(ImportPatternMember {
+        span,
+        kind: ImportPatternMemberKind::List(names),
+    })
 }
 
 /// `export def|extern|alias|use|module|const ...` (nu's `parse_export_in_block`).
@@ -349,25 +429,40 @@ pub fn parse_export_in_block<'a>(tokens: Tokens<'_, 'a>) -> ParseResult<Expressi
         text if is_help_text(text) => {
             // `export` has no positionals and no flag but help, so `export --help
             // -h` shows help and `export --help x` is one positional too many.
-            if let Some(extra) = items[2..].iter().find(|token| !is_help_flag(working_set, token)) {
+            if let Some(extra) = items[2..]
+                .iter()
+                .find(|token| !is_help_flag(working_set, token))
+            {
                 return Err(cut(Diagnostic::new(ErrorKind::ExtraTokens, extra.span)
                     .with_help("`export` takes no positional arguments")));
             }
             return parse_help_call(tokens);
         }
         other => {
-            return Err(cut(Diagnostic::message(format!("`export {other}` is not a valid export"), next.span)
-                .with_help("expected `def`, `extern`, `alias`, `type`, `use`, `module` or `const`")));
+            return Err(cut(Diagnostic::message(
+                format!("`export {other}` is not a valid export"),
+                next.span,
+            )
+            .with_help(
+                "expected `def`, `extern`, `alias`, `type`, `use`, `module` or `const`",
+            )));
         }
     }
     let rest = tokens.slice(1..items.len());
     let item = match working_set.get_span_contents(next.span) {
-        "alias" => parse_alias(rest, true).map_err(|error| error.map(|failure| failure.with_context("alias")))?,
-        "type" => parse_type_alias(rest, true).map_err(|error| error.map(|failure| failure.with_context("type")))?,
+        "alias" => parse_alias(rest, true)
+            .map_err(|error| error.map(|failure| failure.with_context("alias")))?,
+        "type" => parse_type_alias(rest, true)
+            .map_err(|error| error.map(|failure| failure.with_context("type")))?,
         _ => parse_builtin_commands(rest)?,
     };
     let span = keyword.span.merge(item.span);
-    Ok(Expression::new(Expr::Export(Export { item: Box::new(item) }), span))
+    Ok(Expression::new(
+        Expr::Export(Export {
+            item: Box::new(item),
+        }),
+        span,
+    ))
 }
 
 /// `export-env { block }`. nu takes its one argument by position.
@@ -380,13 +475,16 @@ pub fn parse_export_env<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expressio
     if call.help_flag(&mut tokens)
         && let [keyword, help, dropped @ ..] = statement.remaining()
     {
-        let help_call = parse_help_call(Tokens::new(working_set, &[*keyword, *help], help.span.end))?;
+        let help_call =
+            parse_help_call(Tokens::new(working_set, &[*keyword, *help], help.span.end))?;
         for ignored in dropped {
             working_set.add_ignored(ignored.span);
         }
         return Ok(help_call);
     }
-    let Some(block) = call.positional(&mut tokens, "block")? else { return call.help_call() };
+    let Some(block) = call.positional(&mut tokens, "block")? else {
+        return call.help_call();
+    };
     let body = parse_block_argument(working_set, &block, "block")?;
     // nu hands `export-env` exactly one argument: anything after it is dropped.
     for ignored in tokens.remaining() {

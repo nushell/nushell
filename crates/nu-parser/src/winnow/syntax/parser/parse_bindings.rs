@@ -5,7 +5,9 @@ use crate::winnow::syntax::error::Diagnostic;
 use crate::winnow::syntax::input::{ParseResult, cut};
 use crate::winnow::syntax::lex::{AssignmentOperator, TokenContents};
 
-use super::parse_keywords::{KeywordBoundary, keyword_boundary, keyword_boundary_with, parse_help_call};
+use super::parse_keywords::{
+    KeywordBoundary, keyword_boundary, keyword_boundary_with, parse_help_call,
+};
 use super::parse_pipelines::parse_block;
 use super::parse_signatures::{parse_type_after_var, parse_var_with_opt_type};
 use super::tokens::Tokens;
@@ -52,7 +54,9 @@ fn parse_binding<'a>(mut tokens: Tokens<'_, 'a>, kind: BindingKind) -> ParseResu
     if let KeywordBoundary::Help = keyword_boundary_with(&mut tokens, keyword_name, &[], false)? {
         return parse_help_call(statement);
     }
-    let has_equals = items.iter().any(|token| matches!(token.contents, TokenContents::AssignmentOperator(_)));
+    let has_equals = items
+        .iter()
+        .any(|token| matches!(token.contents, TokenContents::AssignmentOperator(_)));
     if matches!(kind, BindingKind::Let)
         && !has_equals
         && let Some(&marker) = tokens.peek_token()
@@ -83,13 +87,21 @@ fn parse_binding<'a>(mut tokens: Tokens<'_, 'a>, kind: BindingKind) -> ParseResu
             return parse_help_call(statement);
         }
     }
-    let ty = parse_type_after_var(working_set, &items[tokens.position()..equals_index], typed, name_token.span.past())?;
+    let ty = parse_type_after_var(
+        working_set,
+        &items[tokens.position()..equals_index],
+        typed,
+        name_token.span.past(),
+    )?;
     let (value, end) = match equals {
         // nu parses everything after the `=` as a block of its own (`let x = ls | length`).
         Some(equals) => {
             let rhs = tokens.slice(equals_index + 1..items.len());
             let Some(rhs_span) = rhs.span() else {
-                return Err(cut(Diagnostic::expected("value after `=`", equals.span.past())));
+                return Err(cut(Diagnostic::expected(
+                    "value after `=`",
+                    equals.span.past(),
+                )));
             };
             (Some(parse_block(rhs, rhs_span)), rhs_span)
         }
@@ -98,10 +110,21 @@ fn parse_binding<'a>(mut tokens: Tokens<'_, 'a>, kind: BindingKind) -> ParseResu
                 "missing required positional argument",
                 items[items.len() - 1].span.past(),
             )
-            .with_help(format!("`{keyword_name}` needs a value: `{keyword_name} {} = <value>`", name.item))));
+            .with_help(format!(
+                "`{keyword_name}` needs a value: `{keyword_name} {} = <value>`",
+                name.item
+            ))));
         }
         None => (None, items[items.len() - 1].span),
     };
-    let binding = Binding { name, ty, eq: equals.map(|token| token.span), value };
-    Ok(Expression::new(make_expr(Box::new(binding)), keyword.span.merge(end)))
+    let binding = Binding {
+        name,
+        ty,
+        eq: equals.map(|token| token.span),
+        value,
+    };
+    Ok(Expression::new(
+        make_expr(Box::new(binding)),
+        keyword.span.merge(end),
+    ))
 }

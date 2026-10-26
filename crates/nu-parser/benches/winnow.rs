@@ -23,34 +23,53 @@ fn name(group: &str, name: &str, source: &str) -> String {
 /// Whole files: the corpus, and a large file made by repeating it.
 fn files() -> impl IntoBenchmarks {
     let large: String = std::iter::repeat_n(format!("{STD_ITER}\n{STD_ASSERT}\n"), 20).collect();
-    let mut benchmarks: Vec<_> = [("kitchen_sink", KITCHEN_SINK), ("std_iter", STD_ITER), ("std_assert", STD_ASSERT)]
-        .into_iter()
-        .map(|(file, source)| {
-            benchmark_fn(name("parse", file, source), move |b| {
-                let config = ParseConfig::new();
-                b.iter(move || parse_with(black_box(source), &config).unwrap())
+    let mut benchmarks: Vec<_> = [
+        ("kitchen_sink", KITCHEN_SINK),
+        ("std_iter", STD_ITER),
+        ("std_assert", STD_ASSERT),
+    ]
+    .into_iter()
+    .map(|(file, source)| {
+        benchmark_fn(name("parse", file, source), move |b| {
+            let config = ParseConfig::new();
+            b.iter(move || parse_with(black_box(source), &config).unwrap())
+        })
+    })
+    .collect();
+    benchmarks.push(benchmark_fn(
+        name("parse", "large_file", &large),
+        move |b| {
+            let config = ParseConfig::new();
+            let large = large.clone();
+            // The tree borrows the source, so it is dropped here.
+            b.iter(move || {
+                black_box(parse_lenient(black_box(&large), &config));
             })
-        })
-        .collect();
-    benchmarks.push(benchmark_fn(name("parse", "large_file", &large), move |b| {
-        let config = ParseConfig::new();
-        let large = large.clone();
-        // The tree borrows the source, so it is dropped here.
-        b.iter(move || {
-            black_box(parse_lenient(black_box(&large), &config));
-        })
-    }));
+        },
+    ));
     benchmarks
 }
 
 /// Small programs, one construct each.
 fn snippets() -> impl IntoBenchmarks {
     [
-        ("pipeline", "ls | where size > 1kb | sort-by modified | get name | first 10"),
-        ("math", "(1 + 2) * 3 ** 2 - 4 / 2 mod 3 and not false or $x in [1 2 3]"),
-        ("record", "{a: 1, b: [1 2 3], c: {d: \"x\", e: $\"y ($z)\"}, ...$rest}"),
+        (
+            "pipeline",
+            "ls | where size > 1kb | sort-by modified | get name | first 10",
+        ),
+        (
+            "math",
+            "(1 + 2) * 3 ** 2 - 4 / 2 mod 3 and not false or $x in [1 2 3]",
+        ),
+        (
+            "record",
+            "{a: 1, b: [1 2 3], c: {d: \"x\", e: $\"y ($z)\"}, ...$rest}",
+        ),
         ("closure", "each {|x, y: int| $x + $y | into string }"),
-        ("def", "def --env f [a: int, --flag(-f): string = \"x\", ...rest]: nothing -> string { $a }"),
+        (
+            "def",
+            "def --env f [a: int, --flag(-f): string = \"x\", ...rest]: nothing -> string { $a }",
+        ),
     ]
     .map(|(snippet, source)| {
         benchmark_fn(name("snippets", snippet, source), move |b| {
@@ -62,9 +81,10 @@ fn snippets() -> impl IntoBenchmarks {
 
 /// The lexer alone.
 fn lexer() -> impl IntoBenchmarks {
-    [benchmark_fn(name("lexer", "kitchen_sink", KITCHEN_SINK), |b| {
-        b.iter(|| lex(black_box(KITCHEN_SINK), 0, LexOptions::BLOCK).unwrap())
-    })]
+    [benchmark_fn(
+        name("lexer", "kitchen_sink", KITCHEN_SINK),
+        |b| b.iter(|| lex(black_box(KITCHEN_SINK), 0, LexOptions::BLOCK).unwrap()),
+    )]
 }
 
 tango_benchmarks!(files(), snippets(), lexer());

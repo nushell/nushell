@@ -10,10 +10,10 @@ use nu_protocol::{
     },
     engine::StateWorkingSet,
 };
-use crate::winnow::syntax::lex::RedirectionSource as WinnowSource;
-use crate::winnow::syntax::{Span as WSpan, ast as w};
 
 use super::{Lower, Lowered, Unlowered};
+use crate::winnow::syntax::lex::RedirectionSource as WinnowSource;
+use crate::winnow::syntax::{Span as WSpan, ast as w};
 use crate::{
     lex::lex,
     lite_parser::lite_parse,

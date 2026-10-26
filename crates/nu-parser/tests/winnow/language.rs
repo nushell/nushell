@@ -7,13 +7,19 @@
 //!
 //! `tests/winnow/fixtures/` covers accept/reject verdicts and pins whole trees; this
 //! file pins individual values, spans and token streams.
-#![allow(clippy::unwrap_used, clippy::format_push_string, reason = "tests may panic on failure")]
+#![allow(
+    clippy::unwrap_used,
+    clippy::format_push_string,
+    reason = "tests may panic on failure"
+)]
 
 use std::path::PathBuf;
 
 use nu_parser::winnow::syntax::ast::*;
 use nu_parser::winnow::syntax::lex::{LexOptions, RedirectionOperator, TokenContents, lex};
-use nu_parser::winnow::syntax::{Diagnostic, ErrorKind, LineCol, LineIndex, ParseConfig, Span, parse, parse_lenient};
+use nu_parser::winnow::syntax::{
+    Diagnostic, ErrorKind, LineCol, LineIndex, ParseConfig, Span, parse, parse_lenient,
+};
 use rstest::rstest;
 
 // --- helpers ------------------------------------------------------------------
@@ -27,8 +33,15 @@ fn ok(src: &str) -> Ast<'_> {
 
 fn err_text(src: &str) -> String {
     match parse(src) {
-        Ok(ast) => panic!("expected {src:?} to fail, got:\n{}", nu_parser::winnow::syntax::pretty::dump(&ast)),
-        Err(e) => e.diagnostics.iter().map(|d| format!("{}{}", d.kind, d.help.as_deref().unwrap_or(""))).collect(),
+        Ok(ast) => panic!(
+            "expected {src:?} to fail, got:\n{}",
+            nu_parser::winnow::syntax::pretty::dump(&ast)
+        ),
+        Err(e) => e
+            .diagnostics
+            .iter()
+            .map(|d| format!("{}{}", d.kind, d.help.as_deref().unwrap_or("")))
+            .collect(),
     }
 }
 
@@ -74,7 +87,12 @@ fn interp_shape(e: &Expression<'_>) -> (Quote, Vec<String>) {
 /// Render an expression as a fully parenthesised string, to pin precedence.
 fn sexpr(src: &str, e: &Expression<'_>) -> String {
     match &e.expr {
-        Expr::BinaryOp(b) => format!("({} {} {})", sexpr(src, &b.lhs), b.op.item, sexpr(src, &b.rhs)),
+        Expr::BinaryOp(b) => format!(
+            "({} {} {})",
+            sexpr(src, &b.lhs),
+            b.op.item,
+            sexpr(src, &b.rhs)
+        ),
         Expr::UnaryNot(n) => format!("(not {})", sexpr(src, &n.expr)),
         Expr::UnaryMinus(n) => format!("(- {})", sexpr(src, &n.expr)),
         Expr::Subexpression(b) => {
@@ -206,7 +224,10 @@ fn durations(#[case] src: &str, #[case] unit: DurationUnit, #[case] nanoseconds:
 #[case("echo 1..2sec", "duration")]
 fn unit_suffix_with_a_bad_number_is_an_error(#[case] src: &str, #[case] kind: &str) {
     let text = err_text(src);
-    assert!(text.contains(&format!("invalid {kind} literal")), "{src}: {text}");
+    assert!(
+        text.contains(&format!("invalid {kind} literal")),
+        "{src}: {text}"
+    );
 }
 
 #[rstest]
@@ -254,7 +275,10 @@ fn string_values(#[case] src: &str, #[case] expected: &str) {
 
 #[rstest]
 #[case(r#""hello \u{6e""#, "missing closing '}'")]
-#[case(r#""\u{39}8\u{000000000000000000000000000000000000000000000037}""#, "must be 1-6 hex digits")]
+#[case(
+    r#""\u{39}8\u{000000000000000000000000000000000000000000000037}""#,
+    "must be 1-6 hex digits"
+)]
 #[case(r#""\u{110000}""#, "max codepoint 0x10FFFF")]
 #[case(r#""\u0041""#, "missing closing '}'")]
 #[case(r#""\x4""#, "expected 2 hex digits")]
@@ -267,7 +291,13 @@ fn string_escape_errors(#[case] src: &str, #[case] message: &str) {
 
 #[test]
 fn trailing_backslash_is_an_unclosed_quote() {
-    assert!(matches!(parse("\"say \\").unwrap_err().primary().kind, ErrorKind::Unclosed { delimiter: "\"", .. }));
+    assert!(matches!(
+        parse("\"say \\").unwrap_err().primary().kind,
+        ErrorKind::Unclosed {
+            delimiter: "\"",
+            ..
+        }
+    ));
 }
 
 /// An escape error ends on a character boundary: the characters after `\x` or `\u` are counted
@@ -278,7 +308,11 @@ fn trailing_backslash_is_an_unclosed_quote() {
 fn escape_errors_end_on_a_character_boundary(#[case] src: &str) {
     let e = parse(src).unwrap_err();
     for d in &e.diagnostics {
-        assert!(src.is_char_boundary(d.span.start) && src.is_char_boundary(d.span.end), "{src}: {}", d.span);
+        assert!(
+            src.is_char_boundary(d.span.start) && src.is_char_boundary(d.span.end),
+            "{src}: {}",
+            d.span
+        );
     }
     let _ = e.render(src, None);
 }
@@ -288,7 +322,10 @@ fn escape_errors_end_on_a_character_boundary(#[case] src: &str) {
 #[test]
 fn rendering_a_span_inside_a_character() {
     let src = "\u{e9}t\u{e9} 1";
-    assert_eq!(LineIndex::new(src).line_col(1, src), LineCol { line: 1, column: 1 });
+    assert_eq!(
+        LineIndex::new(src).line_col(1, src),
+        LineCol { line: 1, column: 1 }
+    );
     let text = Diagnostic::new(ErrorKind::ExtraTokens, Span::new(1, 4)).render(src, None);
     assert!(text.contains("--> <input>:1:1"), "{text}");
 }
@@ -299,7 +336,10 @@ fn rendering_a_span_inside_a_character() {
 fn raw_string_followed_by_a_multibyte_character_is_unclosed() {
     let src = "r#'a'#\u{e9}";
     let e = parse(src).unwrap_err();
-    assert!(matches!(e.primary().kind, ErrorKind::Unclosed { delimiter: "'", .. }), "{e}");
+    assert!(
+        matches!(e.primary().kind, ErrorKind::Unclosed { delimiter: "'", .. }),
+        "{e}"
+    );
     let _ = e.render(src, None);
 }
 
@@ -309,9 +349,15 @@ fn raw_string_followed_by_a_multibyte_character_is_unclosed() {
 #[test]
 fn raw_string_opening_quote_may_close_it() {
     let e = lex("r#'#foo'#", 0, LexOptions::BLOCK).unwrap_err();
-    assert!(matches!(e.kind, ErrorKind::Unclosed { delimiter: "'", .. }), "{e}");
+    assert!(
+        matches!(e.kind, ErrorKind::Unclosed { delimiter: "'", .. }),
+        "{e}"
+    );
     let ast = ok("r#'#a'#'#");
-    assert_eq!(string_value(last_expr(&ast)), ("#a'#".to_string(), Quote::Raw(1)));
+    assert_eq!(
+        string_value(last_expr(&ast)),
+        ("#a'#".to_string(), Quote::Raw(1))
+    );
 }
 
 /// A raw string may have any number of `#`s, as in nu.
@@ -320,14 +366,21 @@ fn raw_string_with_many_hashes() {
     let hashes = "#".repeat(256);
     let src = format!("r{hashes}'hello'{hashes}");
     let ast = ok(&src);
-    assert_eq!(string_value(last_expr(&ast)), ("hello".to_string(), Quote::Raw(256)));
+    assert_eq!(
+        string_value(last_expr(&ast)),
+        ("hello".to_string(), Quote::Raw(256))
+    );
 }
 
 /// Like chrono's RFC 3339 parser, which nu uses, a datetime offset may use U+2212 for its minus.
 #[test]
 fn datetime_offset_with_a_unicode_minus() {
     let ast = ok("2024-01-02T03:04:05\u{2212}05:00");
-    assert!(matches!(last_expr(&ast).expr, Expr::DateTime(_)), "{:?}", last_expr(&ast));
+    assert!(
+        matches!(last_expr(&ast).expr, Expr::DateTime(_)),
+        "{:?}",
+        last_expr(&ast)
+    );
 }
 
 // --- interpolation (test_parser.rs: string::interpolation) ---------------------------------
@@ -364,7 +417,11 @@ fn interpolation_parts(#[case] src: &str, #[case] quote: Quote, #[case] parts: &
 fn interpolated_bare_word_at_pipeline_head_is_an_external_call() {
     let ast = ok("~/.foo/(1)");
     match &last_expr(&ast).expr {
-        Expr::ExternalCall(c) => assert!(matches!(c.head.expr, Expr::StringInterpolation(_)), "{:?}", c.head),
+        Expr::ExternalCall(c) => assert!(
+            matches!(c.head.expr, Expr::StringInterpolation(_)),
+            "{:?}",
+            c.head
+        ),
         other => panic!("{other:?}"),
     }
 }
@@ -385,7 +442,10 @@ fn interpolation_in_external_argument() {
 fn unclosed_interpolation_subexpression_names_the_paren() {
     let e = parse("$\"foo (2 + 3\"").unwrap_err();
     match e.primary().kind {
-        ErrorKind::Unclosed { delimiter: ")", open } => assert_eq!(open, Span::new(6, 7)),
+        ErrorKind::Unclosed {
+            delimiter: ")",
+            open,
+        } => assert_eq!(open, Span::new(6, 7)),
         ref other => panic!("{other:?}"),
     }
 }
@@ -410,7 +470,11 @@ fn external_call_heads(#[case] src: &str, #[case] expected: &str, #[case] quote:
     let ast = ok(src);
     match &last_expr(&ast).expr {
         Expr::ExternalCall(c) => {
-            assert_eq!(string_value(&c.head), (expected.to_string(), quote), "{src}");
+            assert_eq!(
+                string_value(&c.head),
+                (expected.to_string(), quote),
+                "{src}"
+            );
             assert!(c.arguments.is_empty());
         }
         other => panic!("{src}: {other:?}"),
@@ -453,7 +517,9 @@ fn external_call_string_args(#[case] src: &str, #[case] expected: &str, #[case] 
             assert_eq!(string_value(&c.head).0, "foo");
             assert_eq!(c.arguments.len(), 1);
             match &c.arguments[0] {
-                ExternalArgument::Regular(e) => assert_eq!(string_value(e), (expected.to_string(), quote), "{src}"),
+                ExternalArgument::Regular(e) => {
+                    assert_eq!(string_value(e), (expected.to_string(), quote), "{src}")
+                }
                 other => panic!("{src}: {other:?}"),
             }
         }
@@ -580,7 +646,10 @@ fn percent_sigil_dynamic_calls(#[case] src: &str, #[case] head: &str, #[case] ar
 #[case("%[1] x")]
 #[case("%\"ls\"")]
 fn percent_sigil_requires_a_builtin(#[case] src: &str) {
-    assert!(err_text(src).contains("percent sigil requires a built-in command"), "{src}");
+    assert!(
+        err_text(src).contains("percent sigil requires a built-in command"),
+        "{src}"
+    );
 }
 
 #[test]
@@ -593,8 +662,14 @@ fn percent_sigil_without_a_command_table_is_not_checked() {
 /// `if`, `while`, `return`, ... are commands that nu reads with `parse_call`: a longer known name
 /// that starts with the keyword is called instead of the keyword.
 #[rstest]
-#[case("def \"if ready\" [then: closure] { do $then }\nif ready { 'ran' }", "if ready")]
-#[case("def \"while ready\" [then: closure] { do $then }\nwhile ready { 'ran' }", "while ready")]
+#[case(
+    "def \"if ready\" [then: closure] { do $then }\nif ready { 'ran' }",
+    "if ready"
+)]
+#[case(
+    "def \"while ready\" [then: closure] { do $then }\nwhile ready { 'ran' }",
+    "while ready"
+)]
 #[case("def \"return early\" [] { 1 }\nreturn early", "return early")]
 fn keyword_that_starts_a_longer_command_name(#[case] src: &str, #[case] name: &str) {
     let ast = ok(src);
@@ -626,7 +701,8 @@ fn cell_path_members(#[case] src: &str, #[case] expected: &[(&str, bool)]) {
                     (name, m.optional)
                 })
                 .collect();
-            let expected: Vec<(String, bool)> = expected.iter().map(|(n, o)| (n.to_string(), *o)).collect();
+            let expected: Vec<(String, bool)> =
+                expected.iter().map(|(n, o)| (n.to_string(), *o)).collect();
             assert_eq!(members, expected);
         }
         other => panic!("{src}: {other:?}"),
@@ -647,7 +723,13 @@ fn cell_path_members(#[case] src: &str, #[case] expected: &[(&str, bool)]) {
 #[case("-10..<-3", true, false, true, RangeInclusion::RightExclusive)]
 #[case("let a = 2; $a..10", true, false, true, RangeInclusion::Inclusive)]
 #[case("let a = 2; $a..=10", true, false, true, RangeInclusion::Inclusive)]
-#[case("let a = 2; $a..<($a + 10)", true, false, true, RangeInclusion::RightExclusive)]
+#[case(
+    "let a = 2; $a..<($a + 10)",
+    true,
+    false,
+    true,
+    RangeInclusion::RightExclusive
+)]
 #[case("0..", true, false, false, RangeInclusion::Inclusive)]
 #[case("0..=", true, false, false, RangeInclusion::Inclusive)]
 #[case("0..<", true, false, false, RangeInclusion::RightExclusive)]
@@ -666,12 +748,23 @@ fn cell_path_members(#[case] src: &str, #[case] expected: &[(&str, bool)]) {
 #[case("1..3...", true, true, false, RangeInclusion::Inclusive)]
 // A cell-path literal bound makes a command head a range, as in nu (whose type check refuses it).
 #[case("1..$.a", true, false, true, RangeInclusion::Inclusive)]
-fn ranges(#[case] src: &str, #[case] from: bool, #[case] next: bool, #[case] to: bool, #[case] incl: RangeInclusion) {
+fn ranges(
+    #[case] src: &str,
+    #[case] from: bool,
+    #[case] next: bool,
+    #[case] to: bool,
+    #[case] incl: RangeInclusion,
+) {
     let ast = ok(src);
     match &last_expr(&ast).expr {
         Expr::Range(r) => {
             assert_eq!(
-                (r.from.is_some(), r.next.is_some(), r.to.is_some(), r.operator.inclusion),
+                (
+                    r.from.is_some(),
+                    r.next.is_some(),
+                    r.to.is_some(),
+                    r.operator.inclusion
+                ),
                 (from, next, to, incl),
                 "{src}"
             );
@@ -712,7 +805,10 @@ fn not_ranges(#[case] src: &str) {
     match &last_expr(&ast).expr {
         Expr::Call(c) => {
             let argument = c.positional_iter().next().map(|e| &e.expr);
-            assert!(matches!(argument, Some(Expr::String(_))), "{src}: {argument:?}");
+            assert!(
+                matches!(argument, Some(Expr::String(_))),
+                "{src}: {argument:?}"
+            );
         }
         Expr::ExternalCall(_) => {}
         other => panic!("{src}: {other:?}"),
@@ -734,11 +830,20 @@ fn ranges_do_not_swallow_unit_like_variable_names() {
 #[case("2 ** 3 ** 2", "(2 ** (3 ** 2))")]
 #[case("10 - 3 - 2", "((10 - 3) - 2)")]
 #[case("true and false or true", "((true and false) or true)")]
-#[case("true and true xor true and false", "((true and true) xor (true and false))")]
-#[case("true or false xor true or false", "((true or (false xor true)) or false)")]
+#[case(
+    "true and true xor true and false",
+    "((true and true) xor (true and false))"
+)]
+#[case(
+    "true or false xor true or false",
+    "((true or (false xor true)) or false)"
+)]
 #[case("not $a and $b or $c > 1", "(((not $a) and $b) or ($c > 1))")]
 #[case("not not true", "(not (not true))")]
-#[case("1 bit-shl 2 bit-or 4 bit-and 7", "((1 bit-shl 2) bit-or (4 bit-and 7))")]
+#[case(
+    "1 bit-shl 2 bit-or 4 bit-and 7",
+    "((1 bit-shl 2) bit-or (4 bit-and 7))"
+)]
 #[case("1 + 2 == 3 and 4 > 3", "(((1 + 2) == 3) and (4 > 3))")]
 #[case("[1] ++ [2] == [1 2]", "(([1] ++ [2]) == [1 2])")]
 #[case("1 mod 2 ** 3 // 4", "((1 mod (2 ** 3)) // 4)")]
@@ -762,7 +867,10 @@ fn precedence(#[case] src: &str, #[case] expected: &str) {
 #[case("true ! false", "not")]
 fn unknown_operators_get_help(#[case] src: &str, #[case] hint: &str) {
     let text = err_text(src);
-    assert!(text.contains("unknown operator") && text.contains(hint), "{src}: {text}");
+    assert!(
+        text.contains("unknown operator") && text.contains(hint),
+        "{src}: {text}"
+    );
 }
 
 // --- redirections (test_parser.rs: test_redirection_*) ---------------------------------------
@@ -777,14 +885,20 @@ fn unknown_operators_get_help(#[case] src: &str, #[case] hint: &str) {
 fn redirection_inside_let_value(#[case] src: &str, #[case] op: RedirectionOperator) {
     let ast = ok(src);
     let element = &ast.block.pipelines[0].elements[0];
-    assert!(element.redirection.is_none(), "the redirection belongs to the value");
+    assert!(
+        element.redirection.is_none(),
+        "the redirection belongs to the value"
+    );
     let binding = match &element.expr.expr {
         Expr::Let(b) | Expr::Mut(b) => b,
         other => panic!("{other:?}"),
     };
     let inner = &binding.value.as_ref().unwrap().pipelines[0].elements[0];
     match inner.redirection.as_ref().unwrap() {
-        PipelineRedirection::Single { target: RedirectionTarget::File { op: actual, .. }, .. } => {
+        PipelineRedirection::Single {
+            target: RedirectionTarget::File { op: actual, .. },
+            ..
+        } => {
             assert_eq!(actual.item, op)
         }
         other => panic!("{other:?}"),
@@ -829,11 +943,31 @@ fn malformed_input_does_not_panic(#[case] src: &str) {
 // --- pipelines, comments and statements (repl/test_parser.rs) -----------------------------
 
 #[rstest]
-#[case("[1,2,3] | #comment\neach { |$it| $it + 2 } | # foo\nmath sum #bar", 3, 3)]
-#[case("[1,2,3] #comment\n| #comment2\neach { |$it| $it + 2 } #foo\n| # bar\nmath sum #baz", 3, 5)]
-#[case("[1,2,3] | #comment\n#comment2\neach { |$it| $it + 2 } #foo\n| # bar\n#baz\nmath sum #foobar", 3, 6)]
-#[case("[[name, present]; [abc, true], [def, false]]\n# | where not present\n| get name.0", 2, 1)]
-fn comments_between_pipeline_elements(#[case] src: &str, #[case] elements: usize, #[case] comments: usize) {
+#[case(
+    "[1,2,3] | #comment\neach { |$it| $it + 2 } | # foo\nmath sum #bar",
+    3,
+    3
+)]
+#[case(
+    "[1,2,3] #comment\n| #comment2\neach { |$it| $it + 2 } #foo\n| # bar\nmath sum #baz",
+    3,
+    5
+)]
+#[case(
+    "[1,2,3] | #comment\n#comment2\neach { |$it| $it + 2 } #foo\n| # bar\n#baz\nmath sum #foobar",
+    3,
+    6
+)]
+#[case(
+    "[[name, present]; [abc, true], [def, false]]\n# | where not present\n| get name.0",
+    2,
+    1
+)]
+fn comments_between_pipeline_elements(
+    #[case] src: &str,
+    #[case] elements: usize,
+    #[case] comments: usize,
+) {
     let ast = ok(src);
     assert_eq!(ast.block.pipelines.len(), 1, "{src}");
     assert_eq!(ast.block.pipelines[0].elements.len(), elements, "{src}");
@@ -844,10 +978,18 @@ fn comments_between_pipeline_elements(#[case] src: &str, #[case] elements: usize
 fn hash_without_preceding_space_is_not_a_comment() {
     let ast = ok("echo test#testing");
     match &last_expr(&ast).expr {
-        Expr::Call(c) => assert_eq!(string_value(c.positional_iter().next().unwrap()).0, "test#testing"),
+        Expr::Call(c) => assert_eq!(
+            string_value(c.positional_iter().next().unwrap()).0,
+            "test#testing"
+        ),
         other => panic!("{other:?}"),
     }
-    assert!(ok("# command_bar_text: { fg: '#C4C9C6' },").block.pipelines.is_empty());
+    assert!(
+        ok("# command_bar_text: { fg: '#C4C9C6' },")
+            .block
+            .pipelines
+            .is_empty()
+    );
 }
 
 /// A comment inside a construct whose interior is lexed again (a match pattern, type
@@ -883,7 +1025,10 @@ fn comment_after_a_failed_statement_is_kept() {
 #[case::pipe_on_the_line_before("ls |\ndef f [] {}\nf")]
 fn def_joined_to_a_pipeline_is_not_predeclared(#[case] src: &str) {
     let (ast, _) = parse_lenient(src, &ParseConfig::new());
-    assert!(matches!(last_expr(&ast).expr, Expr::ExternalCall(_)), "{src}");
+    assert!(
+        matches!(last_expr(&ast).expr, Expr::ExternalCall(_)),
+        "{src}"
+    );
 }
 
 /// A `def` after a line ending in a `|` is still a command of its own, and predeclared, when the
@@ -905,7 +1050,11 @@ fn def_after_a_line_ending_in_a_pipe_can_be_predeclared(#[case] src: &str) {
 #[case::after_the_last_positional("@example x\nls", Span::point(10))]
 fn missing_positional_is_reported_at_the_end_of_the_call(#[case] src: &str, #[case] at: Span) {
     let (_, diagnostics) = parse_lenient(src, &ParseConfig::new());
-    assert_eq!(diagnostics.first().map(|d| d.span), Some(at), "{diagnostics:?}");
+    assert_eq!(
+        diagnostics.first().map(|d| d.span),
+        Some(at),
+        "{diagnostics:?}"
+    );
 }
 
 #[test]
@@ -958,7 +1107,10 @@ fn datetime_in_record_value() {
 #[case("{a: http://x.y}", "value")]
 fn bare_colons_in_records_are_refused(#[case] src: &str, #[case] position: &str) {
     let text = err_text(src);
-    assert!(text.contains(&format!("colon in bare word specifying record {position}")), "{src}: {text}");
+    assert!(
+        text.contains(&format!("colon in bare word specifying record {position}")),
+        "{src}: {text}"
+    );
 }
 
 #[rstest]
@@ -980,8 +1132,14 @@ fn attribute_values() {
         Expr::AttributeBlock(a) => {
             assert_eq!(a.attributes.len(), 2);
             assert_eq!(a.attributes[0].name.item, "echo");
-            assert_eq!(string_value(a.attributes[0].arguments.first().map(arg_expr).unwrap()).0, "hello world");
-            assert!(matches!(arg_expr(&a.attributes[1].arguments[0]).expr, Expr::Int(42)));
+            assert_eq!(
+                string_value(a.attributes[0].arguments.first().map(arg_expr).unwrap()).0,
+                "hello world"
+            );
+            assert!(matches!(
+                arg_expr(&a.attributes[1].arguments[0]).expr,
+                Expr::Int(42)
+            ));
             assert!(matches!(a.item.expr, Expr::Def(_)));
         }
         other => panic!("{other:?}"),
@@ -1015,7 +1173,10 @@ fn arg_expr<'a>(arg: &'a Argument<'a>) -> &'a Expression<'a> {
 #[case("def foo [--verbose(-v), # my test flag\n ...rest: int # my rest comment\n] { }")]
 fn signature_forms_from_nushell_tests(#[case] src: &str) {
     let ast = ok(src);
-    assert!(matches!(last_expr(&ast).expr, Expr::Def(_) | Expr::Extern(_) | Expr::Export(_)));
+    assert!(matches!(
+        last_expr(&ast).expr,
+        Expr::Def(_) | Expr::Extern(_) | Expr::Export(_)
+    ));
 }
 
 /// nu parses a second default of a parameter without a type with the first default's type
@@ -1041,7 +1202,12 @@ fn second_default_of_an_untyped_parameter_is_marked(#[case] src: &str, #[case] m
 fn flattening_a_cell_path_default() {
     let src = "def f [x: cell-path = a.b] { $x }";
     let shapes = nu_parser::winnow::syntax::flatten::flatten(&ok(src));
-    assert!(shapes.windows(2).all(|pair| pair[0].0.end <= pair[1].0.start), "{shapes:?}");
+    assert!(
+        shapes
+            .windows(2)
+            .all(|pair| pair[0].0.end <= pair[1].0.start),
+        "{shapes:?}"
+    );
 }
 
 /// `in`, `nu`, `env` and `ans` are built-in variables: a parameter, a `let`
@@ -1068,14 +1234,24 @@ fn reserved_variable_names_are_errors(#[case] src: &str) {
 #[case("let a: string = 'qwe'", SyntaxShape::String)]
 #[case("let a: nothing = null", SyntaxShape::Nothing)]
 #[case("let a: list<string> = []", SyntaxShape::List(None))]
-#[case("let a: record<a: int b: int> = {a: 1 b: 1}", SyntaxShape::Record(Vec::new()))]
-#[case("let a: table<a: int b: int> = [[a b]; [1 2] [3 4]]", SyntaxShape::Table(Vec::new()))]
+#[case(
+    "let a: record<a: int b: int> = {a: 1 b: 1}",
+    SyntaxShape::Record(Vec::new())
+)]
+#[case(
+    "let a: table<a: int b: int> = [[a b]; [1 2] [3 4]]",
+    SyntaxShape::Table(Vec::new())
+)]
 fn let_type_annotations(#[case] src: &str, #[case] kind: SyntaxShape<'static>) {
     let ast = ok(src);
     match &last_expr(&ast).expr {
         Expr::Let(b) => {
             let actual = &b.ty.as_ref().unwrap().shape;
-            assert_eq!(std::mem::discriminant(actual), std::mem::discriminant(&kind), "{src}: {actual:?}");
+            assert_eq!(
+                std::mem::discriminant(actual),
+                std::mem::discriminant(&kind),
+                "{src}: {actual:?}"
+            );
         }
         other => panic!("{other:?}"),
     }
@@ -1088,7 +1264,13 @@ fn let_type_annotations(#[case] src: &str, #[case] kind: SyntaxShape<'static>) {
 #[case("let a : int = 1")]
 fn let_type_without_colon_is_extra_tokens(#[case] src: &str) {
     let e = parse(src).unwrap_err();
-    assert!(matches!(e.primary().kind, ErrorKind::ExtraTokens | ErrorKind::Expected(_)), "{src}: {e}");
+    assert!(
+        matches!(
+            e.primary().kind,
+            ErrorKind::ExtraTokens | ErrorKind::Expected(_)
+        ),
+        "{src}: {e}"
+    );
 }
 
 #[rstest]
@@ -1118,14 +1300,21 @@ fn declaration_errors_from_nushell_tests(#[case] src: &str) {
 // --- the lexer (test_lex.rs) ---------------------------------------------------------------
 
 fn kinds_and_texts(src: &str, opts: LexOptions) -> Vec<(TokenContents, &str)> {
-    lex(src, 0, opts).unwrap().into_iter().map(|t| (t.contents, t.text(src))).collect()
+    lex(src, 0, opts)
+        .unwrap()
+        .into_iter()
+        .map(|t| (t.contents, t.text(src)))
+        .collect()
 }
 
 #[test]
 fn lex_newline_and_semicolon() {
     let src = "let x = 300\nlet y = 500;";
     let toks = lex(src, 0, LexOptions::BLOCK).unwrap();
-    assert!(toks.iter().any(|t| t.contents == TokenContents::Eol && t.span == Span::new(11, 12)));
+    assert!(
+        toks.iter()
+            .any(|t| t.contents == TokenContents::Eol && t.span == Span::new(11, 12))
+    );
     assert_eq!(toks[toks.len() - 2].contents, TokenContents::Semicolon);
 }
 
@@ -1140,7 +1329,10 @@ fn lex_newline_and_semicolon() {
 #[case("items: list<record<name: string>>", &["items", ":", "list<record<name: string>>"])]
 #[case("x: int = 1, --flag(-f)", &["x", ":", "int", "=", "1", ",", "--flag(-f)"])]
 fn lex_signatures(#[case] src: &str, #[case] expected: &[&str]) {
-    let texts: Vec<&str> = kinds_and_texts(src, LexOptions::SIGNATURE).iter().map(|t| t.1).collect();
+    let texts: Vec<&str> = kinds_and_texts(src, LexOptions::SIGNATURE)
+        .iter()
+        .map(|t| t.1)
+        .collect();
     let texts = &texts[..texts.len() - 1];
     assert_eq!(texts, expected, "{src}");
 }
@@ -1150,7 +1342,10 @@ fn lex_signatures(#[case] src: &str, #[case] expected: &[&str]) {
 #[case("items: list<string", ">")]
 fn lex_unterminated_type_annotations(#[case] src: &str, #[case] delimiter: &str) {
     let e = lex(src, 0, LexOptions::SIGNATURE).unwrap_err();
-    assert!(matches!(e.kind, ErrorKind::Unclosed { delimiter: d, .. } if d == delimiter), "{src}: {e}");
+    assert!(
+        matches!(e.kind, ErrorKind::Unclosed { delimiter: d, .. } if d == delimiter),
+        "{src}: {e}"
+    );
 }
 
 #[test]
@@ -1163,29 +1358,62 @@ fn lex_empty_input_is_just_eof() {
 #[test]
 fn lex_parenthesised_expression_is_one_item() {
     let toks = lex("let x = (300 + (322 * 444));", 0, LexOptions::BLOCK).unwrap();
-    assert_eq!((toks[3].contents, toks[3].span), (TokenContents::Item, Span::new(8, 27)));
+    assert_eq!(
+        (toks[3].contents, toks[3].span),
+        (TokenContents::Item, Span::new(8, 27))
+    );
 }
 
 #[test]
 fn lex_comment_spans() {
     let toks = lex("let x = 300 # a comment \n $x + 444", 0, LexOptions::BLOCK).unwrap();
-    assert_eq!((toks[4].contents, toks[4].span), (TokenContents::Comment, Span::new(12, 24)));
+    assert_eq!(
+        (toks[4].contents, toks[4].span),
+        (TokenContents::Comment, Span::new(12, 24))
+    );
 
     let src = "let z = 42 #the comment \n let x#y = 69 #hello \n let flk = nixpkgs#hello #hello";
     let toks = lex(src, 0, LexOptions::BLOCK).unwrap();
-    assert_eq!((toks[4].contents, toks[4].span), (TokenContents::Comment, Span::new(11, 24)));
-    assert_eq!((toks[7].contents, toks[7].span), (TokenContents::Item, Span::new(30, 33)));
-    assert_eq!((toks[10].contents, toks[10].span), (TokenContents::Comment, Span::new(39, 46)));
-    assert_eq!((toks[15].contents, toks[15].span), (TokenContents::Item, Span::new(58, 71)));
-    assert_eq!((toks[16].contents, toks[16].span), (TokenContents::Comment, Span::new(72, 78)));
+    assert_eq!(
+        (toks[4].contents, toks[4].span),
+        (TokenContents::Comment, Span::new(11, 24))
+    );
+    assert_eq!(
+        (toks[7].contents, toks[7].span),
+        (TokenContents::Item, Span::new(30, 33))
+    );
+    assert_eq!(
+        (toks[10].contents, toks[10].span),
+        (TokenContents::Comment, Span::new(39, 46))
+    );
+    assert_eq!(
+        (toks[15].contents, toks[15].span),
+        (TokenContents::Item, Span::new(58, 71))
+    );
+    assert_eq!(
+        (toks[16].contents, toks[16].span),
+        (TokenContents::Comment, Span::new(72, 78))
+    );
 
     // Comments keep the end-of-line token after them.
     let src = "let z = 4 #comment \n let x = 4 # comment\n let y = 1 # comment";
     let toks = lex(src, 0, LexOptions::BLOCK).unwrap();
-    assert_eq!((toks[4].contents, toks[4].span), (TokenContents::Comment, Span::new(10, 19)));
-    assert_eq!((toks[5].contents, toks[5].span), (TokenContents::Eol, Span::new(19, 20)));
-    assert_eq!((toks[10].contents, toks[10].span), (TokenContents::Comment, Span::new(31, 40)));
-    assert_eq!((toks[11].contents, toks[11].span), (TokenContents::Eol, Span::new(40, 41)));
+    assert_eq!(
+        (toks[4].contents, toks[4].span),
+        (TokenContents::Comment, Span::new(10, 19))
+    );
+    assert_eq!(
+        (toks[5].contents, toks[5].span),
+        (TokenContents::Eol, Span::new(19, 20))
+    );
+    assert_eq!(
+        (toks[10].contents, toks[10].span),
+        (TokenContents::Comment, Span::new(31, 40))
+    );
+    assert_eq!(
+        (toks[11].contents, toks[11].span),
+        (TokenContents::Eol, Span::new(40, 41))
+    );
 }
 
 /// Like nu, a `#` after a vertical tab starts a comment, so the `]` after it does not close the
@@ -1200,7 +1428,10 @@ fn lex_hash_after_a_vertical_tab_starts_a_comment() {
 #[test]
 fn lex_hash_inside_brackets() {
     assert!(lex("1..10 | each {echo test#testing }", 0, LexOptions::BLOCK).is_ok());
-    for src in ["1..10 | each {echo test #testing }", "1..10 | each {echo test\t#testing }"] {
+    for src in [
+        "1..10 | each {echo test #testing }",
+        "1..10 | each {echo test\t#testing }",
+    ] {
         let e = lex(src, 0, LexOptions::BLOCK).unwrap_err();
         assert!(
             matches!(e.kind, ErrorKind::Unclosed { delimiter: "}", open } if open == Span::new(13, 14)),
@@ -1222,7 +1453,11 @@ fn lex_hash_inside_brackets() {
 #[case("$\"('\"", ")", 2)]
 #[case("$\"(1", ")", 2)]
 #[case("$\"foo (2 + 3\"", ")", 6)]
-fn lex_unclosed_delimiters_point_at_the_opener(#[case] src: &str, #[case] delimiter: &str, #[case] open_at: usize) {
+fn lex_unclosed_delimiters_point_at_the_opener(
+    #[case] src: &str,
+    #[case] delimiter: &str,
+    #[case] open_at: usize,
+) {
     let e = lex(src, 0, LexOptions::BLOCK).unwrap_err();
     match e.kind {
         ErrorKind::Unclosed { delimiter: d, open } => {
@@ -1259,7 +1494,10 @@ fn lex_mismatched_closers(#[case] src: &str, #[case] found: &str, #[case] expect
 #[case(r#"$'($"a" + $'b')'"#)]
 fn lex_interpolation_is_one_item(#[case] src: &str) {
     let toks = lex(src, 0, LexOptions::BLOCK).unwrap();
-    let items: Vec<_> = toks.iter().filter(|t| t.contents == TokenContents::Item).collect();
+    let items: Vec<_> = toks
+        .iter()
+        .filter(|t| t.contents == TokenContents::Item)
+        .collect();
     assert_eq!(items.len(), 1, "{src}: {toks:?}");
     assert_eq!(items[0].span, Span::new(0, src.len()));
 }
@@ -1307,7 +1545,10 @@ fn lex_large_nested_record_completes() {
 #[test]
 fn deeply_nested_lists_do_not_blow_up() {
     let e = parse("[[[[[[[[[[[[[[[[[[[[[[[[[[[[").unwrap_err();
-    assert!(matches!(e.primary().kind, ErrorKind::Unclosed { delimiter: "]", .. }));
+    assert!(matches!(
+        e.primary().kind,
+        ErrorKind::Unclosed { delimiter: "]", .. }
+    ));
     let ast = ok("[[[[[[[[[[[[[[[[[[[[[[[[[[[[1]]]]]]]]]]]]]]]]]]]]]]]]]]]]");
     assert!(matches!(last_expr(&ast).expr, Expr::List(_)));
 }

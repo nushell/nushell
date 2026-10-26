@@ -14,11 +14,21 @@ pub fn parse_where<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>
     call.flags(&mut tokens)?;
     let condition = match tokens.remaining() {
         [] if call.wants_help() => return call.help_call(),
-        [] => return Err(cut(Diagnostic::expected("row condition or closure", call.keyword.span.past()))),
+        [] => {
+            return Err(cut(Diagnostic::expected(
+                "row condition or closure",
+                call.keyword.span.past(),
+            )));
+        }
         _ => parse_condition(tokens)?,
     };
     let span = call.keyword.span.merge(condition.span);
-    call.finish(Expression::new(Expr::Where(Where { condition: Box::new(condition) }), span))
+    call.finish(Expression::new(
+        Expr::Where(Where {
+            condition: Box::new(condition),
+        }),
+        span,
+    ))
 }
 
 /// The condition of `where`, `any`, `take while`, ...: the items left in `tokens`, one or more

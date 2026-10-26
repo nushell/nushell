@@ -15,25 +15,34 @@ use winnow::prelude::*;
 use winnow::token::{any, one_of, take_till, take_while};
 
 use crate::winnow::syntax::ast::{
-    BinaryLiteral, CellPath, Duration, DurationUnit, Expr, Expression, Filesize, FilesizeUnit, FullCellPath,
-    InterpolationPart, PathMember, PathMemberKind, Quote, Range, RangeInclusion, RangeOperator, StringInterpolation,
-    StringLiteral, Var,
+    BinaryLiteral, CellPath, Duration, DurationUnit, Expr, Expression, Filesize, FilesizeUnit,
+    FullCellPath, InterpolationPart, PathMember, PathMemberKind, Quote, Range, RangeInclusion,
+    RangeOperator, StringInterpolation, StringLiteral, Var,
 };
 use crate::winnow::syntax::error::{Diagnostic, ErrorKind};
-use crate::winnow::syntax::input::{Input, ParseFailure, ParseResult, cut, input, into_diagnostic, pos, rest_span};
-use crate::winnow::syntax::lex::{LexOptions, Token, TokenContents, group_end, interp_subexpr_step, lex, lex_n_tokens};
+use crate::winnow::syntax::input::{
+    Input, ParseFailure, ParseResult, cut, input, into_diagnostic, pos, rest_span,
+};
+use crate::winnow::syntax::lex::{
+    LexOptions, Token, TokenContents, group_end, interp_subexpr_step, lex, lex_n_tokens,
+};
 use crate::winnow::syntax::span::Span;
 
 use super::WorkingSet;
 use super::parse_expressions::{
-    BraceShape, ExpectedShape, is_negation, parse_list_expression, parse_record, parse_subexpression, parse_value,
+    BraceShape, ExpectedShape, is_negation, parse_list_expression, parse_record,
+    parse_subexpression, parse_value,
 };
 use super::parse_helpers::is_identifier;
 use super::tokens::{Tokens, item, keyword};
 
 /// Remove `_` digit separators, borrowing when there are none.
 fn strip_underscores(text: &str) -> Cow<'_, str> {
-    if text.contains('_') { Cow::Owned(text.replace('_', "")) } else { Cow::Borrowed(text) }
+    if text.contains('_') {
+        Cow::Owned(text.replace('_', ""))
+    } else {
+        Cow::Borrowed(text)
+    }
 }
 
 /// What a word is as an integer literal (nu's `IntLiteral`), with `_` separators anywhere:
@@ -69,10 +78,18 @@ impl IntLiteral {
             IntLiteral::Value(value) => return Ok(Some(value)),
             IntLiteral::NotInt => return Ok(None),
             IntLiteral::InvalidDigits { radix } => format!("invalid digits for radix {radix}"),
-            IntLiteral::OutOfRange { radix: 10 } => "number too large (add `.0` for a float)".to_string(),
+            IntLiteral::OutOfRange { radix: 10 } => {
+                "number too large (add `.0` for a float)".to_string()
+            }
             IntLiteral::OutOfRange { .. } => "number too large for 64 bits".to_string(),
         };
-        Err(cut(Diagnostic::new(ErrorKind::InvalidLiteral { kind: "int", message }, span)))
+        Err(cut(Diagnostic::new(
+            ErrorKind::InvalidLiteral {
+                kind: "int",
+                message,
+            },
+            span,
+        )))
     }
 }
 
@@ -123,8 +140,10 @@ pub fn read_int(text: &str) -> IntLiteral {
         match text.parse::<i64>() {
             Ok(value) => IntLiteral::Value(value),
             Err(error)
-                if matches!(error.kind(), IntErrorKind::PosOverflow | IntErrorKind::NegOverflow)
-                    && all_digits(unsigned, 10) =>
+                if matches!(
+                    error.kind(),
+                    IntErrorKind::PosOverflow | IntErrorKind::NegOverflow
+                ) && all_digits(unsigned, 10) =>
             {
                 IntLiteral::OutOfRange { radix: 10 }
             }
@@ -163,7 +182,9 @@ pub fn parse_float(text: &str) -> Option<f64> {
     // A special float is spelled exactly as one of the names, with no `_` in it (`i_n_f` is a
     // bare word).
     let written = text.strip_prefix(['+', '-']).unwrap_or(text);
-    if unsigned.starts_with(|c: char| c.is_ascii_alphabetic()) && !SPECIAL_FLOAT_NAMES.contains(&written) {
+    if unsigned.starts_with(|c: char| c.is_ascii_alphabetic())
+        && !SPECIAL_FLOAT_NAMES.contains(&written)
+    {
         return None;
     }
     stripped.parse::<f64>().ok()
@@ -189,7 +210,9 @@ pub fn parse_number<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResult
 
 /// `true` if `text` could start a unit literal: a digit, or `.`, `-` or `+` and a digit.
 fn unit_literal_start(text: &[u8]) -> bool {
-    text.len() >= 2 && (text[0].is_ascii_digit() || (matches!(text[0], b'.' | b'-' | b'+') && text[1].is_ascii_digit()))
+    text.len() >= 2
+        && (text[0].is_ascii_digit()
+            || (matches!(text[0], b'.' | b'-' | b'+') && text[1].is_ascii_digit()))
 }
 
 /// The filesize units in upper case, each with the multiplier nu's `FILESIZE_UNIT_GROUPS`
@@ -260,7 +283,11 @@ fn parse_unit_value<'u, U: Copy>(
     if !unit_literal_start(text.as_bytes()) {
         return None;
     }
-    let normalized: Cow<'_, str> = if uppercase { Cow::Owned(text.to_ascii_uppercase()) } else { Cow::Borrowed(text) };
+    let normalized: Cow<'_, str> = if uppercase {
+        Cow::Owned(text.to_ascii_uppercase())
+    } else {
+        Cow::Borrowed(text)
+    };
     let (name, unit, convert) = units.iter().find(|(name, ..)| normalized.ends_with(name))?;
     // Like nu, the check for a variable before the unit (`$x..1kb`) comes
     // after the underscores are stripped, so `42m$_b` is no filesize either.
@@ -277,26 +304,36 @@ fn parse_unit_value<'u, U: Copy>(
     // fit, so its upper bound is exclusive.
     let total = scale(*unit);
     let fits = match number.parse::<i128>() {
-        Ok(int) => int.checked_mul(i128::from(total)).is_some_and(|scaled| i64::try_from(scaled).is_ok()),
+        Ok(int) => int
+            .checked_mul(i128::from(total))
+            .is_some_and(|scaled| i64::try_from(scaled).is_ok()),
         Err(_) => {
             let scaled = match convert {
                 Some(multiplier) => {
                     let multiplier_f = *multiplier as f64;
-                    (value.trunc() * multiplier_f + value.fract() * multiplier_f) * (total / multiplier) as f64
+                    (value.trunc() * multiplier_f + value.fract() * multiplier_f)
+                        * (total / multiplier) as f64
                 }
                 None => value.trunc(),
             };
             (i64::MIN as f64..i64::MAX as f64).contains(&scaled)
         }
     };
-    Some(if fits { Ok((value, *unit)) } else { Err(UnitError::TooLarge) })
+    Some(if fits {
+        Ok((value, *unit))
+    } else {
+        Err(UnitError::TooLarge)
+    })
 }
 
 /// A filesize literal such as `10kb` or `1.5MiB` (nu's `parse_filesize`;
 /// units are case-insensitive).
 pub fn parse_filesize(text: &str) -> Option<Result<Filesize, UnitError>> {
     // The hex digit `b` might be mistaken for the unit `b` (`0x1b`, `-0x1b`), so rule hex out first.
-    if matches!(text.as_bytes(), [b'0', b'x', ..] | [b'-' | b'+', b'0', b'x', ..]) {
+    if matches!(
+        text.as_bytes(),
+        [b'0', b'x', ..] | [b'-' | b'+', b'0', b'x', ..]
+    ) {
         return None;
     }
     parse_unit_value(text, FILESIZE_UNITS, true, FilesizeUnit::bytes)
@@ -347,10 +384,16 @@ pub fn is_datetime(text: &str) -> bool {
 /// that isn't a valid one (`2024-01-15T10:00`).
 pub fn is_invalid_date_literal(text: &str) -> bool {
     let bytes = text.as_bytes();
-    let digits =
-        |range: std::ops::Range<usize>| bytes.get(range).is_some_and(|digits| digits.iter().all(u8::is_ascii_digit));
-    let date_shape =
-        digits(0..4) && bytes.get(4) == Some(&b'-') && digits(5..7) && bytes.get(7) == Some(&b'-') && digits(8..10);
+    let digits = |range: std::ops::Range<usize>| {
+        bytes
+            .get(range)
+            .is_some_and(|digits| digits.iter().all(u8::is_ascii_digit))
+    };
+    let date_shape = digits(0..4)
+        && bytes.get(4) == Some(&b'-')
+        && digits(5..7)
+        && bytes.get(7) == Some(&b'-')
+        && digits(8..10);
     let time_follows = match bytes.get(10) {
         None => true,
         Some(b'T' | b't') => digits(11..13) && bytes.get(13) == Some(&b':') && digits(14..16),
@@ -362,8 +405,14 @@ pub fn is_invalid_date_literal(text: &str) -> bool {
 /// The `date` of [`is_datetime`]: `YYYY-MM-DD`, a day that exists in that month.
 fn date(input: &mut &str) -> winnow::Result<(), EmptyError> {
     let year = digits(4).parse_next(input)?;
-    let month = preceded('-', digits(2).verify(|month| (1..=12).contains(month))).parse_next(input)?;
-    preceded('-', digits(2).verify(|day| (1..=days_in_month(year, month)).contains(day))).void().parse_next(input)
+    let month =
+        preceded('-', digits(2).verify(|month| (1..=12).contains(month))).parse_next(input)?;
+    preceded(
+        '-',
+        digits(2).verify(|day| (1..=days_in_month(year, month)).contains(day)),
+    )
+    .void()
+    .parse_next(input)
 }
 
 /// The `time` of [`is_datetime`]: `Thh:mm:ss` with optional fractional seconds.
@@ -402,8 +451,15 @@ fn offset(input: &mut &str) -> winnow::Result<(), EmptyError> {
 /// or assignment token (`0b[1|2]` is then a command name). A bracket interior
 /// that does not lex counts as binary, so [`parse_binary`] reports the error.
 pub fn looks_like_binary(text: &str) -> bool {
-    let Some(prefix) = ["0x[", "0o[", "0b["].into_iter().find(|prefix| text.starts_with(prefix)) else { return false };
-    let Some(inner) = text[prefix.len()..].strip_suffix(']') else { return false };
+    let Some(prefix) = ["0x[", "0o[", "0b["]
+        .into_iter()
+        .find(|prefix| text.starts_with(prefix))
+    else {
+        return false;
+    };
+    let Some(inner) = text[prefix.len()..].strip_suffix(']') else {
+        return false;
+    };
     match lex(inner, 0, LexOptions::BINARY) {
         Ok(tokens) => tokens.iter().all(|token| {
             matches!(
@@ -421,7 +477,10 @@ pub fn looks_like_binary(text: &str) -> bool {
 
 /// `0x[...]`, `0o[...]` or `0b[...]` (nu's `parse_binary`). `None` if the
 /// item does not look like a binary literal at all.
-pub fn parse_binary<'a>(working_set: &WorkingSet<'a>, span: Span) -> Option<ParseResult<Expression<'a>>> {
+pub fn parse_binary<'a>(
+    working_set: &WorkingSet<'a>,
+    span: Span,
+) -> Option<ParseResult<Expression<'a>>> {
     let text = working_set.get_span_contents(span);
     let (radix, digits_per_byte, prefix) = match text.as_bytes() {
         // Only a bracketed literal that closes is a binary; `0x[13]=` is a bare word in nu.
@@ -431,7 +490,14 @@ pub fn parse_binary<'a>(working_set: &WorkingSet<'a>, span: Span) -> Option<Pars
         [b'0', b'b', b'[', ..] => (2, 8, "0b["),
         _ => return None,
     };
-    Some(parse_binary_with_base(working_set, span, text, radix, digits_per_byte, prefix))
+    Some(parse_binary_with_base(
+        working_set,
+        span,
+        text,
+        radix,
+        digits_per_byte,
+        prefix,
+    ))
 }
 
 /// The bytes of a binary literal in `radix` (nu's `parse_binary_with_base`),
@@ -444,7 +510,10 @@ fn parse_binary_with_base<'a>(
     digits_per_byte: usize,
     prefix: &str,
 ) -> ParseResult<Expression<'a>> {
-    let Some(inner) = text.strip_prefix(prefix).and_then(|token| token.strip_suffix(']')) else {
+    let Some(inner) = text
+        .strip_prefix(prefix)
+        .and_then(|token| token.strip_suffix(']'))
+    else {
         return Err(cut(Diagnostic::expected("binary literal", span)));
     };
     let inner_span = Span::new(span.start + prefix.len(), span.end - 1);
@@ -454,7 +523,10 @@ fn parse_binary_with_base<'a>(
     for token in &tokens {
         match token.contents {
             TokenContents::Item => digits.push_str(working_set.get_span_contents(token.span)),
-            TokenContents::Eof | TokenContents::Comment | TokenContents::Semicolon | TokenContents::Eol => {}
+            TokenContents::Eof
+            | TokenContents::Comment
+            | TokenContents::Semicolon
+            | TokenContents::Eol => {}
             _ => return Err(cut(Diagnostic::expected("binary digits", token.span))),
         }
     }
@@ -486,7 +558,10 @@ fn parse_binary_with_base<'a>(
             }
         }
     }
-    Ok(Expression::new(Expr::Binary(BinaryLiteral { radix, bytes }), span))
+    Ok(Expression::new(
+        Expr::Binary(BinaryLiteral { radix, bytes }),
+        span,
+    ))
 }
 
 /// Decode the escape sequences of a double-quoted string body (nu's
@@ -507,22 +582,25 @@ fn unescape_string(text: &str, base: usize) -> Result<Cow<'_, str>, Diagnostic> 
     if !text.contains('\\') {
         return Ok(Cow::Borrowed(text));
     }
-    let decoded = repeat(0.., alt((take_till(1.., '\\').map(Unescaped::Text), escape_sequence)))
-        .fold(
-            || Vec::with_capacity(text.len()),
-            |mut bytes: Vec<u8>, piece| {
-                match piece {
-                    Unescaped::Text(text) => bytes.extend_from_slice(text.as_bytes()),
-                    Unescaped::Byte(byte) => bytes.push(byte),
-                    Unescaped::Char(character) => {
-                        bytes.extend_from_slice(character.encode_utf8(&mut [0; 4]).as_bytes())
-                    }
+    let decoded = repeat(
+        0..,
+        alt((take_till(1.., '\\').map(Unescaped::Text), escape_sequence)),
+    )
+    .fold(
+        || Vec::with_capacity(text.len()),
+        |mut bytes: Vec<u8>, piece| {
+            match piece {
+                Unescaped::Text(text) => bytes.extend_from_slice(text.as_bytes()),
+                Unescaped::Byte(byte) => bytes.push(byte),
+                Unescaped::Char(character) => {
+                    bytes.extend_from_slice(character.encode_utf8(&mut [0; 4]).as_bytes())
                 }
-                bytes
-            },
-        )
-        .parse_next(&mut input(text, base))
-        .map_err(into_diagnostic)?;
+            }
+            bytes
+        },
+    )
+    .parse_next(&mut input(text, base))
+    .map_err(into_diagnostic)?;
     String::from_utf8(decoded).map(Cow::Owned).map_err(|_| {
         invalid_string(
             "the string is not valid UTF-8 after decoding its escapes".into(),
@@ -548,10 +626,15 @@ fn escape_sequence<'t>(input: &mut Input<'t>) -> ParseResult<Unescaped<'t>> {
     let end = rest_span(input).end;
     '\\'.parse_next(input)?;
     let Some(escaped) = opt(any).parse_next(input)? else {
-        return Err(cut(invalid_string("incomplete escape sequence after `\\`".into(), Span::new(start, end))));
+        return Err(cut(invalid_string(
+            "incomplete escape sequence after `\\`".into(),
+            Span::new(start, end),
+        )));
     };
     let byte = match escaped {
-        '"' | '\'' | '\\' | '/' | '(' | ')' | '{' | '}' | '$' | '^' | '#' | '|' | '~' | ' ' => escaped as u8,
+        '"' | '\'' | '\\' | '/' | '(' | ')' | '{' | '}' | '$' | '^' | '#' | '|' | '~' | ' ' => {
+            escaped as u8
+        }
         'a' => 0x07,
         'b' => 0x08,
         'e' => 0x1b,
@@ -565,10 +648,14 @@ fn escape_sequence<'t>(input: &mut Input<'t>) -> ParseResult<Unescaped<'t>> {
             // characters so that it never ends inside one.
             let rest: &str = input.input.as_ref();
             let digits_end = pos(input) + rest.chars().take(2).map(char::len_utf8).sum::<usize>();
-            let hex: ParseResult<&str> = take_while(2..=2, |digit: char| digit.is_ascii_hexdigit()).parse_next(input);
+            let hex: ParseResult<&str> =
+                take_while(2..=2, |digit: char| digit.is_ascii_hexdigit()).parse_next(input);
             let Ok(hex) = hex else {
                 let message = "incomplete hex escape '\\xHH', expected 2 hex digits";
-                return Err(cut(invalid_string(message.into(), Span::new(start, digits_end))));
+                return Err(cut(invalid_string(
+                    message.into(),
+                    Span::new(start, digits_end),
+                )));
             };
             u8::from_str_radix(hex, 16).expect("two hex digits")
         }
@@ -576,16 +663,24 @@ fn escape_sequence<'t>(input: &mut Input<'t>) -> ParseResult<Unescaped<'t>> {
             // The error covers the `\u` and the character meant as its `{`.
             let rest: &str = input.input.as_ref();
             let brace_end = pos(input) + rest.chars().next().map_or(0, char::len_utf8);
-            let braced: ParseResult<&str> = delimited('{', take_till(0.., '}'), '}').parse_next(input);
+            let braced: ParseResult<&str> =
+                delimited('{', take_till(0.., '}'), '}').parse_next(input);
             let Ok(hex) = braced else {
                 let message = "incomplete unicode escape '\\u{...}', missing closing '}'";
-                return Err(cut(invalid_string(message.into(), Span::new(start, brace_end))));
+                return Err(cut(invalid_string(
+                    message.into(),
+                    Span::new(start, brace_end),
+                )));
             };
-            let code_point = u32::from_str_radix(hex, 16).ok().filter(|_| (1..=6).contains(&hex.len()));
+            let code_point = u32::from_str_radix(hex, 16)
+                .ok()
+                .filter(|_| (1..=6).contains(&hex.len()));
             return match code_point.and_then(char::from_u32) {
                 Some(character) => Ok(Unescaped::Char(character)),
                 None => Err(cut(invalid_string(
-                    format!("invalid unicode escape '\\u{{{hex}}}', must be 1-6 hex digits, max codepoint 0x10FFFF"),
+                    format!(
+                        "invalid unicode escape '\\u{{{hex}}}', must be 1-6 hex digits, max codepoint 0x10FFFF"
+                    ),
                     Span::new(start, start + 3 + hex.len()),
                 ))),
             };
@@ -602,7 +697,13 @@ fn escape_sequence<'t>(input: &mut Input<'t>) -> ParseResult<Unescaped<'t>> {
 
 /// An invalid string literal.
 fn invalid_string(message: String, span: Span) -> Diagnostic {
-    Diagnostic::new(ErrorKind::InvalidLiteral { kind: "string", message }, span)
+    Diagnostic::new(
+        ErrorKind::InvalidLiteral {
+            kind: "string",
+            message,
+        },
+        span,
+    )
 }
 
 /// A raw string `r#'...'#` (nu's `parse_raw_string`): the text between the
@@ -615,26 +716,51 @@ fn invalid_string(message: String, span: Span) -> Diagnostic {
 /// The text runs from the quote after the opening hashes to the quote before
 /// as many hashes at the end of the item; anything else is an unclosed quote
 /// (`r#'a'#b`).
-pub fn parse_raw_string<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResult<Expression<'a>> {
+pub fn parse_raw_string<'a>(
+    working_set: &WorkingSet<'a>,
+    span: Span,
+) -> ParseResult<Expression<'a>> {
     let text = working_set.get_span_contents(span);
     let Some(after_r) = text.strip_prefix('r') else {
         return Err(cut(Diagnostic::expected("raw string", span)));
     };
     if !after_r.starts_with('#') {
-        return Err(cut(Diagnostic::expected("`#` after `r` in raw string", span)));
+        return Err(cut(Diagnostic::expected(
+            "`#` after `r` in raw string",
+            span,
+        )));
     }
     let Some((hashes, value)) = raw_string_parts(text) else {
-        return Err(cut(Diagnostic::new(ErrorKind::Unclosed { delimiter: "'", open: span }, span.past())));
+        return Err(cut(Diagnostic::new(
+            ErrorKind::Unclosed {
+                delimiter: "'",
+                open: span,
+            },
+            span.past(),
+        )));
     };
-    Ok(Expression::new(Expr::String(StringLiteral { value: Cow::Borrowed(value), quote: Quote::Raw(hashes) }), span))
+    Ok(Expression::new(
+        Expr::String(StringLiteral {
+            value: Cow::Borrowed(value),
+            quote: Quote::Raw(hashes),
+        }),
+        span,
+    ))
 }
 
 /// The number of `#` and the text of the raw string `text` ([`parse_raw_string`]),
 /// when it is one, closed at its very end.
 fn raw_string_parts(text: &str) -> Option<(usize, &str)> {
-    let hashes = text.strip_prefix('r')?.bytes().take_while(|byte| *byte == b'#').count();
+    let hashes = text
+        .strip_prefix('r')?
+        .bytes()
+        .take_while(|byte| *byte == b'#')
+        .count();
     let body_start = 1 + hashes;
-    let body_end = text.len().checked_sub(hashes).filter(|body_end| hashes > 0 && *body_end > body_start + 1)?;
+    let body_end = text
+        .len()
+        .checked_sub(hashes)
+        .filter(|body_end| hashes > 0 && *body_end > body_start + 1)?;
     // Bytes, as nu compares them: `body_end` may fall inside a character (`r#'a'#é`).
     let bytes = text.as_bytes();
     let closed = bytes[body_end..].iter().all(|byte| *byte == b'#')
@@ -657,18 +783,27 @@ pub fn parse_string<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResult
         "" => Err(cut(Diagnostic::expected("string", span))),
         _ if text.starts_with("r#") => parse_raw_string(working_set, span),
         _ if is_bare_string_interpolation(text) => parse_string_interpolation(working_set, span),
-        _ => Ok(Expression::new(Expr::String(parse_string_literal(working_set, span)?), span)),
+        _ => Ok(Expression::new(
+            Expr::String(parse_string_literal(working_set, span)?),
+            span,
+        )),
     }
 }
 
 /// The literal of a quoted, backtick or bare string item; a bare-word
 /// interpolation is *not* handled here.
-pub fn parse_string_literal<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResult<StringLiteral<'a>> {
+pub fn parse_string_literal<'a>(
+    working_set: &WorkingSet<'a>,
+    span: Span,
+) -> ParseResult<StringLiteral<'a>> {
     let text = working_set.get_span_contents(span);
     match text.as_bytes().first() {
         Some(b'"') => {
             let body = quoted_string_body(working_set, span, b'"')?;
-            Ok(StringLiteral { value: unescape_string(body, span.start + 1).map_err(cut)?, quote: Quote::Double })
+            Ok(StringLiteral {
+                value: unescape_string(body, span.start + 1).map_err(cut)?,
+                quote: Quote::Double,
+            })
         }
         Some(b'\'') => Ok(StringLiteral {
             value: Cow::Borrowed(quoted_string_body(working_set, span, b'\'')?),
@@ -676,9 +811,10 @@ pub fn parse_string_literal<'a>(working_set: &WorkingSet<'a>, span: Span) -> Par
         }),
         // Backticks are trimmed only when the item both starts and ends with
         // one; `` `a`b `` is the bare word `` `a`b ``, as in nu.
-        Some(b'`') if text.len() >= 2 && text.ends_with('`') => {
-            Ok(StringLiteral { value: Cow::Borrowed(&text[1..text.len() - 1]), quote: Quote::Backtick })
-        }
+        Some(b'`') if text.len() >= 2 && text.ends_with('`') => Ok(StringLiteral {
+            value: Cow::Borrowed(&text[1..text.len() - 1]),
+            quote: Quote::Backtick,
+        }),
         _ => Ok(StringLiteral::bare(text)),
     }
 }
@@ -688,18 +824,28 @@ pub fn parse_string_literal<'a>(working_set: &WorkingSet<'a>, span: Span) -> Par
 /// Like Nushell, the *last* quote character in the item must be its final
 /// byte (`"a"b` is an error) but quotes in between are kept as text, so
 /// `"a"b"c"` is the string `a"b"c`.
-fn quoted_string_body<'a>(working_set: &WorkingSet<'a>, span: Span, quote: u8) -> ParseResult<&'a str> {
+fn quoted_string_body<'a>(
+    working_set: &WorkingSet<'a>,
+    span: Span,
+    quote: u8,
+) -> ParseResult<&'a str> {
     let text = working_set.get_span_contents(span);
     let bytes = text.as_bytes();
     match bytes.iter().rposition(|byte| *byte == quote) {
         Some(0) | None => Err(cut(Diagnostic::new(
-            ErrorKind::Unclosed { delimiter: quote_str(quote), open: Span::new(span.start, span.start + 1) },
+            ErrorKind::Unclosed {
+                delimiter: quote_str(quote),
+                open: Span::new(span.start, span.start + 1),
+            },
             span.past(),
         ))),
-        Some(last) if last + 1 != bytes.len() => {
-            Err(cut(Diagnostic::new(ErrorKind::ExtraTokens, Span::new(span.start + last + 1, span.end))
-                .with_help("invalid characters after the closing quote; quote the whole string or remove them")))
-        }
+        Some(last) if last + 1 != bytes.len() => Err(cut(Diagnostic::new(
+            ErrorKind::ExtraTokens,
+            Span::new(span.start + last + 1, span.end),
+        )
+        .with_help(
+            "invalid characters after the closing quote; quote the whole string or remove them",
+        ))),
         Some(last) => Ok(&text[1..last]),
     }
 }
@@ -715,18 +861,31 @@ pub fn quote_str(quote: u8) -> &'static str {
 
 /// `$"..."`, `$'...'` or a bare interpolation `foo(...)` (nu's
 /// `parse_string_interpolation`).
-fn parse_string_interpolation<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResult<Expression<'a>> {
+fn parse_string_interpolation<'a>(
+    working_set: &WorkingSet<'a>,
+    span: Span,
+) -> ParseResult<Expression<'a>> {
     let text = working_set.get_span_contents(span);
     let (quote, body) = match text.as_bytes() {
         [b'$', q @ (b'"' | b'\''), ..] => {
             let body = quoted_string_body(working_set, Span::new(span.start + 1, span.end), *q)?;
             let body = Span::new(span.start + 2, span.start + 2 + body.len());
-            (if *q == b'"' { Quote::Double } else { Quote::Single }, body)
+            (
+                if *q == b'"' {
+                    Quote::Double
+                } else {
+                    Quote::Single
+                },
+                body,
+            )
         }
         _ => (Quote::Bare, span),
     };
     let parts = parse_interpolation_parts(working_set, body, quote)?;
-    Ok(Expression::new(Expr::StringInterpolation(StringInterpolation { quote, parts }), span))
+    Ok(Expression::new(
+        Expr::StringInterpolation(StringInterpolation { quote, parts }),
+        span,
+    ))
 }
 
 /// Split the body of an interpolated string into literal text and `( ... )`
@@ -762,8 +921,11 @@ fn parse_interpolation_parts<'a>(
         }
         let span = Span::new(body.start + start, body.start + end);
         let lite_command = &text[start..end];
-        let value =
-            if double { unescape_string(lite_command, span.start).map_err(cut)? } else { Cow::Borrowed(lite_command) };
+        let value = if double {
+            unescape_string(lite_command, span.start).map_err(cut)?
+        } else {
+            Cow::Borrowed(lite_command)
+        };
         Ok(Some(InterpolationPart::Text { span, value }))
     };
 
@@ -809,7 +971,10 @@ fn parse_interpolation_parts<'a>(
 }
 
 /// `$name` (nu's `parse_variable_expr`).
-fn parse_variable_expr<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResult<Expression<'a>> {
+fn parse_variable_expr<'a>(
+    working_set: &WorkingSet<'a>,
+    span: Span,
+) -> ParseResult<Expression<'a>> {
     let text = working_set.get_span_contents(span);
     let name = text.strip_prefix('$').unwrap_or(text);
     if !is_identifier(name) {
@@ -821,7 +986,10 @@ fn parse_variable_expr<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseRes
 
 /// An item starting with `$` (nu's `parse_dollar_expr`): an interpolation, a
 /// cell-path literal, a range, or a variable with an optional cell path.
-pub fn parse_dollar_expr<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResult<Expression<'a>> {
+pub fn parse_dollar_expr<'a>(
+    working_set: &WorkingSet<'a>,
+    span: Span,
+) -> ParseResult<Expression<'a>> {
     let text = working_set.get_span_contents(span);
     match text.as_bytes() {
         [b'$', b'"' | b'\'', ..] => parse_string_interpolation(working_set, span),
@@ -839,7 +1007,10 @@ pub fn parse_dollar_expr<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseR
 
 /// An item starting with `(` (nu's `parse_paren_expr`): a range, or a
 /// subexpression with an optional cell path.
-pub fn parse_paren_expr<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResult<Expression<'a>> {
+pub fn parse_paren_expr<'a>(
+    working_set: &WorkingSet<'a>,
+    span: Span,
+) -> ParseResult<Expression<'a>> {
     if is_range_syntax(working_set.get_span_contents(span)) {
         parse_range(working_set, span)
     } else {
@@ -849,7 +1020,10 @@ pub fn parse_paren_expr<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseRe
 
 /// A cell-path literal without the `$.`, as the `cell-path` shape reads it:
 /// `a.b.0` (nu's `parse_simple_cell_path`).
-pub fn parse_simple_cell_path<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResult<Expression<'a>> {
+pub fn parse_simple_cell_path<'a>(
+    working_set: &WorkingSet<'a>,
+    span: Span,
+) -> ParseResult<Expression<'a>> {
     let items = lex_cell_path(working_set, span)?;
     let members = parse_cell_path(&mut Tokens::new(working_set, &items, span.end), false)?;
     Ok(Expression::new(Expr::CellPath(CellPath { members }), span))
@@ -875,21 +1049,45 @@ pub fn parse_full_cell_path<'a>(
         [b'(', ..] if working_set.group_end(head_token.span) != Some(head_text.len() - 1) => {
             return parse_string_interpolation(working_set, span);
         }
-        [b'(', ..] => (parse_subexpression(working_set, head_token.span)?, &items[1..]),
-        [b'[', ..] => (parse_list_expression(working_set, head_token.span)?, &items[1..]),
+        [b'(', ..] => (
+            parse_subexpression(working_set, head_token.span)?,
+            &items[1..],
+        ),
+        [b'[', ..] => (
+            parse_list_expression(working_set, head_token.span)?,
+            &items[1..],
+        ),
         [b'{', ..] => (parse_record(working_set, head_token.span)?, &items[1..]),
-        [b'$', ..] => (parse_variable_expr(working_set, head_token.span)?, &items[1..]),
-        _ if implicit => (Expression::new(Expr::Var(Var { name: "it" }), Span::point(span.start)), &items[..]),
-        _ => return Err(cut(Diagnostic::expected("variable or subexpression", head_token.span))),
+        [b'$', ..] => (
+            parse_variable_expr(working_set, head_token.span)?,
+            &items[1..],
+        ),
+        _ if implicit => (
+            Expression::new(Expr::Var(Var { name: "it" }), Span::point(span.start)),
+            &items[..],
+        ),
+        _ => {
+            return Err(cut(Diagnostic::expected(
+                "variable or subexpression",
+                head_token.span,
+            )));
+        }
     };
-    let members = parse_cell_path(&mut Tokens::new(working_set, member_tokens, span.end), !implicit)?;
+    let members = parse_cell_path(
+        &mut Tokens::new(working_set, member_tokens, span.end),
+        !implicit,
+    )?;
     // A head alone is just the head; a trailing `.` (`$x.`) keeps the path, with the span of the
     // whole item, as in nu (a completer reads the `.` as the start of a member).
     if members.is_empty() && !implicit && head.span == span {
         return Ok(head);
     }
     Ok(Expression::new(
-        Expr::FullCellPath(FullCellPath { head: Box::new(head), implicit_head: implicit, tail: members }),
+        Expr::FullCellPath(FullCellPath {
+            head: Box::new(head),
+            implicit_head: implicit,
+            tail: members,
+        }),
         span,
     ))
 }
@@ -904,7 +1102,10 @@ pub fn parse_full_cell_path<'a>(
 /// ```
 ///
 /// A trailing `.` is accepted, as in Nushell.
-fn parse_cell_path<'a>(tokens: &mut Tokens<'_, 'a>, expect_dot: bool) -> ParseResult<Vec<PathMember<'a>>> {
+fn parse_cell_path<'a>(
+    tokens: &mut Tokens<'_, 'a>,
+    expect_dot: bool,
+) -> ParseResult<Vec<PathMember<'a>>> {
     let mut first = match expect_dot {
         true => None,
         false => opt(path_member).parse_next(tokens)?,
@@ -930,9 +1131,18 @@ fn parse_cell_path<'a>(tokens: &mut Tokens<'_, 'a>, expect_dot: bool) -> ParseRe
 fn path_member<'a>(tokens: &mut Tokens<'_, 'a>) -> ParseResult<PathMember<'a>> {
     let token = item(tokens)?;
     let kind = parse_path_member_kind(tokens.working_set, token.span)?;
-    let mut member = PathMember { span: token.span, kind, optional: false, case_insensitive: false };
+    let mut member = PathMember {
+        span: token.span,
+        kind,
+        optional: false,
+        case_insensitive: false,
+    };
     while let Some(modifier) = opt(alt((keyword("?"), keyword("!")))).parse_next(tokens)? {
-        match (tokens.text(&modifier), member.optional, member.case_insensitive) {
+        match (
+            tokens.text(&modifier),
+            member.optional,
+            member.case_insensitive,
+        ) {
             ("!", _, false) => member.case_insensitive = true,
             ("?", false, _) => member.optional = true,
             _ => return Err(expected_after_path_member(&member, modifier.span)),
@@ -940,26 +1150,37 @@ fn path_member<'a>(tokens: &mut Tokens<'_, 'a>) -> ParseResult<PathMember<'a>> {
         member.span = member.span.merge(modifier.span);
     }
     match tokens.peek_token() {
-        Some(next) if tokens.text(next) != "." => Err(expected_after_path_member(&member, next.span)),
+        Some(next) if tokens.text(next) != "." => {
+            Err(expected_after_path_member(&member, next.span))
+        }
         _ => Ok(member),
     }
 }
 
 /// A row index, or a column name.
-fn parse_path_member_kind<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResult<PathMemberKind<'a>> {
+fn parse_path_member_kind<'a>(
+    working_set: &WorkingSet<'a>,
+    span: Span,
+) -> ParseResult<PathMemberKind<'a>> {
     let text = working_set.get_span_contents(span);
     match parse_int(text) {
         Some(index) if index < 0 => Err(cut(Diagnostic::new(
-            ErrorKind::InvalidLiteral { kind: "cell path", message: "negative index is not supported".into() },
+            ErrorKind::InvalidLiteral {
+                kind: "cell path",
+                message: "negative index is not supported".into(),
+            },
             span,
         ))),
         Some(index) => Ok(PathMemberKind::Int(index as usize)),
         // nu parses the member as a string, and a bare word with a `(` in it
         // is an interpolation, not a string: `$x.a(b)` fails.
-        None if is_bare_string_interpolation(text) => {
-            Err(cut(Diagnostic::expected("string", span).with_help("a cell-path member with `(` in it must be quoted")))
-        }
-        None => Ok(PathMemberKind::String(parse_string_literal(working_set, span)?.value)),
+        None if is_bare_string_interpolation(text) => Err(cut(Diagnostic::expected(
+            "string", span,
+        )
+        .with_help("a cell-path member with `(` in it must be quoted"))),
+        None => Ok(PathMemberKind::String(
+            parse_string_literal(working_set, span)?.value,
+        )),
     }
 }
 
@@ -984,15 +1205,25 @@ fn lex_cell_path(working_set: &WorkingSet<'_>, span: Span) -> ParseResult<Vec<To
     // the cell-path lexer never splits at, valid in a name or not (`$a-b`).
     let text = working_set.get_span_contents(span);
     let head_alone = match text.as_bytes() {
-        [b'$', name @ ..] => name.iter().all(|&byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-')),
+        [b'$', name @ ..] => name
+            .iter()
+            .all(|&byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-')),
         [b'(' | b'[' | b'{', ..] => working_set.group_end(span) == Some(text.len() - 1),
         _ => false,
     };
     if head_alone {
-        return Ok(vec![Token { contents: TokenContents::Item, span }]);
+        return Ok(vec![Token {
+            contents: TokenContents::Item,
+            span,
+        }]);
     }
     let mut lexed = working_set.lex(span, LexOptions::CELL_PATH).map_err(cut)?;
-    lexed.retain(|token| !matches!(token.contents, TokenContents::Eof | TokenContents::Eol | TokenContents::Comment));
+    lexed.retain(|token| {
+        !matches!(
+            token.contents,
+            TokenContents::Eof | TokenContents::Eol | TokenContents::Comment
+        )
+    });
     for token in &mut lexed {
         token.contents = TokenContents::Item;
     }
@@ -1047,8 +1278,10 @@ fn is_range_bound(text: &str) -> bool {
                 .is_ok_and(|probe| BraceShape::of_probe(&probe, inner) != BraceShape::Other)
         }
         _ => {
-            matches!(read_int(text), IntLiteral::Value(_) | IntLiteral::OutOfRange { .. })
-                || parse_float(text).is_some()
+            matches!(
+                read_int(text),
+                IntLiteral::Value(_) | IntLiteral::OutOfRange { .. }
+            ) || parse_float(text).is_some()
         }
     }
 }
@@ -1099,7 +1332,9 @@ pub fn is_range_head(text: &str) -> bool {
         // string at the end, and what follows a subexpression must be a cell path when it
         // starts like one (other text makes it a bare interpolation, `5..(1)x`):
         // `5..{a: 1}b`, `5..r#'a'#b` and `5..(1)!` are external commands for nu.
-        None if bound.starts_with('{') => group_end(bound).is_some_and(|end| is_cell_path_tail(&bound[end + 1..])),
+        None if bound.starts_with('{') => {
+            group_end(bound).is_some_and(|end| is_cell_path_tail(&bound[end + 1..]))
+        }
         None if bound.starts_with('(') => group_end(bound).is_some_and(|end| {
             let tail = &bound[end + 1..];
             !tail.starts_with(['.', '?', '!']) || is_cell_path_tail(tail)
@@ -1109,7 +1344,9 @@ pub fn is_range_head(text: &str) -> bool {
     };
     has_range_operator(text)
         && range_bounds(text).is_some_and(|(from, next, to)| {
-            bound_parses(from) && next.is_none_or(|next| !next.is_empty() && bound_parses(next)) && bound_parses(to)
+            bound_parses(from)
+                && next.is_none_or(|next| !next.is_empty() && bound_parses(next))
+                && bound_parses(to)
         })
 }
 
@@ -1156,9 +1393,16 @@ fn range_bounds(text: &str) -> Option<(&str, Option<&str>, &str)> {
     }
     let (next_operator, operator) = find_range_operators(text)?;
     let operator_length =
-        if text[operator..].starts_with("..<") || text[operator..].starts_with("..=") { 3 } else { 2 };
+        if text[operator..].starts_with("..<") || text[operator..].starts_with("..=") {
+            3
+        } else {
+            2
+        };
     // Only the last operator may be `..<` (`1..<2..3` is no range).
-    if text.find("..<").is_some_and(|position| position != operator) {
+    if text
+        .find("..<")
+        .is_some_and(|position| position != operator)
+    {
         return None;
     }
     let from = &text[..next_operator.unwrap_or(operator)];
@@ -1210,8 +1454,13 @@ pub fn parse_range<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResult<
             Expr::Closure(_) => "a closure",
             _ => return Ok(Some(Box::new(bound))),
         };
-        Err(cut(Diagnostic::message(format!("the `..` operator does not work on {refused}"), bound_span)
-            .with_help("a range bound is a number, a variable or a subexpression")))
+        Err(cut(Diagnostic::message(
+            format!("the `..` operator does not work on {refused}"),
+            bound_span,
+        )
+        .with_help(
+            "a range bound is a number, a variable or a subexpression",
+        )))
     };
     let from = bound(0, next_operator.unwrap_or(operator))?;
     let next = match next_operator {
@@ -1238,9 +1487,13 @@ pub fn parse_range<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResult<
             to,
             operator: RangeOperator {
                 inclusion,
-                span: Span::new(span.start + operator, span.start + operator + operator_length),
-                next_op_span: next_operator
-                    .map(|next_operator| Span::new(span.start + next_operator, span.start + next_operator + 2)),
+                span: Span::new(
+                    span.start + operator,
+                    span.start + operator + operator_length,
+                ),
+                next_op_span: next_operator.map(|next_operator| {
+                    Span::new(span.start + next_operator, span.start + next_operator + 2)
+                }),
             },
         }),
         span,
@@ -1281,16 +1534,46 @@ mod tests {
 
     #[test]
     fn units() {
-        assert_eq!(parse_filesize("1kb").unwrap().unwrap(), Filesize { value: 1.0, unit: FilesizeUnit::KB });
-        assert_eq!(parse_filesize("1.5MiB").unwrap().unwrap(), Filesize { value: 1.5, unit: FilesizeUnit::MiB });
-        assert_eq!(parse_filesize("10B").unwrap().unwrap(), Filesize { value: 10.0, unit: FilesizeUnit::B });
+        assert_eq!(
+            parse_filesize("1kb").unwrap().unwrap(),
+            Filesize {
+                value: 1.0,
+                unit: FilesizeUnit::KB
+            }
+        );
+        assert_eq!(
+            parse_filesize("1.5MiB").unwrap().unwrap(),
+            Filesize {
+                value: 1.5,
+                unit: FilesizeUnit::MiB
+            }
+        );
+        assert_eq!(
+            parse_filesize("10B").unwrap().unwrap(),
+            Filesize {
+                value: 10.0,
+                unit: FilesizeUnit::B
+            }
+        );
         assert_eq!(parse_filesize("1b").unwrap().unwrap().unit, FilesizeUnit::B);
         assert!(parse_filesize("0x1b").is_none());
         assert!(parse_filesize("kb").is_none());
         assert!(parse_filesize("1_000kb").unwrap().is_ok());
-        assert_eq!(parse_duration("5ns").unwrap().unwrap().unit, DurationUnit::Nanosecond);
-        assert_eq!(parse_duration("1\u{00B5}s").unwrap().unwrap().unit, DurationUnit::Microsecond);
-        assert_eq!(parse_duration("2.5hr").unwrap().unwrap(), Duration { value: 2.5, unit: DurationUnit::Hour });
+        assert_eq!(
+            parse_duration("5ns").unwrap().unwrap().unit,
+            DurationUnit::Nanosecond
+        );
+        assert_eq!(
+            parse_duration("1\u{00B5}s").unwrap().unwrap().unit,
+            DurationUnit::Microsecond
+        );
+        assert_eq!(
+            parse_duration("2.5hr").unwrap().unwrap(),
+            Duration {
+                value: 2.5,
+                unit: DurationUnit::Hour
+            }
+        );
         assert!(parse_duration("5NS").is_none());
         assert!(parse_duration("-3sec").unwrap().is_ok());
         assert!(parse_duration("1..2sec").unwrap().is_err());
@@ -1311,8 +1594,14 @@ mod tests {
     #[test]
     fn escapes() {
         assert_eq!(unescape_string("plain", 0).unwrap(), "plain");
-        assert!(matches!(unescape_string("plain", 0).unwrap(), Cow::Borrowed(_)));
-        assert_eq!(unescape_string(r#"a\nb\t\"\\\("#, 0).unwrap(), "a\nb\t\"\\(");
+        assert!(matches!(
+            unescape_string("plain", 0).unwrap(),
+            Cow::Borrowed(_)
+        ));
+        assert_eq!(
+            unescape_string(r#"a\nb\t\"\\\("#, 0).unwrap(),
+            "a\nb\t\"\\("
+        );
         assert_eq!(unescape_string(r"\u{1F600}\x41\e", 0).unwrap(), "😀A\u{1b}");
         let err = unescape_string(r"a\qb", 10).unwrap_err();
         assert_eq!(err.span, Span::new(11, 13));

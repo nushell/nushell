@@ -40,7 +40,9 @@ impl ParseFailure {
     /// "expected valid syntax" at its offset.
     pub fn into_diagnostic(self) -> Diagnostic {
         match self {
-            ParseFailure::NoMatch(offset) => Diagnostic::expected("valid syntax", Span::point(offset)),
+            ParseFailure::NoMatch(offset) => {
+                Diagnostic::expected("valid syntax", Span::point(offset))
+            }
             ParseFailure::Error(diagnostic) => *diagnostic,
         }
     }
@@ -80,7 +82,10 @@ pub type ParseResult<T> = ModalResult<T, ParseFailure>;
 /// Create a character stream over `text`, whose first byte lives at absolute offset `base`.
 #[inline]
 pub fn input(text: &str, base: usize) -> Input<'_> {
-    Stateful { input: LocatingSlice::new(text), state: Base(base) }
+    Stateful {
+        input: LocatingSlice::new(text),
+        state: Base(base),
+    }
 }
 
 /// Absolute byte offset of the next character.
@@ -127,7 +132,11 @@ impl<'a> ParserError<Input<'a>> for ParseFailure {
 
     fn or(self, other: Self) -> Self {
         // Prefer the failure that got furthest.
-        if other.offset() >= self.offset() { other } else { self }
+        if other.offset() >= self.offset() {
+            other
+        } else {
+            self
+        }
     }
 
     fn into_inner(self) -> Result<Self::Inner, Self> {
@@ -151,7 +160,10 @@ impl<'a> AddContext<Input<'a>, &'static str> for ParseFailure {
 /// winnow's `.try_map(...)`: a conversion's error becomes a message at the current position.
 impl<'a, E: std::fmt::Display> FromExternalError<Input<'a>, E> for ParseFailure {
     fn from_external_error(input: &Input<'a>, error: E) -> Self {
-        ParseFailure::from(Diagnostic::message(error.to_string(), Span::point(pos(input))))
+        ParseFailure::from(Diagnostic::message(
+            error.to_string(),
+            Span::point(pos(input)),
+        ))
     }
 }
 
@@ -160,6 +172,8 @@ impl<'a, E: std::fmt::Display> FromExternalError<Input<'a>, E> for ParseFailure 
 pub fn into_diagnostic(error: ErrMode<ParseFailure>) -> Diagnostic {
     match error {
         ErrMode::Backtrack(failure) | ErrMode::Cut(failure) => failure.into_diagnostic(),
-        ErrMode::Incomplete(_) => Diagnostic::new(ErrorKind::UnexpectedEof("more input"), Span::point(0)),
+        ErrMode::Incomplete(_) => {
+            Diagnostic::new(ErrorKind::UnexpectedEof("more input"), Span::point(0))
+        }
     }
 }
