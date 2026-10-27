@@ -74,9 +74,6 @@ pub fn parse_source(working_set: &mut StateWorkingSet, lite_command: &LiteComman
         let scoped = name == b"source-env";
 
         if let Some(decl_id) = working_set.find_decl(name) {
-            #[allow(deprecated)]
-            let cwd = working_set.get_cwd();
-
             let ParsedInternalCall {
                 call,
                 output,
@@ -90,121 +87,15 @@ pub fn parse_source(working_set: &mut StateWorkingSet, lite_command: &LiteComman
                 None,
             );
 
-            if call_kind == CallKind::Help {
-                return Pipeline::from_vec(vec![Expression::new(
-                    working_set,
-                    Expr::Call(call),
-                    Span::concat(spans),
-                    output,
-                )]);
-            }
-
-            let first_expr = call.positional_iter().next();
-            if let Some(expr) = first_expr {
-                let val = match eval_constant(working_set, expr) {
-                    Ok(val) => val,
-                    Err(err) => {
-                        working_set.error(err.wrap(working_set, Span::concat(&spans[1..])));
-                        return Pipeline::from_vec(vec![Expression::new(
-                            working_set,
-                            Expr::Call(call),
-                            Span::concat(&spans[1..]),
-                            Type::Any,
-                        )]);
-                    }
-                };
-
-                if val.is_nothing() {
-                    let mut call = call;
-                    call.set_parser_info(
-                        "noop".to_string(),
-                        Expression::new_unknown(Expr::Nothing, Span::unknown(), Type::Nothing),
-                    );
-                    return Pipeline::from_vec(vec![Expression::new(
-                        working_set,
-                        Expr::Call(call),
-                        Span::concat(spans),
-                        Type::Any,
-                    )]);
-                }
-
-                let filename = match val.coerce_into_string() {
-                    Ok(s) => s,
-                    Err(err) => {
-                        working_set.error(err.wrap(working_set, Span::concat(&spans[1..])));
-                        return Pipeline::from_vec(vec![Expression::new(
-                            working_set,
-                            Expr::Call(call),
-                            Span::concat(&spans[1..]),
-                            Type::Any,
-                        )]);
-                    }
-                };
-
-                if let Some(path) = find_in_dirs(&filename, working_set, &cwd, Some(LIB_DIRS_VAR)) {
-                    if let Some(contents) = path.read(working_set) {
-                        if let Err(e) = working_set.files.push(path.clone().path_buf(), spans[1]) {
-                            working_set.error(e);
-                            return garbage_pipeline(working_set, spans);
-                        }
-
-                        // Reuse the cached parse only when VarIds still match.
-                        let mut block = parse(
-                            working_set,
-                            Some(&path.path().to_string_lossy()),
-                            &contents,
-                            scoped,
-                        );
-                        if block.ir_block.is_none() {
-                            let block_mut = Arc::make_mut(&mut block);
-                            compile_block(working_set, block_mut);
-                        }
-
-                        working_set.files.pop();
-
-                        let block_id = working_set
-                            .find_block_id_of(&block)
-                            .unwrap_or_else(|| working_set.add_block(block));
-
-                        let mut call_with_block = call;
-
-                        call_with_block.set_parser_info(
-                            "block_id".to_string(),
-                            Expression::new(
-                                working_set,
-                                Expr::Int(block_id.get() as i64),
-                                spans[1],
-                                Type::Any,
-                            ),
-                        );
-
-                        call_with_block.set_parser_info(
-                            "block_id_name".to_string(),
-                            Expression::new(
-                                working_set,
-                                Expr::Filepath(path.path_buf().display().to_string(), false),
-                                spans[1],
-                                Type::String,
-                            ),
-                        );
-
-                        return Pipeline::from_vec(vec![Expression::new(
-                            working_set,
-                            Expr::Call(call_with_block),
-                            Span::concat(spans),
-                            Type::Any,
-                        )]);
-                    }
-                } else {
-                    working_set.error(ParseError::SourcedFileNotFound(filename, spans[1]));
-                }
-            }
-            return Pipeline::from_vec(vec![Expression::new(
+            return finish_source(
                 working_set,
-                Expr::Call(call),
+                call,
+                output,
+                call_kind,
                 Span::concat(spans),
-                Type::Any,
-            )]);
+                &spans[1..],
+                scoped,
+            );
         }
     }
     working_set.error(ParseError::UnknownState(
@@ -212,6 +103,141 @@ pub fn parse_source(working_set: &mut StateWorkingSet, lite_command: &LiteComman
         Span::concat(spans),
     ));
     garbage_pipeline(working_set, spans)
+}
+
+/// What `parse_source` does with its call to `source`, or to `source-env` (`scoped`): the file
+/// named by the call's first argument, a constant, found and parsed, in the caller's scope or a
+/// scope of its own, and its block given to the call; nothing for `null`. `call_span` is the
+/// statement and `args_spans` the items after the command's name.
+pub(crate) fn finish_source(
+    working_set: &mut StateWorkingSet,
+    call: Box<Call>,
+    output: Type,
+    call_kind: CallKind,
+    call_span: Span,
+    args_spans: &[Span],
+    scoped: bool,
+) -> Pipeline {
+    #[allow(deprecated)]
+    let cwd = working_set.get_cwd();
+
+    if call_kind == CallKind::Help {
+        return Pipeline::from_vec(vec![Expression::new(
+            working_set,
+            Expr::Call(call),
+            call_span,
+            output,
+        )]);
+    }
+
+    let first_expr = call.positional_iter().next();
+    if let Some(expr) = first_expr {
+        // The item after the command's name, there since the call has a positional.
+        let item_span = args_spans.first().copied().unwrap_or(expr.span);
+        let val = match eval_constant(working_set, expr) {
+            Ok(val) => val,
+            Err(err) => {
+                working_set.error(err.wrap(working_set, Span::concat(args_spans)));
+                return Pipeline::from_vec(vec![Expression::new(
+                    working_set,
+                    Expr::Call(call),
+                    Span::concat(args_spans),
+                    Type::Any,
+                )]);
+            }
+        };
+
+        if val.is_nothing() {
+            let mut call = call;
+            call.set_parser_info(
+                "noop".to_string(),
+                Expression::new_unknown(Expr::Nothing, Span::unknown(), Type::Nothing),
+            );
+            return Pipeline::from_vec(vec![Expression::new(
+                working_set,
+                Expr::Call(call),
+                call_span,
+                Type::Any,
+            )]);
+        }
+
+        let filename = match val.coerce_into_string() {
+            Ok(s) => s,
+            Err(err) => {
+                working_set.error(err.wrap(working_set, Span::concat(args_spans)));
+                return Pipeline::from_vec(vec![Expression::new(
+                    working_set,
+                    Expr::Call(call),
+                    Span::concat(args_spans),
+                    Type::Any,
+                )]);
+            }
+        };
+
+        if let Some(path) = find_in_dirs(&filename, working_set, &cwd, Some(LIB_DIRS_VAR)) {
+            if let Some(contents) = path.read(working_set) {
+                if let Err(e) = working_set.files.push(path.clone().path_buf(), item_span) {
+                    working_set.error(e);
+                    return garbage_pipeline(working_set, &[call_span]);
+                }
+
+                // Reuse the cached parse only when VarIds still match.
+                let mut block = parse(
+                    working_set,
+                    Some(&path.path().to_string_lossy()),
+                    &contents,
+                    scoped,
+                );
+                if block.ir_block.is_none() {
+                    let block_mut = Arc::make_mut(&mut block);
+                    compile_block(working_set, block_mut);
+                }
+
+                working_set.files.pop();
+
+                let block_id = working_set
+                    .find_block_id_of(&block)
+                    .unwrap_or_else(|| working_set.add_block(block));
+
+                let mut call_with_block = call;
+
+                call_with_block.set_parser_info(
+                    "block_id".to_string(),
+                    Expression::new(
+                        working_set,
+                        Expr::Int(block_id.get() as i64),
+                        item_span,
+                        Type::Any,
+                    ),
+                );
+
+                call_with_block.set_parser_info(
+                    "block_id_name".to_string(),
+                    Expression::new(
+                        working_set,
+                        Expr::Filepath(path.path_buf().display().to_string(), false),
+                        item_span,
+                        Type::String,
+                    ),
+                );
+
+                return Pipeline::from_vec(vec![Expression::new(
+                    working_set,
+                    Expr::Call(call_with_block),
+                    call_span,
+                    Type::Any,
+                )]);
+            }
+        } else {
+            working_set.error(ParseError::SourcedFileNotFound(filename, item_span));
+        }
+    }
+    Pipeline::from_vec(vec![Expression::new(
+        working_set,
+        Expr::Call(call),
+        call_span,
+        Type::Any,
+    )])
 }
 
 pub fn parse_run(working_set: &mut StateWorkingSet, lite_command: &LiteCommand) -> Pipeline {
@@ -237,9 +263,6 @@ fn parse_run_expr_internal(
         if let Some(decl_id) =
             find_keyword_decl(working_set, name).or_else(|| working_set.find_decl(name))
         {
-            #[allow(deprecated)]
-            let cwd = working_set.get_cwd();
-
             // `run`'s own flags come before the script path, and everything after the path
             // belongs to the script, like `nu [flags] script.nu [args]`. So `run x.nu -f` passes
             // `-f` to the script's `main` instead of turning on `--full-reparse`. The path is the
@@ -285,163 +308,13 @@ fn parse_run_expr_internal(
             // earlier in the same scope has already declared its definitions there.)
             add_script_arguments(working_set, &mut call, script_args);
 
-            let Ok(do_full_reparse) = do_full_reparse else {
-                return Expression::new(working_set, Expr::Call(call), Span::concat(spans), output);
-            };
-
-            // The path is the first positional argument. `positional_iter` would stop at a spread
-            // of `run`'s flags before it.
-            let first_expr = call.arguments.iter().find_map(|arg| match arg {
-                Argument::Positional(expr) => Some(expr),
-                _ => None,
-            });
-            if let Some(expr) = first_expr {
-                let path_span = expr.span;
-                let val = match eval_constant(working_set, expr) {
-                    Ok(val) => val,
-                    Err(err) => {
-                        working_set.error(err.wrap(working_set, Span::concat(&spans[1..])));
-                        return Expression::new(
-                            working_set,
-                            Expr::Call(call),
-                            Span::concat(&spans[1..]),
-                            Type::Any,
-                        );
-                    }
-                };
-
-                if val.is_nothing() {
-                    call.set_parser_info(
-                        "noop".to_string(),
-                        Expression::new_unknown(Expr::Nothing, Span::unknown(), Type::Nothing),
-                    );
-                    return Expression::new(
-                        working_set,
-                        Expr::Call(call),
-                        Span::concat(spans),
-                        Type::Any,
-                    );
-                }
-
-                let filename = match val.coerce_into_string() {
-                    Ok(s) => s,
-                    Err(err) => {
-                        working_set.error(err.wrap(working_set, Span::concat(&spans[1..])));
-                        return Expression::new(
-                            working_set,
-                            Expr::Call(call),
-                            Span::concat(&spans[1..]),
-                            Type::Any,
-                        );
-                    }
-                };
-
-                if let Some(path) = find_in_dirs(&filename, working_set, &cwd, Some(LIB_DIRS_VAR)) {
-                    if do_full_reparse {
-                        call.set_parser_info(
-                            "block_id_name".to_string(),
-                            Expression::new(
-                                working_set,
-                                Expr::Filepath(path.path_buf().display().to_string(), false),
-                                spans[1],
-                                Type::String,
-                            ),
-                        );
-                        call.set_parser_info(
-                            "full_reparse".to_string(),
-                            Expression::new(working_set, Expr::Bool(true), spans[1], Type::Bool),
-                        );
-                        return Expression::new(
-                            working_set,
-                            Expr::Call(call),
-                            Span::concat(spans),
-                            Type::Any,
-                        );
-                    }
-
-                    let contents = match read_run_script_for_parse(&path, working_set, path_span) {
-                        Ok(contents) => contents,
-                        Err(err) => {
-                            working_set.error(err);
-                            return Expression::new(
-                                working_set,
-                                Expr::Call(call),
-                                Span::concat(spans),
-                                Type::Any,
-                            );
-                        }
-                    };
-
-                    if let Err(e) = working_set.files.push(path.clone().path_buf(), path_span) {
-                        working_set.error(e);
-                        return garbage(working_set, Span::concat(spans));
-                    }
-
-                    let mut block = parse(
-                        working_set,
-                        Some(&path.path().to_string_lossy()),
-                        &contents,
-                        false,
-                    );
-                    if block.ir_block.is_none() {
-                        let block_mut = Arc::make_mut(&mut block);
-                        compile_block(working_set, block_mut);
-                    }
-
-                    working_set.files.pop();
-
-                    let script_main_block_id = find_main_block_id_in_script(working_set, &block);
-
-                    // A parse from the cache returns a block that's registered already.
-                    let block_id = working_set
-                        .find_block_id_of(&block)
-                        .unwrap_or_else(|| working_set.add_block(block));
-
-                    call.set_parser_info(
-                        "block_id".to_string(),
-                        Expression::new(
-                            working_set,
-                            Expr::Int(block_id.get() as i64),
-                            spans[1],
-                            Type::Any,
-                        ),
-                    );
-
-                    call.set_parser_info(
-                        "block_id_name".to_string(),
-                        Expression::new(
-                            working_set,
-                            Expr::Filepath(path.path_buf().display().to_string(), false),
-                            spans[1],
-                            Type::String,
-                        ),
-                    );
-                    if let Some(main_block_id) = script_main_block_id {
-                        call.set_parser_info(
-                            "main_block_id".to_string(),
-                            Expression::new(
-                                working_set,
-                                Expr::Int(main_block_id.get() as i64),
-                                spans[1],
-                                Type::Any,
-                            ),
-                        );
-                    }
-                    return Expression::new(
-                        working_set,
-                        Expr::Call(call),
-                        Span::concat(spans),
-                        Type::Any,
-                    );
-                } else {
-                    working_set.error(ParseError::SourcedFileNotFound(filename, path_span));
-                }
-            }
-            return Expression::new(
+            return finish_run(
                 working_set,
-                Expr::Call(call),
+                call,
+                output,
+                do_full_reparse,
                 Span::concat(spans),
-                Type::Any,
+                &spans[1..],
             );
         }
     }
@@ -450,6 +323,160 @@ fn parse_run_expr_internal(
         Span::concat(spans),
     ));
     garbage(working_set, Span::concat(spans))
+}
+
+/// What `parse_run` does with its call to `run` once the call has `run`'s own arguments and the
+/// script's: the script named by the call's first positional, a constant, found and parsed
+/// (unless `do_full_reparse`, which leaves that to the run) and its block, and its `main`'s,
+/// given to the call; nothing for `null`. `do_full_reparse` is `Err` for a call for help, which
+/// is the statement as it is. `call_span` is the statement and `args_spans` the items after
+/// `run`.
+pub(crate) fn finish_run(
+    working_set: &mut StateWorkingSet,
+    mut call: Box<Call>,
+    output: Type,
+    do_full_reparse: Result<bool, ()>,
+    call_span: Span,
+    args_spans: &[Span],
+) -> Expression {
+    #[allow(deprecated)]
+    let cwd = working_set.get_cwd();
+
+    let Ok(do_full_reparse) = do_full_reparse else {
+        return Expression::new(working_set, Expr::Call(call), call_span, output);
+    };
+
+    // The path is the first positional argument. `positional_iter` would stop at a spread
+    // of `run`'s flags before it.
+    let first_expr = call.arguments.iter().find_map(|arg| match arg {
+        Argument::Positional(expr) => Some(expr),
+        _ => None,
+    });
+    if let Some(expr) = first_expr {
+        let path_span = expr.span;
+        // The item after `run`, there since the call has a positional.
+        let item_span = args_spans.first().copied().unwrap_or(path_span);
+        let val = match eval_constant(working_set, expr) {
+            Ok(val) => val,
+            Err(err) => {
+                working_set.error(err.wrap(working_set, Span::concat(args_spans)));
+                return Expression::new(
+                    working_set,
+                    Expr::Call(call),
+                    Span::concat(args_spans),
+                    Type::Any,
+                );
+            }
+        };
+
+        if val.is_nothing() {
+            call.set_parser_info(
+                "noop".to_string(),
+                Expression::new_unknown(Expr::Nothing, Span::unknown(), Type::Nothing),
+            );
+            return Expression::new(working_set, Expr::Call(call), call_span, Type::Any);
+        }
+
+        let filename = match val.coerce_into_string() {
+            Ok(s) => s,
+            Err(err) => {
+                working_set.error(err.wrap(working_set, Span::concat(args_spans)));
+                return Expression::new(
+                    working_set,
+                    Expr::Call(call),
+                    Span::concat(args_spans),
+                    Type::Any,
+                );
+            }
+        };
+
+        if let Some(path) = find_in_dirs(&filename, working_set, &cwd, Some(LIB_DIRS_VAR)) {
+            if do_full_reparse {
+                call.set_parser_info(
+                    "block_id_name".to_string(),
+                    Expression::new(
+                        working_set,
+                        Expr::Filepath(path.path_buf().display().to_string(), false),
+                        item_span,
+                        Type::String,
+                    ),
+                );
+                call.set_parser_info(
+                    "full_reparse".to_string(),
+                    Expression::new(working_set, Expr::Bool(true), item_span, Type::Bool),
+                );
+                return Expression::new(working_set, Expr::Call(call), call_span, Type::Any);
+            }
+
+            let contents = match read_run_script_for_parse(&path, working_set, path_span) {
+                Ok(contents) => contents,
+                Err(err) => {
+                    working_set.error(err);
+                    return Expression::new(working_set, Expr::Call(call), call_span, Type::Any);
+                }
+            };
+
+            if let Err(e) = working_set.files.push(path.clone().path_buf(), path_span) {
+                working_set.error(e);
+                return garbage(working_set, call_span);
+            }
+
+            let mut block = parse(
+                working_set,
+                Some(&path.path().to_string_lossy()),
+                &contents,
+                false,
+            );
+            if block.ir_block.is_none() {
+                let block_mut = Arc::make_mut(&mut block);
+                compile_block(working_set, block_mut);
+            }
+
+            working_set.files.pop();
+
+            let script_main_block_id = find_main_block_id_in_script(working_set, &block);
+
+            // A parse from the cache returns a block that's registered already.
+            let block_id = working_set
+                .find_block_id_of(&block)
+                .unwrap_or_else(|| working_set.add_block(block));
+
+            call.set_parser_info(
+                "block_id".to_string(),
+                Expression::new(
+                    working_set,
+                    Expr::Int(block_id.get() as i64),
+                    item_span,
+                    Type::Any,
+                ),
+            );
+
+            call.set_parser_info(
+                "block_id_name".to_string(),
+                Expression::new(
+                    working_set,
+                    Expr::Filepath(path.path_buf().display().to_string(), false),
+                    item_span,
+                    Type::String,
+                ),
+            );
+            if let Some(main_block_id) = script_main_block_id {
+                call.set_parser_info(
+                    "main_block_id".to_string(),
+                    Expression::new(
+                        working_set,
+                        Expr::Int(main_block_id.get() as i64),
+                        item_span,
+                        Type::Any,
+                    ),
+                );
+            }
+            return Expression::new(working_set, Expr::Call(call), call_span, Type::Any);
+        } else {
+            working_set.error(ParseError::SourcedFileNotFound(filename, path_span));
+        }
+    }
+    Expression::new(working_set, Expr::Call(call), call_span, Type::Any)
 }
 
 /// Append the arguments after `run <script>` to the `run` call, parsed without `main`'s signature.

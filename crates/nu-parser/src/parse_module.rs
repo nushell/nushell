@@ -1473,6 +1473,18 @@ pub fn parse_hide(working_set: &mut StateWorkingSet, lite_command: &LiteCommand)
         }
     };
 
+    finish_hide(working_set, call, Span::concat(spans), args_spans)
+}
+
+/// What `parse_hide` does with its call to `hide`: the import pattern read from the call's
+/// arguments, and the commands and type aliases it names hidden. `call_span` is the statement
+/// and `args_spans` the items after `hide`, of which there is at least one in a valid call.
+pub(crate) fn finish_hide(
+    working_set: &mut StateWorkingSet,
+    call: Box<Call>,
+    call_span: Span,
+    args_spans: &[Span],
+) -> Pipeline {
     let import_pattern_expr = parse_import_pattern(working_set, call.positional_iter(), args_spans);
 
     let import_pattern = if let Expression {
@@ -1486,13 +1498,12 @@ pub fn parse_hide(working_set: &mut StateWorkingSet, lite_command: &LiteCommand)
             "internal error: Import pattern positional is not import pattern".into(),
             import_pattern_expr.span,
         ));
-        return garbage_pipeline(working_set, spans);
+        return garbage_pipeline(working_set, &[call_span]);
     };
 
-    let bytes = working_set.get_span_contents(spans[0]);
-
-    if bytes == b"hide" && spans.len() >= 2 {
-        for span in spans[1..].iter() {
+    // `parse_hide` checked the call's name.
+    if let Some(&first_span) = args_spans.first() {
+        for span in args_spans {
             parse_string(working_set, *span);
         }
 
@@ -1510,10 +1521,10 @@ pub fn parse_hide(working_set: &mut StateWorkingSet, lite_command: &LiteCommand)
                 }
             } else {
                 working_set.error(ParseError::ModuleNotFound(
-                    spans[1],
+                    first_span,
                     String::from_utf8_lossy(&import_pattern.head.name).to_string(),
                 ));
-                return garbage_pipeline(working_set, spans);
+                return garbage_pipeline(working_set, &[call_span]);
             };
 
         // A type alias comes after aliases and commands in `hide`'s priority: a bare name hides
@@ -1613,15 +1624,15 @@ pub fn parse_hide(working_set: &mut StateWorkingSet, lite_command: &LiteCommand)
         Pipeline::from_vec(vec![Expression::new(
             working_set,
             Expr::Call(call),
-            Span::concat(spans),
+            call_span,
             Type::Any,
         )])
     } else {
         working_set.error(ParseError::UnknownState(
             "Expected structure: hide <name>".into(),
-            Span::concat(spans),
+            call_span,
         ));
-        garbage_pipeline(working_set, spans)
+        garbage_pipeline(working_set, &[call_span])
     }
 }
 
