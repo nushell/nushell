@@ -348,6 +348,66 @@ mod tests {
     }
 
     #[test]
+    fn glob_with_ignore_case_matches_literal_file_with_different_case() {
+        let root = unique_test_dir("ignore_case_literal");
+        fs::create_dir_all(&root).expect("failed to create root test directory");
+        write_file(&root.join("README.md"));
+
+        let options = GlobWalkOptions {
+            ignore_case: true,
+            ..GlobWalkOptions::default()
+        };
+        let paths = collect_ok_paths(
+            glob_with(&root, "readme.md", &options).expect("ignore-case glob should compile"),
+        )
+        .expect("ignore-case glob should traverse");
+        assert_eq!(paths, vec!["README.md"]);
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn glob_with_ignore_case_resolves_literal_directory_prefix() {
+        let root = unique_test_dir("ignore_case_prefix");
+        fs::create_dir_all(&root).expect("failed to create root test directory");
+        write_file(&root.join("docs/note.md"));
+
+        let options = GlobWalkOptions {
+            ignore_case: true,
+            ..GlobWalkOptions::default()
+        };
+        let paths = collect_ok_paths(
+            glob_with(&root, "Docs/*.md", &options).expect("ignore-case glob should compile"),
+        )
+        .expect("ignore-case glob should traverse");
+        assert_eq!(paths, vec![expected_path(&["docs", "note.md"])]);
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn glob_with_missing_root_returns_no_results() {
+        let root = unique_test_dir("missing_root");
+        fs::create_dir_all(&root).expect("failed to create root test directory");
+
+        for pattern in [
+            "missing/x.txt",
+            "missing/*.txt",
+            "../nope/x.txt",
+            "../nope/*.txt",
+        ] {
+            let paths = collect_ok_paths(
+                glob_with(&root, pattern, &GlobWalkOptions::default())
+                    .expect("missing-path glob should compile"),
+            )
+            .expect("a missing path should not be reported as an error");
+            assert!(paths.is_empty(), "{pattern} should not match anything");
+        }
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
     fn glob_with_negated_character_class_excludes_files() {
         let root = unique_test_dir("negated_class");
         fs::create_dir_all(&root).unwrap();

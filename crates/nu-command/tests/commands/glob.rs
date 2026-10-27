@@ -232,7 +232,7 @@ fn glob_dc_glob_explicit_relative_paths() -> Result {
                      (glob '{pattern}' | each {{ path expand }} | sort) == $expected"
                 ))
                 .expect_value_eq(true)
-                .expect("relative glob should return its exact paths");
+                .unwrap_or_else(|err| panic!("{pattern}: {err:?}"));
         }
     });
 
@@ -557,6 +557,56 @@ fn glob_dc_glob_literal_prefix_wildcard_absolute() -> Result {
             .run(format!("glob '{pattern}' | length"))
             .expect_value_eq(1)
             .expect("absolute glob pattern with literal-then-wildcard should work with dc-glob");
+    });
+
+    Ok(())
+}
+
+#[test]
+#[exp(nu_experimental::DC_GLOB)]
+fn glob_dc_glob_current_directory_has_no_trailing_separator() -> Result {
+    Playground::setup("glob_dc_current_directory", |dirs, sandbox| {
+        sandbox.with_files(&[EmptyFile("root.txt")]);
+
+        test()
+            .cwd(dirs.test())
+            .run("(glob '.' | first) == (pwd)")
+            .expect_value_eq(true)
+            .expect("`glob .` should return the current directory without a trailing separator");
+    });
+
+    Ok(())
+}
+
+#[test]
+#[exp(nu_experimental::DC_GLOB)]
+fn glob_dc_glob_ignore_case_matches_literal_file() -> Result {
+    Playground::setup("glob_dc_ignore_case", |dirs, sandbox| {
+        sandbox.with_files(&[EmptyFile("README.md")]);
+
+        test()
+            .cwd(dirs.test())
+            .run("glob -i readme.md | path basename | first")
+            .expect_value_eq("README.md")
+            .expect("`glob -i` should match a literal path that differs only in case");
+    });
+
+    Ok(())
+}
+
+#[test]
+#[exp(nu_experimental::DC_GLOB)]
+fn glob_dc_glob_missing_path_returns_empty_list() -> Result {
+    Playground::setup("glob_dc_missing_path", |dirs, sandbox| {
+        sandbox.with_files(&[EmptyFile("root.txt")]);
+
+        for pattern in ["missing/x.txt", "missing/*.txt"] {
+            test()
+                .cwd(dirs.test())
+                .run(format!("glob '{pattern}' | length"))
+                .expect_value_eq(0)
+                .expect("a missing path should give an empty list, not an error");
+        }
     });
 
     Ok(())
