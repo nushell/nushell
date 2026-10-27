@@ -22,7 +22,7 @@ use nu_color_config::StyleComputer;
 use nu_engine::env_to_strings;
 use nu_engine::exit::cleanup_exit;
 use nu_parser::{lex, trim_quotes_str};
-use nu_protocol::shell_error::{generic::GenericError, io::IoError};
+use nu_protocol::shell_error::io::IoError;
 use nu_protocol::{BannerKind, ShellIntegrationConfig, shell_error};
 use nu_protocol::{
     Config, HistoryConfig, HistoryFileFormat, PipelineData, ShellError, Span, Spanned, Value,
@@ -1296,8 +1296,8 @@ fn run_shell_integration_osc7(
 
         // Otherwise, communicate the path as OSC 7 (often used for spawning new tabs in the same dir)
         match osc7_sequence(hostname, path.as_std_path()) {
-            Ok(sequence) => run_ansi_sequence(&sequence),
-            Err(err) => warn!("Could not construct OSC 7 URL: {err:?}"),
+            Some(sequence) => run_ansi_sequence(&sequence),
+            None => warn!("Could not construct OSC 7 URL for {}", path.display()),
         }
 
         perf!(
@@ -1309,21 +1309,17 @@ fn run_shell_integration_osc7(
 }
 
 /// Format an OSC 7 sequence from a native filesystem path.
-fn osc7_sequence(hostname: Option<&str>, path: &Path) -> Result<String, ShellError> {
-    let url = Url::from_file_path(path).map_err(|()| {
-        GenericError::new_internal(
-            "Cannot create OSC 7 file URL",
-            format!("Invalid file path: {}", path.display()),
-        )
-    })?;
+fn osc7_sequence(hostname: Option<&str>, path: &Path) -> Option<String> {
+    let url = Url::from_file_path(path).ok()?;
 
     // Keep UNC servers, but don't use set_host for the shell's hostname:
     // URL host parsing rewrites numeric names such as "123" into IPv4 addresses.
     let hostname = url.host_str().or(hostname).unwrap_or("localhost");
-    Ok(format!(
+    Some(format!(
         "\x1b]7;file://{}{}\x1b\\",
         utf8_percent_encode(hostname, CONTROLS),
-        url.path()
+        // Some terminals split OSC parameters on semicolons before parsing the URL.
+        url.path().replace(';', "%3B")
     ))
 }
 
@@ -1764,6 +1760,8 @@ mod osc7_tests {
         for (name, encoded) in [
             ("nu#test", "nu%23test"),
             ("question?mark", "question%3Fmark"),
+            ("a;b", "a%3Bb"),
+            ("literal%3B", "literal%253B"),
             ("literal %20 directory", "literal%20%2520%20directory"),
             ("é", "%C3%A9"),
             ("\x07\x1b\n", "%07%1B%0A"),
@@ -1806,7 +1804,7 @@ mod osc7_tests {
 
     #[test]
     fn osc7_rejects_relative_paths() {
-        assert!(osc7_sequence(None, Path::new("relative/path")).is_err());
+        assert!(osc7_sequence(None, Path::new("relative/path")).is_none());
     }
 
     #[cfg(unix)]
