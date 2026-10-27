@@ -8,7 +8,7 @@ use crate::{
     parser::{ArgumentParsingLevel, CallKind, ParsedInternalCall, parse_internal_call},
 };
 use nu_protocol::{
-    ParseError, Span, SyntaxShape, Type, TypeAlias, TypeAliasId,
+    DeclId, ParseError, Span, SyntaxShape, Type, TypeAlias, TypeAliasId,
     ast::{Call, Expr, Expression, Keyword, Pipeline},
     engine::StateWorkingSet,
 };
@@ -144,27 +144,49 @@ pub fn parse_type_alias(
         return (garbage_pipeline(working_set, spans), None);
     }
     let (name_span, equals_span, type_spans) = (rest_spans[0], rest_spans[1], &rest_spans[2..]);
+    // A generic type such as `record<a: int, b: string>` is split into several spans at its
+    // spaces; `finish_type_alias` reads them again as one type.
+    let type_span = (!type_spans.is_empty()).then(|| Span::concat(type_spans));
+    finish_type_alias(
+        working_set,
+        decl_id,
+        head,
+        call_span,
+        name_span,
+        equals_span,
+        type_span,
+    )
+}
 
+/// The rest of `parse_type_alias` once the statement's layout is known: `type name = type`,
+/// `head` the span of `type` (or `export type`), `call_span` the whole statement's, and
+/// `type_span` the type's, if one follows the `=`. Checks the name, reads the type as one
+/// annotation, defines the alias (as `any` when the type doesn't parse), and gives the call to
+/// the `type` keyword `decl_id`; a rejected name gives garbage and no alias.
+pub(crate) fn finish_type_alias(
+    working_set: &mut StateWorkingSet,
+    decl_id: DeclId,
+    head: Span,
+    call_span: Span,
+    name_span: Span,
+    equals_span: Span,
+    type_span: Option<Span>,
+) -> (Pipeline, Option<(Vec<u8>, TypeAliasId)>) {
     let name = working_set.get_span_contents(name_span).to_vec();
     if BUILTIN_TYPE_NAMES.contains(&name.as_slice()) {
         working_set.error(ParseError::TypeAliasShadowsBuiltin(
             String::from_utf8_lossy(&name).into_owned(),
             name_span,
         ));
-        return (garbage_pipeline(working_set, spans), None);
+        return (garbage_pipeline(working_set, &[call_span]), None);
     }
     if !is_valid_type_alias_name(&name) {
         working_set.error(ParseError::TypeAliasNameNotValid(name_span));
-        return (garbage_pipeline(working_set, spans), None);
+        return (garbage_pipeline(working_set, &[call_span]), None);
     }
 
-    let (type_span, shape) = if type_spans.is_empty() {
-        working_set.error(ParseError::MissingType(equals_span));
-        (Span::point(equals_span.end), SyntaxShape::Any)
-    } else {
-        // A generic type such as `record<a: int, b: string>` is split into several spans at its
-        // spaces. Join them and read them again as one type, as a `let` annotation does.
-        let type_span = Span::concat(type_spans);
+    let (type_span, shape) = if let Some(type_span) = type_span {
+        // Read the type's text again as one type, as a `let` annotation does.
         let type_bytes = working_set.get_span_contents(type_span).to_vec();
         let (tokens, error) = lex_signature(&type_bytes, type_span.start, &[], b",", true);
 
@@ -192,6 +214,9 @@ pub fn parse_type_alias(
             }
         };
         (type_span, parsed.unwrap_or(SyntaxShape::Any))
+    } else {
+        working_set.error(ParseError::MissingType(equals_span));
+        (Span::point(equals_span.end), SyntaxShape::Any)
     };
 
     let type_alias_id = working_set.add_type_alias(TypeAlias {
