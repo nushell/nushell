@@ -83,6 +83,8 @@ fn convert_value_to_ron(value: &Value, span: Span) -> Result<RonValue, ShellErro
             }
             Ok(RonValue::Map(map))
         }
+        Value::Filesize { val, .. } => Ok(RonValue::Number(ron::Number::from(val.get()))),
+        Value::Date { val, .. } => Ok(RonValue::String(val.to_string())),
         _ => Err(ShellError::CantConvert {
             to_type: "structured ron data".into(),
             from_type: value.get_type().to_string(),
