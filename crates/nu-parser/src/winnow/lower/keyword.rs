@@ -147,6 +147,20 @@ impl<'s> Lower<'_, '_, 's> {
         Ok(WSpan::new(start - 1, end + 1))
     }
 
+    /// [`Self::braces_span`] of a body written with parameters (`{|x| }`), whose block starts
+    /// after them: from the `{` before the parameters to the `}` after the block.
+    fn braces_span_with_params(
+        &self,
+        params: &w::Signature<'s>,
+        block: &w::Block<'s>,
+    ) -> Lowered<WSpan> {
+        let before = self.source[..params.span.start].trim_end();
+        if !before.ends_with('{') || !self.source[block.span.end..].starts_with('}') {
+            return Err(Unlowered::Unsupported("block without braces"));
+        }
+        Ok(WSpan::new(before.len() - 1, block.span.end + 1))
+    }
+
     /// `if condition { then } else { otherwise }`: a call to `if`, whose output is the union of
     /// its branches' outputs (with `nothing` when there is no `else`), as `parse_internal_call`
     /// overrides the output of `if`: a value in the `then` block's place gives none, so with no
@@ -698,7 +712,8 @@ impl<'s> Lower<'_, '_, 's> {
     /// 2. In a scope of its own, the call to `def`: the name; the signature, which declares the
     ///    parameters' variables in that scope; then the body, a closure whose input is the
     ///    signature's input type, marked by `def_body_span` so that `closure` does not compile
-    ///    it.
+    ///    it. Parameters written on the body (`{|x| }`) are the closure's, in its own scope, as
+    ///    `parse_closure_expression` reads them; `finish_def` replaces them with the signature.
     /// 3. Once the scope is left, `finish_def` compiles the body and makes the predeclared
     ///    command the defined one.
     /// 4. The attributes and the `export` around the call (`definition_expression`).
@@ -710,9 +725,6 @@ impl<'s> Lower<'_, '_, 's> {
         attributes: &[w::Attribute<'s>],
         module_name: Option<&[u8]>,
     ) -> Lowered<Definition> {
-        if def.body_params.is_some() {
-            return Err(Unlowered::Unsupported("def body with parameters"));
-        }
         let (desc, extra_desc) = self.description(pipeline, attributes, command);
         let (lowered_attributes, attribute_values) = self.attributes(attributes)?;
         // A `def` that is not the keyword (an engine without the core language) is parsed like
@@ -740,7 +752,10 @@ impl<'s> Lower<'_, '_, 's> {
                 Expr::Signature(sig) => sig.get_input_type(),
                 _ => Type::Any,
             };
-            let body_span = this.braces_span(&def.body)?;
+            let body_span = match &def.body_params {
+                Some(params) => this.braces_span_with_params(params, &def.body)?,
+                None => this.braces_span(&def.body)?,
+            };
             // `finish_def` compiles the body (`parse_def` marks it the same way). The outer
             // mark is restored before `?`: this `def` may be in another one's body, and a
             // statement handed back does not end the lowering of the statements after it.
@@ -749,7 +764,7 @@ impl<'s> Lower<'_, '_, 's> {
                 std::mem::replace(&mut this.working_set.def_body_span, def_body_span);
             let body = this.closure(
                 body_span,
-                None,
+                def.body_params.as_ref(),
                 &def.body,
                 &SyntaxShape::Closure(None),
                 Some(&input_type),

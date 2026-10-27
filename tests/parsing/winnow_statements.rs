@@ -1195,3 +1195,28 @@ fn condition_of_items_that_is_no_expression_is_an_error() -> Result {
     assert!(!working_set.parse_errors.is_empty(), "`{code}`");
     Ok(())
 }
+
+/// A `def` body with parameters is a closure as `parse_closure_expression` reads it, its
+/// parameters declared in its own scope; `finish_def` then gives it the command's signature.
+#[rstest]
+#[case::parameter_read("def f [] {|x| $x }")]
+#[case::exported("export def f [] {|x| }")]
+#[case::called("def f [a] {|x| $a }\nf 3")]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn def_body_with_parameters_is_lowered(#[case] code: &str) -> Result {
+    let engine_state = test().engine_state;
+    let (working_set, _) = parse_lowered(&engine_state, code);
+    let decl_id = working_set.find_decl(b"f").expect("f is defined");
+    let block_id = working_set
+        .get_decl(decl_id)
+        .block_id()
+        .expect("f has a body");
+    let signature = &working_set.get_block(block_id).signature;
+    assert_eq!(
+        signature.name, "f",
+        "`{code}`: the body keeps the command's signature"
+    );
+    Ok(())
+}
