@@ -411,20 +411,18 @@ impl<'s> Lower<'_, '_, 's> {
 
     /// The span of the keyword `keyword` that starts `e`.
     /// `let name` where the classic parser reads a command, in a pipeline or after an
-    /// environment shorthand (`parse_expression`): an ordinary call to `let` (`parse_call`),
-    /// whose variable and output take the pipeline's input. A type or a value after the name,
-    /// a `$` before it, and a command named `let` and the name, which `parse_call` calls
-    /// instead (`find_longest_decl`), are left to the classic parser.
+    /// environment shorthand (`parse_expression`): an ordinary call to `let` (`parse_call`,
+    /// [`Self::let_without_value`]). A value after the name, and a command named `let` and the
+    /// name, which `parse_call` calls instead (`find_longest_decl`), are left to the classic
+    /// parser.
     fn let_call(
         &mut self,
         e: &w::Expression<'s>,
         binding: &w::Binding<'s>,
         input_type: Option<&Type>,
     ) -> Lowered<Expression> {
-        if binding.ty.is_some()
-            || binding.eq.is_some()
+        if binding.eq.is_some()
             || binding.value.is_some()
-            || self.source[..binding.name.span.start].ends_with('$')
             || self
                 .working_set
                 .find_decl(format!("let {}", self.text(binding.name.span)).as_bytes())
@@ -432,18 +430,40 @@ impl<'s> Lower<'_, '_, 's> {
         {
             return Err(Unlowered::Unsupported("binding in a pipeline"));
         }
+        self.let_without_value(e, binding, input_type)
+    }
+
+    /// `let name` without a value, `e`, as a call to `let` with its arguments assigned by the
+    /// signature (`parse_internal_call`, which `parse_let` calls for a statement of fewer than
+    /// four items): the variable and the call's output take `input_type`. A `$` before the
+    /// name stays in the variable's name. A `--` before it, which the winnow parser dropped,
+    /// changes nothing: it ends the options, and `let` takes no unknown arguments. A type
+    /// after the name is left to the classic parser.
+    pub(super) fn let_without_value(
+        &mut self,
+        e: &w::Expression<'s>,
+        binding: &w::Binding<'s>,
+        input_type: Option<&Type>,
+    ) -> Lowered<Expression> {
+        if binding.ty.is_some() {
+            return Err(Unlowered::Unsupported("binding without a value"));
+        }
         let decl_id = find_keyword_decl(self.working_set, b"let")
             .ok_or(Unlowered::Unsupported("let that is not a keyword"))?;
+        let head = self.keyword_span(e, "let");
+        let mut name_span = binding.name.span;
+        if self.source[..name_span.start].ends_with('$') {
+            name_span.start -= 1;
+        }
         let name = w::Expression::new(
             w::Expr::String(w::StringLiteral {
                 value: binding.name.item.into(),
                 quote: w::Quote::Bare,
             }),
-            binding.name.span,
+            name_span,
         );
-        let head = self.keyword_span(e, "let");
-        let (call, output, _) =
-            self.internal_call(head, &[w::Argument::Positional(name)], decl_id, input_type)?;
+        let arguments = [w::Argument::Positional(name)];
+        let (call, output, _) = self.internal_call(head, &arguments, decl_id, input_type)?;
         let span = self.span(e.span);
         Ok(self.node(Expr::Call(call), span, output))
     }

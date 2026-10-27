@@ -554,7 +554,8 @@ impl<'s> Lower<'_, '_, 's> {
     /// 3. A written type must accept the value's type; then the variable is put in scope, and
     ///    an untyped one takes the value's type.
     ///
-    /// `let x` without a value is left to the classic parser, which reads it as a plain call.
+    /// `let x` without a value is a plain call to `let` (`let_without_value`), as `parse_let`
+    /// reads a statement of fewer than four items.
     fn binding(
         &mut self,
         element: &w::PipelineElement<'s>,
@@ -564,7 +565,11 @@ impl<'s> Lower<'_, '_, 's> {
         input_type: Option<&Type>,
     ) -> Lowered<Pipeline> {
         let Some(value) = &binding.value else {
-            return Err(Unlowered::Unsupported("binding without a value"));
+            if keyword != "let" {
+                return Err(Unlowered::Unsupported("binding without a value"));
+            }
+            let call = self.let_without_value(&element.expr, binding, input_type)?;
+            return Ok(Pipeline::from_vec(vec![call]));
         };
         let decl_id = self
             .working_set

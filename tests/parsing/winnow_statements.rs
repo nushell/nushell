@@ -1031,3 +1031,57 @@ fn call_through_an_alias_of_a_keyword_is_lowered(
     }
     Ok(())
 }
+
+/// Parses `code` with the winnow front end and checks that it reported no error and handed no
+/// statement to the classic parser. Returns the working set and the block.
+fn parse_lowered<'e>(
+    engine_state: &'e nu_protocol::engine::EngineState,
+    code: &str,
+) -> (StateWorkingSet<'e>, std::sync::Arc<nu_protocol::ast::Block>) {
+    let mut working_set = StateWorkingSet::new(engine_state);
+    let before = nu_parser::winnow_stats();
+    let block = nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    let after = nu_parser::winnow_stats();
+    assert_eq!(working_set.parse_errors, [], "`{code}`");
+    assert_eq!(
+        after.classic_statements, before.classic_statements,
+        "`{code}`: a statement was handed to the classic parser"
+    );
+    (working_set, block)
+}
+
+/// `let` without a value is a call to `let` (`parse_let` with fewer than four items): its
+/// variable, declared as written (a `$` before the name kept), exists afterwards, after a `--`
+/// too, and at statement level a command `let me` is not called.
+#[rstest]
+#[case::name("let input\n$input | describe", "input", "nothing")]
+#[case::end_of_options("let -- x\n$x | describe", "x", "nothing")]
+#[case::dollar("let $x\n$x | describe", "$x", "nothing")]
+#[case::piped("'s' | let y\n$y | describe", "y", "string")]
+#[case::longer_command_name(
+    "def \"let me\" [] { 'custom' }\nlet me\n$me | describe",
+    "me",
+    "nothing"
+)]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn let_without_a_value_is_lowered(
+    #[case] code: &str,
+    #[case] name: &str,
+    #[case] expected: &str,
+) -> Result {
+    let engine_state = test().engine_state;
+    let (working_set, block) = parse_lowered(&engine_state, code);
+    let statement = &block.pipelines[block.pipelines.len() - 2].elements;
+    let Expr::Call(call) = &statement.last().expect("an element").expr.expr else {
+        panic!("`{code}`: not a call");
+    };
+    let variable = call.positional_iter().next().expect("a variable");
+    assert!(matches!(variable.expr, Expr::VarDecl(_)), "`{code}`");
+    assert_eq!(
+        working_set.get_span_contents(variable.span),
+        name.as_bytes()
+    );
+    test().run(code).expect_value_eq(expected)
+}
