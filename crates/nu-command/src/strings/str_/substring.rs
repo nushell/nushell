@@ -131,26 +131,43 @@ impl Command for StrSubstring {
         vec![
             Example {
                 description: "Get a substring \"nushell\" from the text \"good nushell\" using a range.",
-                example: " 'good nushell' | str substring 5..11",
+                example: "'good nushell' | str substring 5..11",
                 result: Some(Value::test_string("nushell")),
             },
             Example {
                 description: "Count indexes and split using grapheme clusters.",
-                example: " '🇯🇵ほげ ふが ぴよ' | str substring --grapheme-clusters 4..5",
+                example: "'🇯🇵ほげ ふが ぴよ' | str substring --grapheme-clusters 4..5",
                 result: Some(Value::test_string("ふが")),
             },
             Example {
                 description: "sub string by negative index.",
-                example: " 'good nushell' | str substring 5..-2",
+                example: "'good nushell' | str substring 5..-2",
                 result: Some(Value::test_string("nushel")),
             },
             Example {
                 description: "Get a substring from a string field in a record.",
-                example: " { name: 'Paul Smith', number: 13 } | str substring 0..3 name",
+                example: "{ name: 'Paul Smith', number: 13 } | str substring 0..3 name",
                 result: Some(Value::test_record(record! {
                     "name" => Value::test_string("Paul"),
                     "number" => Value::test_int(13),
                 })),
+            },
+            Example {
+                description: "Get substrings from string fields in a table.",
+                example: "[{name: 'Alice', age: 24}, {name: 'Bob', age: 23}] | str substring 0..2 name",
+                result: Some(Value::list(
+                    vec![
+                        Value::test_record(record! {
+                            "name" => Value::test_string("Ali"),
+                            "age" => Value::test_int(24),
+                        }),
+                        Value::test_record(record! {
+                            "name" => Value::test_string("Bob"),
+                            "age" => Value::test_int(23),
+                        }),
+                    ],
+                    Span::test_data(),
+                )),
             },
         ]
     }
