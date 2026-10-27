@@ -284,27 +284,15 @@ pub fn parse_export_in_module(
                     return (garbage_pipeline(working_set, spans), vec![]);
                 }
 
-                let mut result = vec![];
-
-                if let Some(module_name_span) = spans.get(2) {
-                    let module_name = working_set.get_span_contents(*module_name_span);
-                    let module_name = trim_quotes(module_name);
-
-                    if let Some(module_id) = maybe_module_id {
-                        result.push(Exportable::Module {
-                            name: working_set.get_module(module_id).name(),
-                            id: module_id,
-                        });
-                    } else {
-                        working_set.error(ParseError::InternalError(
-                            format!(
-                                "failed to find added module '{}'",
-                                String::from_utf8_lossy(module_name)
-                            ),
-                            Span::concat(&spans[1..]),
-                        ));
-                    }
-                }
+                let result = match spans.get(2) {
+                    Some(name_span) => exported_module(
+                        working_set,
+                        maybe_module_id,
+                        *name_span,
+                        Span::concat(&spans[1..]),
+                    ),
+                    None => vec![],
+                };
 
                 (pipeline, result)
             }
@@ -374,6 +362,32 @@ pub fn parse_export_in_module(
     };
 
     (pipeline, exportables)
+}
+
+/// What an `export module` in a module exports: `module_id`, the module it added, under the
+/// module's name. When it added none, nothing, and an error at `span`, the statement after
+/// `export`; `name_span` is the module's name or path.
+pub(crate) fn exported_module(
+    working_set: &mut StateWorkingSet,
+    module_id: Option<ModuleId>,
+    name_span: Span,
+    span: Span,
+) -> Vec<Exportable> {
+    if let Some(module_id) = module_id {
+        return vec![Exportable::Module {
+            name: working_set.get_module(module_id).name(),
+            id: module_id,
+        }];
+    }
+    let module_name = trim_quotes(working_set.get_span_contents(name_span));
+    working_set.error(ParseError::InternalError(
+        format!(
+            "failed to find added module '{}'",
+            String::from_utf8_lossy(module_name)
+        ),
+        span,
+    ));
+    vec![]
 }
 
 pub fn parse_export_env(
@@ -919,7 +933,7 @@ pub fn parse_module(
         return (garbage_pipeline(working_set, spans), None);
     }
 
-    let mut module_comments = lite_command.comments.clone();
+    let module_comments = lite_command.comments.clone();
 
     let split_id = if spans.len() > 1 && working_set.get_span_contents(spans[0]) == b"export" {
         2
@@ -927,7 +941,7 @@ pub fn parse_module(
         1
     };
 
-    let (mut call, call_span) = match working_set.find_decl(b"module") {
+    let (call, call_span) = match working_set.find_decl(b"module") {
         Some(decl_id) => {
             let (command_spans, rest_spans) = spans.split_at(split_id);
 
@@ -968,19 +982,45 @@ pub fn parse_module(
         }
     };
 
+    // The item after the name: a module file has none.
+    let body_span = spans.get(split_id + 1).copied();
+    finish_module(
+        working_set,
+        call,
+        call_span,
+        body_span,
+        module_name,
+        module_comments,
+    )
+}
+
+/// What `parse_module` does with its call to `module`: the module file named by the call's
+/// first argument parsed, or the body, `body_span` (the braces included), parsed as the
+/// module's block (`parse_module_block`) and made the call's second argument. Returns the
+/// statement, covering `call_span`, and the module it added. In a module named `module_name`,
+/// a submodule of the same name is an error. `module_comments` are the comments before the
+/// statement, which document the module with those at the top of its body.
+pub(crate) fn finish_module(
+    working_set: &mut StateWorkingSet,
+    mut call: Box<Call>,
+    call_span: Span,
+    body_span: Option<Span>,
+    module_name: Option<&[u8]>,
+    mut module_comments: Vec<Span>,
+) -> (Pipeline, Option<ModuleId>) {
     let Some(name_expr) = call.positional_iter().next() else {
         working_set.error(ParseError::UnknownState(
             "internal error: missing positional".into(),
-            Span::concat(spans),
+            call_span,
         ));
-        return (garbage_pipeline(working_set, spans), None);
+        return (garbage_pipeline(working_set, &[call_span]), None);
     };
     let Some(name) = name_expr.as_string() else {
         working_set.error(ParseError::UnknownState(
             "internal error: name not a string".into(),
-            Span::concat(spans),
+            call_span,
         ));
-        return (garbage_pipeline(working_set, spans), None);
+        return (garbage_pipeline(working_set, &[call_span]), None);
     };
 
     if module_name.is_some_and(|mod_name| mod_name == name.as_bytes()) {
@@ -1002,7 +1042,7 @@ pub fn parse_module(
     }
     let (module_name_or_path, module_name_or_path_span) = (name, name_expr.span);
 
-    if spans.len() == split_id + 1 {
+    let Some(block_expr_span) = body_span else {
         let pipeline = Pipeline::from_vec(vec![Expression::new(
             working_set,
             Expr::Call(call),
@@ -1028,20 +1068,10 @@ pub fn parse_module(
             ));
             return (pipeline, None);
         }
-    }
-
-    if spans.len() < split_id + 2 {
-        working_set.error(ParseError::UnknownState(
-            "Expected structure: module <name> or module <name> <block>".into(),
-            Span::concat(spans),
-        ));
-
-        return (garbage_pipeline(working_set, spans), None);
-    }
+    };
 
     let module_name = module_name_or_path;
 
-    let block_expr_span = spans[split_id + 1];
     let block_bytes = working_set.get_span_contents(block_expr_span);
     let mut start = block_expr_span.start;
     let mut end = block_expr_span.end;
@@ -1050,7 +1080,7 @@ pub fn parse_module(
         start += 1;
     } else {
         working_set.error(ParseError::Expected("block", block_expr_span));
-        return (garbage_pipeline(working_set, spans), None);
+        return (garbage_pipeline(working_set, &[call_span]), None);
     }
 
     if block_bytes.ends_with(b"}") {
@@ -1094,7 +1124,7 @@ pub fn parse_module(
         Pipeline::from_vec(vec![Expression::new(
             working_set,
             Expr::Call(call),
-            Span::concat(spans),
+            call_span,
             Type::Any,
         )]),
         Some(module_id),
