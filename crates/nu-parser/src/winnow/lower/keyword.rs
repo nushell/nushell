@@ -1,8 +1,9 @@
 //! Keyword statements: `if`, `match`, `while`, `loop`, `try`, `return`, `break`, `continue`
 //! (ordinary calls to keyword commands in the classic parser), and `let`, `mut`, `const`, `for`,
-//! `def`, `extern`, `alias` and `export-env` (the classic parser's `parse_let`, `parse_mut`,
-//! `parse_const`, `parse_for`, `parse_def`, `parse_extern`, `parse_alias` and
-//! `parse_export_env`), with the attributes and the `export` around a definition.
+//! `def`, `extern`, `alias`, `type` and `export-env` (the classic parser's `parse_let`,
+//! `parse_mut`, `parse_const`, `parse_for`, `parse_def`, `parse_extern`, `parse_alias`,
+//! `parse_type_alias` and `parse_export_env`), with the attributes and the `export` around a
+//! definition.
 
 use std::{collections::HashMap, sync::Arc};
 
@@ -18,6 +19,7 @@ use nu_protocol::{
 use super::{Lower, Lowered, Unlowered, is_missing_argument};
 use crate::winnow::syntax::{Span as WSpan, ast as w};
 use crate::{
+    exportable::Exportable,
     lex::{is_assignment_operator, lex},
     parse_alias::{alias_name, alias_name_fits_module, finish_alias},
     parse_calls::CallKind,
@@ -26,9 +28,11 @@ use crate::{
     parse_expressions::{is_env_variable_name, parse_value},
     parse_helpers::garbage,
     parse_keywords::find_keyword_decl,
+    parse_module::warp_export_call,
     parse_patterns::parse_pattern,
     parse_shape_specs::parse_type,
     parse_signatures::ensure_not_reserved_variable_name,
+    parse_type_alias::finish_type_alias,
     type_check::{check_pipeline_type, type_compatible},
 };
 
@@ -879,10 +883,54 @@ impl<'s> Lower<'_, '_, 's> {
         Ok((self.node(Expr::Call(call), span, Type::Any), lvalue_span))
     }
 
-    /// `export-env { ... }` (`parse_export_env`): its block is compiled now, once the call is
-    /// made. The block is lowered in an extra scope when `export-env`'s signature creates one,
-    /// as `parse_internal_call` does for any command. Returns the statement's expression and the
-    /// block.
+    /// `type name = type` (`parse_type_alias`), or `export type` when `command` is an
+    /// `export`: `finish_type_alias` checks the name, reads the type and defines the alias, and
+    /// for `export type` the call is made a call to `export type` covering the statement
+    /// (`warp_export_call`). Returns the statement and the alias, which an `export type` in a
+    /// module exports, as an exportable. The head's span is registered, as `parse_internal_call` registers it for
+    /// the call that checks whether the statement asks for help.
+    ///
+    /// A type that doesn't parse still defines the alias, as `any`, so once
+    /// `finish_type_alias` has run the statement is never handed back.
+    pub(super) fn type_alias(
+        &mut self,
+        command: &w::Expression<'s>,
+        alias: &w::TypeAlias<'s>,
+    ) -> Lowered<(Pipeline, Vec<Exportable>)> {
+        let export = matches!(command.expr, w::Expr::Export(_));
+        let decl_id = find_keyword_decl(self.working_set, b"type")
+            .ok_or(Unlowered::Unsupported("type that is not a keyword"))?;
+        if export && find_keyword_decl(self.working_set, b"export type").is_none() {
+            return Err(Unlowered::Unsupported("export type that is not a keyword"));
+        }
+        let head = self.command_head(command, "type");
+        let _ = self.working_set.add_span(head);
+        let call_span = self.span(command.span);
+        let (mut pipeline, type_alias) = finish_type_alias(
+            self.working_set,
+            decl_id,
+            head,
+            call_span,
+            self.span(alias.name.span),
+            self.span(alias.eq),
+            Some(self.span(alias.ty.span)),
+        );
+        if export {
+            // `export`, `type`, and the rest of the statement, as `warp_export_call` takes them.
+            let spans = [
+                Span::new(head.start, head.start + "export".len()),
+                Span::new(head.end - "type".len(), head.end),
+                Span::new(call_span.end, call_span.end),
+            ];
+            warp_export_call(self.working_set, &mut pipeline, "export type", &spans);
+        }
+        let exportables = type_alias
+            .map(|(name, id)| Exportable::TypeAlias { name, id })
+            .into_iter()
+            .collect();
+        Ok((pipeline, exportables))
+    }
+
     /// `alias name = target` (`parse_alias`), in the module `module_name` when it is exported
     /// from one, whose name the alias may not have. The statement is a call to `alias` whose `=`
     /// argument is the target read as an expression, with the predeclared commands of the block

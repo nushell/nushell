@@ -2486,11 +2486,12 @@ svg.railroad-diagram g.diagram-text:hover path.diagram-text {
   built-in command"; a name that is not a built-in is the same error. The
   <builtin-head> is the longest run of words naming a built-in command, visible or
   not (shadowed or hidden): <code>%ls foo</code> calls <code>ls</code> even where <code>def "ls foo"</code> exists,
-  and <code>%my cmd</code> under <code>def "my cmd"</code> is the error at <code>my</code>.
+  and <code>%my cmd</code> under <code>def "my cmd"</code> is the error at <code>my</code>. The <args> read as a
+  call to that built-in reads them: <code>%any $it &gt; 2</code> takes one row condition.
   nu: parse<em>calls.rs:1600-1700 (find</em>longest<em>decl</em>with<em>command</em>type)
   here: src/winnow/syntax/parser/parse<em>calls.rs::parse</em>percent<em>call (find</em>longest<em>name asking
-  is</em>builtin<em>decl: the built-in table from ParseConfig, or the engine’s
-  CommandLookup::is</em>builtin_decl) </p><section>
+  find</em>builtin<em>decl: the built-in table from ParseConfig, or the engine’s
+  CommandLookup::find</em>builtin_decl) </p><section>
   <h4 id="internal_call">internal_call</h4>
   <div class="diagram-container"><svg class="railroad-diagram" width="270.5" style="max-height: 62px;" viewBox="0 0 270.5 62"><g transform="translate(.5 .5)"><g><path d="M20 21v20m0 -10h20"></path></g><path d="M40 31h10"></path><g><path d="M50 31h0"></path><path d="M220.5 31h0"></path><g class="non-terminal"><path d="M50 31h0"></path><path d="M146.5 31h0"></path><rect x="50" y="20" width="96.5" height="22"></rect><a xlink:href="#call_head"><text x="98.25" y="35">call&#95;head</text></a></g><path d="M146.5 31h10"></path><path d="M156.5 31h10"></path><g class="non-terminal"><path d="M166.5 31h0"></path><path d="M220.5 31h0"></path><rect x="166.5" y="20" width="54" height="22"></rect><a xlink:href="#args"><text x="193.5" y="35">args</text></a></g></g><path d="M220.5 31h10"></path><path d="M 230.5 31 h 20 m 0 -10 v 20"></path></g></svg>
 </div>
@@ -6153,7 +6154,7 @@ svg.railroad-diagram g.diagram-text:hover path.diagram-text {
 <p>(6.1) </p>
   </article>
   <footer>
-    <p>Date: 2026-10-26T19:35 - <a href="?theme=dark" data-theme="dark">Dark</a> - <a href="?theme=light" data-theme="light">Light</a></p>
+    <p>Date: 2026-10-27T14:58 - <a href="?theme=dark" data-theme="dark">Dark</a> - <a href="?theme=light" data-theme="light">Light</a></p>
   </footer>
   </main>
   <script type="text/javascript">

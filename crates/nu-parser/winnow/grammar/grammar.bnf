@@ -500,11 +500,12 @@
 ; built-in command"; a name that is not a built-in is the same error. The
 ; <builtin-head> is the longest run of words naming a built-in command, visible or
 ; not (shadowed or hidden): `%ls foo` calls `ls` even where `def "ls foo"` exists,
-; and `%my cmd` under `def "my cmd"` is the error at `my`.
+; and `%my cmd` under `def "my cmd"` is the error at `my`. The <args> read as a
+; call to that built-in reads them: `%any $it > 2` takes one row condition.
 ; nu: parse_calls.rs:1600-1700 (find_longest_decl_with_command_type)
 ; here: src/winnow/syntax/parser/parse_calls.rs::parse_percent_call (find_longest_name asking
-;       is_builtin_decl: the built-in table from ParseConfig, or the engine's
-;       CommandLookup::is_builtin_decl)
+;       find_builtin_decl: the built-in table from ParseConfig, or the engine's
+;       CommandLookup::find_builtin_decl)
 
 <internal-call>   ::= <call-head> <args>
 <call-head>       ::= <word> { " " <word> }

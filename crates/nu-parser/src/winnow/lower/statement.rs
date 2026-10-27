@@ -5,13 +5,13 @@
 use nu_protocol::{
     DeclId, Module, Span, SyntaxShape, Type,
     ast::{
-        Block, Expr, Expression, Pipeline, PipelineElement, PipelineRedirection, RedirectionSource,
-        RedirectionTarget,
+        Block, Call, Expr, Expression, Pipeline, PipelineElement, PipelineRedirection,
+        RedirectionSource, RedirectionTarget,
     },
     engine::StateWorkingSet,
 };
 
-use super::module::overlay_effect;
+use super::module::{KeywordEffect, overlay_effect};
 use super::{Lower, Lowered, Unlowered};
 #[cfg(feature = "plugin")]
 use crate::parse_source::parse_plugin_use;
@@ -22,7 +22,7 @@ use crate::{
     lex::lex,
     lite_parser::lite_parse,
     parse_captures_compile::wrap_element_with_collect,
-    parse_helpers::trim_quotes,
+    parse_helpers::{PERCENT_FORCED_BUILTIN_PARSER_INFO, trim_quotes},
     parse_module::{add_exportables, double_main_span, parse_module_pipeline},
     parse_pipelines::{finish_block, hide_unlet_constants, parse_pipeline},
     winnow::{
@@ -141,6 +141,9 @@ impl<'s> Lower<'_, '_, 's> {
             w::Expr::Alias(alias) if attributes.is_empty() => {
                 self.alias(pipeline, command, alias, None)?
             }
+            w::Expr::TypeAlias(alias) if attributes.is_empty() => {
+                return Ok(self.type_alias(command, alias)?.0);
+            }
             w::Expr::Use(use_statement) if attributes.is_empty() => {
                 let (pipeline, _) =
                     self.use_statement(command, command, use_statement, Some(module))?;
@@ -187,6 +190,19 @@ impl<'s> Lower<'_, '_, 's> {
                 }
                 w::Expr::Alias(alias) if attributes.is_empty() => {
                     self.export_alias(pipeline, command, &export.item, alias, module_name, module)?
+                }
+                w::Expr::TypeAlias(alias) if attributes.is_empty() => {
+                    let (pipeline, exportables) = self.type_alias(command, alias)?;
+                    let main_span =
+                        double_main_span(pipeline.elements.first().map(|e| &e.expr), span);
+                    add_exportables(
+                        self.working_set,
+                        module,
+                        module_name,
+                        exportables,
+                        main_span,
+                    );
+                    return Ok(pipeline);
                 }
                 w::Expr::Use(use_statement) if attributes.is_empty() => {
                     let (pipeline, exportables) =
@@ -367,6 +383,7 @@ impl<'s> Lower<'_, '_, 's> {
                         self.module_declaration(pipeline, &element.expr, module, None)?;
                     return Ok(pipeline);
                 }
+                w::Expr::TypeAlias(alias) => return Ok(self.type_alias(&element.expr, alias)?.0),
                 _ => return Err(Unlowered::Unsupported("export")),
             },
             w::Expr::AttributeBlock(block) => {
@@ -389,8 +406,7 @@ impl<'s> Lower<'_, '_, 's> {
             w::Expr::Mut(binding) => return self.mut_statement(element, binding),
             w::Expr::For(for_loop) => self.for_statement(element, for_loop)?,
             w::Expr::Alias(alias) => self.alias(pipeline, &element.expr, alias, None)?,
-            // `parse_type_alias` defines the alias as it parses the statement.
-            w::Expr::TypeAlias(_) => return Err(Unlowered::Unsupported("type alias")),
+            w::Expr::TypeAlias(alias) => return Ok(self.type_alias(&element.expr, alias)?.0),
             w::Expr::Module(module) => {
                 let (pipeline, _) =
                     self.module_declaration(pipeline, &element.expr, module, None)?;
@@ -435,7 +451,7 @@ impl<'s> Lower<'_, '_, 's> {
         let pipe = self.classic_pipes(pipeline)[0];
         let element = self.pipeline_element(element, input_type.unwrap_or(&Type::Any), pipe)?;
         if let Expr::Call(call) = &element.expr.expr
-            && let Some(effect) = overlay_effect(self.working_set.get_decl(call.decl_id).name())
+            && let Some(effect) = self.overlay_call_effect(call)
         {
             return Ok(effect(self.working_set, call.clone()));
         }
@@ -450,9 +466,21 @@ impl<'s> Lower<'_, '_, 's> {
     fn calls_overlay(&self, expression: &Expression) -> bool {
         matches!(
             &expression.expr,
-            Expr::Call(call)
-                if overlay_effect(self.working_set.get_decl(call.decl_id).name()).is_some()
+            Expr::Call(call) if self.overlay_call_effect(call).is_some()
         )
+    }
+
+    /// The effect on the overlays of `call` when it calls `overlay use`, `overlay hide` or
+    /// `overlay new`, maybe through an alias. A dynamic `%` call has none: its declaration is a
+    /// placeholder until the IR compiler names the command (`parse_builtin_commands`).
+    fn overlay_call_effect(&self, call: &Call) -> Option<KeywordEffect> {
+        if call
+            .parser_info
+            .contains_key(PERCENT_FORCED_BUILTIN_PARSER_INFO)
+        {
+            return None;
+        }
+        overlay_effect(self.working_set.get_decl(call.decl_id).name())
     }
 
     /// The `pipe` of each element as the classic lite parser sets it. The winnow parser keeps,

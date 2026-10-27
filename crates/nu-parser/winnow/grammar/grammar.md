@@ -596,11 +596,12 @@ Precedence (nu-protocol `ast/operator.rs:256`; higher binds tighter):
 ; built-in command"; a name that is not a built-in is the same error. The
 ; <builtin-head> is the longest run of words naming a built-in command, visible or
 ; not (shadowed or hidden): `%ls foo` calls `ls` even where `def "ls foo"` exists,
-; and `%my cmd` under `def "my cmd"` is the error at `my`.
+; and `%my cmd` under `def "my cmd"` is the error at `my`. The <args> read as a
+; call to that built-in reads them: `%any $it > 2` takes one row condition.
 ; nu: parse_calls.rs:1600-1700 (find_longest_decl_with_command_type)
 ; here: src/winnow/syntax/parser/parse_calls.rs::parse_percent_call (find_longest_name asking
-;       is_builtin_decl: the built-in table from ParseConfig, or the engine's
-;       CommandLookup::is_builtin_decl)
+;       find_builtin_decl: the built-in table from ParseConfig, or the engine's
+;       CommandLookup::find_builtin_decl)
 
 <internal-call>   ::= <call-head> <args>
 <call-head>       ::= <word> { " " <word> }
@@ -1821,7 +1822,7 @@ get nu-parser's full behaviour; none of it is decidable from the text alone.
 | module, file, overlay and plugin resolution; variable existence | files, module table, scope | `Call` heads, `Var` |
 | the commands a `use`d module brings into scope (`use std/log; log info`) | module resolution | `ParseConfig::add_commands`; without them such a head is an `ExternalCall` |
 
-## 9. Verified differences between nu-parser and this parser: 6 open
+## 9. Verified differences between nu-parser and this parser: 5 open
 
 Last verified on 2026-09-26 against nushell `7de074cfe` and `nu` 0.115.2; the
 rows found on 2026-10-26 were verified against nushell `706259d6f` with the
@@ -1857,21 +1858,15 @@ with a help flag or a flag value in each slot, and the fixed-signature commands 
 switch values and short-flag batches (`flag-values/gen_sweep.py`, 2,720 inputs; the
 four rows left are the second open row of 9.2), and every one-line fixture and each
 prefix of its words as an alias target (`alias-missing-positional/targets.json`,
-7,172 inputs; its 14 disagreements are the alias rows of 9.1 and 9.2 and a leading
-range of 9.4), and range items whose bound is a group or a raw string with text after
+7,172 inputs; its 14 disagreements are the alias rows of 9.1 and 9.2 and the `%`
+alias target and a leading range of 9.4), and range items whose bound is a group or a raw string with text after
 it, as a statement, an argument and a value (`range-bounds/gen.py`, 900 inputs; its
 nine disagreements are the range rows of 9.1 and 9.2). Differences that nu reports
 only through type checking, constant
 evaluation, signatures or module resolution are in 9.4, not counted as grammar
 gaps.
 
-### 9.1 nu-parser rejects, this parser accepts: 3 open
-
-A `%(...)` alias target (`alias zz = %(1 + 1)`, `alias zz = % ('echo') x`). nu
-parses the target as a call whose head is the `%` keyword and reports
-CantAliasKeyword; this parser reads a dynamic call and accepts it. `alias zz = %ls`
-is accepted by both. Found with the alias-target set; no real script is known to
-hit it.
+### 9.1 nu-parser rejects, this parser accepts: 2 open
 
 An `if`, `match` or `try` alias target that nu rejects through the keyword's
 signature (DIFF 1): `alias zz = if --help if` and `alias zz = if if --help`
@@ -2018,7 +2013,7 @@ submodule), and `2 | skip 0x[01 23 45 67]` (InvalidLiteral: `skip` takes an
   rejected by both), like `f 0xzz` for a `string` parameter above. The
   mutation fuzzer finds more of these for built-in shapes: `glob
   "[!cCbMs]*"#`, `glob "**/*.txt": --follow-symlinks`, `glob "[A-Z]*"..`,
-  `bytes split 0x$[20]`,
+  `bytes split 0x$[20]`, `bytes split 0x[$20]`,
   `run-external "echo"..`; and the int shape the other way (`skip`, `first`,
   `last`, `take`, `drop`, `chunks` with `0x[..]`, `bytes add --index 0x[AA
   BB]`, `bits shr 0x[4f f4]`, `bytes at ..-4 ..-4`), cell-path shapes (`get
@@ -2029,6 +2024,12 @@ submodule), and `2 | skip 0x[01 23 45 67]` (InvalidLiteral: `skip` takes an
   nu parses `'x'$` with the shape of `x` and this parser as an external argument;
   in `[...r string]` the `string` is such a positional).
   `do {a: 1}` is the built-in form of this: a record where a closure is wanted.
+- A `%` alias target with a computed name (`alias zz = %(1 + 1)`, `alias zz = %
+  ('echo') x`): nu makes a dynamic `%` call a placeholder call to declaration 0,
+  in `nu`'s engine `alias`, so `finish_alias` reports CantAliasKeyword for an alias
+  of `alias`; this parser reads a dynamic call and accepts it, and the front end,
+  which lowers it to the same placeholder call, reports the same error. `alias zz =
+  %ls` is accepted by both.
 - A record spread whose variable nu has typed as a record keeps the record's
   type (`let r = {b: 2}; if true { a: 1, ...$r }` is a type error in nu); here a
   spread of a variable is typed `any` (5.13 <block>).

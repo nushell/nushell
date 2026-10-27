@@ -5,17 +5,20 @@
 use nu_engine::DIR_VAR_PARSER_INFO;
 use nu_protocol::{
     DeclId, Flag, Span, Spanned, SyntaxShape, Type,
-    ast::{Call, Expr, Expression, ExternalArgument, Keyword},
+    ast::{Argument, Call, Expr, Expression, ExternalArgument, Keyword},
+    engine::CommandType,
 };
 
 use super::{Lower, Lowered, Unlowered};
 use crate::winnow::syntax::{DeclKind, Span as WSpan, ast as w};
 use crate::{
     parse_calls::{
-        CallKind, find_longest_decl_with_prefix, parse_external_string, parse_regular_external_arg,
-        parse_unknown_arg, shape_allows_negative_number, strict_extern_forwards,
+        CallKind, find_decl_with_command_type, find_longest_decl_with_prefix,
+        parse_external_string, parse_regular_external_arg, parse_unknown_arg,
+        shape_allows_negative_number, strict_extern_forwards,
     },
     parse_expressions::parse_value as classic_value,
+    parse_helpers::PERCENT_FORCED_BUILTIN_PARSER_INFO,
     parse_keywords::is_parser_keyword,
     parse_source::{LIB_DIRS_VAR, find_dirs_var},
     type_check::type_compatible,
@@ -35,8 +38,8 @@ impl<'s> Lower<'_, '_, 's> {
         call: &w::Call<'s>,
         input_type: Option<&Type>,
     ) -> Lowered<Expression> {
-        if call.sigil.is_some() {
-            return Err(Unlowered::Unsupported("`%` call"));
+        if let Some(sigil) = call.sigil {
+            return self.builtin_call(e, call, sigil, input_type);
         }
         let head_span = self.span(call.head.span);
         let Some(decl_id) = self.working_set.find_decl(call.head.name.as_bytes()) else {
@@ -135,6 +138,68 @@ impl<'s> Lower<'_, '_, 's> {
         let (call, output, _) =
             self.internal_call(head_span, &call.arguments, decl_id, input_type)?;
         Ok(self.node(Expr::Call(call), span, output))
+    }
+
+    /// `%name args`, a call to the built-in command `name` even where a custom command or alias
+    /// shadows or hides it (`parse_call` with the `%` sigil, `find_decl_with_command_type`). As
+    /// there, the head starts past the `%`, so after a lone `%` (`% ls`) it covers the blank
+    /// before the name.
+    fn builtin_call(
+        &mut self,
+        e: &w::Expression<'s>,
+        call: &w::Call<'s>,
+        sigil: WSpan,
+        input_type: Option<&Type>,
+    ) -> Lowered<Expression> {
+        let decl_id = find_decl_with_command_type(
+            self.working_set,
+            call.head.name.as_bytes(),
+            CommandType::Builtin,
+        )
+        .ok_or(Unlowered::Error)?;
+        let head = Span::new(self.span(sigil).end, self.span(call.head.span).end);
+        let (lowered, output, _) =
+            self.internal_call(head, &call.arguments, decl_id, input_type)?;
+        let span = self.span(e.span);
+        Ok(self.node(Expr::Call(lowered), span, output))
+    }
+
+    /// `%$cmd args` or `%(expr) args`, a call to the built-in command an expression names at
+    /// run time (`parse_call`'s dynamic `%` dispatch): a placeholder call covering the whole
+    /// call, its head included, with the head expression in its parser info, which the IR
+    /// compiler makes a call to `run-internal`. Each argument is read with any shape, a flag or
+    /// `--` as a word, and a spread as a list.
+    pub(super) fn dynamic_call(
+        &mut self,
+        e: &w::Expression<'s>,
+        call: &w::DynamicCall<'s>,
+        input_type: Option<&Type>,
+    ) -> Lowered<Expression> {
+        let span = self.span(e.span);
+        let head = self.expression(&call.head, input_type)?;
+        let mut lowered = Call::new(span);
+        lowered.decl_id = DeclId::new(0);
+        lowered.set_parser_info(PERCENT_FORCED_BUILTIN_PARSER_INFO.to_string(), head);
+        for argument in &call.arguments {
+            let argument = match argument {
+                w::Argument::Positional(expr) => {
+                    Argument::Positional(self.value(expr, &SyntaxShape::Any, None)?)
+                }
+                w::Argument::Spread { expr, .. } => {
+                    let shape = SyntaxShape::List(Box::new(SyntaxShape::Any));
+                    Argument::Spread(self.value(expr, &shape, None)?)
+                }
+                w::Argument::Named(w::NamedArgument { span, .. })
+                | w::Argument::EndOfOptions(span) => {
+                    let span = self.span(*span);
+                    Argument::Positional(
+                        self.checked(|ws| classic_value(ws, span, &SyntaxShape::Any, None))?,
+                    )
+                }
+            };
+            lowered.arguments.push(argument);
+        }
+        Ok(self.node(Expr::Call(Box::new(lowered)), span, Type::Any))
     }
 
     /// A call to `decl_id` with its arguments assigned by the command's signature

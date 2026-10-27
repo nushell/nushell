@@ -43,7 +43,7 @@ impl<'s> Lower<'_, '_, 's> {
             w::Expr::Break => self.bare_keyword_call(e, "break"),
             w::Expr::Continue => self.bare_keyword_call(e, "continue"),
             w::Expr::Where(condition) => self.where_expression(e, condition),
-            w::Expr::DynamicCall(_) => Err(Unlowered::Unsupported("`%` call")),
+            w::Expr::DynamicCall(call) => self.dynamic_call(e, call, input_type),
             w::Expr::Let(_)
             | w::Expr::Mut(_)
             | w::Expr::Const(_)

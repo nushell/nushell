@@ -1,7 +1,7 @@
 //! Regression tests for the `winnow-parser` front end (statements): each pins a case where it
 //! parsed differently from the classic parser.
 
-use nu_protocol::{ast::Expr, engine::StateWorkingSet};
+use nu_protocol::{Value, ast::Expr, engine::StateWorkingSet};
 use nu_test_support::prelude::*;
 use rstest::rstest;
 
@@ -602,5 +602,113 @@ fn parser_keyword_is_lowered(#[case] code: &str, #[case] effect: Effect) -> Resu
             "`{code}`: no overlay `{name}`"
         ),
     }
+    Ok(())
+}
+
+/// `%name` calls the built-in command even where a custom command shadows its name, its
+/// arguments read as a call to that command reads them (a row condition for `take while`), and
+/// `%$name` calls the built-in an expression names at run time, each argument a word or value.
+#[rstest]
+#[case::shadowed("def length [] { 'mine' }\n[1 2 3] | %length", Value::test_int(3))]
+#[case::row_condition("[1 2 3] | %take while $it < 3 | length", Value::test_int(2))]
+#[case::dynamic("let c = 'length'\n[1 2 3] | %$c", Value::test_int(3))]
+#[case::dynamic_flag(
+    "let c = 'echo'\n%$c --x -y | to nuon",
+    Value::test_string("[--x, -y]")
+)]
+#[case::dynamic_spread("let c = 'echo'\n%($c) 1 ...[2 3] | length", Value::test_int(3))]
+#[nu_test_support::test]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn percent_call_runs_the_built_in(#[case] code: &str, #[case] expected: Value) -> Result {
+    test().run(code).expect_value_eq(expected)
+}
+
+/// `%` calls are lowered, not handed to the classic parser. As there, the head of `% ls` starts
+/// past the `%`, so it covers the blank before the name.
+#[rstest]
+#[case::bare("%ls", "ls")]
+#[case::lone_sigil("% ls", " ls")]
+#[case::row_condition("[1 2 3] | %take while $it < 3", "take while")]
+#[case::shadowed("def ls [] {}\n%ls", "ls")]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn percent_call_is_lowered(#[case] code: &str, #[case] head: &str) -> Result {
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let before = nu_parser::winnow_stats();
+    let block = nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    let after = nu_parser::winnow_stats();
+    assert_eq!(working_set.parse_errors, [], "`{code}`");
+    assert_eq!(
+        after.classic_statements, before.classic_statements,
+        "`{code}`: a statement was handed to the classic parser"
+    );
+    let last = block
+        .pipelines
+        .last()
+        .and_then(|pipeline| pipeline.elements.last());
+    let Some(Expr::Call(call)) = last.map(|element| &element.expr.expr) else {
+        panic!("`{code}`: not a call: {last:?}");
+    };
+    assert_eq!(working_set.get_span_contents(call.head), head.as_bytes());
+    Ok(())
+}
+
+/// `type`, and `export type` in a script or a module's body, are lowered, not handed to the
+/// classic parser: `finish_type_alias` defines the alias as `parse_type_alias` does, and an
+/// export is a call to `export type`. A type nu can't read defines the alias as `any`, with
+/// the error kept.
+#[rstest]
+#[case::script("type T = record<x: int>", "type", &[])]
+#[case::script_export("export type T = list<int>", "export type", &[])]
+#[case::module("module m { type T = int; export def f [x: T] {} }\nuse m f\ntype T = int", "type", &[])]
+#[case::module_export("module m { export type T = int }\nuse m T", "use", &[])]
+#[case::unknown_type("type T = Foo", "type", &["UnknownType"])]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn type_alias_is_lowered(
+    #[case] code: &str,
+    #[case] command: &str,
+    #[case] expected: &[&str],
+) -> Result {
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let before = nu_parser::winnow_stats();
+    let block = nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    let after = nu_parser::winnow_stats();
+    let errors: Vec<String> = working_set
+        .parse_errors
+        .iter()
+        .map(|error| format!("{error:?}"))
+        .collect();
+    assert!(
+        errors.len() == expected.len()
+            && errors
+                .iter()
+                .zip(expected)
+                .all(|(e, name)| e.starts_with(name)),
+        "`{code}`: {errors:?}"
+    );
+    assert_eq!(
+        after.classic_statements, before.classic_statements,
+        "`{code}`: a statement was handed to the classic parser"
+    );
+    assert!(
+        working_set.find_type_alias(b"T").is_some(),
+        "`{code}`: no type alias `T`"
+    );
+    let last = &block.pipelines.last().expect("a statement").elements[0]
+        .expr
+        .expr;
+    let Expr::Call(call) = last else {
+        panic!("`{code}`: not a call: {last:?}");
+    };
+    assert_eq!(
+        working_set.get_decl(call.decl_id).name(),
+        command,
+        "`{code}`"
+    );
     Ok(())
 }
