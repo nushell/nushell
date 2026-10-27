@@ -104,6 +104,12 @@ pub fn parse_expression<'a>(
         return Err(cut(Diagnostic::expected("command", first.span)));
     } else if is_math_expression_like(working_set.get_span_contents(first.span)) {
         parse_math_expression(tokens.rest_stream())?
+    } else if working_set.get_span_contents(first.span) == "let"
+        && has_longer_name(tokens.rest_stream())
+    {
+        // Here nu reads a command with `parse_call`, whose longest name may start with `let`
+        // (`def "let me"`); `parse_builtin_commands` picks `let` by its first word.
+        parse_call(tokens.rest_stream())?
     } else {
         parse_builtin_commands(tokens.rest_stream())?
     };
@@ -141,12 +147,7 @@ pub fn parse_builtin_commands<'a>(tokens: Tokens<'_, 'a>) -> ParseResult<Express
     // nu reads `if`, `match`, `while`, `loop`, `try`, `return`, `break` and `continue` with
     // `parse_call`, whose `find_longest_decl` takes a longer known name that starts with the
     // keyword (`def "if ready"`); `where` and the statement keywords go by their first word.
-    let longer_name = || {
-        let mut after_head = tokens;
-        after_head.next_token();
-        let (longest, _) = find_longest_decl(*first, &mut after_head, "");
-        longest.span != first.span
-    };
+    let longer_name = || has_longer_name(tokens);
     let (context, result) = match head {
         "def" => ("def", parse_def(tokens)),
         "extern" => ("extern", parse_extern(tokens)),
@@ -177,6 +178,17 @@ pub fn parse_builtin_commands<'a>(tokens: Tokens<'_, 'a>) -> ParseResult<Express
         _ => ("command call", parse_call(tokens)),
     };
     result.map_err(|error| error.map(|failure| failure.with_context(context)))
+}
+
+/// Whether a known command's name is longer than the item `tokens` starts with and starts
+/// with it (`find_longest_decl`: `def "if ready"` for `if ready`).
+fn has_longer_name(tokens: Tokens<'_, '_>) -> bool {
+    let mut after_head = tokens;
+    let Some(first) = after_head.next_token() else {
+        return false;
+    };
+    let (longest, _) = find_longest_decl(*first, &mut after_head, "");
+    longest.span != first.span
 }
 
 /// The heads nu refuses in `parse_expression`, i.e. after a `|` or after

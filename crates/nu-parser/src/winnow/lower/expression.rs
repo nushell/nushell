@@ -412,22 +412,16 @@ impl<'s> Lower<'_, '_, 's> {
     /// The span of the keyword `keyword` that starts `e`.
     /// `let name` where the classic parser reads a command, in a pipeline or after an
     /// environment shorthand (`parse_expression`): an ordinary call to `let` (`parse_call`,
-    /// [`Self::let_without_value`]). A value after the name, and a command named `let` and the
-    /// name, which `parse_call` calls instead (`find_longest_decl`), are left to the classic
-    /// parser.
+    /// [`Self::let_without_value`]). A value after the name is left to the classic parser. (A
+    /// command named `let` and the name, which `parse_call` calls instead, the winnow parser
+    /// already reads as a call.)
     fn let_call(
         &mut self,
         e: &w::Expression<'s>,
         binding: &w::Binding<'s>,
         input_type: Option<&Type>,
     ) -> Lowered<Expression> {
-        if binding.eq.is_some()
-            || binding.value.is_some()
-            || self
-                .working_set
-                .find_decl(format!("let {}", self.text(binding.name.span)).as_bytes())
-                .is_some()
-        {
+        if binding.eq.is_some() || binding.value.is_some() {
             return Err(Unlowered::Unsupported("binding in a pipeline"));
         }
         self.let_without_value(e, binding, input_type)

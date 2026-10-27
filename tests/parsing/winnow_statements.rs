@@ -970,12 +970,17 @@ fn handler_value_that_is_no_closure_is_an_error() -> Result {
     Ok(())
 }
 
-/// In a pipeline, `let` and a name is a call to a command of that name when one exists, as
-/// `parse_call` looks for the longest command name.
-#[test]
+/// In a pipeline or after an environment shorthand, `let` and a name is a call to a command of
+/// that name when one exists, as `parse_call` looks for the longest command name.
+#[rstest]
+#[case::pipeline(r#"def "let me" [] { "custom" }; [1] | let me"#)]
+#[case::after_shorthand(r#"def "let me" [] { "custom" }; FOO=1 let me"#)]
+#[nu_test_support::test]
+#[serial]
 #[exp(nu_experimental::WINNOW_PARSER)]
-fn let_in_a_pipeline_calls_a_longer_command() -> Result {
-    let code = r#"def "let me" [] { "custom" }; [1] | let me"#;
+fn let_in_a_pipeline_calls_a_longer_command(#[case] code: &str) -> Result {
+    let engine_state = test().engine_state;
+    parse_lowered(&engine_state, code);
     test().run(code).expect_value_eq("custom")
 }
 
