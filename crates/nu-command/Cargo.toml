@@ -24,6 +24,7 @@ harness = false
 workspace = true
 
 [dependencies]
+ron = "0.8"
 ansi-str = { workspace = true }
 ansiopt = { workspace = true, features = ["render"] }
 nu-ansi-term.workspace = true
@@ -57,9 +58,9 @@ bytesize = { workspace = true }
 calamine = { workspace = true, features = ["dates"] }
 chardetng = { workspace = true }
 chrono = { workspace = true, features = [
-	"std",
-	"unstable-locales",
-	"clock",
+  "std",
+  "unstable-locales",
+  "clock",
 ], default-features = false }
 chrono-humanize = { workspace = true }
 chrono-tz = { workspace = true }
@@ -82,7 +83,7 @@ itertools = { workspace = true }
 log = { workspace = true }
 nucleo-matcher = { workspace = true }
 lscolors = { workspace = true, default-features = false, features = [
-	"nu-ansi-term",
+  "nu-ansi-term",
 ] }
 md5 = { workspace = true }
 mime = { workspace = true }
@@ -108,10 +109,10 @@ rayon = { workspace = true }
 reedline = { workspace = true, optional = true }
 roxmltree = { workspace = true }
 rusqlite = { workspace = true, features = [
-	"bundled",
-	"backup",
-	"chrono",
-	"column_decltype",
+  "bundled",
+  "backup",
+  "chrono",
+  "column_decltype",
 ], optional = true }
 rustls = { workspace = true, optional = true, features = ["ring"] }
 rustls-native-certs = { workspace = true, optional = true }
@@ -129,10 +130,10 @@ toml_edit = { workspace = true }
 kdl = { workspace = true }
 unicode-segmentation = { workspace = true }
 ureq = { workspace = true, default-features = false, features = [
-	"charset",
-	"gzip",
-	"json",
-	"platform-verifier",
+  "charset",
+  "gzip",
+  "json",
+  "platform-verifier",
 ], optional = true }
 url = { workspace = true }
 uu_cp = { workspace = true, optional = true }
@@ -143,11 +144,11 @@ uu_touch = { workspace = true, optional = true }
 uu_uname = { workspace = true, optional = true }
 uu_whoami = { workspace = true, optional = true }
 uuid = { workspace = true, features = [
-	"v1",
-	"v3",
-	"v4",
-	"v5",
-	"v7",
+  "v1",
+  "v3",
+  "v4",
+  "v5",
+  "v7",
 ], optional = true }
 v_htmlescape = { workspace = true }
 wax = { workspace = true }
@@ -173,9 +174,9 @@ fff-search = { workspace = true, optional = true, default-features = false }
 [target.'cfg(unix)'.dependencies]
 umask = { workspace = true }
 nix = { workspace = true, default-features = false, features = [
-	"user",
-	"resource",
-	"pthread",
+  "user",
+  "resource",
+  "pthread",
 ] }
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies.trash]
@@ -184,73 +185,73 @@ workspace = true
 
 [target.'cfg(windows)'.dependencies.windows]
 features = [
-	"Win32_Foundation",
-	"Win32_Networking_WinSock",
-	"Win32_NetworkManagement_IpHelper",
-	"Win32_Security",
-	"Win32_Storage_FileSystem",
-	"Win32_System_Environment",
-	"Win32_System_SystemServices",
-	"Win32_System_Threading",
+  "Win32_Foundation",
+  "Win32_Networking_WinSock",
+  "Win32_NetworkManagement_IpHelper",
+  "Win32_Security",
+  "Win32_Storage_FileSystem",
+  "Win32_System_Environment",
+  "Win32_System_SystemServices",
+  "Win32_System_Threading",
 ]
 workspace = true
 
 [features]
 default = ["os", "network", "rustls-tls", "sqlite"]
 os = [
-	# include other features
-	"js",
-	"nu-cmd-lang/os",
-	"nu-engine/os",
-	"nu-protocol/os",
-	"nu-utils/os",
-	"dep:fff-search",
+  # include other features
+  "js",
+  "nu-cmd-lang/os",
+  "nu-engine/os",
+  "nu-protocol/os",
+  "nu-utils/os",
+  "dep:fff-search",
 
-	# os-dependant dependencies
-	"crossterm",
-	"notify-debouncer-full",
-	"open",
-	"os_pipe",
-	"reedline",
-	"uu_cp",
-	"uu_mkdir",
-	"uu_mktemp",
-	"uu_mv",
-	"uu_touch",
-	"uu_uname",
-	"uu_whoami",
-	"which",
+  # os-dependant dependencies
+  "crossterm",
+  "notify-debouncer-full",
+  "open",
+  "os_pipe",
+  "reedline",
+  "uu_cp",
+  "uu_mkdir",
+  "uu_mktemp",
+  "uu_mv",
+  "uu_touch",
+  "uu_uname",
+  "uu_whoami",
+  "which",
 ]
 
 # The dependencies listed below need 'getrandom'.
 # They work with JS (usually with wasm-bindgen) or regular OS support.
 # Hence they are also put under the 'os' feature to avoid repetition.
 js = [
-	"aegis-password-generator",
-	"getrandom",
-	"getrandom/wasm_js",
-	"rand",
-	"uuid",
+  "aegis-password-generator",
+  "getrandom",
+  "getrandom/wasm_js",
+  "rand",
+  "uuid",
 ]
 
 # These dependencies require networking capabilities, especially the http
 # interface requires openssl which is not easy to embed into wasm,
 # using rustls could solve this issue.
 network = [
-	"dns-lookup",
-	"multipart-rs",
-	"nu-test-support/network",
-	"ureq",
-	"uuid",
+  "dns-lookup",
+  "multipart-rs",
+  "nu-test-support/network",
+  "ureq",
+  "uuid",
 ]
 
 native-tls = ["dep:native-tls", "ureq/native-tls"]
 rustls-tls = [
-	"dep:rustls-native-certs",
-	"dep:rustls",
-	"dep:webpki-roots",
-	"nu-test-support/rustls-tls",
-	"ureq/rustls",
+  "dep:rustls-native-certs",
+  "dep:rustls",
+  "dep:webpki-roots",
+  "nu-test-support/rustls-tls",
+  "ureq/rustls",
 ]
 
 plugin = ["nu-parser/plugin", "nu-test-support/plugin", "os"]
