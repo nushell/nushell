@@ -2060,7 +2060,10 @@ svg.railroad-diagram g.diagram-text:hover path.diagram-text {
 </section>
 <p>parse<em>dollar</em>expr, shape Any
   a fully single/double-quoted string
-  (also $"…"), or a bare word </p><p>The item is split at its FIRST "=". An item that fails these rules ends the
+  (also $"…"), or a bare word with no
+  space (<code>FOO=(1 + 1)</code>, <code>FOO=[1 2]</code>,
+  a backtick string, an unclosed <code>r#</code>
+  are not) </p><p>The item is split at its FIRST "=". An item that fails these rules ends the
   shorthand prefix and starts the command. If every item is shorthand the element
   is UnknownCommand (<code>FOO=1</code> alone). Becomes <code>with-env {..} { &lt;element-body&gt; }</code>.
   nu: parse<em>expressions.rs:96, 1540-1580; parse</em>literals.rs:1981 parse<em>string</em>strict

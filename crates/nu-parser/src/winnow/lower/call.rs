@@ -535,8 +535,7 @@ impl<'s> Lower<'_, '_, 's> {
     /// without a type, a keyword and a one-item shape stop early, a row condition, a math
     /// expression, an expression and a signature read up to `end`. A row condition or a math
     /// expression of several items, which the winnow parser read one by one, it reads again as
-    /// one (`items_value`); an expression or a signature of several is left to the classic
-    /// parser.
+    /// one (`reread`); an expression or a signature of several is left to the classic parser.
     fn multispan_value(
         &mut self,
         arguments: &[w::Argument<'s>],
@@ -576,13 +575,17 @@ impl<'s> Lower<'_, '_, 's> {
                 self.items_call(item, &arguments[index + 1..end], input_type)?
             }
             SyntaxShape::RowCondition if one_item => self.row_condition(item)?,
-            SyntaxShape::RowCondition => {
-                self.items_value(arguments, index, end, ItemsValue::RowCondition, None)?
-            }
+            SyntaxShape::RowCondition => self.reread(
+                items_span(arguments, index, end),
+                ItemsValue::RowCondition,
+                None,
+            )?,
             SyntaxShape::MathExpression if one_item => self.math(item, input_type)?,
-            SyntaxShape::MathExpression => {
-                self.items_value(arguments, index, end, ItemsValue::Math, input_type)?
-            }
+            SyntaxShape::MathExpression => self.reread(
+                items_span(arguments, index, end),
+                ItemsValue::Math,
+                input_type,
+            )?,
             // `parse_expression` reads one item that looks like a value as a math expression.
             SyntaxShape::Expression
                 if one_item && is_math_expression_like(self.working_set, self.span(item.span)) =>
@@ -605,21 +608,19 @@ impl<'s> Lower<'_, '_, 's> {
         Ok((value, end))
     }
 
-    /// The items `arguments[index..end]`, which the winnow parser read one at a time, read again
-    /// by it as the one `value` the classic parser reads them as (`parse_multispan_value`), with
-    /// the commands the working set knows now, and lowered; a math expression gets
-    /// `input_type`. Items it does not read so are a syntax error there, which the classic
-    /// parser reports too (`if true {} --help`: the condition takes `true {}`). The working set
-    /// answers the parser's questions through a cell while it parses, as in the driver.
-    fn items_value(
+    /// The text of `span`, which the winnow parser read otherwise (a call's items one at a time,
+    /// an alias's target as a call), read again by it as the one `value` the classic parser
+    /// reads there, with the commands the working set knows now, and lowered; a math
+    /// expression or an alias's target gets `input_type`. Text it does not read so is a syntax
+    /// error there, which the classic parser reports too (`if true {} --help`: the condition
+    /// takes `true {}`). The working set answers the parser's questions through a cell while it
+    /// parses, as in the driver.
+    pub(super) fn reread(
         &mut self,
-        arguments: &[w::Argument<'s>],
-        index: usize,
-        end: usize,
+        span: WSpan,
         value: ItemsValue,
         input_type: Option<&Type>,
     ) -> Lowered<Expression> {
-        let span = arguments[index].span().merge(arguments[end - 1].span());
         let cell = RefCell::new(&mut *self.working_set);
         let Some(tree) = parse_items(self.source, span, EngineLookup::new(&cell), value) else {
             return Err(Unlowered::Error);
@@ -635,6 +636,7 @@ impl<'s> Lower<'_, '_, 's> {
         match value {
             ItemsValue::Math => lower.math(&tree, input_type),
             ItemsValue::RowCondition => lower.row_condition(&tree),
+            ItemsValue::AliasTarget => lower.expression(&tree, input_type),
         }
     }
 
@@ -1152,6 +1154,11 @@ impl<'s> Lower<'_, '_, 's> {
             )?)),
         }
     }
+}
+
+/// The span of the items `arguments[index..end]`.
+fn items_span(arguments: &[w::Argument<'_>], index: usize, end: usize) -> WSpan {
+    arguments[index].span().merge(arguments[end - 1].span())
 }
 
 /// The keywords `parse_internal_call` reads some positionals of in a way of its own

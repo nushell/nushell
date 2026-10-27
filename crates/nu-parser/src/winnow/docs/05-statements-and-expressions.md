@@ -512,7 +512,9 @@ interpolate, and all-literal words collapse to one string
 
 `FOO=bar BAZ=$x cmd`: leading items of the form `NAME=value` with an
 identifier `NAME` (`is_env_variable_name`) become `EnvShorthand`; the value
-is a `$` expression or a strict string. `parse_env_shorthand_prefix` is a
+is a `$` expression or a strict string, which has no space outside double or
+single quotes (`FOO=(1 + 1) ls` is the external command `FOO=(1 + 1)`, as in
+nu). `parse_env_shorthand_prefix` is a
 `repeat` over a parser of one such item:
 
 ```rust,ignore

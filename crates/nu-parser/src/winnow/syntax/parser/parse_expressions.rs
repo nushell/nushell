@@ -248,12 +248,20 @@ fn env_assignment<'a>(tokens: &mut Tokens<'_, 'a>) -> ParseResult<EnvAssignment<
     let text = tokens.text(&token);
     let value_span = Span::new(token.span.start + equals + 1, token.span.end);
     // Like nu, the value is a string unless it starts with `$`: `A=1` sets `A` to `"1"`.
+    // `parse_string_strict` refuses one with a space outside quotes (`A=(1 + 1)`, `A=[1 2]`) and
+    // an unclosed raw string (`A=r#x`).
     let value = match &text[equals + 1..] {
         "" => Ok(Expression::new(
             Expr::String(StringLiteral::bare("")),
             value_span,
         )),
         value if value.starts_with('$') => parse_value(working_set, value_span, ExpectedShape::Any),
+        value if value.contains(' ') && !is_quoted_strictly(value) => {
+            return Err(backtrack(token.span.start));
+        }
+        value if value.starts_with("r#") && !value.ends_with('#') => {
+            return Err(backtrack(token.span.start));
+        }
         _ => parse_string_literal(working_set, value_span)
             .map(|string| Expression::new(Expr::String(string), value_span)),
     };
@@ -267,6 +275,14 @@ fn env_assignment<'a>(tokens: &mut Tokens<'_, 'a>) -> ParseResult<EnvAssignment<
         name,
         value,
     })
+}
+
+/// Whether `text` is between double or single quotes, as `parse_string_strict` takes a quoted
+/// string (a backtick or raw string is no quoted string there).
+fn is_quoted_strictly(text: &str) -> bool {
+    text.len() > 1
+        && ((text.starts_with('"') && text.ends_with('"'))
+            || (text.starts_with('\'') && text.ends_with('\'')))
 }
 
 /// `lhs = rhs` and the other assignment operators (nu's

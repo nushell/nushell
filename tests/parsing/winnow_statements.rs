@@ -1255,3 +1255,71 @@ fn def_body_with_parameters_is_lowered(#[case] code: &str) -> Result {
     );
     Ok(())
 }
+
+/// `NAME=value` is an environment shorthand only when `parse_string_strict` reads its value:
+/// one with a space outside quotes (`FOO=(1 + 1)`, `FOO=[1 2]`) makes the item the command, an
+/// external one; a quoted value with a space stays a shorthand, a call to `with-env`.
+#[rstest]
+#[case::subexpression("FOO=(1 + 1) ls", false)]
+#[case::list("FOO=[1 2] ls", false)]
+#[case::backtick("FOO=`a b` ls", false)]
+#[case::quoted("FOO='a b' ls", true)]
+#[case::no_space("FOO=(1+1) ls", true)]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn shorthand_value_with_a_space_makes_a_command(
+    #[case] code: &str,
+    #[case] shorthand: bool,
+) -> Result {
+    let engine_state = test().engine_state;
+    let (working_set, block) = parse_lowered(&engine_state, code);
+    let expression = &block.pipelines[0].elements[0].expr.expr;
+    match expression {
+        Expr::Call(call) if shorthand => {
+            assert_eq!(
+                working_set.get_decl(call.decl_id).name(),
+                "with-env",
+                "`{code}`"
+            )
+        }
+        Expr::ExternalCall(..) if !shorthand => {}
+        other => panic!("`{code}`: {other:?}"),
+    }
+    Ok(())
+}
+
+/// An alias's target starting with an environment shorthand is, as `alias`'s argument, a call
+/// to `with-env` (`parse_expression`, where a `|` is a word too), and the alias's body the
+/// external command `FOO=1` (`parse_call`).
+#[rstest]
+#[case::command("alias x = FOO=1 ls")]
+#[case::pipe_is_a_word("alias x = FOO=1 ls | length")]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn alias_of_an_environment_shorthand_is_lowered(#[case] code: &str) -> Result {
+    let engine_state = test().engine_state;
+    let (working_set, block) = parse_lowered(&engine_state, code);
+    let Expr::Call(call) = &block.pipelines[0].elements[0].expr.expr else {
+        panic!("`{code}`: not a call");
+    };
+    let Some(Expr::Keyword(keyword)) = call.positional_iter().nth(1).map(|e| &e.expr) else {
+        panic!("`{code}`: no `=` argument: {call:?}");
+    };
+    let Expr::Call(argument) = &keyword.expr.expr else {
+        panic!("`{code}`: the argument is no call: {keyword:?}");
+    };
+    assert_eq!(working_set.get_decl(argument.decl_id).name(), "with-env");
+    let alias = working_set.find_decl(b"x").expect("the alias is defined");
+    let wrapped = &working_set
+        .get_decl(alias)
+        .as_alias()
+        .expect("an alias")
+        .wrapped_call;
+    assert!(
+        matches!(wrapped.expr, Expr::ExternalCall(..)),
+        "`{code}`: {wrapped:?}"
+    );
+    Ok(())
+}

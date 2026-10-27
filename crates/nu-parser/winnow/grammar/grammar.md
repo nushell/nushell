@@ -396,7 +396,10 @@ this parser's `LexOptions` constants carry the same sets.
 <env-name>        ::= ( "_" | <ascii-letter> ) { "_" | <ascii-letter> | <ascii-digit> }
 <env-value>       ::= "$" ...              ; parse_dollar_expr, shape Any
                     | <strict-string>      ; a fully single/double-quoted string
-                                           ; (also $"..."), or a bare word
+                                           ; (also $"..."), or a bare word with no
+                                           ; space (`FOO=(1 + 1)`, `FOO=[1 2]`,
+                                           ; a backtick string, an unclosed `r#`
+                                           ; are not)
 ; The item is split at its FIRST "=". An item that fails these rules ends the
 ; shorthand prefix and starts the command. If every item is shorthand the element
 ; is UnknownCommand (`FOO=1` alone). Becomes `with-env {..} { <element-body> }`.

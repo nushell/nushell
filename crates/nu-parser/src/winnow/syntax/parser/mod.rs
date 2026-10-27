@@ -58,7 +58,7 @@ use std::sync::Arc;
 
 use crate::winnow::syntax::ast::{Ast, Block, Expression};
 use crate::winnow::syntax::error::Diagnostic;
-use crate::winnow::syntax::lex::LexOptions;
+use crate::winnow::syntax::lex::{LexOptions, TokenContents};
 use crate::winnow::syntax::span::Span;
 
 pub use parse_def::{Definitions, PredeclaredDef, TypeAliasPredecl};
@@ -361,19 +361,23 @@ pub(crate) fn parse_block_streaming<'a>(
     Ok(())
 }
 
-/// What [`parse_items`] reads a call's items as: the values of nu's `parse_multispan_value`
-/// that take every item it gives them.
+/// What [`parse_items`] reads text as: the values of nu's `parse_multispan_value` that take
+/// every item it gives them.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum ItemsValue {
     /// A math expression (`parse_math_expression`), the condition of `if`.
     Math,
     /// A row condition (`parse_row_condition`), the predicate of `take while`.
     RowCondition,
+    /// An alias's target read as the argument of `alias` (`parse_expression`), where every
+    /// item is a word, pipes and redirections too.
+    AliasTarget,
 }
 
 /// The items covering `span` of `source`, which a call's arguments read one at a time (`take
-/// while --include 1 $it < 3`, a call for help, an alias's target), parsed again as the one
-/// `value` that nu-parser reads them as, with the commands `lookup` knows. `None` when that is
+/// while --include 1 $it < 3`, a call for help, an alias's target) or an alias read as its
+/// body's call, parsed again as the one `value` that nu-parser reads them as there, with the
+/// commands `lookup` knows. `None` when that is
 /// a syntax error or ends before `span` does.
 pub(crate) fn parse_items<'a>(
     source: &'a str,
@@ -382,11 +386,22 @@ pub(crate) fn parse_items<'a>(
     value: ItemsValue,
 ) -> Option<Expression<'a>> {
     let working_set = WorkingSet::with_lookup(source, span, lookup);
-    let tokens = working_set.lex(span, LexOptions::BLOCK).ok()?;
+    let mut tokens = working_set.lex(span, LexOptions::BLOCK).ok()?;
+    if value == ItemsValue::AliasTarget {
+        // As `parse_alias` hands an alias's target to the call parser.
+        for token in &mut tokens {
+            if token.contents != TokenContents::Eof {
+                token.contents = TokenContents::Item;
+            }
+        }
+    }
     let tokens = tokens::Tokens::from_lexed(&working_set, &tokens);
     let parsed = match value {
         ItemsValue::Math => parse_expressions::parse_math_expression(tokens),
         ItemsValue::RowCondition => parse_source::parse_condition(tokens),
+        ItemsValue::AliasTarget => {
+            parse_expressions::parse_expression(tokens, parse_expressions::Position::Element)
+        }
     };
     parsed
         .ok()

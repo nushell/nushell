@@ -17,7 +17,7 @@ use nu_protocol::{
 };
 
 use super::{Lower, Lowered, Unlowered, is_missing_argument};
-use crate::winnow::syntax::{Span as WSpan, ast as w};
+use crate::winnow::syntax::{ItemsValue, Span as WSpan, ast as w};
 use crate::{
     exportable::Exportable,
     lex::{is_assignment_operator, lex},
@@ -1241,15 +1241,14 @@ impl<'s> Lower<'_, '_, 's> {
         let name = self.checked(|ws| parse_value(ws, name_span, &SyntaxShape::String, None))?;
         let target = alias.value.as_ref();
         // Read as an expression, a target starting with `NAME=value` sets an environment
-        // variable for the rest (a call to `with-env`), which the winnow tree, read as a call,
-        // does not have.
+        // variable for the rest (a call to `with-env`): the winnow parser read the target as a
+        // call, the body's reading, and reads it again for this one.
         let target_text = self.text(target.span);
-        if let Some(word) = target_text.split_ascii_whitespace().next()
-            && let Some(equals) = word.find('=')
-            && is_env_variable_name(&word.as_bytes()[..equals])
-        {
-            return Err(Unlowered::Unsupported("alias of an environment shorthand"));
-        }
+        let starts_with_shorthand = target_text
+            .split_ascii_whitespace()
+            .next()
+            .and_then(|word| Some((word, word.find('=')?)))
+            .is_some_and(|(word, equals)| is_env_variable_name(&word.as_bytes()[..equals]));
         // Read as an expression, a target with an assignment operator is an assignment
         // (`parse_assignment_expression`), whose errors the classic parser drops.
         if target_text
@@ -1258,16 +1257,13 @@ impl<'s> Lower<'_, '_, 's> {
         {
             return Err(Unlowered::Unsupported("alias of an assignment"));
         }
-        // Read as an expression, a target starting with `run` is `parse_run_expr`'s, which
-        // parses the script it names.
-        if target_text.split_ascii_whitespace().next() == Some("run") {
-            return Err(Unlowered::Unsupported("alias of run"));
-        }
         // A lone `if` or `match` is a math expression (`is_math_expression_like`), which
         // `parse_math_expression` cannot read.
         let value = if matches!(target_text, "if" | "match") {
             let span = self.span(target.span);
             Ok(garbage(self.working_set, span))
+        } else if starts_with_shorthand {
+            self.reread(target.span, ItemsValue::AliasTarget, None)
         } else {
             self.lower_alias_target(target)
         };
