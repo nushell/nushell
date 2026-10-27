@@ -586,6 +586,7 @@ pub fn parse_signature_helper(
         Type,
         AfterType,
         DefaultValue,
+        AfterDefaultValue,
     }
 
     #[derive(Debug)]
@@ -617,15 +618,6 @@ pub fn parse_signature_helper(
 
     let mut args: Vec<Arg> = vec![];
     let mut parse_mode = ParseMode::Arg;
-
-    // Used to prevent external commands to have multiple default values.
-    //
-    // Note that we should support default values for external commands.
-    // It would remove the utility of this variable, since we could use
-    // Arg::Positional.arg.default_value
-    //
-    // See #19124
-    let mut last_arg_with_default: Option<usize> = None;
 
     // Track variables whose name→VarId mappings have not yet been inserted
     // into the overlay scope
@@ -659,7 +651,7 @@ pub fn parse_signature_helper(
                         ParseMode::AfterCommaArg | ParseMode::AfterType => {
                             working_set.error(ParseError::Expected("parameter or flag", span));
                         }
-                        ParseMode::Type | ParseMode::DefaultValue => {
+                        ParseMode::Type | ParseMode::DefaultValue | ParseMode::AfterDefaultValue => {
                             // We're seeing two types for the same thing for some reason, error
                             working_set.error(ParseError::Expected("type", span));
                         }
@@ -671,9 +663,14 @@ pub fn parse_signature_helper(
                         ParseMode::Arg | ParseMode::AfterType if last_token => working_set.error(
                             ParseError::Expected("default value", Span::new(span.end, span.end)),
                         ),
-                        ParseMode::Arg | ParseMode::AfterType => {
-                            parse_mode = ParseMode::DefaultValue;
+                        ParseMode::Arg => {
+                            if args.is_empty() {
+                                working_set.error(ParseError::Expected("parameter or flag", span));
+                            } else {
+                                parse_mode = ParseMode::DefaultValue;
+                            }
                         }
+                        ParseMode::AfterType => parse_mode = ParseMode::DefaultValue,
                         ParseMode::Type => {
                             working_set.error(ParseError::Expected("type", span));
                         }
@@ -681,8 +678,18 @@ pub fn parse_signature_helper(
                             working_set.error(ParseError::Expected("parameter or flag", span));
                         }
                         ParseMode::DefaultValue => {
-                            // We're seeing two default values for some reason, error
+                            // We're seeing a `=` right after another `=` with no
+                            // value in between, error
                             working_set.error(ParseError::Expected("default value", span));
+                        }
+                        ParseMode::AfterDefaultValue => {
+                            // We're seeing two default values for the same argument, error
+                            working_set.error(ParseError::LabeledErrorWithHelp {
+                                error: "A positional parameter or flag can have at most one default value.".to_string(),
+                                label: "extra default value".to_string(),
+                                help: "remove the extra default value".to_string(),
+                                span,
+                            });
                         }
                     }
                 }
@@ -700,6 +707,9 @@ pub fn parse_signature_helper(
                         }
                         ParseMode::DefaultValue => {
                             working_set.error(ParseError::Expected("default value", span));
+                        }
+                        ParseMode::AfterDefaultValue => {
+                            parse_mode = ParseMode::AfterCommaArg;
                         }
                     }
                 } else {
@@ -720,7 +730,8 @@ pub fn parse_signature_helper(
                         };
 
                     match parse_mode {
-                        ParseMode::Arg | ParseMode::AfterCommaArg | ParseMode::AfterType => {
+                        ParseMode::Arg | ParseMode::AfterCommaArg | ParseMode::AfterType | ParseMode::AfterDefaultValue => {
+
                             // Long flag with optional short form following with no whitespace, e.g. --output, --age(-a)
                             if contents.starts_with(b"--") && contents.len() > 2 {
                                 // Split the long flag from the short flag with the ( character as delimiter.
@@ -1082,21 +1093,6 @@ pub fn parse_signature_helper(
                             parse_mode = ParseMode::AfterType;
                         }
                         ParseMode::DefaultValue => {
-                            // Check if the current argument is being given a second default value.
-                            let current_arg_idx = (!args.is_empty()).then(|| args.len() - 1);
-                            if let Some(idx) = current_arg_idx
-                                && last_arg_with_default == Some(idx)
-                                && !matches!(args.last(), Some(Arg::RestPositional(_)))
-                            {
-                                working_set.error(ParseError::LabeledErrorWithHelp {
-                                    error: "A positional parameter or flag can have at most one default value.".to_string(),
-                                    label: "extra default value".to_string(),
-                                    help: "remove the extra default value".to_string(),
-                                    span,
-                                });
-                            }
-                            last_arg_with_default = current_arg_idx;
-
                             if !is_external && let Some(last) = args.last_mut() {
                                 let shape = match last {
                                     Arg::Positional { arg, .. } => arg.shape.clone(),
@@ -1187,7 +1183,7 @@ pub fn parse_signature_helper(
                                     }
                                 }
                             }
-                            parse_mode = ParseMode::Arg;
+                            parse_mode = ParseMode::AfterDefaultValue;
                         }
                     }
                 }
