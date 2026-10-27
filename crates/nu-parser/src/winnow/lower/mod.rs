@@ -10,8 +10,9 @@
 //! handle, it returns [`Unlowered`], and the driver parses the whole statement again with the
 //! classic parser, which reports the error exactly as it always has. The exceptions are where
 //! nothing is parsed again: a predeclaration ([`Lower::predecl`]) reports an invalid or
-//! duplicate name itself, as `parse_def_predecl` does, and a definition keeps what the classic
-//! parser's `finish_def` or `finish_extern`, which commit it, report.
+//! duplicate name itself, as `parse_def_predecl` does; a definition keeps what the classic
+//! parser's `finish_def` or `finish_extern`, which commit it, report; and an alias keeps what
+//! `parse_alias` would: its checks' errors, and the errors of a target it leaves garbage.
 //!
 //! What the lowering reported before giving up is dropped ([`Lower::statement_or_classic`]).
 //! What else it added to the working set stays, unreachable from the result: spans, blocks,
@@ -37,11 +38,12 @@ mod statement;
 mod value;
 
 use nu_protocol::{
-    Span, Type,
+    ParseError, Span, Type,
     ast::{Expr, Expression},
     engine::StateWorkingSet,
 };
 
+use crate::parse_calls::{CallKind, check_call};
 use crate::winnow::syntax::Span as WSpan;
 
 pub(super) use signature::Predecl;
@@ -78,6 +80,11 @@ pub(super) struct Lower<'w, 'e, 's> {
     pub(super) offset: usize,
     /// The `$it` of the row condition being lowered, which bare words in it refer to.
     pub(super) row_var: Option<nu_protocol::VarId>,
+    /// Whether an alias's target is being lowered, which `parse_alias` reads with `parse_call`:
+    /// a parser keyword (`overlay hide`) is an ordinary call there, and a call missing an
+    /// argument stays a call, its error reported for `alias` to forgive. Not in the target's
+    /// nested blocks, whose statements are statements.
+    pub(super) alias_target: bool,
 }
 
 impl<'w, 'e, 's> Lower<'w, 'e, 's> {
@@ -105,6 +112,7 @@ impl<'w, 'e, 's> Lower<'w, 'e, 's> {
             source,
             offset,
             row_var: None,
+            alias_target: false,
         }
     }
 
@@ -123,6 +131,26 @@ impl<'w, 'e, 's> Lower<'w, 'e, 's> {
         result
     }
 
+    /// `check_call` on a call the lowering built. An error it reports hands the statement back,
+    /// except a missing argument in an alias's target (`alias_target`), forgiven there: that
+    /// call is kept, as `parse_internal_call` keeps it, with its errors reported.
+    pub(super) fn check_call(
+        &mut self,
+        head: Span,
+        signature: &nu_protocol::Signature,
+        call: &nu_protocol::ast::Call,
+    ) -> Lowered<CallKind> {
+        let before = self.working_set.parse_errors.len();
+        let kind = check_call(self.working_set, head, signature, call);
+        let errors = &self.working_set.parse_errors[before..];
+        let forgiven = self.alias_target && errors.iter().all(is_missing_argument);
+        match kind {
+            CallKind::Invalid if !forgiven => Err(Unlowered::Error),
+            _ if !errors.is_empty() && !forgiven => Err(Unlowered::Error),
+            kind => Ok(kind),
+        }
+    }
+
     /// Run a classic parser function that reports errors in the working set, turning any error
     /// it reported into [`Unlowered::Error`].
     pub(super) fn checked<T>(
@@ -136,4 +164,15 @@ impl<'w, 'e, 's> Lower<'w, 'e, 's> {
         }
         Ok(value)
     }
+}
+
+/// The errors `parse_alias` forgives in an alias's target: a missing positional, flag or flag
+/// value (`alias e = enter`).
+pub(super) fn is_missing_argument(error: &ParseError) -> bool {
+    matches!(
+        error,
+        ParseError::MissingPositional(..)
+            | ParseError::MissingRequiredFlag(..)
+            | ParseError::MissingFlagParam(..)
+    )
 }

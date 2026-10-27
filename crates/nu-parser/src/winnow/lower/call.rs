@@ -9,12 +9,11 @@ use nu_protocol::{
 };
 
 use super::{Lower, Lowered, Unlowered};
-use crate::winnow::syntax::{DeclKind, ast as w};
+use crate::winnow::syntax::{DeclKind, Span as WSpan, ast as w};
 use crate::{
     parse_calls::{
-        CallKind, check_call, find_longest_decl_with_prefix, parse_external_string,
-        parse_regular_external_arg, parse_unknown_arg, shape_allows_negative_number,
-        strict_extern_forwards,
+        find_longest_decl_with_prefix, parse_external_string, parse_regular_external_arg,
+        parse_unknown_arg, shape_allows_negative_number, strict_extern_forwards,
     },
     parse_expressions::parse_value as classic_value,
     parse_keywords::is_parser_keyword,
@@ -41,6 +40,10 @@ impl<'s> Lower<'_, '_, 's> {
         }
         let head_span = self.span(call.head.span);
         let Some(decl_id) = self.working_set.find_decl(call.head.name.as_bytes()) else {
+            // In an alias's body, the predeclared commands are hidden (`parse_alias`).
+            if !self.working_set.search_predecls {
+                return self.call_as_external(e, call);
+            }
             return Err(Unlowered::Unsupported("unresolved command"));
         };
         // The winnow parser read the arguments as external arguments, for a `def --wrapped`
@@ -54,8 +57,9 @@ impl<'s> Lower<'_, '_, 's> {
         // A parser keyword has a parse function of its own in the classic parser
         // (`parse_builtin_commands`), which applies its effects on the working set. Left to the
         // lowering are the control-flow keywords, which the winnow tree has nodes for, and
-        // `overlay` alone, a plain call.
-        if decl.is_keyword()
+        // `overlay` alone, a plain call; in an alias's target, read with `parse_call`, all are.
+        if !self.alias_target
+            && decl.is_keyword()
             && is_parser_keyword(decl.name().as_bytes())
             && !matches!(
                 decl.name(),
@@ -71,12 +75,13 @@ impl<'s> Lower<'_, '_, 's> {
         {
             return Err(Unlowered::Unsupported("keyword command"));
         }
-        if call
-            .head
-            .name
-            .split(' ')
-            .next()
-            .is_some_and(|word| FIRST_WORD_COMMANDS.contains(&word))
+        if !self.alias_target
+            && call
+                .head
+                .name
+                .split(' ')
+                .next()
+                .is_some_and(|word| FIRST_WORD_COMMANDS.contains(&word))
         {
             return Err(Unlowered::Unsupported("keyword command"));
         }
@@ -186,11 +191,7 @@ impl<'s> Lower<'_, '_, 's> {
         }
         result?;
 
-        let call_kind =
-            self.checked(|working_set| check_call(working_set, head, &signature, &call))?;
-        if call_kind == CallKind::Invalid {
-            return Err(Unlowered::Error);
-        }
+        self.check_call(head, &signature, &call)?;
         for warning in deprecation
             .into_iter()
             .filter_map(|entry| entry.parse_warning(&signature.name, &call))
@@ -585,6 +586,64 @@ impl<'s> Lower<'_, '_, 's> {
                 self.checked(|ws| parse_regular_external_arg(ws, span))
             }
         }
+    }
+
+    /// A call whose command the classic parser does not find, which `parse_call` makes an
+    /// external call (`parse_external_call`): in an alias's body, a command the block defines
+    /// later (`alias s = shout; def shout [] {}`). The head's first word is the external command,
+    /// its other words and the arguments are the arguments. A shorter head that names a command
+    /// would be a call to it, which the winnow tree does not have.
+    fn call_as_external(
+        &mut self,
+        e: &w::Expression<'s>,
+        call: &w::Call<'s>,
+    ) -> Lowered<Expression> {
+        // The head's words, which may be apart by more than one blank (`cargo   make`).
+        let base = call.head.span.start;
+        let bytes = self.text(call.head.span).as_bytes();
+        let mut words = Vec::new();
+        let mut index = 0;
+        while index < bytes.len() {
+            if bytes[index].is_ascii_whitespace() {
+                index += 1;
+                continue;
+            }
+            let start = index;
+            while index < bytes.len() && !bytes[index].is_ascii_whitespace() {
+                index += 1;
+            }
+            words.push(WSpan::new(base + start, base + index));
+        }
+        let shorter_head_is_a_command = (1..words.len()).any(|len| {
+            let name: Vec<&str> = words[..len].iter().map(|word| self.text(*word)).collect();
+            self.working_set
+                .find_decl(name.join(" ").as_bytes())
+                .is_some()
+        });
+        let Some((first, rest)) = words.split_first() else {
+            return Err(Unlowered::Unsupported("unresolved command"));
+        };
+        if shorter_head_is_a_command {
+            return Err(Unlowered::Unsupported("unresolved command"));
+        }
+        let head_span = self.span(*first);
+        let head = self.checked(|ws| parse_external_string(ws, head_span))?;
+        let mut arguments = Vec::with_capacity(rest.len() + call.arguments.len());
+        for word in rest {
+            let span = self.span(*word);
+            arguments.push(ExternalArgument::Regular(
+                self.checked(|ws| parse_regular_external_arg(ws, span))?,
+            ));
+        }
+        for argument in &call.arguments {
+            arguments.push(self.call_argument_as_external(argument)?);
+        }
+        let span = self.span(e.span);
+        Ok(self.node(
+            Expr::ExternalCall(Box::new(head), arguments.into()),
+            span,
+            Type::Any,
+        ))
     }
 
     /// An argument of a call to an alias of an external command, read as an external argument.

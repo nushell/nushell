@@ -1,8 +1,8 @@
 //! Keyword statements: `if`, `match`, `while`, `loop`, `try`, `return`, `break`, `continue`
 //! (ordinary calls to keyword commands in the classic parser), and `let`, `mut`, `const`, `for`,
-//! `def`, `extern` and `export-env` (the classic parser's `parse_let`, `parse_mut`,
-//! `parse_const`, `parse_for`, `parse_def`, `parse_extern` and `parse_export_env`), with the
-//! attributes and the `export` around a definition.
+//! `def`, `extern`, `alias` and `export-env` (the classic parser's `parse_let`, `parse_mut`,
+//! `parse_const`, `parse_for`, `parse_def`, `parse_extern`, `parse_alias` and
+//! `parse_export_env`), with the attributes and the `export` around a definition.
 
 use std::{collections::HashMap, sync::Arc};
 
@@ -15,14 +15,16 @@ use nu_protocol::{
     },
 };
 
-use super::{Lower, Lowered, Unlowered};
+use super::{Lower, Lowered, Unlowered, is_missing_argument};
 use crate::winnow::syntax::{Span as WSpan, ast as w};
 use crate::{
-    lex::lex,
-    parse_calls::{CallKind, check_call},
+    lex::{is_assignment_operator, lex},
+    parse_alias::{alias_name, alias_name_fits_module, finish_alias},
+    parse_calls::CallKind,
     parse_captures_compile::compile_block_with_id,
     parse_def::{DefCall, finish_def, finish_extern, yielded_type},
-    parse_expressions::parse_value,
+    parse_expressions::{is_env_variable_name, parse_value},
+    parse_helpers::garbage,
     parse_keywords::find_keyword_decl,
     parse_patterns::parse_pattern,
     parse_shape_specs::parse_type,
@@ -62,10 +64,7 @@ impl<'s> Lower<'_, '_, 's> {
         input_type: Option<&Type>,
     ) -> Lowered<Type> {
         let signature = self.working_set.get_signature_shared(decl_id);
-        let kind = self.checked(|ws| check_call(ws, call.head, &signature, call))?;
-        if kind == CallKind::Invalid {
-            return Err(Unlowered::Error);
-        }
+        self.check_call(call.head, &signature, call)?;
         Ok(self
             .working_set
             .call_output_type(decl_id, &signature, input_type)
@@ -884,6 +883,155 @@ impl<'s> Lower<'_, '_, 's> {
     /// made. The block is lowered in an extra scope when `export-env`'s signature creates one,
     /// as `parse_internal_call` does for any command. Returns the statement's expression and the
     /// block.
+    /// `alias name = target` (`parse_alias`), in the module `module_name` when it is exported
+    /// from one, whose name the alias may not have. The statement is a call to `alias` whose `=`
+    /// argument is the target read as an expression, with the predeclared commands of the block
+    /// visible (`parse_internal_call`), and whose errors are dropped. The alias's body is the
+    /// target read again as a call with them hidden (`search_predecls`), so a command defined
+    /// later in the block is an external one there; of its errors, missing arguments are
+    /// forgiven (`alias e = enter`). `finish_alias` checks it and declares the alias. Like the
+    /// classic parser, which parses the target twice, the lowering lowers it twice.
+    pub(super) fn alias(
+        &mut self,
+        pipeline: &w::Pipeline<'s>,
+        command: &w::Expression<'s>,
+        alias: &w::Alias<'s>,
+        module_name: Option<&[u8]>,
+    ) -> Lowered<Expression> {
+        let decl_id = find_keyword_decl(self.working_set, b"alias")
+            .ok_or(Unlowered::Unsupported("alias that is not a keyword"))?;
+        let errors_before = self.working_set.parse_errors.len();
+        let head = self.command_head(command, "alias");
+        let mut call = Call::new(head);
+        call.decl_id = decl_id;
+        let _ = self.working_set.add_span(head);
+        let name_span = self.span(alias.name.span);
+        let name = self.checked(|ws| parse_value(ws, name_span, &SyntaxShape::String, None))?;
+        let Some(target) = alias.value.as_deref() else {
+            return self.alias_without_target(call, name, alias, command, errors_before);
+        };
+        // Read as an expression, a target starting with `NAME=value` sets an environment
+        // variable for the rest (a call to `with-env`), which the winnow tree, read as a call,
+        // does not have.
+        let target_text = self.text(target.span);
+        if let Some(word) = target_text.split_ascii_whitespace().next()
+            && let Some(equals) = word.find('=')
+            && is_env_variable_name(&word.as_bytes()[..equals])
+        {
+            return Err(Unlowered::Unsupported("alias of an environment shorthand"));
+        }
+        // Read as an expression, a target with an assignment operator is an assignment
+        // (`parse_assignment_expression`), whose errors the classic parser drops.
+        if target_text
+            .split_ascii_whitespace()
+            .any(|word| is_assignment_operator(word.as_bytes()))
+        {
+            return Err(Unlowered::Unsupported("alias of an assignment"));
+        }
+        // Read as an expression, a target starting with `run` is `parse_run_expr`'s, which
+        // parses the script it names.
+        if target_text.split_ascii_whitespace().next() == Some("run") {
+            return Err(Unlowered::Unsupported("alias of run"));
+        }
+        // A lone `if` or `match` is a math expression (`is_math_expression_like`), which
+        // `parse_math_expression` cannot read.
+        let value = if matches!(target_text, "if" | "match") {
+            let span = self.span(target.span);
+            Ok(garbage(self.working_set, span))
+        } else {
+            self.lower_alias_target(target)
+        };
+        // The errors of the call to `alias` are dropped.
+        self.working_set.parse_errors.truncate(errors_before);
+        let value = value?;
+        let equals = self.span(alias.eq);
+        let span = equals.merge(value.span);
+        let ty = value.ty.clone();
+        let keyword = Keyword {
+            keyword: b"=".as_slice().into(),
+            span: equals,
+            expr: value,
+        };
+        call.arguments = vec![
+            Argument::Positional(name),
+            Argument::Positional(self.node(Expr::Keyword(Box::new(keyword)), span, ty)),
+        ];
+        let output = self.finish_keyword_call(&call, decl_id, None)?;
+        let statement_span = self.span(command.span);
+        let statement = self.node(Expr::Call(Box::new(call.clone())), statement_span, output);
+
+        let Some(name) = call
+            .positional_iter()
+            .next()
+            .and_then(|name| alias_name(self.working_set, name))
+        else {
+            return Ok(garbage(self.working_set, statement_span));
+        };
+        if !alias_name_fits_module(self.working_set, &name, module_name, name_span) {
+            return Ok(statement);
+        }
+        let outer_search_predecls = std::mem::replace(&mut self.working_set.search_predecls, false);
+        let wrapped_call = self.lower_alias_target(target);
+        self.working_set.search_predecls = outer_search_predecls;
+        let wrapped_call = wrapped_call?;
+        // When the first error is a missing argument, all are forgiven; any other makes the
+        // statement garbage, its errors kept. They come from the target's nested statements,
+        // which the classic parser parses when the lowering gives them back.
+        match self.working_set.parse_errors.get(errors_before) {
+            None => {}
+            Some(error) if is_missing_argument(error) => {
+                self.working_set.parse_errors.truncate(errors_before);
+            }
+            Some(_) => {
+                let span = self.span(target.span);
+                return Ok(garbage(self.working_set, span));
+            }
+        }
+        let comments = self.doc_comments(pipeline, &[], command);
+        finish_alias(self.working_set, &call, name, wrapped_call, &comments);
+        Ok(statement)
+    }
+
+    /// `export alias x =`, which nu's length check lets through (`parse_alias`): the call to
+    /// `alias`, whose `=` argument misses its value (`KeywordMissingArgument`, dropped with the
+    /// call's other errors), and no alias.
+    fn alias_without_target(
+        &mut self,
+        mut call: Call,
+        name: Expression,
+        alias: &w::Alias<'s>,
+        command: &w::Expression<'s>,
+        errors_before: usize,
+    ) -> Lowered<Expression> {
+        let equals = self.span(alias.eq);
+        let missing = garbage(self.working_set, equals);
+        let keyword = Keyword {
+            keyword: b"=".as_slice().into(),
+            span: equals,
+            expr: missing,
+        };
+        call.arguments = vec![
+            Argument::Positional(name),
+            Argument::Positional(self.node(Expr::Keyword(Box::new(keyword)), equals, Type::Any)),
+        ];
+        let output = self.finish_keyword_call(&call, call.decl_id, None)?;
+        let statement_span = self.span(command.span);
+        let statement = self.node(Expr::Call(Box::new(call.clone())), statement_span, output);
+        self.working_set.parse_errors.truncate(errors_before);
+        match call.positional_iter().next() {
+            Some(name) if alias_name(self.working_set, name).is_some() => Ok(statement),
+            _ => Ok(garbage(self.working_set, statement_span)),
+        }
+    }
+
+    /// An alias's target, read as `parse_call` reads it (`alias_target`).
+    fn lower_alias_target(&mut self, target: &w::Expression<'s>) -> Lowered<Expression> {
+        let outer = std::mem::replace(&mut self.alias_target, true);
+        let expression = self.expression(target, None);
+        self.alias_target = outer;
+        expression
+    }
+
     pub(super) fn export_env(
         &mut self,
         e: &w::Expression<'s>,
@@ -921,6 +1069,18 @@ impl<'s> Lower<'_, '_, 's> {
         attributes: &[w::Attribute<'s>],
         command: &w::Expression<'s>,
     ) -> (String, String) {
+        let comments = self.doc_comments(pipeline, attributes, command);
+        self.working_set.build_desc(&comments)
+    }
+
+    /// The comments the classic lite parser keeps with `command` (`LiteCommand::comments`), the
+    /// statement of `pipeline` after `attributes`: see [`Self::description`].
+    fn doc_comments(
+        &self,
+        pipeline: &w::Pipeline<'s>,
+        attributes: &[w::Attribute<'s>],
+        command: &w::Expression<'s>,
+    ) -> Vec<Span> {
         let mut comments: Vec<WSpan> = pipeline
             .leading_comments
             .iter()
@@ -945,8 +1105,7 @@ impl<'s> Lower<'_, '_, 's> {
             comments = if lines.is_empty() { beside } else { lines };
             comments.extend(after);
         }
-        let comments: Vec<Span> = comments.into_iter().map(|span| self.span(span)).collect();
-        self.working_set.build_desc(&comments)
+        comments.into_iter().map(|span| self.span(span)).collect()
     }
 
     /// Whether only spaces or tabs come before `offset` on its line.

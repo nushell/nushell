@@ -18,6 +18,7 @@ use crate::{
     lex::lex,
     lite_parser::lite_parse,
     parse_captures_compile::wrap_element_with_collect,
+    parse_helpers::trim_quotes,
     parse_module::{double_main_span, parse_module_pipeline, set_module_main},
     parse_pipelines::{finish_block, hide_unlet_constants, parse_pipeline},
     winnow::{
@@ -103,8 +104,8 @@ impl<'s> Lower<'_, '_, 's> {
         }
     }
 
-    /// A statement of a module's body (`parse_module_pipeline`): definitions, constants and
-    /// `export-env` blocks, and their exports added to `module`. `module` changes only once
+    /// A statement of a module's body (`parse_module_pipeline`): definitions, constants, aliases
+    /// and `export-env` blocks, and their exports added to `module`. `module` changes only once
     /// nothing can fail, since the classic parser adds the exports of a statement given back.
     fn module_statement(
         &mut self,
@@ -132,6 +133,9 @@ impl<'s> Lower<'_, '_, 's> {
                 let (expression, block_id) = self.export_env(command, export_env)?;
                 module.add_env_block(block_id);
                 expression
+            }
+            w::Expr::Alias(alias) if attributes.is_empty() => {
+                self.alias(pipeline, command, alias, None)?
             }
             w::Expr::Export(export) => match &export.item.expr {
                 w::Expr::Def(def) => {
@@ -168,11 +172,45 @@ impl<'s> Lower<'_, '_, 's> {
                     module.add_variable(name, var_id);
                     expression
                 }
+                w::Expr::Alias(alias) if attributes.is_empty() => {
+                    self.export_alias(pipeline, command, &export.item, alias, module_name, module)?
+                }
                 _ => return Err(Unlowered::Unsupported("export in a module")),
             },
             _ => return Err(Unlowered::Unsupported("module statement")),
         };
         Ok(Pipeline::from_vec(vec![expression]))
+    }
+
+    /// `export alias name = target` in a module's body (`parse_export_in_module`): the alias,
+    /// declared as `alias` declares it with the module's name forbidden, made a call to `export
+    /// alias` covering the statement (`warp_export_call`), and added to the module's exports
+    /// under the item after `alias`, its quotes trimmed. An alias that reports an error is the
+    /// classic parser's.
+    fn export_alias(
+        &mut self,
+        pipeline: &w::Pipeline<'s>,
+        command: &w::Expression<'s>,
+        item: &w::Expression<'s>,
+        alias: &w::Alias<'s>,
+        module_name: &[u8],
+        module: &mut Module,
+    ) -> Lowered<Expression> {
+        let errors = self.working_set.parse_errors.len();
+        let mut expression = self.alias(pipeline, item, alias, Some(module_name))?;
+        if self.working_set.parse_errors.len() > errors {
+            return Err(Unlowered::Error);
+        }
+        let span = self.span(command.span);
+        self.export_call(&mut expression, "export alias", span)?;
+        // The head covers `export alias`, the blanks between them included.
+        if let Expr::Call(call) = &mut expression.expr {
+            call.head = Span::new(span.start, self.span(item.span).start + "alias".len());
+        }
+        let name = trim_quotes(self.text(alias.name.span).as_bytes()).to_vec();
+        let decl_id = self.working_set.find_decl(&name).ok_or(Unlowered::Error)?;
+        self.add_export_decl(module, module_name, name, decl_id, &expression);
+        Ok(expression)
     }
 
     /// Add an exported command to a module: as its `main` (`parse_module_pipeline`'s rule), or
@@ -268,6 +306,13 @@ impl<'s> Lower<'_, '_, 's> {
                         .0
                 }
                 w::Expr::Const(binding) => self.export_const(&element.expr, export, binding)?.0,
+                // `parse_alias` with `export alias` its head, made a call to `export alias`.
+                w::Expr::Alias(alias) => {
+                    let mut expression = self.alias(pipeline, &element.expr, alias, None)?;
+                    let span = self.span(element.expr.span);
+                    self.export_call(&mut expression, "export alias", span)?;
+                    expression
+                }
                 _ => return Err(Unlowered::Unsupported("export")),
             },
             w::Expr::AttributeBlock(block) => {
@@ -289,7 +334,7 @@ impl<'s> Lower<'_, '_, 's> {
             w::Expr::Let(binding) => return self.let_statement(element, binding, input_type),
             w::Expr::Mut(binding) => return self.mut_statement(element, binding),
             w::Expr::For(for_loop) => self.for_statement(element, for_loop)?,
-            w::Expr::Alias(_) => return Err(Unlowered::Unsupported("alias")),
+            w::Expr::Alias(alias) => self.alias(pipeline, &element.expr, alias, None)?,
             // `parse_type_alias` defines the alias as it parses the statement.
             w::Expr::TypeAlias(_) => return Err(Unlowered::Unsupported("type alias")),
             w::Expr::Module(_) => return Err(Unlowered::Unsupported("module")),
@@ -453,6 +498,22 @@ impl<'s> Lower<'_, '_, 's> {
     /// gives back are parsed by the classic parser, and so is the rest of the block after one
     /// of them that called `overlay use` (or `hide`, `new`) through an alias.
     pub(super) fn block(
+        &mut self,
+        block: &w::Block<'s>,
+        span: Span,
+        scoped: bool,
+        is_subexpression: bool,
+        input_type: Option<&Type>,
+    ) -> Lowered<Block> {
+        // In an alias's target, a block's statements are statements again.
+        let outer_alias_target = std::mem::replace(&mut self.alias_target, false);
+        let lowered = self.block_statements(block, span, scoped, is_subexpression, input_type);
+        self.alias_target = outer_alias_target;
+        lowered
+    }
+
+    /// [`Self::block`], outside an alias's target.
+    fn block_statements(
         &mut self,
         block: &w::Block<'s>,
         span: Span,

@@ -6,10 +6,10 @@ use crate::*;
 /// (`nu_parser::winnow::syntax`), one statement at a time, and a lowering pass in `nu-parser` turns
 /// each statement into the same `nu-protocol` AST that `nu-parser` builds: it resolves commands and
 /// variables, applies signatures, infers and checks types, and compiles closures. The statements
-/// that link modules (`use`, `module`, `alias`, `overlay`, `hide`, `source`) are parsed by
-/// `nu-parser` (the module bodies they load come back to the winnow front end), and so is any
-/// statement with an error, so errors keep their messages. This exists to measure whether the
-/// winnow front end is faster.
+/// that link modules (`use`, `module`, `overlay`, `hide`, `source`) are parsed by `nu-parser` (the
+/// module bodies they load come back to the winnow front end), and so is any statement with an
+/// error, so errors keep their messages. This exists to measure whether the winnow front end is
+/// faster.
 pub static WINNOW_PARSER: ExperimentalOption = ExperimentalOption::new(&WinnowParser);
 
 // No documentation needed here since this type isn't public.

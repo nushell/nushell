@@ -52,9 +52,8 @@ source ──▶ parse_block_streaming (this parser) ──▶ one statement's s
   finds an error in, or cannot handle, is parsed by `nu-parser` from its span,
   which reports what it always has. A statement with a syntax error hands the
   rest of its block to `nu-parser`.
-- **By design, `nu-parser` parses** the statements that link modules and
-  files: `use`, `module`, `alias`, `overlay`, `hide`, `source`, `source-env`,
-  `run`. It picks `hide`, `run`, `source` and `source-env` by the first word
+- **`nu-parser` still parses** the statements that link modules and
+  files: `use`, `module`, `overlay`, `hide`, `source`, `source-env`, `run`. It picks `hide`, `run`, `source` and `source-env` by the first word
   of the command name, so `source me` is a `source` even where a command
   `source me` exists. The module bodies they load come back to this parser
   through `parse_module_block`. `nu-parser` also parses a call this parser
@@ -66,7 +65,7 @@ source ──▶ parse_block_streaming (this parser) ──▶ one statement's s
 
 The lowering's functions carry the names of the `nu-parser` functions they
 stand in for, and reuse `nu-parser`'s code wherever it does not read spans
-(`finish_def`, `finish_extern`, `finish_block`, `compile_block`,
+(`finish_def`, `finish_extern`, `finish_alias`, `finish_block`, `compile_block`,
 `assemble_signature`, `math_result_type`, `check_call`, `parse_variable_expr`,
 `parse_unknown_arg`, the predicates `is_parser_keyword`, `is_quoted`,
 `is_valid_command_name` and `shape_allows_negative_number`, and the leaf

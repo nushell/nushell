@@ -204,3 +204,116 @@ fn dangling_pipe_stays_in_the_tree(#[case] code: &str, #[case] pipes: [bool; 2])
     assert_eq!(found, pipes, "`{code}`");
     Ok(())
 }
+
+/// What the body of the alias `s` is.
+enum Body {
+    /// A call to the command of this name.
+    Call(&'static str),
+    /// An external call.
+    External,
+}
+
+/// An `alias` is lowered, not handed to the classic parser, and declared as `parse_alias`
+/// declares it. Its body is the text after `=` read as a call with the block's predeclared
+/// commands hidden, so a command the block defines later is an external one; a missing argument
+/// is forgiven; the description is the alias's doc comment, or `Alias for` the text after `=`.
+#[rstest]
+#[case::command("alias s = ls -a", Body::Call("ls"), "Alias for `ls -a`")]
+#[case::defined_before(
+    "def shout [] { 'hi' }\nalias s = shout",
+    Body::Call("shout"),
+    "Alias for `shout`"
+)]
+#[case::defined_later(
+    "alias s = shout\ndef shout [] { 'hi' }",
+    Body::External,
+    "Alias for `shout`"
+)]
+#[case::missing_argument("def f [x] { $x }\nalias s = f", Body::Call("f"), "Alias for `f`")]
+#[case::doc_comment(
+    "# Lists everything\nalias s = ls -a",
+    Body::Call("ls"),
+    "Lists everything"
+)]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn alias_is_lowered(#[case] code: &str, #[case] body: Body, #[case] description: &str) -> Result {
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let before = nu_parser::winnow_stats();
+    nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    let after = nu_parser::winnow_stats();
+    assert_eq!(working_set.parse_errors, [], "`{code}`");
+    assert_eq!(
+        after.classic_statements, before.classic_statements,
+        "`{code}`: a statement was handed to the classic parser"
+    );
+    let decl = working_set.get_decl(working_set.find_decl(b"s").expect("`s` is declared"));
+    let alias = decl.as_alias().expect("`s` is an alias");
+    match (body, &alias.wrapped_call.expr) {
+        (Body::Call(name), Expr::Call(call)) => {
+            assert_eq!(working_set.get_decl(call.decl_id).name(), name, "`{code}`");
+        }
+        (Body::External, Expr::ExternalCall(..)) => {}
+        (_, other) => panic!("`{code}`: unexpected body {other:?}"),
+    }
+    assert_eq!(decl.description(), description, "`{code}`");
+    Ok(())
+}
+
+/// An alias whose body has an error other than a missing argument is garbage, the error kept,
+/// as `parse_alias` leaves it: here the undefined variable in the target's block, a statement
+/// the classic parser reports.
+#[test]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn alias_with_an_error_in_its_body_is_garbage() -> Result {
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let block = nu_parser::parse(
+        &mut working_set,
+        None,
+        b"alias s = if true { $undefined }",
+        false,
+    );
+    assert!(
+        matches!(
+            working_set.parse_errors.as_slice(),
+            [nu_protocol::ParseError::VariableNotFound(..)]
+        ),
+        "{:?}",
+        working_set.parse_errors
+    );
+    assert!(matches!(
+        block.pipelines[0].elements[0].expr.expr,
+        Expr::Garbage
+    ));
+    assert!(working_set.find_decl(b"s").is_none());
+    Ok(())
+}
+
+/// `alias` and `export alias` in a module's body and `export alias` in a script are lowered:
+/// only the `module` and `use` statements, still the classic parser's, are handed to it.
+#[rstest]
+#[case::module_export("module m {\n  export alias s = ls -a\n}\nuse m s", 2)]
+#[case::module_private("module m {\n  alias p = ls -a\n  export alias s = p\n}\nuse m s", 2)]
+#[case::script_export("export alias s = ls -a", 0)]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn alias_in_a_module_or_exported_is_lowered(#[case] code: &str, #[case] classic: u64) -> Result {
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let before = nu_parser::winnow_stats();
+    nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    let after = nu_parser::winnow_stats();
+    assert_eq!(working_set.parse_errors, [], "`{code}`");
+    assert_eq!(
+        after.classic_statements - before.classic_statements,
+        classic,
+        "`{code}`: statements handed to the classic parser"
+    );
+    let decl = working_set.get_decl(working_set.find_decl(b"s").expect("`s` is declared"));
+    assert!(decl.as_alias().is_some(), "`{code}`: `s` is an alias");
+    Ok(())
+}

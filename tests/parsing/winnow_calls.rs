@@ -190,10 +190,8 @@ fn bare_row_condition_is_lowered() -> Result {
         .run("alias a = any; [1 2 3] | a $it > 2")
         .expect_value_eq(true)?;
     let after = nu_parser::winnow_stats();
-    // The `alias` statement goes to the classic parser by design.
     assert_eq!(
-        after.classic_statements - before.classic_statements,
-        1,
+        after.classic_statements, before.classic_statements,
         "a statement was handed to the classic parser"
     );
     Ok(())
