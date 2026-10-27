@@ -245,11 +245,7 @@ pub fn walk_expression<'a, V: Visitor<'a> + ?Sized>(visitor: &mut V, expr: &Expr
             }
             visitor.visit_signature(&extern_declaration.signature);
         }
-        Expr::Alias(alias) => {
-            if let Some(v_) = &alias.value {
-                visitor.visit_expression(v_);
-            }
-        }
+        Expr::Alias(alias) => visitor.visit_expression(&alias.value),
         Expr::TypeAlias(alias) => visitor.visit_type_annotation(&alias.ty),
         Expr::Use(use_statement) => {
             visitor.visit_expression(&use_statement.module);

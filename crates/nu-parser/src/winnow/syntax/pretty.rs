@@ -558,9 +558,7 @@ impl<'a> Printer<'a> {
             }
             Expr::Alias(alias) => {
                 self.line(format_args!("Alias `{}` {span}", alias.name.item));
-                if let Some(value) = &alias.value {
-                    self.nested(|printer| printer.expr(value));
-                }
+                self.nested(|printer| printer.expr(&alias.value));
             }
             Expr::Use(use_statement) => {
                 self.line(format_args!("Use {span}"));

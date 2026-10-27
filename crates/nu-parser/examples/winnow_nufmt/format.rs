@@ -1746,9 +1746,7 @@ impl<'a> Formatter<'a> {
                 self.word("alias");
                 self.spanned(a.name.span);
                 self.word("=");
-                if let Some(value) = &a.value {
-                    self.expr(value);
-                }
+                self.expr(&a.value);
             }
             Expr::Use(u) => {
                 self.word("use");

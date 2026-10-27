@@ -1166,10 +1166,8 @@ extern_flag = "--strict", [ "=", bool_value ] ;
 
 (* ==== 6.4 alias, type ==== *)
 
-alias = "alias", def_name, "=", alias_target
-        | "export", "alias", def_name, "=" ;  (* no target: accepted (see below) *)
-(* `alias x=y`, `alias x`, `alias x =`, `alias = x` are errors; `export alias x =` is
-   NOT, because the "incomplete alias" check counts items without the `export` word *)
+alias = "alias", def_name, "=", alias_target ;
+(* `alias x=y`, `alias x`, `alias x =`, `alias = x` are errors, after `export` too *)
 alias_target = ? <call> over ALL remaining items, pipes and redirections included, as bare words (assignment mode) ? ;
 (* refused: a target whose first item is math-expression-like (`1 + 1`, `$x`, `(ls)`,
    `[1]`, `{ }`, `not ...`, `"ls"`, `-1`) => CantAliasExpression, except `if` and

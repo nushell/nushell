@@ -575,9 +575,7 @@ impl<'a> Visitor<'a> for Flattener<'_> {
             Expr::Alias(alias) => {
                 self.push(alias.name.span, FlatShape::Definition);
                 self.push(alias.eq, FlatShape::Operator);
-                if let Some(value) = &alias.value {
-                    self.visit_expression(value);
-                }
+                self.visit_expression(&alias.value);
             }
             Expr::TypeAlias(alias) => {
                 self.push(alias.name.span, FlatShape::Definition);

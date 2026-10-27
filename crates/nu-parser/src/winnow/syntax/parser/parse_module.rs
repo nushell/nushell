@@ -10,7 +10,6 @@ use crate::winnow::syntax::lex::{Token, TokenContents};
 use crate::winnow::syntax::span::{Span, Spanned};
 
 use super::WorkingSet;
-use super::parse_alias::parse_alias;
 use super::parse_expressions::{
     ExpectedShape, parse_block_body_unchecked, parse_builtin_commands, parse_list_expression,
     parse_value,
@@ -102,10 +101,10 @@ pub fn parse_module<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a
                     .with_help("a module body can only declare things; put code in `export-env` or a `def`")));
                 }
                 // nu parses a module's `export alias` without the `export` and then
-                // exports the alias it defined, so there it needs a target: `export
-                // alias x =`, `export alias h home` and `export alias --help` fail.
+                // exports the alias it defined, so a call for help (`export alias
+                // --help`), which defines none, fails there.
                 if let Expr::Export(export) = &first.expr
-                    && is_alias_without_target(&export.item)
+                    && is_alias_help_call(&export.item)
                 {
                     return Err(cut(Diagnostic::message("incomplete alias", first.span)
                         .with_help(
@@ -213,15 +212,9 @@ fn parse_module_help_call<'a>(statement: Tokens<'_, 'a>) -> Option<ParseResult<E
     )
 }
 
-/// An `alias` that defines nothing: no target after its `=`, or kept as a
-/// plain call (no `=` at all, or a help call, which nu cannot export from a
-/// module either).
-fn is_alias_without_target(expr: &Expression<'_>) -> bool {
-    match &expr.expr {
-        Expr::Alias(alias) => alias.value.is_none(),
-        Expr::Call(call) => call.head.name == "alias",
-        _ => false,
-    }
+/// An `alias` kept as a plain call: a call for help, which defines no alias.
+fn is_alias_help_call(expr: &Expression<'_>) -> bool {
+    matches!(&expr.expr, Expr::Call(call) if call.head.name == "alias")
 }
 
 /// Whether `expr` may appear in a module body: declarations only.
@@ -460,8 +453,6 @@ pub fn parse_export_in_block<'a>(tokens: Tokens<'_, 'a>) -> ParseResult<Expressi
     }
     let rest = tokens.slice(1..items.len());
     let item = match working_set.get_span_contents(next.span) {
-        "alias" => parse_alias(rest, true)
-            .map_err(|error| error.map(|failure| failure.with_context("alias")))?,
         "type" => parse_type_alias(rest, true)
             .map_err(|error| error.map(|failure| failure.with_context("type")))?,
         _ => parse_builtin_commands(rest)?,

@@ -1,0 +1,6 @@
+error: expected `=`
+  --> reject/alias/export-alias-without-equals.nu:1:20
+  |
+1 | export alias h home
+  |                    ^
+  = while parsing alias

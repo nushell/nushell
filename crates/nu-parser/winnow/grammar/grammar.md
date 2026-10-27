@@ -1330,9 +1330,7 @@ Vocabulary: `<expression>` is a `<pipeline-element>` (3.1); `<block>` is a
 
 ```ebnf
 <alias>           ::= "alias" <def-name> "=" <alias-target>
-                    | "export" "alias" <def-name> "="             ; no target: accepted (see below)
-; `alias x=y`, `alias x`, `alias x =`, `alias = x` are errors; `export alias x =` is
-; NOT, because the "incomplete alias" check counts items without the `export` word
+; `alias x=y`, `alias x`, `alias x =`, `alias = x` are errors, after `export` too
 <alias-target>    ::= <call> over ALL remaining items, pipes and redirections included,
                       as bare words (assignment mode)
 ; refused: a target whose first item is math-expression-like (`1 + 1`, `$x`, `(ls)`,

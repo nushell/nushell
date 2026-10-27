@@ -1157,11 +1157,11 @@ fn extern_alias_module_use_export() {
     let ast = ok("alias ll = ls -l");
     let a = kind!(expr(&ast), Expr::Alias(a) => a);
     assert_eq!(a.name.item, "ll");
-    assert_eq!(call(a.value.as_ref().unwrap()).head.name, "ls");
+    assert_eq!(call(&a.value).head.name, "ls");
     // Nushell accepts a pipe here and treats it as a word.
     let ast = ok("alias ll = ls | length");
     let a = kind!(expr(&ast), Expr::Alias(a) => a);
-    assert_eq!(call(a.value.as_ref().unwrap()).arguments.len(), 2);
+    assert_eq!(call(&a.value).arguments.len(), 2);
     let ast = ok(
         "module m {\n  export def f [] { 2 }\n  export const c = 1\n  export-env { $env.A = 1 }\n  export alias g = f\n  export use other *\n  export module inner { }\n  export extern e []\n}",
     );

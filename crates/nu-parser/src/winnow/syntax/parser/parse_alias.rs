@@ -111,8 +111,7 @@ pub(super) fn short_flags_ask_for_help(text: &str) -> bool {
 
 /// The statement as an ordinary call to `alias` or `type`, with `=` an
 /// ordinary word, which is what nu keeps when it shows help (`alias --help =
-/// ls`, `type t --help = int`) or when an exported alias has one item and no
-/// `=` after its name (`export alias h home`).
+/// ls`, `type t --help = int`).
 pub(super) fn parse_alias_as_call<'a>(statement: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
     let words: Vec<Token> = statement
         .remaining()
@@ -129,14 +128,12 @@ pub(super) fn parse_alias_as_call<'a>(statement: Tokens<'_, 'a>) -> ParseResult<
     ))
 }
 
-/// `alias name = target` (nu's `parse_alias`); `exported` for `export alias`,
-/// which nu lets go without a target (`export alias x =`) because its length
-/// check counts the `export` word.
+/// `alias name = target` (nu's `parse_alias`), also after `export`.
 ///
 /// The checks below run in nu's order, which decides what a malformed alias
 /// reports: the positions of the items first, then a help flag, then the
 /// name, then the `=` and the target.
-pub fn parse_alias<'a>(mut tokens: Tokens<'_, 'a>, exported: bool) -> ParseResult<Expression<'a>> {
+pub fn parse_alias<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
     let working_set = tokens.working_set;
     let statement = tokens;
     let keyword = tokens.expect_item("alias")?;
@@ -175,15 +172,6 @@ pub fn parse_alias<'a>(mut tokens: Tokens<'_, 'a>, exported: bool) -> ParseResul
         return parse_alias_as_call(statement);
     }
     check_definition_name(&name, "alias")?;
-    // nu creates an alias only from three items after `alias`; with `export`
-    // counted, `export alias h home` is four items, has no `=` to miss, and
-    // defines nothing.
-    if exported
-        && let [only] = tokens.remaining()
-        && only.contents != TokenContents::AssignmentOperator(AssignmentOperator::Assign)
-    {
-        return parse_alias_as_call(statement);
-    }
     let equals = match tokens.next_token() {
         Some(token)
             if token.contents == TokenContents::AssignmentOperator(AssignmentOperator::Assign) =>
@@ -204,17 +192,6 @@ pub fn parse_alias<'a>(mut tokens: Tokens<'_, 'a>, exported: bool) -> ParseResul
         })
         .collect();
     let Some(first) = words.first() else {
-        if exported {
-            let alias = Alias {
-                name,
-                eq: equals.span,
-                value: None,
-            };
-            return Ok(Expression::new(
-                Expr::Alias(alias),
-                keyword.span.merge(equals.span),
-            ));
-        }
         return Err(cut(Diagnostic::expected(
             "command after `=`",
             equals.span.past(),
@@ -273,7 +250,7 @@ pub fn parse_alias<'a>(mut tokens: Tokens<'_, 'a>, exported: bool) -> ParseResul
         Expr::Alias(Alias {
             name,
             eq: equals.span,
-            value: Some(Box::new(value)),
+            value: Box::new(value),
         }),
         span,
     ))

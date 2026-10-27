@@ -194,8 +194,12 @@ pub fn parse_alias(
             );
         }
 
-        if spans.len() == 2 && working_set.get_span_contents(spans[1]).contains(&b'=') {
-            let arg = String::from_utf8_lossy(working_set.get_span_contents(spans[1]));
+        // The items after `alias` (or `export alias`): a name, `=` and the target.
+        let args = &spans[split_id..];
+        if let [arg_span] = args
+            && working_set.get_span_contents(*arg_span).contains(&b'=')
+        {
+            let arg = String::from_utf8_lossy(working_set.get_span_contents(*arg_span));
 
             let (name, initial_value) = arg.split_once('=').unwrap_or((&arg, ""));
 
@@ -208,10 +212,10 @@ pub fn parse_alias(
 
             working_set.error(ParseError::IncorrectValue(
                 "alias argument".into(),
-                spans[1],
+                *arg_span,
                 format!("Make sure to put spaces around '=': alias {name} = {initial_value}"),
             ))
-        } else if spans.len() < 4 {
+        } else if args.len() < 3 {
             working_set.error(ParseError::IncorrectValue(
                 "Incomplete alias".into(),
                 Span::concat(&spans[..split_id]),

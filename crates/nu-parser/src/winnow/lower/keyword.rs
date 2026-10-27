@@ -1224,9 +1224,7 @@ impl<'s> Lower<'_, '_, 's> {
         let _ = self.working_set.add_span(head);
         let name_span = self.span(alias.name.span);
         let name = self.checked(|ws| parse_value(ws, name_span, &SyntaxShape::String, None))?;
-        let Some(target) = alias.value.as_deref() else {
-            return self.alias_without_target(call, name, alias, command, errors_before);
-        };
+        let target = alias.value.as_ref();
         // Read as an expression, a target starting with `NAME=value` sets an environment
         // variable for the rest (a call to `with-env`), which the winnow tree, read as a call,
         // does not have.
@@ -1307,38 +1305,6 @@ impl<'s> Lower<'_, '_, 's> {
         let comments = self.doc_comments(pipeline, &[], command);
         finish_alias(self.working_set, &call, name, wrapped_call, &comments);
         Ok(statement)
-    }
-
-    /// `export alias x =`, which nu's length check lets through (`parse_alias`): the call to
-    /// `alias`, whose `=` argument misses its value (`KeywordMissingArgument`, dropped with the
-    /// call's other errors), and no alias.
-    fn alias_without_target(
-        &mut self,
-        mut call: Call,
-        name: Expression,
-        alias: &w::Alias<'s>,
-        command: &w::Expression<'s>,
-        errors_before: usize,
-    ) -> Lowered<Expression> {
-        let equals = self.span(alias.eq);
-        let missing = garbage(self.working_set, equals);
-        let keyword = Keyword {
-            keyword: b"=".as_slice().into(),
-            span: equals,
-            expr: missing,
-        };
-        call.arguments = vec![
-            Argument::Positional(name),
-            Argument::Positional(self.node(Expr::Keyword(Box::new(keyword)), equals, Type::Any)),
-        ];
-        let output = self.finish_keyword_call(&call, call.decl_id, None)?;
-        let statement_span = self.span(command.span);
-        let statement = self.node(Expr::Call(Box::new(call.clone())), statement_span, output);
-        self.working_set.parse_errors.truncate(errors_before);
-        match call.positional_iter().next() {
-            Some(name) if alias_name(self.working_set, name).is_some() => Ok(statement),
-            _ => Ok(garbage(self.working_set, statement_span)),
-        }
     }
 
     /// An alias's target, read as `parse_call` reads it (`alias_target`).

@@ -771,3 +771,27 @@ fn missing_module_is_reported_once(#[case] code: &str, #[case] error: &str) -> R
     );
     Ok(())
 }
+
+/// `parse_alias` counts the items after `alias`, or after `export alias`: an alias without
+/// `=` and a target is incomplete with `export` too, and one item with an `=` in it misses the
+/// spaces around the `=`.
+#[rstest]
+#[case::name_and_word("alias h home", "Incomplete alias")]
+#[case::exported_name_and_word("export alias h home", "Incomplete alias")]
+#[case::exported_without_target("export alias x =", "Incomplete alias")]
+#[case::no_spaces("alias x=1", "alias argument")]
+#[case::exported_no_spaces("export alias x=1", "alias argument")]
+fn incomplete_alias_is_reported_after_export(#[case] code: &str, #[case] what: &str) -> Result {
+    let engine_state = test().engine_state;
+    let mut working_set = nu_protocol::engine::StateWorkingSet::new(&engine_state);
+    nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    assert!(
+        matches!(
+            working_set.parse_errors.as_slice(),
+            [nu_protocol::ParseError::IncorrectValue(found, ..)] if found == what
+        ),
+        "`{code}`: {:?}",
+        working_set.parse_errors
+    );
+    Ok(())
+}

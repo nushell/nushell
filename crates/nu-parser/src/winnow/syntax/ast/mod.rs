@@ -1457,9 +1457,8 @@ pub struct Alias<'a> {
     pub name: Spanned<Cow<'a, str>>,
     /// The span of the `=`.
     pub eq: Span,
-    /// The aliased command. `None` only for `export alias x =`, which nu
-    /// accepts through a quirk of its length check (`alias x =` is an error).
-    pub value: Option<Box<Expression<'a>>>,
+    /// The aliased command.
+    pub value: Box<Expression<'a>>,
 }
 
 /// `type Name = <type>` (nu-parser's `parse_type_alias`): a name for a type,

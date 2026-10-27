@@ -86,8 +86,6 @@ says the same thing nu-parser's does:
   after `use null`). Every member keeps its `value`, the item read as any
   value, which nu keeps as an argument of the call to `use`, and `Use`
   keeps the `--` that ends its options (`end_of_options`).
-* `Alias::value` is `None` only for `export alias x =`, which nu accepts
-  because its length check counts the `export` word.
 * `Parameter::extra_default`: another `= value` followed the default of a
   parameter without a type (`[x = a = 1]`, or `[x = 1..=5]`, which lexes as
   `x = 1.. = 5`). nu parses the later default with the first one's type;

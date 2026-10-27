@@ -154,7 +154,7 @@ pub fn parse_builtin_commands<'a>(tokens: Tokens<'_, 'a>) -> ParseResult<Express
         "mut" => ("mut", parse_mut(tokens)),
         "const" => ("const", parse_const(tokens)),
         "for" => ("for", parse_for(tokens)),
-        "alias" => ("alias", parse_alias(tokens, false)),
+        "alias" => ("alias", parse_alias(tokens)),
         "type" => ("type", parse_type_alias(tokens, false)),
         "module" => ("module", parse_module(tokens)),
         "use" => ("use", parse_use(tokens)),
