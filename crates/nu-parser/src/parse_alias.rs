@@ -13,7 +13,7 @@ use crate::{
 
 use nu_protocol::{
     Alias, ParseError, Span,
-    ast::{Argument, Expr, Expression, Pipeline},
+    ast::{Argument, Call, Expr, Expression, Pipeline},
     engine::StateWorkingSet,
 };
 
@@ -134,38 +134,13 @@ pub fn parse_alias(
             return garbage_pipeline(working_set, spans);
         };
 
-        let alias_name = if let Some(name) = alias_name_expr.as_string() {
-            if !is_valid_command_name(&name) {
-                working_set.error(ParseError::AliasNotValid(alias_name_expr.span));
-                return garbage_pipeline(working_set, spans);
-            } else if reject_parser_keyword_name(working_set, &name, "alias", alias_name_expr.span)
-            {
-                return garbage_pipeline(working_set, spans);
-            } else {
-                name
-            }
-        } else {
-            working_set.error(ParseError::AliasNotValid(alias_name_expr.span));
+        let Some(alias_name) = alias_name(working_set, alias_name_expr) else {
             return garbage_pipeline(working_set, spans);
         };
 
         if spans.len() >= split_id + 3 {
-            if let Some(mod_name) = module_name {
-                if alias_name.as_bytes() == mod_name {
-                    working_set.error(ParseError::NamedAsModule(
-                        "alias".to_string(),
-                        alias_name,
-                        "main".to_string(),
-                        spans[split_id],
-                    ));
-
-                    return alias_pipeline;
-                }
-
-                if alias_name == "main" {
-                    working_set.error(ParseError::ExportMainAliasNotAllowed(spans[split_id]));
-                    return alias_pipeline;
-                }
+            if !alias_name_fits_module(working_set, &alias_name, module_name, spans[split_id]) {
+                return alias_pipeline;
             }
 
             let _equals = working_set.get_span_contents(spans[split_id + 1]);
@@ -210,68 +185,13 @@ pub fn parse_alias(
                 }
             }
 
-            let (command, wrapped_call) = match expr {
-                Expression {
-                    expr: Expr::Call(ref rhs_call),
-                    ..
-                } => {
-                    let cmd = working_set.get_decl(rhs_call.decl_id);
-
-                    if cmd.is_keyword()
-                        && !ALIASABLE_PARSER_KEYWORDS.contains(&cmd.name().as_bytes())
-                    {
-                        working_set.error(ParseError::CantAliasKeyword(
-                            ALIASABLE_PARSER_KEYWORDS
-                                .iter()
-                                .map(|bytes| String::from_utf8_lossy(bytes).to_string())
-                                .collect::<Vec<String>>()
-                                .join(", "),
-                            rhs_call.head,
-                        ));
-                        return alias_pipeline;
-                    }
-
-                    (Some(cmd.clone_box()), expr)
-                }
-                Expression {
-                    expr: Expr::ExternalCall(..),
-                    ..
-                } => (None, expr),
-                _ => {
-                    working_set.error(ParseError::InternalError(
-                        "Parsed call not a call".into(),
-                        expr.span,
-                    ));
-                    return alias_pipeline;
-                }
-            };
-
-            let (description, extra_description) = match lite_command.comments.is_empty() {
-                false => working_set.build_desc(&lite_command.comments),
-                true => match alias_call.arguments.get(1) {
-                    Some(Argument::Positional(Expression {
-                        expr: Expr::Keyword(kw),
-                        ..
-                    })) => {
-                        let aliased = working_set.get_span_contents(kw.expr.span);
-                        (
-                            format!("Alias for `{}`", String::from_utf8_lossy(aliased)),
-                            String::new(),
-                        )
-                    }
-                    _ => ("User declared alias".into(), String::new()),
-                },
-            };
-
-            let decl = Alias {
-                name: alias_name,
-                command,
-                wrapped_call,
-                description,
-                extra_description,
-            };
-
-            working_set.add_decl(Box::new(decl));
+            finish_alias(
+                working_set,
+                &alias_call,
+                alias_name,
+                expr,
+                &lite_command.comments,
+            );
         }
 
         if spans.len() == 2 && working_set.get_span_contents(spans[1]).contains(&b'=') {
@@ -308,4 +228,118 @@ pub fn parse_alias(
     ));
 
     garbage_pipeline(working_set, spans)
+}
+
+/// The name of an alias, the first positional of its call to `alias`: a string that is a valid
+/// command name and no parser keyword. Otherwise reports why and returns `None`.
+pub(crate) fn alias_name(
+    working_set: &mut StateWorkingSet,
+    alias_name_expr: &Expression,
+) -> Option<String> {
+    let Some(name) = alias_name_expr.as_string() else {
+        working_set.error(ParseError::AliasNotValid(alias_name_expr.span));
+        return None;
+    };
+    if !is_valid_command_name(&name) {
+        working_set.error(ParseError::AliasNotValid(alias_name_expr.span));
+        None
+    } else if reject_parser_keyword_name(working_set, &name, "alias", alias_name_expr.span) {
+        None
+    } else {
+        Some(name)
+    }
+}
+
+/// Whether an alias may be named `alias_name` in the module `module_name`, if any: not after
+/// the module, nor `main`. Reports why not at `name_span`.
+pub(crate) fn alias_name_fits_module(
+    working_set: &mut StateWorkingSet,
+    alias_name: &str,
+    module_name: Option<&[u8]>,
+    name_span: Span,
+) -> bool {
+    let Some(mod_name) = module_name else {
+        return true;
+    };
+    if alias_name.as_bytes() == mod_name {
+        working_set.error(ParseError::NamedAsModule(
+            "alias".to_string(),
+            alias_name.to_string(),
+            "main".to_string(),
+            name_span,
+        ));
+        return false;
+    }
+    if alias_name == "main" {
+        working_set.error(ParseError::ExportMainAliasNotAllowed(name_span));
+        return false;
+    }
+    true
+}
+
+/// Declares `alias_name` an alias of `wrapped_call`, the text after `=` parsed as a call (the
+/// end of `parse_alias`). A call to a parser keyword that cannot be aliased is an error
+/// instead. The description comes from `comments`, the alias's doc comments, or without any
+/// from the text after `=` in `alias_call`, the statement's call to `alias`.
+pub(crate) fn finish_alias(
+    working_set: &mut StateWorkingSet,
+    alias_call: &Call,
+    alias_name: String,
+    wrapped_call: Expression,
+    comments: &[Span],
+) {
+    let command = match &wrapped_call.expr {
+        Expr::Call(rhs_call) => {
+            let cmd = working_set.get_decl(rhs_call.decl_id);
+
+            if cmd.is_keyword() && !ALIASABLE_PARSER_KEYWORDS.contains(&cmd.name().as_bytes()) {
+                working_set.error(ParseError::CantAliasKeyword(
+                    ALIASABLE_PARSER_KEYWORDS
+                        .iter()
+                        .map(|bytes| String::from_utf8_lossy(bytes).to_string())
+                        .collect::<Vec<String>>()
+                        .join(", "),
+                    rhs_call.head,
+                ));
+                return;
+            }
+
+            Some(cmd.clone_box())
+        }
+        Expr::ExternalCall(..) => None,
+        _ => {
+            working_set.error(ParseError::InternalError(
+                "Parsed call not a call".into(),
+                wrapped_call.span,
+            ));
+            return;
+        }
+    };
+
+    let (description, extra_description) = match comments.is_empty() {
+        false => working_set.build_desc(comments),
+        true => match alias_call.arguments.get(1) {
+            Some(Argument::Positional(Expression {
+                expr: Expr::Keyword(kw),
+                ..
+            })) => {
+                let aliased = working_set.get_span_contents(kw.expr.span);
+                (
+                    format!("Alias for `{}`", String::from_utf8_lossy(aliased)),
+                    String::new(),
+                )
+            }
+            _ => ("User declared alias".into(), String::new()),
+        },
+    };
+
+    let decl = Alias {
+        name: alias_name,
+        command,
+        wrapped_call,
+        description,
+        extra_description,
+    };
+
+    working_set.add_decl(Box::new(decl));
 }
