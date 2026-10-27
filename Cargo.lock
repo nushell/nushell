@@ -4772,6 +4772,7 @@ dependencies = [
  "sysinfo",
  "tempfile",
  "unicode-segmentation",
+ "url",
  "uuid",
  "which 8.0.6",
 ]

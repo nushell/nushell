@@ -22,7 +22,7 @@ use nu_color_config::StyleComputer;
 use nu_engine::env_to_strings;
 use nu_engine::exit::cleanup_exit;
 use nu_parser::{lex, trim_quotes_str};
-use nu_protocol::shell_error::io::IoError;
+use nu_protocol::shell_error::{generic::GenericError, io::IoError};
 use nu_protocol::{BannerKind, ShellIntegrationConfig, shell_error};
 use nu_protocol::{
     Config, HistoryConfig, HistoryFileFormat, PipelineData, ShellError, Span, Spanned, Value,
@@ -35,6 +35,7 @@ use nu_utils::{
     filesystem::{PermissionResult, have_permission},
     perf, stderr_write_all_and_flush, stdout_write_all_and_flush,
 };
+use percent_encoding::{CONTROLS, utf8_percent_encode};
 use reedline::Helix;
 #[cfg(feature = "sqlite")]
 use reedline::SqliteBackedHistory;
@@ -55,6 +56,7 @@ use std::{
     time::Duration,
 };
 use sysinfo::System;
+use url::Url;
 
 fn semantic_markers_from_config(
     config: &Config,
@@ -1289,25 +1291,14 @@ fn run_shell_integration_osc7(
     stack: &mut Stack,
     use_color: bool,
 ) {
-    if let Ok(path) = engine_state.cwd_as_string(Some(stack)) {
+    if let Ok(path) = engine_state.cwd(Some(stack)) {
         let start_time = Instant::now();
 
-        let path = if cfg!(windows) {
-            path.replace('\\', "/")
-        } else {
-            path
-        };
-
         // Otherwise, communicate the path as OSC 7 (often used for spawning new tabs in the same dir)
-        run_ansi_sequence(&format!(
-            "\x1b]7;file://{}{}{}\x1b\\",
-            percent_encoding::utf8_percent_encode(
-                hostname.unwrap_or("localhost"),
-                percent_encoding::CONTROLS
-            ),
-            if path.starts_with('/') { "" } else { "/" },
-            percent_encoding::utf8_percent_encode(&path, percent_encoding::CONTROLS)
-        ));
+        match osc7_sequence(hostname, path.as_std_path()) {
+            Ok(sequence) => run_ansi_sequence(&sequence),
+            Err(err) => warn!("Could not construct OSC 7 URL: {err:?}"),
+        }
 
         perf!(
             "communicate path to terminal with osc7",
@@ -1315,6 +1306,25 @@ fn run_shell_integration_osc7(
             use_color
         );
     }
+}
+
+/// Format an OSC 7 sequence from a native filesystem path.
+fn osc7_sequence(hostname: Option<&str>, path: &Path) -> Result<String, ShellError> {
+    let url = Url::from_file_path(path).map_err(|()| {
+        GenericError::new_internal(
+            "Cannot create OSC 7 file URL",
+            format!("Invalid file path: {}", path.display()),
+        )
+    })?;
+
+    // Keep UNC servers, but don't use set_host for the shell's hostname:
+    // URL host parsing rewrites numeric names such as "123" into IPv4 addresses.
+    let hostname = url.host_str().or(hostname).unwrap_or("localhost");
+    Ok(format!(
+        "\x1b]7;file://{}{}\x1b\\",
+        utf8_percent_encode(hostname, CONTROLS),
+        url.path()
+    ))
 }
 
 fn run_shell_integration_osc9_9(engine_state: &EngineState, stack: &mut Stack, use_color: bool) {
@@ -1737,6 +1747,97 @@ fn looks_like_path(orig: &str) -> bool {
         || orig.starts_with('/')
         || orig.starts_with('\\')
         || orig.ends_with(std::path::MAIN_SEPARATOR)
+}
+
+#[cfg(test)]
+mod osc7_tests {
+    use super::osc7_sequence;
+    use std::path::Path;
+
+    #[test]
+    fn osc7_percent_encodes_filename_characters() {
+        let (root, url_path) = if cfg!(windows) {
+            ("C:/tmp", "/C:/tmp")
+        } else {
+            ("/tmp", "/tmp")
+        };
+        for (name, encoded) in [
+            ("nu#test", "nu%23test"),
+            ("question?mark", "question%3Fmark"),
+            ("literal %20 directory", "literal%20%2520%20directory"),
+            ("é", "%C3%A9"),
+            ("\x07\x1b\n", "%07%1B%0A"),
+            (
+                "path with spaces #100% café",
+                "path%20with%20spaces%20%23100%25%20caf%C3%A9",
+            ),
+        ] {
+            let path = Path::new(root).join(name);
+            let sequence = osc7_sequence(Some("host"), &path).unwrap();
+            assert_eq!(
+                sequence,
+                format!("\x1b]7;file://host{url_path}/{encoded}\x1b\\"),
+                "filename: {name:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn osc7_preserves_hostname_and_path() {
+        let (path, url_path) = if cfg!(windows) {
+            ("C:/tmp/a-b_c.d~e", "/C:/tmp/a-b_c.d~e")
+        } else {
+            ("/tmp/a-b_c.d~e", "/tmp/a-b_c.d~e")
+        };
+        for (hostname, authority) in [
+            (None, "localhost"),
+            (Some("host"), "host"),
+            (Some("HOST"), "HOST"),
+            (Some("123"), "123"),
+            (Some("host\n"), "host%0A"),
+        ] {
+            let sequence = osc7_sequence(hostname, Path::new(path)).unwrap();
+            assert_eq!(
+                sequence,
+                format!("\x1b]7;file://{authority}{url_path}\x1b\\")
+            );
+        }
+    }
+
+    #[test]
+    fn osc7_rejects_relative_paths() {
+        assert!(osc7_sequence(None, Path::new("relative/path")).is_err());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn osc7_preserves_unix_backslashes() {
+        let sequence = osc7_sequence(Some("host"), Path::new("/tmp/a\\b")).unwrap();
+        assert_eq!(sequence, "\x1b]7;file://host/tmp/a%5Cb\x1b\\");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn osc7_handles_windows_prefixes() {
+        for (path, expected) in [
+            (r"C:\Users\name#test", "file://host/C:/Users/name%23test"),
+            (
+                r"\\?\C:\Users\name#test",
+                "file://host/C:/Users/name%23test",
+            ),
+            (
+                r"\\server\share\name#test",
+                "file://server/share/name%23test",
+            ),
+            (
+                r"\\?\UNC\server\share\name#test",
+                "file://server/share/name%23test",
+            ),
+        ] {
+            let sequence = osc7_sequence(Some("host"), Path::new(path)).unwrap();
+            assert_eq!(sequence, format!("\x1b]7;{expected}\x1b\\"));
+        }
+    }
 }
 
 #[cfg(test)]
