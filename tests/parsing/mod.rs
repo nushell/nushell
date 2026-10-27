@@ -748,3 +748,26 @@ fn extern_without_a_name_is_an_error() -> Result {
     assert!(!working_set.parse_errors.is_empty());
     Ok(())
 }
+
+/// A module that is not found, or not added, is reported once, by what found it missing: no
+/// second `Module not found` from `use` or `module` after `parse_module_file_or_dir` reported
+/// it, and no internal error from an `export module` whose module was refused.
+#[rstest]
+#[case::use_missing_module("use nope", "ModuleNotFound")]
+#[case::missing_module_file("module nope.nu", "ModuleNotFound")]
+#[case::export_module_named_as_parent("module a { export module a {} }", "NamedAsModule")]
+fn missing_module_is_reported_once(#[case] code: &str, #[case] error: &str) -> Result {
+    let engine_state = test().engine_state;
+    let mut working_set = nu_protocol::engine::StateWorkingSet::new(&engine_state);
+    nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    let errors: Vec<String> = working_set
+        .parse_errors
+        .iter()
+        .map(|error| format!("{error:?}"))
+        .collect();
+    assert!(
+        matches!(errors.as_slice(), [only] if only.starts_with(error)),
+        "`{code}`: {errors:?}"
+    );
+    Ok(())
+}

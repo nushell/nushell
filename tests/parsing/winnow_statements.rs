@@ -361,10 +361,10 @@ fn use_is_lowered(#[case] code: &str, #[case] declared: Option<&str>) -> Result 
 
 /// What `finish_use` reports is kept with the lowered statement, never handed back: the
 /// classic parser would load the module and bring its members into scope a second time. Here
-/// a module that does not exist (which nu-parser reports twice), and a second `--`, which is a
-/// member, not the end of the options (`parse_internal_call` takes only the first).
+/// a module that does not exist, and a second `--`, which is a member, not the end of the
+/// options (`parse_internal_call` takes only the first).
 #[rstest]
-#[case::missing_module("use nope", "ModuleNotFound", 2)]
+#[case::missing_module("use nope", "ModuleNotFound", 1)]
 #[case::second_end_of_options("use m -- --", "ExportNotFound", 1)]
 #[nu_test_support::test]
 #[serial]
@@ -475,12 +475,11 @@ fn module_doc_comments_are_kept() -> Result {
 }
 
 /// What `finish_module` reports is kept with the lowered statement, never handed back, as
-/// nu-parser reports it: a module file that does not exist (reported twice), and an `export
-/// module` named as the module it is in (`NamedAsModule`, then an internal error: no module was
-/// added to export).
+/// nu-parser reports it: a module file that does not exist, and an `export module` named as the
+/// module it is in.
 #[rstest]
-#[case::missing_file("module nope.nu", &["ModuleNotFound", "ModuleNotFound"])]
-#[case::named_as_parent("module a { export module a {} }", &["NamedAsModule", "InternalError"])]
+#[case::missing_file("module nope.nu", &["ModuleNotFound"])]
+#[case::named_as_parent("module a { export module a {} }", &["NamedAsModule"])]
 #[nu_test_support::test]
 #[serial]
 #[exp(nu_experimental::WINNOW_PARSER)]

@@ -284,17 +284,7 @@ pub fn parse_export_in_module(
                     return (garbage_pipeline(working_set, spans), vec![]);
                 }
 
-                let result = match spans.get(2) {
-                    Some(name_span) => exported_module(
-                        working_set,
-                        maybe_module_id,
-                        *name_span,
-                        Span::concat(&spans[1..]),
-                    ),
-                    None => vec![],
-                };
-
-                (pipeline, result)
+                (pipeline, exported_module(working_set, maybe_module_id))
             }
             b"type" => {
                 let (mut pipeline, type_alias) = parse_type_alias(working_set, lite_command);
@@ -365,29 +355,19 @@ pub fn parse_export_in_module(
 }
 
 /// What an `export module` in a module exports: `module_id`, the module it added, under the
-/// module's name. When it added none, nothing, and an error at `span`, the statement after
-/// `export`; `name_span` is the module's name or path.
+/// module's name. When it added none, nothing: `parse_module` reported why, or did not load the
+/// module file (`skip_module_load`).
 pub(crate) fn exported_module(
-    working_set: &mut StateWorkingSet,
+    working_set: &StateWorkingSet,
     module_id: Option<ModuleId>,
-    name_span: Span,
-    span: Span,
 ) -> Vec<Exportable> {
-    if let Some(module_id) = module_id {
-        return vec![Exportable::Module {
-            name: working_set.get_module(module_id).name(),
-            id: module_id,
-        }];
-    }
-    let module_name = trim_quotes(working_set.get_span_contents(name_span));
-    working_set.error(ParseError::InternalError(
-        format!(
-            "failed to find added module '{}'",
-            String::from_utf8_lossy(module_name)
-        ),
-        span,
-    ));
-    vec![]
+    module_id
+        .map(|id| Exportable::Module {
+            name: working_set.get_module(id).name(),
+            id,
+        })
+        .into_iter()
+        .collect()
 }
 
 pub fn parse_export_env(
@@ -1054,20 +1034,14 @@ pub(crate) fn finish_module(
             return (pipeline, None);
         }
 
-        if let Some(module_id) = parse_module_file_or_dir(
+        // When it finds no module, `parse_module_file_or_dir` reports why.
+        let module_id = parse_module_file_or_dir(
             working_set,
             module_name_or_path.as_bytes(),
             module_name_or_path_span,
             None,
-        ) {
-            return (pipeline, Some(module_id));
-        } else {
-            working_set.error(ParseError::ModuleNotFound(
-                module_name_or_path_span,
-                module_name_or_path,
-            ));
-            return (pipeline, None);
-        }
+        );
+        return (pipeline, module_id);
     };
 
     let module_name = module_name_or_path;
@@ -1337,10 +1311,7 @@ pub(crate) fn finish_use(
             module_id,
         )
     } else {
-        working_set.error(ParseError::ModuleNotFound(
-            import_pattern.head.span,
-            String::from_utf8_lossy(&import_pattern.head.name).to_string(),
-        ));
+        // `parse_module_file_or_dir` reported why it found no module.
         return (
             Pipeline::from_vec(vec![Expression::new(
                 working_set,

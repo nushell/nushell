@@ -75,11 +75,7 @@ impl<'s> Lower<'_, '_, 's> {
         ];
         warp_export_call(self.working_set, &mut statement, "export module", &spans);
         let exportables = match parent_name {
-            Some(_) => {
-                let name_span = self.span(module.name.span);
-                let span = Span::new(keyword.start, call_span.end);
-                exported_module(self.working_set, module_id, name_span, span)
-            }
+            Some(_) => exported_module(self.working_set, module_id),
             None => Vec::new(),
         };
         Ok((statement, exportables))
