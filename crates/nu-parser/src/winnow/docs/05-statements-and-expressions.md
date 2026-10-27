@@ -200,7 +200,9 @@ methods `start`, `start_positional`, `flags`, `positional`, `end`,
   "missing sign" (expected `=`). `export --help x` has an extra positional.
   `export-env` hands nu only the item after the keyword, so after a help flag
   the rest is ignored text (`export-env --help x {}`). `use` looks for its
-  flags before every argument and consumes any number of `--`.
+  flags before every argument; its first `--` ends the options and is dropped
+  (`Use::end_of_options`), and a later one is a member, as in nu's
+  `parse_internal_call`.
 
 The table below is the contract each keyword implements. "items" are
 whitespace-delimited items; "rest" means everything to the end of the line

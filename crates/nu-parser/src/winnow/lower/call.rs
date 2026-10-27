@@ -155,7 +155,11 @@ impl<'s> Lower<'_, '_, 's> {
         let decl = self.working_set.get_decl(decl_id);
         let signature = self.working_set.get_signature_shared(decl_id);
         let deprecation = decl.deprecation_info();
-        let checks_lib_dirs = decl.name() == "nu-check" && decl.is_builtin();
+        let checks_lib_dirs = match decl.name() {
+            "use" | "overlay use" | "source-env" => decl.is_keyword(),
+            "nu-check" => decl.is_builtin(),
+            _ => false,
+        };
         let alias_call = decl.as_alias().map(|alias| alias.wrapped_call.clone());
 
         let output = self
@@ -175,8 +179,7 @@ impl<'s> Lower<'_, '_, 's> {
             positional_idx = call.positional_iter().count();
         }
         // `parse_internal_call` hands the library directories to `nu-check` and to `use`,
-        // `overlay use` and `source-env`, which never get here (parser keywords, which
-        // `Lower::call` leaves to the classic parser).
+        // `overlay use` and `source-env`.
         if checks_lib_dirs && let Some(var_id) = find_dirs_var(self.working_set, LIB_DIRS_VAR) {
             let var = self.node(Expr::Var(var_id), call.head, Type::Any);
             call.set_parser_info(DIR_VAR_PARSER_INFO.to_owned(), var);

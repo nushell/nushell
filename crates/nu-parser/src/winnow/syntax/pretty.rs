@@ -578,9 +578,9 @@ impl<'a> Printer<'a> {
                                 let names: Vec<_> = names.iter().map(|n| n.item.as_ref()).collect();
                                 printer.line(format_args!("Members {names:?} {}", member.span));
                             }
-                            ImportPatternMemberKind::Ignored(ignored) => {
+                            ImportPatternMemberKind::Ignored => {
                                 printer.line(format_args!("Member (ignored) {}", member.span));
-                                printer.nested(|printer| printer.expr(ignored));
+                                printer.nested(|printer| printer.expr(&member.value));
                             }
                         }
                     }

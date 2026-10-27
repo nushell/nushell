@@ -15,11 +15,12 @@ use super::{Lower, Lowered, Unlowered};
 use crate::winnow::syntax::lex::RedirectionSource as WinnowSource;
 use crate::winnow::syntax::{Span as WSpan, ast as w};
 use crate::{
+    exportable::Exportable,
     lex::lex,
     lite_parser::lite_parse,
     parse_captures_compile::wrap_element_with_collect,
     parse_helpers::trim_quotes,
-    parse_module::{double_main_span, parse_module_pipeline, set_module_main},
+    parse_module::{add_exportables, double_main_span, parse_module_pipeline},
     parse_pipelines::{finish_block, hide_unlet_constants, parse_pipeline},
     winnow::{
         driver::{BlockKind, parse_block, statement_changes_names},
@@ -98,20 +99,22 @@ impl<'s> Lower<'_, '_, 's> {
     ) -> Lowered<Pipeline> {
         match target {
             StatementTarget::Block { input_type, .. } => self.pipeline(pipeline, *input_type),
-            StatementTarget::Module { name, module, .. } => {
-                self.module_statement(pipeline, name, module)
+            StatementTarget::Module { name, module, span } => {
+                self.module_statement(pipeline, name, module, *span)
             }
         }
     }
 
-    /// A statement of a module's body (`parse_module_pipeline`): definitions, constants, aliases
-    /// and `export-env` blocks, and their exports added to `module`. `module` changes only once
-    /// nothing can fail, since the classic parser adds the exports of a statement given back.
+    /// A statement of a module's body (`parse_module_pipeline`): definitions, constants,
+    /// aliases, `use` and `export-env` blocks, and their exports added to `module`, whose body
+    /// covers `span`. `module` changes only once nothing can fail, since the classic parser
+    /// adds the exports of a statement given back.
     fn module_statement(
         &mut self,
         pipeline: &w::Pipeline<'s>,
         module_name: &[u8],
         module: &mut Module,
+        span: Span,
     ) -> Lowered<Pipeline> {
         let [element] = pipeline.elements.as_slice() else {
             return Err(Unlowered::Error);
@@ -136,6 +139,11 @@ impl<'s> Lower<'_, '_, 's> {
             }
             w::Expr::Alias(alias) if attributes.is_empty() => {
                 self.alias(pipeline, command, alias, None)?
+            }
+            w::Expr::Use(use_statement) if attributes.is_empty() => {
+                let (pipeline, _) =
+                    self.use_statement(command, command, use_statement, Some(module))?;
+                return Ok(pipeline);
             }
             w::Expr::Export(export) => match &export.item.expr {
                 w::Expr::Def(def) => {
@@ -175,6 +183,20 @@ impl<'s> Lower<'_, '_, 's> {
                 w::Expr::Alias(alias) if attributes.is_empty() => {
                     self.export_alias(pipeline, command, &export.item, alias, module_name, module)?
                 }
+                w::Expr::Use(use_statement) if attributes.is_empty() => {
+                    let (pipeline, exportables) =
+                        self.use_statement(command, &export.item, use_statement, Some(module))?;
+                    let main_span =
+                        double_main_span(pipeline.elements.first().map(|e| &e.expr), span);
+                    add_exportables(
+                        self.working_set,
+                        module,
+                        module_name,
+                        exportables,
+                        main_span,
+                    );
+                    return Ok(pipeline);
+                }
                 _ => return Err(Unlowered::Unsupported("export in a module")),
             },
             _ => return Err(Unlowered::Unsupported("module statement")),
@@ -213,8 +235,8 @@ impl<'s> Lower<'_, '_, 's> {
         Ok(expression)
     }
 
-    /// Add an exported command to a module: as its `main` (`parse_module_pipeline`'s rule), or
-    /// under its name.
+    /// Add an exported command, the statement `expression`, to a module: as its `main`, or
+    /// under its name (`add_exportables`).
     fn add_export_decl(
         &mut self,
         module: &mut Module,
@@ -223,12 +245,15 @@ impl<'s> Lower<'_, '_, 's> {
         decl_id: DeclId,
         expression: &Expression,
     ) {
-        if name != b"main" {
-            module.add_decl(name, decl_id);
-        } else {
-            let err_span = double_main_span(Some(expression), expression.span);
-            set_module_main(self.working_set, module, module_name, decl_id, err_span);
-        }
+        let main_span = double_main_span(Some(expression), expression.span);
+        let exportable = Exportable::Decl { name, id: decl_id };
+        add_exportables(
+            self.working_set,
+            module,
+            module_name,
+            vec![exportable],
+            main_span,
+        );
     }
 
     /// `export const` (in a script or a module): the constant, made a call to `export const`
@@ -313,6 +338,11 @@ impl<'s> Lower<'_, '_, 's> {
                     self.export_call(&mut expression, "export alias", span)?;
                     expression
                 }
+                w::Expr::Use(use_statement) => {
+                    let (pipeline, _) =
+                        self.use_statement(&element.expr, &export.item, use_statement, None)?;
+                    return Ok(pipeline);
+                }
                 _ => return Err(Unlowered::Unsupported("export")),
             },
             w::Expr::AttributeBlock(block) => {
@@ -338,7 +368,11 @@ impl<'s> Lower<'_, '_, 's> {
             // `parse_type_alias` defines the alias as it parses the statement.
             w::Expr::TypeAlias(_) => return Err(Unlowered::Unsupported("type alias")),
             w::Expr::Module(_) => return Err(Unlowered::Unsupported("module")),
-            w::Expr::Use(_) => return Err(Unlowered::Unsupported("use")),
+            w::Expr::Use(use_statement) => {
+                let (pipeline, _) =
+                    self.use_statement(&element.expr, &element.expr, use_statement, None)?;
+                return Ok(pipeline);
+            }
             _ => {
                 let pipe = self.classic_pipes(pipeline)[0];
                 let element =

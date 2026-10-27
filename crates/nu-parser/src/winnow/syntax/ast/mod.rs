@@ -1482,6 +1482,10 @@ pub struct ImportPatternMember<'a> {
     pub span: Span,
     /// What.
     pub kind: ImportPatternMemberKind<'a>,
+    /// The member as nu-parser reads it, an argument of `use` of any shape: a
+    /// string for a name or `*`, the list (with the cell path after it) for a
+    /// list, the ignored expression for an ignored member.
+    pub value: Expression<'a>,
 }
 
 /// The kinds of `use` member selector.
@@ -1496,7 +1500,7 @@ pub enum ImportPatternMemberKind<'a> {
     /// A member nu-parser parses and then ignores: a variable, a
     /// subexpression or a record (`use std $x`, `use std (foo)`), or anything
     /// at all after `use null`.
-    Ignored(Box<Expression<'a>>),
+    Ignored,
 }
 
 /// `use module members`.
@@ -1506,6 +1510,9 @@ pub struct Use<'a> {
     pub module: Box<Expression<'a>>,
     /// The members to import.
     pub members: Vec<ImportPatternMember<'a>>,
+    /// The `--` that ends the options, before the module or a member, which
+    /// nu drops (a later `--` is a member).
+    pub end_of_options: Option<Span>,
 }
 
 /// `module name { ... }` or `module path`.

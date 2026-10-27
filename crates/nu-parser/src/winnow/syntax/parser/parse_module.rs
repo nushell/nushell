@@ -274,6 +274,11 @@ pub fn parse_use<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> 
             .with_help("use `--help` to see available flags")));
         }
     }
+    // nu drops the first `--`, which ends the options; a later one is an argument.
+    let mut end_of_options = tokens
+        .peek_token()
+        .filter(|token| working_set.get_span_contents(token.span) == "--")
+        .map(|token| token.span);
     keyword_boundary(&mut tokens, "use", &[])?;
     let module_token = tokens.expect_item("module name or path")?;
     let module = match working_set.get_span_contents(module_token.span) {
@@ -293,8 +298,9 @@ pub fn parse_use<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> 
     let mut members = Vec::new();
     let mut end = module_token.span;
     while let Some(token) = tokens.next_token() {
-        if working_set.get_span_contents(token.span) == "--" {
+        if end_of_options.is_none() && working_set.get_span_contents(token.span) == "--" {
             working_set.add_ignored(token.span);
+            end_of_options = Some(token.span);
             continue;
         }
         if members
@@ -318,6 +324,7 @@ pub fn parse_use<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> 
         Expr::Use(Use {
             module: Box::new(module),
             members,
+            end_of_options,
         }),
         keyword.span.merge(end),
     ))
@@ -342,35 +349,35 @@ pub fn parse_import_pattern_member<'a>(
                 .with_help("only strings and lists of strings can be imported"),
         )
     };
-    let kind = match text.as_bytes()[0] {
-        b'*' if text == "*" => ImportPatternMemberKind::Glob,
-        b'[' => return parse_import_pattern_list(working_set, token),
-        b'$' | b'(' | b'{' => {
-            let expr = parse_value(working_set, span, ExpectedShape::Any)?;
-            match &expr.expr {
-                Expr::Var(_) | Expr::FullCellPath(_) | Expr::Subexpression(_) => {}
-                Expr::Record(items) if matches!(items.first(), Some(RecordItem::Pair { .. })) => {}
-                _ if noop => {}
-                _ => return Err(wrong(&expr)),
-            }
-            ImportPatternMemberKind::Ignored(Box::new(expr))
+    if text.starts_with('[') {
+        return parse_import_pattern_list(working_set, token);
+    }
+    let value = parse_value(working_set, span, ExpectedShape::Any)?;
+    let kind = if text == "*" {
+        ImportPatternMemberKind::Glob
+    } else if text.starts_with(['$', '(', '{']) {
+        match &value.expr {
+            Expr::Var(_) | Expr::FullCellPath(_) | Expr::Subexpression(_) => {}
+            Expr::Record(items) if matches!(items.first(), Some(RecordItem::Pair { .. })) => {}
+            _ if noop => {}
+            _ => return Err(wrong(&value)),
         }
-        _ => {
-            let expr = parse_value(working_set, span, ExpectedShape::Any)?;
-            match expr.expr {
-                Expr::String(string) if !matches!(string.quote, Quote::Raw(_)) => {
-                    ImportPatternMemberKind::Name(string.value)
-                }
-                _ if noop => ImportPatternMemberKind::Ignored(Box::new(expr)),
-                _ => return Err(wrong(&expr)),
+        ImportPatternMemberKind::Ignored
+    } else {
+        match &value.expr {
+            Expr::String(string) if !matches!(string.quote, Quote::Raw(_)) => {
+                ImportPatternMemberKind::Name(string.value.clone())
             }
+            _ if noop => ImportPatternMemberKind::Ignored,
+            _ => return Err(wrong(&value)),
         }
     };
-    Ok(ImportPatternMember { span, kind })
+    Ok(ImportPatternMember { span, kind, value })
 }
 
 /// The names in a `use module [a b c]` list. Items that are not strings are
-/// parsed and ignored, as is a cell path after the list (`[math].x`).
+/// parsed and ignored, as is a cell path after the list (`[math].x`), which
+/// the member's value keeps.
 fn parse_import_pattern_list<'a>(
     working_set: &WorkingSet<'a>,
     token: &Token,
@@ -380,12 +387,14 @@ fn parse_import_pattern_list<'a>(
         .group_end(span)
         .map_or(span.end, |close| span.start + close + 1);
     let list = parse_list_expression(working_set, Span::new(span.start, list_end))?;
-    if list_end < span.end {
-        // Parse the cell path for its errors, then drop it like nu.
-        parse_full_cell_path(working_set, span, false)?;
+    let cell_path = if list_end < span.end {
+        let cell_path = parse_full_cell_path(working_set, span, false)?;
         working_set.add_ignored(Span::new(list_end, span.end));
-    }
-    let Expr::List(items) = list.expr else {
+        Some(cell_path)
+    } else {
+        None
+    };
+    let Expr::List(items) = &list.expr else {
         return Err(cut(Diagnostic::expected("list of names", span)));
     };
     let mut names = Vec::new();
@@ -394,12 +403,12 @@ fn parse_import_pattern_list<'a>(
             ListItem::Item(Expression {
                 span,
                 expr: Expr::String(string),
-            }) => names.push(Spanned::new(string.value, span)),
+            }) => names.push(Spanned::new(string.value.clone(), *span)),
             ListItem::Item(other) => working_set.add_ignored(other.span),
             ListItem::Spread { dots, .. } => {
                 return Err(cut(Diagnostic::message(
                     "cannot spread in an import pattern",
-                    dots,
+                    *dots,
                 )));
             }
         }
@@ -407,6 +416,7 @@ fn parse_import_pattern_list<'a>(
     Ok(ImportPatternMember {
         span,
         kind: ImportPatternMemberKind::List(names),
+        value: cell_path.unwrap_or(list),
     })
 }
 

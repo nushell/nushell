@@ -11,8 +11,9 @@
 //! classic parser, which reports the error exactly as it always has. The exceptions are where
 //! nothing is parsed again: a predeclaration ([`Lower::predecl`]) reports an invalid or
 //! duplicate name itself, as `parse_def_predecl` does; a definition keeps what the classic
-//! parser's `finish_def` or `finish_extern`, which commit it, report; and an alias keeps what
-//! `parse_alias` would: its checks' errors, and the errors of a target it leaves garbage.
+//! parser's `finish_def` or `finish_extern`, which commit it, report; an alias keeps what
+//! `parse_alias` would: its checks' errors, and the errors of a target it leaves garbage; and a
+//! `use` keeps what `finish_use`, which loads the module, reports.
 //!
 //! What the lowering reported before giving up is dropped ([`Lower::statement_or_classic`]).
 //! What else it added to the working set stays, unreachable from the result: spans, blocks,
@@ -33,6 +34,7 @@
 mod call;
 mod expression;
 mod keyword;
+mod module;
 mod signature;
 mod statement;
 mod value;

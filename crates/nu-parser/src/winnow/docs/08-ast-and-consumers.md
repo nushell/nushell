@@ -83,7 +83,9 @@ says the same thing nu-parser's does:
   empty.
 * `ImportPatternMemberKind::Ignored`: a `use` member nu parses and then
   drops without a look (a variable, a subexpression, a record, or anything
-  after `use null`).
+  after `use null`). Every member keeps its `value`, the item read as any
+  value, which nu keeps as an argument of the call to `use`, and `Use`
+  keeps the `--` that ends its options (`end_of_options`).
 * `Alias::value` is `None` only for `export alias x =`, which nu accepts
   because its length check counts the `export` word.
 * `Parameter::extra_default`: another `= value` followed the default of a

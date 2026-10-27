@@ -1234,6 +1234,18 @@ fn use_forms() {
     let ast = ok("use null");
     kind!(kind!(expr(&ast), Expr::Use(u) => u).module, Expr::Nothing);
     assert!(parse("use std * log").is_err());
+    // Only the first `--` ends the options, as in nu's `parse_internal_call`; a later one is
+    // a member.
+    let ast = ok("use std/log -- --");
+    let u = kind!(expr(&ast), Expr::Use(u) => u);
+    assert!(u.end_of_options.is_some());
+    match &u.members[..] {
+        [member] => assert!(
+            matches!(&member.kind, ImportPatternMemberKind::Name(name) if name == "--"),
+            "{member:?}"
+        ),
+        other => panic!("{other:?}"),
+    }
     let ast = ok(
         "hide std log\nhide-env FOO\nsource file.nu\nsource-env env.nu\noverlay use ./foo.nu as bar --prefix\noverlay new x\noverlay hide\noverlay list\nplugin use query",
     );

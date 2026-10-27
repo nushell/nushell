@@ -594,11 +594,11 @@ impl<'a> Visitor<'a> for Flattener<'_> {
                             }
                             self.gaps(member.span, names.iter().map(|n| n.span), FlatShape::List);
                         }
-                        ImportPatternMemberKind::Ignored(ignored) => {
-                            self.visit_expression(ignored);
+                        ImportPatternMemberKind::Ignored => {
+                            self.visit_expression(&member.value);
                             self.gaps(
                                 member.span,
-                                std::iter::once(ignored.span),
+                                std::iter::once(member.value.span),
                                 FlatShape::Ignored,
                             );
                         }

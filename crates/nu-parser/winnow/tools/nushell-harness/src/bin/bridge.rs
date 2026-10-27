@@ -669,7 +669,10 @@ impl<'ws, 'e, 'a> Lower<'ws, 'e, 'a> {
                                         Some(self.expr_with_shape(v, flag.arg.as_ref())?)
                                     }
                                     _ => {
-                                        return Err(format!("flag `--{}` needs a value", flag.long));
+                                        return Err(format!(
+                                            "flag `--{}` needs a value",
+                                            flag.long
+                                        ));
                                     }
                                 }
                             }

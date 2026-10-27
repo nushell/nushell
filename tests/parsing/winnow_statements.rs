@@ -293,10 +293,10 @@ fn alias_with_an_error_in_its_body_is_garbage() -> Result {
 }
 
 /// `alias` and `export alias` in a module's body and `export alias` in a script are lowered:
-/// only the `module` and `use` statements, still the classic parser's, are handed to it.
+/// only the `module` statement, still the classic parser's, is handed to it.
 #[rstest]
-#[case::module_export("module m {\n  export alias s = ls -a\n}\nuse m s", 2)]
-#[case::module_private("module m {\n  alias p = ls -a\n  export alias s = p\n}\nuse m s", 2)]
+#[case::module_export("module m {\n  export alias s = ls -a\n}\nuse m s", 1)]
+#[case::module_private("module m {\n  alias p = ls -a\n  export alias s = p\n}\nuse m s", 1)]
 #[case::script_export("export alias s = ls -a", 0)]
 #[nu_test_support::test]
 #[serial]
@@ -315,5 +315,112 @@ fn alias_in_a_module_or_exported_is_lowered(#[case] code: &str, #[case] classic:
     );
     let decl = working_set.get_decl(working_set.find_decl(b"s").expect("`s` is declared"));
     assert!(decl.as_alias().is_some(), "`{code}`: `s` is an alias");
+    Ok(())
+}
+
+/// The module the `use` tests import from; its `module` statement is the classic parser's.
+const USE_MODULE: &str =
+    "module m { export def f [] { 1 }; export def g [] { 2 }; export const c = 3 }\n";
+
+/// `use`, and `export use` in a script or a module's body, are lowered, not handed to the
+/// classic parser: the call to `use`, then `finish_use` as `parse_use` does it, which brings the
+/// members into scope (`declared`). Only the `module` statements are the classic parser's.
+#[rstest]
+#[case::name("use m f", 1, Some("f"))]
+#[case::glob("use m *", 1, Some("g"))]
+#[case::list("use m [f g]", 1, Some("g"))]
+#[case::whole_module("use m", 1, Some("m f"))]
+#[case::end_of_options("use -- m f", 1, Some("f"))]
+#[case::constant("use m c\n$c", 1, None)]
+#[case::null("use null", 1, None)]
+#[case::script_export("export use m f", 1, Some("f"))]
+#[case::module_body("module n { use m f; export def h [] { f } }\nuse n h", 2, Some("h"))]
+#[case::module_export("module n { export use m [f c] }\nuse n *\n$c", 2, Some("f"))]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn use_is_lowered(
+    #[case] code: &str,
+    #[case] classic: u64,
+    #[case] declared: Option<&str>,
+) -> Result {
+    let code = format!("{USE_MODULE}{code}");
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let before = nu_parser::winnow_stats();
+    nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    let after = nu_parser::winnow_stats();
+    assert_eq!(working_set.parse_errors, [], "`{code}`");
+    assert_eq!(
+        after.classic_statements - before.classic_statements,
+        classic,
+        "`{code}`: statements handed to the classic parser"
+    );
+    if let Some(name) = declared {
+        assert!(
+            working_set.find_decl(name.as_bytes()).is_some(),
+            "`{code}`: `{name}` is not declared"
+        );
+    }
+    Ok(())
+}
+
+/// What `finish_use` reports is kept with the lowered statement, never handed back: the
+/// classic parser would load the module and bring its members into scope a second time. Here
+/// a module that does not exist (which nu-parser reports twice), and a second `--`, which is a
+/// member, not the end of the options (`parse_internal_call` takes only the first).
+#[rstest]
+#[case::missing_module("use nope", "ModuleNotFound", 2)]
+#[case::second_end_of_options("use m -- --", "ExportNotFound", 1)]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn use_keeps_the_errors_of_finish_use(
+    #[case] code: &str,
+    #[case] error: &str,
+    #[case] count: usize,
+) -> Result {
+    let code = format!("{USE_MODULE}{code}");
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let before = nu_parser::winnow_stats();
+    nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    let after = nu_parser::winnow_stats();
+    let errors: Vec<String> = working_set
+        .parse_errors
+        .iter()
+        .map(|error| format!("{error:?}"))
+        .collect();
+    assert!(
+        errors.len() == count && errors.iter().all(|e| e.starts_with(error)),
+        "`{code}`: {errors:?}"
+    );
+    assert_eq!(
+        after.classic_statements - before.classic_statements,
+        1,
+        "`{code}`: statements handed to the classic parser"
+    );
+    Ok(())
+}
+
+/// The call to `use` gets the library directories, `$NU_LIB_DIRS`, which `parse_internal_call`
+/// hands to `use`, `overlay use`, `source-env` and `nu-check`.
+#[test]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn use_call_gets_the_library_directories() -> Result {
+    let code = format!("const NU_LIB_DIRS = []\n{USE_MODULE}use m f");
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let block = nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    assert_eq!(working_set.parse_errors, [], "`{code}`");
+    let use_statement = &block.pipelines[2].elements[0].expr.expr;
+    let Expr::Call(call) = use_statement else {
+        panic!("`{code}`: not a call: {use_statement:?}");
+    };
+    assert!(
+        call.get_parser_info(nu_engine::DIR_VAR_PARSER_INFO)
+            .is_some(),
+        "`{code}`: no library directories"
+    );
     Ok(())
 }

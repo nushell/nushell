@@ -254,8 +254,8 @@ pub fn walk_expression<'a, V: Visitor<'a> + ?Sized>(visitor: &mut V, expr: &Expr
         Expr::Use(use_statement) => {
             visitor.visit_expression(&use_statement.module);
             for member in &use_statement.members {
-                if let ImportPatternMemberKind::Ignored(ignored) = &member.kind {
-                    visitor.visit_expression(ignored);
+                if let ImportPatternMemberKind::Ignored = member.kind {
+                    visitor.visit_expression(&member.value);
                 }
             }
         }
