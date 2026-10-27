@@ -118,9 +118,10 @@ pub trait CommandLookup {
         usize::MAX
     }
     /// Whether some declaration named `name` is a built-in command, visible or
-    /// not (shadowed or hidden): what `%name` may call, as nu-parser's
-    /// `find_decl_with_command_type(.., CommandType::Builtin)` answers it.
-    fn is_builtin_decl(&self, name: &str) -> bool;
+    /// not (shadowed or hidden), and how calls to it parse: what `%name` may
+    /// call, as nu-parser's `find_decl_with_command_type(.., CommandType::Builtin)`
+    /// finds it.
+    fn find_builtin_decl(&self, name: &str) -> Option<DeclKind>;
     /// Whether to leave unparsed, as an empty block, a nested block with a
     /// statement that changes which commands exist (`use`, `module`, `export`,
     /// `overlay`, `hide`, `source`, `run`), an inline module's body among them.
@@ -145,8 +146,8 @@ impl<T: CommandLookup + ?Sized> CommandLookup for &T {
         (**self).longest_name()
     }
 
-    fn is_builtin_decl(&self, name: &str) -> bool {
-        (**self).is_builtin_decl(name)
+    fn find_builtin_decl(&self, name: &str) -> Option<DeclKind> {
+        (**self).find_builtin_decl(name)
     }
 
     fn defers_command_changing_blocks(&self) -> bool {
@@ -429,12 +430,16 @@ impl<'a> WorkingSet<'a> {
     }
 
     /// Whether `name` is a built-in command, even one that a declaration
-    /// shadows (what `%name` may call): the engine's answer
-    /// ([`CommandLookup::is_builtin_decl`]), or one of the configured ones.
-    pub fn is_builtin_decl(&self, name: &str) -> bool {
+    /// shadows (what `%name` may call), and how calls to it parse: the
+    /// engine's answer ([`CommandLookup::find_builtin_decl`]), or one of the
+    /// configured ones.
+    pub fn find_builtin_decl(&self, name: &str) -> Option<DeclKind> {
         match &self.lookup {
-            Some(lookup) => lookup.is_builtin_decl(name),
-            None => self.config.is_builtin(name),
+            Some(lookup) => lookup.find_builtin_decl(name),
+            None => self
+                .config
+                .is_builtin(name)
+                .then(|| self.config.decl_kind(name).unwrap_or(DeclKind::Builtin)),
         }
     }
 

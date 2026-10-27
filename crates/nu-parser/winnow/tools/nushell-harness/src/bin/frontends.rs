@@ -301,8 +301,8 @@ fn syntax_once(working_set: &StateWorkingSet, source: &str) {
         fn longest_name(&self) -> usize {
             nu_protocol::engine::longest_decl_name()
         }
-        fn is_builtin_decl(&self, _name: &str) -> bool {
-            true
+        fn find_builtin_decl(&self, _name: &str) -> Option<nu_parser::winnow::syntax::DeclKind> {
+            Some(nu_parser::winnow::syntax::DeclKind::Builtin)
         }
     }
     struct Drop;
@@ -344,8 +344,8 @@ fn syntax_time_with(
         fn is_decl_name_prefix(&self, word: &str) -> bool {
             self.1.is_none_or(|prefixes| prefixes.contains(word))
         }
-        fn is_builtin_decl(&self, _name: &str) -> bool {
-            true
+        fn find_builtin_decl(&self, _name: &str) -> Option<nu_parser::winnow::syntax::DeclKind> {
+            Some(nu_parser::winnow::syntax::DeclKind::Builtin)
         }
     }
     struct Drop;
@@ -409,8 +409,8 @@ fn syntax_old(engine_state: &EngineState, files: &[PathBuf], iters: u32) {
         fn is_decl_name_prefix(&self, _word: &str) -> bool {
             true
         }
-        fn is_builtin_decl(&self, _name: &str) -> bool {
-            true
+        fn find_builtin_decl(&self, _name: &str) -> Option<nu_parser::winnow::syntax::DeclKind> {
+            Some(nu_parser::winnow::syntax::DeclKind::Builtin)
         }
     }
     struct Drop;

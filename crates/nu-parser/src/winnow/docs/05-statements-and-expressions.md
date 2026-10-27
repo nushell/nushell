@@ -384,7 +384,7 @@ of some multi-word command (`working_set.is_decl_name_prefix`; `ParseConfig`
 and the declaration scopes both index prefixes). The search itself is
 `find_longest_name`, which takes the question to ask of each candidate name:
 `find_longest_decl` asks `find_decl`, and the `%` sigil (below) asks
-`is_builtin_decl`.
+`find_builtin_decl`.
 
 `parse_call_arguments` is `repeat_to_end(parse_call_argument)`:
 
@@ -452,9 +452,10 @@ custom command or alias shadows its name. `%ls` and `% ls` give a `Call`
 whose `sigil` is the span of the `%`; `%$cmd` and `%(expr)` give a
 `DynamicCall` whose head is the `$` expression or subexpression. Like nu
 (`find_longest_decl_with_command_type`), the head is the longest name of a
-built-in command, visible or not (`working_set.is_builtin_decl`), so
+built-in command, visible or not (`working_set.find_builtin_decl`), so
 `%ls foo` calls `ls` with the argument `foo` even where `def "ls foo"`
-exists. A quoted or otherwise non-bare name after `%` is an error, and a
+exists. Its arguments read as a call to that command reads them, by the
+command's kind: `%any $it > 2` takes one row condition. A quoted or otherwise non-bare name after `%` is an error, and a
 bare name that is not a built-in command (`CommandType::Builtin`, so not a
 keyword such as `if` nor a prelude command such as `pwd`) is rejected with
 "percent sigil requires a built-in command" (skipped when the parse knows

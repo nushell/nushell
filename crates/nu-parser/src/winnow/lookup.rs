@@ -60,11 +60,16 @@ impl CommandLookup for EngineLookup<'_, '_, '_> {
         longest_decl_name()
     }
 
-    /// Whether some declaration named `name` is a built-in, visible or not: `%name` calls it
-    /// even when a custom command shadows or hides it, as in the classic `parse_call`.
-    fn is_builtin_decl(&self, name: &str) -> bool {
+    /// Whether some declaration named `name` is a built-in, visible or not, and its kind:
+    /// `%name` calls it even when a custom command shadows or hides it, as in the classic
+    /// `parse_call`.
+    fn find_builtin_decl(&self, name: &str) -> Option<DeclKind> {
         let working_set = self.working_set.borrow();
-        find_decl_with_command_type(&working_set, name.as_bytes(), CommandType::Builtin).is_some()
+        let decl_id =
+            find_decl_with_command_type(&working_set, name.as_bytes(), CommandType::Builtin)?;
+        Some(cached_kind(&self.kinds, decl_id, || {
+            decl_kind(&working_set, decl_id)
+        }))
     }
 
     /// The lowering parses such a block again, once the statements before it have changed
@@ -147,8 +152,8 @@ pub(super) struct AskedLookup<'e> {
 pub(super) enum Asked {
     /// `find_decl(name)` and its answer.
     Decl(Box<str>, Option<DeclKind>),
-    /// `is_builtin_decl(name)` and its answer.
-    Builtin(Box<str>, bool),
+    /// `find_builtin_decl(name)` and its answer.
+    Builtin(Box<str>, Option<DeclKind>),
 }
 
 impl CommandLookup for AskedLookup<'_> {
@@ -182,14 +187,14 @@ impl CommandLookup for AskedLookup<'_> {
 
     /// As [`EngineLookup`] answers it, over the copy's declarations: those of the engine, where
     /// the built-ins are.
-    fn is_builtin_decl(&self, name: &str) -> bool {
-        let builtin =
-            find_decl_with_command_type(&self.names.names, name.as_bytes(), CommandType::Builtin)
-                .is_some();
+    fn find_builtin_decl(&self, name: &str) -> Option<DeclKind> {
+        let names = &self.names;
+        let kind = find_decl_with_command_type(&names.names, name.as_bytes(), CommandType::Builtin)
+            .map(|decl_id| cached_kind(&names.kinds, decl_id, || decl_kind(&names.names, decl_id)));
         self.asked
             .borrow_mut()
-            .push(Asked::Builtin(Box::from(name), builtin));
-        builtin
+            .push(Asked::Builtin(Box::from(name), kind));
+        kind
     }
 
     /// As [`EngineLookup`] answers it.
@@ -229,9 +234,9 @@ pub(super) fn changed_answer(
             let live = lookup.find_decl(name);
             (live != *kind).then(|| format!("`{name}` is {live:?}, not {kind:?}"))
         }
-        Asked::Builtin(name, builtin) => {
-            let live = lookup.is_builtin_decl(name);
-            (live != *builtin).then(|| format!("`{name}` built in: {live}, not {builtin}"))
+        Asked::Builtin(name, kind) => {
+            let live = lookup.find_builtin_decl(name);
+            (live != *kind).then(|| format!("built-in `{name}` is {live:?}, not {kind:?}"))
         }
     })
 }

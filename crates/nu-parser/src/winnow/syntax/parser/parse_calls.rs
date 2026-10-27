@@ -63,7 +63,7 @@ pub fn parse_call_lenient<'a>(
     let (head, found) = find_longest_decl(first, &mut tokens, "");
     // What the head is decides how the arguments parse: an alias of an external command or an
     // unknown command takes external arguments, a wrapped command `external_arg` values.
-    let wrapped = match found.or_else(|| working_set.find_decl(&head.name)) {
+    let kind = match found.or_else(|| working_set.find_decl(&head.name)) {
         Some(DeclKind::ExternalAlias) => {
             let name = StringLiteral {
                 value: head.name,
@@ -81,39 +81,45 @@ pub fn parse_call_lenient<'a>(
                 AliasedKeyword::Try => parse_try(statement),
             };
         }
-        // `any $it > 2`: the arguments are one condition, unless the first is a flag, whose
-        // value nu takes by the flag's shape, which the parser does not know
-        // (`take while --include 2 {..}`): those are read one by one.
-        Some(DeclKind::RowCondition)
-            if tokens
-                .peek_token()
-                .is_some_and(|next| !tokens.text(next).starts_with('-')) =>
-        {
-            let condition = parse_condition(tokens)?;
-            let span = first.span.merge(condition.span);
-            let call = Call {
-                head,
-                arguments: vec![Argument::Positional(condition)],
-                sigil: None,
-                wrapped: false,
-            };
-            check_call(working_set, &call, lenient)?;
-            return Ok(Expression::new(Expr::Call(call), span));
-        }
         None if working_set.has_builtin_decls() => {
             let name = parse_external_string(working_set, head.span)?;
             return parse_external_arguments(None, name, tokens);
         }
-        kind => kind == Some(DeclKind::Wrapped),
+        kind => kind,
     };
-    let arguments = parse_call_arguments_with(tokens, wrapped)?;
-    let span = first
-        .span
-        .merge(arguments.last().map_or(head.span, Argument::span));
+    parse_call_with_kind(tokens, first.span, head, kind, None, lenient)
+}
+
+/// The rest of a call to `head`, a command of `kind`, which starts at `start` (its head, or its
+/// `%`): the arguments as nu reads them by the command's signature. A row-condition command's
+/// (`any $it > 2`) are one condition, unless the first is a flag, whose value nu takes by the
+/// flag's shape, which the parser does not know (`take while --include 2 {..}`): those are
+/// read one by one, as any other command's are, and a wrapped command's with the
+/// `external_arg` shape.
+fn parse_call_with_kind<'a>(
+    tokens: Tokens<'_, 'a>,
+    start: Span,
+    head: CallHead<'a>,
+    kind: Option<DeclKind>,
+    sigil: Option<Span>,
+    lenient: bool,
+) -> ParseResult<Expression<'a>> {
+    let working_set = tokens.working_set;
+    let condition = kind == Some(DeclKind::RowCondition)
+        && tokens
+            .peek_token()
+            .is_some_and(|next| !tokens.text(next).starts_with('-'));
+    let wrapped = kind == Some(DeclKind::Wrapped);
+    let arguments = if condition {
+        vec![Argument::Positional(parse_condition(tokens)?)]
+    } else {
+        parse_call_arguments_with(tokens, wrapped)?
+    };
+    let span = start.merge(arguments.last().map_or(head.span, Argument::span));
     let call = Call {
         head,
         arguments,
-        sigil: None,
+        sigil,
         wrapped,
     };
     check_call(working_set, &call, lenient)?;
@@ -170,16 +176,10 @@ fn parse_percent_call<'a>(first: Token, mut tokens: Tokens<'_, 'a>) -> ParseResu
         _ => {
             // nu's `find_longest_decl_with_command_type`: the head is the longest name of a
             // built-in command, so `%ls foo` calls `ls` even where `def "ls foo"` exists.
-            let builtin = |name: &str| {
-                working_set
-                    .is_builtin_decl(name)
-                    .then_some(DeclKind::Builtin)
-            };
+            let builtin = |name: &str| working_set.find_builtin_decl(name);
             let (head, found) = find_longest_name(head_token, &mut tokens, "", builtin);
-            if found.is_none()
-                && working_set.has_builtin_decls()
-                && !working_set.is_builtin_decl(&head.name)
-            {
+            let kind = found.or_else(|| working_set.find_builtin_decl(&head.name));
+            if kind.is_none() && working_set.has_builtin_decls() {
                 return Err(cut(Diagnostic::message(
                     "percent sigil requires a built-in command",
                     head.span,
@@ -189,17 +189,9 @@ fn parse_percent_call<'a>(first: Token, mut tokens: Tokens<'_, 'a>) -> ParseResu
                     head.name
                 ))));
             }
-            let arguments = parse_call_arguments(tokens)?;
-            let span = sigil.merge(arguments.last().map_or(head.span, Argument::span));
-            Ok(Expression::new(
-                Expr::Call(Call {
-                    head,
-                    arguments,
-                    sigil: Some(sigil),
-                    wrapped: false,
-                }),
-                span,
-            ))
+            // As nu reads a call to the built-in by its signature: `%any $it > 2` takes a row
+            // condition.
+            parse_call_with_kind(tokens, sigil, head, kind, Some(sigil), false)
         }
     }
 }

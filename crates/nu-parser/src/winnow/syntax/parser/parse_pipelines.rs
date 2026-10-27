@@ -1013,8 +1013,8 @@ mod tests {
             false
         }
 
-        fn is_builtin_decl(&self, _: &str) -> bool {
-            false
+        fn find_builtin_decl(&self, _: &str) -> Option<DeclKind> {
+            None
         }
     }
 
