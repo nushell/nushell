@@ -1065,6 +1065,7 @@ fn parse_lowered<'e>(
 #[case::if_input("'s' | if true { $in } else { $in } --help", "if", Type::String)]
 #[case::try_handler_then_end_of_options("try {} --help catch {} --", "try", Type::Any)]
 #[case::if_as_condition("if if --help --help", "if", Type::Any)]
+#[case::condition_of_several_items("if 1 > 0 { 1 } else { 2 } --help", "if", Type::Int)]
 #[nu_test_support::test]
 #[serial]
 #[exp(nu_experimental::WINNOW_PARSER)]
@@ -1153,4 +1154,44 @@ fn let_without_a_value_is_lowered(
         name.as_bytes()
     );
     test().run(code).expect_value_eq(expected)
+}
+
+/// A row condition or a math expression of several items, which the winnow parser read one by
+/// one, is read again by it as one value, with the commands the working set knows: a condition
+/// after a flag, which may call a command of the file, and the conditions of an alias's `if`.
+#[rstest]
+#[case::condition_after_a_flag("[1 2 3 4] | take while --include 1 $it < 3 | length", 3)]
+#[case::condition_calls_a_command(
+    "def two [] { 2 }\n[1 2 3 4] | take while --include 1 $it < (two) | length",
+    2
+)]
+#[case::bare_word_condition("[{a: 1} {a: 5} {a: 2}] | take while --include 0 a < 3 | length", 1)]
+#[case::alias_target("let x = 1\nalias z = if $x > 0 { 1 } else { 2 }\nz", 1)]
+#[case::alias_target_else_if(
+    "let x = 1\nalias z = if $x > 1 { 1 } else if $x > 0 { 2 } else { 3 }\nz",
+    2
+)]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn several_items_read_as_one_value_are_lowered(
+    #[case] code: &str,
+    #[case] expected: i64,
+) -> Result {
+    let engine_state = test().engine_state;
+    parse_lowered(&engine_state, code);
+    test().run(code).expect_value_eq(expected)
+}
+
+/// Items the condition takes that are no math expression stay the classic parser's error:
+/// without an `else`, `if true {} --help` gives the condition `true {}`.
+#[test]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn condition_of_items_that_is_no_expression_is_an_error() -> Result {
+    let code = "if true {} --help";
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    assert!(!working_set.parse_errors.is_empty(), "`{code}`");
+    Ok(())
 }

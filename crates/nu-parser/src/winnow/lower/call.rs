@@ -2,6 +2,8 @@
 //! commands (the classic parser's `parse_call`, `parse_internal_call` and
 //! `parse_external_call`).
 
+use std::cell::RefCell;
+
 use nu_engine::DIR_VAR_PARSER_INFO;
 use nu_protocol::{
     CompileError, DeclId, Flag, Span, Spanned, SyntaxShape, Type, TypeSet,
@@ -10,7 +12,7 @@ use nu_protocol::{
 };
 
 use super::{Lower, Lowered, Unlowered};
-use crate::winnow::syntax::{DeclKind, Span as WSpan, ast as w};
+use crate::winnow::syntax::{DeclKind, ItemsValue, Span as WSpan, ast as w, parse_items};
 use crate::{
     parse_calls::{
         CallKind, accepts_any_bareword, find_decl_with_command_type, find_longest_decl_with_prefix,
@@ -23,7 +25,7 @@ use crate::{
     parse_signatures::ensure_not_reserved_variable_name,
     parse_source::{LIB_DIRS_VAR, find_dirs_var},
     type_check::type_compatible,
-    winnow::lookup::decl_kind,
+    winnow::lookup::{EngineLookup, decl_kind},
 };
 
 /// The commands the classic parser picks by a statement's first word, before it looks up any
@@ -531,8 +533,10 @@ impl<'s> Lower<'_, '_, 's> {
     /// read from the items before `end` (`calculate_end_span`) as `parse_multispan_value` reads
     /// them. Returns it and the index of the item after the last one it read: a variable
     /// without a type, a keyword and a one-item shape stop early, a row condition, a math
-    /// expression, an expression and a signature read up to `end`. Items it can read only
-    /// together, which the winnow parser read one by one, are left to the classic parser.
+    /// expression, an expression and a signature read up to `end`. A row condition or a math
+    /// expression of several items, which the winnow parser read one by one, it reads again as
+    /// one (`items_value`); an expression or a signature of several is left to the classic
+    /// parser.
     fn multispan_value(
         &mut self,
         arguments: &[w::Argument<'s>],
@@ -572,7 +576,13 @@ impl<'s> Lower<'_, '_, 's> {
                 self.items_call(item, &arguments[index + 1..end], input_type)?
             }
             SyntaxShape::RowCondition if one_item => self.row_condition(item)?,
+            SyntaxShape::RowCondition => {
+                self.items_value(arguments, index, end, ItemsValue::RowCondition, None)?
+            }
             SyntaxShape::MathExpression if one_item => self.math(item, input_type)?,
+            SyntaxShape::MathExpression => {
+                self.items_value(arguments, index, end, ItemsValue::Math, input_type)?
+            }
             // `parse_expression` reads one item that looks like a value as a math expression.
             SyntaxShape::Expression
                 if one_item && is_math_expression_like(self.working_set, self.span(item.span)) =>
@@ -593,6 +603,39 @@ impl<'s> Lower<'_, '_, 's> {
             _ => return Err(Unlowered::Unsupported("multi-item argument")),
         };
         Ok((value, end))
+    }
+
+    /// The items `arguments[index..end]`, which the winnow parser read one at a time, read again
+    /// by it as the one `value` the classic parser reads them as (`parse_multispan_value`), with
+    /// the commands the working set knows now, and lowered; a math expression gets
+    /// `input_type`. Items it does not read so are a syntax error there, which the classic
+    /// parser reports too (`if true {} --help`: the condition takes `true {}`). The working set
+    /// answers the parser's questions through a cell while it parses, as in the driver.
+    fn items_value(
+        &mut self,
+        arguments: &[w::Argument<'s>],
+        index: usize,
+        end: usize,
+        value: ItemsValue,
+        input_type: Option<&Type>,
+    ) -> Lowered<Expression> {
+        let span = arguments[index].span().merge(arguments[end - 1].span());
+        let cell = RefCell::new(&mut *self.working_set);
+        let Some(tree) = parse_items(self.source, span, EngineLookup::new(&cell), value) else {
+            return Err(Unlowered::Error);
+        };
+        let mut working_set = cell.borrow_mut();
+        let mut lower = Lower {
+            working_set: &mut working_set,
+            source: self.source,
+            offset: self.offset,
+            row_var: self.row_var,
+            alias_target: self.alias_target,
+        };
+        match value {
+            ItemsValue::Math => lower.math(&tree, input_type),
+            ItemsValue::RowCondition => lower.row_condition(&tree),
+        }
     }
 
     /// A multi-item `oneof` (`parse_oneof` with `multispan`): the first of `shapes` that reads

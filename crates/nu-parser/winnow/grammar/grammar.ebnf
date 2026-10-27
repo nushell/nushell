@@ -554,7 +554,9 @@ positional = value_of_shape ;
    nu: parse_calls.rs:782 parse_multispan_value, 696 calculate_end_span, 720 parse_oneof
    here: src/winnow/syntax/parser/parse_expressions.rs::parse_value with ExpectedShape::Any for every
    positional; the multi-span shapes only occur in keyword statements, where each
-   statement parser handles them (6); consumer otherwise *)
+   statement parser handles them (6); consumer otherwise (nu-parser’s front end:
+   src/winnow/lower/call.rs::multispan_value, which has a row condition or a math
+   expression of several items parsed again with parser/mod.rs::parse_items) *)
 
 keyword_arg = keyword_word, value_of_shape ;
 (* SyntaxShape::Keyword(kw, shape): the item must equal kw exactly, then the inner

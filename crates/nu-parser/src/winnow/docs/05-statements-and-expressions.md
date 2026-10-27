@@ -237,6 +237,14 @@ at the last one, and the `def` signature is every remaining item but the last
 (a slice pattern on `tokens.remaining()`). This is the same result without
 needing signatures.
 
+A call's arguments, outside these statements (a call for help, an alias's
+target, `take while --include 1 $it < 3`), are read one item at a time. The
+front end's lowering, which has the signature, gives each multi-item
+positional its items as `calculate_end_span` does and reads them as
+`parse_multispan_value` does (`lower/call.rs`, `multispan_value`); a row
+condition or a math expression of several items it has the parser read again
+as one, from the items' text (`parse_items`).
+
 ### Redirections and attributes on statements
 
 `parse_pipeline_element` (chapter 04) builds the element's

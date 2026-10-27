@@ -33,7 +33,9 @@ pub mod span;
 pub use error::{Diagnostic, ErrorKind, ParseError};
 pub use parser::{BlockSink, CommandLookup, CommandType, DeclKind, ParseConfig, PredeclaredDef};
 // Only the front end (`crate::winnow`) uses these.
-pub(crate) use parser::{AliasedKeyword, BlockStatements, Definitions, TypeAliasPredecl};
+pub(crate) use parser::{
+    AliasedKeyword, BlockStatements, Definitions, ItemsValue, TypeAliasPredecl, parse_items,
+};
 pub use span::{LineCol, LineIndex, Span, Spanned};
 
 use ast::Ast;

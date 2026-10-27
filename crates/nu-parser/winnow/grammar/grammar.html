@@ -2648,7 +2648,9 @@ svg.railroad-diagram g.diagram-text:hover path.diagram-text {
   nu: parse<em>calls.rs:782 parse</em>multispan<em>value, 696 calculate</em>end<em>span, 720 parse</em>oneof
   here: src/winnow/syntax/parser/parse<em>expressions.rs::parse</em>value with ExpectedShape::Any for every
   positional; the multi-span shapes only occur in keyword statements, where each
-  statement parser handles them (6); consumer otherwise </p><section>
+  statement parser handles them (6); consumer otherwise (nu-parser’s front end:
+  src/winnow/lower/call.rs::multispan<em>value, which has a row condition or a math
+  expression of several items parsed again with parser/mod.rs::parse</em>items) </p><section>
   <h4 id="keyword_arg">keyword_arg</h4>
   <div class="diagram-container"><svg class="railroad-diagram" width="381" style="max-height: 62px;" viewBox="0 0 381 62"><g transform="translate(.5 .5)"><g><path d="M20 21v20m0 -10h20"></path></g><path d="M40 31h10"></path><g><path d="M50 31h0"></path><path d="M331 31h0"></path><g class="non-terminal"><path d="M50 31h0"></path><path d="M172 31h0"></path><rect x="50" y="20" width="122" height="22"></rect><a xlink:href="#keyword_word"><text x="111" y="35">keyword&#95;word</text></a></g><path d="M172 31h10"></path><path d="M182 31h10"></path><g class="non-terminal"><path d="M192 31h0"></path><path d="M331 31h0"></path><rect x="192" y="20" width="139" height="22"></rect><a xlink:href="#value_of_shape"><text x="261.5" y="35">value&#95;of&#95;shape</text></a></g></g><path d="M331 31h10"></path><path d="M 341 31 h 20 m 0 -10 v 20"></path></g></svg>
 </div>
@@ -6150,7 +6152,7 @@ svg.railroad-diagram g.diagram-text:hover path.diagram-text {
 <p>(6.1) </p>
   </article>
   <footer>
-    <p>Date: 2026-10-27T20:34 - <a href="?theme=dark" data-theme="dark">Dark</a> - <a href="?theme=light" data-theme="light">Light</a></p>
+    <p>Date: 2026-10-27T20:54 - <a href="?theme=dark" data-theme="dark">Dark</a> - <a href="?theme=light" data-theme="light">Light</a></p>
   </footer>
   </main>
   <script type="text/javascript">
