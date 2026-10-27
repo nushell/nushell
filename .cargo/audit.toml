@@ -13,4 +13,31 @@ ignore = [
   "RUSTSEC-2026-0367",
   "RUSTSEC-2026-0368",
   "RUSTSEC-2026-0369",
+  # zstd@0.13 and zstd-safe@7 come only from polars 0.55.2 (nu_plugin_polars),
+  # which requires `zstd ^0.13`; the fixes are in zstd 0.14.3 and zstd-safe
+  # 8.2.0. Remove once polars releases with zstd 0.14 (already on polars main).
+  # - 0391: polars-parquet reuses one `DCtx` per column chunk through
+  #   `Decoder::with_context`, so a crafted file can make a page start with
+  #   leftover output of an earlier page; that data comes from the same file.
+  # - 0403: covers `stream::write::Decoder`; polars only uses the read `Decoder`.
+  # - 0395, 0399, 0402, 0404: need the `experimental` feature, which is off.
+  # - 0396, 0398, 0405: need the `seekable` feature, which is off.
+  # - 0406: needs the `zstdmt` feature, which is off.
+  # - 0397, 0401: `OutBuffer::around_pos` and `train_from_buffer`, which
+  #   neither polars nor zstd's stream and bulk APIs call.
+  # - 0400: needs a one-shot call on a `DCtx` that also streams; polars' reused
+  #   `DCtx` only streams.
+  "RUSTSEC-2026-0391",
+  "RUSTSEC-2026-0395",
+  "RUSTSEC-2026-0396",
+  "RUSTSEC-2026-0397",
+  "RUSTSEC-2026-0398",
+  "RUSTSEC-2026-0399",
+  "RUSTSEC-2026-0400",
+  "RUSTSEC-2026-0401",
+  "RUSTSEC-2026-0402",
+  "RUSTSEC-2026-0403",
+  "RUSTSEC-2026-0404",
+  "RUSTSEC-2026-0405",
+  "RUSTSEC-2026-0406",
 ]
