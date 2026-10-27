@@ -40,7 +40,7 @@ impl FromValue for FillAlignment {
             "cr" | "centerright" | "mr" | "middleright" => Ok(Self::MiddleRight),
             _ => Err(ShellError::InvalidValue {
                 valid: "one of: left (l), right (r), center/middle (c/m), centerright/middleright (cr/mr)".into(),
-                actual: s,
+                actual: format!("'{s}'"),
                 span,
             }),
         }
@@ -97,12 +97,14 @@ impl Command for Fill {
                     .short('a')
                     .arg(SyntaxShape::String)
                     .desc(
-                        "The alignment of the output. Defaults to Left (Left(l), Right(r), Center(c/m), MiddleRight(cr/mr)).",
+                        "The alignment of the output. Defaults to Left (left (l), right (r), center/middle (c/m), centerright/middleright (cr/mr)).",
                     )
                     .completion(Completion::new_list(&[
                         "left",
                         "right",
+                        "center",
                         "middle",
+                        "centerright",
                         "middleright",
                     ])),
             )
