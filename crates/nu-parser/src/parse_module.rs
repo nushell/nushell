@@ -836,8 +836,10 @@ pub fn parse_module_file_or_dir(
             return None;
         };
 
-        let module_name = if let Some(stem) = module_path.file_stem() {
-            stem.to_string_lossy().to_string()
+        // A directory has no extension, so use its whole name. Otherwise
+        // `a.b` would become a module called `a`.
+        let module_name = if let Some(name) = module_path.path().file_name() {
+            name.to_string_lossy().to_string()
         } else {
             working_set.error(ParseError::ModuleNotFound(
                 path_span,
