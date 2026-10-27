@@ -41,8 +41,8 @@ impl<'s> Lower<'_, '_, 's> {
     /// registered in the working set, as `parse_internal_call` registers it (as do the other
     /// calls the lowering builds).
     fn keyword_call(&mut self, e: &w::Expression<'s>, name: &str) -> Lowered<(Call, DeclId)> {
-        // The statement of a call through an alias of the keyword (`alias m = match`), whose
-        // call the classic parser makes with the alias.
+        // The statement of a call through an alias of the keyword: `if`, `match` and `try`
+        // take it (`keyword_or_alias_call`), the winnow parser builds no other.
         if self.text(e.span).split_ascii_whitespace().next() != Some(name) {
             return Err(Unlowered::Unsupported("call through an alias of a keyword"));
         }
@@ -55,6 +55,43 @@ impl<'s> Lower<'_, '_, 's> {
         call.decl_id = decl_id;
         let _ = self.working_set.add_span(head);
         Ok((call, decl_id))
+    }
+
+    /// The call of the statement of keyword `name` headed by `keyword`: the keyword's
+    /// ([`Self::keyword_call`]), or, when `keyword` names an alias of it (`alias m = match`,
+    /// then `m 1 {..}`), the alias's as `parse_internal_call` makes it: the keyword's call the
+    /// alias holds, with the alias's name as its head. Returns the call, the command whose
+    /// signature checks and types it (the alias), and whether it is an alias's: the classic
+    /// parser reads an alias's call without the keyword's special readings (`SpecialCmd` wants
+    /// a keyword), so its blocks get no input and its output is the signature's.
+    fn keyword_or_alias_call(
+        &mut self,
+        e: &w::Expression<'s>,
+        keyword: WSpan,
+        name: &str,
+    ) -> Lowered<(Call, DeclId, bool)> {
+        let alias_name = self.text(keyword);
+        if alias_name == name {
+            let (call, decl_id) = self.keyword_call(e, name)?;
+            return Ok((call, decl_id, false));
+        }
+        let unexpected = || Unlowered::Unsupported("call through an alias of a keyword");
+        let decl_id = self
+            .working_set
+            .find_decl(alias_name.as_bytes())
+            .ok_or_else(unexpected)?;
+        let Some(Expr::Call(wrapped)) = self
+            .working_set
+            .get_decl(decl_id)
+            .as_alias()
+            .map(|alias| &alias.wrapped_call.expr)
+        else {
+            return Err(unexpected());
+        };
+        let mut call = (**wrapped).clone();
+        call.head = self.span(keyword);
+        let _ = self.working_set.add_span(call.head);
+        Ok((call, decl_id, true))
     }
 
     /// The end of a keyword's call (`parse_internal_call`): the missing-argument check, and
@@ -115,32 +152,34 @@ impl<'s> Lower<'_, '_, 's> {
     /// overrides the output of `if`: a value in the `then` block's place gives none, so with no
     /// `else` the output is the signature's. The condition gets no input, the branches
     /// `input_type`. The `else` branch, a block or an expression (`else if ...`), is a `Keyword`
-    /// argument.
+    /// argument. Through an alias of `if`, the branches get no input and the output is the
+    /// signature's (`keyword_or_alias_call`).
     pub(super) fn if_call(
         &mut self,
         e: &w::Expression<'s>,
         if_expr: &w::If<'s>,
         input_type: Option<&Type>,
     ) -> Lowered<Expression> {
-        let (mut call, decl_id) = self.keyword_call(e, "if")?;
+        let (mut call, decl_id, aliased) = self.keyword_or_alias_call(e, if_expr.keyword, "if")?;
+        let branch_input = if aliased { None } else { input_type };
         let condition = self.math(&if_expr.condition, None)?;
         call.add_positional(condition);
         let then = self.block_argument(
             &if_expr.then_block,
             if_expr.then_value.as_deref(),
-            input_type,
+            branch_input,
         )?;
         let mut output = match &then.expr {
-            Expr::Block(_) => Some(self.branch_type(&then, input_type)),
+            Expr::Block(_) if !aliased => Some(self.branch_type(&then, input_type)),
             _ => None,
         };
         call.add_positional(then);
         if let Some(branch) = &if_expr.else_branch {
             let body = match &branch.body.expr {
                 w::Expr::Block(block) => {
-                    self.block_expression(branch.body.span, block, input_type)?
+                    self.block_expression(branch.body.span, block, branch_input)?
                 }
-                _ => self.expression(&branch.body, input_type)?,
+                _ => self.expression(&branch.body, branch_input)?,
             };
             let branch_type = self.branch_type(&body, input_type);
             output = Some(match output {
@@ -163,7 +202,10 @@ impl<'s> Lower<'_, '_, 's> {
         // The branches' union, else the signature's output.
         let signature_output = self.finish_keyword_call(&call, decl_id, input_type)?;
         let span = self.span(e.span);
-        let output = output.unwrap_or(signature_output);
+        let output = match aliased {
+            true => signature_output,
+            false => output.unwrap_or(signature_output),
+        };
         Ok(self.node(Expr::Call(Box::new(call)), span, output))
     }
 
@@ -224,14 +266,15 @@ impl<'s> Lower<'_, '_, 's> {
     /// in the handler, whose closure then did compile, stands. Hence the compile errors are
     /// counted before each handler. A value in a handler's place (`catch $handler`) is read
     /// with the handler's shape in `try`'s signature, as the value of its keyword, and must be
-    /// typed as a closure.
+    /// typed as a closure. The classic parser reads `try` with no special readings, so a call
+    /// through an alias of it differs only in its head and signature (`keyword_or_alias_call`).
     pub(super) fn try_call(
         &mut self,
         e: &w::Expression<'s>,
         try_expr: &w::Try<'s>,
         input_type: Option<&Type>,
     ) -> Lowered<Expression> {
-        let (mut call, decl_id) = self.keyword_call(e, "try")?;
+        let (mut call, decl_id, _) = self.keyword_or_alias_call(e, try_expr.keyword, "try")?;
         let body = self.block_argument(&try_expr.body, try_expr.body_value.as_deref(), None)?;
         call.add_positional(body);
         for handler in &try_expr.handlers {
@@ -290,49 +333,55 @@ impl<'s> Lower<'_, '_, 's> {
     /// the arms' outputs (with `nothing` when no arm matches everything). A value in the arms'
     /// place (a closure, a record, `$x`) is read as the value parser reads it for the
     /// `match_block` shape, and the call takes its type (`parse_internal_call`); such a call is
-    /// the IR compiler's error.
+    /// the IR compiler's error. Through an alias of `match`, the arms get no input and the
+    /// output is the signature's (`keyword_or_alias_call`).
     pub(super) fn match_call(
         &mut self,
         e: &w::Expression<'s>,
         match_expr: &w::Match<'s>,
         input_type: Option<&Type>,
     ) -> Lowered<Expression> {
-        let (mut call, decl_id) = self.keyword_call(e, "match")?;
+        let (mut call, decl_id, aliased) =
+            self.keyword_or_alias_call(e, match_expr.keyword, "match")?;
+        let arms_input = if aliased { None } else { input_type };
         let value = self.value(&match_expr.value, &SyntaxShape::Any, None)?;
         call.add_positional(value);
-        if let Some(value_block) = &match_expr.value_block {
-            let block = self.value(value_block, &SyntaxShape::MatchBlock, input_type)?;
+        let block = if let Some(value_block) = &match_expr.value_block {
+            let block = self.value(value_block, &SyntaxShape::MatchBlock, arms_input)?;
             if !type_compatible(&SyntaxShape::MatchBlock.to_type(), &block.ty) {
                 return Err(Unlowered::Error);
             }
-            let output = block.ty.clone();
-            call.add_positional(block);
-            self.finish_keyword_call(&call, decl_id, input_type)?;
-            let span = self.span(e.span);
-            return Ok(self.node(Expr::Call(Box::new(call)), span, output));
-        }
-        let mut arms = Vec::with_capacity(match_expr.arms.len());
-        let mut output = Type::one_of([]);
-        for arm in &match_expr.arms {
-            let (pattern, result) = self.in_scope(|this| {
-                let mut pattern = this.pattern(&arm.pattern)?;
-                if let Some(guard) = &arm.guard {
-                    pattern.guard = Some(Box::new(this.math(guard, None)?));
-                }
-                let result = this.match_result(&arm.body, input_type)?;
-                Ok((pattern, result))
-            })?;
-            output = output.union(self.branch_type(&result, input_type));
-            arms.push((pattern, result));
-        }
-        if !arms.iter().any(|(pattern, _)| pattern.is_wildcard()) {
-            output = output.union(Type::Nothing);
-        }
-        let block_span = self.span(match_expr.block_span);
-        let block = self.node(Expr::MatchBlock(arms), block_span, output.clone());
+            block
+        } else {
+            let mut arms = Vec::with_capacity(match_expr.arms.len());
+            let mut output = Type::one_of([]);
+            for arm in &match_expr.arms {
+                let (pattern, result) = self.in_scope(|this| {
+                    let mut pattern = this.pattern(&arm.pattern)?;
+                    if let Some(guard) = &arm.guard {
+                        pattern.guard = Some(Box::new(this.math(guard, None)?));
+                    }
+                    let result = this.match_result(&arm.body, arms_input)?;
+                    Ok((pattern, result))
+                })?;
+                output = output.union(self.branch_type(&result, arms_input));
+                arms.push((pattern, result));
+            }
+            if !arms.iter().any(|(pattern, _)| pattern.is_wildcard()) {
+                output = output.union(Type::Nothing);
+            }
+            let block_span = self.span(match_expr.block_span);
+            self.node(Expr::MatchBlock(arms), block_span, output)
+        };
+        // The call of `match` takes the type of its arms, not the signature's.
+        let arms_output = block.ty.clone();
         call.add_positional(block);
-        // For its check: the output is the arms' union, not the signature's.
-        self.finish_keyword_call(&call, decl_id, input_type)?;
+        let signature_output = self.finish_keyword_call(&call, decl_id, input_type)?;
+        let output = if aliased {
+            signature_output
+        } else {
+            arms_output
+        };
         let span = self.span(e.span);
         Ok(self.node(Expr::Call(Box::new(call)), span, output))
     }

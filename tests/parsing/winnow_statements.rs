@@ -978,3 +978,56 @@ fn let_in_a_pipeline_calls_a_longer_command() -> Result {
     let code = r#"def "let me" [] { "custom" }; [1] | let me"#;
     test().run(code).expect_value_eq("custom")
 }
+
+/// A call through an alias of `if`, `match` or `try` is lowered as `parse_internal_call` reads
+/// an alias's call: a call to the keyword with the alias's name as its head, typed by the
+/// signature (the branches' and arms' types don't override it), and its blocks get no input.
+#[rstest]
+#[case::if_else("alias i = if\ni true { 1 } else { 2 }", "if", "i")]
+#[case::if_piped("alias i = if\n'str' | i true { $in }", "if", "i")]
+#[case::alias_of_alias("alias i = if\nalias j = i\nj true { 1 }", "if", "j")]
+#[case::match_arms("alias m = match\nm 1 { 1 => 'one', _ => 'other' }", "match", "m")]
+#[case::match_piped("alias m = match\n'str' | m 1 { _ => $in }", "match", "m")]
+#[case::try_catch("alias t = try\nt { 1 } catch { 2 }", "try", "t")]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn call_through_an_alias_of_a_keyword_is_lowered(
+    #[case] code: &str,
+    #[case] keyword: &str,
+    #[case] alias: &str,
+) -> Result {
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let before = nu_parser::winnow_stats();
+    let block = nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    let after = nu_parser::winnow_stats();
+    assert_eq!(working_set.parse_errors, [], "`{code}`");
+    assert_eq!(
+        after.classic_statements, before.classic_statements,
+        "`{code}`: a statement was handed to the classic parser"
+    );
+    let last = &block.pipelines.last().expect("a statement").elements;
+    let last = &last.last().expect("an element").expr;
+    let Expr::Call(call) = &last.expr else {
+        panic!("`{code}`: not a call: {last:?}");
+    };
+    assert_eq!(
+        working_set.get_decl(call.decl_id).name(),
+        keyword,
+        "`{code}`"
+    );
+    assert_eq!(working_set.get_span_contents(call.head), alias.as_bytes());
+    assert_eq!(last.ty, Type::Any, "`{code}`");
+    // A block after the condition, or `match`'s arms, giving `$in`: typed without the
+    // pipeline's input, a string.
+    if code.contains("$in") {
+        let branch = call.positional_iter().nth(1).expect("a second positional");
+        let branch_type = match &branch.expr {
+            Expr::Block(block_id) => working_set.get_block(*block_id).output_type(),
+            _ => branch.ty.clone(),
+        };
+        assert_eq!(branch_type, Type::Any, "`{code}`");
+    }
+    Ok(())
+}
