@@ -4,8 +4,12 @@ Block 0..125
       Signature 93..117
         Param positional `x` 94..103
           Default
+            String Bare "a" 98..99
+          Default
             Int 1 102..103
         Param flag --n `n` 105..116
+          Default
+            Int 1 111..112
           Default
             Int 2 115..116
       Body 119..123

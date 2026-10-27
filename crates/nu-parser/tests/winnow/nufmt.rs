@@ -460,6 +460,20 @@ fn keeps_end_of_options_after_keywords() {
     assert!(!out.contains("a -- b"), "{out}");
 }
 
+/// Every default of a parameter is written back: nu reads them in turn (`[x = a = 1]` makes `x`
+/// the string `"1"`), so dropping one changes the program.
+#[test]
+fn keeps_every_default_of_a_parameter() {
+    let fmt = |s: &str| format(s, &Options::default()).unwrap();
+    for src in [
+        "def f [x = a = 1] { }\n",
+        "def f [--n: int = 1 = 2 = 3] { }\n",
+    ] {
+        assert_eq!(fmt(src), src, "{src}");
+        check(src, src);
+    }
+}
+
 /// The flags of `def` and `extern` are written back, with their values; one written after the
 /// name moves before it, which nu reads the same.
 #[test]

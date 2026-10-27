@@ -1196,6 +1196,41 @@ fn condition_of_items_that_is_no_expression_is_an_error() -> Result {
     Ok(())
 }
 
+/// A parameter's defaults are read in turn, as `parse_signature_helper` reads them, each with
+/// the shape the parameter has then: without a type, `a` makes it a string and `1` is then the
+/// string `"1"`; the last default wins.
+#[rstest]
+#[case::untyped_positional("def f [x = a = 1] { $x | describe }\nf", "string")]
+#[case::untyped_flag("def f [--n = 1 = 2] { $n | describe }\nf", "int")]
+#[case::three_defaults("def f [x = a = b = 1] { $x }\nf", "1")]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn every_default_of_a_parameter_is_read(#[case] code: &str, #[case] expected: &str) -> Result {
+    let engine_state = test().engine_state;
+    parse_lowered(&engine_state, code);
+    test().run(code).expect_value_eq(expected)
+}
+
+/// Every default of a parameter must be a constant, the ones a later default replaces too.
+#[test]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn earlier_default_that_is_no_constant_is_an_error() -> Result {
+    let code = "def f [x: any = $env.PWD = 1] {}";
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    assert!(
+        matches!(
+            working_set.parse_errors.as_slice(),
+            [nu_protocol::ParseError::NonConstantDefaultValue(_)]
+        ),
+        "`{code}`: {:?}",
+        working_set.parse_errors
+    );
+    Ok(())
+}
+
 /// A `def` body with parameters is a closure as `parse_closure_expression` reads it, its
 /// parameters declared in its own scope; `finish_def` then gives it the command's signature.
 #[rstest]

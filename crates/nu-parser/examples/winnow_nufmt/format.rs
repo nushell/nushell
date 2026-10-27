@@ -1121,7 +1121,7 @@ impl<'a> Formatter<'a> {
         if let Some(c) = p.completer {
             let _ = write!(s, "@{}", c.item);
         }
-        if let Some(d) = &p.default {
+        for d in p.earlier_defaults.iter().chain(&p.default) {
             let _ = write!(s, " = {}", self.text(d.span));
         }
         s

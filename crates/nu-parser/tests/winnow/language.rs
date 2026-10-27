@@ -1183,15 +1183,21 @@ fn signature_forms_from_nushell_tests(#[case] src: &str) {
 /// (`1..=5` lexes as `1..`, `=`, `5` in a signature); the tree keeps the last default, so it
 /// marks the parameter. With a type, nu parses every default with it, as the tree does.
 #[rstest]
-#[case("def f [x = 1 = 2] {}", true)]
-#[case("def f [x = 1..=5] {}", true)]
-#[case("def f [--n = a = 1] {}", true)]
-#[case("def f [x: int = 1 = 2] {}", false)]
-#[case("def f [x = 1, y = 2] {}", false)]
-fn second_default_of_an_untyped_parameter_is_marked(#[case] src: &str, #[case] marked: bool) {
+#[case("def f [x = 1 = 2] {}", 1)]
+#[case("def f [x = 1..=5] {}", 1)]
+#[case("def f [--n = a = 1] {}", 1)]
+#[case("def f [x: int = 1 = 2 = 3] {}", 2)]
+#[case("def f [x = 1, y = 2] {}", 0)]
+fn earlier_defaults_of_a_parameter_are_kept(#[case] src: &str, #[case] earlier: usize) {
     let ast = ok(src);
     match &last_expr(&ast).expr {
-        Expr::Def(def) => assert_eq!(def.signature.params[0].extra_default, marked, "{src}"),
+        Expr::Def(def) => {
+            assert_eq!(
+                def.signature.params[0].earlier_defaults.len(),
+                earlier,
+                "{src}"
+            )
+        }
         other => panic!("{src}: {other:?}"),
     }
 }

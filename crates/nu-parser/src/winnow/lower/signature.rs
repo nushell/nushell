@@ -318,14 +318,15 @@ impl<'s> Lower<'_, '_, 's> {
                 }
             };
 
-            if let (Some(default), false) = (&param.default, is_external) {
-                // `parse_signature_helper` reads each `= value` after the first with the shape
-                // the one before gave; the winnow tree keeps only the last.
-                if param.extra_default {
-                    return Err(Unlowered::Unsupported("second default value"));
+            // `parse_signature_helper` reads each `= value` in turn with the shape the parameter
+            // has then, which a default before may have given it; the last one wins.
+            if !is_external {
+                for default in param.earlier_defaults.iter().chain(&param.default) {
+                    let expression = self.value(default, &parameter.default_value_shape(), None)?;
+                    self.checked(|working_set| {
+                        parameter.set_default_value(working_set, expression)
+                    })?;
                 }
-                let expression = self.value(default, &parameter.default_value_shape(), None)?;
-                self.checked(|working_set| parameter.set_default_value(working_set, expression))?;
             }
             parameters.push(parameter);
         }

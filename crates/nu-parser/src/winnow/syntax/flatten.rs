@@ -299,7 +299,7 @@ impl<'a> Visitor<'a> for Flattener<'_> {
             if let Some(completer) = parameter.completer {
                 self.push(completer.span, FlatShape::InternalCall);
             }
-            if let Some(default) = &parameter.default {
+            for default in parameter.earlier_defaults.iter().chain(&parameter.default) {
                 self.visit_expression(default);
             }
         }

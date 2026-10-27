@@ -5004,8 +5004,8 @@ svg.railroad-diagram g.diagram-text:hover path.diagram-text {
   ":" is an error; ":" or "=" with no parameter before them is silently skipped
   nu: parse<em>signatures.rs:641-694
   here: src/winnow/syntax/parser/parse</em>signatures.rs::parse<em>parameters (same modes and skips; a later
-  default without a declared type is parsed as any value and the parameter is
-  marked Parameter::extra</em>default: its type is the consumer’s) </p><section>
+  default without a declared type is parsed as any value; every default is kept,
+  the earlier ones in Parameter::earlier</em>defaults: their types are the consumer’s) </p><section>
   <h4 id="param_head">param_head</h4>
   <div class="diagram-container"><svg class="railroad-diagram" width="276" style="max-height: 212px;" viewBox="0 0 276 212"><g transform="translate(.5 .5)"><g><path d="M20 21v20m0 -10h20"></path></g><g><path d="M40 31h0"></path><path d="M236 31h0"></path><path d="M40 31h20"></path><g class="non-terminal"><path d="M60 31h0"></path><path d="M216 31h0"></path><rect x="60" y="20" width="156" height="22"></rect><a xlink:href="#positional_param"><text x="138" y="35">positional&#95;param</text></a></g><path d="M216 31h20"></path><path d="M40 31a10 10 0 0 1 10 10v10a10 10 0 0 0 10 10"></path><g class="non-terminal"><path d="M60 61h8.5"></path><path d="M207.5 61h8.5"></path><rect x="68.5" y="50" width="139" height="22"></rect><a xlink:href="#optional_param"><text x="138" y="65">optional&#95;param</text></a></g><path d="M216 61a10 10 0 0 0 10 -10v-10a10 10 0 0 1 10 -10"></path><path d="M40 31a10 10 0 0 1 10 10v40a10 10 0 0 0 10 10"></path><g class="non-terminal"><path d="M60 91h25.5"></path><path d="M190.5 91h25.5"></path><rect x="85.5" y="80" width="105" height="22"></rect><a xlink:href="#rest_param"><text x="138" y="95">rest&#95;param</text></a></g><path d="M216 91a10 10 0 0 0 10 -10v-40a10 10 0 0 1 10 -10"></path><path d="M40 31a10 10 0 0 1 10 10v70a10 10 0 0 0 10 10"></path><g class="non-terminal"><path d="M60 121h4.25"></path><path d="M211.75 121h4.25"></path><rect x="64.25" y="110" width="147.5" height="22"></rect><a xlink:href="#long_flag_param"><text x="138" y="125">long&#95;flag&#95;param</text></a></g><path d="M216 121a10 10 0 0 0 10 -10v-70a10 10 0 0 1 10 -10"></path><path d="M40 31a10 10 0 0 1 10 10v100a10 10 0 0 0 10 10"></path><g class="non-terminal"><path d="M60 151h0"></path><path d="M216 151h0"></path><rect x="60" y="140" width="156" height="22"></rect><a xlink:href="#short_flag_param"><text x="138" y="155">short&#95;flag&#95;param</text></a></g><path d="M216 151a10 10 0 0 0 10 -10v-100a10 10 0 0 1 10 -10"></path><path d="M40 31a10 10 0 0 1 10 10v130a10 10 0 0 0 10 10"></path><g class="non-terminal"><path d="M60 181h21.25"></path><path d="M194.75 181h21.25"></path><rect x="81.25" y="170" width="113.5" height="22"></rect><a xlink:href="#short_alias"><text x="138" y="185">short&#95;alias</text></a></g><path d="M216 181a10 10 0 0 0 10 -10v-130a10 10 0 0 1 10 -10"></path></g><path d="M 236 31 h 20 m 0 -10 v 20"></path></g></svg>
 </div>
@@ -6152,7 +6152,7 @@ svg.railroad-diagram g.diagram-text:hover path.diagram-text {
 <p>(6.1) </p>
   </article>
   <footer>
-    <p>Date: 2026-10-27T20:54 - <a href="?theme=dark" data-theme="dark">Dark</a> - <a href="?theme=light" data-theme="light">Light</a></p>
+    <p>Date: 2026-10-27T23:11 - <a href="?theme=dark" data-theme="dark">Dark</a> - <a href="?theme=light" data-theme="light">Light</a></p>
   </footer>
   </main>
   <script type="text/javascript">

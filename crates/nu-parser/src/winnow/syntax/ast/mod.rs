@@ -1307,12 +1307,13 @@ pub struct Parameter<'a> {
     pub name: Spanned<&'a str>,
     /// The type after `:`.
     pub ty: Option<TypeAnnotation<'a>>,
-    /// The default value after `=`.
+    /// The default value after `=`, the last one when there are several.
     pub default: Option<Expression<'a>>,
-    /// Another `= value` followed the default; nu parses it with the first default's type, this
-    /// tree keeps the last. Only a parameter without a type is marked: with one, nu parses
-    /// every default with that type and keeps the last, as this tree does.
-    pub extra_default: bool,
+    /// The defaults written before `default` (`[x = a = 1]`), in source order. nu reads each
+    /// one in turn and the last wins; without a type, each after the first is read with the
+    /// type the one before gave the parameter, which only a consumer knows, so this tree
+    /// parses those as any value.
+    pub earlier_defaults: Vec<Expression<'a>>,
     /// A custom completer after `@` in the type.
     pub completer: Option<Spanned<&'a str>>,
     /// The `# description` comments following the parameter, in source order

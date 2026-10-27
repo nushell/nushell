@@ -1410,8 +1410,8 @@
 ; ":" is an error; ":" or "=" with no parameter before them is silently skipped
 ; nu: parse_signatures.rs:641-694
 ; here: src/winnow/syntax/parser/parse_signatures.rs::parse_parameters (same modes and skips; a later
-;       default without a declared type is parsed as any value and the parameter is
-;       marked Parameter::extra_default: its type is the consumer's)
+;       default without a declared type is parsed as any value; every default is kept,
+;       the earlier ones in Parameter::earlier_defaults: their types are the consumer's)
 
 <param-head>      ::= <positional-param> | <optional-param> | <rest-param>
                     | <long-flag-param> | <short-flag-param> | <short-alias>

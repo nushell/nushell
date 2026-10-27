@@ -388,11 +388,11 @@ fn parse_parameters<'a>(
                         )
                         .with_help("a `...rest` parameter can't have a default value")));
                     }
-                    // nu parses a later default of a parameter without a type with the first
-                    // default's type (`[x = 1..=5]` lexes as `x`, `=`, `1..`, `=`, `5`); this tree
-                    // keeps the last default, parsed as any value, and marks the parameter.
-                    if parameter.ty.is_none() && parameter.default.is_some() {
-                        parameter.extra_default = true;
+                    // nu reads every default in turn (`[x = 1..=5]` lexes as `x`, `=`, `1..`,
+                    // `=`, `5`), a later one of a parameter without a type with the type the one
+                    // before gave it; this tree keeps them all, those parsed as any value.
+                    if let Some(earlier) = parameter.default.take() {
+                        parameter.earlier_defaults.push(earlier);
                     }
                     // The default is parsed with the declared shape (`[x: int = abc]` is an error).
                     let default = match &parameter.ty {
@@ -439,7 +439,7 @@ fn parse_parameter<'a>(
         name: Spanned::new("", span),
         ty: None,
         default: None,
-        extra_default: false,
+        earlier_defaults: Vec::new(),
         completer: None,
         description: Vec::new(),
     };

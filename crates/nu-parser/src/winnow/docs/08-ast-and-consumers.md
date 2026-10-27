@@ -86,12 +86,13 @@ says the same thing nu-parser's does:
   after `use null`). Every member keeps its `value`, the item read as any
   value, which nu keeps as an argument of the call to `use`, and `Use`
   keeps the `--` that ends its options (`end_of_options`).
-* `Parameter::extra_default`: another `= value` followed the default of a
-  parameter without a type (`[x = a = 1]`, or `[x = 1..=5]`, which lexes as
-  `x = 1.. = 5`). nu parses the later default with the first one's type;
-  the tree keeps the last default, parsed as any value, and marks the
-  parameter, so a consumer can check it. With a declared type nu parses
-  every default with that type, as the tree does, and nothing is marked.
+* `Parameter::earlier_defaults`: the defaults before the last when another
+  `= value` follows one (`[x = a = 1]`, or `[x = 1..=5]`, which lexes as
+  `x = 1.. = 5`). nu reads each in turn and the last wins; every one must be
+  a constant, and without a declared type each after the first is read with
+  the type the one before gave the parameter (`a` makes `x` a string, so `1`
+  is the string `"1"`). The tree parses those as any value, so a consumer
+  reads them again; with a declared type each is parsed with it.
 
 `Call::wrapped` is set when the call's head was a `def --wrapped` command
 (`DeclKind::Wrapped`, or an alias of one) at the time the call was parsed,

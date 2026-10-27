@@ -199,7 +199,7 @@ impl<'a> Printer<'a> {
                     "Param {kind} `{}` {}{extra}",
                     param.name.item, param.span
                 ));
-                if let Some(default) = &param.default {
+                for default in param.earlier_defaults.iter().chain(&param.default) {
                     printer.nested(|printer| {
                         printer.line(format_args!("Default"));
                         printer.nested(|printer| printer.expr(default));

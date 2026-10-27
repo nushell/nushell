@@ -368,7 +368,7 @@ pub fn walk_parameter<'a, V: Visitor<'a> + ?Sized>(visitor: &mut V, param: &Para
     if let Some(ty) = &param.ty {
         visitor.visit_type_annotation(ty);
     }
-    if let Some(default) = &param.default {
+    for default in param.earlier_defaults.iter().chain(&param.default) {
         visitor.visit_expression(default);
     }
     for comment in &param.description {
