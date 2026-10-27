@@ -1075,7 +1075,7 @@ impl<'s> Lower<'_, '_, 's> {
 
     /// The comments the classic lite parser keeps with `command` (`LiteCommand::comments`), the
     /// statement of `pipeline` after `attributes`: see [`Self::description`].
-    fn doc_comments(
+    pub(super) fn doc_comments(
         &self,
         pipeline: &w::Pipeline<'s>,
         attributes: &[w::Attribute<'s>],

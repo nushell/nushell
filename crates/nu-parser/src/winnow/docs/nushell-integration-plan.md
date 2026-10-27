@@ -53,10 +53,10 @@ source ──▶ parse_block_streaming (this parser) ──▶ one statement's s
   which reports what it always has. A statement with a syntax error hands the
   rest of its block to `nu-parser`.
 - **`nu-parser` still parses** the statements that link modules and
-  files, except `use`: `module`, `overlay`, `hide`, `source`, `source-env`, `run`. It picks `hide`, `run`, `source` and `source-env` by the first word
+  files, except `use` and `module`: `overlay`, `hide`, `source`, `source-env`, `run`. It picks `hide`, `run`, `source` and `source-env` by the first word
   of the command name, so `source me` is a `source` even where a command
-  `source me` exists. For a `use`, the lowering builds the call and
-  `nu-parser`'s `finish_use` loads the module. The module bodies these load
+  `source me` exists. For a `use` or a `module`, the lowering builds the
+  call and `nu-parser`'s `finish_use` or `finish_module` loads the module. The module bodies these load
   come back to this parser through `parse_module_block`. `nu-parser` also parses a call this parser
   read for a `def --wrapped` command whose name a `hide`, `use` or
   `overlay use` has since bound to another command, and reads its arguments
@@ -66,7 +66,8 @@ source ──▶ parse_block_streaming (this parser) ──▶ one statement's s
 
 The lowering's functions carry the names of the `nu-parser` functions they
 stand in for, and reuse `nu-parser`'s code wherever it does not read spans
-(`finish_def`, `finish_extern`, `finish_alias`, `finish_use`, `add_exportables`,
+(`finish_def`, `finish_extern`, `finish_alias`, `finish_use`, `finish_module`,
+`add_exportables`, `exported_module`,
 `warp_export_call`, `finish_block`, `compile_block`,
 `assemble_signature`, `math_result_type`, `check_call`, `parse_variable_expr`,
 `parse_unknown_arg`, the predicates `is_parser_keyword`, `is_quoted`,

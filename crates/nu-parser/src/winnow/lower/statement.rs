@@ -106,7 +106,7 @@ impl<'s> Lower<'_, '_, 's> {
     }
 
     /// A statement of a module's body (`parse_module_pipeline`): definitions, constants,
-    /// aliases, `use` and `export-env` blocks, and their exports added to `module`, whose body
+    /// aliases, modules, `use` and `export-env` blocks, and their exports added to `module`, whose body
     /// covers `span`. `module` changes only once nothing can fail, since the classic parser
     /// adds the exports of a statement given back.
     fn module_statement(
@@ -143,6 +143,10 @@ impl<'s> Lower<'_, '_, 's> {
             w::Expr::Use(use_statement) if attributes.is_empty() => {
                 let (pipeline, _) =
                     self.use_statement(command, command, use_statement, Some(module))?;
+                return Ok(pipeline);
+            }
+            w::Expr::Module(submodule) if attributes.is_empty() => {
+                let (pipeline, _) = self.module_declaration(pipeline, command, submodule, None)?;
                 return Ok(pipeline);
             }
             w::Expr::Export(export) => match &export.item.expr {
@@ -186,6 +190,20 @@ impl<'s> Lower<'_, '_, 's> {
                 w::Expr::Use(use_statement) if attributes.is_empty() => {
                     let (pipeline, exportables) =
                         self.use_statement(command, &export.item, use_statement, Some(module))?;
+                    let main_span =
+                        double_main_span(pipeline.elements.first().map(|e| &e.expr), span);
+                    add_exportables(
+                        self.working_set,
+                        module,
+                        module_name,
+                        exportables,
+                        main_span,
+                    );
+                    return Ok(pipeline);
+                }
+                w::Expr::Module(submodule) if attributes.is_empty() => {
+                    let (pipeline, exportables) =
+                        self.module_declaration(pipeline, command, submodule, Some(module_name))?;
                     let main_span =
                         double_main_span(pipeline.elements.first().map(|e| &e.expr), span);
                     add_exportables(
@@ -343,6 +361,11 @@ impl<'s> Lower<'_, '_, 's> {
                         self.use_statement(&element.expr, &export.item, use_statement, None)?;
                     return Ok(pipeline);
                 }
+                w::Expr::Module(module) => {
+                    let (pipeline, _) =
+                        self.module_declaration(pipeline, &element.expr, module, None)?;
+                    return Ok(pipeline);
+                }
                 _ => return Err(Unlowered::Unsupported("export")),
             },
             w::Expr::AttributeBlock(block) => {
@@ -367,7 +390,11 @@ impl<'s> Lower<'_, '_, 's> {
             w::Expr::Alias(alias) => self.alias(pipeline, &element.expr, alias, None)?,
             // `parse_type_alias` defines the alias as it parses the statement.
             w::Expr::TypeAlias(_) => return Err(Unlowered::Unsupported("type alias")),
-            w::Expr::Module(_) => return Err(Unlowered::Unsupported("module")),
+            w::Expr::Module(module) => {
+                let (pipeline, _) =
+                    self.module_declaration(pipeline, &element.expr, module, None)?;
+                return Ok(pipeline);
+            }
             w::Expr::Use(use_statement) => {
                 let (pipeline, _) =
                     self.use_statement(&element.expr, &element.expr, use_statement, None)?;

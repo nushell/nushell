@@ -293,15 +293,15 @@ fn alias_with_an_error_in_its_body_is_garbage() -> Result {
 }
 
 /// `alias` and `export alias` in a module's body and `export alias` in a script are lowered:
-/// only the `module` statement, still the classic parser's, is handed to it.
+/// nothing is handed to the classic parser.
 #[rstest]
-#[case::module_export("module m {\n  export alias s = ls -a\n}\nuse m s", 1)]
-#[case::module_private("module m {\n  alias p = ls -a\n  export alias s = p\n}\nuse m s", 1)]
-#[case::script_export("export alias s = ls -a", 0)]
+#[case::module_export("module m {\n  export alias s = ls -a\n}\nuse m s")]
+#[case::module_private("module m {\n  alias p = ls -a\n  export alias s = p\n}\nuse m s")]
+#[case::script_export("export alias s = ls -a")]
 #[nu_test_support::test]
 #[serial]
 #[exp(nu_experimental::WINNOW_PARSER)]
-fn alias_in_a_module_or_exported_is_lowered(#[case] code: &str, #[case] classic: u64) -> Result {
+fn alias_in_a_module_or_exported_is_lowered(#[case] code: &str) -> Result {
     let engine_state = test().engine_state;
     let mut working_set = StateWorkingSet::new(&engine_state);
     let before = nu_parser::winnow_stats();
@@ -309,41 +309,36 @@ fn alias_in_a_module_or_exported_is_lowered(#[case] code: &str, #[case] classic:
     let after = nu_parser::winnow_stats();
     assert_eq!(working_set.parse_errors, [], "`{code}`");
     assert_eq!(
-        after.classic_statements - before.classic_statements,
-        classic,
-        "`{code}`: statements handed to the classic parser"
+        after.classic_statements, before.classic_statements,
+        "`{code}`: a statement was handed to the classic parser"
     );
     let decl = working_set.get_decl(working_set.find_decl(b"s").expect("`s` is declared"));
     assert!(decl.as_alias().is_some(), "`{code}`: `s` is an alias");
     Ok(())
 }
 
-/// The module the `use` tests import from; its `module` statement is the classic parser's.
+/// The module the `use` tests import from.
 const USE_MODULE: &str =
     "module m { export def f [] { 1 }; export def g [] { 2 }; export const c = 3 }\n";
 
 /// `use`, and `export use` in a script or a module's body, are lowered, not handed to the
 /// classic parser: the call to `use`, then `finish_use` as `parse_use` does it, which brings the
-/// members into scope (`declared`). Only the `module` statements are the classic parser's.
+/// members into scope (`declared`).
 #[rstest]
-#[case::name("use m f", 1, Some("f"))]
-#[case::glob("use m *", 1, Some("g"))]
-#[case::list("use m [f g]", 1, Some("g"))]
-#[case::whole_module("use m", 1, Some("m f"))]
-#[case::end_of_options("use -- m f", 1, Some("f"))]
-#[case::constant("use m c\n$c", 1, None)]
-#[case::null("use null", 1, None)]
-#[case::script_export("export use m f", 1, Some("f"))]
-#[case::module_body("module n { use m f; export def h [] { f } }\nuse n h", 2, Some("h"))]
-#[case::module_export("module n { export use m [f c] }\nuse n *\n$c", 2, Some("f"))]
+#[case::name("use m f", Some("f"))]
+#[case::glob("use m *", Some("g"))]
+#[case::list("use m [f g]", Some("g"))]
+#[case::whole_module("use m", Some("m f"))]
+#[case::end_of_options("use -- m f", Some("f"))]
+#[case::constant("use m c\n$c", None)]
+#[case::null("use null", None)]
+#[case::script_export("export use m f", Some("f"))]
+#[case::module_body("module n { use m f; export def h [] { f } }\nuse n h", Some("h"))]
+#[case::module_export("module n { export use m [f c] }\nuse n *\n$c", Some("f"))]
 #[nu_test_support::test]
 #[serial]
 #[exp(nu_experimental::WINNOW_PARSER)]
-fn use_is_lowered(
-    #[case] code: &str,
-    #[case] classic: u64,
-    #[case] declared: Option<&str>,
-) -> Result {
+fn use_is_lowered(#[case] code: &str, #[case] declared: Option<&str>) -> Result {
     let code = format!("{USE_MODULE}{code}");
     let engine_state = test().engine_state;
     let mut working_set = StateWorkingSet::new(&engine_state);
@@ -352,9 +347,8 @@ fn use_is_lowered(
     let after = nu_parser::winnow_stats();
     assert_eq!(working_set.parse_errors, [], "`{code}`");
     assert_eq!(
-        after.classic_statements - before.classic_statements,
-        classic,
-        "`{code}`: statements handed to the classic parser"
+        after.classic_statements, before.classic_statements,
+        "`{code}`: a statement was handed to the classic parser"
     );
     if let Some(name) = declared {
         assert!(
@@ -396,9 +390,8 @@ fn use_keeps_the_errors_of_finish_use(
         "`{code}`: {errors:?}"
     );
     assert_eq!(
-        after.classic_statements - before.classic_statements,
-        1,
-        "`{code}`: statements handed to the classic parser"
+        after.classic_statements, before.classic_statements,
+        "`{code}`: a statement was handed to the classic parser"
     );
     Ok(())
 }
@@ -422,5 +415,118 @@ fn use_call_gets_the_library_directories() -> Result {
             .is_some(),
         "`{code}`: no library directories"
     );
+    Ok(())
+}
+
+/// `module`, and `export module` in a script or a module's body, are lowered, not handed to
+/// the classic parser: the call to `module`, then `finish_module` as `parse_module` does it,
+/// which parses the body as the module's block and adds the module. Nothing is handed over:
+/// the `use` statements are lowered too.
+#[rstest]
+#[case::inline("module m { export def f [] { 1 } }\nuse m f", "f")]
+#[case::script_export("export module m { export def f [] { 1 } }\nuse m f", "f")]
+#[case::private_submodule(
+    "module a {\n  module b { export def c [] {} }\n  export use b c\n}\nuse a c",
+    "c"
+)]
+#[case::exported_submodule("module a { export module b { export def c [] {} } }\nuse a b c", "c")]
+#[case::mod_submodule("module a { export module mod { export def x [] {} } }\nuse a x", "x")]
+#[case::end_of_options("module m { export def f [] {} } --\nuse m f", "f")]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn module_is_lowered(#[case] code: &str, #[case] declared: &str) -> Result {
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let before = nu_parser::winnow_stats();
+    nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    let after = nu_parser::winnow_stats();
+    assert_eq!(working_set.parse_errors, [], "`{code}`");
+    assert_eq!(
+        after.classic_statements, before.classic_statements,
+        "`{code}`: a statement was handed to the classic parser"
+    );
+    assert!(
+        working_set.find_decl(declared.as_bytes()).is_some(),
+        "`{code}`: `{declared}` is not declared"
+    );
+    Ok(())
+}
+
+/// The comments before a `module` statement document the module, with those at the top of its
+/// body (`finish_module`).
+#[test]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn module_doc_comments_are_kept() -> Result {
+    let code = "# Before\nmodule m {\n  # Inside\n\n  export def f [] {}\n}";
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    assert_eq!(working_set.parse_errors, [], "`{code}`");
+    let module_id = working_set.find_module(b"m").expect("`m` is a module");
+    let comments: Vec<String> = working_set
+        .get_module_comments(module_id)
+        .unwrap_or_default()
+        .iter()
+        .map(|span| String::from_utf8_lossy(working_set.get_span_contents(*span)).into_owned())
+        .collect();
+    assert_eq!(comments, ["# Before", "# Inside"], "`{code}`");
+    Ok(())
+}
+
+/// What `finish_module` reports is kept with the lowered statement, never handed back, as
+/// nu-parser reports it: a module file that does not exist (reported twice), and an `export
+/// module` named as the module it is in (`NamedAsModule`, then an internal error: no module was
+/// added to export).
+#[rstest]
+#[case::missing_file("module nope.nu", &["ModuleNotFound", "ModuleNotFound"])]
+#[case::named_as_parent("module a { export module a {} }", &["NamedAsModule", "InternalError"])]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn module_keeps_the_errors_of_finish_module(
+    #[case] code: &str,
+    #[case] expected: &[&str],
+) -> Result {
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let before = nu_parser::winnow_stats();
+    nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    let after = nu_parser::winnow_stats();
+    let errors: Vec<String> = working_set
+        .parse_errors
+        .iter()
+        .map(|error| format!("{error:?}"))
+        .collect();
+    assert!(
+        errors.len() == expected.len()
+            && errors
+                .iter()
+                .zip(expected)
+                .all(|(e, name)| e.starts_with(name)),
+        "`{code}`: {errors:?}"
+    );
+    assert_eq!(
+        after.classic_statements, before.classic_statements,
+        "`{code}`: a statement was handed to the classic parser"
+    );
+    Ok(())
+}
+
+/// The call to `module` covers the `--` nu drops after the body, as `parse_module`'s covers all
+/// the statement's items.
+#[rstest]
+#[case::module("module m {} --")]
+#[case::export("export module m {} --")]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn module_call_covers_its_end_of_options(#[case] code: &str) -> Result {
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let block = nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    assert_eq!(working_set.parse_errors, [], "`{code}`");
+    let span = block.pipelines[0].elements[0].expr.span;
+    assert_eq!(working_set.get_span_contents(span), code.as_bytes());
     Ok(())
 }

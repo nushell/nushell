@@ -1,5 +1,5 @@
-//! Module statements: `use` and `export use` (the classic parser's `parse_use`, in
-//! `parse_module.rs`).
+//! Module statements: `module` and `use`, and their `export` (the classic parser's
+//! `parse_module` and `parse_use`, in `parse_module.rs`).
 
 use nu_protocol::{Module, Span, ast::Pipeline};
 
@@ -7,11 +7,84 @@ use super::{Lower, Lowered, Unlowered};
 use crate::winnow::syntax::ast as w;
 use crate::{
     exportable::Exportable,
+    parse_helpers::garbage,
     parse_keywords::find_keyword_decl,
-    parse_module::{finish_use, warp_export_call},
+    parse_module::{exported_module, finish_module, finish_use, warp_export_call},
 };
 
 impl<'s> Lower<'_, '_, 's> {
+    /// `module name { body }` or `module path` (`parse_module`), or `export module` when
+    /// `command` is an `export`: the call to `module`, which reads only the name, as a
+    /// string, and leaves the body garbage (`ArgumentParsingLevel::FirstK`), then
+    /// `finish_module`, which parses the module's file or its body (`parse_module_block`) and
+    /// adds the module, and for `export module` the call made a call to `export module`
+    /// (`warp_export_call`). In a module named `parent_name`, an `export module` exports the
+    /// module (`parse_export_in_module`), which must not have the parent's name; the exports
+    /// are returned with the statement.
+    ///
+    /// As for `use`, once `finish_module` has run the statement is never handed back: it
+    /// changed the working set, and a module file parsed the first time would not report its
+    /// errors again.
+    pub(super) fn module_declaration(
+        &mut self,
+        pipeline: &w::Pipeline<'s>,
+        command: &w::Expression<'s>,
+        module: &w::Module<'s>,
+        parent_name: Option<&[u8]>,
+    ) -> Lowered<(Pipeline, Vec<Exportable>)> {
+        let export = matches!(command.expr, w::Expr::Export(_));
+        let decl_id = find_keyword_decl(self.working_set, b"module")
+            .ok_or(Unlowered::Unsupported("module that is not a keyword"))?;
+        if export && find_keyword_decl(self.working_set, b"export module").is_none() {
+            return Err(Unlowered::Unsupported(
+                "export module that is not a keyword",
+            ));
+        }
+        let head = self.command_head(command, "module");
+        let body_span = match &module.body {
+            Some(body) => Some(self.braces_span(body)?),
+            None => None,
+        };
+        let name = w::Argument::Positional((*module.name).clone());
+        let (mut call, _) = self.internal_call(head, &[name], decl_id, None)?;
+        if let Some(body_span) = body_span {
+            let span = self.span(body_span);
+            call.add_positional(garbage(self.working_set, span));
+        }
+        // The whole statement, a `--` after the body included (which nu drops, and which the
+        // span of the `module` after an `export` leaves out).
+        let call_span = Span::new(head.start, self.span(command.span).end);
+        let comments = self.doc_comments(pipeline, &[], command);
+        let (mut statement, module_id) = finish_module(
+            self.working_set,
+            call,
+            call_span,
+            body_span.map(|span| self.span(span)),
+            parent_name,
+            comments,
+        );
+        if !export {
+            return Ok((statement, Vec::new()));
+        }
+        // `export`, `module`, and the rest of the statement, as `warp_export_call` takes them.
+        let keyword = Span::new(head.end - "module".len(), head.end);
+        let spans = [
+            Span::new(head.start, head.start + "export".len()),
+            keyword,
+            Span::new(call_span.end, call_span.end),
+        ];
+        warp_export_call(self.working_set, &mut statement, "export module", &spans);
+        let exportables = match parent_name {
+            Some(_) => {
+                let name_span = self.span(module.name.span);
+                let span = Span::new(keyword.start, call_span.end);
+                exported_module(self.working_set, module_id, name_span, span)
+            }
+            None => Vec::new(),
+        };
+        Ok((statement, exportables))
+    }
+
     /// `use module members` (`parse_use`), or `export use` when `command` is an `export` of
     /// `item`: the call to `use`, its arguments read with the signature's shapes
     /// (`parse_internal_call`), then `finish_use`, which finds the module (parsing its file)
