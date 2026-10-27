@@ -32,7 +32,11 @@ use std::{collections::HashSet, sync::Arc};
 
 use nu_protocol::parser_path::ParserPath;
 
-fn warp_export_call(
+/// Make the call that `pipeline` starts with a call to `full_name` (`export def`, `export use`,
+/// ...), covering `spans`, whose first two are `export` and the keyword. Returns `false`
+/// when there is no `full_name` command; an error is reported then, and when the pipeline
+/// does not start with a call.
+pub(crate) fn warp_export_call(
     working_set: &mut StateWorkingSet,
     pipeline: &mut Pipeline,
     full_name: &str,
@@ -576,65 +580,7 @@ pub(crate) fn parse_module_pipeline(
                 parse_export_in_module(working_set, command, module_name, module);
             let main_span = double_main_span(pipe.elements.first().map(|e| &e.expr), span);
 
-            for exportable in exportables {
-                match exportable {
-                    Exportable::Decl { name, id } => {
-                        if &name == b"main" {
-                            set_module_main(working_set, module, module_name, id, main_span);
-                        } else {
-                            module.add_decl(name, id);
-                        }
-                    }
-                    Exportable::Module { name, id } => {
-                        if &name == b"mod" {
-                            let (
-                                submodule_main,
-                                submodule_decls,
-                                submodule_submodules,
-                                submodule_type_aliases,
-                            ) = {
-                                let submodule = working_set.get_module(id);
-                                (
-                                    submodule.main,
-                                    submodule.decls(),
-                                    submodule.submodules(),
-                                    submodule.type_aliases.clone(),
-                                )
-                            };
-
-                            for (decl_name, decl_id) in submodule_decls {
-                                module.add_decl(decl_name, decl_id);
-                            }
-
-                            for (alias_name, type_alias_id) in submodule_type_aliases {
-                                module.add_type_alias(alias_name, type_alias_id);
-                            }
-
-                            if let Some(main_decl_id) = submodule_main {
-                                set_module_main(
-                                    working_set,
-                                    module,
-                                    module_name,
-                                    main_decl_id,
-                                    main_span,
-                                );
-                            }
-
-                            for (submodule_name, submodule_id) in submodule_submodules {
-                                module.add_submodule(submodule_name, submodule_id);
-                            }
-                        } else {
-                            module.add_submodule(name, id);
-                        }
-                    }
-                    Exportable::VarDecl { name, id } => {
-                        module.add_variable(name, id);
-                    }
-                    Exportable::TypeAlias { name, id } => {
-                        module.add_type_alias(name, id);
-                    }
-                }
-            }
+            add_exportables(working_set, module, module_name, exportables, main_span);
 
             pipe
         }
@@ -660,6 +606,71 @@ pub(crate) fn parse_module_pipeline(
             ));
 
             garbage_pipeline(working_set, &command.parts)
+        }
+    }
+}
+
+/// Add what an `export` statement exports (`exportables`) to `module`, named `module_name`:
+/// a command named `main` as its main command, a submodule named `mod` by adding its
+/// contents, anything else by name. `main_span` is where `ModuleDoubleMain` points.
+pub(crate) fn add_exportables(
+    working_set: &mut StateWorkingSet,
+    module: &mut Module,
+    module_name: &[u8],
+    exportables: Vec<Exportable>,
+    main_span: Span,
+) {
+    for exportable in exportables {
+        match exportable {
+            Exportable::Decl { name, id } => {
+                if &name == b"main" {
+                    set_module_main(working_set, module, module_name, id, main_span);
+                } else {
+                    module.add_decl(name, id);
+                }
+            }
+            Exportable::Module { name, id } => {
+                if &name == b"mod" {
+                    let (
+                        submodule_main,
+                        submodule_decls,
+                        submodule_submodules,
+                        submodule_type_aliases,
+                    ) = {
+                        let submodule = working_set.get_module(id);
+                        (
+                            submodule.main,
+                            submodule.decls(),
+                            submodule.submodules(),
+                            submodule.type_aliases.clone(),
+                        )
+                    };
+
+                    for (decl_name, decl_id) in submodule_decls {
+                        module.add_decl(decl_name, decl_id);
+                    }
+
+                    for (alias_name, type_alias_id) in submodule_type_aliases {
+                        module.add_type_alias(alias_name, type_alias_id);
+                    }
+
+                    if let Some(main_decl_id) = submodule_main {
+                        set_module_main(working_set, module, module_name, main_decl_id, main_span);
+                    }
+
+                    for (submodule_name, submodule_id) in submodule_submodules {
+                        module.add_submodule(submodule_name, submodule_id);
+                    }
+                } else {
+                    module.add_submodule(name, id);
+                }
+            }
+            Exportable::VarDecl { name, id } => {
+                module.add_variable(name, id);
+            }
+            Exportable::TypeAlias { name, id } => {
+                module.add_type_alias(name, id);
+            }
         }
     }
 }
@@ -1189,6 +1200,30 @@ pub fn parse_use(
         }
     };
 
+    finish_use(
+        working_set,
+        call,
+        name_span,
+        call_span,
+        args_spans,
+        parent_module,
+    )
+}
+
+/// What `parse_use` does with its call to `use`: the import pattern read from the call's
+/// arguments, the module found (its file parsed when it is not loaded yet) and the members the
+/// pattern names brought into scope. Returns the statement and the members, which an `export
+/// use` in a module exports. `name_span` is the `use` word, `call_span` the statement and
+/// `args_spans` the items after `use`; in a module's body, `parent_module` keeps track of the
+/// modules it imports.
+pub(crate) fn finish_use(
+    working_set: &mut StateWorkingSet,
+    call: Box<Call>,
+    name_span: Span,
+    call_span: Span,
+    args_spans: &[Span],
+    parent_module: Option<&mut Module>,
+) -> (Pipeline, Vec<Exportable>) {
     let import_pattern_expr = parse_import_pattern(working_set, call.positional_iter(), args_spans);
 
     let import_pattern = match &import_pattern_expr {
@@ -1205,7 +1240,7 @@ pub fn parse_use(
                 Pipeline::from_vec(vec![Expression::new(
                     working_set,
                     Expr::Call(call),
-                    Span::concat(spans),
+                    call_span,
                     Type::Any,
                 )]),
                 vec![],
@@ -1220,7 +1255,7 @@ pub fn parse_use(
                 "internal error: Import pattern positional is not import pattern".into(),
                 import_pattern_expr.span,
             ));
-            return (garbage_pipeline(working_set, spans), vec![]);
+            return (garbage_pipeline(working_set, &[call_span]), vec![]);
         }
     };
 
@@ -1380,7 +1415,7 @@ pub fn parse_use(
         Pipeline::from_vec(vec![Expression::new(
             working_set,
             Expr::Call(call),
-            Span::concat(spans),
+            call_span,
             Type::Any,
         )]),
         exportables,
