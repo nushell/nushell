@@ -144,6 +144,14 @@ impl Command for StrSubstring {
                 example: " 'good nushell' | str substring 5..-2",
                 result: Some(Value::test_string("nushel")),
             },
+            Example {
+                description: "Get a substring from a string field in a record.",
+                example: " { name: 'Paul Smith', number: 13 } | str substring 0..3 name",
+                result: Some(Value::test_record(record! {
+                    "name" => Value::test_string("Paul"),
+                    "number" => Value::test_int(13),
+                })),
+            },
         ]
     }
 }
