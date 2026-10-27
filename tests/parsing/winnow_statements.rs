@@ -1,7 +1,7 @@
 //! Regression tests for the `winnow-parser` front end (statements): each pins a case where it
 //! parsed differently from the classic parser.
 
-use nu_protocol::{Type, Value, ast::Expr, engine::StateWorkingSet};
+use nu_protocol::{Type, TypeSet, Value, ast::Expr, engine::StateWorkingSet};
 use nu_test_support::prelude::*;
 use rstest::rstest;
 
@@ -1048,6 +1048,75 @@ fn parse_lowered<'e>(
         "`{code}`: a statement was handed to the classic parser"
     );
     (working_set, block)
+}
+
+/// A positional that reads several items (`parse_multispan_value`) is lowered when the items
+/// `calculate_end_span` gives it are read one at a time: a condition of one item, a keyword
+/// and its value, a `oneof` of keywords, and `if` or `match` with the items after it, a call.
+/// The call is typed as `parse_internal_call` types `if`: its blocks get the input, its output
+/// is the branches' union, with `nothing` when it has fewer than three arguments, flags
+/// counted (`if --help=false true { 1 }` has three). Without an `else`, the condition takes
+/// every item but the block's (`if true { 1 } --help` is an error).
+#[rstest]
+#[case::if_help("if true --help", "if", Type::Any)]
+#[case::while_help("while true --help", "while", Type::Nothing)]
+#[case::flag_counts_as_argument("if --help=false true { 1 }", "if", Type::Int)]
+#[case::else_then_help("if true { 1 } else { 's' } --help", "if", Type::Int.union(Type::String))]
+#[case::if_input("'s' | if true { $in } else { $in } --help", "if", Type::String)]
+#[case::try_handler_then_end_of_options("try {} --help catch {} --", "try", Type::Any)]
+#[case::if_as_condition("if if --help --help", "if", Type::Any)]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn multi_item_argument_is_lowered(
+    #[case] code: &str,
+    #[case] keyword: &str,
+    #[case] ty: Type,
+) -> Result {
+    let engine_state = test().engine_state;
+    let (working_set, block) = parse_lowered(&engine_state, code);
+    let last = &block.pipelines[0].elements.last().expect("an element").expr;
+    let Expr::Call(call) = &last.expr else {
+        panic!("`{code}`: not a call: {last:?}");
+    };
+    assert_eq!(
+        working_set.get_decl(call.decl_id).name(),
+        keyword,
+        "`{code}`"
+    );
+    assert!(call.get_named_arg("help").is_some(), "`{code}`: {call:?}");
+    assert_eq!(last.ty, ty, "`{code}`");
+    match code {
+        "try {} --help catch {} --" => assert!(
+            matches!(
+                &call.positional_iter().nth(1).expect("a handler").expr,
+                Expr::Keyword(_)
+            ),
+            "`{code}`: {call:?}"
+        ),
+        "if if --help --help" => {
+            let Expr::Call(condition) = &call.positional_iter().next().expect("a condition").expr
+            else {
+                panic!("`{code}`: the condition is not a call: {call:?}");
+            };
+            assert!(condition.get_named_arg("help").is_some(), "`{code}`");
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
+/// A `break` in a handler of a call for help of `try` in a loop is no error: as in a `try`
+/// statement, `parse_internal_call` drops the handler's own `NotInALoop`.
+#[test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn break_in_a_help_call_handler_compiles() -> Result {
+    let code = "loop { try {} --help catch { break } }";
+    let engine_state = test().engine_state;
+    let (working_set, _) = parse_lowered(&engine_state, code);
+    assert_eq!(working_set.compile_errors, [], "`{code}`");
+    Ok(())
 }
 
 /// `let` without a value is a call to `let` (`parse_let` with fewer than four items): its

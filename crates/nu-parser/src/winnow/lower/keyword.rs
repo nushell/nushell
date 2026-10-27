@@ -211,7 +211,7 @@ impl<'s> Lower<'_, '_, 's> {
 
     /// The type a branch of `if` or `match` gives: its block's output, or the input for an
     /// empty block (as `parse_internal_call` and `parse_match_block_expression` compute it).
-    fn branch_type(&self, branch: &Expression, input_type: Option<&Type>) -> Type {
+    pub(super) fn branch_type(&self, branch: &Expression, input_type: Option<&Type>) -> Type {
         match &branch.expr {
             Expr::Block(block_id) => {
                 let block = self.working_set.get_block(*block_id);

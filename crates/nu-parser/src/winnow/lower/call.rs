@@ -4,7 +4,7 @@
 
 use nu_engine::DIR_VAR_PARSER_INFO;
 use nu_protocol::{
-    DeclId, Flag, Span, Spanned, SyntaxShape, Type,
+    CompileError, DeclId, Flag, Span, Spanned, SyntaxShape, Type, TypeSet,
     ast::{Argument, Call, Expr, Expression, ExternalArgument, Keyword},
     engine::CommandType,
 };
@@ -13,11 +13,11 @@ use super::{Lower, Lowered, Unlowered};
 use crate::winnow::syntax::{DeclKind, Span as WSpan, ast as w};
 use crate::{
     parse_calls::{
-        CallKind, find_decl_with_command_type, find_longest_decl_with_prefix,
+        CallKind, accepts_any_bareword, find_decl_with_command_type, find_longest_decl_with_prefix,
         parse_external_string, parse_regular_external_arg, parse_unknown_arg,
         shape_allows_negative_number, strict_extern_forwards,
     },
-    parse_expressions::parse_value as classic_value,
+    parse_expressions::{is_math_expression_like, parse_value as classic_value},
     parse_helpers::{PERCENT_FORCED_BUILTIN_PARSER_INFO, is_variable},
     parse_keywords::is_parser_keyword,
     parse_signatures::ensure_not_reserved_variable_name,
@@ -281,9 +281,12 @@ impl<'s> Lower<'_, '_, 's> {
             _ => false,
         };
         let alias_call = decl.as_alias().map(|alias| alias.wrapped_call.clone());
-        // `let`'s variable gets the statement's input type (`SpecialCmd::Let`).
-        let let_input = input_type.filter(|_| decl.is_keyword() && decl.name() == "let");
-        let is_match = decl.is_keyword() && decl.name() == "match";
+        let special = match decl.is_keyword().then(|| decl.name()) {
+            Some("let") => Some(SpecialKeyword::Let),
+            Some("match") => Some(SpecialKeyword::Match),
+            Some("if") => Some(SpecialKeyword::If),
+            _ => None,
+        };
 
         let output = self
             .working_set
@@ -311,21 +314,23 @@ impl<'s> Lower<'_, '_, 's> {
         if signature.creates_scope {
             self.working_set.enter_scope();
         }
-        let result =
-            self.assign_arguments(&mut call, arguments, &signature, positional_idx, let_input);
+        let result = self.assign_arguments(
+            &mut call,
+            arguments,
+            &signature,
+            positional_idx,
+            special,
+            input_type,
+        );
         if signature.creates_scope {
             self.working_set.exit_scope();
         }
-        result?;
-        // Once it has read the variable, `let` gives the statement's input as its output, and
-        // `match` the type of its arms (`SpecialCmd`).
-        let output = match let_input {
-            Some(input) if call.positional_iter().next().is_some() => input.clone(),
-            _ => match (is_match, call.positional_iter().nth(1)) {
-                (true, Some(arms)) => arms.ty.clone(),
-                _ => output,
-            },
-        };
+        let mut output_override = result?;
+        // Without an `else` (counting every argument, flags too), `if` may give nothing.
+        if special == Some(SpecialKeyword::If) && call.arguments.len() < 3 {
+            output_override = output_override.map(|ty| ty.union(Type::Nothing));
+        }
+        let output = output_override.unwrap_or(output);
 
         let kind = self.check_call(head, &signature, &call)?;
         for warning in deprecation
@@ -337,16 +342,20 @@ impl<'s> Lower<'_, '_, 's> {
         Ok((Box::new(call), output, kind))
     }
 
-    /// Put `arguments` into `call` as the signature says, in source order; `let_input` is the
-    /// type of a variable `let` declares.
+    /// Put `arguments` into `call` as the signature says, in source order. `special` is the
+    /// keyword `parse_internal_call` reads some positionals of in its own way (`SpecialCmd`):
+    /// `let`'s variable, `if`'s blocks and `match`'s arms get `input_type`, and the call's output
+    /// is the variable's input, the branches' union or the arms' type, which this returns.
     fn assign_arguments(
         &mut self,
         call: &mut Call,
         arguments: &[w::Argument<'s>],
         signature: &nu_protocol::Signature,
         mut positional_idx: usize,
-        let_input: Option<&Type>,
-    ) -> Lowered<()> {
+        special: Option<SpecialKeyword>,
+        input_type: Option<&Type>,
+    ) -> Lowered<Option<Type>> {
+        let mut output_override = None;
         let mut end_of_options = false;
         // An index rather than an iterator: a flag may take the next argument as its value.
         let mut index = 0;
@@ -428,49 +437,79 @@ impl<'s> Lower<'_, '_, 's> {
                     }
                     if let Some(positional) = signature.get_positional(positional_idx) {
                         let shape = &positional.shape;
-                        // A row condition reads the items from here on (`parse_multispan_value`),
-                        // so the call's last item is one by itself (`parse_row_condition`); the
-                        // winnow parser read a row-condition command's arguments as one
-                        // condition unless the first is a flag (`DeclKind::RowCondition`).
-                        let value = if matches!(shape, SyntaxShape::RowCondition)
-                            && index == arguments.len()
-                        {
-                            self.row_condition(expr)?
-                        } else if matches!(
-                            shape,
-                            SyntaxShape::Signature | SyntaxShape::ExternalSignature
-                        ) && self.text(expr.span).starts_with('[')
-                            && self.multi_item_count(
-                                signature,
-                                arguments,
-                                index - 1,
-                                positional_idx,
-                            ) == 1
-                        {
-                            // A signature of one item, which `parse_full_signature` reads as the
-                            // value parser reads the shape (`parse_signature`).
-                            let span = self.span(expr.span);
-                            self.checked(|ws| classic_value(ws, span, shape, None))?
-                        } else if matches!(shape, SyntaxShape::VarWithOptType)
-                            && !self.text(expr.span).ends_with(':')
-                        {
-                            // Without a `:` after it, the name is the variable's only item.
-                            self.variable_item(expr, let_input)?
-                        } else if let SyntaxShape::Keyword(keyword, value_shape) = shape
-                            && !is_multispan_shape(value_shape)
-                        {
-                            index += 1;
-                            self.keyword_argument(
-                                expr,
-                                keyword,
-                                value_shape,
-                                arguments.get(index - 1),
-                            )?
-                        } else if is_multispan_shape(shape) {
-                            return Err(Unlowered::Unsupported("multi-item argument"));
-                        } else {
-                            self.value(expr, shape, None)?
+                        let positional_input = match special {
+                            Some(SpecialKeyword::Let)
+                                if matches!(shape, SyntaxShape::VarWithOptType) =>
+                            {
+                                output_override = input_type.cloned();
+                                input_type
+                            }
+                            Some(SpecialKeyword::If) if positional_idx >= 1 => input_type,
+                            Some(SpecialKeyword::Match) if positional.name == "match_block" => {
+                                input_type
+                            }
+                            _ => None,
                         };
+                        let compile_errors = self.working_set.compile_errors.len();
+                        let value = if is_multispan_shape(shape) {
+                            // The items `calculate_end_span` gives the positional, from this one.
+                            let item = index - 1;
+                            let end = item
+                                + self.multi_item_count(signature, arguments, item, positional_idx);
+                            let (value, next) = self.multispan_value(
+                                arguments,
+                                item,
+                                end,
+                                shape,
+                                positional_input,
+                            )?;
+                            index = next;
+                            value
+                        } else {
+                            self.value(expr, shape, positional_input)?
+                        };
+                        // `try`'s handler is a closure, compiled on its own, so a `break` in it
+                        // is outside any loop: `parse_internal_call` drops that error when it
+                        // is the handler's own (its closure has no IR), for each positional
+                        // whose shape lists the `catch` keyword (`try_call` does the same).
+                        if let SyntaxShape::OneOf(shapes) = shape
+                            && shapes.iter().any(|shape| {
+                                matches!(shape, SyntaxShape::Keyword(keyword, _) if keyword == b"catch")
+                            })
+                            && let [CompileError::NotInALoop { .. }] =
+                                &self.working_set.compile_errors[compile_errors..]
+                            && let Expr::Keyword(clause) = &value.expr
+                            && let Expr::Closure(block_id) = clause.expr.expr
+                            && self.working_set.get_block(block_id).ir_block.is_none()
+                        {
+                            self.working_set.compile_errors.truncate(compile_errors);
+                        }
+                        match special {
+                            Some(SpecialKeyword::Match) if positional.name == "match_block" => {
+                                output_override = Some(value.ty.clone());
+                            }
+                            // `if`'s branches: the block after the condition, the `else` value.
+                            Some(SpecialKeyword::If)
+                                if positional_idx == 1 && matches!(value.expr, Expr::Block(_)) =>
+                            {
+                                let ty = self.branch_type(&value, input_type);
+                                output_override = Some(match output_override {
+                                    Some(existing) => existing.union(ty),
+                                    None => ty,
+                                });
+                            }
+                            Some(SpecialKeyword::If)
+                                if positional_idx == 2
+                                    && let Expr::Keyword(keyword) = &value.expr =>
+                            {
+                                let ty = self.branch_type(&keyword.expr, input_type);
+                                output_override = Some(match output_override {
+                                    Some(existing) => existing.union(ty),
+                                    None => ty,
+                                });
+                            }
+                            _ => {}
+                        }
                         if !type_compatible(&shape.to_type(), &value.ty) {
                             return Err(Unlowered::Error);
                         }
@@ -485,7 +524,166 @@ impl<'s> Lower<'_, '_, 's> {
                 }
             }
         }
-        Ok(())
+        Ok(output_override)
+    }
+
+    /// The value of a positional of the multi-item `shape` that starts at `arguments[index]`,
+    /// read from the items before `end` (`calculate_end_span`) as `parse_multispan_value` reads
+    /// them. Returns it and the index of the item after the last one it read: a variable
+    /// without a type, a keyword and a one-item shape stop early, a row condition, a math
+    /// expression, an expression and a signature read up to `end`. Items it can read only
+    /// together, which the winnow parser read one by one, are left to the classic parser.
+    fn multispan_value(
+        &mut self,
+        arguments: &[w::Argument<'s>],
+        index: usize,
+        end: usize,
+        shape: &SyntaxShape,
+        input_type: Option<&Type>,
+    ) -> Lowered<(Expression, usize)> {
+        // No item before the next keyword's: the classic parser's missing positional.
+        if end <= index {
+            return Err(Unlowered::Error);
+        }
+        let Some(w::Argument::Positional(item)) = arguments.get(index) else {
+            return Err(Unlowered::Unsupported("multi-item argument"));
+        };
+        let text = self.text(item.span);
+        let one_item = end == index + 1;
+        let value = match shape {
+            SyntaxShape::OneOf(shapes) => {
+                return self.multispan_one_of(arguments, index, end, shapes, input_type);
+            }
+            SyntaxShape::Keyword(keyword, value_shape) => {
+                return self.keyword_value(arguments, index, end, keyword, value_shape, input_type);
+            }
+            // Without a `:` after it, the name is the variable's only item.
+            SyntaxShape::VarWithOptType if !text.ends_with(':') => {
+                return Ok((self.variable_item(item, input_type)?, index + 1));
+            }
+            // `parse_math_expression` reads `if` or `match` and the items after it as a call
+            // (`parse_call`), and either alone as an error.
+            SyntaxShape::MathExpression | SyntaxShape::Expression
+                if matches!(text, "if" | "match") =>
+            {
+                if one_item {
+                    return Err(Unlowered::Error);
+                }
+                self.items_call(item, &arguments[index + 1..end], input_type)?
+            }
+            SyntaxShape::RowCondition if one_item => self.row_condition(item)?,
+            SyntaxShape::MathExpression if one_item => self.math(item, input_type)?,
+            // `parse_expression` reads one item that looks like a value as a math expression.
+            SyntaxShape::Expression
+                if one_item && is_math_expression_like(self.working_set, self.span(item.span)) =>
+            {
+                self.math(item, input_type)?
+            }
+            // A signature of one item, which `parse_full_signature` reads as the value parser
+            // reads the shape (`parse_signature`).
+            SyntaxShape::Signature | SyntaxShape::ExternalSignature
+                if one_item && text.starts_with('[') =>
+            {
+                let span = self.span(item.span);
+                self.checked(|ws| classic_value(ws, span, shape, None))?
+            }
+            _ if !is_multispan_shape(shape) => {
+                return Ok((self.value(item, shape, input_type)?, index + 1));
+            }
+            _ => return Err(Unlowered::Unsupported("multi-item argument")),
+        };
+        Ok((value, end))
+    }
+
+    /// A multi-item `oneof` (`parse_oneof` with `multispan`): the first of `shapes` that reads
+    /// the items from `index` without an error, in the order [`Self::one_of`] tries them. A
+    /// shape whose reading is left to the classic parser ends the search, since the classic
+    /// parser might read it without an error.
+    fn multispan_one_of(
+        &mut self,
+        arguments: &[w::Argument<'s>],
+        index: usize,
+        end: usize,
+        shapes: &[SyntaxShape],
+        input_type: Option<&Type>,
+    ) -> Lowered<(Expression, usize)> {
+        let defer_barewords = !matches!(
+            self.text(arguments[index].span()).as_bytes().first(),
+            Some(b'$' | b'(' | b'{')
+        );
+        let deferred = |shape: &&SyntaxShape| defer_barewords && accepts_any_bareword(shape);
+        let ordered = shapes
+            .iter()
+            .filter(|shape| !deferred(shape))
+            .chain(shapes.iter().filter(|shape| deferred(shape)));
+        for shape in ordered {
+            let errors = self.working_set.parse_errors.len();
+            let warnings = self.working_set.parse_warnings.len();
+            let compile_errors = self.working_set.compile_errors.len();
+            match self.multispan_value(arguments, index, end, shape, input_type) {
+                Ok(value) if self.working_set.parse_errors.len() == errors => return Ok(value),
+                Err(unsupported @ Unlowered::Unsupported(_)) => return Err(unsupported),
+                _ => {
+                    self.working_set.parse_errors.truncate(errors);
+                    self.working_set.parse_warnings.truncate(warnings);
+                    self.working_set.compile_errors.truncate(compile_errors);
+                }
+            }
+        }
+        Err(Unlowered::Error)
+    }
+
+    /// A keyword parameter's argument, `keyword value`, from `arguments[index]` (the `Keyword`
+    /// case of `parse_multispan_value`): the item at `index` must be the keyword and the value
+    /// is read from the items after it, before `end`, with `shape`. Another word, or no item
+    /// left for the value, is the classic parser's error.
+    fn keyword_value(
+        &mut self,
+        arguments: &[w::Argument<'s>],
+        index: usize,
+        end: usize,
+        keyword: &[u8],
+        shape: &SyntaxShape,
+        input_type: Option<&Type>,
+    ) -> Lowered<(Expression, usize)> {
+        let word = arguments[index].span();
+        if self.text(word).as_bytes() != keyword || index + 1 >= end {
+            return Err(Unlowered::Error);
+        }
+        let (value, next) = self.multispan_value(arguments, index + 1, end, shape, input_type)?;
+        let span = self.span(word);
+        let ty = value.ty.clone();
+        let full = span.merge(value.span);
+        let keyword = Keyword {
+            keyword: keyword.into(),
+            span,
+            expr: value,
+        };
+        Ok((self.node(Expr::Keyword(Box::new(keyword)), full, ty), next))
+    }
+
+    /// `head` and the `arguments` after it, items of another call, read as one call
+    /// (`parse_call`), as `parse_math_expression` reads an `if` or a `match` among its items.
+    fn items_call(
+        &mut self,
+        head: &w::Expression<'s>,
+        arguments: &[w::Argument<'s>],
+        input_type: Option<&Type>,
+    ) -> Lowered<Expression> {
+        let span = arguments
+            .last()
+            .map_or(head.span, |last| head.span.merge(last.span()));
+        let call = w::Call {
+            head: w::CallHead {
+                name: self.text(head.span).into(),
+                span: head.span,
+            },
+            arguments: arguments.to_vec(),
+            sigil: None,
+            wrapped: false,
+        };
+        let e = w::Expression::new(w::Expr::Call(call.clone()), span);
+        self.call(&e, &call, input_type)
     }
 
     /// How many of `arguments`, from the one at `index`, the multi-item positional
@@ -558,40 +756,6 @@ impl<'s> Lower<'_, '_, 's> {
             .working_set
             .add_variable(name.to_vec(), span, ty, false);
         Ok(self.node(Expr::VarDecl(var_id), span, Type::Any))
-    }
-
-    /// The argument of a keyword parameter, `keyword value` (the `Keyword` case of
-    /// `parse_multispan_value`): `word`, which must be the keyword, and `next`, read with
-    /// `shape`. Another word or a missing value is the classic parser's error; a flag or `--` in
-    /// the value's place, which the classic parser reads as the value, is left to it.
-    fn keyword_argument(
-        &mut self,
-        word: &w::Expression<'s>,
-        keyword: &[u8],
-        shape: &SyntaxShape,
-        next: Option<&w::Argument<'s>>,
-    ) -> Lowered<Expression> {
-        if self.text(word.span).as_bytes() != keyword {
-            return Err(Unlowered::Error);
-        }
-        let value = match next {
-            None => return Err(Unlowered::Error),
-            Some(w::Argument::Positional(value)) => self.value(value, shape, None)?,
-            Some(_) => {
-                return Err(Unlowered::Unsupported(
-                    "keyword argument that is not a value",
-                ));
-            }
-        };
-        let span = self.span(word.span);
-        let ty = value.ty.clone();
-        let keyword = Keyword {
-            keyword: keyword.into(),
-            span,
-            expr: value,
-        };
-        let full = span.merge(keyword.expr.span);
-        Ok(self.node(Expr::Keyword(Box::new(keyword)), full, ty))
     }
 
     /// A long or short flag (`parse_long_flag`, `parse_short_flags`). Returns whether it took
@@ -945,6 +1109,15 @@ impl<'s> Lower<'_, '_, 's> {
             )?)),
         }
     }
+}
+
+/// The keywords `parse_internal_call` reads some positionals of in a way of its own
+/// (`SpecialCmd`; `def`'s body is `def_body_span`'s).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum SpecialKeyword {
+    Let,
+    Match,
+    If,
 }
 
 /// The shape of a command's rest parameter, which its unknown arguments are read with.
