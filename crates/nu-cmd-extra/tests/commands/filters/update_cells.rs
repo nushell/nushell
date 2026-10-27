@@ -50,3 +50,39 @@ fn int_column_names_in_columns_flag() -> Result {
         .run(r#"{"1": 1, b: 2} | update cells -c [1] { $in + 1 } | to nuon"#)
         .expect_value_eq(r#"{"1": 2, b: 2}"#)
 }
+
+#[test]
+fn closure_error_on_record_is_returned() -> Result {
+    let err = test()
+        .run("{a: 1} | update cells { error make {msg: boom} }")
+        .expect_shell_error()?;
+    assert!(
+        err.to_string().contains("boom"),
+        "unexpected error: {err:?}"
+    );
+    Ok(())
+}
+
+#[test]
+fn closure_error_on_table_is_returned() -> Result {
+    let err = test()
+        .run("[{a: 1} {a: 2}] | update cells { error make {msg: boom} }")
+        .expect_shell_error()?;
+    assert!(
+        err.to_string().contains("boom"),
+        "unexpected error: {err:?}"
+    );
+    Ok(())
+}
+
+#[test]
+fn closure_error_in_recursive_mode_is_returned() -> Result {
+    let err = test()
+        .run("{a: {b: 1}} | update cells --recursive { error make {msg: boom} }")
+        .expect_shell_error()?;
+    assert!(
+        err.to_string().contains("boom"),
+        "unexpected error: {err:?}"
+    );
+    Ok(())
+}
