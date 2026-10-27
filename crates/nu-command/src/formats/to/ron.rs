@@ -55,7 +55,9 @@ impl Command for ToRon {
         vec![Example {
             example: "{a: 1, b: \"hello\"} | to ron",
             description: "Converts a Nushell record to a RON string.",
-            result: Some(Value::test_string("(\n    a: 1,\n    b: \"hello\",\n)")),
+            result: Some(Value::test_string(
+                "{\n    \"a\": 1,\n    \"b\": \"hello\",\n}",
+            )),
         }]
     }
 }
