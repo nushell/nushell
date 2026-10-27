@@ -1233,7 +1233,8 @@ impl<'s> Lower<'_, '_, 's> {
         let name_span = self.span(attribute.name.span);
         let span = self.span(attribute.span);
         let span = Span::new(span.start + 1, span.end);
-        let (call, output) = self.internal_call(name_span, &attribute.arguments, decl_id, None)?;
+        let (call, output, _) =
+            self.internal_call(name_span, &attribute.arguments, decl_id, None)?;
         let expr = self.node(Expr::Call(call), span, output);
         Ok((Attribute { expr }, name))
     }

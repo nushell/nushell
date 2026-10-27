@@ -52,12 +52,16 @@ source ──▶ parse_block_streaming (this parser) ──▶ one statement's s
   finds an error in, or cannot handle, is parsed by `nu-parser` from its span,
   which reports what it always has. A statement with a syntax error hands the
   rest of its block to `nu-parser`.
-- **`nu-parser` still parses** the statements that link modules and
-  files, except `use` and `module`: `overlay`, `hide`, `source`, `source-env`, `run`. It picks `hide`, `run`, `source` and `source-env` by the first word
-  of the command name, so `source me` is a `source` even where a command
-  `source me` exists. For a `use` or a `module`, the lowering builds the
-  call and `nu-parser`'s `finish_use` or `finish_module` loads the module. The module bodies these load
-  come back to this parser through `parse_module_block`. `nu-parser` also parses a call this parser
+- **Statements that link modules and files** (`use`, `module`, `overlay`,
+  `hide`, `source`, `source-env`, `run`, `plugin use`): the lowering builds
+  the call, and `nu-parser`'s code that does the rest (`finish_use`,
+  `finish_module`, `finish_source`, `finish_run`, `finish_hide`,
+  `parse_overlay_use`, ...) loads the module or file and changes the scope.
+  As in `nu-parser`, `hide`, `run`, `source` and `source-env` are picked by
+  the first word of the statement, so `source me` is a `source` even where a
+  command `source me` exists; this parser leaves such a statement to
+  `nu-parser`. The module bodies and files these load come back to this
+  parser through `parse_module_block` and `parse`. `nu-parser` also parses a call this parser
   read for a `def --wrapped` command whose name a `hide`, `use` or
   `overlay use` has since bound to another command, and reads its arguments
   with that command's signature, and a call through an alias of `if`,
@@ -67,6 +71,8 @@ source ──▶ parse_block_streaming (this parser) ──▶ one statement's s
 The lowering's functions carry the names of the `nu-parser` functions they
 stand in for, and reuse `nu-parser`'s code wherever it does not read spans
 (`finish_def`, `finish_extern`, `finish_alias`, `finish_use`, `finish_module`,
+`finish_source`, `finish_run`, `finish_hide`, `parse_overlay_use`,
+`parse_overlay_hide`, `parse_overlay_new`, `parse_plugin_use`,
 `add_exportables`, `exported_module`,
 `warp_export_call`, `finish_block`, `compile_block`,
 `assemble_signature`, `math_result_type`, `check_call`, `parse_variable_expr`,

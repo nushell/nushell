@@ -13,8 +13,10 @@
 //! duplicate name itself, as `parse_def_predecl` does; a definition keeps what the classic
 //! parser's `finish_def` or `finish_extern`, which commit it, report; an alias keeps what
 //! `parse_alias` would: its checks' errors, and the errors of a target it leaves garbage; and a
-//! `use` or a `module` keeps what `finish_use` or `finish_module`, which load the module,
-//! report.
+//! statement that loads a module or a file, or changes the scope (`use`, `module`, `source`,
+//! `run`, `hide`, the overlay commands), keeps what the classic parser's code that does that
+//! (`finish_use`, `finish_module`, `finish_source`, `finish_run`, `finish_hide`,
+//! `parse_overlay_use`, ...) reports.
 //!
 //! What the lowering reported before giving up is dropped ([`Lower::statement_or_classic`]).
 //! What else it added to the working set stays, unreachable from the result: spans, blocks,
@@ -37,6 +39,7 @@ mod expression;
 mod keyword;
 mod module;
 mod signature;
+mod source;
 mod statement;
 mod value;
 

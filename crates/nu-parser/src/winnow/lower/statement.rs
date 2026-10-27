@@ -11,7 +11,10 @@ use nu_protocol::{
     engine::StateWorkingSet,
 };
 
+use super::module::overlay_effect;
 use super::{Lower, Lowered, Unlowered};
+#[cfg(feature = "plugin")]
+use crate::parse_source::parse_plugin_use;
 use crate::winnow::syntax::lex::RedirectionSource as WinnowSource;
 use crate::winnow::syntax::{Span as WSpan, ast as w};
 use crate::{
@@ -49,7 +52,7 @@ pub(in crate::winnow) enum StatementTarget<'t> {
 
 impl<'s> Lower<'_, '_, 's> {
     /// A statement lowered, or parsed by the classic parser from `span` when the lowering gives
-    /// it back, added to `out`; returns whether the classic parser parsed it. The errors,
+    /// it back, added to `out`. The errors,
     /// warnings and compile errors the lowering reported before giving up are dropped, and so
     /// are the constants an `unlet` it lowered hid in the current scope (which the classic
     /// parser must still find, in the `unlet` itself); what else it added to the working set
@@ -62,7 +65,7 @@ impl<'s> Lower<'_, '_, 's> {
         target: &mut StatementTarget<'_>,
         out: &mut Vec<Pipeline>,
         block_errors: &mut usize,
-    ) -> bool {
+    ) {
         let errors = self.working_set.parse_errors.len();
         let warnings = self.working_set.parse_warnings.len();
         let compile_errors = self.working_set.compile_errors.len();
@@ -77,7 +80,6 @@ impl<'s> Lower<'_, '_, 's> {
             Ok(pipeline) => {
                 stats::record_lowered_statement();
                 out.push(pipeline);
-                false
             }
             Err(reason) => {
                 self.working_set.parse_errors.truncate(errors);
@@ -86,7 +88,6 @@ impl<'s> Lower<'_, '_, 's> {
                 self.working_set.delta.last_scope_frame_mut().hidden_vars = hidden_vars;
                 stats::record_unlowered(span, &reason, self.working_set);
                 parse_classic(self.working_set, span, target, out, block_errors);
-                true
             }
         }
     }
@@ -106,9 +107,9 @@ impl<'s> Lower<'_, '_, 's> {
     }
 
     /// A statement of a module's body (`parse_module_pipeline`): definitions, constants,
-    /// aliases, modules, `use` and `export-env` blocks, and their exports added to `module`, whose body
-    /// covers `span`. `module` changes only once nothing can fail, since the classic parser
-    /// adds the exports of a statement given back.
+    /// aliases, modules, `use` and `export-env` blocks, and their exports added to `module`,
+    /// whose body covers `span`. `module` changes only once nothing can fail, since the classic
+    /// parser adds the exports of a statement given back.
     fn module_statement(
         &mut self,
         pipeline: &w::Pipeline<'s>,
@@ -400,21 +401,47 @@ impl<'s> Lower<'_, '_, 's> {
                     self.use_statement(&element.expr, &element.expr, use_statement, None)?;
                 return Ok(pipeline);
             }
-            _ => {
-                let pipe = self.classic_pipes(pipeline)[0];
-                let element =
-                    self.pipeline_element(element, input_type.unwrap_or(&Type::Any), pipe)?;
-                // An alias of `overlay use` and friends has side effects the lowering does not
-                // apply.
-                if self.calls_overlay(&element.expr) {
-                    return Err(Unlowered::Unsupported("overlay"));
+            // The parser keywords the classic parser picks by the statement's first words.
+            w::Expr::Call(call) if call.sigil.is_none() => {
+                match call.head.name.as_ref() {
+                    "source" | "source-env" => return self.source(&element.expr, call),
+                    "hide" => return self.hide(&element.expr, call),
+                    "run" => return Ok(Pipeline::from_vec(vec![self.run(&element.expr, call)?])),
+                    #[cfg(feature = "plugin")]
+                    "plugin use" => return self.keyword_statement(call, parse_plugin_use),
+                    name => {
+                        if let Some(effect) = overlay_effect(name) {
+                            return self.keyword_statement(call, effect);
+                        }
+                    }
                 }
-                return Ok(Pipeline {
-                    elements: vec![element],
-                });
+                return self.single_element(pipeline, element, input_type);
             }
+            _ => return self.single_element(pipeline, element, input_type),
         };
         Ok(Pipeline::from_vec(vec![expr]))
+    }
+
+    /// A pipeline of one command that is no statement (the end of `parse_builtin_commands`). A
+    /// call to `overlay use`, `overlay hide` or `overlay new` through an alias changes the
+    /// overlays as a call to the command itself does (`parse_overlay_use`, ...): the statement
+    /// is what that gives, without the element's redirection.
+    fn single_element(
+        &mut self,
+        pipeline: &w::Pipeline<'s>,
+        element: &w::PipelineElement<'s>,
+        input_type: Option<&Type>,
+    ) -> Lowered<Pipeline> {
+        let pipe = self.classic_pipes(pipeline)[0];
+        let element = self.pipeline_element(element, input_type.unwrap_or(&Type::Any), pipe)?;
+        if let Expr::Call(call) = &element.expr.expr
+            && let Some(effect) = overlay_effect(self.working_set.get_decl(call.decl_id).name())
+        {
+            return Ok(effect(self.working_set, call.clone()));
+        }
+        Ok(Pipeline {
+            elements: vec![element],
+        })
     }
 
     /// Whether `expression` calls `overlay use`, `overlay hide` or `overlay new`, maybe through
@@ -423,10 +450,8 @@ impl<'s> Lower<'_, '_, 's> {
     fn calls_overlay(&self, expression: &Expression) -> bool {
         matches!(
             &expression.expr,
-            Expr::Call(call) if matches!(
-                self.working_set.get_decl(call.decl_id).name(),
-                "overlay hide" | "overlay new" | "overlay use"
-            )
+            Expr::Call(call)
+                if overlay_effect(self.working_set.get_decl(call.decl_id).name()).is_some()
         )
     }
 
@@ -632,19 +657,18 @@ impl<'s> Lower<'_, '_, 's> {
                 is_subexpression,
             };
             let first = out.pipelines.len();
-            let classic = self.statement_or_classic(
+            self.statement_or_classic(
                 pipeline,
                 span,
                 &mut target,
                 &mut out.pipelines,
                 &mut block_errors,
             );
-            // A statement the classic parser parsed may call `overlay use` through an alias
-            // (which `changes_commands` cannot tell from its head), and the classic parser
-            // applied it: the rest of the block, parsed before with the old commands, is parsed
-            // by the classic parser, as the driver's `rest_to_classic` does.
-            if classic
-                && let Some(next) = block.pipelines.get(index + 1)
+            // A statement may call `overlay use` through an alias (which `changes_commands`
+            // cannot tell from its head), which changed the overlays as it was lowered or as
+            // the classic parser parsed it: the rest of the block, parsed before with the old
+            // commands, is parsed by the classic parser, as the driver's `rest_to_classic` does.
+            if let Some(next) = block.pipelines.get(index + 1)
                 && out.pipelines[first..]
                     .iter()
                     .flat_map(|pipeline| &pipeline.elements)

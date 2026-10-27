@@ -1,18 +1,90 @@
-//! Module statements: `module` and `use`, and their `export` (the classic parser's
-//! `parse_module` and `parse_use`, in `parse_module.rs`).
+//! Module statements: `module`, `use` and their `export`, `hide`, and the overlay commands (the
+//! classic parser's `parse_module`, `parse_use`, `parse_hide`, `parse_keyword` and
+//! `parse_overlay_*`, in `parse_module.rs` and `parse_keywords.rs`).
 
-use nu_protocol::{Module, Span, ast::Pipeline};
+use nu_protocol::{
+    Module, Span, Type,
+    ast::{Call, Expr, Pipeline},
+    engine::StateWorkingSet,
+};
 
 use super::{Lower, Lowered, Unlowered};
 use crate::winnow::syntax::ast as w;
 use crate::{
     exportable::Exportable,
+    parse_calls::CallKind,
     parse_helpers::garbage,
     parse_keywords::find_keyword_decl,
-    parse_module::{exported_module, finish_module, finish_use, warp_export_call},
+    parse_module::{
+        exported_module, finish_hide, finish_module, finish_use, parse_overlay_hide,
+        parse_overlay_new, parse_overlay_use, warp_export_call,
+    },
 };
 
+/// What a parser keyword does to the working set once its call is parsed (`parse_overlay_use`,
+/// `parse_plugin_use`, ...), giving the statement.
+pub(super) type KeywordEffect = fn(&mut StateWorkingSet, Box<Call>) -> Pipeline;
+
+/// The effect of a call to an overlay command that changes the overlays, by the command's name.
+pub(super) fn overlay_effect(name: &str) -> Option<KeywordEffect> {
+    match name {
+        "overlay use" => Some(parse_overlay_use),
+        "overlay hide" => Some(parse_overlay_hide),
+        "overlay new" => Some(parse_overlay_new),
+        _ => None,
+    }
+}
+
 impl<'s> Lower<'_, '_, 's> {
+    /// `hide name [members]` (`parse_hide`), the statement `e`: the call, its arguments read with
+    /// the signature's shapes, then `finish_hide`, which hides what the import pattern names. A
+    /// call for help is the statement as it is.
+    pub(super) fn hide(&mut self, e: &w::Expression<'s>, call: &w::Call<'s>) -> Lowered<Pipeline> {
+        let decl_id = self
+            .working_set
+            .find_decl(b"hide")
+            .ok_or(Unlowered::Unsupported("hide that is not a command"))?;
+        let head = self.span(call.head.span);
+        let (lowered, output, kind) = self.internal_call(head, &call.arguments, decl_id, None)?;
+        let call_span = self.span(e.span);
+        if kind != CallKind::Valid {
+            let statement = self.node(Expr::Call(lowered), call_span, output);
+            return Ok(Pipeline::from_vec(vec![statement]));
+        }
+        let args_spans: Vec<Span> = call
+            .arguments
+            .iter()
+            .map(|argument| self.span(argument.span()))
+            .collect();
+        Ok(finish_hide(
+            self.working_set,
+            lowered,
+            call_span,
+            &args_spans,
+        ))
+    }
+
+    /// A parser keyword's statement that `parse_keyword` parses (`overlay use`, `plugin use`,
+    /// ...): the call, then, unless it asks for help, the keyword's `effect` on the working set.
+    pub(super) fn keyword_statement(
+        &mut self,
+        call: &w::Call<'s>,
+        effect: KeywordEffect,
+    ) -> Lowered<Pipeline> {
+        let decl_id = self
+            .working_set
+            .find_decl(call.head.name.as_bytes())
+            .ok_or(Unlowered::Error)?;
+        let head = self.span(call.head.span);
+        let (lowered, _, kind) = self.internal_call(head, &call.arguments, decl_id, None)?;
+        if kind == CallKind::Help {
+            let span = lowered.span();
+            let statement = self.node(Expr::Call(lowered), span, Type::Any);
+            return Ok(Pipeline::from_vec(vec![statement]));
+        }
+        Ok(effect(self.working_set, lowered))
+    }
+
     /// `module name { body }` or `module path` (`parse_module`), or `export module` when
     /// `command` is an `export`: the call to `module`, which reads only the name, as a
     /// string, and leaves the body garbage (`ArgumentParsingLevel::FirstK`), then
@@ -46,7 +118,7 @@ impl<'s> Lower<'_, '_, 's> {
             None => None,
         };
         let name = w::Argument::Positional((*module.name).clone());
-        let (mut call, _) = self.internal_call(head, &[name], decl_id, None)?;
+        let (mut call, ..) = self.internal_call(head, &[name], decl_id, None)?;
         if let Some(body_span) = body_span {
             let span = self.span(body_span);
             call.add_positional(garbage(self.working_set, span));
@@ -131,7 +203,7 @@ impl<'s> Lower<'_, '_, 's> {
             .map(|argument| self.span(argument.span()))
             .collect();
         let end = args_spans.last().map_or(head.end, |span| span.end);
-        let (call, _) = self.internal_call(head, &arguments, decl_id, None)?;
+        let (call, ..) = self.internal_call(head, &arguments, decl_id, None)?;
         let (mut pipeline, exportables) = finish_use(
             self.working_set,
             call,

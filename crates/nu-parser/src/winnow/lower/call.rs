@@ -5,14 +5,14 @@
 use nu_engine::DIR_VAR_PARSER_INFO;
 use nu_protocol::{
     DeclId, Flag, Span, Spanned, SyntaxShape, Type,
-    ast::{Call, Expr, Expression, ExternalArgument},
+    ast::{Call, Expr, Expression, ExternalArgument, Keyword},
 };
 
 use super::{Lower, Lowered, Unlowered};
 use crate::winnow::syntax::{DeclKind, Span as WSpan, ast as w};
 use crate::{
     parse_calls::{
-        find_longest_decl_with_prefix, parse_external_string, parse_regular_external_arg,
+        CallKind, find_longest_decl_with_prefix, parse_external_string, parse_regular_external_arg,
         parse_unknown_arg, shape_allows_negative_number, strict_extern_forwards,
     },
     parse_expressions::parse_value as classic_value,
@@ -132,21 +132,22 @@ impl<'s> Lower<'_, '_, 's> {
                 ));
             }
         }
-        let (call, output) = self.internal_call(head_span, &call.arguments, decl_id, input_type)?;
+        let (call, output, _) =
+            self.internal_call(head_span, &call.arguments, decl_id, input_type)?;
         Ok(self.node(Expr::Call(call), span, output))
     }
 
     /// A call to `decl_id` with its arguments assigned by the command's signature
     /// (`parse_internal_call`): flags and their values, positionals read with their shapes and
     /// type-checked, spreads, and the unknown arguments of a command that takes them. Returns
-    /// the call and its output type for `input_type`.
+    /// the call, its output type for `input_type` and its kind (a call for help, or not).
     pub(super) fn internal_call(
         &mut self,
         head: Span,
         arguments: &[w::Argument<'s>],
         decl_id: DeclId,
         input_type: Option<&Type>,
-    ) -> Lowered<(Box<Call>, Type)> {
+    ) -> Lowered<(Box<Call>, Type, CallKind)> {
         let mut call = Call::new(head);
         call.decl_id = decl_id;
         // Registered as `parse_internal_call` registers it.
@@ -194,14 +195,14 @@ impl<'s> Lower<'_, '_, 's> {
         }
         result?;
 
-        self.check_call(head, &signature, &call)?;
+        let kind = self.check_call(head, &signature, &call)?;
         for warning in deprecation
             .into_iter()
             .filter_map(|entry| entry.parse_warning(&signature.name, &call))
         {
             self.working_set.warning(warning);
         }
-        Ok((Box::new(call), output))
+        Ok((Box::new(call), output, kind))
     }
 
     /// Put `arguments` into `call` as the signature says, in source order.
@@ -304,6 +305,16 @@ impl<'s> Lower<'_, '_, 's> {
                                 || arguments.len() == 1 && positional_idx == 0)
                         {
                             self.row_condition(expr)?
+                        } else if let SyntaxShape::Keyword(keyword, value_shape) = shape
+                            && !is_multispan_shape(value_shape)
+                        {
+                            index += 1;
+                            self.keyword_argument(
+                                expr,
+                                keyword,
+                                value_shape,
+                                arguments.get(index - 1),
+                            )?
                         } else if is_multispan_shape(shape) {
                             return Err(Unlowered::Unsupported("multi-item argument"));
                         } else {
@@ -324,6 +335,40 @@ impl<'s> Lower<'_, '_, 's> {
             }
         }
         Ok(())
+    }
+
+    /// The argument of a keyword parameter, `keyword value` (the `Keyword` case of
+    /// `parse_multispan_value`): `word`, which must be the keyword, and `next`, read with
+    /// `shape`. Another word or a missing value is the classic parser's error; a flag or `--` in
+    /// the value's place, which the classic parser reads as the value, is left to it.
+    fn keyword_argument(
+        &mut self,
+        word: &w::Expression<'s>,
+        keyword: &[u8],
+        shape: &SyntaxShape,
+        next: Option<&w::Argument<'s>>,
+    ) -> Lowered<Expression> {
+        if self.text(word.span).as_bytes() != keyword {
+            return Err(Unlowered::Error);
+        }
+        let value = match next {
+            None => return Err(Unlowered::Error),
+            Some(w::Argument::Positional(value)) => self.value(value, shape, None)?,
+            Some(_) => {
+                return Err(Unlowered::Unsupported(
+                    "keyword argument that is not a value",
+                ));
+            }
+        };
+        let span = self.span(word.span);
+        let ty = value.ty.clone();
+        let keyword = Keyword {
+            keyword: keyword.into(),
+            span,
+            expr: value,
+        };
+        let full = span.merge(keyword.expr.span);
+        Ok(self.node(Expr::Keyword(Box::new(keyword)), full, ty))
     }
 
     /// A long or short flag (`parse_long_flag`, `parse_short_flags`). Returns whether it took

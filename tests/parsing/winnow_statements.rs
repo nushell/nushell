@@ -529,3 +529,78 @@ fn module_call_covers_its_end_of_options(#[case] code: &str) -> Result {
     assert_eq!(working_set.get_span_contents(span), code.as_bytes());
     Ok(())
 }
+
+/// What a parser keyword did to the working set, which `parser_keyword_is_lowered` checks.
+#[derive(Debug)]
+enum Effect {
+    /// The last statement is a call marked as a no-op (`source null`, `run null`).
+    Noop,
+    /// The command is declared.
+    Declared(&'static str),
+    /// The command is not declared.
+    Hidden(&'static str),
+    /// The overlay exists.
+    Overlay(&'static str),
+}
+
+/// The parser keywords other than the module statements are lowered, not handed to the classic
+/// parser, and do what the classic parser makes them do: `source`, `source-env` and `run` (of
+/// `null`, which loads nothing), `hide`, and the overlay commands, also through an alias.
+#[rstest]
+#[case::source_null("source null", Effect::Noop)]
+#[case::source_env_null("source-env null", Effect::Noop)]
+#[case::run_null("run null a --x=1 ...[1] -- --y=2", Effect::Noop)]
+#[case::hide("def f [] {}\nhide f", Effect::Hidden("f"))]
+#[case::hide_members(
+    "module m { export def a [] {}; export def b [] {} }\nuse m\nhide m [a b]",
+    Effect::Hidden("m b")
+)]
+#[case::overlay_use_as(
+    "module m { export def a [] {} }\noverlay use m as n --prefix",
+    Effect::Declared("n a")
+)]
+#[case::overlay_new("overlay new o", Effect::Overlay("o"))]
+#[case::overlay_alias(
+    "module m { export def a [] {} }\nalias ou = overlay use\nou m",
+    Effect::Declared("a")
+)]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn parser_keyword_is_lowered(#[case] code: &str, #[case] effect: Effect) -> Result {
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let before = nu_parser::winnow_stats();
+    let block = nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    let after = nu_parser::winnow_stats();
+    assert_eq!(working_set.parse_errors, [], "`{code}`");
+    assert_eq!(
+        after.classic_statements, before.classic_statements,
+        "`{code}`: a statement was handed to the classic parser"
+    );
+    match effect {
+        Effect::Noop => {
+            let last = block
+                .pipelines
+                .last()
+                .map(|pipeline| &pipeline.elements[0].expr.expr);
+            assert!(
+                matches!(last, Some(Expr::Call(call)) if call.get_parser_info("noop").is_some()),
+                "`{code}`: {last:?}"
+            );
+        }
+        Effect::Declared(name) => assert!(
+            working_set.find_decl(name.as_bytes()).is_some(),
+            "`{code}`: `{name}` is not declared"
+        ),
+        Effect::Hidden(name) => assert!(
+            working_set.find_decl(name.as_bytes()).is_none(),
+            "`{code}`: `{name}` is declared"
+        ),
+        Effect::Overlay(name) => assert!(
+            working_set.find_overlay(name.as_bytes()).is_some(),
+            "`{code}`: no overlay `{name}`"
+        ),
+    }
+    Ok(())
+}
