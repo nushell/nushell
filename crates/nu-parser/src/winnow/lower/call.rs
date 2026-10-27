@@ -283,6 +283,7 @@ impl<'s> Lower<'_, '_, 's> {
         let alias_call = decl.as_alias().map(|alias| alias.wrapped_call.clone());
         // `let`'s variable gets the statement's input type (`SpecialCmd::Let`).
         let let_input = input_type.filter(|_| decl.is_keyword() && decl.name() == "let");
+        let is_match = decl.is_keyword() && decl.name() == "match";
 
         let output = self
             .working_set
@@ -316,10 +317,14 @@ impl<'s> Lower<'_, '_, 's> {
             self.working_set.exit_scope();
         }
         result?;
-        // Once it has read the variable, `let` gives the statement's input as its output.
+        // Once it has read the variable, `let` gives the statement's input as its output, and
+        // `match` the type of its arms (`SpecialCmd`).
         let output = match let_input {
             Some(input) if call.positional_iter().next().is_some() => input.clone(),
-            _ => output,
+            _ => match (is_match, call.positional_iter().nth(1)) {
+                (true, Some(arms)) => arms.ty.clone(),
+                _ => output,
+            },
         };
 
         let kind = self.check_call(head, &signature, &call)?;

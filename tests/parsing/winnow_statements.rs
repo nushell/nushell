@@ -919,6 +919,57 @@ fn run_before_the_end_of_a_pipeline_is_handed_over() -> Result {
     Ok(())
 }
 
+/// A value in the place of a keyword's block, `match`'s arms or `try`'s handler is lowered, the
+/// value itself the argument, as the classic parser reads it: the call is typed as
+/// `parse_internal_call` types it, `if` by its branches that are blocks, `match` by its arms'
+/// value, and an empty `{}` for `match`'s arms is a match block of no arms.
+#[rstest]
+#[case::if_value("if true $env.FOO", Type::Any)]
+#[case::if_value_else_block("if true $env.FOO else { 1 }", Type::Int)]
+#[case::loop_value("loop $env.FOO", Type::Nothing)]
+#[case::try_subexpression("try ($env.FOO)", Type::Any)]
+#[case::match_closure("match 1 {|x| 1}", Type::Closure)]
+#[case::match_help_empty_arms("match 1 --help {}", Type::Nothing)]
+#[case::try_handler_value("let h = {|e| 1}\ntry { 1 } catch $h", Type::Any)]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn value_in_a_block_place_is_lowered(#[case] code: &str, #[case] ty: Type) -> Result {
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let before = nu_parser::winnow_stats();
+    let block = nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    let after = nu_parser::winnow_stats();
+    assert_eq!(working_set.parse_errors, [], "`{code}`");
+    assert_eq!(
+        after.classic_statements, before.classic_statements,
+        "`{code}`: a statement was handed to the classic parser"
+    );
+    let last = &block.pipelines.last().expect("a statement").elements[0].expr;
+    assert_eq!(last.ty, ty, "`{code}`");
+    Ok(())
+}
+
+/// A value in a handler's place must be typed as a closure (`parse_internal_call`'s check of
+/// `try`'s positional).
+#[test]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn handler_value_that_is_no_closure_is_an_error() -> Result {
+    let code = "let x = {a: 1}\ntry { 1 } catch $x";
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    assert!(
+        matches!(
+            working_set.parse_errors.as_slice(),
+            [nu_protocol::ParseError::TypeMismatch(..)]
+        ),
+        "`{code}`: {:?}",
+        working_set.parse_errors
+    );
+    Ok(())
+}
+
 /// In a pipeline, `let` and a name is a call to a command of that name when one exists, as
 /// `parse_call` looks for the longest command name.
 #[test]

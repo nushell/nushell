@@ -234,7 +234,11 @@ impl<'s> Lower<'_, '_, 's> {
                 SyntaxShape::Block => {
                     self.block_expression(e.span, &w::Block::default(), input_type)
                 }
-                SyntaxShape::MatchBlock => Err(Unlowered::Unsupported("empty match block")),
+                // `parse_match_block_expression` of no arms.
+                SyntaxShape::MatchBlock => {
+                    let span = self.span(e.span);
+                    Ok(self.node(Expr::MatchBlock(Vec::new()), span, Type::Nothing))
+                }
                 _ => self.record(e.span, items),
             },
             // A record starting with a spread is read as a record whatever the shape, unless the
@@ -256,13 +260,16 @@ impl<'s> Lower<'_, '_, 's> {
             }
             // As `parse_brace_expr` decides: with parameters, a closure for any shape but a
             // block (an error); without, a block for a block shape, a closure for a closure or
-            // any shape, an error for the rest. A match block is left to the classic parser.
+            // any shape, an error for the rest. Arms without parameters are the classic
+            // parser's.
             w::Expr::Closure(closure) => {
                 let has_params = closure.params.is_some();
                 match shape {
                     SyntaxShape::Block if has_params => Err(Unlowered::Error),
                     SyntaxShape::Block => self.block_expression(e.span, &closure.body, input_type),
-                    SyntaxShape::MatchBlock => Err(Unlowered::Unsupported("match block value")),
+                    SyntaxShape::MatchBlock if !has_params => {
+                        Err(Unlowered::Unsupported("match block value"))
+                    }
                     SyntaxShape::Closure(_) | SyntaxShape::Any => {
                         self.closure(e.span, closure.params.as_ref(), &closure.body, shape, None)
                     }

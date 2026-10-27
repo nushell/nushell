@@ -75,17 +75,22 @@ impl<'s> Lower<'_, '_, 's> {
             .unwrap_or(Type::Error))
     }
 
-    /// A block argument of a keyword, `{ ... }` (`parse_block_expression`). A variable or
-    /// subexpression in its place (`if $c $env.f`), which the classic parser type-checks as a
-    /// block, is left to the classic parser.
+    /// A block argument of a keyword, `{ ... }` (`parse_block_expression`), or the `value` in
+    /// its place (`if $c $env.f`, `try {a: 1}.a`): a variable, a subexpression or a brace value
+    /// read as the value parser reads it for the `block` shape, and type-checked as a block
+    /// (`parse_internal_call`). Such a call is the IR compiler's error.
     fn block_argument(
         &mut self,
         block: &w::Block<'s>,
         value: Option<&w::Expression<'s>>,
         input_type: Option<&Type>,
     ) -> Lowered<Expression> {
-        if value.is_some() {
-            return Err(Unlowered::Unsupported("value as a keyword's block"));
+        if let Some(value) = value {
+            let value = self.value(value, &SyntaxShape::Block, input_type)?;
+            if !type_compatible(&SyntaxShape::Block.to_type(), &value.ty) {
+                return Err(Unlowered::Error);
+            }
+            return Ok(value);
         }
         let span = self.braces_span(block)?;
         self.block_expression(span, block, input_type)
@@ -107,8 +112,10 @@ impl<'s> Lower<'_, '_, 's> {
 
     /// `if condition { then } else { otherwise }`: a call to `if`, whose output is the union of
     /// its branches' outputs (with `nothing` when there is no `else`), as `parse_internal_call`
-    /// overrides the output of `if`. The condition gets no input, the branches `input_type`.
-    /// The `else` branch, a block or an expression (`else if ...`), is a `Keyword` argument.
+    /// overrides the output of `if`: a value in the `then` block's place gives none, so with no
+    /// `else` the output is the signature's. The condition gets no input, the branches
+    /// `input_type`. The `else` branch, a block or an expression (`else if ...`), is a `Keyword`
+    /// argument.
     pub(super) fn if_call(
         &mut self,
         e: &w::Expression<'s>,
@@ -123,7 +130,10 @@ impl<'s> Lower<'_, '_, 's> {
             if_expr.then_value.as_deref(),
             input_type,
         )?;
-        let mut output = self.branch_type(&then, input_type);
+        let mut output = match &then.expr {
+            Expr::Block(_) => Some(self.branch_type(&then, input_type)),
+            _ => None,
+        };
         call.add_positional(then);
         if let Some(branch) = &if_expr.else_branch {
             let body = match &branch.body.expr {
@@ -132,7 +142,11 @@ impl<'s> Lower<'_, '_, 's> {
                 }
                 _ => self.expression(&branch.body, input_type)?,
             };
-            output = output.union(self.branch_type(&body, input_type));
+            let branch_type = self.branch_type(&body, input_type);
+            output = Some(match output {
+                Some(output) => output.union(branch_type),
+                None => branch_type,
+            });
             let keyword_span = self.span(branch.keyword);
             let span = keyword_span.merge(body.span);
             let ty = body.ty.clone();
@@ -144,11 +158,12 @@ impl<'s> Lower<'_, '_, 's> {
             let argument = self.node(Expr::Keyword(Box::new(keyword)), span, ty);
             call.add_positional(argument);
         } else {
-            output = output.union(Type::Nothing);
+            output = output.map(|output| output.union(Type::Nothing));
         }
-        // For its check: the output is the branches' union, not the signature's.
-        self.finish_keyword_call(&call, decl_id, input_type)?;
+        // The branches' union, else the signature's output.
+        let signature_output = self.finish_keyword_call(&call, decl_id, input_type)?;
         let span = self.span(e.span);
+        let output = output.unwrap_or(signature_output);
         Ok(self.node(Expr::Call(Box::new(call)), span, output))
     }
 
@@ -207,7 +222,9 @@ impl<'s> Lower<'_, '_, 's> {
     /// a `finally` handler too) when it is the handler's own: the only compile error the
     /// handler added, and its closure has no IR. An error from a closure or `def` body nested
     /// in the handler, whose closure then did compile, stands. Hence the compile errors are
-    /// counted before each handler.
+    /// counted before each handler. A value in a handler's place (`catch $handler`) is read
+    /// with the handler's shape in `try`'s signature, as the value of its keyword, and must be
+    /// typed as a closure.
     pub(super) fn try_call(
         &mut self,
         e: &w::Expression<'s>,
@@ -231,7 +248,17 @@ impl<'s> Lower<'_, '_, 's> {
                     &SyntaxShape::Closure(None),
                     None,
                 )?,
-                _ => return Err(Unlowered::Unsupported("handler that is not a closure")),
+                _ => {
+                    let signature = self.working_set.get_signature_shared(decl_id);
+                    let shape = handler_shape(&signature, keyword)
+                        .ok_or(Unlowered::Unsupported("handler that is not a closure"))?;
+                    let value = self.value(&handler.body, &shape, None)?;
+                    // `parse_internal_call`'s check of the positional, typed as the handler.
+                    if !type_compatible(&shape.to_type(), &value.ty) {
+                        return Err(Unlowered::Error);
+                    }
+                    value
+                }
             };
             if let [CompileError::NotInALoop { .. }] =
                 &self.working_set.compile_errors[compile_errors..]
@@ -260,20 +287,30 @@ impl<'s> Lower<'_, '_, 's> {
     /// `MatchBlock` of the arms (`parse_match_block_expression`). Each arm has a scope of its
     /// own, in which its pattern declares its variables before its guard and its result are
     /// lowered. The value gets no input, the results `input_type`. The output is the union of
-    /// the arms' outputs (with `nothing` when no arm matches everything). A `{ ... }` that is a
-    /// closure or a record rather than arms is left to the classic parser.
+    /// the arms' outputs (with `nothing` when no arm matches everything). A value in the arms'
+    /// place (a closure, a record, `$x`) is read as the value parser reads it for the
+    /// `match_block` shape, and the call takes its type (`parse_internal_call`); such a call is
+    /// the IR compiler's error.
     pub(super) fn match_call(
         &mut self,
         e: &w::Expression<'s>,
         match_expr: &w::Match<'s>,
         input_type: Option<&Type>,
     ) -> Lowered<Expression> {
-        if match_expr.value_block.is_some() {
-            return Err(Unlowered::Unsupported("match with a value for its block"));
-        }
         let (mut call, decl_id) = self.keyword_call(e, "match")?;
         let value = self.value(&match_expr.value, &SyntaxShape::Any, None)?;
         call.add_positional(value);
+        if let Some(value_block) = &match_expr.value_block {
+            let block = self.value(value_block, &SyntaxShape::MatchBlock, input_type)?;
+            if !type_compatible(&SyntaxShape::MatchBlock.to_type(), &block.ty) {
+                return Err(Unlowered::Error);
+            }
+            let output = block.ty.clone();
+            call.add_positional(block);
+            self.finish_keyword_call(&call, decl_id, input_type)?;
+            let span = self.span(e.span);
+            return Ok(self.node(Expr::Call(Box::new(call)), span, output));
+        }
         let mut arms = Vec::with_capacity(match_expr.arms.len());
         let mut output = Type::one_of([]);
         for arm in &match_expr.arms {
@@ -1468,6 +1505,23 @@ impl<'s> Lower<'_, '_, 's> {
 
 /// A definition's expression, and the name and declaration of the command it defined.
 pub(super) type Definition = (Expression, Option<(Vec<u8>, DeclId)>);
+
+/// The shape of the value after `keyword` (`catch`, `finally`) in `try`'s signature: an
+/// optional positional of `Keyword` shapes, maybe one of several.
+fn handler_shape(signature: &nu_protocol::Signature, keyword: &str) -> Option<SyntaxShape> {
+    signature.optional_positional.iter().find_map(|positional| {
+        let shapes = match &positional.shape {
+            SyntaxShape::OneOf(shapes) => shapes.as_slice(),
+            shape => std::slice::from_ref(shape),
+        };
+        shapes.iter().find_map(|shape| match shape {
+            SyntaxShape::Keyword(word, value) if word.as_slice() == keyword.as_bytes() => {
+                Some((**value).clone())
+            }
+            _ => None,
+        })
+    })
+}
 
 /// A definition's attributes, and their names with their constant values.
 type LoweredAttributes = (Vec<Attribute>, Vec<(String, Value)>);
