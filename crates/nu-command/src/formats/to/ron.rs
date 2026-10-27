@@ -85,6 +85,17 @@ fn convert_value_to_ron(value: &Value, span: Span) -> Result<RonValue, ShellErro
         }
         Value::Filesize { val, .. } => Ok(RonValue::Number(ron::Number::from(val.get()))),
         Value::Date { val, .. } => Ok(RonValue::String(val.to_string())),
+        Value::Duration { val, .. } => Ok(RonValue::Number(ron::Number::from(val.to_owned()))),
+        Value::Range { val, .. } => Ok(RonValue::String(val.to_string())),
+        Value::CellPath { val, .. } => Ok(RonValue::String(val.to_string())),
+        // It doesn't appear I can implement support for closures easily, I'll leave
+        // that for a later version, but it doesn't seem most other file formats do either
+        Value::Binary {
+            val, internal_span, ..
+        } => convert_value_to_ron(
+            &<std::vec::Vec<u8> as Clone>::clone(&val).into_value(span),
+            *internal_span,
+        ),
         _ => Err(ShellError::CantConvert {
             to_type: "structured ron data".into(),
             from_type: value.get_type().to_string(),
