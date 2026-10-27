@@ -65,24 +65,37 @@ impl<'s> Lower<'_, '_, 's> {
     }
 
     /// A parser keyword's statement that `parse_keyword` parses (`overlay use`, `plugin use`,
-    /// ...): the call, then, unless it asks for help, the keyword's `effect` on the working set.
+    /// any other `overlay` statement, ...), `e`: the call, then, unless it asks for help, the
+    /// keyword's `effect` on the working set; without an effect, the call as `parse_call` gives
+    /// it. A call for help is typed `any`.
     pub(super) fn keyword_statement(
         &mut self,
+        e: &w::Expression<'s>,
         call: &w::Call<'s>,
-        effect: KeywordEffect,
+        effect: Option<KeywordEffect>,
     ) -> Lowered<Pipeline> {
         let decl_id = self
             .working_set
             .find_decl(call.head.name.as_bytes())
             .ok_or(Unlowered::Error)?;
         let head = self.span(call.head.span);
-        let (lowered, _, kind) = self.internal_call(head, &call.arguments, decl_id, None)?;
+        let (lowered, output, kind) = self.internal_call(head, &call.arguments, decl_id, None)?;
         if kind == CallKind::Help {
             let span = lowered.span();
             let statement = self.node(Expr::Call(lowered), span, Type::Any);
             return Ok(Pipeline::from_vec(vec![statement]));
         }
-        Ok(effect(self.working_set, lowered))
+        match effect {
+            Some(effect) => Ok(effect(self.working_set, lowered)),
+            None => {
+                let span = self.span(e.span);
+                Ok(Pipeline::from_vec(vec![self.node(
+                    Expr::Call(lowered),
+                    span,
+                    output,
+                )]))
+            }
+        }
     }
 
     /// `module name { body }` or `module path` (`parse_module`), or `export module` when

@@ -1,7 +1,7 @@
 //! Regression tests for the `winnow-parser` front end (statements): each pins a case where it
 //! parsed differently from the classic parser.
 
-use nu_protocol::{Value, ast::Expr, engine::StateWorkingSet};
+use nu_protocol::{Type, Value, ast::Expr, engine::StateWorkingSet};
 use nu_test_support::prelude::*;
 use rstest::rstest;
 
@@ -710,5 +710,153 @@ fn type_alias_is_lowered(
         command,
         "`{code}`"
     );
+    Ok(())
+}
+
+/// What a statement keyword's call for help leaves, which `help_call_is_lowered` checks.
+#[derive(Debug)]
+enum Help {
+    /// The last statement is a call to this command with this many arguments.
+    Call(&'static str, usize),
+    /// The last statement is a call to this command, typed `any`.
+    Untyped(&'static str),
+    /// The command is declared: an `extern` defines it even when it asks for help.
+    Declared(&'static str),
+    /// The command is not declared: a `def` that asks for help defines nothing.
+    NotDeclared(&'static str),
+}
+
+/// A statement keyword's call for help is lowered, not handed to the classic parser, and is the
+/// call the keyword's parse function makes: `module` reads only its name and leaves its body
+/// garbage, `export-env` reads only its first item, `type` its first two, an `export` makes it
+/// a call to `export <keyword>`, and any `overlay` call for help is typed `any`.
+#[rstest]
+#[case::def("def f --help [] {}", Help::NotDeclared("f"))]
+#[case::def_after_signature("def f [x: int] {} --help", Help::NotDeclared("f"))]
+#[case::extern_def("extern e --help []", Help::Declared("e"))]
+#[case::export_extern_in_module(
+    "module m { export extern e --help [] }\nuse m e",
+    Help::Declared("e")
+)]
+#[case::export_def("export def f --help [] {}", Help::Call("export def", 4))]
+#[case::module("module m --help {}", Help::Call("module", 3))]
+#[case::export_env("export-env --help extra {}", Help::Call("export-env", 1))]
+#[case::type_alias("type t --help = int", Help::Call("type", 2))]
+#[case::for_loop("for x --help in [1] {}", Help::Call("for", 4))]
+#[case::let_binding("let x --help", Help::Call("let", 2))]
+#[case::where_condition("where -h true", Help::Call("where", 2))]
+#[case::overlay_list("overlay list --help", Help::Untyped("overlay list"))]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn help_call_is_lowered(#[case] code: &str, #[case] help: Help) -> Result {
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let before = nu_parser::winnow_stats();
+    let block = nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    let after = nu_parser::winnow_stats();
+    assert_eq!(working_set.parse_errors, [], "`{code}`");
+    assert_eq!(
+        after.classic_statements, before.classic_statements,
+        "`{code}`: a statement was handed to the classic parser"
+    );
+    let last = &block.pipelines.last().expect("a statement").elements[0].expr;
+    let call = match &last.expr {
+        Expr::Call(call) => call,
+        other => panic!("`{code}`: not a call: {other:?}"),
+    };
+    let name = working_set.get_decl(call.decl_id).name();
+    match help {
+        Help::Call(command, arguments) => {
+            assert_eq!(name, command, "`{code}`");
+            assert_eq!(call.arguments.len(), arguments, "`{code}`: {call:?}");
+        }
+        Help::Untyped(command) => {
+            assert_eq!(name, command, "`{code}`");
+            assert_eq!(last.ty, Type::Any, "`{code}`");
+        }
+        Help::Declared(command) => assert!(
+            working_set.find_decl(command.as_bytes()).is_some(),
+            "`{code}`: `{command}` is not declared"
+        ),
+        Help::NotDeclared(command) => assert!(
+            working_set.find_decl(command.as_bytes()).is_none(),
+            "`{code}`: `{command}` is declared"
+        ),
+    }
+    Ok(())
+}
+
+/// `let` that asks for help gives the statement's input type, once it has read its variable.
+#[test]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn help_call_of_let_has_the_input_type() -> Result {
+    let code = "def f []: int -> int { let x --help }";
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    assert_eq!(working_set.parse_errors, [], "`{code}`");
+    let decl_id = working_set.find_decl(b"f").expect("`f` is declared");
+    let block_id = working_set
+        .get_decl(decl_id)
+        .block_id()
+        .expect("`f` has a body");
+    let body = working_set.get_block(block_id);
+    assert_eq!(body.pipelines[0].elements[0].expr.ty, Type::Int);
+    Ok(())
+}
+
+/// A redirected call for help of a statement keyword is an error, as the classic parser
+/// reports it, and a `def` that asks for help in a block is still predeclared from its text:
+/// the block adds the command's declaration.
+#[rstest]
+#[case::redirected_def("def f --help o> /dev/null", 1, 0)]
+#[case::redirected_module("module m --help {} e> /dev/null", 1, 0)]
+#[case::def_in_a_block("do { def f [] {} --help }", 0, 1)]
+#[case::export_alias_in_module("module m { export alias --help }", 1, 0)]
+#[nu_test_support::test]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn help_call_keeps_the_classic_effects(
+    #[case] code: &str,
+    #[case] errors: usize,
+    #[case] decls: usize,
+) -> Result {
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    assert_eq!(working_set.parse_errors.len(), errors, "`{code}`");
+    assert_eq!(working_set.delta.num_decls(), decls, "`{code}`");
+    Ok(())
+}
+
+/// The body of a `def` that asks for help is compiled once, by `finish_def`, as for any `def`:
+/// an error its compilation reports is reported once.
+#[test]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn help_call_of_def_compiles_its_body_once() -> Result {
+    let code = "def f --help [] { break }";
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    assert_eq!(working_set.parse_errors, [], "`{code}`");
+    assert_eq!(working_set.compile_errors.len(), 1, "`{code}`");
+    Ok(())
+}
+
+/// `export-env` reads only its first item, so a `--help` after the block is not read: the
+/// statement is the block's.
+#[test]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn export_env_reads_only_its_first_item() -> Result {
+    let code = "export-env {} --help";
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let block = nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    assert_eq!(working_set.parse_errors, [], "`{code}`");
+    let Expr::Call(call) = &block.pipelines[0].elements[0].expr.expr else {
+        panic!("`{code}`: not a call");
+    };
+    assert_eq!(call.arguments.len(), 1, "`{code}`: {call:?}");
+    assert!(call.get_named_arg("help").is_none(), "`{code}`: {call:?}");
     Ok(())
 }

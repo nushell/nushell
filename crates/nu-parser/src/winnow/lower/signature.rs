@@ -144,6 +144,11 @@ impl<'s> Lower<'_, '_, 's> {
             w::Expr::Extern(extern_def) => (&extern_def.name, &extern_def.signature, false, true),
             w::Expr::Export(export) => return self.predecl_statement(&export.item),
             w::Expr::AttributeBlock(block) => return self.predecl_statement(&block.item),
+            // `def foo [] {} --help`, which the winnow tree has as a call: the classic
+            // predeclaration still declares the command from the statement's text.
+            w::Expr::Call(call) if matches!(call.head.name.as_ref(), "def" | "extern") => {
+                return Err(Unlowered::Unsupported("predeclaration of a call for help"));
+            }
             _ => return Ok(()),
         };
         let lowered = self.predecl(Predecl {

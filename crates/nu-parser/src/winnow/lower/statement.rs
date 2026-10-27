@@ -31,6 +31,36 @@ use crate::{
     },
 };
 
+/// The keywords whose statement is a call when it asks for help (`def foo --help`), lowered by
+/// `help_statement`.
+const HELP_STATEMENT_KEYWORDS: &[&str] = &[
+    "def",
+    "extern",
+    "for",
+    "alias",
+    "type",
+    "module",
+    "use",
+    "export-env",
+    "where",
+    "export",
+    "let",
+    "mut",
+    "const",
+];
+
+/// The keywords a module's body may have a call for help of (`parse_module_pipeline`).
+const MODULE_HELP_KEYWORDS: &[&str] = &[
+    "def",
+    "extern",
+    "alias",
+    "type",
+    "use",
+    "module",
+    "const",
+    "export-env",
+];
+
 /// Where a statement goes: an ordinary block, or a module's body.
 pub(in crate::winnow) enum StatementTarget<'t> {
     /// A statement of an ordinary block; `input_type` is the block's input, which only its
@@ -144,6 +174,13 @@ impl<'s> Lower<'_, '_, 's> {
             w::Expr::TypeAlias(alias) if attributes.is_empty() => {
                 return Ok(self.type_alias(command, alias)?.0);
             }
+            w::Expr::Call(call)
+                if attributes.is_empty()
+                    && MODULE_HELP_KEYWORDS.contains(&call.head.name.as_ref()) =>
+            {
+                self.help_statement(pipeline, command, command, call, None, None)?
+                    .0
+            }
             w::Expr::Use(use_statement) if attributes.is_empty() => {
                 let (pipeline, _) =
                     self.use_statement(command, command, use_statement, Some(module))?;
@@ -231,6 +268,21 @@ impl<'s> Lower<'_, '_, 's> {
                         main_span,
                     );
                     return Ok(pipeline);
+                }
+                // An `export extern` defines its command even when it asks for help.
+                w::Expr::Call(call) if attributes.is_empty() => {
+                    let (expression, decl) = self.help_statement(
+                        pipeline,
+                        command,
+                        &export.item,
+                        call,
+                        Some(module_name),
+                        None,
+                    )?;
+                    if let Some((name, decl_id)) = decl {
+                        self.add_export_decl(module, module_name, name, decl_id, &expression);
+                    }
+                    expression
                 }
                 _ => return Err(Unlowered::Unsupported("export in a module")),
             },
@@ -384,6 +436,11 @@ impl<'s> Lower<'_, '_, 's> {
                     return Ok(pipeline);
                 }
                 w::Expr::TypeAlias(alias) => return Ok(self.type_alias(&element.expr, alias)?.0),
+                w::Expr::Call(call) => {
+                    let e = &element.expr;
+                    self.help_statement(pipeline, e, &export.item, call, None, None)?
+                        .0
+                }
                 _ => return Err(Unlowered::Unsupported("export")),
             },
             w::Expr::AttributeBlock(block) => {
@@ -424,12 +481,20 @@ impl<'s> Lower<'_, '_, 's> {
                     "hide" => return self.hide(&element.expr, call),
                     "run" => return Ok(Pipeline::from_vec(vec![self.run(&element.expr, call)?])),
                     #[cfg(feature = "plugin")]
-                    "plugin use" => return self.keyword_statement(call, parse_plugin_use),
-                    name => {
-                        if let Some(effect) = overlay_effect(name) {
-                            return self.keyword_statement(call, effect);
-                        }
+                    "plugin use" => {
+                        return self.keyword_statement(&element.expr, call, Some(parse_plugin_use));
                     }
+                    name if HELP_STATEMENT_KEYWORDS.contains(&name) => {
+                        let e = &element.expr;
+                        let (statement, _) =
+                            self.help_statement(pipeline, e, e, call, None, input_type)?;
+                        return Ok(Pipeline::from_vec(vec![statement]));
+                    }
+                    name if name.split(' ').next() == Some("overlay") => {
+                        let effect = overlay_effect(name);
+                        return self.keyword_statement(&element.expr, call, effect);
+                    }
+                    _ => {}
                 }
                 return self.single_element(pipeline, element, input_type);
             }

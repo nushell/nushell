@@ -18,8 +18,9 @@ use crate::{
         shape_allows_negative_number, strict_extern_forwards,
     },
     parse_expressions::parse_value as classic_value,
-    parse_helpers::PERCENT_FORCED_BUILTIN_PARSER_INFO,
+    parse_helpers::{PERCENT_FORCED_BUILTIN_PARSER_INFO, is_variable},
     parse_keywords::is_parser_keyword,
+    parse_signatures::ensure_not_reserved_variable_name,
     parse_source::{LIB_DIRS_VAR, find_dirs_var},
     type_check::type_compatible,
     winnow::lookup::decl_kind,
@@ -227,6 +228,8 @@ impl<'s> Lower<'_, '_, 's> {
             _ => false,
         };
         let alias_call = decl.as_alias().map(|alias| alias.wrapped_call.clone());
+        // `let`'s variable gets the statement's input type (`SpecialCmd::Let`).
+        let let_input = input_type.filter(|_| decl.is_keyword() && decl.name() == "let");
 
         let output = self
             .working_set
@@ -254,11 +257,17 @@ impl<'s> Lower<'_, '_, 's> {
         if signature.creates_scope {
             self.working_set.enter_scope();
         }
-        let result = self.assign_arguments(&mut call, arguments, &signature, positional_idx);
+        let result =
+            self.assign_arguments(&mut call, arguments, &signature, positional_idx, let_input);
         if signature.creates_scope {
             self.working_set.exit_scope();
         }
         result?;
+        // Once it has read the variable, `let` gives the statement's input as its output.
+        let output = match let_input {
+            Some(input) if call.positional_iter().next().is_some() => input.clone(),
+            _ => output,
+        };
 
         let kind = self.check_call(head, &signature, &call)?;
         for warning in deprecation
@@ -270,13 +279,15 @@ impl<'s> Lower<'_, '_, 's> {
         Ok((Box::new(call), output, kind))
     }
 
-    /// Put `arguments` into `call` as the signature says, in source order.
+    /// Put `arguments` into `call` as the signature says, in source order; `let_input` is the
+    /// type of a variable `let` declares.
     fn assign_arguments(
         &mut self,
         call: &mut Call,
         arguments: &[w::Argument<'s>],
         signature: &nu_protocol::Signature,
         mut positional_idx: usize,
+        let_input: Option<&Type>,
     ) -> Lowered<()> {
         let mut end_of_options = false;
         // An index rather than an iterator: a flag may take the next argument as its value.
@@ -359,17 +370,34 @@ impl<'s> Lower<'_, '_, 's> {
                     }
                     if let Some(positional) = signature.get_positional(positional_idx) {
                         let shape = &positional.shape;
-                        // A row condition reads the items from here on (`parse_multispan_value`):
-                        // a closure that is the call's last item is one by itself
-                        // (`parse_row_condition`), and so is the call's only argument when it
-                        // is the first positional, which the winnow parser read as one
-                        // condition (`DeclKind::RowCondition`).
+                        // A row condition reads the items from here on (`parse_multispan_value`),
+                        // so the call's last item is one by itself (`parse_row_condition`); the
+                        // winnow parser read a row-condition command's arguments as one
+                        // condition unless the first is a flag (`DeclKind::RowCondition`).
                         let value = if matches!(shape, SyntaxShape::RowCondition)
                             && index == arguments.len()
-                            && (matches!(expr.expr, w::Expr::Closure(_))
-                                || arguments.len() == 1 && positional_idx == 0)
                         {
                             self.row_condition(expr)?
+                        } else if matches!(
+                            shape,
+                            SyntaxShape::Signature | SyntaxShape::ExternalSignature
+                        ) && self.text(expr.span).starts_with('[')
+                            && self.multi_item_count(
+                                signature,
+                                arguments,
+                                index - 1,
+                                positional_idx,
+                            ) == 1
+                        {
+                            // A signature of one item, which `parse_full_signature` reads as the
+                            // value parser reads the shape (`parse_signature`).
+                            let span = self.span(expr.span);
+                            self.checked(|ws| classic_value(ws, span, shape, None))?
+                        } else if matches!(shape, SyntaxShape::VarWithOptType)
+                            && !self.text(expr.span).ends_with(':')
+                        {
+                            // Without a `:` after it, the name is the variable's only item.
+                            self.variable_item(expr, let_input)?
                         } else if let SyntaxShape::Keyword(keyword, value_shape) = shape
                             && !is_multispan_shape(value_shape)
                         {
@@ -400,6 +428,78 @@ impl<'s> Lower<'_, '_, 's> {
             }
         }
         Ok(())
+    }
+
+    /// How many of `arguments`, from the one at `index`, the multi-item positional
+    /// `positional_idx` of `signature` takes (`calculate_end_span`): the rest of the call for a
+    /// signature with a rest parameter; up to a later keyword parameter's keyword, as many as
+    /// leave one for each positional between (`first_kw_idx`); else all but one for each
+    /// required positional after it.
+    fn multi_item_count(
+        &self,
+        signature: &nu_protocol::Signature,
+        arguments: &[w::Argument<'s>],
+        index: usize,
+        positional_idx: usize,
+    ) -> usize {
+        if signature.rest_positional.is_some() {
+            return arguments.len() - index;
+        }
+        let keyword = (positional_idx + 1..signature.num_positionals()).find_map(|idx| {
+            let Some(SyntaxShape::Keyword(keyword, _)) = signature
+                .get_positional(idx)
+                .map(|positional| &positional.shape)
+            else {
+                return None;
+            };
+            let offset = arguments[index..]
+                .iter()
+                .position(|argument| self.text(argument.span()).as_bytes() == keyword.as_slice())?;
+            Some((idx, index + offset))
+        });
+        let end = match keyword {
+            Some((keyword_idx, keyword_item)) => {
+                let between = keyword_idx - positional_idx - 1;
+                if between >= keyword_item - index {
+                    keyword_item
+                } else {
+                    keyword_item - between
+                }
+            }
+            None => {
+                let remaining_items = arguments.len() - (index + 1);
+                let remaining_positionals = signature
+                    .required_positional
+                    .len()
+                    .saturating_sub(positional_idx + 1);
+                index + 1 + remaining_items.saturating_sub(remaining_positionals)
+            }
+        };
+        end - index
+    }
+
+    /// A variable written as one item, `x` (`parse_var_with_opt_type`): created in scope, not
+    /// mutable, with the type `input_type` (`any` without one); its declaration is typed `any`.
+    /// A name that is no variable's is the classic parser's error. Unlike the bindings'
+    /// variables (`variable_declaration`), it is in scope at once, as the classic parser puts it
+    /// there: a call that reads one is a call for help, which the winnow parser has already
+    /// checked, so no later error hands it back.
+    fn variable_item(
+        &mut self,
+        e: &w::Expression<'s>,
+        input_type: Option<&Type>,
+    ) -> Lowered<Expression> {
+        let span = self.span(e.span);
+        let name = self.text(e.span).as_bytes();
+        if name.iter().any(|byte| b" \"'`".contains(byte)) || !is_variable(name) {
+            return Err(Unlowered::Error);
+        }
+        self.checked(|ws| ensure_not_reserved_variable_name(ws, name, span))?;
+        let ty = input_type.cloned().unwrap_or(Type::Any);
+        let var_id = self
+            .working_set
+            .add_variable(name.to_vec(), span, ty, false);
+        Ok(self.node(Expr::VarDecl(var_id), span, Type::Any))
     }
 
     /// The argument of a keyword parameter, `keyword value` (the `Keyword` case of

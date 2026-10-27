@@ -931,6 +931,184 @@ impl<'s> Lower<'_, '_, 's> {
         Ok((pipeline, exportables))
     }
 
+    /// A statement keyword's call for help (`def foo --help`, `module m --help {}`), `item` the
+    /// call and `command` the statement: the call itself, or the `export` around it, in the
+    /// body of the module `module_name` for an exported definition. The statement is the call
+    /// the keyword's parse function makes to see whether the statement asks for help, its
+    /// arguments read by the keyword's signature (`parse_internal_call`), as that function makes
+    /// it:
+    ///
+    /// - `def` and `extern` read it in a scope of their own, `def` with its last item marked as
+    ///   its body, and finish it with `finish_def` (which drops the predeclaration) and
+    ///   `finish_extern` (which defines the command all the same);
+    /// - `for` reads it in a scope of its own;
+    /// - `type` reads only its first two items;
+    /// - `module` reads only its first positional (`ArgumentParsingLevel::FirstK`): a second
+    ///   one, which the winnow parser leaves out of the call, is garbage;
+    /// - `let` reads it with the statement's input;
+    /// - an `export` makes it a call to `export <keyword>` covering the statement
+    ///   (`warp_export_call`).
+    ///
+    /// (`export-env` reads only its first item, as the winnow parser's call already has it.)
+    /// `alias` and `type` drop the errors of the call, which `internal_call` hands back.
+    ///
+    /// Returns the statement and, for `extern`, the command it defined, which an `export
+    /// extern` in a module exports. A call that does not ask for help, a redirected statement
+    /// (an error for these keywords but `where`, which keeps it, and `const`, which drops it),
+    /// and an `export alias` in a module, which adds an internal error, are the classic
+    /// parser's.
+    pub(super) fn help_statement(
+        &mut self,
+        pipeline: &w::Pipeline<'s>,
+        command: &w::Expression<'s>,
+        item: &w::Expression<'s>,
+        call: &w::Call<'s>,
+        module_name: Option<&[u8]>,
+        input_type: Option<&Type>,
+    ) -> Lowered<Definition> {
+        let keyword = call.head.name.as_ref();
+        if pipeline
+            .elements
+            .iter()
+            .any(|element| element.redirection.is_some())
+        {
+            return Err(match keyword {
+                "where" | "const" => Unlowered::Unsupported("redirected call for help"),
+                _ => Unlowered::Error,
+            });
+        }
+        let export = matches!(command.expr, w::Expr::Export(_));
+        if export && module_name.is_some() && keyword == "alias" {
+            return Err(Unlowered::Error);
+        }
+        let decl_id = find_keyword_decl(self.working_set, keyword.as_bytes())
+            .ok_or(Unlowered::Unsupported("keyword command"))?;
+        let export_name = format!("export {keyword}");
+        if export && find_keyword_decl(self.working_set, export_name.as_bytes()).is_none() {
+            return Err(Unlowered::Unsupported("export that is not a keyword"));
+        }
+        let head = self.command_head(command, keyword);
+        let call_span = self.span(command.span);
+        let arguments = call.arguments.as_slice();
+        // `parse_def` and `parse_extern` refuse a name with its parameters joined to it.
+        let name_span = arguments
+            .iter()
+            .map(w::Argument::span)
+            .find(|span| !self.text(*span).starts_with('-'));
+        if matches!(keyword, "def" | "extern")
+            && name_span.is_some_and(|span| self.text(span).contains(['[', '(']))
+        {
+            return Err(Unlowered::Error);
+        }
+        let (lowered, output, kind) = match keyword {
+            "def" => self.in_scope(|this| {
+                let body = arguments.last().map(|argument| this.span(argument.span()));
+                let outer = std::mem::replace(&mut this.working_set.def_body_span, body);
+                let lowered = this.internal_call(head, arguments, decl_id, None);
+                this.working_set.def_body_span = outer;
+                lowered
+            })?,
+            "extern" | "for" => {
+                self.in_scope(|this| this.internal_call(head, arguments, decl_id, None))?
+            }
+            "type" => {
+                self.internal_call(head, &arguments[..arguments.len().min(2)], decl_id, None)?
+            }
+            "module" => {
+                // An `export` covers the item the call around `module` leaves out at its end.
+                let span = WSpan::new(item.span.start, command.span.end);
+                self.first_positional_call(span, call, head, decl_id)?
+            }
+            "let" => self.internal_call(head, arguments, decl_id, input_type)?,
+            _ => self.internal_call(head, arguments, decl_id, None)?,
+        };
+        if kind != CallKind::Help {
+            return Err(Unlowered::Unsupported(
+                "keyword call that does not ask for help",
+            ));
+        }
+        let (mut expression, decl) = match keyword {
+            "def" => finish_def(
+                self.working_set,
+                DefCall {
+                    call: lowered,
+                    output,
+                    call_kind: kind,
+                    call_span,
+                    decl_id,
+                },
+                String::new(),
+                String::new(),
+                Vec::new(),
+                module_name,
+            ),
+            "extern" => {
+                let (desc, extra_desc) = self.description(pipeline, &[], command);
+                let name_span = name_span.map_or(call_span, |span| self.span(span));
+                finish_extern(
+                    self.working_set,
+                    lowered,
+                    call_span,
+                    name_span,
+                    desc,
+                    extra_desc,
+                    Vec::new(),
+                    module_name,
+                )
+            }
+            _ => (self.node(Expr::Call(lowered), call_span, output), None),
+        };
+        if export {
+            self.export_call(&mut expression, &export_name, call_span)?;
+            if let Expr::Call(call) = &mut expression.expr {
+                call.head = head;
+            }
+        }
+        Ok((expression, decl))
+    }
+
+    /// The call `parse_module` makes (`ArgumentParsingLevel::FirstK { k: 1 }`): its first
+    /// positional read with its shape, a second one garbage. The winnow parser leaves that
+    /// second positional out of `call`, so it is what `span`, the call's items, covers besides
+    /// its head and arguments.
+    fn first_positional_call(
+        &mut self,
+        span: WSpan,
+        call: &w::Call<'s>,
+        head: Span,
+        decl_id: DeclId,
+    ) -> Lowered<(Box<Call>, Type, CallKind)> {
+        let mut covered: Vec<WSpan> = std::iter::once(call.head.span)
+            .chain(call.arguments.iter().map(w::Argument::span))
+            .collect();
+        covered.sort_by_key(|span| span.start);
+        let mut gaps = Vec::new();
+        let mut position = span.start;
+        for next in covered.into_iter().chain([WSpan::new(span.end, span.end)]) {
+            let gap = &self.source[position..next.start.max(position)];
+            let trimmed = gap.trim();
+            if !trimmed.is_empty() {
+                let start = position + (gap.len() - gap.trim_start().len());
+                gaps.push(WSpan::new(start, start + trimmed.len()));
+            }
+            position = position.max(next.end);
+        }
+        let (mut lowered, output, kind) =
+            self.internal_call(head, &call.arguments, decl_id, None)?;
+        match gaps.as_slice() {
+            [] => {}
+            [dropped] => {
+                let span = self.span(*dropped);
+                lowered.add_positional(garbage(self.working_set, span));
+                lowered
+                    .arguments
+                    .sort_by_key(|argument| argument.span().start);
+            }
+            _ => return Err(Unlowered::Unsupported("module call for help")),
+        }
+        Ok((lowered, output, kind))
+    }
+
     /// `alias name = target` (`parse_alias`), in the module `module_name` when it is exported
     /// from one, whose name the alias may not have. The statement is a call to `alias` whose `=`
     /// argument is the target read as an expression, with the predeclared commands of the block
