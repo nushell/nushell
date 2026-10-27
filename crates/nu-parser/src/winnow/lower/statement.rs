@@ -11,6 +11,7 @@ use nu_protocol::{
     engine::StateWorkingSet,
 };
 
+use super::call::FIRST_WORD_COMMANDS;
 use super::module::{KeywordEffect, overlay_effect};
 use super::{Lower, Lowered, Unlowered};
 #[cfg(feature = "plugin")]
@@ -372,6 +373,14 @@ impl<'s> Lower<'_, '_, 's> {
             [] => Err(Unlowered::Unsupported("empty pipeline")),
             [single] => self.builtin_commands(pipeline, single, input_type),
             [first, rest @ ..] => {
+                // Once `run` has parsed its script, nothing may hand the statement back (a
+                // later element could): only the last element is lowered as a `run`.
+                if pipeline.elements[..rest.len()]
+                    .iter()
+                    .any(|element| is_run_call(&element.expr))
+                {
+                    return Err(Unlowered::Unsupported("run before the end of a pipeline"));
+                }
                 let pipes = self.classic_pipes(pipeline);
                 let mut current = input_type.cloned().unwrap_or(Type::Any);
                 let mut elements = Vec::with_capacity(pipeline.elements.len());
@@ -476,6 +485,12 @@ impl<'s> Lower<'_, '_, 's> {
             }
             // The parser keywords the classic parser picks by the statement's first words.
             w::Expr::Call(call) if call.sigil.is_none() => {
+                // `source me` where a command `source me` exists: the classic parser still
+                // picks `source` (`parse_builtin_commands`).
+                let first_word = call.head.name.split(' ').next().unwrap_or_default();
+                if first_word != call.head.name && FIRST_WORD_COMMANDS.contains(&first_word) {
+                    return Err(Unlowered::Unsupported("keyword command"));
+                }
                 match call.head.name.as_ref() {
                     "source" | "source-env" => return self.source(&element.expr, call),
                     "hide" => return self.hide(&element.expr, call),
@@ -902,6 +917,16 @@ fn changes_commands(pipeline: &w::Pipeline<'_>) -> bool {
         .iter()
         .any(|element| matches!(element.expr.expr, w::Expr::Module(_) | w::Expr::Export(_)))
         || statement_changes_names(pipeline)
+}
+
+/// Whether `e` is a call to `run`, maybe after an environment shorthand, which
+/// `parse_run_expr` reads with its script.
+fn is_run_call(e: &w::Expression<'_>) -> bool {
+    match &e.expr {
+        w::Expr::Call(call) => call.sigil.is_none() && call.head.name == "run",
+        w::Expr::EnvShorthand(shorthand) => is_run_call(&shorthand.expr),
+        _ => false,
+    }
 }
 
 /// The `e>|` or `o+e>|` that ends `element`, if one does (alone, or after an `o> file`).

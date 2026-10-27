@@ -53,12 +53,13 @@ impl<'s> Lower<'_, '_, 's> {
         ))
     }
 
-    /// `run script args` as a statement (`parse_run`): the call with `run`'s own arguments, up to
-    /// the script's path, read with its signature (`parse_internal_call`), then the script's
-    /// arguments (`add_script_arguments`), then `finish_run`, which parses the script and gives
-    /// its block to the call. Only a whole statement is lowered: once `finish_run` has parsed
-    /// the script, which declares its definitions in the caller's scope, nothing may hand the
-    /// statement back.
+    /// `run script args` (`parse_run`, and `parse_run_expr` in a pipeline or after an
+    /// environment shorthand): the call with `run`'s own arguments, up to the script's path,
+    /// read with its signature (`parse_internal_call`), then the script's arguments
+    /// (`add_script_arguments`), then `finish_run`, which parses the script and gives its block
+    /// to the call. Once `finish_run` has parsed the script, which declares its definitions in
+    /// the caller's scope, nothing may hand the statement back, so in a pipeline only the last
+    /// element is lowered as a `run`.
     pub(super) fn run(&mut self, e: &w::Expression<'s>, call: &w::Call<'s>) -> Lowered<Expression> {
         let decl_id = find_keyword_decl(self.working_set, b"run")
             .or_else(|| self.working_set.find_decl(b"run"))

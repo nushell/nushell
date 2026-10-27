@@ -860,3 +860,70 @@ fn export_env_reads_only_its_first_item() -> Result {
     assert!(call.get_named_arg("help").is_none(), "`{code}`: {call:?}");
     Ok(())
 }
+
+/// Where the classic parser reads a command (in a pipeline, after an environment shorthand),
+/// keywords are lowered as `parse_expression` reads them: `run` is `parse_run_expr`,
+/// `source-env`, `let` and `overlay list` are ordinary calls, and so is `plugin use` after a
+/// shorthand. The last element's type is checked: `let` gives its input.
+#[rstest]
+#[case::run_last("[1 2] | run null", "run")]
+#[case::run_after_shorthand("FOO=1 run null", "with-env")]
+#[case::source_env("[1 2] | source-env null", "source-env")]
+#[case::let_last("[1 2] | let x", "let")]
+#[case::let_after_shorthand("FOO=1 let x", "with-env")]
+#[case::overlay_list("null | overlay list", "overlay list")]
+#[case::plugin_use_after_shorthand("FOO=1 plugin use x", "with-env")]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn keyword_in_a_pipeline_is_lowered(#[case] code: &str, #[case] command: &str) -> Result {
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let before = nu_parser::winnow_stats();
+    let block = nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    let after = nu_parser::winnow_stats();
+    assert_eq!(working_set.parse_errors, [], "`{code}`");
+    assert_eq!(
+        after.classic_statements, before.classic_statements,
+        "`{code}`: a statement was handed to the classic parser"
+    );
+    let last = &block.pipelines[0].elements.last().expect("an element").expr;
+    let Expr::Call(call) = &last.expr else {
+        panic!("`{code}`: not a call: {last:?}");
+    };
+    assert_eq!(
+        working_set.get_decl(call.decl_id).name(),
+        command,
+        "`{code}`"
+    );
+    if command == "let" {
+        assert_eq!(last.ty, Type::List(Box::new(Type::Int)), "`{code}`");
+    }
+    Ok(())
+}
+
+/// A `run` before the end of a pipeline is left to the classic parser: once `finish_run` has
+/// parsed the script, a later element handed back would hand the whole statement back.
+#[test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn run_before_the_end_of_a_pipeline_is_handed_over() -> Result {
+    let code = "run null | length";
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let before = nu_parser::winnow_stats();
+    nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    let after = nu_parser::winnow_stats();
+    assert_eq!(working_set.parse_errors, [], "`{code}`");
+    assert_eq!(after.classic_statements, before.classic_statements + 1);
+    Ok(())
+}
+
+/// In a pipeline, `let` and a name is a call to a command of that name when one exists, as
+/// `parse_call` looks for the longest command name.
+#[test]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn let_in_a_pipeline_calls_a_longer_command() -> Result {
+    let code = r#"def "let me" [] { "custom" }; [1] | let me"#;
+    test().run(code).expect_value_eq("custom")
+}

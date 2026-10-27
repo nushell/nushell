@@ -15,7 +15,8 @@ use super::{Lower, Lowered, Unlowered};
 use crate::winnow::syntax::{ast as w, lex::AssignmentOperator};
 use crate::{
     parse_calls::CallKind, parse_captures_compile::compile_block,
-    parse_literals::parse_string_strict, type_check::math_result_type, type_check::type_compatible,
+    parse_keywords::find_keyword_decl, parse_literals::parse_string_strict,
+    type_check::math_result_type, type_check::type_compatible,
 };
 
 impl<'s> Lower<'_, '_, 's> {
@@ -44,6 +45,23 @@ impl<'s> Lower<'_, '_, 's> {
             w::Expr::Continue => self.bare_keyword_call(e, "continue"),
             w::Expr::Where(condition) => self.where_expression(e, condition),
             w::Expr::DynamicCall(call) => self.dynamic_call(e, call, input_type),
+            w::Expr::Let(binding) if !self.alias_target => self.let_call(e, binding, input_type),
+            // `BuiltinCommandInPipeline` and `AssignInPipeline` (`parse_expression`).
+            w::Expr::Mut(_)
+            | w::Expr::Const(_)
+            | w::Expr::Def(_)
+            | w::Expr::Extern(_)
+            | w::Expr::Alias(_)
+            | w::Expr::TypeAlias(_)
+            | w::Expr::Use(_)
+            | w::Expr::Module(_)
+            | w::Expr::Export(_)
+            | w::Expr::ExportEnv(_)
+            | w::Expr::For(_)
+                if !self.alias_target =>
+            {
+                Err(Unlowered::Error)
+            }
             w::Expr::Let(_)
             | w::Expr::Mut(_)
             | w::Expr::Const(_)
@@ -219,7 +237,24 @@ impl<'s> Lower<'_, '_, 's> {
             };
             pairs.push((name, value));
         }
-        let output = self.expression(&shorthand.expr, input_type)?;
+        // `parse_expression` looks for `plugin use` and `overlay list` at the second of all its
+        // items, the shorthand's included: after a shorthand, `plugin use` is an ordinary call
+        // and every `overlay` call an error.
+        let output = match &shorthand.expr.expr {
+            w::Expr::Call(call) if call.sigil.is_none() && !self.alias_target => {
+                match call.head.name.split(' ').next() {
+                    Some("overlay") => return Err(Unlowered::Error),
+                    Some("plugin") => match self.working_set.find_decl(call.head.name.as_bytes()) {
+                        Some(decl_id) => {
+                            self.ordinary_call(&shorthand.expr, call, decl_id, input_type)?
+                        }
+                        None => self.expression(&shorthand.expr, input_type)?,
+                    },
+                    _ => self.expression(&shorthand.expr, input_type)?,
+                }
+            }
+            _ => self.expression(&shorthand.expr, input_type)?,
+        };
         let Some(decl_id) = self.working_set.find_decl(b"with-env") else {
             return Ok(output);
         };
@@ -375,6 +410,44 @@ impl<'s> Lower<'_, '_, 's> {
     }
 
     /// The span of the keyword `keyword` that starts `e`.
+    /// `let name` where the classic parser reads a command, in a pipeline or after an
+    /// environment shorthand (`parse_expression`): an ordinary call to `let` (`parse_call`),
+    /// whose variable and output take the pipeline's input. A type or a value after the name,
+    /// a `$` before it, and a command named `let` and the name, which `parse_call` calls
+    /// instead (`find_longest_decl`), are left to the classic parser.
+    fn let_call(
+        &mut self,
+        e: &w::Expression<'s>,
+        binding: &w::Binding<'s>,
+        input_type: Option<&Type>,
+    ) -> Lowered<Expression> {
+        if binding.ty.is_some()
+            || binding.eq.is_some()
+            || binding.value.is_some()
+            || self.source[..binding.name.span.start].ends_with('$')
+            || self
+                .working_set
+                .find_decl(format!("let {}", self.text(binding.name.span)).as_bytes())
+                .is_some()
+        {
+            return Err(Unlowered::Unsupported("binding in a pipeline"));
+        }
+        let decl_id = find_keyword_decl(self.working_set, b"let")
+            .ok_or(Unlowered::Unsupported("let that is not a keyword"))?;
+        let name = w::Expression::new(
+            w::Expr::String(w::StringLiteral {
+                value: binding.name.item.into(),
+                quote: w::Quote::Bare,
+            }),
+            binding.name.span,
+        );
+        let head = self.keyword_span(e, "let");
+        let (call, output, _) =
+            self.internal_call(head, &[w::Argument::Positional(name)], decl_id, input_type)?;
+        let span = self.span(e.span);
+        Ok(self.node(Expr::Call(call), span, output))
+    }
+
     pub(super) fn keyword_span(&self, e: &w::Expression<'s>, keyword: &str) -> Span {
         let start = self.span(e.span).start;
         Span::new(start, start + keyword.len())

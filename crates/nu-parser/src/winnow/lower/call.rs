@@ -27,9 +27,28 @@ use crate::{
 };
 
 /// The commands the classic parser picks by a statement's first word, before it looks up any
-/// command name (`parse_builtin_commands`; `run` also after a `|`, in `parse_expression`): a
-/// longer command name that starts with one of them is never called there.
-const FIRST_WORD_COMMANDS: &[&str] = &["hide", "run", "source", "source-env"];
+/// command name (`parse_builtin_commands`): a longer command name that starts with one of them
+/// is never called there.
+pub(super) const FIRST_WORD_COMMANDS: &[&str] = &["hide", "run", "source", "source-env"];
+
+/// The first words `parse_expression` reports a statement for where it reads a command (in a
+/// pipeline, after an environment shorthand): `BuiltinCommandInPipeline` and
+/// `AssignInPipeline`.
+const STATEMENTS_IN_PIPELINE: &[&str] = &[
+    "def",
+    "extern",
+    "for",
+    "module",
+    "type",
+    "use",
+    "source",
+    "alias",
+    "export",
+    "export-env",
+    "hide",
+    "const",
+    "mut",
+];
 
 impl<'s> Lower<'_, '_, 's> {
     /// A call to a command (`parse_call`).
@@ -42,7 +61,6 @@ impl<'s> Lower<'_, '_, 's> {
         if let Some(sigil) = call.sigil {
             return self.builtin_call(e, call, sigil, input_type);
         }
-        let head_span = self.span(call.head.span);
         let Some(decl_id) = self.working_set.find_decl(call.head.name.as_bytes()) else {
             // In an alias's body, the predeclared commands are hidden (`parse_alias`).
             if !self.working_set.search_predecls {
@@ -50,6 +68,72 @@ impl<'s> Lower<'_, '_, 's> {
             }
             return Err(Unlowered::Unsupported("unresolved command"));
         };
+        if !self.alias_target {
+            // Where the classic parser reads a command (`parse_expression`), its first word picks
+            // how (`HeadKind`): `run` is `parse_run_expr`, a statement is an error, and
+            // `overlay` but `overlay list`, and `plugin use`, are errors too (both looked for
+            // in the second item). Statements are parsed before (`builtin_commands`).
+            let first_word = call.head.name.split(' ').next().unwrap_or_default();
+            match first_word {
+                "run" if call.head.name == "run" => return self.run(e, call),
+                "run" | "where" => return Err(Unlowered::Unsupported("keyword command")),
+                word if STATEMENTS_IN_PIPELINE.contains(&word) => return Err(Unlowered::Error),
+                "overlay" if self.second_word(call) != Some("list") => {
+                    return Err(Unlowered::Error);
+                }
+                "plugin" if self.second_word(call) == Some("use") => return Err(Unlowered::Error),
+                _ => {}
+            }
+            // Any other parser keyword with a parse function of its own the winnow tree has no
+            // node for; `let` and `source-env` are ordinary calls there, and the control-flow
+            // keywords have nodes.
+            let decl = self.working_set.get_decl(decl_id);
+            if decl.is_keyword()
+                && is_parser_keyword(decl.name().as_bytes())
+                && !matches!(
+                    decl.name(),
+                    "if" | "match"
+                        | "try"
+                        | "overlay"
+                        | "loop"
+                        | "while"
+                        | "return"
+                        | "break"
+                        | "continue"
+                        | "let"
+                        | "source-env"
+                )
+            {
+                return Err(Unlowered::Unsupported("keyword command"));
+            }
+        }
+        self.ordinary_call(e, call, decl_id, input_type)
+    }
+
+    /// The second item of `call`: the second word of its head, or else its first argument.
+    fn second_word(&self, call: &w::Call<'s>) -> Option<&'s str> {
+        match call.head.name.split(' ').nth(1) {
+            Some(_) => {
+                let head = self.text(call.head.span);
+                head.split_ascii_whitespace().nth(1)
+            }
+            None => call
+                .arguments
+                .first()
+                .map(|argument| self.text(argument.span())),
+        }
+    }
+
+    /// A call to `decl_id`, which `call`'s head names, read as `parse_call` reads it: an alias of
+    /// an external command takes external arguments, and any other command its signature's.
+    pub(super) fn ordinary_call(
+        &mut self,
+        e: &w::Expression<'s>,
+        call: &w::Call<'s>,
+        decl_id: DeclId,
+        input_type: Option<&Type>,
+    ) -> Lowered<Expression> {
+        let head_span = self.span(call.head.span);
         // The winnow parser read the arguments as external arguments, for a `def --wrapped`
         // command; the classic parser reads them with the signature of the command the name
         // resolves to now (`parse_internal_call`), which a `hide`, `use` or `overlay use` may
@@ -58,37 +142,6 @@ impl<'s> Lower<'_, '_, 's> {
             return Err(Unlowered::Unsupported("wrapped command rebound"));
         }
         let decl = self.working_set.get_decl(decl_id);
-        // A parser keyword has a parse function of its own in the classic parser
-        // (`parse_builtin_commands`), which applies its effects on the working set. Left to the
-        // lowering are the control-flow keywords, which the winnow tree has nodes for, and
-        // `overlay` alone, a plain call; in an alias's target, read with `parse_call`, all are.
-        if !self.alias_target
-            && decl.is_keyword()
-            && is_parser_keyword(decl.name().as_bytes())
-            && !matches!(
-                decl.name(),
-                "if" | "match"
-                    | "try"
-                    | "overlay"
-                    | "loop"
-                    | "while"
-                    | "return"
-                    | "break"
-                    | "continue"
-            )
-        {
-            return Err(Unlowered::Unsupported("keyword command"));
-        }
-        if !self.alias_target
-            && call
-                .head
-                .name
-                .split(' ')
-                .next()
-                .is_some_and(|word| FIRST_WORD_COMMANDS.contains(&word))
-        {
-            return Err(Unlowered::Unsupported("keyword command"));
-        }
         // `let = 1` and friends: the classic parser reports an incomplete statement.
         if let Some(w::Argument::Positional(first)) = call.arguments.first()
             && self.text(first.span) == "="
