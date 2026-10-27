@@ -82,15 +82,24 @@ fn convert_into_signed_int_big_endian() -> Result {
 }
 
 #[test]
-fn convert_into_int_radix_invalid_string_error_types() -> Result {
-    for code in ["'zz' | into int -r 16", "'00zz' | into int -r 16"] {
+fn convert_into_int_radix_digits_outside_the_radix_string() -> Result {
+    for (code, val_str) in [
+        ("'zz' | into int -r 16", "'zz'"),
+        ("'0zz' | into int -r 16", "'0zz'"),
+        ("'00zz' | into int -r 16", "'00zz'"),
+    ] {
         let err = test().run(code).expect_shell_error()?;
         match err {
             ShellError::CantConvert {
-                to_type, from_type, ..
+                to_type,
+                from_type,
+                help,
+                span,
             } => {
                 assert_eq!(to_type, "int");
                 assert_eq!(from_type, "string");
+                assert_eq!(help.as_deref(), Some("invalid digit found in string"));
+                assert_eq!(span.end - span.start, val_str.len());
             }
             err => return Err(err.into()),
         }
@@ -100,14 +109,66 @@ fn convert_into_int_radix_invalid_string_error_types() -> Result {
 }
 
 #[test]
-fn convert_into_int_radix_invalid_float_error_types() -> Result {
+fn convert_into_int_radix_overflow_string() -> Result {
+    let code = "'99999999999999999999' | into int -r 16";
+    let val_str = "'99999999999999999999'";
+    let err = test().run(code).expect_shell_error()?;
+    match err {
+        ShellError::CantConvert {
+            to_type,
+            from_type,
+            help,
+            span,
+        } => {
+            assert_eq!(to_type, "int");
+            assert_eq!(from_type, "string");
+            assert_eq!(
+                help.as_deref(),
+                Some("number too large to fit in target type")
+            );
+            assert_eq!(span.end - span.start, val_str.len());
+        }
+        err => return Err(err.into()),
+    }
+
+    Ok(())
+}
+
+#[test]
+fn convert_into_int_radix_digits_outside_the_radix_float() -> Result {
     let err = test().run("89.0 | into int -r 8").expect_shell_error()?;
     match err {
         ShellError::CantConvert {
-            to_type, from_type, ..
+            to_type,
+            from_type,
+            help,
+            span,
         } => {
             assert_eq!(to_type, "int");
             assert_eq!(from_type, "float");
+            assert_eq!(help.as_deref(), Some("invalid digit found in string"));
+            assert_eq!(span.end - span.start, "89.0".len());
+        }
+        err => return Err(err.into()),
+    }
+
+    Ok(())
+}
+
+#[test]
+fn convert_into_int_radix_digits_outside_the_radix_int() -> Result {
+    let err = test().run("89 | into int -r 8").expect_shell_error()?;
+    match err {
+        ShellError::CantConvert {
+            to_type,
+            from_type,
+            help,
+            span,
+        } => {
+            assert_eq!(to_type, "int");
+            assert_eq!(from_type, "int");
+            assert_eq!(help.as_deref(), Some("invalid digit found in string"));
+            assert_eq!(span.end - span.start, "89".len());
         }
         err => return Err(err.into()),
     }

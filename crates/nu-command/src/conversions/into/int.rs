@@ -228,41 +228,25 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
             if radix == 10 {
                 input.clone()
             } else {
-                convert_int(input, head, radix)
+                convert_int(input, head, radix, "int")
             }
         }
         Value::Filesize { val, .. } => Value::int(val.get(), head),
-        Value::Float { val, .. } => Value::int(
-            {
-                if radix == 10 {
-                    *val as i64
-                } else {
-                    match convert_int(&Value::int(*val as i64, head), head, radix).as_int() {
-                        Ok(v) => v,
-                        _ => {
-                            return Value::error(
-                                ShellError::CantConvert {
-                                    to_type: "int".to_string(),
-                                    from_type: "float".to_string(),
-                                    span: head,
-                                    help: None,
-                                },
-                                head,
-                            );
-                        }
-                    }
-                }
-            },
-            head,
-        ),
+        Value::Float { val, .. } => {
+            if radix == 10 {
+                Value::int(*val as i64, head)
+            } else {
+                convert_int(&Value::int(*val as i64, val_span), head, radix, "float")
+            }
+        }
         Value::String { val, .. } => {
             if radix == 10 {
-                match int_from_string(val, head) {
+                match int_from_string(val, val_span) {
                     Ok(val) => Value::int(val, head),
                     Err(error) => Value::error(error, head),
                 }
             } else {
-                convert_int(input, head, radix)
+                convert_int(input, head, radix, "string")
             }
         }
         Value::Bool { val, .. } => {
@@ -351,7 +335,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
     }
 }
 
-fn convert_int(input: &Value, head: Span, radix: u32) -> Value {
+fn convert_int(input: &Value, head: Span, radix: u32, from_type: &str) -> Value {
     let i = match input {
         Value::Int { val, .. } => val.to_string(),
         Value::String { val, .. } => {
@@ -361,7 +345,7 @@ fn convert_int(input: &Value, head: Span, radix: u32) -> Value {
                 || val.starts_with("0o")
             // octal
             {
-                match int_from_string(val, head) {
+                match int_from_string(val, input.span()) {
                     Ok(x) => return Value::int(x, head),
                     Err(e) => return Value::error(e, head),
                 }
@@ -373,8 +357,8 @@ fn convert_int(input: &Value, head: Span, radix: u32) -> Value {
                         return Value::error(
                             ShellError::CantConvert {
                                 to_type: "int".to_string(),
-                                from_type: "string".to_string(),
-                                span: head,
+                                from_type: from_type.to_string(),
+                                span: input.span(),
                                 help: Some(e.to_string()),
                             },
                             head,
@@ -400,12 +384,12 @@ fn convert_int(input: &Value, head: Span, radix: u32) -> Value {
     };
     match i64::from_str_radix(i.trim(), radix) {
         Ok(n) => Value::int(n, head),
-        Err(_reason) => Value::error(
+        Err(reason) => Value::error(
             ShellError::CantConvert {
                 to_type: "int".to_string(),
-                from_type: "string".to_string(),
-                span: head,
-                help: None,
+                from_type: from_type.to_string(),
+                span: input.span(),
+                help: Some(reason.to_string()),
             },
             head,
         ),
@@ -564,68 +548,6 @@ mod test {
         );
 
         assert_eq!(actual.get_type(), Error)
-    }
-
-    #[test]
-    fn communicates_parsing_error_given_an_invalid_radix_string() {
-        let integer_str = Value::test_string("36anra");
-
-        let actual = action(
-            &integer_str,
-            &Arguments {
-                radix: 16,
-                cell_paths: None,
-                signed: false,
-                endian: Endian::Big,
-            },
-            Span::test_data(),
-        );
-
-        assert_eq!(actual.get_type(), Error);
-        if let Value::Error { error, .. } = actual {
-            if let ShellError::CantConvert {
-                to_type, from_type, ..
-            } = *error
-            {
-                assert_eq!(to_type, "int");
-                assert_eq!(from_type, "string");
-            } else {
-                panic!("expected CantConvert error, got {:?}", error);
-            }
-        } else {
-            panic!("expected error value, got {:?}", actual);
-        }
-    }
-
-    #[test]
-    fn communicates_parsing_error_given_an_invalid_radix_float() {
-        let float_val = Value::test_float(89.0);
-
-        let actual = action(
-            &float_val,
-            &Arguments {
-                radix: 8,
-                cell_paths: None,
-                signed: false,
-                endian: Endian::Big,
-            },
-            Span::test_data(),
-        );
-
-        assert_eq!(actual.get_type(), Error);
-        if let Value::Error { error, .. } = actual {
-            if let ShellError::CantConvert {
-                to_type, from_type, ..
-            } = *error
-            {
-                assert_eq!(to_type, "int");
-                assert_eq!(from_type, "float");
-            } else {
-                panic!("expected CantConvert error, got {:?}", error);
-            }
-        } else {
-            panic!("expected error value, got {:?}", actual);
-        }
     }
 
     #[rstest]

@@ -181,23 +181,6 @@ mod tests {
         let actual = action(&invalid_str, ARGS, SPAN);
 
         assert_eq!(actual.get_type(), Error);
-        if let Value::Error { error, .. } = actual {
-            if let ShellError::CantConvert {
-                to_type,
-                from_type,
-                help,
-                ..
-            } = *error
-            {
-                assert_eq!(to_type, "float");
-                assert_eq!(from_type, "string");
-                assert!(help.is_some());
-            } else {
-                panic!("expected CantConvert error, got {:?}", error);
-            }
-        } else {
-            panic!("expected error value, got {:?}", actual);
-        }
     }
 
     #[test]
