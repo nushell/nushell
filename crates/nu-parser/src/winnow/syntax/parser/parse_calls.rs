@@ -935,6 +935,30 @@ pub fn keyword_signature_of_call(call: &Call<'_>) -> Option<KeywordSignature> {
     None
 }
 
+/// How many of `call`'s arguments are the keyword command's own, which [`check_call`] checks:
+/// all of them, but for a `run` statement only those up to the script's path (nu's
+/// `parse_run_expr`), the first that is no flag or spread or the one after a `--`; the script
+/// takes the rest unchecked. An alias's target (`lenient`) is read as a plain call.
+fn checked_arguments(working_set: &WorkingSet<'_>, call: &Call<'_>, lenient: bool) -> usize {
+    let arguments = &call.arguments;
+    if call.head.name != "run" || lenient {
+        return arguments.len();
+    }
+    let text = |argument: &Argument<'_>| working_set.get_span_contents(argument.span());
+    let is_spread = |word: &str| {
+        word.strip_prefix("...")
+            .is_some_and(|value| value.starts_with(['$', '(', '[', '{']))
+    };
+    match arguments.iter().position(|argument| {
+        let word = text(argument);
+        word == "--" || !(word.starts_with('-') || is_spread(word))
+    }) {
+        Some(index) if text(&arguments[index]) == "--" => (index + 2).min(arguments.len()),
+        Some(index) => index + 1,
+        None => arguments.len(),
+    }
+}
+
 /// Check a call to a keyword command against nu's signature for it (nu's
 /// `check_call`, with the checks nu's call parser makes on the way): the
 /// flags it has, the values they take, the number of positionals, the `as`
@@ -944,7 +968,9 @@ pub fn check_call(working_set: &WorkingSet<'_>, call: &Call<'_>, lenient: bool) 
     let Some(signature) = keyword_signature_of_call(call) else {
         return Ok(());
     };
-    let mut arguments = call.arguments.iter().peekable();
+    let mut arguments = call.arguments[..checked_arguments(working_set, call, lenient)]
+        .iter()
+        .peekable();
     // A head resolved as a single word (`overlay` + `use`): skip the subcommand word, which ends
     // the command's name.
     let mut name_end = call.head.span.end;

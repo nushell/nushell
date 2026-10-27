@@ -439,7 +439,9 @@ value, a switch's `=value` that is not a Boolean (`--prefix=1`,
 last may take a value), too many positionals, `as` without its name, `-1` as a
 flag rather than a number, and `null` or `true` where a string is required
 (`hide null`). A `--help` or `-h` forgives a missing positional and nothing
-else, and keeps `hide` from reading its members. With no command table the head of `overlay use x` resolves as
+else, and keeps `hide` from reading its members. For a `run` statement only the
+arguments up to the script's path are checked (`checked_arguments`): as in nu's
+`parse_run_expr`, the rest are the script's, so `run x.nu --help=x` is fine. With no command table the head of `overlay use x` resolves as
 `overlay` with `use` as its first argument; `keyword_signature_of_call`
 finds both spellings. `lenient` is set for an alias target, where nu
 forgives missing positionals and flag values. Whether the named module, file
