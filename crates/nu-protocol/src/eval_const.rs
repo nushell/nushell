@@ -242,7 +242,7 @@ pub(crate) fn create_nu_constant(engine_state: &EngineState, span: Span) -> Valu
 fn eval_const_call(
     working_set: &StateWorkingSet,
     call: &Call,
-    input: PipelineData,
+    mut input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let decl = working_set.get_decl(call.decl_id);
 
@@ -266,10 +266,18 @@ fn eval_const_call(
         return Ok(PipelineData::empty());
     }
 
+    // Make sure that iterating the value itself can be interrupted, as the IR
+    // evaluator does: `1..10000000000 | math sum`.
+    if let PipelineData::Value(value, ..) = &mut input {
+        value.inject_signals(working_set.permanent());
+    }
     let mut stack = Stack::new();
     let ir_call = build_const_ir_call(working_set, call, &decl.signature(), &mut stack)?;
     let result = decl.run_const(working_set, &mut stack, &(&ir_call).into(), input);
     ir_call.leave(&mut stack);
+    // A command stopped by an interrupt returns what it had so far, or an
+    // error about the input it didn't get.
+    working_set.permanent().signals().check(&call.head)?;
     result
 }
 

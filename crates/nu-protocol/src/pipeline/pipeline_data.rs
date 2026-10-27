@@ -359,9 +359,9 @@ impl PipelineData {
                         )
                         .into_iter(),
                     ),
-                    Value::Range { val, .. } => PipelineIteratorInner::ListStream(
+                    Value::Range { val, signals, .. } => PipelineIteratorInner::ListStream(
                         ListStream::new(
-                            val.into_range_iter(val_span, Signals::empty()),
+                            val.into_range_iter(val_span, signals.unwrap_or_else(Signals::empty)),
                             val_span,
                             Signals::empty(),
                         )
@@ -675,7 +675,7 @@ impl PipelineData {
             PipelineData::Value(v, metadata) => {
                 let span = v.span();
                 match v {
-                    Value::Range { val, .. } => {
+                    Value::Range { val, signals, .. } => {
                         match *val {
                             Range::IntRange(range) => {
                                 if range.is_unbounded() {
@@ -706,8 +706,9 @@ impl PipelineData {
                                 }
                             }
                         }
-                        let range_values: Vec<Value> =
-                            val.into_range_iter(span, Signals::empty()).collect();
+                        let range_values: Vec<Value> = val
+                            .into_range_iter(span, signals.unwrap_or_else(Signals::empty))
+                            .collect();
                         Ok(PipelineData::value(Value::list(range_values, span), None))
                     }
                     x => Ok(PipelineData::value(x, metadata)),

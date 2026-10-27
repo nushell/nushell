@@ -809,6 +809,7 @@ pub fn parse_module_file_or_dir(
     }
 
     if working_set.skip_module_load {
+        working_set.skipped_module_load = true;
         return None;
     }
 
@@ -997,6 +998,7 @@ pub fn parse_module(
         )]);
 
         if working_set.skip_module_load {
+            working_set.skipped_module_load = true;
             return (pipeline, None);
         }
 
@@ -1238,6 +1240,7 @@ pub fn parse_use(
             module_id,
         )
     } else if working_set.skip_module_load {
+        working_set.skipped_module_load = true;
         return (
             Pipeline::from_vec(vec![Expression::new(
                 working_set,
@@ -1769,6 +1772,7 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
                     true,
                 )
             } else if working_set.skip_module_load {
+                working_set.skipped_module_load = true;
                 return pipeline;
             } else if let Some(module_id) = parse_module_file_or_dir(
                 working_set,

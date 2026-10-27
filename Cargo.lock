@@ -4816,6 +4816,7 @@ dependencies = [
  "sysinfo",
  "tempfile",
  "unicode-segmentation",
+ "unicode-width 0.2.2",
  "uuid",
  "which 8.0.6",
 ]
@@ -7851,7 +7852,6 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.52.1"
-source = "git+https://github.com/nushell/reedline?branch=main#c8d81b222745f7057a30a0fbf0ec454c5ac42e2e"
 dependencies = [
  "arboard",
  "crossterm",

@@ -247,6 +247,38 @@ $env.config.hinter.closure = null
 #   }
 # }
 
+# status_line (record): A line under the one being edited that comments on it
+# as you type. It is hidden in history search and erased when the line runs.
+# It is drawn in the `hints` color with errors in red, or plain when
+# `use_ansi_coloring` is false.
+# status_line.enable (bool): Show the status line at all. false turns off every
+# part below.
+# Default: true
+$env.config.status_line.enable = true
+
+# status_line.errors (bool): Show the first parse or type error in the line,
+# unless it touches the cursor (you are still typing it) or the line is
+# unfinished, as with an open `{`. A line that `use`s a module not loaded yet
+# is not checked, since the module loads only when the line runs.
+# Default: true
+$env.config.status_line.errors = true
+
+# status_line.signature (bool): Show the signature of the command under the
+# cursor, with the parameter being typed emphasized.
+# Default: true
+$env.config.status_line.signature = true
+
+# status_line.type (bool): Show the type the pipeline at the cursor outputs, as
+# far as the parser can infer it (`any` and `nothing` are not shown).
+# Default: true
+$env.config.status_line.type = true
+
+# status_line.preview (bool): Show the value of a line built only from const
+# commands, such as `"a,b" | split row "," | str uppercase`. A preview that takes
+# longer than 25ms to compute is interrupted and not shown.
+# Default: true
+$env.config.status_line.preview = true
+
 # completions.algorithm (string): The algorithm used for matching completions.
 # "prefix": Match from the beginning of the text.
 # "substring": Match anywhere in the text.

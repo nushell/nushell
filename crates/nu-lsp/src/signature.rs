@@ -2,40 +2,11 @@ use lsp_types::{
     Documentation, MarkupContent, MarkupKind, ParameterInformation, SignatureHelp,
     SignatureHelpParams, SignatureInformation,
 };
-use nu_protocol::{
-    Flag, PositionalArg, Signature, SyntaxShape, Value,
-    ast::{Argument, Call, Expr, Expression, Traverse},
-    engine::StateWorkingSet,
-};
+use nu_cli::{SignatureLabel, find_active_call};
+use nu_protocol::{Flag, PositionalArg, Signature, SyntaxShape, Value, engine::StateWorkingSet};
 
 use crate::{LanguageServer, uri_to_path};
-use std::{fmt::Write, ops::ControlFlow};
-
-fn find_active_internal_call<'a>(
-    expr: &'a Expression,
-    working_set: &'a StateWorkingSet,
-    pos: usize,
-) -> ControlFlow<Option<&'a Call>> {
-    if !expr.span.contains(pos) {
-        return ControlFlow::Break(None);
-    }
-    let closure = |e| find_active_internal_call(e, working_set, pos);
-    match &expr.expr {
-        Expr::Call(call) => {
-            if call.head.contains(pos) {
-                return ControlFlow::Break(None);
-            }
-            call.arguments
-                .iter()
-                .find_map(|arg| arg.expr().and_then(|e| e.find_map(working_set, &closure)))
-                .or(Some(call.as_ref()))
-                .map(Some)
-                .map(ControlFlow::Break)
-                .unwrap_or(ControlFlow::Continue(()))
-        }
-        _ => ControlFlow::Continue(()),
-    }
-}
+use std::fmt::Write;
 
 pub(crate) fn display_flag(flag: &Flag, verbitam: bool) -> String {
     let md_backtick = if verbitam { "`" } else { "" };
@@ -87,38 +58,12 @@ pub(crate) fn doc_for_arg(
 }
 
 pub(crate) fn get_signature_label(signature: &Signature, indent: bool) -> String {
-    let expand_keyword = |arg: &PositionalArg, optional: bool| match &arg.shape {
-        SyntaxShape::Keyword(kwd, _) => {
-            format!("{} <{}>", String::from_utf8_lossy(kwd), arg.name)
-        }
-        _ => {
-            if optional {
-                arg.name.clone()
-            } else {
-                format!("<{}>", arg.name)
-            }
-        }
-    };
-    let mut label = String::new();
+    let label = SignatureLabel::new(signature);
     if indent {
-        label.push_str("  ");
+        format!("  {label}")
+    } else {
+        label.to_string()
     }
-    label.push_str(&signature.name);
-    if !signature.named.is_empty() {
-        label.push_str(" {flags}");
-    }
-    for required_arg in &signature.required_positional {
-        write!(label, " {}", expand_keyword(required_arg, false))
-            .expect("writing to a String is infallible");
-    }
-    for optional_arg in &signature.optional_positional {
-        write!(label, " ({})", expand_keyword(optional_arg, true))
-            .expect("writing to a String is infallible");
-    }
-    if let Some(arg) = &signature.rest_positional {
-        write!(label, " ...({})", arg.name).expect("writing to a String is infallible");
-    }
-    label
 }
 
 impl LanguageServer {
@@ -171,18 +116,11 @@ impl LanguageServer {
         let span = working_set.get_span_for_filename(filename)?;
 
         let pos_to_search = location.saturating_add(span.start).saturating_sub(1);
-        let active_call = block.find_map(&working_set, &|expr: &Expression| {
-            find_active_internal_call(expr, &working_set, pos_to_search)
-        })?;
-        let active_signature = working_set.get_decl(active_call.decl_id).signature();
+        let active_call = find_active_call(&block, &working_set, pos_to_search, false)?;
+        let active_signature = working_set.get_decl(active_call.call.decl_id).signature();
         let label = get_signature_label(&active_signature, false);
 
-        let param_num_before_pos = active_call
-            .arguments
-            .iter()
-            .filter(|&arg| !matches!(arg, Argument::Named(..)))
-            .take_while(|&arg| arg.span().end <= pos_to_search)
-            .count() as u32;
+        let param_num_before_pos = active_call.positionals_before(pos_to_search + 1) as u32;
 
         let str_to_doc = |s: String| {
             Some(Documentation::MarkupContent(MarkupContent {
@@ -327,6 +265,14 @@ mod tests {
     #[case::echo_command(
         None,
         (16, 6),
+        serde_json::json!({ "signatures": [{
+            "label": "echo {flags} ...(rest)",
+            "activeParameter": 0
+        }]})
+    )]
+    #[case::name_of_a_nested_command(
+        None,
+        (17, 9),
         serde_json::json!({ "signatures": [{
             "label": "echo {flags} ...(rest)",
             "activeParameter": 0
