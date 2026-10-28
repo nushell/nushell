@@ -9,12 +9,12 @@ use nu_protocol::{
     ShellError, Signals, Signature, Span, Spanned, Type, Value, VarId,
     ast::{Bits, Block, Boolean, CellPath, Comparison, Math, Operator},
     combined_type_string,
-    debugger::DebugContext,
+    debugger::{DebugContext, WithDebug, WithoutDebug},
     engine::{
         Argument, Closure, EngineState, EnvName, ErrorHandler, Matcher, Redirection, Stack,
         StateWorkingSet, TryHandler, env_var_eq,
     },
-    ir::{Call, DataSlice, Instruction, IrAstRef, IrBlock, Literal, RedirectMode},
+    ir::{Call, DataSlice, Instruction, IrBlock, Literal, RedirectMode},
     shell_error::{
         eval_block_with_input::EvalBlockWithInputError, generic::GenericError, io::IoError,
     },
@@ -285,14 +285,13 @@ fn eval_ir_block_impl<D: DebugContext>(
     while pc < ir_block.instructions.len() {
         let instruction = &ir_block.instructions[pc];
         let span = &ir_block.spans[pc];
-        let ast = &ir_block.ast[pc];
 
         // So `scope` can match inlined keyword-body bindings via ScopeRegion.
         ctx.stack.ir_instruction_index = Some(pc);
 
         D::enter_instruction(ctx.engine_state, ctx.stack, ir_block, pc, ctx.registers);
 
-        let result = eval_instruction::<D>(ctx, instruction, span, ast, need_backtrace);
+        let result = eval_instruction::<D>(ctx, instruction, span, need_backtrace);
 
         D::leave_instruction(
             ctx.engine_state,
@@ -549,7 +548,6 @@ fn eval_instruction<D: DebugContext>(
     ctx: &mut EvalContext<'_>,
     instruction: &Instruction,
     span: &Span,
-    ast: &Option<IrAstRef>,
     need_backtrace: bool,
 ) -> Result<InstructionResult, ShellError> {
     use self::InstructionResult::*;
@@ -723,20 +721,16 @@ fn eval_instruction<D: DebugContext>(
             // Keep the value's own span (e.g. definition span from load-variable-origin for
             // `metadata $var`). Argument::span still records where the arg appears in the call.
             let val = ctx.collect_reg(*src, *span)?;
-            ctx.stack.arguments.push(Argument::Positional {
-                span: *span,
-                val,
-                ast: ast.clone().map(|ast_ref| ast_ref.0),
-            });
+            ctx.stack
+                .arguments
+                .push(Argument::Positional { span: *span, val });
             Ok(Continue)
         }
         Instruction::AppendRest { src } => {
             let vals = ctx.collect_reg(*src, *span)?;
-            ctx.stack.arguments.push(Argument::Spread {
-                span: *span,
-                vals,
-                ast: ast.clone().map(|ast_ref| ast_ref.0),
-            });
+            ctx.stack
+                .arguments
+                .push(Argument::Spread { span: *span, vals });
             Ok(Continue)
         }
         Instruction::PushFlag { name } => {
@@ -770,7 +764,6 @@ fn eval_instruction<D: DebugContext>(
                 short: DataSlice::empty(),
                 span: *span,
                 val,
-                ast: ast.clone().map(|ast_ref| ast_ref.0),
             });
             Ok(Continue)
         }
@@ -783,7 +776,6 @@ fn eval_instruction<D: DebugContext>(
                 short: *short,
                 span: *span,
                 val,
-                ast: ast.clone().map(|ast_ref| ast_ref.0),
             });
             Ok(Continue)
         }
@@ -1492,7 +1484,7 @@ fn eval_call<D: DebugContext>(
     ctx: &mut EvalContext<'_>,
     decl_id: DeclId,
     head: Span,
-    mut input: PipelineData,
+    input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let EvalContext {
         engine_state,
@@ -1504,7 +1496,6 @@ fn eval_call<D: DebugContext>(
     } = ctx;
 
     let args_len = caller_stack.arguments.get_len(*args_base);
-    let decl = engine_state.get_decl(decl_id);
     // Commands such as `ignore --stderr` need errors as pipeline values so they can decide
     // whether to suppress or rethrow.
     let stderr_pipe_separate = matches!(
@@ -1515,104 +1506,15 @@ fn eval_call<D: DebugContext>(
     // Set up redirect modes
     let mut caller_stack = caller_stack.push_redirection(redirect_out.take(), redirect_err.take());
 
-    let result = (|| {
-        if let Some(block_id) = decl.block_id() {
-            // If the decl is a custom command
-            let block = engine_state.get_block(block_id);
-
-            // check types after acquiring block to avoid unnecessarily cloning Signature
-            check_input_types(&input, &block.signature, head)?;
-
-            // Expand record spreads into named flags; drop null named values.
-            let args_len = normalize_call_arguments(
-                &block.signature,
-                &mut caller_stack,
-                *args_base,
-                args_len,
-            )?;
-
-            // Set up a callee stack with the captures and move arguments from the stack into variables
-            let mut callee_stack = caller_stack.gather_captures(engine_state, &block.captures);
-
-            gather_arguments(
-                engine_state,
-                block,
-                &mut caller_stack,
-                &mut callee_stack,
-                *args_base,
-                args_len,
-                head,
-            )?;
-
-            // Snapshot the call's return destination onto the callee stack. Intermediate
-            // expressions in the body may temporarily set OutDest::Value (e.g. `if (…)`);
-            // Stack::is_stdout_redirected / `is-redirected` read this frame instead.
-            // See Stack::with_invocation_stdout for details.
-            let mut callee_stack =
-                callee_stack.with_invocation_stdout(caller_stack.stdout().clone());
-
-            // Add one to the recursion count, so we don't recurse too deep. Stack overflows are not
-            // recoverable in Rust.
-            callee_stack.recursion_count += 1;
-
-            let result =
-                eval_block_with_early_return::<D>(engine_state, &mut callee_stack, block, input)
-                    .map(|p| p.body);
-
-            // Move environment variables back into the caller stack scope if requested to do so
-            if block.redirect_env {
-                redirect_env(engine_state, &mut caller_stack, &callee_stack);
-            }
-
-            result
-        } else {
-            // `ignore` intentionally handles upstream error values at command level.
-            // Skip early input-error propagation for the built-in `ignore` command so
-            // `run()` can apply `--stderr`/`--show-errors` semantics.
-            let allow_error_input = matches!(input, PipelineData::Value(Value::Error { .. }, ..))
-                && engine_state
-                    .find_decl(b"ignore", &[])
-                    .is_some_and(|ignore_decl_id| ignore_decl_id == decl_id);
-            if !allow_error_input {
-                check_input_types(&input, &decl.signature(), head)?;
-            }
-
-            // Expand record spreads into named flags; drop null named values.
-            let args_len = normalize_call_arguments(
-                &decl.signature(),
-                &mut caller_stack,
-                *args_base,
-                args_len,
-            )?;
-
-            // FIXME: precalculate this and save it somewhere
-            let span = Span::merge_many(
-                std::iter::once(head).chain(
-                    caller_stack
-                        .arguments
-                        .get_args(*args_base, args_len)
-                        .iter()
-                        .flat_map(|arg| arg.span()),
-                ),
-            );
-
-            let call = Call {
-                decl_id,
-                head,
-                span,
-                args_base: *args_base,
-                args_len,
-            };
-
-            // Make sure that iterating value itself can be interrupted.
-            // e.g: 0..inf | to md
-            if let PipelineData::Value(v, ..) = &mut input {
-                v.inject_signals(engine_state);
-            }
-            // Run the call
-            decl.run(engine_state, &mut caller_stack, &(&call).into(), input)
-        }
-    })();
+    let result = eval_call_frame::<D>(
+        engine_state,
+        &mut caller_stack,
+        decl_id,
+        head,
+        *args_base,
+        args_len,
+        input,
+    );
 
     drop(caller_stack);
 
@@ -1624,6 +1526,163 @@ fn eval_call<D: DebugContext>(
     match result {
         Err(err) if stderr_pipe_separate => Ok(PipelineData::Value(Value::error(err, head), None)),
         result => result,
+    }
+}
+
+/// Evaluate a call to a command the way compiled code calls it. The call's arguments must be the
+/// last ones on `stack`, which is where [`CallBuilder`](nu_protocol::ir::CallBuilder) puts them.
+///
+/// The input is type checked and record spreads become flags. A custom command binds its
+/// parameters and runs its block; any other command goes through
+/// [`Command::run`](nu_protocol::engine::Command::run). Use this rather than calling `run` on a
+/// command found by name, like a `from <ext>` converter, because it may be a custom command.
+///
+/// Call [`Call::leave`] afterwards to reset the argument stack, whether or not the command
+/// consumed the arguments.
+pub fn eval_ir_call(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    call: &Call,
+    input: PipelineData,
+) -> Result<PipelineData, ShellError> {
+    let Call {
+        decl_id,
+        head,
+        args_base,
+        args_len,
+        ..
+    } = *call;
+    engine_state.signals().check(&head)?;
+    // Normalizing the arguments re-pushes them at the end of the stack. A call without arguments
+    // never set its `args_base`.
+    if args_len != 0 && args_base + args_len != stack.arguments.get_base() {
+        return Err(ShellError::IrEvalError {
+            msg: "the call's arguments must be the last ones on the stack".into(),
+            span: Some(head),
+        });
+    }
+    if engine_state.is_debugging() {
+        eval_call_frame::<WithDebug>(
+            engine_state,
+            stack,
+            decl_id,
+            head,
+            args_base,
+            args_len,
+            input,
+        )
+    } else {
+        eval_call_frame::<WithoutDebug>(
+            engine_state,
+            stack,
+            decl_id,
+            head,
+            args_base,
+            args_len,
+            input,
+        )
+    }
+}
+
+/// Run the command `decl_id` with the `args_len` arguments at `args_base` on `caller_stack`.
+/// The caller removes the arguments from the stack afterwards.
+fn eval_call_frame<D: DebugContext>(
+    engine_state: &EngineState,
+    caller_stack: &mut Stack,
+    decl_id: DeclId,
+    head: Span,
+    args_base: usize,
+    args_len: usize,
+    mut input: PipelineData,
+) -> Result<PipelineData, ShellError> {
+    let decl = engine_state.get_decl(decl_id);
+    if let Some(block_id) = decl.block_id() {
+        // If the decl is a custom command
+        let block = engine_state.get_block(block_id);
+
+        // check types after acquiring block to avoid unnecessarily cloning Signature
+        check_input_types(&input, &block.signature, head)?;
+
+        // Expand record spreads into named flags; drop null named values.
+        let args_len =
+            normalize_call_arguments(&block.signature, caller_stack, args_base, args_len)?;
+
+        // Set up a callee stack with the captures and move arguments from the stack into variables
+        let mut callee_stack = caller_stack.gather_captures(engine_state, &block.captures);
+
+        gather_arguments(
+            engine_state,
+            block,
+            caller_stack,
+            &mut callee_stack,
+            args_base,
+            args_len,
+            head,
+        )?;
+
+        // Snapshot the call's return destination onto the callee stack. Intermediate
+        // expressions in the body may temporarily set OutDest::Value (e.g. `if (…)`);
+        // Stack::is_stdout_redirected / `is-redirected` read this frame instead.
+        // See Stack::with_invocation_stdout for details.
+        let mut callee_stack = callee_stack.with_invocation_stdout(caller_stack.stdout().clone());
+
+        // Add one to the recursion count, so we don't recurse too deep. Stack overflows are not
+        // recoverable in Rust.
+        callee_stack.recursion_count += 1;
+
+        let result =
+            eval_block_with_early_return::<D>(engine_state, &mut callee_stack, block, input)
+                .map(|p| p.body);
+
+        // Move environment variables back into the caller stack scope if requested to do so
+        if block.redirect_env {
+            redirect_env(engine_state, caller_stack, &callee_stack);
+        }
+
+        result
+    } else {
+        let signature = decl.signature();
+
+        // `ignore` intentionally handles upstream error values at command level.
+        // Skip early input-error propagation for the built-in `ignore` command so
+        // `run()` can apply `--stderr`/`--show-errors` semantics.
+        let allow_error_input = matches!(input, PipelineData::Value(Value::Error { .. }, ..))
+            && engine_state
+                .find_decl(b"ignore", &[])
+                .is_some_and(|ignore_decl_id| ignore_decl_id == decl_id);
+        if !allow_error_input {
+            check_input_types(&input, &signature, head)?;
+        }
+
+        // Expand record spreads into named flags; drop null named values.
+        let args_len = normalize_call_arguments(&signature, caller_stack, args_base, args_len)?;
+
+        // FIXME: precalculate this and save it somewhere
+        let span = Span::merge_many(
+            std::iter::once(head).chain(
+                caller_stack
+                    .arguments
+                    .get_args(args_base, args_len)
+                    .iter()
+                    .flat_map(|arg| arg.span()),
+            ),
+        );
+
+        let call = Call {
+            decl_id,
+            head,
+            span,
+            args_base,
+            args_len,
+        };
+
+        // Make sure that iterating value itself can be interrupted.
+        // e.g: 0..inf | to md
+        if let PipelineData::Value(v, ..) = &mut input {
+            v.inject_signals(engine_state);
+        }
+        // Run the call
+        decl.run(engine_state, caller_stack, &(&call).into(), input)
     }
 }
 
@@ -2323,4 +2382,44 @@ fn redirect_env(engine_state: &EngineState, caller_stack: &mut Stack, callee_sta
 
     // set config to callee config, to capture any updates to that
     caller_stack.config.clone_from(&callee_stack.config);
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::atomic::AtomicBool;
+
+    use super::*;
+
+    #[test]
+    fn eval_ir_call_rejects_arguments_below_the_top_of_the_stack() {
+        let engine_state = EngineState::new();
+        let mut stack = Stack::new();
+        let mut call = Call::build(DeclId::new(0), Span::test_data());
+        call.add_positional(&mut stack, Span::test_data(), Value::test_int(1));
+        let call = call.finish();
+        // Another call's argument now sits above this call's.
+        Call::build(DeclId::new(0), Span::test_data()).add_positional(
+            &mut stack,
+            Span::test_data(),
+            Value::test_int(2),
+        );
+
+        let result = eval_ir_call(&engine_state, &mut stack, &call, PipelineData::empty());
+        assert!(matches!(result, Err(ShellError::IrEvalError { .. })));
+    }
+
+    #[test]
+    fn eval_ir_call_stops_when_interrupted() {
+        let mut engine_state = EngineState::new();
+        engine_state.set_signals(Signals::new(Arc::new(AtomicBool::new(true))));
+        let call = Call::build(DeclId::new(0), Span::test_data()).finish();
+
+        let result = eval_ir_call(
+            &engine_state,
+            &mut Stack::new(),
+            &call,
+            PipelineData::empty(),
+        );
+        assert!(matches!(result, Err(ShellError::Interrupted { .. })));
+    }
 }

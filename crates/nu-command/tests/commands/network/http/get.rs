@@ -331,6 +331,41 @@ fn http_get_with_x_prefixed_mime_type() -> Result {
 }
 
 #[test]
+fn http_get_with_custom_converter() -> Result {
+    let mut server = Server::new();
+    let _mock = server
+        .mock("GET", "/foo")
+        .with_status(200)
+        .with_header("content-type", "application/x-lines")
+        .with_body("a\nb\nc")
+        .create();
+
+    // A custom command converts the response, as it does for `open`.
+    let code = format!(
+        r#"def "from lines" [] {{ lines | length }}; http get {url}/foo"#,
+        url = server.url()
+    );
+
+    test().run(code).expect_value_eq(3)
+}
+
+#[test]
+fn http_get_binary_converter_on_utf8_response() -> Result {
+    let mut server = Server::new();
+    let _mock = server
+        .mock("GET", "/x.msgpack")
+        .with_status(200)
+        .with_header("content-type", "text/plain; charset=utf-8")
+        .with_body([0x01])
+        .create();
+
+    // The charset makes the body a string stream, but `from msgpack` only takes binary.
+    let code = format!("http get {url}/x.msgpack", url = server.url());
+
+    test().run(code).expect_value_eq(1)
+}
+
+#[test]
 fn http_get_timeout() -> Result {
     let mut server = Server::new();
     let _mock = server

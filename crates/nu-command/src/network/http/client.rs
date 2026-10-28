@@ -15,10 +15,10 @@ use base64::{
 use dns_lookup::LookupErrorKind;
 use log::error;
 use multipart_rs::MultipartWriter;
-use nu_engine::command_prelude::*;
+use nu_engine::{command_prelude::*, eval_ir_call};
 use nu_path::expand_path_with;
 use nu_protocol::{
-    ByteStream, LabeledError, PipelineMetadata, Signals,
+    ByteStream, LabeledError, PipelineMetadata, Signals, ir,
     shell_error::{
         generic::GenericError,
         io::IoError,
@@ -1130,7 +1130,18 @@ fn transform_response_using_content_type(
                         span,
                     ));
                 }
-                decl.run(engine_state, stack, &Call::new(span), output)
+                // A `charset=utf-8` response is typed as a string, but a converter picked by the
+                // URL's extension, like `from xlsx`, may want binary. Hand it the bytes untyped,
+                // as `open` does.
+                let output = match output {
+                    PipelineData::ByteStream(stream, metadata) => PipelineData::byte_stream(
+                        stream.with_type(ByteStreamType::Unknown),
+                        metadata,
+                    ),
+                    other => other,
+                };
+                let call = ir::Call::build(converter_id, span).finish();
+                eval_ir_call(engine_state, stack, &call, output)
             }
             None => Ok(output),
         }
@@ -1422,6 +1433,7 @@ fn retrieve_credential_from_authority(
 #[cfg(test)]
 mod test {
     use super::*;
+    use nu_protocol::DeclId;
 
     #[test]
     fn test_retrieving_credentials_from_authority() {
@@ -1510,7 +1522,8 @@ mod test {
 
     #[test]
     fn test_http_parse_url_with_ipv6_zone_id() {
-        let call = Call::new(Span::test_data());
+        let ir_call = ir::Call::build(DeclId::new(0), Span::test_data()).finish();
+        let call = Call::from(&ir_call);
         let span = Span::test_data();
         let raw_url = Value::test_string("http://[fe80::13%eth0]");
 
@@ -1522,7 +1535,8 @@ mod test {
 
     #[test]
     fn test_http_parse_url_rejects_invalid_ipv6_with_zone_id() {
-        let call = Call::new(Span::test_data());
+        let ir_call = ir::Call::build(DeclId::new(0), Span::test_data()).finish();
+        let call = Call::from(&ir_call);
         let span = Span::test_data();
         // A URL with a zone ID but invalid characters after the bracket must be
         // rejected, not silently rewritten (e.g. to localhost).

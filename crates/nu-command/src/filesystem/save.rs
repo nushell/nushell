@@ -1,10 +1,10 @@
 use crate::formats::{preserve_toml_document, read_toml_source_from_metadata};
 use crate::progress_bar;
-use nu_engine::{command_prelude::*, get_eval_block};
+use nu_engine::{command_prelude::*, eval_ir_call};
 use nu_path::{expand_path_with, is_windows_device_path};
 use nu_protocol::{
-    ByteStreamSource, DataSource, OutDest, PipelineMetadata, Signals, ast,
-    byte_stream::copy_with_signals, process::ChildPipe, shell_error::generic::GenericError,
+    ByteStreamSource, DataSource, OutDest, PipelineMetadata, Signals,
+    byte_stream::copy_with_signals, ir, process::ChildPipe, shell_error::generic::GenericError,
     shell_error::io::IoError,
 };
 use std::{
@@ -333,13 +333,9 @@ fn convert_to_extension(
                 &format!("... | {{}} | save {file}"),
                 path_span,
             ))
-        } else if let Some(block_id) = decl.block_id() {
-            let block = engine_state.get_block(block_id);
-            let eval_block = get_eval_block(engine_state);
-            eval_block(engine_state, stack, block, input).map(|p| p.body)
         } else {
-            let call = ast::Call::new(span);
-            decl.run(engine_state, stack, &(&call).into(), input)
+            let call = ir::Call::build(decl_id, span).finish();
+            eval_ir_call(engine_state, stack, &call, input)
         }
     } else {
         Ok(input)

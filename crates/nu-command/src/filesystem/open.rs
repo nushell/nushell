@@ -1,14 +1,10 @@
-use nu_engine::{command_prelude::*, eval_call};
+use nu_engine::{command_prelude::*, eval_ir_call};
 use nu_path::is_windows_device_path;
 use nu_protocol::{
-    DataSource, NuGlob, PipelineMetadata, ast,
-    debugger::{WithDebug, WithoutDebug},
+    DataSource, NuGlob, PipelineMetadata, ir,
     shell_error::{self, generic::GenericError, io::IoError},
 };
-use std::{
-    collections::HashMap,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
 #[cfg(feature = "sqlite")]
 use crate::database::SQLiteDatabase;
@@ -232,17 +228,9 @@ impl Command for Open {
                                 ));
                             }
 
-                            let open_call = ast::Call {
-                                decl_id: converter_id,
-                                head: call_span,
-                                arguments: vec![],
-                                parser_info: HashMap::new(),
-                            };
-                            let command_output = if engine_state.is_debugging() {
-                                eval_call::<WithDebug>(engine_state, stack, &open_call, stream)
-                            } else {
-                                eval_call::<WithoutDebug>(engine_state, stack, &open_call, stream)
-                            };
+                            let open_call = ir::Call::build(converter_id, call_span).finish();
+                            let command_output =
+                                eval_ir_call(engine_state, stack, &open_call, stream);
                             output.push(command_output.map_err(|inner| {
                                 ShellError::Generic(
                                     GenericError::new(

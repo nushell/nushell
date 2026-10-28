@@ -3,8 +3,9 @@ use crate::process::ExitStatusGuard;
 use crate::{
     ByteStream, ByteStreamSource, ByteStreamType, CompareTypes, Config, ListStream, OutDest,
     PipelineMetadata, Range, ShellError, Signals, Span, Type, TypeRelation, Value,
-    ast::{Call, PathMember},
+    ast::PathMember,
     engine::{EngineState, Stack},
+    ir,
     shell_error::{generic::GenericError, io::IoError},
 };
 use std::{
@@ -744,7 +745,7 @@ impl PipelineData {
                     if command.block_id().is_some() {
                         self.write_all_and_flush(engine_state, no_newline, to_stderr)
                     } else {
-                        let call = Call::new(Span::new(0, 0));
+                        let call = ir::Call::build(decl_id, Span::new(0, 0)).finish();
                         let table = command.run(engine_state, stack, &(&call).into(), self)?;
                         table.write_all_and_flush(engine_state, no_newline, to_stderr)
                     }
