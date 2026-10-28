@@ -496,7 +496,7 @@ impl<'s> Lower<'_, '_, 's> {
                             index = next;
                             value
                         } else {
-                            self.argument(expr, shape, positional_input)?
+                            self.reported_value(expr, shape, positional_input)?
                         };
                         // `try`'s handler is a closure, compiled on its own, so a `break` in it
                         // is outside any loop: `parse_internal_call` drops that error when it
@@ -1002,7 +1002,7 @@ impl<'s> Lower<'_, '_, 's> {
         value: &w::Expression<'s>,
         shape: &SyntaxShape,
     ) -> Lowered<Expression> {
-        let value = self.argument(value, shape, None)?;
+        let value = self.reported_value(value, shape, None)?;
         if value.ty != Type::Nothing && !type_compatible(&shape.to_type(), &value.ty) {
             let span = value.span;
             self.working_set

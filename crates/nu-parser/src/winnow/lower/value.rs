@@ -57,12 +57,15 @@ impl<'s> Lower<'_, '_, 's> {
         }
     }
 
-    /// The first of `shapes` that reads the item without an error (`parse_oneof`). When none
-    /// does, the classic parser picks the error to report. A shape that is handed back, or that
-    /// lowers but leaves errors (from a statement of a nested block the classic parser parsed),
-    /// does not end the search: its errors, warnings and compile errors (a closure it compiled)
-    /// are dropped and the next shape is tried. As there, the shapes that take nearly any bare
-    /// word go last unless the item starts with `$`, `(` or `{`.
+    /// The first of `shapes` that reads the item without an error (`parse_oneof`), each read
+    /// as `parse_value` reads it there ([`Self::reported_value`]). As there, the shapes that take
+    /// nearly any bare word go last unless the item starts with `$`, `(` or `{`, and each
+    /// shape's errors, warnings and compile errors (a closure it compiled) are dropped before
+    /// the next is tried. When none reads it, the value is the guess whose first error is the
+    /// furthest along, with its errors and warnings, if that error is past the item's start or
+    /// its last error is not just an expected value (but in a block, a closure or an
+    /// expression); else the item is garbage, with an error that lists the shapes. A shape the
+    /// lowering gives back reported no errors to choose by, so the classic parser then chooses.
     pub(super) fn one_of(
         &mut self,
         e: &w::Expression<'s>,
@@ -78,26 +81,74 @@ impl<'s> Lower<'_, '_, 's> {
             .iter()
             .filter(|shape| !deferred(shape))
             .chain(shapes.iter().filter(|shape| deferred(shape)));
+        let span = self.span(e.span);
+        let mut best_guess = None;
+        let mut furthest = 0;
+        let mut propagate = false;
+        let mut given_back = None;
         for shape in ordered {
             let errors = self.working_set.parse_errors.len();
             let warnings = self.working_set.parse_warnings.len();
             let compile_errors = self.working_set.compile_errors.len();
-            match self.value(e, shape, input_type) {
-                Ok(value) if self.working_set.parse_errors.len() == errors => return Ok(value),
-                _ => {
-                    self.working_set.parse_errors.truncate(errors);
-                    self.working_set.parse_warnings.truncate(warnings);
-                    self.working_set.compile_errors.truncate(compile_errors);
+            match self.reported_value(e, shape, input_type) {
+                Ok(value) => {
+                    let new_errors = &self.working_set.parse_errors[errors..];
+                    let Some(first) = new_errors.iter().map(|error| error.span().start).min()
+                    else {
+                        return Ok(value);
+                    };
+                    if first > furthest {
+                        propagate = match new_errors.last() {
+                            Some(
+                                ParseError::Expected(_, error_span)
+                                | ParseError::ExpectedWithStringMsg(_, error_span),
+                            ) => {
+                                matches!(
+                                    shape,
+                                    SyntaxShape::Block
+                                        | SyntaxShape::Closure(_)
+                                        | SyntaxShape::Expression
+                                ) && *error_span != span
+                            }
+                            _ => true,
+                        };
+                        furthest = first;
+                        let warnings = self.working_set.parse_warnings[warnings..].to_vec();
+                        best_guess = Some((value, new_errors.to_vec(), warnings));
+                    }
+                }
+                Err(reason) => {
+                    given_back.get_or_insert(reason);
                 }
             }
+            self.working_set.parse_errors.truncate(errors);
+            self.working_set.parse_warnings.truncate(warnings);
+            self.working_set.compile_errors.truncate(compile_errors);
         }
-        Err(Unlowered::Error)
+        if let Some(reason) = given_back {
+            return Err(reason);
+        }
+        match best_guess {
+            Some((value, errors, warnings)) if furthest > span.start || propagate => {
+                self.working_set.parse_errors.extend(errors);
+                self.working_set.parse_warnings.extend(warnings);
+                Ok(value)
+            }
+            _ => {
+                self.working_set.error(ParseError::ExpectedWithStringMsg(
+                    format!("one of a list of accepted shapes: {shapes:?}"),
+                    span,
+                ));
+                Ok(Expression::garbage(self.working_set, span))
+            }
+        }
     }
 
-    /// A call's argument read with `shape`, as [`Self::value`] reads it, except that an item
-    /// without inner structure keeps a classic leaf parser's error, reported with the value it
-    /// recovers: `parse_internal_call` reads it with `parse_value`, and nothing reads it again.
-    pub(super) fn argument(
+    /// An item read with `shape` where the classic parser reads it with `parse_value` and
+    /// nothing reads it again (a call's argument, `parse_internal_call`; a shape of a `oneof`,
+    /// `parse_oneof`): as [`Self::value`] reads it, except that an item without inner structure
+    /// keeps a classic leaf parser's error, reported with the value it recovers.
+    pub(super) fn reported_value(
         &mut self,
         e: &w::Expression<'s>,
         shape: &SyntaxShape,
@@ -118,8 +169,8 @@ impl<'s> Lower<'_, '_, 's> {
     /// An item without inner structure: a number, a word, a quoted string. The common shapes
     /// are read from the winnow literal; the others (a bare word as a path, a glob, a cell
     /// path, a number as a string, units, dates, ranges) by the classic leaf parsers. With
-    /// `keep_errors`, the error of one stays reported with the value it recovers (a call's
-    /// argument, [`Self::argument`]); else it hands the statement back, as the classic parser
+    /// `keep_errors`, the error of one stays reported with the value it recovers
+    /// ([`Self::reported_value`]); else it hands the statement back, as the classic parser
     /// may read the item otherwise there (as an external command at a statement's head,
     /// `is_math_expression_like`).
     fn leaf(

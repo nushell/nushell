@@ -286,6 +286,23 @@ fn lowered_errors(code: &str) -> Vec<(String, String)> {
     "def f [a: int] {}; alias g = f; 1 | g nope",
     &[("Expected", "nope")]
 )]
+#[case::oneof_no_shape_reads_it(
+    "def f [x: oneof<int, filesize>] {}; f x",
+    &[("ExpectedWithStringMsg", "x")]
+)]
+#[case::oneof_of_a_builtin("[1 2] | first x", &[("ExpectedWithStringMsg", "x")])]
+#[case::oneof_flag_value(
+    "def f [--n: oneof<int, filesize>] {}; f --n x",
+    &[("ExpectedWithStringMsg", "x")]
+)]
+#[case::oneof_guess_with_an_error_past_its_start(
+    "def f [x: oneof<range, int>] {}; f 1..x",
+    &[("Expected", "x")]
+)]
+#[case::oneof_guess_with_an_error_in_a_closure(
+    "def f [x: oneof<int, closure>] {}; f {|| ls --nope }",
+    &[("UnknownFlag", "--nope")]
+)]
 #[nu_test_support::test]
 #[serial]
 #[exp(nu_experimental::WINNOW_PARSER)]
@@ -380,6 +397,45 @@ fn flag_word_for_a_multi_item_positional_after_end_of_options() -> Result {
                 ParseError::ExpectedKeyword(..),
                 ParseError::KeywordMissingArgument(..)
             ]
+        ),
+        "{:?}",
+        working_set.parse_errors
+    );
+    Ok(())
+}
+
+/// A `oneof` argument no shape reads, with no guess whose error `parse_oneof` keeps, is garbage
+/// with an error that lists the shapes in their declared order.
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn oneof_argument_no_shape_reads_lists_the_shapes() -> Result {
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let code = b"def f [x: oneof<filesize, int>] {}; f x";
+    nu_parser::parse(&mut working_set, None, code, false);
+    let [ParseError::ExpectedWithStringMsg(message, _)] = working_set.parse_errors.as_slice()
+    else {
+        panic!("{:?}", working_set.parse_errors);
+    };
+    assert_eq!(message, "one of a list of accepted shapes: [Filesize, Int]");
+    Ok(())
+}
+
+/// A `oneof` argument whose reading by one shape the lowering gives back is the classic
+/// parser's: `parse_oneof` chooses by every shape's errors, and that shape reported none.
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn oneof_argument_with_a_shape_given_back_is_the_classic_parsers() -> Result {
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let code = b"def f [x: oneof<record, closure>] {}; f {a: $nope}";
+    nu_parser::parse(&mut working_set, None, code, false);
+    assert!(
+        matches!(
+            working_set.parse_errors.as_slice(),
+            [ParseError::VariableNotFound(..)]
         ),
         "{:?}",
         working_set.parse_errors
