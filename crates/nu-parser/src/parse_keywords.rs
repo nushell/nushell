@@ -132,23 +132,52 @@ pub fn is_uncallable_name(working_set: &mut StateWorkingSet, name: &str, name_sp
         || name.contains('^')
         || name.contains('%')
         || name.split_ascii_whitespace().collect::<Vec<_>>().join(" ") != name
-        || is_shadowed_by_a_value(working_set, name_span)
+        || is_shadowed_by_a_value(working_set, name, name_span)
 }
 
 /// Whether the call site would read the name as a value instead of looking it up as a command.
 ///
+/// The call site reads the head word of a call, so it is the first word of the name that is
+/// shadowed by a value. A name whose later words are values is still callable, because the call
+/// site never looks at them.
+///
 /// The name is checked as it is written: a name written as a string literal is written between
 /// quotes, and the quotes are not part of the token the call site would read.
-fn is_shadowed_by_a_value(working_set: &mut StateWorkingSet, name_span: Span) -> bool {
-    let bytes = working_set.get_span_contents(name_span);
-    let token_span = match bytes {
-        [quote @ (b'"' | b'\''), rest @ ..] if rest.last() == Some(quote) => {
-            Span::new(name_span.start + 1, name_span.end - 1)
+fn is_shadowed_by_a_value(working_set: &mut StateWorkingSet, name: &str, name_span: Span) -> bool {
+    // The registered name is the written name with escapes decoded. When the two are the same,
+    // the source span shows the head word the call site would read; when they differ (a name
+    // written with escapes), the decoded head word is materialized as a file instead.
+    let head_span = {
+        let bytes = working_set.get_span_contents(name_span);
+        let (inner_offset, inner): (usize, &[u8]) = match bytes {
+            [quote @ (b'"' | b'\''), rest @ ..] if rest.last() == Some(quote) => {
+                (1, &rest[..rest.len() - 1])
+            }
+            _ => (0, bytes),
+        };
+        if inner == name.as_bytes() {
+            let head_len = inner
+                .iter()
+                .position(|byte| *byte == b' ')
+                .unwrap_or(inner.len());
+            Some(Span::new(
+                name_span.start + inner_offset,
+                name_span.start + inner_offset + head_len,
+            ))
+        } else {
+            None
         }
-        _ => name_span,
     };
 
-    is_literal_like(working_set, token_span)
+    let head_span = head_span.unwrap_or_else(|| {
+        let head = name.split(' ').next().unwrap_or(name);
+        let _ = working_set.add_file(&format!("command name: {head}"), head.as_bytes());
+        working_set
+            .get_span_for_filename(&format!("command name: {head}"))
+            .unwrap_or(Span::new(name_span.start, name_span.start))
+    });
+
+    is_literal_like(working_set, head_span)
 }
 
 /// Find a keyword declaration by name, ignoring any non-keyword decls that may

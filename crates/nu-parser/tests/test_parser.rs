@@ -905,6 +905,9 @@ pub fn parse_attributes_external_alias() {
 #[case::duration("1sec")]
 #[case::datetime("2020-01-01")]
 #[case::range("1..2")]
+#[case::head_word_is_a_number("1 2")]
+#[case::head_word_is_a_filesize("1kb 2")]
+#[case::escaped_number("0x\\u{31}0")]
 pub fn parse_rejects_uncallable_command_names(#[case] name: &str) {
     // https://github.com/nushell/nushell/issues/15539
     // https://github.com/nushell/nushell/issues/16815
@@ -947,6 +950,8 @@ pub fn parse_rejects_uncallable_command_names(#[case] name: &str) {
 #[case::binary_without_digits("0b2")]
 #[case::octal_without_digits("0o18")]
 #[case::bare_prefix("0x")]
+#[case::value_in_a_later_word("foo 0x10")]
+#[case::escaped_name("foo\u{2D}bar")]
 pub fn parse_accepts_bare_word_names_that_are_not_values(#[case] name: &str) {
     // https://github.com/nushell/nushell/issues/16815
     // These are read as bare words rather than as values, so they name a command that can still
