@@ -431,20 +431,42 @@ impl<'s> Lower<'_, '_, 's> {
     /// signature (`parse_internal_call`, which `parse_let` calls for a statement of fewer than
     /// four items): the variable and the call's output take `input_type`. A `$` before the
     /// name stays in the variable's name. A `--` before it, which the winnow parser dropped,
-    /// changes nothing: it ends the options, and `let` takes no unknown arguments. A type
-    /// after the name is left to the classic parser.
+    /// changes nothing: it ends the options, and `let` takes no unknown arguments. With a type
+    /// (`let x: int`), the name and the type are the variable's items, read as
+    /// `parse_var_with_opt_type` reads them (`variable_declaration`), the variable typed so and in
+    /// scope at once.
     pub(super) fn let_without_value(
         &mut self,
         e: &w::Expression<'s>,
         binding: &w::Binding<'s>,
         input_type: Option<&Type>,
     ) -> Lowered<Expression> {
-        if binding.ty.is_some() {
-            return Err(Unlowered::Unsupported("binding without a value"));
-        }
         let decl_id = find_keyword_decl(self.working_set, b"let")
             .ok_or(Unlowered::Unsupported("let that is not a keyword"))?;
         let head = self.keyword_span(e, "let");
+        if binding.ty.is_some() {
+            let (variable, _, name) =
+                self.variable_declaration(&binding.name, binding.ty.as_ref(), false, input_type)?;
+            if let Some(var_id) = variable.as_var() {
+                self.working_set.insert_variable_into_scope(name, var_id);
+            }
+            let mut call = Call::new(head);
+            call.decl_id = decl_id;
+            let _ = self.working_set.add_span(head);
+            call.add_positional(variable);
+            let signature = self.working_set.get_signature_shared(decl_id);
+            self.check_call(head, &signature, &call)?;
+            // `let` gives the input as its output once it read the variable (`SpecialCmd::Let`).
+            let output = match input_type {
+                Some(input) => input.clone(),
+                None => self
+                    .working_set
+                    .call_output_type(decl_id, &signature, None)
+                    .unwrap_or(Type::Error),
+            };
+            let span = self.span(e.span);
+            return Ok(self.node(Expr::Call(Box::new(call)), span, output));
+        }
         let mut name_span = binding.name.span;
         if self.source[..name_span.start].ends_with('$') {
             name_span.start -= 1;

@@ -1378,6 +1378,28 @@ fn call_to_a_hidden_command_is_lowered() -> Result {
     test().run(code).expect_value_eq("g")
 }
 
+/// `let` with a type and no value declares the variable with that type
+/// (`parse_var_with_opt_type`), a type of several items too.
+#[rstest]
+#[case::int("let x: int", Type::Int)]
+#[case::record("let x: record<a: int>", Type::Record([("a", Type::Int)].into()))]
+#[case::piped("'s' | let x: string", Type::String)]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn typed_let_without_a_value_is_lowered(#[case] code: &str, #[case] ty: Type) -> Result {
+    let engine_state = test().engine_state;
+    let (working_set, block) = parse_lowered(&engine_state, code);
+    let last = &block.pipelines[0].elements.last().expect("an element").expr;
+    let Expr::Call(call) = &last.expr else {
+        panic!("`{code}`: not a call");
+    };
+    let variable = call.positional_iter().next().expect("a variable");
+    let var_id = variable.as_var().expect("a variable declaration");
+    assert_eq!(working_set.get_variable(var_id).ty, ty, "`{code}`");
+    Ok(())
+}
+
 /// Arguments the winnow parser read as one row condition, for an alias of a row-condition
 /// command that `hide` hid, are three external arguments for `parse_external_call`.
 #[test]

@@ -482,7 +482,7 @@ impl<'s> Lower<'_, '_, 's> {
     /// where the classic parser declares it or, when a later check can still hand the statement
     /// back, once that check passed: the classic parser, parsing the statement again, must not
     /// find the variable (`let x: string = $x` reads the `x` before it).
-    fn variable_declaration(
+    pub(super) fn variable_declaration(
         &mut self,
         name: &crate::winnow::syntax::Spanned<&'s str>,
         ty: Option<&w::TypeAnnotation<'s>>,
