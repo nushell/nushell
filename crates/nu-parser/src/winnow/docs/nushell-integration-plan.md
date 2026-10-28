@@ -48,10 +48,13 @@ source ──▶ parse_block_streaming (this parser) ──▶ one statement's s
   inline module's body among them, so it is parsed once. When a statement
   that `nu-parser` parsed calls `overlay use`, `overlay hide` or `overlay
   new` through an alias, `nu-parser` also parses the rest of that block.
-- **Errors.** The lowering never reports an error itself: a statement it
-  finds an error in, or cannot handle, is parsed by `nu-parser` from its span,
-  which reports what it always has. A statement with a syntax error hands the
-  rest of its block to `nu-parser`.
+- **Errors.** The lowering reports the errors `nu-parser` reports and goes on
+  past (a call's argument errors, values and operations of the wrong type, ...;
+  see `lower/mod.rs`), with what `nu-parser` builds there; a statement it finds
+  another error in, or cannot handle, is parsed by `nu-parser` from its span,
+  which reports what it always has. A statement with a syntax error is parsed
+  by `nu-parser` too, alone where the winnow parser's lite parse found where it
+  ends, else with the rest of its block.
 - **Statements that link modules and files** (`use`, `module`, `overlay`,
   `hide`, `source`, `source-env`, `run`, `plugin use`): the lowering builds
   the call, and `nu-parser`'s code that does the rest (`finish_use`,

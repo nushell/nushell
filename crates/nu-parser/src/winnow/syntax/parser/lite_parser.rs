@@ -72,6 +72,17 @@ pub fn skip_to_statement_end(tokens: &mut Tokens<'_, '_>) -> Span {
     end.unwrap_or_else(|| Span::point(tokens.here().start))
 }
 
+/// Skip every token left, the comments among them recorded as by [`skip_to_statement_end`],
+/// returning the empty span at the end of the block.
+pub fn skip_to_block_end(tokens: &mut Tokens<'_, '_>) -> Span {
+    while let Some(token) = tokens.next_token() {
+        if token.contents == TokenContents::Comment {
+            tokens.working_set.add_comment(token.span);
+        }
+    }
+    tokens.end_span()
+}
+
 /// The last token that is not part of a trailing `([Comment]+ [Eol])*`
 /// sequence: nu's `last_non_comment_token`, used to tell `ls |\n` (fine)
 /// from `ls |` and `ls |\n# c` (a pipeline with no end).

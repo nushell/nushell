@@ -1458,6 +1458,46 @@ fn overlay_alias_in_a_nested_block_is_lowered(#[case] code: &str) -> Result {
     test().run(code).expect_value_eq("f")
 }
 
+/// A statement with a syntax error is the classic parser's alone: the winnow parser ends it
+/// where the classic lite parser does, past a `|` that goes on to the next line, and lowers
+/// the statements after it. Where it can't tell the end, a syntax error in the lite parse
+/// itself, the classic parser takes the rest of the block: a redirection without a target,
+/// which the classic lite parser finds on the next line (one pipeline), or a `|` no command
+/// follows, before a blank line or before another `|`, which goes on to the next statement.
+#[rstest]
+#[case::pipe_starting_the_next_line("ls 0b2\n| length\n1 + 1", 1, 2)]
+#[case::pipe_ending_the_line("ls 0b2 |\nlength\n2 + 2", 1, 2)]
+#[case::semicolon("ls 0b2; 1 + 1", 1, 2)]
+#[case::end_unknown("ls o>\n1 + 1", 0, 1)]
+#[case::pipe_before_a_blank_line("ls 0b2 |\n\n1 + 1", 0, 2)]
+#[case::pipe_after_a_pipe("ls 0b2 | |\n1 + 1", 0, 1)]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn statement_after_a_syntax_error(
+    #[case] code: &str,
+    #[case] lowered: u64,
+    #[case] pipelines: usize,
+) -> Result {
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let before = nu_parser::winnow_stats();
+    let block = nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    let after = nu_parser::winnow_stats();
+    assert_eq!(
+        after.error_statements - before.error_statements,
+        1,
+        "`{code}`"
+    );
+    assert_eq!(
+        after.lowered_statements - before.lowered_statements,
+        lowered,
+        "`{code}`"
+    );
+    assert_eq!(block.pipelines.len(), pipelines, "`{code}`");
+    Ok(())
+}
+
 /// The block of the first statement of `code`, a parenthesized subexpression, parsed with the
 /// winnow front end: no statement is handed to the classic parser.
 fn parenthesized_block(working_set: &mut StateWorkingSet, code: &str) -> nu_protocol::BlockId {
@@ -1542,5 +1582,36 @@ fn def_after_an_open_redirection_declares_nothing() -> Result {
         block.pipelines[1].elements[0].expr.expr,
         Expr::ExternalCall(..)
     ));
+    Ok(())
+}
+
+/// A definition with a syntax error goes to the classic parser with the comment after it on its
+/// line, its description, as a definition that parses has it; the call after it is lowered. (An
+/// alias's description is that comment's alone; a command's also comes with its
+/// predeclaration.)
+#[rstest]
+#[case::alias("alias f = ls 0b2 # doc\nf")]
+#[case::command("def f [] { ls 0b2 } # doc\nf")]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn failing_definition_keeps_its_comment(#[case] code: &str) -> Result {
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let before = nu_parser::winnow_stats();
+    nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    let after = nu_parser::winnow_stats();
+    assert_eq!(
+        after.error_statements - before.error_statements,
+        1,
+        "`{code}`"
+    );
+    assert_eq!(
+        after.lowered_statements - before.lowered_statements,
+        1,
+        "`{code}`"
+    );
+    let decl = working_set.get_decl(working_set.find_decl(b"f").expect("`f` is declared"));
+    assert_eq!(decl.description(), "doc", "`{code}`");
     Ok(())
 }

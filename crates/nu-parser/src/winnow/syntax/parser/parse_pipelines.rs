@@ -14,7 +14,7 @@ use crate::winnow::syntax::span::Span;
 use super::WorkingSet;
 use super::lite_parser::{
     AfterPipe, LiteCommand, after_pipe, last_non_comment_token, parse_lite_command,
-    skip_to_statement_end, take_pipe_on_later_line,
+    skip_to_block_end, skip_to_statement_end, take_pipe_on_later_line,
 };
 use super::parse_calls::{keyword_signature_of_call, parse_attribute};
 use super::parse_def::{
@@ -313,6 +313,12 @@ trait StatementSink<'a> {
     /// The pipeline pushed last, while it can still be amended (its
     /// terminator, a comment after it on its line); `None` once it was handed over.
     fn last_mut(&mut self) -> Option<&mut Pipeline<'a>>;
+    /// Whether a statement that failed before its end was known (in the lite parse) takes the
+    /// rest of the block, which then ends: for a consumer that hands such a statement to nu,
+    /// which alone knows where it ends. Otherwise parsing goes on after the next end of line.
+    fn rest_after_unknown_end(&self) -> bool {
+        false
+    }
 }
 
 /// The whole block at once ([`parse_block`]): the diagnostics stay in the working set.
@@ -377,6 +383,10 @@ impl<'a> StatementSink<'a> for StreamingSink<'_, '_, 'a> {
     fn last_mut(&mut self) -> Option<&mut Pipeline<'a>> {
         // Each pipeline went to the sink when it was pushed.
         None
+    }
+
+    fn rest_after_unknown_end(&self) -> bool {
+        true
     }
 }
 
@@ -489,7 +499,14 @@ fn parse_statements<'a>(
                 };
                 // The state is up to date before each push: `out` may stop the loop there, and a
                 // later call goes on from the state.
-                let go_on = match parse_pipeline(tokens, pending, carried_comments, carried_pipe) {
+                let mut lite_end = None;
+                let go_on = match parse_pipeline(
+                    tokens,
+                    pending,
+                    carried_comments,
+                    carried_pipe,
+                    &mut lite_end,
+                ) {
                     Ok(Some(mut pipeline)) => {
                         *pushed = true;
                         *last = TokenContents::Item;
@@ -519,8 +536,23 @@ fn parse_statements<'a>(
                     }
                     Err(error) => {
                         working_set.error(into_diagnostic(error));
-                        tokens.reset_to(start);
-                        let end = skip_to_statement_end(tokens);
+                        let end = match lite_end {
+                            // The lite parse found where the statement ends, as nu's does
+                            // (past the comments on its lines, its commands'), and the next
+                            // statement is parsed on from there.
+                            Some(end) => {
+                                tokens.reset_to(end);
+                                tokens.all()[end - 1].span
+                            }
+                            None if out.rest_after_unknown_end() => {
+                                tokens.reset_to(start);
+                                skip_to_block_end(tokens)
+                            }
+                            None => {
+                                tokens.reset_to(start);
+                                skip_to_statement_end(tokens)
+                            }
+                        };
                         *pushed = true;
                         *last = TokenContents::Item;
                         out.push_garbage(
@@ -582,6 +614,7 @@ fn parse_pipeline<'a>(
     leading_comments: &mut Vec<Comment>,
     carried_comments: &mut Vec<Comment>,
     carried_pipe: &mut Option<Span>,
+    lite_end: &mut Option<usize>,
 ) -> ParseResult<Option<Pipeline<'a>>> {
     let working_set = tokens.working_set;
     // The comments carried to this pipeline; any after are carried on from it.
@@ -652,6 +685,11 @@ fn parse_pipeline<'a>(
         // Only pipes (`|` and a blank line): nu drops the empty command.
         *carried_pipe = pipe;
         return Ok(None);
+    }
+    // The lite parse is done: the statement ends here, unless a `|` without a command after
+    // it hands on to the next one (`a | |`) or ends it before a blank line.
+    if dangling_pipe.is_none() && carried_pipe.is_none() {
+        *lite_end = Some(tokens.position());
     }
     let single = lite_commands.len() == 1;
     if !single {

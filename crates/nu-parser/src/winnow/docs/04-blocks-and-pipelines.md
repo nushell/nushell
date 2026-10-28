@@ -36,9 +36,10 @@ as blocks. It:
    runs too), handling `Eol`, `;` and comments itself and calling
    `parse_pipeline` for anything else,
 4. recovers from errors per pipeline (chapter 03): the error goes to
-   `working_set.error`, the stream is moved back to the start of the
-   pipeline with `reset_to`, `skip_to_statement_end` skips to the next `Eol`
-   or `;`, and a `garbage_pipeline` stands in for the statement.
+   `working_set.error`, the stream is moved to where the lite parse ended the
+   statement (or back to its start, to skip to the next `Eol` or `;` with
+   `skip_to_statement_end`, or to the end of the block), and a
+   `garbage_pipeline` stands in for the statement.
 
 The statement loop is a plain `while let` over `peek_token`, not a
 combinator: each token's meaning depends on the one before it (a blank line

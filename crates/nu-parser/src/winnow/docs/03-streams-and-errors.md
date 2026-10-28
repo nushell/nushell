@@ -289,11 +289,20 @@ again as a help call, does not record its comments twice.
 Recovery happens in exactly one place: `parse_statements` in
 `src/winnow/syntax/parser/parse_pipelines.rs`, the statement loop that `parse_block` and
 `BlockStatements::parse` run. When a pipeline fails to parse it records
-the diagnostic, resets the stream to the pipeline's start, skips to the next
-`Eol` or `;` (`skip_to_statement_end`), and emits a pipeline whose single
-element is `Expr::Garbage` covering the skipped span. Because every block
-(closure body, `if` body, subexpression, `let` value) goes through the same
-function, an error inside a nested block does not fail the enclosing
+the diagnostic and emits a pipeline whose single element is `Expr::Garbage`
+covering the statement, then goes on after it. Where the statement ends:
+
+* where `parse_pipeline`'s lite parse ended it, when the error came after
+  that (in a command), as nu's lite parser ends it: past a `|` that goes on
+  to the next line, the comments on its lines included;
+* otherwise (the lite parse itself failed, or a `|` that no command follows
+  hands on to the next statement), at the next `Eol` or `;`
+  (`skip_to_statement_end`), or, for `BlockStatements::parse`, whose consumer
+  hands such a statement to nu, at the end of the block
+  (`skip_to_block_end`): nu alone knows where it ends.
+
+Because every block (closure body, `if` body, subexpression, `let` value)
+goes through the same function, an error inside a nested block does not fail the enclosing
 statement:
 
 ```rust

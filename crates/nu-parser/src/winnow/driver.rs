@@ -25,8 +25,8 @@
 //!     an answer differs now: set `stop`, the      go on unless the statement changes names
 //!       classic parser takes the rest of the      or has a syntax error, the block ends, or
 //!       block                                     `stop` is set
-//!     a syntax error: the classic parser takes    drop the sender
-//!       the rest of the block
+//!     a syntax error: the classic parser parses   drop the sender
+//!       the statement
 //!     else lower it
 //!   ...until the sender is dropped
 //! the next statement changes names:
@@ -286,9 +286,9 @@ struct Ahead<'a> {
 
 /// Parse statements on a second thread while this one declares the block's `definitions` and
 /// lowers the statements as they arrive, until one that changes which command names exist (the
-/// thread's copy of them is then out of date), one with a syntax error (the classic parser
-/// takes the rest of the block from it) or the end of the block (`span`). Returns whether to go
-/// on with the block: `false` once the classic parser has taken the rest of it.
+/// thread's copy of them is then out of date), one with a syntax error (which the classic
+/// parser parses, maybe declaring names) or the end of the block (`span`). Returns whether to
+/// go on with the block: `false` once the classic parser has taken the rest of it.
 ///
 /// The thread's names are copied before the definitions are declared, so that it starts at
 /// once: it never asks about the block's own definitions, which the winnow parser declared in
@@ -331,9 +331,10 @@ fn parse_ahead(
                 lookup,
                 &mut |pipeline, diagnostics, longest_name| {
                     let changes = statement_changes_names(&pipeline);
-                    // The classic parser takes the rest of the block from a statement with a
-                    // syntax error (`Driver::take_statement`): what would be parsed after it is
-                    // dropped.
+                    // The classic parser parses a statement with a syntax error
+                    // (`Driver::take_statement`), which may declare what the winnow parser
+                    // could not (an alias): the run ends there, and the next one copies the
+                    // names again.
                     let failed = !diagnostics.is_empty();
                     // The sink is called between statements: what was asked since the last call
                     // was asked while parsing this one.
@@ -364,12 +365,10 @@ fn parse_ahead(
                 // parser parses now.
                 stop.store(true, Relaxed);
                 stats::record_ahead_fallback(&changed);
-                driver.rest_to_classic(&ahead.pipeline, None);
+                driver.rest_to_classic(&ahead.pipeline);
                 go_on = false;
             } else {
-                // `false` after a statement with a syntax error, after which the thread
-                // stopped by itself.
-                go_on = driver.take_statement(&ahead.pipeline, &ahead.diagnostics);
+                driver.take_statement(&ahead.pipeline, &ahead.diagnostics);
             }
         }
         go_on
@@ -523,20 +522,28 @@ impl Driver<'_, '_, '_, '_> {
     }
 
     /// Lower the next statement, `pipeline`, which parsing reported `diagnostics` in (see
-    /// [`BlockSink::statement`]). Returns whether to go on with the next statement: `false`
-    /// once the classic parser has taken the rest of the block.
-    fn take_statement(&mut self, pipeline: &w::Pipeline<'_>, diagnostics: &[Diagnostic]) -> bool {
-        if let Some(error) = diagnostics.first() {
-            // A syntax error: the classic parser takes the rest of the block, reporting the
-            // error as it always has.
-            self.rest_to_classic(pipeline, Some(error));
-            return false;
-        }
+    /// [`BlockSink::statement`]).
+    ///
+    /// A statement with a syntax error the classic parser parses, reporting the error as it
+    /// always has. The winnow parser ended it where the classic lite parser ends it, or, where
+    /// it could not tell, at the end of the block, which the classic parser then takes.
+    fn take_statement(&mut self, pipeline: &w::Pipeline<'_>, diagnostics: &[Diagnostic]) {
         let cell = self.working_set;
         let working_set = &mut **cell.borrow_mut();
         let mut lower = Lower::new(working_set, self.source, self.offset);
         let span = lower.statement_span(pipeline);
         let mut target = statement_target(&mut self.target, &self.pipelines, self.span);
+        if let Some(error) = diagnostics.first() {
+            stats::record_error_statement(span, error, lower.working_set);
+            parse_classic(
+                lower.working_set,
+                span,
+                &mut target,
+                &mut self.pipelines,
+                &mut self.block_errors,
+            );
+            return;
+        }
         lower.statement_or_classic(
             pipeline,
             span,
@@ -544,12 +551,10 @@ impl Driver<'_, '_, '_, '_> {
             &mut self.pipelines,
             &mut self.block_errors,
         );
-        true
     }
 
-    /// Hand the rest of the block, from `pipeline` on, to the classic parser. `error`: the
-    /// first error the winnow parser reported in `pipeline`, if it reported one.
-    fn rest_to_classic(&mut self, pipeline: &w::Pipeline<'_>, error: Option<&Diagnostic>) {
+    /// Hand the rest of the block, from `pipeline` on, to the classic parser.
+    fn rest_to_classic(&mut self, pipeline: &w::Pipeline<'_>) {
         let cell = self.working_set;
         let working_set = &mut **cell.borrow_mut();
         let lower = Lower::new(working_set, self.source, self.offset);
@@ -558,10 +563,7 @@ impl Driver<'_, '_, '_, '_> {
         // Where the statement ends is the classic parser's to decide, so it parses the rest
         // of the block's statements (up to a closing brace, not through it).
         let span = Span::new(start, self.inner.end);
-        match error {
-            Some(error) => stats::record_error_statement(span, error, lower.working_set),
-            None => stats::record_classic_statement(span.len(), false),
-        }
+        stats::record_classic_statement(span.len(), false);
         parse_classic(
             lower.working_set,
             span,
@@ -634,6 +636,7 @@ impl<'a> BlockSink<'a> for Driver<'_, '_, '_, '_> {
     }
 
     fn statement(&mut self, pipeline: w::Pipeline<'a>, diagnostics: Vec<Diagnostic>) -> bool {
-        self.take_statement(&pipeline, &diagnostics)
+        self.take_statement(&pipeline, &diagnostics);
+        true
     }
 }

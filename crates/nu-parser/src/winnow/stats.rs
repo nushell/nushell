@@ -41,11 +41,13 @@ pub struct WinnowStats {
     /// Statements the winnow parser parsed and the lowering turned into the AST.
     pub lowered_statements: u64,
     /// Hand-overs to the classic parser, which parses from the source: a statement the
-    /// lowering gave back, or the rest of a block, counted once.
+    /// lowering gave back or the winnow parser reported an error in, or the rest of a block,
+    /// counted once.
     pub classic_statements: u64,
     /// The bytes of those hand-overs.
     pub classic_statement_bytes: u64,
-    /// Of those, the rests of blocks from a statement the winnow parser reported an error in.
+    /// Of those, the statements the winnow parser reported an error in (each with the rest of
+    /// its block where the winnow parser could not tell where it ends).
     pub error_statements: u64,
     /// Runs of statements a second thread parsed ahead of the lowering.
     pub ahead_runs: u64,
@@ -113,8 +115,8 @@ pub(super) fn record_unlowered(span: Span, reason: &Unlowered, working_set: &Sta
     log_hand_over(reason.reason(), span, working_set);
 }
 
-/// Count the rest of a block, covering `span`, handed to the classic parser from a statement
-/// the winnow parser reported `error` in, and log it.
+/// Count a statement covering `span` that the winnow parser reported `error` in, handed to the
+/// classic parser, and log it.
 pub(super) fn record_error_statement(
     span: Span,
     error: &Diagnostic,
