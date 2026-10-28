@@ -1,0 +1,6 @@
+error: extra tokens after the end of the expression
+  --> reject/if/operator-after-else-block.nu:1:26
+  |
+1 | if true { 2 } else { 3 } * 3
+  |                          ^
+  = while parsing if

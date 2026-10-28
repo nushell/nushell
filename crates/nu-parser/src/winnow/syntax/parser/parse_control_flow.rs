@@ -111,11 +111,18 @@ pub fn parse_if<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
                         else_keyword.span.past(),
                     )));
                 }
-                // nu's `else` argument is a block or an expression, a block first: one that
-                // only flags follow leaves them to `if` (`if c {} else {} --help`).
+                // nu's `else` argument is a block or an expression, a block first: a `{ ... }`
+                // is the argument alone, leaving the items after it to `if`, flags
+                // (`if c {} else {} --help`) or extra arguments (`else {} * 3`, an error). Only
+                // braces with parameters, which no block takes, start an expression of the
+                // rest when more than flags follow (`else {|x| $x} == $f`).
                 [first, rest @ ..]
                     if tokens.text(first).starts_with('{')
-                        && rest.iter().all(|token| tokens.text(token).starts_with('-')) =>
+                        && (rest.iter().all(|token| tokens.text(token).starts_with('-'))
+                            || !matches!(
+                                brace_shape(working_set, first.span),
+                                Ok(BraceShape::ClosureParams)
+                            )) =>
                 {
                     let body = parse_block_or_value(working_set, first)?;
                     tokens.next_token();
