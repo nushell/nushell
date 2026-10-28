@@ -289,8 +289,9 @@ fn names_only(frame: &ScopeFrame) -> ScopeFrame {
 /// call; a command whose rest parameter takes external arguments (an untyped `def --wrapped`),
 /// or an alias of one, has its arguments parsed like an external command's; a command whose
 /// first positional parameter is a row condition (`any`), or an alias of one that gives it no
-/// arguments, has them parsed as one condition; and an alias of `if`, `match` or `try` that
-/// gives it no arguments makes that keyword's statement.
+/// arguments, has them parsed as one condition; an alias of `if`, `match` or `try` that
+/// gives it no arguments makes that keyword's statement; and a call through an alias of
+/// `overlay use`, `overlay hide` or `overlay new` changes which commands exist.
 pub(super) fn decl_kind(working_set: &StateWorkingSet, decl_id: DeclId) -> DeclKind {
     let decl = working_set.get_decl(decl_id);
     if let Some(alias) = decl.as_alias() {
@@ -301,14 +302,21 @@ pub(super) fn decl_kind(working_set: &StateWorkingSet, decl_id: DeclId) -> DeclK
             };
         };
         let signature = working_set.get_signature_shared(call.decl_id);
+        let target = working_set.get_decl(call.decl_id);
         return if takes_external_arguments(&signature) {
             DeclKind::Wrapped
+        } else if target.is_keyword()
+            && matches!(
+                target.name(),
+                "overlay use" | "overlay hide" | "overlay new"
+            )
+        {
+            DeclKind::OverlayAlias
         } else if !call.arguments.is_empty() {
             DeclKind::Declared
         } else if takes_row_condition(&signature) {
             DeclKind::RowCondition
         } else {
-            let target = working_set.get_decl(call.decl_id);
             match AliasedKeyword::from_name(target.name()) {
                 Some(keyword) if target.is_keyword() => DeclKind::KeywordAlias(keyword),
                 _ => DeclKind::Declared,

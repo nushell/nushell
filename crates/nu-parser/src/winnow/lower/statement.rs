@@ -767,9 +767,12 @@ impl<'s> Lower<'_, '_, 's> {
                 &mut block_errors,
             );
             // A statement may call `overlay use` through an alias (which `changes_commands`
-            // cannot tell from its head), which changed the overlays as it was lowered or as
-            // the classic parser parsed it: the rest of the block, parsed before with the old
-            // commands, is parsed by the classic parser, as the driver's `rest_to_classic` does.
+            // cannot tell from its head) that the winnow parser did not know as one when it
+            // parsed the block (it leaves a block with a call through an alias it knows
+            // unparsed, `DeclKind::OverlayAlias`), which changed the overlays as it was lowered
+            // or as the classic parser parsed it: the rest of the block, parsed before with the
+            // old commands, is parsed by the classic parser, as the driver's `rest_to_classic`
+            // does.
             if let Some(next) = block.pipelines.get(index + 1)
                 && out.pipelines[first..]
                     .iter()

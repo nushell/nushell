@@ -36,19 +36,31 @@ use super::working_set::{CommandLookup, ParseState};
 ///
 /// A block with a statement that changes which commands exist is left
 /// unparsed, an empty block, when the lookup asks for that
-/// ([`CommandLookup::defers_command_changing_blocks`]).
+/// ([`CommandLookup::defers_command_changing_blocks`]): one its first words tell, or a call
+/// through an alias of an overlay command, found as it is parsed.
 pub fn parse_block<'a>(mut tokens: Tokens<'_, 'a>, span: Span) -> Block<'a> {
     let working_set = tokens.working_set;
-    if working_set.defers_command_changing_blocks() && changes_commands(working_set, tokens.all()) {
-        return Block {
-            span,
-            pipelines: Vec::new(),
-        };
+    let defers = working_set.defers_command_changing_blocks();
+    let unparsed = Block {
+        span,
+        pipelines: Vec::new(),
+    };
+    if defers && changes_commands(working_set, tokens.all()) {
+        return unparsed;
     }
+    let errors = working_set.error_count();
+    let outer_overlay_alias_called = working_set.replace_overlay_alias_called(false);
     parse_def_predecl(working_set, tokens.all());
     check_dangling_pipe(working_set, tokens.all());
     let mut pipelines: Vec<Pipeline<'a>> = Vec::new();
     parse_statements(&mut tokens, &mut StatementsState::default(), &mut pipelines);
+    // A call through an alias of an overlay command, which only the commands known as it is
+    // parsed tell (`DeclKind::OverlayAlias`), changes the commands too: the block is left
+    // unparsed after all, its errors dropped.
+    if working_set.replace_overlay_alias_called(outer_overlay_alias_called) && defers {
+        working_set.take_errors_from(errors);
+        return unparsed;
+    }
     Block { span, pipelines }
 }
 

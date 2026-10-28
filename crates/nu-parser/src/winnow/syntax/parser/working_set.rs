@@ -39,6 +39,10 @@ pub enum DeclKind {
     /// An alias of `if`, `match` or `try` that gives it no arguments (`alias m =
     /// match`): a call to it parses as that keyword's statement.
     KeywordAlias(AliasedKeyword),
+    /// An alias of `overlay use`, `overlay hide` or `overlay new` (`alias ou =
+    /// overlay use`): a call to it is an ordinary call that changes which
+    /// commands exist after it, as the overlay command does.
+    OverlayAlias,
     /// One of the configured (built-in) commands of [`ParseConfig`].
     Builtin,
 }
@@ -178,6 +182,9 @@ pub struct WorkingSet<'a> {
     groups: RefCell<GroupEnds>,
     /// The length of the longest name declared in the text so far.
     longest_declared: Cell<usize>,
+    /// Whether a call through an alias of an overlay command ([`DeclKind::OverlayAlias`]) was
+    /// parsed in the block being parsed ([`WorkingSet::replace_overlay_alias_called`]).
+    overlay_alias_called: Cell<bool>,
 }
 
 impl std::fmt::Debug for WorkingSet<'_> {
@@ -227,6 +234,7 @@ impl<'a> WorkingSet<'a> {
             scopes: RefCell::new(vec![Scope::default()]),
             groups: RefCell::new(GroupEnds::new(Span::new(0, source.len()))),
             longest_declared: Cell::new(0),
+            overlay_alias_called: Cell::new(false),
         }
     }
 
@@ -302,6 +310,13 @@ impl<'a> WorkingSet<'a> {
         options: LexOptions,
     ) -> ParseResult<Option<Token>> {
         lex::next_token(input, options, &mut self.groups.borrow_mut())
+    }
+
+    /// Set whether a call through an alias of an overlay command was parsed, returning what
+    /// it was: a call to one sets it, and a block saves and restores it around its statements,
+    /// to tell whether one of them changes which commands exist.
+    pub fn replace_overlay_alias_called(&self, called: bool) -> bool {
+        self.overlay_alias_called.replace(called)
     }
 
     /// The number of diagnostics recorded so far.

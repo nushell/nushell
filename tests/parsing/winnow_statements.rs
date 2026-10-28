@@ -1434,3 +1434,26 @@ fn hidden_row_condition_command_takes_external_arguments() -> Result {
     assert_eq!(arguments.len(), 3, "`{code}`: {arguments:?}");
     Ok(())
 }
+
+/// A call through an alias of `overlay use` in a nested block changes which commands exist for
+/// the block's statements after it: the winnow parser, which tells that from the alias as it
+/// parses the call (`DeclKind::OverlayAlias`), leaves the block to be parsed again statement by
+/// statement, as for `overlay use` itself, instead of the classic parser taking its rest.
+#[rstest]
+#[case::alias_outside(
+    "module m { export def f [] { 'f' } }\nalias ou = overlay use\ndo {\n  ou m\n  f\n}"
+)]
+#[case::alias_inside(
+    "module m { export def f [] { 'f' } }\ndo {\n  alias ou = overlay use\n  ou m\n  f\n}"
+)]
+#[case::alias_from_a_module(
+    "module m { export def f [] { 'f' } }\nmodule n { export alias ou = overlay use }\nuse n ou\ndo {\n  ou m\n  f\n}"
+)]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn overlay_alias_in_a_nested_block_is_lowered(#[case] code: &str) -> Result {
+    let engine_state = test().engine_state;
+    parse_lowered(&engine_state, code);
+    test().run(code).expect_value_eq("f")
+}

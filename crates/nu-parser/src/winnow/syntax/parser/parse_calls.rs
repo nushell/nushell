@@ -119,6 +119,10 @@ fn parse_call_with_kind<'a>(
     lenient: bool,
 ) -> ParseResult<Expression<'a>> {
     let working_set = tokens.working_set;
+    if kind == Some(DeclKind::OverlayAlias) {
+        // The block it is in changes which commands exist (`parse_block`).
+        working_set.replace_overlay_alias_called(true);
+    }
     let condition = kind == Some(DeclKind::RowCondition)
         && tokens
             .peek_token()

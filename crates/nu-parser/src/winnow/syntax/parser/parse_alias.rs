@@ -63,13 +63,24 @@ fn parse_aliased_keyword<'a>(
 }
 
 /// How a call to an alias of `call` parses: with external arguments when its
-/// command takes them, and, when the alias gives no arguments, as its command
+/// command takes them, as a call that changes which commands exist when that is
+/// an overlay command, and, when the alias gives no arguments, as its command
 /// when that is a row-condition command or `if`, `match` or `try` (`alias m =
 /// match`, and an alias of such an alias).
 fn call_alias_kind(working_set: &WorkingSet<'_>, call: &Call<'_>) -> DeclKind {
     let kind = working_set.find_decl(&call.head.name);
     if kind == Some(DeclKind::Wrapped) {
         return DeclKind::Wrapped;
+    }
+    // An alias of an overlay command (`alias ou = overlay use`, with arguments or not), or of
+    // such an alias.
+    if kind == Some(DeclKind::OverlayAlias)
+        || matches!(
+            call.head.name.as_ref(),
+            "overlay use" | "overlay hide" | "overlay new"
+        ) && !working_set.is_declared(&call.head.name)
+    {
+        return DeclKind::OverlayAlias;
     }
     if !call.arguments.is_empty() {
         return DeclKind::Declared;
