@@ -1400,6 +1400,24 @@ fn typed_let_without_a_value_is_lowered(#[case] code: &str, #[case] ty: Type) ->
     Ok(())
 }
 
+/// A nested block's predeclarations are read as `parse_def_predecl` reads them: a `def` or
+/// `extern` call for help is predeclared from its items, and a signature naming a type the block
+/// defines later reads it as `any`, the error dropped; the definition then has its own type.
+#[rstest]
+#[case::call_for_help("do { def f [] {} --help }", None)]
+#[case::type_alias("do { type T = int; def f [x: T] { $x }; f 1 }", Some(1))]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn nested_predeclaration_is_lowered(#[case] code: &str, #[case] value: Option<i64>) -> Result {
+    let engine_state = test().engine_state;
+    parse_lowered(&engine_state, code);
+    match value {
+        Some(value) => test().run(code).expect_value_eq(value),
+        None => Ok(()),
+    }
+}
+
 /// Arguments the winnow parser read as one row condition, for an alias of a row-condition
 /// command that `hide` hid, are three external arguments for `parse_external_call`.
 #[test]

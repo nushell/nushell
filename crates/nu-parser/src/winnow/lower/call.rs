@@ -630,6 +630,7 @@ impl<'s> Lower<'_, '_, 's> {
             offset: self.offset,
             row_var: self.row_var,
             alias_target: self.alias_target,
+            drops_errors: self.drops_errors,
         };
         match value {
             ItemsValue::Math => lower.math(&tree, input_type),

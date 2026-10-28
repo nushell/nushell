@@ -2,7 +2,7 @@
 //! `parse_full_signature`), and the predeclaration of commands (`parse_def_predecl`).
 
 use nu_protocol::{
-    Flag, ParseError, PositionalArg, Signature, SyntaxShape, Type, VarId,
+    Flag, ParseError, PositionalArg, Signature, Span, SyntaxShape, Type, VarId,
     ast::{Expr, Expression},
     engine::CommandType,
 };
@@ -10,7 +10,7 @@ use nu_protocol::{
 use super::{Lower, Lowered, Unlowered};
 use crate::winnow::syntax::{Span as WSpan, ast as w};
 use crate::{
-    parse_def::{reject_command_name, rest_param_is_type_annotated},
+    parse_def::{parse_def_predecl, reject_command_name, rest_param_is_type_annotated},
     parse_shape_specs::{parse_completer, parse_shape_name},
     parse_signatures::{
         Arg, assemble_signature, ensure_not_reserved_variable_name, parse_input_output_types,
@@ -43,7 +43,9 @@ impl<'s> Lower<'_, '_, 's> {
     /// tree, with no statement to hand back: it reports what `parse_def_predecl` reports (an
     /// invalid name, a duplicate definition), and `true` means done, errors included. In order:
     /// the name checks; the signature, read in a scope of its own that takes its parameters'
-    /// variables away again, with its errors dropped (the definition reports them); `--wrapped`
+    /// variables away again, with its errors dropped (the definition reports them) and the
+    /// values the classic functions recover kept (`drops_errors`: an unknown type, such as one a
+    /// `type` statement of the block defines later, is `any`); `--wrapped`
     /// making the rest parameter take external arguments unless the signature's text types it;
     /// the declaration.
     pub(in crate::winnow) fn predecl(&mut self, predecl: Predecl<'_, 's>) -> bool {
@@ -65,7 +67,9 @@ impl<'s> Lower<'_, '_, 's> {
         }
         let errors = self.working_set.parse_errors.len();
         self.working_set.enter_scope();
+        let outer_drops_errors = std::mem::replace(&mut self.drops_errors, true);
         let lowered = self.signature_params(written, predecl.external);
+        self.drops_errors = outer_drops_errors;
         let lowered = lowered.map(|mut sig| {
             if let Some(types) = written.input_output_span {
                 // To the statement's end, as the classic predeclaration reads them.
@@ -145,9 +149,16 @@ impl<'s> Lower<'_, '_, 's> {
             w::Expr::Export(export) => return self.predecl_statement(&export.item),
             w::Expr::AttributeBlock(block) => return self.predecl_statement(&block.item),
             // `def foo [] {} --help`, which the winnow tree has as a call: the classic
-            // predeclaration still declares the command from the statement's text.
+            // predeclaration still declares the command from the statement's items, as it reads
+            // them, the signature with `parse_full_signature` (and the call for help's
+            // `finish_def` takes the declaration away again).
             w::Expr::Call(call) if matches!(call.head.name.as_ref(), "def" | "extern") => {
-                return Err(Unlowered::Unsupported("predeclaration of a call for help"));
+                let spans: Vec<Span> = std::iter::once(call.head.span)
+                    .chain(call.arguments.iter().map(w::Argument::span))
+                    .map(|span| self.span(span))
+                    .collect();
+                parse_def_predecl(self.working_set, &spans);
+                return Ok(());
             }
             _ => return Ok(()),
         };

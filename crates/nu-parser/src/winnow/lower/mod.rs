@@ -91,6 +91,10 @@ pub(super) struct Lower<'w, 'e, 's> {
     /// argument stays a call, its error reported for `alias` to forgive. Not in the target's
     /// nested blocks, whose statements are statements.
     pub(super) alias_target: bool,
+    /// Whether a predeclaration is being read, which, like `parse_def_predecl`, drops every
+    /// error at its end: a classic parser function's error ([`Lower::checked`]) keeps the value
+    /// it recovered (`any` for an unknown type) instead of ending the lowering.
+    pub(super) drops_errors: bool,
 }
 
 impl<'w, 'e, 's> Lower<'w, 'e, 's> {
@@ -119,6 +123,7 @@ impl<'w, 'e, 's> Lower<'w, 'e, 's> {
             offset,
             row_var: None,
             alias_target: false,
+            drops_errors: false,
         }
     }
 
@@ -158,14 +163,14 @@ impl<'w, 'e, 's> Lower<'w, 'e, 's> {
     }
 
     /// Run a classic parser function that reports errors in the working set, turning any error
-    /// it reported into [`Unlowered::Error`].
+    /// it reported into [`Unlowered::Error`], unless the errors are dropped (`drops_errors`).
     pub(super) fn checked<T>(
         &mut self,
         f: impl FnOnce(&mut StateWorkingSet<'_>) -> T,
     ) -> Lowered<T> {
         let before = self.working_set.parse_errors.len();
         let value = f(self.working_set);
-        if self.working_set.parse_errors.len() > before {
+        if self.working_set.parse_errors.len() > before && !self.drops_errors {
             return Err(Unlowered::Error);
         }
         Ok(value)
