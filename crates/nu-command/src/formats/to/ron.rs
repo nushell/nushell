@@ -52,13 +52,20 @@ impl Command for ToRon {
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
-        vec![Example {
-            example: "{a: 1, b: \"hello\"} | to ron",
-            description: "Converts a Nushell record to a RON string.",
-            result: Some(Value::test_string(
-                "{\n    \"a\": 1,\n    \"b\": \"hello\",\n}",
-            )),
-        }]
+        vec![
+            Example {
+                example: "{a: 1, b: \"hello\"} | to ron",
+                description: "Converts a Nushell record to a pretty-printed RON string.",
+                result: Some(Value::test_string(
+                    "{\n    \"a\": 1,\n    \"b\": \"hello\",\n}",
+                )),
+            },
+            Example {
+                example: "{a: 1, b: \"hello\"} | to ron --raw",
+                description: "Converts a Nushell record to a compact RON string.",
+                result: Some(Value::test_string("{\"a\":1,\"b\":\"hello\"}")),
+            },
+        ]
     }
 }
 

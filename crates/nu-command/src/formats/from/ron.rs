@@ -34,14 +34,25 @@ impl Command for FromRon {
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
-        vec![Example {
-            example: "r#\"(a: 1, b: \"hello\")\"# | from ron",
-            description: "Converts a RON map string to a Nushell record.",
-            result: Some(Value::test_record(record! {
-                "a" => Value::test_int(1),
-                "b" => Value::test_string("hello"),
-            })),
-        }]
+        vec![
+            Example {
+                example: "'(a: 1, b: \"hello\")' | from ron",
+                description: "Converts a RON map string to a Nushell record.",
+                result: Some(Value::test_record(record! {
+                    "a" => Value::test_int(1),
+                    "b" => Value::test_string("hello"),
+                })),
+            },
+            Example {
+                example: "'(1, 2, 3)' | from ron",
+                description: "Converts a RON tuple string to a Nushell list.",
+                result: Some(Value::test_list(vec![
+                    Value::test_int(1),
+                    Value::test_int(2),
+                    Value::test_int(3),
+                ])),
+            },
+        ]
     }
 }
 
