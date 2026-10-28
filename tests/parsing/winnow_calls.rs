@@ -490,3 +490,40 @@ fn shorthand_with_an_error_in_its_value_is_the_command() -> Result {
     ));
     Ok(())
 }
+
+/// An operation of types it doesn't apply to is reported as `parse_math_expression` reports it
+/// (`math_result_type`'s error, the operation typed as it says), and the statement is lowered.
+/// The errors come in the classic parser's order: an operation's type is checked once its
+/// operator stack reduces it, after the operand that follows.
+#[rstest]
+#[case::operation("'a' + 1", &[("OperatorIncompatibleTypes", "+")])]
+#[case::operation_after_the_next_operand(
+    "1 * 'a' + $nope",
+    &[("VariableNotFound", "$nope"), ("OperatorUnsupportedType", "*")]
+)]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn error_gone_past_is_reported_and_lowered(
+    #[case] code: &str,
+    #[case] expected: &[(&str, &str)],
+) -> Result {
+    let expected: Vec<(String, String)> = expected
+        .iter()
+        .map(|(kind, text)| (kind.to_string(), text.to_string()))
+        .collect();
+    assert_eq!(lowered_errors(code), expected, "`{code}`");
+    Ok(())
+}
+
+/// An `if` asking for help as an operation's operand is a call of `if`, as
+/// `parse_math_expression` reads an `if` there (`parse_call`), typed by its blocks: an int added
+/// to an int, not to the words of the call read as a string.
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn if_help_call_operand_is_a_call() -> Result {
+    let code = "1 + if true { 1 } else { 2 } --help";
+    assert_eq!(lowered_errors(code), [], "`{code}`");
+    Ok(())
+}

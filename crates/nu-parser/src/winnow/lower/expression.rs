@@ -12,7 +12,7 @@ use nu_protocol::{
 };
 
 use super::{Lower, Lowered, Unlowered};
-use crate::winnow::syntax::{ast as w, lex::AssignmentOperator};
+use crate::winnow::syntax::{Span as WSpan, ast as w, lex::AssignmentOperator};
 use crate::{
     parse_calls::CallKind, parse_captures_compile::compile_block,
     parse_keywords::find_keyword_decl, parse_literals::parse_string_strict,
@@ -81,34 +81,72 @@ impl<'s> Lower<'_, '_, 's> {
     }
 
     /// A math expression (`parse_math_expression`): operands are values read with any shape,
-    /// and each operation gets its type from `math_result_type`. The winnow tree already nests
-    /// operations by precedence, which the classic parser works out with its operator stack.
+    /// and each operation gets its type from `math_result_type`, whose error is reported with
+    /// that type. The winnow tree nests the operations by precedence; taken apart again, they
+    /// go through the classic parser's operator stack, so that, as there, each operand is
+    /// lowered in source order and each operation typed when the stack reduces it, after the
+    /// operand that follows the next operator binding no tighter.
     pub(super) fn math(
         &mut self,
         e: &w::Expression<'s>,
         input_type: Option<&Type>,
     ) -> Lowered<Expression> {
         match &e.expr {
-            w::Expr::BinaryOp(operation) => {
-                let mut lhs = self.math(&operation.lhs, input_type)?;
-                let operator_span = self.span(operation.op.span);
-                let mut operator = self.node(
+            // A single operation, in the order the operator stack would take it.
+            w::Expr::BinaryOp(operation)
+                if !matches!(operation.lhs.expr, w::Expr::BinaryOp(_))
+                    && !matches!(operation.rhs.expr, w::Expr::BinaryOp(_)) =>
+            {
+                let lhs = self.math(&operation.lhs, input_type)?;
+                let op_span = self.span(operation.op.span);
+                let op = self.node(
                     Expr::Operator(operator(operation.op.item)),
-                    operator_span,
+                    op_span,
                     Type::Any,
                 );
-                let mut rhs = self.math(&operation.rhs, input_type)?;
-                let (ty, error) =
-                    math_result_type(self.working_set, &mut lhs, &mut operator, &mut rhs);
-                if error.is_some() {
-                    return Err(Unlowered::Error);
+                let rhs = self.math(&operation.rhs, input_type)?;
+                Ok(self.operation(lhs, op, rhs))
+            }
+            w::Expr::BinaryOp(_) => {
+                let mut operands = Vec::new();
+                let mut operators = Vec::new();
+                take_apart(e, &mut operands, &mut operators);
+                let mut operands = operands.into_iter();
+                let first = operands
+                    .next()
+                    .ok_or(Unlowered::Unsupported("math expression"))?;
+                let mut values = vec![self.math(first, input_type)?];
+                let mut stack: Vec<Expression> = Vec::new();
+                let mut last_prec = u8::MAX;
+                for ((op, op_span), operand) in operators.into_iter().zip(operands) {
+                    let op_span = self.span(op_span);
+                    let op = self.node(Expr::Operator(operator(op)), op_span, Type::Any);
+                    let prec = op.precedence();
+                    let rhs = self.math(operand, input_type)?;
+                    // Nothing is reduced before an `if` or a `match`, which takes the rest of
+                    // the expression, and `**` groups to the right.
+                    let reduces = !is_keyword_operand(operand)
+                        && op.expr != Expr::Operator(Operator::Math(Math::Pow))
+                        && prec <= last_prec;
+                    if reduces {
+                        while let Some(top) = stack.last() {
+                            last_prec = top.precedence();
+                            if last_prec < prec {
+                                break;
+                            }
+                            self.reduce_operation(&mut values, &mut stack)?;
+                        }
+                    }
+                    stack.push(op);
+                    values.push(rhs);
+                    last_prec = prec;
                 }
-                let span = Span::append(lhs.span, rhs.span);
-                Ok(self.node(
-                    Expr::BinaryOp(Box::new(lhs), Box::new(operator), Box::new(rhs)),
-                    span,
-                    ty,
-                ))
+                while !stack.is_empty() {
+                    self.reduce_operation(&mut values, &mut stack)?;
+                }
+                values
+                    .pop()
+                    .ok_or(Unlowered::Unsupported("math expression"))
             }
             w::Expr::UnaryNot(not) => {
                 let inner = self.math(&not.expr, input_type)?;
@@ -117,10 +155,46 @@ impl<'s> Lower<'_, '_, 's> {
             }
             // `1 + if $c { 2 } else { 3 }`: an operand `if` or `match` is a call without the
             // pipeline's input, as the classic parser's `parse_call` gets it there.
-            w::Expr::If(_) | w::Expr::Match(_) => self.expression(e, None),
+            _ if is_keyword_operand(e) => self.expression(e, None),
             w::Expr::FullCellPath(path) if path.implicit_head => self.implicit_cell_path(e, path),
             _ => self.value(e, &SyntaxShape::Any, input_type),
         }
+    }
+
+    /// The operation on top of a math expression's operator stack applied to the last two
+    /// operands (`parse_math_expression`).
+    fn reduce_operation(
+        &mut self,
+        operands: &mut Vec<Expression>,
+        operators: &mut Vec<Expression>,
+    ) -> Lowered<()> {
+        let (Some(rhs), Some(operator), Some(lhs)) =
+            (operands.pop(), operators.pop(), operands.pop())
+        else {
+            return Err(Unlowered::Unsupported("math expression"));
+        };
+        let operation = self.operation(lhs, operator, rhs);
+        operands.push(operation);
+        Ok(())
+    }
+
+    /// An operation, typed by `math_result_type`, whose error is reported.
+    fn operation(
+        &mut self,
+        mut lhs: Expression,
+        mut operator: Expression,
+        mut rhs: Expression,
+    ) -> Expression {
+        let (ty, error) = math_result_type(self.working_set, &mut lhs, &mut operator, &mut rhs);
+        if let Some(error) = error {
+            self.working_set.error(error);
+        }
+        let span = Span::append(lhs.span, rhs.span);
+        self.node(
+            Expr::BinaryOp(Box::new(lhs), Box::new(operator), Box::new(rhs)),
+            span,
+            ty,
+        )
     }
 
     /// A bare word in a row condition, `size > 10` (`expand_to_cell_path`): the row variable
@@ -500,6 +574,34 @@ impl<'s> Lower<'_, '_, 's> {
 }
 
 /// The classic parser's operator for a winnow operator.
+/// Whether `e`, an operand, is an `if` or a `match`, which `parse_math_expression` reads as a
+/// call of the rest of the expression (`parse_call`): one that asks for help is a call in the
+/// winnow tree.
+fn is_keyword_operand(e: &w::Expression<'_>) -> bool {
+    match &e.expr {
+        w::Expr::If(_) | w::Expr::Match(_) => true,
+        w::Expr::Call(call) => matches!(call.head.name.as_ref(), "if" | "match"),
+        _ => false,
+    }
+}
+
+/// The operands of the operations in `e`, in source order, and the operators between them:
+/// what `parse_math_expression` reads, before its operator stack nests it.
+fn take_apart<'e, 's>(
+    e: &'e w::Expression<'s>,
+    operands: &mut Vec<&'e w::Expression<'s>>,
+    operators: &mut Vec<(w::Operator, WSpan)>,
+) {
+    match &e.expr {
+        w::Expr::BinaryOp(operation) => {
+            take_apart(&operation.lhs, operands, operators);
+            operators.push((operation.op.item, operation.op.span));
+            take_apart(&operation.rhs, operands, operators);
+        }
+        _ => operands.push(e),
+    }
+}
+
 fn operator(operator: w::Operator) -> Operator {
     match operator {
         w::Operator::Math(math) => Operator::Math(match math {
