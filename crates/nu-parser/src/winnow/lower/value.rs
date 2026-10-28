@@ -146,8 +146,9 @@ impl<'s> Lower<'_, '_, 's> {
 
     /// An item read with `shape` where the classic parser reads it with `parse_value` and
     /// nothing reads it again (a call's argument, `parse_internal_call`; a shape of a `oneof`,
-    /// `parse_oneof`): as [`Self::value`] reads it, except that an item without inner structure
-    /// keeps a classic leaf parser's error, reported with the value it recovers.
+    /// `parse_oneof`; a list's item, `parse_list_expression`): as [`Self::value`] reads it,
+    /// except that an item without inner structure keeps a classic leaf parser's error,
+    /// reported with the value it recovers.
     pub(super) fn reported_value(
         &mut self,
         e: &w::Expression<'s>,
@@ -404,7 +405,7 @@ impl<'s> Lower<'_, '_, 's> {
         input_type: Option<&Type>,
     ) -> Lowered<Expression> {
         let head = match &head.expr {
-            w::Expr::Var(_) => self.variable(head.span, input_type)?,
+            w::Expr::Var(_) => self.variable(head.span, input_type),
             w::Expr::Subexpression(block) => self.subexpression(head.span, block)?,
             w::Expr::List(_) | w::Expr::Table(_) => {
                 self.table_expression(head, &SyntaxShape::Any)?
@@ -433,14 +434,10 @@ impl<'s> Lower<'_, '_, 's> {
 
     /// A variable, as `parse_variable_expr` makes it: `$nu`, `$in` (typed by `input_type`),
     /// `$env` and the last-result variable have fixed ids; any other name must be in scope,
-    /// else it is the classic parser's error.
-    pub(super) fn variable(
-        &mut self,
-        span: WSpan,
-        input_type: Option<&Type>,
-    ) -> Lowered<Expression> {
+    /// else it is garbage, with that function's error (and its suggestion of a name that is).
+    pub(super) fn variable(&mut self, span: WSpan, input_type: Option<&Type>) -> Expression {
         let span = self.span(span);
-        self.checked(|working_set| parse_variable_expr(working_set, span, input_type))
+        parse_variable_expr(self.working_set, span, input_type)
     }
 
     /// The members of a cell path (`parse_cell_path`). A member's span leaves out its `?` and
@@ -547,7 +544,8 @@ impl<'s> Lower<'_, '_, 's> {
         }
     }
 
-    /// A list (`parse_list_expression`); its type is the union of its items' types. A spread,
+    /// A list (`parse_list_expression`); its type is the union of its items' types. An item
+    /// keeps its leaf parser's error, as there ([`Self::reported_value`]). A spread,
     /// `...$items`, is read as a list of `element` and adds its item type.
     pub(super) fn list(
         &mut self,
@@ -560,7 +558,7 @@ impl<'s> Lower<'_, '_, 's> {
         for item in items {
             let (item, ty) = match item {
                 w::ListItem::Item(expression) => {
-                    let value = self.value(expression, element, None)?;
+                    let value = self.reported_value(expression, element, None)?;
                     let ty = value.ty.clone();
                     (ListItem::Item(value), ty)
                 }

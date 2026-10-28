@@ -442,3 +442,51 @@ fn oneof_argument_with_a_shape_given_back_is_the_classic_parsers() -> Result {
     );
     Ok(())
 }
+
+/// A variable not in scope (`parse_variable_expr`) and a list's item a leaf parser rejects
+/// (`parse_list_expression`) are reported as the classic parser reports them, the value
+/// garbage there, and the statement is lowered.
+#[rstest]
+#[case::variable_argument("echo $nope", &[("VariableNotFound", "$nope")])]
+#[case::variable_with_a_cell_path("$nope.a | describe", &[("VariableNotFound", "$nope")])]
+#[case::variable_in_a_closure("let c = {|| $nope }", &[("VariableNotFound", "$nope")])]
+#[case::variable_in_an_interpolation("$\"($nope)\"", &[("VariableNotFound", "$nope")])]
+#[case::list_item(
+    "def li [x: list<int>] {}; li [1 nope]",
+    &[("Expected", "nope")]
+)]
+#[case::list_item_of_a_flag_value(
+    "def f [--n: list<int>] {}; f --n [1, x]",
+    &[("Expected", "x")]
+)]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn value_error_is_reported_and_lowered(
+    #[case] code: &str,
+    #[case] expected: &[(&str, &str)],
+) -> Result {
+    let expected: Vec<(String, String)> = expected
+        .iter()
+        .map(|(kind, text)| (kind.to_string(), text.to_string()))
+        .collect();
+    assert_eq!(lowered_errors(code), expected, "`{code}`");
+    Ok(())
+}
+
+/// An environment shorthand whose value has an error is no shorthand (`parse_expression`
+/// drops the error): the word is the command, an external one here.
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn shorthand_with_an_error_in_its_value_is_the_command() -> Result {
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let block = nu_parser::parse(&mut working_set, None, b"A=$nope ls", false);
+    assert_eq!(working_set.parse_errors, []);
+    assert!(matches!(
+        block.pipelines[0].elements[0].expr.expr,
+        Expr::ExternalCall(..)
+    ));
+    Ok(())
+}

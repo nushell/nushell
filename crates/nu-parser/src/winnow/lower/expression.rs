@@ -229,7 +229,16 @@ impl<'s> Lower<'_, '_, 's> {
             let name = self.checked(|ws| parse_string_strict(ws, name_span))?;
             let value = match self.text(assignment.value.span).as_bytes() {
                 [] => self.node(Expr::String(String::new()), Span::unknown(), Type::Nothing),
-                [b'$', ..] => self.value(&assignment.value, &SyntaxShape::Any, None)?,
+                // A value with an error ends the shorthands (`parse_expression` drops the
+                // error): the word is the command, which the winnow parser did not read so.
+                [b'$', ..] => {
+                    let errors = self.working_set.parse_errors.len();
+                    let value = self.value(&assignment.value, &SyntaxShape::Any, None)?;
+                    if self.working_set.parse_errors.len() > errors {
+                        return Err(Unlowered::Error);
+                    }
+                    value
+                }
                 _ => {
                     let span = self.span(assignment.value.span);
                     self.checked(|ws| parse_string_strict(ws, span))?
