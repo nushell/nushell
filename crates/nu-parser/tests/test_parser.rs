@@ -953,13 +953,14 @@ pub fn parse_rejects_uncallable_command_names(#[case] name: &str) {
 #[case::bare_prefix("0x")]
 #[case::value_in_a_later_word("foo 0x10")]
 #[case::escaped_name("foo\u{2D}bar")]
+#[case::float_spelling_infinity("infinity")]
+#[case::float_spelling_inf("INF")]
+#[case::float_spelling_nan("Nan")]
 pub fn parse_accepts_bare_word_names_that_are_not_values(#[case] name: &str) {
     // https://github.com/nushell/nushell/issues/16815
     // These are read as bare words rather than as values, so they name a command that can still
     // be called. The call has to come back as a call to that declaration, not as the value the
     // name looks like.
-    // Declare the name, then call it. The call has to come back as a call and not as the
-    // value the name looks like.
     let call_of = |source: &str| {
         let mut engine_state = EngineState::new();
         let mut working_set = StateWorkingSet::new(&engine_state);
