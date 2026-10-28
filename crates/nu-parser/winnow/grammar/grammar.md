@@ -1828,7 +1828,7 @@ get nu-parser's full behaviour; none of it is decidable from the text alone.
 | module, file, overlay and plugin resolution; variable existence | files, module table, scope | `Call` heads, `Var` |
 | the commands a `use`d module brings into scope (`use std/log; log info`) | module resolution | `ParseConfig::add_commands`; without them such a head is an `ExternalCall` |
 
-## 9. Verified differences between nu-parser and this parser: 5 open
+## 9. Verified differences between nu-parser and this parser: 6 open
 
 Last verified on 2026-09-26 against nushell `7de074cfe` and `nu` 0.115.2; the
 rows found on 2026-10-26 were verified against nushell `706259d6f` with the
@@ -1836,8 +1836,8 @@ harness.
 
 | section | kind of difference | closed | open |
 | --- | --- | --- | --- |
-| 9.1 | nu-parser rejects, this parser accepts | 33 | **3** |
-| 9.2 | nu-parser accepts, this parser rejects | 39 | **3** |
+| 9.1 | nu-parser rejects, this parser accepts | 33 | **2** |
+| 9.2 | nu-parser accepts, this parser rejects | 39 | **4** |
 | 9.3 | both accept, but the parse differs | 11 | **0** |
 | 9.4 | needs a signature, a declaration, const-eval, a type or a file | | not a grammar difference: the consumer's checks, listed below |
 
@@ -1892,7 +1892,7 @@ An argument that is a range whose bound is a closure with text after it (`echo
 and this parser reads a range of a closure, which is the consumer's type error.
 Found with the range-bound set; no real script is known to hit it.
 
-### 9.2 nu-parser accepts, this parser rejects: 3 open
+### 9.2 nu-parser accepts, this parser rejects: 4 open
 
 An alias target whose first error is a missing positional nested inside it
 (`alias i = if if x y`, `alias i = if (if x) {}`, `alias i = if 1 + if x y`), or
@@ -1922,6 +1922,15 @@ cell path (`echo 5..(1)!`, `echo 5..(1).(2)`, `echo 1..(1)!..5`): nu's value par
 gives up on the range and reads the word as a string; this parser commits to the
 range and reports the cell path. As a statement head both read an external command
 (3.1). Found with the range-bound set; no real script is known to hit it.
+
+A `match` call for help with arms (`match 1 --help { 1 => 2, _ => 3 }`): nu reads
+`match`'s second positional with the `match_block` shape, arms included, and shows
+the help; this parser reads a call for help's arguments as values, so the `{ ... }`
+is a closure whose body `1 => 2, _ => 3` does not parse. Where the body happens to
+parse (`match --help 1 { _ => 2 }`), the front end hands the statement to nu-parser
+(a closure where `match_block` wants arms). `parse_match` has the arms when it
+finds the `--help`; closing it needs a node for a match block as a call's argument.
+Found with the help-call set; no real script is known to hit it, so it is left open.
 
 ### 9.3 Both accept, but the parse differs: 0 open
 
