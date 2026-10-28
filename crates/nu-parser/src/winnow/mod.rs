@@ -82,7 +82,7 @@ pub(crate) fn parse_file_block(
         span,
         driver::BlockKind::Block {
             scoped,
-            is_subexpression: false,
+            of: lower::BlockOf::Code,
             input_type: None,
         },
     )

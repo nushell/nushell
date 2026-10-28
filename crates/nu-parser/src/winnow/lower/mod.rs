@@ -65,7 +65,7 @@ use crate::parse_calls::{CallKind, check_call};
 use crate::winnow::syntax::Span as WSpan;
 
 pub(super) use signature::Predecl;
-pub(super) use statement::{StatementTarget, parse_classic};
+pub(super) use statement::{BlockOf, StatementTarget, parse_classic};
 
 /// Why a statement was not lowered: the driver then parses it with the classic parser.
 #[derive(Debug)]

@@ -56,7 +56,7 @@ use nu_protocol::{
 
 use super::{
     lookup::{Asked, AskedLookup, EngineLookup, NamesSnapshot, changed_answer},
-    lower::{Lower, Predecl, StatementTarget, parse_classic},
+    lower::{BlockOf, Lower, Predecl, StatementTarget, parse_classic},
     stats,
 };
 use crate::winnow::syntax::{
@@ -68,12 +68,11 @@ use crate::{
 
 /// What kind of block is parsed, with what the kind needs.
 pub(super) enum BlockKind {
-    /// An ordinary block (a file, or the body of a closure or command), as the classic
-    /// parser's `parse_block` takes it. The statements of a subexpression (`is_subexpression`)
-    /// are lexed as `parse_full_cell_path` lexes a parenthesized one: newlines as whitespace.
+    /// An ordinary block, as the classic parser's `parse_block` takes it: `of` says what it is
+    /// to `parse_block` (a subexpression or not) and how its statements are lexed.
     Block {
         scoped: bool,
-        is_subexpression: bool,
+        of: BlockOf,
         input_type: Option<Type>,
     },
     /// A module's body: its statements define the module's exports.
@@ -97,11 +96,11 @@ pub(super) fn parse_block(
     let target = match kind {
         BlockKind::Block {
             scoped,
-            is_subexpression,
+            of,
             input_type,
         } => Target::Block {
             scoped,
-            is_subexpression,
+            of,
             input_type,
         },
         BlockKind::Module { name } => Target::Module {
@@ -151,7 +150,7 @@ pub(super) fn parse_block(
     match target {
         Target::Block {
             scoped,
-            is_subexpression,
+            of,
             input_type,
         } => {
             let block = finish_block(
@@ -159,7 +158,7 @@ pub(super) fn parse_block(
                 block,
                 span,
                 scoped,
-                is_subexpression,
+                of.is_subexpression(),
                 input_type.as_ref(),
             );
             Some((block, None))
@@ -198,12 +197,12 @@ fn parse_statements(
     {
         threads.spawn(|| {});
     }
-    // A subexpression's statements are lexed as the classic `parse_full_cell_path` lexes a
-    // parenthesized one: newlines as whitespace.
+    // A parenthesized subexpression's statements are lexed as the classic
+    // `parse_full_cell_path` lexes them: newlines as whitespace.
     let subexpression = matches!(
         driver.target,
         Target::Block {
-            is_subexpression: true,
+            of: BlockOf::Parentheses,
             ..
         }
     );
@@ -487,7 +486,7 @@ enum Target {
     /// the block's input.
     Block {
         scoped: bool,
-        is_subexpression: bool,
+        of: BlockOf,
         input_type: Option<Type>,
     },
     /// A module body; the statements add to `module`.
@@ -580,17 +579,13 @@ fn statement_target<'t>(
     span: Span,
 ) -> StatementTarget<'t> {
     match target {
-        Target::Block {
-            input_type,
-            is_subexpression,
-            ..
-        } => StatementTarget::Block {
+        Target::Block { input_type, of, .. } => StatementTarget::Block {
             input_type: if pipelines.is_empty() {
                 input_type.as_ref()
             } else {
                 None
             },
-            is_subexpression: *is_subexpression,
+            of: *of,
         },
         Target::Module { module, name } => StatementTarget::Module { name, module, span },
     }

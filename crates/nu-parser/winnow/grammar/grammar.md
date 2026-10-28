@@ -1237,7 +1237,10 @@ Vocabulary: `<expression>` is a `<pipeline-element>` (3.1); `<block>` is a
                                                                         ; the end of the line
 ; `let x` without a value is allowed (initial_value is optional in let's signature);
 ; `mut x` and `const x` are MissingPositional. A redirection or "|" in the rhs is
-; part of the rhs pipeline. Type checks and const-evaluability: semantic.
+; part of the rhs pipeline. nu lexes the rhs again from its text, as a block: inside
+; "(" ")", whose newlines are whitespace, a newline between its items still ends a
+; pipeline (`(let x = 1\n2)` gives `x` a block of two). Type checks and
+; const-evaluability: semantic.
 ; nu: parse_bindings.rs:20 parse_let, 298 parse_mut, 148 parse_const;
 ;     nu-cmd-lang core_commands/{let_,mut_,const_}.rs signatures
 ; here: src/winnow/syntax/parser/parse_bindings.rs::parse_let

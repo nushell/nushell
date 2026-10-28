@@ -11,7 +11,7 @@ use nu_protocol::{
     },
 };
 
-use super::{Lower, Lowered, Unlowered};
+use super::{BlockOf, Lower, Lowered, Unlowered};
 use crate::winnow::syntax::{Span as WSpan, ast as w, lex::AssignmentOperator};
 use crate::{
     parse_calls::CallKind, parse_captures_compile::compile_block,
@@ -269,7 +269,7 @@ impl<'s> Lower<'_, '_, 's> {
             Type::Any,
         );
         let rhs_span = self.span(assignment.rhs.span);
-        let rhs_block = self.block(&assignment.rhs, rhs_span, false, true, input_type)?;
+        let rhs_block = self.block(&assignment.rhs, rhs_span, false, BlockOf::Value, input_type)?;
         // An external call must be explicit (`^cmd`) on the right side of an assignment. The
         // head's span leaves out the `^`, so the byte before it is read too.
         if let Some(Expr::ExternalCall(head, ..)) = rhs_block

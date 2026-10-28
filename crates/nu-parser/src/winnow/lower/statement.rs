@@ -62,16 +62,34 @@ const MODULE_HELP_KEYWORDS: &[&str] = &[
     "export-env",
 ];
 
+/// What a block is to the classic `parse_block` (its `is_subexpression` flag) and to its lexer.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(in crate::winnow) enum BlockOf {
+    /// A file, a module's body, the body of a closure or a command.
+    Code,
+    /// The inside of `( ... )`: a subexpression, lexed as `parse_full_cell_path` lexes it,
+    /// newlines as whitespace.
+    Parentheses,
+    /// The value of a binding or an assignment (`let x = ...`): a subexpression, lexed again
+    /// from its text as a block is (`parse_let`), so a newline ends a pipeline even inside
+    /// `( ... )`.
+    Value,
+}
+
+impl BlockOf {
+    /// The classic `parse_block`'s `is_subexpression`.
+    pub(in crate::winnow) fn is_subexpression(self) -> bool {
+        self != BlockOf::Code
+    }
+}
+
 /// Where a statement goes: an ordinary block, or a module's body.
 pub(in crate::winnow) enum StatementTarget<'t> {
-    /// A statement of an ordinary block; `input_type` is the block's input, which only its
-    /// first statement receives. `is_subexpression` is the classic `parse_block`'s flag: the
-    /// classic parser then lexes the statement as `parse_full_cell_path` lexes a parenthesized
-    /// subexpression, newlines as whitespace. (The value of a binding or an assignment is also
-    /// a subexpression; it is one pipeline, which lexes the same either way.)
+    /// A statement of an ordinary block, which is what `of` says; `input_type` is the block's
+    /// input, which only its first statement receives.
     Block {
         input_type: Option<&'t Type>,
-        is_subexpression: bool,
+        of: BlockOf,
     },
     /// A statement of the body of the module `name`, covering `span`; exports add to `module`.
     Module {
@@ -755,12 +773,12 @@ impl<'s> Lower<'_, '_, 's> {
         block: &w::Block<'s>,
         span: Span,
         scoped: bool,
-        is_subexpression: bool,
+        of: BlockOf,
         input_type: Option<&Type>,
     ) -> Lowered<Block> {
         // In an alias's target, a block's statements are statements again.
         let outer_alias_target = std::mem::replace(&mut self.alias_target, false);
-        let lowered = self.block_statements(block, span, scoped, is_subexpression, input_type);
+        let lowered = self.block_statements(block, span, scoped, of, input_type);
         self.alias_target = outer_alias_target;
         lowered
     }
@@ -771,7 +789,7 @@ impl<'s> Lower<'_, '_, 's> {
         block: &w::Block<'s>,
         span: Span,
         scoped: bool,
-        is_subexpression: bool,
+        of: BlockOf,
         input_type: Option<&Type>,
     ) -> Lowered<Block> {
         // A statement that changes which commands exist (`use`, `overlay use`, `source`, ...)
@@ -784,7 +802,7 @@ impl<'s> Lower<'_, '_, 's> {
             let inner = self.span(block.span);
             let kind = BlockKind::Block {
                 scoped,
-                is_subexpression,
+                of,
                 input_type: input_type.cloned(),
             };
             return parse_block(
@@ -819,10 +837,7 @@ impl<'s> Lower<'_, '_, 's> {
         for (index, pipeline) in block.pipelines.iter().enumerate() {
             let span = self.statement_span(pipeline);
             let input_type = if index == 0 { input_type } else { None };
-            let mut target = StatementTarget::Block {
-                input_type,
-                is_subexpression,
-            };
+            let mut target = StatementTarget::Block { input_type, of };
             let first = out.pipelines.len();
             self.statement_or_classic(
                 pipeline,
@@ -849,7 +864,7 @@ impl<'s> Lower<'_, '_, 's> {
                 stats::record_unlowered(rest, &reason, self.working_set);
                 let mut target = StatementTarget::Block {
                     input_type: None,
-                    is_subexpression,
+                    of,
                 };
                 parse_classic(
                     self.working_set,
@@ -866,7 +881,7 @@ impl<'s> Lower<'_, '_, 's> {
             out,
             span,
             scoped,
-            is_subexpression,
+            of.is_subexpression(),
             input_type,
         ))
     }
@@ -918,7 +933,7 @@ pub(in crate::winnow) fn parse_classic(
     let subexpression = matches!(
         target,
         StatementTarget::Block {
-            is_subexpression: true,
+            of: BlockOf::Parentheses,
             ..
         }
     );

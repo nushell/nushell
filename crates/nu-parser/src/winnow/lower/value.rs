@@ -9,7 +9,7 @@ use nu_protocol::{
     casing::Casing,
 };
 
-use super::{Lower, Lowered, Unlowered};
+use super::{BlockOf, Lower, Lowered, Unlowered};
 use crate::winnow::syntax::{Span as WSpan, ast as w};
 use crate::{
     parse_calls::accepts_any_bareword,
@@ -495,7 +495,7 @@ impl<'s> Lower<'_, '_, 's> {
     fn subexpression(&mut self, span: WSpan, block: &w::Block<'s>) -> Lowered<Expression> {
         let span = self.span(span);
         let inner = Span::new(span.start + 1, span.end - 1);
-        let block = self.block(block, inner, true, true, None)?;
+        let block = self.block(block, inner, true, BlockOf::Parentheses, None)?;
         let ty = block.output_type();
         let block_id = self.working_set.add_block(Arc::new(block));
         Ok(self.node(Expr::Subexpression(block_id), span, ty))
@@ -752,7 +752,7 @@ impl<'s> Lower<'_, '_, 's> {
                     }
                 }
             }
-            let mut block = this.block(body, span, false, false, input_type)?;
+            let mut block = this.block(body, span, false, BlockOf::Code, input_type)?;
             // A `def` body is compiled by `finish_def`, once its scope is closed.
             if this.working_set.parse_errors.is_empty()
                 && this.working_set.def_body_span != Some(span)
@@ -780,7 +780,7 @@ impl<'s> Lower<'_, '_, 's> {
     ) -> Lowered<Expression> {
         let span = self.span(span);
         let block = self.in_scope(|this| {
-            let mut block = this.block(body, span, false, false, input_type)?;
+            let mut block = this.block(body, span, false, BlockOf::Code, input_type)?;
             block.span = Some(span);
             block.scope_bindings = this.working_set.snapshot_scope_bindings();
             Ok(block)

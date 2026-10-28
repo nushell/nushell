@@ -17,7 +17,7 @@ use nu_protocol::{
     },
 };
 
-use super::{Lower, Lowered, Unlowered, is_missing_argument};
+use super::{BlockOf, Lower, Lowered, Unlowered, is_missing_argument};
 use crate::winnow::syntax::{ItemsValue, Span as WSpan, ast as w};
 use crate::{
     exportable::Exportable,
@@ -593,7 +593,7 @@ impl<'s> Lower<'_, '_, 's> {
             .find_decl(keyword.as_bytes())
             .ok_or(Unlowered::Error)?;
         let rvalue_span = self.span(value.span);
-        let block = self.block(value, rvalue_span, false, true, input_type)?;
+        let block = self.block(value, rvalue_span, false, BlockOf::Value, input_type)?;
         // `mut` gives no input (`mut_statement`), so only a `let` gets here with one.
         let output_type = match (block.pipelines.as_slice(), input_type) {
             ([pipeline], Some(input)) => {
@@ -956,7 +956,7 @@ impl<'s> Lower<'_, '_, 's> {
             .find_decl(b"const")
             .ok_or(Unlowered::Error)?;
         let rvalue_span = self.span(value.span);
-        let block = self.block(value, rvalue_span, false, true, None)?;
+        let block = self.block(value, rvalue_span, false, BlockOf::Value, None)?;
         let rvalue_ty = block.output_type();
         let block_id = self.working_set.add_block(Arc::new(block));
         let rvalue = self.node(Expr::Subexpression(block_id), rvalue_span, rvalue_ty);

@@ -1457,3 +1457,50 @@ fn overlay_alias_in_a_nested_block_is_lowered(#[case] code: &str) -> Result {
     parse_lowered(&engine_state, code);
     test().run(code).expect_value_eq("f")
 }
+
+/// The block of the first statement of `code`, a parenthesized subexpression, parsed with the
+/// winnow front end: no statement is handed to the classic parser.
+fn parenthesized_block(working_set: &mut StateWorkingSet, code: &str) -> nu_protocol::BlockId {
+    let before = nu_parser::winnow_stats();
+    let block = nu_parser::parse(working_set, None, code.as_bytes(), false);
+    let after = nu_parser::winnow_stats();
+    assert_eq!(
+        after.classic_statements, before.classic_statements,
+        "`{code}`: a statement was handed to the classic parser"
+    );
+    match &block.pipelines[0].elements[0].expr.expr {
+        Expr::FullCellPath(path) => match path.head.expr {
+            Expr::Subexpression(block_id) => block_id,
+            ref other => panic!("`{code}`: not a subexpression: {other:?}"),
+        },
+        other => panic!("`{code}`: not a subexpression: {other:?}"),
+    }
+}
+
+/// The value of a binding is lexed again from its text as a block is (`parse_let`,
+/// `parse_mut`, `parse_const`), also inside `( ... )`, whose newlines are whitespace: a newline
+/// there ends the value's first pipeline, also when the value is parsed again, one statement
+/// at a time, for a `use` in it.
+#[rstest]
+#[case::let_value("(let x = 1\n2)")]
+#[case::mut_value("(mut x = 1\n2)")]
+#[case::const_value("(const x = 1\n2)")]
+#[case::value_parsed_again("(let x = 1\nuse std/assert)")]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn binding_value_in_parentheses_is_lexed_as_a_block(#[case] code: &str) -> Result {
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let block_id = parenthesized_block(&mut working_set, code);
+    let block = working_set.get_block(block_id);
+    let Expr::Call(call) = &block.pipelines[0].elements[0].expr.expr else {
+        panic!("`{code}`: not a call");
+    };
+    let value = match call.positional_iter().nth(1).map(|value| &value.expr) {
+        Some(Expr::Block(block_id) | Expr::Subexpression(block_id)) => *block_id,
+        other => panic!("`{code}`: no value block: {other:?}"),
+    };
+    assert_eq!(working_set.get_block(value).pipelines.len(), 2, "`{code}`");
+    Ok(())
+}
