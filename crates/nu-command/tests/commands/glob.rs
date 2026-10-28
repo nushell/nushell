@@ -1,4 +1,4 @@
-use nu_test_support::fs::Stub::EmptyFile;
+use nu_test_support::fs::Stub::{EmptyFile, FileWithContent};
 use nu_test_support::playground::Playground;
 use nu_test_support::prelude::*;
 use rstest::rstest;
@@ -564,6 +564,39 @@ fn glob_dc_glob_literal_prefix_wildcard_absolute() -> Result {
 
 #[test]
 #[exp(nu_experimental::DC_GLOB)]
+fn glob_dc_glob_ignore_case_depth_counts_from_the_same_place() -> Result {
+    Playground::setup("glob_dc_ignore_case_depth", |dirs, sandbox| {
+        std::fs::create_dir_all(dirs.test().join("docs")).expect("can not create docs");
+        sandbox.with_files(&[FileWithContent("docs/note.md", "")]);
+
+        // With `-i` the traversal starts at the base directory and leaves the
+        // literal `docs` to the matcher, so `--depth` has to count from the
+        // same place either way.
+        for pattern in ["glob 'docs/*.md' | length", "glob -i 'docs/*.md' | length"] {
+            test()
+                .cwd(dirs.test())
+                .run(pattern)
+                .expect_value_eq(1)
+                .unwrap_or_else(|err| panic!("{pattern}: {err:?}"));
+        }
+
+        for pattern in [
+            "glob -d 1 'docs/*.md' | length",
+            "glob -i -d 1 'docs/*.md' | length",
+        ] {
+            test()
+                .cwd(dirs.test())
+                .run(pattern)
+                .expect_value_eq(1)
+                .unwrap_or_else(|err| panic!("{pattern}: {err:?}"));
+        }
+    });
+
+    Ok(())
+}
+
+#[test]
+#[exp(nu_experimental::DC_GLOB)]
 fn glob_dc_glob_current_directory_has_no_trailing_separator() -> Result {
     Playground::setup("glob_dc_current_directory", |dirs, sandbox| {
         sandbox.with_files(&[EmptyFile("root.txt")]);
@@ -605,7 +638,7 @@ fn glob_dc_glob_missing_path_returns_empty_list() -> Result {
                 .cwd(dirs.test())
                 .run(format!("glob '{pattern}' | length"))
                 .expect_value_eq(0)
-                .expect("a missing path should give an empty list, not an error");
+                .unwrap_or_else(|err| panic!("{pattern}: {err:?}"));
         }
     });
 

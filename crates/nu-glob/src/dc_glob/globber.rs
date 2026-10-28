@@ -80,7 +80,15 @@ pub fn glob_with_options(
         .absolute_prefix
         .clone()
         .unwrap_or_else(|| base_dir.clone());
-    let (current_dir, literal_pattern) = traversal_start_dir(&program, &traversal_base);
+    let (current_dir, literal_pattern, left_to_matcher) =
+        traversal_start_dir(&program, &traversal_base);
+    // The walk starts `left_to_matcher` levels higher than it would without `-i`,
+    // so the depth budget grows by the same amount to keep `--depth` counting
+    // from the same place.
+    let options = TraversalOptions {
+        max_depth: options.max_depth.map(|max| max + left_to_matcher),
+        ..options
+    };
 
     rayon::spawn(move || {
         if interrupt.is_set() {
@@ -210,7 +218,7 @@ fn maybe_emit_start(current_dir: &Path, state: &WalkState<'_>) {
 /// With case-insensitive matching the pattern may spell a path component
 /// differently than the filesystem does, so the literal prefix is left to the
 /// matcher, which compares path components without regard to case.
-fn traversal_start_dir(program: &Program, base: &Path) -> (PathBuf, bool) {
+fn traversal_start_dir(program: &Program, base: &Path) -> (PathBuf, bool, usize) {
     let mut out = base.to_path_buf();
     let mut i = 0;
     while i < program.instructions.len() {
@@ -239,7 +247,7 @@ fn traversal_start_dir(program: &Program, base: &Path) -> (PathBuf, bool) {
                     // filesystem does, so the directory to walk from is not
                     // known here. Leave the component to the matcher, which
                     // compares path components without regard to case.
-                    break;
+                    return (out, false, literal_components_from(program, i));
                 }
                 out.push(component.as_ref());
                 i += 1;
@@ -256,14 +264,46 @@ fn traversal_start_dir(program: &Program, base: &Path) -> (PathBuf, bool) {
             }
             // The pattern was consumed entirely as literal path components.
             Instruction::Complete => {
-                return (out, program.instructions.len() > 1);
+                return (out, program.instructions.len() > 1, 0);
             }
             // A dynamic instruction: the pattern has to be matched by walking.
             _ => break,
         }
     }
 
-    (out, false)
+    (out, false, 0)
+}
+
+/// How many literal path components the matcher has to compare, starting at `start`.
+///
+/// These are the components the traversal could not push into the start
+/// directory, so each one takes a level of walk depth that it would not take
+/// otherwise.
+fn literal_components_from(program: &Program, start: usize) -> usize {
+    let mut count = 0;
+    let mut i = start;
+    while i < program.instructions.len() {
+        match &program.instructions[i] {
+            Instruction::LiteralString(bytes) => {
+                // A literal that is part of a pattern component is not a path
+                // component of its own.
+                if !component_is_purely_literal(&program.instructions, i) {
+                    break;
+                }
+                let component = String::from_utf8_lossy(bytes);
+                if component.is_empty() {
+                    break;
+                }
+                count += 1;
+                i += 1;
+            }
+            Instruction::Separator => {
+                i += 1;
+            }
+            _ => break,
+        }
+    }
+    count
 }
 
 /// Check whether the instruction at `start` is part of a purely literal path

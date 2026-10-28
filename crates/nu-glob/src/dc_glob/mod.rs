@@ -400,7 +400,7 @@ mod tests {
                 glob_with(&root, pattern, &GlobWalkOptions::default())
                     .expect("missing-path glob should compile"),
             )
-            .expect("a missing path should not be reported as an error");
+            .unwrap_or_else(|err| panic!("{pattern}: {err:?}"));
             assert!(paths.is_empty(), "{pattern} should not match anything");
         }
 
