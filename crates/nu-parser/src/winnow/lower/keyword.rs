@@ -1464,15 +1464,13 @@ impl<'s> Lower<'_, '_, 's> {
     }
 
     /// The head of a definition's call: `keyword`, or `export keyword` when `command` is an
-    /// `export`, covering the blanks between the two words, as `Span::concat` of the two items
-    /// does.
+    /// `export`, covering what comes between the two words (blanks, and in a subexpression
+    /// newlines and comments), as `Span::concat` of the two items does.
     pub(super) fn command_head(&self, command: &w::Expression<'s>, keyword: &str) -> Span {
         let start = self.span(command.span).start;
-        match command.expr {
-            w::Expr::Export(_) => {
-                let after_export = &self.source[command.span.start + "export".len()..];
-                let skip = after_export.len() - after_export.trim_start().len();
-                Span::new(start, start + "export".len() + skip + keyword.len())
+        match &command.expr {
+            w::Expr::Export(export) => {
+                Span::new(start, self.span(export.item.span).start + keyword.len())
             }
             _ => Span::new(start, start + keyword.len()),
         }

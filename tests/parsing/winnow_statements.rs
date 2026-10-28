@@ -1504,3 +1504,24 @@ fn binding_value_in_parentheses_is_lexed_as_a_block(#[case] code: &str) -> Resul
     assert_eq!(working_set.get_block(value).pipelines.len(), 2, "`{code}`");
     Ok(())
 }
+
+/// The head of an `export alias` call spans from `export` to `alias`, as `Span::concat` of the
+/// two items, with what comes between them: in `( ... )`, a comment and a newline too.
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn export_head_spans_a_comment_in_parentheses() -> Result {
+    let code = "(export # c\nalias q = ls)";
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let block_id = parenthesized_block(&mut working_set, code);
+    let block = working_set.get_block(block_id);
+    let Expr::Call(call) = &block.pipelines[0].elements[0].expr.expr else {
+        panic!("`{code}`: not a call");
+    };
+    assert_eq!(
+        working_set.get_span_contents(call.head),
+        b"export # c\nalias"
+    );
+    Ok(())
+}
