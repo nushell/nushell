@@ -908,6 +908,7 @@ pub fn parse_attributes_external_alias() {
 #[case::head_word_is_a_number("1 2")]
 #[case::head_word_is_a_filesize("1kb 2")]
 #[case::escaped_number("0x\\u{31}0")]
+#[case::binary_literal("0x[FF]")]
 pub fn parse_rejects_uncallable_command_names(#[case] name: &str) {
     // https://github.com/nushell/nushell/issues/15539
     // https://github.com/nushell/nushell/issues/16815
