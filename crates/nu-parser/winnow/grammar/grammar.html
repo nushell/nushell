@@ -2343,7 +2343,10 @@ svg.railroad-diagram g.diagram-text:hover path.diagram-text {
   Being parse<em>call’s, the head is the longest known name (<call-head>): a longer
   command name that starts with the keyword is called instead (<code>def "if ready"</code>
   makes <code>if ready { }</code> a call to it). <code>where</code> and the statement keywords go by
-  their first word alone.
+  their first word alone, and so do <code>run</code> wherever a command is read (<code>HeadKind::Run</code>)
+  and <code>source</code>, <code>source-env</code>, <code>hide</code> at the start of a statement (<code>parse_builtin_commands</code>):
+  <code>run me</code> runs <code>me</code> where ¨C11C exists; after a ¨C12C or a shorthand,
+  ¨C13C calls the longer command.
   nu: nu-cmd-lang core</em>commands signatures; parse<em>calls.rs:947 parse</em>internal<em>call
   here: src/winnow/syntax/parser/parse</em>expressions.rs::parse<em>builtin</em>commands (the longer name through
   parse<em>calls.rs::find</em>longest<em>decl, then parse</em>call) </p><section>
@@ -6155,7 +6158,7 @@ svg.railroad-diagram g.diagram-text:hover path.diagram-text {
 <p>(6.1) </p>
   </article>
   <footer>
-    <p>Date: 2026-10-27T23:11 - <a href="?theme=dark" data-theme="dark">Dark</a> - <a href="?theme=light" data-theme="light">Light</a></p>
+    <p>Date: 2026-10-28T00:10 - <a href="?theme=dark" data-theme="dark">Dark</a> - <a href="?theme=light" data-theme="light">Light</a></p>
   </footer>
   </main>
   <script type="text/javascript">

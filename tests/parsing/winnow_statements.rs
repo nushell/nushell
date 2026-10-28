@@ -1328,3 +1328,32 @@ fn alias_of_an_environment_shorthand_is_lowered(#[case] code: &str) -> Result {
     );
     Ok(())
 }
+
+/// nu picks `run` by its first word wherever it reads a command, and `source`, `source-env` and
+/// `hide` at the start of a statement, whatever longer command name starts with it; after a
+/// `|` or a shorthand, `source-env` is the longer command (`parse_call`).
+#[rstest]
+#[case::hide("def me [] { 1 }\ndef \"hide me\" [] { 'custom' }\nhide me", "hide")]
+#[case::source("def \"source null\" [] { 'custom' }\nsource null", "source")]
+#[case::run_in_a_pipeline("def \"run null\" [] { 'custom' }\n[1] | run null", "run")]
+#[case::source_env_in_a_pipeline(
+    "def \"source-env me\" [] { 'custom' }\n[1] | source-env me",
+    "source-env me"
+)]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn first_word_command_is_lowered(#[case] code: &str, #[case] command: &str) -> Result {
+    let engine_state = test().engine_state;
+    let (working_set, block) = parse_lowered(&engine_state, code);
+    let last = &block.pipelines.last().expect("a statement").elements;
+    let Expr::Call(call) = &last.last().expect("an element").expr.expr else {
+        panic!("`{code}`: not a call");
+    };
+    assert_eq!(
+        working_set.get_decl(call.decl_id).name(),
+        command,
+        "`{code}`"
+    );
+    Ok(())
+}

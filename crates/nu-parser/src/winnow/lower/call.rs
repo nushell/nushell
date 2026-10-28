@@ -28,11 +28,6 @@ use crate::{
     winnow::lookup::{EngineLookup, decl_kind},
 };
 
-/// The commands the classic parser picks by a statement's first word, before it looks up any
-/// command name (`parse_builtin_commands`): a longer command name that starts with one of them
-/// is never called there.
-pub(super) const FIRST_WORD_COMMANDS: &[&str] = &["hide", "run", "source", "source-env"];
-
 /// The first words `parse_expression` reports a statement for where it reads a command (in a
 /// pipeline, after an environment shorthand): `BuiltinCommandInPipeline` and
 /// `AssignInPipeline`.
@@ -987,15 +982,6 @@ impl<'s> Lower<'_, '_, 's> {
             && name.quote == w::Quote::Bare
             && let Some(decl_id) = self.working_set.find_decl(name.value.as_bytes())
         {
-            // `alias "run tests" = ^echo`: the classic parser picks `run` by the first word.
-            if name
-                .value
-                .split(' ')
-                .next()
-                .is_some_and(|word| FIRST_WORD_COMMANDS.contains(&word))
-            {
-                return Err(Unlowered::Unsupported("keyword command"));
-            }
             // A known name here is an alias of an external command; any other command resolved
             // differently for the winnow parser, which made an external call, so the classic
             // parser decides.

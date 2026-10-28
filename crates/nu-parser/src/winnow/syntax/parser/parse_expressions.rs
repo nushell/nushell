@@ -24,7 +24,9 @@ use super::WorkingSet;
 use super::lite_parser::lite_parse_parts;
 use super::parse_alias::parse_alias;
 use super::parse_bindings::{parse_const, parse_let, parse_mut};
-use super::parse_calls::{find_longest_decl, parse_call, parse_external_string};
+use super::parse_calls::{
+    find_longest_decl, parse_call, parse_external_string, parse_first_word_call,
+};
 use super::parse_control_flow::{
     parse_break_or_continue, parse_if, parse_loop, parse_match, parse_return, parse_try,
     parse_while,
@@ -104,6 +106,15 @@ pub fn parse_expression<'a>(
         return Err(cut(Diagnostic::expected("command", first.span)));
     } else if is_math_expression_like(working_set.get_span_contents(first.span)) {
         parse_math_expression(tokens.rest_stream())?
+    } else if is_first_word_command(
+        working_set.get_span_contents(first.span),
+        position == Position::Statement && env_assignments.is_empty(),
+    ) && working_set
+        .find_decl(working_set.get_span_contents(first.span))
+        .is_some()
+    {
+        parse_first_word_call(tokens.rest_stream())
+            .map_err(|error| error.map(|failure| failure.with_context("command call")))?
     } else if working_set.get_span_contents(first.span) == "let"
         && has_longer_name(tokens.rest_stream())
     {
@@ -178,6 +189,17 @@ pub fn parse_builtin_commands<'a>(tokens: Tokens<'_, 'a>) -> ParseResult<Express
         _ => ("command call", parse_call(tokens)),
     };
     result.map_err(|error| error.map(|failure| failure.with_context(context)))
+}
+
+/// Whether nu picks the command `head` by its first word, whatever longer command name starts
+/// with it: `run` wherever it reads a command, `source`, `source-env` and `hide` only at the start
+/// of a statement (`starts_statement`), where `parse_builtin_commands` reads them.
+fn is_first_word_command(head: &str, starts_statement: bool) -> bool {
+    match head {
+        "run" => true,
+        "source" | "source-env" | "hide" => starts_statement,
+        _ => false,
+    }
 }
 
 /// Whether a known command's name is longer than the item `tokens` starts with and starts

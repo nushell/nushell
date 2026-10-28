@@ -11,7 +11,6 @@ use nu_protocol::{
     engine::StateWorkingSet,
 };
 
-use super::call::FIRST_WORD_COMMANDS;
 use super::module::{KeywordEffect, overlay_effect};
 use super::{Lower, Lowered, Unlowered};
 #[cfg(feature = "plugin")]
@@ -483,14 +482,9 @@ impl<'s> Lower<'_, '_, 's> {
                     self.use_statement(&element.expr, &element.expr, use_statement, None)?;
                 return Ok(pipeline);
             }
-            // The parser keywords the classic parser picks by the statement's first words.
+            // The parser keywords the classic parser picks by the statement's first words (the
+            // winnow parser too, so `source me` is `source` where a command `source me` exists).
             w::Expr::Call(call) if call.sigil.is_none() => {
-                // `source me` where a command `source me` exists: the classic parser still
-                // picks `source` (`parse_builtin_commands`).
-                let first_word = call.head.name.split(' ').next().unwrap_or_default();
-                if first_word != call.head.name && FIRST_WORD_COMMANDS.contains(&first_word) {
-                    return Err(Unlowered::Unsupported("keyword command"));
-                }
                 match call.head.name.as_ref() {
                     "source" | "source-env" => return self.source(&element.expr, call),
                     "hide" => return self.hide(&element.expr, call),

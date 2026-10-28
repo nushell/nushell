@@ -46,6 +46,20 @@ pub fn parse_call<'a>(tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
     parse_call_lenient(tokens, false)
 }
 
+/// A call whose head is its first word even where a longer command name starts with it: nu
+/// picks `run` by its first word wherever it reads a command (`HeadKind::Run`), and `source`,
+/// `source-env` and `hide` at the start of a statement (`parse_builtin_commands`).
+pub fn parse_first_word_call<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
+    let working_set = tokens.working_set;
+    let first = tokens.expect_item("command")?;
+    let head = CallHead {
+        name: Cow::Borrowed(working_set.get_span_contents(first.span)),
+        span: first.span,
+    };
+    let kind = working_set.find_decl(&head.name);
+    parse_call_with_kind(tokens, first.span, head, kind, None, false)
+}
+
 /// [`parse_call`]; with `lenient` set (an alias target) a keyword command
 /// may miss positionals.
 pub fn parse_call_lenient<'a>(

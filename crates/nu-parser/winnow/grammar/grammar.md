@@ -546,7 +546,10 @@ Precedence (nu-protocol `ast/operator.rs:256`; higher binds tighter):
 ; Being parse_call's, the head is the longest known name (<call-head>): a longer
 ; command name that starts with the keyword is called instead (`def "if ready"`
 ; makes `if ready { }` a call to it). `where` and the statement keywords go by
-; their first word alone.
+; their first word alone, and so do `run` wherever a command is read (`HeadKind::Run`)
+; and `source`, `source-env`, `hide` at the start of a statement (`parse_builtin_commands`):
+; `run me` runs `me` where `def "run me"` exists; after a `|` or a shorthand,
+; `source-env me` calls the longer command.
 ; nu: nu-cmd-lang core_commands signatures; parse_calls.rs:947 parse_internal_call
 ; here: src/winnow/syntax/parser/parse_expressions.rs::parse_builtin_commands (the longer name through
 ;       parse_calls.rs::find_longest_decl, then parse_call)
