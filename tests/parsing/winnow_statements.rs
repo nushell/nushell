@@ -1357,3 +1357,40 @@ fn first_word_command_is_lowered(#[case] code: &str, #[case] command: &str) -> R
     );
     Ok(())
 }
+
+/// A call to a command `hide` hid is what `parse_call` makes of it now: an external call, or a
+/// call to a shorter command name that is still there, the rest of the name its first argument.
+#[test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn call_to_a_hidden_command_is_lowered() -> Result {
+    let code = "def f [] { 1 }\nhide f\nf a";
+    let engine_state = test().engine_state;
+    let (_, block) = parse_lowered(&engine_state, code);
+    let last = &block.pipelines.last().expect("a statement").elements[0].expr;
+    assert!(
+        matches!(last.expr, Expr::ExternalCall(..)),
+        "`{code}`: {last:?}"
+    );
+
+    let code = "def f [x] { $x }\ndef \"f g\" [] { 2 }\nhide \"f g\"\nf g";
+    parse_lowered(&engine_state, code);
+    test().run(code).expect_value_eq("g")
+}
+
+/// Arguments the winnow parser read as one row condition, for an alias of a row-condition
+/// command that `hide` hid, are three external arguments for `parse_external_call`.
+#[test]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn hidden_row_condition_command_takes_external_arguments() -> Result {
+    let code = "alias t = take while\nhide t\n[{a: 1}] | t a < 2";
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let block = nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    let last = &block.pipelines.last().expect("a statement").elements;
+    let Expr::ExternalCall(_, arguments) = &last.last().expect("an element").expr.expr else {
+        panic!("`{code}`: no external call");
+    };
+    assert_eq!(arguments.len(), 3, "`{code}`: {arguments:?}");
+    Ok(())
+}

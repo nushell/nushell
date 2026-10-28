@@ -59,11 +59,14 @@ impl<'s> Lower<'_, '_, 's> {
             return self.builtin_call(e, call, sigil, input_type);
         }
         let Some(decl_id) = self.working_set.find_decl(call.head.name.as_bytes()) else {
-            // In an alias's body, the predeclared commands are hidden (`parse_alias`).
-            if !self.working_set.search_predecls {
-                return self.call_as_external(e, call);
+            // A command the winnow parser knew that the classic parser does not find here (one
+            // `hide` hid, or in an alias's body a predeclared one, `parse_alias`), which
+            // `parse_call` makes an external call. Arguments the winnow parser read as a row
+            // condition, for a row-condition command, are no external arguments.
+            if call.arguments.iter().any(is_condition_argument) {
+                return Err(Unlowered::Unsupported("unresolved command"));
             }
-            return Err(Unlowered::Unsupported("unresolved command"));
+            return self.call_as_external(e, call, input_type);
         };
         if !self.alias_target {
             // Where the classic parser reads a command (`parse_expression`), its first word picks
@@ -1054,15 +1057,18 @@ impl<'s> Lower<'_, '_, 's> {
         }
     }
 
-    /// A call whose command the classic parser does not find, which `parse_call` makes an
-    /// external call (`parse_external_call`): in an alias's body, a command the block defines
-    /// later (`alias s = shout; def shout [] {}`). The head's first word is the external command,
-    /// its other words and the arguments are the arguments. A shorter head that names a command
-    /// would be a call to it, which the winnow tree does not have.
+    /// A call whose command the classic parser does not find (`parse_call`): a command `hide`
+    /// hid, or in an alias's body, a command the block defines later (`alias s = shout; def
+    /// shout [] {}`). The longest shorter head that names a command is a call to it
+    /// (`find_longest_decl`), the head's other words its first arguments, when the winnow parser
+    /// read the arguments as that command's, an ordinary one's. Without one, it is an external
+    /// call (`parse_external_call`): the head's first word is the external command, its other
+    /// words and the arguments are the arguments.
     fn call_as_external(
         &mut self,
         e: &w::Expression<'s>,
         call: &w::Call<'s>,
+        input_type: Option<&Type>,
     ) -> Lowered<Expression> {
         // The head's words, which may be apart by more than one blank (`cargo   make`).
         let base = call.head.span.start;
@@ -1080,18 +1086,44 @@ impl<'s> Lower<'_, '_, 's> {
             }
             words.push(WSpan::new(base + start, base + index));
         }
-        let shorter_head_is_a_command = (1..words.len()).any(|len| {
+        let shorter_head = (1..words.len()).rev().find_map(|len| {
             let name: Vec<&str> = words[..len].iter().map(|word| self.text(*word)).collect();
-            self.working_set
-                .find_decl(name.join(" ").as_bytes())
-                .is_some()
+            let name = name.join(" ");
+            let decl_id = self.working_set.find_decl(name.as_bytes())?;
+            Some((len, name, decl_id))
         });
+        if let Some((len, name, decl_id)) = shorter_head {
+            if !matches!(
+                decl_kind(self.working_set, decl_id),
+                DeclKind::Declared | DeclKind::Builtin
+            ) {
+                return Err(Unlowered::Unsupported("unresolved command"));
+            }
+            let mut arguments: Vec<w::Argument<'s>> = words[len..]
+                .iter()
+                .map(|word| {
+                    let value = w::StringLiteral {
+                        value: self.text(*word).into(),
+                        quote: w::Quote::Bare,
+                    };
+                    w::Argument::Positional(w::Expression::new(w::Expr::String(value), *word))
+                })
+                .collect();
+            arguments.extend(call.arguments.iter().cloned());
+            let shorter = w::Call {
+                head: w::CallHead {
+                    name: name.into(),
+                    span: words[0].merge(words[len - 1]),
+                },
+                arguments,
+                sigil: None,
+                wrapped: false,
+            };
+            return self.call(e, &shorter, input_type);
+        }
         let Some((first, rest)) = words.split_first() else {
             return Err(Unlowered::Unsupported("unresolved command"));
         };
-        if shorter_head_is_a_command {
-            return Err(Unlowered::Unsupported("unresolved command"));
-        }
         let head_span = self.span(*first);
         let head = self.checked(|ws| parse_external_string(ws, head_span))?;
         let mut arguments = Vec::with_capacity(rest.len() + call.arguments.len());
@@ -1140,6 +1172,18 @@ impl<'s> Lower<'_, '_, 's> {
             )?)),
         }
     }
+}
+
+/// Whether `argument` is a row condition the winnow parser read from several items (`a > 2`,
+/// `not $x`) rather than one (a lone column, `size`, is the item's text all the same).
+fn is_condition_argument(argument: &w::Argument<'_>) -> bool {
+    matches!(
+        argument,
+        w::Argument::Positional(w::Expression {
+            expr: w::Expr::BinaryOp(_) | w::Expr::UnaryNot(_),
+            ..
+        })
+    )
 }
 
 /// The span of the items `arguments[index..end]`.
