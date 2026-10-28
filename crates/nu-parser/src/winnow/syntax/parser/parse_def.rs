@@ -283,6 +283,10 @@ fn scan_definitions<'a>(
     // On an attribute line (`@example ...`), whose pipes are its arguments: a `|` ending it carries
     // the command on to the line below, which stays one command (`@search-terms a|\ndef f [] {}`).
     let mut in_attribute = false;
+    // The last token was the end of a line right after a redirection without a target, which
+    // ends nu's command there but not its pipeline: an item first on the next line is the
+    // pipeline's next command (`ls o>\ndef f [] {}`).
+    let mut after_open_redirection = false;
     let mut previous = TokenContents::Eol;
     let mut index = 0;
     while let Some(token) = tokens.get(index) {
@@ -292,6 +296,11 @@ fn scan_definitions<'a>(
         let starts_attribute = matches!(previous, TokenContents::Eol | TokenContents::Semicolon)
             && working_set.get_span_contents(token.span).starts_with('@');
         let blank_line = token.contents == TokenContents::Eol && previous == TokenContents::Eol;
+        let continues_pipeline = std::mem::replace(
+            &mut after_open_redirection,
+            token.contents == TokenContents::Eol
+                && matches!(previous, TokenContents::Redirection(operator) if !operator.is_pipe()),
+        );
         previous = token.contents;
         match token.contents {
             TokenContents::Eol | TokenContents::Semicolon => {
@@ -300,7 +309,7 @@ fn scan_definitions<'a>(
             }
             TokenContents::Comment => {}
             TokenContents::Pipe if at_line_start && after_statement => {}
-            TokenContents::Item if at_line_start && after_pipe => {
+            TokenContents::Item if at_line_start && (after_pipe || continues_pipeline) => {
                 // The pipeline's next command, or an attribute line before it.
                 at_line_start = false;
                 after_statement = false;

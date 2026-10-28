@@ -1525,3 +1525,22 @@ fn export_head_spans_a_comment_in_parentheses() -> Result {
     );
     Ok(())
 }
+
+/// After a redirection without a target at the end of a line, the classic lite parser ends the
+/// command but not its pipeline: the next line's `def` is the pipeline's next command, an error
+/// there, and declares nothing, so a call to its name is an external one.
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn def_after_an_open_redirection_declares_nothing() -> Result {
+    let code = "ls o>\ndef f [] {}\nf";
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let block = nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    assert_eq!(working_set.find_decl(b"f"), None);
+    assert!(matches!(
+        block.pipelines[1].elements[0].expr.expr,
+        Expr::ExternalCall(..)
+    ));
+    Ok(())
+}

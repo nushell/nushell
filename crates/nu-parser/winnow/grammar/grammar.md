@@ -298,6 +298,9 @@ this parser's `LexOptions` constants carry the same sets.
 ; The target must be the very next token and must be an <item>; anything else
 ; (pipe, Eol, ";", another redirection, "=", "||", comment, end of input) is
 ; Expected("redirection target"). The target item is parsed as a value (shape Any).
+; An Eol there ends nu's command but not its pipeline: an item first on the next line
+; is the pipeline's next command (`ls o>\ndef f [] {}`: a `def` in a pipeline, no
+; definition), which the predeclaration scan follows.
 ; Combinations: the first redirection of any kind is Single; Stdout then Stderr or
 ; Stderr then Stdout is Separate; any other second, or any third, is
 ; MultipleRedirections.
