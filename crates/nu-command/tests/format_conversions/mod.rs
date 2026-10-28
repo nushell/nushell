@@ -6,6 +6,7 @@ mod msgpack;
 mod msgpackz;
 mod nuon;
 mod ods;
+mod ron;
 mod ssv;
 mod toml;
 mod tsv;
