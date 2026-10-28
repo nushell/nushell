@@ -6,13 +6,6 @@ ignore = [
   # (quick-xml >= 0.41).
   "RUSTSEC-2026-0194",
   "RUSTSEC-2026-0195",
-  # zip@8.6 is used by calamine, which only reads entries into memory
-  # (`ZipArchive::by_name`/`by_index`) and never calls the vulnerable
-  # `extract()` APIs (symlinks and Unix permissions on extraction).
-  # Remove once calamine releases with zip >= 9 (tafia/calamine#741).
-  "RUSTSEC-2026-0367",
-  "RUSTSEC-2026-0368",
-  "RUSTSEC-2026-0369",
   # zstd@0.13 and zstd-safe@7 come only from polars 0.55.2 (nu_plugin_polars),
   # which requires `zstd ^0.13`; the fixes are in zstd 0.14.3 and zstd-safe
   # 8.2.0. Remove once polars releases with zstd 0.14 (already on polars main).
