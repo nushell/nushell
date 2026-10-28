@@ -294,6 +294,24 @@ impl PipelineData {
         }
     }
 
+    /// Write the data to `dest` like [`write_to`](Self::write_to), for an `o>` redirection, and
+    /// return what is left for the next command.
+    ///
+    /// That's nothing, except for an external whose stderr has its own pipe, meaning the next
+    /// command reads stdout and stderr apart: only its stdout is written, and it comes back with
+    /// its stderr (see [`ByteStream::write_stdout_to`]).
+    pub fn write_stdout_to(self, dest: impl Write) -> Result<Self, ShellError> {
+        match self {
+            #[cfg(feature = "os")]
+            PipelineData::ByteStream(stream, metadata) => Ok(stream
+                .write_stdout_to(dest)?
+                .map_or(PipelineData::Empty, |stream| {
+                    PipelineData::byte_stream(stream, metadata)
+                })),
+            data => data.write_to(dest).map(|()| PipelineData::Empty),
+        }
+    }
+
     /// Drain this [`PipelineData`] according to the current stdout [`OutDest`]s in `stack`.
     ///
     /// For [`OutDest::Pipe`], [`OutDest::PipeRaw`] and [`OutDest::PipeSeparate`], this will return
@@ -316,10 +334,7 @@ impl PipelineData {
                 let span = self.span().unwrap_or(Span::unknown());
                 self.into_value(span).map(|val| Self::Value(val, metadata))
             }
-            OutDest::File(file) => {
-                self.write_to(file.as_ref())?;
-                Ok(Self::Empty)
-            }
+            OutDest::File(file) => self.write_stdout_to(file.as_ref()),
             OutDest::Null | OutDest::Inherit => {
                 self.drain()?;
                 Ok(Self::Empty)
@@ -955,6 +970,44 @@ where
         .flush()
         .map_err(|err| io_error_map(err, Location::caller()))?;
     Ok(())
+}
+
+/// Write collected bytes to the requested output destination.
+///
+/// A pipe, value, or inherited destination has nothing to write the bytes into, so they go to
+/// the process's stdout when `stdout_fallback` is set, and to its stderr otherwise.
+pub fn write_to_out_dest(
+    bytes: &[u8],
+    out_dest: &OutDest,
+    span: Span,
+    stdout_fallback: bool,
+    signals: &Signals,
+) -> Result<(), ShellError> {
+    if bytes.is_empty() {
+        return Ok(());
+    }
+
+    match out_dest {
+        OutDest::Null => Ok(()),
+        OutDest::File(file) => {
+            let mut file = file.as_ref();
+            write_all_and_flush(bytes, &mut file, "file", Some(span), signals)
+        }
+        OutDest::Print
+        | OutDest::Inherit
+        | OutDest::Pipe
+        | OutDest::PipeRaw
+        | OutDest::PipeSeparate
+        | OutDest::Value => {
+            if stdout_fallback {
+                let mut stdout = std::io::stdout();
+                write_all_and_flush(bytes, &mut stdout, "stdout", Some(span), signals)
+            } else {
+                let mut stderr = std::io::stderr();
+                write_all_and_flush(bytes, &mut stderr, "stderr", Some(span), signals)
+            }
+        }
+    }
 }
 
 enum PipelineIteratorInner {

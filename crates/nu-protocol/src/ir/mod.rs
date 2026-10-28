@@ -108,6 +108,10 @@ pub enum Instruction {
     /// Move a register. Value is taken from `src` (used by this instruction).
     Move { dst: RegId, src: RegId },
     /// Copy a register (must be a collected value). Value is still in `src` after this instruction.
+    ///
+    /// The one exception is an external whose stderr has its own pipe, which `try` passes on
+    /// uncollected (see `TryCollect`): `dst` gets the value its stdout collects to, and `src`
+    /// keeps the external.
     Clone { dst: RegId, src: RegId },
     /// Collect a stream in a register to a value.
     /// Because it collects to a value, nushell will ignore the errors in the stream.
@@ -116,6 +120,9 @@ pub enum Instruction {
     /// Collect a stream in a register to a value.
     /// But it's different from `Collect` in that if there is an error in the stream, it will be
     /// returned as an error instead of being ignored.
+    ///
+    /// An external whose stderr has its own pipe stays a stream, so the next command still gets
+    /// stdout and stderr apart. Its output is read into memory and its exit status checked.
     TryCollect { src_dst: RegId },
     /// Change the span of the contents of a register to the span of this instruction.
     Span { src_dst: RegId },
@@ -187,6 +194,10 @@ pub enum Instruction {
     },
     /// Write data from the register to a file. This is done to finish a file redirection, in case
     /// an internal command or expression was evaluated rather than an external one.
+    ///
+    /// The register is left empty, except for an external whose stderr has its own pipe (the next
+    /// command reads stdout and stderr apart): only its stdout is written, and the register keeps
+    /// the external, so the next command still gets its stderr.
     WriteFile { file_num: u32, src: RegId },
     /// Pop a file used for redirection from the file stack.
     CloseFile { file_num: u32 },

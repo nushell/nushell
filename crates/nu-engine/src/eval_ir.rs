@@ -2,7 +2,7 @@ use std::{fs::File, sync::Arc};
 
 use nu_path::{dots::expand_ndots_safe, expand_path, expand_path_with, expand_tilde};
 #[cfg(feature = "os")]
-use nu_protocol::process::check_exit_status_future;
+use nu_protocol::{ByteStreamSource, process::check_exit_status_future};
 use nu_protocol::{
     CompareTypes, DeclId, ENV_VARIABLE_ID, Flag, IntoPipelineData, IntoSpanned, LabeledError,
     ListStream, OutDest, PipelineData, PipelineExecutionData, PositionalArg, Range, Record, RegId,
@@ -205,6 +205,13 @@ impl<'a> EvalContext<'a> {
     #[inline]
     fn borrow_reg(&self, reg_id: RegId) -> &PipelineData {
         &self.registers[reg_id.get() as usize]
+    }
+
+    /// Borrow the contents of a register mutably.
+    #[cfg(feature = "os")]
+    #[inline]
+    fn borrow_reg_mut(&mut self, reg_id: RegId) -> &mut PipelineData {
+        &mut self.registers[reg_id.get() as usize]
     }
 
     /// Replace the contents of a register with `Empty` and then return the value that it contained
@@ -448,7 +455,7 @@ fn unwind_through_handlers(
                 // produced: collect it first, like `try-collect` does on the fall-through path.
                 if let Unwind::Return(data) = unwind {
                     #[cfg(feature = "os")]
-                    let collected = try_collect(data, span);
+                    let collected = try_collect(data, span, ctx.stack.stderr());
                     #[cfg(not(feature = "os"))]
                     let collected = collect(data, span);
                     unwind = match collected {
@@ -576,6 +583,21 @@ fn eval_instruction<D: DebugContext>(
             Ok(Continue)
         }
         Instruction::Clone { dst, src } => {
+            // `try` passes on an external whose stderr has its own pipe uncollected, and
+            // `finally` copies its result. The copy is what the stdout collects to, read from
+            // memory, and `src` keeps the external, so the next command still gets its stderr.
+            #[cfg(feature = "os")]
+            if let PipelineData::ByteStream(stream, metadata) = ctx.borrow_reg_mut(*src)
+                && let Some(copy) = stream.copy_stdout()?
+            {
+                let metadata = metadata.clone().and_then(|m| m.for_collect());
+                let value = copy.into_value()?;
+                ctx.put_reg(
+                    *dst,
+                    PipelineExecutionData::from(PipelineData::value(value, metadata)),
+                );
+                return Ok(Continue);
+            }
             let data = ctx.clone_reg(*src, *span)?;
             ctx.put_reg(*dst, PipelineExecutionData::from(data));
             Ok(Continue)
@@ -592,7 +614,7 @@ fn eval_instruction<D: DebugContext>(
         Instruction::TryCollect { src_dst } => {
             let data = ctx.take_reg(*src_dst);
             #[cfg(feature = "os")]
-            let value = try_collect(data, *span)?;
+            let value = try_collect(data, *span, ctx.stack.stderr())?;
             #[cfg(not(feature = "os"))]
             let value = collect(data, *span)?;
             ctx.put_reg(*src_dst, PipelineExecutionData::from(value));
@@ -819,8 +841,11 @@ fn eval_instruction<D: DebugContext>(
             ctx.files[*file_num as usize] = Some(file);
             Ok(Continue)
         }
-        Instruction::WriteFile { file_num, src } => {
-            let src = ctx.take_reg(*src);
+        Instruction::WriteFile {
+            file_num,
+            src: src_reg,
+        } => {
+            let src = ctx.take_reg(*src_reg);
             let file = ctx
                 .files
                 .get(*file_num as usize)
@@ -835,13 +860,23 @@ fn eval_instruction<D: DebugContext>(
             } else {
                 false
             };
-            if let Err(err) = src.body.write_to(file.as_ref()) {
-                if is_external {
-                    ctx.stack.set_last_error(&err);
+            match src.body.write_stdout_to(file.as_ref()) {
+                Ok(rest) => {
+                    let mut rest = PipelineExecutionData::from(rest);
+                    // An external left with its stderr for the next command, which waits for it.
+                    #[cfg(feature = "os")]
+                    if !matches!(rest.body, PipelineData::Empty) {
+                        rest.exit = src.exit;
+                    }
+                    ctx.put_reg(*src_reg, rest);
+                    Ok(Continue)
                 }
-                Err(err)?
-            } else {
-                Ok(Continue)
+                Err(err) => {
+                    if is_external {
+                        ctx.stack.set_last_error(&err);
+                    }
+                    Err(err)?
+                }
             }
         }
         Instruction::CloseFile { file_num } => {
@@ -1265,17 +1300,7 @@ fn eval_instruction<D: DebugContext>(
             // Fall-through entry into a `finally` block: swap the handler for a running marker
             // with nothing to resume afterwards. Unwinding entries do this swap themselves.
             match ctx.stack.error_handlers.pop(ctx.error_handler_base) {
-                Some(TryHandler::Finally(handler)) => {
-                    #[cfg(feature = "os")]
-                    if let Some(reg) = handler.error_register
-                        && let Err(err) = collect_for_finally(ctx, reg)
-                    {
-                        // Still run `finally`, now for this error.
-                        ctx.stack.error_handlers.push(TryHandler::Finally(handler));
-                        return Err(err);
-                    }
-                    #[cfg(not(feature = "os"))]
-                    let _ = handler;
+                Some(TryHandler::Finally(_)) => {
                     ctx.stack.error_handlers.push(TryHandler::RunningFinally);
                     ctx.finally_resumes.push(None);
                     Ok(Continue)
@@ -2124,7 +2149,6 @@ fn collect(
     // still surfaces as an error, and collect to Empty like a drained stream.
     #[cfg(feature = "os")]
     {
-        use nu_protocol::ByteStreamSource;
         let stdout_uncaptured = matches!(
             &data,
             PipelineData::ByteStream(stream, ..)
@@ -2139,16 +2163,38 @@ fn collect(
     Ok(PipelineData::value(value, metadata))
 }
 
+/// When an error takes the place of an external's output, nothing is left to read the stderr it
+/// captured for the next command, so write that to `stderr`, where it would have gone
+/// uncaptured.
+#[cfg(feature = "os")]
+fn show_failed_stderr(data: PipelineData, stderr: &OutDest) {
+    let PipelineData::ByteStream(mut stream, ..) = data else {
+        return;
+    };
+    let signals = stream.signals().clone();
+    if let ByteStreamSource::Child(child) = stream.source_mut()
+        && let Some(mut pipe) = child.stderr.take()
+    {
+        let mut bytes = Vec::new();
+        // The error is what reaches `catch`, so a failure to show stderr isn't reported.
+        if std::io::Read::read_to_end(&mut pipe, &mut bytes).is_ok() {
+            let _ = nu_protocol::write_to_out_dest(&bytes, stderr, child.span(), false, &signals);
+        }
+    }
+}
+
 /// [`collect`] at the end of a `try` block, so that its errors surface inside the `try`.
 ///
 /// A value can only hold stdout, but the next command may have asked for the external's stderr
 /// on its own pipe (`ignore`, `save --stderr`, `complete`, `tee --stderr`). Such a child is
 /// buffered instead: both pipes are read to the end, its exit status is checked here, and it is
-/// passed on as a finished external that still has its stderr (#19335).
+/// passed on as a finished external that still has its stderr (#19335). If an error takes the
+/// place of its output, the stderr it captured goes to `stderr`.
 #[cfg(feature = "os")]
 fn try_collect(
     mut pipe: PipelineExecutionData,
     fallback_span: Span,
+    stderr: &OutDest,
 ) -> Result<PipelineData, ShellError> {
     if let PipelineData::ByteStream(stream, ..) = &mut pipe.body
         && let nu_protocol::ByteStreamSource::Child(child) = stream.source_mut()
@@ -2156,43 +2202,24 @@ fn try_collect(
     {
         // Read the pipes before waiting on the pipeline's exit statuses: a child that fills a
         // pipe nobody reads never exits.
-        child.buffer_output()?;
-        if nu_experimental::PIPE_FAIL.get() {
-            check_exit_status_future(pipe.exit)?;
+        let mut checked = child.buffer_output();
+        if checked.is_ok() && nu_experimental::PIPE_FAIL.get() {
+            checked = check_exit_status_future(pipe.exit);
+        }
+        if let Err(err) = checked {
+            show_failed_stderr(pipe.body, stderr);
+            return Err(err);
         }
         return Ok(pipe.body);
     }
-    collect(pipe, fallback_span, false)
-}
-
-/// `finally` gets a copy of the `try` result, and only a value can be copied. A finished
-/// external that [`try_collect`] passed on with its stderr becomes its stdout here, and its stderr
-/// goes where this block's stderr goes, as for an external whose output is captured into a variable.
-#[cfg(feature = "os")]
-fn collect_for_finally(ctx: &mut EvalContext<'_>, reg: RegId) -> Result<(), ShellError> {
-    let PipelineData::ByteStream(stream, _) = &mut ctx.registers[reg.get() as usize].body else {
-        return Ok(());
-    };
-    let span = stream.span();
-    let nu_protocol::ByteStreamSource::Child(child) = stream.source_mut() else {
-        return Ok(());
-    };
-    let Some(mut stderr) = child.stderr.take() else {
-        return Ok(());
-    };
-    match ctx.stack.stderr() {
-        OutDest::Null => Ok(0),
-        OutDest::File(file) => std::io::copy(&mut stderr, &mut file.as_ref()),
-        _ => std::io::copy(&mut stderr, &mut std::io::stderr()),
+    // Here too, the output is read before the exit statuses are waited on. A failure still takes
+    // the place of the collected output.
+    let exit = std::mem::take(&mut pipe.exit);
+    let collected = collect(pipe, fallback_span, true)?;
+    if nu_experimental::PIPE_FAIL.get() {
+        check_exit_status_future(exit)?;
     }
-    .map_err(|err| IoError::new(err, span, None))?;
-
-    let mut data = ctx.take_reg(reg);
-    let metadata = data.body.take_metadata();
-    let value = data.body.into_value(span)?;
-    data.body = PipelineData::value(value, metadata);
-    ctx.put_reg(reg, data);
-    Ok(())
+    Ok(collected)
 }
 
 /// Helper for drain behavior.
@@ -2248,7 +2275,7 @@ fn drain(
     Ok(Continue)
 }
 
-/// Helper for drainIfEnd behavior
+/// Helper for drainIfEnd behavior, which only a `try` without `catch` or `finally` uses
 fn drain_if_end(
     ctx: &mut EvalContext<'_>,
     data: PipelineExecutionData,
@@ -2264,6 +2291,21 @@ fn drain_if_end(
     }
     #[cfg(feature = "os")]
     {
+        // A stream that goes on to the next command can't wait for its externals to exit: they
+        // may only finish once it reads them. Their exit statuses are ignored instead, as without
+        // pipefail, so a failure after the `try` doesn't escape it.
+        if matches!(
+            result,
+            PipelineData::ByteStream(..) | PipelineData::ListStream(..)
+        ) {
+            for guard in data.exit.into_iter().flatten() {
+                *guard
+                    .ignore_error
+                    .lock()
+                    .expect("lock ignore error should success") = true;
+            }
+            return Ok(result);
+        }
         check_exit_status_future(data.exit).map(|_| result)
     }
     #[cfg(not(feature = "os"))]
