@@ -2,6 +2,7 @@ use nu_protocol::record;
 use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
 use nu_test_support::playground::Playground;
 use nu_test_support::prelude::*;
+use pretty_assertions::assert_matches;
 
 #[test]
 fn split_column() -> Result {
@@ -118,8 +119,28 @@ fn split_column_number_error() -> Result {
 
 #[test]
 fn split_column_duplicate_column_error() -> Result {
-    let code = r#"'a-b' | split column '-' col col"#;
-    test()
-        .run(code)
-        .expect_error_code_eq("nu::shell::column_defined_twice")
+    let code = "'a-b' | split column '-' col col";
+    let err = test().run(code).expect_shell_error()?;
+    assert_matches!(
+        err,
+        ShellError::ColumnDefinedTwice {
+            col_name,
+            first_use,
+            second_use,
+        } if col_name == "col" && first_use.start < second_use.start
+    );
+    Ok(())
+}
+
+#[test]
+fn split_column_duplicate_column_const_error() -> Result {
+    let code = "const c = ('a-b' | split column '-' col col)";
+    let err = test().run(code).expect_parse_error()?;
+    match err {
+        ParseError::LabeledError(msg, ..) => {
+            assert!(msg.contains("column_defined_twice"));
+        }
+        err => panic!("expected LabeledError, got {err:?}"),
+    }
+    Ok(())
 }

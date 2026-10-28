@@ -1,5 +1,6 @@
 use fancy_regex::{Regex, escape};
 use nu_engine::command_prelude::*;
+use std::collections::HashMap;
 
 use super::split;
 
@@ -151,7 +152,6 @@ impl Command for SplitColumn {
     ) -> Result<PipelineData, ShellError> {
         let separator: Spanned<String> = call.req(engine_state, stack, 0)?;
         let rest: Vec<Spanned<String>> = call.rest(engine_state, stack, 1)?;
-        check_duplicate_columns(&rest)?;
         let collapse_empty = call.has_flag(engine_state, stack, "collapse-empty")?;
         let max_split: Option<usize> = call.get_flag(engine_state, stack, "number")?;
         let split_from_right = call.has_flag(engine_state, stack, "right")?;
@@ -177,7 +177,6 @@ impl Command for SplitColumn {
     ) -> Result<PipelineData, ShellError> {
         let separator: Spanned<String> = call.req_const(working_set, stack, 0)?;
         let rest: Vec<Spanned<String>> = call.rest_const(working_set, stack, 1)?;
-        check_duplicate_columns(&rest)?;
         let collapse_empty = call.has_flag_const(working_set, stack, "collapse-empty")?;
         let max_split: Option<usize> = call.get_flag_const(working_set, stack, "number")?;
         let split_from_right = call.has_flag_const(working_set, stack, "right")?;
@@ -210,6 +209,7 @@ fn split_column(
     input: PipelineData,
     args: Arguments,
 ) -> Result<PipelineData, ShellError> {
+    check_duplicate_columns(&args.rest)?;
     let name_span = call.head;
     let pattern = if args.has_regex {
         std::borrow::Cow::Borrowed(args.separator.item.as_str())
@@ -306,18 +306,9 @@ fn split_column_helper(
     }
 }
 
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    #[test]
-    fn test_examples() -> nu_test_support::Result {
-        nu_test_support::test().examples(SplitColumn)
-    }
-}
-
+/// Reject repeated column names, pointing at both uses.
 fn check_duplicate_columns(rest: &[Spanned<String>]) -> Result<(), ShellError> {
-    let mut seen = std::collections::HashMap::new();
+    let mut seen = HashMap::new();
     for col in rest {
         if let Some(prev_span) = seen.insert(&col.item, col.span) {
             return Err(ShellError::ColumnDefinedTwice {
@@ -328,4 +319,14 @@ fn check_duplicate_columns(rest: &[Spanned<String>]) -> Result<(), ShellError> {
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(SplitColumn)
+    }
 }
