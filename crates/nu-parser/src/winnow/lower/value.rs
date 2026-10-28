@@ -4,7 +4,7 @@
 use std::sync::Arc;
 
 use nu_protocol::{
-    PositionalArg, Signature, Span, SyntaxShape, Type, TypeSet,
+    ParseError, PositionalArg, Signature, Span, SyntaxShape, Type, TypeSet,
     ast::{CellPath, Expr, Expression, FullCellPath, ListItem, PathMember, RecordItem, Table},
     casing::Casing,
 };
@@ -53,7 +53,7 @@ impl<'s> Lower<'_, '_, 's> {
             [b'(', ..] => self.paren(e, shape),
             [b'{', ..] => self.brace(e, shape, input_type),
             [b'[', ..] => self.bracket(e, shape),
-            _ => self.leaf(e, shape),
+            _ => self.leaf(e, shape, false),
         }
     }
 
@@ -94,11 +94,40 @@ impl<'s> Lower<'_, '_, 's> {
         Err(Unlowered::Error)
     }
 
+    /// A call's argument read with `shape`, as [`Self::value`] reads it, except that an item
+    /// without inner structure keeps a classic leaf parser's error, reported with the value it
+    /// recovers: `parse_internal_call` reads it with `parse_value`, and nothing reads it again.
+    pub(super) fn argument(
+        &mut self,
+        e: &w::Expression<'s>,
+        shape: &SyntaxShape,
+        input_type: Option<&Type>,
+    ) -> Lowered<Expression> {
+        let structured = matches!(shape, SyntaxShape::OneOf(_))
+            || matches!(e.expr, w::Expr::UnaryMinus(_))
+            || matches!(
+                self.text(e.span).as_bytes().first(),
+                None | Some(b'$' | b'(' | b'{' | b'[')
+            );
+        if structured {
+            return self.value(e, shape, input_type);
+        }
+        self.leaf(e, shape, true)
+    }
+
     /// An item without inner structure: a number, a word, a quoted string. The common shapes
     /// are read from the winnow literal; the others (a bare word as a path, a glob, a cell
-    /// path, a number as a string, units, dates, ranges) by the classic leaf parsers, whose
-    /// errors hand the statement back.
-    fn leaf(&mut self, e: &w::Expression<'s>, shape: &SyntaxShape) -> Lowered<Expression> {
+    /// path, a number as a string, units, dates, ranges) by the classic leaf parsers. With
+    /// `keep_errors`, the error of one stays reported with the value it recovers (a call's
+    /// argument, [`Self::argument`]); else it hands the statement back, as the classic parser
+    /// may read the item otherwise there (as an external command at a statement's head,
+    /// `is_math_expression_like`).
+    fn leaf(
+        &mut self,
+        e: &w::Expression<'s>,
+        shape: &SyntaxShape,
+        keep_errors: bool,
+    ) -> Lowered<Expression> {
         let span = self.span(e.span);
         let (expr, ty) = match (shape, &e.expr) {
             (SyntaxShape::Any | SyntaxShape::Int | SyntaxShape::Number, w::Expr::Int(value)) => {
@@ -145,6 +174,7 @@ impl<'s> Lower<'_, '_, 's> {
                     _ => (Expr::GlobPattern(value, quoted), Type::Glob),
                 }
             }
+            _ if keep_errors => return Ok(classic_value(self.working_set, span, shape, None)),
             _ => {
                 return self.checked(|working_set| classic_value(working_set, span, shape, None));
             }
@@ -185,7 +215,7 @@ impl<'s> Lower<'_, '_, 's> {
                 let members = self.members(&path.members);
                 Ok(self.node(Expr::CellPath(CellPath { members }), span, Type::CellPath))
             }
-            w::Expr::Range(_) => self.leaf(e, shape),
+            w::Expr::Range(_) => self.leaf(e, shape, false),
             w::Expr::Var(_) => self.full_cell_path(e.span, e, &[], input_type),
             w::Expr::FullCellPath(path) if !path.implicit_head => {
                 self.full_cell_path(e.span, &path.head, &path.tail, input_type)
@@ -197,7 +227,7 @@ impl<'s> Lower<'_, '_, 's> {
     /// An item starting with `(` (`parse_paren_expr`).
     fn paren(&mut self, e: &w::Expression<'s>, shape: &SyntaxShape) -> Lowered<Expression> {
         match &e.expr {
-            w::Expr::Range(_) => self.leaf(e, shape),
+            w::Expr::Range(_) => self.leaf(e, shape, false),
             _ if matches!(
                 shape,
                 SyntaxShape::Signature | SyntaxShape::ExternalSignature
@@ -301,8 +331,14 @@ impl<'s> Lower<'_, '_, 's> {
             SyntaxShape::Filepath
             | SyntaxShape::String
             | SyntaxShape::GlobPattern
-            | SyntaxShape::ExternalArgument => self.leaf(e, shape),
-            _ => Err(Unlowered::Error),
+            | SyntaxShape::ExternalArgument => self.leaf(e, shape, false),
+            // Any other shape is `parse_value`'s error, the value garbage.
+            _ => {
+                let span = self.span(e.span);
+                self.working_set
+                    .error(ParseError::ExpectedWithStringMsg(shape.to_string(), span));
+                Ok(Expression::garbage(self.working_set, span))
+            }
         }
     }
 

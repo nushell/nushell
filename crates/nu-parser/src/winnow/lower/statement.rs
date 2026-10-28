@@ -22,6 +22,7 @@ use crate::{
     lex::lex,
     lite_parser::lite_parse,
     parse_captures_compile::wrap_element_with_collect,
+    parse_expressions::is_math_expression_like,
     parse_helpers::{PERCENT_FORCED_BUILTIN_PARSER_INFO, trim_quotes},
     parse_module::{add_exportables, double_main_span, parse_module_pipeline},
     parse_pipelines::{finish_block, hide_unlet_constants, parse_pipeline},
@@ -523,15 +524,44 @@ impl<'s> Lower<'_, '_, 's> {
         input_type: Option<&Type>,
     ) -> Lowered<Pipeline> {
         let pipe = self.classic_pipes(pipeline)[0];
-        let element = self.pipeline_element(element, input_type.unwrap_or(&Type::Any), pipe)?;
-        if let Expr::Call(call) = &element.expr.expr
+        let errors = self.working_set.parse_errors.len();
+        let first_word = self.text(element.expr.span);
+        let first_word = first_word
+            .split(|c: char| c.is_ascii_whitespace())
+            .next()
+            .unwrap_or_default();
+        let lowered = self.pipeline_element(element, input_type.unwrap_or(&Type::Any), pipe)?;
+        if let Expr::Call(call) = &lowered.expr.expr
             && let Some(effect) = self.overlay_call_effect(call)
         {
             return Ok(effect(self.working_set, call.clone()));
         }
+        // To find such a call, `parse_builtin_commands` parses a statement whose first word
+        // names an alias once before parsing it as a statement, and keeps that parse's errors:
+        // each is reported twice.
+        if self.working_set.parse_errors.len() > errors
+            && self.names_alias(first_word, self.span(element.expr.span))
+        {
+            let again = self.working_set.parse_errors[errors..].to_vec();
+            self.working_set.parse_errors.extend(again);
+        }
         Ok(Pipeline {
-            elements: vec![element],
+            elements: vec![lowered],
         })
+    }
+
+    /// Whether `word`, a statement's first word at the start of `span`, names an alias, as
+    /// `parse_builtin_commands` asks: unless the word reads as a value.
+    fn names_alias(&mut self, word: &str, span: Span) -> bool {
+        let is_alias = self
+            .working_set
+            .find_decl(word.as_bytes())
+            .is_some_and(|decl_id| self.working_set.get_decl(decl_id).is_alias());
+        is_alias
+            && !is_math_expression_like(
+                self.working_set,
+                Span::new(span.start, span.start + word.len()),
+            )
     }
 
     /// Whether `expression` calls `overlay use`, `overlay hide` or `overlay new`, maybe through

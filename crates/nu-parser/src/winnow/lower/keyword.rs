@@ -1117,8 +1117,16 @@ impl<'s> Lower<'_, '_, 's> {
             "extern" | "for" => {
                 self.in_scope(|this| this.internal_call(head, arguments, decl_id, None))?
             }
-            "type" => {
-                self.internal_call(head, &arguments[..arguments.len().min(2)], decl_id, None)?
+            // `parse_alias` and `parse_type_alias` drop the errors of the call.
+            "alias" | "type" => {
+                let errors = self.working_set.parse_errors.len();
+                let arguments = match keyword {
+                    "type" => &arguments[..arguments.len().min(2)],
+                    _ => arguments,
+                };
+                let lowered = self.internal_call(head, arguments, decl_id, None)?;
+                self.working_set.parse_errors.truncate(errors);
+                lowered
             }
             "module" => {
                 // An `export` covers the item the call around `module` leaves out at its end.

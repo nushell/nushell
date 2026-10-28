@@ -1,7 +1,7 @@
 //! Regression tests for the `winnow-parser` front end (calls): each pins a case where it
 //! parsed differently from the classic parser.
 
-use nu_protocol::{ast::Expr, engine::StateWorkingSet};
+use nu_protocol::{ParseError, ast::Expr, engine::StateWorkingSet};
 use nu_test_support::prelude::*;
 use rstest::rstest;
 
@@ -214,4 +214,175 @@ fn bare_row_condition_is_lowered() -> Result {
 #[exp(nu_experimental::WINNOW_PARSER)]
 fn call_through_an_alias_of_a_keyword(#[case] code: &str, #[case] expected: &str) -> Result {
     test().run(code).expect_value_eq(expected)
+}
+
+/// Parse `code` with the winnow front end, which must lower every statement itself, and give
+/// the errors it reported, each as its kind and the text it points at.
+fn lowered_errors(code: &str) -> Vec<(String, String)> {
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let before = nu_parser::winnow_stats();
+    nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    let after = nu_parser::winnow_stats();
+    assert_eq!(
+        after.classic_statements, before.classic_statements,
+        "`{code}`: a statement was handed to the classic parser"
+    );
+    working_set
+        .parse_errors
+        .iter()
+        .map(|error| {
+            let debug = format!("{error:?}");
+            let kind = debug.split(['(', ' ', '{']).next().unwrap_or_default();
+            let text = working_set.get_span_contents(error.span());
+            (kind.to_owned(), String::from_utf8_lossy(text).into_owned())
+        })
+        .collect()
+}
+
+/// A call's argument errors are reported as `parse_internal_call` reports them, each where it
+/// finds it and with the argument it builds there, and the call goes on: the statement is
+/// lowered, not parsed again by the classic parser. A statement whose first word names an
+/// alias reports them twice: `parse_builtin_commands` parses it once more before the statement
+/// to find an overlay command, and keeps that parse's errors.
+#[rstest]
+#[case::positional_type("def f [a: int] {}; f {a: 1}", &[("TypeMismatch", "{a: 1}")])]
+#[case::leaf_value("def f [a: int] {}; f nope", &[("Expected", "nope")])]
+#[case::list_for_an_int("def f [a: int] {}; f [1]", &[("ExpectedWithStringMsg", "[1]")])]
+#[case::extra_positional("def f [] {}; f 1", &[("ExtraPositional", "1")])]
+#[case::extra_after_end_of_options("def f [] {}; f -- -x", &[("ExtraPositional", "-x")])]
+#[case::flag_word_after_end_of_options("def f [a: int] {}; f -- -x", &[("Expected", "-x")])]
+#[case::unknown_long_flag("def f [] {}; f --nope", &[("UnknownFlag", "--nope")])]
+#[case::unknown_short_flag("def f [--switch(-s)] {}; f -sz", &[("UnknownFlag", "z")])]
+#[case::value_flag_not_last(
+    "def f [--flag(-f): int, --switch(-s)] {}; f -fs 1",
+    &[("OnlyLastFlagInBatchCanTakeArg", "f"), ("ExtraPositional", "1")]
+)]
+#[case::long_flag_without_value("def f [--flag: int] {}; f --flag", &[("MissingFlagParam", "--flag")])]
+#[case::short_flag_without_value("def f [--flag(-f): int] {}; f -f", &[("MissingFlagParam", "-f")])]
+#[case::flag_value_type("def f [--flag: int] {}; f --flag {a: 1}", &[("TypeMismatch", "{a: 1}")])]
+#[case::short_flag_value("def f [--flag(-f): int] {}; f -f nope", &[("Expected", "nope")])]
+#[case::spread_without_rest("def f [] {}; f ...[1]", &[("UnexpectedSpreadArg", "...[1]")])]
+#[case::spread_for_a_required("def f [a: int, ...r] {}; f ...[1]", &[("MissingPositional", "")])]
+#[case::record_spread_without_flags("def f [] {}; f ...{a: 1}", &[("UnexpectedSpreadArg", "...{a: 1}")])]
+#[case::missing_positional("def f [a: int, b: int] {}; f 1", &[("MissingPositional", "")])]
+#[case::one_after_another(
+    "def f [a: int] {}; f nope 2 --x",
+    &[("Expected", "nope"), ("ExtraPositional", "2"), ("UnknownFlag", "--x")]
+)]
+#[case::in_a_closure(
+    "def f [] {}; let c = {|| f 1 }",
+    &[("ExtraPositional", "1")]
+)]
+#[case::statement_through_an_alias(
+    "def f [a: int] {}; alias g = f; g nope",
+    &[("Expected", "nope"), ("Expected", "nope")]
+)]
+#[case::nested_statement_through_an_alias(
+    "def f [a: int] {}; alias g = f; do { g nope }",
+    &[("Expected", "nope"), ("Expected", "nope")]
+)]
+#[case::element_through_an_alias(
+    "def f [a: int] {}; alias g = f; 1 | g nope",
+    &[("Expected", "nope")]
+)]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn argument_error_is_reported_and_lowered(
+    #[case] code: &str,
+    #[case] expected: &[(&str, &str)],
+) -> Result {
+    let expected: Vec<(String, String)> = expected
+        .iter()
+        .map(|(kind, text)| (kind.to_string(), text.to_string()))
+        .collect();
+    assert_eq!(lowered_errors(code), expected, "`{code}`");
+    Ok(())
+}
+
+/// An unknown long flag suggests the closest flag the command has, as `parse_long_flag` does.
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn unknown_flag_suggests_a_flag() -> Result {
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    nu_parser::parse(
+        &mut working_set,
+        None,
+        b"def f [--zebra] {}; f --zebre",
+        false,
+    );
+    let [ParseError::UnknownFlag(_, name, _, help)] = working_set.parse_errors.as_slice() else {
+        panic!("{:?}", working_set.parse_errors);
+    };
+    assert_eq!(
+        (name.as_str(), help.as_str()),
+        ("zebre", "Did you mean: `--zebra`?")
+    );
+    Ok(())
+}
+
+/// `alias` and `type` drop the errors of a call for help (`parse_alias`, `parse_type_alias`).
+#[rstest]
+#[case::alias_short_flags("alias -hx")]
+#[case::type_help_value("type t --help=1 = int")]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn help_call_of_alias_or_type_drops_its_errors(#[case] code: &str) -> Result {
+    assert_eq!(lowered_errors(code), [], "`{code}`");
+    Ok(())
+}
+
+/// With an error in its call, a parser keyword's statement is the call as `parse_call` makes
+/// it (`parse_keyword`): typed by the signature, even when it asks for help, and without the
+/// keyword's effect.
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn keyword_call_with_an_error_is_the_plain_call() -> Result {
+    let code = "overlay new --help={a: 1} o";
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let before = nu_parser::winnow_stats();
+    let block = nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    let after = nu_parser::winnow_stats();
+    assert_eq!(after.classic_statements, before.classic_statements);
+    assert!(matches!(
+        working_set.parse_errors.as_slice(),
+        [ParseError::TypeMismatch(..)]
+    ));
+    let statement = &block.pipelines[0].elements[0].expr;
+    assert_eq!(statement.ty, nu_protocol::Type::Nothing);
+    Ok(())
+}
+
+/// After `--`, an item that looks like a flag is a positional, read with its shape; one of a
+/// multi-item shape (`try`'s `catch` keyword) is read as `parse_multispan_value` reads it.
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn flag_word_for_a_multi_item_positional_after_end_of_options() -> Result {
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    nu_parser::parse(
+        &mut working_set,
+        None,
+        b"alias zz = try {} -- catch {} --",
+        false,
+    );
+    assert!(
+        matches!(
+            working_set.parse_errors.as_slice(),
+            [
+                ParseError::ExpectedKeyword(..),
+                ParseError::KeywordMissingArgument(..)
+            ]
+        ),
+        "{:?}",
+        working_set.parse_errors
+    );
+    Ok(())
 }

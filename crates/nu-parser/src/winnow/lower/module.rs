@@ -79,7 +79,14 @@ impl<'s> Lower<'_, '_, 's> {
             .find_decl(call.head.name.as_bytes())
             .ok_or(Unlowered::Error)?;
         let head = self.span(call.head.span);
+        let errors = self.working_set.parse_errors.len();
         let (lowered, output, kind) = self.internal_call(head, &call.arguments, decl_id, None)?;
+        // With an error in the call, `parse_keyword` gives the call as `parse_call` makes it.
+        if self.working_set.parse_errors.len() > errors {
+            let span = self.span(e.span);
+            let statement = self.node(Expr::Call(lowered), span, output);
+            return Ok(Pipeline::from_vec(vec![statement]));
+        }
         if kind == CallKind::Help {
             let span = lowered.span();
             let statement = self.node(Expr::Call(lowered), span, Type::Any);
@@ -131,7 +138,12 @@ impl<'s> Lower<'_, '_, 's> {
             None => None,
         };
         let name = w::Argument::Positional((*module.name).clone());
-        let (mut call, ..) = self.internal_call(head, &[name], decl_id, None)?;
+        let (mut call, _, kind) = self.internal_call(head, &[name], decl_id, None)?;
+        // `parse_module` gives an invalid call (a missing positional) back as it is; the
+        // winnow parser reports a `module` without a name, so none reaches here.
+        if kind == CallKind::Invalid {
+            return Err(Unlowered::Error);
+        }
         if let Some(body_span) = body_span {
             let span = self.span(body_span);
             call.add_positional(garbage(self.working_set, span));
@@ -216,7 +228,12 @@ impl<'s> Lower<'_, '_, 's> {
             .map(|argument| self.span(argument.span()))
             .collect();
         let end = args_spans.last().map_or(head.end, |span| span.end);
-        let (call, ..) = self.internal_call(head, &arguments, decl_id, None)?;
+        let (call, _, kind) = self.internal_call(head, &arguments, decl_id, None)?;
+        // `parse_use` gives an invalid call (a missing positional) back as it is; the winnow
+        // parser reports a `use` without a module, so none reaches here.
+        if kind == CallKind::Invalid {
+            return Err(Unlowered::Error);
+        }
         let (mut pipeline, exportables) = finish_use(
             self.working_set,
             call,

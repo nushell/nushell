@@ -6,8 +6,9 @@ use std::cell::RefCell;
 
 use nu_engine::DIR_VAR_PARSER_INFO;
 use nu_protocol::{
-    CompileError, DeclId, Flag, Span, Spanned, SyntaxShape, Type, TypeSet,
+    CompileError, DeclId, Flag, ParseError, Signature, Span, Spanned, SyntaxShape, Type, TypeSet,
     ast::{Argument, Call, Expr, Expression, ExternalArgument, Keyword},
+    did_you_mean,
     engine::CommandType,
 };
 
@@ -15,9 +16,9 @@ use super::{Lower, Lowered, Unlowered};
 use crate::winnow::syntax::{DeclKind, ItemsValue, Span as WSpan, ast as w, parse_items};
 use crate::{
     parse_calls::{
-        CallKind, accepts_any_bareword, find_decl_with_command_type, find_longest_decl_with_prefix,
-        parse_external_string, parse_regular_external_arg, parse_unknown_arg,
-        shape_allows_negative_number, strict_extern_forwards,
+        CallKind, accepts_any_bareword, check_call, find_decl_with_command_type,
+        find_longest_decl_with_prefix, parse_external_string, parse_regular_external_arg,
+        parse_unknown_arg, shape_allows_negative_number, strict_extern_forwards,
     },
     parse_expressions::{is_math_expression_like, parse_value as classic_value},
     parse_helpers::{PERCENT_FORCED_BUILTIN_PARSER_INFO, is_variable},
@@ -258,8 +259,11 @@ impl<'s> Lower<'_, '_, 's> {
 
     /// A call to `decl_id` with its arguments assigned by the command's signature
     /// (`parse_internal_call`): flags and their values, positionals read with their shapes and
-    /// type-checked, spreads, and the unknown arguments of a command that takes them. Returns
-    /// the call, its output type for `input_type` and its kind (a call for help, or not).
+    /// type-checked, spreads, and the unknown arguments of a command that takes them. An
+    /// argument's error is reported where that function reports it, the argument built as
+    /// there, and the call goes on; so are the missing arguments `check_call` reports, and the
+    /// call is kept whatever its kind. Returns the call, its output type for `input_type` and
+    /// its kind (a call for help, an invalid call, or neither).
     pub(super) fn internal_call(
         &mut self,
         head: Span,
@@ -332,7 +336,8 @@ impl<'s> Lower<'_, '_, 's> {
         }
         let output = output_override.unwrap_or(output);
 
-        let kind = self.check_call(head, &signature, &call)?;
+        // Its errors stay reported and the call kept, whatever its kind, as there.
+        let kind = check_call(self.working_set, head, &signature, &call);
         for warning in deprecation
             .into_iter()
             .filter_map(|entry| entry.parse_warning(&signature.name, &call))
@@ -391,21 +396,26 @@ impl<'s> Lower<'_, '_, 's> {
                     let span = self.span(*span);
                     if let Some(positional) = signature.get_positional(positional_idx) {
                         let shape = positional.shape.clone();
-                        let value = self.checked(|ws| classic_value(ws, span, &shape, None))?;
-                        if !type_compatible(&shape.to_type(), &value.ty) {
-                            return Err(Unlowered::Error);
-                        }
+                        // Read as `parse_value` reads it; a multi-item shape's error is the
+                        // classic parser's, which reads it with `parse_multispan_value`.
+                        let value = if is_multispan_shape(&shape) {
+                            self.checked(|ws| classic_value(ws, span, &shape, None))?
+                        } else {
+                            classic_value(self.working_set, span, &shape, None)
+                        };
+                        let value = self.positional_value(value, &shape);
                         call.add_positional(value);
                         positional_idx += 1;
                     } else if signature.allows_unknown_args {
                         let value = self.checked(|ws| parse_unknown_arg(ws, span, signature))?;
                         call.add_unknown(value);
                     } else {
-                        return Err(Unlowered::Error);
+                        self.extra_positional(call, span, signature);
                     }
                 }
                 w::Argument::Spread { expr, .. } => {
-                    positional_idx = self.spread(call, expr, signature, positional_idx)?;
+                    let span = self.span(argument.span());
+                    positional_idx = self.spread(call, span, expr, signature, positional_idx)?;
                 }
                 w::Argument::Positional(expr) => {
                     // Before `--`, an item starting with `-` is short flags unless it is a
@@ -437,6 +447,30 @@ impl<'s> Lower<'_, '_, 's> {
                     }
                     if let Some(positional) = signature.get_positional(positional_idx) {
                         let shape = &positional.shape;
+                        // The items `calculate_end_span` gives the positional, from this one:
+                        // none when a later keyword parameter's keyword comes first, which
+                        // `parse_internal_call` reports as a missing positional, whatever its
+                        // shape, at the blank before this item, which the next positional
+                        // then reads.
+                        let item = index - 1;
+                        let end = item
+                            + self.multi_item_count(signature, arguments, item, positional_idx);
+                        if end == item {
+                            let previous = match item.checked_sub(1) {
+                                Some(previous) => self.span(arguments[previous].span()),
+                                None => call.head,
+                            };
+                            let blank = Span::new(previous.end, self.span(expr.span).start);
+                            self.working_set.error(ParseError::MissingPositional(
+                                positional.name.clone(),
+                                blank,
+                                signature.call_signature(),
+                            ));
+                            call.add_positional(Expression::garbage(self.working_set, blank));
+                            positional_idx += 1;
+                            index = item;
+                            continue;
+                        }
                         let positional_input = match special {
                             Some(SpecialKeyword::Let)
                                 if matches!(shape, SyntaxShape::VarWithOptType) =>
@@ -452,10 +486,6 @@ impl<'s> Lower<'_, '_, 's> {
                         };
                         let compile_errors = self.working_set.compile_errors.len();
                         let value = if is_multispan_shape(shape) {
-                            // The items `calculate_end_span` gives the positional, from this one.
-                            let item = index - 1;
-                            let end = item
-                                + self.multi_item_count(signature, arguments, item, positional_idx);
                             let (value, next) = self.multispan_value(
                                 arguments,
                                 item,
@@ -466,7 +496,7 @@ impl<'s> Lower<'_, '_, 's> {
                             index = next;
                             value
                         } else {
-                            self.value(expr, shape, positional_input)?
+                            self.argument(expr, shape, positional_input)?
                         };
                         // `try`'s handler is a closure, compiled on its own, so a `break` in it
                         // is outside any loop: `parse_internal_call` drops that error when it
@@ -510,21 +540,42 @@ impl<'s> Lower<'_, '_, 's> {
                             }
                             _ => {}
                         }
-                        if !type_compatible(&shape.to_type(), &value.ty) {
-                            return Err(Unlowered::Error);
-                        }
+                        let value = self.positional_value(value, shape);
                         call.add_positional(value);
                         positional_idx += 1;
                     } else if signature.allows_unknown_args {
                         let value = self.value(expr, &rest_shape(signature), None)?;
                         call.add_unknown(value);
                     } else {
-                        return Err(Unlowered::Error);
+                        let span = self.span(expr.span);
+                        self.extra_positional(call, span, signature);
                     }
                 }
             }
         }
         Ok(output_override)
+    }
+
+    /// `value` as the argument of a positional of `shape`: itself, or garbage with the classic
+    /// parser's type mismatch when its type does not fit (`parse_internal_call`).
+    fn positional_value(&mut self, value: Expression, shape: &SyntaxShape) -> Expression {
+        if type_compatible(&shape.to_type(), &value.ty) {
+            return value;
+        }
+        let span = value.span;
+        self.working_set
+            .error(ParseError::TypeMismatch(shape.to_type(), value.ty, span));
+        Expression::garbage(self.working_set, span)
+    }
+
+    /// The argument at `span`, past the last positional of a command that takes no unknown
+    /// arguments: garbage, with the classic parser's error (`parse_internal_call`).
+    fn extra_positional(&mut self, call: &mut Call, span: Span, signature: &Signature) {
+        call.add_positional(Expression::garbage(self.working_set, span));
+        self.working_set.error(ParseError::ExtraPositional(
+            signature.call_signature(),
+            span,
+        ));
     }
 
     /// The value of a positional of the multi-item `shape` that starts at `arguments[index]`,
@@ -814,7 +865,26 @@ impl<'s> Lower<'_, '_, 's> {
         let token = self.span(flag.span);
         if flag.long {
             let Some(found) = signature.get_long_flag(flag.name) else {
-                return self.unknown_flag(call, token, signature).map(|()| false);
+                if self.forwards_unknown_flag(token, signature) {
+                    let value = self.checked(|ws| parse_unknown_arg(ws, token, signature))?;
+                    call.add_unknown(value);
+                } else {
+                    let help = did_you_mean(signature.get_names(), flag.name)
+                        .map(|name| format!("Did you mean: `--{name}`?"))
+                        .unwrap_or_else(|| "Use `--help` to see available flags".to_owned());
+                    self.working_set.error(ParseError::UnknownFlag(
+                        signature.name.clone(),
+                        flag.name.to_owned(),
+                        token,
+                        help,
+                    ));
+                    let name = Spanned {
+                        item: flag.name.to_owned(),
+                        span: token,
+                    };
+                    call.add_named((name, None, None));
+                }
+                return Ok(false);
             };
             // `--name=value` names the flag with `--name`; `--name value` with the whole item.
             let name_span = match &flag.value {
@@ -831,7 +901,12 @@ impl<'s> Lower<'_, '_, 's> {
                     Some(w::Argument::Positional(value)) => {
                         (Some(self.flag_value(value, shape)?), true)
                     }
-                    _ => return Err(Unlowered::Error),
+                    Some(_) => return Err(Unlowered::Error),
+                    None => {
+                        self.working_set
+                            .error(ParseError::MissingFlagParam(shape.to_string(), token));
+                        (None, false)
+                    }
                 },
                 (None, Some(value)) => {
                     (Some(self.flag_value(value, &SyntaxShape::Boolean)?), false)
@@ -844,15 +919,43 @@ impl<'s> Lower<'_, '_, 's> {
         if flag.value.is_some() {
             return Err(Unlowered::Unsupported("short flag with `=`"));
         }
+        // As `parse_short_flags`: a flag that takes a value must come last in the batch, which
+        // ends the batch there, and the first letter the signature lacks is the unknown flag;
+        // the flags found are added unless the command forwards the batch as an argument.
+        let errors = self.working_set.parse_errors.len();
         let mut found: Vec<Flag> = Vec::new();
+        let mut unmatched = None;
         let count = flag.name.chars().count();
-        for (offset, short) in flag.name.chars().enumerate() {
+        // A byte offset compared with a count of characters, as there.
+        for (offset, short) in flag.name.char_indices() {
+            let start = token.start + 1 + offset;
+            let span = Span::new(start, start + short.len_utf8());
             match signature.get_short_flag(short) {
-                Some(short_flag) if short_flag.arg.is_some() && offset + 1 < count => {
-                    return Err(Unlowered::Error);
+                Some(short_flag) if short_flag.arg.is_some() && offset < count - 1 => {
+                    self.working_set
+                        .error(ParseError::OnlyLastFlagInBatchCanTakeArg(span));
+                    break;
                 }
                 Some(short_flag) => found.push(short_flag),
-                None => return self.unknown_flag(call, token, signature).map(|()| false),
+                None => {
+                    unmatched.get_or_insert(span);
+                }
+            }
+        }
+        if let Some(first) = unmatched {
+            let letter = String::from_utf8_lossy(self.working_set.get_span_contents(first));
+            let name = format!("-{letter}");
+            self.working_set.error(ParseError::UnknownFlag(
+                signature.name.clone(),
+                name,
+                first,
+                "Use `--help` to see available flags".to_owned(),
+            ));
+            if self.forwards_unknown_flag(token, signature) {
+                self.working_set.parse_errors.truncate(errors);
+                let value = self.checked(|ws| parse_unknown_arg(ws, token, signature))?;
+                call.add_unknown(value);
+                return Ok(false);
             }
         }
         let mut taken = false;
@@ -861,19 +964,27 @@ impl<'s> Lower<'_, '_, 's> {
                 item: short.to_string(),
                 span: token,
             });
+            let name = Spanned {
+                item: short_flag.long.clone(),
+                span: token,
+            };
             let value = match &short_flag.arg {
                 Some(shape) => match next {
                     Some(w::Argument::Positional(value)) => {
                         taken = true;
                         Some(self.flag_value(value, shape)?)
                     }
-                    _ => return Err(Unlowered::Error),
+                    Some(_) => return Err(Unlowered::Error),
+                    // Named by both its names, so a completion can tell which flag waits for
+                    // its value.
+                    None => {
+                        self.working_set
+                            .error(ParseError::MissingFlagParam(shape.to_string(), token));
+                        call.add_named((name, short, None));
+                        continue;
+                    }
                 },
                 None => None,
-            };
-            let name = Spanned {
-                item: short_flag.long.clone(),
-                span: token,
             };
             if short_flag.long.is_empty() {
                 call.add_named((name, short, value));
@@ -884,57 +995,63 @@ impl<'s> Lower<'_, '_, 's> {
         Ok(taken)
     }
 
-    /// A flag's value, type-checked against its shape (`ensure_flag_arg_type`); `null` passes.
+    /// A flag's value, type-checked against its shape (`ensure_flag_arg_type`): `null` passes,
+    /// and a value of another type is garbage, with the classic parser's type mismatch.
     pub(super) fn flag_value(
         &mut self,
         value: &w::Expression<'s>,
         shape: &SyntaxShape,
     ) -> Lowered<Expression> {
-        let value = self.value(value, shape, None)?;
+        let value = self.argument(value, shape, None)?;
         if value.ty != Type::Nothing && !type_compatible(&shape.to_type(), &value.ty) {
-            return Err(Unlowered::Error);
+            let span = value.span;
+            self.working_set
+                .error(ParseError::TypeMismatch(shape.to_type(), value.ty, span));
+            return Ok(Expression::garbage(self.working_set, span));
         }
         Ok(value)
     }
 
-    /// A flag the signature does not have: an unknown argument when the command takes them
-    /// (`extern`, `def --wrapped`), an error otherwise. An `extern --strict` command takes only
-    /// the flags `strict_extern_forwards` lets through (`parse_internal_call`).
-    fn unknown_flag(
-        &mut self,
-        call: &mut Call,
-        token: Span,
-        signature: &nu_protocol::Signature,
-    ) -> Lowered<()> {
-        if !signature.allows_unknown_args
-            || signature.rejects_unknown_flags
-                && !strict_extern_forwards(self.working_set.get_span_contents(token))
-        {
-            return Err(Unlowered::Error);
-        }
-        let value = self.checked(|ws| parse_unknown_arg(ws, token, signature))?;
-        call.add_unknown(value);
-        Ok(())
+    /// Whether a command takes the flag `token`, which its signature does not have, as an
+    /// unknown argument (`extern`, `def --wrapped`) instead of reporting it; an `extern
+    /// --strict` command takes only the flags `strict_extern_forwards` lets through
+    /// (`parse_internal_call`).
+    fn forwards_unknown_flag(&self, token: Span, signature: &Signature) -> bool {
+        signature.allows_unknown_args
+            && (!signature.rejects_unknown_flags
+                || strict_extern_forwards(self.working_set.get_span_contents(token)))
     }
 
-    /// A spread argument, `...$list`, `...[a b]` or `...{flag: value}`. Returns the index of
-    /// the next positional: past them all once the spread fills the rest parameter, unchanged
-    /// when it is, or may be, a record of flags.
+    /// A spread argument, `...$list`, `...[a b]` or `...{flag: value}`, covering `span`.
+    /// Returns the index of the next positional: past them all once the spread fills the rest
+    /// parameter, unchanged when it is, or may be, a record of flags, or when the command
+    /// can't take it (`refused_spread`).
     fn spread(
         &mut self,
         call: &mut Call,
+        span: Span,
         expr: &w::Expression<'s>,
-        signature: &nu_protocol::Signature,
+        signature: &Signature,
         positional_idx: usize,
     ) -> Lowered<usize> {
         let can_rest_spread = signature.rest_positional.is_some() || signature.allows_unknown_args;
         let can_named_spread = signature.named.iter().any(|named| named.long != "help");
         let required = signature.required_positional.len();
         let all_positionals = required + signature.optional_positional.len();
+        let unexpected = || ParseError::UnexpectedSpreadArg(signature.call_signature(), span);
+        // A spread that fills the rest parameter can't stand in for a required positional.
+        let missing = || {
+            ParseError::MissingPositional(
+                signature.required_positional[positional_idx].name.clone(),
+                Span::new(span.start, span.start),
+                signature.call_signature(),
+            )
+        };
         match self.text(expr.span).as_bytes().first() {
             Some(b'{') => {
                 if !can_named_spread {
-                    return Err(Unlowered::Error);
+                    self.refused_spread(call, span, unexpected());
+                    return Ok(positional_idx);
                 }
                 let value = self.value(
                     expr,
@@ -945,8 +1062,13 @@ impl<'s> Lower<'_, '_, 's> {
                 Ok(positional_idx)
             }
             Some(b'[') => {
-                if !can_rest_spread || positional_idx < required {
-                    return Err(Unlowered::Error);
+                if !can_rest_spread {
+                    self.refused_spread(call, span, unexpected());
+                    return Ok(positional_idx);
+                }
+                if positional_idx < required {
+                    self.refused_spread(call, span, missing());
+                    return Ok(positional_idx);
                 }
                 let shape = match &signature.rest_positional {
                     Some(rest) if rest.shape != SyntaxShape::ExternalArgument => rest.shape.clone(),
@@ -958,9 +1080,14 @@ impl<'s> Lower<'_, '_, 's> {
             }
             Some(b'$' | b'(') => {
                 // Without named flags to spread, a spread fills the rest parameter, which
-                // must exist and cannot stand in for a missing required positional.
-                if !can_named_spread && (!can_rest_spread || positional_idx < required) {
-                    return Err(Unlowered::Error);
+                // must exist.
+                if !can_rest_spread && !can_named_spread {
+                    self.refused_spread(call, span, unexpected());
+                    return Ok(positional_idx);
+                }
+                if !can_named_spread && positional_idx < required {
+                    self.refused_spread(call, span, missing());
+                    return Ok(positional_idx);
                 }
                 let value = self.value(expr, &SyntaxShape::Any, None)?;
                 call.add_spread(value);
@@ -972,6 +1099,13 @@ impl<'s> Lower<'_, '_, 's> {
             }
             _ => Err(Unlowered::Error),
         }
+    }
+
+    /// A spread argument at `span` the command can't take: garbage in the positionals, with the
+    /// classic parser's `error` (`parse_internal_call`).
+    fn refused_spread(&mut self, call: &mut Call, span: Span, error: ParseError) {
+        self.working_set.error(error);
+        call.add_positional(Expression::garbage(self.working_set, span));
     }
 
     /// A call to an external command (`parse_external_call`), or to an alias of one, which
