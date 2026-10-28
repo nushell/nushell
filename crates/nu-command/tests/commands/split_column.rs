@@ -129,6 +129,18 @@ fn split_column_duplicate_column_error() -> Result {
             second_use,
         } if col_name == "col" && first_use.start < second_use.start
     );
+
+    // Repeated names are rejected even when some of them would go unused
+    let code = "'a' | split column '-' x x";
+    let err = test().run(code).expect_shell_error()?;
+    assert_matches!(
+        err,
+        ShellError::ColumnDefinedTwice {
+            col_name,
+            first_use,
+            second_use,
+        } if col_name == "x" && first_use.start < second_use.start
+    );
     Ok(())
 }
 
