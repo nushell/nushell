@@ -222,10 +222,7 @@ fn ron_file_open_and_save() -> Result {
             | $in == {name: "Ada" languages: ["Rust" "Nushell"]}
         "#;
 
-        test()
-            .cwd(dirs.test())
-            .run(code)
-            .expect_value_eq(true)
+        test().cwd(dirs.test()).run(code).expect_value_eq(true)
     })
 }
 
