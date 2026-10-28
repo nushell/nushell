@@ -891,52 +891,27 @@ pub fn parse_attributes_external_alias() {
 #[case::leading_space(" foo")]
 #[case::trailing_space("foo ")]
 #[case::tab("foo\tbar")]
-pub fn parse_rejects_irregular_whitespace_in_command_names(#[case] name: &str) {
-    // https://github.com/nushell/nushell/issues/15539
-    // A call is looked up by its words joined with single spaces, so a name
-    // with any other whitespace could never be called.
-    let first_error = |source: &str| {
-        let engine_state = EngineState::new();
-        let mut working_set = StateWorkingSet::new(&engine_state);
-        working_set.add_decl(Box::new(Def));
-        working_set.add_decl(Box::new(Alias));
-        working_set.add_decl(Box::new(AttrEcho));
-        let _ = parse(&mut working_set, None, source.as_bytes(), false);
-        working_set.parse_errors.first().cloned()
-    };
-
-    for source in [
-        format!("def \"{name}\" [] {{}}"),
-        format!("extern \"{name}\" []"),
-    ] {
-        assert!(
-            matches!(
-                first_error(&source),
-                Some(ParseError::CommandDefNotValid(_))
-            ),
-            "{source:?}"
-        );
-    }
-
-    let source = format!("alias \"{name}\" = attr echo");
-    assert!(
-        matches!(first_error(&source), Some(ParseError::AliasNotValid(_))),
-        "{source:?}"
-    );
-}
-
-#[rstest]
 #[case::hex("0x10")]
 #[case::binary("0b101")]
 #[case::octal("0o17")]
 #[case::digit_separator("1_2")]
 #[case::float_digit_separator("1.2_345")]
 #[case::hex_digit_separator("0x_10")]
-pub fn parse_rejects_number_names_in_command_names(#[case] name: &str) {
+#[case::out_of_range("0x10000000000000000")]
+#[case::leading_separator("_1")]
+#[case::signed_hex("-0x10")]
+#[case::signed_separator("+1_2")]
+#[case::filesize_with_separator("1_0kb")]
+#[case::duration("1sec")]
+#[case::datetime("2020-01-01")]
+#[case::range("1..2")]
+pub fn parse_rejects_uncallable_command_names(#[case] name: &str) {
+    // https://github.com/nushell/nushell/issues/15539
     // https://github.com/nushell/nushell/issues/16815
-    // A number wins at the call site, so a command or alias named after one could never be
-    // called. Nushell reads numbers with radix prefixes and digit separators, so the names have
-    // to be rejected the same way the numbers are read.
+    // A call is looked up by its words joined with single spaces, so a name with any other
+    // whitespace could never be called. A name that the call site reads as a value is shadowed
+    // by that value, so it could never be called either: a number, a filesize, a duration, a
+    // datetime and a range all win at the call site.
     let first_error = |source: &str| {
         let engine_state = EngineState::new();
         let mut working_set = StateWorkingSet::new(&engine_state);
@@ -972,28 +947,59 @@ pub fn parse_rejects_number_names_in_command_names(#[case] name: &str) {
 #[case::binary_without_digits("0b2")]
 #[case::octal_without_digits("0o18")]
 #[case::bare_prefix("0x")]
-pub fn parse_accepts_bare_word_names_that_are_not_numbers(#[case] name: &str) {
+pub fn parse_accepts_bare_word_names_that_are_not_values(#[case] name: &str) {
     // https://github.com/nushell/nushell/issues/16815
-    // These are read as bare words rather than as numbers, so they name a command that can
-    // still be called.
-    let mut engine_state = EngineState::new();
-    let mut working_set = StateWorkingSet::new(&engine_state);
-    working_set.add_decl(Box::new(Def));
-    working_set.add_decl(Box::new(Alias));
-    working_set.add_decl(Box::new(AttrEcho));
+    // These are read as bare words rather than as values, so they name a command that can still
+    // be called. The call has to come back as a call to that declaration, not as the value the
+    // name looks like.
+    // Declare the name, then call it. The call has to come back as a call and not as the
+    // value the name looks like.
+    let call_of = |source: &str| {
+        let mut engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        working_set.add_decl(Box::new(Def));
+        working_set.add_decl(Box::new(Alias));
+        working_set.add_decl(Box::new(AttrEcho));
 
-    let _ = engine_state.merge_delta(working_set.render());
-    let mut working_set = StateWorkingSet::new(&engine_state);
+        // The built-in declarations have to be permanent for the `def` keyword to be found,
+        // and the declaration itself has to be permanent for the call to find it.
+        let _ = engine_state.merge_delta(working_set.render());
+        let mut working_set = StateWorkingSet::new(&engine_state);
 
-    let source = format!("def \"{name}\" [] {{}}\nalias \"{name}\" = attr echo\n");
-    let _ = parse(&mut working_set, None, source.as_bytes(), false);
+        let _ = parse(&mut working_set, None, source.as_bytes(), false);
+        let _ = engine_state.merge_delta(working_set.render());
+        let mut working_set = StateWorkingSet::new(&engine_state);
 
-    assert!(
-        working_set.parse_errors.is_empty(),
-        "{name:?}: {:?}",
-        working_set.parse_errors
+        let block = parse(&mut working_set, None, format!("{name}\n").as_bytes(), true);
+
+        assert!(
+            working_set.parse_errors.is_empty(),
+            "{name:?}: {:?}",
+            working_set.parse_errors
+        );
+
+        let decl_id = working_set.find_decl(name.as_bytes());
+        let pipeline = block
+            .pipelines
+            .last()
+            .expect("the call should be a pipeline");
+        match &pipeline.elements[0].expr.expr {
+            Expr::Call(call) => (call.decl_id, decl_id),
+            other => panic!("{name:?} should parse as a call, got {other:?}"),
+        }
+    };
+
+    let (call_decl, decl_id) = call_of(&format!("def \"{name}\" [] {{}}\n"));
+    assert_eq!(
+        call_decl,
+        decl_id.unwrap_or_else(|| panic!("{name:?} should be declared")),
+        "{name:?}"
     );
-    assert!(working_set.find_decl(name.as_bytes()).is_some());
+
+    // An alias is expanded into its body, so the call is to the body rather than to the
+    // alias, but it still has to be a call.
+    let (_, decl_id) = call_of(&format!("alias \"{name}\" = attr echo hi\n"));
+    assert!(decl_id.is_some(), "{name:?} should be declared");
 }
 
 #[test]
