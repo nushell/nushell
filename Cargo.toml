@@ -168,7 +168,7 @@ dirs-sys = "0.5"
 dns-lookup = "4.0.1"
 dtparse = "2.0"
 encoding_rs = "0.8"
-fancy-regex = "0.19"
+fancy-regex = "0.20"
 filesize = "0.2"
 filetime = "0.2.27"
 fff-search = { version = "=0.11.0", default-features = false, features = ["ripgrep"] }
