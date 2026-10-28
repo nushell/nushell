@@ -9,7 +9,8 @@ use std::{collections::HashMap, sync::Arc};
 
 use nu_protocol::eval_const::eval_constant;
 use nu_protocol::{
-    CompileError, DeclId, PositionalArg, Span, Spanned, SyntaxShape, Type, TypeSet, Value,
+    CompileError, DeclId, ParseError, PositionalArg, ShellError, Span, Spanned, SyntaxShape, Type,
+    TypeSet, Value,
     ast::{
         Argument, Attribute, AttributeBlock, Call, Expr, Expression, Keyword, MatchPattern,
         Pattern, Pipeline,
@@ -565,8 +566,10 @@ impl<'s> Lower<'_, '_, 's> {
     ///    gives for a `let` of one pipeline with an input, else the block's output.
     /// 2. The variable, created with its written type (an untyped `let` variable with
     ///    `input_type` until step 3).
-    /// 3. A written type must accept the value's type; then the variable is put in scope, and
-    ///    an untyped one takes the value's type.
+    /// 3. A written type must accept the value's type, or that is reported; then the variable
+    ///    is put in scope, and an untyped one takes the value's type.
+    ///
+    /// A value whose pipeline doesn't take the input type has its errors reported too.
     ///
     /// `let x` without a value is a plain call to `let` (`let_without_value`), as `parse_let`
     /// reads a statement of fewer than four items.
@@ -593,8 +596,15 @@ impl<'s> Lower<'_, '_, 's> {
         let block = self.block(value, rvalue_span, false, true, input_type)?;
         // `mut` gives no input (`mut_statement`), so only a `let` gets here with one.
         let output_type = match (block.pipelines.as_slice(), input_type) {
-            ([pipeline], Some(input)) => check_pipeline_type(self.working_set, pipeline, input)
-                .map_err(|_| Unlowered::Error)?,
+            ([pipeline], Some(input)) => {
+                match check_pipeline_type(self.working_set, pipeline, input) {
+                    Ok(output_type) => output_type,
+                    Err((output_type, errors)) => {
+                        self.working_set.parse_errors.extend(errors);
+                        output_type
+                    }
+                }
+            }
             _ => block.output_type(),
         };
         let block_id = self.working_set.add_block(Arc::new(block));
@@ -605,7 +615,11 @@ impl<'s> Lower<'_, '_, 's> {
         if let Some(explicit_type) = &explicit_type
             && !type_compatible(explicit_type, &rhs_type)
         {
-            return Err(Unlowered::Error);
+            self.working_set.error(ParseError::TypeMismatch(
+                explicit_type.clone(),
+                rhs_type.clone(),
+                rvalue_span,
+            ));
         }
         if let Some(var_id) = lvalue.as_var() {
             // In scope once the statement can no longer be handed back (`variable_declaration`).
@@ -925,9 +939,10 @@ impl<'s> Lower<'_, '_, 's> {
     /// it. In order: the value, a pipeline without input lowered as an `Expr::Subexpression`
     /// (where `let` makes an `Expr::Block`); the variable, created after it; a written type,
     /// checked against the value's type and then the constant's, and a string held by a `glob`
-    /// variable made a glob; the variable put in scope. A value that does not evaluate is the
-    /// classic parser's error. `keyword` is the `const` expression. Returns the statement's
-    /// expression and the variable's name span.
+    /// variable made a glob; the variable put in scope. A type that doesn't match, or a value
+    /// that does not evaluate, is reported and the statement kept, the variable then holding no
+    /// value. `keyword` is the `const` expression. Returns the statement's expression and the
+    /// variable's name span.
     pub(super) fn const_statement(
         &mut self,
         keyword: &w::Expression<'s>,
@@ -950,29 +965,43 @@ impl<'s> Lower<'_, '_, 's> {
         if let Some(explicit_type) = &explicit_type
             && !type_compatible(explicit_type, &rvalue.ty)
         {
-            return Err(Unlowered::Error);
+            self.working_set.error(ParseError::TypeMismatch(
+                explicit_type.clone(),
+                rvalue.ty.clone(),
+                rvalue_span,
+            ));
         }
         if let Some(var_id) = lvalue.as_var() {
             if explicit_type.is_none() {
                 self.working_set
                     .set_variable_type(var_id, rvalue.ty.clone());
             }
-            let mut value =
-                eval_constant(self.working_set, &rvalue).map_err(|_| Unlowered::Error)?;
-            let mut const_type = value.get_type();
-            if let Some(explicit_type) = &explicit_type {
-                if !type_compatible(explicit_type, &const_type) {
-                    return Err(Unlowered::Error);
+            match eval_constant(self.working_set, &rvalue) {
+                Ok(mut value) => {
+                    let mut const_type = value.get_type();
+                    if let Some(explicit_type) = &explicit_type {
+                        if !type_compatible(explicit_type, &const_type) {
+                            self.working_set.error(ParseError::TypeMismatch(
+                                explicit_type.clone(),
+                                const_type.clone(),
+                                rvalue_span,
+                            ));
+                        }
+                        if let Value::String { val, .. } = &value
+                            && explicit_type == &Type::Glob
+                        {
+                            value = Value::glob(val.clone(), false, value.span());
+                            const_type = value.get_type();
+                        }
+                    }
+                    self.working_set.set_variable_type(var_id, const_type);
+                    self.working_set.set_variable_const_val(var_id, value);
                 }
-                if let Value::String { val, .. } = &value
-                    && explicit_type == &Type::Glob
-                {
-                    value = Value::glob(val.clone(), false, value.span());
-                    const_type = value.get_type();
+                Err(error) => {
+                    let error = error.wrap(self.working_set, rvalue_span);
+                    self.working_set.error(error);
                 }
             }
-            self.working_set.set_variable_type(var_id, const_type);
-            self.working_set.set_variable_const_val(var_id, value);
             // In scope once the statement can no longer be handed back (`variable_declaration`).
             self.working_set
                 .insert_variable_into_scope(var_name, var_id);
@@ -1060,9 +1089,8 @@ impl<'s> Lower<'_, '_, 's> {
     ///
     /// Returns the statement and, for `extern`, the command it defined, which an `export
     /// extern` in a module exports. A call that does not ask for help, a redirected statement
-    /// (an error for these keywords but `where`, which keeps it, and `const`, which drops it),
-    /// and an `export alias` in a module, which adds an internal error, are the classic
-    /// parser's.
+    /// (an error for these keywords but `where`, which keeps it, and `const`, which drops it)
+    /// are the classic parser's.
     pub(super) fn help_statement(
         &mut self,
         pipeline: &w::Pipeline<'s>,
@@ -1084,9 +1112,6 @@ impl<'s> Lower<'_, '_, 's> {
             });
         }
         let export = matches!(command.expr, w::Expr::Export(_));
-        if export && module_name.is_some() && keyword == "alias" {
-            return Err(Unlowered::Error);
-        }
         let decl_id = find_keyword_decl(self.working_set, keyword.as_bytes())
             .ok_or(Unlowered::Unsupported("keyword command"))?;
         let export_name = format!("export {keyword}");
@@ -1417,16 +1442,22 @@ impl<'s> Lower<'_, '_, 's> {
     }
 
     /// A definition's attributes and their constant values (the loop that starts `parse_def`
-    /// and `parse_extern`). An attribute that does not evaluate to a constant is the classic
-    /// parser's error.
+    /// and `parse_extern`). An attribute that does not evaluate to a constant is reported and
+    /// kept, without a value.
     fn attributes(&mut self, attributes: &[w::Attribute<'s>]) -> Lowered<LoweredAttributes> {
         let mut lowered = Vec::with_capacity(attributes.len());
         let mut values = Vec::with_capacity(attributes.len());
         for attribute in attributes {
             let (attribute, name) = self.attribute(attribute)?;
-            let value =
-                eval_constant(self.working_set, &attribute.expr).map_err(|_| Unlowered::Error)?;
-            values.push((name, value));
+            if let Some(name) = name {
+                match eval_constant(self.working_set, &attribute.expr) {
+                    Ok(value) => values.push((name, value)),
+                    Err(error) => {
+                        let error = error.wrap(self.working_set, attribute.expr.span);
+                        self.working_set.error(error);
+                    }
+                }
+            }
             lowered.push(attribute);
         }
         Ok((lowered, values))
@@ -1517,28 +1548,36 @@ impl<'s> Lower<'_, '_, 's> {
     }
 
     /// An attribute, `@name arguments` (`parse_attribute`): a call to the command `attr name`,
-    /// covering the attribute without its `@`. Returns it with its name. An alias of an
-    /// external command, which is not a constant command, is the classic parser's error.
-    fn attribute(&mut self, attribute: &w::Attribute<'s>) -> Lowered<(Attribute, String)> {
+    /// covering the attribute without its `@`. Returns it with its name. An unknown name, or an
+    /// alias of an external command, which is not a constant command, is reported, and the
+    /// attribute is garbage without a name.
+    fn attribute(&mut self, attribute: &w::Attribute<'s>) -> Lowered<(Attribute, Option<String>)> {
         let name = attribute.name.item.to_string();
-        let decl_id = self
-            .working_set
-            .find_decl(format!("attr {name}").as_bytes())
-            .ok_or(Unlowered::Error)?;
-        if let Some(alias) = self.working_set.get_decl(decl_id).as_alias()
-            && matches!(alias.wrapped_call.expr, Expr::ExternalCall(..))
-        {
-            return Err(Unlowered::Error);
-        }
         // The name without the attribute's `@`; a second one (`@@name`, a call to `attr @name`)
         // stays, as `parse_attribute` drops only the first.
         let name_span = self.span(attribute.name.span);
         let span = self.span(attribute.span);
         let span = Span::new(span.start + 1, span.end);
-        let (call, output, _) =
-            self.internal_call(name_span, &attribute.arguments, decl_id, None)?;
-        let expr = self.node(Expr::Call(call), span, output);
-        Ok((Attribute { expr }, name))
+        let error = match self
+            .working_set
+            .find_decl(format!("attr {name}").as_bytes())
+        {
+            None => ParseError::UnknownCommand(name_span),
+            Some(decl_id) => match self.working_set.get_decl(decl_id).as_alias() {
+                Some(alias) if matches!(alias.wrapped_call.expr, Expr::ExternalCall(..)) => {
+                    ShellError::NotAConstCommand { span: name_span }.wrap(self.working_set, span)
+                }
+                _ => {
+                    let (call, output, _) =
+                        self.internal_call(name_span, &attribute.arguments, decl_id, None)?;
+                    let expr = self.node(Expr::Call(call), span, output);
+                    return Ok((Attribute { expr }, Some(name)));
+                }
+            },
+        };
+        self.working_set.error(error);
+        let expr = Expression::garbage(self.working_set, span);
+        Ok((Attribute { expr }, None))
     }
 }
 

@@ -214,9 +214,11 @@ impl<'s> Lower<'_, '_, 's> {
     /// 2. The variables put in scope, then the signature assembled: an optional parameter or a
     ///    typed flag without a default can be `null`.
     ///
-    /// What the classic parser reports is handed back: a `bool` type on a flag, a required
-    /// parameter after an optional one, an unnamed or second rest parameter, and whatever the
-    /// classic shape, completer and name checks report.
+    /// A type or a completer the classic parser does not know it reports, and goes on with
+    /// (`parse_shape_name`, `parse_completer`), as with a default value that doesn't read or
+    /// isn't a constant (`set_default_value`). What else it reports is handed back: a `bool`
+    /// type on a flag, a required parameter after an optional one, an unnamed or second rest
+    /// parameter, and whatever the classic name checks report.
     pub(super) fn signature_params(
         &mut self,
         signature: &w::Signature<'s>,
@@ -254,13 +256,13 @@ impl<'s> Lower<'_, '_, 's> {
                 Some(ty) => {
                     let span = self.span(ty.span);
                     let text = self.text(ty.span).as_bytes();
-                    let shape =
-                        self.checked(|working_set| parse_shape_name(working_set, text, span))?;
+                    // An unknown type is `any`, an unknown completer none, each reported.
+                    let shape = parse_shape_name(self.working_set, text, span);
                     let completion = match &param.completer {
                         Some(completer) => {
                             let span = self.span(completer.span);
                             let text = completer.item.as_bytes();
-                            self.checked(|working_set| parse_completer(working_set, text, span))?
+                            parse_completer(self.working_set, text, span)
                         }
                         None => None,
                     };
@@ -330,13 +332,13 @@ impl<'s> Lower<'_, '_, 's> {
             };
 
             // `parse_signature_helper` reads each `= value` in turn with the shape the parameter
-            // has then, which a default before may have given it; the last one wins.
+            // has then, which a default before may have given it; the last one wins. A value
+            // that doesn't read, or isn't a constant, is reported.
             if !is_external {
                 for default in param.earlier_defaults.iter().chain(&param.default) {
-                    let expression = self.value(default, &parameter.default_value_shape(), None)?;
-                    self.checked(|working_set| {
-                        parameter.set_default_value(working_set, expression)
-                    })?;
+                    let shape = parameter.default_value_shape();
+                    let expression = self.reported_value(default, &shape, None)?;
+                    parameter.set_default_value(self.working_set, expression);
                 }
             }
             parameters.push(parameter);

@@ -9,26 +9,33 @@
 //! does: a value of the wrong type for a positional or a flag, an extra positional, an unknown
 //! flag, a flag without its value, a spread the command can't take, a missing positional, a `oneof`
 //! argument no shape reads (`parse_oneof`'s guess), and the error of a classic leaf parser reading
-//! an argument or a list's item without inner structure ([`Lower::reported_value`]); and a variable
-//! not in scope, wherever it is. Each is reported where the classic parser reports it, with the
-//! expression it builds there (garbage, mostly). Anything else the classic parser would report, or
-//! the lowering does not handle, it returns [`Unlowered`] for, and the driver parses the whole
-//! statement again with the classic parser, which reports the error exactly as it always has. The
-//! exceptions are where nothing is parsed again: a predeclaration ([`Lower::predecl`]) reports an
-//! invalid or duplicate name itself, as `parse_def_predecl` does; a definition keeps what the
-//! classic parser's `finish_def` or `finish_extern`, which commit it, report; an alias keeps what
-//! `parse_alias` would: its checks' errors, and the errors of a target it leaves garbage; and a
-//! statement that loads a module or a file, or changes the scope (`use`, `module`, `source`, `run`,
-//! `hide`, the overlay commands), keeps what the classic parser's code that does that
-//! (`finish_use`, `finish_module`, `finish_source`, `finish_run`, `finish_hide`,
-//! `parse_overlay_use`, ...) reports.
+//! an argument or a list's item without inner structure ([`Lower::reported_value`]). So it does
+//! with what the classic parser reports elsewhere and goes on past: a variable not in scope, a
+//! `{...}` a shape doesn't take, a closure's parameters a `closure(...)` shape doesn't give it, a
+//! negation or an operation of types it doesn't apply to (the operations typed in the classic
+//! order, through its operator stack), a binding's value of another type than written, a constant
+//! that doesn't evaluate (exported from a module or not), an attribute that is unknown or doesn't
+//! evaluate, a parameter's unknown type or completer, a default value that isn't a constant, and an
+//! `export alias` in a module asking for help (`parse_export_in_module` then looks for an alias it
+//! didn't add). Each is reported where the classic parser reports it, with the expression it builds
+//! there (garbage, mostly). Anything else the classic parser would report, or the lowering does not
+//! handle, it returns [`Unlowered`] for, and the driver parses the whole statement again with the
+//! classic parser, which reports the error exactly as it always has. The exceptions are where
+//! nothing is parsed again: a predeclaration ([`Lower::predecl`]) reports an invalid or duplicate
+//! name itself, as `parse_def_predecl` does; a definition keeps what the classic parser's
+//! `finish_def` or `finish_extern`, which commit it, report; an alias keeps what `parse_alias`
+//! would: its checks' errors, and the errors of a target it leaves garbage; and a statement that
+//! loads a module or a file, or changes the scope (`use`, `module`, `source`, `run`, `hide`, the
+//! overlay commands), keeps what the classic parser's code that does that (`finish_use`,
+//! `finish_module`, `finish_source`, `finish_run`, `finish_hide`, `parse_overlay_use`, ...)
+//! reports.
 //!
 //! What the lowering reported before giving up is dropped ([`Lower::statement_or_classic`]).
 //! What else it added to the working set stays, unreachable from the result: spans, blocks,
 //! variables and the declarations of nested scopes; every scope it entered is left on every
-//! path. A binding (`let`, `mut`, `const`) declares its variable into scope only after its
-//! checks pass: the classic parser, parsing again a binding the lowering gave back, must not
-//! find it from the binding's own value (`let x: string = $x` reads the `x` declared before).
+//! path. A binding (`let`, `mut`, `const`) declares its variable into scope only once it can no
+//! longer be handed back: the classic parser, parsing again a binding the lowering gave back,
+//! must not find it from the binding's own value (`let x: string = $x` reads the `x` before).
 //! One pass still sees what is left: `parse` discovers the captures of every block the parse
 //! added, so a block the lowering gave up on that holds a closure capturing a `mut` variable
 //! reports that error once more.

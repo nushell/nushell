@@ -491,16 +491,71 @@ fn shorthand_with_an_error_in_its_value_is_the_command() -> Result {
     Ok(())
 }
 
-/// An operation of types it doesn't apply to is reported as `parse_math_expression` reports it
-/// (`math_result_type`'s error, the operation typed as it says), and the statement is lowered.
-/// The errors come in the classic parser's order: an operation's type is checked once its
-/// operator stack reduces it, after the operand that follows.
+/// What the classic parser reports about a value, an operation or a statement and goes on past
+/// is reported as it reports it, and the statement is lowered: a `{ ... }` a shape doesn't take
+/// (`parse_brace_expr`, and `parse_oneof` when no shape does), a closure with more parameters,
+/// or another type of parameter, than a `closure(...)` shape gives it, a negation or an
+/// operation of types it doesn't apply to, a binding's value of another type than written, a
+/// constant that doesn't evaluate (also when a module exports it), an attribute that is unknown
+/// or doesn't evaluate, a parameter's unknown type or completer, a default value that isn't a
+/// constant, and an `export alias` in a module asking for help, which nu looks for once
+/// parsed. The errors of a math expression come in the classic parser's order: an operation's
+/// type is checked once its operator stack reduces it, after the operand that follows.
 #[rstest]
+#[case::non_block_value("def f [r: record] {}; f {$in}", &[("ExpectedWithStringMsg", "{$in}")])]
+#[case::no_shape_takes_the_braces(
+    "{} | merge {$in}",
+    &[("ExpectedWithStringMsg", "{$in}")]
+)]
+#[case::closure_parameter_count("[1] | each {|a b| $a }", &[("ExpectedWithStringMsg", "|a b|")])]
+#[case::closure_parameter_type(
+    "[1] | each {|x: string| $x }",
+    &[("ParameterMismatchType", "|x: string|")]
+)]
+#[case::negation("let s = 'a'; -$s", &[("OperatorUnsupportedType", "-")])]
 #[case::operation("'a' + 1", &[("OperatorIncompatibleTypes", "+")])]
 #[case::operation_after_the_next_operand(
     "1 * 'a' + $nope",
     &[("VariableNotFound", "$nope"), ("OperatorUnsupportedType", "*")]
 )]
+#[case::let_type("let x: int = 'a'", &[("TypeMismatch", "'a'")])]
+#[case::let_value_input(
+    "def f []: int -> any { let x = str length; $x }",
+    &[("InputMismatch", "str length")]
+)]
+#[case::const_type(
+    "const x: int = 'a'",
+    &[("TypeMismatch", "'a'"), ("LabeledError", "'a'")]
+)]
+#[case::const_value_type(
+    "const x: int = [1 'a'] | get 1",
+    &[("TypeMismatch", "[1 'a'] | get 1")]
+)]
+#[case::const_not_constant("const x = (ls)", &[("LabeledError", "(ls)")])]
+#[case::exported_const_not_constant(
+    "module m { export const x = (ls) }",
+    &[("LabeledError", "(ls)"), ("InternalError", "x")]
+)]
+#[case::attribute_unknown("@nope\ndef f [] {}", &[("UnknownCommand", "nope")])]
+#[case::attribute_alias_of_an_external(
+    "alias \"attr ext\" = ^ls\n@ext\ndef f [] {}",
+    &[("LabeledError", "ext")]
+)]
+#[case::attribute_not_constant(
+    "def \"attr a\" [] { {} }\n@a\ndef f [] {}",
+    &[("LabeledError", "a")]
+)]
+#[case::parameter_type("def f [x: nope] {}", &[("UnknownType", "nope")])]
+#[case::parameter_completer("def f [x: string@nope] {}", &[("UnknownCommand", "nope")])]
+#[case::parameter_default(
+    "def f [x = $nope] {}",
+    &[("VariableNotFound", "$nope"), ("NonConstantDefaultValue", "$nope")]
+)]
+#[case::default_read_with_an_earlier_defaults_type(
+    "def f [x = 1..=5] {}",
+    &[("Expected", "5"), ("NonConstantDefaultValue", "5")]
+)]
+#[case::export_alias_help("module m { export alias --help }", &[("InternalError", "alias --help")])]
 #[nu_test_support::test]
 #[serial]
 #[exp(nu_experimental::WINNOW_PARSER)]

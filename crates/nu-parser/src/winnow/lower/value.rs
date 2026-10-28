@@ -146,9 +146,9 @@ impl<'s> Lower<'_, '_, 's> {
 
     /// An item read with `shape` where the classic parser reads it with `parse_value` and
     /// nothing reads it again (a call's argument, `parse_internal_call`; a shape of a `oneof`,
-    /// `parse_oneof`; a list's item, `parse_list_expression`): as [`Self::value`] reads it,
-    /// except that an item without inner structure keeps a classic leaf parser's error,
-    /// reported with the value it recovers.
+    /// `parse_oneof`; a list's item, `parse_list_expression`; a parameter's default value,
+    /// `parse_signature_helper`): as [`Self::value`] reads it, except that an item without
+    /// inner structure keeps a classic leaf parser's error, reported with the value it recovers.
     pub(super) fn reported_value(
         &mut self,
         e: &w::Expression<'s>,
@@ -235,8 +235,8 @@ impl<'s> Lower<'_, '_, 's> {
     }
 
     /// `-$x` or `-(expr)` (`parse_negation`): the operand, read with any shape, negated. Its
-    /// type is what multiplying it by an int gives (`negation_type`); one that can't be negated
-    /// is the classic parser's error.
+    /// type is what multiplying it by an int gives (`negation_type`); an operand that can't be
+    /// negated is reported, the negation typed `any`.
     fn unary_minus(
         &mut self,
         e: &w::Expression<'s>,
@@ -244,8 +244,17 @@ impl<'s> Lower<'_, '_, 's> {
         input_type: Option<&Type>,
     ) -> Lowered<Expression> {
         let operand = self.value(&minus.expr, &SyntaxShape::Any, input_type)?;
-        let ty = negation_type(&operand.ty).ok_or(Unlowered::Error)?;
         let span = self.span(e.span);
+        let ty = negation_type(&operand.ty).unwrap_or_else(|| {
+            self.working_set.error(ParseError::OperatorUnsupportedType {
+                op: "-",
+                unsupported: operand.ty.clone(),
+                op_span: Span::new(span.start, span.start + 1),
+                unsupported_span: operand.span,
+                help: Some("Only numbers, durations and filesizes can be negated."),
+            });
+            Type::Any
+        });
         Ok(self.node(Expr::UnaryMinus(Box::new(operand)), span, ty))
     }
 
@@ -342,12 +351,20 @@ impl<'s> Lower<'_, '_, 's> {
             }
             // As `parse_brace_expr` decides: with parameters, a closure for any shape but a
             // block (an error); without, a block for a block shape, a closure for a closure or
-            // any shape, an error for the rest. Arms without parameters are the classic
-            // parser's.
+            // any shape, an error for the rest. Each error is reported with the item garbage.
+            // Arms without parameters are the classic parser's.
             w::Expr::Closure(closure) => {
                 let has_params = closure.params.is_some();
                 match shape {
-                    SyntaxShape::Block if has_params => Err(Unlowered::Error),
+                    SyntaxShape::Block if has_params => {
+                        let span = self.span(e.span);
+                        self.working_set.error(ParseError::Mismatch(
+                            "block".into(),
+                            "closure".into(),
+                            span,
+                        ));
+                        Ok(Expression::garbage(self.working_set, span))
+                    }
                     SyntaxShape::Block => self.block_expression(e.span, &closure.body, input_type),
                     SyntaxShape::MatchBlock if !has_params => {
                         Err(Unlowered::Unsupported("match block value"))
@@ -358,7 +375,14 @@ impl<'s> Lower<'_, '_, 's> {
                     _ if has_params => {
                         self.closure(e.span, closure.params.as_ref(), &closure.body, shape, None)
                     }
-                    _ => Err(Unlowered::Error),
+                    _ => {
+                        let span = self.span(e.span);
+                        self.working_set.error(ParseError::ExpectedWithStringMsg(
+                            format!("non-block value: {shape}"),
+                            span,
+                        ));
+                        Ok(Expression::garbage(self.working_set, span))
+                    }
                 }
             }
             _ => Err(Unlowered::Unsupported("`{` item")),
@@ -681,7 +705,7 @@ impl<'s> Lower<'_, '_, 's> {
     /// scope, as the classic parser makes it:
     ///
     /// 1. The parameters, declared in that scope and checked against those a `closure(...)`
-    ///    shape expects.
+    ///    shape expects: too many, or one of another type, is reported and the closure kept.
     /// 2. The body's block, receiving `input_type`.
     /// 3. The block compiled right away, as every closure is, except when the working set holds
     ///    any parse error (the classic parser's check, over everything parsed so far) and for
@@ -701,15 +725,30 @@ impl<'s> Lower<'_, '_, 's> {
                 Some(params) => Some(this.closure_signature(params)?),
                 None => None,
             };
-            if let (SyntaxShape::Closure(Some(expected)), Some(signature)) = (shape, &signature) {
+            if let (SyntaxShape::Closure(Some(expected)), Some(signature), Some(params)) =
+                (shape, &signature, params)
+            {
+                let params_span = this.span(params.span);
                 if signature.num_positionals() > expected.len() {
-                    return Err(Unlowered::Error);
+                    this.working_set.error(ParseError::ExpectedWithStringMsg(
+                        format!(
+                            "{} closure parameter{}",
+                            expected.len(),
+                            if expected.len() > 1 { "s" } else { "" }
+                        ),
+                        params_span,
+                    ));
                 }
-                for (expected, PositionalArg { shape, .. }) in
+                for (expected, PositionalArg { name, shape, .. }) in
                     expected.iter().zip(signature.required_positional.iter())
                 {
                     if expected != shape && *shape != SyntaxShape::Any {
-                        return Err(Unlowered::Error);
+                        this.working_set.error(ParseError::ParameterMismatchType(
+                            name.to_owned(),
+                            expected.to_string(),
+                            shape.to_string(),
+                            params_span,
+                        ));
                     }
                 }
             }

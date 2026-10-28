@@ -3,7 +3,7 @@
 //! of a statement to the classic parser.
 
 use nu_protocol::{
-    DeclId, Module, Span, SyntaxShape, Type,
+    DeclId, Module, ParseError, Span, SyntaxShape, Type,
     ast::{
         Block, Call, Expr, Expression, Pipeline, PipelineElement, PipelineRedirection,
         RedirectionSource, RedirectionTarget,
@@ -213,17 +213,26 @@ impl<'s> Lower<'_, '_, 's> {
                     }
                     expression
                 }
+                // The constant is exported unless it holds no value, which is reported.
                 w::Expr::Const(binding) if attributes.is_empty() => {
                     let (expression, var_span) = self.export_const(command, export, binding)?;
-                    let name = self.working_set.get_span_contents(var_span).to_vec();
-                    let var_id = self
-                        .working_set
-                        .find_variable(&name)
-                        .ok_or(Unlowered::Error)?;
-                    self.working_set
-                        .get_constant(var_id)
-                        .map_err(|_| Unlowered::Error)?;
-                    module.add_variable(name, var_id);
+                    let name = trim_quotes(self.working_set.get_span_contents(var_span)).to_vec();
+                    match self.working_set.find_variable(&name) {
+                        Some(var_id) => match self.working_set.get_constant(var_id) {
+                            Ok(_) => {
+                                module.add_variable(name, var_id);
+                            }
+                            Err(error) => self.working_set.error(error),
+                        },
+                        None => {
+                            let start = self.span(export.item.span).start;
+                            let end = self.span(command.span).end;
+                            self.working_set.error(ParseError::InternalError(
+                                "failed to find added variable".into(),
+                                Span::new(start, end),
+                            ));
+                        }
+                    }
                     expression
                 }
                 w::Expr::Alias(alias) if attributes.is_empty() => {
@@ -270,7 +279,10 @@ impl<'s> Lower<'_, '_, 's> {
                     );
                     return Ok(pipeline);
                 }
-                // An `export extern` defines its command even when it asks for help.
+                // An `export extern` defines its command even when it asks for help. An `export
+                // alias` that does declares nothing, but `parse_export_in_module` looks the alias
+                // up by the statement's third item, its quotes trimmed: that exports another
+                // command, or reports that none was found.
                 w::Expr::Call(call) if attributes.is_empty() => {
                     let (expression, decl) = self.help_statement(
                         pipeline,
@@ -282,6 +294,29 @@ impl<'s> Lower<'_, '_, 's> {
                     )?;
                     if let Some((name, decl_id)) = decl {
                         self.add_export_decl(module, module_name, name, decl_id, &expression);
+                    } else if call.head.name.as_ref() == "alias" {
+                        let span = self.span(command.span);
+                        let contents = self.working_set.get_span_contents(span);
+                        let (items, _) = lex(contents, span.start, &[], &[], true);
+                        let name = items.get(2).map_or(Vec::new(), |item| {
+                            trim_quotes(self.working_set.get_span_contents(item.span)).to_vec()
+                        });
+                        match self.working_set.find_decl(&name) {
+                            Some(decl_id) => self.add_export_decl(
+                                module,
+                                module_name,
+                                name,
+                                decl_id,
+                                &expression,
+                            ),
+                            None => {
+                                let start = self.span(export.item.span).start;
+                                self.working_set.error(ParseError::InternalError(
+                                    "failed to find added alias".into(),
+                                    Span::new(start, span.end),
+                                ));
+                            }
+                        }
                     }
                     expression
                 }
