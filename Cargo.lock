@@ -5238,7 +5238,6 @@ dependencies = [
 name = "nu-parser"
 version = "0.116.2"
 dependencies = [
- "bytesize",
  "chrono",
  "itertools 0.15.0",
  "log",

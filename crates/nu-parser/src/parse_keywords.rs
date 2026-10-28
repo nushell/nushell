@@ -1,4 +1,4 @@
-use crate::{lite_parser::LiteCommand, parser::parse_call};
+use crate::{lite_parser::LiteCommand, parse_expressions::is_literal_like, parser::parse_call};
 use nu_protocol::{
     DeclId, ParseError, Span, Type,
     ast::{Expr, Expression, Pipeline},
@@ -119,6 +119,36 @@ pub fn reject_parser_keyword_name(
     } else {
         false
     }
+}
+
+/// Whether a command or alias with this name could never be called, so it is rejected where
+/// it is defined.
+///
+/// A call is looked up by its words joined with single spaces, so a name with any other
+/// whitespace could never be called (#15539). A name that the call site reads as a value is
+/// shadowed by that value, so it could never be called either.
+pub fn is_uncallable_name(working_set: &mut StateWorkingSet, name: &str, name_span: Span) -> bool {
+    name.contains('#')
+        || name.contains('^')
+        || name.contains('%')
+        || name.split_ascii_whitespace().collect::<Vec<_>>().join(" ") != name
+        || is_shadowed_by_a_value(working_set, name_span)
+}
+
+/// Whether the call site would read the name as a value instead of looking it up as a command.
+///
+/// The name is checked as it is written: a name written as a string literal is written between
+/// quotes, and the quotes are not part of the token the call site would read.
+fn is_shadowed_by_a_value(working_set: &mut StateWorkingSet, name_span: Span) -> bool {
+    let bytes = working_set.get_span_contents(name_span);
+    let token_span = match bytes {
+        [quote @ (b'"' | b'\''), rest @ ..] if rest.last() == Some(quote) => {
+            Span::new(name_span.start + 1, name_span.end - 1)
+        }
+        _ => name_span,
+    };
+
+    is_literal_like(working_set, token_span)
 }
 
 /// Find a keyword declaration by name, ignoring any non-keyword decls that may
