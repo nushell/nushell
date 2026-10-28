@@ -541,11 +541,6 @@ impl CacheEnv {
     }
 }
 
-struct CacheEntry {
-    suggestions: Suggestions,
-    prompt_local: bool,
-}
-
 /// One generation of cached completions. Entries are only valid for the
 /// environment they were computed in, so the whole map carries a single env:
 /// a mismatch clears it in O(1) instead of purging entry by entry.
@@ -554,12 +549,15 @@ struct CacheState {
     capacity: Option<NonZeroUsize>,
     /// The generation `entries` were computed in.
     env: Option<CacheEnv>,
-    entries: LruCache<CompletionQuery, CacheEntry>,
+    entries: LruCache<CompletionQuery, Suggestions>,
 }
 
 impl CacheState {
     /// The live map for `env`, clearing a stale generation; `None` when disabled.
-    fn live(state: &mut Self, env: CacheEnv) -> Option<&mut LruCache<CompletionQuery, CacheEntry>> {
+    fn live(
+        state: &mut Self,
+        env: CacheEnv,
+    ) -> Option<&mut LruCache<CompletionQuery, Suggestions>> {
         state.capacity?;
         if state.env != Some(env) {
             state.env = Some(env);
@@ -594,19 +592,9 @@ impl NarrowingCache {
         }
     }
 
-    /// Start a prompt, discarding dynamic answers, then resize the cache.
-    /// `0` disables it entirely.
-    pub(crate) fn begin_prompt(&self, capacity: usize) {
+    /// Resize in place; `0` disables the cache. Reapplied each prompt.
+    pub(crate) fn set_capacity(&self, capacity: usize) {
         if let Ok(mut state) = self.state.lock() {
-            let expired: Vec<_> = state
-                .entries
-                .iter()
-                .filter(|(_, entry)| entry.prompt_local)
-                .map(|(query, _)| query.clone())
-                .collect();
-            for query in expired {
-                state.entries.pop(&query);
-            }
             state.capacity = NonZeroUsize::new(capacity);
             match state.capacity {
                 Some(capacity) => state.entries.resize(capacity),
@@ -626,7 +614,7 @@ impl NarrowingCache {
         let mut state = self.state.lock().ok()?;
         CacheState::live(&mut state, environment)?
             .get(query)
-            .map(|entry| entry.suggestions.clone())
+            .cloned()
     }
 
     pub(crate) fn store(
@@ -634,18 +622,11 @@ impl NarrowingCache {
         query: CompletionQuery,
         environment: CacheEnv,
         suggestions: Suggestions,
-        prompt_local: bool,
     ) {
         if let Ok(mut state) = self.state.lock()
             && let Some(cache) = CacheState::live(&mut state, environment)
         {
-            cache.put(
-                query,
-                CacheEntry {
-                    suggestions,
-                    prompt_local,
-                },
-            );
+            cache.put(query, suggestions);
         }
     }
 
@@ -660,8 +641,7 @@ impl NarrowingCache {
                 let cache = CacheState::live(&mut state, environment)?;
                 let (_, suggestions, span) = cache
                     .iter()
-                    .filter_map(|(base, entry)| {
-                        let suggestions = &entry.suggestions;
+                    .filter_map(|(base, suggestions)| {
                         // The span the last suggestion replaces; the one the cursor extends.
                         let span = suggestions.last().map(|suggestion| suggestion.span)?;
                         query
@@ -707,7 +687,6 @@ struct Completed {
     query: CompletionQuery,
     suggestions: Suggestions,
     cacheable: bool,
-    prompt_local: bool,
 }
 
 struct CompletionWorker {
@@ -1094,18 +1073,17 @@ impl<'engine> CompletionEngine<'engine> {
         }
     }
 
-    /// Answer one request, returning suggestions and their cache lifetime.
-    fn suggestions_for(&self, query: &CompletionQuery) -> (Suggestions, bool, bool) {
+    /// Answer one request, returning suggestions and whether the result is cacheable.
+    fn suggestions_for(&self, query: &CompletionQuery) -> (Suggestions, bool) {
         let dispatched = self.dispatch_completions_at(query.typed(), query.cursor());
         let reusable = dispatched.is_reusable();
-        let prompt_local = dispatched.is_prompt_local();
         let suggestions = dispatched
             .into_suggestions()
             .into_iter()
             .map(|semantic_suggestion| semantic_suggestion.suggestion)
             .collect();
 
-        (suggestions, reusable, prompt_local)
+        (suggestions, reusable)
     }
 
     pub fn fetch_completions_at(&self, line: &str, position: usize) -> Vec<SemanticSuggestion> {
@@ -2277,7 +2255,7 @@ impl NuCompleter {
         // Read fresh each prompt so `cache_size` config changes take effect.
         let config = stack.get_config(&engine_state);
         let cache_size = config.completions.cache_size;
-        cache.begin_prompt(cache_size.try_into().unwrap_or(0));
+        cache.set_capacity(cache_size.try_into().unwrap_or(0));
         Self {
             options: configured_options(&config),
             engine_state,
@@ -2324,12 +2302,11 @@ impl NuCompleter {
                     query = newer;
                 }
 
-                let (suggestions, cacheable, prompt_local) = engine.suggestions_for(&query);
+                let (suggestions, cacheable) = engine.suggestions_for(&query);
                 let done = Completed {
                     query,
                     suggestions,
                     cacheable,
-                    prompt_local,
                 };
                 if result_tx.send(done).is_err() {
                     return;
@@ -2351,12 +2328,8 @@ impl NuCompleter {
             .is_some_and(|worker| worker.pending.as_ref() == Some(&done.query));
 
         if done.cacheable {
-            self.cache.store(
-                done.query.clone(),
-                self.cache_env,
-                done.suggestions.clone(),
-                done.prompt_local,
-            );
+            self.cache
+                .store(done.query.clone(), self.cache_env, done.suggestions.clone());
         }
         self.latest = Some(done);
         settled
@@ -2451,7 +2424,7 @@ impl ReedlineCompleter for NuCompleter {
         // Interactive completers run on UI thread to own terminal.
         let engine = CompletionEngine::isolated(&self.engine_state, Arc::clone(&self.stack), false);
         if engine.interactive_completer_at(line, pos) {
-            let (suggestions, _cacheable, _) = engine.suggestions_for(&query);
+            let (suggestions, _cacheable) = engine.suggestions_for(&query);
             // An empty answer is a cancelled picker. Kept, it would answer the next
             // Tab on this line instead of relaunching the picker; the menu abandons
             // on it at once, so nothing asks again within this activation.
@@ -2459,7 +2432,6 @@ impl ReedlineCompleter for NuCompleter {
                 query,
                 suggestions: suggestions.clone(),
                 cacheable: false,
-                prompt_local: false,
             });
             let partial = partial_of(line, &suggestions);
             return CompletionResult::fresh(suggestions).with_partial(partial);
@@ -2987,58 +2959,226 @@ mod completer_tests {
         assert!(answer.suggestions().iter().any(|s| s.value == "cd"));
     }
 
-    #[test]
-    fn custom_completions_refresh_between_prompts() {
+    /// A dynamic completer can opt out of the shared cache without disabling
+    /// caching for other sources or changing the cache's environment fingerprint.
+    #[rstest::rstest]
+    #[case::parameter(
+        b"def items [token] { {completions: ($env.ITEMS | lines), options: {cache: false}} }
+          def pick [item: string@items] { $item }",
+        "pick ap"
+    )]
+    #[case::command_wide(
+        b"def items [place] { {completions: ($env.ITEMS | lines), options: {cache: false}} }
+          @complete items
+          def --wrapped pick [...rest] {}",
+        "pick ap"
+    )]
+    #[case::external(
+        b"$env.config.completions.external.completer = {|buffer|
+            {completions: ($env.ITEMS | lines), options: {cache: false}}
+          }",
+        "^some-external-command ap"
+    )]
+    fn dynamic_completer_can_refresh_between_prompts(#[case] source: &[u8], #[case] line: &str) {
         use nu_protocol::Value;
 
-        let mut engine =
-            nu_command::add_shell_command_context(nu_cmd_lang::create_default_context());
-        let source = "def items [token] { $env.ITEMS | lines }
-            @complete items
-            def --wrapped pick [...rest] {}";
-        let delta = {
-            let mut working_set = StateWorkingSet::new(&engine);
-            parse(&mut working_set, None, source.as_bytes(), false);
-            assert!(
-                working_set.parse_errors.is_empty(),
-                "{:?}",
-                working_set.parse_errors
-            );
-            working_set.render()
-        };
-        engine.merge_delta(delta).expect("merge_delta");
-        let engine = Arc::new(engine);
+        let mut engine = (*test_engine()).clone();
         let mut first_stack = Stack::new();
+        apply_source(&mut engine, &mut first_stack, source);
         first_stack.add_env_var(
             "ITEMS".into(),
             Value::string("apple\napricot", Span::unknown()),
         );
-        let stack = Arc::new(first_stack);
+        let engine = Arc::new(engine);
+        let first_stack = Arc::new(first_stack);
+        let cache = NarrowingCache::default();
+
+        let mut first_prompt =
+            NuCompleter::with_cache(engine.clone(), first_stack.clone(), cache.clone());
+        let first = first_prompt.complete_blocking(line, line.len());
+        assert!(first.iter().any(|s| s.value == "apple"));
+        assert!(first.iter().any(|s| s.value == "apricot"));
+        drop(first_prompt);
+
+        let mut second_stack = (*first_stack).clone();
+        second_stack.add_env_var("ITEMS".into(), Value::string("apple", Span::unknown()));
+        assert_eq!(
+            CacheEnv::of(&engine, &first_stack),
+            CacheEnv::of(&engine, &second_stack)
+        );
+        let mut second_prompt = NuCompleter::with_cache(engine, Arc::new(second_stack), cache);
+        assert!(
+            second_prompt.complete(line, line.len()).is_pending(),
+            "the previous prompt's dynamic answer must not be served as fresh"
+        );
+        let second = second_prompt.complete_blocking(line, line.len());
+        assert!(second.iter().any(|s| s.value == "apple"));
+        assert!(!second.iter().any(|s| s.value == "apricot"));
+    }
+
+    #[test]
+    fn custom_completer_keeps_cross_prompt_cache_by_default() {
+        use nu_protocol::Value;
+
+        let mut engine = (*test_engine()).clone();
+        let mut stack = Stack::new();
+        apply_source(
+            &mut engine,
+            &mut stack,
+            b"def items [token] { $env.ITEMS | lines }
+              def pick [item: string@items] { $item }",
+        );
+        stack.add_env_var(
+            "ITEMS".into(),
+            Value::string("apple\napricot", Span::unknown()),
+        );
+        let engine = Arc::new(engine);
+        let stack = Arc::new(stack);
         let cache = NarrowingCache::default();
 
         let mut first_prompt =
             NuCompleter::with_cache(engine.clone(), stack.clone(), cache.clone());
-        let first: Vec<_> = first_prompt
-            .complete_blocking("pick ap", 7)
-            .iter()
-            .map(|s| s.value.clone())
-            .collect();
-        assert_eq!(first, ["apple", "apricot"]);
+        assert_eq!(first_prompt.complete_blocking("pick ap", 7).len(), 2);
         drop(first_prompt);
 
-        let mut second_stack = (*stack).clone();
-        second_stack.add_env_var("ITEMS".into(), Value::string("apple", Span::unknown()));
+        let mut changed_stack = (*stack).clone();
+        changed_stack.add_env_var("ITEMS".into(), Value::string("apple", Span::unknown()));
         assert_eq!(
             CacheEnv::of(&engine, &stack),
-            CacheEnv::of(&engine, &second_stack)
+            CacheEnv::of(&engine, &changed_stack)
         );
-        let mut second_prompt = NuCompleter::with_cache(engine, Arc::new(second_stack), cache);
-        let second: Vec<_> = second_prompt
-            .complete_blocking("pick ap", 7)
-            .iter()
-            .map(|s| s.value.clone())
-            .collect();
-        assert_eq!(second, ["apple"]);
+        let mut next_prompt = NuCompleter::with_cache(engine, Arc::new(changed_stack), cache);
+        let answer = next_prompt.complete("pick ap", 7);
+        assert!(matches!(answer, CompletionResult::Fresh { .. }));
+        assert!(answer.suggestions().iter().any(|s| s.value == "apricot"));
+    }
+
+    #[test]
+    fn dynamic_command_completion_reads_external_state_each_prompt() {
+        use nu_protocol::{
+            DynamicCompletionCallRef, DynamicSuggestion, PipelineData, ShellError, Value,
+        };
+
+        #[derive(Clone)]
+        struct DynamicItems;
+
+        impl Command for DynamicItems {
+            fn name(&self) -> &str {
+                "dynamic-items"
+            }
+
+            fn description(&self) -> &str {
+                "test dynamic completion"
+            }
+
+            fn signature(&self) -> Signature {
+                Signature::build(self.name()).required("item", SyntaxShape::String, "item")
+            }
+
+            #[expect(deprecated, reason = "dynamic completion API")]
+            fn get_dynamic_completion(
+                &self,
+                engine_state: &EngineState,
+                stack: &mut Stack,
+                _call: DynamicCompletionCallRef,
+                _arg_type: &ArgType,
+                _marker: nu_protocol::engine::ExperimentalMarker,
+            ) -> Result<Option<Vec<DynamicSuggestion>>, ShellError> {
+                let items = stack
+                    .get_env_var(engine_state, "ITEMS")
+                    .and_then(|value| value.as_str().ok())
+                    .unwrap_or_default();
+                Ok(Some(
+                    items
+                        .lines()
+                        .map(|value| DynamicSuggestion {
+                            value: value.into(),
+                            ..Default::default()
+                        })
+                        .collect(),
+                ))
+            }
+
+            fn run(
+                &self,
+                _engine_state: &EngineState,
+                _stack: &mut Stack,
+                _call: &nu_protocol::engine::Call,
+                _input: PipelineData,
+            ) -> Result<PipelineData, ShellError> {
+                Ok(PipelineData::empty())
+            }
+        }
+
+        let mut engine = (*test_engine()).clone();
+        let mut working_set = StateWorkingSet::new(&engine);
+        working_set.add_decl(Box::new(DynamicItems));
+        engine
+            .merge_delta(working_set.render())
+            .expect("merge dynamic command");
+        let engine = Arc::new(engine);
+        let mut stack = Stack::new();
+        stack.add_env_var(
+            "ITEMS".into(),
+            Value::string("apple\napricot", Span::unknown()),
+        );
+        let stack = Arc::new(stack);
+        let cache = NarrowingCache::default();
+        let line = "dynamic-items ap";
+
+        let mut first_prompt =
+            NuCompleter::with_cache(engine.clone(), stack.clone(), cache.clone());
+        let first = first_prompt.complete_blocking(line, line.len());
+        assert!(first.iter().any(|s| s.value == "apricot"));
+        drop(first_prompt);
+
+        let mut changed_stack = (*stack).clone();
+        changed_stack.add_env_var("ITEMS".into(), Value::string("apple", Span::unknown()));
+        assert_eq!(
+            CacheEnv::of(&engine, &stack),
+            CacheEnv::of(&engine, &changed_stack)
+        );
+        let mut next_prompt = NuCompleter::with_cache(engine, Arc::new(changed_stack), cache);
+        assert!(next_prompt.complete(line, line.len()).is_pending());
+        let second = next_prompt.complete_blocking(line, line.len());
+        assert!(second.iter().any(|s| s.value == "apple"));
+        assert!(!second.iter().any(|s| s.value == "apricot"));
+    }
+
+    #[test]
+    fn cache_opt_out_survives_a_fallback_source() {
+        use nu_protocol::Value;
+
+        let mut engine = (*test_engine()).clone();
+        let mut stack = Stack::new();
+        apply_source(
+            &mut engine,
+            &mut stack,
+            b"def items [token] {
+                 {completions: ($env.ITEMS | lines), fallback: true, options: {cache: false}}
+               }
+               def pick [item: string@items] { $item }",
+        );
+        stack.add_env_var("ITEMS".into(), Value::string("apple", Span::unknown()));
+        let engine = Arc::new(engine);
+        let stack = Arc::new(stack);
+        let cache = NarrowingCache::default();
+
+        let mut first_prompt =
+            NuCompleter::with_cache(engine.clone(), stack.clone(), cache.clone());
+        assert!(
+            first_prompt
+                .complete_blocking("pick ap", 7)
+                .iter()
+                .any(|s| s.value == "apple")
+        );
+        drop(first_prompt);
+
+        let mut next_prompt = NuCompleter::with_cache(engine, stack, cache);
+        assert!(
+            next_prompt.complete("pick ap", 7).is_pending(),
+            "fallback results must not make a dynamic answer cacheable"
+        );
     }
 
     /// ...but not across a `cd`/`$env.PATH` change, the reason [`CacheEnv`] exists.
@@ -3275,9 +3415,11 @@ mod completer_tests {
             .map(|s| s.value.clone())
             .collect();
         assert_eq!(warmed, ["zzz-two", "zzz-one"], "producer order, unsorted");
+        drop(warming);
 
-        // Narrowing within the same prompt keeps that order instead of sorting.
-        let values: Vec<_> = warming
+        // Narrowing one more character keeps that order instead of sorting.
+        let mut narrowing = NuCompleter::with_cache(engine, Arc::new(Stack::new()), cache);
+        let values: Vec<_> = narrowing
             .complete("my-cmd zzz-", 11)
             .suggestions()
             .iter()

@@ -451,16 +451,17 @@ impl UserCompletion {
 
 impl Completer for UserCompletion {
     fn fetch(&mut self, ctx: &Context) -> Fetched {
-        let fetched = match self.eval(ctx) {
+        match self.eval(ctx) {
             Err(err) => {
                 report(format!("failed to eval completer block: {err}"));
-                self.empty(true).worth_keeping()
+                // A later prompt may no longer fail; do not cache this failure.
+                self.empty(true).without_cache()
             }
             Ok(value) => match CompleterOutput::read(value, ctx, self.narrowing) {
-                None => self.empty(false),
+                // A declining source can answer after its external state changes.
+                None => self.empty(false).without_cache(),
                 Some(output) => output.into_fetched(ctx),
             },
-        };
-        fetched.for_prompt()
+        }
     }
 }
