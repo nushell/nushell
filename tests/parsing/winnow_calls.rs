@@ -498,9 +498,11 @@ fn shorthand_with_an_error_in_its_value_is_the_command() -> Result {
 /// operation of types it doesn't apply to, a binding's value of another type than written, a
 /// constant that doesn't evaluate (also when a module exports it), an attribute that is unknown
 /// or doesn't evaluate, a parameter's unknown type or completer, a default value that isn't a
-/// constant, and an `export alias` in a module asking for help, which nu looks for once
-/// parsed. The errors of a math expression come in the classic parser's order: an operation's
-/// type is checked once its operator stack reduces it, after the operand that follows.
+/// constant, an `export alias` in a module asking for help, which nu looks for once parsed, a
+/// math operand's leaf error, also at a statement's head when the first item reads as a value,
+/// and a row condition that isn't a bool (garbage). The errors of a math expression come in the
+/// classic parser's order: an operation's type is checked once its operator stack reduces it,
+/// after the operand that follows.
 #[rstest]
 #[case::non_block_value("def f [r: record] {}; f {$in}", &[("ExpectedWithStringMsg", "{$in}")])]
 #[case::no_shape_takes_the_braces(
@@ -555,6 +557,12 @@ fn shorthand_with_an_error_in_its_value_is_the_command() -> Result {
     "def f [x = 1..=5] {}",
     &[("Expected", "5"), ("NonConstantDefaultValue", "5")]
 )]
+#[case::leaf_at_a_statements_head("let y = 1..$.a", &[("OperatorUnsupportedType", "..")])]
+#[case::leaf_operand(
+    "1 + 1..$.a",
+    &[("OperatorUnsupportedType", ".."), ("OperatorUnsupportedType", "+")]
+)]
+#[case::row_condition_not_a_bool("[1] | where 1", &[("TypeMismatch", "1")])]
 #[case::export_alias_help("module m { export alias --help }", &[("InternalError", "alias --help")])]
 #[nu_test_support::test]
 #[serial]
@@ -580,5 +588,48 @@ fn error_gone_past_is_reported_and_lowered(
 fn if_help_call_operand_is_a_call() -> Result {
     let code = "1 + if true { 1 } else { 2 } --help";
     assert_eq!(lowered_errors(code), [], "`{code}`");
+    Ok(())
+}
+
+/// A first item that doesn't read as a value (`is_math_expression_like`) makes the statement a
+/// command, an external one, whose argument errors are not reported (`parse_expression`): the
+/// range the winnow parser reads, with a variable not in scope, is left to the classic parser.
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn first_item_that_is_no_value_is_a_command() -> Result {
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let block = nu_parser::parse(&mut working_set, None, b"0..<$nope", false);
+    assert_eq!(working_set.parse_errors, []);
+    assert!(matches!(
+        block.pipelines[0].elements[0].expr.expr,
+        Expr::ExternalCall(..)
+    ));
+    Ok(())
+}
+
+/// A flag that takes a value takes the item after it, whatever it is, read as `parse_value`
+/// reads it with the flag's shape (`parse_long_flag`, `parse_short_flags`): also a word that
+/// looks like a flag, a negation, or `--`, which then is no end of the options.
+#[rstest]
+#[case::flag_word_as_a_string("f --s --x", &[])]
+#[case::negation_of_a_string("f --n -$txt", &[("OperatorUnsupportedType", "-")])]
+#[case::flag_word_for_a_short_flags_int("f -n --x", &[("Expected", "--x")])]
+#[case::end_of_options_for_an_int("f --n --", &[("Expected", "--")])]
+#[case::flags_after_a_value_of_two_dashes("f -s -- --n 1", &[])]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn flag_value_that_looks_like_a_flag(
+    #[case] code: &str,
+    #[case] expected: &[(&str, &str)],
+) -> Result {
+    let code = format!("def f [--n(-n): int, --s(-s): string] {{}}; let txt = 'a'; {code}");
+    let expected: Vec<(String, String)> = expected
+        .iter()
+        .map(|(kind, text)| (kind.to_string(), text.to_string()))
+        .collect();
+    assert_eq!(lowered_errors(&code), expected, "`{code}`");
     Ok(())
 }

@@ -4,7 +4,7 @@
 use std::{collections::HashMap, sync::Arc};
 
 use nu_protocol::{
-    ENV_VARIABLE_ID, PositionalArg, Span, SyntaxShape, Type, VarId,
+    ENV_VARIABLE_ID, ParseError, PositionalArg, Span, SyntaxShape, Type, VarId,
     ast::{
         Argument, Assignment, Bits, Block, Boolean, Call, Comparison, Expr, Expression,
         FullCellPath, Math, Operator, Pipeline, PipelineElement, RecordItem,
@@ -15,8 +15,8 @@ use super::{Lower, Lowered, Unlowered};
 use crate::winnow::syntax::{Span as WSpan, ast as w, lex::AssignmentOperator};
 use crate::{
     parse_calls::CallKind, parse_captures_compile::compile_block,
-    parse_keywords::find_keyword_decl, parse_literals::parse_string_strict,
-    type_check::math_result_type, type_check::type_compatible,
+    parse_expressions::is_math_expression_like, parse_keywords::find_keyword_decl,
+    parse_literals::parse_string_strict, type_check::math_result_type, type_check::type_compatible,
 };
 
 impl<'s> Lower<'_, '_, 's> {
@@ -76,7 +76,20 @@ impl<'s> Lower<'_, '_, 's> {
             | w::Expr::For(_)
             | w::Expr::AttributeBlock(_)
             | w::Expr::Garbage => Err(Unlowered::Unsupported("statement in a pipeline")),
-            _ => self.math(e, input_type),
+            // `parse_expression` reads the items as math only when the first reads as a value
+            // (`is_math_expression_like`), else as a command, an external one: a first item that
+            // doesn't, which only an error shows, leaves the reading to the classic parser
+            // (`0..<$nope` runs a command).
+            _ => {
+                let errors = self.working_set.parse_errors.len();
+                let math = self.math(e, input_type)?;
+                if self.working_set.parse_errors.len() > errors
+                    && !is_math_expression_like(self.working_set, self.span(first_item(e)))
+                {
+                    return Err(Unlowered::Error);
+                }
+                Ok(math)
+            }
         }
     }
 
@@ -157,7 +170,8 @@ impl<'s> Lower<'_, '_, 's> {
             // pipeline's input, as the classic parser's `parse_call` gets it there.
             _ if is_keyword_operand(e) => self.expression(e, None),
             w::Expr::FullCellPath(path) if path.implicit_head => self.implicit_cell_path(e, path),
-            _ => self.value(e, &SyntaxShape::Any, input_type),
+            // An operand keeps its leaf parser's error (`parse_math_operand`).
+            _ => self.reported_value(e, &SyntaxShape::Any, input_type),
         }
     }
 
@@ -405,7 +419,7 @@ impl<'s> Lower<'_, '_, 's> {
     /// is declared in a scope of its own (with an empty span at the condition's start) before
     /// the condition is lowered. As in the classic parser, a condition that is a variable other
     /// than `$it`, or a cell path on one, is not a row condition but that expression, typed
-    /// `any`.
+    /// `any`; one that isn't a bool is reported and is garbage.
     pub(super) fn row_condition(&mut self, condition: &w::Expression<'s>) -> Lowered<Expression> {
         let span = self.span(condition.span);
         if let w::Expr::Closure(closure) = &condition.expr {
@@ -451,12 +465,17 @@ impl<'s> Lower<'_, '_, 's> {
                     ty: Type::Any,
                     ..expression
                 })),
-                _ => {
-                    if !type_compatible(&Type::Bool, &expression.ty) {
-                        return Err(Unlowered::Error);
-                    }
-                    Ok(Ok(this.row_condition_block(expression, var_id)))
+                // A condition that isn't a bool is reported, and stands as garbage.
+                _ if !type_compatible(&Type::Bool, &expression.ty) => {
+                    let span = expression.span;
+                    this.working_set.error(ParseError::TypeMismatch(
+                        Type::Bool,
+                        expression.ty,
+                        span,
+                    ));
+                    Ok(Err(Expression::garbage(this.working_set, span)))
                 }
+                _ => Ok(Ok(this.row_condition_block(expression, var_id))),
             }
         })?;
         match block_id {
@@ -574,6 +593,15 @@ impl<'s> Lower<'_, '_, 's> {
 }
 
 /// The classic parser's operator for a winnow operator.
+/// The first item of the math expression `e`: its first operand's, or the `not` before it.
+fn first_item(e: &w::Expression<'_>) -> WSpan {
+    match &e.expr {
+        w::Expr::BinaryOp(operation) => first_item(&operation.lhs),
+        w::Expr::UnaryNot(not) => not.not_span,
+        _ => e.span,
+    }
+}
+
 /// Whether `e`, an operand, is an `if` or a `match`, which `parse_math_expression` reads as a
 /// call of the rest of the expression (`parse_call`): one that asks for help is a call in the
 /// winnow tree.

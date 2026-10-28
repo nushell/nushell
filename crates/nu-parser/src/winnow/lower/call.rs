@@ -898,10 +898,7 @@ impl<'s> Lower<'_, '_, 's> {
             let (value, taken) = match (&found.arg, &flag.value) {
                 (Some(shape), Some(value)) => (Some(self.flag_value(value, shape)?), false),
                 (Some(shape), None) => match next {
-                    Some(w::Argument::Positional(value)) => {
-                        (Some(self.flag_value(value, shape)?), true)
-                    }
-                    Some(_) => return Err(Unlowered::Error),
+                    Some(next) => (Some(self.next_flag_value(next, shape)?), true),
                     None => {
                         self.working_set
                             .error(ParseError::MissingFlagParam(shape.to_string(), token));
@@ -970,11 +967,10 @@ impl<'s> Lower<'_, '_, 's> {
             };
             let value = match &short_flag.arg {
                 Some(shape) => match next {
-                    Some(w::Argument::Positional(value)) => {
+                    Some(next) => {
                         taken = true;
-                        Some(self.flag_value(value, shape)?)
+                        Some(self.next_flag_value(next, shape)?)
                     }
-                    Some(_) => return Err(Unlowered::Error),
                     // Named by both its names, so a completion can tell which flag waits for
                     // its value.
                     None => {
@@ -995,21 +991,45 @@ impl<'s> Lower<'_, '_, 's> {
         Ok(taken)
     }
 
-    /// A flag's value, type-checked against its shape (`ensure_flag_arg_type`): `null` passes,
-    /// and a value of another type is garbage, with the classic parser's type mismatch.
+    /// A flag's value, type-checked against its shape ([`Self::flag_type`]).
     pub(super) fn flag_value(
         &mut self,
         value: &w::Expression<'s>,
         shape: &SyntaxShape,
     ) -> Lowered<Expression> {
         let value = self.reported_value(value, shape, None)?;
+        Ok(self.flag_type(value, shape))
+    }
+
+    /// The value of a flag that takes one: the item after it, whatever it is
+    /// (`parse_long_flag`, `parse_short_flags`). One the winnow tree has as a flag, a spread or
+    /// `--` (`--n -$x`, `--s --`) is read as `parse_value` reads it there, as a positional that
+    /// looks like a flag after `--` is.
+    fn next_flag_value(
+        &mut self,
+        next: &w::Argument<'s>,
+        shape: &SyntaxShape,
+    ) -> Lowered<Expression> {
+        match next {
+            w::Argument::Positional(value) => self.flag_value(value, shape),
+            _ => {
+                let span = self.span(next.span());
+                let value = classic_value(self.working_set, span, shape, None);
+                Ok(self.flag_type(value, shape))
+            }
+        }
+    }
+
+    /// A flag's value checked against its shape (`ensure_flag_arg_type`): `null` passes, and a
+    /// value of another type is garbage, with the classic parser's type mismatch.
+    fn flag_type(&mut self, value: Expression, shape: &SyntaxShape) -> Expression {
         if value.ty != Type::Nothing && !type_compatible(&shape.to_type(), &value.ty) {
             let span = value.span;
             self.working_set
                 .error(ParseError::TypeMismatch(shape.to_type(), value.ty, span));
-            return Ok(Expression::garbage(self.working_set, span));
+            return Expression::garbage(self.working_set, span);
         }
-        Ok(value)
+        value
     }
 
     /// Whether a command takes the flag `token`, which its signature does not have, as an
