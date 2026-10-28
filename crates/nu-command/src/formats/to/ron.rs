@@ -84,7 +84,7 @@ fn convert_value_to_ron(value: &Value, span: Span) -> Result<RonValue, ShellErro
             Ok(RonValue::Map(map))
         }
         Value::Filesize { val, .. } => Ok(RonValue::Number(ron::Number::from(val.get()))),
-        Value::Date { val, .. } => Ok(RonValue::String(val.to_string())),
+        Value::Date { val, .. } => Ok(RonValue::String(val.to_rfc3339())),
         Value::Duration { val, .. } => Ok(RonValue::Number(ron::Number::from(val.to_owned()))),
         Value::Range { val, .. } => Ok(RonValue::String(val.to_string())),
         Value::CellPath { val, .. } => Ok(RonValue::String(val.to_string())),
