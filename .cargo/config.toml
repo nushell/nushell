@@ -30,7 +30,7 @@ rustflags = ["-C", "link-args=-stack:10000000", "-C", "target-feature=+crt-stati
 [target.aarch64-apple-darwin]
 # We can guarantee that this target will always run on a CPU with _at least_
 # these capabilities, so let's optimize for them
-rustflags = ["-Ctarget-cpu=apple-m1"]
+rustflags = ["-Ctarget-cpu=apple-m1", "-Alinker-messages"]
 
 [alias]
 # Default clippy for library + bin code (no tests)
