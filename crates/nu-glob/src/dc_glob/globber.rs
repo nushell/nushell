@@ -242,13 +242,17 @@ fn traversal_start_dir(program: &Program, base: &Path) -> (PathBuf, bool, usize)
                 if component.is_empty() {
                     break;
                 }
-                if program.case_insensitive {
+                if program.case_insensitive && !parent_follows(&program.instructions, i) {
                     // The pattern may spell this component differently than the
                     // filesystem does, so the directory to walk from is not
                     // known here. Leave the component to the matcher, which
                     // compares path components without regard to case.
                     return (out, false, literal_components_from(program, i));
                 }
+                // A `..` after this component has to be resolved by the
+                // filesystem, so the component cannot be left to the matcher
+                // either: the traversal start directory has to carry the `..`
+                // for the walk to reach the parent.
                 out.push(component.as_ref());
                 i += 1;
             }
@@ -272,6 +276,17 @@ fn traversal_start_dir(program: &Program, base: &Path) -> (PathBuf, bool, usize)
     }
 
     (out, false, 0)
+}
+
+/// Whether a `..` component follows the literal at `start`.
+///
+/// A `..` after a literal component has to be resolved by the filesystem, so
+/// the literal cannot be left to the matcher: the traversal start directory
+/// has to carry the `..` for the walk to reach the parent.
+fn parent_follows(instructions: &[Instruction], start: usize) -> bool {
+    instructions[start..]
+        .iter()
+        .any(|instruction| matches!(instruction, Instruction::ParentDir))
 }
 
 /// How many literal path components the matcher has to compare, starting at `start`.

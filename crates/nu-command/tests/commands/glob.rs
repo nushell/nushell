@@ -571,8 +571,15 @@ fn glob_dc_glob_ignore_case_depth_counts_from_the_same_place() -> Result {
 
         // With `-i` the traversal starts at the base directory and leaves the
         // literal `docs` to the matcher, so `--depth` has to count from the
-        // same place either way.
-        for pattern in ["glob 'docs/*.md' | length", "glob -i 'docs/*.md' | length"] {
+        // same place either way. A `..` after the literal is the exception:
+        // the parent has to be resolved by the filesystem, so the literal goes
+        // into the traversal start directory together with it.
+        for pattern in [
+            "glob 'docs/*.md' | length",
+            "glob -i 'docs/*.md' | length",
+            "glob 'docs/../docs/*.md' | length",
+            "glob -i 'docs/../docs/*.md' | length",
+        ] {
             test()
                 .cwd(dirs.test())
                 .run(pattern)
@@ -583,6 +590,39 @@ fn glob_dc_glob_ignore_case_depth_counts_from_the_same_place() -> Result {
         for pattern in [
             "glob -d 1 'docs/*.md' | length",
             "glob -i -d 1 'docs/*.md' | length",
+            "glob -d 1 'docs/../docs/*.md' | length",
+            "glob -i -d 1 'docs/../docs/*.md' | length",
+        ] {
+            test()
+                .cwd(dirs.test())
+                .run(pattern)
+                .expect_value_eq(1)
+                .unwrap_or_else(|err| panic!("{pattern}: {err:?}"));
+        }
+    });
+
+    Ok(())
+}
+
+#[test]
+#[exp(nu_experimental::DC_GLOB)]
+fn glob_dc_glob_ignore_case_keeps_parent_components() -> Result {
+    Playground::setup("glob_dc_ignore_case_parent", |dirs, sandbox| {
+        std::fs::create_dir_all(dirs.test().join("docs/deep")).expect("can not create docs/deep");
+        sandbox.with_files(&[
+            FileWithContent("docs/note.md", ""),
+            FileWithContent("docs/deep/x.md", ""),
+        ]);
+
+        // A `..` after a literal component has to be resolved by the
+        // filesystem. With `-i` the literal used to be left to the matcher,
+        // so the traversal started above the `..` and never reached the
+        // parent: the pattern matched nothing.
+        for pattern in [
+            "glob 'docs/../docs/*.md' | length",
+            "glob -i 'docs/../docs/*.md' | length",
+            "glob 'docs/deep/../*.md' | length",
+            "glob -i 'docs/deep/../*.md' | length",
         ] {
             test()
                 .cwd(dirs.test())

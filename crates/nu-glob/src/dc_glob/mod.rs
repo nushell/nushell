@@ -386,6 +386,47 @@ mod tests {
     }
 
     #[test]
+    fn glob_with_ignore_case_keeps_parent_after_literal() {
+        let root = unique_test_dir("ignore_case_parent");
+        fs::create_dir_all(&root).expect("failed to create root test directory");
+        write_file(&root.join("docs/note.md"));
+        write_file(&root.join("docs/deep/x.md"));
+
+        // A `..` after a literal component has to be resolved by the
+        // filesystem. With `-i` the literal used to be left to the matcher, so
+        // the traversal started above the `..` and never reached the parent:
+        // the pattern matched nothing.
+        for ignore_case in [false, true] {
+            let options = GlobWalkOptions {
+                ignore_case,
+                ..GlobWalkOptions::default()
+            };
+            for (pattern, expected) in [
+                (
+                    "docs/../docs/*.md",
+                    expected_path(&["docs", "..", "docs", "note.md"]),
+                ),
+                (
+                    "docs/deep/../*.md",
+                    expected_path(&["docs", "deep", "..", "note.md"]),
+                ),
+            ] {
+                let paths = collect_ok_paths(
+                    glob_with(&root, pattern, &options).expect("parent glob should compile"),
+                )
+                .unwrap_or_else(|err| panic!("{pattern}: {err:?}"));
+                assert_eq!(
+                    paths,
+                    vec![expected],
+                    "ignore_case={ignore_case}, pattern {pattern}"
+                );
+            }
+        }
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
     fn glob_with_missing_root_returns_no_results() {
         let root = unique_test_dir("missing_root");
         fs::create_dir_all(&root).expect("failed to create root test directory");
