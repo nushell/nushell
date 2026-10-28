@@ -190,7 +190,7 @@ lexopt = "0.3.2"
 libc = "0.2.189"
 libproc = "0.14.11"
 log = "0.4.34"
-lru = "0.18.3"
+lru = "0.19.0"
 lscolors = { version = "0.21", default-features = false }
 lsp-server = "0.10.0"
 lsp-types = { version = "0.97.0", features = ["proposed"] }

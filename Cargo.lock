@@ -4125,9 +4125,18 @@ checksum = "f9f8bd3e56ce4dfc153cf470fffbfa98c7620958b312ca5c3a4b8d5181fd13c6"
 
 [[package]]
 name = "lru"
-version = "0.18.3"
+version = "0.18.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0d317b4b9eb398e6acce275758ec6125535505e7a146fb1a9b8bda2451b0ff4c"
+checksum = "ef9ac18847474e638e3702b76c65d4eb93428471a74778ef0f1be711717f89b5"
+dependencies = [
+ "hashbrown 0.17.1",
+]
+
+[[package]]
+name = "lru"
+version = "0.19.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4a9f71e3591c7ec44d3e563e87bf14ddc2bada8519dca046e5b0e560cd004e2d"
 dependencies = [
  "hashbrown 0.17.1",
 ]
@@ -4744,7 +4753,7 @@ dependencies = [
  "fancy-regex",
  "is_executable",
  "log",
- "lru",
+ "lru 0.19.0",
  "lscolors",
  "miette 7.6.0",
  "nu-ansi-term",
@@ -5339,7 +5348,7 @@ dependencies = [
  "indoc",
  "itertools 0.15.0",
  "log",
- "lru",
+ "lru 0.19.0",
  "memchr",
  "miette 7.6.0",
  "nix 0.31.3",
@@ -7651,7 +7660,7 @@ dependencies = [
  "hashbrown 0.17.1",
  "itertools 0.14.0",
  "kasuari",
- "lru",
+ "lru 0.18.5",
  "palette",
  "serde",
  "strum",
