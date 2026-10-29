@@ -77,7 +77,8 @@ impl<'s> Lower<'_, '_, 's> {
             let first_word = call.head.name.split(' ').next().unwrap_or_default();
             match first_word {
                 "run" if call.head.name == "run" => return self.run(e, call),
-                "run" | "where" => return Err(Unlowered::Unsupported("keyword command")),
+                "run" => return Err(Unlowered::Unsupported("keyword command")),
+                "where" => return self.where_call(e, call),
                 word if STATEMENTS_IN_PIPELINE.contains(&word) => return Err(Unlowered::Error),
                 "overlay" if self.second_word(call) != Some("list") => {
                     return Err(Unlowered::Error);

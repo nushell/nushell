@@ -101,6 +101,9 @@ pub fn is_parser_keyword(name: &str) -> bool {
 pub enum KeywordBoundary {
     /// `--help`/`-h`: the whole statement is an ordinary call showing help.
     Help,
+    /// A flag the keyword does not have (`return -1`, `if --foo`), left in place: nu's call
+    /// reports it ([`keyword_flag`]; [`keyword_boundary`] refuses it).
+    UnknownFlag,
     /// Nothing special (a `--` end-of-options marker was consumed and ignored).
     Argument,
 }
@@ -127,32 +130,52 @@ pub fn keyword_boundary_with(
     extra: &[&str],
     end_of_options: bool,
 ) -> ParseResult<KeywordBoundary> {
+    match keyword_flag(tokens, extra, end_of_options) {
+        KeywordBoundary::UnknownFlag => {
+            let span = tokens
+                .peek_token()
+                .map_or(tokens.here(), |token| token.span);
+            let text = tokens.working_set.get_span_contents(span);
+            Err(cut(Diagnostic::message(
+                format!("the `{keyword}` command doesn't have flag `{text}`"),
+                span,
+            )
+            .with_help("use `--help` to see available flags")))
+        }
+        boundary => Ok(boundary),
+    }
+}
+
+/// The item at a positional boundary of a keyword, as [`keyword_boundary_with`] reads it, but
+/// with a flag the keyword does not have (any `-x` but those `extra` allows) left in place as
+/// [`KeywordBoundary::UnknownFlag`], for a statement nu then reads as a call with that flag.
+pub fn keyword_flag(
+    tokens: &mut Tokens<'_, '_>,
+    extra: &[&str],
+    end_of_options: bool,
+) -> KeywordBoundary {
     let Some(token) = tokens
         .peek_token()
         .filter(|token| token.contents == TokenContents::Item)
     else {
-        return Ok(KeywordBoundary::Argument);
+        return KeywordBoundary::Argument;
     };
     if end_of_options && seen_end_of_options(tokens) {
-        return Ok(KeywordBoundary::Argument);
+        return KeywordBoundary::Argument;
     }
     let text = tokens.text(token);
     match text {
-        _ if is_help_text(text) => Ok(KeywordBoundary::Help),
+        _ if is_help_text(text) => KeywordBoundary::Help,
         "--" if end_of_options => {
             tokens.working_set.add_ignored(token.span);
             tokens.next_token();
-            Ok(KeywordBoundary::Argument)
+            KeywordBoundary::Argument
         }
-        "--" => Ok(KeywordBoundary::Argument),
+        "--" => KeywordBoundary::Argument,
         _ if text.starts_with('-') && text.len() > 1 && !extra.contains(&text) => {
-            Err(cut(Diagnostic::message(
-                format!("the `{keyword}` command doesn't have flag `{text}`"),
-                token.span,
-            )
-            .with_help("use `--help` to see available flags")))
+            KeywordBoundary::UnknownFlag
         }
-        _ => Ok(KeywordBoundary::Argument),
+        _ => KeywordBoundary::Argument,
     }
 }
 
@@ -183,14 +206,16 @@ pub struct KeywordCall<'t, 'a> {
     statement: Tokens<'t, 'a>,
     /// The keyword.
     pub keyword: Token,
-    /// The keyword's text, for the unknown-flag error.
-    name: &'a str,
     /// Whether a `--` ends the options: `false` from
     /// [`KeywordCall::start_positional`], for a keyword whose argument nu takes
     /// by position (`export-env`).
     end_of_options: bool,
     /// A `--help` or `-h` was seen.
     help: bool,
+    /// The keyword's call has an error of its own: a flag it does not have (`return --foo`) or
+    /// a positional too many (`break x`). nu's call reports it, so the statement is that call,
+    /// as for `--help`.
+    call_error: bool,
 }
 
 impl<'t, 'a> KeywordCall<'t, 'a> {
@@ -201,9 +226,9 @@ impl<'t, 'a> KeywordCall<'t, 'a> {
         Ok(Self {
             statement,
             keyword,
-            name: tokens.text(&keyword),
             end_of_options: true,
             help: false,
+            call_error: false,
         })
     }
 
@@ -217,19 +242,24 @@ impl<'t, 'a> KeywordCall<'t, 'a> {
     }
 
     /// The flags at a positional boundary; nu takes every one of them
-    /// (`extern foo --help --help`).
+    /// (`extern foo --help --help`), a help flag or an unknown one making the statement nu's
+    /// call.
     pub fn flags(&mut self, tokens: &mut Tokens<'t, 'a>) -> ParseResult<()> {
-        // `keyword_boundary_with` leaves a help flag for this loop to take, takes a `--` itself
-        // and refuses an unknown flag; anything else it leaves in place, which ends the flags.
+        // `keyword_flag` leaves a help flag and an unknown flag for this loop to take and takes a
+        // `--` itself; anything else it leaves in place, which ends the flags.
         loop {
             let before = tokens.position();
-            if let KeywordBoundary::Help =
-                keyword_boundary_with(tokens, self.name, &[], self.end_of_options)?
-            {
-                tokens.next_token();
-                self.help = true;
-            } else if tokens.position() == before {
-                return Ok(());
+            match keyword_flag(tokens, &[], self.end_of_options) {
+                KeywordBoundary::Help => {
+                    tokens.next_token();
+                    self.help = true;
+                }
+                KeywordBoundary::UnknownFlag => {
+                    tokens.next_token();
+                    self.call_error = true;
+                }
+                KeywordBoundary::Argument if tokens.position() == before => return Ok(()),
+                KeywordBoundary::Argument => {}
             }
         }
     }
@@ -249,32 +279,48 @@ impl<'t, 'a> KeywordCall<'t, 'a> {
         help
     }
 
-    /// The flags, then the next positional item; `None` when it is missing
-    /// and a `--help` forgives that.
+    /// The flags, then the next positional item; `None` when it is missing and the statement is
+    /// nu's call ([`Self::is_call`]), which reports it as a call's, or when a flag the keyword
+    /// does not have came first ([`Self::call_flags`]).
     pub fn positional(
         &mut self,
         tokens: &mut Tokens<'t, 'a>,
         what: &'static str,
     ) -> ParseResult<Option<Token>> {
-        self.flags(tokens)?;
-        if self.help && tokens.at_end() {
+        if self.call_flags(tokens)? || self.is_call() && tokens.at_end() {
             return Ok(None);
         }
         tokens.expect_item(what).map(Some)
     }
 
-    /// The flags after the last positional, then the end of the statement.
+    /// The flags at a positional boundary ([`Self::flags`]); `true` when a flag the keyword
+    /// does not have was seen. nu's first error is then that flag's, whatever its call reads
+    /// after it (`if -1 > 0 {}`), since the items before it parsed, so the statement is that
+    /// call ([`Self::help_call`]) at once.
+    pub fn call_flags(&mut self, tokens: &mut Tokens<'t, 'a>) -> ParseResult<bool> {
+        self.flags(tokens)?;
+        Ok(self.call_error)
+    }
+
+    /// The flags after the last positional, then the end of the statement. An item left is a
+    /// positional too many, nu's ExtraPositional (`break x`, `loop {} -- --foo`): the
+    /// statement is then nu's call ([`Self::is_call`]).
     pub fn end(&mut self, tokens: &mut Tokens<'t, 'a>) -> ParseResult<()> {
         self.flags(tokens)?;
-        tokens.expect_end()
+        if !tokens.at_end() {
+            self.call_error = true;
+        }
+        Ok(())
     }
 
-    /// Whether a `--help` or `-h` was seen.
-    pub fn wants_help(&self) -> bool {
-        self.help
+    /// Whether the statement is nu's ordinary call to the keyword: a `--help` or `-h` was seen,
+    /// or the call has an error of its own (a flag the keyword does not have, a positional too
+    /// many).
+    pub fn is_call(&self) -> bool {
+        self.help || self.call_error
     }
 
-    /// The statement as the ordinary call nu makes of `keyword --help`.
+    /// The statement as the ordinary call nu makes of it (`keyword --help`, `return --foo`).
     pub fn help_call(self) -> ParseResult<Expression<'a>> {
         parse_help_call(self.statement)
     }
@@ -299,9 +345,9 @@ impl<'t, 'a> KeywordCall<'t, 'a> {
         Ok(call)
     }
 
-    /// The finished statement, unless a `--help` turned it into a call.
+    /// The finished statement, unless a `--help` or an error of the call made it nu's call.
     pub fn finish(self, expression: Expression<'a>) -> ParseResult<Expression<'a>> {
-        if self.help {
+        if self.is_call() {
             self.help_call()
         } else {
             Ok(expression)

@@ -158,9 +158,10 @@ evaluation.
 Every keyword is a command with a fixed signature in nu, so at the start of
 each of its positional arguments `parse_internal_call` looks for flags.
 `KeywordCall` (nu's `parse_keyword` behaviour) reproduces that with its
-methods `start`, `start_positional`, `flags`, `positional`, `end`,
-`wants_help`, `help_call` and `finish`, built on `keyword_boundary`,
-`keyword_boundary_with` and `seen_end_of_options`:
+methods `start`, `start_positional`, `flags`, `call_flags`, `positional`,
+`end`, `is_call`, `help_call` and `finish`, built on `keyword_flag` and
+`seen_end_of_options` (`keyword_boundary` and `keyword_boundary_with` refuse an
+unknown flag, for `alias` and `use`):
 
 * `--help` or `-h` at a boundary makes the whole statement an ordinary
   call showing help (`help_call` calls `parse_help_call`, which drops the
@@ -172,9 +173,8 @@ methods `start`, `start_positional`, `flags`, `positional`, `end`,
   (`alias` and `type` drop them, as nu does for the call it parses for them).
   nu keeps parsing the positionals that
   follow the flag and only forgives the *missing* ones, so `call.flags`
-  records the flag (`wants_help`) and parsing goes on: `match 1 --help :{}`
-  still has no match block, `return --help 1 2` and `loop --help {} y` have
-  an extra positional, `def foo [] {} {} --help` has no colon, but
+  records the flag (`is_call`) and parsing goes on: `match 1 --help :{}`
+  still has no match block, `def foo [] {} {} --help` has no colon, but
   `match 1 --help` and `def foo --help` are fine. `call.positional`
   returning `None` is the "missing positional is forgiven" step; `finish`
   turns the finished statement into the help call. The argument of the `in`
@@ -188,9 +188,12 @@ methods `start`, `start_positional`, `flags`, `positional`, `end`,
   flags at all (`seen_end_of_options`): a second `--` is a positional
   (`try {} -- catch {} --` has one too many) and `return -- --help` returns
   the string `--help`.
-* Any other `-x` at a boundary is "the `for` command doesn't have flag
-  `-x`": `return -1`, `match -1 {}`, `if -1 > 0 {}` and `where -1 > 0` are
-  errors, as they are in nu.
+* Any other `-x` at a boundary is a flag the keyword does not have, nu's
+  UnknownFlag (`return -1`, `match -1 {}`, `if -1 > 0 {}`, `where -1 > 0`),
+  and an item after the last positional is nu's ExtraPositional (`break x`,
+  `return --help 1 2`, `loop {} y`): errors of the call, semantic, so the
+  statement is that call (`call_flags` and `positional` hand it over at once,
+  since everything before the flag parsed; `end` marks an item left).
 * Where a positional spans several items (a condition, a signature, an alias
   target) only its first item is a boundary.
 * The statements nu parses by position rather than through

@@ -84,10 +84,10 @@ nu-parser does not have. `parse_keywords::KeywordCall` and
 | nu-parser | here | fixtures | tests |
 | --- | --- | --- | --- |
 | `alias` | `parse_alias::parse_alias` | `accept/alias/*.nu` `reject/def/alias-*.nu` | `extern_alias_module_use_export` |
-| `break` | `parse_control_flow::parse_break_or_continue` | `accept/loops/break-continue-in-nested-blocks.nu` `reject/loops/break-with-arg.nu` | `loops_and_jumps` |
+| `break` | `parse_control_flow::parse_break_or_continue` | `accept/loops/break-continue-in-nested-blocks.nu` `accept/loops/break-with-arg-is-consumer.nu` | `loops_and_jumps` |
 | `collect` | an ordinary `Call` (nu marks it a keyword for `$in` handling only) | `accept/calls/closure-arg-without-pipes.nu` | `multiword_commands_and_flags` |
 | `const` | `parse_bindings::parse_const` | `accept/bindings/const-forms.nu` `reject/bindings/const-*.nu` | `let_mut_const` |
-| `continue` | `parse_control_flow::parse_break_or_continue` | `accept/loops/loop-with-continue.nu` `reject/loops/continue-with-arg.nu` | `loops_and_jumps` |
+| `continue` | `parse_control_flow::parse_break_or_continue` | `accept/loops/loop-with-continue.nu` `accept/loops/continue-with-arg-is-consumer.nu` | `loops_and_jumps` |
 | `def` | `parse_def::parse_def`, `parse_definition_flags` (`--env`, `--wrapped`, with a value: `ast::DefinitionFlag`, `DefinitionFlag::is_set` for nu's `has_flag_const`) | `accept/def/*.nu` `reject/def/*.nu` | `def_forms` `def_flag_values` `declaration_errors_from_nushell_tests` |
 | `export` | `parse_module::parse_export_in_block` | `accept/modules/export-forms.nu` `reject/modules/export-*.nu` | `extern_alias_module_use_export` |
 | `export alias` | `parse_module::parse_export_in_block` + `parse_alias::parse_alias` | `accept/modules/export-forms.nu` | `extern_alias_module_use_export` |
@@ -113,7 +113,7 @@ nu-parser does not have. `parse_keywords::KeywordCall` and
 | `overlay new` | an ordinary `Call` (multi-word head); its arguments are semantic | `accept/modules/overlay.nu` `accept/calls/overlay-new-*-is-consumer.nu` `reject/pipelines/overlay-new-before-pipe.nu` | `use_forms` |
 | `overlay use` | an ordinary `Call` (multi-word head) whose `as NAME` keyword is checked by `parse_calls::check_call`; its other arguments are semantic | `accept/modules/overlay.nu` `accept/calls/keyword-switch-value.nu` `accept/calls/keyword-short-flag-batch.nu` `accept/calls/overlay-use-*-is-consumer.nu` `reject/calls/overlay-use-*.nu` | `use_forms` |
 | `plugin use` | an ordinary `Call` (multi-word head); its arguments are semantic | `accept/modules/plugin.nu` `accept/calls/plugin-use-*-is-consumer.nu` `reject/pipelines/plugin-use-before-pipe.nu` | `use_forms` |
-| `return` | `parse_control_flow::parse_return` | `accept/loops/return-forms.nu` `reject/loops/return-two-values.nu` | `loops_and_jumps` |
+| `return` | `parse_control_flow::parse_return` | `accept/loops/return-forms.nu` `accept/loops/return-two-values-is-consumer.nu` | `loops_and_jumps` |
 | `run` | an ordinary `Call`, its arguments semantic; `run` is refused as a definition name | `reject/def/keyword-name-run.nu` `accept/calls/run-without-argument-is-consumer.nu` `reject/redirections/run-redirected.nu` | `definitions_cannot_use_parser_keywords` |
 | `source` | an ordinary `Call`; its arguments and file resolution are semantic | `accept/modules/hide-and-source.nu` `accept/calls/source-*-is-consumer.nu` `reject/pipelines/source-*.nu` `reject/redirections/source-redirected.nu` | `use_forms` |
 | `source-env` | an ordinary `Call`; its arguments are semantic | `accept/modules/hide-and-source.nu` | `use_forms` |
@@ -236,7 +236,7 @@ signatures, types or files and is left to the consumer.
 | --- | --- | --- | --- |
 | `ExtraTokens` | `ErrorKind::ExtraTokens` | `reject/bindings/let-missing-colon.nu` `reject/lexer/text-after-closing-quote.nu` | `let_type_without_colon_is_extra_tokens` |
 | `ExtraTokensAfterClosingDelimiter` | `ErrorKind::ExtraTokens` | `reject/lexer/text-after-closing-brace.nu` | `malformed_input_does_not_panic` |
-| `ExtraPositional` | n/a (semantic: signature), for the keyword commands too | `accept/calls/hide-extra-positional-is-consumer.nu` `accept/calls/overlay-new-two-positionals-is-consumer.nu` `accept/calls/positional-args.nu` | `multiword_commands_and_flags` |
+| `ExtraPositional` | n/a (semantic: signature), for the keyword commands too, and for the statements read with a `KeywordCall` (`KeywordCall::end`: `break x` is the call) | `accept/calls/hide-extra-positional-is-consumer.nu` `accept/calls/overlay-new-two-positionals-is-consumer.nu` `accept/calls/positional-args.nu` | `multiword_commands_and_flags` |
 | `RequiredAfterOptional` | `parse_signatures::check_parameters` | `reject/signatures/required-after-optional.nu` `accept/signatures/optional-positional.nu` | `def_forms` |
 | `UnexpectedEof` | `ErrorKind::UnexpectedEof` | `reject/pipelines/pipe-then-semicolon.nu` `reject/pipelines/trailing-pipe-in-block.nu` | `redirecting_nothing_is_an_error` |
 | `Unclosed` | `ErrorKind::Unclosed` | `reject/lexer/unclosed-*.nu` | `unclosed_delimiters_report_opener` `lex_unclosed_delimiters_point_at_the_opener` |
@@ -285,7 +285,7 @@ signatures, types or files and is left to the consumer.
 | `CantAddOverlayHelp` | n/a (semantic: overlays) | `accept/modules/overlay.nu` | `use_forms` |
 | `DuplicateCommandDef` | `parse_def::parse_def_predecl` (the same `def`/`extern` name predeclared twice in one block); across modules and files: semantic | `reject/def/duplicate-*.nu` `accept/def/same-name-in-nested-block.nu` `accept/modules/module-inline.nu` | `extern_alias_module_use_export` |
 | `UnknownCommand` | env shorthand without a command (`FOO=1` alone, `parse_expressions::parse_expression`); an unknown attribute name: consumer. An unknown head is not an error but an external call (`parse_calls::parse_call`) | `reject/env-shorthand/shorthand-alone.nu` `accept/externals/unknown-command-is-external.nu` `accept/attributes/unknown-attribute-name-is-consumer.nu` | `external_calls` `env_shorthand` |
-| `UnknownFlag` | `ErrorKind::Message` (`doesn't have flag`) for the statements (`parse_keywords::keyword_boundary`); n/a for the calls, keyword commands included, and for `module`, which is a call then (`parse_module::parse_module_call`; semantic: signature) | `accept/modules/module-help-unknown-flag-is-consumer.nu` `accept/calls/hide-unknown-long-flag-is-consumer.nu` `reject/loops/return-unknown-flag.nu` `accept/calls/long-flags.nu` | `multiword_commands_and_flags` |
+| `UnknownFlag` | `ErrorKind::Message` (`doesn't have flag`) for `alias` and `use` (`parse_keywords::keyword_boundary`); n/a for the calls, keyword commands included, for `module` and for the statements read with a `KeywordCall` (`if`, `while`, `match`, `try`, `loop`, `return`, `break`, `continue`, `where`, `for`, `export-env`, a binding without `=`), which are a call then (`parse_module::parse_module_call`, `parse_keywords::KeywordCall::call_flags`; semantic: signature) | `accept/modules/module-help-unknown-flag-is-consumer.nu` `accept/calls/hide-unknown-long-flag-is-consumer.nu` `accept/loops/return-unknown-flag-is-consumer.nu` `accept/calls/long-flags.nu` | `multiword_commands_and_flags` |
 | `UnknownType` | `ErrorKind::UnknownType` | `reject/def/unknown-type.nu` `reject/bindings/let-unknown-type.nu` | `def_forms` |
 | `MissingFlagParam` | n/a (semantic: signature), for the keyword commands too | `accept/calls/overlay-hide-keep-env-without-value-is-consumer.nu` `accept/calls/flag-followed-by-value.nu` | `multiword_commands_and_flags` |
 | `OnlyLastFlagInBatchCanTakeArg` | n/a (semantic: signature), for the keyword commands too | `accept/calls/overlay-hide-value-flag-not-last-in-batch-is-consumer.nu` `accept/calls/short-flag-batch.nu` | `multiword_commands_and_flags` |

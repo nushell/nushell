@@ -1120,6 +1120,9 @@ impl<'s> Lower<'_, '_, 's> {
                 _ => Unlowered::Error,
             });
         }
+        if keyword == "where" {
+            return Ok((self.where_call(command, call)?, None));
+        }
         let export = matches!(command.expr, w::Expr::Export(_));
         let decl_id = find_keyword_decl(self.working_set, keyword.as_bytes())
             .ok_or(Unlowered::Unsupported("keyword command"))?;
@@ -1166,8 +1169,13 @@ impl<'s> Lower<'_, '_, 's> {
             _ => self.internal_call(head, arguments, decl_id, None)?,
         };
         // `parse_def` and `parse_extern` finish any call: one with an error of its own (the
-        // winnow parser's call form of `def --foo f [] {}`) still defines the command.
-        if kind != CallKind::Help && !matches!(keyword, "def" | "extern") {
+        // winnow parser's call form of `def --foo f [] {}`) still defines the command. A
+        // binding without a value is its call whatever its kind (`let x --foo`).
+        // `parse_export_env` gives an invalid call back as it is (`export-env --foo`).
+        if kind != CallKind::Help
+            && !matches!(keyword, "def" | "extern" | "let" | "mut" | "const")
+            && !(keyword == "export-env" && kind == CallKind::Invalid)
+        {
             return Err(Unlowered::Unsupported(
                 "keyword call that does not ask for help",
             ));

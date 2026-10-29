@@ -657,7 +657,7 @@ pub fn parse_def<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> 
     // is the body's: `def foo [] {} --help` drops the `{}` (two-item form of
     // `parse_full_signature`) and `def foo [] {} {} --help` has no colon.
     let (signature_items, body) = match tokens.remaining() {
-        [] if call.wants_help() => return call.help_call(),
+        [] if call.is_call() => return call.help_call(),
         [] => return Err(cut(Diagnostic::expected("signature", tokens.end_span()))),
         [only] => (std::slice::from_ref(only), None),
         [signature_items @ .., body] => (signature_items, Some(body)),
@@ -675,7 +675,7 @@ pub fn parse_def<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> 
             };
         }
         Some(token) => parse_def_body(working_set, token, "definition body closure { ... }")?,
-        None if call.wants_help() => return call.help_call(),
+        None if call.is_call() => return call.help_call(),
         None => {
             return Err(cut(Diagnostic::expected(
                 "block",
@@ -869,7 +869,7 @@ pub fn parse_extern<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a
     call.flags(&mut tokens)?;
     let rest = tokens.remaining();
     let Some(last) = rest.last() else {
-        if call.wants_help() {
+        if call.is_call() {
             return call.help_call();
         }
         return Err(cut(Diagnostic::expected("signature", tokens.end_span())));

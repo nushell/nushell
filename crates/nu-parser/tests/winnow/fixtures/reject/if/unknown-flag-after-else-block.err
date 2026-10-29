@@ -1,7 +1,0 @@
-error: the `if` command doesn't have flag `--bogus`
-  --> reject/if/unknown-flag-after-else-block.nu:1:26
-  |
-1 | if true { 1 } else { 2 } --bogus
-  |                          ^^^^^^^
-  = while parsing if
-  = help: use `--help` to see available flags

@@ -1320,6 +1320,42 @@ fn definition_with_an_unknown_flag_defines_the_command(
     Ok(())
 }
 
+/// A statement keyword whose call has an error of its own (a flag the keyword does not have
+/// at a positional boundary, a positional too many) is nu's call to the keyword
+/// (`parse_internal_call`): lowered, with the errors nu reports.
+#[rstest]
+#[case::return_flag("return --foo", &[("UnknownFlag", "--foo")])]
+#[case::loop_flag("loop --foo {}", &[("UnknownFlag", "--foo")])]
+#[case::loop_extra("loop {} extra", &[("ExtraPositional", "extra")])]
+#[case::break_extra("break x", &[("ExtraPositional", "x")])]
+#[case::if_flag("if --foo true { 1 }", &[("UnknownFlag", "--foo")])]
+#[case::try_trailing_flag("try {} catch {} --foo", &[("UnknownFlag", "--foo")])]
+#[case::where_in_a_pipeline("[1] | where --foo $it > 0", &[("UnknownFlag", "--foo")])]
+#[case::let_flag("let x --foo", &[("UnknownFlag", "--foo")])]
+#[case::const_flag(
+    "const --foo x",
+    &[("UnknownFlag", "--foo"), ("MissingPositional", "")]
+)]
+#[case::export_env_flag(
+    "export-env --foo {}",
+    &[("UnknownFlag", "--foo"), ("MissingPositional", "")]
+)]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn keyword_call_error_is_lowered(#[case] code: &str, #[case] expected: &[(&str, &str)]) -> Result {
+    let expected: Vec<(String, String)> = expected
+        .iter()
+        .map(|(kind, text)| (kind.to_string(), text.to_string()))
+        .collect();
+    assert_eq!(
+        super::winnow_calls::lowered_errors(code),
+        expected,
+        "`{code}`"
+    );
+    Ok(())
+}
+
 /// A call for help in a module body, which the keyword's parse function gives back as the
 /// statement, is one of the body's statements (`parse_module_block` dispatches by the first
 /// word), lowered as at top level.

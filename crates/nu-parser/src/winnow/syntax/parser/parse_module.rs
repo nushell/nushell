@@ -440,25 +440,34 @@ pub fn parse_export_in_block<'a>(tokens: Tokens<'_, 'a>) -> ParseResult<Expressi
     ))
 }
 
+/// The call nu makes of `export-env` and the one item it hands it, a flag too (`export-env
+/// --help x`, `export-env -x {}`): anything after that item is dropped.
+fn export_env_call<'a>(statement: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
+    let working_set = statement.working_set;
+    let [keyword, first, dropped @ ..] = statement.remaining() else {
+        return parse_help_call(statement);
+    };
+    let call = parse_help_call(Tokens::new(
+        working_set,
+        &[*keyword, *first],
+        first.span.end,
+    ))?;
+    for ignored in dropped {
+        working_set.add_ignored(ignored.span);
+    }
+    Ok(call)
+}
+
 /// `export-env { block }`. nu takes its one argument by position.
 pub fn parse_export_env<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
     let working_set = tokens.working_set;
     let statement = tokens;
     let mut call = KeywordCall::start_positional(&mut tokens)?;
-    // nu hands `export-env` exactly one argument, a help flag too: anything after it is
-    // dropped (`export-env --help x`).
-    if call.help_flag(&mut tokens)
-        && let [keyword, help, dropped @ ..] = statement.remaining()
-    {
-        let help_call =
-            parse_help_call(Tokens::new(working_set, &[*keyword, *help], help.span.end))?;
-        for ignored in dropped {
-            working_set.add_ignored(ignored.span);
-        }
-        return Ok(help_call);
+    if call.help_flag(&mut tokens) {
+        return export_env_call(statement);
     }
     let Some(block) = call.positional(&mut tokens, "block")? else {
-        return call.help_call();
+        return export_env_call(statement);
     };
     let body = parse_block_argument(working_set, &block, "block")?;
     // nu hands `export-env` exactly one argument: anything after it is dropped.

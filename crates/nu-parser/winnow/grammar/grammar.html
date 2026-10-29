@@ -3847,8 +3847,14 @@ svg.railroad-diagram g.diagram-text:hover path.diagram-text {
   there makes the whole statement an ordinary call (<code>def foo [] --help</code>, <code>for x
   --help in [] {}</code>, <code>alias alias --help</code>), the first "--" is consumed and dropped,
   and any other "-x" is "doesn't have flag" (<code>return -1</code>, <code>match -1 {}</code>, <code>if -1 &gt;
-  0 {}</code>, <code>where -1 &gt; 0</code>). Where a positional spans several items (a condition, a
-  signature, an alias target) only its first item is such a boundary.
+  0 {}</code>, <code>where -1 &gt; 0</code>), an UnknownFlag, semantic: the statement is then nu’s call
+  (as for "--help"), whatever it reads after the flag, since everything before it
+  parsed. So is a statement with an item after its last positional, nu’s
+  ExtraPositional (<code>break x</code>, <code>loop {} y</code>, <code>return 1 2</code>). (<code>alias</code> and <code>use</code> still
+  refuse an unknown flag; <code>for</code>, <code>match</code> and <code>export-env</code> calls go on to the consumer,
+  which reads some of them.) Where a positional spans several items (a condition, a
+  signature, an alias target) only its first item is such a boundary: <code>if true --foo
+  {}</code> is the condition’s "expected operator".
   After "--help" nu goes on parsing the positionals that follow and only forgives
   the MISSING ones: <code>match 1 --help :{}</code> has no match block, <code>return --help 1 2</code>
   and <code>loop --help {} y</code> have an extra positional, <code>def foo [] {} {} --help</code> has no
@@ -4918,10 +4924,11 @@ svg.railroad-diagram g.diagram-text:hover path.diagram-text {
 </ul>
 </section>
 <p><code>return</code> takes ONE item of shape Any (<code>return 1 2</code>, <code>return 1 + 1</code> are extra
-  positionals; <code>return -1</code> is "doesn't have flag -1"); break/continue take nothing
+  positionals; <code>return -1</code> is "doesn't have flag -1"); break/continue take nothing;
+  both errors are the call’s (semantic): the statement is nu’s call
   nu: nu-cmd-lang return<em>.rs, break</em>.rs, continue<em>.rs
   here: src/winnow/syntax/parser/parse</em>control<em>flow.rs::parse</em>return, parse<em>break</em>or<em>continue,
-  src/winnow/syntax/parser/parse</em>keywords.rs::keyword_boundary </p><section>
+  src/winnow/syntax/parser/parse</em>keywords.rs::KeywordCall (call_flags, end) </p><section>
   <h4 id="where">where</h4>
   <div class="diagram-container"><svg class="railroad-diagram" width="313" style="max-height: 62px;" viewBox="0 0 313 62"><g transform="translate(.5 .5)"><g><path d="M20 21v20m0 -10h20"></path></g><path d="M40 31h10"></path><g><path d="M50 31h0"></path><path d="M263 31h0"></path><g class="terminal"><path d="M50 31h0"></path><path d="M112.5 31h0"></path><rect x="50" y="20" width="62.5" height="22" rx="10" ry="10"></rect><text x="81.25" y="35">where</text></g><path d="M112.5 31h10"></path><path d="M122.5 31h10"></path><g class="non-terminal"><path d="M132.5 31h0"></path><path d="M263 31h0"></path><rect x="132.5" y="20" width="130.5" height="22"></rect><a xlink:href="#row_condition"><text x="197.75" y="35">row&#95;condition</text></a></g></g><path d="M263 31h10"></path><path d="M 273 31 h 20 m 0 -10 v 20"></path></g></svg>
 </div>
@@ -6219,7 +6226,7 @@ svg.railroad-diagram g.diagram-text:hover path.diagram-text {
 <p>(6.1) </p>
   </article>
   <footer>
-    <p>Date: 2026-10-29T18:57 - <a href="?theme=dark" data-theme="dark">Dark</a> - <a href="?theme=light" data-theme="light">Light</a></p>
+    <p>Date: 2026-10-29T20:32 - <a href="?theme=dark" data-theme="dark">Dark</a> - <a href="?theme=light" data-theme="light">Light</a></p>
   </footer>
   </main>
   <script type="text/javascript">

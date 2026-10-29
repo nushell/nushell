@@ -414,6 +414,28 @@ impl<'s> Lower<'_, '_, 's> {
         Ok(self.node(Expr::Call(Box::new(call)), span, Type::Any))
     }
 
+    /// `where` read as nu's call to it (`parse_where_expr`): the winnow parser's call form of a
+    /// `where` asking for help or with a flag it does not have (`where --foo $x`), its
+    /// arguments read by the signature (`parse_internal_call`). A call that is not
+    /// `CallKind::Valid` keeps its output type, a valid one is `any`, as there.
+    pub(super) fn where_call(
+        &mut self,
+        e: &w::Expression<'s>,
+        call: &w::Call<'s>,
+    ) -> Lowered<Expression> {
+        let Some(decl_id) = self.working_set.find_decl(b"where") else {
+            return Err(Unlowered::Error);
+        };
+        let head = self.keyword_span(e, "where");
+        let (lowered, output, kind) = self.internal_call(head, &call.arguments, decl_id, None)?;
+        let ty = match kind {
+            CallKind::Valid => Type::Any,
+            _ => output,
+        };
+        let span = self.span(e.span);
+        Ok(self.node(Expr::Call(lowered), span, ty))
+    }
+
     /// A row condition (`parse_row_condition`): a closure, or an expression over `$it` (with
     /// bare words as its cell paths) turned into a block taking `$it`. For an expression, `$it`
     /// is declared in a scope of its own (with an empty span at the condition's start) before

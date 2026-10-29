@@ -11,9 +11,11 @@ use super::tokens::Tokens;
 /// `where { closure }` or `where row-condition...`.
 pub fn parse_where<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
     let mut call = KeywordCall::start(&mut tokens)?;
-    call.flags(&mut tokens)?;
+    if call.call_flags(&mut tokens)? {
+        return call.help_call();
+    }
     let condition = match tokens.remaining() {
-        [] if call.wants_help() => return call.help_call(),
+        [] if call.is_call() => return call.help_call(),
         [] => {
             return Err(cut(Diagnostic::expected(
                 "row condition or closure",

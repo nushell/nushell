@@ -57,8 +57,10 @@ fn parse_block_or_value<'a>(
 pub fn parse_if<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
     let working_set = tokens.working_set;
     let mut call = KeywordCall::start(&mut tokens)?;
-    call.flags(&mut tokens)?;
-    if call.wants_help() && tokens.at_end() {
+    if call.call_flags(&mut tokens)? {
+        return call.help_call();
+    }
+    if call.is_call() && tokens.at_end() {
         return call.help_call();
     }
     let then_part = tokens_until("else").parse_next(&mut tokens)?;
@@ -84,7 +86,7 @@ pub fn parse_if<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
             (then_part.slice(0..condition.len()), block)
         }
         // `if --help x`: help, once the condition parses (`if --help if` fails).
-        (items, _) if call.wants_help() => {
+        (items, _) if call.is_call() => {
             if !items.is_empty() {
                 parse_math_expression(then_part)?;
             }
@@ -204,7 +206,9 @@ pub fn parse_match<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>
 /// last, which is the block.
 pub fn parse_while<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
     let mut call = KeywordCall::start(&mut tokens)?;
-    call.flags(&mut tokens)?;
+    if call.call_flags(&mut tokens)? {
+        return call.help_call();
+    }
     // nu's math-expression condition leaves the last item for the block,
     // where `--help` is a flag of `while`: `while x --help` shows help, once
     // the condition, every item before it, parses (`while if --help` is still
@@ -222,7 +226,7 @@ pub fn parse_while<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>
         .split_last()
         .filter(|(_, condition)| !condition.is_empty())
     else {
-        if call.wants_help() {
+        if call.is_call() {
             // `while --help x`: help, once the condition parses.
             if !tokens.at_end() {
                 parse_math_expression(tokens.slice(start..tokens.all().len()))?;
@@ -280,7 +284,9 @@ pub fn parse_try<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> 
     let mut handlers = Vec::new();
     loop {
         // `try {} --`: the marker may be the last item.
-        call.flags(&mut tokens)?;
+        if call.call_flags(&mut tokens)? {
+            return call.help_call();
+        }
         if tokens.at_end() {
             break;
         }
@@ -340,7 +346,9 @@ fn parse_try_handler<'a>(
 /// `return [value]`.
 pub fn parse_return<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
     let mut call = KeywordCall::start(&mut tokens)?;
-    call.flags(&mut tokens)?;
+    if call.call_flags(&mut tokens)? {
+        return call.help_call();
+    }
     let value = match tokens.at_end() {
         true => None,
         false => {

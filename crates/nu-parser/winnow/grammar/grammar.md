@@ -1135,8 +1135,14 @@ Vocabulary: `<expression>` is a `<pipeline-element>` (3.1); `<block>` is a
 ; there makes the whole statement an ordinary call (`def foo [] --help`, `for x
 ; --help in [] {}`, `alias alias --help`), the first "--" is consumed and dropped,
 ; and any other "-x" is "doesn't have flag" (`return -1`, `match -1 {}`, `if -1 >
-; 0 {}`, `where -1 > 0`). Where a positional spans several items (a condition, a
-; signature, an alias target) only its first item is such a boundary.
+; 0 {}`, `where -1 > 0`), an UnknownFlag, semantic: the statement is then nu's call
+; (as for "--help"), whatever it reads after the flag, since everything before it
+; parsed. So is a statement with an item after its last positional, nu's
+; ExtraPositional (`break x`, `loop {} y`, `return 1 2`). (`alias` and `use` still
+; refuse an unknown flag; `for`, `match` and `export-env` calls go on to the consumer,
+; which reads some of them.) Where a positional spans several items (a condition, a
+; signature, an alias target) only its first item is such a boundary: `if true --foo
+; {}` is the condition's "expected operator".
 ; After "--help" nu goes on parsing the positionals that follow and only forgives
 ; the MISSING ones: `match 1 --help :{}` has no match block, `return --help 1 2`
 ; and `loop --help {} y` have an extra positional, `def foo [] {} {} --help` has no
@@ -1557,10 +1563,11 @@ Vocabulary: `<expression>` is a `<pipeline-element>` (3.1); `<block>` is a
 <break>           ::= "break"
 <continue>        ::= "continue"
 ; `return` takes ONE item of shape Any (`return 1 2`, `return 1 + 1` are extra
-; positionals; `return -1` is "doesn't have flag -1"); break/continue take nothing
+; positionals; `return -1` is "doesn't have flag -1"); break/continue take nothing;
+; both errors are the call's (semantic): the statement is nu's call
 ; nu: nu-cmd-lang return_.rs, break_.rs, continue_.rs
 ; here: src/winnow/syntax/parser/parse_control_flow.rs::parse_return, parse_break_or_continue,
-;       src/winnow/syntax/parser/parse_keywords.rs::keyword_boundary
+;       src/winnow/syntax/parser/parse_keywords.rs::KeywordCall (call_flags, end)
 
 <where>           ::= "where" <row-condition>                 ; (7.7)
 ; nu: parse_source.rs:527 parse_where, 472 parse_where_expr

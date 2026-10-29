@@ -1413,7 +1413,9 @@ fn loops_and_jumps() {
     let ast = ok("return");
     kind!(expr(&ast), Expr::Return(r) => assert!(r.value.is_none()));
     assert!(parse("for x [1] { }").is_err());
-    assert!(parse("break 1").is_err());
+    // A positional too many is nu's call's error (ExtraPositional): the statement is the call.
+    let ast = ok("break 1");
+    assert_eq!(call(expr(&ast)).head.name, "break");
 }
 
 #[test]

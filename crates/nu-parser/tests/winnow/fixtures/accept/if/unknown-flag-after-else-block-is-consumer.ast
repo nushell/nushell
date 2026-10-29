@@ -1,0 +1,14 @@
+Block 0..33
+  Pipeline 0..32
+    Call `if` 0..32
+      Bool true 3..7
+      Closure 8..13
+        Body 10..12
+          Pipeline 10..11
+            Int 1 10..11
+      String Bare "else" 14..18
+      Closure 19..24
+        Body 21..23
+          Pipeline 21..22
+            Int 2 21..22
+      Flag --bogus 25..32

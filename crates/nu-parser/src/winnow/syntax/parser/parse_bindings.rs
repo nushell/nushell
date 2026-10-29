@@ -7,7 +7,7 @@ use crate::winnow::syntax::lex::{AssignmentOperator, LexOptions, TokenContents};
 use crate::winnow::syntax::span::Span;
 
 use super::parse_keywords::{
-    KeywordBoundary, keyword_boundary, keyword_boundary_with, parse_help_call,
+    KeywordBoundary, keyword_boundary_with, keyword_flag, parse_help_call,
 };
 use super::parse_pipelines::parse_block;
 use super::parse_signatures::{parse_type_after_var, parse_var_with_opt_type};
@@ -56,12 +56,18 @@ fn parse_binding<'a>(mut tokens: Tokens<'_, 'a>, kind: BindingKind) -> ParseResu
     // The whole statement, keyword included: `tokens.position()` and `equals_index` index it.
     let items = tokens.all();
     let keyword = tokens.expect_item(keyword_name)?;
-    if let KeywordBoundary::Help = keyword_boundary_with(&mut tokens, keyword_name, &[], false)? {
-        return parse_help_call(statement);
-    }
     let has_equals = items
         .iter()
         .any(|token| matches!(token.contents, TokenContents::AssignmentOperator(_)));
+    // Without an `=` the statement is nu's call to the keyword, which reports a flag it does
+    // not have (`let --foo x`); with one, that flag is no name.
+    let boundary = match has_equals {
+        false => keyword_flag(&mut tokens, &[], false),
+        true => keyword_boundary_with(&mut tokens, keyword_name, &[], false)?,
+    };
+    if let KeywordBoundary::Help | KeywordBoundary::UnknownFlag = boundary {
+        return parse_help_call(statement);
+    }
     if !has_equals
         && let Some(&marker) = tokens.peek_token()
         && working_set.get_span_contents(marker.span) == "--"
@@ -86,8 +92,10 @@ fn parse_binding<'a>(mut tokens: Tokens<'_, 'a>, kind: BindingKind) -> ParseResu
         return Err(cut(Diagnostic::expected("`=`", equals.span)));
     }
     if equals.is_none() && !typed {
-        // `let x --help`
-        if let KeywordBoundary::Help = keyword_boundary(&mut tokens, keyword_name, &[])? {
+        // `let x --help`, `let x --foo`
+        if let KeywordBoundary::Help | KeywordBoundary::UnknownFlag =
+            keyword_flag(&mut tokens, &[], true)
+        {
             return parse_help_call(statement);
         }
     }
