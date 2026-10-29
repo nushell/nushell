@@ -8,7 +8,9 @@
 
 use lscolors::LsColors;
 use nu_color_config::{StyleComputer, get_color_map};
-use nu_explore::style::{get_path_style, nu_style_to_tui, text_style_to_tui_style};
+use nu_explore::style::{
+    get_path_style, nu_ansi_color_to_tui_color, nu_style_to_tui, text_style_to_tui_style,
+};
 use nu_protocol::{
     ShellError, TableMode, Value,
     engine::{EngineState, Stack},
@@ -88,12 +90,30 @@ fn outline(mode: TableMode) -> border::Set<'static> {
     }
 }
 
+/// A `$env.config.tui` color as a ratatui color. `default` is the terminal's
+/// own color (`Color::Reset`); the converter shared with `explore` reads it
+/// as "no color", which would let the surface show through instead.
+fn config_color(color: nu_ansi_term::Color) -> Color {
+    nu_ansi_color_to_tui_color(color).unwrap_or(Color::Reset)
+}
+
+/// A `$env.config.tui` style as a ratatui style, reading `default` the way
+/// [`config_color`] does.
+fn config_style(style: nu_ansi_term::Style) -> Style {
+    Style {
+        fg: style.foreground.map(config_color),
+        bg: style.background.map(config_color),
+        ..nu_style_to_tui(style)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Theme {
-    /// Opaque fill behind every widget. Reset would show the terminal
-    /// through a dialog.
+    /// Fill behind every widget. The default, `Color::Reset`, is the
+    /// terminal's own background, so text keeps the terminal's colors on
+    /// light and dark terminals alike. Unused when `colored` is false.
     pub surface: Color,
-    /// Full-screen fill behind a dialog.
+    /// Full-screen fill behind a dialog. Unused when `colored` is false.
     pub backdrop: Color,
     /// `false` when `use_ansi_coloring` is off: no colors, only reverse
     /// video for the selection.
@@ -118,8 +138,8 @@ pub struct Theme {
 impl Default for Theme {
     fn default() -> Self {
         Self {
-            surface: Color::Rgb(18, 18, 22),
-            backdrop: Color::Rgb(8, 8, 12),
+            surface: Color::Reset,
+            backdrop: Color::Reset,
             colored: true,
             title: Style::default()
                 .fg(Color::White)
@@ -193,7 +213,7 @@ impl Theme {
         };
         let slot = |name: &str, target: &mut Style| {
             if let Some(style) = colors.get(name) {
-                *target = nu_style_to_tui(*style);
+                *target = config_style(*style);
             }
         };
         slot("title_bar", &mut theme.title);
@@ -208,16 +228,20 @@ impl Theme {
         slot("tab_inactive", &mut theme.tab_inactive);
         slot("progress", &mut theme.progress);
         slot("button", &mut theme.button);
-        if let Some(bg) = colors.get("surface").and_then(|s| s.background) {
-            theme.surface = nu_style_to_tui(nu_ansi_term::Style::new().on(bg))
-                .bg
-                .unwrap_or(theme.surface);
-        }
-        if let Some(bg) = colors.get("backdrop").and_then(|s| s.background) {
-            theme.backdrop = nu_style_to_tui(nu_ansi_term::Style::new().on(bg))
-                .bg
-                .unwrap_or(theme.backdrop);
-        }
+        // A fill is one color: a record's `bg`, or a bare color
+        // (`surface: default`), which parses as a foreground.
+        let fill = |name: &str, target: &mut Color| {
+            let style = colors.get(name);
+            let color = match config.tui.get(name) {
+                Some(Value::String { .. }) => style.and_then(|s| s.foreground),
+                _ => style.and_then(|s| s.background),
+            };
+            if let Some(color) = color {
+                *target = config_color(color);
+            }
+        };
+        fill("surface", &mut theme.surface);
+        fill("backdrop", &mut theme.backdrop);
         theme
     }
 
@@ -409,6 +433,54 @@ mod tests {
             parse_border(&Value::test_string("Double")).ok(),
             Some(TableMode::Double)
         );
+    }
+
+    #[test]
+    fn default_fill_is_terminal_background() {
+        let theme = Theme::default();
+        assert_eq!(theme.surface, Color::Reset);
+        assert_eq!(theme.backdrop, Color::Reset);
+        // Plain text sets no foreground, so it keeps the terminal's own.
+        assert_eq!(theme.text().fg, None);
+        assert_eq!(theme.header().fg, Some(Color::Green));
+    }
+
+    #[test]
+    fn config_fills_and_default_colors() {
+        use nu_protocol::{Config, UseAnsiColoring, record};
+        let mut config = Config {
+            use_ansi_coloring: UseAnsiColoring::True,
+            ..Config::default()
+        };
+        let mut set = |name: &str, value: Value| config.tui.insert(name.into(), value);
+        // A bare color is the fill itself; a record gives it as `bg`.
+        set("surface", Value::test_string("#112233"));
+        set(
+            "backdrop",
+            Value::test_record(record! { "bg" => Value::test_string("#445566") }),
+        );
+        set(
+            "title_bar",
+            Value::test_record(record! {
+                "fg" => Value::test_string("black"),
+                "bg" => Value::test_string("default"),
+            }),
+        );
+        set(
+            "muted",
+            Value::test_record(record! { "fg" => Value::test_string("default") }),
+        );
+        let mut engine_state = EngineState::new();
+        engine_state.set_config(config);
+        let theme = Theme::from_config(&engine_state, &Stack::new());
+        assert!(theme.colored);
+        assert_eq!(theme.surface, Color::Rgb(0x11, 0x22, 0x33));
+        assert_eq!(theme.backdrop, Color::Rgb(0x44, 0x55, 0x66));
+        // `default` is the terminal's color in every slot, not the surface.
+        assert_eq!(theme.title().bg, Some(Color::Reset));
+        assert_eq!(theme.title().fg, Some(Color::Black));
+        assert_eq!(theme.muted().fg, Some(Color::Reset));
+        assert_eq!(theme.muted().bg, Some(Color::Rgb(0x11, 0x22, 0x33)));
     }
 
     #[test]
