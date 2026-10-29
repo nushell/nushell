@@ -107,21 +107,11 @@ pub fn glob_from(
     let pattern = pattern.to_string_lossy().to_string();
 
     if nu_experimental::DC_GLOB.get() {
-        let pattern_path = PathBuf::from(&pattern);
-        // If the resolved pattern is an existing *literal* path (no active glob
-        // metacharacters), return it directly. Passing a plain path to
-        // glob_from_interruptible makes the traversal engine call read_dir() on it,
-        // which either fails with "Not a directory" (for files) or iterates the
-        // directory's contents instead of matching the directory itself (for
-        // directories), both of which produce incorrect empty results.
-        //
-        // Patterns that still contain glob metacharacters must go through the
-        // walker even when a same-named path exists (e.g. a file named `*` must
-        // not make bare `*` / `ls` return only that one entry). See #18631.
-        if pattern_path.exists() && !nu_glob::is_glob_with_backend(&pattern) {
-            return Ok((prefix, Box::new(std::iter::once(Ok(pattern_path)))));
-        }
-
+        // The dc-glob traversal handles literal paths itself: a pattern that
+        // names an existing path matches that path, and a pattern that still
+        // contains glob metacharacters keeps going through the walker even
+        // when a same-named path exists (e.g. a file named `*` must not make
+        // bare `*` / `ls` return only that one entry). See #18631.
         let iter =
             nu_glob::dc_glob::glob_from_interruptible(cwd, &pattern, signals.interrupt_flag())
                 .map_err(|e| {
