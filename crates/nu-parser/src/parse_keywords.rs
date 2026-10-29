@@ -1,4 +1,7 @@
-use crate::{lite_parser::LiteCommand, parse_expressions::is_literal_like, parser::parse_call};
+use crate::{
+    lite_parser::LiteCommand, parse_expressions::is_literal_like, parse_helpers::trim_quotes,
+    parser::parse_call,
+};
 use nu_protocol::{
     DeclId, ParseError, Span, Type,
     ast::{Expr, Expression, Pipeline},
@@ -149,12 +152,8 @@ fn is_shadowed_by_a_value(working_set: &mut StateWorkingSet, name: &str, name_sp
     // written with escapes), the decoded head word is read in a working set of its own.
     let head_span = {
         let bytes = working_set.get_span_contents(name_span);
-        let (inner_offset, inner): (usize, &[u8]) = match bytes {
-            [quote @ (b'"' | b'\'' | b'`'), rest @ ..] if rest.last() == Some(quote) => {
-                (1, &rest[..rest.len() - 1])
-            }
-            _ => (0, bytes),
-        };
+        let inner = trim_quotes(bytes);
+        let inner_offset = usize::from(inner.len() != bytes.len());
         if inner == name.as_bytes() {
             let head_len = inner
                 .iter()
