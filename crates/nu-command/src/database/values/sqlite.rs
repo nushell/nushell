@@ -782,7 +782,10 @@ fn read_entire_sqlite_db(
             call_span,
             signals,
             None,
-        )?;
+        )
+        .map_err(|err| {
+            err.into_shell_error(call_span, &format!("Failed to read table `{table_name}`"))
+        })?;
         tables.push(table_name, rows);
     }
 

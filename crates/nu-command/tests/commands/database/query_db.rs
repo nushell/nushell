@@ -189,13 +189,22 @@ fn named_params() -> Result {
     })
 }
 
-// SQLite runs a statement when its first row is read, so a failing INSERT reports its error there.
+// SQLite reports a statement's errors as its rows are read. A failing INSERT reports on the first
+// row, and a failing SELECT reports partway through, after returning some rows.
 #[rstest::rstest]
-#[case::without_params(r#"open $in | query db "INSERT INTO crew (role) VALUES ('captain')""#)]
-#[case::named_params(
-    r#"open $in | query db "INSERT INTO crew (role) VALUES (:role)" -p {role: captain}"#
+#[case::without_params(
+    r#"open $in | query db "INSERT INTO crew (role) VALUES ('captain')""#,
+    "NOT NULL constraint failed: crew.name"
 )]
-fn reports_statement_errors(#[case] code: &str) -> Result {
+#[case::named_params(
+    r#"open $in | query db "INSERT INTO crew (role) VALUES (:role)" -p {role: captain}"#,
+    "NOT NULL constraint failed: crew.name"
+)]
+#[case::select_fails_partway(
+    r#"open $in | query db "SELECT json(column1) FROM (VALUES ('1'), ('2'), ('x'))""#,
+    "malformed JSON"
+)]
+fn reports_statement_errors(#[case] code: &str, #[case] expected: &str) -> Result {
     Playground::setup(&module_path!().replace("::", "_"), |dirs, _| {
         let db = dirs.test().join("test.db");
         Connection::open(&db)
@@ -209,10 +218,37 @@ fn reports_statement_errors(#[case] code: &str) -> Result {
             .expect_shell_error()?
         {
             ShellError::Generic(generic) => {
-                assert_contains(
-                    "NOT NULL constraint failed: crew.name",
-                    generic.msg.as_ref(),
-                );
+                assert_contains(expected, generic.msg.as_ref());
+                Ok(())
+            }
+            err => Err(err.into()),
+        }
+    })
+}
+
+// `open` reads every table through the same row loop, so its error names the table that failed.
+#[test]
+fn open_reports_which_table_failed() -> Result {
+    Playground::setup(&module_path!().replace("::", "_"), |dirs, _| {
+        let db = dirs.test().join("test.db");
+        Connection::open(&db)
+            .expect("failed to open db")
+            .execute_batch(
+                "CREATE TABLE fine (a TEXT);
+                 CREATE TABLE broken (a TEXT);
+                 INSERT INTO broken (a) VALUES ('[1]'), ('[2]'), ('not json');
+                 ALTER TABLE broken ADD COLUMN b TEXT AS (json(a)) VIRTUAL;",
+            )
+            .expect("failed to create tables");
+        let mut tester = test().cwd(dirs.test());
+
+        match tester
+            .run_with_data::<Value>("open $in | values | length", db.as_path())
+            .expect_shell_error()?
+        {
+            ShellError::Generic(generic) => {
+                assert_eq!(generic.error, "Failed to read table `broken`");
+                assert_contains("malformed JSON", generic.msg.as_ref());
                 Ok(())
             }
             err => Err(err.into()),
