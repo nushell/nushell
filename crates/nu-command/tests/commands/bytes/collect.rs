@@ -4,7 +4,7 @@ use nu_test_support::prelude::*;
 fn test_stream() -> Result {
     let code = "
         [0x[01] 0x[02] 0x[03] 0x[04]]
-        | filter {true}
+        | where {true}
         | bytes collect 0x[aa aa]
         | encode hex
     ";
@@ -15,7 +15,7 @@ fn test_stream() -> Result {
 fn test_stream_type() -> Result {
     let code = "
         [0x[01] 0x[02] 0x[03] 0x[04]]
-        | filter {true}
+        | where {true}
         | bytes collect 0x[00]
         | describe -n
     ";

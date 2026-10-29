@@ -1254,16 +1254,6 @@ impl EngineState {
             .map(|comment_spans| self.build_desc(comment_spans))
     }
 
-    /// Returns the current working directory, which is guaranteed to be canonicalized.
-    ///
-    /// Returns an empty String if $env.PWD doesn't exist.
-    #[deprecated(since = "0.92.3", note = "please use `EngineState::cwd()` instead")]
-    pub fn current_work_dir(&self) -> String {
-        self.cwd(None)
-            .map(|path| path.to_string_lossy().to_string())
-            .unwrap_or_default()
-    }
-
     /// Returns the current working directory, which is guaranteed to be an
     /// absolute path without trailing slashes (unless it's the root path), but
     /// might contain symlink components.

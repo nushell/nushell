@@ -54,6 +54,20 @@ fn filters_with_1_arity_block() -> Result {
 }
 
 #[test]
+fn where_with_return_in_closure() -> Result {
+    let code = "
+        1..10 | where {|it|
+            if $it mod 2 == 0 {
+                return true
+            };
+            return false
+        }
+    ";
+
+    test().run(code).expect_value_eq([2, 4, 6, 8, 10])
+}
+
+#[test]
 fn unique_env_each_iteration() -> Result {
     let code = "
         [1 2] 

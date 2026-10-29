@@ -205,11 +205,6 @@ pub trait CustomValue: fmt::Debug + Send + Sync + Any {
     /// query builders that should behave like lists when iterated.
     ///
     /// The default is `false`.
-    #[deprecated(
-        since = "0.111.1",
-        note = "will be replaced by a new custom-value iterator system next release; \
-        avoid new uses unless you need current behavior"
-    )]
     fn is_iterable(&self) -> bool {
         false
     }

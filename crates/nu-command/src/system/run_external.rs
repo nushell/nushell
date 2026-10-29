@@ -652,15 +652,6 @@ pub fn command_not_found(
         }
     }
 
-    // If the name is one of the removed commands, recommend a replacement.
-    if let Some(replacement) = crate::removed_commands().get(&name.to_lowercase()) {
-        return ShellError::RemovedCommand {
-            removed: name.to_lowercase(),
-            replacement: replacement.clone(),
-            span,
-        };
-    }
-
     // Making this a closure allows using return inside instead of nesting if-else's
     let help = (|| {
         // The command might be from another module. Try to find it.

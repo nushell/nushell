@@ -2,7 +2,7 @@ use std::borrow::Cow;
 
 use nu_engine::command_prelude::*;
 use nu_protocol::{
-    DeprecationEntry, DeprecationType, ReportMode, Signals,
+    Signals,
     ast::{self, PathMember},
     engine::CallImpl,
 };
@@ -50,16 +50,6 @@ Strings in a spread are single column names: `...[a.b]` looks for a column named
                 "ignore-case",
                 "Make all cell path members case insensitive.",
                 None,
-            )
-            .switch(
-                "ignore-errors",
-                "Ignore missing data (make all cell path members optional) (deprecated).",
-                Some('i'),
-            )
-            .switch(
-                "sensitive",
-                "Get path in a case sensitive manner (deprecated).",
-                Some('s'),
             )
             .allow_variants_without_examples(true)
             .category(Category::Filters)
@@ -192,8 +182,7 @@ Strings in a spread are single column names: `...[a.b]` looks for a column named
     ) -> Result<PipelineData, ShellError> {
         let cell_paths = call.rest_const(working_set, stack, 0)?;
         let has_spread = has_spread_argument(call, stack);
-        let optional = call.has_flag_const(working_set, stack, "optional")?
-            || call.has_flag_const(working_set, stack, "ignore-errors")?;
+        let optional = call.has_flag_const(working_set, stack, "optional")?;
         let ignore_case = call.has_flag_const(working_set, stack, "ignore-case")?;
         action(
             input,
@@ -215,8 +204,7 @@ Strings in a spread are single column names: `...[a.b]` looks for a column named
     ) -> Result<PipelineData, ShellError> {
         let cell_paths = call.rest(engine_state, stack, 0)?;
         let has_spread = has_spread_argument(call, stack);
-        let optional = call.has_flag(engine_state, stack, "optional")?
-            || call.has_flag(engine_state, stack, "ignore-errors")?;
+        let optional = call.has_flag(engine_state, stack, "optional")?;
         let ignore_case = call.has_flag(engine_state, stack, "ignore-case")?;
         action(
             input,
@@ -227,25 +215,6 @@ Strings in a spread are single column names: `...[a.b]` looks for a column named
             engine_state.signals().clone(),
             call.head,
         )
-    }
-
-    fn deprecation_info(&self) -> Vec<DeprecationEntry> {
-        vec![
-            DeprecationEntry {
-                ty: DeprecationType::Flag("sensitive".into()),
-                report_mode: ReportMode::FirstUse,
-                since: Some("0.105.0".into()),
-                expected_removal: None,
-                help: Some("Cell-paths are now case-sensitive by default.\nTo access fields case-insensitively, add `!` after the relevant path member.".into())
-            },
-            DeprecationEntry {
-                ty: DeprecationType::Flag("ignore-errors".into()),
-                report_mode: ReportMode::FirstUse,
-                since: Some("0.106.0".into()),
-                expected_removal: None,
-                help: Some("This flag has been renamed to `--optional (-o)` to better reflect its behavior.".into())
-            }
-        ]
     }
 }
 
