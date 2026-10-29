@@ -863,11 +863,10 @@ fn parse_pipeline_element<'a>(
         expr.span.end = expr.span.end.max(last.span.end);
     }
     let redirection = parse_redirection(working_set, lite_command)?;
-    if let Expr::ExportEnv(_) = expr.expr
-        && redirection.is_some()
-    {
-        // nu never looks at a redirection on `export-env`: it is ignored text, not
-        // refused, so this comes before `rejects_redirection`.
+    if redirection.is_some() && drops_redirection(&expr) {
+        // nu never looks at a redirection on `export-env` or a `const` without a value (or
+        // one asking for help): it is ignored text, not refused, so this comes before
+        // `rejects_redirection`.
         for (operator, target) in &lite_command.redirections {
             working_set.add_ignored(operator.span);
             if let Some(target) = target {
@@ -876,7 +875,7 @@ fn parse_pipeline_element<'a>(
         }
         return Ok((expr, None));
     }
-    if redirection.is_some() && rejects_redirection(&expr) {
+    if redirection.is_some() && rejects_redirection(&expr, in_pipeline) {
         let at = lite_command
             .redirections
             .first()
@@ -889,14 +888,27 @@ fn parse_pipeline_element<'a>(
     Ok((expr, redirection))
 }
 
-/// The statements nu refuses to redirect (nu's `redirecting_builtin_error`).
-fn rejects_redirection(expr: &Expression<'_>) -> bool {
+/// The statements whose redirection nu ignores: `export-env` (`parse_export_env` reads only
+/// its first item) and a `const` without a value, whose call `parse_const` reads from the
+/// command's parts alone (with a value, the redirection is part of it).
+fn drops_redirection(expr: &Expression<'_>) -> bool {
     match &expr.expr {
+        Expr::ExportEnv(_) | Expr::Const(_) => true,
+        Expr::Call(call) => call.head.name == "const",
+        _ => false,
+    }
+}
+
+/// The statements nu refuses to redirect (nu's `redirecting_builtin_error`), and a `let` or
+/// `mut` without a value that is the whole statement (`in_pipeline` false): `parse_let` and
+/// `parse_mut` read the redirection's items as the call's own, which fails (`let x o> f` has
+/// no `=` where it wants one). In a longer pipeline `let` is an ordinary call, redirected as
+/// any (`let x e>| length`, `[1] | let x o> f`).
+fn rejects_redirection(expr: &Expression<'_>, in_pipeline: bool) -> bool {
+    match &expr.expr {
+        Expr::Let(_) | Expr::Mut(_) => !in_pipeline,
         Expr::Def(_)
         | Expr::Extern(_)
-        | Expr::Let(_)
-        | Expr::Mut(_)
-        | Expr::Const(_)
         | Expr::For(_)
         | Expr::Alias(_)
         | Expr::TypeAlias(_)
@@ -913,6 +925,7 @@ fn rejects_redirection(expr: &Expression<'_>) -> bool {
                     call.head.name.as_ref(),
                     "def" | "extern" | "for" | "alias" | "type" | "module" | "use" | "export"
                 )
+                || !in_pipeline && matches!(call.head.name.as_ref(), "let" | "mut")
                 || keyword_signature_of_call(call).is_some()
         }
         _ => false,

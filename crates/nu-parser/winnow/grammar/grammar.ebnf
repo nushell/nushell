@@ -1025,14 +1025,21 @@ pipeline_forbidden_head = ? "def" | "extern" | "for" | "module" | "type" | "use"
 
 (* Redirections are refused on: def, extern, alias, type, use, module, for, source,
    source-env, run, hide, overlay* (by the word "overlay" alone, before its
-   arguments), plugin use, export*. A redirection on these is
-   RedirectingBuiltinCommand. On export-env it is dropped without a look. `let x =
-   ls o> f` is not an error because the redirection is absorbed into the rhs pipeline.
+   arguments), plugin use, export*, those keywords' calls for help included (`def
+   --help o> f`). A redirection on these is RedirectingBuiltinCommand. On export-env
+   and on a const without a value (or asking for help) it is dropped without a look
+   (`parse_const` reads the command’s parts alone). A lone let or mut without a value
+   reads the redirection’s items as its own arguments, an error (`let x o> f` has no
+   "=" where it wants one); in a longer pipeline let is an ordinary call, redirected as
+   any (`let x e>| length`, `[1] | let x o> f`). `let x = ls o> f` is not an error
+   because the redirection is absorbed into the rhs pipeline.
    nu: redirecting_builtin_error call sites in parse_def.rs, parse_alias.rs,
-   parse_module.rs, parse_source.rs, parse_expressions.rs:1801,1817
-   here: src/winnow/syntax/parser/parse_pipelines.rs::rejects_redirection (the statements, and the calls
-   whose fixed signature is not redirectable); parse_pipeline_element (export-env’s
-   redirection is ignored text) *)
+   parse_module.rs, parse_source.rs, parse_expressions.rs:1801,1817; parse_let and
+   parse_mut over parts_including_redirection, parse_const over parts
+   here: src/winnow/syntax/parser/parse_pipelines.rs::rejects_redirection (the statements, the
+   keywords' calls, a lone let or mut, and the calls whose fixed signature is not
+   redirectable); drops_redirection (export-env’s and a const’s redirection is ignored
+   text) *)
 
 parser_keyword = "if" | "match" | "try" | "overlay" | "overlay hide"
                  | "overlay new" | "overlay use"  (* aliasable *)

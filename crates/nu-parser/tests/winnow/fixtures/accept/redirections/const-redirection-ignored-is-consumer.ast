@@ -1,0 +1,8 @@
+Block 0..90
+  Pipeline 77..84 comments=1
+    const x 77..84
+Comments (1)
+  0..76 "# The redirection is ignored; the missing value is the consumer's to report."
+Ignored (2)
+  85..87 "o>"
+  88..89 "f"

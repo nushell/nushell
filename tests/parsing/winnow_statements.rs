@@ -1186,6 +1186,31 @@ fn binding_without_a_value_is_lowered(#[case] code: &str) -> Result {
     Ok(())
 }
 
+/// A `let` in a longer pipeline is an ordinary call, redirected as any, and a `const` without a
+/// value ignores its redirection (`parse_const` reads the command's parts alone): lowered, with
+/// the errors nu reports.
+#[rstest]
+#[case::let_before_an_error_pipe("let x e>| length", &[])]
+#[case::let_after_a_pipe("[1] | let x o> f", &[])]
+#[case::let_with_both_streams("ls | let x o> f e> g", &[])]
+#[case::const_help("const x --help o> f", &[])]
+#[case::const_without_a_value("const x o> f", &[("MissingPositional", "")])]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn binding_redirection_is_lowered(#[case] code: &str, #[case] expected: &[(&str, &str)]) -> Result {
+    let expected: Vec<(String, String)> = expected
+        .iter()
+        .map(|(kind, text)| (kind.to_string(), text.to_string()))
+        .collect();
+    assert_eq!(
+        super::winnow_calls::lowered_errors(code),
+        expected,
+        "`{code}`"
+    );
+    Ok(())
+}
+
 /// A call for help in a module body, which the keyword's parse function gives back as the
 /// statement, is one of the body's statements (`parse_module_block` dispatches by the first
 /// word), lowered as at top level.
