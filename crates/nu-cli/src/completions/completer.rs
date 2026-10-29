@@ -1,8 +1,8 @@
 use crate::completions::{
     ArgValueCompletion, AttributableCompletion, AttributeCompletion, CellPathCompletion,
     CommandCompletion, CommandScope, Completer, CompletionOptions, DotNuCompletion,
-    EnvVarCompletion, FileCompletion, FlagCompletion, NuMatcher, OperatorCompletion,
-    VariableCompletion,
+    EnvVarCompletion, FileCompletion, FlagCompletion, MatchAlgorithm, NuMatcher,
+    OperatorCompletion, VariableCompletion,
     base::{Fetched, SemanticSuggestion},
 };
 use lru::LruCache;
@@ -1457,6 +1457,34 @@ impl<'engine> CompletionEngine<'engine> {
             && (!dispatched.answered() || (!external_answered && dispatched.is_empty()));
         if wants_file {
             dispatched.merge(self.suggestions_at(&mut FileCompletion, completion_context));
+        }
+
+        // An unresolved bare head may be a typo, not an external command. Offer
+        // corrections without letting them suppress files, but keep aliases, sigils,
+        // and executable names intact. Exact subcommands already identify a parent.
+        if subcommands.is_empty()
+            && self.options.match_algorithm != MatchAlgorithm::Prefix
+            && head.span.start == external_call.span.start
+            && let Some(name) = resolved_head
+            && working_set.get_span_contents(head.span) == name.as_bytes()
+            && working_set.find_decl(name.as_bytes()).is_none()
+            && !name.contains(is_separator)
+        {
+            let paths = nu_engine::env::path_str(self.engine_state, &self.stack, head.span)
+                .unwrap_or_default();
+            let executable = self
+                .engine_state
+                .cwd(Some(&self.stack))
+                .ok()
+                .and_then(|cwd| nu_command::which(name, &paths, cwd.as_ref()));
+            if executable.is_none() {
+                dispatched.merge(self.command_completion_helper(
+                    working_set,
+                    buffer,
+                    Span::new(external_call.span.start, site.cursor),
+                    CommandCompletion::new(CommandScope::InternalsOnly),
+                ));
+            }
         }
 
         dispatched.merge(subcommands);

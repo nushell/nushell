@@ -2826,6 +2826,7 @@ fn subcommand_vs_external_completer() {
     let commands = r#"
             $env.config.completions.algorithm = "fuzzy"
             $env.config.completions.external.completer = {|input| ["external"]}
+            def foo-test-command [] {}
             def "foo-test-command bar" [] {}
             def "foo-test-command aagap bcr" [] {}
             def "food bar" [] {}
@@ -2833,22 +2834,58 @@ fn subcommand_vs_external_completer() {
     assert!(support::merge_input(commands.as_bytes(), &mut engine, &mut stack).is_ok());
     let mut subcommand_completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
 
-    // An external head can have internal subcommands, with fuzzy matching on the suffix.
-    let prefix = "foo-test-command br";
+    let prefix = "fod br";
     let suggestions = subcommand_completer.complete_blocking(prefix, prefix.len());
     match_suggestions(
         &vec![
             "external",
+            "food bar",
             "foo-test-command bar",
             "foo-test-command aagap bcr",
         ],
         &suggestions,
     );
 
-    // At an argument site, fuzzy matching must not replace the command head.
     let prefix = "foot bar";
     let suggestions = subcommand_completer.complete_blocking(prefix, prefix.len());
-    match_suggestions(&vec!["external"], &suggestions);
+    match_suggestions(&vec!["external", "foo-test-command bar"], &suggestions);
+}
+
+#[rstest]
+#[case::unresolved("fod test", Some("food test"))]
+#[case::resolved_external("sleep test", None)]
+fn fuzzy_command_correction_keeps_file_completion(
+    #[case] input: &str,
+    #[case] correction: Option<&str>,
+) {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let commands = r#"
+        $env.config.completions.algorithm = "fuzzy"
+        hide sleep
+        def "food test" [] {}
+        def "asleep test" [] {}
+    "#;
+    assert!(support::merge_input(commands.as_bytes(), &mut engine, &mut stack).is_ok());
+    stack.add_env_var(
+        "PATH".into(),
+        Value::test_list(vec![Value::test_string(file(
+            FIXTURES.join("external_completions").join("path"),
+        ))]),
+    );
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let suggestions = completer.complete_blocking(input, input.len());
+
+    let mut expected = vec![folder("test_a"), folder("test_a_symlink"), folder("test_b")];
+    expected.extend(correction.map(str::to_owned));
+    match_suggestions_by_string(&expected, &suggestions);
+    for suggestion in suggestions.iter() {
+        let start = if Some(suggestion.value.as_str()) == correction {
+            0
+        } else {
+            input.find(' ').unwrap() + 1
+        };
+        assert_eq!(suggestion.span, Span::new(start, input.len()));
+    }
 }
 
 #[rstest]
