@@ -700,10 +700,31 @@ pub fn parse_value<'a>(
             ExpectedShape::String => parse_string_value(working_set, span),
             ExpectedShape::MatchArmBody => Err(cut(Diagnostic::expected("block", span))),
             ExpectedShape::Closure => Err(cut(Diagnostic::expected("closure", span))),
-            ExpectedShape::Any | ExpectedShape::Declared(_) => {
-                parse_any_value(working_set, span, text)
+            ExpectedShape::Any => {
+                recover_literal(working_set, span, parse_any_value(working_set, span, text))
             }
+            ExpectedShape::Declared(_) => parse_any_value(working_set, span, text),
         },
+    }
+}
+
+/// A value read with any shape whose literal its leaf parser refused (`0b2`, `2023-02-30`,
+/// `"\q"`, `8EiB`, `0x[zz]`): a garbage leaf over the item, its error recorded as recovered.
+/// nu's leaf parser refuses the same item and reports it with garbage of its own, which the
+/// consumer gets by reading the item again with it. Any other failure stays the statement's.
+fn recover_literal<'a>(
+    working_set: &WorkingSet<'a>,
+    span: Span,
+    result: ParseResult<Expression<'a>>,
+) -> ParseResult<Expression<'a>> {
+    match result {
+        Err(ErrMode::Cut(ParseFailure::Error(diagnostic)))
+            if matches!(diagnostic.kind, ErrorKind::InvalidLiteral { .. }) =>
+        {
+            working_set.error(diagnostic.as_recovered());
+            Ok(Expression::new(Expr::Garbage, span))
+        }
+        other => other,
     }
 }
 
@@ -1723,7 +1744,10 @@ fn parse_record_item<'a>(
 
 /// Like Nushell, refuse a bare word containing `:` as a record key or value
 /// (`{a: x:y}`, `{a: http://x}`): it is almost always a missing quote or
-/// separator, and the lexer would otherwise split it unpredictably.
+/// separator, and the lexer would otherwise split it unpredictably. nu reports
+/// it and goes on with garbage in the word's place, and so does the consumer
+/// (nu's `check_record_key_or_value`): the error is recorded as recovered, the
+/// word kept.
 fn check_record_key_or_value(
     working_set: &WorkingSet<'_>,
     expr: &Expression<'_>,
@@ -1746,11 +1770,15 @@ fn check_record_key_or_value(
     for span in bare_spans {
         if let Some(at) = working_set.get_span_contents(span).find(':') {
             let colon = Span::new(span.start + at, span.start + at + 1);
-            return Err(cut(Diagnostic::message(
-                format!("colon in bare word specifying record {position}"),
-                colon,
-            )
-            .with_help(format!("quote the {position} if the `:` is part of it"))));
+            working_set.error(
+                Diagnostic::message(
+                    format!("colon in bare word specifying record {position}"),
+                    colon,
+                )
+                .with_help(format!("quote the {position} if the `:` is part of it"))
+                .as_recovered(),
+            );
+            return Ok(());
         }
     }
     Ok(())

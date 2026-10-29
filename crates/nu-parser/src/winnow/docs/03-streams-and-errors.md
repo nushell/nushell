@@ -164,7 +164,14 @@ error kind, a context vector, help text), each of those would allocate. As a
 byte offset it costs nothing, and the boxed diagnostic keeps `ParseFailure`
 two words wide, so every `ParseResult` is cheap to return. This is a large
 part of why the combinator parser is as fast as the hand-written loops it
-replaced. A diagnostic is built only for a cut, which ends the statement.
+replaced. A diagnostic is built only for a cut, which ends the statement, or
+for an error the parser records and goes on past (`WorkingSet::error`). One
+marked `Diagnostic::as_recovered` leaves the statement's tree complete: a
+malformed literal read with any shape becomes a garbage leaf over the item
+(`recover_literal`, which turns exactly the literal parsers' cut into that),
+and a bare word with a `:` in a record keeps its word. The statement still
+fails `parse`; nu-parser's driver lowers it all the same, reading each such
+item again with nu's leaf parser, which reports nu's error.
 
 `ParseFailure` implements winnow's error traits for both `Input` and
 `Tokens`: `ParserError` (`from_input` backtracks at the current position;
@@ -246,7 +253,7 @@ being `Copy`. Methods you will use:
 | --- | --- |
 | `get_span_contents(span)` | Borrow source text (on a stream, `tokens.text(&token)`) |
 | `lex(working_set.get_span_contents(span), span.start, options)` | Lex a region of the source: the standard way to re-lex an item's interior |
-| `error(diagnostic)` | Record a recovered error: parsing goes on (block-level recovery, and checks that do not stop the parse) |
+| `error(diagnostic)` | Record a recovered error: parsing goes on (block-level recovery, and checks that do not stop the parse); one marked `as_recovered` leaves a complete tree the consumer reads again |
 | `add_comment(span)`, `add_comments(&tokens)` | Record comments found while parsing nested constructs |
 | `add_ignored(span)`, `remove_ignored_from(offset)` | Record text nu accepts and never looks at, or drop what was recorded from an offset on |
 | `find_decl(name)` | Whether `name` is a command: `Some(DeclKind::Declared)` for a `def`/`extern`/`alias` in an enclosing block (it shadows a built-in; the innermost wins), `Some(DeclKind::ExternalAlias)` for an alias of an external command, `Some(DeclKind::Wrapped)` for a `def --wrapped` with an untyped rest parameter or an alias of one (its arguments parse as external arguments), `Some(DeclKind::RowCondition)` for a command whose first positional is a row condition (`any`, `take while`) or an alias of one without arguments (its arguments parse as one condition), `Some(DeclKind::KeywordAlias(_))` for an alias of `if`, `match` or `try` without arguments (a call to it parses as the keyword's statement), `Some(DeclKind::OverlayAlias)` for an alias of `overlay use`, `overlay hide` or `overlay new` (a call to it is an ordinary call that changes which commands exist, so the block it is in is left unparsed for the consumer to parse again), `Some(DeclKind::Builtin)` for another configured command, or `None` (an external command when a table is configured) |

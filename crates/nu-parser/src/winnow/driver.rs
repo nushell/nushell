@@ -533,8 +533,13 @@ impl Driver<'_, '_, '_, '_> {
         let mut lower = Lower::new(working_set, self.source, self.offset);
         let span = lower.statement_span(pipeline);
         let mut target = statement_target(&mut self.target, &self.pipelines, self.span);
-        if let Some(error) = diagnostics.first() {
-            stats::record_error_statement(span, error, lower.working_set);
+        // A statement whose every error the winnow parser went on past (a malformed literal
+        // left as a garbage leaf) is lowered: the lowering reads each such leaf again with the
+        // classic leaf parser, which reports the error.
+        if let Some(error) = diagnostics.first()
+            && !diagnostics.iter().all(|diagnostic| diagnostic.recovered)
+        {
+            let errors = lower.working_set.parse_errors.len();
             parse_classic(
                 lower.working_set,
                 span,
@@ -542,7 +547,11 @@ impl Driver<'_, '_, '_, '_> {
                 &mut self.pipelines,
                 &mut self.block_errors,
             );
+            stats::record_error_statement(span, error, lower.working_set, errors);
             return;
+        }
+        if !diagnostics.is_empty() {
+            stats::record_recovered_statement();
         }
         lower.statement_or_classic(
             pipeline,

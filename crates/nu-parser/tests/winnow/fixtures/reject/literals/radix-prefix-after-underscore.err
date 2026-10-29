@@ -3,4 +3,3 @@ error: invalid int literal: invalid digits for radix 16
   |
 2 | print 0_xzz
   |       ^^^^^
-  = while parsing command call

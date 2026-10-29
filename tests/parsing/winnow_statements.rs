@@ -1356,6 +1356,33 @@ fn keyword_call_error_is_lowered(#[case] code: &str, #[case] expected: &[(&str, 
     Ok(())
 }
 
+/// A malformed literal, wherever a value goes, and a bare word with a `:` in a record are
+/// errors the winnow parser goes on past: the statement is lowered, the item read again by
+/// nu's leaf parser, which reports nu's error with its garbage.
+#[rstest]
+#[case::statement_head("2023-02-30", &[("InvalidLiteral", "2023-02-30")])]
+#[case::call_argument("echo 0b2", &[("InvalidLiteral", "0b2")])]
+#[case::list_item("[0x[zz]]", &[("InvalidBinaryString", "0x[zz]")])]
+#[case::record_value("{a: 8EiB}", &[("LiteralTooLarge", "8EiB")])]
+#[case::math_operand("1 + 0o9", &[("InvalidLiteral", "0o9")])]
+#[case::record_colon("{a: x:y}", &[("InvalidLiteral", ":")])]
+#[case::binding_value(r#"let x = "\q""#, &[("InvalidLiteral", r#"\q""#)])]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn malformed_literal_is_lowered(#[case] code: &str, #[case] expected: &[(&str, &str)]) -> Result {
+    let expected: Vec<(String, String)> = expected
+        .iter()
+        .map(|(kind, text)| (kind.to_string(), text.to_string()))
+        .collect();
+    assert_eq!(
+        super::winnow_calls::lowered_errors(code),
+        expected,
+        "`{code}`"
+    );
+    Ok(())
+}
+
 /// A call for help in a module body, which the keyword's parse function gives back as the
 /// statement, is one of the body's statements (`parse_module_block` dispatches by the first
 /// word), lowered as at top level.
@@ -1757,12 +1784,12 @@ fn overlay_alias_in_a_nested_block_is_lowered(#[case] code: &str) -> Result {
 /// which the classic lite parser finds on the next line (one pipeline), or a `|` no command
 /// follows, before a blank line or before another `|`, which goes on to the next statement.
 #[rstest]
-#[case::pipe_starting_the_next_line("ls 0b2\n| length\n1 + 1", 1, 2)]
-#[case::pipe_ending_the_line("ls 0b2 |\nlength\n2 + 2", 1, 2)]
-#[case::semicolon("ls 0b2; 1 + 1", 1, 2)]
+#[case::pipe_starting_the_next_line("ls $x.-1\n| length\n1 + 1", 1, 2)]
+#[case::pipe_ending_the_line("ls $x.-1 |\nlength\n2 + 2", 1, 2)]
+#[case::semicolon("ls $x.-1; 1 + 1", 1, 2)]
 #[case::end_unknown("ls o>\n1 + 1", 0, 1)]
-#[case::pipe_before_a_blank_line("ls 0b2 |\n\n1 + 1", 0, 2)]
-#[case::pipe_after_a_pipe("ls 0b2 | |\n1 + 1", 0, 1)]
+#[case::pipe_before_a_blank_line("ls $x.-1 |\n\n1 + 1", 0, 2)]
+#[case::pipe_after_a_pipe("ls $x.-1 | |\n1 + 1", 0, 1)]
 #[nu_test_support::test]
 #[serial]
 #[exp(nu_experimental::WINNOW_PARSER)]
@@ -1882,8 +1909,8 @@ fn def_after_an_open_redirection_declares_nothing() -> Result {
 /// alias's description is that comment's alone; a command's also comes with its
 /// predeclaration.)
 #[rstest]
-#[case::alias("alias f = ls 0b2 # doc\nf")]
-#[case::command("def f [] { ls 0b2 } # doc\nf")]
+#[case::alias("alias f = ls []]* # doc\nf")]
+#[case::command("def f [] { ls $x.-1 } # doc\nf")]
 #[nu_test_support::test]
 #[serial]
 #[exp(nu_experimental::WINNOW_PARSER)]

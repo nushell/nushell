@@ -29,6 +29,7 @@ static CLASSIC_STATEMENT_BYTES: AtomicU64 = AtomicU64::new(0);
 static ERROR_STATEMENTS: AtomicU64 = AtomicU64::new(0);
 static AHEAD_RUNS: AtomicU64 = AtomicU64::new(0);
 static AHEAD_FALLBACKS: AtomicU64 = AtomicU64::new(0);
+static RECOVERED_STATEMENTS: AtomicU64 = AtomicU64::new(0);
 
 /// What the winnow front end has done in this process so far.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -55,6 +56,9 @@ pub struct WinnowStats {
     /// (or about their longest length) differently: the classic parser took the rest of the
     /// block.
     pub ahead_fallbacks: u64,
+    /// Statements with errors the winnow parser went on past (each left as a garbage node that
+    /// the lowering reads again, reporting the error), lowered rather than handed over.
+    pub recovered_statements: u64,
 }
 
 /// The counters so far.
@@ -68,6 +72,7 @@ pub fn winnow_stats() -> WinnowStats {
         error_statements: ERROR_STATEMENTS.load(Relaxed),
         ahead_runs: AHEAD_RUNS.load(Relaxed),
         ahead_fallbacks: AHEAD_FALLBACKS.load(Relaxed),
+        recovered_statements: RECOVERED_STATEMENTS.load(Relaxed),
     }
 }
 
@@ -93,6 +98,11 @@ pub(super) fn record_ahead_fallback(changed: &str) {
     debug!("winnow: parsed ahead with other command names: {changed}");
 }
 
+/// Count a statement with errors the winnow parser went on past, given to the lowering.
+pub(super) fn record_recovered_statement() {
+    RECOVERED_STATEMENTS.fetch_add(1, Relaxed);
+}
+
 /// Count a statement the lowering turned into the AST.
 pub(super) fn record_lowered_statement() {
     LOWERED_STATEMENTS.fetch_add(1, Relaxed);
@@ -116,18 +126,36 @@ pub(super) fn record_unlowered(span: Span, reason: &Unlowered, working_set: &Sta
 }
 
 /// Count a statement covering `span` that the winnow parser reported `error` in, handed to the
-/// classic parser, and log it.
+/// classic parser, and log it with the first error the classic parser reported for it (those
+/// from `nu_errors_from` on).
 pub(super) fn record_error_statement(
     span: Span,
     error: &Diagnostic,
     working_set: &StateWorkingSet,
+    nu_errors_from: usize,
 ) {
     record_classic_statement(span.len(), true);
-    log_hand_over(
-        format_args!("syntax error ({})", error.kind),
-        span,
-        working_set,
-    );
+    if log_enabled!(Level::Debug) {
+        // The variant of the first error the classic parser reported for the statement, for
+        // telling its syntax errors from its semantic ones.
+        let nu_error = working_set
+            .parse_errors
+            .get(nu_errors_from)
+            .map(|error| {
+                let debug = format!("{error:?}");
+                debug
+                    .split(['(', ' ', '{'])
+                    .next()
+                    .unwrap_or_default()
+                    .to_owned()
+            })
+            .unwrap_or_else(|| "none".to_owned());
+        log_hand_over(
+            format_args!("syntax error ({}) [nu: {nu_error}]", error.kind),
+            span,
+            working_set,
+        );
+    }
 }
 
 /// Log a hand-over of `span` to the classic parser: `why`, its length and its first line of

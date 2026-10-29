@@ -653,8 +653,9 @@ impl<'s> Lower<'_, '_, 's> {
     }
 
     /// A record (`parse_record`). Its type lists the field types when every key is a literal
-    /// string and every spread a record of known fields; otherwise it is `any`. A key or value
-    /// that is a bare word with a `:` is the classic parser's error (`check_record_key_or_value`).
+    /// string and every spread a record of known fields; otherwise it is `any`. A value keeps
+    /// its leaf parser's error, and a key or value that is a bare word with a `:` is reported
+    /// and garbage, as there (`check_record_key_or_value`).
     fn record(&mut self, span: WSpan, items: &[w::RecordItem<'s>]) -> Lowered<Expression> {
         let mut out = Vec::with_capacity(items.len());
         let mut field_types = Some(Vec::new());
@@ -674,13 +675,21 @@ impl<'s> Lower<'_, '_, 's> {
                 }
                 w::RecordItem::Pair { key, value, .. } => {
                     let key = self.value(key, &SyntaxShape::String, None)?;
-                    if check_record_key_or_value(self.working_set, &key, "key").is_some() {
-                        return Err(Unlowered::Error);
-                    }
-                    let value = self.value(value, &SyntaxShape::Any, None)?;
-                    if check_record_key_or_value(self.working_set, &value, "value").is_some() {
-                        return Err(Unlowered::Error);
-                    }
+                    let key = match check_record_key_or_value(self.working_set, &key, "key") {
+                        Some(error) => {
+                            self.working_set.error(error);
+                            Expression::garbage(self.working_set, key.span)
+                        }
+                        None => key,
+                    };
+                    let value = self.reported_value(value, &SyntaxShape::Any, None)?;
+                    let value = match check_record_key_or_value(self.working_set, &value, "value") {
+                        Some(error) => {
+                            self.working_set.error(error);
+                            Expression::garbage(self.working_set, value.span)
+                        }
+                        None => value,
+                    };
                     match key.as_string() {
                         Some(field) => {
                             if let Some(field_types) = &mut field_types {

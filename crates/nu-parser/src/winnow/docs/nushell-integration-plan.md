@@ -54,7 +54,11 @@ source ──▶ parse_block_streaming (this parser) ──▶ one statement's s
   another error in, or cannot handle, is parsed by `nu-parser` from its span,
   which reports what it always has. A statement with a syntax error is parsed
   by `nu-parser` too, alone where the winnow parser's lite parse found where it
-  ends, else with the rest of its block.
+  ends, else with the rest of its block, unless the winnow parser went on past
+  every error in it (`Diagnostic::recovered`: a malformed literal left as a
+  garbage leaf, a bare word with a `:` in a record): that statement is lowered,
+  and the lowering reads each such item again with `nu-parser`'s leaf parser,
+  which reports `nu-parser`'s error with its garbage.
 - **Statements that link modules and files** (`use`, `module`, `overlay`,
   `hide`, `source`, `source-env`, `run`, `plugin use`): the lowering builds
   the call, and `nu-parser`'s code that does the rest (`finish_use`,
@@ -101,7 +105,8 @@ parsers for the rarer shape-dependent values).
   nu_parser::winnow` with the log flags first):
   a statement the lowering gives back, the rest of a block from a statement
   with a syntax error
-  (`winnow: syntax error (<kind>): <n> bytes: <first line>`), and a run
+  (`winnow: syntax error (<kind>) [nu: <variant>]: <n> bytes: <first line>`,
+  `<variant>` being the first error `nu-parser` then reported), and a run
   parsed ahead whose answers about command names changed.
 
 ## What the measurements say

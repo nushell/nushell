@@ -3,4 +3,3 @@ error: invalid datetime literal: not a valid date
   |
 1 | echo 2023-02-30
   |      ^^^^^^^^^^
-  = while parsing command call

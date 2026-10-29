@@ -109,6 +109,10 @@ pub struct Diagnostic {
     pub context: Vec<&'static str>,
     /// Optional advice.
     pub help: Option<String>,
+    /// The parser went on past the problem: the statement's tree is complete, with a garbage
+    /// node where the problem is, which a consumer reads again (a malformed literal, which
+    /// nu's leaf parser reads again with nu's error). [`Diagnostic::as_recovered`].
+    pub recovered: bool,
 }
 
 impl Diagnostic {
@@ -119,7 +123,14 @@ impl Diagnostic {
             span,
             context: Vec::new(),
             help: None,
+            recovered: false,
         }
+    }
+
+    /// The diagnostic of a problem the parser went on past ([`Diagnostic::recovered`]).
+    pub fn as_recovered(mut self) -> Self {
+        self.recovered = true;
+        self
     }
 
     /// `expected <what>` at `span`.
