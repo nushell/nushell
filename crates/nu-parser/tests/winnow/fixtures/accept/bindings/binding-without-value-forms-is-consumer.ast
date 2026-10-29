@@ -1,0 +1,12 @@
+Block 0..36
+  Pipeline 0..10
+    const x 0..10
+  Pipeline 11..19
+    mut y 11..19
+  Pipeline 20..28
+    const z 20..28
+  Pipeline 29..35
+    mut w 29..35
+Ignored (2)
+  6..8 "--"
+  15..17 "--"

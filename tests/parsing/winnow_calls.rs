@@ -218,7 +218,7 @@ fn call_through_an_alias_of_a_keyword(#[case] code: &str, #[case] expected: &str
 
 /// Parse `code` with the winnow front end, which must lower every statement itself, and give
 /// the errors it reported, each as its kind and the text it points at.
-fn lowered_errors(code: &str) -> Vec<(String, String)> {
+pub(super) fn lowered_errors(code: &str) -> Vec<(String, String)> {
     let engine_state = test().engine_state;
     let mut working_set = StateWorkingSet::new(&engine_state);
     let before = nu_parser::winnow_stats();

@@ -1161,6 +1161,31 @@ fn let_without_a_value_is_lowered(
     test().run(code).expect_value_eq(expected)
 }
 
+/// `mut` or `const` without a value is a call to the keyword too (`parse_mut` and
+/// `parse_const` without an `=`), whose missing value is reported as `parse_internal_call`
+/// reports it, after a `--` or a `$` name as well. An `export const` without a value, which
+/// holds nothing to export, adds no error of its own in a module.
+#[rstest]
+#[case::const_name("const x")]
+#[case::mut_name("mut x")]
+#[case::end_of_options("const -- x")]
+#[case::dollar("mut $x")]
+#[case::in_a_block("do { const x }")]
+#[case::export("export const x")]
+#[case::module_export("module m { export const x }")]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn binding_without_a_value_is_lowered(#[case] code: &str) -> Result {
+    let expected = [("MissingPositional".to_owned(), String::new())];
+    assert_eq!(
+        super::winnow_calls::lowered_errors(code),
+        expected,
+        "`{code}`"
+    );
+    Ok(())
+}
+
 /// A row condition or a math expression of several items, which the winnow parser read one by
 /// one, is read again by it as one value, with the commands the working set knows: a condition
 /// after a flag, which may call a command of the file, and the conditions of an alias's `if`.

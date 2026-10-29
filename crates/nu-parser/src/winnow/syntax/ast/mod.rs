@@ -1374,7 +1374,8 @@ pub struct Binding<'a> {
     pub ty: Option<TypeAnnotation<'a>>,
     /// The span of the `=`, if a value is given.
     pub eq: Option<Span>,
-    /// The value: a whole pipeline. `None` for a bare `let x` declaration.
+    /// The value: a whole pipeline. `None` for a bare `let x` declaration, or a `mut x` or
+    /// `const x` whose missing value is the consumer's to report.
     pub value: Option<Block<'a>>,
 }
 

@@ -571,8 +571,9 @@ impl<'s> Lower<'_, '_, 's> {
     ///
     /// A value whose pipeline doesn't take the input type has its errors reported too.
     ///
-    /// `let x` without a value is a plain call to `let` (`let_without_value`), as `parse_let`
-    /// reads a statement of fewer than four items.
+    /// `let x` or `mut x` without a value is a plain call to the keyword
+    /// (`binding_without_value`), as `parse_let` and `parse_mut` read a statement without an
+    /// `=`.
     fn binding(
         &mut self,
         element: &w::PipelineElement<'s>,
@@ -582,10 +583,7 @@ impl<'s> Lower<'_, '_, 's> {
         input_type: Option<&Type>,
     ) -> Lowered<Pipeline> {
         let Some(value) = &binding.value else {
-            if keyword != "let" {
-                return Err(Unlowered::Unsupported("binding without a value"));
-            }
-            let call = self.let_without_value(&element.expr, binding, input_type)?;
+            let call = self.binding_without_value(&element.expr, binding, keyword, input_type)?;
             return Ok(Pipeline::from_vec(vec![call]));
         };
         let decl_id = self
@@ -943,13 +941,18 @@ impl<'s> Lower<'_, '_, 's> {
     /// that does not evaluate, is reported and the statement kept, the variable then holding no
     /// value. `keyword` is the `const` expression. Returns the statement's expression and the
     /// variable's name span.
+    ///
+    /// `const x` without a value is a plain call to `const` (`binding_without_value`), as
+    /// `parse_const` reads a statement without an `=`; it gives no name span, so an `export
+    /// const x` exports nothing.
     pub(super) fn const_statement(
         &mut self,
         keyword: &w::Expression<'s>,
         binding: &w::Binding<'s>,
-    ) -> Lowered<(Expression, Span)> {
+    ) -> Lowered<(Expression, Option<Span>)> {
         let Some(value) = &binding.value else {
-            return Err(Unlowered::Unsupported("const without a value"));
+            let call = self.binding_without_value(keyword, binding, "const", None)?;
+            return Ok((call, None));
         };
         let decl_id = self
             .working_set
@@ -1015,7 +1018,10 @@ impl<'s> Lower<'_, '_, 's> {
             parser_info: HashMap::new(),
         });
         let span = self.span(keyword.span);
-        Ok((self.node(Expr::Call(call), span, Type::Any), lvalue_span))
+        Ok((
+            self.node(Expr::Call(call), span, Type::Any),
+            Some(lvalue_span),
+        ))
     }
 
     /// `type name = type` (`parse_type_alias`), or `export type` when `command` is an

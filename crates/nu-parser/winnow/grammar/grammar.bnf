@@ -1089,12 +1089,15 @@
 ; ==== 6.2 let, mut, const ====
 
 <let>             ::= "let"   <var-decl> [ "=" <rhs-pipeline> ]
-<mut>             ::= "mut"   <var-decl>   "=" <rhs-pipeline>
-<const>           ::= "const" <var-decl>   "=" <rhs-pipeline>
+<mut>             ::= "mut"   <var-decl> [ "=" <rhs-pipeline> ]
+<const>           ::= "const" <var-decl> [ "=" <rhs-pipeline> ]
 <rhs-pipeline>    ::= <assignment-tail> body parsed as <block-tokens>   ; (2) everything to
                                                                         ; the end of the line
-; `let x` without a value is allowed (initial_value is optional in let's signature);
-; `mut x` and `const x` are MissingPositional. A redirection or "|" in the rhs is
+; without "=" nu parses the statement as a call, where "--" before the name ends the
+; options: `let x` is allowed (initial_value is optional in let's signature), the
+; missing value of `mut x` and `const x` is MissingPositional (semantic: signature).
+; A typed `mut x: int` / `const x: int` without a value is MissingType: of the two
+; required positionals the variable gets only the `x:` item. A redirection or "|" in the rhs is
 ; part of the rhs pipeline. nu lexes the rhs again from its text, as a block: inside
 ; "(" ")", whose newlines are whitespace, a newline between its items still ends a
 ; pipeline (`(let x = 1\n2)` gives `x` a block of two). Type checks and

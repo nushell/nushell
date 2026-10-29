@@ -231,9 +231,13 @@ impl<'s> Lower<'_, '_, 's> {
                     }
                     expression
                 }
-                // The constant is exported unless it holds no value, which is reported.
+                // The constant is exported unless it holds no value, which is reported. One
+                // without a value (`export const x`) exports nothing.
                 w::Expr::Const(binding) if attributes.is_empty() => {
                     let (expression, var_span) = self.export_const(command, export, binding)?;
+                    let Some(var_span) = var_span else {
+                        return Ok(Pipeline::from_vec(vec![expression]));
+                    };
                     let name = trim_quotes(self.working_set.get_span_contents(var_span)).to_vec();
                     match self.working_set.find_variable(&name) {
                         Some(var_id) => match self.working_set.get_constant(var_id) {
@@ -398,13 +402,14 @@ impl<'s> Lower<'_, '_, 's> {
     }
 
     /// `export const` (in a script or a module): the constant, made a call to `export const`
-    /// covering the statement. Returns it with the variable's name span.
+    /// covering the statement. Returns it with the variable's name span, which a constant
+    /// without a value has none of.
     fn export_const(
         &mut self,
         command: &w::Expression<'s>,
         export: &w::Export<'s>,
         binding: &w::Binding<'s>,
-    ) -> Lowered<(Expression, Span)> {
+    ) -> Lowered<(Expression, Option<Span>)> {
         let (mut expression, var_span) = self.const_statement(&export.item, binding)?;
         let span = self.span(command.span);
         self.export_call(&mut expression, "export const", span)?;

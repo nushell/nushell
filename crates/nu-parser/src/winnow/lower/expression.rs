@@ -514,7 +514,7 @@ impl<'s> Lower<'_, '_, 's> {
     /// The span of the keyword `keyword` that starts `e`.
     /// `let name` where the classic parser reads a command, in a pipeline or after an
     /// environment shorthand (`parse_expression`): an ordinary call to `let` (`parse_call`,
-    /// [`Self::let_without_value`]). A value after the name is left to the classic parser. (A
+    /// [`Self::binding_without_value`]). A value after the name is left to the classic parser. (A
     /// command named `let` and the name, which `parse_call` calls instead, the winnow parser
     /// already reads as a call.)
     fn let_call(
@@ -526,26 +526,29 @@ impl<'s> Lower<'_, '_, 's> {
         if binding.eq.is_some() || binding.value.is_some() {
             return Err(Unlowered::Unsupported("binding in a pipeline"));
         }
-        self.let_without_value(e, binding, input_type)
+        self.binding_without_value(e, binding, "let", input_type)
     }
 
-    /// `let name` without a value, `e`, as a call to `let` with its arguments assigned by the
-    /// signature (`parse_internal_call`, which `parse_let` calls for a statement of fewer than
-    /// four items): the variable and the call's output take `input_type`. A `$` before the
+    /// `let name`, `mut name` or `const name` without a value, `e`, as a call to `keyword` with
+    /// its arguments assigned by the signature (`parse_internal_call`, which `parse_let`,
+    /// `parse_mut` and `parse_const` call for a statement without a value): the variable and
+    /// the call's output take `input_type` (only a `let` gets one). `mut` and `const` report
+    /// their value as a missing positional, and their variable is not mutable. A `$` before the
     /// name stays in the variable's name. A `--` before it, which the winnow parser dropped,
-    /// changes nothing: it ends the options, and `let` takes no unknown arguments. With a type
-    /// (`let x: int`), the name and the type are the variable's items, read as
-    /// `parse_var_with_opt_type` reads them (`variable_declaration`), the variable typed so and in
-    /// scope at once.
-    pub(super) fn let_without_value(
+    /// changes nothing: it ends the options, and the keyword takes no unknown arguments. With a
+    /// type (`let x: int`; only `let`, whose value is optional, gets here with one), the name
+    /// and the type are the variable's items, read as `parse_var_with_opt_type` reads them
+    /// (`variable_declaration`), the variable typed so and in scope at once.
+    pub(super) fn binding_without_value(
         &mut self,
         e: &w::Expression<'s>,
         binding: &w::Binding<'s>,
+        keyword: &str,
         input_type: Option<&Type>,
     ) -> Lowered<Expression> {
-        let decl_id = find_keyword_decl(self.working_set, b"let")
-            .ok_or(Unlowered::Unsupported("let that is not a keyword"))?;
-        let head = self.keyword_span(e, "let");
+        let decl_id = find_keyword_decl(self.working_set, keyword.as_bytes())
+            .ok_or(Unlowered::Unsupported("binding that is not a keyword"))?;
+        let head = self.keyword_span(e, keyword);
         if binding.ty.is_some() {
             let (variable, _, name) =
                 self.variable_declaration(&binding.name, binding.ty.as_ref(), false, input_type)?;

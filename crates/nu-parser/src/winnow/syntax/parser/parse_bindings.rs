@@ -26,21 +26,25 @@ pub fn parse_let<'a>(tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
     parse_binding(tokens, BindingKind::Let)
 }
 
-/// `mut name[: type] = value...` (nu's `parse_mut`).
+/// `mut name[: type] [= value...]` (nu's `parse_mut`).
 pub fn parse_mut<'a>(tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
     parse_binding(tokens, BindingKind::Mut)
 }
 
-/// `const name[: type] = value...` (nu's `parse_const`).
+/// `const name[: type] [= value...]` (nu's `parse_const`).
 pub fn parse_const<'a>(tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
     parse_binding(tokens, BindingKind::Const)
 }
 
-/// `let`, `mut` and `const`: `keyword name[: type] [= value...]`. Only `let`
-/// may leave the value out. With an `=` nu takes these arguments by position,
-/// so a `--` is not an end-of-options marker (`let -- x = 1` is an error);
-/// without one it parses `let` as an ordinary call, where `--` ends the
-/// options (`let -- x` declares `x`).
+/// `let`, `mut` and `const`: `keyword name[: type] [= value...]`. With an `=`
+/// nu takes these arguments by position, so a `--` is not an end-of-options
+/// marker (`let -- x = 1` is an error); without one it parses the statement as
+/// an ordinary call, where `--` ends the options (`let -- x` declares `x`).
+/// That call leaves the value out: optional for `let`, a missing positional of
+/// `mut` and `const` that the consumer reports (`const x`). A typed `mut` or
+/// `const` without a value stays an error: of their two required positionals
+/// nu gives the variable only the `x:` item, which then has no type
+/// (`MissingType`).
 fn parse_binding<'a>(mut tokens: Tokens<'_, 'a>, kind: BindingKind) -> ParseResult<Expression<'a>> {
     let working_set = tokens.working_set;
     let statement = tokens;
@@ -58,8 +62,7 @@ fn parse_binding<'a>(mut tokens: Tokens<'_, 'a>, kind: BindingKind) -> ParseResu
     let has_equals = items
         .iter()
         .any(|token| matches!(token.contents, TokenContents::AssignmentOperator(_)));
-    if matches!(kind, BindingKind::Let)
-        && !has_equals
+    if !has_equals
         && let Some(&marker) = tokens.peek_token()
         && working_set.get_span_contents(marker.span) == "--"
     {
@@ -118,7 +121,7 @@ fn parse_binding<'a>(mut tokens: Tokens<'_, 'a>, kind: BindingKind) -> ParseResu
             };
             (Some(block), rhs_span)
         }
-        None if kind != BindingKind::Let => {
+        None if kind != BindingKind::Let && typed => {
             return Err(cut(Diagnostic::message(
                 "missing required positional argument",
                 items[items.len() - 1].span.past(),
