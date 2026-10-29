@@ -1,0 +1,37 @@
+Block 0..176
+  Pipeline 0..175
+    Module 0..175
+      String Bare "m" 7..8
+      Body 10..174
+        Pipeline 15..25
+          Call `def` 15..25
+            Flag --help 19..25
+        Pipeline 30..48
+          Call `def` 30..48
+            String Bare "f" 34..35
+            List 36..38
+            Flag --help 42..48
+        Pipeline 53..66
+          Call `extern` 53..66
+            Flag --help 60..66
+        Pipeline 71..83
+          Call `alias` 71..83
+            Flag --help 77..83
+        Pipeline 88..99
+          Call `type` 88..99
+            Flag --help 93..99
+        Pipeline 104..114
+          Call `use` 104..114
+            Flag --help 108..114
+        Pipeline 119..132
+          Call `module` 119..132
+            Flag --help 126..132
+        Pipeline 137..151
+          Call `const` 137..151
+            String Bare "x" 143..144
+            Flag --help 145..151
+        Pipeline 156..173
+          Call `export-env` 156..173
+            Flag --help 167..173
+Ignored (1)
+  39..41 "{}"

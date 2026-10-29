@@ -217,7 +217,21 @@ fn is_alias_help_call(expr: &Expression<'_>) -> bool {
     matches!(&expr.expr, Expr::Call(call) if call.head.name == "alias")
 }
 
-/// Whether `expr` may appear in a module body: declarations only.
+/// The statements nu's `parse_module_block` parses in a module body, by their first word; any
+/// other is an error there.
+const MODULE_KEYWORDS: &[&str] = &[
+    "def",
+    "extern",
+    "alias",
+    "type",
+    "use",
+    "module",
+    "const",
+    "export-env",
+];
+
+/// Whether `expr` may appear in a module body: declarations only, or one of their keywords
+/// parsed as a call (`def --help`), which nu's parse function for the keyword gives back.
 fn is_module_item(expr: &Expression<'_>) -> bool {
     match &expr.expr {
         Expr::Def(_)
@@ -229,6 +243,7 @@ fn is_module_item(expr: &Expression<'_>) -> bool {
         | Expr::Export(_)
         | Expr::ExportEnv(_)
         | Expr::Const(_) => true,
+        Expr::Call(call) => MODULE_KEYWORDS.contains(&call.head.name.as_ref()),
         Expr::AttributeBlock(attribute_block) => is_module_item(&attribute_block.item),
         _ => false,
     }

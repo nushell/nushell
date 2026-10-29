@@ -1412,6 +1412,8 @@ Vocabulary: `<expression>` is a `<pipeline-element>` (3.1); `<block>` is a
                                                ; `module m { |def x [] {} }` has a leading pipe
 <module-item>     ::= <def> | <extern> | <export> | <attribute-block>
                     | <const> | <alias> | <use> | <module> | <export-env>
+; a call for help of one of these keywords is an item too (`def --help`, `const x
+; --help`): the keyword's parse function gives the call back as the statement;
 ; anything else (`let`, `mut`, a call, `if`, a pipeline of > 1 command) is
 ; ExpectedKeyword "def, const, extern, alias, use, module, export or export-env"
 ; nu: parse_module.rs:466 parse_module_block

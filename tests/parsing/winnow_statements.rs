@@ -1186,6 +1186,28 @@ fn binding_without_a_value_is_lowered(#[case] code: &str) -> Result {
     Ok(())
 }
 
+/// A call for help in a module body, which the keyword's parse function gives back as the
+/// statement, is one of the body's statements (`parse_module_block` dispatches by the first
+/// word), lowered as at top level.
+#[rstest]
+#[case::def("module m { def --help }")]
+#[case::def_after_body("module m { def f [] {} --help }")]
+#[case::extern_command("module m { extern --help }")]
+#[case::alias("module m { alias --help }")]
+#[case::type_alias("module m { type --help }")]
+#[case::use_module("module m { use --help }")]
+#[case::submodule("module m { module --help }")]
+#[case::constant("module m { const x --help }")]
+#[case::export_env("module m { export-env --help }")]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn call_for_help_in_a_module_body_is_lowered(#[case] code: &str) -> Result {
+    let engine_state = test().engine_state;
+    parse_lowered(&engine_state, code);
+    Ok(())
+}
+
 /// A row condition or a math expression of several items, which the winnow parser read one by
 /// one, is read again by it as one value, with the commands the working set knows: a condition
 /// after a flag, which may call a command of the file, and the conditions of an alias's `if`.

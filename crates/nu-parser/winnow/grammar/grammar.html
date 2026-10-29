@@ -4445,7 +4445,9 @@ svg.railroad-diagram g.diagram-text:hover path.diagram-text {
 <li><a href="#def">def</a></li><li><a href="#extern">extern</a></li><li><a href="#export">export</a></li><li><a href="#attribute_block">attribute_block</a></li><li><a href="#const">const</a></li><li><a href="#alias">alias</a></li><li><a href="#use">use</a></li><li><a href="#module">module</a></li><li><a href="#export_env">export_env</a></li>
 </ul>
 </section>
-<p>anything else (<code>let</code>, <code>mut</code>, a call, <code>if</code>, a pipeline of &gt; 1 command) is
+<p>a call for help of one of these keywords is an item too (<code>def --help</code>, <code>const x
+  --help</code>): the keyword’s parse function gives the call back as the statement;
+  anything else (<code>let</code>, <code>mut</code>, a call, <code>if</code>, a pipeline of &gt; 1 command) is
   ExpectedKeyword "def, const, extern, alias, use, module, export or export-env"
   nu: parse<em>module.rs:466 parse</em>module<em>block
   here: src/winnow/syntax/parser/parse</em>module.rs::is<em>module</em>item </p><section>
@@ -6171,7 +6173,7 @@ svg.railroad-diagram g.diagram-text:hover path.diagram-text {
 <p>(6.1) </p>
   </article>
   <footer>
-    <p>Date: 2026-10-29T15:21 - <a href="?theme=dark" data-theme="dark">Dark</a> - <a href="?theme=light" data-theme="light">Light</a></p>
+    <p>Date: 2026-10-29T16:55 - <a href="?theme=dark" data-theme="dark">Dark</a> - <a href="?theme=light" data-theme="light">Light</a></p>
   </footer>
   </main>
   <script type="text/javascript">
