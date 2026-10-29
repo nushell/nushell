@@ -3,5 +3,4 @@ error: expected block
   |
 1 | try {a: 1}
   |     ^^^^^^
-  = while parsing try
   = help: found a record

@@ -3,5 +3,4 @@ error: expected block
   |
 1 | for x in [] {a: 1}
   |             ^^^^^^
-  = while parsing for
   = help: found a record

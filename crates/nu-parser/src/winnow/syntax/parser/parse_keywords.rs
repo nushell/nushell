@@ -375,12 +375,19 @@ pub fn parse_brace_value<'a>(
     span: Span,
     what: &'static str,
 ) -> ParseResult<Option<Expression<'a>>> {
-    match parse_brace_record(working_set, span)? {
-        Some(value) if is_typed_record(&value) => Err(cut(
-            Diagnostic::expected(what, span).with_help("found a record")
-        )),
-        value => Ok(value),
+    let value = parse_brace_record(working_set, span)?;
+    // nu reports the record as a type mismatch and goes on with garbage in its place, and so
+    // does the consumer, which type-checks the value: the error is recorded as recovered.
+    if let Some(value) = &value
+        && is_typed_record(value)
+    {
+        working_set.error(
+            Diagnostic::expected(what, span)
+                .with_help("found a record")
+                .as_recovered(),
+        );
     }
+    Ok(value)
 }
 
 /// The block a keyword command takes (`if`, `while`, `loop`, `try`, `for`),

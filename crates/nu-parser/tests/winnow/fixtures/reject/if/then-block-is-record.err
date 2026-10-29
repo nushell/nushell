@@ -3,5 +3,4 @@ error: expected block after the condition
   |
 1 | if true {a: 1}
   |         ^^^^^^
-  = while parsing if
   = help: found a record

@@ -124,11 +124,10 @@ impl<'s> Lower<'_, '_, 's> {
         input_type: Option<&Type>,
     ) -> Lowered<Expression> {
         if let Some(value) = value {
+            // `parse_internal_call`'s check of the positional: a value of another type (a
+            // record, `while true {a: 1}`) is reported, garbage.
             let value = self.value(value, &SyntaxShape::Block, input_type)?;
-            if !type_compatible(&SyntaxShape::Block.to_type(), &value.ty) {
-                return Err(Unlowered::Error);
-            }
-            return Ok(value);
+            return Ok(self.positional_value(value, &SyntaxShape::Block));
         }
         let span = self.braces_span(block)?;
         self.block_expression(span, block, input_type)
@@ -298,24 +297,22 @@ impl<'s> Lower<'_, '_, 's> {
                 w::HandlerKind::Finally => "finally",
             };
             let compile_errors = self.working_set.compile_errors.len();
-            let closure = match &handler.body.expr {
-                w::Expr::Closure(closure) => self.closure(
-                    handler.body.span,
-                    closure.params.as_ref(),
-                    &closure.body,
-                    &SyntaxShape::Closure(None),
+            let (closure, value_shape) = match &handler.body.expr {
+                w::Expr::Closure(closure) => (
+                    self.closure(
+                        handler.body.span,
+                        closure.params.as_ref(),
+                        &closure.body,
+                        &SyntaxShape::Closure(None),
+                        None,
+                    )?,
                     None,
-                )?,
+                ),
                 _ => {
                     let signature = self.working_set.get_signature_shared(decl_id);
                     let shape = handler_shape(&signature, keyword)
                         .ok_or(Unlowered::Unsupported("handler that is not a closure"))?;
-                    let value = self.value(&handler.body, &shape, None)?;
-                    // `parse_internal_call`'s check of the positional, typed as the handler.
-                    if !type_compatible(&shape.to_type(), &value.ty) {
-                        return Err(Unlowered::Error);
-                    }
-                    value
+                    (self.value(&handler.body, &shape, None)?, Some(shape))
                 }
             };
             if let [CompileError::NotInALoop { .. }] =
@@ -334,6 +331,12 @@ impl<'s> Lower<'_, '_, 's> {
                 expr: closure,
             };
             let argument = self.node(Expr::Keyword(Box::new(keyword)), span, ty);
+            // `parse_internal_call`'s check of the positional, the keyword and its value typed as
+            // the handler: one of another type (a record, `catch {a: 1}`) is reported, garbage.
+            let argument = match value_shape {
+                Some(shape) => self.positional_value(argument, &shape),
+                None => argument,
+            };
             call.add_positional(argument);
         }
         let output = self.finish_keyword_call(&call, decl_id, input_type)?;
@@ -363,10 +366,7 @@ impl<'s> Lower<'_, '_, 's> {
         call.add_positional(value);
         let block = if let Some(value_block) = &match_expr.value_block {
             let block = self.value(value_block, &SyntaxShape::MatchBlock, arms_input)?;
-            if !type_compatible(&SyntaxShape::MatchBlock.to_type(), &block.ty) {
-                return Err(Unlowered::Error);
-            }
-            block
+            self.positional_value(block, &SyntaxShape::MatchBlock)
         } else {
             let mut arms = Vec::with_capacity(match_expr.arms.len());
             let mut output = Type::one_of([]);

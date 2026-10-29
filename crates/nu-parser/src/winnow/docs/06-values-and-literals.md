@@ -71,7 +71,9 @@ the item is a record or a cell path on one (`parse_brace_record`). nu then
 type-checks it against the block, and only a record whose keys are all plain
 strings has a type (`is_typed_record`); anything else is `any` and passes, so
 `if true { $env.A:b }` and `try {a: 1}.a` parse while `if true {a: 1}` is
-"expected block" (`parse_brace_value`).
+"expected block" (`parse_brace_value`), an error the parser goes on past: the
+record stays the keyword's value, recorded as recovered, and the consumer
+reports nu's type mismatch with garbage in the argument's place.
 
 `parse_any_value` tries, in nu's order: `null`/`true`/`false`, binary
 (`parse_binary`: `0x[`, `0o[`, `0b[`), range (only if `is_range_syntax` says

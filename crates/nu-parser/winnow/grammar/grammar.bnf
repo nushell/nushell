@@ -902,7 +902,9 @@
 ; token (probed as in 5.13, a tail such as `.a` included) is ":": a record or a
 ; cell path on one. nu types it any, which passes, unless it is a record whose keys
 ; are all plain strings (not raw), which is a type error: `if true { $env.A:b }` and
-; `try {a: 1}.a` parse, `if true {a: 1}` does not
+; `try {a: 1}.a` parse, `if true {a: 1}` does not (an error recorded as recovered:
+; the record stays the value, and the consumer reports nu's type mismatch with garbage
+; over the argument, `catch {a: 1}` as a whole for a handler)
 ; nu: parse_expressions.rs:411 parse_block_expression; parse_literals.rs:547
 ;     parse_brace_expr; parse_expressions.rs:1943 parse_record (its type)
 ; here: src/winnow/syntax/parser/parse_expressions.rs::parse_block_body, parse_block_expression,

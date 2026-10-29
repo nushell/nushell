@@ -574,7 +574,11 @@ impl<'s> Lower<'_, '_, 's> {
 
     /// `value` as the argument of a positional of `shape`: itself, or garbage with the classic
     /// parser's type mismatch when its type does not fit (`parse_internal_call`).
-    fn positional_value(&mut self, value: Expression, shape: &SyntaxShape) -> Expression {
+    pub(super) fn positional_value(
+        &mut self,
+        value: Expression,
+        shape: &SyntaxShape,
+    ) -> Expression {
         if type_compatible(&shape.to_type(), &value.ty) {
             return value;
         }

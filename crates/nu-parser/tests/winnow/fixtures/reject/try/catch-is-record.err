@@ -3,5 +3,4 @@ error: expected closure
   |
 1 | try {} catch { a: 1 }
   |              ^^^^^^^^
-  = while parsing try
   = help: found a record

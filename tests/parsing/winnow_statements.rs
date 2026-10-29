@@ -1412,6 +1412,34 @@ fn reserved_variable_name_is_lowered(
     Ok(())
 }
 
+/// A record where a keyword takes a block or a handler's closure is nu's type mismatch, with
+/// garbage in the argument's place (the `catch` keyword and its value for a handler): lowered,
+/// reported as there.
+#[rstest]
+#[case::while_body("while true {a: 1}", &[("TypeMismatch", "{a: 1}")])]
+#[case::catch_handler("try {} catch {a: 1}", &[("TypeMismatch", "catch {a: 1}")])]
+#[case::if_branch("if true {a: 1}", &[("TypeMismatch", "{a: 1}")])]
+#[case::nested_record("loop {a: {b: 1}}", &[("TypeMismatch", "{a: {b: 1}}")])]
+#[case::try_body("try {a: 1}", &[("TypeMismatch", "{a: 1}")])]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn record_in_a_block_place_is_lowered(
+    #[case] code: &str,
+    #[case] expected: &[(&str, &str)],
+) -> Result {
+    let expected: Vec<(String, String)> = expected
+        .iter()
+        .map(|(kind, text)| (kind.to_string(), text.to_string()))
+        .collect();
+    assert_eq!(
+        super::winnow_calls::lowered_errors(code),
+        expected,
+        "`{code}`"
+    );
+    Ok(())
+}
+
 /// A call for help in a module body, which the keyword's parse function gives back as the
 /// statement, is one of the body's statements (`parse_module_block` dispatches by the first
 /// word), lowered as at top level.
