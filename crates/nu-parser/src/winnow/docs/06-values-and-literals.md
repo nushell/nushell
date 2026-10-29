@@ -358,7 +358,10 @@ Three functions parse the body:
   `]` that closes no `[` there is an error, `[1 2]]`); if
   the tokens are `[..]` `;` `[..]...`, it is a table
   (`parse_table_expression`); otherwise `reject_semicolon` makes any `;` an
-  error ("unexpected semicolon in list", as nu) and the rest is a list.
+  error ("unexpected semicolon in list", as nu) and the rest is a list. nu's
+  list parser goes on past that error, so the parser does too: the list is a
+  garbage leaf with the error recorded as recovered (`recover_as_garbage`),
+  which the consumer reads again with nu's list parser.
   `parse_list_expression_with_shape` is the same with the items parsed as a
   declared element type (`[x: list<int> = [1 2]]`).
 * `lite_parse_parts` (in `lite_parser.rs`) is nu's lite parse of the tokens
@@ -402,7 +405,11 @@ Three functions parse the body:
   `2023-02-29` included, and the rest is parsed with `ExpectedShape::String`
   (quoted, `$var`, `(expr)`, interpolation). A key written twice as a string
   is refused (`check_duplicate_name`, nu's `ColumnDefinedTwice`); one known
-  only when the record runs (`$k`) is checked then. Spreads `...$r` are allowed. Like
+  only when the record runs (`$k`) is checked then. These errors of the
+  record's own are recorded as recovered and the record is a garbage leaf
+  (`recover_as_garbage`), which the consumer reads again with nu's record
+  parser, as nu goes on past them; an error of a value inside (a closure's
+  body) stays the statement's. Spreads `...$r` are allowed. Like
   nu (`check_record_key_or_value`), a bare word or bare interpolation
   containing `:` is refused as a key or value (`{a: http://x}`, `{ :: x }`):
   quote it.

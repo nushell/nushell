@@ -708,6 +708,24 @@ pub fn parse_value<'a>(
     }
 }
 
+/// `Some` of a record or list item that parsed, or `None` after recording `error` when it is
+/// one of the record's or list's own (marked recovered where it is made: an unexpected token,
+/// a missing `:` or value, a field named twice, a `;` in a list), for the construct at `span`
+/// to be a garbage leaf. nu's record and list parsers report the same error and go on, so the
+/// consumer reads the item again with them. An error of a nested value stays the statement's.
+fn recover_as_garbage<T>(
+    working_set: &WorkingSet<'_>,
+    error: ErrMode<ParseFailure>,
+) -> ParseResult<Option<T>> {
+    match error {
+        ErrMode::Cut(ParseFailure::Error(diagnostic)) if diagnostic.recovered => {
+            working_set.error(*diagnostic);
+            Ok(None)
+        }
+        error => Err(error),
+    }
+}
+
 /// A value read with any shape whose literal its leaf parser refused (`0b2`, `2023-02-30`,
 /// `"\q"`, `8EiB`, `0x[zz]`): a garbage leaf over the item, its error recorded as recovered.
 /// nu's leaf parser refuses the same item and reports it with garbage of its own, which the
@@ -1394,7 +1412,8 @@ fn reject_semicolon(items: &[Token], what: &'static str) -> ParseResult<()> {
             format!("unexpected semicolon in {what}"),
             token.span,
         )
-        .with_help("use commas or whitespace to separate list items"))),
+        .with_help("use commas or whitespace to separate list items")
+        .as_recovered())),
         None => Ok(()),
     }
 }
@@ -1429,7 +1448,14 @@ fn parse_list_expression_with_shape<'a>(
     {
         return parse_table_expression(working_set, span, first, second, rows);
     }
-    reject_semicolon(&items, "list")?;
+    // A `;` is nu's list error, which it goes on past (`[1; 2]`): the list is a garbage leaf.
+    if reject_semicolon(&items, "list")
+        .map(Some)
+        .or_else(|error| recover_as_garbage::<()>(working_set, error))?
+        .is_none()
+    {
+        return Ok(Expression::new(Expr::Garbage, span));
+    }
     let mut list_items = Vec::with_capacity(items.len());
     // Like nu, the interior is lite-parsed as a pipeline and the items of all its
     // commands are the list's: `[a | b]` is `[a b]`.
@@ -1610,11 +1636,18 @@ pub fn parse_record<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResult
     let mut items = Vec::new();
     let mut names = HashMap::new();
     while let Some(first) = next_record_token(working_set, &mut interior, LexOptions::RECORD_KEY)? {
-        let item = parse_record_item(working_set, &mut interior, first)?;
-        if let RecordItem::Pair { key, .. } = &item {
-            check_duplicate_name(&mut names, key)?;
+        let item = parse_record_item(working_set, &mut interior, first)
+            .and_then(|item| {
+                if let RecordItem::Pair { key, .. } = &item {
+                    check_duplicate_name(&mut names, key)?;
+                }
+                Ok(Some(item))
+            })
+            .or_else(|error| recover_as_garbage(working_set, error))?;
+        match item {
+            Some(item) => items.push(item),
+            None => return Ok(Expression::new(Expr::Garbage, span)),
         }
-        items.push(item);
     }
     Ok(Expression::new(Expr::Record(items), span))
 }
@@ -1649,7 +1682,8 @@ fn check_duplicate_name<'a>(
             ),
             name.span,
         )
-        .with_help(format!("it is first defined at byte {}", first.get().start)))),
+        .with_help(format!("it is first defined at byte {}", first.get().start))
+        .as_recovered())),
         Entry::Vacant(entry) => {
             entry.insert(name.span);
             Ok(())
@@ -1684,9 +1718,8 @@ fn parse_record_item<'a>(
             "unexpected token in record",
             first.span,
         )
-        .with_help(
-            "expected a record key here; fields look like `key: value`",
-        )));
+        .with_help("expected a record key here; fields look like `key: value`")
+        .as_recovered()));
     }
     if is_spread(working_set.get_span_contents(first.span), b"{$(") {
         let dots = Span::new(first.span.start, first.span.start + 3);
@@ -1702,16 +1735,19 @@ fn parse_record_item<'a>(
     let colon = match next_record_token(working_set, interior, LexOptions::RECORD_KEY)? {
         Some(colon) if working_set.get_span_contents(colon.span) == ":" => colon,
         Some(other) => {
-            return Err(cut(Diagnostic::expected("`:` after record key", other.span).with_help(
-                "record fields look like `key: value`; a missing colon often makes this parse as a block or closure",
-            )));
+            return Err(cut(Diagnostic::expected("`:` after record key", other.span)
+                .with_help(
+                    "record fields look like `key: value`; a missing colon often makes this parse as a block or closure",
+                )
+                .as_recovered()));
         }
         None => {
             return Err(cut(Diagnostic::expected(
                 "`:` after record key",
                 first.span.past(),
             )
-            .with_help("record fields look like `key: value`")));
+            .with_help("record fields look like `key: value`")
+            .as_recovered()));
         }
     };
     let value = match next_record_token(working_set, interior, LexOptions::RECORD_VALUE)? {
@@ -1723,15 +1759,15 @@ fn parse_record_item<'a>(
                 "unexpected token in record value",
                 token.span,
             )
-            .with_help(
-                "after `key:`, provide a value (string, number, record, list, ...)",
-            )));
+            .with_help("after `key:`, provide a value (string, number, record, list, ...)")
+            .as_recovered()));
         }
         None => {
             return Err(cut(Diagnostic::expected(
                 "value for record field",
                 colon.span.past(),
-            )));
+            )
+            .as_recovered()));
         }
     };
     check_record_key_or_value(working_set, &value, "value")?;

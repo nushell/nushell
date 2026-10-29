@@ -316,6 +316,12 @@ impl<'s> Lower<'_, '_, 's> {
         input_type: Option<&Type>,
     ) -> Lowered<Expression> {
         match &e.expr {
+            // A record the winnow parser went on past an error in (`{=: 1}`): nu's record
+            // parser reads it again, reporting its errors with what it recovers.
+            w::Expr::Garbage => {
+                let span = self.span(e.span);
+                Ok(classic_value(self.working_set, span, shape, input_type))
+            }
             // `{}`: what the shape asks for.
             w::Expr::Record(items) if items.is_empty() => match shape {
                 SyntaxShape::Closure(_) => {
@@ -392,6 +398,12 @@ impl<'s> Lower<'_, '_, 's> {
     /// An item starting with `[` (the `[` case of `parse_value`): a list or a table, possibly
     /// with a cell path. A shape that does not take a `[` item is the classic parser's error.
     fn bracket(&mut self, e: &w::Expression<'s>, shape: &SyntaxShape) -> Lowered<Expression> {
+        // A list the winnow parser went on past an error in (`[1; 2]`): nu's list parser reads
+        // it again, reporting its errors with what it recovers.
+        if let w::Expr::Garbage = e.expr {
+            let span = self.span(e.span);
+            return Ok(classic_value(self.working_set, span, shape, None));
+        }
         match shape {
             SyntaxShape::List(element) => self.table_expression(e, element),
             SyntaxShape::Table(_) => self.table_expression(e, &SyntaxShape::Any),

@@ -1440,6 +1440,34 @@ fn record_in_a_block_place_is_lowered(
     Ok(())
 }
 
+/// A record or list with an error of its own (an unexpected token, a missing `:`, a field named
+/// twice, a `;` in a list) is nu's error, which its record or list parser goes on past:
+/// lowered, the item read again by that parser.
+#[rstest]
+#[case::unexpected_key("{=: 1}", &[("LabeledErrorWithHelp", "=")])]
+#[case::missing_colon("{a: 1 b}", &[("LabeledErrorWithHelp", "")])]
+#[case::list_semicolon("[1; 2]", &[("LabeledErrorWithHelp", ";")])]
+#[case::field_twice("{a: 1, a: 2}", &[("ColumnDefinedTwice", "a")])]
+#[case::call_argument("echo {a: =}", &[("LabeledErrorWithHelp", "=")])]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn malformed_record_or_list_is_lowered(
+    #[case] code: &str,
+    #[case] expected: &[(&str, &str)],
+) -> Result {
+    let expected: Vec<(String, String)> = expected
+        .iter()
+        .map(|(kind, text)| (kind.to_string(), text.to_string()))
+        .collect();
+    assert_eq!(
+        super::winnow_calls::lowered_errors(code),
+        expected,
+        "`{code}`"
+    );
+    Ok(())
+}
+
 /// A call for help in a module body, which the keyword's parse function gives back as the
 /// statement, is one of the body's statements (`parse_module_block` dispatches by the first
 /// word), lowered as at top level.
