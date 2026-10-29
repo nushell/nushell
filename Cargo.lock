@@ -7868,13 +7868,15 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.52.1"
-source = "git+https://github.com/nushell/reedline?branch=main#c8d81b222745f7057a30a0fbf0ec454c5ac42e2e"
+source = "git+https://github.com/nushell/reedline?branch=main#2d56ec5aeb8992422aa6108f177b58f0958bcb1a"
 dependencies = [
  "arboard",
  "crossterm",
+ "crossterm_winapi",
  "fd-lock",
  "nu-ansi-term",
  "rusqlite",
+ "rustix 1.1.4",
  "serde",
  "serde_json",
  "strip-ansi-escapes",
