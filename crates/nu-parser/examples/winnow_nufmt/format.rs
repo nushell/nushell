@@ -1248,6 +1248,8 @@ impl<'a> Formatter<'a> {
                     self.glued(|f| f.expr(expr));
                 }
                 Argument::EndOfOptions(_) => self.word("--"),
+                // An item nu does not read is copied as written.
+                Argument::Unread(span) => self.spanned(*span),
             }
         }
         if indented {

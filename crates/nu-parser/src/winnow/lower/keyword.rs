@@ -1072,9 +1072,9 @@ impl<'s> Lower<'_, '_, 's> {
         Ok((pipeline, exportables))
     }
 
-    /// A statement keyword's call for help (`def foo --help`, `module m --help {}`), `item` the
-    /// call and `command` the statement: the call itself, or the `export` around it, in the
-    /// body of the module `module_name` for an exported definition. The statement is the call
+    /// A statement keyword's call for help (`def foo --help`), `call`, and `command` the
+    /// statement: the call itself, or the `export` around it, in the body of the module
+    /// `module_name` for an exported definition. The statement is the call
     /// the keyword's parse function makes to see whether the statement asks for help, its
     /// arguments read by the keyword's signature (`parse_internal_call`), as that function makes
     /// it:
@@ -1084,8 +1084,6 @@ impl<'s> Lower<'_, '_, 's> {
     ///   `finish_extern` (which defines the command all the same);
     /// - `for` reads it in a scope of its own;
     /// - `type` reads only its first two items;
-    /// - `module` reads only its first positional (`ArgumentParsingLevel::FirstK`): a second
-    ///   one, which the winnow parser leaves out of the call, is garbage;
     /// - `let` reads it with the statement's input;
     /// - an `export` makes it a call to `export <keyword>` covering the statement
     ///   (`warp_export_call`).
@@ -1101,7 +1099,6 @@ impl<'s> Lower<'_, '_, 's> {
         &mut self,
         pipeline: &w::Pipeline<'s>,
         command: &w::Expression<'s>,
-        item: &w::Expression<'s>,
         call: &w::Call<'s>,
         module_name: Option<&[u8]>,
         input_type: Option<&Type>,
@@ -1159,11 +1156,6 @@ impl<'s> Lower<'_, '_, 's> {
                 self.working_set.parse_errors.truncate(errors);
                 lowered
             }
-            "module" => {
-                // An `export` covers the item the call around `module` leaves out at its end.
-                let span = WSpan::new(item.span.start, command.span.end);
-                self.first_positional_call(span, call, head, decl_id)?
-            }
             "let" => self.internal_call(head, arguments, decl_id, input_type)?,
             _ => self.internal_call(head, arguments, decl_id, None)?,
         };
@@ -1210,48 +1202,6 @@ impl<'s> Lower<'_, '_, 's> {
             }
         }
         Ok((expression, decl))
-    }
-
-    /// The call `parse_module` makes (`ArgumentParsingLevel::FirstK { k: 1 }`): its first
-    /// positional read with its shape, a second one garbage. The winnow parser leaves that
-    /// second positional out of `call`, so it is what `span`, the call's items, covers besides
-    /// its head and arguments.
-    fn first_positional_call(
-        &mut self,
-        span: WSpan,
-        call: &w::Call<'s>,
-        head: Span,
-        decl_id: DeclId,
-    ) -> Lowered<(Box<Call>, Type, CallKind)> {
-        let mut covered: Vec<WSpan> = std::iter::once(call.head.span)
-            .chain(call.arguments.iter().map(w::Argument::span))
-            .collect();
-        covered.sort_by_key(|span| span.start);
-        let mut gaps = Vec::new();
-        let mut position = span.start;
-        for next in covered.into_iter().chain([WSpan::new(span.end, span.end)]) {
-            let gap = &self.source[position..next.start.max(position)];
-            let trimmed = gap.trim();
-            if !trimmed.is_empty() {
-                let start = position + (gap.len() - gap.trim_start().len());
-                gaps.push(WSpan::new(start, start + trimmed.len()));
-            }
-            position = position.max(next.end);
-        }
-        let (mut lowered, output, kind) =
-            self.internal_call(head, &call.arguments, decl_id, None)?;
-        match gaps.as_slice() {
-            [] => {}
-            [dropped] => {
-                let span = self.span(*dropped);
-                lowered.add_positional(garbage(self.working_set, span));
-                lowered
-                    .arguments
-                    .sort_by_key(|argument| argument.span().start);
-            }
-            _ => return Err(Unlowered::Unsupported("module call for help")),
-        }
-        Ok((lowered, output, kind))
     }
 
     /// `alias name = target` (`parse_alias`), in the module `module_name` when it is exported

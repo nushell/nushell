@@ -1208,6 +1208,81 @@ fn call_for_help_in_a_module_body_is_lowered(#[case] code: &str) -> Result {
     Ok(())
 }
 
+/// A `module` statement that is more than a name, a block and a `--` after it is the call
+/// `parse_module` makes first (`ArgumentParsingLevel::FirstK`: the name read by its shape, any
+/// later positional garbage), whose errors are a call's: lowered, reported as there. A valid
+/// call goes on with the item after the name as the body, whatever it is.
+#[rstest]
+#[case::flag_after_body(
+    "module x { export def f [] { 1 } } --foo",
+    &[("UnknownFlag", "--foo")]
+)]
+#[case::flag_before_body(
+    "module x --foo { export def f [] { 1 } }",
+    &[("UnknownFlag", "--foo"), ("Expected", "--foo")]
+)]
+#[case::missing_name("module", &[("MissingPositional", "")])]
+#[case::extra_positional("module x {} extra", &[("ExtraPositional", "extra")])]
+#[case::help_body_not_read("module x --help {ls}", &[])]
+#[case::spread_is_no_name(
+    "let l = ['x']; module ...$l {}",
+    &[("UnexpectedSpreadArg", "...$l"), ("TypeMismatch", "{}"), ("UnknownState", "module ...$l {}")]
+)]
+#[case::end_of_options_before_body("module x -- {}", &[("Expected", "--")])]
+#[case::record_name("module {}", &[("TypeMismatch", "{}"), ("UnknownState", "module {}")])]
+#[case::export_without_block(
+    "export module x y",
+    &[("Expected", "y"), ("InternalError", "module x y")]
+)]
+#[case::export_in_a_module(
+    "module p { export module x --foo {} }",
+    &[("UnknownFlag", "--foo"), ("Expected", "--foo"), ("InternalError", "module x --foo {}")]
+)]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn module_read_as_a_call_is_lowered(
+    #[case] code: &str,
+    #[case] expected: &[(&str, &str)],
+) -> Result {
+    let expected: Vec<(String, String)> = expected
+        .iter()
+        .map(|(kind, text)| (kind.to_string(), text.to_string()))
+        .collect();
+    assert_eq!(
+        super::winnow_calls::lowered_errors(code),
+        expected,
+        "`{code}`"
+    );
+    Ok(())
+}
+
+/// A valid `module` call adds the module only when the item after its name is a block: a flag
+/// after the body leaves it there, a flag before the body takes its place.
+#[rstest]
+#[case::flag_after_body("module x {} --foo", true)]
+#[case::flag_before_body("module x --foo {}", false)]
+#[case::extra_positional("module x {} extra", true)]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn module_call_adds_a_module_with_a_block_after_the_name(
+    #[case] code: &str,
+    #[case] added: bool,
+) -> Result {
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let before = nu_parser::winnow_stats();
+    nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    let after = nu_parser::winnow_stats();
+    assert_eq!(
+        after.classic_statements, before.classic_statements,
+        "`{code}`: a statement was handed to the classic parser"
+    );
+    assert_eq!(working_set.find_module(b"x").is_some(), added, "`{code}`");
+    Ok(())
+}
+
 /// A row condition or a math expression of several items, which the winnow parser read one by
 /// one, is read again by it as one value, with the commands the working set knows: a condition
 /// after a flag, which may call a command of the file, and the conditions of an alias's `if`.

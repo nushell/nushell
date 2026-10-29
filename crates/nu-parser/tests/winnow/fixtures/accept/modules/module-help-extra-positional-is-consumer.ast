@@ -1,0 +1,9 @@
+Block 0..92
+  Pipeline 67..91 comments=1
+    Call `module` 67..91
+      String Bare "x" 74..75
+      Flag --help 76..82
+      Unread 83..85
+      Unread 86..91
+Comments (1)
+  0..66 "# A `module` help call takes a name and a block, and nothing more."

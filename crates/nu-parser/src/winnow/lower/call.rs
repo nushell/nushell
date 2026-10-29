@@ -244,6 +244,7 @@ impl<'s> Lower<'_, '_, 's> {
                     let shape = SyntaxShape::List(Box::new(SyntaxShape::Any));
                     Argument::Spread(self.value(expr, &shape, None)?)
                 }
+                w::Argument::Unread(_) => return Err(Unlowered::Unsupported("unread argument")),
                 w::Argument::Named(w::NamedArgument { span, .. })
                 | w::Argument::EndOfOptions(span) => {
                     let span = self.span(*span);
@@ -416,6 +417,20 @@ impl<'s> Lower<'_, '_, 's> {
                 w::Argument::Spread { expr, .. } => {
                     let span = self.span(argument.span());
                     positional_idx = self.spread(call, span, expr, signature, positional_idx)?;
+                }
+                // A positional the call takes no value from (`ArgumentParsingLevel::FirstK`):
+                // garbage where the signature has one, as past it any item.
+                w::Argument::Unread(span) => {
+                    let span = self.span(*span);
+                    if signature.get_positional(positional_idx).is_some() {
+                        call.add_positional(Expression::garbage(self.working_set, span));
+                        positional_idx += 1;
+                    } else if signature.allows_unknown_args {
+                        let value = self.checked(|ws| parse_unknown_arg(ws, span, signature))?;
+                        call.add_unknown(value);
+                    } else {
+                        self.extra_positional(call, span, signature);
+                    }
                 }
                 w::Argument::Positional(expr) => {
                     // Before `--`, an item starting with `-` is short flags unless it is a
@@ -1336,6 +1351,7 @@ impl<'s> Lower<'_, '_, 's> {
                 &SyntaxShape::List(Box::new(SyntaxShape::Any)),
                 None,
             )?)),
+            w::Argument::Unread(_) => Err(Unlowered::Unsupported("unread argument")),
         }
     }
 }

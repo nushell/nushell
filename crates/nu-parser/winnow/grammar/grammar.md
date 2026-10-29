@@ -1398,15 +1398,21 @@ Vocabulary: `<expression>` is a `<pipeline-element>` (3.1); `<block>` is a
 ; here: src/winnow/syntax/parser/parse_module.rs::parse_use, parse_import_pattern_member,
 ;       parse_import_pattern_list
 
-<module>          ::= "module" <module-name> [ "{" <module-body> "}" ]
-<module-name>     ::= <string>                 ; a literal only: "{...}" is a type error,
-                                               ; "$x", "(..)" and $"..." are "not a string"
-; with "--help" or "-h" anywhere before a "--" the statement is a help call, in which
-; nu parses the name as a <string> and never the item in the body's place: `module x
-; {ls} --help` and `module x --help {}#` parse, a third item is ExtraPositional
-; nu: parse_module.rs:868 parse_module, 936; parse_calls.rs:1382 FirstK
+<module>          ::= "module" <module-name> [ "{" <module-body> "}" [ "--" ] ]
+                    | "module" <module-call>
+<module-name>     ::= <string>                 ; a literal
+<module-call>     ::= { <item> }               ; anything else
+; nu reads `module` as a call first (ArgumentParsingLevel::FirstK { k: 1 }): flags up
+; to a "--", a spread, the first positional by its shape (a <string>), every later
+; positional garbage, never parsed (`module x {ls} --help` and `module x --help {}#`
+; parse). A call for help or one missing its name is the statement. Any other call goes
+; on with the item after the name as the body, whatever it is: `module x {} --foo` adds
+; the module, `module x --foo {}` and `module x -- {}` are "expected block". The call's
+; errors (UnknownFlag, ExtraPositional, UnexpectedSpreadArg, a name that is no string
+; literal, the block mismatch) are semantic: the consumer's
+; nu: parse_module.rs:904 parse_module, finish_module; parse_calls.rs:1474 FirstK
 ; here: src/winnow/syntax/parser/parse_module.rs::parse_module, parse_module_name,
-;       parse_module_help_call
+;       parse_module_call (Argument::Unread for a garbage positional)
 
 <module-body>     ::= { <module-item> }         ; lexed as it is, with no brace probe (5.13):
                                                ; `module m { |def x [] {} }` has a leading pipe

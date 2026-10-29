@@ -33,14 +33,13 @@ use crate::{
 };
 
 /// The keywords whose statement is a call when it asks for help (`def foo --help`), lowered by
-/// `help_statement`.
+/// `help_statement`. (A `module` read as a call is `module_call`'s.)
 const HELP_STATEMENT_KEYWORDS: &[&str] = &[
     "def",
     "extern",
     "for",
     "alias",
     "type",
-    "module",
     "use",
     "export-env",
     "where",
@@ -50,14 +49,14 @@ const HELP_STATEMENT_KEYWORDS: &[&str] = &[
     "const",
 ];
 
-/// The keywords a module's body may have a call for help of (`parse_module_pipeline`).
+/// The keywords a module's body may have a call for help of (`parse_module_pipeline`), but
+/// `module`, whose call is `module_call`'s.
 const MODULE_HELP_KEYWORDS: &[&str] = &[
     "def",
     "extern",
     "alias",
     "type",
     "use",
-    "module",
     "const",
     "export-env",
 ];
@@ -193,12 +192,15 @@ impl<'s> Lower<'_, '_, 's> {
             w::Expr::TypeAlias(alias) if attributes.is_empty() => {
                 return Ok(self.type_alias(command, alias)?.0);
             }
+            w::Expr::Call(call) if attributes.is_empty() && call.head.name == "module" => {
+                let (pipeline, _) = self.module_call(pipeline, command, call, None)?;
+                return Ok(pipeline);
+            }
             w::Expr::Call(call)
                 if attributes.is_empty()
                     && MODULE_HELP_KEYWORDS.contains(&call.head.name.as_ref()) =>
             {
-                self.help_statement(pipeline, command, command, call, None, None)?
-                    .0
+                self.help_statement(pipeline, command, call, None, None)?.0
             }
             w::Expr::Use(use_statement) if attributes.is_empty() => {
                 let (pipeline, _) =
@@ -301,19 +303,27 @@ impl<'s> Lower<'_, '_, 's> {
                     );
                     return Ok(pipeline);
                 }
+                w::Expr::Call(call) if attributes.is_empty() && call.head.name == "module" => {
+                    let (pipeline, exportables) =
+                        self.module_call(pipeline, command, call, Some(module_name))?;
+                    let main_span =
+                        double_main_span(pipeline.elements.first().map(|e| &e.expr), span);
+                    add_exportables(
+                        self.working_set,
+                        module,
+                        module_name,
+                        exportables,
+                        main_span,
+                    );
+                    return Ok(pipeline);
+                }
                 // An `export extern` defines its command even when it asks for help. An `export
                 // alias` that does declares nothing, but `parse_export_in_module` looks the alias
                 // up by the statement's third item, its quotes trimmed: that exports another
                 // command, or reports that none was found.
                 w::Expr::Call(call) if attributes.is_empty() => {
-                    let (expression, decl) = self.help_statement(
-                        pipeline,
-                        command,
-                        &export.item,
-                        call,
-                        Some(module_name),
-                        None,
-                    )?;
+                    let (expression, decl) =
+                        self.help_statement(pipeline, command, call, Some(module_name), None)?;
                     if let Some((name, decl_id)) = decl {
                         self.add_export_decl(module, module_name, name, decl_id, &expression);
                     } else if call.head.name.as_ref() == "alias" {
@@ -503,10 +513,13 @@ impl<'s> Lower<'_, '_, 's> {
                     return Ok(pipeline);
                 }
                 w::Expr::TypeAlias(alias) => return Ok(self.type_alias(&element.expr, alias)?.0),
+                w::Expr::Call(call) if call.head.name == "module" => {
+                    let (pipeline, _) = self.module_call(pipeline, &element.expr, call, None)?;
+                    return Ok(pipeline);
+                }
                 w::Expr::Call(call) => {
                     let e = &element.expr;
-                    self.help_statement(pipeline, e, &export.item, call, None, None)?
-                        .0
+                    self.help_statement(pipeline, e, call, None, None)?.0
                 }
                 _ => return Err(Unlowered::Unsupported("export")),
             },
@@ -552,10 +565,13 @@ impl<'s> Lower<'_, '_, 's> {
                     "plugin use" => {
                         return self.keyword_statement(&element.expr, call, Some(parse_plugin_use));
                     }
+                    "module" => {
+                        return Ok(self.module_call(pipeline, &element.expr, call, None)?.0);
+                    }
                     name if HELP_STATEMENT_KEYWORDS.contains(&name) => {
                         let e = &element.expr;
                         let (statement, _) =
-                            self.help_statement(pipeline, e, e, call, None, input_type)?;
+                            self.help_statement(pipeline, e, call, None, input_type)?;
                         return Ok(Pipeline::from_vec(vec![statement]));
                     }
                     name if name.split(' ').next() == Some("overlay") => {

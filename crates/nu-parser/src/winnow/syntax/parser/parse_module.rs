@@ -1,8 +1,8 @@
 //! `module`, `use`, `export` and `export-env` (nu-parser's `parse_module.rs`).
 
 use crate::winnow::syntax::ast::{
-    Export, ExportEnv, Expr, Expression, ImportPatternMember, ImportPatternMemberKind, ListItem,
-    Module, Quote, RecordItem, SyntaxShape, Use,
+    Argument, Export, ExportEnv, Expr, Expression, ImportPatternMember, ImportPatternMemberKind,
+    ListItem, Module, Quote, RecordItem, Use,
 };
 use crate::winnow::syntax::error::{Diagnostic, ErrorKind};
 use crate::winnow::syntax::input::{ParseResult, cut};
@@ -14,10 +14,8 @@ use super::parse_expressions::{
     ExpectedShape, parse_block_body_unchecked, parse_builtin_commands, parse_list_expression,
     parse_value,
 };
-use super::parse_helpers::{is_help_flag, is_help_text};
-use super::parse_keywords::{
-    KeywordCall, keyword_boundary, keyword_boundary_with, parse_block_argument, parse_help_call,
-};
+use super::parse_helpers::{is_help_flag, is_help_text, is_spread};
+use super::parse_keywords::{KeywordCall, keyword_boundary, parse_block_argument, parse_help_call};
 use super::parse_literals::parse_full_cell_path;
 use super::parse_type_alias::parse_type_alias;
 use super::tokens::Tokens;
@@ -43,52 +41,44 @@ fn parse_module_name<'a>(
 }
 
 /// `module name [{ body }]` (nu's `parse_module`): a module declared in the
-/// file, or a module file to load. nu takes the arguments by position, so a
-/// `--` is not an end-of-options marker.
+/// file, or a module file to load. nu first reads the statement as a call to
+/// `module` ([`parse_module_call`]) and then takes the item after the name as
+/// the body. The statement is a declaration when it is only that: a literal
+/// name, then a block or nothing, then a `--` after the block, which nu drops.
+/// Anything else (a call for help, a flag, a `--` elsewhere, a name that is no
+/// literal, an item in the body's place that is no block, one item too many)
+/// is that call, whose errors nu reports as a call's: the consumer's.
 pub fn parse_module<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
     let working_set = tokens.working_set;
     let statement = tokens;
-    // nu looks for `--help` in the whole statement before anything else.
-    if let Some(call) = parse_module_help_call(statement) {
-        return call;
-    }
     let keyword = tokens.expect_item("module")?;
-    // A `--help` here follows a `--` (`module -- --help`), so it is a name.
-    keyword_boundary_with(&mut tokens, "module", &[], false)?;
-    let name_token = tokens.expect_item("module name or path")?;
-    // nu first parses `module` as a call to find `--help`, and that parse
-    // consumes a `--`: the item after it must then be a name (`module -- {}`
-    // is a type mismatch, `module --` lacks its name). The statement itself
-    // then takes `--` as the name.
-    if working_set.get_span_contents(name_token.span) == "--" {
-        match tokens.peek_token() {
-            None => {
-                return Err(cut(Diagnostic::expected(
-                    "module name after `--`",
-                    name_token.span.past(),
-                )));
-            }
-            Some(token)
-                if working_set
-                    .get_span_contents(token.span)
-                    .starts_with(['{', '$', '(']) =>
-            {
-                return Err(cut(Diagnostic::expected("string", token.span)
-                    .with_help("the name of a module must be a literal")));
-            }
-            Some(_) => {}
-        }
-    }
-    let name = parse_module_name(working_set, &name_token)?;
-    keyword_boundary_with(&mut tokens, "module", &[], false)?;
+    let items: Vec<Token> = tokens
+        .remaining()
+        .iter()
+        .filter(|token| token.contents == TokenContents::Item)
+        .copied()
+        .collect();
+    let text = |token: &Token| working_set.get_span_contents(token.span);
+    let declaration = match items.as_slice() {
+        [name] => Some((name, None)),
+        [name, body] => Some((name, Some(body))),
+        [name, body, marker] if text(marker) == "--" => Some((name, Some(body))),
+        _ => None,
+    };
+    let Some((name_token, body_token)) = declaration.filter(|(name, body)| {
+        !is_flag(text(name))
+            && !is_spread(text(name), b"[$({")
+            && body.is_none_or(|body| text(body).starts_with('{'))
+    }) else {
+        return parse_module_call(statement);
+    };
+    let Ok(name) = parse_module_name(working_set, name_token) else {
+        return parse_module_call(statement);
+    };
     let mut end = name_token.span;
-    let body = match tokens.peek_token() {
-        Some(token)
-            if token.contents == TokenContents::Item
-                && working_set.get_span_contents(token.span).starts_with('{') =>
-        {
+    let body = match body_token {
+        Some(token) => {
             end = token.span;
-            tokens.next_token();
             let body = parse_block_body_unchecked(working_set, token.span)?;
             // Like nu, a module body holds declarations only.
             for pipeline in &body.pipelines {
@@ -114,20 +104,12 @@ pub fn parse_module<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a
             }
             Some(body)
         }
-        Some(token) => return Err(cut(Diagnostic::expected("block", token.span))),
         None => None,
     };
-    keyword_boundary_with(&mut tokens, "module", &[], false)?;
-    // nu reads a `--` after the body as the end of the options and drops it
-    // (`module x {} --`); anything after it is an extra positional.
-    if let Some(&marker) = tokens.peek_token()
-        && body.is_some()
-        && working_set.get_span_contents(marker.span) == "--"
-    {
+    // nu reads a `--` after the body as the end of the options and drops it (`module x {} --`).
+    if let Some(marker) = items.get(2) {
         working_set.add_ignored(marker.span);
-        tokens.next_token();
     }
-    tokens.expect_end()?;
     Ok(Expression::new(
         Expr::Module(Module {
             name: Box::new(name),
@@ -137,79 +119,56 @@ pub fn parse_module<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a
     ))
 }
 
-/// `module ... --help`. nu parses `module` as a call before anything else,
-/// looking for flags up to a `--` and taking only the name by its shape
-/// (`ArgumentParsingLevel::FirstK`). When that call asks for help it is the
-/// statement: the name is a `string`, the item in the block's place is never
-/// parsed (`module x {ls} --help`, `module x --help {}#`), and a third item is
-/// one too many.
-fn parse_module_help_call<'a>(statement: Tokens<'_, 'a>) -> Option<ParseResult<Expression<'a>>> {
+/// Whether the item `text` is a flag where nu's call looks for one, before a `--`: any item
+/// of more than one character starting with `-` (`--foo`, `-h`, `-1`, `--`).
+fn is_flag(text: &str) -> bool {
+    text.len() > 1 && text.starts_with('-')
+}
+
+/// The call nu makes to `module` before anything else (`parse_module`, which reads it with
+/// `ArgumentParsingLevel::FirstK { k: 1 }`): flags up to a `--`, the first positional, and every
+/// later positional left unparsed (`Argument::Unread`: `module x --help {ls}` parses). nu gives this
+/// call back as the statement when it asks for help or misses its name; otherwise it goes on
+/// with the item after the name as the body, whatever that item is (`module x --foo {}` has
+/// `--foo` there).
+fn parse_module_call<'a>(statement: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
     let working_set = statement.working_set;
-    let mut help = false;
     let mut end_of_options = false;
-    let mut positionals = Vec::new();
-    let mut unknown_flag = None;
+    let mut name_seen = false;
+    let mut unparsed = Vec::new();
     for token in statement
         .remaining()
         .iter()
         .skip(1)
         .filter(|token| token.contents == TokenContents::Item)
     {
-        match working_set.get_span_contents(token.span) {
-            "--" if !end_of_options => end_of_options = true,
-            flag if !end_of_options && is_help_text(flag) => help = true,
-            flag if !end_of_options && flag.len() > 1 && flag.starts_with('-') => {
-                unknown_flag = unknown_flag.or(Some((flag, token.span)));
-            }
-            _ => positionals.push(token),
+        let text = working_set.get_span_contents(token.span);
+        if !end_of_options && text == "--" {
+            end_of_options = true;
+        } else if !end_of_options && is_flag(text) || is_spread(text, b"[$({") {
+            // A flag, or a spread, which nu reads before any positional (`module x ...$l`).
+        } else if !name_seen {
+            name_seen = true;
+        } else {
+            unparsed.push(*token);
         }
     }
-    if !help {
-        return None;
+    let items: Vec<Token> = statement
+        .remaining()
+        .iter()
+        .filter(|token| !unparsed.iter().any(|item| item.span == token.span))
+        .copied()
+        .collect();
+    let mut call = parse_help_call(Tokens::new(working_set, &items, statement.end_span().start))?;
+    if let Expr::Call(call) = &mut call.expr {
+        call.arguments
+            .extend(unparsed.iter().map(|token| Argument::Unread(token.span)));
+        call.arguments.sort_by_key(Argument::span);
     }
-    if let Some((flag, span)) = unknown_flag {
-        return Some(Err(cut(Diagnostic::message(
-            format!("the `module` command doesn't have flag `{flag}`"),
-            span,
-        )
-        .with_help("use `--help` to see available flags"))));
+    if let Some(span) = statement.span() {
+        call.span = span;
     }
-    if let Some(name) = positionals.first() {
-        match parse_value(
-            working_set,
-            name.span,
-            ExpectedShape::Declared(&SyntaxShape::String),
-        ) {
-            Err(error) => return Some(Err(error)),
-            // nu type-checks the name, and a record is not a string.
-            Ok(Expression {
-                expr: Expr::Record(_),
-                ..
-            }) => {
-                return Some(Err(cut(
-                    Diagnostic::expected("string", name.span).with_help("found a record")
-                )));
-            }
-            Ok(_) => {}
-        }
-    }
-    if let Some(extra) = positionals.get(2) {
-        return Some(Err(cut(Diagnostic::message(
-            "extra positional argument",
-            extra.span,
-        )
-        .with_help("`module` takes a name and a block"))));
-    }
-    let mut tokens = statement;
-    Some(
-        match (
-            KeywordCall::start_positional(&mut tokens),
-            positionals.get(1),
-        ) {
-            (Ok(call), Some(block)) => call.help_call_without(block),
-            _ => parse_help_call(statement),
-        },
-    )
+    Ok(call)
 }
 
 /// An `alias` kept as a plain call: a call for help, which defines no alias.

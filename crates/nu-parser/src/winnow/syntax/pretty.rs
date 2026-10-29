@@ -234,6 +234,7 @@ impl<'a> Printer<'a> {
                     self.nested(|printer| printer.expr(expr));
                 }
                 Argument::EndOfOptions(span) => self.line(format_args!("EndOfOptions {span}")),
+                Argument::Unread(span) => self.line(format_args!("Unread {span}")),
             }
         }
     }

@@ -1,0 +1,8 @@
+Block 0..14
+  Pipeline 0..13
+    Call `module` 0..13
+      Subexpression 7..10 8..9
+        Pipeline 8..9
+          ExternalCall 8..9
+            String Bare "a" 8..9
+      Unread 11..13

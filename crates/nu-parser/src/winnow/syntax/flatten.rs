@@ -205,6 +205,8 @@ impl Flattener<'_> {
                     self.visit_expression(expr);
                 }
                 Argument::EndOfOptions(span) => self.push(*span, FlatShape::Flag),
+                // nu's garbage for a positional its call does not read.
+                Argument::Unread(span) => self.push(*span, FlatShape::Garbage),
             }
         }
     }

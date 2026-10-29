@@ -4,6 +4,7 @@ Block 0..64
       Flag --help 7..19
         Bool false 14..19
       String Bare "m" 20..21
+      Unread 22..24
   Pipeline 25..43
     Call `use` 25..43
       Flag --help 29..41
@@ -13,5 +14,3 @@ Block 0..64
     Call `export` 44..63
       Flag --help 51..63
         Bool false 58..63
-Ignored (1)
-  22..24 "{}"

@@ -3,7 +3,7 @@
 //! `parse_overlay_*`, in `parse_module.rs` and `parse_keywords.rs`).
 
 use nu_protocol::{
-    Module, Span, Type,
+    DeclId, Module, ModuleId, Span, Type,
     ast::{Call, Expr, Pipeline},
     engine::StateWorkingSet,
 };
@@ -124,15 +124,7 @@ impl<'s> Lower<'_, '_, 's> {
         module: &w::Module<'s>,
         parent_name: Option<&[u8]>,
     ) -> Lowered<(Pipeline, Vec<Exportable>)> {
-        let export = matches!(command.expr, w::Expr::Export(_));
-        let decl_id = find_keyword_decl(self.working_set, b"module")
-            .ok_or(Unlowered::Unsupported("module that is not a keyword"))?;
-        if export && find_keyword_decl(self.working_set, b"export module").is_none() {
-            return Err(Unlowered::Unsupported(
-                "export module that is not a keyword",
-            ));
-        }
-        let head = self.command_head(command, "module");
+        let (decl_id, head) = self.module_keyword(command)?;
         let body_span = match &module.body {
             Some(body) => Some(self.braces_span(body)?),
             None => None,
@@ -140,7 +132,8 @@ impl<'s> Lower<'_, '_, 's> {
         let name = w::Argument::Positional((*module.name).clone());
         let (mut call, _, kind) = self.internal_call(head, &[name], decl_id, None)?;
         // `parse_module` gives an invalid call (a missing positional) back as it is; the
-        // winnow parser reports a `module` without a name, so none reaches here.
+        // winnow parser reads a `module` without a name as a call (`module_call`), so none
+        // reaches here.
         if kind == CallKind::Invalid {
             return Err(Unlowered::Error);
         }
@@ -148,20 +141,110 @@ impl<'s> Lower<'_, '_, 's> {
             let span = self.span(body_span);
             call.add_positional(garbage(self.working_set, span));
         }
+        let body_span = body_span.map(|span| self.span(span));
+        Ok(self.finish_module_statement(pipeline, command, head, call, body_span, parent_name))
+    }
+
+    /// `module` read as the call `parse_module` makes first, `call` (the winnow parser's call
+    /// form of a `module` statement: a call for help, a flag, a name that is no literal, an
+    /// item in the body's place that is no block, ...), or the `export` of one, `command`: its
+    /// first positional read with its shape, every later one garbage, which the winnow parser
+    /// left unread (`ArgumentParsingLevel::FirstK { k: 1 }`), its errors reported as a call's. A call for
+    /// help or one missing its name is the statement. Any other goes on as a declaration whose
+    /// body is the item after the name, whatever it is (`parse_module`'s `spans[split_id +
+    /// 1]`): `module x --foo {}` has `--foo` there, which `finish_module` refuses as no block,
+    /// while `module x {} --foo` adds the module.
+    pub(super) fn module_call(
+        &mut self,
+        pipeline: &w::Pipeline<'s>,
+        command: &w::Expression<'s>,
+        call: &w::Call<'s>,
+        parent_name: Option<&[u8]>,
+    ) -> Lowered<(Pipeline, Vec<Exportable>)> {
+        // A redirected `module` is an error (`redirecting_builtin_error`), the classic parser's.
+        if pipeline
+            .elements
+            .iter()
+            .any(|element| element.redirection.is_some())
+        {
+            return Err(Unlowered::Error);
+        }
+        let (decl_id, head) = self.module_keyword(command)?;
+        let (lowered, output, kind) = self.internal_call(head, &call.arguments, decl_id, None)?;
+        if kind == CallKind::Valid {
+            let body_span = call
+                .arguments
+                .get(1)
+                .map(|argument| self.span(argument.span()));
+            return Ok(self.finish_module_statement(
+                pipeline,
+                command,
+                head,
+                lowered,
+                body_span,
+                parent_name,
+            ));
+        }
+        let call_span = Span::new(head.start, self.span(command.span).end);
+        let statement = Pipeline::from_vec(vec![self.node(Expr::Call(lowered), call_span, output)]);
+        Ok(self.export_module(command, head, call_span, statement, None, parent_name))
+    }
+
+    /// The declaration of `module` and its head for `command`, a `module` statement or the
+    /// `export` of one, whose keyword must be `export module` then.
+    fn module_keyword(&mut self, command: &w::Expression<'s>) -> Lowered<(DeclId, Span)> {
+        let decl_id = find_keyword_decl(self.working_set, b"module")
+            .ok_or(Unlowered::Unsupported("module that is not a keyword"))?;
+        if matches!(command.expr, w::Expr::Export(_))
+            && find_keyword_decl(self.working_set, b"export module").is_none()
+        {
+            return Err(Unlowered::Unsupported(
+                "export module that is not a keyword",
+            ));
+        }
+        Ok((decl_id, self.command_head(command, "module")))
+    }
+
+    /// `finish_module` over the call to `module` of `command` and the item `body_span` in the
+    /// body's place, then the `export` around it ([`Self::export_module`]).
+    fn finish_module_statement(
+        &mut self,
+        pipeline: &w::Pipeline<'s>,
+        command: &w::Expression<'s>,
+        head: Span,
+        call: Box<Call>,
+        body_span: Option<Span>,
+        parent_name: Option<&[u8]>,
+    ) -> (Pipeline, Vec<Exportable>) {
         // The whole statement, a `--` after the body included (which nu drops, and which the
         // span of the `module` after an `export` leaves out).
         let call_span = Span::new(head.start, self.span(command.span).end);
         let comments = self.doc_comments(pipeline, &[], command);
-        let (mut statement, module_id) = finish_module(
+        let (statement, module_id) = finish_module(
             self.working_set,
             call,
             call_span,
-            body_span.map(|span| self.span(span)),
+            body_span,
             parent_name,
             comments,
         );
-        if !export {
-            return Ok((statement, Vec::new()));
+        self.export_module(command, head, call_span, statement, module_id, parent_name)
+    }
+
+    /// For an `export module`, `statement` made a call to `export module` covering the statement
+    /// (`warp_export_call`) and, in a module named `parent_name`, the module it added,
+    /// `module_id`, exported (`parse_export_in_module`). Returns the statement and the exports.
+    fn export_module(
+        &mut self,
+        command: &w::Expression<'s>,
+        head: Span,
+        call_span: Span,
+        mut statement: Pipeline,
+        module_id: Option<ModuleId>,
+        parent_name: Option<&[u8]>,
+    ) -> (Pipeline, Vec<Exportable>) {
+        if !matches!(command.expr, w::Expr::Export(_)) {
+            return (statement, Vec::new());
         }
         // `export`, `module`, and the rest of the statement, as `warp_export_call` takes them.
         let keyword = Span::new(head.end - "module".len(), head.end);
@@ -175,7 +258,7 @@ impl<'s> Lower<'_, '_, 's> {
             Some(_) => exported_module(self.working_set, module_id),
             None => Vec::new(),
         };
-        Ok((statement, exportables))
+        (statement, exportables)
     }
 
     /// `use module members` (`parse_use`), or `export use` when `command` is an `export` of

@@ -904,9 +904,15 @@ fn rejects_redirection(expr: &Expression<'_>) -> bool {
         | Expr::Use(_)
         | Expr::Export(_)
         | Expr::AttributeBlock(_) => true,
-        // `overlay <anything>` is refused by name before its arguments are looked at.
+        // `overlay <anything>` is refused by name before its arguments are looked at, and so
+        // is a statement keyword read as a call (`def --help`, `module x --foo {}`): its parse
+        // function refuses the redirection before it looks for help.
         Expr::Call(call) => {
             call.head.name.split(' ').next() == Some("overlay")
+                || matches!(
+                    call.head.name.as_ref(),
+                    "def" | "extern" | "for" | "alias" | "type" | "module" | "use" | "export"
+                )
                 || keyword_signature_of_call(call).is_some()
         }
         _ => false,

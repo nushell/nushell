@@ -760,6 +760,7 @@ fn multiword_commands_and_flags() {
             Argument::Positional(e) => format!("pos:{}", text(&ast, e.span)),
             Argument::Spread { expr, .. } => format!("spread:{}", text(&ast, expr.span)),
             Argument::EndOfOptions(_) => "--".into(),
+            Argument::Unread(span) => format!("unread:{}", text(&ast, *span)),
         })
         .collect();
     assert_eq!(

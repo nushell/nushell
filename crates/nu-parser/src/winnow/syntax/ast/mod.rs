@@ -1130,6 +1130,10 @@ pub enum Argument<'a> {
     },
     /// `--` (everything after is positional).
     EndOfOptions(Span),
+    /// A positional item nu's call takes no value from (`ArgumentParsingLevel::FirstK`, with
+    /// which `parse_module` reads only the name: `module x --help {ls}`), left unparsed. The
+    /// consumer makes it garbage, or an extra positional past the signature's.
+    Unread(Span),
 }
 
 impl Argument<'_> {
@@ -1139,7 +1143,7 @@ impl Argument<'_> {
             Argument::Positional(e) => e.span,
             Argument::Named(f) => f.span,
             Argument::Spread { dots, expr } => dots.merge(expr.span),
-            Argument::EndOfOptions(s) => *s,
+            Argument::EndOfOptions(s) | Argument::Unread(s) => *s,
         }
     }
 }

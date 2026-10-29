@@ -1,0 +1,5 @@
+error: this statement cannot be redirected
+  --> reject/def/help-redirected.nu:2:12
+  |
+2 | def --help o> f
+  |            ^^

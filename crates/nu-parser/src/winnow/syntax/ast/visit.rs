@@ -347,7 +347,7 @@ fn walk_arguments<'a, V: Visitor<'a> + ?Sized>(visitor: &mut V, args: &[Argument
                     visitor.visit_expression(value);
                 }
             }
-            Argument::EndOfOptions(_) => {}
+            Argument::EndOfOptions(_) | Argument::Unread(_) => {}
         }
     }
 }
