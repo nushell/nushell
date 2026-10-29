@@ -141,16 +141,16 @@ pub fn is_uncallable_name(working_set: &mut StateWorkingSet, name: &str, name_sp
 /// shadowed by a value. A name whose later words are values is still callable, because the call
 /// site never looks at them.
 ///
-/// The name is checked as it is written: a name written as a string literal is written between
-/// quotes, and the quotes are not part of the token the call site would read.
+/// The name is checked as it is written: a name written between quotes or backticks carries
+/// those marks in the source, and they are not part of the token the call site would read.
 fn is_shadowed_by_a_value(working_set: &mut StateWorkingSet, name: &str, name_span: Span) -> bool {
     // The registered name is the written name with escapes decoded. When the two are the same,
     // the source span shows the head word the call site would read; when they differ (a name
-    // written with escapes), the decoded head word is materialized as a file instead.
+    // written with escapes), the decoded head word is read in a working set of its own.
     let head_span = {
         let bytes = working_set.get_span_contents(name_span);
         let (inner_offset, inner): (usize, &[u8]) = match bytes {
-            [quote @ (b'"' | b'\''), rest @ ..] if rest.last() == Some(quote) => {
+            [quote @ (b'"' | b'\'' | b'`'), rest @ ..] if rest.last() == Some(quote) => {
                 (1, &rest[..rest.len() - 1])
             }
             _ => (0, bytes),
@@ -169,15 +169,18 @@ fn is_shadowed_by_a_value(working_set: &mut StateWorkingSet, name: &str, name_sp
         }
     };
 
-    let head_span = head_span.unwrap_or_else(|| {
-        let head = name.split(' ').next().unwrap_or(name);
-        let _ = working_set.add_file(&format!("command name: {head}"), head.as_bytes());
-        working_set
-            .get_span_for_filename(&format!("command name: {head}"))
-            .unwrap_or(Span::new(name_span.start, name_span.start))
-    });
-
-    is_literal_like(working_set, head_span)
+    match head_span {
+        Some(span) => is_literal_like(working_set, span),
+        None => {
+            // The head word has to be read from the decoded name, so it is read in a working
+            // set of its own: the check must not leave a file in the state it checks.
+            let head = name.split(' ').next().unwrap_or(name);
+            let mut scratch = StateWorkingSet::new(working_set.permanent_state);
+            let file_id = scratch.add_file("command name", head.as_bytes());
+            let span = scratch.get_span_for_file(file_id);
+            is_literal_like(&mut scratch, span)
+        }
+    }
 }
 
 /// Find a keyword declaration by name, ignoring any non-keyword decls that may
