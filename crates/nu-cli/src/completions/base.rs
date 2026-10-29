@@ -12,13 +12,17 @@ pub trait Completer {
 /// also prevents a fallback source's results from caching the combined answer.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 enum CachePolicy {
+    /// No source requested caching; reusable sources may opt the combined result in.
     #[default]
     Unspecified,
+    /// Keep the result in the shared cache across keystrokes and prompts.
     Reusable,
+    /// Never cache the result, even when combined with a reusable source.
     DoNotCache,
 }
 
 impl CachePolicy {
+    /// Combine policies: an opt-out wins, otherwise either source can request reuse.
     fn merge(self, other: Self) -> Self {
         match (self, other) {
             (Self::DoNotCache, _) | (_, Self::DoNotCache) => Self::DoNotCache,
