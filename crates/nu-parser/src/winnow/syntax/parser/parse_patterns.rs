@@ -65,7 +65,7 @@ fn parse_variable_pattern<'a>(working_set: &WorkingSet<'a>, span: Span) -> Parse
         return Err(cut(Diagnostic::expected("valid variable name", span)));
     }
     let (_, name) = declared_variable_name(text);
-    ensure_not_reserved_variable_name(name, span)?;
+    ensure_not_reserved_variable_name(working_set, name, span);
     Ok(name)
 }
 

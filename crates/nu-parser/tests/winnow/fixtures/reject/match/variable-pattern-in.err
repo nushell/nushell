@@ -3,5 +3,4 @@ error: `in` used as variable name
   |
 1 | match 1 { $in => 1 }
   |           ^^^
-  = while parsing match
   = help: `$in` is a built-in variable and cannot be declared

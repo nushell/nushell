@@ -402,7 +402,8 @@ impl<'s> Lower<'_, '_, 's> {
     }
 
     /// A match arm's pattern, read by the classic pattern parser (`parse_pattern`), which also
-    /// declares its variables. The alternatives of an or-pattern (`a | b`) are read one by one,
+    /// declares its variables and reports its errors (a reserved variable name, a malformed
+    /// literal), as there. The alternatives of an or-pattern (`a | b`) are read one by one,
     /// as `parse_match_block_expression` reads them.
     fn pattern(&mut self, pattern: &w::MatchPattern<'s>) -> Lowered<MatchPattern> {
         match &pattern.pattern {
@@ -421,7 +422,7 @@ impl<'s> Lower<'_, '_, 's> {
             }
             _ => {
                 let span = self.span(pattern.span);
-                self.checked(|working_set| parse_pattern(working_set, span))
+                Ok(parse_pattern(self.working_set, span))
             }
         }
     }
@@ -500,7 +501,7 @@ impl<'s> Lower<'_, '_, 's> {
         } else {
             (name_span, name.item.as_bytes().to_vec())
         };
-        self.checked(|ws| ensure_not_reserved_variable_name(ws, &var_name, name_span))?;
+        ensure_not_reserved_variable_name(self.working_set, &var_name, name_span);
         match ty {
             Some(annotation) => {
                 let span = self.span(annotation.span);

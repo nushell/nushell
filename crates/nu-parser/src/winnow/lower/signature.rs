@@ -242,9 +242,7 @@ impl<'s> Lower<'_, '_, 's> {
             let var_id = if is_external {
                 None
             } else {
-                self.checked(|working_set| {
-                    ensure_not_reserved_variable_name(working_set, &var_name, token)
-                })?;
+                ensure_not_reserved_variable_name(self.working_set, &var_name, token);
                 let var_id = self
                     .working_set
                     .add_variable_without_scope(token, initial_ty, false);

@@ -449,7 +449,8 @@ fn parse_parameter<'a>(
         if external {
             Ok(())
         } else {
-            ensure_not_reserved_variable_name(name, span)
+            ensure_not_reserved_variable_name(working_set, name, span);
+            Ok(())
         }
     };
     if let Some(rest) = text.strip_prefix("--").filter(|rest| !rest.is_empty()) {
@@ -723,7 +724,7 @@ pub fn parse_var_with_opt_type<'a>(
     let (offset, name) = declared_variable_name(text);
     let start = token.span.start + offset;
     let span = Span::new(start, start + name.len());
-    ensure_not_reserved_variable_name(name, span)?;
+    ensure_not_reserved_variable_name(working_set, name, span);
     Ok((Spanned::new(name, span), typed))
 }
 
@@ -770,16 +771,19 @@ fn is_reserved_variable(name: &str) -> bool {
     matches!(name, "in" | "nu" | "env" | "ans")
 }
 
-/// Refuse a reserved variable name in a declaration.
-pub fn ensure_not_reserved_variable_name(name: &str, span: Span) -> ParseResult<()> {
-    match is_reserved_variable(name) {
-        true => Err(cut(Diagnostic::message(
-            format!("`{name}` used as variable name"),
-            span,
-        )
-        .with_help(format!(
-            "`${name}` is a built-in variable and cannot be declared"
-        )))),
-        false => Ok(()),
+/// Refuse a reserved variable name in a declaration. nu reports it and declares the variable
+/// all the same (its `ensure_not_reserved_variable_name`), and so does the consumer: the error
+/// is recorded as recovered.
+pub fn ensure_not_reserved_variable_name(working_set: &WorkingSet<'_>, name: &str, span: Span) {
+    // A `$` before the name (`{|$nu| }`, `def f [$in]`) changes nothing, as there.
+    let name = name.strip_prefix('$').unwrap_or(name);
+    if is_reserved_variable(name) {
+        working_set.error(
+            Diagnostic::message(format!("`{name}` used as variable name"), span)
+                .with_help(format!(
+                    "`${name}` is a built-in variable and cannot be declared"
+                ))
+                .as_recovered(),
+        );
     }
 }

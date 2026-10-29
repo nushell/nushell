@@ -3,5 +3,4 @@ error: `env` used as variable name
   |
 1 | let env = 1
   |     ^^^
-  = while parsing let
   = help: `$env` is a built-in variable and cannot be declared

@@ -1383,6 +1383,35 @@ fn malformed_literal_is_lowered(#[case] code: &str, #[case] expected: &[(&str, &
     Ok(())
 }
 
+/// A reserved variable name (`in`, `nu`, `env`, `ans`, a `$` before it or not) where a variable
+/// is declared is nu's NameIsBuiltinVar, which goes on declaring it, and a match pattern keeps
+/// the pattern parser's errors: lowered, reported as nu reports them.
+#[rstest]
+#[case::binding("let nu = 1", &[("NameIsBuiltinVar", "nu")])]
+#[case::parameter("def f [in] {}", &[("NameIsBuiltinVar", "in")])]
+#[case::closure_parameter("do {|$nu| }", &[("NameIsBuiltinVar", "$nu")])]
+#[case::pattern_variable("match 1 { $in => 1 }", &[("NameIsBuiltinVar", "$in")])]
+#[case::loop_variable("for nu in [1] {}", &[("NameIsBuiltinVar", "nu")])]
+#[case::pattern_literal("match 1 { 0b2 => 1 }", &[("InvalidLiteral", "0b2")])]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn reserved_variable_name_is_lowered(
+    #[case] code: &str,
+    #[case] expected: &[(&str, &str)],
+) -> Result {
+    let expected: Vec<(String, String)> = expected
+        .iter()
+        .map(|(kind, text)| (kind.to_string(), text.to_string()))
+        .collect();
+    assert_eq!(
+        super::winnow_calls::lowered_errors(code),
+        expected,
+        "`{code}`"
+    );
+    Ok(())
+}
+
 /// A call for help in a module body, which the keyword's parse function gives back as the
 /// statement, is one of the body's statements (`parse_module_block` dispatches by the first
 /// word), lowered as at top level.

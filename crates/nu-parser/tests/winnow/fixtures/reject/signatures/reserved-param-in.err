@@ -3,5 +3,4 @@ error: `in` used as variable name
   |
 1 | def foo [in] {}
   |          ^^
-  = while parsing signature
   = help: `$in` is a built-in variable and cannot be declared

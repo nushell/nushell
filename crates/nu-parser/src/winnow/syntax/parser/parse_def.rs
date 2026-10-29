@@ -895,6 +895,14 @@ pub fn parse_for<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> 
     let Some(variable) = call.positional(&mut tokens, "loop variable")? else {
         return call.help_call();
     };
+    // nu's call to `for` takes a first `in` as its keyword, the variable missing before it
+    // (`for in in [] {}`), not as a reserved name.
+    if tokens.text(&variable) == "in" {
+        return Err(cut(Diagnostic::expected(
+            "loop variable before `in`",
+            variable.span,
+        )));
+    }
     let (var, typed) = parse_var_with_opt_type(working_set, &variable)?;
     // The variable positional runs up to the `in` keyword, so a type after
     // `x:` is every item before it (`record<a: int, b: string>` is four items)

@@ -3,5 +3,4 @@ error: `nu` used as variable name
   |
 1 | for nu in [] {}
   |     ^^
-  = while parsing for
   = help: `$nu` is a built-in variable and cannot be declared

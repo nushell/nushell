@@ -884,7 +884,7 @@ impl<'s> Lower<'_, '_, 's> {
         if name.iter().any(|byte| b" \"'`".contains(byte)) || !is_variable(name) {
             return Err(Unlowered::Error);
         }
-        self.checked(|ws| ensure_not_reserved_variable_name(ws, name, span))?;
+        ensure_not_reserved_variable_name(self.working_set, name, span);
         let ty = input_type.cloned().unwrap_or(Type::Any);
         let var_id = self
             .working_set
