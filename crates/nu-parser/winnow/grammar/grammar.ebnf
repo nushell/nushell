@@ -989,10 +989,10 @@ keyword_statement = def | extern | export | export_env | attribute_block
    colon, but `for x --help in []` still lacks the argument of `in` (6.6). After "--" no
    flag is looked for at all: a second "--" is a positional (`try {} -- catch {}
    --` has one too many), `return -- --help` returns a string.
-   "--help=value" is the help flag too: nu shows help whatever the value, once it
-   parses as a Boolean (`if --help=false true {}` shows help, `if --help=1 ...` is
-   "expected bool"); `alias` and `type` drop the errors of the call they parse to look
-   for help, so there any value goes (`type t --help=1 = int`). `-h=x` is the batch
+   "--help=value" is the help flag too: nu shows help whatever the value, which it
+   reads as the switch’s Boolean (`if --help=false true {}` shows help, `if --help=1
+   ...` is "expected bool", semantic: the consumer’s); `alias` and `type` drop the
+   errors of the call they parse to look for help (`type t --help=1 = int`). `-h=x` is the batch
    "h", "=", "x", an unknown flag. A def or extern reads its own flags among help flags
    (`def --help --env f`), an `if` whose else branch is one block leaves the flags after
    it to `if` (`if c {} else {} --help`, `... else {} --`), and `export-env`, which nu
@@ -1008,8 +1008,7 @@ keyword_statement = def | extern | export | export_env | attribute_block
    parse_type_alias.rs (help call errors dropped); parse_module.rs parse_export_env
    here: src/winnow/syntax/parser/parse_keywords.rs::keyword_boundary, KeywordCall::flags,
    KeywordCall::help_flag, seen_end_of_options, KeywordCall::positional,
-   parse_help_call (checks a "--help=value"), parse_unchecked_help_call (alias,
-   type); src/winnow/syntax/parser/parse_helpers.rs::is_help_text *)
+   parse_help_call; src/winnow/syntax/parser/parse_helpers.rs::is_help_text *)
 
 pipeline_forbidden_head = ? "def" | "extern" | "for" | "module" | "type" | "use" | "source" | "alias" | "export" | "export-env" | "hide" | "const" | "mut" | "overlay" (unless followed by "list") | "plugin" "use" | "while" | "loop" ? ;
 (* refused with "statement used in pipeline" at ANY position of a multi-element

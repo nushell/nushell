@@ -18,7 +18,7 @@ use crate::winnow::syntax::lex::{Token, TokenContents};
 use crate::winnow::syntax::span::Span;
 
 use super::WorkingSet;
-use super::parse_calls::{check_help_values, parse_call};
+use super::parse_calls::parse_call;
 use super::parse_expressions::{
     ExpectedShape, is_typed_record, parse_block_body, parse_brace_record, parse_value,
 };
@@ -309,20 +309,10 @@ impl<'t, 'a> KeywordCall<'t, 'a> {
     }
 }
 
-/// `keyword --help`: the statement parsed as an ordinary call, as nu does,
-/// which parses the value of a `--help=value` as a `bool` (`if --help=1` is an
-/// error; `if --help=false` shows help).
+/// `keyword --help`: the statement parsed as an ordinary call, as nu does. nu reads the
+/// value of a `--help=value` as the switch's `bool` (`if --help=1` is "expected bool",
+/// `if --help=false` shows help): that, as the call's other errors, is the consumer's.
 pub fn parse_help_call<'a>(statement: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
-    let working_set = statement.working_set;
-    let call = parse_unchecked_help_call(statement)?;
-    check_help_values(working_set, &call)?;
-    Ok(call)
-}
-
-/// [`parse_help_call`] without the check of a `--help=value`, for `alias` and
-/// `type`, whose call nu parses only to see whether it asks for help, dropping
-/// its errors (`type t --help=1 = int` shows help).
-pub fn parse_unchecked_help_call<'a>(statement: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
     if let Some(span) = statement.span() {
         statement.working_set.remove_ignored_from(span.start);
     }

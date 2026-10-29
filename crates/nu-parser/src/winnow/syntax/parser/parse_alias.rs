@@ -14,7 +14,7 @@ use super::parse_expressions::{
 };
 use super::parse_keywords::{
     ALIASABLE_PARSER_KEYWORDS, KeywordBoundary, UNALIASABLE_PARSER_KEYWORDS, keyword_boundary_with,
-    parse_unchecked_help_call,
+    parse_help_call,
 };
 use super::parse_signatures::parse_definition_name;
 use super::tokens::Tokens;
@@ -132,7 +132,7 @@ pub(super) fn parse_alias_as_call<'a>(statement: Tokens<'_, 'a>) -> ParseResult<
             span: token.span,
         })
         .collect();
-    parse_unchecked_help_call(Tokens::new(
+    parse_help_call(Tokens::new(
         statement.working_set,
         &words,
         statement.end_span().start,

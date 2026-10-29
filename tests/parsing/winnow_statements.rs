@@ -1211,6 +1211,34 @@ fn binding_redirection_is_lowered(#[case] code: &str, #[case] expected: &[(&str,
     Ok(())
 }
 
+/// The value of a keyword's `--help=value` is the switch's `bool`, read as any call's flag
+/// value: a value of another type is reported where nu reports it, and the call for help is
+/// lowered; `alias` and `type` drop the error with the call's others.
+#[rstest]
+#[case::if_keyword("if --help=1 true { 1 }", &[("ExpectedWithStringMsg", "1")])]
+#[case::def("def --help=abc", &[("ExpectedWithStringMsg", "abc")])]
+#[case::module("module x --help=[1]", &[("ExpectedWithStringMsg", "[1]")])]
+#[case::for_loop("for --help=1", &[("ExpectedWithStringMsg", "1")])]
+#[case::let_binding("let x --help=1", &[("ExpectedWithStringMsg", "1")])]
+#[case::variable("return --help=$nope", &[("VariableNotFound", "$nope")])]
+#[case::alias("alias --help=1", &[])]
+#[case::type_alias("type --help=1", &[])]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn help_flag_value_is_lowered(#[case] code: &str, #[case] expected: &[(&str, &str)]) -> Result {
+    let expected: Vec<(String, String)> = expected
+        .iter()
+        .map(|(kind, text)| (kind.to_string(), text.to_string()))
+        .collect();
+    assert_eq!(
+        super::winnow_calls::lowered_errors(code),
+        expected,
+        "`{code}`"
+    );
+    Ok(())
+}
+
 /// A call for help in a module body, which the keyword's parse function gives back as the
 /// statement, is one of the body's statements (`parse_module_block` dispatches by the first
 /// word), lowered as at top level.

@@ -163,10 +163,10 @@ methods `start`, `start_positional`, `flags`, `positional`, `end`,
   text the statement recorded as ignored and re-parses its items with
   `parse_call`, so `def foo [] --help` is a `Call` to `def` with three
   arguments). `--help=value` is a help flag too (`is_help_text`): nu shows
-  help whatever the value, which must parse as a Boolean, so `parse_help_call`
-  checks it (`check_help_values`: `if --help=1` is "expected bool"); `alias`
-  and `type` use `parse_unchecked_help_call`, as nu drops the errors of the call
-  it parses for them. nu keeps parsing the positionals that
+  help whatever the value, which it reads as a Boolean: `if --help=1` is
+  "expected bool", the consumer's to report, as the call's other errors
+  (`alias` and `type` drop them, as nu does for the call it parses for them).
+  nu keeps parsing the positionals that
   follow the flag and only forgives the *missing* ones, so `call.flags`
   records the flag (`wants_help`) and parsing goes on: `match 1 --help :{}`
   still has no match block, `return --help 1 2` and `loop --help {} y` have

@@ -3855,10 +3855,10 @@ svg.railroad-diagram g.diagram-text:hover path.diagram-text {
   colon, but <code>for x --help in []</code> still lacks the argument of <code>in</code> (6.6). After "--" no
   flag is looked for at all: a second "--" is a positional (<code>try {} -- catch {}
   --</code> has one too many), <code>return -- --help</code> returns a string.
-  "--help=value" is the help flag too: nu shows help whatever the value, once it
-  parses as a Boolean (<code>if --help=false true {}</code> shows help, <code>if --help=1 ...</code> is
-  "expected bool"); <code>alias</code> and <code>type</code> drop the errors of the call they parse to look
-  for help, so there any value goes (<code>type t --help=1 = int</code>). <code>-h=x</code> is the batch
+  "--help=value" is the help flag too: nu shows help whatever the value, which it
+  reads as the switch’s Boolean (<code>if --help=false true {}</code> shows help, <code>if --help=1
+  ...</code> is "expected bool", semantic: the consumer’s); <code>alias</code> and <code>type</code> drop the
+  errors of the call they parse to look for help (<code>type t --help=1 = int</code>). <code>-h=x</code> is the batch
   "h", "=", "x", an unknown flag. A def or extern reads its own flags among help flags
   (<code>def --help --env f</code>), an <code>if</code> whose else branch is one block leaves the flags after
   it to <code>if</code> (<code>if c {} else {} --help</code>, <code>... else {} --</code>), and <code>export-env</code>, which nu
@@ -3874,8 +3874,7 @@ svg.railroad-diagram g.diagram-text:hover path.diagram-text {
   parse</em>type<em>alias.rs (help call errors dropped); parse</em>module.rs parse<em>export</em>env
   here: src/winnow/syntax/parser/parse<em>keywords.rs::keyword</em>boundary, KeywordCall::flags,
   KeywordCall::help<em>flag, seen</em>end<em>of</em>options, KeywordCall::positional,
-  parse<em>help</em>call (checks a "--help=value"), parse<em>unchecked</em>help<em>call (alias,
-  type); src/winnow/syntax/parser/parse</em>helpers.rs::is<em>help</em>text </p><section>
+  parse<em>help</em>call; src/winnow/syntax/parser/parse<em>helpers.rs::is</em>help_text </p><section>
   <h4 id="pipeline_forbidden_head">pipeline_forbidden_head</h4>
   <div class="diagram-container"><svg class="railroad-diagram" width="1854" style="max-height: 62px;" viewBox="0 0 1854 62"><g transform="translate(.5 .5)"><g><path d="M20 21v20m10 -20v20m-10 -10h20"></path></g><path d="M40 31h10"></path><g class="special-sequence"><path d="M50 31h0"></path><path d="M1804 31h0"></path><rect x="50" y="20" width="1754" height="22"></rect><text x="927" y="35"> "def" | "extern" | "for" | "module" | "type" | "use" | "source" | "alias" | "export" | "export-env" | "hide" | "const" | "mut" | "overlay" (unless followed by "list") | "plugin" "use" | "while" | "loop" </text></g><path d="M1804 31h10"></path><path d="M 1814 31 h 20 m -10 -10 v 20 m 10 -20 v 20"></path></g></svg>
 </div>
@@ -6206,7 +6205,7 @@ svg.railroad-diagram g.diagram-text:hover path.diagram-text {
 <p>(6.1) </p>
   </article>
   <footer>
-    <p>Date: 2026-10-29T17:49 - <a href="?theme=dark" data-theme="dark">Dark</a> - <a href="?theme=light" data-theme="light">Light</a></p>
+    <p>Date: 2026-10-29T18:13 - <a href="?theme=dark" data-theme="dark">Dark</a> - <a href="?theme=light" data-theme="light">Light</a></p>
   </footer>
   </main>
   <script type="text/javascript">

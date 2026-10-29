@@ -434,44 +434,6 @@ pub(super) fn parse_switch_value<'a>(
     )
 }
 
-/// Check that `value`, the value of a switch that a call's arguments parsed
-/// as any value, is one [`parse_switch_value`] takes. A `true` or `false`, a
-/// variable or a subexpression parses the same way as either, so only the
-/// rest is parsed again.
-fn check_switch_value(working_set: &WorkingSet<'_>, value: &Expression<'_>) -> ParseResult<()> {
-    let text = working_set.get_span_contents(value.span);
-    if matches!(value.expr, Expr::Bool(_)) || text.starts_with(['$', '(']) {
-        return Ok(());
-    }
-    parse_switch_value(working_set, value.span).map(drop)
-}
-
-/// Check the value of every `--help=value` before a `--` in the arguments of
-/// a keyword statement parsed as a help call (`if --help=1` is an error).
-pub(super) fn check_help_values(
-    working_set: &WorkingSet<'_>,
-    call: &Expression<'_>,
-) -> ParseResult<()> {
-    let Expr::Call(call) = &call.expr else {
-        return Ok(());
-    };
-    for argument in &call.arguments {
-        match argument {
-            Argument::EndOfOptions(_) => break,
-            Argument::Named(NamedArgument {
-                long: true,
-                name: "help",
-                value: Some(value),
-                ..
-            }) => {
-                check_switch_value(working_set, value)?;
-            }
-            _ => {}
-        }
-    }
-    Ok(())
-}
-
 /// The value of an argument: any value, or for a wrapped command an external
 /// argument.
 fn parse_argument_value<'a>(
