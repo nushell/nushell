@@ -1,0 +1,7 @@
+Block 0..31
+  Pipeline 0..30
+    Call `extern` 0..30
+      Flag --wrapped 7..16
+      String Bare "foo" 17..20
+      List 21..30
+        String Bare "...rest" 22..29

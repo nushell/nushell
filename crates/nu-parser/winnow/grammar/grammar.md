@@ -1263,11 +1263,21 @@ Vocabulary: `<expression>` is a `<pipeline-element>` (3.1); `<block>` is a
 
 ```ebnf
 <def>             ::= "def" { <def-flag> } <def-name> { <def-flag> } <full-signature> <def-body>
-<def-flag>        ::= ( "--env" | "--wrapped" ) [ "=" <bool-value> ]
-<bool-value>      ::= <value>                  ; parsed as Boolean: `true`, `false`, `$c`, `(expr)`
+                    | "def" <definition-call>
+<def-flag>        ::= ( "--env" | "--wrapped" ) [ "=" <value> ]
+<definition-call> ::= { <item> }   ; an unknown or short flag before the signature, a flag
+                                   ; or "--" as the last item: nu's call, read by the consumer
 ; the flags are ordinary named arguments, so they parse anywhere in principle, but a
-; flag between the signature and the body breaks the multi-span signature and one
-; after the body leaves the body missing: in practice only before/after the name.
+; flag between the signature and the body breaks the multi-span signature (an error
+; here too) and one after the body leaves the body missing. nu's parse_def reads the
+; statement with parse_internal_call and finish_def finishes any call, so an unknown
+; flag (`def --foo f`, `def -e f`, `def -1 f`), a flag in the body's place (`def f []
+; {} --env`, a MissingPositional), a flag value that is no bool (`--env=1`), a
+; `--wrapped` without a string rest and a command's own `--help` flag are semantic: the
+; command is still defined (or the call becomes garbage when a flag's value does not
+; evaluate). A call form with input/output types (`def -1 f []: nothing -> int {}`, a
+; call for help too) is still refused: its items are read as values, and `[]:` is an
+; unclosed list (the consumer would read them by the signature shape).
 ; A flag with a value is set when the value, evaluated as a constant, is true
 ; (`def --env=false f`); the first of a repeated flag decides (`--env=false --env`
 ; is not set). The predeclaration looks for the item `--wrapped` as written, so a
@@ -1313,7 +1323,8 @@ Vocabulary: `<expression>` is a `<pipeline-element>` (3.1); `<block>` is a
 ; (the parameters are then replaced by the signature) and `{a: 1}` is code (a call
 ; to `a:`). Because the signature takes every item but the last, `def foo [] {} extra`
 ; fails on `extra` as the body while `def foo [] {} {}` drops the first `{}`.
-; `--wrapped` needs a `...rest` param that is untyped or typed `string`. An untyped
+; `--wrapped` needs a `...rest` param that is untyped or typed `string`
+; (finish_def's check, the consumer's). An untyped
 ; one gets the shape external_arg: the rest param is the signature's (the first
 ; item of the brackets in a param's place that starts with "...", not a word in a
 ; comment or a default value), and it is typed when some `...name` in the text,
@@ -1325,13 +1336,15 @@ Vocabulary: `<expression>` is a `<pipeline-element>` (3.1); `<block>` is a
 ;     52 parse_def_predecl, 585-628; parse_calls.rs:111 parse_unknown_arg;
 ;     nu-cmd-lang def.rs:21
 ; here: src/winnow/syntax/parser/parse_def.rs::parse_def, parse_def_body (the `|x|` parameters are kept
-;       as Def::body_params), check_wrapped_signature, parse_def_predecl and
+;       as Def::body_params), reads_as_call, parse_def_predecl and
 ;       has_untyped_rest (DeclKind::Wrapped: the rest param from the lexed signature,
 ;       its type from the text); src/winnow/syntax/parser/parse_calls.rs::parse_call_lenient (which
 ;       records it as Call::wrapped)
 
 <extern>          ::= "extern" { <extern-flag> } <def-name> { <extern-flag> } <full-signature>
-<extern-flag>     ::= "--strict" [ "=" <bool-value> ]
+                    | "extern" <definition-call>    ; an unknown or short flag before
+                                                    ; the signature (6.3 def)
+<extern-flag>     ::= "--strict" [ "=" <value> ]
 ; The signature argument takes every remaining item, so a body (the former
 ; `extern-wrapped`, still in nu's signature) never reaches it: `extern foo [] {}`
 ; drops the `{}` unparsed, the body positional in parse_extern_inner is dead code,
@@ -1661,12 +1674,11 @@ Post-parse checks nu applies: RequiredAfterOptional and MultipleRestParams
 another program's arguments, a positional parameter after the rest parameter
 (PositionalAfterRest) and two parameters or flags with one variable name (`a` and
 `$a`, `foo_bar` and `--foo-bar`, `-x` and `x`) or two flags with one short letter
-(DuplicateParameter; a positional `_` may repeat, `check_unique_name`); a
-`--help` flag of a `def` that is not `--wrapped` ("The `--help` flag is reserved",
-`parse_def::check_no_help_flag`); the reserved names `in`, `nu`, `env`, `ans`
+(DuplicateParameter; a positional `_` may repeat, `check_unique_name`); the reserved names `in`, `nu`, `env`, `ans`
 (skipped for `extern`; `parse_signatures::ensure_not_reserved_variable_name`) and the boolean-switch
 type rule (`parse_params`) are applied here; NonConstantDefaultValue needs
-constant evaluation and is the consumer's. Closure parameters (5.13) get the same
+constant evaluation and is the consumer's, as is a `--help` flag of a `def` that is
+not `--wrapped` ("The `--help` flag is reserved", `finish_def`'s check). Closure parameters (5.13) get the same
 checks as a `def`'s.
 
 ### 7.2 Type annotations (shapes)

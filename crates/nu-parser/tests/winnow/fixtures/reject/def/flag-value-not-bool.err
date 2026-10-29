@@ -1,6 +1,0 @@
-error: expected bool
-  --> reject/def/flag-value-not-bool.nu:1:11
-  |
-1 | def --env=1 f [] {}
-  |           ^
-  = while parsing def

@@ -1,7 +1,0 @@
-error: the `extern` command doesn't have flag `--wrapped`
-  --> reject/extern/unknown-flag.nu:1:8
-  |
-1 | extern --wrapped foo [...rest]
-  |        ^^^^^^^^^
-  = while parsing extern
-  = help: `extern` accepts `--strict`

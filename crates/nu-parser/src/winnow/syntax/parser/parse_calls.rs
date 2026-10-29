@@ -420,20 +420,6 @@ pub(super) fn split_long_flag(text: &str, span: Span) -> ParseResult<(&str, Opti
     }
 }
 
-/// The value of a switch written `--switch=value`, `--help=value` included:
-/// nu parses it as a `bool` (`true`, `false`, or a variable or subexpression
-/// it evaluates later), so `--help=1` is an error.
-pub(super) fn parse_switch_value<'a>(
-    working_set: &WorkingSet<'a>,
-    span: Span,
-) -> ParseResult<Expression<'a>> {
-    parse_value(
-        working_set,
-        span,
-        ExpectedShape::Declared(&SyntaxShape::Boolean),
-    )
-}
-
 /// The value of an argument: any value, or for a wrapped command an external
 /// argument.
 fn parse_argument_value<'a>(

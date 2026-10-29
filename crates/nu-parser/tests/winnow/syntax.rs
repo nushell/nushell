@@ -1154,7 +1154,11 @@ fn extern_alias_module_use_export() {
             "{src}"
         );
     }
-    assert!(parse("extern --wrapped gh [...args]").is_err());
+    // `--wrapped` is no flag of `extern`: the statement is nu's call to `extern`, whose
+    // unknown flag the consumer reports.
+    let ast = ok("extern --wrapped gh [...args]");
+    let c = call(expr(&ast));
+    assert_eq!(c.head.name, "extern");
     let ast = ok("alias ll = ls -l");
     let a = kind!(expr(&ast), Expr::Alias(a) => a);
     assert_eq!(a.name.item, "ll");
@@ -1899,14 +1903,15 @@ fn signature_names_must_be_unique() {
         "def f [--a(-x), --b(-x)] { }",
         "def f [foo_bar, --foo-bar] { }",
         "def f [...r, a] { }",
-        "def f [--help] { }",
         "{|a, a| $a }",
     ] {
         assert!(parse(src).is_err(), "{src}");
     }
     // `_` may repeat; an `extern` describes another program, whose arguments may repeat or
-    // follow a list; a `def --wrapped` passes `--help` on.
+    // follow a list; a `def --wrapped` passes `--help` on. A command's own `--help` flag is
+    // `finish_def`'s error, the consumer's.
     ok("def f [_, _] { }");
+    ok("def f [--help] { }");
     ok("extern e [a, a, --x, --x, ...r, b]");
     ok("def --wrapped f [--help, ...rest] { }");
 }

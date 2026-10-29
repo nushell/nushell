@@ -1239,6 +1239,87 @@ fn help_flag_value_is_lowered(#[case] code: &str, #[case] expected: &[(&str, &st
     Ok(())
 }
 
+/// A `def` or `extern` whose call to the keyword has an error of its own (an unknown flag, a
+/// flag value that is no `bool`, a flag where the body goes, a `--wrapped` without a rest, a
+/// command's own `--help`) is lowered with nu's errors: `parse_def` and `parse_extern` read the
+/// statement with `parse_internal_call` and finish any call.
+#[rstest]
+#[case::unknown_flag("def --foo f [] { 1 }", &[("UnknownFlag", "--foo")])]
+#[case::short_flag("def -1 f [] { 1 }", &[("UnknownFlag", "1")])]
+#[case::flag_after_the_name("def f --foo [] { 1 }", &[("UnknownFlag", "--foo")])]
+#[case::flag_in_the_body_place("def f [] { 1 } --env", &[("MissingPositional", "")])]
+#[case::end_of_options_in_the_body_place("def f [] { 1 } --", &[("MissingPositional", "")])]
+#[case::wrapped_without_rest("def --wrapped f [] { 1 }", &[("MissingPositional", "f")])]
+#[case::own_help_flag("def f [--help] { 1 }", &[("LabeledErrorWithHelp", "--help")])]
+#[case::extern_unknown_flag("extern --foo e []", &[("UnknownFlag", "--foo")])]
+#[case::flag_value(
+    "def --env=1 f [] { 1 }",
+    &[("ExpectedWithStringMsg", "1"), ("LabeledError", "def --env=1 f [] { 1 }")]
+)]
+#[case::flag_value_before_a_body_error(
+    "def --env=1 f [] { $no_such_variable }",
+    &[
+        ("ExpectedWithStringMsg", "1"),
+        ("VariableNotFound", "$no_such_variable"),
+        ("LabeledError", "def --env=1 f [] { $no_such_variable }"),
+    ]
+)]
+#[case::exported_flag_value(
+    "export def --env=1 f [] { 1 }",
+    &[
+        ("ExpectedWithStringMsg", "1"),
+        ("LabeledError", "export def --env=1 f [] { 1 }"),
+        ("InternalError", "def --env=1 f [] { 1 }"),
+    ]
+)]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn definition_call_error_is_lowered(
+    #[case] code: &str,
+    #[case] expected: &[(&str, &str)],
+) -> Result {
+    let expected: Vec<(String, String)> = expected
+        .iter()
+        .map(|(kind, text)| (kind.to_string(), text.to_string()))
+        .collect();
+    assert_eq!(
+        super::winnow_calls::lowered_errors(code),
+        expected,
+        "`{code}`"
+    );
+    Ok(())
+}
+
+/// A `def` or `extern` with an unknown flag still defines its command, with its description.
+#[rstest]
+#[case::def("# doc\ndef --foo f [] { 1 }", b"f")]
+#[case::extern_command("# doc\nextern --foo e []", b"e")]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn definition_with_an_unknown_flag_defines_the_command(
+    #[case] code: &str,
+    #[case] name: &[u8],
+) -> Result {
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let before = nu_parser::winnow_stats();
+    nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    let after = nu_parser::winnow_stats();
+    assert_eq!(
+        after.classic_statements, before.classic_statements,
+        "`{code}`"
+    );
+    let decl_id = working_set.find_decl(name).expect("the command is defined");
+    assert_eq!(
+        working_set.get_decl(decl_id).description(),
+        "doc",
+        "`{code}`"
+    );
+    Ok(())
+}
+
 /// A call for help in a module body, which the keyword's parse function gives back as the
 /// statement, is one of the body's statements (`parse_module_block` dispatches by the first
 /// word), lowered as at top level.

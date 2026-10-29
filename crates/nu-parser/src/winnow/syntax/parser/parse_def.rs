@@ -16,14 +16,15 @@ use crate::winnow::syntax::span::{Span, Spanned};
 
 use super::WorkingSet;
 use super::lite_parser::{AfterPipe, after_pipe_lines, pipe_on_later_line};
-use super::parse_calls::{parse_switch_value, split_long_flag};
+use super::parse_calls::split_long_flag;
 use super::parse_expressions::{
     BraceShape, ExpectedShape, brace_shape, parse_block_body_unchecked, parse_closure_parts,
     parse_value,
 };
 use super::parse_helpers::{is_help_flag, is_help_text, is_spread};
 use super::parse_keywords::{
-    KeywordCall, is_parser_keyword, parse_block_or_value_argument, seen_end_of_options,
+    KeywordCall, is_parser_keyword, parse_block_or_value_argument, parse_help_call,
+    seen_end_of_options,
 };
 use super::parse_signatures::{
     parse_definition_name, parse_full_signature, parse_var_type, parse_var_with_opt_type,
@@ -634,6 +635,9 @@ fn parse_def_name<'a>(
 /// nu also accepts the flags after the name.
 pub fn parse_def<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
     let working_set = tokens.working_set;
+    if reads_as_call(&tokens, DEF_FLAGS, true) {
+        return parse_help_call(tokens);
+    }
     let mut call = KeywordCall::start(&mut tokens)?;
     let mut flags = parse_definition_flags(&mut tokens, &mut call, "def", DEF_FLAGS)?;
     let Some(name) = call.positional(&mut tokens, "command name")? else {
@@ -679,13 +683,6 @@ pub fn parse_def<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> 
             )));
         }
     };
-    // A `--wrapped` whose value is neither `true` nor `false` is decided by nu's constant
-    // evaluation, and so are these checks.
-    match DefinitionFlag::is_set(&flags, DefFlag::Wrapped) {
-        Some(true) => check_wrapped_signature(&signature, name.span)?,
-        Some(false) => check_no_help_flag(&signature)?,
-        None => {}
-    }
     let span = call
         .keyword
         .span
@@ -721,44 +718,58 @@ fn parse_def_body<'a>(
     }
 }
 
-/// A command's own `--help` flag (nu's check in `finish_def`): `--help` always shows the
-/// command's help before the body runs, so a flag of that name could never be set. `-h` stays
-/// usable as another flag's short form, and a `def --wrapped` passes `--help` on.
-fn check_no_help_flag(signature: &Signature<'_>) -> ParseResult<()> {
-    let help = signature.params.iter().find(|parameter| {
-        matches!(&parameter.kind, crate::winnow::syntax::ast::ParameterKind::Flag { long: Some(long), .. } if long.item == "help")
-    });
-    match help {
-        Some(parameter) => Err(cut(Diagnostic::message(
-            "the `--help` flag is reserved",
-            parameter.span,
-        )
-        .with_help(
-            "every command already has `--help`, which shows its help; rename this flag",
-        ))),
-        None => Ok(()),
-    }
-}
-
-/// `def --wrapped` needs a rest parameter that is untyped or a `string`.
-fn check_wrapped_signature(signature: &Signature<'_>, name_span: Span) -> ParseResult<()> {
-    let rest = signature
-        .params
+/// Whether nu's call to `def` or `extern` (the statement `tokens`, whose keyword's flags `known`
+/// lists) reports an error of its own, a call's: then the statement is that call
+/// ([`parse_help_call`]) for the consumer to read, as nu's `finish_def` and `finish_extern` read
+/// it. That is a flag before the signature that is not one of `known` (`def --foo f [] {}`,
+/// `def -e f [] {}`, `def -1 f [] {}`), or, for a `def` (`body`), a flag or a `--` in the body's
+/// place, its last item, whose signature then takes the body (`def f [] {} --env` has no body)
+/// when those items still read as one (`def f [] {} {} --env` is "colon before type
+/// signature", an error here too). A flag between the signature and the body is the
+/// signature's (nu's `calculate_end_span` gives it every item but the last), an error there.
+fn reads_as_call<Flag>(tokens: &Tokens<'_, '_>, known: &[(&str, Flag)], body: bool) -> bool {
+    let working_set = tokens.working_set;
+    let items: Vec<Token> = tokens
+        .remaining()
         .iter()
-        .find(|p| matches!(p.kind, crate::winnow::syntax::ast::ParameterKind::Rest));
-    let Some(rest) = rest else {
-        return Err(cut(Diagnostic::message("missing required positional argument", name_span).with_help(
-            "def --wrapped must have a ...rest-like positional argument; add `...rest: string` to the signature",
-        )));
+        .skip(1)
+        .filter(|token| token.contents == TokenContents::Item)
+        .copied()
+        .collect();
+    // The items of a signature that takes everything from its start to the last item.
+    let signature_reads = |start: Option<usize>| match start {
+        Some(start) if start < items.len() - 1 => {
+            parse_full_signature(working_set, &items[start..items.len() - 1], false).is_ok()
+        }
+        _ => true,
     };
-    match &rest.ty {
-        None => Ok(()),
-        Some(ty) if ty.shape == crate::winnow::syntax::ast::SyntaxShape::String => Ok(()),
-        Some(ty) => Err(cut(Diagnostic::message("type mismatch", ty.span).with_help(format!(
-            "the ...rest-like positional argument of `def --wrapped` supports only strings; change the type of ...{} to `string`",
-            rest.name.item
-        )))),
+    let mut positionals = 0;
+    let mut signature_start = None;
+    for (index, token) in items.iter().enumerate() {
+        let text = working_set.get_span_contents(token.span);
+        // nu looks for no flag after a `--`; one in the body's place leaves the body out.
+        if text == "--" {
+            return body && index == items.len() - 1 && signature_reads(signature_start);
+        }
+        if is_help_text(text) {
+            continue;
+        }
+        if text.len() < 2 || !text.starts_with('-') {
+            positionals += 1;
+            if positionals == 2 {
+                signature_start = Some(index);
+            }
+            continue;
+        }
+        let name = text.split('=').next().unwrap_or(text);
+        if positionals < 2 && !known.iter().any(|(known, _)| *known == name) {
+            return true;
+        }
+        if body && index == items.len() - 1 {
+            return signature_reads(signature_start);
+        }
     }
+    false
 }
 
 /// The flags of a `def`.
@@ -790,8 +801,7 @@ fn parse_definition_flags<'t, 'a, Flag: Copy>(
     }
 }
 
-/// One of the `known` flags, with its value when it is written `--env=false`
-/// ([`parse_switch_value`]). Backtracks at a help flag, a `--` or an item that
+/// One of the `known` flags, with its value when it is written `--env=false`. Backtracks at a help flag, a `--` or an item that
 /// is not a long flag; any other long flag is an error.
 fn definition_flag<'a, Flag: Copy>(
     tokens: &mut Tokens<'_, 'a>,
@@ -818,8 +828,14 @@ fn definition_flag<'a, Flag: Copy>(
         )
         .with_help(format!("`{keyword}` accepts {}", accepted.join(" and ")))));
     };
+    // nu reads the value as the switch's `bool`; one of another type is the consumer's to
+    // report (`def --env=1`).
     let value = match value_span {
-        Some(span) => Some(Box::new(parse_switch_value(working_set, span)?)),
+        Some(span) => Some(Box::new(parse_value(
+            working_set,
+            span,
+            ExpectedShape::Any,
+        )?)),
         None => None,
     };
     Ok(DefinitionFlag {
@@ -833,6 +849,9 @@ fn definition_flag<'a, Flag: Copy>(
 /// accepts the flag after the name.
 pub fn parse_extern<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
     let working_set = tokens.working_set;
+    if reads_as_call(&tokens, EXTERN_FLAGS, false) {
+        return parse_help_call(tokens);
+    }
     let mut call = KeywordCall::start(&mut tokens)?;
     let mut flags = parse_definition_flags(&mut tokens, &mut call, "extern", EXTERN_FLAGS)?;
     let Some(name) = call.positional(&mut tokens, "command name")? else {

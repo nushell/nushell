@@ -23,7 +23,7 @@ use crate::{
     parse_expressions::{is_math_expression_like, parse_value as classic_value},
     parse_helpers::{PERCENT_FORCED_BUILTIN_PARSER_INFO, is_variable},
     parse_keywords::is_parser_keyword,
-    parse_signatures::ensure_not_reserved_variable_name,
+    parse_signatures::{ensure_not_reserved_variable_name, parse_full_signature},
     parse_source::{LIB_DIRS_VAR, find_dirs_var},
     type_check::type_compatible,
     winnow::lookup::{EngineLookup, decl_kind},
@@ -599,7 +599,8 @@ impl<'s> Lower<'_, '_, 's> {
     /// without a type, a keyword and a one-item shape stop early, a row condition, a math
     /// expression, an expression and a signature read up to `end`. A row condition or a math
     /// expression of several items, which the winnow parser read one by one, it reads again as
-    /// one (`reread`); an expression or a signature of several is left to the classic parser.
+    /// one (`reread`), a signature of several with `parse_full_signature`; an expression of
+    /// several is left to the classic parser.
     fn multispan_value(
         &mut self,
         arguments: &[w::Argument<'s>],
@@ -674,6 +675,17 @@ impl<'s> Lower<'_, '_, 's> {
             {
                 let span = self.span(item.span);
                 self.checked(|ws| classic_value(ws, span, shape, None))?
+            }
+            // A signature of several items, which `parse_full_signature` reads as they are: one
+            // with its input and output types, or one with an item it drops (`def f [] {}
+            // --env`, whose signature takes the body).
+            SyntaxShape::Signature | SyntaxShape::ExternalSignature => {
+                let spans: Vec<Span> = arguments[index..end]
+                    .iter()
+                    .map(|argument| self.span(argument.span()))
+                    .collect();
+                let external = matches!(shape, SyntaxShape::ExternalSignature);
+                self.checked(|ws| parse_full_signature(ws, &spans, external))?
             }
             _ if !is_multispan_shape(shape) => {
                 return Ok((self.value(item, shape, input_type)?, index + 1));

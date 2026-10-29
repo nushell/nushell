@@ -90,9 +90,9 @@ program's arguments and binds no variables, a positional after the rest
 parameter is `PositionalAfterRest`, and `check_unique_name` refuses two
 parameters or flags with one variable name (`a` and `$a`, `foo_bar` and
 `--foo-bar`, a short-only `-x` and `x`) or two flags with one short letter
-(`DuplicateParameter`); a positional `_` may repeat. A `def` that is not
-`--wrapped` may not have its own `--help` flag (`check_no_help_flag`, nu's
-check in `finish_def`): `--help` always shows the command's help. Closure
+(`DuplicateParameter`); a positional `_` may repeat. (A `def` that is not
+`--wrapped` may not have its own `--help` flag, since `--help` always shows the
+command's help: nu's check in `finish_def`, the consumer's.) Closure
 parameters get the same checks.
 
 ```rust

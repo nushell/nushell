@@ -759,6 +759,13 @@ impl<'s> Lower<'_, '_, 's> {
             if !matches!(&name.expr, Expr::String(s) if *s == *def.name.item) {
                 return Err(Unlowered::Error);
             }
+            // The flags, before or after the name, come before the signature and the body, as
+            // `parse_internal_call` reads the items in order (and the name keeps no error).
+            let long = |flag| match flag {
+                w::DefFlag::Env => "env",
+                w::DefFlag::Wrapped => "wrapped",
+            };
+            let mut arguments = this.definition_flags(&def.flags, long)?;
             let signature = this.signature_expression(&def.signature, false)?;
             let input_type = match &signature.expr {
                 Expr::Signature(sig) => sig.get_input_type(),
@@ -783,18 +790,7 @@ impl<'s> Lower<'_, '_, 's> {
             );
             this.working_set.def_body_span = outer_def_body_span;
             let body = body?;
-            // The arguments in source order: flags, then the name, the signature and the body.
-            let mut arguments = def
-                .flags
-                .iter()
-                .map(|flag| {
-                    let long = match flag.flag {
-                        w::DefFlag::Env => "env",
-                        w::DefFlag::Wrapped => "wrapped",
-                    };
-                    this.definition_flag(flag, long)
-                })
-                .collect::<Lowered<Vec<(usize, Argument)>>>()?;
+            // The arguments in source order.
             arguments.push((name.span.start, Argument::Positional(name)));
             arguments.push((signature.span.start, Argument::Positional(signature)));
             arguments.push((body.span.start, Argument::Positional(body)));
@@ -860,24 +856,18 @@ impl<'s> Lower<'_, '_, 's> {
             let mut call = Call::new(head);
             call.decl_id = decl_id;
             let _ = this.working_set.add_span(head);
-            // As for `def`: the name is `extern`'s `string` positional (`parse_value`).
+            // As for `def`: the name is `extern`'s `string` positional (`parse_value`), and
+            // the flags come before the signature.
             let name = this.checked(|ws| parse_value(ws, name_span, &SyntaxShape::String, None))?;
             if !matches!(&name.expr, Expr::String(s) if *s == *extern_def.name.item) {
                 return Err(Unlowered::Error);
             }
+            let long = |flag| match flag {
+                w::ExternFlag::Strict => "strict",
+            };
+            let mut arguments = this.definition_flags(&extern_def.flags, long)?;
             let signature = this.signature_expression(&extern_def.signature, true)?;
-            // The arguments in source order: the flags, before or after the name, then the
-            // name and the signature.
-            let mut arguments = extern_def
-                .flags
-                .iter()
-                .map(|flag| {
-                    let long = match flag.flag {
-                        w::ExternFlag::Strict => "strict",
-                    };
-                    this.definition_flag(flag, long)
-                })
-                .collect::<Lowered<Vec<(usize, Argument)>>>()?;
+            // The arguments in source order.
             arguments.push((name.span.start, Argument::Positional(name)));
             arguments.push((signature.span.start, Argument::Positional(signature)));
             arguments.sort_by_key(|(start, _)| *start);
@@ -907,6 +897,19 @@ impl<'s> Lower<'_, '_, 's> {
             "export extern",
         )?;
         Ok((expression, decl))
+    }
+
+    /// The flags of a `def` or an `extern`, each lowered with its long name (`long`,
+    /// [`Self::definition_flag`]).
+    fn definition_flags<Flag: Copy>(
+        &mut self,
+        flags: &[w::DefinitionFlag<'s, Flag>],
+        long: fn(Flag) -> &'static str,
+    ) -> Lowered<Vec<(usize, Argument)>> {
+        flags
+            .iter()
+            .map(|flag| self.definition_flag(flag, long(flag.flag)))
+            .collect()
     }
 
     /// A flag of `def` or `extern`, named `long`: the named argument that the classic call
@@ -1081,7 +1084,9 @@ impl<'s> Lower<'_, '_, 's> {
     ///
     /// - `def` and `extern` read it in a scope of their own, `def` with its last item marked as
     ///   its body, and finish it with `finish_def` (which drops the predeclaration) and
-    ///   `finish_extern` (which defines the command all the same);
+    ///   `finish_extern` (which defines the command all the same), whatever its kind: the
+    ///   winnow parser also gives a `def` or `extern` whose call has an error of its own as a
+    ///   call (`def --foo f [] {}`), which defines the command with its description;
     /// - `for` reads it in a scope of its own;
     /// - `type` reads only its first two items;
     /// - `let` reads it with the statement's input;
@@ -1091,8 +1096,9 @@ impl<'s> Lower<'_, '_, 's> {
     /// (`export-env` reads only its first item, as the winnow parser's call already has it.)
     /// `alias` and `type` drop the errors of the call, which `internal_call` hands back.
     ///
-    /// Returns the statement and, for `extern`, the command it defined, which an `export
-    /// extern` in a module exports. A call that does not ask for help, a redirected statement
+    /// Returns the statement and, for `def` and `extern`, the command it defined, which an
+    /// `export` in a module exports. Another keyword's call that does not ask for help, a
+    /// redirected statement
     /// (an error for these keywords but `where`, which keeps it, and `const`, which drops it)
     /// are the classic parser's.
     pub(super) fn help_statement(
@@ -1159,26 +1165,31 @@ impl<'s> Lower<'_, '_, 's> {
             "let" => self.internal_call(head, arguments, decl_id, input_type)?,
             _ => self.internal_call(head, arguments, decl_id, None)?,
         };
-        if kind != CallKind::Help {
+        // `parse_def` and `parse_extern` finish any call: one with an error of its own (the
+        // winnow parser's call form of `def --foo f [] {}`) still defines the command.
+        if kind != CallKind::Help && !matches!(keyword, "def" | "extern") {
             return Err(Unlowered::Unsupported(
                 "keyword call that does not ask for help",
             ));
         }
         let (mut expression, decl) = match keyword {
-            "def" => finish_def(
-                self.working_set,
-                DefCall {
-                    call: lowered,
-                    output,
-                    call_kind: kind,
-                    call_span,
-                    decl_id,
-                },
-                String::new(),
-                String::new(),
-                Vec::new(),
-                module_name,
-            ),
+            "def" => {
+                let (desc, extra_desc) = self.description(pipeline, &[], command);
+                finish_def(
+                    self.working_set,
+                    DefCall {
+                        call: lowered,
+                        output,
+                        call_kind: kind,
+                        call_span,
+                        decl_id,
+                    },
+                    desc,
+                    extra_desc,
+                    Vec::new(),
+                    module_name,
+                )
+            }
             "extern" => {
                 let (desc, extra_desc) = self.description(pipeline, &[], command);
                 let name_span = name_span.map_or(call_span, |span| self.span(span));
@@ -1461,7 +1472,7 @@ impl<'s> Lower<'_, '_, 's> {
                 ty,
             );
         }
-        if matches!(command.expr, w::Expr::Export(_)) {
+        if let w::Expr::Export(export) = &command.expr {
             let call_span = self.span(command.span);
             // In a module the definition covers the command's items; elsewhere every item of
             // the statement, its attributes included.
@@ -1472,6 +1483,18 @@ impl<'s> Lower<'_, '_, 's> {
                 (None, Some(first)) => Span::new(first.start, call_span.end),
                 _ => call_span,
             };
+            // A definition `finish_def` or `finish_extern` gave up on (garbage: a flag whose
+            // value does not evaluate) is kept, covering the statement, and reported from the
+            // keyword on (`warp_export_call`).
+            if attributes.is_empty() && !matches!(expression.expr, Expr::Call(_)) {
+                expression.span = span;
+                let keyword = self.span(export.item.span).start;
+                self.working_set.error(ParseError::InternalError(
+                    "unexpected output from parsing a definition".into(),
+                    Span::new(keyword, call_span.end),
+                ));
+                return Ok(expression);
+            }
             self.export_call(&mut expression, export_name, span)?;
         }
         Ok(expression)

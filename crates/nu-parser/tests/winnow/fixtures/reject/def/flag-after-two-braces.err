@@ -1,0 +1,6 @@
+error: expected `:` before the input/output types
+  --> reject/def/flag-after-two-braces.nu:3:12
+  |
+3 | def foo [] {} {} --env
+  |            ^^
+  = while parsing def
