@@ -156,6 +156,9 @@ pub fn try_str_to_value(
     strict: bool,
     signals: &Signals,
 ) -> Result<Value, ShellError> {
+    // Windows editors and PowerShell's `Out-File` write a UTF-8 BOM, which RFC 8259 lets a
+    // parser ignore. Strip exactly one leading one: `U+FEFF` anywhere else is content.
+    let input = input.strip_prefix('\u{feff}').unwrap_or(input);
     match strict {
         true => try_str_to_value_impl(
             input,
@@ -285,6 +288,40 @@ mod test {
                 }
             }
             other => panic!("expected Generic error, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn json_parse_strips_one_leading_bom() {
+        let signals = Signals::empty();
+        for strict in [false, true] {
+            for input in ["\u{feff}{\"a\": 1}", "\u{feff}[1, 2]", "\u{feff}1"] {
+                let with_bom = try_str_to_value(input, Span::test_data(), strict, &signals);
+                let without_bom = try_str_to_value(
+                    input.trim_start_matches('\u{feff}'),
+                    Span::test_data(),
+                    strict,
+                    &signals,
+                );
+                assert_eq!(
+                    with_bom.expect("a leading bom should be stripped"),
+                    without_bom.expect("should parse"),
+                    "strict: {strict}, input: {input:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn json_parse_keeps_inner_bom() {
+        let signals = Signals::empty();
+        for strict in [false, true] {
+            let value = try_str_to_value("[\"\u{feff}\"]", Span::test_data(), strict, &signals)
+                .expect("should parse");
+            assert_eq!(
+                value,
+                Value::test_list(vec![Value::test_string("\u{feff}")])
+            );
         }
     }
 
