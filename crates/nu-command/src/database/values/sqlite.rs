@@ -715,9 +715,7 @@ fn prepared_statement_to_nu_list(
 
         for row_result in row_results {
             signals.check(&call_span)?;
-            if let Ok(row_value) = row_result {
-                row_values.push(row_value);
-            }
+            row_values.push(row_result?);
         }
 
         Ok(row_values)

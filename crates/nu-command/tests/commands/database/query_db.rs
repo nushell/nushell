@@ -188,3 +188,34 @@ fn named_params() -> Result {
             })
     })
 }
+
+// SQLite runs a statement when its first row is read, so a failing INSERT reports its error there.
+#[rstest::rstest]
+#[case::without_params(r#"open $in | query db "INSERT INTO crew (role) VALUES ('captain')""#)]
+#[case::named_params(
+    r#"open $in | query db "INSERT INTO crew (role) VALUES (:role)" -p {role: captain}"#
+)]
+fn reports_statement_errors(#[case] code: &str) -> Result {
+    Playground::setup(&module_path!().replace("::", "_"), |dirs, _| {
+        let db = dirs.test().join("test.db");
+        Connection::open(&db)
+            .expect("failed to open db")
+            .execute_batch("CREATE TABLE crew (name TEXT NOT NULL, role TEXT)")
+            .expect("failed to create table");
+        let mut tester = test().cwd(dirs.test());
+
+        match tester
+            .run_with_data::<Value>(code, db.as_path())
+            .expect_shell_error()?
+        {
+            ShellError::Generic(generic) => {
+                assert_contains(
+                    "NOT NULL constraint failed: crew.name",
+                    generic.msg.as_ref(),
+                );
+                Ok(())
+            }
+            err => Err(err.into()),
+        }
+    })
+}
