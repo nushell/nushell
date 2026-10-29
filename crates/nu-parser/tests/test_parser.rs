@@ -947,20 +947,23 @@ pub fn parse_rejects_uncallable_command_names(#[case] name: &str) {
 }
 
 #[rstest]
-#[case::hex_without_digits("0xZZ")]
-#[case::binary_without_digits("0b2")]
-#[case::octal_without_digits("0o18")]
-#[case::bare_prefix("0x")]
-#[case::value_in_a_later_word("foo 0x10")]
-#[case::escaped_name("foo\u{2D}bar")]
-#[case::float_spelling_infinity("infinity")]
-#[case::float_spelling_inf("INF")]
-#[case::float_spelling_nan("Nan")]
-pub fn parse_accepts_bare_word_names_that_are_not_values(#[case] name: &str) {
+#[case::hex_without_digits("0xZZ", "0xZZ")]
+#[case::binary_without_digits("0b2", "0b2")]
+#[case::octal_without_digits("0o18", "0o18")]
+#[case::bare_prefix("0x", "0x")]
+#[case::value_in_a_later_word("foo 0x10", "foo 0x10")]
+#[case::escaped_name("foo\\u{2D}bar", "foo-bar")]
+#[case::float_spelling_infinity("infinity", "infinity")]
+#[case::float_spelling_inf("INF", "INF")]
+#[case::float_spelling_nan("Nan", "Nan")]
+pub fn parse_accepts_bare_word_names_that_are_not_values(#[case] name: &str, #[case] call: &str) {
     // https://github.com/nushell/nushell/issues/16815
     // These are read as bare words rather than as values, so they name a command that can still
     // be called. The call has to come back as a call to that declaration, not as the value the
     // name looks like.
+    // The name is the name as it is written in the definition; the call is the name the
+    // declaration is registered under, which for a name written with escapes is the decoded
+    // name, because a bare word does not decode escapes.
     let call_of = |source: &str| {
         let mut engine_state = EngineState::new();
         let mut working_set = StateWorkingSet::new(&engine_state);
@@ -977,7 +980,7 @@ pub fn parse_accepts_bare_word_names_that_are_not_values(#[case] name: &str) {
         let _ = engine_state.merge_delta(working_set.render());
         let mut working_set = StateWorkingSet::new(&engine_state);
 
-        let block = parse(&mut working_set, None, format!("{name}\n").as_bytes(), true);
+        let block = parse(&mut working_set, None, format!("{call}\n").as_bytes(), true);
 
         assert!(
             working_set.parse_errors.is_empty(),
@@ -985,7 +988,7 @@ pub fn parse_accepts_bare_word_names_that_are_not_values(#[case] name: &str) {
             working_set.parse_errors
         );
 
-        let decl_id = working_set.find_decl(name.as_bytes());
+        let decl_id = working_set.find_decl(call.as_bytes());
         let pipeline = block
             .pipelines
             .last()
@@ -4188,4 +4191,33 @@ fn empty_and_complete_lines_error_kinds() {
         "open block should be Unclosed/UnexpectedEof, got {:?}",
         unclosed.parse_errors
     );
+}
+
+#[rstest]
+#[case::quoted_name("\"foo\"")]
+#[case::backtick_name("`foo`")]
+#[case::escaped_name("\"foo\\u{2D}bar\"")]
+pub fn parse_name_check_leaves_no_file_in_the_state(#[case] name: &str) {
+    // The name check reads the head word of the name, to see whether the call site would read
+    // that word as a value. It has to read it without leaving a file in the state it checks.
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    working_set.add_decl(Box::new(Def));
+    working_set.add_decl(Box::new(Alias));
+    working_set.add_decl(Box::new(AttrEcho));
+
+    let _ = parse(
+        &mut working_set,
+        None,
+        format!("def {name} [] {{}}").as_bytes(),
+        false,
+    );
+
+    let left = working_set
+        .files()
+        .filter(|file| file.name.starts_with("command name"))
+        .map(|file| file.name.to_string())
+        .collect::<Vec<_>>();
+
+    assert!(left.is_empty(), "{name:?} left {left:?} in the state");
 }
