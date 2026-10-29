@@ -116,10 +116,11 @@ negated value holds a number among them); what a type alias names
 (`SyntaxShape::TypeAlias` holds the name; a block's `type` statements are
 reported before its statements, `BlockSink::predecl_type_alias`, so a use
 above one can be told from an unknown type); module, file,
-overlay and plugin resolution; variable existence. The keyword commands that
-nu parses by signature (`hide`, `source`, `source-env`, `run`, `overlay *`,
-`plugin use`) and the built-in attributes *are* checked here
-(`check_call` in `parse_calls.rs`), as are reserved variable names, nu's
+overlay and plugin resolution; variable existence; the arguments of the
+keyword commands that nu parses by signature (`hide`, `source`,
+`source-env`, `run`, `overlay *`, `plugin use`) and of the built-in
+attributes, but for `hide`'s import pattern and `overlay use`'s `as`
+(`check_call` in `parse_calls.rs`). Checked here are reserved variable names, nu's
 `RequiredAfterOptional`, `MultipleRestParams`, `PositionalAfterRest` and
 `DuplicateParameter`, a record field or table column written twice,
 defaults against their declared type and duplicate definitions in a block.

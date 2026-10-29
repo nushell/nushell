@@ -1,6 +1,0 @@
-error: extra positional argument
-  --> reject/attributes/structured-extra-argument.nu:1:38
-  |
-1 | @structured ["--json"] { from json } 3
-  |                                      ^
-  = help: `attr structured` takes at most 2 positional arguments

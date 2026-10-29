@@ -1,0 +1,6 @@
+error: expected keyword `as`
+  --> reject/calls/overlay-use-flag-after-end-of-options-instead-of-as.nu:1:21
+  |
+1 | overlay use -- null --x
+  |                     ^^^
+  = while parsing command call

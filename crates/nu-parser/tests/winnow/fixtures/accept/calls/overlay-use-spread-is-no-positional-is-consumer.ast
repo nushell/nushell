@@ -1,0 +1,13 @@
+Block 0..39
+  Pipeline 0..10
+    let l 0..10
+      Value 8..10
+        Pipeline 8..10
+          List 8..10
+  Pipeline 11..38
+    Call `overlay use` 11..38
+      Spread 23..26
+        Var $l 26..28
+      Nothing 29..33
+      String Bare "as" 34..36
+      String Bare "x" 37..38

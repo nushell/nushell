@@ -1,0 +1,9 @@
+Block 0..22
+  Pipeline 0..11
+    Def `a` 0..11
+      Signature 6..8
+      Body 10..10
+  Pipeline 12..21
+    Call `hide` 12..21
+      String Bare "a" 17..18
+      Int -1 19..21

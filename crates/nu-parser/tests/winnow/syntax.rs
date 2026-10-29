@@ -1204,16 +1204,6 @@ fn extern_alias_module_use_export() {
     assert!(parse("export foo").is_err());
 }
 
-/// `run`'s own flags end at the script's path: the rest is the script's, which nu passes on
-/// unchecked (`parse_run_expr`), so a `--help=x` or a non-bool `--full-reparse=` there is fine.
-#[test]
-fn run_script_arguments_are_not_checked() {
-    ok("run x.nu --help=x");
-    ok("run x.nu --full-reparse=maybe");
-    ok("run -- x.nu --full-reparse=maybe");
-    assert!(parse("run --full-reparse=maybe x.nu").is_err());
-}
-
 #[test]
 fn use_forms() {
     let ast = ok("use std/log");

@@ -234,6 +234,9 @@
 ; The target must be the very next token and must be an <item>; anything else
 ; (pipe, Eol, ";", another redirection, "=", "||", comment, end of input) is
 ; Expected("redirection target"). The target item is parsed as a value (shape Any).
+; An Eol there ends nu's command but not its pipeline: an item first on the next line
+; is the pipeline's next command (`ls o>\ndef f [] {}`: a `def` in a pipeline, no
+; definition), which the predeclaration scan follows.
 ; Combinations: the first redirection of any kind is Single; Stdout then Stderr or
 ; Stderr then Stdout is Separate; any other second, or any third, is
 ; MultipleRedirections.
@@ -306,7 +309,8 @@
 ; here: src/winnow/syntax/parser/parse_pipelines.rs::parse_pipeline_element,
 ;       src/winnow/syntax/parser/parse_expressions.rs::parse_builtin_commands (one match for all
 ;       keywords including if/match/...; source, hide, run, overlay, plugin use are plain
-;       Calls checked against their fixed signatures: parse_calls.rs::check_call)
+;       Calls, their arguments the consumer's but for hide's import pattern and overlay
+;       use's `as`: parse_calls.rs::check_call)
 
 <multi-command-pipeline> ::= <pipeline-element> { <pipeline-element> }
 ; Every element is parsed with parse_expression (3.1); the keyword table is NOT
@@ -1091,7 +1095,10 @@
                                                                         ; the end of the line
 ; `let x` without a value is allowed (initial_value is optional in let's signature);
 ; `mut x` and `const x` are MissingPositional. A redirection or "|" in the rhs is
-; part of the rhs pipeline. Type checks and const-evaluability: semantic.
+; part of the rhs pipeline. nu lexes the rhs again from its text, as a block: inside
+; "(" ")", whose newlines are whitespace, a newline between its items still ends a
+; pipeline (`(let x = 1\n2)` gives `x` a block of two). Type checks and
+; const-evaluability: semantic.
 ; nu: parse_bindings.rs:20 parse_let, 298 parse_mut, 148 parse_const;
 ;     nu-cmd-lang core_commands/{let_,mut_,const_}.rs signatures
 ; here: src/winnow/syntax/parser/parse_bindings.rs::parse_let
@@ -1294,11 +1301,12 @@
 ; foo null` shows help).
 ; nu: parse_module.rs:1349 parse_hide, 1529/1572/1806 overlay_*; parse_source.rs:60
 ;     parse_source, 219 parse_run, 546 parse_plugin_use; nu-cmd-lang signatures
-; here: ordinary Call checked against its fixed signature (flags and their values,
-;       short-flag batches, positional counts, "as", "-1" as a flag, "null" only where
-;       Nothing is allowed): src/winnow/syntax/parser/parse_calls.rs::check_call,
-;       check_call_arguments, check_switch_value; the type of a flag's value (`--keep-env
-;       1`), the const-evaluation and resolution of the names: consumer
+; here: ordinary Call; the members of `hide` (an import pattern, unless the call shows
+;       help) and the keyword argument `as` (the positional after the module, followed by
+;       any item: `as --prefix` names the overlay; a flag, "-1" and a spread are no
+;       positionals): src/winnow/syntax/parser/parse_calls.rs::check_call; flags and their
+;       values, short-flag batches, positional counts, the types of the values, the
+;       const-evaluation and resolution of the names: consumer
 
 ; ==== 6.6 Control flow ====
 
@@ -1325,7 +1333,9 @@
 ; the condition is every item before the then-block, which is the item before
 ; "else" or the last item; "else" takes ALL remaining items as one expression, so
 ; `else if ...`, `else 5`, `else ls` and `else {|x| }` (Block fails, Expression gives
-; a closure) parse; `else {} else {}` is an error; a record then-block is a type error
+; a closure) parse, except after a "{" item without parameters, which Block takes
+; alone: what follows it is an extra argument of `if` (`else {} * 3`, `else {} else
+; {}` are errors) or a flag; a record then-block is a type error
 ; nu: nu-cmd-lang if_.rs; parse_calls.rs:782 (Keyword + OneOf)
 ; here: src/winnow/syntax/parser/parse_control_flow.rs::parse_if, parse_block_or_value
 
@@ -1391,7 +1401,7 @@
 ;       src/winnow/syntax/parser/parse_pipelines.rs::parse_pipeline_element,
 ;       src/winnow/syntax/parser/parse_calls.rs::parse_attribute (the empty name is refused; whether
 ;       `attr <name>` exists is the consumer's, it may come from a `use`d module; the
-;       arguments of the built-in attributes are checked: check_call_named)
+;       arguments of the built-in attributes, as any call's, are the consumer's too)
 
 ; ==== 7.1 Signatures ====
 

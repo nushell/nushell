@@ -598,6 +598,17 @@ impl<'s> Lower<'_, '_, 's> {
             return Err(Unlowered::Error);
         }
         let Some(w::Argument::Positional(item)) = arguments.get(index) else {
+            // A flag, a spread or `--` in the winnow tree, which `parse_multispan_value` reads
+            // with a one-item shape as any item (`overlay use x as --prefix`).
+            if let Some(argument) = arguments.get(index)
+                && !is_multispan_shape(shape)
+            {
+                let span = self.span(argument.span());
+                return Ok((
+                    classic_value(self.working_set, span, shape, None),
+                    index + 1,
+                ));
+            }
             return Err(Unlowered::Unsupported("multi-item argument"));
         };
         let text = self.text(item.span);

@@ -375,7 +375,8 @@ this parser's `LexOptions` constants carry the same sets.
 ; here: src/winnow/syntax/parser/parse_pipelines.rs::parse_pipeline_element,
 ;       src/winnow/syntax/parser/parse_expressions.rs::parse_builtin_commands (one match for all
 ;       keywords including if/match/...; source, hide, run, overlay, plugin use are plain
-;       Calls checked against their fixed signatures: parse_calls.rs::check_call)
+;       Calls, their arguments the consumer's but for hide's import pattern and overlay
+;       use's `as`: parse_calls.rs::check_call)
 
 <multi-command-pipeline> ::= <pipeline-element> { <pipeline-element> }
 ; Every element is parsed with parse_expression (3.1); the keyword table is NOT
@@ -1452,11 +1453,12 @@ Vocabulary: `<expression>` is a `<pipeline-element>` (3.1); `<block>` is a
 ; foo null` shows help).
 ; nu: parse_module.rs:1349 parse_hide, 1529/1572/1806 overlay_*; parse_source.rs:60
 ;     parse_source, 219 parse_run, 546 parse_plugin_use; nu-cmd-lang signatures
-; here: ordinary Call checked against its fixed signature (flags and their values,
-;       short-flag batches, positional counts, "as", "-1" as a flag, "null" only where
-;       Nothing is allowed): src/winnow/syntax/parser/parse_calls.rs::check_call,
-;       check_call_arguments, check_switch_value; the type of a flag's value (`--keep-env
-;       1`), the const-evaluation and resolution of the names: consumer
+; here: ordinary Call; the members of `hide` (an import pattern, unless the call shows
+;       help) and the keyword argument `as` (the positional after the module, followed by
+;       any item: `as --prefix` names the overlay; a flag, "-1" and a spread are no
+;       positionals): src/winnow/syntax/parser/parse_calls.rs::check_call; flags and their
+;       values, short-flag batches, positional counts, the types of the values, the
+;       const-evaluation and resolution of the names: consumer
 ```
 
 ### 6.6 Control flow
@@ -1555,7 +1557,7 @@ Vocabulary: `<expression>` is a `<pipeline-element>` (3.1); `<block>` is a
 ;       src/winnow/syntax/parser/parse_pipelines.rs::parse_pipeline_element,
 ;       src/winnow/syntax/parser/parse_calls.rs::parse_attribute (the empty name is refused; whether
 ;       `attr <name>` exists is the consumer's, it may come from a `use`d module; the
-;       arguments of the built-in attributes are checked: check_call_named)
+;       arguments of the built-in attributes, as any call's, are the consumer's too)
 ```
 
 ## 7. Signatures, types, patterns, import patterns, row conditions

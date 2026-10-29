@@ -1,0 +1,6 @@
+error: expected keyword `as`
+  --> reject/calls/overlay-use-word-instead-of-as.nu:1:18
+  |
+1 | overlay use null x
+  |                  ^
+  = while parsing command call

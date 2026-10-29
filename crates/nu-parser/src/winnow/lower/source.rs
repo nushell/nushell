@@ -83,10 +83,11 @@ impl<'s> Lower<'_, '_, 's> {
         let (own, script) = arguments.split_at(own_end);
         let head = self.span(call.head.span);
         let (mut lowered, output, kind) = self.internal_call(head, own, decl_id, None)?;
+        // An error here (`--full-reparse=maybe`) is reported and the call goes on, as for help.
         let do_full_reparse = if kind == CallKind::Help {
             Err(())
         } else {
-            self.checked(|working_set| has_flag_const(working_set, &lowered, "full-reparse"))?
+            has_flag_const(self.working_set, &lowered, "full-reparse")
         };
         self.script_arguments(&mut lowered, script)?;
         let args_spans: Vec<Span> = arguments

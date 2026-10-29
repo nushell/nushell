@@ -415,45 +415,26 @@ be an argument; `parse_call_argument` reads one with
 | anything else | `Argument::Positional(parse_value(.., ExpectedShape::Any))` |
 
 Whether `--name value` binds `value` to the flag is a signature question and
-is left to the consumer; the bridge in `tools/` shows how (chapter 09). The
-one exception is the commands that are keywords in nu-parser and have a
-fixed signature there: `hide`, `source`, `source-env`, `run`, `overlay new`,
-`overlay use`, `overlay hide`, `overlay list`, `plugin use` and the
-built-in `attr *` attributes. `parse_call_lenient(tokens, lenient)` (which
-`parse_call` calls with `lenient = false`) finishes by calling `check_call`,
-nu's name for the check. It looks the head up in the `keyword_signature`
-table, whose `KeywordSignature` entries have named fields and start from
-`KeywordSignature::NONE`:
-
-```rust,ignore
-"overlay use" => KeywordSignature {
-    required: 1,
-    keyword: Some("as"),
-    flags: const { &[switch("prefix", Some('p')), switch("reload", Some('r'))] },
-    accepts_nothing: true,
-    ..NONE
-},
-```
-
-The fields are the required and optional positional counts (`required`,
-`optional`), a rest (`rest`), a keyword argument such as `overlay use`'s `as`
-(`keyword`), the flags (`KeywordFlag { long, short, takes_value }`), whether
-unknown flags pass (`allows_unknown_flags`, for `run`), whether `null` is
-allowed as the first positional (`accepts_nothing`) and whether the call may
-be redirected (`redirectable`). `check_call_arguments` walks the arguments
-against it and reproduces nu's checks: unknown flags, a flag without its
-value, a switch's `=value` that is not a Boolean (`--prefix=1`,
-`check_switch_value`), a batch of short flags letter by letter (`-pr`; only the
-last may take a value), too many positionals, `as` without its name, `-1` as a
-flag rather than a number, and `null` or `true` where a string is required
-(`hide null`). A `--help` or `-h` forgives a missing positional and nothing
-else, and keeps `hide` from reading its members. For a `run` statement only the
-arguments up to the script's path are checked (`checked_arguments`): as in nu's
-`parse_run_expr`, the rest are the script's, so `run x.nu --help=x` is fine. With no command table the head of `overlay use x` resolves as
-`overlay` with `use` as its first argument; `keyword_signature_of_call`
-finds both spellings. `lenient` is set for an alias target, where nu
-forgives missing positionals and flag values. Whether the named module, file
-or plugin exists is still the consumer's.
+is left to the consumer; the bridge in `tools/` shows how (chapter 09). So
+are the arguments of the commands that are keywords in nu-parser, with a
+fixed signature there, and calls here: `hide`, `source`, `source-env`,
+`run`, `overlay new`, `overlay use`, `overlay hide`, `overlay list`, `plugin
+use` and the built-in `attr *` attributes. nu reads them as any call's
+(`parse_internal_call`, `check_call`), and the lowering does too: an unknown
+flag, a missing or extra positional or a flag without its value is nu's
+error there. `parse_call_lenient(tokens, lenient)` (which `parse_call` calls
+with `lenient = false`) finishes by calling `check_call` for the two parts
+nu reads as syntax, with the positionals counted as nu counts them: a flag
+before a `--`, a word like `-1` there (a flag for nu) and a spread are
+none. `hide`'s second positional, its members, is an import pattern
+(`parse_import_pattern_member`, as for `use`; `hide foo null` is a wrong
+import pattern), unless a `--help` or `-h` before any `--` makes the call
+show help, or `lenient` is set (an alias target). `overlay use`'s `as NAME`
+is a keyword argument after the module (`KeywordSignature`'s `keyword`):
+the positional after the module must be `as` (`overlay use x -- --y` is an
+error), and any item after it is its value (`as --prefix`). With no
+command table the head of `overlay use x` resolves as `overlay` with `use`
+as its first argument; `keyword_signature_of_call` finds both spellings.
 
 The `%` sigil (`parse_percent_call`) forces the built-in command even when a
 custom command or alias shadows its name. `%ls` and `% ls` give a `Call`

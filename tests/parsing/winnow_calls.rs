@@ -633,3 +633,75 @@ fn flag_value_that_looks_like_a_flag(
     assert_eq!(lowered_errors(&code), expected, "`{code}`");
     Ok(())
 }
+
+/// The arguments of a command that is a parser keyword in nu but a call in the winnow parser
+/// (`hide`, `source`, `run`, the `overlay` commands, `plugin use`, the built-in attributes) are
+/// checked as any call's are (`parse_internal_call`, `check_call`), and the statement is lowered
+/// with nu's errors: the winnow parser checks only the parts that are syntax in nu, the members
+/// of `hide` and the `as` of `overlay use`, whose value is any item (`--prefix` names the
+/// overlay).
+#[rstest]
+#[case::hide_extra_positional(
+    "hide ls a b",
+    &[("ExtraPositional", "b"), ("WrongImportPattern", "b"), ("ModuleNotFound", "ls")]
+)]
+#[case::hide_help_extra_positional("hide --help a b c", &[("ExtraPositional", "c")])]
+#[case::hide_unknown_long_flag("hide ls --foo", &[("UnknownFlag", "--foo")])]
+#[case::hide_unknown_short_flag("hide -x ls", &[("UnknownFlag", "x")])]
+#[case::hide_negative_number("hide -1 ls", &[("UnknownFlag", "1")])]
+#[case::hide_without_argument("hide", &[("MissingPositional", "")])]
+#[case::hide_null(
+    "hide null",
+    &[("ExpectedWithStringMsg", "null"), ("LabeledError", "null"), ("UnknownState", "null")]
+)]
+#[case::source_two_positionals("source null null", &[("ExtraPositional", "null")])]
+#[case::source_unknown_short_flag("source -x null", &[("UnknownFlag", "x")])]
+#[case::source_without_argument("source", &[("MissingPositional", "")])]
+#[case::source_env_without_argument("source-env", &[("MissingPositional", "")])]
+#[case::run_without_argument("run", &[("MissingPositional", "")])]
+#[case::run_switch_value_not_bool(
+    "run --full-reparse=maybe x.nu",
+    &[("ExpectedWithStringMsg", "maybe"), ("LabeledError", "run --full-reparse=maybe x.nu")]
+)]
+#[case::overlay_new_two_positionals("overlay new a b", &[("ExtraPositional", "b")])]
+#[case::overlay_new_without_argument("overlay new", &[("MissingPositional", "")])]
+#[case::overlay_new_switch_value_not_bool(
+    "overlay new a --reload=3",
+    &[("ExpectedWithStringMsg", "3")]
+)]
+#[case::overlay_hide_two_positionals("overlay hide a b", &[("ExtraPositional", "b")])]
+#[case::overlay_hide_flag_without_value("overlay hide --keep-env", &[("MissingFlagParam", "--keep-env")])]
+#[case::overlay_hide_value_flag_not_last("overlay hide -ek spam", &[("OnlyLastFlagInBatchCanTakeArg", "e")])]
+#[case::overlay_list_positional("overlay list x", &[("ExtraPositional", "x")])]
+#[case::overlay_list_unknown_flag("overlay list --foo", &[("UnknownFlag", "--foo")])]
+#[case::overlay_use_extra_after_as("overlay use null as x y", &[("ExtraPositional", "y")])]
+#[case::overlay_use_without_argument("overlay use", &[("MissingPositional", "")])]
+#[case::overlay_use_unknown_flag("overlay use null --foo", &[("UnknownFlag", "--foo")])]
+#[case::overlay_use_unknown_flag_in_batch("overlay use -hz spam", &[("UnknownFlag", "z")])]
+#[case::overlay_use_as_takes_a_flag("module spam {}\noverlay use spam as --prefix", &[])]
+#[case::attribute_extra_positional(
+    "@category a b\ndef f [] {}",
+    &[("ExtraPositional", "b"), ("LabeledError", "category a b")]
+)]
+#[case::attribute_without_argument(
+    "@example x\ndef f [] {}",
+    &[("MissingPositional", ""), ("LabeledError", "example x")]
+)]
+#[case::attribute_with_a_pipe(
+    "@example x | y\ndef f [] {}",
+    &[("ExtraPositional", "y"), ("LabeledError", "example x | y")]
+)]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn keyword_command_argument_errors_are_reported_and_lowered(
+    #[case] code: &str,
+    #[case] expected: &[(&str, &str)],
+) -> Result {
+    let expected: Vec<(String, String)> = expected
+        .iter()
+        .map(|(kind, text)| (kind.to_string(), text.to_string()))
+        .collect();
+    assert_eq!(lowered_errors(code), expected, "`{code}`");
+    Ok(())
+}

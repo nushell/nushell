@@ -1,0 +1,9 @@
+Block 0..26
+  Pipeline 0..25
+    AttributeBlock 0..25
+      Attribute `category` 0..13
+        String Bare "a" 10..11
+        String Bare "b" 12..13
+      Def `x` 14..25
+        Signature 20..22
+        Body 24..24

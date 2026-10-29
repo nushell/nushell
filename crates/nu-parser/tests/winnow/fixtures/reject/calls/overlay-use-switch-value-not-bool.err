@@ -1,6 +1,0 @@
-error: expected bool
-  --> reject/calls/overlay-use-switch-value-not-bool.nu:1:22
-  |
-1 | overlay use --prefix=1 spam
-  |                      ^
-  = while parsing command call

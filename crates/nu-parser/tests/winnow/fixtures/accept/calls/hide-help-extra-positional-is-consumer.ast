@@ -1,0 +1,7 @@
+Block 0..18
+  Pipeline 0..17
+    Call `hide` 0..17
+      Flag --help 5..11
+      String Bare "a" 12..13
+      String Bare "b" 14..15
+      String Bare "c" 16..17

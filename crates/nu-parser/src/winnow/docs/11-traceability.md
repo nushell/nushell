@@ -100,7 +100,7 @@ nu-parser does not have. `parse_keywords::KeywordCall` and
 | `export-env` | `parse_module::parse_export_env` (after a help flag the rest is ignored text) | `accept/modules/export-env-multiline.nu` `accept/modules/export-env-help-drops-the-rest.nu` `reject/modules/export-env-*.nu` | `extern_alias_module_use_export` |
 | `extern` | `parse_def::parse_extern`, `parse_definition_flags` (`--strict`, with a value: `ast::ExternFlag`, `ast::DefinitionFlag`) | `accept/extern/*.nu` `reject/def/extern-*.nu` `reject/extern/*.nu` | `extern_alias_module_use_export` |
 | `for` | `parse_def::parse_for` | `accept/loops/for-*.nu` `reject/loops/for-*.nu` | `loops_and_jumps` |
-| `hide` | an ordinary `Call` checked against its `KeywordSignature` (`parse_calls::check_call`; a help call does not read the members); module resolution is semantic | `accept/modules/hide-and-source.nu` `accept/calls/keyword-help-forgives-positionals.nu` `reject/calls/hide-*.nu` `reject/pipelines/hide-*.nu` `reject/redirections/hide-redirected.nu` | `use_forms` |
+| `hide` | an ordinary `Call` whose members are an import pattern (`parse_calls::check_call`; a help call does not read the members); its arguments and module resolution are semantic | `accept/modules/hide-and-source.nu` `accept/calls/keyword-help-forgives-positionals.nu` `accept/calls/hide-*-is-consumer.nu` `reject/calls/hide-*.nu` `reject/pipelines/hide-*.nu` `reject/redirections/hide-redirected.nu` | `use_forms` |
 | `hide-env` | an ordinary `Call` | `accept/calls/keyword-named-commands.nu` | `use_forms` |
 | `if` | `parse_control_flow::parse_if` | `accept/if/*.nu` `reject/if/*.nu` | `if_forms` |
 | `let` | `parse_bindings::parse_let` | `accept/bindings/let-*.nu` `reject/bindings/let-*.nu` | `let_mut_const` |
@@ -109,14 +109,14 @@ nu-parser does not have. `parse_keywords::KeywordCall` and
 | `module` | `parse_module::parse_module` | `accept/modules/module-*.nu` `reject/modules/module-*.nu` | `extern_alias_module_use_export` |
 | `mut` | `parse_bindings::parse_mut` | `accept/bindings/mut-forms.nu` `reject/bindings/mut-*.nu` | `let_mut_const` |
 | `overlay` | an ordinary `Call`; a redirection on any `overlay ...` is refused before its arguments are read | `accept/modules/overlay.nu` `reject/redirections/overlay-*.nu` `reject/pipelines/overlay-after-pipe.nu` | `use_forms` |
-| `overlay hide` | an ordinary `Call` (multi-word head) checked by `parse_calls::check_call` | `accept/modules/overlay.nu` `reject/calls/overlay-hide-*.nu` | `use_forms` |
-| `overlay new` | an ordinary `Call` (multi-word head) checked by `parse_calls::check_call` | `accept/modules/overlay.nu` `reject/calls/overlay-new-*.nu` `reject/pipelines/overlay-new-before-pipe.nu` | `use_forms` |
-| `overlay use` | an ordinary `Call` (multi-word head) checked by `parse_calls::check_call` (the `as NAME` keyword, switch values and short-flag batches included) | `accept/modules/overlay.nu` `accept/calls/keyword-switch-value.nu` `accept/calls/keyword-short-flag-batch.nu` `reject/calls/overlay-use-*.nu` | `use_forms` |
-| `plugin use` | an ordinary `Call` (multi-word head) checked by `parse_calls::check_call` | `accept/modules/plugin.nu` `reject/calls/plugin-use-*.nu` `reject/pipelines/plugin-use-before-pipe.nu` | `use_forms` |
+| `overlay hide` | an ordinary `Call` (multi-word head); its arguments are semantic | `accept/modules/overlay.nu` `accept/calls/overlay-hide-*-is-consumer.nu` | `use_forms` |
+| `overlay new` | an ordinary `Call` (multi-word head); its arguments are semantic | `accept/modules/overlay.nu` `accept/calls/overlay-new-*-is-consumer.nu` `reject/pipelines/overlay-new-before-pipe.nu` | `use_forms` |
+| `overlay use` | an ordinary `Call` (multi-word head) whose `as NAME` keyword is checked by `parse_calls::check_call`; its other arguments are semantic | `accept/modules/overlay.nu` `accept/calls/keyword-switch-value.nu` `accept/calls/keyword-short-flag-batch.nu` `accept/calls/overlay-use-*-is-consumer.nu` `reject/calls/overlay-use-*.nu` | `use_forms` |
+| `plugin use` | an ordinary `Call` (multi-word head); its arguments are semantic | `accept/modules/plugin.nu` `accept/calls/plugin-use-*-is-consumer.nu` `reject/pipelines/plugin-use-before-pipe.nu` | `use_forms` |
 | `return` | `parse_control_flow::parse_return` | `accept/loops/return-forms.nu` `reject/loops/return-two-values.nu` | `loops_and_jumps` |
-| `run` | an ordinary `Call` checked by `parse_calls::check_call` (unknown flags pass through); `run` is refused as a definition name | `reject/def/keyword-name-run.nu` `reject/calls/run-without-argument.nu` `reject/redirections/run-redirected.nu` | `definitions_cannot_use_parser_keywords` |
-| `source` | an ordinary `Call` checked by `parse_calls::check_call`; file resolution is semantic | `accept/modules/hide-and-source.nu` `reject/calls/source-*.nu` `reject/pipelines/source-*.nu` `reject/redirections/source-redirected.nu` | `use_forms` |
-| `source-env` | an ordinary `Call` checked by `parse_calls::check_call` | `accept/modules/hide-and-source.nu` | `use_forms` |
+| `run` | an ordinary `Call`, its arguments semantic; `run` is refused as a definition name | `reject/def/keyword-name-run.nu` `accept/calls/run-without-argument-is-consumer.nu` `reject/redirections/run-redirected.nu` | `definitions_cannot_use_parser_keywords` |
+| `source` | an ordinary `Call`; its arguments and file resolution are semantic | `accept/modules/hide-and-source.nu` `accept/calls/source-*-is-consumer.nu` `reject/pipelines/source-*.nu` `reject/redirections/source-redirected.nu` | `use_forms` |
+| `source-env` | an ordinary `Call`; its arguments are semantic | `accept/modules/hide-and-source.nu` | `use_forms` |
 | `type` | `parse_type_alias::parse_type_alias` (the type through `parse_shape_specs::parse_type`; what the alias names, its uses and `hide` are the consumer's) | `accept/def/type-alias*.nu` `reject/def/type-alias-*.nu` `reject/pipelines/type-alias-after-pipe.nu` | `type_alias_statements` |
 | `try` | `parse_control_flow::parse_try` | `accept/try/*.nu` `reject/try/*.nu` | `try_forms` |
 | `use` | `parse_module::parse_use` | `accept/modules/use-*.nu` `reject/modules/use-*.nu` | `use_forms` |
@@ -236,7 +236,7 @@ signatures, types or files and is left to the consumer.
 | --- | --- | --- | --- |
 | `ExtraTokens` | `ErrorKind::ExtraTokens` | `reject/bindings/let-missing-colon.nu` `reject/lexer/text-after-closing-quote.nu` | `let_type_without_colon_is_extra_tokens` |
 | `ExtraTokensAfterClosingDelimiter` | `ErrorKind::ExtraTokens` | `reject/lexer/text-after-closing-brace.nu` | `malformed_input_does_not_panic` |
-| `ExtraPositional` | `ErrorKind::Message` for the keyword commands with a fixed signature (`parse_calls::check_call` against a `KeywordSignature`); n/a for ordinary commands | `reject/calls/hide-extra-positional.nu` `reject/calls/overlay-new-two-positionals.nu` `accept/calls/positional-args.nu` | `multiword_commands_and_flags` |
+| `ExtraPositional` | n/a (semantic: signature), for the keyword commands too | `accept/calls/hide-extra-positional-is-consumer.nu` `accept/calls/overlay-new-two-positionals-is-consumer.nu` `accept/calls/positional-args.nu` | `multiword_commands_and_flags` |
 | `RequiredAfterOptional` | `parse_signatures::check_parameters` | `reject/signatures/required-after-optional.nu` `accept/signatures/optional-positional.nu` | `def_forms` |
 | `UnexpectedEof` | `ErrorKind::UnexpectedEof` | `reject/pipelines/pipe-then-semicolon.nu` `reject/pipelines/trailing-pipe-in-block.nu` | `redirecting_nothing_is_an_error` |
 | `Unclosed` | `ErrorKind::Unclosed` | `reject/lexer/unclosed-*.nu` | `unclosed_delimiters_report_opener` `lex_unclosed_delimiters_point_at_the_opener` |
@@ -285,11 +285,11 @@ signatures, types or files and is left to the consumer.
 | `CantAddOverlayHelp` | n/a (semantic: overlays) | `accept/modules/overlay.nu` | `use_forms` |
 | `DuplicateCommandDef` | `parse_def::parse_def_predecl` (the same `def`/`extern` name predeclared twice in one block); across modules and files: semantic | `reject/def/duplicate-*.nu` `accept/def/same-name-in-nested-block.nu` `accept/modules/module-inline.nu` | `extern_alias_module_use_export` |
 | `UnknownCommand` | env shorthand without a command (`FOO=1` alone, `parse_expressions::parse_expression`); an unknown attribute name: consumer. An unknown head is not an error but an external call (`parse_calls::parse_call`) | `reject/env-shorthand/shorthand-alone.nu` `accept/externals/unknown-command-is-external.nu` `accept/attributes/unknown-attribute-name-is-consumer.nu` | `external_calls` `env_shorthand` |
-| `UnknownFlag` | `ErrorKind::Message` (`doesn't have flag`) for the statements and the keyword commands (`parse_keywords::keyword_boundary`, `parse_calls::check_call`); n/a for ordinary commands | `reject/calls/hide-unknown-long-flag.nu` `reject/loops/return-unknown-flag.nu` `accept/calls/long-flags.nu` | `multiword_commands_and_flags` |
+| `UnknownFlag` | `ErrorKind::Message` (`doesn't have flag`) for the statements (`parse_keywords::keyword_boundary`); n/a for the calls, keyword commands included (semantic: signature) | `accept/calls/hide-unknown-long-flag-is-consumer.nu` `reject/loops/return-unknown-flag.nu` `accept/calls/long-flags.nu` | `multiword_commands_and_flags` |
 | `UnknownType` | `ErrorKind::UnknownType` | `reject/def/unknown-type.nu` `reject/bindings/let-unknown-type.nu` | `def_forms` |
-| `MissingFlagParam` | `ErrorKind::Message` for the keyword commands (`parse_calls::check_call`); n/a for ordinary commands | `reject/calls/overlay-hide-keep-env-without-value.nu` `accept/calls/flag-followed-by-value.nu` | `multiword_commands_and_flags` |
-| `OnlyLastFlagInBatchCanTakeArg` | `ErrorKind::Message` for the keyword commands (`parse_calls::check_call_arguments`); n/a for ordinary commands (semantic: signature) | `reject/calls/overlay-hide-value-flag-not-last-in-batch.nu` `accept/calls/short-flag-batch.nu` | `multiword_commands_and_flags` |
-| `MissingPositional` | `ErrorKind::Message` for the keyword commands (`parse_calls::check_call`); n/a for ordinary commands | `reject/calls/hide-without-argument.nu` `reject/calls/source-without-argument.nu` `accept/calls/no-args.nu` | `multiword_commands_and_flags` |
+| `MissingFlagParam` | n/a (semantic: signature), for the keyword commands too | `accept/calls/overlay-hide-keep-env-without-value-is-consumer.nu` `accept/calls/flag-followed-by-value.nu` | `multiword_commands_and_flags` |
+| `OnlyLastFlagInBatchCanTakeArg` | n/a (semantic: signature), for the keyword commands too | `accept/calls/overlay-hide-value-flag-not-last-in-batch-is-consumer.nu` `accept/calls/short-flag-batch.nu` | `multiword_commands_and_flags` |
+| `MissingPositional` | `ErrorKind::Message` for `mut` and `const` without a value (`parse_bindings::parse_binding`) and a `def --wrapped` without a rest parameter (`parse_def::check_wrapped_signature`); n/a for the calls, keyword commands included (semantic: signature) | `accept/calls/hide-without-argument-is-consumer.nu` `accept/calls/source-without-argument-is-consumer.nu` `accept/calls/no-args.nu` | `multiword_commands_and_flags` |
 | `KeywordMissingArgument` | `ErrorKind::Expected` (`block`, `condition`), `parse_def::parse_for` ("missing argument to `in`": the last item is the block's, help or not) | `reject/if/no-block.nu` `reject/loops/while-no-block.nu` `reject/loops/for-help-then-in-without-value.nu` `reject/loops/for-help-then-in-without-block.nu` | `if_forms` |
 | `MissingType` | `ErrorKind::Expected` (`type`) | `reject/def/type-missing.nu` `reject/def/io-missing-output.nu` | `def_forms` |
 | `TypeMismatch` | n/a (semantic: types) | `accept/bindings/let-typed.nu` | `let_type_annotations` |
@@ -359,7 +359,7 @@ drive.
 | `parse_alias` | `parse_alias::parse_alias` (the target through `parse_calls::parse_call_lenient`, missing positionals forgiven as nu does) | `accept/alias/*.nu` `reject/alias/*.nu` | `extern_alias_module_use_export` |
 | `parse_assignment_expression` | `parse_expressions::parse_assignment_expression` | `accept/assignments/*.nu` | `assignments` |
 | `parse_assignment_operator` | `lex::item_contents` (`TokenContents::AssignmentOperator`) | `accept/assignments/compound.nu` | `assignments` |
-| `parse_attribute` | `parse_calls::parse_attribute` | `accept/attributes/with-args.nu` | `attributes` |
+| `parse_attribute` | `parse_calls::parse_attribute` (its arguments are semantic) | `accept/attributes/with-args.nu` `accept/attributes/*-is-consumer.nu` | `attributes` |
 | `parse_attribute_block` | `lite_parser::lite_attribute_lines` (a `|` line after one blank line continues the pipeline: `take_pipe_on_later_line`), `parse_pipelines::parse_pipeline_element` | `accept/attributes/*.nu` `reject/attributes/*-then-pipe.nu` | `attributes` |
 | `parse_binary` | `parse_literals::parse_binary`, `parse_binary_with_base` | `accept/literals/binary-hex.nu` | `binary_literals` |
 | `parse_block` | `parse_pipelines::parse_block` (`lite_parser::last_non_comment_token` applies the trailing-pipe rule to the whole block) | `accept/pipelines/*.nu` `reject/pipelines/trailing-pipe-*.nu` | `statements_separated_by_semicolons_and_newlines` |
@@ -390,11 +390,11 @@ drive.
 | `parse_full_cell_path` | `parse_literals::parse_full_cell_path` | `accept/cellpaths/*.nu` | `variables_and_cell_paths` |
 | `parse_full_signature` | `parse_signatures::parse_full_signature` (one item; two items with a `{` second, which is dropped; the colon forms) | `accept/def/io-types-list.nu` `accept/def/block-before-body-ignored.nu` `reject/def/io-types-without-colon.nu` | `def_forms` |
 | `parse_glob_pattern` | bare string (n/a) | `accept/strings/bare-word.nu` | `external_call_heads` |
-| `parse_hide` | an ordinary `Call` checked by `parse_calls::check_call` | `accept/modules/hide-and-source.nu` `reject/calls/hide-*.nu` | `use_forms` |
+| `parse_hide` | an ordinary `Call` whose members `parse_calls::check_call` reads as an import pattern | `accept/modules/hide-and-source.nu` `reject/calls/hide-*.nu` | `use_forms` |
 | `parse_import_pattern` | `parse_module::parse_use`, `parse_import_pattern_member`, `parse_import_pattern_list` | `accept/modules/use-list-forms.nu` `reject/modules/use-*.nu` | `use_forms` |
 | `parse_input_output_types` | `parse_signatures::parse_input_output_types` (`repeat_to_end(input_output_type)`) | `accept/def/io-types-*.nu` | `def_forms` |
 | `parse_int` | `parse_literals::read_int`, `parse_int` | `accept/literals/int-*.nu` | `ints` |
-| `parse_internal_call` | `parse_calls::parse_call`, `parse_call_arguments` (`split_long_flag`), `check_call` for the keyword commands (switch values: `check_switch_value`); `parse_keywords::KeywordCall` for the flags at a statement's positional boundaries (`--help=value`: `parse_helpers::is_help_text`, `parse_calls::check_help_values`) | `accept/calls/*.nu` `reject/calls/*.nu` `accept/if/help-flag-with-value.nu` `reject/if/help-flag-value-not-bool.nu` | `multiword_commands_and_flags` |
+| `parse_internal_call` | `parse_calls::parse_call`, `parse_call_arguments` (`split_long_flag`), `check_call` for the parts of a keyword command's call that are syntax in nu; `parse_keywords::KeywordCall` for the flags at a statement's positional boundaries (`--help=value`: `parse_helpers::is_help_text`, `parse_calls::check_help_values`) | `accept/calls/*.nu` `reject/calls/*.nu` `accept/if/help-flag-with-value.nu` `reject/if/help-flag-value-not-bool.nu` | `multiword_commands_and_flags` |
 | `parse_keyword` | `parse_expressions::parse_builtin_commands`; `parse_keywords::KeywordCall` gives the statements nu's handling of flags and `--help` | `accept/misc/every-statement-in-closure.nu` | `if_forms` |
 | `parse_let` | `parse_bindings::parse_let` | `accept/bindings/let-*.nu` | `let_mut_const` |
 | `parse_list_expression` | `parse_expressions::parse_list_expression`, `lite_parser::lite_parse_parts` | `accept/lists/*.nu` `reject/lists/*.nu` | `lists` |
@@ -408,26 +408,26 @@ drive.
 | `parse_mut` | `parse_bindings::parse_mut` | `accept/bindings/mut-forms.nu` | `let_mut_const` |
 | `parse_number` | `parse_literals::parse_number` (an int too large for 64 bits is an error, not a float) | `accept/ranges/float-bounds.nu` `reject/ranges/bound-too-large.nu` | `ranges` |
 | `parse_operator` | `parse_expressions::parse_operator` | `accept/operators/*.nu` | `all_operators_parse` |
-| `parse_overlay_hide` | an ordinary `Call` checked by `parse_calls::check_call` | `accept/modules/overlay.nu` `reject/calls/overlay-hide-*.nu` | `use_forms` |
-| `parse_overlay_new` | an ordinary `Call` checked by `parse_calls::check_call` | `accept/modules/overlay.nu` `reject/calls/overlay-new-*.nu` | `use_forms` |
-| `parse_overlay_use` | an ordinary `Call` checked by `parse_calls::check_call` | `accept/modules/overlay.nu` `reject/calls/overlay-use-*.nu` | `use_forms` |
+| `parse_overlay_hide` | an ordinary `Call` | `accept/modules/overlay.nu` `accept/calls/overlay-hide-*-is-consumer.nu` | `use_forms` |
+| `parse_overlay_new` | an ordinary `Call` | `accept/modules/overlay.nu` `accept/calls/overlay-new-*-is-consumer.nu` | `use_forms` |
+| `parse_overlay_use` | an ordinary `Call` whose `as NAME` keyword `parse_calls::check_call` checks | `accept/modules/overlay.nu` `reject/calls/overlay-use-*.nu` | `use_forms` |
 | `parse_paren_expr` | `parse_literals::parse_paren_expr`, `parse_expressions::parse_subexpression` | `accept/subexpressions/*.nu` | `subexpressions_span_lines` |
 | `parse_pattern` | `parse_patterns::parse_pattern` | `accept/match/value-patterns.nu` | `match_forms` |
 | `parse_pipeline` | `parse_pipelines::parse_pipeline`, `lite_parser::after_pipe_lines`, `pipe_on_later_line` (`Eol (Comment Eol)* Pipe` continues a line; a blank line closes the pipeline, except one between a `\|` ending a line and a `\|` starting a later one; after an `e>\|` only a line-leading `\|` goes on) | `accept/pipelines/*.nu` `reject/pipelines/*.nu` | `multiline_pipelines_with_leading_pipes_and_comments` |
-| `parse_plugin_use` | an ordinary `Call` checked by `parse_calls::check_call` | `accept/modules/plugin.nu` `reject/calls/plugin-use-*.nu` | `use_forms` |
+| `parse_plugin_use` | an ordinary `Call` | `accept/modules/plugin.nu` `accept/calls/plugin-use-*-is-consumer.nu` | `use_forms` |
 | `parse_range` | `parse_literals::parse_range` | `accept/ranges/*.nu` | `ranges` |
 | `parse_raw_string` | `parse_literals::parse_raw_string` | `accept/strings/raw-string.nu` | `strings_all_quote_styles` |
 | `parse_record` | `parse_expressions::parse_record` | `accept/records/*.nu` | `records` |
 | `parse_record_pattern` | `parse_patterns::parse_record_pattern` (every token is a field token, kept verbatim) | `accept/match/record-pattern*.nu` `reject/match/record-pattern-*.nu` | `match_forms` |
 | `parse_row_condition` | `parse_expressions::parse_row_condition` | `accept/where/*.nu` | `where_row_conditions` |
-| `parse_run` | an ordinary `Call` checked by `parse_calls::check_call` | `reject/def/keyword-name-run.nu` `reject/calls/run-without-argument.nu` | `definitions_cannot_use_parser_keywords` |
-| `parse_run_expr` | an ordinary `Call` checked by `parse_calls::check_call` | `reject/def/keyword-name-run.nu` | `definitions_cannot_use_parser_keywords` |
+| `parse_run` | an ordinary `Call` | `reject/def/keyword-name-run.nu` `accept/calls/run-without-argument-is-consumer.nu` | `definitions_cannot_use_parser_keywords` |
+| `parse_run_expr` | an ordinary `Call` | `reject/def/keyword-name-run.nu` | `definitions_cannot_use_parser_keywords` |
 | `parse_shape_name` | `parse_shape_specs::parse_type` (the table of shape names), called by `parse_shape_name`, which also splits off a `@completer` | `accept/signatures/all-types.nu` | `types_in_signatures` |
 | `parse_shorter_head_reading` | `parse_calls::find_longest_decl` (longest known name) | `accept/calls/multiword-command.nu` | `multiword_commands_and_flags` |
 | `parse_signature` | `parse_signatures::parse_signature` | `accept/signatures/*.nu` | `def_forms` |
 | `parse_signature_helper` | `parse_signatures::parse_signature_helper`, `parse_parameters` (nu's `ParseMode` state machine) | `accept/signatures/*.nu` | `def_forms` |
 | `parse_simple_cell_path` | `parse_literals::parse_simple_cell_path`, `parse_dollar_expr` (`$.a`) | `accept/cellpaths/literal-cell-path.nu` | `cell_path_literals_and_heads` |
-| `parse_source` | an ordinary `Call` checked by `parse_calls::check_call` | `accept/modules/hide-and-source.nu` `reject/calls/source-*.nu` | `use_forms` |
+| `parse_source` | an ordinary `Call` | `accept/modules/hide-and-source.nu` `accept/calls/source-*-is-consumer.nu` | `use_forms` |
 | `parse_string` | `parse_literals::parse_string` | `accept/strings/*.nu` | `string_values` |
 | `parse_string_interpolation` | `parse_literals::parse_string_interpolation`, `parse_interpolation_parts` | `accept/interpolation/*.nu` | `interpolation_parts` |
 | `parse_string_strict` | `parse_literals::parse_string_literal` (env shorthand values) | `accept/env-shorthand/quoted-value.nu` | `env_shorthand` |

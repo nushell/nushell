@@ -1,7 +1,0 @@
-error: missing flag argument
-  --> reject/calls/overlay-hide-help-keep-env-without-value.nu:1:21
-  |
-1 | overlay hide --help --keep-env
-  |                     ^^^^^^^^^^
-  = while parsing command call
-  = help: `--keep-env` takes a value

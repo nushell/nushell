@@ -60,8 +60,9 @@ pub fn parse_first_word_call<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expr
     parse_call_with_kind(tokens, first.span, head, kind, None, false)
 }
 
-/// [`parse_call`]; with `lenient` set (an alias target) a keyword command
-/// may miss positionals.
+/// [`parse_call`]; with `lenient` set (an alias target) a call through an
+/// alias of `if`, `match` or `try` is only a call, and `hide`'s members
+/// are not checked.
 pub fn parse_call_lenient<'a>(
     mut tokens: Tokens<'_, 'a>,
     lenient: bool,
@@ -733,9 +734,8 @@ pub fn parse_external_string<'a>(
 }
 
 /// `@name arguments` (nu's `parse_attribute`). The name must be non-empty;
-/// whether `attr <name>` exists is the consumer's business (it may come from
-/// a `use`d module), but the built-in attributes get their arguments checked
-/// like any keyword command.
+/// whether `attr <name>` exists, and the arguments it takes, are the
+/// consumer's business (it may come from a `use`d module).
 pub fn parse_attribute<'a>(
     working_set: &WorkingSet<'a>,
     attribute_line: &[Token],
@@ -751,18 +751,7 @@ pub fn parse_attribute<'a>(
     }
     let (head, _) = find_longest_decl(first, &mut tokens, "attr ");
     let name_span = Span::new(first.span.start + 1, head.span.end);
-    let full_name = format!("attr {}", head.name);
     let arguments = parse_call_arguments(tokens)?;
-    let call = Call {
-        head,
-        arguments,
-        sigil: None,
-        wrapped: false,
-    };
-    check_call_named(working_set, &full_name, &call)?;
-    let Call {
-        head, arguments, ..
-    } = call;
     Ok(Attribute {
         span: Span::new(first.span.start, end),
         name: Spanned::new(head.name, name_span),
@@ -770,160 +759,21 @@ pub fn parse_attribute<'a>(
     })
 }
 
-/// A flag of a [`KeywordSignature`].
-struct KeywordFlag {
-    /// The long name, without the `--`.
-    long: &'static str,
-    /// The short name, without the `-`.
-    short: Option<char>,
-    /// Whether the flag takes a value (`--keep-env [a b]`).
-    takes_value: bool,
-}
-
-/// A flag without a value.
-const fn switch(long: &'static str, short: Option<char>) -> KeywordFlag {
-    KeywordFlag {
-        long,
-        short,
-        takes_value: false,
-    }
-}
-
-/// A flag that takes a value.
-const fn flag_with_value(long: &'static str) -> KeywordFlag {
-    KeywordFlag {
-        long,
-        short: None,
-        takes_value: true,
-    }
-}
-
-/// The signature nu gives a command that is a keyword there and a call here:
-/// the parts of nu's `Signature` that the parser checks.
+/// The signature nu gives a command that is a keyword there and a call here, as far as the
+/// parser checks it. nu's call parser checks the arguments against the whole signature; that
+/// is the consumer's, as for any call, but for the structure of a keyword argument.
 pub struct KeywordSignature {
-    /// How many positional arguments are required.
-    required: usize,
-    /// How many optional positional arguments may follow them.
-    optional: usize,
-    /// Whether any number of further positionals is allowed.
-    rest: bool,
-    /// A keyword argument (`as NAME`) allowed after the positionals.
-    keyword: Option<&'static str>,
-    /// The flags it has, besides `--help`.
-    flags: &'static [KeywordFlag],
-    /// Unknown flags are passed through (`run`; nu's `allows_unknown_args`).
-    allows_unknown_flags: bool,
-    /// `null` is allowed as the first positional.
-    accepts_nothing: bool,
-    /// A redirection is allowed on the call.
-    pub redirectable: bool,
-}
-
-impl KeywordSignature {
-    /// No positionals and no flags; the entries of [`keyword_signature`] say what differs.
-    const NONE: KeywordSignature = KeywordSignature {
-        required: 0,
-        optional: 0,
-        rest: false,
-        keyword: None,
-        flags: &[],
-        allows_unknown_flags: false,
-        accepts_nothing: false,
-        redirectable: false,
-    };
+    /// A keyword argument (`as NAME`) and how many positionals come before it.
+    keyword: Option<(&'static str, usize)>,
 }
 
 /// nu's signature for the keyword command `name`, if it is one.
 fn keyword_signature(name: &str) -> Option<KeywordSignature> {
-    const NONE: KeywordSignature = KeywordSignature::NONE;
     Some(match name {
-        "hide" => KeywordSignature {
-            required: 1,
-            optional: 1,
-            ..NONE
-        },
-        "source" | "source-env" => KeywordSignature {
-            required: 1,
-            accepts_nothing: true,
-            ..NONE
-        },
-        "run" => KeywordSignature {
-            required: 1,
-            rest: true,
-            flags: const { &[switch("full-reparse", None)] },
-            allows_unknown_flags: true,
-            accepts_nothing: true,
-            ..NONE
-        },
-        "overlay new" => KeywordSignature {
-            required: 1,
-            flags: const { &[switch("reload", Some('r'))] },
-            ..NONE
-        },
+        "hide" | "source" | "source-env" | "run" | "overlay new" | "overlay hide"
+        | "overlay list" | "plugin use" => KeywordSignature { keyword: None },
         "overlay use" => KeywordSignature {
-            required: 1,
-            keyword: Some("as"),
-            flags: const { &[switch("prefix", Some('p')), switch("reload", Some('r'))] },
-            accepts_nothing: true,
-            ..NONE
-        },
-        "overlay hide" => KeywordSignature {
-            optional: 1,
-            flags: const {
-                &[
-                    switch("keep-custom", Some('k')),
-                    KeywordFlag {
-                        long: "keep-env",
-                        short: Some('e'),
-                        takes_value: true,
-                    },
-                ]
-            },
-            ..NONE
-        },
-        "overlay list" => NONE,
-        "plugin use" => KeywordSignature {
-            required: 1,
-            flags: const { &[flag_with_value("plugin-config")] },
-            ..NONE
-        },
-        "attr category" | "attr complete" => KeywordSignature {
-            required: 1,
-            redirectable: true,
-            ..NONE
-        },
-        "attr deprecated" => KeywordSignature {
-            optional: 1,
-            flags: const {
-                &[
-                    flag_with_value("flag"),
-                    flag_with_value("since"),
-                    flag_with_value("remove"),
-                    flag_with_value("report"),
-                ]
-            },
-            redirectable: true,
-            ..NONE
-        },
-        "attr example" => KeywordSignature {
-            required: 2,
-            flags: const { &[flag_with_value("result")] },
-            redirectable: true,
-            ..NONE
-        },
-        "attr interactive" => KeywordSignature {
-            redirectable: true,
-            ..NONE
-        },
-        "attr structured" => KeywordSignature {
-            required: 2,
-            redirectable: true,
-            ..NONE
-        },
-        "attr search-terms" => KeywordSignature {
-            rest: true,
-            redirectable: true,
-            ..NONE
+            keyword: Some(("as", 1)),
         },
         _ => return None,
     })
@@ -945,274 +795,95 @@ pub fn keyword_signature_of_call(call: &Call<'_>) -> Option<KeywordSignature> {
     None
 }
 
-/// How many of `call`'s arguments are the keyword command's own, which [`check_call`] checks:
-/// all of them, but for a `run` statement only those up to the script's path (nu's
-/// `parse_run_expr`), the first that is no flag or spread or the one after a `--`; the script
-/// takes the rest unchecked. An alias's target (`lenient`) is read as a plain call.
-fn checked_arguments(working_set: &WorkingSet<'_>, call: &Call<'_>, lenient: bool) -> usize {
-    let arguments = &call.arguments;
-    if call.head.name != "run" || lenient {
-        return arguments.len();
-    }
-    let text = |argument: &Argument<'_>| working_set.get_span_contents(argument.span());
-    let is_spread = |word: &str| {
-        word.strip_prefix("...")
-            .is_some_and(|value| value.starts_with(['$', '(', '[', '{']))
-    };
-    match arguments.iter().position(|argument| {
-        let word = text(argument);
-        word == "--" || !(word.starts_with('-') || is_spread(word))
-    }) {
-        Some(index) if text(&arguments[index]) == "--" => (index + 2).min(arguments.len()),
-        Some(index) => index + 1,
-        None => arguments.len(),
-    }
-}
-
-/// Check a call to a keyword command against nu's signature for it (nu's
-/// `check_call`, with the checks nu's call parser makes on the way): the
-/// flags it has, the values they take, the number of positionals, the `as`
-/// keyword of `overlay use`, and that `-1` is a flag rather than a number.
-/// With `lenient` (an alias target) missing positionals and flag values pass.
+/// Check the parts of a call to a keyword command that are syntax in nu, with its arguments read
+/// as nu's call parser reads them: a flag before a `--` is no positional, nor is a word like
+/// `-1`, which nu takes for a flag, nor a spread, and after the `--` every other argument is
+/// one. `hide`'s members, its second positional, are an import pattern, which nu's `parse_hide`
+/// hands to `parse_import_pattern` as `use` does (`hide foo null` is a wrong import pattern),
+/// unless the call shows help or is an alias's target (`lenient`). `overlay use NAME as ALIAS`
+/// has a keyword argument (nu's `SyntaxShape::Keyword`): the positional after the module must
+/// be the keyword, and any argument after it is its value (`as --prefix` names the overlay
+/// `--prefix`).
 pub fn check_call(working_set: &WorkingSet<'_>, call: &Call<'_>, lenient: bool) -> ParseResult<()> {
     let Some(signature) = keyword_signature_of_call(call) else {
         return Ok(());
     };
-    let mut arguments = call.arguments[..checked_arguments(working_set, call, lenient)]
-        .iter()
-        .peekable();
-    // A head resolved as a single word (`overlay` + `use`): skip the subcommand word, which ends
-    // the command's name.
-    let mut name_end = call.head.span.end;
-    if keyword_signature(&call.head.name).is_none()
-        && let Some(subcommand) = arguments.next()
-    {
-        name_end = subcommand.span().end;
+    let hide = call.head.name == "hide";
+    if hide && (lenient || shows_help(call)) || !hide && signature.keyword.is_none() {
+        return Ok(());
     }
-    let help = check_call_arguments(
-        working_set,
-        &call.head.name,
-        &signature,
-        arguments,
-        name_end,
-        lenient,
-    )?;
-    // nu's `parse_hide` hands the members to `parse_import_pattern`, like
-    // `use` (`hide foo null` is a wrong import pattern), unless the call shows
-    // help; an alias target is only parsed as a call.
-    if call.head.name == "hide"
-        && !lenient
-        && !help
-        && let Some(members) = call.positional_iter().nth(1)
-    {
-        let token = Token {
-            contents: TokenContents::Item,
-            span: members.span,
+    let mut arguments = call.arguments.iter();
+    // A head resolved as a single word (`overlay` + `use`): skip the subcommand word.
+    if keyword_signature(&call.head.name).is_none() {
+        arguments.next();
+    }
+    let mut positionals = 0usize;
+    let mut end_of_options = false;
+    while let Some(argument) = arguments.next() {
+        match argument {
+            Argument::EndOfOptions(_) if !end_of_options => {
+                end_of_options = true;
+                continue;
+            }
+            Argument::Named(_) if !end_of_options => continue,
+            Argument::Positional(expr) if !end_of_options => {
+                let text = working_set.get_span_contents(expr.span);
+                if text.starts_with('-') && text.len() > 1 {
+                    continue;
+                }
+            }
+            // nu fills no positional with a spread here: `hide` refuses one, and for a command
+            // with flags `...$x` may be a record of them (`parse_internal_call`).
+            Argument::Spread { .. } => continue,
+            _ => {}
+        }
+        positionals += 1;
+        if hide {
+            if positionals == 2
+                && let Argument::Positional(members) = argument
+            {
+                let token = Token {
+                    contents: TokenContents::Item,
+                    span: members.span,
+                };
+                parse_import_pattern_member(working_set, &token, false)?;
+            }
+            continue;
+        }
+        let Some((keyword, before)) = signature.keyword else {
+            return Ok(());
         };
-        parse_import_pattern_member(working_set, &token, false)?;
+        if positionals <= before {
+            continue;
+        }
+        let span = argument.span();
+        if working_set.get_span_contents(span) != keyword {
+            return Err(cut(Diagnostic::new(
+                ErrorKind::ExpectedKeyword(keyword),
+                span,
+            )));
+        }
+        return match arguments.next() {
+            Some(_) => Ok(()),
+            None => Err(cut(Diagnostic::message(
+                format!("missing argument to `{keyword}`"),
+                span.past(),
+            ))),
+        };
     }
     Ok(())
 }
 
-/// [`check_call`] for a call whose head is known by `name` (an attribute: `attr example`).
-fn check_call_named(working_set: &WorkingSet<'_>, name: &str, call: &Call<'_>) -> ParseResult<()> {
-    let Some(signature) = keyword_signature(name) else {
-        return Ok(());
-    };
-    let arguments = call.arguments.iter().peekable();
-    check_call_arguments(
-        working_set,
-        name,
-        &signature,
-        arguments,
-        call.head.span.end,
-        false,
-    )
-    .map(drop)
-}
-
-/// The arguments of a keyword command, checked against its signature in one
-/// pass, in the order nu's call parser meets them: a flag that takes a value
-/// takes the next positional, a switch's `=value` must be a `bool`, a batch of
-/// short flags (`-pr`) is one flag per letter, of which only the last may take
-/// a value, and the `keyword` (`as`) is looked for once the positionals are
-/// filled. A missing positional is reported, as nu's `check_call` reports it,
-/// past the last positional, or at `name_end`, just after the command's name,
-/// when there is none (`overlay use --prefix`); a `--help` or `-h` before any
-/// `--` forgives it, since the call only shows help, but nothing else.
-/// Returns whether the call shows help.
-fn check_call_arguments<'c>(
-    working_set: &WorkingSet<'_>,
-    name: &str,
-    signature: &KeywordSignature,
-    mut arguments: std::iter::Peekable<impl Iterator<Item = &'c Argument<'c>>>,
-    name_end: usize,
-    lenient: bool,
-) -> ParseResult<bool> {
-    let no_flag = |flag: &str, span: Span| {
-        cut(Diagnostic::message(
-            format!("the `{name}` command doesn't have flag `{flag}`"),
-            span,
-        )
-        .with_help("use `--help` to see available flags"))
-    };
-    let mut positionals = 0usize;
-    let mut last_positional_end = None;
-    let mut keyword_seen = false;
-    let mut end_of_options = false;
-    let mut help = false;
-    while let Some(argument) = arguments.next() {
-        match argument {
-            Argument::EndOfOptions(_) => end_of_options = true,
-            Argument::Named(flag) if !end_of_options => {
-                // Whether the flag, or the last of a batch of short flags, takes the next
-                // positional as its value.
-                let mut takes_value = false;
-                if flag.long {
-                    let switch = match signature.flags.iter().find(|known| known.long == flag.name)
-                    {
-                        _ if flag.name == "help" => {
-                            help = true;
-                            true
-                        }
-                        None if signature.allows_unknown_flags => false,
-                        None => return Err(no_flag(&format!("--{}", flag.name), flag.span)),
-                        Some(known) => {
-                            takes_value = known.takes_value && flag.value.is_none();
-                            !known.takes_value
-                        }
-                    };
-                    if switch && let Some(value) = &flag.value {
-                        check_switch_value(working_set, value)?;
-                    }
-                } else {
-                    let last = flag.name.chars().count().saturating_sub(1);
-                    for (index, (offset, short)) in flag.name.char_indices().enumerate() {
-                        let span = Span::new(
-                            flag.span.start + 1 + offset,
-                            flag.span.start + 1 + offset + short.len_utf8(),
-                        );
-                        match signature
-                            .flags
-                            .iter()
-                            .find(|known| known.short == Some(short))
-                        {
-                            _ if short == 'h' => help = true,
-                            None if signature.allows_unknown_flags => {}
-                            None => return Err(no_flag(&format!("-{short}"), span)),
-                            Some(known) if known.takes_value && index < last => {
-                                return Err(cut(Diagnostic::message(
-                                    "only the last flag in a batch of short flags can take a value",
-                                    span,
-                                )));
-                            }
-                            Some(known) => takes_value = known.takes_value,
-                        }
-                    }
-                }
-                if takes_value {
-                    match arguments.peek() {
-                        Some(Argument::Positional(_)) => {
-                            arguments.next();
-                        }
-                        _ if lenient => {}
-                        _ => {
-                            return Err(cut(Diagnostic::message(
-                                "missing flag argument",
-                                flag.span,
-                            )
-                            .with_help(format!(
-                                "`{}` takes a value",
-                                working_set.get_span_contents(flag.span)
-                            ))));
-                        }
-                    }
-                }
-            }
-            // After `--` a flag is a positional.
-            Argument::Named(flag) => {
-                positionals += 1;
-                last_positional_end = Some(flag.span.end);
-            }
-            // How many items a spread holds is not known here: it may supply the required ones.
-            Argument::Spread { .. } => positionals = signature.required,
-            Argument::Positional(expr) => {
-                let text = working_set.get_span_contents(expr.span);
-                // `-1` parsed as a number, but nu takes it for a flag.
-                if !end_of_options
-                    && text.starts_with('-')
-                    && text.len() > 1
-                    && !signature.allows_unknown_flags
-                {
-                    return Err(no_flag(text, expr.span));
-                }
-                if let Some(keyword) = signature.keyword
-                    && positionals >= signature.required + signature.optional
-                    && !signature.rest
-                {
-                    if keyword_seen {
-                        return Err(cut(Diagnostic::message(
-                            "extra positional argument",
-                            expr.span,
-                        )));
-                    }
-                    if text != keyword {
-                        return Err(cut(Diagnostic::new(
-                            ErrorKind::ExpectedKeyword(keyword),
-                            expr.span,
-                        )));
-                    }
-                    match arguments.next() {
-                        Some(Argument::Positional(_)) => keyword_seen = true,
-                        _ => {
-                            return Err(cut(Diagnostic::message(
-                                format!("missing argument to `{keyword}`"),
-                                expr.span.past(),
-                            )));
-                        }
-                    }
-                    continue;
-                }
-                // The first positional takes a string: a bool, record or closure never fits it,
-                // and `null` only where the signature takes it.
-                if positionals == 0
-                    && matches!(expr.expr, Expr::Nothing)
-                    && !signature.accepts_nothing
-                    || positionals == 0
-                        && matches!(
-                            expr.expr,
-                            Expr::Bool(_) | Expr::Record(_) | Expr::Closure(_)
-                        )
-                {
-                    return Err(cut(Diagnostic::expected("string", expr.span)));
-                }
-                positionals += 1;
-                last_positional_end = Some(expr.span.end);
-                if !signature.rest && positionals > signature.required + signature.optional {
-                    return Err(cut(Diagnostic::message(
-                        "extra positional argument",
-                        expr.span,
-                    )
-                    .with_help(format!(
-                        "`{name}` takes at most {} positional arguments",
-                        signature.required + signature.optional
-                    ))));
-                }
-            }
-        }
-    }
-    if positionals < signature.required && !lenient && !help {
-        let at = Span::point(last_positional_end.unwrap_or(name_end));
-        return Err(cut(Diagnostic::message(
-            "missing required positional argument",
-            at,
-        )
-        .with_help(format!(
-            "`{name}` takes {} positional argument(s)",
-            signature.required
-        ))));
-    }
-    Ok(help)
+/// Whether `call` has a `--help` or `-h` (alone or in a batch of short flags) before any `--`.
+fn shows_help(call: &Call<'_>) -> bool {
+    call.arguments
+        .iter()
+        .take_while(|argument| !matches!(argument, Argument::EndOfOptions(_)))
+        .any(|argument| match argument {
+            Argument::Named(flag) if flag.long => flag.name == "help",
+            Argument::Named(flag) => flag.name.contains('h'),
+            _ => false,
+        })
 }
 
 #[cfg(test)]
@@ -1256,23 +927,5 @@ mod tests {
             .map(|call| (&*call.head.name, call.arguments.len()))
             .collect();
         assert_eq!(heads, [("ls", 1), ("str trim", 0)]);
-    }
-
-    #[test]
-    fn missing_positional_is_reported_after_the_command_name() {
-        // nu's `check_call`: past the last positional, or past the name when there is none.
-        for (source, offset) in [
-            ("overlay use --prefix", 11),
-            ("plugin use --plugin-config x", 10),
-            ("hide", 4),
-        ] {
-            let (_, diagnostics) =
-                crate::winnow::syntax::parser::parse(source, &ParseConfig::new());
-            let spans: Vec<Span> = diagnostics
-                .iter()
-                .map(|diagnostic| diagnostic.span)
-                .collect();
-            assert_eq!(spans, [Span::point(offset)], "{source:?}");
-        }
     }
 }

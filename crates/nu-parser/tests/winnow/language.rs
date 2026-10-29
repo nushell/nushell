@@ -1043,20 +1043,6 @@ fn def_after_a_line_ending_in_a_pipe_can_be_predeclared(#[case] src: &str) {
     assert!(matches!(first.expr, Expr::Call(_)), "{src}: {first:?}");
 }
 
-/// A missing required argument is reported where the call ends, as nu does: after its last
-/// positional, or after the call when it has none.
-#[rstest]
-#[case::no_positional("ls\nhide", Span::point(7))]
-#[case::after_the_last_positional("@example x\nls", Span::point(10))]
-fn missing_positional_is_reported_at_the_end_of_the_call(#[case] src: &str, #[case] at: Span) {
-    let (_, diagnostics) = parse_lenient(src, &ParseConfig::new());
-    assert_eq!(
-        diagnostics.first().map(|d| d.span),
-        Some(at),
-        "{diagnostics:?}"
-    );
-}
-
 #[test]
 fn let_after_pipe_is_a_statement() {
     let ast = ok("ls | let files");

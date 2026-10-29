@@ -907,7 +907,7 @@ fn rejects_redirection(expr: &Expression<'_>) -> bool {
         // `overlay <anything>` is refused by name before its arguments are looked at.
         Expr::Call(call) => {
             call.head.name.split(' ').next() == Some("overlay")
-                || keyword_signature_of_call(call).is_some_and(|signature| !signature.redirectable)
+                || keyword_signature_of_call(call).is_some()
         }
         _ => false,
     }

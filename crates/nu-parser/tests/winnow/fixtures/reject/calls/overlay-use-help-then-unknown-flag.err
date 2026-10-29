@@ -1,7 +1,0 @@
-error: the `overlay use` command doesn't have flag `--bogus`
-  --> reject/calls/overlay-use-help-then-unknown-flag.nu:1:20
-  |
-1 | overlay use --help --bogus spam
-  |                    ^^^^^^^
-  = while parsing command call
-  = help: use `--help` to see available flags

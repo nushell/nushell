@@ -5,10 +5,11 @@
 //! two things hold for all of them and are shared here: at the start of each
 //! positional argument nu looks for flags, which for the keywords means that
 //! `--help`/`-h` turns the statement into an ordinary call ([`keyword_boundary`])
-//! and any other `-x` is an unknown-flag error (`return -1` is one); and the
+//! and any other `-x` is an unknown-flag error (`return -1` is one). The
 //! commands that are keywords in nu but ordinary calls here (`hide`, `source`,
-//! `overlay use`, ...) get their positional counts and flags checked against
-//! that fixed signature ([`super::parse_calls::check_call`]).
+//! `overlay use`, ...) get their arguments checked by the consumer, as any
+//! call's, but for `hide`'s import pattern and the `as` of `overlay use`
+//! ([`super::parse_calls::check_call`]).
 
 use crate::winnow::syntax::ast::{Block, Expression};
 use crate::winnow::syntax::error::Diagnostic;
