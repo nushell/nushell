@@ -48,6 +48,12 @@ impl<'s> Lower<'_, '_, 's> {
             return self.unary_minus(e, minus, input_type);
         }
         match self.text(e.span).as_bytes() {
+            // An empty value the winnow parser went on past (`--flag=`): nu's value parser
+            // reports it (IncompleteParser) with garbage.
+            [] if matches!(e.expr, w::Expr::Garbage) => {
+                let span = self.span(e.span);
+                Ok(classic_value(self.working_set, span, shape, input_type))
+            }
             [] => Err(Unlowered::Error),
             // A cell path the winnow parser went on past an error in (`$x.a??`): nu's parser
             // reads it again, reporting its errors with what it recovers.

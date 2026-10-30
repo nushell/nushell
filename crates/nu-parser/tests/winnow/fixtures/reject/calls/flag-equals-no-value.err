@@ -3,4 +3,3 @@ error: expected value after `=`
   |
 1 | ls --flag=
   |           ^
-  = while parsing command call

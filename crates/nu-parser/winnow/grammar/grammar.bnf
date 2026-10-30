@@ -551,7 +551,9 @@
 <long-flag>       ::= "--" <flag-name> [ "=" <value> ]
                     | "--" <flag-name> <value>      ; when the signature says the flag takes a value
 ; `--flag=value` on a switch parses value as Boolean; "--" exactly is end of
-; options: everything after is positional. Unknown flags are UnknownFlag.
+; options: everything after is positional. Unknown flags are UnknownFlag. An empty value
+; (`--flag=`) is nu's value parser's IncompleteParser, which it goes on past: recorded as
+; recovered, the value a garbage point.
 ; nu: parse_calls.rs:435 parse_long_flag
 ; here: src/winnow/syntax/parser/parse_calls.rs::parse_call_arguments (`--x`, `--x=v`; whether `--x v`
 ;       binds v: consumer)

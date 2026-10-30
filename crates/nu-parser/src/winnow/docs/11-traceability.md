@@ -298,7 +298,7 @@ signatures, types or files and is left to the consumer.
 | `IncompleteMathExpression` | `ErrorKind::Expected` (`expression after operator`) | `reject/operators/incomplete.nu` | `unknown_operator_hints` |
 | `UnknownState` | n/a (internal) | `accept/pipelines/empty.nu` | `empty_and_whitespace_only` |
 | `InternalError` | n/a (internal) | `accept/pipelines/empty.nu` | `empty_and_whitespace_only` |
-| `IncompleteParser` | n/a (internal) | `accept/pipelines/empty.nu` | `empty_and_whitespace_only` |
+| `IncompleteParser` | n/a (internal); an empty flag value (`ls --all=`, `def --env= f [] {}`) is the consumer's, the value a garbage point recorded as recovered (`parse_calls::parse_flag_value`) | `accept/pipelines/empty.nu` `reject/calls/flag-equals-no-value.nu` `reject/def/flag-value-missing.nu` | `empty_and_whitespace_only` |
 | `RestNeedsName` | `ErrorKind::Expected` (`valid variable name for this rest parameter`) | `reject/def/rest-param-with-dot.nu` | `def_forms` |
 | `ParameterMismatchType` | `parse_expressions::parse_value_for_shape`, reached through `ExpectedShape::Declared` (a default parsed with the declared shape: `x: int = abc` is an error, `x: string = 1` is a string) | `reject/signatures/default-*.nu` `accept/def/param-defaults-of-every-kind.nu` | `def_forms` |
 | `NonConstantDefaultValue` | n/a (semantic: constant evaluation) | `accept/signatures/defaults-with-types.nu` | `def_forms` |

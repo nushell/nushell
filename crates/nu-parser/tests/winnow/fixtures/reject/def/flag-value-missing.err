@@ -3,4 +3,3 @@ error: expected value after `=`
   |
 1 | def --env= f [] {}
   |           ^
-  = while parsing def

@@ -374,12 +374,12 @@ fn call_argument<'a>(tokens: &mut Tokens<'_, 'a>, wrapped: bool) -> ParseResult<
     Ok(match text {
         "--" => Argument::EndOfOptions(span),
         _ if text.starts_with("--") && text.len() > 2 => {
-            let (name, value_span) = split_long_flag(text, span)?;
+            let (name, value_span) = split_long_flag(text, span);
             let value = match value_span {
-                Some(value_span) => Some(Box::new(parse_argument_value(
+                Some(value_span) => Some(Box::new(parse_flag_value(
                     working_set,
                     value_span,
-                    wrapped,
+                    |working_set, span| parse_argument_value(working_set, span, wrapped),
                 )?)),
                 None => None,
             };
@@ -415,14 +415,29 @@ fn call_argument<'a>(tokens: &mut Tokens<'_, 'a>, wrapped: bool) -> ParseResult<
 }
 
 /// The name of the long flag `text` at `span` without its dashes, and the span
-/// of its value when it is written `--name=value`; `--name=` is an error.
-pub(super) fn split_long_flag(text: &str, span: Span) -> ParseResult<(&str, Option<Span>)> {
+/// of its value when it is written `--name=value`, empty for `--name=`
+/// ([`parse_flag_value`]).
+pub(super) fn split_long_flag(text: &str, span: Span) -> (&str, Option<Span>) {
     let rest = &text[2..];
     match rest.split_once('=') {
-        Some((_, "")) => Err(cut(Diagnostic::expected("value after `=`", span.past()))),
-        Some((name, _)) => Ok((name, Some(Span::new(span.start + 3 + name.len(), span.end)))),
-        None => Ok((rest, None)),
+        Some((name, _)) => (name, Some(Span::new(span.start + 3 + name.len(), span.end))),
+        None => (rest, None),
     }
+}
+
+/// The value of a flag written `--name=value`, read with `read`. An empty one (`--name=`) nu's
+/// value parser reports (IncompleteParser) and gives garbage for, as the consumer does: the
+/// error is recorded as recovered and the value is a garbage point.
+pub(super) fn parse_flag_value<'a>(
+    working_set: &WorkingSet<'a>,
+    span: Span,
+    read: impl FnOnce(&WorkingSet<'a>, Span) -> ParseResult<Expression<'a>>,
+) -> ParseResult<Expression<'a>> {
+    if !span.is_empty() {
+        return read(working_set, span);
+    }
+    working_set.error(Diagnostic::expected("value after `=`", span).as_recovered());
+    Ok(Expression::new(Expr::Garbage, span))
 }
 
 /// The value of an argument: any value, or for a wrapped command an external

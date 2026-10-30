@@ -17,7 +17,7 @@ use crate::winnow::syntax::span::{Span, Spanned};
 
 use super::WorkingSet;
 use super::lite_parser::{AfterPipe, after_pipe_lines, pipe_on_later_line};
-use super::parse_calls::split_long_flag;
+use super::parse_calls::{parse_flag_value, split_long_flag};
 use super::parse_expressions::{
     BraceShape, ExpectedShape, brace_shape, parse_block_body_unchecked, parse_closure_parts,
     parse_value,
@@ -900,7 +900,7 @@ fn definition_flag<'a, Flag: Copy>(
         })
         .parse_next(tokens)?;
     let text = tokens.text(&token);
-    let (name, value_span) = split_long_flag(text, token.span)?;
+    let (name, value_span) = split_long_flag(text, token.span);
     let Some((_, flag)) = known
         .iter()
         .find(|(known, _)| known.strip_prefix("--") == Some(name))
@@ -915,10 +915,10 @@ fn definition_flag<'a, Flag: Copy>(
     // nu reads the value as the switch's `bool`; one of another type is the consumer's to
     // report (`def --env=1`).
     let value = match value_span {
-        Some(span) => Some(Box::new(parse_value(
+        Some(span) => Some(Box::new(parse_flag_value(
             working_set,
             span,
-            ExpectedShape::Any,
+            |working_set, span| parse_value(working_set, span, ExpectedShape::Any),
         )?)),
         None => None,
     };

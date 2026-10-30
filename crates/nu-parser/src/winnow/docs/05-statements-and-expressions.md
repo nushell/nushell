@@ -464,7 +464,7 @@ be an argument; `parse_call_argument` reads one with
 | Item | Result |
 | --- | --- |
 | `--` | `Argument::EndOfOptions` |
-| `--name`, `--name=value` | `Argument::Named(NamedArgument { long: true, value, .. })` (value only for the `=` form) |
+| `--name`, `--name=value` | `Argument::Named(NamedArgument { long: true, value, .. })` (value only for the `=` form; an empty one, `--name=`, nu's value parser reports with garbage and goes on, so it is a garbage point, its error recorded as recovered: `parse_flag_value`, which the flags of `def` and `extern` share) |
 | `-x`, `-abc` | `Argument::Named(NamedArgument { long: false, name: "abc", .. })` unless it looks like a negative number (`-1`, `-.5`) |
 | `...$x`, `...[..]`, `...(..)`, `...{..}` | `Argument::Spread` |
 | anything else | `Argument::Positional(parse_value(.., ExpectedShape::Any))` |

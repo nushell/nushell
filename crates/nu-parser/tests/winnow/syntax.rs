@@ -2220,3 +2220,20 @@ fn match_block_error_is_a_garbage_value() {
         );
     }
 }
+
+/// An empty flag value (`--name=`) nu's value parser reports and goes on past: the value is a
+/// garbage point, its error recorded as recovered.
+#[test]
+fn empty_flag_value_is_garbage() {
+    let (ast, diagnostics) = parse_lenient("ls --all=", &ParseConfig::with_commands(["ls"]));
+    let call = kind!(expr(&ast), Expr::Call(c) => c);
+    let Some(Argument::Named(flag)) = call.arguments.first() else {
+        panic!("{:?}", call.arguments)
+    };
+    let value = flag.value.as_ref().expect("a value");
+    assert!(value.is_garbage() && value.span.is_empty());
+    assert!(
+        diagnostics.len() == 1 && diagnostics[0].recovered,
+        "{diagnostics:?}"
+    );
+}
