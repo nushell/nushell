@@ -2087,6 +2087,27 @@ fn parameters_joined_to_a_name_leave_a_scope_open() -> Result {
     Ok(())
 }
 
+/// A table with an error of its own (a row that is no list, no row, a spread in a row, a row
+/// short of columns) is nu's error, which its table parser goes on past: lowered, the table read
+/// again by that parser.
+#[rstest]
+#[case::row_not_a_list("[[a]; 1]", "LabeledErrorWithHelp", "1")]
+#[case::no_row("[[a b];]", "Expected", "")]
+#[case::spread_in_a_row("[[a]; [...[1]]]", "LabeledError", "[1]")]
+#[case::missing_columns("[[a b]; [1]]", "MissingColumns", "[1]")]
+#[case::call_argument("echo [[a]; 1]", "LabeledErrorWithHelp", "1")]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn malformed_table_is_lowered(#[case] code: &str, #[case] kind: &str, #[case] at: &str) -> Result {
+    assert_eq!(
+        super::winnow_calls::lowered_errors(code),
+        [(kind.to_string(), at.to_string())],
+        "`{code}`"
+    );
+    Ok(())
+}
+
 /// A call for help in a module body, which the keyword's parse function gives back as the
 /// statement, is one of the body's statements (`parse_module_block` dispatches by the first
 /// word), lowered as at top level.

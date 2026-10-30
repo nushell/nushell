@@ -1518,7 +1518,14 @@ fn parse_list_expression_with_shape<'a>(
         && working_set.get_span_contents(first.span).starts_with('[')
         && second.contents == TokenContents::Semicolon
     {
-        return parse_table_expression(working_set, span, first, second, rows);
+        // A table's own errors (a row that is no list, a column count, a spread in a row) are
+        // nu's, which its table parser goes on past (`[[a]; 1]`): the table is a garbage leaf.
+        return Ok(
+            parse_table_expression(working_set, span, first, second, rows)
+                .map(Some)
+                .or_else(|error| recover_as_garbage(working_set, error))?
+                .unwrap_or_else(|| Expression::new(Expr::Garbage, span)),
+        );
     }
     // A `;` is nu's list error, which it goes on past (`[1; 2]`): the list is a garbage leaf.
     if reject_semicolon(&items, "list")
@@ -1565,7 +1572,8 @@ fn parse_table_expression<'a>(
         return Err(cut(Diagnostic::expected(
             "table row",
             semicolon.span.past(),
-        )));
+        )
+        .as_recovered()));
     }
     let width = column_cells.len();
     let rows = rows
@@ -1575,22 +1583,21 @@ fn parse_table_expression<'a>(
                 || !working_set.get_span_contents(token.span).starts_with('[')
             {
                 return Err(cut(Diagnostic::message("table item not list", token.span)
-                    .with_help("all table items must be lists")));
+                    .with_help("all table items must be lists")
+                    .as_recovered()));
             }
             let cells = parse_table_row(working_set, token.span, false)?;
             match cells.len().cmp(&width) {
                 std::cmp::Ordering::Less => {
                     Err(cut(Diagnostic::message("missing columns", token.span)
-                        .with_help(format!(
-                            "expected {width} columns, found {}",
-                            cells.len()
-                        ))))
+                        .with_help(format!("expected {width} columns, found {}", cells.len()))
+                        .as_recovered()))
                 }
                 std::cmp::Ordering::Greater => {
                     let extra = cells[width].span.merge(cells[cells.len() - 1].span);
-                    Err(cut(Diagnostic::message("extra columns", extra).with_help(
-                        format!("expected {width} columns, found {}", cells.len()),
-                    )))
+                    Err(cut(Diagnostic::message("extra columns", extra)
+                        .with_help(format!("expected {width} columns, found {}", cells.len()))
+                        .as_recovered()))
                 }
                 std::cmp::Ordering::Equal => Ok(list(cells, token.span)),
             }
@@ -1611,9 +1618,8 @@ fn parse_table_expression<'a>(
                 "table column name not string",
                 column.span,
             )
-            .with_help(
-                "table column names should be able to be converted into strings",
-            )));
+            .with_help("table column names should be able to be converted into strings")
+            .as_recovered()));
         }
     }
     let columns = list(column_cells, columns.span);
@@ -1684,7 +1690,8 @@ fn parse_table_row<'a>(
                     return Err(cut(Diagnostic::message(
                         "cannot spread in a table row",
                         dots,
-                    )));
+                    )
+                    .as_recovered()));
                 }
             }
         }

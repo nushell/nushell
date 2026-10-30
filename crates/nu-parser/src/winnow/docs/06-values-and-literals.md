@@ -365,7 +365,10 @@ Three functions parse the body:
   `LIST` (comments recorded with `working_set.add_comments` and dropped; a
   `]` that closes no `[` there is an error, `[1 2]]`); if
   the tokens are `[..]` `;` `[..]...`, it is a table
-  (`parse_table_expression`); otherwise `reject_semicolon` makes any `;` an
+  (`parse_table_expression`), whose own errors (no row, a row that is no list,
+  a column count, a column name that is no string, a spread in a row) nu goes
+  on past, so they are recorded as recovered and the table is a garbage leaf
+  that the consumer reads with nu's list parser; otherwise `reject_semicolon` makes any `;` an
   error ("unexpected semicolon in list", as nu) and the rest is a list. nu's
   list parser goes on past that error, so the parser does too: the list is a
   garbage leaf with the error recorded as recovered (`recover_as_garbage`),
