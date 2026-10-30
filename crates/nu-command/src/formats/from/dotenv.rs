@@ -40,7 +40,7 @@ loads the record into the environment."
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["env", "environment", "dotenv"]
+        vec!["environment", ".env"]
     }
 
     fn run(

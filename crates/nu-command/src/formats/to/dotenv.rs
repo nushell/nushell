@@ -31,7 +31,7 @@ single-quoted, or double-quoted with escapes when it holds a `'` or a line break
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["env", "environment", "dotenv"]
+        vec!["environment", ".env"]
     }
 
     fn run(
