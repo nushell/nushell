@@ -137,11 +137,25 @@ fn parse_binding<'a>(mut tokens: Tokens<'_, 'a>, kind: BindingKind) -> ParseResu
         return Err(cut(Diagnostic::expected("`=`", equals.span)));
     }
     if equals.is_none() && !typed {
-        // `let x --help`, `let x --foo`
-        if let KeywordBoundary::Help | KeywordBoundary::UnknownFlag =
-            keyword_flag(&mut tokens, &[], true)
-        {
-            return parse_help_call(statement);
+        // `let x --help`, `let x --foo`: nu's call, which reads an item after the name as its `=`
+        // keyword, so another word there is its ExpectedKeyword, reported with `--help` too
+        // (`const x --help f`), while an unknown flag comes first (UnknownFlag, semantic).
+        match keyword_flag(&mut tokens, &[], true) {
+            KeywordBoundary::Help => {
+                let word = tokens.remaining().iter().find(|token| {
+                    token.contents == TokenContents::Item && !tokens.text(token).starts_with('-')
+                });
+                return match word {
+                    Some(word) => call_after_error(
+                        statement,
+                        cut(Diagnostic::expected("`=`", word.span)),
+                        parse_help_call,
+                    ),
+                    None => parse_help_call(statement),
+                };
+            }
+            KeywordBoundary::UnknownFlag => return parse_help_call(statement),
+            KeywordBoundary::Argument => {}
         }
     }
     let ty = parse_type_after_var(

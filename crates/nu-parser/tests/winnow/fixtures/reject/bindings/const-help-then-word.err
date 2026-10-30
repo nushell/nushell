@@ -1,0 +1,5 @@
+error: expected `=`
+  --> reject/bindings/const-help-then-word.nu:2:16
+  |
+2 | const x --help f
+  |                ^

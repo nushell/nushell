@@ -2128,3 +2128,21 @@ fn incomplete_alias_is_the_call() {
         );
     }
 }
+
+/// A binding without a value asking for help is nu's call, which reads an item after the name
+/// as its `=` keyword: another word there is its ExpectedKeyword (syntax), recorded as
+/// recovered; a flag or nothing is a plain help call.
+#[test]
+fn binding_help_call_reads_its_equals_keyword() {
+    for src in ["const x --help f", "let x --help y", "mut x -h 1"] {
+        let (ast, diagnostics) = parse_lenient(src, &ParseConfig::default());
+        kind!(expr(&ast), Expr::Call(_));
+        assert!(
+            diagnostics.len() == 1 && diagnostics[0].recovered,
+            "{src}: {diagnostics:?}"
+        );
+    }
+    for src in ["let x --help", "const x --help --foo"] {
+        kind!(expr(&ok(src)), Expr::Call(_));
+    }
+}
