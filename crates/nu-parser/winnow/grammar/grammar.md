@@ -1763,11 +1763,11 @@ checks as a `def`'s.
                     | "oneof"  [ "<" <shape-list> ">" ]
                     | <type-alias-name>                         ; (6.4)
 ; "block" is the explicit error "Use 'closure' instead of 'block'"; a generic is one
-; of the four names before any "<" ("listing" is no list); any other word that a type
-; alias could have is a type alias, which the consumer looks up (an unknown one is
-; UnknownType, one used above its `type` statement TypeAliasUsedBeforeDefinition, one
-; with "<...>" TypeAliasWithParams); every other word is UnknownType (with a hint when
-; it contains "@"). Types: path/directory -> string, glob -> glob, datetime -> date,
+; of the four names before any "<" ("listing" is no list); any other word is a type
+; alias's, which the consumer looks up (an unknown one is UnknownType, one used above
+; its `type` statement TypeAliasUsedBeforeDefinition, one with "<...>"
+; TypeAliasWithParams, one with "@" a LabeledError, then UnknownType: semantic errors,
+; after which nu goes on with `any`). Types: path/directory -> string, glob -> glob, datetime -> date,
 ; external_arg -> any.
 ; nu: parse_shape_specs.rs parse_shape_name, type_name, expand_type_alias, parse_type
 ; here: src/winnow/syntax/parser/parse_shape_specs.rs::parse_type, parse_generic_shape (same list, same
@@ -2075,7 +2075,7 @@ submodule), and `2 | skip 0x[01 23 45 67]` (InvalidLiteral: `skip` takes an
   here (`def f [x: Pointt]`); nu reports an unknown one as UnknownType, one used above
   its `type` statement as TypeAliasUsedBeforeDefinition, one inside its own
   definition as TypeAliasSelfReference, and `Point<int>` for an alias as
-  TypeAliasWithParams (an unknown generic-looking name is an error here too). A name
+  TypeAliasWithParams (an unknown generic-looking name is the consumer's too). A name
   no alias has is still a type in nu when some command declares it as an input or
   output type: a custom value type such as `semver` or a plugin's `polars_dataframe`
   (`find_custom_type`).

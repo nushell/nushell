@@ -1574,11 +1574,11 @@ shape = "any" | "binary" | "bool" | "cell-path" | "closure" | "datetime"
         | "oneof", [ "<", shape_list, ">" ]
         | type_alias_name ;  (* (6.4) *)
 (* "block" is the explicit error "Use 'closure' instead of 'block'"; a generic is one
-   of the four names before any "<" ("listing" is no list); any other word that a type
-   alias could have is a type alias, which the consumer looks up (an unknown one is
-   UnknownType, one used above its `type` statement TypeAliasUsedBeforeDefinition, one
-   with "<...>" TypeAliasWithParams); every other word is UnknownType (with a hint when
-   it contains "@"). Types: path/directory -> string, glob -> glob, datetime -> date,
+   of the four names before any "<" ("listing" is no list); any other word is a type
+   alias’s, which the consumer looks up (an unknown one is UnknownType, one used above
+   its `type` statement TypeAliasUsedBeforeDefinition, one with "<...>"
+   TypeAliasWithParams, one with "@" a LabeledError, then UnknownType: semantic errors,
+   after which nu goes on with `any`). Types: path/directory -> string, glob -> glob, datetime -> date,
    external_arg -> any.
    nu: parse_shape_specs.rs parse_shape_name, type_name, expand_type_alias, parse_type
    here: src/winnow/syntax/parser/parse_shape_specs.rs::parse_type, parse_generic_shape (same list, same

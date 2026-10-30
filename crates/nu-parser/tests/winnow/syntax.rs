@@ -1099,15 +1099,21 @@ fn def_forms() {
     );
     assert!(parse("def foo [] int -> int { }").is_err());
     assert!(parse("def foo { }").is_err());
-    // Any other name a type alias could have is one, for the consumer to look up.
-    let ast = ok("def foo [x: unknown] { }");
-    let param = &kind!(expr(&ast), Expr::Def(d) => d).signature.params[0];
-    assert!(matches!(
-        param.ty.as_ref().unwrap().shape,
-        SyntaxShape::TypeAlias("unknown")
-    ));
-    assert!(parse("def foo [x: unknown!] { }").is_err());
-    assert!(parse("def foo [x: Point<int>] { }").is_err());
+    // Any other name is a type alias's, for the consumer to look up and report when it is none
+    // (UnknownType), one no alias can have too.
+    for (src, name) in [
+        ("def foo [x: unknown] { }", "unknown"),
+        ("def foo [x: unknown!] { }", "unknown!"),
+        ("def foo [x: Point<int>] { }", "Point<int>"),
+    ] {
+        let ast = ok(src);
+        let param = &kind!(expr(&ast), Expr::Def(d) => d).signature.params[0];
+        assert_eq!(
+            param.ty.as_ref().unwrap().shape,
+            SyntaxShape::TypeAlias(name),
+            "{src}"
+        );
+    }
     assert!(parse("def foo [x: block] { }").is_err());
     assert!(parse("def foo [x: int = ] { }").is_err());
 }
@@ -1970,7 +1976,6 @@ fn type_alias_statements() {
         "type int = string",
         "type 1x = int",
         "type T = int string",
-        "type C = string@[a b]",
         "def type [] { }",
         "alias ty = type",
         "ls | type T = int",
@@ -1980,6 +1985,8 @@ fn type_alias_statements() {
     }
     // `type --help` is a help call.
     kind!(expr(&ok("type --help")), Expr::Call(_));
+    // A type with a completer nu reports (LabeledError, semantic): the consumer's.
+    kind!(expr(&ok("type C = string@[a b]")), Expr::TypeAlias(_));
 }
 
 /// An alias nu refuses the name of declares nothing: a later call of the name is an external

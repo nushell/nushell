@@ -2493,6 +2493,47 @@ fn range_bound_error_is_lowered(#[case] code: &str, #[case] expected: &[(&str, &
     Ok(())
 }
 
+/// A type nu does not know, which `parse_type` reports (UnknownType, after a LabeledError for a
+/// completer) and goes on with as `any`: in a binding (at the type's first item, as
+/// `parse_var_with_opt_type` gives it), a `for` variable, a parameter, input and output types and
+/// a type alias. Lowered, reported as there.
+#[rstest]
+#[case::completer_in_a_binding(
+    "let x: int@completer = 42",
+    &[("LabeledError", "int@completer"), ("UnknownType", "int@completer")]
+)]
+#[case::no_alias_name_in_a_binding("let x: x! = 1; $x", &[("UnknownType", "x!")])]
+#[case::equals_on_the_type("let c: int= 3", &[("UnknownType", "int=")])]
+#[case::help_in_a_for_type("for x: int --help in [] {}", &[("UnknownType", "int")])]
+#[case::completer_in_a_for_type(
+    "for x: int@c in [1] {}",
+    &[("LabeledError", "int@c"), ("UnknownType", "int@c")]
+)]
+#[case::parameter_type("def foo [x: unknown!] {}", &[("UnknownType", "unknown!")])]
+#[case::output_type(
+    "def foo []: int -> int@completer {}",
+    &[("LabeledError", "int@completer"), ("UnknownType", "int@completer")]
+)]
+#[case::type_alias(
+    "type Color = string@[red green]",
+    &[("LabeledError", "string@[red green]"), ("UnknownType", "string@[red green]")]
+)]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn unknown_type_is_lowered(#[case] code: &str, #[case] expected: &[(&str, &str)]) -> Result {
+    let expected: Vec<(String, String)> = expected
+        .iter()
+        .map(|(kind, at)| (kind.to_string(), at.to_string()))
+        .collect();
+    assert_eq!(
+        super::winnow_calls::lowered_errors(code),
+        expected,
+        "`{code}`"
+    );
+    Ok(())
+}
+
 /// A call for help in a module body, which the keyword's parse function gives back as the
 /// statement, is one of the body's statements (`parse_module_block` dispatches by the first
 /// word), lowered as at top level.

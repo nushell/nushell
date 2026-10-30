@@ -195,10 +195,10 @@ impl<'s> Lower<'_, '_, 's> {
         is_external: bool,
     ) -> Lowered<Box<Signature>> {
         let mut sig = self.signature_params(signature, is_external)?;
+        // nu reports a type it does not know and goes on (`parse_full_signature`).
         if let Some(types) = signature.input_output_span {
             let span = self.span(types);
-            sig.input_output_types =
-                self.checked(|working_set| parse_input_output_types(working_set, &[span]))?;
+            sig.input_output_types = parse_input_output_types(self.working_set, &[span]);
         }
         Ok(sig)
     }

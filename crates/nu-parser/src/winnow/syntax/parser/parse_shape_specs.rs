@@ -117,8 +117,8 @@ pub fn is_valid_type_alias_name(name: &str) -> bool {
 
 /// A type annotation such as `int`, `list<string>` or `record<a: int>` (nu's
 /// `parse_type`, with `parse_shape_name`'s table of names). Any other name
-/// that a type alias could have is one ([`SyntaxShape::TypeAlias`]), for the
-/// consumer to look up; a name no alias can have is an unknown type.
+/// is a type alias's ([`SyntaxShape::TypeAlias`]), for the consumer to look
+/// up, which reports an unknown one.
 pub fn parse_type<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResult<TypeAnnotation<'a>> {
     let text = working_set.get_span_contents(span);
     let shape = match text {
@@ -156,15 +156,10 @@ pub fn parse_type<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResult<T
         {
             parse_generic_shape(working_set, span)?
         }
-        _ if is_valid_type_alias_name(text) => SyntaxShape::TypeAlias(text),
-        _ => {
-            let mut diagnostic = Diagnostic::new(ErrorKind::UnknownType(text.to_string()), span);
-            if text.contains('@') {
-                diagnostic = diagnostic
-                    .with_help("type specifications do not support custom completers here");
-            }
-            return Err(cut(diagnostic));
-        }
+        // A name no type alias can have (`int@completer`, `int=`) nu looks up all the same and
+        // reports (UnknownType, with a LabeledError for a completer), going on with `any`: the
+        // consumer's, as for any other name.
+        _ => SyntaxShape::TypeAlias(text),
     };
     Ok(TypeAnnotation { span, shape })
 }

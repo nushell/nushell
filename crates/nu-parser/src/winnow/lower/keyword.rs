@@ -21,7 +21,7 @@ use super::{BlockOf, Lower, Lowered, Unlowered, is_missing_argument};
 use crate::winnow::syntax::{ItemsValue, Span as WSpan, ast as w};
 use crate::{
     exportable::Exportable,
-    lex::{is_assignment_operator, lex},
+    lex::{is_assignment_operator, lex, lex_signature},
     parse_alias::{
         alias_name, alias_name_fits_module, check_alias_name, finish_alias, report_incomplete_alias,
     },
@@ -525,7 +525,11 @@ impl<'s> Lower<'_, '_, 's> {
             Some(annotation) => {
                 let span = self.span(annotation.span);
                 let text = self.text(annotation.span).as_bytes();
-                let ty = self.checked(|ws| parse_type(ws, text, span))?;
+                // nu reports an unknown type and goes on with it (`parse_var_with_opt_type`),
+                // at the first item of the type lexed as a signature (`int=` of `int= 3`).
+                let (tokens, _) = lex_signature(text, span.start, &[], b",", true);
+                let at = tokens.first().map_or(span, |token| token.span);
+                let ty = parse_type(self.working_set, text, at);
                 // The classic parser gives the variable the span of the next-to-last item of
                 // `name: type...`: the name with its `:` when the type is one item.
                 let region = Span::new(name_span.start, span.end);

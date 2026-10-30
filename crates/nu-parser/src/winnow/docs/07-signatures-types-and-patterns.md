@@ -136,8 +136,10 @@ joined and lexed again as one type, as a `let` annotation's are. It checks
 what nu checks without knowing any alias: the layout (a name, a `=` that
 stands alone, one type; `type ls` is "missing `=`" with a hint to use
 `which`), the name (no built-in type name, `BUILTIN_TYPE_NAMES`, and a valid
-alias name) and the type (no `@completer`, which belongs to a parameter:
-`c: Color@[red green]`). `export type` exports one from a module. The
+alias name). A type with a `@completer`, which belongs to a parameter
+(`c: Color@[red green]`), nu reports (LabeledError, then UnknownType) and
+goes on, as for any type it does not know: the consumer's. `export type`
+exports one from a module. The
 predeclaration scan records where each `type` statement of a block is
 (`TypeAliasPredecl`, `BlockSink::predecl_type_alias`), so that an engine can
 tell a use above the definition from an unknown type.

@@ -5395,11 +5395,11 @@ svg.railroad-diagram g.diagram-text:hover path.diagram-text {
 </ul>
 </section>
 <p>(6.4) </p><p>"block" is the explicit error "Use 'closure' instead of 'block'"; a generic is one
-  of the four names before any "<" ("listing" is no list); any other word that a type
-  alias could have is a type alias, which the consumer looks up (an unknown one is
-  UnknownType, one used above its <code>type</code> statement TypeAliasUsedBeforeDefinition, one
-  with "<…>" TypeAliasWithParams); every other word is UnknownType (with a hint when
-  it contains "@"). Types: path/directory -&gt; string, glob -&gt; glob, datetime -&gt; date,
+  of the four names before any "<" ("listing" is no list); any other word is a type
+  alias’s, which the consumer looks up (an unknown one is UnknownType, one used above
+  its <code>type</code> statement TypeAliasUsedBeforeDefinition, one with "<…>"
+  TypeAliasWithParams, one with "@" a LabeledError, then UnknownType: semantic errors,
+  after which nu goes on with <code>any</code>). Types: path/directory -&gt; string, glob -&gt; glob, datetime -&gt; date,
   external<em>arg -> any.
   nu: parse</em>shape<em>specs.rs parse</em>shape<em>name, type</em>name, expand<em>type</em>alias, parse<em>type
   here: src/winnow/syntax/parser/parse</em>shape<em>specs.rs::parse</em>type, parse<em>generic</em>shape (same list, same
@@ -6295,7 +6295,7 @@ svg.railroad-diagram g.diagram-text:hover path.diagram-text {
 <p>(6.1) </p>
   </article>
   <footer>
-    <p>Date: 2026-10-30T19:00 - <a href="?theme=dark" data-theme="dark">Dark</a> - <a href="?theme=light" data-theme="light">Light</a></p>
+    <p>Date: 2026-10-30T19:43 - <a href="?theme=dark" data-theme="dark">Dark</a> - <a href="?theme=light" data-theme="light">Light</a></p>
   </footer>
   </main>
   <script type="text/javascript">

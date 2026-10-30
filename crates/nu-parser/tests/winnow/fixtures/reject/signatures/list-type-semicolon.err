@@ -1,13 +1,13 @@
+error: expected a single type parameter
+  --> reject/signatures/list-type-semicolon.nu:1:16
+  |
+1 | def f [x: list<int;>] {}
+  |                ^^^^
+  = while parsing signature
+
 error: unexpected semicolon in list
   --> reject/signatures/list-type-semicolon.nu:1:19
   |
 1 | def f [x: list<int;>] {}
   |                   ^
   = help: use commas or whitespace to separate list items
-
-error: unknown type `;`
-  --> reject/signatures/list-type-semicolon.nu:1:19
-  |
-1 | def f [x: list<int;>] {}
-  |                   ^
-  = while parsing signature
