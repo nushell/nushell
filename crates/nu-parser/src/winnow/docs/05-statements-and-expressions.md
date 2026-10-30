@@ -298,9 +298,10 @@ redirection on `export-env` is dropped without a look, as nu drops it, and
 recorded in `Ast::ignored`.
 
 Attribute lines (`@name args`, collected by chapter 04) are parsed by
-`parse_attribute` (`parse_calls.rs`) as calls to `attr name`: the name must be
-non-empty, whether `attr name` exists is the consumer's business (it may come
-from a `use`d module), and the built-in attributes (`category`, `complete`,
+`parse_attribute` (`parse_calls.rs`) as calls to `attr name`: whether
+`attr name` exists is the consumer's business (it may come from a `use`d
+module), an empty name (`@`, `@ name`) included, which nu reports as an unknown
+command, and the built-in attributes (`category`, `complete`,
 `deprecated`, `example`, `interactive`, `search-terms`) get their arguments
 checked against their keyword signatures. Attributes may only precede `def`,
 `extern`, `export def` and `export extern`; before anything else
@@ -508,8 +509,10 @@ no commands at all). The error points at the first word: under
 `def "my cmd"`, `%my cmd` is reported at `my`. nu then reads the items after
 the `%` as an external call, so the parser records the error as recovered and
 reads that call (`ExternalCall` with the `%` as its `caret`), which the
-consumer reports; after a lone `%`, whose head nu leaves empty, the error
-stays.
+consumer reports. After a lone `%` nu's head is the empty rest of that item:
+a following item that names no built-in command, or none, makes an external
+call with an empty head (a point after the `%`) and every item after the `%`
+as its arguments, the error reported at that head.
 
 ## External calls and environment shorthand
 
@@ -577,8 +580,11 @@ fn env_assignment<'a>(tokens: &mut Tokens<'_, 'a>) -> ParseResult<EnvAssignment<
 ```
 
 The first item that is not `NAME=value` makes `verify_map` backtrack, which
-ends the `repeat` and leaves the stream at the command's head. A line
-consisting only of shorthand is an error ("unknown command").
+ends the `repeat` and leaves the stream at the command's head. With no command
+after the shorthand (`FOO=1` alone), nu reports the first item as an unknown
+command and keeps the items as garbage: the parser records "unknown command"
+as recovered and makes the command a garbage point after the last assignment,
+which the consumer reports as nu does.
 
 ## Stream idioms you will reuse
 

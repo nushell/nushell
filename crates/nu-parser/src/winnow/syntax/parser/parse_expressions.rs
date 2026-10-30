@@ -82,13 +82,26 @@ pub fn parse_expression<'a>(
     }
     let env_assignments = parse_env_shorthand_prefix(&mut tokens)?;
     let Some(first) = tokens.peek_token() else {
-        return Err(cut(Diagnostic::message(
-            "unknown command",
-            tokens.all()[0].span,
-        )
-        .with_help(
-            "`NAME=value` sets an environment variable for the command that follows it",
-        )));
+        // Shorthand with no command after it (`FOO=1`): nu reports the first item as an
+        // unknown command and keeps the items as garbage, as the consumer does: the error is
+        // recorded as recovered and the command is a garbage point after the last assignment.
+        let (Some(first), Some(last)) = (env_assignments.first(), env_assignments.last()) else {
+            return Err(cut(Diagnostic::expected("command", tokens.end_span())));
+        };
+        working_set.error(
+            Diagnostic::message("unknown command", first.span)
+                .with_help(
+                    "`NAME=value` sets an environment variable for the command that follows it",
+                )
+                .as_recovered(),
+        );
+        let span = first.span.merge(last.span);
+        let command = Expression::new(Expr::Garbage, last.span.past());
+        let env_shorthand = EnvShorthand {
+            vars: env_assignments,
+            expr: Box::new(command),
+        };
+        return Ok(Expression::new(Expr::EnvShorthand(env_shorthand), span));
     };
     // After environment shorthand nu reads the head like any pipeline element; a statement
     // there is its error, after which nu reads the statement as a call.

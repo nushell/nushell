@@ -383,6 +383,14 @@ impl<'s> Lower<'_, '_, 's> {
         // items, the shorthand's included: after a shorthand, `plugin use` is an ordinary call
         // and every `overlay` call an error. A statement's error is at the shorthand.
         let first_item = shorthand.vars.first().map(|var| var.span);
+        // No command after the shorthand (`FOO=1`): the first item is an unknown command and
+        // the items are garbage.
+        if let (w::Expr::Garbage, Some(first)) = (&shorthand.expr.expr, first_item) {
+            let first = self.span(first);
+            self.working_set.error(ParseError::UnknownCommand(first));
+            let span = self.span(e.span);
+            return Ok(Expression::garbage(self.working_set, span));
+        }
         let output = match &shorthand.expr.expr {
             w::Expr::Call(call) if call.sigil.is_none() && !self.alias_target => {
                 let first_word = call.head.name.split(' ').next().unwrap_or_default();

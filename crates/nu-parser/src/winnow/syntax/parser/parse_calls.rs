@@ -155,37 +155,37 @@ const PERCENT_HELP: &str =
 fn parse_percent_call<'a>(first: Token, mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
     let working_set = tokens.working_set;
     let sigil = Span::new(first.span.start, first.span.start + 1);
+    let lone = first.span.len() == 1;
+    let after_percent = tokens;
+    // `%name` naming no built-in command: nu reports it and reads the items after the `%` as
+    // an external call (`parse_external_call`), so the parser records the error as recovered
+    // and reads that call. After a lone `%` nu's head is the empty rest of its item, so the
+    // call's head is empty and every item after the `%` is an argument.
+    let external = |head: Span, arguments, help: String| -> ParseResult<Expression<'a>> {
+        let (head, arguments) = match lone {
+            true => (sigil.past(), after_percent),
+            false => (head, arguments),
+        };
+        let diagnostic =
+            Diagnostic::message("percent sigil requires a built-in command", head).with_help(help);
+        let head = parse_external_string(working_set, head)?;
+        let call = parse_external_arguments(Some(sigil), head, arguments)?;
+        working_set.error(diagnostic.as_recovered());
+        Ok(call)
+    };
     // The head is the rest of the item, or the next item after a bare `%`.
-    let head_token = match first.span.len() {
-        1 => match tokens.next_token() {
+    let head_token = match lone {
+        true => match tokens.next_token() {
             Some(token) if token.contents == TokenContents::Item => *token,
-            _ => {
-                return Err(cut(Diagnostic::message(
-                    "percent sigil requires a built-in command",
-                    sigil,
-                )
-                .with_help(PERCENT_HELP)));
-            }
+            _ => return external(sigil, tokens, PERCENT_HELP.into()),
         },
-        _ => Token {
+        false => Token {
             contents: TokenContents::Item,
             span: Span::new(sigil.end, first.span.end),
         },
     };
     let head_text = working_set.get_span_contents(head_token.span);
-    // `%name` naming no built-in command: nu reports it and reads the items after the `%` as
-    // an external call (`parse_external_call`), so the parser records the error as recovered
-    // and reads that call. Not after a lone `%`, whose head nu leaves empty.
     let after_sigil = tokens;
-    let external = |diagnostic: Diagnostic| -> ParseResult<Expression<'a>> {
-        if first.span.len() == 1 {
-            return Err(cut(diagnostic));
-        }
-        let head = parse_external_string(working_set, head_token.span)?;
-        let call = parse_external_arguments(Some(sigil), head, after_sigil)?;
-        working_set.error(diagnostic.as_recovered());
-        Ok(call)
-    };
     match head_text.as_bytes()[0] {
         b'$' | b'(' => {
             let head = parse_value(working_set, head_token.span, ExpectedShape::Any)?;
@@ -200,10 +200,9 @@ fn parse_percent_call<'a>(first: Token, mut tokens: Tokens<'_, 'a>) -> ParseResu
                 span,
             ))
         }
-        b'"' | b'\'' | b'`' | b'[' | b'{' | b'^' | b'%' => external(
-            Diagnostic::message("percent sigil requires a built-in command", head_token.span)
-                .with_help(PERCENT_HELP),
-        ),
+        b'"' | b'\'' | b'`' | b'[' | b'{' | b'^' | b'%' => {
+            external(head_token.span, after_sigil, PERCENT_HELP.into())
+        }
         _ => {
             // nu's `find_longest_decl_with_command_type`: the head is the longest name of a
             // built-in command, so `%ls foo` calls `ls` even where `def "ls foo"` exists.
@@ -211,13 +210,8 @@ fn parse_percent_call<'a>(first: Token, mut tokens: Tokens<'_, 'a>) -> ParseResu
             let (head, found) = find_longest_name(head_token, &mut tokens, "", builtin);
             let kind = found.or_else(|| working_set.find_builtin_decl(&head.name));
             if kind.is_none() && working_set.has_builtin_decls() {
-                return external(
-                    Diagnostic::message("percent sigil requires a built-in command", head.span)
-                        .with_help(format!(
-                            "`{}` is not a built-in command; {PERCENT_HELP}",
-                            head.name
-                        )),
-                );
+                let help = format!("`{}` is not a built-in command; {PERCENT_HELP}", head.name);
+                return external(head.span, after_sigil, help);
             }
             // As nu reads a call to the built-in by its signature: `%any $it > 2` takes a row
             // condition.
@@ -692,9 +686,10 @@ pub fn parse_external_string<'a>(
     ))
 }
 
-/// `@name arguments` (nu's `parse_attribute`). The name must be non-empty;
-/// whether `attr <name>` exists, and the arguments it takes, are the
-/// consumer's business (it may come from a `use`d module).
+/// `@name arguments` (nu's `parse_attribute`). Whether `attr <name>` exists,
+/// and the arguments it takes, are the consumer's business (it may come from a
+/// `use`d module); so is an empty name (`@`, `@ name`), which nu reports as an
+/// unknown command.
 pub fn parse_attribute<'a>(
     working_set: &WorkingSet<'a>,
     attribute_line: &[Token],
@@ -702,12 +697,6 @@ pub fn parse_attribute<'a>(
     let end = attribute_line.last().map_or(0, |token| token.span.end);
     let mut tokens = Tokens::new(working_set, attribute_line, end);
     let first = tokens.expect_item("attribute")?;
-    if working_set.get_span_contents(first.span) == "@" {
-        return Err(cut(Diagnostic::expected(
-            "attribute name after `@`",
-            first.span,
-        )));
-    }
     let (head, _) = find_longest_decl(first, &mut tokens, "attr ");
     let name_span = Span::new(first.span.start + 1, head.span.end);
     let arguments = parse_call_arguments(tokens)?;

@@ -406,7 +406,8 @@ this parser's `LexOptions` constants carry the same sets.
                                            ; are not)
 ; The item is split at its FIRST "=". An item that fails these rules ends the
 ; shorthand prefix and starts the command. If every item is shorthand the element
-; is UnknownCommand (`FOO=1` alone). Becomes `with-env {..} { <element-body> }`.
+; is UnknownCommand (`FOO=1` alone; recorded as recovered, the command a garbage point
+; after the shorthand). Becomes `with-env {..} { <element-body> }`.
 ; nu: parse_expressions.rs:96, 1540-1580; parse_literals.rs:1981 parse_string_strict
 ; here: src/winnow/syntax/parser/parse_expressions.rs::parse_env_shorthand_prefix, is_env_variable_name
 
@@ -619,8 +620,8 @@ Precedence (nu-protocol `ast/operator.rs:256`; higher binds tighter):
 ; call to that built-in reads them: `%any $it > 2` takes one row condition.
 ; After the error nu reads the items after the "%" as an external call
 ; (parse_external_call: the head an external name, `%^foo` the name `^foo`): so does
-; the parser, the error recorded as recovered, except after a lone "%", whose head nu
-; leaves empty.
+; the parser, the error recorded as recovered. After a lone "%" nu's head is empty:
+; the external call's head is a point after the "%" and every item after it an argument.
 ; nu: parse_calls.rs:1600-1700 (find_longest_decl_with_command_type)
 ; here: src/winnow/syntax/parser/parse_calls.rs::parse_percent_call (find_longest_name asking
 ;       find_builtin_decl: the built-in table from ParseConfig, or the engine's
@@ -1643,7 +1644,7 @@ Vocabulary: `<expression>` is a `<pipeline-element>` (3.1); `<block>` is a
 <attribute>       ::= "@" <attr-name> <args> ( <eol> | ";" )        ; lite rules in 2
 <attr-name>       ::= <word> { " " <word> }      ; resolved as the command `attr <name>`
 <annotated>       ::= <def> | <extern> | "export" ( <def> | <extern> )
-; `@` alone or `@ name` gives an empty name (UnknownCommand); the name must resolve
+; `@` alone or `@ name` gives an empty name (UnknownCommand, the consumer's); the name must resolve
 ; to a declaration `attr <name>`; the definition must be on the very next line;
 ; anything else (`export alias`, `export const`, `export module`, `export use`,
 ; `let`, a call) is AttributeRequiresDefinition, which nu reports at the last attribute,
@@ -1655,7 +1656,7 @@ Vocabulary: `<expression>` is a `<pipeline-element>` (3.1); `<block>` is a
 ;     parse_module.rs:110, 203
 ; here: src/winnow/syntax/parser/lite_parser.rs::lite_attribute_lines,
 ;       src/winnow/syntax/parser/parse_pipelines.rs::parse_pipeline_element,
-;       src/winnow/syntax/parser/parse_calls.rs::parse_attribute (the empty name is refused; whether
+;       src/winnow/syntax/parser/parse_calls.rs::parse_attribute (the empty name is the consumer's; whether
 ;       `attr <name>` exists is the consumer's, it may come from a `use`d module; the
 ;       arguments of the built-in attributes, as any call's, are the consumer's too)
 ```

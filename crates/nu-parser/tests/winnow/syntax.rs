@@ -880,7 +880,17 @@ fn env_shorthand() {
     assert_eq!(string(&external.head), ("cmd", Quote::Bare));
     let ast = ok("echo a=b");
     kind!(expr(&ast), Expr::Call(_));
-    assert!(parse("FOO=bar").is_err());
+    // With no command after it, the command is a garbage point after the shorthand and nu's
+    // unknown command an error recorded as recovered.
+    let (ast, diagnostics) = parse_lenient("FOO=bar BAZ=1", &ParseConfig::default());
+    let e = kind!(expr(&ast), Expr::EnvShorthand(e) => e);
+    assert_eq!(e.vars.len(), 2);
+    assert!(e.expr.is_garbage());
+    assert_eq!((e.expr.span.start, e.expr.span.end), (13, 13));
+    assert!(
+        diagnostics.len() == 1 && diagnostics[0].recovered,
+        "{diagnostics:?}"
+    );
 }
 
 #[test]

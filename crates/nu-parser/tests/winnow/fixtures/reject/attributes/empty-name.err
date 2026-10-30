@@ -1,5 +1,0 @@
-error: expected attribute name after `@`
-  --> reject/attributes/empty-name.nu:1:1
-  |
-1 | @
-  | ^
