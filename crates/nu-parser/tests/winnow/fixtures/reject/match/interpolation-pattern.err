@@ -3,4 +3,3 @@ error: expected valid variable name
   |
 1 | match 1 { $"x(1)" => n }
   |           ^^^^^^^
-  = while parsing match

@@ -222,7 +222,10 @@ arm = pattern { "|" pattern } [ "if" guard-items... ] "=>" body
 
 `parse_pattern(working_set, span)` dispatches on the first character of a
 pattern item; `pattern` is the token parser that takes the next item and
-hands its span to `parse_pattern`. The result is a
+hands its span to `parse_pattern`. nu's `parse_pattern` reports a pattern's
+errors and gives a pattern still, so `pattern` records such an error as
+recovered and gives a garbage expression pattern over the item, which the
+consumer reads with nu's `parse_pattern`. The result is a
 `MatchPattern { span, pattern }`:
 
 | Item | `Pattern` |

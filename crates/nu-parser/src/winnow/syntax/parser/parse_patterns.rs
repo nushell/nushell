@@ -15,10 +15,11 @@ use std::borrow::Cow;
 
 use winnow::Parser;
 use winnow::combinator::{alt, eof, repeat, repeat_till};
+use winnow::error::ErrMode;
 
-use crate::winnow::syntax::ast::{MatchPattern, Pattern};
+use crate::winnow::syntax::ast::{Expr, Expression, MatchPattern, Pattern};
 use crate::winnow::syntax::error::Diagnostic;
-use crate::winnow::syntax::input::{ParseResult, cut};
+use crate::winnow::syntax::input::{ParseFailure, ParseResult, cut};
 use crate::winnow::syntax::lex::{LexOptions, Token, TokenContents};
 use crate::winnow::syntax::span::{Span, Spanned};
 
@@ -52,9 +53,23 @@ pub fn parse_pattern<'a>(
 /// The next item, parsed as a pattern: [`parse_pattern`] as a parser over
 /// [`Tokens`], for `repeat` and `alt` to compose. Backtracks when the next
 /// token is not an item (the end, or the `|` between alternatives).
+///
+/// nu's `parse_pattern` reports a pattern's errors and gives a pattern still, which the
+/// consumer reads the item with: an error is recorded as recovered and the pattern is a
+/// garbage expression over the item.
 pub fn pattern<'a>(tokens: &mut Tokens<'_, 'a>) -> ParseResult<MatchPattern<'a>> {
     let token = item(tokens)?;
-    parse_pattern(tokens.working_set, token.span)
+    let working_set = tokens.working_set;
+    match parse_pattern(working_set, token.span) {
+        Err(ErrMode::Cut(ParseFailure::Error(diagnostic))) => {
+            working_set.error(diagnostic.as_recovered());
+            Ok(MatchPattern {
+                span: token.span,
+                pattern: Pattern::Expression(Box::new(Expression::new(Expr::Garbage, token.span))),
+            })
+        }
+        result => result,
+    }
 }
 
 /// The name of a `$var` pattern, which binds a variable and so may not be a

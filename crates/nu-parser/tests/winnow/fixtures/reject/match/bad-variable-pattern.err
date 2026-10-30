@@ -3,4 +3,3 @@ error: expected valid variable name
   |
 1 | match 1 { $a-b => 1 }
   |           ^^^^
-  = while parsing match

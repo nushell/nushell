@@ -3,5 +3,4 @@ error: `..` can only be used once per list pattern
   |
 1 | match [] { [.., 2, ..] => true, _ => false }
   |                    ^^
-  = while parsing match
   = help: Keep one `..` or `..$name` and remove the others.

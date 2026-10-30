@@ -3,5 +3,4 @@ error: expected record
   |
 1 | match {a: 1} { {a 1} => 1 }
   |                ^^^^^
-  = while parsing match
   = help: record patterns look like `{key: pattern}`; a `:` must follow the field name

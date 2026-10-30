@@ -1832,8 +1832,11 @@ checks as a `def`'s.
                     | <list-pattern>
                     | <value-pattern>
 ; dispatch on the first byte ("$", "{", "[") or the exact word "_"
+; nu's parse_pattern reports a pattern's errors and gives a pattern still: the parser
+; records such an error as recovered and gives a garbage pattern over the item, which the
+; consumer reads with nu's parse_pattern.
 ; nu: parse_patterns.rs:22 parse_pattern
-; here: src/winnow/syntax/parser/parse_patterns.rs::parse_pattern
+; here: src/winnow/syntax/parser/parse_patterns.rs::parse_pattern, pattern (the recovery)
 
 <variable-pattern> ::= "$" 1*<identifier-byte>       ; reserved names are NameIsBuiltinVar
 ; nu: parse_patterns.rs:91    here: src/winnow/syntax/parser/parse_patterns.rs::parse_variable_pattern

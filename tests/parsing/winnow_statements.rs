@@ -2013,6 +2013,34 @@ fn bad_cell_path_tail_in_a_row_condition() -> Result {
     Ok(())
 }
 
+/// A match pattern with an error is nu's error, after which nu's pattern parser gives a pattern
+/// still: lowered, reported as there.
+#[rstest]
+#[case::cell_path_variable("match 1 { $env.PWD => k }", "Expected", "$env.PWD")]
+#[case::dash_in_a_variable("match 1 { $a-b => 1 }", "Expected", "$a-b")]
+#[case::record_without_colon("match {a: 1} { {a 1} => 1 }", "Expected", "{a 1}")]
+#[case::two_rests(
+    "match [] { [.., 2, ..] => true, _ => false }",
+    "LabeledErrorWithHelp",
+    ".."
+)]
+#[case::in_an_alternative("match 1 { $a-b | 2 => k }", "Expected", "$a-b")]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn match_pattern_with_an_error_is_lowered(
+    #[case] code: &str,
+    #[case] kind: &str,
+    #[case] at: &str,
+) -> Result {
+    assert_eq!(
+        super::winnow_calls::lowered_errors(code),
+        [(kind.to_string(), at.to_string())],
+        "`{code}`"
+    );
+    Ok(())
+}
+
 /// A call for help in a module body, which the keyword's parse function gives back as the
 /// statement, is one of the body's statements (`parse_module_block` dispatches by the first
 /// word), lowered as at top level.

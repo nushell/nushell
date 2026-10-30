@@ -3,4 +3,3 @@ error: expected valid variable name
   |
 1 | match 1 { $env.PWD => k }
   |           ^^^^^^^^
-  = while parsing match
