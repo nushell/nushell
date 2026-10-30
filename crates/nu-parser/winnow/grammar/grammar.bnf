@@ -362,6 +362,10 @@
 ; nu: parse_expressions.rs:1587-1680
 ; here: src/winnow/syntax/parser/parse_expressions.rs::parse_expression (Position::Element after a "|"
 ;       and after shorthand), check_builtin_command_in_pipeline (the same head table)
+; nu reports BuiltinCommandInPipeline at the element's first item (the shorthand's when there is
+; one) and reads the statement as a call (parse_call); so does the parser, the error recorded as
+; recovered, unless the element has an assignment operator (nu's assignment test comes first)
+; or the head is const/mut, which stay errors.
 
 ; An item is math-expression-like when it is one of:
 ;   "true" | "false" | "null" | "not" | "if" | "match"

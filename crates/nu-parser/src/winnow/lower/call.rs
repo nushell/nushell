@@ -32,7 +32,7 @@ use crate::{
 /// The first words `parse_expression` reports a statement for where it reads a command (in a
 /// pipeline, after an environment shorthand): `BuiltinCommandInPipeline` and
 /// `AssignInPipeline`.
-const STATEMENTS_IN_PIPELINE: &[&str] = &[
+pub(super) const STATEMENTS_IN_PIPELINE: &[&str] = &[
     "def",
     "extern",
     "for",
@@ -79,11 +79,24 @@ impl<'s> Lower<'_, '_, 's> {
                 "run" if call.head.name == "run" => return self.run(e, call),
                 "run" => return Err(Unlowered::Unsupported("keyword command")),
                 "where" => return self.where_call(e, call),
-                word if STATEMENTS_IN_PIPELINE.contains(&word) => return Err(Unlowered::Error),
-                "overlay" if self.second_word(call) != Some("list") => {
-                    return Err(Unlowered::Error);
+                "const" | "mut" => return Err(Unlowered::Error),
+                word if STATEMENTS_IN_PIPELINE.contains(&word) => {
+                    return self.statement_in_pipeline(e, call, decl_id, word, None, input_type);
                 }
-                "plugin" if self.second_word(call) == Some("use") => return Err(Unlowered::Error),
+                "overlay" if self.second_word(call) != Some("list") => {
+                    return self
+                        .statement_in_pipeline(e, call, decl_id, "overlay", None, input_type);
+                }
+                "plugin" if self.second_word(call) == Some("use") => {
+                    return self.statement_in_pipeline(
+                        e,
+                        call,
+                        decl_id,
+                        "plugin use",
+                        None,
+                        input_type,
+                    );
+                }
                 _ => {}
             }
             // Any other parser keyword with a parse function of its own the winnow tree has no
@@ -113,6 +126,31 @@ impl<'s> Lower<'_, '_, 's> {
     }
 
     /// The second item of `call`: the second word of its head, or else its first argument.
+    /// A statement where `parse_expression` reads a command (in a pipeline, after an
+    /// environment shorthand), `name` as the error names it: nu reports it
+    /// (`BuiltinCommandInPipeline`) at the element's first item, `first_item` (the shorthand's
+    /// when there is one, else the head's first word), and reads it as an ordinary call
+    /// (`parse_call`).
+    pub(super) fn statement_in_pipeline(
+        &mut self,
+        e: &w::Expression<'s>,
+        call: &w::Call<'s>,
+        decl_id: DeclId,
+        name: &str,
+        first_item: Option<WSpan>,
+        input_type: Option<&Type>,
+    ) -> Lowered<Expression> {
+        let first_item = first_item.unwrap_or_else(|| {
+            let head = self.text(call.head.span);
+            let word = head.split_ascii_whitespace().next().unwrap_or(head);
+            WSpan::new(call.head.span.start, call.head.span.start + word.len())
+        });
+        let span = self.span(first_item);
+        self.working_set
+            .error(ParseError::BuiltinCommandInPipeline(name.to_string(), span));
+        self.ordinary_call(e, call, decl_id, input_type)
+    }
+
     fn second_word(&self, call: &w::Call<'s>) -> Option<&'s str> {
         match call.head.name.split(' ').nth(1) {
             Some(_) => {

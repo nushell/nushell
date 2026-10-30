@@ -64,7 +64,12 @@ case applies. Details that are easy to miss:
   `list`, and `plugin` when the second item is `use` are errors there. So
   `FOO=1 def x [] {}` and `hide ls | length` are refused, while
   `ls | overlay list` parses. The second item is counted from the start of
-  the command, shorthand included, as nu counts its spans. `let` is not in
+  the command, shorthand included, as nu counts its spans. nu reports the
+  `BuiltinCommandInPipeline` and reads the statement as a call
+  (`parse_call`), so the parser records the error as recovered and reads
+  the call (the lowering reports it at the element's first item and lowers
+  an ordinary call), unless the element has an assignment operator, which
+  nu's assignment test meets first, or the head is `const` or `mut`. `let` is not in
   the table: `ls | let x` parses (nu accepts it too), and `ls | let x = 1` is
   refused as an assignment whose left side is not a variable, because after
   a `|` the keyword is not a statement. `while` and `loop`, which have no

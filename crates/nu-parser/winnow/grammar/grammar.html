@@ -2111,7 +2111,11 @@ svg.railroad-diagram g.diagram-text:hover path.diagram-text {
   <code>ls | let x</code> is a call to <code>let</code>.
   nu: parse<em>expressions.rs:1587-1680
   here: src/winnow/syntax/parser/parse</em>expressions.rs::parse<em>expression (Position::Element after a "|"
-  and after shorthand), check</em>builtin<em>command</em>in_pipeline (the same head table) </p><p>An item is math-expression-like when it is one of:
+  and after shorthand), check</em>builtin<em>command</em>in<em>pipeline (the same head table)
+  nu reports BuiltinCommandInPipeline at the element’s first item (the shorthand’s when there is
+  one) and reads the statement as a call (parse</em>call); so does the parser, the error recorded as
+  recovered, unless the element has an assignment operator (nu’s assignment test comes first)
+  or the head is const/mut, which stay errors. </p><p>An item is math-expression-like when it is one of:
   "true" | "false" | "null" | "not" | "if" | "match"
   | "r#" …
   | ( "(" | "{" | "[" | "$" | '"' | "'" | "-" ) …
@@ -6236,7 +6240,7 @@ svg.railroad-diagram g.diagram-text:hover path.diagram-text {
 <p>(6.1) </p>
   </article>
   <footer>
-    <p>Date: 2026-10-30T00:40 - <a href="?theme=dark" data-theme="dark">Dark</a> - <a href="?theme=light" data-theme="light">Light</a></p>
+    <p>Date: 2026-10-30T01:14 - <a href="?theme=dark" data-theme="dark">Dark</a> - <a href="?theme=light" data-theme="light">Light</a></p>
   </footer>
   </main>
   <script type="text/javascript">

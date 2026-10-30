@@ -11,7 +11,7 @@ use nu_protocol::{
     },
 };
 
-use super::{BlockOf, Lower, Lowered, Unlowered};
+use super::{BlockOf, Lower, Lowered, Unlowered, call::STATEMENTS_IN_PIPELINE};
 use crate::winnow::syntax::{Span as WSpan, ast as w, lex::AssignmentOperator};
 use crate::{
     parse_calls::CallKind, parse_captures_compile::compile_block,
@@ -335,18 +335,37 @@ impl<'s> Lower<'_, '_, 's> {
         }
         // `parse_expression` looks for `plugin use` and `overlay list` at the second of all its
         // items, the shorthand's included: after a shorthand, `plugin use` is an ordinary call
-        // and every `overlay` call an error.
+        // and every `overlay` call an error. A statement's error is at the shorthand.
+        let first_item = shorthand.vars.first().map(|var| var.span);
         let output = match &shorthand.expr.expr {
             w::Expr::Call(call) if call.sigil.is_none() && !self.alias_target => {
-                match call.head.name.split(' ').next() {
-                    Some("overlay") => return Err(Unlowered::Error),
-                    Some("plugin") => match self.working_set.find_decl(call.head.name.as_bytes()) {
-                        Some(decl_id) => {
-                            self.ordinary_call(&shorthand.expr, call, decl_id, input_type)?
-                        }
-                        None => self.expression(&shorthand.expr, input_type)?,
+                let first_word = call.head.name.split(' ').next().unwrap_or_default();
+                let statement = match first_word {
+                    "const" | "mut" => return Err(Unlowered::Error),
+                    "overlay" => Some("overlay"),
+                    word if STATEMENTS_IN_PIPELINE.contains(&word) => Some(word),
+                    _ => None,
+                };
+                let decl_id = self.working_set.find_decl(call.head.name.as_bytes());
+                match (statement, decl_id) {
+                    (Some(name), Some(decl_id)) => self.statement_in_pipeline(
+                        &shorthand.expr,
+                        call,
+                        decl_id,
+                        name,
+                        first_item,
+                        input_type,
+                    )?,
+                    (Some(_), None) => return Err(Unlowered::Error),
+                    _ => match first_word {
+                        "plugin" => match decl_id {
+                            Some(decl_id) => {
+                                self.ordinary_call(&shorthand.expr, call, decl_id, input_type)?
+                            }
+                            None => self.expression(&shorthand.expr, input_type)?,
+                        },
+                        _ => self.expression(&shorthand.expr, input_type)?,
                     },
-                    _ => self.expression(&shorthand.expr, input_type)?,
                 }
             }
             _ => self.expression(&shorthand.expr, input_type)?,

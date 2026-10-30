@@ -1541,6 +1541,67 @@ fn signature_error_is_lowered(#[case] code: &str, #[case] expected: &[(&str, &st
     Ok(())
 }
 
+/// A statement where nu reads a command (in a pipeline of several commands, after an
+/// environment shorthand) is nu's `BuiltinCommandInPipeline`, at the element's first item, and
+/// is read as a call: lowered, reported as there.
+#[rstest]
+#[case::first_of_a_pipeline("use std | length", &[("BuiltinCommandInPipeline", "use")])]
+#[case::after_a_shorthand("FOO=1 use std", &[("BuiltinCommandInPipeline", "FOO=1")])]
+#[case::two_word_head(
+    "ls | export def f [] {}",
+    &[("BuiltinCommandInPipeline", "export"), ("InputMismatch", "export def")]
+)]
+#[case::overlay(
+    "ls | overlay use spam",
+    &[("BuiltinCommandInPipeline", "overlay"), ("InputMismatch", "overlay use")]
+)]
+#[case::plugin_use("plugin use x | ls", &[("BuiltinCommandInPipeline", "plugin")])]
+#[case::overlay_list_after_a_shorthand(
+    "FOO=1 overlay list",
+    &[("BuiltinCommandInPipeline", "FOO=1")]
+)]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn statement_in_a_pipeline_is_lowered(
+    #[case] code: &str,
+    #[case] expected: &[(&str, &str)],
+) -> Result {
+    let expected: Vec<(String, String)> = expected
+        .iter()
+        .map(|(kind, text)| (kind.to_string(), text.to_string()))
+        .collect();
+    assert_eq!(
+        super::winnow_calls::lowered_errors(code),
+        expected,
+        "`{code}`"
+    );
+    Ok(())
+}
+
+/// A statement in a pipeline whose words name an alias of an external command is no call to
+/// a command but an external call: nu still reports the statement, so the winnow parser
+/// leaves it to the classic parser.
+#[test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn statement_through_an_external_alias_in_a_pipeline() -> Result {
+    let code = "alias \"source me\" = ^echo hi\n[1] | source me";
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    let errors: Vec<String> = working_set
+        .parse_errors
+        .iter()
+        .map(|error| format!("{error:?}"))
+        .collect();
+    assert!(
+        matches!(errors.as_slice(), [error] if error.starts_with("BuiltinCommandInPipeline")),
+        "`{code}`: {errors:?}"
+    );
+    Ok(())
+}
+
 /// A call for help in a module body, which the keyword's parse function gives back as the
 /// statement, is one of the body's statements (`parse_module_block` dispatches by the first
 /// word), lowered as at top level.

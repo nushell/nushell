@@ -90,13 +90,24 @@ pub fn parse_expression<'a>(
             "`NAME=value` sets an environment variable for the command that follows it",
         )));
     };
-    // After environment shorthand nu reads the head like any pipeline element.
-    if first.contents == TokenContents::Item
+    // After environment shorthand nu reads the head like any pipeline element; a statement
+    // there is its error, after which nu reads the statement as a call.
+    let statement = match first.contents == TokenContents::Item
         && (!env_assignments.is_empty() || position == Position::Element)
     {
-        check_builtin_command_in_pipeline(&tokens)?;
-    }
-    let expression = if tokens
+        true => check_builtin_command_in_pipeline(&tokens)?,
+        false => None,
+    };
+    let expression = if let Some(diagnostic) = statement {
+        let call = parse_call(tokens.rest_stream())?;
+        // The consumer reports the statement where it reads a call to a command; a call
+        // through an alias of an external command (`alias "source me" = ^echo`) stays an error.
+        if !matches!(call.expr, Expr::Call(_)) {
+            return Err(cut(diagnostic));
+        }
+        working_set.error(diagnostic.as_recovered());
+        call
+    } else if tokens
         .remaining()
         .iter()
         .any(|token| matches!(token.contents, TokenContents::AssignmentOperator(_)))
@@ -219,10 +230,15 @@ fn has_longer_name(tokens: Tokens<'_, '_>) -> bool {
 /// `overlay` unless the second item of the command is `list`, and `plugin`
 /// when the second item is `use`. `tokens` is positioned at the head; its items
 /// include any shorthand before it, as nu's `spans` do.
-fn check_builtin_command_in_pipeline(tokens: &Tokens<'_, '_>) -> ParseResult<()> {
+///
+/// nu reports a `BuiltinCommandInPipeline` and reads the statement as a call (`parse_call`):
+/// the error, for the caller to read that call and record it as recovered. nu reads an element
+/// with an assignment operator as an assignment first, and `AssignInPipeline` names items by
+/// their place, so those stay errors.
+fn check_builtin_command_in_pipeline(tokens: &Tokens<'_, '_>) -> ParseResult<Option<Diagnostic>> {
     let working_set = tokens.working_set;
     let Some(head) = tokens.peek_token() else {
-        return Ok(());
+        return Ok(None);
     };
     let text = working_set.get_span_contents(head.span);
     let second = tokens
@@ -237,12 +253,21 @@ fn check_builtin_command_in_pipeline(tokens: &Tokens<'_, '_>) -> ParseResult<()>
         "plugin" => second == Some("use"),
         _ => false,
     };
-    if statement {
-        return Err(cut(Diagnostic::new(ErrorKind::KeywordInPipeline(text.to_string()), head.span).with_help(
-            "declarations and the module, source, overlay and plugin commands are statements of their own",
-        )));
+    if !statement {
+        return Ok(None);
     }
-    Ok(())
+    let diagnostic = Diagnostic::new(ErrorKind::KeywordInPipeline(text.to_string()), head.span)
+        .with_help(
+            "declarations and the module, source, overlay and plugin commands are statements of their own",
+        );
+    let assignment = tokens
+        .remaining()
+        .iter()
+        .any(|token| matches!(token.contents, TokenContents::AssignmentOperator(_)));
+    if assignment || matches!(text, "const" | "mut") {
+        return Err(cut(diagnostic));
+    }
+    Ok(Some(diagnostic))
 }
 
 /// Whether `name` can be set by `NAME=value` shorthand: an ASCII letter or `_`,
