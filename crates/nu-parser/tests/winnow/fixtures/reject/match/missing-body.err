@@ -3,4 +3,3 @@ error: expected match arm body
   |
 1 | match 1 { 1 => }
   |                ^
-  = while parsing match

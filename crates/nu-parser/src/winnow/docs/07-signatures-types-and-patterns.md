@@ -222,6 +222,16 @@ arm = pattern { "|" pattern } [ "if" guard-items... ] "=>" body
   next arm, exactly as in nu (`match 1 { 1 => print hi }` is "expected
   `=>`").
 
+nu's `parse_match_block_expression` reports an error in the arms (a guard
+without an expression, a missing `=>` or result, the extra items of a body)
+and goes on with the arms it reads, and its value parser reports an argument
+that is no block (`match 1 [a]`, `match 1 foo`) with garbage. So
+`parse_match` records the error of either as recovered and keeps the item as
+a garbage `Match::value_block` (`garbage_match_block`), which the consumer
+reads again with nu's value parser for the `match-block` shape. An error in
+a block an arm's body holds (`1 => { ls | }`) is that block's statement's,
+not the arms'.
+
 `parse_pattern(working_set, span)` dispatches on the first character of a
 pattern item; `pattern` is the token parser that takes the next item and
 hands its span to `parse_pattern`. nu's `parse_pattern` reports a pattern's

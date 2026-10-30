@@ -8,12 +8,13 @@
 
 use winnow::Parser;
 use winnow::combinator::{alt, opt};
+use winnow::error::ErrMode;
 
 use crate::winnow::syntax::ast::{
-    Else, Expr, Expression, Handler, HandlerKind, If, Loop, Match, Return, Try, While,
+    Else, Expr, Expression, Handler, HandlerKind, If, Loop, Match, MatchArm, Return, Try, While,
 };
 use crate::winnow::syntax::error::Diagnostic;
-use crate::winnow::syntax::input::{ParseResult, cut};
+use crate::winnow::syntax::input::{ParseFailure, ParseResult, cut};
 use crate::winnow::syntax::lex::Token;
 
 use super::WorkingSet;
@@ -209,7 +210,13 @@ pub fn parse_match<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>
                         ExpectedShape::Any,
                     )?)),
                 ),
-                _ => (parse_match_block_expression(working_set, block.span)?, None),
+                _ => match parse_match_block_expression(working_set, block.span) {
+                    Ok(arms) => (arms, None),
+                    Err(ErrMode::Cut(ParseFailure::Error(diagnostic))) => {
+                        garbage_match_block(working_set, &block, *diagnostic)
+                    }
+                    Err(error) => return Err(error),
+                },
             },
         },
         Some(b'$' | b'(') => (
@@ -220,7 +227,11 @@ pub fn parse_match<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>
                 ExpectedShape::Any,
             )?)),
         ),
-        _ => return Err(cut(Diagnostic::expected("match block", block.span))),
+        _ => garbage_match_block(
+            working_set,
+            &block,
+            Diagnostic::expected("match block", block.span),
+        ),
     };
     call.end(&mut tokens)?;
     let match_expression = Match {
@@ -232,6 +243,21 @@ pub fn parse_match<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>
     };
     let span = call.keyword.span.merge(block.span);
     call.finish(Expression::new(Expr::Match(match_expression), span))
+}
+
+/// The arms of a `match` whose block nu's value parser reads past `diagnostic` in: an error in
+/// the arms (a guard without an expression, a missing `=>`, `parse_match_block_expression`
+/// goes on with the arms it reads) or an argument that is no block (`match 1 [a]`, garbage).
+/// The error is recorded as recovered and the block is a garbage value, which the consumer
+/// reads again with nu's value parser for the `match-block` shape.
+fn garbage_match_block<'a>(
+    working_set: &WorkingSet<'a>,
+    block: &Token,
+    diagnostic: Diagnostic,
+) -> (Vec<MatchArm<'a>>, Option<Box<Expression<'a>>>) {
+    working_set.error(diagnostic.as_recovered());
+    let garbage = Expression::new(Expr::Garbage, block.span);
+    (Vec::new(), Some(Box::new(garbage)))
 }
 
 /// `while condition... { block }`: the condition is every item before the

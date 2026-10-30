@@ -3,5 +3,4 @@ error: expected expression after `if` in match guard
   |
 1 | match 1 { $a if => 1 }
   |                ^
-  = while parsing match
   = help: the `if` keyword must be followed by an expression

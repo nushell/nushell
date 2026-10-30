@@ -1595,7 +1595,9 @@ Vocabulary: `<expression>` is a `<pipeline-element>` (3.1); `<block>` is a
 ; The second form is what nu makes of a `{|x| ..}`, `{a: 1}`, `$x` or `(..)` where
 ; the arms should be: the MatchBlock shape lets the brace probe (5.13) and the "$"/"("
 ; dispatch through, the value type-checks as Any, and the match fails at run time.
-; `match 1 [a]` and `match 1 foo` are errors.
+; `match 1 [a]` and `match 1 foo` are errors, and so is an error in the arms; nu goes on
+; past both, so the parser records the error as recovered and keeps the item as a garbage
+; value, which the consumer reads with nu's value parser for the `match-block` shape.
 <match-block>     ::= "{" { <arm-sep> } { <match-arm> { <arm-sep> } } "}"
 <arm-sep>         ::= <whitespace> | "," | <eol> | "|" | <comment>
 <match-arm>       ::= <pattern> { "|" <pattern> } [ "if" <math-expression> ] "=>" <arm-body>

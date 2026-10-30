@@ -2192,3 +2192,31 @@ fn variable_definition_name_is_the_call() {
         );
     }
 }
+
+/// An error in a match block's arms, or an argument that is no block, nu reports and goes on
+/// past: the error is recorded as recovered and the item is a garbage `value_block`, which the
+/// consumer reads with nu's value parser.
+#[test]
+fn match_block_error_is_a_garbage_value() {
+    for text in [
+        "match 1 { $a if => 1 }",
+        "match 1 { 1 => echo a b }",
+        "match 1 { 1 }",
+        "match 1 [a]",
+        "match 1 foo",
+    ] {
+        let (ast, diagnostics) = parse_lenient(text, &ParseConfig::default());
+        let m = kind!(expr(&ast), Expr::Match(m) => m);
+        assert!(m.arms.is_empty(), "{text}");
+        assert!(
+            m.value_block
+                .as_ref()
+                .is_some_and(|block| block.is_garbage()),
+            "{text}"
+        );
+        assert!(
+            diagnostics.len() == 1 && diagnostics[0].recovered,
+            "{text}: {diagnostics:?}"
+        );
+    }
+}

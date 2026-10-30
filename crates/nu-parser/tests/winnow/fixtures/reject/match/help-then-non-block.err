@@ -3,4 +3,3 @@ error: expected match block
   |
 1 | match 1 --help :{}
   |                ^^^
-  = while parsing match

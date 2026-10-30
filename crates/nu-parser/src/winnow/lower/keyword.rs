@@ -371,7 +371,7 @@ impl<'s> Lower<'_, '_, 's> {
         let value = self.value(&match_expr.value, &SyntaxShape::Any, None)?;
         call.add_positional(value);
         let block = if let Some(value_block) = &match_expr.value_block {
-            let block = self.value(value_block, &SyntaxShape::MatchBlock, arms_input)?;
+            let block = self.reported_value(value_block, &SyntaxShape::MatchBlock, arms_input)?;
             self.positional_value(block, &SyntaxShape::MatchBlock)
         } else {
             let mut arms = Vec::with_capacity(match_expr.arms.len());
