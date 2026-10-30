@@ -3,5 +3,4 @@ error: wrong import pattern structure
   |
 1 | hide foo null
   |          ^^^^
-  = while parsing command call
   = help: only strings and lists of strings can be imported

@@ -1643,7 +1643,11 @@
 ; WrongImportPattern; a `$var` member is SILENTLY IGNORED; anything after "*" or
 ; "[..]" is "... member can be only at the end of an import pattern"; a cell path
 ; on a list member (`[math].x`) is ignored
+; nu reports each of these errors and goes on with the import (a wrong member
+; dropped, the pattern ending before a misplaced one): recorded as recovered, every
+; member kept, the pattern read by the consumer with nu's parse_import_pattern
 ; After `use null` (a no-op) the members are parsed and then never looked at.
+; Flags are looked for up to the first "--"; every item after it is a member.
 ; nu: parse_signatures.rs:20 parse_import_pattern, 69, 115; parse_module.rs:1163
 ; here: src/winnow/syntax/parser/parse_module.rs::parse_import_pattern_member (an ignored member is
 ;       ImportPatternMemberKind::Ignored; dropped list items and cell paths are ignored

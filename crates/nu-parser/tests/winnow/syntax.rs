@@ -1994,3 +1994,17 @@ fn refused_alias_name_declares_nothing() {
         second.expr
     );
 }
+
+/// A wrong member of an import pattern (one after a `*` or a list, one that is no name or list),
+/// which nu reports and goes on past, is kept in the `use` with its error recorded as recovered:
+/// the consumer reads the whole pattern with nu's code.
+#[test]
+fn wrong_import_pattern_keeps_every_member() {
+    let (ast, diagnostics) = parse_lenient("use std * log 5", &ParseConfig::default());
+    let Expr::Use(use_statement) = &expr(&ast).expr else {
+        panic!("{:?}", expr(&ast).expr)
+    };
+    assert_eq!(use_statement.members.len(), 3);
+    assert_eq!(diagnostics.len(), 2, "{diagnostics:?}");
+    assert!(diagnostics.iter().all(|d| d.recovered), "{diagnostics:?}");
+}

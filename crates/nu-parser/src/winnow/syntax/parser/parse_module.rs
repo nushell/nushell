@@ -223,8 +223,12 @@ pub fn parse_use<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> 
     let working_set = tokens.working_set;
     let statement = tokens;
     let keyword = tokens.expect_item("use")?;
-    // Flags are looked for before every argument of `use`.
+    // Flags are looked for before every argument of `use`, up to the `--` that ends the
+    // options: every item after it is an argument (`use std -- --help` names a member).
     for token in tokens.remaining() {
+        if working_set.get_span_contents(token.span) == "--" {
+            break;
+        }
         if is_help_flag(working_set, token) {
             return parse_help_call(statement);
         }
@@ -270,19 +274,27 @@ pub fn parse_use<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> 
             end_of_options = Some(token.span);
             continue;
         }
-        if members
-            .last()
-            .is_some_and(|member: &ImportPatternMember<'_>| {
-                matches!(
-                    member.kind,
-                    ImportPatternMemberKind::Glob | ImportPatternMemberKind::List(_)
-                )
-            })
+        // nu reports a member after a `*` or a list, keeps the members before it and goes on
+        // with the import (`parse_import_pattern`), so the error is recorded as recovered and
+        // every member is kept for the consumer, which reads the pattern with nu's code. After
+        // `use null` nu looks at no member.
+        if !noop
+            && members
+                .last()
+                .is_some_and(|member: &ImportPatternMember<'_>| {
+                    matches!(
+                        member.kind,
+                        ImportPatternMemberKind::Glob | ImportPatternMemberKind::List(_)
+                    )
+                })
         {
-            return Err(cut(Diagnostic::message(
-                "a `*` or `[...]` member can only be at the end of an import pattern",
-                token.span,
-            )));
+            working_set.error(
+                Diagnostic::message(
+                    "a `*` or `[...]` member can only be at the end of an import pattern",
+                    token.span,
+                )
+                .as_recovered(),
+            );
         }
         members.push(parse_import_pattern_member(working_set, token, noop)?);
         end = token.span;
@@ -301,8 +313,10 @@ pub fn parse_use<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> 
 /// value: a string is a name (`*` the glob), a list gives its string items,
 /// a variable, subexpression or `key: value` record is parsed and ignored,
 /// and anything else is a "wrong import pattern" unless `noop` (after
-/// `use null`) makes every member irrelevant. A raw string is not a name
-/// (nu's `Expr::RawString`). `hide` classifies its members the same way.
+/// `use null`) makes every member irrelevant. nu reports a wrong member, drops
+/// it and goes on with the pattern, so the error is recorded as recovered and
+/// the member is ignored. A raw string is not a name (nu's `Expr::RawString`).
+/// `hide` classifies its members the same way.
 pub fn parse_import_pattern_member<'a>(
     working_set: &WorkingSet<'a>,
     token: &Token,
@@ -311,10 +325,12 @@ pub fn parse_import_pattern_member<'a>(
     let text = working_set.get_span_contents(token.span);
     let span = token.span;
     let wrong = |expr: &Expression<'_>| {
-        cut(
+        working_set.error(
             Diagnostic::message("wrong import pattern structure", expr.span)
-                .with_help("only strings and lists of strings can be imported"),
-        )
+                .with_help("only strings and lists of strings can be imported")
+                .as_recovered(),
+        );
+        ImportPatternMemberKind::Ignored
     };
     if text.starts_with('[') {
         return parse_import_pattern_list(working_set, token);
@@ -324,19 +340,22 @@ pub fn parse_import_pattern_member<'a>(
         ImportPatternMemberKind::Glob
     } else if text.starts_with(['$', '(', '{']) {
         match &value.expr {
-            Expr::Var(_) | Expr::FullCellPath(_) | Expr::Subexpression(_) => {}
-            Expr::Record(items) if matches!(items.first(), Some(RecordItem::Pair { .. })) => {}
-            _ if noop => {}
-            _ => return Err(wrong(&value)),
+            Expr::Var(_) | Expr::FullCellPath(_) | Expr::Subexpression(_) => {
+                ImportPatternMemberKind::Ignored
+            }
+            Expr::Record(items) if matches!(items.first(), Some(RecordItem::Pair { .. })) => {
+                ImportPatternMemberKind::Ignored
+            }
+            _ if noop => ImportPatternMemberKind::Ignored,
+            _ => wrong(&value),
         }
-        ImportPatternMemberKind::Ignored
     } else {
         match &value.expr {
             Expr::String(string) if !matches!(string.quote, Quote::Raw(_)) => {
                 ImportPatternMemberKind::Name(string.value.clone())
             }
             _ if noop => ImportPatternMemberKind::Ignored,
-            _ => return Err(wrong(&value)),
+            _ => wrong(&value),
         }
     };
     Ok(ImportPatternMember { span, kind, value })
@@ -372,12 +391,10 @@ fn parse_import_pattern_list<'a>(
                 expr: Expr::String(string),
             }) => names.push(Spanned::new(string.value.clone(), *span)),
             ListItem::Item(other) => working_set.add_ignored(other.span),
-            ListItem::Spread { dots, .. } => {
-                return Err(cut(Diagnostic::message(
-                    "cannot spread in an import pattern",
-                    *dots,
-                )));
-            }
+            // nu reports it and goes on with the list (`parse_import_pattern`).
+            ListItem::Spread { dots, .. } => working_set.error(
+                Diagnostic::message("cannot spread in an import pattern", *dots).as_recovered(),
+            ),
         }
     }
     Ok(ImportPatternMember {

@@ -2264,6 +2264,53 @@ fn refused_alias_name_declares_nothing() -> Result {
     Ok(())
 }
 
+/// A wrong import pattern, which nu reports and goes on with (a member that is no name or list,
+/// dropped; a member after a `*` or a list, which ends the pattern there; a spread in a list), is
+/// its error, with the import done as nu does it: lowered, reported as there.
+#[rstest]
+#[case::int_member("use m 5", "5")]
+#[case::null_member("use m null", "null")]
+#[case::raw_string_member("use m r#'a'#", "r#'a'#")]
+#[case::interpolation_member("use m $\"a\"", "$\"a\"")]
+#[case::after_a_glob("use m * a", "*")]
+#[case::after_a_list("use m [a] b", "[a]")]
+#[case::spread_in_a_list("let l = [a]; use m [...$l]", "$l")]
+#[case::after_end_of_options("use m -- -5", "-5")]
+#[case::hide_member("use m; hide m 5", "5")]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn wrong_import_pattern_is_lowered(#[case] code: &str, #[case] at: &str) -> Result {
+    let code = format!("module m {{ export def a [] {{}}; export def b [] {{}} }}; {code}");
+    assert_eq!(
+        super::winnow_calls::lowered_errors(&code),
+        [("WrongImportPattern".to_string(), at.to_string())],
+        "`{code}`"
+    );
+    Ok(())
+}
+
+/// The import goes on with the members nu keeps: `*` before a misplaced member imports every
+/// command, and a pattern whose only member is wrong imports the module itself.
+#[rstest]
+#[case::glob_then_member("use m * b\na")]
+#[case::wrong_member_only("use m 5\nm a")]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn wrong_import_pattern_imports_as_nu_does(#[case] code: &str) -> Result {
+    let code = format!("module m {{ export def a [] {{}}; export def b [] {{}} }}\n{code}");
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let block = nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    let call = block
+        .pipelines
+        .last()
+        .map(|pipeline| &pipeline.elements[0].expr.expr);
+    assert!(matches!(call, Some(Expr::Call(..))), "`{code}`: {call:?}");
+    Ok(())
+}
+
 /// A call for help in a module body, which the keyword's parse function gives back as the
 /// statement, is one of the body's statements (`parse_module_block` dispatches by the first
 /// word), lowered as at top level.

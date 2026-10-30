@@ -5583,7 +5583,11 @@ svg.railroad-diagram g.diagram-text:hover path.diagram-text {
   WrongImportPattern; a <code>$var</code> member is SILENTLY IGNORED; anything after "</em>" or
   "[..]" is "… member can be only at the end of an import pattern"; a cell path
   on a list member (<code>[math].x</code>) is ignored
+  nu reports each of these errors and goes on with the import (a wrong member
+  dropped, the pattern ending before a misplaced one): recorded as recovered, every
+  member kept, the pattern read by the consumer with nu’s parse<em>import</em>pattern
   After <code>use null</code> (a no-op) the members are parsed and then never looked at.
+  Flags are looked for up to the first "--"; every item after it is a member.
   nu: parse<em>signatures.rs:20 parse</em>import<em>pattern, 69, 115; parse</em>module.rs:1163
   here: src/winnow/syntax/parser/parse<em>module.rs::parse</em>import<em>pattern</em>member (an ignored member is
   ImportPatternMemberKind::Ignored; dropped list items and cell paths are ignored
@@ -6273,7 +6277,7 @@ svg.railroad-diagram g.diagram-text:hover path.diagram-text {
 <p>(6.1) </p>
   </article>
   <footer>
-    <p>Date: 2026-10-30T10:34 - <a href="?theme=dark" data-theme="dark">Dark</a> - <a href="?theme=light" data-theme="light">Light</a></p>
+    <p>Date: 2026-10-30T14:50 - <a href="?theme=dark" data-theme="dark">Dark</a> - <a href="?theme=light" data-theme="light">Light</a></p>
   </footer>
   </main>
   <script type="text/javascript">
