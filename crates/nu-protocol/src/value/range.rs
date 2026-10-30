@@ -59,24 +59,16 @@ mod int_range {
             let step = match (next, end) {
                 (Some(next), Some(end)) => {
                     if (next < start) != (end < start) {
-                        return Err(ShellError::CannotCreateRange { span });
-                    }
-
-                    next.checked_sub(start)
-                        .ok_or(ShellError::CannotCreateRange { span })?
-                }
-                (Some(next), None) => next
-                    .checked_sub(start)
-                    .ok_or(ShellError::CannotCreateRange { span })?,
-                (None, Some(end)) => {
-                    if end < start {
-                        -1
+                        None
                     } else {
-                        1
+                        next.checked_sub(start)
                     }
                 }
-                (None, None) => 1,
-            };
+                (Some(next), None) => next.checked_sub(start),
+                (None, Some(end)) => Some(if end < start { -1 } else { 1 }),
+                (None, None) => Some(1),
+            }
+            .ok_or(ShellError::CannotCreateRange { span })?;
 
             let end = if let Some(end) = end {
                 match inclusion {
@@ -951,52 +943,41 @@ mod parse {
             || matches!(components.step, Some(Number::Float(_)))
             || matches!(components.end, Some(Number::Float(_)));
 
-        let range = if use_float {
-            let start = match components.start {
-                Some(Number::Float(start)) => Some(start),
-                Some(Number::Int(start)) => Some(start as f64),
-                None => None,
-            };
-
-            let step = match components.step {
-                Some(Number::Float(step)) => Some(step),
-                Some(Number::Int(step)) => Some(step as f64),
-                None => None,
-            };
-
-            let end = match (components.end, components.exclusive) {
-                (Some(Number::Float(end)), false) => Bound::Included(end),
-                (Some(Number::Float(end)), true) => Bound::Excluded(end),
-                (Some(Number::Int(end)), false) => Bound::Included(end as f64),
-                (Some(Number::Int(end)), true) => Bound::Excluded(end as f64),
-                (None, _) => Bound::Unbounded,
-            };
-
-            Range::new_float(start, step, end)
-        } else {
-            let start = match components.start {
-                Some(Number::Float(_)) => unreachable!("will use float if this is float"),
-                Some(Number::Int(start)) => Some(start),
-                None => None,
-            };
-
-            let step = match components.step {
-                Some(Number::Float(_)) => unreachable!("will use float if this is float"),
-                Some(Number::Int(step)) => Some(step),
-                None => None,
-            };
-
-            let end = match (components.end, components.exclusive) {
-                (Some(Number::Float(_)), _) => unreachable!("will use float if this is float"),
-                (Some(Number::Int(end)), false) => Bound::Included(end),
-                (Some(Number::Int(end)), true) => Bound::Excluded(end),
-                (None, _) => Bound::Unbounded,
-            };
-
-            Range::new_int(start, step, end)
+        let span = Span::unknown();
+        let value = |number| match number {
+            Some(Number::Float(i)) => Value::float(i, span),
+            Some(Number::Int(i)) => Value::int(i, span),
+            None => Value::nothing(span),
         };
 
-        Ok(range)
+        let start = value(components.start);
+        let step = value(components.step);
+        let end = value(components.end);
+        let inclusion = if components.exclusive {
+            RangeInclusion::RightExclusive
+        } else {
+            RangeInclusion::Inclusive
+        };
+
+        if use_float {
+            match FloatRange::new(start, step, end, inclusion, span) {
+                Ok(i) => Ok(Range::FloatRange(i)),
+                Err(_) => fail
+                    .context(StrContext::Expected(StrContextValue::Description(
+                        "valid range",
+                    )))
+                    .parse_next(input),
+            }
+        } else {
+            match IntRange::new(start, step, end, inclusion, span) {
+                Ok(i) => Ok(Range::IntRange(i)),
+                Err(_) => fail
+                    .context(StrContext::Expected(StrContextValue::Description(
+                        "valid range",
+                    )))
+                    .parse_next(input),
+            }
+        }
     }
 }
 

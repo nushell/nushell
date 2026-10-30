@@ -56,15 +56,23 @@ fn serde_round_trip(#[case] range: Range) {
 }
 
 #[rstest]
-#[case("-9223372036854775808..0..")]
-#[case("-9223372036854775808..0..0")]
-#[case("-9223372036854775807..1..")]
-#[case("-9223372036854775807..1..0")]
-#[case("-1..9223372036854775807..")]
+#[case("-9223372036854775808..9223372036854775807..0")]
 #[case("-1..9223372036854775807..0")]
+#[case("-9223372036854775808..0..0")]
+#[case("-9223372036854775808..0..")]
 fn error_on_overflow(#[case] input: &str) -> Result {
     let mut tester = test();
     tester
         .run(input)
         .expect_error_code_eq("nu::shell::range_to_countable")
+}
+
+#[rstest]
+#[case("'!range -9223372036854775808..0..0' | from yaml")]
+#[case("'!range -9223372036854775808..0..' | from yaml")]
+fn error_on_overflow_parse(#[case] input: &str) -> Result {
+    let mut tester = test();
+    tester
+        .run(input)
+        .expect_error_code_eq("shell::yaml::parse::range")
 }
