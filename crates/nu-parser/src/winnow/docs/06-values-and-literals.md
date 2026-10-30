@@ -235,7 +235,11 @@ nushell's `cell_path.rs`: `?` sets `optional` and `!` sets
 `case_insensitive`, in either order, each at most once. After a member only
 a `.` or the end may follow; `expected_after_path_member` builds the message
 from the modifiers the member already has (`$x.a??` is "expected `.` or
-`!`"). A token left over after a head, as in `$x?`, is "expected `.`".
+`!`"). A token left over after a head, as in `$x?`, is "expected `.`". nu
+reports such a tail, and a member with `(` in it (`$x.a(b)`), and goes on
+with the cell path, so those errors are recorded as recovered: read with
+any shape the item is a garbage leaf (`recover_literal`), which the
+consumer reads again with nu's parser.
 
 A lone `$x` with no members is returned as a plain `Var`, not wrapped. With
 `implicit = true`, `parse_full_cell_path` produces the `$it` paths of row

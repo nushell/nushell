@@ -535,7 +535,12 @@ fn parse_statements<'a>(
                         true
                     }
                     Err(error) => {
-                        working_set.error(into_diagnostic(error));
+                        // An error the statement failed on was gone past by nothing, even one
+                        // marked recovered where it was made, which only the construct's own
+                        // parser goes past: the statement is to be parsed again.
+                        let mut diagnostic = into_diagnostic(error);
+                        diagnostic.recovered = false;
+                        working_set.error(diagnostic);
                         let end = match lite_end {
                             // The lite parse found where the statement ends, as nu's does
                             // (past the comments on its lines, its commands'), and the next

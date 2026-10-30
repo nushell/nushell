@@ -1964,6 +1964,55 @@ fn closure_params_in_a_block_are_lowered(#[case] code: &str, #[case] braces: &st
     Ok(())
 }
 
+/// A cell path with a bad tail (a member followed by what may not follow it, a member with `(`
+/// in it) is nu's error, after which nu's cell-path parser goes on: lowered, reported as there.
+#[rstest]
+#[case::second_question_mark("$env.a??", "?")]
+#[case::equals_after("$env.a?=", "=")]
+#[case::parenthesis_in_a_member("$env.a(b)", "a(b)")]
+#[case::after_a_subexpression("(0)..\"a\"", "\"a\"")]
+#[case::record_value("{a: $env.a!!}", "!")]
+#[case::closure_body("[1] | each {|r| $r.a?? }", "?")]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn cell_path_with_a_bad_tail_is_lowered(#[case] code: &str, #[case] at: &str) -> Result {
+    assert_eq!(
+        super::winnow_calls::lowered_errors(code),
+        [("Expected".to_string(), at.to_string())],
+        "`{code}`"
+    );
+    Ok(())
+}
+
+/// A cell path with a bad tail where nothing goes on past it (an operand of a row condition)
+/// fails its statement, which the classic parser parses: nu's error alone.
+#[test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn bad_cell_path_tail_in_a_row_condition() -> Result {
+    let code = "[1] | where 'a'..'b'";
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    let errors: Vec<(String, String)> = working_set
+        .parse_errors
+        .iter()
+        .map(|error| {
+            let debug = format!("{error:?}");
+            let kind = debug.split(['(', ' ', '{']).next().unwrap_or_default();
+            let text = working_set.get_span_contents(error.span());
+            (kind.to_owned(), String::from_utf8_lossy(text).into_owned())
+        })
+        .collect();
+    assert_eq!(
+        errors,
+        [("Expected".to_string(), "'b'".to_string())],
+        "`{code}`"
+    );
+    Ok(())
+}
+
 /// A call for help in a module body, which the keyword's parse function gives back as the
 /// statement, is one of the body's statements (`parse_module_block` dispatches by the first
 /// word), lowered as at top level.

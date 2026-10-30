@@ -49,6 +49,12 @@ impl<'s> Lower<'_, '_, 's> {
         }
         match self.text(e.span).as_bytes() {
             [] => Err(Unlowered::Error),
+            // A cell path the winnow parser went on past an error in (`$x.a??`): nu's parser
+            // reads it again, reporting its errors with what it recovers.
+            [b'$' | b'(', ..] if matches!(e.expr, w::Expr::Garbage) => {
+                let span = self.span(e.span);
+                Ok(classic_value(self.working_set, span, shape, input_type))
+            }
             [b'$', ..] => self.dollar(e, shape, input_type),
             [b'(', ..] => self.paren(e, shape),
             [b'{', ..] => self.brace(e, shape, input_type),

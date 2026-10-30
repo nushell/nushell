@@ -793,9 +793,10 @@ fn recover_as_garbage<T>(
 }
 
 /// A value read with any shape whose literal its leaf parser refused (`0b2`, `2023-02-30`,
-/// `"\q"`, `8EiB`, `0x[zz]`): a garbage leaf over the item, its error recorded as recovered.
-/// nu's leaf parser refuses the same item and reports it with garbage of its own, which the
-/// consumer gets by reading the item again with it. Any other failure stays the statement's.
+/// `"\q"`, `8EiB`, `0x[zz]`), or with an error its parser marked recovered (a cell path's
+/// member, `$x.a??`): a garbage leaf over the item, its error recorded as recovered. nu's
+/// parser refuses the same item and reports it with garbage of its own, which the consumer
+/// gets by reading the item again with it. Any other failure stays the statement's.
 fn recover_literal<'a>(
     working_set: &WorkingSet<'a>,
     span: Span,
@@ -803,7 +804,8 @@ fn recover_literal<'a>(
 ) -> ParseResult<Expression<'a>> {
     match result {
         Err(ErrMode::Cut(ParseFailure::Error(diagnostic)))
-            if matches!(diagnostic.kind, ErrorKind::InvalidLiteral { .. }) =>
+            if diagnostic.recovered
+                || matches!(diagnostic.kind, ErrorKind::InvalidLiteral { .. }) =>
         {
             working_set.error(diagnostic.as_recovered());
             Ok(Expression::new(Expr::Garbage, span))

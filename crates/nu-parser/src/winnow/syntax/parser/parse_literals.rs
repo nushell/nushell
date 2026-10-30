@@ -1174,17 +1174,20 @@ fn parse_path_member_kind<'a>(
         Some(index) => Ok(PathMemberKind::Int(index as usize)),
         // nu parses the member as a string, and a bare word with a `(` in it
         // is an interpolation, not a string: `$x.a(b)` fails.
-        None if is_bare_string_interpolation(text) => Err(cut(Diagnostic::expected(
-            "string", span,
-        )
-        .with_help("a cell-path member with `(` in it must be quoted"))),
+        None if is_bare_string_interpolation(text) => {
+            Err(cut(Diagnostic::expected("string", span)
+                .with_help("a cell-path member with `(` in it must be quoted")
+                .as_recovered()))
+        }
         None => Ok(PathMemberKind::String(
             parse_string_literal(working_set, span)?.value,
         )),
     }
 }
 
-/// What may follow a member, given the modifiers it already has.
+/// What may follow a member, given the modifiers it already has. nu reports it and goes on
+/// with the cell path, so the error is recorded as recovered: the value is a garbage leaf
+/// ([`super::parse_expressions::parse_value`]), which the consumer reads again with nu.
 fn expected_after_path_member(member: &PathMember<'_>, span: Span) -> ErrMode<ParseFailure> {
     let what = match (member.optional, member.case_insensitive) {
         (false, false) => "`.`, `?` or `!`",
@@ -1192,7 +1195,7 @@ fn expected_after_path_member(member: &PathMember<'_>, span: Span) -> ErrMode<Pa
         (false, true) => "`.` or `?`",
         (true, true) => "`.`",
     };
-    cut(Diagnostic::expected(what, span))
+    cut(Diagnostic::expected(what, span).as_recovered())
 }
 
 /// The items of `span` lexed as a cell path, with `.`, `?` and `!` split off:

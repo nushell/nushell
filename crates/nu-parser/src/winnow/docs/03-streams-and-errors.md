@@ -297,7 +297,12 @@ Recovery happens in exactly one place: `parse_statements` in
 `src/winnow/syntax/parser/parse_pipelines.rs`, the statement loop that `parse_block` and
 `BlockStatements::parse` run. When a pipeline fails to parse it records
 the diagnostic and emits a pipeline whose single element is `Expr::Garbage`
-covering the statement, then goes on after it. Where the statement ends:
+covering the statement, then goes on after it. The diagnostic is recorded
+as not recovered, even one marked recovered where it was made: such an error
+is gone past only by its construct's own parser (a record, a math
+expression, a value read with any shape), and one that reached the statement
+loop was gone past by nothing, so the statement is nu's to parse again.
+Where the statement ends:
 
 * where `parse_pipeline`'s lite parse ended it, when the error came after
   that (in a command), as nu's lite parser ends it: past a `|` that goes on
