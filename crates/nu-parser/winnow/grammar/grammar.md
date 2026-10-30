@@ -1047,7 +1047,10 @@ signature driven (`; nu: parse_literals.rs:1246 parse_path_like`; `; here: consu
 ; are all plain strings (not raw), which is a type error: `if true { $env.A:b }` and
 ; `try {a: 1}.a` parse, `if true {a: 1}` does not (an error recorded as recovered:
 ; the record stays the value, and the consumer reports nu's type mismatch with garbage
-; over the argument, `catch {a: 1}` as a whole for a handler)
+; over the argument, `catch {a: 1}` as a whole for a handler). Closure parameters where
+; a keyword wants its block (`if $c { |x| $x }`) are nu's Mismatch with garbage in the
+; block's place: the error is recorded as recovered and the value is garbage, which the
+; consumer reads with nu's block parser.
 ; nu: parse_expressions.rs:411 parse_block_expression; parse_literals.rs:547
 ;     parse_brace_expr; parse_expressions.rs:1943 parse_record (its type)
 ; here: src/winnow/syntax/parser/parse_expressions.rs::parse_block_body, parse_block_expression,

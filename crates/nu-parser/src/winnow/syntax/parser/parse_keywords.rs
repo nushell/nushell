@@ -11,7 +11,7 @@
 //! call's, but for `hide`'s import pattern and the `as` of `overlay use`
 //! ([`super::parse_calls::check_call`]).
 
-use crate::winnow::syntax::ast::{Block, Expression};
+use crate::winnow::syntax::ast::{Block, Expr, Expression};
 use crate::winnow::syntax::error::Diagnostic;
 use crate::winnow::syntax::input::{ParseResult, cut};
 use crate::winnow::syntax::lex::{Token, TokenContents};
@@ -20,7 +20,8 @@ use crate::winnow::syntax::span::Span;
 use super::WorkingSet;
 use super::parse_calls::parse_call;
 use super::parse_expressions::{
-    ExpectedShape, is_typed_record, parse_block_body, parse_brace_record, parse_value,
+    BraceShape, ExpectedShape, brace_shape, is_typed_record, parse_block_body, parse_brace_record,
+    parse_value,
 };
 use super::parse_helpers::{is_help_flag, is_help_text};
 use super::tokens::Tokens;
@@ -411,16 +412,32 @@ pub fn parse_block_or_value_argument<'a>(
             ))
         }
         Some(b'{') if token.contents == TokenContents::Item => {
-            match parse_brace_value(working_set, token.span, what)? {
-                Some(value) => Ok((
-                    Block {
-                        span: token.span,
-                        pipelines: Vec::new(),
-                    },
-                    Some(Box::new(value)),
-                )),
-                None => Ok((parse_block_argument(working_set, token, what)?, None)),
-            }
+            let value = match parse_brace_value(working_set, token.span, what)? {
+                Some(value) => value,
+                // Closure parameters where a block goes (`if $c { |x| $x }`): nu reports them
+                // and keeps garbage in the block's place (`parse_block_expression`), and so
+                // does the consumer: the error is recorded as recovered.
+                None if matches!(
+                    brace_shape(working_set, token.span),
+                    Ok(BraceShape::ClosureParams)
+                ) =>
+                {
+                    working_set.error(
+                        Diagnostic::expected("block", token.span)
+                            .with_help("found closure parameters; blocks cannot have parameters")
+                            .as_recovered(),
+                    );
+                    Expression::new(Expr::Garbage, token.span)
+                }
+                None => return Ok((parse_block_argument(working_set, token, what)?, None)),
+            };
+            Ok((
+                Block {
+                    span: token.span,
+                    pipelines: Vec::new(),
+                },
+                Some(Box::new(value)),
+            ))
         }
         _ => Ok((parse_block_argument(working_set, token, what)?, None)),
     }

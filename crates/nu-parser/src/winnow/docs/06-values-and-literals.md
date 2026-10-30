@@ -338,6 +338,10 @@ Three functions parse the body:
   `loop`, `export-env`, `module`, the `else` branch): it refuses
   `ClosureParams` ("blocks cannot have parameters") and `Record` ("expected
   block, found a record"), which is nu's type mismatch for `if true {a: 1}`.
+  Where `parse_block_or_value_argument` reads a keyword's block (`if`, `for`,
+  `while`, `loop`, `try`), nu goes on past closure parameters with garbage in
+  the block's place, so the error is recorded as recovered and the value is a
+  garbage leaf, which the consumer reads with nu's block parser.
 * `parse_block_body_unchecked` parses a block without looking at its shape.
   It is the body of a `def`: nu parses that as a closure before it knows what
   it wants, so `def f [] {a: 1}` is a call to `a:` and `def f [] {|x| }`

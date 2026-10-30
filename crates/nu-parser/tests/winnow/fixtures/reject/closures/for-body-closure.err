@@ -3,5 +3,4 @@ error: expected block
   |
 1 | for x in [1] { |y| $y }
   |              ^^^^^^^^^^
-  = while parsing for
   = help: found closure parameters; blocks cannot have parameters

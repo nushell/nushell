@@ -3,5 +3,4 @@ error: expected block
   |
 1 | if true { |x| $x }
   |         ^^^^^^^^^^
-  = while parsing if
   = help: found closure parameters; blocks cannot have parameters

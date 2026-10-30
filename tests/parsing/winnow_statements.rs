@@ -1944,6 +1944,26 @@ fn row_condition_with_a_bad_operator_reads_the_row() -> Result {
     Ok(())
 }
 
+/// Closure parameters where a keyword wants a block are nu's Mismatch, with garbage in the
+/// block's place: lowered, reported as there.
+#[rstest]
+#[case::if_block("if true { |x| $x }", "{ |x| $x }")]
+#[case::while_block("while false { |y| $y }", "{ |y| $y }")]
+#[case::for_block("for x in [1] { |y| $y }", "{ |y| $y }")]
+#[case::loop_block("loop { |x| break }", "{ |x| break }")]
+#[case::try_block("try { |x| 1 }", "{ |x| 1 }")]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn closure_params_in_a_block_are_lowered(#[case] code: &str, #[case] braces: &str) -> Result {
+    assert_eq!(
+        super::winnow_calls::lowered_errors(code),
+        [("Mismatch".to_string(), braces.to_string())],
+        "`{code}`"
+    );
+    Ok(())
+}
+
 /// A call for help in a module body, which the keyword's parse function gives back as the
 /// statement, is one of the body's statements (`parse_module_block` dispatches by the first
 /// word), lowered as at top level.
