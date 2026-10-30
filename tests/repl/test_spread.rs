@@ -87,7 +87,7 @@ fn spread_in_record() -> Result {
 /// `second` and `first` are the source text the "field redefined here" and "field first defined
 /// here" labels should cover, `help` whether the spread help should be shown.
 #[rstest]
-#[case::spread_after_pair("{a: 1, ...{a: 3}}", "...{a: 3}", "1", true)]
+#[case::spread_after_pair("{a: 1, ...{a: 3}}", "...{a: 3}", "a: 1", true)]
 #[case::pair_after_spread("{...{a: 4, x: 3}, x: 1}", "x: 1", "...{a: 4, x: 3}", true)]
 #[case::spread_after_spread("{...{a: 0, x: 2}, ...{x: 5}}", "...{x: 5}", "...{a: 0, x: 2}", true)]
 #[case::variable_spread("let a = {s: 1}; {...$a, s: 3}", "s: 3", "...$a", true)]
@@ -106,7 +106,21 @@ fn spread_in_record() -> Result {
     "...$args",
     true
 )]
-#[case::dynamic_key("let k = 'a'; {$k: 1, $k: 2}", "$k: 2", "1", false)]
+#[case::spread_after_pair_with_value_from_elsewhere(
+    "def g [] { {b: 9} }; let r = {a: 3}; {a: (g).b, ...$r}",
+    "...$r",
+    "a: (g).b",
+    true
+)]
+#[case::spread_between_pairs("{x: 1, ...{a: 2}, y: 3, a: 4}", "a: 4", "...{a: 2}", true)]
+#[case::empty_spread_before_pair("{...{}, a: 1, ...{a: 2}}", "...{a: 2}", "a: 1", true)]
+#[case::pair_after_unrelated_spread(
+    "let k = 'x'; {...{a: 1}, $k: 2, $k: 3}",
+    "$k: 3",
+    "$k: 2",
+    false
+)]
+#[case::dynamic_key("let k = 'a'; {$k: 1, $k: 2}", "$k: 2", "$k: 1", false)]
 #[case::table_header("let k = 'a'; [[$k $k]; [1 2]]", "2", "1", false)]
 fn duplicate_cols(
     #[case] code: &str,
