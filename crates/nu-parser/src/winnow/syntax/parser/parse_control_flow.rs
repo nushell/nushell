@@ -12,7 +12,7 @@ use winnow::combinator::{alt, opt};
 use crate::winnow::syntax::ast::{
     Else, Expr, Expression, Handler, HandlerKind, If, Loop, Match, Return, Try, While,
 };
-use crate::winnow::syntax::error::{Diagnostic, ErrorKind};
+use crate::winnow::syntax::error::Diagnostic;
 use crate::winnow::syntax::input::{ParseResult, cut};
 use crate::winnow::syntax::lex::Token;
 
@@ -328,18 +328,17 @@ pub fn parse_try<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> 
         if tokens.at_end() {
             break;
         }
+        // After two handlers nu's call has no positional left: a third is an extra positional
+        // (ExtraPositional, the consumer's), and the statement nu's call.
+        if handlers.len() == 2 {
+            call.end(&mut tokens)?;
+            break;
+        }
         let handler_keyword = expected(
             "`catch` or `finally`",
             alt((keyword("catch"), keyword("finally"))),
         )
         .parse_next(&mut tokens)?;
-        if handlers.len() == 2 {
-            return Err(cut(Diagnostic::new(
-                ErrorKind::ExtraTokens,
-                handler_keyword.span,
-            )
-            .with_help("`try` takes at most two handlers (`catch` and `finally`)")));
-        }
         let kind = match tokens.text(&handler_keyword) {
             "catch" => HandlerKind::Catch,
             _ => HandlerKind::Finally,

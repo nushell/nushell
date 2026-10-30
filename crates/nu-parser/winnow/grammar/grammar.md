@@ -1186,7 +1186,7 @@ Vocabulary: `<expression>` is a `<pipeline-element>` (3.1); `<block>` is a
 ; alias help call must be the whole statement: `alias --help x = ls` and `alias x
 ; --help extra` are "missing sign" (which nu reports with garbage over the item: the
 ; parser records it as recovered and reads the statement as the call, as the consumer
-; checks it). `export --help x` has an extra positional.
+; checks it). `export --help x` has an extra positional (semantic: nu's call).
 ; nu: parse_calls.rs:1067-1213 (parse_long_flag, parse_short_flags per positional,
 ;     `end_of_options`), 30 check_call; parse_alias.rs:20 check_alias_name;
 ;     parse_type_alias.rs (help call errors dropped); parse_module.rs parse_export_env
@@ -1611,7 +1611,8 @@ Vocabulary: `<expression>` is a `<pipeline-element>` (3.1); `<block>` is a
 <handler>         ::= ( "catch" | "finally" ) <closure-value>
 <closure-value>   ::= <closure> | <variable> | "(" <block-tokens> ")"   ; must be a closure (type)
 ; both optional slots accept either keyword: `finally {} catch {}` and even
-; `catch {} catch {}` parse; a third handler is ExtraPositional; a bare word or a
+; `catch {} catch {}` parse; a third handler is ExtraPositional (semantic: the statement
+; is nu's call); a bare word or a
 ; record whose keys are all plain strings is an error (5.13 <block>)
 ; nu: nu-cmd-lang try_.rs (OneOf(Keyword catch, Keyword finally) twice)
 ; here: src/winnow/syntax/parser/parse_control_flow.rs::parse_try, parse_try_handler (the closure type

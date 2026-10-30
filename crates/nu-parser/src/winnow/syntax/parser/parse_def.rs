@@ -665,6 +665,11 @@ pub fn parse_def<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> 
     let Some(name) = call.positional(&mut tokens, "command name")? else {
         return call.help_call();
     };
+    // nu's call reads a lone `-` as no item, so the next is the name (`def - [] {}`, whose name
+    // `[]` is "no space between name and parameters"): the statement is that call.
+    if tokens.text(&name) == "-" {
+        return call.help_call();
+    }
     reject_name_item(working_set, &name)?;
     let name = match parse_def_name(working_set, &name) {
         Ok(parsed) => parsed,
@@ -905,6 +910,11 @@ pub fn parse_extern<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a
     let Some(name) = call.positional(&mut tokens, "command name")? else {
         return call.help_call();
     };
+    // nu's call reads a lone `-` as no item, so the next is the name (`def - [] {}`, whose name
+    // `[]` is "no space between name and parameters"): the statement is that call.
+    if tokens.text(&name) == "-" {
+        return call.help_call();
+    }
     reject_name_item(working_set, &name)?;
     let name = match parse_def_name(working_set, &name) {
         Ok(parsed) => parsed,

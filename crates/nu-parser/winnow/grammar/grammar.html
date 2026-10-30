@@ -3898,7 +3898,7 @@ svg.railroad-diagram g.diagram-text:hover path.diagram-text {
   alias help call must be the whole statement: <code>alias --help x = ls</code> and <code>alias x
   --help extra</code> are "missing sign" (which nu reports with garbage over the item: the
   parser records it as recovered and reads the statement as the call, as the consumer
-  checks it). <code>export --help x</code> has an extra positional.
+  checks it). <code>export --help x</code> has an extra positional (semantic: nu’s call).
   nu: parse<em>calls.rs:1067-1213 (parse</em>long<em>flag, parse</em>short<em>flags per positional,
   <code>end_of_options</code>), 30 check</em>call; parse<em>alias.rs:20 check</em>alias<em>name;
   parse</em>type<em>alias.rs (help call errors dropped); parse</em>module.rs parse<em>export</em>env
@@ -4943,7 +4943,8 @@ svg.railroad-diagram g.diagram-text:hover path.diagram-text {
 </ul>
 </section>
 <p>must be a closure (type) </p><p>both optional slots accept either keyword: <code>finally {} catch {}</code> and even
-  <code>catch {} catch {}</code> parse; a third handler is ExtraPositional; a bare word or a
+  <code>catch {} catch {}</code> parse; a third handler is ExtraPositional (semantic: the statement
+  is nu’s call); a bare word or a
   record whose keys are all plain strings is an error (5.13 <block>)
   nu: nu-cmd-lang try<em>.rs (OneOf(Keyword catch, Keyword finally) twice)
   here: src/winnow/syntax/parser/parse</em>control<em>flow.rs::parse</em>try, parse<em>try</em>handler (the closure type
@@ -6295,7 +6296,7 @@ svg.railroad-diagram g.diagram-text:hover path.diagram-text {
 <p>(6.1) </p>
   </article>
   <footer>
-    <p>Date: 2026-10-30T19:43 - <a href="?theme=dark" data-theme="dark">Dark</a> - <a href="?theme=light" data-theme="light">Light</a></p>
+    <p>Date: 2026-10-30T20:58 - <a href="?theme=dark" data-theme="dark">Dark</a> - <a href="?theme=light" data-theme="light">Light</a></p>
   </footer>
   </main>
   <script type="text/javascript">

@@ -2534,6 +2534,37 @@ fn unknown_type_is_lowered(#[case] code: &str, #[case] expected: &[(&str, &str)]
     Ok(())
 }
 
+/// Statements nu reads as its call to the keyword, whose errors are semantic: a lone `-` where a
+/// def or extern takes its name, which the call reads as no item (`def - [] {}`: the name `[]`,
+/// "no space between name and parameters"), a third `try` handler and an item after `export
+/// --help` (ExtraPositional). Lowered, reported as there.
+#[rstest]
+#[case::def_lone_dash("def - [] {}", &[("LabeledErrorWithHelp", "")])]
+#[case::extern_lone_dash("extern - []", &[("LabeledErrorWithHelp", "")])]
+#[case::third_try_handler(
+    "try {1} catch {2} catch {3} finally {4}",
+    &[("ExtraPositional", "finally"), ("ExtraPositional", "{4}")]
+)]
+#[case::export_help_with_an_item("export --help x", &[("ExtraPositional", "x")])]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn call_with_an_extra_item_is_lowered(
+    #[case] code: &str,
+    #[case] expected: &[(&str, &str)],
+) -> Result {
+    let expected: Vec<(String, String)> = expected
+        .iter()
+        .map(|(kind, at)| (kind.to_string(), at.to_string()))
+        .collect();
+    assert_eq!(
+        super::winnow_calls::lowered_errors(code),
+        expected,
+        "`{code}`"
+    );
+    Ok(())
+}
+
 /// A call for help in a module body, which the keyword's parse function gives back as the
 /// statement, is one of the body's statements (`parse_module_block` dispatches by the first
 /// word), lowered as at top level.

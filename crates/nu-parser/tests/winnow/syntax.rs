@@ -1442,9 +1442,13 @@ fn try_forms() {
     );
     let ast = ok("try { 1 } finally { 2 } catch { 3 }");
     assert_eq!(kind!(expr(&ast), Expr::Try(t) => t).handlers.len(), 2);
-    // Two handlers of the same kind are accepted, as in Nushell; a third is not.
+    // Two handlers of the same kind are accepted, as in Nushell; a third is an extra positional
+    // of nu's call (ExtraPositional, the consumer's), which the statement is.
     ok("try { 1 } catch { 2 } catch { 3 }");
-    assert!(parse("try { 1 } catch { 2 } catch { 3 } finally { 4 }").is_err());
+    kind!(
+        expr(&ok("try { 1 } catch { 2 } catch { 3 } finally { 4 }")),
+        Expr::Call(_)
+    );
     assert!(parse("try { 1 } foo { 2 }").is_err());
 }
 

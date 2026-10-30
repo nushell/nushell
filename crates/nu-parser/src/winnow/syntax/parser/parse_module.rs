@@ -409,18 +409,9 @@ pub fn parse_export_in_block<'a>(tokens: Tokens<'_, 'a>) -> ParseResult<Expressi
     };
     match working_set.get_span_contents(next.span) {
         "def" | "extern" | "alias" | "type" | "use" | "module" | "const" => {}
-        text if is_help_text(text) => {
-            // `export` has no positionals and no flag but help, so `export --help
-            // -h` shows help and `export --help x` is one positional too many.
-            if let Some(extra) = items[2..]
-                .iter()
-                .find(|token| !is_help_flag(working_set, token))
-            {
-                return Err(cut(Diagnostic::new(ErrorKind::ExtraTokens, extra.span)
-                    .with_help("`export` takes no positional arguments")));
-            }
-            return parse_help_call(tokens);
-        }
+        // `export` has no positionals and no flag but help: nu's call shows help, reporting an
+        // item after it (`export --help x`, ExtraPositional, the consumer's).
+        text if is_help_text(text) => return parse_help_call(tokens),
         other => {
             return Err(cut(Diagnostic::message(
                 format!("`export {other}` is not a valid export"),
