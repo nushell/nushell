@@ -68,7 +68,13 @@ mod int_range {
 
                     result
                 }
-                (Some(next), None) => next - start,
+                (Some(next), None) => {
+                    let Some(result) = next.checked_sub(start) else {
+                        return Err(ShellError::CannotCreateRange { span });
+                    };
+
+                    result
+                }
                 (None, Some(end)) => {
                     if end < start {
                         -1
