@@ -409,10 +409,23 @@ fn is_structured_type(ty: &Type) -> bool {
 /// Custom values are assignable to list/table/record so `get` / `into record` type-check.
 /// That special case must not steal the output type of a real custom IO pair
 /// (`semver | into string` is a string, not `oneof<list, table, record>`).
+///
+/// A union input is checked one member at a time. The pair is a fallback only when every member
+/// that is assignable to `declared` gets there through that special case. Comparing the whole
+/// union drops real pairs, such as the `list<any>` pair of `update` for
+/// `oneof<list<int>, matrix>` input. Callers check that `input` is assignable to `declared`
+/// first, so at least one member is.
 fn is_custom_structured_fallback(input: &Type, declared: &Type) -> bool {
-    type_involves_custom(input)
-        && is_structured_type(declared)
-        && input.compare_types(declared).is_none()
+    if !type_involves_custom(input) || !is_structured_type(declared) {
+        return false;
+    }
+    match input {
+        Type::OneOf(types) => types
+            .iter()
+            .filter(|ty| ty.is_assignable_to(declared))
+            .all(|ty| is_custom_structured_fallback(ty, declared)),
+        _ => input.compare_types(declared).is_none(),
+    }
 }
 
 impl Signature {
