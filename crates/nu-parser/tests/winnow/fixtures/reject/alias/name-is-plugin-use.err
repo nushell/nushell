@@ -3,5 +3,4 @@ error: cannot use parser keyword `plugin use` as alias name
   |
 1 | alias 'plugin use' = ls
   |       ^^^^^^^^^^^^
-  = while parsing alias
   = help: choose a different name; this word is parsed specially by Nushell

@@ -1,9 +1,14 @@
 //! `alias` (nu-parser's `parse_alias.rs`).
 
+use std::borrow::Cow;
+
+use winnow::error::ErrMode;
+
 use crate::winnow::syntax::ast::{Alias, Call, Expr, Expression};
 use crate::winnow::syntax::error::Diagnostic;
-use crate::winnow::syntax::input::{ParseResult, cut};
+use crate::winnow::syntax::input::{ParseFailure, ParseResult, cut};
 use crate::winnow::syntax::lex::{AssignmentOperator, Token, TokenContents};
+use crate::winnow::syntax::span::Spanned;
 
 use super::WorkingSet;
 use super::parse_calls::parse_call_lenient;
@@ -170,22 +175,37 @@ pub fn parse_alias<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>
     }
     let name_token = tokens.expect_item("alias name")?;
     // A lone `-` is no flag for nu and so a name; `-x` and `--` are not, and
-    // neither is a variable, subexpression or block, which is no string.
+    // neither is a variable, subexpression or block, which is no string. nu
+    // reports a name it refuses (`alias_name`: no string, an unsupported or
+    // keyword name) and keeps the call to `alias` as garbage, which the consumer
+    // does too: the error is recorded as recovered and no alias is declared.
     let name_text = working_set.get_span_contents(name_token.span);
-    if (name_text.starts_with('-') && name_text.len() > 1) || name_text.starts_with(['$', '(', '{'])
-    {
-        return Err(cut(Diagnostic::message(
-            "alias name not supported",
-            name_token.span,
-        )
-        .with_help("a bare alias name cannot start with `-`; quote it")));
+    let not_a_name = Diagnostic::message("alias name not supported", name_token.span)
+        .with_help("a bare alias name cannot start with `-`; quote it");
+    if name_text.starts_with('-') && name_text.len() > 1 {
+        return Err(cut(not_a_name));
     }
-    let name = parse_definition_name(working_set, name_token.span)?;
+    let not_a_string = name_text.starts_with(['$', '(', '{']);
+    let name = match not_a_string {
+        true => {
+            working_set.error(not_a_name.as_recovered());
+            Spanned::new(Cow::Borrowed(name_text), name_token.span)
+        }
+        false => parse_definition_name(working_set, name_token.span)?,
+    };
     // `alias alias --help` is a help call before the name is checked.
     if let KeywordBoundary::Help = keyword_boundary_with(&mut tokens, "alias", &[], false)? {
         return parse_alias_as_call(statement);
     }
-    check_definition_name(&name, "alias")?;
+    let declares = !not_a_string
+        && match check_definition_name(&name, "alias") {
+            Ok(()) => true,
+            Err(ErrMode::Cut(ParseFailure::Error(diagnostic))) => {
+                working_set.error(diagnostic.as_recovered());
+                false
+            }
+            Err(error) => return Err(error),
+        };
     let equals = match tokens.next_token() {
         Some(token)
             if token.contents == TokenContents::AssignmentOperator(AssignmentOperator::Assign) =>
@@ -284,7 +304,9 @@ pub fn parse_alias<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>
         Expr::Call(call) => call_alias_kind(working_set, call),
         _ => DeclKind::Declared,
     };
-    working_set.add_alias(&name.item, kind);
+    if declares {
+        working_set.add_alias(&name.item, kind);
+    }
     let span = keyword.span.merge(value.span);
     Ok(Expression::new(
         Expr::Alias(Alias {

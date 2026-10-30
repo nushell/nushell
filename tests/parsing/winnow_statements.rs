@@ -2222,6 +2222,48 @@ fn misplaced_alias_item_is_lowered(#[case] code: &str, #[case] at: &str) -> Resu
     Ok(())
 }
 
+/// An alias name nu refuses (no string, an unsupported name, a parser keyword) is its error,
+/// with the call to `alias` garbage and no alias declared: lowered, reported as there.
+#[rstest]
+#[case::variable("alias $x = a", "AliasNotValid", "$x")]
+#[case::hash_in_the_name("alias \"x#y\" = ls", "AliasNotValid", "\"x#y\"")]
+#[case::parser_keyword("alias if = ls", "NameIsKeyword", "if")]
+#[case::subexpression("alias (x) = ls", "AliasNotValid", "(x)")]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn refused_alias_name_is_lowered(
+    #[case] code: &str,
+    #[case] kind: &str,
+    #[case] at: &str,
+) -> Result {
+    assert_eq!(
+        super::winnow_calls::lowered_errors(code),
+        [(kind.to_string(), at.to_string())],
+        "`{code}`"
+    );
+    Ok(())
+}
+
+/// No alias is declared for a name nu refuses: a later `x#y` is an external command.
+#[test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn refused_alias_name_declares_nothing() -> Result {
+    let code = "alias \"x#y\" = ls\nx#y";
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let block = nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    assert!(
+        matches!(
+            block.pipelines[1].elements[0].expr.expr,
+            Expr::ExternalCall(..)
+        ),
+        "`{code}`"
+    );
+    Ok(())
+}
+
 /// A call for help in a module body, which the keyword's parse function gives back as the
 /// statement, is one of the body's statements (`parse_module_block` dispatches by the first
 /// word), lowered as at top level.

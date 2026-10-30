@@ -1980,3 +1980,17 @@ fn type_alias_statements() {
     // `type --help` is a help call.
     kind!(expr(&ok("type --help")), Expr::Call(_));
 }
+
+/// An alias nu refuses the name of declares nothing: a later call of the name is an external
+/// command.
+#[test]
+fn refused_alias_name_declares_nothing() {
+    let config = ParseConfig::with_commands(["ls"]);
+    let (ast, _) = parse_lenient("alias \"x#y\" = ls\nx#y", &config);
+    let second = &ast.block.pipelines[1].elements[0].expr;
+    assert!(
+        matches!(second.expr, Expr::ExternalCall(_)),
+        "{:?}",
+        second.expr
+    );
+}

@@ -1292,7 +1292,8 @@ impl<'s> Lower<'_, '_, 's> {
         call.decl_id = decl_id;
         let _ = self.working_set.add_span(head);
         let name_span = self.span(alias.name.span);
-        let name = self.checked(|ws| parse_value(ws, name_span, &SyntaxShape::String, None))?;
+        // Its errors are the call's, dropped below.
+        let name = parse_value(self.working_set, name_span, &SyntaxShape::String, None);
         let target = alias.value.as_ref();
         // Read as an expression, a target starting with `NAME=value` sets an environment
         // variable for the rest (a call to `with-env`): the winnow parser read the target as a
