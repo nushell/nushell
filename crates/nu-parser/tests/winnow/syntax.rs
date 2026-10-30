@@ -2096,3 +2096,24 @@ fn binding_variable_errors_keep_the_binding() {
     }
     assert!(parse("let $x.y: int = 1").is_err());
 }
+
+/// An alias with fewer than three items after `alias` is nu's call to `alias`, the consumer
+/// reporting it as incomplete: it parses.
+#[test]
+fn incomplete_alias_is_the_call() {
+    let config = ParseConfig::default();
+    for src in [
+        "alias ll ls",
+        "alias ll =",
+        "alias ll -x",
+        "export alias h home",
+    ] {
+        let (ast, diagnostics) = parse_lenient(src, &config);
+        assert!(diagnostics.is_empty(), "{src}: {diagnostics:?}");
+        let call = ast.block.pipelines[0].elements[0].expr.expr.clone();
+        assert!(
+            matches!(call, Expr::Call(_) | Expr::Export(_)),
+            "{src}: {call:?}"
+        );
+    }
+}

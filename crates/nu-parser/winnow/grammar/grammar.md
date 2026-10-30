@@ -1421,7 +1421,9 @@ Vocabulary: `<expression>` is a `<pipeline-element>` (3.1); `<block>` is a
 
 ```ebnf
 <alias>           ::= "alias" <def-name> "=" <alias-target>
-; `alias x=y`, `alias x`, `alias x =`, `alias = x` are errors, after `export` too
+; with fewer than three items after `alias` (`alias x=y`, `alias x`, `alias x =`, after
+; `export` too) nu keeps the call, declaring nothing, and reports IncorrectValue
+; (semantic); `alias = x` is a misplaced item (AssignmentMismatch)
 <alias-target>    ::= <call> over ALL remaining items, pipes and redirections included,
                       as bare words (assignment mode)
 ; refused: a target whose first item is math-expression-like (`1 + 1`, `$x`, `(ls)`,

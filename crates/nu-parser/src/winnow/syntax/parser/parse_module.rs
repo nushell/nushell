@@ -90,17 +90,6 @@ pub fn parse_module<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a
                     )
                     .with_help("a module body can only declare things; put code in `export-env` or a `def`")));
                 }
-                // nu parses a module's `export alias` without the `export` and then
-                // exports the alias it defined, so a call for help (`export alias
-                // --help`), which defines none, fails there.
-                if let Expr::Export(export) = &first.expr
-                    && is_alias_help_call(&export.item)
-                {
-                    return Err(cut(Diagnostic::message("incomplete alias", first.span)
-                        .with_help(
-                            "an alias needs a name, `=` and a command: `export alias x = ls`",
-                        )));
-                }
             }
             Some(body)
         }
@@ -169,11 +158,6 @@ fn parse_module_call<'a>(statement: Tokens<'_, 'a>) -> ParseResult<Expression<'a
         call.span = span;
     }
     Ok(call)
-}
-
-/// An `alias` kept as a plain call: a call for help, which defines no alias.
-fn is_alias_help_call(expr: &Expression<'_>) -> bool {
-    matches!(&expr.expr, Expr::Call(call) if call.head.name == "alias")
 }
 
 /// The statements nu's `parse_module_block` parses in a module body, by their first word; any

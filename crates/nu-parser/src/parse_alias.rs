@@ -197,34 +197,7 @@ pub fn parse_alias(
             );
         }
 
-        // The items after `alias` (or `export alias`): a name, `=` and the target.
-        let args = &spans[split_id..];
-        if let [arg_span] = args
-            && working_set.get_span_contents(*arg_span).contains(&b'=')
-        {
-            let arg = String::from_utf8_lossy(working_set.get_span_contents(*arg_span));
-
-            let (name, initial_value) = arg.split_once('=').unwrap_or((&arg, ""));
-
-            let name = if name.is_empty() { "{name}" } else { name };
-            let initial_value = if initial_value.is_empty() {
-                "{initial_value}"
-            } else {
-                initial_value
-            };
-
-            working_set.error(ParseError::IncorrectValue(
-                "alias argument".into(),
-                *arg_span,
-                format!("Make sure to put spaces around '=': alias {name} = {initial_value}"),
-            ))
-        } else if args.len() < 3 {
-            working_set.error(ParseError::IncorrectValue(
-                "Incomplete alias".into(),
-                Span::concat(&spans[..split_id]),
-                "incomplete alias".into(),
-            ));
-        }
+        report_incomplete_alias(working_set, &spans[..split_id], &spans[split_id..]);
 
         return alias_pipeline;
     }
@@ -235,6 +208,42 @@ pub fn parse_alias(
     ));
 
     garbage_pipeline(working_set, spans)
+}
+
+/// What `parse_alias` reports for a call to `alias` that declares nothing, with `args` the items
+/// after the `command` words (`alias`, or `export alias`): one item with an `=` in it (`alias
+/// ll=ls`) or fewer than three items, an incomplete alias (IncorrectValue either way).
+pub(crate) fn report_incomplete_alias(
+    working_set: &mut StateWorkingSet,
+    command: &[Span],
+    args: &[Span],
+) {
+    if let [arg_span] = args
+        && working_set.get_span_contents(*arg_span).contains(&b'=')
+    {
+        let arg = String::from_utf8_lossy(working_set.get_span_contents(*arg_span));
+
+        let (name, initial_value) = arg.split_once('=').unwrap_or((&arg, ""));
+
+        let name = if name.is_empty() { "{name}" } else { name };
+        let initial_value = if initial_value.is_empty() {
+            "{initial_value}"
+        } else {
+            initial_value
+        };
+
+        working_set.error(ParseError::IncorrectValue(
+            "alias argument".into(),
+            *arg_span,
+            format!("Make sure to put spaces around '=': alias {name} = {initial_value}"),
+        ))
+    } else if args.len() < 3 {
+        working_set.error(ParseError::IncorrectValue(
+            "Incomplete alias".into(),
+            Span::concat(command),
+            "incomplete alias".into(),
+        ));
+    }
 }
 
 /// The name of an alias, the first positional of its call to `alias`: a string that is a valid

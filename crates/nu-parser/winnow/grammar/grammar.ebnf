@@ -1258,7 +1258,9 @@ extern_flag = "--strict", [ "=", value ] ;
 (* ==== 6.4 alias, type ==== *)
 
 alias = "alias", def_name, "=", alias_target ;
-(* `alias x=y`, `alias x`, `alias x =`, `alias = x` are errors, after `export` too *)
+(* with fewer than three items after `alias` (`alias x=y`, `alias x`, `alias x =`, after
+   `export` too) nu keeps the call, declaring nothing, and reports IncorrectValue
+   (semantic); `alias = x` is a misplaced item (AssignmentMismatch) *)
 alias_target = ? <call> over ALL remaining items, pipes and redirections included, as bare words (assignment mode) ? ;
 (* refused: a target whose first item is math-expression-like (`1 + 1`, `$x`, `(ls)`,
    `[1]`, `{ }`, `not ...`, `"ls"`, `-1`) => CantAliasExpression, except `if` and

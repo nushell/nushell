@@ -257,19 +257,19 @@ signatures, types or files and is left to the consumer.
 | `UnexpectedKeyword` | `ErrorKind::Expected` (`export` alone, a valid call to `export`) | `reject/modules/export-alone.nu` | `extern_alias_module_use_export` |
 | `KeywordShadowModuleMain` | n/a (semantic: modules) | `accept/modules/module-with-main.nu` | `extern_alias_module_use_export` |
 | `CantAliasKeyword` | `ErrorKind::Message` (parser keyword as alias name) | `reject/def/alias-keyword-name.nu` | `definitions_cannot_use_parser_keywords` |
-| `CantAliasExpression` | `ErrorKind::Expected` (`command after =`) | `reject/def/alias-missing-target.nu` | `extern_alias_module_use_export` |
+| `CantAliasExpression` | `ErrorKind::Message` (`cannot create an alias to an expression`) | `reject/def/alias-to-value.nu` | `extern_alias_module_use_export` |
 | `UnknownOperator` | `ErrorKind::UnknownOperator` | `reject/operators/*.nu` | `unknown_operators_get_help` |
 | `BuiltinCommandInPipeline` | `parse_expressions::check_builtin_command_in_pipeline` (nu's head table for every element of a multi-command pipeline and after env shorthand; `ls \| let x` without a value is allowed, as in nu), `parse_pipelines::check_loop_in_pipeline` (`while` and `loop`, anywhere in a longer pipeline) | `reject/pipelines/def-in-pipeline.nu` `reject/pipelines/hide-after-pipe.nu` `accept/bindings/let-after-pipe.nu` `reject/loops/while-piped.nu` `reject/loops/loop-piped.nu` | `let_after_pipe_is_a_statement` `loops_cannot_be_piped` |
 | `AssignInPipeline` | `parse_expressions::check_builtin_command_in_pipeline` (`ls \| let x = 1`, `ls \| mut x = 1`) | `reject/pipelines/let-with-value-after-pipe.nu` `reject/pipelines/mut-after-pipe.nu` `accept/assignments/rhs-pipeline.nu` | `assignments` |
 | `NameIsBuiltinVar` | `parse_signatures::ensure_not_reserved_variable_name` (`in`, `nu`, `env`, `ans`, a `$` before it or not; skipped for `extern`), recorded as recovered: the consumer declares the variable and reports nu's error | `reject/signatures/reserved-param-in.nu` `reject/signatures/reserved-flag-env.nu` `reject/match/variable-pattern-in.nu` `reject/loops/for-reserved-var.nu` `accept/def/reserved-param-names-in-extern.nu` | `reserved_variable_names_are_errors` `signature_forms_from_nushell_tests` |
 | `NameIsKeyword` | `ErrorKind::Message` (`cannot use parser keyword`) | `reject/def/keyword-name-*.nu` `reject/def/type-keyword-as-command-name.nu` | `definitions_cannot_use_parser_keywords` |
-| `IncorrectValue` | n/a (semantic: constant evaluation) | `accept/attributes/values-of-every-kind.nu` | `attribute_values` |
+| `IncorrectValue` | n/a (semantic: constant evaluation; an incomplete alias, nu's call to `alias`) | `accept/attributes/values-of-every-kind.nu` `accept/def/alias-missing-equals-is-consumer.nu` | `attribute_values` |
 | `InvalidBinaryString` | `ErrorKind::InvalidLiteral` (`binary`) | `reject/literals/binary-*.nu` | `invalid_binary_literals` |
 | `MultipleRestParams` | `parse_signatures::check_parameters` | `reject/signatures/two-rest-params.nu` `accept/def/rest-param.nu` | `def_forms` |
 | `VariableNotFound` | n/a (semantic: scopes) | `accept/variables/simple.nu` | `variables_and_cell_paths` |
 | `EnvVarNotVar` | n/a (semantic) | `accept/env-shorthand/single.nu` | `env_shorthand` |
 | `VariableNotValid` | `ErrorKind::Expected` (`valid variable name`) | `reject/bindings/let-quoted-name.nu` `reject/variables/name-with-dash.nu` | `declaration_errors_from_nushell_tests` |
-| `AliasNotValid` | `ErrorKind::Expected` (`=`), `ErrorKind::Message` (a bare name starting with `-`, `#`, `^`, `%` or a number) | `reject/def/alias-missing-equals.nu` `reject/def/alias-name-with-hash.nu` `reject/alias/double-dash-name-alone.nu` | `extern_alias_module_use_export` |
+| `AliasNotValid` | `ErrorKind::Expected` (`=`), `ErrorKind::Message` (a bare name starting with `-`, `#`, `^`, `%` or a number) | `reject/def/alias-name-with-hash.nu` `reject/alias/double-dash-name-alone.nu` | `extern_alias_module_use_export` |
 | `CommandDefNotValid` | `ErrorKind::Expected` (`signature`) | `reject/def/missing-signature.nu` `reject/def/def-no-space-bracket.nu` | `def_forms` |
 | `ModuleNotFound` | n/a (semantic: files) | `accept/modules/use-path.nu` | `use_forms` |
 | `ModuleMissingModNuFile` | n/a (semantic: files) | `accept/modules/module-path.nu` | `extern_alias_module_use_export` |

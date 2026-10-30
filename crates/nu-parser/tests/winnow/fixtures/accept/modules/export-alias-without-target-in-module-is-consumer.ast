@@ -1,0 +1,10 @@
+Block 0..30
+  Pipeline 0..29
+    Module 0..29
+      String Bare "m" 7..8
+      Body 10..28
+        Pipeline 11..27
+          Export 11..27
+            Call `alias` 18..27
+              String Bare "x" 24..25
+              String Bare "=" 26..27

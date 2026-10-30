@@ -1,0 +1,9 @@
+Block 0..33
+  Pipeline 0..32
+    Module 0..32
+      String Bare "m" 7..8
+      Body 10..31
+        Pipeline 11..30
+          Export 11..30
+            Call `alias` 18..30
+              Flag --help 24..30

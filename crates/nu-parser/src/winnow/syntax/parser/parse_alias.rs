@@ -153,6 +153,10 @@ pub fn parse_alias<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>
     let working_set = tokens.working_set;
     let statement = tokens;
     let keyword = tokens.expect_item("alias")?;
+    // With fewer than three items after `alias` nu keeps the call it read, which declares
+    // nothing (`alias ll ls`, `alias ll =`, `alias ll=ls`, `alias ll -x`, whose call's errors
+    // nu drops): the consumer reports it (IncorrectValue, semantic).
+    let incomplete = statement.remaining().len() < 4;
     // nu reports misplaced items and keeps garbage, which the consumer gives for the call.
     if let Err(error) = check_alias_name(working_set, tokens.remaining()) {
         return call_after_error(statement, error, parse_alias_as_call);
@@ -170,9 +174,11 @@ pub fn parse_alias<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>
     }
     // Then nu parses the alias call and returns it when it is a help call:
     // `alias --help = ls` and `alias x --help` show help, and `--` is a name.
-    if let KeywordBoundary::Help = keyword_boundary_with(&mut tokens, "alias", &[], false)? {
-        return parse_alias_as_call(statement);
-    }
+    match keyword_boundary_with(&mut tokens, "alias", &[], false) {
+        Ok(KeywordBoundary::Help) => return parse_alias_as_call(statement),
+        Err(_) if incomplete => return parse_alias_as_call(statement),
+        boundary => boundary?,
+    };
     let name_token = tokens.expect_item("alias name")?;
     // A lone `-` is no flag for nu and so a name; `-x` and `--` are not, and
     // neither is a variable, subexpression or block, which is no string. nu
@@ -194,9 +200,11 @@ pub fn parse_alias<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>
         false => parse_definition_name(working_set, name_token.span)?,
     };
     // `alias alias --help` is a help call before the name is checked.
-    if let KeywordBoundary::Help = keyword_boundary_with(&mut tokens, "alias", &[], false)? {
-        return parse_alias_as_call(statement);
-    }
+    match keyword_boundary_with(&mut tokens, "alias", &[], false) {
+        Ok(KeywordBoundary::Help) => return parse_alias_as_call(statement),
+        Err(_) if incomplete => return parse_alias_as_call(statement),
+        boundary => boundary?,
+    };
     let declares = !not_a_string
         && match check_definition_name(&name, "alias") {
             Ok(()) => true,
@@ -212,6 +220,7 @@ pub fn parse_alias<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>
         {
             *token
         }
+        _ if incomplete => return parse_alias_as_call(statement),
         _ => return Err(cut(Diagnostic::expected("`=`", tokens.here()))),
     };
     // Nushell hands everything after `=` to the call parser as plain words,
@@ -226,6 +235,9 @@ pub fn parse_alias<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>
         })
         .collect();
     let Some(first) = words.first() else {
+        if incomplete {
+            return parse_alias_as_call(statement);
+        }
         return Err(cut(Diagnostic::expected(
             "command after `=`",
             equals.span.past(),

@@ -22,7 +22,9 @@ use crate::winnow::syntax::{ItemsValue, Span as WSpan, ast as w};
 use crate::{
     exportable::Exportable,
     lex::{is_assignment_operator, lex},
-    parse_alias::{alias_name, alias_name_fits_module, check_alias_name, finish_alias},
+    parse_alias::{
+        alias_name, alias_name_fits_module, check_alias_name, finish_alias, report_incomplete_alias,
+    },
     parse_calls::CallKind,
     parse_captures_compile::compile_block_with_id,
     parse_def::{
@@ -1177,6 +1179,8 @@ impl<'s> Lower<'_, '_, 's> {
         let export = matches!(command.expr, w::Expr::Export(_));
         // `parse_alias` checks where its items stand before anything else, a call for help
         // included, and gives garbage over the misplaced one.
+        // `export` and `alias` and the items after them, as `parse_alias` takes them.
+        let mut alias_spans = Vec::new();
         if keyword == "alias" {
             let keyword_start = match &command.expr {
                 w::Expr::Export(export) => self.span(export.item.span).start,
@@ -1204,6 +1208,7 @@ impl<'s> Lower<'_, '_, 's> {
                 }
                 return Ok((garbage(self.working_set, *span), None));
             }
+            alias_spans = spans;
         }
         let decl_id = find_keyword_decl(self.working_set, keyword.as_bytes())
             .ok_or(Unlowered::Unsupported("keyword command"))?;
@@ -1271,13 +1276,42 @@ impl<'s> Lower<'_, '_, 's> {
             "let" => self.internal_call(head, arguments, decl_id, input_type)?,
             _ => self.internal_call(head, arguments, decl_id, None)?,
         };
+        // `parse_alias` keeps a call to `alias` that declares nothing (`alias ll ls`, `alias ll
+        // =`): a name it refuses is garbage (`alias_name`), anything else an incomplete alias.
+        if keyword == "alias" && kind != CallKind::Help {
+            let Some(name) = lowered.positional_iter().next() else {
+                return Err(Unlowered::Unsupported("alias call without a name"));
+            };
+            if alias_name(self.working_set, name).is_none() {
+                if export {
+                    return Err(Unlowered::Unsupported("export of a refused alias name"));
+                }
+                return Ok((garbage(self.working_set, call_span), None));
+            }
+            // In a module's body `parse_export_in_module` gives `parse_alias` the statement
+            // without its `export`.
+            let args = if export { 2 } else { 1 };
+            let command = if export && module_name.is_some() {
+                1
+            } else {
+                0
+            };
+            report_incomplete_alias(
+                self.working_set,
+                &alias_spans[command..args],
+                &alias_spans[args..],
+            );
+        }
         // `parse_def` and `parse_extern` finish any call: one with an error of its own (the
         // winnow parser's call form of `def --foo f [] {}`) still defines the command. A
         // binding without a value is its call whatever its kind (`let x --foo`).
         // `parse_export_env` and `parse_use` give an invalid call back as it is (`export-env
         // --foo`, `use`), and `parse_for` finishes any call (`finish_for`).
         if kind != CallKind::Help
-            && !matches!(keyword, "def" | "extern" | "for" | "let" | "mut" | "const")
+            && !matches!(
+                keyword,
+                "def" | "extern" | "for" | "alias" | "let" | "mut" | "const"
+            )
             && !(matches!(keyword, "export-env" | "use") && kind == CallKind::Invalid)
         {
             return Err(Unlowered::Unsupported(

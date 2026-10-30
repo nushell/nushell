@@ -1,6 +1,0 @@
-error: expected command after `=`
-  --> reject/alias/export-alias-without-target.nu:1:17
-  |
-1 | export alias x =
-  |                 ^
-  = while parsing alias

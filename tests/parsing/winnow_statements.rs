@@ -2437,6 +2437,37 @@ fn binding_variable_error_is_lowered(
     Ok(())
 }
 
+/// An alias with fewer than three items after `alias` is nu's call to `alias`, which declares
+/// nothing: `parse_alias` reports it as incomplete (IncorrectValue, one item with an `=` in it
+/// at that item), the call's own errors dropped. In a module's body nu reads it without its
+/// `export` and then finds no alias to export: lowered, reported as there.
+#[rstest]
+#[case::missing_equals("alias ll ls", &[("IncorrectValue", "alias")])]
+#[case::missing_target("alias ll =", &[("IncorrectValue", "alias")])]
+#[case::equals_in_the_name("alias ll=ls", &[("IncorrectValue", "ll=ls")])]
+#[case::unknown_flag("alias ll -x", &[("IncorrectValue", "alias")])]
+#[case::exported("export alias h home", &[("IncorrectValue", "export alias")])]
+#[case::in_a_module(
+    "module m { export alias x = }",
+    &[("IncorrectValue", "alias"), ("InternalError", "alias x =")]
+)]
+#[case::help_in_a_module("module m { export alias --help }", &[("InternalError", "alias --help")])]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn incomplete_alias_is_lowered(#[case] code: &str, #[case] expected: &[(&str, &str)]) -> Result {
+    let expected: Vec<(String, String)> = expected
+        .iter()
+        .map(|(kind, at)| (kind.to_string(), at.to_string()))
+        .collect();
+    assert_eq!(
+        super::winnow_calls::lowered_errors(code),
+        expected,
+        "`{code}`"
+    );
+    Ok(())
+}
+
 /// A call for help in a module body, which the keyword's parse function gives back as the
 /// statement, is one of the body's statements (`parse_module_block` dispatches by the first
 /// word), lowered as at top level.
