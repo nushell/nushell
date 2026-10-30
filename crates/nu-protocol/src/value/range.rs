@@ -62,19 +62,12 @@ mod int_range {
                         return Err(ShellError::CannotCreateRange { span });
                     }
 
-                    let Some(result) = next.checked_sub(start) else {
-                        return Err(ShellError::CannotCreateRange { span });
-                    };
-
-                    result
+                    next.checked_sub(start)
+                        .ok_or(ShellError::CannotCreateRange { span })?
                 }
-                (Some(next), None) => {
-                    let Some(result) = next.checked_sub(start) else {
-                        return Err(ShellError::CannotCreateRange { span });
-                    };
-
-                    result
-                }
+                (Some(next), None) => next
+                    .checked_sub(start)
+                    .ok_or(ShellError::CannotCreateRange { span })?,
                 (None, Some(end)) => {
                     if end < start {
                         -1
