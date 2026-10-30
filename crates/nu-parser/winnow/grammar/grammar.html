@@ -3892,7 +3892,9 @@ svg.railroad-diagram g.diagram-text:hover path.diagram-text {
   -- = ls</code>, <code>module -- x {}</code>, <code>module x -- {}</code>, <code>let -- x = 1</code>, <code>export-env -- {}</code>
   are errors ("missing sign", "expected block", "not a valid variable name"). An
   alias help call must be the whole statement: <code>alias --help x = ls</code> and <code>alias x
-  --help extra</code> are "missing sign". <code>export --help x</code> has an extra positional.
+  --help extra</code> are "missing sign" (which nu reports with garbage over the item: the
+  parser records it as recovered and reads the statement as the call, as the consumer
+  checks it). <code>export --help x</code> has an extra positional.
   nu: parse<em>calls.rs:1067-1213 (parse</em>long<em>flag, parse</em>short<em>flags per positional,
   <code>end_of_options</code>), 30 check</em>call; parse<em>alias.rs:20 check</em>alias<em>name;
   parse</em>type<em>alias.rs (help call errors dropped); parse</em>module.rs parse<em>export</em>env
@@ -6271,7 +6273,7 @@ svg.railroad-diagram g.diagram-text:hover path.diagram-text {
 <p>(6.1) </p>
   </article>
   <footer>
-    <p>Date: 2026-10-30T09:49 - <a href="?theme=dark" data-theme="dark">Dark</a> - <a href="?theme=light" data-theme="light">Light</a></p>
+    <p>Date: 2026-10-30T10:34 - <a href="?theme=dark" data-theme="dark">Dark</a> - <a href="?theme=light" data-theme="light">Light</a></p>
   </footer>
   </main>
   <script type="text/javascript">

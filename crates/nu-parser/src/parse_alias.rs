@@ -19,7 +19,10 @@ use nu_protocol::{
 
 use crate::ALIASABLE_PARSER_KEYWORDS;
 
-fn check_alias_name<'a>(working_set: &mut StateWorkingSet, spans: &'a [Span]) -> Option<&'a Span> {
+pub(crate) fn check_alias_name<'a>(
+    working_set: &mut StateWorkingSet,
+    spans: &'a [Span],
+) -> Option<&'a Span> {
     let command_len = if !spans.is_empty() {
         if working_set.get_span_contents(spans[0]) == b"export" {
             2

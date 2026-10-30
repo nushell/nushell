@@ -24,8 +24,8 @@ use super::parse_expressions::{
 };
 use super::parse_helpers::{is_help_flag, is_help_text, is_spread};
 use super::parse_keywords::{
-    KeywordCall, is_parser_keyword, parse_block_or_value_argument, parse_help_call,
-    seen_end_of_options,
+    KeywordCall, call_after_error, is_parser_keyword, parse_block_or_value_argument,
+    parse_help_call, seen_end_of_options,
 };
 use super::parse_signatures::{
     parse_definition_name, parse_full_signature, parse_var_type, parse_var_with_opt_type,
@@ -737,28 +737,12 @@ pub fn parse_def<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> 
 /// A `def` or `extern` `statement` whose signature [`parse_full_signature`] refused with
 /// `error`: nu's `parse_def` and `parse_extern` read the signature as their call's argument
 /// with nu's `parse_full_signature`, which reports its errors and goes on, and finish the
-/// definition with what it gives. The statement is then that call ([`parse_help_call`]), the
-/// error recorded as recovered, for the consumer to read the same way; when the call does not
-/// parse either, the error is the statement's, with nothing the call recorded.
+/// definition with what it gives. The statement is then that call ([`call_after_error`]).
 fn signature_error_call<'a>(
     statement: Tokens<'_, 'a>,
     error: ErrMode<ParseFailure>,
 ) -> ParseResult<Expression<'a>> {
-    let ErrMode::Cut(ParseFailure::Error(diagnostic)) = error else {
-        return Err(error);
-    };
-    let working_set = statement.working_set;
-    let errors = working_set.error_count();
-    match parse_help_call(statement) {
-        Ok(call) => {
-            working_set.error(diagnostic.as_recovered());
-            Ok(call)
-        }
-        Err(_) => {
-            drop(working_set.take_errors_from(errors));
-            Err(ErrMode::Cut(ParseFailure::Error(diagnostic)))
-        }
-    }
+    call_after_error(statement, error, parse_help_call)
 }
 
 /// The body of a `def`: nu parses it as a closure without looking at its

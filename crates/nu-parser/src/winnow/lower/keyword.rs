@@ -22,7 +22,7 @@ use crate::winnow::syntax::{ItemsValue, Span as WSpan, ast as w};
 use crate::{
     exportable::Exportable,
     lex::{is_assignment_operator, lex},
-    parse_alias::{alias_name, alias_name_fits_module, finish_alias},
+    parse_alias::{alias_name, alias_name_fits_module, check_alias_name, finish_alias},
     parse_calls::CallKind,
     parse_captures_compile::compile_block_with_id,
     parse_def::{DefCall, detect_params_in_name, finish_def, finish_extern, yielded_type},
@@ -1127,6 +1127,36 @@ impl<'s> Lower<'_, '_, 's> {
             return Ok((self.where_call(command, call)?, None));
         }
         let export = matches!(command.expr, w::Expr::Export(_));
+        // `parse_alias` checks where its items stand before anything else, a call for help
+        // included, and gives garbage over the misplaced one.
+        if keyword == "alias" {
+            let keyword_start = match &command.expr {
+                w::Expr::Export(export) => self.span(export.item.span).start,
+                _ => self.span(call.head.span).start,
+            };
+            let start = self.span(command.span).start;
+            let spans: Vec<Span> = (export.then(|| Span::new(start, start + "export".len())))
+                .into_iter()
+                .chain(Some(Span::new(
+                    keyword_start,
+                    keyword_start + "alias".len(),
+                )))
+                .chain(
+                    call.arguments
+                        .iter()
+                        .map(|argument| self.span(argument.span())),
+                )
+                .collect();
+            let errors = self.working_set.parse_errors.len();
+            if let Some(span) = check_alias_name(self.working_set, &spans) {
+                // An export makes the garbage its own and reports it (`warp_export_call`).
+                if export {
+                    self.working_set.parse_errors.truncate(errors);
+                    return Err(Unlowered::Unsupported("export of a misplaced alias"));
+                }
+                return Ok((garbage(self.working_set, *span), None));
+            }
+        }
         let decl_id = find_keyword_decl(self.working_set, keyword.as_bytes())
             .ok_or(Unlowered::Unsupported("keyword command"))?;
         let export_name = format!("export {keyword}");

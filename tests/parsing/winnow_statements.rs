@@ -2193,6 +2193,35 @@ fn alias_of_what_nu_reads_as_a_call() -> Result {
     Ok(())
 }
 
+/// An alias with a misplaced item (no name, no `=` second) is nu's AssignmentMismatch before
+/// anything else, with garbage over the item: lowered, reported as there.
+#[rstest]
+#[case::missing_name("alias = ls", "=")]
+#[case::dashes_for_a_name("alias -- x = ls", "x")]
+#[case::help_in_place_of_the_sign("alias x --help extra", "--help")]
+#[case::help_before_the_name("alias --help x = ls", "x")]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn misplaced_alias_item_is_lowered(#[case] code: &str, #[case] at: &str) -> Result {
+    assert_eq!(
+        super::winnow_calls::lowered_errors(code),
+        [("AssignmentMismatch".to_string(), at.to_string())],
+        "`{code}`"
+    );
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let block = nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    let expression = &block.pipelines[0].elements[0].expr;
+    assert!(matches!(expression.expr, Expr::Garbage), "`{code}`");
+    assert_eq!(
+        working_set.get_span_contents(expression.span),
+        at.as_bytes(),
+        "`{code}`"
+    );
+    Ok(())
+}
+
 /// A call for help in a module body, which the keyword's parse function gives back as the
 /// statement, is one of the body's statements (`parse_module_block` dispatches by the first
 /// word), lowered as at top level.

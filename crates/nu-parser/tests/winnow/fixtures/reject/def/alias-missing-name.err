@@ -3,4 +3,3 @@ error: expected alias name
   |
 1 | alias = ls
   |       ^
-  = while parsing alias

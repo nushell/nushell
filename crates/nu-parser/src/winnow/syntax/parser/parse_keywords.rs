@@ -11,9 +11,11 @@
 //! call's, but for `hide`'s import pattern and the `as` of `overlay use`
 //! ([`super::parse_calls::check_call`]).
 
+use winnow::error::ErrMode;
+
 use crate::winnow::syntax::ast::{Block, Expr, Expression};
 use crate::winnow::syntax::error::Diagnostic;
-use crate::winnow::syntax::input::{ParseResult, cut};
+use crate::winnow::syntax::input::{ParseFailure, ParseResult, cut};
 use crate::winnow::syntax::lex::{Token, TokenContents};
 use crate::winnow::syntax::span::Span;
 
@@ -440,6 +442,32 @@ pub fn parse_block_or_value_argument<'a>(
             ))
         }
         _ => Ok((parse_block_argument(working_set, token, what)?, None)),
+    }
+}
+
+/// A keyword `statement` refused with `error`, an error nu reports and goes on past by reading
+/// the statement as its keyword's call: the statement is that call (`read_call`), the error
+/// recorded as recovered, for the consumer to read the same way; when the call does not parse
+/// either, the error is the statement's, with nothing the call recorded.
+pub fn call_after_error<'t, 'a>(
+    statement: Tokens<'t, 'a>,
+    error: ErrMode<ParseFailure>,
+    read_call: impl FnOnce(Tokens<'t, 'a>) -> ParseResult<Expression<'a>>,
+) -> ParseResult<Expression<'a>> {
+    let ErrMode::Cut(ParseFailure::Error(diagnostic)) = error else {
+        return Err(error);
+    };
+    let working_set = statement.working_set;
+    let errors = working_set.error_count();
+    match read_call(statement) {
+        Ok(call) => {
+            working_set.error(diagnostic.as_recovered());
+            Ok(call)
+        }
+        Err(_) => {
+            drop(working_set.take_errors_from(errors));
+            Err(ErrMode::Cut(ParseFailure::Error(diagnostic)))
+        }
     }
 }
 

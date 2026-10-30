@@ -13,8 +13,8 @@ use super::parse_expressions::{
     parse_value,
 };
 use super::parse_keywords::{
-    ALIASABLE_PARSER_KEYWORDS, KeywordBoundary, UNALIASABLE_PARSER_KEYWORDS, keyword_boundary_with,
-    parse_help_call,
+    ALIASABLE_PARSER_KEYWORDS, KeywordBoundary, UNALIASABLE_PARSER_KEYWORDS, call_after_error,
+    keyword_boundary_with, parse_help_call,
 };
 use super::parse_signatures::parse_definition_name;
 use super::tokens::Tokens;
@@ -148,7 +148,10 @@ pub fn parse_alias<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>
     let working_set = tokens.working_set;
     let statement = tokens;
     let keyword = tokens.expect_item("alias")?;
-    check_alias_name(working_set, tokens.remaining())?;
+    // nu reports misplaced items and keeps garbage, which the consumer gives for the call.
+    if let Err(error) = check_alias_name(working_set, tokens.remaining()) {
+        return call_after_error(statement, error, parse_alias_as_call);
+    }
     // nu drops the errors of the alias call and keeps it when it asks for
     // help, so a short-flag batch with an `h` before the `=` (`alias -hx`,
     // `alias x -xh`) is a help call whatever else the batch holds.

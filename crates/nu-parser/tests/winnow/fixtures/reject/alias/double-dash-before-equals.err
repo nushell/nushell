@@ -3,4 +3,3 @@ error: expected `=`
   |
 1 | alias x -- = ls
   |         ^^
-  = while parsing alias

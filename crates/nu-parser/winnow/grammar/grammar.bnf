@@ -1036,7 +1036,9 @@
 ; -- = ls`, `module -- x {}`, `module x -- {}`, `let -- x = 1`, `export-env -- {}`
 ; are errors ("missing sign", "expected block", "not a valid variable name"). An
 ; alias help call must be the whole statement: `alias --help x = ls` and `alias x
-; --help extra` are "missing sign". `export --help x` has an extra positional.
+; --help extra` are "missing sign" (which nu reports with garbage over the item: the
+; parser records it as recovered and reads the statement as the call, as the consumer
+; checks it). `export --help x` has an extra positional.
 ; nu: parse_calls.rs:1067-1213 (parse_long_flag, parse_short_flags per positional,
 ;     `end_of_options`), 30 check_call; parse_alias.rs:20 check_alias_name;
 ;     parse_type_alias.rs (help call errors dropped); parse_module.rs parse_export_env
