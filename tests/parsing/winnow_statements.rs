@@ -1,7 +1,7 @@
 //! Regression tests for the `winnow-parser` front end (statements): each pins a case where it
 //! parsed differently from the classic parser.
 
-use nu_protocol::{Type, TypeSet, Value, ast::Expr, engine::StateWorkingSet};
+use nu_protocol::{ParseError, Type, TypeSet, Value, ast::Expr, engine::StateWorkingSet};
 use nu_test_support::prelude::*;
 use rstest::rstest;
 
@@ -1718,6 +1718,79 @@ fn percent_call_head_as_nu_reads_it(#[case] code: &str, #[case] head: &str) -> R
         head.as_bytes(),
         "`{code}`"
     );
+    Ok(())
+}
+
+/// A statement alone in its pipeline that nu refuses to redirect is its
+/// `RedirectingBuiltinCommand`, named as its parse function names it, at the redirection's
+/// operators, and garbage over its items (a `for` over its keyword): lowered so.
+#[rstest]
+#[case::definition("def f [] { } o> x", "def", "o>", None, "def f [] { }")]
+#[case::for_loop("for x in [1] { } o> x", "for", "o>", None, "for")]
+#[case::separate_streams("def f [] { } e> y o> x", "def", "e>", Some("o>"), "def f [] { }")]
+#[case::export_def(
+    "export def f [] {} o> x",
+    "export def",
+    "o>",
+    None,
+    "export def f [] {}"
+)]
+#[case::keyword_call("hide ls o> x", "hide", "o>", None, "hide ls")]
+#[case::overlay("overlay list e> x", "overlay", "e>", None, "overlay list")]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn redirected_statement_is_lowered(
+    #[case] code: &str,
+    #[case] name: &str,
+    #[case] first: &str,
+    #[case] second: Option<&str>,
+    #[case] garbage: &str,
+) -> Result {
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let before = nu_parser::winnow_stats();
+    let block = nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    let after = nu_parser::winnow_stats();
+    assert_eq!(
+        after.classic_statements, before.classic_statements,
+        "`{code}`"
+    );
+    let [ParseError::RedirectingBuiltinCommand(found, found_first, found_second)] =
+        working_set.parse_errors.as_slice()
+    else {
+        panic!("`{code}`: {:?}", working_set.parse_errors);
+    };
+    assert_eq!(*found, name, "`{code}`");
+    assert_eq!(
+        working_set.get_span_contents(*found_first),
+        first.as_bytes()
+    );
+    assert_eq!(
+        found_second.map(|span| working_set.get_span_contents(span).to_vec()),
+        second.map(|text| text.as_bytes().to_vec()),
+        "`{code}`"
+    );
+    let expression = &block.pipelines[0].elements[0].expr;
+    assert!(matches!(expression.expr, Expr::Garbage), "`{code}`");
+    assert_eq!(
+        working_set.get_span_contents(expression.span),
+        garbage.as_bytes(),
+        "`{code}`"
+    );
+    Ok(())
+}
+
+/// In a pipeline of several commands nu reads each where a command is (`parse_expression`),
+/// which refuses no redirection: lowered, without an error.
+#[rstest]
+#[case::source_env("source-env null o+e>| ls")]
+#[case::overlay_list("overlay list e>| ls")]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn keyword_command_redirected_into_a_pipeline(#[case] code: &str) -> Result {
+    assert_eq!(super::winnow_calls::lowered_errors(code), [], "`{code}`");
     Ok(())
 }
 

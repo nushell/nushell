@@ -1,0 +1,18 @@
+Block 0..69
+  Pipeline 0..24
+    Call `source-env` 0..15
+      Nothing 11..15
+    Redirect OutErrPipe 16..21
+    | 16..21
+    Call `ls` 22..24
+  Pipeline 25..48
+    Call `overlay list` 25..37
+    Redirect ErrPipe 38..41
+    | 38..41
+    Call `length` 42..48
+  Pipeline 49..68
+    Call `hide-env` 49..61
+      String Bare "FOO" 58..61
+    Redirect ErrPipe 62..65
+    | 62..65
+    Call `ls` 66..68

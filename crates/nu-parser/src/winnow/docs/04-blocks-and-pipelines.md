@@ -308,7 +308,8 @@ redirection and its target are dropped (chapter 06).
   separately (`Separate`); a second redirection of the same stream is an
   error. The target of a file redirection is parsed with `parse_value`.
 * `rejects_redirection` (nu's `redirecting_builtin_error`) refuses a
-  redirection on the statements listed in chapter 05. A redirection on
+  redirection on the statements listed in chapter 05, in a pipeline of one
+  command. A redirection on
   `export-env` is dropped and recorded in `Ast::ignored`.
 
 ## Predeclaration

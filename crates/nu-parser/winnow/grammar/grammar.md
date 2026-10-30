@@ -1204,7 +1204,11 @@ Vocabulary: `<expression>` is a `<pipeline-element>` (3.1); `<block>` is a
 ; reads the redirection's items as its own arguments, an error (`let x o> f` has no
 ; "=" where it wants one); in a longer pipeline let is an ordinary call, redirected as
 ; any (`let x e>| length`, `[1] | let x o> f`). `let x = ls o> f` is not an error
-; because the redirection is absorbed into the rhs pipeline.
+; because the redirection is absorbed into the rhs pipeline. Only a pipeline of one
+; command is refused (nu's parse functions read those); in a longer one each command
+; is read where a command is, which refuses none (`run null e>| ls`). nu reports the
+; statement and makes it garbage, so the error is recorded as recovered, but on a
+; lone let or mut and an attribute block.
 ; nu: redirecting_builtin_error call sites in parse_def.rs, parse_alias.rs,
 ;     parse_module.rs, parse_source.rs, parse_expressions.rs:1801,1817; parse_let and
 ;     parse_mut over parts_including_redirection, parse_const over parts

@@ -478,6 +478,11 @@ impl<'s> Lower<'_, '_, 's> {
         element: &w::PipelineElement<'s>,
         input_type: Option<&Type>,
     ) -> Lowered<Pipeline> {
+        if let Some(redirection) = &element.redirection
+            && let Some(refused) = self.redirected_statement(&element.expr, redirection)
+        {
+            return Ok(refused);
+        }
         let expr = match &element.expr.expr {
             w::Expr::Def(def) => self.def(pipeline, &element.expr, def, &[], None)?.0,
             w::Expr::Extern(extern_def) => {
@@ -749,6 +754,76 @@ impl<'s> Lower<'_, '_, 's> {
             expr,
             redirection,
         })
+    }
+
+    /// A statement nu refuses to redirect (`redirecting_builtin_error`), reported with the
+    /// name its parse function gives it and made garbage: over its items, or for a `for`
+    /// over its keyword. `None` for any other command.
+    fn redirected_statement(
+        &mut self,
+        e: &w::Expression<'s>,
+        redirection: &w::PipelineRedirection<'s>,
+    ) -> Option<Pipeline> {
+        let call_name = |call: &w::Call<'s>| match call.head.name.split(' ').next() {
+            Some("overlay") => Some("overlay"),
+            _ => match call.head.name.as_ref() {
+                "def" => Some("def"),
+                "extern" => Some("extern"),
+                "for" => Some("for"),
+                "alias" => Some("alias"),
+                "type" => Some("type"),
+                "module" => Some("module"),
+                "use" => Some("use"),
+                "hide" => Some("hide"),
+                "source" => Some("source"),
+                "source-env" => Some("source-env"),
+                "run" => Some("run"),
+                "plugin use" => Some("plugin use"),
+                _ => None,
+            },
+        };
+        let name = match &e.expr {
+            w::Expr::Def(_) => "def",
+            w::Expr::Extern(_) => "extern",
+            w::Expr::For(_) => "for",
+            w::Expr::Alias(_) => "alias",
+            w::Expr::TypeAlias(_) => "type",
+            w::Expr::Module(_) => "module",
+            w::Expr::Use(_) => "use",
+            // `parse_export_in_block` names the export by its second item.
+            w::Expr::Export(export) => match &export.item.expr {
+                w::Expr::Def(_) => "export def",
+                w::Expr::Extern(_) => "export extern",
+                w::Expr::Alias(_) => "export alias",
+                w::Expr::Use(_) => "export use",
+                w::Expr::Module(_) => "export module",
+                w::Expr::Const(_) => "export const",
+                w::Expr::TypeAlias(_) => "export type",
+                _ => return None,
+            },
+            w::Expr::Call(call) => call_name(call)?,
+            _ => return None,
+        };
+        let connector = |target: &w::RedirectionTarget<'s>| match target {
+            w::RedirectionTarget::File { op, .. } | w::RedirectionTarget::Pipe { op } => op.span,
+        };
+        let (first, second) = match redirection {
+            w::PipelineRedirection::Single { target, .. } => (self.span(connector(target)), None),
+            w::PipelineRedirection::Separate { out, err } => {
+                let (out, err) = (self.span(connector(out)), self.span(connector(err)));
+                (out.min(err), Some(out.max(err)))
+            }
+        };
+        self.working_set
+            .error(ParseError::RedirectingBuiltinCommand(name, first, second));
+        let span = match name {
+            "for" => Span::new(self.span(e.span).start, self.span(e.span).start + 3),
+            _ => self.span(e.span),
+        };
+        Some(Pipeline::from_vec(vec![Expression::garbage(
+            self.working_set,
+            span,
+        )]))
     }
 
     /// The redirection of a command (`parse_redirection`).

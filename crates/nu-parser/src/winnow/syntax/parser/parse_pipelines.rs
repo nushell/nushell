@@ -902,10 +902,20 @@ fn parse_pipeline_element<'a>(
             .redirections
             .first()
             .map_or(expr.span, |(operator, _)| operator.span);
-        return Err(cut(Diagnostic::message(
-            "this statement cannot be redirected",
-            at,
-        )));
+        let diagnostic = Diagnostic::message("this statement cannot be redirected", at);
+        // nu reports the statement and makes it garbage (`redirecting_builtin_error`), and so
+        // does the consumer: the error is recorded as recovered. A `let` or `mut` reads the
+        // redirection as its own items, and attributes are read before the definition's
+        // redirection is refused.
+        let let_or_mut = match &expr.expr {
+            Expr::Let(_) | Expr::Mut(_) => true,
+            Expr::Call(call) => matches!(call.head.name.as_ref(), "let" | "mut"),
+            _ => false,
+        };
+        if let_or_mut || matches!(expr.expr, Expr::AttributeBlock(_)) {
+            return Err(cut(diagnostic));
+        }
+        working_set.error(diagnostic.as_recovered());
     }
     Ok((expr, redirection))
 }
@@ -927,8 +937,14 @@ fn drops_redirection(expr: &Expression<'_>) -> bool {
 /// no `=` where it wants one). In a longer pipeline `let` is an ordinary call, redirected as
 /// any (`let x e>| length`, `[1] | let x o> f`).
 fn rejects_redirection(expr: &Expression<'_>, in_pipeline: bool) -> bool {
+    // nu refuses the redirection in a statement's parse function, which reads a pipeline of
+    // one command (`parse_builtin_commands`); in a longer one each command is read where a
+    // command is (`parse_expression`), which refuses none (`run null e>| ls`).
+    if in_pipeline {
+        return false;
+    }
     match &expr.expr {
-        Expr::Let(_) | Expr::Mut(_) => !in_pipeline,
+        Expr::Let(_) | Expr::Mut(_) => true,
         Expr::Def(_)
         | Expr::Extern(_)
         | Expr::For(_)
@@ -947,7 +963,7 @@ fn rejects_redirection(expr: &Expression<'_>, in_pipeline: bool) -> bool {
                     call.head.name.as_ref(),
                     "def" | "extern" | "for" | "alias" | "type" | "module" | "use" | "export"
                 )
-                || !in_pipeline && matches!(call.head.name.as_ref(), "let" | "mut")
+                || matches!(call.head.name.as_ref(), "let" | "mut")
                 || keyword_signature_of_call(call).is_some()
         }
         _ => false,

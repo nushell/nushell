@@ -270,9 +270,14 @@ statements nu refuses it on (`rejects_redirection`): `def`, `extern`, `let`,
 `mut`, `const`, `for`, `alias`, `module`, `use`, `export`, an attribute
 block, any call whose head word is `overlay` (refused by name before the
 arguments are looked at) and the calls whose keyword signature (below) is not
-`redirectable` (`hide`, `source`, `run`, `plugin use`). A redirection on
-`export-env` is dropped without a look, as nu drops it, and recorded in
-`Ast::ignored`.
+`redirectable` (`hide`, `source`, `run`, `plugin use`), when the pipeline is
+of that one command (nu's statement parse functions read only those; in a
+longer pipeline nothing refuses a redirection). nu reports the statement and
+makes it garbage, so the error is recorded as recovered (but on a lone `let`
+or `mut`, which reads the redirection as its own items, and an attribute
+block), and the consumer reports it with nu's name for the statement. A
+redirection on `export-env` is dropped without a look, as nu drops it, and
+recorded in `Ast::ignored`.
 
 Attribute lines (`@name args`, collected by chapter 04) are parsed by
 `parse_attribute` (`parse_calls.rs`) as calls to `attr name`: the name must be
