@@ -2468,6 +2468,31 @@ fn incomplete_alias_is_lowered(#[case] code: &str, #[case] expected: &[(&str, &s
     Ok(())
 }
 
+/// A range bound that is no number, which nu's `check_range_types` reports
+/// (OperatorUnsupportedType) with garbage for the bound, and an empty middle bound, which its
+/// value parser fails on (IncompleteParser): the range is kept, lowered, reported as there.
+#[rstest]
+#[case::closure_bound("print 5..{|| 1}", &[("OperatorUnsupportedType", "..")])]
+#[case::raw_string_bound("print 5..r#'a'#", &[("OperatorUnsupportedType", "..")])]
+#[case::record_bound_in_a_binding("let x = 5..{a:1}", &[("OperatorUnsupportedType", "..")])]
+#[case::record_next_bound("print 1..{a:1}..5", &[("OperatorUnsupportedType", "..")])]
+#[case::empty_next_bound("print 1....5", &[("IncompleteParser", "")])]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn range_bound_error_is_lowered(#[case] code: &str, #[case] expected: &[(&str, &str)]) -> Result {
+    let expected: Vec<(String, String)> = expected
+        .iter()
+        .map(|(kind, at)| (kind.to_string(), at.to_string()))
+        .collect();
+    assert_eq!(
+        super::winnow_calls::lowered_errors(code),
+        expected,
+        "`{code}`"
+    );
+    Ok(())
+}
+
 /// A call for help in a module body, which the keyword's parse function gives back as the
 /// statement, is one of the body's statements (`parse_module_block` dispatches by the first
 /// word), lowered as at top level.

@@ -287,11 +287,12 @@ so `1...` is `1..` and its third `.` is dropped.
 each bound with `parse_value(.., ExpectedShape::Number)`. Because the shape
 was checked first, an error in a bound (`1..(1 +)`) is reported as an error
 in the range rather than turning the item into a string. A bound that is no
-number is refused, as nu's `check_range_types` refuses it: a raw string or a
-bare interpolation (`(1)abc..5`, a string for nu) with "the `..` operator
-does not work on a string", and a record or a closure (`5..{a: 1}`,
-`5..{|| 1}`) with "... on a record" or "... on a closure". An empty `next`
-(`1....5`) is "expected value between the range operators".
+number (a raw string, a bare interpolation such as `(1)abc..5`, a string for
+nu, a record or a closure: `5..{a: 1}`, `5..{|| 1}`) nu's `check_range_types`
+reports (OperatorUnsupportedType) with garbage for the bound, and an empty
+`next` (`1....5`) its value parser (IncompleteParser): semantic errors, which
+the consumer reports, reading the range with nu's `parse_range`; here the
+bound is kept (the empty `next` is none).
 
 At the head of a command a range is a math expression, which nu tells by
 asking `parse_range` for one without an error. `is_range_head` answers that

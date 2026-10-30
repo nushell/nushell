@@ -952,14 +952,14 @@ signature driven (`; nu: parse_literals.rs:1246 parse_path_like`; `; here: consu
 ; reads as a value (a record, "{}", a closure, or a cell path on a record, told from
 ; the first two tokens of the text between its first and last character as 5.13
 ; probes them) is a bound too: it commits the item to a range, and the range's type
-; check refuses a bound that is no number, so `5..{a: 1}`, `5..{|| 1}`,
-; `5..r#'a'#` and `1..$.a` are errors. A block bound (`5..{ls}`), a
+; check refuses a bound that is no number (`5..{a: 1}`, `5..{|| 1}`, `5..r#'a'#`,
+; `1..$.a`: OperatorUnsupportedType, semantic). A block bound (`5..{ls}`), a
 ; "[" or a bare-word bound fails, and the whole item falls through to the next
 ; shape (it becomes a string). On the text of the item, before parsing bounds:
 ; an item starting with "..." is never a range (spread); the ".." occurrences
 ; counted are those at parenthesis depth 0 (quotes are not considered); exactly one
 ; or two must exist; with two, the first is the "next" operator, and an empty
-; "next" (`1....5`) is an error; "..<" may only be the range operator; "..=" is
+; "next" (`1....5`) is nu's IncompleteParser (semantic); "..<" may only be the range operator; "..=" is
 ; recognised only at the range-operator position; an item that ends with its
 ; operator has no "to" (`1...` is `1..`, `1..3...` is `1..3..`); "1...5" is the
 ; range 1 .. 0.5.

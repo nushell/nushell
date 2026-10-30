@@ -1,0 +1,10 @@
+Block 0..98
+  Pipeline 85..97 comments=1
+    Call `print` 85..97
+      Range Inclusive 91..97
+        From
+          Int 1 91..92
+        To
+          Int 5 96..97
+Comments (1)
+  0..84 "# Nothing between the two operators: nu parses the empty text as the step and fails."

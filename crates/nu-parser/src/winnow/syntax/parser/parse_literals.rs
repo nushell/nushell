@@ -1430,9 +1430,10 @@ fn range_bounds(text: &str) -> Option<(&str, Option<&str>, &str)> {
 /// ```
 ///
 /// The operators are the `..`s outside parentheses (`(1..2).0..5` has one);
-/// each bound is a value of the `number` shape. As in nu, a text that ends
-/// with its operator has no `to` (`1...` is `1..`), and an empty `next`
-/// (`1....5`) is an error.
+/// each bound is a value of the `number` shape, whose type nu checks (the
+/// consumer's). As in nu, a text that ends with its operator has no `to`
+/// (`1...` is `1..`), and an empty `next` (`1....5`) is nu's error, the
+/// consumer's.
 pub fn parse_range<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResult<Expression<'a>> {
     let text = working_set.get_span_contents(span);
     let Some((next_operator, operator)) = find_range_operators(text) else {
@@ -1448,32 +1449,18 @@ pub fn parse_range<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResult<
             return Ok(None);
         }
         let bound_span = Span::new(span.start + start, span.start + end);
-        let bound = parse_value(working_set, bound_span, ExpectedShape::Number)?;
-        // nu's `check_range_types` refuses a bound that is no number: a raw string, a record,
-        // a closure, or a bare interpolation (`(1)abc..5`), a string for nu.
-        let refused = match bound.expr {
-            Expr::String(_) | Expr::StringInterpolation(_) => "a string",
-            Expr::Record(_) => "a record",
-            Expr::Closure(_) => "a closure",
-            _ => return Ok(Some(Box::new(bound))),
-        };
-        Err(cut(Diagnostic::message(
-            format!("the `..` operator does not work on {refused}"),
+        // A bound that is no number (a raw string, a record, a closure, a bare interpolation,
+        // `(1)abc..5`) is nu's `check_range_types`' OperatorUnsupportedType, the consumer's.
+        Ok(Some(Box::new(parse_value(
+            working_set,
             bound_span,
-        )
-        .with_help(
-            "a range bound is a number, a variable or a subexpression",
-        )))
+            ExpectedShape::Number,
+        )?)))
     };
     let from = bound(0, next_operator.unwrap_or(operator))?;
+    // An empty text between the operators (`1....5`) nu parses and fails on (IncompleteParser),
+    // the consumer's: here it is no bound.
     let next = match next_operator {
-        // `1....5`: nu parses the empty text between the operators and fails.
-        Some(next_operator) if next_operator + 2 == operator => {
-            return Err(cut(Diagnostic::expected(
-                "value between the range operators",
-                Span::point(span.start + operator),
-            )));
-        }
         Some(next_operator) => bound(next_operator + 2, operator)?,
         None => None,
     };

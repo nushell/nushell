@@ -776,20 +776,31 @@ fn ranges(
 #[rstest]
 #[case("(0)..\"a\"")]
 #[case("') ..")]
-// nu commits to these ranges and refuses them: a bound that is no number (`check_range_types`),
-// an empty `next`, and a radix prefix after a `_`.
+// nu commits to these ranges and refuses them: a radix prefix after a `_`.
+#[case("print 0_xzz")]
+#[case("print _0xzz")]
+fn bad_ranges(#[case] src: &str) {
+    assert!(parse(src).is_err(), "{src}");
+}
+
+/// nu commits to these ranges and then refuses a bound that is no number (`check_range_types`,
+/// OperatorUnsupportedType) or an empty `next` (IncompleteParser), semantic errors the consumer
+/// reports: they parse, as ranges.
+#[rstest]
 #[case("print 5..{a:1}")]
 #[case("print 5..{}")]
 #[case("print 5..{|| 1}")]
 #[case("print 5..r#'a'#")]
 #[case("print 1..{a:1}..5")]
 #[case("print 1....5")]
-#[case("print 0_xzz")]
-#[case("print _0xzz")]
 #[case("let x = 5..{a:1}")]
 #[case("let x = 5..r#'a'#")]
-fn bad_ranges(#[case] src: &str) {
-    assert!(parse(src).is_err(), "{src}");
+fn ranges_nu_type_checks(#[case] src: &str) {
+    let ast = parse(src).unwrap_or_else(|e| panic!("{src}: {e:?}"));
+    assert!(
+        nu_parser::winnow::syntax::pretty::dump(&ast).contains("Range"),
+        "{src}"
+    );
 }
 
 /// What nu does not read as a range stays a string, or at the head of a command an external
