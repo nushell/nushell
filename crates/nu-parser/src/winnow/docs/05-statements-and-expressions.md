@@ -186,13 +186,24 @@ unknown flag, for `alias` and `use`):
   records the flag (`is_call`) and parsing goes on: `match 1 --help :{}`
   still has no match block, `def foo [] {} {} --help` has no colon, but
   `match 1 --help` and `def foo --help` are fine. `call.positional`
-  returning `None` is the "missing positional is forgiven" step; `finish`
+  returning `None` is the missing positional; `finish`
   turns the finished statement into the help call. The argument of the `in`
   keyword is never forgiven: nu reserves the last item for the block before
   it reads the keyword's argument, so `for x in []` and `for x --help in []`
   are both "missing argument to `in`". A typed loop variable takes every
   item before `in` as its type (`for x: record<a: int, b: string> in [] {}`
   parses; `for x: int --help in [] {}` has the unknown type `int --help`).
+* A positional missing at the end of the statement, help or not, is nu's
+  MissingPositional, semantic: the statement is then nu's call (`call.missing`,
+  which `call.positional` does at the end), as for an unknown flag: `loop`,
+  `if true`, `if else { }`, `while true --` (whose `--` ends the options),
+  `match 1`, `def foo [x]`, `extern cmd`, `use`, `export-env -- {}` (nu hands
+  `export-env` its first item alone), `[1] | where`. The consumer finishes a
+  `def` or `extern` call as nu does, gives a `use`, `for` or `export-env` call
+  back as it is, and reports a lone `export-env` with garbage. `if` or `match`
+  alone is no call: nu reads it as a math expression missing its operand
+  (`is_math_expression_like`), "expected expression" with garbage, which the
+  parser records as recovered (`lone_keyword`).
 * The first `--` at a boundary is consumed, recorded in `Ast::ignored` and
   otherwise dropped (`return -- 1` returns `1`). After it nu looks for no
   flags at all (`seen_end_of_options`): a second `--` is a positional

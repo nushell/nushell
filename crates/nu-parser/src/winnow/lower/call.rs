@@ -20,7 +20,9 @@ use crate::{
         find_longest_decl_with_prefix, parse_external_string, parse_regular_external_arg,
         parse_unknown_arg, shape_allows_negative_number, strict_extern_forwards,
     },
-    parse_expressions::{is_math_expression_like, parse_value as classic_value},
+    parse_expressions::{
+        is_math_expression_like, parse_math_expression, parse_value as classic_value,
+    },
     parse_helpers::{PERCENT_FORCED_BUILTIN_PARSER_INFO, is_variable},
     parse_keywords::is_parser_keyword,
     parse_signatures::{ensure_not_reserved_variable_name, parse_full_signature},
@@ -684,12 +686,14 @@ impl<'s> Lower<'_, '_, 's> {
                 return Ok((self.variable_item(item, input_type)?, index + 1));
             }
             // `parse_math_expression` reads `if` or `match` and the items after it as a call
-            // (`parse_call`), and either alone as an error.
+            // (`parse_call`), and either alone as an error, with garbage.
             SyntaxShape::MathExpression | SyntaxShape::Expression
                 if matches!(text, "if" | "match") =>
             {
                 if one_item {
-                    return Err(Unlowered::Error);
+                    let span = self.span(item.span);
+                    let value = parse_math_expression(self.working_set, &[span], None, input_type);
+                    return Ok((value, index + 1));
                 }
                 self.items_call(item, &arguments[index + 1..end], input_type)?
             }

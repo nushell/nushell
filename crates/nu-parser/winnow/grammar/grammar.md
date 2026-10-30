@@ -1161,6 +1161,10 @@ Vocabulary: `<expression>` is a `<pipeline-element>` (3.1); `<block>` is a
 ; which reads some of them.) Where a positional spans several items (a condition, a
 ; signature, an alias target) only its first item is such a boundary: `if true --foo
 ; {}` is the condition's "expected operator".
+; A positional missing at the end of the statement is a MissingPositional, semantic:
+; the statement is nu's call too (`loop`, `if true`, `while true --`, `def foo [x]`,
+; `use`, `[1] | where`); `if` or `match` alone is "expected expression" (a math
+; expression missing its operand), with garbage.
 ; After "--help" nu goes on parsing the positionals that follow and only forgives
 ; the MISSING ones: `match 1 --help :{}` has no match block, `return --help 1 2`
 ; and `loop --help {} y` have an extra positional, `def foo [] {} {} --help` has no
@@ -2000,7 +2004,7 @@ MissingPositional, anywhere in it, drops them all; here that is the inner
 `if`'s missing block. This parser stops at its first error, which carries no
 missing-positional kind (the "missing" errors are `expected ...` diagnostics
 from about 25 places, some split differently from nu's positional
-allocation: `if x` is "expected condition" here, a missing block for nu),
+allocation),
 and it has no node for a target that nu accepts but that does not parse.
 Closing it needs both: an `ErrorKind::MissingPositional` at those places and
 a garbage target in `Alias`, or the signatures' positional allocation of 9.1's

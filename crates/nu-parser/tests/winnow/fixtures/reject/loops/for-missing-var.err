@@ -1,6 +1,0 @@
-error: expected loop variable before `in`
-  --> reject/loops/for-missing-var.nu:1:5
-  |
-1 | for in
-  |     ^^
-  = while parsing for

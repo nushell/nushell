@@ -241,8 +241,8 @@ signatures, types or files and is left to the consumer.
 | `UnexpectedEof` | `ErrorKind::UnexpectedEof` | `reject/pipelines/pipe-then-semicolon.nu` `reject/pipelines/trailing-pipe-in-block.nu` | `redirecting_nothing_is_an_error` |
 | `Unclosed` | `ErrorKind::Unclosed` | `reject/lexer/unclosed-*.nu` | `unclosed_delimiters_report_opener` `lex_unclosed_delimiters_point_at_the_opener` |
 | `Unbalanced` | `ErrorKind::Unbalanced` | `reject/lexer/unbalanced-*.nu` `reject/lexer/mismatched-*.nu` `reject/lists/stray-closing-bracket*.nu` | `lex_mismatched_closers` `list_items_refuse_a_stray_closing_bracket` |
-| `Expected` | `ErrorKind::Expected` | `reject/if/no-block.nu` `reject/match/no-arrow.nu` | `unknown_operator_hints` |
-| `ExpectedWithStringMsg` | `ErrorKind::Expected`, `ErrorKind::Message` | `reject/def/missing-body.nu` | `declaration_errors_from_nushell_tests` |
+| `Expected` | `ErrorKind::Expected` | `reject/if/alone.nu` `reject/match/no-arrow.nu` | `unknown_operator_hints` |
+| `ExpectedWithStringMsg` | `ErrorKind::Expected`, `ErrorKind::Message` | `reject/def/help-then-body-then-extra.nu` | `declaration_errors_from_nushell_tests` |
 | `ExpectedWithDidYouMean` | `ErrorKind::UnknownOperator` with help | `reject/operators/bits-and.nu` | `unknown_operators_get_help` |
 | `InputMismatch` | n/a (semantic: types) | `accept/def/io-types-single.nu` | `def_forms` |
 | `OutputMismatch` | n/a (semantic: types) | `accept/def/io-types-single.nu` | `def_forms` |
@@ -254,7 +254,7 @@ signatures, types or files and is left to the consumer.
 | `MultipleRedirections` | `ErrorKind::Message` (`multiple redirections`) | `reject/redirections/duplicate-*.nu` | `redirections` |
 | `CaptureOfMutableVar` | n/a (semantic: scopes) | `accept/assignments/in-closure-and-block.nu` | `assignments` |
 | `ExpectedKeyword` | `ErrorKind::ExpectedKeyword` | `reject/loops/for-missing-in.nu` | `loops_and_jumps` |
-| `UnexpectedKeyword` | `ErrorKind::Expected` | `reject/if/else-before-condition.nu` | `if_forms` |
+| `UnexpectedKeyword` | `ErrorKind::Expected` (`export` alone, a valid call to `export`) | `reject/modules/export-alone.nu` | `extern_alias_module_use_export` |
 | `KeywordShadowModuleMain` | n/a (semantic: modules) | `accept/modules/module-with-main.nu` | `extern_alias_module_use_export` |
 | `CantAliasKeyword` | `ErrorKind::Message` (parser keyword as alias name) | `reject/def/alias-keyword-name.nu` | `definitions_cannot_use_parser_keywords` |
 | `CantAliasExpression` | `ErrorKind::Expected` (`command after =`) | `reject/def/alias-missing-target.nu` | `extern_alias_module_use_export` |
@@ -290,7 +290,7 @@ signatures, types or files and is left to the consumer.
 | `MissingFlagParam` | n/a (semantic: signature), for the keyword commands too | `accept/calls/overlay-hide-keep-env-without-value-is-consumer.nu` `accept/calls/flag-followed-by-value.nu` | `multiword_commands_and_flags` |
 | `OnlyLastFlagInBatchCanTakeArg` | n/a (semantic: signature), for the keyword commands too | `accept/calls/overlay-hide-value-flag-not-last-in-batch-is-consumer.nu` `accept/calls/short-flag-batch.nu` | `multiword_commands_and_flags` |
 | `MissingPositional` | n/a for the calls, keyword commands included, for `mut` and `const` without a value, for a `def --wrapped` without a rest parameter and a flag in a `def`'s body place (`parse_def::reads_as_call`) (semantic: signature) | `accept/calls/hide-without-argument-is-consumer.nu` `accept/calls/source-without-argument-is-consumer.nu` `accept/calls/no-args.nu` `accept/bindings/const-without-value-is-consumer.nu` `accept/bindings/mut-without-value-is-consumer.nu` `accept/bindings/export-const-without-value-is-consumer.nu` `accept/bindings/binding-without-value-forms-is-consumer.nu` | `multiword_commands_and_flags` |
-| `KeywordMissingArgument` | `ErrorKind::Expected` (`block`, `condition`), `parse_def::parse_for` ("missing argument to `in`": the last item is the block's, help or not) | `reject/if/no-block.nu` `reject/loops/while-no-block.nu` `reject/loops/for-help-then-in-without-value.nu` `reject/loops/for-help-then-in-without-block.nu` | `if_forms` |
+| `KeywordMissingArgument` | `ErrorKind::Expected` (`else` without its argument), `parse_def::parse_for` ("missing argument to `in`": the last item is the block's, help or not) | `reject/if/else-nothing.nu` `reject/loops/for-help-then-in-without-value.nu` `reject/loops/for-help-then-in-without-block.nu` | `if_forms` |
 | `MissingType` | `ErrorKind::Expected` (`type`); `ErrorKind::Message` for a typed `mut` or `const` without a value (`parse_bindings::parse_binding`) | `reject/def/type-missing.nu` `reject/def/io-missing-output.nu` `reject/bindings/let-colon-then-nothing.nu` | `def_forms` |
 | `TypeMismatch` | n/a (semantic: types) | `accept/bindings/let-typed.nu` | `let_type_annotations` |
 | `TypeMismatchHelp` | n/a (semantic: types) | `accept/bindings/let-typed.nu` | `let_type_annotations` |

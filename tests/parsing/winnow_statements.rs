@@ -2311,6 +2311,46 @@ fn wrong_import_pattern_imports_as_nu_does(#[case] code: &str) -> Result {
     Ok(())
 }
 
+/// A keyword statement missing a positional at its end is nu's call to the keyword
+/// (`parse_internal_call`'s MissingPositional), which `parse_def` and `parse_extern` still
+/// finish and `parse_use`, `parse_for` and `parse_export_env` give back as it is; `if` or
+/// `match` alone is a math expression missing its operand (Expected), and `export-env` alone
+/// garbage: lowered, reported as there.
+#[rstest]
+#[case::loop_alone("loop", &[("MissingPositional", "")])]
+#[case::try_alone("try", &[("MissingPositional", "")])]
+#[case::while_without_block("while true", &[("MissingPositional", "")])]
+#[case::while_with_end_of_options("while true --", &[("MissingPositional", "")])]
+#[case::if_without_block("if true", &[("MissingPositional", "")])]
+#[case::if_with_end_of_options("if true --", &[("MissingPositional", "")])]
+#[case::if_else_first("if else { }", &[("MissingPositional", " "), ("MissingPositional", " ")])]
+#[case::match_without_block("match 1", &[("MissingPositional", "")])]
+#[case::def_alone("def", &[("MissingPositional", "")])]
+#[case::def_without_body("def foo [x]", &[("MissingPositional", "")])]
+#[case::extern_without_signature("extern cmd", &[("MissingPositional", "")])]
+#[case::use_alone("use", &[("MissingPositional", "")])]
+#[case::export_env_alone("export-env", &[("MissingPositional", "export-env")])]
+#[case::export_env_end_of_options("export-env -- {}", &[("MissingPositional", "")])]
+#[case::where_alone("[1] | where", &[("MissingPositional", "")])]
+#[case::if_alone("if", &[("Expected", "")])]
+#[case::match_alone("let y = (match)", &[("Expected", "")])]
+#[case::if_alone_as_condition("if if --help", &[("Expected", "")])]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn missing_positional_is_lowered(#[case] code: &str, #[case] expected: &[(&str, &str)]) -> Result {
+    let expected: Vec<(String, String)> = expected
+        .iter()
+        .map(|(kind, at)| (kind.to_string(), at.to_string()))
+        .collect();
+    assert_eq!(
+        super::winnow_calls::lowered_errors(code),
+        expected,
+        "`{code}`"
+    );
+    Ok(())
+}
+
 /// A call for help in a module body, which the keyword's parse function gives back as the
 /// statement, is one of the body's statements (`parse_module_block` dispatches by the first
 /// word), lowered as at top level.

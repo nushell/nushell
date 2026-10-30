@@ -282,18 +282,29 @@ impl<'t, 'a> KeywordCall<'t, 'a> {
         help
     }
 
-    /// The flags, then the next positional item; `None` when it is missing and the statement is
-    /// nu's call ([`Self::is_call`]), which reports it as a call's, or when a flag the keyword
-    /// does not have came first ([`Self::call_flags`]).
+    /// The flags, then the next positional item; `None` when it is missing at the end of the
+    /// statement ([`Self::missing`]) or when a flag the keyword does not have came first
+    /// ([`Self::call_flags`]): the statement is then nu's call ([`Self::is_call`]).
     pub fn positional(
         &mut self,
         tokens: &mut Tokens<'t, 'a>,
         what: &'static str,
     ) -> ParseResult<Option<Token>> {
-        if self.call_flags(tokens)? || self.is_call() && tokens.at_end() {
+        if self.call_flags(tokens)? {
+            return Ok(None);
+        }
+        if tokens.at_end() {
+            self.missing();
             return Ok(None);
         }
         tokens.expect_item(what).map(Some)
+    }
+
+    /// A positional missing at the end of the statement (`loop`, `if true`): nu's call reports
+    /// it (MissingPositional, semantic, the consumer's) and goes on, so the statement is that
+    /// call ([`Self::is_call`]).
+    pub fn missing(&mut self) {
+        self.call_error = true;
     }
 
     /// The flags at a positional boundary ([`Self::flags`]); `true` when a flag the keyword

@@ -1,6 +1,0 @@
-error: expected condition
-  --> reject/if/pipe-in-condition.nu:1:4
-  |
-1 | if [1 2] | is-empty { }
-  |    ^^^^^
-  = while parsing if

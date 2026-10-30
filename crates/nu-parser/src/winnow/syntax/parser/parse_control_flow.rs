@@ -23,7 +23,9 @@ use super::parse_expressions::{
     parse_math_expression, parse_value,
 };
 use super::parse_helpers::is_help_flag;
-use super::parse_keywords::{KeywordCall, parse_block_or_value_argument, parse_brace_value};
+use super::parse_keywords::{
+    KeywordCall, parse_block_or_value_argument, parse_brace_value, seen_end_of_options,
+};
 use super::tokens::{Tokens, expected, keyword, tokens_until};
 
 /// A `{ ... }` where nu accepts a block or any expression (the `else` branch
@@ -57,12 +59,16 @@ fn parse_block_or_value<'a>(
 pub fn parse_if<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
     let working_set = tokens.working_set;
     let mut call = KeywordCall::start(&mut tokens)?;
+    if let Some(garbage) = lone_keyword(&tokens, &call, "if") {
+        return Ok(garbage);
+    }
     if call.call_flags(&mut tokens)? {
         return call.help_call();
     }
     if call.is_call() && tokens.at_end() {
         return call.help_call();
     }
+    let options_ended = seen_end_of_options(&tokens);
     let then_part = tokens_until("else").parse_next(&mut tokens)?;
     let else_keyword = opt(keyword("else")).parse_next(&mut tokens)?;
     let (condition, block) = match (then_part.all(), else_keyword) {
@@ -76,27 +82,30 @@ pub fn parse_if<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
             parse_math_expression(then_part.slice(0..condition.len()))?;
             return call.help_call();
         }
-        ([], Some(else_keyword)) => {
-            return Err(cut(Diagnostic::expected(
-                "condition and block before `else`",
-                else_keyword.span,
-            )));
+        // A `--` there ends the options, and the block is missing (`if true --`).
+        ([condition @ .., last], None)
+            if !condition.is_empty() && tokens.text(last) == "--" && !options_ended =>
+        {
+            parse_math_expression(then_part.slice(0..condition.len()))?;
+            call.missing();
+            return call.help_call();
+        }
+        // `if else {}`: nu's call misses the condition, `else` being a later keyword.
+        ([], Some(_)) => {
+            call.missing();
+            return call.help_call();
         }
         ([condition @ .., block], _) if !condition.is_empty() => {
             (then_part.slice(0..condition.len()), block)
         }
-        // `if --help x`: help, once the condition parses (`if --help if` fails).
-        (items, _) if call.is_call() => {
+        // A condition without a block (`if true`), or nothing: nu's call misses a positional.
+        // `if --help x` shows help. Either once the condition parses (`if --help if` fails).
+        (items, _) => {
             if !items.is_empty() {
                 parse_math_expression(then_part)?;
             }
+            call.missing();
             return call.help_call();
-        }
-        (items, _) => {
-            let at = items
-                .first()
-                .map_or(call.keyword.span.past(), |token| token.span);
-            return Err(cut(Diagnostic::expected("condition", at)));
         }
     };
     let condition = parse_math_expression(condition)?;
@@ -150,10 +159,32 @@ pub fn parse_if<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
     call.finish(Expression::new(Expr::If(if_expression), span))
 }
 
+/// A statement that is `keyword` alone (`if`, `match`), not a call through an alias of it: nu
+/// reads it as a math expression (`is_math_expression_like`) missing its operand, an error it
+/// goes on past with garbage (`parse_math_expression`), so the error is recorded as recovered
+/// and the statement is garbage, which the consumer reads with nu's math parser.
+fn lone_keyword<'a>(
+    tokens: &Tokens<'_, 'a>,
+    call: &KeywordCall<'_, 'a>,
+    keyword: &str,
+) -> Option<Expression<'a>> {
+    if !tokens.at_end() || tokens.text(&call.keyword) != keyword {
+        return None;
+    }
+    let span = call.keyword.span;
+    tokens
+        .working_set
+        .error(Diagnostic::expected("expression", span.past()).as_recovered());
+    Some(Expression::new(Expr::Garbage, span))
+}
+
 /// `match value { pattern => body, ... }`.
 pub fn parse_match<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
     let working_set = tokens.working_set;
     let mut call = KeywordCall::start(&mut tokens)?;
+    if let Some(garbage) = lone_keyword(&tokens, &call, "match") {
+        return Ok(garbage);
+    }
     let Some(value) = call.positional(&mut tokens, "value to match on")? else {
         return call.help_call();
     };
@@ -221,22 +252,28 @@ pub fn parse_while<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>
         parse_math_expression(tokens.slice(start..start + condition.len()))?;
         return call.help_call();
     }
+    // A `--` there ends the options, and the block is missing (`while true --`).
+    if let [condition @ .., last] = tokens.remaining()
+        && !condition.is_empty()
+        && tokens.text(last) == "--"
+        && !seen_end_of_options(&tokens)
+    {
+        parse_math_expression(tokens.slice(start..start + condition.len()))?;
+        call.missing();
+        return call.help_call();
+    }
     let Some((block, condition)) = tokens
         .remaining()
         .split_last()
         .filter(|(_, condition)| !condition.is_empty())
     else {
-        if call.is_call() {
-            // `while --help x`: help, once the condition parses.
-            if !tokens.at_end() {
-                parse_math_expression(tokens.slice(start..tokens.all().len()))?;
-            }
-            return call.help_call();
+        // A condition without a block (`while true`), or nothing: nu's call misses a
+        // positional. `while --help x` shows help. Either once the condition parses.
+        if !tokens.at_end() {
+            parse_math_expression(tokens.slice(start..tokens.all().len()))?;
         }
-        return Err(cut(Diagnostic::expected(
-            "condition and block",
-            tokens.end_span(),
-        )));
+        call.missing();
+        return call.help_call();
     };
     let condition = parse_math_expression(tokens.slice(start..start + condition.len()))?;
     let (body, body_value) = parse_block_or_value_argument(tokens.working_set, block, "block")?;

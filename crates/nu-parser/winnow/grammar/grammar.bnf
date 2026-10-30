@@ -1017,6 +1017,10 @@
 ; which reads some of them.) Where a positional spans several items (a condition, a
 ; signature, an alias target) only its first item is such a boundary: `if true --foo
 ; {}` is the condition's "expected operator".
+; A positional missing at the end of the statement is a MissingPositional, semantic:
+; the statement is nu's call too (`loop`, `if true`, `while true --`, `def foo [x]`,
+; `use`, `[1] | where`); `if` or `match` alone is "expected expression" (a math
+; expression missing its operand), with garbage.
 ; After "--help" nu goes on parsing the positionals that follow and only forgives
 ; the MISSING ones: `match 1 --help :{}` has no match block, `return --help 1 2`
 ; and `loop --help {} y` have an extra positional, `def foo [] {} {} --help` has no

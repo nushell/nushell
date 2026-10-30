@@ -251,6 +251,11 @@ pub fn parse_use<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> 
         .filter(|token| working_set.get_span_contents(token.span) == "--")
         .map(|token| token.span);
     keyword_boundary(&mut tokens, "use", &[])?;
+    // Without a module nu's call misses a positional (MissingPositional, the consumer's) and
+    // is the statement.
+    if tokens.at_end() {
+        return parse_help_call(statement);
+    }
     let module_token = tokens.expect_item("module name or path")?;
     let module = match working_set.get_span_contents(module_token.span) {
         "null" => Expression::new(Expr::Nothing, module_token.span),
@@ -486,6 +491,12 @@ pub fn parse_export_env<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expressio
     let Some(block) = call.positional(&mut tokens, "block")? else {
         return export_env_call(statement);
     };
+    // nu's call gets the first item alone, so a `--` there, which ends its options, leaves the
+    // block missing (`export-env -- {}`).
+    if tokens.text(&block) == "--" {
+        call.missing();
+        return export_env_call(statement);
+    }
     let body = parse_block_argument(working_set, &block, "block")?;
     // nu hands `export-env` exactly one argument: anything after it is dropped.
     for ignored in tokens.remaining() {

@@ -1,6 +1,5 @@
-error: expected value to match on
+error: expected expression
   --> reject/match/missing-value.nu:1:6
   |
 1 | match
   |      ^
-  = while parsing match

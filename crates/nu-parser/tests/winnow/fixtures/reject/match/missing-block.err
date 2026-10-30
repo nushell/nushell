@@ -1,6 +1,0 @@
-error: expected match block
-  --> reject/match/missing-block.nu:1:8
-  |
-1 | match 1
-  |        ^
-  = while parsing match

@@ -691,8 +691,10 @@ pub fn parse_def<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> 
     // is the body's: `def foo [] {} --help` drops the `{}` (two-item form of
     // `parse_full_signature`) and `def foo [] {} {} --help` has no colon.
     let (signature_items, body) = match tokens.remaining() {
-        [] if call.is_call() => return call.help_call(),
-        [] => return Err(cut(Diagnostic::expected("signature", tokens.end_span()))),
+        [] => {
+            call.missing();
+            return call.help_call();
+        }
         [only] => (std::slice::from_ref(only), None),
         [signature_items @ .., body] => (signature_items, Some(body)),
     };
@@ -712,12 +714,9 @@ pub fn parse_def<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> 
             };
         }
         Some(token) => parse_def_body(working_set, token, "definition body closure { ... }")?,
-        None if call.is_call() => return call.help_call(),
         None => {
-            return Err(cut(Diagnostic::expected(
-                "block",
-                signature_items[0].span.past(),
-            )));
+            call.missing();
+            return call.help_call();
         }
     };
     let span = call
@@ -930,10 +929,8 @@ pub fn parse_extern<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a
     call.flags(&mut tokens)?;
     let rest = tokens.remaining();
     let Some(last) = rest.last() else {
-        if call.is_call() {
-            return call.help_call();
-        }
-        return Err(cut(Diagnostic::expected("signature", tokens.end_span())));
+        call.missing();
+        return call.help_call();
     };
     // The signature argument takes every remaining item, so a body after it
     // (the old `extern-wrapped`) is dropped by nu without a look.
@@ -962,10 +959,8 @@ pub fn parse_for<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> 
     // nu's call to `for` takes a first `in` as its keyword, the variable missing before it
     // (`for in in [] {}`), not as a reserved name.
     if tokens.text(&variable) == "in" {
-        return Err(cut(Diagnostic::expected(
-            "loop variable before `in`",
-            variable.span,
-        )));
+        call.missing();
+        return call.help_call();
     }
     let (var, typed) = parse_var_with_opt_type(working_set, &variable)?;
     // The variable positional runs up to the `in` keyword, so a type after

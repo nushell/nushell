@@ -1,6 +1,0 @@
-error: expected condition and block
-  --> reject/loops/while-alone.nu:1:6
-  |
-1 | while
-  |      ^
-  = while parsing while

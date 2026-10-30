@@ -137,13 +137,13 @@ Suppose Nushell gains `unless COND { }`.
    /// the last, which is the block.
    pub fn parse_unless<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
        let mut call = KeywordCall::start(&mut tokens)?;
-       call.flags(&mut tokens)?;
+       if call.call_flags(&mut tokens)? {
+           return call.help_call();
+       }
        let Some((block, condition)) = tokens.remaining().split_last().filter(|(_, condition)| !condition.is_empty())
        else {
-           if call.wants_help() {
-               return call.help_call();
-           }
-           return Err(cut(Diagnostic::expected("condition and block", tokens.end_span())));
+           call.missing();                    // nu's MissingPositional, the consumer's
+           return call.help_call();
        };
        let start = tokens.position();
        let condition = parse_math_expression(tokens.slice(start..start + condition.len()))?;
@@ -159,9 +159,10 @@ Suppose Nushell gains `unless COND { }`.
    parses by position, for which `--` is not an end-of-options marker). Take
    each positional item with `call.positional(&mut tokens, "what")`: it reads
    the flags at that boundary first (`--help`/`-h` is noted, the first `--` is
-   consumed, any other flag is an error) and returns `None` for a missing
-   positional that a `--help` forgives, in which case return
-   `call.help_call()`. Where the shape is not one item per positional, read
+   consumed, any other flag makes the statement nu's call) and returns `None`
+   when the positional is missing at the end of the statement (nu's
+   MissingPositional, which the consumer reports) or a flag the keyword does
+   not have came first, in which case return `call.help_call()`. Where the shape is not one item per positional, read
    the flags with `call.flags(&mut tokens)` and take the rest with the stream
    methods or combinators (`tokens_until("else")`, `opt(keyword("else"))`,
    `alt((keyword("catch"), keyword("finally")))` wrapped in `expected`).

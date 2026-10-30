@@ -3873,6 +3873,10 @@ svg.railroad-diagram g.diagram-text:hover path.diagram-text {
   which reads some of them.) Where a positional spans several items (a condition, a
   signature, an alias target) only its first item is such a boundary: <code>if true --foo
   {}</code> is the condition’s "expected operator".
+  A positional missing at the end of the statement is a MissingPositional, semantic:
+  the statement is nu’s call too (<code>loop</code>, <code>if true</code>, <code>while true --</code>, <code>def foo [x]</code>,
+  <code>use</code>, <code>[1] | where</code>); <code>if</code> or <code>match</code> alone is "expected expression" (a math
+  expression missing its operand), with garbage.
   After "--help" nu goes on parsing the positionals that follow and only forgives
   the MISSING ones: <code>match 1 --help :{}</code> has no match block, <code>return --help 1 2</code>
   and <code>loop --help {} y</code> have an extra positional, <code>def foo [] {} {} --help</code> has no
@@ -6277,7 +6281,7 @@ svg.railroad-diagram g.diagram-text:hover path.diagram-text {
 <p>(6.1) </p>
   </article>
   <footer>
-    <p>Date: 2026-10-30T14:50 - <a href="?theme=dark" data-theme="dark">Dark</a> - <a href="?theme=light" data-theme="light">Light</a></p>
+    <p>Date: 2026-10-30T15:41 - <a href="?theme=dark" data-theme="dark">Dark</a> - <a href="?theme=light" data-theme="light">Light</a></p>
   </footer>
   </main>
   <script type="text/javascript">

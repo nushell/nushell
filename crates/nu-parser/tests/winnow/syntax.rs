@@ -1317,8 +1317,9 @@ fn if_forms() {
         parse("if $a and\n $b { }").is_err(),
         "a newline ends the statement outside parentheses"
     );
-    assert!(parse("if { }").is_err());
-    assert!(parse("if true").is_err());
+    // A missing block is nu's call's MissingPositional, the consumer's.
+    kind!(expr(&ok("if { }")), Expr::Call(_));
+    kind!(expr(&ok("if true")), Expr::Call(_));
     assert!(parse("if true { } else").is_err());
     assert!(parse("if true 1").is_err());
 }
@@ -2007,4 +2008,42 @@ fn wrong_import_pattern_keeps_every_member() {
     assert_eq!(use_statement.members.len(), 3);
     assert_eq!(diagnostics.len(), 2, "{diagnostics:?}");
     assert!(diagnostics.iter().all(|d| d.recovered), "{diagnostics:?}");
+}
+
+/// A keyword statement missing a positional at its end is nu's call to the keyword, whose
+/// missing positional the consumer reports (MissingPositional is semantic); `if` or `match`
+/// alone is garbage, a math expression missing its operand, an error recorded as recovered.
+#[test]
+fn missing_positional_is_the_call() {
+    for src in [
+        "loop",
+        "try",
+        "while",
+        "while true",
+        "while true --",
+        "if true",
+        "if true --",
+        "if else { }",
+        "match 1",
+        "def",
+        "def foo [x]",
+        "extern cmd",
+        "use",
+        "export-env",
+        "export-env -- {}",
+        "for in",
+        "[1] | where",
+    ] {
+        let ast = ok(src);
+        let element = ast.block.pipelines[0].elements.last().map(|e| &e.expr.expr);
+        assert!(matches!(element, Some(Expr::Call(_))), "{src}: {element:?}");
+    }
+    for src in ["if", "match"] {
+        let (ast, diagnostics) = parse_lenient(src, &ParseConfig::default());
+        kind!(expr(&ast), Expr::Garbage);
+        assert!(
+            diagnostics.len() == 1 && diagnostics[0].recovered,
+            "{src}: {diagnostics:?}"
+        );
+    }
 }

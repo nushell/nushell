@@ -1,0 +1,4 @@
+Block 0..7
+  Pipeline 0..6
+    Call `for` 0..6
+      String Bare "in" 4..6

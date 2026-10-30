@@ -1166,6 +1166,15 @@ impl<'s> Lower<'_, '_, 's> {
         let head = self.command_head(command, keyword);
         let call_span = self.span(command.span);
         let arguments = call.arguments.as_slice();
+        // `parse_export_env` reports a lone `export-env` before reading its call, with garbage.
+        if keyword == "export-env" && arguments.is_empty() {
+            self.working_set.error(ParseError::MissingPositional(
+                "block".into(),
+                call_span,
+                "export-env <block>".into(),
+            ));
+            return Ok((garbage(self.working_set, call_span), None));
+        }
         // `parse_def` and `parse_extern` refuse a name with its parameters joined to it, in
         // the definition's scope, which they enter and leave open, and give garbage.
         let name_span = arguments
@@ -1217,10 +1226,11 @@ impl<'s> Lower<'_, '_, 's> {
         // `parse_def` and `parse_extern` finish any call: one with an error of its own (the
         // winnow parser's call form of `def --foo f [] {}`) still defines the command. A
         // binding without a value is its call whatever its kind (`let x --foo`).
-        // `parse_export_env` gives an invalid call back as it is (`export-env --foo`).
+        // `parse_export_env`, `parse_use` and `parse_for` give an invalid call back as it is
+        // (`export-env --foo`, `use`, `for x in`).
         if kind != CallKind::Help
             && !matches!(keyword, "def" | "extern" | "let" | "mut" | "const")
-            && !(keyword == "export-env" && kind == CallKind::Invalid)
+            && !(matches!(keyword, "export-env" | "use" | "for") && kind == CallKind::Invalid)
         {
             return Err(Unlowered::Unsupported(
                 "keyword call that does not ask for help",

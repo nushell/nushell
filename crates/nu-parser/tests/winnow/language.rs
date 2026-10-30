@@ -930,7 +930,6 @@ fn redirecting_nothing_is_an_error(#[case] src: &str) {
 #[case("let a = }")]
 #[case("mut a = | }")]
 #[case("def a [n= (if ]")]
-#[case("const foo = if t")]
 #[case("$ a")]
 #[case("{a:b}/")]
 fn malformed_input_does_not_panic(#[case] src: &str) {
@@ -1272,7 +1271,6 @@ fn let_type_without_colon_is_extra_tokens(#[case] src: &str) {
 #[case("let = if $")]
 #[case("mut = if $")]
 #[case("const = if $")]
-#[case("for in")]
 #[case("def foo3 [-l?:int] { $l }")]
 #[case("extern cmd[]")]
 #[case("extern cmd(--flag)")]
@@ -1287,6 +1285,19 @@ fn let_type_without_colon_is_extra_tokens(#[case] src: &str) {
 #[case("if true { |x| $x }")]
 fn declaration_errors_from_nushell_tests(#[case] src: &str) {
     assert!(parse(src).is_err(), "{src}");
+}
+
+/// Snippets of nushell's tests whose error is a missing positional of nu's call to the
+/// keyword (MissingPositional, semantic): the statement is that call, whose error the consumer
+/// reports, and it parses.
+#[rstest]
+#[case("for in")]
+#[case("const foo = if t")]
+fn missing_positionals_from_nushell_tests(#[case] src: &str) {
+    let (ast, diagnostics) = parse_lenient(src, &ParseConfig::new());
+    assert!(diagnostics.is_empty(), "{src}: {diagnostics:?}");
+    let _ = nu_parser::winnow::syntax::pretty::dump(&ast);
+    let _ = nu_parser::winnow::syntax::flatten::flatten(&ast);
 }
 
 // --- the lexer (test_lex.rs) ---------------------------------------------------------------

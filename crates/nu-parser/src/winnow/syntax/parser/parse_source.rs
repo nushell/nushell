@@ -1,8 +1,7 @@
 //! `where` (nu-parser keeps `parse_where` in `parse_source.rs`).
 
 use crate::winnow::syntax::ast::{Expr, Expression, Where};
-use crate::winnow::syntax::error::Diagnostic;
-use crate::winnow::syntax::input::{ParseResult, cut};
+use crate::winnow::syntax::input::ParseResult;
 
 use super::parse_expressions::{parse_closure_expression, parse_row_condition};
 use super::parse_keywords::KeywordCall;
@@ -15,12 +14,9 @@ pub fn parse_where<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>
         return call.help_call();
     }
     let condition = match tokens.remaining() {
-        [] if call.is_call() => return call.help_call(),
         [] => {
-            return Err(cut(Diagnostic::expected(
-                "row condition or closure",
-                call.keyword.span.past(),
-            )));
+            call.missing();
+            return call.help_call();
         }
         _ => parse_condition(tokens)?,
     };

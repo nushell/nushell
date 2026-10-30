@@ -131,10 +131,12 @@ impl<'s> Lower<'_, '_, 's> {
         input_type: Option<&Type>,
     ) -> Lowered<Expression> {
         match &e.expr {
-            // A math expression with an item where an operator goes that is none, which the
-            // winnow parser left as garbage over its items: nu's math parser reads them again,
-            // reporting its errors with what it recovers.
-            w::Expr::Garbage if self.items(e.span).len() > 1 => {
+            // A math expression with an item where an operator goes that is none, or a lone
+            // `if` or `match`, which the winnow parser left as garbage over its items: nu's
+            // math parser reads them again, reporting its errors with what it recovers.
+            w::Expr::Garbage
+                if self.items(e.span).len() > 1 || matches!(self.text(e.span), "if" | "match") =>
+            {
                 let spans = self.items(e.span);
                 Ok(parse_math_expression(
                     self.working_set,
