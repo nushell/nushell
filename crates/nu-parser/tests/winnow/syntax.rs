@@ -2146,3 +2146,24 @@ fn binding_help_call_reads_its_equals_keyword() {
         kind!(expr(&ok(src)), Expr::Call(_));
     }
 }
+
+/// A lone `-` is the name for nu's call to `def` or `extern`, which reads the signature from the
+/// next item: unless nu's predeclaration refuses that item first (a `[` or `(` in it, a semantic
+/// error), the signature is an error, recorded as recovered. The statement is that call.
+#[test]
+fn lone_dash_name_is_the_call() {
+    for (text, errors) in [
+        ("def - [] {}", 0),
+        ("def - --env", 0),
+        ("def - foo [] {}", 1),
+        ("def - --help foo", 1),
+        ("extern - foo", 1),
+    ] {
+        let (ast, diagnostics) = parse_lenient(text, &ParseConfig::default());
+        kind!(expr(&ast), Expr::Call(_));
+        assert!(
+            diagnostics.len() == errors && diagnostics.iter().all(|d| d.recovered),
+            "{text}: {diagnostics:?}"
+        );
+    }
+}

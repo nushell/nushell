@@ -627,6 +627,21 @@ fn reject_name_item(working_set: &WorkingSet<'_>, token: &Token) -> ParseResult<
     Ok(())
 }
 
+/// Whether the item nu's predeclaration of a `def` or `extern` with a lone `-` for its name
+/// takes for that name, the next item not starting with `-` (`decl_name_span`), has a `[` or
+/// `(`: nu then reports "no space between name and parameters" (`detect_params_in_name`, a
+/// semantic error) and reads no call (`def - [] {}`). Only such an item can start a signature
+/// that reads, so after any other the signature nu's call reads is an error.
+fn params_in_dash_name(tokens: &Tokens<'_, '_>) -> bool {
+    tokens
+        .remaining()
+        .iter()
+        .filter(|token| token.contents == TokenContents::Item)
+        .map(|token| tokens.text(token))
+        .find(|text| !text.starts_with('-'))
+        .is_some_and(|text| text.contains(['[', '(']))
+}
+
 /// The name item of a `def`/`extern`: a string literal. Like nu, a name
 /// containing `[` or `(` (even quoted) is "no space between name and
 /// parameters", and a `$` item is not a string.
@@ -665,26 +680,33 @@ pub fn parse_def<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> 
     let Some(name) = call.positional(&mut tokens, "command name")? else {
         return call.help_call();
     };
-    // nu's call reads a lone `-` as no item, so the next is the name (`def - [] {}`, whose name
-    // `[]` is "no space between name and parameters"): the statement is that call.
-    if tokens.text(&name) == "-" {
+    // A lone `-` is the name for nu's call, which then reads the signature from the next item
+    // (`def - foo [] {}` has "expected colon (:) before type signature"), its error recorded
+    // below as any signature's; the statement is that call ([`params_in_dash_name`]).
+    let lone_dash = tokens.text(&name) == "-";
+    if lone_dash && params_in_dash_name(&tokens) {
         return call.help_call();
     }
-    reject_name_item(working_set, &name)?;
-    let name = match parse_def_name(working_set, &name) {
-        Ok(parsed) => parsed,
-        // `def cmd[] {}`: nu refuses the name before it reads the call, and so does the
-        // consumer, which reads the statement as that call.
-        Err(error)
-            if working_set
-                .get_span_contents(name.span)
-                .contains(['[', '(']) =>
-        {
-            return signature_error_call(statement, error);
-        }
-        Err(error) => return Err(error),
+    let name = if lone_dash {
+        Spanned::new(Cow::Borrowed("-"), name.span)
+    } else {
+        reject_name_item(working_set, &name)?;
+        let name = match parse_def_name(working_set, &name) {
+            Ok(parsed) => parsed,
+            // `def cmd[] {}`: nu refuses the name before it reads the call, and so does the
+            // consumer, which reads the statement as that call.
+            Err(error)
+                if working_set
+                    .get_span_contents(name.span)
+                    .contains(['[', '(']) =>
+            {
+                return signature_error_call(statement, error);
+            }
+            Err(error) => return Err(error),
+        };
+        recover_name_error(working_set, check_definition_name(&name, "command"))?;
+        name
     };
-    recover_name_error(working_set, check_definition_name(&name, "command"))?;
     flags.extend(parse_definition_flags(
         &mut tokens,
         &mut call,
@@ -724,6 +746,9 @@ pub fn parse_def<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> 
             return call.help_call();
         }
     };
+    if lone_dash {
+        return call.help_call();
+    }
     let span = call
         .keyword
         .span
@@ -910,26 +935,33 @@ pub fn parse_extern<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a
     let Some(name) = call.positional(&mut tokens, "command name")? else {
         return call.help_call();
     };
-    // nu's call reads a lone `-` as no item, so the next is the name (`def - [] {}`, whose name
-    // `[]` is "no space between name and parameters"): the statement is that call.
-    if tokens.text(&name) == "-" {
+    // A lone `-` is the name for nu's call, which then reads the signature from the next item
+    // (`def - foo [] {}` has "expected colon (:) before type signature"), its error recorded
+    // below as any signature's; the statement is that call ([`params_in_dash_name`]).
+    let lone_dash = tokens.text(&name) == "-";
+    if lone_dash && params_in_dash_name(&tokens) {
         return call.help_call();
     }
-    reject_name_item(working_set, &name)?;
-    let name = match parse_def_name(working_set, &name) {
-        Ok(parsed) => parsed,
-        // `def cmd[] {}`: nu refuses the name before it reads the call, and so does the
-        // consumer, which reads the statement as that call.
-        Err(error)
-            if working_set
-                .get_span_contents(name.span)
-                .contains(['[', '(']) =>
-        {
-            return signature_error_call(statement, error);
-        }
-        Err(error) => return Err(error),
+    let name = if lone_dash {
+        Spanned::new(Cow::Borrowed("-"), name.span)
+    } else {
+        reject_name_item(working_set, &name)?;
+        let name = match parse_def_name(working_set, &name) {
+            Ok(parsed) => parsed,
+            // `def cmd[] {}`: nu refuses the name before it reads the call, and so does the
+            // consumer, which reads the statement as that call.
+            Err(error)
+                if working_set
+                    .get_span_contents(name.span)
+                    .contains(['[', '(']) =>
+            {
+                return signature_error_call(statement, error);
+            }
+            Err(error) => return Err(error),
+        };
+        recover_name_error(working_set, check_definition_name(&name, "command"))?;
+        name
     };
-    recover_name_error(working_set, check_definition_name(&name, "command"))?;
     flags.extend(parse_definition_flags(
         &mut tokens,
         &mut call,
@@ -948,6 +980,9 @@ pub fn parse_extern<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a
         Ok(signature) => signature,
         Err(error) => return signature_error_call(statement, error),
     };
+    if lone_dash {
+        return call.help_call();
+    }
     let span = call.keyword.span.merge(last.span);
     call.finish(Expression::new(
         Expr::Extern(Box::new(Extern {
