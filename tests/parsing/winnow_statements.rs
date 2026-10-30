@@ -2108,6 +2108,24 @@ fn malformed_table_is_lowered(#[case] code: &str, #[case] kind: &str, #[case] at
     Ok(())
 }
 
+/// An assignment whose value starts with a bare external command is nu's error at the command,
+/// and the assignment stays: lowered, reported as there.
+#[rstest]
+#[case::variable("mut x = 1; $x = git", "git")]
+#[case::environment("$env.FOO = bar", "bar")]
+#[case::pipeline("mut x = 1; $x = foo bar | length", "foo")]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn bare_external_in_an_assignment_is_lowered(#[case] code: &str, #[case] head: &str) -> Result {
+    assert_eq!(
+        super::winnow_calls::lowered_errors(code),
+        [("LabeledErrorWithHelp".to_string(), head.to_string())],
+        "`{code}`"
+    );
+    Ok(())
+}
+
 /// A call for help in a module body, which the keyword's parse function gives back as the
 /// statement, is one of the body's statements (`parse_module_block` dispatches by the first
 /// word), lowered as at top level.

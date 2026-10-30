@@ -409,7 +409,9 @@ nu 0.97 an external command at the start of the value must be written with
 a caret: an `ExternalCall` without one as the first element of the rhs is
 "external command calls must be explicit in assignments" (`$x = git` is
 refused, `$x = ^git` is not). A bare external head needs the command table
-(or an alias of an external command), so with no table this never fires.
+(or an alias of an external command), so with no table this never fires. nu
+reports it and keeps the assignment, so the error is recorded as recovered
+and the consumer reports it.
 
 ## Calls (`parse_call`, `find_longest_decl`, `parse_call_arguments`)
 

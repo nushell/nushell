@@ -537,7 +537,8 @@ Precedence (nu-protocol `ast/operator.rs:256`; higher binds tighter):
 ; `[1].0 = 2`, `{a: 1}.a = 2`; a non-FullCellPath (`1 = 2`, `[1] = 2`,
 ; `{a: 1} = 2`, `echo a = b`) is AssignmentRequiresVar.
 ; rhs: an unknown (external) command at the start of the rhs must be written with
-; "^" ("External command calls must be explicit in assignments").
+; "^" ("External command calls must be explicit in assignments"), which nu reports
+; keeping the assignment: the parser records it as recovered.
 ; nu: parse_expressions.rs:1026 parse_assignment_expression, 1108
 ; here: src/winnow/syntax/parser/parse_expressions.rs::parse_assignment_expression (lhs: Var,
 ;       Subexpression, FullCellPath, List, Table or a "key: value" Record, which are what

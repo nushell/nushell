@@ -2311,7 +2311,8 @@ svg.railroad-diagram g.diagram-text:hover path.diagram-text {
   <code>[1].0 = 2</code>, <code>{a: 1}.a = 2</code>; a non-FullCellPath (<code>1 = 2</code>, <code>[1] = 2</code>,
   <code>{a: 1} = 2</code>, <code>echo a = b</code>) is AssignmentRequiresVar.
   rhs: an unknown (external) command at the start of the rhs must be written with
-  "^" ("External command calls must be explicit in assignments").
+  "^" ("External command calls must be explicit in assignments"), which nu reports
+  keeping the assignment: the parser records it as recovered.
   nu: parse<em>expressions.rs:1026 parse</em>assignment<em>expression, 1108
   here: src/winnow/syntax/parser/parse</em>expressions.rs::parse<em>assignment</em>expression (lhs: Var,
   Subexpression, FullCellPath, List, Table or a "key: value" Record, which are what
@@ -6269,7 +6270,7 @@ svg.railroad-diagram g.diagram-text:hover path.diagram-text {
 <p>(6.1) </p>
   </article>
   <footer>
-    <p>Date: 2026-10-30T08:34 - <a href="?theme=dark" data-theme="dark">Dark</a> - <a href="?theme=light" data-theme="light">Light</a></p>
+    <p>Date: 2026-10-30T09:23 - <a href="?theme=dark" data-theme="dark">Dark</a> - <a href="?theme=light" data-theme="light">Light</a></p>
   </footer>
   </main>
   <script type="text/javascript">

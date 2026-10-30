@@ -401,7 +401,9 @@ fn parse_assignment_expression<'a>(tokens: Tokens<'_, 'a>) -> ParseResult<Expres
     // Since 0.97 nu refuses an external command as the start of the value
     // unless it is written with a caret: `$x = git` is an error, `$x = ^git`
     // is not. A bare external head needs the command table (or an alias of
-    // an external command), so without one this never fires.
+    // an external command), so without one this never fires. nu reports it and
+    // keeps the assignment, and so does the consumer: the error is recorded as
+    // recovered.
     if let Some(first) = rhs
         .pipelines
         .first()
@@ -410,10 +412,11 @@ fn parse_assignment_expression<'a>(tokens: Tokens<'_, 'a>) -> ParseResult<Expres
         && call.caret.is_none()
     {
         let name = working_set.get_span_contents(call.head.span);
-        return Err(cut(Diagnostic::message("external command calls must be explicit in assignments", call.head.span)
+        working_set.error(Diagnostic::message("external command calls must be explicit in assignments", call.head.span)
             .with_help(format!(
                 "`{name}` is not a known command; write `^{name}` to run it and capture its output, or quote the string"
-            ))));
+            ))
+            .as_recovered());
     }
     let span = lhs.span.merge(rhs_span);
     Ok(Expression::new(

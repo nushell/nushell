@@ -320,7 +320,12 @@ impl<'s> Lower<'_, '_, 's> {
                 .get_span_contents(Span::new(head.span.start - 1, head.span.end))
                 .starts_with(b"^")
         {
-            return Err(Unlowered::Error);
+            self.working_set.error(ParseError::LabeledErrorWithHelp {
+                error: "External command calls must be explicit in assignments".into(),
+                label: "add a caret (^) before the command name if you intended to run and capture its output".into(),
+                help: "the parsing of assignments was changed in 0.97.0, and this would have previously been treated as a string. Alternatively, quote the string with single or double quotes to avoid it being interpreted as a command name. This restriction may be removed in a future release.".into(),
+                span: head.span,
+            });
         }
         let rhs_ty = rhs_block.output_type();
         let rhs_block_id = self.working_set.add_block(Arc::new(rhs_block));
