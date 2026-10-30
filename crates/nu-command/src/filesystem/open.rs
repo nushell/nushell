@@ -8,6 +8,7 @@ use std::path::{Path, PathBuf};
 
 #[cfg(feature = "sqlite")]
 use crate::database::SQLiteDatabase;
+use crate::formats::is_dotenv_file;
 
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
@@ -25,7 +26,7 @@ impl Command for Open {
     }
 
     fn extra_description(&self) -> &str {
-        "Support to automatically parse files with an extension `.xyz` can be provided by a `from xyz` command in scope."
+        "Support to automatically parse files with an extension `.xyz` can be provided by a `from xyz` command in scope. Files named like `.env`, `.env.local` or `prod.env` are parsed with `from dotenv` when they hold text."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -197,16 +198,36 @@ impl Command for Open {
                             .unwrap_or(std::ffi::OsStr::new(path))
                             .to_string_lossy()
                             .to_lowercase();
-                        Some(extract_extensions(path_str.as_str()))
+                        let mut exts = extract_extensions(path_str.as_str());
+                        // `.env` has no extension, and `.env.local`'s doesn't name a format.
+                        if is_dotenv_file(&path_str) {
+                            exts.push("dotenv".into());
+                        }
+                        Some(exts)
                     };
 
-                    let converter = exts_opt.and_then(|exts| {
+                    let mut converter = exts_opt.and_then(|exts| {
                         exts.iter().find_map(|ext| {
                             engine_state
                                 .find_decl(format!("from {ext}").as_bytes(), &[])
                                 .map(|id| (id, ext.to_string()))
                         })
                     });
+
+                    // `from dotenv` is picked by the file's name alone, so a file named like
+                    // `.env.gpg` that isn't text opens as raw data.
+                    let mut stream = stream;
+                    if converter.as_ref().is_some_and(|(_, ext)| ext == "dotenv") {
+                        let bytes = std::fs::read(path)
+                            .map_err(|err| IoError::new(err, arg_span, PathBuf::from(path)))?;
+                        match String::from_utf8(bytes) {
+                            Ok(text) => {
+                                stream = Value::string(text, call_span)
+                                    .into_pipeline_data_with_metadata(stream.take_metadata());
+                            }
+                            Err(_) => converter = None,
+                        }
+                    }
 
                     match converter {
                         Some((converter_id, ext)) => {
