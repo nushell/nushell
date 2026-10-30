@@ -3,5 +3,4 @@ error: expected string
   |
 1 | def $"foo" [] {}
   |     ^^^^^^
-  = while parsing def
   = help: the name of a definition is a string

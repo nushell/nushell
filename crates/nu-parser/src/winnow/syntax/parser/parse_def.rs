@@ -27,6 +27,7 @@ use super::parse_keywords::{
     KeywordCall, call_after_error, is_parser_keyword, parse_block_or_value_argument,
     parse_help_call, seen_end_of_options,
 };
+use super::parse_literals::is_bare_string_interpolation;
 use super::parse_signatures::{
     parse_definition_name, parse_full_signature, parse_var_type, parse_var_with_opt_type,
 };
@@ -192,18 +193,21 @@ impl<Items> FoundDefinition<Items> {
 
 /// A definition found by the scan, with its signature: the items from the
 /// first one starting with `[` or `(` after the name, up to (not including) a
-/// `def`'s body. A name that is no string (`def "a"b`) gets no signature, so the
-/// engine predeclares nothing, as nu does.
+/// `def`'s body. A name that is no string (`def "a"b`, or a bare interpolation
+/// such as `def $"a(1)"`, which nu's `parse_string` reads as one) gets no
+/// signature, so the engine predeclares nothing, as nu does.
 fn predeclared_def<'a>(
     working_set: &WorkingSet<'a>,
     found: FoundDefinition<&[Token]>,
 ) -> PredeclaredDef<'a> {
-    let (name, has_signature) = match parse_definition_name(working_set, found.name.span) {
-        Ok(name) => (name, found.has_signature),
-        Err(_) => {
-            let text = working_set.get_span_contents(found.name.span);
-            (Spanned::new(Cow::Borrowed(text), found.name.span), false)
-        }
+    let text = working_set.get_span_contents(found.name.span);
+    let name = match is_bare_string_interpolation(text) {
+        true => None,
+        false => parse_definition_name(working_set, found.name.span).ok(),
+    };
+    let (name, has_signature) = match name {
+        Some(name) => (name, found.has_signature),
+        None => (Spanned::new(Cow::Borrowed(text), found.name.span), false),
     };
     let signature = has_signature.then(|| {
         let after_name = found
@@ -694,11 +698,14 @@ pub fn parse_def<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> 
         let name = match parse_def_name(working_set, &name) {
             Ok(parsed) => parsed,
             // `def cmd[] {}`: nu refuses the name before it reads the call, and so does the
-            // consumer, which reads the statement as that call.
+            // consumer, which reads the statement as that call. A `$` item is no string for
+            // the call's `string` positional (`def $x`: VariableNotFound, or `finish_def`'s
+            // UnknownState for a value that is no literal), which nu reports and goes on past.
             Err(error)
                 if working_set
                     .get_span_contents(name.span)
-                    .contains(['[', '(']) =>
+                    .contains(['[', '('])
+                    || working_set.get_span_contents(name.span).starts_with('$') =>
             {
                 return signature_error_call(statement, error);
             }
@@ -949,11 +956,14 @@ pub fn parse_extern<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a
         let name = match parse_def_name(working_set, &name) {
             Ok(parsed) => parsed,
             // `def cmd[] {}`: nu refuses the name before it reads the call, and so does the
-            // consumer, which reads the statement as that call.
+            // consumer, which reads the statement as that call. A `$` item is no string for
+            // the call's `string` positional (`def $x`: VariableNotFound, or `finish_def`'s
+            // UnknownState for a value that is no literal), which nu reports and goes on past.
             Err(error)
                 if working_set
                     .get_span_contents(name.span)
-                    .contains(['[', '(']) =>
+                    .contains(['[', '('])
+                    || working_set.get_span_contents(name.span).starts_with('$') =>
             {
                 return signature_error_call(statement, error);
             }

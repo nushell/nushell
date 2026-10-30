@@ -2177,3 +2177,18 @@ fn lone_dash_name_is_the_call() {
         );
     }
 }
+
+/// A `$` item where a definition's name goes is no string for nu's call, which reports it
+/// (VariableNotFound, UnknownState) and goes on: the statement is that call, the error recorded
+/// as recovered.
+#[test]
+fn variable_definition_name_is_the_call() {
+    for text in ["def $x [] {}", "def $\"foo\" [] {}", "extern $x []"] {
+        let (ast, diagnostics) = parse_lenient(text, &ParseConfig::default());
+        kind!(expr(&ast), Expr::Call(_));
+        assert!(
+            diagnostics.len() == 1 && diagnostics[0].recovered,
+            "{text}: {diagnostics:?}"
+        );
+    }
+}

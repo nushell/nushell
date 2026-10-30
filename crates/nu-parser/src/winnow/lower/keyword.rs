@@ -1360,7 +1360,11 @@ impl<'s> Lower<'_, '_, 's> {
             ),
             _ => (self.node(Expr::Call(lowered), call_span, output), None),
         };
-        if export {
+        if let w::Expr::Export(export) = &command.expr {
+            if matches!(keyword, "def" | "extern") && !matches!(expression.expr, Expr::Call(_)) {
+                let expression = self.exported_garbage(expression, export, call_span, call_span);
+                return Ok((expression, decl));
+            }
             self.export_call(&mut expression, &export_name, call_span)?;
             if let Expr::Call(call) = &mut expression.expr {
                 call.head = head;
@@ -1698,21 +1702,31 @@ impl<'s> Lower<'_, '_, 's> {
                 (None, Some(first)) => Span::new(first.start, call_span.end),
                 _ => call_span,
             };
-            // A definition `finish_def` or `finish_extern` gave up on (garbage: a flag whose
-            // value does not evaluate) is kept, covering the statement, and reported from the
-            // keyword on (`warp_export_call`).
             if attributes.is_empty() && !matches!(expression.expr, Expr::Call(_)) {
-                expression.span = span;
-                let keyword = self.span(export.item.span).start;
-                self.working_set.error(ParseError::InternalError(
-                    "unexpected output from parsing a definition".into(),
-                    Span::new(keyword, call_span.end),
-                ));
-                return Ok(expression);
+                return Ok(self.exported_garbage(expression, export, span, call_span));
             }
             self.export_call(&mut expression, export_name, span)?;
         }
         Ok(expression)
+    }
+
+    /// An exported definition `finish_def` or `finish_extern` gave up on (garbage: a flag whose
+    /// value does not evaluate, a name that is no string): kept, covering `span`, and reported
+    /// from the keyword to the end of the statement at `call_span` (`warp_export_call`).
+    fn exported_garbage(
+        &mut self,
+        mut expression: Expression,
+        export: &w::Export<'s>,
+        span: Span,
+        call_span: Span,
+    ) -> Expression {
+        expression.span = span;
+        let keyword = self.span(export.item.span).start;
+        self.working_set.error(ParseError::InternalError(
+            "unexpected output from parsing a definition".into(),
+            Span::new(keyword, call_span.end),
+        ));
+        expression
     }
 
     /// Make a definition's call a call to `export_name` covering `span` (`warp_export_call`):

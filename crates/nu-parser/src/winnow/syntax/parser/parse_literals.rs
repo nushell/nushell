@@ -772,7 +772,7 @@ fn raw_string_parts(text: &str) -> Option<(usize, &str)> {
 
 /// `true` for a bare word that Nushell treats as an interpolation because it
 /// contains `(`: `foo(1 + 1)bar`.
-fn is_bare_string_interpolation(text: &str) -> bool {
+pub(super) fn is_bare_string_interpolation(text: &str) -> bool {
     !text.starts_with(['\'', '"', '`']) && text.contains('(')
 }
 
