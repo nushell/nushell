@@ -2505,6 +2505,10 @@ svg.railroad-diagram g.diagram-text:hover path.diagram-text {
   not (shadowed or hidden): <code>%ls foo</code> calls <code>ls</code> even where <code>def "ls foo"</code> exists,
   and <code>%my cmd</code> under <code>def "my cmd"</code> is the error at <code>my</code>. The <args> read as a
   call to that built-in reads them: <code>%any $it &gt; 2</code> takes one row condition.
+  After the error nu reads the items after the "%" as an external call
+  (parse<em>external</em>call: the head an external name, <code>%^foo</code> the name <code>^foo</code>): so does
+  the parser, the error recorded as recovered, except after a lone "%", whose head nu
+  leaves empty.
   nu: parse<em>calls.rs:1600-1700 (find</em>longest<em>decl</em>with<em>command</em>type)
   here: src/winnow/syntax/parser/parse<em>calls.rs::parse</em>percent<em>call (find</em>longest<em>name asking
   find</em>builtin<em>decl: the built-in table from ParseConfig, or the engine’s
@@ -6244,7 +6248,7 @@ svg.railroad-diagram g.diagram-text:hover path.diagram-text {
 <p>(6.1) </p>
   </article>
   <footer>
-    <p>Date: 2026-10-30T02:02 - <a href="?theme=dark" data-theme="dark">Dark</a> - <a href="?theme=light" data-theme="light">Light</a></p>
+    <p>Date: 2026-10-30T02:44 - <a href="?theme=dark" data-theme="dark">Dark</a> - <a href="?theme=light" data-theme="light">Light</a></p>
   </footer>
   </main>
   <script type="text/javascript">

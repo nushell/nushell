@@ -3,5 +3,4 @@ error: percent sigil requires a built-in command
   |
 1 | %if true {}
   |  ^^
-  = while parsing command call
   = help: `if` is not a built-in command; write the built-in command's name bare (`%ls`), or `%$var` / `%(expr)` to name it at run time

@@ -612,6 +612,10 @@ Precedence (nu-protocol `ast/operator.rs:256`; higher binds tighter):
 ; not (shadowed or hidden): `%ls foo` calls `ls` even where `def "ls foo"` exists,
 ; and `%my cmd` under `def "my cmd"` is the error at `my`. The <args> read as a
 ; call to that built-in reads them: `%any $it > 2` takes one row condition.
+; After the error nu reads the items after the "%" as an external call
+; (parse_external_call: the head an external name, `%^foo` the name `^foo`): so does
+; the parser, the error recorded as recovered, except after a lone "%", whose head nu
+; leaves empty.
 ; nu: parse_calls.rs:1600-1700 (find_longest_decl_with_command_type)
 ; here: src/winnow/syntax/parser/parse_calls.rs::parse_percent_call (find_longest_name asking
 ;       find_builtin_decl: the built-in table from ParseConfig, or the engine's

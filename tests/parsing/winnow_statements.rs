@@ -1669,6 +1669,58 @@ fn attributes_before_an_export_of_no_definition() -> Result {
     Ok(())
 }
 
+/// `%name` naming no built-in command is nu's error at the name, after which nu reads the items
+/// after the `%` as an external call: lowered, reported as there.
+#[rstest]
+#[case::bare_name("%foo", &[("LabeledErrorWithHelp", "foo")])]
+#[case::several_words("%my cmd", &[("LabeledErrorWithHelp", "my")])]
+#[case::quoted_name("%\"ls\" a", &[("LabeledErrorWithHelp", "\"ls\"")])]
+#[case::in_a_pipeline("ls | %foo x", &[("LabeledErrorWithHelp", "foo")])]
+#[case::caret_after("%^foo", &[("LabeledErrorWithHelp", "^foo")])]
+#[case::second_sigil("%%ls", &[("LabeledErrorWithHelp", "%ls")])]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn percent_call_of_no_builtin_is_lowered(
+    #[case] code: &str,
+    #[case] expected: &[(&str, &str)],
+) -> Result {
+    let expected: Vec<(String, String)> = expected
+        .iter()
+        .map(|(kind, text)| (kind.to_string(), text.to_string()))
+        .collect();
+    assert_eq!(
+        super::winnow_calls::lowered_errors(code),
+        expected,
+        "`{code}`"
+    );
+    Ok(())
+}
+
+/// After a lone `%` nu's external call has an empty head (the item after it is an argument),
+/// which the winnow parser leaves to the classic parser; otherwise the head is the item after
+/// the `%`, read as an external command's name.
+#[rstest]
+#[case::lone_sigil("% foo", "")]
+#[case::caret_after("%^foo", "^foo")]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn percent_call_head_as_nu_reads_it(#[case] code: &str, #[case] head: &str) -> Result {
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let block = nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    let Expr::ExternalCall(call_head, _) = &block.pipelines[0].elements[0].expr.expr else {
+        panic!("`{code}`: the statement is not an external call");
+    };
+    assert_eq!(
+        working_set.get_span_contents(call_head.span),
+        head.as_bytes(),
+        "`{code}`"
+    );
+    Ok(())
+}
+
 /// A call for help in a module body, which the keyword's parse function gives back as the
 /// statement, is one of the body's statements (`parse_module_block` dispatches by the first
 /// word), lowered as at top level.

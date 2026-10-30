@@ -473,7 +473,11 @@ bare name that is not a built-in command (`CommandType::Builtin`, so not a
 keyword such as `if` nor a prelude command such as `pwd`) is rejected with
 "percent sigil requires a built-in command" (skipped when the parse knows
 no commands at all). The error points at the first word: under
-`def "my cmd"`, `%my cmd` is reported at `my`.
+`def "my cmd"`, `%my cmd` is reported at `my`. nu then reads the items after
+the `%` as an external call, so the parser records the error as recovered and
+reads that call (`ExternalCall` with the `%` as its `caret`), which the
+consumer reports; after a lone `%`, whose head nu leaves empty, the error
+stays.
 
 ## External calls and environment shorthand
 

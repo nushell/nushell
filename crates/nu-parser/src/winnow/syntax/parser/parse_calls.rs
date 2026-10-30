@@ -173,6 +173,19 @@ fn parse_percent_call<'a>(first: Token, mut tokens: Tokens<'_, 'a>) -> ParseResu
         },
     };
     let head_text = working_set.get_span_contents(head_token.span);
+    // `%name` naming no built-in command: nu reports it and reads the items after the `%` as
+    // an external call (`parse_external_call`), so the parser records the error as recovered
+    // and reads that call. Not after a lone `%`, whose head nu leaves empty.
+    let after_sigil = tokens;
+    let external = |diagnostic: Diagnostic| -> ParseResult<Expression<'a>> {
+        if first.span.len() == 1 {
+            return Err(cut(diagnostic));
+        }
+        let head = parse_external_string(working_set, head_token.span)?;
+        let call = parse_external_arguments(Some(sigil), head, after_sigil)?;
+        working_set.error(diagnostic.as_recovered());
+        Ok(call)
+    };
     match head_text.as_bytes()[0] {
         b'$' | b'(' => {
             let head = parse_value(working_set, head_token.span, ExpectedShape::Any)?;
@@ -187,11 +200,10 @@ fn parse_percent_call<'a>(first: Token, mut tokens: Tokens<'_, 'a>) -> ParseResu
                 span,
             ))
         }
-        b'"' | b'\'' | b'`' | b'[' | b'{' | b'^' | b'%' => Err(cut(Diagnostic::message(
-            "percent sigil requires a built-in command",
-            head_token.span,
-        )
-        .with_help(PERCENT_HELP))),
+        b'"' | b'\'' | b'`' | b'[' | b'{' | b'^' | b'%' => external(
+            Diagnostic::message("percent sigil requires a built-in command", head_token.span)
+                .with_help(PERCENT_HELP),
+        ),
         _ => {
             // nu's `find_longest_decl_with_command_type`: the head is the longest name of a
             // built-in command, so `%ls foo` calls `ls` even where `def "ls foo"` exists.
@@ -199,14 +211,13 @@ fn parse_percent_call<'a>(first: Token, mut tokens: Tokens<'_, 'a>) -> ParseResu
             let (head, found) = find_longest_name(head_token, &mut tokens, "", builtin);
             let kind = found.or_else(|| working_set.find_builtin_decl(&head.name));
             if kind.is_none() && working_set.has_builtin_decls() {
-                return Err(cut(Diagnostic::message(
-                    "percent sigil requires a built-in command",
-                    head.span,
-                )
-                .with_help(format!(
-                    "`{}` is not a built-in command; {PERCENT_HELP}",
-                    head.name
-                ))));
+                return external(
+                    Diagnostic::message("percent sigil requires a built-in command", head.span)
+                        .with_help(format!(
+                            "`{}` is not a built-in command; {PERCENT_HELP}",
+                            head.name
+                        )),
+                );
             }
             // As nu reads a call to the built-in by its signature: `%any $it > 2` takes a row
             // condition.

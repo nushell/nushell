@@ -1216,6 +1216,19 @@ impl<'s> Lower<'_, '_, 's> {
         e: &w::Expression<'s>,
         call: &w::ExternalCall<'s>,
     ) -> Lowered<Expression> {
+        // `%name` naming no built-in command, which `parse_call` reports at the name and reads
+        // as an external call of the items after the `%`.
+        if let Some(sigil) = call.caret
+            && self.text(sigil) == "%"
+        {
+            let span = self.span(call.head.span);
+            self.working_set.error(ParseError::LabeledErrorWithHelp {
+                error: "percent sigil requires a built-in command".into(),
+                label: "unknown built-in command".into(),
+                help: "remove `%` to use normal resolution, or use `^` to run an external command explicitly".into(),
+                span,
+            });
+        }
         if call.caret.is_none()
             && let w::Expr::String(name) = &call.head.expr
             && name.quote == w::Quote::Bare
