@@ -219,7 +219,12 @@ pub fn parse_alias<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>
         )));
     }
     // Like nu, only the aliasable keywords (`if`, `match`, `try`, `overlay ...`)
-    // may be aliased; `alias d = def` is an error.
+    // may be aliased; `alias d = def` is an error. nu reads the target as a call
+    // and refuses to declare the alias (`finish_alias`), the statement kept: so
+    // does the consumer for a target that is the keyword alone, the error
+    // recorded as recovered. With arguments nu's first reading of the target
+    // (`parse_expression`) reads some keywords their own way (`run`, `where`, a
+    // `def`'s body), so that stays an error.
     let target: String = words
         .iter()
         .take(2)
@@ -227,17 +232,22 @@ pub fn parse_alias<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>
         .collect::<Vec<_>>()
         .join(" ");
     let single = first_text;
-    if UNALIASABLE_PARSER_KEYWORDS.contains(&target.as_str())
-        || UNALIASABLE_PARSER_KEYWORDS.contains(&single)
-    {
-        return Err(cut(Diagnostic::message(
-            "cannot create an alias to a parser keyword",
-            first.span,
-        )
-        .with_help(format!(
-            "only {} can be aliased",
-            ALIASABLE_PARSER_KEYWORDS.join(", ")
-        ))));
+    let keyword_words =
+        match words.len() > 1 && UNALIASABLE_PARSER_KEYWORDS.contains(&target.as_str()) {
+            true => Some(2),
+            false => UNALIASABLE_PARSER_KEYWORDS.contains(&single).then_some(1),
+        };
+    if let Some(keyword_words) = keyword_words {
+        let diagnostic =
+            Diagnostic::message("cannot create an alias to a parser keyword", first.span)
+                .with_help(format!(
+                    "only {} can be aliased",
+                    ALIASABLE_PARSER_KEYWORDS.join(", ")
+                ));
+        if words.len() != keyword_words {
+            return Err(cut(diagnostic));
+        }
+        working_set.error(diagnostic.as_recovered());
     }
     // nu forgives missing positionals and flag values in an alias target
     // (`alias x = overlay new`), but not unknown flags.

@@ -1794,6 +1794,49 @@ fn keyword_command_redirected_into_a_pipeline(#[case] code: &str) -> Result {
     Ok(())
 }
 
+/// An alias of a parser keyword nu cannot alias is its `CantAliasKeyword` at the target's head,
+/// and no alias: lowered, reported as there.
+#[rstest]
+#[case::definition("alias d = def", "def")]
+#[case::loop_keyword("alias x = for", "for")]
+#[case::two_word_head("alias e = export def", "export def")]
+#[case::binding("alias l = let", "let")]
+#[case::row_condition("alias w = where", "where")]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn alias_of_a_parser_keyword_is_lowered(#[case] code: &str, #[case] head: &str) -> Result {
+    assert_eq!(
+        super::winnow_calls::lowered_errors(code),
+        [("CantAliasKeyword".to_string(), head.to_string())],
+        "`{code}`"
+    );
+    Ok(())
+}
+
+/// An alias of a parser keyword with arguments is left to the classic parser, whose first
+/// reading of the target reads some keywords their own way (a `def`'s body is a closure
+/// whatever its shape): nu reports only the alias.
+#[test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn alias_of_a_parser_keyword_with_arguments() -> Result {
+    let code = "alias zz = def foo [] {a: 1}";
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    let errors: Vec<String> = working_set
+        .parse_errors
+        .iter()
+        .map(|error| format!("{error:?}"))
+        .collect();
+    assert!(
+        matches!(errors.as_slice(), [error] if error.starts_with("CantAliasKeyword")),
+        "`{code}`: {errors:?}"
+    );
+    Ok(())
+}
+
 /// A call for help in a module body, which the keyword's parse function gives back as the
 /// statement, is one of the body's statements (`parse_module_block` dispatches by the first
 /// word), lowered as at top level.

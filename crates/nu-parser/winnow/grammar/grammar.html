@@ -4330,11 +4330,15 @@ svg.railroad-diagram g.diagram-text:hover path.diagram-text {
   <code>match</code>; a target that is an unaliasable keyword (<code>alias d = def</code>, <code>alias l = let</code>,
   <code>alias e = export def</code>) =&gt; CantAliasKeyword; aliasable keywords and any external
   call (<code>^ls -l</code>, and <code>FOO=1 ls</code>, which parses as the external <code>FOO=1</code>) are fine.
-  nu: parse<em>alias.rs:63 parse</em>alias, 186-250, 300-306
-  here: src/winnow/syntax/parser/parse<em>alias.rs::parse</em>alias (the same three checks; missing positionals
+  nu reads an unaliasable keyword’s target as a call and declares no alias
+  (finish<em>alias), the alias call kept: so does the parser for a target that is the
+  keyword alone, the error recorded as recovered (with arguments nu’s first reading
+  of the target reads some keywords their own way, so the error stays).
+  nu: parse</em>alias.rs:63 parse<em>alias, 186-250, 300-306
+  here: src/winnow/syntax/parser/parse</em>alias.rs::parse<em>alias (the same three checks; missing positionals
   of a keyword target are forgiven as in nu, <code>alias x = overlay new</code>)
   DIFF 1: nu reads an <code>if</code>, <code>match</code> or <code>try</code> target through the keyword’s signature
-  (parse_call), this parser with the statement parser or as a call with flags:
+  (parse</em>call), this parser with the statement parser or as a call with flags:
   a missing positional nested in the target is not forgiven here
   (<code>alias i = if if x y</code>, 9.2) and some signature errors are missed
   (<code>alias i = try {} -- catch</code>, 9.1); a <code>%(...)</code> target is CantAliasKeyword in
@@ -6252,7 +6256,7 @@ svg.railroad-diagram g.diagram-text:hover path.diagram-text {
 <p>(6.1) </p>
   </article>
   <footer>
-    <p>Date: 2026-10-30T03:35 - <a href="?theme=dark" data-theme="dark">Dark</a> - <a href="?theme=light" data-theme="light">Light</a></p>
+    <p>Date: 2026-10-30T04:33 - <a href="?theme=dark" data-theme="dark">Dark</a> - <a href="?theme=light" data-theme="light">Light</a></p>
   </footer>
   </main>
   <script type="text/javascript">

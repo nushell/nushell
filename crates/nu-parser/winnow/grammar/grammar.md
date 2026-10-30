@@ -1403,6 +1403,10 @@ Vocabulary: `<expression>` is a `<pipeline-element>` (3.1); `<block>` is a
 ; `match`; a target that is an unaliasable keyword (`alias d = def`, `alias l = let`,
 ; `alias e = export def`) => CantAliasKeyword; aliasable keywords and any external
 ; call (`^ls -l`, and `FOO=1 ls`, which parses as the external `FOO=1`) are fine.
+; nu reads an unaliasable keyword's target as a call and declares no alias
+; (finish_alias), the alias call kept: so does the parser for a target that is the
+; keyword alone, the error recorded as recovered (with arguments nu's first reading
+; of the target reads some keywords their own way, so the error stays).
 ; nu: parse_alias.rs:63 parse_alias, 186-250, 300-306
 ; here: src/winnow/syntax/parser/parse_alias.rs::parse_alias (the same three checks; missing positionals
 ;       of a keyword target are forgiven as in nu, `alias x = overlay new`)
