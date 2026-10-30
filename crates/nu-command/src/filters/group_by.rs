@@ -397,6 +397,7 @@ fn groupers_to_column_names(groupers: &[Spanned<Grouper>]) -> Result<Vec<String>
                     col_name: conflicting_name.item.clone(),
                     first_use: conflicting_name.span,
                     second_use: name.span,
+                    help: None,
                 }]),
             ));
         }

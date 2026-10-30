@@ -87,21 +87,24 @@ pub trait Eval {
             }
             Expr::Record(items) => {
                 let mut record = Record::new();
-                let mut col_names = HashMap::new();
+                let mut col_names: HashMap<String, (Span, bool)> = HashMap::new();
                 for item in items {
                     match item {
                         RecordItem::Pair(col, val) => {
                             // avoid duplicate cols
                             let col_name = Self::eval::<D>(state, mut_state, col)?.coerce_into_string()?;
                             let col_span = col.span(&state);
-                            if let Some(orig_span) = col_names.get(&col_name) {
+                            if let Some(&(orig_span, from_spread)) = col_names.get(&col_name) {
                                 return Err(ShellError::ColumnDefinedTwice {
                                     col_name,
                                     second_use: col_span,
-                                    first_use: *orig_span,
+                                    first_use: orig_span,
+                                    help: from_spread.then(|| {
+                                        ShellError::RECORD_SPREAD_DUPLICATE_HELP.into()
+                                    }),
                                 });
                             } else {
-                                col_names.insert(col_name.clone(), col_span);
+                                col_names.insert(col_name.clone(), (col_span, false));
                                 record.push(col_name, Self::eval::<D>(state, mut_state, val)?);
                             }
                         }
@@ -110,14 +113,17 @@ pub trait Eval {
                             match Self::eval::<D>(state, mut_state, inner)? {
                                 Value::Record { val: inner_val, .. } => {
                                     for (col_name, val) in inner_val.into_owned() {
-                                        if let Some(orig_span) = col_names.get(&col_name) {
+                                        if let Some(&(orig_span, _)) = col_names.get(&col_name) {
                                             return Err(ShellError::ColumnDefinedTwice {
                                                 col_name,
                                                 second_use: inner_span,
-                                                first_use: *orig_span,
+                                                first_use: orig_span,
+                                                help: Some(
+                                                    ShellError::RECORD_SPREAD_DUPLICATE_HELP.into(),
+                                                ),
                                             });
                                         } else {
-                                            col_names.insert(col_name.clone(), inner_span);
+                                            col_names.insert(col_name.clone(), (inner_span, true));
                                             record.push(col_name, val);
                                         }
                                     }
@@ -147,6 +153,7 @@ pub trait Eval {
                             col_name: header,
                             second_use: expr_span,
                             first_use,
+                            help: None,
                         });
                     } else {
                         output_headers.push(header);

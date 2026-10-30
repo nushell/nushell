@@ -129,6 +129,7 @@ fn eval_ir_block_inner<D: DebugContext>(
                 matches: vec![],
                 registers: &mut registers[..],
                 files: &mut files[..],
+                record_spread_origins: vec![],
             },
             ir_block,
             input,
@@ -191,9 +192,20 @@ struct EvalContext<'a> {
     registers: &'a mut [PipelineExecutionData],
     /// Holds open files used by redirections
     files: &'a mut [Option<Arc<File>>],
+    /// For record literals under construction: the register, a key brought in by a spread, and
+    /// the span of that spread. Used to point duplicate-key errors at the spread.
+    record_spread_origins: Vec<(RegId, String, Span)>,
 }
 
 impl<'a> EvalContext<'a> {
+    /// Where a spread brought `key` into the record literal being built in `reg`, if it did.
+    fn record_spread_origin(&self, reg: RegId, key: &str) -> Option<Span> {
+        self.record_spread_origins
+            .iter()
+            .find(|(r, k, _)| *r == reg && k == key)
+            .map(|(.., span)| *span)
+    }
+
     /// Replace the contents of a register with a new value
     #[inline]
     fn put_reg(&mut self, reg_id: RegId, new_value: PipelineExecutionData) {
@@ -985,10 +997,12 @@ fn eval_instruction<D: DebugContext>(
 
             let key = key.coerce_into_string()?;
             if let Some(old_value) = record.insert(&key, val) {
+                let spread_span = ctx.record_spread_origin(*src_dst, &key);
                 return Err(ShellError::ColumnDefinedTwice {
                     col_name: key,
                     second_use: *span,
-                    first_use: old_value.span(),
+                    first_use: spread_span.unwrap_or_else(|| old_value.span()),
+                    help: spread_span.map(|_| ShellError::RECORD_SPREAD_DUPLICATE_HELP.into()),
                 });
             }
 
@@ -1014,12 +1028,17 @@ fn eval_instruction<D: DebugContext>(
             // Not using .extend() here because it doesn't handle duplicates
             for (key, val) in items {
                 if let Some(first_value) = record.insert(&key, val) {
+                    let first_use = ctx
+                        .record_spread_origin(*src_dst, &key)
+                        .unwrap_or_else(|| first_value.span());
                     return Err(ShellError::ColumnDefinedTwice {
                         col_name: key,
                         second_use: *span,
-                        first_use: first_value.span(),
+                        first_use,
+                        help: Some(ShellError::RECORD_SPREAD_DUPLICATE_HELP.into()),
                     });
                 }
+                ctx.record_spread_origins.push((*src_dst, key, *span));
             }
             ctx.put_reg(
                 *src_dst,
@@ -1312,6 +1331,10 @@ fn load_literal(
     // represents the `null` value and should produce `PipelineData::Value(Value::Nothing)`.
     // Some commands (like `metadata`) distinguish between these when deciding
     // whether positional args are allowed.
+    // A new record literal starts here: forget spread origins left from an earlier one.
+    if matches!(lit, Literal::Record { .. }) && !ctx.record_spread_origins.is_empty() {
+        ctx.record_spread_origins.retain(|(reg, ..)| *reg != dst);
+    }
     if matches!(lit, Literal::Empty) {
         ctx.put_reg(dst, PipelineExecutionData::empty());
     } else {
