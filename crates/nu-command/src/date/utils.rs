@@ -1,10 +1,23 @@
-use chrono::{DateTime, FixedOffset, Local, LocalResult, TimeZone};
+use chrono::{DateTime, FixedOffset, Local, LocalResult, TimeZone, Timelike};
 use nu_protocol::{ShellError, Span, Value, record};
 
 pub(crate) fn parse_date_from_string(
     input: &str,
     span: Span,
 ) -> Result<DateTime<FixedOffset>, Value> {
+    // RFC 3339 date-times (`2025-04-18T04:04:32-07:00`) are the usual form in data, and chrono
+    // reads them to the same date-time as `dtparse`, many times faster. `dtparse` rejects leap
+    // seconds (`23:59:60`), which chrono accepts, so those still go to `dtparse` to fail there.
+    if let Ok(date) = DateTime::parse_from_rfc3339(input)
+        && date.nanosecond() < 1_000_000_000
+    {
+        return Ok(date);
+    }
+    parse_with_dtparse(input, span)
+}
+
+/// Parse `input` with `dtparse`, which reads many more forms than RFC 3339.
+fn parse_with_dtparse(input: &str, span: Span) -> Result<DateTime<FixedOffset>, Value> {
     match dtparse::parse(input) {
         Ok((native_dt, fixed_offset)) => {
             let offset = match fixed_offset {
@@ -313,4 +326,39 @@ pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) 
     }
 
     Value::list(records, head)
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn rfc3339_reads_the_same_as_dtparse() {
+        let parse = |input| {
+            parse_date_from_string(input, Span::test_data())
+                .ok()
+                .map(|date| (date, *date.offset()))
+        };
+        let parse_with_dtparse = |input| {
+            parse_with_dtparse(input, Span::test_data())
+                .ok()
+                .map(|date| (date, *date.offset()))
+        };
+        for input in [
+            "2025-04-18T04:04:32-07:00",
+            "2026-05-14T03:37:00Z",
+            "2025-04-18t04:04:32z",
+            "2025-04-18 04:04:32+05:30",
+            "2025-04-18T04:04:32.123456789+01:00",
+            "2025-04-18T04:04:32.1-00:00",
+        ] {
+            assert!(parse(input).is_some(), "{input}");
+            assert_eq!(parse(input), parse_with_dtparse(input), "{input}");
+        }
+    }
+
+    #[test]
+    fn leap_second_is_not_read() {
+        assert!(parse_date_from_string("2016-12-31T23:59:60Z", Span::test_data()).is_err());
+    }
 }

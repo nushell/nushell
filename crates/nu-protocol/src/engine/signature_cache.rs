@@ -6,13 +6,17 @@ use std::{
 };
 
 /// Signatures of an [`EngineState`](super::EngineState)'s declarations, each built the first time
-/// the parser needs it, and the output types the parser computes from them.
+/// the parser or the evaluator needs it, and the output types the parser computes from them.
 ///
 /// `Command::signature()` rebuilds a `Signature` (several heap allocations) on every call, and the
 /// parser asks for one at least twice per call site (argument parsing and pipeline type checking),
 /// so parsing would otherwise rebuild the signature of a command every time it is called, in every
-/// parse. A declaration in an `EngineState` never changes (merging a delta only appends), so a
-/// signature built for one stays valid for as long as the `EngineState` lives.
+/// parse. The evaluator checks the input and arguments of every call to a built-in command against
+/// its signature too (see
+/// [`EngineState::get_signature_shared`](super::EngineState::get_signature_shared)), so a command
+/// called in a loop would rebuild it once per iteration. A declaration in an `EngineState` never
+/// changes (merging a delta only appends), so a signature built for one stays valid for as long as
+/// the `EngineState` lives.
 ///
 /// The `EngineState` holds the cache in an `Arc`, so a clone (which the engine makes for every
 /// closure it evaluates) shares it instead of copying it. Engines that share it have the same
@@ -38,7 +42,8 @@ use std::{
 /// [`StateWorkingSet::call_output_type`](super::StateWorkingSet::call_output_type) and
 /// [`StateWorkingSet::decl_output_type`](super::StateWorkingSet::decl_output_type)).
 ///
-/// A `Mutex` (rarely contended: only parsing takes it) keeps `EngineState` `Sync`.
+/// A `Mutex` keeps `EngineState` `Sync`. It is held only to look up or insert one entry, so threads
+/// that evaluate calls at the same time (`par-each`) rarely wait on it.
 ///
 /// [`EngineState::merge_delta`]: super::EngineState::merge_delta
 #[derive(Default)]

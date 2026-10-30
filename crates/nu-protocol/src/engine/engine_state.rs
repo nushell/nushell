@@ -131,13 +131,16 @@ impl FileHint {
 /// but they also rely on using IDs rather than full definitions.
 #[derive(Clone, derive_more::Debug)]
 pub struct EngineState {
-    files: Vec<CachedFile>,
+    // `files`, `virtual_paths`, `vars`, `spans` and `scope` are in `Arc`s for the same reason as
+    // `blocks` below: commands that run a closure (`each`, `where`, ...) clone the engine state
+    // every time they are called, so a closure that calls one runs that clone once per value.
+    files: Arc<Vec<CachedFile>>,
     /// The index in `files` of the file the last span lookup found (see
     /// [`Self::try_get_file_contents`]).
     #[debug(skip)]
     last_file_hit: FileHint,
-    pub(super) virtual_paths: Vec<(String, VirtualPath)>,
-    vars: Vec<Variable>,
+    pub(super) virtual_paths: Arc<Vec<(String, VirtualPath)>>,
+    vars: Arc<Vec<Variable>>,
     #[debug("{:?}", decls.iter().map(|c| c.name()).collect::<Vec<_>>())]
     decls: Arc<Vec<Box<dyn Command + 'static>>>,
     // The Vec is wrapped in Arc so that if we don't need to modify the list, we can just clone
@@ -149,9 +152,10 @@ pub struct EngineState {
     pub(super) modules: Arc<Vec<Arc<Module>>>,
     #[debug("{:?}", type_aliases.iter().map(|alias| &alias.name))]
     pub(super) type_aliases: Arc<Vec<TypeAlias>>,
-    pub spans: Vec<Span>,
+    pub spans: Arc<Vec<Span>>,
     doccomments: Doccomments,
-    pub scope: ScopeFrame,
+    /// Use [`Arc::make_mut`] to change it.
+    pub scope: Arc<ScopeFrame>,
     signals: Signals,
     pub signal_handlers: Option<Handlers>,
     pub env_vars: Arc<EnvVars>,
@@ -272,30 +276,30 @@ impl EngineState {
         let (send, recv) = channel::<Mail>();
 
         Self {
-            files: vec![],
+            files: Arc::new(vec![]),
             last_file_hit: FileHint::default(),
-            virtual_paths: vec![],
-            vars: vec![
+            virtual_paths: Arc::new(vec![]),
+            vars: Arc::new(vec![
                 Variable::new(Span::new(0, 0), Type::Any, false),
                 Variable::new(Span::new(0, 0), Type::Any, false),
                 Variable::new(Span::new(0, 0), Type::Any, false),
                 Variable::new(Span::new(0, 0), Type::Any, false),
                 Variable::new(Span::new(0, 0), Type::Any, false),
-            ],
+            ]),
             decls: Arc::new(vec![]),
             blocks: Arc::new(vec![]),
             modules: Arc::new(vec![Arc::new(Module::new(
                 DEFAULT_OVERLAY_NAME.as_bytes().to_vec(),
             ))]),
             type_aliases: Arc::new(vec![]),
-            spans: vec![Span::unknown()],
+            spans: Arc::new(vec![Span::unknown()]),
             doccomments: Doccomments::new(),
             // make sure we have some default overlay:
-            scope: ScopeFrame::with_empty_overlay(
+            scope: Arc::new(ScopeFrame::with_empty_overlay(
                 DEFAULT_OVERLAY_NAME.as_bytes().to_vec(),
                 ModuleId::new(0),
                 false,
-            ),
+            )),
             signal_handlers: None,
             signals: Signals::empty(),
             env_vars: Arc::new(
@@ -393,14 +397,22 @@ impl EngineState {
     /// When we want to preserve what the parser has created, we can take its output (the `StateDelta`) and
     /// use this function to merge it into the global state.
     pub fn merge_delta(&mut self, mut delta: StateDelta) -> Result<(), ShellError> {
-        // Take the mutable reference and extend the permanent state from the working set
-        self.files.extend(delta.files);
-        self.virtual_paths.extend(delta.virtual_paths);
-        self.vars.extend(delta.vars);
-        self.spans.extend(delta.spans);
+        // Take the mutable reference and extend the permanent state from the working set,
+        // avoiding potentially cloning the Arcs if we aren't adding anything
+        if !delta.files.is_empty() {
+            Arc::make_mut(&mut self.files).extend(delta.files);
+        }
+        if !delta.virtual_paths.is_empty() {
+            Arc::make_mut(&mut self.virtual_paths).extend(delta.virtual_paths);
+        }
+        if !delta.vars.is_empty() {
+            Arc::make_mut(&mut self.vars).extend(delta.vars);
+        }
+        if !delta.spans.is_empty() {
+            Arc::make_mut(&mut self.spans).extend(delta.spans);
+        }
         self.doccomments.merge_with(delta.doccomments);
 
-        // Avoid potentially cloning the Arcs if we aren't adding anything
         if !delta.decls.is_empty() {
             // Clones that share the signature cache must agree on every declaration it holds, so
             // an engine that adds declarations the other clones don't have stops sharing it. It
@@ -423,10 +435,10 @@ impl EngineState {
         }
 
         let first = delta.scope.remove(0);
+        let scope = Arc::make_mut(&mut self.scope);
 
         for (delta_name, delta_overlay) in first.clone().overlays {
-            if let Some((_, existing_overlay)) = self
-                .scope
+            if let Some((_, existing_overlay)) = scope
                 .overlays
                 .iter_mut()
                 .find(|(name, _)| name == &delta_name)
@@ -450,7 +462,7 @@ impl EngineState {
                     .merge_with(delta_overlay.visibility);
             } else {
                 // New overlay was added to the delta
-                self.scope.overlays.push((delta_name, delta_overlay));
+                scope.overlays.push((delta_name, delta_overlay));
             }
         }
 
@@ -458,7 +470,7 @@ impl EngineState {
         // whichever overlay binds it. This comes after the merge above, which records the
         // variables that the delta's own bindings shadow.
         for var_id in &first.hidden_vars {
-            for (_, overlay) in &mut self.scope.overlays {
+            for (_, overlay) in &mut scope.overlays {
                 overlay.vars.retain(|_, bound| *bound != *var_id);
             }
         }
@@ -474,15 +486,14 @@ impl EngineState {
         }
 
         // Remove overlays removed in delta
-        self.scope
-            .active_overlays
-            .retain(|id| !removed_ids.contains(id));
+        let scope = Arc::make_mut(&mut self.scope);
+        scope.active_overlays.retain(|id| !removed_ids.contains(id));
 
         // Move overlays activated in the delta to be first
-        self.scope
+        scope
             .active_overlays
             .retain(|id| !activated_ids.contains(id));
-        self.scope.active_overlays.append(&mut activated_ids);
+        scope.active_overlays.append(&mut activated_ids);
 
         #[cfg(feature = "plugin")]
         if !delta.plugins.is_empty() {
@@ -553,13 +564,19 @@ impl EngineState {
     /// Clean up unused variables from a Stack to prevent memory leaks.
     /// This removes variables that are no longer referenced by any overlay or alias.
     pub fn cleanup_stack_variables(&mut self, stack: &mut Stack) {
-        let mut shadowed_vars = HashSet::new();
-        for (_, frame) in self.scope.overlays.iter_mut() {
-            shadowed_vars.extend(frame.shadowed_vars.drain(..));
+        // Only take the scope for writing when there is something to drain.
+        if self
+            .scope
+            .overlays
+            .iter()
+            .all(|(_, frame)| frame.shadowed_vars.is_empty())
+        {
+            return;
         }
 
-        if shadowed_vars.is_empty() {
-            return;
+        let mut shadowed_vars = HashSet::new();
+        for (_, frame) in Arc::make_mut(&mut self.scope).overlays.iter_mut() {
+            shadowed_vars.extend(frame.shadowed_vars.drain(..));
         }
 
         // Collect VarIds still referenced by alias definitions so we don't
@@ -1047,7 +1064,8 @@ impl EngineState {
     }
 
     pub fn generate_nu_constant(&mut self) {
-        self.vars[NU_VARIABLE_ID.get()].const_val = Some(create_nu_constant(self, Span::unknown()));
+        let nu_const = create_nu_constant(self, Span::unknown());
+        Arc::make_mut(&mut self.vars)[NU_VARIABLE_ID.get()].const_val = Some(nu_const);
     }
 
     pub fn get_decl(&self, decl_id: DeclId) -> &dyn Command {
@@ -1088,6 +1106,20 @@ impl EngineState {
         } else {
             decl.signature()
         }
+    }
+
+    /// Shared version of [`EngineState::get_signature`] for the declaration `decl_id`.
+    ///
+    /// The signature is built the first time it is asked for and then shared from the signature
+    /// cache (see `SignatureCache`), so a command called once per value doesn't rebuild its
+    /// signature on every call.
+    pub fn get_signature_shared(&self, decl_id: DeclId) -> Arc<Signature> {
+        let mut cache = SignatureCache::lock(&self.signature_cache.effective);
+        Arc::clone(
+            cache
+                .entry(decl_id)
+                .or_insert_with(|| Arc::new(self.get_signature(self.get_decl(decl_id)))),
+        )
     }
 
     /// Get the signature of a command as a call by `name` in the current scope sees it.
@@ -1232,7 +1264,7 @@ impl EngineState {
 
         let covered_span = Span::new(next_span_start, next_span_end);
 
-        self.files.push(CachedFile {
+        Arc::make_mut(&mut self.files).push(CachedFile {
             name: filename,
             content,
             covered_span,
@@ -1421,7 +1453,7 @@ impl EngineState {
 
     /// Add new span and return its ID
     pub fn add_span(&mut self, span: Span) -> SpanId {
-        self.spans.push(span);
+        Arc::make_mut(&mut self.spans).push(span);
         SpanId::new(self.num_spans() - 1)
     }
 
@@ -1546,6 +1578,44 @@ mod engine_state_tests {
         let cache = Arc::as_ptr(&engine_state.signature_cache);
         merge_a_decl(&mut engine_state);
         assert_eq!(Arc::as_ptr(&engine_state.signature_cache), cache);
+    }
+
+    #[test]
+    fn merging_into_a_clone_leaves_the_original_unchanged() {
+        let engine_state = EngineState::new();
+        let mut clone = engine_state.clone();
+        assert!(Arc::ptr_eq(&engine_state.scope, &clone.scope));
+        assert!(Arc::ptr_eq(&engine_state.vars, &clone.vars));
+
+        let mut working_set = StateWorkingSet::new(&clone);
+        working_set.add_decl(Signature::new("foo").predeclare());
+        working_set.add_variable(b"bar".to_vec(), Span::unknown(), Type::Int, false);
+        let _ = working_set.add_file("baz", b"qux");
+        let delta = working_set.render();
+        clone.merge_delta(delta).expect("merging a delta");
+
+        assert!(clone.find_decl(b"foo", &[]).is_some());
+        assert!(engine_state.find_decl(b"foo", &[]).is_none());
+        assert_eq!(clone.num_vars(), engine_state.num_vars() + 1);
+        assert_eq!(clone.num_files(), engine_state.num_files() + 1);
+    }
+
+    #[test]
+    fn shared_signature_is_built_once() {
+        let mut engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        let decl_id = working_set.add_decl(Signature::new("foo").predeclare());
+        let delta = working_set.render();
+        engine_state
+            .merge_delta(delta)
+            .expect("merging a declaration");
+
+        let signature = engine_state.get_signature_shared(decl_id);
+        assert_eq!(signature.name, "foo");
+        assert!(Arc::ptr_eq(
+            &signature,
+            &engine_state.get_signature_shared(decl_id)
+        ));
     }
 
     #[test]

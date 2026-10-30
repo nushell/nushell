@@ -20,7 +20,7 @@ use nu_protocol::{
 use nu_utils::enable_vt_processing;
 use nu_utils::time::Instant;
 use nu_utils::{escape_quote_string, perf};
-use std::path::Path;
+use std::{path::Path, sync::Arc};
 
 // This will collect environment variables from std::env and adds them to a stack.
 //
@@ -401,8 +401,9 @@ pub(crate) fn evaluate_parsed_block(
         if engine_state.get_constant(*var_id).is_some() {
             continue;
         }
-        if let Some(active_id) = engine_state.scope.active_overlays.last()
-            && let Some((_, overlay)) = engine_state.scope.overlays.get_mut((*active_id).get())
+        let scope = Arc::make_mut(&mut engine_state.scope);
+        if let Some(active_id) = scope.active_overlays.last()
+            && let Some((_, overlay)) = scope.overlays.get_mut((*active_id).get())
         {
             overlay.vars.retain(|_, v| *v != *var_id);
         }

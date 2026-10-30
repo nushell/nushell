@@ -9,7 +9,7 @@ use nu_protocol::{
 };
 use nu_test_support::prelude::*;
 use reedline::Suggestion;
-use std::path::MAIN_SEPARATOR;
+use std::{path::MAIN_SEPARATOR, sync::Arc};
 
 fn create_default_context() -> EngineState {
     let state = nu_cmd_lang::create_default_context();
@@ -330,8 +330,9 @@ pub fn merge_input(
         if engine_state.get_constant(*var_id).is_some() {
             continue;
         }
-        if let Some(active_id) = engine_state.scope.active_overlays.last()
-            && let Some((_, overlay)) = engine_state.scope.overlays.get_mut((*active_id).get())
+        let scope = Arc::make_mut(&mut engine_state.scope);
+        if let Some(active_id) = scope.active_overlays.last()
+            && let Some((_, overlay)) = scope.overlays.get_mut((*active_id).get())
         {
             overlay.vars.retain(|_, v| *v != *var_id);
         }

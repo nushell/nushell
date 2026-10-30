@@ -1018,12 +1018,7 @@ impl<'a> StateWorkingSet<'a> {
         if decl_id.get() >= self.permanent_state.num_decls() {
             return Arc::new(self.get_signature(self.get_decl(decl_id)));
         }
-        let mut cache = SignatureCache::lock(&self.permanent_state.signature_cache.effective);
-        Arc::clone(
-            cache
-                .entry(decl_id)
-                .or_insert_with(|| Arc::new(self.get_signature(self.get_decl(decl_id)))),
-        )
+        self.permanent_state.get_signature_shared(decl_id)
     }
 
     /// Shared version of `Command::signature()` for the declaration `decl_id`, i.e. the
