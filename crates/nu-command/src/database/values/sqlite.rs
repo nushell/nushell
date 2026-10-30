@@ -775,17 +775,21 @@ fn read_entire_sqlite_db(
     for row in rows {
         let table_name: String = row?;
         // TODO: Should use params here?
-        let table_stmt = conn.prepare(&format!("select * from [{table_name}]"))?;
-        let rows = prepared_statement_to_nu_list(
-            table_stmt,
-            NuSqlParams::default(),
-            call_span,
-            signals,
-            None,
-        )
-        .map_err(|err| {
-            err.into_shell_error(call_span, &format!("Failed to read table `{table_name}`"))
-        })?;
+        let rows = conn
+            .prepare(&format!("select * from [{table_name}]"))
+            .map_err(SqliteOrShellError::from)
+            .and_then(|table_stmt| {
+                prepared_statement_to_nu_list(
+                    table_stmt,
+                    NuSqlParams::default(),
+                    call_span,
+                    signals,
+                    None,
+                )
+            })
+            .map_err(|err| {
+                err.into_shell_error(call_span, &format!("Failed to read table `{table_name}`"))
+            })?;
         tables.push(table_name, rows);
     }
 

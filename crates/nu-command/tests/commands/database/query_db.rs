@@ -226,20 +226,31 @@ fn reports_statement_errors(#[case] code: &str, #[case] expected: &str) -> Resul
     })
 }
 
-// `open` reads every table through the same row loop, so its error names the table that failed.
-#[test]
-fn open_reports_which_table_failed() -> Result {
+// `open` reads every table, so its error names the table that failed, whether SQLite fails while
+// preparing the table's query or partway through its rows.
+#[rstest::rstest]
+#[case::rows_fail(
+    "INSERT INTO broken (a) VALUES ('[1]'), ('[2]'), ('not json');
+     ALTER TABLE broken ADD COLUMN b TEXT AS (json(a)) VIRTUAL;",
+    "malformed JSON"
+)]
+// A virtual table whose module this SQLite build doesn't have, as left by a build that does.
+#[case::prepare_fails(
+    "DROP TABLE broken;
+     PRAGMA writable_schema = ON;
+     INSERT INTO sqlite_master (type, name, tbl_name, rootpage, sql)
+     VALUES ('table', 'broken', 'broken', 0, 'CREATE VIRTUAL TABLE broken USING no_such_module');",
+    "no such module: no_such_module"
+)]
+fn open_reports_which_table_failed(#[case] setup: &str, #[case] expected: &str) -> Result {
     Playground::setup(&module_path!().replace("::", "_"), |dirs, _| {
         let db = dirs.test().join("test.db");
-        Connection::open(&db)
-            .expect("failed to open db")
-            .execute_batch(
-                "CREATE TABLE fine (a TEXT);
-                 CREATE TABLE broken (a TEXT);
-                 INSERT INTO broken (a) VALUES ('[1]'), ('[2]'), ('not json');
-                 ALTER TABLE broken ADD COLUMN b TEXT AS (json(a)) VIRTUAL;",
-            )
+        let conn = Connection::open(&db).expect("failed to open db");
+        conn.execute_batch("CREATE TABLE fine (a TEXT); CREATE TABLE broken (a TEXT);")
             .expect("failed to create tables");
+        conn.execute_batch(setup)
+            .expect("failed to set up the broken table");
+        drop(conn);
         let mut tester = test().cwd(dirs.test());
 
         match tester
@@ -248,7 +259,7 @@ fn open_reports_which_table_failed() -> Result {
         {
             ShellError::Generic(generic) => {
                 assert_eq!(generic.error, "Failed to read table `broken`");
-                assert_contains("malformed JSON", generic.msg.as_ref());
+                assert_contains(expected, generic.msg.as_ref());
                 Ok(())
             }
             err => Err(err.into()),
