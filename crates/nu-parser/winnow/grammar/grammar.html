@@ -5021,7 +5021,11 @@ svg.railroad-diagram g.diagram-text:hover path.diagram-text {
 <p><code>@</code> alone or <code>@ name</code> gives an empty name (UnknownCommand); the name must resolve
   to a declaration <code>attr &lt;name&gt;</code>; the definition must be on the very next line;
   anything else (<code>export alias</code>, <code>export const</code>, <code>export module</code>, <code>export use</code>,
-  <code>let</code>, a call) is AttributeRequiresDefinition
+  <code>let</code>, a call) is AttributeRequiresDefinition, which nu reports at the last attribute,
+  keeping the command (or the point after the last attribute) as garbage: so does the
+  parser, the error recorded as recovered; a blank line after the attributes ends the
+  command there, while after a comment line (which nu gives the next command) the error
+  stays
   nu: parse<em>calls.rs:2022 parse</em>attribute; parse<em>def.rs:278 parse</em>attribute<em>block;
   parse</em>module.rs:110, 203
   here: src/winnow/syntax/parser/lite<em>parser.rs::lite</em>attribute<em>lines,
@@ -6240,7 +6244,7 @@ svg.railroad-diagram g.diagram-text:hover path.diagram-text {
 <p>(6.1) </p>
   </article>
   <footer>
-    <p>Date: 2026-10-30T01:14 - <a href="?theme=dark" data-theme="dark">Dark</a> - <a href="?theme=light" data-theme="light">Light</a></p>
+    <p>Date: 2026-10-30T02:02 - <a href="?theme=dark" data-theme="dark">Dark</a> - <a href="?theme=light" data-theme="light">Light</a></p>
   </footer>
   </main>
   <script type="text/javascript">

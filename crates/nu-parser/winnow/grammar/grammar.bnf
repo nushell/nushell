@@ -1445,7 +1445,11 @@
 ; `@` alone or `@ name` gives an empty name (UnknownCommand); the name must resolve
 ; to a declaration `attr <name>`; the definition must be on the very next line;
 ; anything else (`export alias`, `export const`, `export module`, `export use`,
-; `let`, a call) is AttributeRequiresDefinition
+; `let`, a call) is AttributeRequiresDefinition, which nu reports at the last attribute,
+; keeping the command (or the point after the last attribute) as garbage: so does the
+; parser, the error recorded as recovered; a blank line after the attributes ends the
+; command there, while after a comment line (which nu gives the next command) the error
+; stays
 ; nu: parse_calls.rs:2022 parse_attribute; parse_def.rs:278 parse_attribute_block;
 ;     parse_module.rs:110, 203
 ; here: src/winnow/syntax/parser/lite_parser.rs::lite_attribute_lines,

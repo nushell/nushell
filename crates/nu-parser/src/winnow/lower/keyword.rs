@@ -1439,6 +1439,39 @@ impl<'s> Lower<'_, '_, 's> {
         Ok((lowered, values))
     }
 
+    /// Attributes with no definition after them (`parse_attribute_block`): each read as
+    /// `parse_attribute` reads it, `AttributeRequiresDefinition` at the last one, and the
+    /// command after them (`command`, garbage: the point after the last attribute when there
+    /// is none) kept as the block's item.
+    pub(super) fn attributes_without_definition(
+        &mut self,
+        command: &w::Expression<'s>,
+        attributes: &[w::Attribute<'s>],
+    ) -> Lowered<Expression> {
+        let mut lowered = Vec::with_capacity(attributes.len());
+        for attribute in attributes {
+            lowered.push(self.attribute(attribute)?.0);
+        }
+        let (Some(first), Some(last)) = (lowered.first(), lowered.last()) else {
+            return Err(Unlowered::Error);
+        };
+        let first = first.expr.span;
+        self.working_set
+            .error(ParseError::AttributeRequiresDefinition(last.expr.span));
+        let command_span = self.span(command.span);
+        let item = Expression::garbage(self.working_set, command_span);
+        let ty = item.ty.clone();
+        let span = Span::merge_many([first, command_span]);
+        Ok(self.node(
+            Expr::AttributeBlock(AttributeBlock {
+                attributes: lowered,
+                item: Box::new(item),
+            }),
+            span,
+            ty,
+        ))
+    }
+
     /// The head of a definition's call: `keyword`, or `export keyword` when `command` is an
     /// `export`, covering what comes between the two words (blanks, and in a subexpression
     /// newlines and comments), as `Span::concat` of the two items does.

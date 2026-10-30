@@ -1602,6 +1602,73 @@ fn statement_through_an_external_alias_in_a_pipeline() -> Result {
     Ok(())
 }
 
+/// Attributes with no definition after them (none, a command that is no definition, a blank
+/// line) are nu's `AttributeRequiresDefinition` at the last one, each attribute read first:
+/// lowered, reported as there.
+#[rstest]
+#[case::alone("@example \"x\" { 1 }", &[("AttributeRequiresDefinition", "example \"x\" { 1 }")])]
+#[case::before_a_command("@deprecated\nls", &[("AttributeRequiresDefinition", "deprecated")])]
+#[case::blank_line_before_a_definition(
+    "@example \"x\" { 1 }\n\ndef f [] {}",
+    &[("AttributeRequiresDefinition", "example \"x\" { 1 }")]
+)]
+#[case::attribute_error(
+    "@example x",
+    &[("MissingPositional", ""), ("AttributeRequiresDefinition", "example x")]
+)]
+#[case::unknown_attribute(
+    "@x",
+    &[("UnknownCommand", "x"), ("AttributeRequiresDefinition", "x")]
+)]
+#[case::two_then_semicolon(
+    "@deprecated\n@search-terms a b;",
+    &[("AttributeRequiresDefinition", "search-terms a b")]
+)]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn attributes_without_a_definition_are_lowered(
+    #[case] code: &str,
+    #[case] expected: &[(&str, &str)],
+) -> Result {
+    let expected: Vec<(String, String)> = expected
+        .iter()
+        .map(|(kind, text)| (kind.to_string(), text.to_string()))
+        .collect();
+    assert_eq!(
+        super::winnow_calls::lowered_errors(code),
+        expected,
+        "`{code}`"
+    );
+    Ok(())
+}
+
+/// Attributes before an `export` that exports no definition are read by nu's export
+/// (`parse_export_in_block`), not `parse_attribute_block`: its errors are the classic parser's.
+#[test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn attributes_before_an_export_of_no_definition() -> Result {
+    let code = "@example \"x\" { 1 }\nexport alias y = ls";
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    let errors: Vec<String> = working_set
+        .parse_errors
+        .iter()
+        .map(|error| format!("{error:?}"))
+        .collect();
+    assert!(
+        matches!(
+            errors.as_slice(),
+            [first, second] if first.starts_with("AttributeRequiresDefinition")
+                && second.starts_with("InternalError")
+        ),
+        "`{code}`: {errors:?}"
+    );
+    Ok(())
+}
+
 /// A call for help in a module body, which the keyword's parse function gives back as the
 /// statement, is one of the body's statements (`parse_module_block` dispatches by the first
 /// word), lowered as at top level.

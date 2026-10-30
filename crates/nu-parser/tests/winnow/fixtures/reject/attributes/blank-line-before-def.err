@@ -1,6 +1,6 @@
 error: attributes must be followed by a definition
-  --> reject/attributes/blank-line-before-def.nu:2:1
+  --> reject/attributes/blank-line-before-def.nu:1:12
   |
-2 | 
-  | ^
-  = help: put the `def`, `extern` or `export` on the line right after the attributes
+1 | @deprecated
+  |            ^
+  = help: put a `def` or `extern` on the line after the attributes

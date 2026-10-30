@@ -282,7 +282,12 @@ from a `use`d module), and the built-in attributes (`category`, `complete`,
 checked against their keyword signatures. Attributes may only precede `def`,
 `extern`, `export def` and `export extern`; before anything else
 (`export alias`, a call) they are "attributes must be followed by a
-definition".
+definition". nu reports that at the last attribute and keeps the command, or
+the point after the last attribute, as garbage, so the parser records the
+error as recovered and keeps the attribute block with a garbage item, which
+the consumer reads as nu's `parse_attribute_block` does. A blank line after
+the attributes ends the command; a comment line, which nu gives the command
+after it, stays an error.
 
 The keyword itself is not stored in the tree: `Expr::keyword()` names it
 and `Expression::keyword_span()` locates it, since it is always the first

@@ -1,6 +1,6 @@
 error: attributes must be followed by a definition
-  --> reject/attributes/semicolon-then-blank-line-then-pipe.nu:1:18
+  --> reject/attributes/semicolon-then-blank-line-then-pipe.nu:1:17
   |
 1 | @example "a" {1};
-  |                  ^
-  = help: put the `def`, `extern` or `export` on the line right after the attributes
+  |                 ^
+  = help: put a `def` or `extern` on the line after the attributes

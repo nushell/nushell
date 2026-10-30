@@ -94,6 +94,39 @@ fn attribute_head_keeps_a_second_at_sign() -> Result {
     Ok(())
 }
 
+/// Attributes with no definition keep, as their block's garbage item, the command after them,
+/// or the point after the last attribute when there is none (`parse_attribute_block`).
+#[rstest]
+#[case::command("@deprecated\nls -a", "ls -a", 12)]
+#[case::nothing("@deprecated", "", 11)]
+#[nu_test_support::test]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn attributes_without_a_definition_keep_the_command(
+    #[case] code: &str,
+    #[case] item: &str,
+    #[case] start: usize,
+) -> Result {
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let offset = working_set.next_span_start();
+    let block = nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    let Expr::AttributeBlock(attribute_block) = &block.pipelines[0].elements[0].expr.expr else {
+        panic!("`{code}`: the statement is not an attribute block");
+    };
+    assert!(
+        matches!(attribute_block.item.expr, Expr::Garbage),
+        "`{code}`"
+    );
+    let span = attribute_block.item.span;
+    assert_eq!(
+        working_set.get_span_contents(span),
+        item.as_bytes(),
+        "`{code}`"
+    );
+    assert_eq!(span.start - offset, start, "`{code}`");
+    Ok(())
+}
+
 /// nu lexes a subexpression without its comments, so a definition inside one has no
 /// description.
 #[rstest]

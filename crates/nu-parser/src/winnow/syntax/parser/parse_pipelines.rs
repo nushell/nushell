@@ -827,7 +827,8 @@ fn parse_pipeline_element<'a>(
                     )));
                 }
                 (true, _) => parse_builtin_commands(lite_command.tokens(working_set))?,
-                (false, Some(first)) => {
+                // nu reads `export` with its attributes as an export (`parse_export_in_block`).
+                (false, Some(first)) if words.first() == Some(&"export") => {
                     return Err(cut(Diagnostic::message(
                         "attributes must be followed by a definition",
                         first.span,
@@ -836,15 +837,36 @@ fn parse_pipeline_element<'a>(
                         "only `def`, `extern`, `export def` and `export extern` take attributes",
                     )));
                 }
+                // Before anything else nu reports the attributes (`parse_attribute_block`) and
+                // keeps the command, or the point after the last attribute, as garbage: so does
+                // the parser, the error recorded as recovered.
+                (false, Some(first)) => {
+                    working_set.error(
+                        Diagnostic::message(
+                            "attributes must be followed by a definition",
+                            first.span,
+                        )
+                        .with_help(
+                            "only `def`, `extern`, `export def` and `export extern` take attributes",
+                        )
+                        .as_recovered(),
+                    );
+                    let last = lite_command.parts.last().unwrap_or(first);
+                    Expression::new(Expr::Garbage, first.span.merge(last.span))
+                }
                 (false, None) => {
                     let last = attributes
                         .last()
                         .map_or(Span::point(lite_command.end), |attribute| attribute.span);
-                    return Err(cut(Diagnostic::message(
-                        "attributes must be followed by a definition",
-                        last.past(),
-                    )
-                    .with_help("put a `def` or `extern` on the line after the attributes")));
+                    working_set.error(
+                        Diagnostic::message(
+                            "attributes must be followed by a definition",
+                            last.past(),
+                        )
+                        .with_help("put a `def` or `extern` on the line after the attributes")
+                        .as_recovered(),
+                    );
+                    Expression::new(Expr::Garbage, last.past())
                 }
             };
             let span = attributes[0].span.merge(item.span);

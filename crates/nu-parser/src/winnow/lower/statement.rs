@@ -536,6 +536,7 @@ impl<'s> Lower<'_, '_, 's> {
                         self.extern_def(pipeline, command, extern_def, attributes, None)?
                             .0
                     }
+                    w::Expr::Garbage => self.attributes_without_definition(command, attributes)?,
                     _ => return Err(Unlowered::Unsupported("attributes")),
                 }
             }

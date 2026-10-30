@@ -370,16 +370,21 @@ fn lite_attribute_lines(
         if take_pipe_on_later_line(tokens, &mut lite_command.comments)? {
             return Ok(());
         }
-        if let Some(token) = tokens.peek_token()
-            && matches!(token.contents, TokenContents::Eol | TokenContents::Comment)
-        {
-            return Err(cut(Diagnostic::message(
-                "attributes must be followed by a definition",
-                token.span,
-            )
-            .with_help(
-                "put the `def`, `extern` or `export` on the line right after the attributes",
-            )));
+        // A blank line after the attributes ends the command there, with no definition, which
+        // nu's `parse_attribute_block` reports. After a comment line nu gives the comment to the
+        // command after it, which the attributes' command here would take: that stays an error.
+        match tokens.peek_token() {
+            Some(token) if token.contents == TokenContents::Eol => return Ok(()),
+            Some(token) if token.contents == TokenContents::Comment => {
+                return Err(cut(Diagnostic::message(
+                    "attributes must be followed by a definition",
+                    token.span,
+                )
+                .with_help(
+                    "put the `def`, `extern` or `export` on the line right after the attributes",
+                )));
+            }
+            _ => {}
         }
     }
     Ok(())
