@@ -937,7 +937,7 @@ impl<'s> Lower<'_, '_, 's> {
 
     /// A variable written as one item, `x` (`parse_var_with_opt_type`): created in scope, not
     /// mutable, with the type `input_type` (`any` without one); its declaration is typed `any`.
-    /// A name that is no variable's is the classic parser's error. Unlike the bindings'
+    /// A name that is no variable's is reported as nu does, with garbage. Unlike the bindings'
     /// variables (`variable_declaration`), it is in scope at once, as the classic parser puts it
     /// there: a call that reads one is a call for help, which the winnow parser has already
     /// checked, so no later error hands it back.
@@ -948,8 +948,16 @@ impl<'s> Lower<'_, '_, 's> {
     ) -> Lowered<Expression> {
         let span = self.span(e.span);
         let name = self.text(e.span).as_bytes();
-        if name.iter().any(|byte| b" \"'`".contains(byte)) || !is_variable(name) {
-            return Err(Unlowered::Error);
+        // nu reports a name with a space or a quote, or one that is no variable name, and goes
+        // on with garbage for the variable (`for x.y in [1] {}`).
+        if name.iter().any(|byte| b" \"'`".contains(byte)) {
+            self.working_set.error(ParseError::VariableNotValid(span));
+            return Ok(Expression::garbage(self.working_set, span));
+        }
+        if !is_variable(name) {
+            self.working_set
+                .error(ParseError::Expected("valid variable name", span));
+            return Ok(Expression::garbage(self.working_set, span));
         }
         ensure_not_reserved_variable_name(self.working_set, name, span);
         let ty = input_type.cloned().unwrap_or(Type::Any);

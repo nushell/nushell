@@ -2398,6 +2398,45 @@ fn keyword_argument_error_is_lowered(
     Ok(())
 }
 
+/// A binding's variable that nu reports and goes on past (`parse_var_with_opt_type`, then the
+/// binding's own check): items an untyped name leaves before the `=` (ExtraTokens), a name with
+/// a space or a quote (VariableNotValid) or no variable name (Expected), whose variable is then
+/// garbage, a typed name without its type (MissingType), and a `for` variable its call refuses:
+/// lowered, reported as there. A variable with extra items is still declared.
+#[rstest]
+#[case::extra_type_word("let a int = 1; $a", &[("ExtraTokens", "int")])]
+#[case::const_extra_type_word("const a string = 'x'", &[("ExtraTokens", "string")])]
+#[case::detached_colon("let a : int = 1", &[("ExtraTokens", ":")])]
+#[case::colon_on_the_type("let b :int = 2", &[("ExtraTokens", ":int")])]
+#[case::no_variable_name("let $foo-bar = 4", &[("Expected", "$foo-bar")])]
+#[case::double_dash_name("let -- x = 1", &[("Expected", "--"), ("ExtraTokens", "x")])]
+#[case::quoted_name(
+    "let 'a b' = 1; $a",
+    &[("VariableNotValid", "'a b'"), ("VariableNotFound", "$a")]
+)]
+#[case::interpolated_name("let $\"foo bar\" = 4", &[("VariableNotValid", "$\"foo bar\"")])]
+#[case::colon_without_type("mut a: = 1", &[("MissingType", "a:")])]
+#[case::const_colon_without_type("const a: = 1", &[("MissingType", "a:")])]
+#[case::for_variable("for x.y in [1] { }", &[("Expected", "x.y")])]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn binding_variable_error_is_lowered(
+    #[case] code: &str,
+    #[case] expected: &[(&str, &str)],
+) -> Result {
+    let expected: Vec<(String, String)> = expected
+        .iter()
+        .map(|(kind, at)| (kind.to_string(), at.to_string()))
+        .collect();
+    assert_eq!(
+        super::winnow_calls::lowered_errors(code),
+        expected,
+        "`{code}`"
+    );
+    Ok(())
+}
+
 /// A call for help in a module body, which the keyword's parse function gives back as the
 /// statement, is one of the body's statements (`parse_module_block` dispatches by the first
 /// word), lowered as at top level.

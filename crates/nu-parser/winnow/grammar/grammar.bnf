@@ -1142,7 +1142,11 @@
 ; value after it; any other statement is its call to the keyword: `let = 1` misses the
 ; name (MissingPositional, semantic), `let x =` the value (KeywordMissingArgument) and
 ; `let x += 1` the "=" (ExpectedKeyword), both syntax errors nu goes on past. In a
-; binding a flag is no name (`let --help x = 1` is an error).
+; binding a flag is no name (`let --help x = 1` is an error). In a binding nu
+; reports what an untyped name leaves before "=" (ExtraTokens: `let a int = 1`,
+; `let a : int = 1`), a name with a space or quote (VariableNotValid) or no variable
+; name (Expected, a garbage variable), a typed name without its type (MissingType:
+; `let a: = 1`), and goes on with the binding.
 ; without "=" nu parses the statement as a call, where "--" before the name ends the
 ; options: `let x` is allowed (initial_value is optional in let's signature), the
 ; missing value of `mut x` and `const x` is MissingPositional (semantic: signature).

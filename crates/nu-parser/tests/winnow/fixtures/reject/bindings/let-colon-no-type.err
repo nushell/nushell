@@ -3,4 +3,3 @@ error: expected type after `:`
   |
 1 | let a: = 1
   |       ^
-  = while parsing let

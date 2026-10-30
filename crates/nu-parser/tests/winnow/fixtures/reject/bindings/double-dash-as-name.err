@@ -3,5 +3,10 @@ error: expected valid variable name
   |
 1 | let -- x = 1
   |     ^^
-  = while parsing let
   = help: variable names may not contain spaces, quotes or `.[({+-*^%/=!<>&|`
+
+error: extra tokens after the end of the expression
+  --> reject/bindings/double-dash-as-name.nu:1:8
+  |
+1 | let -- x = 1
+  |        ^

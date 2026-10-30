@@ -1,10 +1,12 @@
 //! `let`, `mut` and `const` (nu-parser's `parse_bindings.rs`).
 
+use winnow::error::ErrMode;
+
 use crate::winnow::syntax::ast::{Binding, Expr, Expression};
 use crate::winnow::syntax::error::Diagnostic;
-use crate::winnow::syntax::input::{ParseResult, cut};
+use crate::winnow::syntax::input::{ParseFailure, ParseResult, cut};
 use crate::winnow::syntax::lex::{AssignmentOperator, LexOptions, TokenContents};
-use crate::winnow::syntax::span::Span;
+use crate::winnow::syntax::span::{Span, Spanned};
 
 use super::parse_keywords::{
     KeywordBoundary, call_after_error, keyword_boundary_with, keyword_flag, parse_help_call,
@@ -110,7 +112,20 @@ fn parse_binding<'a>(mut tokens: Tokens<'_, 'a>, kind: BindingKind) -> ParseResu
         _ => return Err(cut(Diagnostic::expected("variable name", tokens.here()))),
     };
     tokens.next_token();
-    let (name, typed) = parse_var_with_opt_type(working_set, &name_token)?;
+    let name_text = working_set.get_span_contents(name_token.span);
+    let (name, typed) = match parse_var_with_opt_type(working_set, &name_token) {
+        Ok(parsed) => parsed,
+        // nu reports an untyped name it refuses in a binding (`let $x-y = 1`, `let 'a b' = 1`,
+        // `let -- x = 1`) and goes on with garbage for the variable, as the consumer does: the
+        // error is recorded as recovered and the name kept as written.
+        Err(ErrMode::Cut(ParseFailure::Error(diagnostic)))
+            if binds && !name_text.ends_with(':') =>
+        {
+            working_set.error(diagnostic.as_recovered());
+            (Spanned::new(name_text, name_token.span), false)
+        }
+        Err(error) => return Err(error),
+    };
     let equals_index = items
         .iter()
         .position(|token| matches!(token.contents, TokenContents::AssignmentOperator(_)))
@@ -134,6 +149,7 @@ fn parse_binding<'a>(mut tokens: Tokens<'_, 'a>, kind: BindingKind) -> ParseResu
         &items[tokens.position()..equals_index],
         typed,
         name_token.span.past(),
+        binds,
     )?;
     let (value, end) = match equals {
         // nu parses everything after the `=` as a block of its own (`let x = ls | length`),

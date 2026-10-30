@@ -31,7 +31,7 @@ use crate::{
     parse_expressions::{
         is_env_variable_name, is_math_expression_like, parse_expression, parse_value,
     },
-    parse_helpers::garbage,
+    parse_helpers::{garbage, is_variable},
     parse_keywords::find_keyword_decl,
     parse_module::warp_export_call,
     parse_patterns::parse_pattern,
@@ -505,6 +505,19 @@ impl<'s> Lower<'_, '_, 's> {
         } else {
             (name_span, name.item.as_bytes().to_vec())
         };
+        // A name with a space or a quote, or one that is no variable name, which the winnow
+        // parser keeps for a binding (`let 'a b' = 1`, `let $x-y = 1`): nu reports it and goes on
+        // with garbage for the variable.
+        if var_name.iter().any(|byte| b" \"'`".contains(byte)) {
+            self.working_set
+                .error(ParseError::VariableNotValid(name_span));
+            return Ok((garbage(self.working_set, name_span), None, var_name));
+        }
+        if !is_variable(&var_name) {
+            self.working_set
+                .error(ParseError::Expected("valid variable name", name_span));
+            return Ok((garbage(self.working_set, name_span), None, var_name));
+        }
         ensure_not_reserved_variable_name(self.working_set, &var_name, name_span);
         match ty {
             Some(annotation) => {
@@ -531,6 +544,17 @@ impl<'s> Lower<'_, '_, 's> {
                 let decl = self.node(Expr::VarDecl(var_id), name_span, ty.clone());
                 Ok((decl, Some(ty), var_name))
             }
+            // `let a: = 1`: a typed name without its type, which nu declares `any` over the
+            // name's item, its colon included, and reports (MissingType).
+            None if self.source[name.span.end..].starts_with(':') => {
+                let span = Span::new(name_span.start, name_span.end + 1);
+                let var_id = self
+                    .working_set
+                    .add_variable_without_scope(span, Type::Any, mutable);
+                self.working_set.error(ParseError::MissingType(span));
+                let decl = self.node(Expr::VarDecl(var_id), span, Type::Any);
+                Ok((decl, None, var_name))
+            }
             None => {
                 let var_id = self.working_set.add_variable_without_scope(
                     name_span,
@@ -541,6 +565,29 @@ impl<'s> Lower<'_, '_, 's> {
                 Ok((decl, None, var_name))
             }
         }
+    }
+
+    /// The variable of a binding nu reads (`let x = value`): [`Self::variable_declaration`],
+    /// then the first item an untyped variable leaves before the `=`, which nu reports
+    /// (ExtraTokens) and goes on past (`let a int = 1`, `let a : int = 1`).
+    fn binding_variable(
+        &mut self,
+        binding: &w::Binding<'s>,
+        mutable: bool,
+        input_type: Option<&Type>,
+    ) -> Lowered<(Expression, Option<Type>, Vec<u8>)> {
+        let declared =
+            self.variable_declaration(&binding.name, binding.ty.as_ref(), mutable, input_type)?;
+        if binding.ty.is_none()
+            && let Some(eq) = binding.eq
+            && !self.source[binding.name.span.end..].starts_with(':')
+            && let Some(first) = self
+                .items(WSpan::new(binding.name.span.end, eq.start))
+                .first()
+        {
+            self.working_set.error(ParseError::ExtraTokens(*first));
+        }
+        Ok(declared)
     }
 
     /// `let name = value` (`parse_let`): the value is a pipeline parsed before the variable is
@@ -613,7 +660,7 @@ impl<'s> Lower<'_, '_, 's> {
         let block_id = self.working_set.add_block(Arc::new(block));
         let rvalue = self.node(Expr::Block(block_id), rvalue_span, output_type);
         let (lvalue, explicit_type, var_name) =
-            self.variable_declaration(&binding.name, binding.ty.as_ref(), mutable, input_type)?;
+            self.binding_variable(binding, mutable, input_type)?;
         let rhs_type = rvalue.ty.clone();
         if let Some(explicit_type) = &explicit_type
             && !type_compatible(explicit_type, &rhs_type)
@@ -971,8 +1018,7 @@ impl<'s> Lower<'_, '_, 's> {
         let rvalue_ty = block.output_type();
         let block_id = self.working_set.add_block(Arc::new(block));
         let rvalue = self.node(Expr::Subexpression(block_id), rvalue_span, rvalue_ty);
-        let (lvalue, explicit_type, var_name) =
-            self.variable_declaration(&binding.name, binding.ty.as_ref(), false, None)?;
+        let (lvalue, explicit_type, var_name) = self.binding_variable(binding, false, None)?;
         if let Some(explicit_type) = &explicit_type
             && !type_compatible(explicit_type, &rvalue.ty)
         {

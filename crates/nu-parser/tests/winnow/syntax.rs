@@ -1555,7 +1555,7 @@ fn text_of(src: &str, span: Span) -> &str {
 
 #[test]
 fn recovery_keeps_parsing_later_statements() {
-    let src = "ls\nlet -- x = 1\ndef f [] { let x }\n1 +\npwd\n";
+    let src = "ls\nlet $x.y: int = 1\ndef f [] { let x }\n1 +\npwd\n";
     let (ast, diagnostics) = parse_lenient(src, &ParseConfig::new());
     assert_eq!(ast.block.pipelines.len(), 5);
     assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
@@ -2073,4 +2073,26 @@ fn keyword_argument_errors_are_the_call() {
         );
     }
     assert!(parse("const --help c = 1").is_err());
+}
+
+/// In a binding nu reads, an untyped name with items after it, a name nu refuses and a typed
+/// name without its type are errors nu goes on past: the binding stays, the error recorded as
+/// recovered. A typed name nu refuses stays an error.
+#[test]
+fn binding_variable_errors_keep_the_binding() {
+    for src in [
+        "let a int = 1",
+        "let a : int = 1",
+        "let $x-y = 1",
+        "let 'a b' = 1",
+        "let a: = 1",
+    ] {
+        let (ast, diagnostics) = parse_lenient(src, &ParseConfig::default());
+        kind!(expr(&ast), Expr::Let(_));
+        assert!(
+            !diagnostics.is_empty() && diagnostics.iter().all(|d| d.recovered),
+            "{src}: {diagnostics:?}"
+        );
+    }
+    assert!(parse("let $x.y: int = 1").is_err());
 }

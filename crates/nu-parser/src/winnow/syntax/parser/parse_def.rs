@@ -962,7 +962,17 @@ pub fn parse_for<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> 
         call.missing();
         return call.help_call();
     }
-    let (var, typed) = parse_var_with_opt_type(working_set, &variable)?;
+    let (var, typed) = match parse_var_with_opt_type(working_set, &variable) {
+        Ok(parsed) => parsed,
+        // nu's call reports an untyped name it refuses (`for x.y in [1] {}`) and goes on with
+        // garbage for the variable.
+        Err(ErrMode::Cut(ParseFailure::Error(diagnostic)))
+            if !tokens.text(&variable).ends_with(':') =>
+        {
+            return call.call_after(*diagnostic);
+        }
+        Err(error) => return Err(error),
+    };
     // The variable positional runs up to the `in` keyword, so a type after
     // `x:` is every item before it (`record<a: int, b: string>` is four items)
     // and `for x: int --help in [] {}` has the unknown type `int --help`.

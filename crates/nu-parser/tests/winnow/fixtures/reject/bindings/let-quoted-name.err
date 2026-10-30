@@ -3,5 +3,4 @@ error: expected valid variable name
   |
 1 | let $"foo bar" = 4
   |     ^^^^^^^^^^
-  = while parsing let
   = help: variable names may not contain spaces, quotes or `.[({+-*^%/=!<>&|`

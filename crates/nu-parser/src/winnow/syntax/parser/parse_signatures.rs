@@ -731,28 +731,43 @@ pub fn parse_var_with_opt_type<'a>(
 /// The type annotation items between a declared name and `=`. With `typed`
 /// (the name ended in `:`) they are the type, `x: int` or `x: record<a: int,
 /// b: string>` (several items, read as one); without it there must be none.
-/// A detached colon (`x : int`) is an error, as in Nushell.
+/// A detached colon (`x : int`) is an error, as in Nushell. In a binding nu reads (`recover`),
+/// nu reports the first item an untyped name leaves (ExtraTokens) and a typed name without its
+/// type (MissingType) and goes on with the binding, as the consumer does: the error is recorded
+/// as recovered, the items are ignored and the variable has no type.
 pub fn parse_type_after_var<'a>(
     working_set: &WorkingSet<'a>,
     items: &[Token],
     typed: bool,
     after_name: Span,
+    recover: bool,
 ) -> ParseResult<Option<TypeAnnotation<'a>>> {
     // `let a : int`: like Nushell, the colon must be attached to the name.
-    if let Some(first) = items.first()
+    if typed
+        && let Some(first) = items.first()
         && working_set.get_span_contents(first.span) == ":"
     {
         return Err(cut(Diagnostic::new(ErrorKind::ExtraTokens, first.span)));
     }
-    match (typed, items.first(), items.last()) {
-        (true, Some(first), Some(last)) => Ok(Some(parse_var_type(
-            working_set,
-            first.span.merge(last.span),
-        )?)),
-        (true, ..) => Err(cut(Diagnostic::expected("type after `:`", after_name))),
-        (false, Some(first), _) => Err(cut(Diagnostic::new(ErrorKind::ExtraTokens, first.span))),
-        (false, ..) => Ok(None),
+    let error = match (typed, items.first(), items.last()) {
+        (true, Some(first), Some(last)) => {
+            return Ok(Some(parse_var_type(
+                working_set,
+                first.span.merge(last.span),
+            )?));
+        }
+        (true, ..) => Diagnostic::expected("type after `:`", after_name),
+        (false, Some(first), _) => Diagnostic::new(ErrorKind::ExtraTokens, first.span),
+        (false, ..) => return Ok(None),
+    };
+    if !recover {
+        return Err(cut(error));
     }
+    working_set.error(error.as_recovered());
+    if let (Some(first), Some(last)) = (items.first(), items.last()) {
+        working_set.add_ignored(first.span.merge(last.span));
+    }
+    Ok(None)
 }
 
 /// The type of a declared variable (`let x: T`, `for x: T in`), which nu

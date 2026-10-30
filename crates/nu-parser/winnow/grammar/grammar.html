@@ -4067,7 +4067,11 @@ svg.railroad-diagram g.diagram-text:hover path.diagram-text {
   value after it; any other statement is its call to the keyword: <code>let = 1</code> misses the
   name (MissingPositional, semantic), <code>let x =</code> the value (KeywordMissingArgument) and
   <code>let x += 1</code> the "=" (ExpectedKeyword), both syntax errors nu goes on past. In a
-  binding a flag is no name (<code>let --help x = 1</code> is an error).
+  binding a flag is no name (<code>let --help x = 1</code> is an error). In a binding nu
+  reports what an untyped name leaves before "=" (ExtraTokens: <code>let a int = 1</code>,
+  <code>let a : int = 1</code>), a name with a space or quote (VariableNotValid) or no variable
+  name (Expected, a garbage variable), a typed name without its type (MissingType:
+  <code>let a: = 1</code>), and goes on with the binding.
   without "=" nu parses the statement as a call, where "--" before the name ends the
   options: <code>let x</code> is allowed (initial<em>value is optional in let’s signature), the
   missing value of <code>mut x</code> and <code>const x</code> is MissingPositional (semantic: signature).
@@ -6289,7 +6293,7 @@ svg.railroad-diagram g.diagram-text:hover path.diagram-text {
 <p>(6.1) </p>
   </article>
   <footer>
-    <p>Date: 2026-10-30T16:40 - <a href="?theme=dark" data-theme="dark">Dark</a> - <a href="?theme=light" data-theme="light">Light</a></p>
+    <p>Date: 2026-10-30T17:35 - <a href="?theme=dark" data-theme="dark">Dark</a> - <a href="?theme=light" data-theme="light">Light</a></p>
   </footer>
   </main>
   <script type="text/javascript">
