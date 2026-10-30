@@ -11,12 +11,12 @@ use nu_utils::time::Instant;
 use url::Url;
 
 use nu_color_config::{StyleComputer, TextStyle, color_from_hex};
-use nu_engine::{command_prelude::*, env_to_string};
+use nu_engine::{command_prelude::*, env_to_string, eval_ir_call};
 use nu_path::form::Absolute;
 use nu_pretty_hex::{HexConfig, HexStyles};
 use nu_protocol::{
     ByteStream, Config, DataSource, ListStream, PipelineMetadata, Signals,
-    TABLE_WIDTH_PRIORITY_COLUMNS_METADATA_KEY, TableMode, ValueIterator,
+    TABLE_WIDTH_PRIORITY_COLUMNS_METADATA_KEY, TableMode, ValueIterator, ir,
     shell_error::{bridge::ShellErrorBridge, io::IoError},
 };
 use nu_table::{
@@ -220,11 +220,14 @@ pub(crate) fn render_value_as_plain_table_text(
     value: Value,
     span: Span,
 ) -> ShellResult<String> {
-    let call = Call::new(span);
-    let input = value.into_pipeline_data();
-    let input = CmdInput::parse(engine_state, stack, &call, input)?;
-    let output = handle_table_command(input)?;
-    let output = output.into_value(span)?;
+    let output = match engine_state.table_decl_id {
+        Some(decl_id) => {
+            let call = ir::Call::build(decl_id, span).finish();
+            eval_ir_call(engine_state, stack, &call, value.into_pipeline_data())?
+                .into_value(span)?
+        }
+        None => value,
+    };
     let config = stack.get_config(engine_state);
 
     let text = match output {

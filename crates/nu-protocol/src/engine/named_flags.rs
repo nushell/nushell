@@ -127,7 +127,6 @@ pub fn expand_flag_record(
                 short: short_slice,
                 span: spread_span,
                 val,
-                ast: None,
             });
         }
     }
@@ -175,7 +174,6 @@ pub fn normalize_engine_arguments(
                 short,
                 span,
                 val: Value::Nothing { .. },
-                ast,
             } => {
                 let accepts = find_signature_flag(signature, &data[name], &data[short])
                     .is_some_and(flag_type_accepts_nothing);
@@ -186,7 +184,6 @@ pub fn normalize_engine_arguments(
                         short,
                         span,
                         val: Value::nothing(span),
-                        ast,
                     });
                 }
                 // else: null → omit
@@ -194,7 +191,6 @@ pub fn normalize_engine_arguments(
             Argument::Spread {
                 vals,
                 span: spread_span,
-                ast,
             } => match vals {
                 Value::Record { val, .. } => {
                     expanded.extend(expand_flag_record(
@@ -210,14 +206,12 @@ pub fn normalize_engine_arguments(
                     expanded.push(Argument::Spread {
                         vals,
                         span: spread_span,
-                        ast,
                     });
                 }
                 Value::Nothing { .. } | Value::Error { .. } => {
                     expanded.push(Argument::Spread {
                         vals,
                         span: spread_span,
-                        ast,
                     });
                 }
                 other => {

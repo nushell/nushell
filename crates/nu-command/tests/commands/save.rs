@@ -95,6 +95,47 @@ fn custom_txt_converter_takes_precedence() -> Result {
 }
 
 #[test]
+fn custom_converter_binds_its_flags() -> Result {
+    Playground::setup("save_custom_converter_flags", |dirs, sandbox| {
+        sandbox.with_files(&[]);
+
+        let expected_file = dirs.test().join("out.foo");
+
+        let () = test().cwd(dirs.test()).run(
+            r#"
+                def "to foo" [--upper, --times: int = 2] {
+                    if $upper { "UP" } else { $"down($times)" }
+                }
+                [1] | save out.foo
+            "#,
+        )?;
+
+        let actual = fs::read_to_string(expected_file)?;
+        assert_eq!(actual, "down2");
+        Ok(())
+    })
+}
+
+#[test]
+fn custom_converter_checks_its_input_type() -> Result {
+    Playground::setup("save_custom_converter_input_type", |dirs, sandbox| {
+        sandbox.with_files(&[]);
+
+        let err = test()
+            .cwd(dirs.test())
+            .run(r#"def "to foo" []: int -> string { "int" }; [1 2] | save out.foo"#)
+            .expect_shell_error()?;
+
+        assert!(
+            matches!(err, ShellError::OnlySupportsThisInputType { .. }),
+            "{err:?}"
+        );
+        assert!(!dirs.test().join("out.foo").exists());
+        Ok(())
+    })
+}
+
+#[test]
 fn unknown_extension_does_not_default_to_text() -> Result {
     Playground::setup("save_unknown_extension", |dirs, sandbox| {
         sandbox.with_files(&[]);

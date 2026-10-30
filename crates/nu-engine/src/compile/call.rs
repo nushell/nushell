@@ -4,9 +4,8 @@ use nu_protocol::{
     DeclId, IntoSpanned, RegId, Span, Spanned, Type,
     ast::{Argument, Call, Expr, Expression, ExternalArgument, FlagRef},
     engine::{ENV_VARIABLE_ID, IN_VARIABLE_ID, NU_VARIABLE_ID, StateWorkingSet, UNKNOWN_SPAN_ID},
-    ir::{Instruction, IrAstRef, Literal},
+    ir::{Instruction, Literal},
 };
-use std::sync::Arc;
 
 pub(crate) fn compile_call(
     working_set: &StateWorkingSet,
@@ -217,8 +216,6 @@ pub(crate) fn compile_call(
         return compile_unlet(working_set, builder, call, io_reg);
     }
 
-    // Keep AST if the decl needs it.
-    let requires_ast = decl.requires_ast_for_arguments();
     // `metadata $var` needs the variable's definition span, not the use-site span.
     let preserve_var_origin = decl.name() == "metadata";
 
@@ -229,9 +226,9 @@ pub(crate) fn compile_call(
     // the argument state, but we'd have to check all of that first and it just isn't really worth
     // it.
     enum CompiledArg<'a> {
-        Positional(RegId, Span, Option<IrAstRef>),
-        Named(FlagRef<'a>, Option<RegId>, Span, Option<IrAstRef>),
-        Spread(RegId, Span, Option<IrAstRef>),
+        Positional(RegId, Span),
+        Named(FlagRef<'a>, Option<RegId>, Span),
+        Spread(RegId, Span),
     }
 
     let mut compiled_args = vec![];
@@ -268,29 +265,18 @@ pub(crate) fn compile_call(
             })
             .transpose()?;
 
-        let ast_ref = arg
-            .expr()
-            .filter(|_| requires_ast)
-            .map(|expr| IrAstRef(Arc::new(expr.clone())));
-
         match arg {
-            Argument::Positional(_) | Argument::Unknown(_) => {
-                compiled_args.push(CompiledArg::Positional(
-                    arg_reg.expect("expr() None in non-Named"),
-                    arg.span(),
-                    ast_ref,
-                ))
-            }
+            Argument::Positional(_) | Argument::Unknown(_) => compiled_args.push(
+                CompiledArg::Positional(arg_reg.expect("expr() None in non-Named"), arg.span()),
+            ),
             Argument::Named((long, short, _)) => compiled_args.push(CompiledArg::Named(
                 FlagRef::from_named(long, short.as_ref()),
                 arg_reg,
                 arg.span(),
-                ast_ref,
             )),
             Argument::Spread(_) => compiled_args.push(CompiledArg::Spread(
                 arg_reg.expect("expr() None in non-Named"),
                 arg.span(),
-                ast_ref,
             )),
         }
     }
@@ -298,12 +284,11 @@ pub(crate) fn compile_call(
     // Now that the args are all compiled, set up the call state (argument stack and redirections)
     for arg in compiled_args {
         match arg {
-            CompiledArg::Positional(reg, span, ast_ref) => {
+            CompiledArg::Positional(reg, span) => {
                 builder.push(Instruction::PushPositional { src: reg }.into_spanned(span))?;
-                builder.set_last_ast(ast_ref);
             }
             // The long/short × with-value/bare grid, spelled out once.
-            CompiledArg::Named(flag, reg, span, ast_ref) => {
+            CompiledArg::Named(flag, reg, span) => {
                 let instruction = match (flag, reg) {
                     (FlagRef::Long(name), Some(src)) => Instruction::PushNamed {
                         name: builder.data(name)?,
@@ -321,11 +306,9 @@ pub(crate) fn compile_call(
                     },
                 };
                 builder.push(instruction.into_spanned(span))?;
-                builder.set_last_ast(ast_ref);
             }
-            CompiledArg::Spread(reg, span, ast_ref) => {
+            CompiledArg::Spread(reg, span) => {
                 builder.push(Instruction::AppendRest { src: reg }.into_spanned(span))?;
-                builder.set_last_ast(ast_ref);
             }
         }
     }
