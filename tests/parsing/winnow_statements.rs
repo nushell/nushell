@@ -2351,6 +2351,53 @@ fn missing_positional_is_lowered(#[case] code: &str, #[case] expected: &[(&str, 
     Ok(())
 }
 
+/// A keyword parameter's word that is not the keyword (ExpectedKeyword) or a keyword without
+/// its argument (KeywordMissingArgument, after which nu's call skips an item), which nu reports
+/// and goes on past, in the calls nu makes of `for`, `if ... else`, `overlay use ... as` and of
+/// a binding that is no binding (`let x =`, `let x += 1`, `let = 1`): lowered, reported as there.
+#[rstest]
+#[case::for_without_value("for x in [1]", &[("KeywordMissingArgument", ""), ("MissingPositional", "")])]
+#[case::for_without_in(
+    "for x [1] { }",
+    &[("ExpectedKeyword", "[1]"), ("KeywordMissingArgument", ""), ("MissingPositional", "")]
+)]
+#[case::for_help_without_value("for x --help in []", &[("KeywordMissingArgument", "")])]
+#[case::for_word_for_in("for x on [1] { }", &[("ExpectedKeyword", "on")])]
+#[case::for_without_variable(
+    "for in",
+    &[("MissingPositional", " "), ("KeywordMissingArgument", ""), ("MissingPositional", "")]
+)]
+#[case::else_without_body("if true { } else", &[("KeywordMissingArgument", "")])]
+#[case::overlay_as_without_name("overlay use null as", &[("KeywordMissingArgument", "")])]
+#[case::overlay_word_for_as(
+    "overlay use null x",
+    &[("ExpectedKeyword", "x"), ("KeywordMissingArgument", "")]
+)]
+#[case::let_without_name("let = 1", &[("MissingPositional", " ")])]
+#[case::const_without_name("const = 1", &[("MissingPositional", " ")])]
+#[case::let_without_value("let x =", &[("KeywordMissingArgument", "")])]
+#[case::mut_compound_operator("mut x += 1", &[("ExpectedKeyword", "+=")])]
+#[case::let_word_for_equals("let x y =", &[("ExpectedKeyword", "y")])]
+#[case::let_help_without_value("let x --help =", &[("KeywordMissingArgument", "")])]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn keyword_argument_error_is_lowered(
+    #[case] code: &str,
+    #[case] expected: &[(&str, &str)],
+) -> Result {
+    let expected: Vec<(String, String)> = expected
+        .iter()
+        .map(|(kind, at)| (kind.to_string(), at.to_string()))
+        .collect();
+    assert_eq!(
+        super::winnow_calls::lowered_errors(code),
+        expected,
+        "`{code}`"
+    );
+    Ok(())
+}
+
 /// A call for help in a module body, which the keyword's parse function gives back as the
 /// statement, is one of the body's statements (`parse_module_block` dispatches by the first
 /// word), lowered as at top level.

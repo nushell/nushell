@@ -1,6 +1,7 @@
-error: expected variable name
-  --> reject/bindings/let-no-name-if.nu:1:5
+error: expected valid variable name
+  --> reject/bindings/let-no-name-if.nu:1:10
   |
 1 | let = if $
-  |     ^
+  |          ^
   = while parsing let
+  = help: variable names may not contain `.[({+-*^%/=!<>&|`

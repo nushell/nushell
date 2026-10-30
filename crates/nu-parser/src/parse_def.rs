@@ -240,7 +240,28 @@ pub fn parse_for(working_set: &mut StateWorkingSet, lite_command: &LiteCommand) 
         working_set.exit_scope();
     }
 
-    let call_span = Span::concat(spans);
+    finish_for(
+        working_set,
+        call,
+        output,
+        call_kind,
+        Span::concat(spans),
+        decl_id,
+    )
+}
+
+/// What `parse_for` does with its call to `for` (`decl_id`), of `call_kind`: an invalid call
+/// (or one asking for help) is the statement as it is, typed `output`; a valid one gets the
+/// signature of `for` on its block and, as the block's first parameter, the loop variable, typed
+/// by what the iterable yields. `call_span` is the statement.
+pub(crate) fn finish_for(
+    working_set: &mut StateWorkingSet,
+    call: Box<Call>,
+    output: Type,
+    call_kind: CallKind,
+    call_span: Span,
+    decl_id: DeclId,
+) -> Expression {
     let decl = working_set.get_decl(decl_id);
     let sig = decl.signature();
 

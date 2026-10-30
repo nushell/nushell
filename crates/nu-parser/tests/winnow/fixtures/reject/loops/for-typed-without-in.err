@@ -1,0 +1,6 @@
+error: expected type
+  --> reject/loops/for-typed-without-in.nu:1:7
+  |
+1 | for y: li
+  |       ^
+  = while parsing for

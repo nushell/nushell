@@ -116,11 +116,12 @@ pub fn parse_if<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
         None => None,
         Some(else_keyword) => {
             let body = match tokens.remaining() {
+                // nu's KeywordMissingArgument, which it reports and goes on past.
                 [] => {
-                    return Err(cut(Diagnostic::expected(
+                    return call.call_after(Diagnostic::expected(
                         "block or expression after `else`",
                         else_keyword.span.past(),
-                    )));
+                    ));
                 }
                 // nu's `else` argument is a block or an expression, a block first: a `{ ... }`
                 // is the argument alone, leaving the items after it to `if`, flags

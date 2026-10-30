@@ -3,4 +3,3 @@ error: missing argument to `as`
   |
 1 | overlay use --help a as
   |                        ^
-  = while parsing command call

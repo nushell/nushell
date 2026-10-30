@@ -7,7 +7,7 @@ use crate::winnow::syntax::lex::{AssignmentOperator, LexOptions, TokenContents};
 use crate::winnow::syntax::span::Span;
 
 use super::parse_keywords::{
-    KeywordBoundary, keyword_boundary_with, keyword_flag, parse_help_call,
+    KeywordBoundary, call_after_error, keyword_boundary_with, keyword_flag, parse_help_call,
 };
 use super::parse_pipelines::parse_block;
 use super::parse_signatures::{parse_type_after_var, parse_var_with_opt_type};
@@ -59,14 +59,44 @@ fn parse_binding<'a>(mut tokens: Tokens<'_, 'a>, kind: BindingKind) -> ParseResu
     let has_equals = items
         .iter()
         .any(|token| matches!(token.contents, TokenContents::AssignmentOperator(_)));
-    // Without an `=` the statement is nu's call to the keyword, which reports a flag it does
-    // not have (`let --foo x`); with one, that flag is no name.
-    let boundary = match has_equals {
+    // nu reads the statement as its binding only with four items or more and a plain `=` after
+    // the name, with a value after it (`parse_let`); any other statement is its call to the
+    // keyword, whose first error is its own: a flag it does not have (`let --foo x`), a missing
+    // name (`let = 1`, MissingPositional, the consumer's), or another word in the `=`'s place
+    // (`let x += 1`, ExpectedKeyword) or nothing after it (`let x =`, KeywordMissingArgument),
+    // which nu reports and goes on past. In a binding a flag is no name (`let --help x = 1`).
+    let is_assign = |index: usize| {
+        items.get(index).is_some_and(|token| {
+            token.contents == TokenContents::AssignmentOperator(AssignmentOperator::Assign)
+        })
+    };
+    let binds = items.len() >= 4 && (2..items.len() - 1).any(is_assign);
+    let boundary = match binds {
         false => keyword_flag(&mut tokens, &[], false),
         true => keyword_boundary_with(&mut tokens, keyword_name, &[], false)?,
     };
     if let KeywordBoundary::Help | KeywordBoundary::UnknownFlag = boundary {
+        if binds {
+            let at = tokens
+                .peek_token()
+                .map_or(tokens.here(), |token| token.span);
+            return Err(cut(Diagnostic::expected("valid variable name", at)));
+        }
         return parse_help_call(statement);
+    }
+    if has_equals && !binds {
+        if is_assign(1) {
+            return parse_help_call(statement);
+        }
+        let operator = items
+            .iter()
+            .position(|token| matches!(token.contents, TokenContents::AssignmentOperator(_)))
+            .map_or(keyword.span, |index| items[index].span);
+        let error = match is_assign(items.len() - 1) {
+            true => Diagnostic::expected("value after `=`", operator.past()),
+            false => Diagnostic::expected("`=`", operator),
+        };
+        return call_after_error(statement, cut(error), parse_help_call);
     }
     if !has_equals
         && let Some(&marker) = tokens.peek_token()

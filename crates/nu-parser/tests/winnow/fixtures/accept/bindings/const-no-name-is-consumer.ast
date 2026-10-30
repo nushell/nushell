@@ -1,0 +1,5 @@
+Block 0..10
+  Pipeline 0..9
+    Call `const` 0..9
+      String Bare "=" 6..7
+      Int 1 8..9

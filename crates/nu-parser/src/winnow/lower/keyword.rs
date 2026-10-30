@@ -25,7 +25,9 @@ use crate::{
     parse_alias::{alias_name, alias_name_fits_module, check_alias_name, finish_alias},
     parse_calls::CallKind,
     parse_captures_compile::compile_block_with_id,
-    parse_def::{DefCall, detect_params_in_name, finish_def, finish_extern, yielded_type},
+    parse_def::{
+        DefCall, detect_params_in_name, finish_def, finish_extern, finish_for, yielded_type,
+    },
     parse_expressions::{
         is_env_variable_name, is_math_expression_like, parse_expression, parse_value,
     },
@@ -1226,11 +1228,11 @@ impl<'s> Lower<'_, '_, 's> {
         // `parse_def` and `parse_extern` finish any call: one with an error of its own (the
         // winnow parser's call form of `def --foo f [] {}`) still defines the command. A
         // binding without a value is its call whatever its kind (`let x --foo`).
-        // `parse_export_env`, `parse_use` and `parse_for` give an invalid call back as it is
-        // (`export-env --foo`, `use`, `for x in`).
+        // `parse_export_env` and `parse_use` give an invalid call back as it is (`export-env
+        // --foo`, `use`), and `parse_for` finishes any call (`finish_for`).
         if kind != CallKind::Help
-            && !matches!(keyword, "def" | "extern" | "let" | "mut" | "const")
-            && !(matches!(keyword, "export-env" | "use" | "for") && kind == CallKind::Invalid)
+            && !matches!(keyword, "def" | "extern" | "for" | "let" | "mut" | "const")
+            && !(matches!(keyword, "export-env" | "use") && kind == CallKind::Invalid)
         {
             return Err(Unlowered::Unsupported(
                 "keyword call that does not ask for help",
@@ -1268,6 +1270,10 @@ impl<'s> Lower<'_, '_, 's> {
                     module_name,
                 )
             }
+            "for" => (
+                finish_for(self.working_set, lowered, output, kind, call_span, decl_id),
+                None,
+            ),
             _ => (self.node(Expr::Call(lowered), call_span, output), None),
         };
         if export {

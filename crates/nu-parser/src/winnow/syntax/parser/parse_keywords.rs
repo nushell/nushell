@@ -339,6 +339,13 @@ impl<'t, 'a> KeywordCall<'t, 'a> {
         parse_help_call(self.statement)
     }
 
+    /// An error of nu's call that nu reports and goes on past (`for x [1] {}`'s ExpectedKeyword,
+    /// `if c {} else`'s KeywordMissingArgument): the statement is that call, the error recorded
+    /// as recovered, for the consumer to report as nu does ([`call_after_error`]).
+    pub fn call_after(self, diagnostic: Diagnostic) -> ParseResult<Expression<'a>> {
+        call_after_error(self.statement, cut(diagnostic), parse_help_call)
+    }
+
     /// [`Self::help_call`] without `dropped`, an item nu never looks at (the
     /// second brace of `def foo [] {}{} --help`), which is recorded as ignored.
     pub fn help_call_without(self, dropped: &Token) -> ParseResult<Expression<'a>> {
@@ -372,11 +379,32 @@ impl<'t, 'a> KeywordCall<'t, 'a> {
 /// `keyword --help`: the statement parsed as an ordinary call, as nu does. nu reads the
 /// value of a `--help=value` as the switch's `bool` (`if --help=1` is "expected bool",
 /// `if --help=false` shows help): that, as the call's other errors, is the consumer's.
+///
+/// nu's call reads an assignment operator as any other item: the `=` keyword of a binding's call
+/// (`let x =`, `let x --help = 1`) or an alias's (`alias --help = ls`).
 pub fn parse_help_call<'a>(statement: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
+    let working_set = statement.working_set;
     if let Some(span) = statement.span() {
-        statement.working_set.remove_ignored_from(span.start);
+        working_set.remove_ignored_from(span.start);
     }
-    parse_call(statement)
+    let remaining = statement.remaining();
+    if !remaining
+        .iter()
+        .any(|token| matches!(token.contents, TokenContents::AssignmentOperator(_)))
+    {
+        return parse_call(statement);
+    }
+    let items: Vec<Token> = remaining
+        .iter()
+        .map(|token| match token.contents {
+            TokenContents::AssignmentOperator(_) => Token {
+                contents: TokenContents::Item,
+                span: token.span,
+            },
+            _ => *token,
+        })
+        .collect();
+    parse_call(Tokens::new(working_set, &items, statement.end_span().start))
 }
 
 /// A `{` item where a keyword wants a block or a closure (`what`) but nu

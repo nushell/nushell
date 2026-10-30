@@ -1555,7 +1555,7 @@ fn text_of(src: &str, span: Span) -> &str {
 
 #[test]
 fn recovery_keeps_parsing_later_statements() {
-    let src = "ls\nlet = 1\ndef f [] { let x }\n1 +\npwd\n";
+    let src = "ls\nlet -- x = 1\ndef f [] { let x }\n1 +\npwd\n";
     let (ast, diagnostics) = parse_lenient(src, &ParseConfig::new());
     assert_eq!(ast.block.pipelines.len(), 5);
     assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
@@ -2046,4 +2046,31 @@ fn missing_positional_is_the_call() {
             "{src}: {diagnostics:?}"
         );
     }
+}
+
+/// A binding nu reads as its call to the keyword (no plain `=` after the name with a value after
+/// it) is that call: a missing name records nothing (MissingPositional, the consumer's), another
+/// word or nothing in the value's place an error recorded as recovered (ExpectedKeyword,
+/// KeywordMissingArgument), as do a `for`'s `in` and an `else` without their argument. In a
+/// binding nu does read a flag is no name.
+#[test]
+fn keyword_argument_errors_are_the_call() {
+    let (ast, diagnostics) = parse_lenient("let = 1", &ParseConfig::default());
+    kind!(expr(&ast), Expr::Call(_));
+    assert!(diagnostics.is_empty(), "{diagnostics:?}");
+    for src in [
+        "let x =",
+        "mut x += 1",
+        "for x in [1]",
+        "for x on [1] { }",
+        "if true { } else",
+    ] {
+        let (ast, diagnostics) = parse_lenient(src, &ParseConfig::default());
+        kind!(expr(&ast), Expr::Call(_));
+        assert!(
+            !diagnostics.is_empty() && diagnostics.iter().all(|d| d.recovered),
+            "{src}: {diagnostics:?}"
+        );
+    }
+    assert!(parse("const --help c = 1").is_err());
 }

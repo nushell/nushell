@@ -3,4 +3,3 @@ error: expected value after `=`
   |
 1 | let x =
   |        ^
-  = while parsing let

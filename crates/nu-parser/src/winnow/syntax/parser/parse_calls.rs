@@ -815,20 +815,21 @@ pub fn check_call(working_set: &WorkingSet<'_>, call: &Call<'_>, lenient: bool) 
         if positionals <= before {
             continue;
         }
+        // nu reports another word (ExpectedKeyword) and a keyword without its argument
+        // (KeywordMissingArgument) and goes on with the call, as the consumer does: the errors
+        // are recorded as recovered.
         let span = argument.span();
         if working_set.get_span_contents(span) != keyword {
-            return Err(cut(Diagnostic::new(
-                ErrorKind::ExpectedKeyword(keyword),
-                span,
-            )));
+            working_set
+                .error(Diagnostic::new(ErrorKind::ExpectedKeyword(keyword), span).as_recovered());
         }
-        return match arguments.next() {
-            Some(_) => Ok(()),
-            None => Err(cut(Diagnostic::message(
-                format!("missing argument to `{keyword}`"),
-                span.past(),
-            ))),
-        };
+        if arguments.next().is_none() {
+            working_set.error(
+                Diagnostic::message(format!("missing argument to `{keyword}`"), span.past())
+                    .as_recovered(),
+            );
+        }
+        return Ok(());
     }
     Ok(())
 }

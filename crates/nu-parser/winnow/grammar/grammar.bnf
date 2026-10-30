@@ -1138,6 +1138,11 @@
 <const>           ::= "const" <var-decl> [ "=" <rhs-pipeline> ]
 <rhs-pipeline>    ::= <assignment-tail> body parsed as <block-tokens>   ; (2) everything to
                                                                         ; the end of the line
+; nu reads a binding only with four items or more and a plain "=" after the name with a
+; value after it; any other statement is its call to the keyword: `let = 1` misses the
+; name (MissingPositional, semantic), `let x =` the value (KeywordMissingArgument) and
+; `let x += 1` the "=" (ExpectedKeyword), both syntax errors nu goes on past. In a
+; binding a flag is no name (`let --help x = 1` is an error).
 ; without "=" nu parses the statement as a call, where "--" before the name ends the
 ; options: `let x` is allowed (initial_value is optional in let's signature), the
 ; missing value of `mut x` and `const x` is MissingPositional (semantic: signature).
@@ -1369,7 +1374,8 @@
                                       | ( "--keep-env" | "-e" ) <list> }
 <plugin-use>      ::= "plugin" "use" <string> [ "--plugin-config" <filepath> ]
 ; source/source-env take exactly one positional, which must const-evaluate; `overlay`
-; alone or `overlay foo` are errors; `as` without a name is KeywordMissingArgument;
+; alone or `overlay foo` are errors; `as` without a name is KeywordMissingArgument, a
+; word in its place ExpectedKeyword, both errors nu goes on past with its call;
 ; module, overlay and file names are const-evaluated and resolved against the file
 ; system or the module table. A switch written with a value takes a Boolean
 ; (`overlay use --prefix=false o`; `--prefix=1` is "expected bool"); a batch of short
@@ -1395,7 +1401,9 @@
 ; Block (no params, no record); no flags (`--numbered` was removed); nothing may
 ; follow the block. The last item is reserved for the block before the keyword's
 ; argument is read, so `for x in []` and `for x --help in []` are
-; KeywordMissingArgument("in") (a help flag forgives nothing there); the type of
+; KeywordMissingArgument("in") (a help flag forgives nothing there), and a word in
+; the place of "in" is ExpectedKeyword: errors nu goes on past with its call (after a
+; keyword without its argument nu's call skips the next item); the type of
 ; a `x:` variable is every item before "in" (7.4).
 ; nu: parse_def.rs:166 parse_for; nu-cmd-lang for_.rs; parse_calls.rs:680, 876
 ; here: src/winnow/syntax/parser/parse_def.rs::parse_for

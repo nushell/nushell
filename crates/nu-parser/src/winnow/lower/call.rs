@@ -814,9 +814,12 @@ impl<'s> Lower<'_, '_, 's> {
     }
 
     /// A keyword parameter's argument, `keyword value`, from `arguments[index]` (the `Keyword`
-    /// case of `parse_multispan_value`): the item at `index` must be the keyword and the value
-    /// is read from the items after it, before `end`, with `shape`. Another word, or no item
-    /// left for the value, is the classic parser's error.
+    /// case of `parse_multispan_value`): the item at `index` is the keyword and the value is
+    /// read from the items after it, before `end`, with `shape`. Another word is nu's
+    /// ExpectedKeyword, after which nu reads the value all the same; no item left for the value
+    /// its KeywordMissingArgument, with garbage for the value, after which nu's call goes on
+    /// past the item after the keyword, which no positional then reads (`for x in [1]` drops the
+    /// `[1]` and misses its block).
     fn keyword_value(
         &mut self,
         arguments: &[w::Argument<'s>],
@@ -827,11 +830,29 @@ impl<'s> Lower<'_, '_, 's> {
         input_type: Option<&Type>,
     ) -> Lowered<(Expression, usize)> {
         let word = arguments[index].span();
-        if self.text(word).as_bytes() != keyword || index + 1 >= end {
-            return Err(Unlowered::Error);
+        let span = self.span(word);
+        let name = String::from_utf8_lossy(keyword).into_owned();
+        if self.text(word).as_bytes() != keyword {
+            self.working_set
+                .error(ParseError::ExpectedKeyword(name.clone(), span));
+        }
+        if index + 1 >= end {
+            self.working_set.error(ParseError::KeywordMissingArgument(
+                shape.to_string(),
+                name,
+                Span::new(span.end, span.end),
+            ));
+            let keyword = Keyword {
+                keyword: keyword.into(),
+                span,
+                expr: Expression::garbage(self.working_set, span),
+            };
+            return Ok((
+                self.node(Expr::Keyword(Box::new(keyword)), span, Type::Any),
+                index + 2,
+            ));
         }
         let (value, next) = self.multispan_value(arguments, index + 1, end, shape, input_type)?;
-        let span = self.span(word);
         let ty = value.ty.clone();
         let full = span.merge(value.span);
         let keyword = Keyword {

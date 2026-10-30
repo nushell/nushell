@@ -3,4 +3,9 @@ error: expected keyword `as`
   |
 1 | overlay use -- null --x
   |                     ^^^
-  = while parsing command call
+
+error: missing argument to `as`
+  --> reject/calls/overlay-use-flag-after-end-of-options-instead-of-as.nu:1:24
+  |
+1 | overlay use -- null --x
+  |                        ^

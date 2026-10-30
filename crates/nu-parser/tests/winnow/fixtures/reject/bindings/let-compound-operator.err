@@ -3,4 +3,3 @@ error: expected `=`
   |
 1 | let x += 1
   |       ^^
-  = while parsing let

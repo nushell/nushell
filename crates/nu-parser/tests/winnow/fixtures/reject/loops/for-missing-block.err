@@ -3,5 +3,4 @@ error: missing argument to `in`
   |
 1 | for x in [1]
   |       ^^
-  = while parsing for
   = help: `for` needs a value to iterate and a block: `for x in [1 2] { }`
