@@ -2126,6 +2126,73 @@ fn bare_external_in_an_assignment_is_lowered(#[case] code: &str, #[case] head: &
     Ok(())
 }
 
+/// An alias of an expression is nu's `CantAliasExpression`, naming what the target reads as, at
+/// its first item, and no alias: lowered, reported as there.
+#[rstest]
+#[case::integer("alias a = 1", "an integer", "1")]
+#[case::subexpression("alias a = (ls)", "a cell path expression", "(ls)")]
+#[case::operation("alias a = 1 + 2", "a binary operation", "1")]
+#[case::flag_like("alias a = --long", "a string", "--long")]
+#[case::garbage("alias a = not", "a garbage expression", "not")]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn alias_of_an_expression_is_lowered(
+    #[case] code: &str,
+    #[case] description: &str,
+    #[case] at: &str,
+) -> Result {
+    assert_eq!(
+        super::winnow_calls::lowered_errors(code),
+        [("CantAliasExpression".to_string(), at.to_string())],
+        "`{code}`"
+    );
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    let [ParseError::CantAliasExpression(found, _)] = working_set.parse_errors.as_slice() else {
+        panic!("`{code}`: {:?}", working_set.parse_errors);
+    };
+    assert_eq!(found, description, "`{code}`");
+    Ok(())
+}
+
+/// The `=` argument of an alias of an expression is what nu's `parse_expression` reads: a lone
+/// `not` is garbage.
+#[test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn alias_of_an_expression_keeps_what_nu_reads() -> Result {
+    let code = "alias a = not";
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let block = nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    let Expr::Call(alias) = &block.pipelines[0].elements[0].expr.expr else {
+        panic!("`{code}`: the statement is not a call");
+    };
+    let Some(Expr::Keyword(keyword)) = alias.positional_iter().nth(1).map(|value| &value.expr)
+    else {
+        panic!("`{code}`: the alias has no `=` argument");
+    };
+    assert!(matches!(keyword.expr.expr, Expr::Garbage), "`{code}`");
+    Ok(())
+}
+
+/// A target the winnow parser reads as an expression but nu does not (`0..$x.len`) is an
+/// alias: nu declares it.
+#[test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn alias_of_what_nu_reads_as_a_call() -> Result {
+    let code = "alias zz = 0..$x.len";
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    assert_eq!(working_set.parse_errors, [], "`{code}`");
+    assert!(working_set.find_decl(b"zz").is_some(), "`{code}`: no alias");
+    Ok(())
+}
+
 /// A call for help in a module body, which the keyword's parse function gives back as the
 /// statement, is one of the body's statements (`parse_module_block` dispatches by the first
 /// word), lowered as at top level.

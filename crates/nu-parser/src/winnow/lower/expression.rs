@@ -103,7 +103,7 @@ impl<'s> Lower<'_, '_, 's> {
 
     /// The items of the text at `span`, as nu lexes an expression's (newlines are whitespace
     /// there, comments dropped).
-    fn items(&self, span: WSpan) -> Vec<Span> {
+    pub(super) fn items(&self, span: WSpan) -> Vec<Span> {
         let span = self.span(span);
         let (tokens, _) = lex(
             self.working_set.get_span_contents(span),

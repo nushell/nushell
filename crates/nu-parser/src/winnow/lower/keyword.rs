@@ -26,7 +26,9 @@ use crate::{
     parse_calls::CallKind,
     parse_captures_compile::compile_block_with_id,
     parse_def::{DefCall, detect_params_in_name, finish_def, finish_extern, yielded_type},
-    parse_expressions::{is_env_variable_name, parse_value},
+    parse_expressions::{
+        is_env_variable_name, is_math_expression_like, parse_expression, parse_value,
+    },
     parse_helpers::garbage,
     parse_keywords::find_keyword_decl,
     parse_module::warp_export_call,
@@ -1286,6 +1288,18 @@ impl<'s> Lower<'_, '_, 's> {
             Ok(garbage(self.working_set, span))
         } else if starts_with_shorthand {
             self.reread(target.span, ItemsValue::AliasTarget, None)
+        } else if let w::Expr::Garbage = target.expr {
+            // A target that reads as an expression, which the winnow parser left as garbage:
+            // the argument is what `parse_expression` reads (`alias a = not` is garbage). One
+            // nu does not read so (`alias a = 0..$x.len`) is an alias, the classic parser's.
+            let items = self.items(target.span);
+            if !items
+                .first()
+                .is_some_and(|first| is_math_expression_like(self.working_set, *first))
+            {
+                return Err(Unlowered::Unsupported("alias target read as a call"));
+            }
+            Ok(parse_expression(self.working_set, &items, None))
         } else {
             self.lower_alias_target(target)
         };
@@ -1316,6 +1330,21 @@ impl<'s> Lower<'_, '_, 's> {
             return Ok(garbage(self.working_set, statement_span));
         };
         if !alias_name_fits_module(self.working_set, &name, module_name, name_span) {
+            return Ok(statement);
+        }
+        // A target that reads as an expression (`alias a = 1`), which the winnow parser left as
+        // garbage: `CantAliasExpression`, naming what `parse_expression` reads, and no alias.
+        if let w::Expr::Garbage = target.expr
+            && let items = self.items(target.span)
+            && let Some(first) = items.first().copied()
+        {
+            let errors = self.working_set.parse_errors.len();
+            let expression = parse_expression(self.working_set, &items, None);
+            self.working_set.parse_errors.truncate(errors);
+            self.working_set.error(ParseError::CantAliasExpression(
+                expression.expr.description().to_string(),
+                first,
+            ));
             return Ok(statement);
         }
         let outer_search_predecls = std::mem::replace(&mut self.working_set.search_predecls, false);

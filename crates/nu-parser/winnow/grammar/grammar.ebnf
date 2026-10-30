@@ -1247,7 +1247,8 @@ alias = "alias", def_name, "=", alias_target ;
 alias_target = ? <call> over ALL remaining items, pipes and redirections included, as bare words (assignment mode) ? ;
 (* refused: a target whose first item is math-expression-like (`1 + 1`, `$x`, `(ls)`,
    `[1]`, `{ }`, `not ...`, `"ls"`, `-1`) => CantAliasExpression, except `if` and
-   `match`; a target that is an unaliasable keyword (`alias d = def`, `alias l = let`,
+   `match` (nu keeps the call to `alias` and declares none: the parser records it as
+   recovered and leaves the target garbage, when no `|` or redirection is among its words); a target that is an unaliasable keyword (`alias d = def`, `alias l = let`,
    `alias e = export def`) => CantAliasKeyword; aliasable keywords and any external
    call (`^ls -l`, and `FOO=1 ls`, which parses as the external `FOO=1`) are fine.
    nu reads an unaliasable keyword’s target as a call and declares no alias

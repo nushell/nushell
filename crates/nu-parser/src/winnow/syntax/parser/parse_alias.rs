@@ -210,13 +210,29 @@ pub fn parse_alias<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>
     };
     let first_text = working_set.get_span_contents(first.span);
     if !matches!(first_text, "if" | "match") && is_math_expression_like(first_text) {
-        return Err(cut(Diagnostic::message(
-            "cannot create an alias to an expression",
-            first.span,
-        )
-        .with_help(
-            "an alias names a command and its arguments, such as `alias ll = ls -l`",
-        )));
+        let diagnostic = Diagnostic::message("cannot create an alias to an expression", first.span)
+            .with_help("an alias names a command and its arguments, such as `alias ll = ls -l`");
+        // nu reports it, naming the expression its text reads as, and keeps the call to
+        // `alias` without declaring one: so does the consumer, from the target's text, which
+        // is only its items when no `|` or redirection is among them (an alias's words).
+        let plain = tokens
+            .remaining()
+            .iter()
+            .all(|token| token.contents == TokenContents::Item);
+        let Some(last) = words.last().filter(|_| plain) else {
+            return Err(cut(diagnostic));
+        };
+        working_set.error(diagnostic.as_recovered());
+        let value = Expression::new(Expr::Garbage, first.span.merge(last.span));
+        let span = keyword.span.merge(value.span);
+        return Ok(Expression::new(
+            Expr::Alias(Alias {
+                name,
+                eq: equals.span,
+                value: Box::new(value),
+            }),
+            span,
+        ));
     }
     // Like nu, only the aliasable keywords (`if`, `match`, `try`, `overlay ...`)
     // may be aliased; `alias d = def` is an error. nu reads the target as a call

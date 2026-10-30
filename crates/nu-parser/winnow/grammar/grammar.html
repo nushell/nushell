@@ -4338,7 +4338,8 @@ svg.railroad-diagram g.diagram-text:hover path.diagram-text {
 </section>
 <p>refused: a target whose first item is math-expression-like (<code>1 + 1</code>, <code>$x</code>, <code>(ls)</code>,
   <code>[1]</code>, <code>{ }</code>, <code>not ...</code>, <code>"ls"</code>, <code>-1</code>) =&gt; CantAliasExpression, except <code>if</code> and
-  <code>match</code>; a target that is an unaliasable keyword (<code>alias d = def</code>, <code>alias l = let</code>,
+  <code>match</code> (nu keeps the call to <code>alias</code> and declares none: the parser records it as
+  recovered and leaves the target garbage, when no <code>|</code> or redirection is among its words); a target that is an unaliasable keyword (<code>alias d = def</code>, <code>alias l = let</code>,
   <code>alias e = export def</code>) =&gt; CantAliasKeyword; aliasable keywords and any external
   call (<code>^ls -l</code>, and <code>FOO=1 ls</code>, which parses as the external <code>FOO=1</code>) are fine.
   nu reads an unaliasable keyword’s target as a call and declares no alias
@@ -6270,7 +6271,7 @@ svg.railroad-diagram g.diagram-text:hover path.diagram-text {
 <p>(6.1) </p>
   </article>
   <footer>
-    <p>Date: 2026-10-30T09:23 - <a href="?theme=dark" data-theme="dark">Dark</a> - <a href="?theme=light" data-theme="light">Light</a></p>
+    <p>Date: 2026-10-30T09:49 - <a href="?theme=dark" data-theme="dark">Dark</a> - <a href="?theme=light" data-theme="light">Light</a></p>
   </footer>
   </main>
   <script type="text/javascript">
