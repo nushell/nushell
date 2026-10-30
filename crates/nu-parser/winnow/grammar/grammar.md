@@ -1329,6 +1329,9 @@ Vocabulary: `<expression>` is a `<pipeline-element>` (3.1); `<block>` is a
 ;     parse_calls.rs:655 calculate_end_span
 ; here: src/winnow/syntax/parser/parse_signatures.rs::parse_full_signature (the dropped item is ignored
 ;       text)
+; A signature error is nu's call argument error: nu goes on to define the command, so the
+; statement is read as the call to def/extern, the error recorded as recovered
+; (here: parse_def.rs::signature_error_call)
 
 <def-body>        ::= <closure>
 ; def and export def both go through the `def` declaration (SyntaxShape::Closure):

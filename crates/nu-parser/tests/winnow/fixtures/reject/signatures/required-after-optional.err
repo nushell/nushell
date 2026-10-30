@@ -3,5 +3,4 @@ error: required positional parameter `y` after an optional parameter
   |
 1 | def foo [x: int = 1, y] {}
   |                      ^
-  = while parsing def
   = help: move the required parameter before the optional ones

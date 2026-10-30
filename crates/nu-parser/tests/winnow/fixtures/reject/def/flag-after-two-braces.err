@@ -3,4 +3,3 @@ error: expected `:` before the input/output types
   |
 3 | def foo [] {} {} --env
   |            ^^
-  = while parsing def

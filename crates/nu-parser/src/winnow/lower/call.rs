@@ -679,7 +679,7 @@ impl<'s> Lower<'_, '_, 's> {
                 if one_item && text.starts_with('[') =>
             {
                 let span = self.span(item.span);
-                self.checked(|ws| classic_value(ws, span, shape, None))?
+                classic_value(self.working_set, span, shape, None)
             }
             // A signature of several items, which `parse_full_signature` reads as they are: one
             // with its input and output types, or one with an item it drops (`def f [] {}
@@ -690,7 +690,7 @@ impl<'s> Lower<'_, '_, 's> {
                     .map(|argument| self.span(argument.span()))
                     .collect();
                 let external = matches!(shape, SyntaxShape::ExternalSignature);
-                self.checked(|ws| parse_full_signature(ws, &spans, external))?
+                parse_full_signature(self.working_set, &spans, external)
             }
             _ if !is_multispan_shape(shape) => {
                 return Ok((self.value(item, shape, input_type)?, index + 1));

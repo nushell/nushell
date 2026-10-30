@@ -1,7 +1,7 @@
 //! Regression tests for the `winnow-parser` front end (definitions): each pins a case where it
 //! parsed differently from the classic parser.
 
-use nu_protocol::{ast::Expr, engine::StateWorkingSet};
+use nu_protocol::{DeclId, ast::Expr, engine::StateWorkingSet};
 use nu_test_support::prelude::*;
 use rstest::rstest;
 
@@ -91,6 +91,27 @@ fn attribute_head_keeps_a_second_at_sign() -> Result {
         panic!("`{code}`: the attribute is not a call");
     };
     assert_eq!(working_set.get_span_contents(call.head), b"@foo");
+    Ok(())
+}
+
+/// nu lexes a subexpression without its comments, so a definition inside one has no
+/// description.
+#[rstest]
+#[case::comment_before("(# doc\ndef f [] {})")]
+#[case::comment_after("(def f [] {} # doc\n)")]
+#[nu_test_support::test]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn definition_in_a_subexpression_has_no_description(#[case] code: &str) -> Result {
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    assert_eq!(working_set.parse_errors, []);
+    // The subexpression's scope is gone, so its command is found among all of them.
+    let decl = (0..working_set.num_decls())
+        .map(|index| working_set.get_decl(DeclId::new(index)))
+        .find(|decl| decl.name() == "f")
+        .expect("the subexpression defines `f`");
+    assert_eq!(decl.description(), "", "`{code}`");
     Ok(())
 }
 

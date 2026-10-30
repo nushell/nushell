@@ -3,5 +3,4 @@ error: `...a` uses a name that is already taken
   |
 1 | def f [a, ...a] { }
   |           ^^^^
-  = while parsing def
   = help: it is first used at byte 7

@@ -3,5 +3,4 @@ error: `--foo-bar` uses a name that is already taken
   |
 1 | def f [foo_bar, --foo-bar] { }
   |                 ^^^^^^^^^
-  = while parsing def
   = help: it is first used at byte 7

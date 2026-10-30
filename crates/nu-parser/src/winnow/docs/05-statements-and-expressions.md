@@ -147,7 +147,12 @@ keyword's table (`DEF_FLAGS`, `EXTERN_FLAGS`), with its value when it is written
 statement whose call has an error of its own (an unknown or short flag before the
 signature, a flag or `--` in a `def`'s body place) is that call (`reads_as_call`,
 `parse_help_call`), which the consumer finishes as nu's `finish_def` and
-`finish_extern` do. The loop also hands the help flags
+`finish_extern` do. So is one whose signature `parse_full_signature` refuses (a name
+taken twice, a bad parameter name or type, a default of the wrong type): nu reads the
+signature as its call's argument, reports its errors and defines the command, so the
+error is recorded as recovered and the statement is the call
+(`signature_error_call`), unless the call does not parse either (`[]: int`, whose
+first item is no value), when the error stays the statement's. The loop also hands the help flags
 among them to the `KeywordCall` (`help_flag`), as nu takes `def --help --env f`.
 `DefinitionFlag::is_set` reads the flags as nu's `has_flag_const` does: the first
 of a repeated flag decides, a value other than `true` or `false` needs constant

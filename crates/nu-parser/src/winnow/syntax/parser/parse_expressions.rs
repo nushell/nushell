@@ -1077,15 +1077,19 @@ pub fn is_math_expression_like(text: &str) -> bool {
     }
 }
 
-/// Parse `( ... )` as a subexpression. Newlines inside are whitespace.
+/// Parse `( ... )` as a subexpression. Newlines inside are whitespace, and comments are
+/// recorded and dropped, as nu lexes it (`lex_span` with `skip_comment`): a definition inside
+/// has no description (`(# doc\ndef f [] {})`).
 pub fn parse_subexpression<'a>(
     working_set: &WorkingSet<'a>,
     span: Span,
 ) -> ParseResult<Expression<'a>> {
     let inner = delimited_interior(working_set, span, "(", ")")?;
-    let tokens = working_set
+    let mut tokens = working_set
         .lex(inner, LexOptions::SUBEXPRESSION)
         .map_err(cut)?;
+    working_set.add_comments(&tokens);
+    tokens.retain(|token| token.contents != TokenContents::Comment);
     working_set.enter_scope();
     let block = parse_block(Tokens::from_lexed(working_set, &tokens), inner);
     working_set.exit_scope();

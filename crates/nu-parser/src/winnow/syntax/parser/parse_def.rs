@@ -659,6 +659,7 @@ pub fn parse_def<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> 
     if reads_as_call(&tokens, DEF_FLAGS, true) {
         return parse_help_call(tokens);
     }
+    let statement = tokens;
     let mut call = KeywordCall::start(&mut tokens)?;
     let mut flags = parse_definition_flags(&mut tokens, &mut call, "def", DEF_FLAGS)?;
     let Some(name) = call.positional(&mut tokens, "command name")? else {
@@ -683,7 +684,10 @@ pub fn parse_def<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> 
         [only] => (std::slice::from_ref(only), None),
         [signature_items @ .., body] => (signature_items, Some(body)),
     };
-    let signature = parse_full_signature(working_set, signature_items, false)?;
+    let signature = match parse_full_signature(working_set, signature_items, false) {
+        Ok(signature) => signature,
+        Err(error) => return signature_error_call(statement, error),
+    };
     let (body_params, body_block) = match body {
         Some(token) if is_help_flag(working_set, token) && !seen_end_of_options(&tokens) => {
             // nu never looks at the brace after a lone signature item (`def foo
@@ -716,6 +720,33 @@ pub fn parse_def<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> 
         body: body_block,
     };
     call.finish(Expression::new(Expr::Def(Box::new(def)), span))
+}
+
+/// A `def` or `extern` `statement` whose signature [`parse_full_signature`] refused with
+/// `error`: nu's `parse_def` and `parse_extern` read the signature as their call's argument
+/// with nu's `parse_full_signature`, which reports its errors and goes on, and finish the
+/// definition with what it gives. The statement is then that call ([`parse_help_call`]), the
+/// error recorded as recovered, for the consumer to read the same way; when the call does not
+/// parse either, the error is the statement's, with nothing the call recorded.
+fn signature_error_call<'a>(
+    statement: Tokens<'_, 'a>,
+    error: ErrMode<ParseFailure>,
+) -> ParseResult<Expression<'a>> {
+    let ErrMode::Cut(ParseFailure::Error(diagnostic)) = error else {
+        return Err(error);
+    };
+    let working_set = statement.working_set;
+    let errors = working_set.error_count();
+    match parse_help_call(statement) {
+        Ok(call) => {
+            working_set.error(diagnostic.as_recovered());
+            Ok(call)
+        }
+        Err(_) => {
+            drop(working_set.take_errors_from(errors));
+            Err(ErrMode::Cut(ParseFailure::Error(diagnostic)))
+        }
+    }
 }
 
 /// The body of a `def`: nu parses it as a closure without looking at its
@@ -873,6 +904,7 @@ pub fn parse_extern<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a
     if reads_as_call(&tokens, EXTERN_FLAGS, false) {
         return parse_help_call(tokens);
     }
+    let statement = tokens;
     let mut call = KeywordCall::start(&mut tokens)?;
     let mut flags = parse_definition_flags(&mut tokens, &mut call, "extern", EXTERN_FLAGS)?;
     let Some(name) = call.positional(&mut tokens, "command name")? else {
@@ -897,7 +929,10 @@ pub fn parse_extern<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a
     };
     // The signature argument takes every remaining item, so a body after it
     // (the old `extern-wrapped`) is dropped by nu without a look.
-    let signature = parse_full_signature(working_set, rest, true)?;
+    let signature = match parse_full_signature(working_set, rest, true) {
+        Ok(signature) => signature,
+        Err(error) => return signature_error_call(statement, error),
+    };
     let span = call.keyword.span.merge(last.span);
     call.finish(Expression::new(
         Expr::Extern(Box::new(Extern {

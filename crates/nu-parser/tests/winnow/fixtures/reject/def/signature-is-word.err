@@ -3,4 +3,3 @@ error: expected signature like `[param: type]`
   |
 1 | def foo bar { }
   |         ^^^
-  = while parsing def

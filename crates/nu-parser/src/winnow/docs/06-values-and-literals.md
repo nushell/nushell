@@ -413,8 +413,10 @@ Three functions parse the body:
   nu (`check_record_key_or_value`), a bare word or bare interpolation
   containing `:` is refused as a key or value (`{a: http://x}`, `{ :: x }`):
   quote it.
-* `parse_subexpression`: lex with `SUBEXPRESSION` (newlines are whitespace)
-  and parse a block in a new scope.
+* `parse_subexpression`: lex with `SUBEXPRESSION` (newlines are whitespace),
+  record the comments and drop them, as nu lexes a subexpression without them
+  (so a definition inside has no description), and parse a block in a new
+  scope.
 
 All of these record their interior comments through
 `working_set.add_comment` (or `add_comments` for a token list), which is how

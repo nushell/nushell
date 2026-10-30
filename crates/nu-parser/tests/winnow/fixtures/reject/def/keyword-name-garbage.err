@@ -11,4 +11,3 @@ error: unclosed delimiter: expected `)`
 1 | def def (=a|s)>
   |                ^
   = note: opened at 1:9
-  = while parsing def

@@ -3,5 +3,4 @@ error: multiple rest params
   |
 1 | def foo [...a ...b] {}
   |         ^^^^^^^^^^^
-  = while parsing def
   = help: a signature can have only one `...rest` parameter

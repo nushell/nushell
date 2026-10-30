@@ -1507,6 +1507,40 @@ fn refused_definition_name_is_lowered(
     Ok(())
 }
 
+/// A signature nu's `parse_full_signature` reports an error in (a name taken twice, a bad
+/// parameter name, a default of the wrong type, a required parameter after an optional one) is
+/// the argument of nu's call to `def` or `extern`, which goes on to define the command: lowered,
+/// the signature read by that parser.
+#[rstest]
+#[case::duplicate_parameter("def f [a, a] { }", &[("DuplicateParameter", "a")])]
+#[case::parameter_name("def f [a.b] {}", &[("Expected", "a.b")])]
+#[case::extern_flag_name("extern e [--a.b]", &[("Expected", "--a.b")])]
+#[case::default_type(
+    "def f [x: int = abc] {}",
+    &[("Expected", "abc"), ("NonConstantDefaultValue", "abc")]
+)]
+#[case::required_after_optional("def f [a?, b] {}", &[("RequiredAfterOptional", "a?, b")])]
+#[case::signature_of_two_items("def f [a, a] {} {}", &[("DuplicateParameter", "a")])]
+#[case::exported(
+    "export def f [-x, -x] {}",
+    &[("DuplicateParameter", "-x"), ("DuplicateParameter", "-x")]
+)]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn signature_error_is_lowered(#[case] code: &str, #[case] expected: &[(&str, &str)]) -> Result {
+    let expected: Vec<(String, String)> = expected
+        .iter()
+        .map(|(kind, text)| (kind.to_string(), text.to_string()))
+        .collect();
+    assert_eq!(
+        super::winnow_calls::lowered_errors(code),
+        expected,
+        "`{code}`"
+    );
+    Ok(())
+}
+
 /// A call for help in a module body, which the keyword's parse function gives back as the
 /// statement, is one of the body's statements (`parse_module_block` dispatches by the first
 /// word), lowered as at top level.

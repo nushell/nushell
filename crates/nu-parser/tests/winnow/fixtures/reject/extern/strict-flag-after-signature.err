@@ -3,4 +3,3 @@ error: expected `:` before the input/output types
   |
 1 | extern foo [--bar] --strict
   |                    ^^^^^^^^
-  = while parsing extern
