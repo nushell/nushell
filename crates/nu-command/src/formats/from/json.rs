@@ -118,7 +118,11 @@ impl Command for FromJson {
             // Return a single JSON value
             let (string_input, span, ..) = input.collect_string_strict(span)?;
 
-            if string_input.is_empty() {
+            if string_input
+                .strip_prefix('\u{feff}')
+                .unwrap_or(&string_input)
+                .is_empty()
+            {
                 return Ok(Value::nothing(span).into_pipeline_data());
             }
 
@@ -140,7 +144,15 @@ fn read_json_lines(
     let iter_signals = signals.clone();
     let iter = input
         .lines()
-        .filter(|line| line.as_ref().is_ok_and(|line| !line.trim().is_empty()) || line.is_err())
+        .filter(|line| {
+            line.as_ref().is_ok_and(|line| {
+                !line
+                    .strip_prefix('\u{feff}')
+                    .unwrap_or(line)
+                    .trim()
+                    .is_empty()
+            }) || line.is_err()
+        })
         .map(move |line| {
             let line = line.map_err(|err| IoError::new(err, span, None))?;
             try_str_to_value(&line, span, strict, &iter_signals)
@@ -323,6 +335,42 @@ mod test {
                 Value::test_list(vec![Value::test_string("\u{feff}")])
             );
         }
+    }
+
+    #[test]
+    fn json_parse_strips_only_one_bom() {
+        let signals = Signals::empty();
+        for strict in [false, true] {
+            let result = try_str_to_value("\u{feff}\u{feff}1", Span::test_data(), strict, &signals);
+            assert_ne!(result.ok(), Some(Value::test_int(1)), "strict: {strict}");
+        }
+    }
+
+    #[test]
+    fn json_lines_skip_bom_only_line() {
+        let input = std::io::Cursor::new("\u{feff}\n{\"a\": 1}\n".as_bytes().to_vec());
+        let values: Vec<Value> = read_json_lines(input, Span::test_data(), false, Signals::empty())
+            .into_iter()
+            .collect();
+        assert_eq!(
+            values,
+            vec![Value::test_record(record! { "a" => Value::test_int(1) })]
+        );
+    }
+
+    #[test]
+    fn json_lines_strip_bom_on_first_record() {
+        let input = std::io::Cursor::new("\u{feff}{\"a\": 1}\n{\"a\": 2}\n".as_bytes().to_vec());
+        let values: Vec<Value> = read_json_lines(input, Span::test_data(), true, Signals::empty())
+            .into_iter()
+            .collect();
+        assert_eq!(
+            values,
+            vec![
+                Value::test_record(record! { "a" => Value::test_int(1) }),
+                Value::test_record(record! { "a" => Value::test_int(2) }),
+            ]
+        );
     }
 
     #[test]
