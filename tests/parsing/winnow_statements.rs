@@ -1468,6 +1468,45 @@ fn malformed_record_or_list_is_lowered(
     Ok(())
 }
 
+/// A definition name nu refuses (whitespace other than single spaces, a size, a parser keyword)
+/// is reported by its predeclaration and again by `finish_def`/`finish_extern`, which find no
+/// predeclared command: lowered, and reported as there.
+#[rstest]
+#[case::extern_trailing_space(
+    r#"extern "npm root " []"#,
+    &[("CommandDefNotValid", r#""npm root ""#), ("InternalError", r#""npm root ""#)]
+)]
+#[case::parser_keyword(
+    "def if [] {}",
+    &[("NameIsKeyword", "if"), ("NameIsKeyword", "if")]
+)]
+#[case::double_space(
+    r#"def "a  b" [] { 1 }"#,
+    &[("CommandDefNotValid", r#""a  b""#), ("InternalError", r#""a  b""#)]
+)]
+#[case::byte_size(
+    "def 1kb [] {}",
+    &[("CommandDefNotValid", "1kb"), ("InternalError", "1kb")]
+)]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn refused_definition_name_is_lowered(
+    #[case] code: &str,
+    #[case] expected: &[(&str, &str)],
+) -> Result {
+    let expected: Vec<(String, String)> = expected
+        .iter()
+        .map(|(kind, text)| (kind.to_string(), text.to_string()))
+        .collect();
+    assert_eq!(
+        super::winnow_calls::lowered_errors(code),
+        expected,
+        "`{code}`"
+    );
+    Ok(())
+}
+
 /// A call for help in a module body, which the keyword's parse function gives back as the
 /// statement, is one of the body's statements (`parse_module_block` dispatches by the first
 /// word), lowered as at top level.

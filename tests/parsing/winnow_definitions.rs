@@ -94,6 +94,23 @@ fn attribute_head_keeps_a_second_at_sign() -> Result {
     Ok(())
 }
 
+/// A definition named for a parser keyword predeclares nothing, as nu-parser's
+/// `reject_command_name` sees to: a later bare `if` is nu's garbage, not a call of the
+/// definition.
+#[test]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn keyword_named_definition_declares_nothing() -> Result {
+    let code = "def if [] {}; if";
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let block = nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    assert!(
+        matches!(block.pipelines[1].elements[0].expr.expr, Expr::Garbage),
+        "`{code}`: the bare `if` is not garbage"
+    );
+    Ok(())
+}
+
 /// A definition's description holds the comments nu's lite parser gives its command: a comment
 /// after a `;`, or after a `|` that ends its pipeline, on that line goes to the next command,
 /// even past blank lines, unless comment lines come right before that one; a blank line right

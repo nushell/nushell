@@ -1065,7 +1065,11 @@ parser_keyword = "if" | "match" | "try" | "overlay" | "overlay hide"
 
 bad_definition_name = ? a name containing "#" | "^" | "%" | a name parsing as a filesize ("1kb") or f64 ("5", "1.5", "inf") ? ;
 (* nu: parse_def.rs:89, parse_alias.rs:144
-   here: src/winnow/syntax/parser/parse_def.rs::check_definition_name *)
+   here: src/winnow/syntax/parser/parse_def.rs::check_definition_name
+   a def/extern NAME refused either way (or with whitespace other than single spaces) is
+   recorded as a recovered error and the statement goes on: nu’s predeclaration and
+   finish_def/finish_extern report it (CommandDefNotValid, NameIsKeyword) and go on too
+   (here: parse_def.rs::recover_name_error) *)
 
 (* Predeclaration: before a block is parsed, every single-command pipeline of the form
    [ "export" ] ( "def" | "extern" ) { "--flag" } <name> ... "[" | "(" declares <name>,
@@ -1073,7 +1077,8 @@ bad_definition_name = ? a name containing "#" | "^" | "%" | a name parsing as a 
    twice this way in one block is DuplicateCommandDef (an alias is not predeclared,
    so `def foo` plus `alias foo` is fine, and so is a nested block). <name> must read
    as a string and is declared unquoted as parse_string unquotes it (`def "a"b [] {}`
-   declares nothing). A dropped "|" (a blank line or the end of the block after it,
+   declares nothing), and must not be a name nu refuses (reject_command_name: a parser
+   keyword or a <bad-definition-name>; `def if [] {}` declares nothing). A dropped "|" (a blank line or the end of the block after it,
    or the end of the line after an "e>|") does not join the def to another command,
    so the def is still a single-command pipeline; a def after an attribute line
    inside a pipeline is not.

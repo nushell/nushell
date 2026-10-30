@@ -3,5 +3,4 @@ error: cannot use parser keyword `loop` as command name
   |
 1 | def loop [x] { $x }
   |     ^^^^
-  = while parsing def
   = help: choose a different name; this word is parsed specially by Nushell

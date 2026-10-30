@@ -5,12 +5,13 @@ use std::borrow::Cow;
 
 use winnow::Parser;
 use winnow::combinator::opt;
+use winnow::error::ErrMode;
 
 use crate::winnow::syntax::ast::{
     Block, Def, DefFlag, DefinitionFlag, Expr, Expression, Extern, ExternFlag, For, Signature,
 };
 use crate::winnow::syntax::error::{Diagnostic, ErrorKind};
-use crate::winnow::syntax::input::{ParseResult, cut};
+use crate::winnow::syntax::input::{ParseFailure, ParseResult, cut};
 use crate::winnow::syntax::lex::{LexOptions, Token, TokenContents};
 use crate::winnow::syntax::span::{Span, Spanned};
 
@@ -431,9 +432,16 @@ fn scan_definitions<'a>(
                     declared: None,
                 };
                 // nu predeclares a definition only when its name item is a string (nu's
-                // `parse_string`, which unquotes it) and a signature item follows it.
+                // `parse_string`, which unquotes it) it does not refuse (`reject_command_name`:
+                // a parser keyword, `"a  b"`) and a signature item follows it.
                 let name = match parse_definition_name(working_set, name_span) {
-                    Ok(name) if !name.item.is_empty() && has_signature => name.item,
+                    Ok(name)
+                        if !name.item.is_empty()
+                            && has_signature
+                            && check_definition_name(&name, "command").is_ok() =>
+                    {
+                        name.item
+                    }
                     _ => {
                         on_definition(found);
                         continue;
@@ -565,6 +573,19 @@ pub fn check_definition_name(name: &Spanned<Cow<'_, str>>, what: &str) -> ParseR
     Ok(())
 }
 
+/// A `def`'s or `extern`'s name that [`check_definition_name`] refuses: nu's predeclaration
+/// and `finish_def`/`finish_extern` report it (CommandDefNotValid, NameIsKeyword) and go on
+/// with the definition's call, and so does the consumer: the error is recorded as recovered.
+fn recover_name_error(working_set: &WorkingSet<'_>, result: ParseResult<()>) -> ParseResult<()> {
+    match result {
+        Err(ErrMode::Cut(ParseFailure::Error(diagnostic))) => {
+            working_set.error(diagnostic.as_recovered());
+            Ok(())
+        }
+        other => other,
+    }
+}
+
 /// Whether the `bytesize` crate (`ByteSize::from_str`, which nu asks about a
 /// definition name) parses `text`: an integer, or digits and dots making a
 /// float, then optional whitespace and a size unit in any case (`b`, `k`,
@@ -645,7 +666,7 @@ pub fn parse_def<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> 
     };
     reject_name_item(working_set, &name)?;
     let name = parse_def_name(working_set, &name)?;
-    check_definition_name(&name, "command")?;
+    recover_name_error(working_set, check_definition_name(&name, "command"))?;
     flags.extend(parse_definition_flags(
         &mut tokens,
         &mut call,
@@ -859,7 +880,7 @@ pub fn parse_extern<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a
     };
     reject_name_item(working_set, &name)?;
     let name = parse_def_name(working_set, &name)?;
-    check_definition_name(&name, "command")?;
+    recover_name_error(working_set, check_definition_name(&name, "command"))?;
     flags.extend(parse_definition_flags(
         &mut tokens,
         &mut call,

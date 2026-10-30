@@ -3962,13 +3962,18 @@ svg.railroad-diagram g.diagram-text:hover path.diagram-text {
 </ul>
 </section>
 <p>nu: parse<em>def.rs:89, parse</em>alias.rs:144
-  here: src/winnow/syntax/parser/parse<em>def.rs::check</em>definition_name </p><p>Predeclaration: before a block is parsed, every single-command pipeline of the form
+  here: src/winnow/syntax/parser/parse<em>def.rs::check</em>definition<em>name
+  a def/extern NAME refused either way (or with whitespace other than single spaces) is
+  recorded as a recovered error and the statement goes on: nu’s predeclaration and
+  finish</em>def/finish<em>extern report it (CommandDefNotValid, NameIsKeyword) and go on too
+  (here: parse</em>def.rs::recover<em>name</em>error) </p><p>Predeclaration: before a block is parsed, every single-command pipeline of the form
   [ "export" ] ( "def" | "extern" ) { "--flag" } <name> … "[" | "(" declares <name>,
   so calls to commands defined later in the file resolve; the same name declared
   twice this way in one block is DuplicateCommandDef (an alias is not predeclared,
   so <code>def foo</code> plus <code>alias foo</code> is fine, and so is a nested block). <name> must read
   as a string and is declared unquoted as parse<em>string unquotes it (<code>def "a"b [] {}</code>
-  declares nothing). A dropped "|" (a blank line or the end of the block after it,
+  declares nothing), and must not be a name nu refuses (reject</em>command<em>name: a parser
+  keyword or a <bad-definition-name>; <code>def if [] {}</code> declares nothing). A dropped "|" (a blank line or the end of the block after it,
   or the end of the line after an "e>|") does not join the def to another command,
   so the def is still a single-command pipeline; a def after an attribute line
   inside a pipeline is not.
@@ -6228,7 +6233,7 @@ svg.railroad-diagram g.diagram-text:hover path.diagram-text {
 <p>(6.1) </p>
   </article>
   <footer>
-    <p>Date: 2026-10-29T22:47 - <a href="?theme=dark" data-theme="dark">Dark</a> - <a href="?theme=light" data-theme="light">Light</a></p>
+    <p>Date: 2026-10-29T23:53 - <a href="?theme=dark" data-theme="dark">Dark</a> - <a href="?theme=light" data-theme="light">Light</a></p>
   </footer>
   </main>
   <script type="text/javascript">
