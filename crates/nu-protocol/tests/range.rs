@@ -55,53 +55,16 @@ fn serde_round_trip(#[case] range: Range) {
     assert_eq!(range, deserialized, "{range:?}");
 }
 
-#[test]
-fn error_on_overflow() -> Result {
+#[rstest]
+#[case("-9223372036854775808..0..")]
+#[case("-9223372036854775808..0..0")]
+#[case("-9223372036854775807..1..")]
+#[case("-9223372036854775807..1..0")]
+#[case("-1..9223372036854775807..")]
+#[case("-1..9223372036854775807..0")]
+fn error_on_overflow(#[case] input: &str) -> Result {
     let mut tester = test();
-
     tester
-        .run("-9223372036854775808..0..")
-        .expect_shell_error()?;
-    tester
-        .run("-9223372036854775807..1..")
-        .expect_shell_error()?;
-    tester
-        .run("-1..9223372036854775807..")
-        .expect_shell_error()?;
-    tester
-        .run("-9223372036854775808..0..0")
-        .expect_shell_error()?;
-    tester
-        .run("-9223372036854775807..1..0")
-        .expect_shell_error()?;
-    tester
-        .run("-1..9223372036854775807..0")
-        .expect_shell_error()?;
-
-    tester
-        .run::<Range>("-9223372036854775807..0..")
-        .expect("Shouldn't overflow");
-    tester
-        .run::<Range>("-9223372036854775806..1..")
-        .expect("Shouldn't overflow");
-    tester
-        .run::<Range>("-1..9223372036854775806..")
-        .expect("Shouldn't overflow");
-    tester
-        .run::<Range>("0..9223372036854775807..")
-        .expect("Shouldn't overflow");
-    tester
-        .run::<Range>("-9223372036854775807..0..0")
-        .expect("Shouldn't overflow");
-    tester
-        .run::<Range>("-9223372036854775806..1..0")
-        .expect("Shouldn't overflow");
-    tester
-        .run::<Range>("-1..9223372036854775806..0")
-        .expect("Shouldn't overflow");
-    tester
-        .run::<Range>("0..9223372036854775807..0")
-        .expect("Shouldn't overflow");
-
-    Ok(())
+        .run(input)
+        .expect_error_code_eq("nu::shell::range_to_countable")
 }
