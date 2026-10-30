@@ -3,4 +3,3 @@ error: expected `catch` or `finally`
   |
 1 | try {} -- catch {} --
   |                    ^^
-  = while parsing try

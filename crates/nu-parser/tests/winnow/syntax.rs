@@ -2237,3 +2237,21 @@ fn empty_flag_value_is_garbage() {
         "{diagnostics:?}"
     );
 }
+
+/// A handler nu's call reads past an error in (no keyword, no value after it, a value that is
+/// no closure) makes the statement that call, the error recorded as recovered.
+#[test]
+fn try_handler_error_is_the_call() {
+    for text in [
+        "try { 1 } foo { 2 }",
+        "try { 1 } catch",
+        "try { 1 } catch 5",
+    ] {
+        let (ast, diagnostics) = parse_lenient(text, &ParseConfig::default());
+        kind!(expr(&ast), Expr::Call(_));
+        assert!(
+            diagnostics.len() == 1 && diagnostics[0].recovered,
+            "{text}: {diagnostics:?}"
+        );
+    }
+}

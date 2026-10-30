@@ -360,18 +360,33 @@ pub fn parse_try<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> 
             call.end(&mut tokens)?;
             break;
         }
-        let handler_keyword = expected(
-            "`catch` or `finally`",
-            alt((keyword("catch"), keyword("finally"))),
-        )
-        .parse_next(&mut tokens)?;
+        // nu's call reads a handler with its `oneof` of keyword shapes, which reports an item
+        // that is neither keyword (ExpectedKeyword), a keyword without a value
+        // (KeywordMissingArgument) or a value that is no closure, and goes on: the statement is
+        // that call, the error recorded as recovered.
+        let handler = (|tokens: &mut Tokens<'_, 'a>| {
+            let handler_keyword = expected(
+                "`catch` or `finally`",
+                alt((keyword("catch"), keyword("finally"))),
+            )
+            .parse_next(tokens)?;
+            let handler = tokens.expect_item("closure")?;
+            let body = parse_try_handler(working_set, &handler)?;
+            Ok((handler_keyword, handler, body))
+        })(&mut tokens);
+        let (handler_keyword, handler, body) = match handler {
+            Ok(handler) => handler,
+            Err(ErrMode::Cut(ParseFailure::Error(diagnostic))) => {
+                return call.call_after(*diagnostic);
+            }
+            Err(error) => return Err(error),
+        };
         let kind = match tokens.text(&handler_keyword) {
             "catch" => HandlerKind::Catch,
             _ => HandlerKind::Finally,
         };
-        let handler = tokens.expect_item("closure")?;
         span = span.merge(handler.span);
-        let body = Box::new(parse_try_handler(working_set, &handler)?);
+        let body = Box::new(body);
         handlers.push(Handler {
             kind,
             keyword: handler_keyword.span,

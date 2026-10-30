@@ -3,4 +3,3 @@ error: expected closure
   |
 1 | try { 1 } catch
   |                ^
-  = while parsing try

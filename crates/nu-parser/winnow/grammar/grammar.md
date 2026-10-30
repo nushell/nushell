@@ -1619,8 +1619,9 @@ Vocabulary: `<expression>` is a `<pipeline-element>` (3.1); `<block>` is a
 <closure-value>   ::= <closure> | <variable> | "(" <block-tokens> ")"   ; must be a closure (type)
 ; both optional slots accept either keyword: `finally {} catch {}` and even
 ; `catch {} catch {}` parse; a third handler is ExtraPositional (semantic: the statement
-; is nu's call); a bare word or a
-; record whose keys are all plain strings is an error (5.13 <block>)
+; is nu's call); an item that is neither keyword, a keyword without a value, a bare word
+; or a record whose keys are all plain strings (5.13 <block>) is an error of nu's call,
+; which goes on past it: recorded as recovered, the statement that call
 ; nu: nu-cmd-lang try_.rs (OneOf(Keyword catch, Keyword finally) twice)
 ; here: src/winnow/syntax/parser/parse_control_flow.rs::parse_try, parse_try_handler (the closure type
 ;       of a variable or subexpression: consumer)

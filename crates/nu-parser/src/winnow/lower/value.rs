@@ -20,6 +20,28 @@ use crate::{
     type_check::negation_type,
 };
 
+/// Whether the errors of a `oneof` shape's best guess, whose last error is `last`, are kept
+/// even when the guess got no further than the item's start (`parse_oneof`): an expected value
+/// is dropped unless the shape is a block, a closure or an expression and the error is inside
+/// the item, `item` the span of the item the shape read last; any other error is kept.
+pub(super) fn best_guess_propagates(
+    last: Option<&ParseError>,
+    shape: &SyntaxShape,
+    item: impl FnOnce() -> Span,
+) -> bool {
+    match last {
+        Some(
+            ParseError::Expected(_, error_span) | ParseError::ExpectedWithStringMsg(_, error_span),
+        ) => {
+            matches!(
+                shape,
+                SyntaxShape::Block | SyntaxShape::Closure(_) | SyntaxShape::Expression
+            ) && *error_span != item()
+        }
+        _ => true,
+    }
+}
+
 impl<'s> Lower<'_, '_, 's> {
     /// One item read with `shape` (`parse_value`). As there, the item's first byte picks how it
     /// is read, and the shape matters within each case.
@@ -110,20 +132,7 @@ impl<'s> Lower<'_, '_, 's> {
                         return Ok(value);
                     };
                     if first > furthest {
-                        propagate = match new_errors.last() {
-                            Some(
-                                ParseError::Expected(_, error_span)
-                                | ParseError::ExpectedWithStringMsg(_, error_span),
-                            ) => {
-                                matches!(
-                                    shape,
-                                    SyntaxShape::Block
-                                        | SyntaxShape::Closure(_)
-                                        | SyntaxShape::Expression
-                                ) && *error_span != span
-                            }
-                            _ => true,
-                        };
+                        propagate = best_guess_propagates(new_errors.last(), shape, || span);
                         furthest = first;
                         let warnings = self.working_set.parse_warnings[warnings..].to_vec();
                         best_guess = Some((value, new_errors.to_vec(), warnings));

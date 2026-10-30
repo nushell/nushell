@@ -12,7 +12,7 @@ use nu_protocol::{
     engine::CommandType,
 };
 
-use super::{Lower, Lowered, Unlowered};
+use super::{Lower, Lowered, Unlowered, value::best_guess_propagates};
 use crate::winnow::syntax::{DeclKind, ItemsValue, Span as WSpan, ast as w, parse_items};
 use crate::{
     parse_calls::{
@@ -734,8 +734,9 @@ impl<'s> Lower<'_, '_, 's> {
                 let external = matches!(shape, SyntaxShape::ExternalSignature);
                 parse_full_signature(self.working_set, &spans, external)
             }
+            // `parse_multispan_value` reads a one-item shape with `parse_value`, keeping its errors.
             _ if !is_multispan_shape(shape) => {
-                return Ok((self.value(item, shape, input_type)?, index + 1));
+                return Ok((self.reported_value(item, shape, input_type)?, index + 1));
             }
             _ => return Err(Unlowered::Unsupported("multi-item argument")),
         };
@@ -778,7 +779,10 @@ impl<'s> Lower<'_, '_, 's> {
     /// A multi-item `oneof` (`parse_oneof` with `multispan`): the first of `shapes` that reads
     /// the items from `index` without an error, in the order [`Self::one_of`] tries them. A
     /// shape whose reading is left to the classic parser ends the search, since the classic
-    /// parser might read it without an error.
+    /// parser might read it without an error. When none reads them, the value is the guess
+    /// whose first error is the furthest along, with its errors and warnings, as in
+    /// [`Self::one_of`], else garbage over the first item with an error that lists the shapes;
+    /// either way the call goes on after the items the last shape tried read, as there.
     fn multispan_one_of(
         &mut self,
         arguments: &[w::Argument<'s>],
@@ -796,6 +800,12 @@ impl<'s> Lower<'_, '_, 's> {
             .iter()
             .filter(|shape| !deferred(shape))
             .chain(shapes.iter().filter(|shape| deferred(shape)));
+        let start = self.span(arguments[index].span());
+        let mut best_guess = None;
+        let mut furthest = 0;
+        let mut propagate = false;
+        let mut given_back = false;
+        let mut next = index + 1;
         for shape in ordered {
             let errors = self.working_set.parse_errors.len();
             let warnings = self.working_set.parse_warnings.len();
@@ -803,14 +813,50 @@ impl<'s> Lower<'_, '_, 's> {
             match self.multispan_value(arguments, index, end, shape, input_type) {
                 Ok(value) if self.working_set.parse_errors.len() == errors => return Ok(value),
                 Err(unsupported @ Unlowered::Unsupported(_)) => return Err(unsupported),
-                _ => {
-                    self.working_set.parse_errors.truncate(errors);
-                    self.working_set.parse_warnings.truncate(warnings);
-                    self.working_set.compile_errors.truncate(compile_errors);
+                Ok((value, after)) => {
+                    next = after;
+                    let new_errors = &self.working_set.parse_errors[errors..];
+                    let first = new_errors
+                        .iter()
+                        .map(|error| error.span().start)
+                        .min()
+                        .unwrap_or_default();
+                    if first > furthest {
+                        // The item the shape read last, as `parse_oneof` compares with it.
+                        let last = || {
+                            arguments
+                                .get(after.saturating_sub(1))
+                                .map_or(start, |argument| self.span(argument.span()))
+                        };
+                        propagate = best_guess_propagates(new_errors.last(), shape, last);
+                        furthest = first;
+                        let warnings = self.working_set.parse_warnings[warnings..].to_vec();
+                        best_guess = Some((value, new_errors.to_vec(), warnings));
+                    }
                 }
+                Err(_) => given_back = true,
+            }
+            self.working_set.parse_errors.truncate(errors);
+            self.working_set.parse_warnings.truncate(warnings);
+            self.working_set.compile_errors.truncate(compile_errors);
+        }
+        if given_back {
+            return Err(Unlowered::Error);
+        }
+        match best_guess {
+            Some((value, errors, warnings)) if furthest > start.start || propagate => {
+                self.working_set.parse_errors.extend(errors);
+                self.working_set.parse_warnings.extend(warnings);
+                Ok((value, next))
+            }
+            _ => {
+                self.working_set.error(ParseError::ExpectedWithStringMsg(
+                    format!("one of a list of accepted shapes: {shapes:?}"),
+                    start,
+                ));
+                Ok((Expression::garbage(self.working_set, start), next))
             }
         }
-        Err(Unlowered::Error)
     }
 
     /// A keyword parameter's argument, `keyword value`, from `arguments[index]` (the `Keyword`
