@@ -52,3 +52,15 @@ fn fails_instead_of_overflowing_on_i64_min(#[case] flags: &str, #[case] message:
     assert_matches!(err, ShellError::Generic(err) if err.error == message);
     Ok(())
 }
+
+#[test]
+fn reverse_ignores_days_when_periods_is_set() -> Result {
+    let code = "seq date --begin-date 2020-01-01 --days -9223372036854775808 --periods 3 --reverse";
+    let expected = "seq date --begin-date 2020-01-01 --periods 3 --reverse";
+
+    let dates: Vec<String> = test().run(code)?;
+    let expected: Vec<String> = test().run(expected)?;
+
+    assert_eq!(dates, expected);
+    Ok(())
+}

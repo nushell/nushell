@@ -400,7 +400,10 @@ pub fn run_seq_dates(
     // Make the signs opposite if we're created dates in reverse direction
     if reverse {
         step_size = -step_size;
-        days_to_output = days_to_output.checked_neg().ok_or_else(days_too_large)?;
+        // --days is ignored when --periods is set, so only flip it when it's used
+        if periods_to_output == 0 {
+            days_to_output = days_to_output.checked_neg().ok_or_else(days_too_large)?;
+        }
         periods_to_output = periods_to_output
             .checked_neg()
             .ok_or_else(periods_too_large)?;
