@@ -423,6 +423,10 @@
 ; Recognised-but-rejected with a hint (UnknownOperator): "^" "pow" "is" "==="
 ; "contains" "%" "&" "<<" ">>" "bits-and" "bits-xor" "bits-or" "bits-shl"
 ; "bits-shr"; an <assignment-op> here is Expected("a non-assignment operator").
+; nu reports an unknown operator (or a non-operator item, Expected("operator")) and goes
+; on with the expression: the parser records it as recovered and makes the whole math
+; expression a garbage leaf over its items, which the consumer reads with nu's parser
+; from the leaf's text (so only when that text lexes to the same items).
 ; nu: parse_expressions.rs:1152 parse_operator
 ; here: src/winnow/syntax/ast/mod.rs::Operator::from_spelling,
 ;       src/winnow/syntax/parser/parse_expressions.rs::parse_operator

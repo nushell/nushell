@@ -3,4 +3,3 @@ error: expected operator
   |
 1 | where --help 1 2
   |                ^
-  = while parsing where

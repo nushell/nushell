@@ -446,13 +446,18 @@ fn parse_operator(working_set: &WorkingSet<'_>, token: &Token) -> ParseResult<Sp
         "bits-shl" => "did you mean `bit-shl`?",
         "bits-shr" => "did you mean `bit-shr`?",
         "!" => "use `not` for boolean negation",
-        _ => return Err(cut(Diagnostic::expected("operator", token.span))),
+        _ => {
+            return Err(cut(
+                Diagnostic::expected("operator", token.span).as_recovered()
+            ));
+        }
     };
     Err(cut(Diagnostic::new(
         ErrorKind::UnknownOperator(text.to_string()),
         token.span,
     )
-    .with_help(help)))
+    .with_help(help)
+    .as_recovered()))
 }
 
 /// A math expression (nu's `parse_math_expression`): operands separated by
@@ -477,9 +482,45 @@ pub fn parse_math_expression<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expr
     if matches!(tokens.text(first), "if" | "match") {
         return parse_builtin_commands(tokens);
     }
-    expression(parse_math_operand)
+    let items = tokens;
+    match expression(parse_math_operand)
         .infix(infix_operator)
         .parse_next(&mut tokens)
+    {
+        // An item where an operator goes that is none (`1 pow 2`, `1 2`): nu reports it and
+        // goes on with the expression (`parse_operator`), so the expression is a garbage
+        // leaf over its items, the error recorded, which the consumer reads again with nu's
+        // math parser from the leaf's text. When that text lexes to other items (an alias's
+        // words, which take `|` for one; a redirection between them) the error stays.
+        Err(ErrMode::Cut(ParseFailure::Error(mut diagnostic))) if diagnostic.recovered => {
+            let working_set = tokens.working_set;
+            let items = items.remaining();
+            let (Some(first), Some(last)) = (items.first(), items.last()) else {
+                diagnostic.recovered = false;
+                return Err(ErrMode::Cut(ParseFailure::Error(diagnostic)));
+            };
+            let span = first.span.merge(last.span);
+            let relexed = working_set.lex(span, LexOptions::SUBEXPRESSION).ok();
+            let same_items = relexed.is_some_and(|relexed| {
+                let mut relexed = relexed.iter().filter(|token| {
+                    !matches!(token.contents, TokenContents::Comment | TokenContents::Eof)
+                });
+                items.iter().all(|item| {
+                    relexed.next().is_some_and(|token| {
+                        token.contents == TokenContents::Item && token.span == item.span
+                    })
+                }) && relexed.next().is_none()
+            });
+            if !same_items {
+                diagnostic.recovered = false;
+                return Err(ErrMode::Cut(ParseFailure::Error(diagnostic)));
+            }
+            working_set.error(*diagnostic);
+            while tokens.next_token().is_some() {}
+            Ok(Expression::new(Expr::Garbage, span))
+        }
+        result => result,
+    }
 }
 
 /// The operator after an operand, with its binding power: `Left` for all but

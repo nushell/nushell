@@ -3,4 +3,10 @@ error: expected operator
   |
 1 | if --help true {} x
   |                ^^
+
+error: expected block after the condition
+  --> reject/if/help-then-extra.nu:1:19
+  |
+1 | if --help true {} x
+  |                   ^
   = while parsing if

@@ -1837,6 +1837,113 @@ fn alias_of_a_parser_keyword_with_arguments() -> Result {
     Ok(())
 }
 
+/// A math expression with an item where an operator goes that is none is nu's error at that
+/// item, after which nu's math parser goes on: lowered, reported as there, in a statement, a
+/// row condition, a condition and a subexpression.
+#[rstest]
+#[case::unknown_operator(
+    "1 pow 2",
+    &[("UnknownOperator", "pow"), ("IncompleteMathExpression", "pow")]
+)]
+#[case::no_operator(
+    "1 2",
+    &[("Expected", "2"), ("IncompleteMathExpression", "2"), ("IncompleteMathExpression", "2")]
+)]
+#[case::row_condition(
+    "[1 2] | where $it pow 2",
+    &[("UnknownOperator", "pow"), ("IncompleteMathExpression", "pow")]
+)]
+#[case::condition(
+    "if 1 pow 2 { 3 }",
+    &[("UnknownOperator", "pow"), ("IncompleteMathExpression", "pow")]
+)]
+#[case::subexpression(
+    "print (1 pow 2)",
+    &[("UnknownOperator", "pow"), ("IncompleteMathExpression", "pow")]
+)]
+#[case::quoted_first_item(
+    "\"a b\" is \"c\"",
+    &[("UnknownOperator", "is"), ("IncompleteMathExpression", "is")]
+)]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn math_with_a_bad_operator_is_lowered(
+    #[case] code: &str,
+    #[case] expected: &[(&str, &str)],
+) -> Result {
+    let expected: Vec<(String, String)> = expected
+        .iter()
+        .map(|(kind, text)| (kind.to_string(), text.to_string()))
+        .collect();
+    assert_eq!(
+        super::winnow_calls::lowered_errors(code),
+        expected,
+        "`{code}`"
+    );
+    Ok(())
+}
+
+/// An alias's words take `|` for an item, which the text of the condition read again would
+/// not: the bad operator is the `|`, as nu reports it.
+#[test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn bad_operator_in_an_alias_target() -> Result {
+    let code = "alias zz = if [1 2] | is-empty { }\nzz";
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    let errors: Vec<(String, String)> = working_set
+        .parse_errors
+        .iter()
+        .map(|error| {
+            let debug = format!("{error:?}");
+            let kind = debug.split(['(', ' ', '{']).next().unwrap_or_default();
+            let text = working_set.get_span_contents(error.span());
+            (kind.to_owned(), String::from_utf8_lossy(text).into_owned())
+        })
+        .collect();
+    assert_eq!(
+        errors,
+        [
+            ("Expected".to_string(), "|".to_string()),
+            ("IncompleteMathExpression".to_string(), "|".to_string())
+        ],
+        "`{code}`"
+    );
+    Ok(())
+}
+
+/// In a row condition nu's math parser reads a bare word before an operator as a cell path of
+/// the row, a bad operator after it too.
+#[test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn row_condition_with_a_bad_operator_reads_the_row() -> Result {
+    let code = "[[name]; [1]] | where name pow 2";
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let block = nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    let Expr::Call(call) = &block.pipelines[0].elements[1].expr.expr else {
+        panic!("`{code}`: the second element is not a call");
+    };
+    let Some(Expr::RowCondition(block_id)) = call.positional_iter().next().map(|value| &value.expr)
+    else {
+        panic!("`{code}`: no row condition");
+    };
+    let condition = working_set.get_block(*block_id);
+    let Expr::BinaryOp(lhs, _, _) = &condition.pipelines[0].elements[0].expr.expr else {
+        panic!("`{code}`: the condition is not an operation");
+    };
+    assert!(
+        matches!(lhs.expr, Expr::FullCellPath(_)),
+        "`{code}`: {:?}",
+        lhs.expr
+    );
+    Ok(())
+}
+
 /// A call for help in a module body, which the keyword's parse function gives back as the
 /// statement, is one of the body's statements (`parse_module_block` dispatches by the first
 /// word), lowered as at top level.

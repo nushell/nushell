@@ -342,7 +342,14 @@ the negation `Expr::UnaryMinus` (`parse_negation`, for the shapes that hold
 numbers). `if` and `match` are allowed as operands and consume the
 rest of the items (`1 + if $x { 2 } else { 3 }`). Unknown operators get
 targeted help from `parse_operator` (`^` → use `**`, `%` → `mod`,
-`contains` → `has`, ...).
+`contains` → `has`, ...). nu reports an item where an operator goes that is
+none (an unknown spelling, `1 2`) and goes on with the expression, so
+`parse_operator`'s errors are recorded as recovered and
+`parse_math_expression` makes the expression a garbage leaf over its items,
+which the consumer reads again with nu's math parser (with the row variable
+in a row condition), from the leaf's text: so only when that text lexes to
+the same items (not an alias's words, where `|` is one, nor items around a
+redirection); otherwise the error stays.
 
 ```rust
 use nu_parser::winnow::syntax::{parse, ast::{BinaryOp, Expr, Operator, Math}};

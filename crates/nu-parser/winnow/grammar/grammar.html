@@ -2257,6 +2257,10 @@ svg.railroad-diagram g.diagram-text:hover path.diagram-text {
 <p>Recognised-but-rejected with a hint (UnknownOperator): "^" "pow" "is" "==="
   "contains" "%" "&amp;" "<<" ">&gt;" "bits-and" "bits-xor" "bits-or" "bits-shl"
   "bits-shr"; an <assignment-op> here is Expected("a non-assignment operator").
+  nu reports an unknown operator (or a non-operator item, Expected("operator")) and goes
+  on with the expression: the parser records it as recovered and makes the whole math
+  expression a garbage leaf over its items, which the consumer reads with nu’s parser
+  from the leaf’s text (so only when that text lexes to the same items).
   nu: parse<em>expressions.rs:1152 parse</em>operator
   here: src/winnow/syntax/ast/mod.rs::Operator::from<em>spelling,
   src/winnow/syntax/parser/parse</em>expressions.rs::parse_operator </p><p>==== 3.3 Assignment ==== </p><section>
@@ -6256,7 +6260,7 @@ svg.railroad-diagram g.diagram-text:hover path.diagram-text {
 <p>(6.1) </p>
   </article>
   <footer>
-    <p>Date: 2026-10-30T04:33 - <a href="?theme=dark" data-theme="dark">Dark</a> - <a href="?theme=light" data-theme="light">Light</a></p>
+    <p>Date: 2026-10-30T06:37 - <a href="?theme=dark" data-theme="dark">Dark</a> - <a href="?theme=light" data-theme="light">Light</a></p>
   </footer>
   </main>
   <script type="text/javascript">

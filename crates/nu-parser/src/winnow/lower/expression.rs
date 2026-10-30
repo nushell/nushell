@@ -14,9 +14,14 @@ use nu_protocol::{
 use super::{BlockOf, Lower, Lowered, Unlowered, call::STATEMENTS_IN_PIPELINE};
 use crate::winnow::syntax::{Span as WSpan, ast as w, lex::AssignmentOperator};
 use crate::{
-    parse_calls::CallKind, parse_captures_compile::compile_block,
-    parse_expressions::is_math_expression_like, parse_keywords::find_keyword_decl,
-    parse_literals::parse_string_strict, type_check::math_result_type, type_check::type_compatible,
+    lex::{TokenContents, lex},
+    parse_calls::CallKind,
+    parse_captures_compile::compile_block,
+    parse_expressions::{is_math_expression_like, parse_math_expression},
+    parse_keywords::find_keyword_decl,
+    parse_literals::parse_string_strict,
+    type_check::math_result_type,
+    type_check::type_compatible,
 };
 
 impl<'s> Lower<'_, '_, 's> {
@@ -82,14 +87,36 @@ impl<'s> Lower<'_, '_, 's> {
             _ => {
                 let errors = self.working_set.parse_errors.len();
                 let math = self.math(e, input_type)?;
+                let first = match &e.expr {
+                    w::Expr::Garbage => self.items(e.span).first().copied(),
+                    _ => Some(self.span(first_item(e))),
+                };
                 if self.working_set.parse_errors.len() > errors
-                    && !is_math_expression_like(self.working_set, self.span(first_item(e)))
+                    && !first.is_some_and(|first| is_math_expression_like(self.working_set, first))
                 {
                     return Err(Unlowered::Error);
                 }
                 Ok(math)
             }
         }
+    }
+
+    /// The items of the text at `span`, as nu lexes an expression's (newlines are whitespace
+    /// there, comments dropped).
+    fn items(&self, span: WSpan) -> Vec<Span> {
+        let span = self.span(span);
+        let (tokens, _) = lex(
+            self.working_set.get_span_contents(span),
+            span.start,
+            b"\n\r",
+            &[],
+            true,
+        );
+        tokens
+            .iter()
+            .filter(|token| token.contents == TokenContents::Item)
+            .map(|token| token.span)
+            .collect()
     }
 
     /// A math expression (`parse_math_expression`): operands are values read with any shape,
@@ -104,6 +131,18 @@ impl<'s> Lower<'_, '_, 's> {
         input_type: Option<&Type>,
     ) -> Lowered<Expression> {
         match &e.expr {
+            // A math expression with an item where an operator goes that is none, which the
+            // winnow parser left as garbage over its items: nu's math parser reads them again,
+            // reporting its errors with what it recovers.
+            w::Expr::Garbage if self.items(e.span).len() > 1 => {
+                let spans = self.items(e.span);
+                Ok(parse_math_expression(
+                    self.working_set,
+                    &spans,
+                    self.row_var,
+                    input_type,
+                ))
+            }
             // A single operation, in the order the operator stack would take it.
             w::Expr::BinaryOp(operation)
                 if !matches!(operation.lhs.expr, w::Expr::BinaryOp(_))
