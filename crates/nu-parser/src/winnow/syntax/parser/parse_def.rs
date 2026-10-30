@@ -666,7 +666,19 @@ pub fn parse_def<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> 
         return call.help_call();
     };
     reject_name_item(working_set, &name)?;
-    let name = parse_def_name(working_set, &name)?;
+    let name = match parse_def_name(working_set, &name) {
+        Ok(parsed) => parsed,
+        // `def cmd[] {}`: nu refuses the name before it reads the call, and so does the
+        // consumer, which reads the statement as that call.
+        Err(error)
+            if working_set
+                .get_span_contents(name.span)
+                .contains(['[', '(']) =>
+        {
+            return signature_error_call(statement, error);
+        }
+        Err(error) => return Err(error),
+    };
     recover_name_error(working_set, check_definition_name(&name, "command"))?;
     flags.extend(parse_definition_flags(
         &mut tokens,
@@ -911,7 +923,19 @@ pub fn parse_extern<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a
         return call.help_call();
     };
     reject_name_item(working_set, &name)?;
-    let name = parse_def_name(working_set, &name)?;
+    let name = match parse_def_name(working_set, &name) {
+        Ok(parsed) => parsed,
+        // `def cmd[] {}`: nu refuses the name before it reads the call, and so does the
+        // consumer, which reads the statement as that call.
+        Err(error)
+            if working_set
+                .get_span_contents(name.span)
+                .contains(['[', '(']) =>
+        {
+            return signature_error_call(statement, error);
+        }
+        Err(error) => return Err(error),
+    };
     recover_name_error(working_set, check_definition_name(&name, "command"))?;
     flags.extend(parse_definition_flags(
         &mut tokens,

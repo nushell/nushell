@@ -3,5 +3,4 @@ error: no space between name and parameters
   |
 1 | extern cmd(--flag)
   |           ^
-  = while parsing extern
   = help: consider adding a space between the command's name and its parameters

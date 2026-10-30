@@ -1132,7 +1132,7 @@ fn decl_name_span(working_set: &StateWorkingSet, rest_spans: &[Span]) -> Option<
         .find(|span| !working_set.get_span_contents(*span).starts_with(b"-"))
 }
 
-fn detect_params_in_name(
+pub(crate) fn detect_params_in_name(
     working_set: &StateWorkingSet,
     name_span: Span,
     decl_id: DeclId,

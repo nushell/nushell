@@ -2041,6 +2041,52 @@ fn match_pattern_with_an_error_is_lowered(
     Ok(())
 }
 
+/// A definition name with its parameters joined to it is nu's error (at the byte before the
+/// parameters), with garbage over the statement, and an export of it is no call: lowered,
+/// reported as there.
+#[rstest]
+#[case::definition("def cmd[] {}", &[("LabeledErrorWithHelp", "")])]
+#[case::extern_definition("extern cmd(--flag)", &[("LabeledErrorWithHelp", "")])]
+#[case::bracketed_name("def [foo] [] {}", &[("LabeledErrorWithHelp", "")])]
+#[case::exported(
+    "export def cmd[x] {}",
+    &[("LabeledErrorWithHelp", ""), ("InternalError", "def cmd[x] {}")]
+)]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn parameters_joined_to_a_name_are_lowered(
+    #[case] code: &str,
+    #[case] expected: &[(&str, &str)],
+) -> Result {
+    let expected: Vec<(String, String)> = expected
+        .iter()
+        .map(|(kind, text)| (kind.to_string(), text.to_string()))
+        .collect();
+    assert_eq!(
+        super::winnow_calls::lowered_errors(code),
+        expected,
+        "`{code}`"
+    );
+    Ok(())
+}
+
+/// nu refuses a name with its parameters joined to it in the definition's scope, which it
+/// enters and leaves open.
+#[test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn parameters_joined_to_a_name_leave_a_scope_open() -> Result {
+    let engine_state = test().engine_state;
+    let depth = |code: &str| {
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+        working_set.delta.scope.len()
+    };
+    assert_eq!(depth("def cmd[] {}"), depth("ls") + 1);
+    Ok(())
+}
+
 /// A call for help in a module body, which the keyword's parse function gives back as the
 /// statement, is one of the body's statements (`parse_module_block` dispatches by the first
 /// word), lowered as at top level.

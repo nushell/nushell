@@ -25,7 +25,7 @@ use crate::{
     parse_alias::{alias_name, alias_name_fits_module, finish_alias},
     parse_calls::CallKind,
     parse_captures_compile::compile_block_with_id,
-    parse_def::{DefCall, finish_def, finish_extern, yielded_type},
+    parse_def::{DefCall, detect_params_in_name, finish_def, finish_extern, yielded_type},
     parse_expressions::{is_env_variable_name, parse_value},
     parse_helpers::garbage,
     parse_keywords::find_keyword_decl,
@@ -1134,15 +1134,28 @@ impl<'s> Lower<'_, '_, 's> {
         let head = self.command_head(command, keyword);
         let call_span = self.span(command.span);
         let arguments = call.arguments.as_slice();
-        // `parse_def` and `parse_extern` refuse a name with its parameters joined to it.
+        // `parse_def` and `parse_extern` refuse a name with its parameters joined to it, in
+        // the definition's scope, which they enter and leave open, and give garbage.
         let name_span = arguments
             .iter()
             .map(w::Argument::span)
             .find(|span| !self.text(*span).starts_with('-'));
         if matches!(keyword, "def" | "extern")
-            && name_span.is_some_and(|span| self.text(span).contains(['[', '(']))
+            && let Some(name_span) = name_span
+            && let Some(error) =
+                detect_params_in_name(self.working_set, self.span(name_span), decl_id)
         {
-            return Err(Unlowered::Error);
+            self.working_set.enter_scope();
+            self.working_set.error(error);
+            // An export of that garbage is no call (`warp_export_call`).
+            if let w::Expr::Export(export) = &command.expr {
+                let keyword = self.span(export.item.span);
+                self.working_set.error(ParseError::InternalError(
+                    "unexpected output from parsing a definition".into(),
+                    Span::new(keyword.start, call_span.end),
+                ));
+            }
+            return Ok((garbage(self.working_set, call_span), None));
         }
         let (lowered, output, kind) = match keyword {
             "def" => self.in_scope(|this| {

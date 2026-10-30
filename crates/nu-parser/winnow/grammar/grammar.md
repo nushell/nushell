@@ -1325,7 +1325,10 @@ Vocabulary: `<expression>` is a `<pipeline-element>` (3.1); `<block>` is a
 <reserved-definition-name> ::= <parser-keyword> | <bad-definition-name>
 ; must be a string item: `def $x` and `def $"x"` are "expected string"; a name with
 ; "(" or "[" anywhere in its text, quoted or not (`def (foo)`, `def [foo]`,
-; `def "a(b"`, `def foo[]`), is "no space between name and parameters"
+; `def "a(b"`, `def foo[]`), is "no space between name and parameters", which nu reports
+; and makes the statement garbage (in the definition's scope, which it leaves open): the
+; parser records it as recovered and reads the statement as the call, which the
+; consumer refuses so
 ; nu: parse_def.rs:958 detect_params_in_name; SyntaxShape::String
 ; here: src/winnow/syntax/parser/parse_def.rs::parse_def_name,
 ;       src/winnow/syntax/parser/parse_signatures.rs::parse_definition_name

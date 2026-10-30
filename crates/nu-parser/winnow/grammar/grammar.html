@@ -4163,7 +4163,10 @@ svg.railroad-diagram g.diagram-text:hover path.diagram-text {
 </section>
 <p>must be a string item: <code>def $x</code> and <code>def $"x"</code> are "expected string"; a name with
   "(" or "[" anywhere in its text, quoted or not (<code>def (foo)</code>, <code>def [foo]</code>,
-  <code>def "a(b"</code>, <code>def foo[]</code>), is "no space between name and parameters"
+  <code>def "a(b"</code>, <code>def foo[]</code>), is "no space between name and parameters", which nu reports
+  and makes the statement garbage (in the definition’s scope, which it leaves open): the
+  parser records it as recovered and reads the statement as the call, which the
+  consumer refuses so
   nu: parse<em>def.rs:958 detect</em>params<em>in</em>name; SyntaxShape::String
   here: src/winnow/syntax/parser/parse<em>def.rs::parse</em>def<em>name,
   src/winnow/syntax/parser/parse</em>signatures.rs::parse<em>definition</em>name </p><section>
@@ -6266,7 +6269,7 @@ svg.railroad-diagram g.diagram-text:hover path.diagram-text {
 <p>(6.1) </p>
   </article>
   <footer>
-    <p>Date: 2026-10-30T08:07 - <a href="?theme=dark" data-theme="dark">Dark</a> - <a href="?theme=light" data-theme="light">Light</a></p>
+    <p>Date: 2026-10-30T08:34 - <a href="?theme=dark" data-theme="dark">Dark</a> - <a href="?theme=light" data-theme="light">Light</a></p>
   </footer>
   </main>
   <script type="text/javascript">
