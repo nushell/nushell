@@ -327,8 +327,9 @@ fn get_line_editor(engine_state: &mut EngineState, use_color: bool) -> Result<Re
     let mut start_time = Instant::now();
     let mut line_editor = Reedline::create();
 
-    // Now that reedline is created, get the history session id and store it in engine_state
-    store_history_id_in_engine(engine_state, &line_editor);
+    // The history session id is normally created (and stored in engine_state)
+    // when the REPL started, before the startup config was evaluated;
+    // setup_history creates a fresh one as a fallback when it wasn't.
     perf!("setup reedline", start_time, use_color);
 
     if let Some(history) = engine_state.history_config() {
@@ -1417,9 +1418,21 @@ fn setup_history(
     line_editor: Reedline,
     history: HistoryConfig,
 ) -> Result<Reedline> {
-    // Setup history_isolation aka "history per session"
+    // Setup history_isolation aka "history per session". Reuse the session id
+    // created when the REPL started (before the startup config was evaluated)
+    // so that `history session` reports the same id during initialization and
+    // afterwards. The id is only handed to the history backend and the editor
+    // when isolation is enabled, keeping history behavior unchanged otherwise.
+    if history.isolation && engine_state.history_session_id == 0 {
+        // run_repl normally creates the id at startup, but evaluate_repl is
+        // public API and embedders may call it without run_repl; fall back to
+        // a fresh id so their sessions don't all share id 0.
+        engine_state.history_session_id = reedline::Reedline::create_history_session_id()
+            .map(i64::from)
+            .unwrap_or(0);
+    }
     let history_session_id = if history.isolation {
-        Reedline::create_history_session_id()
+        Some(HistorySessionId::new(engine_state.history_session_id))
     } else {
         None
     };
@@ -1495,15 +1508,6 @@ fn kitty_protocol_healthcheck(engine_state: &EngineState) {
     }
 }
 
-fn store_history_id_in_engine(engine_state: &mut EngineState, line_editor: &Reedline) {
-    let session_id = line_editor
-        .get_history_session_id()
-        .map(i64::from)
-        .unwrap_or(0);
-
-    engine_state.history_session_id = session_id;
-}
-
 fn warn_history_unavailable(history_path: &std::path::Path, err: &impl std::fmt::Display) {
     if history_path.is_symlink() && !history_path.exists() {
         let target = std::fs::read_link(history_path)
@@ -1522,7 +1526,7 @@ fn warn_history_unavailable(history_path: &std::path::Path, err: &impl std::fmt:
 }
 
 fn update_line_editor_history(
-    engine_state: &mut EngineState,
+    _engine_state: &mut EngineState,
     history_path: PathBuf,
     history: HistoryConfig,
     line_editor: Reedline,
@@ -1572,8 +1576,6 @@ fn update_line_editor_history(
     if let Some(history) = history_backend {
         line_editor = line_editor.with_history(history);
     }
-
-    store_history_id_in_engine(engine_state, &line_editor);
 
     Ok(line_editor)
 }
@@ -1979,25 +1981,77 @@ fn command_after_interrupted_prompt_runs_hooks_and_command() -> nu_test_support:
 #[test]
 fn are_session_ids_in_sync() {
     let engine_state = &mut EngineState::new();
-    // Tests need a resolved config home; use a temp-style path under the process cwd.
-    engine_state.config_dirs.config_home = std::env::temp_dir().join("nushell-repl-history-test");
+    // Tests need a resolved config home; point it at a temp dir that is
+    // removed when the test finishes.
+    let config_home = tempfile::tempdir().expect("temp config home");
+    engine_state.config_dirs.config_home = config_home.path().to_path_buf();
+
+    let mut config = (**engine_state.get_config()).clone();
+    config.history.isolation = true;
+    engine_state.set_config(config);
     let history = engine_state.history_config().unwrap();
-    let history_path = history
-        .file_path(&engine_state.config_dirs.config_home)
-        .unwrap();
-    let line_editor = reedline::Reedline::create();
-    let history_session_id = reedline::Reedline::create_history_session_id();
-    let line_editor = update_line_editor_history(
-        engine_state,
-        history_path,
-        history,
-        line_editor,
-        history_session_id,
-    );
-    assert_eq!(
-        i64::from(line_editor.unwrap().get_history_session_id().unwrap()),
-        engine_state.history_session_id
-    );
+
+    // No startup id was stored (evaluate_repl called without run_repl):
+    // setup_history must create one and keep the editor and engine in sync.
+    let line_editor =
+        setup_history(engine_state, reedline::Reedline::create(), history).expect("setup_history");
+    let editor_id = line_editor
+        .get_history_session_id()
+        .expect("editor session id");
+    assert_eq!(i64::from(editor_id), engine_state.history_session_id);
+    assert_ne!(engine_state.history_session_id, 0);
+}
+
+#[test]
+fn setup_history_reuses_startup_session_id() {
+    // Regression test for #18321: the history session id is created when the
+    // REPL starts, before the startup config is evaluated, so `history
+    // session` must report the same id during initialization and afterwards.
+    let engine_state = &mut EngineState::new();
+    // Tests need a resolved config home; point it at a temp dir that is
+    // removed when the test finishes.
+    let config_home = tempfile::tempdir().expect("temp config home");
+    engine_state.config_dirs.config_home = config_home.path().to_path_buf();
+    // Simulate what run_repl does before evaluating the startup config.
+    let startup_id = reedline::Reedline::create_history_session_id().expect("session id");
+    engine_state.history_session_id = startup_id.into();
+
+    let mut config = (**engine_state.get_config()).clone();
+    config.history.isolation = true;
+    engine_state.set_config(config);
+    let history = engine_state.history_config().unwrap();
+
+    let line_editor =
+        setup_history(engine_state, reedline::Reedline::create(), history).expect("setup_history");
+
+    // The editor and engine_state agree on the id created at startup.
+    let editor_id = line_editor
+        .get_history_session_id()
+        .expect("editor session id");
+    assert_eq!(editor_id, startup_id);
+    assert_eq!(engine_state.history_session_id, i64::from(startup_id));
+}
+
+#[test]
+fn setup_history_keeps_startup_session_id_without_isolation() {
+    let engine_state = &mut EngineState::new();
+    // Tests need a resolved config home; point it at a temp dir that is
+    // removed when the test finishes.
+    let config_home = tempfile::tempdir().expect("temp config home");
+    engine_state.config_dirs.config_home = config_home.path().to_path_buf();
+    // Simulate what run_repl does before evaluating the startup config.
+    let startup_id = reedline::Reedline::create_history_session_id().expect("session id");
+    engine_state.history_session_id = startup_id.into();
+
+    let history = engine_state.history_config().unwrap();
+    assert!(!history.isolation);
+    let line_editor =
+        setup_history(engine_state, reedline::Reedline::create(), history).expect("setup_history");
+
+    // Without isolation the editor carries no session id (history behavior
+    // unchanged), but the startup id survives so `history session` is stable.
+    assert_eq!(line_editor.get_history_session_id(), None);
+    assert_eq!(engine_state.history_session_id, i64::from(startup_id));
 }
 
 /// A broken history symlink must not abort history setup (login-lockout risk).
