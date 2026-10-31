@@ -1,0 +1,6 @@
+error: expected type
+  --> reject/signatures/colon-last-token.nu:1:10
+  |
+1 | def f [x:] {}
+  |          ^
+  = while parsing signature

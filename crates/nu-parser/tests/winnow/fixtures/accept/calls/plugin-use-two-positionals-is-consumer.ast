@@ -1,0 +1,5 @@
+Block 0..15
+  Pipeline 0..14
+    Call `plugin use` 0..14
+      String Bare "x" 11..12
+      String Bare "y" 13..14

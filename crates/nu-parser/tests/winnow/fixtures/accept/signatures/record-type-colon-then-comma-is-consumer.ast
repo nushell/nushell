@@ -1,0 +1,6 @@
+Block 0..35
+  Pipeline 0..34
+    Def `foo` 0..34
+      Signature 8..31
+        Param positional `x` 9..30 : record<a:, b: int>
+      Body 33..33

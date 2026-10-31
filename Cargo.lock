@@ -5249,10 +5249,14 @@ dependencies = [
  "nu-plugin-engine",
  "nu-protocol",
  "nu-utils",
+ "rayon",
  "rstest",
  "rustc-hash",
  "semver",
+ "serde",
  "serde_json",
+ "tango-bench",
+ "winnow 1.0.4",
 ]
 
 [[package]]

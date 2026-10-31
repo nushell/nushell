@@ -1,0 +1,17 @@
+Block 0..49
+  Pipeline 0..16
+    let name 0..16
+      Value 11..16
+        Pipeline 11..16
+          String Double "foo" 11..16
+  Pipeline 17..48
+    List 17..22
+      String Bare "foo" 18..21
+    | 23..24
+    Where 25..48
+      BinaryOp =~ 31..48
+        Interpolation Single 31..41
+          Subexpression 33..40 34..39
+            Pipeline 34..39
+              Var $name 34..39
+        Var $it 45..48

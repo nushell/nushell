@@ -1,0 +1,6 @@
+Block 0..41
+  Pipeline 0..40
+    Extern `foo` [Strict] 0..40
+      Signature 20..40
+        Param flag --bar -b `bar` 21..30
+        Param rest `rest` 32..39

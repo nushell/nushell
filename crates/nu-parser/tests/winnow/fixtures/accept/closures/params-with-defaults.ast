@@ -1,0 +1,15 @@
+Block 0..31
+  Pipeline 0..30
+    Closure 0..30
+      Signature 1..20
+        Param positional `x` 2..7
+          Default
+            Int 1 6..7
+        Param positional `y` 9..19 : int
+          Default
+            Int 2 18..19
+      Body 21..29
+        Pipeline 21..28
+          BinaryOp + 21..28
+            Var $x 21..23
+            Var $y 26..28

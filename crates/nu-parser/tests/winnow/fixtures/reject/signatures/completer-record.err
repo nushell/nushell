@@ -1,0 +1,6 @@
+error: the parameter completer must be a string (the name of a command) or a list
+  --> reject/signatures/completer-record.nu:1:20
+  |
+1 | def foo [x: string@{a: 1}] {}
+  |                    ^^^^^^
+  = while parsing signature

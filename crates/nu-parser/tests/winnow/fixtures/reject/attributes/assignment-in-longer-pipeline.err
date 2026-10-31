@@ -1,0 +1,13 @@
+error: assignment requires a variable
+  --> reject/attributes/assignment-in-longer-pipeline.nu:1:1
+  |
+1 | @search-terms a = b
+  | ^^^^^^^^^^^^^^^
+  = help: only variables (`$x`) and their cell paths (`$x.a`, `$env.FOO`) can be assigned to
+
+error: external command calls must be explicit in assignments
+  --> reject/attributes/assignment-in-longer-pipeline.nu:1:19
+  |
+1 | @search-terms a = b
+  |                   ^
+  = help: `b` is not a known command; write `^b` to run it and capture its output, or quote the string

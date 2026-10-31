@@ -1,0 +1,6 @@
+error: expected valid variable name
+  --> reject/ranges/bare-dollar-bound-value.nu:1:8
+  |
+1 | echo ..$
+  |        ^
+  = help: variable names may not contain `.[({+-*^%/=!<>&|`

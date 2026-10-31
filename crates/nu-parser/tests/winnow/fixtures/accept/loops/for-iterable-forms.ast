@@ -1,0 +1,48 @@
+Block 0..137
+  Pipeline 0..11
+    let l 0..11
+      Value 8..11
+        Pipeline 8..11
+          List 8..11
+            Int 1 9..10
+  Pipeline 12..27
+    For $x 12..27
+      Var $l 21..23
+      Body 25..26
+  Pipeline 28..55
+    For $x 28..55
+      Subexpression 37..51 38..50
+        Pipeline 38..50
+          Var $l 38..40
+          | 41..42
+          Call `reverse` 43..50
+      Body 53..54
+  Pipeline 56..79
+    For $x 56..79
+      Table 65..75
+        Columns
+          List 66..69
+            String Bare "a" 67..68
+        Row
+          List 71..74
+            Int 1 72..73
+      Body 77..78
+  Pipeline 80..99
+    For $x 80..99
+      Record 89..95
+        Pair
+          String Bare "a" 90..91
+          Int 1 93..94
+      Body 97..98
+  Pipeline 100..118
+    For $x 100..118
+      String Double "abc" 109..114
+      Body 116..117
+  Pipeline 119..136
+    For $x 119..136
+      Range Inclusive 128..132
+        From
+          Int 1 128..129
+        To
+          Int 3 131..132
+      Body 134..135

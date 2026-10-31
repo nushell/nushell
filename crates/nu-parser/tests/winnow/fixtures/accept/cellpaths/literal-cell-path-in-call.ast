@@ -1,0 +1,17 @@
+Block 0..34
+  Pipeline 0..33
+    List 0..8
+      Record 1..7
+        Pair
+          String Bare "a" 2..3
+          Int 1 5..6
+    | 9..10
+    Call `get` 11..18
+      CellPath 15..18
+        Member "a" 17..18
+    | 19..20
+    Call `each` 21..33
+      Closure 26..33
+        Body 28..32
+          Pipeline 28..31
+            Var $in 28..31

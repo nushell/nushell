@@ -1,0 +1,6 @@
+Block 0..28
+  Pipeline 0..27
+    Call `overlay use` 0..27
+      Flag --prefix 12..22
+        Int 1 21..22
+      String Bare "spam" 23..27

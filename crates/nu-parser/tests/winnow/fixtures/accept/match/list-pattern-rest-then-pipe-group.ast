@@ -1,0 +1,14 @@
+Block 0..35
+  Pipeline 0..34
+    Match 0..34
+      List 6..11
+        Int 1 7..8
+        Int 2 9..10
+      Arm 14..32
+        Pattern list 14..26
+          Pattern value 15..16
+            Int 1 15..16
+          Pattern rest $r 17..21
+          Pattern value 24..25
+            Int 2 24..25
+        Var $r 30..32

@@ -1,0 +1,6 @@
+error: extra tokens after the end of the expression
+  --> reject/def/type-alias-two-types.nu:1:14
+  |
+1 | type T = int string
+  |              ^^^^^^
+  = help: a type alias names one type

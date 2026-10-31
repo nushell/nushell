@@ -1,0 +1,15 @@
+Block 0..52
+  Pipeline 0..24
+    let 🧼 0..24
+      Value 11..24
+        Pipeline 11..24
+          String Single "ünïcödé" 11..24
+  Pipeline 25..37
+    let üml 25..37
+      Value 36..37
+        Pipeline 36..37
+          Int 1 36..37
+  Pipeline 38..51
+    List 38..51
+      Var $🧼 39..44
+      Var $üml 45..50

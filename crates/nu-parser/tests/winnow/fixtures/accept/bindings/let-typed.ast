@@ -1,0 +1,97 @@
+Block 0..389
+  Pipeline 0..14
+    let a : int 0..14
+      Value 13..14
+        Pipeline 13..14
+          Int 1 13..14
+  Pipeline 15..36
+    let b : string 15..36
+      Value 31..36
+        Pipeline 31..36
+          String Single "qwe" 31..36
+  Pipeline 37..58
+    let c : nothing 37..58
+      Value 54..58
+        Pipeline 54..58
+          Nothing 54..58
+  Pipeline 59..83
+    let d : list<string> 59..83
+      Value 81..83
+        Pipeline 81..83
+          List 81..83
+  Pipeline 84..126
+    let e : record<a: int b: int> 84..126
+      Value 115..126
+        Pipeline 115..126
+          Record 115..126
+            Pair
+              String Bare "a" 116..117
+              Int 1 119..120
+            Pair
+              String Bare "b" 121..122
+              Int 1 124..125
+  Pipeline 127..177
+    let f : table<a: int b: int> 127..177
+      Value 157..177
+        Pipeline 157..177
+          Table 157..177
+            Columns
+              List 158..163
+                String Bare "a" 159..160
+                String Bare "b" 161..162
+            Row
+              List 165..170
+                Int 1 166..167
+                Int 2 168..169
+            Row
+              List 171..176
+                Int 3 172..173
+                Int 4 174..175
+  Pipeline 178..247
+    let g : record<a: record<name: string> b: int> 178..247
+      Value 226..247
+        Pipeline 226..247
+          Record 226..247
+            Pair
+              String Bare "a" 227..228
+              Record 230..241
+                Pair
+                  String Bare "name" 231..235
+                  String Bare "bob" 237..240
+            Pair
+              String Bare "b" 242..243
+              Int 1 245..246
+  Pipeline 248..318
+    let h : record<c: record<a: int b: int> e: int> 248..318
+      Value 297..318
+        Pipeline 297..318
+          Record 297..318
+            Pair
+              String Bare "c" 298..299
+              Record 301..312
+                Pair
+                  String Bare "a" 302..303
+                  Int 1 305..306
+                Pair
+                  String Bare "b" 307..308
+                  Int 2 310..311
+            Pair
+              String Bare "e" 313..314
+              Int 1 316..317
+  Pipeline 319..343
+    let i : list<any> 319..343
+      Value 338..343
+        Pipeline 338..343
+          List 338..343
+            Int 1 339..340
+            String Bare "a" 341..342
+  Pipeline 344..373
+    let j : oneof<int, string> 344..373
+      Value 372..373
+        Pipeline 372..373
+          Int 1 372..373
+  Pipeline 374..388
+    let k : any 374..388
+      Value 387..388
+        Pipeline 387..388
+          Int 1 387..388

@@ -1,0 +1,6 @@
+error: record field or table column `a` is defined twice
+  --> reject/tables/duplicate-column.nu:1:5
+  |
+1 | [[a a]; [1 2]]
+  |     ^
+  = help: it is first defined at byte 2

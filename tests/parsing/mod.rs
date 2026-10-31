@@ -1,6 +1,12 @@
 mod def_compile;
 mod escaping;
 mod lex_once;
+mod winnow;
+mod winnow_blocks;
+mod winnow_calls;
+mod winnow_definitions;
+mod winnow_literals;
+mod winnow_statements;
 
 use std::time::Duration;
 
@@ -730,4 +736,62 @@ fn issue_16209_mutual_recursion_closure_in_variable() -> Result {
     test()
         .run(code)
         .expect_value_eq("record<first: closure, second: closure, third: closure>")
+}
+
+/// `extern` with nothing after it on its line is a parse error, not a panic (the name is on the
+/// next line, a statement of its own).
+#[test]
+fn extern_without_a_name_is_an_error() -> Result {
+    let engine_state = test().engine_state;
+    let mut working_set = nu_protocol::engine::StateWorkingSet::new(&engine_state);
+    nu_parser::parse(&mut working_set, None, b"extern\n\"name\" []", false);
+    assert!(!working_set.parse_errors.is_empty());
+    Ok(())
+}
+
+/// A module that is not found, or not added, is reported once, by what found it missing: no
+/// second `Module not found` from `use` or `module` after `parse_module_file_or_dir` reported
+/// it, and no internal error from an `export module` whose module was refused.
+#[rstest]
+#[case::use_missing_module("use nope", "ModuleNotFound")]
+#[case::missing_module_file("module nope.nu", "ModuleNotFound")]
+#[case::export_module_named_as_parent("module a { export module a {} }", "NamedAsModule")]
+fn missing_module_is_reported_once(#[case] code: &str, #[case] error: &str) -> Result {
+    let engine_state = test().engine_state;
+    let mut working_set = nu_protocol::engine::StateWorkingSet::new(&engine_state);
+    nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    let errors: Vec<String> = working_set
+        .parse_errors
+        .iter()
+        .map(|error| format!("{error:?}"))
+        .collect();
+    assert!(
+        matches!(errors.as_slice(), [only] if only.starts_with(error)),
+        "`{code}`: {errors:?}"
+    );
+    Ok(())
+}
+
+/// `parse_alias` counts the items after `alias`, or after `export alias`: an alias without
+/// `=` and a target is incomplete with `export` too, and one item with an `=` in it misses the
+/// spaces around the `=`.
+#[rstest]
+#[case::name_and_word("alias h home", "Incomplete alias")]
+#[case::exported_name_and_word("export alias h home", "Incomplete alias")]
+#[case::exported_without_target("export alias x =", "Incomplete alias")]
+#[case::no_spaces("alias x=1", "alias argument")]
+#[case::exported_no_spaces("export alias x=1", "alias argument")]
+fn incomplete_alias_is_reported_after_export(#[case] code: &str, #[case] what: &str) -> Result {
+    let engine_state = test().engine_state;
+    let mut working_set = nu_protocol::engine::StateWorkingSet::new(&engine_state);
+    nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    assert!(
+        matches!(
+            working_set.parse_errors.as_slice(),
+            [nu_protocol::ParseError::IncorrectValue(found, ..)] if found == what
+        ),
+        "`{code}`: {:?}",
+        working_set.parse_errors
+    );
+    Ok(())
 }

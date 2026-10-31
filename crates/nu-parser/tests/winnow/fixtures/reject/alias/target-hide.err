@@ -1,0 +1,6 @@
+error: cannot create an alias to a parser keyword
+  --> reject/alias/target-hide.nu:1:11
+  |
+1 | alias x = hide
+  |           ^^^^
+  = help: only if, match, try, overlay, overlay hide, overlay new, overlay use can be aliased

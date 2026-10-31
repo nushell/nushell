@@ -1,0 +1,5 @@
+error: expected value for record field
+  --> reject/records/missing-value.nu:1:10
+  |
+1 | { a: 2 b: }
+  |          ^

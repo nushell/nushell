@@ -1,0 +1,22 @@
+Block 0..139
+  Pipeline 11..138 comments=2
+    AttributeBlock 11..138
+      Attribute `example` 11..67
+        String Double "say hi" 20..28
+        Closure 29..44
+          Body 31..43
+            Pipeline 31..42
+              Call `greet` 31..42
+                String Bare "world" 37..42
+        Flag --result 45..53
+        String Double "hello world" 54..67
+      Attribute `search-terms` 87..117
+        String Bare "hello" 101..106
+        String Bare "salutation" 107..117
+      Def `greet` 118..138
+        Signature 128..134
+          Param positional `name` 129..133
+        Body 136..137
+Comments (2)
+  0..10 "# doc line"
+  68..86 "# trailing comment"

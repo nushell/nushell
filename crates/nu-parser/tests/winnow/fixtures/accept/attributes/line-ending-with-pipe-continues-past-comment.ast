@@ -1,0 +1,11 @@
+Block 0..49
+  Pipeline 0..48 comments=1
+    AttributeBlock 0..48
+      Attribute `search-terms` 0..20
+        String Bare "hello" 14..19
+        String Bare "|" 19..20
+      Def `greet` 32..48
+        Signature 42..44
+        Body 46..47
+Comments (1)
+  21..31 "# doc line"

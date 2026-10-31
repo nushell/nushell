@@ -1,0 +1,30 @@
+Block 0..107
+  Pipeline 0..106
+    Assignment = 0..106
+      FullCellPath 0..9
+        Var $env 0..4
+        Member "Path" 5..9
+      Value 12..106
+        Pipeline 12..106
+          If 12..106
+            Condition
+              Subexpression 15..56 16..55
+                Pipeline 16..55
+                  Var $env 16..20
+                  | 21..22
+                  Call `columns` 23..30
+                  | 31..32
+                  BinaryOp in 33..55
+                    String Double "VENV_OLD_PATH" 33..48
+                    Var $in 52..55
+            Then 58..82
+              Pipeline 63..81
+                FullCellPath 63..81
+                  Var $env 63..67
+                  Member "VENV_OLD_PATH" 68..81
+            Else 84..88
+              BlockExpr 89..106 90..105
+                Pipeline 95..104
+                  FullCellPath 95..104
+                    Var $env 95..99
+                    Member "PATH" 100..104

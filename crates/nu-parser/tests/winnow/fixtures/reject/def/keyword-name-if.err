@@ -1,0 +1,6 @@
+error: cannot use parser keyword `if` as command name
+  --> reject/def/keyword-name-if.nu:1:5
+  |
+1 | def if [] {}
+  |     ^^
+  = help: choose a different name; this word is parsed specially by Nushell

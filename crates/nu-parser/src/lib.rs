@@ -24,7 +24,9 @@ mod parse_source;
 mod parse_type_alias;
 mod parser;
 mod type_check;
+pub mod winnow;
 
+pub use self::winnow::{WinnowStats, winnow_stats};
 pub use deparse::escape_for_script_arg;
 pub use flatten::{
     FlatShape, flatten_block, flatten_expression, flatten_pipeline, flatten_pipeline_element,

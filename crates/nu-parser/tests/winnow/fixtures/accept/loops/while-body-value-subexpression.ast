@@ -1,0 +1,10 @@
+Block 0..23
+  Pipeline 0..22
+    While 0..22
+      Bool false 6..11
+      BodyValue
+        Subexpression 12..22 13..21
+          Pipeline 13..21
+            FullCellPath 13..21
+              Var $env 13..17
+              Member "FOO" 18..21

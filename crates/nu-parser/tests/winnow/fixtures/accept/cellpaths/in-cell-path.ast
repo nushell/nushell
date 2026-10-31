@@ -1,0 +1,10 @@
+Block 0..15
+  Pipeline 0..14
+    Record 0..6
+      Pair
+        String Bare "a" 1..2
+        Int 1 4..5
+    | 7..8
+    FullCellPath 9..14
+      Var $in 9..12
+      Member "a" 13..14

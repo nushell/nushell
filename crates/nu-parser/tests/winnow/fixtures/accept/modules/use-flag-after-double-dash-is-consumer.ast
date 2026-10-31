@@ -1,0 +1,10 @@
+Block 0..180
+  Pipeline 162..179 comments=2
+    Use 162..179
+      String Bare "std" 166..169
+      Member "--help" 173..179
+Comments (2)
+  0..81 "# After the `--` that ends the options, `--help` is a member, not a call for help"
+  82..161 "# (nu has no flag after it); whether std exports such a name is the consumer's."
+Ignored (1)
+  170..172 "--"

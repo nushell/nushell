@@ -1,0 +1,7 @@
+Block 0..15
+  Pipeline 0..14
+    Call `hide` 0..14
+      String Bare "std" 5..8
+      List 9..14
+        String Bare "a" 10..11
+        String Bare "b" 12..13

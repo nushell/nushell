@@ -1,0 +1,6 @@
+Block 0..25
+  Pipeline 0..24
+    Def `foo` 0..24
+      Signature 8..20
+        Param positional `x` 9..19 : unknown
+      Body 22..23

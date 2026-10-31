@@ -1,0 +1,403 @@
+//! The engine's declarations, as the winnow parser asks about them.
+//!
+//! Two [`CommandLookup`]s: [`EngineLookup`] answers from the live working set, on the thread
+//! that lowers; [`AskedLookup`] answers from a [`NamesSnapshot`] on the thread that parses
+//! ahead, and writes every answer down for [`changed_answer`] to check before the statement is
+//! lowered.
+
+use std::{cell::RefCell, rc::Rc};
+
+use nu_protocol::{
+    DeclId, Signature, SyntaxShape,
+    ast::Expr,
+    engine::{CommandType, OverlayFrame, ScopeFrame, StateWorkingSet, longest_decl_name},
+};
+
+use crate::parse_calls::find_decl_with_command_type;
+use crate::winnow::syntax::{AliasedKeyword, CommandLookup, DeclKind};
+
+/// Answers the winnow parser's questions about commands from the working set.
+///
+/// The working set sits in a [`RefCell`] because the driver changes it between statements (a
+/// `use` adds commands) while the parser, which only reads it, holds this lookup for the whole
+/// block. The two never overlap: the parser asks while it parses a statement, the driver changes
+/// the working set when it is handed the statement.
+pub(super) struct EngineLookup<'c, 'w, 'e> {
+    pub(super) working_set: &'c RefCell<&'w mut StateWorkingSet<'e>>,
+    /// The kind of each declaration asked about so far, by id: finding it takes the command's
+    /// signature, and a declaration keeps its kind while a block is parsed (a predeclaration
+    /// and the definition replacing it take external arguments alike).
+    kinds: RefCell<Vec<Option<DeclKind>>>,
+}
+
+impl<'c, 'w, 'e> EngineLookup<'c, 'w, 'e> {
+    /// A lookup over `working_set`, with no kinds worked out yet.
+    pub(super) fn new(working_set: &'c RefCell<&'w mut StateWorkingSet<'e>>) -> Self {
+        Self {
+            working_set,
+            kinds: RefCell::new(Vec::new()),
+        }
+    }
+}
+
+impl CommandLookup for EngineLookup<'_, '_, '_> {
+    fn find_decl(&self, name: &str) -> Option<DeclKind> {
+        let working_set = self.working_set.borrow();
+        let decl_id = working_set.find_decl(name.as_bytes())?;
+        Some(cached_kind(&self.kinds, decl_id, || {
+            decl_kind(&working_set, decl_id)
+        }))
+    }
+
+    /// Always `true`: the working set keeps no index of first words, so the parser tries the
+    /// longer names first, as the classic parser's `find_longest_decl` does.
+    fn is_decl_name_prefix(&self, _word: &str) -> bool {
+        true
+    }
+
+    /// No declaration in any engine has a longer name (`longest_decl_name`).
+    fn longest_name(&self) -> usize {
+        longest_decl_name()
+    }
+
+    /// Whether some declaration named `name` is a built-in, visible or not, and its kind:
+    /// `%name` calls it even when a custom command shadows or hides it, as in the classic
+    /// `parse_call`.
+    fn find_builtin_decl(&self, name: &str) -> Option<DeclKind> {
+        let working_set = self.working_set.borrow();
+        let decl_id =
+            find_decl_with_command_type(&working_set, name.as_bytes(), CommandType::Builtin)?;
+        Some(cached_kind(&self.kinds, decl_id, || {
+            decl_kind(&working_set, decl_id)
+        }))
+    }
+
+    /// The lowering parses such a block again, once the statements before it have changed
+    /// the commands (`Lower::block`).
+    fn defers_command_changing_blocks(&self) -> bool {
+        true
+    }
+}
+
+/// The kind of `decl_id` in `kinds` (by declaration id), worked out with `kind` the first time.
+fn cached_kind(
+    kinds: &RefCell<Vec<Option<DeclKind>>>,
+    decl_id: DeclId,
+    kind: impl FnOnce() -> DeclKind,
+) -> DeclKind {
+    let index = decl_id.get();
+    if let Some(Some(known)) = kinds.borrow().get(index) {
+        return *known;
+    }
+    let kind = kind();
+    let mut kinds = kinds.borrow_mut();
+    if kinds.len() <= index {
+        kinds.resize(index + 1, None);
+    }
+    kinds[index] = Some(kind);
+    kind
+}
+
+/// The engine's command names as a working set resolves them at one moment, for the thread that
+/// parses a block's statements ahead of the lowering (see [`super::driver`]). It owns copies of
+/// what resolving a name reads, so it can go to that thread while the working set goes on
+/// changing. The thread asks it through an [`AskedLookup`], which writes every answer down for
+/// the driver to check against the live working set before the statement is lowered.
+pub(super) struct NamesSnapshot<'e> {
+    /// A working set over the same engine whose scope frames copy the original's names
+    /// (declarations, predeclarations, visibility, overlays), so that its `find_decl` answers
+    /// as the original's did when the copy was made. It holds no declarations of its own: it is
+    /// asked only about names, and about permanent declarations, since the id of a declaration
+    /// of the original's delta indexes nothing here (see [`NamesSnapshot::is_permanent`]).
+    names: StateWorkingSet<'e>,
+    /// The kinds the original lookup had worked out, by declaration id. A delta declaration not
+    /// among them is taken to be `Declared`, which most are; for one that is not (an imported
+    /// `def --wrapped`), the live working set answers otherwise and [`changed_answer`] says so.
+    kinds: RefCell<Vec<Option<DeclKind>>>,
+    /// The bound on the length of the command names the original resolved when the copy was
+    /// made ([`longest_name_in`]), which the thread parses with (the winnow parser raises it
+    /// for the names it declared itself).
+    longest_name: usize,
+}
+
+impl<'e> NamesSnapshot<'e> {
+    /// The names `lookup`'s working set resolves now.
+    pub(super) fn new(lookup: &EngineLookup<'_, '_, 'e>) -> Self {
+        let working_set = lookup.working_set.borrow();
+        let mut names = StateWorkingSet::new(working_set.permanent_state);
+        names.delta.scope = working_set.delta.scope.iter().map(names_only).collect();
+        names.search_predecls = working_set.search_predecls;
+        Self {
+            names,
+            kinds: RefCell::new(lookup.kinds.borrow().clone()),
+            longest_name: longest_name_in(&working_set),
+        }
+    }
+
+    /// Whether `decl_id` is a declaration of the engine rather than of the working set.
+    fn is_permanent(&self, decl_id: DeclId) -> bool {
+        decl_id.get() < self.names.permanent_state.num_decls()
+    }
+}
+
+/// A [`NamesSnapshot`] answering the winnow parser, every answer written down in `asked`.
+pub(super) struct AskedLookup<'e> {
+    pub(super) names: NamesSnapshot<'e>,
+    /// Shared with the thread's statement sink: the parser owns the lookup while it parses, and
+    /// the sink takes each statement's answers out between statements.
+    pub(super) asked: Rc<RefCell<Vec<Asked>>>,
+}
+
+/// A question the winnow parser asked an [`AskedLookup`], with the answer it got.
+pub(super) enum Asked {
+    /// `find_decl(name)` and its answer.
+    Decl(Box<str>, Option<DeclKind>),
+    /// `find_builtin_decl(name)` and its answer.
+    Builtin(Box<str>, Option<DeclKind>),
+}
+
+impl CommandLookup for AskedLookup<'_> {
+    fn find_decl(&self, name: &str) -> Option<DeclKind> {
+        let names = &self.names;
+        let kind = names.names.find_decl(name.as_bytes()).map(|decl_id| {
+            cached_kind(&names.kinds, decl_id, || {
+                if names.is_permanent(decl_id) {
+                    decl_kind(&names.names, decl_id)
+                } else {
+                    DeclKind::Declared
+                }
+            })
+        });
+        self.asked
+            .borrow_mut()
+            .push(Asked::Decl(Box::from(name), kind));
+        kind
+    }
+
+    /// Always `true`, as for [`EngineLookup`]: an answer that never changes is not written down.
+    fn is_decl_name_prefix(&self, _word: &str) -> bool {
+        true
+    }
+
+    /// The bound when the copy was made, not the live one, which can grow while the thread
+    /// parses; [`changed_answer`] checks that it did not.
+    fn longest_name(&self) -> usize {
+        self.names.longest_name
+    }
+
+    /// As [`EngineLookup`] answers it, over the copy's declarations: those of the engine, where
+    /// the built-ins are.
+    fn find_builtin_decl(&self, name: &str) -> Option<DeclKind> {
+        let names = &self.names;
+        let kind = find_decl_with_command_type(&names.names, name.as_bytes(), CommandType::Builtin)
+            .map(|decl_id| cached_kind(&names.kinds, decl_id, || decl_kind(&names.names, decl_id)));
+        self.asked
+            .borrow_mut()
+            .push(Asked::Builtin(Box::from(name), kind));
+        kind
+    }
+
+    /// As [`EngineLookup`] answers it.
+    fn defers_command_changing_blocks(&self) -> bool {
+        true
+    }
+}
+
+/// What `lookup` (the live working set's) answers differently from `asked`, or a live bound on
+/// name lengths above `longest_name`, the one the statement was parsed within; `None` when
+/// nothing changed, and parsing with `lookup` would then have given the same tree.
+///
+/// The tree of a statement depends only on the source, on the winnow parser's own state (the
+/// names it declared itself, the same on either thread) and on what its lookup answers. The
+/// questions are asked again in the order the parser asked them, so with the same answers it
+/// would have taken the same path and asked the same next question; `is_decl_name_prefix` is
+/// `true` in both lookups. The bound is compared rather than replayed: the parser looks up no
+/// candidate name longer than it, so a larger live bound could have found a name the thread
+/// never asked about. The thread's bound counts the names the winnow parser declared itself (the
+/// block's definitions, and the aliases and nested definitions of the statements before), which
+/// it searches as far for on either thread. The live bound is the working set's own
+/// ([`longest_name_in`]): a longer name declared in it since the copy counts as a change, one
+/// declared in another engine (`longest_decl_name` counts those too) does not.
+pub(super) fn changed_answer(
+    lookup: &EngineLookup,
+    asked: &[Asked],
+    longest_name: usize,
+) -> Option<String> {
+    let longest = longest_name_in(&lookup.working_set.borrow());
+    if longest > longest_name {
+        return Some(format!(
+            "longest command name {longest} instead of {longest_name}"
+        ));
+    }
+    asked.iter().find_map(|asked| match asked {
+        Asked::Decl(name, kind) => {
+            let live = lookup.find_decl(name);
+            (live != *kind).then(|| format!("`{name}` is {live:?}, not {kind:?}"))
+        }
+        Asked::Builtin(name, kind) => {
+            let live = lookup.find_builtin_decl(name);
+            (live != *kind).then(|| format!("built-in `{name}` is {live:?}, not {kind:?}"))
+        }
+    })
+}
+
+/// The length of the longest name any declaration map of `working_set` has held, its engine's
+/// included, so of every command name `find_decl` resolves there. Unlike `longest_decl_name`,
+/// which every engine in the process raises, it grows only when this working set or its engine
+/// declares a longer name.
+fn longest_name_in(working_set: &StateWorkingSet) -> usize {
+    std::iter::once(&working_set.permanent_state.scope)
+        .chain(&working_set.delta.scope)
+        .flat_map(|frame| {
+            let overlays = frame.overlays.iter().flat_map(|(_, overlay)| {
+                [
+                    overlay.predecls.longest_name(),
+                    overlay.decls.longest_name(),
+                ]
+            });
+            std::iter::once(frame.predecls.longest_name()).chain(overlays)
+        })
+        .max()
+        .unwrap_or(0)
+}
+
+/// `frame` with only what resolving a command name reads: no variables, modules, type alias
+/// predeclarations or hidden variables.
+fn names_only(frame: &ScopeFrame) -> ScopeFrame {
+    ScopeFrame {
+        overlays: frame
+            .overlays
+            .iter()
+            .map(|(name, overlay)| {
+                let names = OverlayFrame {
+                    predecls: overlay.predecls.clone(),
+                    decls: overlay.decls.clone(),
+                    visibility: overlay.visibility.clone(),
+                    ..OverlayFrame::from_origin(overlay.origin, overlay.prefixed)
+                };
+                (name.clone(), names)
+            })
+            .collect(),
+        active_overlays: frame.active_overlays.clone(),
+        removed_overlays: frame.removed_overlays.clone(),
+        predecls: frame.predecls.clone(),
+        ..ScopeFrame::new()
+    }
+}
+
+/// How the parser treats calls to `decl_id`: an alias of an external command makes an external
+/// call; a command whose rest parameter takes external arguments (an untyped `def --wrapped`),
+/// or an alias of one, has its arguments parsed like an external command's; a command whose
+/// first positional parameter is a row condition (`any`), or an alias of one that gives it no
+/// arguments, has them parsed as one condition; an alias of `if`, `match` or `try` that
+/// gives it no arguments makes that keyword's statement; and a call through an alias of
+/// `overlay use`, `overlay hide` or `overlay new` changes which commands exist.
+pub(super) fn decl_kind(working_set: &StateWorkingSet, decl_id: DeclId) -> DeclKind {
+    let decl = working_set.get_decl(decl_id);
+    if let Some(alias) = decl.as_alias() {
+        let Expr::Call(call) = &alias.wrapped_call.expr else {
+            return match alias.wrapped_call.expr {
+                Expr::ExternalCall(..) => DeclKind::ExternalAlias,
+                _ => DeclKind::Declared,
+            };
+        };
+        let signature = working_set.get_signature_shared(call.decl_id);
+        let target = working_set.get_decl(call.decl_id);
+        return if takes_external_arguments(&signature) {
+            DeclKind::Wrapped
+        } else if target.is_keyword()
+            && matches!(
+                target.name(),
+                "overlay use" | "overlay hide" | "overlay new"
+            )
+        {
+            DeclKind::OverlayAlias
+        } else if !call.arguments.is_empty() {
+            DeclKind::Declared
+        } else if takes_row_condition(&signature) {
+            DeclKind::RowCondition
+        } else {
+            match AliasedKeyword::from_name(target.name()) {
+                Some(keyword) if target.is_keyword() => DeclKind::KeywordAlias(keyword),
+                _ => DeclKind::Declared,
+            }
+        };
+    }
+    let signature = working_set.get_signature_shared(decl_id);
+    if takes_external_arguments(&signature) {
+        DeclKind::Wrapped
+    } else if takes_row_condition(&signature) {
+        DeclKind::RowCondition
+    } else if decl.command_type() == CommandType::Builtin {
+        DeclKind::Builtin
+    } else {
+        DeclKind::Declared
+    }
+}
+
+/// Whether the rest parameter has the `external_arg` shape, which `def --wrapped` gives an
+/// untyped rest parameter.
+fn takes_external_arguments(signature: &Signature) -> bool {
+    signature
+        .rest_positional
+        .as_ref()
+        .is_some_and(|rest| rest.shape == SyntaxShape::ExternalArgument)
+}
+
+/// Whether the first positional parameter is a row condition (`any`, `take while`).
+fn takes_row_condition(signature: &Signature) -> bool {
+    signature
+        .required_positional
+        .first()
+        .is_some_and(|positional| positional.shape == SyntaxShape::RowCondition)
+}
+
+#[cfg(test)]
+mod tests {
+    use nu_protocol::{
+        DeclId,
+        engine::{DeclNameMap, EngineState},
+    };
+
+    use super::*;
+
+    /// A longer command name declared in another engine (another test's, in the same process)
+    /// after a statement was parsed ahead changes nothing this working set resolves, so the
+    /// statement is not handed back.
+    #[test]
+    fn longer_name_in_another_engine_changes_nothing() {
+        let engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        let cell = RefCell::new(&mut working_set);
+        let lookup = EngineLookup::new(&cell);
+        let snapshot = NamesSnapshot::new(&lookup);
+
+        let mut elsewhere = DeclNameMap::new();
+        elsewhere.insert(vec![b'x'; longest_decl_name() + 1], DeclId::new(0));
+
+        assert_eq!(changed_answer(&lookup, &[], snapshot.longest_name), None);
+    }
+
+    /// A longer command name declared in this working set since the statement was parsed ahead
+    /// could have been found by a candidate the parser never built, so it is a change.
+    #[test]
+    fn longer_name_in_this_working_set_is_a_change() {
+        let engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        let cell = RefCell::new(&mut working_set);
+        let lookup = EngineLookup::new(&cell);
+        let snapshot = NamesSnapshot::new(&lookup);
+
+        let long = vec![b'x'; snapshot.longest_name + 1];
+        let mut live = cell.borrow_mut();
+        let frame = live
+            .delta
+            .scope
+            .last_mut()
+            .expect("a working set has a scope frame");
+        frame.predecls.insert(long, DeclId::new(0));
+        drop(live);
+
+        assert!(changed_answer(&lookup, &[], snapshot.longest_name).is_some());
+    }
+}

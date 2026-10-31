@@ -108,7 +108,7 @@ pub(crate) fn check_call(
     CallKind::Valid
 }
 
-fn parse_unknown_arg(
+pub(crate) fn parse_unknown_arg(
     working_set: &mut StateWorkingSet,
     span: Span,
     signature: &Signature,
@@ -132,7 +132,7 @@ fn parse_unknown_arg(
 /// Whether `extern --strict` still forwards a flag its signature doesn't declare. `--help`
 /// reaches every command, a flag spelled at run time (`-$x`, `--(expr)`) can't be checked when
 /// parsing, and `-10` (as in `git log -10`) is a count rather than a cluster of short flags.
-fn strict_extern_forwards(word: &[u8]) -> bool {
+pub(crate) fn strict_extern_forwards(word: &[u8]) -> bool {
     match word {
         [b'-', b'-', b'$' | b'(', ..] | [b'-', b'$' | b'(', ..] => true,
         [b'-', b'-', flag @ ..] => flag
@@ -144,7 +144,7 @@ fn strict_extern_forwards(word: &[u8]) -> bool {
     }
 }
 
-fn parse_external_string(working_set: &mut StateWorkingSet, span: Span) -> Expression {
+pub(crate) fn parse_external_string(working_set: &mut StateWorkingSet, span: Span) -> Expression {
     let contents = working_set.get_span_contents(span);
 
     if contents.starts_with(b"r#") {
@@ -603,7 +603,7 @@ fn parse_long_flag(
 
 /// Check if a syntax shape can accept a negative number (for distinguishing short flags from
 /// negative numeric arguments like `-1`).
-fn shape_allows_negative_number(shape: &SyntaxShape) -> bool {
+pub(crate) fn shape_allows_negative_number(shape: &SyntaxShape) -> bool {
     matches!(
         shape,
         SyntaxShape::Int | SyntaxShape::Number | SyntaxShape::Float
@@ -743,7 +743,7 @@ fn calculate_end_span(
 /// Check if a syntax shape accepts nearly any bare word without error. `string`, `path` and
 /// `directory` take `5` or `5sec` as a string, `glob` and `external_arg` as a glob, `cell-path`
 /// takes `5` as `$.5`, and `any` falls back to a string. `parse_oneof` tries these shapes last.
-fn accepts_any_bareword(shape: &SyntaxShape) -> bool {
+pub(crate) fn accepts_any_bareword(shape: &SyntaxShape) -> bool {
     matches!(
         shape,
         SyntaxShape::String
@@ -1901,7 +1901,7 @@ pub fn parse_call(
     }
 }
 
-fn find_decl_with_command_type(
+pub(crate) fn find_decl_with_command_type(
     working_set: &StateWorkingSet<'_>,
     name: &[u8],
     command_type: CommandType,

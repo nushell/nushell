@@ -1,0 +1,5 @@
+error: this statement cannot be redirected
+  --> reject/redirections/overlay-use-redirected.nu:1:18
+  |
+1 | overlay use null o> x
+  |                  ^^

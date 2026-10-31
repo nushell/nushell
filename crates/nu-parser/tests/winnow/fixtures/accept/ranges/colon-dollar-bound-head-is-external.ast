@@ -1,0 +1,5 @@
+Block 0..7
+  Pipeline 0..6
+    ExternalCall 0..6
+      String Bare "..$:" 0..4
+      String Bare "a" 5..6

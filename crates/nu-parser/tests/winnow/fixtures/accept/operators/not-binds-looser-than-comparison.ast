@@ -1,0 +1,16 @@
+Block 0..40
+  Pipeline 0..12
+    let a 0..12
+      Value 8..12
+        Pipeline 8..12
+          Bool true 8..12
+  Pipeline 13..26
+    let b 13..26
+      Value 21..26
+        Pipeline 21..26
+          Bool false 21..26
+  Pipeline 27..39
+    Not 27..39
+      BinaryOp == 31..39
+        Var $a 31..33
+        Var $b 37..39

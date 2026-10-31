@@ -1,0 +1,7 @@
+error: expected block
+  --> reject/modules/export-env-body-is-record.nu:1:12
+  |
+1 | export-env {a: 1}
+  |            ^^^^^^
+  = while parsing export-env
+  = help: found a record

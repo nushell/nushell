@@ -1,0 +1,6 @@
+error: unexpected token in record
+  --> reject/records/semicolon-separator.nu:1:21
+  |
+1 | { show_banner: false; table_mode: rounded }
+  |                     ^
+  = help: expected a record key here; fields look like `key: value`

@@ -1,0 +1,25 @@
+Block 0..62
+  Pipeline 0..9
+    mut i 0..9
+      Value 8..9
+        Pipeline 8..9
+          Int 0 8..9
+  Pipeline 10..61
+    Loop 10..61 16..60
+      Pipeline 19..26
+        Assignment += 19..26
+          Var $i 19..21
+          Value 25..26
+            Pipeline 25..26
+              Int 1 25..26
+      Pipeline 29..51
+        If 29..51
+          Condition
+            BinaryOp < 32..38
+              Var $i 32..34
+              Int 3 37..38
+          Then 40..50
+            Pipeline 41..49
+              Continue 41..49
+      Pipeline 54..59
+        Break 54..59

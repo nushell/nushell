@@ -1,0 +1,11 @@
+Block 0..20
+  Pipeline 0..19
+    Subexpression 0..19 1..18
+      Pipeline 1..15 terminator=15..16
+        Def `f` 1..15
+          Signature 7..9
+          Body 11..14
+            Pipeline 12..13
+              Int 1 12..13
+      Pipeline 17..18
+        Call `f` 17..18

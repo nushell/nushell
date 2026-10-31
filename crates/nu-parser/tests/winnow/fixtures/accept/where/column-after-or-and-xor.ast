@@ -1,0 +1,23 @@
+Block 0..42
+  Pipeline 0..41
+    List 0..20
+      Record 1..19
+        Pair
+          String Bare "a" 2..3
+          Bool true 5..9
+        Pair
+          String Bare "b" 11..12
+          Bool true 14..18
+    | 21..22
+    Where 23..41
+      BinaryOp or 29..41
+        FullCellPath implicit-head 29..30
+          Var $it 29..29
+          Member "a" 29..30
+        BinaryOp xor 34..41
+          FullCellPath implicit-head 34..35
+            Var $it 34..34
+            Member "b" 34..35
+          FullCellPath implicit-head 40..41
+            Var $it 40..40
+            Member "a" 40..41

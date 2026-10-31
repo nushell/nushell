@@ -1,0 +1,73 @@
+Block 0..211
+  Pipeline 0..43
+    Def `f` 0..43
+      Signature 6..39
+        Param flag --flag `flag` 7..13
+        Param flag --val `val` 15..25 : any
+        Param flag -f `f` 27..29
+        Param rest `rest` 31..38
+      Body 41..42
+  Pipeline 44..58
+    let v 44..58
+      Value 52..58
+        Pipeline 52..58
+          Record 52..58
+            Pair
+              String Bare "a" 53..54
+              Int 1 56..57
+  Pipeline 59..210
+    Call `f` 59..210
+      Int 1 61..62
+      Float 1.5 63..66
+      Bool true 67..71
+      Nothing 72..76
+      String Double "s" 77..80
+      String Single "s" 81..84
+      String Backtick "b" 85..88
+      String Raw(1) "r" 89..95
+      String Bare "bare" 96..100
+      Var $v 101..103
+      FullCellPath 104..109
+        Var $v 104..106
+        Member "a"? 107..109
+      Subexpression 110..117 111..116
+        Pipeline 111..116
+          BinaryOp + 111..116
+            Int 1 111..112
+            Int 1 115..116
+      List 118..121
+        Int 1 119..120
+      Record 122..128
+        Pair
+          String Bare "a" 123..124
+          Int 1 126..127
+      Closure 129..135
+        Signature 130..132
+        Body 133..134
+          Pipeline 133..134
+            Int 1 133..134
+      Filesize 1 kB 136..139
+      Duration 1 sec 140..144
+      DateTime 2024-01-02 145..155
+      Binary radix=16 [255] 156..162
+      Range Inclusive 163..167
+        From
+          Int 1 163..164
+        To
+          Int 2 166..167
+      CellPath 168..171
+        Member "a" 170..171
+      Interpolation Double 172..179
+        Text "i" 174..175
+        Subexpression 175..178 176..177
+          Pipeline 176..177
+            Int 1 176..177
+      Spread 180..183
+        List 183..186
+          Int 1 184..185
+      Flag --flag 187..193
+      Flag -f 194..196
+      Flag --val 197..204
+        Int 1 203..204
+      EndOfOptions 205..207
+      Flag -x 208..210

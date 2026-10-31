@@ -1,0 +1,6 @@
+Block 0..13
+  Pipeline 0..12
+    Call `where` 0..12
+      Int -1 6..8
+      String Bare ">" 9..10
+      Int 0 11..12

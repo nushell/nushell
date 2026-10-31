@@ -1,0 +1,6 @@
+error: cannot create an alias to a parser keyword
+  --> reject/alias/target-let.nu:1:11
+  |
+1 | alias l = let
+  |           ^^^
+  = help: only if, match, try, overlay, overlay hide, overlay new, overlay use can be aliased

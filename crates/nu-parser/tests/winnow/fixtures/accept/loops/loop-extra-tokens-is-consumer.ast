@@ -1,0 +1,5 @@
+Block 0..15
+  Pipeline 0..14
+    Call `loop` 0..14
+      Record 5..8
+      String Bare "extra" 9..14

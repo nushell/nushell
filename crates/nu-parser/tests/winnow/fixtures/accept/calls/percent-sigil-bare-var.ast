@@ -1,0 +1,10 @@
+Block 0..31
+  Pipeline 0..16
+    let cmd 0..16
+      Value 10..16
+        Pipeline 10..16
+          String Single "echo" 10..16
+  Pipeline 17..30
+    DynamicCall 17..30
+      Var $cmd 18..22
+      String Single "hello" 23..30

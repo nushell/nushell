@@ -1,0 +1,16 @@
+Block 0..83
+  Pipeline 0..12
+    Use 0..12
+      String Bare "./mod.nu" 4..12
+  Pipeline 13..42
+    Use 13..42
+      String Double "path with space.nu" 17..37
+      Member "name" 38..42
+  Pipeline 43..64
+    Use 43..64
+      String Bare "../other.nu" 47..58
+      Members ["a", "b"] 59..64
+  Pipeline 65..82
+    Use 65..82
+      String Bare "~/mods/x.nu" 69..80
+      Member * 81..82

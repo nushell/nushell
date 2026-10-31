@@ -1,0 +1,18 @@
+Block 0..36
+  Pipeline 0..16
+    Def `foo` 0..16
+      Signature 8..10
+      Body 12..15
+        Pipeline 13..14
+          Int 1 13..14
+  Pipeline 17..26
+    mut x 17..26
+      Value 25..26
+        Pipeline 25..26
+          Int 1 25..26
+  Pipeline 27..35
+    Assignment = 27..35
+      Var $x 27..29
+      Value 32..35
+        Pipeline 32..35
+          Call `foo` 32..35

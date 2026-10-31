@@ -7,7 +7,8 @@ rust-version.workspace = true
 license.workspace = true
 name = "nu-parser"
 version.workspace = true
-exclude = ["/fuzz"]
+# The winnow parser's test data and tools (its comparison harness is a workspace of its own).
+exclude = ["/fuzz", "/tests/winnow/fixtures", "/tests/winnow/corpus", "/winnow"]
 
 [lib]
 bench = false
@@ -28,12 +29,20 @@ chrono = { default-features = false, features = ['std'], workspace = true }
 itertools = { workspace = true }
 log = { workspace = true }
 memchr = { workspace = true }
+rayon = { workspace = true }
 rustc-hash = { workspace = true }
 semver = { workspace = true }
 serde_json = { workspace = true }
+winnow = { workspace = true }
 
 [dev-dependencies]
 rstest = { workspace = true, default-features = false }
+serde = { workspace = true, features = ["derive"] }
+tango-bench = { workspace = true }
 
 [features]
 plugin = ["nu-plugin-engine", "nu-engine/plugin"]
+
+[[bench]]
+name = "winnow"
+harness = false

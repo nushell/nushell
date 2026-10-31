@@ -1,0 +1,626 @@
+# 05 Statements and expressions
+
+Files: `src/winnow/syntax/parser/parse_expressions.rs` (dispatch, environment shorthand,
+assignments, math), `src/winnow/syntax/parser/parse_keywords.rs` (what all keyword
+statements share), `src/winnow/syntax/parser/parse_calls.rs` (calls), and one file per
+group of statements: `parse_def.rs`, `parse_bindings.rs`, `parse_alias.rs`,
+`parse_module.rs`, `parse_source.rs` and `parse_control_flow.rs`.
+
+The input to this layer is a `Tokens` stream over the items of one command
+(`LiteCommand::tokens`, chapter 04) and its `Position`. The output is one
+`Expression`. Parsers of a sequence of items take the stream and compose with
+winnow combinators; parsers of one item take `(working_set, span)`, like
+nu's `parse_value(working_set, span, shape)`.
+
+## Dispatch order (`parse_expression`)
+
+```rust,ignore
+pub enum Position { Statement, Element }
+
+pub fn parse_expression<'a>(mut tokens: Tokens<'_, 'a>, position: Position) -> ParseResult<Expression<'a>> {
+    // 1. In statement position, statement keywords parse their own `=` and `{}` arguments.
+    if position == Position::Statement && is_statement_keyword(first_text) { return parse_builtin_commands(tokens); }
+    // 2. `NAME=value` prefixes: `repeat(0.., env_assignment)`.
+    let env_assignments = parse_env_shorthand_prefix(&mut tokens)?;
+    // 3. After shorthand, or as a pipeline element, the head is checked against nu's table.
+    if !env_assignments.is_empty() || position == Position::Element { check_builtin_command_in_pipeline(&tokens)?; }
+    // 4. Any assignment operator among the items -> assignment.
+    let expression = if tokens.remaining().iter().any(|token| matches!(token.contents, TokenContents::AssignmentOperator(_))) {
+        parse_assignment_expression(tokens.rest_stream())?
+    // 5. A first item that looks like a value -> math expression.
+    } else if is_math_expression_like(first_text) {
+        parse_math_expression(tokens.rest_stream())?
+    // 6. Otherwise a keyword expression (if, match, ...) or a call.
+    } else {
+        parse_builtin_commands(tokens.rest_stream())?
+    };
+    /* wrap `expression` in EnvShorthand if `env_assignments` is not empty */
+}
+```
+
+This is nu-parser's `parse_expression` in the same order, with nu's
+distinction between a command that is a whole pipeline (nu's
+`parse_builtin_commands`, `Position::Statement`) and one that is an element
+of a longer pipeline, the left side of an assignment, an `else` or a match
+arm (nu's `parse_expression`, `Position::Element`). `parse_pipeline`
+collects every command before parsing any (chapter 04) so that it knows which
+case applies. Details that are easy to miss:
+
+* `is_math_expression_like` is nu's function of the same name: true for
+  `true`, `false`, `null`, `not`, `if`, `match`, items starting with
+  `( { [ $ " ' -` or `r#`, and items whose text is a number, unit, datetime,
+  binary or range whose bounds parse (a `$` bound is a variable name and a
+  valid cell path, so `..$x.c!!` is an external command). It is a pure function of the text, so `-1 | math abs` is
+  math, `"ls"` is a string not a call, and `1 + 1` at a pipeline head is
+  arithmetic, all without parsing anything twice.
+* Statement keywords (`is_statement_keyword`: `def`, `let`, `mut`, `const`,
+  `for`, `alias`, `type`, `module`, `use`, `export`, `export-env`, `extern`)
+  are checked *before* the assignment test because `let x = 1` and
+  `type T = int` contain an `AssignmentOperator` token. So, at a statement's
+  start with no shorthand, are nu's other keyword commands, which its
+  `parse_builtin_commands` reads by their keyword (`is_builtin_keyword_head`:
+  `overlay`, `source`, `source-env`, `run`, `hide`, `where`, `plugin use`):
+  `overlay use x = y` is a call to `overlay use`.
+* `check_builtin_command_in_pipeline` is nu's head table for an element: the
+  declaration keywords (`type` among them), `for`, `module`, `use`, `source`, `hide`, `export`,
+  `export-env` (nu's `BuiltinCommandInPipeline`), `const` and `mut` (nu's
+  `AssignInPipeline`), `overlay` unless the second item of the command is
+  `list`, and `plugin` when the second item is `use` are errors there. So
+  `FOO=1 def x [] {}` and `hide ls | length` are refused, while
+  `ls | overlay list` parses. The second item is counted from the start of
+  the command, shorthand included, as nu counts its spans. nu reports the
+  `BuiltinCommandInPipeline` and reads the statement as a call
+  (`parse_call`), so the parser records the error as recovered and reads
+  the call (the lowering reports it at the element's first item, for `const`
+  and `mut` nu's `AssignInPipeline` with the items nu names, and lowers an
+  ordinary call). An element with an assignment operator nu's assignment
+  test meets first: it is an assignment, whose left side is checked so
+  (`ls | mut x = 1`: the `mut` call, then "assignment requires a variable").
+  `let` is not in the table: `ls | let x` parses (nu accepts it too), and
+  `ls | let x = 1` is an assignment whose left side is not a variable,
+  because after a `|` the keyword is not a statement. `while` and `loop`,
+  which have no output, are reported in a longer pipeline by the pipeline
+  itself (`parse_pipelines::check_loop_in_pipeline`, nu's `parse_pipeline`,
+  before the elements, which it then parses as any): at the first item of
+  each element after any shorthand, the first element too, the error
+  recorded as recovered.
+
+## Keyword forms (`parse_builtin_commands`)
+
+`parse_builtin_commands` matches the head text and calls one function per
+keyword; anything else is a call (`parse_call`). A non-statement keyword
+(`if`, `loop`, `where`, ...) that a user command shadows
+(`working_set.is_declared`) is a call. So is `if`, `match`, `while`, `loop`,
+`try`, `return`, `break` or `continue` when a longer known command name
+starts with it: `def "if ready" [] {}` makes `if ready` a call. nu parses
+these keywords with `parse_call`, and its longest match
+(`find_longest_decl`, below) finds the longer name. `where` and the
+statement keywords go by their first word alone. The match also attaches
+the grammar context (`while parsing for`) to any error. The keyword
+functions live in files named like nu-parser's:
+
+| File | Functions |
+| --- | --- |
+| `parse_def.rs` | `parse_def`, `parse_extern`, `parse_for`, `parse_def_predecl` (chapter 04) |
+| `parse_bindings.rs` | `parse_let`, `parse_mut`, `parse_const` (sharing a private `parse_binding`) |
+| `parse_alias.rs` | `parse_alias` |
+| `parse_module.rs` | `parse_module`, `parse_use`, `parse_export_in_block`, `parse_export_env` |
+| `parse_source.rs` | `parse_where` (nu keeps it in this file) |
+| `parse_control_flow.rs` | `parse_if`, `parse_match`, `parse_while`, `parse_loop`, `parse_try`, `parse_return`, `parse_break_or_continue`; nu-parser has no such file, because these are ordinary commands there |
+| `parse_keywords.rs` | what they share: `is_statement_keyword`, `ALIASABLE_PARSER_KEYWORDS`, `UNALIASABLE_PARSER_KEYWORDS`, `KeywordCall`, `keyword_boundary`, `parse_help_call`, `parse_block_argument` |
+
+Each keyword function takes the command's stream and follows the same
+pattern: `KeywordCall::start` consumes the keyword, `call.positional` takes
+each positional item (after looking for flags, next section), items go to
+`parse_value` with the right `ExpectedShape` (or to `parse_block_argument`
+for a block), and `call.end` and `call.finish` close the statement:
+
+```rust,ignore
+pub fn parse_for<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
+    let working_set = tokens.working_set;
+    let mut call = KeywordCall::start(&mut tokens)?;                          // consumes `for`
+    let Some(variable) = call.positional(&mut tokens, "loop variable")? else { return call.help_call() };
+    let (var, typed) = parse_var_with_opt_type(working_set, &variable)?;      // `x`, `$x` or `x:` (typed)
+    let ty = match typed {
+        true => /* `tokens_until("in")`: every item before `in`, parsed as one type */,
+        false => None,
+    };
+    let Some(in_keyword) = call.positional(&mut tokens, "`in`")? else { return call.help_call() };
+    if tokens.text(&in_keyword) != "in" {                                   // nu's call goes on
+        return call.call_after(Diagnostic::new(ErrorKind::ExpectedKeyword("in"), in_keyword.span));
+    }
+    if tokens.remaining().len() < 2 { return call.call_after(/* missing argument to `in`: the last item is the block's */); }
+    let iterable = tokens.expect_item("value to iterate")?;                  // never forgiven
+    let iterable = Box::new(parse_value(working_set, iterable.span, ExpectedShape::Any)?);
+    let Some(block) = call.positional(&mut tokens, "block")? else { return call.help_call() };
+    let body = parse_block_argument(working_set, &block, "block")?;           // must start with `{`
+    call.end(&mut tokens)?;                                                   // trailing flags, then the end
+    let span = call.keyword.span.merge(block.span);
+    let for_loop = For { var, ty, in_keyword: in_keyword.span, iterable, body };
+    call.finish(Expression::new(Expr::For(Box::new(for_loop)), span))
+}
+```
+
+Fixed shapes are written with the token parsers of `tokens.rs` (`item`,
+`keyword(word)`, `expected`, `tokens_until`) and winnow's combinators. `if`
+splits its items at the `else` keyword:
+
+```rust,ignore
+let then_part = tokens_until("else").parse_next(&mut tokens)?;     // a stream over the items before `else`
+let else_keyword = opt(keyword("else")).parse_next(&mut tokens)?;   // Some(token) if `else` follows
+```
+
+`try` reads each handler keyword with
+``expected("`catch` or `finally`", alt((keyword("catch"), keyword("finally"))))``,
+and `def` and `extern` read their flags with `parse_definition_flags`, a loop
+over `definition_flag`, which is `item.verify(..)` accepting an item that starts
+with `--` and is neither a help flag nor `--`, then looked up by its name in the
+keyword's table (`DEF_FLAGS`, `EXTERN_FLAGS`), with its value when it is written
+`--env=false` (any value: nu reads it as a Boolean, its error is the consumer's). A
+statement whose call has an error of its own (an unknown or short flag before the
+signature, a flag or `--` in a `def`'s body place) is that call (`reads_as_call`,
+`parse_help_call`), which the consumer finishes as nu's `finish_def` and
+`finish_extern` do. So is one whose signature `parse_full_signature` refuses (a name
+taken twice, a bad parameter name or type, a default of the wrong type): nu reads the
+signature as its call's argument, reports its errors and defines the command, so the
+error is recorded as recovered and the statement is the call
+(`signature_error_call`). That call is read as any call (`parse_definition_call`),
+but for a positional that does not parse as a value (`[]: int`, `[]{}`): it is a
+garbage leaf over its item, since nu's call reads the signature with its own parser
+from the items, as the consumer does from the leaf's span. The loop also hands the help flags
+among them to the `KeywordCall` (`help_flag`), as nu takes `def --help --env f`.
+`DefinitionFlag::is_set` reads the flags as nu's `has_flag_const` does: the first
+of a repeated flag decides, a value other than `true` or `false` needs constant
+evaluation.
+
+### Positional boundaries: `--help`, `--` and `-x`
+
+Every keyword is a command with a fixed signature in nu, so at the start of
+each of its positional arguments `parse_internal_call` looks for flags.
+`KeywordCall` (nu's `parse_keyword` behaviour) reproduces that with its
+methods `start`, `start_positional`, `flags`, `call_flags`, `positional`,
+`end`, `is_call`, `help_call` and `finish`, built on `keyword_flag` and
+`seen_end_of_options` (`keyword_boundary` and `keyword_boundary_with` refuse an
+unknown flag, for `alias` and `use`):
+
+* `--help` or `-h` at a boundary makes the whole statement an ordinary
+  call showing help (`help_call` calls `parse_help_call`, which drops the
+  text the statement recorded as ignored and re-parses its items with
+  `parse_call`, so `def foo [] --help` is a `Call` to `def` with three
+  arguments). `--help=value` is a help flag too (`is_help_text`): nu shows
+  help whatever the value, which it reads as a Boolean: `if --help=1` is
+  "expected bool", the consumer's to report, as the call's other errors
+  (`alias` and `type` drop them, as nu does for the call it parses for them).
+  nu keeps parsing the positionals that
+  follow the flag and only forgives the *missing* ones, so `call.flags`
+  records the flag (`is_call`) and parsing goes on: `match 1 --help :{}`
+  still has no match block, `def foo [] {} {} --help` has no colon, but
+  `match 1 --help` and `def foo --help` are fine. `call.positional`
+  returning `None` is the missing positional; `finish`
+  turns the finished statement into the help call. The argument of the `in`
+  keyword is never forgiven: nu reserves the last item for the block before
+  it reads the keyword's argument, so `for x in []` and `for x --help in []`
+  are both "missing argument to `in`" (KeywordMissingArgument), and a word in
+  the place of `in` is ExpectedKeyword. nu reports either and goes on with its
+  call, so the parser records the error as recovered and makes the statement
+  that call (`call.call_after`), as for an `else` without its argument and
+  `overlay use`'s `as` (`check_call`); the consumer reads the call as nu does
+  (after a keyword without its argument nu's call skips the next item, so
+  `for x in [1]` misses its block) and finishes a `for` call with nu's
+  `finish_for`. A typed loop variable takes every
+  item before `in` as its type (`for x: record<a: int, b: string> in [] {}`
+  parses; `for x: int --help in [] {}` has the unknown type `int --help`).
+* A positional missing at the end of the statement, help or not, is nu's
+  MissingPositional, semantic: the statement is then nu's call (`call.missing`,
+  which `call.positional` does at the end), as for an unknown flag: `loop`,
+  `if true`, `if else { }`, `while true --` (whose `--` ends the options),
+  `match 1`, `def foo [x]`, `extern cmd`, `use`, `export-env -- {}` (nu hands
+  `export-env` its first item alone), `[1] | where`. The consumer finishes a
+  `def` or `extern` call as nu does, gives a `use`, `for` or `export-env` call
+  back as it is, and reports a lone `export-env` with garbage. `if` or `match`
+  alone is no call: nu reads it as a math expression missing its operand
+  (`is_math_expression_like`), "expected expression" with garbage, which the
+  parser records as recovered (`lone_keyword`).
+* The first `--` at a boundary is consumed, recorded in `Ast::ignored` and
+  otherwise dropped (`return -- 1` returns `1`). After it nu looks for no
+  flags at all (`seen_end_of_options`): a second `--` is a positional
+  (`try {} -- catch {} --` has one too many) and `return -- --help` returns
+  the string `--help`.
+* Any other `-x` at a boundary is a flag the keyword does not have, nu's
+  UnknownFlag (`return -1`, `match -1 {}`, `if -1 > 0 {}`, `where -1 > 0`),
+  and an item after the last positional is nu's ExtraPositional (`break x`,
+  `return --help 1 2`, `loop {} y`): errors of the call, semantic, so the
+  statement is that call (`call_flags` and `positional` hand it over at once,
+  since everything before the flag parsed; `end` marks an item left).
+* Where a positional spans several items (a condition, a signature, an alias
+  target) only its first item is a boundary.
+* The statements nu parses by position rather than through
+  `parse_internal_call` never see `--`: `export-env` starts its
+  `KeywordCall` with `start_positional`, and `let`/`mut`/`const`, `alias` and
+  `module` call `keyword_boundary_with(.., end_of_options = false)` and
+  `parse_help_call` directly. So `alias -- x = ls`, `alias x -- = ls`,
+  `module x -- {}`, `let -- x = 1` and `export-env -- {}` are errors. An
+  `alias` help call must be the whole statement (`alias --help`,
+  `alias x --help`); `alias --help x = ls` and `alias x --help extra` are
+  "missing sign" (expected `=`). `export --help x` has an extra positional (ExtraPositional, the
+  consumer's: the statement is nu's call). `export-env` hands nu only the item after the keyword, so after a help flag
+  the rest is ignored text (`export-env --help x {}`). `use` looks for its
+  flags before every argument; its first `--` ends the options and is dropped
+  (`Use::end_of_options`), and a later one is a member, as in nu's
+  `parse_internal_call`.
+
+The table below is the contract each keyword implements. "items" are
+whitespace-delimited items; "rest" means everything to the end of the line
+(because of `=` absorption, this can contain pipes).
+
+| Keyword | Shape | Notes |
+| --- | --- | --- |
+| `def` | `def [--env] [--wrapped] NAME SIG[:] [TYPES] BODY` | `NAME` must be a string item (`parse_def_name`: `def $x` and `def $"x"` are "expected string", which nu's call reports as its `string` positional's error (VariableNotFound, or `finish_def`'s UnknownState for a value that is no literal) and goes on past, so the error is recorded as recovered and the statement is that call; a name containing `[` or `(`, even quoted, is "no space between name and parameters", which nu reports with garbage over the statement, so the parser records it as recovered and reads the statement as the call (`signature_error_call`), which the consumer refuses as nu's `detect_params_in_name` does); parser keywords, names with `#`/`^`/`%`, names that read as numbers and names whose whitespace is anything but single spaces between words (`"foo  bar"`, `" foo"`, a tab) are rejected (`check_definition_name`); as nu goes on past them, the error is recorded as recovered (`recover_name_error`) and the predeclaration declares nothing for such a name. The flags (`parse_definition_flags`) may also follow the name, and take a value (`--env=false`, `--wrapped=$c`; `Def::flags` keeps it). A literal `false` turns the flag off for the checks below; any other value is evaluated by nu, so the checks that depend on it are the consumer's. The signature argument takes every remaining item but the last (`parse_full_signature`): one item is the signature, two of which the second starts with `{` is the signature plus an item nu drops (`def foo [] {} {}`; the dropped one is `Ast::ignored`), otherwise `TYPES` follow a `:` attached to the signature or standing alone (`def foo [] : {}` is fine) and are re-lexed together in signature mode. `BODY` is parsed as a closure without a probe (`parse_def_body`): `{\|x\| }` keeps its parameters as `Def::body_params`, `{a: 1}` is a call to `a:`. `--wrapped` needs a rest parameter that is untyped or `string` (`finish_def`'s check, the consumer's); the predeclaration takes only the item `--wrapped` as written for a wrapped command, as nu's does. A lone `-` is the name for nu's call, which reads the signature from the next item, and no item for nu's predeclaration, which takes the next item not starting with `-` for the name (`decl_name_span`): with a `[` or `(` in that one nu reports "no space between name and parameters" (semantic) and reads no call (`def - [] {}`); otherwise the signature does not read (`def - foo [] {}`), an error recorded as recovered. Either way the statement is that call (`params_in_dash_name`); the same holds for `extern`. Another bare name starting with `-` or a spread (`def ...{x: 1} [] {}`) nu reads as no name, an error of its call it goes on past, so the statement is that call, the error recorded as recovered, as for a body that is no closure (`def a [] (echo 4)`); a name is refused when Rust reads it as a float (`1e3`, `inf`) or the `bytesize` crate as a size (`1k`, `"1 kb"`), not by Nushell's own number syntax (`def 0x10` is fine). The help call of `def foo [] {}{} --help` leaves out the dropped item, as nu never parses it. |
+| `extern` | `extern [--strict] NAME SIG[:] [TYPES]` | `--strict` (`parse_definition_flags`, `Extern::flags`) may also follow the name, and take a value (`--strict=false`); the consumer makes a call with a flag the signature does not declare an error. The signature argument takes *every* remaining item, so a body (`extern foo [] {}`) is the dropped second item, never parsed; default values in an extern signature are not parsed either (chapter 07). |
+| `let`/`mut`/`const` | `KW NAME[:] [TYPE...] [= rest]` | `NAME` may start with `$` (`parse_var_with_opt_type`); a reserved name (`in`, `nu`, `env`, `ans`) is an error the parser goes on past, as nu does (`ensure_not_reserved_variable_name`, recorded as recovered); the type tokens are re-lexed together (`parse_type_after_var`); the value is the rest, parsed as a *block* (a pipeline). nu reads a binding only with four items or more and a plain `=` after the name, with a value after it (`parse_let`); any other statement is its call to the keyword: `let = 1` misses the name (MissingPositional, the consumer's), `let x =` the value and `let x += 1` the `=` (KeywordMissingArgument, ExpectedKeyword: the parser records them as recovered and makes the statement the call), and in a binding a flag is no name (`let --help x = 1` is an error). The call form reads an `=` as any item (`parse_help_call`). In a binding nu reads, it reports what an untyped name leaves before the `=` (ExtraTokens: `let a int = 1`, `let a : int = 1`), a name with a space or a quote (VariableNotValid) or no variable name (Expected: `let $x-y = 1`, `let -- x = 1`), whose variable is then garbage, and a typed name without its type (MissingType: `let a: = 1`), and goes on with the binding: the parser records the error as recovered (an untyped refused name kept as written, the extra items `Ast::ignored`), and the consumer reports it (`variable_declaration`, `binding_variable`). A typed name nu refuses (`let $x.y: int = 1`) stays an error. A `for` variable its call refuses (`for x.y in [1] {}`) makes the statement that call. Without an `=`, nu parses the statement as an ordinary call, so a `--` before the name ends the options (`let -- x`, `const -- x`); with one it is a name and refused. That call leaves the value out: optional for `let`, a missing positional of `mut` and `const`, which the consumer reports (`const x`, semantic). A typed `mut x: int` or `const x: int` without a value is refused: of their two required positionals nu gives the variable only the `x:` item (`calculate_end_span`), which then has no type (`MissingType`). A bare `$` is a name (`let $ = 1`, nu's `is_variable`). A type of several items is lexed as a signature first (`parse_var_type`), so `record<a: int, b]>` is unbalanced. |
+| `for` | `for VAR[:] [TYPE] in ITEM BODY` | |
+| `alias` | `alias NAME = rest` | The `=` must be the item right after the name. With fewer than three items after `alias` (`alias x=y`, `alias x`, `alias x ls`, `alias x =`, after `export` too, and with an unknown flag, whose error nu drops) nu keeps its call to `alias`, which declares nothing, and reports it as incomplete (IncorrectValue, semantic): the statement is that call (`parse_alias_as_call`), which the consumer checks with nu's `alias_name` and `report_incomplete_alias`; in a module's body nu reads an `export alias` without its `export` and finds no alias to export (InternalError, the consumer's too). `alias = x` is a misplaced item. A bare name starting with `-` is "alias name not supported". A name nu refuses after reading the call (`$x`, `(x)`, `{x}`, which are no string, a name `check_definition_name` refuses, a parser keyword) nu reports with the call to `alias` as garbage, so the parser records the error as recovered, declares no alias, and the consumer reports it (`alias_name`). The rest is handed to `parse_call_lenient(.., true)` as plain words (a pipe becomes a word, `alias x = FOO=1 ls` calls the external `FOO=1`), after two checks nu makes first: a target that `is_math_expression_like` (a literal, `$x`, `(..)`) is "cannot create an alias to an expression" (which nu reports, naming what the target reads as, keeping the call to `alias` and declaring none: the parser records it as recovered and leaves the target garbage, when its words are plain items, and the consumer reads it with nu's `parse_expression` and reports nu's `CantAliasExpression`, unless nu does not read its first item as an expression, `0..$x.len`, which is then an alias the classic parser declares), and a target naming an unaliasable keyword (`UNALIASABLE_PARSER_KEYWORDS`: `def`, `let`, `for`, `export def`, ...) is "cannot create an alias to a parser keyword"; `if`, `match`, `try` and `overlay *` may be aliased. nu reads such a target as a call and declares no alias (`finish_alias`), so for a target that is the keyword alone the parser records that error as recovered and reads the target, which the consumer hands to `finish_alias`; with arguments (`alias r = run null`), which nu's first reading of the target (`parse_expression`) reads its own way for some keywords, the error stays. Lenient means a keyword-command target may miss positionals and flag values (`alias x = overlay new`). nu checks the items by position first (`check_alias_name`): with three or more after `alias` the second must be `=`, with one or two the first must not be. nu reports a misplaced item and keeps garbage over it, so the parser records the error as recovered and reads the statement as the alias call (`call_after_error`), which the consumer checks with nu's `check_alias_name` (an export, which makes the garbage its own, is the classic parser's). Any `--help` or short-flag batch with `h` before the `=` is then a help call (`alias --help = ls`, `alias -hx`). A lone `-` is a name; `$x`, `(x)`, `{x}` are not. An aliased `if`, `match` or `try` is parsed with the keyword's own rules, forgiving only missing positionals (`alias i = if x` is fine, `alias i = if x y` is not). An alias is declared once its statement is parsed; a call to an alias of an external command is an external call. |
+| `module` | `module NAME [BODY [--]]` | A declaration is a literal string `NAME` (`parse_module_name`), then a block or nothing; one `--` after the body is dropped (`module x {} --`). A body holds declarations, or a call for help of one of their keywords (`def --help`); any other statement nu reports at its first item (ExpectedKeyword) and makes garbage without reading it, so the error is recorded as recovered and the consumer does the same. In the body, an `export alias` must define an alias. Anything else is the call nu makes to `module` first (`parse_module_call`, nu's `ArgumentParsingLevel::FirstK`): flags up to a `--` and spreads as in any call, the first positional parsed, every later one unread (`Argument::Unread`: `module x {ls} --help`). A call for help, an unknown flag, a missing or extra positional, a name that is no literal: nu reports them as a call's, and the consumer goes on with the item after the name as the body (`module x {} --foo` adds the module, `module x --foo {}` is "expected block"). |
+| `use` | `use MODULE [MEMBER...]` | `MODULE` is a string or `null` (a no-op after which the members are parsed and then ignored). Members (`parse_import_pattern_member`) are names, `*`, or a `[a b]` list (`parse_import_pattern_list`); only the last may be `*` or a list. A member that is a variable, subexpression or `key: value` record is parsed and kept as `ImportPatternMemberKind::Ignored`, as nu ignores it; non-string list items and a cell path after a list (`[math].x`) are `Ast::ignored`; anything else is "wrong import pattern structure". nu reports a wrong member and drops it, a member after a `*` or a list ends the pattern there, and a spread in a list is reported too, each time going on with the import, so the parser records these errors as recovered and keeps every member: the consumer reads the pattern with nu's `parse_import_pattern` (`finish_use`, `finish_hide`). After `use null` no member is checked. Flags are looked for up to the first `--`; every item after it is a member (`use std -- --help` asks for no help). |
+| `export` | `export def\|extern\|alias\|use\|module\|const ...` | Wraps the inner statement (`parse_export_in_block`). An `export` of nothing to export (`export`, `export foo`) nu reads as its call to `export` and reports (UnexpectedKeyword, with garbage) or gives back with the call's own error: the statement is that call, the error recorded as recovered. |
+| `export-env` | `export-env BODY [ITEM...]` | nu hands `export-env` exactly one argument: extra items (`export-env {} extra`) and a redirection on it are `Ast::ignored`. A closure or record body is refused. |
+| `if` | `if COND... BLOCK [else BLOCK\|EXPR]` | The condition is every item before the block; the block is the item before `else` or the last item. A `key:` record where the block should be is "expected block" when nu would type it `record<...>` (every key a plain string); nu types any other record, and a cell path on one, `any`, which it accepts as a block (`if true { $env.A:b }`, `if true {a: 1}.a`), and so does `parse_brace_value`, keeping it as `If::then_value`. The else branch is a block or a whole expression (`parse_block_or_value`, or `parse_expression` in `Position::Element`, so `else if ...` recurses and `else {\|x\| }` is a closure). The condition takes every item but the last; when that last item is `--help` the statement is a help call once the condition parses (`if x --help`, but not `if if --help`). An else branch of one block followed only by flags leaves them to `if`, as nu's signature does (`if c {} else {} --help` is a help call, `... else {} --` drops the `--`). A `$` or `(...)` item where the block belongs is kept as `If::then_value`, as nu type-checks it (`if $c $env.f`); the same holds for the bodies of `while`, `loop`, `try` and `for` (`body_value`). An error in the condition or the block nu's call reports and goes on past (`if true 1`, `if --help true {} x`): the statement is then that call, the error recorded as recovered, and so for `while`. |
+| `match` | `match ITEM BLOCK` | See chapter 07 for the block. nu decides what the `{ ... }` is before it knows it wants arms, so a `{\|x\| }` closure, a `{a: 1}` record, a `$x` or a `(..)` in that position is accepted and kept as `Match::value_block` (the arms are empty); `match 1 [a]` and `match 1 foo` are errors nu goes on past, recorded as recovered, the item a garbage `value_block` (chapter 07). |
+| `while` | `while COND... BLOCK` | As `if`: the condition takes every item but the last, a final `--help` is a help call once the condition parses, and a `$`/`(...)` body is `While::body_value`. |
+| `loop` | `loop BLOCK` | |
+| `try` | `try BLOCK [catch\|finally CLOSURE]{0,2}` | Handlers are kept in source order; nu allows two of either kind. A handler is a closure, or a `$x`/`(..)` that may hold one (`parse_try_handler`); a record is refused unless nu would type it `any`, as for the block of `if` (`catch { $env.A:b }`, `finally {a: 1}.a`). nu's call reads a handler with its `oneof` of keyword shapes and goes on past an item that is neither keyword (ExpectedKeyword), a keyword without a value (KeywordMissingArgument) and a value that is no closure: the statement is then that call, the error recorded as recovered (`KeywordCall::call_after`), whose `oneof` the consumer reads as `parse_oneof` does, its best guess when no shape reads the items. |
+| `return` | `return [ITEM]` | One item only, as in nu. |
+| `break`/`continue` | keyword alone | |
+| `where` | `where {closure}` or `where COND...` | A row condition: `parse_condition`. `where --help` is a help call. One `{` item is a closure when it ends with `}`; nu tries a closure first and falls back to a row condition, so `where {}.a` is a cell path on a record. The other commands taking a row condition (`any`, `take while`, ...) parse their arguments the same way (`DeclKind::RowCondition`). |
+
+How the extent of a multi-item argument is found deserves a note. nu-parser
+computes it from the signature ("the condition of `if` gets all spans up to
+the ones needed by the remaining required positionals"). Here that rule is
+written out per keyword: the `if` condition is the stream `tokens_until("else")`
+returns minus its last item (the block), `while` splits the remaining items
+at the last one, and the `def` signature is every remaining item but the last
+(a slice pattern on `tokens.remaining()`). This is the same result without
+needing signatures.
+
+A call's arguments, outside these statements (a call for help, an alias's
+target, `take while --include 1 $it < 3`), are read one item at a time. The
+front end's lowering, which has the signature, gives each multi-item
+positional its items as `calculate_end_span` does and reads them as
+`parse_multispan_value` does (`lower/call.rs`, `multispan_value`); a row
+condition or a math expression of several items it has the parser read again
+as one, from the items' text (`parse_items`).
+
+### Redirections and attributes on statements
+
+`parse_pipeline_element` (chapter 04) builds the element's
+`PipelineRedirection` with `parse_redirection` and refuses one on the
+statements nu refuses it on (`rejects_redirection`): `def`, `extern`, `let`,
+`mut`, `const`, `for`, `alias`, `module`, `use`, `export`, an attribute
+block, any call whose head word is `overlay` (refused by name before the
+arguments are looked at) and the calls whose keyword signature (below) is not
+`redirectable` (`hide`, `source`, `run`, `plugin use`), when the pipeline is
+of that one command (nu's statement parse functions read only those; in a
+longer pipeline nothing refuses a redirection). nu reports the statement and
+makes it garbage, so the error is recorded as recovered (but on a lone `let`
+or `mut`, which reads the redirection as its own items, and an attribute
+block), and the consumer reports it with nu's name for the statement. A
+redirection on `export-env` is dropped without a look, as nu drops it, and
+recorded in `Ast::ignored`.
+
+Attribute lines (`@name args`, collected by chapter 04) are parsed by
+`parse_attribute` (`parse_calls.rs`) as calls to `attr name`: whether
+`attr name` exists is the consumer's business (it may come from a `use`d
+module), an empty name (`@`, `@ name`) included, which nu reports as an unknown
+command, and the built-in attributes (`category`, `complete`,
+`deprecated`, `example`, `interactive`, `search-terms`) get their arguments
+checked against their keyword signatures. Attributes may only precede `def`,
+`extern`, `export def` and `export extern`; before anything else
+(`export alias`, a call) they are "attributes must be followed by a
+definition". nu reports that at the last attribute and keeps the command, or
+the point after the last attribute, as garbage, so the parser records the
+error as recovered and keeps the attribute block with a garbage item, which
+the consumer reads as nu's `parse_attribute_block` does. Before an `export`
+of no definition (`export module y {}`) nu's `parse_export_in_block` does the
+same, and its `warp_export_call` then reports the attribute block, which is no
+call, from the statement's second item on; the consumer does that too
+(`exported_attribute_block`). A blank line after the attributes ends the
+command; a comment line, which nu gives the command after it, stays an error.
+
+The keyword itself is not stored in the tree: `Expr::keyword()` names it
+and `Expression::keyword_span()` locates it, since it is always the first
+word of the expression's span (chapter 08).
+
+## Math expressions (`parse_math_expression`)
+
+Operands are single items parsed with `parse_value(.., ExpectedShape::Any)`;
+operators are items whose text is an operator spelling. nu-parser folds them
+with an operator-precedence stack. Here winnow's `expression` combinator, a
+Pratt parser, does the precedence climbing, with nu's binding powers and
+associativity:
+
+```rust,ignore
+pub fn parse_math_expression<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
+    /* an `if` or `match` at the start is the whole expression */
+    expression(parse_math_operand).infix(infix_operator).parse_next(&mut tokens)
+}
+
+fn infix_operator<'t, 'a>(tokens: &mut Tokens<'t, 'a>)
+    -> ParseResult<Infix<Tokens<'t, 'a>, Expression<'a>, ErrMode<ParseFailure>>>
+{
+    let token = expected("operator", item).parse_next(tokens)?;
+    let operator = parse_operator(tokens.working_set, &token)?.item;
+    let power = i64::from(operator.precedence());
+    Ok(match operator.is_right_associative() {
+        true => Infix::Right(power, fold_binary_op),
+        false => Infix::Left(power, fold_binary_op),
+    })
+}
+```
+
+`fold_binary_op` builds the `BinaryOp`. winnow hands the fold only the two
+operands, so it finds the operator as the token right after the left operand
+(`tokens.token_after(lhs.span.end)`); `parse_operator` has already checked
+its spelling.
+
+Precedence lives on `ast::Operator::precedence` (100 for `**` down to 40 for
+`or`, nu-protocol's values); `**` is the only right-associative operator.
+`parse_math_operand` reads `not` prefixes with `repeat(0.., keyword("not"))`.
+Without one, the operand is one value. With them, it is everything up to the
+next operator that binds looser than `not` (`NOT_PRECEDENCE`, 55: `and`,
+`xor`, `or`), found by `negated_operand_end` and parsed as a math expression
+of its own, so `not $a == $b` is `not ($a == $b)` and `not $a and $b` is
+`(not $a) and $b`, as `help operators` says. A value `-$x` or `-(expr)` is
+the negation `Expr::UnaryMinus` (`parse_negation`, for the shapes that hold
+numbers). `if` and `match` are allowed as operands and consume the
+rest of the items (`1 + if $x { 2 } else { 3 }`). Unknown operators get
+targeted help from `parse_operator` (`^` → use `**`, `%` → `mod`,
+`contains` → `has`, ...). nu reports an item where an operator goes that is
+none (an unknown spelling, `1 2`), and a missing operand (`1 +`, a lone
+`not`), and goes on with the expression, so those errors are recorded as
+recovered and
+`parse_math_expression` makes the expression a garbage leaf over its items,
+which the consumer reads again with nu's math parser (with the row variable
+in a row condition), from the leaf's text: so only when that text lexes to
+the same items (not an alias's words, where `|` is one, nor items around a
+redirection); otherwise the error stays.
+
+```rust
+use nu_parser::winnow::syntax::{parse, ast::{BinaryOp, Expr, Operator, Math}};
+
+fn binary<'e, 'a>(expr: &'e Expr<'a>) -> &'e BinaryOp<'a> {
+    match expr {
+        Expr::BinaryOp(b) => b,
+        other => panic!("{other:?}"),
+    }
+}
+
+let ast = parse("1 + 2 * 3 ** 2 ** 1").unwrap();
+let top = binary(&ast.block.pipelines[0].elements[0].expr.expr);   // 1 + (2 * (3 ** (2 ** 1)))
+assert_eq!(top.op.item, Operator::Math(Math::Add));
+let product = binary(&top.rhs.expr);
+assert_eq!(product.op.item, Operator::Math(Math::Multiply));
+let power = binary(&product.rhs.expr);                              // `**` is right-associative
+assert!(matches!(power.rhs.expr, Expr::BinaryOp(_)));
+```
+
+### Row conditions
+
+`where` parses its condition with `parse_row_condition`: the math expression
+is parsed as above, then `expand_row_condition` rewrites the finished tree in
+place. Any *string* operand on the left of an operator, on either side of
+`and`, `xor` and `or` (which need booleans on both sides), or alone,
+becomes a cell path on the implicit `$it` (`expand_to_cell_path`, nu-parser's
+name): `where size > 1kb` yields `FullCellPath { head: Var it (empty span),
+implicit_head: true, tail: [size] }`, and `where a and not b` two of them. The
+right operand of any other operator stays a value (`where name == foo`), as in
+nu-parser.
+
+```rust
+use nu_parser::winnow::syntax::{parse, ast::Expr};
+
+let ast = parse("ls | where size > 1kb").unwrap();
+let Expr::Where(where_) = &ast.block.pipelines[0].elements[1].expr.expr else { panic!() };
+let Expr::BinaryOp(condition) = &where_.condition.expr else { panic!() };
+let Expr::FullCellPath(path) = &condition.lhs.expr else { panic!() };
+assert!(path.implicit_head);
+assert_eq!(path.tail.len(), 1);
+assert!(matches!(condition.rhs.expr, Expr::Filesize(_)));   // the right operand stays a value
+```
+
+## Assignments
+
+`parse_assignment_expression` splits the items at the first
+`AssignmentOperator` token. The left side is parsed with `parse_expression`
+in `Position::Element` and must be what nu's `parse_full_cell_path`
+produces: a `Var`, a `Subexpression`, a `FullCellPath`, a `List`, a `Table`
+or a `key: value` `Record`, with or without a cell path (nu accepts
+`(1) = 2` and `[1].0 = 2` at parse time and fails at run time); anything else
+is "assignment requires a variable", which nu reports and goes on past, so it
+is recorded as recovered and the assignment kept (the consumer also reports an
+immutable variable and an operator the types refuse, and goes on). A missing right
+side (`$x =`) nu reports and goes on past with a garbage right side, its left side
+unchecked: the error is recorded as recovered and the right side is an empty block
+after the operator. The right side (everything absorbed to
+the end of the line) is parsed with `parse_block` and stored as a `Block`,
+matching nu, where `$x = ls | length` assigns the pipeline's result. Since
+nu 0.97 an external command at the start of the value must be written with
+a caret: an `ExternalCall` without one as the first element of the rhs is
+"external command calls must be explicit in assignments" (`$x = git` is
+refused, `$x = ^git` is not). A bare external head needs the command table
+(or an alias of an external command), so with no table this never fires. nu
+reports it and keeps the assignment, so the error is recorded as recovered
+and the consumer reports it.
+
+## Calls (`parse_call`, `find_longest_decl`, `parse_call_arguments`)
+
+`find_longest_decl` implements nu's longest-match rule: try the first *n*
+words (up to five with a `ParseConfig` table, any number with a
+`CommandLookup`) joined with spaces against the known commands
+(`working_set.find_decl`), longest first; `str trim --left` becomes a call to
+`str trim` with one flag. It also returns the `DeclKind` the lookup gave for
+a name of several words. For a single-word head it returns `None`, since it
+never looked that word up, and the caller asks `find_decl` itself.
+Two performance details: the single-word fast path never builds a string,
+and a multi-word attempt only happens if the first word is a known *prefix*
+of some multi-word command (`working_set.is_decl_name_prefix`; `ParseConfig`
+and the declaration scopes both index prefixes). The search itself is
+`find_longest_name`, which takes the question to ask of each candidate name:
+`find_longest_decl` asks `find_decl`, and the `%` sigil (below) asks
+`find_builtin_decl`.
+
+`parse_call_arguments` is `repeat_to_end(parse_call_argument)`:
+
+```rust,ignore
+fn parse_call_arguments<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Vec<Argument<'a>>> {
+    repeat_to_end(parse_call_argument).parse_next(&mut tokens)
+}
+```
+
+`repeat_to_end(p)` is winnow's `repeat_till(0.., p, eof)`, so every item must
+be an argument; `parse_call_argument` reads one with
+`expected("argument", item)` and classifies it with one `match`:
+
+| Item | Result |
+| --- | --- |
+| `--` | `Argument::EndOfOptions` |
+| `--name`, `--name=value` | `Argument::Named(NamedArgument { long: true, value, .. })` (value only for the `=` form; an empty one, `--name=`, nu's value parser reports with garbage and goes on, so it is a garbage point, its error recorded as recovered: `parse_flag_value`, which the flags of `def` and `extern` share) |
+| `-x`, `-abc` | `Argument::Named(NamedArgument { long: false, name: "abc", .. })` unless it looks like a negative number (`-1`, `-.5`) |
+| `...$x`, `...[..]`, `...(..)`, `...{..}` | `Argument::Spread` |
+| anything else | `Argument::Positional(parse_value(.., ExpectedShape::Any))` |
+
+One more kind, `Argument::Unread`, is never read from an item here: `module`'s call (`parse_module_call`) puts it in the place of each positional after the name, which nu's call does not read (`ArgumentParsingLevel::FirstK`).
+
+Whether `--name value` binds `value` to the flag is a signature question and
+is left to the consumer; the bridge in `tools/` shows how (chapter 09). So
+are the arguments of the commands that are keywords in nu-parser, with a
+fixed signature there, and calls here: `hide`, `source`, `source-env`,
+`run`, `overlay new`, `overlay use`, `overlay hide`, `overlay list`, `plugin
+use` and the built-in `attr *` attributes. nu reads them as any call's
+(`parse_internal_call`, `check_call`), and the lowering does too: an unknown
+flag, a missing or extra positional or a flag without its value is nu's
+error there. `parse_call_lenient(tokens, lenient)` (which `parse_call` calls
+with `lenient = false`) finishes by calling `check_call` for the two parts
+nu reads as syntax, with the positionals counted as nu counts them: a flag
+before a `--`, a word like `-1` there (a flag for nu) and a spread are
+none. `hide`'s second positional, its members, is an import pattern
+(`parse_import_pattern_member`, as for `use`; `hide foo null` is a wrong
+import pattern), unless a `--help` or `-h` before any `--` makes the call
+show help, or `lenient` is set (an alias target). `overlay use`'s `as NAME`
+is a keyword argument after the module (`KeywordSignature`'s `keyword`):
+the positional after the module must be `as` (`overlay use x -- --y` is an
+error), and any item after it is its value (`as --prefix`). With no
+command table the head of `overlay use x` resolves as `overlay` with `use`
+as its first argument; `keyword_signature_of_call` finds both spellings.
+
+The `%` sigil (`parse_percent_call`) forces the built-in command even when a
+custom command or alias shadows its name. `%ls` and `% ls` give a `Call`
+whose `sigil` is the span of the `%`; `%$cmd` and `%(expr)` give a
+`DynamicCall` whose head is the `$` expression or subexpression. Like nu
+(`find_longest_decl_with_command_type`), the head is the longest name of a
+built-in command, visible or not (`working_set.find_builtin_decl`), so
+`%ls foo` calls `ls` with the argument `foo` even where `def "ls foo"`
+exists. Its arguments read as a call to that command reads them, by the
+command's kind: `%any $it > 2` takes one row condition. A quoted or otherwise non-bare name after `%` is an error, and a
+bare name that is not a built-in command (`CommandType::Builtin`, so not a
+keyword such as `if` nor a prelude command such as `pwd`) is rejected with
+"percent sigil requires a built-in command" (skipped when the parse knows
+no commands at all). The error points at the first word: under
+`def "my cmd"`, `%my cmd` is reported at `my`. nu then reads the items after
+the `%` as an external call, so the parser records the error as recovered and
+reads that call (`ExternalCall` with the `%` as its `caret`), which the
+consumer reports. After a lone `%` nu's head is the empty rest of that item:
+a following item that names no built-in command, or none, makes an external
+call with an empty head (a point after the `%`) and every item after the `%`
+as its arguments, the error reported at that head.
+
+## External calls and environment shorthand
+
+`^cmd args` (`parse_external_call`): the head after `^` is a string,
+`$var` or `(subexpr)`. The arguments are
+`repeat_to_end(parse_external_call_argument)`: `...$x`, `...[..]` and
+`...(..)` are spreads, `$..`/`(..)`/`[..]`/`{..}` are parsed as values, and
+everything else is an **external string**. A `[..]` argument must end with
+`]` (`parse_external_list_argument`): nu hands it to its list parser alone,
+so `^cmd [a].x` and `^cmd ...[a].x` are "unclosed delimiter" while
+`^cmd (ls).name` parses. nu goes on past the unclosed list with garbage, so the
+error is recorded as recovered and the argument is a garbage leaf, which the
+consumer reads with nu's `parse_regular_external_arg`. A bare head that resolves to no command is an
+external command for nu too: with a command table configured,
+`parse_call_lenient` hands it to `parse_external_arguments` like `^cmd`
+(with `ExternalCall::caret` `None`), so `git log 0b2d1f4..HEAD` has three
+external strings and `cmd [a].0` is unclosed. A call to an alias of an
+external command (`alias g = git`) is an external call the same way
+(`DeclKind::ExternalAlias`). A `def --wrapped` whose rest parameter has no
+type gets nu's `external_arg` shape for it, so a call to it (or to an alias
+of it) parses every argument as an external command's (`f 'x'$` and `f 0b2`
+are strings; `DeclKind::Wrapped`, recorded by `parse_def_predecl`, whose
+`has_untyped_rest` takes the rest parameter from the lexed signature and then
+looks for its type on the text, as nu's `rest_param_is_type_annotated` does).
+The call records it (`Call::wrapped`, chapter 08). nu gives any positional
+before the rest its own shape, which is left to consumers here.
+
+Two more kinds change how a call parses. A command whose first positional
+parameter is a row condition (`any`, `all`, `take while`, `record where`, the
+`ROW_CONDITION_COMMANDS` of the command table; `DeclKind::RowCondition`) takes
+its arguments as one condition, parsed as `where`'s (`parse_condition`), so
+`any $it > 2` is a call with one positional, a comparison. When the first
+argument is a flag, the parser cannot tell whether nu takes the next item as
+its value (`take while --include 2 ..`), and reads the arguments one by one.
+A call to an alias of `if`, `match` or `try` that gives it no arguments
+(`alias m = match`; `DeclKind::KeywordAlias`) is parsed by the keyword's own
+parser, the alias's name in the keyword's place (`If::keyword`). `parse_external_string` reproduces
+nu-parser's segmenting: a word is split into bare, quoted, backtick and
+parenthesised segments (the `ExternalStringSegment` state machine, kept as a
+byte loop), quoted segments stay literal, parenthesised bare segments
+interpolate, and all-literal words collapse to one string
+(`--query='q($x)'` keeps its parentheses; `--out=(pwd)/x` interpolates).
+
+`FOO=bar BAZ=$x cmd`: leading items of the form `NAME=value` with an
+identifier `NAME` (`is_env_variable_name`) become `EnvShorthand`; the value
+is a `$` expression or a strict string, which has no space outside double or
+single quotes (`FOO=(1 + 1) ls` is the external command `FOO=(1 + 1)`, as in
+nu). `parse_env_shorthand_prefix` is a
+`repeat` over a parser of one such item:
+
+```rust,ignore
+fn parse_env_shorthand_prefix<'a>(tokens: &mut Tokens<'_, 'a>) -> ParseResult<Vec<EnvAssignment<'a>>> {
+    repeat(0.., env_assignment).parse_next(tokens)
+}
+
+fn env_assignment<'a>(tokens: &mut Tokens<'_, 'a>) -> ParseResult<EnvAssignment<'a>> {
+    let working_set = tokens.working_set;
+    let (token, equals) = item
+        .verify_map(|token| {
+            let text = working_set.get_span_contents(token.span);
+            let equals = text.find('=').filter(|equals| is_env_variable_name(&text[..*equals]))?;
+            Some((token, equals))
+        })
+        .parse_next(tokens)?;
+    /* the value after `=`: empty, a `$` expression, or a strict string */
+}
+```
+
+The first item that is not `NAME=value` makes `verify_map` backtrack, which
+ends the `repeat` and leaves the stream at the command's head. With no command
+after the shorthand (`FOO=1` alone), nu reports the first item as an unknown
+command and keeps the items as garbage: the parser records "unknown command"
+as recovered and makes the command a garbage point after the last assignment,
+which the consumer reports as nu does.
+
+## Stream idioms you will reuse
+
+```rust,ignore
+let keyword = tokens.expect_item("for")?;               // next Item, or "expected for" at the right span
+if tokens.at_end() { .. }                               // nothing left
+tokens.expect_end()?;                                   // ExtraTokens error otherwise
+let rest: Option<Span> = tokens.consume_rest();         // consume the rest, get its span
+let condition = tokens.slice(start..end);               // a sub-stream over some of the items
+let items = tokens.all();                               // the underlying slice, for index arithmetic
+let value = parse_value(tokens.working_set, token.span, ExpectedShape::Any)?;  // one item
+
+// token parsers, composed with winnow combinators
+let else_keyword = opt(keyword("else")).parse_next(&mut tokens)?;           // an item spelled `else`, or None
+let before_in = tokens_until("in").parse_next(&mut tokens)?;                // a stream over the items before `in`
+let arguments = repeat_to_end(parse_call_argument).parse_next(&mut tokens)?; // every item, or an error
+let arrow = expected("`=>`", keyword("=>")).parse_next(&mut tokens)?;       // commit: "expected `=>`" otherwise
+```

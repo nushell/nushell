@@ -1,0 +1,6 @@
+error: expected valid variable name
+  --> reject/loops/for-bad-var-name.nu:1:5
+  |
+1 | for x.y in [1] { }
+  |     ^^^
+  = help: variable names may not contain spaces, quotes or `.[({+-*^%/=!<>&|`

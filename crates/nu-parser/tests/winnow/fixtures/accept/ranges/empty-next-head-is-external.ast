@@ -1,0 +1,6 @@
+Block 0..98
+  Pipeline 91..97 comments=1
+    ExternalCall 91..97
+      String Bare "1....5" 91..97
+Comments (1)
+  0..90 "# nu refuses the empty step, so at the head of a command this is no range but an external."

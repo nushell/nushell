@@ -1,0 +1,5 @@
+error: invalid int literal: invalid digits for radix 8
+  --> reject/literals/int-octal-truncated-in-math.nu:1:5
+  |
+1 | 0 + 0o
+  |     ^^

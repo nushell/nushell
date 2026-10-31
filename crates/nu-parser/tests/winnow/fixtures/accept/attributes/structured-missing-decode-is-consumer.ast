@@ -1,0 +1,9 @@
+Block 0..44
+  Pipeline 0..43
+    AttributeBlock 0..43
+      Attribute `structured` 0..22
+        List 12..22
+          String Double "--json" 13..21
+      Extern `foo` 23..43
+        Signature 34..43
+          Param rest `rest` 35..42

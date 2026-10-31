@@ -1,0 +1,5 @@
+error: this statement cannot be redirected
+  --> reject/redirections/plugin-use-redirected.nu:1:14
+  |
+1 | plugin use x o> f
+  |              ^^

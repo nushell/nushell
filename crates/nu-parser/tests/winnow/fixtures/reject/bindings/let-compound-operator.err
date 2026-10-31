@@ -1,0 +1,5 @@
+error: expected `=`
+  --> reject/bindings/let-compound-operator.nu:1:7
+  |
+1 | let x += 1
+  |       ^^

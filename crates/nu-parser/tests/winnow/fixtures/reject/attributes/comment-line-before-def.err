@@ -1,0 +1,6 @@
+error: attributes must be followed by a definition
+  --> reject/attributes/comment-line-before-def.nu:2:1
+  |
+2 | # doc line
+  | ^^^^^^^^^^
+  = help: put the `def`, `extern` or `export` on the line right after the attributes

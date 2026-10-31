@@ -1,0 +1,12 @@
+Block 0..80
+  Pipeline 0..79
+    Def `f` 0..79
+      Signature 6..75
+        Param flag --long -l `long` 7..17
+        Param flag --other -o `other` 19..31
+        Param flag -s `s` 33..35
+        Param flag --typed -t `typed` 37..53 : int
+        Param flag --dflt -d `dflt` 55..74 : int
+          Default
+            Int 1 73..74
+      Body 77..78

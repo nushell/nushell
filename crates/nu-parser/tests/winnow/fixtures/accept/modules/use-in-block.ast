@@ -1,0 +1,20 @@
+Block 0..58
+  Pipeline 0..38
+    Def `f` 0..38
+      Signature 6..8
+      Body 10..37
+        Pipeline 11..22 terminator=22..23
+          Use 11..22
+            String Bare "std/log" 15..22
+        Pipeline 24..36
+          ExternalCall 24..36
+            String Bare "log" 24..27
+            String Bare "info" 28..32
+            String Double "x" 33..36
+  Pipeline 39..57
+    Call `do` 39..57
+      Closure 42..57
+        Body 44..56
+          Pipeline 44..55
+            Use 44..55
+              String Bare "std/log" 48..55

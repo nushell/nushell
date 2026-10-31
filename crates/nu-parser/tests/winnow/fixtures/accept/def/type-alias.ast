@@ -1,0 +1,13 @@
+Block 0..90
+  Pipeline 0..39
+    TypeAlias `Point` = record<x: float, y: float> 0..39
+  Pipeline 40..89
+    Def `first-x` 40..89
+      Signature 52..80
+        Param positional `p` 53..61 : Point
+        IoType nothing -> float
+      Body 82..88
+        Pipeline 83..87
+          FullCellPath 83..87
+            Var $p 83..85
+            Member "x" 86..87

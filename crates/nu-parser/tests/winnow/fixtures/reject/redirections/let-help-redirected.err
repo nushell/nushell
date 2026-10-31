@@ -1,0 +1,5 @@
+error: this statement cannot be redirected
+  --> reject/redirections/let-help-redirected.nu:2:14
+  |
+2 | let x --help o> f
+  |              ^^

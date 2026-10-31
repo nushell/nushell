@@ -1,0 +1,14 @@
+Block 0..95
+  Pipeline 79..94 comments=1
+    Call `print` 79..94
+      Range Inclusive 85..94
+        From
+          Int 5 85..86
+        To
+          Closure 88..94
+            Signature 89..91
+            Body 92..93
+              Pipeline 92..93
+                Int 1 92..93
+Comments (1)
+  0..78 "# A closure bound: nu parses the range and its type check refuses the closure."

@@ -1,0 +1,10 @@
+Block 0..24
+  Pipeline 0..14
+    let cmd 0..14
+      Value 10..14
+        Pipeline 10..14
+          String Single "ls" 10..14
+  Pipeline 15..23
+    ExternalCall 15..23
+      Var $cmd 16..20
+      String Bare "-l" 21..23

@@ -1,0 +1,5 @@
+Block 0..12
+  Pipeline 0..11
+    Call `extern` 0..11
+      String Bare "-" 7..8
+      List 9..11

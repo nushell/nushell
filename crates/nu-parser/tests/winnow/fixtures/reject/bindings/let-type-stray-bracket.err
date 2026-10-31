@@ -1,0 +1,7 @@
+error: unbalanced delimiter: found `]` without a matching `<`
+  --> reject/bindings/let-type-stray-bracket.nu:1:24
+  |
+1 | let x: record<a: int, b]: string> = {}
+  |                        ^
+  = while parsing let
+  = help: the innermost open delimiter is `<` at byte 13

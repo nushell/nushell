@@ -1,0 +1,18 @@
+Block 0..45
+  Pipeline 0..44
+    Record 0..44
+      Pair
+        String Bare "7" 1..2
+        Int 8 4..5
+      Pair
+        String Bare "1kb" 7..10
+        Int 1 12..13
+      Pair
+        String Bare "2024-01-02" 15..25
+        Int 3 27..28
+      Pair
+        String Bare "-1" 30..32
+        Int 4 34..35
+      Pair
+        String Bare "1.5" 37..40
+        Int 5 42..43

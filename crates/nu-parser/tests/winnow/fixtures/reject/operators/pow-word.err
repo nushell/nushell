@@ -1,0 +1,6 @@
+error: unknown operator `pow`
+  --> reject/operators/pow-word.nu:1:3
+  |
+1 | 1 pow 2
+  |   ^^^
+  = help: use `**` for exponentiation

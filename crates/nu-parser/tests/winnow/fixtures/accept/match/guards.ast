@@ -1,0 +1,49 @@
+Block 0..143
+  Pipeline 0..9
+    let y 0..9
+      Value 8..9
+        Pipeline 8..9
+          Int 1 8..9
+  Pipeline 10..142
+    Match 10..142
+      Int 1 16..17
+      Arm 22..41
+        Pattern $x 22..24
+        Guard
+          BinaryOp > 28..34
+            Var $x 28..30
+            Int 0 33..34
+        ExternalCall 38..41
+          String Bare "pos" 38..41
+      Arm 44..73
+        Pattern $x 44..46
+        Guard
+          BinaryOp == 50..65
+            Subexpression 50..60 51..59
+              Pipeline 51..59
+                BinaryOp mod 51..59
+                  Var $x 51..53
+                  Int 2 58..59
+            Int 0 64..65
+        ExternalCall 69..73
+          String Bare "even" 69..73
+      Arm 76..116
+        Pattern $x 76..78
+        Guard
+          BinaryOp and 82..105
+            BinaryOp in 82..93
+              Var $x 82..84
+              List 88..93
+                Int 1 89..90
+                Int 2 91..92
+            BinaryOp == 98..105
+              Var $y 98..100
+              Int 1 104..105
+        ExternalCall 109..116
+          String Bare "complex" 109..116
+      Arm 119..140
+        Pattern _ 119..120
+        Guard
+          Bool true 124..128
+        ExternalCall 132..140
+          String Bare "fallback" 132..140

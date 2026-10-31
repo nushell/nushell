@@ -1,0 +1,6 @@
+error: parameter `a` after the rest parameter
+  --> reject/signatures/parameter-after-rest.nu:1:14
+  |
+1 | def f [...r, a] { }
+  |              ^
+  = help: the rest parameter takes every remaining argument, so it must come last

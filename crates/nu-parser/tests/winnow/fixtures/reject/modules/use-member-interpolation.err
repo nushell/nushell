@@ -1,0 +1,6 @@
+error: wrong import pattern structure
+  --> reject/modules/use-member-interpolation.nu:1:9
+  |
+1 | use std $"x"
+  |         ^^^^
+  = help: only strings and lists of strings can be imported

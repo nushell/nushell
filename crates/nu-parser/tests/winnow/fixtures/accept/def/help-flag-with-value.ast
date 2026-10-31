@@ -1,0 +1,16 @@
+Block 0..50
+  Pipeline 0..24
+    Call `def` 0..24
+      Flag --help 4..16
+        Bool false 11..16
+      String Bare "f" 17..18
+      List 19..21
+      Record 22..24
+  Pipeline 25..49
+    Call `def` 25..49
+      String Bare "g" 29..30
+      List 31..33
+      Flag --help 37..49
+        Bool false 44..49
+Ignored (1)
+  34..36 "{}"

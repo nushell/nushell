@@ -1,0 +1,19 @@
+Block 0..60
+  Pipeline 0..59
+    Match 0..59
+      Int 1 6..7
+      Arm 14..20
+        Pattern value 14..15
+          Int 1 14..15
+        Int 1 19..20
+      Arm 26..36
+        Pattern value 26..27
+          Int 2 26..27
+        String Double "foo" 31..36
+      Arm 42..56
+        Pattern value 42..43
+          Int 3 42..43
+        List 47..56
+          Int 1 48..49
+          Int 2 51..52
+          Int 3 54..55

@@ -1,0 +1,2 @@
+def foo [] {}
+extern foo []

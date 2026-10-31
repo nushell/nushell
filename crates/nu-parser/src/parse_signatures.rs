@@ -578,6 +578,110 @@ pub fn parse_signature(
     Expression::new(working_set, Expr::Signature(sig), span, Type::Any)
 }
 
+/// A parameter of a signature as it is read, before the signature is assembled
+/// ([`assemble_signature`]).
+#[derive(Debug)]
+pub(crate) enum Arg {
+    /// `x` or `x?`; `required` is false for `x?`, and turns false with a default value.
+    Positional {
+        arg: PositionalArg,
+        required: bool,
+        type_annotated: bool,
+    },
+    /// `...rest`.
+    RestPositional(PositionalArg),
+    /// `--flag`, `-f` or `--flag(-f)`; `type_annotated` when it has a written type: a default
+    /// value then does not set its type, and without one its variable can be `null`.
+    Flag { flag: Flag, type_annotated: bool },
+}
+
+impl Arg {
+    /// The shape a default value of the parameter is read with.
+    pub(crate) fn default_value_shape(&self) -> SyntaxShape {
+        match self {
+            Arg::Positional { arg, .. } => arg.shape.clone(),
+            Arg::RestPositional(arg) => arg.shape.clone(),
+            Arg::Flag { flag, .. } => flag.arg.clone().unwrap_or(SyntaxShape::Any),
+        }
+    }
+
+    /// Give the parameter its default value, `expression` (read with
+    /// [`Arg::default_value_shape`]), which must be a constant. A parameter without a written
+    /// type takes the default's type, as its shape and its variable's type, and a positional
+    /// parameter with a default is optional; a rest parameter takes no default.
+    pub(crate) fn set_default_value(
+        &mut self,
+        working_set: &mut StateWorkingSet,
+        expression: Expression,
+    ) {
+        //TODO check if we're replacing a custom parameter already
+        match self {
+            Arg::Positional {
+                arg:
+                    PositionalArg {
+                        shape,
+                        var_id,
+                        default_value,
+                        ..
+                    },
+                required,
+                type_annotated,
+            } => {
+                if let Some(var_id) = *var_id
+                    && working_set.get_variable(var_id).ty == Type::Any
+                    && !*type_annotated
+                {
+                    working_set.set_variable_type(var_id, expression.ty.clone());
+                }
+
+                *default_value = if let Ok(constant) = eval_constant(working_set, &expression) {
+                    Some(constant)
+                } else {
+                    working_set.error(ParseError::NonConstantDefaultValue(expression.span));
+                    None
+                };
+
+                if !*type_annotated {
+                    *shape = expression.ty.to_shape();
+                }
+                *required = false;
+            }
+            Arg::RestPositional(..) => working_set.error(ParseError::AssignmentMismatch(
+                "Rest parameter was given a default value".into(),
+                "can't have default value".into(),
+                expression.span,
+            )),
+            Arg::Flag {
+                flag:
+                    Flag {
+                        arg,
+                        var_id,
+                        default_value,
+                        ..
+                    },
+                type_annotated,
+            } => {
+                *default_value = if let Ok(value) = eval_constant(working_set, &expression) {
+                    Some(value)
+                } else {
+                    working_set.error(ParseError::NonConstantDefaultValue(expression.span));
+                    None
+                };
+
+                // Flags without type annotations are present/not-present switches *except*
+                // when they have a default value assigned. In that case they are regular flags
+                // and take on the type of their default value.
+                if !*type_annotated {
+                    *arg = Some(expression.ty.to_shape());
+                    if let Some(var_id) = *var_id {
+                        working_set.set_variable_type(var_id, expression.ty);
+                    }
+                }
+            }
+        }
+    }
+}
+
 pub fn parse_signature_helper(
     working_set: &mut StateWorkingSet,
     span: Span,
@@ -589,20 +693,6 @@ pub fn parse_signature_helper(
         Type,
         AfterType,
         DefaultValue,
-    }
-
-    #[derive(Debug)]
-    enum Arg {
-        Positional {
-            arg: PositionalArg,
-            required: bool,
-            type_annotated: bool,
-        },
-        RestPositional(PositionalArg),
-        Flag {
-            flag: Flag,
-            type_annotated: bool,
-        },
     }
 
     let source = working_set.get_span_contents(span);
@@ -1077,95 +1167,9 @@ pub fn parse_signature_helper(
                         }
                         ParseMode::DefaultValue => {
                             if !is_external && let Some(last) = args.last_mut() {
-                                let shape = match last {
-                                    Arg::Positional { arg, .. } => arg.shape.clone(),
-                                    Arg::RestPositional(arg) => arg.shape.clone(),
-                                    Arg::Flag { flag, .. } => {
-                                        flag.arg.clone().unwrap_or(SyntaxShape::Any)
-                                    }
-                                };
-
+                                let shape = last.default_value_shape();
                                 let expression = parse_value(working_set, span, &shape, None);
-
-                                //TODO check if we're replacing a custom parameter already
-                                match last {
-                                    Arg::Positional {
-                                        arg:
-                                            PositionalArg {
-                                                shape,
-                                                var_id,
-                                                default_value,
-                                                ..
-                                            },
-                                        required,
-                                        type_annotated,
-                                    } => {
-                                        let var_id = var_id.expect("internal error: all custom parameters must have var_ids");
-                                        let var_type = &working_set.get_variable(var_id).ty;
-                                        if var_type == &Type::Any && !*type_annotated {
-                                            working_set
-                                                .set_variable_type(var_id, expression.ty.clone());
-                                        }
-
-                                        *default_value = if let Ok(constant) =
-                                            eval_constant(working_set, &expression)
-                                        {
-                                            Some(constant)
-                                        } else {
-                                            working_set.error(ParseError::NonConstantDefaultValue(
-                                                expression.span,
-                                            ));
-                                            None
-                                        };
-
-                                        if !*type_annotated {
-                                            *shape = expression.ty.to_shape();
-                                        }
-                                        *required = false;
-                                    }
-                                    Arg::RestPositional(..) => {
-                                        working_set.error(ParseError::AssignmentMismatch(
-                                            "Rest parameter was given a default value".into(),
-                                            "can't have default value".into(),
-                                            expression.span,
-                                        ))
-                                    }
-                                    Arg::Flag {
-                                        flag:
-                                            Flag {
-                                                arg,
-                                                var_id,
-                                                default_value,
-                                                ..
-                                            },
-                                        type_annotated,
-                                    } => {
-                                        let expression_span = expression.span;
-
-                                        *default_value = if let Ok(value) =
-                                            eval_constant(working_set, &expression)
-                                        {
-                                            Some(value)
-                                        } else {
-                                            working_set.error(ParseError::NonConstantDefaultValue(
-                                                expression_span,
-                                            ));
-                                            None
-                                        };
-
-                                        let var_id = var_id.expect("internal error: all custom parameters must have var_ids");
-                                        let expression_ty = expression.ty.clone();
-
-                                        // Flags without type annotations are present/not-present
-                                        // switches *except* when they have a default value
-                                        // assigned. In that case they are regular flags and take
-                                        // on the type of their default value.
-                                        if !*type_annotated {
-                                            *arg = Some(expression_ty.to_shape());
-                                            working_set.set_variable_type(var_id, expression_ty);
-                                        }
-                                    }
-                                }
+                                last.set_default_value(working_set, expression);
                             }
                             parse_mode = ParseMode::Arg;
                         }
@@ -1214,6 +1218,20 @@ pub fn parse_signature_helper(
         working_set.insert_variable_into_scope(name, var_id);
     }
 
+    assemble_signature(working_set, args, span, is_external)
+}
+
+/// The signature of the parameters `args`, read from `span`, whose variables are in scope: an
+/// optional parameter or a typed flag without a default can be `null`. A required parameter
+/// after an optional one, an unnamed rest parameter and a second one are errors, and so, unless
+/// the signature is an `extern`'s (`is_external`), are repeated names and short flags and a
+/// parameter after the rest parameter.
+pub(crate) fn assemble_signature(
+    working_set: &mut StateWorkingSet,
+    args: Vec<Arg>,
+    span: Span,
+    is_external: bool,
+) -> Box<Signature> {
     let mut sig = Signature::new(String::new());
 
     // Parameters and flags share one variable namespace (`--foo-bar` binds `$foo_bar`, as do

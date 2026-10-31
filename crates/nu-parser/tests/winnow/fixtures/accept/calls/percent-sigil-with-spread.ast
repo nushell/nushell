@@ -1,0 +1,21 @@
+Block 0..71
+  Pipeline 0..16
+    let cmd 0..16
+      Value 10..16
+        Pipeline 10..16
+          String Single "echo" 10..16
+  Pipeline 17..45
+    let args 17..45
+      Value 28..45
+        Pipeline 28..45
+          List 28..45
+            String Single "hello" 29..36
+            String Single "world" 37..44
+  Pipeline 46..70
+    DynamicCall 46..70
+      Subexpression 47..53 48..52
+        Pipeline 48..52
+          Var $cmd 48..52
+      String Single "start" 54..61
+      Spread 62..65
+        Var $args 65..70

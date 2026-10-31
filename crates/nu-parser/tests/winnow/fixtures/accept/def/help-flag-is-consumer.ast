@@ -1,0 +1,8 @@
+Block 0..26
+  Pipeline 0..25
+    Def `f` 0..25
+      Signature 6..14
+        Param flag --help `help` 7..13
+      Body 16..24
+        Pipeline 17..23
+          String Single "mine" 17..23

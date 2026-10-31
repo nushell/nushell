@@ -1,0 +1,6 @@
+error: expected valid name for this long flag
+  --> reject/def/long-flag-with-dot.nu:1:8
+  |
+1 | def f [--a.b] {}
+  |        ^^^^^
+  = while parsing signature

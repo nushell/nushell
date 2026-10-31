@@ -1,0 +1,48 @@
+Block 0..77
+  Pipeline 0..9
+    mut x 0..9
+      Value 8..9
+        Pipeline 8..9
+          Int 1 8..9
+  Pipeline 10..17
+    Assignment += 10..17
+      Var $x 10..12
+      Value 16..17
+        Pipeline 16..17
+          Int 1 16..17
+  Pipeline 18..25
+    Assignment -= 18..25
+      Var $x 18..20
+      Value 24..25
+        Pipeline 24..25
+          Int 1 24..25
+  Pipeline 26..33
+    Assignment *= 26..33
+      Var $x 26..28
+      Value 32..33
+        Pipeline 32..33
+          Int 2 32..33
+  Pipeline 34..45
+    mut f 34..45
+      Value 42..45
+        Pipeline 42..45
+          Float 4 42..45
+  Pipeline 46..53
+    Assignment /= 46..53
+      Var $f 46..48
+      Value 52..53
+        Pipeline 52..53
+          Int 2 52..53
+  Pipeline 54..65
+    mut l 54..65
+      Value 62..65
+        Pipeline 62..65
+          List 62..65
+            Int 1 63..64
+  Pipeline 66..76
+    Assignment ++= 66..76
+      Var $l 66..68
+      Value 73..76
+        Pipeline 73..76
+          List 73..76
+            Int 2 74..75

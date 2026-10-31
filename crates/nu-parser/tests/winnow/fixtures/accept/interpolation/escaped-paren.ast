@@ -1,0 +1,4 @@
+Block 0..19
+  Pipeline 0..18
+    Interpolation Double 0..18
+      Text "hello (39 + 3)" 2..17

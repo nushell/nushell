@@ -1,0 +1,27 @@
+Block 0..60
+  Pipeline 0..31
+    Call `if` 0..31
+      Bool true 3..7
+      Closure 8..13
+        Body 10..12
+          Pipeline 10..11
+            Int 1 10..11
+      String Bare "else" 14..18
+      Closure 19..24
+        Body 21..23
+          Pipeline 21..22
+            Int 2 21..22
+      Flag --help 25..31
+  Pipeline 32..59
+    If 32..59
+      Condition
+        Bool true 35..39
+      Then 41..44
+        Pipeline 42..43
+          Int 1 42..43
+      Else 46..50
+        BlockExpr 51..56 52..55
+          Pipeline 53..54
+            Int 2 53..54
+Ignored (1)
+  57..59 "--"

@@ -1,0 +1,5 @@
+error: expected signature like `[param: type]`
+  --> reject/def/lone-dash-then-signature-error.nu:1:7
+  |
+1 | def - foo [] {}
+  |       ^^^

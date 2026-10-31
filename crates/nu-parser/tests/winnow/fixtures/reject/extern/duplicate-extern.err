@@ -1,0 +1,6 @@
+error: duplicate command definition within a block
+  --> reject/extern/duplicate-extern.nu:2:8
+  |
+2 | extern foo []
+  |        ^^^
+  = help: `foo` is already defined in this block

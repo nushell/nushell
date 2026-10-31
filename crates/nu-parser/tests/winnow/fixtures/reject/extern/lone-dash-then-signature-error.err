@@ -1,0 +1,5 @@
+error: expected signature like `[param: type]`
+  --> reject/extern/lone-dash-then-signature-error.nu:1:10
+  |
+1 | extern - foo
+  |          ^^^

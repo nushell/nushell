@@ -1,0 +1,23 @@
+Block 0..70
+  Pipeline 0..69
+    List 0..69
+      Subexpression 1..15 2..14
+        Pipeline 2..14
+          BinaryOp =~ 2..14
+            String Double "abc" 2..7
+            String Double "b" 11..14
+      Subexpression 16..30 17..29
+        Pipeline 17..29
+          BinaryOp !~ 17..29
+            String Double "abc" 17..22
+            String Double "z" 26..29
+      Subexpression 31..47 32..46
+        Pipeline 32..46
+          BinaryOp =~ 32..46
+            String Double "abc" 32..37
+            String Double "b" 43..46
+      Subexpression 48..68 49..67
+        Pipeline 49..67
+          BinaryOp !~ 49..67
+            String Double "abc" 49..54
+            String Double "z" 64..67

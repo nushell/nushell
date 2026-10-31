@@ -1,0 +1,11 @@
+Block 0..25
+  Pipeline 0..24
+    Call `echo` 0..24
+      Subexpression 5..10 6..9
+        Pipeline 6..9
+          Call `pwd` 6..9
+      Subexpression 11..24 12..23
+        Pipeline 12..23
+          Call `ls` 12..14
+          | 15..16
+          Call `length` 17..23

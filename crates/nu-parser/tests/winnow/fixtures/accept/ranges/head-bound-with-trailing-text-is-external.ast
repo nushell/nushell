@@ -1,0 +1,15 @@
+Block 0..32
+  Pipeline 0..13
+    ExternalCall 0..13
+      String Bare "5..{a:1}print" 0..13
+  Pipeline 14..23
+    ExternalCall 14..23
+      String Bare "..r#a#b" 14..23
+  Pipeline 24..31
+    ExternalCall 24..31
+      Interpolation Bare 24..31
+        Text "5.." 24..27
+        Subexpression 27..30 28..29
+          Pipeline 28..29
+            Int 1 28..29
+        Text "!" 30..31

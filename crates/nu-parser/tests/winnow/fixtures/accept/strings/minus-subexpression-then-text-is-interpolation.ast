@@ -1,0 +1,8 @@
+Block 0..7
+  Pipeline 0..6
+    Interpolation Bare 0..6
+      Text "-" 0..1
+      Subexpression 1..4 2..3
+        Pipeline 2..3
+          Int 1 2..3
+      Text "px" 4..6

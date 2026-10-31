@@ -1,0 +1,23 @@
+Block 0..60
+  Pipeline 0..59
+    List 0..59
+      Subexpression 1..16 2..15
+        Pipeline 2..15
+          BinaryOp + 2..15
+            Duration 1.5 hr 2..7
+            Duration 30 min 10..15
+      Subexpression 17..26 18..25
+        Pipeline 18..25
+          BinaryOp * 18..25
+            Filesize 1 kB 18..21
+            Int 2 24..25
+      Subexpression 27..46 28..45
+        Pipeline 28..45
+          BinaryOp + 28..45
+            DateTime 2024-01-02 28..38
+            Duration 1 day 41..45
+      Subexpression 47..58 48..57
+        Pipeline 48..57
+          BinaryOp / 48..57
+            Duration 10 sec 48..53
+            Int 2 56..57

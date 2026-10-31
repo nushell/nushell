@@ -1,0 +1,6 @@
+error: unclosed delimiter: expected `}`
+  --> reject/lexer/unclosed-nested-record.nu:4:1
+  |
+4 | 
+  | ^
+  = note: opened at 2:7

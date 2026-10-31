@@ -1,0 +1,2 @@
+def 0xdump [] { "ran" }
+0xdump

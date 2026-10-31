@@ -1,0 +1,16 @@
+Block 0..66
+  Pipeline 0..41
+    Def `foo` 0..41
+      Signature 8..22
+        Param rest `rest` 9..21 : int
+      Body 24..40
+        Pipeline 25..39
+          Var $rest 25..30
+          | 31..32
+          Call `length` 33..39
+  Pipeline 42..65
+    Def `bar` 42..65
+      Signature 50..61
+        Param positional `a` 51..52
+        Param rest `rest` 53..60
+      Body 63..64

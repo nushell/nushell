@@ -1,0 +1,18 @@
+Block 0..88
+  Pipeline 61..75 comments=1
+    let x 61..75
+      Value 69..75
+        Pipeline 69..75
+          Record 69..75
+            Pair
+              String Bare "a" 70..71
+              Int 1 73..74
+  Pipeline 76..87
+    Range Inclusive 76..87
+      To
+        FullCellPath 78..87
+          Var $x 78..80
+          Member "a"? 81..83
+          Member "b"?! 84..87
+Comments (1)
+  0..60 "# Each member of a range bound may take one `?` and one `!`."

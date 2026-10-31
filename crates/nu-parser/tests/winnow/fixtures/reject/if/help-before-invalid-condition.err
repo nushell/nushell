@@ -1,0 +1,5 @@
+error: expected expression
+  --> reject/if/help-before-invalid-condition.nu:1:13
+  |
+1 | if --help if
+  |             ^

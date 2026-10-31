@@ -1,0 +1,14 @@
+Block 0..136
+  Pipeline 115..135 comments=2
+    List 115..122
+      Int 0 116..117
+      Int 1 118..119
+      Int 2 120..121
+    | 123..124
+    Where 125..135
+      FullCellPath 131..135
+        Record 131..133
+        Member "a" 134..135
+Comments (2)
+  0..77 "# nu tries a closure first and falls back to a row condition, in which `{}.a`"
+  78..114 "# is a cell path on an empty record."

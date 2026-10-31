@@ -1,0 +1,13 @@
+Block 0..77
+  Pipeline 52..76 comments=1
+    For $x 52..76
+      List 61..63
+      BodyValue
+        Record 64..76
+          Pair
+            FullCellPath 66..72
+              Var $env 66..70
+              Member "A" 71..72
+            String Bare "b" 73..74
+Comments (1)
+  0..51 "# A record typed `any` passes as the body of `for`."

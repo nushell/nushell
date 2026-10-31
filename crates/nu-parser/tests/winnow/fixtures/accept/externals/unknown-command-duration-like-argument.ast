@@ -1,0 +1,6 @@
+Block 0..18
+  Pipeline 0..17
+    ExternalCall 0..17
+      String Bare "git" 0..3
+      String Bare "checkout" 4..12
+      String Bare "3min" 13..17

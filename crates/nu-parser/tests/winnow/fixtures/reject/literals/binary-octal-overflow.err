@@ -1,0 +1,5 @@
+error: invalid binary literal: `777` does not fit in a byte
+  --> reject/literals/binary-octal-overflow.nu:1:1
+  |
+1 | 0o[777]
+  | ^^^^^^^

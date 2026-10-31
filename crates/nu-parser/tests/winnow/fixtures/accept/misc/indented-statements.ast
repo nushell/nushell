@@ -1,0 +1,10 @@
+Block 0..38
+  Pipeline 4..23
+    Call `ls` 4..6
+    | 15..16
+    Call `length` 17..23
+  Pipeline 28..37
+    let x 28..37
+      Value 36..37
+        Pipeline 36..37
+          Int 1 36..37

@@ -1,0 +1,15 @@
+Block 0..37
+  Pipeline 0..12
+    Alias `i` 0..12
+      Call `if` 10..12
+  Pipeline 13..36
+    If 13..36
+      Condition
+        Bool true 15..19
+      Then 21..24
+        Pipeline 22..23
+          Int 1 22..23
+      Else 26..30
+        BlockExpr 31..36 32..35
+          Pipeline 33..34
+            Int 2 33..34

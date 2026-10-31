@@ -1,0 +1,7 @@
+Block 0..20
+  Pipeline 0..19
+    Call `match` 0..19
+      Int 1 6..7
+      Flag --help 8..14
+      Record 15..17
+      String Bare "x" 18..19

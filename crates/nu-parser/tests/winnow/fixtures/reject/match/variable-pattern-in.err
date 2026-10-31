@@ -1,0 +1,6 @@
+error: `in` used as variable name
+  --> reject/match/variable-pattern-in.nu:1:11
+  |
+1 | match 1 { $in => 1 }
+  |           ^^^
+  = help: `$in` is a built-in variable and cannot be declared

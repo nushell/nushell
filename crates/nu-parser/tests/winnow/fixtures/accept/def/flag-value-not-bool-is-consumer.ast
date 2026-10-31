@@ -1,0 +1,7 @@
+Block 0..20
+  Pipeline 0..19
+    Def `f` [Env] 0..19
+      FlagValue Env 4..11
+        Int 1 10..11
+      Signature 14..16
+      Body 18..18

@@ -1,0 +1,9 @@
+Block 0..15
+  Pipeline 0..14
+    Use 0..14
+      String Bare "std" 4..7
+      Member (ignored) 8..14
+        Record 8..14
+          Pair
+            String Bare "a" 9..10
+            Int 1 12..13

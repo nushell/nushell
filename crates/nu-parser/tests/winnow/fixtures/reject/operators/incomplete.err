@@ -1,0 +1,6 @@
+error: expected expression after operator
+  --> reject/operators/incomplete.nu:1:4
+  |
+1 | 1 +
+  |    ^
+  = help: this math expression is incomplete

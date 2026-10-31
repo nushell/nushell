@@ -1,0 +1,5 @@
+Block 0..23
+  Pipeline 0..22
+    Call `echo` 0..22
+      String Bare "foo\"bar\"" 5..13
+      String Bare "foo'bar'" 14..22

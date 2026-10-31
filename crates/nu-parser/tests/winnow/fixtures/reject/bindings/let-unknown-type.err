@@ -1,0 +1,6 @@
+error: expected a single type parameter
+  --> reject/bindings/let-unknown-type.nu:1:13
+  |
+1 | let a: list<string asd> = []
+  |             ^^^^^^^^^^
+  = while parsing let

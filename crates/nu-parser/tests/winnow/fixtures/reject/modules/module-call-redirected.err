@@ -1,0 +1,5 @@
+error: this statement cannot be redirected
+  --> reject/modules/module-call-redirected.nu:2:19
+  |
+2 | module x --foo {} o> f
+  |                   ^^

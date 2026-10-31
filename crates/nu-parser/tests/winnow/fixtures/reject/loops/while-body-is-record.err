@@ -1,0 +1,6 @@
+error: expected block
+  --> reject/loops/while-body-is-record.nu:1:12
+  |
+1 | while true {a: 1}
+  |            ^^^^^^
+  = help: found a record

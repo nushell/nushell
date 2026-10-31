@@ -1,0 +1,16 @@
+Block 0..53
+  Pipeline 0..52
+    Match 0..52
+      Int 1 6..7
+      Arm 24..30
+        Pattern value 24..25
+          Int 1 24..25
+        ExternalCall 29..30
+          String Bare "a" 29..30
+      Arm 44..50
+        Pattern _ 44..45
+        ExternalCall 49..50
+          String Bare "b" 49..50
+Comments (2)
+  12..21 "# comment"
+  31..41 "# trailing"

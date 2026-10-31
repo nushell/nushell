@@ -1,0 +1,5 @@
+Block 0..13
+  Pipeline 0..12
+    Call `module` 0..12
+      EndOfOptions 7..9
+      Record 10..12

@@ -1,0 +1,15 @@
+Block 0..21
+  Pipeline 0..9 terminator=9..10
+    mut x 0..9
+      Value 8..9
+        Pipeline 8..9
+          Int 1 8..9
+  Pipeline 11..20
+    Assignment = 11..20
+      FullCellPath 11..16
+        List 11..14
+          Int 1 12..13
+        Member 0 15..16
+      Value 19..20
+        Pipeline 19..20
+          Int 2 19..20

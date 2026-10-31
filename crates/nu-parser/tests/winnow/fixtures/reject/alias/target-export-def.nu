@@ -1,0 +1,1 @@
+alias e = export def

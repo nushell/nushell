@@ -1,0 +1,6 @@
+Block 0..42
+  Pipeline 0..41
+    Def `foo` 0..41
+      Signature 8..38
+        IoType int -> list<int@completer>
+      Body 40..40

@@ -1,0 +1,16 @@
+Block 0..41
+  Pipeline 0..14
+    let file 0..14
+      Value 11..14
+        Pipeline 11..14
+          String Single "x" 11..14
+  Pipeline 15..40
+    ExternalCall 15..40
+      String Bare "foo" 16..19
+      List 20..25
+        String Bare "a" 21..22
+        String Bare "b" 23..24
+      Var $file 26..31
+      FullCellPath 32..40
+        Var $env 32..36
+        Member "PWD" 37..40

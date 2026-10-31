@@ -1,0 +1,6 @@
+Block 0..17
+  Pipeline 0..16
+    Export 0..16
+      Call `alias` 7..16
+        String Bare "x" 13..14
+        String Bare "=" 15..16

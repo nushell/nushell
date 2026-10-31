@@ -1,0 +1,6 @@
+Block 0..12
+  Pipeline 0..11
+    Call `hide` 0..11
+      String Bare "ls" 5..7
+      String Bare "a" 8..9
+      String Bare "b" 10..11

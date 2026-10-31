@@ -1,0 +1,12 @@
+error: unclosed delimiter: expected `]`
+  --> reject/def/io-missing-arrow.nu:1:12
+  |
+1 | def foo []: int { 3 }
+  |            ^
+  = note: opened at 1:9
+
+error: expected arrow (->)
+  --> reject/def/io-missing-arrow.nu:1:16
+  |
+1 | def foo []: int { 3 }
+  |                ^

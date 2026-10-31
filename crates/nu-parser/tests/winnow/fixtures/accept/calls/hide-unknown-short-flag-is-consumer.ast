@@ -1,0 +1,5 @@
+Block 0..11
+  Pipeline 0..10
+    Call `hide` 0..10
+      Flag -x 5..7
+      String Bare "ls" 8..10

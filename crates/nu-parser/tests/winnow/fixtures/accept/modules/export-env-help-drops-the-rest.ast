@@ -1,0 +1,7 @@
+Block 0..27
+  Pipeline 0..26
+    Call `export-env` 0..26
+      Flag --help 11..17
+Ignored (2)
+  18..23 "extra"
+  24..26 "{}"

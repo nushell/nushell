@@ -1,0 +1,6 @@
+Block 0..11
+  Pipeline 0..6 terminator=6..7
+    Call `ls` 0..2
+    Redirect ErrPipe 3..6
+  Pipeline 8..10
+    Call `ls` 8..10

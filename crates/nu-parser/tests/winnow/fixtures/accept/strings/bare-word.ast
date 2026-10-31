@@ -1,0 +1,9 @@
+Block 0..42
+  Pipeline 0..41
+    Call `echo` 0..41
+      String Bare "bare-word" 5..14
+      String Bare "./a/b" 15..20
+      String Bare "~/x" 21..24
+      String Bare "*.rs" 25..29
+      String Bare "a=b" 30..33
+      String Bare "foo.txt" 34..41

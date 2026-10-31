@@ -1,0 +1,22 @@
+Block 0..64
+  Pipeline 0..13 comments=1
+    let x 0..13
+      Value 8..13
+        Pipeline 8..13
+          BinaryOp + 8..13
+            Int 1 8..9
+            Int 2 12..13
+  Pipeline 24..37 comments=1
+    let y 24..37
+      Value 32..37
+        Pipeline 32..37
+          BinaryOp + 32..37
+            Int 3 32..33
+            Int 4 36..37
+  Pipeline 56..63
+    BinaryOp + 56..63
+      Var $x 56..58
+      Var $y 61..63
+Comments (2)
+  14..23 "# comment"
+  38..55 "# another comment"

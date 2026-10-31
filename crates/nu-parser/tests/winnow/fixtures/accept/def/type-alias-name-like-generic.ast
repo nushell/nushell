@@ -1,0 +1,10 @@
+Block 0..45
+  Pipeline 0..18
+    TypeAlias `listing` = int 0..18
+  Pipeline 19..44
+    Def `f` 19..44
+      Signature 25..37
+        Param positional `x` 26..36 : listing
+      Body 39..43
+        Pipeline 40..42
+          Var $x 40..42

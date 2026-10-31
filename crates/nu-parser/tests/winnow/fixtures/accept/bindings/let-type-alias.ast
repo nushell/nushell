@@ -1,0 +1,8 @@
+Block 0..26
+  Pipeline 0..12
+    TypeAlias `T` = int 0..12
+  Pipeline 13..25
+    let x : T 13..25
+      Value 24..25
+        Pipeline 24..25
+          Int 1 24..25

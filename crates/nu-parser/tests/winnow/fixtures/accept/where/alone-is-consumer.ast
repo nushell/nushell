@@ -1,0 +1,6 @@
+Block 0..12
+  Pipeline 0..11
+    List 0..3
+      Int 1 1..2
+    | 4..5
+    Call `where` 6..11

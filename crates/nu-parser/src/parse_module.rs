@@ -2,7 +2,7 @@ use crate::{
     Token, TokenContents,
     exportable::Exportable,
     lex_once::lex_file,
-    lite_parser::{LiteCommand, lite_parse},
+    lite_parser::{LiteCommand, LitePipeline, lite_parse},
     parse_helpers::{garbage_pipeline, trim_quotes},
     parse_pipelines::redirecting_builtin_error,
     parser::{
@@ -20,7 +20,7 @@ use crate::parse_def::{
 use crate::parse_type_alias::parse_type_alias;
 
 use nu_protocol::{
-    BlockId, Module, ModuleId, ParseError, Span, Type,
+    BlockId, DeclId, Module, ModuleId, ParseError, Span, Type,
     ast::{
         Argument, Block, Call, Expr, Expression, ImportPattern, ImportPatternHead,
         ImportPatternMember, Pipeline,
@@ -32,7 +32,11 @@ use std::{collections::HashSet, sync::Arc};
 
 use nu_protocol::parser_path::ParserPath;
 
-fn warp_export_call(
+/// Make the call that `pipeline` starts with a call to `full_name` (`export def`, `export use`,
+/// ...), covering `spans`, whose first two are `export` and the keyword. Returns `false`
+/// when there is no `full_name` command; an error is reported then, and when the pipeline
+/// does not start with a call.
+pub(crate) fn warp_export_call(
     working_set: &mut StateWorkingSet,
     pipeline: &mut Pipeline,
     full_name: &str,
@@ -140,7 +144,8 @@ pub fn parse_export_in_block(
                     Span::concat(&lite_command.parts),
                 ));
             };
-            garbage_pipeline(working_set, &lite_command.parts)
+            // The error is reported: there is no definition for `warp_export_call` to export.
+            return garbage_pipeline(working_set, &lite_command.parts);
         }
     };
 
@@ -279,29 +284,7 @@ pub fn parse_export_in_module(
                     return (garbage_pipeline(working_set, spans), vec![]);
                 }
 
-                let mut result = vec![];
-
-                if let Some(module_name_span) = spans.get(2) {
-                    let module_name = working_set.get_span_contents(*module_name_span);
-                    let module_name = trim_quotes(module_name);
-
-                    if let Some(module_id) = maybe_module_id {
-                        result.push(Exportable::Module {
-                            name: working_set.get_module(module_id).name(),
-                            id: module_id,
-                        });
-                    } else {
-                        working_set.error(ParseError::InternalError(
-                            format!(
-                                "failed to find added module '{}'",
-                                String::from_utf8_lossy(module_name)
-                            ),
-                            Span::concat(&spans[1..]),
-                        ));
-                    }
-                }
-
-                (pipeline, result)
+                (pipeline, exported_module(working_set, maybe_module_id))
             }
             b"type" => {
                 let (mut pipeline, type_alias) = parse_type_alias(working_set, lite_command);
@@ -369,6 +352,22 @@ pub fn parse_export_in_module(
     };
 
     (pipeline, exportables)
+}
+
+/// What an `export module` in a module exports: `module_id`, the module it added, under the
+/// module's name. When it added none, nothing: `parse_module` reported why, or did not load the
+/// module file (`skip_module_load`).
+pub(crate) fn exported_module(
+    working_set: &StateWorkingSet,
+    module_id: Option<ModuleId>,
+) -> Vec<Exportable> {
+    module_id
+        .map(|id| Exportable::Module {
+            name: working_set.get_module(id).name(),
+            id,
+        })
+        .into_iter()
+        .collect()
 }
 
 pub fn parse_export_env(
@@ -500,6 +499,12 @@ pub fn parse_module_block(
     span: Span,
     module_name: &[u8],
 ) -> (Block, Module, Vec<Span>) {
+    if crate::winnow::enabled()
+        && let Some(parsed) = crate::winnow::parse_module_block(working_set, span, module_name)
+    {
+        return parsed;
+    }
+
     working_set.enter_scope();
 
     // A bracket table recorded for the module's file serves only this parse (see `lex_file`).
@@ -528,169 +533,172 @@ pub fn parse_module_block(
     block.span = Some(span);
 
     for pipeline in output.block.iter() {
-        if pipeline.commands.len() == 1 {
-            let command = &pipeline.commands[0];
-
-            let name = command
-                .command_parts()
-                .first()
-                .map(|s| working_set.get_span_contents(*s))
-                .unwrap_or(b"");
-
-            match name {
-                b"def" => block
-                    .pipelines
-                    .push(parse_def(working_set, command, None).0),
-                b"extern" => block
-                    .pipelines
-                    .push(parse_extern(working_set, command, None).0),
-                b"export" => {
-                    let (pipe, exportables) =
-                        parse_export_in_module(working_set, command, module_name, &mut module);
-
-                    for exportable in exportables {
-                        match exportable {
-                            Exportable::Decl { name, id } => {
-                                if &name == b"main" {
-                                    if module.main.is_some() {
-                                        let err_span = if !pipe.elements.is_empty() {
-                                            if let Expr::Call(call) = &pipe.elements[0].expr.expr {
-                                                call.head
-                                            } else {
-                                                pipe.elements[0].expr.span
-                                            }
-                                        } else {
-                                            span
-                                        };
-                                        working_set.error(ParseError::ModuleDoubleMain(
-                                            String::from_utf8_lossy(module_name).to_string(),
-                                            err_span,
-                                        ));
-                                    } else {
-                                        module.main = Some(id);
-                                    }
-                                } else {
-                                    module.add_decl(name, id);
-                                }
-                            }
-                            Exportable::Module { name, id } => {
-                                if &name == b"mod" {
-                                    let (
-                                        submodule_main,
-                                        submodule_decls,
-                                        submodule_submodules,
-                                        submodule_type_aliases,
-                                    ) = {
-                                        let submodule = working_set.get_module(id);
-                                        (
-                                            submodule.main,
-                                            submodule.decls(),
-                                            submodule.submodules(),
-                                            submodule.type_aliases.clone(),
-                                        )
-                                    };
-
-                                    for (decl_name, decl_id) in submodule_decls {
-                                        module.add_decl(decl_name, decl_id);
-                                    }
-
-                                    for (alias_name, type_alias_id) in submodule_type_aliases {
-                                        module.add_type_alias(alias_name, type_alias_id);
-                                    }
-
-                                    if let Some(main_decl_id) = submodule_main {
-                                        if module.main.is_some() {
-                                            let err_span = if !pipe.elements.is_empty() {
-                                                if let Expr::Call(call) =
-                                                    &pipe.elements[0].expr.expr
-                                                {
-                                                    call.head
-                                                } else {
-                                                    pipe.elements[0].expr.span
-                                                }
-                                            } else {
-                                                span
-                                            };
-                                            working_set.error(ParseError::ModuleDoubleMain(
-                                                String::from_utf8_lossy(module_name).to_string(),
-                                                err_span,
-                                            ));
-                                        } else {
-                                            module.main = Some(main_decl_id);
-                                        }
-                                    }
-
-                                    for (submodule_name, submodule_id) in submodule_submodules {
-                                        module.add_submodule(submodule_name, submodule_id);
-                                    }
-                                } else {
-                                    module.add_submodule(name, id);
-                                }
-                            }
-                            Exportable::VarDecl { name, id } => {
-                                module.add_variable(name, id);
-                            }
-                            Exportable::TypeAlias { name, id } => {
-                                module.add_type_alias(name, id);
-                            }
-                        }
-                    }
-
-                    block.pipelines.push(pipe)
-                }
-                _ if command.has_attributes() => block
-                    .pipelines
-                    .push(parse_attribute_block(working_set, command)),
-                b"const" => block
-                    .pipelines
-                    .push(parse_const(working_set, &command.parts).0),
-                b"alias" => block
-                    .pipelines
-                    .push(parse_alias(working_set, command, None)),
-                b"type" => block
-                    .pipelines
-                    .push(parse_type_alias(working_set, command).0),
-                b"use" => {
-                    let (pipeline, _) = parse_use(working_set, command, Some(&mut module));
-
-                    block.pipelines.push(pipeline)
-                }
-                b"module" => {
-                    let (pipeline, _) = parse_module(working_set, command, None);
-
-                    block.pipelines.push(pipeline)
-                }
-                b"export-env" => {
-                    let (pipe, maybe_env_block) = parse_export_env(working_set, &command.parts);
-
-                    if let Some(block_id) = maybe_env_block {
-                        module.add_env_block(block_id);
-                    }
-
-                    block.pipelines.push(pipe)
-                }
-                _ => {
-                    working_set.error(ParseError::ExpectedKeyword(
-                        "def, const, extern, alias, type, use, module, export or export-env keyword"
-                            .into(),
-                        command.parts[0],
-                    ));
-
-                    block
-                        .pipelines
-                        .push(garbage_pipeline(working_set, &command.parts))
-                }
-            }
-        } else {
-            working_set.error(ParseError::Expected("not a pipeline", span));
-            block.pipelines.push(garbage_pipeline(working_set, &[span]))
-        }
+        let pipeline = parse_module_pipeline(working_set, pipeline, module_name, &mut module, span);
+        block.pipelines.push(pipeline);
     }
 
     working_set.bracket_tables.truncate(bracket_tables);
     working_set.exit_scope();
 
     (block, module, module_comments)
+}
+
+/// One statement of a module's body (a `def`, `export`, `use`, ...), with its effect on
+/// `module` applied. `span` is the module body's span, which errors about the module as a whole
+/// point at.
+pub(crate) fn parse_module_pipeline(
+    working_set: &mut StateWorkingSet,
+    pipeline: &LitePipeline,
+    module_name: &[u8],
+    module: &mut Module,
+    span: Span,
+) -> Pipeline {
+    if pipeline.commands.len() != 1 {
+        working_set.error(ParseError::Expected("not a pipeline", span));
+        return garbage_pipeline(working_set, &[span]);
+    }
+
+    let command = &pipeline.commands[0];
+
+    let name = command
+        .command_parts()
+        .first()
+        .map(|s| working_set.get_span_contents(*s))
+        .unwrap_or(b"");
+
+    match name {
+        b"def" => parse_def(working_set, command, None).0,
+        b"extern" => parse_extern(working_set, command, None).0,
+        b"export" => {
+            let (pipe, exportables) =
+                parse_export_in_module(working_set, command, module_name, module);
+            let main_span = double_main_span(pipe.elements.first().map(|e| &e.expr), span);
+
+            add_exportables(working_set, module, module_name, exportables, main_span);
+
+            pipe
+        }
+        _ if command.has_attributes() => parse_attribute_block(working_set, command),
+        b"const" => parse_const(working_set, &command.parts).0,
+        b"alias" => parse_alias(working_set, command, None),
+        b"type" => parse_type_alias(working_set, command).0,
+        b"use" => parse_use(working_set, command, Some(module)).0,
+        b"module" => parse_module(working_set, command, None).0,
+        b"export-env" => {
+            let (pipe, maybe_env_block) = parse_export_env(working_set, &command.parts);
+
+            if let Some(block_id) = maybe_env_block {
+                module.add_env_block(block_id);
+            }
+
+            pipe
+        }
+        _ => {
+            working_set.error(ParseError::ExpectedKeyword(
+                "def, const, extern, alias, type, use, module, export or export-env keyword".into(),
+                command.parts[0],
+            ));
+
+            garbage_pipeline(working_set, &command.parts)
+        }
+    }
+}
+
+/// Add what an `export` statement exports (`exportables`) to `module`, named `module_name`:
+/// a command named `main` as its main command, a submodule named `mod` by adding its
+/// contents, anything else by name. `main_span` is where `ModuleDoubleMain` points.
+pub(crate) fn add_exportables(
+    working_set: &mut StateWorkingSet,
+    module: &mut Module,
+    module_name: &[u8],
+    exportables: Vec<Exportable>,
+    main_span: Span,
+) {
+    for exportable in exportables {
+        match exportable {
+            Exportable::Decl { name, id } => {
+                if &name == b"main" {
+                    set_module_main(working_set, module, module_name, id, main_span);
+                } else {
+                    module.add_decl(name, id);
+                }
+            }
+            Exportable::Module { name, id } => {
+                if &name == b"mod" {
+                    let (
+                        submodule_main,
+                        submodule_decls,
+                        submodule_submodules,
+                        submodule_type_aliases,
+                    ) = {
+                        let submodule = working_set.get_module(id);
+                        (
+                            submodule.main,
+                            submodule.decls(),
+                            submodule.submodules(),
+                            submodule.type_aliases.clone(),
+                        )
+                    };
+
+                    for (decl_name, decl_id) in submodule_decls {
+                        module.add_decl(decl_name, decl_id);
+                    }
+
+                    for (alias_name, type_alias_id) in submodule_type_aliases {
+                        module.add_type_alias(alias_name, type_alias_id);
+                    }
+
+                    if let Some(main_decl_id) = submodule_main {
+                        set_module_main(working_set, module, module_name, main_decl_id, main_span);
+                    }
+
+                    for (submodule_name, submodule_id) in submodule_submodules {
+                        module.add_submodule(submodule_name, submodule_id);
+                    }
+                } else {
+                    module.add_submodule(name, id);
+                }
+            }
+            Exportable::VarDecl { name, id } => {
+                module.add_variable(name, id);
+            }
+            Exportable::TypeAlias { name, id } => {
+                module.add_type_alias(name, id);
+            }
+        }
+    }
+}
+
+/// Make `decl_id` the `main` command of `module` (named `module_name`), or report
+/// `ModuleDoubleMain` at `err_span` when it has one already.
+pub(crate) fn set_module_main(
+    working_set: &mut StateWorkingSet,
+    module: &mut Module,
+    module_name: &[u8],
+    decl_id: DeclId,
+    err_span: Span,
+) {
+    if module.main.is_some() {
+        working_set.error(ParseError::ModuleDoubleMain(
+            String::from_utf8_lossy(module_name).to_string(),
+            err_span,
+        ));
+    } else {
+        module.main = Some(decl_id);
+    }
+}
+
+/// Where `ModuleDoubleMain` points for an export statement whose first expression is `expr`:
+/// the head of its call, else the whole expression; `fallback` when there is none.
+pub(crate) fn double_main_span(expr: Option<&Expression>, fallback: Span) -> Span {
+    match expr {
+        Some(Expression {
+            expr: Expr::Call(call),
+            ..
+        }) => call.head,
+        Some(expression) => expression.span,
+        None => fallback,
+    }
 }
 
 /// Returns true if any module reachable from `module_id` (through submodules or imports)
@@ -905,7 +913,7 @@ pub fn parse_module(
         return (garbage_pipeline(working_set, spans), None);
     }
 
-    let mut module_comments = lite_command.comments.clone();
+    let module_comments = lite_command.comments.clone();
 
     let split_id = if spans.len() > 1 && working_set.get_span_contents(spans[0]) == b"export" {
         2
@@ -913,7 +921,7 @@ pub fn parse_module(
         1
     };
 
-    let (mut call, call_span) = match working_set.find_decl(b"module") {
+    let (call, call_span) = match working_set.find_decl(b"module") {
         Some(decl_id) => {
             let (command_spans, rest_spans) = spans.split_at(split_id);
 
@@ -954,19 +962,45 @@ pub fn parse_module(
         }
     };
 
+    // The item after the name: a module file has none.
+    let body_span = spans.get(split_id + 1).copied();
+    finish_module(
+        working_set,
+        call,
+        call_span,
+        body_span,
+        module_name,
+        module_comments,
+    )
+}
+
+/// What `parse_module` does with its call to `module`: the module file named by the call's
+/// first argument parsed, or the body, `body_span` (the braces included), parsed as the
+/// module's block (`parse_module_block`) and made the call's second argument. Returns the
+/// statement, covering `call_span`, and the module it added. In a module named `module_name`,
+/// a submodule of the same name is an error. `module_comments` are the comments before the
+/// statement, which document the module with those at the top of its body.
+pub(crate) fn finish_module(
+    working_set: &mut StateWorkingSet,
+    mut call: Box<Call>,
+    call_span: Span,
+    body_span: Option<Span>,
+    module_name: Option<&[u8]>,
+    mut module_comments: Vec<Span>,
+) -> (Pipeline, Option<ModuleId>) {
     let Some(name_expr) = call.positional_iter().next() else {
         working_set.error(ParseError::UnknownState(
             "internal error: missing positional".into(),
-            Span::concat(spans),
+            call_span,
         ));
-        return (garbage_pipeline(working_set, spans), None);
+        return (garbage_pipeline(working_set, &[call_span]), None);
     };
     let Some(name) = name_expr.as_string() else {
         working_set.error(ParseError::UnknownState(
             "internal error: name not a string".into(),
-            Span::concat(spans),
+            call_span,
         ));
-        return (garbage_pipeline(working_set, spans), None);
+        return (garbage_pipeline(working_set, &[call_span]), None);
     };
 
     if module_name.is_some_and(|mod_name| mod_name == name.as_bytes()) {
@@ -988,7 +1022,7 @@ pub fn parse_module(
     }
     let (module_name_or_path, module_name_or_path_span) = (name, name_expr.span);
 
-    if spans.len() == split_id + 1 {
+    let Some(block_expr_span) = body_span else {
         let pipeline = Pipeline::from_vec(vec![Expression::new(
             working_set,
             Expr::Call(call),
@@ -1000,34 +1034,18 @@ pub fn parse_module(
             return (pipeline, None);
         }
 
-        if let Some(module_id) = parse_module_file_or_dir(
+        // When it finds no module, `parse_module_file_or_dir` reports why.
+        let module_id = parse_module_file_or_dir(
             working_set,
             module_name_or_path.as_bytes(),
             module_name_or_path_span,
             None,
-        ) {
-            return (pipeline, Some(module_id));
-        } else {
-            working_set.error(ParseError::ModuleNotFound(
-                module_name_or_path_span,
-                module_name_or_path,
-            ));
-            return (pipeline, None);
-        }
-    }
-
-    if spans.len() < split_id + 2 {
-        working_set.error(ParseError::UnknownState(
-            "Expected structure: module <name> or module <name> <block>".into(),
-            Span::concat(spans),
-        ));
-
-        return (garbage_pipeline(working_set, spans), None);
-    }
+        );
+        return (pipeline, module_id);
+    };
 
     let module_name = module_name_or_path;
 
-    let block_expr_span = spans[split_id + 1];
     let block_bytes = working_set.get_span_contents(block_expr_span);
     let mut start = block_expr_span.start;
     let mut end = block_expr_span.end;
@@ -1036,7 +1054,7 @@ pub fn parse_module(
         start += 1;
     } else {
         working_set.error(ParseError::Expected("block", block_expr_span));
-        return (garbage_pipeline(working_set, spans), None);
+        return (garbage_pipeline(working_set, &[call_span]), None);
     }
 
     if block_bytes.ends_with(b"}") {
@@ -1080,7 +1098,7 @@ pub fn parse_module(
         Pipeline::from_vec(vec![Expression::new(
             working_set,
             Expr::Call(call),
-            Span::concat(spans),
+            call_span,
             Type::Any,
         )]),
         Some(module_id),
@@ -1186,6 +1204,30 @@ pub fn parse_use(
         }
     };
 
+    finish_use(
+        working_set,
+        call,
+        name_span,
+        call_span,
+        args_spans,
+        parent_module,
+    )
+}
+
+/// What `parse_use` does with its call to `use`: the import pattern read from the call's
+/// arguments, the module found (its file parsed when it is not loaded yet) and the members the
+/// pattern names brought into scope. Returns the statement and the members, which an `export
+/// use` in a module exports. `name_span` is the `use` word, `call_span` the statement and
+/// `args_spans` the items after `use`; in a module's body, `parent_module` keeps track of the
+/// modules it imports.
+pub(crate) fn finish_use(
+    working_set: &mut StateWorkingSet,
+    call: Box<Call>,
+    name_span: Span,
+    call_span: Span,
+    args_spans: &[Span],
+    parent_module: Option<&mut Module>,
+) -> (Pipeline, Vec<Exportable>) {
     let import_pattern_expr = parse_import_pattern(working_set, call.positional_iter(), args_spans);
 
     let import_pattern = match &import_pattern_expr {
@@ -1202,7 +1244,7 @@ pub fn parse_use(
                 Pipeline::from_vec(vec![Expression::new(
                     working_set,
                     Expr::Call(call),
-                    Span::concat(spans),
+                    call_span,
                     Type::Any,
                 )]),
                 vec![],
@@ -1217,7 +1259,7 @@ pub fn parse_use(
                 "internal error: Import pattern positional is not import pattern".into(),
                 import_pattern_expr.span,
             ));
-            return (garbage_pipeline(working_set, spans), vec![]);
+            return (garbage_pipeline(working_set, &[call_span]), vec![]);
         }
     };
 
@@ -1269,10 +1311,7 @@ pub fn parse_use(
             module_id,
         )
     } else {
-        working_set.error(ParseError::ModuleNotFound(
-            import_pattern.head.span,
-            String::from_utf8_lossy(&import_pattern.head.name).to_string(),
-        ));
+        // `parse_module_file_or_dir` reported why it found no module.
         return (
             Pipeline::from_vec(vec![Expression::new(
                 working_set,
@@ -1377,7 +1416,7 @@ pub fn parse_use(
         Pipeline::from_vec(vec![Expression::new(
             working_set,
             Expr::Call(call),
-            Span::concat(spans),
+            call_span,
             Type::Any,
         )]),
         exportables,
@@ -1434,6 +1473,18 @@ pub fn parse_hide(working_set: &mut StateWorkingSet, lite_command: &LiteCommand)
         }
     };
 
+    finish_hide(working_set, call, Span::concat(spans), args_spans)
+}
+
+/// What `parse_hide` does with its call to `hide`: the import pattern read from the call's
+/// arguments, and the commands and type aliases it names hidden. `call_span` is the statement
+/// and `args_spans` the items after `hide`, of which there is at least one in a valid call.
+pub(crate) fn finish_hide(
+    working_set: &mut StateWorkingSet,
+    call: Box<Call>,
+    call_span: Span,
+    args_spans: &[Span],
+) -> Pipeline {
     let import_pattern_expr = parse_import_pattern(working_set, call.positional_iter(), args_spans);
 
     let import_pattern = if let Expression {
@@ -1447,13 +1498,12 @@ pub fn parse_hide(working_set: &mut StateWorkingSet, lite_command: &LiteCommand)
             "internal error: Import pattern positional is not import pattern".into(),
             import_pattern_expr.span,
         ));
-        return garbage_pipeline(working_set, spans);
+        return garbage_pipeline(working_set, &[call_span]);
     };
 
-    let bytes = working_set.get_span_contents(spans[0]);
-
-    if bytes == b"hide" && spans.len() >= 2 {
-        for span in spans[1..].iter() {
+    // `parse_hide` checked the call's name.
+    if let Some(&first_span) = args_spans.first() {
+        for span in args_spans {
             parse_string(working_set, *span);
         }
 
@@ -1471,10 +1521,10 @@ pub fn parse_hide(working_set: &mut StateWorkingSet, lite_command: &LiteCommand)
                 }
             } else {
                 working_set.error(ParseError::ModuleNotFound(
-                    spans[1],
+                    first_span,
                     String::from_utf8_lossy(&import_pattern.head.name).to_string(),
                 ));
-                return garbage_pipeline(working_set, spans);
+                return garbage_pipeline(working_set, &[call_span]);
             };
 
         // A type alias comes after aliases and commands in `hide`'s priority: a bare name hides
@@ -1574,15 +1624,15 @@ pub fn parse_hide(working_set: &mut StateWorkingSet, lite_command: &LiteCommand)
         Pipeline::from_vec(vec![Expression::new(
             working_set,
             Expr::Call(call),
-            Span::concat(spans),
+            call_span,
             Type::Any,
         )])
     } else {
         working_set.error(ParseError::UnknownState(
             "Expected structure: hide <name>".into(),
-            Span::concat(spans),
+            call_span,
         ));
-        garbage_pipeline(working_set, spans)
+        garbage_pipeline(working_set, &[call_span])
     }
 }
 

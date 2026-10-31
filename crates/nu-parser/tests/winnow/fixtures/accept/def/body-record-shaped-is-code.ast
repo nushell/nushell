@@ -1,0 +1,12 @@
+Block 0..21
+  Pipeline 0..20
+    Def `q` 0..20
+      Signature 6..8
+      Body 10..19
+        Pipeline 10..19
+          ExternalCall 10..19
+            String Bare "a:" 10..12
+            Record 13..19
+              Pair
+                String Bare "a" 14..15
+                Int 1 17..18

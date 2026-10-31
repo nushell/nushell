@@ -1,0 +1,6 @@
+error: unclosed delimiter: expected `}`
+  --> reject/lexer/missing-closure-brace-before-pipe.nu:7:1
+  |
+7 | 
+  | ^
+  = note: opened at 2:17

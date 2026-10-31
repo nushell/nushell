@@ -1,0 +1,19 @@
+Block 0..38
+  Pipeline 0..37
+    BinaryOp - 0..37
+      BinaryOp mod 0..32
+        BinaryOp // 0..26
+          BinaryOp * 0..21
+            Subexpression 0..7 1..6
+              Pipeline 1..6
+                BinaryOp + 1..6
+                  Int 1 1..2
+                  Int 2 5..6
+            BinaryOp ** 10..21
+              Int 3 10..11
+              BinaryOp ** 15..21
+                Int 2 15..16
+                Int 1 20..21
+          Int 4 25..26
+        Int 3 31..32
+      Int -1 35..37

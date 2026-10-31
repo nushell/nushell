@@ -1,0 +1,10 @@
+Block 0..23
+  Pipeline 0..22
+    Call `if` 0..22
+      Flag --help 3..11
+        Int 1 10..11
+      Bool true 12..16
+      Closure 17..22
+        Body 19..21
+          Pipeline 19..20
+            Int 1 19..20

@@ -1,0 +1,6 @@
+error: expected int
+  --> reject/signatures/default-string-for-int.nu:1:19
+  |
+1 | def foo [x: int = "a"] {}
+  |                   ^^^
+  = while parsing signature

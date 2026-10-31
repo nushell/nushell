@@ -1,0 +1,5 @@
+error: expected operator
+  --> reject/operators/negative-number-after-operand.nu:1:4
+  |
+1 | (1 -1)
+  |    ^^

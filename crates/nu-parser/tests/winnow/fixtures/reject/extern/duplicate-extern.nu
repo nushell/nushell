@@ -1,0 +1,2 @@
+extern foo []
+extern foo []

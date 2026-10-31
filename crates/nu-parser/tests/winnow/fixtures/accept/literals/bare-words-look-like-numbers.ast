@@ -1,0 +1,9 @@
+Block 0..49
+  Pipeline 0..48
+    Call `echo` 0..48
+      String Bare "1.0.1" 5..10
+      String Bare "1..2..3..4" 11..21
+      String Bare "1_000_d_ay" 22..32
+      String Bare ".foons" 33..39
+      String Bare "0X10" 40..44
+      String Bare "5NS" 45..48

@@ -1,0 +1,6 @@
+error: unclosed delimiter: expected `)`
+  --> reject/lexer/multiline-unclosed-paren.nu:3:1
+  |
+3 | 
+  | ^
+  = note: opened at 1:9

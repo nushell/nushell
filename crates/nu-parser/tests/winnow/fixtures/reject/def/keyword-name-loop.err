@@ -1,0 +1,6 @@
+error: cannot use parser keyword `loop` as command name
+  --> reject/def/keyword-name-loop.nu:1:5
+  |
+1 | def loop [x] { $x }
+  |     ^^^^
+  = help: choose a different name; this word is parsed specially by Nushell

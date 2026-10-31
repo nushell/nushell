@@ -1,0 +1,5 @@
+error: expected type after `:`
+  --> reject/bindings/let-colon-no-type.nu:1:7
+  |
+1 | let a: = 1
+  |       ^

@@ -1,0 +1,5 @@
+Block 0..12
+  Pipeline 0..11
+    Call `alias` 0..11
+      String Bare "ll" 6..8
+      String Bare "ls" 9..11

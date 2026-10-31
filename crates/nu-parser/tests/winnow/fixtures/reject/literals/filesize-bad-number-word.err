@@ -1,0 +1,5 @@
+error: invalid filesize literal: value must be a number
+  --> reject/literals/filesize-bad-number-word.nu:1:6
+  |
+1 | echo 42m_b
+  |      ^^^^^

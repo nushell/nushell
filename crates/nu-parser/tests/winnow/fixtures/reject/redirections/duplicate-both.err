@@ -1,0 +1,6 @@
+error: multiple redirections of the same stream
+  --> reject/redirections/duplicate-both.nu:1:12
+  |
+1 | ^ls o+e> a e> b
+  |            ^^
+  = help: the stream is already redirected at 4..10

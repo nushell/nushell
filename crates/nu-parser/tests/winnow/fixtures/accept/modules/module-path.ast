@@ -1,0 +1,4 @@
+Block 0..24
+  Pipeline 0..23
+    Module 0..23
+      String Bare "./path/to/mod.nu" 7..23

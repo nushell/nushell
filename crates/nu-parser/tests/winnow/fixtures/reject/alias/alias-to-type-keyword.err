@@ -1,0 +1,6 @@
+error: cannot create an alias to a parser keyword
+  --> reject/alias/alias-to-type-keyword.nu:1:12
+  |
+1 | alias ty = type
+  |            ^^^^
+  = help: only if, match, try, overlay, overlay hide, overlay new, overlay use can be aliased

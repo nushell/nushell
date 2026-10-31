@@ -1,0 +1,6 @@
+Block 0..38
+  Pipeline 35..37 comments=2
+    Call `ls` 35..37
+Comments (2)
+  0..17 "#!/usr/bin/env nu"
+  18..34 "#! not a shebang"

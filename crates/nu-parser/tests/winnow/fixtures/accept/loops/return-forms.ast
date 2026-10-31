@@ -1,0 +1,74 @@
+Block 0..213
+  Pipeline 0..19
+    Def `a` 0..19
+      Signature 6..8
+      Body 10..18
+        Pipeline 11..17
+          Return 11..17
+  Pipeline 20..41
+    Def `b` 20..41
+      Signature 26..28
+      Body 30..40
+        Pipeline 31..39
+          Return 31..39
+            Int 5 38..39
+  Pipeline 42..65
+    Def `c` 42..65
+      Signature 48..50
+      Body 52..64
+        Pipeline 53..63
+          Return 53..63
+            String Double "s" 60..63
+  Pipeline 66..91
+    Def `d` 66..91
+      Signature 72..74
+      Body 76..90
+        Pipeline 77..89
+          Return 77..89
+            List 84..89
+              Int 1 85..86
+              Int 2 87..88
+  Pipeline 92..118
+    Def `e` 92..118
+      Signature 98..100
+      Body 102..117
+        Pipeline 103..116
+          Return 103..116
+            Record 110..116
+              Pair
+                String Bare "a" 111..112
+                Int 1 114..115
+  Pipeline 119..146
+    Def `f` 119..146
+      Signature 125..127
+      Body 129..145
+        Pipeline 130..144
+          Return 130..144
+            Subexpression 137..144 138..143
+              Pipeline 138..143
+                BinaryOp + 138..143
+                  Int 1 138..139
+                  Int 1 142..143
+  Pipeline 147..175
+    Def `g` 147..175
+      Signature 153..155
+      Body 157..174
+        Pipeline 158..173
+          Return 158..173
+            FullCellPath 165..173
+              Var $env 165..169
+              Member "PWD" 170..173
+  Pipeline 176..212
+    Def `h` 176..212
+      Signature 182..184
+      Body 186..211
+        Pipeline 187..207 terminator=207..208
+          If 187..207
+            Condition
+              Bool true 190..194
+            Then 196..206
+              Pipeline 197..205
+                Return 197..205
+                  Int 1 204..205
+        Pipeline 209..210
+          Int 2 209..210

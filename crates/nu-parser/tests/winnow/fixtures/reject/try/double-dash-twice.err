@@ -1,0 +1,5 @@
+error: expected `catch` or `finally`
+  --> reject/try/double-dash-twice.nu:1:20
+  |
+1 | try {} -- catch {} --
+  |                    ^^

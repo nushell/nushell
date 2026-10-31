@@ -1,0 +1,7 @@
+Block 0..18
+  Pipeline 0..2 terminator=2..3
+    Call `ls` 0..2
+  Pipeline 4..7 terminator=7..8
+    Call `pwd` 4..7
+  Pipeline 9..17
+    Call `date now` 9..17

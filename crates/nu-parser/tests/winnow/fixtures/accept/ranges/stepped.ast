@@ -1,0 +1,31 @@
+Block 0..58
+  Pipeline 0..57
+    List 0..57
+      Range Inclusive 1..9
+        From
+          Int 1 1..2
+        Next
+          Int 3 4..5
+        To
+          Int 10 7..9
+      Range Inclusive 10..24
+        From
+          Float 2 10..13
+        Next
+          Float 4 15..18
+        To
+          Float 10 20..24
+      Range Inclusive 25..40
+        From
+          Float 2 25..28
+        Next
+          Float 4 30..33
+        To
+          Float 10 36..40
+      Range RightExclusive 41..56
+        From
+          Float 2 41..44
+        Next
+          Float 4 46..49
+        To
+          Float 10 52..56

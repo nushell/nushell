@@ -1,0 +1,13 @@
+Block 0..92
+  Pipeline 77..91 comments=1
+    Call `print` 77..91
+      Range Inclusive 83..91
+        From
+          Int 5 83..84
+        To
+          Record 86..91
+            Pair
+              String Bare "a" 87..88
+              Int 1 89..90
+Comments (1)
+  0..76 "# A record bound: nu parses the range and its type check refuses the record."
