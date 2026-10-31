@@ -113,8 +113,8 @@ fn command_not_found_error_suggests_search_term() -> Result {
 
 #[test]
 fn command_not_found_error_suggests_typo_fix() -> Result {
-    let err = test().run("benchmark { echo 'foo'}").expect_shell_error()?;
-    assert_matches!(err, ShellError::RemovedCommand { replacement, .. } if replacement == "timeit");
+    let err = test().run("timeitt { echo 'foo'}").expect_shell_error()?;
+    assert_matches!(err, ShellError::ExternalCommand { help, .. } if help.contains("`timeit`"));
     Ok(())
 }
 

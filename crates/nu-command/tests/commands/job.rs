@@ -770,7 +770,7 @@ fn exiting_nushell_kills_jobs() -> Result {
         let child_pid = $info.0
         let grandchild_pid = $info.1
 
-        ps | where pid == $grandchild_pid | filter { $in.ppid in [$child_pid, 1] } | length
+        ps | where pid == $grandchild_pid | where { $in.ppid in [$child_pid, 1] } | length
     "#;
 
     test().run(code).expect_value_eq(0)

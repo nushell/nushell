@@ -708,7 +708,7 @@ fn save_same_file_with_collect_and_filter() -> Result {
             open hello
             | prepend 'hello'
             | collect
-            | filter { true }
+            | where { true }
             | save --force hello;
             open hello
         ";

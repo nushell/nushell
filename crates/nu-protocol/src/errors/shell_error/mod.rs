@@ -1077,21 +1077,6 @@ pub enum ShellError {
     },
 
     /// This is a generic error type used for different situations.
-    #[error("{error}")]
-    #[diagnostic(code(nu::shell::error))]
-    #[deprecated(since = "0.111.1", note = "use `ShellError::Generic` instead")]
-    GenericError {
-        error: String,
-        msg: String,
-        #[label("{msg}")]
-        span: Option<Span>,
-        #[help]
-        help: Option<String>,
-        #[related]
-        inner: Vec<ShellError>,
-    },
-
-    /// This is a generic error type used for different situations.
     #[error(transparent)]
     #[diagnostic(transparent)]
     Generic(#[from] generic::GenericError),
@@ -1325,17 +1310,6 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
     NotAConstHelp {
         #[label("This command cannot run at parse time.")]
         span: Span,
-    },
-
-    #[error("{deprecation_type} deprecated.")]
-    #[diagnostic(code(nu::shell::deprecated), severity(Warning))]
-    DeprecationWarning {
-        deprecation_type: &'static str,
-        suggestion: String,
-        #[label("{suggestion}")]
-        span: Span,
-        #[help]
-        help: Option<&'static str>,
     },
 
     /// Invalid glob pattern
