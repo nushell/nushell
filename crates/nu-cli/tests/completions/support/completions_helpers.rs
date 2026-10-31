@@ -326,17 +326,7 @@ pub fn merge_input(
     );
 
     // Update engine_state with deleted variables (mirrors util.rs behavior)
-    for var_id in &stack.deletions {
-        if engine_state.get_constant(*var_id).is_some() {
-            continue;
-        }
-        if let Some(active_id) = engine_state.scope.active_overlays.last()
-            && let Some((_, overlay)) = engine_state.scope.overlays.get_mut((*active_id).get())
-        {
-            overlay.vars.retain(|_, v| *v != *var_id);
-        }
-    }
-    stack.deletions.clear();
+    engine_state.merge_deletions(stack);
 
     // Merge environment into the permanent state
     engine_state.merge_env(stack)

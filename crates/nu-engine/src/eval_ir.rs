@@ -1666,7 +1666,7 @@ fn eval_call_frame<D: DebugContext>(
 
         result
     } else {
-        let signature = decl.signature();
+        let signature = engine_state.get_signature_cached(decl_id);
 
         // `ignore` intentionally handles upstream error values at command level.
         // Skip early input-error propagation for the built-in `ignore` command so
