@@ -21,9 +21,10 @@ impl Command for AttrInteractive {
     fn extra_description(&self) -> &str {
         "An interactive completer runs on the line-editor thread, with the terminal to \
 itself, instead of on the background completion worker. This lets it drive a terminal \
-picker such as `fzf` or `input list`, which need stdin and the TTY. Every other completer \
-stays on the worker, so it never blocks the line editor and its result can be cached; only \
-completers that must own the terminal should opt in.
+picker such as `fzf` or `input list`, which need stdin and the TTY. Completion chains with \
+no interactive source stay on the worker and their results can be cached. If a fallback \
+may be interactive, the entire chain runs on the line-editor thread; unannotated sources \
+still cannot read stdin. Only completers that must own the terminal should opt in.
 
 The attribute only chooses where a completer runs; it does not make the command one. Attach \
 it as usual, `arg: type@name` or `@complete 'name'`; and the completion engine calls it \

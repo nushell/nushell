@@ -380,6 +380,11 @@ impl UserCompletion {
         let mut callee_stack = ctx
             .stack
             .captures_to_stack_preserve_out_dest(self.captures.clone());
+        // A later interactive fallback can route the whole query inline. That must
+        // not let earlier, unannotated sources take over the terminal.
+        if !self.interactive {
+            callee_stack = callee_stack.suppress_stdin();
+        }
 
         // A completer opts into what it receives through the positional parameters it
         // declares: the input record is overloaded on them, carrying exactly the recognized
