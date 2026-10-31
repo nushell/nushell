@@ -926,10 +926,15 @@ pub fn parse_rejects_uncallable_command_names(#[case] name: &str) {
         working_set.parse_errors.first().cloned()
     };
 
+    // Backticks don't decode escapes, so a backtick name with an escape in it is a bare word.
+    let backtick = !name.contains('\\');
     for source in [
         format!("def \"{name}\" [] {{}}"),
         format!("extern \"{name}\" []"),
-    ] {
+    ]
+    .into_iter()
+    .chain(backtick.then(|| format!("def `{name}` [] {{}}")))
+    {
         assert!(
             matches!(
                 first_error(&source),
@@ -939,11 +944,15 @@ pub fn parse_rejects_uncallable_command_names(#[case] name: &str) {
         );
     }
 
-    let source = format!("alias \"{name}\" = attr echo");
-    assert!(
-        matches!(first_error(&source), Some(ParseError::AliasNotValid(_))),
-        "{source:?}"
-    );
+    for source in [format!("alias \"{name}\" = attr echo")]
+        .into_iter()
+        .chain(backtick.then(|| format!("alias `{name}` = attr echo")))
+    {
+        assert!(
+            matches!(first_error(&source), Some(ParseError::AliasNotValid(_))),
+            "{source:?}"
+        );
+    }
 }
 
 #[rstest]
@@ -4220,4 +4229,23 @@ pub fn parse_name_check_leaves_no_file_in_the_state(#[case] name: &str) {
         .collect::<Vec<_>>();
 
     assert!(left.is_empty(), "{name:?} left {left:?} in the state");
+}
+
+#[test]
+pub fn parse_name_check_leaves_no_block_in_the_state() {
+    // A range bound such as `(foo)` is parsed as a subexpression, which adds a block. The name
+    // check must not leave that block in the state it checks.
+    let blocks_after = |source: &str| {
+        let engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        working_set.add_decl(Box::new(Alias));
+        working_set.add_decl(Box::new(AttrEcho));
+        let _ = parse(&mut working_set, None, source.as_bytes(), false);
+        working_set.num_blocks()
+    };
+
+    assert_eq!(
+        blocks_after(r#"alias "x..(foo)" = attr echo"#),
+        blocks_after("alias foo = attr echo"),
+    );
 }

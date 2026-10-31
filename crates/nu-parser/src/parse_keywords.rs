@@ -169,7 +169,14 @@ fn is_shadowed_by_a_value(working_set: &mut StateWorkingSet, name: &str, name_sp
     };
 
     match head_span {
-        Some(span) => is_literal_like(working_set, span),
+        Some(span) => {
+            // A range bound such as `(ls)` is parsed as a subexpression, which adds a block.
+            // The check must not leave that block in the state it checks.
+            let blocks = working_set.delta.blocks.len();
+            let shadowed = is_literal_like(working_set, span);
+            working_set.delta.blocks.truncate(blocks);
+            shadowed
+        }
         None => {
             // The head word has to be read from the decoded name, so it is read in a working
             // set of its own: the check must not leave a file in the state it checks.
