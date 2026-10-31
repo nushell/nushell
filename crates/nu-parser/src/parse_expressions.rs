@@ -1334,6 +1334,8 @@ fn operator_from_bytes(bytes: &[u8]) -> Option<Operator> {
         b"not-starts-with" => Operator::Comparison(Comparison::NotStartsWith),
         b"ends-with" => Operator::Comparison(Comparison::EndsWith),
         b"not-ends-with" => Operator::Comparison(Comparison::NotEndsWith),
+        b"older-than" => Operator::Comparison(Comparison::OlderThan),
+        b"newer-than" => Operator::Comparison(Comparison::NewerThan),
         b"+" => Operator::Math(Math::Add),
         b"-" => Operator::Math(Math::Subtract),
         b"*" => Operator::Math(Math::Multiply),

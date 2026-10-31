@@ -4178,7 +4178,11 @@ fn operator_completions(mut custom_completer: NuCompleter) {
 
     let suggestions = custom_completer.complete_blocking("(date now) ", 11);
     // == != > < >= <= in not-in
-    assert_eq!(8, suggestions.len());
+    // older-than newer-than
+    assert_eq!(10, suggestions.len());
+    let suggestions = custom_completer.complete_blocking("(date now) o", 12);
+    let expected: Vec<_> = vec!["older-than"];
+    match_suggestions(&expected, &suggestions);
     let suggestions = custom_completer.complete_blocking("(date now) <", 12);
     let expected: Vec<_> = vec!["<", "<="];
     match_suggestions(&expected, &suggestions);
@@ -4235,17 +4239,19 @@ fn assignment_operator_completions(mut custom_completer: NuCompleter) {
     match_suggestions(&expected, &suggestions);
 
     // == != > < >= <= in not-in
+    // older-than newer-than
     // =
     let suggestions = custom_completer.complete_blocking("mut foo = date now; $foo ", 25);
-    assert_eq!(9, suggestions.len());
+    assert_eq!(11, suggestions.len());
     let suggestions = custom_completer.complete_blocking("mut foo = date now; $foo =", 26);
     let expected: Vec<_> = vec!["=", "=="];
     match_suggestions(&expected, &suggestions);
 
     let suggestions = custom_completer.complete_blocking("mut foo = date now; $foo ", 25);
     // == != > < >= <= in not-in
+    // older-than newer-than
     // =
-    assert_eq!(9, suggestions.len());
+    assert_eq!(11, suggestions.len());
     let suggestions = custom_completer.complete_blocking("mut foo = date now; $foo =", 26);
     let expected: Vec<_> = vec!["=", "=="];
     match_suggestions(&expected, &suggestions);
@@ -4276,9 +4282,12 @@ fn assignment_operator_completions(mut custom_completer: NuCompleter) {
 
     // all operators for type any
     let suggestions = custom_completer.complete_blocking("ls | where name ", 16);
-    assert_eq!(32, suggestions.len());
+    assert_eq!(34, suggestions.len());
     let expected: Vec<_> = vec!["starts-with"];
     let suggestions = custom_completer.complete_blocking("ls | where name starts", 22);
+    match_suggestions(&expected, &suggestions);
+    let expected: Vec<_> = vec!["older-than"];
+    let suggestions = custom_completer.complete_blocking("ls | where modified old", 23);
     match_suggestions(&expected, &suggestions);
 }
 
@@ -4309,8 +4318,9 @@ fn cellpath_assignment_operator_completions() {
     let completion_str = "$foo.foo.1 ";
     let suggestions = completer.complete_blocking(completion_str, completion_str.len());
     // == != > < >= <= in not-in
+    // older-than newer-than
     // =
-    assert_eq!(9, suggestions.len());
+    assert_eq!(11, suggestions.len());
     let completion_str = "$foo.foo.1 =";
     let suggestions = completer.complete_blocking(completion_str, completion_str.len());
     let expected: Vec<_> = vec!["=", "=="];
@@ -4354,8 +4364,9 @@ fn type_inferenced_operator_completions(mut custom_completer: NuCompleter) {
 
     let suggestions = custom_completer.complete_blocking("mut foo = [(date now)]; $foo.0 ", 31);
     // == != > < >= <= in not-in
+    // older-than newer-than
     // =
-    assert_eq!(9, suggestions.len());
+    assert_eq!(11, suggestions.len());
     let suggestions = custom_completer.complete_blocking("mut foo = [(date now)]; $foo.0 =", 32);
     let expected: Vec<_> = vec!["=", "=="];
     match_suggestions(&expected, &suggestions);

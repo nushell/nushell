@@ -28,7 +28,7 @@ use crate::{
     did_you_mean,
     engine::{Closure, EngineState},
 };
-use chrono::{DateTime, Datelike, Duration, FixedOffset, Local, Locale, TimeZone};
+use chrono::{DateTime, Datelike, Duration, FixedOffset, Local, Locale, TimeZone, Utc};
 use chrono_humanize::HumanTime;
 use nu_utils::{ObviousFloat, SharedCow, contains_emoji, get_locale_from_env_vars};
 pub use semver::Version as SemVerVersion;
@@ -4293,6 +4293,81 @@ impl Value {
         }
     }
 
+    /// Check whether this datetime is older than (before) a point in time.
+    ///
+    /// # Arguments
+    ///
+    /// * `op` - Span of the operator, used in errors
+    /// * `rhs` - A datetime, or a duration counted back from now
+    /// * `span` - Span of the result
+    ///
+    /// # Returns
+    ///
+    /// A bool, or `nothing` when either operand is `nothing` (the same as `<`)
+    ///
+    /// # Errors
+    ///
+    /// Returns an operator type error unless this is a datetime and `rhs` is a datetime or a
+    /// duration, and `ShellError::OperatorOverflow` when now minus the duration is out of range.
+    pub fn older_than(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+        self.cmp_to_point_in_time(Comparison::OlderThan, op, rhs, span)
+    }
+
+    /// Check whether this datetime is newer than (after) a point in time.
+    ///
+    /// Takes the same arguments and returns the same errors as [`Value::older_than`].
+    pub fn newer_than(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+        self.cmp_to_point_in_time(Comparison::NewerThan, op, rhs, span)
+    }
+
+    /// Shared body of [`Value::older_than`] and [`Value::newer_than`]: whether this datetime is
+    /// before (`OlderThan`) or after (`NewerThan`) the point in time that `rhs` names.
+    /// `comparison` is one of those two; it also names the operator in errors.
+    fn cmp_to_point_in_time(
+        &self,
+        comparison: Comparison,
+        op: Span,
+        rhs: &Value,
+        span: Span,
+    ) -> Result<Value, ShellError> {
+        let wanted = match comparison {
+            Comparison::NewerThan => Ordering::Greater,
+            _ => Ordering::Less,
+        };
+        let (lhs, point) = match (self, rhs) {
+            (Value::Custom { val: lhs, .. }, rhs) => {
+                return lhs.operation(self.span(), Operator::Comparison(comparison), op, rhs);
+            }
+            (Value::Nothing { .. }, _) | (_, Value::Nothing { .. }) => {
+                return Ok(Value::nothing(span));
+            }
+            (Value::Date { val: lhs, .. }, Value::Date { val: rhs, .. }) => (lhs, *rhs),
+            (Value::Date { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
+                // The clock is read on every evaluation, just like `(date now) - 2wk` would be.
+                let point = Utc::now()
+                    .fixed_offset()
+                    .checked_sub_signed(Duration::nanoseconds(*rhs))
+                    .ok_or_else(|| ShellError::OperatorOverflow {
+                        msg: "subtracting the duration from now overflowed".into(),
+                        span,
+                        help: None,
+                    })?;
+                (lhs, point)
+            }
+            _ => {
+                return Err(operator_type_error(
+                    Operator::Comparison(comparison),
+                    op,
+                    self,
+                    rhs,
+                    |val| matches!(val, Value::Date { .. } | Value::Duration { .. }),
+                ));
+            }
+        };
+        // Datetimes compare as instants, so the offsets of `lhs` and `point` don't matter.
+        Ok(Value::bool(lhs.cmp(&point) == wanted, span))
+    }
+
     pub fn bit_or(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
@@ -4479,15 +4554,18 @@ fn operator_type_error(
 ) -> ShellError {
     let is_supported = |val| is_supported(val) || matches!(val, Value::Custom { .. });
     match (is_supported(lhs), is_supported(rhs)) {
-        (true, true) => ShellError::OperatorIncompatibleTypes {
-            op,
-            lhs: lhs.get_type(),
-            rhs: rhs.get_type(),
-            op_span,
-            lhs_span: lhs.span(),
-            rhs_span: rhs.span(),
-            help: None,
-        },
+        (true, true) => {
+            let (lhs_ty, rhs_ty) = (lhs.get_type(), rhs.get_type());
+            ShellError::OperatorIncompatibleTypes {
+                help: op.incompatible_types_help(&lhs_ty, &rhs_ty),
+                op,
+                lhs: lhs_ty,
+                rhs: rhs_ty,
+                op_span,
+                lhs_span: lhs.span(),
+                rhs_span: rhs.span(),
+            }
+        }
         (true, false) => ShellError::OperatorUnsupportedType {
             op,
             unsupported: rhs.get_type(),

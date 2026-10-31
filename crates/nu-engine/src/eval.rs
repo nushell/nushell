@@ -794,6 +794,10 @@ impl Eval for EvalRuntime {
         lhs.regex_match(engine_state, op_span, rhs, invert, expr_span)
     }
 
+    fn check_point_in_time(_: &EngineState, _: &Value, _: Span) -> Result<(), ShellError> {
+        Ok(())
+    }
+
     fn eval_assignment<D: DebugContext>(
         engine_state: &EngineState,
         stack: &mut Stack,
