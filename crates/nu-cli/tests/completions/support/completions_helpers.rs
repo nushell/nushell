@@ -9,7 +9,7 @@ use nu_protocol::{
 };
 use nu_test_support::prelude::*;
 use reedline::Suggestion;
-use std::{path::MAIN_SEPARATOR, sync::Arc};
+use std::path::MAIN_SEPARATOR;
 
 fn create_default_context() -> EngineState {
     let state = nu_cmd_lang::create_default_context();
@@ -326,18 +326,7 @@ pub fn merge_input(
     );
 
     // Update engine_state with deleted variables (mirrors util.rs behavior)
-    for var_id in &stack.deletions {
-        if engine_state.get_constant(*var_id).is_some() {
-            continue;
-        }
-        let scope = Arc::make_mut(&mut engine_state.scope);
-        if let Some(active_id) = scope.active_overlays.last()
-            && let Some((_, overlay)) = scope.overlays.get_mut((*active_id).get())
-        {
-            overlay.vars.retain(|_, v| *v != *var_id);
-        }
-    }
-    stack.deletions.clear();
+    engine_state.merge_deletions(stack);
 
     // Merge environment into the permanent state
     engine_state.merge_env(stack)

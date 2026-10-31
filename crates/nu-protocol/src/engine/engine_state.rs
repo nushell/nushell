@@ -20,11 +20,12 @@ use nu_config::NushellConfigDirs;
 use nu_path::AbsolutePathBuf;
 use nu_utils::time::Instant;
 use std::{
+    borrow::Cow,
     collections::{HashMap, HashSet},
     num::NonZeroUsize,
     path::PathBuf,
     sync::{
-        Arc, Mutex, MutexGuard, PoisonError,
+        Arc, Mutex, MutexGuard, OnceLock, PoisonError,
         atomic::{AtomicBool, AtomicU32, AtomicUsize, Ordering},
         mpsc::Sender,
         mpsc::channel,
@@ -419,10 +420,11 @@ impl EngineState {
             // starts over with an empty cache rather than a copy. Copying would clone every
             // signature and remembered output type, while later parses rebuild only the entries
             // they use.
-            if Arc::get_mut(&mut self.signature_cache).is_none() {
-                self.signature_cache = Arc::default();
-            }
             Arc::make_mut(&mut self.decls).extend(delta.decls);
+            match Arc::get_mut(&mut self.signature_cache) {
+                Some(cache) => cache.effective.resize_with(self.decls.len(), OnceLock::new),
+                None => self.signature_cache = Arc::new(SignatureCache::new(self.decls.len())),
+            }
         }
         if !delta.blocks.is_empty() {
             Arc::make_mut(&mut self.blocks).extend(delta.blocks);
@@ -475,18 +477,18 @@ impl EngineState {
             }
         }
 
-        let mut activated_ids = self.translate_overlay_ids(&first);
+        // Overlays the delta added are in `scope` now, so their ids can be looked up
+        let mut activated_ids = Self::translate_overlay_ids(scope, &first);
 
         let mut removed_ids = vec![];
 
         for name in &first.removed_overlays {
-            if let Some(overlay_id) = self.find_overlay(name) {
+            if let Some(overlay_id) = scope.find_overlay(name) {
                 removed_ids.push(overlay_id);
             }
         }
 
         // Remove overlays removed in delta
-        let scope = Arc::make_mut(&mut self.scope);
         scope.active_overlays.retain(|id| !removed_ids.contains(id));
 
         // Move overlays activated in the delta to be first
@@ -527,6 +529,24 @@ impl EngineState {
         }
 
         Ok(())
+    }
+
+    /// Remove the variables that `unlet` deleted at runtime (`stack.deletions`) from the active
+    /// overlay, so later source no longer sees them, and clear the list. `unlet` on a constant
+    /// already took effect while parsing, for the block it's in (see `parse_pipeline_element`), so
+    /// a constant unlet in a nested block stays for later source.
+    pub fn merge_deletions(&mut self, stack: &mut Stack) {
+        for var_id in stack.deletions.drain(..) {
+            if self.get_constant(var_id).is_some() {
+                continue;
+            }
+            let scope = Arc::make_mut(&mut self.scope);
+            if let Some(active_id) = scope.active_overlays.last()
+                && let Some((_, overlay)) = scope.overlays.get_mut(active_id.get())
+            {
+                overlay.vars.retain(|_, v| *v != var_id);
+            }
+        }
     }
 
     /// Merge the environment from the runtime Stack into the engine state
@@ -632,7 +652,8 @@ impl EngineState {
     }
 
     /// Translate overlay IDs from other to IDs in self
-    fn translate_overlay_ids(&self, other: &ScopeFrame) -> Vec<OverlayId> {
+    /// The ids in `scope` of the overlays active in `other`, matched by name.
+    fn translate_overlay_ids(scope: &ScopeFrame, other: &ScopeFrame) -> Vec<OverlayId> {
         let other_names = other.active_overlays.iter().map(|other_id| {
             &other
                 .overlays
@@ -643,7 +664,8 @@ impl EngineState {
 
         other_names
             .map(|other_name| {
-                self.find_overlay(other_name)
+                scope
+                    .find_overlay(other_name)
                     .expect("internal error: missing overlay")
             })
             .collect()
@@ -1114,12 +1136,29 @@ impl EngineState {
     /// cache (see `SignatureCache`), so a command called once per value doesn't rebuild its
     /// signature on every call.
     pub fn get_signature_shared(&self, decl_id: DeclId) -> Arc<Signature> {
-        let mut cache = SignatureCache::lock(&self.signature_cache.effective);
-        Arc::clone(
-            cache
-                .entry(decl_id)
-                .or_insert_with(|| Arc::new(self.get_signature(self.get_decl(decl_id)))),
-        )
+        match self.cached_signature(decl_id) {
+            Some(signature) => Arc::clone(signature),
+            None => Arc::new(self.get_signature(self.get_decl(decl_id))),
+        }
+    }
+
+    /// [`EngineState::get_signature`] for the declaration `decl_id`, borrowed from the signature
+    /// cache like [`EngineState::get_signature_shared`] shares it. Borrowing doesn't touch the
+    /// `Arc`'s reference count, which every thread calling the same command at once (`par-each`)
+    /// would otherwise update.
+    pub fn get_signature_cached(&self, decl_id: DeclId) -> Cow<'_, Signature> {
+        match self.cached_signature(decl_id) {
+            Some(signature) => Cow::Borrowed(signature),
+            None => Cow::Owned(self.get_signature(self.get_decl(decl_id))),
+        }
+    }
+
+    /// The signature cache's entry for `decl_id`, built the first time it's asked for. Every
+    /// declaration has an entry (see [`EngineState::merge_delta`]); `None` would mean one is
+    /// missing, and the callers build the signature instead.
+    fn cached_signature(&self, decl_id: DeclId) -> Option<&Arc<Signature>> {
+        let entry = self.signature_cache.effective.get(decl_id.get())?;
+        Some(entry.get_or_init(|| Arc::new(self.get_signature(self.get_decl(decl_id)))))
     }
 
     /// Get the signature of a command as a call by `name` in the current scope sees it.
@@ -1616,6 +1655,20 @@ mod engine_state_tests {
             &signature,
             &engine_state.get_signature_shared(decl_id)
         ));
+        assert!(matches!(
+            engine_state.get_signature_cached(decl_id),
+            Cow::Borrowed(cached) if std::ptr::eq(cached, &*signature)
+        ));
+
+        // A clone that adds a declaration gets a cache of its own, with an entry for each one.
+        let mut clone = engine_state.clone();
+        let mut working_set = StateWorkingSet::new(&clone);
+        let bar_id = working_set.add_decl(Signature::new("bar").predeclare());
+        let delta = working_set.render();
+        clone.merge_delta(delta).expect("merging a declaration");
+        for id in [decl_id, bar_id] {
+            assert!(matches!(clone.get_signature_cached(id), Cow::Borrowed(_)));
+        }
     }
 
     #[test]
