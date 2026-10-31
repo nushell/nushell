@@ -533,6 +533,17 @@ impl Eval for EvalConst {
         Err(ShellError::NotAConstant { span: expr_span })
     }
 
+    fn check_point_in_time(
+        _: &StateWorkingSet,
+        rhs: &Value,
+        expr_span: Span,
+    ) -> Result<(), ShellError> {
+        match rhs {
+            Value::Duration { .. } => Err(ShellError::NotAConstant { span: expr_span }),
+            _ => Ok(()),
+        }
+    }
+
     fn eval_assignment<D: DebugContext>(
         _: &StateWorkingSet,
         _: &mut (),

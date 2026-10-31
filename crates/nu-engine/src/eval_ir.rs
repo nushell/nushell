@@ -1521,6 +1521,8 @@ fn binary_op(
             Comparison::NotStartsWith => lhs_val.not_starts_with(op_span, &rhs_val, span)?,
             Comparison::EndsWith => lhs_val.ends_with(op_span, &rhs_val, span)?,
             Comparison::NotEndsWith => lhs_val.not_ends_with(op_span, &rhs_val, span)?,
+            Comparison::OlderThan => lhs_val.older_than(op_span, &rhs_val, span)?,
+            Comparison::NewerThan => lhs_val.newer_than(op_span, &rhs_val, span)?,
         },
         Operator::Math(mat) => match mat {
             Math::Add => lhs_val.add(op_span, &rhs_val, span)?,

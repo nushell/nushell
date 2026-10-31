@@ -297,6 +297,14 @@ pub trait Eval {
                             Comparison::NotStartsWith => lhs.not_starts_with(op_span, &rhs, expr_span),
                             Comparison::EndsWith => lhs.ends_with(op_span, &rhs, expr_span),
                             Comparison::NotEndsWith => lhs.not_ends_with(op_span, &rhs, expr_span),
+                            Comparison::OlderThan => {
+                                Self::check_point_in_time(state, &rhs, expr_span)?;
+                                lhs.older_than(op_span, &rhs, expr_span)
+                            }
+                            Comparison::NewerThan => {
+                                Self::check_point_in_time(state, &rhs, expr_span)?;
+                                lhs.newer_than(op_span, &rhs, expr_span)
+                            }
                             Comparison::RegexMatch => {
                                 Self::regex_match(state, op_span, &lhs, &rhs, false, expr_span)
                             }
@@ -404,6 +412,25 @@ pub trait Eval {
         invert: bool,
         expr_span: Span,
     ) -> Result<Value, ShellError>;
+
+    /// Checks that this evaluator can compare against `rhs` with `older-than` or `newer-than`.
+    ///
+    /// A duration on the right is counted back from the current time. Const evaluation runs
+    /// while the script is parsed, so it can't read the clock and refuses a duration.
+    ///
+    /// # Arguments
+    ///
+    /// * `rhs` - The evaluated right operand
+    /// * `expr_span` - Span of the whole comparison, used in errors
+    ///
+    /// # Errors
+    ///
+    /// Returns `ShellError::NotAConstant` when const evaluation meets a duration.
+    fn check_point_in_time(
+        state: Self::State<'_>,
+        rhs: &Value,
+        expr_span: Span,
+    ) -> Result<(), ShellError>;
 
     #[allow(clippy::too_many_arguments)]
     fn eval_assignment<D: DebugContext>(
