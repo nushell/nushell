@@ -3,4 +3,3 @@ error: expected definition body closure { ... }
   |
 1 | def a [] (echo 4)
   |          ^^^^^^^^
-  = while parsing def

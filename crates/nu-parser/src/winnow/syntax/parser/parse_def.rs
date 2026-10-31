@@ -694,7 +694,10 @@ pub fn parse_def<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> 
     let name = if lone_dash {
         Spanned::new(Cow::Borrowed("-"), name.span)
     } else {
-        reject_name_item(working_set, &name)?;
+        // A spread nu's call reads as no name, an error it goes on past.
+        if let Err(error) = reject_name_item(working_set, &name) {
+            return signature_error_call(statement, error);
+        }
         let name = match parse_def_name(working_set, &name) {
             Ok(parsed) => parsed,
             // `def cmd[] {}`: nu refuses the name before it reads the call, and so does the
@@ -747,7 +750,13 @@ pub fn parse_def<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> 
                 _ => call.help_call(),
             };
         }
-        Some(token) => parse_def_body(working_set, token, "definition body closure { ... }")?,
+        // nu's call reports a body that is no closure (`def a [] (echo 4)`) and goes on.
+        Some(token) => {
+            match parse_def_body(working_set, token, "definition body closure { ... }") {
+                Ok(body) => body,
+                Err(error) => return signature_error_call(statement, error),
+            }
+        }
         None => {
             call.missing();
             return call.help_call();
@@ -952,7 +961,10 @@ pub fn parse_extern<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a
     let name = if lone_dash {
         Spanned::new(Cow::Borrowed("-"), name.span)
     } else {
-        reject_name_item(working_set, &name)?;
+        // A spread nu's call reads as no name, an error it goes on past.
+        if let Err(error) = reject_name_item(working_set, &name) {
+            return signature_error_call(statement, error);
+        }
         let name = match parse_def_name(working_set, &name) {
             Ok(parsed) => parsed,
             // `def cmd[] {}`: nu refuses the name before it reads the call, and so does the

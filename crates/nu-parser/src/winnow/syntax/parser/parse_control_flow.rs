@@ -209,10 +209,19 @@ pub fn parse_match<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>
     // parameters a closure, and it accepts either; a variable or a
     // subexpression in that position is accepted as well.
     let (arms, value_block) = match tokens.text(&block).as_bytes().first() {
-        Some(b'{') => match parse_brace_record(working_set, block.span)? {
-            Some(value) => (Vec::new(), Some(Box::new(value))),
-            None => match brace_shape(working_set, block.span)? {
-                BraceShape::ClosureParams => (
+        // A brace item nu's value parser reads past an error in (`match 1 {}.a`) too.
+        Some(b'{') => match parse_brace_record(working_set, block.span) {
+            Err(ErrMode::Cut(ParseFailure::Error(diagnostic))) => {
+                garbage_match_block(working_set, &block, *diagnostic)
+            }
+            Err(error) => return Err(error),
+            Ok(Some(value)) => (Vec::new(), Some(Box::new(value))),
+            Ok(None) => match brace_shape(working_set, block.span) {
+                Err(ErrMode::Cut(ParseFailure::Error(diagnostic))) => {
+                    garbage_match_block(working_set, &block, *diagnostic)
+                }
+                Err(error) => return Err(error),
+                Ok(BraceShape::ClosureParams) => (
                     Vec::new(),
                     Some(Box::new(parse_value(
                         working_set,
@@ -220,7 +229,7 @@ pub fn parse_match<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>
                         ExpectedShape::Any,
                     )?)),
                 ),
-                _ => match parse_match_block_expression(working_set, block.span) {
+                Ok(_) => match parse_match_block_expression(working_set, block.span) {
                     Ok(arms) => (arms, None),
                     Err(ErrMode::Cut(ParseFailure::Error(diagnostic))) => {
                         garbage_match_block(working_set, &block, *diagnostic)

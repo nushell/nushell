@@ -4,4 +4,3 @@ error: unclosed delimiter: expected `}`
 2 | match 1 {}.a
   |             ^
   = note: opened at 2:9
-  = while parsing match

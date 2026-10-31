@@ -3,4 +3,3 @@ error: expected definition body closure { ... }
   |
 1 | def foo --help [] {} y
   |                      ^
-  = while parsing def

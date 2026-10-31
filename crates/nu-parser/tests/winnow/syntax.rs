@@ -2456,3 +2456,29 @@ fn value_with_a_bad_tail_is_a_garbage_leaf() {
         );
     }
 }
+
+/// A definition with a spread for its name or a body that is no closure, and a match whose
+/// block item does not read, nu reports and goes on past; the error is recorded as recovered.
+#[test]
+fn definition_and_match_item_errors_are_recovered() {
+    let config = ParseConfig::default();
+    for text in ["def a [] (echo 4)", "def a [] x", "def ...{x: 1} [] {}"] {
+        let (ast, diagnostics) = parse_lenient(text, &config);
+        kind!(expr(&ast), Expr::Call(_));
+        assert!(
+            !diagnostics.is_empty() && diagnostics.iter().all(|d| d.recovered),
+            "{text}: {diagnostics:?}"
+        );
+    }
+    let (ast, diagnostics) = parse_lenient("match 1 {}.a", &config);
+    let m = kind!(expr(&ast), Expr::Match(m) => m);
+    assert!(
+        m.value_block
+            .as_ref()
+            .is_some_and(|block| block.is_garbage())
+    );
+    assert!(
+        diagnostics.len() == 1 && diagnostics[0].recovered,
+        "{diagnostics:?}"
+    );
+}
