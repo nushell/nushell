@@ -234,11 +234,10 @@ fn error_message(error: &ParseError) -> String {
         .labels()
         .and_then(|mut labels| labels.find_map(|label| label.label().map(str::to_owned)))
         .filter(|label| !restates(label, headline));
-    let message = match label {
+    match label {
         Some(label) => format!("{headline}: {label}"),
         None => headline.to_string(),
-    };
-    one_line(&message)
+    }
 }
 
 /// Whether most of the words of `label` are already in `headline`.
@@ -279,21 +278,19 @@ fn output_type(block: &Block, pos: usize) -> Option<&Type> {
 /// Draws `segments`, cut to fit in `columns` with an ellipsis, so the status
 /// line stays on one row. Styles apply only with `use_ansi_coloring`, and
 /// escapes the text carries itself, as a preview of `ansi red` does, are
-/// dropped: the row draws its own styles only, and its width stays the
-/// width of what shows.
+/// dropped: the row draws its own styles only. Control characters show as
+/// [`shown_text`] writes them, so the width is the width of what shows.
 fn render(segments: &[(Style, String)], columns: u16, use_ansi_coloring: bool) -> String {
     if segments.is_empty() {
         return String::new();
     }
     let segments: Vec<_> = segments
         .iter()
-        .map(|(style, text)| (style, strip_ansi_unlikely(text)))
+        .map(|(style, text)| (style, shown_text(text)))
         .collect();
-    // One column short of the width: text filling the row exactly leaves the
-    // terminal's wrap pending.
-    let limit = usize::from(columns)
-        .saturating_sub(1)
-        .saturating_sub(INDENT.len());
+    // The full width: reedline moves the cursor after drawing the row, so text
+    // filling it exactly wraps onto nothing.
+    let limit = usize::from(columns).saturating_sub(INDENT.len());
     let total: usize = segments.iter().map(|(_, text)| text.width()).sum();
     let budget = if total > limit {
         limit.saturating_sub(1)
@@ -330,11 +327,30 @@ fn render(segments: &[(Style, String)], columns: u16, use_ansi_coloring: bool) -
     out
 }
 
-/// `text` with its line breaks and tabs shown as escapes.
+/// `text` as the status line shows it: ANSI escapes dropped, and the other
+/// control characters written the way a nushell string escapes them.
+fn shown_text(text: &str) -> String {
+    strip_ansi_unlikely(&one_line(text)).into_owned()
+}
+
+/// `text` on one row: line breaks and tabs shown as `\n` and `\t`, and every
+/// other control character but `ESC` as its `\u{..}` escape, as `\u{7f}` for
+/// DEL. reedline would draw these as `^?` or `M-^E`, wider than `render`
+/// measures them. `ESC` is left for [`strip_ansi_unlikely`], which drops it
+/// with the sequence it starts.
 fn one_line(text: &str) -> String {
-    text.replace('\r', "")
-        .replace('\n', "\\n")
-        .replace('\t', "\\t")
+    let mut out = String::with_capacity(text.len());
+    for c in text.chars() {
+        match c {
+            '\r' => {}
+            '\n' => out.push_str("\\n"),
+            '\t' => out.push_str("\\t"),
+            '\x1b' => out.push(c),
+            c if c.is_control() => out.extend(c.escape_unicode()),
+            c => out.push(c),
+        }
+    }
+    out
 }
 
 /// Evaluates lines built only from const commands, off the REPL thread, so a
@@ -446,9 +462,9 @@ impl ConstPreview {
 }
 
 /// The value of `block` as the status line shows it, or `None` when it
-/// isn't a constant or has nothing to show. Escapes in the value are
-/// dropped and its text is cut to [`PREVIEW_GRAPHEMES`], so a huge value
-/// costs a paint no more than one that fills the row.
+/// isn't a constant or has nothing to show. The text is [`shown_text`], cut
+/// to [`PREVIEW_GRAPHEMES`], so a huge value costs a paint no more than one
+/// that fills the row.
 fn evaluate_const_line(
     engine_state: &EngineState,
     block: &Block,
@@ -463,13 +479,11 @@ fn evaluate_const_line(
     if matches!(value, Value::Nothing { .. } | Value::Error { .. }) {
         return None;
     }
-    let text = value.to_expanded_string(", ", engine_state.get_config());
-    let text = strip_ansi_unlikely(&text);
-    let end = text
-        .grapheme_indices(true)
-        .nth(PREVIEW_GRAPHEMES)
-        .map_or(text.len(), |(index, _)| index);
-    Some(one_line(&text[..end]))
+    let mut text = shown_text(&value.to_expanded_string(", ", engine_state.get_config()));
+    if let Some((end, _)) = text.grapheme_indices(true).nth(PREVIEW_GRAPHEMES) {
+        text.truncate(end);
+    }
+    Some(text)
 }
 
 /// Whether every command in `block` is const, so it can be evaluated while
@@ -601,6 +615,7 @@ mod tests {
     #[rstest]
     #[case::const_commands(r#""a,b" | split row ",""#, "= [a, b]")]
     #[case::arithmetic("1 + 2", "= 3")]
+    #[case::control_characters(r#""a\t\u{85}b" | str trim"#, r"= a\t\u{85}b")]
     #[case::literal(r#""abc""#, "")]
     #[case::not_const("ls | length", "")]
     fn preview_of_a_const_line(#[case] line: &str, #[case] expected: &str) {
@@ -679,7 +694,8 @@ mod tests {
         let segments = vec![(Style::new(), "abcdefghij".to_string())];
 
         assert_eq!(render(&segments, 20, false), "  abcdefghij");
-        assert_eq!(render(&segments, 10, false), "  abcdef…");
+        assert_eq!(render(&segments, 12, false), "  abcdefghij");
+        assert_eq!(render(&segments, 10, false), "  abcdefg…");
     }
 
     #[test]
@@ -692,9 +708,18 @@ mod tests {
             render(&segments, 20, true),
             format!("  {}", style.paint("hot"))
         );
-        assert_eq!(render(&segments, 5, false), "  h…");
+        assert_eq!(render(&segments, 4, false), "  h…");
         // The escapes take no room: `hot` fills the row exactly.
-        assert_eq!(render(&segments, 6, false), "  hot");
+        assert_eq!(render(&segments, 5, false), "  hot");
+    }
+
+    #[test]
+    fn render_measures_control_characters_as_written() {
+        let segments = vec![(Style::new(), "a\u{7f}\u{85}\tb\r\n".to_string())];
+
+        // `a\u{7f}\u{85}\tb\n` fills 18 columns, so a row of 20 exactly.
+        assert_eq!(render(&segments, 20, false), r"  a\u{7f}\u{85}\tb\n");
+        assert_eq!(render(&segments, 19, false), r"  a\u{7f}\u{85}\tb…");
     }
 
     #[rstest]
