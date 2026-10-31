@@ -4,4 +4,3 @@ error: unclosed delimiter: expected `]`
 1 | def q [x: string, y: int]: {}
   |                           ^
   = note: opened at 1:7
-  = while parsing def

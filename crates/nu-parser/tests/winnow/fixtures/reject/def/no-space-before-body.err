@@ -4,4 +4,3 @@ error: unclosed delimiter: expected `]`
 1 | def foo []{}
   |             ^
   = note: opened at 1:9
-  = while parsing def

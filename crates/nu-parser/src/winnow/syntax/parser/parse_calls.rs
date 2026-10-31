@@ -5,6 +5,7 @@
 use std::borrow::Cow;
 
 use winnow::Parser;
+use winnow::error::ErrMode;
 
 use crate::winnow::syntax::ast::{
     Argument, Attribute, Call, CallHead, DynamicCall, Expr, Expression, ExternalArgument,
@@ -12,7 +13,7 @@ use crate::winnow::syntax::ast::{
     SyntaxShape,
 };
 use crate::winnow::syntax::error::{Diagnostic, ErrorKind};
-use crate::winnow::syntax::input::{ParseResult, cut};
+use crate::winnow::syntax::input::{ParseFailure, ParseResult, cut};
 use crate::winnow::syntax::lex::{Token, TokenContents};
 use crate::winnow::syntax::span::{Span, Spanned};
 
@@ -355,18 +356,51 @@ fn parse_call_arguments_with<'a>(
 /// One argument of a call. Without the command's signature a flag never
 /// takes the next item as its value; only `--name=value` has one.
 fn parse_call_argument<'a>(tokens: &mut Tokens<'_, 'a>) -> ParseResult<Argument<'a>> {
-    call_argument(tokens, false)
+    call_argument(tokens, false, false)
 }
 
 /// One argument of a call to a wrapped command.
 fn parse_wrapped_call_argument<'a>(tokens: &mut Tokens<'_, 'a>) -> ParseResult<Argument<'a>> {
-    call_argument(tokens, true)
+    call_argument(tokens, true, false)
+}
+
+/// A definition's statement (`def`, `extern`, `export def`, ...) read as nu's call to its
+/// keyword, when that call reports an error in the signature (`def q []: {}`, `def foo []{}`):
+/// as [`parse_call`] reads it, except that a positional argument that does not parse is a
+/// garbage leaf over its item. nu's call reads the signature with its own parser, from the
+/// items, and so does the consumer, from the leaf's span.
+pub(super) fn parse_definition_call<'a>(statement: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
+    let working_set = statement.working_set;
+    if let Some(span) = statement.span() {
+        working_set.remove_ignored_from(span.start);
+    }
+    let mut tokens = statement;
+    let first = tokens.expect_item("command")?;
+    let (head, _) = find_longest_decl(first, &mut tokens, "");
+    let arguments = repeat_to_end(|tokens: &mut Tokens<'_, 'a>| call_argument(tokens, false, true))
+        .parse_next(&mut tokens)?;
+    let span = first
+        .span
+        .merge(arguments.last().map_or(head.span, Argument::span));
+    let call = Call {
+        head,
+        arguments,
+        sigil: None,
+        wrapped: false,
+    };
+    check_call(working_set, &call, false)?;
+    Ok(Expression::new(Expr::Call(call), span))
 }
 
 /// [`parse_call_argument`], its values parsed as external arguments when
-/// `wrapped`.
+/// `wrapped`, and a positional that does not parse a garbage leaf over its item when
+/// `garbage` ([`parse_definition_call`]).
 #[inline(always)]
-fn call_argument<'a>(tokens: &mut Tokens<'_, 'a>, wrapped: bool) -> ParseResult<Argument<'a>> {
+fn call_argument<'a>(
+    tokens: &mut Tokens<'_, 'a>,
+    wrapped: bool,
+    garbage: bool,
+) -> ParseResult<Argument<'a>> {
     let token = expected("argument", item).parse_next(tokens)?;
     let working_set = tokens.working_set;
     let text = tokens.text(&token);
@@ -410,7 +444,12 @@ fn call_argument<'a>(tokens: &mut Tokens<'_, 'a>, wrapped: bool) -> ParseResult<
                 expr: parse_value(working_set, value_span, ExpectedShape::Any)?,
             }
         }
-        _ => Argument::Positional(parse_argument_value(working_set, span, wrapped)?),
+        _ => Argument::Positional(match parse_argument_value(working_set, span, wrapped) {
+            Err(ErrMode::Cut(ParseFailure::Error(_))) if garbage => {
+                Expression::new(Expr::Garbage, span)
+            }
+            value => value?,
+        }),
     })
 }
 

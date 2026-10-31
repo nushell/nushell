@@ -164,8 +164,10 @@ signature, a flag or `--` in a `def`'s body place) is that call (`reads_as_call`
 taken twice, a bad parameter name or type, a default of the wrong type): nu reads the
 signature as its call's argument, reports its errors and defines the command, so the
 error is recorded as recovered and the statement is the call
-(`signature_error_call`), unless the call does not parse either (`[]: int`, whose
-first item is no value), when the error stays the statement's. The loop also hands the help flags
+(`signature_error_call`). That call is read as any call (`parse_definition_call`),
+but for a positional that does not parse as a value (`[]: int`, `[]{}`): it is a
+garbage leaf over its item, since nu's call reads the signature with its own parser
+from the items, as the consumer does from the leaf's span. The loop also hands the help flags
 among them to the `KeywordCall` (`help_flag`), as nu takes `def --help --env f`.
 `DefinitionFlag::is_set` reads the flags as nu's `has_flag_const` does: the first
 of a repeated flag decides, a value other than `true` or `false` needs constant

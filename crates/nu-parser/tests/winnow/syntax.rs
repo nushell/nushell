@@ -2405,3 +2405,22 @@ fn export_of_nothing_is_the_call() {
         );
     }
 }
+
+/// A definition whose signature nu's call reports is that call, and a signature item that does
+/// not parse as a value is a garbage leaf over it, which the consumer reads by its span.
+#[test]
+fn definition_with_a_signature_error_is_the_call() {
+    for text in [
+        "def q []: {}",
+        "def foo []{}",
+        "def foo []: int { 3 }",
+        "extern q []: int",
+    ] {
+        let (ast, diagnostics) = parse_lenient(text, &ParseConfig::default());
+        kind!(expr(&ast), Expr::Call(_));
+        assert!(
+            !diagnostics.is_empty() && diagnostics.iter().all(|d| d.recovered),
+            "{text}: {diagnostics:?}"
+        );
+    }
+}

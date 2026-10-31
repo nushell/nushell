@@ -5,10 +5,16 @@ error: unexpected semicolon in list
   |             ^
   = help: use commas or whitespace to separate list items
 
+error: unexpected semicolon in list
+  --> reject/def/signature-error-call-fails.nu:1:13
+  |
+1 | def --env=[1; 2] f [a, a]: int {}
+  |             ^
+  = help: use commas or whitespace to separate list items
+
 error: `a` uses a name that is already taken
   --> reject/def/signature-error-call-fails.nu:1:24
   |
 1 | def --env=[1; 2] f [a, a]: int {}
   |                        ^
-  = while parsing def
   = help: it is first used at byte 20

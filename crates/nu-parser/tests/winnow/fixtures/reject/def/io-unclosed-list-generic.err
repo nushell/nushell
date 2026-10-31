@@ -4,4 +4,3 @@ error: unclosed delimiter: expected `>`
 1 | def q []: nothing -> list<string {[]}
   |                                 ^
   = note: opened at 1:26
-  = while parsing def

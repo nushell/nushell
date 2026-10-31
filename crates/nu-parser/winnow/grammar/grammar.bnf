@@ -1235,8 +1235,9 @@
 ; here: src/winnow/syntax/parser/parse_signatures.rs::parse_full_signature (the dropped item is ignored
 ;       text)
 ; A signature error is nu's call argument error: nu goes on to define the command, so the
-; statement is read as the call to def/extern, the error recorded as recovered
-; (here: parse_def.rs::signature_error_call)
+; statement is read as the call to def/extern, the error recorded as recovered, a
+; positional that does not parse as a value a garbage leaf the consumer reads by its span
+; (here: parse_def.rs::signature_error_call, parse_calls.rs::parse_definition_call)
 
 <def-body>        ::= <closure>
 ; def and export def both go through the `def` declaration (SyntaxShape::Closure):

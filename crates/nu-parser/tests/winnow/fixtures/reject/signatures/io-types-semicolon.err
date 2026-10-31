@@ -1,6 +1,12 @@
+error: unexpected semicolon in list
+  --> reject/signatures/io-types-semicolon.nu:1:16
+  |
+1 | def q []: [int ; -> int] {}
+  |                ^
+  = help: use commas or whitespace to separate list items
+
 error: expected arrow (->)
   --> reject/signatures/io-types-semicolon.nu:1:16
   |
 1 | def q []: [int ; -> int] {}
   |                ^
-  = while parsing def

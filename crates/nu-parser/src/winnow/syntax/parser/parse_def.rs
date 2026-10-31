@@ -17,7 +17,7 @@ use crate::winnow::syntax::span::{Span, Spanned};
 
 use super::WorkingSet;
 use super::lite_parser::{AfterPipe, after_pipe_lines, pipe_on_later_line};
-use super::parse_calls::{parse_flag_value, split_long_flag};
+use super::parse_calls::{parse_definition_call, parse_flag_value, split_long_flag};
 use super::parse_expressions::{
     BraceShape, ExpectedShape, brace_shape, parse_block_body_unchecked, parse_closure_parts,
     parse_value,
@@ -778,7 +778,7 @@ fn signature_error_call<'a>(
     statement: Tokens<'_, 'a>,
     error: ErrMode<ParseFailure>,
 ) -> ParseResult<Expression<'a>> {
-    call_after_error(statement, error, parse_help_call)
+    call_after_error(statement, error, parse_definition_call)
 }
 
 /// The body of a `def`: nu parses it as a closure without looking at its
