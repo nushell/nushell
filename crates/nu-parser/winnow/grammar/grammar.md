@@ -938,6 +938,10 @@ signature driven (`; nu: parse_literals.rs:1246 parse_path_like`; `; here: consu
                     | "$." <cell-path-literal-body>      ; cell-path literal; "$." alone is the empty path
                     | <range>                            ; if range-shaped (5.10)
                     | <full-cell-path>                   ; otherwise (5.11)
+; A bare `$`, a name that is no variable name (`$foo-bar`), a modifier on the head
+; (`$x?`) or a member that may not follow (`$x.a??`) nu reports with garbage and goes on
+; past: the parser records the error as recovered and the value is a garbage leaf over
+; the item, which the consumer reads again with nu's value parser.
 ; nu: parse_literals.rs:415 parse_dollar_expr
 ; here: src/winnow/syntax/parser/parse_literals.rs::parse_dollar_expr
 ```

@@ -2255,3 +2255,23 @@ fn try_handler_error_is_the_call() {
         );
     }
 }
+
+/// A `$` item nu reads past an error in (a bare `$`, a name that is no variable name, a
+/// modifier on the head, a member that may not follow) is a garbage leaf, its error recorded as
+/// recovered, wherever a value goes.
+#[test]
+fn dollar_item_error_is_a_garbage_leaf() {
+    for item in ["$", "$foo-bar", "$x?", "$x.a??", "$x.-1"] {
+        let text = format!("echo {item}");
+        let (ast, diagnostics) = parse_lenient(&text, &ParseConfig::with_commands(["echo"]));
+        let call = kind!(expr(&ast), Expr::Call(c) => c);
+        let Some(Argument::Positional(value)) = call.arguments.first() else {
+            panic!("{text}: {:?}", call.arguments)
+        };
+        assert!(value.is_garbage(), "{text}: {value:?}");
+        assert!(
+            diagnostics.len() == 1 && diagnostics[0].recovered,
+            "{text}: {diagnostics:?}"
+        );
+    }
+}

@@ -2966,12 +2966,12 @@ fn overlay_alias_in_a_nested_block_is_lowered(#[case] code: &str) -> Result {
 /// which the classic lite parser finds on the next line (one pipeline), or a `|` no command
 /// follows, before a blank line or before another `|`, which goes on to the next statement.
 #[rstest]
-#[case::pipe_starting_the_next_line("ls $x.-1\n| length\n1 + 1", 1, 2)]
-#[case::pipe_ending_the_line("ls $x.-1 |\nlength\n2 + 2", 1, 2)]
-#[case::semicolon("ls $x.-1; 1 + 1", 1, 2)]
+#[case::pipe_starting_the_next_line("ls [x]y\n| length\n1 + 1", 1, 2)]
+#[case::pipe_ending_the_line("ls [x]y |\nlength\n2 + 2", 1, 2)]
+#[case::semicolon("ls [x]y; 1 + 1", 1, 2)]
 #[case::end_unknown("ls o>\n1 + 1", 0, 1)]
-#[case::pipe_before_a_blank_line("ls $x.-1 |\n\n1 + 1", 0, 2)]
-#[case::pipe_after_a_pipe("ls $x.-1 | |\n1 + 1", 0, 1)]
+#[case::pipe_before_a_blank_line("ls [x]y |\n\n1 + 1", 0, 2)]
+#[case::pipe_after_a_pipe("ls [x]y | |\n1 + 1", 0, 1)]
 #[nu_test_support::test]
 #[serial]
 #[exp(nu_experimental::WINNOW_PARSER)]
@@ -3092,7 +3092,7 @@ fn def_after_an_open_redirection_declares_nothing() -> Result {
 /// predeclaration.)
 #[rstest]
 #[case::alias("alias f = ls []]* # doc\nf")]
-#[case::command("def f [] { ls $x.-1 } # doc\nf")]
+#[case::command("def f [] { ls [x]y } # doc\nf")]
 #[nu_test_support::test]
 #[serial]
 #[exp(nu_experimental::WINNOW_PARSER)]

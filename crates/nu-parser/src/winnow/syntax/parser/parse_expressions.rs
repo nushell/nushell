@@ -767,7 +767,7 @@ pub fn parse_value<'a>(
     }
     match text.as_bytes() {
         [] => Err(cut(Diagnostic::expected("value", span))),
-        [b'$', ..] => parse_dollar_expr(working_set, span),
+        [b'$', ..] => recover_literal(working_set, span, parse_dollar_expr(working_set, span)),
         [b'(', ..] => parse_paren_expr(working_set, span),
         [b'{', ..] => parse_brace_expr(working_set, span, shape),
         // `parse_string` on `[a b]`: the text is a bare word.
@@ -809,10 +809,11 @@ fn recover_as_garbage<T>(
 }
 
 /// A value read with any shape whose literal its leaf parser refused (`0b2`, `2023-02-30`,
-/// `"\q"`, `8EiB`, `0x[zz]`), or with an error its parser marked recovered (a cell path's
-/// member, `$x.a??`): a garbage leaf over the item, its error recorded as recovered. nu's
-/// parser refuses the same item and reports it with garbage of its own, which the consumer
-/// gets by reading the item again with it. Any other failure stays the statement's.
+/// `"\q"`, `8EiB`, `0x[zz]`), or a `$` item with an error its parser marked recovered or a
+/// literal one (a bare `$`, `$foo-bar`, a cell path's member, `$x.a??`, `$x.-1`): a garbage
+/// leaf over the item, its error recorded as recovered. nu's parser refuses the same item and
+/// reports it with garbage of its own, which the consumer gets by reading the item again with
+/// it. Any other failure stays the statement's.
 fn recover_literal<'a>(
     working_set: &WorkingSet<'a>,
     span: Span,

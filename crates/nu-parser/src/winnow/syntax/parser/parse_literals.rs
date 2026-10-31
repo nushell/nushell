@@ -970,7 +970,9 @@ fn parse_interpolation_parts<'a>(
     Ok(parts)
 }
 
-/// `$name` (nu's `parse_variable_expr`).
+/// `$name` (nu's `parse_variable_expr`). nu reports a bare `$` or a name that is no variable
+/// name with garbage and goes on, so the error is recorded as recovered: the value is a garbage
+/// leaf ([`super::parse_expressions::parse_value`]), which the consumer reads again with nu.
 fn parse_variable_expr<'a>(
     working_set: &WorkingSet<'a>,
     span: Span,
@@ -979,7 +981,8 @@ fn parse_variable_expr<'a>(
     let name = text.strip_prefix('$').unwrap_or(text);
     if !is_identifier(name) {
         return Err(cut(Diagnostic::expected("valid variable name", span)
-            .with_help("variable names may not contain `.[({+-*^%/=!<>&|`")));
+            .with_help("variable names may not contain `.[({+-*^%/=!<>&|`")
+            .as_recovered()));
     }
     Ok(Expression::new(Expr::Var(Var { name }), span))
 }
@@ -1120,9 +1123,10 @@ fn parse_cell_path<'a>(
             },
         )
         .parse_next(tokens)?;
-    // Only a head's tail can get here with tokens left: `$x?`.
+    // Only a head's tail can get here with tokens left: `$x?`, which nu reports and goes on
+    // past, as for a member's (`expected_after_path_member`).
     match tokens.peek_token() {
-        Some(token) => Err(cut(Diagnostic::expected("`.`", token.span))),
+        Some(token) => Err(cut(Diagnostic::expected("`.`", token.span).as_recovered())),
         None => Ok(members),
     }
 }

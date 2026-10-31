@@ -212,7 +212,9 @@ scanner: `(` opens a subexpression in which quotes and parentheses nest,
 `$.` → a `CellPath` literal (`$.` alone is the empty path); a text with the
 shape of a range (`is_range_syntax`) → range; otherwise
 `parse_full_cell_path`. A `$name` head is read by `parse_variable_expr`,
-which checks the name with `is_identifier`.
+which checks the name with `is_identifier`: nu reports a bare `$` or a name
+that is no variable name (`$foo-bar`) with garbage and goes on, so the error
+is recorded as recovered.
 
 `parse_full_cell_path` re-lexes the item with `CELL_PATH` (`lex_cell_path`:
 `.`, `?` and `!` become items of their own) and parses the head token:
@@ -237,9 +239,10 @@ a `.` or the end may follow; `expected_after_path_member` builds the message
 from the modifiers the member already has (`$x.a??` is "expected `.` or
 `!`"). A token left over after a head, as in `$x?`, is "expected `.`". nu
 reports such a tail, and a member with `(` in it (`$x.a(b)`), and goes on
-with the cell path, so those errors are recorded as recovered: read with
-any shape the item is a garbage leaf (`recover_literal`), which the
-consumer reads again with nu's parser.
+with the cell path, so those errors are recorded as recovered: `parse_value`
+makes a `$` item with such an error, or a negative index, a garbage leaf
+(`recover_literal`), whatever the shape, which the consumer reads again with
+nu's parser.
 
 A lone `$x` with no members is returned as a plain `Var`, not wrapped. With
 `implicit = true`, `parse_full_cell_path` produces the `$it` paths of row
