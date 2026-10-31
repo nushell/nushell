@@ -1414,6 +1414,11 @@ impl<'s> Lower<'_, '_, 's> {
             Some(b'$' | b'(' | b'{') => self.value(value, &SyntaxShape::Any, None),
             Some(b'[') => match &value.expr {
                 w::Expr::List(items) => self.list(value.span, items, &SyntaxShape::Any),
+                // An unclosed list (`[a].x`), which nu's list parser reports with garbage.
+                w::Expr::Garbage => {
+                    let span = self.span(value.span);
+                    Ok(parse_regular_external_arg(self.working_set, span))
+                }
                 _ => Err(Unlowered::Unsupported("external list argument")),
             },
             _ => {

@@ -13,7 +13,7 @@ use crate::winnow::syntax::ast::{
     SyntaxShape,
 };
 use crate::winnow::syntax::error::{Diagnostic, ErrorKind};
-use crate::winnow::syntax::input::{ParseFailure, ParseResult, cut};
+use crate::winnow::syntax::input::{ParseFailure, ParseResult};
 use crate::winnow::syntax::lex::{Token, TokenContents};
 use crate::winnow::syntax::span::{Span, Spanned};
 
@@ -546,10 +546,9 @@ fn parse_external_call_argument<'a>(
     }
     let dots = Span::new(token.span.start, token.span.start + 3);
     let value_span = Span::new(token.span.start + 3, token.span.end);
-    check_external_list_argument(working_set, value_span)?;
     Ok(ExternalArgument::Spread {
         dots,
-        expr: parse_value(working_set, value_span, ExpectedShape::Any)?,
+        expr: parse_external_list_argument(working_set, value_span)?,
     })
 }
 
@@ -558,27 +557,31 @@ fn parse_external_call_argument<'a>(
 /// string.
 fn parse_external_arg<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResult<Expression<'a>> {
     match working_set.get_span_contents(span).as_bytes()[0] {
-        b'[' => {
-            check_external_list_argument(working_set, span)?;
-            parse_value(working_set, span, ExpectedShape::Any)
-        }
+        b'[' => parse_external_list_argument(working_set, span),
         b'$' | b'(' | b'{' => parse_value(working_set, span, ExpectedShape::Any),
         _ => parse_external_string(working_set, span),
     }
 }
 
-/// A `[`-argument of an external command is handed to nu's list parser as
-/// it is, which needs the item to END with `]`: `^cmd [a].x` and
+/// A `[`-argument of an external command (or the list of its spread), which is handed to nu's
+/// list parser as it is, which needs the item to END with `]`: `^cmd [a].x` and
 /// `^cmd ...[a].x` are "unclosed delimiter", while `[a]` and `(ls).name`
-/// parse (`parse_regular_external_arg`, `parse_list_expression`).
-fn check_external_list_argument(working_set: &WorkingSet<'_>, span: Span) -> ParseResult<()> {
+/// parse (`parse_regular_external_arg`, `parse_list_expression`). nu reports the unclosed
+/// list and goes on with garbage, so the error is recorded as recovered and the argument is a
+/// garbage leaf, which the consumer reads again with nu's parser.
+fn parse_external_list_argument<'a>(
+    working_set: &WorkingSet<'a>,
+    span: Span,
+) -> ParseResult<Expression<'a>> {
     let text = working_set.get_span_contents(span);
     if text.starts_with('[') && !text.ends_with(']') {
         let open = Span::new(span.start, span.start + 1);
-        return Err(cut(Diagnostic::new(ErrorKind::Unclosed { delimiter: "]", open }, span.past())
-            .with_help("an external command's list argument must end with `]`; a cell path after it is not allowed")));
+        working_set.error(Diagnostic::new(ErrorKind::Unclosed { delimiter: "]", open }, span.past())
+            .with_help("an external command's list argument must end with `]`; a cell path after it is not allowed")
+            .as_recovered());
+        return Ok(Expression::new(Expr::Garbage, span));
     }
-    Ok(())
+    parse_value(working_set, span, ExpectedShape::Any)
 }
 
 /// The kind of segment [`parse_external_string`] is inside.

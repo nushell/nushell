@@ -2482,3 +2482,19 @@ fn definition_and_match_item_errors_are_recovered() {
         "{diagnostics:?}"
     );
 }
+
+/// An external command's list argument that does not end with `]` nu reports and goes on past:
+/// the argument is a garbage leaf, its error recorded as recovered.
+#[test]
+fn unclosed_external_list_argument_is_garbage() {
+    let (ast, diagnostics) = parse_lenient("^cmd [a].x", &ParseConfig::default());
+    let call = kind!(expr(&ast), Expr::ExternalCall(c) => c);
+    let Some(ExternalArgument::Regular(value)) = call.arguments.first() else {
+        panic!("{:?}", call.arguments)
+    };
+    assert!(value.is_garbage());
+    assert!(
+        diagnostics.len() == 1 && diagnostics[0].recovered,
+        "{diagnostics:?}"
+    );
+}

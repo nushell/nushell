@@ -595,7 +595,8 @@ Precedence (nu-protocol `ast/operator.rs:256`; higher binds tighter):
 ; a "[" argument goes to parse_list_expression alone, which needs the item to END
 ; with "]": `^cmd [a].x`, `^cmd [a].0`, `^cmd ...[a].x` are Unclosed("]"), while
 ; `^cmd (ls).name` and `^cmd {a: 1}.a` parse. The same holds after an <unknown-head>
-; (`se [a].0`).
+; (`se [a].0`). nu goes on past the error with garbage: recorded as recovered, the
+; argument a garbage leaf.
 ; nu: parse_calls.rs:375 parse_external_call, 347 parse_external_arg, 362;
 ;     parse_expressions.rs:115 parse_list_expression
 ; here: src/winnow/syntax/parser/parse_calls.rs::parse_external_call, parse_external_arg,

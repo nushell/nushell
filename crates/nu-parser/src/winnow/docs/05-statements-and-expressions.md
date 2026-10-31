@@ -540,9 +540,11 @@ as its arguments, the error reported at that head.
 `repeat_to_end(parse_external_call_argument)`: `...$x`, `...[..]` and
 `...(..)` are spreads, `$..`/`(..)`/`[..]`/`{..}` are parsed as values, and
 everything else is an **external string**. A `[..]` argument must end with
-`]` (`check_external_list_argument`): nu hands it to its list parser alone,
+`]` (`parse_external_list_argument`): nu hands it to its list parser alone,
 so `^cmd [a].x` and `^cmd ...[a].x` are "unclosed delimiter" while
-`^cmd (ls).name` parses. A bare head that resolves to no command is an
+`^cmd (ls).name` parses. nu goes on past the unclosed list with garbage, so the
+error is recorded as recovered and the argument is a garbage leaf, which the
+consumer reads with nu's `parse_regular_external_arg`. A bare head that resolves to no command is an
 external command for nu too: with a command table configured,
 `parse_call_lenient` hands it to `parse_external_arguments` like `^cmd`
 (with `ExternalCall::caret` `None`), so `git log 0b2d1f4..HEAD` has three
