@@ -241,6 +241,48 @@ fn get_output_type_custom_unioned_with_nothing_is_still_string() {
     assert_eq!(sig.get_output_type(Some(&input)), Some(Type::String));
 }
 
+/// The IO pairs of the real `update` command: record, table, `list<any>`, and `matrix`.
+fn update_like_signature() -> Signature {
+    Signature::new("update").input_output_types(vec![
+        (Type::record(), Type::record()),
+        (Type::table(), Type::table()),
+        (Type::list(Type::Any), Type::list(Type::Any)),
+        (Type::custom("matrix"), Type::custom("matrix")),
+    ])
+}
+
+#[test]
+fn get_output_type_chained_union_keeps_list_pair() {
+    // `def f [] { [1 2] }; f | update 0 null | update 1 null`: the first `update` sees `any`
+    // and returns the union of every output. The second `update` gets that union as input
+    // and used to drop the `list<any>` pair, so `let` rejected the list at runtime (#19378).
+    let sig = update_like_signature();
+    let all_outputs = Type::one_of([
+        Type::record(),
+        Type::table(),
+        Type::list(Type::Any),
+        Type::custom("matrix"),
+    ]);
+
+    let first = sig.get_output_type(Some(&Type::Any)).unwrap();
+    assert_eq!(first, all_outputs);
+    assert_eq!(sig.get_output_type(Some(&first)), Some(all_outputs));
+}
+
+#[test]
+fn get_output_type_list_unioned_with_custom_keeps_list_pair() {
+    let sig = update_like_signature();
+    let input = Type::one_of([Type::list(Type::Int), Type::custom("matrix")]);
+
+    assert_eq!(
+        sig.get_output_type(Some(&input)),
+        Some(Type::one_of([
+            Type::list(Type::Any),
+            Type::custom("matrix")
+        ]))
+    );
+}
+
 #[test]
 fn get_output_type_returns_none_when_no_pair_matches() {
     let sig = Signature::new("only-int").input_output_types(vec![(Type::Int, Type::String)]);

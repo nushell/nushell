@@ -39,7 +39,6 @@ pub struct IrBlock {
     pub spans: Vec<Span>,
     #[serde(with = "serde_arc_u8_array")]
     pub data: Arc<[u8]>,
-    pub ast: Vec<Option<IrAstRef>>,
     /// Additional information that can be added to help with debugging
     pub comments: Vec<Box<str>>,
     pub register_count: u32,
@@ -52,7 +51,6 @@ pub struct IrBlock {
 
 impl fmt::Debug for IrBlock {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // the ast field is too verbose and doesn't add much
         f.debug_struct("IrBlock")
             .field("instructions", &self.instructions)
             .field("spans", &self.spans)
@@ -61,7 +59,7 @@ impl fmt::Debug for IrBlock {
             .field("register_count", &self.register_count)
             .field("file_count", &self.file_count)
             .field("scope_regions", &self.scope_regions.len())
-            .finish_non_exhaustive()
+            .finish()
     }
 }
 
@@ -99,29 +97,6 @@ impl std::ops::Index<DataSlice> for [u8] {
     }
 }
 
-/// A possible reference into the abstract syntax tree for an instruction. This is not present for
-/// most instructions and is just added when needed.
-#[derive(Debug, Clone)]
-pub struct IrAstRef(pub Arc<Expression>);
-
-impl Serialize for IrAstRef {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        self.0.as_ref().serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for IrAstRef {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        Expression::deserialize(deserializer).map(|expr| IrAstRef(Arc::new(expr)))
-    }
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Instruction {
     /// Unreachable code path (error)
@@ -133,6 +108,10 @@ pub enum Instruction {
     /// Move a register. Value is taken from `src` (used by this instruction).
     Move { dst: RegId, src: RegId },
     /// Copy a register (must be a collected value). Value is still in `src` after this instruction.
+    ///
+    /// The one exception is an external whose stderr has its own pipe, which `try` passes on
+    /// uncollected (see `TryCollect`): `dst` gets the value its stdout collects to, and `src`
+    /// keeps the external.
     Clone { dst: RegId, src: RegId },
     /// Collect a stream in a register to a value.
     /// Because it collects to a value, nushell will ignore the errors in the stream.
@@ -141,6 +120,9 @@ pub enum Instruction {
     /// Collect a stream in a register to a value.
     /// But it's different from `Collect` in that if there is an error in the stream, it will be
     /// returned as an error instead of being ignored.
+    ///
+    /// An external whose stderr has its own pipe stays a stream, so the next command still gets
+    /// stdout and stderr apart. Its output is read into memory and its exit status checked.
     TryCollect { src_dst: RegId },
     /// Change the span of the contents of a register to the span of this instruction.
     Span { src_dst: RegId },
@@ -212,6 +194,10 @@ pub enum Instruction {
     },
     /// Write data from the register to a file. This is done to finish a file redirection, in case
     /// an internal command or expression was evaluated rather than an external one.
+    ///
+    /// The register is left empty, except for an external whose stderr has its own pipe (the next
+    /// command reads stdout and stderr apart): only its stdout is written, and the register keeps
+    /// the external, so the next command still gets its stderr.
     WriteFile { file_num: u32, src: RegId },
     /// Pop a file used for redirection from the file stack.
     CloseFile { file_num: u32 },

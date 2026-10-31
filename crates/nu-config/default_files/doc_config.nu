@@ -1371,7 +1371,7 @@ $env.config.explore.try.reactive = false
 # `$env.config.tui` styles the `tui` command family (`tui table`, `tui split`, `tui run`, ...).
 # It is read by `Theme::from_config` in `crates/nu-tui/src/theme.rs`. Every key except
 # `border_type` is a color value in the same forms as `color_config`: a color name, `#RRGGBB`,
-# or `{ fg?, bg?, attr? }`.
+# or `{ fg?, bg?, attr? }`. In any slot, `default` is the terminal's own color.
 # When `use_ansi_coloring` is off the TUI draws without colors.
 
 # tui.title_bar (color): The one-line title bar from `tui label --titlebar`.
@@ -1430,10 +1430,13 @@ $env.config.tui.progress = { fg: green }
 $env.config.tui.button = { fg: white, bg: blue }
 
 # tui.surface / tui.backdrop (color): Background fill behind widgets, and behind a `--dialog`.
-# Only the `bg` of the value is used.
-# Defaults: unset (a near-black fill)
-# $env.config.tui.surface = { bg: "#121216" }
-# $env.config.tui.backdrop = { bg: "#08080c" }
+# Only the fill color is used: a record's `bg`, or a bare color such as "#121216".
+# `default` is the terminal's own background, which keeps text readable on light and dark
+# terminals. A color gives an opaque fill, for example near-black `{ bg: "#121216" }` and
+# `{ bg: "#08080c" }`. Plain text keeps the terminal's foreground, so pick a fill it reads on.
+# Defaults: { bg: default } / { bg: default }
+$env.config.tui.surface = { bg: default }
+$env.config.tui.backdrop = { bg: default }
 
 # ---------------------------------------------------------------------------------------
 # Environment Variables

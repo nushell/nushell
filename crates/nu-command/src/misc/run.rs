@@ -468,13 +468,11 @@ fn ast_run_arguments(
                     engine::Argument::Positional {
                         span,
                         val: eval_expression(engine_state, stack, expr)?,
-                        ast: None,
                     }
                 }
                 ast::Argument::Spread(expr) => engine::Argument::Spread {
                     span,
                     vals: eval_expression(engine_state, stack, expr)?,
-                    ast: None,
                 },
                 ast::Argument::Named((long, short, expr)) => {
                     let short = short.as_ref().map_or("", |short| short.item.as_str());
@@ -486,7 +484,6 @@ fn ast_run_arguments(
                             short,
                             span,
                             val: eval_expression(engine_state, stack, expr)?,
-                            ast: None,
                         },
                         None => engine::Argument::Flag {
                             data,

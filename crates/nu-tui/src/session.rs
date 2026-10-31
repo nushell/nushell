@@ -2196,6 +2196,36 @@ mod tests {
     }
 
     #[test]
+    fn dialog_text_draws_on_surface_with_terminal_foreground() {
+        use ratatui::{Terminal, backend::TestBackend, style::Color};
+        let mut session = Session::new(table_app());
+        session.theme.surface = Color::Rgb(1, 2, 3);
+        session.theme.backdrop = Color::Rgb(4, 5, 6);
+        session.enable_dialog(frame(), Some(40), Some(10));
+        let mut terminal = Terminal::new(TestBackend::new(80, 24)).expect("terminal");
+        terminal
+            .draw(|f| crate::render::render(f, &mut session))
+            .expect("draw");
+        let buffer = terminal.backend().buffer();
+        let area = buffer.area;
+        // `beta` is an unselected row: plain text over the surface.
+        let (x, y) = (area.top()..area.bottom())
+            .flat_map(|y| (area.left()..area.right()).map(move |x| (x, y)))
+            .find(|&(x, y)| {
+                (x..x + 4)
+                    .filter_map(|x| buffer.cell((x, y)))
+                    .map(|c| c.symbol())
+                    .collect::<String>()
+                    == "beta"
+            })
+            .expect("beta drawn");
+        let cell = buffer.cell((x, y)).expect("cell");
+        assert_eq!(cell.bg, Color::Rgb(1, 2, 3));
+        assert_eq!(cell.fg, Color::Reset, "not the backdrop's muted fg");
+        assert_eq!(buffer.cell((0, 0)).map(|c| c.bg), Some(Color::Rgb(4, 5, 6)));
+    }
+
+    #[test]
     fn dialog_title_drag_moves_and_corner_drag_resizes() {
         let mut session = Session::new(table_app());
         session.enable_dialog(frame(), Some(40), Some(10));
