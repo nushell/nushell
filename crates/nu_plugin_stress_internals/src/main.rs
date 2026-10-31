@@ -10,6 +10,10 @@ use interprocess::local_socket::{
 use serde::Deserialize;
 use serde_json::{Value, json};
 
+/// Must match `PLUGIN_PROTOCOL_VERSION` in `nu-plugin-protocol`. This plugin writes the raw
+/// protocol on purpose, so it does not depend on that crate.
+const PLUGIN_PROTOCOL_VERSION: &str = "0.1.0";
+
 #[derive(Debug)]
 struct Options {
     refuse_local_socket: bool,
@@ -94,7 +98,7 @@ pub fn main() -> Result<(), Box<dyn Error>> {
                 "version": if opts.wrong_version {
                     "0.0.0"
                 } else {
-                    env!("CARGO_PKG_VERSION")
+                    PLUGIN_PROTOCOL_VERSION
                 },
                 "features": if opts.advertise_local_socket {
                     vec![json!({"name": "LocalSocket"})]
