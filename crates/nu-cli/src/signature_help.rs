@@ -10,6 +10,7 @@ use std::{fmt, ops::ControlFlow};
 
 /// The innermost internal call around a position.
 pub struct ActiveCall<'a> {
+    /// The call, as parsed.
     pub call: &'a Call,
     /// The position is on the command's name rather than its arguments.
     pub in_head: bool,

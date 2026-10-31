@@ -11,12 +11,13 @@ use miette::Diagnostic;
 use nu_ansi_term::{Color, Style};
 use nu_protocol::{
     ParseError, PipelineData, Signals, Span, StatusLineConfig, Type, Value,
-    ast::{Block, Expr, Traverse},
+    ast::{Block, Expr, Expression, Traverse},
     engine::{EngineState, StateDelta, StateWorkingSet},
     eval_const::eval_const_subexpression,
 };
 use nu_utils::strip_ansi_unlikely;
 use std::{
+    ops::ControlFlow,
     sync::{
         Arc,
         atomic::{AtomicBool, Ordering},
@@ -92,6 +93,11 @@ impl NuStatusLine {
 
     /// The parts of the status for `line` with the cursor at byte `pos`.
     fn segments(&mut self, line: &str, pos: usize) -> Vec<(Style, String)> {
+        // reedline keeps `pos` on a char boundary of `line`; a host that
+        // doesn't gets no status rather than a panic.
+        let Some(before_cursor) = line.get(..pos) else {
+            return vec![];
+        };
         if line.trim().is_empty() {
             return vec![];
         }
@@ -100,7 +106,7 @@ impl NuStatusLine {
         let cursor = offset + pos;
         // Where the text typed before the cursor ends, so a cursor resting
         // after a space still belongs to the call or element before it.
-        let typed = line[..pos].trim_end().len();
+        let typed = before_cursor.trim_end().len();
         // A `use` the parse didn't load leaves what it imports unknown, which
         // reads as errors the line doesn't have and changes what it computes.
         let imports_known = !parsed.skipped_module_load;
@@ -120,7 +126,7 @@ impl NuStatusLine {
                 segments.extend(self.signature(&parsed.block, &working_set, search, cursor));
             }
             if self.config.output_type
-                && let Some(ty) = output_type(&parsed.block, search)
+                && let Some(ty) = output_type(&parsed.block, &working_set, search)
             {
                 push_part(&mut segments, self.styles.text, format!("→ {ty}"));
             }
@@ -257,9 +263,14 @@ fn restates(label: &str, headline: &str) -> bool {
     label.is_empty() || shared * 4 >= label.len() * 3
 }
 
-/// The type of the pipeline element at `pos` (or the last one before it), if
-/// the parser knows more than `any`.
-fn output_type(block: &Block, pos: usize) -> Option<&Type> {
+/// The type of the pipeline element at `pos` (or the last one before it) in
+/// the innermost closure, block or subexpression around `pos`, if the parser
+/// knows more than `any`.
+fn output_type<'a>(
+    block: &'a Block,
+    working_set: &'a StateWorkingSet,
+    pos: usize,
+) -> Option<&'a Type> {
     let starts_before = |span: Span| span.start <= pos;
     let pipeline = block.pipelines.iter().rev().find(|pipeline| {
         pipeline
@@ -272,7 +283,47 @@ fn output_type(block: &Block, pos: usize) -> Option<&Type> {
         .iter()
         .rev()
         .find(|element| starts_before(element.expr.span))?;
-    Some(&element.expr.ty).filter(|ty| !matches!(ty, Type::Any | Type::Nothing))
+    match element
+        .expr
+        .find_map(working_set, &|expr| block_around(expr, working_set, pos))
+    {
+        Some(inner) => output_type(inner, working_set, pos),
+        None => Some(&element.expr.ty).filter(|ty| !matches!(ty, Type::Any | Type::Nothing)),
+    }
+}
+
+/// For [`Traverse::find_map`]: the block `expr` is, a closure, block or
+/// subexpression, when `pos` is inside it. On its brackets `pos` is outside,
+/// as it is for [`find_active_call`], so a cursor after the `}` of
+/// `update name {|r| $r.name | str upcase }` shows the type of `update`.
+/// A row condition is not a block here: `where size > 1kb` shows the type
+/// of `where`, not `bool`.
+fn block_around<'a>(
+    expr: &'a Expression,
+    working_set: &'a StateWorkingSet,
+    pos: usize,
+) -> ControlFlow<Option<&'a Block>> {
+    if !expr.span.contains(pos) {
+        return ControlFlow::Break(None);
+    }
+    let (Expr::Block(block_id) | Expr::Closure(block_id) | Expr::Subexpression(block_id)) =
+        &expr.expr
+    else {
+        return ControlFlow::Continue(());
+    };
+    // A block can have no brackets, as the value of `let x = [1 2] | math
+    // sum` does, and a block still being typed has no closing one yet.
+    let text = working_set.get_span_contents(expr.span);
+    let closing = match text.first() {
+        Some(b'{') => Some(b'}'),
+        Some(b'(') => Some(b')'),
+        _ => None,
+    };
+    let on_bracket = closing.is_some_and(|closing| {
+        pos == expr.span.start
+            || (text.len() > 1 && text.last() == Some(&closing) && pos + 1 == expr.span.end)
+    });
+    ControlFlow::Break((!on_bracket).then(|| working_set.get_block(*block_id).as_ref()))
 }
 
 /// Draws `segments`, cut to fit in `columns` with an ellipsis, so the status
@@ -291,7 +342,13 @@ fn render(segments: &[(Style, String)], columns: u16, use_ansi_coloring: bool) -
     // The full width: reedline moves the cursor after drawing the row, so text
     // filling it exactly wraps onto nothing.
     let limit = usize::from(columns).saturating_sub(INDENT.len());
-    let total: usize = segments.iter().map(|(_, text)| text.width()).sum();
+    // Measured grapheme by grapheme, as the loop below cuts and reedline
+    // draws: the width of a whole string can be less, as for lam-alef.
+    let total: usize = segments
+        .iter()
+        .flat_map(|(_, text)| text.graphemes(true))
+        .map(UnicodeWidthStr::width)
+        .sum();
     let budget = if total > limit {
         limit.saturating_sub(1)
     } else {
@@ -333,19 +390,20 @@ fn shown_text(text: &str) -> String {
     strip_ansi_unlikely(&one_line(text)).into_owned()
 }
 
-/// `text` on one row: line breaks and tabs shown as `\n` and `\t`, and every
-/// other control character but `ESC` as its `\u{..}` escape, as `\u{7f}` for
-/// DEL. reedline would draw these as `^?` or `M-^E`, wider than `render`
-/// measures them. `ESC` is left for [`strip_ansi_unlikely`], which drops it
-/// with the sequence it starts.
+/// `text` on one row: line breaks and tabs shown as `\n`, `\r` and `\t`, and
+/// every other control character but `ESC` and `BEL` as its `\u{..}` escape,
+/// as `\u{7f}` for DEL. reedline would draw these as `^?` or `M-^E`, wider
+/// than `render` measures them. `ESC` and `BEL` are left for
+/// [`strip_ansi_unlikely`], which drops the sequences they start and end, as
+/// an OSC 8 link ending in `BEL`, and drops a `BEL` of its own.
 fn one_line(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
     for c in text.chars() {
         match c {
-            '\r' => {}
+            '\r' => out.push_str("\\r"),
             '\n' => out.push_str("\\n"),
             '\t' => out.push_str("\\t"),
-            '\x1b' => out.push(c),
+            '\x1b' | '\x07' => out.push(c),
             c if c.is_control() => out.extend(c.escape_unicode()),
             c => out.push(c),
         }
@@ -365,6 +423,7 @@ struct ConstPreview {
     /// A copy of the REPL's engine state with an interrupt flag of its own,
     /// made on the first preview of the prompt.
     engine_state: Option<Arc<EngineState>>,
+    /// The interrupt flag of `engine_state`, set when a paint gives up.
     interrupt: Arc<AtomicBool>,
     /// The thread of the last evaluation, which may still run after the
     /// paint stopped waiting for it.
@@ -558,7 +617,12 @@ mod tests {
 
     /// What `status_line` shows for `line` with the cursor at its end.
     fn shown(status_line: &mut NuStatusLine, line: &str) -> String {
-        let segments = status_line.segments(line, line.len());
+        shown_at(status_line, line, line.len())
+    }
+
+    /// What `status_line` shows for `line` with the cursor at byte `pos`.
+    fn shown_at(status_line: &mut NuStatusLine, line: &str, pos: usize) -> String {
+        let segments = status_line.segments(line, pos);
         segments.into_iter().map(|(_, text)| text).collect()
     }
 
@@ -612,10 +676,44 @@ mod tests {
         assert_eq!(status(only("type"), line), expected);
     }
 
+    /// The type comes from the block the cursor is in, or on its closing
+    /// bracket from the block around it, as the signature does. `before` is
+    /// the text before the cursor.
+    #[rstest]
+    #[case::in_a_closure("ls | update name {|r| [1 2] | math sum", " }", "→ number")]
+    #[case::in_an_unclosed_closure("ls | update name {|r| [1 2] | math sum", "", "→ number")]
+    #[case::after_a_pipe_in_a_closure("ls | update name {|r| [1 2] | ", "}", "→ list<int>")]
+    #[case::after_the_closure(
+        "ls | update name {|r| [1 2] | math sum }",
+        "",
+        "→ oneof<table, list<any>>"
+    )]
+    #[case::in_a_subexpression("([1 2] | math sum", " | into string)", "→ number")]
+    #[case::value_of_a_let("let x = [1 2] | math sum", "", "→ number")]
+    fn type_of_the_innermost_pipeline(
+        #[case] before: &str,
+        #[case] after: &str,
+        #[case] expected: &str,
+    ) {
+        let line = format!("{before}{after}");
+        let mut status_line = status_line(only("type"));
+        assert_eq!(shown_at(&mut status_line, &line, before.len()), expected);
+    }
+
+    #[rstest]
+    #[case::inside_a_char("é", 1)]
+    #[case::past_the_end("ls", 3)]
+    fn cursor_off_the_line_shows_nothing(#[case] line: &str, #[case] pos: usize) {
+        let mut status_line = status_line(StatusLineConfig::default());
+        assert_eq!(shown_at(&mut status_line, line, pos), "");
+    }
+
     #[rstest]
     #[case::const_commands(r#""a,b" | split row ",""#, "= [a, b]")]
     #[case::arithmetic("1 + 2", "= 3")]
     #[case::control_characters(r#""a\t\u{85}b" | str trim"#, r"= a\t\u{85}b")]
+    #[case::link_ending_in_bel(r#""\e]8;;http://a\u{7}" + "link""#, "= link")]
+    #[case::stray_bel(r#""a\u{7}b" | str trim"#, "= ab")]
     #[case::literal(r#""abc""#, "")]
     #[case::not_const("ls | length", "")]
     fn preview_of_a_const_line(#[case] line: &str, #[case] expected: &str) {
@@ -642,6 +740,32 @@ mod tests {
 
         let preview = evaluate_const_line(&engine_state, &parsed.block, &parsed.delta);
         assert_eq!(preview, None);
+    }
+
+    /// `math abs` returns a stream at once, so the interrupt lands while the
+    /// const collects it.
+    #[test]
+    fn const_interrupted_while_collected_is_an_error() {
+        let mut engine_state =
+            nu_command::add_shell_command_context(nu_cmd_lang::create_default_context());
+        let interrupt = Arc::new(AtomicBool::new(false));
+        engine_state.set_signals(Signals::new(interrupt.clone()));
+        let interrupter = thread::spawn(move || {
+            thread::sleep(Duration::from_millis(20));
+            interrupt.store(true, Ordering::Relaxed);
+        });
+
+        let line = "const xs = 1..100000000000 | math abs";
+        let parsed = LineParseCache::default().parsed(&engine_state, line);
+        interrupter.join().expect("the interrupter doesn't panic");
+        assert!(
+            parsed
+                .errors
+                .iter()
+                .any(|error| error.to_string().contains("interrupted")),
+            "{:?}",
+            parsed.errors
+        );
     }
 
     #[test]
@@ -717,9 +841,19 @@ mod tests {
     fn render_measures_control_characters_as_written() {
         let segments = vec![(Style::new(), "a\u{7f}\u{85}\tb\r\n".to_string())];
 
-        // `a\u{7f}\u{85}\tb\n` fills 18 columns, so a row of 20 exactly.
-        assert_eq!(render(&segments, 20, false), r"  a\u{7f}\u{85}\tb\n");
-        assert_eq!(render(&segments, 19, false), r"  a\u{7f}\u{85}\tb…");
+        // `a\u{7f}\u{85}\tb\r\n` fills 20 columns, so a row of 22 exactly.
+        assert_eq!(render(&segments, 22, false), r"  a\u{7f}\u{85}\tb\r\n");
+        assert_eq!(render(&segments, 21, false), r"  a\u{7f}\u{85}\tb\r…");
+    }
+
+    #[test]
+    fn render_measures_graphemes_as_it_cuts() {
+        // Lam-alef is one column as a string, two as graphemes.
+        let lam_alef = "\u{644}\u{627}";
+        assert_eq!(lam_alef.width(), 1);
+        let segments = vec![(Style::new(), lam_alef.repeat(2))];
+
+        assert_eq!(render(&segments, 5, false), format!("  {lam_alef}…"));
     }
 
     #[rstest]

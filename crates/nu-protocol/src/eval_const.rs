@@ -280,6 +280,20 @@ fn eval_const_call(
     result
 }
 
+/// `data`, the output of a const command or block, as one value. A stream
+/// stops at an interrupt, and the check after collecting it keeps the part
+/// collected so far from being taken for the value: `const xs = 1..1000000000
+/// | math abs` interrupted is an error, not a short list.
+fn collect_const(
+    working_set: &StateWorkingSet,
+    data: PipelineData,
+    span: Span,
+) -> Result<Value, ShellError> {
+    let value = data.into_value(span)?;
+    working_set.permanent().signals().check(&span)?;
+    Ok(value)
+}
+
 /// Evaluate a single const-call argument expression to a [`Value`].
 ///
 /// A positional declared as [`SyntaxShape::Block`](crate::SyntaxShape::Block) parses to
@@ -488,7 +502,8 @@ impl Eval for EvalConst {
     ) -> Result<Value, ShellError> {
         // TODO: Allow debugging const eval
         // TODO: eval.rs uses call.head for the span rather than expr.span
-        eval_const_call(working_set, call, PipelineData::empty())?.into_value(span)
+        let data = eval_const_call(working_set, call, PipelineData::empty())?;
+        collect_const(working_set, data, span)
     }
 
     fn eval_external_call(
@@ -527,7 +542,8 @@ impl Eval for EvalConst {
         }
         // TODO: Allow debugging const eval
         let block = working_set.get_block(block_id);
-        eval_const_subexpression(working_set, block, PipelineData::empty(), span)?.into_value(span)
+        let data = eval_const_subexpression(working_set, block, PipelineData::empty(), span)?;
+        collect_const(working_set, data, span)
     }
 
     fn regex_match(
