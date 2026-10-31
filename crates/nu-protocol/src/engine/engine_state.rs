@@ -59,6 +59,7 @@ pub struct ReplState {
     pub cursor_pos: usize,
     /// Immediately accept the buffer on the next loop.
     pub accept: bool,
+    pub selection: Option<(usize, usize)>,
 }
 
 #[derive(Debug)]
@@ -316,6 +317,7 @@ impl EngineState {
                 buffer: "".to_string(),
                 cursor_pos: 0,
                 accept: false,
+                selection: None,
             })),
             prompt_state: Arc::new(PromptState::new()),
             table_decl_id: None,
@@ -1444,6 +1446,7 @@ impl EngineState {
                 buffer: "".to_string(),
                 cursor_pos: 0,
                 accept: false,
+                selection: None,
             }));
         }
         if Mutex::is_poisoned(&self.jobs) {
