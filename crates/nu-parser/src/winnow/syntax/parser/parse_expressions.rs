@@ -546,7 +546,9 @@ pub fn parse_math_expression<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expr
         // goes on with the expression (`parse_operator`), so the expression is a garbage
         // leaf over its items, the error recorded, which the consumer reads again with nu's
         // math parser from the leaf's text. When that text lexes to other items (an alias's
-        // words, which take `|` for one; a redirection between them) the error stays.
+        // words, which take `|` for one; a redirection between them) the error stays; a `||`
+        // or a redirection operator nu's lite parser keeps as an item (`1 || 2`, `"a" o>`) is
+        // one.
         Err(ErrMode::Cut(ParseFailure::Error(mut diagnostic))) if diagnostic.recovered => {
             let working_set = tokens.working_set;
             let items = items.remaining();
@@ -562,7 +564,12 @@ pub fn parse_math_expression<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expr
                 });
                 items.iter().all(|item| {
                     relexed.next().is_some_and(|token| {
-                        token.contents == TokenContents::Item && token.span == item.span
+                        matches!(
+                            token.contents,
+                            TokenContents::Item
+                                | TokenContents::PipePipe
+                                | TokenContents::Redirection(_)
+                        ) && token.span == item.span
                     })
                 }) && relexed.next().is_none()
             });
@@ -1541,7 +1548,11 @@ pub fn parse_closure_parts<'a>(
 /// The tokens of a `[...]` interior, comments recorded and dropped.
 fn lex_bracket_interior(working_set: &WorkingSet<'_>, span: Span) -> ParseResult<Vec<Token>> {
     let inner = delimited_interior(working_set, span, "[", "]")?;
-    let tokens = working_set.lex(inner, LexOptions::LIST).map_err(cut)?;
+    // nu lexes the interior on past what its lexer reports (`[1 2]]`, a `]` that closes no
+    // `[`): the error is the list's own, recorded as recovered.
+    let tokens = working_set
+        .lex(inner, LexOptions::LIST)
+        .map_err(|diagnostic| cut(diagnostic.as_recovered()))?;
     working_set.add_comments(&tokens);
     Ok(tokens
         .into_iter()
@@ -1552,6 +1563,14 @@ fn lex_bracket_interior(working_set: &WorkingSet<'_>, span: Span) -> ParseResult
             )
         })
         .collect())
+}
+
+/// The items of a list's or table row's interior, lite-parsed as nu's list parser does
+/// ([`lite_parse_parts`]): what that refuses (`||`, a `|` at the end, a redirection out of
+/// place) nu reports and goes on past, so the error is the list's own, recorded as recovered.
+fn lite_list_parts(working_set: &WorkingSet<'_>, items: &[Token]) -> ParseResult<Vec<Vec<Token>>> {
+    lite_parse_parts(working_set, items)
+        .map_err(|error| error.map(|failure| failure.map_diagnostic(Diagnostic::as_recovered)))
 }
 
 /// Like nu, a `;` between list items is an error (only `[[cols]; [row]]` has one).
@@ -1592,7 +1611,14 @@ fn parse_list_expression_with_shape<'a>(
     span: Span,
     element: Option<&SyntaxShape<'a>>,
 ) -> ParseResult<Expression<'a>> {
-    let items = lex_bracket_interior(working_set, span)?;
+    // The interior's own lexer and lite-parser errors (`[1 2]]`, `[1 || 2]`, `[1 2 |]`), and
+    // a `;` (`[1; 2]`), nu reports and goes on past: the list is a garbage leaf.
+    let Some(items) = lex_bracket_interior(working_set, span)
+        .map(Some)
+        .or_else(|error| recover_as_garbage(working_set, error))?
+    else {
+        return Ok(Expression::new(Expr::Garbage, span));
+    };
     if let [first, second, rows @ ..] = items.as_slice()
         && first.contents == TokenContents::Item
         && working_set.get_span_contents(first.span).starts_with('[')
@@ -1607,18 +1633,17 @@ fn parse_list_expression_with_shape<'a>(
                 .unwrap_or_else(|| Expression::new(Expr::Garbage, span)),
         );
     }
-    // A `;` is nu's list error, which it goes on past (`[1; 2]`): the list is a garbage leaf.
-    if reject_semicolon(&items, "list")
+    let Some(groups) = reject_semicolon(&items, "list")
+        .and_then(|()| lite_list_parts(working_set, &items))
         .map(Some)
-        .or_else(|error| recover_as_garbage::<()>(working_set, error))?
-        .is_none()
-    {
+        .or_else(|error| recover_as_garbage(working_set, error))?
+    else {
         return Ok(Expression::new(Expr::Garbage, span));
-    }
+    };
     let mut list_items = Vec::with_capacity(items.len());
     // Like nu, the interior is lite-parsed as a pipeline and the items of all its
     // commands are the list's: `[a | b]` is `[a b]`.
-    for group in lite_parse_parts(working_set, &items)? {
+    for group in groups {
         for token in &group {
             list_items.push(parse_list_item(working_set, token, element)?);
         }
@@ -1755,7 +1780,7 @@ fn parse_table_row<'a>(
     let items = lex_bracket_interior(working_set, span)?;
     reject_semicolon(&items, "list")?;
     let mut cells = Vec::new();
-    for group in lite_parse_parts(working_set, &items)? {
+    for group in lite_list_parts(working_set, &items)? {
         for token in &group {
             let is_name = names
                 && token.contents == TokenContents::Item

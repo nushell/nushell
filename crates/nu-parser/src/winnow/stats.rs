@@ -81,9 +81,10 @@ pub(super) fn record_winnow_block() {
     WINNOW_BLOCKS.fetch_add(1, Relaxed);
 }
 
-/// Count a block handed to the classic parser whole.
-pub(super) fn record_classic_block() {
+/// Count a block covering `span` handed to the classic parser whole, and log it with `why`.
+pub(super) fn record_classic_block(why: impl Display, span: Span, working_set: &StateWorkingSet) {
     CLASSIC_BLOCKS.fetch_add(1, Relaxed);
+    log_hand_over(format_args!("classic block ({why})"), span, working_set);
 }
 
 /// Count a run of statements parsed ahead on the second thread.

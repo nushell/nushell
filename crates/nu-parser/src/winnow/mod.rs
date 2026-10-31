@@ -71,7 +71,7 @@ pub(crate) fn parse_file_block(
     // `contents` is the caller's, not the working set's, so the syntax tree can borrow it while
     // the working set changes (unlike a module body's, which `parse_module_block` copies).
     let Ok(source) = std::str::from_utf8(contents) else {
-        stats::record_classic_block();
+        stats::record_classic_block("not UTF-8", span, working_set);
         return None;
     };
     driver::parse_block(
@@ -98,7 +98,7 @@ pub(crate) fn parse_module_block(
 ) -> Option<(Block, nu_protocol::Module, Vec<Span>)> {
     // The source is copied: the syntax tree borrows it while the working set changes.
     let Ok(source) = String::from_utf8(working_set.get_span_contents(span).to_vec()) else {
-        stats::record_classic_block();
+        stats::record_classic_block("not UTF-8", span, working_set);
         return None;
     };
     let (block, module) = driver::parse_block(

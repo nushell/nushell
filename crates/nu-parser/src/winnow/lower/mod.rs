@@ -18,7 +18,9 @@
 //! evaluate, a parameter's unknown type or completer, a default value that isn't a constant, and an
 //! `export alias` in a module asking for help (`parse_export_in_module` then looks for an alias it
 //! didn't add). Each is reported where the classic parser reports it, with the expression it builds
-//! there (garbage, mostly). Anything else the classic parser would report, or the lowering does not
+//! there (garbage, mostly). A block's lite-parse error (`Pipeline::lite_error`: a `||`, a
+//! redirection out of place, a `|` ending the block) goes before every statement error of the
+//! block, as the classic parser lite-parses a whole block first ([`BlockErrors`]). Anything else the classic parser would report, or the lowering does not
 //! handle, it returns [`Unlowered`] for, and the driver parses the whole statement again with the
 //! classic parser, which reports the error exactly as it always has. The exceptions are where
 //! nothing is parsed again: a predeclaration ([`Lower::predecl`]) reports an invalid or duplicate
@@ -65,7 +67,7 @@ use crate::parse_calls::{CallKind, check_call};
 use crate::winnow::syntax::Span as WSpan;
 
 pub(super) use signature::Predecl;
-pub(super) use statement::{BlockOf, StatementTarget, parse_classic};
+pub(super) use statement::{BlockErrors, BlockOf, StatementTarget, parse_classic};
 
 /// Why a statement was not lowered: the driver then parses it with the classic parser.
 #[derive(Debug)]

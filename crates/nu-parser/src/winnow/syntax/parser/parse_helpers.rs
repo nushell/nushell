@@ -120,11 +120,13 @@ pub fn garbage_pipeline<'a>(span: Span) -> Pipeline<'a> {
             pipe: None,
             expr: garbage(span),
             redirection: None,
+            parts: span,
         }],
         leading_comments: Vec::new(),
         trailing_comments: Vec::new(),
         terminator: None,
         dangling_pipe: None,
+        lite_error: None,
     }
 }
 

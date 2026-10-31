@@ -2962,14 +2962,14 @@ fn overlay_alias_in_a_nested_block_is_lowered(#[case] code: &str) -> Result {
 /// A statement with a syntax error is the classic parser's alone: the winnow parser ends it
 /// where the classic lite parser does, past a `|` that goes on to the next line, and lowers
 /// the statements after it. Where it can't tell the end, a syntax error in the lite parse
-/// itself, the classic parser takes the rest of the block: a redirection without a target,
-/// which the classic lite parser finds on the next line (one pipeline), or a `|` no command
-/// follows, before a blank line or before another `|`, which goes on to the next statement.
+/// itself, the classic parser takes the rest of the block: an `e>|` with nothing before it,
+/// which leaves no pipeline, or a `|` no command follows, before a blank line or before
+/// another `|`, which goes on to the next statement.
 #[rstest]
 #[case::pipe_starting_the_next_line("ls 0b[1|2]\n| length\n1 + 1", 1, 2)]
 #[case::pipe_ending_the_line("ls 0b[1|2] |\nlength\n2 + 2", 1, 2)]
 #[case::semicolon("ls 0b[1|2]; 1 + 1", 1, 2)]
-#[case::end_unknown("ls o>\n1 + 1", 0, 1)]
+#[case::end_unknown("e>|\n1 + 1", 0, 1)]
 #[case::pipe_before_a_blank_line("ls 0b[1|2] |\n\n1 + 1", 0, 2)]
 #[case::pipe_after_a_pipe("ls 0b[1|2] | |\n1 + 1", 0, 1)]
 #[nu_test_support::test]

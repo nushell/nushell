@@ -2592,3 +2592,63 @@ fn variable_type_errors_are_recovered() {
         );
     }
 }
+
+/// What nu's lite parser reports and goes on past is the pipeline's lite-parse error, its
+/// diagnostic recorded as recovered, and the command built as nu builds it: a `||` and a
+/// redirection operator out of place are items, a second redirection of a stream leaves the
+/// command with none, a redirection without a target at the end of a line lets the next line's
+/// command join the pipeline, and a `|` ending the block is the last pipeline's error.
+#[test]
+fn lite_parse_errors_are_recovered() {
+    let config = ParseConfig::default();
+    // Each text with the name of its error's variant.
+    let cases = [
+        ("ls || pwd", "ShellOrOr"),
+        ("^ls o>", "MissingRedirectionTarget"),
+        ("o> file", "NothingToRedirect"),
+        ("^ls o> a o> b", "MultipleRedirections"),
+        ("ls |", "PipelineMissingEnd"),
+    ];
+    for (text, variant) in cases {
+        let (ast, diagnostics) = parse_lenient(text, &config);
+        let [pipeline] = ast.block.pipelines.as_slice() else {
+            panic!("{text}: {:?}", ast.block.pipelines)
+        };
+        assert!(
+            pipeline
+                .lite_error
+                .is_some_and(|error| format!("{error:?}").starts_with(variant)),
+            "{text}: {:?}",
+            pipeline.lite_error
+        );
+        assert!(
+            pipeline
+                .elements
+                .iter()
+                .all(|element| element.redirection.is_none()),
+            "{text}"
+        );
+        assert!(
+            !diagnostics.is_empty() && diagnostics.iter().all(|d| d.recovered),
+            "{text}: {diagnostics:?}"
+        );
+    }
+    let (ast, _) = parse_lenient("ls || pwd", &config);
+    let call = kind!(expr(&ast), Expr::Call(c) => c);
+    assert_eq!(call.arguments.len(), 2);
+    let (ast, _) = parse_lenient("^ls o>\nlines", &config);
+    let [element, joined] = elements(&ast) else {
+        panic!("{:?}", ast.block.pipelines)
+    };
+    kind!(element.expr, Expr::ExternalCall(_));
+    assert!(joined.pipe.is_none());
+    // A list's own lite-parse error makes it a garbage leaf, which nu's list parser reads.
+    for text in ["[1 || 2]", "[1 2 |]", "[1 2]]"] {
+        let (ast, diagnostics) = parse_lenient(text, &config);
+        assert!(expr(&ast).is_garbage(), "{text}");
+        assert!(
+            diagnostics.len() == 1 && diagnostics[0].recovered,
+            "{text}: {diagnostics:?}"
+        );
+    }
+}

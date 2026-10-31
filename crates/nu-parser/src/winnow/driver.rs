@@ -56,7 +56,7 @@ use nu_protocol::{
 
 use super::{
     lookup::{Asked, AskedLookup, EngineLookup, NamesSnapshot, changed_answer},
-    lower::{BlockOf, Lower, Predecl, StatementTarget, parse_classic},
+    lower::{BlockErrors, BlockOf, Lower, Predecl, StatementTarget, parse_classic},
     stats,
 };
 use crate::winnow::syntax::{
@@ -116,7 +116,7 @@ pub(super) fn parse_block(
         working_set.enter_scope();
     }
 
-    let block_errors = working_set.parse_errors.len();
+    let block_errors = BlockErrors::new(working_set);
     let cell = RefCell::new(working_set);
     let lookup = EngineLookup::new(&cell);
     let mut driver = Driver {
@@ -136,11 +136,14 @@ pub(super) fn parse_block(
     drop(lookup);
     let working_set = cell.into_inner();
 
-    if result.is_err() {
+    if let Err(diagnostics) = result {
         if enters_scope {
             working_set.exit_scope();
         }
-        stats::record_classic_block();
+        let why = diagnostics
+            .first()
+            .map_or_else(String::new, |diagnostic| diagnostic.kind.to_string());
+        stats::record_classic_block(why, inner, working_set);
         return None;
     }
     stats::record_winnow_block();
@@ -207,6 +210,10 @@ fn parse_statements(
         }
     );
     let (mut statements, definitions) = BlockStatements::new(source, span, lookup, subexpression)?;
+    // A `|` ending the block is its lite-parse error, reported before any statement's.
+    if let Some(error) = statements.missing_end() {
+        driver.lite_error(error);
+    }
     // Declared before the first statement is lowered: by `parse_ahead` once its thread has
     // started, so that the thread parses the first statements meanwhile, or else before the
     // first statement parsed here. `None` once declared.
@@ -510,9 +517,8 @@ struct Driver<'c, 'w, 'e, 's> {
     target: Target,
     /// The block's pipelines so far.
     pipelines: Vec<Pipeline>,
-    /// Where the block's errors start, past the lex and lite-parse errors the classic parser
-    /// put there ([`parse_classic`]).
-    block_errors: usize,
+    /// Where the block's own lexer and lite-parse errors go, before its statements' errors.
+    block_errors: BlockErrors,
 }
 
 impl Driver<'_, '_, '_, '_> {
@@ -533,6 +539,10 @@ impl Driver<'_, '_, '_, '_> {
         let mut lower = Lower::new(working_set, self.source, self.offset);
         let span = lower.statement_span(pipeline);
         let mut target = statement_target(&mut self.target, &self.pipelines, self.span);
+        if let Some(error) = pipeline.lite_error {
+            let error = lower.lite_parse_error(error);
+            self.block_errors.lite_error(lower.working_set, error);
+        }
         // A statement whose every error the winnow parser went on past (a malformed literal
         // left as a garbage leaf) is lowered: the lowering reads each such leaf again with the
         // classic leaf parser, which reports the error.
@@ -560,6 +570,15 @@ impl Driver<'_, '_, '_, '_> {
             &mut self.pipelines,
             &mut self.block_errors,
         );
+    }
+
+    /// Report `error` as the block's lite-parse error ([`BlockErrors::lite_error`]).
+    fn lite_error(&mut self, error: w::LiteError) {
+        let cell = self.working_set;
+        let working_set = &mut **cell.borrow_mut();
+        let lower = Lower::new(working_set, self.source, self.offset);
+        let error = lower.lite_parse_error(error);
+        self.block_errors.lite_error(lower.working_set, error);
     }
 
     /// Hand the rest of the block, from `pipeline` on, to the classic parser.

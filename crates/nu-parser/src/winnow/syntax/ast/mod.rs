@@ -106,6 +106,40 @@ pub struct Pipeline<'a> {
     /// pipeline: one before a blank line, `;` or the end of the block (`ls |`, then a blank
     /// line), on the element's line or starting a later one (`ls\n|\n\nls`).
     pub dangling_pipe: Option<Span>,
+    /// The first error of the lite parse in the pipeline's commands, which nu reports and goes
+    /// on past ([`LiteError`]).
+    pub lite_error: Option<LiteError>,
+}
+
+/// An error of the lite parse (grouping a block's tokens into commands) that nu reports and
+/// goes on past, building the command the way the error leaves it. nu lite-parses a whole block
+/// before it parses any statement and reports only the block's first such error, before every
+/// statement error of the block, and a `|` that ends the block in its place
+/// (`lite_parse`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum LiteError {
+    /// `||` (nu's `ShellOrOr`), which is an item of the command.
+    ShellOrOr(Span),
+    /// A `|` that ends the block (nu's `UnexpectedEof`, "pipeline missing end"), at the block's
+    /// last token.
+    PipelineMissingEnd(Span),
+    /// A file redirection without a target (nu's `Expected`, "redirection target"), at the
+    /// token after the operator, or the operator itself at the end of the block or before a
+    /// comment. The operator is an item of the command.
+    MissingRedirectionTarget(Span),
+    /// A redirection with no command before it (nu's `UnexpectedRedirection`), at the operator,
+    /// which with its target is items of the command.
+    NothingToRedirect(Span),
+    /// A second redirection of a stream (nu's `MultipleRedirections`), which with its target
+    /// is items of the command.
+    MultipleRedirections {
+        /// What the first redirection redirects.
+        source: RedirectionSource,
+        /// The first redirection's operator.
+        first: Span,
+        /// The second's.
+        second: Span,
+    },
 }
 
 /// One element of a pipeline.
@@ -119,6 +153,10 @@ pub struct PipelineElement<'a> {
     pub expr: Expression<'a>,
     /// A redirection following the expression.
     pub redirection: Option<PipelineRedirection<'a>>,
+    /// The command's items as nu's lite parser groups them, from the first to the last, its
+    /// attribute lines included: what a statement's parse function reads, which a module's
+    /// body reports for a statement it does not take.
+    pub parts: Span,
 }
 
 /// Where a redirected stream goes.

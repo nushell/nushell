@@ -151,9 +151,10 @@ impl<'s> Lower<'_, '_, 's> {
         let span = self.span(first_item);
         let error = match name {
             // nu names the variable and the value by where they stand among the element's
-            // items, shorthand included (`FOO=1 mut x` names the variable `mut`).
+            // items, shorthand included (`FOO=1 mut x` names the variable `mut`), a redirection
+            // operator nu keeps as one too (`ls | mut x: int o>`).
             "const" | "mut" => {
-                let items = self.items(WSpan::new(first_item.start, e.span.end));
+                let items = self.parts(WSpan::new(first_item.start, e.span.end));
                 let text = |index: usize| {
                     let item = items
                         .get(index)

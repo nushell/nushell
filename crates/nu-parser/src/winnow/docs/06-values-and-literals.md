@@ -390,7 +390,10 @@ Three functions parse the body:
   `working_set.add_ignored` so they show up in `Ast::ignored`; a redirection
   with nothing before it, without a target, or repeated for the same stream
   is an error. After an assignment operator everything is an item, so
-  `[a = b | c]` has five items.
+  `[a = b | c]` has five items. For a list or table row these errors, and
+  the interior's lexer errors (`[1 2]]`, a `]` that closes no `[`), are the
+  list's own (`lite_list_parts`, `lex_bracket_interior`): nu's list parser
+  reports them and goes on, so the list is a garbage leaf, read again by it.
 * `parse_list_item`: items starting with `...` followed by `[`, `$` or `(`
   are spreads; a token that is not an item (the `=` of
   `[Assignment, =, Assign]`, and everything after it) is a bare word; the

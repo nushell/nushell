@@ -21,7 +21,7 @@
 use winnow::Parser;
 use winnow::combinator::{opt, peek, preceded, repeat, terminated};
 
-use crate::winnow::syntax::ast::Comment;
+use crate::winnow::syntax::ast::{Comment, LiteError};
 use crate::winnow::syntax::error::{Diagnostic, ErrorKind};
 use crate::winnow::syntax::input::{ParseResult, cut};
 use crate::winnow::syntax::lex::{RedirectionOperator, RedirectionSource, Token, TokenContents};
@@ -46,12 +46,97 @@ pub struct LiteCommand {
     pub pipe_after: Option<Span>,
     /// Comments found between the command's tokens.
     pub comments: Vec<Comment>,
+    /// The first lite-parse error in the command, which nu goes on past ([`LiteError`]).
+    pub lite_error: Option<LiteError>,
+    /// Whether the pipeline goes on to a command on the next line with no `|` between: after
+    /// a redirection without a target at the end of the line, nu's lite parser ends the
+    /// command there but not its pipeline (`^ls o>`, then `lines` on the next line).
+    pub joins_next_line: bool,
 }
 
 impl LiteCommand {
     /// A stream over the parts.
     pub fn tokens<'t, 'a>(&'t self, working_set: &'t WorkingSet<'a>) -> Tokens<'t, 'a> {
         Tokens::new(working_set, &self.parts, self.end)
+    }
+
+    /// Record `error`, which nu reports and goes on past: the command's first, its diagnostic
+    /// recorded as recovered.
+    fn report(&mut self, working_set: &WorkingSet<'_>, error: LiteError) {
+        working_set.error(lite_diagnostic(error).as_recovered());
+        self.lite_error.get_or_insert(error);
+    }
+
+    /// Refuse a redirection, whose operator and target, `items`, are then the command's items,
+    /// with `error`. nu takes the command's redirection out before it refuses one
+    /// (`try_add_redirection`), so the command is left with none.
+    fn refuse_redirection(
+        &mut self,
+        working_set: &WorkingSet<'_>,
+        error: LiteError,
+        items: &[Token],
+    ) {
+        self.report(working_set, error);
+        self.redirections.clear();
+        self.parts.extend_from_slice(items);
+    }
+
+    /// The error of redirecting `source` again at `second` (nu's `try_add_redirection`):
+    /// stdout and stderr may each go to one target, and `o+e>` takes both.
+    fn redirected_twice(&self, source: RedirectionSource, second: Span) -> Option<LiteError> {
+        let first = match self.redirections.as_slice() {
+            [] => None,
+            [(first, _)] => match (first.item.source(), source) {
+                (RedirectionSource::Stdout, RedirectionSource::Stderr)
+                | (RedirectionSource::Stderr, RedirectionSource::Stdout) => None,
+                _ => Some(first),
+            },
+            // Stdout and stderr, each redirected on its own: `o+e>` meets the stdout one.
+            separate => separate
+                .iter()
+                .map(|(operator, _)| operator)
+                .find(|operator| {
+                    let redirected = operator.item.source();
+                    match source {
+                        RedirectionSource::Stderr => redirected == RedirectionSource::Stderr,
+                        _ => redirected == RedirectionSource::Stdout,
+                    }
+                }),
+        };
+        first.map(|first| LiteError::MultipleRedirections {
+            source: first.item.source(),
+            first: first.span,
+            second,
+        })
+    }
+}
+
+/// The diagnostic of a lite-parse error, for the parse's verdict (the consumer reports nu's).
+pub fn lite_diagnostic(error: LiteError) -> Diagnostic {
+    match error {
+        LiteError::ShellOrOr(span) => Diagnostic::new(
+            ErrorKind::ShellSyntax {
+                found: "||",
+                use_instead: "or",
+            },
+            span,
+        )
+        .with_help("use `or` for boolean logic, or `try { } catch { }` to run a fallback command"),
+        LiteError::PipelineMissingEnd(span) => {
+            Diagnostic::new(ErrorKind::UnexpectedEof("command after `|`"), span)
+                .with_context("pipeline")
+                .with_help("the pipeline has no end: add a command after the `|` or remove it")
+        }
+        LiteError::MissingRedirectionTarget(span) => {
+            Diagnostic::expected("redirection target", span)
+        }
+        LiteError::NothingToRedirect(span) => {
+            Diagnostic::message("unexpected redirection: nothing to redirect", span)
+        }
+        LiteError::MultipleRedirections { first, second, .. } => {
+            Diagnostic::message("multiple redirections of the same stream", second)
+                .with_help(format!("the stream is already redirected at {first}"))
+        }
     }
 }
 
@@ -177,10 +262,17 @@ pub fn after_pipe_lines(
         comments.extend(comment_lines);
         return Ok((comments, AfterPipe::Command));
     }
+    // A comment that is the block's last line (`ls |`, then `# c`) leaves nothing after the pipe.
+    let comment_ends_block = next == Some(TokenContents::Comment)
+        && tokens
+            .all()
+            .get(tokens.position() + 1)
+            .is_none_or(|after| after.contents == TokenContents::Eof);
     match next {
-        None | Some(TokenContents::Eol | TokenContents::Semicolon) => {
+        None | Some(TokenContents::Eol | TokenContents::Semicolon | TokenContents::Eof) => {
             Ok((comments, AfterPipe::Dangling))
         }
+        Some(TokenContents::Comment) if comment_ends_block => Ok((comments, AfterPipe::Dangling)),
         Some(_) => Ok((comments, AfterPipe::Command)),
     }
 }
@@ -254,45 +346,26 @@ pub fn parse_lite_command(
             }
             TokenContents::Redirection(operator) => {
                 tokens.next_token();
-                if lite_command.parts.is_empty() {
-                    return Err(cut(Diagnostic::message(
-                        "unexpected redirection: nothing to redirect",
-                        token.span,
-                    )));
-                }
-                if operator.is_pipe() {
-                    lite_command
-                        .redirections
-                        .push((Spanned::new(operator, token.span), None));
-                    lite_command.pipe_after = Some(token.span);
+                if lite_redirection(tokens, &mut lite_command, operator, token.span) {
                     break;
                 }
-                let target = tokens.expect_item("redirection target")?;
-                lite_command
-                    .redirections
-                    .push((Spanned::new(operator, token.span), Some(target)));
                 continue;
             }
             TokenContents::Pipe => break,
+            // nu reports a `||` and keeps it as an item (`ls || pwd` passes `||` to `ls`).
             TokenContents::PipePipe => {
-                return Err(cut(Diagnostic::new(
-                    ErrorKind::ShellSyntax {
-                        found: "||",
-                        use_instead: "or",
-                    },
-                    token.span,
-                )
-                .with_help(
-                    "use `or` for boolean logic, or `try { } catch { }` to run a fallback command",
-                )));
+                lite_command.report(working_set, LiteError::ShellOrOr(token.span));
+                lite_command.parts.push(as_item(token));
             }
             TokenContents::Eol | TokenContents::Semicolon | TokenContents::Eof => break,
         }
         tokens.next_token();
     }
+    // An `e>|` with nothing before it ends a command that nu drops (`e>| ls` pipes nothing).
     if lite_command.parts.is_empty()
         && lite_command.attributes.is_empty()
         && lite_command.redirections.is_empty()
+        && lite_command.pipe_after.is_none()
     {
         return Err(cut(Diagnostic::expected("command", tokens.here())));
     }
@@ -301,6 +374,125 @@ pub fn parse_lite_command(
         .last()
         .map_or(tokens.here().start, |token| token.span.end);
     Ok(lite_command)
+}
+
+/// `token` as an item: a word of the command.
+fn as_item(token: Token) -> Token {
+    Token {
+        contents: TokenContents::Item,
+        span: token.span,
+    }
+}
+
+/// The redirection `operator` at `span` (just taken) of `lite_command` and its target, as nu's
+/// lite parser reads them; returns whether the command ends with it. nu reports a redirection
+/// with nothing before it (`o> f`) or of a stream redirected already (`^ls o> a o> b`) and keeps
+/// it and its target as items, the first redirection kept. A file redirection takes the token
+/// after it as its target: what else comes there nu reports (Expected, "redirection target"),
+/// keeping the operator as an item and reading the token on (an `=`, another redirection or a
+/// `||` is an item too), and an end of line there ends the command but not the pipeline
+/// ([`LiteCommand::joins_next_line`]).
+fn lite_redirection(
+    tokens: &mut Tokens<'_, '_>,
+    lite_command: &mut LiteCommand,
+    operator: RedirectionOperator,
+    span: Span,
+) -> bool {
+    let working_set = tokens.working_set;
+    let operator_token = Token {
+        contents: TokenContents::Item,
+        span,
+    };
+    let nothing_before = lite_command.parts.is_empty();
+    if operator.is_pipe() {
+        // With nothing before it the command is dropped, its error recorded by
+        // `parse_pipeline`, which knows whether a pipeline is left to report it in.
+        if nothing_before {
+            lite_command
+                .lite_error
+                .get_or_insert(LiteError::NothingToRedirect(span));
+        } else if let Some(error) = lite_command.redirected_twice(operator.source(), span) {
+            lite_command.refuse_redirection(working_set, error, &[]);
+        } else {
+            lite_command
+                .redirections
+                .push((Spanned::new(operator, span), None));
+        }
+        lite_command.pipe_after = Some(span);
+        return true;
+    }
+    if nothing_before {
+        lite_command.report(working_set, LiteError::NothingToRedirect(span));
+    }
+    let Some(&next) = tokens
+        .peek_token()
+        .filter(|next| next.contents != TokenContents::Eof)
+    else {
+        // The end of the block.
+        lite_command.report(working_set, LiteError::MissingRedirectionTarget(span));
+        lite_command.parts.push(operator_token);
+        return false;
+    };
+    // nu's lexer turns an end of line before a `|` starting the next line into that `|`.
+    let folded_pipe = tokens
+        .all()
+        .get(tokens.position() + 1)
+        .copied()
+        .filter(|after| {
+            next.contents == TokenContents::Eol && after.contents == TokenContents::Pipe
+        });
+    let missing = |lite_command: &mut LiteCommand, at: Span| {
+        lite_command.report(working_set, LiteError::MissingRedirectionTarget(at));
+        lite_command.parts.push(operator_token);
+    };
+    match next.contents {
+        TokenContents::Item => {
+            tokens.next_token();
+            if nothing_before {
+                // Reported above, as nu reports it first.
+                lite_command.parts.extend([operator_token, next]);
+            } else if let Some(error) = lite_command.redirected_twice(operator.source(), span) {
+                lite_command.refuse_redirection(working_set, error, &[operator_token, next]);
+            } else {
+                lite_command
+                    .redirections
+                    .push((Spanned::new(operator, span), Some(next)));
+            }
+        }
+        _ if let Some(pipe) = folded_pipe => missing(lite_command, pipe.span),
+        TokenContents::Eol => {
+            missing(lite_command, next.span);
+            lite_command.joins_next_line = true;
+            return true;
+        }
+        TokenContents::Comment => missing(lite_command, span),
+        TokenContents::Semicolon | TokenContents::Pipe | TokenContents::Eof => {
+            missing(lite_command, next.span)
+        }
+        TokenContents::Redirection(next_operator) if next_operator.is_pipe() => {
+            missing(lite_command, next.span);
+            tokens.next_token();
+            lite_command.pipe_after = Some(next.span);
+            return true;
+        }
+        TokenContents::Redirection(_) => {
+            missing(lite_command, next.span);
+            tokens.next_token();
+            lite_command.parts.push(as_item(next));
+        }
+        // An `=` stays one: nu finds an assignment by the items' text (`^ls o> = 1`).
+        TokenContents::AssignmentOperator(_) => {
+            missing(lite_command, next.span);
+            tokens.next_token();
+            lite_command.parts.push(next);
+        }
+        TokenContents::PipePipe => {
+            lite_command.report(working_set, LiteError::ShellOrOr(next.span));
+            tokens.next_token();
+            lite_command.parts.extend([operator_token, as_item(next)]);
+        }
+    }
+    false
 }
 
 /// Leading `@name arguments` lines, each up to the end of its line or a `;`. Like

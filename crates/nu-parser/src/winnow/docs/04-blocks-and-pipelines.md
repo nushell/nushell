@@ -26,12 +26,15 @@ block bodies, subexpressions, `let`/assignment values, `match` bodies written
 as blocks. It:
 
 1. runs `parse_def_predecl` over all the tokens (below),
-2. runs nu's `last_non_comment_token` check once over the whole block: if the
-   last token that is not part of a trailing run of comment lines is a `|`,
-   the block has a pipeline with no end and "command after `|`" is reported
-   at that pipe. This is what makes `ls |`, `ls | # c` and `ls |\n# c` (no
-   final newline) errors while `ls |\n` and `ls |\n# c\n` are not, and it
-   fires whichever command absorbed the pipe (`alias x = ls |` too),
+2. runs nu's `last_non_comment_token` check once over the whole block
+   (`missing_end`): if the last token that is not part of a trailing run of
+   comment lines is a `|`, the block has a pipeline with no end. This is what
+   makes `ls |`, `ls | # c` and `ls |\n# c` (no final newline) errors while
+   `ls |\n` and `ls |\n# c\n` are not, and it fires whichever command
+   absorbed the pipe (`alias x = ls |` too). nu goes on past it, so the block's
+   last pipeline carries it as its `LiteError::PipelineMissingEnd`, at the
+   block's last token, and the diagnostic is recorded as recovered
+   (`BlockStatements::missing_end` for a streamed block),
 3. loops over tokens (`parse_statements`, the loop `BlockStatements::parse`
    runs too), handling `Eol`, `;` and comments itself and calling
    `parse_pipeline` for anything else,
@@ -238,6 +241,8 @@ pub struct LiteCommand {
     pub redirections: Vec<(Spanned<RedirectionOperator>, Option<Token>)>,  // `o> file`, `e>|`
     pub pipe_after: Option<Span>,                                          // the `e>|` that ended the command
     pub comments: Vec<Comment>,
+    pub lite_error: Option<LiteError>,                                     // the first error nu goes on past
+    pub joins_next_line: bool,                                             // `^ls o>`: the next line's command joins
 }
 ```
 
@@ -257,12 +262,28 @@ mean something else. The rules encoded in its loop:
   pipeline. A `|` at the end of the line, or a `|` at the start of the next
   line after any comment lines (`take_pipe_on_later_line` again), continues
   absorption.
-* **`Redirection` token**: a file redirection takes the next item as its
-  target; a pipe redirection (`e>|`, `o+e>|`) ends the command and acts as
-  the pipe to the next element. A redirection with no command before it is
-  an error.
+* **`Redirection` token** (`lite_redirection`): a file redirection takes the
+  next item as its target; a pipe redirection (`e>|`, `o+e>|`) ends the
+  command and acts as the pipe to the next element.
 * **`Pipe`** ends the command and is left for `parse_pipeline` to consume.
-  **`PipePipe`** is a `ShellSyntax` error (use `or`).
+* **Lite-parse errors.** nu's lite parser reports these and goes on, building
+  the command the way the error leaves it, and so does this one: the error is
+  the command's `lite_error` (the pipeline's first becomes
+  `Pipeline::lite_error`), its diagnostic recorded as recovered. A `||` is
+  `ShellOrOr` and an item (`ls || pwd` passes it to `ls`). A redirection with
+  nothing before it is `NothingToRedirect`, and it and its target are items
+  (`o> f` is the external `o>`); an `e>|` with nothing before it ends a
+  command nu drops. A second redirection of a stream is
+  `MultipleRedirections`, and it and its target are items; nu took the
+  command's redirection out before refusing it, so the command has none. A
+  file redirection without a target is `MissingRedirectionTarget`, at the
+  token after the operator (the operator at the end of the block or before a
+  comment), and the operator is an item; an `=`, another redirection or a `||`
+  after it is an item too, and an end of line after it ends the command but
+  not the pipeline: a command on the next line joins it with no `|`
+  (`joins_next_line`). The consumer reports each block's first lite-parse
+  error before any of its statements' errors, as nu lite-parses a whole block
+  first (`lower::BlockErrors`).
 * **`Eol`**, **`;`**, **`Eof`** end the command (they are not consumed here).
 * **Attribute lines** (`lite_attribute_lines`, when `at_line_start` is
   set): while the next item starts with `@`, every token up to the end of
@@ -287,7 +308,9 @@ mean something else. The rules encoded in its loop:
 The same file holds `lite_parse_parts`, nu's lite parse of the tokens inside
 `[...]`. The list and table-row parsers run it over a bracket interior as nu
 does: the items of every `|`-separated group become list items, and a
-redirection and its target are dropped (chapter 06).
+redirection and its target are dropped (chapter 06). What it refuses is the
+list's own error, which nu's list parser goes on past: the list is a garbage
+leaf (chapter 06).
 
 ## Elements: `parse_pipeline_element`
 

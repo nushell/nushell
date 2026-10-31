@@ -146,11 +146,12 @@ impl<'s> Lower<'_, '_, 's> {
             // A math expression with an item where an operator goes that is none, or a lone
             // `if`, `match` or `not`, which the winnow parser left as garbage over its items:
             // nu's math parser reads them again, reporting its errors with what it recovers.
+            // A `||` is one of them (`1 || 2`), as nu's lite parser keeps it.
             w::Expr::Garbage
-                if self.items(e.span).len() > 1
+                if self.parts(e.span).len() > 1
                     || matches!(self.text(e.span), "if" | "match" | "not") =>
             {
-                let spans = self.items(e.span);
+                let spans = self.parts(e.span);
                 Ok(parse_math_expression(
                     self.working_set,
                     &spans,

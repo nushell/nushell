@@ -1,13 +1,7 @@
 error: unexpected end of input, expected command after `|`
-  --> reject/pipelines/trailing-pipe-then-comment-at-eof.nu:1:4
-  |
-1 | ls |
-  |    ^
-  = while parsing pipeline
-  = help: the pipeline has no end: add a command after the `|` or remove it
-
-error: expected command
-  --> reject/pipelines/trailing-pipe-then-comment-at-eof.nu:2:4
+  --> reject/pipelines/trailing-pipe-then-comment-at-eof.nu:2:1
   |
 2 | # c
-  |    ^
+  | ^^^
+  = while parsing pipeline
+  = help: the pipeline has no end: add a command after the `|` or remove it

@@ -119,14 +119,14 @@ impl<'s> Lower<'_, '_, 's> {
     /// are the constants an `unlet` it lowered hid in the current scope (which the classic
     /// parser must still find, in the `unlet` itself); what else it added to the working set
     /// stays, unreachable from `out` (see the module documentation of `lower`). `block_errors`
-    /// is where the block's errors start ([`parse_classic`]).
+    /// places the block's own errors ([`BlockErrors`]).
     pub(in crate::winnow) fn statement_or_classic(
         &mut self,
         pipeline: &w::Pipeline<'s>,
         span: Span,
         target: &mut StatementTarget<'_>,
         out: &mut Vec<Pipeline>,
-        block_errors: &mut usize,
+        block_errors: &mut BlockErrors,
     ) {
         let errors = self.working_set.parse_errors.len();
         let warnings = self.working_set.parse_warnings.len();
@@ -372,41 +372,21 @@ impl<'s> Lower<'_, '_, 's> {
             // parts, assignment operators included (`parse_module_pipeline`), reading nothing
             // of it; a statement with one of its keywords first is its parse function's.
             _ if attributes.is_empty() => {
-                let span = self.span(command.span);
+                // The command's items as the lite parser grouped them, from the first to the
+                // last: `let x o> f` is `let x`, `^ls o>` all of it.
+                let parts = self.span(element.parts);
                 let (tokens, _) = lex(
-                    self.working_set.get_span_contents(span),
-                    span.start,
+                    self.working_set.get_span_contents(parts),
+                    parts.start,
                     b"\n\r",
                     &[],
                     true,
                 );
-                // Before an assignment operator a redirection and its target are no parts, as
-                // nu's lite parser takes them out (`let x o> f` is `let x`, as a lone `let`
-                // reads them back in).
-                let mut assigned = false;
-                let mut target = false;
-                let parts: Vec<Span> = tokens
+                let Some(first) = tokens
                     .iter()
-                    .filter(|token| match token.contents {
-                        TokenContents::AssignmentOperator => {
-                            assigned = true;
-                            true
-                        }
-                        TokenContents::Item => assigned || !std::mem::take(&mut target),
-                        TokenContents::OutGreaterThan
-                        | TokenContents::OutGreaterGreaterThan
-                        | TokenContents::ErrGreaterThan
-                        | TokenContents::ErrGreaterGreaterThan
-                        | TokenContents::OutErrGreaterThan
-                        | TokenContents::OutErrGreaterGreaterThan => {
-                            target = !assigned;
-                            false
-                        }
-                        _ => false,
-                    })
+                    .find(|token| token.contents != TokenContents::Comment)
                     .map(|token| token.span)
-                    .collect();
-                let (Some(&first), Some(&last)) = (parts.first(), parts.last()) else {
+                else {
                     return Err(Unlowered::Error);
                 };
                 if MODULE_STATEMENT_KEYWORDS.contains(&self.working_set.get_span_contents(first)) {
@@ -417,7 +397,7 @@ impl<'s> Lower<'_, '_, 's> {
                         .into(),
                     first,
                 ));
-                Expression::garbage(self.working_set, first.merge(last))
+                Expression::garbage(self.working_set, parts)
             }
             _ => return Err(Unlowered::Unsupported("module statement")),
         };
@@ -1006,8 +986,24 @@ impl<'s> Lower<'_, '_, 's> {
             .map(|(block, _)| block)
             .ok_or(Unlowered::Unsupported("block that changes commands"));
         }
-        // Where the block's errors start (`parse_classic`).
-        let mut block_errors = self.working_set.parse_errors.len();
+        let mut block_errors = BlockErrors::new(self.working_set);
+        // The block's lite-parse error, which nu reports before its statements' errors: a `|`
+        // ending the block, else the first.
+        let lite_error = block
+            .pipelines
+            .last()
+            .and_then(|last| last.lite_error)
+            .filter(|error| matches!(error, w::LiteError::PipelineMissingEnd(_)))
+            .or_else(|| {
+                block
+                    .pipelines
+                    .iter()
+                    .find_map(|pipeline| pipeline.lite_error)
+            });
+        if let Some(error) = lite_error {
+            let error = self.lite_parse_error(error);
+            block_errors.lite_error(self.working_set, error);
+        }
         if scoped {
             self.working_set.enter_scope();
         }
@@ -1076,6 +1072,31 @@ impl<'s> Lower<'_, '_, 's> {
         ))
     }
 
+    /// nu's error for a lite-parse error of the winnow parser.
+    pub(in crate::winnow) fn lite_parse_error(&self, error: w::LiteError) -> ParseError {
+        match error {
+            w::LiteError::ShellOrOr(span) => ParseError::ShellOrOr(self.span(span)),
+            w::LiteError::PipelineMissingEnd(span) => {
+                ParseError::UnexpectedEof("pipeline missing end".into(), self.span(span))
+            }
+            w::LiteError::MissingRedirectionTarget(span) => {
+                ParseError::Expected("redirection target", self.span(span))
+            }
+            w::LiteError::NothingToRedirect(span) => ParseError::UnexpectedRedirection {
+                span: self.span(span),
+            },
+            w::LiteError::MultipleRedirections {
+                source,
+                first,
+                second,
+            } => ParseError::MultipleRedirections(
+                redirection_source(source),
+                self.span(first),
+                self.span(second),
+            ),
+        }
+    }
+
     /// The span of a statement in the working set, with its doc comments, the comment after it
     /// on its line and a `|` after it that no command follows, which the classic parser keeps
     /// with its last element.
@@ -1112,13 +1133,13 @@ impl<'s> Lower<'_, '_, 's> {
 ///
 /// The classic parser lexes and lite-parses a whole block before it parses any statement, so it
 /// reports those errors (a `||`, a redirection without a target) before the errors of statements
-/// before them: they go to `block_errors`, where the block's errors start, which moves past them.
+/// before them, the block's first of each only: they go to `block_errors`.
 pub(in crate::winnow) fn parse_classic(
     working_set: &mut StateWorkingSet,
     span: Span,
     target: &mut StatementTarget<'_>,
     out: &mut Vec<Pipeline>,
-    block_errors: &mut usize,
+    block_errors: &mut BlockErrors,
 ) {
     let subexpression = matches!(
         target,
@@ -1153,10 +1174,11 @@ pub(in crate::winnow) fn parse_classic(
         lex(contents, span.start, &[], &[], false)
     };
     let (lite_block, lite_err) = lite_parse(&tokens, working_set);
-    for err in [err, lite_err].into_iter().flatten() {
-        let at = (*block_errors).min(working_set.parse_errors.len());
-        working_set.parse_errors.insert(at, err);
-        *block_errors = at + 1;
+    if let Some(err) = err {
+        block_errors.lex_error(working_set, err);
+    }
+    if let Some(err) = lite_err {
+        block_errors.lite_error(working_set, err);
     }
     out.reserve(lite_block.block.len());
     for (index, lite_pipeline) in lite_block.block.iter().enumerate() {
@@ -1210,6 +1232,59 @@ fn redirection_pipe(element: &w::PipelineElement<'_>) -> Option<WSpan> {
             },
         ) => Some(op.span),
         _ => None,
+    }
+}
+
+/// Where the errors of a block go that nu reports before any statement's: nu lexes and
+/// lite-parses a whole block before it parses a statement (`parse_block`), so the block's first
+/// lexer error, then its first lite-parse error, come before every statement error of the block,
+/// those of the statements before them included.
+#[derive(Clone, Copy, Debug)]
+pub(in crate::winnow) struct BlockErrors {
+    /// Where the block's errors start: its lexer error goes there, its lite-parse error after.
+    start: usize,
+    /// Whether the block's lexer error was reported.
+    lexed: bool,
+    /// Whether the block's lite-parse error was reported.
+    lite_parsed: bool,
+}
+
+impl BlockErrors {
+    /// The errors of a block that start after those reported so far.
+    pub(in crate::winnow) fn new(working_set: &StateWorkingSet) -> Self {
+        Self {
+            start: working_set.parse_errors.len(),
+            lexed: false,
+            lite_parsed: false,
+        }
+    }
+
+    /// Report `error` as the block's lexer error, unless it has one.
+    pub(in crate::winnow) fn lex_error(
+        &mut self,
+        working_set: &mut StateWorkingSet,
+        error: ParseError,
+    ) {
+        if !std::mem::replace(&mut self.lexed, true) {
+            self.insert(working_set, 0, error);
+        }
+    }
+
+    /// Report `error` as the block's lite-parse error, unless it has one.
+    pub(in crate::winnow) fn lite_error(
+        &mut self,
+        working_set: &mut StateWorkingSet,
+        error: ParseError,
+    ) {
+        if !std::mem::replace(&mut self.lite_parsed, true) {
+            self.insert(working_set, usize::from(self.lexed), error);
+        }
+    }
+
+    /// Put `error` `offset` errors past the block's start.
+    fn insert(&self, working_set: &mut StateWorkingSet, offset: usize, error: ParseError) {
+        let at = (self.start + offset).min(working_set.parse_errors.len());
+        working_set.parse_errors.insert(at, error);
     }
 }
 
