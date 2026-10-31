@@ -1163,7 +1163,8 @@
 ; options: `let x` is allowed (initial_value is optional in let's signature), the
 ; missing value of `mut x` and `const x` is MissingPositional (semantic: signature).
 ; A typed `mut x: int` / `const x: int` without a value is MissingType: of the two
-; required positionals the variable gets only the `x:` item. A redirection or "|" in the rhs is
+; required positionals the variable gets only the `x:` item; nu goes on with its call,
+; which the statement then is (recorded as recovered), as for `for y: int` without `in`. A redirection or "|" in the rhs is
 ; part of the rhs pipeline. nu lexes the rhs again from its text, as a block: inside
 ; "(" ")", whose newlines are whitespace, a newline between its items still ends a
 ; pipeline (`(let x = 1\n2)` gives `x` a block of two). Type checks and
@@ -1368,7 +1369,9 @@
 ; a call for help of one of these keywords is an item too (`def --help`, `const x
 ; --help`): the keyword's parse function gives the call back as the statement;
 ; anything else (`let`, `mut`, a call, `if`, a pipeline of > 1 command) is
-; ExpectedKeyword "def, const, extern, alias, use, module, export or export-env"
+; ExpectedKeyword "def, const, extern, alias, use, module, export or export-env", which nu
+; reports at the statement's first item, reading nothing of it, and goes on: the parser
+; records it as recovered and the consumer makes the statement garbage
 ; nu: parse_module.rs:466 parse_module_block
 ; here: src/winnow/syntax/parser/parse_module.rs::is_module_item
 

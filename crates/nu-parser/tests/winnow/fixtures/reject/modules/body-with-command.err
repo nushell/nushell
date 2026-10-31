@@ -3,5 +3,4 @@ error: expected keyword `def, const, extern, alias, use, module, export or expor
   |
 1 | module m { ls }
   |            ^^
-  = while parsing module
   = help: a module body can only declare things; put code in `export-env` or a `def`

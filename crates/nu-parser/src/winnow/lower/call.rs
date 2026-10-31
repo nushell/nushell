@@ -25,7 +25,9 @@ use crate::{
     },
     parse_helpers::{PERCENT_FORCED_BUILTIN_PARSER_INFO, is_variable},
     parse_keywords::is_parser_keyword,
-    parse_signatures::{ensure_not_reserved_variable_name, parse_full_signature},
+    parse_signatures::{
+        ensure_not_reserved_variable_name, parse_full_signature, parse_var_with_opt_type,
+    },
     parse_source::{LIB_DIRS_VAR, find_dirs_var},
     type_check::type_compatible,
     winnow::lookup::{EngineLookup, decl_kind},
@@ -705,6 +707,18 @@ impl<'s> Lower<'_, '_, 's> {
             // Without a `:` after it, the name is the variable's only item.
             SyntaxShape::VarWithOptType if !text.ends_with(':') => {
                 return Ok((self.variable_item(item, input_type)?, index + 1));
+            }
+            // With one, the type is the items after it up to `end`, which nu's
+            // `parse_var_with_opt_type` reads (none is MissingType: `const x: int`).
+            SyntaxShape::VarWithOptType => {
+                let spans: Vec<Span> = arguments[..end]
+                    .iter()
+                    .map(|argument| self.span(argument.span()))
+                    .collect();
+                let mut last = index;
+                let (value, _) =
+                    parse_var_with_opt_type(self.working_set, &spans, &mut last, false, input_type);
+                return Ok((value, last + 1));
             }
             // `parse_math_expression` reads `if` or `match` and the items after it as a call
             // (`parse_call`), and either alone as an error, with garbage.

@@ -80,15 +80,35 @@ pub fn parse_module<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a
         Some(token) => {
             end = token.span;
             let body = parse_block_body_unchecked(working_set, token.span)?;
-            // Like nu, a module body holds declarations only.
+            // Like nu, a module body holds declarations only. nu reports any other statement
+            // and makes it garbage (`parse_module_pipeline`), and so does the consumer: the
+            // error is recorded as recovered.
             for pipeline in &body.pipelines {
                 let first = &pipeline.elements[0].expr;
                 if !is_module_item(first) {
-                    return Err(cut(Diagnostic::new(
+                    // A statement nu's module parser gives to a parse function of its own (an
+                    // `export --help`, attributes) stays an error.
+                    let word = working_set
+                        .get_span_contents(first.span)
+                        .split_whitespace()
+                        .next()
+                        .unwrap_or_default();
+                    if MODULE_KEYWORDS.contains(&word)
+                        || word == "export"
+                        || matches!(first.expr, Expr::AttributeBlock(_))
+                    {
+                        return Err(cut(Diagnostic::new(
+                            ErrorKind::ExpectedKeyword("def, const, extern, alias, use, module, export or export-env"),
+                            first.span,
+                        )
+                        .with_help("a module body can only declare things; put code in `export-env` or a `def`")));
+                    }
+                    working_set.error(Diagnostic::new(
                         ErrorKind::ExpectedKeyword("def, const, extern, alias, use, module, export or export-env"),
                         first.span,
                     )
-                    .with_help("a module body can only declare things; put code in `export-env` or a `def`")));
+                    .with_help("a module body can only declare things; put code in `export-env` or a `def`")
+                    .as_recovered());
                 }
             }
             Some(body)

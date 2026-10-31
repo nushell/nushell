@@ -177,15 +177,19 @@ fn parse_binding<'a>(mut tokens: Tokens<'_, 'a>, kind: BindingKind) -> ParseResu
             };
             (Some(parse_value_block(rhs, rhs_span)?), rhs_span)
         }
+        // nu's call gives a typed variable without a value only its name item, a missing type
+        // (MissingType), and goes on: the statement is that call, the error recorded as
+        // recovered.
         None if kind != BindingKind::Let && typed => {
-            return Err(cut(Diagnostic::message(
+            let diagnostic = Diagnostic::message(
                 "missing required positional argument",
                 items[items.len() - 1].span.past(),
             )
             .with_help(format!(
                 "`{keyword_name}` needs a value: `{keyword_name} {} = <value>`",
                 name.item
-            ))));
+            ));
+            return call_after_error(statement, cut(diagnostic), parse_help_call);
         }
         None => (None, items[items.len() - 1].span),
     };

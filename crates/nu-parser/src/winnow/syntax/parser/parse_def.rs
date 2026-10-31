@@ -1035,13 +1035,14 @@ pub fn parse_for<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> 
         true => {
             // Without an `in`, nu gives the type only the items the later positionals leave
             // (`calculate_end_span`), none in `for x: int` (MissingType), and reads the rest as
-            // those positionals: errors of its own, which this parser does not reproduce.
+            // those positionals, going on past its errors: the statement is that call, the
+            // error recorded as recovered.
             if !tokens
                 .remaining()
                 .iter()
                 .any(|token| tokens.text(token) == "in")
             {
-                return Err(cut(Diagnostic::expected("type", variable.span.past())));
+                return call.call_after(Diagnostic::expected("type", variable.span.past()));
             }
             let Some(type_span) = tokens_until("in").parse_next(&mut tokens)?.span() else {
                 return Err(cut(Diagnostic::expected("type", variable.span.past())));

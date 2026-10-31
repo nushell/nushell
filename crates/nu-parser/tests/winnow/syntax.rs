@@ -2370,3 +2370,24 @@ fn if_while_and_math_errors_are_recovered() {
         );
     }
 }
+
+/// A statement that declares nothing in a module's body nu reports and makes garbage, and a
+/// typed binding without a value is nu's call; the error is recorded as recovered either way.
+#[test]
+fn module_statements_and_missing_types_are_recovered() {
+    let config = ParseConfig::default();
+    let (ast, diagnostics) = parse_lenient("module m { ls }", &config);
+    kind!(expr(&ast), Expr::Module(_));
+    assert!(
+        diagnostics.len() == 1 && diagnostics[0].recovered,
+        "{diagnostics:?}"
+    );
+    for text in ["const x: int", "mut x: int", "for y: int"] {
+        let (ast, diagnostics) = parse_lenient(text, &config);
+        kind!(expr(&ast), Expr::Call(_));
+        assert!(
+            diagnostics.len() == 1 && diagnostics[0].recovered,
+            "{text}: {diagnostics:?}"
+        );
+    }
+}

@@ -19,7 +19,7 @@ use crate::winnow::syntax::lex::RedirectionSource as WinnowSource;
 use crate::winnow::syntax::{Span as WSpan, ast as w};
 use crate::{
     exportable::Exportable,
-    lex::lex,
+    lex::{TokenContents, lex},
     lite_parser::lite_parse,
     parse_captures_compile::wrap_element_with_collect,
     parse_expressions::{is_env_variable_name, is_math_expression_like},
@@ -97,6 +97,20 @@ pub(in crate::winnow) enum StatementTarget<'t> {
         span: Span,
     },
 }
+
+/// The first words `parse_module_pipeline` gives a statement of a module's body to a parse
+/// function of its own; it reports a statement with any other one (ExpectedKeyword).
+const MODULE_STATEMENT_KEYWORDS: &[&[u8]] = &[
+    b"def",
+    b"extern",
+    b"export",
+    b"const",
+    b"alias",
+    b"type",
+    b"use",
+    b"module",
+    b"export-env",
+];
 
 impl<'s> Lower<'_, '_, 's> {
     /// A statement lowered, or parsed by the classic parser from `span` when the lowering gives
@@ -354,6 +368,41 @@ impl<'s> Lower<'_, '_, 's> {
                 }
                 _ => return Err(Unlowered::Unsupported("export in a module")),
             },
+            // Any other statement nu reports at its first item and makes garbage over its
+            // parts, assignment operators included (`parse_module_pipeline`), reading nothing
+            // of it; a statement with one of its keywords first is its parse function's.
+            _ if attributes.is_empty() => {
+                let span = self.span(command.span);
+                let (tokens, _) = lex(
+                    self.working_set.get_span_contents(span),
+                    span.start,
+                    b"\n\r",
+                    &[],
+                    true,
+                );
+                let parts: Vec<Span> = tokens
+                    .iter()
+                    .filter(|token| {
+                        matches!(
+                            token.contents,
+                            TokenContents::Item | TokenContents::AssignmentOperator
+                        )
+                    })
+                    .map(|token| token.span)
+                    .collect();
+                let (Some(&first), Some(&last)) = (parts.first(), parts.last()) else {
+                    return Err(Unlowered::Error);
+                };
+                if MODULE_STATEMENT_KEYWORDS.contains(&self.working_set.get_span_contents(first)) {
+                    return Err(Unlowered::Unsupported("module statement"));
+                }
+                self.working_set.error(ParseError::ExpectedKeyword(
+                    "def, const, extern, alias, type, use, module, export or export-env keyword"
+                        .into(),
+                    first,
+                ));
+                Expression::garbage(self.working_set, first.merge(last))
+            }
             _ => return Err(Unlowered::Unsupported("module statement")),
         };
         Ok(Pipeline::from_vec(vec![expression]))

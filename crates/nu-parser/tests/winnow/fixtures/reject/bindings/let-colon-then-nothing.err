@@ -3,5 +3,4 @@ error: missing required positional argument
   |
 1 | const x: int
   |             ^
-  = while parsing const
   = help: `const` needs a value: `const x = <value>`
