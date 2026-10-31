@@ -93,7 +93,10 @@ parameters or flags with one variable name (`a` and `$a`, `foo_bar` and
 (`DuplicateParameter`); a positional `_` may repeat. (A `def` that is not
 `--wrapped` may not have its own `--help` flag, since `--help` always shows the
 command's help: nu's check in `finish_def`, the consumer's.) Closure
-parameters get the same checks.
+parameters get the same checks. nu reports a name taken twice and goes on
+with the signature, so that error is marked recovered: in a definition the
+statement is nu's call, and a closure read with any shape is a garbage leaf,
+which the consumer reads again with nu's closure parser.
 
 ```rust
 use nu_parser::winnow::syntax::{parse, ast::{Expr, ParameterKind, SyntaxShape}};

@@ -2498,3 +2498,15 @@ fn unclosed_external_list_argument_is_garbage() {
         "{diagnostics:?}"
     );
 }
+
+/// A closure with a parameter name taken twice nu reports and goes on past: the closure is a
+/// garbage leaf, its error recorded as recovered.
+#[test]
+fn closure_with_a_duplicate_parameter_is_garbage() {
+    let (ast, diagnostics) = parse_lenient("{|a, a| $a }", &ParseConfig::default());
+    assert!(expr(&ast).is_garbage());
+    assert!(
+        diagnostics.len() == 1 && diagnostics[0].recovered,
+        "{diagnostics:?}"
+    );
+}

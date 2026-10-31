@@ -134,6 +134,9 @@ fn check_parameters(parameters: &[Parameter<'_>], span: Span, external: bool) ->
 /// `$foo_bar`, as do `foo_bar` and `$foo_bar`; a flag with only a short form binds one named
 /// after its letter), and each short flag needs its own letter: a repeat would silently shadow
 /// or swallow the earlier one. Only a positional `_` may repeat, to ignore several arguments.
+/// nu reports the parameter (DuplicateParameter) and goes on with the signature, so the error is
+/// marked recovered: a closure's is a garbage leaf over the closure (`recover_literal`), which
+/// the consumer reads again with nu's parser.
 fn check_unique_name<'a>(
     parameter: &Parameter<'a>,
     variable_names: &mut HashMap<Cow<'a, str>, Span>,
@@ -144,7 +147,8 @@ fn check_unique_name<'a>(
             format!("`{display}` uses a name that is already taken"),
             parameter.span,
         )
-        .with_help(format!("it is first used at byte {}", first.start)))
+        .with_help(format!("it is first used at byte {}", first.start))
+        .as_recovered())
     };
     let mut earlier_use = |name: Cow<'a, str>| match variable_names.entry(name) {
         Entry::Occupied(first) => Some(*first.get()),
