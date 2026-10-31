@@ -93,6 +93,7 @@ impl Command for IntoDatetime {
             .input_output_types(vec![
                 (Type::Date, Type::Date),
                 (Type::Int, Type::Date),
+                (Type::Duration, Type::Date),
                 (Type::String, Type::Date),
                 (
                     Type::List(Box::new(Type::String)),
@@ -259,6 +260,12 @@ impl Command for IntoDatetime {
                 result: example_result_1(1614434140_000000000),
             },
             Example {
+                description: "Convert unix milliseconds timestamp to a UTC datetime.",
+                example: "1614434140123 | into duration --unit ms | into datetime",
+                #[allow(clippy::inconsistent_digit_grouping)]
+                result: example_result_1(1614434140_123000000),
+            },
+            Example {
                 description: "Using a datetime as input simply returns the value.",
                 example: "2021-02-27T13:55:40 | into datetime",
                 #[allow(clippy::inconsistent_digit_grouping)]
@@ -386,7 +393,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
 
     // Check to see if input looks like a Unix timestamp (i.e. can it be parsed to an int?)
     let timestamp = match input {
-        Value::Int { val, .. } => Ok(*val),
+        Value::Int { val, .. } | Value::Duration { val, .. } => Ok(*val),
         Value::String { val, .. } => val.parse::<i64>(),
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => return input.clone(),
