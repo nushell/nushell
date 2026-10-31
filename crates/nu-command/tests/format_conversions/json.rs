@@ -215,6 +215,7 @@ fn table_to_json_text_strict() -> Result {
 
 #[rstest]
 #[case("null", ())]
+#[case("\u{feff}", ())]
 #[case("true", true)]
 #[case("false", false)]
 fn top_level_values_from_json(#[case] json: &str, #[case] expected: impl IntoValue) -> Result {
@@ -225,6 +226,7 @@ fn top_level_values_from_json(#[case] json: &str, #[case] expected: impl IntoVal
 
 #[rstest]
 #[case("null", ())]
+#[case("\u{feff}", ())]
 #[case("true", true)]
 #[case("false", false)]
 fn top_level_values_from_json_strict(
