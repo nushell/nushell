@@ -433,7 +433,8 @@ $env.config.shell_integration.osc9_9 = ($nu.os-info.name == windows)
 
 # shell_integration.osc133 (bool): Enable OSC 133 support for shell semantic zones.
 # Reports prompt location and command exit status to terminal.
-# Enables features like collapsible output, prompt-to-prompt scrolling, and click-to-cursor.
+# Enables features like collapsible output, prompt-to-prompt scrolling, click-to-cursor
+# and completion menu entry selection using the pointer.
 # Default: true
 $env.config.shell_integration.osc133 = true
 
