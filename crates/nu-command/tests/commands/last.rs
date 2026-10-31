@@ -130,6 +130,37 @@ fn const_last_with_rows() -> Result {
 }
 
 #[test]
+fn const_last_range() -> Result {
+    test()
+        .run("const x = 1..5 | last 2; $x | to nuon --raw")
+        .expect_value_eq("[4,5]")
+}
+
+#[test]
+fn const_last_binary_with_filesize() -> Result {
+    test()
+        .run("const x = 0x[01 02 03] | last 2b; $x | to nuon --raw")
+        .expect_value_eq("0x[0203]")
+}
+
+#[test]
+fn const_last_strict_on_empty_list_errors() -> Result {
+    let err = test()
+        .run("const x = [] | last --strict")
+        .expect_parse_error()?;
+
+    assert_matches!(err, ParseError::LabeledError(msg, _, _) if msg.contains("Cannot access empty content"));
+    Ok(())
+}
+
+#[test]
+fn last_zero_rows_on_unbounded_range_returns_empty() -> Result {
+    test()
+        .run("1.. | last 0 | to nuon --raw")
+        .expect_value_eq("[]")
+}
+
+#[test]
 fn last_errors_on_unbounded_range() -> Result {
     test()
         .run("1.. | last")

@@ -117,6 +117,7 @@ impl Command for Last {
     }
 }
 
+/// Body of `last`, shared by `run` and `run_const`: the last `rows_val` items of `input`, or the last item when `rows_val` is `None`.
 fn last_helper(
     rows_val: Option<Value>,
     strict_mode: bool,
@@ -124,10 +125,6 @@ fn last_helper(
     head: Span,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    if let PipelineData::Value(ref v @ Value::Range { ref val, .. }, _) = input {
-        ensure_bounded(val, v.span(), head)?;
-    }
-
     let is_filesize = rows_val
         .as_ref()
         .is_some_and(|v| matches!(v, Value::Filesize { .. }));
@@ -201,6 +198,10 @@ fn last_helper(
             }
             _ => Ok(Value::list(Vec::new(), head).into_pipeline_data_with_metadata(metadata)),
         };
+    }
+
+    if let PipelineData::Value(ref v @ Value::Range { ref val, .. }, _) = input {
+        ensure_bounded(val, v.span(), head)?;
     }
 
     match input {

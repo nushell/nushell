@@ -116,6 +116,7 @@ impl Command for First {
     }
 }
 
+/// Body of `first`, shared by `run` and `run_const`: the first `rows_val` items of `input`, or the first item when `rows_val` is `None`.
 fn first_helper(
     rows_val: Option<Value>,
     strict_mode: bool,
