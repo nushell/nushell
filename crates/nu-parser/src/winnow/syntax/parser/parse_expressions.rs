@@ -682,13 +682,17 @@ fn expand_to_cell_path<'a>(
 /// `not $a and $b` is `(not $a) and $b`.
 fn parse_math_operand<'a>(tokens: &mut Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
     let working_set = tokens.working_set;
+    // Only after an operator: `parse_math_expression` checked the first operand. nu reports
+    // a missing operand (IncompleteMathExpression, or "expected expression" after a `not`)
+    // and goes on with garbage, so the error is recorded as recovered: the expression is a
+    // garbage leaf, which the consumer reads again with nu's math parser.
     let Some(first) = tokens.peek_token() else {
-        // Only after an operator: `parse_math_expression` checked the first operand.
         return Err(cut(Diagnostic::expected(
             "expression after operator",
             Span::point(tokens.previous_token_end()),
         )
-        .with_help("this math expression is incomplete")));
+        .with_help("this math expression is incomplete")
+        .as_recovered()));
     };
     if first.contents == TokenContents::Item && matches!(tokens.text(first), "if" | "match") {
         let keyword_expression = parse_builtin_commands(tokens.rest_stream())?;
@@ -697,6 +701,11 @@ fn parse_math_operand<'a>(tokens: &mut Tokens<'_, 'a>) -> ParseResult<Expression
     }
     let nots: Vec<Token> = repeat(0.., keyword("not")).parse_next(tokens)?;
     let start = tokens.position();
+    if !nots.is_empty() && tokens.at_end() {
+        return Err(cut(
+            Diagnostic::expected("expression", tokens.here()).as_recovered()
+        ));
+    }
     let value = tokens.expect_item("expression")?;
     if nots.is_empty() {
         return parse_value(working_set, value.span, ExpectedShape::Any);

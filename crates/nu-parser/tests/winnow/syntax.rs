@@ -2345,3 +2345,28 @@ fn attributes_before_an_export_of_no_definition() {
         "{diagnostics:?}"
     );
 }
+
+/// An error in nu's call to `if` or `while` (a block that is none, a condition that does not
+/// read) makes the statement that call, and a math expression missing an operand is a garbage
+/// leaf; the error is recorded as recovered either way.
+#[test]
+fn if_while_and_math_errors_are_recovered() {
+    let config = ParseConfig::default();
+    for (text, call) in [
+        ("if true 1", true),
+        ("if true [1]", true),
+        ("while true 1", true),
+        ("1 +", false),
+        ("not", false),
+    ] {
+        let (ast, diagnostics) = parse_lenient(text, &config);
+        match call {
+            true => kind!(expr(&ast), Expr::Call(_)),
+            false => assert!(expr(&ast).is_garbage(), "{text}"),
+        }
+        assert!(
+            !diagnostics.is_empty() && diagnostics.iter().all(|d| d.recovered),
+            "{text}: {diagnostics:?}"
+        );
+    }
+}

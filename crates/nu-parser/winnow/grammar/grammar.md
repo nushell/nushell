@@ -1602,7 +1602,9 @@ Vocabulary: `<expression>` is a `<pipeline-element>` (3.1); `<block>` is a
 ; `else if ...`, `else 5`, `else ls` and `else {|x| }` (Block fails, Expression gives
 ; a closure) parse, except after a "{" item without parameters, which Block takes
 ; alone: what follows it is an extra argument of `if` (`else {} * 3`, `else {} else
-; {}` are errors) or a flag; a record then-block is a type error
+; {}` are errors) or a flag; a record then-block is a type error. An error in the
+; condition or the then-block nu's call reports and goes on past: recorded as recovered,
+; the statement that call (and so for `while`)
 ; nu: nu-cmd-lang if_.rs; parse_calls.rs:782 (Keyword + OneOf)
 ; here: src/winnow/syntax/parser/parse_control_flow.rs::parse_if, parse_block_or_value
 

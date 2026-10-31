@@ -25,7 +25,8 @@ use super::parse_expressions::{
 };
 use super::parse_helpers::is_help_flag;
 use super::parse_keywords::{
-    KeywordCall, parse_block_or_value_argument, parse_brace_value, seen_end_of_options,
+    KeywordCall, call_after_error, parse_block_or_value_argument, parse_brace_value,
+    parse_help_call, seen_end_of_options,
 };
 use super::tokens::{Tokens, expected, keyword, tokens_until};
 
@@ -57,7 +58,16 @@ fn parse_block_or_value<'a>(
 ///
 /// `else if ...` needs no rule of its own: the expression after `else` is
 /// another `if`, which takes the rest of the items, its own `else` included.
-pub fn parse_if<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
+///
+/// nu's call to `if` reports an error in its condition or its block (`if true 1`, `if $a
+/// and`, `if --help true {} x`) and goes on, so the statement is then that call, the error
+/// recorded as recovered ([`call_after_error`]).
+pub fn parse_if<'a>(tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
+    let statement = tokens;
+    parse_if_parts(tokens).or_else(|error| call_after_error(statement, error, parse_help_call))
+}
+
+fn parse_if_parts<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
     let working_set = tokens.working_set;
     let mut call = KeywordCall::start(&mut tokens)?;
     if let Some(garbage) = lone_keyword(&tokens, &call, "if") {
@@ -261,8 +271,13 @@ fn garbage_match_block<'a>(
 }
 
 /// `while condition... { block }`: the condition is every item before the
-/// last, which is the block.
-pub fn parse_while<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
+/// last, which is the block. An error in either is nu's call's, as for `if` ([`parse_if`]).
+pub fn parse_while<'a>(tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
+    let statement = tokens;
+    parse_while_parts(tokens).or_else(|error| call_after_error(statement, error, parse_help_call))
+}
+
+fn parse_while_parts<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
     let mut call = KeywordCall::start(&mut tokens)?;
     if call.call_flags(&mut tokens)? {
         return call.help_call();

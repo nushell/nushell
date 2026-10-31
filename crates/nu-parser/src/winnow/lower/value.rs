@@ -641,10 +641,12 @@ impl<'s> Lower<'_, '_, 's> {
     }
 
     /// A table literal: a header row, `;`, then rows (`parse_table_expression`), typed by
-    /// `table_type`. A row of another length than the header, a header without rows, and
-    /// column types `table_type` rejects are the classic parser's errors.
+    /// `table_type`, or `table` when reading the rows reported an error. A row of another
+    /// length than the header, a header without rows, and column types `table_type` rejects
+    /// are the classic parser's errors.
     fn table(&mut self, span: WSpan, table: &w::Table<'s>) -> Lowered<Expression> {
         let columns = self.table_row(&table.columns)?;
+        let errors = self.working_set.parse_errors.len();
         let mut rows = Vec::with_capacity(table.rows.len());
         for row in &table.rows {
             let row = self.table_row(row)?;
@@ -656,10 +658,16 @@ impl<'s> Lower<'_, '_, 's> {
         if rows.is_empty() {
             return Err(Unlowered::Error);
         }
-        let (ty, errors) = table_type(&columns, &rows);
-        if !errors.is_empty() {
-            return Err(Unlowered::Error);
-        }
+        let ty = match self.working_set.parse_errors.len() == errors {
+            true => {
+                let (ty, errors) = table_type(&columns, &rows);
+                if !errors.is_empty() {
+                    return Err(Unlowered::Error);
+                }
+                ty
+            }
+            false => Type::table(),
+        };
         let span = self.span(span);
         let table = Table {
             columns: columns.into(),

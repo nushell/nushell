@@ -9,4 +9,3 @@ error: expected block
   |
 1 | while --help true {} y
   |                      ^
-  = while parsing while

@@ -724,7 +724,10 @@ impl<'s> Lower<'_, '_, 's> {
                 ItemsValue::RowCondition,
                 None,
             )?,
-            SyntaxShape::MathExpression if one_item => self.math(item, input_type)?,
+            // A lone `not`, which a call's arguments read as a word, is nu's math parser's error.
+            SyntaxShape::MathExpression if one_item && text != "not" => {
+                self.math(item, input_type)?
+            }
             SyntaxShape::MathExpression => self.reread(
                 items_span(arguments, index, end),
                 ItemsValue::Math,

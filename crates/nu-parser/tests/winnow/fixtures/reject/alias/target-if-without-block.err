@@ -3,4 +3,3 @@ error: expected block after the condition
   |
 1 | alias i = if x y
   |                ^
-  = while parsing if

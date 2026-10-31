@@ -9,4 +9,3 @@ error: expected block after the condition
   |
 1 | if --help true {} x
   |                   ^
-  = while parsing if

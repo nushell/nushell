@@ -3,4 +3,3 @@ error: expected expression
   |
 1 | alias i = if not
   |                 ^
-  = while parsing alias
