@@ -15,7 +15,7 @@ mod round;
 mod sqrt;
 mod stddev;
 mod sum;
-mod utils;
+pub(crate) mod utils;
 mod variance;
 
 pub use abs::MathAbs;

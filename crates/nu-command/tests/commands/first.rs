@@ -48,6 +48,27 @@ fn pipeline_data_with_metadata(kind: InputKind, meta: Option<PipelineMetadata>) 
 }
 
 #[test]
+fn const_first() -> Result {
+    test()
+        .run("const x = [1 2 3] | first; $x")
+        .expect_value_eq(1)
+}
+
+#[test]
+fn const_first_with_rows() -> Result {
+    test()
+        .run("const x = [1 2 3] | first 2; $x | to nuon --raw")
+        .expect_value_eq("[1,2]")
+}
+
+#[test]
+fn first_takes_rows_from_unbounded_range() -> Result {
+    test()
+        .run("1.. | first 2 | to nuon --raw")
+        .expect_value_eq("[1,2]")
+}
+
+#[test]
 fn gets_first_rows_by_amount() -> Result {
     test()
         .run_with_data(
