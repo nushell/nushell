@@ -415,6 +415,7 @@ struct RunContext<'a> {
     use_color: bool,
     shell_integration: &'a ShellIntegrationConfig,
     entry_num: &'a mut usize,
+    is_hostcommand: bool,
 }
 
 fn run_command(ctx: RunContext) -> Reedline {
@@ -429,6 +430,7 @@ fn run_command(ctx: RunContext) -> Reedline {
         use_color,
         shell_integration,
         entry_num,
+        is_hostcommand,
     } = ctx;
 
     // Prompt or line editor evaluation may have been interrupted since this REPL iteration
@@ -437,11 +439,14 @@ fn run_command(ctx: RunContext) -> Reedline {
         engine_state.reset_signals();
     }
 
-    let history_supports_meta = match engine_state.history_config().map(|h| h.file_format) {
-        #[cfg(feature = "sqlite")]
-        Some(HistoryFileFormat::Sqlite) => true,
-        _ => false,
-    };
+    // Host commands are never saved to history, so updating the last command context
+    // would overwrite the previous entry's metadata.
+    let history_supports_meta = !is_hostcommand
+        && match engine_state.history_config().map(|h| h.file_format) {
+            #[cfg(feature = "sqlite")]
+            Some(HistoryFileFormat::Sqlite) => true,
+            _ => false,
+        };
 
     if history_supports_meta {
         prepare_history_metadata(&command, hostname, engine_state, &mut line_editor);
@@ -923,6 +928,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
                 use_color,
                 shell_integration,
                 entry_num,
+                is_hostcommand: false,
             });
         }
         Ok(Signal::HostCommand(command)) => {
@@ -936,6 +942,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
                 use_color,
                 shell_integration,
                 entry_num,
+                is_hostcommand: true,
             });
         }
         Ok(Signal::CtrlC(_)) => {
