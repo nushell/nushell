@@ -1,7 +1,8 @@
 #[cfg(feature = "sqlite")]
 use crate::database::QueryPlan;
+use crate::math::utils::ensure_bounded;
 use nu_engine::command_prelude::*;
-use nu_protocol::shell_error::io::IoError;
+use nu_protocol::{Signals, shell_error::io::IoError};
 use std::{collections::VecDeque, io::Read};
 
 #[derive(Clone)]
@@ -82,286 +83,319 @@ impl Command for Last {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let head = call.head;
         let rows_val: Option<Value> = call.opt(engine_state, stack, 0)?;
-        let is_filesize = rows_val
-            .as_ref()
-            .is_some_and(|v| matches!(v, Value::Filesize { .. }));
         let strict_mode = call.has_flag(engine_state, stack, "strict")?;
+        last_helper(
+            rows_val,
+            strict_mode,
+            engine_state.signals(),
+            call.head,
+            input,
+        )
+    }
 
-        let rows: Option<usize> = match rows_val {
-            Some(v) => {
-                let span = v.span();
-                match v {
-                    Value::Int { val, .. } => Some(
-                        usize::try_from(val)
-                            .map_err(|_| ShellError::NeedsPositiveValue { span })?,
-                    ),
-                    Value::Filesize { val, .. } => Some(
-                        usize::try_from(val)
-                            .map_err(|_| ShellError::NeedsPositiveValue { span })?,
-                    ),
-                    ref val => {
-                        return Err(ShellError::RuntimeTypeMismatch {
-                            expected: Type::custom("int or filesize"),
-                            actual: val.get_type(),
-                            span: val.span(),
-                        });
-                    }
-                }
-            }
-            None => None,
-        };
+    fn is_const(&self) -> bool {
+        true
+    }
 
-        // FIXME: Please read the FIXME message in `first.rs`'s `first_helper` implementation.
-        // It has the same issue.
-        let return_single_element = rows.is_none();
-        let rows = rows.unwrap_or(1);
+    fn run_const(
+        &self,
+        working_set: &StateWorkingSet,
+        stack: &mut Stack,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let rows_val: Option<Value> = call.opt_const(working_set, stack, 0)?;
+        let strict_mode = call.has_flag_const(working_set, stack, "strict")?;
+        last_helper(
+            rows_val,
+            strict_mode,
+            working_set.permanent().signals(),
+            call.head,
+            input,
+        )
+    }
+}
 
-        let mut input = input;
-        let metadata = input.take_metadata();
+/// Body of `last`, shared by `run` and `run_const`: the last `rows_val` items of `input`, or the last item when `rows_val` is `None`.
+fn last_helper(
+    rows_val: Option<Value>,
+    strict_mode: bool,
+    signals: &Signals,
+    head: Span,
+    input: PipelineData,
+) -> Result<PipelineData, ShellError> {
+    let is_filesize = rows_val
+        .as_ref()
+        .is_some_and(|v| matches!(v, Value::Filesize { .. }));
 
-        if is_filesize {
-            let is_binary = matches!(
-                &input,
-                PipelineData::Value(Value::Binary { .. }, _) | PipelineData::ByteStream(..)
-            );
-            if !is_binary {
-                return Err(ShellError::IncompatibleParametersSingle {
-                    msg: "Filesize is only supported for binary/byte stream input".into(),
-                    span: head,
-                });
-            }
-        }
-
-        // Count is 0: return empty data immediately.
-        //
-        // The main `match` below is not safe for this case-`last` reads binary streams in chunks
-        // and sqlite paths may still execute. For "take nothing" we only produce an empty value:
-        // empty binary (and clear pipeline `content_type` for binary) or an empty list, with other
-        // metadata unchanged.
-        if rows == 0 {
-            return match input {
-                PipelineData::Value(val, _) if matches!(&val, Value::Binary { .. }) => Ok(
-                    Value::binary(Vec::new(), val.span()).into_pipeline_data_with_metadata(
-                        metadata.map(|m| m.with_content_type(None)),
-                    ),
+    let rows: Option<usize> = match rows_val {
+        Some(v) => {
+            let span = v.span();
+            match v {
+                Value::Int { val, .. } => Some(
+                    usize::try_from(val).map_err(|_| ShellError::NeedsPositiveValue { span })?,
                 ),
-                PipelineData::ByteStream(stream, _) => {
-                    if stream.type_().is_binary_coercible() {
-                        let span = stream.span();
-                        Ok(
-                            Value::binary(Vec::new(), span).into_pipeline_data_with_metadata(
-                                metadata.map(|m| m.with_content_type(None)),
-                            ),
-                        )
-                    } else {
-                        Ok(
-                            Value::list(Vec::new(), head)
-                                .into_pipeline_data_with_metadata(metadata),
-                        )
-                    }
+                Value::Filesize { val, .. } => Some(
+                    usize::try_from(val).map_err(|_| ShellError::NeedsPositiveValue { span })?,
+                ),
+                ref val => {
+                    return Err(ShellError::RuntimeTypeMismatch {
+                        expected: Type::custom("int or filesize"),
+                        actual: val.get_type(),
+                        span: val.span(),
+                    });
                 }
-                _ => Ok(Value::list(Vec::new(), head).into_pipeline_data_with_metadata(metadata)),
-            };
+            }
         }
+        None => None,
+    };
 
-        match input {
-            PipelineData::ListStream(_, _) | PipelineData::Value(Value::Range { .. }, _) => {
-                let iterator = input.into_iter_strict(head)?;
+    // FIXME: Please read the FIXME message in `first.rs`'s `first_helper` implementation.
+    // It has the same issue.
+    let return_single_element = rows.is_none();
+    let rows = rows.unwrap_or(1);
 
-                // only keep the last `rows` in memory
-                let mut buf = VecDeque::new();
+    let mut input = input;
+    let metadata = input.take_metadata();
 
-                for row in iterator {
-                    engine_state.signals().check(&head)?;
-                    if buf.len() == rows {
-                        buf.pop_front();
-                    }
-                    buf.push_back(row);
-                }
+    if is_filesize {
+        let is_binary = matches!(
+            &input,
+            PipelineData::Value(Value::Binary { .. }, _) | PipelineData::ByteStream(..)
+        );
+        if !is_binary {
+            return Err(ShellError::IncompatibleParametersSingle {
+                msg: "Filesize is only supported for binary/byte stream input".into(),
+                span: head,
+            });
+        }
+    }
 
-                if return_single_element {
-                    if let Some(last) = buf.pop_back() {
-                        Ok(last.into_pipeline_data_with_metadata(metadata))
-                    } else if strict_mode {
-                        Err(ShellError::AccessEmptyContent { span: head })
-                    } else {
-                        // There are no values, so return nothing instead of an error so
-                        // that users can pipe this through 'default' if they want to.
-                        Ok(Value::nothing(head).into_pipeline_data_with_metadata(metadata))
-                    }
-                } else {
-                    Ok(Value::list(buf.into(), head).into_pipeline_data_with_metadata(metadata))
-                }
+    // Count is 0: return empty data immediately.
+    //
+    // The main `match` below is not safe for this case-`last` reads binary streams in chunks
+    // and sqlite paths may still execute. For "take nothing" we only produce an empty value:
+    // empty binary (and clear pipeline `content_type` for binary) or an empty list, with other
+    // metadata unchanged.
+    if rows == 0 {
+        return match input {
+            PipelineData::Value(val, _) if matches!(&val, Value::Binary { .. }) => {
+                Ok(Value::binary(Vec::new(), val.span())
+                    .into_pipeline_data_with_metadata(metadata.map(|m| m.with_content_type(None))))
             }
-            PipelineData::Value(val, _) => {
-                let span = val.span();
-                match val {
-                    Value::List { vals, .. } => {
-                        if return_single_element {
-                            if let Some(v) = vals.last() {
-                                Ok(v.clone().into_pipeline_data_with_metadata(metadata))
-                            } else if strict_mode {
-                                Err(ShellError::AccessEmptyContent { span: head })
-                            } else {
-                                // There are no values, so return nothing instead of an error so
-                                // that users can pipe this through 'default' if they want to.
-                                Ok(Value::nothing(head).into_pipeline_data_with_metadata(metadata))
-                            }
-                        } else {
-                            let i = vals.len().saturating_sub(rows);
-                            let value = if i == 0 {
-                                Value::list_shared(vals, span)
-                            } else {
-                                Value::list(vals.iter().skip(i).cloned().collect(), span)
-                            };
-                            Ok(value.into_pipeline_data_with_metadata(metadata))
-                        }
-                    }
-                    Value::Binary { val, .. } => {
-                        let binary_meta = metadata.map(|m| m.with_content_type(None));
-                        if return_single_element {
-                            if let Some(&val) = val.last() {
-                                Ok(Value::int(val.into(), span)
-                                    .into_pipeline_data_with_metadata(binary_meta))
-                            } else if strict_mode {
-                                Err(ShellError::AccessEmptyContent { span: head })
-                            } else {
-                                // There are no values, so return nothing instead of an error so
-                                // that users can pipe this through 'default' if they want to.
-                                Ok(Value::nothing(head)
-                                    .into_pipeline_data_with_metadata(binary_meta))
-                            }
-                        } else {
-                            let mut val = val.into_owned();
-                            let i = val.len().saturating_sub(rows);
-                            val.drain(..i);
-                            Ok(Value::binary(val, span)
-                                .into_pipeline_data_with_metadata(binary_meta))
-                        }
-                    }
-                    // Propagate errors by explicitly matching them before the final case.
-                    Value::Error { error, .. } => Err(*error),
-                    #[cfg(feature = "sqlite")]
-                    // Pushdown optimization: handle 'last' via QueryPlan for lazy SQL execution
-                    Value::Custom {
-                        val: custom_val,
-                        internal_span,
-                        ..
-                    } => {
-                        if let Some(plan) = QueryPlan::try_from_any(custom_val.as_any()) {
-                            if return_single_element {
-                                // For single element, ORDER BY rowid DESC LIMIT 1
-                                let plan =
-                                    plan.with_order_by("rowid DESC".to_string()).with_limit(1);
-                                let result = plan.execute(head)?;
-                                let value = result.into_value(head)?;
-                                if let Value::List { vals, .. } = value {
-                                    if let Some(val) = vals.into_iter().next() {
-                                        Ok(val.into_pipeline_data_with_metadata(metadata))
-                                    } else if strict_mode {
-                                        Err(ShellError::AccessEmptyContent { span: head })
-                                    } else {
-                                        // There are no values, so return nothing instead of an error so
-                                        // that users can pipe this through 'default' if they want to.
-                                        Ok(Value::nothing(head)
-                                            .into_pipeline_data_with_metadata(metadata))
-                                    }
-                                } else {
-                                    Err(ShellError::NushellFailed {
-                                        msg: "Expected list from query plan".into(),
-                                    })
-                                }
-                            } else {
-                                // For multiple, ORDER BY rowid DESC LIMIT rows
-                                let plan = plan
-                                    .with_order_by("rowid DESC".to_string())
-                                    .with_limit(rows as i64);
-                                let result = plan.execute(head)?;
-                                let value = result.into_value(head)?;
-
-                                if let Value::List { mut vals, .. } = value {
-                                    // Reverse the results to restore original order
-                                    vals.to_mut().reverse();
-                                    Ok(Value::list(vals.into_owned(), head)
-                                        .into_pipeline_data_with_metadata(metadata))
-                                } else {
-                                    Ok(value.into_pipeline_data_with_metadata(metadata))
-                                }
-                            }
-                        } else {
-                            Err(ShellError::OnlySupportsThisInputType {
-                                exp_input_type: "list, binary or range".into(),
-                                wrong_type: custom_val.type_name(),
-                                dst_span: head,
-                                src_span: internal_span,
-                            })
-                        }
-                    }
-                    other => Err(ShellError::OnlySupportsThisInputType {
-                        exp_input_type: "list, binary or range".into(),
-                        wrong_type: other.get_type().to_string(),
-                        dst_span: head,
-                        src_span: other.span(),
-                    }),
-                }
-            }
-            PipelineData::ByteStream(stream, ..) => {
+            PipelineData::ByteStream(stream, _) => {
                 if stream.type_().is_binary_coercible() {
                     let span = stream.span();
-                    let byte_meta = metadata.map(|m| m.with_content_type(None));
-                    if let Some(mut reader) = stream.reader() {
-                        // Have to be a bit tricky here, but just consume into a VecDeque that we
-                        // shrink to fit each time
-                        const TAKE: u64 = 8192;
-                        // `rows` is user supplied and can be far larger than the input, so don't reserve it.
-                        let mut buf = VecDeque::new();
-                        loop {
-                            let taken = std::io::copy(&mut (&mut reader).take(TAKE), &mut buf)
-                                .map_err(|err| IoError::new(err, span, None))?;
-                            if buf.len() > rows {
-                                buf.drain(..(buf.len() - rows));
-                            }
-                            if taken < TAKE {
-                                // This must be EOF.
-                                if return_single_element {
-                                    if !buf.is_empty() {
-                                        return Ok(Value::int(buf[0] as i64, head)
-                                            .into_pipeline_data_with_metadata(byte_meta));
-                                    } else if strict_mode {
-                                        return Err(ShellError::AccessEmptyContent { span: head });
-                                    } else {
-                                        // There are no values, so return nothing instead of an error so
-                                        // that users can pipe this through 'default' if they want to.
-                                        return Ok(Value::nothing(head)
-                                            .into_pipeline_data_with_metadata(byte_meta));
-                                    }
+                    Ok(
+                        Value::binary(Vec::new(), span).into_pipeline_data_with_metadata(
+                            metadata.map(|m| m.with_content_type(None)),
+                        ),
+                    )
+                } else {
+                    Ok(Value::list(Vec::new(), head).into_pipeline_data_with_metadata(metadata))
+                }
+            }
+            _ => Ok(Value::list(Vec::new(), head).into_pipeline_data_with_metadata(metadata)),
+        };
+    }
+
+    if let PipelineData::Value(ref v @ Value::Range { ref val, .. }, _) = input {
+        ensure_bounded(val, v.span(), head)?;
+    }
+
+    match input {
+        PipelineData::ListStream(_, _) | PipelineData::Value(Value::Range { .. }, _) => {
+            let iterator = input.into_iter_strict(head)?;
+
+            // only keep the last `rows` in memory
+            let mut buf = VecDeque::new();
+
+            for row in iterator {
+                signals.check(&head)?;
+                if buf.len() == rows {
+                    buf.pop_front();
+                }
+                buf.push_back(row);
+            }
+
+            if return_single_element {
+                if let Some(last) = buf.pop_back() {
+                    Ok(last.into_pipeline_data_with_metadata(metadata))
+                } else if strict_mode {
+                    Err(ShellError::AccessEmptyContent { span: head })
+                } else {
+                    // There are no values, so return nothing instead of an error so
+                    // that users can pipe this through 'default' if they want to.
+                    Ok(Value::nothing(head).into_pipeline_data_with_metadata(metadata))
+                }
+            } else {
+                Ok(Value::list(buf.into(), head).into_pipeline_data_with_metadata(metadata))
+            }
+        }
+        PipelineData::Value(val, _) => {
+            let span = val.span();
+            match val {
+                Value::List { vals, .. } => {
+                    if return_single_element {
+                        if let Some(v) = vals.last() {
+                            Ok(v.clone().into_pipeline_data_with_metadata(metadata))
+                        } else if strict_mode {
+                            Err(ShellError::AccessEmptyContent { span: head })
+                        } else {
+                            // There are no values, so return nothing instead of an error so
+                            // that users can pipe this through 'default' if they want to.
+                            Ok(Value::nothing(head).into_pipeline_data_with_metadata(metadata))
+                        }
+                    } else {
+                        let i = vals.len().saturating_sub(rows);
+                        let value = if i == 0 {
+                            Value::list_shared(vals, span)
+                        } else {
+                            Value::list(vals.iter().skip(i).cloned().collect(), span)
+                        };
+                        Ok(value.into_pipeline_data_with_metadata(metadata))
+                    }
+                }
+                Value::Binary { val, .. } => {
+                    let binary_meta = metadata.map(|m| m.with_content_type(None));
+                    if return_single_element {
+                        if let Some(&val) = val.last() {
+                            Ok(Value::int(val.into(), span)
+                                .into_pipeline_data_with_metadata(binary_meta))
+                        } else if strict_mode {
+                            Err(ShellError::AccessEmptyContent { span: head })
+                        } else {
+                            // There are no values, so return nothing instead of an error so
+                            // that users can pipe this through 'default' if they want to.
+                            Ok(Value::nothing(head).into_pipeline_data_with_metadata(binary_meta))
+                        }
+                    } else {
+                        let mut val = val.into_owned();
+                        let i = val.len().saturating_sub(rows);
+                        val.drain(..i);
+                        Ok(Value::binary(val, span).into_pipeline_data_with_metadata(binary_meta))
+                    }
+                }
+                // Propagate errors by explicitly matching them before the final case.
+                Value::Error { error, .. } => Err(*error),
+                #[cfg(feature = "sqlite")]
+                // Pushdown optimization: handle 'last' via QueryPlan for lazy SQL execution
+                Value::Custom {
+                    val: custom_val,
+                    internal_span,
+                    ..
+                } => {
+                    if let Some(plan) = QueryPlan::try_from_any(custom_val.as_any()) {
+                        if return_single_element {
+                            // For single element, ORDER BY rowid DESC LIMIT 1
+                            let plan = plan.with_order_by("rowid DESC".to_string()).with_limit(1);
+                            let result = plan.execute(head)?;
+                            let value = result.into_value(head)?;
+                            if let Value::List { vals, .. } = value {
+                                if let Some(val) = vals.into_iter().next() {
+                                    Ok(val.into_pipeline_data_with_metadata(metadata))
+                                } else if strict_mode {
+                                    Err(ShellError::AccessEmptyContent { span: head })
                                 } else {
-                                    return Ok(Value::binary(buf, head)
-                                        .into_pipeline_data_with_metadata(byte_meta));
+                                    // There are no values, so return nothing instead of an error so
+                                    // that users can pipe this through 'default' if they want to.
+                                    Ok(Value::nothing(head)
+                                        .into_pipeline_data_with_metadata(metadata))
                                 }
+                            } else {
+                                Err(ShellError::NushellFailed {
+                                    msg: "Expected list from query plan".into(),
+                                })
+                            }
+                        } else {
+                            // For multiple, ORDER BY rowid DESC LIMIT rows
+                            let plan = plan
+                                .with_order_by("rowid DESC".to_string())
+                                .with_limit(rows as i64);
+                            let result = plan.execute(head)?;
+                            let value = result.into_value(head)?;
+
+                            if let Value::List { mut vals, .. } = value {
+                                // Reverse the results to restore original order
+                                vals.to_mut().reverse();
+                                Ok(Value::list(vals.into_owned(), head)
+                                    .into_pipeline_data_with_metadata(metadata))
+                            } else {
+                                Ok(value.into_pipeline_data_with_metadata(metadata))
                             }
                         }
                     } else {
-                        Ok(Value::nothing(head).into_pipeline_data_with_metadata(byte_meta))
+                        Err(ShellError::OnlySupportsThisInputType {
+                            exp_input_type: "list, binary or range".into(),
+                            wrong_type: custom_val.type_name(),
+                            dst_span: head,
+                            src_span: internal_span,
+                        })
+                    }
+                }
+                other => Err(ShellError::OnlySupportsThisInputType {
+                    exp_input_type: "list, binary or range".into(),
+                    wrong_type: other.get_type().to_string(),
+                    dst_span: head,
+                    src_span: other.span(),
+                }),
+            }
+        }
+        PipelineData::ByteStream(stream, ..) => {
+            if stream.type_().is_binary_coercible() {
+                let span = stream.span();
+                let byte_meta = metadata.map(|m| m.with_content_type(None));
+                if let Some(mut reader) = stream.reader() {
+                    // Have to be a bit tricky here, but just consume into a VecDeque that we
+                    // shrink to fit each time
+                    const TAKE: u64 = 8192;
+                    // `rows` is user supplied and can be far larger than the input, so don't reserve it.
+                    let mut buf = VecDeque::new();
+                    loop {
+                        let taken = std::io::copy(&mut (&mut reader).take(TAKE), &mut buf)
+                            .map_err(|err| IoError::new(err, span, None))?;
+                        if buf.len() > rows {
+                            buf.drain(..(buf.len() - rows));
+                        }
+                        if taken < TAKE {
+                            // This must be EOF.
+                            if return_single_element {
+                                if !buf.is_empty() {
+                                    return Ok(Value::int(buf[0] as i64, head)
+                                        .into_pipeline_data_with_metadata(byte_meta));
+                                } else if strict_mode {
+                                    return Err(ShellError::AccessEmptyContent { span: head });
+                                } else {
+                                    // There are no values, so return nothing instead of an error so
+                                    // that users can pipe this through 'default' if they want to.
+                                    return Ok(Value::nothing(head)
+                                        .into_pipeline_data_with_metadata(byte_meta));
+                                }
+                            } else {
+                                return Ok(Value::binary(buf, head)
+                                    .into_pipeline_data_with_metadata(byte_meta));
+                            }
+                        }
                     }
                 } else {
-                    Err(ShellError::OnlySupportsThisInputType {
-                        exp_input_type: "list, binary or range".into(),
-                        wrong_type: stream.type_().describe().into(),
-                        dst_span: head,
-                        src_span: stream.span(),
-                    })
+                    Ok(Value::nothing(head).into_pipeline_data_with_metadata(byte_meta))
                 }
+            } else {
+                Err(ShellError::OnlySupportsThisInputType {
+                    exp_input_type: "list, binary or range".into(),
+                    wrong_type: stream.type_().describe().into(),
+                    dst_span: head,
+                    src_span: stream.span(),
+                })
             }
-            PipelineData::Empty => Err(ShellError::OnlySupportsThisInputType {
-                exp_input_type: "list, binary or range".into(),
-                wrong_type: "null".into(),
-                dst_span: call.head,
-                src_span: call.head,
-            }),
         }
+        PipelineData::Empty => Err(ShellError::OnlySupportsThisInputType {
+            exp_input_type: "list, binary or range".into(),
+            wrong_type: "null".into(),
+            dst_span: head,
+            src_span: head,
+        }),
     }
 }
 
