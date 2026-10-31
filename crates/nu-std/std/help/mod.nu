@@ -696,8 +696,9 @@ def build-command-page [command: record] {
             $"  (ansi d)($example.description)(ansi rst)"
             $"  > ($example.example | if (config use-colors) { nu-highlight } else {})"
             ...[(if ($example.result | is-not-empty) {
+                # match the built-in `help`: collapse the result of `--collapse` examples, expand the rest
                 $example.result
-                | table -e
+                | if ($example.example | str ends-with "--collapse") { table --collapse } else { table -e }
                 | to text
                 | str trim --right
                 | lines
