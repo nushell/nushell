@@ -851,19 +851,10 @@ fn parse_pipeline_element<'a>(
                     )));
                 }
                 (true, _) => parse_builtin_commands(lite_command.tokens(working_set))?,
-                // nu reads `export` with its attributes as an export (`parse_export_in_block`).
-                (false, Some(first)) if words.first() == Some(&"export") => {
-                    return Err(cut(Diagnostic::message(
-                        "attributes must be followed by a definition",
-                        first.span,
-                    )
-                    .with_help(
-                        "only `def`, `extern`, `export def` and `export extern` take attributes",
-                    )));
-                }
                 // Before anything else nu reports the attributes (`parse_attribute_block`) and
                 // keeps the command, or the point after the last attribute, as garbage: so does
-                // the parser, the error recorded as recovered.
+                // the parser, the error recorded as recovered. (An `export` nu reads with its
+                // attributes as an export, `parse_export_in_block`, which does the same.)
                 (false, Some(first)) => {
                     working_set.error(
                         Diagnostic::message(

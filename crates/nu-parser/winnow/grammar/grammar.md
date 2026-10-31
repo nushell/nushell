@@ -1670,7 +1670,8 @@ Vocabulary: `<expression>` is a `<pipeline-element>` (3.1); `<block>` is a
 ; anything else (`export alias`, `export const`, `export module`, `export use`,
 ; `let`, a call) is AttributeRequiresDefinition, which nu reports at the last attribute,
 ; keeping the command (or the point after the last attribute) as garbage: so does the
-; parser, the error recorded as recovered; a blank line after the attributes ends the
+; parser, the error recorded as recovered (before an `export` of no definition too, which
+; nu's `warp_export_call` then reports); a blank line after the attributes ends the
 ; command there, while after a comment line (which nu gives the next command) the error
 ; stays
 ; nu: parse_calls.rs:2022 parse_attribute; parse_def.rs:278 parse_attribute_block;

@@ -1669,6 +1669,47 @@ impl<'s> Lower<'_, '_, 's> {
         ))
     }
 
+    /// Attributes before an `export` of no definition (`parse_export_in_block`): the attribute
+    /// block nu's `parse_attribute_block` gives (`expression`), which `warp_export_call` makes
+    /// cover every item of the statement and, as it is no call, reports from the statement's
+    /// second item on.
+    pub(super) fn exported_attribute_block(
+        &mut self,
+        mut expression: Expression,
+        command: &w::Expression<'s>,
+        attributes: &[w::Attribute<'s>],
+    ) -> Lowered<Expression> {
+        let start = attributes.first().map_or(command.span, |first| first.span);
+        let items = self.items(start.merge(command.span));
+        let words: Vec<&[u8]> = self
+            .items(command.span)
+            .iter()
+            .take(2)
+            .map(|item| self.working_set.get_span_contents(*item))
+            .collect();
+        let full_name = match words.as_slice() {
+            [
+                _,
+                sub @ (b"alias" | b"use" | b"module" | b"const" | b"type"),
+            ] => {
+                format!("export {}", String::from_utf8_lossy(sub))
+            }
+            _ => "export".to_string(),
+        };
+        if self.working_set.find_decl(full_name.as_bytes()).is_none() {
+            return Err(Unlowered::Unsupported("export that is not a keyword"));
+        }
+        let (Some(second), Some(last)) = (items.get(1), items.last()) else {
+            return Err(Unlowered::Error);
+        };
+        expression.span = Span::merge_many(items.iter().copied());
+        self.working_set.error(ParseError::InternalError(
+            "unexpected output from parsing a definition".into(),
+            Span::new(second.start, last.end),
+        ));
+        Ok(expression)
+    }
+
     /// The head of a definition's call: `keyword`, or `export keyword` when `command` is an
     /// `export`, covering what comes between the two words (blanks, and in a subexpression
     /// newlines and comments), as `Span::concat` of the two items does.

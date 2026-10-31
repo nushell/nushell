@@ -2329,3 +2329,19 @@ fn statements_in_a_pipeline_are_recovered() {
     let (ast, _) = parse_lenient("ls | mut x = 1", &config);
     kind!(ast.block.pipelines[0].elements[1].expr, Expr::Assignment(_));
 }
+
+/// Attributes before an `export` of no definition nu reports and goes on past: the attribute
+/// block's item is garbage, the error recorded as recovered.
+#[test]
+fn attributes_before_an_export_of_no_definition() {
+    let (ast, diagnostics) = parse_lenient(
+        "@example \"x\" { 1 }\nexport module y {}",
+        &ParseConfig::default(),
+    );
+    let block = kind!(expr(&ast), Expr::AttributeBlock(b) => b);
+    assert!(block.item.is_garbage());
+    assert!(
+        diagnostics.len() == 1 && diagnostics[0].recovered,
+        "{diagnostics:?}"
+    );
+}

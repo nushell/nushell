@@ -317,9 +317,12 @@ checked against their keyword signatures. Attributes may only precede `def`,
 definition". nu reports that at the last attribute and keeps the command, or
 the point after the last attribute, as garbage, so the parser records the
 error as recovered and keeps the attribute block with a garbage item, which
-the consumer reads as nu's `parse_attribute_block` does. A blank line after
-the attributes ends the command; a comment line, which nu gives the command
-after it, stays an error.
+the consumer reads as nu's `parse_attribute_block` does. Before an `export`
+of no definition (`export module y {}`) nu's `parse_export_in_block` does the
+same, and its `warp_export_call` then reports the attribute block, which is no
+call, from the statement's second item on; the consumer does that too
+(`exported_attribute_block`). A blank line after the attributes ends the
+command; a comment line, which nu gives the command after it, stays an error.
 
 The keyword itself is not stored in the tree: `Expr::keyword()` names it
 and `Expression::keyword_span()` locates it, since it is always the first

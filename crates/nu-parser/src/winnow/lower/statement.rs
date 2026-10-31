@@ -561,7 +561,15 @@ impl<'s> Lower<'_, '_, 's> {
                         self.extern_def(pipeline, command, extern_def, attributes, None)?
                             .0
                     }
-                    w::Expr::Garbage => self.attributes_without_definition(command, attributes)?,
+                    w::Expr::Garbage => {
+                        let expression = self.attributes_without_definition(command, attributes)?;
+                        match self.text(command.span).starts_with("export") {
+                            true => {
+                                self.exported_attribute_block(expression, command, attributes)?
+                            }
+                            false => expression,
+                        }
+                    }
                     _ => return Err(Unlowered::Unsupported("attributes")),
                 }
             }
