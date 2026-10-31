@@ -205,7 +205,10 @@ struct RecordLiteralItem {
     /// Length of the record after this item was added. Records keep insertion order, so this is
     /// enough to tell which item added the key at a given index.
     end: usize,
+    /// The source of the item: `key: value`, `...expr`, or a table cell. Used for the
+    /// "field first defined here" label.
     span: Span,
+    /// Whether the item was a spread. A duplicate of a key it added gets the spread help.
     is_spread: bool,
 }
 
