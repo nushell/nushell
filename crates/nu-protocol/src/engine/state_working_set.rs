@@ -868,18 +868,6 @@ impl<'a> StateWorkingSet<'a> {
         self.last_overlay_mut().insert_variable(name, var_id);
     }
 
-    /// Returns the current working directory as a String, which is guaranteed to be canonicalized.
-    /// Returns an empty string if $env.PWD doesn't exist, is not a String, or is not an absolute path.
-    ///
-    /// It does NOT consider modifications to the working directory made on a stack.
-    #[deprecated(since = "0.92.3", note = "please use `EngineState::cwd()` instead")]
-    pub fn get_cwd(&self) -> String {
-        self.permanent_state
-            .cwd(None)
-            .map(|path| path.to_string_lossy().to_string())
-            .unwrap_or_default()
-    }
-
     pub fn get_env_var(&self, name: &str) -> Option<&Value> {
         self.permanent_state.get_env_var(name)
     }
@@ -1022,12 +1010,7 @@ impl<'a> StateWorkingSet<'a> {
         if decl_id.get() >= self.permanent_state.num_decls() {
             return Arc::new(self.get_signature(self.get_decl(decl_id)));
         }
-        let mut cache = SignatureCache::lock(&self.permanent_state.signature_cache.effective);
-        Arc::clone(
-            cache
-                .entry(decl_id)
-                .or_insert_with(|| Arc::new(self.get_signature(self.get_decl(decl_id)))),
-        )
+        self.permanent_state.get_signature_shared(decl_id)
     }
 
     /// Shared version of `Command::signature()` for the declaration `decl_id`, i.e. the

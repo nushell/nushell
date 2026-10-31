@@ -140,6 +140,7 @@ pub fn from_nuon(input: &str, span: Option<Span>) -> Result<Value, ShellError> {
                 col_name: col_name.clone(),
                 second_use: *second_use,
                 first_use: *first_use,
+                help: None,
             });
         }
         Some(ParseError::LiteralTooLarge(ty, span)) => {

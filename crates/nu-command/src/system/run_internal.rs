@@ -1,4 +1,4 @@
-use nu_engine::{CallExt, command_prelude::*, find_builtin_decl};
+use nu_engine::{CallExt, command_prelude::*, eval_ir_call, find_builtin_decl};
 use nu_protocol::ir;
 
 /// Internal command used by the `%($cmd)`/`%$cmd` dynamic builtin dispatch syntax.
@@ -47,7 +47,6 @@ impl Command for RunInternal {
         let decl_id = find_builtin_decl(engine_state, &name)
             .ok_or(ShellError::CommandNotFound { span: head })?;
 
-        let decl = engine_state.get_decl(decl_id);
         // Preserve spread markers here so `%($cmd) ...$args` forwards the same argument shape the
         // target builtin would receive in a direct call.
         let rest_args: Vec<(Value, bool)> = call.rest_preserving_spreads(engine_state, stack, 1)?;
@@ -71,10 +70,10 @@ impl Command for RunInternal {
             }
         }
 
-        // `builder.with` is a scoped guard: it registers temporary IR argument slots,
-        // calls the closure, then always deallocates those slots on exit.
-        builder.with(stack, |stack, engine_call| {
-            decl.run(engine_state, stack, engine_call, input)
-        })
+        // Run it like a direct call, so its input is type checked and record spreads become flags.
+        let call = builder.finish();
+        let result = eval_ir_call(engine_state, stack, &call, input);
+        call.leave(stack);
+        result
     }
 }

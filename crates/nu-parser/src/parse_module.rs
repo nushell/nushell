@@ -813,8 +813,10 @@ pub fn parse_module_file_or_dir(
         return None;
     }
 
-    #[allow(deprecated)]
-    let cwd = working_set.get_cwd();
+    let cwd = working_set
+        .permanent()
+        .cwd_as_string(None)
+        .unwrap_or_default();
 
     let module_path = if let Some(path) = find_in_dirs(
         &module_path_str,

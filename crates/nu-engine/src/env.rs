@@ -80,6 +80,33 @@ pub fn convert_env_vars(
     ensure_path(engine_state, stack).map_or(Ok(()), Err)
 }
 
+/// Converts `value`, about to be stored as `$env.<name>`, with the `from_string` closure that
+/// `$env.ENV_CONVERSIONS` has for `name`, as nushell converts the environment it starts with.
+/// Like [`convert_env_vars`], a conversion applies to the variable whatever its case. A value that
+/// isn't a string, or has no `from_string` closure, is returned as it is.
+pub fn convert_env_var(
+    engine_state: &EngineState,
+    stack: &Stack,
+    name: &str,
+    value: Value,
+) -> Result<Value, ShellError> {
+    if !matches!(value, Value::String { .. }) {
+        return Ok(value);
+    }
+    let key = stack
+        .get_env_var(engine_state, var::ENV_CONVERSIONS)
+        .and_then(|conversions| conversions.as_record().ok())
+        .and_then(|conversions| conversions.columns().find(|key| env_var_eq(key, name)));
+    let Some(key) = key else {
+        return Ok(value);
+    };
+    match get_converted_value(engine_state, stack, key, &value, "from_string") {
+        Ok(converted) => Ok(converted),
+        Err(ConversionError::CellPathError) => Ok(value),
+        Err(ConversionError::ShellError(err)) => Err(err),
+    }
+}
+
 /// Translate environment variables from Strings to Values. Requires config to be already set up in
 /// case the user defined custom env conversions in config.nu.
 ///
@@ -337,7 +364,9 @@ fn get_converted_value(
     )
 }
 
-fn ensure_path(engine_state: &EngineState, stack: &mut Stack) -> Option<ShellError> {
+/// Makes a string PATH a list of its directories, as nushell does with the environment it starts
+/// with. Returns an error when PATH is neither a string nor a list of strings.
+pub fn ensure_path(engine_state: &EngineState, stack: &mut Stack) -> Option<ShellError> {
     let mut error = None;
     let preserve_case_name = if cfg!(windows) { "Path" } else { "PATH" };
 

@@ -57,6 +57,7 @@ sysinfo = { workspace = true }
 strum = { workspace = true }
 unicode-segmentation = { workspace = true }
 unicode-width = { workspace = true }
+url = { workspace = true }
 uuid = { workspace = true, features = ["v4"] }
 which = { workspace = true }
 

@@ -802,6 +802,19 @@ fn percent_dynamic_dispatch_with_mixed_positional_and_spread_args() -> Result {
 }
 
 #[test]
+fn percent_dynamic_dispatch_rejects_list_spread_without_rest() -> Result {
+    // `length ...$args` is a parse error. The dynamic form can only check at runtime, but must not
+    // drop the arguments.
+    let code = "let cmd = 'length'; let args = [1]; [1 2] | %($cmd) ...$args";
+    let err = test().run(code).expect_shell_error()?;
+    assert_matches!(
+        err,
+        ShellError::Generic(err) if err.error == "Cannot spread a list into this command"
+    );
+    Ok(())
+}
+
+#[test]
 fn percent_dynamic_dispatch_in_wrapped_command_forwards_rest_args() -> Result {
     let code = "
         export def --wrapped builtin [arg1, ...args] { %($arg1) ...$args }

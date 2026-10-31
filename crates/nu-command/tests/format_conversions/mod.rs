@@ -1,4 +1,5 @@
 mod csv;
+mod dotenv;
 mod html;
 mod json;
 mod markdown;

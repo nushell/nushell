@@ -1,5 +1,6 @@
-use nu_experimental::REORDER_CELL_PATHS;
+use nu_experimental::{ENFORCE_RUNTIME_ANNOTATIONS, REORDER_CELL_PATHS};
 use nu_test_support::prelude::*;
+use rstest::rstest;
 
 #[test]
 fn sets_the_column() -> Result {
@@ -400,4 +401,18 @@ fn update_matrix_row_preserves_matrix_type() -> Result {
     test()
         .run("[[1 2] [3 4]] | into matrix | update 0 [5 6] | describe")
         .expect_value_eq("matrix")
+}
+
+// `update` dropped its `list<any>` pair for a union input holding `matrix`: the output of a first
+// `update` on an untyped command's list, or a list-or-matrix union. The runtime `let` check then
+// rejected the list (#19378).
+#[rstest]
+#[case::untyped_command("def f [] { [1 2] }; let x = f | update 0 null | update 1 null; $x")]
+#[case::list_or_matrix(
+    "let x = (if true { [1 2] } else { [[1 2]] | into matrix }) | update 0 null | update 1 null; $x"
+)]
+#[nu_test_support::test]
+#[exp(ENFORCE_RUNTIME_ANNOTATIONS)]
+fn update_on_list_union_binds_to_untyped_let(#[case] code: &str) -> Result {
+    test().run(code).expect_value_eq(test_value!([(), ()]))
 }

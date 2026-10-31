@@ -18,8 +18,6 @@
 | ----------------------- | ------------ | ---- | -------- |
 | `build-all-maclin.sh`   | x            | x    | x        |
 | `build-all-windows.cmd` | ?            | x    | ?        |
-| `build-all.nu`          | x            | x    | x        |
-| `coverage-local.nu`     | x            | x    | x        |
 | `coverage-local.sh`     | x            | x    | x        |
 | `install-all.ps1`       | ?            | x    | ?        |
 | `install-all.sh`        | x            | x    | x        |

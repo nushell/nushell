@@ -384,6 +384,11 @@ fn run_dc_glob(
         item.map(|path| {
             if path.is_absolute() {
                 path
+            } else if path.as_os_str().is_empty() {
+                // The globber emits an empty relative path when the pattern
+                // names the base directory itself, as `glob .` does. Joining
+                // it would append a trailing separator to the directory.
+                cwd_for_matches.clone()
             } else {
                 cwd_for_matches.join(path)
             }

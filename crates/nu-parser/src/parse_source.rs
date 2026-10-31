@@ -74,8 +74,10 @@ pub fn parse_source(working_set: &mut StateWorkingSet, lite_command: &LiteComman
         let scoped = name == b"source-env";
 
         if let Some(decl_id) = working_set.find_decl(name) {
-            #[allow(deprecated)]
-            let cwd = working_set.get_cwd();
+            let cwd = working_set
+                .permanent()
+                .cwd_as_string(None)
+                .unwrap_or_default();
 
             let ParsedInternalCall {
                 call,
@@ -237,8 +239,10 @@ fn parse_run_expr_internal(
         if let Some(decl_id) =
             find_keyword_decl(working_set, name).or_else(|| working_set.find_decl(name))
         {
-            #[allow(deprecated)]
-            let cwd = working_set.get_cwd();
+            let cwd = working_set
+                .permanent()
+                .cwd_as_string(None)
+                .unwrap_or_default();
 
             // `run`'s own flags come before the script path, and everything after the path
             // belongs to the script, like `nu [flags] script.nu [args]`. So `run x.nu -f` passes
@@ -644,8 +648,10 @@ pub fn parse_where(working_set: &mut StateWorkingSet, lite_command: &LiteCommand
 pub fn parse_plugin_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> Pipeline {
     use nu_protocol::{FromValue, PluginRegistryFile};
 
-    #[allow(deprecated)]
-    let cwd = working_set.get_cwd();
+    let cwd = working_set
+        .permanent()
+        .cwd_as_string(None)
+        .unwrap_or_default();
 
     if let Err(err) = (|| {
         let name = call

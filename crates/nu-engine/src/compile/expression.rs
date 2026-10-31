@@ -432,7 +432,7 @@ pub(crate) fn compile_expression(
                                 key: key_reg,
                                 val: val_reg,
                             }
-                            .into_spanned(expr.span),
+                            .into_spanned(key.span.merge(val.span)),
                         )?;
                     }
                     RecordItem::Spread(spread_span, expr) => {
@@ -451,7 +451,7 @@ pub(crate) fn compile_expression(
                                 src_dst: out_reg,
                                 items: reg,
                             }
-                            .into_spanned(*spread_span),
+                            .into_spanned(spread_span.merge(expr.span)),
                         )?;
                     }
                 }
