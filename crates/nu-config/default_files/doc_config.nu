@@ -307,9 +307,11 @@ $env.config.completions.use_ls_colors = true
 # 0: Disable the cache; every Tab recomputes.
 # A larger value remembers more prefixes (uses more memory).
 # A smaller value forgets sooner.
-# Closures on `$env.config.completions.external.completer` and custom
-# `@comp` / `@complete` completers are not stored, so an interactive picker
-# (fzf, `input list`) runs again on the next Tab.
+# Custom `@comp` / `@complete` and external completer answers are cached by
+# default. If their results depend on files, processes, or other state outside
+# the cache key, return `{completions: $items, options: {cache: false}}` to
+# recompute them on later prompts. Interactive pickers (`fzf`, `input list`)
+# are not cached. Plugin dynamic completions are also recomputed.
 # Default: 100
 $env.config.completions.cache_size = 100
 
@@ -355,7 +357,8 @@ $env.config.completions.external.max_results = 100
 #
 # Returns a list of suggestions (a string, or a record of {value, description?, style?,
 # span?, extra?}) or a record of {options, completions}. External/command-wide completers
-# are not filtered by default; parameter completers are. See `options.filter`.
+# are not filtered by default; parameter completers are. See `options.filter`
+# and `options.cache` above.
 # Default: null
 $env.config.completions.external.completer = null
 
