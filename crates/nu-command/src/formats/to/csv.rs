@@ -1,10 +1,7 @@
-use std::sync::Arc;
-
 use crate::formats::to::delimited::to_delimited_data;
 use nu_engine::command_prelude::*;
-use nu_protocol::Config;
 
-use super::delimited::ToDelimitedDataArgs;
+use super::delimited::{ToDelimitedDataArgs, parse_single_char_flag};
 
 #[derive(Clone)]
 pub struct ToCsv;
@@ -25,6 +22,18 @@ impl Command for ToCsv {
                 SyntaxShape::String,
                 "A character to separate columns, defaults to ','.",
                 Some('s'),
+            )
+            .named(
+                "quote",
+                SyntaxShape::String,
+                "A quote character to wrap fields that need quoting, defaults to '\"'.",
+                Some('q'),
+            )
+            .named(
+                "escape",
+                SyntaxShape::String,
+                "An escape character for fields containing the quote character, instead of the default doubled-quote escaping.",
+                Some('e'),
             )
             .switch(
                 "noheaders",
@@ -62,6 +71,16 @@ impl Command for ToCsv {
                 example: "[[foo bar baz]; [1 2 3]] | to csv --columns [baz foo]",
                 result: Some(Value::test_string("baz,foo\n3,1\n")),
             },
+            Example {
+                description: "Outputs a CSV string, quoting fields with a custom character.",
+                example: "[[foo]; ['a,b']] | to csv --quote '|'",
+                result: Some(Value::test_string("foo\n|a,b|\n")),
+            },
+            Example {
+                description: "Outputs a CSV string, escaping quotes in fields with a custom character instead of doubling them.",
+                example: r#"[[foo]; ['say "hi"']] | to csv --escape '\'"#,
+                result: Some(Value::test_string("foo\n\"say \\\"hi\\\"\"\n")),
+            },
         ]
     }
 
@@ -79,57 +98,61 @@ impl Command for ToCsv {
         let head = call.head;
         let noheaders = call.has_flag(engine_state, stack, "noheaders")?;
         let separator: Option<Spanned<String>> = call.get_flag(engine_state, stack, "separator")?;
+        let quote = call
+            .get_flag(engine_state, stack, "quote")?
+            .map(|v: Value| parse_single_char_flag(v, "quote"))
+            .transpose()?
+            .unwrap_or(Spanned {
+                item: '"',
+                span: head,
+            });
+        let escape = call
+            .get_flag(engine_state, stack, "escape")?
+            .map(|v: Value| parse_single_char_flag(v, "escape"))
+            .transpose()?;
         let columns: Option<Vec<String>> = call.get_flag(engine_state, stack, "columns")?;
         let config = engine_state.config.clone();
-        to_csv(input, noheaders, separator, columns, head, config)
-    }
-}
 
-fn to_csv(
-    input: PipelineData,
-    noheaders: bool,
-    separator: Option<Spanned<String>>,
-    columns: Option<Vec<String>>,
-    head: Span,
-    config: Arc<Config>,
-) -> Result<PipelineData, ShellError> {
-    let sep = match separator {
-        Some(Spanned { item: s, span, .. }) => {
-            if s == r"\t" {
-                Spanned { item: '\t', span }
-            } else {
-                let vec_s: Vec<char> = s.chars().collect();
-                if vec_s.len() != 1 {
-                    return Err(ShellError::TypeMismatch {
-                        err_message: "Expected a single separator char from --separator"
-                            .to_string(),
-                        span,
-                    });
-                };
-                Spanned {
-                    item: vec_s[0],
-                    span: head,
+        let sep = match separator {
+            Some(Spanned { item: s, span, .. }) => {
+                if s == r"\t" {
+                    Spanned { item: '\t', span }
+                } else {
+                    let vec_s: Vec<char> = s.chars().collect();
+                    if vec_s.len() != 1 {
+                        return Err(ShellError::TypeMismatch {
+                            err_message: "Expected a single separator char from --separator"
+                                .to_string(),
+                            span,
+                        });
+                    };
+                    Spanned {
+                        item: vec_s[0],
+                        span: head,
+                    }
                 }
             }
-        }
-        _ => Spanned {
-            item: ',',
-            span: head,
-        },
-    };
+            _ => Spanned {
+                item: ',',
+                span: head,
+            },
+        };
 
-    to_delimited_data(
-        ToDelimitedDataArgs {
-            noheaders,
-            separator: sep,
-            columns,
-            format_name: "CSV",
-            input,
-            head,
-            content_type: Some(mime::TEXT_CSV.to_string()),
-        },
-        config,
-    )
+        to_delimited_data(
+            ToDelimitedDataArgs {
+                noheaders,
+                separator: sep,
+                quote,
+                escape,
+                columns,
+                format_name: "CSV",
+                input,
+                head,
+                content_type: Some(mime::TEXT_CSV.to_string()),
+            },
+            config,
+        )
+    }
 }
 
 #[cfg(test)]
