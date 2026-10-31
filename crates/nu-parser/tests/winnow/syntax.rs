@@ -2510,3 +2510,58 @@ fn closure_with_a_duplicate_parameter_is_garbage() {
         "{diagnostics:?}"
     );
 }
+
+/// Statements nu reads past an error in as their keyword's call or binding, the error recorded
+/// as recovered: a lone `let` or `mut` with a redirection, which reads it as its own items (no
+/// redirection is left), a word where a valueless binding's `=` goes, a value where
+/// `export-env`'s block goes, a flag where an alias's name goes and a list type with two
+/// parameters. Attribute lines before a comment line end there, with garbage, and the comments
+/// before and after them go to the next statement.
+#[test]
+fn binding_alias_and_export_env_errors_are_recovered() {
+    let config = ParseConfig::default();
+    let (ast, diagnostics) = parse_lenient("let a o> f = 1", &config);
+    kind!(expr(&ast), Expr::Let(_));
+    assert!(elements(&ast)[0].redirection.is_none());
+    assert!(
+        diagnostics.len() == 1 && diagnostics[0].recovered,
+        "{diagnostics:?}"
+    );
+    for text in [
+        "let x y",
+        "mut x o> f",
+        "export-env {a: 1}",
+        "export-env 1",
+        "alias -- = ls",
+        "alias -x = ls",
+    ] {
+        let (ast, diagnostics) = parse_lenient(text, &config);
+        kind!(expr(&ast), Expr::Call(_));
+        assert!(elements(&ast)[0].redirection.is_none(), "{text}");
+        assert!(
+            !diagnostics.is_empty() && diagnostics.iter().all(|d| d.recovered),
+            "{text}: {diagnostics:?}"
+        );
+    }
+    let (ast, diagnostics) = parse_lenient("let a: list<string asd> = []", &config);
+    kind!(expr(&ast), Expr::Let(_));
+    assert!(
+        diagnostics.len() == 1 && diagnostics[0].recovered,
+        "{diagnostics:?}"
+    );
+
+    let src = "# a\n@x\n# b\ndef f [] {}\n";
+    let (ast, diagnostics) = parse_lenient(src, &config);
+    let [attributes, def] = ast.block.pipelines.as_slice() else {
+        panic!("{:?}", ast.block.pipelines)
+    };
+    let block = kind!(attributes.elements[0].expr, Expr::AttributeBlock(b) => b);
+    assert!(block.item.is_garbage());
+    assert!(attributes.leading_comments.is_empty());
+    let comments: Vec<&str> = def.leading_comments.iter().map(|c| c.body(src)).collect();
+    assert_eq!(comments, ["a", "b"]);
+    assert!(
+        diagnostics.len() == 1 && diagnostics[0].recovered,
+        "{diagnostics:?}"
+    );
+}

@@ -201,13 +201,17 @@ fn parse_generic_shape<'a>(
                 None => None,
                 Some(params) => {
                     let types = parse_type_params(working_set, params)?;
+                    // nu reports more than one (`list<string asd>`) and goes on with
+                    // `list<any>`, and so does the consumer: the error is recorded as recovered.
                     if types.len() > 1 {
-                        return Err(cut(Diagnostic::message(
-                            "expected a single type parameter",
-                            params,
-                        )));
+                        working_set.error(
+                            Diagnostic::message("expected a single type parameter", params)
+                                .as_recovered(),
+                        );
+                        None
+                    } else {
+                        types.into_iter().next().map(Box::new)
                     }
-                    types.into_iter().next().map(Box::new)
                 }
             };
             SyntaxShape::List(element)

@@ -104,6 +104,18 @@ impl<'s> Lower<'_, '_, 's> {
     /// The items of the text at `span`, as nu lexes an expression's (newlines are whitespace
     /// there, comments dropped).
     pub(super) fn items(&self, span: WSpan) -> Vec<Span> {
+        self.lexed_parts(span, |contents| contents == TokenContents::Item)
+    }
+
+    /// The spans of the tokens of the text at `span` but its comments, lexed as by
+    /// [`Self::items`]: the spans a lone `let` gives `parse_let`, which reads a redirection's
+    /// operator and target as its own (`parts_including_redirection`).
+    pub(super) fn parts(&self, span: WSpan) -> Vec<Span> {
+        self.lexed_parts(span, |contents| contents != TokenContents::Comment)
+    }
+
+    /// The spans of the tokens at `span` whose kind passes `keep`, lexed as an expression's.
+    fn lexed_parts(&self, span: WSpan, keep: impl Fn(TokenContents) -> bool) -> Vec<Span> {
         let span = self.span(span);
         let (tokens, _) = lex(
             self.working_set.get_span_contents(span),
@@ -114,7 +126,7 @@ impl<'s> Lower<'_, '_, 's> {
         );
         tokens
             .iter()
-            .filter(|token| token.contents == TokenContents::Item)
+            .filter(|token| keep(token.contents))
             .map(|token| token.span)
             .collect()
     }

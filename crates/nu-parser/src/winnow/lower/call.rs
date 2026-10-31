@@ -667,8 +667,8 @@ impl<'s> Lower<'_, '_, 's> {
     /// without a type, a keyword and a one-item shape stop early, a row condition, a math
     /// expression, an expression and a signature read up to `end`. A row condition or a math
     /// expression of several items, which the winnow parser read one by one, it reads again as
-    /// one (`reread`), a signature of several with `parse_full_signature`; an expression of
-    /// several is left to the classic parser.
+    /// one (`reread`), and so an expression that is no lone math item, a signature of several
+    /// with `parse_full_signature`.
     fn multispan_value(
         &mut self,
         arguments: &[w::Argument<'s>],
@@ -692,6 +692,12 @@ impl<'s> Lower<'_, '_, 's> {
                     classic_value(self.working_set, span, shape, None),
                     index + 1,
                 ));
+            }
+            // A math expression read from the items there, a flag first, as after a keyword the
+            // call did not find (`let x y --help`: the `=`'s value is `--help`).
+            if arguments.get(index).is_some() && matches!(shape, SyntaxShape::MathExpression) {
+                let span = items_span(arguments, index, end);
+                return Ok((self.reread(span, ItemsValue::Math, input_type)?, end));
             }
             return Err(Unlowered::Unsupported("multi-item argument"));
         };
@@ -772,6 +778,13 @@ impl<'s> Lower<'_, '_, 's> {
                 let external = matches!(shape, SyntaxShape::ExternalSignature);
                 parse_full_signature(self.working_set, &spans, external)
             }
+            // Any other expression is what `parse_expression` reads from the items (`alias -- =
+            // ls`, whose `=` value is the call `ls`), every item a word as in the call.
+            SyntaxShape::Expression => self.reread(
+                items_span(arguments, index, end),
+                ItemsValue::AliasTarget,
+                input_type,
+            )?,
             // `parse_multispan_value` reads a one-item shape with `parse_value`, keeping its errors.
             _ if !is_multispan_shape(shape) => {
                 return Ok((self.reported_value(item, shape, input_type)?, index + 1));

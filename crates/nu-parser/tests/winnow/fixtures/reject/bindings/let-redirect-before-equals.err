@@ -1,4 +1,4 @@
-error: this statement cannot be redirected
+error: extra tokens after the end of the expression
   --> reject/bindings/let-redirect-before-equals.nu:1:7
   |
 1 | let a o> file = 1

@@ -306,7 +306,8 @@ pub fn parse_lite_command(
 /// Leading `@name arguments` lines, each up to the end of its line or a `;`. Like
 /// nu, everything on the line is an argument of the attribute, pipes and
 /// redirections included, and the definition must follow on the very next
-/// line: a blank or comment line in between is an error. A `|` that starts a
+/// line: a blank or comment line in between ends the command with no definition,
+/// which [`parse_pipelines`](super::parse_pipelines) reports. A `|` that starts a
 /// later line continues the attribute line, as in nu, whose lexer turns the end
 /// of line before it into that `|`. After one blank line (and any comment lines),
 /// or after a `;` ending the line, that `|` no longer reaches the attribute line
@@ -370,21 +371,25 @@ fn lite_attribute_lines(
         if take_pipe_on_later_line(tokens, &mut lite_command.comments)? {
             return Ok(());
         }
-        // A blank line after the attributes ends the command there, with no definition, which
-        // nu's `parse_attribute_block` reports. After a comment line nu gives the comment to the
-        // command after it, which the attributes' command here would take: that stays an error.
-        match tokens.peek_token() {
-            Some(token) if token.contents == TokenContents::Eol => return Ok(()),
-            Some(token) if token.contents == TokenContents::Comment => {
-                return Err(cut(Diagnostic::message(
-                    "attributes must be followed by a definition",
-                    token.span,
-                )
-                .with_help(
-                    "put the `def`, `extern` or `export` on the line right after the attributes",
-                )));
+        // A blank or comment line after the attributes ends the command there, with no
+        // definition, which nu's `parse_attribute_block` reports. nu's lite parser gives a
+        // comment line to the command after it (its `curr_comment`), so the comment is left for
+        // the next statement, whose comments it becomes, and a blank line drops the comments
+        // before it. The end of the attribute line goes back too, for the statement loop to see
+        // the lines as they are: else it would read a comment as one beside the attributes and
+        // a blank line as the end of theirs.
+        if tokens.peek_token().is_some_and(|token| {
+            matches!(token.contents, TokenContents::Eol | TokenContents::Comment)
+        }) {
+            if let Some(eol) = tokens.position().checked_sub(1)
+                && tokens
+                    .all()
+                    .get(eol)
+                    .is_some_and(|token| token.contents == TokenContents::Eol)
+            {
+                tokens.reset_to(eol);
             }
-            _ => {}
+            return Ok(());
         }
     }
     Ok(())

@@ -3,5 +3,4 @@ error: alias name not supported
   |
 1 | alias -- = ls
   |       ^^
-  = while parsing alias
   = help: a bare alias name cannot start with `-`; quote it

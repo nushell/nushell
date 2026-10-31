@@ -575,7 +575,8 @@ impl<'s> Lower<'_, '_, 's> {
 
     /// The variable of a binding nu reads (`let x = value`): [`Self::variable_declaration`],
     /// then the first item an untyped variable leaves before the `=`, which nu reports
-    /// (ExtraTokens) and goes on past (`let a int = 1`, `let a : int = 1`).
+    /// (ExtraTokens) and goes on past (`let a int = 1`, `let a : int = 1`); a redirection's
+    /// operator counts (`let a o> f = 1`).
     fn binding_variable(
         &mut self,
         binding: &w::Binding<'s>,
@@ -588,7 +589,7 @@ impl<'s> Lower<'_, '_, 's> {
             && let Some(eq) = binding.eq
             && !self.source[binding.name.span.end..].starts_with(':')
             && let Some(first) = self
-                .items(WSpan::new(binding.name.span.end, eq.start))
+                .parts(WSpan::new(binding.name.span.end, eq.start))
                 .first()
         {
             self.working_set.error(ParseError::ExtraTokens(*first));
@@ -1282,6 +1283,19 @@ impl<'s> Lower<'_, '_, 's> {
             "let" => self.internal_call(head, arguments, decl_id, input_type)?,
             _ => self.internal_call(head, arguments, decl_id, None)?,
         };
+        // `parse_export_env` refuses a valid call whose argument is no block (`export-env {a:
+        // 1}`, `export-env $x`), with garbage.
+        if keyword == "export-env"
+            && kind == CallKind::Valid
+            && let Some(block) = lowered.positional_iter().next()
+            && block.as_block().is_none()
+        {
+            self.working_set.error(ParseError::UnknownState(
+                "internal error: 'export-env' block is not a block".into(),
+                block.span,
+            ));
+            return Ok((garbage(self.working_set, call_span), None));
+        }
         // `parse_alias` keeps a call to `alias` that declares nothing (`alias ll ls`, `alias ll
         // =`): a name it refuses is garbage (`alias_name`), anything else an incomplete alias.
         if keyword == "alias" && kind != CallKind::Help {

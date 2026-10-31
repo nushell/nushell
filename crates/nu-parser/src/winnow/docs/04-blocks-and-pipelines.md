@@ -273,8 +273,10 @@ mean something else. The rules encoded in its loop:
   attribute line, because nu's lexer turns the end of line before it into
   that `|`: `@search-terms a\n| b` gives the attribute `a`, `|` and `b`. The
   next attribute or the definition must start on the very next line; a blank
-  or comment-only line in between is an error, as in nu (a trailing comment
-  on the attribute line is fine). The one exception is a `|` line after one
+  or comment-only line in between ends the command there with no definition,
+  an error, as in nu (a trailing comment on the attribute line is fine; a
+  comment line goes to the next statement, as nu's lite parser gives it to the
+  command after it). The one exception is a `|` line after one
   blank line and any comment lines: the lexer's end of line before the `|` is
   then past the blank line, so the attribute line ends at its own end of line
   and the `|` continues the pipeline the attribute lines start, with no command

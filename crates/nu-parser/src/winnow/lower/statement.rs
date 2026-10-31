@@ -380,13 +380,29 @@ impl<'s> Lower<'_, '_, 's> {
                     &[],
                     true,
                 );
+                // Before an assignment operator a redirection and its target are no parts, as
+                // nu's lite parser takes them out (`let x o> f` is `let x`, as a lone `let`
+                // reads them back in).
+                let mut assigned = false;
+                let mut target = false;
                 let parts: Vec<Span> = tokens
                     .iter()
-                    .filter(|token| {
-                        matches!(
-                            token.contents,
-                            TokenContents::Item | TokenContents::AssignmentOperator
-                        )
+                    .filter(|token| match token.contents {
+                        TokenContents::AssignmentOperator => {
+                            assigned = true;
+                            true
+                        }
+                        TokenContents::Item => assigned || !std::mem::take(&mut target),
+                        TokenContents::OutGreaterThan
+                        | TokenContents::OutGreaterGreaterThan
+                        | TokenContents::ErrGreaterThan
+                        | TokenContents::ErrGreaterGreaterThan
+                        | TokenContents::OutErrGreaterThan
+                        | TokenContents::OutErrGreaterGreaterThan => {
+                            target = !assigned;
+                            false
+                        }
+                        _ => false,
                     })
                     .map(|token| token.span)
                     .collect();

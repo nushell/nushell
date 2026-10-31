@@ -155,7 +155,17 @@ fn parse_binding<'a>(mut tokens: Tokens<'_, 'a>, kind: BindingKind) -> ParseResu
                 };
             }
             KeywordBoundary::UnknownFlag => return parse_help_call(statement),
-            KeywordBoundary::Argument => {}
+            // `let x y`, `mut x o> f`: the item after the name is where the call reads its `=`
+            // (ExpectedKeyword), and nu goes on with that call.
+            KeywordBoundary::Argument => {
+                if let Some(word) = tokens.peek_token() {
+                    return call_after_error(
+                        statement,
+                        cut(Diagnostic::expected("`=`", word.span)),
+                        parse_help_call,
+                    );
+                }
+            }
         }
     }
     let ty = parse_type_after_var(

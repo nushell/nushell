@@ -294,18 +294,22 @@ as one, from the items' text (`parse_items`).
 
 `parse_pipeline_element` (chapter 04) builds the element's
 `PipelineRedirection` with `parse_redirection` and refuses one on the
-statements nu refuses it on (`rejects_redirection`): `def`, `extern`, `let`,
-`mut`, `const`, `for`, `alias`, `module`, `use`, `export`, an attribute
+statements nu refuses it on (`rejects_redirection`): `def`, `extern`, `for`,
+`alias`, `type`, `module`, `use`, `export`, an attribute
 block, any call whose head word is `overlay` (refused by name before the
 arguments are looked at) and the calls whose keyword signature (below) is not
 `redirectable` (`hide`, `source`, `run`, `plugin use`), when the pipeline is
 of that one command (nu's statement parse functions read only those; in a
 longer pipeline nothing refuses a redirection). nu reports the statement and
-makes it garbage, so the error is recorded as recovered (but on a lone `let`
-or `mut`, which reads the redirection as its own items, and an attribute
+makes it garbage, so the error is recorded as recovered (but on an attribute
 block), and the consumer reports it with nu's name for the statement. A
-redirection on `export-env` is dropped without a look, as nu drops it, and
-recorded in `Ast::ignored`.
+redirection on `export-env` or a lone `const` (whose parse function reads only
+the command's parts) is dropped without a look, as nu drops it, and recorded
+in `Ast::ignored`. A lone `let` or `mut` reads
+the redirection's operator and target as its own items, as `parse_let` and
+`parse_mut` read `parts_including_redirection`: `let a o> f = 1` has extra
+items before its `=` (ExtraTokens at `o>`), `let x o> f` a word where its
+`=` goes (its call, ExpectedKeyword), and the statement has no redirection.
 
 Attribute lines (`@name args`, collected by chapter 04) are parsed by
 `parse_attribute` (`parse_calls.rs`) as calls to `attr name`: whether
@@ -323,8 +327,9 @@ the consumer reads as nu's `parse_attribute_block` does. Before an `export`
 of no definition (`export module y {}`) nu's `parse_export_in_block` does the
 same, and its `warp_export_call` then reports the attribute block, which is no
 call, from the statement's second item on; the consumer does that too
-(`exported_attribute_block`). A blank line after the attributes ends the
-command; a comment line, which nu gives the command after it, stays an error.
+(`exported_attribute_block`). A blank or comment line after the attributes
+ends the command; the comment line belongs to the statement after it, as nu
+gives it to the command after it (a doc comment of a `def` there).
 
 The keyword itself is not stored in the tree: `Expr::keyword()` names it
 and `Expression::keyword_span()` locates it, since it is always the first

@@ -3,5 +3,4 @@ error: expected block
   |
 1 | export-env {a: 1}
   |            ^^^^^^
-  = while parsing export-env
   = help: found a record

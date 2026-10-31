@@ -16,7 +16,7 @@ use super::parse_expressions::{
 };
 use super::parse_helpers::{is_help_flag, is_help_text, is_spread};
 use super::parse_keywords::{
-    KeywordCall, call_after_error, keyword_boundary, parse_block_argument, parse_help_call,
+    KeywordCall, call_after_error, keyword_boundary, parse_block_or_value_argument, parse_help_call,
 };
 use super::parse_literals::parse_full_cell_path;
 use super::parse_type_alias::parse_type_alias;
@@ -497,7 +497,14 @@ pub fn parse_export_env<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expressio
         call.missing();
         return export_env_call(statement);
     }
-    let body = parse_block_argument(working_set, &block, "block")?;
+    // A value where the block goes (`export-env {a: 1}`, `export-env $x`, `export-env 1`):
+    // nu's call reads it by the block shape, then finds no block in it, with garbage. The
+    // statement is that call, which the consumer reads so.
+    let body = match parse_block_or_value_argument(working_set, &block, "block") {
+        Ok((_, Some(_))) => return export_env_call(statement),
+        Ok((body, None)) => body,
+        Err(error) => return call_after_error(statement, error, export_env_call),
+    };
     // nu hands `export-env` exactly one argument: anything after it is dropped.
     for ignored in tokens.remaining() {
         working_set.add_ignored(ignored.span);

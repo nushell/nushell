@@ -1,6 +1,6 @@
 error: attributes must be followed by a definition
-  --> reject/attributes/comment-line-before-def.nu:2:1
+  --> reject/attributes/comment-line-before-def.nu:1:31
   |
-2 | # doc line
-  | ^^^^^^^^^^
-  = help: put the `def`, `extern` or `export` on the line right after the attributes
+1 | @search-terms hello salutation
+  |                               ^
+  = help: put a `def` or `extern` on the line after the attributes

@@ -174,10 +174,13 @@ pub fn parse_alias<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>
     }
     // Then nu parses the alias call and returns it when it is a help call:
     // `alias --help = ls` and `alias x --help` show help, and `--` is a name.
+    // A flag nu's call does not know is no name either (`alias -x = ls`): it reads the item
+    // after it as the name, as below.
     match keyword_boundary_with(&mut tokens, "alias", &[], false) {
         Ok(KeywordBoundary::Help) => return parse_alias_as_call(statement),
         Err(_) if incomplete => return parse_alias_as_call(statement),
-        boundary => boundary?,
+        Err(error) => return call_after_error(statement, error, parse_alias_as_call),
+        Ok(_) => {}
     };
     let name_token = tokens.expect_item("alias name")?;
     // A lone `-` is no flag for nu and so a name; `-x` and `--` are not, and
@@ -188,8 +191,10 @@ pub fn parse_alias<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>
     let name_text = working_set.get_span_contents(name_token.span);
     let not_a_name = Diagnostic::message("alias name not supported", name_token.span)
         .with_help("a bare alias name cannot start with `-`; quote it");
+    // nu's call reads `--` as the end of its options and the item after it as the name
+    // (`alias -- = ls` names `=`), which it refuses (AliasNotValid), with garbage.
     if name_text.starts_with('-') && name_text.len() > 1 {
-        return Err(cut(not_a_name));
+        return call_after_error(statement, cut(not_a_name), parse_alias_as_call);
     }
     let not_a_string = name_text.starts_with(['$', '(', '{']);
     let name = match not_a_string {
