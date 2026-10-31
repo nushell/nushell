@@ -39,7 +39,7 @@ use crate::{
     parse_patterns::parse_pattern,
     parse_shape_specs::parse_type,
     parse_signatures::ensure_not_reserved_variable_name,
-    parse_type_alias::finish_type_alias,
+    parse_type_alias::{finish_type_alias, type_alias_layout_error},
     type_check::{check_pipeline_type, type_compatible},
 };
 
@@ -1114,7 +1114,8 @@ impl<'s> Lower<'_, '_, 's> {
             call_span,
             self.span(alias.name.span),
             self.span(alias.eq),
-            Some(self.span(alias.ty.span)),
+            // No type after the `=`: the winnow parser's type is a point after it.
+            Some(self.span(alias.ty.span)).filter(|span| !span.is_empty()),
         );
         if export {
             // `export`, `type`, and the rest of the statement, as `warp_export_call` takes them.
@@ -1305,6 +1306,25 @@ impl<'s> Lower<'_, '_, 's> {
                 &alias_spans[command..args],
                 &alias_spans[args..],
             );
+        }
+        // `parse_type_alias` reports items out of place, which the winnow parser read as the
+        // call, with garbage over the statement.
+        if keyword == "type" && kind != CallKind::Help {
+            let spans: Vec<Span> = arguments
+                .iter()
+                .map(|argument| self.span(argument.span()))
+                .collect();
+            if let Some(error) = type_alias_layout_error(self.working_set, head, &spans) {
+                self.working_set.error(error);
+                let garbage = garbage(self.working_set, call_span);
+                return Ok(match &command.expr {
+                    w::Expr::Export(export) => (
+                        self.exported_garbage(garbage, export, call_span, call_span),
+                        None,
+                    ),
+                    _ => (garbage, None),
+                });
+            }
         }
         // `parse_def` and `parse_extern` finish any call: one with an error of its own (the
         // winnow parser's call form of `def --foo f [] {}`) still defines the command. A

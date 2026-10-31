@@ -3,4 +3,3 @@ error: expected type after `=`
   |
 1 | type T =
   |         ^
-  = while parsing type

@@ -91,6 +91,33 @@ pub fn parse_type_alias(
         );
     }
 
+    if let Some(error) = type_alias_layout_error(working_set, head, rest_spans) {
+        working_set.error(error);
+        return (garbage_pipeline(working_set, spans), None);
+    }
+    let (name_span, equals_span, type_spans) = (rest_spans[0], rest_spans[1], &rest_spans[2..]);
+    // A generic type such as `record<a: int, b: string>` is split into several spans at its
+    // spaces; `finish_type_alias` reads them again as one type.
+    let type_span = (!type_spans.is_empty()).then(|| Span::concat(type_spans));
+    finish_type_alias(
+        working_set,
+        decl_id,
+        head,
+        call_span,
+        name_span,
+        equals_span,
+        type_span,
+    )
+}
+
+/// The error of a type alias whose items after the keyword at `head` (`type` or `export type`),
+/// `rest_spans`, are not `name = ...`: no name, a `=` first, one item (`T=int`, `ls`) or a second
+/// item that is no `=`. `parse_type_alias` reports it and gives garbage over the statement.
+pub(crate) fn type_alias_layout_error(
+    working_set: &StateWorkingSet,
+    head: Span,
+    rest_spans: &[Span],
+) -> Option<ParseError> {
     let keyword = String::from_utf8_lossy(working_set.get_span_contents(head)).into_owned();
     // `type ls` is how Bash and cmd.exe look up a command, so a bare `type` without `=` also
     // points to `which`.
@@ -110,7 +137,7 @@ pub fn parse_type_alias(
             span: name_span,
         }
     };
-    let layout_error = match rest_spans {
+    match rest_spans {
         [] => Some(ParseError::MissingPositional(
             "name".into(),
             Span::point(head.end),
@@ -138,24 +165,7 @@ pub fn parse_type_alias(
             Some(missing_equals(*name))
         }
         _ => None,
-    };
-    if let Some(error) = layout_error {
-        working_set.error(error);
-        return (garbage_pipeline(working_set, spans), None);
     }
-    let (name_span, equals_span, type_spans) = (rest_spans[0], rest_spans[1], &rest_spans[2..]);
-    // A generic type such as `record<a: int, b: string>` is split into several spans at its
-    // spaces; `finish_type_alias` reads them again as one type.
-    let type_span = (!type_spans.is_empty()).then(|| Span::concat(type_spans));
-    finish_type_alias(
-        working_set,
-        decl_id,
-        head,
-        call_span,
-        name_span,
-        equals_span,
-        type_span,
-    )
 }
 
 /// The rest of `parse_type_alias` once the statement's layout is known: `type name = type`,

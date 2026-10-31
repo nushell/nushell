@@ -3,5 +3,4 @@ error: expected type alias name
   |
 1 | type = int
   |      ^
-  = while parsing type
   = help: the name comes before `=`

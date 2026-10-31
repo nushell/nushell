@@ -2275,3 +2275,33 @@ fn dollar_item_error_is_a_garbage_leaf() {
         );
     }
 }
+
+/// A `type` statement nu goes on past: items out of place make it nu's call to `type`, and a
+/// refused name, a missing type or two types keep the alias with the type `any`, the error
+/// recorded as recovered either way.
+#[test]
+fn type_alias_errors_are_recovered() {
+    let config = ParseConfig::default();
+    for text in ["type ls", "type T=int", "type = int", "type"] {
+        let (ast, diagnostics) = parse_lenient(text, &config);
+        kind!(expr(&ast), Expr::Call(_));
+        assert!(
+            diagnostics.len() == 1 && diagnostics[0].recovered,
+            "{text}: {diagnostics:?}"
+        );
+    }
+    for text in [
+        "type int = string",
+        "type 1x = int",
+        "type T =",
+        "type T = int string",
+    ] {
+        let (ast, diagnostics) = parse_lenient(text, &config);
+        let alias = kind!(expr(&ast), Expr::TypeAlias(a) => a);
+        assert!(matches!(alias.ty.shape, SyntaxShape::Any), "{text}");
+        assert!(
+            diagnostics.len() == 1 && diagnostics[0].recovered,
+            "{text}: {diagnostics:?}"
+        );
+    }
+}

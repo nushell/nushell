@@ -3,5 +3,4 @@ error: `=` must stand alone
   |
 1 | type T=int
   |      ^^^^^
-  = while parsing type
   = help: put spaces around `=`: `type T = int`

@@ -1317,7 +1317,12 @@
 ; and TypeAliasMissingEquals otherwise (`type ls`, with a hint to use `which`); a second
 ; item that is not "=" is TypeAliasMissingEquals; a built-in name is
 ; TypeAliasShadowsBuiltin; any other name that is not a <type-alias-name> is
-; TypeAliasNameNotValid; nothing after "=" is MissingType; two types are ExtraTokens;
+; TypeAliasNameNotValid; nothing after "=" is MissingType; two types are ExtraTokens.
+; nu goes on past each: an item out of place gives garbage over the statement (the
+; parser records it as recovered and the statement is nu's call to `type`, which the
+; consumer reads as `type_alias_layout_error` does), a refused name garbage, and a missing
+; type or two types an alias of `any` (recorded as recovered, the alias's type `any` over
+; the type's items, a point after "=" when there are none);
 ; a "@completer" in the type is an error (a completer belongs to a parameter,
 ; `c: Color@[red green]`). What the alias names, where it may be used and `hide` are the
 ; consumer's: it is defined in order, as `alias` and `const` are, and the
