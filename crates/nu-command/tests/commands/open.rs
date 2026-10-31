@@ -413,6 +413,24 @@ fn open_multiple_files() -> Result {
         .expect_value_eq(58309279992i64)
 }
 
+/// Each file without a converter stays one value instead of being split into 8 KiB chunks (#10027).
+#[rstest]
+#[case("open --raw first.txt second.txt")]
+#[case("open first.txt second.txt")]
+fn open_multiple_files_keeps_each_file_whole(#[case] open: &str) -> Result {
+    Playground::setup("open_test_multiple_files", |dirs, sandbox| {
+        sandbox.with_files(&[
+            FileWithContent("first.txt", &"a".repeat(10000)),
+            FileWithContent("second.txt", &"b".repeat(20000)),
+        ]);
+
+        test()
+            .cwd(dirs.test())
+            .run(format!("{open} | str length"))
+            .expect_value_eq(vec![10000, 20000])
+    })
+}
+
 #[test]
 fn test_open_block_command() -> Result {
     let code = r#"

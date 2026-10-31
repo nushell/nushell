@@ -276,9 +276,20 @@ impl Command for Open {
         } else if output.len() == 1 {
             Ok(output.remove(0))
         } else {
+            // Collect each file left as a byte stream into one value, as flattening a byte stream
+            // would split it into chunks (#10027). Converted tables are still flattened together.
             Ok(output
                 .into_iter()
-                .flatten()
+                .flat_map(|pipeline| match pipeline {
+                    PipelineData::ByteStream(stream, ..) => {
+                        let span = stream.span();
+                        stream
+                            .into_value()
+                            .unwrap_or_else(|err| Value::error(err, span))
+                            .into_pipeline_data()
+                    }
+                    pipeline => pipeline,
+                })
                 .into_pipeline_data(call_span, engine_state.signals().clone()))
         }
     }
