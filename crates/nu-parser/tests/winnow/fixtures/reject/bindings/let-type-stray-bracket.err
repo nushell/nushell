@@ -3,5 +3,4 @@ error: unbalanced delimiter: found `]` without a matching `<`
   |
 1 | let x: record<a: int, b]: string> = {}
   |                        ^
-  = while parsing let
   = help: the innermost open delimiter is `<` at byte 13

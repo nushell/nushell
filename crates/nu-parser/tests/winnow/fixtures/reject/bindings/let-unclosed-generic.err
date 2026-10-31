@@ -4,4 +4,3 @@ error: unclosed delimiter: expected `>`
 1 | let a: record<a: int b: record<a: int> = {a: 1 b: {a: 1}}
   |                                       ^
   = note: opened at 1:14
-  = while parsing let

@@ -525,9 +525,13 @@ impl<'s> Lower<'_, '_, 's> {
             Some(annotation) => {
                 let span = self.span(annotation.span);
                 let text = self.text(annotation.span).as_bytes();
-                // nu reports an unknown type and goes on with it (`parse_var_with_opt_type`),
-                // at the first item of the type lexed as a signature (`int=` of `int= 3`).
-                let (tokens, _) = lex_signature(text, span.start, &[], b",", true);
+                // nu reports what lexing the type as a signature finds (`record<a: int, b]>`)
+                // and an unknown type, and goes on with it (`parse_var_with_opt_type`), at the
+                // first item of the type so lexed (`int=` of `int= 3`).
+                let (tokens, lex_error) = lex_signature(text, span.start, &[], b",", true);
+                if let Some(error) = lex_error {
+                    self.working_set.error(error);
+                }
                 let at = tokens.first().map_or(span, |token| token.span);
                 let ty = parse_type(self.working_set, text, at);
                 // The classic parser gives the variable the span of the next-to-last item of

@@ -2565,3 +2565,30 @@ fn binding_alias_and_export_env_errors_are_recovered() {
         "{diagnostics:?}"
     );
 }
+
+/// A declared variable's type that does not lex or read as a type nu reports and goes on past
+/// with the type it read; here the type is `any`, the error recorded as recovered.
+#[test]
+fn variable_type_errors_are_recovered() {
+    let config = ParseConfig::default();
+    for text in [
+        "let x: record<a: int, b]: string> = {}",
+        "let a: record<a: int b: record<a: int> = {}",
+        "for x: list<int]> in [] {}",
+    ] {
+        let (ast, diagnostics) = parse_lenient(text, &config);
+        let ty = match &expr(&ast).expr {
+            Expr::Let(binding) => binding.ty.as_ref(),
+            Expr::For(for_loop) => for_loop.ty.as_ref(),
+            other => panic!("{text}: {other:?}"),
+        };
+        assert!(
+            ty.is_some_and(|ty| matches!(ty.shape, SyntaxShape::Any)),
+            "{text}: {ty:?}"
+        );
+        assert!(
+            diagnostics.len() == 1 && diagnostics[0].recovered,
+            "{text}: {diagnostics:?}"
+        );
+    }
+}

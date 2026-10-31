@@ -6,12 +6,13 @@ use std::collections::HashMap;
 use std::collections::hash_map::Entry;
 
 use winnow::Parser;
+use winnow::error::ErrMode;
 
 use crate::winnow::syntax::ast::{
     Comment, InputOutputType, Parameter, ParameterKind, Signature, SyntaxShape, TypeAnnotation,
 };
 use crate::winnow::syntax::error::{Diagnostic, ErrorKind};
-use crate::winnow::syntax::input::{ParseResult, cut};
+use crate::winnow::syntax::input::{ParseFailure, ParseResult, cut};
 use crate::winnow::syntax::lex::{LexOptions, Token, TokenContents};
 use crate::winnow::syntax::span::{Span, Spanned};
 
@@ -776,13 +777,28 @@ pub fn parse_type_after_var<'a>(
 
 /// The type of a declared variable (`let x: T`, `for x: T in`), which nu
 /// lexes as a signature before it reads the type, so that `record<a: int,
-/// b]>` is an unbalanced delimiter.
+/// b]>` is an unbalanced delimiter. nu reports what the lexer or the type
+/// parser finds and goes on with the type it read (`parse_var_with_opt_type`),
+/// as the consumer does, which reads the type with nu's parser: the error is
+/// recorded as recovered and the type here is `any`.
 pub fn parse_var_type<'a>(
     working_set: &WorkingSet<'a>,
     span: Span,
 ) -> ParseResult<TypeAnnotation<'a>> {
-    working_set.lex(span, LexOptions::VAR_TYPE).map_err(cut)?;
-    parse_type(working_set, span)
+    let parsed = working_set
+        .lex(span, LexOptions::VAR_TYPE)
+        .map_err(cut)
+        .and_then(|_| parse_type(working_set, span));
+    match parsed {
+        Err(ErrMode::Cut(ParseFailure::Error(diagnostic))) => {
+            working_set.error(diagnostic.as_recovered());
+            Ok(TypeAnnotation {
+                span,
+                shape: SyntaxShape::Any,
+            })
+        }
+        parsed => parsed,
+    }
 }
 
 /// Variable names nu reserves (`NameIsBuiltinVar`).
