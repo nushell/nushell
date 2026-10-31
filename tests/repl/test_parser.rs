@@ -814,6 +814,112 @@ fn percent_dynamic_dispatch_rejects_list_spread_without_rest() -> Result {
     Ok(())
 }
 
+#[rstest]
+#[case::long("%$cmd --reverse")]
+#[case::paren_head("%($cmd) --reverse")]
+#[case::short("%$cmd -r")]
+#[case::short_batch("%$cmd -rn")]
+#[case::inline_value("%$cmd --reverse=true")]
+#[case::literal_record_spread("%$cmd ...{reverse: true}")]
+// The record is checked against `sort`'s flags, not `run-internal`'s.
+#[case::variable_record_spread("%$cmd ...$opts")]
+fn percent_dynamic_dispatch_passes_flags(#[case] call: &str) -> Result {
+    let code = format!("let cmd = 'sort'; let opts = {{reverse: true}}; [1 3 2] | {call}");
+    test().run(&code).expect_value_eq([3, 2, 1])
+}
+
+#[test]
+fn percent_dynamic_dispatch_switch_set_to_false() -> Result {
+    let code = "let cmd = 'sort'; [1 3 2] | %$cmd --reverse=false";
+    test().run(code).expect_value_eq([1, 2, 3])
+}
+
+#[rstest]
+// As in a direct call, a flag that takes a value takes the next argument.
+#[case::next_argument("%$cmd --width 3 --character x")]
+#[case::inline_value("%$cmd --width=3 --character=x")]
+fn percent_dynamic_dispatch_passes_flag_values(#[case] call: &str) -> Result {
+    let code = format!("let cmd = 'fill'; 'a' | {call}");
+    test().run(&code).expect_value_eq("axx")
+}
+
+#[test]
+fn percent_dynamic_dispatch_end_of_options() -> Result {
+    let code = "let cmd = 'echo'; %$cmd -- --foo";
+    test().run(code).expect_value_eq("--foo")
+}
+
+#[rstest]
+#[case::long("--help")]
+#[case::short("-h")]
+#[case::inline_value("--help=true")]
+#[case::record_spread("...{help: true}")]
+fn percent_dynamic_dispatch_shows_help(#[case] args: &str) -> Result {
+    let code = format!("let cmd = 'sort'; (%$cmd {args}) == (sort --help)");
+    test().run(&code).expect_value_eq(true)
+}
+
+#[rstest]
+#[case::unknown_flag("sort", "--bogus", "nu::parser::unknown_flag")]
+#[case::unknown_short_flag("sort", "-x", "nu::parser::unknown_flag")]
+#[case::extra_positional("sort", "foo", "nu::parser::extra_positional")]
+// Only a bare word is a flag, as in a direct call, so a quoted one or one in a variable is a
+// positional argument.
+#[case::quoted_flag("sort", r#""--reverse""#, "nu::parser::extra_positional")]
+#[case::flag_in_a_variable("sort", "$flag", "nu::parser::extra_positional")]
+#[case::unknown_record_key("sort", "...{bogus: true}", "nu::shell::error")]
+#[case::bad_switch_value("sort", "--reverse=5", "nu::shell::cant_convert")]
+#[case::missing_flag_value("fill", "--width", "nu::parser::missing_flag_param")]
+#[case::missing_positional("str replace", "a", "nu::parser::missing_positional")]
+// As in a direct call, `--help` shows help only once the other arguments check out.
+#[case::help_with_an_extra_positional("sort", "foo --help", "nu::parser::extra_positional")]
+#[case::help_with_an_unknown_flag("sort", "--help --bogus", "nu::parser::unknown_flag")]
+fn percent_dynamic_dispatch_rejects_arguments_the_builtin_does_not(
+    #[case] builtin: &str,
+    #[case] args: &str,
+    #[case] error_code: &str,
+) -> Result {
+    let code = format!("let cmd = '{builtin}'; let flag = '--reverse'; [1 3 2] | %$cmd {args}");
+    test().run(&code).expect_error_code_eq(error_code)
+}
+
+#[test]
+fn percent_dynamic_dispatch_shows_help_without_required_positionals() -> Result {
+    let code = "let cmd = 'str replace'; (%$cmd --help) == (str replace --help)";
+    test().run(code).expect_value_eq(true)
+}
+
+#[rstest]
+#[case::literal("%$cmd ...[a b]")]
+#[case::after_a_positional("%$cmd a ...[b]")]
+fn percent_dynamic_dispatch_rejects_list_spread_before_required(#[case] call: &str) -> Result {
+    // A list spread fills only the rest parameter, as for `run` and custom commands.
+    let code = format!("let cmd = 'str replace'; 'aaa' | {call}");
+    let err = test().run(&code).expect_shell_error()?;
+    assert_matches!(
+        err,
+        ShellError::Generic(err)
+            if err.error == "Cannot spread a list before required positional arguments are provided"
+    );
+    Ok(())
+}
+
+#[rstest]
+#[case::list_spread("let a = ['b' 'c']; run-internal echo ...$a", ["b", "c"])]
+#[case::wrapped_rest(
+    "def --wrapped w [...rest] { run-internal echo ...$rest }; w b c",
+    ["b", "c"]
+)]
+// A direct call passes its arguments on as values, so a word after `run-internal`'s own `--`
+// isn't a flag of the builtin.
+#[case::flag_like_word("run-internal -- echo --b c", ["--b", "c"])]
+fn direct_run_internal_forwards_arguments(
+    #[case] code: &str,
+    #[case] expected: [&str; 2],
+) -> Result {
+    test().run(code).expect_value_eq(expected)
+}
+
 #[test]
 fn percent_dynamic_dispatch_in_wrapped_command_forwards_rest_args() -> Result {
     let code = "
