@@ -543,7 +543,7 @@ impl Driver<'_, '_, '_, '_> {
         let mut lower = Lower::new(working_set, self.source, self.offset);
         let span = lower.statement_span(pipeline);
         let mut target = statement_target(&mut self.target, &self.pipelines, self.span);
-        if let Some(error) = pipeline.lite_error {
+        if let Some(error) = pipeline.lite_error() {
             let error = lower.lite_parse_error(error);
             self.block_errors.lite_error(lower.working_set, error);
         }

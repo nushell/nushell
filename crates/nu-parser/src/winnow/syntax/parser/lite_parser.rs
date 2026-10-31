@@ -46,8 +46,9 @@ pub struct LiteCommand {
     pub pipe_after: Option<Span>,
     /// Comments found between the command's tokens.
     pub comments: Vec<Comment>,
-    /// The first lite-parse error in the command, which nu goes on past ([`LiteError`]).
-    pub lite_error: Option<LiteError>,
+    /// The first lite-parse error in the command, which nu goes on past ([`LiteError`]);
+    /// boxed, as it is rare and a command is moved once it is collected.
+    pub lite_error: Option<Box<LiteError>>,
     /// Whether the pipeline goes on to a command on the next line with no `|` between: after
     /// a redirection without a target at the end of the line, nu's lite parser ends the
     /// command there but not its pipeline (`^ls o>`, then `lines` on the next line).
@@ -64,7 +65,7 @@ impl LiteCommand {
     /// recorded as recovered.
     fn report(&mut self, working_set: &WorkingSet<'_>, error: LiteError) {
         working_set.error(lite_diagnostic(error).as_recovered());
-        self.lite_error.get_or_insert(error);
+        self.lite_error.get_or_insert_with(|| Box::new(error));
     }
 
     /// Refuse a redirection, whose operator and target, `items`, are then the command's items,
@@ -376,6 +377,32 @@ pub fn parse_lite_command(
     Ok(lite_command)
 }
 
+/// The `|` starting a later line that the end of line at `at` in `tokens` goes on to, the
+/// pipeline's continuation (`Eol (Comment Eol)* Pipe`), with the number of comment lines before
+/// it: nu's lexer turns the end of line before such a `|` into it and drops those lines' ends of
+/// line.
+pub fn pipe_on_a_later_line(tokens: &[Token], at: usize) -> Option<(usize, Token)> {
+    if tokens.get(at)?.contents != TokenContents::Eol {
+        return None;
+    }
+    let mut index = at + 1;
+    let mut comment_lines = 0;
+    loop {
+        let token = *tokens.get(index)?;
+        match (
+            token.contents,
+            tokens.get(index + 1).map(|next| next.contents),
+        ) {
+            (TokenContents::Pipe, _) => return Some((comment_lines, token)),
+            (TokenContents::Comment, Some(TokenContents::Eol)) => {
+                comment_lines += 1;
+                index += 2;
+            }
+            _ => return None,
+        }
+    }
+}
+
 /// `token` as an item: a word of the command.
 fn as_item(token: Token) -> Token {
     Token {
@@ -410,7 +437,7 @@ fn lite_redirection(
         if nothing_before {
             lite_command
                 .lite_error
-                .get_or_insert(LiteError::NothingToRedirect(span));
+                .get_or_insert_with(|| Box::new(LiteError::NothingToRedirect(span)));
         } else if let Some(error) = lite_command.redirected_twice(operator.source(), span) {
             lite_command.refuse_redirection(working_set, error, &[]);
         } else {
@@ -433,13 +460,14 @@ fn lite_redirection(
         lite_command.parts.push(operator_token);
         return false;
     };
-    // nu's lexer turns an end of line before a `|` starting the next line into that `|`.
-    let folded_pipe = tokens
-        .all()
-        .get(tokens.position() + 1)
-        .copied()
-        .filter(|after| {
-            next.contents == TokenContents::Eol && after.contents == TokenContents::Pipe
+    // nu's lexer turns an end of line before a `|` starting a later line into that `|`, and
+    // drops the ends of line of comment lines before it: nu then sees the `|`, or a comment.
+    let folded_pipe =
+        pipe_on_a_later_line(tokens.all(), tokens.position()).map(|(comment_lines, pipe)| {
+            match comment_lines {
+                0 => pipe.span,
+                _ => span,
+            }
         });
     let missing = |lite_command: &mut LiteCommand, at: Span| {
         lite_command.report(working_set, LiteError::MissingRedirectionTarget(at));
@@ -459,7 +487,7 @@ fn lite_redirection(
                     .push((Spanned::new(operator, span), Some(next)));
             }
         }
-        _ if let Some(pipe) = folded_pipe => missing(lite_command, pipe.span),
+        _ if let Some(at) = folded_pipe => missing(lite_command, at),
         TokenContents::Eol => {
             missing(lite_command, next.span);
             lite_command.joins_next_line = true;

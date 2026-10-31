@@ -1319,6 +1319,15 @@ fn lex_raw_string(
     })
 }
 
+/// Whether `text` is an operator that redirects a stream to a file (`o>`, `e>>`, `2>`, ...),
+/// which takes the item after it as its target.
+pub(crate) fn is_file_redirection_operator(text: &str) -> bool {
+    matches!(
+        item_contents(text.as_bytes(), Span::point(0)).0,
+        TokenContents::Redirection(operator) if !operator.is_pipe()
+    )
+}
+
 /// The assignment operator `text` spells, if any (nu's `is_assignment_operator`).
 pub(crate) fn assignment_operator(text: &str) -> Option<AssignmentOperator> {
     assignment_operator_bytes(text.as_bytes())

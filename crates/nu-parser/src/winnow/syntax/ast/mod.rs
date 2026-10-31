@@ -87,6 +87,14 @@ pub struct Block<'a> {
     pub pipelines: Vec<Pipeline<'a>>,
 }
 
+impl Pipeline<'_> {
+    /// The first error of the lite parse in the pipeline's commands, which nu reports and goes
+    /// on past ([`LiteError`]).
+    pub fn lite_error(&self) -> Option<LiteError> {
+        self.lite_error.as_deref().copied()
+    }
+}
+
 impl Block<'_> {
     /// The first error nu's lexer reports in the block's text and goes on past, which nu
     /// reports before the block's statements' errors. The block's first pipeline carries it
@@ -128,8 +136,8 @@ pub struct Pipeline<'a> {
     /// line), on the element's line or starting a later one (`ls\n|\n\nls`).
     pub dangling_pipe: Option<Span>,
     /// The first error of the lite parse in the pipeline's commands, which nu reports and goes
-    /// on past ([`LiteError`]).
-    pub lite_error: Option<LiteError>,
+    /// on past ([`LiteError`]); boxed, as it is rare ([`Pipeline::lite_error`]).
+    pub lite_error: Option<Box<LiteError>>,
     /// For the first pipeline of a block, the block's lexer error ([`Block::lex_error`]).
     pub lex_error: Option<Box<BlockLexError>>,
 }

@@ -17,7 +17,9 @@ use super::module::{KeywordEffect, overlay_effect};
 use super::{Lower, Lowered, Unlowered};
 #[cfg(feature = "plugin")]
 use crate::parse_source::parse_plugin_use;
-use crate::winnow::syntax::lex::{LexError, RedirectionSource as WinnowSource};
+use crate::winnow::syntax::lex::{
+    LexError, RedirectionSource as WinnowSource, is_file_redirection_operator,
+};
 use crate::winnow::syntax::{Span as WSpan, ast as w};
 use crate::{
     exportable::Exportable,
@@ -772,8 +774,15 @@ impl<'s> Lower<'_, '_, 's> {
                 } else if index < last {
                     let next = &elements[index + 1];
                     let gap_end = next.pipe.map_or(next.span.start, |pipe| pipe.start);
-                    self.first_pipe(elements[index].span.end, gap_end)
-                        .or(next.pipe)
+                    let end = elements[index].span.end;
+                    self.first_pipe(end, gap_end).or_else(|| {
+                        // After a redirection without a target and across a blank line the `|`
+                        // ends no command of nu's: the pipeline went on from that redirection
+                        // (`^ls o>`, a blank line, `| lines`), and the `|` stays with the command
+                        // after it.
+                        next.pipe
+                            .filter(|_| !self.joins_across_blank_line(&elements[index], gap_end))
+                    })
                 } else if let Some(dangling) = pipeline.dangling_pipe {
                     Some(dangling)
                 } else {
@@ -786,11 +795,32 @@ impl<'s> Lower<'_, '_, 's> {
                     let after_redirection_pipe =
                         redirection_pipe(previous).is_some_and(|op| op != pipe);
                     (after_redirection_pipe
-                        || self.first_pipe(previous.span.end, pipe.start).is_some())
+                        || self.first_pipe(previous.span.end, pipe.start).is_some()
+                        || self.joins_across_blank_line(previous, pipe.start))
                     .then_some(pipe)
                 }
             })
             .collect()
+    }
+
+    /// Whether `element` ends with a redirection without a target and a blank line lies between
+    /// it and `end` of the source: the pipeline went on across the end of its line, and a `|`
+    /// after the blank line ends none of nu's commands (`LiteCommand::joins_next_line`).
+    fn joins_across_blank_line(&self, element: &w::PipelineElement<'s>, end: usize) -> bool {
+        let ends_with_redirection = self
+            .text(element.parts)
+            .split_ascii_whitespace()
+            .last()
+            .is_some_and(is_file_redirection_operator);
+        let Some(gap) = self.source.get(element.span.end..end) else {
+            return false;
+        };
+        let lines: Vec<&str> = gap.split('\n').collect();
+        ends_with_redirection
+            && lines.len() > 2
+            && lines[1..lines.len() - 1]
+                .iter()
+                .any(|line| line.trim().is_empty())
     }
 
     /// The first `|` between `start` and `end` of the source, outside comments.
@@ -999,13 +1029,13 @@ impl<'s> Lower<'_, '_, 's> {
         let lite_error = block
             .pipelines
             .last()
-            .and_then(|last| last.lite_error)
+            .and_then(|last| last.lite_error())
             .filter(|error| matches!(error, w::LiteError::PipelineMissingEnd(_)))
             .or_else(|| {
                 block
                     .pipelines
                     .iter()
-                    .find_map(|pipeline| pipeline.lite_error)
+                    .find_map(|pipeline| pipeline.lite_error())
             });
         if let Some(error) = lite_error {
             let error = self.lite_parse_error(error);

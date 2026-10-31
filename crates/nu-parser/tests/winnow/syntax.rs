@@ -2618,10 +2618,10 @@ fn lite_parse_errors_are_recovered() {
         };
         assert!(
             pipeline
-                .lite_error
+                .lite_error()
                 .is_some_and(|error| format!("{error:?}").starts_with(variant)),
             "{text}: {:?}",
-            pipeline.lite_error
+            pipeline.lite_error()
         );
         assert!(
             pipeline

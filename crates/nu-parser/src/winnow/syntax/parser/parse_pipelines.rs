@@ -14,7 +14,8 @@ use crate::winnow::syntax::span::Span;
 use super::WorkingSet;
 use super::lite_parser::{
     AfterPipe, LiteCommand, after_pipe, last_non_comment_token, lite_diagnostic,
-    parse_lite_command, skip_to_block_end, skip_to_statement_end, take_pipe_on_later_line,
+    parse_lite_command, pipe_on_a_later_line, skip_to_block_end, skip_to_statement_end,
+    take_pipe_on_later_line,
 };
 use super::parse_calls::{keyword_signature_of_call, parse_attribute};
 use super::parse_def::{
@@ -115,7 +116,7 @@ pub fn parse_block_lexed_from<'a>(
     }
     if let Some(error) = missing_end {
         match pipelines.last_mut() {
-            Some(last) => last.lite_error = Some(error),
+            Some(last) => last.lite_error = Some(Box::new(error)),
             None => working_set.error(lite_diagnostic(error)),
         }
     }
@@ -415,7 +416,7 @@ impl<'a> StatementSink<'a> for Vec<Pipeline<'a>> {
         _before: StatementStart,
     ) -> bool {
         let mut garbage = garbage_pipeline(span);
-        garbage.lite_error = lite_error;
+        garbage.lite_error = lite_error.map(Box::new);
         Vec::push(self, garbage);
         true
     }
@@ -460,7 +461,7 @@ impl<'a> StatementSink<'a> for StreamingSink<'_, '_, 'a> {
         // The statement's doc comments go with it, for whoever parses it again.
         let mut garbage = garbage_pipeline(span);
         garbage.leading_comments = leading_comments;
-        garbage.lite_error = lite_error;
+        garbage.lite_error = lite_error.map(Box::new);
         self.push(garbage, before)
     }
 
@@ -756,9 +757,15 @@ fn parse_pipeline<'a>(
             }
         }
         if pipe.is_none() && !lite_commands.is_empty() {
-            if std::mem::take(&mut joins_next_line) && command_on_next_line(tokens) {
+            let joins = std::mem::take(&mut joins_next_line);
+            if joins && command_on_next_line(tokens) {
                 // The end of line the redirection stopped at.
                 tokens.next_token();
+            } else if joins && pipe_on_a_later_line(tokens.all(), tokens.position() + 1).is_some() {
+                // A blank line, then a `|`: nu's lexer makes the blank line's end of line that
+                // `|`, which goes on with the pipeline.
+                tokens.next_token();
+                continue;
             } else {
                 // After a command: the pipeline goes on only through a `|` on a later line.
                 if !take_pipe_on_later_line(tokens, &mut trailing_comments)? {
@@ -777,7 +784,7 @@ fn parse_pipeline<'a>(
         let lite_command = parse_lite_command(tokens, pipe.is_none() || starts_line)?;
         trailing_comments.extend(lite_command.comments.iter().copied());
         let pipe_after = lite_command.pipe_after;
-        lite_error = lite_error.or(lite_command.lite_error);
+        lite_error = lite_error.or(lite_command.lite_error.as_deref().copied());
         joins_next_line = lite_command.joins_next_line;
         // An `e>|` with nothing before it ends a command nu drops: the `|` before it, if any,
         // is the pipe before the next command.
@@ -785,7 +792,7 @@ fn parse_pipeline<'a>(
             && lite_command.attributes.is_empty()
             && lite_command.redirections.is_empty();
         if dropped {
-            dropped_error = dropped_error.or(lite_command.lite_error);
+            dropped_error = dropped_error.or(lite_command.lite_error.as_deref().copied());
         } else {
             lite_commands.push((pipe.take(), lite_command));
         }
@@ -830,14 +837,20 @@ fn parse_pipeline<'a>(
         let end = redirection.as_ref().map_or(expr.span.end, |redirection| {
             redirection.span().end.max(expr.span.end)
         });
-        let parts = lite_command
+        // From the first attribute item, or else the first part, to the last part.
+        let first = lite_command
             .attributes
-            .iter()
-            .flatten()
-            .chain(&lite_command.parts)
-            .map(|token| token.span)
-            .reduce(Span::merge)
-            .unwrap_or(expr.span);
+            .first()
+            .and_then(|line| line.first())
+            .or(lite_command.parts.first());
+        let last = lite_command
+            .parts
+            .last()
+            .or_else(|| lite_command.attributes.last().and_then(|line| line.last()));
+        let parts = match (first, last) {
+            (Some(first), Some(last)) => first.span.merge(last.span),
+            _ => expr.span,
+        };
         elements.push(PipelineElement {
             span: Span::new(start, end),
             pipe: *pipe,
@@ -880,7 +893,7 @@ fn parse_pipeline<'a>(
         trailing_comments,
         terminator,
         dangling_pipe,
-        lite_error,
+        lite_error: lite_error.map(Box::new),
         lex_error: None,
     }))
 }
