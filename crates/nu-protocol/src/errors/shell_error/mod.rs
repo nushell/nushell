@@ -668,7 +668,9 @@ pub enum ShellError {
     ///
     /// ## Resolution
     ///
-    /// Check the record to ensure you aren't reusing the same field name
+    /// Check the record to ensure you aren't reusing the same field name. A record literal can't
+    /// contain the same key twice, including keys brought in with `...`. To replace a field, use
+    /// `merge` or `update`.
     #[error("Record field or table column used twice: {col_name}")]
     #[diagnostic(code(nu::shell::column_defined_twice))]
     ColumnDefinedTwice {
@@ -677,6 +679,10 @@ pub enum ShellError {
         second_use: Span,
         #[label = "field first defined here"]
         first_use: Span,
+        /// Set by record literals when a spread is involved, see
+        /// [`ShellError::RECORD_SPREAD_DUPLICATE_HELP`].
+        #[help]
+        help: Option<String>,
     },
 
     /// Attempted to create a record from different number of columns and values
@@ -1475,6 +1481,10 @@ On Windows, this would be %USERPROFILE%\AppData\Roaming"#
 }
 
 impl ShellError {
+    /// Help for [`ShellError::ColumnDefinedTwice`] when a record literal spreads in a key that is
+    /// already present, or redefines a key that a spread brought in.
+    pub const RECORD_SPREAD_DUPLICATE_HELP: &'static str = "A record literal can't contain the same key twice, including keys brought in with `...`. To replace a field, use `merge` or `update`.";
+
     pub fn external_exit_code(&self) -> Option<Spanned<i32>> {
         let (item, span) = match *self {
             Self::NonZeroExitCode { exit_code, span } => (exit_code.into(), span),
