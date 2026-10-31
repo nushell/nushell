@@ -3,4 +3,3 @@ error: expected `def`, `extern`, `alias`, `type`, `use`, `module` or `const` aft
   |
 1 | export
   |       ^
-  = while parsing export

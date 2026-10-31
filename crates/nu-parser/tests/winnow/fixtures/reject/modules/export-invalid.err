@@ -3,5 +3,4 @@ error: `export foo` is not a valid export
   |
 1 | export foo
   |        ^^^
-  = while parsing export
   = help: expected `def`, `extern`, `alias`, `type`, `use`, `module` or `const`

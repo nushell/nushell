@@ -2391,3 +2391,17 @@ fn module_statements_and_missing_types_are_recovered() {
         );
     }
 }
+
+/// An `export` of nothing to export (`export`, `export foo`) nu reads as its call to `export`
+/// and reports: the statement is that call, the error recorded as recovered.
+#[test]
+fn export_of_nothing_is_the_call() {
+    for text in ["export", "export foo", "export 1"] {
+        let (ast, diagnostics) = parse_lenient(text, &ParseConfig::default());
+        kind!(expr(&ast), Expr::Call(_));
+        assert!(
+            diagnostics.len() == 1 && diagnostics[0].recovered,
+            "{text}: {diagnostics:?}"
+        );
+    }
+}

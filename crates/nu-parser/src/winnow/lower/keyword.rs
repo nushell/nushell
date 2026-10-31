@@ -1256,6 +1256,7 @@ impl<'s> Lower<'_, '_, 's> {
             }
             return Ok((garbage(self.working_set, call_span), None));
         }
+        let errors_before_call = self.working_set.parse_errors.len();
         let (lowered, output, kind) = match keyword {
             "def" => self.in_scope(|this| {
                 let body = arguments.last().map(|argument| this.span(argument.span()));
@@ -1331,12 +1332,22 @@ impl<'s> Lower<'_, '_, 's> {
         // binding without a value is its call whatever its kind (`let x --foo`).
         // `parse_export_env` and `parse_use` give an invalid call back as it is (`export-env
         // --foo`, `use`), and `parse_for` finishes any call (`finish_for`).
+        // `parse_export_in_block` gives an invalid call to `export` back as it is too, and
+        // reports a valid one, which names nothing to export (`export`, `export foo`), as an
+        // unexpected keyword, with garbage, its errors dropped.
+        if keyword == "export" && kind == CallKind::Valid {
+            self.working_set.parse_errors.truncate(errors_before_call);
+            let keyword_span = self.span(call.head.span);
+            self.working_set
+                .error(ParseError::UnexpectedKeyword("export".into(), keyword_span));
+            return Ok((garbage(self.working_set, call_span), None));
+        }
         if kind != CallKind::Help
             && !matches!(
                 keyword,
                 "def" | "extern" | "for" | "alias" | "let" | "mut" | "const"
             )
-            && !(matches!(keyword, "export-env" | "use") && kind == CallKind::Invalid)
+            && !(matches!(keyword, "export-env" | "use" | "export") && kind == CallKind::Invalid)
         {
             return Err(Unlowered::Unsupported(
                 "keyword call that does not ask for help",

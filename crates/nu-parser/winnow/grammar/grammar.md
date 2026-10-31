@@ -1528,7 +1528,9 @@ Vocabulary: `<expression>` is a `<pipeline-element>` (3.1); `<block>` is a
 ; here: src/winnow/syntax/parser/parse_module.rs::is_module_item
 
 <export>          ::= "export" ( <def> | <extern> | <alias> | <use> | <module> | <const> )
-; anything else after "export" (nothing, `let`, `mut`) is an error; `export def --env`
+; anything else after "export" (nothing, `let`, `mut`) is an error, which nu reports after
+; reading the statement as its call to `export` (UnexpectedKeyword, garbage) and goes on
+; past: recorded as recovered, the statement that call; `export def --env`
 ; works (the flags belong to the def)
 ; nu: parse_module.rs:72 parse_export_in_block, 159 parse_export_in_module
 ; here: src/winnow/syntax/parser/parse_module.rs::parse_export_in_block

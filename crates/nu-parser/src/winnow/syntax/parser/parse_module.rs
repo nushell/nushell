@@ -15,7 +15,9 @@ use super::parse_expressions::{
     parse_value,
 };
 use super::parse_helpers::{is_help_flag, is_help_text, is_spread};
-use super::parse_keywords::{KeywordCall, keyword_boundary, parse_block_argument, parse_help_call};
+use super::parse_keywords::{
+    KeywordCall, call_after_error, keyword_boundary, parse_block_argument, parse_help_call,
+};
 use super::parse_literals::parse_full_cell_path;
 use super::parse_type_alias::parse_type_alias;
 use super::tokens::Tokens;
@@ -418,13 +420,17 @@ pub fn parse_export_in_block<'a>(tokens: Tokens<'_, 'a>) -> ParseResult<Expressi
     let working_set = tokens.working_set;
     let items = tokens.all();
     let keyword = items[0];
+    // nu reads `export` of nothing to export as a call to `export` and reports it
+    // (UnexpectedKeyword) with garbage, or the call's own error, and goes on: the statement is
+    // that call, the error recorded as recovered.
     let next = match items.get(1) {
         Some(token) if token.contents == TokenContents::Item => token,
         _ => {
-            return Err(cut(Diagnostic::expected(
+            let error = cut(Diagnostic::expected(
                 "`def`, `extern`, `alias`, `type`, `use`, `module` or `const` after `export`",
                 keyword.span.past(),
-            )));
+            ));
+            return call_after_error(tokens, error, parse_help_call);
         }
     };
     match working_set.get_span_contents(next.span) {
@@ -433,13 +439,12 @@ pub fn parse_export_in_block<'a>(tokens: Tokens<'_, 'a>) -> ParseResult<Expressi
         // item after it (`export --help x`, ExtraPositional, the consumer's).
         text if is_help_text(text) => return parse_help_call(tokens),
         other => {
-            return Err(cut(Diagnostic::message(
+            let error = cut(Diagnostic::message(
                 format!("`export {other}` is not a valid export"),
                 next.span,
             )
-            .with_help(
-                "expected `def`, `extern`, `alias`, `type`, `use`, `module` or `const`",
-            )));
+            .with_help("expected `def`, `extern`, `alias`, `type`, `use`, `module` or `const`"));
+            return call_after_error(tokens, error, parse_help_call);
         }
     }
     let rest = tokens.slice(1..items.len());
