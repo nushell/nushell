@@ -4,4 +4,3 @@ error: unclosed delimiter: expected `}`
 2 | echo {...$r}.a
   |               ^
   = note: opened at 2:6
-  = while parsing command call

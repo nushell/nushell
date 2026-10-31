@@ -18,3 +18,10 @@ error: `a` uses a name that is already taken
 1 | def --env=[1; 2] f [a, a]: int {}
   |                        ^
   = help: it is first used at byte 20
+
+error: unclosed delimiter: expected `]`
+  --> reject/def/signature-error-call-fails.nu:1:27
+  |
+1 | def --env=[1; 2] f [a, a]: int {}
+  |                           ^
+  = note: opened at 1:20

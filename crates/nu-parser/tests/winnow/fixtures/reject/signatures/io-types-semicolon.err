@@ -1,3 +1,10 @@
+error: unclosed delimiter: expected `]`
+  --> reject/signatures/io-types-semicolon.nu:1:10
+  |
+1 | def q []: [int ; -> int] {}
+  |          ^
+  = note: opened at 1:7
+
 error: unexpected semicolon in list
   --> reject/signatures/io-types-semicolon.nu:1:16
   |

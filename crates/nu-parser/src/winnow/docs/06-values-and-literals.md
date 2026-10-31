@@ -242,7 +242,10 @@ reports such a tail, and a member with `(` in it (`$x.a(b)`), and goes on
 with the cell path, so those errors are recorded as recovered: `parse_value`
 makes a `$` item with such an error, or a negative index, a garbage leaf
 (`recover_literal`), whatever the shape, which the consumer reads again with
-nu's parser.
+nu's parser. So does it, read with any shape, a `[` or `{` item or a word with
+an unclosed delimiter or text after a closing one inside the item (`[x]y`,
+`{a: 1}x`, `{|| 1}.0?`, `"abc"def`), which nu's value parser reports with
+garbage too.
 
 A lone `$x` with no members is returned as a plain `Var`, not wrapped. With
 `implicit = true`, `parse_full_cell_path` produces the `$it` paths of row

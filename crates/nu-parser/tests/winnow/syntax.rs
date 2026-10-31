@@ -2437,3 +2437,22 @@ fn assignment_without_a_right_side_is_kept() {
         "{diagnostics:?}"
     );
 }
+
+/// A one-item value with an unclosed delimiter or text after a closing one inside it, read
+/// with any shape, is a garbage leaf, its error recorded as recovered.
+#[test]
+fn value_with_a_bad_tail_is_a_garbage_leaf() {
+    for item in ["[x]y", "{a: 1}x", "\"abc\"def", "{|| 1}.0?"] {
+        let text = format!("echo {item}");
+        let (ast, diagnostics) = parse_lenient(&text, &ParseConfig::with_commands(["echo"]));
+        let call = kind!(expr(&ast), Expr::Call(c) => c);
+        let Some(Argument::Positional(value)) = call.arguments.first() else {
+            panic!("{text}: {:?}", call.arguments)
+        };
+        assert!(value.is_garbage(), "{text}: {value:?}");
+        assert!(
+            diagnostics.len() == 1 && diagnostics[0].recovered,
+            "{text}: {diagnostics:?}"
+        );
+    }
+}

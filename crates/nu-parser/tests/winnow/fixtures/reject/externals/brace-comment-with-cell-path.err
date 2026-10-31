@@ -4,4 +4,3 @@ error: unclosed delimiter: expected `}`
 1 | cmd {#a: 1}.a
   |              ^
   = note: opened at 1:5
-  = while parsing command call

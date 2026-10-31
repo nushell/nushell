@@ -817,12 +817,22 @@ pub fn parse_value<'a>(
         [] => Err(cut(Diagnostic::expected("value", span))),
         [b'$', ..] => recover_literal(working_set, span, parse_dollar_expr(working_set, span)),
         [b'(', ..] => parse_paren_expr(working_set, span),
+        [b'{', ..] if shape == ExpectedShape::Any => recover_literal(
+            working_set,
+            span,
+            parse_brace_expr(working_set, span, shape),
+        ),
         [b'{', ..] => parse_brace_expr(working_set, span, shape),
         // `parse_string` on `[a b]`: the text is a bare word.
         [b'[', ..] if shape == ExpectedShape::String => parse_string(working_set, span),
         [b'[', ..] if shape == ExpectedShape::Number => {
             Err(cut(Diagnostic::expected("number", span)))
         }
+        [b'[', ..] if shape == ExpectedShape::Any => recover_literal(
+            working_set,
+            span,
+            parse_full_cell_path(working_set, span, false),
+        ),
         [b'[', ..] => parse_full_cell_path(working_set, span, false),
         [b'r', b'#', ..] => parse_raw_string(working_set, span),
         _ => match shape {
@@ -870,7 +880,12 @@ fn recover_literal<'a>(
     match result {
         Err(ErrMode::Cut(ParseFailure::Error(diagnostic)))
             if diagnostic.recovered
-                || matches!(diagnostic.kind, ErrorKind::InvalidLiteral { .. }) =>
+                || matches!(diagnostic.kind, ErrorKind::InvalidLiteral { .. })
+                || (matches!(
+                    diagnostic.kind,
+                    ErrorKind::Unclosed { .. } | ErrorKind::ExtraTokens
+                ) && span.start <= diagnostic.span.start
+                    && diagnostic.span.end <= span.end) =>
         {
             working_set.error(diagnostic.as_recovered());
             Ok(Expression::new(Expr::Garbage, span))

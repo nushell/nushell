@@ -235,11 +235,11 @@ signatures, types or files and is left to the consumer.
 | nu-parser | here | fixtures | tests |
 | --- | --- | --- | --- |
 | `ExtraTokens` | `ErrorKind::ExtraTokens` | `reject/bindings/let-missing-colon.nu` `reject/lexer/text-after-closing-quote.nu` | `let_type_without_colon_is_extra_tokens` |
-| `ExtraTokensAfterClosingDelimiter` | `ErrorKind::ExtraTokens` | `reject/lexer/text-after-closing-brace.nu` | `malformed_input_does_not_panic` |
+| `ExtraTokensAfterClosingDelimiter` | `ErrorKind::ExtraTokens`; inside a value read with any shape, recorded as recovered, the value a garbage leaf (`parse_expressions::recover_literal`) | `reject/lexer/text-after-closing-brace.nu` | `malformed_input_does_not_panic` |
 | `ExtraPositional` | n/a (semantic: signature), for the keyword commands too, and for the statements read with a `KeywordCall` (`KeywordCall::end`: `break x` is the call) | `accept/calls/hide-extra-positional-is-consumer.nu` `accept/calls/overlay-new-two-positionals-is-consumer.nu` `accept/calls/positional-args.nu` | `multiword_commands_and_flags` |
 | `RequiredAfterOptional` | `parse_signatures::check_parameters` | `reject/signatures/required-after-optional.nu` `accept/signatures/optional-positional.nu` | `def_forms` |
 | `UnexpectedEof` | `ErrorKind::UnexpectedEof` | `reject/pipelines/pipe-then-semicolon.nu` `reject/pipelines/trailing-pipe-in-block.nu` | `redirecting_nothing_is_an_error` |
-| `Unclosed` | `ErrorKind::Unclosed` | `reject/lexer/unclosed-*.nu` | `unclosed_delimiters_report_opener` `lex_unclosed_delimiters_point_at_the_opener` |
+| `Unclosed` | `ErrorKind::Unclosed`; inside a `[` or `{` value read with any shape, recorded as recovered, the value a garbage leaf (`parse_expressions::recover_literal`) | `reject/lexer/unclosed-*.nu` | `unclosed_delimiters_report_opener` `lex_unclosed_delimiters_point_at_the_opener` |
 | `Unbalanced` | `ErrorKind::Unbalanced` | `reject/lexer/unbalanced-*.nu` `reject/lexer/mismatched-*.nu` `reject/lists/stray-closing-bracket*.nu` | `lex_mismatched_closers` `list_items_refuse_a_stray_closing_bracket` |
 | `Expected` | `ErrorKind::Expected` | `reject/if/alone.nu` `reject/match/no-arrow.nu` | `unknown_operator_hints` |
 | `ExpectedWithStringMsg` | `ErrorKind::Expected`, `ErrorKind::Message` | `reject/def/help-then-body-then-extra.nu` | `declaration_errors_from_nushell_tests` |
