@@ -289,6 +289,30 @@ impl<'s> Lower<'_, '_, 's> {
         assignment: &w::Assignment<'s>,
         input_type: Option<&Type>,
     ) -> Lowered<Expression> {
+        // No right side (`$x =`), which nu reports: a `BinaryOp` with a garbage right side,
+        // the left side unchecked.
+        if assignment.rhs.pipelines.is_empty() {
+            let operator_span = self.span(assignment.op.span);
+            self.working_set.error(ParseError::Expected(
+                "right hand side of assignment",
+                operator_span,
+            ));
+            let lhs = self.expression(&assignment.lhs, None)?;
+            let operator = self.node(
+                Expr::Operator(Operator::Assignment(assignment_operator(
+                    assignment.op.item,
+                ))),
+                operator_span,
+                Type::Any,
+            );
+            let rhs = Expression::garbage(self.working_set, operator_span.past());
+            let span = self.span(e.span);
+            return Ok(self.node(
+                Expr::BinaryOp(Box::new(lhs), Box::new(operator), Box::new(rhs)),
+                span,
+                Type::Any,
+            ));
+        }
         // The left side must be a mutable variable or a cell path on one; nu reports any other
         // and goes on.
         let mut lhs = self.expression(&assignment.lhs, None)?;

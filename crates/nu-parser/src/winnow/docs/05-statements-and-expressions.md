@@ -437,7 +437,10 @@ or a `key: value` `Record`, with or without a cell path (nu accepts
 `(1) = 2` and `[1].0 = 2` at parse time and fails at run time); anything else
 is "assignment requires a variable", which nu reports and goes on past, so it
 is recorded as recovered and the assignment kept (the consumer also reports an
-immutable variable and an operator the types refuse, and goes on). The right side (everything absorbed to
+immutable variable and an operator the types refuse, and goes on). A missing right
+side (`$x =`) nu reports and goes on past with a garbage right side, its left side
+unchecked: the error is recorded as recovered and the right side is an empty block
+after the operator. The right side (everything absorbed to
 the end of the line) is parsed with `parse_block` and stored as a `Block`,
 matching nu, where `$x = ls | length` assigns the pipeline's result. Since
 nu 0.97 an external command at the start of the value must be written with

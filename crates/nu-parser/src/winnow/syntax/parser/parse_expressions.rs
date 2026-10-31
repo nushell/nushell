@@ -427,11 +427,27 @@ fn parse_assignment_expression<'a>(tokens: Tokens<'_, 'a>) -> ParseResult<Expres
         );
     }
     let rhs = tokens.slice(operator_index + 1..items.len());
+    // nu reports a missing right side and goes on with the assignment, its right side
+    // garbage, as the consumer does: the error is recorded as recovered and the right side is
+    // an empty block after the operator.
     let Some(rhs_span) = rhs.span() else {
-        return Err(cut(Diagnostic::expected(
-            "right hand side of assignment",
-            operator_token.span.past(),
-        )));
+        working_set.error(
+            Diagnostic::expected("right hand side of assignment", operator_token.span.past())
+                .as_recovered(),
+        );
+        let rhs = Block {
+            span: operator_token.span.past(),
+            pipelines: Vec::new(),
+        };
+        let span = lhs.span.merge(operator_token.span);
+        return Ok(Expression::new(
+            Expr::Assignment(Assignment {
+                lhs: Box::new(lhs),
+                op: Spanned::new(operator, operator_token.span),
+                rhs,
+            }),
+            span,
+        ));
     };
     let rhs = parse_value_block(rhs, rhs_span)?;
     // Since 0.97 nu refuses an external command as the start of the value

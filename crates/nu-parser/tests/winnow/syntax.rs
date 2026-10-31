@@ -2424,3 +2424,16 @@ fn definition_with_a_signature_error_is_the_call() {
         );
     }
 }
+
+/// An assignment with no right side nu reports and goes on past: the right side is an empty
+/// block after the operator, the error recorded as recovered.
+#[test]
+fn assignment_without_a_right_side_is_kept() {
+    let (ast, diagnostics) = parse_lenient("$x =", &ParseConfig::default());
+    let assignment = kind!(expr(&ast), Expr::Assignment(a) => a);
+    assert!(assignment.rhs.pipelines.is_empty());
+    assert!(
+        diagnostics.len() == 1 && diagnostics[0].recovered,
+        "{diagnostics:?}"
+    );
+}
