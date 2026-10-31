@@ -374,7 +374,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
         return merge_record(record, head, span).unwrap_or_else(|err| Value::error(err, span));
     }
 
-    // Let's try dtparse first
+    // Without a format, try reading the string as a date (RFC 3339, then dtparse's forms) first
     if matches!(input, Value::String { .. }) && dateformat.is_none() {
         let span = input.span();
         if let Ok(input_val) = input.coerce_str()

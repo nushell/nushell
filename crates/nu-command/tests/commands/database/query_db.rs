@@ -188,3 +188,81 @@ fn named_params() -> Result {
             })
     })
 }
+
+// SQLite reports a statement's errors as its rows are read. A failing INSERT reports on the first
+// row, and a failing SELECT reports partway through, after returning some rows.
+#[rstest::rstest]
+#[case::without_params(
+    r#"open $in | query db "INSERT INTO crew (role) VALUES ('captain')""#,
+    "NOT NULL constraint failed: crew.name"
+)]
+#[case::named_params(
+    r#"open $in | query db "INSERT INTO crew (role) VALUES (:role)" -p {role: captain}"#,
+    "NOT NULL constraint failed: crew.name"
+)]
+#[case::select_fails_partway(
+    r#"open $in | query db "SELECT json(column1) FROM (VALUES ('1'), ('2'), ('x'))""#,
+    "malformed JSON"
+)]
+fn reports_statement_errors(#[case] code: &str, #[case] expected: &str) -> Result {
+    Playground::setup(&module_path!().replace("::", "_"), |dirs, _| {
+        let db = dirs.test().join("test.db");
+        Connection::open(&db)
+            .expect("failed to open db")
+            .execute_batch("CREATE TABLE crew (name TEXT NOT NULL, role TEXT)")
+            .expect("failed to create table");
+        let mut tester = test().cwd(dirs.test());
+
+        match tester
+            .run_with_data::<Value>(code, db.as_path())
+            .expect_shell_error()?
+        {
+            ShellError::Generic(generic) => {
+                assert_contains(expected, generic.msg.as_ref());
+                Ok(())
+            }
+            err => Err(err.into()),
+        }
+    })
+}
+
+// `open` reads every table, so its error names the table that failed, whether SQLite fails while
+// preparing the table's query or partway through its rows.
+#[rstest::rstest]
+#[case::rows_fail(
+    "INSERT INTO broken (a) VALUES ('[1]'), ('[2]'), ('not json');
+     ALTER TABLE broken ADD COLUMN b TEXT AS (json(a)) VIRTUAL;",
+    "malformed JSON"
+)]
+// A virtual table whose module this SQLite build doesn't have, as left by a build that does.
+#[case::prepare_fails(
+    "DROP TABLE broken;
+     PRAGMA writable_schema = ON;
+     INSERT INTO sqlite_master (type, name, tbl_name, rootpage, sql)
+     VALUES ('table', 'broken', 'broken', 0, 'CREATE VIRTUAL TABLE broken USING no_such_module');",
+    "no such module: no_such_module"
+)]
+fn open_reports_which_table_failed(#[case] setup: &str, #[case] expected: &str) -> Result {
+    Playground::setup(&module_path!().replace("::", "_"), |dirs, _| {
+        let db = dirs.test().join("test.db");
+        let conn = Connection::open(&db).expect("failed to open db");
+        conn.execute_batch("CREATE TABLE fine (a TEXT); CREATE TABLE broken (a TEXT);")
+            .expect("failed to create tables");
+        conn.execute_batch(setup)
+            .expect("failed to set up the broken table");
+        drop(conn);
+        let mut tester = test().cwd(dirs.test());
+
+        match tester
+            .run_with_data::<Value>("open $in | values | length", db.as_path())
+            .expect_shell_error()?
+        {
+            ShellError::Generic(generic) => {
+                assert_eq!(generic.error, "Failed to read table `broken`");
+                assert_contains(expected, generic.msg.as_ref());
+                Ok(())
+            }
+            err => Err(err.into()),
+        }
+    })
+}

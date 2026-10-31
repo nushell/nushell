@@ -1,6 +1,5 @@
 use crate::env::is_automatic_env_var;
 use crate::env::var;
-#[allow(deprecated)]
 use crate::get_full_help;
 use crate::named_flags::{
     can_rest_spread, expand_flag_record, find_signature_flag, flag_type_accepts_nothing,

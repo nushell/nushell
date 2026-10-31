@@ -115,6 +115,8 @@ fn eval_ir_block_inner<D: DebugContext>(
         // Initialize file storage.
         let mut files = vec![None; ir_block.file_count as usize];
 
+        let mut record_items = vec![Vec::new(); ir_block.register_count as usize];
+
         let result = eval_ir_block_impl::<D>(
             &mut EvalContext {
                 engine_state,
@@ -129,6 +131,7 @@ fn eval_ir_block_inner<D: DebugContext>(
                 matches: vec![],
                 registers: &mut registers[..],
                 files: &mut files[..],
+                record_items: &mut record_items[..],
             },
             ir_block,
             input,
@@ -191,9 +194,48 @@ struct EvalContext<'a> {
     registers: &'a mut [PipelineExecutionData],
     /// Holds open files used by redirections
     files: &'a mut [Option<Arc<File>>],
+    /// The items added so far to the record literal being built in each register. Used to point
+    /// duplicate-key errors at the item that brought the key in.
+    record_items: &'a mut [Vec<RecordLiteralItem>],
+}
+
+/// One item of a record literal under construction: a `key: value` pair or a spread.
+#[derive(Clone, Copy)]
+struct RecordLiteralItem {
+    /// Length of the record after this item was added. Records keep insertion order, so this is
+    /// enough to tell which item added the key at a given index.
+    end: usize,
+    /// The source of the item: `key: value`, `...expr`, or a table cell. Used for the
+    /// "field first defined here" label.
+    span: Span,
+    /// Whether the item was a spread. A duplicate of a key it added gets the spread help.
+    is_spread: bool,
 }
 
 impl<'a> EvalContext<'a> {
+    /// Find the item that added `key` to the record literal being built in `reg`.
+    fn record_item_of_key(
+        &self,
+        reg: RegId,
+        record: &Record,
+        key: &str,
+    ) -> Option<RecordLiteralItem> {
+        let index = record.index_of(key)?;
+        let items = &self.record_items[reg.get() as usize];
+        items
+            .get(items.partition_point(|item| item.end <= index))
+            .copied()
+    }
+
+    /// Remember the item that was just added to the record literal being built in `reg`.
+    fn push_record_item(&mut self, reg: RegId, end: usize, span: Span, is_spread: bool) {
+        self.record_items[reg.get() as usize].push(RecordLiteralItem {
+            end,
+            span,
+            is_spread,
+        });
+    }
+
     /// Replace the contents of a register with a new value
     #[inline]
     fn put_reg(&mut self, reg_id: RegId, new_value: PipelineExecutionData) {
@@ -1012,12 +1054,17 @@ fn eval_instruction<D: DebugContext>(
 
             let key = key.coerce_into_string()?;
             if let Some(old_value) = record.insert(&key, val) {
+                let first_item = ctx.record_item_of_key(*src_dst, &record, &key);
                 return Err(ShellError::ColumnDefinedTwice {
                     col_name: key,
                     second_use: *span,
-                    first_use: old_value.span(),
+                    first_use: first_item.map_or_else(|| old_value.span(), |item| item.span),
+                    help: first_item
+                        .filter(|item| item.is_spread)
+                        .map(|_| ShellError::RECORD_SPREAD_DUPLICATE_HELP.into()),
                 });
             }
+            ctx.push_record_item(*src_dst, record.len(), *span, false);
 
             ctx.put_reg(
                 *src_dst,
@@ -1041,13 +1088,18 @@ fn eval_instruction<D: DebugContext>(
             // Not using .extend() here because it doesn't handle duplicates
             for (key, val) in items {
                 if let Some(first_value) = record.insert(&key, val) {
+                    let first_use = ctx
+                        .record_item_of_key(*src_dst, &record, &key)
+                        .map_or_else(|| first_value.span(), |item| item.span);
                     return Err(ShellError::ColumnDefinedTwice {
                         col_name: key,
                         second_use: *span,
-                        first_use: first_value.span(),
+                        first_use,
+                        help: Some(ShellError::RECORD_SPREAD_DUPLICATE_HELP.into()),
                     });
                 }
             }
+            ctx.push_record_item(*src_dst, record.len(), *span, true);
             ctx.put_reg(
                 *src_dst,
                 PipelineExecutionData::from(
@@ -1329,6 +1381,10 @@ fn load_literal(
     // represents the `null` value and should produce `PipelineData::Value(Value::Nothing)`.
     // Some commands (like `metadata`) distinguish between these when deciding
     // whether positional args are allowed.
+    // A new record literal starts here: forget the items of an earlier one.
+    if matches!(lit, Literal::Record { .. }) {
+        ctx.record_items[dst.get() as usize].clear();
+    }
     if matches!(lit, Literal::Empty) {
         ctx.put_reg(dst, PipelineExecutionData::empty());
     } else {
@@ -1666,7 +1722,7 @@ fn eval_call_frame<D: DebugContext>(
 
         result
     } else {
-        let signature = decl.signature();
+        let signature = engine_state.get_signature_cached(decl_id);
 
         // `ignore` intentionally handles upstream error values at command level.
         // Skip early input-error propagation for the built-in `ignore` command so

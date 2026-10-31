@@ -1,4 +1,4 @@
-use crate::conversions::into::compound_to_duration;
+use crate::{conversions::into::compound_to_duration, parse_date_from_string};
 use chrono::{Local, TimeZone, Utc};
 use fancy_regex::Regex;
 use nu_engine::command_prelude::*;
@@ -169,53 +169,27 @@ impl Command for DetectType {
 // swap ensures consistent parsing based on the regex match. It could be written more idiomatically and with
 // the regexes but this is a simpler approach and doesn't have to mess with parsing the time component.
 fn swap_day_month(input: &str) -> String {
-    let re_slash =
-        fancy_regex::Regex::new(r"(\d{1,2})/(\d{1,2})/(\d{4,})").expect("regex should be valid");
-    let swapped_slash = re_slash.replace_all(input, "$2/$1/$3");
-    let re_dash =
-        fancy_regex::Regex::new(r"(\d{1,2})-(\d{1,2})-(\d{4,})").expect("regex should be valid");
-    re_dash.replace_all(&swapped_slash, "$2-$1-$3").to_string()
+    static SLASH_RE: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"(\d{1,2})/(\d{1,2})/(\d{4,})").expect("regex should be valid")
+    });
+    static DASH_RE: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"(\d{1,2})-(\d{1,2})-(\d{4,})").expect("regex should be valid")
+    });
+    let swapped_slash = SLASH_RE.replace_all(input, "$2/$1/$3");
+    DASH_RE.replace_all(&swapped_slash, "$2-$1-$3").to_string()
 }
 
+/// Parse `input` the way `into datetime` does, reading `01/02/2025` as day-month-year when
+/// `dayfirst` is set.
 fn parse_date_from_string_with_dayfirst(
     input: &str,
     span: Span,
     dayfirst: bool,
-) -> Result<chrono::DateTime<chrono::FixedOffset>, nu_protocol::Value> {
-    let input = if dayfirst {
-        swap_day_month(input)
+) -> Result<chrono::DateTime<chrono::FixedOffset>, Value> {
+    if dayfirst {
+        parse_date_from_string(&swap_day_month(input), span)
     } else {
-        input.to_string()
-    };
-    match dtparse::parse(&input) {
-        Ok((native_dt, fixed_offset)) => {
-            let offset = match fixed_offset {
-                Some(offset) => offset,
-                None => *chrono::Local
-                    .from_local_datetime(&native_dt)
-                    .single()
-                    .unwrap_or_default()
-                    .offset(),
-            };
-            match offset.from_local_datetime(&native_dt) {
-                chrono::LocalResult::Single(d) => Ok(d),
-                chrono::LocalResult::Ambiguous(d, _) => Ok(d),
-                chrono::LocalResult::None => Err(nu_protocol::Value::error(
-                    nu_protocol::ShellError::DatetimeParseError {
-                        msg: input.to_string(),
-                        span,
-                    },
-                    span,
-                )),
-            }
-        }
-        Err(_) => Err(nu_protocol::Value::error(
-            nu_protocol::ShellError::DatetimeParseError {
-                msg: input.to_string(),
-                span,
-            },
-            span,
-        )),
+        parse_date_from_string(input, span)
     }
 }
 

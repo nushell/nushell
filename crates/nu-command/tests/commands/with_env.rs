@@ -93,3 +93,41 @@ fn with_env_shorthand_can_not_hide_variables() -> Result {
 
     test().run(code).expect_value_eq(("1", "null", "1"))
 }
+
+#[test]
+fn with_env_converts_like_load_env() -> Result {
+    let code = r#"
+        $env.ENV_CONVERSIONS = { TESTENVVAR: { from_string: { split row "," } } }
+        with-env { TESTENVVAR: "x,y", pAtH: "a" } { [$env.TESTENVVAR $env.PATH] }
+    "#;
+
+    test()
+        .run(code)
+        .expect_value_eq(test_value!([["x", "y"], ["a"]]))
+}
+
+#[test]
+fn with_env_of_env_conversions_converts_every_variable() -> Result {
+    let code = r#"
+        $env.OTHER = "a,b"
+        with-env { ENV_CONVERSIONS: { OTHER: { from_string: { split row "," } } } } { $env.OTHER }
+    "#;
+
+    test().run(code).expect_value_eq(["a", "b"])
+}
+
+#[test]
+fn no_convert_sets_values_as_given() -> Result {
+    let code = r#"
+        $env.ENV_CONVERSIONS = { TESTENVVAR: { from_string: { split row "," } } }
+        let inside = with-env --no-convert { TESTENVVAR: "x,y", pAtH: "a" } {
+            [$env.TESTENVVAR $env.PATH]
+        }
+        load-env --no-convert { TESTENVVAR: "x,y", pAtH: "a" }
+        [$inside [$env.TESTENVVAR $env.PATH]]
+    "#;
+
+    test()
+        .run(code)
+        .expect_value_eq(test_value!([["x,y", "a"], ["x,y", "a"]]))
+}

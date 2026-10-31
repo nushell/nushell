@@ -71,19 +71,6 @@ impl PipelineData {
         PipelineData::ByteStream(stream, metadata.into())
     }
 
-    /// Returns a clone of the metadata if it exists.
-    ///
-    /// Note: This performs a deep clone of heap-allocated structures.
-    /// Use [`.metadata_ref()`](Self::metadata_ref), [`.metadata_mut()`](Self::metadata_mut)
-    /// or [`.take_metadata()`](Self::take_metadata) to avoid unnecessary allocations.
-    #[deprecated(
-        since = "0.111.1",
-        note = "Use .metadata_ref(), .metadata_mut() or .take_metadata() instead"
-    )]
-    pub fn metadata(&self) -> Option<PipelineMetadata> {
-        self.metadata_ref().cloned()
-    }
-
     /// Returns a reference to the metadata if it exists.
     pub fn metadata_ref(&self) -> Option<&PipelineMetadata> {
         match self {
@@ -384,7 +371,6 @@ impl PipelineData {
                         .into_iter(),
                     ),
                     // Handle iterable custom values by converting to base value first
-                    #[expect(deprecated)]
                     Value::Custom { ref val, .. } if val.is_iterable() => {
                         match val.to_base_value(val_span) {
                             Ok(Value::List { vals, .. }) => PipelineIteratorInner::ListStream(
@@ -510,7 +496,6 @@ impl PipelineData {
                         .into_range_iter(span, Signals::empty())
                         .map(f)
                         .into_pipeline_data(span, signals.clone()),
-                    #[expect(deprecated)]
                     Value::Custom { ref val, .. } if val.is_iterable() => {
                         match val.to_base_value(span)? {
                             Value::List { vals, .. } => vals
@@ -565,7 +550,6 @@ impl PipelineData {
                         .into_range_iter(span, Signals::empty())
                         .flat_map(f)
                         .into_pipeline_data(span, signals.clone()),
-                    #[expect(deprecated)]
                     Value::Custom { ref val, .. } if val.is_iterable() => {
                         match val.to_base_value(span)? {
                             Value::List { vals, .. } => vals
@@ -628,7 +612,6 @@ impl PipelineData {
                         .into_range_iter(span, Signals::empty())
                         .filter(f)
                         .into_pipeline_data(span, signals.clone()),
-                    #[expect(deprecated)]
                     Value::Custom { ref val, .. } if val.is_iterable() => {
                         match val.to_base_value(span)? {
                             Value::List { vals, .. } => vals
@@ -1047,7 +1030,6 @@ impl IntoIterator for PipelineData {
                         .into_iter(),
                     ),
                     // Handle iterable custom values by converting to base value first
-                    #[expect(deprecated)]
                     Value::Custom { ref val, .. } if val.is_iterable() => {
                         match val.to_base_value(span) {
                             Ok(Value::List { vals, signals, .. }) => {
