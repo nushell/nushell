@@ -56,7 +56,11 @@ case applies. Details that are easy to miss:
 * Statement keywords (`is_statement_keyword`: `def`, `let`, `mut`, `const`,
   `for`, `alias`, `type`, `module`, `use`, `export`, `export-env`, `extern`)
   are checked *before* the assignment test because `let x = 1` and
-  `type T = int` contain an `AssignmentOperator` token.
+  `type T = int` contain an `AssignmentOperator` token. So, at a statement's
+  start with no shorthand, are nu's other keyword commands, which its
+  `parse_builtin_commands` reads by their keyword (`is_builtin_keyword_head`:
+  `overlay`, `source`, `source-env`, `run`, `hide`, `where`, `plugin use`):
+  `overlay use x = y` is a call to `overlay use`.
 * `check_builtin_command_in_pipeline` is nu's head table for an element: the
   declaration keywords (`type` among them), `for`, `module`, `use`, `source`, `hide`, `export`,
   `export-env` (nu's `BuiltinCommandInPipeline`), `const` and `mut` (nu's
@@ -67,15 +71,19 @@ case applies. Details that are easy to miss:
   the command, shorthand included, as nu counts its spans. nu reports the
   `BuiltinCommandInPipeline` and reads the statement as a call
   (`parse_call`), so the parser records the error as recovered and reads
-  the call (the lowering reports it at the element's first item and lowers
-  an ordinary call), unless the element has an assignment operator, which
-  nu's assignment test meets first, or the head is `const` or `mut`. `let` is not in
-  the table: `ls | let x` parses (nu accepts it too), and `ls | let x = 1` is
-  refused as an assignment whose left side is not a variable, because after
-  a `|` the keyword is not a statement. `while` and `loop`, which have no
-  output, are refused in a longer pipeline by the pipeline itself
-  (`parse_pipelines::check_loop_in_pipeline`, nu's `parse_pipeline`): at the
-  first item of each element after any shorthand, the first element too.
+  the call (the lowering reports it at the element's first item, for `const`
+  and `mut` nu's `AssignInPipeline` with the items nu names, and lowers an
+  ordinary call). An element with an assignment operator nu's assignment
+  test meets first: it is an assignment, whose left side is checked so
+  (`ls | mut x = 1`: the `mut` call, then "assignment requires a variable").
+  `let` is not in the table: `ls | let x` parses (nu accepts it too), and
+  `ls | let x = 1` is an assignment whose left side is not a variable,
+  because after a `|` the keyword is not a statement. `while` and `loop`,
+  which have no output, are reported in a longer pipeline by the pipeline
+  itself (`parse_pipelines::check_loop_in_pipeline`, nu's `parse_pipeline`,
+  before the elements, which it then parses as any): at the first item of
+  each element after any shorthand, the first element too, the error
+  recorded as recovered.
 
 ## Keyword forms (`parse_builtin_commands`)
 
@@ -421,7 +429,9 @@ in `Position::Element` and must be what nu's `parse_full_cell_path`
 produces: a `Var`, a `Subexpression`, a `FullCellPath`, a `List`, a `Table`
 or a `key: value` `Record`, with or without a cell path (nu accepts
 `(1) = 2` and `[1].0 = 2` at parse time and fails at run time); anything else
-is "assignment requires a variable". The right side (everything absorbed to
+is "assignment requires a variable", which nu reports and goes on past, so it
+is recorded as recovered and the assignment kept (the consumer also reports an
+immutable variable and an operator the types refuse, and goes on). The right side (everything absorbed to
 the end of the line) is parsed with `parse_block` and stored as a `Block`,
 matching nu, where `$x = ls | length` assigns the pipeline's result. Since
 nu 0.97 an external command at the start of the value must be written with

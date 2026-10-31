@@ -4,3 +4,17 @@ error: `type` is a statement and cannot be used inside a pipeline
 1 | ls | type T = int
   |      ^^^^
   = help: declarations and the module, source, overlay and plugin commands are statements of their own
+
+error: assignment requires a variable
+  --> reject/pipelines/type-alias-after-pipe.nu:1:6
+  |
+1 | ls | type T = int
+  |      ^^^^^^
+  = help: only variables (`$x`) and their cell paths (`$x.a`, `$env.FOO`) can be assigned to
+
+error: external command calls must be explicit in assignments
+  --> reject/pipelines/type-alias-after-pipe.nu:1:15
+  |
+1 | ls | type T = int
+  |               ^^^
+  = help: `int` is not a known command; write `^int` to run it and capture its output, or quote the string

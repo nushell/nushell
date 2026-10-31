@@ -81,7 +81,6 @@ impl<'s> Lower<'_, '_, 's> {
                 "run" if call.head.name == "run" => return self.run(e, call),
                 "run" => return Err(Unlowered::Unsupported("keyword command")),
                 "where" => return self.where_call(e, call),
-                "const" | "mut" => return Err(Unlowered::Error),
                 word if STATEMENTS_IN_PIPELINE.contains(&word) => {
                     return self.statement_in_pipeline(e, call, decl_id, word, None, input_type);
                 }
@@ -148,8 +147,30 @@ impl<'s> Lower<'_, '_, 's> {
             WSpan::new(call.head.span.start, call.head.span.start + word.len())
         });
         let span = self.span(first_item);
-        self.working_set
-            .error(ParseError::BuiltinCommandInPipeline(name.to_string(), span));
+        let error = match name {
+            // nu names the variable and the value by where they stand among the element's
+            // items, shorthand included (`FOO=1 mut x` names the variable `mut`).
+            "const" | "mut" => {
+                let items = self.items(WSpan::new(first_item.start, e.span.end));
+                let text = |index: usize| {
+                    let item = items
+                        .get(index)
+                        .map_or(&[][..], |item| self.working_set.get_span_contents(*item));
+                    String::from_utf8_lossy(item).into_owned()
+                };
+                let value = match items.len() {
+                    1..=3 => "value".to_string(),
+                    _ => text(3),
+                };
+                let variable = match items.len() {
+                    1 => "variable".to_string(),
+                    _ => text(1),
+                };
+                ParseError::AssignInPipeline(name.to_string(), value, variable, span)
+            }
+            _ => ParseError::BuiltinCommandInPipeline(name.to_string(), span),
+        };
+        self.working_set.error(error);
         self.ordinary_call(e, call, decl_id, input_type)
     }
 

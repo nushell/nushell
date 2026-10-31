@@ -22,7 +22,7 @@ use crate::{
     lex::lex,
     lite_parser::lite_parse,
     parse_captures_compile::wrap_element_with_collect,
-    parse_expressions::is_math_expression_like,
+    parse_expressions::{is_env_variable_name, is_math_expression_like},
     parse_helpers::{PERCENT_FORCED_BUILTIN_PARSER_INFO, trim_quotes},
     parse_module::{add_exportables, double_main_span, parse_module_pipeline},
     parse_pipelines::{finish_block, hide_unlet_constants, parse_pipeline},
@@ -448,6 +448,26 @@ impl<'s> Lower<'_, '_, 's> {
                     .any(|element| is_run_call(&element.expr))
                 {
                     return Err(Unlowered::Unsupported("run before the end of a pipeline"));
+                }
+                // `parse_pipeline` reports each `while` or `loop` command before it parses the
+                // elements, at its first item after any environment shorthand.
+                for element in &pipeline.elements {
+                    let items = self.items(element.expr.span);
+                    let head = items.iter().find(|item| {
+                        let text = self.working_set.get_span_contents(**item);
+                        !text
+                            .iter()
+                            .position(|&byte| byte == b'=')
+                            .is_some_and(|equals| is_env_variable_name(&text[..equals]))
+                    });
+                    if let Some(&head) = head
+                        && let keyword @ (b"while" | b"loop") =
+                            self.working_set.get_span_contents(head)
+                    {
+                        let keyword = String::from_utf8_lossy(keyword).into_owned();
+                        self.working_set
+                            .error(ParseError::BuiltinCommandInPipeline(keyword, head));
+                    }
                 }
                 let pipes = self.classic_pipes(pipeline);
                 let mut current = input_type.cloned().unwrap_or(Type::Any);

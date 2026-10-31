@@ -342,6 +342,9 @@
 ; here: src/winnow/syntax/parser/parse_expressions.rs::parse_env_shorthand_prefix, is_env_variable_name
 
 <element-body>    ::= <assignment>              ; if ANY remaining item is an <assignment-op>
+                                                ; (not for a statement starting with overlay,
+                                                ; source, source-env, run, hide, where or
+                                                ; plugin use: nu reads those by keyword first)
                     | <math-expression>         ; if the first item is math-expression-like
                     | <statement-in-pipeline-error>
                     | <where-expr> | <run-expr>
@@ -363,10 +366,12 @@
 ; nu: parse_expressions.rs:1587-1680
 ; here: src/winnow/syntax/parser/parse_expressions.rs::parse_expression (Position::Element after a "|"
 ;       and after shorthand), check_builtin_command_in_pipeline (the same head table)
-; nu reports BuiltinCommandInPipeline at the element's first item (the shorthand's when there is
-; one) and reads the statement as a call (parse_call); so does the parser, the error recorded as
-; recovered, unless the element has an assignment operator (nu's assignment test comes first)
-; or the head is const/mut, which stay errors.
+; nu reports BuiltinCommandInPipeline (AssignInPipeline for const/mut) at the element's first
+; item (the shorthand's when there is one) and reads the statement as a call (parse_call); so
+; does the parser, the error recorded as recovered. An element with an assignment operator is an
+; assignment (nu's assignment test comes first), whose left side is read so; a left side that is
+; no variable is reported and the assignment kept (recorded as recovered). A `while` or `loop`
+; in a longer pipeline is reported before the elements, which are then read as any.
 
 ; An item is math-expression-like when it is one of:
 ;   "true" | "false" | "null" | "not" | "if" | "match"

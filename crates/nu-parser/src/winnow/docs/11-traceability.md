@@ -121,7 +121,7 @@ nu-parser does not have. `parse_keywords::KeywordCall` and
 | `try` | `parse_control_flow::parse_try` | `accept/try/*.nu` `reject/try/*.nu` | `try_forms` |
 | `use` | `parse_module::parse_use` | `accept/modules/use-*.nu` `reject/modules/use-*.nu` | `use_forms` |
 | `where` | `parse_source::parse_where` | `accept/where/*.nu` `reject/where/*.nu` | `where_row_conditions` |
-| `while` | `parse_control_flow::parse_while`; refused in a longer pipeline (`parse_pipelines::check_loop_in_pipeline`) | `accept/loops/while-*.nu` `reject/loops/while-*.nu` | `loops_and_jumps` `loops_cannot_be_piped` |
+| `while` | `parse_control_flow::parse_while`; reported in a longer pipeline, recorded as recovered (`parse_pipelines::check_loop_in_pipeline`) | `accept/loops/while-*.nu` `reject/loops/while-*.nu` | `loops_and_jumps` `loops_cannot_be_piped` |
 
 ## TokenContents
 
@@ -260,7 +260,7 @@ signatures, types or files and is left to the consumer.
 | `CantAliasExpression` | `ErrorKind::Message` (`cannot create an alias to an expression`) | `reject/def/alias-to-value.nu` | `extern_alias_module_use_export` |
 | `UnknownOperator` | `ErrorKind::UnknownOperator` | `reject/operators/*.nu` | `unknown_operators_get_help` |
 | `BuiltinCommandInPipeline` | `parse_expressions::check_builtin_command_in_pipeline` (nu's head table for every element of a multi-command pipeline and after env shorthand; `ls \| let x` without a value is allowed, as in nu), `parse_pipelines::check_loop_in_pipeline` (`while` and `loop`, anywhere in a longer pipeline) | `reject/pipelines/def-in-pipeline.nu` `reject/pipelines/hide-after-pipe.nu` `accept/bindings/let-after-pipe.nu` `reject/loops/while-piped.nu` `reject/loops/loop-piped.nu` | `let_after_pipe_is_a_statement` `loops_cannot_be_piped` |
-| `AssignInPipeline` | `parse_expressions::check_builtin_command_in_pipeline` (`ls \| let x = 1`, `ls \| mut x = 1`) | `reject/pipelines/let-with-value-after-pipe.nu` `reject/pipelines/mut-after-pipe.nu` `accept/assignments/rhs-pipeline.nu` | `assignments` |
+| `AssignInPipeline` | `parse_expressions::check_builtin_command_in_pipeline` (`ls \| mut x`, `FOO=1 mut x`; in an assignment's left side, `ls \| mut x = 1`), recorded as recovered | `reject/pipelines/let-with-value-after-pipe.nu` `reject/pipelines/mut-after-pipe.nu` `accept/assignments/rhs-pipeline.nu` | `assignments` |
 | `NameIsBuiltinVar` | `parse_signatures::ensure_not_reserved_variable_name` (`in`, `nu`, `env`, `ans`, a `$` before it or not; skipped for `extern`), recorded as recovered: the consumer declares the variable and reports nu's error | `reject/signatures/reserved-param-in.nu` `reject/signatures/reserved-flag-env.nu` `reject/match/variable-pattern-in.nu` `reject/loops/for-reserved-var.nu` `accept/def/reserved-param-names-in-extern.nu` | `reserved_variable_names_are_errors` `signature_forms_from_nushell_tests` |
 | `NameIsKeyword` | `ErrorKind::Message` (`cannot use parser keyword`) | `reject/def/keyword-name-*.nu` `reject/def/type-keyword-as-command-name.nu` | `definitions_cannot_use_parser_keywords` |
 | `IncorrectValue` | n/a (semantic: constant evaluation; an incomplete alias, nu's call to `alias`) | `accept/attributes/values-of-every-kind.nu` `accept/def/alias-missing-equals-is-consumer.nu` | `attribute_values` |
@@ -325,7 +325,7 @@ signatures, types or files and is left to the consumer.
 | `RedirectingBuiltinCommand` | `ErrorKind::Message` (`this statement cannot be redirected`; `parse_pipelines::rejects_redirection` covers the statements, a statement keyword read as a call (`def --help`, `module x --foo {}`), a lone `let`/`mut` without a value, every `overlay ...` and the keyword commands whose signature is not redirectable; `drops_redirection` ignores `export-env`'s and a valueless `const`'s) | `reject/def/redirect-after-def.nu` `reject/redirections/*-redirected.nu` `reject/def/help-redirected.nu` `reject/modules/module-call-redirected.nu` `accept/redirections/let-in-pipeline.nu` `accept/redirections/const-help-redirection-ignored.nu` | `redirections` |
 | `UnexpectedSpreadArg` | n/a (semantic: signature) | `accept/calls/spread-args.nu` | `multiword_commands_and_flags` |
 | `AssignmentRequiresMutableVar` | n/a (semantic: scopes) | `accept/assignments/simple.nu` | `assignments` |
-| `AssignmentRequiresVar` | `ErrorKind::Message` (`assignment requires a variable`) | `reject/assignments/to-literal.nu` `reject/assignments/to-call.nu` | `assignments` |
+| `AssignmentRequiresVar` | `ErrorKind::Message` (`assignment requires a variable`), recorded as recovered | `reject/assignments/to-literal.nu` `reject/assignments/to-call.nu` | `assignments` |
 | `AttributeRequiresDefinition` | `ErrorKind::Expected`, `ErrorKind::Message` (attributes) | `reject/calls/attributes-*.nu` `reject/attributes/*.nu` | `attributes` |
 | `UnexpectedRedirection` | `ErrorKind::Message` (`nothing to redirect`) | `reject/redirections/nothing-to-redirect*.nu` | `redirecting_nothing_is_an_error` |
 | `OperatorUnsupportedType` | n/a (semantic: types) | `accept/operators/arithmetic.nu` | `precedence` |

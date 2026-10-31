@@ -2305,3 +2305,27 @@ fn type_alias_errors_are_recovered() {
         );
     }
 }
+
+/// A loop in a longer pipeline, and a `mut` or `const` command there, nu reports and parses as
+/// any command; an element with an assignment operator is an assignment, whose left side nu
+/// checks so. Each error is recorded as recovered.
+#[test]
+fn statements_in_a_pipeline_are_recovered() {
+    let config = ParseConfig::default();
+    for (text, errors) in [
+        ("while false {} | describe", 1),
+        ("ls | loop { break }", 1),
+        ("ls | mut x", 1),
+        ("ls | mut x = 1", 2),
+        ("ls = 1", 1),
+    ] {
+        let (ast, diagnostics) = parse_lenient(text, &config);
+        assert_eq!(ast.block.pipelines.len(), 1, "{text}");
+        assert!(
+            diagnostics.len() == errors && diagnostics.iter().all(|d| d.recovered),
+            "{text}: {diagnostics:?}"
+        );
+    }
+    let (ast, _) = parse_lenient("ls | mut x = 1", &config);
+    kind!(ast.block.pipelines[0].elements[1].expr, Expr::Assignment(_));
+}

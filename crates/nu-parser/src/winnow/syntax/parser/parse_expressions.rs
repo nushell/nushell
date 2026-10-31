@@ -42,7 +42,7 @@ use super::parse_literals::{
 };
 use super::parse_module::{parse_export_env, parse_export_in_block, parse_module, parse_use};
 use super::parse_patterns::pattern;
-use super::parse_pipelines::parse_block;
+use super::parse_pipelines::{parse_block, parse_value_block};
 use super::parse_signatures::parse_signature_helper;
 use super::parse_source::parse_where;
 use super::parse_type_alias::parse_type_alias;
@@ -124,6 +124,9 @@ pub fn parse_expression<'a>(
         .remaining()
         .iter()
         .any(|token| matches!(token.contents, TokenContents::AssignmentOperator(_)))
+        && !(position == Position::Statement
+            && env_assignments.is_empty()
+            && is_builtin_keyword_head(&tokens))
     {
         parse_assignment_expression(tokens.rest_stream())?
     } else if first.contents != TokenContents::Item {
@@ -273,14 +276,33 @@ fn check_builtin_command_in_pipeline(tokens: &Tokens<'_, '_>) -> ParseResult<Opt
         .with_help(
             "declarations and the module, source, overlay and plugin commands are statements of their own",
         );
+    // nu reads an element with an assignment operator as an assignment before it looks at the
+    // head, which it looks at in the assignment's left side (`ls | mut x = 1`).
     let assignment = tokens
         .remaining()
         .iter()
         .any(|token| matches!(token.contents, TokenContents::AssignmentOperator(_)));
-    if assignment || matches!(text, "const" | "mut") {
-        return Err(cut(diagnostic));
+    if assignment {
+        return Ok(None);
     }
     Ok(Some(diagnostic))
+}
+
+/// Whether the statement `tokens` starts with a command nu's `parse_builtin_commands` reads by
+/// its keyword before `parse_expression` looks for an assignment: `overlay`, `source`,
+/// `source-env`, `run`, `hide`, `where` and `plugin use` (`overlay use x = y` is a call to
+/// `overlay use`, not an assignment).
+fn is_builtin_keyword_head(tokens: &Tokens<'_, '_>) -> bool {
+    let working_set = tokens.working_set;
+    let mut words = tokens
+        .remaining()
+        .iter()
+        .map(|token| working_set.get_span_contents(token.span));
+    match words.next() {
+        Some("overlay" | "source" | "source-env" | "run" | "hide" | "where") => true,
+        Some("plugin") => words.next() == Some("use"),
+        _ => false,
+    }
 }
 
 /// Whether `name` can be set by `NAME=value` shorthand: an ASCII letter or `_`,
@@ -394,14 +416,15 @@ fn parse_assignment_expression<'a>(tokens: Tokens<'_, 'a>) -> ParseResult<Expres
         Expr::Record(items) => matches!(items.first(), Some(RecordItem::Pair { .. })),
         _ => false,
     };
+    // nu reports any other left side and goes on with the assignment, as the consumer does.
     if !assignable {
-        return Err(cut(Diagnostic::message(
-            "assignment requires a variable",
-            lhs.span,
-        )
-        .with_help(
-            "only variables (`$x`) and their cell paths (`$x.a`, `$env.FOO`) can be assigned to",
-        )));
+        working_set.error(
+            Diagnostic::message("assignment requires a variable", lhs.span)
+                .with_help(
+                    "only variables (`$x`) and their cell paths (`$x.a`, `$env.FOO`) can be assigned to",
+                )
+                .as_recovered(),
+        );
     }
     let rhs = tokens.slice(operator_index + 1..items.len());
     let Some(rhs_span) = rhs.span() else {
@@ -410,7 +433,7 @@ fn parse_assignment_expression<'a>(tokens: Tokens<'_, 'a>) -> ParseResult<Expres
             operator_token.span.past(),
         )));
     };
-    let rhs = parse_block(rhs, rhs_span);
+    let rhs = parse_value_block(rhs, rhs_span)?;
     // Since 0.97 nu refuses an external command as the start of the value
     // unless it is written with a caret: `$x = git` is an error, `$x = ^git`
     // is not. A bare external head needs the command table (or an alias of

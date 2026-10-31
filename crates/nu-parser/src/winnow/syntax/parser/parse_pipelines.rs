@@ -28,6 +28,24 @@ use super::parse_helpers::garbage_pipeline;
 use super::tokens::Tokens;
 use super::working_set::{CommandLookup, ParseState};
 
+/// The items after a binding's or an assignment's `=`, at `span`, as the block nu parses them
+/// as (`let x = ls | length`): lexed again from their text as a block is when a newline is
+/// between two of them, since in a subexpression, whose newlines were whitespace, a newline
+/// ends a pipeline there.
+pub fn parse_value_block<'a>(tokens: Tokens<'_, 'a>, span: Span) -> ParseResult<Block<'a>> {
+    let working_set = tokens.working_set;
+    let newline_between = tokens
+        .all()
+        .windows(2)
+        .map(|pair| Span::new(pair[0].span.end, pair[1].span.start))
+        .any(|gap| working_set.get_span_contents(gap).contains('\n'));
+    if !newline_between {
+        return Ok(parse_block(tokens, span));
+    }
+    let relexed = working_set.lex(span, LexOptions::BLOCK).map_err(cut)?;
+    Ok(parse_block(Tokens::from_lexed(working_set, &relexed), span))
+}
+
 /// The pipelines of a block covering `span` (nu's `parse_block`).
 ///
 /// Errors are recorded in the working set and the offending statement becomes
@@ -699,7 +717,7 @@ fn parse_pipeline<'a>(
     let single = lite_commands.len() == 1;
     if !single {
         for (_, lite_command) in &lite_commands {
-            check_loop_in_pipeline(working_set, lite_command)?;
+            check_loop_in_pipeline(working_set, lite_command);
         }
     }
     let mut elements: Vec<PipelineElement<'a>> = Vec::with_capacity(lite_commands.len());
@@ -741,14 +759,13 @@ fn parse_pipeline<'a>(
     }))
 }
 
-/// Refuse a `while` or `loop` that is one command of a longer pipeline (nu's `parse_pipeline`):
+/// Report a `while` or `loop` that is one command of a longer pipeline (nu's `parse_pipeline`):
 /// loops are statements without output, so like `for` (refused in `parse_expression`) they
 /// can't be piped. The head is the first item after any `NAME=value` environment shorthands, as
-/// there, and an attribute line's first item counts as one.
-fn check_loop_in_pipeline(
-    working_set: &WorkingSet<'_>,
-    lite_command: &LiteCommand,
-) -> ParseResult<()> {
+/// there, and an attribute line's first item counts as one. nu reports each such command
+/// before it parses the pipeline, which it then parses as any other, and so does the consumer:
+/// the error is recorded as recovered.
+fn check_loop_in_pipeline(working_set: &WorkingSet<'_>, lite_command: &LiteCommand) {
     let is_env_shorthand = |token: &&Token| {
         let text = working_set.get_span_contents(token.span);
         text.find('=')
@@ -760,12 +777,14 @@ fn check_loop_in_pipeline(
         .flatten()
         .chain(&lite_command.parts)
         .find(|token| !is_env_shorthand(token));
-    match head.map(|head| (head, working_set.get_span_contents(head.span))) {
-        Some((head, keyword @ ("while" | "loop"))) => {
-            Err(cut(Diagnostic::new(ErrorKind::KeywordInPipeline(keyword.to_string()), head.span)
-                .with_help("a loop has no output to pipe; collect values with `each`, `reduce` or a `mut` variable")))
-        }
-        _ => Ok(()),
+    if let Some((head, keyword @ ("while" | "loop"))) =
+        head.map(|head| (head, working_set.get_span_contents(head.span)))
+    {
+        working_set.error(
+            Diagnostic::new(ErrorKind::KeywordInPipeline(keyword.to_string()), head.span)
+                .with_help("a loop has no output to pipe; collect values with `each`, `reduce` or a `mut` variable")
+                .as_recovered(),
+        );
     }
 }
 
@@ -890,7 +909,7 @@ fn parse_pipeline_element<'a>(
         expr.span.end = expr.span.end.max(last.span.end);
     }
     let redirection = parse_redirection(working_set, lite_command)?;
-    if redirection.is_some() && drops_redirection(&expr) {
+    if redirection.is_some() && drops_redirection(&expr, in_pipeline) {
         // nu never looks at a redirection on `export-env` or a `const` without a value (or
         // one asking for help): it is ignored text, not refused, so this comes before
         // `rejects_redirection`.
@@ -927,8 +946,12 @@ fn parse_pipeline_element<'a>(
 
 /// The statements whose redirection nu ignores: `export-env` (`parse_export_env` reads only
 /// its first item) and a `const` without a value, whose call `parse_const` reads from the
-/// command's parts alone (with a value, the redirection is part of it).
-fn drops_redirection(expr: &Expression<'_>) -> bool {
+/// command's parts alone (with a value, the redirection is part of it). In a longer pipeline
+/// (`in_pipeline`) a `const` is an ordinary call, redirected as any (`const x e>| length`).
+fn drops_redirection(expr: &Expression<'_>, in_pipeline: bool) -> bool {
+    if in_pipeline {
+        return false;
+    }
     match &expr.expr {
         Expr::ExportEnv(_) | Expr::Const(_) => true,
         Expr::Call(call) => call.head.name == "const",

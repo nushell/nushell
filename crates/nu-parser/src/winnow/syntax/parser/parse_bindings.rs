@@ -5,13 +5,13 @@ use winnow::error::ErrMode;
 use crate::winnow::syntax::ast::{Binding, Expr, Expression};
 use crate::winnow::syntax::error::Diagnostic;
 use crate::winnow::syntax::input::{ParseFailure, ParseResult, cut};
-use crate::winnow::syntax::lex::{AssignmentOperator, LexOptions, TokenContents};
-use crate::winnow::syntax::span::{Span, Spanned};
+use crate::winnow::syntax::lex::{AssignmentOperator, TokenContents};
+use crate::winnow::syntax::span::Spanned;
 
 use super::parse_keywords::{
     KeywordBoundary, call_after_error, keyword_boundary_with, keyword_flag, parse_help_call,
 };
-use super::parse_pipelines::parse_block;
+use super::parse_pipelines::parse_value_block;
 use super::parse_signatures::{parse_type_after_var, parse_var_with_opt_type};
 use super::tokens::Tokens;
 
@@ -166,9 +166,7 @@ fn parse_binding<'a>(mut tokens: Tokens<'_, 'a>, kind: BindingKind) -> ParseResu
         binds,
     )?;
     let (value, end) = match equals {
-        // nu parses everything after the `=` as a block of its own (`let x = ls | length`),
-        // lexed again from its text as a block is: in a subexpression, whose newlines were
-        // whitespace, a newline between the items ends a pipeline there.
+        // nu parses everything after the `=` as a block of its own (`let x = ls | length`).
         Some(equals) => {
             let rhs = tokens.slice(equals_index + 1..items.len());
             let Some(rhs_span) = rhs.span() else {
@@ -177,17 +175,7 @@ fn parse_binding<'a>(mut tokens: Tokens<'_, 'a>, kind: BindingKind) -> ParseResu
                     equals.span.past(),
                 )));
             };
-            let gaps = rhs.all().windows(2);
-            let block = if gaps
-                .map(|pair| Span::new(pair[0].span.end, pair[1].span.start))
-                .any(|gap| working_set.get_span_contents(gap).contains('\n'))
-            {
-                let relexed = working_set.lex(rhs_span, LexOptions::BLOCK).map_err(cut)?;
-                parse_block(Tokens::from_lexed(working_set, &relexed), rhs_span)
-            } else {
-                parse_block(rhs, rhs_span)
-            };
-            (Some(block), rhs_span)
+            (Some(parse_value_block(rhs, rhs_span)?), rhs_span)
         }
         None if kind != BindingKind::Let && typed => {
             return Err(cut(Diagnostic::message(

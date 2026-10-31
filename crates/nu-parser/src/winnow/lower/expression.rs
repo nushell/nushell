@@ -288,6 +288,8 @@ impl<'s> Lower<'_, '_, 's> {
         assignment: &w::Assignment<'s>,
         input_type: Option<&Type>,
     ) -> Lowered<Expression> {
+        // The left side must be a mutable variable or a cell path on one; nu reports any other
+        // and goes on.
         let mut lhs = self.expression(&assignment.lhs, None)?;
         match &lhs.expr {
             Expr::FullCellPath(path) => {
@@ -295,10 +297,13 @@ impl<'s> Lower<'_, '_, 's> {
                     && var_id != ENV_VARIABLE_ID
                     && !self.working_set.get_variable(var_id).mutable
                 {
-                    return Err(Unlowered::Error);
+                    self.working_set
+                        .error(ParseError::AssignmentRequiresMutableVar(lhs.span));
                 }
             }
-            _ => return Err(Unlowered::Error),
+            _ => self
+                .working_set
+                .error(ParseError::AssignmentRequiresVar(lhs.span)),
         }
         let operator_span = self.span(assignment.op.span);
         let mut operator = self.node(
@@ -333,8 +338,8 @@ impl<'s> Lower<'_, '_, 's> {
         let rhs_block_id = self.working_set.add_block(Arc::new(rhs_block));
         let mut rhs = self.node(Expr::Subexpression(rhs_block_id), rhs_span, rhs_ty);
         let (ty, error) = math_result_type(self.working_set, &mut lhs, &mut operator, &mut rhs);
-        if error.is_some() {
-            return Err(Unlowered::Error);
+        if let Some(error) = error {
+            self.working_set.error(error);
         }
         let span = self.span(e.span);
         Ok(self.node(
@@ -395,7 +400,6 @@ impl<'s> Lower<'_, '_, 's> {
             w::Expr::Call(call) if call.sigil.is_none() && !self.alias_target => {
                 let first_word = call.head.name.split(' ').next().unwrap_or_default();
                 let statement = match first_word {
-                    "const" | "mut" => return Err(Unlowered::Error),
                     "overlay" => Some("overlay"),
                     word if STATEMENTS_IN_PIPELINE.contains(&word) => Some(word),
                     _ => None,
