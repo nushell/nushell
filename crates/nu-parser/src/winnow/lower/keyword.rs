@@ -199,6 +199,20 @@ impl<'s> Lower<'_, '_, 's> {
                 w::Expr::Block(block) => {
                     self.block_expression(branch.body.span, block, branch_input)?
                 }
+                // A brace item the winnow parser left as garbage (`else {...` left open): nu
+                // reads it with the `else` keyword's shape, a block before an expression
+                // (`parse_oneof`). Anything else is an expression, as below.
+                w::Expr::Garbage
+                    if self.text(branch.body.span).starts_with('{')
+                        && self.parts(branch.body.span).len() == 1 =>
+                {
+                    parse_value(
+                        self.working_set,
+                        self.span(branch.body.span),
+                        &SyntaxShape::OneOf(vec![SyntaxShape::Block, SyntaxShape::Expression]),
+                        branch_input,
+                    )
+                }
                 _ => self.expression(&branch.body, branch_input)?,
             };
             let branch_type = self.branch_type(&body, input_type);
@@ -721,7 +735,7 @@ impl<'s> Lower<'_, '_, 's> {
     ) -> Lowered<Expression> {
         let e = &element.expr;
         let (mut call, decl_id) = self.keyword_call(e, "for")?;
-        let (var_decl, iterable, body) = self.in_scope(|this| {
+        let (var_decl, iterable, body) = self.in_body_scope(|this| {
             let (var_decl, _, var_name) =
                 this.variable_declaration(&for_loop.var, for_loop.ty.as_ref(), false, None)?;
             // In scope at once: `parse_internal_call` declares it before reading the iterable.
@@ -810,7 +824,7 @@ impl<'s> Lower<'_, '_, 's> {
         let call_span = self.span(command.span);
         let head = self.command_head(command, "def");
 
-        let (call, output) = self.in_scope(|this| {
+        let (call, output) = self.in_body_scope(|this| {
             let mut call = Call::new(head);
             call.decl_id = decl_id;
             let _ = this.working_set.add_span(head);
@@ -1263,15 +1277,16 @@ impl<'s> Lower<'_, '_, 's> {
         }
         let errors_before_call = self.working_set.parse_errors.len();
         let (lowered, output, kind) = match keyword {
-            "def" => self.in_scope(|this| {
+            "def" => self.in_body_scope(|this| {
                 let body = arguments.last().map(|argument| this.span(argument.span()));
                 let outer = std::mem::replace(&mut this.working_set.def_body_span, body);
                 let lowered = this.internal_call(head, arguments, decl_id, None);
                 this.working_set.def_body_span = outer;
                 lowered
             })?,
-            "extern" | "for" => {
-                self.in_scope(|this| this.internal_call(head, arguments, decl_id, None))?
+            "extern" => self.in_scope(|this| this.internal_call(head, arguments, decl_id, None))?,
+            "for" => {
+                self.in_body_scope(|this| this.internal_call(head, arguments, decl_id, None))?
             }
             // `parse_alias` and `parse_type_alias` drop the errors of the call.
             "alias" | "type" => {

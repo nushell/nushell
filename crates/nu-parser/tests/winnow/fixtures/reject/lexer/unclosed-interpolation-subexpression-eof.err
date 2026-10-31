@@ -1,6 +1,13 @@
 error: unclosed delimiter: expected `)`
+  --> reject/lexer/unclosed-interpolation-subexpression-eof.nu:1:5
+  |
+1 | $"(1
+  |     ^
+  = note: opened at 1:3
+
+error: unclosed delimiter: expected `"`
   --> reject/lexer/unclosed-interpolation-subexpression-eof.nu:2:1
   |
 2 | 
   | ^
-  = note: opened at 1:3
+  = note: opened at 1:2

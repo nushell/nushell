@@ -1,6 +1,20 @@
 error: unclosed delimiter: expected `}`
+  --> reject/lexer/missing-closure-brace-before-pipe.nu:4:3
+  |
+4 |   | upsert b {|x|
+  |   ^
+  = note: opened at 2:17
+
+error: unclosed delimiter: expected `}`
   --> reject/lexer/missing-closure-brace-before-pipe.nu:7:1
   |
 7 | 
   | ^
-  = note: opened at 2:17
+  = note: opened at 1:10
+
+error: unclosed delimiter: expected `}`
+  --> reject/lexer/missing-closure-brace-before-pipe.nu:7:1
+  |
+7 | 
+  | ^
+  = note: opened at 1:10

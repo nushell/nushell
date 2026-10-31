@@ -120,6 +120,7 @@ impl<'s> Lower<'_, '_, 's> {
         let mut furthest = 0;
         let mut propagate = false;
         let mut given_back = None;
+        let scopes = self.working_set.delta.scope.len();
         for shape in ordered {
             let errors = self.working_set.parse_errors.len();
             let warnings = self.working_set.parse_warnings.len();
@@ -131,11 +132,15 @@ impl<'s> Lower<'_, '_, 's> {
                     else {
                         return Ok(value);
                     };
+                    // An unclosed closure leaves its scope open, which `parse_oneof` takes off
+                    // until it knows the best guess, whose scopes go back.
+                    let open = self.take_open_scopes(scopes);
+                    let new_errors = &self.working_set.parse_errors[errors..];
                     if first > furthest {
                         propagate = best_guess_propagates(new_errors.last(), shape, || span);
                         furthest = first;
                         let warnings = self.working_set.parse_warnings[warnings..].to_vec();
-                        best_guess = Some((value, new_errors.to_vec(), warnings));
+                        best_guess = Some((value, new_errors.to_vec(), warnings, open));
                     }
                 }
                 Err(reason) => {
@@ -150,9 +155,10 @@ impl<'s> Lower<'_, '_, 's> {
             return Err(reason);
         }
         match best_guess {
-            Some((value, errors, warnings)) if furthest > span.start || propagate => {
+            Some((value, errors, warnings, open)) if furthest > span.start || propagate => {
                 self.working_set.parse_errors.extend(errors);
                 self.working_set.parse_warnings.extend(warnings);
+                self.working_set.delta.scope.extend(open);
                 Ok(value)
             }
             _ => {

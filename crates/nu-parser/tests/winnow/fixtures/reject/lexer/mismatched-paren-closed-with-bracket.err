@@ -4,3 +4,10 @@ error: unbalanced delimiter: found `]` without a matching `(`
 1 | (1, 2]
   |      ^
   = help: the innermost open delimiter is `(` at byte 0
+
+error: unbalanced delimiter: found `]` without a matching `(`
+  --> reject/lexer/mismatched-paren-closed-with-bracket.nu:1:6
+  |
+1 | (1, 2]
+  |      ^
+  = help: the innermost open delimiter is `(` at byte 0

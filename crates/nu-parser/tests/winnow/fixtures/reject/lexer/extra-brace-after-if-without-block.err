@@ -1,3 +1,16 @@
+error: expected expression after operator
+  --> reject/lexer/extra-brace-after-if-without-block.nu:3:13
+  |
+3 |     if $x != string
+  |             ^
+  = help: this math expression is incomplete
+
+error: expected block after the condition
+  --> reject/lexer/extra-brace-after-if-without-block.nu:3:14
+  |
+3 |     if $x != string
+  |              ^^^^^^
+
 error: unbalanced delimiter: found `}` without a matching `{`
   --> reject/lexer/extra-brace-after-if-without-block.nu:7:1
   |

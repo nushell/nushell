@@ -1,6 +1,13 @@
 error: unclosed delimiter: expected `'`
+  --> reject/strings/raw-string-opening-quote-closes-it.nu:3:10
+  |
+3 | r#'#foo'#
+  |          ^
+  = note: opened at 3:8
+
+error: unclosed delimiter: expected `'`
   --> reject/strings/raw-string-opening-quote-closes-it.nu:4:1
   |
 4 | 
   | ^
-  = note: opened at 3:8
+  = note: opened at 3:1

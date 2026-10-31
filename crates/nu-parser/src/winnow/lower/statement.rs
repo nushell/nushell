@@ -2,6 +2,8 @@
 //! `parse_builtin_commands`, `parse_pipeline` and `parse_pipeline_element`), and the hand-over
 //! of a statement to the classic parser.
 
+use std::borrow::Cow;
+
 use nu_protocol::{
     DeclId, Module, ParseError, Span, SyntaxShape, Type,
     ast::{
@@ -15,10 +17,11 @@ use super::module::{KeywordEffect, overlay_effect};
 use super::{Lower, Lowered, Unlowered};
 #[cfg(feature = "plugin")]
 use crate::parse_source::parse_plugin_use;
-use crate::winnow::syntax::lex::RedirectionSource as WinnowSource;
+use crate::winnow::syntax::lex::{LexError, RedirectionSource as WinnowSource};
 use crate::winnow::syntax::{Span as WSpan, ast as w};
 use crate::{
     exportable::Exportable,
+    lex::delimiter_diagnostics::delimiter_structure_hint,
     lex::{TokenContents, lex},
     lite_parser::lite_parse,
     parse_captures_compile::wrap_element_with_collect,
@@ -987,6 +990,10 @@ impl<'s> Lower<'_, '_, 's> {
             .ok_or(Unlowered::Unsupported("block that changes commands"));
         }
         let mut block_errors = BlockErrors::new(self.working_set);
+        if let Some(lex_error) = block.lex_error() {
+            let error = self.lex_parse_error(&lex_error.error, lex_error.lexed_from);
+            block_errors.lex_error(self.working_set, error);
+        }
         // The block's lite-parse error, which nu reports before its statements' errors: a `|`
         // ending the block, else the first.
         let lite_error = block
@@ -1070,6 +1077,52 @@ impl<'s> Lower<'_, '_, 's> {
             of.is_subexpression(),
             input_type,
         ))
+    }
+
+    /// nu's error for a lexer error of the winnow parser in text lexed from `lexed_from`, in the
+    /// winnow parser's span space: an unclosed delimiter's help names the construct before its
+    /// opener there (`delimiter_structure_hint`).
+    pub(in crate::winnow) fn lex_parse_error(
+        &self,
+        error: &LexError,
+        lexed_from: usize,
+    ) -> ParseError {
+        let unclosed = |delimiter: Cow<'static, str>, open: WSpan, end: WSpan| {
+            let before = self
+                .source
+                .as_bytes()
+                .get(lexed_from..open.start)
+                .unwrap_or_default();
+            let hint = delimiter_structure_hint(before);
+            ParseError::unclosed_with_hint(
+                delimiter,
+                self.span(open),
+                self.span(end),
+                hint.as_deref(),
+            )
+        };
+        match *error {
+            LexError::Unbalanced {
+                open, close, span, ..
+            } => ParseError::unbalanced(open, close, self.span(span)),
+            LexError::Unclosed {
+                delimiter,
+                open,
+                end,
+            } => unclosed(delimiter.into(), open, end),
+            LexError::UnclosedRawString { hashes, open, end } => {
+                unclosed(format!("'{}", "#".repeat(hashes)).into(), open, end)
+            }
+            LexError::RawStringQuote(span) => ParseError::Expected("'", self.span(span)),
+            LexError::ShellAndAnd(span) => ParseError::ShellAndAnd(self.span(span)),
+            LexError::ShellErrRedirect(span) => ParseError::ShellErrRedirect(self.span(span)),
+            LexError::ShellOutErrRedirect(span) => ParseError::ShellOutErrRedirect(self.span(span)),
+            LexError::OutPipe(span) => ParseError::Expected(
+                "`|`.  Redirecting stdout to a pipe is the same as normal piping.",
+                self.span(span),
+            ),
+            LexError::SemicolonAfterPipe(span) => ParseError::ExtraTokens(self.span(span)),
+        }
     }
 
     /// nu's error for a lite-parse error of the winnow parser.

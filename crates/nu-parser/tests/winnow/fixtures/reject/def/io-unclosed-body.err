@@ -1,3 +1,23 @@
+error: unclosed delimiter: expected `]`
+  --> reject/def/io-unclosed-body.nu:1:10
+  |
+1 | def q []: bool {[]
+  |          ^
+  = note: opened at 1:7
+
+error: expected arrow (->)
+  --> reject/def/io-unclosed-body.nu:1:15
+  |
+1 | def q []: bool {[]
+  |               ^
+
+error: unclosed delimiter: expected `}`
+  --> reject/def/io-unclosed-body.nu:1:19
+  |
+1 | def q []: bool {[]
+  |                   ^
+  = note: opened at 1:16
+
 error: unclosed delimiter: expected `}`
   --> reject/def/io-unclosed-body.nu:2:1
   |

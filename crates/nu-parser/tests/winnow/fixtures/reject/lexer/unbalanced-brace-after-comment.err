@@ -1,4 +1,10 @@
 error: unbalanced delimiter: found `}` without a matching `{`
+  --> reject/lexer/unbalanced-brace-after-comment.nu:1:2
+  |
+1 | {}#.}
+  |  ^
+
+error: unbalanced delimiter: found `}` without a matching `{`
   --> reject/lexer/unbalanced-brace-after-comment.nu:1:5
   |
 1 | {}#.}

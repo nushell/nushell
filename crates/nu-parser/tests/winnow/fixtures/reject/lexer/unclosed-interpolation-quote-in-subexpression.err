@@ -1,6 +1,13 @@
 error: unclosed delimiter: expected `)`
-  --> reject/lexer/unclosed-interpolation-quote-in-subexpression.nu:2:1
+  --> reject/lexer/unclosed-interpolation-quote-in-subexpression.nu:1:6
   |
-2 | 
-  | ^
+1 | $"('"
+  |      ^
   = note: opened at 1:3
+
+error: extra tokens after the end of the expression
+  --> reject/lexer/unclosed-interpolation-quote-in-subexpression.nu:1:6
+  |
+1 | $"('"
+  |      ^
+  = help: invalid characters after the closing quote; quote the whole string or remove them

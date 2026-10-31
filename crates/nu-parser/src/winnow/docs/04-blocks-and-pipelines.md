@@ -25,8 +25,19 @@ Every block in the language goes through this function: the file, closure and
 block bodies, subexpressions, `let`/assignment values, `match` bodies written
 as blocks. It:
 
-1. runs `parse_def_predecl` over all the tokens (below),
-2. runs nu's `last_non_comment_token` check once over the whole block
+1. takes the block's lexer error (`Block::lex_error`, carried by the block's
+   first pipeline so that a block stays small): the first error nu's lexer goes
+   on past in a token within the block's text
+   (`WorkingSet::first_lex_error_in`), recorded as recovered. nu lexes a
+   `let`'s value again from its start, so a value block taken from the
+   statement's tokens finds the error too; a closure's body takes the first in
+   the whole interior, its parameters included (`parse_block_lexed_from`). The
+   consumer reports it before the block's lite-parse error and its statements'
+   errors, with nu's help naming the construct before the opener in that text,
+2. runs `parse_def_predecl` over all the tokens (below); a definition declared
+   twice nu reports and goes on past, so the diagnostic is recovered and the
+   consumer reports nu's error as it declares the definitions,
+3. runs nu's `last_non_comment_token` check once over the whole block
    (`missing_end`): if the last token that is not part of a trailing run of
    comment lines is a `|`, the block has a pipeline with no end. This is what
    makes `ls |`, `ls | # c` and `ls |\n# c` (no final newline) errors while
@@ -35,10 +46,10 @@ as blocks. It:
    last pipeline carries it as its `LiteError::PipelineMissingEnd`, at the
    block's last token, and the diagnostic is recorded as recovered
    (`BlockStatements::missing_end` for a streamed block),
-3. loops over tokens (`parse_statements`, the loop `BlockStatements::parse`
+4. loops over tokens (`parse_statements`, the loop `BlockStatements::parse`
    runs too), handling `Eol`, `;` and comments itself and calling
    `parse_pipeline` for anything else,
-4. recovers from errors per pipeline (chapter 03): the error goes to
+5. recovers from errors per pipeline (chapter 03): the error goes to
    `working_set.error`, the stream is moved to where the lite parse ended the
    statement (or back to its start, to skip to the next `Eol` or `;` with
    `skip_to_statement_end`, or to the end of the block), and a

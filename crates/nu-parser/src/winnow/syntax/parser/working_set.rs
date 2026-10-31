@@ -13,7 +13,7 @@ use std::cell::{Cell, RefCell};
 use crate::winnow::syntax::ast::Comment;
 use crate::winnow::syntax::error::Diagnostic;
 use crate::winnow::syntax::input::{Input, ParseResult};
-use crate::winnow::syntax::lex::{self, GroupEnds, LexOptions, Token, TokenContents};
+use crate::winnow::syntax::lex::{self, GroupEnds, LexError, LexOptions, Token, TokenContents};
 use crate::winnow::syntax::span::Span;
 
 use super::{CommandSet, ParseConfig};
@@ -174,6 +174,9 @@ pub struct WorkingSet<'a> {
     ignored: RefCell<Vec<Span>>,
     /// The diagnostics recorded with [`WorkingSet::error`].
     parse_errors: RefCell<Vec<Diagnostic>>,
+    /// The errors nu's lexer goes on past that [`WorkingSet::lex_block`] found, each with the
+    /// span of its token, for the blocks parsed from those tokens to find theirs.
+    lex_errors: RefCell<Vec<(Span, LexError)>>,
     /// Command names declared with `def`/`extern`/`alias` in enclosing blocks,
     /// innermost scope last.
     scopes: RefCell<Vec<Scope>>,
@@ -209,6 +212,8 @@ pub(crate) struct ParseState {
     groups: GroupEnds,
     /// The length of the longest name declared so far.
     longest_declared: usize,
+    /// The lexer errors found so far ([`WorkingSet::lex_block`]).
+    lex_errors: Vec<(Span, LexError)>,
 }
 
 /// What a finished parse collected besides the tree.
@@ -231,6 +236,7 @@ impl<'a> WorkingSet<'a> {
             comments: RefCell::new(Vec::new()),
             ignored: RefCell::new(Vec::new()),
             parse_errors: RefCell::new(Vec::new()),
+            lex_errors: RefCell::new(Vec::new()),
             scopes: RefCell::new(vec![Scope::default()]),
             groups: RefCell::new(GroupEnds::new(Span::new(0, source.len()))),
             longest_declared: Cell::new(0),
@@ -259,6 +265,7 @@ impl<'a> WorkingSet<'a> {
         working_set.scopes = RefCell::new(state.scopes);
         working_set.groups = RefCell::new(state.groups);
         working_set.longest_declared = Cell::new(state.longest_declared);
+        working_set.lex_errors = RefCell::new(state.lex_errors);
         working_set
     }
 
@@ -268,7 +275,38 @@ impl<'a> WorkingSet<'a> {
             scopes: self.scopes.into_inner(),
             groups: self.groups.into_inner(),
             longest_declared: self.longest_declared.get(),
+            lex_errors: self.lex_errors.into_inner(),
         }
+    }
+
+    /// Lex the text of `span` as a block's statements, going on past what nu's lexer goes on
+    /// past ([`lex::lex_recovering`]). The errors are kept for the blocks parsed from the tokens
+    /// to find their own ([`WorkingSet::first_lex_error_in`]).
+    pub fn lex_block(&self, span: Span, options: LexOptions) -> Result<Vec<Token>, Diagnostic> {
+        let lexed = lex::lex_recovering(
+            self.get_span_contents(span),
+            span.start,
+            options,
+            usize::MAX,
+            &mut self.groups.borrow_mut(),
+        )?;
+        if !lexed.errors.is_empty() {
+            self.lex_errors.borrow_mut().extend(lexed.errors);
+        }
+        Ok(lexed.tokens)
+    }
+
+    /// The first error nu's lexer reports and goes on past in the text of `span`, for a block
+    /// there: the first [`WorkingSet::lex_block`] found in a token within it. nu lexes a
+    /// block's text again for its statements (`let x = "a` reports the open quote of the file
+    /// and of the value), which the tokens of the text around it give.
+    pub fn first_lex_error_in(&self, span: Span) -> Option<LexError> {
+        self.lex_errors
+            .borrow()
+            .iter()
+            .filter(|(token, _)| span.start <= token.start && token.end <= span.end)
+            .min_by_key(|(token, _)| token.start)
+            .map(|(_, error)| error.clone())
     }
 
     /// Lex the text of `span` (nu's `lex` over the span's contents).

@@ -1,6 +1,20 @@
 error: unclosed delimiter: expected `}`
-  --> reject/lexer/unclosed-nested-record.nu:4:1
+  --> reject/lexer/unclosed-nested-record.nu:3:24
   |
-4 | 
-  | ^
+3 |     use_ls_colors: true
+  |                        ^
+  = note: opened at 2:7
+
+error: unclosed delimiter: expected `}`
+  --> reject/lexer/unclosed-nested-record.nu:3:24
+  |
+3 |     use_ls_colors: true
+  |                        ^
+  = note: opened at 2:7
+
+error: unclosed delimiter: expected `}`
+  --> reject/lexer/unclosed-nested-record.nu:3:24
+  |
+3 |     use_ls_colors: true
+  |                        ^
   = note: opened at 2:7

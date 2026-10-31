@@ -127,6 +127,7 @@ pub fn garbage_pipeline<'a>(span: Span) -> Pipeline<'a> {
         terminator: None,
         dangling_pipe: None,
         lite_error: None,
+        lex_error: None,
     }
 }
 

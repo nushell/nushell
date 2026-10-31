@@ -22,7 +22,9 @@ pub use visit::{
 use std::borrow::Cow;
 use std::fmt;
 
-use crate::winnow::syntax::lex::{AssignmentOperator, RedirectionOperator, RedirectionSource};
+use crate::winnow::syntax::lex::{
+    AssignmentOperator, LexError, RedirectionOperator, RedirectionSource,
+};
 use crate::winnow::syntax::span::{Span, Spanned};
 
 /// A parsed source file or snippet.
@@ -85,6 +87,25 @@ pub struct Block<'a> {
     pub pipelines: Vec<Pipeline<'a>>,
 }
 
+impl Block<'_> {
+    /// The first error nu's lexer reports in the block's text and goes on past, which nu
+    /// reports before the block's statements' errors. The block's first pipeline carries it
+    /// ([`Pipeline::lex_error`]), so that a block, which expressions hold, stays small.
+    pub fn lex_error(&self) -> Option<&BlockLexError> {
+        self.pipelines.first()?.lex_error.as_deref()
+    }
+}
+
+/// A block's lexer error ([`Block::lex_error`]).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BlockLexError {
+    /// The error.
+    pub error: LexError,
+    /// Where the text nu lexes for the block starts: nu's help for an unclosed delimiter names
+    /// the construct before the opener in that text. A closure's text holds its parameters.
+    pub lexed_from: usize,
+}
+
 /// One statement: elements joined by `|`.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Pipeline<'a> {
@@ -109,6 +130,8 @@ pub struct Pipeline<'a> {
     /// The first error of the lite parse in the pipeline's commands, which nu reports and goes
     /// on past ([`LiteError`]).
     pub lite_error: Option<LiteError>,
+    /// For the first pipeline of a block, the block's lexer error ([`Block::lex_error`]).
+    pub lex_error: Option<Box<BlockLexError>>,
 }
 
 /// An error of the lite parse (grouping a block's tokens into commands) that nu reports and

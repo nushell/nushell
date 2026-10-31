@@ -1,4 +1,18 @@
 error: unclosed delimiter: expected `]`
+  --> reject/lexer/missing-signature-close.nu:3:2
+  |
+3 |  {
+  |  ^
+  = note: opened at 1:23
+
+error: unclosed delimiter: expected `]`
+  --> reject/lexer/missing-signature-close.nu:3:2
+  |
+3 |  {
+  |  ^
+  = note: opened at 1:23
+
+error: unclosed delimiter: expected `]`
   --> reject/lexer/missing-signature-close.nu:6:1
   |
 6 | 

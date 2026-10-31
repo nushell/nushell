@@ -4,3 +4,16 @@ error: unbalanced delimiter: found `]` without a matching `{`
 1 | def f [] { 1 ] }
   |              ^
   = help: the innermost open delimiter is `{` at byte 9
+
+error: unclosed delimiter: expected `}`
+  --> reject/lexer/mismatched-bracket-in-block.nu:1:15
+  |
+1 | def f [] { 1 ] }
+  |               ^
+  = note: opened at 1:10
+
+error: expected definition body closure { ... }
+  --> reject/lexer/mismatched-bracket-in-block.nu:1:16
+  |
+1 | def f [] { 1 ] }
+  |                ^

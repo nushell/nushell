@@ -10,7 +10,9 @@
 )]
 
 use nu_parser::winnow::syntax::ast::*;
-use nu_parser::winnow::syntax::lex::{AssignmentOperator, RedirectionOperator, RedirectionSource};
+use nu_parser::winnow::syntax::lex::{
+    AssignmentOperator, LexError, RedirectionOperator, RedirectionSource,
+};
 use nu_parser::winnow::syntax::{
     ErrorKind, ParseConfig, ParseError, Span, parse, parse_lenient, parse_with,
 };
@@ -2651,4 +2653,37 @@ fn lite_parse_errors_are_recovered() {
             "{text}: {diagnostics:?}"
         );
     }
+}
+
+/// A block whose text nu's lexer reports an error in and goes on past keeps the first one, the
+/// statements parsed from the tokens nu makes, the diagnostic recorded as recovered; a `let`'s
+/// value, which nu lexes again from its start, has it too.
+#[test]
+fn lexer_errors_are_block_errors() {
+    let config = ParseConfig::default();
+    let (ast, diagnostics) = parse_lenient("echo )\nls", &config);
+    assert_eq!(ast.block.pipelines.len(), 2);
+    let lex_error = ast.block.lex_error().expect("a lexer error");
+    assert!(matches!(
+        lex_error.error,
+        LexError::Unbalanced { close: ")", .. }
+    ));
+    assert_eq!(lex_error.lexed_from, 0);
+    assert!(
+        !diagnostics.is_empty() && diagnostics.iter().all(|d| d.recovered),
+        "{diagnostics:?}"
+    );
+
+    let (ast, _) = parse_lenient("let x = \"hello", &config);
+    let binding = kind!(expr(&ast), Expr::Let(b) => b);
+    let value = binding.value.as_ref().expect("a value");
+    let lex_error = value.lex_error().expect("the value's lexer error");
+    assert!(matches!(
+        lex_error.error,
+        LexError::Unclosed {
+            delimiter: "\"",
+            ..
+        }
+    ));
+    assert_eq!(lex_error.lexed_from, 8);
 }

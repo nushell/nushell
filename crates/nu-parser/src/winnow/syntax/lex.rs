@@ -22,7 +22,7 @@ use winnow::stream::{Location, Stream};
 
 use crate::winnow::syntax::error::{Diagnostic, ErrorKind};
 use crate::winnow::syntax::input::{
-    Input, ParseFailure, ParseResult, cut, input, into_diagnostic, pos, span_from,
+    Input, ParseResult, cut, input, into_diagnostic, pos, span_from,
 };
 use crate::winnow::syntax::span::Span;
 
@@ -315,12 +315,119 @@ pub fn lex(text: &str, base: usize, options: LexOptions) -> Result<Vec<Token>, D
     lex_n_tokens(text, base, options, usize::MAX)
 }
 
-/// nu's `ExtraTokens` for a `;` right after a `|`.
-#[cold]
-#[inline(never)]
-fn semicolon_after_pipe(span: Span) -> Diagnostic {
-    Diagnostic::new(ErrorKind::ExtraTokens, span)
-        .with_help("a `|` must be followed by a command before the `;`")
+/// An error nu's lexer reports and goes on past, with what nu's error needs: the lexer ends the
+/// item where nu's does and lexes on ([`lex_recovering`]).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum LexError {
+    /// A closer that closes no open bracket (nu's `Unbalanced`): the opener it would need (the
+    /// innermost open one, else its own), the closer and its span. The item ends after it.
+    Unbalanced {
+        /// The opener the closer would need.
+        open: &'static str,
+        /// The closer.
+        close: &'static str,
+        /// The closer's span.
+        span: Span,
+        /// Where the innermost open bracket opened, if one is open.
+        innermost: Option<usize>,
+    },
+    /// A quote, bracket or interpolation still open where the item ends (nu's `Unclosed`): the
+    /// closer it needs, the opener nu labels and where the closer was expected. nu's help names
+    /// the construct the text before the opener starts (its `delimiter_structure_hint`, over
+    /// what was lexed before the opener).
+    Unclosed {
+        /// The closer that is missing.
+        delimiter: &'static str,
+        /// The opener nu labels.
+        open: Span,
+        /// Where the closer was expected.
+        end: Span,
+    },
+    /// A raw string without its closing `'` and `#`s (nu's `Unclosed`, with `'` and the
+    /// string's `#`s for the closer).
+    UnclosedRawString {
+        /// The number of `#`s.
+        hashes: usize,
+        /// `r#'`, the opener.
+        open: Span,
+        /// The item's last byte.
+        end: Span,
+    },
+    /// `r#` without a `'` after it (nu's `Expected` "'"), at the byte after the `#`s, where
+    /// the item ends.
+    RawStringQuote(Span),
+    /// `&&` (nu's `ShellAndAnd`), which is a `|`.
+    ShellAndAnd(Span),
+    /// `2>` (nu's `ShellErrRedirect`), which is `e>`.
+    ShellErrRedirect(Span),
+    /// `2>&1` (nu's `ShellOutErrRedirect`), which is a `|`.
+    ShellOutErrRedirect(Span),
+    /// `o>|` or `out>|` (nu's `Expected`), which is a `|`.
+    OutPipe(Span),
+    /// A `;` right after a `|` (nu's `ExtraTokens`).
+    SemicolonAfterPipe(Span),
+}
+
+impl LexError {
+    /// The diagnostic of the error, for the parse's verdict (the consumer reports nu's).
+    pub fn diagnostic(&self) -> Diagnostic {
+        let shell = |found: &'static str, use_instead: &'static str, span: Span| {
+            Diagnostic::new(ErrorKind::ShellSyntax { found, use_instead }, span)
+        };
+        match *self {
+            LexError::Unbalanced {
+                open,
+                close,
+                span,
+                innermost,
+            } => {
+                let diagnostic = Diagnostic::new(
+                    ErrorKind::Unbalanced {
+                        found: close,
+                        expected: open,
+                    },
+                    span,
+                );
+                match innermost {
+                    Some(open_at) => diagnostic.with_help(format!(
+                        "the innermost open delimiter is `{open}` at byte {open_at}"
+                    )),
+                    None => diagnostic,
+                }
+            }
+            LexError::Unclosed {
+                delimiter,
+                open,
+                end,
+            } => Diagnostic::new(ErrorKind::Unclosed { delimiter, open }, end),
+            LexError::UnclosedRawString { open, end, .. } => Diagnostic::new(
+                ErrorKind::Unclosed {
+                    delimiter: "'",
+                    open,
+                },
+                end,
+            ),
+            LexError::RawStringQuote(span) => Diagnostic::expected("`'` after `r#`", span),
+            LexError::ShellAndAnd(span) => shell("&&", ";", span)
+                .with_help("use `;` to run commands in sequence, or `and` for boolean logic"),
+            LexError::ShellErrRedirect(span) => shell("2>", "e>", span),
+            LexError::ShellOutErrRedirect(span) => shell("2>&1", "o+e>", span),
+            LexError::OutPipe(span) => shell("o>|", "|", span)
+                .with_help("redirecting stdout to a pipe is the same as normal piping"),
+            LexError::SemicolonAfterPipe(span) => Diagnostic::new(ErrorKind::ExtraTokens, span)
+                .with_help("a `|` must be followed by a command before the `;`"),
+        }
+    }
+}
+
+/// A text's tokens and the errors nu's lexer reports in it and goes on past, each with the span
+/// of the token it is in, in order ([`lex_recovering`]).
+#[derive(Debug, Default)]
+pub struct Lexed {
+    /// The tokens, `Eof` last.
+    pub tokens: Vec<Token>,
+    /// The errors, each with the span of its token.
+    pub errors: Vec<(Span, LexError)>,
 }
 
 /// Like [`lex`], but stop after `max_tokens` tokens, not counting `Eof`
@@ -345,6 +452,23 @@ pub fn lex_n_tokens_with(
     max_tokens: usize,
     groups: &mut GroupEnds,
 ) -> Result<Vec<Token>, Diagnostic> {
+    let lexed = lex_recovering(text, base, options, max_tokens, groups)?;
+    match lexed.errors.first() {
+        Some((_, error)) => Err(error.diagnostic()),
+        None => Ok(lexed.tokens),
+    }
+}
+
+/// [`lex_n_tokens_with`], going on past the errors nu's lexer goes on past, as it does: each
+/// item ends where nu's does and the tokens are nu's (`&&` is a `|`), and the errors are
+/// returned with them. Fails only on an item nu's lexer cannot end either.
+pub fn lex_recovering(
+    text: &str,
+    base: usize,
+    options: LexOptions,
+    max_tokens: usize,
+    groups: &mut GroupEnds,
+) -> Result<Lexed, Diagnostic> {
     let mut input = input(text, base);
     // An estimate of the token count (one per six bytes), never more than the budget and `Eof`.
     let capacity = (text.len() / 6).max(4).min(max_tokens.saturating_add(1));
@@ -353,13 +477,18 @@ pub fn lex_n_tokens_with(
     // "extra tokens" (`ls |; ls`, and `{|x|; 1}`, whose parameter list ends
     // with a plain `|`). Newlines, comments and `||` leave it as it is.
     let mut after_pipe = false;
+    let mut errors = Vec::new();
     while tokens.len() < max_tokens {
-        match next_token(&mut input, options, groups) {
-            Ok(Some(token)) => {
+        match next_token_recovering(&mut input, options, groups) {
+            Ok(Some((token, error))) => {
+                if let Some(error) = error {
+                    errors.push((token.span, *error));
+                }
                 match token.contents {
+                    // A `&&` or `2>&1` is a `|` for this too, as in nu.
                     TokenContents::Pipe => after_pipe = true,
                     TokenContents::Semicolon if after_pipe => {
-                        return Err(semicolon_after_pipe(token.span));
+                        errors.push((token.span, LexError::SemicolonAfterPipe(token.span)));
                     }
                     TokenContents::Eol
                     | TokenContents::Comment
@@ -378,7 +507,7 @@ pub fn lex_n_tokens_with(
         contents: TokenContents::Eof,
         span: Span::point(pos(&input)),
     });
-    Ok(tokens)
+    Ok(Lexed { tokens, errors })
 }
 
 /// The next token of `input` after whitespace, or `None` at its end. With a
@@ -390,6 +519,19 @@ pub fn next_token(
     options: LexOptions,
     groups: &mut GroupEnds,
 ) -> ParseResult<Option<Token>> {
+    match next_token_recovering(input, options, groups)? {
+        Some((_, Some(error))) => Err(cut(error.diagnostic())),
+        token => Ok(token.map(|(token, _)| token)),
+    }
+}
+
+/// [`next_token`], with the error nu's lexer reports in the token and goes on past.
+#[inline]
+fn next_token_recovering(
+    input: &mut Input<'_>,
+    options: LexOptions,
+    groups: &mut GroupEnds,
+) -> ParseResult<Option<(Token, Option<Box<LexError>>)>> {
     loop {
         skip_whitespace(input, options);
         if input.is_empty() {
@@ -415,15 +557,16 @@ fn skip_whitespace(input: &mut Input<'_>, options: LexOptions) {
     input.next_slice(whitespace);
 }
 
-/// One token, dispatched on its first byte. `None` for input that produces no
-/// token (a skipped comment).
+/// One token, dispatched on its first byte, with the error nu's lexer reports in it. `None` for
+/// input that produces no token (a skipped comment).
 fn lex_token(
     input: &mut Input<'_>,
     options: LexOptions,
     groups: &mut GroupEnds,
-) -> ParseResult<Option<Token>> {
+) -> ParseResult<Option<(Token, Option<Box<LexError>>)>> {
     let start = pos(input);
     let text: &str = input.input.as_ref();
+    let mut error = None;
     let kind = match text.as_bytes() {
         [b'\n', ..] => {
             input.next_slice(1);
@@ -445,11 +588,18 @@ fn lex_token(
             input.next_slice(1);
             Some(TokenContents::Semicolon)
         }
-        _ => Some(lex_item(input, options, groups)?),
+        _ => {
+            let (kind, item_error) = lex_item(input, options, groups)?;
+            error = item_error;
+            Some(kind)
+        }
     };
-    Ok(kind.map(|kind| Token {
-        contents: kind,
-        span: span_from(input, start),
+    Ok(kind.map(|kind| {
+        let token = Token {
+            contents: kind,
+            span: span_from(input, start),
+        };
+        (token, error)
     }))
 }
 
@@ -555,11 +705,19 @@ fn lex_item(
     input: &mut Input<'_>,
     options: LexOptions,
     groups: &mut GroupEnds,
-) -> ParseResult<TokenContents> {
+) -> ParseResult<(TokenContents, Option<Box<LexError>>)> {
     let text = *input.input.as_ref();
     let bytes = text.as_bytes();
     let base = input.state.0 + input.current_token_start();
-    let offset = item_length(bytes, base, options, false, groups)?;
+    // An item nu's lexer reports an error in ends where nu's does, a plain item.
+    let (kind, error, offset) = match item_length(bytes, base, options, false, groups) {
+        Ok(offset) => {
+            let span = Span::new(base, base + offset);
+            let (kind, error) = item_contents(&bytes[..offset], span);
+            (kind, error, offset)
+        }
+        Err(fault) => (TokenContents::Item, Some(fault.error), fault.length),
+    };
     // An empty item would leave the stream where it is, and `lex_n_tokens_with` would loop.
     if offset == 0 {
         return Err(cut(Diagnostic::new(
@@ -567,16 +725,15 @@ fn lex_item(
             Span::point(base),
         )));
     }
-    let item_text = &bytes[..offset];
-    let kind = item_contents(item_text).map_err(|(kind, help)| {
-        let mut d = Diagnostic::new(kind, Span::new(base, base + offset));
-        if let Some(h) = help {
-            d = d.with_help(h);
-        }
-        cut(d)
-    })?;
     input.next_slice(offset);
-    Ok(kind)
+    Ok((kind, error))
+}
+
+/// Where nu's lexer ends an item it reports an error in (its length), and the error, boxed so
+/// that the scan's result stays small: it is returned for every item.
+struct Fault {
+    length: usize,
+    error: Box<LexError>,
 }
 
 /// The offset of the bracket closing the group that `text` opens with
@@ -634,7 +791,7 @@ fn item_length(
     options: LexOptions,
     first_group: bool,
     groups: &mut GroupEnds,
-) -> ParseResult<usize> {
+) -> Result<usize, Fault> {
     let absolute = |offset: usize| base + offset;
 
     // The quote we are inside, with the offset where it opened.
@@ -689,12 +846,17 @@ fn item_length(
             }
             Some((open_quote, open_at)) => match byte {
                 b'\\' if open_quote == b'"' => {
+                    // A backslash ending the text: nu ends the item before it, and the
+                    // backslash is the next item.
                     if offset + 1 >= bytes.len() {
-                        return Err(unclosed_error(
-                            quote_str(open_quote),
-                            open_at,
-                            absolute(offset + 1),
-                        ));
+                        return Err(Fault {
+                            length: offset,
+                            error: Box::new(LexError::Unclosed {
+                                delimiter: quote_str(open_quote),
+                                open: Span::new(open_at, open_at + 1),
+                                end: last_byte(base, offset),
+                            }),
+                        });
                     }
                     offset += 2;
                     previous = Some(byte);
@@ -768,8 +930,13 @@ fn item_length(
                     }
                 }
                 b']' | b'}' | b')' => {
-                    if let Some(open) =
-                        close_bracket(&mut brackets, byte, absolute(offset), stops.mode)?
+                    // nu ends an item at a closer that closes nothing.
+                    let closed = close_bracket(&mut brackets, byte, absolute(offset), stops.mode)
+                        .map_err(|error| Fault {
+                        length: offset + 1,
+                        error,
+                    })?;
+                    if let Some(open) = closed
                         && !in_signature
                     {
                         groups.record(open, absolute(offset));
@@ -792,16 +959,192 @@ fn item_length(
         previous = Some(byte);
     }
 
+    // Still open at the end: nu's item ends there, the closer expected at its last byte.
+    let unclosed = |delimiter, open: Span, end| Fault {
+        length: offset,
+        error: Box::new(LexError::Unclosed {
+            delimiter,
+            open,
+            end,
+        }),
+    };
+    let end = last_byte(base, offset);
     if let Some(&(closer, open_at)) = interp_level.first() {
-        return Err(unclosed_error(quote_str(closer), open_at, absolute(offset)));
+        return Err(unclosed(
+            quote_str(closer),
+            Span::new(open_at, open_at + 1),
+            end,
+        ));
     }
     if let Some((quote, open_at)) = quote {
-        return Err(unclosed_error(quote_str(quote), open_at, absolute(offset)));
+        return Err(unclosed(
+            quote_str(quote),
+            Span::new(open_at, open_at + 1),
+            end,
+        ));
     }
     if let Some(&(open, open_at)) = brackets.last() {
-        return Err(unclosed_error(open.closer(), open_at, absolute(offset)));
+        let (label_open, label_end) = match closer_label_hint(&bytes[..offset], base, stops) {
+            Some((hint_open, expected)) if hint_open == open_at => (
+                Span::new(hint_open, hint_open + 1),
+                Span::new(expected, expected + 1),
+            ),
+            _ => (Span::new(open_at, open_at + 1), end),
+        };
+        return Err(unclosed(open.closer(), label_open, label_end));
     }
     Ok(offset)
+}
+
+/// The span of the last byte of the `length` bytes at `base` (empty when there are none), where
+/// nu expects the closer an item is missing.
+fn last_byte(base: usize, length: usize) -> Span {
+    match length {
+        0 => Span::point(base),
+        _ => Span::new(base + length - 1, base + length),
+    }
+}
+
+/// nu's `CloserLabelHint`, for an item still inside a bracket where it ends: where the closer
+/// probably belongs, with the bracket it relates to, nu's label for the missing closer when that
+/// bracket is the innermost one left open. That is the first `{` opened right inside a `[`
+/// (with the `[`), or the first `|` that starts a line inside a `{` when the line before does
+/// not end with a byte that continues it (with the innermost `{`). `bytes` is the item, at
+/// absolute offset `base`; the scan is nu's `lex_item` over it again, without jumping over any
+/// group, as nu scans an item with an error again. Only that error path runs it.
+#[cold]
+#[inline(never)]
+fn closer_label_hint(bytes: &[u8], base: usize, stops: &StopBytes) -> Option<(usize, usize)> {
+    // A byte that continues a construct onto the next line (nu's `continues_onto_next_line`).
+    let continues = |byte: u8| b"|{([,:+-*/=.".contains(&byte);
+    let absolute = |offset: usize| base + offset;
+    let mut quote: Option<u8> = None;
+    let mut quote_is_interp = false;
+    let mut interp_level: Vec<(u8, usize)> = Vec::new();
+    let mut in_comment = false;
+    let mut brackets: Vec<(Bracket, usize)> = Vec::new();
+    let mut previous: Option<u8> = None;
+    let mut at_line_start = true;
+    let mut prev_line_continue = false;
+    let mut last_significant: Option<u8> = None;
+    let mut hint = None;
+    let in_signature = stops.mode == LexMode::Signature;
+    let mut offset = 0;
+    while let Some(&byte) = bytes.get(offset) {
+        match quote {
+            Some(_) if !interp_level.is_empty() => {
+                let escaped = interp_subexpr_step(&mut interp_level, byte, absolute(offset))
+                    && offset + 1 < bytes.len();
+                if !escaped {
+                    last_significant = Some(byte);
+                }
+                at_line_start = false;
+                offset += if escaped { 2 } else { 1 };
+                previous = Some(byte);
+                continue;
+            }
+            Some(open_quote) => {
+                if byte == b'\\' && open_quote == b'"' {
+                    at_line_start = false;
+                    offset += 2;
+                    previous = Some(byte);
+                    continue;
+                }
+                if byte == open_quote {
+                    quote = None;
+                } else if quote_is_interp && byte == b'(' {
+                    interp_level.push((b')', absolute(offset)));
+                }
+                last_significant = Some(byte);
+                at_line_start = false;
+            }
+            None => match byte {
+                b'#' if !in_comment && previous == Some(b'r') => {
+                    match lex_raw_string(bytes, offset - 1, absolute) {
+                        Ok(end) => offset = end,
+                        Err(_) => break,
+                    }
+                    last_significant = Some(b'#');
+                    at_line_start = false;
+                    previous = Some(b'#');
+                    continue;
+                }
+                b'#' if !in_comment => {
+                    in_comment = previous.is_none_or(|previous| {
+                        previous.is_ascii() && char::from(previous).is_whitespace()
+                    })
+                }
+                b'\n' | b'\r' => {
+                    in_comment = false;
+                    if brackets.is_empty() && stops.terminators.contains(byte) {
+                        break;
+                    }
+                    if byte == b'\n' || bytes.get(offset + 1) != Some(&b'\n') {
+                        prev_line_continue = last_significant.is_some_and(continues);
+                        at_line_start = true;
+                        last_significant = None;
+                    }
+                }
+                _ if in_comment => {
+                    if brackets.is_empty() && stops.terminators.contains(byte) {
+                        break;
+                    }
+                }
+                _ if offset == 0 && brackets.is_empty() && stops.special_tokens.contains(byte) => {
+                    break;
+                }
+                b'|' if is_redirection(&bytes[..offset]) => break,
+                _ if brackets.is_empty() && stops.terminators.contains(byte) => break,
+                _ => {
+                    match byte {
+                        b'\'' | b'"' | b'`' => {
+                            quote = Some(byte);
+                            quote_is_interp = byte != b'`' && previous == Some(b'$');
+                        }
+                        b'{' => {
+                            if hint.is_none()
+                                && let Some(&(Bracket::Square, square)) = brackets.last()
+                            {
+                                hint = Some((square, absolute(offset)));
+                            }
+                            brackets.push((Bracket::Curly, absolute(offset)));
+                        }
+                        b'[' => brackets.push((Bracket::Square, absolute(offset))),
+                        b'(' => brackets.push((Bracket::Paren, absolute(offset))),
+                        b'<' if in_signature => brackets.push((Bracket::Angle, absolute(offset))),
+                        b'>' if in_signature => {
+                            if matches!(brackets.last(), Some((Bracket::Angle, _))) {
+                                brackets.pop();
+                            }
+                        }
+                        // The item reported no unbalanced closer, so each closes the innermost.
+                        b']' | b'}' | b')' => {
+                            brackets.pop();
+                        }
+                        b'|' if at_line_start && !prev_line_continue && hint.is_none() => {
+                            if let Some(&(_, curly)) = brackets
+                                .iter()
+                                .rev()
+                                .find(|(bracket, _)| *bracket == Bracket::Curly)
+                            {
+                                hint = Some((curly, absolute(offset)));
+                            }
+                        }
+                        _ => {}
+                    }
+                    if !byte.is_ascii_whitespace() {
+                        last_significant = Some(byte);
+                        at_line_start = false;
+                    } else if !(at_line_start && (byte == b' ' || byte == b'\t')) {
+                        at_line_start = false;
+                    }
+                }
+            },
+        }
+        offset += 1;
+        previous = Some(byte);
+    }
+    hint
 }
 
 /// The bytes [`item_length`] must look at outside quotes, for one [`LexOptions`].
@@ -895,22 +1238,6 @@ impl ByteSet {
     }
 }
 
-/// The cut error for a delimiter opened at `open_at` and still open where the text ends, at
-/// `at`; `delimiter` is the closer it needs.
-fn unclosed_error(
-    delimiter: &'static str,
-    open_at: usize,
-    at: usize,
-) -> winnow::error::ErrMode<ParseFailure> {
-    cut(Diagnostic::new(
-        ErrorKind::Unclosed {
-            delimiter,
-            open: Span::new(open_at, open_at + 1),
-        },
-        Span::point(at),
-    ))
-}
-
 /// Pop the bracket closed by `closer`, returning where it opened, or report the
 /// mismatch. With no bracket open, a `]` is ordinary text (`a]`, the glob `[]]*`) and
 /// gives `None`, except inside a list (`mode` [`LexMode::ListItems`]), where it would
@@ -921,7 +1248,7 @@ fn close_bracket(
     closer: u8,
     at: usize,
     mode: LexMode,
-) -> ParseResult<Option<usize>> {
+) -> Result<Option<usize>, Box<LexError>> {
     let (expected, found) = match closer {
         b']' => (Bracket::Square, "]"),
         b'}' => (Bracket::Curly, "}"),
@@ -932,37 +1259,20 @@ fn close_bracket(
             brackets.pop();
             Ok(Some(open_at))
         }
-        Some(&(open, open_at)) => Err(unbalanced_error(found, open, open_at, at)),
+        Some(&(open, open_at)) => Err(Box::new(LexError::Unbalanced {
+            open: open.opener(),
+            close: found,
+            span: Span::new(at, at + 1),
+            innermost: Some(open_at),
+        })),
         None if closer == b']' && mode != LexMode::ListItems => Ok(None),
-        None => Err(cut(Diagnostic::new(
-            ErrorKind::Unbalanced {
-                found,
-                expected: expected.opener(),
-            },
-            Span::new(at, at + 1),
-        ))),
+        None => Err(Box::new(LexError::Unbalanced {
+            open: expected.opener(),
+            close: found,
+            span: Span::new(at, at + 1),
+            innermost: None,
+        })),
     }
-}
-
-/// The cut error for a closer `found` at `at` that does not match the innermost open bracket,
-/// `open` at `open_at`; the help names that bracket.
-fn unbalanced_error(
-    found: &'static str,
-    open: Bracket,
-    open_at: usize,
-    at: usize,
-) -> winnow::error::ErrMode<ParseFailure> {
-    cut(Diagnostic::new(
-        ErrorKind::Unbalanced {
-            found,
-            expected: open.opener(),
-        },
-        Span::new(at, at + 1),
-    )
-    .with_help(format!(
-        "the innermost open delimiter is `{}` at byte {open_at}",
-        open.opener()
-    )))
 }
 
 /// Scan a raw string `r#'...'#` starting at the `r` (nu's `lex_raw_string`);
@@ -974,17 +1284,19 @@ fn lex_raw_string(
     bytes: &[u8],
     start: usize,
     absolute: impl Fn(usize) -> usize,
-) -> ParseResult<usize> {
+) -> Result<usize, Fault> {
     let mut hashes = 0;
     while bytes.get(start + 1 + hashes) == Some(&b'#') {
         hashes += 1;
     }
     let quote_at = start + 1 + hashes;
+    // nu ends the item after the `#`s and reports the byte after them.
     if bytes.get(quote_at) != Some(&b'\'') {
-        return Err(cut(Diagnostic::expected(
-            "`'` after `r#`",
-            Span::point(absolute(quote_at)),
-        )));
+        let at = absolute(quote_at);
+        return Err(Fault {
+            length: quote_at,
+            error: Box::new(LexError::RawStringQuote(Span::new(at, at + 1))),
+        });
     }
     // The closing `#`s are as many as the opening ones, which follow the `r`.
     let closing_hashes = &bytes[start + 1..quote_at];
@@ -996,13 +1308,15 @@ fn lex_raw_string(
         }
         offset += 1;
     }
-    Err(cut(Diagnostic::new(
-        ErrorKind::Unclosed {
-            delimiter: "'",
+    // nu's item runs to the end of the text.
+    Err(Fault {
+        length: bytes.len(),
+        error: Box::new(LexError::UnclosedRawString {
+            hashes,
             open: Span::new(absolute(start), absolute(quote_at + 1)),
-        },
-        Span::point(absolute(bytes.len())),
-    )))
+            end: last_byte(absolute(0), bytes.len()),
+        }),
+    })
 }
 
 /// The assignment operator `text` spells, if any (nu's `is_assignment_operator`).
@@ -1024,13 +1338,13 @@ fn assignment_operator_bytes(text: &[u8]) -> Option<AssignmentOperator> {
     })
 }
 
-/// What a lexed item is: an assignment operator, a redirection, or a plain
-/// item (nu's `lex_item` does this at its end). Bash-isms are refused.
-fn item_contents(text: &[u8]) -> Result<TokenContents, (ErrorKind, Option<&'static str>)> {
+/// What a lexed item at `span` is: an assignment operator, a redirection, or a plain item (nu's
+/// `lex_item` does this at its end). A bash-ism is the token nu makes of it, with its error.
+fn item_contents(text: &[u8], span: Span) -> (TokenContents, Option<Box<LexError>>) {
     if let Some(operator) = assignment_operator_bytes(text) {
-        return Ok(TokenContents::AssignmentOperator(operator));
+        return (TokenContents::AssignmentOperator(operator), None);
     }
-    Ok(match text {
+    let kind = match text {
         b"out>" | b"o>" => TokenContents::Redirection(RedirectionOperator::Out),
         b"out>>" | b"o>>" => TokenContents::Redirection(RedirectionOperator::OutAppend),
         b"err>" | b"e>" => TokenContents::Redirection(RedirectionOperator::Err),
@@ -1045,44 +1359,28 @@ fn item_contents(text: &[u8]) -> Result<TokenContents, (ErrorKind, Option<&'stat
         b"out+err>|" | b"err+out>|" | b"o+e>|" | b"e+o>|" => {
             TokenContents::Redirection(RedirectionOperator::OutErrPipe)
         }
-        b"out>|" | b"o>|" => {
-            return Err((
-                ErrorKind::ShellSyntax {
-                    found: "o>|",
-                    use_instead: "|",
-                },
-                Some("redirecting stdout to a pipe is the same as normal piping"),
-            ));
-        }
+        b"out>|" | b"o>|" => return (TokenContents::Pipe, Some(Box::new(LexError::OutPipe(span)))),
         b"&&" => {
-            return Err((
-                ErrorKind::ShellSyntax {
-                    found: "&&",
-                    use_instead: ";",
-                },
-                Some("use `;` to run commands in sequence, or `and` for boolean logic"),
-            ));
+            return (
+                TokenContents::Pipe,
+                Some(Box::new(LexError::ShellAndAnd(span))),
+            );
         }
         b"2>" => {
-            return Err((
-                ErrorKind::ShellSyntax {
-                    found: "2>",
-                    use_instead: "e>",
-                },
-                None,
-            ));
+            return (
+                TokenContents::Redirection(RedirectionOperator::Err),
+                Some(Box::new(LexError::ShellErrRedirect(span))),
+            );
         }
         b"2>&1" => {
-            return Err((
-                ErrorKind::ShellSyntax {
-                    found: "2>&1",
-                    use_instead: "o+e>",
-                },
-                None,
-            ));
+            return (
+                TokenContents::Pipe,
+                Some(Box::new(LexError::ShellOutErrRedirect(span))),
+            );
         }
         _ => TokenContents::Item,
-    })
+    };
+    (kind, None)
 }
 
 /// A tiny helper for tests and debugging: lex and return `(kind, text)` pairs.
@@ -1244,5 +1542,104 @@ mod tests {
         let tokens = lex_n_tokens("a: 1, b: 2", 0, LexOptions::BRACE_PROBE, 2).unwrap();
         assert_eq!(tokens.len(), 3);
         assert_eq!(tokens[1].text("a: 1, b: 2"), ":");
+    }
+
+    /// The tokens nu's lexer makes of `text` and the errors it reports, which it goes on past.
+    fn recovering(text: &str) -> (Vec<(TokenContents, &str)>, Vec<LexError>) {
+        let lexed = lex_recovering(
+            text,
+            0,
+            LexOptions::BLOCK,
+            usize::MAX,
+            &mut GroupEnds::default(),
+        )
+        .unwrap();
+        let tokens = lexed
+            .tokens
+            .iter()
+            .map(|token| (token.contents, token.text(text)))
+            .collect();
+        let errors = lexed.errors.into_iter().map(|(_, error)| error).collect();
+        (tokens, errors)
+    }
+
+    /// Each item nu reports an error in ends where nu's does: just after a closer that closes
+    /// nothing, at the end of the text when something is left open, before a backslash that
+    /// ends a string, and after the `#`s of a raw string without its quote.
+    #[test]
+    fn errors_end_items_where_nu_does() {
+        let (tokens, errors) = recovering("{a: {b: 5}}} x");
+        assert_eq!(tokens[..2], [(Item, "{a: {b: 5}}}"), (Item, "x")]);
+        assert!(matches!(
+            errors[..],
+            [LexError::Unbalanced {
+                open: "{",
+                close: "}",
+                innermost: None,
+                ..
+            }]
+        ));
+        let (tokens, errors) = recovering("echo [1 2");
+        assert_eq!(tokens[..2], [(Item, "echo"), (Item, "[1 2")]);
+        assert!(matches!(
+            errors[..],
+            [LexError::Unclosed { delimiter: "]", open, end }]
+                if open == Span::new(5, 6) && end == Span::new(8, 9)
+        ));
+        let (tokens, _) = recovering("\"say \\");
+        assert_eq!(tokens[..2], [(Item, "\"say "), (Item, "\\")]);
+        let (tokens, errors) = recovering("r#abc");
+        assert_eq!(tokens[..2], [(Item, "r#"), (Item, "abc")]);
+        assert!(matches!(errors[..], [LexError::RawStringQuote(span)] if span == Span::new(2, 3)));
+    }
+
+    /// A bash-ism is the token nu makes of it, and a `;` right after a `|` is reported: each
+    /// error is kept, in order.
+    #[test]
+    fn bashisms_are_nus_tokens() {
+        let (tokens, errors) = recovering("a && b 2> f; c | ; d");
+        let kinds: Vec<TokenContents> = tokens.iter().map(|(kind, _)| *kind).collect();
+        assert_eq!(
+            kinds,
+            [
+                Item,
+                Pipe,
+                Item,
+                Redirection(RedirectionOperator::Err),
+                Item,
+                Semicolon,
+                Item,
+                Pipe,
+                Semicolon,
+                Item,
+                Eof
+            ]
+        );
+        assert!(matches!(
+            errors[..],
+            [
+                LexError::ShellAndAnd(_),
+                LexError::ShellErrRedirect(_),
+                LexError::SemicolonAfterPipe(_)
+            ]
+        ));
+    }
+
+    /// nu labels a missing `}` at a `|` starting a line inside it, when the line before it does
+    /// not go on to it, and a missing `]` at the first `{` right inside it.
+    #[test]
+    fn unclosed_brackets_are_labeled_where_the_closer_belongs() {
+        let (_, errors) = recovering("each {|x|\n  $x\n| length");
+        assert!(matches!(
+            errors[..],
+            [LexError::Unclosed { delimiter: "}", open, end }]
+                if open == Span::new(5, 6) && end == Span::new(15, 16)
+        ));
+        let (_, errors) = recovering("def f [\n  x {}\n y");
+        assert!(matches!(
+            errors[..],
+            [LexError::Unclosed { delimiter: "]", open, end }]
+                if open == Span::new(6, 7) && end == Span::new(12, 13)
+        ));
     }
 }

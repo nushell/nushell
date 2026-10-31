@@ -208,19 +208,37 @@ through every step and would be harder to follow. The loop also keeps the
 structure of nu's `lex_item`, which is a byte loop with the same state, so
 the two are easy to compare.
 
-Errors from the scanner are *cut* errors (fatal for the current block): an
-unclosed quote or bracket and a stray `)` or `}`. Note that a stray `]` at
-depth zero is *not* an error (`a]`, the glob `[]]*`); nu treats it as an
-ordinary character, and so does this parser. The exception is the inside of a
-list, lexed with `LexOptions::LIST` (nu's `LexMode::ListItems`), where such a
-`]` would close the list before its end (`[1 2]]`), so `close_bracket` reports
-it.
+The scanner's errors are an unclosed quote, bracket or interpolation, a stray
+`)` or `}`, and a raw string without its quote or its end. Note that a stray
+`]` at depth zero is *not* an error (`a]`, the glob `[]]*`); nu treats it as
+an ordinary character, and so does this parser. The exception is the inside
+of a list, lexed with `LexOptions::LIST` (nu's `LexMode::ListItems`), where
+such a `]` would close the list before its end (`[1 2]]`), so `close_bracket`
+reports it.
+
+nu's lexer reports each of these and goes on, and so does this one
+(`lex_recovering`): `item_length` returns a `Fault` with the length nu gives
+the item and a `LexError` with what nu's error needs. An item ends just after
+a closer that closes nothing (`{a: {b: 5}}}` is one item), at the end of the
+text when something is still open, before a backslash that ends a string (the
+backslash is the next item), and after the `#`s of a raw string without its
+`'`. For an unclosed bracket nu labels where the closer probably belongs: the
+first `{` opened right inside a `[`, or a `|` starting a line inside a `{`
+when the line before does not end with a byte that continues it, if that
+bracket is the innermost one left open; `closer_label_hint` scans the item
+again for it, on that error path only. `lex_recovering` returns every error
+with the span of its token; the strict `lex` and `next_token` fail on the
+first, as before. `WorkingSet::lex_block` lexes a block's statements this way
+and keeps the errors, so that each block finds its own
+(`first_lex_error_in`, chapter 04).
 
 `item_contents` turns the exact spellings of assignment and redirection
 operators into `TokenContents::AssignmentOperator` and
-`TokenContents::Redirection`, like the end of nu's `lex_item`. It also
-refuses the bash-isms `&&`, `2>`, `2>&1` and `o>|` with a `ShellSyntax`
-diagnostic that has the Nushell spelling in the help text.
+`TokenContents::Redirection`, like the end of nu's `lex_item`. The bash-isms
+are the tokens nu makes of them, each with its error (a `LexError` whose
+diagnostic has the Nushell spelling in the help text): `&&`, `2>&1` and `o>|`
+are a `|`, `2>` is `e>`. A `;` right after a `|` is `SemicolonAfterPipe`
+(nu's `ExtraTokens`).
 
 `group_end(text)` reuses `item_length` to find the bracket that closes the
 group a text starts with. `parse_full_cell_path` uses it to tell a

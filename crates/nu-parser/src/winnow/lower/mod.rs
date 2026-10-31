@@ -18,9 +18,10 @@
 //! evaluate, a parameter's unknown type or completer, a default value that isn't a constant, and an
 //! `export alias` in a module asking for help (`parse_export_in_module` then looks for an alias it
 //! didn't add). Each is reported where the classic parser reports it, with the expression it builds
-//! there (garbage, mostly). A block's lite-parse error (`Pipeline::lite_error`: a `||`, a
-//! redirection out of place, a `|` ending the block) goes before every statement error of the
-//! block, as the classic parser lite-parses a whole block first ([`BlockErrors`]). Anything else the classic parser would report, or the lowering does not
+//! there (garbage, mostly). A block's lexer error (`Block::lex_error`: a delimiter left open or
+//! closing nothing, a bash-ism) and then its lite-parse error (`Pipeline::lite_error`: a `||`, a
+//! redirection out of place, a `|` ending the block) go before every statement error of the
+//! block, as the classic parser lexes and lite-parses a whole block first ([`BlockErrors`]). Anything else the classic parser would report, or the lowering does not
 //! handle, it returns [`Unlowered`] for, and the driver parses the whole statement again with the
 //! classic parser, which reports the error exactly as it always has. The exceptions are where
 //! nothing is parsed again: a predeclaration ([`Lower::predecl`]) reports an invalid or duplicate
@@ -60,7 +61,7 @@ mod value;
 use nu_protocol::{
     ParseError, Span, Type,
     ast::{Expr, Expression},
-    engine::StateWorkingSet,
+    engine::{ScopeFrame, StateWorkingSet},
 };
 
 use crate::parse_calls::{CallKind, check_call};
@@ -153,6 +154,33 @@ impl<'w, 'e, 's> Lower<'w, 'e, 's> {
         self.working_set.enter_scope();
         let result = f(self);
         self.working_set.exit_scope();
+        result
+    }
+
+    /// The scopes entered since there were `count` and left open (an unclosed closure's), taken
+    /// off the scope stack.
+    pub(super) fn take_open_scopes(&mut self, count: usize) -> Vec<ScopeFrame> {
+        let scopes = &mut self.working_set.delta.scope;
+        scopes.split_off(count.min(scopes.len()))
+    }
+
+    /// [`Self::in_scope`] for a `def` or `for` (`parse_def_inner`, `parse_for`), which leave
+    /// their scope open when the statement reports an unclosed `}`: completion in an unfinished
+    /// body finds its variables there. A statement the lowering gives back leaves nothing open.
+    pub(super) fn in_body_scope<T>(
+        &mut self,
+        f: impl FnOnce(&mut Self) -> Lowered<T>,
+    ) -> Lowered<T> {
+        let errors = self.working_set.parse_errors.len();
+        self.working_set.enter_scope();
+        let result = f(self);
+        let unclosed = self.working_set.parse_errors
+            [errors.min(self.working_set.parse_errors.len())..]
+            .iter()
+            .any(|error| matches!(error, ParseError::Unclosed(token, ..) if *token == "}"));
+        if result.is_err() || !unclosed {
+            self.working_set.exit_scope();
+        }
         result
     }
 

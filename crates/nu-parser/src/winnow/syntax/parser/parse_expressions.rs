@@ -42,7 +42,7 @@ use super::parse_literals::{
 };
 use super::parse_module::{parse_export_env, parse_export_in_block, parse_module, parse_use};
 use super::parse_patterns::pattern;
-use super::parse_pipelines::{parse_block, parse_value_block};
+use super::parse_pipelines::{parse_block, parse_block_lexed_from, parse_value_block};
 use super::parse_signatures::parse_signature_helper;
 use super::parse_source::parse_where;
 use super::parse_type_alias::parse_type_alias;
@@ -823,6 +823,9 @@ pub fn parse_value<'a>(
     match text.as_bytes() {
         [] => Err(cut(Diagnostic::expected("value", span))),
         [b'$', ..] => recover_literal(working_set, span, parse_dollar_expr(working_set, span)),
+        [b'(', ..] if shape == ExpectedShape::Any => {
+            recover_literal(working_set, span, parse_paren_expr(working_set, span))
+        }
         [b'(', ..] => parse_paren_expr(working_set, span),
         [b'{', ..] if shape == ExpectedShape::Any => recover_literal(
             working_set,
@@ -841,6 +844,9 @@ pub fn parse_value<'a>(
             parse_full_cell_path(working_set, span, false),
         ),
         [b'[', ..] => parse_full_cell_path(working_set, span, false),
+        [b'r', b'#', ..] if shape == ExpectedShape::Any => {
+            recover_literal(working_set, span, parse_raw_string(working_set, span))
+        }
         [b'r', b'#', ..] => parse_raw_string(working_set, span),
         _ => match shape {
             ExpectedShape::Number => parse_number(working_set, span),
@@ -875,10 +881,11 @@ fn recover_as_garbage<T>(
 
 /// A value read with any shape whose literal its leaf parser refused (`0b2`, `2023-02-30`,
 /// `"\q"`, `8EiB`, `0x[zz]`), or a `$` item with an error its parser marked recovered or a
-/// literal one (a bare `$`, `$foo-bar`, a cell path's member, `$x.a??`, `$x.-1`): a garbage
-/// leaf over the item, its error recorded as recovered. nu's parser refuses the same item and
-/// reports it with garbage of its own, which the consumer gets by reading the item again with
-/// it. Any other failure stays the statement's.
+/// literal one (a bare `$`, `$foo-bar`, a cell path's member, `$x.a??`, `$x.-1`), or an item
+/// with a delimiter left open or closing nothing inside it (`(1 + 2`, `{a: {b: 5}}}`,
+/// `r#'abc`): a garbage leaf over the item, its error recorded as recovered. nu's parser refuses
+/// the same item, or reads it as far as it goes, and reports it, which the consumer gets by
+/// reading the item again with it. Any other failure stays the statement's.
 fn recover_literal<'a>(
     working_set: &WorkingSet<'a>,
     span: Span,
@@ -890,7 +897,9 @@ fn recover_literal<'a>(
                 || matches!(diagnostic.kind, ErrorKind::InvalidLiteral { .. })
                 || (matches!(
                     diagnostic.kind,
-                    ErrorKind::Unclosed { .. } | ErrorKind::ExtraTokens
+                    ErrorKind::Unclosed { .. }
+                        | ErrorKind::Unbalanced { .. }
+                        | ErrorKind::ExtraTokens
                 ) && span.start <= diagnostic.span.start
                     && diagnostic.span.end <= span.end) =>
         {
@@ -1241,7 +1250,7 @@ pub fn parse_subexpression<'a>(
 ) -> ParseResult<Expression<'a>> {
     let inner = delimited_interior(working_set, span, "(", ")")?;
     let mut tokens = working_set
-        .lex(inner, LexOptions::SUBEXPRESSION)
+        .lex_block(inner, LexOptions::SUBEXPRESSION)
         .map_err(cut)?;
     working_set.add_comments(&tokens);
     tokens.retain(|token| token.contents != TokenContents::Comment);
@@ -1447,7 +1456,9 @@ pub fn parse_block_body_unchecked<'a>(
     span: Span,
 ) -> ParseResult<Block<'a>> {
     let inner = delimited_interior(working_set, span, "{", "}")?;
-    let tokens = working_set.lex(inner, LexOptions::BLOCK).map_err(cut)?;
+    let tokens = working_set
+        .lex_block(inner, LexOptions::BLOCK)
+        .map_err(cut)?;
     working_set.enter_scope();
     let block = parse_block(Tokens::from_lexed(working_set, &tokens), inner);
     working_set.exit_scope();
@@ -1486,7 +1497,9 @@ pub fn parse_closure_parts<'a>(
     span: Span,
 ) -> ParseResult<Closure<'a>> {
     let inner = delimited_interior(working_set, span, "{", "}")?;
-    let tokens = working_set.lex(inner, LexOptions::BLOCK).map_err(cut)?;
+    let tokens = working_set
+        .lex_block(inner, LexOptions::BLOCK)
+        .map_err(cut)?;
     // The parameter list is the first token or, as nu's lexer merges a newline
     // and the `|` after it, the `|` right after one newline (`{\n  |x| ... }`).
     // After a comment line or a blank line, and for `||` on a later line, the
@@ -1540,7 +1553,12 @@ pub fn parse_closure_parts<'a>(
         inner.end,
     );
     working_set.enter_scope();
-    let body = parse_block(Tokens::from_lexed(working_set, body_tokens), body_span);
+    // nu lexes the parameters with the body: its lexer error is the first in all of it.
+    let body = parse_block_lexed_from(
+        Tokens::from_lexed(working_set, body_tokens),
+        body_span,
+        inner,
+    );
     working_set.exit_scope();
     Ok(Closure { params, body })
 }

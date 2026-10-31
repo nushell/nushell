@@ -858,6 +858,7 @@ impl<'s> Lower<'_, '_, 's> {
         let mut propagate = false;
         let mut given_back = false;
         let mut next = index + 1;
+        let scopes = self.working_set.delta.scope.len();
         for shape in ordered {
             let errors = self.working_set.parse_errors.len();
             let warnings = self.working_set.parse_warnings.len();
@@ -867,6 +868,8 @@ impl<'s> Lower<'_, '_, 's> {
                 Err(unsupported @ Unlowered::Unsupported(_)) => return Err(unsupported),
                 Ok((value, after)) => {
                     next = after;
+                    // A failed shape's open scopes go back only for the best guess (`one_of`).
+                    let open = self.take_open_scopes(scopes);
                     let new_errors = &self.working_set.parse_errors[errors..];
                     let first = new_errors
                         .iter()
@@ -883,7 +886,7 @@ impl<'s> Lower<'_, '_, 's> {
                         propagate = best_guess_propagates(new_errors.last(), shape, last);
                         furthest = first;
                         let warnings = self.working_set.parse_warnings[warnings..].to_vec();
-                        best_guess = Some((value, new_errors.to_vec(), warnings));
+                        best_guess = Some((value, new_errors.to_vec(), warnings, open));
                     }
                 }
                 Err(_) => given_back = true,
@@ -896,9 +899,10 @@ impl<'s> Lower<'_, '_, 's> {
             return Err(Unlowered::Error);
         }
         match best_guess {
-            Some((value, errors, warnings)) if furthest > start.start || propagate => {
+            Some((value, errors, warnings, open)) if furthest > start.start || propagate => {
                 self.working_set.parse_errors.extend(errors);
                 self.working_set.parse_warnings.extend(warnings);
+                self.working_set.delta.scope.extend(open);
                 Ok((value, next))
             }
             _ => {

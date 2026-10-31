@@ -1,4 +1,18 @@
 error: unclosed delimiter: expected `"`
+  --> reject/lexer/unclosed-double-quote.nu:1:15
+  |
+1 | let x = "hello
+  |               ^
+  = note: opened at 1:9
+
+error: unclosed delimiter: expected `"`
+  --> reject/lexer/unclosed-double-quote.nu:1:15
+  |
+1 | let x = "hello
+  |               ^
+  = note: opened at 1:9
+
+error: unclosed delimiter: expected `"`
   --> reject/lexer/unclosed-double-quote.nu:2:1
   |
 2 | 

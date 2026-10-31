@@ -1,4 +1,18 @@
 error: unclosed delimiter: expected `'`
+  --> reject/lexer/unclosed-single-quote-multiline.nu:2:6
+  |
+2 | world
+  |      ^
+  = note: opened at 1:9
+
+error: unclosed delimiter: expected `'`
+  --> reject/lexer/unclosed-single-quote-multiline.nu:2:6
+  |
+2 | world
+  |      ^
+  = note: opened at 1:9
+
+error: unclosed delimiter: expected `'`
   --> reject/lexer/unclosed-single-quote-multiline.nu:3:1
   |
 3 | 

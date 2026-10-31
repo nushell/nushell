@@ -1,3 +1,22 @@
+error: unclosed delimiter: expected `]`
+  --> reject/def/io-body-is-list.nu:1:10
+  |
+1 | def q []: int []}
+  |          ^
+  = note: opened at 1:7
+
+error: expected arrow (->)
+  --> reject/def/io-body-is-list.nu:1:14
+  |
+1 | def q []: int []}
+  |              ^
+
+error: unbalanced delimiter: found `}` without a matching `{`
+  --> reject/def/io-body-is-list.nu:1:17
+  |
+1 | def q []: int []}
+  |                 ^
+
 error: unbalanced delimiter: found `}` without a matching `{`
   --> reject/def/io-body-is-list.nu:1:17
   |

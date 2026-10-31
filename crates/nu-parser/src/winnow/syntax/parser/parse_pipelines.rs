@@ -1,13 +1,13 @@
 //! Blocks, pipelines and pipeline elements (nu-parser's `parse_pipelines.rs`).
 
 use crate::winnow::syntax::ast::{
-    AttributeBlock, Block, Comment, Expr, Expression, LiteError, Pipeline, PipelineElement,
-    PipelineRedirection, RedirectionTarget,
+    AttributeBlock, Block, BlockLexError, Comment, Expr, Expression, LiteError, Pipeline,
+    PipelineElement, PipelineRedirection, RedirectionTarget,
 };
 use crate::winnow::syntax::error::{Diagnostic, ErrorKind};
 use crate::winnow::syntax::input::{ParseResult, cut, into_diagnostic};
 use crate::winnow::syntax::lex::{
-    LexOptions, RedirectionSource, Token, TokenContents, assignment_operator,
+    LexError, LexOptions, RedirectionSource, Token, TokenContents, assignment_operator,
 };
 use crate::winnow::syntax::span::Span;
 
@@ -42,7 +42,9 @@ pub fn parse_value_block<'a>(tokens: Tokens<'_, 'a>, span: Span) -> ParseResult<
     if !newline_between {
         return Ok(parse_block(tokens, span));
     }
-    let relexed = working_set.lex(span, LexOptions::BLOCK).map_err(cut)?;
+    let relexed = working_set
+        .lex_block(span, LexOptions::BLOCK)
+        .map_err(cut)?;
     Ok(parse_block(Tokens::from_lexed(working_set, &relexed), span))
 }
 
@@ -56,7 +58,17 @@ pub fn parse_value_block<'a>(tokens: Tokens<'_, 'a>, span: Span) -> ParseResult<
 /// unparsed, an empty block, when the lookup asks for that
 /// ([`CommandLookup::defers_command_changing_blocks`]): one its first words tell, or a call
 /// through an alias of an overlay command, found as it is parsed.
-pub fn parse_block<'a>(mut tokens: Tokens<'_, 'a>, span: Span) -> Block<'a> {
+pub fn parse_block<'a>(tokens: Tokens<'_, 'a>, span: Span) -> Block<'a> {
+    parse_block_lexed_from(tokens, span, span)
+}
+
+/// [`parse_block`] for a block whose text nu lexes as `lexed` (a closure's body, with its
+/// parameters): the block's lexer error is the first in it.
+pub fn parse_block_lexed_from<'a>(
+    mut tokens: Tokens<'_, 'a>,
+    span: Span,
+    lexed: Span,
+) -> Block<'a> {
     let working_set = tokens.working_set;
     let defers = working_set.defers_command_changing_blocks();
     let unparsed = Block {
@@ -68,26 +80,44 @@ pub fn parse_block<'a>(mut tokens: Tokens<'_, 'a>, span: Span) -> Block<'a> {
     }
     let errors = working_set.error_count();
     let outer_overlay_alias_called = working_set.replace_overlay_alias_called(false);
-    parse_def_predecl(working_set, tokens.all());
+    // nu reports the block's first lexer error, then a `|` that ends it, before its
+    // definitions' and statements' errors, and goes on past both, as the consumer does, to
+    // which the block's first and last pipelines carry them: they are recorded as recovered.
+    let lex_error = working_set.first_lex_error_in(lexed);
     let missing_end = missing_end(tokens.all());
+    if let Some(error) = &lex_error {
+        working_set.error(error.diagnostic().as_recovered());
+    }
+    if let Some(error) = missing_end {
+        working_set.error(lite_diagnostic(error).as_recovered());
+    }
+    parse_def_predecl(working_set, tokens.all());
     let mut pipelines: Vec<Pipeline<'a>> = Vec::new();
     parse_statements(&mut tokens, &mut StatementsState::default(), &mut pipelines);
-    // The block's last pipeline carries it, which the consumer reports as the block's.
-    if let Some(error) = missing_end {
-        match pipelines.last_mut() {
-            Some(last) => {
-                working_set.error(lite_diagnostic(error).as_recovered());
-                last.lite_error = Some(error);
-            }
-            None => working_set.error(lite_diagnostic(error)),
-        }
-    }
     // A call through an alias of an overlay command, which only the commands known as it is
     // parsed tell (`DeclKind::OverlayAlias`), changes the commands too: the block is left
     // unparsed after all, its errors dropped.
     if working_set.replace_overlay_alias_called(outer_overlay_alias_called) && defers {
         working_set.take_errors_from(errors);
         return unparsed;
+    }
+    if let Some(error) = lex_error {
+        match pipelines.first_mut() {
+            Some(first) => {
+                first.lex_error = Some(Box::new(BlockLexError {
+                    error,
+                    lexed_from: lexed.start,
+                }));
+            }
+            // No pipeline to carry it: the block is no consumer's.
+            None => working_set.error(error.diagnostic()),
+        }
+    }
+    if let Some(error) = missing_end {
+        match pipelines.last_mut() {
+            Some(last) => last.lite_error = Some(error),
+            None => working_set.error(lite_diagnostic(error)),
+        }
     }
     Block { span, pipelines }
 }
@@ -176,6 +206,8 @@ pub struct BlockStatements {
     /// A `|` that ends the block, nu's lite-parse error for the whole block
     /// ([`LiteError::PipelineMissingEnd`]).
     missing_end: Option<LiteError>,
+    /// The block's first lexer error, which nu goes on past.
+    lex_error: Option<LexError>,
     /// What the working set knew when the last call returned: the block's scope, with the
     /// names `new` predeclared and the aliases parsed since, and the bracket groups measured.
     /// Each call builds its working set from it and takes it back.
@@ -194,9 +226,10 @@ impl BlockStatements {
     /// `parse_subexpression` lexes it: newlines are whitespace and comments are skipped, so a
     /// statement goes on across lines (`(ls\n| length)`, `(echo a\nb)`).
     ///
-    /// A lexing error, or a diagnostic about the block as a whole (a definition declared
-    /// twice), is returned instead. A `|` that ends the block is the block's lite-parse error
-    /// ([`BlockStatements::missing_end`]), which nu goes on past.
+    /// A diagnostic about the block as a whole that nu does not go on past is returned
+    /// instead. The block's first lexer error ([`BlockStatements::lex_error`]), a `|` that ends
+    /// it ([`BlockStatements::missing_end`]) and a definition declared twice, which the consumer
+    /// reports as it declares the definitions, nu goes on past.
     pub fn new<'a>(
         source: &'a str,
         span: Span,
@@ -210,16 +243,18 @@ impl BlockStatements {
             LexOptions::BLOCK
         };
         let mut tokens = working_set
-            .lex(span, options)
+            .lex_block(span, options)
             .map_err(|diagnostic| vec![diagnostic])?;
+        let lex_error = working_set.first_lex_error_in(span);
         if subexpression {
             tokens.retain(|token| token.contents != TokenContents::Comment);
         }
         let stream = Tokens::from_lexed(&working_set, &tokens);
         let definitions = scan_predecls(&working_set, stream.all());
         let missing_end = missing_end(stream.all());
+        // What nu goes on past (a definition declared twice) the consumer reports.
         let block_errors = working_set.take_errors_from(0);
-        if !block_errors.is_empty() {
+        if block_errors.iter().any(|diagnostic| !diagnostic.recovered) {
             return Err(block_errors);
         }
         let parse_state = working_set.into_state();
@@ -229,6 +264,7 @@ impl BlockStatements {
                 position: 0,
                 statements: StatementsState::default(),
                 missing_end,
+                lex_error,
                 parse_state,
             },
             definitions,
@@ -273,6 +309,12 @@ impl BlockStatements {
     /// error ([`LiteError::PipelineMissingEnd`]).
     pub fn missing_end(&self) -> Option<LiteError> {
         self.missing_end
+    }
+
+    /// The block's first lexer error, which nu reports before its statements' errors and goes
+    /// on past; the text it is in starts where the block does.
+    pub fn lex_error(&self) -> Option<&LexError> {
+        self.lex_error.as_ref()
     }
 
     /// Whether every statement was parsed.
@@ -839,6 +881,7 @@ fn parse_pipeline<'a>(
         terminator,
         dangling_pipe,
         lite_error,
+        lex_error: None,
     }))
 }
 

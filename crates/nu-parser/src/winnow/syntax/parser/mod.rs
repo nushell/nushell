@@ -310,7 +310,7 @@ pub(crate) fn parse<'a>(source: &'a str, config: &ParseConfig) -> (Ast<'a>, Vec<
         let end = source.find('\n').unwrap_or(source.len());
         Span::new(0, end)
     });
-    let block = match working_set.lex(whole_source, LexOptions::BLOCK) {
+    let block = match working_set.lex_block(whole_source, LexOptions::BLOCK) {
         Ok(tokens) => parse_pipelines::parse_block(
             tokens::Tokens::from_lexed(&working_set, &tokens),
             whole_source,

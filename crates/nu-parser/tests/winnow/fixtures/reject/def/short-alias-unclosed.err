@@ -1,3 +1,17 @@
+error: unclosed delimiter: expected `)`
+  --> reject/def/short-alias-unclosed.nu:1:13
+  |
+1 | def f [--a(-a] {}
+  |             ^
+  = note: opened at 1:11
+
+error: unbalanced delimiter: found `]` without a matching `(`
+  --> reject/def/short-alias-unclosed.nu:1:14
+  |
+1 | def f [--a(-a] {}
+  |              ^
+  = help: the innermost open delimiter is `(` at byte 10
+
 error: unbalanced delimiter: found `]` without a matching `(`
   --> reject/def/short-alias-unclosed.nu:1:14
   |

@@ -4,3 +4,17 @@ error: unbalanced delimiter: found `)` without a matching `{`
 3 |         print -n ansi green)
   |                            ^
   = help: the innermost open delimiter is `{` at byte 21
+
+error: unclosed delimiter: expected `}`
+  --> reject/lexer/extra-paren-in-block.nu:3:29
+  |
+3 |         print -n ansi green)
+  |                             ^
+  = note: opened at 1:10
+
+error: unclosed delimiter: expected `}`
+  --> reject/lexer/extra-paren-in-block.nu:3:29
+  |
+3 |         print -n ansi green)
+  |                             ^
+  = note: opened at 1:10

@@ -1,6 +1,6 @@
 error: unclosed delimiter: expected `>`
-  --> reject/bindings/let-unclosed-generic.nu:1:39
+  --> reject/bindings/let-unclosed-generic.nu:1:38
   |
 1 | let a: record<a: int b: record<a: int> = {a: 1 b: {a: 1}}
-  |                                       ^
+  |                                      ^
   = note: opened at 1:14

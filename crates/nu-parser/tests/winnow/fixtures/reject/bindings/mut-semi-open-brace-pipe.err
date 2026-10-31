@@ -3,3 +3,9 @@ error: unbalanced delimiter: found `}` without a matching `{`
   |
 1 | mut a = | }
   |           ^
+
+error: unbalanced delimiter: found `}` without a matching `{`
+  --> reject/bindings/mut-semi-open-brace-pipe.nu:1:11
+  |
+1 | mut a = | }
+  |           ^

@@ -1,4 +1,11 @@
 error: unclosed delimiter: expected `"`
+  --> reject/lexer/unclosed-interpolation.nu:1:11
+  |
+1 | echo $"abc
+  |           ^
+  = note: opened at 1:7
+
+error: unclosed delimiter: expected `"`
   --> reject/lexer/unclosed-interpolation.nu:2:1
   |
 2 | 

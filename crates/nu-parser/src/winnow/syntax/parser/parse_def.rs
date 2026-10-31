@@ -472,13 +472,16 @@ fn scan_definitions<'a>(
                     DeclKind::Declared
                 };
                 working_set.add_predecl(&name, kind);
+                // nu reports the name and goes on, the later definition predeclared (its
+                // `add_predecl`), and so does the consumer: the error is recorded as recovered.
                 if declared.contains(&name) {
                     working_set.error(
                         Diagnostic::message(
                             "duplicate command definition within a block",
                             name_span,
                         )
-                        .with_help(format!("`{name}` is already defined in this block")),
+                        .with_help(format!("`{name}` is already defined in this block"))
+                        .as_recovered(),
                     );
                 }
                 declared.push(name);

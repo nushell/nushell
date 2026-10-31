@@ -60,7 +60,8 @@ use super::{
     stats,
 };
 use crate::winnow::syntax::{
-    BlockSink, BlockStatements, Definitions, Diagnostic, PredeclaredDef, TypeAliasPredecl, ast as w,
+    BlockSink, BlockStatements, Definitions, Diagnostic, PredeclaredDef, TypeAliasPredecl,
+    ast as w, lex::LexError,
 };
 use crate::{
     lex::lex, lite_parser::lite_parse, parse_def::parse_def_predecl, parse_pipelines::finish_block,
@@ -210,7 +211,10 @@ fn parse_statements(
         }
     );
     let (mut statements, definitions) = BlockStatements::new(source, span, lookup, subexpression)?;
-    // A `|` ending the block is its lite-parse error, reported before any statement's.
+    // The block's first lexer error and a `|` ending it, reported before any statement's.
+    if let Some(error) = statements.lex_error() {
+        driver.lex_error(error, span.start);
+    }
     if let Some(error) = statements.missing_end() {
         driver.lite_error(error);
     }
@@ -570,6 +574,16 @@ impl Driver<'_, '_, '_, '_> {
             &mut self.pipelines,
             &mut self.block_errors,
         );
+    }
+
+    /// Report `error`, in the text lexed from `lexed_from`, as the block's lexer error
+    /// ([`BlockErrors::lex_error`]).
+    fn lex_error(&mut self, error: &LexError, lexed_from: usize) {
+        let cell = self.working_set;
+        let working_set = &mut **cell.borrow_mut();
+        let lower = Lower::new(working_set, self.source, self.offset);
+        let error = lower.lex_parse_error(error, lexed_from);
+        self.block_errors.lex_error(lower.working_set, error);
     }
 
     /// Report `error` as the block's lite-parse error ([`BlockErrors::lite_error`]).

@@ -3,3 +3,9 @@ error: unbalanced delimiter: found `)` without a matching `(`
   |
 1 | ("("))
   |      ^
+
+error: unbalanced delimiter: found `)` without a matching `(`
+  --> reject/lexer/unbalanced-quoted-paren.nu:1:6
+  |
+1 | ("("))
+  |      ^

@@ -1,4 +1,11 @@
 error: unclosed delimiter: expected `}`
+  --> reject/lexer/comment-swallows-closing-brace.nu:1:35
+  |
+1 | 1..10 | each {echo test #testing }
+  |                                   ^
+  = note: opened at 1:14
+
+error: unclosed delimiter: expected `}`
   --> reject/lexer/comment-swallows-closing-brace.nu:2:1
   |
 2 | 
