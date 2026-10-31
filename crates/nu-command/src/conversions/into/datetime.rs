@@ -211,6 +211,26 @@ impl Command for IntoDatetime {
                 result: example_result_1(1614434140_224600000),
             },
             Example {
+                description: "Convert a date written with a month name, an ordinal and a 12-hour \
+                              time.",
+                example: "'April 18th, 2025 4:04 PM +05:30' | into datetime",
+                result: DateTime::parse_from_rfc3339("2025-04-18T16:04:00+05:30")
+                    .ok()
+                    .map(|date| Value::date(date, Span::test_data())),
+            },
+            Example {
+                description: "Convert a date-time in an IANA time zone.",
+                example: "'2025-04-18 04:04:32 America/New_York' | into datetime",
+                result: DateTime::parse_from_rfc3339("2025-04-18T04:04:32-04:00")
+                    .ok()
+                    .map(|date| Value::date(date, Span::test_data())),
+            },
+            Example {
+                description: "Convert a relative date.",
+                example: "'tomorrow 10am' | into datetime",
+                result: None,
+            },
+            Example {
                 description: "Convert non-standard timestamp string, with timezone offset, to \
                               datetime using a custom format.",
                 example: "'20210227_135540+0000' | into datetime --format '%Y%m%d_%H%M%S%z'",
@@ -374,13 +394,16 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
         return merge_record(record, head, span).unwrap_or_else(|err| Value::error(err, span));
     }
 
-    // Without a format, try reading the string as a date (RFC 3339, then dtparse's forms) first
+    // Without a format, try reading the string as a date (RFC 3339, then the other layouts) first.
+    // A string that isn't a date or an integer timestamp is an error here, not parsed again below.
     if matches!(input, Value::String { .. }) && dateformat.is_none() {
         let span = input.span();
-        if let Ok(input_val) = input.coerce_str()
-            && let Ok(date) = parse_date_from_string(&input_val, span)
-        {
-            return Value::date(date, span);
+        if let Ok(input_val) = input.coerce_str() {
+            match parse_date_from_string(&input_val, span) {
+                Ok(date) => return Value::date(date, span),
+                Err(err) if input_val.parse::<i64>().is_err() => return err,
+                Err(_) => {}
+            }
         }
     }
 

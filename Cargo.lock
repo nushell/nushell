@@ -2192,18 +2192,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "dtparse"
-version = "2.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "23fb403c0926d35af2cc54d961bc2696a10d40725c08360ef69db04a4c201fd7"
-dependencies = [
- "chrono",
- "lazy_static",
- "num-traits",
- "rust_decimal",
-]
-
-[[package]]
 name = "dunce"
 version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4916,7 +4904,6 @@ dependencies = [
  "digest 0.11.3",
  "dirs 7.0.0",
  "dns-lookup",
- "dtparse",
  "encoding_rs",
  "fancy-regex",
  "fff-search",
@@ -4930,6 +4917,7 @@ dependencies = [
  "indicatif",
  "indoc",
  "itertools 0.15.0",
+ "jiff",
  "kdl 6.7.1",
  "log",
  "lscolors",
@@ -4969,6 +4957,7 @@ dependencies = [
  "oem_cp",
  "open",
  "os_pipe",
+ "parse_datetime",
  "pathdiff",
  "percent-encoding",
  "pretty_assertions",
@@ -8180,16 +8169,6 @@ checksum = "796e8d2b6696392a43bea58116b667fb4c29727dc5abd27d6acf338bb4f688c7"
 dependencies = [
  "cfg-if",
  "ordered-multimap",
-]
-
-[[package]]
-name = "rust_decimal"
-version = "1.40.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "61f703d19852dbf87cbc513643fa81428361eb6940f1ac14fd58155d295a3eb0"
-dependencies = [
- "arrayvec",
- "num-traits",
 ]
 
 [[package]]
