@@ -122,7 +122,8 @@ impl<'s> Lower<'_, '_, 's> {
         self.lexed_parts(span, |contents| contents != TokenContents::Comment)
     }
 
-    /// The spans of the tokens at `span` whose kind passes `keep`, lexed as an expression's.
+    /// The spans of the tokens at `span` whose kind passes `keep`, lexed as an expression's,
+    /// but the element's redirections ([`Lower::redirection_spans`]).
     fn lexed_parts(&self, span: WSpan, keep: impl Fn(TokenContents) -> bool) -> Vec<Span> {
         let span = self.span(span);
         let (tokens, _) = lex(
@@ -134,7 +135,7 @@ impl<'s> Lower<'_, '_, 's> {
         );
         tokens
             .iter()
-            .filter(|token| keep(token.contents))
+            .filter(|token| keep(token.contents) && !self.redirection_spans.contains(&token.span))
             .map(|token| token.span)
             .collect()
     }

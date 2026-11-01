@@ -3378,3 +3378,66 @@ fn errors_nu_goes_on_past_are_lowered(
     );
     Ok(())
 }
+
+/// Words nu's lite parser and call parser read differently than they look, lowered with nu's
+/// errors: an `=` is an ordinary argument of a call (`hide`, `overlay use`, a definition's
+/// signature), and a redirection between a command's items is the element's, so the items
+/// around it are one math expression, in a keyword's condition and an assignment's left side
+/// too.
+#[rstest]
+#[case::hide_equals(
+    "hide a = b",
+    &[("ExtraPositional", "b"), ("WrongImportPattern", "b"), ("ModuleNotFound", "a")]
+)]
+#[case::overlay_use_equals("overlay use a = b", &[("ExpectedKeyword", "=")])]
+#[case::signature_equals(
+    "def f [] {} a = b c {}",
+    &[
+        ("Expected", "{} a = b c"),
+        ("UnknownType", "{}"),
+        ("Expected", "a"),
+        ("UnknownType", "="),
+        ("UnknownType", "b"),
+        ("Expected", "c"),
+        ("MissingType", ""),
+    ]
+)]
+#[case::math_around_a_redirection(
+    "\"a\" o> f b",
+    &[("Expected", "b"), ("IncompleteMathExpression", "b"), ("IncompleteMathExpression", "b")]
+)]
+#[case::condition_around_a_redirection(
+    "if \"a\" o> f b {}",
+    &[("Expected", "b"), ("IncompleteMathExpression", "b"), ("IncompleteMathExpression", "b")]
+)]
+#[case::row_condition_around_a_redirection(
+    "ls | where \"a\" o> f b",
+    &[("Expected", "b"), ("IncompleteMathExpression", "b"), ("IncompleteMathExpression", "b")]
+)]
+#[case::assignment_around_a_redirection(
+    "\"a\" o> alias q = ls",
+    &[
+        ("Expected", "q"),
+        ("IncompleteMathExpression", "q"),
+        ("IncompleteMathExpression", "q"),
+        ("AssignmentRequiresVar", "\"a\" o> alias q"),
+    ]
+)]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn words_read_otherwise_than_they_look_are_lowered(
+    #[case] code: &str,
+    #[case] expected: &[(&str, &str)],
+) -> Result {
+    let expected: Vec<(String, String)> = expected
+        .iter()
+        .map(|(kind, text)| (kind.to_string(), text.to_string()))
+        .collect();
+    assert_eq!(
+        super::winnow_calls::lowered_errors(code),
+        expected,
+        "`{code}`"
+    );
+    Ok(())
+}

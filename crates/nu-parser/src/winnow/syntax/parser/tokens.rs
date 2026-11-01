@@ -402,6 +402,22 @@ pub fn item(tokens: &mut Tokens<'_, '_>) -> ParseResult<Token> {
     token_where(tokens, |token| token.contents == TokenContents::Item)
 }
 
+/// An item, or an assignment operator read as one: nu's call parser reads `=` as any other word
+/// (`overlay use a = b`, `hide a = b`, `def f [] {} a = b {}`).
+#[inline]
+pub fn call_item(tokens: &mut Tokens<'_, '_>) -> ParseResult<Token> {
+    token_where(tokens, |token| {
+        matches!(
+            token.contents,
+            TokenContents::Item | TokenContents::AssignmentOperator(_)
+        )
+    })
+    .map(|token| Token {
+        contents: TokenContents::Item,
+        span: token.span,
+    })
+}
+
 /// An item spelled exactly `word`, such as `else`, `in` or `=>`.
 #[inline]
 pub fn keyword<'t, 'a: 't>(

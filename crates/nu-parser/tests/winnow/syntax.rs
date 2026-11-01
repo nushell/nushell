@@ -2687,3 +2687,40 @@ fn lexer_errors_are_block_errors() {
     ));
     assert_eq!(lex_error.lexed_from, 8);
 }
+
+/// nu's call reads an `=` as any other word, so a keyword command's statement with one is its
+/// call (`hide a = b`, `overlay use a = b`). The items around a redirection of the element are
+/// one math expression (`"a" o> f b`): a garbage leaf over them, the redirection still the
+/// element's, its error recorded as recovered. A redirection nu refuses drops the element's
+/// earlier one, so the leaf's text would read otherwise: the error stays the statement's.
+#[test]
+fn equals_arguments_and_items_around_a_redirection() {
+    let config = ParseConfig::default();
+    for source in ["hide a = b", "overlay use a = b"] {
+        let (ast, diagnostics) = parse_lenient(source, &config);
+        let call = kind!(expr(&ast), Expr::Call(c) => c);
+        let words: Vec<&str> = call
+            .arguments
+            .iter()
+            .map(|argument| text(&ast, argument.span()))
+            .collect();
+        assert!(words.contains(&"="), "{source}: {words:?}");
+        assert!(
+            diagnostics.iter().all(|d| d.recovered),
+            "{source}: {diagnostics:?}"
+        );
+    }
+    let (ast, diagnostics) = parse_lenient("\"a\" o> f b", &config);
+    let [element] = elements(&ast) else {
+        panic!("{:?}", ast.block.pipelines)
+    };
+    assert!(element.expr.is_garbage());
+    assert_eq!(text(&ast, element.expr.span), "\"a\" o> f b");
+    assert!(element.redirection.is_some());
+    assert!(
+        !diagnostics.is_empty() && diagnostics.iter().all(|d| d.recovered),
+        "{diagnostics:?}"
+    );
+    let (_, diagnostics) = parse_lenient("\"a\" o> f b o> g", &config);
+    assert!(diagnostics.iter().any(|d| !d.recovered), "{diagnostics:?}");
+}

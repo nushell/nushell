@@ -832,7 +832,17 @@ fn parse_pipeline<'a>(
     }
     let mut elements: Vec<PipelineElement<'a>> = Vec::with_capacity(lite_commands.len());
     for (pipe, lite_command) in &lite_commands {
-        let (expr, redirection) = parse_pipeline_element(working_set, lite_command, !single)?;
+        let redirection_spans = lite_command
+            .redirections
+            .iter()
+            .flat_map(|(operator, target)| {
+                std::iter::once(operator.span).chain(target.map(|target| target.span))
+            })
+            .collect();
+        let outer = working_set.replace_element_redirections(redirection_spans);
+        let parsed = parse_pipeline_element(working_set, lite_command, !single);
+        working_set.replace_element_redirections(outer);
+        let (expr, redirection) = parsed?;
         let start = pipe.map_or(expr.span.start, |pipe| pipe.start);
         let end = redirection.as_ref().map_or(expr.span.end, |redirection| {
             redirection.span().end.max(expr.span.end)

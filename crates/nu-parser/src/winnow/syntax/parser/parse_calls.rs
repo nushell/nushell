@@ -24,7 +24,7 @@ use super::parse_helpers::is_spread;
 use super::parse_literals::{parse_raw_string, parse_string};
 use super::parse_module::parse_import_pattern_member;
 use super::parse_source::parse_condition;
-use super::tokens::{Tokens, expected, item, repeat_to_end};
+use super::tokens::{Tokens, call_item, expected, item, repeat_to_end};
 use super::working_set::{AliasedKeyword, DeclKind};
 
 /// The most words that can form a known multi-word command.
@@ -441,7 +441,7 @@ pub(super) fn call_argument<'a>(
     wrapped: bool,
     garbage: bool,
 ) -> ParseResult<Argument<'a>> {
-    let token = expected("argument", item).parse_next(tokens)?;
+    let token = expected("argument", call_item).parse_next(tokens)?;
     let working_set = tokens.working_set;
     let text = tokens.text(&token);
     let span = token.span;

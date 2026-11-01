@@ -909,7 +909,14 @@ impl<'s> Lower<'_, '_, 's> {
         input_type: &Type,
         pipe: Option<WSpan>,
     ) -> Lowered<PipelineElement> {
-        let expr = self.expression(&element.expr, Some(input_type))?;
+        let redirection_spans = match &element.redirection {
+            Some(redirection) => self.redirection_spans_of(redirection),
+            None => Vec::new(),
+        };
+        let outer = std::mem::replace(&mut self.redirection_spans, redirection_spans);
+        let expr = self.expression(&element.expr, Some(input_type));
+        self.redirection_spans = outer;
+        let expr = expr?;
         let redirection = match &element.redirection {
             Some(redirection) => Some(self.redirection(redirection)?),
             None => None,
@@ -990,6 +997,24 @@ impl<'s> Lower<'_, '_, 's> {
             self.working_set,
             span,
         )]))
+    }
+
+    /// The spans of `redirection`'s operators and file targets.
+    fn redirection_spans_of(&self, redirection: &w::PipelineRedirection<'s>) -> Vec<Span> {
+        let targets = match redirection {
+            w::PipelineRedirection::Single { target, .. } => [Some(target), None],
+            w::PipelineRedirection::Separate { out, err } => [Some(out), Some(err)],
+        };
+        targets
+            .into_iter()
+            .flatten()
+            .flat_map(|target| match target {
+                w::RedirectionTarget::File { op, path, .. } => [Some(op.span), Some(path.span)],
+                w::RedirectionTarget::Pipe { op } => [Some(op.span), None],
+            })
+            .flatten()
+            .map(|span| self.span(span))
+            .collect()
     }
 
     /// The redirection of a command (`parse_redirection`).

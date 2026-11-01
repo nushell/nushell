@@ -417,6 +417,7 @@ impl<'s> Lower<'_, '_, 's> {
                         let mut working_set = cell.borrow_mut();
                         let mut lower = Lower {
                             working_set: &mut working_set,
+                            redirection_spans: Vec::new(),
                             ..*self
                         };
                         lower.match_block(&arms, e.span, input_type)

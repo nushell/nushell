@@ -188,6 +188,10 @@ pub struct WorkingSet<'a> {
     /// Whether a call through an alias of an overlay command ([`DeclKind::OverlayAlias`]) was
     /// parsed in the block being parsed ([`WorkingSet::replace_overlay_alias_called`]).
     overlay_alias_called: Cell<bool>,
+    /// The operators and file targets of the redirections of the pipeline element being parsed,
+    /// which nu's lite parser takes out of the command's parts
+    /// ([`WorkingSet::replace_element_redirections`]).
+    element_redirections: RefCell<Vec<Span>>,
 }
 
 impl std::fmt::Debug for WorkingSet<'_> {
@@ -241,6 +245,7 @@ impl<'a> WorkingSet<'a> {
             groups: RefCell::new(GroupEnds::new(Span::new(0, source.len()))),
             longest_declared: Cell::new(0),
             overlay_alias_called: Cell::new(false),
+            element_redirections: RefCell::new(Vec::new()),
         }
     }
 
@@ -369,6 +374,20 @@ impl<'a> WorkingSet<'a> {
     /// to tell whether one of them changes which commands exist.
     pub fn replace_overlay_alias_called(&self, called: bool) -> bool {
         self.overlay_alias_called.replace(called)
+    }
+
+    /// Set the operators and file targets of the redirections of the pipeline element being
+    /// parsed, returning the enclosing element's: an element sets its own around its command,
+    /// for a math expression read from the command's items to know which redirection between
+    /// them is the element's ([`WorkingSet::is_element_redirection`]).
+    pub fn replace_element_redirections(&self, spans: Vec<Span>) -> Vec<Span> {
+        self.element_redirections.replace(spans)
+    }
+
+    /// Whether `span` is an operator or a file target of a redirection of the pipeline element
+    /// being parsed.
+    pub fn is_element_redirection(&self, span: Span) -> bool {
+        self.element_redirections.borrow().contains(&span)
     }
 
     /// The number of diagnostics recorded so far.

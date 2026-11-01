@@ -546,9 +546,10 @@ pub fn parse_math_expression<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expr
         // goes on with the expression (`parse_operator`), so the expression is a garbage
         // leaf over its items, the error recorded, which the consumer reads again with nu's
         // math parser from the leaf's text. When that text lexes to other items (an alias's
-        // words, which take `|` for one; a redirection between them) the error stays; a `||`
-        // or a redirection operator nu's lite parser keeps as an item (`1 || 2`, `"a" o>`) is
-        // one.
+        // words, which take `|` for one) the error stays; a `||` or a redirection operator nu's
+        // lite parser keeps as an item (`1 || 2`, `"a" o>`) is one. A redirection of the element
+        // between the items (`"a" o> f b`) is no part of the command for nu's lite parser, nor
+        // for the consumer.
         Err(ErrMode::Cut(ParseFailure::Error(mut diagnostic))) if diagnostic.recovered => {
             let working_set = tokens.working_set;
             let items = items.remaining();
@@ -562,19 +563,39 @@ pub fn parse_math_expression<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expr
                 .lex_lenient(span, LexOptions::SUBEXPRESSION)
                 .ok();
             let same_items = relexed.is_some_and(|relexed| {
-                let mut relexed = relexed.iter().filter(|token| {
-                    !matches!(token.contents, TokenContents::Comment | TokenContents::Eof)
-                });
-                items.iter().all(|item| {
-                    relexed.next().is_some_and(|token| {
-                        matches!(
-                            token.contents,
-                            TokenContents::Item
-                                | TokenContents::PipePipe
-                                | TokenContents::Redirection(_)
-                        ) && token.span == item.span
+                let mut relexed = relexed
+                    .iter()
+                    .filter(|token| {
+                        !matches!(token.contents, TokenContents::Comment | TokenContents::Eof)
                     })
-                }) && relexed.next().is_none()
+                    .peekable();
+                let mut items = items.iter().peekable();
+                loop {
+                    match (relexed.next(), items.peek()) {
+                        (None, None) => break true,
+                        (Some(token), Some(item))
+                            if token.span == item.span
+                                && matches!(
+                                    token.contents,
+                                    TokenContents::Item
+                                        | TokenContents::PipePipe
+                                        | TokenContents::Redirection(_)
+                                ) =>
+                        {
+                            items.next();
+                        }
+                        (Some(token), Some(_))
+                            if matches!(token.contents, TokenContents::Redirection(_))
+                                && working_set.is_element_redirection(token.span)
+                                && relexed
+                                    .next_if(|target| {
+                                        target.contents == TokenContents::Item
+                                            && working_set.is_element_redirection(target.span)
+                                    })
+                                    .is_some() => {}
+                        _ => break false,
+                    }
+                }
             });
             if !same_items {
                 diagnostic.recovered = false;

@@ -111,6 +111,11 @@ pub(super) struct Lower<'w, 'e, 's> {
     /// error at its end: a classic parser function's error ([`Lower::checked`]) keeps the value
     /// it recovered (`any` for an unknown type) instead of ending the lowering.
     pub(super) drops_errors: bool,
+    /// The operators and file targets of the redirections of the pipeline element being
+    /// lowered, which nu's lite parser takes out of the command's parts: the items read again
+    /// from a text in the element ([`Lower::parts`]) leave them out (`"a" o> f b` is the math
+    /// expression `"a" b`).
+    pub(super) redirection_spans: Vec<Span>,
 }
 
 impl<'w, 'e, 's> Lower<'w, 'e, 's> {
@@ -140,6 +145,7 @@ impl<'w, 'e, 's> Lower<'w, 'e, 's> {
             row_var: None,
             alias_target: false,
             drops_errors: false,
+            redirection_spans: Vec::new(),
         }
     }
 
