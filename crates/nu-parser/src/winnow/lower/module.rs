@@ -304,6 +304,7 @@ impl<'s> Lower<'_, '_, 's> {
                         .map(|member| w::Argument::Positional(member.value.clone())),
                 )
                 .chain(use_statement.end_of_options.map(w::Argument::EndOfOptions))
+                .chain(use_statement.flags.iter().cloned())
                 .collect();
         arguments.sort_by_key(|argument| argument.span().start);
         let args_spans: Vec<Span> = arguments

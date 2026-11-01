@@ -564,6 +564,7 @@ impl<'a> Printer<'a> {
             Expr::Use(use_statement) => {
                 self.line(format_args!("Use {span}"));
                 self.nested(|printer| {
+                    printer.args(&use_statement.flags);
                     printer.expr(&use_statement.module);
                     for member in &use_statement.members {
                         match &member.kind {

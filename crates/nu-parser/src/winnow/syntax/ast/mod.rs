@@ -1587,6 +1587,9 @@ pub struct Use<'a> {
     /// The `--` that ends the options, before the module or a member, which
     /// nu drops (a later `--` is a member).
     pub end_of_options: Option<Span>,
+    /// Flags `use` does not have, before that `--`, which nu reads as its call's
+    /// (UnknownFlag) and goes on past.
+    pub flags: Vec<Argument<'a>>,
 }
 
 /// `module name { ... }` or `module path`.

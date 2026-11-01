@@ -10,6 +10,7 @@ use crate::winnow::syntax::lex::{Token, TokenContents};
 use crate::winnow::syntax::span::{Span, Spanned};
 
 use super::WorkingSet;
+use super::parse_calls::call_argument;
 use super::parse_expressions::{
     ExpectedShape, parse_block_body_unchecked, parse_builtin_commands, parse_list_expression,
     parse_value,
@@ -236,7 +237,10 @@ pub fn parse_use<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> 
     let statement = tokens;
     let keyword = tokens.expect_item("use")?;
     // Flags are looked for before every argument of `use`, up to the `--` that ends the
-    // options: every item after it is an argument (`use std -- --help` names a member).
+    // options: every item after it is an argument (`use std -- --help` names a member). nu
+    // reads a flag `use` does not have as its call's (UnknownFlag) and goes on with the import:
+    // such flags are kept for the consumer, the error recorded as recovered.
+    let mut unknown = Vec::new();
     for token in tokens.remaining() {
         if working_set.get_span_contents(token.span) == "--" {
             break;
@@ -250,13 +254,38 @@ pub fn parse_use<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> 
             && text.len() > 1
             && text != "--"
         {
-            return Err(cut(Diagnostic::message(
+            // A batch of short flags with an `h` asks for help too (`-xh`, `-h=x`), its other
+            // letters unknown flags (`parse_short_flags`).
+            if !text.starts_with("--") && text[1..].contains('h') {
+                return parse_help_call(statement);
+            }
+            unknown.push(*token);
+        }
+    }
+    let mut flags = Vec::with_capacity(unknown.len());
+    for token in &unknown {
+        let text = working_set.get_span_contents(token.span);
+        working_set.error(
+            Diagnostic::message(
                 format!("the `use` command doesn't have flag `{text}`"),
                 token.span,
             )
-            .with_help("use `--help` to see available flags")));
-        }
+            .with_help("use `--help` to see available flags")
+            .as_recovered(),
+        );
+        let mut flag = Tokens::new(working_set, std::slice::from_ref(token), token.span.end);
+        flags.push(call_argument(&mut flag, false, false)?);
     }
+    let rest: Vec<Token> = tokens
+        .remaining()
+        .iter()
+        .filter(|token| !unknown.iter().any(|flag| flag.span == token.span))
+        .copied()
+        .collect();
+    let mut tokens = match unknown.is_empty() {
+        true => tokens,
+        false => Tokens::new(working_set, &rest, tokens.end_span().start),
+    };
     // nu drops the first `--`, which ends the options; a later one is an argument.
     let mut end_of_options = tokens
         .peek_token()
@@ -321,6 +350,7 @@ pub fn parse_use<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> 
             module: Box::new(module),
             members,
             end_of_options,
+            flags,
         }),
         keyword.span.merge(end),
     ))

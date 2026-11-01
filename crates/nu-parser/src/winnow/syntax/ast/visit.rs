@@ -248,6 +248,7 @@ pub fn walk_expression<'a, V: Visitor<'a> + ?Sized>(visitor: &mut V, expr: &Expr
         Expr::Alias(alias) => visitor.visit_expression(&alias.value),
         Expr::TypeAlias(alias) => visitor.visit_type_annotation(&alias.ty),
         Expr::Use(use_statement) => {
+            walk_arguments(visitor, &use_statement.flags);
             visitor.visit_expression(&use_statement.module);
             for member in &use_statement.members {
                 if let ImportPatternMemberKind::Ignored = member.kind {

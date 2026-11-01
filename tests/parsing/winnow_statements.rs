@@ -3279,3 +3279,29 @@ fn flag_where_a_name_goes_is_lowered(
     );
     Ok(())
 }
+
+/// A flag `use` does not have is reported as nu's call reports it, and the import goes on; a
+/// batch of short flags with an `h` asks for help, so nothing is imported.
+#[rstest]
+#[case::long_flag_after("module m { export def a [] { 1 } }\nuse m --bogus\na", &[("UnknownFlag", "--bogus")])]
+#[case::long_flag_before("module m { export def a [] { 1 } }\nuse --bogus m a\na", &[("UnknownFlag", "--bogus")])]
+#[case::short_flag("module m { export def a [] { 1 } }\nuse m -5\na", &[("UnknownFlag", "5")])]
+#[case::help_batch("module m { export def a [] { 1 } }\nuse m -xh", &[("UnknownFlag", "x")])]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn use_with_a_flag_it_does_not_have_is_lowered(
+    #[case] code: &str,
+    #[case] expected: &[(&str, &str)],
+) -> Result {
+    let expected: Vec<(String, String)> = expected
+        .iter()
+        .map(|(kind, text)| (kind.to_string(), text.to_string()))
+        .collect();
+    assert_eq!(
+        super::winnow_calls::lowered_errors(code),
+        expected,
+        "`{code}`"
+    );
+    Ok(())
+}

@@ -413,7 +413,7 @@ pub(super) fn parse_definition_call<'a>(statement: Tokens<'_, 'a>) -> ParseResul
 /// `wrapped`, and a positional that does not parse a garbage leaf over its item when
 /// `garbage` ([`parse_definition_call`]).
 #[inline(always)]
-fn call_argument<'a>(
+pub(super) fn call_argument<'a>(
     tokens: &mut Tokens<'_, 'a>,
     wrapped: bool,
     garbage: bool,

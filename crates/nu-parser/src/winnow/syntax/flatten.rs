@@ -585,6 +585,7 @@ impl<'a> Visitor<'a> for Flattener<'_> {
                 self.push(alias.ty.span, FlatShape::Type);
             }
             Expr::Use(use_statement) => {
+                self.args(&use_statement.flags);
                 self.visit_expression(&use_statement.module);
                 for member in &use_statement.members {
                     match &member.kind {
