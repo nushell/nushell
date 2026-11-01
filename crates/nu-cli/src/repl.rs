@@ -20,8 +20,8 @@ use log::{error, trace, warn};
 use miette::{ErrReport, IntoDiagnostic, Result};
 use nu_cmd_base::util::get_editor;
 use nu_color_config::StyleComputer;
-use nu_engine::{env_to_strings, redirect_env};
 use nu_engine::exit::cleanup_exit;
+use nu_engine::{env_to_strings, redirect_env};
 use nu_parser::{lex, trim_quotes_str};
 use nu_protocol::shell_error::io::IoError;
 use nu_protocol::{BannerKind, ShellIntegrationConfig, shell_error};
@@ -923,12 +923,25 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
                 // drop host_commands so we can no longer access it,
                 // because the index may potentially resolve to the swapped value.
                 drop(host_commands);
+                let span = val.span();
 
                 match val {
-                    Value::Closure { val: closure, .. } => {
+                    Value::Closure { val: closure, .. } => 'closure_eval: {
                         let mut callee_stack =
                             stack.captures_to_stack_preserve_out_dest(closure.captures);
                         let block = engine_state.get_block(closure.block_id).clone();
+
+                        if !block.signature.required_positional.is_empty() {
+                            report_shell_error(
+                                Some(&stack),
+                                engine_state,
+                                &ShellError::IncompatibleParametersSingle {
+                                    msg: "ExecuteHostCommand closures take no parameters".into(),
+                                    span,
+                                },
+                            );
+                            break 'closure_eval;
+                        }
 
                         // set buffer and cursor position for `commandline` command
                         let mut repl = engine_state.repl_state.lock().expect("repl state mutex");
