@@ -1218,13 +1218,16 @@ impl<'s> Lower<'_, '_, 's> {
         // included, and gives garbage over the misplaced one.
         // `export` and `alias` and the items after them, as `parse_alias` takes them.
         let mut alias_spans = Vec::new();
+        // In a module's body `parse_export_in_module` hands `parse_alias` the items after
+        // `export`.
+        let with_export = export && module_name.is_none();
         if keyword == "alias" {
             let keyword_start = match &command.expr {
                 w::Expr::Export(export) => self.span(export.item.span).start,
                 _ => self.span(call.head.span).start,
             };
             let start = self.span(command.span).start;
-            let spans: Vec<Span> = (export.then(|| Span::new(start, start + "export".len())))
+            let spans: Vec<Span> = (with_export.then(|| Span::new(start, start + "export".len())))
                 .into_iter()
                 .chain(Some(Span::new(
                     keyword_start,
@@ -1236,12 +1239,17 @@ impl<'s> Lower<'_, '_, 's> {
                         .map(|argument| self.span(argument.span())),
                 )
                 .collect();
-            let errors = self.working_set.parse_errors.len();
             if let Some(span) = check_alias_name(self.working_set, &spans) {
-                // An export makes the garbage its own and reports it (`warp_export_call`).
+                // An export makes the garbage cover the statement and reports that it holds no
+                // call to export (`warp_export_call`).
                 if export {
-                    self.working_set.parse_errors.truncate(errors);
-                    return Err(Unlowered::Unsupported("export of a misplaced alias"));
+                    let statement = self.span(command.span);
+                    let keyword_start = spans[usize::from(with_export)].start;
+                    self.working_set.error(ParseError::InternalError(
+                        "unexpected output from parsing a definition".into(),
+                        Span::new(keyword_start, statement.end),
+                    ));
+                    return Ok((garbage(self.working_set, statement), None));
                 }
                 return Ok((garbage(self.working_set, *span), None));
             }
@@ -1340,19 +1348,8 @@ impl<'s> Lower<'_, '_, 's> {
                 }
                 return Ok((garbage(self.working_set, call_span), None));
             }
-            // In a module's body `parse_export_in_module` gives `parse_alias` the statement
-            // without its `export`.
-            let args = if export { 2 } else { 1 };
-            let command = if export && module_name.is_some() {
-                1
-            } else {
-                0
-            };
-            report_incomplete_alias(
-                self.working_set,
-                &alias_spans[command..args],
-                &alias_spans[args..],
-            );
+            let args = usize::from(with_export) + 1;
+            report_incomplete_alias(self.working_set, &alias_spans[..args], &alias_spans[args..]);
         }
         // `parse_type_alias` reports items out of place, which the winnow parser read as the
         // call, with garbage over the statement.

@@ -3241,3 +3241,41 @@ fn binding_read_as_its_call_is_lowered(
     );
     Ok(())
 }
+
+/// A binding's first item is its name, a flag too, which nu refuses and goes on past; an
+/// `export alias` with a misplaced item is garbage over the statement with
+/// `warp_export_call`'s internal error, its check naming `export alias` in a script and `alias`
+/// in a module's body, as `parse_export_in_module` hands it the items after `export`.
+#[rstest]
+#[case::help_flag_as_a_name("let --help x = 1", &[("Expected", "--help"), ("ExtraTokens", "x")])]
+#[case::export_const_help("export const -h c = 1", &[("Expected", "-h"), ("ExtraTokens", "c")])]
+#[case::export_alias_help(
+    "export alias --help a = ls",
+    &[("AssignmentMismatch", "a"), ("InternalError", "alias --help a = ls")]
+)]
+#[case::export_alias_help_in_a_module(
+    "module m {\n  export alias --help a = ls\n}",
+    &[
+        ("AssignmentMismatch", "a"),
+        ("InternalError", "alias --help a = ls"),
+        ("InternalError", "alias --help a = ls"),
+    ]
+)]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn flag_where_a_name_goes_is_lowered(
+    #[case] code: &str,
+    #[case] expected: &[(&str, &str)],
+) -> Result {
+    let expected: Vec<(String, String)> = expected
+        .iter()
+        .map(|(kind, text)| (kind.to_string(), text.to_string()))
+        .collect();
+    assert_eq!(
+        super::winnow_calls::lowered_errors(code),
+        expected,
+        "`{code}`"
+    );
+    Ok(())
+}

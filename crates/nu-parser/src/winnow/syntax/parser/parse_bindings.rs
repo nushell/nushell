@@ -8,9 +8,7 @@ use crate::winnow::syntax::input::{ParseFailure, ParseResult, cut};
 use crate::winnow::syntax::lex::{AssignmentOperator, TokenContents};
 use crate::winnow::syntax::span::Spanned;
 
-use super::parse_keywords::{
-    KeywordBoundary, call_after_error, keyword_boundary_with, keyword_flag, parse_help_call,
-};
+use super::parse_keywords::{KeywordBoundary, call_after_error, keyword_flag, parse_help_call};
 use super::parse_pipelines::parse_value_block;
 use super::parse_signatures::{parse_type_after_var, parse_var_with_opt_type};
 use super::tokens::Tokens;
@@ -66,7 +64,8 @@ fn parse_binding<'a>(mut tokens: Tokens<'_, 'a>, kind: BindingKind) -> ParseResu
     // keyword, whose first error is its own: a flag it does not have (`let --foo x`), a missing
     // name (`let = 1`, MissingPositional, the consumer's), or another word in the `=`'s place
     // (`let x += 1`, ExpectedKeyword) or nothing after it (`let x =`, KeywordMissingArgument),
-    // which nu reports and goes on past. In a binding a flag is no name (`let --help x = 1`).
+    // which nu reports and goes on past. In a binding the first item is the name, a flag too
+    // (`let --help x = 1`), which nu refuses (Expected) and goes on past.
     let is_assign = |index: usize| {
         items.get(index).is_some_and(|token| {
             token.contents == TokenContents::AssignmentOperator(AssignmentOperator::Assign)
@@ -75,15 +74,9 @@ fn parse_binding<'a>(mut tokens: Tokens<'_, 'a>, kind: BindingKind) -> ParseResu
     let binds = items.len() >= 4 && (2..items.len() - 1).any(is_assign);
     let boundary = match binds {
         false => keyword_flag(&mut tokens, &[], false),
-        true => keyword_boundary_with(&mut tokens, keyword_name, &[], false)?,
+        true => KeywordBoundary::Argument,
     };
     if let KeywordBoundary::Help | KeywordBoundary::UnknownFlag = boundary {
-        if binds {
-            let at = tokens
-                .peek_token()
-                .map_or(tokens.here(), |token| token.span);
-            return Err(cut(Diagnostic::expected("valid variable name", at)));
-        }
         return parse_help_call(statement);
     }
     if has_equals && !binds {
