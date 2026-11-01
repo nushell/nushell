@@ -9,16 +9,20 @@ use nu_protocol::{
     CompileError, DeclId, Flag, ParseError, Signature, Span, Spanned, SyntaxShape, Type, TypeSet,
     ast::{Argument, Call, Expr, Expression, ExternalArgument, Keyword},
     did_you_mean,
-    engine::CommandType,
+    engine::{CommandType, StateWorkingSet},
 };
 
 use super::{Lower, Lowered, Unlowered, value::best_guess_propagates};
-use crate::winnow::syntax::{DeclKind, ItemsValue, Span as WSpan, ast as w, parse_items};
+use crate::winnow::syntax::lex::{LexOptions, TokenContents};
+use crate::winnow::syntax::{
+    DeclKind, ItemsValue, Span as WSpan, ast as w, parse_headed_call, parse_items,
+};
 use crate::{
     parse_calls::{
-        CallKind, accepts_any_bareword, check_call, find_decl_with_command_type,
-        find_longest_decl_with_prefix, parse_external_string, parse_regular_external_arg,
-        parse_unknown_arg, shape_allows_negative_number, strict_extern_forwards,
+        CallKind, accepts_any_bareword, check_call, find_decl_with_command_type, find_longest_decl,
+        find_longest_decl_with_prefix, parse_external_call, parse_external_string,
+        parse_regular_external_arg, parse_unknown_arg, shape_allows_negative_number,
+        strict_extern_forwards,
     },
     parse_expressions::{
         is_math_expression_like, parse_closure_expression, parse_math_expression,
@@ -1763,4 +1767,46 @@ fn is_multispan_shape(shape: &SyntaxShape) -> bool {
         SyntaxShape::OneOf(shapes) => shapes.iter().any(is_multispan_shape),
         _ => false,
     }
+}
+
+/// The completer's next-shorter reading of the command head at `head`
+/// (`parse_shorter_head_reading`), the winnow way: the head's items, the longest command name
+/// shorter than the one they spell (`find_longest_decl`), and the call to it, its other items
+/// the arguments, read by the winnow parser and lowered as `parse_internal_call` builds it
+/// whatever kind the command is; with no such command, nu's external call over the items.
+/// `Some(None)` when the head has no shorter reading (a single word); `None` when the winnow
+/// parser cannot read the call.
+pub(in crate::winnow) fn shorter_head_reading(
+    working_set: &mut StateWorkingSet,
+    head: Span,
+    input_type: Option<&Type>,
+) -> Option<Option<Expression>> {
+    let source = String::from_utf8(working_set.get_span_contents(head).to_vec()).ok()?;
+    let tokens = crate::winnow::syntax::lex::lex(&source, 0, LexOptions::BLOCK).ok()?;
+    let items: Vec<Span> = tokens
+        .iter()
+        .filter(|token| token.contents == TokenContents::Item)
+        .map(|token| Span::new(head.start + token.span.start, head.start + token.span.end))
+        .collect();
+    let (_, greedy, _, _) = find_longest_decl(working_set, &items);
+    if greedy <= 1 {
+        return Some(None);
+    }
+    let (_, words, _, decl) = find_longest_decl(working_set, &items[..greedy - 1]);
+    let call_span = Span::concat(&items);
+    let Some(decl_id) = decl else {
+        return Some(Some(parse_external_call(working_set, &items, call_span)));
+    };
+    let local = WSpan::new(call_span.start - head.start, call_span.end - head.start);
+    let cell = RefCell::new(working_set);
+    let tree = parse_headed_call(&source, local, EngineLookup::new(&cell), words)?;
+    let mut working_set = cell.borrow_mut();
+    let mut lower = Lower::new(&mut working_set, &source, head.start);
+    let w::Expr::Call(call) = &tree.expr else {
+        return None;
+    };
+    lower
+        .ordinary_call(&tree, call, decl_id, input_type)
+        .ok()
+        .map(Some)
 }

@@ -123,6 +123,29 @@ fn parse_call_with<'a>(
     parse_call_with_kind(tokens, first.span, head, kind, None, lenient)
 }
 
+/// A call whose head is its first `head_words` items, whatever longer command name starts with
+/// them: nu's next-shorter reading of a head that matched a multi-word subcommand
+/// (`parse_shorter_head_reading`, for the completer), the other items its arguments.
+pub fn parse_call_with_head_words<'a>(
+    mut tokens: Tokens<'_, 'a>,
+    head_words: usize,
+) -> ParseResult<Expression<'a>> {
+    let working_set = tokens.working_set;
+    let first = tokens.expect_item("command")?;
+    let mut words = vec![working_set.get_span_contents(first.span)];
+    let mut last = first;
+    for _ in 1..head_words {
+        last = tokens.expect_item("command")?;
+        words.push(working_set.get_span_contents(last.span));
+    }
+    let head = CallHead {
+        name: Cow::Owned(words.join(" ")),
+        span: first.span.merge(last.span),
+    };
+    let kind = working_set.find_decl(&head.name);
+    parse_call_with_kind(tokens, first.span, head, kind, None, false)
+}
+
 /// The rest of a call to `head`, a command of `kind`, which starts at `start` (its head, or its
 /// `%`): the arguments as nu reads them by the command's signature. A row-condition command's
 /// (`any $it > 2`) are one condition, unless the first is a flag, whose value nu takes by the

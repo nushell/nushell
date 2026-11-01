@@ -852,3 +852,44 @@ fn statement_read_otherwise_is_lowered(
     assert_eq!(lowered_errors(code), expected, "`{code}`");
     Ok(())
 }
+
+/// The completer's next-shorter reading of a command head (`parse_shorter_head_reading`) goes
+/// through the winnow front end: a call to the longest shorter command, the rest of the head its
+/// arguments, or an external call when no shorter command exists; a single word has none.
+#[rstest]
+#[case::shorter_command(
+    "def foo [arg?: string] {}; def \"foo bar\" [] {}",
+    "foo bar",
+    Some("foo")
+)]
+#[case::no_shorter_command("def \"zz top\" [] {}", "zz top", None)]
+#[nu_test_support::test]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn shorter_head_reading_is_lowered(
+    #[case] definitions: &str,
+    #[case] head: &str,
+    #[case] command: Option<&str>,
+) -> Result {
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    nu_parser::parse(&mut working_set, None, definitions.as_bytes(), false);
+    let start = working_set.next_span_start();
+    let _ = working_set.add_file("head", head.as_bytes());
+    let span = nu_protocol::Span::new(start, start + head.len());
+    let reading = nu_parser::parse_shorter_head_reading(&mut working_set, span, None)
+        .expect("a two-word head has a shorter reading");
+    match (command, &reading.expr) {
+        (Some(name), Expr::Call(call)) => {
+            assert_eq!(working_set.get_decl(call.decl_id).name(), name);
+            assert_eq!(call.positional_iter().count(), 1);
+        }
+        (None, Expr::ExternalCall(..)) => {}
+        (_, other) => panic!("`{head}`: unexpected reading {other:?}"),
+    }
+    assert!(
+        working_set.parse_errors.is_empty(),
+        "{:?}",
+        working_set.parse_errors
+    );
+    Ok(())
+}

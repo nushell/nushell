@@ -434,6 +434,29 @@ pub(crate) fn parse_items<'a>(
     }
 }
 
+/// The call covering `span` of `source` whose head is its first `head_words` items
+/// ([`parse_calls::parse_call_with_head_words`]), with the commands `lookup` knows. `None` when
+/// it does not parse to the end of `span`; an error the parser went on past leaves a garbage
+/// node, which the consumer reads with nu's error.
+pub(crate) fn parse_headed_call<'a>(
+    source: &'a str,
+    span: Span,
+    lookup: impl CommandLookup + 'a,
+    head_words: usize,
+) -> Option<Expression<'a>> {
+    let working_set = WorkingSet::with_lookup(source, span, lookup);
+    let tokens = working_set.lex(span, LexOptions::BLOCK).ok()?;
+    let tokens = tokens::Tokens::from_lexed(&working_set, &tokens);
+    let parsed = parse_calls::parse_call_with_head_words(tokens, head_words);
+    let recovered = working_set
+        .take_errors_from(0)
+        .iter()
+        .all(|diagnostic| diagnostic.recovered);
+    parsed
+        .ok()
+        .filter(|expression| expression.span == span && recovered)
+}
+
 /// The arms of the `{ ... }` covering `span` of `source`, which a call's arguments read as a
 /// block (`match 1 { _ => 1 } extra`, a `match` whose extra argument makes it an ordinary call),
 /// parsed again as the match block nu's value parser reads there

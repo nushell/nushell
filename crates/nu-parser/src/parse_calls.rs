@@ -2085,6 +2085,12 @@ pub fn parse_shorter_head_reading(
     head: Span,
     input_type: Option<&Type>,
 ) -> Option<Expression> {
+    if crate::winnow::enabled()
+        && let Some(reading) =
+            crate::winnow::parse_shorter_head_reading(working_set, head, input_type)
+    {
+        return reading;
+    }
     let (tokens, _) = crate::lex_once::lex_span(working_set, head, &[], &[], true);
     let spans: Vec<Span> = tokens.into_iter().map(|token| token.span).collect();
 

@@ -67,6 +67,7 @@ use nu_protocol::{
 use crate::parse_calls::{CallKind, check_call};
 use crate::winnow::syntax::Span as WSpan;
 
+pub(super) use call::shorter_head_reading;
 pub(super) use signature::Predecl;
 pub(super) use statement::{BlockErrors, BlockOf, StatementTarget, parse_classic};
 
