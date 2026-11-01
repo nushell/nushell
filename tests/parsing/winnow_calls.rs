@@ -796,3 +796,29 @@ fn values_read_again_with_errors_are_lowered(
     assert_eq!(lowered_errors(code), expected, "`{code}`");
     Ok(())
 }
+
+/// An item that is no block where `try`, `loop` or `while` take one: nu reads the keyword's
+/// call, whose block positional reports the item, and goes on; lowered, not handed to the
+/// classic parser.
+#[rstest]
+#[case::try_list("try [1]", &[("ExpectedWithStringMsg", "[1]")])]
+#[case::loop_list("loop [1]", &[("ExpectedWithStringMsg", "[1]")])]
+#[case::while_list("while true [1]", &[("ExpectedWithStringMsg", "[1]")])]
+#[case::try_keyword_first(
+    "try catch { 1 }",
+    &[("Expected", "catch"), ("ExpectedKeyword", "{ 1 }"), ("KeywordMissingArgument", "")]
+)]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn keyword_block_that_is_no_block_is_lowered(
+    #[case] code: &str,
+    #[case] expected: &[(&str, &str)],
+) -> Result {
+    let expected: Vec<(String, String)> = expected
+        .iter()
+        .map(|(kind, text)| (kind.to_string(), text.to_string()))
+        .collect();
+    assert_eq!(lowered_errors(code), expected, "`{code}`");
+    Ok(())
+}
