@@ -241,7 +241,7 @@ pub(crate) fn create_nu_constant(engine_state: &EngineState, span: Span) -> Valu
 fn eval_const_call(
     working_set: &StateWorkingSet,
     call: &Call,
-    input: PipelineData,
+    mut input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let decl = working_set.get_decl(call.decl_id);
 
@@ -265,11 +265,33 @@ fn eval_const_call(
         return Ok(PipelineData::empty());
     }
 
+    // Make sure that iterating the value itself can be interrupted, as the IR
+    // evaluator does: `1..10000000000 | math sum`.
+    if let PipelineData::Value(value, ..) = &mut input {
+        value.inject_signals(working_set.permanent());
+    }
     let mut stack = Stack::new();
     let ir_call = build_const_ir_call(working_set, call, &decl.signature(), &mut stack)?;
     let result = decl.run_const(working_set, &mut stack, &(&ir_call).into(), input);
     ir_call.leave(&mut stack);
+    // A command stopped by an interrupt returns what it had so far, or an
+    // error about the input it didn't get.
+    working_set.permanent().signals().check(&call.head)?;
     result
+}
+
+/// `data`, the output of a const command or block, as one value. A stream
+/// stops at an interrupt, and the check after collecting it keeps the part
+/// collected so far from being taken for the value: `const xs = 1..1000000000
+/// | math abs` interrupted is an error, not a short list.
+fn collect_const(
+    working_set: &StateWorkingSet,
+    data: PipelineData,
+    span: Span,
+) -> Result<Value, ShellError> {
+    let value = data.into_value(span)?;
+    working_set.permanent().signals().check(&span)?;
+    Ok(value)
 }
 
 /// Evaluate a single const-call argument expression to a [`Value`].
@@ -406,13 +428,24 @@ fn eval_const_if(
     }
 }
 
+/// The output of `block`'s last pipeline, with `input` going to the first.
+///
+/// Between pipelines this does what a `;` does when the block runs: a
+/// stream is drained, raising an error it holds, a value is dropped, and the
+/// next pipeline starts with no input.
 pub fn eval_const_subexpression(
     working_set: &StateWorkingSet,
     block: &Block,
     mut input: PipelineData,
     span: Span,
 ) -> Result<PipelineData, ShellError> {
-    for pipeline in block.pipelines.iter() {
+    for (index, pipeline) in block.pipelines.iter().enumerate() {
+        if index > 0 {
+            let previous = std::mem::replace(&mut input, PipelineData::empty());
+            if !matches!(previous, PipelineData::Value(..)) {
+                previous.drain()?;
+            }
+        }
         for element in pipeline.elements.iter() {
             if element.redirection.is_some() {
                 return Err(ShellError::NotAConstant { span });
@@ -480,7 +513,8 @@ impl Eval for EvalConst {
     ) -> Result<Value, ShellError> {
         // TODO: Allow debugging const eval
         // TODO: eval.rs uses call.head for the span rather than expr.span
-        eval_const_call(working_set, call, PipelineData::empty())?.into_value(span)
+        let data = eval_const_call(working_set, call, PipelineData::empty())?;
+        collect_const(working_set, data, span)
     }
 
     fn eval_external_call(
@@ -519,7 +553,8 @@ impl Eval for EvalConst {
         }
         // TODO: Allow debugging const eval
         let block = working_set.get_block(block_id);
-        eval_const_subexpression(working_set, block, PipelineData::empty(), span)?.into_value(span)
+        let data = eval_const_subexpression(working_set, block, PipelineData::empty(), span)?;
+        collect_const(working_set, data, span)
     }
 
     fn regex_match(

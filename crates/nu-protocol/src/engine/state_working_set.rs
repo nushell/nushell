@@ -35,6 +35,9 @@ pub struct StateWorkingSet<'a> {
     /// The REPL highlighter sets this so typing `use std` does not parse-time-load
     /// the standard library on every keystroke.
     pub skip_module_load: bool,
+    /// Set when [`skip_module_load`](Self::skip_module_load) left a module
+    /// unloaded, so what it would have imported is missing from the parse.
+    pub skipped_module_load: bool,
     pub parse_errors: Vec<ParseError>,
     pub parse_warnings: Vec<ParseWarning>,
     pub compile_errors: Vec<CompileError>,
@@ -72,6 +75,7 @@ impl<'a> StateWorkingSet<'a> {
             files,
             search_predecls: true,
             skip_module_load: false,
+            skipped_module_load: false,
             parse_errors: vec![],
             parse_warnings: vec![],
             compile_errors: vec![],

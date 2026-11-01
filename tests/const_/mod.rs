@@ -226,6 +226,17 @@ fn const_subexpression_supported() -> Result {
     test().run(code).expect_value_eq("spam")
 }
 
+/// Only the first pipeline of a block gets its input, as when it runs.
+#[rstest]
+#[case::after_a_semicolon("const x = ([1 2 3]; describe); $x", "nothing")]
+#[case::input_of_the_block("const x = ([1 2 3] | (1; describe)); $x", "nothing")]
+fn const_later_pipelines_get_no_input(
+    #[case] code: &str,
+    #[case] expect: impl IntoValue,
+) -> Result {
+    test().run(code).expect_value_eq(expect)
+}
+
 #[test]
 fn const_command_supported() -> Result {
     let code = "
