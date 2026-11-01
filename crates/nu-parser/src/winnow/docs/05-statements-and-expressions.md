@@ -327,7 +327,10 @@ the consumer reads as nu's `parse_attribute_block` does. Before an `export`
 of no definition (`export module y {}`) nu's `parse_export_in_block` does the
 same, and its `warp_export_call` then reports the attribute block, which is no
 call, from the statement's second item on; the consumer does that too
-(`exported_attribute_block`). A blank or comment line after the attributes
+(`exported_attribute_block`). A definition nu reads as its keyword's call
+(`@example ... def f [a, a] {}`) keeps its attributes: the consumer reads
+them first and hands their values to `finish_def` or `finish_extern`, as
+for any definition. A blank or comment line after the attributes
 ends the command; the comment line belongs to the statement after it, as nu
 gives it to the command after it (a doc comment of a `def` there).
 

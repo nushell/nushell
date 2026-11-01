@@ -1222,6 +1222,7 @@ impl<'s> Lower<'_, '_, 's> {
         pipeline: &w::Pipeline<'s>,
         command: &w::Expression<'s>,
         call: &w::Call<'s>,
+        attributes: &[w::Attribute<'s>],
         module_name: Option<&[u8]>,
         input_type: Option<&Type>,
     ) -> Lowered<Definition> {
@@ -1239,6 +1240,9 @@ impl<'s> Lower<'_, '_, 's> {
         if keyword == "where" {
             return Ok((self.where_call(command, call)?, None));
         }
+        // A definition's attributes (`def` and `extern` only), which `parse_def` and
+        // `parse_extern` read before the call.
+        let (lowered_attributes, attribute_values) = self.attributes(attributes)?;
         let export = matches!(command.expr, w::Expr::Export(_));
         // `parse_alias` checks where its items stand before anything else, a call for help
         // included, and gives garbage over the misplaced one.
@@ -1429,7 +1433,7 @@ impl<'s> Lower<'_, '_, 's> {
         }
         let (mut expression, decl) = match keyword {
             "def" => {
-                let (desc, extra_desc) = self.description(pipeline, &[], command);
+                let (desc, extra_desc) = self.description(pipeline, attributes, command);
                 finish_def(
                     self.working_set,
                     DefCall {
@@ -1441,12 +1445,12 @@ impl<'s> Lower<'_, '_, 's> {
                     },
                     desc,
                     extra_desc,
-                    Vec::new(),
+                    attribute_values,
                     module_name,
                 )
             }
             "extern" => {
-                let (desc, extra_desc) = self.description(pipeline, &[], command);
+                let (desc, extra_desc) = self.description(pipeline, attributes, command);
                 let name_span = name_span.map_or(call_span, |span| self.span(span));
                 finish_extern(
                     self.working_set,
@@ -1455,7 +1459,7 @@ impl<'s> Lower<'_, '_, 's> {
                     name_span,
                     desc,
                     extra_desc,
-                    Vec::new(),
+                    attribute_values,
                     module_name,
                 )
             }
@@ -1465,6 +1469,24 @@ impl<'s> Lower<'_, '_, 's> {
             ),
             _ => (self.node(Expr::Call(lowered), call_span, output), None),
         };
+        // Attributes make the definition an attribute block, its export covering them.
+        if !lowered_attributes.is_empty() {
+            let mut expression = self.definition_expression(
+                expression,
+                lowered_attributes,
+                command,
+                attributes,
+                module_name,
+                &export_name,
+            )?;
+            if matches!(command.expr, w::Expr::Export(_))
+                && let Expr::AttributeBlock(block) = &mut expression.expr
+                && let Expr::Call(call) = &mut block.item.expr
+            {
+                call.head = head;
+            }
+            return Ok((expression, decl));
+        }
         if let w::Expr::Export(export) = &command.expr {
             if matches!(keyword, "def" | "extern") && !matches!(expression.expr, Expr::Call(_)) {
                 let expression = self.exported_garbage(expression, export, call_span, call_span);

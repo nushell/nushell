@@ -232,7 +232,8 @@ impl<'s> Lower<'_, '_, 's> {
                 if attributes.is_empty()
                     && MODULE_HELP_KEYWORDS.contains(&call.head.name.as_ref()) =>
             {
-                self.help_statement(pipeline, command, call, None, None)?.0
+                self.help_statement(pipeline, command, call, &[], None, None)?
+                    .0
             }
             w::Expr::Use(use_statement) if attributes.is_empty() => {
                 let (pipeline, _) =
@@ -355,7 +356,7 @@ impl<'s> Lower<'_, '_, 's> {
                 // command, or reports that none was found.
                 w::Expr::Call(call) if attributes.is_empty() => {
                     let (expression, decl) =
-                        self.help_statement(pipeline, command, call, Some(module_name), None)?;
+                        self.help_statement(pipeline, command, call, &[], Some(module_name), None)?;
                     if let Some((name, decl_id)) = decl {
                         self.add_export_decl(module, module_name, name, decl_id, &expression);
                     } else if call.head.name.as_ref() == "alias" {
@@ -654,7 +655,7 @@ impl<'s> Lower<'_, '_, 's> {
                 }
                 w::Expr::Call(call) => {
                     let e = &element.expr;
-                    self.help_statement(pipeline, e, call, None, None)?.0
+                    self.help_statement(pipeline, e, call, &[], None, None)?.0
                 }
                 _ => return Err(Unlowered::Unsupported("export")),
             },
@@ -679,6 +680,11 @@ impl<'s> Lower<'_, '_, 's> {
                             }
                             false => expression,
                         }
+                    }
+                    // A definition nu reads as its keyword's call (`def f [a, a] {}`).
+                    w::Expr::Call(call) if matches!(call.head.name.as_ref(), "def" | "extern") => {
+                        self.help_statement(pipeline, command, call, attributes, None, None)?
+                            .0
                     }
                     _ => return Err(Unlowered::Unsupported("attributes")),
                 }
@@ -719,7 +725,7 @@ impl<'s> Lower<'_, '_, 's> {
                     name if HELP_STATEMENT_KEYWORDS.contains(&name) => {
                         let e = &element.expr;
                         let (statement, _) =
-                            self.help_statement(pipeline, e, call, None, input_type)?;
+                            self.help_statement(pipeline, e, call, &[], None, input_type)?;
                         return Ok(Pipeline::from_vec(vec![statement]));
                     }
                     name if name.split(' ').next() == Some("overlay") => {

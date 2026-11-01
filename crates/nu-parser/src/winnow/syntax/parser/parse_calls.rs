@@ -13,7 +13,7 @@ use crate::winnow::syntax::ast::{
     SyntaxShape,
 };
 use crate::winnow::syntax::error::{Diagnostic, ErrorKind};
-use crate::winnow::syntax::input::{ParseFailure, ParseResult};
+use crate::winnow::syntax::input::{ParseFailure, ParseResult, cut};
 use crate::winnow::syntax::lex::{Token, TokenContents};
 use crate::winnow::syntax::span::{Span, Spanned};
 
@@ -21,7 +21,7 @@ use super::WorkingSet;
 use super::parse_control_flow::{parse_if, parse_match, parse_try};
 use super::parse_expressions::{ExpectedShape, parse_value};
 use super::parse_helpers::is_spread;
-use super::parse_literals::{parse_raw_string, parse_string};
+use super::parse_literals::{parse_raw_string, parse_string, unescape_string};
 use super::parse_module::parse_import_pattern_member;
 use super::parse_source::parse_condition;
 use super::tokens::{Tokens, call_item, expected, item, repeat_to_end};
@@ -729,10 +729,26 @@ pub fn parse_external_string<'a>(
     if from < bytes.len() {
         segments.push((from, bytes.len()));
     }
+    // A quote left open, which nu's lexer reported: nu's `parse_string` takes the text from it
+    // to the end as it is, unescaped after a double quote (`world"` is the command `world"`).
+    let open_quote = matches!(state, ExternalStringSegment::Quote { .. });
+    let last = segments.len().saturating_sub(1);
     let mut parts: Vec<InterpolationPart<'a>> = Vec::with_capacity(segments.len());
     let mut all_text = true;
-    for (start, end) in segments {
+    for (index, (start, end)) in segments.into_iter().enumerate() {
         let segment = Span::new(span.start + start, span.start + end);
+        let text = working_set.get_span_contents(segment);
+        if open_quote && index == last && text.starts_with(['"', '\'']) {
+            let value = match text.starts_with('"') {
+                true => unescape_string(text, segment.start).map_err(cut)?,
+                false => Cow::Borrowed(text),
+            };
+            parts.push(InterpolationPart::Text {
+                span: segment,
+                value,
+            });
+            continue;
+        }
         match parse_string(working_set, segment)?.expr {
             Expr::String(literal) => parts.push(InterpolationPart::Text {
                 span: segment,

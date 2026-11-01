@@ -14,7 +14,7 @@ use nu_protocol::{
 use super::{BlockOf, Lower, Lowered, Unlowered, call::STATEMENTS_IN_PIPELINE};
 use crate::winnow::syntax::{Span as WSpan, ast as w, lex::AssignmentOperator};
 use crate::{
-    lex::{TokenContents, lex},
+    lex::{TokenContents, is_assignment_operator, lex},
     parse_calls::{CallKind, parse_external_call},
     parse_captures_compile::compile_block,
     parse_expressions::{is_math_expression_like, parse_math_expression},
@@ -50,6 +50,22 @@ impl<'s> Lower<'_, '_, 's> {
             w::Expr::Continue => self.bare_keyword_call(e, "continue"),
             w::Expr::Where(condition) => self.where_expression(e, condition),
             w::Expr::DynamicCall(call) => self.dynamic_call(e, call, input_type),
+            // An assignment without a left side (`= ls`), which the winnow parser left as
+            // garbage: nu reports it and goes on with garbage over the items
+            // (`parse_assignment_expression`).
+            w::Expr::Garbage
+                if self.parts(e.span).first().is_some_and(|first| {
+                    is_assignment_operator(self.working_set.get_span_contents(*first))
+                }) =>
+            {
+                let parts = self.parts(e.span);
+                self.working_set.error(ParseError::Expected(
+                    "left hand side of assignment",
+                    parts[0],
+                ));
+                let span = self.span(e.span);
+                Ok(Expression::garbage(self.working_set, span))
+            }
             w::Expr::Let(binding) if !self.alias_target => self.let_call(e, binding, input_type),
             // `BuiltinCommandInPipeline` and `AssignInPipeline` (`parse_expression`).
             w::Expr::Mut(_)

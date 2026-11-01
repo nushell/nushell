@@ -578,7 +578,7 @@ fn parse_binary_with_base<'a>(
 /// Like nu, `\xHH` contributes a raw byte and the result must be valid UTF-8
 /// as a whole: `"\xC3\xA9"` is `é`, `"\xC3"` is an error. `base` is the
 /// absolute offset of `text`, used for error spans.
-fn unescape_string(text: &str, base: usize) -> Result<Cow<'_, str>, Diagnostic> {
+pub(super) fn unescape_string(text: &str, base: usize) -> Result<Cow<'_, str>, Diagnostic> {
     if !text.contains('\\') {
         return Ok(Cow::Borrowed(text));
     }

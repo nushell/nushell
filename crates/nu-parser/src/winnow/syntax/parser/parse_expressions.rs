@@ -400,11 +400,18 @@ fn parse_assignment_expression<'a>(tokens: Tokens<'_, 'a>) -> ParseResult<Expres
         )));
     };
     let operator_token = items[operator_index];
+    // nu reports a missing left side and goes on with garbage over the items, as the consumer
+    // does: the error is recorded as recovered.
     if operator_index == 0 {
-        return Err(cut(Diagnostic::expected(
-            "left hand side of assignment",
-            operator_token.span,
-        )));
+        working_set.error(
+            Diagnostic::expected("left hand side of assignment", operator_token.span)
+                .as_recovered(),
+        );
+        let last = items.last().unwrap_or(&operator_token);
+        return Ok(Expression::new(
+            Expr::Garbage,
+            operator_token.span.merge(last.span),
+        ));
     }
     let lhs = parse_expression(tokens.slice(0..operator_index), Position::Element)?;
     // nu accepts anything its `parse_full_cell_path` produces as the left side:

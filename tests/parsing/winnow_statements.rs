@@ -3540,3 +3540,40 @@ fn alias_of_an_assignment_is_lowered(
     );
     Ok(())
 }
+
+/// Statements nu reads past an error the lexer or its own parser reports: an external command
+/// named by a word with a quote left open (the text to the end, as nu's `parse_string` takes
+/// it), an assignment without a left side (garbage over the items), in an alias's target too,
+/// and attributes before a definition nu reads as its keyword's call (a parameter named twice),
+/// whose values the definition still gets.
+#[rstest]
+#[case::external_open_quote("world\"", &[("Unclosed", "\"")])]
+#[case::caret_external_open_quote("^\"foo", &[("Unclosed", "o")])]
+#[case::assignment_without_a_left_side("= ls", &[("Expected", "=")])]
+#[case::alias_of_an_assignment_without_a_left_side("alias x = = ls", &[])]
+#[case::attributes_before_a_definition_call(
+    "@example \"x\" { f }\ndef f [a, a] { 1 }",
+    &[("MissingPositional", ""), ("DuplicateParameter", "a")]
+)]
+#[case::attributes_before_an_extern_call(
+    "@example \"x\" { e }\nextern e [a, a]",
+    &[("MissingPositional", "")]
+)]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn errors_nu_reads_past_are_lowered(
+    #[case] code: &str,
+    #[case] expected: &[(&str, &str)],
+) -> Result {
+    let expected: Vec<(String, String)> = expected
+        .iter()
+        .map(|(kind, text)| (kind.to_string(), text.to_string()))
+        .collect();
+    assert_eq!(
+        super::winnow_calls::lowered_errors(code),
+        expected,
+        "`{code}`"
+    );
+    Ok(())
+}
