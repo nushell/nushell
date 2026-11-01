@@ -809,6 +809,7 @@ fn parse_with_block_cache(
     let mut output = match winnow_block {
         Some(block) => Arc::new(block),
         None => {
+            let _classic = crate::winnow::enabled().then(crate::winnow::ClassicParse::start);
             let (output, err) = lex_file(working_set, new_span, &[], &[], false);
             if let Some(err) = err {
                 working_set.error(err)

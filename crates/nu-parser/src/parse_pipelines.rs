@@ -118,6 +118,16 @@ pub fn parse_pipeline(
     pipeline: &LitePipeline,
     input_type: Option<&Type>,
 ) -> Pipeline {
+    if crate::winnow::enabled() {
+        let parts = pipeline
+            .commands
+            .iter()
+            .flat_map(|command| command.parts.iter().copied());
+        crate::winnow::record_classic_pipeline(
+            Span::concat(&parts.collect::<Vec<_>>()),
+            working_set,
+        );
+    }
     match pipeline.commands.as_slice() {
         [] => unreachable!("at this point the pipeline must have at least one element"),
         [single] => parse_builtin_commands(working_set, single, input_type),
@@ -182,6 +192,18 @@ pub fn parse_block(
     is_subexpression: bool,
     input_type: Option<&Type>,
 ) -> Block {
+    if let Some(block) = crate::winnow::nested_block(
+        working_set,
+        tokens,
+        span,
+        scoped,
+        is_subexpression,
+        input_type,
+    ) {
+        return block;
+    }
+    // What the winnow front end could not take is nu-parser's, the blocks inside it too.
+    let _classic = crate::winnow::enabled().then(crate::winnow::ClassicParse::start);
     let (lite_block, err) = lite_parse(tokens, working_set);
     if let Some(err) = err {
         working_set.error(err);

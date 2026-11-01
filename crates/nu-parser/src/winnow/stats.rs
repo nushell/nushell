@@ -30,6 +30,7 @@ static ERROR_STATEMENTS: AtomicU64 = AtomicU64::new(0);
 static AHEAD_RUNS: AtomicU64 = AtomicU64::new(0);
 static AHEAD_FALLBACKS: AtomicU64 = AtomicU64::new(0);
 static RECOVERED_STATEMENTS: AtomicU64 = AtomicU64::new(0);
+static CLASSIC_PIPELINES: AtomicU64 = AtomicU64::new(0);
 
 /// What the winnow front end has done in this process so far.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -59,6 +60,10 @@ pub struct WinnowStats {
     /// Statements with errors the winnow parser went on past (each left as a garbage node that
     /// the lowering reads again, reporting the error), lowered rather than handed over.
     pub recovered_statements: u64,
+    /// Pipelines `nu-parser`'s own statement parser (`parse_pipeline`) parsed while the option
+    /// was on: those of the hand-overs, and those of blocks the lowering had `nu-parser`'s value
+    /// parsers read (a closure, a subexpression). With the option on there should be none.
+    pub classic_pipelines: u64,
 }
 
 /// The counters so far.
@@ -73,6 +78,7 @@ pub fn winnow_stats() -> WinnowStats {
         ahead_runs: AHEAD_RUNS.load(Relaxed),
         ahead_fallbacks: AHEAD_FALLBACKS.load(Relaxed),
         recovered_statements: RECOVERED_STATEMENTS.load(Relaxed),
+        classic_pipelines: CLASSIC_PIPELINES.load(Relaxed),
     }
 }
 
@@ -102,6 +108,13 @@ pub(super) fn record_ahead_fallback(changed: &str) {
 /// Count a statement with errors the winnow parser went on past, given to the lowering.
 pub(super) fn record_recovered_statement() {
     RECOVERED_STATEMENTS.fetch_add(1, Relaxed);
+}
+
+/// Count a pipeline covering `span` that `nu-parser`'s statement parser parsed while the option
+/// was on, and log it.
+pub(crate) fn record_classic_pipeline(span: Span, working_set: &StateWorkingSet) {
+    CLASSIC_PIPELINES.fetch_add(1, Relaxed);
+    log_hand_over("nu-parser pipeline", span, working_set);
 }
 
 /// Count a statement the lowering turned into the AST.

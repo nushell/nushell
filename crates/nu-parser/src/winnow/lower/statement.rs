@@ -1100,6 +1100,8 @@ impl<'s> Lower<'_, '_, 's> {
         of: BlockOf,
         input_type: Option<&Type>,
     ) -> Lowered<Block> {
+        // Only the block nu-parser handed over was lexed by it, not the blocks inside it.
+        let caller_lexed = std::mem::take(&mut self.caller_lexed);
         // A statement that changes which commands exist (`use`, `overlay use`, `source`, ...)
         // changes how the statements after it parse, which the winnow parser could not know
         // when it parsed this block as part of its statement: the block is parsed again, one
@@ -1112,6 +1114,7 @@ impl<'s> Lower<'_, '_, 's> {
                 scoped,
                 of,
                 input_type: input_type.cloned(),
+                caller_lexed,
             };
             return parse_block(
                 self.working_set,
@@ -1125,6 +1128,9 @@ impl<'s> Lower<'_, '_, 's> {
             .ok_or(Unlowered::Unsupported("block that changes commands"));
         }
         let mut block_errors = BlockErrors::new(self.working_set);
+        if caller_lexed {
+            block_errors.lexed_by_caller();
+        }
         if let Some(lex_error) = block.lex_error() {
             let error = self.lex_parse_error(&lex_error.error, lex_error.lexed_from);
             block_errors.lex_error(self.working_set, error);
@@ -1341,6 +1347,7 @@ pub(in crate::winnow) fn parse_classic(
     out: &mut Vec<Pipeline>,
     block_errors: &mut BlockErrors,
 ) {
+    let _classic = crate::winnow::ClassicParse::start();
     let subexpression = matches!(
         target,
         StatementTarget::Block {
@@ -1447,6 +1454,13 @@ impl BlockErrors {
             lexed: false,
             lite_parsed: false,
         }
+    }
+
+    /// The block's lexer error was reported by nu-parser, which lexed the block's text itself
+    /// before handing the block over (`winnow::nested_block`): none is reported again, a
+    /// statement's that nu-parser parses either.
+    pub(in crate::winnow) fn lexed_by_caller(&mut self) {
+        self.lexed = true;
     }
 
     /// Report `error` as the block's lexer error, unless it has one.

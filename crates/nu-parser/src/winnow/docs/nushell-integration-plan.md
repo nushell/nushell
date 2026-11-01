@@ -48,6 +48,15 @@ source ──▶ parse_block_streaming (this parser) ──▶ one statement's s
   inline module's body among them, so it is parsed once. When a statement
   that `nu-parser` parsed calls `overlay use`, `overlay hide` or `overlay
   new` through an alias, `nu-parser` also parses the rest of that block.
+- **Blocks inside values `nu-parser` reads.** The lowering reads some values
+  with `nu-parser`'s value parsers (a range, a list item, a flag's value, a
+  pattern, an external word). Where such a value holds a block
+  (`0..($n - 1)`, `[(1 + 1)]`, `^echo foo(1 + 1)`), `nu-parser`'s
+  `parse_block` hands it back to this parser with the tokens its caller lexed
+  (`winnow::nested_block`), so no statement of it is `nu-parser`'s.
+  `WinnowStats::classic_pipelines` counts the pipelines `nu-parser`'s own
+  statement parser parses while the option is on: those of the hand-overs
+  below. With the option off, nothing of this parser runs.
 - **Errors.** The lowering reports the errors `nu-parser` reports and goes on
   past (a call's argument errors, values and operations of the wrong type, ...;
   see `lower/mod.rs`), with what `nu-parser` builds there; a statement it finds

@@ -974,6 +974,7 @@ impl<'s> Lower<'_, '_, 's> {
                 && !matches!(value, ItemsValue::AliasTarget | ItemsValue::Expression),
             drops_errors: self.drops_errors,
             redirection_spans: Vec::new(),
+            caller_lexed: false,
         };
         match value {
             ItemsValue::Math => lower.math(&tree, input_type),

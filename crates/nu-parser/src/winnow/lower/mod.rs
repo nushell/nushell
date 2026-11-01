@@ -71,6 +71,96 @@ pub(super) use call::shorter_head_reading;
 pub(super) use signature::Predecl;
 pub(super) use statement::{BlockErrors, BlockOf, StatementTarget, parse_classic};
 
+/// nu-parser's `parse_block` with the option on: the block covering `span` that nu-parser's
+/// caller lexed as `tokens` (the inside of `( ... )`, a closure's body, a binding's value), its
+/// statements parsed by the winnow parser from those tokens and lowered, so that no statement
+/// of it is nu-parser's. `None` when the text is not UTF-8, a statement has an error the winnow
+/// parser did not go past, or the lowering gives the block up.
+pub(super) fn nested_block(
+    working_set: &mut StateWorkingSet,
+    tokens: &[crate::Token],
+    span: Span,
+    scoped: bool,
+    is_subexpression: bool,
+    input_type: Option<&Type>,
+) -> Option<nu_protocol::ast::Block> {
+    use crate::TokenContents as Nu;
+    use crate::winnow::syntax::lex::{
+        RedirectionOperator, Token, TokenContents, assignment_operator,
+    };
+    // The text the tokens and the span cover together (a caller may pass a span that does not
+    // hold the tokens), which the working set must have whole.
+    let extent = tokens.iter().fold(span, |extent, token| {
+        Span::new(
+            extent.start.min(token.span.start),
+            extent.end.max(token.span.end),
+        )
+    });
+    let bytes = working_set.get_span_contents(extent);
+    if bytes.len() != extent.len() {
+        return None;
+    }
+    let source = String::from_utf8(bytes.to_vec()).ok()?;
+    let local = |at: Span| WSpan::new(at.start - extent.start, at.end - extent.start);
+    let mut converted = Vec::with_capacity(tokens.len() + 1);
+    for token in tokens {
+        let text = working_set.get_span_contents(token.span);
+        let contents = match token.contents {
+            Nu::Item => TokenContents::Item,
+            Nu::Comment => TokenContents::Comment,
+            Nu::Pipe => TokenContents::Pipe,
+            Nu::PipePipe => TokenContents::PipePipe,
+            Nu::Semicolon => TokenContents::Semicolon,
+            Nu::Eol => TokenContents::Eol,
+            Nu::AssignmentOperator => TokenContents::AssignmentOperator(assignment_operator(
+                std::str::from_utf8(text).ok()?,
+            )?),
+            Nu::OutGreaterThan => TokenContents::Redirection(RedirectionOperator::Out),
+            Nu::OutGreaterGreaterThan => TokenContents::Redirection(RedirectionOperator::OutAppend),
+            Nu::ErrGreaterThan => TokenContents::Redirection(RedirectionOperator::Err),
+            Nu::ErrGreaterGreaterThan => TokenContents::Redirection(RedirectionOperator::ErrAppend),
+            Nu::OutErrGreaterThan => TokenContents::Redirection(RedirectionOperator::OutErr),
+            Nu::OutErrGreaterGreaterThan => {
+                TokenContents::Redirection(RedirectionOperator::OutErrAppend)
+            }
+            Nu::ErrGreaterPipe => TokenContents::Redirection(RedirectionOperator::ErrPipe),
+            Nu::OutErrGreaterPipe => TokenContents::Redirection(RedirectionOperator::OutErrPipe),
+        };
+        converted.push(Token {
+            contents,
+            span: local(token.span),
+        });
+    }
+    let end = converted.last().map_or(0, |last: &Token| last.span.end);
+    converted.push(Token {
+        contents: TokenContents::Eof,
+        span: WSpan::point(end),
+    });
+    // The inside of `( ... )` was lexed with newlines as whitespace; a binding's value or an
+    // assignment's right side as a block is.
+    let of = match is_subexpression {
+        false => BlockOf::Code,
+        true if converted
+            .iter()
+            .any(|token| token.contents == TokenContents::Eol) =>
+        {
+            BlockOf::Value
+        }
+        true => BlockOf::Parentheses,
+    };
+    let cell = std::cell::RefCell::new(&mut *working_set);
+    let tree = crate::winnow::syntax::parse_lexed_block(
+        &source,
+        &converted,
+        of == BlockOf::Parentheses,
+        crate::winnow::lookup::EngineLookup::new(&cell),
+    )?;
+    let mut working_set = cell.borrow_mut();
+    let mut lower = Lower::new(&mut working_set, &source, extent.start);
+    lower.caller_lexed = true;
+    lower.block(&tree, span, scoped, of, input_type).ok()
+}
+
 /// Why a statement was not lowered: the driver then parses it with the classic parser.
 #[derive(Debug)]
 pub(super) enum Unlowered {
@@ -116,6 +206,10 @@ pub(super) struct Lower<'w, 'e, 's> {
     /// from a text in the element ([`Lower::parts`]) leave them out (`"a" o> f b` is the math
     /// expression `"a" b`).
     pub(super) redirection_spans: Vec<Span>,
+    /// The block being lowered is one nu-parser lexed, and reported the lexer's first error of,
+    /// before handing it over ([`nested_block`]): read again statement by statement, it does
+    /// not report that error again.
+    pub(super) caller_lexed: bool,
 }
 
 impl<'w, 'e, 's> Lower<'w, 'e, 's> {
@@ -146,6 +240,7 @@ impl<'w, 'e, 's> Lower<'w, 'e, 's> {
             alias_target: false,
             drops_errors: false,
             redirection_spans: Vec::new(),
+            caller_lexed: false,
         }
     }
 

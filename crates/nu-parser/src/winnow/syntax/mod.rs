@@ -35,7 +35,7 @@ pub use parser::{BlockSink, CommandLookup, CommandType, DeclKind, ParseConfig, P
 // Only the front end (`crate::winnow`) uses these.
 pub(crate) use parser::{
     AliasedKeyword, BlockStatements, Definitions, ItemsValue, TypeAliasPredecl,
-    parse_braces_as_closure, parse_headed_call, parse_items, parse_match_arms,
+    parse_braces_as_closure, parse_headed_call, parse_items, parse_lexed_block, parse_match_arms,
 };
 pub use span::{LineCol, LineIndex, Span, Spanned};
 

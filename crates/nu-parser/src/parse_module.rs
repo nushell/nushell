@@ -504,6 +504,7 @@ pub fn parse_module_block(
     {
         return parsed;
     }
+    let _classic = crate::winnow::enabled().then(crate::winnow::ClassicParse::start);
 
     working_set.enter_scope();
 

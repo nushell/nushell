@@ -58,7 +58,7 @@ use std::sync::Arc;
 
 use crate::winnow::syntax::ast::{Ast, Block, Expr, Expression};
 use crate::winnow::syntax::error::Diagnostic;
-use crate::winnow::syntax::lex::{LexOptions, TokenContents};
+use crate::winnow::syntax::lex::{LexOptions, Token, TokenContents};
 use crate::winnow::syntax::span::Span;
 
 pub use parse_def::{Definitions, PredeclaredDef, TypeAliasPredecl};
@@ -474,6 +474,42 @@ pub(crate) fn parse_headed_call<'a>(
     parsed
         .ok()
         .filter(|expression| expression.span == span && recovered)
+}
+
+/// The statements of `tokens`, which another lexer gave for text of `source` (a block
+/// nu-parser's value parsers lexed: the inside of `( ... )`, a closure's body), with the
+/// commands `lookup` knows; the block covers the tokens, from the first to the last, as
+/// `source` may hold more (a closure's brace). The text is lexed once more only to record its
+/// lexer's errors (as a `subexpression`'s when set), which statements that nu-parser lexes
+/// again report (a binding's value); the tokens stay the other lexer's. `None` when a statement
+/// has an error the parser did not go past.
+pub(crate) fn parse_lexed_block<'a>(
+    source: &'a str,
+    tokens: &[Token],
+    subexpression: bool,
+    lookup: impl CommandLookup + 'a,
+) -> Option<Block<'a>> {
+    let working_set = WorkingSet::with_lookup(source, Span::new(0, source.len()), lookup);
+    let mut items = tokens
+        .iter()
+        .filter(|token| token.contents != TokenContents::Eof);
+    let span = match (items.next(), items.next_back()) {
+        (Some(first), Some(last)) => first.span.merge(last.span),
+        (Some(only), None) => only.span,
+        _ => Span::point(tokens.last().map_or(0, |eof| eof.span.start)),
+    };
+    let options = match subexpression {
+        true => LexOptions::SUBEXPRESSION,
+        false => LexOptions::BLOCK,
+    };
+    let _ = working_set.lex_block(span, options);
+    let block =
+        parse_pipelines::parse_block(tokens::Tokens::from_lexed(&working_set, tokens), span);
+    let recovered = working_set
+        .take_errors_from(0)
+        .iter()
+        .all(|diagnostic| diagnostic.recovered);
+    recovered.then_some(block)
 }
 
 /// The `{ ... }` covering `span` of `source`, a record starting with a spread that a call's

@@ -50,12 +50,65 @@ pub mod syntax;
 
 use nu_protocol::{Span, ast::Block, engine::StateWorkingSet};
 
+pub(crate) use stats::record_classic_pipeline;
 pub use stats::{WinnowStats, winnow_stats};
 
 /// Whether the `winnow-parser` experimental option is on.
 #[inline]
 pub(crate) fn enabled() -> bool {
     nu_experimental::WINNOW_PARSER.get()
+}
+
+thread_local! {
+    /// Set while nu-parser parses something the winnow front end handed it (a statement, a
+    /// file or a module body it could not take): nu-parser's `parse_block` then stays
+    /// nu-parser's for the blocks inside.
+    static CLASSIC_PARSE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// A parse nu-parser does for the winnow front end ([`CLASSIC_PARSE`]), until it is dropped.
+pub(crate) struct ClassicParse {
+    outer: bool,
+}
+
+impl ClassicParse {
+    /// Mark what is parsed until the guard is dropped as nu-parser's.
+    pub(crate) fn start() -> Self {
+        Self {
+            outer: CLASSIC_PARSE.with(|classic| classic.replace(true)),
+        }
+    }
+}
+
+impl Drop for ClassicParse {
+    fn drop(&mut self) {
+        CLASSIC_PARSE.with(|classic| classic.set(self.outer));
+    }
+}
+
+/// nu-parser's `parse_block` with the option on, outside a parse handed to nu-parser: the
+/// block that nu-parser's caller lexed as `tokens` (the inside of `( ... )`, a closure's body,
+/// a binding's value), parsed and lowered by the winnow front end. `None` when it cannot take
+/// the block, which nu-parser then parses.
+pub(crate) fn nested_block(
+    working_set: &mut StateWorkingSet,
+    tokens: &[crate::Token],
+    span: Span,
+    scoped: bool,
+    is_subexpression: bool,
+    input_type: Option<&nu_protocol::Type>,
+) -> Option<Block> {
+    if !enabled() || CLASSIC_PARSE.with(std::cell::Cell::get) {
+        return None;
+    }
+    lower::nested_block(
+        working_set,
+        tokens,
+        span,
+        scoped,
+        is_subexpression,
+        input_type,
+    )
 }
 
 /// The top-level block of a file (the part of `parse` that the classic parser does with `lex`
@@ -84,6 +137,7 @@ pub(crate) fn parse_file_block(
             scoped,
             of: lower::BlockOf::Code,
             input_type: None,
+            caller_lexed: false,
         },
     )
     .map(|(block, _)| block)

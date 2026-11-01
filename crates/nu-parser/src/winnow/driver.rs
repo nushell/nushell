@@ -75,6 +75,9 @@ pub(super) enum BlockKind {
         scoped: bool,
         of: BlockOf,
         input_type: Option<Type>,
+        /// nu-parser lexed the block's text and reported its lexer's first error itself (a
+        /// block its `parse_block` hands to the winnow front end, [`super::nested_block`]).
+        caller_lexed: bool,
     },
     /// A module's body: its statements define the module's exports.
     Module { name: Vec<u8> },
@@ -94,11 +97,19 @@ pub(super) fn parse_block(
     kind: BlockKind,
 ) -> Option<(Block, Option<Module>)> {
     let local_span = crate::winnow::syntax::Span::new(inner.start - offset, inner.end - offset);
+    let caller_lexed = matches!(
+        kind,
+        BlockKind::Block {
+            caller_lexed: true,
+            ..
+        }
+    );
     let target = match kind {
         BlockKind::Block {
             scoped,
             of,
             input_type,
+            ..
         } => Target::Block {
             scoped,
             of,
@@ -129,6 +140,7 @@ pub(super) fn parse_block(
         target,
         pipelines: Vec::new(),
         block_errors,
+        caller_lexed,
     };
     let result = parse_statements(source, local_span, &lookup, &mut driver);
     let Driver {
@@ -212,6 +224,7 @@ pub(super) fn parse_rest(
         },
         pipelines: std::mem::take(pipelines),
         block_errors: *block_errors,
+        caller_lexed: false,
     };
     take_statements(
         source,
@@ -263,7 +276,11 @@ fn parse_statements(
         }
     );
     let (statements, definitions) = BlockStatements::new(source, span, lookup, subexpression)?;
-    // The block's first lexer error and a `|` ending it, reported before any statement's.
+    // The block's first lexer error and a `|` ending it, reported before any statement's (the
+    // lexer error unless nu-parser reported it, having lexed the block's text itself).
+    if driver.caller_lexed {
+        driver.block_errors.lexed_by_caller();
+    }
     if let Some(error) = statements.lex_error() {
         driver.lex_error(error, span.start);
     }
@@ -633,6 +650,8 @@ struct Driver<'c, 'w, 'e, 's> {
     pipelines: Vec<Pipeline>,
     /// Where the block's own lexer and lite-parse errors go, before its statements' errors.
     block_errors: BlockErrors,
+    /// nu-parser reported the block's first lexer error ([`BlockKind::Block::caller_lexed`]).
+    caller_lexed: bool,
 }
 
 impl Driver<'_, '_, '_, '_> {

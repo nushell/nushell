@@ -193,3 +193,53 @@ fn def_flag_value_decides(#[case] flags: &str, #[case] keeps_env: bool) -> Resul
     );
     Ok(())
 }
+
+/// Statements whose nested blocks nu-parser's value parsers read: a range's bound, a list item,
+/// a flag's value, a closure argument, an interpolation in an external word.
+const NESTED_BLOCK_CODE: [&str; 5] = [
+    "let n = 3; 0..($n - 1) | each {|i| $i }",
+    "[(1 + 1) {|| 2 }]",
+    "ls --threads=(true)",
+    "^echo $\"a(1 + 1)\"",
+    "^echo foo(1 + 1)",
+];
+
+/// With the option on, nu-parser's statement parser parses nothing: the blocks its value
+/// parsers read are parsed and lowered by the winnow front end (nu-parser's `parse_block`
+/// hands them over), and no statement is handed to nu-parser.
+#[test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn option_on_parses_no_statement_with_nu_parser() -> Result {
+    let engine_state = test().engine_state;
+    for code in NESTED_BLOCK_CODE {
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        let before = nu_parser::winnow_stats();
+        nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+        let after = nu_parser::winnow_stats();
+        assert_eq!(
+            after.classic_pipelines, before.classic_pipelines,
+            "`{code}`"
+        );
+        assert_eq!(
+            after.classic_statements, before.classic_statements,
+            "`{code}`"
+        );
+    }
+    Ok(())
+}
+
+/// With the option off, the winnow front end runs nothing.
+#[test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER = false)]
+fn option_off_runs_no_winnow_code() -> Result {
+    let engine_state = test().engine_state;
+    for code in NESTED_BLOCK_CODE {
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        let before = nu_parser::winnow_stats();
+        nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+        assert_eq!(nu_parser::winnow_stats(), before, "`{code}`");
+    }
+    Ok(())
+}
