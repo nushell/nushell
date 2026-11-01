@@ -428,13 +428,24 @@ fn eval_const_if(
     }
 }
 
+/// The output of `block`'s last pipeline, with `input` going to the first.
+///
+/// Between pipelines this does what a `;` does when the block runs: a
+/// stream is drained, raising an error it holds, a value is dropped, and the
+/// next pipeline starts with no input.
 pub fn eval_const_subexpression(
     working_set: &StateWorkingSet,
     block: &Block,
     mut input: PipelineData,
     span: Span,
 ) -> Result<PipelineData, ShellError> {
-    for pipeline in block.pipelines.iter() {
+    for (index, pipeline) in block.pipelines.iter().enumerate() {
+        if index > 0 {
+            let previous = std::mem::replace(&mut input, PipelineData::empty());
+            if !matches!(previous, PipelineData::Value(..)) {
+                previous.drain()?;
+            }
+        }
         for element in pipeline.elements.iter() {
             if element.redirection.is_some() {
                 return Err(ShellError::NotAConstant { span });

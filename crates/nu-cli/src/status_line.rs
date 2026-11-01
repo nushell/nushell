@@ -3,6 +3,7 @@
 //! type the pipeline outputs and, for a line of const commands, its value.
 
 use crate::{
+    completions::catch_completion_panic,
     signature_help::{SignatureLabel, find_active_call},
     syntax_highlight::{LineParseCache, ParsedHighlight},
     validation::is_incomplete,
@@ -10,6 +11,7 @@ use crate::{
 use miette::Diagnostic;
 use nu_ansi_term::Style;
 use nu_color_config::StyleComputer;
+use nu_parser::{TokenContents, lex};
 use nu_protocol::{
     Config, ParseError, PipelineData, Signals, Span, StatusLineConfig, Type, Value,
     ast::{Block, Expr, Expression, Traverse},
@@ -32,6 +34,11 @@ use unicode_width::UnicodeWidthStr;
 
 /// How long a paint waits for a const preview before interrupting it.
 const PREVIEW_BUDGET: Duration = Duration::from_millis(25);
+
+/// The stack of the preview thread, as roomy as nu-dap's evaluation thread.
+/// Const evaluation recurses for each level of nesting, and a line nested
+/// deep enough to overflow the default 2 MiB would abort the REPL.
+const PREVIEW_STACK_SIZE: usize = 32 * 1024 * 1024;
 
 /// The most graphemes of a preview kept: more than a row of `u16::MAX`
 /// columns, the widest a terminal reports, so `render` still decides where
@@ -178,7 +185,7 @@ impl NuStatusLine {
         let label = SignatureLabel::new(&signature);
         let emphasized = if active.in_head && cursor <= active.call.head.end {
             None
-        } else if active.in_flag(search) {
+        } else if active.in_flag(working_set, cursor) {
             label.flags_part()
         } else {
             label.positional_part(active.positionals_before(cursor))
@@ -285,7 +292,9 @@ fn restates(label: &str, headline: &str) -> bool {
 
 /// The type of the pipeline element at `pos` (or the last one before it) in
 /// the innermost closure, block or subexpression around `pos`, if the parser
-/// knows more than `any`.
+/// knows more than `any`. None after a `;` that ends the pipeline: nothing
+/// flows into the next one. A newline doesn't end it here, as a `|` on the
+/// next line continues it.
 fn output_type<'a>(
     block: &'a Block,
     working_set: &'a StateWorkingSet,
@@ -303,6 +312,18 @@ fn output_type<'a>(
         .iter()
         .rev()
         .find(|element| starts_before(element.expr.span))?;
+    let end = element.expr.span.end;
+    if end <= pos {
+        // Lexed, so a `;` in a comment or a redirection's file name is not one.
+        let after = working_set.get_span_contents(Span::new(end, pos + 1));
+        let (tokens, _) = lex(after, end, &[], &[], true);
+        if tokens
+            .iter()
+            .any(|token| token.contents == TokenContents::Semicolon)
+        {
+            return None;
+        }
+    }
     match element
         .expr
         .find_map(working_set, &|expr| block_around(expr, working_set, pos))
@@ -523,9 +544,18 @@ impl ConstPreview {
         let delta = parsed.delta.clone();
         let worker = thread::Builder::new()
             .name("status line preview".into())
+            .stack_size(PREVIEW_STACK_SIZE)
             .spawn(move || {
+                // A const command that panics must not reach the REPL's panic
+                // hook, which takes the terminal out of raw mode mid-edit. The
+                // sender is dropped instead, and the paint gets no preview.
+                let Ok(preview) =
+                    catch_completion_panic(|| evaluate_const_line(&engine_state, &block, &delta))
+                else {
+                    return;
+                };
                 // The paint that asked may have stopped waiting.
-                let _ = sender.send(evaluate_const_line(&engine_state, &block, &delta));
+                let _ = sender.send(preview);
             })
             .ok()?;
         self.worker = Some(worker);
@@ -541,7 +571,8 @@ impl ConstPreview {
 }
 
 /// The value of `block` as the status line shows it, or `None` when it
-/// isn't a constant or has nothing to show. The text is [`shown_text`], cut
+/// isn't a constant, has nothing to show or was interrupted. The text is
+/// [`shown_text`], cut
 /// to [`PREVIEW_GRAPHEMES`], so a huge value costs a paint no more than one
 /// that fills the row.
 fn evaluate_const_line(
@@ -555,7 +586,11 @@ fn evaluate_const_line(
     let value = eval_const_subexpression(&working_set, block, PipelineData::empty(), span)
         .and_then(|data| data.into_value(span))
         .ok()?;
-    if matches!(value, Value::Nothing { .. } | Value::Error { .. }) {
+    // Interrupted while collected, a stream ends early: what it holds is
+    // only part of the value, and nobody waits for it.
+    if engine_state.signals().interrupted()
+        || matches!(value, Value::Nothing { .. } | Value::Error { .. })
+    {
         return None;
     }
     let mut text = shown_text(&value.to_expanded_string(", ", engine_state.get_config()));
@@ -604,7 +639,11 @@ fn is_previewable(block: &Block, working_set: &StateWorkingSet) -> bool {
 mod tests {
     use super::*;
     use nu_ansi_term::Color;
-    use nu_protocol::{engine::Stack, record};
+    use nu_protocol::{
+        ShellError, Signature,
+        engine::{Call, Command, Stack},
+        record,
+    };
     use rstest::rstest;
 
     /// A status line over the default commands, with every part on, colored
@@ -656,6 +695,11 @@ mod tests {
     #[case::typing_the_argument("str substring 1..2", Some("<range>"))]
     #[case::after_the_argument("str substring 1..2 ", Some("...(rest)"))]
     #[case::in_a_flag("ls --all", Some("{flags}"))]
+    #[case::after_a_switch("ls --all ", Some("...(pattern)"))]
+    #[case::after_a_short_switch("ls -a ", Some("...(pattern)"))]
+    #[case::flag_awaiting_its_value("into datetime --format ", Some("{flags}"))]
+    #[case::in_a_flag_value(r#"into datetime --format "%Y""#, Some("{flags}"))]
+    #[case::after_a_flag_value(r#"into datetime --format "%Y" "#, Some("...(rest)"))]
     #[case::on_the_name("ls", None)]
     fn signature_marks_the_parameter_being_typed(#[case] line: &str, #[case] active: Option<&str>) {
         let mut status_line = status_line(only("signature"));
@@ -696,6 +740,8 @@ mod tests {
     #[rstest]
     #[case::pipeline_end("[1 2 3] | math sum", "→ number")]
     #[case::after_a_pipe("ls | ", "→ table")]
+    #[case::after_a_semicolon("[1 2 3]; ", "")]
+    #[case::semicolon_in_a_comment("[1 2 3] # a;b", "→ list<int>")]
     #[case::unknown("ls | get name", "")]
     fn type_of_the_pipeline_at_the_cursor(#[case] line: &str, #[case] expected: &str) {
         assert_eq!(status(only("type"), line), expected);
@@ -739,6 +785,7 @@ mod tests {
     #[case::control_characters(r#""a\t\u{85}b" | str trim"#, r"= a\t\u{85}b")]
     #[case::link_ending_in_bel(r#""\e]8;;http://a\u{7}" + "link""#, "= link")]
     #[case::stray_bel(r#""a\u{7}b" | str trim"#, "= ab")]
+    #[case::input_ends_at_a_semicolon("[1 2 3]; describe", "= nothing")]
     #[case::literal(r#""abc""#, "")]
     #[case::not_const("ls | length", "")]
     fn preview_of_a_const_line(#[case] line: &str, #[case] expected: &str) {
@@ -791,6 +838,104 @@ mod tests {
             "{:?}",
             parsed.errors
         );
+    }
+
+    /// Like [`const_interrupted_while_collected_is_an_error`], with the
+    /// preview collecting the stream: part of it is no value to show.
+    #[test]
+    fn preview_interrupted_while_collected_has_no_value() {
+        let mut engine_state =
+            nu_command::add_shell_command_context(nu_cmd_lang::create_default_context());
+        let interrupt = Arc::new(AtomicBool::new(false));
+        engine_state.set_signals(Signals::new(interrupt.clone()));
+        let parsed = LineParseCache::default().parsed(&engine_state, "1..100000000000 | math abs");
+        let interrupter = thread::spawn(move || {
+            thread::sleep(Duration::from_millis(20));
+            interrupt.store(true, Ordering::Relaxed);
+        });
+
+        let preview = evaluate_const_line(&engine_state, &parsed.block, &parsed.delta);
+        interrupter.join().expect("the interrupter doesn't panic");
+        assert_eq!(preview, None);
+    }
+
+    /// Const evaluation recurses for each level of nesting, deeper than the
+    /// default 2 MiB stack of a thread holds here.
+    #[test]
+    fn deeply_nested_line_previews() {
+        let depth = 64;
+        let line = format!("{}1 + 1{}", "(".repeat(depth), ")".repeat(depth));
+        // The line is parsed on a thread as roomy as the REPL's main one.
+        let shown = thread::Builder::new()
+            .stack_size(8 * 1024 * 1024)
+            .spawn(move || status(only("preview"), &line))
+            .expect("the test thread starts")
+            .join()
+            .expect("the test thread doesn't panic");
+        assert_eq!(shown, "= 2");
+    }
+
+    /// A const command with a bug.
+    #[derive(Clone)]
+    struct Panics;
+
+    impl Command for Panics {
+        fn name(&self) -> &str {
+            "panics"
+        }
+
+        fn signature(&self) -> Signature {
+            Signature::build("panics").input_output_type(Type::Nothing, Type::Int)
+        }
+
+        fn description(&self) -> &str {
+            "Panics when it runs."
+        }
+
+        fn is_const(&self) -> bool {
+            true
+        }
+
+        fn run(
+            &self,
+            _: &EngineState,
+            _: &mut Stack,
+            _: &Call,
+            _: PipelineData,
+        ) -> Result<PipelineData, ShellError> {
+            panic!("a const command with a bug")
+        }
+
+        fn run_const(
+            &self,
+            _: &StateWorkingSet,
+            _: &mut Stack,
+            _: &Call,
+            _: PipelineData,
+        ) -> Result<PipelineData, ShellError> {
+            panic!("a const command with a bug")
+        }
+    }
+
+    #[test]
+    fn panic_in_a_preview_is_caught() {
+        let mut status_line = status_line(only("preview"));
+        let mut engine_state = (*status_line.engine_state).clone();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        working_set.add_decl(Box::new(Panics));
+        let delta = working_set.render();
+        engine_state
+            .merge_delta(delta)
+            .expect("the command is added");
+        status_line.engine_state = Arc::new(engine_state);
+
+        assert_eq!(shown(&mut status_line, "panics"), "");
+        let worker = status_line
+            .preview
+            .worker
+            .take()
+            .expect("the line was evaluated");
+        assert!(worker.join().is_ok(), "the panic left the worker");
     }
 
     #[test]

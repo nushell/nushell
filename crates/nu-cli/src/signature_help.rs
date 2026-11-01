@@ -1,6 +1,7 @@
 //! Signature help shared by the REPL status line and `nu --lsp`: which call
 //! a position sits in, and how that call's signature reads.
 
+use crate::completions::pending_flag_value;
 use nu_protocol::{
     PositionalArg, Signature, SyntaxShape,
     ast::{Argument, Block, Call, Expr, Expression, Traverse},
@@ -28,12 +29,24 @@ impl ActiveCall<'_> {
             .count()
     }
 
-    /// Whether `pos` is inside a flag or its value.
-    pub fn in_flag(&self, pos: usize) -> bool {
-        self.call
-            .arguments
-            .iter()
-            .any(|arg| matches!(arg, Argument::Named(..)) && arg.span().contains(pos))
+    /// Whether the token at `cursor` belongs to a flag: the cursor is on a
+    /// flag or its value, or after a flag still awaiting its value, as in
+    /// `into datetime --format `. After `ls --all ` it is not: the next token
+    /// is a positional.
+    pub fn in_flag(&self, working_set: &StateWorkingSet, cursor: usize) -> bool {
+        let on_flag = self.call.arguments.iter().any(|arg| {
+            let span = arg.span();
+            matches!(arg, Argument::Named(..)) && span.start <= cursor && cursor <= span.end
+        });
+        let after_pending_flag = || {
+            pending_flag_value(self.call, working_set).is_some()
+                && self
+                    .call
+                    .arguments
+                    .last()
+                    .is_some_and(|arg| arg.span().end <= cursor)
+        };
+        on_flag || after_pending_flag()
     }
 }
 
