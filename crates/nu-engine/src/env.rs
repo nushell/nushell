@@ -23,6 +23,11 @@ pub const DIR_VAR_PARSER_INFO: &str = "dirs_var";
 // Parser info key used when `<cmd> --help` is rewritten to `help <name>` so `help`
 // can render documentation for the already-resolved declaration.
 pub const HELP_DECL_ID_PARSER_INFO: &str = "help_decl_id";
+/// Parser info key on the `run-internal` call that the compiler makes of `%$cmd ...args`.
+///
+/// The parser read those arguments without the builtin's signature, and `run-internal` binds them
+/// to it. A direct `run-internal` call passes its arguments on as they are.
+pub const DEFERRED_ARGUMENTS_PARSER_INFO: &str = "deferred_arguments";
 
 /// Returns whether a string, when used as the name of an environment variable,
 /// is considered an automatic environment variable.

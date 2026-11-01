@@ -3,7 +3,7 @@ use crate::{
     parse_helpers::{
         PERCENT_FORCED_BUILTIN_PARSER_INFO, extract_spread_list, extract_spread_record, garbage,
     },
-    parse_source::find_dirs_var,
+    parse_source::{add_script_arguments, find_dirs_var},
     type_check::type_compatible,
 };
 use log::trace;
@@ -1755,26 +1755,9 @@ pub fn parse_call(
             // Store the head expression for the IR compiler to pick up.
             call.set_parser_info(PERCENT_FORCED_BUILTIN_PARSER_INFO.to_string(), head_expr);
 
-            // Mirror the dynamic external-call path by preserving `...expr` as an explicit spread
-            // argument so runtime dispatch can forward it without flattening first.
-            for arg_span in resolution_spans.iter().skip(head_idx + 1) {
-                let contents = working_set.get_span_contents(*arg_span);
-                if let Some(Spanned { span: arg_span, .. }) =
-                    extract_spread_list(contents.into_spanned(*arg_span))
-                {
-                    let spread_expr = crate::parser::parse_value(
-                        working_set,
-                        arg_span,
-                        &SyntaxShape::List(Box::new(SyntaxShape::Any)),
-                        None,
-                    );
-                    call.arguments.push(Argument::Spread(spread_expr));
-                } else {
-                    let arg_expr =
-                        crate::parser::parse_value(working_set, *arg_span, &SyntaxShape::Any, None);
-                    call.arguments.push(Argument::Positional(arg_expr));
-                }
-            }
+            // The builtin is only known at runtime, so parse its arguments the way `run` parses a
+            // script's: without a signature, for `run-internal` to bind to the builtin's.
+            add_script_arguments(working_set, &mut call, &resolution_spans[head_idx + 1..]);
 
             return Expression::new(
                 working_set,
