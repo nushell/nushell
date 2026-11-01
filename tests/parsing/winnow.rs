@@ -23,10 +23,11 @@ fn filler(count: usize) -> String {
 }
 
 /// When the thread parsing ahead resolved a name differently from the live working set (here
-/// it takes the imported `def --wrapped` for an ordinary command), the classic parser takes the
-/// rest of the block from that statement. In a `{ ... }` block it parses up to the closing
-/// brace, not through it.
+/// it takes the imported `def --wrapped` for an ordinary command), the winnow parser parses the
+/// rest of the block again from that statement, with the live names, not the classic parser.
+/// In a `{ ... }` block it parses up to the closing brace, not through it.
 #[test]
+#[serial]
 #[exp(nu_experimental::WINNOW_PARSER)]
 fn fallback_inside_a_long_block_stops_at_its_brace() -> Result {
     Playground::setup("winnow_fallback_inside_a_long_block", |dirs, sandbox| {
@@ -38,7 +39,15 @@ fn fallback_inside_a_long_block_stops_at_its_brace() -> Result {
             "do {{\n    use w.nu wr\n    let a = (wr --foo bar)\n{}    $a\n}}",
             filler(100)
         );
-        test().cwd(dirs.test()).run(code).expect_value_eq(2)
+        let mut tester = test().cwd(dirs.test());
+        let before = nu_parser::winnow_stats();
+        tester.run(code).expect_value_eq(2)?;
+        let after = nu_parser::winnow_stats();
+        assert_eq!(
+            after.classic_statements, before.classic_statements,
+            "a statement was handed to the classic parser"
+        );
+        Ok(())
     })
 }
 

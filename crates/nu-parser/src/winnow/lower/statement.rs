@@ -32,7 +32,7 @@ use crate::{
     parse_module::{add_exportables, double_main_span, parse_module_pipeline},
     parse_pipelines::{finish_block, hide_unlet_constants, parse_pipeline},
     winnow::{
-        driver::{BlockKind, parse_block, statement_changes_names},
+        driver::{BlockKind, parse_block, parse_rest, statement_changes_names},
         stats,
     },
 };
@@ -1104,8 +1104,8 @@ impl<'s> Lower<'_, '_, 's> {
             // parsed the block (it leaves a block with a call through an alias it knows
             // unparsed, `DeclKind::OverlayAlias`), which changed the overlays as it was lowered
             // or as the classic parser parsed it: the rest of the block, parsed before with the
-            // old commands, is parsed by the classic parser, as the driver's `rest_to_classic`
-            // does.
+            // old commands, is parsed again with the new ones, a statement at a time, as a
+            // file is.
             if let Some(next) = block.pipelines.get(index + 1)
                 && out.pipelines[first..]
                     .iter()
@@ -1113,19 +1113,31 @@ impl<'s> Lower<'_, '_, 's> {
                     .any(|element| self.calls_overlay(&element.expr))
             {
                 let rest = Span::new(self.statement_span(next).start, self.span(block.span).end);
-                let reason = Unlowered::Unsupported("rest of a block after an overlay");
-                stats::record_unlowered(rest, &reason, self.working_set);
-                let mut target = StatementTarget::Block {
-                    input_type: None,
-                    of,
-                };
-                parse_classic(
+                let parsed = parse_rest(
                     self.working_set,
+                    self.source,
+                    self.offset,
+                    span,
                     rest,
-                    &mut target,
+                    of,
                     &mut out.pipelines,
                     &mut block_errors,
                 );
+                if !parsed {
+                    let reason = Unlowered::Unsupported("rest of a block after an overlay");
+                    stats::record_unlowered(rest, &reason, self.working_set);
+                    let mut target = StatementTarget::Block {
+                        input_type: None,
+                        of,
+                    };
+                    parse_classic(
+                        self.working_set,
+                        rest,
+                        &mut target,
+                        &mut out.pipelines,
+                        &mut block_errors,
+                    );
+                }
                 break;
             }
         }

@@ -15,12 +15,14 @@ fn filler(count: usize) -> String {
 }
 
 /// A call through an alias of `overlay use` (or of `overlay`, with the subcommand after it) in
-/// a nested block brings in commands the rest of the block calls: once the classic parser has
-/// applied it, the classic parser parses the rest of the block too, as it does in a file.
+/// a nested block brings in commands the rest of the block calls: once it is applied, the rest
+/// of the block is parsed again with them, a statement at a time, as a file is, by the winnow
+/// parser.
 #[rstest]
 #[case::alias_of_overlay_use("alias ou = overlay use", "ou spam.nu")]
 #[case::alias_of_overlay("alias o = overlay", "o use spam.nu")]
 #[nu_test_support::test]
+#[serial]
 #[exp(nu_experimental::WINNOW_PARSER)]
 fn overlay_through_an_alias_in_a_nested_block(#[case] alias: &str, #[case] call: &str) -> Result {
     Playground::setup("winnow_overlay_through_an_alias", |dirs, sandbox| {
@@ -36,10 +38,15 @@ do {{
     foo bar
 }}"#
         );
-        test()
-            .cwd(dirs.test())
-            .run(code)
-            .expect_value_eq("from overlay")
+        let mut tester = test().cwd(dirs.test());
+        let before = nu_parser::winnow_stats();
+        tester.run(code).expect_value_eq("from overlay")?;
+        let after = nu_parser::winnow_stats();
+        assert_eq!(
+            after.classic_statements, before.classic_statements,
+            "a statement was handed to the classic parser"
+        );
+        Ok(())
     })
 }
 

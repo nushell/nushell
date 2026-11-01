@@ -63,7 +63,8 @@ fn wrapped_command_takes_unknown_dash_items() -> Result {
 }
 
 /// After an alias of a command, the words that follow may name a subcommand of the aliased
-/// command, which is then the command called (`find_longest_decl_with_prefix`).
+/// command, which is then the command called (`find_longest_decl_with_prefix`), by the winnow
+/// front end, not handed to the classic parser.
 #[rstest]
 #[case::custom_subcommand(
     r#"def foo [x?] { $"foo got ($x)" }; def "foo bar" [] { "sub" }; alias f = foo; f bar"#,
@@ -74,12 +75,21 @@ fn wrapped_command_takes_unknown_dash_items() -> Result {
     "[[x]; [11], [12]]"
 )]
 #[nu_test_support::test]
+#[serial]
 #[exp(nu_experimental::WINNOW_PARSER)]
 fn alias_followed_by_a_subcommand_calls_the_subcommand(
     #[case] code: &str,
     #[case] expected: &str,
 ) -> Result {
-    test().run(code).expect_value_eq(expected)
+    let mut tester = test();
+    let before = nu_parser::winnow_stats();
+    tester.run(code).expect_value_eq(expected)?;
+    let after = nu_parser::winnow_stats();
+    assert_eq!(
+        after.classic_statements, before.classic_statements,
+        "a statement was handed to the classic parser"
+    );
+    Ok(())
 }
 
 /// `source`, `source-env` and `run` are picked by a statement's first word before any command

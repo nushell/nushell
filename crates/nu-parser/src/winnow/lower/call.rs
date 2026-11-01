@@ -243,8 +243,10 @@ impl<'s> Lower<'_, '_, 's> {
             return Ok(self.node(Expr::ExternalCall(head, arguments.into()), span, ty));
         }
         // The words after an alias of a command may name a subcommand of that command
-        // (`alias u = update; u cells {..}`), which the classic parser then calls instead
-        // (`find_longest_decl_with_prefix`, asked here with the aliased command's name).
+        // (`alias u = update; u cells {..}`, `alias o = overlay; o use m`), which the classic
+        // parser then calls instead (`find_longest_decl_with_prefix`, asked here with the
+        // aliased command's name): its head runs from the alias's name to the subcommand's last
+        // word, and the arguments are the items after that.
         if let Some(alias) = decl.as_alias()
             && let Expr::Call(wrapped) = &alias.wrapped_call.expr
             && !call.arguments.is_empty()
@@ -260,13 +262,13 @@ impl<'s> Lower<'_, '_, 's> {
                 .iter()
                 .map(|argument| self.span(argument.span()))
                 .collect();
-            if find_longest_decl_with_prefix(self.working_set, &spans, &prefix)
-                .3
-                .is_some()
+            if let (_, words @ 1.., _, Some(subcommand)) =
+                find_longest_decl_with_prefix(self.working_set, &spans, &prefix)
             {
-                return Err(Unlowered::Unsupported(
-                    "alias of a command with a subcommand",
-                ));
+                let head = Span::new(head_span.start, spans[words - 1].end);
+                let (call, output, _) =
+                    self.internal_call(head, &call.arguments[words..], subcommand, input_type)?;
+                return Ok(self.node(Expr::Call(call), span, output));
             }
         }
         let (call, output, _) =
