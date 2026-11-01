@@ -48,7 +48,7 @@ jobs:
             runner: &runner_windows incredibuild-windows-2022
             target: &target_windows x86_64-pc-windows-msvc
           - name: MacOS
-            runner: &runner_macos macos-latest
+            runner: &runner_macos incredibuild-macos-latest
             target: &target_macos x86_64-apple-darwin
     steps:
 
