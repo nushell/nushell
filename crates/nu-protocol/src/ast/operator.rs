@@ -1,5 +1,5 @@
 use super::{Expr, Expression};
-use crate::{ShellError, Span};
+use crate::{ShellError, Span, Type};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use strum_macros::{EnumIter, EnumMessage};
@@ -38,6 +38,10 @@ pub enum Comparison {
     EndsWith,
     #[strum(message = "Does not end with")]
     NotEndsWith,
+    #[strum(message = "Is before now minus a duration, or before a datetime (same as <)")]
+    OlderThan,
+    #[strum(message = "Is after now minus a duration, or after a datetime (same as >)")]
+    NewerThan,
 }
 
 impl Comparison {
@@ -59,6 +63,8 @@ impl Comparison {
             Self::NotStartsWith => "not-starts-with",
             Self::EndsWith => "ends-with",
             Self::NotEndsWith => "not-ends-with",
+            Self::OlderThan => "older-than",
+            Self::NewerThan => "newer-than",
         }
     }
 }
@@ -283,6 +289,8 @@ impl Operator {
             | Self::Comparison(Comparison::NotIn)
             | Self::Comparison(Comparison::Has)
             | Self::Comparison(Comparison::NotHas)
+            | Self::Comparison(Comparison::OlderThan)
+            | Self::Comparison(Comparison::NewerThan)
             | Self::Math(Math::Concatenate) => 80,
             Self::Bits(Bits::BitAnd) => 75,
             Self::Bits(Bits::BitXor) => 70,
@@ -291,6 +299,53 @@ impl Operator {
             Self::Boolean(Boolean::Xor) => 45,
             Self::Boolean(Boolean::Or) => 40,
             Self::Assignment(_) => 10,
+        }
+    }
+
+    /// Help for an operator type error, for operand types where the usual mistake has a known fix.
+    ///
+    /// # Arguments
+    ///
+    /// * `lhs` - Type of the left operand
+    /// * `rhs` - Type of the right operand
+    ///
+    /// # Returns
+    ///
+    /// The help text, or `None` when there is nothing more specific to say than the error itself.
+    pub fn incompatible_types_help(&self, lhs: &Type, rhs: &Type) -> Option<&'static str> {
+        let Self::Comparison(comparison) = self else {
+            return None;
+        };
+        match (comparison, lhs, rhs) {
+            (Comparison::LessThan, Type::Date, Type::Duration) => Some(
+                "to check that a datetime is before now minus a duration, use `older-than`: `$date older-than 2wk`",
+            ),
+            (Comparison::GreaterThan, Type::Date, Type::Duration) => Some(
+                "to check that a datetime is after now minus a duration, use `newer-than`: `$date newer-than 2wk`",
+            ),
+            (Comparison::LessThanOrEqual, Type::Date, Type::Duration) => Some(
+                "subtract the duration from now: `$date <= (date now) - 2wk`, or use `older-than`, which is strict: `$date older-than 2wk`",
+            ),
+            (Comparison::GreaterThanOrEqual, Type::Date, Type::Duration) => Some(
+                "subtract the duration from now: `$date >= (date now) - 2wk`, or use `newer-than`, which is strict: `$date newer-than 2wk`",
+            ),
+            (
+                Comparison::LessThan
+                | Comparison::LessThanOrEqual
+                | Comparison::GreaterThan
+                | Comparison::GreaterThanOrEqual,
+                Type::Duration,
+                Type::Date,
+            ) => Some(
+                "put the datetime on the left and use `older-than` or `newer-than`: `$date older-than 2wk`",
+            ),
+            (Comparison::OlderThan, Type::Duration, _) => {
+                Some("the datetime goes on the left: `$date older-than 2wk`")
+            }
+            (Comparison::NewerThan, Type::Duration, _) => {
+                Some("the datetime goes on the left: `$date newer-than 2wk`")
+            }
+            _ => None,
         }
     }
 }

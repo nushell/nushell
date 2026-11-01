@@ -59,6 +59,8 @@ def get-all-operators [] {
         [Comparison, not-starts-with, NotStartsWith, 'Checks if a string does not start with another.', 80]
         [Comparison, ends-with, EndsWith, 'Checks if a string ends with another.', 80]
         [Comparison, not-ends-with, NotEndsWith, 'Checks if a string does not end with another.', 80]
+        [Comparison, older-than, OlderThan, 'Checks if a datetime is before now minus a duration, or before another datetime (the same as `<`).', 80]
+        [Comparison, newer-than, NewerThan, 'Checks if a datetime is after now minus a duration, or after another datetime (the same as `>`).', 80]
         [Math, +, Add, 'Adds two values.', 90]
         [Math, -, Subtract, 'Subtracts two values.', 90]
         [Math, *, Multiply, 'Multiplies two values.', 95]
