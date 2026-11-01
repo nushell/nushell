@@ -294,6 +294,52 @@ pub fn parse_filesize() {
     assert_eq!(value.unit.item, Unit::Filesize(FilesizeUnit::B));
 }
 
+// Whole-number literals must convert exactly (see issue #10612). Both types are
+// backed by an `i64`, but the literal used to go through an `f64`, which
+// silently rounded large values (e.g. `6504534684301572998b` became
+// `6504534684301573120`). `KB`, `MB`, `us` and `min` go through the unit
+// conversion multiply.
+#[rstest]
+#[case(
+    b"6504534684301572998b",
+    6504534684301572998,
+    Unit::Filesize(FilesizeUnit::B)
+)]
+#[case(b"-6504534684301572998b", -6504534684301572998, Unit::Filesize(FilesizeUnit::B))]
+#[case(
+    b"9007199254740993KB",
+    9007199254740993000,
+    Unit::Filesize(FilesizeUnit::B)
+)]
+#[case(
+    b"9007199254741MB",
+    9_007_199_254_741_000_000,
+    Unit::Filesize(FilesizeUnit::B)
+)]
+#[case(b"8191PiB", 8191 * 1024_i64.pow(5), Unit::Filesize(FilesizeUnit::B))]
+#[case(b"6504534684301572998ns", 6504534684301572998, Unit::Nanosecond)]
+#[case(b"9007199254740993us", 9007199254740993000, Unit::Nanosecond)]
+#[case(b"-153722867min", -153722867 * 60_000_000_000, Unit::Nanosecond)]
+fn parse_unit_integer_is_exact(#[case] input: &[u8], #[case] expected: i64, #[case] unit: Unit) {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    let block = parse(&mut working_set, None, input, true);
+
+    assert!(
+        working_set.parse_errors.is_empty(),
+        "{:?}",
+        working_set.parse_errors
+    );
+    let element = &block.pipelines[0].elements[0];
+    let Expr::ValueWithUnit(value) = &element.expr.expr else {
+        panic!("should be a ValueWithUnit");
+    };
+
+    assert_eq!(value.expr.expr, Expr::Int(expected));
+    assert_eq!(value.unit.item, unit);
+}
+
 #[test]
 pub fn parse_non_utf8_fails() {
     let engine_state = EngineState::new();
@@ -840,6 +886,168 @@ pub fn parse_attributes_external_alias() {
     assert!(parse_error.contains("Encountered error during parse-time evaluation"));
 }
 
+#[rstest]
+#[case::double_space("foo  bar")]
+#[case::leading_space(" foo")]
+#[case::trailing_space("foo ")]
+#[case::tab("foo\tbar")]
+#[case::hex("0x10")]
+#[case::binary("0b101")]
+#[case::octal("0o17")]
+#[case::digit_separator("1_2")]
+#[case::float_digit_separator("1.2_345")]
+#[case::hex_digit_separator("0x_10")]
+#[case::out_of_range("0x10000000000000000")]
+#[case::leading_separator("_1")]
+#[case::signed_hex("-0x10")]
+#[case::signed_separator("+1_2")]
+#[case::filesize_with_separator("1_0kb")]
+#[case::duration("1sec")]
+#[case::datetime("2020-01-01")]
+#[case::range("1..2")]
+#[case::head_word_is_a_number("1 2")]
+#[case::head_word_is_a_filesize("1kb 2")]
+#[case::escaped_number("0x\\u{31}0")]
+#[case::binary_literal("0x[FF]")]
+pub fn parse_rejects_uncallable_command_names(#[case] name: &str) {
+    // https://github.com/nushell/nushell/issues/15539
+    // https://github.com/nushell/nushell/issues/16815
+    // A call is looked up by its words joined with single spaces, so a name with any other
+    // whitespace could never be called. A name that the call site reads as a value is shadowed
+    // by that value, so it could never be called either: a number, a filesize, a duration, a
+    // datetime and a range all win at the call site.
+    let first_error = |source: &str| {
+        let engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        working_set.add_decl(Box::new(Def));
+        working_set.add_decl(Box::new(Alias));
+        working_set.add_decl(Box::new(AttrEcho));
+        let _ = parse(&mut working_set, None, source.as_bytes(), false);
+        working_set.parse_errors.first().cloned()
+    };
+
+    // Backticks don't decode escapes, so a backtick name with an escape in it is a bare word.
+    let backtick = !name.contains('\\');
+    for source in [
+        format!("def \"{name}\" [] {{}}"),
+        format!("extern \"{name}\" []"),
+    ]
+    .into_iter()
+    .chain(backtick.then(|| format!("def `{name}` [] {{}}")))
+    {
+        assert!(
+            matches!(
+                first_error(&source),
+                Some(ParseError::CommandDefNotValid(_))
+            ),
+            "{source:?}"
+        );
+    }
+
+    for source in [format!("alias \"{name}\" = attr echo")]
+        .into_iter()
+        .chain(backtick.then(|| format!("alias `{name}` = attr echo")))
+    {
+        assert!(
+            matches!(first_error(&source), Some(ParseError::AliasNotValid(_))),
+            "{source:?}"
+        );
+    }
+}
+
+#[rstest]
+#[case::hex_without_digits("0xZZ", "0xZZ")]
+#[case::binary_without_digits("0b2", "0b2")]
+#[case::octal_without_digits("0o18", "0o18")]
+#[case::bare_prefix("0x", "0x")]
+#[case::value_in_a_later_word("foo 0x10", "foo 0x10")]
+#[case::escaped_name("foo\\u{2D}bar", "foo-bar")]
+#[case::float_spelling_infinity("infinity", "infinity")]
+#[case::float_spelling_inf("INF", "INF")]
+#[case::float_spelling_nan("Nan", "Nan")]
+pub fn parse_accepts_bare_word_names_that_are_not_values(#[case] name: &str, #[case] call: &str) {
+    // https://github.com/nushell/nushell/issues/16815
+    // These are read as bare words rather than as values, so they name a command that can still
+    // be called. The call has to come back as a call to that declaration, not as the value the
+    // name looks like.
+    // The name is the name as it is written in the definition; the call is the name the
+    // declaration is registered under, which for a name written with escapes is the decoded
+    // name, because a bare word does not decode escapes.
+    let call_of = |source: &str| {
+        let mut engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        working_set.add_decl(Box::new(Def));
+        working_set.add_decl(Box::new(Alias));
+        working_set.add_decl(Box::new(AttrEcho));
+
+        // The built-in declarations have to be permanent for the `def` keyword to be found,
+        // and the declaration itself has to be permanent for the call to find it.
+        let _ = engine_state.merge_delta(working_set.render());
+        let mut working_set = StateWorkingSet::new(&engine_state);
+
+        let _ = parse(&mut working_set, None, source.as_bytes(), false);
+        let _ = engine_state.merge_delta(working_set.render());
+        let mut working_set = StateWorkingSet::new(&engine_state);
+
+        let block = parse(&mut working_set, None, format!("{call}\n").as_bytes(), true);
+
+        assert!(
+            working_set.parse_errors.is_empty(),
+            "{name:?}: {:?}",
+            working_set.parse_errors
+        );
+
+        let decl_id = working_set.find_decl(call.as_bytes());
+        let pipeline = block
+            .pipelines
+            .last()
+            .expect("the call should be a pipeline");
+        match &pipeline.elements[0].expr.expr {
+            Expr::Call(call) => (call.decl_id, decl_id),
+            other => panic!("{name:?} should parse as a call, got {other:?}"),
+        }
+    };
+
+    let (call_decl, decl_id) = call_of(&format!("def \"{name}\" [] {{}}\n"));
+    assert_eq!(
+        call_decl,
+        decl_id.unwrap_or_else(|| panic!("{name:?} should be declared")),
+        "{name:?}"
+    );
+
+    // An alias is expanded into its body, so the call is to the body rather than to the
+    // alias, but it still has to be a call.
+    let (_, decl_id) = call_of(&format!("alias \"{name}\" = attr echo hi\n"));
+    assert!(decl_id.is_some(), "{name:?} should be declared");
+}
+
+#[test]
+pub fn parse_accepts_single_spaces_in_command_names() {
+    let mut engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    working_set.add_decl(Box::new(Def));
+    working_set.add_decl(Box::new(Alias));
+    working_set.add_decl(Box::new(AttrEcho));
+
+    let _ = engine_state.merge_delta(working_set.render());
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    let source = br#"
+    def "foo bar" [] {}
+    alias "foo bar baz" = attr echo
+    "#;
+    let _ = parse(&mut working_set, None, source, false);
+
+    assert!(
+        working_set.parse_errors.is_empty(),
+        "{:?}",
+        working_set.parse_errors
+    );
+    assert!(working_set.find_decl(b"foo bar").is_some());
+    assert!(working_set.find_decl(b"foo bar baz").is_some());
+}
+
 #[test]
 pub fn parse_aliased_variable_in() {
     // https://github.com/nushell/nushell/issues/13706
@@ -1345,21 +1553,6 @@ pub fn test_external_call_head_interpolated_string(
 )]
 #[case("^foo --flag='value'", "--flag=value", "flag value with single quote")]
 #[case(
-    "^foo {a:1,b:'c',c:'d'}",
-    "{a:1,b:c,c:d}",
-    "value with many inner single quotes"
-)]
-#[case(
-    r#"^foo {a:1,b:"c",c:"d"}"#,
-    "{a:1,b:c,c:d}",
-    "value with many double quotes"
-)]
-#[case(
-    r#"^foo {a:1,b:'c',c:"d"}"#,
-    "{a:1,b:c,c:d}",
-    "value with single quote and double quote"
-)]
-#[case(
     "^foo `hello world`",
     "hello world",
     "value is surrounded by backtick quote"
@@ -1468,6 +1661,7 @@ pub fn test_external_call_arg_raw_string(
     r#"foo\external call"#,
     "double quote with backslash"
 )]
+#[case("^foo '{a:1}'", "{a:1}", "quoted record-like string")]
 pub fn test_external_call_arg_string(
     #[case] input: &str,
     #[case] expected: &str,
@@ -1530,6 +1724,50 @@ pub fn test_external_call_arg_interpolated_string(
                 panic!("Unexpected external spread argument in command arg position: {other:?}")
             }
         }
+    })
+}
+
+#[rstest]
+#[case(r#"^foo {|my_var| $"($my_var)" }"#)]
+#[case(r#"^foo { |my_var| $"($my_var)" }"#)]
+#[case("^foo { 42 }")]
+fn test_external_call_arg_closure(#[case] input: &str) {
+    test_external_call(input, "closure argument", |_, args| {
+        assert_eq!(1, args.len());
+        assert!(matches!(
+            &args[0],
+            ExternalArgument::Regular(Expression {
+                expr: Expr::Closure(_),
+                ..
+            })
+        ));
+    })
+}
+
+#[rstest]
+#[case("^foo {a: 1}")]
+#[case("^foo {}")]
+#[case("^foo {a:1,b:'c',c:'d'}")]
+#[case(r#"^foo {a:1,b:"c",c:"d"}"#)]
+#[case(r#"^foo {a:1,b:'c',c:"d"}"#)]
+#[case("^foo {a: 1, b: 'c', c: 'd'}")]
+#[case(r#"^foo {a: 1, b: "c", c: "d"}"#)]
+#[case(r#"^foo {a: 1, b: 'c', c: "d"}"#)]
+#[case(r#"^foo {"key with spaces": "value"}"#)]
+#[case(r#"^foo {outer: {inner: "value"}}"#)]
+#[case(r#"^foo {items: [1 "two" true]}"#)]
+fn test_external_call_arg_record(#[case] input: &str) {
+    test_external_call(input, "record argument", |_, args| {
+        assert_eq!(1, args.len());
+        let ExternalArgument::Regular(expr) = &args[0] else {
+            panic!("Expected a regular external argument")
+        };
+        let is_record = match &expr.expr {
+            Expr::Record(_) => true,
+            Expr::FullCellPath(path) => matches!(path.head.expr, Expr::Record(_)),
+            _ => false,
+        };
+        assert!(is_record, "Expected a record expression, found {expr:?}");
     })
 }
 
@@ -2392,6 +2630,38 @@ mod range {
         ),);
     }
 
+    #[rstest]
+    #[case("true or ((to-custom) < (to-custom))")]
+    #[case("true and ((to-custom) == (to-custom))")]
+    #[case("true or ((to-custom) in (to-custom))")]
+    fn custom_comparison_is_usable_as_bool(#[case] code: &str) {
+        let engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        working_set.add_decl(Box::new(ToCustom));
+
+        let _ = parse(&mut working_set, None, code.as_bytes(), true);
+
+        assert!(
+            working_set.parse_errors.is_empty(),
+            "Errors: {:?}",
+            working_set.parse_errors
+        );
+    }
+
+    #[test]
+    fn raw_custom_is_not_a_bool_for_or() {
+        let engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        working_set.add_decl(Box::new(ToCustom));
+
+        let _ = parse(&mut working_set, None, b"true or (to-custom)", true);
+
+        assert!(matches!(
+            &working_set.parse_errors[..],
+            [ParseError::OperatorIncompatibleTypes { .. }]
+        ));
+    }
+
     #[test]
     fn dont_mess_with_external_calls() {
         let engine_state = EngineState::new();
@@ -2460,6 +2730,7 @@ mod mock {
         fn run_const(
             &self,
             _working_set: &StateWorkingSet,
+            _stack: &mut Stack,
             _call: &Call,
             _input: PipelineData,
         ) -> Result<PipelineData, ShellError> {
@@ -2699,10 +2970,11 @@ mod mock {
         fn run_const(
             &self,
             working_set: &StateWorkingSet,
+            stack: &mut Stack,
             call: &Call,
             _input: PipelineData,
         ) -> Result<PipelineData, ShellError> {
-            let value: Value = call.req_const(working_set, 0)?;
+            let value: Value = call.req_const(working_set, stack, 0)?;
             Ok(value.into_pipeline_data())
         }
     }
@@ -2967,6 +3239,7 @@ mod mock {
         fn run_const(
             &self,
             _working_set: &StateWorkingSet,
+            _stack: &mut Stack,
             _call: &Call,
             _input: PipelineData,
         ) -> Result<PipelineData, ShellError> {
@@ -3686,6 +3959,174 @@ fn conditional_branch_types(#[case] code: &str, #[case] expected_tys: &[Type]) {
     assert_eq!(out_ty, expected_ty);
 }
 
+#[rstest]
+#[case::malformed_table("[a b c; [1 2 3]]")]
+#[case::between_items("[1; 2]")]
+#[case::before_newline("[1;\n2]")]
+#[case::before_variable("[1; $undefined]")]
+#[case::leading("[;1]")]
+#[case::trailing("[1;]")]
+#[case::empty("[;]")]
+#[case::repeated("[1;; 2]")]
+#[case::nested_list("[[1; 2]]")]
+#[case::external_argument("^foo [1; 2]")]
+#[case::table_header("[[a; b]; [1]]")]
+#[case::table_row("[[a b]; [1 2; 3 4]]")]
+fn reject_invalid_list_semicolons(#[case] source: &str) {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let _ = parse(&mut working_set, None, source.as_bytes(), false);
+
+    let error = working_set
+        .parse_errors
+        .first()
+        .expect("a semicolon in a list must produce a parse error");
+    assert!(
+        matches!(error, ParseError::LabeledErrorWithHelp { error, .. }
+            if error == "Unexpected semicolon in list"),
+        "unexpected diagnostic: {error:?}"
+    );
+    assert_eq!(working_set.get_span_contents(error.span()), b";");
+}
+
+#[rstest]
+#[case::plain("[[a b];]")]
+#[case::whitespace("[[a b]; \n]")]
+#[case::comment("[[a b]; # no rows\n]")]
+#[case::empty_header("[[];]")]
+fn table_without_rows_reports_missing_row(#[case] source: &str) {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let _ = parse(&mut working_set, None, source.as_bytes(), false);
+
+    assert!(
+        matches!(
+            working_set.parse_errors.as_slice(),
+            [ParseError::Expected("table row", _)]
+        ),
+        "unexpected diagnostics: {:?}",
+        working_set.parse_errors
+    );
+
+    let span = working_set.parse_errors[0].span();
+    assert_eq!(span.start, span.end);
+    assert!(span.start > 0);
+    assert_eq!(
+        working_set.get_span_contents(Span::new(span.start - 1, span.start)),
+        b";"
+    );
+}
+
+#[rstest]
+#[case::double_quoted(r#"["a;b" 2]"#)]
+#[case::single_quoted("['a;b' 2]")]
+#[case::backtick_quoted("[`a;b` 2]")]
+#[case::raw_string("[r#'a;b'# 2]")]
+#[case::interpolation(r#"[$"(1; 2)" 3]"#)]
+#[case::comment("[1 # ; ignored\n 2]")]
+#[case::subexpression("[(1; 2) 3]")]
+#[case::closure("[{1; 2} 3]")]
+#[case::nested_table("[[[a]; [1]] 2]")]
+#[case::table_separator("[[a]; [1]]")]
+#[case::table_quoted_header(r#"[["a;b"]; [1]]"#)]
+#[case::table_subexpression_cell("[[a]; [(1; 2)]]")]
+#[case::table_nested_table_cell("[[a]; [[[b]; [1]]]]")]
+fn accept_valid_list_semicolons(#[case] source: &str) {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let _ = parse(&mut working_set, None, source.as_bytes(), false);
+
+    assert!(
+        working_set.parse_errors.is_empty(),
+        "{:?}",
+        working_set.parse_errors
+    );
+}
+
+#[rstest]
+#[case::between_items("[1; 2]")]
+#[case::before_newline("[1;\n2]")]
+#[case::leading("[;1]")]
+#[case::trailing("[1;]")]
+#[case::empty("[;]")]
+#[case::repeated("[1;; 2]")]
+#[case::nested_list("[[1; 2]]")]
+#[case::nested_record("[{a: [1; 2]}]")]
+#[case::ignore_rest("[1 ..; 2]")]
+#[case::capture_rest("[1 ..$rest; 2]")]
+fn reject_invalid_list_pattern_semicolons(#[case] pattern: &str) {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    working_set.add_decl(Box::new(MatchMocked));
+    let source = format!("match [] {{ {pattern} => true, _ => false }}");
+    let _ = parse(&mut working_set, None, source.as_bytes(), false);
+
+    let error = working_set
+        .parse_errors
+        .first()
+        .expect("a semicolon in a list pattern must produce a parse error");
+    assert!(
+        matches!(error, ParseError::LabeledErrorWithHelp { error, .. }
+            if error == "Unexpected semicolon in list pattern"),
+        "unexpected diagnostic: {error:?}"
+    );
+    assert_eq!(working_set.get_span_contents(error.span()), b";");
+}
+
+#[rstest]
+#[case::double_quoted(r#"["a;b" 2]"#)]
+#[case::single_quoted("['a;b' 2]")]
+#[case::backtick_quoted("[`a;b` 2]")]
+#[case::raw_string("[r#'a;b'# 2]")]
+#[case::comment("[1 # ; ignored\n 2]")]
+#[case::constant_subexpression("[(1; 2)]")]
+#[case::nested_list(r#"[["a;b"]]"#)]
+#[case::nested_record(r#"[{a: "b;c"}]"#)]
+#[case::ignore_rest("[1 ..]")]
+#[case::capture_rest("[1 ..$rest]")]
+fn accept_valid_list_pattern_semicolons(#[case] pattern: &str) {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    working_set.add_decl(Box::new(MatchMocked));
+    let source = format!("match [] {{ {pattern} => true, _ => false }}");
+    let _ = parse(&mut working_set, None, source.as_bytes(), false);
+
+    assert!(
+        working_set.parse_errors.is_empty(),
+        "{:?}",
+        working_set.parse_errors
+    );
+}
+
+/// A second `..` or `..$name` in one list pattern gives one error at the extra rest. The arm
+/// body can still use the extra rest's variable without also getting "Variable not found".
+#[rstest]
+#[case::ignore("[.., 2, ..] => true", "..")]
+#[case::capture("[..$a, 2, ..$b] => $b", "..$b")]
+fn reject_second_list_pattern_rest(#[case] arm: &str, #[case] extra_rest: &str) {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    working_set.add_decl(Box::new(MatchMocked));
+    let source = format!("match [] {{ {arm}, _ => false }}");
+    let _ = parse(&mut working_set, None, source.as_bytes(), false);
+
+    let [error] = working_set.parse_errors.as_slice() else {
+        panic!(
+            "expected one parse error, got {:?}",
+            working_set.parse_errors
+        );
+    };
+    assert!(
+        matches!(error, ParseError::LabeledErrorWithHelp { error, .. }
+            if error == "`..` can only be used once per list pattern"),
+        "unexpected diagnostic: {error:?}"
+    );
+    assert_eq!(
+        working_set.get_span_contents(error.span()),
+        extra_rest.as_bytes()
+    );
+}
+
 #[test]
 fn record_semicolon_gives_separator_help() {
     let engine_state = EngineState::new();
@@ -3758,5 +4199,53 @@ fn empty_and_complete_lines_error_kinds() {
             .any(|e| matches!(e, ParseError::Unclosed(..) | ParseError::UnexpectedEof(..))),
         "open block should be Unclosed/UnexpectedEof, got {:?}",
         unclosed.parse_errors
+    );
+}
+
+#[rstest]
+#[case::quoted_name("\"foo\"")]
+#[case::backtick_name("`foo`")]
+#[case::escaped_name("\"foo\\u{2D}bar\"")]
+pub fn parse_name_check_leaves_no_file_in_the_state(#[case] name: &str) {
+    // The name check reads the head word of the name, to see whether the call site would read
+    // that word as a value. It has to read it without leaving a file in the state it checks.
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    working_set.add_decl(Box::new(Def));
+    working_set.add_decl(Box::new(Alias));
+    working_set.add_decl(Box::new(AttrEcho));
+
+    let _ = parse(
+        &mut working_set,
+        None,
+        format!("def {name} [] {{}}").as_bytes(),
+        false,
+    );
+
+    let left = working_set
+        .files()
+        .filter(|file| file.name.starts_with("command name"))
+        .map(|file| file.name.to_string())
+        .collect::<Vec<_>>();
+
+    assert!(left.is_empty(), "{name:?} left {left:?} in the state");
+}
+
+#[test]
+pub fn parse_name_check_leaves_no_block_in_the_state() {
+    // A range bound such as `(foo)` is parsed as a subexpression, which adds a block. The name
+    // check must not leave that block in the state it checks.
+    let blocks_after = |source: &str| {
+        let engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        working_set.add_decl(Box::new(Alias));
+        working_set.add_decl(Box::new(AttrEcho));
+        let _ = parse(&mut working_set, None, source.as_bytes(), false);
+        working_set.num_blocks()
+    };
+
+    assert_eq!(
+        blocks_after(r#"alias "x..(foo)" = attr echo"#),
+        blocks_after("alias foo = attr echo"),
     );
 }

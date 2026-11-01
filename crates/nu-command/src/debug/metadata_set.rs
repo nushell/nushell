@@ -43,7 +43,7 @@ impl Command for MetadataSet {
             .named(
                 "table-width-priority-columns",
                 SyntaxShape::List(Box::new(SyntaxShape::String)),
-                "A list of columns to prioritize during table width allocation.",
+                "A list of columns to prioritize during table width allocation: a listed column shows wherever it would unlisted, other columns shrink first, and columns to its right hide to leave it up to a third of the table width.",
                 Some('w'),
             )
             .allow_variants_without_examples(true)
@@ -94,7 +94,7 @@ impl Command for MetadataSet {
             let record = extend_record_with_metadata(Record::new(), Some(&metadata), head);
             let metadata_value = record.into_value(head);
 
-            let result = ClosureEvalOnce::new(engine_state, stack, closure)
+            let result = ClosureEvalOnce::try_new(engine_state, stack, closure, head)?
                 .run_with_value(metadata_value)?
                 .into_value(head)?;
 

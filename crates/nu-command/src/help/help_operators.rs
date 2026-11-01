@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::ast::{Assignment, Bits, Boolean, Comparison, Math, Operator};
+use nu_protocol::ast::{Assignment, Bits, Boolean, Comparison, Math, NOT_PRECEDENCE, Operator};
 use strum::IntoEnumIterator;
 
 #[derive(Clone)]
@@ -79,7 +79,7 @@ impl Command for HelpOperators {
                 "operator" => Value::string("not", head),
                 "name" => Value::string("Not", head),
                 "description" => Value::string("Negates a value or expression.", head),
-                "precedence" => Value::int(55, head),
+                "precedence" => Value::int(NOT_PRECEDENCE.into(), head),
             },
             head,
         ));
@@ -147,6 +147,12 @@ fn description(operator: &Operator) -> &'static str {
         Operator::Comparison(Comparison::EndsWith) => "Checks if a string ends with another.",
         Operator::Comparison(Comparison::NotEndsWith) => {
             "Checks if a string does not end with another."
+        }
+        Operator::Comparison(Comparison::OlderThan) => {
+            "Checks if a datetime is before now minus a duration, or before another datetime (the same as `<`)."
+        }
+        Operator::Comparison(Comparison::NewerThan) => {
+            "Checks if a datetime is after now minus a duration, or after another datetime (the same as `>`)."
         }
         Operator::Math(Math::Add) => "Adds two values.",
         Operator::Math(Math::Subtract) => "Subtracts two values.",

@@ -5,10 +5,11 @@
 //! hook, so these tests drive `eval_source` directly while following harness conventions:
 //! `Result` returns, structured value asserts, and no `nu!`.
 //!
-//! When payload capture is enabled (`last_result_size > 0`), `$ans` is a record
-//! `{ last, exit_code, duration }`. With size `0`, `$ans` is `{ exit_code, duration }`
-//! (no `last` field). Payload checks use the `last` field; bare `$ans` / `$ans.*`
-//! cell-paths must not clobber `.last`.
+//! When payload capture is enabled (`max_last_result_size > 0`), `$ans` is a record
+//! `{ last, exit_code, duration, command }`. With size `0`, `$ans` is
+//! `{ exit_code, duration, command }` (no `last` field). `command` is the exact last REPL
+//! source (same text reedline stores in history). Payload checks use the `last`
+//! field; bare `$ans` / `$ans.*` cell-paths must not clobber `.last`.
 
 use nu_cli::eval_source;
 use nu_protocol::{
@@ -26,6 +27,8 @@ use std::time::Duration;
 struct Interactive {
     engine_state: EngineState,
     stack: Stack,
+    /// Last `run()` source, used by [`Self::snapshot_metadata`] as `$ans.command`.
+    last_source: String,
 }
 
 impl Interactive {
@@ -38,8 +41,9 @@ impl Interactive {
         Self {
             engine_state,
             stack: Stack::new(),
+            last_source: String::new(),
         }
-        .with_last_result_size(
+        .with_max_last_result_size(
             Filesize::from_unit(1, FilesizeUnit::MiB).expect("1 MiB fits in Filesize"),
         )
     }
@@ -52,21 +56,23 @@ impl Interactive {
         Self {
             engine_state,
             stack: Stack::new(),
+            last_source: String::new(),
         }
     }
 
-    fn with_last_result_size(mut self, size: Filesize) -> Self {
+    fn with_max_last_result_size(mut self, size: Filesize) -> Self {
         let mut cfg = self.engine_state.get_config().as_ref().clone();
-        cfg.last_result_size = size;
-        self.engine_state.config = Arc::new(cfg);
+        cfg.max_last_result_size = size;
+        self.engine_state.set_config(cfg);
         self
     }
 
-    /// One interactive source unit (like one REPL entry).
-    fn run(&mut self, code: &str) {
+    /// One interactive source unit (like one REPL entry). Returns the eval exit code.
+    fn run(&mut self, code: &str) -> i32 {
         // Match REPL `do_run_cmd`: enable capture only for this user line.
+        self.last_source = code.to_string();
         self.engine_state.capture_repl_last_result = true;
-        let _ = eval_source(
+        let code = eval_source(
             &mut self.engine_state,
             &mut self.stack,
             code.as_bytes(),
@@ -75,6 +81,7 @@ impl Interactive {
             false,
         );
         self.engine_state.capture_repl_last_result = false;
+        code
     }
 
     /// Full `$ans` value (record when present, `nothing` when never snapshotted/stored).
@@ -94,10 +101,26 @@ impl Interactive {
         }
     }
 
-    /// Match REPL end-of-line snapshot of exit_code / duration.
+    /// Match REPL end-of-line snapshot of exit_code / duration / command.
     fn snapshot_metadata(&mut self, duration: Duration) {
-        self.stack
-            .snapshot_ans_repl_metadata(&self.engine_state, duration);
+        self.stack.snapshot_ans_repl_metadata(
+            &self.engine_state,
+            duration,
+            self.last_source.clone(),
+        );
+    }
+
+    /// `$ans.command` (or empty string when `$ans` is unset or has no `command` field).
+    fn last_command(&self) -> Result<String> {
+        let ans = self.ans_value()?;
+        match ans {
+            Value::Nothing { .. } => Ok(String::new()),
+            Value::Record { .. } => Ok(ans
+                .get_data_by_key("command")
+                .and_then(|v| v.as_str().ok().map(str::to_string))
+                .unwrap_or_default()),
+            other => panic!("expected $ans record or nothing, got {other:?}"),
+        }
     }
 }
 
@@ -209,7 +232,7 @@ fn error_does_not_overwrite() -> Result {
 
 #[test]
 fn zero_budget_disables_last_payload_only() -> Result {
-    let mut session = Interactive::new().with_last_result_size(Filesize::ZERO);
+    let mut session = Interactive::new().with_max_last_result_size(Filesize::ZERO);
     session.run("123");
     // Without a REPL metadata snapshot, the slot was never marked present.
     assert_eq!(session.ans_value()?, Value::test_nothing());
@@ -234,6 +257,10 @@ fn zero_budget_disables_last_payload_only() -> Result {
         ans.get_data_by_key("duration").expect("duration"),
         Value::test_duration(10_000_000)
     );
+    assert_eq!(
+        ans.get_data_by_key("command").expect("command"),
+        Value::test_string("123")
+    );
     assert_eq!(session.last_payload()?, Value::test_nothing());
     Ok(())
 }
@@ -241,7 +268,7 @@ fn zero_budget_disables_last_payload_only() -> Result {
 #[test]
 fn oversized_result_is_truncated_under_budget() -> Result {
     let budget = std::mem::size_of::<Value>() + 32;
-    let mut session = Interactive::new().with_last_result_size(Filesize::new(budget as i64));
+    let mut session = Interactive::new().with_max_last_result_size(Filesize::new(budget as i64));
 
     let big = "x".repeat(10_000);
     session.run(&format!("\"{big}\""));
@@ -266,7 +293,7 @@ fn oversized_result_is_truncated_under_budget() -> Result {
 fn truncated_list_prefix_respects_byte_budget() -> Result {
     let one = Value::test_int(0).memory_size();
     let budget = Value::test_list(vec![]).memory_size() + one * 5;
-    let mut session = Interactive::new().with_last_result_size(Filesize::new(budget as i64));
+    let mut session = Interactive::new().with_max_last_result_size(Filesize::new(budget as i64));
 
     session.run("0..100 | each {|i| $i}");
 
@@ -459,7 +486,7 @@ fn truncation_warning_is_deferred_until_after_print() -> Result {
 #[test]
 fn engine_stats_reports_last_result_sizes() -> Result {
     let budget = 4096i64;
-    let mut session = Interactive::new().with_last_result_size(Filesize::new(budget));
+    let mut session = Interactive::new().with_max_last_result_size(Filesize::new(budget));
 
     session.run("1..20 | each {|i| $i}");
 
@@ -577,7 +604,7 @@ fn internal_structured_last_is_not_stringified() -> Result {
 #[test]
 #[deps(TESTBIN_NONU)]
 fn zero_budget_does_not_force_external_capture() -> Result {
-    let mut session = Interactive::new().with_last_result_size(Filesize::ZERO);
+    let mut session = Interactive::new().with_max_last_result_size(Filesize::ZERO);
     session.run("^nonu should_not_store");
     // External capture is skipped when budget is 0; still no `.last` after snapshot.
     session.snapshot_metadata(Duration::from_millis(1));
@@ -595,9 +622,7 @@ fn snapshot_ans_repl_metadata_sets_exit_code_and_duration() -> Result {
     let mut session = Interactive::new();
     session.run("42");
     session.stack.set_last_exit_code(7, Span::test_data());
-    session
-        .stack
-        .snapshot_ans_repl_metadata(&session.engine_state, Duration::from_millis(25));
+    session.snapshot_metadata(Duration::from_millis(25));
 
     let ans = session.ans_value()?;
     assert_eq!(session.last_payload()?, Value::test_int(42));
@@ -608,6 +633,10 @@ fn snapshot_ans_repl_metadata_sets_exit_code_and_duration() -> Result {
     assert_eq!(
         ans.get_data_by_key("duration").expect("duration"),
         Value::test_duration(25_000_000) // 25ms in nanoseconds
+    );
+    assert_eq!(
+        ans.get_data_by_key("command").expect("command"),
+        Value::test_string("42")
     );
     Ok(())
 }
@@ -620,13 +649,11 @@ fn snapshot_with_zero_budget_drops_last_keeps_metadata() -> Result {
     assert_eq!(session.last_payload()?, Value::test_int(1));
 
     let mut cfg = session.engine_state.get_config().as_ref().clone();
-    cfg.last_result_size = Filesize::ZERO;
-    session.engine_state.config = Arc::new(cfg);
+    cfg.max_last_result_size = Filesize::ZERO;
+    session.engine_state.set_config(cfg);
 
     session.stack.set_last_exit_code(3, Span::test_data());
-    session
-        .stack
-        .snapshot_ans_repl_metadata(&session.engine_state, Duration::from_millis(5));
+    session.snapshot_metadata(Duration::from_millis(5));
 
     let ans = session.ans_value()?;
     assert!(
@@ -645,6 +672,10 @@ fn snapshot_with_zero_budget_drops_last_keeps_metadata() -> Result {
         ans.get_data_by_key("duration").expect("duration"),
         Value::test_duration(5_000_000)
     );
+    assert_eq!(
+        ans.get_data_by_key("command").expect("command"),
+        Value::test_string("1")
+    );
     // Payload memory must be gone.
     assert_eq!(session.stack.last_result_memory_size(), 0);
     Ok(())
@@ -653,12 +684,12 @@ fn snapshot_with_zero_budget_drops_last_keeps_metadata() -> Result {
 #[test]
 fn ls_then_ans_with_config_env() -> Result {
     // Reproduce REPL: enable budget via $env.config, run ls, read $ans.
-    let mut session = Interactive::new().with_last_result_size(Filesize::ZERO);
+    let mut session = Interactive::new().with_max_last_result_size(Filesize::ZERO);
     // Budget off first
     assert_eq!(session.ans_value()?, Value::test_nothing());
 
     // Enable like a user would (also exercises update_config path)
-    session.run("$env.config.last_result_size = 1mb");
+    session.run("$env.config.max_last_result_size = 1mb");
     // Config assignment may store empty/null last; should be present once budget > 0 after store
     session.run("1 + 1");
     let after_math = session.ans_value()?;
@@ -684,7 +715,7 @@ fn ls_then_ans_with_config_env() -> Result {
 
 #[test]
 fn default_zero_budget_means_no_last_field() -> Result {
-    let mut session = Interactive::new().with_last_result_size(Filesize::ZERO);
+    let mut session = Interactive::new().with_max_last_result_size(Filesize::ZERO);
     session.run("ls");
     // Store path with budget 0 does not invent a record by itself.
     assert_eq!(session.ans_value()?, Value::test_nothing());
@@ -695,6 +726,10 @@ fn default_zero_budget_means_no_last_field() -> Result {
     assert!(
         ans.get_data_by_key("last").is_none(),
         "ls must not populate last when budget is 0, got {ans:?}"
+    );
+    assert_eq!(
+        ans.get_data_by_key("command").expect("command"),
+        Value::test_string("ls")
     );
     assert_eq!(session.stack.last_result_memory_size(), 0);
     Ok(())
@@ -720,5 +755,166 @@ fn ans_via_source_after_ls() -> Result {
         matches!(last2, Value::List { .. }),
         "expected list still after $ans.last, got {last2:?}"
     );
+    Ok(())
+}
+
+#[test]
+fn command_records_single_command_source() -> Result {
+    let mut session = Interactive::new();
+    session.run("1 + 2");
+    session.snapshot_metadata(Duration::from_millis(1));
+    assert_eq!(session.last_payload()?, Value::test_int(3));
+    assert_eq!(session.last_command()?, "1 + 2");
+    Ok(())
+}
+
+#[test]
+fn command_preserves_multiline_pipeline() -> Result {
+    let mut session = Interactive::new();
+    let code = "ls\n    | where type == file";
+    session.run(code);
+    session.snapshot_metadata(Duration::from_millis(1));
+    assert_eq!(session.last_command()?, code);
+    Ok(())
+}
+
+#[test]
+fn command_updates_on_runtime_error_without_clobbering_last() -> Result {
+    let mut session = Interactive::new();
+    session.run("99");
+    session.snapshot_metadata(Duration::from_millis(1));
+    session.run("error make {msg: boom}");
+    session.snapshot_metadata(Duration::from_millis(1));
+    assert_eq!(session.last_payload()?, Value::test_int(99));
+    assert_eq!(session.last_command()?, "error make {msg: boom}");
+    Ok(())
+}
+
+#[test]
+fn command_updates_on_parse_error() -> Result {
+    let mut session = Interactive::new();
+    session.run("1 + 2");
+    session.snapshot_metadata(Duration::from_millis(1));
+    session.run("let");
+    session.snapshot_metadata(Duration::from_millis(1));
+    assert_eq!(session.last_payload()?, Value::test_int(3));
+    assert_eq!(session.last_command()?, "let");
+    Ok(())
+}
+
+#[test]
+fn command_updates_on_bare_ans_without_clobbering_last() -> Result {
+    let mut session = Interactive::new();
+    session.run("[1 2 3]");
+    session.snapshot_metadata(Duration::from_millis(1));
+    session.run(&last_var());
+    session.snapshot_metadata(Duration::from_millis(1));
+    assert_eq!(
+        session.last_payload()?,
+        Value::test_list(vec![
+            Value::test_int(1),
+            Value::test_int(2),
+            Value::test_int(3),
+        ])
+    );
+    assert_eq!(session.last_command()?, last_var());
+    Ok(())
+}
+
+#[test]
+fn error_values_from_str_length_do_not_clobber_last() -> Result {
+    // https://github.com/nushell/nushell/issues/18861
+    // `str length` embeds type errors as values; `$ans.last` must stay the prior table.
+    let mut session = Interactive::new();
+    session.run("[{name: a}]");
+    let original = session.last_payload()?;
+    assert!(
+        matches!(original, Value::List { .. }),
+        "expected table payload, got {original:?}"
+    );
+
+    let failed = format!("{}.last | str length", last_var());
+    session.run(&failed);
+    session.snapshot_metadata(Duration::from_millis(1));
+    assert_eq!(session.last_payload()?, original);
+    assert_eq!(session.last_command()?, failed);
+
+    let ans_code = session.run(&last_var());
+    assert_eq!(
+        ans_code, 0,
+        "bare $ans must stay printable after error values"
+    );
+    assert_eq!(session.last_payload()?, original);
+    Ok(())
+}
+
+#[test]
+fn error_values_do_not_clobber_last_with_table_expand_hook() -> Result {
+    // Default display_output uses `table -e` on wide terminals; force it so CI reproduces.
+    let mut session = Interactive::new();
+    session.run("$env.config.hooks.display_output = 'table --expand'");
+    session.run("[{name: a}]");
+    let original = session.last_payload()?;
+
+    session.run(&format!("{}.last | str length", last_var()));
+    assert_eq!(session.last_payload()?, original);
+
+    let ans_code = session.run(&last_var());
+    assert_eq!(
+        ans_code, 0,
+        "bare $ans with table --expand must not rethrow stored type errors"
+    );
+    assert_eq!(session.last_payload()?, original);
+    Ok(())
+}
+
+#[test]
+fn error_only_list_stream_does_not_clobber_last() -> Result {
+    let mut session = Interactive::new();
+    session.run("[{name: a}]");
+    let original = session.last_payload()?;
+
+    // Range + each yields a list stream of records; str length maps it to error values.
+    session.run("1..2 | each {|i| {name: $i}} | str length");
+    assert_eq!(session.last_payload()?, original);
+    Ok(())
+}
+
+#[test]
+fn mixed_str_length_result_does_replace_last() -> Result {
+    // Cell-path `str length` keeps the table shape: one row becomes an int, one an error value.
+    // That mixed list must still replace `$ans.last` (not treated as error-only).
+    let mut session = Interactive::new();
+    session.run("[{name: 'ab'} {name: 1}]");
+    session.run(&format!("{}.last | str length name", last_var()));
+    let last = session.last_payload()?;
+    let Value::List { vals, .. } = last else {
+        panic!("expected list last payload, got {last:?}");
+    };
+    assert_eq!(vals.len(), 2);
+    let name0 = vals[0]
+        .as_record()
+        .expect("first row")
+        .get("name")
+        .expect("name");
+    assert_eq!(name0, &Value::test_int(2));
+    assert!(
+        vals[1].is_error(),
+        "row with a non-string cell should be an error value, got {:?}",
+        vals[1]
+    );
+    Ok(())
+}
+
+#[test]
+fn command_updates_when_transforming_last() -> Result {
+    let mut session = Interactive::new();
+    session.run("[10 20 30]");
+    session.snapshot_metadata(Duration::from_millis(1));
+    let transform = format!("{}.last | first", last_var());
+    session.run(&transform);
+    session.snapshot_metadata(Duration::from_millis(1));
+    assert_eq!(session.last_payload()?, Value::test_int(10));
+    assert_eq!(session.last_command()?, transform);
     Ok(())
 }

@@ -1,7 +1,7 @@
 use nu_protocol::{
     CompileError, IntoSpanned, RegId, Span, Spanned,
     ast::Pattern,
-    ir::{DataSlice, Instruction, IrAstRef, IrBlock, Literal, ScopeRegion},
+    ir::{DataSlice, Instruction, IrBlock, Literal, ScopeRegion},
 };
 
 /// A label identifier. Only exists while building code. Replaced with the actual target.
@@ -21,8 +21,12 @@ pub(crate) struct BlockBuilder {
     /// an index actually set.
     pub(crate) labels: Vec<Option<usize>>,
     pub(crate) data: Vec<u8>,
-    pub(crate) ast: Vec<Option<IrAstRef>>,
-    pub(crate) comments: Vec<String>,
+    /// The comments of the instructions that have one, as (instruction index, comment) pairs.
+    /// Only the last instruction pushed ever gets one, so the indices increase. Few instructions
+    /// have one, so this is only expanded to one entry per instruction by [`finish()`].
+    ///
+    /// [`finish()`]: Self::finish
+    pub(crate) comments: Vec<(usize, String)>,
     pub(crate) register_allocation_state: Vec<bool>,
     pub(crate) file_count: u32,
     pub(crate) context_stack: ContextStack,
@@ -39,7 +43,6 @@ impl BlockBuilder {
             spans: vec![],
             labels: vec![],
             data: vec![],
-            ast: vec![],
             comments: vec![],
             register_allocation_state: vec![true],
             file_count: 0,
@@ -212,7 +215,11 @@ impl BlockBuilder {
             Instruction::Drop { src } => allocate(&[*src], &[]),
             Instruction::Drain { src } => allocate(&[*src], &[]),
             Instruction::DrainIfEnd { src } => allocate(&[*src], &[]),
-            Instruction::LoadVariable { dst, var_id: _ } => allocate(&[], &[*dst]),
+            Instruction::LoadVariable {
+                dst,
+                var_id: _,
+                preserve_origin: _,
+            } => allocate(&[], &[*dst]),
             Instruction::StoreVariable { var_id: _, src } => allocate(&[*src], &[*src]),
             Instruction::DropVariable { var_id: _ } => Ok(()),
             Instruction::LoadEnv { dst, key: _ } => allocate(&[], &[*dst]),
@@ -233,7 +240,7 @@ impl BlockBuilder {
                 path,
                 append: _,
             } => allocate(&[*path], &[]),
-            Instruction::WriteFile { file_num: _, src } => allocate(&[*src], &[]),
+            Instruction::WriteFile { file_num: _, src } => allocate(&[*src], &[*src]),
             Instruction::CloseFile { file_num: _ } => Ok(()),
             Instruction::Call {
                 decl_id: _,
@@ -277,6 +284,10 @@ impl BlockBuilder {
                 ..
             } => allocate(&[*cell_path, *new_value], &[]),
             Instruction::Jump { index: _ } => Ok(()),
+            Instruction::UnwindJump {
+                index: _,
+                handlers: _,
+            } => Ok(()),
             Instruction::BranchIf { cond, index: _ } => allocate(&[*cond], &[]),
             Instruction::BranchIfEmpty { src, index: _ } => allocate(&[*src], &[*src]),
             Instruction::Match {
@@ -291,11 +302,11 @@ impl BlockBuilder {
                 end_index: _,
             } => allocate(&[*stream], &[*dst, *stream]),
             Instruction::OnError { index: _ } => Ok(()),
-            Instruction::Finally { index: _ } => Ok(()),
             Instruction::OnErrorInto { index: _, dst } => allocate(&[], &[*dst]),
             Instruction::FinallyInto { index: _, dst } => allocate(&[], &[*dst]),
             Instruction::PopErrorHandler => Ok(()),
-            Instruction::PopFinallyRun => Ok(()),
+            Instruction::BeginFinally => Ok(()),
+            Instruction::EndFinally => Ok(()),
             Instruction::ReturnEarly { src } => allocate(&[*src], &[]),
             Instruction::Return { src } => allocate(&[*src], &[]),
         };
@@ -316,22 +327,25 @@ impl BlockBuilder {
 
         self.instructions.push(instruction.item);
         self.spans.push(instruction.span);
-        self.ast.push(None);
-        self.comments.push(String::new());
         Ok(())
     }
 
-    /// Set the AST of the last instruction. Separate method because it's rarely used.
-    pub(crate) fn set_last_ast(&mut self, ast_ref: Option<IrAstRef>) {
-        *self.ast.last_mut().expect("no last instruction") = ast_ref;
+    /// The index of the last instruction.
+    fn last_index(&self) -> usize {
+        self.instructions
+            .len()
+            .checked_sub(1)
+            .expect("no last instruction")
     }
 
     /// Add a comment to the last instruction.
-    pub(crate) fn add_comment(&mut self, comment: impl std::fmt::Display) {
-        add_comment(
-            self.comments.last_mut().expect("no last instruction"),
-            comment,
-        )
+    pub(crate) fn add_comment(&mut self, comment: &str) {
+        let index = self.last_index();
+        // An entry for the last instruction can only be the last entry.
+        match self.comments.last_mut() {
+            Some((last, text)) if *last == index => add_comment(text, comment, None, ""),
+            _ => self.comments.push((index, comment.to_string())),
+        }
     }
 
     /// Load a register with a literal.
@@ -507,7 +521,7 @@ impl BlockBuilder {
                 msg: "`break` called from outside of a loop".into(),
                 span: Some(span),
             })?;
-        self.jump(loop_.break_label, span)
+        self.jump_out_of_loop(loop_.break_label, span)
     }
 
     /// Add a loop continuing jump instruction.
@@ -519,7 +533,23 @@ impl BlockBuilder {
                 msg: "`continue` called from outside of a loop".into(),
                 span: Some(span),
             })?;
-        self.jump(loop_.continue_label, span)
+        self.jump_out_of_loop(loop_.continue_label, span)
+    }
+
+    /// Jump to a label of the innermost loop. If the jump leaves any `try` expressions, it has
+    /// to unwind their handlers on the way, so that `finally` blocks run and no stale handler
+    /// is left behind for the rest of the loop or block.
+    fn jump_out_of_loop(&mut self, label_id: LabelId, span: Span) -> Result<(), CompileError> {
+        match self.context_stack.handlers_to_unwind_for_loop() {
+            0 => self.jump(label_id, span),
+            handlers => self.push(
+                Instruction::UnwindJump {
+                    index: label_id.0,
+                    handlers,
+                }
+                .into_spanned(span),
+            ),
+        }
     }
 
     /// Pop the loop state. Checks that the loop being ended is the same one that was expected.
@@ -548,13 +578,17 @@ impl BlockBuilder {
 
     /// Consume the builder and produce the final [`IrBlock`].
     pub(crate) fn finish(mut self) -> Result<IrBlock, CompileError> {
+        // One comment per instruction (empty for most). The comments added while building come
+        // first, then the label and branch comments below.
+        let mut comments = vec![String::new(); self.instructions.len()];
+        for (index, comment) in self.comments {
+            comments[index] = comment;
+        }
+
         // Add comments to label targets
         for (index, label_target) in self.labels.iter().enumerate() {
             if let Some(label_target) = label_target {
-                add_comment(
-                    &mut self.comments[*label_target],
-                    format_args!("label({index})"),
-                );
+                add_comment(&mut comments[*label_target], "label(", Some(index), ")");
             }
         }
 
@@ -570,10 +604,7 @@ impl BlockBuilder {
                     },
                 )?;
                 // Add a comment to the target index that we come from here
-                add_comment(
-                    &mut self.comments[target_index],
-                    format_args!("from({index}:)"),
-                );
+                add_comment(&mut comments[target_index], "from(", Some(index), ":)");
                 instruction.set_branch_target(target_index).map_err(|_| {
                     CompileError::SetBranchTargetOfNonBranchInstruction {
                         instruction: format!("{instruction:?}"),
@@ -587,8 +618,7 @@ impl BlockBuilder {
             instructions: self.instructions,
             spans: self.spans,
             data: self.data.into(),
-            ast: self.ast,
-            comments: self.comments.into_iter().map(|s| s.into()).collect(),
+            comments: comments.into_iter().map(String::into_boxed_str).collect(),
             register_count: self
                 .register_allocation_state
                 .len()
@@ -599,13 +629,16 @@ impl BlockBuilder {
         })
     }
 
-    pub(crate) fn begin_try(&mut self) {
-        self.context_stack.push_try();
+    /// Enter a region of a `try` expression (its body, `catch` block, or `finally` block) that
+    /// keeps `handlers` entries on the runtime handler stack while it runs. Must be paired with
+    /// [`end_try()`](Self::end_try).
+    pub(crate) fn begin_try(&mut self, handlers: usize) {
+        self.context_stack.push_try(handlers);
     }
 
     pub(crate) fn end_try(&mut self) -> Result<(), CompileError> {
         match self.context_stack.pop() {
-            Some(ContextBlock::Try) => Ok(()),
+            Some(ContextBlock::Try { .. }) => Ok(()),
             _ => Err(CompileError::NotInATry {
                 msg: "end_try() called outside of a try block".into(),
                 span: None,
@@ -625,7 +658,11 @@ pub(crate) struct Loop {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ContextBlock {
     Loop(Loop),
-    Try,
+    /// A region of a `try` expression, with the number of entries it keeps on the runtime
+    /// handler stack while the region runs.
+    Try {
+        handlers: usize,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -640,8 +677,8 @@ impl ContextStack {
         self.0.push(ContextBlock::Loop(r#loop));
     }
 
-    pub fn push_try(&mut self) {
-        self.0.push(ContextBlock::Try);
+    pub fn push_try(&mut self, handlers: usize) {
+        self.0.push(ContextBlock::Try { handlers });
     }
 
     pub fn pop(&mut self) -> Option<ContextBlock> {
@@ -655,12 +692,17 @@ impl ContextStack {
         })
     }
 
-    pub fn try_block_depth_from_loop(&self) -> usize {
+    /// The number of runtime handler stack entries that a jump to the innermost loop's labels
+    /// has to unwind through, i.e. the handlers of every `try` region between here and the loop.
+    pub fn handlers_to_unwind_for_loop(&self) -> usize {
         self.0
             .iter()
             .rev()
-            .take_while(|&cb| matches!(cb, ContextBlock::Try))
-            .count()
+            .map_while(|cb| match cb {
+                ContextBlock::Try { handlers } => Some(*handlers),
+                ContextBlock::Loop(_) => None,
+            })
+            .sum()
     }
 
     pub fn is_in_loop(&self) -> bool {
@@ -668,14 +710,45 @@ impl ContextStack {
     }
 }
 
-/// Add a new comment to an existing one
-fn add_comment(comment: &mut String, new_comment: impl std::fmt::Display) {
-    use std::fmt::Write;
-    write!(
-        comment,
-        "{}{}",
-        if comment.is_empty() { "" } else { ", " },
-        new_comment
-    )
-    .expect("formatting failed");
+/// Add a new comment to an existing one, separated by `, `: `prefix`, then `number` in decimal if
+/// there is one, then `suffix`. Builds the text directly rather than through `core::fmt`, as this
+/// runs for every label and branch of every compiled block.
+fn add_comment(comment: &mut String, prefix: &str, number: Option<usize>, suffix: &str) {
+    // The decimal digits of `number`, right-aligned in `digits`.
+    let mut digits = [0; 20];
+    let mut start = digits.len();
+    if let Some(mut number) = number {
+        loop {
+            start -= 1;
+            digits[start] = b'0' + (number % 10) as u8;
+            number /= 10;
+            if number == 0 {
+                break;
+            }
+        }
+    }
+    let digits = &digits[start..];
+
+    let separator = if comment.is_empty() { "" } else { ", " };
+    comment.reserve_exact(separator.len() + prefix.len() + digits.len() + suffix.len());
+    comment.push_str(separator);
+    comment.push_str(prefix);
+    comment.extend(digits.iter().map(|&digit| char::from(digit)));
+    comment.push_str(suffix);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::add_comment;
+
+    #[test]
+    fn add_comment_writes_what_format_writes() {
+        for number in [0, 7, 9, 10, 99, 100, 12345, usize::MAX] {
+            let mut comment = String::new();
+            add_comment(&mut comment, "label(", Some(number), ")");
+            add_comment(&mut comment, "from(", Some(number), ":)");
+            add_comment(&mut comment, "end if", None, "");
+            assert_eq!(comment, format!("label({number}), from({number}:), end if"));
+        }
+    }
 }

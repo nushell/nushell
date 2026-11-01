@@ -1,18 +1,17 @@
-use crate::eval_call;
+use crate::eval_ir_call;
 use fancy_regex::{Captures, Regex};
 use nu_protocol::{
-    Category, Config, IntoPipelineData, PipelineData, PositionalArg, Signature, Span, SpanId,
-    Spanned, SyntaxShape, Type, Value,
-    ast::{Argument, Call, Expr, Expression, RecordItem},
-    debugger::WithoutDebug,
+    Alias, Category, Config, IntoPipelineData, PipelineData, PositionalArg, Signature, Span,
+    SyntaxShape, Value,
+    ast::Expr,
     engine::CommandType,
-    engine::{Command, EngineState, Stack, UNKNOWN_SPAN_ID},
-    record,
+    engine::{Command, EngineState, Stack},
+    ir, record,
 };
 use nu_utils::terminal_size;
 use std::{
     borrow::Cow,
-    collections::{HashMap, HashSet},
+    collections::HashSet,
     fmt::Write,
     sync::{Arc, LazyLock},
 };
@@ -110,32 +109,27 @@ fn try_nu_highlight(
 ) -> Option<String> {
     let highlighter = engine_state.find_decl(b"nu-highlight", &[])?;
 
-    let decl = engine_state.get_decl(highlighter);
-    let mut call = Call::new(head);
+    let mut call = ir::Call::build(highlighter, head);
     if reject_garbage {
-        call.add_named((
-            Spanned {
-                item: "reject-garbage".into(),
-                span: head,
-            },
-            None,
-            None,
-        ));
+        call.add_flag(stack, "reject-garbage", "", head);
     }
-
-    decl.run(
+    let call = call.finish();
+    let highlighted = eval_ir_call(
         engine_state,
         stack,
-        &(&call).into(),
+        &call,
         Value::string(code_string, head).into_pipeline_data(),
-    )
-    .and_then(|pipe| pipe.into_value(head))
-    .and_then(|val| val.coerce_into_string())
-    .ok()
+    );
+    call.leave(stack);
+
+    highlighted
+        .and_then(|pipe| pipe.into_value(head))
+        .and_then(|val| val.coerce_into_string())
+        .ok()
 }
 
 /// Syntax highlight code using the `nu-highlight` command if available, falling back to the given string
-fn nu_highlight_string(
+pub fn nu_highlight_string(
     code_string: &str,
     engine_state: &EngineState,
     stack: &mut Stack,
@@ -145,18 +139,13 @@ fn nu_highlight_string(
         .unwrap_or_else(|| code_string.to_string())
 }
 
-/// Apply code highlighting to code in a capture group
-fn highlight_capture_group(
-    captures: &Captures<'_, str>,
+/// Highlight a code snippet the way [`highlight_code`] highlights text between backticks
+fn highlight_inline_code(
+    content: &str,
     engine_state: &EngineState,
     stack: &mut Stack,
     head: Span,
 ) -> String {
-    let Some(content) = captures.get(1) else {
-        // this shouldn't happen
-        return String::new();
-    };
-
     // Save current color config
     let config_old = stack.get_config(engine_state);
     let mut config = (*config_old).clone();
@@ -179,7 +168,7 @@ fn highlight_capture_group(
     stack.config = Some(Arc::new(config));
 
     // Highlight and reject invalid syntax
-    let highlighted = try_nu_highlight(content.into(), true, engine_state, stack, head)
+    let highlighted = try_nu_highlight(content, true, engine_state, stack, head)
         // // Make highlighted string italic
         .map(|text| {
             let resets = text.match_indices(RESET).count();
@@ -197,7 +186,7 @@ fn highlight_capture_group(
     stack.config = Some(config_old);
 
     // Use fallback style if highlight failed/syntax was invalid
-    highlighted.unwrap_or_else(|| highlight_fallback(content.into()))
+    highlighted.unwrap_or_else(|| highlight_fallback(content))
 }
 
 /// Apply fallback code style
@@ -229,9 +218,17 @@ fn highlight_code<'a>(
     ";
     static RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(PATTERN).expect("valid regex"));
 
-    let do_try_highlight =
-        |captures: &Captures<'_, str>| highlight_capture_group(captures, engine_state, stack, head);
+    let do_try_highlight = |captures: &Captures<'_, str>| match captures.get(1) {
+        Some(content) => highlight_inline_code(content.as_str(), engine_state, stack, head),
+        // this shouldn't happen
+        None => String::new(),
+    };
     RE.replace_all(text, do_try_highlight)
+}
+
+/// The source text an alias expands to, as written: `str trim` for `alias st = str trim`
+fn alias_expansion<'a>(alias: &Alias, engine_state: &'a EngineState) -> Cow<'a, str> {
+    String::from_utf8_lossy(engine_state.get_span_contents(alias.wrapped_call.span))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -260,13 +257,15 @@ fn get_alias_documentation(
         return;
     };
 
-    let alias_expansion =
-        String::from_utf8_lossy(engine_state.get_span_contents(alias.wrapped_call.span));
-
     write!(
         long_desc,
         "{help_section_name}Expansion{RESET}:\n  {}",
-        nu_highlight_string(&alias_expansion, engine_state, stack, head)
+        nu_highlight_string(
+            &alias_expansion(alias, engine_state),
+            engine_state,
+            stack,
+            head
+        )
     )
     .expect("writing to a String is infallible");
 }
@@ -305,72 +304,127 @@ fn get_command_documentation(
 
     // TODO: improve the subcommand name resolution
     // issues:
-    // - Aliases are included
-    //   - https://github.com/nushell/nushell/issues/11657
     // - Subcommands are included violating module scoping
     //   - https://github.com/nushell/nushell/issues/11447
     //   - https://github.com/nushell/nushell/issues/11625
-    // - Duplicate entries may appear when a single declaration is visible under multiple names (e.g. script `main` rewritten to filename plus an alias).
-    //   See https://github.com/nushell/nushell/issues/17719.
-    let mut subcommands = vec![];
-    let signatures = engine_state.get_signatures_and_declids(true);
-    // track which declarations we've already added to `subcommands`
-    let mut seen = HashSet::new();
-    for (sig, decl_id) in signatures {
-        // Prefer the overlay-visible declaration name (if any) for display and matching.
-        // Fall back to the signature's name if not present.
-        let display_name = engine_state
-            .find_decl_name(decl_id, &[])
-            .map(|bytes| String::from_utf8_lossy(bytes).to_string())
-            .unwrap_or_else(|| sig.name.clone());
+    let subcommand_prefix = format!("{cmd_name} ");
+    // Every name in scope that lists a declaration as a subcommand, with the name to print and,
+    // for an alias of a subcommand, the name of the subcommand it runs. A declaration can be
+    // registered under several names (a script's `main bar` is also `script.nu bar`, #17719) and
+    // only some of them may match, so every name is checked.
+    let mut candidates: Vec<_> = engine_state
+        .get_decls_sorted(false)
+        .into_iter()
+        .filter_map(|(overlay_name, decl_id)| {
+            let decl = engine_state.get_decl(decl_id);
+            let name = String::from_utf8_lossy(&overlay_name);
 
-        // Don't display removed/deprecated commands in the Subcommands list. We consider a signature a subcommand when either the overlay-visible
-        // `display_name` begins with `cmd_name ` *or* the canonical signature name does; the latter covers cases where `display_name` returns the
-        // alias instead of the script-qualified name due to hashmap ordering.
-        if (display_name.starts_with(&format!("{cmd_name} "))
-            || sig.name.starts_with(&format!("{cmd_name} ")))
-            && !matches!(sig.category, Category::Removed)
-            && seen.insert(decl_id)
-        {
-            let command_type = engine_state.get_decl(decl_id).command_type();
-
-            // choose which name to show: prefer the overlay-visible one if it actually matches the prefix, otherwise fall back to the canonical
-            // signature name (which is usually the script-qualified form).
-            let name_to_print = if display_name.starts_with(&format!("{cmd_name} ")) {
-                display_name.clone()
+            // Prefer the overlay name for display, falling back to the declared name: a module
+            // command is registered as `spam foo bar` but documented under its bare name
+            // `foo bar`. An alias of a subcommand (`alias st = str trim` under `help str`) is
+            // listed under the name it's called by, and `wraps` keeps the subcommand's name so the
+            // alias sorts right after it. That name comes from the wrapped declaration, not from
+            // the alias's signature, which is a copy taken before a script's `main bar` was
+            // renamed to `script.nu bar`.
+            let (name_to_print, wraps) = if name.starts_with(&subcommand_prefix) {
+                (name.into_owned(), None)
+            } else if decl.name().starts_with(&subcommand_prefix) {
+                (decl.name().to_owned(), None)
             } else {
-                sig.name.clone()
+                let Expr::Call(call) = &decl.as_alias()?.wrapped_call.expr else {
+                    return None;
+                };
+                let wrapped = engine_state
+                    .get_signature(engine_state.get_decl(call.decl_id))
+                    .name;
+                if !wrapped.starts_with(&subcommand_prefix) {
+                    return None;
+                }
+                (name.into_owned(), Some(wrapped))
             };
 
-            // If it's a plugin, alias, or custom command, display that information in the help
-            if command_type == CommandType::Plugin
-                || command_type == CommandType::Alias
-                || command_type == CommandType::Custom
-            {
-                subcommands.push(format!(
-                    "  {help_subcolor_one}{} {help_section_name}({}){RESET} - {}",
-                    name_to_print,
-                    command_type,
-                    highlight_code(&sig.description, engine_state, stack, head)
-                ));
-            } else {
-                subcommands.push(format!(
-                    "  {help_subcolor_one}{}{RESET} - {}",
-                    name_to_print,
-                    highlight_code(&sig.description, engine_state, stack, head)
-                ));
-            }
+            // A hidden declaration can't be called, so it isn't listed. `find_decl` also rejects a
+            // name that now resolves to another declaration.
+            (engine_state.find_decl(&overlay_name, &[]) == Some(decl_id)).then_some((
+                decl_id,
+                name_to_print,
+                wraps,
+            ))
+        })
+        .collect();
+    // A declaration that matches under one of its own names is listed under that name, not as an
+    // alias of the subcommand it runs: a script's `alias "main baz" = main bar` is registered as
+    // both `main baz` and `script.nu baz`, and is listed as `script.nu baz`. The sort is stable,
+    // so within each group the names stay in alphabetical order and the first one wins.
+    candidates.sort_by_key(|(_, _, wraps)| wraps.is_some());
+
+    let mut subcommands = vec![];
+    // Declarations already added to `subcommands`, so each one is listed once.
+    let mut seen = HashSet::new();
+    for (decl_id, name_to_print, wraps) in candidates {
+        let decl = engine_state.get_decl(decl_id);
+
+        // Don't display removed/deprecated commands in the Subcommands list.
+        if !seen.insert(decl_id)
+            || matches!(engine_state.get_signature(decl).category, Category::Removed)
+        {
+            continue;
         }
+
+        let description = match decl.as_alias() {
+            // Every alias shows what it runs. A doc comment on the alias replaces its default
+            // "Alias for `...`" description, but the comment still shows in the alias's own help.
+            // The expansion is joined onto one line to keep one entry per line, and highlighted
+            // directly because it may contain backticks of its own.
+            Some(alias) => {
+                let expansion = alias_expansion(alias, engine_state)
+                    .lines()
+                    .map(str::trim)
+                    .filter(|line| !line.is_empty())
+                    .collect::<Vec<_>>()
+                    .join(" ");
+                let expansion = if nu_config.use_ansi_coloring.get(engine_state) {
+                    highlight_inline_code(&expansion, engine_state, stack, head)
+                } else {
+                    format!("`{expansion}`")
+                };
+                Cow::Owned(format!("Alias for {expansion}"))
+            }
+            None => highlight_code(decl.description(), engine_state, stack, head),
+        };
+
+        // If it's a plugin, alias, or custom command, display that information in the help
+        let command_type = decl.command_type();
+        let line = if command_type == CommandType::Plugin
+            || command_type == CommandType::Alias
+            || command_type == CommandType::Custom
+        {
+            format!(
+                "  {help_subcolor_one}{name_to_print} {help_section_name}({command_type}){RESET} - {description}"
+            )
+        } else {
+            format!("  {help_subcolor_one}{name_to_print}{RESET} - {description}")
+        };
+
+        // Sorted by name, except that an alias of a subcommand goes right after that subcommand.
+        let (sort_name, after_wrapped) = match wraps {
+            Some(wrapped) => (wrapped, true),
+            None => (name_to_print, false),
+        };
+        subcommands.push((sort_name, after_wrapped, line));
     }
 
     if !subcommands.is_empty() {
         write!(long_desc, "\n{help_section_name}Subcommands{RESET}:\n")
             .expect("writing to a String is infallible");
         subcommands.sort();
-        // sort may not remove duplicates when two different names map to the same description string; dedup to be safe.
+        // `seen` lists each declaration once, but two declarations can still print the same line,
+        // such as a top-level `foo bar` and a module's `foo bar` shown under its bare name.
         subcommands.dedup();
-        long_desc.push_str(&subcommands.join("\n"));
-        long_desc.push('\n');
+        for (_, _, line) in subcommands {
+            long_desc.push_str(&line);
+            long_desc.push('\n');
+        }
     }
 
     if !sig.named.is_empty() {
@@ -463,26 +517,14 @@ fn get_command_documentation(
         }
 
         let caller_stack = &mut Stack::new().collect_value();
-        if let Ok(result) = eval_call::<WithoutDebug>(
+        let mut table_call = ir::Call::build(decl_id, head);
+        // padding, see below
+        let width = Value::int(get_term_width() as i64 - 2, head);
+        table_call.add_named(caller_stack, "width", "", head, width);
+        if let Ok(result) = eval_ir_call(
             engine_state,
             caller_stack,
-            &Call {
-                decl_id,
-                head,
-                arguments: vec![Argument::Named((
-                    Spanned {
-                        item: "width".to_string(),
-                        span: head,
-                    },
-                    None,
-                    Some(Expression::new_unknown(
-                        Expr::Int(get_term_width() as i64 - 2), // padding, see below
-                        head,
-                        Type::Int,
-                    )),
-                ))],
-                parser_info: HashMap::new(),
-            },
+            &table_call.finish(),
             PipelineData::value(Value::list(vals, head), None),
         ) && let Ok((str, ..)) = result.collect_string_strict(head)
         {
@@ -520,54 +562,27 @@ fn get_command_documentation(
         };
 
         if let Some(result) = &example.result {
-            let mut table_call = Call::new(head);
-            if example.example.ends_with("--collapse") {
-                // collapse the result
-                table_call.add_named((
-                    Spanned {
-                        item: "collapse".to_string(),
-                        span: head,
-                    },
-                    None,
-                    None,
-                ))
-            } else {
-                // expand the result
-                table_call.add_named((
-                    Spanned {
-                        item: "expand".to_string(),
-                        span: head,
-                    },
-                    None,
-                    None,
-                ))
-            }
-            table_call.add_named((
-                Spanned {
-                    item: "width".to_string(),
-                    span: head,
-                },
-                None,
-                Some(Expression::new_unknown(
-                    Expr::Int(get_term_width() as i64 - 2),
-                    head,
-                    Type::Int,
-                )),
-            ));
-
-            let table = engine_state
-                .find_decl("table".as_bytes(), &[])
-                .and_then(|decl_id| {
-                    engine_state
-                        .get_decl(decl_id)
-                        .run(
-                            engine_state,
-                            stack,
-                            &(&table_call).into(),
-                            PipelineData::value(result.clone(), None),
-                        )
-                        .ok()
-                });
+            let table = engine_state.find_decl(b"table", &[]).and_then(|decl_id| {
+                let mut table_call = ir::Call::build(decl_id, head);
+                // collapse or expand the result
+                let layout = if example.example.ends_with("--collapse") {
+                    "collapse"
+                } else {
+                    "expand"
+                };
+                table_call.add_flag(stack, layout, "", head);
+                let width = Value::int(get_term_width() as i64 - 2, head);
+                table_call.add_named(stack, "width", "", head, width);
+                let table_call = table_call.finish();
+                let table = eval_ir_call(
+                    engine_state,
+                    stack,
+                    &table_call,
+                    PipelineData::value(result.clone(), None),
+                );
+                table_call.leave(stack);
+                table.ok()
+            });
 
             for item in table.into_iter().flatten() {
                 writeln!(
@@ -593,80 +608,46 @@ fn update_ansi_from_config(
     theme_component: &str,
     head: Span,
 ) {
-    if let Some(color) = &nu_config.color_config.get(theme_component) {
-        let caller_stack = &mut Stack::new().collect_value();
-        let span_id = UNKNOWN_SPAN_ID;
+    let Some(color) = nu_config
+        .color_config
+        .get(theme_component)
+        .and_then(|color| color_value_for_ansi(nu_config, color, head))
+    else {
+        return;
+    };
+    let Some(decl_id) = engine_state.find_decl(b"ansi", &[]) else {
+        return;
+    };
 
-        let argument_opt = get_argument_for_color_value(nu_config, color, head, span_id);
-
-        // Call ansi command using argument
-        if let Some(argument) = argument_opt
-            && let Some(decl_id) = engine_state.find_decl(b"ansi", &[])
-            && let Ok(result) = eval_call::<WithoutDebug>(
-                engine_state,
-                caller_stack,
-                &Call {
-                    decl_id,
-                    head,
-                    arguments: vec![argument],
-                    parser_info: HashMap::new(),
-                },
-                PipelineData::empty(),
-            )
-            && let Ok((str, ..)) = result.collect_string_strict(head)
-        {
-            *ansi_code = str;
-        }
+    // Call ansi command using the color
+    let caller_stack = &mut Stack::new().collect_value();
+    let mut ansi_call = ir::Call::build(decl_id, head);
+    ansi_call.add_positional(caller_stack, head, color);
+    if let Ok(result) = eval_ir_call(
+        engine_state,
+        caller_stack,
+        &ansi_call.finish(),
+        PipelineData::empty(),
+    ) && let Ok((str, ..)) = result.collect_string_strict(head)
+    {
+        *ansi_code = str;
     }
 }
 
-fn get_argument_for_color_value(
-    nu_config: &Config,
-    color: &Value,
-    span: Span,
-    span_id: SpanId,
-) -> Option<Argument> {
+/// The `ansi` argument for a configured color: a color name, or a style record with its values
+/// as strings.
+fn color_value_for_ansi(nu_config: &Config, color: &Value, span: Span) -> Option<Value> {
     match color {
-        Value::Record { val, .. } => {
-            let record_exp: Vec<RecordItem> = (**val)
-                .iter()
+        Value::Record { val, .. } => Some(Value::record(
+            val.iter()
                 .map(|(k, v)| {
-                    RecordItem::Pair(
-                        Expression::new_existing(
-                            Expr::String(k.clone()),
-                            span,
-                            span_id,
-                            Type::String,
-                        ),
-                        Expression::new_existing(
-                            Expr::String(v.clone().to_expanded_string("", nu_config)),
-                            span,
-                            span_id,
-                            Type::String,
-                        ),
-                    )
+                    let v = Value::string(v.to_expanded_string("", nu_config), span);
+                    (k.clone(), v)
                 })
-                .collect();
-
-            Some(Argument::Positional(Expression::new_existing(
-                Expr::Record(record_exp),
-                span,
-                span_id,
-                Type::Record(
-                    vec![
-                        ("fg".to_string(), Type::String),
-                        ("attr".to_string(), Type::String),
-                    ]
-                    .into(),
-                ),
-            )))
-        }
-        Value::String { val, .. } => Some(Argument::Positional(Expression::new_existing(
-            Expr::String(val.clone()),
+                .collect(),
             span,
-            span_id,
-            Type::String,
-        ))),
+        )),
+        Value::String { val, .. } => Some(Value::string(val.clone(), span)),
         _ => None,
     }
 }
@@ -919,9 +900,9 @@ mod tests {
         let mut stack = Stack::new();
 
         // force coloring on for test
-        let mut config = (*engine_state.config).clone();
+        let mut config = engine_state.get_config().as_ref().clone();
         config.use_ansi_coloring = UseAnsiColoring::True;
-        engine_state.config = Arc::new(config);
+        engine_state.set_config(config);
 
         // using Cow::Owned here to mean a match, since the content changed,
         // and borrowed to mean not a match, since the content didn't change

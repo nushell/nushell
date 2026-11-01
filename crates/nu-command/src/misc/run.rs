@@ -1,16 +1,18 @@
-use nu_engine::{
-    CallEval, command_prelude::*, get_eval_block_with_early_return, get_eval_expression,
+use super::deferred_arguments::{
+    ArgumentTarget, DeferredArgument, bind_deferred_arguments, call_arguments, deferred_arguments,
+    split_off_callee_arguments,
 };
+use nu_engine::{CallEval, command_prelude::*, get_eval_block_with_early_return, get_full_help};
 use nu_parser::{find_main_block_id_in_script, parse};
 use nu_path::{absolute_with, is_windows_device_path};
 use nu_protocol::{
-    BlockId, Value,
+    BlockId, CompareTypes, DeclId, Flag, Value,
     ast::Block,
-    engine::{CommandType, StateWorkingSet},
+    engine::{self, CommandType, StateWorkingSet, named_flags::list_spread_before_required_error},
     parser_path::{MAX_RUN_SCRIPT_BYTES, ScriptLoadError, read_run_script_file},
     shell_error::{generic::GenericError, io::IoError},
 };
-use std::sync::Arc;
+use std::{borrow::Cow, sync::Arc};
 
 /// Run a script file in an isolated scope as part of a pipeline.
 #[derive(Clone)]
@@ -29,6 +31,9 @@ impl Command for Run {
                 SyntaxShape::OneOf(vec![SyntaxShape::Filepath, SyntaxShape::Nothing]),
                 "The filepath to the script file to run (`null` for no-op).",
             )
+            // The parser appends the script's arguments itself, and passes each spread after the
+            // path (`run x.nu ...$args`) as a list spread. The evaluator checks it against `run`'s
+            // own signature, which needs a rest parameter to let it through to `main`.
             .rest(
                 "arguments",
                 SyntaxShape::Any,
@@ -39,7 +44,6 @@ impl Command for Run {
                 "Reload and reparse the script on every invocation instead of using parser-cached blocks.",
                 Some('f'),
             )
-            .allows_unknown_args()
             .category(Category::Core)
     }
 
@@ -73,7 +77,9 @@ impl Command for Run {
         // We intentionally execute that precompiled block instead of reparsing at runtime.
         //
         let block_id_name: String = call.req_parser_info(engine_state, stack, "block_id_name")?;
-        let full_reparse = call.get_parser_info(stack, "full_reparse").is_some();
+        let args = run_arguments(engine_state, stack, call)?;
+        let full_reparse =
+            call.get_parser_info(stack, "full_reparse").is_some() || args.full_reparse;
 
         // Resolve the script path to an absolute path for consistent `CURRENT_FILE` / `FILE_PWD`
         // behavior. Device paths on Windows are already absolute-like and must be preserved.
@@ -96,30 +102,26 @@ impl Command for Run {
         };
 
         let mut full_reparse_engine_state = None;
-        let (block, main_block) = if full_reparse {
+        let (block, main_block_id) = if full_reparse {
             let (reparsed_engine_state, reparsed_block, reparsed_main_block_id) =
                 parse_run_script_fresh(engine_state, &file_path, call.head)?;
-            let reparsed_main_block =
-                reparsed_main_block_id.map(|id| reparsed_engine_state.get_block(id).clone());
             full_reparse_engine_state = Some(reparsed_engine_state);
-            (reparsed_block, reparsed_main_block)
+            (reparsed_block, reparsed_main_block_id)
         } else {
             // - `block_id`: block compiled from the resolved script file
+            // - `main_block_id`: the block of the script's `def main`, when it has one
             let block_id: i64 = call.req_parser_info(engine_state, stack, "block_id")?;
-            let block_id = BlockId::new(block_id as usize);
-            let block = engine_state.get_block(block_id).clone();
-            let main_block = if call.get_parser_info(stack, "main_block_id").is_some() {
+            let block = engine_state
+                .get_block(BlockId::new(block_id as usize))
+                .clone();
+            let main_block_id = if call.get_parser_info(stack, "main_block_id").is_some() {
                 let main_block_id: i64 =
                     call.req_parser_info(engine_state, stack, "main_block_id")?;
-                Some(
-                    engine_state
-                        .get_block(BlockId::new(main_block_id as usize))
-                        .clone(),
-                )
+                Some(BlockId::new(main_block_id as usize))
             } else {
                 None
             };
-            (block, main_block)
+            (block, main_block_id)
         };
         let eval_engine_state = full_reparse_engine_state.as_ref().unwrap_or(engine_state);
 
@@ -140,39 +142,57 @@ impl Command for Run {
 
         let eval_block_with_early_return = get_eval_block_with_early_return(eval_engine_state);
         let return_result = (|| {
-            // If parser metadata includes a `main` entrypoint, invoke that specific declaration.
+            // If the script has a `main` entrypoint, invoke that specific declaration.
             // Otherwise evaluate the full script block as a pipeline transform.
-            if let Some(main_block) = main_block.clone() {
-                let signature = (*main_block.signature).clone();
-                let callee_stack = stack.gather_captures(eval_engine_state, &main_block.captures);
+            if let Some(main_block_id) = main_block_id {
+                let main_block = eval_engine_state.get_block(main_block_id);
+                let signature = &main_block.signature;
+                let mut callee_stack =
+                    stack.gather_captures(eval_engine_state, &main_block.captures);
+                // Like a call to a custom command, a call to `main` counts toward the recursion
+                // limit, so a script that runs itself fails instead of overflowing the stack.
+                callee_stack.recursion_count += 1;
+                // As for a call to `main`, an error for a missing argument points at the call, and
+                // an optional argument that's left out is a `null` with the call's span.
                 let mut call_eval = CallEval::new(
                     callee_stack,
                     call.head,
-                    main_block.span.unwrap_or(call.head),
+                    call.head,
                     eval_block_with_early_return,
                 );
 
-                // Forward remaining run arguments (`run file.nu ...args`) to `main`.
-                // This helper normalizes long/short flags and supports AST+IR call representations
-                // while delegating actual binding/type validation to CallEval.
-                bind_main_arguments(eval_engine_state, stack, call, &signature, &mut call_eval)?;
-                call_eval.finalize_for_signature(&signature)?;
+                // Forward the arguments after the script path (`run file.nu ...args`) to `main`.
+                let mut main_arguments = MainArguments {
+                    engine_state,
+                    call_eval: &mut call_eval,
+                };
+                if bind_deferred_arguments(engine_state, signature, args.main, &mut main_arguments)?
+                {
+                    // The help shows `main`'s examples, which are on its declaration.
+                    let main_decl = (0..eval_engine_state.num_decls())
+                        .rev()
+                        .map(|decl_id| eval_engine_state.get_decl(DeclId::new(decl_id)))
+                        .find(|decl| decl.block_id() == Some(main_block_id))
+                        .ok_or_else(|| ShellError::NushellFailedSpanned {
+                            msg: "`run` couldn't find the declaration of the script's `main`"
+                                .into(),
+                            label: "for this script".into(),
+                            span: call.head,
+                        })?;
+                    let help = get_full_help(main_decl, eval_engine_state, stack, call.head);
+                    return Ok(Value::string(help, call.head).into_pipeline_data());
+                }
 
-                // Execute a signature-stripped copy of `main` after manually binding all
-                // arguments so pipeline input remains available as `$in` and is not rebound
-                // to positional parameters by call-time argument machinery.
-                // Pipeline input passes through as `$in`; positional args come only from
-                // explicit `run file.nu ...args` tokens bound above.
-                let mut executable_main_block = (*main_block).clone();
-                *executable_main_block.signature = Signature::new("main");
-
-                call_eval.run_prebound(eval_engine_state, &executable_main_block, input)
+                // No parameter takes the pipeline input, so it reaches `main` as `$in`.
+                call_eval.run(eval_engine_state, main_block, input)
             } else {
                 // No explicit `main`: execute the script block directly in an isolated child stack.
                 // Parent scope values remain readable via stack parenting, but script mutations do
                 // not leak back to the caller.
                 let parent_stack = Arc::new(stack.clone());
                 let mut callee_stack = Stack::with_parent(parent_stack);
+                // The script body counts toward the recursion limit, as `main` does.
+                callee_stack.recursion_count += 1;
                 eval_block_with_early_return(eval_engine_state, &mut callee_stack, &block, input)
                     .map(|p| p.body)
             }
@@ -297,132 +317,152 @@ fn parse_run_script_fresh(
     ))
 }
 
-/// Parse a source token that looks like a long or short named flag.
-///
-/// Returns `(long_name, short_name)` where:
-/// - `--char` becomes `("char", None)`
-/// - `-c` becomes `("c", Some("c"))`
-fn parse_flag_name(token: &str) -> Option<(String, Option<String>)> {
-    if let Some(flag_name) = token.strip_prefix("--")
-        && !flag_name.is_empty()
-    {
-        return Some((flag_name.to_string(), None));
-    }
-
-    let mut chars = token.chars();
-    if chars.next() == Some('-')
-        && let Some(short) = chars.next()
-        && chars.next().is_none()
-        && short.is_ascii_alphabetic()
-    {
-        let short = short.to_string();
-        return Some((short.clone(), Some(short)));
-    }
-
-    None
+/// The evaluated arguments of a `run` call.
+struct RunArguments {
+    /// Whether a record spread before the script path turns on `--full-reparse`, as in
+    /// `run ...$opts x.nu`. The parser reads a `--full-reparse` written as a flag.
+    full_reparse: bool,
+    /// The arguments after the script path, for `main`.
+    main: Vec<DeferredArgument>,
 }
 
-/// Parse a forwarded argument value into a flag token.
-///
-/// Source text is preferred so quoted literals like `"-c"` stay positional values.
-fn parse_flag_token(engine_state: &EngineState, value: &Value) -> Option<(String, Option<String>)> {
-    let span = value.span();
-    let span_contents = engine_state.get_span_contents(span);
-    if let Ok(token) = std::str::from_utf8(span_contents) {
-        if let Some(flag) = parse_flag_name(token) {
-            return Some(flag);
-        }
-
-        if token.starts_with('"') || token.starts_with('\'') {
-            return None;
-        }
-    }
-
-    match value {
-        Value::String { val, .. } => parse_flag_name(val),
-        _ => None,
-    }
-}
-
-/// Check whether a parsed flag token matches a named parameter from a signature.
-///
-/// Matches on the long name (`--char` → `"char"`) or by comparing the single short character
-/// extracted from a `-c` token against the flag's declared short character.
-fn matches_named_flag(named: &Flag, long: &str, short: Option<&str>) -> bool {
-    if named.long == long {
-        return true;
-    }
-
-    // Only fall back to short-character matching when the token actually was a
-    // short flag (`-c`). A long flag (`--name`) carries `short == None`, and
-    // comparing that directly against `named.short` would treat "no short given"
-    // as equal to "flag declares no short", spuriously matching the first
-    // short-less flag and binding the value to the wrong parameter.
-    match short.and_then(|name| name.chars().next()) {
-        Some(short_char) => named.short == Some(short_char),
-        None => false,
-    }
-}
-
-/// Resolve a parsed flag token to the matching signature flag, if any.
-fn resolve_named_flag<'a>(
-    signature: &'a Signature,
-    long: &str,
-    short: Option<&str>,
-) -> Option<&'a Flag> {
-    signature
-        .named
-        .iter()
-        .find(|named| matches_named_flag(named, long, short))
-}
-
-/// Bind explicit `run file.nu ...args` arguments onto a script `def main` call evaluator.
-fn bind_main_arguments(
-    engine_state: &EngineState,
-    caller_stack: &mut Stack,
-    call: &Call,
-    signature: &Signature,
-    call_eval: &mut CallEval,
-) -> Result<(), ShellError> {
-    let rest_values = collect_explicit_run_arguments(engine_state, caller_stack, call)?;
-
-    let mut index = 0;
-    while index < rest_values.len() {
-        if let Some((long, short)) = parse_flag_token(engine_state, &rest_values[index]) {
-            let matched_flag = resolve_named_flag(signature, &long, short.as_deref());
-            if let Some(flag) = matched_flag {
-                let expects_value = flag.arg.is_some();
-                let value = if expects_value
-                    && index + 1 < rest_values.len()
-                    && parse_flag_token(engine_state, &rest_values[index + 1]).is_none()
-                {
-                    index += 1;
-                    Some(std::borrow::Cow::Owned(rest_values[index].clone()))
-                } else {
-                    None
-                };
-
-                call_eval.add_named(signature, &flag.long, short, value)?;
-            }
-        } else {
-            call_eval.add_positional(
-                signature,
-                std::borrow::Cow::Owned(rest_values[index].clone()),
-            )?;
-        }
-
-        index += 1;
-    }
-
-    Ok(())
-}
-
-/// Collect only the explicit run arguments after the script filename.
-fn collect_explicit_run_arguments(
+/// Evaluate the arguments of a `run` call.
+fn run_arguments(
     engine_state: &EngineState,
     stack: &mut Stack,
     call: &Call,
-) -> Result<Vec<Value>, ShellError> {
-    let eval_expression = get_eval_expression(engine_state);
-    call.rest_iter_flattened(engine_state, stack, eval_expression, 1)
+) -> Result<RunArguments, ShellError> {
+    let mut args = call_arguments(engine_state, stack, call, &Run)?;
+    let main = deferred_arguments(split_off_callee_arguments(&mut args))?;
+    Ok(RunArguments {
+        full_reparse: spread_full_reparse(&args)?,
+        main,
+    })
+}
+
+/// Whether `run`'s own arguments, the ones up to the script path, turn on `--full-reparse`.
+///
+/// A record spread among them has been expanded into flags against `run`'s signature by now. A
+/// spread that's left would fill rest arguments, which can't come before the path, as for any
+/// command with a required positional argument.
+fn spread_full_reparse(run_args: &[engine::Argument]) -> Result<bool, ShellError> {
+    let mut full_reparse = false;
+    for arg in run_args {
+        match arg {
+            engine::Argument::Flag { data, name, .. } => {
+                full_reparse |= &data[*name] == b"full-reparse";
+            }
+            engine::Argument::Spread {
+                vals: Value::Error { error, .. },
+                ..
+            } => return Err((**error).clone()),
+            engine::Argument::Spread { span, .. } => {
+                return Err(list_spread_before_required_error(*span));
+            }
+            _ => {}
+        }
+    }
+    Ok(full_reparse)
+}
+
+/// Point a type error for an argument after the script path at the value, and explain it.
+///
+/// The parser parses these arguments without `main`'s signature, so a bare `23` is an `int` even
+/// where `main` takes a `string`, which a call to `main` would convert. A variable, a
+/// subexpression or a record has the same type in a call to `main`, so its error gets no hint.
+fn with_conversion_hint(
+    engine_state: &EngineState,
+    err: ShellError,
+    value_span: Span,
+) -> ShellError {
+    match err {
+        ShellError::CantConvert {
+            to_type,
+            from_type,
+            help: None,
+            ..
+        } => {
+            let text = engine_state.get_span_contents(value_span);
+            let help = (!matches!(text.first(), Some(b'$' | b'(' | b'{'))).then(|| {
+                if to_type == "string" {
+                    "`run` doesn't convert script arguments; quote the value to pass a string"
+                        .to_owned()
+                } else {
+                    format!(
+                        "`run` doesn't convert script arguments; pass a value of type `{to_type}`"
+                    )
+                }
+            });
+            ShellError::CantConvert {
+                to_type,
+                from_type,
+                span: value_span,
+                help,
+            }
+        }
+        err => err,
+    }
+}
+
+/// Binds the arguments after the script path to the variables of the script's `main`.
+///
+/// Unlike a call to `main`, values aren't converted to the parameter's type, so `--name 42` for a
+/// `string` flag is an error that says to quote it.
+struct MainArguments<'a> {
+    engine_state: &'a EngineState,
+    call_eval: &'a mut CallEval,
+}
+
+impl ArgumentTarget for MainArguments<'_> {
+    fn add_positional(
+        &mut self,
+        signature: &Signature,
+        value: Value,
+        span: Span,
+    ) -> Result<(), ShellError> {
+        self.call_eval
+            .add_positional(signature, Cow::Owned(value))
+            .map_err(|err| with_conversion_hint(self.engine_state, err, span))?;
+        Ok(())
+    }
+
+    fn add_spread(
+        &mut self,
+        signature: &Signature,
+        value: Value,
+        span: Span,
+    ) -> Result<(), ShellError> {
+        self.call_eval
+            .add_spread(signature, value, span)
+            .map_err(|err| with_conversion_hint(self.engine_state, err, span))?;
+        Ok(())
+    }
+
+    fn add_named(
+        &mut self,
+        signature: &Signature,
+        flag: &Flag,
+        _span: Span,
+        value: Option<(Value, Span)>,
+    ) -> Result<(), ShellError> {
+        if let Some((value, value_span)) = &value {
+            let flag_type = flag.arg.as_ref().map_or(Type::Bool, SyntaxShape::to_type);
+            if !value.is_subtype_of(&flag_type) {
+                let err = ShellError::CantConvert {
+                    to_type: flag_type.to_string(),
+                    from_type: value.get_type().to_string(),
+                    span: *value_span,
+                    help: None,
+                };
+                return Err(with_conversion_hint(self.engine_state, err, *value_span));
+            }
+        }
+        self.call_eval.add_named(
+            signature,
+            &flag.long,
+            flag.short.map(String::from),
+            value.map(|(value, _)| Cow::Owned(value)),
+        )?;
+        Ok(())
+    }
 }

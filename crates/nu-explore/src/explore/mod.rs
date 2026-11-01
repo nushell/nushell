@@ -6,10 +6,10 @@
 mod command;
 mod commands;
 mod config;
-mod nu_common;
+pub(crate) mod nu_common;
 mod pager;
 mod registry;
-mod views;
+pub(crate) mod views;
 
 use anyhow::Result;
 pub use command::Explore;

@@ -58,9 +58,9 @@ For details about which platforms the Nushell team actively supports, see [our p
 ## Configuration
 
 The default configurations can be found at [sample_config](crates/nu-config/default_files)
-which are the configuration files one gets when they startup Nushell for the first time.
+which are the configuration files one gets when they start up Nushell for the first time.
 
-It sets all of the default configuration to run Nushell.  From here one can
+It sets all of the default configuration to run Nushell. From here one can
 then customize this file for their specific needs.
 
 To see where *config.nu* is located on your system simply type this command.
@@ -69,7 +69,7 @@ To see where *config.nu* is located on your system simply type this command.
 $nu.config-path
 ```
 
-Please see our [book](https://www.nushell.sh) for all of the Nushell documentation.
+Please see our [book](https://www.nushell.sh/book/configuration.html) for all of the Nushell documentation.
 
 
 ## Philosophy
@@ -125,13 +125,13 @@ For example, we could use the built-in `ps` command to get a list of the running
 
 ```shell
 ps | where cpu > 0
-# => ╭───┬───────┬───────────┬───────┬───────────┬───────────╮
-# => │ # │  pid  │   name    │  cpu  │    mem    │  virtual  │
-# => ├───┼───────┼───────────┼───────┼───────────┼───────────┤
-# => │ 0 │  2240 │ Slack.exe │ 16.40 │ 178.3 MiB │ 232.6 MiB │
-# => │ 1 │ 16948 │ Slack.exe │ 16.32 │ 205.0 MiB │ 197.9 MiB │
-# => │ 2 │ 17700 │ nu.exe    │  3.77 │  26.1 MiB │   8.8 MiB │
-# => ╰───┴───────┴───────────┴───────┴───────────┴───────────╯
+# => ╭───┬───────┬──────┬───────────┬──────┬─────────┬───────┬────────────┬──────────╮
+# => │ # │  pid  │ ppid │   name    │ user │ status  │  cpu  │  cpu_time  │   mem    │
+# => ├───┼───────┼──────┼───────────┼──────┼─────────┼───────┼────────────┼──────────┤
+# => │ 0 │  2240 │ 9872 │ Slack.exe │ dev  │ Running │ 16.40 │ 1min 12sec │ 178.3 MB │
+# => │ 1 │ 16948 │ 9872 │ Slack.exe │ dev  │ Running │ 16.32 │      48sec │ 205.0 MB │
+# => │ 2 │ 17700 │ 4632 │ nu.exe    │ dev  │ Running │  3.77 │       2sec │  26.1 MB │
+# => ╰───┴───────┴──────┴───────────┴──────┴─────────┴───────┴────────────┴──────────╯
 ```
 
 ### Opening files

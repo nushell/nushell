@@ -12,9 +12,11 @@ use rusqlite::{
 };
 use serde::{Deserialize, Serialize};
 use std::{
+    cmp::Ordering,
     collections::BTreeMap,
     fmt::Write,
     fs::File,
+    hash::{Hash, Hasher},
     io::Read,
     ops::{Deref, DerefMut},
     path::{Path, PathBuf},
@@ -446,6 +448,20 @@ impl CustomValue for SQLiteDatabase {
         self
     }
 
+    /// Databases have no order; two values are equal when they open the same path.
+    fn partial_cmp(&self, other: &Value) -> Option<Ordering> {
+        let other = other
+            .as_custom_value()
+            .ok()?
+            .as_any()
+            .downcast_ref::<Self>()?;
+        (self.path == other.path).then_some(Ordering::Equal)
+    }
+
+    fn hash_value(&self, mut state: &mut dyn Hasher) {
+        self.path.hash(&mut state);
+    }
+
     fn follow_path_int(
         &self,
         _self_span: Span,
@@ -699,9 +715,7 @@ fn prepared_statement_to_nu_list(
 
         for row_result in row_results {
             signals.check(&call_span)?;
-            if let Ok(row_value) = row_result {
-                row_values.push(row_value);
-            }
+            row_values.push(row_result?);
         }
 
         Ok(row_values)
@@ -761,14 +775,14 @@ fn read_entire_sqlite_db(
     for row in rows {
         let table_name: String = row?;
         // TODO: Should use params here?
-        let table_stmt = conn.prepare(&format!("select * from [{table_name}]"))?;
-        let rows = prepared_statement_to_nu_list(
-            table_stmt,
-            NuSqlParams::default(),
-            call_span,
-            signals,
-            None,
-        )?;
+        let sql = Spanned {
+            item: format!("select * from [{table_name}]"),
+            span: call_span,
+        };
+        let rows =
+            run_sql_query(conn, &sql, NuSqlParams::default(), signals, None).map_err(|err| {
+                err.into_shell_error(call_span, &format!("Failed to read table `{table_name}`"))
+            })?;
         tables.push(table_name, rows);
     }
 

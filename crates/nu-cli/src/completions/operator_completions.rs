@@ -67,10 +67,20 @@ fn number_comparison_ops() -> Vec<OperatorItem> {
                     | Comparison::NotEndsWith
                     | Comparison::Has
                     | Comparison::NotHas
+                    | Comparison::OlderThan
+                    | Comparison::NewerThan
             )
         })
         .map(operator_to_item)
         .collect()
+}
+
+/// Comparisons offered after a datetime: the numeric ones plus `older-than` and `newer-than`.
+fn date_comparison_ops() -> Vec<OperatorItem> {
+    let mut ops = number_comparison_ops();
+    ops.push(operator_to_item(Comparison::OlderThan));
+    ops.push(operator_to_item(Comparison::NewerThan));
+    ops
 }
 
 fn math_ops() -> Vec<OperatorItem> {
@@ -115,7 +125,10 @@ fn valid_float_ops() -> Vec<OperatorItem> {
 }
 
 fn valid_string_ops() -> Vec<OperatorItem> {
-    let mut ops: Vec<OperatorItem> = Comparison::iter().map(operator_to_item).collect();
+    let mut ops: Vec<OperatorItem> = Comparison::iter()
+        .filter(|op| !matches!(op, Comparison::OlderThan | Comparison::NewerThan))
+        .map(operator_to_item)
+        .collect();
     ops.push(operator_to_item(ast::Math::Concatenate));
     ops.push(OperatorItem {
         symbols: "like".into(),
@@ -166,7 +179,7 @@ fn ops_by_value(value: &Value, mutable: bool) -> Vec<OperatorItem> {
         Value::String { .. } => valid_string_ops(),
         Value::Binary { .. } => valid_binary_ops(),
         Value::Bool { .. } => valid_bool_ops(),
-        Value::Date { .. } => number_comparison_ops(),
+        Value::Date { .. } => date_comparison_ops(),
         Value::Filesize { .. } | Value::Duration { .. } => valid_value_with_unit_ops(),
         Value::Range { .. } | Value::Record { .. } => collection_comparison_ops(),
         Value::List { .. } => valid_list_ops(),
@@ -226,7 +239,7 @@ impl Completer for OperatorCompletion<'_> {
             Type::String => valid_string_ops(),
             Type::Binary => valid_binary_ops(),
             Type::Bool => valid_bool_ops(),
-            Type::Date => number_comparison_ops(),
+            Type::Date => date_comparison_ops(),
             Type::Filesize | Type::Duration => valid_value_with_unit_ops(),
             Type::Record(_) | Type::Range => collection_comparison_ops(),
             Type::List(_) | Type::Table(_) => valid_list_ops(),
@@ -235,7 +248,7 @@ impl Completer for OperatorCompletion<'_> {
                 Expr::FullCellPath(path) => {
                     // for `$ <tab>`
                     if let Expr::Garbage = path.head.expr {
-                        return Fetched::pure(vec![]);
+                        return Fetched::answering(vec![]);
                     }
                     let value =
                         eval_cell_path(working_set, stack, &path.head, &path.tail, path.head.span)
@@ -279,6 +292,6 @@ impl Completer for OperatorCompletion<'_> {
                 kind: Some(SuggestionKind::Operator),
             });
         }
-        Fetched::pure(matcher.suggestion_results())
+        Fetched::answering(matcher.suggestion_results())
     }
 }

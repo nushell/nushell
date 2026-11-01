@@ -27,6 +27,11 @@ impl Command for Uniq {
                 Some('c'),
             )
             .switch(
+                "keep-last",
+                "Keep the last occurrence of each unique value, in the position of its first occurrence.",
+                Some('l'),
+            )
+            .switch(
                 "repeated",
                 "Return the input values that occur more than once.",
                 Some('d'),
@@ -64,6 +69,7 @@ impl Command for Uniq {
         #[cfg(feature = "sqlite")]
         // Pushdown optimization: bare `uniq` (no flags) via SELECT DISTINCT
         if !call.has_flag(engine_state, stack, "count")?
+            && !call.has_flag(engine_state, stack, "keep-last")?
             && !call.has_flag(engine_state, stack, "repeated")?
             && !call.has_flag(engine_state, stack, "unique")?
             && !call.has_flag(engine_state, stack, "ignore-case")?
@@ -120,6 +126,11 @@ impl Command for Uniq {
                     Value::test_string("hello"),
                     Value::test_string("goodbye"),
                 ])),
+            },
+            Example {
+                description: "Ignore differences in case when comparing input values, keeping the casing of the last occurrence of each duplicate. --keep-last only has a visible effect like this when combined with something like --ignore-case, since otherwise duplicate values are already identical.",
+                example: "['Hello' 'HELLO' 'hello'] | uniq --ignore-case --keep-last",
+                result: Some(Value::test_list(vec![Value::test_string("hello")])),
             },
             Example {
                 description: "Return a table containing the distinct input values together with their counts.",
@@ -234,7 +245,7 @@ pub fn uniq(
     let flag_ignore_case = call.has_flag(engine_state, stack, "ignore-case")?;
     let flag_only_uniques = call.has_flag(engine_state, stack, "unique")?;
 
-    // for uniq-by command
+    // shared by both uniq and uniq-by
     let flag_keep_last = call.has_flag(engine_state, stack, "keep-last")?;
 
     let signals = engine_state.signals().clone();

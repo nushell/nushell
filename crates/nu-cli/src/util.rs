@@ -1,7 +1,7 @@
 #![allow(clippy::byte_char_slices)]
 
 use nu_cmd_base::hook::eval_hook;
-use nu_engine::{eval_block, eval_block_with_early_return};
+use nu_engine::{eval_block, eval_block_with_early_return, exit::kill_jobs_and_exit};
 use nu_parser::{Token, TokenContents, lex, parse, unescape_unquote_string};
 use nu_protocol::{
     ByteStream, ByteStreamSource, ListStream, PipelineData, PipelineMetadata, ShellError, Signals,
@@ -14,7 +14,7 @@ use nu_protocol::{
     report_error::report_compile_error,
     report_parse_error, report_parse_warning, report_shell_error,
     shell_error::{generic::GenericError, io::IoError},
-    truncate_value_to_budget, value_from_bytes,
+    truncate_value_to_budget, value_from_bytes, value_is_error_only,
 };
 #[cfg(windows)]
 use nu_utils::enable_vt_processing;
@@ -222,7 +222,7 @@ pub fn print_pipeline(
     pipeline: PipelineData,
     no_newline: bool,
 ) -> Result<(), ShellError> {
-    let to_stderr = engine_state.is_mcp || engine_state.is_lsp;
+    let to_stderr = engine_state.is_mcp || engine_state.is_lsp || engine_state.is_dap;
 
     if let Some(hook) = stack.get_config(engine_state).hooks.display_output.clone() {
         let pipeline = eval_hook(
@@ -295,7 +295,7 @@ fn map_eval_error_to_exit_code(
     err: ShellError,
 ) -> i32 {
     if let ShellError::Exit { code, .. } = &err {
-        std::process::exit(*code)
+        kill_jobs_and_exit(engine_state, *code)
     }
     report_shell_error(Some(stack), engine_state, &err);
     let code = err.exit_code();
@@ -327,6 +327,20 @@ fn finish_eval_source(
     exit_code
 }
 
+/// Report every parse warning in `working_set`, each once. The parser can try a piece of code more
+/// than once and leave the same warning behind each time, so a repeat at the same place is
+/// skipped. [`report_parse_warning`] itself drops repeats of `--report first` warnings.
+pub(crate) fn report_parse_warnings(stack: Option<&Stack>, working_set: &StateWorkingSet) {
+    let mut reported: Vec<(Span, String)> = vec![];
+    for warning in &working_set.parse_warnings {
+        let key = (warning.span(), warning.to_string());
+        if !reported.contains(&key) {
+            report_parse_warning(stack, working_set, warning);
+            reported.push(key);
+        }
+    }
+}
+
 pub(crate) fn evaluate_source(
     engine_state: &mut EngineState,
     stack: &mut Stack,
@@ -343,9 +357,7 @@ pub(crate) fn evaluate_source(
             source,
             false,
         );
-        if let Some(warning) = working_set.parse_warnings.first() {
-            report_parse_warning(Some(stack), &working_set, warning);
-        }
+        report_parse_warnings(Some(stack), &working_set);
 
         if let Some(err) = working_set.parse_errors.first() {
             report_parse_error(Some(stack), &working_set, err);
@@ -383,14 +395,7 @@ pub(crate) fn evaluate_parsed_block(
     let mut pipeline_data = pipeline.body;
 
     // Update engine_state with deleted variables
-    for var_id in &stack.deletions {
-        if let Some(active_id) = engine_state.scope.active_overlays.last()
-            && let Some((_, overlay)) = engine_state.scope.overlays.get_mut((*active_id).get())
-        {
-            overlay.vars.retain(|_, v| *v != *var_id);
-        }
-    }
-    stack.deletions.clear();
+    engine_state.merge_deletions(stack);
 
     // Capture interactive last-result before display_output transforms/prints the value.
     // Only for true REPL user lines (`capture_repl_last_result`), not config/env/banner.
@@ -423,7 +428,7 @@ fn maybe_store_last_result(
     block: &Block,
     pipeline_data: PipelineData,
 ) -> PipelineData {
-    let budget = stack.get_config(engine_state).last_result_size_bytes();
+    let budget = stack.get_config(engine_state).max_last_result_size_bytes();
 
     // Bare `$ans` / `$ans.*` cell-paths (rename via LAST_RESULT_VAR_NAME) must not re-store `.last`.
     let mut get_block = |id| engine_state.get_block(id).as_ref();
@@ -432,7 +437,7 @@ fn maybe_store_last_result(
     }
 
     if budget == 0 {
-        // Payload capture off: free `.last` only; exit_code/duration stay via snapshot.
+        // Budget 0: drop `.last`; snapshot still sets exit_code/duration/command.
         stack.clear_last_result_payload();
         return pipeline_data;
     }
@@ -445,7 +450,9 @@ fn maybe_store_last_result(
             PipelineData::Empty
         }
         PipelineData::Value(value, metadata) => {
-            stack.set_last_result(value.clone(), metadata.clone(), budget);
+            if !value_is_error_only(&value) {
+                stack.set_last_result(value.clone(), metadata.clone(), budget);
+            }
             PipelineData::Value(value, metadata)
         }
         PipelineData::ListStream(stream, metadata) => {
@@ -515,7 +522,9 @@ fn store_list_stream_prefix(
     } else {
         (stored, false)
     };
-    stack.store_last_result_raw(stored, metadata.clone(), truncated || more_trunc);
+    if !value_is_error_only(&stored) {
+        stack.store_last_result_raw(stored, metadata.clone(), truncated || more_trunc);
+    }
 
     // Print stream: under-budget full drain reuses `kept` without a second buffer of clones.
     let print_iter: Box<dyn Iterator<Item = Value> + Send> = match overflow_item {
@@ -670,5 +679,32 @@ mod test {
         assert!(matches!(env.get(symbols), Some(&Value::String { val, .. }) if val == "symbols"));
         assert!(env.contains_key("PWD"));
         assert_eq!(env.len(), 4);
+    }
+
+    /// `unlet` on a constant in a nested block hides it only in that block, so the next source
+    /// unit (like the next REPL line) still has it, though the block ran on the same stack.
+    #[test]
+    fn unlet_constant_in_nested_block_keeps_it_for_later_source() -> Result<(), ShellError> {
+        let mut engine_state =
+            nu_command::add_shell_command_context(nu_cmd_lang::create_default_context());
+        let mut stack = Stack::new();
+        for source in ["const x = 1", "if true { unlet $x }"] {
+            let failed = evaluate_source(
+                &mut engine_state,
+                &mut stack,
+                source.as_bytes(),
+                "test",
+                PipelineData::empty(),
+                false,
+            )?;
+            assert!(!failed, "`{source}` failed");
+        }
+
+        assert!(
+            StateWorkingSet::new(&engine_state)
+                .find_variable(b"$x")
+                .is_some()
+        );
+        Ok(())
     }
 }

@@ -39,6 +39,7 @@ pub mod span;
 mod syntax_shape;
 mod ty;
 mod ty_relation;
+mod type_alias;
 mod value;
 
 pub use alias::*;
@@ -56,6 +57,7 @@ pub use example::*;
 pub use id::*;
 pub use last_result::{
     block_is_bare_last_result, block_is_bare_last_result_with, truncate_value_to_budget,
+    value_is_error_only,
 };
 pub use lev_distance::levenshtein_distance;
 pub use module::*;
@@ -68,6 +70,7 @@ pub use span::*;
 pub use syntax_shape::*;
 pub use ty::*;
 pub use ty_relation::*;
+pub use type_alias::*;
 pub use value::*;
 
 pub use nu_derive_value::*;

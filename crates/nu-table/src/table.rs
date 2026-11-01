@@ -1,29 +1,25 @@
-// TODO: Stop building `tabled -e` when it's clear we are out of terminal
-// TODO: Stop building `tabled` when it's clear we are out of terminal
-// NOTE: TODO the above we could expose something like [`WidthCtrl`] in which case we could also laverage the width list build right away.
-//       currently it seems like we do recacalculate it for `table -e`?
-// TODO: (not hard) We could properly handle dimension - we already do it for width - just need to do height as well
-// TODO: (need to check) Maybe Vec::with_dimension and insert "Iterators" would be better instead of preallocated Vec<Vec<>> and index.
-
-use std::cmp::{max, min};
-
+use crate::{convert_style, is_color_empty, string_width, table_theme::TableTheme};
 use nu_ansi_term::Style;
 use nu_color_config::TextStyle;
 use nu_protocol::{TableIndent, TrimStrategy};
-
+use std::cmp::{Reverse, max, min};
+use std::sync::{Arc, LazyLock};
 use tabled::{
     Table,
     builder::Builder,
     grid::{
         ansi::ANSIBuf,
+        colors::Colors,
         config::{
-            AlignmentHorizontal, ColoredConfig, Entity, Indent, Position, Sides, SpannedConfig,
+            AlignmentHorizontal, Border, Borders, ColoredConfig, Entity, Indent, Position, Sides,
+            SpannedConfig,
         },
         dimension::{CompleteDimension, PeekableGridDimension},
         records::{
             IterRecords, PeekableRecords,
             vec_records::{Cell, Text, VecRecords},
         },
+        util::string::get_char_width,
     },
     settings::{
         Alignment, CellOption, Color, Padding, TableOption, Width,
@@ -34,10 +30,18 @@ use tabled::{
     },
 };
 
-use crate::{convert_style, is_color_empty, table_theme::TableTheme};
-
 const EMPTY_COLUMN_TEXT: &str = "...";
 const EMPTY_COLUMN_TEXT_WIDTH: usize = 3;
+/// Narrowest content width worth wrapping into, not counting padding. The first
+/// data column may still shrink to it when not even its floor fits; narrower
+/// columns are cut instead of wrapped.
+const MIN_COLUMN_CONTENT_WIDTH: usize = 4;
+/// Content width a column keeps, when it is that wide, before columns are hidden.
+const MIN_READABLE_WIDTH: usize = 10;
+
+/// The theme of a new table, shared so that a table costs no theme of its own
+/// until [`NuTable::set_theme`] gives it one.
+static BASIC_THEME: LazyLock<Arc<TableTheme>> = LazyLock::new(|| Arc::new(TableTheme::basic()));
 
 pub type NuRecords = VecRecords<NuRecordsValue>;
 pub type NuRecordsValue = Text<String>;
@@ -47,6 +51,11 @@ pub type NuRecordsValue = Text<String>;
 pub struct NuTable {
     data: Vec<Vec<NuRecordsValue>>,
     widths: Vec<usize>,
+    /// The narrowest width (padding included) each column may get to draw the
+    /// nested tables it holds: room for their borders and first column.
+    min_widths: Vec<usize>,
+    /// The same, with room to draw the nested tables in that first column too.
+    deep_min_widths: Vec<usize>,
     heights: Vec<usize>,
     count_rows: usize,
     count_cols: usize,
@@ -60,11 +69,14 @@ impl NuTable {
         Self {
             data: vec![vec![Text::default(); count_cols]; count_rows],
             widths: vec![2; count_cols],
+            min_widths: vec![0; count_cols],
+            deep_min_widths: vec![0; count_cols],
             heights: vec![0; count_rows],
             count_rows,
             count_cols,
             styles: Styles {
-                cfg: ColoredConfig::default(),
+                cell_colors: vec![],
+                cell_alignments: vec![],
                 alignments: CellConfiguration {
                     data: AlignmentHorizontal::Left,
                     index: AlignmentHorizontal::Right,
@@ -73,7 +85,7 @@ impl NuTable {
                 colors: CellConfiguration::default(),
             },
             config: TableConfig {
-                theme: TableTheme::basic(),
+                theme: Arc::clone(&BASIC_THEME),
                 trim: TrimStrategy::truncate(None),
                 structure: TableStructure::new(false, false, false),
                 indent: TableIndent::new(1, 1),
@@ -93,18 +105,6 @@ impl NuTable {
     /// Return amount of columns.
     pub fn count_columns(&self) -> usize {
         self.count_cols
-    }
-
-    pub fn create(text: String) -> NuRecordsValue {
-        Text::new(text)
-    }
-
-    pub fn insert_value(&mut self, pos: (usize, usize), value: NuRecordsValue) {
-        let width = value.width() + indent_sum(self.config.indent);
-        let height = value.count_lines();
-        self.widths[pos.1] = max(self.widths[pos.1], width);
-        self.heights[pos.0] = max(self.heights[pos.0], height);
-        self.data[pos.0][pos.1] = value;
     }
 
     pub fn insert(&mut self, pos: (usize, usize), text: String) {
@@ -132,74 +132,18 @@ impl NuTable {
         self.data[index] = row;
     }
 
-    pub fn pop_column(&mut self, count: usize) {
-        self.count_cols -= count;
-        self.widths.truncate(self.count_cols);
-
-        for (row, height) in self.data.iter_mut().zip(self.heights.iter_mut()) {
-            row.truncate(self.count_cols);
-
-            let row_height = *height;
-            let mut new_height = 0;
-            for cell in row.iter() {
-                let height = cell.count_lines();
-                if height == row_height {
-                    new_height = height;
-                    break;
-                }
-
-                new_height = max(new_height, height);
-            }
-
-            *height = new_height;
-        }
-
-        // set to default styles of the popped columns
-        for i in 0..count {
-            let col = self.count_cols + i;
-            for row in 0..self.count_rows {
-                self.styles
-                    .cfg
-                    .set_alignment_horizontal(Entity::Cell(row, col), self.styles.alignments.data);
-                self.styles
-                    .cfg
-                    .set_color(Entity::Cell(row, col), ANSIBuf::default());
-            }
-        }
-    }
-
-    pub fn push_column(&mut self, text: String) {
-        let value = Text::new(text);
-
-        let pad = indent_sum(self.config.indent);
-        let width = value.width() + pad;
-        let height = value.count_lines();
-        self.widths.push(width);
-
-        for row in 0..self.count_rows {
-            self.heights[row] = max(self.heights[row], height);
-        }
-
-        for row in &mut self.data[..] {
-            row.push(value.clone());
-        }
-
-        self.count_cols += 1;
-    }
-
     pub fn insert_style(&mut self, pos: (usize, usize), style: TextStyle) {
+        let entity = Entity::Cell(pos.0, pos.1);
         if let Some(style) = style.color_style
             && !style.is_plain()
         {
             let style = convert_style(style);
-            self.styles.cfg.set_color(pos.into(), style.into());
+            self.styles.cell_colors.push((entity, style.into()));
         }
 
         let alignment = convert_alignment(style.alignment);
         if alignment != self.styles.alignments.data {
-            self.styles
-                .cfg
-                .set_alignment_horizontal(pos.into(), alignment);
+            self.styles.cell_alignments.push((entity, alignment));
         }
     }
 
@@ -230,13 +174,13 @@ impl NuTable {
             && !style.is_plain()
         {
             let style = convert_style(style);
-            self.styles.cfg.set_color(Entity::Global, style.into());
+            self.styles.cell_colors.push((Entity::Global, style.into()));
         }
 
         let alignment = convert_alignment(style.alignment);
         self.styles
-            .cfg
-            .set_alignment_horizontal(Entity::Global, alignment);
+            .cell_alignments
+            .push((Entity::Global, alignment));
         self.styles.alignments.data = alignment;
     }
 
@@ -250,8 +194,9 @@ impl NuTable {
         }
     }
 
-    pub fn set_theme(&mut self, theme: TableTheme) {
-        self.config.theme = theme;
+    /// Sets the theme. Tables drawn together can share one `Arc<TableTheme>`.
+    pub fn set_theme(&mut self, theme: impl Into<Arc<TableTheme>>) {
+        self.config.theme = theme.into();
     }
 
     pub fn set_structure(&mut self, index: bool, header: bool, footer: bool) {
@@ -296,8 +241,7 @@ impl NuTable {
 
     pub fn clear_all_colors(&mut self) {
         self.clear_border_color();
-        let cfg = std::mem::take(&mut self.styles.cfg);
-        self.styles.cfg = ColoredConfig::new(cfg.into_inner());
+        self.styles.cell_colors.clear();
     }
 
     /// Converts a table to a String.
@@ -307,17 +251,144 @@ impl NuTable {
         build_table(self, termwidth)
     }
 
-    /// Converts a table to a String.
-    ///
-    /// It returns None in case where table cannot be fit to a terminal width.
-    pub fn draw_unchecked(self, termwidth: usize) -> Option<String> {
-        build_table_unchecked(self, termwidth)
-    }
-
     /// Return a total table width.
     pub fn total_width(&self) -> usize {
-        let config = create_config(&self.config.theme, false, None);
-        get_total_width2(&self.widths, &config)
+        total_width(&self.widths, &self.config.theme)
+    }
+
+    /// Plans the column widths `draw` gives this table at `termwidth`, without
+    /// drawing it. `None` when not even one column fits.
+    pub(crate) fn plan(&self, termwidth: usize) -> Option<WidthEstimation> {
+        let header = self
+            .data
+            .first()
+            .filter(|_| self.config.structure.with_header);
+        plan_columns(
+            header.map(Vec::as_slice),
+            &self.widths,
+            [&self.deep_min_widths, &self.min_widths],
+            &self.config,
+            termwidth,
+        )
+    }
+
+    /// Re-plans the visible columns of `plan` for the cells as they are now,
+    /// with each `(column, width)` in `pinned` kept at least that wide. An
+    /// expanded table uses it once its nested tables are drawn: a nested table
+    /// that came out narrower than its column, or fell back to text, gives the
+    /// room back to the other columns, while a drawn one keeps its width. The
+    /// table never gets wider.
+    pub(crate) fn replan(
+        &self,
+        plan: &WidthEstimation,
+        pinned: &[(usize, usize)],
+    ) -> WidthEstimation {
+        let visible = plan.visible();
+        let header = self
+            .data
+            .first()
+            .filter(|_| self.config.structure.with_header && plan.header_on_border);
+        let widths = &self.widths[..visible];
+        let mut floors = column_floors(header.map(Vec::as_slice), widths, &[], &self.config);
+        for (col, floor) in floors.iter_mut().enumerate() {
+            // A column the plan squeezed below its floor stays squeezed.
+            *floor = min(*floor, plan.needed[col]);
+        }
+        for &(col, width) in pinned.iter().filter(|(col, _)| *col < visible) {
+            floors[col] = max(floors[col], width);
+        }
+
+        let room = plan.needed[..visible].iter().sum();
+        let mut needed = shrink_columns(widths, &floors, &self.config, room);
+        needed.extend_from_slice(&plan.needed[visible..]);
+
+        WidthEstimation { needed, ..*plan }
+    }
+
+    /// Draws the table with the column widths of an earlier [`NuTable::plan`].
+    ///
+    /// Cells changed since then are wrapped or cut to the planned widths; the
+    /// plan itself does not change.
+    pub(crate) fn draw_planned(self, plan: WidthEstimation) -> Option<String> {
+        build_planned_table(self, plan)
+    }
+
+    /// Widens column `col` to hold a nested table that is drawn later:
+    /// `width` characters wide, drawn as a table down to `min_widths`
+    /// characters (see [`NuTable::min_widths`]).
+    pub(crate) fn reserve_width(&mut self, col: usize, width: usize, min_widths: (usize, usize)) {
+        let pad = self.pad();
+        self.widths[col] = max(self.widths[col], width + pad);
+        self.min_widths[col] = max(self.min_widths[col], min_widths.0 + pad);
+        self.deep_min_widths[col] = max(self.deep_min_widths[col], min_widths.1 + pad);
+    }
+
+    /// The padding of a cell: the width a column has beyond its content.
+    pub(crate) fn pad(&self) -> usize {
+        indent_sum(self.config.indent)
+    }
+
+    /// The widest content a cell of column `col` can get in a table at most
+    /// `width` wide, with the columns before it (already filled in) at their
+    /// floors and every column after it at least as narrow as `...`.
+    pub(crate) fn cell_width_bound(&self, col: usize, width: usize) -> usize {
+        let vertical = self.config.theme.as_base().borders_has_vertical() as usize;
+        let pad = self.pad();
+        let before = column_floors(None, &self.widths[..col], &[], &self.config);
+        // The columns after it show, each at least its padding wide, or hide
+        // behind the `...` column.
+        let after = self.count_cols - col - 1;
+        let after_width = min(
+            after * (pad + vertical),
+            trail_width(&self.config) + vertical,
+        );
+        let used = total_width(&before, &self.config.theme) + vertical * usize::from(col > 0);
+        width.saturating_sub(used + pad + after_width)
+    }
+
+    /// The content width left for a cell of column `col` in a table drawn
+    /// `width` wide with `plan`, once the columns before it take their width.
+    pub(crate) fn cell_width_left(
+        &self,
+        plan: &WidthEstimation,
+        col: usize,
+        width: usize,
+    ) -> usize {
+        let vertical = self.config.theme.as_base().borders_has_vertical() as usize;
+        let used = total_width(&plan.needed[..col], &self.config.theme);
+        width.saturating_sub(used + vertical * usize::from(col > 0) + self.pad())
+    }
+
+    /// The narrowest widths this table draws at, with its first data column
+    /// at its floor (its nested tables showing as text), and with the nested
+    /// tables in its first data column drawn too. Neither is more than its
+    /// natural width.
+    pub(crate) fn min_widths(&self) -> (usize, usize) {
+        let count = self.count_cols;
+        let first_data = usize::from(self.config.structure.with_index && count > 1);
+        let narrowest = |min_widths: &[usize]| {
+            let floors = column_floors(None, &self.widths, min_widths, &self.config);
+            let mut widths = floors[..=first_data].to_vec();
+            if count > first_data + 1 {
+                widths.push(trail_width(&self.config));
+            }
+            min(total_width(&widths, &self.config.theme), self.total_width())
+        };
+
+        (narrowest(&[]), narrowest(&self.deep_min_widths))
+    }
+
+    pub(crate) fn recalculate_dimensions(&mut self) {
+        table_recalculate_widths(self);
+        table_recalculate_heights(self);
+    }
+
+    /// Resets a cell to the default data alignment and color.
+    pub(crate) fn reset_style(&mut self, pos: (usize, usize)) {
+        let entity = Entity::Cell(pos.0, pos.1);
+        let alignment = self.styles.alignments.data;
+        self.styles.cell_alignments.push((entity, alignment));
+        self.styles.cell_colors.push((entity, ANSIBuf::default()));
     }
 }
 
@@ -345,6 +416,14 @@ fn table_recalculate_widths(t: &mut NuTable) {
     t.widths = build_width(&t.data, t.count_cols, t.count_rows, pad);
 }
 
+fn table_recalculate_heights(t: &mut NuTable) {
+    t.heights = t
+        .data
+        .iter()
+        .map(|row| row.iter().map(|cell| cell.count_lines()).max().unwrap_or(0))
+        .collect();
+}
+
 #[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Copy, Hash)]
 struct CellConfiguration<Value> {
     index: Value,
@@ -354,14 +433,49 @@ struct CellConfiguration<Value> {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct Styles {
-    cfg: ColoredConfig,
+    /// Colors and alignments set on cells (or on every cell), applied in this
+    /// order when the table is drawn. A table keeps no grid configuration of
+    /// its own until then, which keeps the many tables of `table --expand` small.
+    cell_colors: Vec<(Entity, ANSIBuf)>,
+    cell_alignments: Vec<(Entity, AlignmentHorizontal)>,
     colors: CellConfiguration<Color>,
     alignments: CellConfiguration<AlignmentHorizontal>,
 }
 
+impl Styles {
+    /// The grid configuration holding every cell style.
+    fn to_config(&self) -> ColoredConfig {
+        let mut cfg = ColoredConfig::default();
+        for (entity, color) in &self.cell_colors {
+            cfg.set_color(*entity, color.clone());
+        }
+        for &(entity, alignment) in &self.cell_alignments {
+            cfg.set_alignment_horizontal(entity, alignment);
+        }
+        cfg
+    }
+
+    /// Moves the cell styles one row up with their cells, dropping the first row's.
+    fn remove_first_row(&mut self) {
+        fn shift_up(entity: &mut Entity) -> bool {
+            match entity {
+                Entity::Cell(0, _) => false,
+                Entity::Cell(row, _) => {
+                    *row -= 1;
+                    true
+                }
+                _ => true,
+            }
+        }
+        self.cell_colors.retain_mut(|(entity, _)| shift_up(entity));
+        self.cell_alignments
+            .retain_mut(|(entity, _)| shift_up(entity));
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct TableConfig {
-    theme: TableTheme,
+    theme: Arc<TableTheme>,
     trim: TrimStrategy,
     border_color: Option<Style>,
     expand: bool,
@@ -413,36 +527,33 @@ impl HeadInfo {
     }
 }
 
-fn build_table_unchecked(mut t: NuTable, termwidth: usize) -> Option<String> {
+fn build_table(t: NuTable, termwidth: usize) -> Option<String> {
     if t.count_columns() == 0 || t.count_rows() == 0 {
         return Some(String::new());
     }
 
-    let widths = std::mem::take(&mut t.widths);
-    let config = create_config(&t.config.theme, false, None);
-    let totalwidth = get_total_width2(&t.widths, &config);
-    let widths = WidthEstimation::new(widths.clone(), widths, totalwidth, false, false);
-
-    let head = remove_header_if(&mut t);
-    table_insert_footer_if(&mut t);
-
-    draw_table(t, widths, head, termwidth)
+    let plan = t.plan(termwidth)?;
+    build_planned_table(t, plan)
 }
 
-fn build_table(mut t: NuTable, termwidth: usize) -> Option<String> {
+fn build_planned_table(mut t: NuTable, plan: WidthEstimation) -> Option<String> {
     if t.count_columns() == 0 || t.count_rows() == 0 {
         return Some(String::new());
     }
 
-    let widths = table_truncate(&mut t, termwidth)?;
-    let head = remove_header_if(&mut t);
+    // Cells may have changed since the plan was made: an expanded table draws
+    // its nested tables into the planned widths. Wrap or cut against what the
+    // cells hold now, the header row included.
+    let current = t.widths.clone();
+    table_truncate(&mut t, &plan);
+    let head = remove_header_if(&mut t, plan.header_on_border);
     table_insert_footer_if(&mut t);
 
-    draw_table(t, widths, head, termwidth)
+    draw_table(t, plan, current, head)
 }
 
-fn remove_header_if(t: &mut NuTable) -> Option<HeadInfo> {
-    if !is_header_on_border(t) {
+fn remove_header_if(t: &mut NuTable, on_border: bool) -> Option<HeadInfo> {
+    if !on_border {
         return None;
     }
 
@@ -452,11 +563,23 @@ fn remove_header_if(t: &mut NuTable) -> Option<HeadInfo> {
     Some(head)
 }
 
-fn is_header_on_border(t: &NuTable) -> bool {
-    let is_configured = t.config.structure.with_header && t.config.header_on_border;
-    let has_horizontal = t.config.theme.as_base().borders_has_top()
-        || t.config.theme.as_base().get_horizontal_line(1).is_some();
-    is_configured && has_horizontal
+/// Whether the table is set up to draw its header on the top border (and the
+/// footer on the bottom one), header text aside.
+fn wants_header_on_border(cfg: &TableConfig) -> bool {
+    let has_horizontal = cfg.theme.as_base().borders_has_top()
+        || cfg.theme.as_base().get_horizontal_line(1).is_some();
+    cfg.structure.with_header && cfg.header_on_border && has_horizontal
+}
+
+/// Whether a header cell can be drawn on a border.
+///
+/// The border holds one character per column of width, so a header with a
+/// character that is not one column wide (CJK, emoji, a combining mark, a
+/// newline), or whose characters join into fewer columns than they are (an
+/// Arabic ligature), would shift the border: such a header keeps its own row.
+fn fits_border(cell: &NuRecordsValue) -> bool {
+    let text = cell.text();
+    text.chars().all(|c| get_char_width(c) == 1) && string_width(text) == text.chars().count()
 }
 
 fn table_insert_footer_if(t: &mut NuTable) {
@@ -472,57 +595,26 @@ fn table_insert_footer_if(t: &mut NuTable) {
     }
 }
 
-fn table_truncate(t: &mut NuTable, termwidth: usize) -> Option<WidthEstimation> {
-    // Header-on-border mode normally truncates by header width, but that strategy
-    // can starve explicit width priorities. If priorities are provided, prefer
-    // the column-based strategy so priority columns can be widened first.
-    let truncate_by_head = is_header_on_border(t) && t.config.width_priority_columns.is_empty();
-    let widths = maybe_truncate_columns(
-        &mut t.data,
-        t.widths.clone(),
-        &t.config,
-        termwidth,
-        truncate_by_head,
-    );
-    if widths.needed.is_empty() {
-        return None;
+/// Hides the columns `plan` left out behind the trailing `...` column.
+fn table_truncate(t: &mut NuTable, plan: &WidthEstimation) {
+    if !plan.trail {
+        return;
     }
 
-    // reset style for last column which is a trail one
-    if widths.trail {
-        let col = widths.needed.len() - 1;
-        for row in 0..t.count_rows {
-            t.styles
-                .cfg
-                .set_alignment_horizontal(Entity::Cell(row, col), t.styles.alignments.data);
-            t.styles
-                .cfg
-                .set_color(Entity::Cell(row, col), ANSIBuf::default());
-        }
+    let trail = plan.visible();
+    truncate_rows(&mut t.data, trail);
+    push_empty_column(&mut t.data);
+
+    for row in 0..t.count_rows {
+        t.reset_style((row, trail));
     }
 
-    Some(widths)
+    // Columns hidden behind `...` no longer set the row heights.
+    table_recalculate_heights(t);
 }
 
 fn remove_header(t: &mut NuTable) -> HeadInfo {
-    // move settings by one row down
-    for row in 1..t.data.len() {
-        for col in 0..t.count_cols {
-            let from = Position::new(row, col);
-            let to = Position::new(row - 1, col);
-
-            let alignment = *t.styles.cfg.get_alignment_horizontal(from);
-            t.styles.cfg.set_alignment_horizontal(to.into(), alignment);
-
-            let color = t.styles.cfg.get_color(from);
-            if let Some(color) = color
-                && !color.is_empty()
-            {
-                let color = color.clone();
-                t.styles.cfg.set_color(to.into(), color);
-            }
-        }
-    }
+    t.styles.remove_first_row();
 
     let head = t
         .data
@@ -533,11 +625,6 @@ fn remove_header(t: &mut NuTable) -> HeadInfo {
 
     // drop height row
     t.heights.remove(0);
-
-    // WE NEED TO RELCULATE WIDTH.
-    // TODO: cause we have configuration beforehand we can just not calculate it in?
-    // Why we do it exactly??
-    table_recalculate_widths(t);
 
     let color = get_color_if_exists(&t.styles.colors.header);
     let alignment = t.styles.alignments.header;
@@ -556,8 +643,8 @@ fn remove_header(t: &mut NuTable) -> HeadInfo {
 fn draw_table(
     t: NuTable,
     width: WidthEstimation,
+    current: Vec<usize>,
     head: Option<HeadInfo>,
-    termwidth: usize,
 ) -> Option<String> {
     let mut structure = t.config.structure;
     structure.with_footer = structure.with_footer && head.is_none();
@@ -568,16 +655,20 @@ fn draw_table(
 
     set_styles(&mut table, t.styles, &structure);
     set_indent(&mut table, t.config.indent);
-    load_theme(&mut table, &t.config.theme, &structure, sep_color);
-    truncate_table(&mut table, &t.config, width, termwidth, t.heights);
+    load_theme(&mut table, &t.config.theme, &structure);
+    let ctrl = DimensionCtrl::new(width, current, t.config.trim.clone(), &t.config, t.heights);
+    table.with(ctrl);
     table_set_border_header(&mut table, head, &t.config);
+    if let Some(style) = sep_color {
+        color_borders(&mut table, style);
+    }
 
     let string = table.to_string();
     Some(string)
 }
 
 fn set_styles(table: &mut Table, styles: Styles, structure: &TableStructure) {
-    table.with(styles.cfg);
+    table.with(styles.to_config());
     align_table(table, styles.alignments, structure);
     colorize_table(table, styles.colors, structure);
 }
@@ -613,93 +704,81 @@ fn table_set_border_header(table: &mut Table, head: Option<HeadInfo>, cfg: &Tabl
     table.with(SetLineHeaders::new(head, 0, cfg.indent));
 }
 
-fn truncate_table(
-    table: &mut Table,
-    cfg: &TableConfig,
-    width: WidthEstimation,
-    termwidth: usize,
-    heights: Vec<usize>,
-) {
-    let trim = cfg.trim.clone();
-    let pad = indent_sum(cfg.indent);
-    let ctrl = DimensionCtrl::new(termwidth, width, trim, cfg.expand, pad, heights);
-    table.with(ctrl);
-}
-
 fn indent_sum(indent: TableIndent) -> usize {
     indent.left + indent.right
+}
+
+/// Width of the trailing `...` column, padding included.
+fn trail_width(cfg: &TableConfig) -> usize {
+    EMPTY_COLUMN_TEXT_WIDTH + indent_sum(cfg.indent)
 }
 
 fn set_indent(table: &mut Table, indent: TableIndent) {
     table.with(Padding::new(indent.left, indent.right, 0, 0));
 }
 
+/// Applies a plan: wraps or cuts the cells of the columns it made narrower
+/// than they are, then fixes the widths and heights for drawing.
 struct DimensionCtrl {
     width: WidthEstimation,
+    /// Widths of the cells, one per column, before the plan is applied.
+    current: Vec<usize>,
+    /// Whether the plan made any visible column narrower than its cells.
+    shrinks: bool,
     trim_strategy: TrimStrategy,
-    max_width: usize,
-    expand: bool,
     pad: usize,
     heights: Vec<usize>,
 }
 
 impl DimensionCtrl {
     fn new(
-        max_width: usize,
         width: WidthEstimation,
+        current: Vec<usize>,
         trim_strategy: TrimStrategy,
-        expand: bool,
-        pad: usize,
+        cfg: &TableConfig,
         heights: Vec<usize>,
     ) -> Self {
+        let shrinks = width.needed[..width.visible()]
+            .iter()
+            .zip(&current)
+            .any(|(needed, current)| needed < current);
         Self {
             width,
+            current,
+            shrinks,
             trim_strategy,
-            max_width,
-            expand,
-            pad,
+            pad: indent_sum(cfg.indent),
             heights,
         }
     }
 }
 
+/// Column widths planned for a table, padding included.
 #[derive(Debug, Clone)]
-struct WidthEstimation {
-    original: Vec<usize>,
+pub(crate) struct WidthEstimation {
+    /// Widths to draw the visible columns at, then the trailing `...` column if `trail`.
     needed: Vec<usize>,
-    #[allow(dead_code)]
-    total: usize,
-    truncate: bool,
     trail: bool,
+    /// Whether the header row is drawn on the top border.
+    header_on_border: bool,
 }
 
 impl WidthEstimation {
-    fn new(
-        original: Vec<usize>,
-        needed: Vec<usize>,
-        total: usize,
-        truncate: bool,
-        trail: bool,
-    ) -> Self {
-        Self {
-            original,
-            needed,
-            total,
-            truncate,
-            trail,
-        }
+    /// Number of visible columns, not counting the trailing `...` column.
+    fn visible(&self) -> usize {
+        self.needed.len() - self.trail as usize
+    }
+
+    /// Planned width of column `col`, padding included, or `None` when it is hidden.
+    pub(crate) fn column_width(&self, col: usize) -> Option<usize> {
+        (col < self.visible()).then(|| self.needed[col])
     }
 }
 
 impl TableOption<NuRecords, ColoredConfig, CompleteDimension> for DimensionCtrl {
     fn change(self, recs: &mut NuRecords, cfg: &mut ColoredConfig, dims: &mut CompleteDimension) {
-        if self.width.truncate {
+        if self.shrinks {
             width_ctrl_truncate(self, recs, cfg, dims);
-            return;
-        }
-
-        if self.expand {
-            width_ctrl_expand(self, recs, cfg, dims);
             return;
         }
 
@@ -714,23 +793,12 @@ impl TableOption<NuRecords, ColoredConfig, CompleteDimension> for DimensionCtrl 
         // len(lines(wrapped(string))) >= len(lines(string))
         //
         // Only truncation case must be relaclucated in term of height.
-        if self.width.truncate && matches!(self.trim_strategy, TrimStrategy::Truncate { .. }) {
+        if self.shrinks && matches!(self.trim_strategy, TrimStrategy::Truncate { .. }) {
             Some(Entity::Row(0))
         } else {
             None
         }
     }
-}
-
-fn width_ctrl_expand(
-    ctrl: DimensionCtrl,
-    recs: &mut NuRecords,
-    cfg: &mut ColoredConfig,
-    dims: &mut CompleteDimension,
-) {
-    dims.set_heights(ctrl.heights);
-    let opt = Width::increase(ctrl.max_width);
-    TableOption::<NuRecords, _, _>::change(opt, recs, cfg, dims);
 }
 
 fn width_ctrl_truncate(
@@ -740,32 +808,41 @@ fn width_ctrl_truncate(
     dims: &mut CompleteDimension,
 ) {
     let mut heights = ctrl.heights;
+    let visible = ctrl.width.visible();
 
-    // todo: maybe general for loop better
-    for (col, (&width, width_original)) in ctrl
-        .width
-        .needed
+    for (col, (&width, &current)) in ctrl.width.needed[..visible]
         .iter()
-        .zip(ctrl.width.original)
+        .zip(&ctrl.current)
         .enumerate()
     {
-        if width == width_original {
+        if width >= current {
             continue;
         }
 
-        let width = width - ctrl.pad;
-
+        // Wrap and cut leave the cells that already fit alone, which keeps the
+        // nested tables an expanded table drew into this width intact.
+        let width = width.saturating_sub(ctrl.pad);
+        let column = Entity::Column(col);
         match &ctrl.trim_strategy {
             TrimStrategy::Wrap { try_to_keep_words } => {
-                let wrap = Width::wrap(width).keep_words(*try_to_keep_words);
+                if width < MIN_COLUMN_CONTENT_WIDTH {
+                    // Wrapping at 1–3 columns turns "128 B" / "size" into a
+                    // vertical ladder. Cut to one line instead.
+                    let mut truncate = Width::truncate(width);
+                    if width >= EMPTY_COLUMN_TEXT_WIDTH {
+                        truncate = truncate.suffix(EMPTY_COLUMN_TEXT).suffix_try_color(true);
+                    }
+                    CellOption::<NuRecords, _>::change(truncate, recs, cfg, column);
+                } else {
+                    let wrap = Width::wrap(width).keep_words(*try_to_keep_words);
+                    CellOption::<NuRecords, _>::change(wrap, recs, cfg, column);
 
-                CellOption::<NuRecords, _>::change(wrap, recs, cfg, Entity::Column(col));
-
-                // NOTE: An optimization to have proper heights without going over all the data again.
-                // We are going only for all rows in changed columns
-                for (row, row_height) in heights.iter_mut().enumerate() {
-                    let height = recs.count_lines(Position::new(row, col));
-                    *row_height = max(*row_height, height);
+                    // NOTE: An optimization to have proper heights without going over all the data again.
+                    // We are going only for all rows in changed columns
+                    for (row, row_height) in heights.iter_mut().enumerate() {
+                        let height = recs.count_lines(Position::new(row, col));
+                        *row_height = max(*row_height, height);
+                    }
                 }
             }
             TrimStrategy::Truncate { suffix } => {
@@ -774,8 +851,18 @@ fn width_ctrl_truncate(
                     truncate = truncate.suffix(suffix).suffix_try_color(true);
                 }
 
-                CellOption::<NuRecords, _>::change(truncate, recs, cfg, Entity::Column(col));
+                CellOption::<NuRecords, _>::change(truncate, recs, cfg, column);
             }
+        }
+    }
+
+    if matches!(ctrl.trim_strategy, TrimStrategy::Truncate { .. }) {
+        for (row, row_height) in heights.iter_mut().enumerate() {
+            let mut height = 1;
+            for col in 0..ctrl.width.needed.len() {
+                height = max(height, recs.count_lines(Position::new(row, col)));
+            }
+            *row_height = height;
         }
     }
 
@@ -819,12 +906,7 @@ fn colorize_table(table: &mut Table, styles: CellConfiguration<Color>, structure
     }
 }
 
-fn load_theme(
-    table: &mut Table,
-    theme: &TableTheme,
-    structure: &TableStructure,
-    sep_color: Option<Style>,
-) {
+fn load_theme(table: &mut Table, theme: &TableTheme, structure: &TableStructure) {
     let with_header = table.count_rows() > 1 && structure.with_header;
     let with_footer = with_header && structure.with_footer;
     let mut theme = theme.as_base().clone();
@@ -838,761 +920,482 @@ fn load_theme(
     }
 
     table.with(theme);
+}
 
-    if let Some(style) = sep_color {
-        let color = convert_style(style);
-        let color = ANSIBuf::from(color);
-        table.get_config_mut().set_border_color_default(color);
+/// Colors the borders with the separator style, once the table's text is final.
+///
+/// A colored border ends with a reset, which leaves the terminal at its default colors. With
+/// the default separator style (the default foreground), only the borders that start a line
+/// keep their color: every horizontal line, and the first vertical border of each cell line,
+/// which is the left border or, in themes without one, the first inner border. Each line then
+/// starts as it would with every border colored, whatever was printed before it, even when it
+/// is printed on its own. From that border on the colors are the defaults, and a border or a
+/// cell colored with the default foreground looks the same uncolored, as long as every cell
+/// line ends with the defaults (see [`cells_to_uncolor`]). The table looks the same, line by
+/// line, with fewer escape sequences.
+fn color_borders(table: &mut Table, style: Style) {
+    let color = ANSIBuf::from(convert_style(style));
+    let count_rows = table.count_rows();
+    let count_columns = table.count_columns();
+    let first_vertical =
+        (0..=count_columns).find(|&col| table.get_config().has_vertical(col, count_columns));
+    let uncolored = first_vertical.and_then(|col| cells_to_uncolor(table, col));
+    let cfg = table.get_config_mut();
+    let (Some(first_vertical), Some(uncolored)) = (first_vertical, uncolored) else {
+        cfg.set_border_color_default(color);
+        return;
+    };
+
+    for pos in uncolored {
+        cfg.set_color(pos.into(), ANSIBuf::default());
+    }
+
+    if style != nu_ansi_term::Color::Default.normal() {
+        cfg.set_border_color_default(color);
+        return;
+    }
+
+    let line = || Some(color.clone());
+    cfg.set_borders_color(Borders {
+        top: line(),
+        top_left: line(),
+        top_right: line(),
+        top_intersection: line(),
+        horizontal: line(),
+        left_intersection: line(),
+        right_intersection: line(),
+        intersection: line(),
+        bottom: line(),
+        bottom_left: line(),
+        bottom_right: line(),
+        bottom_intersection: line(),
+        // The left border is colored once for every row, an inner one row by row.
+        left: (first_vertical == 0).then(|| color.clone()),
+        ..Borders::default()
+    });
+    if first_vertical > 0 {
+        for row in 0..count_rows {
+            let border = Border {
+                left: line(),
+                ..Border::default()
+            };
+            cfg.set_border_color(Position::new(row, first_vertical), border);
+        }
     }
 }
 
-fn maybe_truncate_columns(
-    data: &mut Vec<Vec<NuRecordsValue>>,
-    widths: Vec<usize>,
+/// The cells right of the first vertical border that are colored only with the default
+/// foreground, if the terminal's colors are its defaults after every cell line as printed;
+/// `None` if a cell line can end with other colors.
+///
+/// Cells left of the first vertical border keep their color, since nothing before them on
+/// their line resets colors left on by whatever was printed before it. A colored cell line is
+/// printed between the color's prefix and suffix, so it ends with the defaults when the suffix
+/// is a reset. An uncolored one has to end with them by itself (see
+/// [`ends_with_default_colors`]).
+fn cells_to_uncolor(table: &Table, first_vertical: usize) -> Option<Vec<Position>> {
+    let default_fg = ANSIBuf::from(convert_style(nu_ansi_term::Color::Default.normal()));
+    let colors = table.get_config().get_colors();
+    let records = table.get_records();
+    let mut uncolored = Vec::new();
+    for row in 0..table.count_rows() {
+        for col in 0..table.count_columns() {
+            let pos = Position::new(row, col);
+            let ends_clean = || {
+                records
+                    .get_text(pos)
+                    .split('\n')
+                    .all(ends_with_default_colors)
+            };
+            match colors.get_color(pos).filter(|color| !color.is_empty()) {
+                None if !ends_clean() => return None,
+                Some(color) if color.get_suffix() != RESET => return None,
+                Some(color) if col >= first_vertical && *color == default_fg && ends_clean() => {
+                    uncolored.push(pos)
+                }
+                _ => {}
+            }
+        }
+    }
+
+    Some(uncolored)
+}
+
+const RESET: &str = "\x1b[0m";
+
+/// Whether a line that starts with the terminal's default colors ends with them: it has no
+/// escape sequence, or its last one is a reset. A C1 control sequence introducer (U+009B),
+/// which some terminals read like `ESC [`, never counts as a reset.
+fn ends_with_default_colors(line: &str) -> bool {
+    line.rfind(['\x1b', '\u{9b}']).is_none_or(|i| {
+        let last = &line[i..];
+        last.starts_with(RESET) || last.starts_with("\x1b[m")
+    })
+}
+
+/// Plans how the columns of a table fit `termwidth`.
+///
+/// `header` is the header row. It is drawn on the border when the table is
+/// set up for that and every visible header fits there (see [`fits_border`]);
+/// otherwise it keeps its own row. `None` when not even one column fits.
+fn plan_columns(
+    header: Option<&[NuRecordsValue]>,
+    widths: &[usize],
+    min_widths: [&[usize]; 2],
     cfg: &TableConfig,
     termwidth: usize,
-    truncate_by_head: bool,
-) -> WidthEstimation {
-    const TERMWIDTH_THRESHOLD: usize = 120;
+) -> Option<WidthEstimation> {
+    let header = header.filter(|_| wants_header_on_border(cfg));
+    let plan = |header| plan_with_header(header, widths, min_widths, cfg, termwidth);
+    let Some(header) = header else {
+        return plan(None);
+    };
+    if header.iter().all(fits_border) {
+        return plan(Some(header));
+    }
 
-    let pad = cfg.indent.left + cfg.indent.right;
-    let preserve_content = termwidth > TERMWIDTH_THRESHOLD;
-
-    if truncate_by_head {
-        truncate_columns_by_head(
-            data,
-            widths,
-            &cfg.theme,
-            pad,
-            termwidth,
-            &cfg.width_priority_columns,
-        )
-    } else if preserve_content {
-        truncate_columns_by_columns(
-            data,
-            widths,
-            &cfg.theme,
-            pad,
-            termwidth,
-            &cfg.width_priority_columns,
-        )
-    } else {
-        truncate_columns_by_content(data, widths, &cfg.theme, pad, termwidth)
+    // A header that cannot sit on the border keeps the header row off it,
+    // unless its column is hidden anyway.
+    match plan(Some(header)) {
+        Some(on_border)
+            if on_border.header_on_border
+                && header[..on_border.visible()].iter().all(fits_border) =>
+        {
+            Some(on_border)
+        }
+        _ => plan(None),
     }
 }
 
-// VERSION where we are showing AS LITTLE COLUMNS AS POSSIBLE but WITH AS MUCH CONTENT AS POSSIBLE.
-fn truncate_columns_by_content(
-    data: &mut Vec<Vec<NuRecordsValue>>,
-    widths: Vec<usize>,
-    theme: &TableTheme,
-    pad: usize,
-    termwidth: usize,
-) -> WidthEstimation {
-    const MIN_ACCEPTABLE_WIDTH: usize = 5;
-    const TRAILING_COLUMN_WIDTH: usize = EMPTY_COLUMN_TEXT_WIDTH;
-
-    let trailing_column_width = TRAILING_COLUMN_WIDTH + pad;
-    let min_column_width = MIN_ACCEPTABLE_WIDTH + pad;
-
-    let count_columns = data[0].len();
-
-    let config = create_config(theme, false, None);
-    let widths_original = widths;
-    let mut widths = vec![];
-
-    let borders = config.get_borders();
-    let vertical = borders.has_vertical() as usize;
-
-    let mut width = borders.has_left() as usize + borders.has_right() as usize;
-    let mut truncate_pos = 0;
-
-    for (i, &column_width) in widths_original.iter().enumerate() {
-        let mut next_move = column_width;
-        if i > 0 {
-            next_move += vertical;
-        }
-        if width + next_move > termwidth {
-            break;
-        }
-        widths.push(column_width);
-        width += next_move;
-        truncate_pos += 1;
-    }
-
-    if truncate_pos == count_columns {
-        return WidthEstimation::new(widths_original, widths, width, false, false);
-    }
-
-    let is_last_column = truncate_pos + 1 == count_columns;
-    if truncate_pos == 0 && !is_last_column {
-        if termwidth > width {
-            let available = termwidth - width;
-            if available >= min_column_width + vertical + trailing_column_width {
-                truncate_rows(data, 1);
-
-                let first_col_width = available - (vertical + trailing_column_width);
-                widths.push(first_col_width);
-                width += first_col_width;
-
-                push_empty_column(data);
-                widths.push(trailing_column_width);
-                width += trailing_column_width + vertical;
-
-                return WidthEstimation::new(widths_original, widths, width, true, true);
-            }
-        }
-
-        return WidthEstimation::new(widths_original, widths, width, false, false);
-    }
-
-    let available = termwidth - width;
-
-    let can_fit_last_column = available >= min_column_width + vertical;
-    if is_last_column && can_fit_last_column {
-        let w = available - vertical;
-        widths.push(w);
-        width += w + vertical;
-
-        return WidthEstimation::new(widths_original, widths, width, true, false);
-    }
-
-    // special case where the last column is smaller then a trailing column
-    let is_almost_last_column = truncate_pos + 2 == count_columns;
-    if is_almost_last_column {
-        let next_column_width = widths_original[truncate_pos + 1];
-        let has_space_for_two_columns =
-            available >= min_column_width + vertical + next_column_width + vertical;
-
-        if !is_last_column && has_space_for_two_columns {
-            let rest = available - vertical - next_column_width - vertical;
-            widths.push(rest);
-            width += rest + vertical;
-
-            widths.push(next_column_width);
-            width += next_column_width + vertical;
-
-            return WidthEstimation::new(widths_original, widths, width, true, false);
-        }
-    }
-
-    let has_space_for_two_columns =
-        available >= min_column_width + vertical + trailing_column_width + vertical;
-    if !is_last_column && has_space_for_two_columns {
-        truncate_rows(data, truncate_pos + 1);
-
-        let rest = available - vertical - trailing_column_width - vertical;
-        widths.push(rest);
-        width += rest + vertical;
-
-        push_empty_column(data);
-        widths.push(trailing_column_width);
-        width += trailing_column_width + vertical;
-
-        return WidthEstimation::new(widths_original, widths, width, true, true);
-    }
-
-    if available >= trailing_column_width + vertical {
-        truncate_rows(data, truncate_pos);
-
-        push_empty_column(data);
-        widths.push(trailing_column_width);
-        width += trailing_column_width + vertical;
-
-        return WidthEstimation::new(widths_original, widths, width, false, true);
-    }
-
-    let last_width = widths.last().cloned().expect("ok");
-    let can_truncate_last = last_width > min_column_width;
-
-    if can_truncate_last {
-        let rest = last_width - min_column_width;
-        let maybe_available = available + rest;
-
-        if maybe_available >= trailing_column_width + vertical {
-            truncate_rows(data, truncate_pos);
-
-            let left = maybe_available - trailing_column_width - vertical;
-            let new_last_width = min_column_width + left;
-
-            widths[truncate_pos - 1] = new_last_width;
-            width -= last_width;
-            width += new_last_width;
-
-            push_empty_column(data);
-            widths.push(trailing_column_width);
-            width += trailing_column_width + vertical;
-
-            return WidthEstimation::new(widths_original, widths, width, true, true);
-        }
-    }
-
-    truncate_rows(data, truncate_pos - 1);
-    let w = widths.pop().expect("ok");
-    width -= w;
-
-    push_empty_column(data);
-    widths.push(trailing_column_width);
-    width += trailing_column_width;
-
-    let has_only_trail = widths.len() == 1;
-    let is_enough_space = width <= termwidth;
-    if has_only_trail || !is_enough_space {
-        // nothing to show anyhow
-        return WidthEstimation::new(widths_original, vec![], width, false, true);
-    }
-
-    WidthEstimation::new(widths_original, widths, width, false, true)
-}
-
-// VERSION where we are showing AS MANY COLUMNS AS POSSIBLE but as a side affect they MIGHT CONTAIN AS LITTLE CONTENT AS POSSIBLE
-//
-// TODO: Currently there's no prioritization of anything meaning all columns are equal
-//       But I'd suggest to try to give a little more space for left most columns
-//
-//       So for example for instead of columns [10, 10, 10]
-//       We would get [15, 10, 5]
-//
-//       Point being of the column needs more space we do can give it a little more based on it's distance from the start.
-//       Percentage wise.
-fn truncate_columns_by_columns(
-    data: &mut Vec<Vec<NuRecordsValue>>,
-    widths: Vec<usize>,
-    theme: &TableTheme,
-    pad: usize,
-    termwidth: usize,
-    width_priority_columns: &[usize],
-) -> WidthEstimation {
-    const MIN_ACCEPTABLE_WIDTH: usize = 10;
-    const TRAILING_COLUMN_WIDTH: usize = EMPTY_COLUMN_TEXT_WIDTH;
-    const SECONDARY_PRIORITY_BONUS_LIMIT: usize = 6;
-
-    let trailing_column_width = TRAILING_COLUMN_WIDTH + pad;
-    let min_column_width = MIN_ACCEPTABLE_WIDTH + pad;
-
-    let count_columns = data[0].len();
-
-    let config = create_config(theme, false, None);
-    let widths_original = widths;
-    let mut widths = vec![];
-
-    let borders = config.get_borders();
-    let vertical = borders.has_vertical() as usize;
-
-    let mut width = borders.has_left() as usize + borders.has_right() as usize;
-    let mut truncate_pos = 0;
-
-    for (i, &width_orig) in widths_original.iter().enumerate() {
-        let use_width = min(min_column_width, width_orig);
-        let mut next_move = use_width;
-        if i > 0 {
-            next_move += vertical;
-        }
-
-        if width + next_move > termwidth {
-            break;
-        }
-
-        widths.push(use_width);
-        width += next_move;
-        truncate_pos += 1;
-    }
-
-    if truncate_pos == 0 {
-        return WidthEstimation::new(widths_original, widths, width, false, false);
-    }
-
-    let mut available = termwidth - width;
-
-    if available > 0 {
-        let consumed = distribute_available_width(
-            &mut widths[..truncate_pos],
-            &widths_original[..truncate_pos],
-            available,
-            width_priority_columns,
-        );
-        available -= consumed;
-        width += consumed;
-    }
-
-    // If not all columns fit and the primary priority is on the right side,
-    // compact columns to the right of it so the priority column can dominate.
-    if truncate_pos < count_columns {
-        let mut state = PriorityCompactionState {
-            widths: &mut widths,
-            truncate_pos: &mut truncate_pos,
-            width: &mut width,
-        };
-        let compaction_data = PriorityCompactionData {
-            widths_original: &widths_original,
-            width_priority_columns,
-        };
-        let limits = PriorityCompactionLimits {
-            termwidth,
-            trailing_column_width,
-            vertical,
-            secondary_priority_bonus_limit: SECONDARY_PRIORITY_BONUS_LIMIT,
-        };
-        compact_partial_visibility_for_priority(&mut state, &compaction_data, &limits);
-
-        available = termwidth - width;
-    }
-
-    if truncate_pos == count_columns {
-        let mut state = PriorityCompactionState {
-            widths: &mut widths,
-            truncate_pos: &mut truncate_pos,
-            width: &mut width,
-        };
-        let compaction_data = PriorityCompactionData {
-            widths_original: &widths_original,
-            width_priority_columns,
-        };
-        let limits = PriorityCompactionLimits {
-            termwidth,
-            trailing_column_width,
-            vertical,
-            secondary_priority_bonus_limit: SECONDARY_PRIORITY_BONUS_LIMIT,
-        };
-        let should_add_trailing =
-            compact_full_visibility_for_priority(&mut state, &compaction_data, &limits);
-        if should_add_trailing {
-            truncate_rows(data, truncate_pos);
-
-            push_empty_column(data);
-            widths.push(trailing_column_width);
-            width += trailing_column_width + vertical;
-
-            return WidthEstimation::new(widths_original, widths, width, true, true);
-        }
-
-        return WidthEstimation::new(widths_original, widths, width, true, false);
-    }
-
-    if available >= trailing_column_width + vertical {
-        let extra_budget = available - (trailing_column_width + vertical);
-        let applied = apply_extra_budget_to_visible_columns(
-            &mut widths,
-            extra_budget,
-            width_priority_columns,
-            truncate_pos,
-        );
-        width += applied;
-
-        truncate_rows(data, truncate_pos);
-
-        push_empty_column(data);
-        widths.push(trailing_column_width);
-        width += trailing_column_width + vertical;
-
-        return WidthEstimation::new(widths_original, widths, width, true, true);
-    }
-
-    truncate_rows(data, truncate_pos - 1);
-    let w = widths.pop().expect("ok");
-    width -= w;
-
-    push_empty_column(data);
-    widths.push(trailing_column_width);
-    width += trailing_column_width;
-
-    let extra_budget = termwidth.saturating_sub(width);
-    let last_visible_column = widths.len().saturating_sub(1);
-    let applied = apply_extra_budget_to_visible_columns(
-        &mut widths,
-        extra_budget,
-        width_priority_columns,
-        last_visible_column,
-    );
-    width += applied;
-
-    WidthEstimation::new(widths_original, widths, width, true, true)
-}
-
-struct PriorityCompactionState<'a> {
-    widths: &'a mut Vec<usize>,
-    truncate_pos: &'a mut usize,
-    width: &'a mut usize,
-}
-
-struct PriorityCompactionData<'a> {
-    widths_original: &'a [usize],
-    width_priority_columns: &'a [usize],
-}
-
-struct PriorityCompactionLimits {
-    termwidth: usize,
-    trailing_column_width: usize,
-    vertical: usize,
-    secondary_priority_bonus_limit: usize,
-}
-
-/// Reclaims right-side columns when a visible primary priority column is still constrained.
+/// Plans the columns with `header` on the border, or with no header there.
 ///
-/// This helper updates `widths`, `truncate_pos`, and `width` in place to reserve room for a
-/// trailing marker and then reallocates the recovered budget toward priority columns first.
-fn compact_partial_visibility_for_priority(
-    state: &mut PriorityCompactionState,
-    data: &PriorityCompactionData,
-    limits: &PriorityCompactionLimits,
-) {
-    let Some(priority_column) =
-        first_visible_priority_column(data.width_priority_columns, *state.truncate_pos)
-    else {
-        return;
+/// A table that fits keeps its natural `widths` (padding included); one set
+/// to expand spreads the rest of `termwidth` evenly over its data columns.
+///
+/// Otherwise as many columns show as fit at their floors (see
+/// [`column_floors`]), the rest hide from the right behind a trailing `...`
+/// column, and the visible ones shrink as [`shrink_columns`] does. Columns
+/// are taken from the left: a column holding nested tables takes the first of
+/// `min_widths` (the width to draw them and the tables in their first column,
+/// then the width to draw them) that fits there, which can hide the columns
+/// to its right, and shows them as text otherwise. Marking a column
+/// as a width priority never hides it: a visible priority column is meant to
+/// keep a third of `termwidth` (or its natural width when that is less), so
+/// columns to its right hide until it does or none is left.
+///
+/// When not even the first data column fits at its floor, it is squeezed
+/// further, and the columns after it show as long as they fit at their floors,
+/// up to as many as the narrowest table that fits at the floors shows; its
+/// header leaves the border if it no longer fits there.
+fn plan_with_header(
+    header: Option<&[NuRecordsValue]>,
+    widths: &[usize],
+    min_widths: [&[usize]; 2],
+    cfg: &TableConfig,
+    termwidth: usize,
+) -> Option<WidthEstimation> {
+    let vertical = cfg.theme.as_base().borders_has_vertical() as usize;
+    // The left and right borders, which is all a table without columns has.
+    let outer = total_width(&[], &cfg.theme);
+    let count = widths.len();
+    // The index column alone tells nothing, so at least one data column shows.
+    let first_data = usize::from(cfg.structure.with_index && count > 1);
+    let mut header_on_border = header.is_some();
+
+    let natural_total = total_width(widths, &cfg.theme);
+    if count == 0 || natural_total <= termwidth {
+        let mut needed = widths.to_vec();
+        if cfg.expand {
+            spread(
+                &mut needed[first_data.min(count)..],
+                termwidth - natural_total,
+            );
+        }
+        return Some(WidthEstimation {
+            needed,
+            trail: false,
+            header_on_border,
+        });
+    }
+
+    let mut floors = column_floors(header, widths, &[], cfg);
+    let trail_width = trail_width(cfg);
+    // Width the borders of the first `k` columns take and, when columns are
+    // hidden, the `...` column; then the width left for the columns themselves.
+    let borders = |k: usize| {
+        let trail = if k < count { trail_width + vertical } else { 0 };
+        outer + vertical * (k - 1) + trail
+    };
+    let room = |k: usize| termwidth.checked_sub(borders(k));
+    let fits = |k: usize, floors: &[usize]| {
+        room(k).is_some_and(|room| floors[..k].iter().sum::<usize>() <= room)
     };
 
-    let priority_is_constrained =
-        state.widths[priority_column] < data.widths_original[priority_column];
-    let has_columns_on_the_right = *state.truncate_pos > priority_column + 1;
-    let single_priority = data.width_priority_columns.len() == 1;
-    let force_priority_to_right_edge = priority_column >= *state.truncate_pos / 2;
-
-    if !priority_is_constrained
-        || !has_columns_on_the_right
-        || !(force_priority_to_right_edge || single_priority)
-    {
-        return;
-    }
-
-    let mut available = limits.termwidth - *state.width;
-
-    while *state.truncate_pos > priority_column + 1 {
-        if single_priority && !force_priority_to_right_edge {
-            let reserve_for_trailing = limits.trailing_column_width + limits.vertical;
-            let need_for_priority =
-                data.widths_original[priority_column].saturating_sub(state.widths[priority_column]);
-
-            if available >= reserve_for_trailing + need_for_priority {
-                break;
-            }
-        }
-
-        let dropped = state.widths.pop().expect("ok");
-        *state.truncate_pos -= 1;
-
-        let freed = dropped + limits.vertical;
-        *state.width -= freed;
-        available += freed;
-    }
-
-    let reserve_for_trailing = limits.trailing_column_width + limits.vertical;
-    if available <= reserve_for_trailing {
-        return;
-    }
-
-    let mut budget = available - reserve_for_trailing;
-    let allocation_order = build_priority_allocation_order(
-        data.width_priority_columns,
-        *state.truncate_pos,
-        priority_column,
-    );
-
-    let consumed = distribute_available_width_round_robin(
-        &mut state.widths[..*state.truncate_pos],
-        &data.widths_original[..*state.truncate_pos],
-        budget,
-        &allocation_order,
-    );
-    *state.width += consumed;
-    budget -= consumed;
-
-    if budget > 0 {
-        let consumed = distribute_available_width(
-            &mut state.widths[..*state.truncate_pos],
-            &data.widths_original[..*state.truncate_pos],
-            budget,
-            &allocation_order,
-        );
-        *state.width += consumed;
-        budget -= consumed;
-    }
-
-    if budget > 0 {
-        state.widths[priority_column] += budget;
-        *state.width += budget;
-    }
-}
-
-/// Rebalances a fully visible column set so a constrained primary priority can dominate.
-///
-/// Returns `true` when the caller should append a trailing `...` column after compaction.
-/// Returns `false` when no trailing marker should be added and the current visible set can be
-/// rendered as-is.
-fn compact_full_visibility_for_priority(
-    state: &mut PriorityCompactionState,
-    data: &PriorityCompactionData,
-    limits: &PriorityCompactionLimits,
-) -> bool {
-    let Some(priority_column) =
-        first_visible_priority_column(data.width_priority_columns, *state.truncate_pos)
-    else {
-        return false;
-    };
-
-    let priority_is_constrained =
-        state.widths[priority_column] < data.widths_original[priority_column];
-    let has_columns_on_the_right = *state.truncate_pos > priority_column + 1;
-    if !priority_is_constrained || !has_columns_on_the_right {
-        return false;
-    }
-
-    let mut available = limits.termwidth - *state.width;
-    let force_priority_to_right_edge = priority_column >= *state.truncate_pos / 2;
-
-    loop {
-        if *state.truncate_pos <= priority_column + 1 {
+    // Columns are taken from the left, each at its floor. A column of nested
+    // tables takes the widest width to draw them that fits, and shows them as
+    // text otherwise; the first column that doesn't fit hides with the rest.
+    let nested_floors = min_widths.map(|min_widths| column_floors(header, widths, min_widths, cfg));
+    let mut taken = 0;
+    let mut visible = 0;
+    for col in 0..count {
+        let rest: usize = floors[col + 1..].iter().sum();
+        // With `...` after it, or with every column after it shown.
+        let fits = |floor: usize| {
+            taken + floor + borders(col + 1) <= termwidth
+                || taken + floor + rest + borders(count) <= termwidth
+        };
+        let floor = nested_floors
+            .iter()
+            .map(|floors| floors[col])
+            .find(|&floor| floor > floors[col] && fits(floor))
+            .unwrap_or(floors[col]);
+        if !fits(floor) {
             break;
         }
+        floors[col] = floor;
+        taken += floor;
+        visible = col + 1;
+    }
 
-        if !force_priority_to_right_edge {
-            let reserve_for_trailing = limits.trailing_column_width + limits.vertical;
-            let has_budget_for_priority_and_trailing = if data.width_priority_columns.len() == 1 {
-                let need_for_priority = data.widths_original[priority_column]
-                    .saturating_sub(state.widths[priority_column]);
-                available >= reserve_for_trailing + need_for_priority
-            } else {
-                let max_other_width = state
-                    .widths
-                    .iter()
-                    .enumerate()
-                    .filter_map(|(i, &col_width)| (i != priority_column).then_some(col_width))
-                    .max()
-                    .unwrap_or(0);
+    let visible = match (visible > first_data).then_some(visible) {
+        Some(visible) => make_room_for_priorities(visible, widths, &floors, cfg, termwidth, |k| {
+            room(k).filter(|_| fits(k, &floors))
+        }),
+        None => {
+            // No more columns than the narrowest table that fits at the
+            // floors shows, so a wider terminal never shows fewer.
+            let narrowest = (first_data + 1..=count)
+                .map(|k| (borders(k) + floors[..k].iter().sum::<usize>(), Reverse(k)))
+                .min()
+                .map_or(first_data + 1, |(_, Reverse(k))| k);
 
-                let need_for_widest =
-                    (max_other_width + 1).saturating_sub(state.widths[priority_column]);
-                available >= reserve_for_trailing + need_for_widest
-            };
+            let pad = indent_sum(cfg.indent);
+            let squeezed = min_column_width(MIN_COLUMN_CONTENT_WIDTH, pad, &cfg.trim);
+            floors[first_data] = min(widths[first_data], squeezed);
+            let header_width = header
+                .and_then(|row| row.get(first_data))
+                .map_or(0, |cell| cell.width() + pad);
+            header_on_border &= header_width <= floors[first_data];
 
-            if has_budget_for_priority_and_trailing {
-                break;
-            }
+            (first_data + 1..=narrowest)
+                .rev()
+                .find(|&k| fits(k, &floors))?
         }
+    };
 
-        let dropped = state.widths.pop().expect("ok");
-        *state.truncate_pos -= 1;
-
-        let freed = dropped + limits.vertical;
-        *state.width -= freed;
-        available += freed;
+    let room = room(visible)?;
+    let mut needed = shrink_columns(&widths[..visible], &floors[..visible], cfg, room);
+    let trail = visible < count;
+    if trail {
+        needed.push(trail_width);
     }
 
-    let reserve_for_trailing = limits.trailing_column_width + limits.vertical;
-    if available < reserve_for_trailing {
-        return false;
-    }
+    Some(WidthEstimation {
+        needed,
+        trail,
+        header_on_border,
+    })
+}
 
-    let mut budget = available - reserve_for_trailing;
+/// Hides columns right of the last of the first `visible` columns that is a
+/// width priority, until every visible priority column can keep a third of
+/// `termwidth` (or its natural width) with the other columns at their floors.
+/// When no count achieves that, the count that leaves the priority columns the
+/// most room wins. `room_if_fits(k)` is the room for `k` visible columns when
+/// their floors fit in it.
+///
+/// Widths are compared in thirds, so rounding never makes a wider terminal
+/// show fewer columns.
+fn make_room_for_priorities(
+    visible: usize,
+    widths: &[usize],
+    floors: &[usize],
+    cfg: &TableConfig,
+    termwidth: usize,
+    room_if_fits: impl Fn(usize) -> Option<usize>,
+) -> usize {
+    let priorities = &cfg.width_priority_columns;
+    let Some(last) = priorities
+        .iter()
+        .copied()
+        .filter(|&col| col < visible)
+        .max()
+    else {
+        return visible;
+    };
 
-    let max_other = state
-        .widths
+    let others = |k: usize| -> usize {
+        (0..k)
+            .filter(|col| !priorities.contains(col))
+            .map(|col| floors[col])
+            .sum()
+    };
+    let wanted_thirds = |k: usize| -> usize {
+        priorities
+            .iter()
+            .filter(|&&col| col < k)
+            .map(|&col| min(3 * widths[col], max(3 * floors[col], termwidth)))
+            .sum()
+    };
+
+    let counts: Vec<(usize, usize)> = (last + 1..=visible)
+        .filter_map(|k| room_if_fits(k).map(|room| (k, room)))
+        .collect();
+    counts
+        .iter()
+        .rev()
+        .find(|&&(k, room)| 3 * others(k) + wanted_thirds(k) <= 3 * room)
+        .or_else(|| {
+            counts
+                .iter()
+                .max_by_key(|&&(k, room)| (room - others(k), k))
+        })
+        .map_or(visible, |&(k, _)| k)
+}
+
+/// The narrowest width (padding included) each column may get before
+/// columns are hidden: its natural width, at most [`MIN_READABLE_WIDTH`]
+/// content characters, but at least the header when `header` sits on the
+/// border (it cannot wrap there) and at least its `min_widths` entry.
+fn column_floors(
+    header: Option<&[NuRecordsValue]>,
+    widths: &[usize],
+    min_widths: &[usize],
+    cfg: &TableConfig,
+) -> Vec<usize> {
+    let pad = indent_sum(cfg.indent);
+    let base = min_column_width(MIN_READABLE_WIDTH, pad, &cfg.trim);
+
+    widths
         .iter()
         .enumerate()
-        .filter_map(|(i, &col_width)| (i != priority_column).then_some(col_width))
-        .max()
-        .unwrap_or(0);
+        .map(|(col, &natural)| {
+            let header_width = header
+                .and_then(|row| row.get(col))
+                .map_or(0, |cell| cell.width() + pad);
+            let min_width = min_widths.get(col).copied().unwrap_or(0);
+            base.max(header_width).max(min_width).min(natural)
+        })
+        .collect()
+}
 
-    if state.widths[priority_column] <= max_other && budget > 0 {
-        let target = max_other + 1;
-        let need = min(
-            data.widths_original[priority_column].saturating_sub(state.widths[priority_column]),
-            target.saturating_sub(state.widths[priority_column]),
-        );
-        let take = min(budget, need);
+fn min_column_width(base_min: usize, pad: usize, trim: &TrimStrategy) -> usize {
+    match trim {
+        TrimStrategy::Truncate { suffix } => {
+            let suffix_width = suffix.as_deref().map(string_width).unwrap_or(0);
+            max(base_min, suffix_width.saturating_add(1)) + pad
+        }
+        TrimStrategy::Wrap { .. } => base_min + pad,
+    }
+}
 
-        state.widths[priority_column] += take;
-        *state.width += take;
-        budget -= take;
+/// Shrinks `widths` to add up to `room`, never below `floors` (which must
+/// fit): first the plain columns, then the width-priority columns, then the
+/// index column (a record's keys). Within a tier the widest columns shrink
+/// first, all to one shared width; a tier shrinks only once every tier before
+/// it is at its floors.
+fn shrink_columns(
+    widths: &[usize],
+    floors: &[usize],
+    cfg: &TableConfig,
+    room: usize,
+) -> Vec<usize> {
+    const LAST_TIER: usize = 2;
+    let tier = |col: usize| {
+        if col == 0 && cfg.structure.with_index {
+            LAST_TIER
+        } else {
+            usize::from(cfg.width_priority_columns.contains(&col))
+        }
+    };
+
+    let mut out = widths.to_vec();
+    // The floors of the tiers already squeezed to them.
+    let mut squeezed = 0;
+    for t in 0..=LAST_TIER {
+        let columns: Vec<usize> = (0..widths.len()).filter(|&col| tier(col) == t).collect();
+        let later: usize = (0..widths.len())
+            .filter(|&col| tier(col) > t)
+            .map(|col| widths[col])
+            .sum();
+        let tier_floors: usize = columns.iter().map(|&col| floors[col]).sum();
+        if t == LAST_TIER || squeezed + tier_floors + later <= room {
+            level_columns(
+                &mut out,
+                &columns,
+                floors,
+                room.saturating_sub(squeezed + later),
+            );
+            break;
+        }
+
+        for &col in &columns {
+            out[col] = floors[col];
+        }
+        squeezed += tier_floors;
     }
 
-    if budget > 0 {
-        let allocation_order = build_priority_allocation_order(
-            data.width_priority_columns,
-            *state.truncate_pos,
-            priority_column,
-        );
+    out
+}
 
-        let consumed = distribute_available_width_round_robin(
-            &mut state.widths[..*state.truncate_pos],
-            &data.widths_original[..*state.truncate_pos],
-            budget,
-            &allocation_order,
-        );
-        *state.width += consumed;
-        budget -= consumed;
+/// Spreads `extra` evenly over `widths`; the leftmost get what does not divide.
+fn spread(widths: &mut [usize], extra: usize) {
+    let count = widths.len();
+    if count == 0 {
+        return;
+    }
+    for (i, width) in widths.iter_mut().enumerate() {
+        *width += extra / count + usize::from(i < extra % count);
+    }
+}
 
-        let consumed = distribute_available_width(
-            &mut state.widths[..*state.truncate_pos],
-            &data.widths_original[..*state.truncate_pos],
-            budget,
-            &allocation_order,
-        );
-        *state.width += consumed;
-        budget -= consumed;
+/// Caps `columns` of `widths` at one shared width, the largest that keeps
+/// their sum within `room`, never going below `floors`. The width left over
+/// goes one character each to the leftmost capped columns.
+fn level_columns(widths: &mut [usize], columns: &[usize], floors: &[usize], room: usize) {
+    let natural: Vec<usize> = columns.iter().map(|&col| widths[col]).collect();
+    let width_at = |i: usize, level: usize| max(floors[columns[i]], min(level, natural[i]));
+    let sum_at = |level: usize| {
+        (0..columns.len())
+            .map(|i| width_at(i, level))
+            .sum::<usize>()
+    };
 
-        if budget > 0 {
-            state.widths[priority_column] += budget;
-            *state.width += budget;
+    let mut low = 0;
+    let mut high = natural.iter().copied().max().unwrap_or(0);
+    if sum_at(high) <= room {
+        return;
+    }
+
+    // `sum_at` grows with the level: find the largest level that fits.
+    while low < high {
+        let mid = low + (high - low).div_ceil(2);
+        if sum_at(mid) <= room {
+            low = mid;
+        } else {
+            high = mid - 1;
         }
     }
 
-    for &secondary in data
-        .width_priority_columns
-        .iter()
-        .filter(|&&column| column < *state.truncate_pos && column != priority_column)
-    {
-        let max_other = state
-            .widths
-            .iter()
-            .enumerate()
-            .filter_map(|(i, &col_width)| {
-                (i != priority_column && i != secondary).then_some(col_width)
-            })
-            .max()
-            .unwrap_or(0);
-
-        let headroom_over_others = state.widths[priority_column].saturating_sub(max_other + 1);
-        let headroom_over_secondary =
-            state.widths[priority_column].saturating_sub(state.widths[secondary] + 1) / 2;
-        let transferable = min(
-            min(headroom_over_others, headroom_over_secondary),
-            limits.secondary_priority_bonus_limit,
-        );
-
-        if transferable == 0 {
-            continue;
+    let level = low;
+    let mut left = room.saturating_sub(sum_at(level));
+    for (i, &col) in columns.iter().enumerate() {
+        let mut width = width_at(i, level);
+        if left > 0 && width == level && natural[i] > level {
+            width += 1;
+            left -= 1;
         }
-
-        state.widths[priority_column] -= transferable;
-        state.widths[secondary] += transferable;
+        widths[col] = width;
     }
-
-    true
 }
 
-// VERSION where we are showing AS MANY COLUMNS AS POSSIBLE solely based on first column.
-fn truncate_columns_by_head(
-    data: &mut Vec<Vec<NuRecordsValue>>,
-    widths: Vec<usize>,
-    theme: &TableTheme,
-    pad: usize,
-    termwidth: usize,
-    width_priority_columns: &[usize],
-) -> WidthEstimation {
-    const TRAILING_COLUMN_WIDTH: usize = EMPTY_COLUMN_TEXT_WIDTH;
-
-    let trailing_column_width = TRAILING_COLUMN_WIDTH + pad;
-
-    let count_columns = data[0].len();
-
-    let config = create_config(theme, false, None);
-    let widths_original = widths;
-    let mut widths = vec![];
-
-    let borders = config.get_borders();
-    let vertical = borders.has_vertical() as usize;
-
-    let mut width = borders.has_left() as usize + borders.has_right() as usize;
-    let mut truncate_pos = 0;
-
-    for (i, &column_width) in widths_original.iter().enumerate() {
-        let head_width = NuRecordsValue::width(&data[0][i]) + pad;
-        let vertical_width = if i > 0 { vertical } else { 0 };
-
-        let mut use_width = column_width;
-        let mut next_move = use_width + vertical_width;
-        if width + next_move > termwidth {
-            use_width = head_width;
-            next_move = use_width + vertical_width;
-            if width + next_move > termwidth {
-                break;
-            }
-        }
-
-        widths.push(use_width);
-        width += next_move;
-        truncate_pos += 1;
-    }
-
-    if truncate_pos == 0 {
-        return WidthEstimation::new(widths_original, widths, width, false, false);
-    }
-
-    let mut available = termwidth - width;
-
-    if available > 0 {
-        let consumed = distribute_available_width(
-            &mut widths[..truncate_pos],
-            &widths_original[..truncate_pos],
-            available,
-            width_priority_columns,
-        );
-        available -= consumed;
-        width += consumed;
-    }
-
-    if truncate_pos == count_columns {
-        return WidthEstimation::new(widths_original, widths, width, true, false);
-    }
-
-    if available >= trailing_column_width + vertical {
-        truncate_rows(data, truncate_pos);
-
-        push_empty_column(data);
-        widths.push(trailing_column_width);
-        width += trailing_column_width + vertical;
-
-        return WidthEstimation::new(widths_original, widths, width, true, true);
-    }
-
-    // NOTE: we must check if some columns are bigger than head_width
-    //       and cut width from them first.
-    //       rather than removing last column.
-    //
-    //       We intentionally check only last column.
-    //       Although space could be given from any column.
-    let last_column_width = widths[truncate_pos - 1];
-    let last_column_width_min = NuRecordsValue::width(&data[0][truncate_pos - 1]) + pad;
-    let last_column_width_free = last_column_width - last_column_width_min;
-    if available + last_column_width_free >= trailing_column_width + vertical {
-        let use_width = trailing_column_width + vertical - available;
-        widths[truncate_pos - 1] -= use_width;
-        width -= use_width;
-
-        truncate_rows(data, truncate_pos);
-
-        push_empty_column(data);
-        widths.push(trailing_column_width);
-        width += trailing_column_width + vertical;
-
-        return WidthEstimation::new(widths_original, widths, width, true, true);
-    }
-
-    truncate_rows(data, truncate_pos - 1);
-    let w = widths.pop().expect("ok");
-    width -= w;
-
-    push_empty_column(data);
-    widths.push(trailing_column_width);
-    width += trailing_column_width;
-
-    WidthEstimation::new(widths_original, widths, width, true, true)
-}
-
-fn get_total_width2(widths: &[usize], cfg: &ColoredConfig) -> usize {
-    let total = widths.iter().sum::<usize>();
-    let countv = cfg.count_vertical(widths.len());
-    let margin = cfg.get_margin();
-
-    total + countv + margin.left.size + margin.right.size
-}
-
-fn create_config(theme: &TableTheme, with_header: bool, color: Option<Style>) -> ColoredConfig {
-    let structure = TableStructure::new(false, with_header, false);
-    let mut table = Table::new([[""]]);
-    load_theme(&mut table, theme, &structure, color);
-    table.get_config().clone()
+/// Width of a table with these column widths (padding included) and the
+/// borders of `theme`.
+pub(crate) fn total_width(widths: &[usize], theme: &TableTheme) -> usize {
+    let theme = theme.as_base();
+    let vertical = theme.borders_has_vertical() as usize;
+    let outer = theme.borders_has_left() as usize + theme.borders_has_right() as usize;
+    widths.iter().sum::<usize>() + vertical * widths.len().saturating_sub(1) + outer
 }
 
 fn push_empty_column(data: &mut Vec<Vec<NuRecordsValue>>) {
@@ -1600,145 +1403,6 @@ fn push_empty_column(data: &mut Vec<Vec<NuRecordsValue>>) {
     for row in data {
         row.push(empty_cell.clone());
     }
-}
-
-/// Returns the first configured priority column that is currently visible.
-fn first_visible_priority_column(
-    width_priority_columns: &[usize],
-    visible_columns: usize,
-) -> Option<usize> {
-    // Width priorities are ordered; the first visible one is treated as primary.
-    width_priority_columns
-        .iter()
-        .copied()
-        .find(|&column| column < visible_columns)
-}
-
-/// Builds the allocation order with the primary priority first, followed by visible secondaries.
-fn build_priority_allocation_order(
-    width_priority_columns: &[usize],
-    visible_columns: usize,
-    primary_priority_column: usize,
-) -> Vec<usize> {
-    // Keep the primary priority first, then retain the caller-provided order
-    // for secondary priorities that are currently visible.
-    let mut allocation_order = vec![primary_priority_column];
-    allocation_order.extend(
-        width_priority_columns
-            .iter()
-            .copied()
-            .filter(|&column| column < visible_columns && column != primary_priority_column),
-    );
-    allocation_order
-}
-
-/// Applies leftover width to visible columns, preferring explicit priorities when possible.
-fn apply_extra_budget_to_visible_columns(
-    widths: &mut [usize],
-    extra_budget: usize,
-    width_priority_columns: &[usize],
-    visible_columns: usize,
-) -> usize {
-    // Any leftover width is intentionally biased toward priority columns,
-    // with a fallback to the last visible data column.
-    if extra_budget == 0 || width_priority_columns.is_empty() {
-        return 0;
-    }
-
-    if let Some(priority_column) =
-        first_visible_priority_column(width_priority_columns, visible_columns)
-    {
-        widths[priority_column] += extra_budget;
-        return extra_budget;
-    }
-
-    if visible_columns > 0 {
-        widths[visible_columns - 1] += extra_budget;
-        return extra_budget;
-    }
-
-    0
-}
-
-/// Distributes available width with a priority-first pass and a legacy all-columns fallback.
-///
-/// Returns the total number of width units consumed from `available`.
-fn distribute_available_width(
-    widths: &mut [usize],
-    widths_original: &[usize],
-    available: usize,
-    width_priority_columns: &[usize],
-) -> usize {
-    let initial_available = available;
-    let mut available = available;
-
-    // First pass: give every explicitly-prioritized column a chance to grow.
-    let consumed = distribute_available_width_round_robin(
-        widths,
-        widths_original,
-        available,
-        width_priority_columns,
-    );
-    available -= consumed;
-
-    // Second pass: preserve existing behavior for all columns.
-    for i in 0..widths.len() {
-        if available == 0 {
-            break;
-        }
-
-        let used_width = widths[i];
-        let col_width = widths_original[i];
-        if used_width < col_width {
-            let need = col_width - used_width;
-            let take = min(available, need);
-            widths[i] += take;
-            available -= take;
-        }
-    }
-
-    initial_available - available
-}
-
-/// Distributes available width one unit at a time across priority columns in round-robin order.
-///
-/// Returns the total number of width units consumed from `available`.
-fn distribute_available_width_round_robin(
-    widths: &mut [usize],
-    widths_original: &[usize],
-    available: usize,
-    width_priority_columns: &[usize],
-) -> usize {
-    let initial_available = available;
-    let mut available = available;
-
-    while available > 0 {
-        let mut consumed_in_round = 0;
-
-        for &column in width_priority_columns {
-            if available == 0 {
-                break;
-            }
-
-            if column >= widths.len() {
-                continue;
-            }
-
-            let used_width = widths[column];
-            let col_width = widths_original[column];
-            if used_width < col_width {
-                widths[column] += 1;
-                available -= 1;
-                consumed_in_round += 1;
-            }
-        }
-
-        if consumed_in_round == 0 {
-            break;
-        }
-    }
-
-    initial_available - available
 }
 
 fn duplicate_row(data: &mut Vec<Vec<NuRecordsValue>>, row: usize) {
@@ -1818,7 +1482,14 @@ impl TableOption<NuRecords, ColoredConfig, CompleteDimension> for SetLineHeaders
             .values
             .into_iter()
             .zip(widths.iter().cloned()) // it must be always safe to do
-            .map(|(s, width)| Truncate::truncate(&s, width - pad).into_owned())
+            .map(|(s, width)| {
+                let content_width = width.saturating_sub(pad);
+                if s == EMPTY_COLUMN_TEXT || string_width(&s) <= content_width {
+                    s
+                } else {
+                    Truncate::truncate(&s, content_width).into_owned()
+                }
+            })
             .collect::<Vec<_>>();
 
         let mut names = ColumnNames::new(columns)
@@ -1861,5 +1532,111 @@ pub fn get_color_if_exists(c: &Color) -> Option<Color> {
         Some(c.clone())
     } else {
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A table with the default separator style, the given theme and these rows of cell texts.
+    fn colored_table(theme: TableTheme, rows: &[&[&str]]) -> NuTable {
+        let mut table = NuTable::new(rows.len(), rows[0].len());
+        table.set_theme(theme);
+        table.set_structure(false, false, false);
+        table.set_border_color(nu_ansi_term::Color::Default.normal());
+        for (row, cells) in rows.iter().enumerate() {
+            for (col, text) in cells.iter().enumerate() {
+                table.insert((row, col), String::from(*text));
+            }
+        }
+        table
+    }
+
+    /// Colors these cells with the default foreground.
+    fn color_default_foreground(table: &mut NuTable, cells: &[(usize, usize)]) {
+        let default_fg = TextStyle::new().style(nu_ansi_term::Color::Default.normal());
+        for &pos in cells {
+            table.insert_style(pos, default_fg);
+        }
+    }
+
+    #[test]
+    fn default_separator_colors_horizontal_lines_and_first_borders() {
+        let table = colored_table(
+            TableTheme::rounded(),
+            &[&["a", "b"], &["\x1b[31mc\x1b[0m", "d\ne"]],
+        );
+        assert_eq!(
+            table.draw(80).expect("fits"),
+            "\x1b[39m╭───┬───╮\x1b[0m\n\
+             \x1b[39m│\x1b[0m a │ b │\n\
+             \x1b[39m│\x1b[0m \x1b[31mc\x1b[0m │ d │\n\
+             \x1b[39m│\x1b[0m   │ e │\n\
+             \x1b[39m╰───┴───╯\x1b[0m"
+        );
+    }
+
+    #[test]
+    fn cell_leaving_colors_on_colors_every_border() {
+        let table = colored_table(TableTheme::rounded(), &[&["a", "b"], &["\x1b[41mc", "d"]]);
+        assert_eq!(
+            table.draw(80).expect("fits"),
+            "\x1b[39m╭───┬───╮\x1b[0m\n\
+             \x1b[39m│\x1b[0m a \x1b[39m│\x1b[0m b \x1b[39m│\x1b[0m\n\
+             \x1b[39m│\x1b[0m \x1b[41mc \x1b[39m│\x1b[0m d \x1b[39m│\x1b[0m\n\
+             \x1b[39m╰───┴───╯\x1b[0m"
+        );
+    }
+
+    #[test]
+    fn theme_without_left_border_colors_its_first_inner_border() {
+        let mut table = colored_table(TableTheme::psql(), &[&["a", "b", "c"], &["d", "e", "f"]]);
+        color_default_foreground(&mut table, &[(0, 0), (0, 1)]);
+        assert_eq!(
+            table.draw(80).expect("fits"),
+            " \x1b[39ma\x1b[0m \x1b[39m|\x1b[0m b | c \n d \x1b[39m|\x1b[0m e | f "
+        );
+    }
+
+    #[test]
+    fn default_foreground_cells_are_uncolored_unless_they_leave_colors_on() {
+        let mut table = colored_table(TableTheme::rounded(), &[&["a", "b"], &["\x1b[41mc", "d"]]);
+        color_default_foreground(&mut table, &[(0, 0), (1, 0)]);
+        assert_eq!(
+            table.draw(80).expect("fits"),
+            "\x1b[39m╭───┬───╮\x1b[0m\n\
+             \x1b[39m│\x1b[0m a │ b │\n\
+             \x1b[39m│\x1b[0m \x1b[39m\x1b[41mc\x1b[0m │ d │\n\
+             \x1b[39m╰───┴───╯\x1b[0m"
+        );
+    }
+
+    #[test]
+    fn other_separator_colors_every_border_and_uncolors_default_foreground_cells() {
+        let mut table = colored_table(TableTheme::rounded(), &[&["a", "b"], &["c", "d"]]);
+        table.set_border_color(nu_ansi_term::Color::Red.normal());
+        color_default_foreground(&mut table, &[(0, 0), (1, 0)]);
+        assert_eq!(
+            table.draw(80).expect("fits"),
+            "\x1b[31m╭───┬───╮\x1b[0m\n\
+             \x1b[31m│\x1b[0m a \x1b[31m│\x1b[0m b \x1b[31m│\x1b[0m\n\
+             \x1b[31m│\x1b[0m c \x1b[31m│\x1b[0m d \x1b[31m│\x1b[0m\n\
+             \x1b[31m╰───┴───╯\x1b[0m"
+        );
+    }
+
+    #[test]
+    fn lines_ending_with_default_colors() {
+        let clean = ["", "plain", "\x1b[31mx\x1b[0m", "\x1b[31mx\x1b[m tail"];
+        let dirty = [
+            "\x1b[31mx",
+            "\x1b[0m\x1b]8;;\x1b\\",
+            "\x1b[1mx\x1b[22m",
+            "x\x1b[0m\u{9b}41m",
+            "\x1b[31mx\u{9b}0m",
+        ];
+        assert!(clean.into_iter().all(ends_with_default_colors));
+        assert!(!dirty.into_iter().any(ends_with_default_colors));
     }
 }

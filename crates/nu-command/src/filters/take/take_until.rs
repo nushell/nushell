@@ -26,7 +26,7 @@ impl Command for TakeUntil {
             )
             .required(
                 "predicate",
-                SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
+                SyntaxShape::RowCondition,
                 "The predicate that element(s) must not match.",
             )
             .category(Category::Filters)
@@ -40,7 +40,7 @@ impl Command for TakeUntil {
         vec![
             Example {
                 description: "Take until the element is positive.",
-                example: "[-1 -2 9 1] | take until {|x| $x > 0 }",
+                example: "[-1 -2 9 1] | take until $it > 0",
                 result: Some(test_value!([-1, -2])),
             },
             Example {
@@ -50,7 +50,7 @@ impl Command for TakeUntil {
             },
             Example {
                 description: "Take until the field value is positive.",
-                example: "[{a: -1} {a: -2} {a: 9} {a: 1}] | take until {|x| $x.a > 0 }",
+                example: "[{a: -1} {a: -2} {a: 9} {a: 1}] | take until a > 0",
                 result: Some(test_value!([{a: (-1)}, {a: (-2)}])),
             },
             Example {
@@ -79,7 +79,7 @@ impl Command for TakeUntil {
 
         let metadata = input.take_metadata();
 
-        let mut closure = ClosureEval::new(engine_state, stack, closure);
+        let mut closure = ClosureEval::try_new(engine_state, stack, closure, head)?;
         let predicate = move |value: &Value| {
             closure
                 .run_with_value(value.clone())

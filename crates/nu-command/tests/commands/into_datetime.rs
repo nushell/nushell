@@ -1,4 +1,6 @@
 use nu_test_support::prelude::*;
+use pretty_assertions::assert_matches;
+use rstest::rstest;
 
 // Tests happy paths
 
@@ -324,6 +326,88 @@ fn formatted_input_rejects_invalid_offset_flag() -> Result {
     }
 }
 
+#[rstest]
+#[case::winter(1_704_067_200_000_000_000, "2024-01-01 01:00 +01:00")]
+#[case::summer(1_719_792_000_000_000_000, "2024-07-01 02:00 +02:00")]
+fn named_timezone_converts_nanosecond_timestamp(
+    #[case] timestamp: i64,
+    #[case] expected: &str,
+) -> Result {
+    let code = "
+        $in
+        | into datetime --timezone Europe/Berlin
+        | format date '%Y-%m-%d %H:%M %:z'
+    ";
+
+    test()
+        .run_with_data(code, timestamp)
+        .expect_value_eq(expected)
+}
+
+#[rstest]
+#[case::winter("2024-01-01 00:00 +00:00", "2024-01-01 01:00 +01:00")]
+#[case::summer("2024-07-01 00:00 +00:00", "2024-07-01 02:00 +02:00")]
+fn named_timezone_converts_formatted_input_with_offset(
+    #[case] input: &str,
+    #[case] expected: &str,
+) -> Result {
+    let code = "
+        $in
+        | into datetime --format '%Y-%m-%d %H:%M %z' --timezone Europe/Berlin
+        | format date '%Y-%m-%d %H:%M %:z'
+    ";
+
+    test().run_with_data(code, input).expect_value_eq(expected)
+}
+
+#[rstest]
+#[case::winter("2024-01-01 12:00", "2024-01-01 12:00 +01:00")]
+#[case::summer("2024-07-01 12:00", "2024-07-01 12:00 +02:00")]
+fn named_timezone_interprets_formatted_wall_clock(
+    #[case] input: &str,
+    #[case] expected: &str,
+) -> Result {
+    let code = "
+        $in
+        | into datetime --format '%Y-%m-%d %H:%M' --timezone eUrOpE/bErLiN
+        | format date '%Y-%m-%d %H:%M %:z'
+    ";
+
+    test().run_with_data(code, input).expect_value_eq(expected)
+}
+
+#[test]
+fn named_timezone_interprets_formatted_date_only() -> Result {
+    let code = "
+        '2024-07-01'
+        | into datetime --format '%Y-%m-%d' --timezone Europe/Berlin
+        | format date '%Y-%m-%d %H:%M %:z'
+    ";
+
+    test().run(code).expect_value_eq("2024-07-01 00:00 +02:00")
+}
+
+#[test]
+fn named_timezone_interprets_formatted_time_only() -> Result {
+    let code = "
+        '12:30'
+        | into datetime --format '%H:%M' --timezone Asia/Kolkata
+        | format date '%H:%M %:z'
+    ";
+
+    test().run(code).expect_value_eq("12:30 +05:30")
+}
+
+#[rstest]
+#[case::nonexistent("2024-03-31 02:30")]
+#[case::ambiguous("2024-10-27 02:30")]
+fn named_timezone_rejects_invalid_wall_clock(#[case] input: &str) -> Result {
+    let code = "$in | into datetime --format '%Y-%m-%d %H:%M' --timezone Europe/Berlin";
+    let err = test().run_with_data(code, input).expect_shell_error()?;
+    assert_matches!(err, ShellError::DatetimeParseError { .. });
+    Ok(())
+}
+
 #[test]
 fn list_flag_produces_available_format_entries() -> Result {
     let len: i64 = test().run("into datetime --list | length")?;
@@ -346,4 +430,16 @@ fn into_datetime_list_of_dates_is_noop_keeps_length() -> Result {
     let actual: i64 = test().run(code)?;
     assert_eq!(actual, 2);
     Ok(())
+}
+
+#[test]
+fn into_datetime_from_any_typed_pipeline_is_datetime() -> Result {
+    // `http get` is typed `any`. A catch-all `(any, table)` pair on `into datetime`
+    // (used for `--list`) must not make this infer as `table`.
+    let code = r#"
+        def f []: nothing -> any { "2020-01-01" }
+        let d: datetime = (f | into datetime)
+        $d | describe
+    "#;
+    test().run(code).expect_value_eq("datetime")
 }

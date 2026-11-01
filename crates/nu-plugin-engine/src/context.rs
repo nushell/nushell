@@ -1,5 +1,5 @@
 use crate::util::MutableCow;
-use nu_engine::{ClosureEvalOnce, get_eval_block_with_early_return, get_full_help};
+use nu_engine::{ClosureEvalOnce, eval_ir_call, get_eval_block_with_early_return, get_full_help};
 use nu_plugin_protocol::{DynamicCompletionCall, EvaluatedCall};
 use nu_protocol::{
     BlockId, Config, DeclId, DynamicCompletionCallRef, IntoSpanned, OutDest, PipelineData,
@@ -249,8 +249,6 @@ impl PluginExecutionContext for PluginExecutionCommandContext<'_> {
             )));
         }
 
-        let decl = self.engine_state.get_decl(decl_id);
-
         let stack = &mut self.stack.push_redirection(
             redirect_stdout.then_some(Redirection::Pipe(OutDest::PipeSeparate)),
             redirect_stderr.then_some(Redirection::Pipe(OutDest::PipeSeparate)),
@@ -270,9 +268,10 @@ impl PluginExecutionContext for PluginExecutionCommandContext<'_> {
             }
         }
 
-        call_builder.with(stack, |stack, call| {
-            decl.run(&self.engine_state, stack, call, input)
-        })
+        let call = call_builder.finish();
+        let result = eval_ir_call(&self.engine_state, stack, &call, input);
+        call.leave(stack);
+        result
     }
 
     fn boxed(&self) -> Box<dyn PluginExecutionContext + 'static> {
@@ -299,8 +298,8 @@ fn plugin_config(
     config.plugins.get(plugin_name).cloned().map(|value| {
         let span = value.span();
         match value {
-            Value::Closure { val, .. } => ClosureEvalOnce::new(engine_state, stack, *val)
-                .run_with_input(PipelineData::empty())
+            Value::Closure { val, .. } => ClosureEvalOnce::try_new(engine_state, stack, *val, span)
+                .and_then(|eval| eval.run_with_input(PipelineData::empty()))
                 .and_then(|data| data.into_value(span))
                 .unwrap_or_else(|err| Value::error(err, head)),
             _ => value.clone(),

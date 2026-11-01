@@ -191,7 +191,7 @@ impl Command for SubCommand {
         let split = split.unwrap_or(Split::On);
         let matcher = match separator {
             Value::Closure { val, .. } => {
-                Matcher::from_closure(ClosureEval::new(engine_state, stack, *val))
+                Matcher::from_closure(ClosureEval::try_new(engine_state, stack, *val, call.head)?)
             }
             _ => Matcher::new(engine_state, has_regex, separator)?,
         };
@@ -201,12 +201,13 @@ impl Command for SubCommand {
     fn run_const(
         &self,
         working_set: &StateWorkingSet,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let has_regex = call.has_flag_const(working_set, "regex")?;
-        let separator: Value = call.req_const(working_set, 0)?;
-        let split: Option<Split> = call.get_flag_const(working_set, "split")?;
+        let has_regex = call.has_flag_const(working_set, stack, "regex")?;
+        let separator: Value = call.req_const(working_set, stack, 0)?;
+        let split: Option<Split> = call.get_flag_const(working_set, stack, "split")?;
         let split = split.unwrap_or(Split::On);
         let matcher = Matcher::new(working_set.permanent(), has_regex, separator)?;
         split_list(working_set.permanent(), call, input, matcher, split)

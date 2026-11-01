@@ -178,3 +178,84 @@ fn flatten_more_than_one_column_that_are_subtables_not_supported() -> Result {
     );
     Ok(())
 }
+
+fn expect_column_defined_twice(command: &str, col: &str) -> Result {
+    let error = test().run(command).expect_shell_error()?;
+    assert_matches!(
+        error,
+        ShellError::ColumnDefinedTwice { col_name, .. }
+        if col_name == col
+    );
+    Ok(())
+}
+
+#[test]
+fn flatten_errors_when_column_overwrites_renamed_lifted_field() -> Result {
+    let command = "{a: {b: 1, c: 2}, a_c: 3, c: 4} | flatten";
+    let col_name = "a_c";
+    expect_column_defined_twice(command, col_name)
+}
+
+#[test]
+fn flatten_errors_when_renamed_lifted_field_overwrites_column() -> Result {
+    let command = "{a_c: 3, a: {b: 1, c: 2}, c: 4} | flatten";
+    let col_name = "a_c";
+    expect_column_defined_twice(command, col_name)
+}
+
+#[test]
+fn flatten_errors_when_column_overwrites_renamed_inner_table_column() -> Result {
+    let command = "{a: [[x]; [1]], x: 2, a_x: 3} | flatten --all a";
+    let col_name = "a_x";
+    expect_column_defined_twice(command, col_name)
+}
+
+#[test]
+fn flatten_renames_inner_table_column_colliding_with_column() -> Result {
+    let command = "{a: [[x]; [1]], x: 2} | flatten --all a";
+    let result = test_table![["a_x", "x"]; [1, 2]];
+    test().run(command).expect_value_eq(result)
+}
+
+#[test]
+fn flatten_renames_lifted_field_colliding_with_list_column() -> Result {
+    let command = "{a: {d: 5}, d: [1 2]} | flatten a d";
+    let result = test_table![["a_d", "d"]; [5, 1], [5, 2]];
+    test().run(command).expect_value_eq(result)
+}
+
+#[test]
+fn flatten_errors_when_record_column_overwrites_renamed_lifted_field() -> Result {
+    let command = "{a: {c: 1}, c: 2, a_c: {z: 1}} | flatten a";
+    let col_name = "a_c";
+    expect_column_defined_twice(command, col_name)
+}
+
+#[test]
+fn flatten_lifted_record_column_field_does_not_overwrite_renamed_lifted_field() -> Result {
+    let command = "{a: {c: 1}, c: 2, a_c: {z: 1}} | flatten a a_c";
+    let result = test_table![["a_c", "c", "z"]; [1, 2, 1]];
+    test().run(command).expect_value_eq(result)
+}
+
+#[test]
+fn flatten_errors_when_table_column_overwrites_renamed_lifted_field() -> Result {
+    let command = "{a: {c: 1}, c: 2, a_c: [[z]; [1]]} | flatten --all a";
+    let col_name = "a_c";
+    expect_column_defined_twice(command, col_name)
+}
+
+#[test]
+fn flatten_lifted_table_column_field_does_not_overwrite_renamed_lifted_field() -> Result {
+    let command = "{a: {c: 1}, c: 2, a_c: [[z]; [1]]} | flatten --all a a_c";
+    let result = test_table![["a_c", "c", "z"]; [1, 2, 1]];
+    test().run(command).expect_value_eq(result)
+}
+
+#[test]
+fn flatten_lifted_field_names_do_not_depend_on_order() -> Result {
+    let a: Value = test().run("{a: {c: 1}, c: 2, x: {a_c: 5}} | flatten")?;
+    let b: Value = test().run("{x: {a_c: 5}, a: {c: 1}, c: 2} | flatten")?;
+    assert_eq!(a, b);
+    Ok(())
+}

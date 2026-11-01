@@ -1,4 +1,4 @@
-use crate::{DirBuilder, DirInfo};
+use crate::{DirBuilder, DirInfo, SeenSet};
 use chrono::{DateTime, Local, LocalResult, TimeZone, Utc};
 use nu_engine::{command_prelude::*, glob_from};
 use nu_glob::MatchOptions;
@@ -292,7 +292,7 @@ impl Command for Ls {
             },
             Example {
                 description: "List only the names (not paths) of all dirs in your home directory which have not been modified in 7 days.",
-                example: "ls -as ~ | where type == dir and modified < ((date now) - 7day)",
+                example: "ls -as ~ | where type == dir and modified older-than 7day",
                 result: None,
             },
             Example {
@@ -833,7 +833,11 @@ pub(crate) fn dir_entry_dict(
             if md.is_dir() {
                 if du {
                     let params = DirBuilder::new(Span::new(0, 2), None, false, None, false);
-                    let dir_size = DirInfo::new(filename, &params, None, span, signals)?.get_size();
+                    // Fresh per directory: a link is counted once inside each
+                    // directory whose size is reported here.
+                    let mut seen = SeenSet::default();
+                    let dir_size =
+                        DirInfo::new(filename, &params, None, span, signals, &mut seen)?.get_size();
 
                     Value::filesize(dir_size as i64, span)
                 } else {

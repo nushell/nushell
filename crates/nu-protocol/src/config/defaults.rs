@@ -72,6 +72,11 @@ pub fn default_color_config() -> HashMap<String, Value> {
                 "fg" => str("default"),
             }),
         ),
+        ("selection", rec(record! { "attr" => str("r") })),
+        // "n" (no styling) keeps the cursor cell plain inside a selection: a
+        // reversing block cursor reverses it back to the flat selection look,
+        // while thinner cursor shapes stay visible instead of drowning in it.
+        ("selection_cursor", rec(record! { "attr" => str("n") })),
         ("shape_binary", str("purple_bold")),
         ("shape_block", str("blue_bold")),
         ("shape_bool", str("light_cyan")),
@@ -214,9 +219,18 @@ pub fn default_menus() -> Vec<ParsedMenu> {
     ]
 }
 
+/// Every edit mode the Nushell-owned keybindings below apply to.
 fn all_modes() -> Value {
     Value::list(
-        vec![str("emacs"), str("vi_normal"), str("vi_insert")],
+        vec![
+            str("emacs"),
+            str("vi_normal"),
+            str("vi_insert"),
+            str("vi_visual"),
+            str("helix_normal"),
+            str("helix_select"),
+            str("helix_insert"),
+        ],
         span(),
     )
 }
@@ -287,6 +301,49 @@ pub fn default_explore() -> HashMap<String, Value> {
                 "reactive" => bool(false),
             }),
         ),
+    ]
+    .into_iter()
+    .map(|(k, v)| (k.to_string(), v))
+    .collect()
+}
+
+/// Default `$env.config.tui` values. Keys are the theme slots read by
+/// `Theme::from_config` in `nu-tui`; unset slots fall back to `color_config`.
+pub fn default_tui() -> HashMap<String, Value> {
+    [
+        (
+            "title_bar",
+            rec(record! { "fg" => str("white"), "bg" => str("blue"), "attr" => str("b") }),
+        ),
+        (
+            "status_bar",
+            rec(record! { "fg" => str("white"), "bg" => str("dark_gray") }),
+        ),
+        ("border", rec(record! { "fg" => str("dark_gray") })),
+        ("border_focused", rec(record! { "fg" => str("cyan") })),
+        ("border_type", str("single")),
+        ("selected", rec(record! { "attr" => str("r") })),
+        (
+            "header",
+            rec(record! { "fg" => str("green"), "attr" => str("b") }),
+        ),
+        ("muted", rec(record! { "fg" => str("dark_gray") })),
+        (
+            "highlight",
+            rec(record! { "fg" => str("yellow"), "attr" => str("b") }),
+        ),
+        (
+            "tab_active",
+            rec(record! { "fg" => str("cyan"), "attr" => str("bu") }),
+        ),
+        ("tab_inactive", rec(record! { "fg" => str("dark_gray") })),
+        ("progress", rec(record! { "fg" => str("green") })),
+        (
+            "button",
+            rec(record! { "fg" => str("white"), "bg" => str("blue") }),
+        ),
+        ("surface", rec(record! { "bg" => str("default") })),
+        ("backdrop", rec(record! { "bg" => str("default") })),
     ]
     .into_iter()
     .map(|(k, v)| (k.to_string(), v))

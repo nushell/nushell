@@ -21,7 +21,7 @@ fn type_error(
             op_span,
             lhs_span: lhs.span,
             rhs_span: rhs.span,
-            help: None,
+            help: op.incompatible_types_help(&lhs.ty, &rhs.ty),
         },
         (true, false) => ParseError::OperatorUnsupportedType {
             op: op.as_str(),
@@ -261,6 +261,12 @@ mod math {
     }
 }
 
+/// Custom comparisons may return a bool (semver, matrix) or another custom
+/// value (polars expressions). Parse-time only has the type name, so allow both.
+fn custom_comparison_type(name: &str) -> Type {
+    Type::one_of([Type::Bool, Type::Custom(name.into())])
+}
+
 fn ord_cmp_op(lhs: &Type, rhs: &Type) -> Option<Type> {
     fn op(lhs: &Type, rhs: &Type) -> Option<Type> {
         Some(match (lhs, rhs) {
@@ -274,8 +280,8 @@ fn ord_cmp_op(lhs: &Type, rhs: &Type) -> Option<Type> {
             (Type::Filesize, Type::Filesize) => Type::Bool,
             (Type::Bool, Type::Bool) => Type::Bool,
 
-            (Type::Custom(a), Type::Custom(b)) if a == b => Type::Custom(a.clone()),
-            (Type::Custom(a), _) => Type::Custom(a.clone()),
+            (Type::Custom(a), Type::Custom(b)) if a == b => custom_comparison_type(a),
+            (Type::Custom(a), _) => custom_comparison_type(a),
 
             (Type::Nothing, _) | (_, Type::Nothing) => Type::Nothing, // TODO: is this right
             // TODO: should this include:
@@ -291,28 +297,63 @@ fn ord_cmp_op(lhs: &Type, rhs: &Type) -> Option<Type> {
     operator_check(op, Type::Bool, lhs, rhs)
 }
 
-fn str_cmp_op(lhs: &Type, rhs: &Type) -> Option<Type> {
+/// The result type of `older-than` and `newer-than`: a datetime on the left, and a datetime or a
+/// duration (counted back from now) on the right. `nothing` passes through, as it does for `<`.
+///
+/// An `any` operand doesn't excuse the other one: `where modified older-than '2wk'` has an `any`
+/// column on the left, and the quoted duration on the right is still an error. Where the other
+/// operand fits, an `any` makes the result `bool`, as it does for `<`.
+fn point_in_time_cmp_op(lhs: &Type, rhs: &Type) -> Option<Type> {
     fn op(lhs: &Type, rhs: &Type) -> Option<Type> {
         Some(match (lhs, rhs) {
-            (Type::String | Type::Any, Type::String | Type::Any) => Type::Bool,
-            // TODO: should this include glob?
-            (Type::Custom(a), Type::Custom(b)) if a == b => Type::Custom(a.clone()),
-            (Type::Custom(a), _) => Type::Custom(a.clone()),
+            (Type::Date, Type::Date | Type::Duration) => Type::Bool,
+            (Type::Custom(a), _) | (Type::Any, Type::Custom(a)) => custom_comparison_type(a),
+            (Type::Any, Type::Date | Type::Duration | Type::Nothing | Type::Any)
+            | (Type::Date | Type::Nothing, Type::Any) => Type::Bool,
+            (Type::Nothing, _) | (_, Type::Nothing) => Type::Nothing,
             _ => return None,
         })
     }
     operator_check(op, None, lhs, rhs)
 }
 
-fn in_op(lhs: &Type, rhs: &Type) -> Option<Type> {
+fn str_cmp_op(lhs: &Type, rhs: &Type) -> Option<Type> {
     fn op(lhs: &Type, rhs: &Type) -> Option<Type> {
         Some(match (lhs, rhs) {
-            (t, Type::List(u)) if type_compatible(t, u) => Type::Bool,
+            (Type::String | Type::Any, Type::String | Type::Any) => Type::Bool,
+            // TODO: should this include glob?
+            (Type::Custom(a), Type::Custom(b)) if a == b => custom_comparison_type(a),
+            (Type::Custom(a), _) => custom_comparison_type(a),
+            _ => return None,
+        })
+    }
+    operator_check(op, None, lhs, rhs)
+}
+
+/// The type of `-x` for an operand of type `ty`, or `None` if values of that type can't be
+/// negated. Negation multiplies by -1, so it is typed like that multiplication.
+pub fn negation_type(ty: &Type) -> Option<Type> {
+    math::multiply(ty, &Type::Int)
+}
+
+fn in_op(lhs: &Type, rhs: &Type) -> Option<Type> {
+    /// Whether a value of type `t` can be equal to an element of type `u`. Ints and floats
+    /// compare by value at runtime (`1 == 1.0`), so they are compatible here too.
+    fn element_compatible(t: &Type, u: &Type) -> bool {
+        match u {
+            Type::OneOf(members) => members.iter().any(|u| element_compatible(t, u)),
+            u => type_compatible(t, u) || number_types(t, u).is_some(),
+        }
+    }
+
+    fn op(lhs: &Type, rhs: &Type) -> Option<Type> {
+        Some(match (lhs, rhs) {
+            (t, Type::List(u)) if element_compatible(t, u) => Type::Bool,
             (Type::Int | Type::Float | Type::Number, Type::Range) => Type::Bool,
             (Type::String, Type::String) => Type::Bool,
             (Type::String, Type::Record(_)) => Type::Bool,
-            (Type::Custom(a), Type::Custom(b)) if a == b => Type::Custom(a.clone()),
-            (Type::Custom(a), _) => Type::Custom(a.clone()),
+            (Type::Custom(a), Type::Custom(b)) if a == b => custom_comparison_type(a),
+            (Type::Custom(a), _) => custom_comparison_type(a),
             _ => return None,
         })
     }
@@ -323,7 +364,8 @@ fn has_op(lhs: &Type, rhs: &Type) -> Option<Type> {
     in_op(rhs, lhs)
 }
 
-// TODO: rework type checking for Custom values
+// Custom math/boolean ops still return the custom type. Comparison-class ops
+// use `custom_comparison_type` (`oneof<bool, custom>`).
 pub fn math_result_type(
     working_set: &mut StateWorkingSet,
     lhs: &mut Expression,
@@ -531,8 +573,8 @@ pub fn math_result_type(
         },
         Operator::Comparison(Comparison::Equal | Comparison::NotEqual) => {
             match (&lhs.ty, &rhs.ty) {
-                (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.clone()), None),
-                (Type::Custom(a), _) => (Type::Custom(a.clone()), None),
+                (Type::Custom(a), Type::Custom(b)) if a == b => (custom_comparison_type(a), None),
+                (Type::Custom(a), _) => (custom_comparison_type(a), None),
                 _ => (Type::Bool, None),
             }
         }
@@ -550,6 +592,17 @@ pub fn math_result_type(
                 type_error(operator, op.span, lhs, rhs, |ty| matches!(ty, Type::String))
             }
         },
+        Operator::Comparison(Comparison::OlderThan | Comparison::NewerThan) => {
+            match point_in_time_cmp_op(&lhs.ty, &rhs.ty) {
+                Some(ty) => (ty, None),
+                None => {
+                    *op = Expression::garbage(working_set, op.span);
+                    type_error(operator, op.span, lhs, rhs, |ty| {
+                        matches!(ty, Type::Date | Type::Duration)
+                    })
+                }
+            }
+        }
         Operator::Comparison(Comparison::In | Comparison::NotIn) => match in_op(&lhs.ty, &rhs.ty) {
             Some(ty) => (ty, None),
             None => {
@@ -709,11 +762,8 @@ pub fn check_pipeline_type(
             continue;
         }
 
-        let signature = working_set.get_decl(call.decl_id).signature();
-
-        let output_type = signature
-            // NOTE[2]: unlike `parse_internal_call`, `Type::Nothing` is not added to input types.
-            .get_output_type(Some(&input_type));
+        // NOTE[2]: unlike `parse_internal_call`, `Type::Nothing` is not added to input types.
+        let output_type = working_set.decl_output_type(call.decl_id, Some(&input_type));
 
         if let Some(output_type) = output_type {
             input_type = output_type;
@@ -735,7 +785,9 @@ pub fn check_pipeline_type(
 
         output_errors.push(ParseError::InputMismatch(types_string, call.head));
 
-        input_type = signature.get_output_type(None).unwrap_or(Type::Any);
+        input_type = working_set
+            .decl_output_type(call.decl_id, None)
+            .unwrap_or(Type::Any);
     }
 
     if output_errors.is_empty() {

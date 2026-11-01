@@ -122,13 +122,13 @@ fn update_recursive(
                 if matches!(cell_paths.first(), Some(PathMember::Int { .. })) {
                     update_single_value_by_closure(
                         &mut value,
-                        ClosureEvalOnce::new(engine_state, stack, *val),
+                        ClosureEvalOnce::try_new(engine_state, stack, *val, head_span)?,
                         head_span,
                         cell_paths,
                         false,
                     )?;
                 } else {
-                    let mut closure = ClosureEval::new(engine_state, stack, *val);
+                    let mut closure = ClosureEval::try_new(engine_state, stack, *val, head_span)?;
                     update_value_by_closure(&mut value, &mut closure, head_span, cell_paths)?;
                 }
             } else {
@@ -177,7 +177,7 @@ fn update_recursive(
                 if let Value::Closure { val, .. } = replacement {
                     update_single_value_by_closure(
                         value,
-                        ClosureEvalOnce::new(engine_state, stack, *val),
+                        ClosureEvalOnce::try_new(engine_state, stack, *val, head_span)?,
                         head_span,
                         path,
                         true,
@@ -204,7 +204,7 @@ fn update_recursive(
                     &new_cell_paths,
                 )
             } else if let Value::Closure { val, .. } = replacement {
-                let mut closure = ClosureEval::new(engine_state, stack, *val);
+                let mut closure = ClosureEval::try_new(engine_state, stack, *val, head_span)?;
                 let cell_paths = cell_paths.to_vec();
                 let stream = stream.map(move |mut value| {
                     let err =
@@ -251,8 +251,14 @@ fn update(
     let head = call.head;
     let cell_path: CellPath = call.req(engine_state, stack, 0)?;
     let replacement: Value = call.req(engine_state, stack, 1)?;
-    let is_custom = matches!(&input, PipelineData::Value(Value::Custom { .. }, _));
-    let input = if is_custom {
+    // Keep non-iterable custom values (e.g. matrix) so cell-path updates stay
+    // on the custom type. Iterable custom values such as SQLiteQueryBuilder
+    // must become a list stream so closure updates run per row.
+    let keep_as_custom = matches!(
+        &input,
+        PipelineData::Value(Value::Custom { val, .. }, _) if !val.is_iterable()
+    );
+    let input = if keep_as_custom {
         input
     } else {
         input.into_stream_or_original(engine_state)

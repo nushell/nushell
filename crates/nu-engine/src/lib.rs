@@ -11,6 +11,7 @@ mod eval_helpers;
 mod eval_ir;
 pub mod exit;
 mod glob_from;
+mod named_flags;
 pub mod scope;
 
 #[cfg(test)]
@@ -24,13 +25,13 @@ pub use call_ext::CallExt;
 pub use closure_eval::*;
 pub use column::get_columns;
 pub use compile::compile;
-pub use documentation::get_full_help;
+pub use documentation::{get_full_help, nu_highlight_string};
 pub use env::*;
 pub use eval::{
     CallEval, eval_block, eval_block_with_early_return, eval_call, eval_expression,
     eval_expression_with_input, eval_subexpression, eval_variable, redirect_env,
 };
 pub use eval_helpers::*;
-pub use eval_ir::eval_ir_block;
+pub use eval_ir::{eval_ir_block, eval_ir_call};
 pub use glob_from::glob_from;
 pub use scope::find_builtin_decl;

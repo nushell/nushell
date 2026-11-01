@@ -1,5 +1,5 @@
 use nu_color_config::StyleComputer;
-use nu_protocol::{Config, Signals, Span, TableIndexMode, TableMode};
+use nu_protocol::{Config, Signals, Span, TableIndexMode, TableMode, Value};
 
 use crate::{NuTable, common::INDEX_COLUMN_NAME};
 
@@ -88,4 +88,62 @@ fn has_index(opts: &TableOpts<'_>, headers: &[String]) -> bool {
     };
 
     with_index && !opts.index_remove
+}
+
+/// Resolves configured priority column names into concrete table column indexes.
+///
+/// The returned indexes preserve caller order and contain no duplicates.
+pub(crate) fn resolve_priority_columns(
+    headers: &[String],
+    width_priority_columns: &[String],
+    with_index: bool,
+) -> Vec<usize> {
+    let mut resolved = Vec::new();
+
+    for priority_column in width_priority_columns {
+        let mut resolved_index = None;
+
+        if with_index && priority_column == INDEX_COLUMN_NAME {
+            resolved_index = Some(0);
+        } else {
+            let mut table_index = usize::from(with_index);
+            for header in headers {
+                if header == INDEX_COLUMN_NAME && with_index {
+                    continue;
+                }
+
+                if header == priority_column {
+                    resolved_index = Some(table_index);
+                    break;
+                }
+
+                table_index += 1;
+            }
+        }
+
+        if let Some(index) = resolved_index
+            && !resolved.contains(&index)
+        {
+            resolved.push(index);
+        }
+    }
+
+    resolved
+}
+
+/// The index shown for row `row` of a table: the row's `index` column when it
+/// has one, its position counted from `offset` otherwise.
+pub(crate) fn get_table_row_index(
+    item: &Value,
+    config: &Config,
+    row: usize,
+    offset: usize,
+) -> String {
+    match item {
+        Value::Record { val, .. } => val
+            .get(INDEX_COLUMN_NAME)
+            .map(|value| value.to_expanded_string("", config))
+            .unwrap_or_else(|| (row + offset).to_string()),
+        _ => (row + offset).to_string(),
+    }
 }

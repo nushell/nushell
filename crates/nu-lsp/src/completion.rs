@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use crate::{LanguageServer, span_to_range, uri_to_path};
 use lsp_types::{
     CompletionItem, CompletionItemKind, CompletionItemLabelDetails, CompletionParams,
@@ -35,8 +33,8 @@ impl LanguageServer {
                 .is_some_and(|c| c.is_whitespace() || "|(){}[]<>,:;".contains(c));
 
         self.need_parse |= need_fallback;
-        let engine_state = Arc::new(self.new_engine_state(Some(path_uri)));
-        let completer = CompletionEngine::new(engine_state.clone(), Arc::new(Stack::new()));
+        let engine_state = self.new_engine_state(Some(path_uri));
+        let completer = CompletionEngine::new(&engine_state, &Stack::new());
         let results = if need_fallback {
             completer.fetch_completions_at(&file_text[..location], location)
         } else {
@@ -208,7 +206,7 @@ mod tests {
         TextDocumentPositionParams, Uri, WorkDoneProgressParams,
         request::{Completion, Request},
     };
-    use nu_test_support::fs::fixtures;
+    use nu_test_support::prelude::*;
     use rstest::rstest;
 
     fn send_complete_request(
@@ -317,7 +315,7 @@ mod tests {
     ]))]
     #[case::external_completer(
         "external.nu", (0, 11),
-        Some("$env.config.completions.external.completer = {|spans| ['--background']}"),
+        Some("$env.config.completions.external.completer = {|input| ['--background']}"),
         serde_json::json!([{
             "label": "--background",
             "labelDetails": { "description": "string" },
@@ -428,7 +426,17 @@ mod tests {
             "kind": 2
         },
     ]))]
-    #[case::command_basic("command.nu", (0, 6), None, serde_json::json!([
+    #[case::command_prefix_ignores_untyped_argument("command.nu", (0, 6), None, serde_json::json!([
+        { "label": "config", "detail": "Edit nushell configuration files.", "kind": 3 },
+        {
+            "label": "config env",
+            "detail": "Edit nu environment configurations.",
+            "textEdit": { "range": { "start": { "line": 0, "character": 0 }, "end": { "line": 0, "character": 6 } },
+                "newText": "config env "
+            }
+        }
+    ]))]
+    #[case::command_multiword_prefix("command.nu", (0, 8), None, serde_json::json!([
         { "label": "config n foo bar", "detail": DETAIL_STR, "kind": 2 },
         {
             "label": "config nu",
@@ -476,7 +484,7 @@ mod tests {
     ]))]
     #[case::external_fallback(
         "external.nu", (0, 5),
-        Some("$env.config.completions.external.completer = {|spans| ['--background']}"),
+        Some("$env.config.completions.external.completer = {|input| ['--background']}"),
         serde_json::json!([{
             "label": "alias",
             "labelDetails": { "description": "keyword" },
@@ -488,21 +496,22 @@ mod tests {
             "kind": 14
         }])
     )]
+    // The cursor is inside `bar`, so the last token is the typed prefix `b`, not `baz`.
     #[case::command_wide_custom(
         "command.nu", (23, 5), None,
         serde_json::json!([{
-            "label": "baz",
+            "label": "b",
             "labelDetails": { "description": "string" },
             "textEdit": {
                 "range": { "start": { "line": 23, "character": 4 }, "end": { "line": 23, "character": 7 } },
-                "newText": "baz"
+                "newText": "b"
             },
             "kind": 12
         }])
     )]
     #[case::command_wide_external(
         "command.nu", (28, 8),
-        Some("$env.config.completions.external.completer = {|spans| ['text']}"),
+        Some("$env.config.completions.external.completer = {|input| ['text']}"),
         serde_json::json!([{
             "label": "text",
             "labelDetails": { "description": "string" },
@@ -569,7 +578,7 @@ mod tests {
     ) {
         let (client_connection, _recv) = initialize_language_server(config, None);
 
-        let mut script = fixtures();
+        let mut script = FIXTURES.clone();
         script.push("lsp/completion");
         script.push(filename);
         let script = path_to_uri(&script);

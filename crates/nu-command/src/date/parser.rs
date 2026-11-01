@@ -2,7 +2,6 @@
 
 use chrono::{DateTime, FixedOffset, Local, Offset, TimeZone};
 use chrono_tz::Tz;
-use titlecase::titlecase;
 
 #[derive(Debug, Clone, PartialEq, Eq, Copy)]
 pub enum ParseErrorKind {
@@ -38,16 +37,10 @@ pub fn datetime_in_timezone(
     }
 }
 
+/// Look up an IANA time zone name, ignoring case (`utc`, `america/new_york`) and surrounding
+/// whitespace, such as the newline that ends `/etc/timezone`.
 fn parse_timezone_internal(s: &str) -> Result<Tz, ParseErrorKind> {
-    if let Ok(tz) = s.parse() {
-        Ok(tz)
-    } else if let Ok(tz) = titlecase(s).parse() {
-        Ok(tz)
-    } else if let Ok(tz) = s.to_uppercase().parse() {
-        Ok(tz)
-    } else {
-        Err(ParseErrorKind::Invalid)
-    }
+    Tz::from_str_insensitive(s.trim()).map_err(|_| ParseErrorKind::Invalid)
 }
 
 fn timezone_offset_internal(

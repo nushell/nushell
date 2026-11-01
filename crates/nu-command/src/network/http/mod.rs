@@ -1,4 +1,4 @@
-mod client;
+pub(super) mod client;
 mod delete;
 mod get;
 mod head;

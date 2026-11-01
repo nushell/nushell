@@ -274,7 +274,7 @@ def aggregate_default_ops [] {
     let out = $grouped | aggregate Worldwide_Gross
 
     # Round to 2 digits of precision to keep floating point operations consistent between platforms.
-    let out = $out | update cells -c [Worldwide_Gross_min, Worldwide_Gross_avg, Worldwide_Gross_max, Worldwide_Gross_sum] { math round --precision 2 }
+    let out = $out | update cells { math round --precision 2 } Worldwide_Gross_min Worldwide_Gross_avg Worldwide_Gross_max Worldwide_Gross_sum
 
     let expected = [
         [Genre    , count, Worldwide_Gross_min, Worldwide_Gross_avg, Worldwide_Gross_max, Worldwide_Gross_sum];
@@ -312,12 +312,12 @@ def throw_error_on_non-existing_column [] {
         get details
     }
 
-    assert equal $error.inner.0.msg "Cannot find column '$.items.NotInTheDataSet'"
+    assert equal $error.msg "Cannot find column '$.items.NotInTheDataSet'"
 }
 
 @test
 def aggregate_stats_without_grouping [] {
-    let out = $movies | aggregate Year | update cells -c [Year_min Year_avg Year_max Year_sum] {math round -p 2}
+    let out = $movies | aggregate Year | update cells {math round -p 2} Year_min Year_avg Year_max Year_sum
     let expected = [{
         count: 76,
         Year_min: 2007,

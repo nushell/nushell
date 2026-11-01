@@ -39,7 +39,6 @@ pub struct IrBlock {
     pub spans: Vec<Span>,
     #[serde(with = "serde_arc_u8_array")]
     pub data: Arc<[u8]>,
-    pub ast: Vec<Option<IrAstRef>>,
     /// Additional information that can be added to help with debugging
     pub comments: Vec<Box<str>>,
     pub register_count: u32,
@@ -52,7 +51,6 @@ pub struct IrBlock {
 
 impl fmt::Debug for IrBlock {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // the ast field is too verbose and doesn't add much
         f.debug_struct("IrBlock")
             .field("instructions", &self.instructions)
             .field("spans", &self.spans)
@@ -61,7 +59,7 @@ impl fmt::Debug for IrBlock {
             .field("register_count", &self.register_count)
             .field("file_count", &self.file_count)
             .field("scope_regions", &self.scope_regions.len())
-            .finish_non_exhaustive()
+            .finish()
     }
 }
 
@@ -99,29 +97,6 @@ impl std::ops::Index<DataSlice> for [u8] {
     }
 }
 
-/// A possible reference into the abstract syntax tree for an instruction. This is not present for
-/// most instructions and is just added when needed.
-#[derive(Debug, Clone)]
-pub struct IrAstRef(pub Arc<Expression>);
-
-impl Serialize for IrAstRef {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        self.0.as_ref().serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for IrAstRef {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        Expression::deserialize(deserializer).map(|expr| IrAstRef(Arc::new(expr)))
-    }
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Instruction {
     /// Unreachable code path (error)
@@ -133,6 +108,10 @@ pub enum Instruction {
     /// Move a register. Value is taken from `src` (used by this instruction).
     Move { dst: RegId, src: RegId },
     /// Copy a register (must be a collected value). Value is still in `src` after this instruction.
+    ///
+    /// The one exception is an external whose stderr has its own pipe, which `try` passes on
+    /// uncollected (see `TryCollect`): `dst` gets the value its stdout collects to, and `src`
+    /// keeps the external.
     Clone { dst: RegId, src: RegId },
     /// Collect a stream in a register to a value.
     /// Because it collects to a value, nushell will ignore the errors in the stream.
@@ -141,6 +120,9 @@ pub enum Instruction {
     /// Collect a stream in a register to a value.
     /// But it's different from `Collect` in that if there is an error in the stream, it will be
     /// returned as an error instead of being ignored.
+    ///
+    /// An external whose stderr has its own pipe stays a stream, so the next command still gets
+    /// stdout and stderr apart. Its output is read into memory and its exit status checked.
     TryCollect { src_dst: RegId },
     /// Change the span of the contents of a register to the span of this instruction.
     Span { src_dst: RegId },
@@ -155,8 +137,17 @@ pub enum Instruction {
     /// Drain the value/stream in a register and discard only if this is the last pipeline element.
     // TODO: see if it's possible to remove this
     DrainIfEnd { src: RegId },
-    /// Load the value of a variable into the `dst` register
-    LoadVariable { dst: RegId, var_id: VarId },
+    /// Load the value of a variable into the `dst` register.
+    ///
+    /// When `preserve_origin` is false (the default), the value is re-spanned to this
+    /// instruction's span so error labels point at the use site. When true, the value keeps
+    /// the span from where it was defined (used by `metadata $var`).
+    LoadVariable {
+        dst: RegId,
+        var_id: VarId,
+        #[serde(default)]
+        preserve_origin: bool,
+    },
     /// Store the value of a variable from the `src` register
     StoreVariable { var_id: VarId, src: RegId },
     /// Remove a variable from the stack, freeing up whatever resources were associated with it
@@ -203,6 +194,10 @@ pub enum Instruction {
     },
     /// Write data from the register to a file. This is done to finish a file redirection, in case
     /// an internal command or expression was evaluated rather than an external one.
+    ///
+    /// The register is left empty, except for an external whose stderr has its own pipe (the next
+    /// command reads stdout and stderr apart): only its stdout is written, and the register keeps
+    /// the external, so the next command still gets its stderr.
     WriteFile { file_num: u32, src: RegId },
     /// Pop a file used for redirection from the file stack.
     CloseFile { file_num: u32 },
@@ -284,21 +279,28 @@ pub enum Instruction {
         stream: RegId,
         end_index: usize,
     },
-    /// Push an error handler, without capturing the error value
+    /// Jump to an offset in this block, unwinding through `handlers` entries of the `try`
+    /// handler stack first. This is how `break` and `continue` leave `try` expressions: any
+    /// `finally` block among those handlers runs before the jump completes.
+    UnwindJump { index: usize, handlers: usize },
+    /// Push a `catch` handler, without capturing the error value
     OnError { index: usize },
-    /// Push an error handler, capturing the error value into `dst`. If the error handler is not
+    /// Push a `catch` handler, capturing the error value into `dst`. If the error handler is not
     /// called, the register should be freed manually.
     OnErrorInto { index: usize, dst: RegId },
-    /// Push an finally handler, without capturing the error value
-    Finally { index: usize },
-    /// Push an finally handler, capturing the error value into `dst`. If the finally handler is not
-    /// called, the register should be freed manually.
+    /// Push a `finally` handler, capturing the error value into `dst`. If the handler is entered
+    /// for any other reason than an error, `dst` is set to empty instead.
     FinallyInto { index: usize, dst: RegId },
-    /// Pop an error handler. This is not necessary when control flow is directed to the error
+    /// Pop a `catch` handler. This is not necessary when control flow is directed to the error
     /// handler due to an error.
     PopErrorHandler,
-    /// Pop an finally handler.
-    PopFinallyRun,
+    /// Mark the `finally` handler on top of the handler stack as running, on the way into its
+    /// block from the `try`/`catch` fall-through path. The unwinder does this itself when it
+    /// enters a `finally` block, so `index` of `finally` points just past this instruction.
+    BeginFinally,
+    /// Leave a `finally` block: pops its running marker and, if the block was entered by
+    /// unwinding (an error, `return`, `exit`, `break`, or `continue`), resumes that unwinding.
+    EndFinally,
     /// Return early from the block with the value in the register.
     ///
     /// Unlike `return`, this runs pending `finally` handlers first (collecting the value in that
@@ -372,17 +374,18 @@ impl Instruction {
             Instruction::UpsertCellPath { src_dst, .. } => Some(src_dst),
             Instruction::UpdateVarCellPath { .. } => None,
             Instruction::Jump { .. } => None,
+            Instruction::UnwindJump { .. } => None,
             Instruction::BranchIf { .. } => None,
             Instruction::BranchIfEmpty { .. } => None,
             Instruction::Match { .. } => None,
             Instruction::CheckMatchGuard { .. } => None,
             Instruction::Iterate { dst, .. } => Some(dst),
             Instruction::OnError { .. } => None,
-            Instruction::Finally { .. } => None,
             Instruction::OnErrorInto { .. } => None,
             Instruction::FinallyInto { .. } => None,
             Instruction::PopErrorHandler => None,
-            Instruction::PopFinallyRun => None,
+            Instruction::BeginFinally => None,
+            Instruction::EndFinally => None,
             Instruction::ReturnEarly { .. } => None,
             Instruction::Return { .. } => None,
         }
@@ -392,6 +395,7 @@ impl Instruction {
     pub fn branch_target(&self) -> Option<usize> {
         match self {
             Instruction::Jump { index } => Some(*index),
+            Instruction::UnwindJump { index, handlers: _ } => Some(*index),
             Instruction::BranchIf { cond: _, index } => Some(*index),
             Instruction::BranchIfEmpty { src: _, index } => Some(*index),
             Instruction::Match {
@@ -407,7 +411,6 @@ impl Instruction {
             } => Some(*end_index),
             Instruction::OnError { index } => Some(*index),
             Instruction::OnErrorInto { index, dst: _ } => Some(*index),
-            Instruction::Finally { index } => Some(*index),
             Instruction::FinallyInto { index, dst: _ } => Some(*index),
             _ => None,
         }
@@ -419,6 +422,7 @@ impl Instruction {
     pub fn set_branch_target(&mut self, target_index: usize) -> Result<(), usize> {
         match self {
             Instruction::Jump { index } => *index = target_index,
+            Instruction::UnwindJump { index, handlers: _ } => *index = target_index,
             Instruction::BranchIf { cond: _, index } => *index = target_index,
             Instruction::BranchIfEmpty { src: _, index } => *index = target_index,
             Instruction::Match {
@@ -434,7 +438,6 @@ impl Instruction {
             } => *end_index = target_index,
             Instruction::OnError { index } => *index = target_index,
             Instruction::OnErrorInto { index, dst: _ } => *index = target_index,
-            Instruction::Finally { index } => *index = target_index,
             Instruction::FinallyInto { index, dst: _ } => *index = target_index,
             _ => return Err(target_index),
         }
@@ -448,9 +451,9 @@ impl Instruction {
         span: &Span,
     ) -> Result<(), ShellError> {
         match self {
-            Instruction::Jump { .. } | Instruction::Return { .. } => {
-                engine_state.signals().check(span)
-            }
+            Instruction::Jump { .. }
+            | Instruction::UnwindJump { .. }
+            | Instruction::Return { .. } => engine_state.signals().check(span),
             _ => Ok(()),
         }
     }
@@ -519,6 +522,7 @@ pub enum Literal {
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum RedirectMode {
     Pipe,
+    PipeRaw,
     PipeSeparate,
     Value,
     Null,

@@ -1,4 +1,4 @@
-use super::utils::chain_error_with_input;
+use super::utils::wrap_error_with_input;
 use nu_engine::{ClosureEval, command_prelude::*};
 use nu_protocol::Signals;
 use nu_protocol::engine::Closure;
@@ -20,11 +20,7 @@ impl Command for ChunkBy {
                 ),
                 (Type::Range, Type::list(Type::list(Type::Any))),
             ])
-            .required(
-                "closure",
-                SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
-                "The closure to run.",
-            )
+            .required("closure", SyntaxShape::RowCondition, "The closure to run.")
             .category(Category::Filters)
     }
 
@@ -51,7 +47,7 @@ consecutive elements that share the same closure result value into lists."
         vec![
             Example {
                 description: "Chunk data into runs of larger than zero or not.",
-                example: "[1, 3, -2, -2, 0, 1, 2] | chunk-by {|it| $it >= 0 }",
+                example: "[1, 3, -2, -2, 0, 1, 2] | chunk-by $it >= 0",
                 result: Some(Value::test_list(vec![
                     Value::test_list(vec![Value::test_int(1), Value::test_int(3)]),
                     Value::test_list(vec![Value::test_int(-2), Value::test_int(-2)]),
@@ -64,7 +60,7 @@ consecutive elements that share the same closure result value into lists."
             },
             Example {
                 description: "Identify repetitions in a string",
-                example: "[a b b c c c] | chunk-by { |it| $it }",
+                example: "[a b b c c c] | chunk-by $it",
                 result: Some(Value::test_list(vec![
                     Value::test_list(vec![Value::test_string("a")]),
                     Value::test_list(vec![Value::test_string("b"), Value::test_string("b")]),
@@ -205,7 +201,7 @@ pub fn chunk_by(
         PipelineData::Value(Value::Range { .. }, ..)
         | PipelineData::Value(Value::List { .. }, ..)
         | PipelineData::ListStream(..) => {
-            let closure = ClosureEval::new(engine_state, stack, closure);
+            let closure = ClosureEval::try_new(engine_state, stack, closure, head)?;
 
             let result = chunk_value_stream(
                 input.into_iter(),
@@ -236,10 +232,10 @@ where
     chunk_iter_by(iterator, signals, move |value| {
         match closure.run_with_value(value.clone()) {
             Ok(data) => data.into_value(head).unwrap_or_else(|error| {
-                Value::error(chain_error_with_input(error, value.is_error(), head), head)
+                Value::error(wrap_error_with_input(error, value.is_error(), head), head)
             }),
 
-            Err(error) => Value::error(chain_error_with_input(error, value.is_error(), head), head),
+            Err(error) => Value::error(wrap_error_with_input(error, value.is_error(), head), head),
         }
     })
     .map(move |it| Value::list(it, head))

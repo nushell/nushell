@@ -5,7 +5,7 @@ use crate::{
     engine::{
         ArgumentStack, DEFAULT_OVERLAY_NAME, EngineState, EnvName, ErrorHandlerStack, Redirection,
         ScopeBindings, StackCallArgGuard, StackCollectValueGuard, StackIoGuard, StackOutDest,
-        StackWithInvocation,
+        StackWithInvocation, env_var_eq,
     },
     ir::ScopeRegion,
     record, report_shell_warning,
@@ -13,6 +13,7 @@ use crate::{
     truncate_value_to_budget,
 };
 use std::{
+    borrow::Cow,
     collections::{HashMap, HashSet},
     fs::File,
     path::{Component, MAIN_SEPARATOR},
@@ -25,9 +26,9 @@ use std::{
 /// payload and can clear `warn_pending` without mutating an immutable parent frame.
 ///
 /// When [`Self::present`] is true, reading `$ans` yields a record with
-/// `exit_code` and `duration`. The `last` field is included only when a payload
-/// is stored. When false (never snapshotted after a user command), `$ans` is
-/// `nothing`.
+/// `exit_code`, `duration`, and `command`. The `last` field is included only when a
+/// payload is stored. When false (never snapshotted after a user command), `$ans`
+/// is `nothing`.
 #[derive(Debug, Default)]
 struct LastResultSlot {
     /// Whether `$ans` should resolve to a record (vs `nothing`).
@@ -41,6 +42,8 @@ struct LastResultSlot {
     exit_code: i64,
     /// Duration of the last REPL line in nanoseconds (Nushell `Duration` value).
     duration_ns: i64,
+    /// Exact REPL source of the last user line (same buffer reedline stores in history).
+    command: String,
     /// Set when a store was truncated; moved to `warn_deferred` on first access.
     warn_pending: bool,
     /// Set when `$ans` was accessed after a truncated store; reported after output prints.
@@ -86,8 +89,10 @@ pub struct Stack {
     pub arguments: ArgumentStack,
     /// Error handler stack for IR evaluation
     pub error_handlers: ErrorHandlerStack,
-    /// Finally handler stack for IR evaluation
-    pub finally_run_handlers: ErrorHandlerStack,
+    /// Number of nested custom command and closure calls that led to this stack.
+    ///
+    /// Block evaluation fails with `RecursionLimitReached` once this exceeds
+    /// `$env.config.recursion_limit`, before deep recursion can overflow the Rust stack.
     pub recursion_count: u64,
     pub parent_stack: Option<Arc<Stack>>,
     /// Variables that have been deleted (this is used to hide values from parent stack lookups)
@@ -97,8 +102,9 @@ pub struct Stack {
     /// Locally updated config. Use [`.get_config()`](Self::get_config) to access correctly.
     pub config: Option<Arc<Config>>,
     pub(crate) out_dest: StackOutDest,
-    /// When `true`, external processes spawned with `PipelineData::Empty` input
-    /// receive `/dev/null` for stdin instead of inheriting the terminal.
+    /// When `true`, external processes spawned from this stack are detached from
+    /// the controlling terminal, and empty stdin is `/dev/null` instead of inheriting
+    /// the TTY. Used on completion threads so children cannot race reedline.
     pub suppress_stdin: bool,
     /// Active block-local scope bindings (commands/modules), outer → inner.
     ///
@@ -139,7 +145,6 @@ impl Stack {
             active_overlays: vec![DEFAULT_OVERLAY_NAME.to_string()],
             arguments: ArgumentStack::new(),
             error_handlers: ErrorHandlerStack::new(),
-            finally_run_handlers: ErrorHandlerStack::new(),
             recursion_count: 0,
             parent_stack: None,
             parent_deletions: vec![],
@@ -167,7 +172,6 @@ impl Stack {
             active_overlays: parent.active_overlays.clone(),
             arguments: ArgumentStack::new(),
             error_handlers: ErrorHandlerStack::new(),
-            finally_run_handlers: ErrorHandlerStack::new(),
             recursion_count: parent.recursion_count,
             vars: vec![],
             parent_deletions: vec![],
@@ -285,7 +289,8 @@ impl Stack {
     /// Build the `$ans` record when the slot is present; otherwise `None` (→ `nothing`).
     ///
     /// Omits the `last` field entirely when no payload is stored (e.g. budget is `0`),
-    /// so `$ans` is `{ exit_code, duration }` only.
+    /// so `$ans` is `{ exit_code, duration, command }` only. `command` is always included
+    /// once the slot is present.
     fn assemble_ans_record(&self, span: Span) -> Option<Value> {
         self.with_last_result_slot(|slot| {
             if !slot.present {
@@ -297,6 +302,7 @@ impl Stack {
                         "last" => last.clone().with_span(span),
                         "exit_code" => Value::int(slot.exit_code, span),
                         "duration" => Value::duration(slot.duration_ns, span),
+                        "command" => Value::string(slot.command.clone(), span),
                     },
                     span,
                 ),
@@ -304,6 +310,7 @@ impl Stack {
                     record! {
                         "exit_code" => Value::int(slot.exit_code, span),
                         "duration" => Value::duration(slot.duration_ns, span),
+                        "command" => Value::string(slot.command.clone(), span),
                     },
                     span,
                 ),
@@ -323,8 +330,8 @@ impl Stack {
 
     /// Drop only `$ans.last` and its metadata/truncation flags, freeing payload memory.
     ///
-    /// Leaves `present`, `exit_code`, and `duration` unchanged so a budget of `0` can
-    /// still expose timing/exit status without retaining the pipeline value.
+    /// Leaves `present`, `exit_code`, `duration`, and `command` unchanged so a budget of
+    /// `0` can still expose timing/exit status/source without retaining the pipeline value.
     pub fn clear_last_result_payload(&mut self) {
         self.with_last_result_slot_mut(|slot| {
             if let Some(old) = slot.last.take() {
@@ -339,8 +346,8 @@ impl Stack {
 
     /// Store `value` as `$ans.last`, enforcing `budget` via truncation.
     ///
-    /// When `budget == 0`, payload capture is disabled (clears `.last` only; exit code
-    /// and duration stay). Preserves pipeline `metadata` (e.g. `path_columns` used for
+    /// When `budget == 0`, payload capture is disabled (clears `.last` only; exit code,
+    /// duration, and `command` stay). Preserves pipeline `metadata` (e.g. `path_columns` used for
     /// `ls` coloring) so replaying `$ans.last` can match the original display.
     pub fn set_last_result(
         &mut self,
@@ -359,8 +366,8 @@ impl Stack {
 
     /// Install an already-budgeted `$ans.last` value (caller handled truncation).
     ///
-    /// Marks `$ans` present. Does not reset `exit_code` / `duration` (those are updated
-    /// by [`Self::snapshot_ans_repl_metadata`] at end of each REPL line).
+    /// Marks `$ans` present. Does not reset `exit_code` / `duration` / `command` (those are
+    /// updated by [`Self::snapshot_ans_repl_metadata`] at end of each REPL line).
     pub fn store_last_result_raw(
         &mut self,
         value: Value,
@@ -380,23 +387,28 @@ impl Stack {
         });
     }
 
-    /// After a REPL user command finishes: refresh `$ans.exit_code` and `$ans.duration`.
+    /// After a REPL user command finishes: refresh `$ans.exit_code`, `$ans.duration`,
+    /// and `$ans.command`.
     ///
-    /// Always marks `$ans` present so every user-typed line gets exit code and duration
-    /// (empty Enter / auto-cd do not call this). When `budget == 0`, also drops `$ans.last`
-    /// (and its memory) so the record is `{ exit_code, duration }` without a `last` field.
-    /// When budget is positive, any `.last` already stored this line (or earlier) is kept.
+    /// `command` is the exact reedline buffer for this line (same text history stores).
+    /// Always marks `$ans` present so every user-typed line gets exit code, duration,
+    /// and source (empty Enter / auto-cd do not call this). When `budget == 0`, also
+    /// drops `$ans.last` (and its memory) so the record is `{ exit_code, duration, command }`
+    /// without a `last` field. When budget is positive, any `.last` already stored this
+    /// line (or earlier) is kept.
     pub fn snapshot_ans_repl_metadata(
         &mut self,
         engine_state: &EngineState,
         duration: std::time::Duration,
+        command: impl Into<String>,
     ) {
-        let budget = self.get_config(engine_state).last_result_size_bytes();
+        let budget = self.get_config(engine_state).max_last_result_size_bytes();
         let exit_code = self
             .get_env_var(engine_state, "LAST_EXIT_CODE")
             .and_then(|v| v.as_int().ok())
             .unwrap_or(0);
         let duration_ns = i64::try_from(duration.as_nanos()).unwrap_or(i64::MAX);
+        let command = command.into();
 
         if budget == 0 {
             // Payload off: free `.last` memory before refreshing metadata.
@@ -406,6 +418,7 @@ impl Stack {
         self.with_last_result_slot_mut(|slot| {
             slot.exit_code = exit_code;
             slot.duration_ns = duration_ns;
+            slot.command = command;
             slot.present = true;
         });
     }
@@ -478,7 +491,7 @@ impl Stack {
         if !self.take_last_result_warn_deferred() {
             return;
         }
-        let limit_bytes = self.get_config(engine_state).last_result_size_bytes();
+        let limit_bytes = self.get_config(engine_state).max_last_result_size_bytes();
         report_shell_warning(
             Some(self),
             engine_state,
@@ -486,7 +499,7 @@ impl Stack {
                 span,
                 limit_bytes,
                 help: Some(format!(
-                    "Increase $env.config.last_result_size or use a smaller command result. Variable name is `${}`.",
+                    "Increase $env.config.max_last_result_size or use a smaller command result. Variable name is `${}`.",
                     crate::LAST_RESULT_VAR_NAME
                 )),
                 // EveryUse: once-per-access is handled by warn_pending/warn_deferred flags.
@@ -550,7 +563,8 @@ impl Stack {
                 engine_state.history_locked_after_startup,
             );
             // The config value is modified by the update, so we should add it again
-            self.add_env_var("config".into(), config.clone().into_value(value.span()));
+            let name = self.get_env_var_name(engine_state, "config").into_owned();
+            self.add_env_var(name, config.clone().into_value(value.span()));
             self.config = Some(config.into());
             if let Some(warning) = result? {
                 report_shell_warning(Some(self), engine_state, &warning);
@@ -694,6 +708,9 @@ impl Stack {
     /// The caller is retained as [`Self::parent_stack`] so outer variables remain visible to
     /// `scope variables` (and other stack lookups that walk parents). Captured values are still
     /// copied onto this stack for isolation of the closure’s own locals.
+    ///
+    /// Every closure call builds its stack here, so this is where a closure call adds one to
+    /// [`Self::recursion_count`].
     pub fn captures_to_stack_preserve_out_dest(&self, captures: Vec<(VarId, Value)>) -> Stack {
         let mut env_vars = self.env_vars.clone();
         env_vars.push(Arc::new(HashMap::new()));
@@ -706,8 +723,9 @@ impl Stack {
             active_overlays: self.active_overlays.clone(),
             arguments: ArgumentStack::new(),
             error_handlers: ErrorHandlerStack::new(),
-            finally_run_handlers: ErrorHandlerStack::new(),
-            recursion_count: self.recursion_count,
+            // A closure body is a nested call like a custom command body, so it counts toward
+            // the recursion limit. Stack overflows are not recoverable in Rust.
+            recursion_count: self.recursion_count + 1,
             // Keep the caller as parent so global/outer locals stay nameable for `scope`
             // (values are still resolved via the parent chain when not captured).
             parent_stack: Some(Arc::new(self.clone())),
@@ -751,7 +769,6 @@ impl Stack {
             active_overlays: self.active_overlays.clone(),
             arguments: ArgumentStack::new(),
             error_handlers: ErrorHandlerStack::new(),
-            finally_run_handlers: ErrorHandlerStack::new(),
             recursion_count: self.recursion_count,
             parent_stack: Some(Arc::new(self.clone())),
             parent_deletions: vec![],
@@ -902,6 +919,30 @@ impl Stack {
         }
 
         result
+    }
+
+    /// Get an environment variable's existing spelling, if any.
+    pub fn get_env_var_name<'a>(&self, engine_state: &EngineState, name: &'a str) -> Cow<'a, str> {
+        self.env_vars
+            .iter()
+            .rev()
+            .chain(std::iter::once(&engine_state.env_vars))
+            .flat_map(|overlays| {
+                self.active_overlays
+                    .iter()
+                    .rev()
+                    .filter_map(|overlay| overlays.get(overlay))
+            })
+            .find_map(|map| {
+                if map.contains_key(&EnvName::from(name)) {
+                    map.keys()
+                        .find(|key| env_var_eq(key.as_str(), name))
+                        .map(|key| Cow::Owned(key.as_str().to_owned()))
+                } else {
+                    None
+                }
+            })
+            .unwrap_or(Cow::Borrowed(name))
     }
 
     pub fn get_env_var<'a>(
@@ -1268,17 +1309,43 @@ impl Stack {
         self
     }
 
-    /// Causes external processes spawned with empty input to receive
-    /// `/dev/null` for stdin instead of inheriting the terminal.
+    /// Causes external processes spawned from this stack to detach from the
+    /// controlling terminal. Empty input also receives `/dev/null` for stdin
+    /// instead of inheriting the terminal.
     ///
     /// Use this together with [`suppress_output`](Self::suppress_output) for
     /// background tasks (e.g. completion threads).  Without it, subprocesses
     /// spawned by closure-based completers (carapace, fish_complete, etc.)
     /// inherit the live terminal fd and can race with reedline's reads,
-    /// causing `Input/output error` (EIO).
+    /// causing `Input/output error` (EIO). Piped stdin (candidate lists for
+    /// `fzf`) is still detached so the child cannot open `/dev/tty`.
     pub fn suppress_stdin(mut self) -> Self {
         self.suppress_stdin = true;
         self
+    }
+
+    /// Error if this stack is detached from the controlling terminal (see
+    /// [`suppress_stdin`](Self::suppress_stdin), set on completion threads). Commands that grab
+    /// the terminal (`input`, `input list`, `input listen`, `term query`) call this first so
+    /// they decline instead of racing reedline for it; completers turn the error into a
+    /// fallback. `span` points at the offending call.
+    pub fn require_stdin(&self, span: Span) -> Result<(), ShellError> {
+        if self.suppress_stdin {
+            Err(ShellError::Generic(
+                GenericError::new(
+                    "Interactive input is unavailable in this context",
+                    "this command reads from the terminal",
+                    span,
+                )
+                .with_help(
+                    "this stack is detached from the terminal (completion worker or MCP), so \
+                     interactive commands like `input`, `input list`, `input listen`, and \
+                     `term query` cannot run here",
+                ),
+            ))
+        } else {
+            Ok(())
+        }
     }
 
     /// Clears any pipe redirections, keeping the current stdout and stderr.

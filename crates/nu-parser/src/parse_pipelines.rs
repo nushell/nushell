@@ -5,6 +5,8 @@ use std::sync::Arc;
 use crate::{
     Token,
     lite_parser::{LiteCommand, LitePipeline, LiteRedirection, LiteRedirectionTarget, lite_parse},
+    parse_expressions::is_env_variable_name,
+    parse_helpers::PERCENT_FORCED_BUILTIN_PARSER_INFO,
     parse_keywords::parse_def_predecl,
     parser::{
         parse_builtin_commands, parse_expression, parse_value, wrap_element_with_collect,
@@ -61,6 +63,28 @@ pub(crate) fn parse_pipeline_element(
         .as_ref()
         .map(|r| parse_redirection(working_set, r));
 
+    // `unlet` on a constant takes effect while parsing, as `hide` does for a command: the parser
+    // reads a constant's value wherever it evaluates constants, so the constant is hidden for
+    // the rest of the current block, like any other definition made there. The redirection is
+    // parsed first because its target is evaluated before the command runs. A call with
+    // `--help` only shows help (see `compile_call`), and a dynamic percent dispatch call has
+    // only a placeholder declaration until the IR compiler rewrites it.
+    if let Expr::Call(call) = &expr.expr
+        && !call
+            .parser_info
+            .contains_key(PERCENT_FORCED_BUILTIN_PARSER_INFO)
+        && working_set.get_decl(call.decl_id).name() == "unlet"
+        && call.get_named_arg("help").is_none()
+    {
+        for arg in call.positional_iter() {
+            if let Some(var_id) = arg.as_bare_var()
+                && working_set.get_variable(var_id).const_val.is_some()
+            {
+                working_set.hide_variable(var_id);
+            }
+        }
+    }
+
     PipelineElement {
         pipe: command.pipe,
         expr,
@@ -93,6 +117,25 @@ pub fn parse_pipeline(
         [] => unreachable!("at this point the pipeline must have at least one element"),
         [single] => parse_builtin_commands(working_set, single, input_type),
         [first, rest @ ..] => {
+            // Loops are statements without output, so like `for` (rejected in
+            // `parse_expression`), `while` and `loop` can't be part of a pipeline. The head is
+            // the first part after any `NAME=value` environment shorthands, as there.
+            for command in &pipeline.commands {
+                let is_env_shorthand = |part: &&Span| {
+                    let bytes = working_set.get_span_contents(**part);
+                    bytes
+                        .iter()
+                        .position(|&b| b == b'=')
+                        .is_some_and(|equals| is_env_variable_name(&bytes[..equals]))
+                };
+                if let Some(&head) = command.parts.iter().find(|part| !is_env_shorthand(part))
+                    && let keyword @ (b"while" | b"loop") = working_set.get_span_contents(head)
+                {
+                    let keyword = String::from_utf8_lossy(keyword).into_owned();
+                    working_set.error(ParseError::BuiltinCommandInPipeline(keyword, head));
+                }
+            }
+
             let mut current_pipeline_type = input_type.cloned().unwrap_or(Type::Any);
 
             let mut elements = Vec::new();
@@ -155,6 +198,7 @@ pub fn parse_block(
 
     let mut block = Block::new_with_capacity(lite_block.block.len());
     block.span = Some(span);
+    block.parsed_scoped = scoped;
 
     if let [first, rest @ ..] = lite_block.block.as_slice() {
         // only the first pipeline receives the block's pipeline input
@@ -179,6 +223,7 @@ pub fn parse_block(
         // Move the block out to prepare it to become a subexpression
         let inner_block = std::mem::take(&mut block);
         block.span = inner_block.span;
+        block.parsed_scoped = scoped;
         let ty = inner_block.output_type();
         let block_id = working_set.add_block(Arc::new(inner_block));
 

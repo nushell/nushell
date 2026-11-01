@@ -1,5 +1,7 @@
 use nu_experimental::PIPE_FAIL;
 use nu_test_support::prelude::*;
+use rstest::rstest;
+use std::fs;
 
 #[test]
 fn try_succeed() -> Result {
@@ -207,6 +209,32 @@ fn catches_exit_code_in_expr() -> Result {
     test()
         .run("try { nu -c 'exit 42' } catch { |e| $e.exit_code }")
         .expect_value_eq(42)
+}
+
+/// An external failing inside a closure keeps its exit code through the input-value wrapper.
+#[rstest]
+#[case::error_record("$e.exit_code")]
+#[case::last_exit_code("$env.LAST_EXIT_CODE")]
+#[nu_test_support::test]
+#[deps(TESTBIN_FAIL)]
+fn exit_code_of_external_failing_in_each(#[case] expr: &str) -> Result {
+    test()
+        .run(format!(
+            "try {{ [1] | each {{ fail 42 }} }} catch {{|e| {expr} }}"
+        ))
+        .expect_value_eq(42)
+}
+
+#[test]
+#[deps(NU)]
+fn exit_in_each_is_not_caught() -> Result {
+    let code = "try { [1] | each { exit 4 } } catch { print 'caught' }";
+    let result: CompleteResult =
+        test().run_with_data("let code; nu -n -c $code | complete", code)?;
+    assert_contains_not("caught", &result.stdout);
+    assert_eq!(result.stderr, "");
+    assert_eq!(result.exit_code, 4);
+    Ok(())
 }
 
 #[test]
@@ -459,4 +487,592 @@ fn try_with_just_finally_wont_pop_enclosing_error_handler() -> Result {
     "#;
 
     test().run(code).expect_value_eq("outer")
+}
+
+// The cases below record the order in which `try`, `catch` and `finally` blocks run in
+// `$env.LOG`, so that the handler order (and not just the final value) is asserted. `finally`
+// blocks are closures, so a `mut` variable can't be updated there, but the environment can.
+#[rstest]
+#[case::nested_finally_runs_before_outer_catch(
+    r#"
+        try {
+            try {
+                $env.LOG ++= ["try"]
+                error make { msg: "bad" }
+            } finally {
+                $env.LOG ++= ["inner finally"]
+            }
+        } catch {
+            $env.LOG ++= ["outer catch"]
+        }
+    "#,
+    vec!["try", "inner finally", "outer catch"]
+)]
+#[case::error_after_finally_does_not_continue_the_block(
+    r#"
+        try {
+            try { error make { msg: "bad" } } finally { $env.LOG ++= ["finally"] }
+            $env.LOG ++= ["after"]
+        } catch {
+            $env.LOG ++= ["caught"]
+        }
+    "#,
+    vec!["finally", "caught"]
+)]
+#[case::error_in_catch_runs_finally_before_outer_catch(
+    r#"
+        try {
+            try {
+                error make { msg: "a" }
+            } catch {
+                error make { msg: "b" }
+            } finally {
+                $env.LOG ++= ["finally"]
+            }
+        } catch {|err|
+            $env.LOG ++= [$"caught ($err.msg)"]
+        }
+    "#,
+    vec!["finally", "caught b"]
+)]
+#[case::rethrow_in_catch_runs_finally_before_outer_catch(
+    r#"
+        try {
+            try {
+                error make { msg: "a" }
+            } catch {|err|
+                error make { msg: $"re-($err.msg)" }
+            } finally {
+                $env.LOG ++= ["finally"]
+            }
+        } catch {|err|
+            $env.LOG ++= [$err.msg]
+        }
+    "#,
+    vec!["finally", "re-a"]
+)]
+#[case::error_in_finally_replaces_the_original_error(
+    r#"
+        try {
+            try { error make { msg: "a" } } finally { error make { msg: "b" } }
+        } catch {|err|
+            $env.LOG ++= [$"caught ($err.msg)"]
+        }
+    "#,
+    vec!["caught b"]
+)]
+#[case::finally_parameter_sees_the_error_when_nested(
+    r#"
+        try {
+            try { error make { msg: "a" } } finally {|err| $env.LOG ++= [$"finally ($err.msg)"] }
+        } catch {|err|
+            $env.LOG ++= [$"caught ($err.msg)"]
+        }
+    "#,
+    vec!["finally a", "caught a"]
+)]
+#[case::finally_parameter_is_nothing_on_return(
+    "
+        def --env foo [] {
+            try { return 1 } finally {|value| $env.LOG ++= [($value | describe)] }
+        }
+        foo
+    ",
+    vec!["nothing"]
+)]
+#[case::every_nested_finally_runs_in_order(
+    r#"
+        try {
+            try {
+                try { error make { msg: "a" } } finally { $env.LOG ++= ["1"] }
+            } finally {
+                $env.LOG ++= ["2"]
+            }
+        } catch {
+            $env.LOG ++= ["3"]
+        }
+    "#,
+    vec!["1", "2", "3"]
+)]
+#[case::error_in_finally_with_nested_catch_does_not_continue_the_block(
+    r#"
+        try {
+            try {
+                error make { msg: "a" }
+            } finally {
+                try { error make { msg: "b" } } catch { $env.LOG ++= ["inner caught"] }
+            }
+            $env.LOG ++= ["after"]
+        } catch {|err|
+            $env.LOG ++= [$"caught ($err.msg)"]
+        }
+    "#,
+    vec!["inner caught", "caught a"]
+)]
+#[case::finally_inside_finally_on_error(
+    r#"
+        try {
+            try {
+                error make { msg: "a" }
+            } finally {
+                try { $env.LOG ++= ["inner try"] } finally { $env.LOG ++= ["inner finally"] }
+                $env.LOG ++= ["outer finally"]
+            }
+            $env.LOG ++= ["after"]
+        } catch {
+            $env.LOG ++= ["caught"]
+        }
+    "#,
+    vec!["inner try", "inner finally", "outer finally", "caught"]
+)]
+#[case::return_through_nested_finally_skips_the_rest_of_the_block(
+    r#"
+        def --env foo [] {
+            try {
+                try { return 1 } finally { $env.LOG ++= ["inner"] }
+                $env.LOG ++= ["after"]
+            } finally {
+                $env.LOG ++= ["outer"]
+            }
+            2
+        }
+        let value = foo
+        $env.LOG ++= [$value]
+    "#,
+    vec![Value::test_string("inner"), Value::test_string("outer"), Value::test_int(1)]
+)]
+#[case::return_in_try_skips_catch_but_runs_finally(
+    r#"
+        def --env foo [] {
+            try { return 7 } catch { $env.LOG ++= ["catch"] } finally { $env.LOG ++= ["finally"] }
+        }
+        let value = foo
+        $env.LOG ++= [$value]
+    "#,
+    vec![Value::test_string("finally"), Value::test_int(7)]
+)]
+#[case::return_in_nested_finally_wins_over_the_error(
+    r#"
+        def --env foo [] {
+            try {
+                try { error make { msg: "a" } } finally { return 5 }
+            } finally {
+                $env.LOG ++= ["outer"]
+            }
+        }
+        let value = foo
+        $env.LOG ++= [$value]
+    "#,
+    vec![Value::test_string("outer"), Value::test_int(5)]
+)]
+#[case::return_value_stream_is_collected_before_nested_finally(
+    r#"
+        def --env foo [] {
+            try {
+                try { return (1..3 | each { $in * 10 }) } finally { $env.LOG ++= ["inner"] }
+            } finally {
+                $env.LOG ++= ["outer"]
+            }
+        }
+        let value = foo
+        $env.LOG ++= [$value]
+    "#,
+    vec![
+        Value::test_string("inner"),
+        Value::test_string("outer"),
+        Value::test_list(vec![Value::test_int(10), Value::test_int(20), Value::test_int(30)]),
+    ]
+)]
+#[case::handlers_of_a_called_command_run_before_the_callers(
+    r#"
+        def --env boom [] {
+            try { error make { msg: "a" } } finally { $env.LOG ++= ["def finally"] }
+        }
+        try {
+            boom
+        } catch {|err|
+            $env.LOG ++= [$"caught ($err.msg)"]
+        } finally {
+            $env.LOG ++= ["caller finally"]
+        }
+    "#,
+    vec!["def finally", "caught a", "caller finally"]
+)]
+#[case::break_in_try_runs_finally(
+    r#"
+        for x in [1 2] {
+            try { $env.LOG ++= [$"try ($x)"]; break } finally { $env.LOG ++= ["finally"] }
+        }
+    "#,
+    vec!["try 1", "finally"]
+)]
+#[case::continue_in_try_runs_finally(
+    r#"
+        for x in [1 2] {
+            try { continue } finally { $env.LOG ++= [$"finally ($x)"] }
+            $env.LOG ++= ["after"]
+        }
+    "#,
+    vec!["finally 1", "finally 2"]
+)]
+#[case::break_in_try_skips_catch_but_runs_finally(
+    r#"
+        for x in [1 2] {
+            try { break } catch { $env.LOG ++= ["catch"] } finally { $env.LOG ++= ["finally"] }
+        }
+    "#,
+    vec!["finally"]
+)]
+#[case::break_in_catch_runs_finally(
+    r#"
+        for x in [1 2] {
+            try { error make { msg: "a" } } catch { break } finally { $env.LOG ++= ["finally"] }
+        }
+    "#,
+    vec!["finally"]
+)]
+#[case::break_in_finally_abandons_the_error(
+    r#"
+        for x in [1 2] {
+            try { error make { msg: "a" } } finally { $env.LOG ++= [$"finally ($x)"]; break }
+        }
+        $env.LOG ++= ["done"]
+    "#,
+    vec!["finally 1", "done"]
+)]
+#[case::break_through_nested_try_finally(
+    r#"
+        for x in [1 2] {
+            try {
+                try { break } finally { $env.LOG ++= ["inner"] }
+            } finally {
+                $env.LOG ++= ["outer"]
+            }
+        }
+    "#,
+    vec!["inner", "outer"]
+)]
+#[case::break_in_try_finally_leaves_no_stale_finally_behind(
+    r#"
+        for x in [1 2] {
+            try { break } finally { $env.LOG ++= ["finally"] }
+        }
+        try { error make { msg: "boom" } } catch { $env.LOG ++= ["caught"] }
+    "#,
+    vec!["finally", "caught"]
+)]
+#[case::break_in_try_finally_keeps_the_enclosing_catch(
+    r#"
+        try {
+            for x in [1] {
+                try { break } finally { $env.LOG ++= ["finally"] }
+            }
+            error make { msg: "boom" }
+        } catch {
+            $env.LOG ++= ["caught"]
+        }
+    "#,
+    vec!["finally", "caught"]
+)]
+#[case::break_unwinds_every_handler_between_the_loop_and_the_break(
+    r#"
+        for x in [1] {
+            try {
+                try {
+                    try { break } catch {} finally { $env.LOG ++= ["a"] }
+                } finally {
+                    $env.LOG ++= ["b"]
+                }
+            } catch {} finally {
+                $env.LOG ++= ["c"]
+            }
+        }
+        try { error make { msg: "boom" } } catch { $env.LOG ++= ["caught"] }
+    "#,
+    vec!["a", "b", "c", "caught"]
+)]
+fn try_handlers_run_in_order(#[case] code: &str, #[case] expected: Vec<impl IntoValue>) -> Result {
+    test()
+        .run_multiple(["$env.LOG = []", code, "$env.LOG"])
+        .expect_value_eq(expected)
+}
+
+#[test]
+fn error_in_try_with_only_finally_still_propagates_after_nested_finally() -> Result {
+    let code = r#"
+        try {
+            try { error make { msg: "bad" } } finally { "inner" }
+        } finally {
+            "outer"
+        }
+    "#;
+
+    let err = test().run(code).expect_error()?;
+    assert_contains("bad", err.to_string());
+    Ok(())
+}
+
+#[test]
+fn nested_try_finally_value_is_seen_by_outer_catch() -> Result {
+    test()
+        .run("try { try { error make { msg: 'a' } } finally { 'ignored' } } catch { 'caught' }")
+        .expect_value_eq("caught")?;
+
+    test()
+        .run("try { try { 5 } finally { 'ignored' } } finally { 'ignored too' }")
+        .expect_value_eq(5)
+}
+
+#[test]
+#[deps(NU)]
+fn exit_in_nested_try_skips_catch_but_runs_finally() -> Result {
+    let code = "
+        try {
+            try {
+                exit 5
+            } finally {
+                print 'inner finally'
+            }
+        } catch {
+            print 'catch'
+        }
+        print 'after'
+    ";
+    let result: CompleteResult =
+        test().run_with_data("let code; nu -n -c $code | complete", code)?;
+    assert_eq!(result.stdout.trim_end(), "inner finally");
+    assert_eq!(result.exit_code, 5);
+
+    let code = "
+        try { error make { msg: 'a' } } catch { exit 2 } finally { print 'finally' }
+        print 'after'
+    ";
+    let result: CompleteResult =
+        test().run_with_data("let code; nu -n -c $code | complete", code)?;
+    assert_eq!(result.stdout.trim_end(), "finally");
+    assert_eq!(result.exit_code, 2);
+    Ok(())
+}
+
+// `complete`, `ignore`, `save` and `tee` read an external's stdout and stderr on separate pipes.
+// A `try` with a handler sits between the two and must hand the external through untouched
+// (#19335). `ignore` swallows the `catch` output as well, so `$env.LOG` records whether the
+// handlers ran.
+#[rstest]
+#[case::direct("try { cococo hi } catch { $env.LOG ++= ['catch'] } | ignore", Vec::<&str>::new())]
+#[case::closure(
+    "do --env { try { cococo hi } catch { $env.LOG ++= ['catch'] } } | ignore",
+    Vec::<&str>::new()
+)]
+#[case::custom_command(
+    "def --env f [] { try { cococo hi } catch { $env.LOG ++= ['catch'] } }; f | ignore",
+    Vec::<&str>::new()
+)]
+#[case::finally("try { cococo hi } finally { $env.LOG ++= ['finally'] } | ignore", vec!["finally"])]
+#[case::catch_and_finally(
+    "try { cococo hi } catch { $env.LOG ++= ['catch'] } finally { $env.LOG ++= ['finally'] } | ignore",
+    vec!["finally"]
+)]
+#[nu_test_support::test]
+#[deps(TESTBIN_COCOCO)]
+fn try_with_handler_passes_succeeding_external_to_ignore(
+    #[case] code: &str,
+    #[case] expected: Vec<&str>,
+) -> Result {
+    test()
+        .run_multiple(["$env.LOG = []", code, "$env.LOG"])
+        .expect_value_eq(expected)
+}
+
+#[test]
+#[deps(TESTBIN_COCOCO)]
+fn rethrowing_catch_in_custom_command_piped_to_ignore() -> Result {
+    let code = "
+        def run-checked [...cmd] {
+            try { run-external ...$cmd } catch { error make {msg: 'command failed'} }
+        }
+        run-checked cococo hi | ignore
+    ";
+
+    test().run(code).expect_value_eq(())
+}
+
+#[rstest]
+#[case::direct("try { echo_env_mixed out-err OUT ERR } catch { 'catch' } | complete")]
+#[case::closure("do { try { echo_env_mixed out-err OUT ERR } catch { 'catch' } } | complete")]
+#[case::custom_command(
+    "def f [] { try { echo_env_mixed out-err OUT ERR } catch { 'catch' } }; f | complete"
+)]
+#[nu_test_support::test]
+#[deps(TESTBIN_ECHO_ENV_MIXED)]
+fn try_with_catch_passes_external_to_complete(#[case] code: &str) -> Result {
+    let result: CompleteResult =
+        test().run_multiple(["$env.OUT = 'out'; $env.ERR = 'err'", code])?;
+    assert_eq!(result.stdout, "out\n");
+    assert_eq!(result.stderr, "err\n");
+    assert_eq!(result.exit_code, 0);
+    Ok(())
+}
+
+#[test]
+#[deps(TESTBIN_FAIL)]
+fn failing_external_piped_to_ignore_still_runs_catch() -> Result {
+    test()
+        .run_multiple([
+            "$env.LOG = []",
+            "try { fail 3 } catch {|err| $env.LOG ++= [$err.exit_code] } | ignore",
+            "$env.LOG",
+        ])
+        .expect_value_eq([3])
+}
+
+#[test]
+#[deps(TESTBIN_ECHO_ENV_MIXED)]
+fn try_with_catch_passes_external_to_save_stderr() -> Result {
+    Playground::setup("try_catch_save_stderr", |dirs, _sandbox| {
+        let code = "
+            $env.OUT = 'out'
+            $env.ERR = 'err'
+            try { echo_env_mixed out-err OUT ERR } catch { 'catch' } | save -r out.txt --stderr err.txt
+        ";
+
+        let () = test().cwd(dirs.test()).run(code)?;
+        assert_eq!(fs::read_to_string(dirs.test().join("out.txt"))?, "out\n");
+        assert_eq!(fs::read_to_string(dirs.test().join("err.txt"))?, "err\n");
+        Ok(())
+    })
+}
+
+/// `finally` gets what the stdout collects to, while the stream goes on with stdout and stderr.
+#[rstest]
+#[case::parameter(
+    "try { echo_env_mixed out-err OUT ERR } finally {|value| $env.LOG ++= [$value] } | complete"
+)]
+#[case::input("try { echo_env_mixed out-err OUT ERR } finally { $env.LOG ++= [$in] } | complete")]
+#[nu_test_support::test]
+#[deps(TESTBIN_ECHO_ENV_MIXED)]
+fn try_with_finally_passes_external_to_complete(#[case] code: &str) -> Result {
+    let mut tester = test();
+    let () = tester.run("$env.LOG = []; $env.OUT = 'out'; $env.ERR = 'err'")?;
+    let result: CompleteResult = tester.run(code)?;
+    assert_eq!(result.stdout, "out\n");
+    assert_eq!(result.stderr, "err\n");
+    tester.run("$env.LOG").expect_value_eq(["out"])
+}
+
+/// With pipefail on, `try` reads the output before it waits for the exit status: a child that
+/// fills a pipe nobody reads never exits. If that breaks, this test hangs instead of failing.
+#[test]
+#[exp(PIPE_FAIL)]
+#[deps(TESTBIN_REPEATER)]
+fn try_with_catch_waits_for_big_output_without_hanging() -> Result {
+    let result: CompleteResult =
+        test().run("try { repeater x 300000 } catch { 'catch' } | complete")?;
+    assert_eq!(result.stdout.len(), 300000);
+    assert_eq!(result.exit_code, 0);
+    Ok(())
+}
+
+/// A plain `try` hands a stream on without waiting for its externals to exit, and `try` with
+/// `catch` reads the output before it waits, so neither hangs on more output than a pipe holds.
+/// If that breaks, the big-output cases hang.
+#[rstest]
+#[case::plain("try { repeater x 300000 } | str length", 300000)]
+#[case::catch("try { repeater x 300000 } catch { 'catch' } | str length", 300000)]
+#[case::lines("try { repeater x 300000 | lines } | length", 1)]
+#[case::keeps_byte_stream("try { repeater x 300000 } | describe", "byte stream")]
+#[case::still_catches_failure("try { fail 3 | lines } catch { 'caught' }", "caught")]
+#[nu_test_support::test]
+#[exp(PIPE_FAIL)]
+#[deps(TESTBIN_REPEATER, TESTBIN_FAIL)]
+fn try_pipefail_does_not_hang_on_big_output(
+    #[case] code: &str,
+    #[case] expected: impl IntoValue,
+) -> Result {
+    test().run(code).expect_value_eq(expected)
+}
+
+/// A plain `try` hands the stream on, so the steps after the external stay lazy: `first 1` runs
+/// `each` once. `try` with `catch` reads its output first, like `collect`, so the steps run before
+/// the failure reaches `catch`. `log.txt` records each run.
+#[rstest]
+#[case::lazy(
+    "try { cococo a b c | split row ' ' | each {|x| $x | save -a log.txt; $x } } | first 1",
+    "a"
+)]
+#[case::catch_reads_first(
+    "$env.ERR = 'boom'; try { echo_env_stderr_fail ERR o+e>| lines | each {|x| $x | save -a log.txt; $x } } catch { '' }",
+    "boom"
+)]
+#[nu_test_support::test]
+#[exp(PIPE_FAIL)]
+#[deps(TESTBIN_COCOCO, TESTBIN_ECHO_ENV_STDERR_FAIL)]
+fn try_runs_later_steps_as_their_output_is_read(#[case] code: &str, #[case] runs: &str) -> Result {
+    Playground::setup(
+        "try_runs_later_steps_as_their_output_is_read",
+        |dirs, _sandbox| {
+            let _: Value = test().cwd(dirs.test()).run(code)?;
+            let log = fs::read_to_string(dirs.test().join("log.txt")).unwrap_or_default();
+            assert_eq!(log, runs);
+            Ok(())
+        },
+    )
+}
+
+/// A plain `try` doesn't wait for the externals of a stream it hands on: they may only exit once
+/// the next command reads them. A failure after that is ignored, as without pipefail. A stream
+/// that `try` drains itself (here, into a value) is still waited for, so its failure is caught.
+#[rstest]
+#[case::output_goes_on("try { nu -n -c 'print hi; exit 3' | lines } | length", 1)]
+// More output than a pipe holds, but finite, so a child that outlives the closed pipe still ends.
+#[case::big_producer(
+    "try { nu -n -c 'for _ in 1..200000 { print y }' } | lines | first 3",
+    vec!["y", "y", "y"]
+)]
+#[case::complete_gets_exit_code("try { fail 3 } | complete | get exit_code", 3)]
+#[case::drained_failure_is_caught("try { fail 3 }", ())]
+#[nu_test_support::test]
+#[exp(PIPE_FAIL)]
+#[deps(NU, TESTBIN_FAIL)]
+fn plain_try_hands_a_stream_on_without_waiting(
+    #[case] code: &str,
+    #[case] expected: impl IntoValue,
+) -> Result {
+    test().run(code).expect_value_eq(expected)
+}
+
+/// When the external fails, the error takes the place of its output and nothing is left to read
+/// its captured stderr, so it goes to the shell's stderr, as an uncaptured stderr would. That
+/// includes `ignore --stderr`, which only gets the `catch` output.
+#[rstest]
+#[case::catch("$env.ERR = 'boom'; try { echo_env_stderr_fail ERR } catch { 'catch' } | ignore")]
+#[case::plain_try("$env.ERR = 'boom'; try { echo_env_stderr_fail ERR } | ignore")]
+#[case::ignore_stderr(
+    "$env.ERR = 'boom'; try { echo_env_stderr_fail ERR } catch { 'catch' } | ignore --stderr | ignore"
+)]
+#[nu_test_support::test]
+#[deps(NU, TESTBIN_ECHO_ENV_STDERR_FAIL)]
+fn failing_external_stderr_is_shown_when_try_takes_over(#[case] child_code: &str) -> Result {
+    let result: CompleteResult = test().run_with_data(
+        "let child_code; nu -n --experimental-options '[pipefail=true]' -c $child_code | complete",
+        child_code,
+    )?;
+    assert_eq!(result.stdout, "");
+    assert_eq!(result.stderr, "boom\n");
+    Ok(())
+}
+
+#[test]
+#[deps(TESTBIN_ECHO_ENV_STDERR_FAIL)]
+fn failing_external_stderr_follows_stderr_redirection() -> Result {
+    Playground::setup("try_catch_failed_stderr_redirect", |dirs, _sandbox| {
+        let code = "
+            $env.ERR = 'boom'
+            do { try { echo_env_stderr_fail ERR } catch { 'catch' } | ignore } e> err.txt
+        ";
+
+        let () = test().cwd(dirs.test()).run(code)?;
+        assert_eq!(fs::read_to_string(dirs.test().join("err.txt"))?, "boom\n");
+        Ok(())
+    })
 }

@@ -1,7 +1,5 @@
-use std::sync::Arc;
-
 use nu_protocol::{ParseError, ShellError, Type};
-use nu_test_support::prelude::*;
+use nu_test_support::{prelude::*, tester::NuTester};
 use pretty_assertions::assert_matches;
 use rstest::rstest;
 
@@ -85,7 +83,6 @@ fn custom_switch1() -> Result {
 fn custom_flag_with_type_checking(
     #[values(
         ("int", "\"3\""),
-        ("int", "null"),
         ("record<i: int>", "{i: \"\"}"),
         ("list<int>", "[\"\"]")
     )]
@@ -101,6 +98,19 @@ fn custom_flag_with_type_checking(
     test()
         .run(code)
         .expect_error_code_eq("nu::parser::type_mismatch")
+}
+
+/// `null` is intentionally allowed for optional named flags: it omits the flag
+/// (same as not passing it) rather than type-mismatching.
+#[rstest]
+fn custom_flag_null_is_omitted(#[values("--dry-run", "-d")] flag: &str) -> Result {
+    let code = format! {"
+        def florb [--dry-run (-d): int] {{ $dry_run }}
+        let y = null
+        florb {flag} $y
+    "};
+
+    test().run(code).expect_value_eq(())
 }
 
 #[test]
@@ -239,12 +249,18 @@ fn override_table_eval_file() -> Result {
         .expect_value_eq("hi")
 }
 
+/// A tester whose engine config has `recursion_limit` set to `limit`.
+fn test_with_recursion_limit(limit: i64) -> NuTester {
+    let mut tester = test();
+    let mut config = tester.engine_state.get_config().as_ref().clone();
+    config.recursion_limit = limit;
+    tester.engine_state.set_config(config);
+    tester
+}
+
 #[test]
 fn infinite_recursion_does_not_panic() -> Result {
-    let mut tester = test();
-    let config = Arc::make_mut(&mut tester.engine_state.config);
-    config.recursion_limit = 5;
-    let err = tester
+    let err = test_with_recursion_limit(5)
         .run("def bang [] { bang }; bang")
         .expect_shell_error()?;
     assert_matches!(
@@ -259,10 +275,7 @@ fn infinite_recursion_does_not_panic() -> Result {
 
 #[test]
 fn infinite_mutual_recursion_does_not_panic() -> Result {
-    let mut tester = test();
-    let config = Arc::make_mut(&mut tester.engine_state.config);
-    config.recursion_limit = 5;
-    let err = tester
+    let err = test_with_recursion_limit(5)
         .run("def bang [] { def boom [] { bang }; boom }; bang")
         .expect_shell_error()?;
     assert_matches!(
@@ -273,6 +286,109 @@ fn infinite_mutual_recursion_does_not_panic() -> Result {
         }
     );
     Ok(())
+}
+
+#[test]
+fn infinite_closure_recursion_does_not_panic() -> Result {
+    let err = test_with_recursion_limit(5)
+        .run("let M = {|x| do $x $x}; do $M $M")
+        .expect_shell_error()?;
+    assert_matches!(
+        err,
+        ShellError::RecursionLimitReached {
+            recursion_limit: 5,
+            ..
+        }
+    );
+    Ok(())
+}
+
+#[rstest]
+#[case::within_limit(2, true)]
+#[case::past_limit(3, false)]
+fn closure_calls_count_toward_recursion_limit(#[case] depth: i64, #[case] ok: bool) -> Result {
+    // Each level of `f` is one custom command call plus one closure call, so depth 2 nests
+    // 5 calls (within the limit of 5) and depth 3 nests 7.
+    let mut tester = test_with_recursion_limit(5);
+    let code =
+        format!("def f [n] {{ if $n > 0 {{ do {{ f ($n - 1) }} }} else {{ 'ok' }} }}; f {depth}");
+    if ok {
+        return tester.run(code).expect_value_eq("ok");
+    }
+    let err = tester.run(code).expect_shell_error()?;
+    assert_matches!(
+        err,
+        ShellError::RecursionLimitReached {
+            recursion_limit: 5,
+            ..
+        }
+    );
+    Ok(())
+}
+
+#[test]
+fn infinite_closure_recursion_in_par_each_does_not_panic() -> Result {
+    // A par-each worker that recurses without end must hit the recursion
+    // limit like the main thread does. This only holds when the worker
+    // threads have a stack big enough for the limit; an overflow would
+    // abort the whole process instead of raising this error.
+    // The default limit (50) is the case that needs the deeper worker stack:
+    // with Rayon's smaller default stack the worker overflows and aborts the
+    // process before the limit check can fire.
+    let err = test_with_recursion_limit(50)
+        .run("[1] | par-each {|_| let M = {|x| do $x $x}; do $M $M}")
+        .expect_shell_error()?;
+    let hit_limit = matches!(
+        &err,
+        ShellError::RecursionLimitReached {
+            recursion_limit: 50,
+            ..
+        }
+    ) || matches!(
+        &err,
+        ShellError::EvalBlockWithInput(wrapped)
+            if matches!(
+                wrapped.error.as_ref(),
+                ShellError::RecursionLimitReached { recursion_limit: 50, .. }
+            )
+    );
+    assert!(hit_limit, "expected the recursion limit, got: {err}");
+    Ok(())
+}
+
+#[test]
+fn recursion_limit_set_in_script_applies() -> Result {
+    // The limit is read from the stack's config, so setting it earlier in the same script
+    // takes effect without going through `config.nu`.
+    let err = test_with_recursion_limit(50)
+        .run("$env.config.recursion_limit = 3; def bang [] { bang }; bang")
+        .expect_shell_error()?;
+    assert_matches!(
+        err,
+        ShellError::RecursionLimitReached {
+            recursion_limit: 3,
+            ..
+        }
+    );
+    Ok(())
+}
+
+#[test]
+fn closure_called_per_item_does_not_count_toward_recursion_limit() -> Result {
+    // `each` evaluates one closure call per item on the same callee stack, so a long
+    // stream must not add one recursion level per item.
+    test_with_recursion_limit(5)
+        .run("1..100 | each {|x| $x } | length")
+        .expect_value_eq(100)
+}
+
+#[test]
+fn par_each_closure_counts_one_recursion_level() -> Result {
+    // Each streaming `par-each` closure call is one level, so two nested `par-each` calls
+    // fit in a limit of 2.
+    test_with_recursion_limit(2)
+        .run("[1 2] | par-each { [1 2] | par-each { 1 } | math sum } | math sum")
+        .expect_value_eq(4)
 }
 
 #[test]

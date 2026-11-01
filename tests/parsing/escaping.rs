@@ -1,7 +1,7 @@
 use nu_test_support::prelude::*;
 use rstest::rstest;
 
-use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
+use nu_test_support::fs::Stub::{EmptyFile, FileWithContentToBeTrimmed};
 
 #[rstest]
 #[case::basic(r#""line1\nline2""#, "line1\nline2")]
@@ -35,6 +35,15 @@ use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
 #[case::special_syntax_character("\"ignore\\$this\"", "ignore$this")]
 #[case::special_syntax_character("\"not\\(expanded\\)\"", "not(expanded)")]
 #[case::special_syntax_character("\"literal\\{curly\\}\"", "literal{curly}")]
+#[case::special_syntax_character(r#""escaped\ space""#, "escaped space")]
+#[case::special_syntax_character(
+    r#""/Users/mac/Downloads/a\ hourly\ list\ 1.txt""#,
+    "/Users/mac/Downloads/a hourly list 1.txt"
+)]
+#[case::interpolation(r#"$"dir\ with\ space/(1 + 1).txt""#, "dir with space/2.txt")]
+#[case::backward_compatible(r#""double\\ backslash""#, "double\\ backslash")]
+#[case::literal_forms(r#"'no\ escape'"#, "no\\ escape")]
+#[case::literal_forms(r#"echo `no\ escape`"#, "no\\ escape")]
 fn escape_sequences_work(#[case] code: &str, #[case] expected: impl IntoValue) -> Result {
     test().run(code).expect_value_eq(expected)
 }
@@ -70,6 +79,14 @@ fn external_command_escape_sequences_work() -> Result {
     "#;
 
     test().run(code).expect_value_eq(true)
+}
+
+#[test]
+#[deps(TESTBIN_COCOCO)]
+fn external_command_escaped_space_stays_one_argument() -> Result {
+    test()
+        .run(r#"cococo "one\ argument" | str trim"#)
+        .expect_value_eq("one argument")
 }
 
 #[test]
@@ -119,5 +136,22 @@ fn quoted_glob_path_stays_literal() -> Result {
                 "#,
             )
             .expect_value_eq(["file[1].txt"])
+    })
+}
+
+#[test]
+fn escaped_space_in_quoted_path_arguments() -> Result {
+    Playground::setup("escaped_space_in_quoted_path_arguments", |dirs, sandbox| {
+        sandbox
+            .mkdir("dir with space")
+            .with_files(&[EmptyFile("dir with space/file.txt")]);
+
+        let mut tester = test().cwd(dirs.test());
+        tester
+            .run(r#"ls "dir\ with\ space/file.txt" | get name | path basename"#)
+            .expect_value_eq(["file.txt"])?;
+        tester
+            .run(r#"cd "dir\ with\ space"; $env.PWD | path basename"#)
+            .expect_value_eq("dir with space")
     })
 }

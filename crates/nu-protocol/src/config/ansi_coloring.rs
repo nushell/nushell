@@ -135,11 +135,10 @@ mod tests {
     #[test]
     fn test_use_ansi_coloring_true() {
         let mut engine_state = EngineState::new();
-        engine_state.config = Config {
+        engine_state.set_config(Config {
             use_ansi_coloring: UseAnsiColoring::True,
             ..Default::default()
-        }
-        .into();
+        });
 
         // explicit `True` ignores environment variables
         assert!(
@@ -182,11 +181,10 @@ mod tests {
     #[test]
     fn test_use_ansi_coloring_false() {
         let mut engine_state = EngineState::new();
-        engine_state.config = Config {
+        engine_state.set_config(Config {
             use_ansi_coloring: UseAnsiColoring::False,
             ..Default::default()
-        }
-        .into();
+        });
 
         // explicit `False` ignores environment variables
         assert!(
@@ -229,11 +227,10 @@ mod tests {
     #[test]
     fn test_use_ansi_coloring_auto() {
         let mut engine_state = EngineState::new();
-        engine_state.config = Config {
+        engine_state.set_config(Config {
             use_ansi_coloring: UseAnsiColoring::Auto,
             ..Default::default()
-        }
-        .into();
+        });
 
         // no environment variables, behavior depends on terminal state
         let is_terminal = std::io::stdout().is_terminal();
@@ -284,11 +281,10 @@ mod tests {
     #[test]
     fn test_use_ansi_coloring_auto_term_dumb() {
         let mut engine_state = EngineState::new();
-        engine_state.config = Config {
+        engine_state.set_config(Config {
             use_ansi_coloring: UseAnsiColoring::Auto,
             ..Default::default()
-        }
-        .into();
+        });
 
         // `term` set to "dumb" disables ANSI colors
         engine_state.add_env_var("term".to_string(), Value::test_string("dumb"));

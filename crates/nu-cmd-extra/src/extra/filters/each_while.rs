@@ -76,7 +76,7 @@ impl Command for EachWhile {
             PipelineData::Value(Value::Range { .. }, ..)
             | PipelineData::Value(Value::List { .. }, ..)
             | PipelineData::ListStream(..) => {
-                let mut closure = ClosureEval::new(engine_state, stack, closure);
+                let mut closure = ClosureEval::try_new(engine_state, stack, closure, head)?;
                 Ok(input
                     .into_iter()
                     .map_while(move |value| {
@@ -85,7 +85,7 @@ impl Command for EachWhile {
                             .and_then(|data| data.into_value(head))
                         {
                             Ok(value) => (!value.is_nothing()).then_some(value),
-                            Err(_) => None,
+                            Err(error) => Some(Value::error(error, head)),
                         }
                     })
                     .fuse()
@@ -94,17 +94,17 @@ impl Command for EachWhile {
             PipelineData::ByteStream(stream, ..) => {
                 let span = stream.span();
                 if let Some(chunks) = stream.chunks() {
-                    let mut closure = ClosureEval::new(engine_state, stack, closure);
+                    let mut closure = ClosureEval::try_new(engine_state, stack, closure, head)?;
                     Ok(chunks
-                        .map_while(move |value| {
-                            let value = value.ok()?;
-                            match closure
+                        .map_while(move |value| match value {
+                            Ok(value) => match closure
                                 .run_with_value(value)
                                 .and_then(|data| data.into_value(span))
                             {
                                 Ok(value) => (!value.is_nothing()).then_some(value),
-                                Err(_) => None,
-                            }
+                                Err(error) => Some(Value::error(error, span)),
+                            },
+                            Err(error) => Some(Value::error(error, span)),
                         })
                         .fuse()
                         .into_pipeline_data(head, engine_state.signals().clone()))
@@ -115,7 +115,7 @@ impl Command for EachWhile {
             // This match allows non-iterables to be accepted,
             // which is currently considered undesirable (Nov 2022).
             PipelineData::Value(value, ..) => {
-                ClosureEvalOnce::new(engine_state, stack, closure).run_with_value(value)
+                ClosureEvalOnce::try_new(engine_state, stack, closure, head)?.run_with_value(value)
             }
         }
         .map(|data| data.set_metadata(metadata))

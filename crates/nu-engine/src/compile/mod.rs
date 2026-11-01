@@ -138,16 +138,19 @@ fn compile_pipeline(
             let mut modes = redirect_modes_of_expression(working_set, &next_element.expr, span)?;
 
             // If there's a next element with no inherent redirection we always pipe out *unless*
-            // this is a single redirection of stderr to pipe (e>|)
-            if modes.out.is_none()
-                && !matches!(
-                    element.redirection,
-                    Some(PipelineRedirection::Single {
-                        source: RedirectionSource::Stderr,
-                        target: RedirectionTarget::Pipe { .. }
-                    })
-                )
-            {
+            // this is a single redirection of stderr to pipe (e>|). `PipeRaw` is a plain pipe
+            // too, so `e>|` leaves stdout alone for it as well.
+            if matches!(
+                element.redirection,
+                Some(PipelineRedirection::Single {
+                    source: RedirectionSource::Stderr,
+                    target: RedirectionTarget::Pipe { .. }
+                })
+            ) {
+                modes.out = modes
+                    .out
+                    .filter(|mode| !matches!(mode.item, RedirectMode::PipeRaw));
+            } else if modes.out.is_none() {
                 let pipe_span = next_element.pipe.unwrap_or(next_element.expr.span);
                 modes.out = Some(RedirectMode::Pipe.into_spanned(pipe_span));
             }

@@ -35,15 +35,12 @@ impl PluginCommand for ExprWhen {
                 SyntaxShape::Any,
                 "Expression that will be applied when predicate is true.",
             )
+            // Starts a chain from nothing, or extends the `polars_when` of a previous `polars when`
             .input_output_types(vec![
-                (Type::Nothing, PolarsPluginType::NuExpression.into()),
+                (Type::Nothing, PolarsPluginType::NuWhen.into()),
                 (
-                    PolarsPluginType::NuExpression.into(),
-                    PolarsPluginType::NuExpression.into(),
-                ),
-                (
-                    PolarsPluginType::NuSelector.into(),
-                    PolarsPluginType::NuExpression.into(),
+                    PolarsPluginType::NuWhen.into(),
+                    PolarsPluginType::NuWhen.into(),
                 ),
             ])
             .category(Category::Custom("expression".into()))

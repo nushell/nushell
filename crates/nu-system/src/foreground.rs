@@ -15,8 +15,9 @@ pub use child_pgroup::stdin_fd;
 /// Detach `command` from the parent's controlling terminal/console.
 ///
 /// Used for background completion subprocesses so they cannot call
-/// `tcsetattr` / `SetConsoleMode` and corrupt reedline. Caller must also
-/// redirect stdin to null. No-op on platforms without a process API.
+/// `tcsetattr` / `SetConsoleMode` and corrupt reedline, nor open `/dev/tty`
+/// to read keystrokes meant for it. Caller must also keep stdin off the
+/// terminal (null or a pipe). No-op on platforms without a process API.
 pub fn prepare_background_command(command: &mut Command) {
     #[cfg(unix)]
     child_pgroup::prepare_isolated_command(command);
@@ -67,6 +68,32 @@ impl ForegroundChild {
     #[cfg(not(unix))]
     pub fn spawn(mut command: Command) -> io::Result<Self> {
         command.spawn().map(|child| Self { inner: child })
+    }
+
+    /// Spawn with Windows job isolation and optional console detachment.
+    ///
+    /// A new process group disables CTRL_C_EVENT for background jobs, but unlike Unix process
+    /// groups it does not isolate CTRL_BREAK_EVENT. Detached completion and MCP processes also
+    /// need CREATE_NO_WINDOW; combine these flags here because creation_flags replaces them.
+    /// Callers must not set additional creation flags on the command before calling this method.
+    #[cfg(windows)]
+    pub fn spawn_with_job_control(
+        mut command: Command,
+        background: bool,
+        detached: bool,
+    ) -> io::Result<Self> {
+        use std::os::windows::process::CommandExt;
+        use windows::Win32::System::Threading::{CREATE_NEW_PROCESS_GROUP, CREATE_NO_WINDOW};
+
+        let mut flags = 0;
+        if background {
+            flags |= CREATE_NEW_PROCESS_GROUP.0;
+        }
+        if detached {
+            flags |= CREATE_NO_WINDOW.0;
+        }
+        command.creation_flags(flags);
+        Self::spawn(command)
     }
 
     #[cfg(unix)]
@@ -294,7 +321,7 @@ impl ForegroundGuard {
 
                 return Ok(guard);
             } else if pcnt
-                .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |count| {
+                .try_update(Ordering::SeqCst, Ordering::SeqCst, |count| {
                     // Avoid a race condition: only increment if count is > 0
                     if count > 0 { Some(count + 1) } else { None }
                 })

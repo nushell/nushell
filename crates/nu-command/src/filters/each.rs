@@ -1,4 +1,4 @@
-use super::utils::chain_error_with_input;
+use super::utils::wrap_error_with_input;
 use nu_engine::{ClosureEval, ClosureEvalOnce, command_prelude::*};
 use nu_protocol::engine::Closure;
 
@@ -15,26 +15,32 @@ impl Command for Each {
     }
 
     fn extra_description(&self) -> &str {
-        r#"Since tables are lists of records, passing a table into 'each' will
-iterate over each record, not necessarily each cell within it.
+        r#"Since tables are lists of records, passing a table into 'each' will iterate over each 
+record, not necessarily each cell within it.
 
-Avoid passing single records to this command. Since a record is a
-one-row structure, 'each' will only run once, behaving similar to 'do'.
-To iterate over a record's values, use 'items' or try converting it to a table
-with 'transpose' first.
+Avoid passing single records to this command. Since a record is a one-row structure, 
+'each' will only run once, behaving similar to 'do'. To iterate over a record's values, 
+use 'items' or try converting it to a table with 'transpose' first.
 
-
-By default, for each input there is a single output value.
-If the closure returns a stream rather than value, the stream is collected
-completely, and the resulting value becomes one of the items in `each`'s output.
+By default, for each input there is a single output value. If the closure returns a 
+stream rather than value, the stream is collected completely, and the resulting value 
+becomes one of the items in `each`'s output.
 
 To receive items from those streams without waiting for the whole stream to be
-collected, `each --flatten` can be used.
-Instead of waiting for the stream to be collected before returning the result as
-a single item, `each --flatten` will return each item as soon as they are received.
+collected, `each --flatten` can be used. Instead of waiting for the stream to be 
+collected before returning the result as a single item, `each --flatten` will return 
+each item as soon as they are received.
 
-This "flattens" the output, turning an output that would otherwise be a
-list of lists like `list<list<string>>` into a flat list like `list<string>`."#
+This "flattens" the output, turning an output that would otherwise be a list of lists 
+like `list<list<string>>` into a flat list like `list<string>`.
+
+String or byte streams, empty pipelines, null values, ranges, and some custom values
+can also be used as inputs to 'each'. A stream of bytes or strings (usually from 
+external commands) will be treated as though it was a list of chunks of the stream, 
+where the size of the chunks are determined arbitrarily. Empty pipelines and null 
+values are both returned unchanged from 'each' without calling the provided closure. 
+Ranges and custom values which can be iterated will be treated as lists of the values 
+they represent."#
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -110,7 +116,8 @@ list of lists like `list<list<string>>` into a flat list like `list<string>`."#
             },
             Example {
                 example: r#"$env.name? | each { $"hello ($in)" } | default "bye""#,
-                description: "Update value if not null, otherwise do nothing.",
+                description: "Return \"hello $name\" for each name in the list of names $env.name, \
+                or return \"bye\" if $env.name does not exist.",
                 result: None,
             },
             Example {
@@ -121,6 +128,15 @@ list of lists like `list<list<string>>` into a flat list like `list<string>`."#
                     | find -i 'note: ' \
                     | str join \"\\n\"\
                     ",
+                result: None,
+            },
+            Example {
+                description: "Print chunks of data from an external command as soon as \
+                they become available.",
+                example: "\
+                ^$nu.current-exe -c 'print hello; sleep 0.5sec; print world' \
+                | each { print $in } | ignore\
+                ",
                 result: None,
             },
         ]
@@ -157,7 +173,7 @@ list of lists like `list<list<string>>` into a flat list like `list<string>`."#
             | PipelineData::Value(Value::List { .. }, ..)
             | PipelineData::ListStream(..) => {
                 let metadata = input.take_metadata();
-                let mut closure = ClosureEval::new(engine_state, stack, closure);
+                let mut closure = ClosureEval::try_new(engine_state, stack, closure, head)?;
 
                 let out = if flatten {
                     input
@@ -180,12 +196,11 @@ list of lists like `list<list<string>>` into a flat list like `list<string>`."#
                 Ok(out.set_metadata(metadata))
             }
             // Handle iterable custom values (like SQLiteQueryBuilder)
-            #[expect(deprecated)]
             PipelineData::Value(Value::Custom { ref val, .. }, ..)
                 if val.is_iterable() && val.type_name() != "matrix" =>
             {
                 let metadata = input.take_metadata();
-                let mut closure = ClosureEval::new(engine_state, stack, closure);
+                let mut closure = ClosureEval::try_new(engine_state, stack, closure, head)?;
 
                 let out = if flatten {
                     input
@@ -212,7 +227,7 @@ list of lists like `list<list<string>>` into a flat list like `list<string>`."#
                     return Ok(PipelineData::empty());
                 };
 
-                let mut closure = ClosureEval::new(engine_state, stack, closure);
+                let mut closure = ClosureEval::try_new(engine_state, stack, closure, head)?;
                 let out = if flatten {
                     chunks
                         .flat_map(move |result| {
@@ -248,7 +263,7 @@ list of lists like `list<list<string>>` into a flat list like `list<string>`."#
             // This match allows non-iterables to be accepted,
             // which is currently considered undesirable (Nov 2022).
             PipelineData::Value(value, metadata) => {
-                ClosureEvalOnce::new(engine_state, stack, closure)
+                ClosureEvalOnce::try_new(engine_state, stack, closure, head)?
                     .run_with_value_with_metadata(value, metadata)
             }
         };
@@ -268,7 +283,7 @@ fn each_map(value: Value, closure: &mut ClosureEval, head: Span) -> Result<Value
     closure
         .run_with_value(value)
         .and_then(|pipeline_data| pipeline_data.into_value(head))
-        .map_err(|error| chain_error_with_input(error, is_error, span))
+        .map_err(|error| wrap_error_with_input(error, is_error, span))
 }
 
 #[cfg(test)]

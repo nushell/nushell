@@ -4,6 +4,21 @@ use pretty_assertions::assert_matches;
 use rstest::rstest;
 
 #[test]
+fn get_index_then_split_chars() -> Result {
+    // oh-my-style prompts: `($splits | get $x | split chars | get 0)` inside `each`.
+    // `get` has a `(nothing, nothing)` pair; pipeline parsing unions input with
+    // `nothing`. That must not make `get` output `nothing`, or `split chars` is
+    // inferred as error input.
+    let code = r#"
+        let splits = "a/b/c" | split row "/"
+        1..<2 | each {|x|
+            ($splits | get $x | split chars | get 0)
+        } | get 0
+    "#;
+    test().run(code).expect_value_eq("b")
+}
+
+#[test]
 fn simple_get_record() -> Result {
     test()
         .run_with_data("$in | get foo", test_value!({ foo: "bar" }))
@@ -95,6 +110,97 @@ fn fetches_more_than_one_column_path() -> Result {
 }
 
 #[test]
+fn fetches_columns_with_literal_list_spread() -> Result {
+    test()
+        .run("[{a: 1, b: 2, c: 3}] | get ...[a c]")
+        .expect_value_eq(test_value!([[1], [3]]))
+}
+
+#[test]
+fn fetches_columns_with_variable_list_spread() -> Result {
+    test()
+        .run("let cols = [a c]; [{a: 1, b: 2, c: 3}] | get ...$cols")
+        .expect_value_eq(test_value!([[1], [3]]))
+}
+
+#[test]
+fn fetches_columns_with_literal_before_spread() -> Result {
+    test()
+        .run("[{a: 1, b: 2, c: 3}] | get b ...[a c]")
+        .expect_value_eq(test_value!([[2], [1], [3]]))
+}
+
+#[test]
+fn fetches_columns_with_spread_before_literal() -> Result {
+    test()
+        .run("[{a: 1, b: 2, c: 3}] | get ...[a c] b")
+        .expect_value_eq(test_value!([[1], [3], [2]]))
+}
+
+#[test]
+fn one_element_spread_returns_a_list() -> Result {
+    test()
+        .run("let cols = [a]; [{a: 1, b: 2}] | get ...$cols")
+        .expect_value_eq(test_value!([[1]]))
+}
+
+#[test]
+fn one_element_spread_on_record_returns_a_list() -> Result {
+    test()
+        .run("let cols = [a]; {a: 1, b: 2} | get ...$cols")
+        .expect_value_eq(test_value!([1]))
+}
+
+#[test]
+fn empty_literal_spread_returns_empty_list() -> Result {
+    test()
+        .run("[{a: 1, b: 2}] | get ...[]")
+        .expect_value_eq(test_value!([]))
+}
+
+#[test]
+fn empty_variable_spread_returns_empty_list() -> Result {
+    test()
+        .run("let cols = []; [{a: 1, b: 2}] | get ...$cols")
+        .expect_value_eq(test_value!([]))
+}
+
+#[test]
+fn spread_of_nested_cell_paths() -> Result {
+    test()
+        .run("let paths = [$.a.b]; {a: {b: 1}} | get ...$paths")
+        .expect_value_eq(test_value!([1]))
+}
+
+#[test]
+fn no_cell_path_with_empty_pipeline_errors() -> Result {
+    let err = test().run("get").expect_shell_error()?;
+    assert_matches!(err, ShellError::PipelineEmpty { .. });
+    Ok(())
+}
+
+#[test]
+fn empty_spread_with_empty_pipeline_errors() -> Result {
+    let err = test().run("get ...[]").expect_shell_error()?;
+    assert_matches!(err, ShellError::PipelineEmpty { .. });
+    Ok(())
+}
+
+#[test]
+fn test_const_with_spread() -> Result {
+    test()
+        .run("const x = [{a: 1, b: 2}] | get ...[a]; $x")
+        .expect_value_eq(test_value!([[1]]))
+}
+
+#[test]
+fn no_cell_path_returns_input_unchanged() -> Result {
+    test()
+        .run_with_data("$in | get", test_value!([1, 2, 3]))
+        .expect_value_eq([1, 2, 3])
+}
+
+#[test]
 fn errors_fetching_by_column_not_present() -> Result {
     let data = test_value!({
         tacos: { sentence_words: ["Yo", "quiero", "tacos"] },
@@ -163,7 +269,7 @@ fn get_does_not_delve_too_deep_in_nested_lists() -> Result {
 }
 
 #[test]
-fn ignore_errors_works() -> Result {
+fn optional_works() -> Result {
     test()
         .run_with_data(r#"let path = "foo"; $in | get -o $path"#, test_value!({}))
         .expect_value_eq(())
@@ -196,12 +302,20 @@ fn get_with_negative_number_reports_clear_error() -> Result {
     Ok(())
 }
 
+#[test]
+fn test_const_with_no_cell_path() -> Result {
+    test()
+        .run("const x = [1 2 3] | get; $x")
+        .expect_value_eq([1, 2, 3])
+}
+
 enum Metadata {
     Keep,
     Drop,
 }
 
 #[rstest]
+#[case::no_cell_path("get", Metadata::Keep)]
 #[case::index_only("get 1", Metadata::Keep)]
 #[case::two_indices("get 1 0", Metadata::Keep)]
 #[case::index_and_column("get name 1", Metadata::Keep)]

@@ -1,7 +1,7 @@
 use chrono::DateTime;
 use nu_protocol::{
-    Filesize, IntRange, IntoPipelineData, ListStream, PipelineData, PipelineMetadata, Range,
-    Signals, Span, Value, ast::RangeInclusion,
+    Filesize, IntRange, IntoPipelineData, LabeledError, ListStream, PipelineData, PipelineMetadata,
+    Range, Signals, Span, Value, ast::RangeInclusion,
 };
 use nu_test_support::prelude::*;
 use pretty_assertions::assert_matches;
@@ -45,6 +45,51 @@ fn pipeline_data_with_metadata(kind: InputKind, meta: Option<PipelineMetadata>) 
             PipelineData::list_stream(stream, meta)
         }
     }
+}
+
+#[test]
+fn const_first() -> Result {
+    test()
+        .run("const x = [1 2 3] | first; $x")
+        .expect_value_eq(1)
+}
+
+#[test]
+fn const_first_with_rows() -> Result {
+    test()
+        .run("const x = [1 2 3] | first 2; $x | to nuon --raw")
+        .expect_value_eq("[1,2]")
+}
+
+#[test]
+fn const_first_range() -> Result {
+    test()
+        .run("const x = 1.. | first 3; $x | to nuon --raw")
+        .expect_value_eq("[1,2,3]")
+}
+
+#[test]
+fn const_first_binary_with_filesize() -> Result {
+    test()
+        .run("const x = 0x[01 02 03] | first 2b; $x | to nuon --raw")
+        .expect_value_eq("0x[0102]")
+}
+
+#[test]
+fn const_first_strict_on_empty_list_errors() -> Result {
+    let err = test()
+        .run("const x = [] | first --strict")
+        .expect_parse_error()?;
+
+    assert_matches!(err, ParseError::LabeledError(msg, _, _) if msg.contains("Cannot access empty content"));
+    Ok(())
+}
+
+#[test]
+fn first_takes_rows_from_unbounded_range() -> Result {
+    test()
+        .run("1.. | first 2 | to nuon --raw")
+        .expect_value_eq("[1,2]")
 }
 
 #[test]
@@ -152,11 +197,47 @@ fn does_not_error_on_empty_list_when_no_rows_given() -> Result {
 
 #[test]
 fn error_on_empty_list_when_no_rows_given_in_strict_mode() -> Result {
-    let err = test()
-        .run("[] | first --strict | describe")
-        .expect_shell_error()?;
+    assert_empty_content_diagnostic("[] | first --strict")
+}
 
+#[test]
+fn error_on_empty_list_stream_in_strict_mode() -> Result {
+    assert_empty_content_diagnostic("[1] | where {|x| $x > 1 } | first --strict")
+}
+
+#[test]
+fn error_on_empty_binary_in_strict_mode() -> Result {
+    assert_empty_content_diagnostic("0x[] | first --strict")
+}
+
+fn assert_empty_content_diagnostic(code: &str) -> Result {
+    test()
+        .run(code)
+        .expect_error_code_eq("nu::shell::access_empty_content")?;
+
+    let err = test().run(code).expect_shell_error()?;
     assert_matches!(err, ShellError::AccessEmptyContent { .. });
+    let message = err.to_string();
+    assert_eq!(message, "Cannot access empty content.");
+    assert_contains_not("too large", &message);
+
+    let labeled = LabeledError::from_diagnostic(&err);
+    assert_eq!(
+        labeled
+            .labels
+            .iter()
+            .map(|label| label.text.as_str())
+            .collect::<Vec<_>>(),
+        ["content is empty"]
+    );
+    assert!(
+        labeled
+            .labels
+            .iter()
+            .all(|label| !label.text.contains("too large")),
+        "empty-content span label should not describe a row or index as too large: {:?}",
+        labeled.labels
+    );
     Ok(())
 }
 

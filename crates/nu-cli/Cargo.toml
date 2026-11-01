@@ -51,10 +51,12 @@ lru = { workspace = true }
 lscolors = { workspace = true, default-features = false, features = ["nu-ansi-term"] }
 miette = { workspace = true, features = ["fancy-no-backtrace"] }
 nucleo-matcher = { workspace = true }
+parking_lot = { workspace = true }
 percent-encoding = { workspace = true }
 sysinfo = { workspace = true }
 strum = { workspace = true }
 unicode-segmentation = { workspace = true }
+url = { workspace = true }
 uuid = { workspace = true, features = ["v4"] }
 which = { workspace = true }
 

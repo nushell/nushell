@@ -226,12 +226,16 @@ pub(crate) fn complete_paths(ctx: &Context, directories_only: bool) -> Fetched {
         readjusted,
     } = adjust_if_intermediate(ctx.prefix_str().as_ref(), ctx.working_set, ctx.span);
 
-    #[allow(deprecated)]
+    let cwd = ctx
+        .working_set
+        .permanent_state
+        .cwd_as_string(None)
+        .unwrap_or_default();
     let mut items: Vec<_> = complete_item(
         directories_only || readjusted,
         span,
         &prefix,
-        &[&ctx.working_set.permanent_state.current_work_dir()],
+        &[&cwd],
         ctx.options,
         ctx.working_set.permanent_state,
         ctx.stack,
@@ -255,7 +259,7 @@ pub(crate) fn complete_paths(ctx: &Context, directories_only: bool) -> Fetched {
     .collect();
 
     hidden_files_last(&mut items);
-    Fetched::cacheable(items)
+    Fetched::answering(items).worth_keeping()
 }
 
 /// # Parameters
@@ -456,8 +460,13 @@ pub fn adjust_if_intermediate(
     let mut prefix = prefix.to_string();
 
     // A difference of 1 because of the cursor's unicode code point in between.
-    // Using .chars().count() because unicode and Windows.
-    let readjusted = span_contents.chars().count() - prefix.chars().count() > 1;
+    // Using .chars().count() because unicode and Windows. Saturating: the prefix can run
+    // past the span's end into a trailing gap (`ls | where ⌶`), leaving nothing to readjust.
+    let readjusted = span_contents
+        .chars()
+        .count()
+        .saturating_sub(prefix.chars().count())
+        > 1;
     if readjusted {
         let remnant: String = span_contents
             .chars()

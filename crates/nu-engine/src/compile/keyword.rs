@@ -19,12 +19,17 @@ pub(crate) fn compile_if(
     // Pseudocode:
     //
     //        %io_reg <- <condition>
-    //        not %io_reg
-    //        branch-if %io_reg, FALSE
+    //        collect %io_reg
+    //        branch-if %io_reg, TRUE
+    //        jump FALSE
     // TRUE:  ...<true_block>...
     //        jump END
     // FALSE: ...<else_expr>... OR drop %io_reg
     // END:
+    //
+    // Branching on the condition itself, as `while` does, makes a non-bool condition the same
+    // "expected bool" type mismatch in both keywords. Collecting it first runs a stream to its
+    // end, so a failing command in the condition reports its own error.
     let invalid = || CompileError::InvalidKeywordCall {
         keyword: "if".into(),
         span: call.head,
@@ -41,31 +46,27 @@ pub(crate) fn compile_if(
     let false_label = builder.label(None);
     let end_label = builder.label(None);
 
-    let not_condition_reg = {
-        // Compile the condition first
-        let condition_reg = builder.next_register()?;
-        compile_expression(
-            working_set,
-            builder,
-            condition,
-            RedirectModes::value(condition.span),
-            None,
-            condition_reg,
-        )?;
+    // Compile the condition first
+    let condition_reg = builder.next_register()?;
+    compile_expression(
+        working_set,
+        builder,
+        condition,
+        RedirectModes::value(condition.span),
+        None,
+        condition_reg,
+    )?;
 
-        // Negate the condition - we basically only want to jump if the condition is false
-        builder.push(
-            Instruction::Not {
-                src_dst: condition_reg,
-            }
-            .into_spanned(call.head),
-        )?;
-
-        condition_reg
-    };
-
-    // Set up a branch if the condition is false.
-    builder.branch_if(not_condition_reg, false_label, call.head)?;
+    // Branch to the true case, and jump to the false case otherwise.
+    builder.push(
+        Instruction::Collect {
+            src_dst: condition_reg,
+        }
+        .into_spanned(condition.span),
+    )?;
+    builder.branch_if(condition_reg, true_label, call.head)?;
+    builder.add_comment("if true");
+    builder.jump(false_label, call.head)?;
     builder.add_comment("if false");
 
     // Compile the true case
@@ -413,6 +414,7 @@ pub(crate) fn compile_let(
             Instruction::LoadVariable {
                 dst: io_reg,
                 var_id,
+                preserve_origin: false,
             }
             .into_spanned(call.head),
         )?;
@@ -430,35 +432,47 @@ pub(crate) fn compile_try(
     _input_reg: Option<RegId>,
     io_reg: RegId,
 ) -> Result<(), CompileError> {
-    // Pseudocode (literal block):
+    // Pseudocode (literal block). Instructions marked with a condition are only emitted when
+    // the corresponding clause is present. Handlers are pushed outermost first, so that an
+    // error in the body reaches `catch` before `finally`:
     //
-    //       on-error-into ERR, %io_reg           // or without
-    //       finally-into  FINALLY, $io_reg       // or without
+    //       finally-into  FINALLY, %io_reg          // `finally`
+    //       on-error-into ERR, %io_reg              // `catch` (`on-error ERR` when there is neither)
     //       %io_reg <- <...block...> <- %io_reg
-    //       try-collect %io_reg
-    //       pop-error-handler
-    //       jump END
-    // ERR:  clone %err_reg, %io_reg
-    //       store-variable $err_var, %err_reg         // or without
-    //       %io_reg <- <...catch block...> <- %io_reg // set to empty if no catch block
-    //       pop-finally
+    //       try-collect %io_reg                     // `drain-if-end` when there is neither
+    //       pop-error-handler                       // `catch`, or neither
+    //       begin-finally                           // `finally`
+    //       jump FINALLY                            // `catch`, or neither (`jump END` without `finally`)
+    // ERR:  clone %err_reg, %io_reg                 // `catch` with a parameter
+    //       store-variable $err_var, %err_reg
+    //       %io_reg <- <...catch block...> <- %io_reg // set to empty if there is neither
+    //       try-collect %io_reg                     // `finally`
+    //       begin-finally                           // `finally`
+    // FINALLY:                                      // `finally`; unwinding jumps here as well
+    //       move %result_reg, %io_reg
+    //       clone %io_reg, %result_reg
+    //       store-variable $finally_var, %io_reg    // `finally` with a parameter (via a clone)
+    //       %io_reg <- <...finally block...> <- %io_reg
+    //       move %io_reg, %result_reg
+    //       end-finally
     // END:
     //
-    // with expression that can't be inlined:
+    // with a catch expression that can't be inlined, the ERR section becomes:
     //
-    //       %closure_reg <- <catch_expr>
-    //       on-error-into ERR, %io_reg
-    //       finally-into  FINALLY, $io_reg
-    //       %io_reg <- <...block...> <- %io_reg
-    //       try-collect %io_reg
-    //       pop-error-handler
-    //       jump END
-    // ERR:  clone %err_reg, %io_reg
     //       push-positional %closure_reg
     //       push-positional %err_reg
     //       call "do", %io_reg
-    //       pop-finally
-    // END:
+    //
+    // where %closure_reg was evaluated before the handlers were pushed.
+    //
+    // `try-collect` leaves an external whose stderr has its own pipe (the next command is
+    // `complete`, `ignore`, `save` or `tee`) as a stream. %result_reg keeps that stream, so the
+    // next command still gets its stderr, and `clone` gives `finally` its stdout as a value.
+    //
+    // At runtime, `begin-finally` swaps the `finally` handler for a "running" marker, and
+    // `end-finally` pops that marker. When control unwinds into the `finally` block instead (an
+    // error, `return`, `exit`, `break`, or `continue`), the evaluator does the swap itself and
+    // resumes the unwinding at `end-finally`.
     let invalid = || CompileError::InvalidKeywordCall {
         keyword: "try".into(),
         span: call.head,
@@ -497,6 +511,7 @@ pub(crate) fn compile_try(
     let catch_span = catch_expr.map(|e| e.span).unwrap_or(call.head);
 
     let err_label = builder.label(None);
+    let finally_label = builder.label(None);
     let end_label = builder.label(None);
 
     // We have two ways of executing `catch`: if it was provided as a literal, we can inline it.
@@ -549,50 +564,42 @@ pub(crate) fn compile_try(
         })
         .transpose()?;
 
-    // Put the error handler instruction. If we have a catch expression then we should capture the
-    // error.
-    let mut has_try_comment = false;
-    let mut pushed_error_handler = false;
-    if catch_type.is_some() {
+    let has_finally = finally_type.is_some();
+    // A plain `try { }` still needs an error handler so that `try { 1 / 0 }` swallows the error.
+    // `try { } finally { }` does not: the error is meant to propagate after `finally` runs.
+    let pushed_error_handler = catch_type.is_some() || !has_finally;
+
+    // Push the handlers. `finally` always captures into `io_reg` so that the register holds a
+    // well-defined value (the error, or empty) when unwinding enters the block.
+    if has_finally {
         builder.push(
-            Instruction::OnErrorInto {
-                index: err_label.0,
+            Instruction::FinallyInto {
+                index: finally_label.0,
                 dst: io_reg,
             }
             .into_spanned(call.head),
         )?;
         builder.add_comment("try");
-        has_try_comment = true;
-        pushed_error_handler = true;
-    } else if finally_expr.is_none() {
-        // Simply try, without `catch` and `finally` block, need to set up OnErrorHandler.
-        // so `try { 1 / 0 }` works
-        builder.push(Instruction::OnError { index: err_label.0 }.into_spanned(call.head))?;
-        builder.add_comment("try");
-        has_try_comment = true;
-        pushed_error_handler = true;
-    };
-
-    builder.begin_try();
-
-    if let Some(finally_info) = &finally_type {
-        if finally_info.var_id.is_some() {
+    }
+    if pushed_error_handler {
+        if catch_type.is_some() {
             builder.push(
-                Instruction::FinallyInto {
-                    index: end_label.0,
+                Instruction::OnErrorInto {
+                    index: err_label.0,
                     dst: io_reg,
                 }
                 .into_spanned(call.head),
             )?;
         } else {
-            builder.push(Instruction::Finally { index: end_label.0 }.into_spanned(call.head))?;
+            builder.push(Instruction::OnError { index: err_label.0 }.into_spanned(call.head))?;
         }
-        if !has_try_comment {
+        if !has_finally {
             builder.add_comment("try");
         }
     }
 
-    // Compile the block
+    // Compile the block. Both handlers are live while it runs.
+    builder.begin_try(usize::from(has_finally) + usize::from(pushed_error_handler));
     compile_block(
         working_set,
         builder,
@@ -614,7 +621,7 @@ pub(crate) fn compile_try(
         builder.push(mode.map(|mode| Instruction::RedirectErr { mode }))?;
     }
 
-    if finally_type.is_some() || catch_type.is_some() {
+    if has_finally || catch_type.is_some() {
         // For `catch` clause and `finally` clause, we need to know if the `try` block
         // runs successfully first, so we need to collect the output first to check if there
         // is an error.
@@ -626,77 +633,107 @@ pub(crate) fn compile_try(
     if pushed_error_handler {
         builder.push(Instruction::PopErrorHandler.into_spanned(call.head))?;
     }
-
     builder.end_try()?;
 
-    // Jump over the failure case
-    builder.jump(end_label, catch_span)?;
+    if has_finally {
+        builder.push(Instruction::BeginFinally.into_spanned(call.head))?;
+    }
 
-    // This is the error handler
-    builder.set_label(err_label, builder.here())?;
+    if pushed_error_handler {
+        // Jump over the error handler
+        builder.jump(
+            if has_finally {
+                finally_label
+            } else {
+                end_label
+            },
+            catch_span,
+        )?;
 
-    // Mark out register as likely not clean - state in error handler is not well defined
-    builder.mark_register(io_reg)?;
+        // This is the error handler
+        builder.set_label(err_label, builder.here())?;
 
-    // Now compile whatever is necessary for the error handler
-    match catch_type {
-        Some(CatchType::Block { block, var_id }) => {
-            // Error will be in io_reg
-            builder.mark_register(io_reg)?;
-            if let Some(var_id) = var_id {
-                // Take a copy of the error as $err, since it will also be input
-                let err_reg = builder.next_register()?;
-                builder.push(
-                    Instruction::Clone {
-                        dst: err_reg,
-                        src: io_reg,
-                    }
-                    .into_spanned(catch_span),
-                )?;
-                builder.push(
-                    Instruction::StoreVariable {
-                        var_id,
-                        src: err_reg,
-                    }
-                    .into_spanned(catch_span),
+        // Mark out register as likely not clean - state in error handler is not well defined
+        builder.mark_register(io_reg)?;
+
+        // The error handler was popped on the way here, but the `finally` handler still stands.
+        builder.begin_try(usize::from(has_finally));
+        match catch_type {
+            Some(CatchType::Block { block, var_id }) => {
+                if let Some(var_id) = var_id {
+                    // Take a copy of the error as $err, since it will also be input
+                    let err_reg = builder.next_register()?;
+                    builder.push(
+                        Instruction::Clone {
+                            dst: err_reg,
+                            src: io_reg,
+                        }
+                        .into_spanned(catch_span),
+                    )?;
+                    builder.push(
+                        Instruction::StoreVariable {
+                            var_id,
+                            src: err_reg,
+                        }
+                        .into_spanned(catch_span),
+                    )?;
+                }
+                // Compile the block, now that the variable is set
+                compile_block(
+                    working_set,
+                    builder,
+                    block,
+                    true,
+                    redirect_modes.clone(),
+                    Some(io_reg),
+                    io_reg,
                 )?;
             }
-            // Compile the block, now that the variable is set
-            compile_block(
-                working_set,
-                builder,
-                block,
-                true,
-                redirect_modes.clone(),
-                Some(io_reg),
-                io_reg,
-            )?;
+            Some(CatchType::Closure { closure_reg }) => {
+                compile_closure_call(working_set, builder, call, io_reg, closure_reg, catch_span)?
+            }
+            None => {
+                // Just set out to empty.
+                builder.load_empty(io_reg)?;
+            }
         }
-        Some(CatchType::Closure { closure_reg }) => {
-            compile_closure_call(working_set, builder, call, io_reg, closure_reg, catch_span)?
+        builder.end_try()?;
+
+        if has_finally {
+            // `finally` must not start until the `catch` block has finished producing its output.
+            builder.push(Instruction::TryCollect { src_dst: io_reg }.into_spanned(call.head))?;
+            builder.push(Instruction::BeginFinally.into_spanned(call.head))?;
         }
-        None => {
-            // Just set out to empty.
-            builder.load_empty(io_reg)?;
-        }
-    }
-    if finally_type.is_some() {
-        builder.push(Instruction::TryCollect { src_dst: io_reg }.into_spanned(call.head))?;
     }
 
-    // This is the end - whatever we succeeded or not, should jump here for finally clause.
-    builder.set_label(end_label, builder.here())?;
-    if finally_type.is_some() {
-        builder.push(Instruction::PopFinallyRun.into_spanned(call.head))?;
-    }
-
-    // This is the finally part.
+    // This is the finally part. Whether we succeeded or not, control ends up here.
     if let Some(finally_part) = finally_type {
-        // Preserve the value produced by `try`/`catch`: `finally` can observe it
+        builder.set_label(finally_label, builder.here())?;
+        builder.mark_register(io_reg)?;
+
+        // Only the running marker of this `finally` is on the handler stack while it runs.
+        builder.begin_try(1);
+
+        // Preserve the value produced by `try`/`catch`: `finally` can observe a copy of it
         // but its own pipeline result should not replace the overall `try` expression result.
-        let preserved_result_reg = builder.clone_reg(io_reg, call.head)?;
+        // The original is kept rather than the copy, so a passed-on external keeps its stderr.
+        let preserved_result_reg = builder.next_register()?;
+        builder.push(
+            Instruction::Move {
+                dst: preserved_result_reg,
+                src: io_reg,
+            }
+            .into_spanned(call.head),
+        )?;
+        builder.push(
+            Instruction::Clone {
+                dst: io_reg,
+                src: preserved_result_reg,
+            }
+            .into_spanned(call.head),
+        )?;
         if let Some(var_id) = finally_part.var_id {
-            let value_reg = builder.clone_reg(io_reg, call.head)?;
+            let value_reg = builder.clone_reg(preserved_result_reg, call.head)?;
             builder.push(
                 Instruction::StoreVariable {
                     var_id,
@@ -721,7 +758,11 @@ pub(crate) fn compile_try(
             }
             .into_spanned(call.head),
         )?;
+        builder.end_try()?;
+        builder.push(Instruction::EndFinally.into_spanned(call.head))?;
     }
+
+    builder.set_label(end_label, builder.here())?;
 
     Ok(())
 }
@@ -874,6 +915,8 @@ pub(crate) fn compile_while(
         io_reg,
     )?;
 
+    // Collect the condition first, as `if` does, so a failing command in it reports its own error.
+    builder.push(Instruction::Collect { src_dst: io_reg }.into_spanned(cond_arg.span))?;
     builder.branch_if(io_reg, true_label, call.head)?;
     builder.add_comment("while");
     builder.jump(loop_.break_label, call.head)?;
@@ -932,11 +975,6 @@ pub(crate) fn compile_for(
         keyword: "for".into(),
         span: call.head,
     };
-
-    if call.get_named_arg("numbered").is_some() {
-        // This is deprecated and we don't support it.
-        return Err(invalid());
-    }
 
     let (var_decl_arg, in_arg, block_arg) = Some(call.positional_iter())
         .and_then(|mut iter| Some((iter.next()?, iter.next()?, iter.next()?)))
@@ -1034,9 +1072,6 @@ pub(crate) fn compile_break(
         });
     }
     builder.load_empty(io_reg)?;
-    for _ in 0..builder.context_stack.try_block_depth_from_loop() {
-        builder.push(Instruction::PopErrorHandler.into_spanned(call.head))?;
-    }
     builder.push_break(call.head)?;
     builder.add_comment("break");
     Ok(())
@@ -1058,9 +1093,6 @@ pub(crate) fn compile_continue(
         });
     }
     builder.load_empty(io_reg)?;
-    for _ in 0..builder.context_stack.try_block_depth_from_loop() {
-        builder.push(Instruction::PopErrorHandler.into_spanned(call.head))?;
-    }
     builder.push_continue(call.head)?;
     builder.add_comment("continue");
     Ok(())

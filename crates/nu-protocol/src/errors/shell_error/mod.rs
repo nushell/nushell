@@ -15,6 +15,7 @@ use std::{error::Error as StdError, num::NonZeroI32, sync::Arc};
 use thiserror::Error;
 
 pub mod bridge;
+pub mod eval_block_with_input;
 pub mod generic;
 pub mod io;
 pub mod job;
@@ -476,21 +477,37 @@ pub enum ShellError {
         span: Span,
     },
 
-    /// This environment variable cannot be set manually.
+    /// This environment variable cannot be changed manually.
     ///
     /// ## Resolution
     ///
-    /// This environment variable is set automatically by Nushell and cannot not be set manually.
-    #[error("{envvar_name} cannot be set manually.")]
+    /// This environment variable is set automatically by Nushell and cannot be set manually or hidden.
+    #[error("'{}' cannot be changed manually.", .envvar_name.to_ascii_uppercase())]
     #[diagnostic(
         code(nu::shell::automatic_env_var_set_manually),
         help(
-            "The environment variable '{envvar_name}' is set automatically by Nushell and cannot be set manually."
+            "The environment variable '{}' is set automatically by Nushell and cannot be changed manually.",
+            .envvar_name.to_ascii_uppercase()
         )
     )]
     AutomaticEnvVarSetManually {
         envvar_name: String,
-        #[label("cannot set '{envvar_name}' manually")]
+        #[label("cannot change '{}' manually", .envvar_name.to_ascii_uppercase())]
+        span: Span,
+    },
+
+    /// The config environment variable cannot be hidden.
+    ///
+    /// ## Resolution
+    ///
+    /// Assign a new record to `$env.config` instead of hiding it.
+    #[error("'config' cannot be hidden.")]
+    #[diagnostic(
+        code(nu::shell::cannot_hide_config_env_var),
+        help("Assign a new record to `$env.config` instead of hiding it.")
+    )]
+    CannotHideConfigEnvVar {
+        #[label("cannot hide 'config'")]
         span: Span,
     },
 
@@ -562,15 +579,15 @@ pub enum ShellError {
         span: Span,
     },
 
-    /// You attempted to access an index when it's empty.
+    /// You attempted to access a value from empty content.
     ///
     /// ## Resolution
     ///
-    /// Check your lengths and try again.
-    #[error("Row number too large (empty content).")]
-    #[diagnostic(code(nu::shell::access_beyond_end))]
+    /// Check that the content is not empty and try again.
+    #[error("Cannot access empty content.")]
+    #[diagnostic(code(nu::shell::access_empty_content))]
     AccessEmptyContent {
-        #[label = "index too large (empty content)"]
+        #[label = "content is empty"]
         span: Span,
     },
 
@@ -651,7 +668,9 @@ pub enum ShellError {
     ///
     /// ## Resolution
     ///
-    /// Check the record to ensure you aren't reusing the same field name
+    /// Check the record to ensure you aren't reusing the same field name. A record literal can't
+    /// contain the same key twice, including keys brought in with `...`. To replace a field, use
+    /// `merge` or `update`.
     #[error("Record field or table column used twice: {col_name}")]
     #[diagnostic(code(nu::shell::column_defined_twice))]
     ColumnDefinedTwice {
@@ -660,6 +679,10 @@ pub enum ShellError {
         second_use: Span,
         #[label = "field first defined here"]
         first_use: Span,
+        /// Set by record literals when a spread is involved, see
+        /// [`ShellError::RECORD_SPREAD_DUPLICATE_HELP`].
+        #[help]
+        help: Option<String>,
     },
 
     /// Attempted to create a record from different number of columns and values
@@ -1060,21 +1083,6 @@ pub enum ShellError {
     },
 
     /// This is a generic error type used for different situations.
-    #[error("{error}")]
-    #[diagnostic(code(nu::shell::error))]
-    #[deprecated(since = "0.111.1", note = "use `ShellError::Generic` instead")]
-    GenericError {
-        error: String,
-        msg: String,
-        #[label("{msg}")]
-        span: Option<Span>,
-        #[help]
-        help: Option<String>,
-        #[related]
-        inner: Vec<ShellError>,
-    },
-
-    /// This is a generic error type used for different situations.
     #[error(transparent)]
     #[diagnostic(transparent)]
     Generic(#[from] generic::GenericError),
@@ -1145,16 +1153,13 @@ pub enum ShellError {
         span: Span,
     },
 
-    // It should be only used by commands accepts block, and accept inputs from pipeline.
-    /// Failed to eval block with specific pipeline input.
-    #[error("Eval block failed with pipeline input")]
-    #[diagnostic(code(nu::shell::eval_block_with_input))]
-    EvalBlockWithInput {
-        #[label("source value")]
-        span: Span,
-        #[related]
-        sources: Vec<ShellError>,
-    },
+    /// A closure failed while running on one pipeline input value.
+    ///
+    /// Reports as the closure's error, with an extra label at the input value.
+    /// See [`EvalBlockWithInputError`](eval_block_with_input::EvalBlockWithInputError).
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    EvalBlockWithInput(eval_block_with_input::EvalBlockWithInputError),
 
     /// Break event, which may become an error if used outside of a loop
     #[error("Break used outside of loop")]
@@ -1197,11 +1202,11 @@ pub enum ShellError {
     )]
     Exit { code: i32, abort: bool },
 
-    /// The code being executed called itself too many times.
+    /// The code being executed nested custom command or closure calls too deeply.
     ///
     /// ## Resolution
     ///
-    /// Adjust your Nu code to
+    /// Adjust your Nu code to recurse less deeply, or raise `$env.config.recursion_limit`.
     #[error("Recursion limit ({recursion_limit}) reached")]
     #[diagnostic(code(nu::shell::recursion_limit_reached))]
     RecursionLimitReached {
@@ -1311,17 +1316,6 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
     NotAConstHelp {
         #[label("This command cannot run at parse time.")]
         span: Span,
-    },
-
-    #[error("{deprecation_type} deprecated.")]
-    #[diagnostic(code(nu::shell::deprecated), severity(Warning))]
-    DeprecationWarning {
-        deprecation_type: &'static str,
-        suggestion: String,
-        #[label("{suggestion}")]
-        span: Span,
-        #[help]
-        help: Option<&'static str>,
     },
 
     /// Invalid glob pattern
@@ -1487,15 +1481,31 @@ On Windows, this would be %USERPROFILE%\AppData\Roaming"#
 }
 
 impl ShellError {
+    /// Help for [`ShellError::ColumnDefinedTwice`] when a record literal spreads in a key that is
+    /// already present, or redefines a key that a spread brought in.
+    pub const RECORD_SPREAD_DUPLICATE_HELP: &'static str = "A record literal can't contain the same key twice, including keys brought in with `...`. To replace a field, use `merge` or `update`.";
+
     pub fn external_exit_code(&self) -> Option<Spanned<i32>> {
         let (item, span) = match *self {
             Self::NonZeroExitCode { exit_code, span } => (exit_code.into(), span),
             #[cfg(unix)]
             Self::TerminatedBySignal { signal, span, .. }
             | Self::CoreDumped { signal, span, .. } => (-signal, span),
+            // Reports as the closure's error, so it carries that error's exit code too.
+            Self::EvalBlockWithInput(ref err) => return err.error.external_exit_code(),
             _ => return None,
         };
         Some(Spanned { item, span })
+    }
+
+    /// Whether this error comes from an interrupt: ctrl-c, or an external process ended by a
+    /// signal.
+    pub fn is_interrupt(&self) -> bool {
+        #[cfg(unix)]
+        if matches!(self, Self::TerminatedBySignal { .. }) {
+            return true;
+        }
+        matches!(self, Self::Interrupted { .. })
     }
 
     pub fn exit_code(&self) -> Option<i32> {

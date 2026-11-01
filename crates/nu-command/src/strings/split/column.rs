@@ -1,5 +1,6 @@
 use fancy_regex::{Regex, escape};
 use nu_engine::command_prelude::*;
+use std::collections::HashMap;
 
 use super::split;
 
@@ -170,15 +171,16 @@ impl Command for SplitColumn {
     fn run_const(
         &self,
         working_set: &StateWorkingSet,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let separator: Spanned<String> = call.req_const(working_set, 0)?;
-        let rest: Vec<Spanned<String>> = call.rest_const(working_set, 1)?;
-        let collapse_empty = call.has_flag_const(working_set, "collapse-empty")?;
-        let max_split: Option<usize> = call.get_flag_const(working_set, "number")?;
-        let split_from_right = call.has_flag_const(working_set, "right")?;
-        let has_regex = call.has_flag_const(working_set, "regex")?;
+        let separator: Spanned<String> = call.req_const(working_set, stack, 0)?;
+        let rest: Vec<Spanned<String>> = call.rest_const(working_set, stack, 1)?;
+        let collapse_empty = call.has_flag_const(working_set, stack, "collapse-empty")?;
+        let max_split: Option<usize> = call.get_flag_const(working_set, stack, "number")?;
+        let split_from_right = call.has_flag_const(working_set, stack, "right")?;
+        let has_regex = call.has_flag_const(working_set, stack, "regex")?;
 
         let args = Arguments {
             separator,
@@ -207,6 +209,7 @@ fn split_column(
     input: PipelineData,
     args: Arguments,
 ) -> Result<PipelineData, ShellError> {
+    check_duplicate_columns(&args.rest)?;
     let name_span = call.head;
     let pattern = if args.has_regex {
         std::borrow::Cow::Borrowed(args.separator.item.as_str())
@@ -301,6 +304,22 @@ fn split_column_helper(
             }
         }
     }
+}
+
+/// Reject repeated column names, pointing at both uses.
+fn check_duplicate_columns(rest: &[Spanned<String>]) -> Result<(), ShellError> {
+    let mut seen = HashMap::new();
+    for col in rest {
+        if let Some(prev_span) = seen.insert(&col.item, col.span) {
+            return Err(ShellError::ColumnDefinedTwice {
+                col_name: col.item.clone(),
+                second_use: col.span,
+                first_use: prev_span,
+                help: None,
+            });
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]

@@ -1,13 +1,15 @@
 use itertools::Itertools;
 use nu_cmd_base::hook::eval_hook;
-use nu_engine::{command_prelude::*, env_to_strings};
+use nu_engine::{command_prelude::*, env_to_strings, eval_ir_call};
 use nu_path::{AbsolutePath, dots::expand_ndots_safe, expand_tilde};
 use nu_protocol::{
-    ByteStream, NuGlob, OutDest, Signals, UseAnsiColoring, did_you_mean,
+    ByteStream, DeclId, NuGlob, OutDest, Signals, UseAnsiColoring, did_you_mean, ir,
     process::{ChildProcess, PostWaitCallback},
     shell_error::io::IoError,
 };
-use nu_system::{ForegroundChild, kill_by_pid, prepare_background_command};
+use nu_system::ForegroundChild;
+#[cfg(unix)]
+use nu_system::prepare_background_command;
 use nu_utils::IgnoreCaseExt;
 use pathdiff::diff_paths;
 #[cfg(windows)]
@@ -15,10 +17,10 @@ use std::os::windows::process::CommandExt;
 use std::{
     borrow::Cow,
     ffi::{OsStr, OsString},
-    io::Write,
+    fs::File,
+    io::{BufRead, BufReader, Read, Write},
     path::{Path, PathBuf},
     process::Stdio,
-    sync::Arc,
     thread,
 };
 
@@ -173,7 +175,7 @@ If you create a custom command with this name, that will be used instead."
         let mut command = std::process::Command::new(&executable);
 
         // Configure PWD.
-        command.current_dir(cwd);
+        command.current_dir(&cwd);
 
         // Configure environment variables.
         let envs = env_to_strings(engine_state, stack)?;
@@ -266,7 +268,6 @@ If you create a custom command with this name, that will be used instead."
                 // MCP and background completions must not inherit the live terminal.
                 if engine_state.is_mcp || stack.suppress_stdin {
                     command.stdin(Stdio::null());
-                    prepare_background_command(&mut command);
                 } else {
                     command.stdin(Stdio::inherit());
                 }
@@ -278,38 +279,66 @@ If you create a custom command with this name, that will be used instead."
             }
         };
 
+        // Detach even when stdin is a pipe of candidates (`ls | fzf`). Otherwise
+        // the child keeps `/dev/tty` and races reedline from a completion thread.
+        #[cfg(unix)]
+        if engine_state.is_mcp || stack.suppress_stdin {
+            prepare_background_command(&mut command);
+        }
+
         // Log the command we're about to run in case it's useful for debugging purposes.
         log::trace!("run-external spawning: {command:?}");
 
         // Spawn the child process. On Unix, also put the child process to
         // foreground if we're in an interactive session.
-        #[cfg(windows)]
-        let child = ForegroundChild::spawn(command);
-        #[cfg(unix)]
-        let child = ForegroundChild::spawn(
-            command,
-            // `suppress_stdin` children are already detached; do not also take
-            // the foreground pgrp from the completion thread.
-            engine_state.is_interactive && !stack.suppress_stdin,
-            engine_state.is_background_job(),
-            &engine_state.pipeline_externals_state,
-        );
+        let spawn = || {
+            #[cfg(windows)]
+            {
+                ForegroundChild::spawn_with_job_control(
+                    command,
+                    engine_state.is_background_job(),
+                    engine_state.is_mcp || stack.suppress_stdin,
+                )
+            }
+            #[cfg(unix)]
+            {
+                ForegroundChild::spawn(
+                    command,
+                    // `suppress_stdin` children are already detached; do not also take
+                    // the foreground pgrp from the completion thread.
+                    engine_state.is_interactive && !stack.suppress_stdin,
+                    engine_state.is_background_job(),
+                    &engine_state.pipeline_externals_state,
+                )
+            }
+        };
+        let child = if let Some(thread_job) = engine_state.current_thread_job() {
+            thread_job.try_spawn(spawn)
+        } else {
+            spawn().map(Some)
+        };
 
-        let mut child = child.map_err(|err| {
-            let context = format!("Could not spawn foreground child: {err}");
-            IoError::new_internal(err, context)
-        })?;
-
-        if let Some(thread_job) = engine_state.current_thread_job()
-            && !thread_job.try_add_pid(child.pid())
-        {
-            kill_by_pid(child.pid().into()).map_err(|err| {
-                ShellError::Io(IoError::new_internal(
+        let mut child = child
+            .map_err(|err| -> ShellError {
+                // `which` found the executable, so "not found" here means that something the OS
+                // needs to start it is missing. Only Unix has shebang lines, and if the
+                // executable was removed since `which` found it, the path is what is missing.
+                if cfg!(unix) && err.kind() == std::io::ErrorKind::NotFound && executable.exists() {
+                    return ShellError::ExternalCommand {
+                        label: format!("`{name_str}` exists but could not be started"),
+                        help: start_failure_help(&executable, &cwd, &err),
+                        span: call.head,
+                    };
+                }
+                IoError::new_with_additional_context(
                     err,
-                    "Could not spawn external stdin worker",
-                ))
-            })?;
-        }
+                    call.head,
+                    Some(executable.clone()),
+                    "Could not start the external command",
+                )
+                .into()
+            })?
+            .ok_or(ShellError::Interrupted { span: call.head })?;
 
         // If we need to copy data into the child process, do it now.
         if let Some(data) = data_to_copy_into_stdin {
@@ -374,6 +403,11 @@ If you create a custom command with this name, that will be used instead."
                 result: None,
             },
         ]
+    }
+
+    // Like `^cmd`, the external command reads its input as text.
+    fn pipe_redirection(&self) -> (Option<OutDest>, Option<OutDest>) {
+        (Some(OutDest::PipeRaw), None)
     }
 }
 
@@ -510,11 +544,18 @@ fn write_pipeline_data(
         stack.start_collect_value();
 
         // Turn off color as we pass data through
-        Arc::make_mut(&mut engine_state.config).use_ansi_coloring = UseAnsiColoring::False;
+        let mut config = engine_state.get_config().as_ref().clone();
+        config.use_ansi_coloring = UseAnsiColoring::False;
+        engine_state.set_config(config);
 
         // Invoke the `table` command.
-        let output =
-            crate::Table.run(&engine_state, &mut stack, &Call::new(Span::unknown()), data)?;
+        let output = match engine_state.table_decl_id {
+            Some(decl_id) => {
+                let call = ir::Call::build(decl_id, Span::unknown()).finish();
+                eval_ir_call(&engine_state, &mut stack, &call, data)?
+            }
+            None => data,
+        };
 
         // Write the output.
         for value in output {
@@ -525,6 +566,35 @@ fn write_pipeline_data(
         }
     }
     Ok(())
+}
+
+/// Explains why an `executable` that exists could not be started, given the "not found" `err`
+/// from spawning it.
+///
+/// If its first line is a shebang (`#!`) that names an interpreter that doesn't exist, that is
+/// the interpreter to blame. Otherwise a file it needs, such as a shared library or its program
+/// loader, is missing.
+fn start_failure_help(executable: &Path, cwd: &AbsolutePath, err: &std::io::Error) -> String {
+    let shebang_interpreter = || {
+        let mut first_line = Vec::new();
+        BufReader::new(File::open(executable).ok()?.take(256))
+            .read_until(b'\n', &mut first_line)
+            .ok()?;
+        let first_line = String::from_utf8_lossy(&first_line).into_owned();
+        let interpreter = first_line.strip_prefix("#!")?.split_whitespace().next()?;
+        Some(interpreter.to_owned())
+    };
+
+    match shebang_interpreter() {
+        Some(interpreter) if !cwd.as_std_path().join(&interpreter).exists() => format!(
+            "`{}` starts with `#!{interpreter}`, but `{interpreter}` was not found ({err})",
+            executable.display()
+        ),
+        _ => format!(
+            "`{}` exists, but a file it needs to start, such as a shared library or its program loader, was not found ({err})",
+            executable.display()
+        ),
+    }
 }
 
 /// Returns a helpful error message given an invalid command name.
@@ -582,15 +652,6 @@ pub fn command_not_found(
         }
     }
 
-    // If the name is one of the removed commands, recommend a replacement.
-    if let Some(replacement) = crate::removed_commands().get(&name.to_lowercase()) {
-        return ShellError::RemovedCommand {
-            removed: name.to_lowercase(),
-            replacement: replacement.clone(),
-            span,
-        };
-    }
-
     // Making this a closure allows using return inside instead of nesting if-else's
     let help = (|| {
         // The command might be from another module. Try to find it.
@@ -610,11 +671,10 @@ pub fn command_not_found(
             );
         }
 
-        // Try to match the name with the search terms of existing commands.
-        let signatures = engine_state.get_signatures_and_declids(false);
+        let signatures = suggestion_signatures(engine_state, span);
+
         if let Some((last, others)) = signatures
             .iter()
-            .map(|(sig, _)| sig)
             .filter(|sig| {
                 let name = name.to_folded_case(); // do not allocate new strings in any()
                 sig.name
@@ -642,7 +702,7 @@ pub fn command_not_found(
         }
 
         // Try a fuzzy search on the names of all existing commands.
-        if let Some(cmd) = did_you_mean(signatures.iter().map(|(sig, _)| &sig.name), name) {
+        if let Some(cmd) = did_you_mean(signatures.iter().map(|sig| &sig.name), name) {
             // The user is invoking an external command with the same name as a
             // built-in command. Remind them of this.
             if cmd == name {
@@ -668,6 +728,29 @@ pub fn command_not_found(
         help,
         span,
     }
+}
+
+fn suggestion_signatures(engine_state: &EngineState, command_span: Span) -> Vec<Signature> {
+    fn suggestion_span(engine_state: &EngineState, decl_id: DeclId) -> Option<Span> {
+        let decl = engine_state.get_decl(decl_id);
+
+        decl.decl_span().or_else(|| {
+            let block_id = decl.block_id()?;
+            engine_state.get_block(block_id).span
+        })
+    }
+
+    engine_state
+        .get_signatures_and_declids(false)
+        .into_iter()
+        // Avoid suggesting commands declared after this command. When the declaration order
+        // can't be determined, keep the suggestion.
+        .filter(|(_, decl_id)| {
+            suggestion_span(engine_state, *decl_id)
+                .is_none_or(|sugg_span| sugg_span.start < command_span.start)
+        })
+        .map(|(sig, _)| sig)
+        .collect()
 }
 
 /// Searches for the absolute path of an executable by name. `.bat` and `.cmd`
@@ -838,15 +921,14 @@ mod background_isolation_tests {
     use std::process::{Command, Stdio};
 
     #[cfg(unix)]
-    #[test]
-    fn setsid_removes_controlling_terminal() {
+    fn assert_child_has_no_tty(stdin: Stdio) {
         let mut cmd = Command::new("sh");
         // Subshell so a failed redirect does not exit before the `||` branch.
         cmd.args([
             "-c",
             "(exec 3>/dev/tty) 2>/dev/null && echo has_tty || echo no_tty",
         ])
-        .stdin(Stdio::null())
+        .stdin(stdin)
         .stdout(Stdio::piped())
         .stderr(Stdio::null());
         prepare_background_command(&mut cmd);
@@ -857,6 +939,18 @@ mod background_isolation_tests {
             "no_tty",
             "child must not retain a controlling terminal after setsid"
         );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn setsid_removes_controlling_terminal() {
+        assert_child_has_no_tty(Stdio::null());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn setsid_removes_controlling_terminal_with_piped_stdin() {
+        assert_child_has_no_tty(Stdio::piped());
     }
 
     #[cfg(windows)]
