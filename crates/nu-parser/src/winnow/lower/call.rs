@@ -482,13 +482,28 @@ impl<'s> Lower<'_, '_, 's> {
                         // Read as `parse_value` reads it; for a multi-item shape, as
                         // `parse_multispan_value` reads the items it starts, as a positional
                         // (a keyword's: `try {} -- catch {} --`, `overlay use -- m --x`).
+                        // `let`'s variable gets the input, the call's output (`SpecialCmd::Let`).
+                        let positional_input = match special {
+                            Some(SpecialKeyword::Let)
+                                if matches!(shape, SyntaxShape::VarWithOptType) =>
+                            {
+                                output_override = input_type.cloned();
+                                input_type
+                            }
+                            _ => None,
+                        };
                         let value = if is_multispan_shape(&shape) {
                             let item = index - 1;
                             let end = item
                                 + self.multi_item_count(signature, arguments, item, positional_idx);
                             if end > item {
-                                let (value, next) =
-                                    self.multispan_value(arguments, item, end, &shape, None)?;
+                                let (value, next) = self.multispan_value(
+                                    arguments,
+                                    item,
+                                    end,
+                                    &shape,
+                                    positional_input,
+                                )?;
                                 index = next;
                                 value
                             } else {
@@ -780,8 +795,24 @@ impl<'s> Lower<'_, '_, 's> {
                 return Ok((self.reread(span, ItemsValue::Math, input_type)?, end));
             }
             // A keyword's argument, or shapes one of which is, read from the items there as
-            // from a positional's (`try {} -- catch {} --`: the last `--` is the `catch`).
+            // from a positional's (`try {} -- catch {} --`: the last `--` is the `catch`), and a
+            // variable (`let -- -- x`: the second `--` is no valid name).
             match shape {
+                SyntaxShape::VarWithOptType if arguments.get(index).is_some() => {
+                    let spans: Vec<Span> = arguments[..end]
+                        .iter()
+                        .map(|argument| self.span(argument.span()))
+                        .collect();
+                    let mut last = index;
+                    let (value, _) = parse_var_with_opt_type(
+                        self.working_set,
+                        &spans,
+                        &mut last,
+                        false,
+                        input_type,
+                    );
+                    return Ok((value, last + 1));
+                }
                 SyntaxShape::Keyword(keyword, value_shape) if arguments.get(index).is_some() => {
                     return self.keyword_value(
                         arguments,

@@ -117,6 +117,12 @@ const MODULE_STATEMENT_KEYWORDS: &[&[u8]] = &[
     b"export-env",
 ];
 
+/// The items after `export` that `parse_export_in_module` gives a parse function of its own;
+/// any other is its error.
+const EXPORTED_KEYWORDS: &[&[u8]] = &[
+    b"def", b"extern", b"alias", b"use", b"module", b"const", b"type",
+];
+
 impl<'s> Lower<'_, '_, 's> {
     /// A statement lowered, or parsed by the classic parser from `span` when the lowering gives
     /// it back, added to `out`. The errors,
@@ -409,6 +415,26 @@ impl<'s> Lower<'_, '_, 's> {
                 else {
                     return Err(Unlowered::Error);
                 };
+                // `export` and an item that names nothing it exports (`export let x`): nu
+                // reports that item and makes the statement garbage (`parse_export_in_module`).
+                let words: Vec<Span> = tokens
+                    .iter()
+                    .filter(|token| token.contents != TokenContents::Comment)
+                    .map(|token| token.span)
+                    .collect();
+                if let [export, second, ..] = words.as_slice()
+                    && self.working_set.get_span_contents(*export) == b"export"
+                    && !EXPORTED_KEYWORDS.contains(&self.working_set.get_span_contents(*second))
+                {
+                    self.working_set.error(ParseError::Expected(
+                        "def, alias, use, module, const, extern or type keyword",
+                        *second,
+                    ));
+                    return Ok(Pipeline::from_vec(vec![Expression::garbage(
+                        self.working_set,
+                        parts,
+                    )]));
+                }
                 if MODULE_STATEMENT_KEYWORDS.contains(&self.working_set.get_span_contents(first)) {
                     return Err(Unlowered::Unsupported("module statement"));
                 }

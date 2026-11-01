@@ -769,6 +769,10 @@ fn failing_call_through_an_alias_of_a_keyword(
     &[("Expected", "{ 1 }"), ("IncompleteMathExpression", "{ 1 }"), ("IncompleteMathExpression", "{ 1 }"), ("Expected", "+")]
 )]
 #[case::match_with_an_extra_argument("match 1 { _ => 1 } extra", &[("ExtraPositional", "extra")])]
+#[case::condition_over_lines_in_parentheses(
+    "(if true\n1 + 1)",
+    &[("Expected", "1"), ("IncompleteMathExpression", "1"), ("Expected", "1")]
+)]
 #[case::range_bound_string("(1)abc..5", &[("OperatorUnsupportedType", "..")])]
 #[case::keyword_after_end_of_options(
     "try {} -- catch {} --",

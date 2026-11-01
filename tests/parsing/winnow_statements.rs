@@ -3139,6 +3139,10 @@ fn failing_definition_keeps_its_comment(#[case] code: &str) -> Result {
     "module m {\n  @example \"x\" { 1 }\n  export\n}",
     &[("MissingPositional", "")]
 )]
+#[case::export_of_no_definition(
+    "module m {\n  export let x\n}",
+    &[("Expected", "let")]
+)]
 #[case::pipeline(
     "module m {\n  ls | each {}\n}",
     &[("Expected", "\n  ls | each {}\n")]
@@ -3184,6 +3188,45 @@ fn module_body_errors_are_lowered(#[case] code: &str, #[case] expected: &[(&str,
 #[serial]
 #[exp(nu_experimental::WINNOW_PARSER)]
 fn alias_of_a_keyword_or_an_expression_is_lowered(
+    #[case] code: &str,
+    #[case] expected: &[(&str, &str)],
+) -> Result {
+    let expected: Vec<(String, String)> = expected
+        .iter()
+        .map(|(kind, text)| (kind.to_string(), text.to_string()))
+        .collect();
+    assert_eq!(
+        super::winnow_calls::lowered_errors(code),
+        expected,
+        "`{code}`"
+    );
+    Ok(())
+}
+
+/// Bindings nu reads as their keyword's call, lowered with nu's errors: no name (a call missing
+/// it), a name that is no variable's without a value, a type marker without a type
+/// (`MissingType`), redirections a lone `let` takes as its items (its `=` value then a math
+/// expression with an operator that is none), and a second `--` where the name goes.
+#[rstest]
+#[case::let_alone("let", &[("MissingPositional", "")])]
+#[case::mut_alone("mut", &[("MissingPositional", "")])]
+#[case::const_alone("const", &[("MissingPositional", "")])]
+#[case::let_before_a_pipe("let | each {|e| $e }", &[("MissingPositional", "")])]
+#[case::invalid_name("let x-y", &[("Expected", "x-y")])]
+#[case::quoted_name("let 'x'", &[("VariableNotValid", "'x'")])]
+#[case::missing_type("let x:", &[("MissingType", "x:")])]
+#[case::two_redirections(
+    "let x o> f e> g",
+    &[("ExpectedKeyword", "o>"), ("Expected", "e>"), ("IncompleteMathExpression", "e>")]
+)]
+#[case::second_end_of_options(
+    "let -- -- x",
+    &[("Expected", "--"), ("ExpectedKeyword", "x"), ("KeywordMissingArgument", "")]
+)]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn binding_read_as_its_call_is_lowered(
     #[case] code: &str,
     #[case] expected: &[(&str, &str)],
 ) -> Result {

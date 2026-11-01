@@ -107,20 +107,23 @@ fn parse_binding<'a>(mut tokens: Tokens<'_, 'a>, kind: BindingKind) -> ParseResu
         working_set.add_ignored(marker.span);
         tokens.next_token();
     }
+    // No name (`let`, `let | each {..}`): nu's call to the keyword, missing its name
+    // (MissingPositional), which the consumer reports.
     let name_token = match tokens.peek_token() {
         Some(token) if token.contents == TokenContents::Item => *token,
-        _ => return Err(cut(Diagnostic::expected("variable name", tokens.here()))),
+        _ => {
+            let missing = Diagnostic::expected("variable name", tokens.here());
+            return call_after_error(statement, cut(missing), parse_help_call);
+        }
     };
     tokens.next_token();
     let name_text = working_set.get_span_contents(name_token.span);
     let (name, typed) = match parse_var_with_opt_type(working_set, &name_token) {
         Ok(parsed) => parsed,
-        // nu reports an untyped name it refuses in a binding (`let $x-y = 1`, `let 'a b' = 1`,
-        // `let -- x = 1`) and goes on with garbage for the variable, as the consumer does: the
-        // error is recorded as recovered and the name kept as written.
-        Err(ErrMode::Cut(ParseFailure::Error(diagnostic)))
-            if binds && !name_text.ends_with(':') =>
-        {
+        // nu reports an untyped name it refuses (`let $x-y = 1`, `let 'a b' = 1`,
+        // `let -- x = 1`, `let x-y`) and goes on with garbage for the variable, as the consumer
+        // does: the error is recorded as recovered and the name kept as written.
+        Err(ErrMode::Cut(ParseFailure::Error(diagnostic))) if !name_text.ends_with(':') => {
             working_set.error(diagnostic.as_recovered());
             (Spanned::new(name_text, name_token.span), false)
         }
@@ -167,6 +170,12 @@ fn parse_binding<'a>(mut tokens: Tokens<'_, 'a>, kind: BindingKind) -> ParseResu
                 }
             }
         }
+    }
+    // `let x:` without `=`: nu's call, whose variable misses its type (MissingType), which
+    // the consumer reports.
+    if typed && equals.is_none() && tokens.position() == equals_index {
+        let missing = Diagnostic::expected("type after `:`", name_token.span.past());
+        return call_after_error(statement, cut(missing), parse_help_call);
     }
     let ty = parse_type_after_var(
         working_set,

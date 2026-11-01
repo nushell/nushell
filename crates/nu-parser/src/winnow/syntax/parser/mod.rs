@@ -56,7 +56,7 @@ use std::collections::HashSet;
 use std::hash::{BuildHasherDefault, Hasher};
 use std::sync::Arc;
 
-use crate::winnow::syntax::ast::{Ast, Block, Expression};
+use crate::winnow::syntax::ast::{Ast, Block, Expr, Expression};
 use crate::winnow::syntax::error::Diagnostic;
 use crate::winnow::syntax::lex::{LexOptions, TokenContents};
 use crate::winnow::syntax::span::Span;
@@ -387,14 +387,24 @@ pub(crate) fn parse_items<'a>(
 ) -> Option<Expression<'a>> {
     let working_set = WorkingSet::with_lookup(source, span, lookup);
     let mut tokens = working_set.lex(span, LexOptions::BLOCK).ok()?;
-    if value == ItemsValue::AliasTarget {
-        // As `parse_alias` hands an alias's target to the call parser.
-        for token in &mut tokens {
-            if token.contents != TokenContents::Eof {
-                token.contents = TokenContents::Item;
+    for token in &mut tokens {
+        let is_item = match value {
+            // As `parse_alias` hands an alias's target to the call parser.
+            ItemsValue::AliasTarget => token.contents != TokenContents::Eof,
+            // The items were a call's, which nu reads as words: a redirection operator among
+            // them (a lone `let` takes its redirections as its own items) is one.
+            ItemsValue::Math | ItemsValue::RowCondition => {
+                matches!(token.contents, TokenContents::Redirection(_))
             }
+        };
+        if is_item {
+            token.contents = TokenContents::Item;
         }
     }
+    let items = tokens
+        .iter()
+        .filter(|token| token.contents == TokenContents::Item)
+        .count();
     let tokens = tokens::Tokens::from_lexed(&working_set, &tokens);
     let parsed = match value {
         ItemsValue::Math => parse_expressions::parse_math_expression(tokens),
@@ -413,9 +423,18 @@ pub(crate) fn parse_items<'a>(
         }
         ItemsValue::AliasTarget => errors.is_empty(),
     };
-    parsed
+    let parsed = parsed
         .ok()
-        .filter(|expression| expression.span == span && recovered)
+        .filter(|expression| expression.span == span && recovered);
+    // Math items the parser cannot read to their end (`true 1 +`, the condition of `if true 1 +
+    // 1`) are a garbage leaf, which the consumer reads again with nu's math parser, as nu reads
+    // those very items (`parse_multispan_value`), reporting its errors with what it recovers.
+    match parsed {
+        None if value == ItemsValue::Math && items > 1 => {
+            Some(Expression::new(Expr::Garbage, span))
+        }
+        parsed => parsed,
+    }
 }
 
 /// The arms of the `{ ... }` covering `span` of `source`, which a call's arguments read as a
