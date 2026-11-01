@@ -947,6 +947,9 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
                                 let code = failed.into();
                                 stack.set_last_exit_code(code, Span::unknown());
                             }
+                            Err(ShellError::Exit { code, .. }) => {
+                                line_editor = cleanup_exit(line_editor, engine_state, code);
+                            }
                             Err(err) => {
                                 report_shell_error(Some(&stack), engine_state, &err);
                                 stack.set_last_error(&err);
