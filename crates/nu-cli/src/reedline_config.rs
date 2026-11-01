@@ -1,23 +1,23 @@
 use crate::{
-    menus::{MenuLine, NuMenuCompleter, SourceMode, SourcedMenu},
     NuHelpCompleter,
+    menus::{MenuLine, NuMenuCompleter, SourceMode, SourcedMenu},
 };
 use crossterm::event::{KeyCode, KeyModifiers};
 use nu_ansi_term::Style;
 use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
 use nu_protocol::{
+    Config, EditBindings, ParsedKeybinding, ParsedMenu, Record, ShellError, Span, Type, Value,
     engine::{Closure, EngineState, Stack},
-    extract_value, Config, EditBindings, ParsedKeybinding, ParsedMenu, Record, ShellError, Span,
-    Type, Value,
+    extract_value,
 };
 use reedline::{
-    default_emacs_keybindings, default_vi_insert_keybindings, default_vi_normal_keybindings,
-    default_vi_visual_keybindings, ColumnarMenu, DescriptionMenu, DescriptionMode,
-    DescriptionPosition, Direction, EditCommand, EditCommandDiscriminants, FindStop, Granularity,
-    IdeMenu, InputMode, Keybindings, ListMenu, Menu, MenuBuilder, MotionTarget, OutputMode,
-    PromptEditMode, PromptEditModeDiscriminants, PromptHelixMode, PromptViMode, Reedline,
-    ReedlineEvent, ReedlineEventDiscriminants, ReedlineMenu, TextObject, TextObjectBracket,
-    TextObjectQuote, TextObjectScope, TextObjectType, TraversalDirection, WordEdge, WordKind,
+    ColumnarMenu, DescriptionMenu, DescriptionMode, DescriptionPosition, Direction, EditCommand,
+    EditCommandDiscriminants, FindStop, Granularity, IdeMenu, InputMode, Keybindings, ListMenu,
+    Menu, MenuBuilder, MotionTarget, OutputMode, PromptEditMode, PromptEditModeDiscriminants,
+    PromptHelixMode, PromptViMode, Reedline, ReedlineEvent, ReedlineEventDiscriminants,
+    ReedlineMenu, TextObject, TextObjectBracket, TextObjectQuote, TextObjectScope, TextObjectType,
+    TraversalDirection, WordEdge, WordKind, default_emacs_keybindings,
+    default_vi_insert_keybindings, default_vi_normal_keybindings, default_vi_visual_keybindings,
 };
 use reedline::{
     default_helix_insert_keybindings, default_helix_normal_keybindings,
@@ -2158,11 +2158,13 @@ mod test {
     // would silently do nothing, so it is refused at config time.
     #[test]
     fn test_edit_remove_text_object_needs_a_single_pair() {
-        assert!(parse_edit(record! {
-            "edit" => Value::test_string("RemoveTextObject"),
-            "object_type" => Value::test_string("brackets"),
-        })
-        .is_err());
+        assert!(
+            parse_edit(record! {
+                "edit" => Value::test_string("RemoveTextObject"),
+                "object_type" => Value::test_string("brackets"),
+            })
+            .is_err()
+        );
     }
 
     #[test]
