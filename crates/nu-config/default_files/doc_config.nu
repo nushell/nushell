@@ -172,6 +172,10 @@ $env.config.edit_mode = "emacs"
 # Default: null
 $env.config.buffer_editor = null
 
+# Arguments support {file}, {line}, and {col} placeholders, e.g. ["hx", "{file}:{line}:{col}"].
+# Positions are one-based; `config nu` and `config env` use line 1, column 1.
+# The file path is appended unless an argument contains {file} or is the exact path.
+#
 # Example: Setting buffer_editor with arguments as a list:
 # $env.config.buffer_editor = ["emacsclient", "-s", "light", "-t"]
 

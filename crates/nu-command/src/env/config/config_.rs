@@ -84,7 +84,10 @@ pub(super) fn start_editor(
         ConfigFileKind::Config => engine_state.config_dirs.config_file.as_path(),
         ConfigFileKind::Env => engine_state.config_dirs.env_file.as_path(),
     };
-    let config_path = config_path.to_string_lossy().to_string();
+
+    let mut editor_command = std::process::Command::new(&editor_executable);
+    editor_command.args(editor_args);
+    let editor_command = reedline::EditorCommand::new(editor_command);
 
     // Create the command.
     let mut command = std::process::Command::new(editor_executable);
@@ -97,9 +100,8 @@ pub(super) fn start_editor(
     command.env_clear();
     command.envs(envs);
 
-    // Configure args.
-    command.args(editor_args);
-    command.arg(config_path);
+    let args = editor_command.render(config_path, 1, 1);
+    command.args(args);
 
     // Spawn the child process. On Unix, also put the child process to
     // foreground if we're in an interactive session.
