@@ -705,3 +705,80 @@ fn keyword_command_argument_errors_are_reported_and_lowered(
     assert_eq!(lowered_errors(code), expected, "`{code}`");
     Ok(())
 }
+
+/// A call through an alias of `if`, `match` or `try` that the keyword's own parser can't read is
+/// read as a call to the alias, as nu reads it: the errors of that call, reported twice as for
+/// any statement whose first word names an alias (see [`argument_error_is_reported_and_lowered`]),
+/// and no stack overflow, which reading it with the keyword's parser again gave.
+#[rstest]
+#[case::if_without_arguments("alias i = if; i", &[("MissingPositional", ""), ("MissingPositional", "")])]
+#[case::if_without_block("alias i = if; i true", &[("MissingPositional", ""), ("MissingPositional", "")])]
+#[case::if_else_without_value(
+    "alias i = if; i true {} else",
+    &[("KeywordMissingArgument", ""), ("KeywordMissingArgument", "")]
+)]
+#[case::match_without_block(
+    "alias m = match; m 1",
+    &[("MissingPositional", ""), ("MissingPositional", "")]
+)]
+#[case::try_catch_without_handler(
+    "alias t = try; t {} catch",
+    &[("KeywordMissingArgument", ""), ("KeywordMissingArgument", "")]
+)]
+#[case::help("alias i = if; i --help", &[])]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn failing_call_through_an_alias_of_a_keyword(
+    #[case] code: &str,
+    #[case] expected: &[(&str, &str)],
+) -> Result {
+    let expected: Vec<(String, String)> = expected
+        .iter()
+        .map(|(kind, text)| (kind.to_string(), text.to_string()))
+        .collect();
+    assert_eq!(lowered_errors(code), expected, "`{code}`");
+    Ok(())
+}
+
+/// Items nu reads again as one value and reports errors in, with what it recovers: a math
+/// expression after a dash item read as an unknown flag, an item where an operator goes, a range
+/// bound that is no number, a keyword's argument after `--`, a match block read as a call's
+/// argument, an unclosed raw string. All lowered, not handed to the classic parser.
+#[rstest]
+#[case::if_condition_after_a_flag(
+    "if -1 > 0 { }",
+    &[("UnknownFlag", "1"), ("Expected", "0"), ("IncompleteMathExpression", "0"), ("IncompleteMathExpression", "0")]
+)]
+#[case::where_condition_after_a_flag(
+    "where -1 > 0",
+    &[("UnknownFlag", "1"), ("Expected", "0"), ("IncompleteMathExpression", "0"), ("IncompleteMathExpression", "0")]
+)]
+#[case::if_as_an_operand(
+    "1 + if true { 1 } +",
+    &[("Expected", "{ 1 }"), ("IncompleteMathExpression", "{ 1 }"), ("IncompleteMathExpression", "{ 1 }"), ("Expected", "+")]
+)]
+#[case::match_with_an_extra_argument("match 1 { _ => 1 } extra", &[("ExtraPositional", "extra")])]
+#[case::range_bound_string("(1)abc..5", &[("OperatorUnsupportedType", "..")])]
+#[case::keyword_after_end_of_options(
+    "try {} -- catch {} --",
+    &[("ExpectedKeyword", "--"), ("KeywordMissingArgument", "")]
+)]
+#[case::unclosed_raw_string(
+    "r#abc",
+    &[("Expected", "a"), ("Unclosed", "r#"), ("Expected", "abc"), ("IncompleteMathExpression", "abc"), ("IncompleteMathExpression", "abc")]
+)]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn values_read_again_with_errors_are_lowered(
+    #[case] code: &str,
+    #[case] expected: &[(&str, &str)],
+) -> Result {
+    let expected: Vec<(String, String)> = expected
+        .iter()
+        .map(|(kind, text)| (kind.to_string(), text.to_string()))
+        .collect();
+    assert_eq!(lowered_errors(code), expected, "`{code}`");
+    Ok(())
+}

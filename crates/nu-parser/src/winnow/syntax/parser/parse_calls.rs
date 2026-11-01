@@ -47,6 +47,13 @@ pub fn parse_call<'a>(tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
     parse_call_lenient(tokens, false)
 }
 
+/// [`parse_call`], where a call through an alias of `if`, `match` or `try` is only a call: what
+/// a keyword's parser reads the statement as when it gives up (`parse_help_call`), so that a
+/// call through the alias (`alias zz = if; zz`) is not handed back to that parser.
+pub fn parse_plain_call<'a>(tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
+    parse_call_with(tokens, false, false)
+}
+
 /// A call whose head is its first word even where a longer command name starts with it: nu
 /// picks `run` by its first word wherever it reads a command (`HeadKind::Run`), and `source`,
 /// `source-env` and `hide` at the start of a statement (`parse_builtin_commands`).
@@ -62,11 +69,21 @@ pub fn parse_first_word_call<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expr
 }
 
 /// [`parse_call`]; with `lenient` set (an alias target) a call through an
-/// alias of `if`, `match` or `try` is only a call, and `hide`'s members
+/// alias of `if`, `match` or `try` is only a call ([`parse_plain_call`]), and `hide`'s members
 /// are not checked.
 pub fn parse_call_lenient<'a>(
+    tokens: Tokens<'_, 'a>,
+    lenient: bool,
+) -> ParseResult<Expression<'a>> {
+    parse_call_with(tokens, lenient, !lenient)
+}
+
+/// [`parse_call_lenient`]; with `keyword_alias` a call through an alias of `if`, `match` or
+/// `try` is that keyword's statement.
+fn parse_call_with<'a>(
     mut tokens: Tokens<'_, 'a>,
     lenient: bool,
+    keyword_alias: bool,
 ) -> ParseResult<Expression<'a>> {
     let working_set = tokens.working_set;
     let statement = tokens;
@@ -90,7 +107,7 @@ pub fn parse_call_lenient<'a>(
         }
         // `alias m = match`: a call to it is that keyword's statement, the alias in the
         // keyword's place (an alias target, `alias m2 = m`, is only a call).
-        Some(DeclKind::KeywordAlias(keyword)) if !lenient && head.span == first.span => {
+        Some(DeclKind::KeywordAlias(keyword)) if keyword_alias && head.span == first.span => {
             return match keyword {
                 AliasedKeyword::If => parse_if(statement),
                 AliasedKeyword::Match => parse_match(statement),

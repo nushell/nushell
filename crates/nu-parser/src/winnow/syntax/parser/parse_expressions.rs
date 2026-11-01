@@ -557,7 +557,10 @@ pub fn parse_math_expression<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expr
                 return Err(ErrMode::Cut(ParseFailure::Error(diagnostic)));
             };
             let span = first.span.merge(last.span);
-            let relexed = working_set.lex(span, LexOptions::SUBEXPRESSION).ok();
+            // nu's math parser reads the items its lexer gives, past an error (`r#abc`).
+            let relexed = working_set
+                .lex_lenient(span, LexOptions::SUBEXPRESSION)
+                .ok();
             let same_items = relexed.is_some_and(|relexed| {
                 let mut relexed = relexed.iter().filter(|token| {
                     !matches!(token.contents, TokenContents::Comment | TokenContents::Eof)

@@ -403,7 +403,33 @@ pub(crate) fn parse_items<'a>(
             parse_expressions::parse_expression(tokens, parse_expressions::Position::Element)
         }
     };
+    // In a math expression or a row condition, a diagnostic the parser went on past leaves a
+    // garbage node, which the consumer reads again with nu's math parser, reporting nu's error
+    // (an item where an operator goes, `> 0`). An alias's target nu reads otherwise.
+    let errors = working_set.take_errors_from(0);
+    let recovered = match value {
+        ItemsValue::Math | ItemsValue::RowCondition => {
+            errors.iter().all(|diagnostic| diagnostic.recovered)
+        }
+        ItemsValue::AliasTarget => errors.is_empty(),
+    };
     parsed
         .ok()
-        .filter(|expression| expression.span == span && working_set.error_count() == 0)
+        .filter(|expression| expression.span == span && recovered)
+}
+
+/// The arms of the `{ ... }` covering `span` of `source`, which a call's arguments read as a
+/// block (`match 1 { _ => 1 } extra`, a `match` whose extra argument makes it an ordinary call),
+/// parsed again as the match block nu's value parser reads there
+/// (`parse_match_block_expression`), with the commands `lookup` knows. `None` when the arms
+/// have an error, which the consumer leaves to nu's value parser, as for a match block the
+/// `match` statement could not read ([`parse_control_flow`]'s `garbage_match_block`).
+pub(crate) fn parse_match_arms<'a>(
+    source: &'a str,
+    span: Span,
+    lookup: impl CommandLookup + 'a,
+) -> Option<Vec<crate::winnow::syntax::ast::MatchArm<'a>>> {
+    let working_set = WorkingSet::with_lookup(source, span, lookup);
+    let arms = parse_expressions::parse_match_block_expression(&working_set, span).ok()?;
+    (working_set.error_count() == 0).then_some(arms)
 }

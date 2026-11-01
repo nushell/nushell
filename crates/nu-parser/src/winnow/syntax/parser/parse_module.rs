@@ -209,7 +209,13 @@ fn is_module_item(expr: &Expression<'_>) -> bool {
         | Expr::ExportEnv(_)
         | Expr::Const(_) => true,
         Expr::Call(call) => MODULE_KEYWORDS.contains(&call.head.name.as_ref()),
-        Expr::AttributeBlock(attribute_block) => is_module_item(&attribute_block.item),
+        // Attributes before anything but a definition: their block with garbage for the
+        // statement, its error recorded as recovered, which nu's module parser reports too
+        // (`parse_attribute_block`).
+        Expr::AttributeBlock(attribute_block) => {
+            matches!(attribute_block.item.expr, Expr::Garbage)
+                || is_module_item(&attribute_block.item)
+        }
         _ => false,
     }
 }

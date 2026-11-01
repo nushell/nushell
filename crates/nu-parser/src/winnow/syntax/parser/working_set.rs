@@ -296,6 +296,20 @@ impl<'a> WorkingSet<'a> {
         Ok(lexed.tokens)
     }
 
+    /// The tokens of the text of `span`, lexed as by [`WorkingSet::lex_block`] but with the
+    /// errors nu's lexer goes on past dropped: the items nu's parser reads there again (it
+    /// takes the tokens of its `lex` whatever error it returns).
+    pub fn lex_lenient(&self, span: Span, options: LexOptions) -> Result<Vec<Token>, Diagnostic> {
+        lex::lex_recovering(
+            self.get_span_contents(span),
+            span.start,
+            options,
+            usize::MAX,
+            &mut self.groups.borrow_mut(),
+        )
+        .map(|lexed| lexed.tokens)
+    }
+
     /// The first error nu's lexer reports and goes on past in the text of `span`, for a block
     /// there: the first [`WorkingSet::lex_block`] found in a token within it. nu lexes a
     /// block's text again for its statements (`let x = "a` reports the open quote of the file

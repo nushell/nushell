@@ -388,25 +388,7 @@ impl<'s> Lower<'_, '_, 's> {
             let block = self.reported_value(value_block, &SyntaxShape::MatchBlock, arms_input)?;
             self.positional_value(block, &SyntaxShape::MatchBlock)
         } else {
-            let mut arms = Vec::with_capacity(match_expr.arms.len());
-            let mut output = Type::one_of([]);
-            for arm in &match_expr.arms {
-                let (pattern, result) = self.in_scope(|this| {
-                    let mut pattern = this.pattern(&arm.pattern)?;
-                    if let Some(guard) = &arm.guard {
-                        pattern.guard = Some(Box::new(this.math(guard, None)?));
-                    }
-                    let result = this.match_result(&arm.body, arms_input)?;
-                    Ok((pattern, result))
-                })?;
-                output = output.union(self.branch_type(&result, arms_input));
-                arms.push((pattern, result));
-            }
-            if !arms.iter().any(|(pattern, _)| pattern.is_wildcard()) {
-                output = output.union(Type::Nothing);
-            }
-            let block_span = self.span(match_expr.block_span);
-            self.node(Expr::MatchBlock(arms), block_span, output)
+            self.match_block(&match_expr.arms, match_expr.block_span, arms_input)?
         };
         // The call of `match` takes the type of its arms, not the signature's.
         let arms_output = block.ty.clone();
@@ -419,6 +401,37 @@ impl<'s> Lower<'_, '_, 's> {
         };
         let span = self.span(e.span);
         Ok(self.node(Expr::Call(Box::new(call)), span, output))
+    }
+
+    /// The `MatchBlock` of `arms`, the braces at `block_span` (`parse_match_block_expression`).
+    /// Each arm has a scope of its own, in which its pattern declares its variables before its
+    /// guard and its result are lowered; the results get `arms_input`. Its type is the union of
+    /// the arms' outputs, with `nothing` when no arm matches everything.
+    pub(super) fn match_block(
+        &mut self,
+        arms: &[w::MatchArm<'s>],
+        block_span: WSpan,
+        arms_input: Option<&Type>,
+    ) -> Lowered<Expression> {
+        let mut lowered = Vec::with_capacity(arms.len());
+        let mut output = Type::one_of([]);
+        for arm in arms {
+            let (pattern, result) = self.in_scope(|this| {
+                let mut pattern = this.pattern(&arm.pattern)?;
+                if let Some(guard) = &arm.guard {
+                    pattern.guard = Some(Box::new(this.math(guard, None)?));
+                }
+                let result = this.match_result(&arm.body, arms_input)?;
+                Ok((pattern, result))
+            })?;
+            output = output.union(self.branch_type(&result, arms_input));
+            lowered.push((pattern, result));
+        }
+        if !lowered.iter().any(|(pattern, _)| pattern.is_wildcard()) {
+            output = output.union(Type::Nothing);
+        }
+        let span = self.span(block_span);
+        Ok(self.node(Expr::MatchBlock(lowered), span, output))
     }
 
     /// A match arm's pattern, read by the classic pattern parser (`parse_pattern`), which also

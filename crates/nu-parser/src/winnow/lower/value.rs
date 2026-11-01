@@ -1,7 +1,7 @@
 //! Values: literals, strings, variables and cell paths, lists, tables, records, closures and
 //! blocks (the classic parser's `parse_value` and what it dispatches to).
 
-use std::sync::Arc;
+use std::{cell::RefCell, sync::Arc};
 
 use nu_protocol::{
     ParseError, PositionalArg, Signature, Span, SyntaxShape, Type, TypeSet,
@@ -10,7 +10,8 @@ use nu_protocol::{
 };
 
 use super::{BlockOf, Lower, Lowered, Unlowered};
-use crate::winnow::syntax::{Span as WSpan, ast as w};
+use crate::winnow::lookup::EngineLookup;
+use crate::winnow::syntax::{Span as WSpan, ast as w, parse_match_arms};
 use crate::{
     parse_calls::accepts_any_bareword,
     parse_captures_compile::compile_block,
@@ -303,7 +304,9 @@ impl<'s> Lower<'_, '_, 's> {
                 let members = self.members(&path.members);
                 Ok(self.node(Expr::CellPath(CellPath { members }), span, Type::CellPath))
             }
-            w::Expr::Range(_) => self.leaf(e, shape, false),
+            // nu reads an item starting with `$` or `(` as a value wherever it is
+            // (`is_math_expression_like`), so a bound's error stays (`$x..a`).
+            w::Expr::Range(_) => self.leaf(e, shape, true),
             w::Expr::Var(_) => self.full_cell_path(e.span, e, &[], input_type),
             w::Expr::FullCellPath(path) if !path.implicit_head => {
                 self.full_cell_path(e.span, &path.head, &path.tail, input_type)
@@ -315,7 +318,8 @@ impl<'s> Lower<'_, '_, 's> {
     /// An item starting with `(` (`parse_paren_expr`).
     fn paren(&mut self, e: &w::Expression<'s>, shape: &SyntaxShape) -> Lowered<Expression> {
         match &e.expr {
-            w::Expr::Range(_) => self.leaf(e, shape, false),
+            // As a range starting with `$` ([`Self::dollar`]): `(1)abc..5`.
+            w::Expr::Range(_) => self.leaf(e, shape, true),
             _ if matches!(
                 shape,
                 SyntaxShape::Signature | SyntaxShape::ExternalSignature
@@ -399,8 +403,23 @@ impl<'s> Lower<'_, '_, 's> {
                         Ok(Expression::garbage(self.working_set, span))
                     }
                     SyntaxShape::Block => self.block_expression(e.span, &closure.body, input_type),
+                    // Arms the winnow parser read as a block, the argument of a call that
+                    // reads it with the `match-block` shape (`match 1 { _ => 1 } extra`, which
+                    // its extra argument makes an ordinary call): read again as arms. Arms
+                    // with an error are nu's value parser's, as for a `match` statement.
                     SyntaxShape::MatchBlock if !has_params => {
-                        Err(Unlowered::Unsupported("match block value"))
+                        let cell = RefCell::new(&mut *self.working_set);
+                        let lookup = EngineLookup::new(&cell);
+                        let Some(arms) = parse_match_arms(self.source, e.span, lookup) else {
+                            let span = self.span(e.span);
+                            return Ok(classic_value(self.working_set, span, shape, input_type));
+                        };
+                        let mut working_set = cell.borrow_mut();
+                        let mut lower = Lower {
+                            working_set: &mut working_set,
+                            ..*self
+                        };
+                        lower.match_block(&arms, e.span, input_type)
                     }
                     SyntaxShape::Closure(_) | SyntaxShape::Any => {
                         self.closure(e.span, closure.params.as_ref(), &closure.body, shape, None)

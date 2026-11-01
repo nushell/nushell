@@ -462,10 +462,21 @@ impl<'s> Lower<'_, '_, 's> {
                     let span = self.span(*span);
                     if let Some(positional) = signature.get_positional(positional_idx) {
                         let shape = positional.shape.clone();
-                        // Read as `parse_value` reads it; a multi-item shape's error is the
-                        // classic parser's, which reads it with `parse_multispan_value`.
+                        // Read as `parse_value` reads it; for a multi-item shape, as
+                        // `parse_multispan_value` reads the items it starts, as a positional
+                        // (a keyword's: `try {} -- catch {} --`, `overlay use -- m --x`).
                         let value = if is_multispan_shape(&shape) {
-                            self.checked(|ws| classic_value(ws, span, &shape, None))?
+                            let item = index - 1;
+                            let end = item
+                                + self.multi_item_count(signature, arguments, item, positional_idx);
+                            if end > item {
+                                let (value, next) =
+                                    self.multispan_value(arguments, item, end, &shape, None)?;
+                                index = next;
+                                value
+                            } else {
+                                self.checked(|ws| classic_value(ws, span, &shape, None))?
+                            }
                         } else {
                             classic_value(self.working_set, span, &shape, None)
                         };
@@ -699,6 +710,24 @@ impl<'s> Lower<'_, '_, 's> {
             if arguments.get(index).is_some() && matches!(shape, SyntaxShape::MathExpression) {
                 let span = items_span(arguments, index, end);
                 return Ok((self.reread(span, ItemsValue::Math, input_type)?, end));
+            }
+            // A keyword's argument, or shapes one of which is, read from the items there as
+            // from a positional's (`try {} -- catch {} --`: the last `--` is the `catch`).
+            match shape {
+                SyntaxShape::Keyword(keyword, value_shape) if arguments.get(index).is_some() => {
+                    return self.keyword_value(
+                        arguments,
+                        index,
+                        end,
+                        keyword,
+                        value_shape,
+                        input_type,
+                    );
+                }
+                SyntaxShape::OneOf(shapes) if arguments.get(index).is_some() => {
+                    return self.multispan_one_of(arguments, index, end, shapes, input_type);
+                }
+                _ => {}
             }
             return Err(Unlowered::Unsupported("multi-item argument"));
         };

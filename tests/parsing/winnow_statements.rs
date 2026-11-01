@@ -3116,3 +3116,45 @@ fn failing_definition_keeps_its_comment(#[case] code: &str) -> Result {
     assert_eq!(decl.description(), "doc", "`{code}`");
     Ok(())
 }
+
+/// What nu's module parser reports in a module's body and makes garbage, lowered: attributes
+/// before anything but a definition (an `export alias` too) are their block with garbage for the
+/// statement, a lone `export` misses its keyword (with or without attributes, which it drops),
+/// and a pipeline of several commands is reported over the whole body.
+#[rstest]
+#[case::attributes_before_an_export_alias(
+    "module m {\n  @example \"x\" { 1 }\n  export alias y = ls\n}",
+    &[("AttributeRequiresDefinition", "example \"x\" { 1 }")]
+)]
+#[case::attributes_before_a_const(
+    "module m {\n  @example \"x\" { 1 }\n  const x = 1\n}",
+    &[("AttributeRequiresDefinition", "example \"x\" { 1 }")]
+)]
+#[case::attributes_alone(
+    "module m {\n  @example \"x\" { 1 }\n}",
+    &[("AttributeRequiresDefinition", "example \"x\" { 1 }")]
+)]
+#[case::lone_export("module m {\n  export\n}", &[("MissingPositional", "")])]
+#[case::attributes_before_a_lone_export(
+    "module m {\n  @example \"x\" { 1 }\n  export\n}",
+    &[("MissingPositional", "")]
+)]
+#[case::pipeline(
+    "module m {\n  ls | each {}\n}",
+    &[("Expected", "\n  ls | each {}\n")]
+)]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn module_body_errors_are_lowered(#[case] code: &str, #[case] expected: &[(&str, &str)]) -> Result {
+    let expected: Vec<(String, String)> = expected
+        .iter()
+        .map(|(kind, text)| (kind.to_string(), text.to_string()))
+        .collect();
+    assert_eq!(
+        super::winnow_calls::lowered_errors(code),
+        expected,
+        "`{code}`"
+    );
+    Ok(())
+}

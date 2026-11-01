@@ -20,7 +20,7 @@ use crate::winnow::syntax::lex::{Token, TokenContents};
 use crate::winnow::syntax::span::Span;
 
 use super::WorkingSet;
-use super::parse_calls::parse_call;
+use super::parse_calls::parse_plain_call;
 use super::parse_expressions::{
     BraceShape, ExpectedShape, brace_shape, is_typed_record, parse_block_body, parse_brace_record,
     parse_value,
@@ -392,7 +392,7 @@ pub fn parse_help_call<'a>(statement: Tokens<'_, 'a>) -> ParseResult<Expression<
         .iter()
         .any(|token| matches!(token.contents, TokenContents::AssignmentOperator(_)))
     {
-        return parse_call(statement);
+        return parse_plain_call(statement);
     }
     let items: Vec<Token> = remaining
         .iter()
@@ -404,7 +404,7 @@ pub fn parse_help_call<'a>(statement: Tokens<'_, 'a>) -> ParseResult<Expression<
             _ => *token,
         })
         .collect();
-    parse_call(Tokens::new(working_set, &items, statement.end_span().start))
+    parse_plain_call(Tokens::new(working_set, &items, statement.end_span().start))
 }
 
 /// A `{` item where a keyword wants a block or a closure (`what`) but nu

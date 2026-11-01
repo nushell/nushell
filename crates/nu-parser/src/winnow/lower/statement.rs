@@ -184,8 +184,15 @@ impl<'s> Lower<'_, '_, 's> {
         module: &mut Module,
         span: Span,
     ) -> Lowered<Pipeline> {
+        // A pipeline of several commands is reported over the whole body, which it makes
+        // garbage, as nu does (`parse_module_pipeline`).
         let [element] = pipeline.elements.as_slice() else {
-            return Err(Unlowered::Error);
+            self.working_set
+                .error(ParseError::Expected("not a pipeline", span));
+            return Ok(Pipeline::from_vec(vec![Expression::garbage(
+                self.working_set,
+                span,
+            )]));
         };
         let (command, attributes) = match &element.expr.expr {
             w::Expr::AttributeBlock(block) => (&*block.item, block.attributes.as_slice()),
@@ -371,11 +378,19 @@ impl<'s> Lower<'_, '_, 's> {
                     }
                     expression
                 }
+                // Attributes before an export of anything but a definition: their block, with
+                // garbage for the export, which exports nothing (`parse_export_in_module`).
+                _ if !attributes.is_empty() => {
+                    self.attributes_without_definition(command, attributes)?
+                }
                 _ => return Err(Unlowered::Unsupported("export in a module")),
             },
             // Any other statement nu reports at its first item and makes garbage over its
             // parts, assignment operators included (`parse_module_pipeline`), reading nothing
             // of it; a statement with one of its keywords first is its parse function's.
+            // A lone `export`, with attributes before it or not: nu reads it as an export
+            // (by its first word), which misses its keyword (`parse_export_in_module`).
+            _ if self.text(command.span) == "export" => self.lone_export(command.span),
             _ if attributes.is_empty() => {
                 // The command's items as the lite parser grouped them, from the first to the
                 // last: `let x o> f` is `let x`, `^ls o>` all of it.
@@ -404,9 +419,24 @@ impl<'s> Lower<'_, '_, 's> {
                 ));
                 Expression::garbage(self.working_set, parts)
             }
-            _ => return Err(Unlowered::Unsupported("module statement")),
+            // Attributes before any other statement: their block, with garbage for the
+            // statement (`parse_module_pipeline` reads them before its keywords).
+            _ => self.attributes_without_definition(command, attributes)?,
         };
         Ok(Pipeline::from_vec(vec![expression]))
+    }
+
+    /// A lone `export` in a module's body, at `span` (`parse_export_in_module`): the keyword
+    /// after it is missing, and the word is garbage; attributes before it are dropped.
+    fn lone_export(&mut self, span: WSpan) -> Expression {
+        const KEYWORDS: &str = "def, alias, use, module, const, extern or type keyword";
+        let span = self.span(span);
+        self.working_set.error(ParseError::MissingPositional(
+            KEYWORDS.into(),
+            Span::new(span.end, span.end),
+            KEYWORDS.into(),
+        ));
+        Expression::garbage(self.working_set, span)
     }
 
     /// `export alias name = target` in a module's body (`parse_export_in_module`): the alias,
