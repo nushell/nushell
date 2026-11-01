@@ -19,7 +19,7 @@ use crate::winnow::syntax::span::{Span, Spanned};
 
 use super::WorkingSet;
 use super::parse_control_flow::{parse_if, parse_match, parse_try};
-use super::parse_expressions::{ExpectedShape, parse_value};
+use super::parse_expressions::{ExpectedShape, parse_value, recover_literal};
 use super::parse_helpers::is_spread;
 use super::parse_literals::{parse_raw_string, parse_string, unescape_string};
 use super::parse_module::parse_import_pattern_member;
@@ -545,7 +545,11 @@ fn parse_external_call<'a>(first: Token, tokens: Tokens<'_, 'a>) -> ParseResult<
     // `^` alone parses in nu (and fails at run time), so the head may be empty.
     let head = match working_set.get_span_contents(head_span).as_bytes().first() {
         Some(b'$' | b'(') => parse_value(working_set, head_span, ExpectedShape::Any)?,
-        Some(_) => parse_external_string(working_set, head_span)?,
+        Some(_) => recover_literal(
+            working_set,
+            head_span,
+            parse_external_string(working_set, head_span),
+        )?,
         None => Expression::new(Expr::String(StringLiteral::bare("")), head_span),
     };
     parse_external_arguments(Some(caret), head, tokens)
@@ -599,7 +603,9 @@ fn parse_external_arg<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResu
     match working_set.get_span_contents(span).as_bytes()[0] {
         b'[' => parse_external_list_argument(working_set, span),
         b'$' | b'(' | b'{' => parse_value(working_set, span, ExpectedShape::Any),
-        _ => parse_external_string(working_set, span),
+        // A word with a delimiter left open (`foo(`): nu reports it and goes on with what its
+        // parser reads, and so does the consumer, which reads the word again.
+        _ => recover_literal(working_set, span, parse_external_string(working_set, span)),
     }
 }
 

@@ -319,7 +319,7 @@ pub(crate) fn parse<'a>(source: &'a str, config: &ParseConfig) -> (Ast<'a>, Vec<
             working_set.error(diagnostic);
             Block {
                 span: whole_source,
-                pipelines: Vec::new(),
+                ..Block::default()
             }
         }
     };

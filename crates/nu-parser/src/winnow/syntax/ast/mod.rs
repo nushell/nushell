@@ -85,6 +85,18 @@ pub struct Block<'a> {
     pub span: Span,
     /// The pipelines, in order.
     pub pipelines: Vec<Pipeline<'a>>,
+    /// The errors nu reports for a block with no pipeline to carry them (`(|)`, `let a = |`),
+    /// which the block's first and last pipelines carry otherwise.
+    pub without_pipelines: Option<Box<BlockErrors>>,
+}
+
+/// The lexer and lite-parse errors of a block with no pipeline ([`Block::without_pipelines`]).
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
+pub struct BlockErrors {
+    /// The block's first lexer error ([`Block::lex_error`]).
+    pub lex_error: Option<BlockLexError>,
+    /// The block's lite-parse error ([`Block::lite_error`]).
+    pub lite_error: Option<LiteError>,
 }
 
 impl Pipeline<'_> {
@@ -100,7 +112,16 @@ impl Block<'_> {
     /// reports before the block's statements' errors. The block's first pipeline carries it
     /// ([`Pipeline::lex_error`]), so that a block, which expressions hold, stays small.
     pub fn lex_error(&self) -> Option<&BlockLexError> {
-        self.pipelines.first()?.lex_error.as_deref()
+        match self.pipelines.first() {
+            Some(first) => first.lex_error.as_deref(),
+            None => self.without_pipelines.as_ref()?.lex_error.as_ref(),
+        }
+    }
+
+    /// The lite-parse error nu reports for the block before its statements' errors when no
+    /// pipeline carries it ([`Block::without_pipelines`]).
+    pub fn lite_error_without_pipelines(&self) -> Option<LiteError> {
+        self.without_pipelines.as_ref()?.lite_error
     }
 }
 

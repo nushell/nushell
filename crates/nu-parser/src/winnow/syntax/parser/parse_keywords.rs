@@ -430,7 +430,7 @@ pub fn parse_block_or_value_argument<'a>(
             Ok((
                 Block {
                     span: token.span,
-                    pipelines: Vec::new(),
+                    ..Block::default()
                 },
                 Some(Box::new(value)),
             ))
@@ -458,7 +458,7 @@ pub fn parse_block_or_value_argument<'a>(
             Ok((
                 Block {
                     span: token.span,
-                    pipelines: Vec::new(),
+                    ..Block::default()
                 },
                 Some(Box::new(value)),
             ))

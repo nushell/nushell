@@ -1,8 +1,8 @@
 //! Blocks, pipelines and pipeline elements (nu-parser's `parse_pipelines.rs`).
 
 use crate::winnow::syntax::ast::{
-    AttributeBlock, Block, BlockLexError, Comment, Expr, Expression, LiteError, Pipeline,
-    PipelineElement, PipelineRedirection, RedirectionTarget,
+    AttributeBlock, Block, BlockErrors, BlockLexError, Comment, Expr, Expression, LiteError,
+    Pipeline, PipelineElement, PipelineRedirection, RedirectionTarget,
 };
 use crate::winnow::syntax::error::{Diagnostic, ErrorKind};
 use crate::winnow::syntax::input::{ParseResult, cut, into_diagnostic};
@@ -74,7 +74,7 @@ pub fn parse_block_lexed_from<'a>(
     let defers = working_set.defers_command_changing_blocks();
     let unparsed = Block {
         span,
-        pipelines: Vec::new(),
+        ..Block::default()
     };
     if defers && changes_commands(working_set, tokens.all()) {
         return unparsed;
@@ -102,25 +102,31 @@ pub fn parse_block_lexed_from<'a>(
         working_set.take_errors_from(errors);
         return unparsed;
     }
+    // With no pipeline to carry them (`(|)`), the block carries its errors itself.
+    let mut without_pipelines = BlockErrors::default();
     if let Some(error) = lex_error {
+        let error = BlockLexError {
+            error,
+            lexed_from: lexed.start,
+        };
         match pipelines.first_mut() {
-            Some(first) => {
-                first.lex_error = Some(Box::new(BlockLexError {
-                    error,
-                    lexed_from: lexed.start,
-                }));
-            }
-            // No pipeline to carry it: the block is no consumer's.
-            None => working_set.error(error.diagnostic()),
+            Some(first) => first.lex_error = Some(Box::new(error)),
+            None => without_pipelines.lex_error = Some(error),
         }
     }
     if let Some(error) = missing_end {
         match pipelines.last_mut() {
             Some(last) => last.lite_error = Some(Box::new(error)),
-            None => working_set.error(lite_diagnostic(error)),
+            None => without_pipelines.lite_error = Some(error),
         }
     }
-    Block { span, pipelines }
+    let without_pipelines =
+        (without_pipelines != BlockErrors::default()).then(|| Box::new(without_pipelines));
+    Block {
+        span,
+        pipelines,
+        without_pipelines,
+    }
 }
 
 /// Whether a statement of the block lexed as `tokens` may change which commands exist for the

@@ -328,8 +328,9 @@ impl<'s> Lower<'_, '_, 's> {
         input_type: Option<&Type>,
     ) -> Lowered<Expression> {
         // No right side (`$x =`), which nu reports: a `BinaryOp` with a garbage right side,
-        // the left side unchecked.
-        if assignment.rhs.pipelines.is_empty() {
+        // the left side unchecked. (A right side with no pipeline but its own error, `$x = |`,
+        // is one.)
+        if assignment.rhs.pipelines.is_empty() && assignment.rhs.without_pipelines.is_none() {
             let operator_span = self.span(assignment.op.span);
             self.working_set.error(ParseError::Expected(
                 "right hand side of assignment",

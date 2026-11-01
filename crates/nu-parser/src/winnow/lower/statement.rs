@@ -1107,7 +1107,9 @@ impl<'s> Lower<'_, '_, 's> {
         // when it parsed this block as part of its statement: the block is parsed again, one
         // statement at a time, as a file is. The winnow parser leaves such a block unparsed,
         // empty (`CommandLookup::defers_command_changing_blocks`).
-        let unparsed = block.pipelines.is_empty() && !self.text(block.span).trim().is_empty();
+        let unparsed = block.pipelines.is_empty()
+            && block.without_pipelines.is_none()
+            && !self.text(block.span).trim().is_empty();
         if unparsed || block.pipelines.iter().any(changes_commands) {
             let inner = self.span(block.span);
             let kind = BlockKind::Block {
@@ -1147,7 +1149,8 @@ impl<'s> Lower<'_, '_, 's> {
                     .pipelines
                     .iter()
                     .find_map(|pipeline| pipeline.lite_error())
-            });
+            })
+            .or_else(|| block.lite_error_without_pipelines());
         if let Some(error) = lite_error {
             let error = self.lite_parse_error(error);
             block_errors.lite_error(self.working_set, error);

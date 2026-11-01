@@ -1597,7 +1597,7 @@ impl<'s> Lower<'_, '_, 's> {
             },
             _ => {
                 let span = self.span(value.span);
-                self.checked(|ws| parse_regular_external_arg(ws, span))
+                Ok(parse_regular_external_arg(self.working_set, span))
             }
         }
     }
@@ -1670,13 +1670,14 @@ impl<'s> Lower<'_, '_, 's> {
             return Err(Unlowered::Unsupported("unresolved command"));
         };
         let head_span = self.span(*first);
-        let head = self.checked(|ws| parse_external_string(ws, head_span))?;
+        let head = parse_external_string(self.working_set, head_span);
         let mut arguments = Vec::with_capacity(rest.len() + call.arguments.len());
         for word in rest {
             let span = self.span(*word);
-            arguments.push(ExternalArgument::Regular(
-                self.checked(|ws| parse_regular_external_arg(ws, span))?,
-            ));
+            arguments.push(ExternalArgument::Regular(parse_regular_external_arg(
+                self.working_set,
+                span,
+            )));
         }
         for argument in &call.arguments {
             arguments.push(self.call_argument_as_external(argument)?);
@@ -1700,15 +1701,17 @@ impl<'s> Lower<'_, '_, 's> {
             }
             w::Argument::Named(flag) => {
                 let span = self.span(flag.span);
-                Ok(ExternalArgument::Regular(
-                    self.checked(|ws| parse_regular_external_arg(ws, span))?,
-                ))
+                Ok(ExternalArgument::Regular(parse_regular_external_arg(
+                    self.working_set,
+                    span,
+                )))
             }
             w::Argument::EndOfOptions(span) => {
                 let span = self.span(*span);
-                Ok(ExternalArgument::Regular(
-                    self.checked(|ws| parse_regular_external_arg(ws, span))?,
-                ))
+                Ok(ExternalArgument::Regular(parse_regular_external_arg(
+                    self.working_set,
+                    span,
+                )))
             }
             w::Argument::Spread { expr, .. } => Ok(ExternalArgument::Spread(self.value(
                 expr,

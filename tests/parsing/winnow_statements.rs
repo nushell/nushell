@@ -3564,6 +3564,16 @@ fn alias_of_an_assignment_is_lowered(
 #[case::caret_external_open_quote("^\"foo", &[("Unclosed", "o")])]
 #[case::assignment_without_a_left_side("= ls", &[("Expected", "=")])]
 #[case::alias_of_an_assignment_without_a_left_side("alias x = = ls", &[])]
+#[case::external_word_open_paren(
+    "^echo foo(",
+    &[("Unclosed", "("), ("Unclosed", "("), ("Unclosed", "")]
+)]
+#[case::external_word_dash_subexpression("^echo -$s -($s)", &[("VariableNotFound", "$s")])]
+#[case::subexpression_of_a_lone_pipe("let a = (|)", &[("UnexpectedEof", "|")])]
+#[case::binding_value_of_a_lone_pipe(
+    "mut a = |",
+    &[("UnexpectedEof", "|"), ("UnexpectedEof", "|")]
+)]
 #[case::attributes_before_a_definition_call(
     "@example \"x\" { f }\ndef f [a, a] { 1 }",
     &[("MissingPositional", ""), ("DuplicateParameter", "a")]

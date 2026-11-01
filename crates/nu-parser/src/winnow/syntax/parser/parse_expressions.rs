@@ -444,7 +444,7 @@ fn parse_assignment_expression<'a>(tokens: Tokens<'_, 'a>) -> ParseResult<Expres
         );
         let rhs = Block {
             span: operator_token.span.past(),
-            pipelines: Vec::new(),
+            ..Block::default()
         };
         let span = lhs.span.merge(operator_token.span);
         return Ok(Expression::new(
@@ -934,7 +934,7 @@ fn recover_as_garbage<T>(
 /// `r#'abc`): a garbage leaf over the item, its error recorded as recovered. nu's parser refuses
 /// the same item, or reads it as far as it goes, and reports it, which the consumer gets by
 /// reading the item again with it. Any other failure stays the statement's.
-fn recover_literal<'a>(
+pub(super) fn recover_literal<'a>(
     working_set: &WorkingSet<'a>,
     span: Span,
     result: ParseResult<Expression<'a>>,
