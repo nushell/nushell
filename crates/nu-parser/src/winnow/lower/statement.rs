@@ -552,14 +552,6 @@ impl<'s> Lower<'_, '_, 's> {
             [] => Err(Unlowered::Unsupported("empty pipeline")),
             [single] => self.builtin_commands(pipeline, single, input_type),
             [first, rest @ ..] => {
-                // Once `run` has parsed its script, nothing may hand the statement back (a
-                // later element could): only the last element is lowered as a `run`.
-                if pipeline.elements[..rest.len()]
-                    .iter()
-                    .any(|element| is_run_call(&element.expr))
-                {
-                    return Err(Unlowered::Unsupported("run before the end of a pipeline"));
-                }
                 // `parse_pipeline` reports each `while` or `loop` command before it parses the
                 // elements, at its first item after any environment shorthand.
                 for element in &pipeline.elements {
@@ -1414,16 +1406,6 @@ fn changes_commands(pipeline: &w::Pipeline<'_>) -> bool {
         .iter()
         .any(|element| matches!(element.expr.expr, w::Expr::Module(_) | w::Expr::Export(_)))
         || statement_changes_names(pipeline)
-}
-
-/// Whether `e` is a call to `run`, maybe after an environment shorthand, which
-/// `parse_run_expr` reads with its script.
-fn is_run_call(e: &w::Expression<'_>) -> bool {
-    match &e.expr {
-        w::Expr::Call(call) => call.sigil.is_none() && call.head.name == "run",
-        w::Expr::EnvShorthand(shorthand) => is_run_call(&shorthand.expr),
-        _ => false,
-    }
 }
 
 /// The `e>|` or `o+e>|` that ends `element`, if one does (alone, or after an `o> file`).

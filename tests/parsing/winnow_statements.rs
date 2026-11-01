@@ -902,20 +902,14 @@ fn keyword_in_a_pipeline_is_lowered(#[case] code: &str, #[case] command: &str) -
     Ok(())
 }
 
-/// A `run` before the end of a pipeline is left to the classic parser: once `finish_run` has
-/// parsed the script, a later element handed back would hand the whole statement back.
+/// A `run` before the end of a pipeline is lowered like any element: `finish_run` parses the
+/// script, and an element after it that the script's commands change is read again.
 #[test]
 #[serial]
 #[exp(nu_experimental::WINNOW_PARSER)]
-fn run_before_the_end_of_a_pipeline_is_handed_over() -> Result {
+fn run_before_the_end_of_a_pipeline_is_lowered() -> Result {
     let code = "run null | length";
-    let engine_state = test().engine_state;
-    let mut working_set = StateWorkingSet::new(&engine_state);
-    let before = nu_parser::winnow_stats();
-    nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
-    let after = nu_parser::winnow_stats();
-    assert_eq!(working_set.parse_errors, [], "`{code}`");
-    assert_eq!(after.classic_statements, before.classic_statements + 1);
+    assert_eq!(super::winnow_calls::lowered_errors(code), [], "`{code}`");
     Ok(())
 }
 

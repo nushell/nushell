@@ -372,6 +372,10 @@ pub(crate) enum ItemsValue {
     /// An alias's target read as the argument of `alias` (`parse_expression`), where every
     /// item is a word, pipes and redirections too.
     AliasTarget,
+    /// A pipeline element read again with the commands known now (`parse_expression`): one a
+    /// statement earlier in its pipeline changed the commands for (`run s.nu | cmd`, where the
+    /// script defines `cmd`).
+    Expression,
 }
 
 /// The items covering `span` of `source`, which a call's arguments read one at a time (`take
@@ -404,6 +408,7 @@ pub(crate) fn parse_items<'a>(
             // The items were a call's, which nu reads as words: a redirection operator among
             // them (a lone `let` takes its redirections as its own items) is one, and so are a
             // `|` and an assignment operator in an alias's target (`alias zz = let x = 300 |`).
+            ItemsValue::Expression => false,
             ItemsValue::Math | ItemsValue::RowCondition => matches!(
                 token.contents,
                 TokenContents::Redirection(_)
@@ -423,7 +428,7 @@ pub(crate) fn parse_items<'a>(
     let parsed = match value {
         ItemsValue::Math => parse_expressions::parse_math_expression(tokens),
         ItemsValue::RowCondition => parse_source::parse_condition(tokens),
-        ItemsValue::AliasTarget => {
+        ItemsValue::AliasTarget | ItemsValue::Expression => {
             parse_expressions::parse_expression(tokens, parse_expressions::Position::Element)
         }
     };

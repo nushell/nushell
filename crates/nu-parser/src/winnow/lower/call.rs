@@ -957,6 +957,11 @@ impl<'s> Lower<'_, '_, 's> {
         let Some(tree) = parse_items(self.source, span, EngineLookup::new(&cell), value) else {
             return Err(Unlowered::Error);
         };
+        // Read again for the commands known now, an element that is still an external call
+        // would be read again forever.
+        if value == ItemsValue::Expression && matches!(tree.expr, w::Expr::ExternalCall(_)) {
+            return Err(Unlowered::Error);
+        }
         let mut working_set = cell.borrow_mut();
         let mut lower = Lower {
             working_set: &mut working_set,
@@ -965,14 +970,15 @@ impl<'s> Lower<'_, '_, 's> {
             row_var: self.row_var,
             // Items read as an expression are `parse_expression`'s, which picks a statement or
             // `run` by its first word wherever it reads one, an alias's target too.
-            alias_target: self.alias_target && value != ItemsValue::AliasTarget,
+            alias_target: self.alias_target
+                && !matches!(value, ItemsValue::AliasTarget | ItemsValue::Expression),
             drops_errors: self.drops_errors,
             redirection_spans: Vec::new(),
         };
         match value {
             ItemsValue::Math => lower.math(&tree, input_type),
             ItemsValue::RowCondition => lower.row_condition(&tree),
-            ItemsValue::AliasTarget => lower.expression(&tree, input_type),
+            ItemsValue::AliasTarget | ItemsValue::Expression => lower.expression(&tree, input_type),
         }
     }
 
@@ -1498,6 +1504,7 @@ impl<'s> Lower<'_, '_, 's> {
         &mut self,
         e: &w::Expression<'s>,
         call: &w::ExternalCall<'s>,
+        input_type: Option<&Type>,
     ) -> Lowered<Expression> {
         // `%name` naming no built-in command, which `parse_call` reports at the name and reads
         // as an external call of the items after the `%`.
@@ -1517,11 +1524,11 @@ impl<'s> Lower<'_, '_, 's> {
             && name.quote == w::Quote::Bare
             && let Some(decl_id) = self.working_set.find_decl(name.value.as_bytes())
         {
-            // A known name here is an alias of an external command; any other command resolved
-            // differently for the winnow parser, which made an external call, so the classic
-            // parser decides.
+            // A known name here is an alias of an external command; any other command is one
+            // the statement declared after the winnow parser read it (`run s.nu | cmd`): the
+            // element is read again with the commands known now.
             let Some(alias) = self.working_set.get_decl(decl_id).as_alias() else {
-                return Err(Unlowered::Unsupported("external call to a known command"));
+                return self.reread(e.span, ItemsValue::Expression, input_type);
             };
             let Expr::ExternalCall(alias_head, alias_args) = &alias.wrapped_call.expr else {
                 return Err(Unlowered::Unsupported("external call to an alias"));
