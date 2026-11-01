@@ -249,8 +249,8 @@ $env.config.hinter.closure = null
 
 # status_line (record): A line under the one being edited that comments on it
 # as you type. It is hidden in history search and erased when the line runs.
-# It is drawn in the `hints` color with errors in red, or plain when
-# `use_ansi_coloring` is false.
+# It is drawn in `color_config.status_line` with errors in
+# `color_config.status_line_error`, or plain when `use_ansi_coloring` is false.
 # status_line.enable (bool): Show the status line at all. false turns off every
 # part below.
 # Default: true
@@ -1266,6 +1266,15 @@ $env.config.color_config.block = "default"
 # color_config.hints: Style for inline completion hints.
 # Default: dark_gray
 $env.config.color_config.hints = "dark_gray"
+
+# color_config.status_line: Style for the REPL's status line (see
+# `status_line`). The parameter being typed is drawn in it, bold and underlined.
+# Default: the `hints` style, when not set
+$env.config.color_config.status_line = $env.config.color_config.hints
+
+# color_config.status_line_error: Style for an error on the REPL's status line.
+# Default: red
+$env.config.color_config.status_line_error = "red"
 
 # color_config.search_result: Style for `find` command search result highlights.
 # Default: { bg: red, fg: default }

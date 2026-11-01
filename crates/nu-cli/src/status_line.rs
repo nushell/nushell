@@ -8,9 +8,10 @@ use crate::{
     validation::is_incomplete,
 };
 use miette::Diagnostic;
-use nu_ansi_term::{Color, Style};
+use nu_ansi_term::Style;
+use nu_color_config::StyleComputer;
 use nu_protocol::{
-    ParseError, PipelineData, Signals, Span, StatusLineConfig, Type, Value,
+    Config, ParseError, PipelineData, Signals, Span, StatusLineConfig, Type, Value,
     ast::{Block, Expr, Expression, Traverse},
     engine::{EngineState, StateDelta, StateWorkingSet},
     eval_const::eval_const_subexpression,
@@ -63,13 +64,32 @@ pub(crate) struct StatusStyles {
 }
 
 impl StatusStyles {
-    /// `hints` is the style of history hints, which the status line shares.
-    pub(crate) fn from_hint_style(hints: Style) -> Self {
+    /// The status line drawn in `text`, with the parameter the cursor is on
+    /// in bold and underlined, and errors in `error`.
+    pub(crate) fn new(text: Style, error: Style) -> Self {
         Self {
-            text: hints,
-            active: hints.bold().underline(),
-            error: Style::new().fg(Color::Red),
+            text,
+            active: text.bold().underline(),
+            error,
         }
+    }
+
+    /// The styles `color_config` sets: `status_line`, or `hints`, the style
+    /// of history hints, when it doesn't, and `status_line_error`, red unless
+    /// set.
+    pub(crate) fn from_config(
+        config: &Config,
+        style_computer: &StyleComputer,
+        hints: Style,
+    ) -> Self {
+        // Like `hints` closures, these only get `null` passed in.
+        let nothing = Value::nothing(Span::unknown());
+        let text = if config.color_config.contains_key("status_line") {
+            style_computer.compute("status_line", &nothing)
+        } else {
+            hints
+        };
+        Self::new(text, style_computer.compute("status_line_error", &nothing))
     }
 }
 
@@ -583,6 +603,8 @@ fn is_previewable(block: &Block, working_set: &StateWorkingSet) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use nu_ansi_term::Color;
+    use nu_protocol::{engine::Stack, record};
     use rstest::rstest;
 
     /// A status line over the default commands, with every part on, colored
@@ -594,7 +616,10 @@ mod tests {
             Arc::new(engine_state),
             LineParseCache::default(),
             config,
-            StatusStyles::from_hint_style(Style::new().fg(Color::DarkGray)),
+            StatusStyles::new(
+                Style::new().fg(Color::DarkGray),
+                Style::new().fg(Color::Red),
+            ),
         );
         status_line.preview.budget = Duration::from_secs(60);
         status_line
@@ -882,6 +907,55 @@ mod tests {
         let colored = draw(true);
         assert!(colored.contains('\x1b'));
         assert_eq!(strip_ansi_unlikely(&colored), format!("  {plain}"));
+    }
+
+    /// The styles of a `color_config` holding only `entries`, as a theme
+    /// that replaces it does, with history hints in cyan.
+    fn styles_from(entries: &[(&str, Value)]) -> StatusStyles {
+        let config = Config {
+            color_config: entries
+                .iter()
+                .map(|(key, value)| (key.to_string(), value.clone()))
+                .collect(),
+            ..Config::default()
+        };
+        let mut engine_state = EngineState::new();
+        engine_state.set_config(config);
+        let stack = Stack::new();
+        let style_computer = StyleComputer::from_config(&engine_state, &stack);
+        let hints = Style::new().fg(Color::Cyan);
+        StatusStyles::from_config(engine_state.get_config(), &style_computer, hints)
+    }
+
+    #[test]
+    fn styles_come_from_color_config() {
+        let error = record! {
+            "fg" => Value::test_string("yellow"),
+            "attr" => Value::test_string("b"),
+        };
+        let styles = styles_from(&[
+            ("status_line", Value::test_string("blue")),
+            ("status_line_error", Value::test_record(error)),
+        ]);
+
+        assert_eq!(styles.text, Style::new().fg(Color::Blue));
+        assert_eq!(
+            styles.active,
+            Style::new().fg(Color::Blue).bold().underline()
+        );
+        assert_eq!(styles.error, Style::new().fg(Color::Yellow).bold());
+    }
+
+    #[test]
+    fn styles_not_set_are_the_hints_and_red() {
+        let styles = styles_from(&[]);
+
+        assert_eq!(styles.text, Style::new().fg(Color::Cyan));
+        assert_eq!(
+            styles.active,
+            Style::new().fg(Color::Cyan).bold().underline()
+        );
+        assert_eq!(styles.error, Style::new().fg(Color::Red));
     }
 
     #[rstest]

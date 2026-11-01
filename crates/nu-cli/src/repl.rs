@@ -788,7 +788,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
             engine_reference.clone(),
             parse_cache,
             config.status_line,
-            StatusStyles::from_hint_style(hint_style),
+            StatusStyles::from_config(&config, &style_computer, hint_style),
         )))
     } else {
         line_editor.disable_status_line()
