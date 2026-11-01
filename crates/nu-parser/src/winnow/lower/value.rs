@@ -11,7 +11,7 @@ use nu_protocol::{
 
 use super::{BlockOf, Lower, Lowered, Unlowered};
 use crate::winnow::lookup::EngineLookup;
-use crate::winnow::syntax::{Span as WSpan, ast as w, parse_match_arms};
+use crate::winnow::syntax::{Span as WSpan, ast as w, parse_braces_as_closure, parse_match_arms};
 use crate::{
     parse_calls::accepts_any_bareword,
     parse_captures_compile::compile_block,
@@ -370,13 +370,43 @@ impl<'s> Lower<'_, '_, 's> {
                 _ => self.record(e.span, items),
             },
             // A record starting with a spread is read as a record whatever the shape, unless the
-            // shape wants a closure or a block, which the lowering leaves to the classic parser.
+            // shape wants a closure or a block, which nu's value parser reads the braces as (`do
+            // {...$r}` calls `...$r`): read again so by the winnow parser. Braces that do not
+            // read so, and arms, are nu's value parser's.
             w::Expr::Record(items)
                 if matches!(items.first(), Some(w::RecordItem::Spread { .. })) =>
             {
                 match shape {
-                    SyntaxShape::Closure(_) | SyntaxShape::Block | SyntaxShape::MatchBlock => {
-                        Err(Unlowered::Unsupported("spread record as a block"))
+                    SyntaxShape::Closure(_) | SyntaxShape::Block => {
+                        let cell = RefCell::new(&mut *self.working_set);
+                        let lookup = EngineLookup::new(&cell);
+                        let Some(closure) = parse_braces_as_closure(self.source, e.span, lookup)
+                        else {
+                            let span = self.span(e.span);
+                            return Ok(classic_value(self.working_set, span, shape, input_type));
+                        };
+                        let mut working_set = cell.borrow_mut();
+                        let mut lower = Lower {
+                            working_set: &mut working_set,
+                            redirection_spans: Vec::new(),
+                            ..*self
+                        };
+                        match shape {
+                            SyntaxShape::Block => {
+                                lower.block_expression(e.span, &closure.body, input_type)
+                            }
+                            _ => lower.closure(
+                                e.span,
+                                closure.params.as_ref(),
+                                &closure.body,
+                                shape,
+                                None,
+                            ),
+                        }
+                    }
+                    SyntaxShape::MatchBlock => {
+                        let span = self.span(e.span);
+                        Ok(classic_value(self.working_set, span, shape, input_type))
                     }
                     _ => self.record(e.span, items),
                 }

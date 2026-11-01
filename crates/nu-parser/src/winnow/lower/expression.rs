@@ -624,7 +624,18 @@ impl<'s> Lower<'_, '_, 's> {
             // statement handed back to the classic parser does not end the lowering of the
             // statements after it.
             let saved = this.row_var.replace(var_id);
-            let expression = this.math(condition, None);
+            let expression = match condition.expr {
+                // A condition the winnow parser left as garbage, a column that is no cell path
+                // among its operands (`where 1..'a'`): nu's math parser reads it again, its
+                // columns expanded, as for one of several items ([`Self::math`]).
+                w::Expr::Garbage => Ok(parse_math_expression(
+                    this.working_set,
+                    &this.parts(condition.span),
+                    Some(var_id),
+                    None,
+                )),
+                _ => this.math(condition, None),
+            };
             this.row_var = saved;
             let expression = expression?;
             match expression.expr {

@@ -712,6 +712,10 @@ impl<'s> Lower<'_, '_, 's> {
                     "module" => {
                         return Ok(self.module_call(pipeline, &element.expr, call, None)?.0);
                     }
+                    // `parse_where` keeps the element's redirection, a call for help's too.
+                    "where" if element.redirection.is_some() => {
+                        return self.single_element(pipeline, element, input_type);
+                    }
                     name if HELP_STATEMENT_KEYWORDS.contains(&name) => {
                         let e = &element.expr;
                         let (statement, _) =
@@ -952,6 +956,24 @@ impl<'s> Lower<'_, '_, 's> {
                 "source-env" => Some("source-env"),
                 "run" => Some("run"),
                 "plugin use" => Some("plugin use"),
+                // `parse_export_in_block` names an export by its second item, `export` alone
+                // when that is no keyword it exports (`export let x o> f`).
+                "export" => Some(
+                    match call
+                        .arguments
+                        .first()
+                        .map(|argument| self.text(argument.span()))
+                    {
+                        Some("alias") => "export alias",
+                        Some("def") => "export def",
+                        Some("extern") => "export extern",
+                        Some("use") => "export use",
+                        Some("module") => "export module",
+                        Some("const") => "export const",
+                        Some("type") => "export type",
+                        _ => "export",
+                    },
+                ),
                 _ => None,
             },
         };

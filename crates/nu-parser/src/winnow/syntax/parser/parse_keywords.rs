@@ -380,31 +380,14 @@ impl<'t, 'a> KeywordCall<'t, 'a> {
 /// value of a `--help=value` as the switch's `bool` (`if --help=1` is "expected bool",
 /// `if --help=false` shows help): that, as the call's other errors, is the consumer's.
 ///
-/// nu's call reads an assignment operator as any other item: the `=` keyword of a binding's call
-/// (`let x =`, `let x --help = 1`) or an alias's (`alias --help = ls`).
+/// nu's call reads an assignment operator as any other item, as every call does here
+/// (`call_item`): the `=` keyword of a binding's call (`let x =`, `let x --help = 1`) or an
+/// alias's (`alias --help = ls`).
 pub fn parse_help_call<'a>(statement: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
-    let working_set = statement.working_set;
     if let Some(span) = statement.span() {
-        working_set.remove_ignored_from(span.start);
+        statement.working_set.remove_ignored_from(span.start);
     }
-    let remaining = statement.remaining();
-    if !remaining
-        .iter()
-        .any(|token| matches!(token.contents, TokenContents::AssignmentOperator(_)))
-    {
-        return parse_plain_call(statement);
-    }
-    let items: Vec<Token> = remaining
-        .iter()
-        .map(|token| match token.contents {
-            TokenContents::AssignmentOperator(_) => Token {
-                contents: TokenContents::Item,
-                span: token.span,
-            },
-            _ => *token,
-        })
-        .collect();
-    parse_plain_call(Tokens::new(working_set, &items, statement.end_span().start))
+    parse_plain_call(statement)
 }
 
 /// A `{` item where a keyword wants a block or a closure (`what`) but nu

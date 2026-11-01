@@ -506,14 +506,25 @@ fn changes_names(words: (Option<&str>, Option<&str>)) -> bool {
 
 /// [`changes_names`] for a parsed statement, from the first words of its commands' names: the
 /// classic parser takes `source me` for a `source` even where a command `source me` exists.
-/// The lowering of a nested block asks it too (`changes_commands` in `lower`).
+/// An alias of `run` counts as a `run`: nu reads its target as an expression first, which
+/// parses the script (`parse_run_expr`). The lowering of a nested block asks it too
+/// (`changes_commands` in `lower`).
 pub(super) fn statement_changes_names(pipeline: &w::Pipeline<'_>) -> bool {
+    let alias_words = |alias: &w::Alias<'_>| match &alias.value.expr {
+        w::Expr::Call(call) if call.sigil.is_none() && call.head.name == "run" => {
+            (Some("run"), None)
+        }
+        _ => (None, None),
+    };
     pipeline.elements.iter().any(|element| {
         changes_names(match &element.expr.expr {
             w::Expr::Use(_) => (Some("use"), None),
-            w::Expr::Export(export) if matches!(export.item.expr, w::Expr::Use(_)) => {
-                (Some("export"), Some("use"))
-            }
+            w::Expr::Export(export) => match &export.item.expr {
+                w::Expr::Use(_) => (Some("export"), Some("use")),
+                w::Expr::Alias(alias) => alias_words(alias),
+                _ => (None, None),
+            },
+            w::Expr::Alias(alias) => alias_words(alias),
             w::Expr::Call(call) => {
                 let mut words = call.head.name.split(' ');
                 (words.next(), words.next())

@@ -544,69 +544,76 @@ pub fn parse_math_expression<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expr
     {
         // An item where an operator goes that is none (`1 pow 2`, `1 2`): nu reports it and
         // goes on with the expression (`parse_operator`), so the expression is a garbage
-        // leaf over its items, the error recorded, which the consumer reads again with nu's
-        // math parser from the leaf's text. When that text lexes to other items (an alias's
-        // words, which take `|` for one) the error stays; a `||` or a redirection operator nu's
-        // lite parser keeps as an item (`1 || 2`, `"a" o>`) is one. A redirection of the element
-        // between the items (`"a" o> f b`) is no part of the command for nu's lite parser, nor
-        // for the consumer.
-        Err(ErrMode::Cut(ParseFailure::Error(mut diagnostic))) if diagnostic.recovered => {
-            let working_set = tokens.working_set;
-            let items = items.remaining();
-            let (Some(first), Some(last)) = (items.first(), items.last()) else {
-                diagnostic.recovered = false;
-                return Err(ErrMode::Cut(ParseFailure::Error(diagnostic)));
-            };
-            let span = first.span.merge(last.span);
-            // nu's math parser reads the items its lexer gives, past an error (`r#abc`).
-            let relexed = working_set
-                .lex_lenient(span, LexOptions::SUBEXPRESSION)
-                .ok();
-            let same_items = relexed.is_some_and(|relexed| {
-                let mut relexed = relexed
-                    .iter()
-                    .filter(|token| {
-                        !matches!(token.contents, TokenContents::Comment | TokenContents::Eof)
-                    })
-                    .peekable();
-                let mut items = items.iter().peekable();
-                loop {
-                    match (relexed.next(), items.peek()) {
-                        (None, None) => break true,
-                        (Some(token), Some(item))
-                            if token.span == item.span
-                                && matches!(
-                                    token.contents,
-                                    TokenContents::Item
-                                        | TokenContents::PipePipe
-                                        | TokenContents::Redirection(_)
-                                ) =>
-                        {
-                            items.next();
-                        }
-                        (Some(token), Some(_))
-                            if matches!(token.contents, TokenContents::Redirection(_))
-                                && working_set.is_element_redirection(token.span)
-                                && relexed
-                                    .next_if(|target| {
-                                        target.contents == TokenContents::Item
-                                            && working_set.is_element_redirection(target.span)
-                                    })
-                                    .is_some() => {}
-                        _ => break false,
-                    }
-                }
-            });
-            if !same_items {
-                diagnostic.recovered = false;
-                return Err(ErrMode::Cut(ParseFailure::Error(diagnostic)));
-            }
-            working_set.error(*diagnostic);
+        // leaf over its items.
+        Err(ErrMode::Cut(ParseFailure::Error(diagnostic))) if diagnostic.recovered => {
+            let garbage = garbage_over_items(tokens.working_set, items.remaining(), diagnostic)?;
             while tokens.next_token().is_some() {}
-            Ok(Expression::new(Expr::Garbage, span))
+            Ok(garbage)
         }
         result => result,
     }
+}
+
+/// A garbage leaf over `items`, a math expression or row condition with `diagnostic`, an error
+/// nu reports and goes on past, which is recorded: the consumer reads the items again with
+/// nu's parser from the leaf's text. When that text lexes to other items (an alias's words,
+/// which take `|` for one) the error stays the statement's; a `||` or a redirection operator
+/// nu's lite parser keeps as an item (`1 || 2`, `"a" o>`) is one. A redirection of the element
+/// between the items (`"a" o> f b`) is no part of the command for nu's lite parser, nor for
+/// the consumer.
+fn garbage_over_items<'a>(
+    working_set: &WorkingSet<'a>,
+    items: &[Token],
+    mut diagnostic: Box<Diagnostic>,
+) -> ParseResult<Expression<'a>> {
+    let (Some(first), Some(last)) = (items.first(), items.last()) else {
+        diagnostic.recovered = false;
+        return Err(ErrMode::Cut(ParseFailure::Error(diagnostic)));
+    };
+    let span = first.span.merge(last.span);
+    // nu's math parser reads the items its lexer gives, past an error (`r#abc`).
+    let relexed = working_set
+        .lex_lenient(span, LexOptions::SUBEXPRESSION)
+        .ok();
+    let same_items = relexed.is_some_and(|relexed| {
+        let mut relexed = relexed
+            .iter()
+            .filter(|token| !matches!(token.contents, TokenContents::Comment | TokenContents::Eof))
+            .peekable();
+        let mut items = items.iter().peekable();
+        loop {
+            match (relexed.next(), items.peek()) {
+                (None, None) => break true,
+                (Some(token), Some(item))
+                    if token.span == item.span
+                        && matches!(
+                            token.contents,
+                            TokenContents::Item
+                                | TokenContents::PipePipe
+                                | TokenContents::Redirection(_)
+                        ) =>
+                {
+                    items.next();
+                }
+                (Some(token), Some(_))
+                    if matches!(token.contents, TokenContents::Redirection(_))
+                        && working_set.is_element_redirection(token.span)
+                        && relexed
+                            .next_if(|target| {
+                                target.contents == TokenContents::Item
+                                    && working_set.is_element_redirection(target.span)
+                            })
+                            .is_some() => {}
+                _ => break false,
+            }
+        }
+    });
+    if !same_items {
+        diagnostic.recovered = false;
+        return Err(ErrMode::Cut(ParseFailure::Error(diagnostic)));
+    }
+    working_set.error(*diagnostic);
+    Ok(Expression::new(Expr::Garbage, span))
 }
 
 /// The operator after an operand, with its binding power: `Left` for all but
@@ -655,8 +662,16 @@ fn fold_binary_op<'a>(
 /// the row, so `size > 1kb` means `$it.size > 1kb`.
 pub fn parse_row_condition<'a>(tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
     let working_set = tokens.working_set;
+    let items = tokens;
     let condition = parse_math_expression(tokens)?;
-    expand_row_condition(working_set, condition)
+    // A column that is no cell path (`where 1..'a'`): nu reports it and goes on
+    // (`expand_to_cell_path`), so the condition is a garbage leaf over its items.
+    match expand_row_condition(working_set, condition) {
+        Err(ErrMode::Cut(ParseFailure::Error(diagnostic))) if diagnostic.recovered => {
+            garbage_over_items(working_set, items.remaining(), diagnostic)
+        }
+        other => other,
+    }
 }
 
 /// Expand the operands of a row condition that are columns (nu's `expand_row_condition_operands`,

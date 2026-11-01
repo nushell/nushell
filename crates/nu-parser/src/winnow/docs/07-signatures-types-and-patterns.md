@@ -77,7 +77,9 @@ an empty type before the `@` is unknown. `bool` on a flag is "type
 annotations are not allowed for boolean switches". A default value is parsed
 with the declared shape through `ExpectedShape::Declared` (chapter 06):
 `[x: int = abc]` is an error at parse time, `[x: string = 1]` is the string
-`1`; a rest parameter with a default is an error. `parse_completer` accepts a
+`1`; a rest parameter with a default is an error. nu reports a default its
+shape refuses and goes on with the signature, so that error is marked
+recovered, as a name taken twice is (below). `parse_completer` accepts a
 string (bare or quoted: the name of a command) or a list, and refuses a
 subexpression or a record; whether the command exists is the consumer's
 business, since it may come from a `use`d module.

@@ -275,8 +275,8 @@ pub fn parse_alias<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>
     // reads a keyword's call by the keyword's signature, its errors dropped), and
     // refuses to declare the alias (`finish_alias`), the statement kept, or makes
     // the target garbage when the second reading reports an error: so does the
-    // consumer, the error recorded as recovered. The first reading of `run` and
-    // `where`, and of an assignment, is no call, so those stay an error.
+    // consumer, the error recorded as recovered. The first reading of an assignment is no
+    // call, so that stays an error.
     let target: String = words
         .iter()
         .take(2)
@@ -296,10 +296,9 @@ pub fn parse_alias<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>
                     "only {} can be aliased",
                     ALIASABLE_PARSER_KEYWORDS.join(", ")
                 ));
-        let read_otherwise = matches!(first_text, "run" | "where")
-            || words.iter().any(|word| {
-                assignment_operator(working_set.get_span_contents(word.span)).is_some()
-            });
+        let read_otherwise = words
+            .iter()
+            .any(|word| assignment_operator(working_set.get_span_contents(word.span)).is_some());
         if words.len() != keyword_words && read_otherwise {
             return Err(cut(diagnostic));
         }

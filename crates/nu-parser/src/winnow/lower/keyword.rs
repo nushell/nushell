@@ -25,7 +25,7 @@ use crate::{
     parse_alias::{
         alias_name, alias_name_fits_module, check_alias_name, finish_alias, report_incomplete_alias,
     },
-    parse_calls::CallKind,
+    parse_calls::{CallKind, parse_call, parse_external_call},
     parse_captures_compile::compile_block_with_id,
     parse_def::{
         DefCall, detect_params_in_name, finish_def, finish_extern, finish_for, yielded_type,
@@ -1338,16 +1338,21 @@ impl<'s> Lower<'_, '_, 's> {
             return Ok((garbage(self.working_set, call_span), None));
         }
         // `parse_alias` keeps a call to `alias` that declares nothing (`alias ll ls`, `alias ll
-        // =`): a name it refuses is garbage (`alias_name`), anything else an incomplete alias.
+        // =`): a name it refuses is garbage (`alias_name`), which an export covers with its
+        // internal error (`warp_export_call`), anything else an incomplete alias.
         if keyword == "alias" && kind != CallKind::Help {
             let Some(name) = lowered.positional_iter().next() else {
                 return Err(Unlowered::Unsupported("alias call without a name"));
             };
             if alias_name(self.working_set, name).is_none() {
-                if export {
-                    return Err(Unlowered::Unsupported("export of a refused alias name"));
-                }
-                return Ok((garbage(self.working_set, call_span), None));
+                let garbage = garbage(self.working_set, call_span);
+                return Ok(match &command.expr {
+                    w::Expr::Export(export) => (
+                        self.exported_garbage(garbage, export, call_span, call_span),
+                        None,
+                    ),
+                    _ => (garbage, None),
+                });
             }
             let args = usize::from(with_export) + 1;
             report_incomplete_alias(self.working_set, &alias_spans[..args], &alias_spans[args..]);
@@ -1499,13 +1504,19 @@ impl<'s> Lower<'_, '_, 's> {
         } else if starts_with_shorthand {
             self.reread(target.span, ItemsValue::AliasTarget, None)
         } else if let w::Expr::Garbage = target.expr {
-            // A target that reads as an expression, which the winnow parser left as garbage:
-            // the argument is what `parse_expression` reads (`alias a = not` is garbage). One
-            // nu does not read so (`alias a = 0..$x.len`) is an alias, the classic parser's.
+            // A target the winnow parser left as garbage: the argument is what
+            // `parse_expression` reads, a math expression (`alias a = not` is garbage) or, for a
+            // first item that only an error shows is none (`alias a = 0..<$nope`), a call to an
+            // external command named by it, unless a command has that name.
             let parts = self.parts(target.span);
-            if !parts
-                .first()
-                .is_some_and(|first| is_math_expression_like(self.working_set, *first))
+            let Some(first) = parts.first().copied() else {
+                return Err(Unlowered::Error);
+            };
+            if !is_math_expression_like(self.working_set, first)
+                && self
+                    .working_set
+                    .find_decl(self.working_set.get_span_contents(first))
+                    .is_some()
             {
                 return Err(Unlowered::Unsupported("alias target read as a call"));
             }
@@ -1520,7 +1531,18 @@ impl<'s> Lower<'_, '_, 's> {
                 let error = self.statement_in_pipeline_error(target, target_call, name, None);
                 self.working_set.error(error);
             }
-            self.lower_alias_target(target)
+            match &target.expr {
+                // `parse_expression` reads `run` and `where` by their first word
+                // (`parse_run_expr`, `parse_where_expr`).
+                w::Expr::Call(target_call) if target_call.sigil.is_none() => {
+                    match target_call.head.name.as_ref() {
+                        "run" => self.run(target, target_call),
+                        "where" => self.where_call(target, target_call),
+                        _ => self.lower_alias_target(target),
+                    }
+                }
+                _ => self.lower_alias_target(target),
+            }
         };
         // The errors of the call to `alias` are dropped.
         self.working_set.parse_errors.truncate(errors_before);
@@ -1556,6 +1578,7 @@ impl<'s> Lower<'_, '_, 's> {
         if let w::Expr::Garbage = target.expr
             && let parts = self.parts(target.span)
             && let Some(first) = parts.first().copied()
+            && is_math_expression_like(self.working_set, first)
         {
             let errors = self.working_set.parse_errors.len();
             let expression = parse_expression(self.working_set, &parts, None);
@@ -1567,7 +1590,33 @@ impl<'s> Lower<'_, '_, 's> {
             return Ok(statement);
         }
         let outer_search_predecls = std::mem::replace(&mut self.working_set.search_predecls, false);
-        let wrapped_call = self.lower_alias_target(target);
+        let wrapped_call = match target.expr {
+            // Garbage whose first item is no math expression after all (`0..<$nope`):
+            // `parse_call` reads a call to an external command named by it.
+            w::Expr::Garbage => {
+                let parts = self.parts(target.span);
+                let span = self.span(target.span);
+                Ok(parse_external_call(self.working_set, &parts, span))
+            }
+            // Once `run`'s first reading has parsed its script (`finish_run`), the statement is
+            // no longer handed back: a second reading the lowering cannot do is nu's call
+            // parser's.
+            w::Expr::Call(ref target_call)
+                if target_call.sigil.is_none() && target_call.head.name == "run" =>
+            {
+                let errors = self.working_set.parse_errors.len();
+                match self.lower_alias_target(target) {
+                    Ok(wrapped_call) => Ok(wrapped_call),
+                    Err(_) => {
+                        self.working_set.parse_errors.truncate(errors);
+                        let parts = self.parts(target.span);
+                        let head = self.span(target_call.head.span);
+                        Ok(parse_call(self.working_set, &parts, head, None))
+                    }
+                }
+            }
+            _ => self.lower_alias_target(target),
+        };
         self.working_set.search_predecls = outer_search_predecls;
         let wrapped_call = wrapped_call?;
         // When the first error is a missing argument, all are forgiven; any other makes the

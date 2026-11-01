@@ -3441,3 +3441,62 @@ fn words_read_otherwise_than_they_look_are_lowered(
     );
     Ok(())
 }
+
+/// Statements nu reads past an error or in a way of its own, lowered with nu's errors: an
+/// alias of `run` or `where` (its argument read as `parse_expression` reads it), an export of
+/// an alias whose name nu refuses (garbage, with `warp_export_call`'s internal error, and in a
+/// module's body the alias not found), a column that is no cell path in a row condition, a
+/// redirected `export` of a binding, a closure parameter's default of the wrong type, a record
+/// starting with a spread where a closure goes, a shorthand whose value ends at a lexer error
+/// in an alias's target, an alias of an external command named by a range that does not parse,
+/// a redirected `where` asking for help, and a `where` that its unknown flag makes a call, whose
+/// one-word condition is still a column.
+#[rstest]
+#[case::alias_of_run("alias a = run null", &[("CantAliasKeyword", "run")])]
+#[case::alias_of_run_help("alias a = run --help", &[("CantAliasKeyword", "run")])]
+#[case::alias_of_where("alias x = where $it > 1", &[("CantAliasKeyword", "where")])]
+#[case::export_alias_variable_name(
+    "export alias $x ls",
+    &[("AliasNotValid", "$x"), ("InternalError", "alias $x ls")]
+)]
+#[case::export_alias_keyword_name(
+    "export alias if =",
+    &[("NameIsKeyword", "if"), ("InternalError", "alias if =")]
+)]
+#[case::export_alias_refused_name_in_a_module(
+    "module m {\n  export alias \"x#y\" =\n}",
+    &[
+        ("AliasNotValid", "\"x#y\""),
+        ("InternalError", "alias \"x#y\" ="),
+        ("InternalError", "alias \"x#y\" ="),
+    ]
+)]
+#[case::row_condition_column_no_cell_path("[1] | where 1..'a'", &[("Expected", "'a'")])]
+#[case::redirected_export_let("export let x o> f", &[("RedirectingBuiltinCommand", "o>")])]
+#[case::closure_parameter_default(
+    "[1] | each {|x: int = 'a'| 1 }",
+    &[("Expected", "'a'"), ("NonConstantDefaultValue", "'a'")]
+)]
+#[case::spread_record_as_a_closure("let r = {a: 1}; do {...$r}", &[])]
+#[case::alias_shorthand_lexer_error("alias z = A=r#x ls", &[("Expected", "x")])]
+#[case::alias_of_an_external_range("alias q = 0..<$day", &[])]
+#[case::redirected_where_help("where -h o> /dev/null", &[])]
+#[case::row_condition_word_after_unknown_flag("where -1 >", &[("UnknownFlag", "1")])]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn statements_nu_reads_its_own_way_are_lowered(
+    #[case] code: &str,
+    #[case] expected: &[(&str, &str)],
+) -> Result {
+    let expected: Vec<(String, String)> = expected
+        .iter()
+        .map(|(kind, text)| (kind.to_string(), text.to_string()))
+        .collect();
+    assert_eq!(
+        super::winnow_calls::lowered_errors(code),
+        expected,
+        "`{code}`"
+    );
+    Ok(())
+}

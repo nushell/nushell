@@ -386,7 +386,9 @@ pub(crate) fn parse_items<'a>(
     value: ItemsValue,
 ) -> Option<Expression<'a>> {
     let working_set = WorkingSet::with_lookup(source, span, lookup);
-    let mut tokens = working_set.lex(span, LexOptions::BLOCK).ok()?;
+    // The block these items are in reported its lexer's errors; nu's parser reads the tokens
+    // its lexer gives past them (`alias z = A=r#x ls`, whose `r#` ends the shorthand).
+    let mut tokens = working_set.lex_lenient(span, LexOptions::BLOCK).ok()?;
     for token in &mut tokens {
         let is_item = match value {
             // As `parse_alias` hands an alias's target to the call parser.
@@ -455,6 +457,20 @@ pub(crate) fn parse_headed_call<'a>(
     parsed
         .ok()
         .filter(|expression| expression.span == span && recovered)
+}
+
+/// The `{ ... }` covering `span` of `source`, a record starting with a spread that a call's
+/// argument reads as a closure (`do {...$r}`, whose body calls `...$r`), parsed again as the
+/// closure nu's value parser reads there (`parse_closure_expression`), with the commands
+/// `lookup` knows. `None` when it has an error, which the consumer leaves to nu's value parser.
+pub(crate) fn parse_braces_as_closure<'a>(
+    source: &'a str,
+    span: Span,
+    lookup: impl CommandLookup + 'a,
+) -> Option<crate::winnow::syntax::ast::Closure<'a>> {
+    let working_set = WorkingSet::with_lookup(source, span, lookup);
+    let closure = parse_expressions::parse_closure_parts(&working_set, span).ok()?;
+    (working_set.error_count() == 0).then_some(closure)
 }
 
 /// The arms of the `{ ... }` covering `span` of `source`, which a call's arguments read as a

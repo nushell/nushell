@@ -871,7 +871,11 @@ impl<'s> Lower<'_, '_, 's> {
                 }
                 self.items_call(item, &arguments[index + 1..end], input_type)?
             }
-            SyntaxShape::RowCondition if one_item => self.row_condition(item)?,
+            // A word read as a plain argument (`where -1 >`, which its unknown flag makes a call)
+            // is read again as a row condition, which takes a string for a column (`$it.>`).
+            SyntaxShape::RowCondition if one_item && !matches!(item.expr, w::Expr::String(_)) => {
+                self.row_condition(item)?
+            }
             SyntaxShape::RowCondition => self.reread(
                 items_span(arguments, index, end),
                 ItemsValue::RowCondition,

@@ -400,14 +400,20 @@ fn parse_parameters<'a>(
                         parameter.earlier_defaults.push(earlier);
                     }
                     // The default is parsed with the declared shape (`[x: int = abc]` is an error).
+                    // nu reports a default it refuses and goes on with the signature, so the
+                    // error is marked recovered: a closure's is a garbage leaf over the closure
+                    // (`recover_literal`), which the consumer reads again with nu's parser.
                     let default = match &parameter.ty {
                         Some(declared) => parse_value(
                             working_set,
                             token.span,
                             ExpectedShape::Declared(&declared.shape),
-                        )?,
-                        None => parse_value(working_set, token.span, ExpectedShape::Any)?,
-                    };
+                        ),
+                        None => parse_value(working_set, token.span, ExpectedShape::Any),
+                    }
+                    .map_err(|error| {
+                        error.map(|failure| failure.map_diagnostic(Diagnostic::as_recovered))
+                    })?;
                     parameter.default = Some(default);
                     parameter.span = parameter.span.merge(token.span);
                     mode = ParseMode::Arg;
