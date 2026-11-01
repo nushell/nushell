@@ -296,6 +296,12 @@ fn take_statements(
     subexpression: bool,
 ) {
     let threads = ahead_threads();
+    // Where the last run parsed ahead was parsed again from, and whether the next statement is
+    // parsed on this thread: a run whose answer changes again at the statement it restarted
+    // from (a name the thread's copy of the names keeps answering otherwise) would restart
+    // there for ever.
+    let mut last_restart = None;
+    let mut here_once = false;
     // Each turn hands `driver` a run of statements, parsed ahead or here. `go_on` turns false
     // when the driver has handed the rest of the block to the classic parser.
     let mut go_on = true;
@@ -303,6 +309,7 @@ fn take_statements(
         let short = statements.remaining().len() < AHEAD_MIN_BYTES;
         go_on = if let Some(threads) = threads
             && !short
+            && !std::mem::take(&mut here_once)
             && !changes_names(statements.next_words(source))
             && let Some(_thread) = AheadThread::take()
         {
@@ -322,6 +329,7 @@ fn take_statements(
                 // again from there (its lexer errors were the block's, reported already, and
                 // its definitions are declared).
                 Some(start) => {
+                    here_once = last_restart.replace(start) == Some(start);
                     let rest = crate::winnow::syntax::Span::new(start, span.end);
                     match BlockStatements::new(source, rest, lookup, subexpression) {
                         Ok((rest, _)) => {
