@@ -389,10 +389,18 @@ pub(crate) fn parse_items<'a>(
     // The block these items are in reported its lexer's errors; nu's parser reads the tokens
     // its lexer gives past them (`alias z = A=r#x ls`, whose `r#` ends the shorthand).
     let mut tokens = working_set.lex_lenient(span, LexOptions::BLOCK).ok()?;
+    let mut after_assignment = false;
     for token in &mut tokens {
         let is_item = match value {
-            // As `parse_alias` hands an alias's target to the call parser.
-            ItemsValue::AliasTarget => token.contents != TokenContents::Eof,
+            // As `parse_alias` hands an alias's target to the call parser: every token a word
+            // but an assignment operator, which `parse_expression` finds by its text first, and
+            // the tokens after it, the right side `parse_assignment_expression` lexes again.
+            ItemsValue::AliasTarget => {
+                let assignment = matches!(token.contents, TokenContents::AssignmentOperator(_));
+                let is_item = !after_assignment && !assignment;
+                after_assignment |= assignment;
+                is_item && token.contents != TokenContents::Eof
+            }
             // The items were a call's, which nu reads as words: a redirection operator among
             // them (a lone `let` takes its redirections as its own items) is one.
             ItemsValue::Math | ItemsValue::RowCondition => {

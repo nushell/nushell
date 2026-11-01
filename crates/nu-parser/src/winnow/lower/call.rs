@@ -954,7 +954,9 @@ impl<'s> Lower<'_, '_, 's> {
             source: self.source,
             offset: self.offset,
             row_var: self.row_var,
-            alias_target: self.alias_target,
+            // Items read as an expression are `parse_expression`'s, which picks a statement or
+            // `run` by its first word wherever it reads one, an alias's target too.
+            alias_target: self.alias_target && value != ItemsValue::AliasTarget,
             drops_errors: self.drops_errors,
             redirection_spans: Vec::new(),
         };

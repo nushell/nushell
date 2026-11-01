@@ -3500,3 +3500,43 @@ fn statements_nu_reads_its_own_way_are_lowered(
     );
     Ok(())
 }
+
+/// An alias whose target has an assignment operator, which nu reads first as an assignment
+/// (`parse_expression`, the argument of `alias`, its errors dropped) and then as a call: a
+/// keyword's (refused), an external command's (an alias of it), or an alias's whose own target
+/// reads as an expression; and an `else` block with an error, which nu reads again as an
+/// expression (`parse_oneof`), left open too.
+#[rstest]
+#[case::alias_of_let("alias d = let x = 1", &[("CantAliasKeyword", "let")])]
+#[case::alias_of_an_external_assignment("alias zz = i = 1", &[])]
+#[case::alias_of_an_alias_of_a_statement(
+    "alias zz = alias x = hide",
+    &[("BuiltinCommandInPipeline", "hide"), ("MissingPositional", "")]
+)]
+#[case::alias_of_an_alias_with_a_pipe(
+    "alias zz = alias x = ls | length",
+    &[("CantAliasKeyword", "alias")]
+)]
+#[case::else_block_with_an_error("if true { 1 } else { def f [] }", &[("MissingPositional", "")])]
+#[case::else_block_left_open(
+    "if true { 1 } else { def f []",
+    &[("Unclosed", "]"), ("Unclosed", ""), ("MissingPositional", "")]
+)]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn alias_of_an_assignment_is_lowered(
+    #[case] code: &str,
+    #[case] expected: &[(&str, &str)],
+) -> Result {
+    let expected: Vec<(String, String)> = expected
+        .iter()
+        .map(|(kind, text)| (kind.to_string(), text.to_string()))
+        .collect();
+    assert_eq!(
+        super::winnow_calls::lowered_errors(code),
+        expected,
+        "`{code}`"
+    );
+    Ok(())
+}

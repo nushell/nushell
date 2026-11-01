@@ -7,7 +7,7 @@ use winnow::error::ErrMode;
 use crate::winnow::syntax::ast::{Alias, Call, Expr, Expression};
 use crate::winnow::syntax::error::Diagnostic;
 use crate::winnow::syntax::input::{ParseFailure, ParseResult, cut};
-use crate::winnow::syntax::lex::{AssignmentOperator, Token, TokenContents, assignment_operator};
+use crate::winnow::syntax::lex::{AssignmentOperator, Token, TokenContents};
 use crate::winnow::syntax::span::Spanned;
 
 use super::WorkingSet;
@@ -275,33 +275,22 @@ pub fn parse_alias<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>
     // reads a keyword's call by the keyword's signature, its errors dropped), and
     // refuses to declare the alias (`finish_alias`), the statement kept, or makes
     // the target garbage when the second reading reports an error: so does the
-    // consumer, the error recorded as recovered. The first reading of an assignment is no
-    // call, so that stays an error.
+    // consumer, the error recorded as recovered.
     let target: String = words
         .iter()
         .take(2)
         .map(|token| working_set.get_span_contents(token.span))
         .collect::<Vec<_>>()
         .join(" ");
-    let single = first_text;
-    let keyword_words =
-        match words.len() > 1 && UNALIASABLE_PARSER_KEYWORDS.contains(&target.as_str()) {
-            true => Some(2),
-            false => UNALIASABLE_PARSER_KEYWORDS.contains(&single).then_some(1),
-        };
-    if let Some(keyword_words) = keyword_words {
+    let names_keyword = (words.len() > 1 && UNALIASABLE_PARSER_KEYWORDS.contains(&target.as_str()))
+        || UNALIASABLE_PARSER_KEYWORDS.contains(&first_text);
+    if names_keyword {
         let diagnostic =
             Diagnostic::message("cannot create an alias to a parser keyword", first.span)
                 .with_help(format!(
                     "only {} can be aliased",
                     ALIASABLE_PARSER_KEYWORDS.join(", ")
                 ));
-        let read_otherwise = words
-            .iter()
-            .any(|word| assignment_operator(working_set.get_span_contents(word.span)).is_some());
-        if words.len() != keyword_words && read_otherwise {
-            return Err(cut(diagnostic));
-        }
         working_set.error(diagnostic.as_recovered());
     }
     // nu forgives missing positionals and flag values in an alias target
@@ -320,7 +309,7 @@ pub fn parse_alias<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>
         Expr::Call(call) => call_alias_kind(working_set, call),
         _ => DeclKind::Declared,
     };
-    if declares && keyword_words.is_none() {
+    if declares && !names_keyword {
         working_set.add_alias(&name.item, kind);
     }
     let span = keyword.span.merge(value.span);

@@ -25,7 +25,7 @@ use crate::{
     parse_alias::{
         alias_name, alias_name_fits_module, check_alias_name, finish_alias, report_incomplete_alias,
     },
-    parse_calls::{CallKind, parse_call, parse_external_call},
+    parse_calls::{CallKind, parse_call, parse_external_call, parse_multispan_value},
     parse_captures_compile::compile_block_with_id,
     parse_def::{
         DefCall, detect_params_in_name, finish_def, finish_extern, finish_for, yielded_type,
@@ -197,18 +197,43 @@ impl<'s> Lower<'_, '_, 's> {
         if let Some(branch) = &if_expr.else_branch {
             let body = match &branch.body.expr {
                 w::Expr::Block(block) => {
-                    self.block_expression(branch.body.span, block, branch_input)?
+                    let errors = self.working_set.parse_errors.len();
+                    let scopes = self.working_set.delta.scope.len();
+                    let body = self.block_expression(branch.body.span, block, branch_input)?;
+                    // nu reads the `else` item with its keyword's shape, a block before an
+                    // expression (`parse_oneof`): a block with an error is read again as a
+                    // closure, whose errors start no later, so the block stays the best guess.
+                    // Only what that reading declares stays (a `def` predeclared again); its
+                    // errors and the scopes it leaves open go.
+                    if self.working_set.parse_errors.len() > errors {
+                        let block_errors = self.working_set.parse_errors.split_off(errors);
+                        let block_scopes = self.working_set.delta.scope.split_off(scopes);
+                        let _ = self.closure(
+                            branch.body.span,
+                            None,
+                            block,
+                            &SyntaxShape::Any,
+                            branch_input,
+                        );
+                        self.working_set.parse_errors.truncate(errors);
+                        self.working_set.delta.scope.truncate(scopes);
+                        self.working_set.parse_errors.extend(block_errors);
+                        self.working_set.delta.scope.extend(block_scopes);
+                    }
+                    body
                 }
                 // A brace item the winnow parser left as garbage (`else {...` left open): nu
                 // reads it with the `else` keyword's shape, a block before an expression
-                // (`parse_oneof`). Anything else is an expression, as below.
+                // (`parse_multispan_value`, `parse_oneof`). Anything else is an expression, as
+                // below.
                 w::Expr::Garbage
                     if self.text(branch.body.span).starts_with('{')
                         && self.parts(branch.body.span).len() == 1 =>
                 {
-                    parse_value(
+                    parse_multispan_value(
                         self.working_set,
-                        self.span(branch.body.span),
+                        &[self.span(branch.body.span)],
+                        &mut 0,
                         &SyntaxShape::OneOf(vec![SyntaxShape::Block, SyntaxShape::Expression]),
                         branch_input,
                     )
@@ -1489,19 +1514,18 @@ impl<'s> Lower<'_, '_, 's> {
             .and_then(|word| Some((word, word.find('=')?)))
             .is_some_and(|(word, equals)| is_env_variable_name(&word.as_bytes()[..equals]));
         // Read as an expression, a target with an assignment operator is an assignment
-        // (`parse_assignment_expression`), whose errors the classic parser drops.
-        if target_text
-            .split_ascii_whitespace()
-            .any(|word| is_assignment_operator(word.as_bytes()))
-        {
-            return Err(Unlowered::Unsupported("alias of an assignment"));
-        }
+        // (`parse_assignment_expression`), whose errors the classic parser drops: the winnow
+        // parser read the target as a call, the body's reading, and reads it again for this one.
+        let assignment = self
+            .parts(target.span)
+            .iter()
+            .any(|part| is_assignment_operator(self.working_set.get_span_contents(*part)));
         // A lone `if` or `match` is a math expression (`is_math_expression_like`), which
         // `parse_math_expression` cannot read.
         let value = if matches!(target_text, "if" | "match") {
             let span = self.span(target.span);
             Ok(garbage(self.working_set, span))
-        } else if starts_with_shorthand {
+        } else if starts_with_shorthand || assignment {
             self.reread(target.span, ItemsValue::AliasTarget, None)
         } else if let w::Expr::Garbage = target.expr {
             // A target the winnow parser left as garbage: the argument is what
