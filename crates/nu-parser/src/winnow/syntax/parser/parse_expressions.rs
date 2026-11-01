@@ -563,9 +563,9 @@ pub fn parse_math_expression<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expr
 
 /// A garbage leaf over `items`, a math expression or row condition with `diagnostic`, an error
 /// nu reports and goes on past, which is recorded: the consumer reads the items again with
-/// nu's parser from the leaf's text. When that text lexes to other items (an alias's words,
-/// which take `|` for one) the error stays the statement's; a `||` or a redirection operator
-/// nu's lite parser keeps as an item (`1 || 2`, `"a" o>`) is one. A redirection of the element
+/// nu's parser from the leaf's text. When that text lexes to other items the error stays the
+/// statement's; a `||` or a redirection operator nu's lite parser keeps as an item (`1 || 2`,
+/// `"a" o>`) is one, and so are a `|` and an assignment operator among an alias's words. A redirection of the element
 /// between the items (`"a" o> f b`) is no part of the command for nu's lite parser, nor for
 /// the consumer.
 fn garbage_over_items<'a>(
@@ -597,6 +597,8 @@ fn garbage_over_items<'a>(
                             token.contents,
                             TokenContents::Item
                                 | TokenContents::PipePipe
+                                | TokenContents::Pipe
+                                | TokenContents::AssignmentOperator(_)
                                 | TokenContents::Redirection(_)
                         ) =>
                 {

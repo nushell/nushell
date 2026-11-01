@@ -402,10 +402,14 @@ pub(crate) fn parse_items<'a>(
                 is_item && token.contents != TokenContents::Eof
             }
             // The items were a call's, which nu reads as words: a redirection operator among
-            // them (a lone `let` takes its redirections as its own items) is one.
-            ItemsValue::Math | ItemsValue::RowCondition => {
-                matches!(token.contents, TokenContents::Redirection(_))
-            }
+            // them (a lone `let` takes its redirections as its own items) is one, and so are a
+            // `|` and an assignment operator in an alias's target (`alias zz = let x = 300 |`).
+            ItemsValue::Math | ItemsValue::RowCondition => matches!(
+                token.contents,
+                TokenContents::Redirection(_)
+                    | TokenContents::Pipe
+                    | TokenContents::AssignmentOperator(_)
+            ),
         };
         if is_item {
             token.contents = TokenContents::Item;

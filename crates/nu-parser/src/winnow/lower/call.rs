@@ -225,13 +225,22 @@ impl<'s> Lower<'_, '_, 's> {
         if call.wrapped && decl_kind(self.working_set, decl_id) != DeclKind::Wrapped {
             return Err(Unlowered::Unsupported("wrapped command rebound"));
         }
-        let decl = self.working_set.get_decl(decl_id);
-        // `let = 1` and friends: the classic parser reports an incomplete statement.
-        if let Some(w::Argument::Positional(first)) = call.arguments.first()
-            && self.text(first.span) == "="
+        // `parse_call` refuses a command whose second item is `=` (`let = 1`, `alias = ls`
+        // read as calls) and makes the call garbage.
+        if !call.head.name.contains(' ')
+            && call
+                .arguments
+                .first()
+                .is_some_and(|first| self.text(first.span()) == "=")
         {
-            return Err(Unlowered::Error);
+            let span = self.span(e.span);
+            self.working_set.error(ParseError::UnknownState(
+                "Incomplete statement".into(),
+                span,
+            ));
+            return Ok(Expression::garbage(self.working_set, span));
         }
+        let decl = self.working_set.get_decl(decl_id);
         let span = self.span(e.span);
         if let Some(alias) = decl.as_alias()
             && let Expr::ExternalCall(head, args) = &alias.wrapped_call.expr

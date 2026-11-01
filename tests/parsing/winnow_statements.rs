@@ -3517,6 +3517,25 @@ fn statements_nu_reads_its_own_way_are_lowered(
     "alias zz = alias x = ls | length",
     &[("CantAliasKeyword", "alias")]
 )]
+#[case::alias_of_a_call_missing_its_name("alias zz = ls = 1", &[("UnknownState", "ls = 1")])]
+#[case::alias_of_a_binding_with_a_pipe(
+    "alias zz = let x = 300 |",
+    &[
+        ("UnexpectedEof", "|"),
+        ("Expected", "|"),
+        ("IncompleteMathExpression", "|"),
+        ("IncompleteMathExpression", "|"),
+    ]
+)]
+#[case::alias_of_a_binding_with_extra_items(
+    "alias zz = let a int = 1",
+    &[
+        ("ExpectedKeyword", "int"),
+        ("Expected", "1"),
+        ("IncompleteMathExpression", "1"),
+        ("IncompleteMathExpression", "1"),
+    ]
+)]
 #[case::else_block_with_an_error("if true { 1 } else { def f [] }", &[("MissingPositional", "")])]
 #[case::else_block_left_open(
     "if true { 1 } else { def f []",
