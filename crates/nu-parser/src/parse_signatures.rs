@@ -589,6 +589,7 @@ pub fn parse_signature_helper(
         Type,
         AfterType,
         DefaultValue,
+        AfterDefaultValue,
     }
 
     #[derive(Debug)]
@@ -620,6 +621,7 @@ pub fn parse_signature_helper(
 
     let mut args: Vec<Arg> = vec![];
     let mut parse_mode = ParseMode::Arg;
+
     // Track variables whose name→VarId mappings have not yet been inserted
     // into the overlay scope
     //
@@ -652,7 +654,7 @@ pub fn parse_signature_helper(
                         ParseMode::AfterCommaArg | ParseMode::AfterType => {
                             working_set.error(ParseError::Expected("parameter or flag", span));
                         }
-                        ParseMode::Type | ParseMode::DefaultValue => {
+                        ParseMode::Type | ParseMode::DefaultValue | ParseMode::AfterDefaultValue => {
                             // We're seeing two types for the same thing for some reason, error
                             working_set.error(ParseError::Expected("type", span));
                         }
@@ -664,9 +666,14 @@ pub fn parse_signature_helper(
                         ParseMode::Arg | ParseMode::AfterType if last_token => working_set.error(
                             ParseError::Expected("default value", Span::new(span.end, span.end)),
                         ),
-                        ParseMode::Arg | ParseMode::AfterType => {
-                            parse_mode = ParseMode::DefaultValue;
+                        ParseMode::Arg => {
+                            if args.is_empty() {
+                                working_set.error(ParseError::Expected("parameter or flag", span));
+                            } else {
+                                parse_mode = ParseMode::DefaultValue;
+                            }
                         }
+                        ParseMode::AfterType => parse_mode = ParseMode::DefaultValue,
                         ParseMode::Type => {
                             working_set.error(ParseError::Expected("type", span));
                         }
@@ -674,8 +681,18 @@ pub fn parse_signature_helper(
                             working_set.error(ParseError::Expected("parameter or flag", span));
                         }
                         ParseMode::DefaultValue => {
-                            // We're seeing two default values for some reason, error
+                            // We're seeing a `=` right after another `=` with no
+                            // value in between, error
                             working_set.error(ParseError::Expected("default value", span));
+                        }
+                        ParseMode::AfterDefaultValue => {
+                            // We're seeing two default values for the same argument, error
+                            working_set.error(ParseError::LabeledErrorWithHelp {
+                                error: "A positional parameter or flag can have at most one default value.".to_string(),
+                                label: "extra default value".to_string(),
+                                help: "remove the extra default value".to_string(),
+                                span,
+                            });
                         }
                     }
                 }
@@ -693,6 +710,9 @@ pub fn parse_signature_helper(
                         }
                         ParseMode::DefaultValue => {
                             working_set.error(ParseError::Expected("default value", span));
+                        }
+                        ParseMode::AfterDefaultValue => {
+                            parse_mode = ParseMode::AfterCommaArg;
                         }
                     }
                 } else {
@@ -713,7 +733,8 @@ pub fn parse_signature_helper(
                         };
 
                     match parse_mode {
-                        ParseMode::Arg | ParseMode::AfterCommaArg | ParseMode::AfterType => {
+                        ParseMode::Arg | ParseMode::AfterCommaArg | ParseMode::AfterType | ParseMode::AfterDefaultValue => {
+
                             // Long flag with optional short form following with no whitespace, e.g. --output, --age(-a)
                             if contents.starts_with(b"--") && contents.len() > 2 {
                                 // Split the long flag from the short flag with the ( character as delimiter.
@@ -1003,7 +1024,6 @@ pub fn parse_signature_helper(
                                         (parse_shape_name(working_set, &contents, span), None)
                                     });
 
-                                //TODO check if we're replacing a custom parameter already
                                 match last {
                                     Arg::Positional {
                                         arg:
@@ -1087,7 +1107,6 @@ pub fn parse_signature_helper(
 
                                 let expression = parse_value(working_set, span, &shape, None);
 
-                                //TODO check if we're replacing a custom parameter already
                                 match last {
                                     Arg::Positional {
                                         arg:
@@ -1167,7 +1186,7 @@ pub fn parse_signature_helper(
                                     }
                                 }
                             }
-                            parse_mode = ParseMode::Arg;
+                            parse_mode = ParseMode::AfterDefaultValue;
                         }
                     }
                 }
