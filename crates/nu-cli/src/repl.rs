@@ -20,7 +20,7 @@ use log::{error, trace, warn};
 use miette::{ErrReport, IntoDiagnostic, Result};
 use nu_cmd_base::util::get_editor;
 use nu_color_config::StyleComputer;
-use nu_engine::env_to_strings;
+use nu_engine::{env_to_strings, redirect_env};
 use nu_engine::exit::cleanup_exit;
 use nu_parser::{lex, trim_quotes_str};
 use nu_protocol::shell_error::io::IoError;
@@ -936,13 +936,16 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
                         repl.buffer = line_editor.current_buffer_contents().to_string();
                         drop(repl);
 
-                        match evaluate_parsed_block(
+                        let evaluation_result = evaluate_parsed_block(
                             engine_state,
                             &mut callee_stack,
                             &block,
                             PipelineData::Empty,
                             true,
-                        ) {
+                        );
+                        redirect_env(engine_state, &mut stack, &callee_stack);
+
+                        match evaluation_result {
                             Ok(failed) => {
                                 let code = failed.into();
                                 stack.set_last_exit_code(code, Span::unknown());
