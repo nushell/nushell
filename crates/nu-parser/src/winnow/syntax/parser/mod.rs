@@ -413,16 +413,13 @@ pub(crate) fn parse_items<'a>(
             parse_expressions::parse_expression(tokens, parse_expressions::Position::Element)
         }
     };
-    // In a math expression or a row condition, a diagnostic the parser went on past leaves a
-    // garbage node, which the consumer reads again with nu's math parser, reporting nu's error
-    // (an item where an operator goes, `> 0`). An alias's target nu reads otherwise.
-    let errors = working_set.take_errors_from(0);
-    let recovered = match value {
-        ItemsValue::Math | ItemsValue::RowCondition => {
-            errors.iter().all(|diagnostic| diagnostic.recovered)
-        }
-        ItemsValue::AliasTarget => errors.is_empty(),
-    };
+    // A diagnostic the parser went on past leaves a garbage node, which the consumer reads
+    // again with nu's parser, reporting nu's error (an item where an operator goes, `> 0`; a
+    // shorthand without a command, `FOO=1`).
+    let recovered = working_set
+        .take_errors_from(0)
+        .iter()
+        .all(|diagnostic| diagnostic.recovered);
     let parsed = parsed
         .ok()
         .filter(|expression| expression.span == span && recovered);

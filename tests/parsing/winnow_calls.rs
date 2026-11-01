@@ -822,3 +822,33 @@ fn keyword_block_that_is_no_block_is_lowered(
     assert_eq!(lowered_errors(code), expected, "`{code}`");
     Ok(())
 }
+
+/// Statements nu reads otherwise than their first look suggests, lowered as nu reads them: an
+/// item that is no block after `for`'s `in` value, a first item that is no math expression after
+/// all (an external command, `0..<$nope`), a shorthand whose value errors (it and the items after
+/// it are an external command), a shorthand whose command is a lone `if`, and an alias target of
+/// shorthands alone.
+#[rstest]
+#[case::for_without_block(
+    "for x in -h [1] {}",
+    &[("ExpectedWithStringMsg", "[1]"), ("ExtraPositional", "{}")]
+)]
+#[case::range_head_that_is_a_command("0..<$day", &[])]
+#[case::shorthand_value_error("FOO=$nope ls", &[])]
+#[case::second_shorthand_value_error("A=1 B=$nope ls -a", &[])]
+#[case::shorthand_before_a_lone_if("FOO=BAR if", &[("Expected", "")])]
+#[case::alias_of_shorthands_alone("alias a = FOO=1", &[])]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn statement_read_otherwise_is_lowered(
+    #[case] code: &str,
+    #[case] expected: &[(&str, &str)],
+) -> Result {
+    let expected: Vec<(String, String)> = expected
+        .iter()
+        .map(|(kind, text)| (kind.to_string(), text.to_string()))
+        .collect();
+    assert_eq!(lowered_errors(code), expected, "`{code}`");
+    Ok(())
+}

@@ -15,7 +15,7 @@ use super::{BlockOf, Lower, Lowered, Unlowered, call::STATEMENTS_IN_PIPELINE};
 use crate::winnow::syntax::{Span as WSpan, ast as w, lex::AssignmentOperator};
 use crate::{
     lex::{TokenContents, lex},
-    parse_calls::CallKind,
+    parse_calls::{CallKind, parse_external_call},
     parse_captures_compile::compile_block,
     parse_expressions::{is_math_expression_like, parse_math_expression},
     parse_keywords::find_keyword_decl,
@@ -91,10 +91,18 @@ impl<'s> Lower<'_, '_, 's> {
                     w::Expr::Garbage => self.items(e.span).first().copied(),
                     _ => Some(self.span(first_item(e))),
                 };
+                // nu reads such a statement as a call to an external command named by its first
+                // item, its other items the arguments (`parse_external_call`).
                 if self.working_set.parse_errors.len() > errors
                     && !first.is_some_and(|first| is_math_expression_like(self.working_set, first))
                 {
-                    return Err(Unlowered::Error);
+                    self.working_set.parse_errors.truncate(errors);
+                    let items = self.parts(e.span);
+                    if items.is_empty() {
+                        return Err(Unlowered::Error);
+                    }
+                    let span = self.span(e.span);
+                    return Ok(parse_external_call(self.working_set, &items, span));
                 }
                 Ok(math)
             }
@@ -407,11 +415,26 @@ impl<'s> Lower<'_, '_, 's> {
                 [] => self.node(Expr::String(String::new()), Span::unknown(), Type::Nothing),
                 // A value with an error ends the shorthands (`parse_expression` drops the
                 // error): the word is the command, which the winnow parser did not read so.
+                // nu drops the error and reads the items from this shorthand on as the command
+                // (`parse_call`), an external one, in `with-env` with the shorthands before it.
                 [b'$', ..] => {
                     let errors = self.working_set.parse_errors.len();
                     let value = self.value(&assignment.value, &SyntaxShape::Any, None)?;
                     if self.working_set.parse_errors.len() > errors {
-                        return Err(Unlowered::Error);
+                        self.working_set.parse_errors.truncate(errors);
+                        // Its parts, the `|` of an alias's target among them.
+                        let rest = WSpan::new(assignment.span.start, e.span.end);
+                        let items = self.parts(rest);
+                        let command_span = self.span(rest);
+                        let output = parse_external_call(self.working_set, &items, command_span);
+                        if pairs.is_empty() {
+                            return Ok(output);
+                        }
+                        let vars_span = Span::new(
+                            self.span(e.span).start,
+                            self.span(shorthand.vars[pairs.len() - 1].span).end,
+                        );
+                        return self.with_env(e, pairs, vars_span, command_span, output);
                     }
                     value
                 }
@@ -427,8 +450,10 @@ impl<'s> Lower<'_, '_, 's> {
         // and every `overlay` call an error. A statement's error is at the shorthand.
         let first_item = shorthand.vars.first().map(|var| var.span);
         // No command after the shorthand (`FOO=1`): the first item is an unknown command and
-        // the items are garbage.
-        if let (w::Expr::Garbage, Some(first)) = (&shorthand.expr.expr, first_item) {
+        // the items are garbage. A command that is garbage (a lone `if`) is read as nu reads it.
+        if let (w::Expr::Garbage, Some(first)) = (&shorthand.expr.expr, first_item)
+            && self.text(shorthand.expr.span).trim().is_empty()
+        {
             let first = self.span(first);
             self.working_set.error(ParseError::UnknownCommand(first));
             let span = self.span(e.span);
@@ -466,6 +491,22 @@ impl<'s> Lower<'_, '_, 's> {
             }
             _ => self.expression(&shorthand.expr, input_type)?,
         };
+        let vars_span = Span::merge_many(shorthand.vars.iter().map(|var| self.span(var.span)));
+        let command_span = self.span(shorthand.expr.span);
+        self.with_env(e, pairs, vars_span, command_span, output)
+    }
+
+    /// `output`, the command after environment shorthands, run in a call to `with-env` with
+    /// the shorthands' `pairs` as its record over `vars_span` and the command as its closure
+    /// over `command_span` (`parse_expression`); `output` itself without `with-env`.
+    fn with_env(
+        &mut self,
+        e: &w::Expression<'s>,
+        pairs: Vec<(Expression, Expression)>,
+        vars_span: Span,
+        command_span: Span,
+        output: Expression,
+    ) -> Lowered<Expression> {
         let Some(decl_id) = self.working_set.find_decl(b"with-env") else {
             return Ok(output);
         };
@@ -478,8 +519,6 @@ impl<'s> Lower<'_, '_, 's> {
         };
         compile_block(self.working_set, &mut block);
         let block_id = self.working_set.add_block(Arc::new(block));
-        let vars_span = Span::merge_many(shorthand.vars.iter().map(|var| self.span(var.span)));
-        let command_span = self.span(shorthand.expr.span);
         let record = self.node(
             Expr::Record(
                 pairs

@@ -1090,7 +1090,12 @@ pub fn parse_for<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> 
     let Some(block) = call.positional(&mut tokens, "block")? else {
         return call.help_call();
     };
-    let (body, body_value) = parse_block_or_value_argument(working_set, &block, "block")?;
+    // An item that is no block nu's call reports and goes on past (`for x in -h [1] {}`).
+    let (body, body_value) = match parse_block_or_value_argument(working_set, &block, "block") {
+        Ok(parsed) => parsed,
+        Err(ErrMode::Cut(ParseFailure::Error(diagnostic))) => return call.call_after(*diagnostic),
+        Err(error) => return Err(error),
+    };
     call.end(&mut tokens)?;
     let span = call.keyword.span.merge(block.span);
     let for_loop = For {
