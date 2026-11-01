@@ -8,14 +8,37 @@ pub trait Completer {
     fn fetch(&mut self, ctx: &Context) -> Fetched;
 }
 
+/// Whether a completion can be kept in the shared cache. A source that opts out
+/// also prevents a fallback source's results from caching the combined answer.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+enum CachePolicy {
+    /// No source requested caching; reusable sources may opt the combined result in.
+    #[default]
+    Unspecified,
+    /// Keep the result in the shared cache across keystrokes and prompts.
+    Reusable,
+    /// Never cache the result, even when combined with a reusable source.
+    DoNotCache,
+}
+
+impl CachePolicy {
+    /// Combine policies: an opt-out wins, otherwise either source can request reuse.
+    fn merge(self, other: Self) -> Self {
+        match (self, other) {
+            (Self::DoNotCache, _) | (_, Self::DoNotCache) => Self::DoNotCache,
+            (Self::Reusable, _) | (_, Self::Reusable) => Self::Reusable,
+            _ => Self::Unspecified,
+        }
+    }
+}
+
 /// Result from one completion source.
 #[derive(Debug, Default)]
 pub struct Fetched {
     suggestions: Vec<SemanticSuggestion>,
     /// Source answered; no fallback.
     answered: bool,
-    /// Worth caching between keystrokes.
-    reusable: bool,
+    cache_policy: CachePolicy,
 }
 
 impl Fetched {
@@ -29,7 +52,7 @@ impl Fetched {
         Self {
             suggestions,
             answered: true,
-            reusable: false,
+            cache_policy: CachePolicy::Unspecified,
         }
     }
 
@@ -38,7 +61,7 @@ impl Fetched {
         Self {
             suggestions,
             answered: false,
-            reusable: true,
+            cache_policy: CachePolicy::Reusable,
         }
     }
 
@@ -47,13 +70,19 @@ impl Fetched {
         Self {
             suggestions: Vec::new(),
             answered: false,
-            reusable: true,
+            cache_policy: CachePolicy::Reusable,
         }
     }
 
     /// Mark answer cacheable.
     pub(crate) fn worth_keeping(mut self) -> Self {
-        self.reusable = true;
+        self.cache_policy = self.cache_policy.merge(CachePolicy::Reusable);
+        self
+    }
+
+    /// Prevent this dynamic result, including any fallback, from entering the shared cache.
+    pub(crate) fn without_cache(mut self) -> Self {
+        self.cache_policy = CachePolicy::DoNotCache;
         self
     }
 
@@ -69,7 +98,7 @@ impl Fetched {
 
     /// Cacheable between keystrokes?
     pub(crate) fn is_reusable(&self) -> bool {
-        self.reusable
+        self.cache_policy == CachePolicy::Reusable
     }
 
     /// Any suggestions yet, without consuming them.
@@ -82,11 +111,11 @@ impl Fetched {
         self.suggestions.retain(f);
     }
 
-    /// Append another outcome's suggestions and state: answered only if both
-    /// answered, reusable if either is.
+    /// Append suggestions; either source can answer, and either source's cache
+    /// opt-out prevents the combined answer from being cached.
     pub(crate) fn merge(&mut self, other: Fetched) {
         self.answered |= other.answered;
-        self.reusable |= other.reusable;
+        self.cache_policy = self.cache_policy.merge(other.cache_policy);
         self.suggestions.extend(other.suggestions);
     }
 
@@ -108,11 +137,11 @@ impl Fetched {
         answered
     }
 
-    /// Prepend another outcome's suggestions, sharing reusability but leaving
+    /// Prepend another outcome's suggestions, sharing its cache policy but leaving
     /// answeredness untouched (for the shorter-head argument reading, whose
     /// ranking comes first but which never settles the site).
     pub(crate) fn prepend_from(&mut self, other: Fetched) {
-        self.reusable |= other.reusable;
+        self.cache_policy = self.cache_policy.merge(other.cache_policy);
         let mut combined = other.suggestions;
         combined.append(&mut self.suggestions);
         self.suggestions = combined;
