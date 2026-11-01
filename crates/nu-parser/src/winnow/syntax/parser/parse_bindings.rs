@@ -113,12 +113,15 @@ fn parse_binding<'a>(mut tokens: Tokens<'_, 'a>, kind: BindingKind) -> ParseResu
     let name_text = working_set.get_span_contents(name_token.span);
     let (name, typed) = match parse_var_with_opt_type(working_set, &name_token) {
         Ok(parsed) => parsed,
-        // nu reports an untyped name it refuses (`let $x-y = 1`, `let 'a b' = 1`,
-        // `let -- x = 1`, `let x-y`) and goes on with garbage for the variable, as the consumer
-        // does: the error is recorded as recovered and the name kept as written.
-        Err(ErrMode::Cut(ParseFailure::Error(diagnostic))) if !name_text.ends_with(':') => {
+        // nu reports a name it refuses (`let $x-y = 1`, `let 'a b' = 1`, `let -- x = 1`,
+        // `let x-y`, `let $x.y: int = 1`) and goes on with garbage over the name, its `:`
+        // included, as the consumer does: the error is recorded as recovered and the name kept
+        // as written. nu reads the type after a `:` unless the name has a blank or a quote,
+        // which it refuses first (`parse_var_with_opt_type`).
+        Err(ErrMode::Cut(ParseFailure::Error(diagnostic))) => {
             working_set.error(diagnostic.as_recovered());
-            (Spanned::new(name_text, name_token.span), false)
+            let typed = name_text.ends_with(':') && !name_text.contains([' ', '"', '\'', '`']);
+            (Spanned::new(name_text, name_token.span), typed)
         }
         Err(error) => return Err(error),
     };

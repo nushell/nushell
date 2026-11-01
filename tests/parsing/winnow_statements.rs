@@ -3219,6 +3219,11 @@ fn alias_of_a_keyword_or_an_expression_is_lowered(
     "let x o> f e> g",
     &[("ExpectedKeyword", "o>"), ("Expected", "e>"), ("IncompleteMathExpression", "e>")]
 )]
+#[case::typed_invalid_name("let $x.y: int = 1", &[("Expected", "$x.y:")])]
+#[case::typed_quoted_name(
+    "let 'a b': int = 1",
+    &[("VariableNotValid", "'a b':"), ("ExtraTokens", "int")]
+)]
 #[case::second_end_of_options(
     "let -- -- x",
     &[("Expected", "--"), ("ExpectedKeyword", "x"), ("KeywordMissingArgument", "")]

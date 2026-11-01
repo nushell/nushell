@@ -501,7 +501,7 @@ match &ast.block.pipelines[0].elements[0].expr.expr {
 }
 
 // Lenient: keep the partial tree and every diagnostic.
-let (ast, diagnostics) = parse_lenient("ls\nlet $x.y: int = 1\npwd", &config);
+let (ast, diagnostics) = parse_lenient("ls\n1 +\npwd", &config);
 assert_eq!(diagnostics.len(), 1);
 println!("{}", diagnostics[0].render(ast.source, Some("script.nu")));
 

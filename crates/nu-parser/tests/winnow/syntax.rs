@@ -1577,7 +1577,7 @@ fn text_of(src: &str, span: Span) -> &str {
 
 #[test]
 fn recovery_keeps_parsing_later_statements() {
-    let src = "ls\nlet $x.y: int = 1\ndef f [] { let x }\n1 +\npwd\n";
+    let src = "ls\n1 *\ndef f [] { let x }\n1 +\npwd\n";
     let (ast, diagnostics) = parse_lenient(src, &ParseConfig::new());
     assert_eq!(ast.block.pipelines.len(), 5);
     assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");

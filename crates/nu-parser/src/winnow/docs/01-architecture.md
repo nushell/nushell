@@ -161,7 +161,7 @@ let first = &ast.block.pipelines[0].elements[0].expr;
 assert!(matches!(first.expr, Expr::Let(_)));
 
 // Lenient: keep going after a bad statement, get every diagnostic.
-let (ast, diagnostics) = parse_lenient("ls\nlet $x.y: int = 1\npwd", &ParseConfig::new());
+let (ast, diagnostics) = parse_lenient("ls\n1 +\npwd", &ParseConfig::new());
 assert_eq!(ast.block.pipelines.len(), 3);
 assert!(ast.block.pipelines[1].elements[0].expr.is_garbage());
 assert_eq!(diagnostics.len(), 1);
