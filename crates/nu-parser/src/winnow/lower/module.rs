@@ -125,10 +125,9 @@ impl<'s> Lower<'_, '_, 's> {
         parent_name: Option<&[u8]>,
     ) -> Lowered<(Pipeline, Vec<Exportable>)> {
         let (decl_id, head) = self.module_keyword(command)?;
-        let body_span = match &module.body {
-            Some(body) => Some(self.braces_span(body)?),
-            None => None,
-        };
+        // A body left open runs to the end of its item, as nu's does (`module x { def f [ {} }`),
+        // which `finish_module` reports.
+        let body_span = module.body.as_ref().and(module.body_item);
         let name = w::Argument::Positional((*module.name).clone());
         let (mut call, _, kind) = self.internal_call(head, &[name], decl_id, None)?;
         // `parse_module` gives an invalid call (a missing positional) back as it is; the

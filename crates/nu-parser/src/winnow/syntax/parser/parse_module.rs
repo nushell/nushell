@@ -1,19 +1,21 @@
 //! `module`, `use`, `export` and `export-env` (nu-parser's `parse_module.rs`).
 
+use winnow::error::ErrMode;
+
 use crate::winnow::syntax::ast::{
     Argument, Export, ExportEnv, Expr, Expression, ImportPatternMember, ImportPatternMemberKind,
     ListItem, Module, Quote, RecordItem, Use,
 };
 use crate::winnow::syntax::error::{Diagnostic, ErrorKind};
-use crate::winnow::syntax::input::{ParseResult, cut};
+use crate::winnow::syntax::input::{ParseFailure, ParseResult, cut};
 use crate::winnow::syntax::lex::{Token, TokenContents};
 use crate::winnow::syntax::span::{Span, Spanned};
 
 use super::WorkingSet;
 use super::parse_calls::call_argument;
 use super::parse_expressions::{
-    ExpectedShape, parse_block_body_unchecked, parse_builtin_commands, parse_list_expression,
-    parse_value,
+    ExpectedShape, parse_block_body_unchecked, parse_block_interior, parse_builtin_commands,
+    parse_list_expression, parse_value,
 };
 use super::parse_helpers::{is_help_flag, is_help_text, is_spread};
 use super::parse_keywords::{
@@ -82,7 +84,21 @@ pub fn parse_module<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a
     let body = match body_token {
         Some(token) => {
             end = token.span;
-            let body = parse_block_body_unchecked(working_set, token.span)?;
+            let body = match parse_block_body_unchecked(working_set, token.span) {
+                Ok(body) => body,
+                // A body left open (`module x { def f [ {} }`, whose `[` takes the `}`): nu
+                // parses the module from what its item holds and reports it (`parse_module`),
+                // as the consumer does; the error is recorded as recovered and the body is what
+                // follows the `{`.
+                Err(ErrMode::Cut(ParseFailure::Error(diagnostic)))
+                    if matches!(diagnostic.kind, ErrorKind::Unclosed { delimiter: "}", .. }) =>
+                {
+                    working_set.error(diagnostic.as_recovered());
+                    let inner = Span::new(token.span.start + 1, token.span.end);
+                    parse_block_interior(working_set, inner)?
+                }
+                Err(error) => return Err(error),
+            };
             // Like nu, a module body holds declarations only. nu reports any other statement
             // and makes it garbage (`parse_module_pipeline`), and so does the consumer: the
             // error is recorded as recovered.
@@ -126,6 +142,7 @@ pub fn parse_module<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a
         Expr::Module(Module {
             name: Box::new(name),
             body,
+            body_item: body_token.map(|token| token.span),
         }),
         keyword.span.merge(end),
     ))

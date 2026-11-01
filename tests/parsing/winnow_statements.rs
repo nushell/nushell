@@ -3305,3 +3305,33 @@ fn use_with_a_flag_it_does_not_have_is_lowered(
     );
     Ok(())
 }
+
+/// A module whose body is left open (an unclosed `[` takes its `}`) is lowered with nu's errors:
+/// the body runs to the end of its item, inside another module or a definition's body too,
+/// where the `}` after it is the enclosing block's.
+#[rstest]
+#[case::in_a_module("module outer {\n  module x { def f [ {} }\n}")]
+#[case::in_a_definition("def h [] {\n  module x { export def f [ {} }\n}")]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn module_body_left_open_is_lowered(#[case] code: &str) -> Result {
+    let kinds: Vec<String> = super::winnow_calls::lowered_errors(code)
+        .into_iter()
+        .map(|(kind, _)| kind)
+        .collect();
+    assert_eq!(
+        kinds,
+        [
+            "Unbalanced",
+            "Unclosed",
+            "Unclosed",
+            "Unclosed",
+            "Unclosed",
+            "Expected",
+            "MissingPositional"
+        ],
+        "`{code}`"
+    );
+    Ok(())
+}

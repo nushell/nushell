@@ -1459,6 +1459,15 @@ pub fn parse_block_body_unchecked<'a>(
     span: Span,
 ) -> ParseResult<Block<'a>> {
     let inner = delimited_interior(working_set, span, "{", "}")?;
+    parse_block_interior(working_set, inner)
+}
+
+/// The statements of `inner`, what is inside a block's braces (or after its `{`, for a body
+/// left open), in a scope of their own.
+pub fn parse_block_interior<'a>(
+    working_set: &WorkingSet<'a>,
+    inner: Span,
+) -> ParseResult<Block<'a>> {
     let tokens = working_set
         .lex_block(inner, LexOptions::BLOCK)
         .map_err(cut)?;

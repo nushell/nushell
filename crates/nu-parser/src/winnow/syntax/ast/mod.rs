@@ -1599,6 +1599,10 @@ pub struct Module<'a> {
     pub name: Box<Expression<'a>>,
     /// The body, if inline.
     pub body: Option<Block<'a>>,
+    /// The body's item, its braces included: it ends past the `}` of a closed body, and at
+    /// the end of the item for a body left open, as nu's item does (its `}` may then be the
+    /// enclosing block's).
+    pub body_item: Option<Span>,
 }
 
 /// `export <item>`.
