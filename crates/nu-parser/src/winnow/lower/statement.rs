@@ -468,8 +468,8 @@ impl<'s> Lower<'_, '_, 's> {
     /// `export alias name = target` in a module's body (`parse_export_in_module`): the alias,
     /// declared as `alias` declares it with the module's name forbidden, made a call to `export
     /// alias` covering the statement (`warp_export_call`), and added to the module's exports
-    /// under the item after `alias`, its quotes trimmed. An alias that reports an error is the
-    /// classic parser's.
+    /// under the item after `alias`, its quotes trimmed: whatever command has that name, or,
+    /// when none does (an alias nu refused), nu's internal error.
     fn export_alias(
         &mut self,
         pipeline: &w::Pipeline<'s>,
@@ -479,11 +479,7 @@ impl<'s> Lower<'_, '_, 's> {
         module_name: &[u8],
         module: &mut Module,
     ) -> Lowered<Expression> {
-        let errors = self.working_set.parse_errors.len();
         let mut expression = self.alias(pipeline, item, alias, Some(module_name))?;
-        if self.working_set.parse_errors.len() > errors {
-            return Err(Unlowered::Error);
-        }
         let span = self.span(command.span);
         self.export_call(&mut expression, "export alias", span)?;
         // The head covers `export alias`, the blanks between them included.
@@ -491,8 +487,16 @@ impl<'s> Lower<'_, '_, 's> {
             call.head = Span::new(span.start, self.span(item.span).start + "alias".len());
         }
         let name = trim_quotes(self.text(alias.name.span).as_bytes()).to_vec();
-        let decl_id = self.working_set.find_decl(&name).ok_or(Unlowered::Error)?;
-        self.add_export_decl(module, module_name, name, decl_id, &expression);
+        match self.working_set.find_decl(&name) {
+            Some(decl_id) => self.add_export_decl(module, module_name, name, decl_id, &expression),
+            None => {
+                let start = self.span(item.span).start;
+                self.working_set.error(ParseError::InternalError(
+                    "failed to find added alias".into(),
+                    Span::new(start, span.end),
+                ));
+            }
+        }
         Ok(expression)
     }
 

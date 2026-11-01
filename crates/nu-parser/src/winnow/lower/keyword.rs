@@ -756,7 +756,8 @@ impl<'s> Lower<'_, '_, 's> {
                 this.working_set
                     .insert_variable_into_scope(var_name, var_id);
             }
-            let iterable = this.value(&for_loop.iterable, &SyntaxShape::Any, None)?;
+            // The `in` keyword's argument, whose leaf error nu keeps (`for i in 5..1kb {}`).
+            let iterable = this.reported_value(&for_loop.iterable, &SyntaxShape::Any, None)?;
             let body = this.block_argument(&for_loop.body, for_loop.body_value.as_deref(), None)?;
             Ok((var_decl, iterable, body))
         })?;
@@ -1854,7 +1855,9 @@ impl<'s> Lower<'_, '_, 's> {
     }
 
     /// Make a definition's call a call to `export_name` covering `span` (`warp_export_call`):
-    /// the call's head already covers `export` and the keyword.
+    /// the call's head already covers `export` and the keyword. An expression that is no call
+    /// (the garbage of an alias whose target nu refuses) covers `span` all the same, with nu's
+    /// internal error over the statement from its keyword on.
     pub(super) fn export_call(
         &mut self,
         expression: &mut Expression,
@@ -1868,11 +1871,20 @@ impl<'s> Lower<'_, '_, 's> {
         expression.span = span;
         match &mut expression.expr {
             Expr::Call(call) => call.decl_id = export_decl,
-            Expr::AttributeBlock(block) => match &mut block.item.expr {
-                Expr::Call(call) => call.decl_id = export_decl,
-                _ => return Err(Unlowered::Error),
-            },
-            _ => return Err(Unlowered::Error),
+            Expr::AttributeBlock(block) if matches!(block.item.expr, Expr::Call(_)) => {
+                if let Expr::Call(call) = &mut block.item.expr {
+                    call.decl_id = export_decl;
+                }
+            }
+            _ => {
+                let text = self.working_set.get_span_contents(span);
+                let after_export = text.get("export".len()..).unwrap_or_default();
+                let keyword = span.end - after_export.trim_ascii_start().len();
+                self.working_set.error(ParseError::InternalError(
+                    "unexpected output from parsing a definition".into(),
+                    Span::new(keyword, span.end),
+                ));
+            }
         }
         Ok(())
     }

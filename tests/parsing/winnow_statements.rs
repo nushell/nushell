@@ -3335,3 +3335,41 @@ fn module_body_left_open_is_lowered(#[case] code: &str) -> Result {
     );
     Ok(())
 }
+
+/// Errors nu reports and goes on past, lowered with them: a type alias whose type its type
+/// parser refuses (no alias is defined), a range bound that is no number in a `for`'s iterable,
+/// and an `export alias` of a target nu refuses, in a script (garbage over the statement) and in
+/// a module's body (nothing to export under its name).
+#[rstest]
+#[case::type_unclosed("type T = list<int", &[("Unclosed", "t")])]
+#[case::type_missing_field_type("type T = record<x: >", &[("Expected", ":")])]
+#[case::for_range_bound("for i in 5..1kb {}", &[("LabeledError", "5..1")])]
+#[case::export_alias_garbage(
+    "export alias x = for x in [1] {|y| $y }",
+    &[
+        ("Mismatch", "{|y| $y }"),
+        ("InternalError", "alias x = for x in [1] {|y| $y }"),
+    ]
+)]
+#[case::export_alias_keyword_in_a_module(
+    "module m {\n  export alias x = use std\n}",
+    &[("CantAliasKeyword", "use"), ("InternalError", "alias x = use std")]
+)]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn errors_nu_goes_on_past_are_lowered(
+    #[case] code: &str,
+    #[case] expected: &[(&str, &str)],
+) -> Result {
+    let expected: Vec<(String, String)> = expected
+        .iter()
+        .map(|(kind, text)| (kind.to_string(), text.to_string()))
+        .collect();
+    assert_eq!(
+        super::winnow_calls::lowered_errors(code),
+        expected,
+        "`{code}`"
+    );
+    Ok(())
+}

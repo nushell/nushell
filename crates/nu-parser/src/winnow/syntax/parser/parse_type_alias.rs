@@ -1,8 +1,10 @@
 //! `type` (nu-parser's `parse_type_alias.rs`).
 
+use winnow::error::ErrMode;
+
 use crate::winnow::syntax::ast::{Expr, Expression, SyntaxShape, TypeAlias, TypeAnnotation};
 use crate::winnow::syntax::error::{Diagnostic, ErrorKind};
-use crate::winnow::syntax::input::{ParseResult, cut};
+use crate::winnow::syntax::input::{ParseFailure, ParseResult, cut};
 use crate::winnow::syntax::lex::{LexOptions, TokenContents};
 use crate::winnow::syntax::span::{Span, Spanned};
 
@@ -109,24 +111,30 @@ pub fn parse_type_alias<'a>(
     } else if type_span.is_empty() {
         recovered(Diagnostic::expected("type after `=`", type_span))
     } else {
-        let lexed = working_set
-            .lex(type_span, LexOptions::VAR_TYPE)
-            .map_err(cut)?;
-        match lexed
-            .iter()
-            .filter(|token| token.contents != TokenContents::Eof)
-            .collect::<Vec<_>>()
-            .as_slice()
-        {
-            [only] => parse_type(working_set, only.span)?,
-            [_, extra, ..] => recovered(
-                Diagnostic::new(
-                    ErrorKind::ExtraTokens,
-                    Span::new(extra.span.start, type_span.end),
-                )
-                .with_help("a type alias names one type"),
-            ),
-            [] => recovered(Diagnostic::expected("type after `=`", type_span)),
+        // A type nu's type parser reports (`list<int`, `record<x: >`) defines nothing; the
+        // consumer reads it again with that parser, which reports the error.
+        match working_set.lex(type_span, LexOptions::VAR_TYPE) {
+            Err(diagnostic) => recovered(diagnostic),
+            Ok(lexed) => match lexed
+                .iter()
+                .filter(|token| token.contents != TokenContents::Eof)
+                .collect::<Vec<_>>()
+                .as_slice()
+            {
+                [only] => match parse_type(working_set, only.span) {
+                    Ok(ty) => ty,
+                    Err(ErrMode::Cut(ParseFailure::Error(diagnostic))) => recovered(*diagnostic),
+                    Err(error) => return Err(error),
+                },
+                [_, extra, ..] => recovered(
+                    Diagnostic::new(
+                        ErrorKind::ExtraTokens,
+                        Span::new(extra.span.start, type_span.end),
+                    )
+                    .with_help("a type alias names one type"),
+                ),
+                [] => recovered(Diagnostic::expected("type after `=`", type_span)),
+            },
         }
     };
     let span = keyword.span.merge(type_span);
