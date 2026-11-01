@@ -3158,3 +3158,43 @@ fn module_body_errors_are_lowered(#[case] code: &str, #[case] expected: &[(&str,
     );
     Ok(())
 }
+
+/// An alias's target that is a parser keyword with arguments, or an expression with a `|` in
+/// it, is lowered as nu reads it: the call to `alias` with the target read as its argument,
+/// `CantAliasKeyword` or `CantAliasExpression`, and no alias; a target whose second reading
+/// reports an error is garbage with that error (the errors point where nu's do: an unclosed
+/// `[` at the end of the text). A `def`'s body there gets the signature's input type, as
+/// `parse_internal_call` gives it.
+#[rstest]
+#[case::def("alias zz = def foo [] {}", &[("CantAliasKeyword", "def")])]
+#[case::def_with_input_type(
+    "alias zz = def dummy []: int -> int { $in }",
+    &[("CantAliasKeyword", "def")]
+)]
+#[case::export_def("alias zz = export def foo [] {}", &[("CantAliasKeyword", "export def")])]
+#[case::expression_with_a_pipe(
+    "alias zz = [1 2] | wrap x |",
+    &[("UnexpectedEof", "|"), ("CantAliasExpression", "[1 2]")]
+)]
+#[case::unclosed_signature(
+    "alias zz = def f [foo_bar,",
+    &[("Unclosed", ","), ("Unclosed", ""), ("MissingPositional", "")]
+)]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn alias_of_a_keyword_or_an_expression_is_lowered(
+    #[case] code: &str,
+    #[case] expected: &[(&str, &str)],
+) -> Result {
+    let expected: Vec<(String, String)> = expected
+        .iter()
+        .map(|(kind, text)| (kind.to_string(), text.to_string()))
+        .collect();
+    assert_eq!(
+        super::winnow_calls::lowered_errors(code),
+        expected,
+        "`{code}`"
+    );
+    Ok(())
+}

@@ -1504,15 +1504,24 @@ impl<'s> Lower<'_, '_, 's> {
             // A target that reads as an expression, which the winnow parser left as garbage:
             // the argument is what `parse_expression` reads (`alias a = not` is garbage). One
             // nu does not read so (`alias a = 0..$x.len`) is an alias, the classic parser's.
-            let items = self.items(target.span);
-            if !items
+            let parts = self.parts(target.span);
+            if !parts
                 .first()
                 .is_some_and(|first| is_math_expression_like(self.working_set, *first))
             {
                 return Err(Unlowered::Unsupported("alias target read as a call"));
             }
-            Ok(parse_expression(self.working_set, &items, None))
+            Ok(parse_expression(self.working_set, &parts, None))
         } else {
+            // `parse_expression` reports a statement before it reads it as a call: dropped
+            // below with the other errors, the error still leaves the closures read after it
+            // uncompiled (`parse_closure_expression` compiles only without errors).
+            if let w::Expr::Call(target_call) = &target.expr
+                && let Some(name) = self.statement_head(target_call)
+            {
+                let error = self.statement_in_pipeline_error(target, target_call, name, None);
+                self.working_set.error(error);
+            }
             self.lower_alias_target(target)
         };
         // The errors of the call to `alias` are dropped.
@@ -1547,11 +1556,11 @@ impl<'s> Lower<'_, '_, 's> {
         // A target that reads as an expression (`alias a = 1`), which the winnow parser left as
         // garbage: `CantAliasExpression`, naming what `parse_expression` reads, and no alias.
         if let w::Expr::Garbage = target.expr
-            && let items = self.items(target.span)
-            && let Some(first) = items.first().copied()
+            && let parts = self.parts(target.span)
+            && let Some(first) = parts.first().copied()
         {
             let errors = self.working_set.parse_errors.len();
-            let expression = parse_expression(self.working_set, &items, None);
+            let expression = parse_expression(self.working_set, &parts, None);
             self.working_set.parse_errors.truncate(errors);
             self.working_set.error(ParseError::CantAliasExpression(
                 expression.expr.description().to_string(),

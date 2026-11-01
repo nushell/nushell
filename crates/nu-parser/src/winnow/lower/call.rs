@@ -21,7 +21,8 @@ use crate::{
         parse_unknown_arg, shape_allows_negative_number, strict_extern_forwards,
     },
     parse_expressions::{
-        is_math_expression_like, parse_math_expression, parse_value as classic_value,
+        is_math_expression_like, parse_closure_expression, parse_math_expression,
+        parse_value as classic_value,
     },
     parse_helpers::{PERCENT_FORCED_BUILTIN_PARSER_INFO, is_variable},
     parse_keywords::is_parser_keyword,
@@ -83,24 +84,10 @@ impl<'s> Lower<'_, '_, 's> {
                 "run" if call.head.name == "run" => return self.run(e, call),
                 "run" => return Err(Unlowered::Unsupported("keyword command")),
                 "where" => return self.where_call(e, call),
-                word if STATEMENTS_IN_PIPELINE.contains(&word) => {
-                    return self.statement_in_pipeline(e, call, decl_id, word, None, input_type);
-                }
-                "overlay" if self.second_word(call) != Some("list") => {
-                    return self
-                        .statement_in_pipeline(e, call, decl_id, "overlay", None, input_type);
-                }
-                "plugin" if self.second_word(call) == Some("use") => {
-                    return self.statement_in_pipeline(
-                        e,
-                        call,
-                        decl_id,
-                        "plugin use",
-                        None,
-                        input_type,
-                    );
-                }
                 _ => {}
+            }
+            if let Some(name) = self.statement_head(call) {
+                return self.statement_in_pipeline(e, call, decl_id, name, None, input_type);
             }
             // Any other parser keyword with a parse function of its own the winnow tree has no
             // node for; `let` and `source-env` are ordinary calls there, and the control-flow
@@ -143,13 +130,42 @@ impl<'s> Lower<'_, '_, 's> {
         first_item: Option<WSpan>,
         input_type: Option<&Type>,
     ) -> Lowered<Expression> {
+        let error = self.statement_in_pipeline_error(e, call, name, first_item);
+        self.working_set.error(error);
+        self.ordinary_call(e, call, decl_id, input_type)
+    }
+
+    /// The statement `call` is to `parse_expression`, by its first words, as its error names
+    /// it ([`Self::statement_in_pipeline`]): a statement keyword, `overlay` but `overlay list`,
+    /// or `plugin use`.
+    pub(super) fn statement_head(&self, call: &w::Call<'s>) -> Option<&'static str> {
+        let first_word = call.head.name.split(' ').next().unwrap_or_default();
+        match first_word {
+            word if STATEMENTS_IN_PIPELINE.contains(&word) => STATEMENTS_IN_PIPELINE
+                .iter()
+                .find(|statement| **statement == word)
+                .copied(),
+            "overlay" if self.second_word(call) != Some("list") => Some("overlay"),
+            "plugin" if self.second_word(call) == Some("use") => Some("plugin use"),
+            _ => None,
+        }
+    }
+
+    /// The error [`Self::statement_in_pipeline`] reports.
+    pub(super) fn statement_in_pipeline_error(
+        &self,
+        e: &w::Expression<'s>,
+        call: &w::Call<'s>,
+        name: &str,
+        first_item: Option<WSpan>,
+    ) -> ParseError {
         let first_item = first_item.unwrap_or_else(|| {
             let head = self.text(call.head.span);
             let word = head.split_ascii_whitespace().next().unwrap_or(head);
             WSpan::new(call.head.span.start, call.head.span.start + word.len())
         });
         let span = self.span(first_item);
-        let error = match name {
+        match name {
             // nu names the variable and the value by where they stand among the element's
             // items, shorthand included (`FOO=1 mut x` names the variable `mut`), a redirection
             // operator nu keeps as one too (`ls | mut x: int o>`).
@@ -172,9 +188,7 @@ impl<'s> Lower<'_, '_, 's> {
                 ParseError::AssignInPipeline(name.to_string(), value, variable, span)
             }
             _ => ParseError::BuiltinCommandInPipeline(name.to_string(), span),
-        };
-        self.working_set.error(error);
-        self.ordinary_call(e, call, decl_id, input_type)
+        }
     }
 
     fn second_word(&self, call: &w::Call<'s>) -> Option<&'s str> {
@@ -355,6 +369,7 @@ impl<'s> Lower<'_, '_, 's> {
             Some("let") => Some(SpecialKeyword::Let),
             Some("match") => Some(SpecialKeyword::Match),
             Some("if") => Some(SpecialKeyword::If),
+            Some("def") => Some(SpecialKeyword::Def),
             _ => None,
         };
 
@@ -576,7 +591,18 @@ impl<'s> Lower<'_, '_, 's> {
                             _ => None,
                         };
                         let compile_errors = self.working_set.compile_errors.len();
-                        let value = if is_multispan_shape(shape) {
+                        let def_body =
+                            special == Some(SpecialKeyword::Def) && positional.name == "block";
+                        let value = if def_body {
+                            let body_input = match call.arguments.last() {
+                                Some(Argument::Positional(Expression {
+                                    expr: Expr::Signature(signature),
+                                    ..
+                                })) => Some(signature.get_input_type()),
+                                _ => None,
+                            };
+                            self.def_body(expr, shape, body_input.as_ref())?
+                        } else if is_multispan_shape(shape) {
                             let (value, next) = self.multispan_value(
                                 arguments,
                                 item,
@@ -645,6 +671,46 @@ impl<'s> Lower<'_, '_, 's> {
             }
         }
         Ok(output_override)
+    }
+
+    /// `def`'s body read as a call's argument (`parse_internal_call`'s `SpecialCmd::Def`): a
+    /// closure (`parse_closure_expression`) whose statements get `input_type`, the signature's.
+    /// nu reads a body written like a record as a closure's statements too, which the winnow
+    /// tree has as a record: that is handed back.
+    fn def_body(
+        &mut self,
+        e: &w::Expression<'s>,
+        shape: &SyntaxShape,
+        input_type: Option<&Type>,
+    ) -> Lowered<Expression> {
+        match &e.expr {
+            w::Expr::Closure(closure) => self.closure(
+                e.span,
+                closure.params.as_ref(),
+                &closure.body,
+                shape,
+                input_type,
+            ),
+            w::Expr::Record(items) if items.is_empty() => {
+                self.closure(e.span, None, &w::Block::default(), shape, input_type)
+            }
+            w::Expr::Record(_) | w::Expr::FullCellPath(_) => {
+                Err(Unlowered::Unsupported("def body read as a record"))
+            }
+            // A body the winnow parser went on past an error in: read by nu's closure parser,
+            // and when that gives no closure, by its value parser, as there.
+            w::Expr::Garbage if self.text(e.span).starts_with('{') => {
+                let span = self.span(e.span);
+                let errors = self.working_set.parse_errors.len();
+                let value = parse_closure_expression(self.working_set, shape, span, input_type);
+                if matches!(value.expr, Expr::Closure(_)) {
+                    return Ok(value);
+                }
+                self.working_set.parse_errors.truncate(errors);
+                Ok(classic_value(self.working_set, span, shape, input_type))
+            }
+            _ => self.reported_value(e, shape, None),
+        }
     }
 
     /// `value` as the argument of a positional of `shape`: itself, or garbage with the classic
@@ -1617,6 +1683,9 @@ enum SpecialKeyword {
     Let,
     Match,
     If,
+    /// `def` read as an ordinary call (an alias's target): its body is a closure that gets
+    /// the signature's input type.
+    Def,
 }
 
 /// The shape of a command's rest parameter, which its unknown arguments are read with.

@@ -7,7 +7,7 @@ use winnow::error::ErrMode;
 use crate::winnow::syntax::ast::{Alias, Call, Expr, Expression};
 use crate::winnow::syntax::error::Diagnostic;
 use crate::winnow::syntax::input::{ParseFailure, ParseResult, cut};
-use crate::winnow::syntax::lex::{AssignmentOperator, Token, TokenContents};
+use crate::winnow::syntax::lex::{AssignmentOperator, Token, TokenContents, assignment_operator};
 use crate::winnow::syntax::span::Spanned;
 
 use super::WorkingSet;
@@ -253,16 +253,11 @@ pub fn parse_alias<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>
         let diagnostic = Diagnostic::message("cannot create an alias to an expression", first.span)
             .with_help("an alias names a command and its arguments, such as `alias ll = ls -l`");
         // nu reports it, naming the expression its text reads as, and keeps the call to
-        // `alias` without declaring one: so does the consumer, from the target's text, which
-        // is only its items when no `|` or redirection is among them (an alias's words).
-        let plain = tokens
-            .remaining()
-            .iter()
-            .all(|token| token.contents == TokenContents::Item);
-        let Some(last) = words.last().filter(|_| plain) else {
-            return Err(cut(diagnostic));
-        };
+        // `alias` without declaring one: so does the consumer, from the target's text, every
+        // token after the `=` a part of it, a `|` or a redirection too (nu's lite parser takes
+        // them all after an assignment operator).
         working_set.error(diagnostic.as_recovered());
+        let last = words.last().unwrap_or(first);
         let value = Expression::new(Expr::Garbage, first.span.merge(last.span));
         let span = keyword.span.merge(value.span);
         return Ok(Expression::new(
@@ -276,11 +271,12 @@ pub fn parse_alias<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>
     }
     // Like nu, only the aliasable keywords (`if`, `match`, `try`, `overlay ...`)
     // may be aliased; `alias d = def` is an error. nu reads the target as a call
-    // and refuses to declare the alias (`finish_alias`), the statement kept: so
-    // does the consumer for a target that is the keyword alone, the error
-    // recorded as recovered. With arguments nu's first reading of the target
-    // (`parse_expression`) reads some keywords their own way (`run`, `where`, a
-    // `def`'s body), so that stays an error.
+    // twice, the first time as the argument of `alias` (`parse_expression`, which
+    // reads a keyword's call by the keyword's signature, its errors dropped), and
+    // refuses to declare the alias (`finish_alias`), the statement kept, or makes
+    // the target garbage when the second reading reports an error: so does the
+    // consumer, the error recorded as recovered. The first reading of `run` and
+    // `where`, and of an assignment, is no call, so those stay an error.
     let target: String = words
         .iter()
         .take(2)
@@ -300,7 +296,11 @@ pub fn parse_alias<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>
                     "only {} can be aliased",
                     ALIASABLE_PARSER_KEYWORDS.join(", ")
                 ));
-        if words.len() != keyword_words {
+        let read_otherwise = matches!(first_text, "run" | "where")
+            || words.iter().any(|word| {
+                assignment_operator(working_set.get_span_contents(word.span)).is_some()
+            });
+        if words.len() != keyword_words && read_otherwise {
             return Err(cut(diagnostic));
         }
         working_set.error(diagnostic.as_recovered());
@@ -321,7 +321,7 @@ pub fn parse_alias<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>
         Expr::Call(call) => call_alias_kind(working_set, call),
         _ => DeclKind::Declared,
     };
-    if declares {
+    if declares && keyword_words.is_none() {
         working_set.add_alias(&name.item, kind);
     }
     let span = keyword.span.merge(value.span);
