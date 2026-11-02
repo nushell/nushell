@@ -404,7 +404,7 @@ pub fn pipe_on_a_later_line(tokens: &[Token], at: usize) -> Option<(usize, Token
 }
 
 /// `token` as an item: a word of the command.
-fn as_item(token: Token) -> Token {
+pub(super) fn as_item(token: Token) -> Token {
     Token {
         contents: TokenContents::Item,
         span: token.span,

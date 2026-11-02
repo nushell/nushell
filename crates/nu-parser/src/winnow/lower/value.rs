@@ -17,7 +17,7 @@ use crate::{
     parse_captures_compile::compile_block,
     parse_expressions::parse_value as classic_value,
     parse_expressions::{check_record_key_or_value, parse_table_expression, table_type},
-    parse_literals::{is_quoted, parse_variable_expr},
+    parse_literals::{is_quoted, parse_full_cell_path, parse_variable_expr},
     type_check::negation_type,
 };
 
@@ -311,7 +311,11 @@ impl<'s> Lower<'_, '_, 's> {
             w::Expr::FullCellPath(path) if !path.implicit_head => {
                 self.full_cell_path(e.span, &path.head, &path.tail, input_type)
             }
-            _ => Err(Unlowered::Unsupported("`$` item")),
+            // Anything else the winnow parser read there: nu's value parser reads the item.
+            _ => {
+                let span = self.span(e.span);
+                Ok(classic_value(self.working_set, span, shape, input_type))
+            }
         }
     }
 
@@ -335,7 +339,11 @@ impl<'s> Lower<'_, '_, 's> {
             w::Expr::StringInterpolation(interpolation) => {
                 self.path_interpolation(e.span, interpolation, shape)
             }
-            _ => Err(Unlowered::Unsupported("`(` item")),
+            // Anything else the winnow parser read there: nu's value parser reads the item.
+            _ => {
+                let span = self.span(e.span);
+                Ok(classic_value(self.working_set, span, shape, None))
+            }
         }
     }
 
@@ -468,7 +476,12 @@ impl<'s> Lower<'_, '_, 's> {
                     }
                 }
             }
-            _ => Err(Unlowered::Unsupported("`{` item")),
+            // Anything else the winnow parser read there (`{ a: 1 }...`): nu's value parser
+            // reads the item.
+            _ => {
+                let span = self.span(e.span);
+                Ok(classic_value(self.working_set, span, shape, input_type))
+            }
         }
     }
 
@@ -524,7 +537,17 @@ impl<'s> Lower<'_, '_, 's> {
                 self.table_expression(head, &SyntaxShape::Any)?
             }
             w::Expr::Record(items) => self.record(head.span, items)?,
-            _ => return Err(Unlowered::Unsupported("cell path head")),
+            // A head the winnow parser read otherwise (a table with a `;` left over,
+            // `[[a b]; [1 2];].0.a`): the whole path read by nu's parser.
+            _ => {
+                let span = self.span(span);
+                return Ok(parse_full_cell_path(
+                    self.working_set,
+                    None,
+                    span,
+                    input_type,
+                ));
+            }
         };
         let tail = self.members(tail);
         let ty = if tail.is_empty() {

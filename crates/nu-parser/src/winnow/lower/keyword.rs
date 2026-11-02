@@ -868,13 +868,11 @@ impl<'s> Lower<'_, '_, 's> {
             call.decl_id = decl_id;
             let _ = this.working_set.add_span(head);
             let name_span = this.span(def.name.span);
-            // The name is `def`'s `string` positional (`parse_value`), which refuses a bare
-            // `true`, `false` or `null` and a `{...}`; a name it reads otherwise is the classic
-            // parser's to report.
+            // The name is `def`'s `string` positional (`parse_value`, then the positional's type
+            // check), which refuses a bare `true`, `false` or `null` and a `{...}` with garbage,
+            // which `finish_def` then reports as no name.
             let name = parse_value(this.working_set, name_span, &SyntaxShape::String, None);
-            if !matches!(&name.expr, Expr::String(s) if *s == *def.name.item) {
-                return Err(Unlowered::Error);
-            }
+            let name = this.positional_value(name, &SyntaxShape::String);
             // The flags, before or after the name, come before the signature and the body, as
             // `parse_internal_call` reads the items in order (and the name keeps no error).
             let long = |flag| match flag {
@@ -972,12 +970,10 @@ impl<'s> Lower<'_, '_, 's> {
             let mut call = Call::new(head);
             call.decl_id = decl_id;
             let _ = this.working_set.add_span(head);
-            // As for `def`: the name is `extern`'s `string` positional (`parse_value`), and
-            // the flags come before the signature.
+            // As for `def`: the name is `extern`'s `string` positional (`parse_value`, then
+            // its type check), and the flags come before the signature.
             let name = parse_value(this.working_set, name_span, &SyntaxShape::String, None);
-            if !matches!(&name.expr, Expr::String(s) if *s == *extern_def.name.item) {
-                return Err(Unlowered::Error);
-            }
+            let name = this.positional_value(name, &SyntaxShape::String);
             let long = |flag| match flag {
                 w::ExternFlag::Strict => "strict",
             };

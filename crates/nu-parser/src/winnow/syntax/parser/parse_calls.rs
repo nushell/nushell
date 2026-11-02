@@ -783,6 +783,8 @@ pub fn parse_external_string<'a>(
         [b'\'', .., b'\''] => Quote::Single,
         [b'"', .., b'"'] => Quote::Double,
         [b'$', b'"', .., b'"'] if bytes.len() >= 3 => Quote::Double,
+        // A backtick-quoted word is no command name: `` `ls` `` runs the external `ls`.
+        [b'`', .., b'`'] => Quote::Backtick,
         _ => Quote::Bare,
     };
     if all_text {

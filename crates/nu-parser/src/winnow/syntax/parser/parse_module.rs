@@ -369,7 +369,22 @@ pub fn parse_use<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> 
                 .as_recovered(),
             );
         }
-        members.push(parse_import_pattern_member(working_set, token, noop)?);
+        // A member that does not parse (a `[` or quote left open, `use m [`): nu's import
+        // pattern parser reports it and goes on, and so does the consumer, which reads the
+        // member with it: the error is recorded as recovered.
+        let member = match parse_import_pattern_member(working_set, token, noop) {
+            Ok(member) => member,
+            Err(ErrMode::Cut(ParseFailure::Error(diagnostic))) => {
+                working_set.error(diagnostic.as_recovered());
+                ImportPatternMember {
+                    span: token.span,
+                    kind: ImportPatternMemberKind::Ignored,
+                    value: Expression::new(Expr::Garbage, token.span),
+                }
+            }
+            Err(error) => return Err(error),
+        };
+        members.push(member);
         end = token.span;
     }
     Ok(Expression::new(

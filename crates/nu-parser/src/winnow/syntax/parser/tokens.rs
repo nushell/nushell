@@ -58,6 +58,20 @@ impl<'t, 'a> Tokens<'t, 'a> {
         }
     }
 
+    /// This stream over `tokens`, a changed copy of its own: at the same position, with the
+    /// same end.
+    pub fn over<'u>(&self, tokens: &'u [Token]) -> Tokens<'u, 'a>
+    where
+        't: 'u,
+    {
+        Tokens {
+            working_set: self.working_set,
+            tokens,
+            position: self.position,
+            end: self.end,
+        }
+    }
+
     /// A stream over the output of the lexer, whose last token is `Eof`.
     pub fn from_lexed(working_set: &'t WorkingSet<'a>, tokens: &'t [Token]) -> Self {
         match tokens.split_last() {
@@ -403,13 +417,18 @@ pub fn item(tokens: &mut Tokens<'_, '_>) -> ParseResult<Token> {
 }
 
 /// An item, or an assignment operator read as one: nu's call parser reads `=` as any other word
-/// (`overlay use a = b`, `hide a = b`, `def f [] {} a = b {}`).
+/// (`overlay use a = b`, `hide a = b`, `def f [] {} a = b {}`), and so the `|`s and
+/// redirections the lite parser takes into a command after an `=` (`mut = ls | lines`).
 #[inline]
 pub fn call_item(tokens: &mut Tokens<'_, '_>) -> ParseResult<Token> {
     token_where(tokens, |token| {
         matches!(
             token.contents,
-            TokenContents::Item | TokenContents::AssignmentOperator(_)
+            TokenContents::Item
+                | TokenContents::AssignmentOperator(_)
+                | TokenContents::Pipe
+                | TokenContents::PipePipe
+                | TokenContents::Redirection(_)
         )
     })
     .map(|token| Token {

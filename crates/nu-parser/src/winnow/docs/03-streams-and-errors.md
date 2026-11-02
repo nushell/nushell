@@ -168,8 +168,9 @@ replaced. A diagnostic is built only for a cut, which ends the statement, or
 for an error the parser records and goes on past (`WorkingSet::error`). One
 marked `Diagnostic::as_recovered` leaves the statement's tree complete: a
 malformed literal read with any shape becomes a garbage leaf over the item
-(`recover_literal`, which turns exactly the literal parsers' cut into that),
-and a bare word with a `:` in a record keeps its word. The statement still
+(`recover_literal`, which turns a cut inside the item into that: nu reports
+any error of an item and reads on), and a bare word with a `:` in a record
+keeps its word. The statement still
 fails `parse`; nu-parser's driver lowers it all the same, reading each such
 item again with nu's leaf parser, which reports nu's error.
 

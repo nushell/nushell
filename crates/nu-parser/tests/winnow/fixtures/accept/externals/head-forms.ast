@@ -10,10 +10,10 @@ Block 0..187
       String Bare "foo\\external-call" 39..56
   Pipeline 57..77
     ExternalCall 57..77
-      String Bare "foo external call" 58..77
+      String Backtick "foo external call" 58..77
   Pipeline 78..98
     ExternalCall 78..98
-      String Bare "foo/external call" 79..98
+      String Backtick "foo/external call" 79..98
   Pipeline 99..119
     ExternalCall 99..119
       String Single "foo external call" 100..119

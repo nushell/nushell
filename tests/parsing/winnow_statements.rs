@@ -3044,7 +3044,11 @@ fn dropped_err_pipe_is_the_next_commands_pipe(#[case] code: &str, #[case] at: us
 /// a flag as an alias's target and a spread's list that nu's lexer leaves open; an `export` as
 /// an assignment's value, which the winnow parser left for the lowering to parse again; a head
 /// word whose `(` is left open; attributes before an exported definition whose name holds its
-/// parameters; and a definition whose items after the signature nu predeclares with it.
+/// parameters; a definition whose items after the signature nu predeclares with it; a backtick
+/// head, which runs an external command; a definition named by a block or by `=`; a binding
+/// without a name whose value has a `|`; and items nu's leaf parsers report an error inside and
+/// read on (import members, a closure's parameters, a table's head, a row condition's column,
+/// a record with a spread after it).
 #[rstest]
 #[case::alias_in_a_pipeline(
     "alias \"hide me\" = ^echo hi\n[1] | hide me",
@@ -3082,6 +3086,27 @@ fn dropped_err_pipe_is_the_next_commands_pipe(#[case] code: &str, #[case] at: us
     &[("LabeledErrorWithHelp", ""), ("InternalError", "a\nexport def  [] {}")]
 )]
 #[case::predeclared_signature_items("def d [] {}x y", &[("Expected", "y"), ("Expected", "y")])]
+#[case::backtick_head("`ls`", &[])]
+#[case::def_block_name("def {} [] {}", &[("TypeMismatch", "{}"), ("UnknownState", "{}")])]
+#[case::def_named_equals("def = [] {}", &[])]
+#[case::binding_without_name_piped(
+    "mut = ls | lines",
+    &[("MissingPositional", " "), ("Expected", "|"), ("IncompleteMathExpression", "|")]
+)]
+#[case::use_members_left_open(
+    "use std/assert [",
+    &[("Unclosed", "["), ("Unclosed", "["), ("Unclosed", "")]
+)]
+#[case::closure_parameter_refused(
+    "{|x = 1, y: int ..= 2| $x + $y }",
+    &[("Expected", ".."), ("RequiredAfterOptional", "|x = 1, y: int ..= 2|")]
+)]
+#[case::table_head_left_over("[[a b]; [1 2];].0.a", &[("LabeledErrorWithHelp", ";")])]
+#[case::row_condition_unbalanced(
+    "[{a: false}] | where not a}",
+    &[("Unbalanced", "}"), ("Unbalanced", "}")]
+)]
+#[case::record_spread_tail("echo { a: 1 }...", &[])]
 #[nu_test_support::test]
 #[serial]
 #[exp(nu_experimental::WINNOW_PARSER)]
@@ -3117,6 +3142,21 @@ fn statement_nu_reads_past_an_error_in_is_lowered(
 #[exp(nu_experimental::WINNOW_PARSER)]
 fn statement_with_a_part_left_open_is_lowered(#[case] code: &str) -> Result {
     assert_ne!(super::winnow_calls::lowered_errors(code), [], "`{code}`");
+    Ok(())
+}
+
+/// `parse_where` builds the element of a `where` statement itself, without the `|` that may
+/// lead it, with or without a redirection.
+#[rstest]
+#[case::leading_pipe("| where a > 1")]
+#[case::leading_pipe_redirected("| where a > 1 o> x")]
+#[nu_test_support::test]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn where_statement_drops_a_leading_pipe(#[case] code: &str) -> Result {
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let block = nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    assert_eq!(block.pipelines[0].elements[0].pipe, None, "`{code}`");
     Ok(())
 }
 

@@ -741,7 +741,9 @@ impl<'s> Lower<'_, '_, 's> {
                     }
                     // `parse_where` keeps the element's redirection, a call for help's too.
                     "where" if element.redirection.is_some() => {
-                        return self.single_element(pipeline, element, input_type);
+                        return Ok(without_pipe(
+                            self.single_element(pipeline, element, input_type)?,
+                        ));
                     }
                     name if HELP_STATEMENT_KEYWORDS.contains(&name) => {
                         let e = &element.expr;
@@ -756,6 +758,11 @@ impl<'s> Lower<'_, '_, 's> {
                     _ => {}
                 }
                 return self.single_element(pipeline, element, input_type);
+            }
+            w::Expr::Where(_) => {
+                return Ok(without_pipe(
+                    self.single_element(pipeline, element, input_type)?,
+                ));
             }
             _ => return self.single_element(pipeline, element, input_type),
         };
@@ -1522,6 +1529,15 @@ impl BlockErrors {
         let at = (self.start + offset).min(working_set.parse_errors.len());
         working_set.parse_errors.insert(at, error);
     }
+}
+
+/// `pipeline` without the `|` before its element: `parse_where` builds the element of a `where`
+/// statement itself, without the lite command's pipe (`| where a > 1`).
+fn without_pipe(mut pipeline: Pipeline) -> Pipeline {
+    for element in &mut pipeline.elements {
+        element.pipe = None;
+    }
+    pipeline
 }
 
 /// The stream a redirection takes, as `nu-protocol` names it.

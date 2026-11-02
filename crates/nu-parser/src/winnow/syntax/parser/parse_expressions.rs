@@ -673,10 +673,19 @@ pub fn parse_row_condition<'a>(tokens: Tokens<'_, 'a>) -> ParseResult<Expression
     let working_set = tokens.working_set;
     let items = tokens;
     let condition = parse_math_expression(tokens)?;
-    // A column that is no cell path (`where 1..'a'`): nu reports it and goes on
-    // (`expand_to_cell_path`), so the condition is a garbage leaf over its items.
+    // A column that is no cell path (`where 1..'a'`, `where not b}`): nu reports it and goes
+    // on (`expand_to_cell_path`), so the condition is a garbage leaf over its items, which the
+    // consumer reads again with nu's row condition parser.
+    let within_items = |diagnostic: &Diagnostic| {
+        items.span().is_some_and(|span| {
+            span.start <= diagnostic.span.start && diagnostic.span.end <= span.end
+        })
+    };
     match expand_row_condition(working_set, condition) {
-        Err(ErrMode::Cut(ParseFailure::Error(diagnostic))) if diagnostic.recovered => {
+        Err(ErrMode::Cut(ParseFailure::Error(mut diagnostic)))
+            if diagnostic.recovered || within_items(&diagnostic) =>
+        {
+            diagnostic.recovered = true;
             garbage_over_items(working_set, items.remaining(), diagnostic)
         }
         other => other,
@@ -930,10 +939,11 @@ fn recover_as_garbage<T>(
 /// A value read with any shape whose literal its leaf parser refused (`0b2`, `2023-02-30`,
 /// `"\q"`, `8EiB`, `0x[zz]`), or a `$` item with an error its parser marked recovered or a
 /// literal one (a bare `$`, `$foo-bar`, a cell path's member, `$x.a??`, `$x.-1`), or an item
-/// with a delimiter left open or closing nothing inside it (`(1 + 2`, `{a: {b: 5}}}`,
-/// `r#'abc`): a garbage leaf over the item, its error recorded as recovered. nu's parser refuses
-/// the same item, or reads it as far as it goes, and reports it, which the consumer gets by
-/// reading the item again with it. Any other failure stays the statement's.
+/// with any other error inside it (a delimiter left open or closing nothing, `(1 + 2`,
+/// `{a: {b: 5}}}`, `r#'abc`; a closure's parameter nu refuses, `{|y: int ..= 2| }`): a garbage
+/// leaf over the item, its error recorded as recovered. nu's parser refuses the same item, or
+/// reads it as far as it goes, and reports it and goes on, which the consumer gets by reading
+/// the item again with it. A failure past the item stays the statement's.
 pub(super) fn recover_literal<'a>(
     working_set: &WorkingSet<'a>,
     span: Span,
@@ -943,13 +953,7 @@ pub(super) fn recover_literal<'a>(
         Err(ErrMode::Cut(ParseFailure::Error(diagnostic)))
             if diagnostic.recovered
                 || matches!(diagnostic.kind, ErrorKind::InvalidLiteral { .. })
-                || (matches!(
-                    diagnostic.kind,
-                    ErrorKind::Unclosed { .. }
-                        | ErrorKind::Unbalanced { .. }
-                        | ErrorKind::ExtraTokens
-                ) && span.start <= diagnostic.span.start
-                    && diagnostic.span.end <= span.end) =>
+                || (span.start <= diagnostic.span.start && diagnostic.span.end <= span.end) =>
         {
             working_set.error(diagnostic.as_recovered());
             Ok(Expression::new(Expr::Garbage, span))

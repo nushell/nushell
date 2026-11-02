@@ -16,7 +16,7 @@ use crate::winnow::syntax::lex::{LexOptions, Token, TokenContents};
 use crate::winnow::syntax::span::{Span, Spanned};
 
 use super::WorkingSet;
-use super::lite_parser::{AfterPipe, after_pipe_lines, pipe_on_later_line};
+use super::lite_parser::{AfterPipe, after_pipe_lines, as_item, pipe_on_later_line};
 use super::parse_calls::{parse_definition_call, parse_flag_value, split_long_flag};
 use super::parse_expressions::{
     BraceShape, ExpectedShape, brace_shape, is_literal_like, parse_block_body_unchecked,
@@ -89,7 +89,7 @@ pub(super) fn scan_predecls(working_set: &WorkingSet<'_>, tokens: &[Token]) -> D
         tokens,
         |definition| {
             // Copied, so that `Definitions` borrows nothing.
-            let items = definition.items.to_vec();
+            let items = assignments_as_items(definition.items);
             definitions.defs.push(definition.with_items(items));
         },
         |type_alias| definitions.type_aliases.push(type_alias),
@@ -327,7 +327,7 @@ fn scan_definitions<'a>(
                 let statement = || {
                     tokens[index..]
                         .iter()
-                        .take_while(|token| token.contents == TokenContents::Item)
+                        .take_while(|token| is_definition_item(token))
                         .map(|token| (working_set.get_span_contents(token.span), token.span))
                 };
                 let mut words = statement();
@@ -341,7 +341,7 @@ fn scan_definitions<'a>(
                 let items_end = items_start
                     + tokens.get(items_start..).map_or(0, |rest| {
                         rest.iter()
-                            .take_while(|token| token.contents == TokenContents::Item)
+                            .take_while(|token| is_definition_item(token))
                             .count()
                     });
                 let items = tokens.get(items_start..items_end).unwrap_or(&[]);
@@ -452,7 +452,7 @@ fn scan_definitions<'a>(
                 let has_wrapped_flag = head == "def"
                     && tokens[index..]
                         .iter()
-                        .take_while(|token| token.contents == TokenContents::Item)
+                        .take_while(|token| is_definition_item(token))
                         .any(|token| {
                             token.span.len() == 9
                                 && working_set.get_span_contents(token.span) == "--wrapped"
@@ -649,7 +649,34 @@ fn parse_def_name<'a>(
 
 /// `def [--env] [--wrapped] name signature [: input/output types] { body }`;
 /// nu also accepts the flags after the name.
-pub fn parse_def<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
+pub fn parse_def<'a>(tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
+    let items = assignments_as_items(tokens.all());
+    parse_def_items(tokens.over(&items))
+}
+
+/// The tokens of a definition statement, an assignment operator among them an item: nu reads
+/// `def` and `extern` by their first word, and an `=` is then an item of their call (`def = []
+/// {}` defines the command `=`).
+fn assignments_as_items(tokens: &[Token]) -> Vec<Token> {
+    tokens
+        .iter()
+        .map(|token| match token.contents {
+            TokenContents::AssignmentOperator(_) => as_item(*token),
+            _ => *token,
+        })
+        .collect()
+}
+
+/// Whether `token` is an item of a definition statement ([`assignments_as_items`]).
+fn is_definition_item(token: &Token) -> bool {
+    matches!(
+        token.contents,
+        TokenContents::Item | TokenContents::AssignmentOperator(_)
+    )
+}
+
+/// [`parse_def`] over its statement's items.
+fn parse_def_items<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
     let working_set = tokens.working_set;
     if reads_as_call(&tokens, DEF_FLAGS, true) {
         return parse_help_call(tokens);
@@ -910,7 +937,13 @@ fn definition_flag<'a, Flag: Copy>(
 
 /// `extern [--strict] name signature [: input/output types]`; nu also
 /// accepts the flag after the name.
-pub fn parse_extern<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
+pub fn parse_extern<'a>(tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
+    let items = assignments_as_items(tokens.all());
+    parse_extern_items(tokens.over(&items))
+}
+
+/// [`parse_extern`] over its statement's items ([`assignments_as_items`]).
+fn parse_extern_items<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
     let working_set = tokens.working_set;
     if reads_as_call(&tokens, EXTERN_FLAGS, false) {
         return parse_help_call(tokens);

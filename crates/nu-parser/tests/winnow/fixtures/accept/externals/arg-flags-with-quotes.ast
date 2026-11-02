@@ -4,6 +4,6 @@ Block 0..81
       String Bare "foo" 1..4
       String Bare "--flag=value" 5..19
       String Bare "--flag=value" 20..34
-      String Bare "hello world" 35..48
-      String Bare "\"hello world\"" 49..64
-      String Bare "'hello world'" 65..80
+      String Backtick "hello world" 35..48
+      String Backtick "\"hello world\"" 49..64
+      String Backtick "'hello world'" 65..80

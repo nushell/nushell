@@ -7,5 +7,5 @@ Block 0..26
       Value 11..25
         Pipeline 11..25
           ExternalCall 11..25
-            String Bare "echo" 12..18
+            String Backtick "echo" 12..18
             String Bare "cococo" 19..25
