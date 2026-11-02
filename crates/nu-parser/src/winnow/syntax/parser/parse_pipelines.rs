@@ -11,7 +11,6 @@ use crate::winnow::syntax::lex::{
 };
 use crate::winnow::syntax::span::Span;
 
-use super::WorkingSet;
 use super::lite_parser::{
     AfterPipe, LiteCommand, after_pipe, last_non_comment_token, lite_diagnostic,
     parse_lite_command, pipe_on_a_later_line, skip_to_block_end, skip_to_statement_end,
@@ -28,6 +27,7 @@ use super::parse_expressions::{
 use super::parse_helpers::garbage_pipeline;
 use super::tokens::Tokens;
 use super::working_set::{CommandLookup, ParseState};
+use super::{ParseConfig, WorkingSet};
 
 /// The items after a binding's or an assignment's `=`, at `span`, as the block nu parses them
 /// as (`let x = ls | length`): lexed again from their text as a block is when a newline is
@@ -215,9 +215,9 @@ pub struct BlockStatements {
     /// Where the statement loop stood when the last call returned: the comments waiting for
     /// the next statement, a `|` carried over to it.
     statements: StatementsState,
-    /// A `|` that ends the block, nu's lite-parse error for the whole block
-    /// ([`LiteError::PipelineMissingEnd`]).
-    missing_end: Option<LiteError>,
+    /// The block's lite-parse error, which nu reports before its statements' errors
+    /// ([`BlockStatements::lite_error`]).
+    lite_error: Option<LiteError>,
     /// The block's first lexer error, which nu goes on past.
     lex_error: Option<LexError>,
     /// What the working set knew when the last call returned: the block's scope, with the
@@ -239,9 +239,9 @@ impl BlockStatements {
     /// statement goes on across lines (`(ls\n| length)`, `(echo a\nb)`).
     ///
     /// A diagnostic about the block as a whole that nu does not go on past is returned
-    /// instead. The block's first lexer error ([`BlockStatements::lex_error`]), a `|` that ends
-    /// it ([`BlockStatements::missing_end`]) and a definition declared twice, which the consumer
-    /// reports as it declares the definitions, nu goes on past.
+    /// instead. The block's first lexer error ([`BlockStatements::lex_error`]), its lite-parse
+    /// error ([`BlockStatements::lite_error`]) and a definition declared twice, which the
+    /// consumer reports as it declares the definitions, nu goes on past.
     pub fn new<'a>(
         source: &'a str,
         span: Span,
@@ -263,7 +263,7 @@ impl BlockStatements {
         }
         let stream = Tokens::from_lexed(&working_set, &tokens);
         let definitions = scan_predecls(&working_set, stream.all());
-        let missing_end = missing_end(stream.all());
+        let lite_error = missing_end(stream.all()).or_else(|| first_lite_error(source, &tokens));
         // What nu goes on past (a definition declared twice) the consumer reports.
         let block_errors = working_set.take_errors_from(0);
         if block_errors.iter().any(|diagnostic| !diagnostic.recovered) {
@@ -275,7 +275,7 @@ impl BlockStatements {
                 tokens,
                 position: 0,
                 statements: StatementsState::default(),
-                missing_end,
+                lite_error,
                 lex_error,
                 parse_state,
             },
@@ -317,10 +317,11 @@ impl BlockStatements {
         self.parse_state = working_set.into_state();
     }
 
-    /// A `|` that ends the block, which nu reports in place of the block's first lite-parse
-    /// error ([`LiteError::PipelineMissingEnd`]).
-    pub fn missing_end(&self) -> Option<LiteError> {
-        self.missing_end
+    /// The block's lite-parse error, which nu reports before any statement's error, having
+    /// lite-parsed the whole block first: a `|` that ends the block
+    /// ([`LiteError::PipelineMissingEnd`]), else its first command's ([`first_lite_error`]).
+    pub fn lite_error(&self) -> Option<LiteError> {
+        self.lite_error
     }
 
     /// The lite-parse error of a command nu dropped so far, which no statement carries (an
@@ -388,6 +389,53 @@ fn missing_end(tokens: &[Token]) -> Option<LiteError> {
         .rev()
         .find(|token| token.contents != TokenContents::Eof)?;
     Some(LiteError::PipelineMissingEnd(last.span))
+}
+
+/// The first lite-parse error of the commands of a block lexed into `tokens`, found by the
+/// lite parse alone ([`parse_pipeline`] with `lite_only`), as nu's `lite_parse` finds it before
+/// any statement is parsed: the statements parsed before the one it is in see it reported (a
+/// definition's body is not compiled then). Only a `||` or a redirection makes one, so a block
+/// with neither is not scanned. The scan stops at a statement whose lite parse fails, whose
+/// error, and those after, the statements report as they are parsed.
+fn first_lite_error(source: &str, tokens: &[Token]) -> Option<LiteError> {
+    if !tokens.iter().any(|token| {
+        matches!(
+            token.contents,
+            TokenContents::PipePipe | TokenContents::Redirection(_)
+        )
+    }) {
+        return None;
+    }
+    // A working set of its own: the diagnostics and comments the scan records are not the
+    // block's.
+    let working_set = WorkingSet::new(source, &ParseConfig::empty());
+    let mut stream = Tokens::from_lexed(&working_set, tokens);
+    let mut carried_comments = Vec::new();
+    let mut carried_pipe = None;
+    while let Some(token) = stream.peek_token() {
+        if matches!(
+            token.contents,
+            TokenContents::Eol | TokenContents::Semicolon | TokenContents::Comment
+        ) {
+            stream.next_token();
+            continue;
+        }
+        let mut lite_error = None;
+        parse_pipeline(
+            &mut stream,
+            &mut Vec::new(),
+            &mut carried_comments,
+            &mut carried_pipe,
+            &mut None,
+            &mut lite_error,
+            true,
+        )
+        .ok()?;
+        if lite_error.is_some() {
+            return lite_error;
+        }
+    }
+    None
 }
 
 /// Where [`parse_statements`] puts the pipelines it parses: a `Vec` for [`parse_block`],
@@ -615,6 +663,7 @@ fn parse_statements<'a>(
                     carried_pipe,
                     &mut lite_end,
                     &mut lite_error,
+                    false,
                 ) {
                     Ok(Some(mut pipeline)) => {
                         *pushed = true;
@@ -728,7 +777,8 @@ fn carry_comments_beside(
 /// `leading_comments` (or else `carried_comments`) only when it parses; a
 /// comment on the line of a `|` that ends it goes to `carried_comments`.
 /// `lite_end` and `found_lite_error` tell where the lite parse ended the statement and its
-/// first lite-parse error, for a statement that fails after it.
+/// first lite-parse error, for a statement that fails after it. With `lite_only` the commands
+/// are not parsed: the lite parse is done and the result is `None` ([`first_lite_error`]).
 fn parse_pipeline<'a>(
     tokens: &mut Tokens<'_, 'a>,
     leading_comments: &mut Vec<Comment>,
@@ -736,6 +786,7 @@ fn parse_pipeline<'a>(
     carried_pipe: &mut Option<Span>,
     lite_end: &mut Option<usize>,
     found_lite_error: &mut Option<LiteError>,
+    lite_only: bool,
 ) -> ParseResult<Option<Pipeline<'a>>> {
     let working_set = tokens.working_set;
     // The comments carried to this pipeline; any after are carried on from it.
@@ -827,7 +878,10 @@ fn parse_pipeline<'a>(
             lite_commands.push((pipe.take(), lite_command));
         }
         if pipe_after.is_some() {
-            pipe = pipe.or(pipe_after);
+            // The `e>|` is the last pipe before the next command, also after a command nu
+            // dropped: nu's lite parser sets it on the command it does not take, which the
+            // next command's items then go into (`ls e>| e>| x`, `ls | e>| x`).
+            pipe = pipe_after;
             // After an `e>|` nu goes on to a later line only through a `|` that starts it.
             let from = trailing_comments.len();
             if let AfterPipe::Dangling = after_pipe(tokens, false, &mut trailing_comments)? {
@@ -867,6 +921,9 @@ fn parse_pipeline<'a>(
         *lite_end = Some(tokens.position());
     }
     *found_lite_error = lite_error;
+    if lite_only {
+        return Ok(None);
+    }
     let single = lite_commands.len() == 1;
     if !single {
         for (_, lite_command) in &lite_commands {

@@ -2983,6 +2983,58 @@ fn statement_after_an_error(#[case] code: &str, #[case] pipelines: usize) -> Res
     Ok(())
 }
 
+/// nu lite-parses a whole block before it parses a statement, so the lite-parse error of a later
+/// statement (a second redirection, a `||`, an `e>|` with nothing before it) is reported before
+/// a definition above it is finished, and the definition's body is not compiled, as no body is
+/// once an error was reported.
+#[rstest]
+#[case::multiple_redirections("def f [] { 1 }\nf o> a.txt o+e>| str upcase")]
+#[case::shell_or_or("def f [] { 1 }\nls || pwd")]
+#[case::nothing_to_redirect("def f [] { 1 }\ne>| ls")]
+#[case::after_a_semicolon("def f [] { 1 }; ls o> a.txt o> b.txt")]
+#[nu_test_support::test]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn later_lite_error_leaves_a_definition_uncompiled(#[case] code: &str) -> Result {
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    assert_ne!(working_set.parse_errors, [], "`{code}`");
+    let decl_id = working_set.find_decl(b"f").expect("`f` is defined");
+    let block_id = working_set
+        .get_decl(decl_id)
+        .block_id()
+        .expect("`f` has a body");
+    assert!(
+        working_set.get_block(block_id).ir_block.is_none(),
+        "`{code}`: the body was compiled"
+    );
+    Ok(())
+}
+
+/// An `e>|` with nothing before it ends a command nu drops, and the last command takes that
+/// `e>|` as its pipe: nu's lite parser sets it on the command it does not take, which the next
+/// command's items go into.
+#[rstest]
+#[case::after_an_err_pipe("ls e>| e>| x", 7)]
+#[case::after_a_pipe("ls | e>| x", 5)]
+#[case::after_two_err_pipes("ls e>| e>| e>| x", 11)]
+#[nu_test_support::test]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn dropped_err_pipe_is_the_next_commands_pipe(#[case] code: &str, #[case] at: usize) -> Result {
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let offset = working_set.next_span_start();
+    let block = nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    let pipe = block.pipelines[0]
+        .elements
+        .last()
+        .and_then(|element| element.pipe)
+        .expect("the last command has a pipe");
+    assert_eq!(pipe.start - offset, at, "`{code}`");
+    assert_eq!(working_set.get_span_contents(pipe), b"e>|", "`{code}`");
+    Ok(())
+}
+
 /// The block of the first statement of `code`, a parenthesized subexpression, parsed with the
 /// winnow front end: no statement is handed to the classic parser.
 fn parenthesized_block(working_set: &mut StateWorkingSet, code: &str) -> nu_protocol::BlockId {

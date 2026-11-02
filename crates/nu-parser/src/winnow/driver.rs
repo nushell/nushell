@@ -278,15 +278,16 @@ fn parse_statements(
         }
     );
     let (statements, definitions) = BlockStatements::new(source, span, lookup, subexpression)?;
-    // The block's first lexer error and a `|` ending it, reported before any statement's (the
-    // lexer error unless nu-parser reported it, having lexed the block's text itself).
+    // The block's first lexer error and its lite-parse error (a `|` ending it, else its first
+    // command's), reported before any statement's, as nu lexes and lite-parses the whole block
+    // first (the lexer error unless nu-parser reported it, having lexed the block's text itself).
     if driver.caller_lexed {
         driver.block_errors.lexed_by_caller();
     }
     if let Some(error) = statements.lex_error() {
         driver.lex_error(error, span.start);
     }
-    if let Some(error) = statements.missing_end() {
+    if let Some(error) = statements.lite_error() {
         driver.lite_error(error);
     }
     let dropped_error = take_statements(
