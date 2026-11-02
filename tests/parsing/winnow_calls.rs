@@ -295,7 +295,8 @@ pub(super) fn lowered_errors(code: &str) -> Vec<(String, String)> {
 /// finds it and with the argument it builds there, and the call goes on: the statement is
 /// lowered, not parsed again by the classic parser. A statement whose first word names an
 /// alias reports them twice: `parse_builtin_commands` parses it once more before the statement
-/// to find an overlay command, and keeps that parse's errors.
+/// to find an overlay command, and keeps that parse's errors. That parse reads an assignment
+/// (`foo = ls`) as a call to the alias, so its errors come first, then the assignment's.
 #[rstest]
 #[case::positional_type("def f [a: int] {}; f {a: 1}", &[("TypeMismatch", "{a: 1}")])]
 #[case::leaf_value("def f [a: int] {}; f nope", &[("Expected", "nope")])]
@@ -336,6 +337,20 @@ pub(super) fn lowered_errors(code: &str) -> Vec<(String, String)> {
 #[case::element_through_an_alias(
     "def f [a: int] {}; alias g = f; 1 | g nope",
     &[("Expected", "nope")]
+)]
+#[case::assignment_through_an_alias(
+    "alias foo = ls; foo = ls",
+    &[("UnknownState", "foo = ls"), ("AssignmentRequiresVar", "foo")]
+)]
+#[case::assignment_through_an_alias_with_a_flag(
+    "alias foo = echo\nfoo = 1 --nope",
+    &[
+        ("UnknownState", "foo = 1 --nope"),
+        ("AssignmentRequiresVar", "foo"),
+        ("Expected", "--nope"),
+        ("IncompleteMathExpression", "--nope"),
+        ("IncompleteMathExpression", "--nope"),
+    ]
 )]
 #[case::oneof_no_shape_reads_it(
     "def f [x: oneof<int, filesize>] {}; f x",

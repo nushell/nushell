@@ -104,6 +104,9 @@ fn parse_binding<'a>(mut tokens: Tokens<'_, 'a>, kind: BindingKind) -> ParseResu
     // (MissingPositional), which the consumer reports.
     let name_token = match tokens.peek_token() {
         Some(token) if token.contents == TokenContents::Item => *token,
+        // An `=` in a binding's name place (`mut = = 1`): `parse_let` takes the first `=` after
+        // it as the binding's, and this one as the name, which it refuses.
+        Some(token) if binds && is_assign(tokens.position()) => *token,
         _ => {
             let missing = Diagnostic::expected("variable name", tokens.here());
             return call_after_error(statement, cut(missing), parse_help_call);
@@ -125,9 +128,9 @@ fn parse_binding<'a>(mut tokens: Tokens<'_, 'a>, kind: BindingKind) -> ParseResu
         }
         Err(error) => return Err(error),
     };
-    let equals_index = items
-        .iter()
-        .position(|token| matches!(token.contents, TokenContents::AssignmentOperator(_)))
+    // The first after the name: an `=` in the name's place is the name (`mut = = 1`).
+    let equals_index = (tokens.position()..items.len())
+        .find(|&index| matches!(items[index].contents, TokenContents::AssignmentOperator(_)))
         .unwrap_or(items.len());
     let equals = items.get(equals_index).copied();
     if let Some(equals) = equals

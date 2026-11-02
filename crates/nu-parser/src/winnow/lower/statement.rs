@@ -7,8 +7,8 @@ use std::borrow::Cow;
 use nu_protocol::{
     DeclId, Module, ParseError, Span, SyntaxShape, Type,
     ast::{
-        Block, Call, Expr, Expression, Pipeline, PipelineElement, PipelineRedirection,
-        RedirectionSource, RedirectionTarget,
+        AttributeBlock, Block, Call, Expr, Expression, Pipeline, PipelineElement,
+        PipelineRedirection, RedirectionSource, RedirectionTarget,
     },
     engine::StateWorkingSet,
 };
@@ -25,6 +25,7 @@ use crate::{
     exportable::Exportable,
     lex::delimiter_diagnostics::delimiter_structure_hint,
     lex::{TokenContents, lex},
+    parse_calls::parse_call,
     parse_captures_compile::wrap_element_with_collect,
     parse_expressions::{is_env_variable_name, is_math_expression_like},
     parse_helpers::{PERCENT_FORCED_BUILTIN_PARSER_INFO, trim_quotes},
@@ -206,7 +207,7 @@ impl<'s> Lower<'_, '_, 's> {
             )]));
         };
         if let Some(redirection) = &element.redirection
-            && let Some(refused) = self.redirected_statement(&element.expr, redirection, true)
+            && let Some(refused) = self.redirected_statement(&element.expr, redirection, true)?
         {
             return Ok(refused);
         }
@@ -641,7 +642,7 @@ impl<'s> Lower<'_, '_, 's> {
         input_type: Option<&Type>,
     ) -> Lowered<Pipeline> {
         if let Some(redirection) = &element.redirection
-            && let Some(refused) = self.redirected_statement(&element.expr, redirection, false)
+            && let Some(refused) = self.redirected_statement(&element.expr, redirection, false)?
         {
             return Ok(refused);
         }
@@ -803,13 +804,21 @@ impl<'s> Lower<'_, '_, 's> {
             return Ok(effect(self.working_set, call.clone()));
         }
         // To find such a call, `parse_builtin_commands` parses a statement whose first word
-        // names an alias once before parsing it as a statement, and keeps that parse's errors:
-        // each is reported twice.
-        if self.working_set.parse_errors.len() > errors
-            && self.names_alias(first_word, self.span(element.expr.span))
-        {
-            let again = self.working_set.parse_errors[errors..].to_vec();
-            self.working_set.parse_errors.extend(again);
+        // names an alias once before parsing it as a statement, as a call (`parse_call`), and
+        // keeps that parse's errors. For a call they are the statement's own, reported twice;
+        // an assignment (`foo = ls`) only that parse reads as a call, its errors first.
+        if self.names_alias(first_word, self.span(element.expr.span)) {
+            if matches!(element.expr.expr, w::Expr::Assignment(_)) {
+                let statement_errors = self.working_set.parse_errors.split_off(errors);
+                let parts = self.parts(element.expr.span);
+                if let Some(&head) = parts.first() {
+                    parse_call(self.working_set, &parts, head, None);
+                }
+                self.working_set.parse_errors.extend(statement_errors);
+            } else if self.working_set.parse_errors.len() > errors {
+                let again = self.working_set.parse_errors[errors..].to_vec();
+                self.working_set.parse_errors.extend(again);
+            }
         }
         Ok(Pipeline {
             elements: vec![lowered],
@@ -986,7 +995,10 @@ impl<'s> Lower<'_, '_, 's> {
         e: &w::Expression<'s>,
         redirection: &w::PipelineRedirection<'s>,
         in_module: bool,
-    ) -> Option<Pipeline> {
+    ) -> Lowered<Option<Pipeline>> {
+        if let w::Expr::AttributeBlock(block) = &e.expr {
+            return self.redirected_attribute_block(e, block, redirection, in_module);
+        }
         // The statement's keyword, and whether `export` comes before it: a keyword's call for
         // help (`export def -h o> f`) is named as its statement.
         let (keyword, exported) = match &e.expr {
@@ -1006,7 +1018,7 @@ impl<'s> Lower<'_, '_, 's> {
                 w::Expr::Const(_) => ("const", true),
                 w::Expr::TypeAlias(_) => ("type", true),
                 w::Expr::Call(call) => (call.head.name.as_ref(), true),
-                _ => return None,
+                _ => return Ok(None),
             },
             w::Expr::Call(call) => match call.head.name.as_ref() {
                 "export" => (
@@ -1020,21 +1032,12 @@ impl<'s> Lower<'_, '_, 's> {
                     None => (name, false),
                 },
             },
-            _ => return None,
+            _ => return Ok(None),
         };
-        let name = refused_redirection_name(keyword, exported, in_module)?;
-        let connector = |target: &w::RedirectionTarget<'s>| match target {
-            w::RedirectionTarget::File { op, .. } | w::RedirectionTarget::Pipe { op } => op.span,
+        let Some(name) = refused_redirection_name(keyword, exported, in_module) else {
+            return Ok(None);
         };
-        let (first, second) = match redirection {
-            w::PipelineRedirection::Single { target, .. } => (self.span(connector(target)), None),
-            w::PipelineRedirection::Separate { out, err } => {
-                let (out, err) = (self.span(connector(out)), self.span(connector(err)));
-                (out.min(err), Some(out.max(err)))
-            }
-        };
-        self.working_set
-            .error(ParseError::RedirectingBuiltinCommand(name, first, second));
+        self.refuse_redirection(name, redirection);
         // In a module's body an export goes to its keyword's parse function, which made it
         // garbage: `warp_export_call` finds no call to export, and for an alias
         // `parse_export_in_module` looks for the alias its third item names.
@@ -1062,10 +1065,91 @@ impl<'s> Lower<'_, '_, 's> {
             "for" => Span::new(self.span(e.span).start, self.span(e.span).start + 3),
             _ => self.span(e.span),
         };
-        Some(Pipeline::from_vec(vec![Expression::garbage(
+        Ok(Some(Pipeline::from_vec(vec![Expression::garbage(
             self.working_set,
             span,
-        )]))
+        )])))
+    }
+
+    /// Report a redirection nu refuses on the statement it names `name`
+    /// (`redirecting_builtin_error`): at its operator, or at both of a separate one.
+    fn refuse_redirection(&mut self, name: &'static str, redirection: &w::PipelineRedirection<'s>) {
+        let connector = |target: &w::RedirectionTarget<'s>| match target {
+            w::RedirectionTarget::File { op, .. } | w::RedirectionTarget::Pipe { op } => op.span,
+        };
+        let (first, second) = match redirection {
+            w::PipelineRedirection::Single { target, .. } => (self.span(connector(target)), None),
+            w::PipelineRedirection::Separate { out, err } => {
+                let (out, err) = (self.span(connector(out)), self.span(connector(err)));
+                (out.min(err), Some(out.max(err)))
+            }
+        };
+        self.working_set
+            .error(ParseError::RedirectingBuiltinCommand(name, first, second));
+    }
+
+    /// Attributes before a statement nu refuses to redirect. `parse_export_in_block` refuses
+    /// an export before it reads the attributes: garbage over every item. A definition's parse
+    /// function (`parse_def`, `parse_extern`) reads the attributes first, then refuses: the
+    /// attributes, with garbage over the definition, which in a module's body
+    /// `warp_export_call` stretches over the export's items and reports as no call to export.
+    /// In a module's body nu reads an export of anything else with its attributes
+    /// (`parse_attribute_block`), which drops the redirection: `None`, as for attributes
+    /// before no definition, whose redirection the winnow parser already dropped.
+    fn redirected_attribute_block(
+        &mut self,
+        e: &w::Expression<'s>,
+        block: &w::AttributeBlock<'s>,
+        redirection: &w::PipelineRedirection<'s>,
+        in_module: bool,
+    ) -> Lowered<Option<Pipeline>> {
+        let command = &*block.item;
+        let words: Vec<&str> = self.text(command.span).split_whitespace().take(2).collect();
+        let exported = words.first() == Some(&"export");
+        let keyword = match exported {
+            true => words.get(1).copied().unwrap_or_default(),
+            false => words.first().copied().unwrap_or_default(),
+        };
+        let definition = matches!(keyword, "def" | "extern");
+        if exported && !in_module {
+            let name = refused_redirection_name(keyword, true, false).unwrap_or("export");
+            self.refuse_redirection(name, redirection);
+            return Ok(Some(Pipeline::from_vec(vec![Expression::garbage(
+                self.working_set,
+                self.span(e.span),
+            )])));
+        }
+        if !definition {
+            return Ok(None);
+        }
+        let (attributes, _) = self.attributes(&block.attributes)?;
+        let name = if keyword == "def" { "def" } else { "extern" };
+        self.refuse_redirection(name, redirection);
+        let command_span = self.span(command.span);
+        let item = Expression::garbage(self.working_set, command_span);
+        let ty = item.ty.clone();
+        let span = match (exported, attributes.first()) {
+            (true, _) | (false, None) => command_span,
+            (false, Some(first)) => first.expr.span.merge(command_span),
+        };
+        if exported {
+            let parts = self.parts(command.span);
+            if let Some(rest) = parts.get(1..).filter(|rest| !rest.is_empty()) {
+                self.working_set.error(ParseError::InternalError(
+                    "unexpected output from parsing a definition".into(),
+                    Span::concat(rest),
+                ));
+            }
+        }
+        let expression = self.node(
+            Expr::AttributeBlock(AttributeBlock {
+                attributes,
+                item: Box::new(item),
+            }),
+            span,
+            ty,
+        );
+        Ok(Some(Pipeline::from_vec(vec![expression])))
     }
 
     /// The spans of `redirection`'s operators and file targets.
@@ -1134,10 +1218,14 @@ impl<'s> Lower<'_, '_, 's> {
         of: BlockOf,
         input_type: Option<&Type>,
     ) -> Lowered<Block> {
-        // In an alias's target, a block's statements are statements again.
+        // In an alias's target, a block's statements are statements again. In a row condition
+        // a block's are no condition (`where ($it ! "x")`): nu parses a nested block's math
+        // without the row variable, so no word in it reads as a column.
         let outer_alias_target = std::mem::replace(&mut self.alias_target, false);
+        let outer_row_var = self.row_var.take();
         let lowered = self.block_statements(block, span, scoped, of, input_type);
         self.alias_target = outer_alias_target;
+        self.row_var = outer_row_var;
         lowered
     }
 

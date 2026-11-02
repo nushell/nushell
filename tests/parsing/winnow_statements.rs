@@ -2428,6 +2428,8 @@ fn keyword_argument_error_is_lowered(
 #[case::colon_without_type("mut a: = 1", &[("MissingType", "a:")])]
 #[case::const_colon_without_type("const a: = 1", &[("MissingType", "a:")])]
 #[case::for_variable("for x.y in [1] { }", &[("Expected", "x.y")])]
+#[case::equals_as_the_name("mut = = 1", &[("Expected", "=")])]
+#[case::const_equals_as_the_name("const = = 1", &[("Expected", "=")])]
 #[nu_test_support::test]
 #[serial]
 #[exp(nu_experimental::WINNOW_PARSER)]
@@ -3172,6 +3174,43 @@ fn dropped_err_pipe_is_the_next_commands_pipe(#[case] code: &str, #[case] at: us
         ("RedirectingBuiltinCommand", "o>"),
         ("InternalError", "alias --help"),
         ("InternalError", "alias --help")
+    ]
+)]
+#[case::redirected_attributed_definition(
+    "@example x y\ndef f [] {} o> f",
+    &[("RedirectingBuiltinCommand", "o>")]
+)]
+#[case::redirected_attributed_definition_after_an_attribute_error(
+    "@example (1 / 0) y\ndef f [] {} o> f",
+    &[
+        ("TypeMismatch", "(1 / 0)"),
+        ("LabeledError", "example (1 / 0) y"),
+        ("RedirectingBuiltinCommand", "o>")
+    ]
+)]
+#[case::redirected_attributed_export("@example x y\nexport ls o> f", &[("RedirectingBuiltinCommand", "o>")])]
+#[case::redirected_attributed_export_in_a_module(
+    "module m {\n@example x y\nexport def f [] {} o> f\n}",
+    &[("RedirectingBuiltinCommand", "o>"), ("InternalError", "def f [] {}")]
+)]
+#[case::attributes_before_a_redirected_command_in_a_module(
+    "module m {\n@example x y\nexport ls o> f\n}",
+    &[("AttributeRequiresDefinition", "example x y")]
+)]
+#[case::attributes_before_a_redirection(
+    "@example x def y\no> f [] {}",
+    &[("ExtraPositional", "y"), ("AttributeRequiresDefinition", "example x def y")]
+)]
+#[case::attributes_before_a_lone_redirection(
+    "@example x y\no> f",
+    &[("AttributeRequiresDefinition", "example x y")]
+)]
+#[case::row_condition_parentheses_hold_no_columns(
+    "[a] | where ($it ! \"x\" and $it != \"y\")",
+    &[
+        ("Expected", "!"),
+        ("OperatorUnsupportedType", "and"),
+        ("IncompleteMathExpression", "!")
     ]
 )]
 #[nu_test_support::test]

@@ -1875,7 +1875,10 @@ impl<'s> Lower<'_, '_, 's> {
     /// A definition's attributes and their constant values (the loop that starts `parse_def`
     /// and `parse_extern`). An attribute that does not evaluate to a constant is reported and
     /// kept, without a value.
-    fn attributes(&mut self, attributes: &[w::Attribute<'s>]) -> Lowered<LoweredAttributes> {
+    pub(super) fn attributes(
+        &mut self,
+        attributes: &[w::Attribute<'s>],
+    ) -> Lowered<LoweredAttributes> {
         let mut lowered = Vec::with_capacity(attributes.len());
         let mut values = Vec::with_capacity(attributes.len());
         for attribute in attributes {

@@ -283,7 +283,8 @@ mean something else. The rules encoded in its loop:
   `Pipeline::lite_error`), its diagnostic recorded as recovered. A `||` is
   `ShellOrOr` and an item (`ls || pwd` passes it to `ls`). A redirection with
   nothing before it is `NothingToRedirect`, and it and its target are items
-  (`o> f` is the external `o>`); an `e>|` with nothing before it ends a
+  (`o> f` is the external `o>`); after attribute lines it has a command, as
+  nu's command holds the attributes' items; an `e>|` with nothing before it ends a
   command nu drops. A second redirection of a stream is
   `MultipleRedirections`, and it and its target are items; nu took the
   command's redirection out before refusing it, so the command has none. A

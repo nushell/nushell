@@ -1186,10 +1186,10 @@ fn parse_pipeline_element<'a>(
         expr.span.end = expr.span.end.max(last.span.end);
     }
     let redirection = parse_redirection(working_set, lite_command)?;
-    if redirection.is_some() && drops_redirection(&expr, in_pipeline) {
-        // nu never looks at a redirection on `export-env` or a `const` without a value (or
-        // one asking for help): it is ignored text, not refused, so this comes before
-        // `rejects_redirection`.
+    if redirection.is_some() && drops_redirection(working_set, &expr, in_pipeline) {
+        // nu never looks at a redirection on `export-env`, a `const` without a value (or one
+        // asking for help) or attributes before no definition: it is ignored text, not
+        // refused, so this comes before `rejects_redirection`.
         for (operator, target) in &lite_command.redirections {
             working_set.add_ignored(operator.span);
             if let Some(target) = target {
@@ -1205,28 +1205,40 @@ fn parse_pipeline_element<'a>(
             .map_or(expr.span, |(operator, _)| operator.span);
         let diagnostic = Diagnostic::message("this statement cannot be redirected", at);
         // nu reports the statement and makes it garbage (`redirecting_builtin_error`), and so
-        // does the consumer: the error is recorded as recovered. Attributes are read before
-        // the definition's redirection is refused.
-        if matches!(expr.expr, Expr::AttributeBlock(_)) {
-            return Err(cut(diagnostic));
-        }
+        // does the consumer: the error is recorded as recovered. Before a definition nu reads
+        // the attributes first and keeps them; an `export` it refuses before reading them,
+        // except in a module's body, where it reads them and drops the redirection: the
+        // consumer tells those apart.
         working_set.error(diagnostic.as_recovered());
     }
     Ok((expr, redirection))
 }
 
 /// The statements whose redirection nu ignores: `export-env` (`parse_export_env` reads only
-/// its first item), its call included (`export-env {a: 1} o> f`), and a `const` without a
+/// its first item), its call included (`export-env {a: 1} o> f`), a `const` without a
 /// value, whose call `parse_const` reads from the command's parts alone (with a value, the
-/// redirection is part of it). In a longer pipeline (`in_pipeline`) a `const` is an ordinary
-/// call, redirected as any (`const x e>| length`).
-fn drops_redirection(expr: &Expression<'_>, in_pipeline: bool) -> bool {
+/// redirection is part of it), and attributes before a command that is no definition and no
+/// `export` (`parse_attribute_block` keeps the command's parts as garbage). In a longer
+/// pipeline (`in_pipeline`) a `const` is an ordinary call, redirected as any
+/// (`const x e>| length`).
+fn drops_redirection(
+    working_set: &WorkingSet<'_>,
+    expr: &Expression<'_>,
+    in_pipeline: bool,
+) -> bool {
     if in_pipeline {
         return false;
     }
     match &expr.expr {
         Expr::ExportEnv(_) | Expr::Const(_) => true,
         Expr::Call(call) => matches!(call.head.name.as_ref(), "const" | "export-env"),
+        Expr::AttributeBlock(block) => {
+            let first_word = working_set
+                .get_span_contents(block.item.span)
+                .split_whitespace()
+                .next();
+            matches!(block.item.expr, Expr::Garbage) && first_word != Some("export")
+        }
         _ => false,
     }
 }

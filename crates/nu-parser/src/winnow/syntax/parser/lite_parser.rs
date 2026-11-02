@@ -419,7 +419,9 @@ fn lite_redirection(
         contents: TokenContents::Item,
         span,
     };
-    let nothing_before = lite_command.parts.is_empty();
+    // nu's command holds its attribute lines' items too: after them a redirection has a
+    // command (`@example x y` + `o> f`), which `parse_attribute_block` then drops.
+    let nothing_before = lite_command.parts.is_empty() && lite_command.attributes.is_empty();
     if operator.is_pipe() {
         // With nothing before it the command is dropped, its error recorded by
         // `parse_pipeline`, which knows whether a pipeline is left to report it in.

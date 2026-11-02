@@ -300,16 +300,19 @@ as one, from the items' text (`parse_items`).
 `PipelineRedirection` with `parse_redirection` and refuses one on the
 statements nu refuses it on (`rejects_redirection`): `def`, `extern`, `for`,
 `alias`, `type`, `module`, `use`, `export`, an attribute
-block, any call whose head word is `overlay` (refused by name before the
-arguments are looked at) and the calls whose keyword signature (below) is not
-`redirectable` (`hide`, `source`, `run`, `plugin use`), when the pipeline is
-of that one command (nu's statement parse functions read only those; in a
-longer pipeline nothing refuses a redirection). nu reports the statement and
-makes it garbage, so the error is recorded as recovered (but on an attribute
-block), and the consumer reports it with nu's name for the statement. A
-redirection on `export-env` or a lone `const` (whose parse function reads only
-the command's parts) is dropped without a look, as nu drops it, and recorded
-in `Ast::ignored`. A lone `let` or `mut` reads
+block before a definition or an `export`, any call whose head word is `overlay`
+(refused by name before the arguments are looked at) and the calls whose
+keyword signature (below) is not `redirectable` (`hide`, `source`, `run`,
+`plugin use`), when the pipeline is of that one command (nu's statement parse
+functions read only those; in a longer pipeline nothing refuses a
+redirection). nu reports the statement and makes it garbage, so the error is
+recorded as recovered, and the consumer reports it with nu's name for the
+statement. Before a definition nu reads the attributes first and keeps them
+over the garbage; an `export` it refuses before reading them, but in a
+module's body, where it reads them and drops the redirection. A redirection on
+`export-env`, a lone `const` (whose parse function reads only the command's
+parts) or attributes before no definition (`parse_attribute_block`) is dropped
+without a look, as nu drops it, and recorded in `Ast::ignored`. A lone `let` or `mut` reads
 the redirection's operator and target as its own items, as `parse_let` and
 `parse_mut` read `parts_including_redirection`: `let a o> f = 1` has extra
 items before its `=` (ExtraTokens at `o>`), `let x o> f` a word where its

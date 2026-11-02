@@ -97,8 +97,8 @@ impl<'s> Lower<'_, '_, 's> {
             | w::Expr::AttributeBlock(_) => Err(Unlowered::Unsupported("statement in a pipeline")),
             // `parse_expression` reads the items as math only when the first reads as a value
             // (`is_math_expression_like`), else as a command, an external one: a first item that
-            // doesn't, which only an error shows, leaves the reading to the classic parser
-            // (`0..<$nope` runs a command).
+            // doesn't, which only an error shows, is that external call (`0..<$nope` runs a
+            // command).
             _ => {
                 let errors = self.working_set.parse_errors.len();
                 let math = self.math(e, input_type)?;
