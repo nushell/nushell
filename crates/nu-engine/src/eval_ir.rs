@@ -904,12 +904,17 @@ fn eval_instruction<D: DebugContext>(
             };
             match src.body.write_stdout_to(file.as_ref()) {
                 Ok(rest) => {
-                    let mut rest = PipelineExecutionData::from(rest);
+                    let rest = PipelineExecutionData::from(rest);
                     // An external left with its stderr for the next command, which waits for it.
                     #[cfg(feature = "os")]
-                    if !matches!(rest.body, PipelineData::Empty) {
-                        rest.exit = src.exit;
-                    }
+                    let rest = if matches!(rest.body, PipelineData::Empty) {
+                        rest
+                    } else {
+                        PipelineExecutionData {
+                            exit: src.exit,
+                            ..rest
+                        }
+                    };
                     ctx.put_reg(*src_reg, rest);
                     Ok(Continue)
                 }
