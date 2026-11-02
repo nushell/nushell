@@ -310,6 +310,7 @@ winreg = "0.56"
 # equivalent to -D warnings
 warnings = "warn"
 unexpected_cfgs = { level = "warn", check-cfg = ["cfg(ci)"] }
+linker_messages = "allow" # silence '__eh_frame section too large (max 16MB)' on macos
 
 [workspace.lints.clippy]
 # Warning: workspace lints affect library code as well as tests, so don't enable lints that would be too noisy in tests like that.
