@@ -681,18 +681,12 @@ pub fn parse_def<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> 
         let name = match parse_def_name(working_set, &name) {
             Ok(parsed) => parsed,
             // `def cmd[] {}`: nu refuses the name before it reads the call, and so does the
-            // consumer, which reads the statement as that call. A `$` item is no string for
-            // the call's `string` positional (`def $x`: VariableNotFound, or `finish_def`'s
-            // UnknownState for a value that is no literal), which nu reports and goes on past.
-            Err(error)
-                if working_set
-                    .get_span_contents(name.span)
-                    .contains(['[', '('])
-                    || working_set.get_span_contents(name.span).starts_with('$') =>
-            {
-                return signature_error_call(statement, error);
-            }
-            Err(error) => return Err(error),
+            // consumer, which reads the statement as that call. Any other name that is no
+            // string nu's call reports and goes on past: a `$` item (`def $x`:
+            // VariableNotFound, or `finish_def`'s UnknownState for a value that is no
+            // literal), a quote left open (`def "f`, the text to the end, which `finish_def`
+            // refuses).
+            Err(error) => return signature_error_call(statement, error),
         };
         recover_name_error(working_set, check_definition_name(&name, "command"))?;
         name
@@ -948,18 +942,12 @@ pub fn parse_extern<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a
         let name = match parse_def_name(working_set, &name) {
             Ok(parsed) => parsed,
             // `def cmd[] {}`: nu refuses the name before it reads the call, and so does the
-            // consumer, which reads the statement as that call. A `$` item is no string for
-            // the call's `string` positional (`def $x`: VariableNotFound, or `finish_def`'s
-            // UnknownState for a value that is no literal), which nu reports and goes on past.
-            Err(error)
-                if working_set
-                    .get_span_contents(name.span)
-                    .contains(['[', '('])
-                    || working_set.get_span_contents(name.span).starts_with('$') =>
-            {
-                return signature_error_call(statement, error);
-            }
-            Err(error) => return Err(error),
+            // consumer, which reads the statement as that call. Any other name that is no
+            // string nu's call reports and goes on past: a `$` item (`def $x`:
+            // VariableNotFound, or `finish_def`'s UnknownState for a value that is no
+            // literal), a quote left open (`def "f`, the text to the end, which `finish_def`
+            // refuses).
+            Err(error) => return signature_error_call(statement, error),
         };
         recover_name_error(working_set, check_definition_name(&name, "command"))?;
         name

@@ -182,7 +182,13 @@ pub fn parse_alias<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>
         Err(error) => return call_after_error(statement, error, parse_alias_as_call),
         Ok(_) => {}
     };
-    let name_token = tokens.expect_item("alias name")?;
+    // No name (`alias`, `export alias`): nu's call has no positional, which `parse_alias`
+    // reports with garbage, and the consumer does too: the statement is that call, its error
+    // recorded as recovered.
+    let name_token = match tokens.expect_item("alias name") {
+        Ok(token) => token,
+        Err(error) => return call_after_error(statement, error.cut(), parse_alias_as_call),
+    };
     // A lone `-` is no flag for nu and so a name; `-x` and `--` are not, and
     // neither is a variable, subexpression or block, which is no string. nu
     // reports a name it refuses (`alias_name`: no string, an unsupported or
@@ -202,7 +208,12 @@ pub fn parse_alias<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>
             working_set.error(not_a_name.as_recovered());
             Spanned::new(Cow::Borrowed(name_text), name_token.span)
         }
-        false => parse_definition_name(working_set, name_token.span)?,
+        // A name that is no string, as a quote left open (`alias "f`, the text to the end):
+        // nu's call reads it, and `alias_name` refuses it, with garbage.
+        false => match parse_definition_name(working_set, name_token.span) {
+            Ok(name) => name,
+            Err(error) => return call_after_error(statement, error, parse_alias_as_call),
+        },
     };
     // `alias alias --help` is a help call before the name is checked.
     match keyword_boundary_with(&mut tokens, "alias", &[], false) {

@@ -3035,6 +3035,66 @@ fn dropped_err_pipe_is_the_next_commands_pipe(#[case] code: &str, #[case] at: us
     Ok(())
 }
 
+/// Statements nu reports an error in and reads on are lowered with nu's errors: an alias of an
+/// external command named for a statement, where nu reads a command (`BuiltinCommandInPipeline`
+/// at the element's first item); a `def` body written like a record in an alias's target; an
+/// `alias` without a name, also exported from a module; and a name or module item whose quote
+/// is left open, which nu's call reads to the end of the text.
+#[rstest]
+#[case::alias_in_a_pipeline(
+    "alias \"hide me\" = ^echo hi\n[1] | hide me",
+    &[("BuiltinCommandInPipeline", "hide")]
+)]
+#[case::alias_after_a_shorthand(
+    "alias \"source me\" = ^echo hi\nFOO=1 source me",
+    &[("BuiltinCommandInPipeline", "FOO=1")]
+)]
+#[case::def_body_record_in_an_alias("alias zz = def foo [] {a: 1}", &[("CantAliasKeyword", "def")])]
+#[case::alias_without_a_name("alias", &[("UnknownState", "alias")])]
+#[case::exported_alias_without_a_name(
+    "module m { export alias }",
+    &[("UnknownState", "alias"), ("InternalError", "alias"), ("InternalError", "alias")]
+)]
+#[case::alias_name_left_open("alias \"f", &[("Unclosed", "f"), ("IncorrectValue", "alias")])]
+#[case::use_module_left_open("use \"f", &[("Unclosed", "f"), ("ModuleNotFound", "\"f")])]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn statement_nu_reads_past_an_error_in_is_lowered(
+    #[case] code: &str,
+    #[case] expected: &[(&str, &str)],
+) -> Result {
+    let expected: Vec<(String, String)> = expected
+        .iter()
+        .map(|(kind, text)| (kind.to_string(), text.to_string()))
+        .collect();
+    assert_eq!(
+        super::winnow_calls::lowered_errors(code),
+        expected,
+        "`{code}`"
+    );
+    Ok(())
+}
+
+/// A block left open after `export-env`, a definition's name whose quote is left open, and
+/// attributes before a definition nu reads as its call in a module are lowered, not handed to
+/// the classic parser.
+#[rstest]
+#[case::export_env_block_left_open("export-env { $env.A = 1")]
+#[case::export_env_in_a_module("module m { export-env { $env.A = 1")]
+#[case::def_name_left_open("def \"f")]
+#[case::exported_def_name_left_open("export def \"f")]
+#[case::extern_name_left_open("extern \"f")]
+#[case::attributes_in_a_module("module m {\n@example \"x\" { 1 } --result 1\ndef f }")]
+#[case::attributes_on_an_export("module m {\n@example \"x\" { 1 } --result 1\nexport def f }")]
+#[nu_test_support::test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn statement_with_a_part_left_open_is_lowered(#[case] code: &str) -> Result {
+    assert_ne!(super::winnow_calls::lowered_errors(code), [], "`{code}`");
+    Ok(())
+}
+
 /// The block of the first statement of `code`, a parenthesized subexpression, parsed with the
 /// winnow front end: no statement is handed to the classic parser.
 fn parenthesized_block(working_set: &mut StateWorkingSet, code: &str) -> nu_protocol::BlockId {

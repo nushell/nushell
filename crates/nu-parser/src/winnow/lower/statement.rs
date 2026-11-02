@@ -228,11 +228,30 @@ impl<'s> Lower<'_, '_, 's> {
                 let (pipeline, _) = self.module_call(pipeline, command, call, None)?;
                 return Ok(pipeline);
             }
+            // An `export-env` nu reads as its call adds its block when the call is valid (a
+            // block left open).
+            w::Expr::Call(call)
+                if attributes.is_empty()
+                    && call.head.name == "export-env"
+                    && pipeline.elements.iter().all(|e| e.redirection.is_none()) =>
+            {
+                let (expression, block_id) = self.export_env_call(command, call)?;
+                if let Some(block_id) = block_id {
+                    module.add_env_block(block_id);
+                }
+                expression
+            }
             w::Expr::Call(call)
                 if attributes.is_empty()
                     && MODULE_HELP_KEYWORDS.contains(&call.head.name.as_ref()) =>
             {
                 self.help_statement(pipeline, command, call, &[], None, None)?
+                    .0
+            }
+            // A definition nu reads as its keyword's call (`def f [a, a] {}`, a `def f` missing
+            // its signature) after attributes, which `parse_def` reads before the call.
+            w::Expr::Call(call) if matches!(call.head.name.as_ref(), "def" | "extern") => {
+                self.help_statement(pipeline, command, call, attributes, None, None)?
                     .0
             }
             w::Expr::Use(use_statement) if attributes.is_empty() => {
@@ -353,10 +372,20 @@ impl<'s> Lower<'_, '_, 's> {
                 // An `export extern` defines its command even when it asks for help. An `export
                 // alias` that does declares nothing, but `parse_export_in_module` looks the alias
                 // up by the statement's third item, its quotes trimmed: that exports another
-                // command, or reports that none was found.
-                w::Expr::Call(call) if attributes.is_empty() => {
-                    let (expression, decl) =
-                        self.help_statement(pipeline, command, call, &[], Some(module_name), None)?;
+                // command, or reports that none was found. A definition nu reads as its call
+                // keeps the attributes before it (`parse_def` reads them).
+                w::Expr::Call(call)
+                    if attributes.is_empty()
+                        || matches!(call.head.name.as_ref(), "def" | "extern") =>
+                {
+                    let (expression, decl) = self.help_statement(
+                        pipeline,
+                        command,
+                        call,
+                        attributes,
+                        Some(module_name),
+                        None,
+                    )?;
                     if let Some((name, decl_id)) = decl {
                         self.add_export_decl(module, module_name, name, decl_id, &expression);
                     } else if call.head.name.as_ref() == "alias" {

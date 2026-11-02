@@ -134,7 +134,7 @@ impl<'s> Lower<'_, '_, 's> {
         first_item: Option<WSpan>,
         input_type: Option<&Type>,
     ) -> Lowered<Expression> {
-        let error = self.statement_in_pipeline_error(e, call, name, first_item);
+        let error = self.statement_in_pipeline_error(e, call.head.span, name, first_item);
         self.working_set.error(error);
         self.ordinary_call(e, call, decl_id, input_type)
     }
@@ -155,18 +155,58 @@ impl<'s> Lower<'_, '_, 's> {
         }
     }
 
-    /// The error [`Self::statement_in_pipeline`] reports.
+    /// The statement an alias of an external command is to `parse_expression`, by the first
+    /// words of its name, as its error names it ([`Self::statement_in_pipeline`]): `call`, the
+    /// winnow parser's external call of the alias, comes after an environment shorthand when
+    /// `after_shorthand`, where `overlay` is always a statement and `plugin use` never (nu looks
+    /// for `list` and `use` at the second of the items, the shorthand's included).
+    pub(super) fn external_alias_statement(
+        &self,
+        call: &w::ExternalCall<'s>,
+        after_shorthand: bool,
+    ) -> Option<&'static str> {
+        let w::Expr::String(name) = &call.head.expr else {
+            return None;
+        };
+        if call.caret.is_some()
+            || name.quote != w::Quote::Bare
+            || self
+                .working_set
+                .find_decl(name.value.as_bytes())
+                .is_none_or(|decl_id| self.working_set.get_decl(decl_id).as_alias().is_none())
+        {
+            return None;
+        }
+        let mut words = name.value.split(' ');
+        let first_word = words.next().unwrap_or_default();
+        let second = words.next().or_else(|| {
+            call.arguments
+                .first()
+                .map(|argument| self.text(argument.span()))
+        });
+        match first_word {
+            word if STATEMENTS_IN_PIPELINE.contains(&word) => STATEMENTS_IN_PIPELINE
+                .iter()
+                .find(|statement| **statement == word)
+                .copied(),
+            "overlay" if after_shorthand || second != Some("list") => Some("overlay"),
+            "plugin" if !after_shorthand && second == Some("use") => Some("plugin use"),
+            _ => None,
+        }
+    }
+
+    /// The error [`Self::statement_in_pipeline`] reports, for the call whose head covers `head`.
     pub(super) fn statement_in_pipeline_error(
         &self,
         e: &w::Expression<'s>,
-        call: &w::Call<'s>,
+        head: WSpan,
         name: &str,
         first_item: Option<WSpan>,
     ) -> ParseError {
         let first_item = first_item.unwrap_or_else(|| {
-            let head = self.text(call.head.span);
-            let word = head.split_ascii_whitespace().next().unwrap_or(head);
-            WSpan::new(call.head.span.start, call.head.span.start + word.len())
+            let text = self.text(head);
+            let word = text.split_ascii_whitespace().next().unwrap_or(text);
+            WSpan::new(head.start, head.start + word.len())
         });
         let span = self.span(first_item);
         match name {
@@ -688,8 +728,6 @@ impl<'s> Lower<'_, '_, 's> {
 
     /// `def`'s body read as a call's argument (`parse_internal_call`'s `SpecialCmd::Def`): a
     /// closure (`parse_closure_expression`) whose statements get `input_type`, the signature's.
-    /// nu reads a body written like a record as a closure's statements too, which the winnow
-    /// tree has as a record: that is handed back.
     fn def_body(
         &mut self,
         e: &w::Expression<'s>,
@@ -707,12 +745,12 @@ impl<'s> Lower<'_, '_, 's> {
             w::Expr::Record(items) if items.is_empty() => {
                 self.closure(e.span, None, &w::Block::default(), shape, input_type)
             }
-            w::Expr::Record(_) | w::Expr::FullCellPath(_) => {
-                Err(Unlowered::Unsupported("def body read as a record"))
-            }
-            // A body the winnow parser went on past an error in: read by nu's closure parser,
-            // and when that gives no closure, by its value parser, as there.
-            w::Expr::Garbage if self.text(e.span).starts_with('{') => {
+            // A body the winnow parser read as a record (`{a: 1}`, which nu reads as a closure's
+            // statements) or a cell path, or went on past an error in: read by nu's closure
+            // parser, and when that gives no closure, by its value parser, as there.
+            w::Expr::Record(_) | w::Expr::FullCellPath(_) | w::Expr::Garbage
+                if !matches!(e.expr, w::Expr::Garbage) || self.text(e.span).starts_with('{') =>
+            {
                 let span = self.span(e.span);
                 let errors = self.working_set.parse_errors.len();
                 let value = parse_closure_expression(self.working_set, shape, span, input_type);
@@ -1483,13 +1521,23 @@ impl<'s> Lower<'_, '_, 's> {
     }
 
     /// A call to an external command (`parse_external_call`), or to an alias of one, which
-    /// the winnow parser also makes an external call.
+    /// the winnow parser also makes an external call. An alias named for a statement, where
+    /// `parse_expression` reads a command (in a pipeline, after an environment shorthand whose
+    /// first item is `first_item`), is that statement's error, reported at the element's first
+    /// item, before the call is read ([`Self::external_alias_statement`]).
     pub(super) fn external_call(
         &mut self,
         e: &w::Expression<'s>,
         call: &w::ExternalCall<'s>,
+        first_item: Option<WSpan>,
         input_type: Option<&Type>,
     ) -> Lowered<Expression> {
+        if !self.alias_target
+            && let Some(name) = self.external_alias_statement(call, first_item.is_some())
+        {
+            let error = self.statement_in_pipeline_error(e, call.head.span, name, first_item);
+            self.working_set.error(error);
+        }
         // `%name` naming no built-in command, which `parse_call` reports at the name and reads
         // as an external call of the items after the `%`.
         if let Some(sigil) = call.caret

@@ -39,7 +39,7 @@ impl<'s> Lower<'_, '_, 's> {
             w::Expr::EnvShorthand(shorthand) => self.env_shorthand(e, shorthand, input_type),
             w::Expr::Assignment(assignment) => self.assignment(e, assignment, input_type),
             w::Expr::Call(call) => self.call(e, call, input_type),
-            w::Expr::ExternalCall(call) => self.external_call(e, call, input_type),
+            w::Expr::ExternalCall(call) => self.external_call(e, call, None, input_type),
             w::Expr::If(if_expr) => self.if_call(e, if_expr, input_type),
             w::Expr::Match(match_expr) => self.match_call(e, match_expr, input_type),
             w::Expr::While(while_loop) => self.while_call(e, while_loop),
@@ -506,6 +506,9 @@ impl<'s> Lower<'_, '_, 's> {
                         _ => self.expression(&shorthand.expr, input_type)?,
                     },
                 }
+            }
+            w::Expr::ExternalCall(call) => {
+                self.external_call(&shorthand.expr, call, first_item, input_type)?
             }
             _ => self.expression(&shorthand.expr, input_type)?,
         };

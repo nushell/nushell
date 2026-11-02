@@ -113,9 +113,9 @@ pub fn parse_expression<'a>(
     };
     let expression = if let Some(diagnostic) = statement {
         let call = parse_call(tokens.rest_stream())?;
-        // The consumer reports the statement where it reads a call to a command; a call
-        // through an alias of an external command (`alias "source me" = ^echo`) stays an error.
-        if !matches!(call.expr, Expr::Call(_)) {
+        // The consumer reports the statement where it reads a call to a command, or to an
+        // alias of an external command (`alias "source me" = ^echo`), which is an external call.
+        if !matches!(call.expr, Expr::Call(_) | Expr::ExternalCall(_)) {
             return Err(cut(diagnostic));
         }
         working_set.error(diagnostic.as_recovered());

@@ -391,43 +391,50 @@ pub fn parse_export_env(
         return (garbage_pipeline(working_set, spans), None);
     }
 
-    let call = match working_set.find_decl(b"export-env") {
-        Some(decl_id) => {
-            let ParsedInternalCall {
-                call,
-                output,
-                call_kind,
-            } = parse_internal_call(
-                working_set,
-                spans[0],
-                &[spans[1]],
-                decl_id,
-                ArgumentParsingLevel::Full,
-                None,
-            );
-
-            if call_kind != CallKind::Valid {
-                return (
-                    Pipeline::from_vec(vec![Expression::new(
-                        working_set,
-                        Expr::Call(call),
-                        Span::concat(spans),
-                        output,
-                    )]),
-                    None,
-                );
-            }
-
-            call
-        }
-        None => {
-            working_set.error(ParseError::UnknownState(
-                "internal error: 'export-env' declaration not found".into(),
-                Span::concat(spans),
-            ));
-            return (garbage_pipeline(working_set, spans), None);
-        }
+    let Some(decl_id) = working_set.find_decl(b"export-env") else {
+        working_set.error(ParseError::UnknownState(
+            "internal error: 'export-env' declaration not found".into(),
+            Span::concat(spans),
+        ));
+        return (garbage_pipeline(working_set, spans), None);
     };
+    let ParsedInternalCall {
+        call,
+        output,
+        call_kind,
+    } = parse_internal_call(
+        working_set,
+        spans[0],
+        &[spans[1]],
+        decl_id,
+        ArgumentParsingLevel::Full,
+        None,
+    );
+    finish_export_env(working_set, call, output, call_kind, Span::concat(spans))
+}
+
+/// The end of [`parse_export_env`], once its call to `export-env` is parsed: a call that is not
+/// valid (a call for help, a missing or unknown argument) is the statement as it is; a valid one
+/// gives its block, which is compiled, for a module to run when it is imported. `call_span` is
+/// the statement.
+pub(crate) fn finish_export_env(
+    working_set: &mut StateWorkingSet,
+    call: Box<Call>,
+    output: Type,
+    call_kind: CallKind,
+    call_span: Span,
+) -> (Pipeline, Option<BlockId>) {
+    if call_kind != CallKind::Valid {
+        return (
+            Pipeline::from_vec(vec![Expression::new(
+                working_set,
+                Expr::Call(call),
+                call_span,
+                output,
+            )]),
+            None,
+        );
+    }
 
     let block_id = if let Some(block) = call.positional_iter().next() {
         if let Some(block_id) = block.as_block() {
@@ -437,20 +444,20 @@ pub fn parse_export_env(
                 "internal error: 'export-env' block is not a block".into(),
                 block.span,
             ));
-            return (garbage_pipeline(working_set, spans), None);
+            return (garbage_pipeline(working_set, &[call_span]), None);
         }
     } else {
         working_set.error(ParseError::UnknownState(
             "internal error: 'export-env' block is missing".into(),
-            Span::concat(spans),
+            call_span,
         ));
-        return (garbage_pipeline(working_set, spans), None);
+        return (garbage_pipeline(working_set, &[call_span]), None);
     };
 
     let pipeline = Pipeline::from_vec(vec![Expression::new(
         working_set,
         Expr::Call(call),
-        Span::concat(spans),
+        call_span,
         Type::Any,
     )]);
 

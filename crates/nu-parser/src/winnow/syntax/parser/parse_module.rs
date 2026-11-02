@@ -318,7 +318,17 @@ pub fn parse_use<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> 
     let module = match working_set.get_span_contents(module_token.span) {
         "null" => Expression::new(Expr::Nothing, module_token.span),
         _ => {
-            let module = parse_value(working_set, module_token.span, ExpectedShape::String)?;
+            // A module item the winnow parser reads no value of (a quote left open, `use "f`):
+            // nu's call reads it by its string shape, reporting any error, and finds no module
+            // (ModuleNotFound), and so does the consumer: the error is recorded as recovered.
+            let module = match parse_value(working_set, module_token.span, ExpectedShape::String) {
+                Ok(module) => module,
+                Err(ErrMode::Cut(ParseFailure::Error(diagnostic))) => {
+                    working_set.error(diagnostic.as_recovered());
+                    Expression::new(Expr::Garbage, module_token.span)
+                }
+                Err(error) => return Err(error),
+            };
             if let Expr::Record(_) = module.expr {
                 return Err(cut(
                     Diagnostic::expected("string", module_token.span).with_help("found a record")

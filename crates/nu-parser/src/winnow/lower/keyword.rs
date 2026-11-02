@@ -9,8 +9,8 @@ use std::{collections::HashMap, sync::Arc};
 
 use nu_protocol::eval_const::eval_constant;
 use nu_protocol::{
-    CompileError, DeclId, ParseError, PositionalArg, ShellError, Span, Spanned, SyntaxShape, Type,
-    TypeSet, Value,
+    BlockId, CompileError, DeclId, ParseError, PositionalArg, ShellError, Span, Spanned,
+    SyntaxShape, Type, TypeSet, Value,
     ast::{
         Argument, Attribute, AttributeBlock, Call, Expr, Expression, Keyword, MatchPattern,
         Pattern, Pipeline,
@@ -35,7 +35,7 @@ use crate::{
     },
     parse_helpers::{garbage, is_variable},
     parse_keywords::find_keyword_decl,
-    parse_module::warp_export_call,
+    parse_module::{finish_export_env, warp_export_call},
     parse_patterns::parse_pattern,
     parse_shape_specs::parse_type,
     parse_signatures::ensure_not_reserved_variable_name,
@@ -1240,6 +1240,9 @@ impl<'s> Lower<'_, '_, 's> {
         if keyword == "where" {
             return Ok((self.where_call(command, call)?, None));
         }
+        if keyword == "export-env" {
+            return Ok((self.export_env_call(command, call)?.0, None));
+        }
         // A definition's attributes (`def` and `extern` only), which `parse_def` and
         // `parse_extern` read before the call.
         let (lowered_attributes, attribute_values) = self.attributes(attributes)?;
@@ -1294,15 +1297,6 @@ impl<'s> Lower<'_, '_, 's> {
         let head = self.command_head(command, keyword);
         let call_span = self.span(command.span);
         let arguments = call.arguments.as_slice();
-        // `parse_export_env` reports a lone `export-env` before reading its call, with garbage.
-        if keyword == "export-env" && arguments.is_empty() {
-            self.working_set.error(ParseError::MissingPositional(
-                "block".into(),
-                call_span,
-                "export-env <block>".into(),
-            ));
-            return Ok((garbage(self.working_set, call_span), None));
-        }
         // `parse_def` and `parse_extern` refuse a name with its parameters joined to it, in
         // the definition's scope, which they enter and leave open, and give garbage.
         let name_span = arguments
@@ -1353,27 +1347,19 @@ impl<'s> Lower<'_, '_, 's> {
             "let" => self.internal_call(head, arguments, decl_id, input_type)?,
             _ => self.internal_call(head, arguments, decl_id, None)?,
         };
-        // `parse_export_env` refuses a valid call whose argument is no block (`export-env {a:
-        // 1}`, `export-env $x`), with garbage.
-        if keyword == "export-env"
-            && kind == CallKind::Valid
-            && let Some(block) = lowered.positional_iter().next()
-            && block.as_block().is_none()
-        {
-            self.working_set.error(ParseError::UnknownState(
-                "internal error: 'export-env' block is not a block".into(),
-                block.span,
-            ));
-            return Ok((garbage(self.working_set, call_span), None));
-        }
         // `parse_alias` keeps a call to `alias` that declares nothing (`alias ll ls`, `alias ll
         // =`): a name it refuses is garbage (`alias_name`), which an export covers with its
         // internal error (`warp_export_call`), anything else an incomplete alias.
         if keyword == "alias" && kind != CallKind::Help {
-            let Some(name) = lowered.positional_iter().next() else {
-                return Err(Unlowered::Unsupported("alias call without a name"));
-            };
-            if alias_name(self.working_set, name).is_none() {
+            // No name (`alias`): reported over the items `parse_alias` takes, with garbage.
+            let name = lowered.positional_iter().next();
+            if name.is_none() {
+                self.working_set.error(ParseError::UnknownState(
+                    "Missing positional after call check".into(),
+                    Span::concat(&alias_spans),
+                ));
+            }
+            if name.is_none_or(|name| alias_name(self.working_set, name).is_none()) {
                 let garbage = garbage(self.working_set, call_span);
                 return Ok(match &command.expr {
                     w::Expr::Export(export) => (
@@ -1425,7 +1411,7 @@ impl<'s> Lower<'_, '_, 's> {
                 keyword,
                 "def" | "extern" | "for" | "alias" | "let" | "mut" | "const"
             )
-            && !(matches!(keyword, "export-env" | "use" | "export") && kind == CallKind::Invalid)
+            && !(matches!(keyword, "use" | "export") && kind == CallKind::Invalid)
         {
             return Err(Unlowered::Unsupported(
                 "keyword call that does not ask for help",
@@ -1571,10 +1557,17 @@ impl<'s> Lower<'_, '_, 's> {
             // `parse_expression` reports a statement before it reads it as a call: dropped
             // below with the other errors, the error still leaves the closures read after it
             // uncompiled (`parse_closure_expression` compiles only without errors).
-            if let w::Expr::Call(target_call) = &target.expr
-                && let Some(name) = self.statement_head(target_call)
-            {
-                let error = self.statement_in_pipeline_error(target, target_call, name, None);
+            let statement = match &target.expr {
+                w::Expr::Call(target_call) => self
+                    .statement_head(target_call)
+                    .map(|name| (name, target_call.head.span)),
+                w::Expr::ExternalCall(target_call) => self
+                    .external_alias_statement(target_call, false)
+                    .map(|name| (name, target_call.head.span)),
+                _ => None,
+            };
+            if let Some((name, head)) = statement {
+                let error = self.statement_in_pipeline_error(target, head, name, None);
                 self.working_set.error(error);
             }
             match &target.expr {
@@ -1689,6 +1682,39 @@ impl<'s> Lower<'_, '_, 's> {
         let expression = self.expression(target, None);
         self.alias_target = outer;
         expression
+    }
+
+    /// `export-env` the winnow parser read as its call (a call for help or an invalid one, a
+    /// value where the block goes, or a block it went on past an error in), as
+    /// `parse_export_env` reads it: a lone `export-env` is reported, with garbage; the call
+    /// (`finish_export_env`), when valid, gives its block, returned for a module's body to add.
+    pub(super) fn export_env_call(
+        &mut self,
+        command: &w::Expression<'s>,
+        call: &w::Call<'s>,
+    ) -> Lowered<(Expression, Option<BlockId>)> {
+        let decl_id = find_keyword_decl(self.working_set, b"export-env")
+            .ok_or(Unlowered::Unsupported("keyword command"))?;
+        let call_span = self.span(command.span);
+        if call.arguments.is_empty() {
+            self.working_set.error(ParseError::MissingPositional(
+                "block".into(),
+                call_span,
+                "export-env <block>".into(),
+            ));
+            return Ok((garbage(self.working_set, call_span), None));
+        }
+        let head = self.command_head(command, "export-env");
+        let (lowered, output, kind) = self.internal_call(head, &call.arguments, decl_id, None)?;
+        let (pipeline, block_id) =
+            finish_export_env(self.working_set, lowered, output, kind, call_span);
+        let expression = pipeline
+            .elements
+            .into_iter()
+            .next()
+            .ok_or(Unlowered::Error)?
+            .expr;
+        Ok((expression, block_id))
     }
 
     pub(super) fn export_env(
