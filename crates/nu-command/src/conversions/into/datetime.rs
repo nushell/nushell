@@ -1,6 +1,4 @@
-use std::{ops::Deref, sync::LazyLock};
-
-use crate::{generate_strftime_list, parse_date_from_string};
+use crate::{generate_date_formats_list, generate_strftime_list, parse_date_from_string};
 use chrono::{
     DateTime, Datelike, FixedOffset, Local, NaiveDate, NaiveDateTime, NaiveTime, Offset, TimeZone,
     Timelike, Utc,
@@ -8,6 +6,7 @@ use chrono::{
 use chrono_tz::TZ_VARIANTS;
 use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
+use std::{ops::Deref, sync::LazyLock};
 
 const HOUR: i32 = 60 * 60;
 const ALLOWED_COLUMNS: [&str; 10] = [
@@ -108,7 +107,7 @@ impl Command for IntoDatetime {
                 (Type::record(), Type::Date),
                 // FIXME Type::Any input added to disable pipeline input type checking, as run-time checks can raise undesirable type errors
                 // which aren't caught by the parser. see https://github.com/nushell/nushell/pull/14922 for more details
-                // only applicable for --list flag
+                // only applicable for --list and --formats flags
                 (Type::Any, Type::table()),
             ])
             .allow_variants_without_examples(true)
@@ -130,13 +129,18 @@ impl Command for IntoDatetime {
             .named(
                 "format",
                 SyntaxShape::String,
-                "Specify expected format of INPUT string to parse to datetime. Use --list to see options.",
+                "Specify expected format of INPUT string to parse to datetime. Use --list to see options, or --formats for the formats read without one.",
                 Some('f'),
             )
             .switch(
                 "list",
                 "Show all possible variables for use in --format flag.",
                 Some('l'),
+            )
+            .switch(
+                "formats",
+                "Show the formats read without --format, with an example of each.",
+                None,
             )
             .rest(
                 "rest",
@@ -155,6 +159,8 @@ impl Command for IntoDatetime {
     ) -> Result<PipelineData, ShellError> {
         if call.has_flag(engine_state, stack, "list")? {
             Ok(generate_strftime_list(call.head, true).into_pipeline_data())
+        } else if call.has_flag(engine_state, stack, "formats")? {
+            Ok(generate_date_formats_list(call.head).into_pipeline_data())
         } else {
             let cell_paths = call.rest(engine_state, stack, 0)?;
             let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
@@ -184,6 +190,14 @@ impl Command for IntoDatetime {
 
     fn description(&self) -> &str {
         "Convert text or timestamp into a datetime."
+    }
+
+    fn extra_description(&self) -> &str {
+        "Without --format, a string is a date, a time, or a date with a time after T, a space or \
+         a comma, and an offset or time zone can follow the time. Parts left out come from today, \
+         and a time without an offset is local time. An int, or a string of digits, is \
+         nanoseconds since 1970-01-01 UTC. Run `into datetime --formats` to list each format with \
+         an example."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -228,6 +242,11 @@ impl Command for IntoDatetime {
             Example {
                 description: "Convert a relative date.",
                 example: "'tomorrow 10am' | into datetime",
+                result: None,
+            },
+            Example {
+                description: "List the formats read without --format, with an example of each.",
+                example: "into datetime --formats",
                 result: None,
             },
             Example {

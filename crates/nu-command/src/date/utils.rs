@@ -1,4 +1,4 @@
-use super::formats::parse_date_text;
+use super::formats::{FormatRow, format_rows, parse_date_text};
 use chrono::{DateTime, FixedOffset, Local, Timelike};
 use nu_protocol::{ShellError, Span, Value, record};
 
@@ -23,6 +23,35 @@ pub(crate) fn parse_date_from_string(
             span,
         )
     })
+}
+
+/// The table for `into datetime --formats`: what `into datetime` reads without `--format`, with
+/// an example of each.
+pub(crate) fn generate_date_formats_list(head: Span) -> Value {
+    // read by `into datetime` itself, after the string isn't a date
+    let timestamp = FormatRow {
+        kind: "timestamp",
+        format: "integer",
+        example: "1744972472500000000".into(),
+        description: "Nanoseconds since 1970-01-01 UTC, as an int or a string of digits. \
+                      Write seconds as @1744972472.",
+    };
+    let rows = format_rows()
+        .into_iter()
+        .chain([timestamp])
+        .map(|row| {
+            Value::record(
+                record! {
+                    "recognized_format" => Value::string(row.example, head),
+                    "format" => Value::string(row.format, head),
+                    "kind" => Value::string(row.kind, head),
+                    "description" => Value::string(row.description, head),
+                },
+                head,
+            )
+        })
+        .collect();
+    Value::list(rows, head)
 }
 
 /// Generates a table containing available datetime format specifiers

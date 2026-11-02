@@ -66,6 +66,10 @@ const DATES: &[&str] = &[
     "%Y",
 ];
 
+/// A month name and a year (`Apr 2025`), read before the other layouts: `%b %d %Y` would take it
+/// as April 20 of the year 25.
+const MONTH_YEAR: &str = "%b %Y";
+
 /// Time layouts after a date, or alone (all but the last [`AFTER_DATE_ONLY`]). A layout counts
 /// only when the rest of the string is an offset or nothing, so `4:04 PM` falls through `%H:%M`
 /// to `%I:%M %p`. A space in a jiff layout also matches no space, so `%I:%M %p` reads `4:04PM`;
@@ -446,7 +450,6 @@ fn read_layouts(text: &str, weekday: Option<Weekday>) -> Option<DateTime<FixedOf
             .filter(|(_, rest)| rest.is_empty())
             .map(|(fields, _)| fields)
     };
-    // `Apr 2025`: read before `%b %d %Y`, which would take it as April 20 of the year 25
     let month_year = text.split_once(' ').is_some_and(|(month, year)| {
         month
             .trim_end_matches([',', '.'])
@@ -456,7 +459,7 @@ fn read_layouts(text: &str, weekday: Option<Weekday>) -> Option<DateTime<FixedOf
             && year.bytes().all(|c| c.is_ascii_digit())
     });
     if month_year
-        && let Some(date) = whole("%b %Y").and_then(|f| build(Some(&f), None, None, weekday))
+        && let Some(date) = whole(MONTH_YEAR).and_then(|f| build(Some(&f), None, None, weekday))
     {
         return Some(date);
     }
@@ -601,6 +604,231 @@ fn zoned_to_chrono(zoned: &jiff::Zoned) -> Option<DateTime<FixedOffset>> {
     };
     let utc = DateTime::from_timestamp(seconds, u32::try_from(nanoseconds).ok()?)?;
     Some(utc.with_timezone(&offset))
+}
+
+/// A row of `into datetime --formats`: one of the layouts above, or another form
+/// [`parse_date_text`] reads.
+pub(crate) struct FormatRow {
+    pub(crate) kind: &'static str,
+    pub(crate) format: &'static str,
+    pub(crate) example: String,
+    pub(crate) description: &'static str,
+}
+
+/// Forms read by something other than the layouts, as kind, name, example and description.
+type Form = (&'static str, &'static str, &'static str, &'static str);
+
+/// Standards, listed before the layouts.
+const STANDARD_FORMS: &[Form] = &[
+    (
+        "standard",
+        "RFC 3339",
+        "2025-04-18T16:04:32.5+05:30",
+        "ISO 8601 date and time with an offset.",
+    ),
+    (
+        "standard",
+        "RFC 2822",
+        "Fri, 18 Apr 2025 16:04:32 +0530",
+        "Email and HTTP dates. GMT and US zone names such as PDT read as their offsets.",
+    ),
+    (
+        "standard",
+        "RFC 9557",
+        "2025-04-18T16:04:32.5+05:30[Asia/Kolkata]",
+        "RFC 3339 with an IANA time zone in brackets. The offset can be left out.",
+    ),
+    (
+        "standard",
+        "ISO 8601 basic",
+        "20250418T160432+0530",
+        "Digits run together: 20250418, 20250418T1604, 202504181604.",
+    ),
+];
+
+/// Spelling variants that [`REWRITES`], [`ZONE_NAME`] and [`WEEKDAY`] turn into the layouts.
+const VARIANT_FORMS: &[Form] = &[
+    (
+        "variant",
+        "month names",
+        "April 18, 2025",
+        "Full or three letters, any case, with or without a dot: Sept. 18.",
+    ),
+    (
+        "variant",
+        "ordinals",
+        "18th of April 2025",
+        "st, nd, rd or th after a day, and of, are dropped.",
+    ),
+    (
+        "variant",
+        "weekday",
+        "Friday, April 18, 2025",
+        "A weekday before the date is dropped. With no day (Friday, Fri 4 PM) it picks that \
+         weekday, today or later.",
+    ),
+    (
+        "variant",
+        "a.m. and p.m.",
+        "4:04 p.m.",
+        "Also am, pm, AM and PM, with or without a space.",
+    ),
+    (
+        "variant",
+        "spaced numbers",
+        "2025 04 18",
+        "Spaces between numbers read as slashes: 04 18 2025.",
+    ),
+    (
+        "variant",
+        "UTC, GMT and Z",
+        "2025-04-18 16:04:32 UTC",
+        "Read as +00:00.",
+    ),
+    (
+        "variant",
+        "zone names",
+        "2025-04-18 16:04:32 CDT",
+        "Any other zone abbreviation at the end is dropped, and the time read as local time.",
+    ),
+];
+
+/// What [`parse_relative`] reads.
+#[cfg(feature = "os")]
+const RELATIVE_FORMS: &[Form] = &[
+    (
+        "relative",
+        "relative words",
+        "tomorrow 10am",
+        "GNU date -d words: now, yesterday, 3 days ago, next friday, last month.",
+    ),
+    (
+        "relative",
+        "TZ=",
+        "TZ=\"Asia/Kolkata\" 2025-04-18 16:04",
+        "Reads the rest in that time zone.",
+    ),
+];
+
+#[cfg(not(feature = "os"))]
+const RELATIVE_FORMS: &[Form] = &[];
+
+/// What `into datetime --formats` says about a layout, past its kind and example.
+const NOTES: &[(&str, &str)] = &[
+    ("%b %e %H:%M:%S%.f %Y %z", "git log, after the weekday."),
+    ("%b %e %H:%M:%S%.f %Y", "ctime, after the weekday."),
+    (
+        "%d/%b/%Y:%H:%M:%S %z",
+        "Web server access logs, without the brackets.",
+    ),
+    ("@%s", "Seconds since 1970-01-01 UTC."),
+    (
+        "%y%m%d",
+        "Only when the first two digits can't be a month or a day: 250418 is 2018-04-25.",
+    ),
+    ("%G-W%V-%u", "ISO 8601 week date."),
+    ("%GW%V%u", "ISO 8601 week date."),
+    ("%Y-%j", "Day of the year."),
+    (
+        "%H:%M:%S%.f",
+        "The fraction is optional, up to nanoseconds.",
+    ),
+    ("%Q", "An IANA time zone name."),
+];
+
+/// Examples for layouts that an earlier layout reads differently when written from [`sample`].
+const EXAMPLES: &[(&str, &str)] = &[("%y%m%d", "990418")];
+
+/// The zone the `%Q` example names. jiff writes `%Q` as an offset for [`sample`], which has
+/// no zone name.
+const SAMPLE_ZONE: &str = "Asia/Kolkata";
+
+/// The date-time the layout examples show: Friday 2025-04-18 16:04:32.5 at +05:30. The day is
+/// past 12, so a day-first example isn't read month-first.
+fn sample() -> Option<jiff::Zoned> {
+    let offset = jiff::tz::Offset::from_seconds(5 * 3600 + 30 * 60).ok()?;
+    jiff::civil::DateTime::new(2025, 4, 18, 16, 4, 32, 500_000_000)
+        .ok()?
+        .to_zoned(jiff::tz::TimeZone::fixed(offset))
+        .ok()
+}
+
+/// The layouts in the order [`read_layouts`] tries them, each with its kind and the layout its
+/// example is written in: a time that needs a date gets one, and a zone gets a date and a time.
+fn listed_layouts() -> impl Iterator<Item = (&'static str, &'static str, String)> {
+    let alone = TIMES.len() - AFTER_DATE_ONLY;
+    let month_year = std::iter::once(("date", MONTH_YEAR, MONTH_YEAR.to_string()));
+    let whole = WHOLE.iter().map(|l| ("datetime", *l, l.to_string()));
+    let dates = DATES.iter().map(|l| ("date", *l, l.to_string()));
+    let times = TIMES.iter().enumerate().map(move |(i, l)| {
+        let context = if i < alone {
+            l.to_string()
+        } else {
+            format!("%Y-%m-%d {l}")
+        };
+        ("time", *l, context)
+    });
+    let zones = ZONES
+        .iter()
+        .map(|l| ("zone", *l, format!("%Y-%m-%d %H:%M:%S%.f {l}")));
+    month_year
+        .chain(whole)
+        .chain(dates)
+        .chain(times)
+        .chain(zones)
+}
+
+/// `layout`'s example: [`sample`] written in `context`.
+fn layout_example(layout: &str, context: &str, sample: Option<&jiff::Zoned>) -> String {
+    if let Some((_, example)) = EXAMPLES.iter().find(|(l, _)| *l == layout) {
+        return example.to_string();
+    }
+    let context = context.replace("%Q", SAMPLE_ZONE);
+    sample
+        .and_then(|sample| jiff::fmt::strtime::format(&context, sample).ok())
+        .unwrap_or_default()
+}
+
+/// `layout`'s description in `into datetime --formats`.
+fn layout_note(kind: &str, layout: &'static str) -> &'static str {
+    if let Some((_, note)) = NOTES.iter().find(|(l, _)| *l == layout) {
+        note
+    } else if kind == "date" && layout.starts_with("%d") && layout.contains("%m") {
+        // each day-first numeric layout comes after its month-first twin in DATES
+        "Day first, when month first isn't a date."
+    } else if kind == "time"
+        && TIMES
+            .get(TIMES.len() - AFTER_DATE_ONLY..)
+            .is_some_and(|after_date| after_date.contains(&layout))
+    {
+        "Only after a date."
+    } else {
+        ""
+    }
+}
+
+/// Everything [`parse_date_text`] reads, for `into datetime --formats`: the standards, the
+/// layouts in the order they're tried, then the spelling variants and relative forms.
+pub(crate) fn format_rows() -> Vec<FormatRow> {
+    let form = |&(kind, format, example, description): &Form| FormatRow {
+        kind,
+        format,
+        example: example.to_string(),
+        description,
+    };
+    let sample = sample();
+    let layouts = listed_layouts().map(|(kind, layout, context)| FormatRow {
+        kind,
+        format: layout,
+        example: layout_example(layout, &context, sample.as_ref()),
+        description: layout_note(kind, layout),
+    });
+    STANDARD_FORMS
+        .iter()
+        .map(form)
+        .chain(layouts)
+        .chain(VARIANT_FORMS.iter().chain(RELATIVE_FORMS).map(form))
+        .collect()
 }
 
 #[cfg(test)]
@@ -831,6 +1059,56 @@ mod tests {
     fn leap_years_follow_the_gregorian_rule() {
         assert_eq!(wall("2000-02-29").as_deref(), Some("2000-02-29 00:00:00"));
         assert_eq!(wall("1900-02-29"), None);
+    }
+
+    /// `date` as a jiff time at the same offset, to write it through a layout.
+    fn to_zoned(date: DateTime<FixedOffset>) -> Option<jiff::Zoned> {
+        let offset = jiff::tz::Offset::from_seconds(date.offset().local_minus_utc()).ok()?;
+        let nanos = i32::try_from(date.timestamp_subsec_nanos()).ok()?;
+        let timestamp = jiff::Timestamp::new(date.timestamp(), nanos).ok()?;
+        Some(timestamp.to_zoned(jiff::tz::TimeZone::fixed(offset)))
+    }
+
+    /// Each layout's example reads back as that layout: written through it again, it comes out
+    /// the same. An earlier layout that reads the example differently fails this.
+    #[test]
+    fn listed_layout_examples_read_as_their_layout() {
+        let sample = sample();
+        for (kind, layout, context) in listed_layouts() {
+            let example = layout_example(layout, &context, sample.as_ref());
+            let read = parse_date_text(&example).and_then(to_zoned);
+            let context = context.replace("%Q", SAMPLE_ZONE);
+            let again = read
+                .as_ref()
+                .and_then(|date| jiff::fmt::strtime::format(&context, date).ok());
+            assert_eq!(again.as_deref(), Some(example.as_str()), "{layout}");
+            if kind == "zone" {
+                assert_eq!(
+                    read.map(|date| date.timestamp()),
+                    sample.as_ref().map(|date| date.timestamp()),
+                    "{layout}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn listed_forms_are_read() {
+        let forms = STANDARD_FORMS
+            .iter()
+            .chain(VARIANT_FORMS)
+            .chain(RELATIVE_FORMS);
+        for (_, name, example, _) in forms {
+            assert!(parse_date_text(example).is_some(), "{name}: {example}");
+        }
+    }
+
+    #[test]
+    fn notes_and_examples_name_listed_layouts() {
+        let layouts: Vec<_> = listed_layouts().map(|(_, layout, _)| layout).collect();
+        for (layout, _) in NOTES.iter().chain(EXAMPLES) {
+            assert!(layouts.contains(layout), "{layout}");
+        }
     }
 
     #[test]
