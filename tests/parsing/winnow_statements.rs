@@ -2953,40 +2953,29 @@ fn overlay_alias_in_a_nested_block_is_lowered(#[case] code: &str) -> Result {
     test().run(code).expect_value_eq("f")
 }
 
-/// A statement with a syntax error is the classic parser's alone: the winnow parser ends it
-/// where the classic lite parser does, past a `|` that goes on to the next line, and lowers
-/// the statements after it. Where it can't tell the end, a syntax error in the lite parse
-/// itself, the classic parser takes the rest of the block: an `e>|` with nothing before it,
-/// which leaves no pipeline, or a `|` no command follows, before a blank line or before
-/// another `|`, which goes on to the next statement.
+/// A statement the winnow parser reads past an error in (`0b[1|2]`, which `ls`'s argument takes
+/// as a word) is lowered, and so are the statements after it, which start where nu's lite
+/// parser ends it: past a `|` that goes on to the next line, at a `;`; an `e>|` with nothing
+/// before it leaves no pipeline, and a `|` no command follows, before a blank line or before
+/// another `|`, goes on to the next statement.
 #[rstest]
-#[case::pipe_starting_the_next_line("ls 0b[1|2]\n| length\n1 + 1", 1, 2)]
-#[case::pipe_ending_the_line("ls 0b[1|2] |\nlength\n2 + 2", 1, 2)]
-#[case::semicolon("ls 0b[1|2]; 1 + 1", 1, 2)]
-#[case::end_unknown("e>|\n1 + 1", 0, 1)]
-#[case::pipe_before_a_blank_line("ls 0b[1|2] |\n\n1 + 1", 0, 2)]
-#[case::pipe_after_a_pipe("ls 0b[1|2] | |\n1 + 1", 0, 1)]
+#[case::pipe_starting_the_next_line("ls 0b[1|2]\n| length\n1 + 1", 2)]
+#[case::pipe_ending_the_line("ls 0b[1|2] |\nlength\n2 + 2", 2)]
+#[case::semicolon("ls 0b[1|2]; 1 + 1", 2)]
+#[case::end_unknown("e>|\n1 + 1", 1)]
+#[case::pipe_before_a_blank_line("ls 0b[1|2] |\n\n1 + 1", 2)]
+#[case::pipe_after_a_pipe("ls 0b[1|2] | |\n1 + 1", 1)]
 #[nu_test_support::test]
 #[serial]
 #[exp(nu_experimental::WINNOW_PARSER)]
-fn statement_after_a_syntax_error(
-    #[case] code: &str,
-    #[case] lowered: u64,
-    #[case] pipelines: usize,
-) -> Result {
+fn statement_after_an_error(#[case] code: &str, #[case] pipelines: usize) -> Result {
     let engine_state = test().engine_state;
     let mut working_set = StateWorkingSet::new(&engine_state);
     let before = nu_parser::winnow_stats();
     let block = nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
     let after = nu_parser::winnow_stats();
     assert_eq!(
-        after.error_statements - before.error_statements,
-        1,
-        "`{code}`"
-    );
-    assert_eq!(
-        after.lowered_statements - before.lowered_statements,
-        lowered,
+        after.classic_statements, before.classic_statements,
         "`{code}`"
     );
     assert_eq!(block.pipelines.len(), pipelines, "`{code}`");
@@ -3080,8 +3069,8 @@ fn def_after_an_open_redirection_declares_nothing() -> Result {
     Ok(())
 }
 
-/// A definition with a syntax error goes to the classic parser with the comment after it on its
-/// line, its description, as a definition that parses has it; the call after it is lowered. (An
+/// A definition with an error nu goes past keeps the comment after it on its line, its
+/// description, as a definition that parses has it, and the call after it is lowered. (An
 /// alias's description is that comment's alone; a command's also comes with its
 /// predeclaration.)
 #[rstest]
@@ -3090,20 +3079,14 @@ fn def_after_an_open_redirection_declares_nothing() -> Result {
 #[nu_test_support::test]
 #[serial]
 #[exp(nu_experimental::WINNOW_PARSER)]
-fn failing_definition_keeps_its_comment(#[case] code: &str) -> Result {
+fn definition_read_past_an_error_keeps_its_comment(#[case] code: &str) -> Result {
     let engine_state = test().engine_state;
     let mut working_set = StateWorkingSet::new(&engine_state);
     let before = nu_parser::winnow_stats();
     nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
     let after = nu_parser::winnow_stats();
     assert_eq!(
-        after.error_statements - before.error_statements,
-        1,
-        "`{code}`"
-    );
-    assert_eq!(
-        after.lowered_statements - before.lowered_statements,
-        1,
+        after.classic_statements, before.classic_statements,
         "`{code}`"
     );
     let decl = working_set.get_decl(working_set.find_decl(b"f").expect("`f` is declared"));

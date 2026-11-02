@@ -94,7 +94,8 @@ pub fn parse_block_lexed_from<'a>(
     }
     parse_def_predecl(working_set, tokens.all());
     let mut pipelines: Vec<Pipeline<'a>> = Vec::new();
-    parse_statements(&mut tokens, &mut StatementsState::default(), &mut pipelines);
+    let mut state = StatementsState::default();
+    parse_statements(&mut tokens, &mut state, &mut pipelines);
     // A call through an alias of an overlay command, which only the commands known as it is
     // parsed tell (`DeclKind::OverlayAlias`), changes the commands too: the block is left
     // unparsed after all, its errors dropped.
@@ -119,6 +120,10 @@ pub fn parse_block_lexed_from<'a>(
             Some(last) => last.lite_error = Some(Box::new(error)),
             None => without_pipelines.lite_error = Some(error),
         }
+    }
+    // A dropped command's error (`e>|` alone), which no pipeline carries.
+    if missing_end.is_none() {
+        without_pipelines.lite_error = without_pipelines.lite_error.or(state.dropped_error);
     }
     let without_pipelines =
         (without_pipelines != BlockErrors::default()).then(|| Box::new(without_pipelines));
@@ -318,6 +323,12 @@ impl BlockStatements {
         self.missing_end
     }
 
+    /// The lite-parse error of a command nu dropped so far, which no statement carries (an
+    /// `e>|` with nothing before it): the block's, unless a statement has one.
+    pub fn dropped_error(&self) -> Option<LiteError> {
+        self.statements.dropped_error
+    }
+
     /// The block's first lexer error, which nu reports before its statements' errors and goes
     /// on past; the text it is in starts where the block does.
     pub fn lex_error(&self) -> Option<&LexError> {
@@ -501,6 +512,9 @@ struct StatementsState {
     /// Whether a statement was pushed. A comment that is not first on its line trails the
     /// statement pushed last, if there is one; otherwise it waits for the next statement.
     pushed: bool,
+    /// The lite-parse error of a command nu drops, which leaves no pipeline to carry it (an
+    /// `e>|` with nothing before it), the first: the block's.
+    dropped_error: Option<LiteError>,
 }
 
 /// The start of a block counts as the start of a line.
@@ -512,6 +526,7 @@ impl Default for StatementsState {
             carried_pipe: None,
             last: TokenContents::Eol,
             pushed: false,
+            dropped_error: None,
         }
     }
 }
@@ -535,6 +550,7 @@ fn parse_statements<'a>(
         carried_pipe,
         last,
         pushed,
+        dropped_error,
     } = state;
     while let Some(token) = tokens.peek_token() {
         match token.contents {
@@ -625,6 +641,9 @@ fn parse_statements<'a>(
                     Ok(None) => {
                         pending.clear();
                         *last = TokenContents::Item;
+                        if let Some(error) = lite_error {
+                            dropped_error.get_or_insert(error);
+                        }
                         true
                     }
                     Err(error) => {
@@ -728,6 +747,9 @@ fn parse_pipeline<'a>(
     let mut pipe: Option<Span> = carried_pipe.take();
     // A `|` after the last command that no command follows.
     let mut dangling_pipe = None;
+    // The last command nu dropped, when no command came after it: the `|` before it and its own
+    // `e>|`.
+    let mut trailing_dropped: Option<(Option<Span>, Option<Span>)> = None;
     // The first lite-parse error of the pipeline's commands.
     let mut lite_error = None;
     // The error of a command dropped before `lite_error` was set, not recorded yet.
@@ -799,7 +821,9 @@ fn parse_pipeline<'a>(
             && lite_command.redirections.is_empty();
         if dropped {
             dropped_error = dropped_error.or(lite_command.lite_error.as_deref().copied());
+            trailing_dropped = Some((pipe, pipe_after));
         } else {
+            trailing_dropped = None;
             lite_commands.push((pipe.take(), lite_command));
         }
         if pipe_after.is_some() {
@@ -813,9 +837,14 @@ fn parse_pipeline<'a>(
         }
     }
     if lite_commands.is_empty() {
-        // An `e>|` alone leaves no pipeline to give its error to.
+        // An `e>|` alone leaves no pipeline: nu reports its error as the block's and goes on,
+        // and so does the consumer, which the block or its statement loop hands it to.
+        // Its `e>|` is the pipe of the next command nu reads, as a lone `|` is.
         if let Some(error) = dropped_error {
-            return Err(cut(lite_diagnostic(error)));
+            working_set.error(lite_diagnostic(error).as_recovered());
+            *found_lite_error = Some(error);
+            *carried_pipe = pipe;
+            return Ok(None);
         }
         // Only pipes (`|` and a blank line): nu drops the empty command.
         *carried_pipe = pipe;
@@ -823,6 +852,14 @@ fn parse_pipeline<'a>(
     }
     if let Some(error) = dropped_error {
         working_set.error(lite_diagnostic(error).as_recovered());
+    }
+    // A pipeline ending with a command nu dropped (`ls |` then `e>|`): the `|` before it stays
+    // with the command before, and its `e>|` is the pipe of the next command nu reads.
+    if let Some((before, own)) = trailing_dropped {
+        if dangling_pipe.is_none() {
+            dangling_pipe = before;
+        }
+        *carried_pipe = own;
     }
     // The lite parse is done: the statement ends here, unless a `|` without a command after
     // it hands on to the next one (`a | |`) or ends it before a blank line.

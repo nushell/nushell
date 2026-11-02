@@ -527,7 +527,12 @@ fn parse_binary_with_base<'a>(
             | TokenContents::Comment
             | TokenContents::Semicolon
             | TokenContents::Eol => {}
-            _ => return Err(cut(Diagnostic::expected("binary digits", token.span))),
+            // nu reports a token that is no digit and goes on with garbage, as the consumer does.
+            _ => {
+                return Err(cut(
+                    Diagnostic::expected("binary digits", token.span).as_recovered()
+                ));
+            }
         }
     }
     if let Some(bad) = digits.chars().find(|digit| !digit.is_digit(radix)) {

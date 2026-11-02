@@ -716,6 +716,10 @@ impl<'ws, 'e, 'a> Lower<'ws, 'e, 'a> {
                     let e = self.expr(expr)?;
                     call.add_spread(e);
                 }
+                // A positional nu's call takes no value from (`module x --help {ls}`).
+                w::Argument::Unread(_) => {
+                    return Err(format!("`{}` has an unread argument", sig.name));
+                }
             }
         }
         Ok(self.expression(Expr::Call(Box::new(call)), span, Type::Any))
@@ -778,6 +782,11 @@ impl<'ws, 'e, 'a> Lower<'ws, 'e, 'a> {
                 w::Argument::Spread { expr, .. } => ExternalArgument::Spread(self.expr(expr)?),
                 w::Argument::EndOfOptions(s) => ExternalArgument::Regular(self.expression(
                     Expr::String("--".into()),
+                    self.span(*s),
+                    Type::String,
+                )),
+                w::Argument::Unread(s) => ExternalArgument::Regular(self.expression(
+                    Expr::String(s.slice(self.src).to_string()),
                     self.span(*s),
                     Type::String,
                 )),

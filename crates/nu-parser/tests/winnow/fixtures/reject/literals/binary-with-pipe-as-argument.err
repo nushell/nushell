@@ -3,4 +3,3 @@ error: expected binary digits
   |
 1 | echo 0b[1|2]
   |          ^
-  = while parsing command call
