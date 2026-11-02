@@ -72,9 +72,12 @@ impl<'s> Lower<'_, '_, 's> {
             // A command the winnow parser knew that the classic parser does not find here (one
             // `hide` hid, or in an alias's body a predeclared one, `parse_alias`), which
             // `parse_call` makes an external call. Arguments the winnow parser read as a row
-            // condition, for a row-condition command, are no external arguments.
+            // condition, for a row-condition command, are no external arguments: the element's
+            // items are read as that external call, as there (`parse_external_call`).
             if call.arguments.iter().any(is_condition_argument) {
-                return Err(Unlowered::Unsupported("unresolved command"));
+                let items = self.parts(e.span);
+                let span = self.span(e.span);
+                return Ok(parse_external_call(self.working_set, &items, span));
             }
             return self.call_as_external(e, call, input_type);
         };
@@ -823,10 +826,19 @@ impl<'s> Lower<'_, '_, 's> {
                 ));
             }
             // A math expression read from the items there, a flag first, as after a keyword the
-            // call did not find (`let x y --help`: the `=`'s value is `--help`).
-            if arguments.get(index).is_some() && matches!(shape, SyntaxShape::MathExpression) {
+            // call did not find (`let x y --help`: the `=`'s value is `--help`), and so an
+            // expression (`alias a = --long`) and a row condition.
+            let reread = match shape {
+                SyntaxShape::MathExpression => Some((ItemsValue::Math, input_type)),
+                SyntaxShape::Expression => Some((ItemsValue::AliasTarget, input_type)),
+                SyntaxShape::RowCondition => Some((ItemsValue::RowCondition, None)),
+                _ => None,
+            };
+            if arguments.get(index).is_some()
+                && let Some((value, input_type)) = reread
+            {
                 let span = items_span(arguments, index, end);
-                return Ok((self.reread(span, ItemsValue::Math, input_type)?, end));
+                return Ok((self.reread(span, value, input_type)?, end));
             }
             // A keyword's argument, or shapes one of which is, read from the items there as
             // from a positional's (`try {} -- catch {} --`: the last `--` is the `catch`), and a
@@ -956,7 +968,14 @@ impl<'s> Lower<'_, '_, 's> {
             _ if !is_multispan_shape(shape) => {
                 return Ok((self.reported_value(item, shape, input_type)?, index + 1));
             }
-            _ => return Err(Unlowered::Unsupported("multi-item argument")),
+            // And so any other shape, which it reads from one item (an import pattern).
+            _ => {
+                let span = self.span(item.span);
+                return Ok((
+                    classic_value(self.working_set, span, shape, input_type),
+                    index + 1,
+                ));
+            }
         };
         Ok((value, end))
     }
@@ -1619,12 +1638,12 @@ impl<'s> Lower<'_, '_, 's> {
             Some(b'$' | b'(' | b'{') => self.value(value, &SyntaxShape::Any, None),
             Some(b'[') => match &value.expr {
                 w::Expr::List(items) => self.list(value.span, items, &SyntaxShape::Any),
-                // An unclosed list (`[a].x`), which nu's list parser reports with garbage.
-                w::Expr::Garbage => {
+                // An unclosed list (`[a].x`), which nu's list parser reports with garbage, or a
+                // table (`[[a]; [1]]`): read as nu reads an external argument.
+                _ => {
                     let span = self.span(value.span);
                     Ok(parse_regular_external_arg(self.working_set, span))
                 }
-                _ => Err(Unlowered::Unsupported("external list argument")),
             },
             _ => {
                 let span = self.span(value.span);

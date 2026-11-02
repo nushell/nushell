@@ -3039,7 +3039,9 @@ fn dropped_err_pipe_is_the_next_commands_pipe(#[case] code: &str, #[case] at: us
 /// external command named for a statement, where nu reads a command (`BuiltinCommandInPipeline`
 /// at the element's first item); a `def` body written like a record in an alias's target; an
 /// `alias` without a name, also exported from a module; and a name or module item whose quote
-/// is left open, which nu's call reads to the end of the text.
+/// is left open, which nu's call reads to the end of the text; a row condition read for an
+/// alias `hide` hid since, which nu reads as an external call; a table as an external argument,
+/// a flag as an alias's target and a spread's list that nu's lexer leaves open.
 #[rstest]
 #[case::alias_in_a_pipeline(
     "alias \"hide me\" = ^echo hi\n[1] | hide me",
@@ -3057,6 +3059,16 @@ fn dropped_err_pipe_is_the_next_commands_pipe(#[case] code: &str, #[case] at: us
 )]
 #[case::alias_name_left_open("alias \"f", &[("Unclosed", "f"), ("IncorrectValue", "alias")])]
 #[case::use_module_left_open("use \"f", &[("Unclosed", "f"), ("ModuleNotFound", "\"f")])]
+#[case::hidden_row_condition_alias(
+    "alias t = take while\nhide t\n[1 2] | t $it < 2",
+    &[("VariableNotFound", "$it")]
+)]
+#[case::table_external_argument(
+    "alias zz = t: table = [[a]; [1]]",
+    &[("LabeledErrorWithHelp", ";")]
+)]
+#[case::flag_alias_target("alias zz = alias a = --long", &[("CantAliasKeyword", "alias")])]
+#[case::spread_list_left_open("echo ...[a].0x", &[("Unclosed", ""), ("Unbalanced", "]")])]
 #[nu_test_support::test]
 #[serial]
 #[exp(nu_experimental::WINNOW_PARSER)]

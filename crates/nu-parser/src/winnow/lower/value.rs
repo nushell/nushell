@@ -16,7 +16,7 @@ use crate::{
     parse_calls::accepts_any_bareword,
     parse_captures_compile::compile_block,
     parse_expressions::parse_value as classic_value,
-    parse_expressions::{check_record_key_or_value, table_type},
+    parse_expressions::{check_record_key_or_value, parse_table_expression, table_type},
     parse_literals::{is_quoted, parse_variable_expr},
     type_check::negation_type,
 };
@@ -653,7 +653,12 @@ impl<'s> Lower<'_, '_, 's> {
         match &e.expr {
             w::Expr::List(items) => self.list(e.span, items, element),
             w::Expr::Table(table) => self.table(e.span, table),
-            _ => Err(Unlowered::Unsupported("list item")),
+            // Anything else the winnow parser read there (`...[a].0x`, whose list nu's lexer
+            // leaves open): nu's table parser reads the item.
+            _ => {
+                let span = self.span(e.span);
+                Ok(parse_table_expression(self.working_set, span, element))
+            }
         }
     }
 
