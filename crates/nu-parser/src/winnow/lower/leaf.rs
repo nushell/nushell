@@ -6,15 +6,24 @@
 
 use std::cell::RefCell;
 
+use std::sync::Arc;
+
 use nu_protocol::{
-    FilesizeUnit, ParseError, Span, Spanned, SyntaxShape, Type, Unit,
-    ast::{Expr, Expression, Range, RangeInclusion, RangeOperator, ValueWithUnit},
+    FilesizeUnit, ParseError, Span, Spanned, SyntaxShape, Type, Unit, VarId,
+    ast::{
+        CellPath, Expr, Expression, FullCellPath, PathMember, Range, RangeInclusion, RangeOperator,
+        ValueWithUnit,
+    },
+    casing::Casing,
 };
 
-use super::{Lower, Lowered};
+use super::{BlockOf, Lower, Lowered};
 use crate::parse_expressions::parse_value as classic_value;
+use crate::parse_literals::{parse_full_cell_path, parse_string_interpolation};
 use crate::type_check::check_range_types;
+use crate::winnow::driver::{BlockKind, parse_block};
 use crate::winnow::lookup::EngineLookup;
+use crate::winnow::syntax::lex::Token;
 use crate::winnow::syntax::lex::{GroupEnds, LexOptions, TokenContents, lex_recovering};
 use crate::winnow::syntax::parse_literals::{
     IntLiteral, UnitError, UnitValue, duration_value, filesize_value, is_bare_string_interpolation,
@@ -83,9 +92,8 @@ impl<'s> Lower<'_, '_, 's> {
             SyntaxShape::GlobPattern => return self.path_leaf(e, PathKind::Glob),
             SyntaxShape::String => return self.string_leaf(e),
             SyntaxShape::Binary => self.binary_leaf(e),
-            SyntaxShape::CellPath | SyntaxShape::ExternalArgument => {
-                classic_value(self.working_set, span, shape, None)
-            }
+            SyntaxShape::CellPath => self.simple_cell_path(e.span),
+            SyntaxShape::ExternalArgument => classic_value(self.working_set, span, shape, None),
             // `Expected`, which the `any` shape's reading relies on.
             SyntaxShape::Block | SyntaxShape::Closure(..) | SyntaxShape::Record(_) => {
                 self.leaf_error(ParseError::Expected("block, closure or record", span))
@@ -251,6 +259,337 @@ impl<'s> Lower<'_, '_, 's> {
             caller_lexed: false,
         };
         lower.value(&tree, &SyntaxShape::Number, None)
+    }
+
+    /// An item starting with `$` that the winnow parser read as a range or went on past an error
+    /// in (`parse_dollar_expr`): an interpolation, a cell path literal (`$.a`), else a range
+    /// when it reads as one, else a full cell path.
+    pub(super) fn dollar_text(
+        &mut self,
+        span: WSpan,
+        shape: &SyntaxShape,
+        input_type: Option<&Type>,
+    ) -> Lowered<Expression> {
+        let text = self.text(span);
+        if text.starts_with("$\"") || text.starts_with("$'") {
+            let span = self.span(span);
+            return Ok(classic_value(self.working_set, span, shape, input_type));
+        }
+        if text.starts_with("$.") {
+            return Ok(self.simple_cell_path(WSpan::new(span.start + 2, span.end)));
+        }
+        let errors = self.working_set.parse_errors.len();
+        if text.contains("..")
+            && let Some(range) = self.range(span)?
+        {
+            return Ok(range);
+        }
+        self.working_set.parse_errors.truncate(errors);
+        self.full_cell_path_text(span, None, input_type)
+    }
+
+    /// An item starting with `(` that the winnow parser read as a range or went on past an error
+    /// in (`parse_paren_expr`): a range when it reads as one, else a full cell path, or, when
+    /// that finds a parenthesis unmatched, a string interpolation (or a glob).
+    pub(super) fn paren_text(&mut self, span: WSpan, shape: &SyntaxShape) -> Lowered<Expression> {
+        let errors = self.working_set.parse_errors.len();
+        if self.text(span).contains("..")
+            && let Some(range) = self.range(span)?
+        {
+            return Ok(range);
+        }
+        self.working_set.parse_errors.truncate(errors);
+        if matches!(
+            shape,
+            SyntaxShape::Signature | SyntaxShape::ExternalSignature
+        ) {
+            let span = self.span(span);
+            return Ok(classic_value(self.working_set, span, shape, None));
+        }
+        let scopes = self.working_set.delta.scope.len();
+        let path = self.full_cell_path_text(span, None, None)?;
+        let unmatched = self.working_set.parse_errors[errors..]
+            .first()
+            .is_some_and(|error| {
+                matches!(error, ParseError::Unclosed(delimiter, ..) if delimiter == ")")
+                    || matches!(error, ParseError::Unbalanced("(", ")", ..))
+            });
+        if !unmatched {
+            return Ok(path);
+        }
+        self.working_set.parse_errors.truncate(errors);
+        while self.working_set.delta.scope.len() > scopes {
+            self.working_set.exit_scope();
+        }
+        // nu's string interpolation parser, until it is read here; a glob keeps its parts.
+        let span = self.span(span);
+        let interpolation = parse_string_interpolation(self.working_set, span);
+        Ok(match (shape, interpolation.expr) {
+            (SyntaxShape::GlobPattern, Expr::StringInterpolation(parts)) => self.node(
+                Expr::GlobInterpolation(parts, false),
+                span,
+                interpolation.ty,
+            ),
+            (_, expr) => Expression {
+                expr,
+                ..interpolation
+            },
+        })
+    }
+
+    /// A head and its cell path read from the text covering `span` (`parse_full_cell_path`):
+    /// lexed with `.`, `?` and `!` apart; the head a subexpression, a variable, or the
+    /// `implicit_head` variable, and the members after it.
+    pub(super) fn full_cell_path_text(
+        &mut self,
+        span: WSpan,
+        implicit_head: Option<VarId>,
+        input_type: Option<&Type>,
+    ) -> Lowered<Expression> {
+        let full_span = self.span(span);
+        let Some(tokens) = self.cell_path_tokens(span) else {
+            return Ok(parse_full_cell_path(
+                self.working_set,
+                implicit_head,
+                full_span,
+                input_type,
+            ));
+        };
+        // A table or a record head: nu's table and record parsers, until those are read here.
+        if tokens
+            .first()
+            .is_some_and(|first| self.text(first.span).starts_with(['[', '{']))
+        {
+            return Ok(parse_full_cell_path(
+                self.working_set,
+                implicit_head,
+                full_span,
+                input_type,
+            ));
+        }
+        self.report_cell_path_lex_error(span);
+        let Some(first) = tokens.first() else {
+            return Ok(Expression::garbage(self.working_set, full_span));
+        };
+        let head_text = self.text(first.span);
+        let (head, expect_dot, rest) = if head_text.starts_with('(') {
+            (self.subexpression_text(first.span), true, &tokens[1..])
+        } else if head_text.starts_with('$') {
+            (self.variable(first.span, input_type), true, &tokens[1..])
+        } else if let Some(var_id) = implicit_head {
+            let head_span = self.span(first.span);
+            (
+                self.node(Expr::Var(var_id), head_span, Type::Any),
+                false,
+                &tokens[..],
+            )
+        } else {
+            self.working_set.error(ParseError::Mismatch(
+                "variable or subexpression".into(),
+                head_text.to_string(),
+                full_span,
+            ));
+            return Ok(Expression::garbage(self.working_set, full_span));
+        };
+        let tail = self.cell_path_members(rest, expect_dot);
+        let ty = match tail.is_empty() {
+            true => head.ty.clone(),
+            false if nu_experimental::CELL_PATH_TYPES.get() => head
+                .ty
+                .follow_cell_path(&tail)
+                .map(|ty| ty.into_owned())
+                .unwrap_or(Type::Any),
+            false => Type::Any,
+        };
+        Ok(self.node(
+            Expr::FullCellPath(Box::new(FullCellPath { head, tail })),
+            full_span,
+            ty,
+        ))
+    }
+
+    /// A cell path literal (`parse_simple_cell_path`): its members, the first expected first.
+    pub(super) fn simple_cell_path(&mut self, span: WSpan) -> Expression {
+        let tokens = self.cell_path_tokens(span).unwrap_or_default();
+        self.report_cell_path_lex_error(span);
+        let members = self.cell_path_members(&tokens, false);
+        let span = self.span(span);
+        self.node(Expr::CellPath(CellPath { members }), span, Type::CellPath)
+    }
+
+    /// The tokens of the text covering `span` lexed as nu lexes a cell path: newlines are
+    /// whitespace and `.`, `?` and `!` tokens of their own. `None` when the winnow lexer cannot
+    /// go past an error there.
+    fn cell_path_tokens(&self, span: WSpan) -> Option<Vec<Token>> {
+        let lexed = lex_recovering(
+            self.text(span),
+            span.start,
+            LexOptions::CELL_PATH,
+            usize::MAX,
+            &mut GroupEnds::new(span),
+        )
+        .ok()?;
+        Some(
+            lexed
+                .tokens
+                .into_iter()
+                .filter(|token| token.contents != TokenContents::Eof)
+                .collect(),
+        )
+    }
+
+    /// The first lexer error of the text covering `span` lexed as a cell path, which nu reports
+    /// before reading the path.
+    fn report_cell_path_lex_error(&mut self, span: WSpan) {
+        let lexed = lex_recovering(
+            self.text(span),
+            span.start,
+            LexOptions::CELL_PATH,
+            usize::MAX,
+            &mut GroupEnds::new(span),
+        );
+        if let Ok(lexed) = lexed
+            && let Some((_, error)) = lexed.errors.first()
+        {
+            let error = self.lex_parse_error(error, span.start);
+            self.working_set.error(error);
+        }
+    }
+
+    /// A `(...)` head of a full cell path (`parse_full_cell_path`): the block inside, its own
+    /// scope when the `)` closes it (an unclosed one is reported), parsed by the winnow parser
+    /// with newlines as whitespace.
+    fn subexpression_text(&mut self, span: WSpan) -> Expression {
+        let head_span = self.span(span);
+        let text = self.text(span);
+        let start = head_span.start + 1;
+        let (end, closed) = match text.ends_with(')') && text.len() > 1 {
+            true => (head_span.end - 1, true),
+            false => (head_span.end, false),
+        };
+        if !closed {
+            let open = Span::new(
+                head_span.start,
+                head_span.start.saturating_add(1).min(head_span.end),
+            );
+            self.working_set
+                .error(ParseError::unclosed(")", open, Span::new(end, end)));
+        }
+        let inner = Span::new(start, end);
+        let kind = BlockKind::Block {
+            scoped: closed,
+            of: BlockOf::Parentheses,
+            input_type: None,
+            caller_lexed: false,
+        };
+        let (block, _) = parse_block(
+            self.working_set,
+            self.source,
+            self.offset,
+            inner,
+            inner,
+            kind,
+        );
+        let ty = block.output_type();
+        let block_id = self.working_set.add_block(Arc::new(block));
+        self.node(Expr::Subexpression(block_id), head_span, ty)
+    }
+
+    /// The members of a cell path from `tokens` (`parse_cell_path`): a member, then `.`, with at
+    /// most one `?` and one `!` after a member; an int member is an index, a negative one
+    /// refused. The first error ends the path, the members before it kept.
+    fn cell_path_members(&mut self, tokens: &[Token], expect_dot: bool) -> Vec<PathMember> {
+        #[derive(Clone, Copy)]
+        enum Next {
+            Dot,
+            DotOrSign,
+            DotOrExclamation,
+            DotOrQuestion,
+            Member,
+        }
+        let mut next = if expect_dot { Next::Dot } else { Next::Member };
+        let mut tail: Vec<PathMember> = Vec::new();
+        for token in tokens {
+            let span = self.span(token.span);
+            let text = self.text(token.span);
+            if text.is_empty() {
+                self.working_set.error(ParseError::Expected("string", span));
+                return tail;
+            }
+            if let Next::Member = next {
+                match read_int(text) {
+                    IntLiteral::Value(value) if value < 0 => {
+                        self.working_set.error(ParseError::InvalidLiteral(
+                            "negative index is not supported".into(),
+                            "cell path".into(),
+                            span,
+                        ));
+                        return tail;
+                    }
+                    IntLiteral::Value(value) => tail.push(PathMember::Int {
+                        val: value as usize,
+                        span,
+                        optional: false,
+                    }),
+                    _ => {
+                        let member = w::Expression::new(w::Expr::Garbage, token.span);
+                        let string = match self.string_leaf(&member) {
+                            Ok(string) => string,
+                            Err(_) => Expression::garbage(self.working_set, span),
+                        };
+                        match string.expr {
+                            Expr::String(val) => tail.push(PathMember::String {
+                                val,
+                                span: string.span,
+                                optional: false,
+                                casing: Casing::Sensitive,
+                            }),
+                            _ => {
+                                self.working_set.error(ParseError::Expected("string", span));
+                                return tail;
+                            }
+                        }
+                    }
+                }
+                next = Next::DotOrSign;
+                continue;
+            }
+            let byte = match text.as_bytes() {
+                [single] => *single,
+                _ => b' ',
+            };
+            let (following, modify) = match (next, byte) {
+                (_, b'.') => (Next::Member, None),
+                (Next::DotOrSign, b'!') => (Next::DotOrQuestion, Some(false)),
+                (Next::DotOrSign, b'?') => (Next::DotOrExclamation, Some(true)),
+                (Next::DotOrExclamation, b'!') | (Next::DotOrQuestion, b'?') => {
+                    (Next::Dot, Some(byte == b'?'))
+                }
+                (Next::DotOrSign, _) => return self.cell_path_error(". or ! or ?", span, tail),
+                (Next::DotOrExclamation, _) => return self.cell_path_error(". or !", span, tail),
+                (Next::DotOrQuestion, _) => return self.cell_path_error(". or ?", span, tail),
+                (Next::Dot | Next::Member, _) => return self.cell_path_error(".", span, tail),
+            };
+            if let (Some(optional), Some(last)) = (modify, tail.last_mut()) {
+                match optional {
+                    true => last.make_optional(),
+                    false => last.make_insensitive(),
+                }
+            }
+            next = following;
+        }
+        tail
+    }
+
+    /// `Expected(expected)` at a cell path token, ending the path with the members before it.
+    fn cell_path_error(
+        &mut self,
+        expected: &'static str,
+        span: Span,
+        tail: Vec<PathMember>,
+    ) -> Vec<PathMember> {
+        self.working_set.error(ParseError::Expected(expected, span));
+        tail
     }
 
     /// `error` reported, and garbage over the item.

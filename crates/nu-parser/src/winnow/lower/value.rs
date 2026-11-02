@@ -102,12 +102,12 @@ impl<'s> Lower<'_, '_, 's> {
                 Ok(classic_value(self.working_set, span, shape, input_type))
             }
             [] => Err(Unlowered::Error),
-            // A cell path the winnow parser went on past an error in (`$x.a??`): nu's parser
-            // reads it again, reporting its errors with what it recovers.
-            [b'$' | b'(', ..] if matches!(e.expr, w::Expr::Garbage) => {
-                let span = self.span(e.span);
-                Ok(classic_value(self.working_set, span, shape, input_type))
+            // A cell path the winnow parser went on past an error in (`$x.a??`): read again from
+            // its text, as nu reads it, reporting its errors with what it recovers.
+            [b'$', ..] if matches!(e.expr, w::Expr::Garbage) => {
+                self.dollar_text(e.span, shape, input_type)
             }
+            [b'(', ..] if matches!(e.expr, w::Expr::Garbage) => self.paren_text(e.span, shape),
             [b'$', ..] => self.dollar(e, shape, input_type),
             [b'(', ..] => self.paren(e, shape),
             [b'{', ..] => self.brace(e, shape, input_type),
@@ -263,19 +263,13 @@ impl<'s> Lower<'_, '_, 's> {
             }
             // nu reads an item starting with `$` or `(` as a value wherever it is
             // (`is_math_expression_like`), so a bound's error stays (`$x..a`).
-            w::Expr::Range(_) => {
-                let span = self.span(e.span);
-                Ok(classic_value(self.working_set, span, shape, None))
-            }
+            w::Expr::Range(_) => self.dollar_text(e.span, shape, input_type),
             w::Expr::Var(_) => self.full_cell_path(e.span, e, &[], input_type),
             w::Expr::FullCellPath(path) if !path.implicit_head => {
                 self.full_cell_path(e.span, &path.head, &path.tail, input_type)
             }
-            // Anything else the winnow parser read there: nu's value parser reads the item.
-            _ => {
-                let span = self.span(e.span);
-                Ok(classic_value(self.working_set, span, shape, input_type))
-            }
+            // Anything else the winnow parser read there: read again from its text.
+            _ => self.dollar_text(e.span, shape, input_type),
         }
     }
 
@@ -283,10 +277,7 @@ impl<'s> Lower<'_, '_, 's> {
     fn paren(&mut self, e: &w::Expression<'s>, shape: &SyntaxShape) -> Lowered<Expression> {
         match &e.expr {
             // As a range starting with `$` ([`Self::dollar`]): `(1)abc..5`.
-            w::Expr::Range(_) => {
-                let span = self.span(e.span);
-                Ok(classic_value(self.working_set, span, shape, None))
-            }
+            w::Expr::Range(_) => self.paren_text(e.span, shape),
             _ if matches!(
                 shape,
                 SyntaxShape::Signature | SyntaxShape::ExternalSignature
@@ -302,11 +293,8 @@ impl<'s> Lower<'_, '_, 's> {
             w::Expr::StringInterpolation(interpolation) => {
                 self.path_interpolation(e.span, interpolation, shape)
             }
-            // Anything else the winnow parser read there: nu's value parser reads the item.
-            _ => {
-                let span = self.span(e.span);
-                Ok(classic_value(self.working_set, span, shape, None))
-            }
+            // Anything else the winnow parser read there: read again from its text.
+            _ => self.paren_text(e.span, shape),
         }
     }
 

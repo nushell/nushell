@@ -87,6 +87,7 @@ const TO_PORT: &[&str] = &[
     // Leaves and values by shape.
     "parse_expressions::parse_value",
     "parse_literals::parse_full_cell_path",
+    "parse_literals::parse_string_interpolation",
     "parse_literals::parse_string_strict",
     "parse_helpers::trim_quotes",
     // Externals.
