@@ -7,6 +7,7 @@ mod corpus;
 mod examples;
 mod fixtures;
 mod language;
+mod nu_parser_uses;
 mod nufmt;
 mod syntax;
 mod traceability;
