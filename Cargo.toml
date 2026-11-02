@@ -249,7 +249,7 @@ rmp-serde = "1.3.1"
 roxmltree = "0.21.1"
 rstest = { version = "0.27.0", default-features = false }
 rstest_reuse = "0.7"
-rusqlite = "0.40.2"
+rusqlite = "0.41.1"
 rustc-hash = "2.1.2"
 # We have to semi-fix rustls and ureq versions
 # because we use unversioned api to allow users set up their own
@@ -513,7 +513,8 @@ bench = false
 # To use a development version of a dependency please use a global override here
 # changing versions in each sub-crate of the workspace is tedious
 [patch.crates-io]
-reedline = { git = "https://github.com/nushell/reedline", branch = "main" }
+# Temporary: nushell/reedline#1293 (rusqlite 0.41), back to `branch = "main"` once it lands.
+reedline = { git = "https://github.com/kronberger-droid/reedline", branch = "chore/rusqlite-0.41" }
 # nu-ansi-term = { git = "https://github.com/nushell/nu-ansi-term.git", branch = "main" }
 
 # Run all benchmarks with `cargo bench`
