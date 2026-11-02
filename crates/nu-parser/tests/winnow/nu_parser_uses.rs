@@ -94,7 +94,6 @@ const TO_PORT: &[&str] = &[
     "parse_expressions::parse_expression",
     // Closures, tables, patterns.
     "parse_expressions::parse_closure_expression",
-    "parse_expressions::parse_table_expression",
     "parse_patterns::parse_pattern",
     // Signatures and types.
     "parse_def::detect_params_in_name",

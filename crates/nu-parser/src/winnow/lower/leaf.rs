@@ -17,6 +17,7 @@ use nu_protocol::{
     casing::Casing,
 };
 
+use super::list_text::ListItems;
 use super::{BlockOf, Lower, Lowered};
 use crate::parse_calls::parse_regular_external_arg;
 use crate::parse_expressions::parse_value as classic_value;
@@ -467,10 +468,10 @@ impl<'s> Lower<'_, '_, 's> {
                 input_type,
             ));
         };
-        // A table or a record head: nu's table and record parsers, until those are read here.
+        // A record head: nu's record parser, until it is read here.
         if tokens
             .first()
-            .is_some_and(|first| self.text(first.span).starts_with(['[', '{']))
+            .is_some_and(|first| self.text(first.span).starts_with('{'))
         {
             return Ok(parse_full_cell_path(
                 self.working_set,
@@ -486,6 +487,12 @@ impl<'s> Lower<'_, '_, 's> {
         let head_text = self.text(first.span);
         let (head, expect_dot, rest) = if head_text.starts_with('(') {
             (self.subexpression_text(first.span), true, &tokens[1..])
+        } else if head_text.starts_with('[') {
+            (
+                self.table_text(first.span, &SyntaxShape::Any)?,
+                true,
+                &tokens[1..],
+            )
         } else if head_text.starts_with('$') {
             (self.variable(first.span, input_type), true, &tokens[1..])
         } else if let Some(var_id) = implicit_head {
@@ -742,8 +749,9 @@ impl<'s> Lower<'_, '_, 's> {
         match self.text(span).as_bytes().first() {
             Some(b'$') => self.dollar_text(span, &SyntaxShape::Any, None),
             Some(b'(') => self.paren_text(span, &SyntaxShape::Any),
-            // nu's list and record parsers, until those are read here.
-            Some(b'[' | b'{') => {
+            Some(b'[') => self.list_text(span, ListItems::Values(&SyntaxShape::Any), None),
+            // nu's record parser, until it is read here.
+            Some(b'{') => {
                 let span = self.span(span);
                 Ok(parse_regular_external_arg(self.working_set, span))
             }
@@ -1110,6 +1118,33 @@ impl<'s> Lower<'_, '_, 's> {
             negation_span,
             ty,
         )))
+    }
+
+    /// An item starting with `[` the winnow parser went on past an error in, read from its text
+    /// as `parse_value` reads it with `shape`: a table or list for a list or table shape, a full
+    /// cell path for any, a string or path for the shapes that take one; any other shape refuses
+    /// it.
+    pub(super) fn bracket_text(&mut self, span: WSpan, shape: &SyntaxShape) -> Lowered<Expression> {
+        match shape {
+            SyntaxShape::List(element) => self.table_text(span, element),
+            SyntaxShape::Table(_) => self.table_text(span, &SyntaxShape::Any),
+            SyntaxShape::Any => self.full_cell_path_text(span, None, None),
+            SyntaxShape::Signature | SyntaxShape::ExternalSignature => {
+                let span = self.span(span);
+                Ok(classic_value(self.working_set, span, shape, None))
+            }
+            SyntaxShape::Filepath
+            | SyntaxShape::String
+            | SyntaxShape::GlobPattern
+            | SyntaxShape::ExternalArgument => {
+                let item = w::Expression::new(w::Expr::Garbage, span);
+                self.leaf_by_shape(&item, shape)
+            }
+            _ => {
+                let span = self.span(span);
+                Ok(self.leaf_error(ParseError::ExpectedWithStringMsg(shape.to_string(), span)))
+            }
+        }
     }
 
     /// `error` reported, and garbage over the item.

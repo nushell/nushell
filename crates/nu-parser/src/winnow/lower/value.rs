@@ -20,7 +20,7 @@ use crate::{
     parse_calls::accepts_any_bareword,
     parse_captures_compile::compile_block,
     parse_expressions::parse_value as classic_value,
-    parse_expressions::{check_record_key_or_value, parse_table_expression, table_type},
+    parse_expressions::{check_record_key_or_value, table_type},
     parse_literals::parse_full_cell_path,
     type_check::negation_type,
 };
@@ -438,8 +438,7 @@ impl<'s> Lower<'_, '_, 's> {
         // A list the winnow parser went on past an error in (`[1; 2]`): nu's list parser reads
         // it again, reporting its errors with what it recovers.
         if let w::Expr::Garbage = e.expr {
-            let span = self.span(e.span);
-            return Ok(classic_value(self.working_set, span, shape, None));
+            return self.bracket_text(e.span, shape);
         }
         match shape {
             SyntaxShape::List(element) => self.table_expression(e, element),
@@ -676,18 +675,14 @@ impl<'s> Lower<'_, '_, 's> {
                 match self.table(e.span, table) {
                     Err(Unlowered::Error) => {
                         self.working_set.parse_errors.truncate(errors);
-                        let span = self.span(e.span);
-                        Ok(parse_table_expression(self.working_set, span, element))
+                        self.table_text(e.span, element)
                     }
                     lowered => lowered,
                 }
             }
             // Anything else the winnow parser read there (`...[a].0x`, whose list nu's lexer
-            // leaves open): nu's table parser reads the item.
-            _ => {
-                let span = self.span(e.span);
-                Ok(parse_table_expression(self.working_set, span, element))
-            }
+            // leaves open): read again from its text, as nu's table parser reads it.
+            _ => self.table_text(e.span, element),
         }
     }
 
