@@ -423,6 +423,7 @@
                     | "=~" | "like" | "!~" | "not-like"
                     | "in" | "not-in" | "has" | "not-has"
                     | "starts-with" | "not-starts-with" | "ends-with" | "not-ends-with"
+                    | "older-than" | "newer-than"
                     | "+" | "-" | "*" | "/" | "//" | "mod" | "**" | "++"
                     | "bit-or" | "bit-xor" | "bit-and" | "bit-shl" | "bit-shr"
                     | "and" | "or" | "xor"

@@ -329,26 +329,9 @@ impl<'s> Lower<'_, '_, 's> {
         let mut lowered = Call::new(span);
         lowered.decl_id = DeclId::new(0);
         lowered.set_parser_info(PERCENT_FORCED_BUILTIN_PARSER_INFO.to_string(), head);
-        for argument in &call.arguments {
-            let argument = match argument {
-                w::Argument::Positional(expr) => {
-                    Argument::Positional(self.value(expr, &SyntaxShape::Any, None)?)
-                }
-                w::Argument::Spread { expr, .. } => {
-                    let shape = SyntaxShape::List(Box::new(SyntaxShape::Any));
-                    Argument::Spread(self.value(expr, &shape, None)?)
-                }
-                w::Argument::Unread(_) => return Err(Unlowered::Unsupported("unread argument")),
-                w::Argument::Named(w::NamedArgument { span, .. })
-                | w::Argument::EndOfOptions(span) => {
-                    let span = self.span(*span);
-                    Argument::Positional(
-                        self.checked(|ws| classic_value(ws, span, &SyntaxShape::Any, None))?,
-                    )
-                }
-            };
-            lowered.arguments.push(argument);
-        }
+        // The builtin is only known at runtime: nu reads its arguments as it reads a script's
+        // (`add_script_arguments`), for `run-internal` to bind them to the builtin's signature.
+        self.script_arguments(&mut lowered, &call.arguments)?;
         Ok(self.node(Expr::Call(Box::new(lowered)), span, Type::Any))
     }
 

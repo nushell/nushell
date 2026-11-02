@@ -2,24 +2,29 @@ use crate::{DeclId, Signature, Type};
 use rustc_hash::FxBuildHasher;
 use std::{
     collections::HashMap,
-    sync::{Arc, Mutex, MutexGuard},
+    sync::{Arc, Mutex, MutexGuard, OnceLock},
 };
 
 /// Signatures of an [`EngineState`](super::EngineState)'s declarations, each built the first time
-/// the parser needs it, and the output types the parser computes from them.
+/// the parser or the evaluator needs it, and the output types the parser computes from them.
 ///
 /// `Command::signature()` rebuilds a `Signature` (several heap allocations) on every call, and the
 /// parser asks for one at least twice per call site (argument parsing and pipeline type checking),
 /// so parsing would otherwise rebuild the signature of a command every time it is called, in every
-/// parse. A declaration in an `EngineState` never changes (merging a delta only appends), so a
-/// signature built for one stays valid for as long as the `EngineState` lives.
+/// parse. The evaluator checks the input and arguments of every call to a built-in command against
+/// its signature too (see
+/// [`EngineState::get_signature_shared`](super::EngineState::get_signature_shared)), so a command
+/// called in a loop would rebuild it once per iteration. A declaration in an `EngineState` never
+/// changes (merging a delta only appends), so a signature built for one stays valid for as long as
+/// the `EngineState` lives.
 ///
 /// The `EngineState` holds the cache in an `Arc`, so a clone (which the engine makes for every
 /// closure it evaluates) shares it instead of copying it. Engines that share it have the same
 /// declarations, so every entry is right for all of them; an engine that appends declarations
 /// while sharing it starts over with an empty cache of its own (see
 /// [`EngineState::merge_delta`]), so engines that diverge never see each other's entries for the
-/// declarations they add.
+/// declarations they add. An engine that holds the cache alone adds empty entries for the
+/// declarations it appends.
 ///
 /// The two signature maps mirror the two ways the parser reads a signature: the effective
 /// signature from
@@ -38,12 +43,17 @@ use std::{
 /// [`StateWorkingSet::call_output_type`](super::StateWorkingSet::call_output_type) and
 /// [`StateWorkingSet::decl_output_type`](super::StateWorkingSet::decl_output_type)).
 ///
-/// A `Mutex` (rarely contended: only parsing takes it) keeps `EngineState` `Sync`.
+/// The evaluator reads an effective signature on every call to a built-in command, from every
+/// thread that evaluates calls (`par-each`), so `effective` holds one entry per declaration, each
+/// set once, and reading it takes no lock. A lock there made `par-each` over closures that call a
+/// few commands twice as slow as rebuilding every signature. The other maps are only used while
+/// parsing, and a `Mutex`, held only to look up or insert one entry, keeps them `Sync`.
 ///
 /// [`EngineState::merge_delta`]: super::EngineState::merge_delta
 #[derive(Default)]
 pub(super) struct SignatureCache {
-    pub(super) effective: Mutex<HashMap<DeclId, Arc<Signature>, FxBuildHasher>>,
+    /// The effective signature of each declaration, by `DeclId`.
+    pub(super) effective: Vec<OnceLock<Arc<Signature>>>,
     pub(super) declared: Mutex<HashMap<DeclId, Arc<Signature>, FxBuildHasher>>,
     pub(super) call_outputs: Mutex<HashMap<DeclId, OutputTypes, FxBuildHasher>>,
     pub(super) declared_outputs: Mutex<HashMap<DeclId, OutputTypes, FxBuildHasher>>,
@@ -65,6 +75,16 @@ impl SignatureCache {
     /// of the engine, and comparing other input types with it can cost more than computing their
     /// output types.
     const MAX_COLUMNS: usize = 16;
+
+    /// An empty cache for an engine with `num_decls` declarations.
+    pub(super) fn new(num_decls: usize) -> Self {
+        Self {
+            effective: std::iter::repeat_with(OnceLock::new)
+                .take(num_decls)
+                .collect(),
+            ..Self::default()
+        }
+    }
 
     /// Lock one of the maps. A panic while it was locked left it consistent (every entry is
     /// complete), so a poisoned lock is used as is.

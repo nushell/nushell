@@ -68,7 +68,6 @@ csv = { workspace = true }
 devicons = { workspace = true }
 digest = { workspace = true, default-features = false }
 dns-lookup = { workspace = true, optional = true }
-dtparse = { workspace = true }
 encoding_rs = { workspace = true }
 fancy-regex = { workspace = true }
 filesize = { workspace = true }
@@ -79,6 +78,7 @@ human-date-parser = { workspace = true }
 indexmap = { workspace = true }
 indicatif = { workspace = true }
 itertools = { workspace = true }
+jiff = { workspace = true }
 log = { workspace = true }
 nucleo-matcher = { workspace = true }
 lscolors = { workspace = true, default-features = false, features = [
@@ -96,6 +96,7 @@ num-traits = { workspace = true }
 oem_cp = { workspace = true }
 open = { workspace = true, optional = true }
 os_pipe = { workspace = true, optional = true }
+parse_datetime = { workspace = true, optional = true }
 pathdiff = { workspace = true }
 percent-encoding = { workspace = true }
 pure-rust-locales = { workspace = true }
@@ -211,6 +212,7 @@ os = [
 	"notify-debouncer-full",
 	"open",
 	"os_pipe",
+	"dep:parse_datetime",
 	"reedline",
 	"uu_cp",
 	"uu_mkdir",

@@ -177,14 +177,25 @@ impl<'a> Matcher<'a> {
                 Some(_) => self.try_alternative(),
                 None => self.end_of_input(),
             },
-            Instruction::CurDir if !self.has_string() => match self.state.path_components.next() {
-                Some(Component::CurDir) => self.next(),
-                Some(_) => self.try_alternative(),
-                None => self.end_of_input(),
-            },
+            Instruction::CurDir if !self.has_string() => {
+                // Path components omit `.` except at the start of a relative
+                // path, and stripping the traversal base removes even that.
+                if matches!(self.state.path_components.peek(), Some(Component::CurDir)) {
+                    self.state.path_components.next();
+                }
+                self.state.current_string = Some(&[]);
+                self.state.fresh_string = false;
+                self.next()
+            }
             Instruction::ParentDir if !self.has_string() => match self.state.path_components.next()
             {
-                Some(Component::ParentDir) => self.next(),
+                Some(Component::ParentDir) => {
+                    // The following separator requires a consumed component,
+                    // just as it does after a literal file or directory name.
+                    self.state.current_string = Some(&[]);
+                    self.state.fresh_string = false;
+                    self.next()
+                }
                 Some(_) => self.try_alternative(),
                 None => self.end_of_input(),
             },

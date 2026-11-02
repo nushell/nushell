@@ -977,6 +977,10 @@ pub enum Comparison {
     EndsWith,
     /// `not-ends-with`
     NotEndsWith,
+    /// `older-than`
+    OlderThan,
+    /// `newer-than`
+    NewerThan,
 }
 
 /// Boolean operators.
@@ -1074,6 +1078,8 @@ impl Operator {
             Operator::Comparison(Comparison::NotStartsWith) => "not-starts-with",
             Operator::Comparison(Comparison::EndsWith) => "ends-with",
             Operator::Comparison(Comparison::NotEndsWith) => "not-ends-with",
+            Operator::Comparison(Comparison::OlderThan) => "older-than",
+            Operator::Comparison(Comparison::NewerThan) => "newer-than",
             Operator::Boolean(Boolean::And) => "and",
             Operator::Boolean(Boolean::Or) => "or",
             Operator::Boolean(Boolean::Xor) => "xor",
@@ -1104,6 +1110,8 @@ impl Operator {
             "not-starts-with" => Operator::Comparison(Comparison::NotStartsWith),
             "ends-with" => Operator::Comparison(Comparison::EndsWith),
             "not-ends-with" => Operator::Comparison(Comparison::NotEndsWith),
+            "older-than" => Operator::Comparison(Comparison::OlderThan),
+            "newer-than" => Operator::Comparison(Comparison::NewerThan),
             "+" => Operator::Math(Math::Add),
             "-" => Operator::Math(Math::Subtract),
             "*" => Operator::Math(Math::Multiply),

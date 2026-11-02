@@ -19,8 +19,8 @@ use super::WorkingSet;
 use super::lite_parser::{AfterPipe, after_pipe_lines, pipe_on_later_line};
 use super::parse_calls::{parse_definition_call, parse_flag_value, split_long_flag};
 use super::parse_expressions::{
-    BraceShape, ExpectedShape, brace_shape, parse_block_body_unchecked, parse_closure_parts,
-    parse_value,
+    BraceShape, ExpectedShape, brace_shape, is_literal_like, parse_block_body_unchecked,
+    parse_closure_parts, parse_value,
 };
 use super::parse_helpers::{is_help_flag, is_help_text, is_spread};
 use super::parse_keywords::{
@@ -545,12 +545,14 @@ fn has_untyped_rest(working_set: &WorkingSet<'_>, signature: Span) -> bool {
 }
 
 /// Reject a `def`/`extern`/`alias` name that is a parser keyword, or that
-/// nu refuses because it could never be called: one containing `#`, `^` or
-/// `%`, or one that Rust reads as a float (`1e3`, `inf`) or the `bytesize`
-/// crate as a size (`1k`, `2.5gib`, `"1 kb"`), or one whose whitespace is not
-/// single spaces between words (a call is looked up by its words joined with
-/// single spaces, so `"foo  bar"` or `" foo"` could never be called). Nushell's
-/// own number syntax does not count: `def 0x10` and `def 1_000` are fine.
+/// nu refuses because it could never be called (`is_uncallable_name`): one
+/// containing `#`, `^` or `%`, one whose whitespace is not single spaces
+/// between words (a call is looked up by its words joined with single spaces,
+/// so `"foo  bar"` or `" foo"` could never be called), or one whose first word
+/// reads as a value ([`is_literal_like`]: `0x10`, `1_2`, `1kb`, `1sec`,
+/// `2020-01-01`, `1..2`), which the call site reads before it looks up a
+/// command. Words nu reads as command words are fine: `1k`, `1e`, `0xZZ`,
+/// `infinity`, and a later word that is a value (`"foo 1"`).
 pub fn check_definition_name(name: &Spanned<Cow<'_, str>>, what: &str) -> ParseResult<()> {
     if is_parser_keyword(&name.item) {
         return Err(cut(Diagnostic::message(
@@ -568,13 +570,10 @@ pub fn check_definition_name(name: &Spanned<Cow<'_, str>>, what: &str) -> ParseR
         && text
             .bytes()
             .all(|byte| byte == b' ' || !byte.is_ascii_whitespace());
-    if text.contains(['#', '^', '%'])
-        || is_byte_size(text)
-        || text.parse::<f64>().is_ok()
-        || !single_spaced
-    {
+    let head_word = text.split(' ').next().unwrap_or(text);
+    if text.contains(['#', '^', '%']) || !single_spaced || is_literal_like(head_word) {
         return Err(cut(Diagnostic::message(format!("{what} name not supported"), name.span).with_help(
-            "a name may not contain `#`, `^` or `%`, read as a number or filesize, or use whitespace other than single spaces between words",
+            "a name may not contain `#`, `^` or `%`, start with a word that reads as a value (a number, filesize, duration, date, binary or range), or use whitespace other than single spaces between words",
         )));
     }
     Ok(())
@@ -591,28 +590,6 @@ fn recover_name_error(working_set: &WorkingSet<'_>, result: ParseResult<()>) -> 
         }
         other => other,
     }
-}
-
-/// Whether the `bytesize` crate (`ByteSize::from_str`, which nu asks about a
-/// definition name) parses `text`: an integer, or digits and dots making a
-/// float, then optional whitespace and a size unit in any case (`b`, `k`,
-/// `kb`, `ki`, `kib`, and the same for `m`, `g`, `t`, `p` and `e`).
-fn is_byte_size(text: &str) -> bool {
-    const UNITS: [&str; 25] = [
-        "b", "k", "kb", "m", "mb", "g", "gb", "t", "tb", "p", "pb", "e", "eb", "ki", "kib", "mi",
-        "mib", "gi", "gib", "ti", "tib", "pi", "pib", "ei", "eib",
-    ];
-    if text.parse::<u64>().is_ok() {
-        return true;
-    }
-    let number_end = text
-        .find(|c: char| !(c.is_ascii_digit() || c == '.'))
-        .unwrap_or(text.len());
-    let (number, unit) = text.split_at(number_end);
-    number.parse::<f64>().is_ok()
-        && UNITS
-            .iter()
-            .any(|known| unit.trim_start().eq_ignore_ascii_case(known))
 }
 
 /// A bare `def`/`extern` name that nu does not take for a name: one starting

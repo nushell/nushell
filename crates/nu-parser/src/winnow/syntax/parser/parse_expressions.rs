@@ -1262,31 +1262,37 @@ fn shape_description(shape: &SyntaxShape<'_>) -> &'static str {
 }
 
 /// `true` if `text` is one of the things Nushell parses as the start of a math
-/// expression rather than a command name (`is_math_expression_like`). A word a
-/// literal kind reads, or rejects as an invalid literal of its own
-/// (`9223372036854775808`, `2023-02-29`, `9223372036854775808ns`), is a value,
-/// whose error is reported then; other words are commands (`42m_b`, `0xdump`).
+/// expression rather than a command name (`is_math_expression_like`): a value's
+/// opening character or keyword, or a literal ([`is_literal_like`]).
 pub fn is_math_expression_like(text: &str) -> bool {
     match text.as_bytes() {
         [] => false,
         b"true" | b"false" | b"null" | b"not" | b"if" | b"match" => true,
         [b'r', b'#', ..] | [b'(' | b'{' | b'[' | b'$' | b'"' | b'\'' | b'-', ..] => true,
-        _ => {
-            let unit = |result: Option<Result<_, UnitError>>| {
-                matches!(result, Some(Ok(_) | Err(UnitError::TooLarge)))
-            };
-            matches!(
-                read_int(text),
-                IntLiteral::Value(_) | IntLiteral::OutOfRange { .. }
-            ) || parse_float(text).is_some()
-                || unit(parse_filesize(text).map(|result| result.map(drop)))
-                || unit(parse_duration(text).map(|result| result.map(drop)))
-                || is_datetime(text)
-                || is_invalid_date_literal(text)
-                || looks_like_binary(text)
-                || is_range_head(text)
-        }
+        _ => is_literal_like(text),
     }
+}
+
+/// `true` if `text` reads as a literal value (nu's `is_literal_like`): a number, a
+/// filesize, a duration, a datetime, a binary literal or a range. A word a literal
+/// kind rejects as an invalid literal of its own (`9223372036854775808`,
+/// `2023-02-29`, `9223372036854775808ns`) is a value too, whose error is reported
+/// then; other words are commands (`42m_b`, `0xdump`). A call's head word that
+/// this accepts is read as that value, so a command named so could never be called.
+pub fn is_literal_like(text: &str) -> bool {
+    let unit = |result: Option<Result<_, UnitError>>| {
+        matches!(result, Some(Ok(_) | Err(UnitError::TooLarge)))
+    };
+    matches!(
+        read_int(text),
+        IntLiteral::Value(_) | IntLiteral::OutOfRange { .. }
+    ) || parse_float(text).is_some()
+        || unit(parse_filesize(text).map(|result| result.map(drop)))
+        || unit(parse_duration(text).map(|result| result.map(drop)))
+        || is_datetime(text)
+        || is_invalid_date_literal(text)
+        || looks_like_binary(text)
+        || is_range_head(text)
 }
 
 /// Parse `( ... )` as a subexpression. Newlines inside are whitespace, and comments are

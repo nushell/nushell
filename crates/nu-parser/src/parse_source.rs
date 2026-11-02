@@ -118,8 +118,10 @@ pub(crate) fn finish_source(
     args_spans: &[Span],
     scoped: bool,
 ) -> Pipeline {
-    #[allow(deprecated)]
-    let cwd = working_set.get_cwd();
+    let cwd = working_set
+        .permanent()
+        .cwd_as_string(None)
+        .unwrap_or_default();
 
     if call_kind == CallKind::Help {
         return Pipeline::from_vec(vec![Expression::new(
@@ -339,8 +341,10 @@ pub(crate) fn finish_run(
     call_span: Span,
     args_spans: &[Span],
 ) -> Expression {
-    #[allow(deprecated)]
-    let cwd = working_set.get_cwd();
+    let cwd = working_set
+        .permanent()
+        .cwd_as_string(None)
+        .unwrap_or_default();
 
     let Ok(do_full_reparse) = do_full_reparse else {
         return Expression::new(working_set, Expr::Call(call), call_span, output);
@@ -479,18 +483,26 @@ pub(crate) fn finish_run(
     Expression::new(working_set, Expr::Call(call), call_span, Type::Any)
 }
 
-/// Append the arguments after `run <script>` to the `run` call, parsed without `main`'s signature.
+/// Append arguments to a call whose callee's signature isn't known yet: the arguments after
+/// `run <script>`, for the script's `main`, and the arguments of `%$cmd`, for a builtin named at
+/// runtime.
 ///
 /// Each argument is parsed as `any`, like an unknown argument of an external command, and `run`
-/// matches them to `main`'s parameters when it executes. `--name=value` before any `--` becomes a
-/// named argument whose value is parsed, as the parser does for a flag it knows. `--help=...` stays
-/// a word, because a named `help` would make the compiler turn the whole call into `help run`.
+/// or `run-internal` matches them to the callee's parameters when it executes. `--name=value`
+/// before any `--` becomes a named argument whose value is parsed, as the parser does for a flag
+/// it knows. `--help=...` stays a word, because a named `help` would make the compiler turn the
+/// whole call into `help run`.
 ///
-/// The value of a spread or of a `--name=value` reaches `run` wrapped in a one-item list, and
-/// `run` takes the item out. The evaluator checks a call's arguments against `run`'s own
-/// signature: it would expand a record spread against `run`'s flags, and drop `--full-reparse=null`
-/// because `run`'s `--full-reparse` doesn't take `null`. It passes a list on as it is.
-fn add_script_arguments(working_set: &mut StateWorkingSet, call: &mut Call, args: &[Span]) {
+/// The value of a spread or of a `--name=value` reaches the command wrapped in a one-item list,
+/// and the command takes the item out. The evaluator checks a call's arguments against the
+/// command's own signature: it would expand a record spread against `run`'s flags, and drop
+/// `--full-reparse=null` because `run`'s `--full-reparse` doesn't take `null`. It passes a list on
+/// as it is.
+pub(crate) fn add_script_arguments(
+    working_set: &mut StateWorkingSet,
+    call: &mut Call,
+    args: &[Span],
+) {
     let mut end_of_options = false;
     for &span in args {
         let contents = working_set.get_span_contents(span);
@@ -671,8 +683,10 @@ pub fn parse_where(working_set: &mut StateWorkingSet, lite_command: &LiteCommand
 pub fn parse_plugin_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> Pipeline {
     use nu_protocol::{FromValue, PluginRegistryFile};
 
-    #[allow(deprecated)]
-    let cwd = working_set.get_cwd();
+    let cwd = working_set
+        .permanent()
+        .cwd_as_string(None)
+        .unwrap_or_default();
 
     if let Err(err) = (|| {
         let name = call

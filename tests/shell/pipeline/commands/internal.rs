@@ -356,30 +356,95 @@ fn load_env_variable_arg() -> Result {
 }
 
 #[test]
-fn refreshing_env_conversions_converts_loaded_variables() -> Result {
+fn load_env_converts_loaded_variables() -> Result {
     let code = r#"
         $env.ENV_CONVERSIONS = { TESTENVVAR: { from_string: { split row ":" } } }
         load-env { TESTENVVAR: "hello:world" }
-        let before = $env.TESTENVVAR
-        $env.ENV_CONVERSIONS = $env.ENV_CONVERSIONS
-        [$before, $env.TESTENVVAR]
+        $env.TESTENVVAR
     "#;
 
-    test().run(code).expect_value_eq(Value::test_list(vec![
-        Value::test_string("hello:world"),
-        Value::test_list(vec![
-            Value::test_string("hello"),
-            Value::test_string("world"),
-        ]),
-    ]))
+    test().run(code).expect_value_eq(["hello", "world"])
 }
 
 #[test]
-fn refreshing_env_conversions_normalizes_loaded_path() -> Result {
+fn load_env_makes_path_a_list() -> Result {
     let separator = if cfg!(windows) { ";" } else { ":" };
-    let code = format!(
-        "$env.ENV_CONVERSIONS = {{}}; load-env {{ pAtH: 'first{separator}second' }}; $env.ENV_CONVERSIONS = $env.ENV_CONVERSIONS; $env.PATH"
-    );
+    let code = format!("load-env {{ pAtH: 'first{separator}second' }}; $env.PATH");
+
+    test().run(code).expect_value_eq(["first", "second"])
+}
+
+#[test]
+fn load_env_converts_only_what_it_loads() -> Result {
+    let code = r#"
+        $env.ENV_CONVERSIONS = { OTHER: { from_string: { split row "," } } }
+        $env.OTHER = "a,b"
+        load-env { TESTENVVAR: "x,y" }
+        $env.OTHER
+    "#;
+
+    test().run(code).expect_value_eq("a,b")
+}
+
+#[test]
+fn load_env_leaves_path_alone_when_it_isnt_loaded() -> Result {
+    test()
+        .run("$env.PATH = 5; load-env { TESTENVVAR: 1 }; $env.TESTENVVAR")
+        .expect_value_eq(1)
+}
+
+#[test]
+fn load_env_leaves_path_alone_when_a_converted_variable_is_loaded() -> Result {
+    let code = r#"
+        $env.ENV_CONVERSIONS = { TESTENVVAR: { from_string: { split row "," } } }
+        $env.PATH = 5
+        load-env { TESTENVVAR: "x,y" }
+        [$env.PATH $env.TESTENVVAR]
+    "#;
+
+    test()
+        .run(code)
+        .expect_value_eq(test_value!([5, ["x", "y"]]))
+}
+
+#[test]
+fn load_env_skips_a_conversion_without_from_string() -> Result {
+    let code = r#"
+        $env.ENV_CONVERSIONS = { TESTENVVAR: { to_string: { $in } } }
+        load-env { TESTENVVAR: "x" }
+        $env.TESTENVVAR
+    "#;
+
+    test().run(code).expect_value_eq("x")
+}
+
+#[test]
+fn load_env_loads_nothing_when_a_conversion_fails() -> Result {
+    let code = r#"
+        $env.ENV_CONVERSIONS = { TESTENVVAR: { from_string: { error make { msg: boom } } } }
+        try { load-env { OTHER: "a", TESTENVVAR: "x" } }
+        [($env.OTHER? == null) ($env.TESTENVVAR? == null)]
+    "#;
+
+    test().run(code).expect_value_eq([true, true])
+}
+
+#[test]
+fn load_env_of_env_conversions_converts_every_variable() -> Result {
+    let code = r#"
+        $env.OTHER = "a,b"
+        load-env { ENV_CONVERSIONS: { OTHER: { from_string: { split row "," } } } }
+        $env.OTHER
+    "#;
+
+    test().run(code).expect_value_eq(["a", "b"])
+}
+
+#[test]
+fn refreshing_env_conversions_normalizes_path() -> Result {
+    let separator = if cfg!(windows) { ";" } else { ":" };
+    let code =
+        format!("$env.PATH = 'first{separator}second'; $env.ENV_CONVERSIONS = {{}}; $env.PATH");
 
     test().run(code).expect_value_eq(["first", "second"])
 }

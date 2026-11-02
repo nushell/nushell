@@ -2,7 +2,10 @@ use pretty_assertions::assert_matches;
 use rstest::rstest;
 
 use nu_experimental::{CELL_PATH_TYPES, ENFORCE_RUNTIME_ANNOTATIONS};
-use nu_protocol::{ParseError, Type};
+use nu_protocol::{
+    ParseError, ShellError, Type,
+    ast::{Comparison, Operator},
+};
 use nu_test_support::{fs::Stub, prelude::*};
 
 #[test]
@@ -802,6 +805,125 @@ fn percent_dynamic_dispatch_with_mixed_positional_and_spread_args() -> Result {
 }
 
 #[test]
+fn percent_dynamic_dispatch_rejects_list_spread_without_rest() -> Result {
+    // `length ...$args` is a parse error. The dynamic form can only check at runtime, but must not
+    // drop the arguments.
+    let code = "let cmd = 'length'; let args = [1]; [1 2] | %($cmd) ...$args";
+    let err = test().run(code).expect_shell_error()?;
+    assert_matches!(
+        err,
+        ShellError::Generic(err) if err.error == "Cannot spread a list into this command"
+    );
+    Ok(())
+}
+
+#[rstest]
+#[case::long("%$cmd --reverse")]
+#[case::paren_head("%($cmd) --reverse")]
+#[case::short("%$cmd -r")]
+#[case::short_batch("%$cmd -rn")]
+#[case::inline_value("%$cmd --reverse=true")]
+#[case::literal_record_spread("%$cmd ...{reverse: true}")]
+// The record is checked against `sort`'s flags, not `run-internal`'s.
+#[case::variable_record_spread("%$cmd ...$opts")]
+fn percent_dynamic_dispatch_passes_flags(#[case] call: &str) -> Result {
+    let code = format!("let cmd = 'sort'; let opts = {{reverse: true}}; [1 3 2] | {call}");
+    test().run(&code).expect_value_eq([3, 2, 1])
+}
+
+#[test]
+fn percent_dynamic_dispatch_switch_set_to_false() -> Result {
+    let code = "let cmd = 'sort'; [1 3 2] | %$cmd --reverse=false";
+    test().run(code).expect_value_eq([1, 2, 3])
+}
+
+#[rstest]
+// As in a direct call, a flag that takes a value takes the next argument.
+#[case::next_argument("%$cmd --width 3 --character x")]
+#[case::inline_value("%$cmd --width=3 --character=x")]
+fn percent_dynamic_dispatch_passes_flag_values(#[case] call: &str) -> Result {
+    let code = format!("let cmd = 'fill'; 'a' | {call}");
+    test().run(&code).expect_value_eq("axx")
+}
+
+#[test]
+fn percent_dynamic_dispatch_end_of_options() -> Result {
+    let code = "let cmd = 'echo'; %$cmd -- --foo";
+    test().run(code).expect_value_eq("--foo")
+}
+
+#[rstest]
+#[case::long("--help")]
+#[case::short("-h")]
+#[case::inline_value("--help=true")]
+#[case::record_spread("...{help: true}")]
+fn percent_dynamic_dispatch_shows_help(#[case] args: &str) -> Result {
+    let code = format!("let cmd = 'sort'; (%$cmd {args}) == (sort --help)");
+    test().run(&code).expect_value_eq(true)
+}
+
+#[rstest]
+#[case::unknown_flag("sort", "--bogus", "nu::parser::unknown_flag")]
+#[case::unknown_short_flag("sort", "-x", "nu::parser::unknown_flag")]
+#[case::extra_positional("sort", "foo", "nu::parser::extra_positional")]
+// Only a bare word is a flag, as in a direct call, so a quoted one or one in a variable is a
+// positional argument.
+#[case::quoted_flag("sort", r#""--reverse""#, "nu::parser::extra_positional")]
+#[case::flag_in_a_variable("sort", "$flag", "nu::parser::extra_positional")]
+#[case::unknown_record_key("sort", "...{bogus: true}", "nu::shell::error")]
+#[case::bad_switch_value("sort", "--reverse=5", "nu::shell::cant_convert")]
+#[case::missing_flag_value("fill", "--width", "nu::parser::missing_flag_param")]
+#[case::missing_positional("str replace", "a", "nu::parser::missing_positional")]
+// As in a direct call, `--help` shows help only once the other arguments check out.
+#[case::help_with_an_extra_positional("sort", "foo --help", "nu::parser::extra_positional")]
+#[case::help_with_an_unknown_flag("sort", "--help --bogus", "nu::parser::unknown_flag")]
+fn percent_dynamic_dispatch_rejects_arguments_the_builtin_does_not(
+    #[case] builtin: &str,
+    #[case] args: &str,
+    #[case] error_code: &str,
+) -> Result {
+    let code = format!("let cmd = '{builtin}'; let flag = '--reverse'; [1 3 2] | %$cmd {args}");
+    test().run(&code).expect_error_code_eq(error_code)
+}
+
+#[test]
+fn percent_dynamic_dispatch_shows_help_without_required_positionals() -> Result {
+    let code = "let cmd = 'str replace'; (%$cmd --help) == (str replace --help)";
+    test().run(code).expect_value_eq(true)
+}
+
+#[rstest]
+#[case::literal("%$cmd ...[a b]")]
+#[case::after_a_positional("%$cmd a ...[b]")]
+fn percent_dynamic_dispatch_rejects_list_spread_before_required(#[case] call: &str) -> Result {
+    // A list spread fills only the rest parameter, as for `run` and custom commands.
+    let code = format!("let cmd = 'str replace'; 'aaa' | {call}");
+    let err = test().run(&code).expect_shell_error()?;
+    assert_matches!(
+        err,
+        ShellError::Generic(err)
+            if err.error == "Cannot spread a list before required positional arguments are provided"
+    );
+    Ok(())
+}
+
+#[rstest]
+#[case::list_spread("let a = ['b' 'c']; run-internal echo ...$a", ["b", "c"])]
+#[case::wrapped_rest(
+    "def --wrapped w [...rest] { run-internal echo ...$rest }; w b c",
+    ["b", "c"]
+)]
+// A direct call passes its arguments on as values, so a word after `run-internal`'s own `--`
+// isn't a flag of the builtin.
+#[case::flag_like_word("run-internal -- echo --b c", ["--b", "c"])]
+fn direct_run_internal_forwards_arguments(
+    #[case] code: &str,
+    #[case] expected: [&str; 2],
+) -> Result {
+    test().run(code).expect_value_eq(expected)
+}
+
+#[test]
 fn percent_dynamic_dispatch_in_wrapped_command_forwards_rest_args() -> Result {
     let code = "
         export def --wrapped builtin [arg1, ...args] { %($arg1) ...$args }
@@ -984,6 +1106,180 @@ fn not_ends_with_operator_succeeds() -> Result {
     test()
         .run("[Moe Larry Curly] | where $it not-ends-with y | str join")
         .expect_value_eq("Moe")
+}
+
+#[rstest]
+#[case::old_date_older_than_duration("2020-01-01 older-than 1wk", true)]
+#[case::old_date_newer_than_duration("2020-01-01 newer-than 1wk", false)]
+#[case::now_newer_than_duration("(date now) newer-than 1wk", true)]
+#[case::now_older_than_duration("(date now) older-than 1wk", false)]
+#[case::older_than_date("2020-01-01 older-than 2021-01-01", true)]
+#[case::newer_than_date("2020-01-01 newer-than 2021-01-01", false)]
+#[case::older_than_is_strict("2020-01-01 older-than 2020-01-01", false)]
+#[case::newer_than_is_strict("2020-01-01 newer-than 2020-01-01", false)]
+#[case::offsets_compare_as_instants(
+    "2020-01-01T00:00:00+02:00 older-than 2020-01-01T00:00:00+00:00",
+    true
+)]
+#[case::const_compares_two_dates("const x = (2020-01-01 older-than 2021-01-01); $x", true)]
+fn point_in_time_operators(#[case] code: &str, #[case] expected: bool) -> Result {
+    test().run(code).expect_value_eq(expected)
+}
+
+#[test]
+fn older_than_filters_rows_with_untyped_dates() -> Result {
+    // `from nuon` hides the column type from the parser, like `ls | where modified ...` does.
+    let code = "
+        [[name, modified]; [old, 2020-01-01], [new, ((date now) - 1day)]]
+        | to nuon
+        | from nuon
+        | where modified older-than 2wk
+        | get name
+    ";
+
+    test().run(code).expect_value_eq(["old"])
+}
+
+#[test]
+fn older_than_skips_rows_without_a_date() -> Result {
+    let code = "
+        '[[name, modified]; [none, null], [old, 2020-01-01]]'
+        | from nuon
+        | where modified older-than 2wk
+        | get name
+    ";
+
+    test().run(code).expect_value_eq(["old"])
+}
+
+#[test]
+fn older_than_null_on_untyped_column_parses() -> Result {
+    // An `any` column against `nothing` types as `bool`, as `where a < null` does, so the row
+    // condition is accepted.
+    let code = "'[[a]; [2020-01-01]]' | from nuon | where a older-than null | length";
+
+    test().run(code).expect_value_eq(0)
+}
+
+#[rstest]
+#[case::const_binding("const x = (2020-01-01 older-than 1wk); $x")]
+#[case::match_pattern("match true { (2020-01-01 newer-than 1wk) => 1, _ => 2 }")]
+fn point_in_time_duration_is_not_a_constant(#[case] code: &str) -> Result {
+    // A duration is counted back from now, and the clock can't be read while parsing.
+    let err = test().run(code).expect_parse_error()?;
+    assert_matches!(
+        err,
+        ParseError::LabeledError(msg, ..) if msg.contains("not_a_constant")
+    );
+    Ok(())
+}
+
+#[test]
+fn point_in_time_duration_is_not_a_constant_default() -> Result {
+    let err = test()
+        .run("def f [--x = (2020-01-01 older-than 1wk)] { $x }; f")
+        .expect_parse_error()?;
+    assert_matches!(err, ParseError::NonConstantDefaultValue(_));
+    Ok(())
+}
+
+#[rstest]
+#[case::less_than("(date now) < 2wk", "`$date older-than 2wk`")]
+#[case::greater_than("(date now) > 2wk", "`$date newer-than 2wk`")]
+#[case::less_than_or_equal("(date now) <= 2wk", "`$date <= (date now) - 2wk`")]
+#[case::greater_than_or_equal("(date now) >= 2wk", "`$date >= (date now) - 2wk`")]
+#[case::duration_first_ordering("2wk < (date now)", "put the datetime on the left")]
+#[case::duration_first_older_than("1wk older-than (date now)", "the datetime goes on the left")]
+#[case::duration_first_newer_than("1wk newer-than 1wk", "the datetime goes on the left")]
+fn date_duration_parse_error_help(#[case] code: &str, #[case] expected: &str) -> Result {
+    let err = test().run(code).expect_parse_error()?;
+    assert_matches!(
+        err,
+        ParseError::OperatorIncompatibleTypes { help: Some(help), .. } if help.contains(expected)
+    );
+    Ok(())
+}
+
+#[rstest]
+#[case::ordering(
+    "'[[d]; [2020-01-01]]' | from nuon | where d < 2wk",
+    "`$date older-than 2wk`"
+)]
+#[case::duration_first(
+    "'[[d]; [1wk]]' | from nuon | where d older-than 2wk",
+    "the datetime goes on the left"
+)]
+fn date_duration_runtime_error_help(#[case] code: &str, #[case] expected: &str) -> Result {
+    let err = test().run(code).expect_shell_error()?;
+    assert_matches!(
+        err,
+        ShellError::OperatorIncompatibleTypes { help: Some(help), .. } if help.contains(expected)
+    );
+    Ok(())
+}
+
+#[test]
+fn unrelated_ordering_error_has_no_date_help() -> Result {
+    let err = test().run("1 < 'a'").expect_parse_error()?;
+    assert_matches!(
+        err,
+        ParseError::OperatorIncompatibleTypes { help: None, .. }
+    );
+    Ok(())
+}
+
+#[rstest]
+#[case::typed_date("2020-01-01 older-than 'x'")]
+#[case::untyped_column("[] | where modified older-than '2wk'")]
+fn older_than_rejects_non_date_operand_at_parse_time(#[case] code: &str) -> Result {
+    let err = test().run(code).expect_parse_error()?;
+    assert_matches!(
+        err,
+        ParseError::OperatorUnsupportedType {
+            op: "older-than",
+            unsupported: Type::String,
+            ..
+        }
+    );
+    Ok(())
+}
+
+#[test]
+fn newer_than_rejects_non_date_operand_at_runtime() -> Result {
+    let code = "
+        '[[modified]; [yesterday]]'
+        | from nuon
+        | where modified newer-than 2wk
+    ";
+
+    let err = test().run(code).expect_shell_error()?;
+    assert_matches!(
+        err,
+        ShellError::OperatorUnsupportedType {
+            op: Operator::Comparison(Comparison::NewerThan),
+            unsupported: Type::String,
+            ..
+        }
+    );
+    Ok(())
+}
+
+#[test]
+fn older_than_delegates_to_custom_values() -> Result {
+    // A semver is a custom value, so it answers for itself. Without the hand-off, the generic
+    // check would report incompatible types instead of an unsupported one.
+    let err = test()
+        .run("('1.2.3' | into semver) older-than 1wk")
+        .expect_shell_error()?;
+    assert_matches!(
+        err,
+        ShellError::OperatorUnsupportedType {
+            op: Operator::Comparison(Comparison::OlderThan),
+            unsupported: Type::Custom(_),
+            ..
+        }
+    );
+    Ok(())
 }
 
 #[test]

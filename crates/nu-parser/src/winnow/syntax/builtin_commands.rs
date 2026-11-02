@@ -1,6 +1,6 @@
 //! Every command a fresh `nu` resolves at the top level, with its kind: the
 //! built-in and keyword commands of the `nu` binary and the standard
-//! library's prelude, at nushell `2246cd8a1`. Used to resolve multi-word
+//! library's prelude, at nushell `9ca54f4a5`. Used to resolve multi-word
 //! command names such as `str trim`, to tell a known command from an external
 //! one, to check that `%name` names a built-in command, and to parse the
 //! arguments of a command taking a row condition (`any`, `take while`) as one
@@ -84,7 +84,6 @@ pub static BUILTIN_COMMANDS: &[(&str, CommandType)] = &[
     ("continue", Keyword),
     ("cp", Builtin),
     ("date", Builtin),
-    ("date format", Builtin),
     ("date from-human", Builtin),
     ("date humanize", Builtin),
     ("date list-timezone", Builtin),
@@ -141,7 +140,6 @@ pub static BUILTIN_COMMANDS: &[(&str, CommandType)] = &[
     ("export-env", Keyword),
     ("extern", Keyword),
     ("fill", Builtin),
-    ("filter", Builtin),
     ("find", Builtin),
     ("first", Builtin),
     ("flatten", Builtin),
@@ -155,6 +153,7 @@ pub static BUILTIN_COMMANDS: &[(&str, CommandType)] = &[
     ("format pattern", Builtin),
     ("from", Builtin),
     ("from csv", Builtin),
+    ("from dotenv", Builtin),
     ("from json", Builtin),
     ("from kdl", Builtin),
     ("from md", Builtin),
@@ -264,7 +263,6 @@ pub static BUILTIN_COMMANDS: &[(&str, CommandType)] = &[
     ("last", Builtin),
     ("length", Builtin),
     ("let", Keyword),
-    ("let-env", Builtin),
     ("lines", Builtin),
     ("load-env", Builtin),
     ("loop", Keyword),
@@ -483,6 +481,7 @@ pub static BUILTIN_COMMANDS: &[(&str, CommandType)] = &[
     ("timeit", Builtin),
     ("to", Builtin),
     ("to csv", Builtin),
+    ("to dotenv", Builtin),
     ("to html", Builtin),
     ("to json", Builtin),
     ("to kdl", Builtin),

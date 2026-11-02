@@ -1,9 +1,8 @@
 use crate::{
     is_math_expression_like,
     lite_parser::LiteCommand,
-    parse_def::is_valid_command_name,
     parse_helpers::{garbage, garbage_pipeline},
-    parse_keywords::reject_parser_keyword_name,
+    parse_keywords::{is_uncallable_name, reject_parser_keyword_name},
     parse_pipelines::redirecting_builtin_error,
     parser::{
         ArgumentParsingLevel, CallKind, ParsedInternalCall, parse_call, parse_expression,
@@ -256,7 +255,7 @@ pub(crate) fn alias_name(
         working_set.error(ParseError::AliasNotValid(alias_name_expr.span));
         return None;
     };
-    if !is_valid_command_name(&name) {
+    if is_uncallable_name(working_set, &name, alias_name_expr.span) {
         working_set.error(ParseError::AliasNotValid(alias_name_expr.span));
         None
     } else if reject_parser_keyword_name(working_set, &name, "alias", alias_name_expr.span) {

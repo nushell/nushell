@@ -1,40 +1,28 @@
-use chrono::{DateTime, FixedOffset, Local, LocalResult, TimeZone};
+use super::formats::parse_date_text;
+use chrono::{DateTime, FixedOffset, Local, Timelike};
 use nu_protocol::{ShellError, Span, Value, record};
 
 pub(crate) fn parse_date_from_string(
     input: &str,
     span: Span,
 ) -> Result<DateTime<FixedOffset>, Value> {
-    match dtparse::parse(input) {
-        Ok((native_dt, fixed_offset)) => {
-            let offset = match fixed_offset {
-                Some(offset) => offset,
-                None => *Local
-                    .from_local_datetime(&native_dt)
-                    .single()
-                    .unwrap_or_default()
-                    .offset(),
-            };
-            match offset.from_local_datetime(&native_dt) {
-                LocalResult::Single(d) => Ok(d),
-                LocalResult::Ambiguous(d, _) => Ok(d),
-                LocalResult::None => Err(Value::error(
-                    ShellError::DatetimeParseError {
-                        msg: input.into(),
-                        span,
-                    },
-                    span,
-                )),
-            }
-        }
-        Err(_) => Err(Value::error(
+    // RFC 3339 date-times (`2025-04-18T04:04:32-07:00`) are the usual form in data, and chrono
+    // reads them many times faster than trying layouts. Leap seconds (`23:59:60`), which chrono
+    // accepts, go on to the layouts, which reject them.
+    if let Ok(date) = DateTime::parse_from_rfc3339(input)
+        && date.nanosecond() < 1_000_000_000
+    {
+        return Ok(date);
+    }
+    parse_date_text(input).ok_or_else(|| {
+        Value::error(
             ShellError::DatetimeParseError {
                 msg: input.into(),
                 span,
             },
             span,
-        )),
-    }
+        )
+    })
 }
 
 /// Generates a table containing available datetime format specifiers
@@ -313,4 +301,35 @@ pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) 
     }
 
     Value::list(records, head)
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn rfc3339_reads_the_same_as_the_layouts() {
+        let parse = |input| {
+            parse_date_from_string(input, Span::test_data())
+                .ok()
+                .map(|date| (date, *date.offset()))
+        };
+        let parse_with_layouts = |input| parse_date_text(input).map(|date| (date, *date.offset()));
+        for input in [
+            "2025-04-18T04:04:32-07:00",
+            "2026-05-14T03:37:00Z",
+            "2025-04-18t04:04:32z",
+            "2025-04-18 04:04:32+05:30",
+            "2025-04-18T04:04:32.123456789+01:00",
+            "2025-04-18T04:04:32.1-00:00",
+        ] {
+            assert!(parse(input).is_some(), "{input}");
+            assert_eq!(parse(input), parse_with_layouts(input), "{input}");
+        }
+    }
+
+    #[test]
+    fn leap_second_is_not_read() {
+        assert!(parse_date_from_string("2016-12-31T23:59:60Z", Span::test_data()).is_err());
+    }
 }

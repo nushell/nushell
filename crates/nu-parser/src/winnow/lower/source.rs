@@ -103,11 +103,15 @@ impl<'s> Lower<'_, '_, 's> {
         ))
     }
 
-    /// The arguments after `run`'s script, added to its call as `add_script_arguments` adds
-    /// them, each read as any value: a spread, its value in a one-item list; `--name=value`
-    /// before any `--` (but `--help=...`), a named argument with its value in a one-item list;
-    /// anything else, an unknown argument.
-    fn script_arguments(&mut self, call: &mut Call, arguments: &[w::Argument<'s>]) -> Lowered<()> {
+    /// The arguments after `run`'s script, or of a `%$cmd` call, added to its call as
+    /// `add_script_arguments` adds them, each read as any value: a spread, its value in a
+    /// one-item list; `--name=value` before any `--` (but `--help=...`), a named argument with
+    /// its value in a one-item list; anything else, an unknown argument.
+    pub(super) fn script_arguments(
+        &mut self,
+        call: &mut Call,
+        arguments: &[w::Argument<'s>],
+    ) -> Lowered<()> {
         let mut end_of_options = false;
         for argument in arguments {
             let span = self.span(argument.span());

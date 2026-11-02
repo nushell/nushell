@@ -1089,6 +1089,8 @@ fn operator(op: w::Operator) -> Operator {
             w::Comparison::NotStartsWith => Comparison::NotStartsWith,
             w::Comparison::EndsWith => Comparison::EndsWith,
             w::Comparison::NotEndsWith => Comparison::NotEndsWith,
+            w::Comparison::OlderThan => Comparison::OlderThan,
+            w::Comparison::NewerThan => Comparison::NewerThan,
         }),
         w::Operator::Boolean(b) => Operator::Boolean(match b {
             w::Boolean::And => Boolean::And,

@@ -196,7 +196,6 @@ they represent."#
                 Ok(out.set_metadata(metadata))
             }
             // Handle iterable custom values (like SQLiteQueryBuilder)
-            #[expect(deprecated)]
             PipelineData::Value(Value::Custom { ref val, .. }, ..)
                 if val.is_iterable() && val.type_name() != "matrix" =>
             {

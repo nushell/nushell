@@ -25,8 +25,7 @@ use std::{
 // or at least add a TODO/reminder issue in nushell.github.io so we don't lose track of it.
 pub(crate) fn create_nu_constant(engine_state: &EngineState, span: Span) -> Value {
     fn canonicalize_path(engine_state: &EngineState, path: &Path) -> PathBuf {
-        #[allow(deprecated)]
-        let cwd = engine_state.current_work_dir();
+        let cwd = engine_state.cwd_as_string(None).unwrap_or_default();
 
         if path.exists() {
             match nu_path::canonicalize_with(path, cwd) {
@@ -532,6 +531,17 @@ impl Eval for EvalConst {
         expr_span: Span,
     ) -> Result<Value, ShellError> {
         Err(ShellError::NotAConstant { span: expr_span })
+    }
+
+    fn check_point_in_time(
+        _: &StateWorkingSet,
+        rhs: &Value,
+        expr_span: Span,
+    ) -> Result<(), ShellError> {
+        match rhs {
+            Value::Duration { .. } => Err(ShellError::NotAConstant { span: expr_span }),
+            _ => Ok(()),
+        }
     }
 
     fn eval_assignment<D: DebugContext>(

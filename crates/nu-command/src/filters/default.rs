@@ -1,7 +1,5 @@
-use std::{borrow::Cow, ops::Deref};
-
 use nu_engine::{ClosureEval, command_prelude::*};
-use nu_protocol::{ListStream, ReportMode, ShellWarning, Signals, report_shell_warning};
+use nu_protocol::{ListStream, Signals};
 
 #[derive(Clone)]
 pub struct Default;
@@ -35,6 +33,10 @@ impl Command for Default {
 
     fn description(&self) -> &str {
         "Sets a default value if a row's column is missing or null."
+    }
+
+    fn extra_description(&self) -> &str {
+        "A closure literal is run only when a default is needed, and its output becomes the default. A closure passed as a bare variable, like `default $closure`, is the default value itself."
     }
 
     fn run(
@@ -251,18 +253,17 @@ impl DefaultValue {
     ) -> Result<Self, ShellError> {
         let span = value.span();
 
-        // FIXME temporary workaround to warn people of breaking change from #15654.
-        // Detects closures passed via `$var` by checking whether the value span's source starts
-        // with `$` (no AST required under IR).
-        let value = match closure_variable_warning(stack, engine_state, value) {
-            Ok(val) => val,
-            Err(default_value) => return Ok(default_value),
-        };
-
         match value {
-            Value::Closure { val, .. } => Ok(DefaultValue::Uncalculated(Box::new(
-                ClosureEval::try_new(engine_state, stack, *val, head)?.into_spanned(span),
-            ))),
+            // A closure passed as a bare `$var` argument keeps a use-site span whose source
+            // starts with `$`, and is used as the value itself. Any other closure is evaluated
+            // lazily. Checking the span needs no AST under IR.
+            Value::Closure { val, .. }
+                if !engine_state.get_span_contents(span).starts_with(b"$") =>
+            {
+                Ok(DefaultValue::Uncalculated(Box::new(
+                    ClosureEval::try_new(engine_state, stack, *val, head)?.into_spanned(span),
+                )))
+            }
             _ => Ok(DefaultValue::Calculated(value)),
         }
     }
@@ -315,48 +316,6 @@ fn fill_record(
         }
     }
     Ok(record)
-}
-
-fn closure_variable_warning(
-    stack: &Stack,
-    engine_state: &EngineState,
-    value: Value,
-) -> Result<Value, DefaultValue> {
-    let span = value.span();
-    // Closures passed as `$var` keep a use-site span whose source starts with `$`.
-    // Closure literals use the block span (starts with `{`).
-    let from_variable = matches!(value, Value::Closure { .. })
-        && engine_state.get_span_contents(span).starts_with(b"$");
-
-    if from_variable {
-        let span_contents = String::from_utf8_lossy(engine_state.get_span_contents(span));
-        let carapace_suggestion = "re-run carapace init with version v1.3.3 or later\nor, change this to `{ $carapace_completer }`";
-        let label = match span_contents {
-            Cow::Borrowed("$carapace_completer") => carapace_suggestion.to_string(),
-            Cow::Owned(s) if s.deref() == "$carapace_completer" => carapace_suggestion.to_string(),
-            _ => format!("change this to {{ {span_contents} }}").to_string(),
-        };
-
-        report_shell_warning(
-            Some(stack),
-            engine_state,
-            &ShellWarning::Deprecated {
-                dep_type: "Behavior".to_string(),
-                label,
-                span,
-                help: Some(
-                    "Since 0.105.0, closure literals passed to default are lazily evaluated, rather than returned as a value.
-In a future release, closures passed by variable will also be lazily evaluated.".to_string(),
-                ),
-                report_mode: ReportMode::FirstUse,
-            },
-        );
-
-        // bypass the normal DefaultValue::new logic
-        Err(DefaultValue::Calculated(value))
-    } else {
-        Ok(value)
-    }
 }
 
 #[cfg(test)]

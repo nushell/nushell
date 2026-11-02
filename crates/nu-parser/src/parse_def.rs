@@ -3,7 +3,7 @@ use crate::{
     lite_parser::LiteCommand,
     parse_captures_compile::discover_closure_captures,
     parse_helpers::{SPREAD_OPERATOR, garbage},
-    parse_keywords::{find_keyword_decl, reject_parser_keyword_name},
+    parse_keywords::{find_keyword_decl, is_uncallable_name, reject_parser_keyword_name},
     parse_pipelines::redirecting_builtin_error,
     parser::{
         ArgumentParsingLevel, CallKind, ParsedInternalCall, compile_block_with_id, parse_attribute,
@@ -51,25 +51,15 @@ pub(crate) fn rest_param_is_type_annotated(signature_source: &[u8], rest_name: &
     false
 }
 
-/// Whether `def`, `extern` or `alias` may define a command named `name`: a call can never
-/// reach a name that contains `#`, `^` or `%`, or that reads as a number or a filesize.
-/// A call is also looked up by its words joined with single spaces, so a name with any
-/// other whitespace could never be called (#15539).
-pub(crate) fn is_valid_command_name(name: &str) -> bool {
-    !name.contains(['#', '^', '%'])
-        && name.parse::<bytesize::ByteSize>().is_err()
-        && name.parse::<f64>().is_err()
-        && name.split_ascii_whitespace().collect::<Vec<_>>().join(" ") == name
-}
-
-/// Report at `span` a name `def` or `extern` cannot define: one [`is_valid_command_name`]
-/// refuses, or a parser keyword. Returns whether it did; the caller then predeclares nothing.
+/// Report at `span` a name `def` or `extern` cannot define: one that could never be called
+/// ([`is_uncallable_name`]), or a parser keyword. Returns whether it did; the caller then predeclares nothing.
 pub(crate) fn reject_command_name(
     working_set: &mut StateWorkingSet,
     name: &str,
     span: Span,
 ) -> bool {
-    if !is_valid_command_name(name) {
+    // A name that could never be called is rejected where it is defined.
+    if is_uncallable_name(working_set, name, span) {
         working_set.error(ParseError::CommandDefNotValid(span));
         return true;
     }

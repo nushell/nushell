@@ -246,7 +246,7 @@ pub(super) fn changed_answer(
 /// which every engine in the process raises, it grows only when this working set or its engine
 /// declares a longer name.
 fn longest_name_in(working_set: &StateWorkingSet) -> usize {
-    std::iter::once(&working_set.permanent_state.scope)
+    std::iter::once(&*working_set.permanent_state.scope)
         .chain(&working_set.delta.scope)
         .flat_map(|frame| {
             let overlays = frame.overlays.iter().flat_map(|(_, overlay)| {

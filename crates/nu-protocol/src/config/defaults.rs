@@ -342,6 +342,8 @@ pub fn default_tui() -> HashMap<String, Value> {
             "button",
             rec(record! { "fg" => str("white"), "bg" => str("blue") }),
         ),
+        ("surface", rec(record! { "bg" => str("default") })),
+        ("backdrop", rec(record! { "bg" => str("default") })),
     ]
     .into_iter()
     .map(|(k, v)| (k.to_string(), v))

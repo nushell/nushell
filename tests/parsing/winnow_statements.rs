@@ -607,14 +607,15 @@ fn parser_keyword_is_lowered(#[case] code: &str, #[case] effect: Effect) -> Resu
 
 /// `%name` calls the built-in command even where a custom command shadows its name, its
 /// arguments read as a call to that command reads them (a row condition for `take while`), and
-/// `%$name` calls the built-in an expression names at run time, each argument a word or value.
+/// `%$name` calls the built-in an expression names at run time, its flags bound to the
+/// built-in's then.
 #[rstest]
 #[case::shadowed("def length [] { 'mine' }\n[1 2 3] | %length", Value::test_int(3))]
 #[case::row_condition("[1 2 3] | %take while $it < 3 | length", Value::test_int(2))]
 #[case::dynamic("let c = 'length'\n[1 2 3] | %$c", Value::test_int(3))]
 #[case::dynamic_flag(
-    "let c = 'echo'\n%$c --x -y | to nuon",
-    Value::test_string("[--x, -y]")
+    "let c = 'sort'\n[1 3 2] | %$c -r | to nuon",
+    Value::test_string("[3, 2, 1]")
 )]
 #[case::dynamic_spread("let c = 'echo'\n%($c) 1 ...[2 3] | length", Value::test_int(3))]
 #[nu_test_support::test]

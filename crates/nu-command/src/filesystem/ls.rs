@@ -292,7 +292,7 @@ impl Command for Ls {
             },
             Example {
                 description: "List only the names (not paths) of all dirs in your home directory which have not been modified in 7 days.",
-                example: "ls -as ~ | where type == dir and modified < ((date now) - 7day)",
+                example: "ls -as ~ | where type == dir and modified older-than 7day",
                 result: None,
             },
             Example {

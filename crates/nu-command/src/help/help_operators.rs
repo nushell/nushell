@@ -148,6 +148,12 @@ fn description(operator: &Operator) -> &'static str {
         Operator::Comparison(Comparison::NotEndsWith) => {
             "Checks if a string does not end with another."
         }
+        Operator::Comparison(Comparison::OlderThan) => {
+            "Checks if a datetime is before now minus a duration, or before another datetime (the same as `<`)."
+        }
+        Operator::Comparison(Comparison::NewerThan) => {
+            "Checks if a datetime is after now minus a duration, or after another datetime (the same as `>`)."
+        }
         Operator::Math(Math::Add) => "Adds two values.",
         Operator::Math(Math::Subtract) => "Subtracts two values.",
         Operator::Math(Math::Multiply) => "Multiplies two values.",

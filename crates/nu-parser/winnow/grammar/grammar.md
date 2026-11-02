@@ -495,6 +495,7 @@ this parser's `LexOptions` constants carry the same sets.
                     | "=~" | "like" | "!~" | "not-like"
                     | "in" | "not-in" | "has" | "not-has"
                     | "starts-with" | "not-starts-with" | "ends-with" | "not-ends-with"
+                    | "older-than" | "newer-than"
                     | "+" | "-" | "*" | "/" | "//" | "mod" | "**" | "++"
                     | "bit-or" | "bit-xor" | "bit-and" | "bit-shl" | "bit-shr"
                     | "and" | "or" | "xor"
@@ -518,7 +519,7 @@ Precedence (nu-protocol `ast/operator.rs:256`; higher binds tighter):
 | 95 | `*` `/` `mod` `//` | left |
 | 90 | `+` `-` | left |
 | 85 | `bit-shl` `bit-shr` | left |
-| 80 | `==` `!=` `<` `<=` `>` `>=` `=~` `like` `!~` `not-like` `in` `not-in` `has` `not-has` `starts-with` `not-starts-with` `ends-with` `not-ends-with` `++` | left |
+| 80 | `==` `!=` `<` `<=` `>` `>=` `=~` `like` `!~` `not-like` `in` `not-in` `has` `not-has` `starts-with` `not-starts-with` `ends-with` `not-ends-with` `older-than` `newer-than` `++` | left |
 | 75 | `bit-and` | left |
 | 70 | `bit-xor` | left |
 | 60 | `bit-or` | left |
