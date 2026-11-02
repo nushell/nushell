@@ -89,7 +89,6 @@ const TO_PORT: &[&str] = &[
     "parse_literals::parse_full_cell_path",
     // Externals.
     "parse_calls::parse_external_call",
-    "parse_calls::parse_regular_external_arg",
     // Math and expressions.
     "parse_expressions::parse_expression",
     // Closures, tables, patterns.

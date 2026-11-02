@@ -3207,6 +3207,10 @@ fn dropped_err_pipe_is_the_next_commands_pipe(#[case] code: &str, #[case] at: us
 )]
 #[case::shorthand_value_keeps_its_escapes("FOO=\"a\\qb\" ls", &[])]
 #[case::lone_if_after_an_operator("1 + if", &[("MissingPositional", "")])]
+#[case::record_with_a_wide_character_after_it(
+    "echo {a: 1}╮",
+    &[("ExtraTokensAfterClosingDelimiter", "╮"), ("Unbalanced", "}")]
+)]
 #[case::negation_with_an_operand_error_as_a_flag_value(
     "def f [--x: any] {}; f --x=-$nope?",
     &[("VariableNotFound", "$nope"), ("Expected", "?")]

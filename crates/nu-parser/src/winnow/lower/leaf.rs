@@ -19,7 +19,6 @@ use nu_protocol::{
 
 use super::list_text::ListItems;
 use super::{BlockOf, Lower, Lowered};
-use crate::parse_calls::parse_regular_external_arg;
 use crate::parse_expressions::parse_value as classic_value;
 use crate::parse_literals::parse_full_cell_path;
 use crate::type_check::{check_range_types, negation_type};
@@ -468,18 +467,6 @@ impl<'s> Lower<'_, '_, 's> {
                 input_type,
             ));
         };
-        // A record head: nu's record parser, until it is read here.
-        if tokens
-            .first()
-            .is_some_and(|first| self.text(first.span).starts_with('{'))
-        {
-            return Ok(parse_full_cell_path(
-                self.working_set,
-                implicit_head,
-                full_span,
-                input_type,
-            ));
-        }
         self.report_cell_path_lex_error(span);
         let Some(first) = tokens.first() else {
             return Ok(Expression::garbage(self.working_set, full_span));
@@ -493,6 +480,8 @@ impl<'s> Lower<'_, '_, 's> {
                 true,
                 &tokens[1..],
             )
+        } else if head_text.starts_with('{') {
+            (self.record_text(first.span)?, true, &tokens[1..])
         } else if head_text.starts_with('$') {
             (self.variable(first.span, input_type), true, &tokens[1..])
         } else if let Some(var_id) = implicit_head {
@@ -750,11 +739,7 @@ impl<'s> Lower<'_, '_, 's> {
             Some(b'$') => self.dollar_text(span, &SyntaxShape::Any, None),
             Some(b'(') => self.paren_text(span, &SyntaxShape::Any),
             Some(b'[') => self.list_text(span, ListItems::Values(&SyntaxShape::Any), None),
-            // nu's record parser, until it is read here.
-            Some(b'{') => {
-                let span = self.span(span);
-                Ok(parse_regular_external_arg(self.working_set, span))
-            }
+            Some(b'{') => self.brace_text(span, &SyntaxShape::Any, None),
             _ => self.external_string_text(span),
         }
     }

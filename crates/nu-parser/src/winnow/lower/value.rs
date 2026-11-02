@@ -304,10 +304,7 @@ impl<'s> Lower<'_, '_, 's> {
         match &e.expr {
             // A record the winnow parser went on past an error in (`{=: 1}`): nu's record
             // parser reads it again, reporting its errors with what it recovers.
-            w::Expr::Garbage => {
-                let span = self.span(e.span);
-                Ok(classic_value(self.working_set, span, shape, input_type))
-            }
+            w::Expr::Garbage => self.brace_text(e.span, shape, input_type),
             // `{}`: what the shape asks for.
             w::Expr::Record(items) if items.is_empty() => match shape {
                 SyntaxShape::Closure(_) => {
@@ -363,7 +360,9 @@ impl<'s> Lower<'_, '_, 's> {
                         let span = self.span(e.span);
                         Ok(classic_value(self.working_set, span, shape, input_type))
                     }
-                    _ => self.record(e.span, items),
+                    // As `parse_brace_expr` probes it: a record, or a cell path on one when its
+                    // first token (commas are no blanks there, `...$x,a`) is followed by `:`.
+                    _ => self.brace_text(e.span, shape, input_type),
                 }
             }
             // `{a: 1}` is a record (with a cell path) whatever the shape.
@@ -423,12 +422,9 @@ impl<'s> Lower<'_, '_, 's> {
                     }
                 }
             }
-            // Anything else the winnow parser read there (`{ a: 1 }...`): nu's value parser
-            // reads the item.
-            _ => {
-                let span = self.span(e.span);
-                Ok(classic_value(self.working_set, span, shape, input_type))
-            }
+            // Anything else the winnow parser read there (`{ a: 1 }...`): read again from its
+            // text.
+            _ => self.brace_text(e.span, shape, input_type),
         }
     }
 
