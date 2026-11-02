@@ -56,10 +56,7 @@ fn closure_error_on_record_is_returned() -> Result {
     let err = test()
         .run("{a: 1} | update cells { error make {msg: boom} }")
         .expect_shell_error()?;
-    assert!(
-        err.to_string().contains("boom"),
-        "unexpected error: {err:?}"
-    );
+    assert_eq!(err.into_inner()?.into_labeled()?.msg, "boom");
     Ok(())
 }
 
@@ -68,10 +65,7 @@ fn closure_error_on_table_is_returned() -> Result {
     let err = test()
         .run("[{a: 1} {a: 2}] | update cells { error make {msg: boom} }")
         .expect_shell_error()?;
-    assert!(
-        err.to_string().contains("boom"),
-        "unexpected error: {err:?}"
-    );
+    assert_eq!(err.into_inner()?.into_labeled()?.msg, "boom");
     Ok(())
 }
 
@@ -80,9 +74,14 @@ fn closure_error_in_recursive_mode_is_returned() -> Result {
     let err = test()
         .run("{a: {b: 1}} | update cells --recursive { error make {msg: boom} }")
         .expect_shell_error()?;
-    assert!(
-        err.to_string().contains("boom"),
-        "unexpected error: {err:?}"
-    );
+    assert_eq!(err.into_inner()?.into_labeled()?.msg, "boom");
+    Ok(())
+}
+
+#[test]
+fn closure_error_on_list_in_recursive_mode_is_returned() -> Result {
+    test()
+        .run("{a: [1 x]} | update cells --recursive { $in + 1 }")
+        .expect_shell_error()?;
     Ok(())
 }

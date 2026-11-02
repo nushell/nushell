@@ -1,6 +1,7 @@
 use nu_engine::{ClosureEval, command_prelude::*};
 use nu_protocol::{
     DeprecationEntry, DeprecationType, PipelineIterator, ReportMode, engine::Closure,
+    shell_error::eval_block_with_input::EvalBlockWithInputError,
 };
 use std::collections::HashSet;
 
@@ -273,9 +274,22 @@ impl Iterator for UpdateCellIterator {
 }
 
 fn eval_value(closure: &mut ClosureEval, span: Span, value: Value) -> Result<Value, ShellError> {
+    let input_span = value.span();
+    let input_is_error = value.is_error();
     closure
         .run_with_value(value)
         .and_then(|data| data.into_value(span))
+        .map_err(|err| {
+            if input_is_error {
+                err
+            } else {
+                EvalBlockWithInputError::wrap(
+                    err,
+                    input_span,
+                    EvalBlockWithInputError::SOURCE_VALUE,
+                )
+            }
+        })
 }
 
 #[cfg(test)]
