@@ -114,8 +114,8 @@ impl<'s> Lower<'_, '_, 's> {
     /// Declare the command a `def` or `extern` statement of a nested block defines, through an
     /// `export` or attributes, and record where a `type` statement is; any other statement
     /// declares nothing. A definition the lowering cannot predeclare is `Unsupported`, which
-    /// leaves the whole block to the classic parser: it predeclares a block's definitions
-    /// before parsing its statements.
+    /// gives the whole block up, as nu predeclares a block's definitions before parsing its
+    /// statements.
     pub(super) fn predecl_statement(&mut self, e: &w::Expression<'s>) -> Lowered<()> {
         let type_alias = match &e.expr {
             w::Expr::TypeAlias(alias) => Some(alias),

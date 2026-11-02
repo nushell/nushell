@@ -55,9 +55,11 @@ source ──▶ parse_block_streaming (this parser) ──▶ one statement's s
   `parse_block` hands it back to this parser with the tokens its caller lexed
   (`winnow::nested_block`), so no statement of it is `nu-parser`'s.
   `WinnowStats::classic_pipelines` counts the pipelines `nu-parser`'s own
-  statement parser parses while the option is on: those of a block handed
-  to it whole (not UTF-8, or one this parser cannot lex). With the option
-  off, nothing of this parser runs.
+  statement parser parses while the option is on: none, as its
+  `parse_block` hands every block to this parser. Text that is not UTF-8,
+  which this parser does not read, is an error (`NonUtf8`) at its first
+  byte that is not, over a garbage block. With the option off, nothing of
+  this parser runs.
 - **Errors.** The lowering reports the errors `nu-parser` reports and goes on
   past (a call's argument errors, values and operations of the wrong type, ...;
   see `lower/mod.rs`), with what `nu-parser` builds there. No statement is

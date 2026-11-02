@@ -75,8 +75,9 @@ pub(super) use statement::{BlockErrors, BlockOf, StatementTarget, garbage_pipeli
 /// nu-parser's `parse_block` with the option on: the block covering `span` that nu-parser's
 /// caller lexed as `tokens` (the inside of `( ... )`, a closure's body, a binding's value), its
 /// statements parsed by the winnow parser from those tokens and lowered, so that no statement
-/// of it is nu-parser's. `None` when the text is not UTF-8, a statement has an error the winnow
-/// parser did not go past, or the lowering gives the block up.
+/// of it is nu-parser's. A block it cannot read is an error over a garbage block: text that is
+/// not UTF-8 (NonUtf8), a statement with an error the winnow parser did not go past (reported as
+/// the driver reports one), or a block the lowering gives up.
 pub(super) fn nested_block(
     working_set: &mut StateWorkingSet,
     tokens: &[crate::Token],
@@ -84,8 +85,9 @@ pub(super) fn nested_block(
     scoped: bool,
     is_subexpression: bool,
     input_type: Option<&Type>,
-) -> Option<nu_protocol::ast::Block> {
+) -> nu_protocol::ast::Block {
     use crate::TokenContents as Nu;
+    use crate::winnow::driver::{syntax_error, unread_block};
     use crate::winnow::syntax::lex::{
         RedirectionOperator, Token, TokenContents, assignment_operator,
     };
@@ -99,9 +101,18 @@ pub(super) fn nested_block(
     });
     let bytes = working_set.get_span_contents(extent);
     if bytes.len() != extent.len() {
-        return None;
+        working_set.error(ParseError::InternalError(
+            "the block's text is not in the working set".into(),
+            span,
+        ));
+        return unread_block(working_set, span, span, "text not in the working set");
     }
-    let source = String::from_utf8(bytes.to_vec()).ok()?;
+    let source = match String::from_utf8(bytes.to_vec()) {
+        Ok(source) => source,
+        Err(error) => {
+            return super::non_utf8_block(working_set, span, extent.start, error.utf8_error());
+        }
+    };
     let local = |at: Span| WSpan::new(at.start - extent.start, at.end - extent.start);
     let mut converted = Vec::with_capacity(tokens.len() + 1);
     for token in tokens {
@@ -113,9 +124,11 @@ pub(super) fn nested_block(
             Nu::PipePipe => TokenContents::PipePipe,
             Nu::Semicolon => TokenContents::Semicolon,
             Nu::Eol => TokenContents::Eol,
-            Nu::AssignmentOperator => TokenContents::AssignmentOperator(assignment_operator(
-                std::str::from_utf8(text).ok()?,
-            )?),
+            // nu's lexer marks only an assignment operator so; anything else stays a word.
+            Nu::AssignmentOperator => std::str::from_utf8(text)
+                .ok()
+                .and_then(assignment_operator)
+                .map_or(TokenContents::Item, TokenContents::AssignmentOperator),
             Nu::OutGreaterThan => TokenContents::Redirection(RedirectionOperator::Out),
             Nu::OutGreaterGreaterThan => TokenContents::Redirection(RedirectionOperator::OutAppend),
             Nu::ErrGreaterThan => TokenContents::Redirection(RedirectionOperator::Err),
@@ -150,16 +163,42 @@ pub(super) fn nested_block(
         true => BlockOf::Parentheses,
     };
     let cell = std::cell::RefCell::new(&mut *working_set);
-    let tree = crate::winnow::syntax::parse_lexed_block(
+    let parsed = crate::winnow::syntax::parse_lexed_block(
         &source,
         &converted,
         of == BlockOf::Parentheses,
         crate::winnow::lookup::EngineLookup::new(&cell),
-    )?;
+    );
     let mut working_set = cell.borrow_mut();
+    let tree = match parsed {
+        Ok(tree) => tree,
+        Err(diagnostic) => {
+            working_set.error(syntax_error(extent.start, &diagnostic));
+            return unread_block(&mut working_set, span, span, &diagnostic.kind);
+        }
+    };
     let mut lower = Lower::new(&mut working_set, &source, extent.start);
     lower.caller_lexed = true;
-    lower.block(&tree, span, scoped, of, input_type).ok()
+    let errors = lower.working_set.parse_errors.len();
+    match lower.block(&tree, span, scoped, of, input_type) {
+        Ok(block) => block,
+        // As for a statement the lowering gives back ([`Lower::statement_or_garbage`]): the
+        // error it reported, else one saying why.
+        Err(unlowered) => {
+            if !matches!(unlowered, Unlowered::Error)
+                || lower.working_set.parse_errors.len() == errors
+            {
+                lower.working_set.error(ParseError::InternalError(
+                    format!(
+                        "the winnow parser cannot read this block ({})",
+                        unlowered.reason()
+                    ),
+                    span,
+                ));
+            }
+            unread_block(lower.working_set, span, span, unlowered.reason())
+        }
+    }
 }
 
 /// The declaration nu's parse function for the statement of `keyword` makes its call with, as

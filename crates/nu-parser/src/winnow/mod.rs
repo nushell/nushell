@@ -24,11 +24,10 @@
 //! * `stats` counts what went where, so a benchmark can say how much of its input the winnow
 //!   front end parsed.
 //!
-//! No statement goes to the classic parser. One the winnow front end cannot read (a syntax
+//! Nothing goes to the classic parser. A statement the winnow front end cannot read (a syntax
 //! error the winnow parser did not go past, a construct the lowering does not handle) is a
-//! garbage pipeline with an error. A block the winnow parser cannot take as a whole (not UTF-8,
-//! it does not lex, or it has an error about the whole block) is still parsed entirely by the
-//! classic parser.
+//! garbage pipeline with an error, and so is a block it cannot read as a whole (text that is
+//! not UTF-8, or an error about the whole block).
 //!
 //! This module is public so that nu-parser's tests, examples and benchmarks and the comparison
 //! harness in `winnow/tools` can reach the winnow parser. It is experimental, like the option,
@@ -52,37 +51,9 @@ pub(crate) fn enabled() -> bool {
     nu_experimental::WINNOW_PARSER.get()
 }
 
-thread_local! {
-    /// Set while nu-parser parses something the winnow front end handed it (a statement, a
-    /// file or a module body it could not take): nu-parser's `parse_block` then stays
-    /// nu-parser's for the blocks inside.
-    static CLASSIC_PARSE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
-}
-
-/// A parse nu-parser does for the winnow front end ([`CLASSIC_PARSE`]), until it is dropped.
-pub(crate) struct ClassicParse {
-    outer: bool,
-}
-
-impl ClassicParse {
-    /// Mark what is parsed until the guard is dropped as nu-parser's.
-    pub(crate) fn start() -> Self {
-        Self {
-            outer: CLASSIC_PARSE.with(|classic| classic.replace(true)),
-        }
-    }
-}
-
-impl Drop for ClassicParse {
-    fn drop(&mut self) {
-        CLASSIC_PARSE.with(|classic| classic.set(self.outer));
-    }
-}
-
-/// nu-parser's `parse_block` with the option on, outside a parse handed to nu-parser: the
-/// block that nu-parser's caller lexed as `tokens` (the inside of `( ... )`, a closure's body,
-/// a binding's value), parsed and lowered by the winnow front end. `None` when it cannot take
-/// the block, which nu-parser then parses.
+/// nu-parser's `parse_block` with the option on: the block that nu-parser's caller lexed as
+/// `tokens` (the inside of `( ... )`, a closure's body, a binding's value), parsed and lowered
+/// by the winnow front end. `None` with the option off.
 pub(crate) fn nested_block(
     working_set: &mut StateWorkingSet,
     tokens: &[crate::Token],
@@ -91,34 +62,31 @@ pub(crate) fn nested_block(
     is_subexpression: bool,
     input_type: Option<&nu_protocol::Type>,
 ) -> Option<Block> {
-    if !enabled() || CLASSIC_PARSE.with(std::cell::Cell::get) {
-        return None;
-    }
-    lower::nested_block(
-        working_set,
-        tokens,
-        span,
-        scoped,
-        is_subexpression,
-        input_type,
-    )
+    enabled().then(|| {
+        lower::nested_block(
+            working_set,
+            tokens,
+            span,
+            scoped,
+            is_subexpression,
+            input_type,
+        )
+    })
 }
 
 /// The top-level block of a file (the part of `parse` that the classic parser does with `lex`
-/// and `parse_block`). `None` when the winnow parser cannot take the file (it is not UTF-8, or
-/// [`driver::parse_block`] cannot take it), in which case nothing was changed and the caller
-/// parses it the classic way.
+/// and `parse_block`). Text that is not UTF-8 is an error over a garbage block.
 pub(crate) fn parse_file_block(
     working_set: &mut StateWorkingSet,
     contents: &[u8],
     span: Span,
     scoped: bool,
-) -> Option<Block> {
+) -> Block {
     // `contents` is the caller's, not the working set's, so the syntax tree can borrow it while
     // the working set changes (unlike a module body's, which `parse_module_block` copies).
-    let Ok(source) = std::str::from_utf8(contents) else {
-        stats::record_classic_block("not UTF-8", span, working_set);
-        return None;
+    let source = match std::str::from_utf8(contents) {
+        Ok(source) => source,
+        Err(error) => return non_utf8_block(working_set, span, span.start, error),
     };
     driver::parse_block(
         working_set,
@@ -133,7 +101,7 @@ pub(crate) fn parse_file_block(
             caller_lexed: false,
         },
     )
-    .map(|(block, _)| block)
+    .0
 }
 
 /// The completer's next-shorter reading of the command head at `head`
@@ -148,16 +116,20 @@ pub(crate) fn parse_shorter_head_reading(
 }
 
 /// A module's body (`parse_module_block`): its block, the module it defines and the comments at
-/// its top. `None` when the winnow parser cannot take it; nothing was changed then.
+/// its top. Text that is not UTF-8 is an error over a garbage block, which defines nothing.
 pub(crate) fn parse_module_block(
     working_set: &mut StateWorkingSet,
     span: Span,
     module_name: &[u8],
-) -> Option<(Block, nu_protocol::Module, Vec<Span>)> {
+) -> (Block, nu_protocol::Module, Vec<Span>) {
+    let empty_module = || nu_protocol::Module::from_span(module_name.to_vec(), span);
     // The source is copied: the syntax tree borrows it while the working set changes.
-    let Ok(source) = String::from_utf8(working_set.get_span_contents(span).to_vec()) else {
-        stats::record_classic_block("not UTF-8", span, working_set);
-        return None;
+    let source = match String::from_utf8(working_set.get_span_contents(span).to_vec()) {
+        Ok(source) => source,
+        Err(error) => {
+            let block = non_utf8_block(working_set, span, span.start, error.utf8_error());
+            return (block, empty_module(), Vec::new());
+        }
     };
     let (block, module) = driver::parse_block(
         working_set,
@@ -168,10 +140,25 @@ pub(crate) fn parse_module_block(
         driver::BlockKind::Module {
             name: module_name.to_vec(),
         },
-    )?;
-    let module = module?;
+    );
+    let module = module.unwrap_or_else(empty_module);
     let comments = first_comments(&source, span.start);
-    Some((block, module, comments))
+    (block, module, comments)
+}
+
+/// The block covering `span` whose text, from `text_start` on, is not UTF-8 (`error`): the
+/// winnow parser reads only UTF-8, so it is an error (NonUtf8) at the first byte that is not,
+/// over a garbage block.
+fn non_utf8_block(
+    working_set: &mut StateWorkingSet,
+    span: Span,
+    text_start: usize,
+    error: std::str::Utf8Error,
+) -> Block {
+    let start = text_start + error.valid_up_to();
+    let end = (start + error.error_len().unwrap_or(1)).min(span.end.max(start));
+    working_set.error(nu_protocol::ParseError::NonUtf8(Span::new(start, end)));
+    driver::unread_block(working_set, span, span, "not UTF-8")
 }
 
 /// The comments at the top of a module file, which document the module (the classic parser's

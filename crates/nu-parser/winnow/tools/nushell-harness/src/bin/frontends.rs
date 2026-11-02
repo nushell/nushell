@@ -539,11 +539,11 @@ fn bench(engine_state: &EngineState, files: &[PathBuf], iters: u32) {
     // Counts for one parse of every file of the set (each file was parsed `parses / benched` times).
     let per = |a: u64, b: u64| (a - b) as f64 / parses.max(1) as f64 * benched as f64;
     println!(
-        "winnow front end per parse of the set: {:.1} statements lowered, {:.1} not read, {:.1} blocks by winnow, {:.1} blocks classic, {:.1} runs parsed ahead on a second thread ({:.1} parsed again)",
+        "winnow front end per parse of the set: {:.1} statements lowered, {:.1} not read, {:.1} blocks by winnow, {:.1} blocks not read, {:.1} runs parsed ahead on a second thread ({:.1} parsed again)",
         per(after.lowered_statements, before.lowered_statements),
         per(after.unread_statements(), before.unread_statements()),
         per(after.winnow_blocks, before.winnow_blocks),
-        per(after.classic_blocks, before.classic_blocks),
+        per(after.unread_blocks, before.unread_blocks),
         per(after.ahead_runs, before.ahead_runs),
         per(after.ahead_fallbacks, before.ahead_fallbacks),
     );

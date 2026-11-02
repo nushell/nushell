@@ -4,8 +4,8 @@
 //! `compare` and `bench`.
 //!
 //! Each statement the front end could not read (one the lowering gives back, or one with a
-//! syntax error the winnow parser did not go past), each block handed to nu-parser whole, each
-//! run parsed ahead whose answers about command names changed, and each pipeline nu-parser's
+//! syntax error the winnow parser did not go past), each block it could not read as a whole,
+//! each run parsed ahead whose answers about command names changed, and each pipeline nu-parser's
 //! own statement parser parsed is also logged at the debug level, with its reason, to find what
 //! the front end still lacks. Every message starts with `winnow: `; to see them, run
 //! `nu --log-level debug --log-include nu_parser::winnow`, or `frontends --log`.
@@ -23,7 +23,7 @@ use crate::winnow::syntax::Diagnostic;
 
 // One counter per field of `WinnowStats`.
 static WINNOW_BLOCKS: AtomicU64 = AtomicU64::new(0);
-static CLASSIC_BLOCKS: AtomicU64 = AtomicU64::new(0);
+static UNREAD_BLOCKS: AtomicU64 = AtomicU64::new(0);
 static LOWERED_STATEMENTS: AtomicU64 = AtomicU64::new(0);
 static UNLOWERED_STATEMENTS: AtomicU64 = AtomicU64::new(0);
 static ERROR_STATEMENTS: AtomicU64 = AtomicU64::new(0);
@@ -37,9 +37,9 @@ static CLASSIC_PIPELINES: AtomicU64 = AtomicU64::new(0);
 pub struct WinnowStats {
     /// Blocks and module bodies whose statements the winnow parser parsed.
     pub winnow_blocks: u64,
-    /// Blocks handed to nu-parser whole (not UTF-8, or not taken by `BlockStatements::new`:
-    /// they do not lex, or have an error about the whole block).
-    pub classic_blocks: u64,
+    /// Blocks the winnow front end could not read as a whole (not UTF-8, refused by
+    /// `BlockStatements::new`, or given up by the lowering): each a garbage block with an error.
+    pub unread_blocks: u64,
     /// Statements the winnow parser parsed and the lowering turned into the AST.
     pub lowered_statements: u64,
     /// Statements the lowering gave back: each is a garbage pipeline with an error.
@@ -57,9 +57,8 @@ pub struct WinnowStats {
     /// the lowering reads again, reporting the error), lowered.
     pub recovered_statements: u64,
     /// Pipelines `nu-parser`'s own statement parser (`parse_pipeline`) parsed while the option
-    /// was on: those of the blocks handed to it whole, and those of blocks the lowering had
-    /// `nu-parser`'s value parsers read (a closure, a subexpression). With the option on there
-    /// should be none.
+    /// was on. Its `parse_block` hands every block to the winnow front end, so there should be
+    /// none: a tripwire for code that calls the statement parser some other way.
     pub classic_pipelines: u64,
 }
 
@@ -76,7 +75,7 @@ impl WinnowStats {
 pub fn winnow_stats() -> WinnowStats {
     WinnowStats {
         winnow_blocks: WINNOW_BLOCKS.load(Relaxed),
-        classic_blocks: CLASSIC_BLOCKS.load(Relaxed),
+        unread_blocks: UNREAD_BLOCKS.load(Relaxed),
         lowered_statements: LOWERED_STATEMENTS.load(Relaxed),
         unlowered_statements: UNLOWERED_STATEMENTS.load(Relaxed),
         error_statements: ERROR_STATEMENTS.load(Relaxed),
@@ -92,10 +91,11 @@ pub(super) fn record_winnow_block() {
     WINNOW_BLOCKS.fetch_add(1, Relaxed);
 }
 
-/// Count a block covering `span` handed to nu-parser whole, and log it with `why`.
-pub(super) fn record_classic_block(why: impl Display, span: Span, working_set: &StateWorkingSet) {
-    CLASSIC_BLOCKS.fetch_add(1, Relaxed);
-    log_statement(format_args!("classic block ({why})"), span, working_set);
+/// Count a block covering `span` that the winnow front end could not read as a whole, and log
+/// it with `why`.
+pub(super) fn record_unread_block(why: impl Display, span: Span, working_set: &StateWorkingSet) {
+    UNREAD_BLOCKS.fetch_add(1, Relaxed);
+    log_statement(format_args!("unread block ({why})"), span, working_set);
 }
 
 /// Count a run of statements parsed ahead on the second thread.

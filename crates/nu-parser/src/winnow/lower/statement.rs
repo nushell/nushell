@@ -1256,7 +1256,7 @@ impl<'s> Lower<'_, '_, 's> {
                 input_type: input_type.cloned(),
                 caller_lexed,
             };
-            return parse_block(
+            return Ok(parse_block(
                 self.working_set,
                 self.source,
                 self.offset,
@@ -1264,8 +1264,7 @@ impl<'s> Lower<'_, '_, 's> {
                 inner,
                 kind,
             )
-            .map(|(block, _)| block)
-            .ok_or(Unlowered::Unsupported("block that changes commands"));
+            .0);
         }
         let mut block_errors = BlockErrors::new(self.working_set);
         if caller_lexed {

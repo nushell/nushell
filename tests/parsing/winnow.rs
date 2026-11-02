@@ -231,6 +231,28 @@ fn option_on_parses_no_statement_with_nu_parser() -> Result {
     Ok(())
 }
 
+/// Text that is not UTF-8 is an error at its first byte that is not (NonUtf8) over a garbage
+/// block: the winnow parser reads only UTF-8, and nothing goes to nu-parser.
+#[test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn non_utf8_text_is_an_error() -> Result {
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let before = nu_parser::winnow_stats();
+    let block = nu_parser::parse(&mut working_set, None, b"ls\n0\xffB", false);
+    let after = nu_parser::winnow_stats();
+    assert_eq!(after.classic_pipelines, before.classic_pipelines);
+    assert!(after.unread_blocks > before.unread_blocks);
+    let [error] = working_set.parse_errors.as_slice() else {
+        panic!("one error expected: {:?}", working_set.parse_errors);
+    };
+    assert!(matches!(error, ParseError::NonUtf8(_)), "{error:?}");
+    assert_eq!(working_set.get_span_contents(error.span()), b"\xff");
+    assert_eq!(block.pipelines.len(), 1);
+    Ok(())
+}
+
 /// With the option off, the winnow front end runs nothing.
 #[test]
 #[serial]

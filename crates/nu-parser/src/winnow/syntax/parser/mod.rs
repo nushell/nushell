@@ -481,14 +481,14 @@ pub(crate) fn parse_headed_call<'a>(
 /// commands `lookup` knows; the block covers the tokens, from the first to the last, as
 /// `source` may hold more (a closure's brace). The text is lexed once more only to record its
 /// lexer's errors (as a `subexpression`'s when set), which statements that nu-parser lexes
-/// again report (a binding's value); the tokens stay the other lexer's. `None` when a statement
-/// has an error the parser did not go past.
+/// again report (a binding's value); the tokens stay the other lexer's. `Err` with the first
+/// error a statement has that the parser did not go past.
 pub(crate) fn parse_lexed_block<'a>(
     source: &'a str,
     tokens: &[Token],
     subexpression: bool,
     lookup: impl CommandLookup + 'a,
-) -> Option<Block<'a>> {
+) -> Result<Block<'a>, Diagnostic> {
     let working_set = WorkingSet::with_lookup(source, Span::new(0, source.len()), lookup);
     let mut items = tokens
         .iter()
@@ -505,11 +505,14 @@ pub(crate) fn parse_lexed_block<'a>(
     let _ = working_set.lex_block(span, options);
     let block =
         parse_pipelines::parse_block(tokens::Tokens::from_lexed(&working_set, tokens), span);
-    let recovered = working_set
+    match working_set
         .take_errors_from(0)
-        .iter()
-        .all(|diagnostic| diagnostic.recovered);
-    recovered.then_some(block)
+        .into_iter()
+        .find(|diagnostic| !diagnostic.recovered)
+    {
+        Some(diagnostic) => Err(diagnostic),
+        None => Ok(block),
+    }
 }
 
 /// The `{ ... }` covering `span` of `source`, a record starting with a spread that a call's

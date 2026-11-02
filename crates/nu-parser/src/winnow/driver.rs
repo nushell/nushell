@@ -85,8 +85,8 @@ pub(super) enum BlockKind {
 /// Parse the block covering `span` with the winnow parser, its statements in `inner` (the whole
 /// span, or what is inside a block's braces). `source` is the text around it, its first byte at
 /// `offset` in the working set's span space. Returns the block and, for a module body, the
-/// module; `None` when the winnow parser cannot take the block, with the working set left as it
-/// was.
+/// module. A block the winnow parser cannot take as a whole (`BlockStatements::new` refuses it)
+/// is its error over a garbage block, the module defining nothing.
 pub(super) fn parse_block(
     working_set: &mut StateWorkingSet,
     source: &str,
@@ -94,7 +94,7 @@ pub(super) fn parse_block(
     span: Span,
     inner: Span,
     kind: BlockKind,
-) -> Option<(Block, Option<Module>)> {
+) -> (Block, Option<Module>) {
     let local_span = crate::winnow::syntax::Span::new(inner.start - offset, inner.end - offset);
     let caller_lexed = matches!(
         kind,
@@ -152,11 +152,23 @@ pub(super) fn parse_block(
         if enters_scope {
             working_set.exit_scope();
         }
-        let why = diagnostics
-            .first()
-            .map_or_else(String::new, |diagnostic| diagnostic.kind.to_string());
-        stats::record_classic_block(why, inner, working_set);
-        return None;
+        let (error, why) = match diagnostics.first() {
+            Some(diagnostic) => (
+                syntax_error(offset, diagnostic),
+                diagnostic.kind.to_string(),
+            ),
+            None => (
+                ParseError::InternalError("the winnow parser cannot read this block".into(), inner),
+                String::new(),
+            ),
+        };
+        working_set.error(error);
+        let block = unread_block(working_set, span, inner, why);
+        let module = match target {
+            Target::Module { module, .. } => Some(*module),
+            Target::Block { .. } => None,
+        };
+        return (block, module);
     }
     stats::record_winnow_block();
 
@@ -176,14 +188,30 @@ pub(super) fn parse_block(
                 of.is_subexpression(),
                 input_type.as_ref(),
             );
-            Some((block, None))
+            (block, None)
         }
         Target::Module { module, .. } => {
             block.span = Some(span);
             working_set.exit_scope();
-            Some((block, Some(*module)))
+            (block, Some(*module))
         }
     }
+}
+
+/// A block covering `span` that the winnow front end cannot read as a whole, its error
+/// reported by the caller: one garbage pipeline over `inner` (its statements' text), as
+/// nu-parser leaves a statement it reports an error over. Counted, and logged with `why`.
+pub(super) fn unread_block(
+    working_set: &mut StateWorkingSet,
+    span: Span,
+    inner: Span,
+    why: impl std::fmt::Display,
+) -> Block {
+    stats::record_unread_block(why, inner, working_set);
+    let mut block = Block::new_with_capacity(1);
+    block.pipelines.push(garbage_pipeline(working_set, inner));
+    block.span = Some(span);
+    block
 }
 
 /// Parse the statements of `rest`, the end of the block covering `span` from a statement on,
@@ -717,7 +745,7 @@ impl Driver<'_, '_, '_, '_> {
             && !diagnostics.iter().all(|diagnostic| diagnostic.recovered)
         {
             if lite_error.is_none() {
-                let error = syntax_error(&lower, error);
+                let error = syntax_error(self.offset, error);
                 lower.working_set.error(error);
             }
             stats::record_error_statement(span, &diagnostics[0], lower.working_set);
@@ -781,8 +809,9 @@ impl Driver<'_, '_, '_, '_> {
 }
 
 /// The error a statement the winnow parser did not go past `diagnostic` in reports: what it
-/// found, where, while parsing what, and its advice.
-fn syntax_error(lower: &Lower<'_, '_, '_>, diagnostic: &Diagnostic) -> ParseError {
+/// found, where (`offset` puts the parser's span in the working set's span space), while
+/// parsing what, and its advice.
+pub(super) fn syntax_error(offset: usize, diagnostic: &Diagnostic) -> ParseError {
     let label = match diagnostic.context.first() {
         Some(context) => format!("{} (while parsing {context})", diagnostic.kind),
         None => diagnostic.kind.to_string(),
@@ -794,7 +823,7 @@ fn syntax_error(lower: &Lower<'_, '_, '_>, diagnostic: &Diagnostic) -> ParseErro
             "parse it with nu-parser to compare: turn the experimental option `winnow-parser` off"
                 .into()
         }),
-        span: lower.span(diagnostic.span),
+        span: Span::new(offset + diagnostic.span.start, offset + diagnostic.span.end),
     }
 }
 

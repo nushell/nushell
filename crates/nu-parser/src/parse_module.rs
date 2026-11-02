@@ -506,12 +506,9 @@ pub fn parse_module_block(
     span: Span,
     module_name: &[u8],
 ) -> (Block, Module, Vec<Span>) {
-    if crate::winnow::enabled()
-        && let Some(parsed) = crate::winnow::parse_module_block(working_set, span, module_name)
-    {
-        return parsed;
+    if crate::winnow::enabled() {
+        return crate::winnow::parse_module_block(working_set, span, module_name);
     }
-    let _classic = crate::winnow::enabled().then(crate::winnow::ClassicParse::start);
 
     working_set.enter_scope();
 

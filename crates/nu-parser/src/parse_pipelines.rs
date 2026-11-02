@@ -202,8 +202,6 @@ pub fn parse_block(
     ) {
         return block;
     }
-    // What the winnow front end could not take is nu-parser's, the blocks inside it too.
-    let _classic = crate::winnow::enabled().then(crate::winnow::ClassicParse::start);
     let (lite_block, err) = lite_parse(tokens, working_set);
     if let Some(err) = err {
         working_set.error(err);
