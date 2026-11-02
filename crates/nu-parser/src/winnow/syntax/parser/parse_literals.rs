@@ -254,7 +254,10 @@ const DURATION_UNITS: &[(&str, DurationUnit, Option<i64>)] = &[
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum UnitError {
     /// What comes before the unit is not a number (`1..2sec`): the word is no literal at all.
-    NotANumber,
+    NotANumber {
+        /// The length of the text before the unit.
+        number_len: usize,
+    },
     /// The value does not fit in 64 bits once converted to bytes or nanoseconds (`8EiB`).
     TooLarge,
 }
@@ -263,23 +266,34 @@ impl UnitError {
     /// The error's message.
     pub fn message(self) -> &'static str {
         match self {
-            UnitError::NotANumber => "value must be a number",
+            UnitError::NotANumber { .. } => "value must be a number",
             UnitError::TooLarge => "too large",
         }
     }
 }
 
+/// What nu stores a unit literal as (`parse_unit_value`): its value in the smallest unit
+/// (bytes, nanoseconds), and where the unit starts.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct UnitValue {
+    /// The value in bytes or nanoseconds.
+    pub in_base: i64,
+    /// The length of the text before the unit: the number, signs and separators included.
+    pub number_len: usize,
+}
+
 /// A number followed by one of `units` (nu's `parse_unit_value`), compared
 /// in upper case when `uppercase` is set; `scale` gives a unit's size in the
 /// smallest unit (bytes, nanoseconds), which nu stores the value in as an
-/// `i64`. `Err` when the text ends in a unit but what comes before it is not
-/// a number, or the value does not fit.
+/// `i64`. The number as written, its unit, and the value nu stores. `Err` when
+/// the text ends in a unit but what comes before it is not a number, or the
+/// value does not fit.
 fn parse_unit_value<'u, U: Copy>(
     text: &str,
     units: &'u [(&'u str, U, Option<i64>)],
     uppercase: bool,
     scale: fn(U) -> i64,
-) -> Option<Result<(f64, U), UnitError>> {
+) -> Option<Result<(f64, U, UnitValue), UnitError>> {
     if !unit_literal_start(text.as_bytes()) {
         return None;
     }
@@ -289,24 +303,25 @@ fn parse_unit_value<'u, U: Copy>(
         Cow::Borrowed(text)
     };
     let (name, unit, convert) = units.iter().find(|(name, ..)| normalized.ends_with(name))?;
+    let number_len = text.len() - name.len();
     // Like nu, the check for a variable before the unit (`$x..1kb`) comes
     // after the underscores are stripped, so `42m$_b` is no filesize either.
-    let number = strip_underscores(&text[..text.len() - name.len()]);
+    let number = strip_underscores(&text[..number_len]);
     if number.ends_with('$') {
         return None;
     }
     let Ok(value) = number.parse::<f64>() else {
-        return Some(Err(UnitError::NotANumber));
+        return Some(Err(UnitError::NotANumber { number_len }));
     };
     // As nu converts it: an integer is scaled exactly, so the largest value fits
     // (`9223372036854775807ns`) and the next one doesn't; a fraction is scaled as an `f64`,
     // through the next smaller unit, where `i64::MAX as f64` rounds up to 2^63, which doesn't
     // fit, so its upper bound is exclusive.
     let total = scale(*unit);
-    let fits = match number.parse::<i128>() {
+    let in_base = match number.parse::<i128>() {
         Ok(int) => int
             .checked_mul(i128::from(total))
-            .is_some_and(|scaled| i64::try_from(scaled).is_ok()),
+            .and_then(|scaled| i64::try_from(scaled).ok()),
         Err(_) => {
             let scaled = match convert {
                 Some(multiplier) => {
@@ -316,19 +331,37 @@ fn parse_unit_value<'u, U: Copy>(
                 }
                 None => value.trunc(),
             };
-            (i64::MIN as f64..i64::MAX as f64).contains(&scaled)
+            (i64::MIN as f64..i64::MAX as f64)
+                .contains(&scaled)
+                .then_some(scaled as i64)
         }
     };
-    Some(if fits {
-        Ok((value, *unit))
-    } else {
-        Err(UnitError::TooLarge)
+    Some(match in_base {
+        Some(in_base) => Ok((
+            value,
+            *unit,
+            UnitValue {
+                in_base,
+                number_len,
+            },
+        )),
+        None => Err(UnitError::TooLarge),
     })
 }
 
 /// A filesize literal such as `10kb` or `1.5MiB` (nu's `parse_filesize`;
 /// units are case-insensitive).
 pub fn parse_filesize(text: &str) -> Option<Result<Filesize, UnitError>> {
+    filesize_parts(text).map(|result| result.map(|(value, unit, _)| Filesize { value, unit }))
+}
+
+/// [`parse_filesize`], as the value in bytes nu stores.
+pub fn filesize_value(text: &str) -> Option<Result<UnitValue, UnitError>> {
+    filesize_parts(text).map(|result| result.map(|(.., stored)| stored))
+}
+
+/// [`parse_unit_value`] for a filesize.
+fn filesize_parts(text: &str) -> Option<Result<(f64, FilesizeUnit, UnitValue), UnitError>> {
     // The hex digit `b` might be mistaken for the unit `b` (`0x1b`, `-0x1b`), so rule hex out first.
     if matches!(
         text.as_bytes(),
@@ -337,14 +370,19 @@ pub fn parse_filesize(text: &str) -> Option<Result<Filesize, UnitError>> {
         return None;
     }
     parse_unit_value(text, FILESIZE_UNITS, true, FilesizeUnit::bytes)
-        .map(|result| result.map(|(value, unit)| Filesize { value, unit }))
 }
 
 /// A duration literal such as `1sec` or `2.5hr` (nu's `parse_duration`;
 /// units are case-sensitive).
 pub fn parse_duration(text: &str) -> Option<Result<Duration, UnitError>> {
     parse_unit_value(text, DURATION_UNITS, false, DurationUnit::nanoseconds)
-        .map(|result| result.map(|(value, unit)| Duration { value, unit }))
+        .map(|result| result.map(|(value, unit, _)| Duration { value, unit }))
+}
+
+/// [`parse_duration`], as the value in nanoseconds nu stores.
+pub fn duration_value(text: &str) -> Option<Result<UnitValue, UnitError>> {
+    parse_unit_value(text, DURATION_UNITS, false, DurationUnit::nanoseconds)
+        .map(|result| result.map(|(.., stored)| stored))
 }
 
 /// Exactly `count` ASCII digits, as a number.
@@ -636,18 +674,10 @@ fn escape_sequence<'t>(input: &mut Input<'t>) -> ParseResult<Unescaped<'t>> {
             Span::new(start, end),
         )));
     };
+    if let Some(byte) = u8::try_from(escaped).ok().and_then(simple_escape) {
+        return Ok(Unescaped::Byte(byte));
+    }
     let byte = match escaped {
-        '"' | '\'' | '\\' | '/' | '(' | ')' | '{' | '}' | '$' | '^' | '#' | '|' | '~' | ' ' => {
-            escaped as u8
-        }
-        'a' => 0x07,
-        'b' => 0x08,
-        'e' => 0x1b,
-        'f' => 0x0c,
-        'n' => b'\n',
-        'r' => b'\r',
-        't' => b'\t',
-        '0' => 0,
         'x' => {
             // The error covers the `\x` and the two characters meant as hex digits, counted in
             // characters so that it never ends inside one.
@@ -698,6 +728,25 @@ fn escape_sequence<'t>(input: &mut Input<'t>) -> ParseResult<Unescaped<'t>> {
         }
     };
     Ok(Unescaped::Byte(byte))
+}
+
+/// The byte an escape of one character stands for in a double-quoted string (`\n` is a newline,
+/// `\"` a quote), as nu's `unescape_string` reads it; `None` for `x`, `u` and characters that
+/// are no escape.
+pub(crate) fn simple_escape(escaped: u8) -> Option<u8> {
+    Some(match escaped {
+        b'"' | b'\'' | b'\\' | b'/' | b'(' | b')' | b'{' | b'}' | b'$' | b'^' | b'#' | b'|'
+        | b'~' | b' ' => escaped,
+        b'a' => 0x07,
+        b'b' => 0x08,
+        b'e' => 0x1b,
+        b'f' => 0x0c,
+        b'n' => b'\n',
+        b'r' => b'\r',
+        b't' => b'\t',
+        b'0' => 0,
+        _ => return None,
+    })
 }
 
 /// An invalid string literal.
@@ -777,7 +826,7 @@ fn raw_string_parts(text: &str) -> Option<(usize, &str)> {
 
 /// `true` for a bare word that Nushell treats as an interpolation because it
 /// contains `(`: `foo(1 + 1)bar`.
-pub(super) fn is_bare_string_interpolation(text: &str) -> bool {
+pub(crate) fn is_bare_string_interpolation(text: &str) -> bool {
     !text.starts_with(['\'', '"', '`']) && text.contains('(')
 }
 

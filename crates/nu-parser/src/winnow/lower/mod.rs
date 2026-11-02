@@ -52,6 +52,7 @@
 mod call;
 mod expression;
 mod keyword;
+mod leaf;
 mod module;
 mod signature;
 mod source;

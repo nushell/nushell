@@ -4,22 +4,46 @@
 use std::{cell::RefCell, sync::Arc};
 
 use nu_protocol::{
-    ParseError, PositionalArg, Signature, Span, SyntaxShape, Type, TypeSet,
+    DidYouMean, ENV_VARIABLE_ID, IN_VARIABLE_ID, LAST_RESULT_VAR_NAME, LAST_VARIABLE_ID,
+    NU_VARIABLE_ID, ParseError, PositionalArg, Signature, Span, SyntaxShape, Type, TypeSet,
     ast::{CellPath, Expr, Expression, FullCellPath, ListItem, PathMember, RecordItem, Table},
     casing::Casing,
+    engine::StateWorkingSet,
 };
 
+use super::leaf::is_quoted;
 use super::{BlockOf, Lower, Lowered, Unlowered};
 use crate::winnow::lookup::EngineLookup;
+use crate::winnow::syntax::parse_helpers::is_variable;
 use crate::winnow::syntax::{Span as WSpan, ast as w, parse_braces_as_closure, parse_match_arms};
 use crate::{
     parse_calls::accepts_any_bareword,
     parse_captures_compile::compile_block,
     parse_expressions::parse_value as classic_value,
     parse_expressions::{check_record_key_or_value, parse_table_expression, table_type},
-    parse_literals::{is_quoted, parse_full_cell_path, parse_variable_expr},
+    parse_literals::parse_full_cell_path,
     type_check::negation_type,
 };
+
+/// Whether `parse_value` reads `text` with `shape` as a negation first (`parse_negation`):
+/// `-$x` (no range) or `-(...)`, for a shape that holds numbers.
+fn reads_as_negation(text: &str, shape: &SyntaxShape) -> bool {
+    let negates = matches!(
+        shape,
+        SyntaxShape::Any
+            | SyntaxShape::Number
+            | SyntaxShape::Int
+            | SyntaxShape::Float
+            | SyntaxShape::Duration
+            | SyntaxShape::Filesize
+    );
+    negates
+        && match text.as_bytes() {
+            [b'-', b'$', _, ..] => !text.contains(".."),
+            [b'-', b'(', .., b')'] => true,
+            _ => false,
+        }
+}
 
 /// Whether the errors of a `oneof` shape's best guess, whose last error is `last`, are kept
 /// even when the guess got no further than the item's start (`parse_oneof`): an expected value
@@ -172,60 +196,27 @@ impl<'s> Lower<'_, '_, 's> {
         }
     }
 
-    /// An item without inner structure: a number, a word, a quoted string. The common shapes
-    /// are read from the winnow literal; the others (a bare word as a path, a glob, a cell
-    /// path, a number as a string, units, dates, ranges) by the classic leaf parsers, whose
-    /// error stays reported with the value they recover.
+    /// An item starting with none of `$`, `(`, `{` and `[` (`parse_value`): a raw string
+    /// whatever the shape (`r#` is read first), else what the shape reads
+    /// ([`Self::leaf_by_shape`]).
     fn leaf(&mut self, e: &w::Expression<'s>, shape: &SyntaxShape) -> Lowered<Expression> {
         let span = self.span(e.span);
-        let (expr, ty) = match (shape, &e.expr) {
-            (SyntaxShape::Any | SyntaxShape::Int | SyntaxShape::Number, w::Expr::Int(value)) => {
-                (Expr::Int(*value), Type::Int)
-            }
-            (
-                SyntaxShape::Any | SyntaxShape::Float | SyntaxShape::Number,
-                w::Expr::Float(value),
-            ) => (Expr::Float(*value), Type::Float),
-            (SyntaxShape::Any | SyntaxShape::Boolean, w::Expr::Bool(value)) => {
-                (Expr::Bool(*value), Type::Bool)
-            }
-            (SyntaxShape::Any | SyntaxShape::Nothing, w::Expr::Nothing) => {
-                (Expr::Nothing, Type::Nothing)
-            }
-            (SyntaxShape::Any | SyntaxShape::String, w::Expr::String(string)) => match string.quote
+        match &e.expr {
+            w::Expr::String(string) if matches!(string.quote, w::Quote::Raw(_)) => Ok(self.node(
+                Expr::RawString(string.value.to_string()),
+                span,
+                Type::String,
+            )),
+            // A raw string the winnow parser went on past an error in: nu's raw string parser
+            // reads it. So does nu's negation, which it reads before anything else, a word the
+            // winnow parser read otherwise (`-$nope?`).
+            _ if self.text(e.span).starts_with("r#")
+                || reads_as_negation(self.text(e.span), shape) =>
             {
-                w::Quote::Raw(_) => (Expr::RawString(string.value.to_string()), Type::String),
-                _ => (Expr::String(string.value.to_string()), Type::String),
-            },
-            (
-                SyntaxShape::Any
-                | SyntaxShape::String
-                | SyntaxShape::Filepath
-                | SyntaxShape::Directory
-                | SyntaxShape::GlobPattern,
-                w::Expr::StringInterpolation(interpolation),
-            ) => return self.path_interpolation(e.span, interpolation, shape),
-            // A raw string is one whatever the shape (`parse_value` reads `r#` first).
-            (_, w::Expr::String(string)) if matches!(string.quote, w::Quote::Raw(_)) => {
-                (Expr::RawString(string.value.to_string()), Type::String)
+                Ok(classic_value(self.working_set, span, shape, None))
             }
-            // A word or quoted string as a path, a directory or a glob (`parse_path_like`),
-            // quoted when it has quotes (backticks do not count).
-            (
-                SyntaxShape::Filepath | SyntaxShape::Directory | SyntaxShape::GlobPattern,
-                w::Expr::String(string),
-            ) => {
-                let quoted = matches!(string.quote, w::Quote::Single | w::Quote::Double);
-                let value = string.value.to_string();
-                match shape {
-                    SyntaxShape::Filepath => (Expr::Filepath(value, quoted), Type::String),
-                    SyntaxShape::Directory => (Expr::Directory(value, quoted), Type::String),
-                    _ => (Expr::GlobPattern(value, quoted), Type::Glob),
-                }
-            }
-            _ => return Ok(classic_value(self.working_set, span, shape, None)),
-        };
-        Ok(self.node(expr, span, ty))
+            _ => self.leaf_by_shape(e, shape),
+        }
     }
 
     /// `-$x` or `-(expr)` (`parse_negation`): the operand, read with any shape, negated. Its
@@ -272,7 +263,10 @@ impl<'s> Lower<'_, '_, 's> {
             }
             // nu reads an item starting with `$` or `(` as a value wherever it is
             // (`is_math_expression_like`), so a bound's error stays (`$x..a`).
-            w::Expr::Range(_) => self.leaf(e, shape),
+            w::Expr::Range(_) => {
+                let span = self.span(e.span);
+                Ok(classic_value(self.working_set, span, shape, None))
+            }
             w::Expr::Var(_) => self.full_cell_path(e.span, e, &[], input_type),
             w::Expr::FullCellPath(path) if !path.implicit_head => {
                 self.full_cell_path(e.span, &path.head, &path.tail, input_type)
@@ -289,7 +283,10 @@ impl<'s> Lower<'_, '_, 's> {
     fn paren(&mut self, e: &w::Expression<'s>, shape: &SyntaxShape) -> Lowered<Expression> {
         match &e.expr {
             // As a range starting with `$` ([`Self::dollar`]): `(1)abc..5`.
-            w::Expr::Range(_) => self.leaf(e, shape),
+            w::Expr::Range(_) => {
+                let span = self.span(e.span);
+                Ok(classic_value(self.working_set, span, shape, None))
+            }
             _ if matches!(
                 shape,
                 SyntaxShape::Signature | SyntaxShape::ExternalSignature
@@ -538,8 +535,55 @@ impl<'s> Lower<'_, '_, 's> {
     /// `$env` and the last-result variable have fixed ids; any other name must be in scope,
     /// else it is garbage, with that function's error (and its suggestion of a name that is).
     pub(super) fn variable(&mut self, span: WSpan, input_type: Option<&Type>) -> Expression {
+        let text = self.text(span);
         let span = self.span(span);
-        parse_variable_expr(self.working_set, span, input_type)
+        let fixed = match text {
+            "$nu" => Some((NU_VARIABLE_ID, Type::Any)),
+            "$in" => Some((IN_VARIABLE_ID, input_type.cloned().unwrap_or(Type::Any))),
+            "$env" => Some((ENV_VARIABLE_ID, Type::Any)),
+            _ if text.strip_prefix('$') == Some(LAST_RESULT_VAR_NAME) => {
+                Some((LAST_VARIABLE_ID, Type::Any))
+            }
+            _ => None,
+        };
+        if let Some((id, ty)) = fixed {
+            return self.node(Expr::Var(id), span, ty);
+        }
+        let suggestion = |working_set: &StateWorkingSet| {
+            DidYouMean::new(&working_set.list_variables(), text.as_bytes())
+        };
+        // A bare `$` (often from `$ env` with a space) is a common typo in a config.
+        if text == "$" {
+            self.working_set.error(ParseError::LabeledErrorWithHelp {
+                error: "Incomplete variable".into(),
+                label: "expected a variable name after `$`".into(),
+                help: "Variable names must be attached to `$` with no space (e.g. `$env`, `$in`). \
+                       Did you mean `$env`?"
+                    .into(),
+                span,
+            });
+            return Expression::garbage(self.working_set, span);
+        }
+        if !is_variable(text) {
+            let suggestion = suggestion(self.working_set);
+            self.working_set.error(ParseError::ExpectedWithDidYouMean(
+                "valid variable name",
+                suggestion,
+                span,
+            ));
+            return Expression::garbage(self.working_set, span);
+        }
+        if let Some(id) = self.working_set.find_variable(text.as_bytes()) {
+            let ty = self.working_set.get_variable(id).ty.clone();
+            return self.node(Expr::Var(id), span, ty);
+        }
+        let name = text.strip_prefix('$').unwrap_or(text).to_string();
+        let error = match self.working_set.get_env_var(&name) {
+            Some(_) => ParseError::EnvVarNotVar(name, span),
+            None => ParseError::VariableNotFound(suggestion(self.working_set), span),
+        };
+        self.working_set.error(error);
+        Expression::garbage(self.working_set, span)
     }
 
     /// The members of a cell path (`parse_cell_path`). A member's span leaves out its `?` and
@@ -582,7 +626,7 @@ impl<'s> Lower<'_, '_, 's> {
     /// An interpolation read with `shape`: for a glob, a glob interpolation (`parse_path_like`)
     /// when the item has a `(`, quoted only when the whole item is in quotes, so that `$"..."`,
     /// which starts with `$`, is a bare one; a string interpolation otherwise.
-    fn path_interpolation(
+    pub(super) fn path_interpolation(
         &mut self,
         span: WSpan,
         interpolation: &w::StringInterpolation<'s>,
@@ -595,7 +639,7 @@ impl<'s> Lower<'_, '_, 's> {
             (SyntaxShape::GlobPattern, Expr::StringInterpolation(parts))
                 if self.text(span).contains('(') =>
             {
-                let quoted = is_quoted(self.text(span).as_bytes());
+                let quoted = is_quoted(self.text(span));
                 Ok(self.node(
                     Expr::GlobInterpolation(parts, quoted),
                     expression.span,
@@ -778,7 +822,7 @@ impl<'s> Lower<'_, '_, 's> {
                     out.push(RecordItem::Spread(self.span(*dots), inner));
                 }
                 w::RecordItem::Pair { key, value, .. } => {
-                    let key = self.value(key, &SyntaxShape::String, None)?;
+                    let key = self.field_name(key)?;
                     let key = match check_record_key_or_value(self.working_set, &key, "key") {
                         Some(error) => {
                             self.working_set.error(error);

@@ -14,6 +14,7 @@ use nu_protocol::{
 
 use super::{Lower, Lowered, Unlowered, value::best_guess_propagates};
 use crate::winnow::syntax::lex::{LexOptions, TokenContents};
+use crate::winnow::syntax::parse_helpers::is_variable;
 use crate::winnow::syntax::{
     DeclKind, ItemsValue, Span as WSpan, ast as w, parse_headed_call, parse_items,
 };
@@ -28,7 +29,7 @@ use crate::{
         is_math_expression_like, parse_closure_expression, parse_math_expression,
         parse_value as classic_value,
     },
-    parse_helpers::{PERCENT_FORCED_BUILTIN_PARSER_INFO, is_variable},
+    parse_helpers::PERCENT_FORCED_BUILTIN_PARSER_INFO,
     parse_keywords::is_parser_keyword,
     parse_signatures::{
         ensure_not_reserved_variable_name, parse_full_signature, parse_var_with_opt_type,
@@ -1282,10 +1283,10 @@ impl<'s> Lower<'_, '_, 's> {
         input_type: Option<&Type>,
     ) -> Lowered<Expression> {
         let span = self.span(e.span);
-        let name = self.text(e.span).as_bytes();
+        let name = self.text(e.span);
         // nu reports a name with a space or a quote, or one that is no variable name, and goes
         // on with garbage for the variable (`for x.y in [1] {}`).
-        if name.iter().any(|byte| b" \"'`".contains(byte)) {
+        if name.bytes().any(|byte| b" \"'`".contains(&byte)) {
             self.working_set.error(ParseError::VariableNotValid(span));
             return Ok(Expression::garbage(self.working_set, span));
         }
@@ -1294,11 +1295,11 @@ impl<'s> Lower<'_, '_, 's> {
                 .error(ParseError::Expected("valid variable name", span));
             return Ok(Expression::garbage(self.working_set, span));
         }
-        ensure_not_reserved_variable_name(self.working_set, name, span);
+        ensure_not_reserved_variable_name(self.working_set, name.as_bytes(), span);
         let ty = input_type.cloned().unwrap_or(Type::Any);
         let var_id = self
             .working_set
-            .add_variable(name.to_vec(), span, ty, false);
+            .add_variable(name.as_bytes().to_vec(), span, ty, false);
         Ok(self.node(Expr::VarDecl(var_id), span, Type::Any))
     }
 

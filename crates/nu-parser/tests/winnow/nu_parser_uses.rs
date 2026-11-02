@@ -76,6 +76,7 @@ const SHARED: &[&str] = &[
     "parse_pipelines::finish_block",
     "parse_pipelines::hide_unlet_constants",
     "type_check::check_pipeline_type",
+    "type_check::check_range_types",
     "type_check::math_result_type",
     "type_check::negation_type",
     "type_check::type_compatible",
@@ -85,11 +86,8 @@ const SHARED: &[&str] = &[
 const TO_PORT: &[&str] = &[
     // Leaves and values by shape.
     "parse_expressions::parse_value",
-    "parse_literals::is_quoted",
     "parse_literals::parse_full_cell_path",
     "parse_literals::parse_string_strict",
-    "parse_literals::parse_variable_expr",
-    "parse_helpers::is_variable",
     "parse_helpers::trim_quotes",
     // Externals.
     "parse_calls::parse_external_call",

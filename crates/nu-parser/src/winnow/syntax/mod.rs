@@ -36,7 +36,9 @@ pub use parser::{BlockSink, CommandLookup, CommandType, DeclKind, ParseConfig, P
 pub(crate) use parser::{
     AliasedKeyword, BlockStatements, Definitions, ItemsValue, TypeAliasPredecl,
     parse_braces_as_closure, parse_headed_call, parse_items, parse_lexed_block, parse_match_arms,
+    parse_number_item,
 };
+pub(crate) use parser::{parse_helpers, parse_literals};
 pub use span::{LineCol, LineIndex, Span, Spanned};
 
 use ast::Ast;

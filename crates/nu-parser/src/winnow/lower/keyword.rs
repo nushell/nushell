@@ -18,6 +18,7 @@ use nu_protocol::{
 };
 
 use super::{BlockOf, Lower, Lowered, Unlowered, is_missing_argument, statement_decl};
+use crate::winnow::syntax::parse_helpers::is_variable;
 use crate::winnow::syntax::{ItemsValue, Span as WSpan, ast as w};
 use crate::{
     exportable::Exportable,
@@ -33,7 +34,7 @@ use crate::{
     parse_expressions::{
         is_env_variable_name, is_math_expression_like, parse_expression, parse_value,
     },
-    parse_helpers::{garbage, is_variable},
+    parse_helpers::garbage,
     parse_module::{finish_export_env, warp_export_call},
     parse_patterns::parse_pattern,
     parse_shape_specs::parse_type,
@@ -618,7 +619,7 @@ impl<'s> Lower<'_, '_, 's> {
                 .error(ParseError::VariableNotValid(name_span));
             return Ok((garbage(self.working_set, name_span), None, var_name));
         }
-        if !is_variable(&var_name) {
+        if !is_variable(&String::from_utf8_lossy(&var_name)) {
             self.working_set
                 .error(ParseError::Expected("valid variable name", name_span));
             return Ok((garbage(self.working_set, name_span), None, var_name));

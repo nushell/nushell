@@ -453,6 +453,31 @@ pub(crate) fn parse_items<'a>(
     }
 }
 
+/// The item covering `span` of `source`, read as nu's `parse_value` reads it with the `number`
+/// shape, with the commands `lookup` knows: a range's bound, which nu reads again from the
+/// range's text. An error the parser did not go past leaves a garbage node over the item, which
+/// the consumer reads with nu's error.
+pub(crate) fn parse_number_item<'a>(
+    source: &'a str,
+    span: Span,
+    lookup: impl CommandLookup + 'a,
+) -> Expression<'a> {
+    let working_set = WorkingSet::with_lookup(source, span, lookup);
+    let parsed = parse_expressions::parse_value(
+        &working_set,
+        span,
+        parse_expressions::ExpectedShape::Number,
+    );
+    let recovered = working_set
+        .take_errors_from(0)
+        .iter()
+        .all(|diagnostic| diagnostic.recovered);
+    match parsed {
+        Ok(expression) if recovered && expression.span == span => expression,
+        _ => Expression::new(Expr::Garbage, span),
+    }
+}
+
 /// The call covering `span` of `source` whose head is its first `head_words` items
 /// ([`parse_calls::parse_call_with_head_words`]), with the commands `lookup` knows. `None` when
 /// it does not parse to the end of `span`; an error the parser went on past leaves a garbage
