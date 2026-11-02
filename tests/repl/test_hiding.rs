@@ -1,6 +1,52 @@
 use nu_test_support::prelude::*;
+use rstest::rstest;
 
 use crate::repl::tests::{TestResult, fail_test, run_test};
+
+/// A `hide` in a nested block hides the name in that block only, even when the block never runs.
+#[rstest]
+fn hide_in_nested_block_stays_in_block(
+    #[values(
+        r#"def myfoosymbol [] { "myfoosymbol" }"#,
+        r#"alias myfoosymbol = echo "myfoosymbol""#,
+        r#"module spam { export def myfoosymbol [] { "myfoosymbol" } }; use spam myfoosymbol"#
+    )]
+    definition: &str,
+    #[values(
+        "do { hide myfoosymbol }",
+        "if false { hide myfoosymbol }",
+        "def g [] { hide myfoosymbol }"
+    )]
+    block: &str,
+) -> Result {
+    test()
+        .run(format!("{definition}; {block}; myfoosymbol"))
+        .expect_value_eq("myfoosymbol")
+}
+
+#[test]
+fn hide_in_nested_block_hides_inside_it() -> TestResult {
+    fail_test(
+        r#"def myfoosymbol [] { "myfoosymbol" }; do { hide myfoosymbol; myfoosymbol }"#,
+        "external_command",
+    )
+}
+
+/// The same with the definition in an earlier source unit, as in the REPL or a config file.
+#[test]
+fn hide_in_nested_block_stays_in_block_across_source_units() -> Result {
+    let mut tester = test();
+    let () = tester.run(r#"def myfoosymbol [] { "myfoosymbol" }"#)?;
+    let () = tester.run("do { hide myfoosymbol }")?;
+    tester.run("myfoosymbol").expect_value_eq("myfoosymbol")
+}
+
+#[test]
+fn hide_type_alias_in_nested_block_stays_in_block() -> Result {
+    test()
+        .run("type Id = int; do { hide Id }; let x: Id = 1; $x")
+        .expect_value_eq(1)
+}
 
 // TODO: Test the use/hide tests also as separate lines in REPL (i.e., with  merging the delta in between)
 #[test]

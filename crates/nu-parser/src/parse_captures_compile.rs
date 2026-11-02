@@ -154,6 +154,42 @@ fn parser_info_block_id(call: &Call) -> Option<BlockId> {
     }
 }
 
+/// Mark the variables a sourced file declares at its top level as seen.
+///
+/// `source` parses a file without a scope of its own, so its top-level `let`, `mut` and `const`
+/// are variables of the block around the `source` call, set when the file runs there. They aren't
+/// captures: `do { source x.nu; $x }` would otherwise look for `$x` outside the closure when the
+/// closure is made, and fail. A nested `source` in the file declares into the same block. Blocks
+/// parsed in a scope of their own (`source-env`, `run`) declare nothing outside, so they're skipped.
+fn see_sourced_variables(
+    working_set: &StateWorkingSet,
+    block_id: BlockId,
+    seen: &mut SeenVars,
+    visited: &mut HashSet<BlockId>,
+) {
+    let block = working_set.get_block(block_id);
+    if block.parsed_scoped || !visited.insert(block_id) {
+        return;
+    }
+    for element in block
+        .pipelines
+        .iter()
+        .flat_map(|pipeline| &pipeline.elements)
+    {
+        let Expr::Call(call) = &element.expr.expr else {
+            continue;
+        };
+        for arg in call.positional_iter() {
+            if let Expr::VarDecl(var_id) = arg.expr {
+                seen.push(var_id);
+            }
+        }
+        if let Some(nested) = parser_info_block_id(call) {
+            see_sourced_variables(working_set, nested, seen, visited);
+        }
+    }
+}
+
 fn bubble_captures_from_block_id(
     working_set: &StateWorkingSet,
     block_id: BlockId,
@@ -387,6 +423,7 @@ pub fn discover_captures_in_expr(
                         seen_blocks,
                         output,
                     )?;
+                    see_sourced_variables(working_set, block_id, seen, &mut HashSet::new());
                 }
             }
 
@@ -658,8 +695,17 @@ pub fn parse_fresh(
     parse_with_block_cache(working_set, fname, contents, scoped, false)
 }
 
+/// Whether a cached parse of the same file can stand in for parsing it again here.
+///
+/// An unscoped parse declares the file's names in the caller's scope frame. Reusing its block
+/// declares nothing by itself, so the block needs a record of the names it bound, for the caller to
+/// bind them again (see [`BoundNames`](nu_protocol::engine::BoundNames)). A parse that changed the
+/// frame in other ways, such as activating an overlay or hiding a name, has no record and isn't
+/// reused.
 fn cached_block_reusable(working_set: &StateWorkingSet, block: &Block, scoped: bool) -> bool {
-    block.parsed_scoped == scoped && cached_block_captures_still_valid(working_set, block)
+    block.parsed_scoped == scoped
+        && (scoped || block.bound_names.is_some())
+        && cached_block_captures_still_valid(working_set, block)
 }
 
 /// Child sourced blocks can hold captures that are not on this block yet.
@@ -787,10 +833,14 @@ fn parse_with_block_cache(
 
     let new_span = working_set.get_span_for_file(file_id);
 
-    // Reuse when scoped-ness matches and free vars still bind to these VarIds.
+    // Reuse when scoped-ness matches and free vars still bind to these VarIds. An unscoped block's
+    // names are bound again where they're missing, as in `do { source x.nu }; source x.nu`.
     if use_block_cache {
         for cached in working_set.blocks_with_span_newest_first(new_span) {
             if cached_block_reusable(working_set, &cached, scoped) {
+                if let Some(names) = &cached.bound_names {
+                    working_set.bind_names(names);
+                }
                 return cached;
             }
         }
@@ -801,20 +851,21 @@ fn parse_with_block_cache(
     // A bracket table recorded for the file serves only this parse (see `lex_file`).
     let bracket_tables = working_set.bracket_tables.len();
 
+    // An unscoped parse declares the file's names in the current scope frame; what it bound there
+    // decides where the block can be reused (see `cached_block_reusable`).
+    let frame_before = (!scoped).then(|| working_set.delta.last_scope_frame().clone());
+
     let mut output = {
         let (output, err) = lex_file(working_set, new_span, &[], &[], false);
         if let Some(err) = err {
             working_set.error(err)
         }
 
-        Arc::new(parse_block(
-            working_set,
-            &output,
-            new_span,
-            scoped,
-            false,
-            None,
-        ))
+        let mut block = parse_block(working_set, &output, new_span, scoped, false, None);
+        if let Some(frame_before) = &frame_before {
+            block.bound_names = working_set.names_bound_since(frame_before).map(Arc::new);
+        }
+        Arc::new(block)
     };
     working_set.bracket_tables.truncate(bracket_tables);
 
