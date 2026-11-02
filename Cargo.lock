@@ -7857,7 +7857,7 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.52.1"
-source = "git+https://github.com/kronberger-droid/reedline?branch=chore%2Frusqlite-0.41#6f5e227584d36f3cbdd4ad01a9e0f9ba069fd543"
+source = "git+https://github.com/nushell/reedline?branch=main#4fcf4fb6d4e8f42f2cb9554185f0d5c2123c2a23"
 dependencies = [
  "arboard",
  "crossterm",
