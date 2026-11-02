@@ -4791,6 +4791,7 @@ dependencies = [
  "sysinfo",
  "tempfile",
  "unicode-segmentation",
+ "unicode-width 0.2.2",
  "url",
  "uuid",
  "which 8.0.6",

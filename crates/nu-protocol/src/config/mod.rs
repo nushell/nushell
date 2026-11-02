@@ -27,6 +27,7 @@ pub use plugin_gc::{PluginGcConfig, PluginGcConfigs};
 pub use reedline::{CursorShapeConfig, EditBindings, NuCursorShape, ParsedKeybinding, ParsedMenu};
 pub use rm::RmConfig;
 pub use shell_integration::ShellIntegrationConfig;
+pub use status_line::StatusLineConfig;
 pub use table::{FooterMode, TableConfig, TableIndent, TableIndexMode, TableMode, TrimStrategy};
 
 mod ansi_coloring;
@@ -49,6 +50,7 @@ mod prelude;
 mod reedline;
 mod rm;
 mod shell_integration;
+mod status_line;
 mod table;
 
 #[derive(Clone, Debug, IntoValue, Serialize, Deserialize)]
@@ -66,6 +68,7 @@ pub struct Config {
     pub edit_mode: EditBindings,
     pub show_hints: bool,
     pub hinter: HinterConfig,
+    pub status_line: StatusLineConfig,
     pub history: HistoryConfig,
     pub keybindings: Vec<ParsedKeybinding>,
     pub abbreviations: HashMap<String, String>,
@@ -142,6 +145,7 @@ impl Default for Config {
             edit_mode: EditBindings::default(),
             show_hints: true,
             hinter: HinterConfig::default(),
+            status_line: StatusLineConfig::default(),
 
             shell_integration: ShellIntegrationConfig::default(),
 
@@ -209,6 +213,7 @@ impl UpdateFromValue for Config {
                 "edit_mode" => self.edit_mode.update(val, current_path, errors),
                 "show_hints" => self.show_hints.update(val, current_path, errors),
                 "hinter" => self.hinter.update(val, current_path, errors),
+                "status_line" => self.status_line.update(val, current_path, errors),
                 "shell_integration" => self.shell_integration.update(val, current_path, errors),
                 "show_banner" => self.show_banner.update(val, current_path, errors),
                 "display_errors" => self.display_errors.update(val, current_path, errors),

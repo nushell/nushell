@@ -97,10 +97,10 @@ pub fn calculate(
                 })?;
             Ok(Value::record(record, span))
         }
-        PipelineData::Value(Value::Range { val, .. }, ..) => {
+        PipelineData::Value(Value::Range { val, signals, .. }, ..) => {
             ensure_bounded(val.as_ref(), span, name)?;
             let new_vals: Result<Vec<Value>, ShellError> = val
-                .into_range_iter(span, Signals::empty())
+                .into_range_iter(span, signals.unwrap_or_else(Signals::empty))
                 .map(|val| mf(&[val], span, name))
                 .collect();
 
@@ -410,5 +410,24 @@ pub fn variance_denominator(
         Ok(n - 1)
     } else {
         Ok(n)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use std::{ops::Bound, sync::atomic::AtomicBool};
+
+    #[test]
+    fn interrupted_range_stops() {
+        let mut engine_state = EngineState::new();
+        engine_state.set_signals(Signals::new(Arc::new(AtomicBool::new(true))));
+        let mut range = Value::test_range(Range::new_int(1, None, Bound::Included(1000)));
+        range.inject_signals(&engine_state);
+
+        let span = Span::test_data();
+        let count = |values: &[Value], _, _| Ok(Value::int(values.len() as i64, span));
+        let counted = calculate(range.into_pipeline_data(), span, count);
+        assert_eq!(counted.unwrap(), Value::test_int(0));
     }
 }

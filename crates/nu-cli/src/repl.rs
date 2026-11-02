@@ -11,6 +11,7 @@ use crate::{
     hints::ExternalHinter,
     prompt_update,
     reedline_config::{KeybindingsMode, add_menus, create_keybindings},
+    status_line::{NuStatusLine, StatusStyles},
     syntax_highlight::NoOpHighlighter,
     util::{eval_source, evaluate_source},
 };
@@ -721,16 +722,18 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         .get_env_var("TERM_PROGRAM")
         .and_then(|v| v.as_str().ok())
         == Some("vscode");
+    let highlighter = NuHighlighter::new(
+        engine_reference.clone(),
+        // STACK-REFERENCE 1
+        stack_arc.clone(),
+    );
+    let parse_cache = highlighter.parse_cache();
     let mut line_editor = line_editor
         .use_kitty_keyboard_enhancement(config.use_kitty_protocol)
         // try to enable bracketed paste
         // It doesn't work on windows system: https://github.com/crossterm-rs/crossterm/issues/737
         .use_bracketed_paste(cfg!(not(target_os = "windows")) && config.bracketed_paste)
-        .with_highlighter(Box::new(NuHighlighter::new(
-            engine_reference.clone(),
-            // STACK-REFERENCE 1
-            stack_arc.clone(),
-        )))
+        .with_highlighter(Box::new(highlighter))
         .with_validator(Box::new(NuValidator {
             engine_state: engine_reference.clone(),
         }))
@@ -777,10 +780,21 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     line_editor = line_editor.with_visual_selection_cursor_style(
         style_computer.compute("selection_cursor", &Value::nothing(Span::unknown())),
     );
+    // As of Nov 2022, "hints" color_config closures only get `null` passed in.
+    // No meaningful span — this is a synthetic null value for style computation.
+    let hint_style = style_computer.compute("hints", &Value::nothing(Span::unknown()));
+    line_editor = if config.status_line.enable {
+        line_editor.with_status_line(Box::new(NuStatusLine::new(
+            engine_reference.clone(),
+            parse_cache,
+            config.status_line,
+            StatusStyles::from_config(&config, &style_computer, hint_style),
+        )))
+    } else {
+        line_editor.disable_status_line()
+    };
     line_editor = if config.use_ansi_coloring.get(engine_state) && config.show_hints {
-        // As of Nov 2022, "hints" color_config closures only get `null` passed in.
-        // No meaningful span — this is a synthetic null value for style computation.
-        let style = style_computer.compute("hints", &Value::nothing(Span::unknown()));
+        let style = hint_style;
         if let Some(closure) = config.hinter.closure.as_ref() {
             line_editor.with_hinter(Box::new(ExternalHinter::new(
                 engine_reference.clone(),
