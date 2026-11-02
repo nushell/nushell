@@ -911,6 +911,72 @@ impl<'s> Lower<'_, '_, 's> {
         })
     }
 
+    /// A string that must be closed and, bare, have no blank (`parse_string_strict`): an
+    /// environment shorthand's name and value. Quotes (`"`, `'`, `$"` or `$'`) around it are
+    /// dropped, its escapes left as they are.
+    pub(super) fn string_strict_text(&mut self, span: WSpan) -> Expression {
+        let full = self.span(span);
+        let text = self.text(span);
+        let bytes = text.as_bytes();
+        let unquoted = bytes.strip_prefix(b"$").unwrap_or(bytes);
+        let unclosed = |this: &mut Self, delimiter: &'static str, length: usize| {
+            let open = ParseError::opener_span(full, length);
+            this.working_set
+                .error(ParseError::unclosed(delimiter, open, full));
+            Expression::garbage(this.working_set, full)
+        };
+        if unquoted.starts_with(b"\"") && (unquoted.len() == 1 || !unquoted.ends_with(b"\"")) {
+            return unclosed(self, "\"", 1);
+        }
+        if unquoted.starts_with(b"'") && (unquoted.len() == 1 || !unquoted.ends_with(b"'")) {
+            return unclosed(self, "'", 1);
+        }
+        if unquoted.starts_with(b"r#") && (unquoted.len() == 1 || !unquoted.ends_with(b"#")) {
+            return unclosed(self, "r#", 2);
+        }
+        let quoted_by = |open: &[u8], close: u8, length: usize| {
+            bytes.starts_with(open) && bytes.ends_with(&[close]) && bytes.len() > length
+        };
+        let (value, quoted) = if quoted_by(b"\"", b'"', 1) || quoted_by(b"'", b'\'', 1) {
+            (&text[1..text.len() - 1], true)
+        } else if quoted_by(b"$\"", b'"', 2) || quoted_by(b"$'", b'\'', 2) {
+            (&text[2..text.len() - 1], true)
+        } else {
+            (text, false)
+        };
+        if !quoted && value.contains(' ') {
+            return self.leaf_error(ParseError::Expected("string", full));
+        }
+        self.node(Expr::String(value.to_string()), full, Type::String)
+    }
+
+    /// An argument a command with unknown arguments takes past its own (`parse_unknown_arg`):
+    /// read with the shape of its rest parameter, else any, from its text; `-$x` and `-(expr)`
+    /// stay the strings they spell for the shape `any`, since another program reads a leading
+    /// `-` as a flag.
+    pub(super) fn unknown_arg(
+        &mut self,
+        span: WSpan,
+        signature: &nu_protocol::Signature,
+    ) -> Lowered<Expression> {
+        let shape = signature
+            .rest_positional
+            .as_ref()
+            .map_or(SyntaxShape::Any, |rest| rest.shape.clone());
+        let shape = match (shape, self.text(span).as_bytes()) {
+            (SyntaxShape::Any, [b'-', b'$' | b'(', ..]) => SyntaxShape::String,
+            (shape, _) => shape,
+        };
+        self.value_text(span, &shape)
+    }
+
+    /// The item covering `span` read with `shape` from its text (`parse_value` on the item's
+    /// span), as the lowering reads a garbage node.
+    pub(super) fn value_text(&mut self, span: WSpan, shape: &SyntaxShape) -> Lowered<Expression> {
+        let item = w::Expression::new(w::Expr::Garbage, span);
+        self.value(&item, shape, None)
+    }
+
     /// `error` reported, and garbage over the item.
     fn leaf_error(&mut self, error: ParseError) -> Expression {
         let span = error.span();
@@ -1185,6 +1251,20 @@ impl<'s> Lower<'_, '_, 's> {
             _ => self.interpolation_text(e.span),
         }
     }
+}
+
+/// Whether `bytes` can be set by `NAME=value` shorthand (nu's `is_env_variable_name`).
+pub(super) fn is_env_name(bytes: &[u8]) -> bool {
+    std::str::from_utf8(bytes).is_ok_and(crate::winnow::syntax::is_env_variable_name)
+}
+
+/// Whether `bytes` is an assignment operator, `=`, `+=`, `-=`, `*=`, `/=` or `++=` (nu's
+/// `is_assignment_operator`).
+pub(super) fn is_assignment(bytes: &[u8]) -> bool {
+    std::str::from_utf8(bytes)
+        .ok()
+        .and_then(crate::winnow::syntax::lex::assignment_operator)
+        .is_some()
 }
 
 /// Whether `bytes` has `'` or `"` quotes around it (nu's `is_quoted`; backticks do not count).

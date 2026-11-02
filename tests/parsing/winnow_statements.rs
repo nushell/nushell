@@ -3205,6 +3205,7 @@ fn dropped_err_pipe_is_the_next_commands_pipe(#[case] code: &str, #[case] at: us
     "@example x y\no> f",
     &[("AttributeRequiresDefinition", "example x y")]
 )]
+#[case::shorthand_value_keeps_its_escapes("FOO=\"a\\qb\" ls", &[])]
 #[case::row_condition_parentheses_hold_no_columns(
     "[a] | where ($it ! \"x\" and $it != \"y\")",
     &[

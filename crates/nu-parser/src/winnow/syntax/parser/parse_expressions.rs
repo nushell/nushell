@@ -307,7 +307,7 @@ fn is_builtin_keyword_head(tokens: &Tokens<'_, '_>) -> bool {
 
 /// Whether `name` can be set by `NAME=value` shorthand: an ASCII letter or `_`,
 /// then letters, digits and `_` (nu's `is_env_variable_name`).
-pub(super) fn is_env_variable_name(name: &str) -> bool {
+pub(crate) fn is_env_variable_name(name: &str) -> bool {
     let mut chars = name.chars();
     matches!(chars.next(), Some(c) if c == '_' || c.is_ascii_alphabetic())
         && chars.all(|c| c == '_' || c.is_ascii_alphanumeric())
@@ -356,8 +356,23 @@ fn env_assignment<'a>(tokens: &mut Tokens<'_, 'a>) -> ParseResult<EnvAssignment<
         value if value.starts_with("r#") && !value.ends_with('#') => {
             return Err(backtrack(token.span.start));
         }
-        _ => parse_string_literal(working_set, value_span)
-            .map(|string| Expression::new(Expr::String(string), value_span)),
+        // `parse_string_strict` drops the quotes and keeps the escapes as written, so a quoted
+        // value whose escape is no escape (`A="a\q"`) is still the shorthand's value.
+        value => match parse_string_literal(working_set, value_span) {
+            Ok(string) => Ok(Expression::new(Expr::String(string), value_span)),
+            Err(_) if is_quoted_strictly(value) => {
+                let quote = match value.as_bytes()[0] {
+                    b'"' => Quote::Double,
+                    _ => Quote::Single,
+                };
+                let string = StringLiteral {
+                    value: Cow::Borrowed(&value[1..value.len() - 1]),
+                    quote,
+                };
+                Ok(Expression::new(Expr::String(string), value_span))
+            }
+            Err(error) => Err(error),
+        },
     };
     let value = value.map_err(|_| backtrack(token.span.start))?;
     let name = Spanned::new(

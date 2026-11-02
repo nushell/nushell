@@ -11,14 +11,14 @@ use nu_protocol::{
     },
 };
 
+use super::leaf::is_assignment;
 use super::{BlockOf, Lower, Lowered, Unlowered, call::STATEMENTS_IN_PIPELINE, statement_decl};
 use crate::winnow::syntax::{Span as WSpan, ast as w, lex::AssignmentOperator};
 use crate::{
-    lex::{TokenContents, is_assignment_operator, lex},
+    lex::{TokenContents, lex},
     parse_calls::{CallKind, parse_external_call},
     parse_captures_compile::compile_block,
     parse_expressions::{is_math_expression_like, parse_math_expression},
-    parse_literals::parse_string_strict,
     type_check::math_result_type,
     type_check::type_compatible,
 };
@@ -54,7 +54,7 @@ impl<'s> Lower<'_, '_, 's> {
             // (`parse_assignment_expression`).
             w::Expr::Garbage
                 if self.parts(e.span).first().is_some_and(|first| {
-                    is_assignment_operator(self.working_set.get_span_contents(*first))
+                    is_assignment(self.working_set.get_span_contents(*first))
                 }) =>
             {
                 let parts = self.parts(e.span);
@@ -430,8 +430,7 @@ impl<'s> Lower<'_, '_, 's> {
     ) -> Lowered<Expression> {
         let mut pairs = Vec::with_capacity(shorthand.vars.len());
         for assignment in &shorthand.vars {
-            let name_span = self.span(assignment.name.span);
-            let name = parse_string_strict(self.working_set, name_span);
+            let name = self.string_strict_text(assignment.name.span);
             let value = match self.text(assignment.value.span).as_bytes() {
                 [] => self.node(Expr::String(String::new()), Span::unknown(), Type::Nothing),
                 // A value with an error ends the shorthands (`parse_expression` drops the
@@ -459,10 +458,7 @@ impl<'s> Lower<'_, '_, 's> {
                     }
                     value
                 }
-                _ => {
-                    let span = self.span(assignment.value.span);
-                    parse_string_strict(self.working_set, span)
-                }
+                _ => self.string_strict_text(assignment.value.span),
             };
             pairs.push((name, value));
         }

@@ -87,15 +87,10 @@ const TO_PORT: &[&str] = &[
     // Leaves and values by shape.
     "parse_expressions::parse_value",
     "parse_literals::parse_full_cell_path",
-    "parse_literals::parse_string_strict",
-    "parse_helpers::trim_quotes",
     // Externals.
     "parse_calls::parse_external_call",
     "parse_calls::parse_regular_external_arg",
-    "parse_calls::parse_unknown_arg",
-    "parse_calls::strict_extern_forwards",
     // Math and expressions.
-    "parse_expressions::is_env_variable_name",
     "parse_expressions::is_math_expression_like",
     "parse_expressions::parse_expression",
     "parse_expressions::parse_math_expression",
@@ -121,7 +116,6 @@ const TO_PORT: &[&str] = &[
     // The lexer and the lite parser.
     "lex::TokenContents",
     "lex::delimiter_diagnostics::delimiter_structure_hint",
-    "lex::is_assignment_operator",
     "lex::lex",
     "lex::lex_signature",
     "lite_parser::lite_parse",

@@ -21,8 +21,7 @@ use crate::winnow::syntax::{
 use crate::{
     parse_calls::{
         CallKind, accepts_any_bareword, check_call, find_decl_with_command_type, find_longest_decl,
-        find_longest_decl_with_prefix, parse_external_call, parse_unknown_arg,
-        shape_allows_negative_number, strict_extern_forwards,
+        find_longest_decl_with_prefix, parse_external_call, shape_allows_negative_number,
     },
     parse_expressions::{
         is_math_expression_like, parse_closure_expression, parse_math_expression,
@@ -516,8 +515,7 @@ impl<'s> Lower<'_, '_, 's> {
                 w::Argument::EndOfOptions(span) if !end_of_options => {
                     end_of_options = true;
                     if signature.allows_unknown_args {
-                        let span = self.span(*span);
-                        let value = parse_unknown_arg(self.working_set, span, signature);
+                        let value = self.unknown_arg(*span, signature)?;
                         call.add_unknown(value);
                     }
                 }
@@ -539,7 +537,8 @@ impl<'s> Lower<'_, '_, 's> {
                 // `-inf` or `-nan` for a positional that takes a number (`parse_short_flags`).
                 w::Argument::Named(w::NamedArgument { span, .. })
                 | w::Argument::EndOfOptions(span) => {
-                    let span = self.span(*span);
+                    let word = *span;
+                    let span = self.span(word);
                     if let Some(positional) = signature.get_positional(positional_idx) {
                         let shape = positional.shape.clone();
                         // Read as `parse_value` reads it; for a multi-item shape, as
@@ -570,16 +569,16 @@ impl<'s> Lower<'_, '_, 's> {
                                 index = next;
                                 value
                             } else {
-                                classic_value(self.working_set, span, &shape, None)
+                                self.value_text(word, &shape)?
                             }
                         } else {
-                            classic_value(self.working_set, span, &shape, None)
+                            self.value_text(word, &shape)?
                         };
                         let value = self.positional_value(value, &shape);
                         call.add_positional(value);
                         positional_idx += 1;
                     } else if signature.allows_unknown_args {
-                        let value = parse_unknown_arg(self.working_set, span, signature);
+                        let value = self.unknown_arg(word, signature)?;
                         call.add_unknown(value);
                     } else {
                         self.extra_positional(call, span, signature);
@@ -591,13 +590,13 @@ impl<'s> Lower<'_, '_, 's> {
                 }
                 // A positional the call takes no value from (`ArgumentParsingLevel::FirstK`):
                 // garbage where the signature has one, as past it any item.
-                w::Argument::Unread(span) => {
-                    let span = self.span(*span);
+                w::Argument::Unread(item) => {
+                    let span = self.span(*item);
                     if signature.get_positional(positional_idx).is_some() {
                         call.add_positional(Expression::garbage(self.working_set, span));
                         positional_idx += 1;
                     } else if signature.allows_unknown_args {
-                        let value = parse_unknown_arg(self.working_set, span, signature);
+                        let value = self.unknown_arg(*item, signature)?;
                         call.add_unknown(value);
                     } else {
                         self.extra_positional(call, span, signature);
@@ -1315,7 +1314,7 @@ impl<'s> Lower<'_, '_, 's> {
         if flag.long {
             let Some(found) = signature.get_long_flag(flag.name) else {
                 if self.forwards_unknown_flag(token, signature) {
-                    let value = parse_unknown_arg(self.working_set, token, signature);
+                    let value = self.unknown_arg(flag.span, signature)?;
                     call.add_unknown(value);
                 } else {
                     let help = did_you_mean(signature.get_names(), flag.name)
@@ -1399,7 +1398,7 @@ impl<'s> Lower<'_, '_, 's> {
             ));
             if self.forwards_unknown_flag(token, signature) {
                 self.working_set.parse_errors.truncate(errors);
-                let value = parse_unknown_arg(self.working_set, token, signature);
+                let value = self.unknown_arg(flag.span, signature)?;
                 call.add_unknown(value);
                 return Ok(false);
             }
@@ -1488,7 +1487,7 @@ impl<'s> Lower<'_, '_, 's> {
     fn forwards_unknown_flag(&self, token: Span, signature: &Signature) -> bool {
         signature.allows_unknown_args
             && (!signature.rejects_unknown_flags
-                || strict_extern_forwards(self.working_set.get_span_contents(token)))
+                || forwards_under_strict(self.working_set.get_span_contents(token)))
     }
 
     /// A spread argument, `...$list`, `...[a b]` or `...{flag: value}`, covering `span`.
@@ -1904,4 +1903,20 @@ pub(in crate::winnow) fn shorter_head_reading(
         .ordinary_call(&tree, call, decl_id, input_type)
         .ok()
         .map(Some)
+}
+
+/// Whether `extern --strict` still forwards a flag its signature does not declare (nu's
+/// `strict_extern_forwards`): `--help` reaches every command, a flag spelled at run time
+/// (`-$x`, `--(expr)`) cannot be checked when parsing, and `-10` (as in `git log -10`) is a
+/// count, not a cluster of short flags.
+fn forwards_under_strict(word: &[u8]) -> bool {
+    match word {
+        [b'-', b'-', b'$' | b'(', ..] | [b'-', b'$' | b'(', ..] => true,
+        [b'-', b'-', flag @ ..] => flag
+            .split(|byte| *byte == b'=')
+            .next()
+            .is_some_and(|name| name == b"help"),
+        [b'-', count @ ..] => !count.is_empty() && count.iter().all(u8::is_ascii_digit),
+        _ => false,
+    }
 }

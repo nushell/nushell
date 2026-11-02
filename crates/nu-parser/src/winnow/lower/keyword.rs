@@ -17,12 +17,13 @@ use nu_protocol::{
     },
 };
 
+use super::leaf::{is_assignment, is_env_name};
 use super::{BlockOf, Lower, Lowered, Unlowered, is_missing_argument, statement_decl};
 use crate::winnow::syntax::parse_helpers::is_variable;
 use crate::winnow::syntax::{ItemsValue, Span as WSpan, ast as w};
 use crate::{
     exportable::Exportable,
-    lex::{is_assignment_operator, lex, lex_signature},
+    lex::{lex, lex_signature},
     parse_alias::{
         alias_name, alias_name_fits_module, check_alias_name, finish_alias, report_incomplete_alias,
     },
@@ -31,9 +32,7 @@ use crate::{
     parse_def::{
         DefCall, detect_params_in_name, finish_def, finish_extern, finish_for, yielded_type,
     },
-    parse_expressions::{
-        is_env_variable_name, is_math_expression_like, parse_expression, parse_value,
-    },
+    parse_expressions::{is_math_expression_like, parse_expression, parse_value},
     parse_helpers::garbage,
     parse_module::{finish_export_env, warp_export_call},
     parse_patterns::parse_pattern,
@@ -1595,14 +1594,14 @@ impl<'s> Lower<'_, '_, 's> {
             .split_ascii_whitespace()
             .next()
             .and_then(|word| Some((word, word.find('=')?)))
-            .is_some_and(|(word, equals)| is_env_variable_name(&word.as_bytes()[..equals]));
+            .is_some_and(|(word, equals)| is_env_name(&word.as_bytes()[..equals]));
         // Read as an expression, a target with an assignment operator is an assignment
         // (`parse_assignment_expression`), whose errors the classic parser drops: the winnow
         // parser read the target as a call, the body's reading, and reads it again for this one.
         let assignment = self
             .parts(target.span)
             .iter()
-            .any(|part| is_assignment_operator(self.working_set.get_span_contents(*part)));
+            .any(|part| is_assignment(self.working_set.get_span_contents(*part)));
         // A lone `if` or `match` is a math expression (`is_math_expression_like`), which
         // `parse_math_expression` cannot read.
         let value = if matches!(target_text, "if" | "match") {

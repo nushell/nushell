@@ -13,6 +13,7 @@ use nu_protocol::{
     engine::StateWorkingSet,
 };
 
+use super::leaf::{is_env_name, trim_quotes};
 use super::module::{KeywordEffect, overlay_effect};
 use super::{Lower, Lowered, Unlowered};
 #[cfg(feature = "plugin")]
@@ -27,8 +28,8 @@ use crate::{
     lex::{TokenContents, lex},
     parse_calls::parse_call,
     parse_captures_compile::wrap_element_with_collect,
-    parse_expressions::{is_env_variable_name, is_math_expression_like},
-    parse_helpers::{PERCENT_FORCED_BUILTIN_PARSER_INFO, trim_quotes},
+    parse_expressions::is_math_expression_like,
+    parse_helpers::PERCENT_FORCED_BUILTIN_PARSER_INFO,
     parse_module::{add_exportables, double_main_span},
     parse_pipelines::{finish_block, hide_unlet_constants},
     winnow::{
@@ -601,7 +602,7 @@ impl<'s> Lower<'_, '_, 's> {
                         !text
                             .iter()
                             .position(|&byte| byte == b'=')
-                            .is_some_and(|equals| is_env_variable_name(&text[..equals]))
+                            .is_some_and(|equals| is_env_name(&text[..equals]))
                     });
                     if let Some(&head) = head
                         && let keyword @ (b"while" | b"loop") =
