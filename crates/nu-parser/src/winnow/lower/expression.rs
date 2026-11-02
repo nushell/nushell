@@ -18,7 +18,6 @@ use crate::{
     lex::{TokenContents, lex},
     parse_calls::{CallKind, parse_external_call},
     parse_captures_compile::compile_block,
-    parse_expressions::is_math_expression_like,
     type_check::math_result_type,
     type_check::type_compatible,
 };
@@ -109,7 +108,7 @@ impl<'s> Lower<'_, '_, 's> {
                 // nu reads such a statement as a call to an external command named by its first
                 // item, its other items the arguments (`parse_external_call`).
                 if self.working_set.parse_errors.len() > errors
-                    && !first.is_some_and(|first| is_math_expression_like(self.working_set, first))
+                    && !first.map_or(Ok(false), |first| self.math_like_at(first))?
                 {
                     self.working_set.parse_errors.truncate(errors);
                     let items = self.parts(e.span);

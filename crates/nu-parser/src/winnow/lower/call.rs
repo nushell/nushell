@@ -23,9 +23,7 @@ use crate::{
         CallKind, accepts_any_bareword, check_call, find_decl_with_command_type, find_longest_decl,
         find_longest_decl_with_prefix, parse_external_call, shape_allows_negative_number,
     },
-    parse_expressions::{
-        is_math_expression_like, parse_closure_expression, parse_value as classic_value,
-    },
+    parse_expressions::{parse_closure_expression, parse_value as classic_value},
     parse_helpers::PERCENT_FORCED_BUILTIN_PARSER_INFO,
     parse_keywords::is_parser_keyword,
     parse_signatures::{
@@ -970,7 +968,7 @@ impl<'s> Lower<'_, '_, 's> {
             )?,
             // `parse_expression` reads one item that looks like a value as a math expression.
             SyntaxShape::Expression
-                if one_item && is_math_expression_like(self.working_set, self.span(item.span)) =>
+                if one_item && matches!(self.math_like(item.span), Ok(true)) =>
             {
                 self.math(item, input_type)?
             }

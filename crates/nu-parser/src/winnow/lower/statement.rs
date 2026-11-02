@@ -28,7 +28,6 @@ use crate::{
     lex::{TokenContents, lex},
     parse_calls::parse_call,
     parse_captures_compile::wrap_element_with_collect,
-    parse_expressions::is_math_expression_like,
     parse_helpers::PERCENT_FORCED_BUILTIN_PARSER_INFO,
     parse_module::{add_exportables, double_main_span},
     parse_pipelines::{finish_block, hide_unlet_constants},
@@ -834,9 +833,9 @@ impl<'s> Lower<'_, '_, 's> {
             .find_decl(word.as_bytes())
             .is_some_and(|decl_id| self.working_set.get_decl(decl_id).is_alias());
         is_alias
-            && !is_math_expression_like(
-                self.working_set,
-                Span::new(span.start, span.start + word.len()),
+            && !matches!(
+                self.math_like_at(Span::new(span.start, span.start + word.len())),
+                Ok(true)
             )
     }
 

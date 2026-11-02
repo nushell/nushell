@@ -32,7 +32,7 @@ use crate::{
     parse_def::{
         DefCall, detect_params_in_name, finish_def, finish_extern, finish_for, yielded_type,
     },
-    parse_expressions::{is_math_expression_like, parse_expression, parse_value},
+    parse_expressions::{parse_expression, parse_value},
     parse_helpers::garbage,
     parse_module::{finish_export_env, warp_export_call},
     parse_patterns::parse_pattern,
@@ -1618,7 +1618,7 @@ impl<'s> Lower<'_, '_, 's> {
             let Some(first) = parts.first().copied() else {
                 return Err(Unlowered::Error);
             };
-            if !is_math_expression_like(self.working_set, first)
+            if !self.math_like_at(first)?
                 && self
                     .working_set
                     .find_decl(self.working_set.get_span_contents(first))
@@ -1691,7 +1691,7 @@ impl<'s> Lower<'_, '_, 's> {
         if let w::Expr::Garbage = target.expr
             && let parts = self.parts(target.span)
             && let Some(first) = parts.first().copied()
-            && is_math_expression_like(self.working_set, first)
+            && self.math_like_at(first)?
         {
             let errors = self.working_set.parse_errors.len();
             let expression = parse_expression(self.working_set, &parts, None);

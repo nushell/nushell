@@ -21,7 +21,7 @@ use super::{BlockOf, Lower, Lowered};
 use crate::parse_calls::parse_regular_external_arg;
 use crate::parse_expressions::parse_value as classic_value;
 use crate::parse_literals::parse_full_cell_path;
-use crate::type_check::check_range_types;
+use crate::type_check::{check_range_types, negation_type};
 use crate::winnow::driver::{BlockKind, parse_block};
 use crate::winnow::lookup::EngineLookup;
 use crate::winnow::syntax::lex::Token;
@@ -985,6 +985,131 @@ impl<'s> Lower<'_, '_, 's> {
     ) -> Lowered<Expression> {
         let item = w::Expression::new(w::Expr::Garbage, span);
         self.value(&item, shape, input_type)
+    }
+
+    /// Whether the item covering `span` reads as a value where nu reads a command head
+    /// (`is_math_expression_like`): `true`, `false`, `null`, `not`, `if`, `match`, a raw
+    /// string, an item starting with a bracket, `$`, a quote or `-`, or a literal (a number, a
+    /// filesize, a duration, a date, binary or a range), one its reader refuses as a broken
+    /// literal of its kind included (`9223372036854775808`, `2023-02-29`). The literal readers
+    /// run as nu runs them, their errors dropped.
+    pub(super) fn math_like_at(&mut self, span: Span) -> Lowered<bool> {
+        let span = self.local(span);
+        self.math_like(span)
+    }
+
+    /// [`Self::math_like_at`] for the winnow span of the item.
+    pub(super) fn math_like(&mut self, span: WSpan) -> Lowered<bool> {
+        let text = self.text(span);
+        match text.as_bytes() {
+            [] => return Ok(false),
+            b"true" | b"false" | b"null" | b"not" | b"if" | b"match" | [b'r', b'#', ..] => {
+                return Ok(true);
+            }
+            [b'(' | b'{' | b'[' | b'$' | b'"' | b'\'' | b'-', ..] => return Ok(true),
+            _ => {}
+        }
+        let nu_span = self.span(span);
+        let errors = self.working_set.parse_errors.len();
+        let literal_error = |error: Option<&ParseError>| {
+            matches!(
+                error,
+                Some(ParseError::InvalidLiteral(..) | ParseError::LiteralTooLarge(..))
+            )
+        };
+        for kind in 0..4 {
+            match kind {
+                0 => self.number_leaf(text, nu_span),
+                1 => self.unit_leaf(text, nu_span, UnitKind::Filesize),
+                2 => self.unit_leaf(text, nu_span, UnitKind::Duration),
+                _ => self.datetime_leaf(text, nu_span),
+            };
+            let first = self.working_set.parse_errors.get(errors);
+            let is_literal = first.is_none() || literal_error(first);
+            self.working_set.parse_errors.truncate(errors);
+            if is_literal {
+                return Ok(true);
+            }
+        }
+        let item = w::Expression::new(w::Expr::Garbage, span);
+        self.binary_leaf(&item);
+        let binary = match self.working_set.parse_errors.len() == errors {
+            true => true,
+            false => !matches!(
+                self.working_set.parse_errors.last(),
+                Some(ParseError::Expected(..))
+            ),
+        };
+        self.working_set.parse_errors.truncate(errors);
+        if binary {
+            return Ok(true);
+        }
+        // A bound that is a broken literal (`1..99999999999999999999`) makes a range too.
+        let range = text.contains("..")
+            && (self.range(span)?.is_some()
+                || literal_error(self.working_set.parse_errors.get(errors)));
+        self.working_set.parse_errors.truncate(errors);
+        Ok(range)
+    }
+
+    /// A negation read from the item covering `span` (`parse_negation`): `-$x` (no range) or
+    /// `-(...)` whose parenthesis closes at its end, the operand read with any shape and the
+    /// negation typed as multiplying it by an int types it, an operand that cannot be negated
+    /// reported. `None` for any other item.
+    pub(super) fn negation_text(
+        &mut self,
+        span: WSpan,
+        input_type: Option<&Type>,
+    ) -> Lowered<Option<Expression>> {
+        let text = self.text(span);
+        let operand_span = WSpan::new(span.start + 1, span.end);
+        let operand = match text.as_bytes() {
+            [b'-', b'$', _, ..] if !text.contains("..") => {
+                self.dollar_text(operand_span, &SyntaxShape::Any, input_type)?
+            }
+            [b'-', b'(', .., b')'] => {
+                // The inside lexed shows whether the `(` closes at the end (`-(1)+(2)` does not).
+                let inside = WSpan::new(span.start + 2, span.end - 1);
+                let lexed = lex_recovering(
+                    self.text(inside),
+                    inside.start,
+                    LexOptions::BLOCK,
+                    usize::MAX,
+                    &mut GroupEnds::new(inside),
+                );
+                if let Ok(lexed) = &lexed
+                    && let Some((_, error)) = lexed.errors.first()
+                {
+                    let error = self.lex_parse_error(error, inside.start);
+                    let unmatched = matches!(&error, ParseError::Unclosed(delimiter, ..) if delimiter == ")")
+                        || matches!(error, ParseError::Unbalanced("(", ")", ..));
+                    if unmatched {
+                        return Ok(None);
+                    }
+                }
+                self.paren_text(operand_span, &SyntaxShape::Any)?
+            }
+            _ => return Ok(None),
+        };
+        let negation_span = self.span(span);
+        let ty = match negation_type(&operand.ty) {
+            Some(ty) => ty,
+            None => {
+                self.working_set.error(ParseError::OperatorUnsupportedType {
+                    op: "-",
+                    unsupported: operand.ty.clone(),
+                    op_span: Span::new(negation_span.start, negation_span.start + 1),
+                    unsupported_span: operand.span,
+                    help: Some("Only numbers, durations and filesizes can be negated."),
+                });
+                Type::Any
+            }
+        };
+        Ok(Some(self.node(
+            Expr::UnaryMinus(Box::new(operand)),
+            negation_span,
+            ty,
+        )))
     }
 
     /// `error` reported, and garbage over the item.

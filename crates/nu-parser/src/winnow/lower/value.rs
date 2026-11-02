@@ -25,10 +25,10 @@ use crate::{
     type_check::negation_type,
 };
 
-/// Whether `parse_value` reads `text` with `shape` as a negation first (`parse_negation`):
-/// `-$x` (no range) or `-(...)`, for a shape that holds numbers.
-fn reads_as_negation(text: &str, shape: &SyntaxShape) -> bool {
-    let negates = matches!(
+/// Whether `parse_value` reads an item with `shape` as a negation first (`parse_negation`): a
+/// shape that holds numbers.
+fn negates(shape: &SyntaxShape) -> bool {
+    matches!(
         shape,
         SyntaxShape::Any
             | SyntaxShape::Number
@@ -36,13 +36,7 @@ fn reads_as_negation(text: &str, shape: &SyntaxShape) -> bool {
             | SyntaxShape::Float
             | SyntaxShape::Duration
             | SyntaxShape::Filesize
-    );
-    negates
-        && match text.as_bytes() {
-            [b'-', b'$', _, ..] => !text.contains(".."),
-            [b'-', b'(', .., b')'] => true,
-            _ => false,
-        }
+    )
 }
 
 /// Whether the errors of a `oneof` shape's best guess, whose last error is `last`, are kept
@@ -212,8 +206,10 @@ impl<'s> Lower<'_, '_, 's> {
             _ if self.text(e.span).starts_with("r#") => Ok(self.raw_string_text(e.span)),
             // nu's negation, which it reads before anything else, of a word the winnow parser
             // read otherwise (`-$nope?`).
-            _ if reads_as_negation(self.text(e.span), shape) => {
-                Ok(classic_value(self.working_set, span, shape, None))
+            _ if negates(shape)
+                && let Some(negation) = self.negation_text(e.span, None)? =>
+            {
+                Ok(negation)
             }
             _ => self.leaf_by_shape(e, shape),
         }

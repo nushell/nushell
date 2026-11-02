@@ -890,7 +890,9 @@ pub fn parse_value<'a>(
         && matches!(shape, ExpectedShape::Any | ExpectedShape::Number)
         && let Some(negation) = parse_negation(working_set, span)
     {
-        return negation;
+        // An operand nu reads past an error in (`-$nope?`) makes the negation a garbage leaf,
+        // which the consumer reads again as nu reads it.
+        return recover_literal(working_set, span, negation);
     }
     match text.as_bytes() {
         [] => Err(cut(Diagnostic::expected("value", span))),
@@ -1114,7 +1116,9 @@ fn parse_value_for_shape<'a>(
         )
         && let Some(negation) = parse_negation(working_set, span)
     {
-        return negation;
+        // An operand nu reads past an error in (`-$nope?`) makes the negation a garbage leaf,
+        // which the consumer reads again as nu reads it.
+        return recover_literal(working_set, span, negation);
     }
     match text.as_bytes() {
         [] => return Err(cut(Diagnostic::expected("value", span))),
