@@ -60,6 +60,7 @@ mod module;
 mod record_text;
 mod shape_text;
 mod signature;
+mod signature_text;
 mod source;
 mod statement;
 mod value;

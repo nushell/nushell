@@ -19,11 +19,11 @@ use nu_protocol::{
 
 use super::leaf::{is_assignment, is_env_name};
 use super::{BlockOf, Lower, Lowered, Unlowered, is_missing_argument, statement_decl};
+use crate::winnow::syntax::lex::{LexOptions, TokenContents};
 use crate::winnow::syntax::parse_helpers::is_variable;
 use crate::winnow::syntax::{ItemsValue, Span as WSpan, ast as w};
 use crate::{
     exportable::Exportable,
-    lex::{lex, lex_signature},
     parse_alias::{
         alias_name, alias_name_fits_module, check_alias_name, finish_alias, report_incomplete_alias,
     },
@@ -626,28 +626,25 @@ impl<'s> Lower<'_, '_, 's> {
         match ty {
             Some(annotation) => {
                 let span = self.span(annotation.span);
-                let text = self.text(annotation.span).as_bytes();
                 // nu reports what lexing the type as a signature finds (`record<a: int, b]>`)
                 // and an unknown type, and goes on with it (`parse_var_with_opt_type`), at the
                 // first item of the type so lexed (`int=` of `int= 3`).
-                let (tokens, lex_error) = lex_signature(text, span.start, &[], b",", true);
+                let (tokens, lex_error) = self.lex_span(span, LexOptions::VAR_TYPE);
                 if let Some(error) = lex_error {
                     self.working_set.error(error);
                 }
-                let at = tokens.first().map_or(span, |token| token.span);
-                let ty = self.type_text(self.text(annotation.span), at);
+                let at = tokens.first().map_or(span, |token| self.span(token.span));
+                let ty = self.type_text(self.text(annotation.span), at)?;
                 // The classic parser gives the variable the span of the next-to-last item of
                 // `name: type...`: the name with its `:` when the type is one item.
                 let region = Span::new(name_span.start, span.end);
-                let (items, _) = lex(
-                    self.working_set.get_span_contents(region),
-                    region.start,
-                    &[],
-                    &[],
-                    true,
-                );
+                let (items, _) = self.lex_span(region, LexOptions::BLOCK);
+                let items: Vec<_> = items
+                    .iter()
+                    .filter(|item| item.contents != TokenContents::Comment)
+                    .collect();
                 let var_span = match items.as_slice() {
-                    [.., second_to_last, _] => second_to_last.span,
+                    [.., second_to_last, _] => self.span(second_to_last.span),
                     _ => Span::new(name_span.start, name_span.end + 1),
                 };
                 let var_id =

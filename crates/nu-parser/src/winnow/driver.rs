@@ -58,12 +58,10 @@ use super::{
     lower::{BlockErrors, BlockOf, Lower, Predecl, StatementTarget, garbage_pipeline},
     stats,
 };
+use crate::parse_pipelines::finish_block;
 use crate::winnow::syntax::{
     BlockSink, BlockStatements, Definitions, Diagnostic, PredeclaredDef, TypeAliasPredecl,
     ast as w, lex::LexError,
-};
-use crate::{
-    lex::lex, lite_parser::lite_parse, parse_def::parse_def_predecl, parse_pipelines::finish_block,
 };
 
 /// What kind of block is parsed, with what the kind needs.
@@ -862,20 +860,10 @@ impl<'a> BlockSink<'a> for Driver<'_, '_, '_, '_> {
         if lowered {
             return;
         }
-        // The classic predeclaration, from the statement's text: of a pipeline of one command,
-        // as the classic `parse_block` does it.
-        let (tokens, _) = lex(
-            working_set.get_span_contents(span),
-            span.start,
-            &[],
-            &[],
-            false,
-        );
-        let (lite_block, _) = lite_parse(&tokens, working_set);
-        for pipeline in &lite_block.block {
-            if let [lite_command] = pipeline.commands.as_slice() {
-                parse_def_predecl(working_set, lite_command.command_parts());
-            }
+        // The classic predeclaration, from the statement's text. What it cannot read is counted
+        // and logged; the statement reports it.
+        if let Err(unlowered) = lower.predecl_statement_text(span) {
+            stats::record_unlowered(span, &unlowered, working_set);
         }
     }
 

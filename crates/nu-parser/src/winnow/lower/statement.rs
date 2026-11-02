@@ -19,13 +19,13 @@ use super::{Lower, Lowered, Unlowered};
 #[cfg(feature = "plugin")]
 use crate::parse_source::parse_plugin_use;
 use crate::winnow::syntax::lex::{
-    LexError, RedirectionSource as WinnowSource, is_file_redirection_operator,
+    LexError, LexOptions, RedirectionSource as WinnowSource, TokenContents,
+    is_file_redirection_operator,
 };
 use crate::winnow::syntax::{Span as WSpan, ast as w};
 use crate::{
     exportable::Exportable,
     lex::delimiter_diagnostics::delimiter_structure_hint,
-    lex::{TokenContents, lex},
     parse_calls::parse_call,
     parse_captures_compile::wrap_element_with_collect,
     parse_helpers::PERCENT_FORCED_BUILTIN_PARSER_INFO,
@@ -401,11 +401,14 @@ impl<'s> Lower<'_, '_, 's> {
                         self.add_export_decl(module, module_name, name, decl_id, &expression);
                     } else if call.head.name.as_ref() == "alias" {
                         let span = self.span(command.span);
-                        let contents = self.working_set.get_span_contents(span);
-                        let (items, _) = lex(contents, span.start, &[], &[], true);
-                        let name = items.get(2).map_or(Vec::new(), |item| {
-                            trim_quotes(self.working_set.get_span_contents(item.span)).to_vec()
-                        });
+                        let (items, _) = self.lex_span(span, LexOptions::BLOCK);
+                        let name = items
+                            .iter()
+                            .filter(|item| item.contents != TokenContents::Comment)
+                            .nth(2)
+                            .map_or(Vec::new(), |item| {
+                                trim_quotes(self.text(item.span).as_bytes()).to_vec()
+                            });
                         match self.working_set.find_decl(&name) {
                             Some(decl_id) => self.add_export_decl(
                                 module,
@@ -442,17 +445,11 @@ impl<'s> Lower<'_, '_, 's> {
                 // The command's items as the lite parser grouped them, from the first to the
                 // last: `let x o> f` is `let x`, `^ls o>` all of it.
                 let parts = self.span(element.parts);
-                let (tokens, _) = lex(
-                    self.working_set.get_span_contents(parts),
-                    parts.start,
-                    b"\n\r",
-                    &[],
-                    true,
-                );
+                let (tokens, _) = self.lex_span(parts, LexOptions::SUBEXPRESSION);
                 let Some(first) = tokens
                     .iter()
                     .find(|token| token.contents != TokenContents::Comment)
-                    .map(|token| token.span)
+                    .map(|token| self.span(token.span))
                 else {
                     return Err(Unlowered::Error);
                 };
@@ -461,7 +458,7 @@ impl<'s> Lower<'_, '_, 's> {
                 let words: Vec<Span> = tokens
                     .iter()
                     .filter(|token| token.contents != TokenContents::Comment)
-                    .map(|token| token.span)
+                    .map(|token| self.span(token.span))
                     .collect();
                 if let [export, second, ..] = words.as_slice()
                     && self.working_set.get_span_contents(*export) == b"export"

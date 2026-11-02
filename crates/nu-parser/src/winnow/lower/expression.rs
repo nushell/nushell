@@ -13,9 +13,9 @@ use nu_protocol::{
 
 use super::leaf::is_assignment;
 use super::{BlockOf, Lower, Lowered, Unlowered, call::STATEMENTS_IN_PIPELINE, statement_decl};
-use crate::winnow::syntax::{Span as WSpan, ast as w, lex::AssignmentOperator};
+use crate::winnow::syntax::lex::{AssignmentOperator, LexOptions, TokenContents};
+use crate::winnow::syntax::{Span as WSpan, ast as w};
 use crate::{
-    lex::{TokenContents, lex},
     parse_calls::{CallKind, parse_external_call},
     parse_captures_compile::compile_block,
     type_check::math_result_type,
@@ -139,18 +139,12 @@ impl<'s> Lower<'_, '_, 's> {
     /// The spans of the tokens at `span` whose kind passes `keep`, lexed as an expression's,
     /// but the element's redirections ([`Lower::redirection_spans`]).
     fn lexed_parts(&self, span: WSpan, keep: impl Fn(TokenContents) -> bool) -> Vec<Span> {
-        let span = self.span(span);
-        let (tokens, _) = lex(
-            self.working_set.get_span_contents(span),
-            span.start,
-            b"\n\r",
-            &[],
-            true,
-        );
+        let (tokens, _) = self.lex_span(self.span(span), LexOptions::SUBEXPRESSION);
         tokens
             .iter()
-            .filter(|token| keep(token.contents) && !self.redirection_spans.contains(&token.span))
-            .map(|token| token.span)
+            .filter(|token| token.contents != TokenContents::Comment && keep(token.contents))
+            .map(|token| self.span(token.span))
+            .filter(|span| !self.redirection_spans.contains(span))
             .collect()
     }
 

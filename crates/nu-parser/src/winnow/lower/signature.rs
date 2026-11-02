@@ -2,7 +2,7 @@
 //! `parse_full_signature`), and the predeclaration of commands (`parse_def_predecl`).
 
 use nu_protocol::{
-    Flag, ParseError, PositionalArg, Signature, SyntaxShape, Type, VarId,
+    Flag, ParseError, PositionalArg, Signature, Span, SyntaxShape, Type, VarId,
     ast::{Expr, Expression},
     engine::CommandType,
 };
@@ -10,10 +10,8 @@ use nu_protocol::{
 use super::{Lower, Lowered, Unlowered};
 use crate::winnow::syntax::{Span as WSpan, ast as w};
 use crate::{
-    parse_def::{parse_def_predecl, reject_command_name, rest_param_is_type_annotated},
-    parse_signatures::{
-        Arg, assemble_signature, ensure_not_reserved_variable_name, parse_input_output_types,
-    },
+    parse_def::{reject_command_name, rest_param_is_type_annotated},
+    parse_signatures::{Arg, assemble_signature, ensure_not_reserved_variable_name},
 };
 
 /// What the predeclaration of a command needs.
@@ -67,37 +65,55 @@ impl<'s> Lower<'_, '_, 's> {
         let errors = self.working_set.parse_errors.len();
         self.working_set.enter_scope();
         let lowered = self.signature_params(written, predecl.external);
-        let lowered = lowered.map(|mut sig| {
+        let lowered = lowered.and_then(|mut sig| {
             if let Some(types) = written.input_output_span {
                 // To the statement's end, as the classic predeclaration reads them.
                 let span = self.span(WSpan::new(types.start, predecl.statement_end));
-                sig.input_output_types = parse_input_output_types(self.working_set, &[span]);
+                sig.input_output_types = self.input_output_types_text(&[span])?;
             }
-            sig
+            Ok(sig)
         });
         self.working_set.parse_errors.truncate(errors);
         self.working_set.exit_scope();
-        let Ok(mut signature) = lowered else {
+        let Ok(signature) = lowered else {
             return false;
         };
-        signature.name = name.to_string();
-        if predecl.wrapped {
-            // `parse_def_predecl` decides whether the rest parameter is typed from the text of
-            // the `[...]` item (`rest_param_is_type_annotated`), where a comment counts too.
-            let params = WSpan::new(
-                written.span.start,
-                written
-                    .input_output_span
-                    .map_or(written.span.end, |types| types.start),
-            );
+        // The `[...]` item, as `parse_def_predecl` reads it.
+        let params = WSpan::new(
+            written.span.start,
+            written
+                .input_output_span
+                .map_or(written.span.end, |types| types.start),
+        );
+        let params = self.text(params);
+        let (wrapped, external) = (predecl.wrapped, predecl.external);
+        self.declare_predecl(signature, name.into(), name_span, params, wrapped, external);
+        true
+    }
+
+    /// Declare the command `name`, its item at `name_span`, with `signature`, as
+    /// `parse_def_predecl` ends: `--wrapped` makes the rest parameter take external arguments
+    /// unless `params`, the text of the signature's `[...]` item, types it (a comment there
+    /// counts too); a name the block declares already is reported.
+    pub(super) fn declare_predecl(
+        &mut self,
+        mut signature: Box<Signature>,
+        name: String,
+        name_span: Span,
+        params: &str,
+        wrapped: bool,
+        external: bool,
+    ) {
+        signature.name = name;
+        if wrapped {
             if let Some(rest) = &mut signature.rest_positional
-                && !rest_param_is_type_annotated(self.text(params).as_bytes(), &rest.name)
+                && !rest_param_is_type_annotated(params.as_bytes(), &rest.name)
             {
                 rest.shape = SyntaxShape::ExternalArgument;
             }
             signature.allows_unknown_args = true;
         }
-        let command_type = if predecl.external {
+        let command_type = if external {
             CommandType::External
         } else {
             CommandType::Custom
@@ -107,7 +123,6 @@ impl<'s> Lower<'_, '_, 's> {
             self.working_set
                 .error(ParseError::DuplicateCommandDef(name_span));
         }
-        true
     }
 
     /// Declare the command a `def` or `extern` statement of a nested block defines, through an
@@ -153,8 +168,7 @@ impl<'s> Lower<'_, '_, 's> {
             // the call may hold several of (`def d [] {}x y`).
             w::Expr::Call(call) if matches!(call.head.name.as_ref(), "def" | "extern") => {
                 let spans = self.parts(e.span);
-                parse_def_predecl(self.working_set, &spans);
-                return Ok(());
+                return self.def_predecl_text(&spans);
             }
             _ => return Ok(()),
         };
@@ -194,7 +208,7 @@ impl<'s> Lower<'_, '_, 's> {
         // nu reports a type it does not know and goes on (`parse_full_signature`).
         if let Some(types) = signature.input_output_span {
             let span = self.span(types);
-            sig.input_output_types = parse_input_output_types(self.working_set, &[span]);
+            sig.input_output_types = self.input_output_types_text(&[span])?;
         }
         Ok(sig)
     }
@@ -251,9 +265,9 @@ impl<'s> Lower<'_, '_, 's> {
                     let span = self.span(ty.span);
                     let text = self.text(ty.span);
                     // An unknown type is `any`, an unknown completer none, each reported.
-                    let shape = self.shape_name(text, span);
+                    let shape = self.shape_name(text, span)?;
                     let completion = match &param.completer {
-                        Some(completer) => self.completer_text(completer.span),
+                        Some(completer) => self.completer_text(completer.span)?,
                         None => None,
                     };
                     (Some(shape), completion)

@@ -26,9 +26,7 @@ use crate::{
     parse_expressions::{parse_closure_expression, parse_value as classic_value},
     parse_helpers::PERCENT_FORCED_BUILTIN_PARSER_INFO,
     parse_keywords::is_parser_keyword,
-    parse_signatures::{
-        ensure_not_reserved_variable_name, parse_full_signature, parse_var_with_opt_type,
-    },
+    parse_signatures::ensure_not_reserved_variable_name,
     parse_source::{LIB_DIRS_VAR, find_dirs_var},
     type_check::type_compatible,
     winnow::lookup::{EngineLookup, decl_kind},
@@ -870,13 +868,8 @@ impl<'s> Lower<'_, '_, 's> {
                         .map(|argument| self.span(argument.span()))
                         .collect();
                     let mut last = index;
-                    let (value, _) = parse_var_with_opt_type(
-                        self.working_set,
-                        &spans,
-                        &mut last,
-                        false,
-                        input_type,
-                    );
+                    let (value, _) =
+                        self.var_with_opt_type(&spans, &mut last, false, input_type)?;
                     return Ok((value, last + 1));
                 }
                 // A signature, which `parse_full_signature` reads from the items, and reports
@@ -889,10 +882,7 @@ impl<'s> Lower<'_, '_, 's> {
                         .map(|argument| self.span(argument.span()))
                         .collect();
                     let external = matches!(shape, SyntaxShape::ExternalSignature);
-                    return Ok((
-                        parse_full_signature(self.working_set, &spans, external),
-                        end,
-                    ));
+                    return Ok((self.full_signature_text(&spans, external)?, end));
                 }
                 SyntaxShape::Keyword(keyword, value_shape) if arguments.get(index).is_some() => {
                     return self.keyword_value(
@@ -932,8 +922,7 @@ impl<'s> Lower<'_, '_, 's> {
                     .map(|argument| self.span(argument.span()))
                     .collect();
                 let mut last = index;
-                let (value, _) =
-                    parse_var_with_opt_type(self.working_set, &spans, &mut last, false, input_type);
+                let (value, _) = self.var_with_opt_type(&spans, &mut last, false, input_type)?;
                 return Ok((value, last + 1));
             }
             // `parse_math_expression` reads `if` or `match` and the items after it as a call
@@ -977,8 +966,8 @@ impl<'s> Lower<'_, '_, 's> {
             SyntaxShape::Signature | SyntaxShape::ExternalSignature
                 if one_item && text.starts_with('[') =>
             {
-                let span = self.span(item.span);
-                classic_value(self.working_set, span, shape, None)
+                let external = matches!(shape, SyntaxShape::ExternalSignature);
+                self.signature_text(self.span(item.span), external)?
             }
             // A signature of several items, which `parse_full_signature` reads as they are: one
             // with its input and output types, or one with an item it drops (`def f [] {}
@@ -989,7 +978,7 @@ impl<'s> Lower<'_, '_, 's> {
                     .map(|argument| self.span(argument.span()))
                     .collect();
                 let external = matches!(shape, SyntaxShape::ExternalSignature);
-                parse_full_signature(self.working_set, &spans, external)
+                self.full_signature_text(&spans, external)?
             }
             // Any other expression is what `parse_expression` reads from the items (`alias -- =
             // ls`, whose `=` value is the call `ls`), every item a word as in the call.

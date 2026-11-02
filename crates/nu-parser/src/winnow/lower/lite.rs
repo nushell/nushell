@@ -51,6 +51,12 @@ pub(super) struct LiteCommand {
 }
 
 impl LiteCommand {
+    /// Its parts after its attribute lines (nu's `command_parts`).
+    pub(super) fn command_parts(&self) -> &[Span] {
+        let command_start = self.attribute_idx.last().copied().unwrap_or(0);
+        self.parts.get(command_start..).unwrap_or_default()
+    }
+
     fn accepts_redirection(&self, span: Span) -> Option<ParseError> {
         self.parts
             .is_empty()

@@ -58,6 +58,7 @@ const SHARED: &[&str] = &[
     "parse_calls::check_call",
     "parse_calls::shape_allows_negative_number",
     "parse_helpers::PERCENT_FORCED_BUILTIN_PARSER_INFO",
+    "parse_helpers::SPREAD_OPERATOR_STR",
     "parse_helpers::extract_spread_list",
     "parse_helpers::extract_spread_record",
     "parse_helpers::garbage",
@@ -96,10 +97,6 @@ const TO_PORT: &[&str] = &[
     "parse_patterns::parse_pattern",
     // Signatures and types.
     "parse_def::detect_params_in_name",
-    "parse_def::parse_def_predecl",
-    "parse_signatures::parse_full_signature",
-    "parse_signatures::parse_input_output_types",
-    "parse_signatures::parse_var_with_opt_type",
     // Calls and statement layouts read again.
     "parse_alias::check_alias_name",
     "parse_alias::report_incomplete_alias",
@@ -107,11 +104,7 @@ const TO_PORT: &[&str] = &[
     "parse_calls::parse_multispan_value",
     "parse_type_alias::type_alias_layout_error",
     // The lexer and the lite parser.
-    "lex::TokenContents",
     "lex::delimiter_diagnostics::delimiter_structure_hint",
-    "lex::lex",
-    "lex::lex_signature",
-    "lite_parser::lite_parse",
 ];
 
 /// Every path under `crate::` outside `crate::winnow` that `src/winnow` names, with the files
