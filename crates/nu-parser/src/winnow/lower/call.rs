@@ -264,9 +264,9 @@ impl<'s> Lower<'_, '_, 's> {
         // The winnow parser read the arguments as external arguments, for a `def --wrapped`
         // command; the classic parser reads them with the signature of the command the name
         // resolves to now (`parse_internal_call`), which a `hide`, `use` or `overlay use` may
-        // have changed since.
+        // have changed since: the call is read again with the commands known now.
         if call.wrapped && decl_kind(self.working_set, decl_id) != DeclKind::Wrapped {
-            return Err(Unlowered::Unsupported("wrapped command rebound"));
+            return self.reread(e.span, ItemsValue::Expression, input_type);
         }
         // `parse_call` refuses a command whose second item is `=` (`let = 1`, `alias = ls`
         // read as calls) and makes the call garbage.
@@ -858,6 +858,21 @@ impl<'s> Lower<'_, '_, 's> {
                         input_type,
                     );
                     return Ok((value, last + 1));
+                }
+                // A signature, which `parse_full_signature` reads from the items, and reports
+                // when the first is no `[` (`def f -- -x {}`).
+                SyntaxShape::Signature | SyntaxShape::ExternalSignature
+                    if arguments.get(index).is_some() =>
+                {
+                    let spans: Vec<Span> = arguments[index..end]
+                        .iter()
+                        .map(|argument| self.span(argument.span()))
+                        .collect();
+                    let external = matches!(shape, SyntaxShape::ExternalSignature);
+                    return Ok((
+                        parse_full_signature(self.working_set, &spans, external),
+                        end,
+                    ));
                 }
                 SyntaxShape::Keyword(keyword, value_shape) if arguments.get(index).is_some() => {
                     return self.keyword_value(

@@ -25,12 +25,11 @@ use crate::{
     exportable::Exportable,
     lex::delimiter_diagnostics::delimiter_structure_hint,
     lex::{TokenContents, lex},
-    lite_parser::lite_parse,
     parse_captures_compile::wrap_element_with_collect,
     parse_expressions::{is_env_variable_name, is_math_expression_like},
     parse_helpers::{PERCENT_FORCED_BUILTIN_PARSER_INFO, trim_quotes},
-    parse_module::{add_exportables, double_main_span, parse_module_pipeline},
-    parse_pipelines::{finish_block, hide_unlet_constants, parse_pipeline},
+    parse_module::{add_exportables, double_main_span},
+    parse_pipelines::{finish_block, hide_unlet_constants},
     winnow::{
         driver::{BlockKind, parse_block, parse_rest, statement_changes_names},
         stats,
@@ -89,12 +88,9 @@ impl BlockOf {
 
 /// Where a statement goes: an ordinary block, or a module's body.
 pub(in crate::winnow) enum StatementTarget<'t> {
-    /// A statement of an ordinary block, which is what `of` says; `input_type` is the block's
-    /// input, which only its first statement receives.
-    Block {
-        input_type: Option<&'t Type>,
-        of: BlockOf,
-    },
+    /// A statement of an ordinary block; `input_type` is the block's input, which only its
+    /// first statement receives.
+    Block { input_type: Option<&'t Type> },
     /// A statement of the body of the module `name`, covering `span`; exports add to `module`.
     Module {
         name: &'t [u8],
@@ -124,20 +120,19 @@ const EXPORTED_KEYWORDS: &[&[u8]] = &[
 ];
 
 impl<'s> Lower<'_, '_, 's> {
-    /// A statement lowered, or parsed by the classic parser from `span` when the lowering gives
-    /// it back, added to `out`. The errors,
-    /// warnings and compile errors the lowering reported before giving up are dropped, and so
-    /// are the constants an `unlet` it lowered hid in the current scope (which the classic
-    /// parser must still find, in the `unlet` itself); what else it added to the working set
-    /// stays, unreachable from `out` (see the module documentation of `lower`). `block_errors`
-    /// places the block's own errors ([`BlockErrors`]).
-    pub(in crate::winnow) fn statement_or_classic(
+    /// A statement lowered, added to `out`, or a garbage pipeline over `span`, with an error,
+    /// when the lowering gives it back. Given back for an error ([`Unlowered::Error`]), the
+    /// statement keeps what the lowering reported, else an internal error says that it reported
+    /// nothing; given back as unsupported, it drops what the lowering reported and reports the
+    /// construct ([`unsupported_error`]). Either way the constants an `unlet` it lowered hid in
+    /// the current scope are found again, and what else it added to the working set stays,
+    /// unreachable from `out` (see the module documentation of `lower`).
+    pub(in crate::winnow) fn statement_or_garbage(
         &mut self,
         pipeline: &w::Pipeline<'s>,
         span: Span,
         target: &mut StatementTarget<'_>,
         out: &mut Vec<Pipeline>,
-        block_errors: &mut BlockErrors,
     ) {
         let errors = self.working_set.parse_errors.len();
         let warnings = self.working_set.parse_warnings.len();
@@ -154,13 +149,23 @@ impl<'s> Lower<'_, '_, 's> {
                 stats::record_lowered_statement();
                 out.push(pipeline);
             }
-            Err(reason) => {
-                self.working_set.parse_errors.truncate(errors);
-                self.working_set.parse_warnings.truncate(warnings);
-                self.working_set.compile_errors.truncate(compile_errors);
+            Err(unlowered) => {
                 self.working_set.delta.last_scope_frame_mut().hidden_vars = hidden_vars;
-                stats::record_unlowered(span, &reason, self.working_set);
-                parse_classic(self.working_set, span, target, out, block_errors);
+                match unlowered {
+                    Unlowered::Error if self.working_set.parse_errors.len() > errors => {}
+                    Unlowered::Error => self.working_set.error(ParseError::InternalError(
+                        "the winnow parser gave up on this statement without an error".into(),
+                        span,
+                    )),
+                    Unlowered::Unsupported(what) => {
+                        self.working_set.parse_errors.truncate(errors);
+                        self.working_set.parse_warnings.truncate(warnings);
+                        self.working_set.compile_errors.truncate(compile_errors);
+                        self.working_set.error(unsupported_error(what, span));
+                    }
+                }
+                stats::record_unlowered(span, &unlowered, self.working_set);
+                out.push(garbage_pipeline(self.working_set, span));
             }
         }
     }
@@ -181,8 +186,8 @@ impl<'s> Lower<'_, '_, 's> {
 
     /// A statement of a module's body (`parse_module_pipeline`): definitions, constants,
     /// aliases, modules, `use` and `export-env` blocks, and their exports added to `module`,
-    /// whose body covers `span`. `module` changes only once nothing can fail, since the classic
-    /// parser adds the exports of a statement given back.
+    /// whose body covers `span`. `module` changes only once nothing can fail, since a statement
+    /// given back adds no exports.
     fn module_statement(
         &mut self,
         pipeline: &w::Pipeline<'s>,
@@ -200,6 +205,11 @@ impl<'s> Lower<'_, '_, 's> {
                 span,
             )]));
         };
+        if let Some(redirection) = &element.redirection
+            && let Some(refused) = self.redirected_statement(&element.expr, redirection, true)
+        {
+            return Ok(refused);
+        }
         let (command, attributes) = match &element.expr.expr {
             w::Expr::AttributeBlock(block) => (&*block.item, block.attributes.as_slice()),
             _ => (&element.expr, &[][..]),
@@ -631,7 +641,7 @@ impl<'s> Lower<'_, '_, 's> {
         input_type: Option<&Type>,
     ) -> Lowered<Pipeline> {
         if let Some(redirection) = &element.redirection
-            && let Some(refused) = self.redirected_statement(&element.expr, redirection)
+            && let Some(refused) = self.redirected_statement(&element.expr, redirection, false)
         {
             return Ok(refused);
         }
@@ -823,7 +833,7 @@ impl<'s> Lower<'_, '_, 's> {
     /// Whether `expression` calls `overlay use`, `overlay hide` or `overlay new`, maybe through
     /// an alias: the classic `parse_builtin_commands` applies such a call's effect on the
     /// scope as it parses it.
-    fn calls_overlay(&self, expression: &Expression) -> bool {
+    pub(in crate::winnow) fn calls_overlay(&self, expression: &Expression) -> bool {
         matches!(
             &expression.expr,
             Expr::Call(call) if self.overlay_call_effect(call).is_some()
@@ -968,71 +978,51 @@ impl<'s> Lower<'_, '_, 's> {
     }
 
     /// A statement nu refuses to redirect (`redirecting_builtin_error`), reported with the
-    /// name its parse function gives it and made garbage: over its items, or for a `for`
-    /// over its keyword. `None` for any other command.
+    /// name its parse function gives it ([`refused_redirection_name`]; `in_module`: in a
+    /// module's body) and made garbage: over its items, or for a `for` over its keyword.
+    /// `None` for any other command.
     fn redirected_statement(
         &mut self,
         e: &w::Expression<'s>,
         redirection: &w::PipelineRedirection<'s>,
+        in_module: bool,
     ) -> Option<Pipeline> {
-        let call_name = |call: &w::Call<'s>| match call.head.name.split(' ').next() {
-            Some("overlay") => Some("overlay"),
-            _ => match call.head.name.as_ref() {
-                "def" => Some("def"),
-                "extern" => Some("extern"),
-                "for" => Some("for"),
-                "alias" => Some("alias"),
-                "type" => Some("type"),
-                "module" => Some("module"),
-                "use" => Some("use"),
-                "hide" => Some("hide"),
-                "source" => Some("source"),
-                "source-env" => Some("source-env"),
-                "run" => Some("run"),
-                "plugin use" => Some("plugin use"),
-                // `parse_export_in_block` names an export by its second item, `export` alone
-                // when that is no keyword it exports (`export let x o> f`).
-                "export" => Some(
-                    match call
-                        .arguments
-                        .first()
-                        .map(|argument| self.text(argument.span()))
-                    {
-                        Some("alias") => "export alias",
-                        Some("def") => "export def",
-                        Some("extern") => "export extern",
-                        Some("use") => "export use",
-                        Some("module") => "export module",
-                        Some("const") => "export const",
-                        Some("type") => "export type",
-                        _ => "export",
-                    },
-                ),
-                _ => None,
-            },
-        };
-        let name = match &e.expr {
-            w::Expr::Def(_) => "def",
-            w::Expr::Extern(_) => "extern",
-            w::Expr::For(_) => "for",
-            w::Expr::Alias(_) => "alias",
-            w::Expr::TypeAlias(_) => "type",
-            w::Expr::Module(_) => "module",
-            w::Expr::Use(_) => "use",
-            // `parse_export_in_block` names the export by its second item.
+        // The statement's keyword, and whether `export` comes before it: a keyword's call for
+        // help (`export def -h o> f`) is named as its statement.
+        let (keyword, exported) = match &e.expr {
+            w::Expr::Def(_) => ("def", false),
+            w::Expr::Extern(_) => ("extern", false),
+            w::Expr::For(_) => ("for", false),
+            w::Expr::Alias(_) => ("alias", false),
+            w::Expr::TypeAlias(_) => ("type", false),
+            w::Expr::Module(_) => ("module", false),
+            w::Expr::Use(_) => ("use", false),
             w::Expr::Export(export) => match &export.item.expr {
-                w::Expr::Def(_) => "export def",
-                w::Expr::Extern(_) => "export extern",
-                w::Expr::Alias(_) => "export alias",
-                w::Expr::Use(_) => "export use",
-                w::Expr::Module(_) => "export module",
-                w::Expr::Const(_) => "export const",
-                w::Expr::TypeAlias(_) => "export type",
+                w::Expr::Def(_) => ("def", true),
+                w::Expr::Extern(_) => ("extern", true),
+                w::Expr::Alias(_) => ("alias", true),
+                w::Expr::Use(_) => ("use", true),
+                w::Expr::Module(_) => ("module", true),
+                w::Expr::Const(_) => ("const", true),
+                w::Expr::TypeAlias(_) => ("type", true),
+                w::Expr::Call(call) => (call.head.name.as_ref(), true),
                 _ => return None,
             },
-            w::Expr::Call(call) => call_name(call)?,
+            w::Expr::Call(call) => match call.head.name.as_ref() {
+                "export" => (
+                    call.arguments
+                        .first()
+                        .map_or("", |argument| self.text(argument.span())),
+                    true,
+                ),
+                name => match name.strip_prefix("export ") {
+                    Some(keyword) => (keyword, true),
+                    None => (name, false),
+                },
+            },
             _ => return None,
         };
+        let name = refused_redirection_name(keyword, exported, in_module)?;
         let connector = |target: &w::RedirectionTarget<'s>| match target {
             w::RedirectionTarget::File { op, .. } | w::RedirectionTarget::Pipe { op } => op.span,
         };
@@ -1109,9 +1099,10 @@ impl<'s> Lower<'_, '_, 's> {
     }
 
     /// A block from the winnow tree (`parse_block`), covering `span`: a new scope when
-    /// `scoped`, its definitions declared first, then its statements; statements the lowering
-    /// gives back are parsed by the classic parser, and so is the rest of the block after one
-    /// of them that called `overlay use` (or `hide`, `new`) through an alias.
+    /// `scoped`, its definitions declared first, then its statements
+    /// ([`Self::statement_or_garbage`]); the rest of the block after one that called
+    /// `overlay use` (or `hide`, `new`) through an alias is parsed again with the commands known
+    /// then.
     pub(super) fn block(
         &mut self,
         block: &w::Block<'s>,
@@ -1210,22 +1201,15 @@ impl<'s> Lower<'_, '_, 's> {
         for (index, pipeline) in block.pipelines.iter().enumerate() {
             let span = self.statement_span(pipeline);
             let input_type = if index == 0 { input_type } else { None };
-            let mut target = StatementTarget::Block { input_type, of };
+            let mut target = StatementTarget::Block { input_type };
             let first = out.pipelines.len();
-            self.statement_or_classic(
-                pipeline,
-                span,
-                &mut target,
-                &mut out.pipelines,
-                &mut block_errors,
-            );
+            self.statement_or_garbage(pipeline, span, &mut target, &mut out.pipelines);
             // A statement may call `overlay use` through an alias (which `changes_commands`
             // cannot tell from its head) that the winnow parser did not know as one when it
             // parsed the block (it leaves a block with a call through an alias it knows
-            // unparsed, `DeclKind::OverlayAlias`), which changed the overlays as it was lowered
-            // or as the classic parser parsed it: the rest of the block, parsed before with the
-            // old commands, is parsed again with the new ones, a statement at a time, as a
-            // file is.
+            // unparsed, `DeclKind::OverlayAlias`), which changed the overlays as it was
+            // lowered: the rest of the block, parsed before with the old commands, is parsed
+            // again with the new ones, a statement at a time, as a file is.
             if let Some(next) = block.pipelines.get(index + 1)
                 && out.pipelines[first..]
                     .iter()
@@ -1243,20 +1227,13 @@ impl<'s> Lower<'_, '_, 's> {
                     &mut out.pipelines,
                     &mut block_errors,
                 );
+                // The rest lexed as part of the block already, so it lexes on its own.
                 if !parsed {
-                    let reason = Unlowered::Unsupported("rest of a block after an overlay");
-                    stats::record_unlowered(rest, &reason, self.working_set);
-                    let mut target = StatementTarget::Block {
-                        input_type: None,
-                        of,
-                    };
-                    parse_classic(
-                        self.working_set,
+                    self.working_set.error(ParseError::InternalError(
+                        "the winnow parser could not lex the rest of the block again".into(),
                         rest,
-                        &mut target,
-                        &mut out.pipelines,
-                        &mut block_errors,
-                    );
+                    ));
+                    out.pipelines.push(garbage_pipeline(self.working_set, rest));
                 }
                 break;
             }
@@ -1371,81 +1348,73 @@ impl<'s> Lower<'_, '_, 's> {
     }
 }
 
-/// Parse the statements covering `span` with the classic parser into `out`, with their effects
-/// on the working set and, in a module's body, on the module. The first of them receives the
-/// target's input, which the caller gives only to a block's first statement. Unlike the classic
-/// `parse_block`, it predeclares no definitions: the block's are declared already.
-///
-/// The classic parser lexes and lite-parses a whole block before it parses any statement, so it
-/// reports those errors (a `||`, a redirection without a target) before the errors of statements
-/// before them, the block's first of each only: they go to `block_errors`.
-pub(in crate::winnow) fn parse_classic(
+/// The name the parse function of the statement of `keyword` (after `export` when
+/// `exported`; in a module's body when `in_module`) reports a redirection with
+/// (`redirecting_builtin_error`), or `None` when it takes one. `parse_export_in_block` names an
+/// export by its second item, `export` alone when that is no keyword it exports (`export let
+/// x o> f`); in a module's body `parse_export_in_module` hands an export to its keyword's
+/// parse function, which names it by the keyword. `parse_const` and `parse_export_env` drop
+/// the redirection.
+fn refused_redirection_name(
+    keyword: &str,
+    exported: bool,
+    in_module: bool,
+) -> Option<&'static str> {
+    if exported && !in_module {
+        return Some(match keyword {
+            "alias" => "export alias",
+            "def" => "export def",
+            "extern" => "export extern",
+            "use" => "export use",
+            "module" => "export module",
+            "const" => "export const",
+            "type" => "export type",
+            _ => "export",
+        });
+    }
+    match keyword {
+        "def" => Some("def"),
+        "extern" => Some("extern"),
+        "alias" => Some("alias"),
+        "type" => Some("type"),
+        "module" => Some("module"),
+        "use" => Some("use"),
+        // Not module statements: `parse_module_pipeline` refuses them before.
+        _ if in_module => None,
+        "for" => Some("for"),
+        "hide" => Some("hide"),
+        "source" => Some("source"),
+        "source-env" => Some("source-env"),
+        "run" => Some("run"),
+        "plugin use" => Some("plugin use"),
+        _ if keyword.split(' ').next() == Some("overlay") => Some("overlay"),
+        _ => None,
+    }
+}
+
+/// A pipeline of one garbage expression over `span`: a statement the winnow front end could
+/// not read, as nu-parser leaves one it reports an error over.
+pub(in crate::winnow) fn garbage_pipeline(
     working_set: &mut StateWorkingSet,
     span: Span,
-    target: &mut StatementTarget<'_>,
-    out: &mut Vec<Pipeline>,
-    block_errors: &mut BlockErrors,
-) {
-    let _classic = crate::winnow::ClassicParse::start();
-    let subexpression = matches!(
-        target,
-        StatementTarget::Block {
-            of: BlockOf::Parentheses,
-            ..
-        }
-    );
-    let (tokens, err) = if subexpression {
-        // As `parse_full_cell_path` lexes a parenthesized subexpression: newlines are
-        // whitespace and comments are skipped, so a statement goes on over lines.
-        lex(
-            working_set.get_span_contents(span),
-            span.start,
-            b"\n\r",
-            &[],
-            true,
-        )
-    } else {
-        // With the newline after it, when only what the lexer skips (spaces, tabs, a lone
-        // `\r`) comes before it, as in the block: a `|` ending the statement is reported only
-        // at the end of the block (`ls |` then a newline is fine).
-        let mut end = span.end;
-        while let [b' ' | b'\t' | b'\r'] = working_set.get_span_contents(Span::new(end, end + 1)) {
-            end += 1;
-        }
-        let with_eol = Span::new(span.start, end + 1);
-        let contents = match working_set.get_span_contents(with_eol) {
-            contents if contents.len() == with_eol.len() && contents.ends_with(b"\n") => contents,
-            _ => working_set.get_span_contents(span),
-        };
-        lex(contents, span.start, &[], &[], false)
-    };
-    let (lite_block, lite_err) = lite_parse(&tokens, working_set);
-    if let Some(err) = err {
-        block_errors.lex_error(working_set, err);
-    }
-    if let Some(err) = lite_err {
-        block_errors.lite_error(working_set, err);
-    }
-    out.reserve(lite_block.block.len());
-    for (index, lite_pipeline) in lite_block.block.iter().enumerate() {
-        let pipeline = match target {
-            StatementTarget::Block { input_type, .. } => {
-                let input_type = if index == 0 { *input_type } else { None };
-                parse_pipeline(working_set, lite_pipeline, input_type)
-            }
-            StatementTarget::Module { name, module, span } => {
-                parse_module_pipeline(working_set, lite_pipeline, name, module, *span)
-            }
-        };
-        out.push(pipeline);
+) -> Pipeline {
+    Pipeline::from_vec(vec![Expression::garbage(working_set, span)])
+}
+
+/// The error over `span` for a statement whose construct, `what`, the lowering does not read.
+fn unsupported_error(what: &str, span: Span) -> ParseError {
+    ParseError::LabeledErrorWithHelp {
+        error: "The winnow parser cannot read this statement".into(),
+        label: format!("{what} is not supported"),
+        help: "parse it with nu-parser: turn the experimental option `winnow-parser` off".into(),
+        span,
     }
 }
 
 /// Whether a statement changes which commands exist for the statements after it: one the
 /// driver ends a run parsed ahead after ([`statement_changes_names`]), a module or an export.
 /// A `true` too many costs only parsing the block again ([`Lower::block`]); a statement this
-/// misses (a call through an alias of `overlay use`) is caught there once the classic parser
-/// has parsed it.
+/// misses (a call through an alias of `overlay use`) is caught there once it is lowered.
 fn changes_commands(pipeline: &w::Pipeline<'_>) -> bool {
     pipeline
         .elements

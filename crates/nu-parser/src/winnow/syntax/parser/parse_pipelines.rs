@@ -13,8 +13,7 @@ use crate::winnow::syntax::span::Span;
 
 use super::lite_parser::{
     AfterPipe, LiteCommand, after_pipe, last_non_comment_token, lite_diagnostic,
-    parse_lite_command, pipe_on_a_later_line, skip_to_block_end, skip_to_statement_end,
-    take_pipe_on_later_line,
+    parse_lite_command, pipe_on_a_later_line, skip_to_statement_end, take_pipe_on_later_line,
 };
 use super::parse_calls::{keyword_signature_of_call, parse_attribute};
 use super::parse_def::{
@@ -317,6 +316,15 @@ impl BlockStatements {
         self.parse_state = working_set.into_state();
     }
 
+    /// Forget each command name the block's statements declared (its definitions, its aliases)
+    /// that `lookup` answers otherwise for now, so that its answer counts from the next
+    /// statement on: for a consumer that declares them where `lookup` looks, after a statement
+    /// that changed which commands exist there (a `hide`, an `overlay hide`, a `use` that binds
+    /// a name again). The parser's own declarations shadow the lookup's answers otherwise.
+    pub fn forget_changed_names(&mut self, lookup: impl CommandLookup) {
+        self.parse_state.forget_names_unlike(&lookup);
+    }
+
     /// The block's lite-parse error, which nu reports before any statement's error, having
     /// lite-parsed the whole block first: a `|` that ends the block
     /// ([`LiteError::PipelineMissingEnd`]), else its first command's ([`first_lite_error`]).
@@ -458,12 +466,6 @@ trait StatementSink<'a> {
     /// The pipeline pushed last, while it can still be amended (its
     /// terminator, a comment after it on its line); `None` once it was handed over.
     fn last_mut(&mut self) -> Option<&mut Pipeline<'a>>;
-    /// Whether a statement that failed before its end was known (in the lite parse) takes the
-    /// rest of the block, which then ends: for a consumer that hands such a statement to nu,
-    /// which alone knows where it ends. Otherwise parsing goes on after the next end of line.
-    fn rest_after_unknown_end(&self) -> bool {
-        false
-    }
 }
 
 /// The whole block at once ([`parse_block`]): the diagnostics stay in the working set.
@@ -533,10 +535,6 @@ impl<'a> StatementSink<'a> for StreamingSink<'_, '_, 'a> {
     fn last_mut(&mut self) -> Option<&mut Pipeline<'a>> {
         // Each pipeline went to the sink when it was pushed.
         None
-    }
-
-    fn rest_after_unknown_end(&self) -> bool {
-        true
     }
 }
 
@@ -709,10 +707,6 @@ fn parse_statements<'a>(
                             Some(end) => {
                                 tokens.reset_to(end);
                                 tokens.all()[end - 1].span
-                            }
-                            None if out.rest_after_unknown_end() => {
-                                tokens.reset_to(start);
-                                skip_to_block_end(tokens)
                             }
                             None => {
                                 tokens.reset_to(start);

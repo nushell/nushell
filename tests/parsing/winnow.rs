@@ -44,8 +44,9 @@ fn fallback_inside_a_long_block_stops_at_its_brace() -> Result {
         tester.run(code).expect_value_eq(2)?;
         let after = nu_parser::winnow_stats();
         assert_eq!(
-            after.classic_statements, before.classic_statements,
-            "a statement was handed to the classic parser"
+            after.unread_statements(),
+            before.unread_statements(),
+            "a statement was not read"
         );
         Ok(())
     })
@@ -222,7 +223,8 @@ fn option_on_parses_no_statement_with_nu_parser() -> Result {
             "`{code}`"
         );
         assert_eq!(
-            after.classic_statements, before.classic_statements,
+            after.unread_statements(),
+            before.unread_statements(),
             "`{code}`"
         );
     }

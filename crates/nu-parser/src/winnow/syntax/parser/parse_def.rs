@@ -817,6 +817,8 @@ fn parse_def_body<'a>(
 /// when those items still read as one (`def f [] {} {} --env` is "colon before type
 /// signature", an error here too). A flag between the signature and the body is the
 /// signature's (nu's `calculate_end_span` gives it every item but the last), an error there.
+/// After a `--` every item is a positional, and a signature that does not read is the call's
+/// error (`def -- f --foo {}`).
 fn reads_as_call<Flag>(tokens: &Tokens<'_, '_>, known: &[(&str, Flag)], body: bool) -> bool {
     let working_set = tokens.working_set;
     let items: Vec<Token> = tokens
@@ -826,10 +828,12 @@ fn reads_as_call<Flag>(tokens: &Tokens<'_, '_>, known: &[(&str, Flag)], body: bo
         .filter(|token| token.contents == TokenContents::Item)
         .copied()
         .collect();
-    // The items of a signature that takes everything from its start to the last item.
+    // The items of a signature that takes everything from its start to the body (a `def`'s
+    // last item), or to the end.
+    let signature_end = items.len().saturating_sub(usize::from(body));
     let signature_reads = |start: Option<usize>| match start {
-        Some(start) if start < items.len() - 1 => {
-            parse_full_signature(working_set, &items[start..items.len() - 1], false).is_ok()
+        Some(start) if start < signature_end => {
+            parse_full_signature(working_set, &items[start..signature_end], !body).is_ok()
         }
         _ => true,
     };
@@ -839,7 +843,16 @@ fn reads_as_call<Flag>(tokens: &Tokens<'_, '_>, known: &[(&str, Flag)], body: bo
         let text = working_set.get_span_contents(token.span);
         // nu looks for no flag after a `--`; one in the body's place leaves the body out.
         if text == "--" {
-            return body && index == items.len() - 1 && signature_reads(signature_start);
+            if body && index == items.len() - 1 {
+                return signature_reads(signature_start);
+            }
+            // Every item after it is a positional, the signature from the second on
+            // (`def -- f --foo {}`): one that does not read is the call's to report.
+            let signature_start = signature_start.or_else(|| {
+                let missing = 2usize.saturating_sub(positionals);
+                (missing > 0).then(|| index + missing)
+            });
+            return !signature_reads(signature_start);
         }
         if is_help_text(text) {
             continue;

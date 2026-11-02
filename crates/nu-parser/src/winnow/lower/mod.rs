@@ -21,27 +21,27 @@
 //! there (garbage, mostly). A block's lexer error (`Block::lex_error`: a delimiter left open or
 //! closing nothing, a bash-ism) and then its lite-parse error (`Pipeline::lite_error`: a `||`, a
 //! redirection out of place, a `|` ending the block) go before every statement error of the
-//! block, as the classic parser lexes and lite-parses a whole block first ([`BlockErrors`]). Anything else the classic parser would report, or the lowering does not
-//! handle, it returns [`Unlowered`] for, and the driver parses the whole statement again with the
-//! classic parser, which reports the error exactly as it always has. The exceptions are where
-//! nothing is parsed again: a predeclaration ([`Lower::predecl`]) reports an invalid or duplicate
-//! name itself, as `parse_def_predecl` does; a definition keeps what the classic parser's
-//! `finish_def` or `finish_extern`, which commit it, report; an alias keeps what `parse_alias`
-//! would: its checks' errors, and the errors of a target it leaves garbage; and a statement that
+//! block, as the classic parser lexes and lite-parses a whole block first ([`BlockErrors`]).
+//!
+//! Anything else the classic parser would report, or the lowering does not handle, it returns
+//! [`Unlowered`] for, and the statement is a garbage pipeline with an error
+//! ([`Lower::statement_or_garbage`]). The classic parser's own code reports where the lowering
+//! calls it: a predeclaration ([`Lower::predecl`]) reports an invalid or duplicate name itself,
+//! as `parse_def_predecl` does; a definition keeps what the classic parser's `finish_def` or
+//! `finish_extern`, which commit it, report; an alias keeps what `parse_alias` would: its checks' errors, and the errors of a target it leaves garbage; and a statement that
 //! loads a module or a file, or changes the scope (`use`, `module`, `source`, `run`, `hide`, the
 //! overlay commands), keeps what the classic parser's code that does that (`finish_use`,
 //! `finish_module`, `finish_source`, `finish_run`, `finish_hide`, `parse_overlay_use`, ...)
 //! reports.
 //!
-//! What the lowering reported before giving up is dropped ([`Lower::statement_or_classic`]).
-//! What else it added to the working set stays, unreachable from the result: spans, blocks,
+//! What the lowering reported before giving a statement back as unsupported is dropped; given
+//! back for an error, the statement keeps it ([`Lower::statement_or_garbage`]). What else the
+//! lowering added to the working set stays, unreachable from the result: spans, blocks,
 //! variables and the declarations of nested scopes; every scope it entered is left on every
 //! path. A binding (`let`, `mut`, `const`) declares its variable into scope only once it can no
-//! longer be handed back: the classic parser, parsing again a binding the lowering gave back,
-//! must not find it from the binding's own value (`let x: string = $x` reads the `x` before).
-//! One pass still sees what is left: `parse` discovers the captures of every block the parse
-//! added, so a block the lowering gave up on that holds a closure capturing a `mut` variable
-//! reports that error once more.
+//! longer be given back. One pass still sees what is left: `parse` discovers the captures of
+//! every block the parse added, so a block the lowering gave up on that holds a closure
+//! capturing a `mut` variable reports that error once more.
 //!
 //! Leaf values whose meaning depends on the shape a command expects (a bare word as a file path,
 //! a glob, a cell path, a number as a string) are converted by the classic parser's leaf parsers
@@ -59,17 +59,18 @@ mod statement;
 mod value;
 
 use nu_protocol::{
-    ParseError, Span, Type,
+    DeclId, ParseError, Span, Type,
     ast::{Expr, Expression},
     engine::{ScopeFrame, StateWorkingSet},
 };
 
 use crate::parse_calls::{CallKind, check_call};
+use crate::parse_keywords::find_keyword_decl;
 use crate::winnow::syntax::Span as WSpan;
 
 pub(super) use call::shorter_head_reading;
 pub(super) use signature::Predecl;
-pub(super) use statement::{BlockErrors, BlockOf, StatementTarget, parse_classic};
+pub(super) use statement::{BlockErrors, BlockOf, StatementTarget, garbage_pipeline};
 
 /// nu-parser's `parse_block` with the option on: the block covering `span` that nu-parser's
 /// caller lexed as `tokens` (the inside of `( ... )`, a closure's body, a binding's value), its
@@ -161,12 +162,30 @@ pub(super) fn nested_block(
     lower.block(&tree, span, scoped, of, input_type).ok()
 }
 
-/// Why a statement was not lowered: the driver then parses it with the classic parser.
+/// The declaration nu's parse function for the statement of `keyword` makes its call with, as
+/// it looks it up: for `def` and `extern` the keyword, else the permanent state's command of
+/// that name (`parse_def`, `parse_extern`); for `type` the keyword only (`parse_type_alias`);
+/// for `run` the keyword, else the visible command (`parse_run_expr`); for any other the
+/// visible command of that name (`find_decl`). An engine without the core language, as
+/// nu-parser's tests build, has commands of those names that are no keywords.
+pub(super) fn statement_decl(working_set: &StateWorkingSet, keyword: &str) -> Option<DeclId> {
+    let name = keyword.as_bytes();
+    match keyword {
+        "def" | "extern" => find_keyword_decl(working_set, name)
+            .or_else(|| working_set.permanent().find_decl(name, &[])),
+        "type" => find_keyword_decl(working_set, name),
+        "run" => find_keyword_decl(working_set, name).or_else(|| working_set.find_decl(name)),
+        _ => working_set.find_decl(name),
+    }
+}
+
+/// Why a statement was not lowered: it is then a garbage pipeline with an error
+/// ([`Lower::statement_or_garbage`]).
 #[derive(Debug)]
 pub(super) enum Unlowered {
-    /// The classic parser reports an error here.
+    /// The classic parser reports an error here, which the lowering reported.
     Error,
-    /// The lowering does not handle this construct.
+    /// The lowering does not handle this construct, which the error names.
     Unsupported(&'static str),
 }
 

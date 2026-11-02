@@ -8,13 +8,12 @@ use nu_protocol::{
     engine::StateWorkingSet,
 };
 
-use super::{Lower, Lowered, Unlowered};
+use super::{Lower, Lowered, Unlowered, statement_decl};
 use crate::winnow::syntax::ast as w;
 use crate::{
     exportable::Exportable,
     parse_calls::CallKind,
     parse_helpers::garbage,
-    parse_keywords::find_keyword_decl,
     parse_module::{
         exported_module, finish_hide, finish_module, finish_use, parse_overlay_hide,
         parse_overlay_new, parse_overlay_use, warp_export_call,
@@ -192,10 +191,10 @@ impl<'s> Lower<'_, '_, 's> {
     /// The declaration of `module` and its head for `command`, a `module` statement or the
     /// `export` of one, whose keyword must be `export module` then.
     fn module_keyword(&mut self, command: &w::Expression<'s>) -> Lowered<(DeclId, Span)> {
-        let decl_id = find_keyword_decl(self.working_set, b"module")
+        let decl_id = statement_decl(self.working_set, "module")
             .ok_or(Unlowered::Unsupported("module that is not a keyword"))?;
         if matches!(command.expr, w::Expr::Export(_))
-            && find_keyword_decl(self.working_set, b"export module").is_none()
+            && statement_decl(self.working_set, "export module").is_none()
         {
             return Err(Unlowered::Unsupported(
                 "export module that is not a keyword",
@@ -269,8 +268,7 @@ impl<'s> Lower<'_, '_, 's> {
     /// which an `export use` in a module exports.
     ///
     /// `finish_use` changes the working set and reports the classic parser's own errors, so
-    /// once it has run the statement is never handed back: the classic parser would do it all
-    /// again, and a module file parsed the first time would not report its errors again.
+    /// once it has run the statement is never given back, which would drop those errors.
     pub(super) fn use_statement(
         &mut self,
         command: &w::Expression<'s>,
@@ -279,9 +277,9 @@ impl<'s> Lower<'_, '_, 's> {
         parent_module: Option<&mut Module>,
     ) -> Lowered<(Pipeline, Vec<Exportable>)> {
         let export = matches!(command.expr, w::Expr::Export(_));
-        let decl_id = find_keyword_decl(self.working_set, b"use")
+        let decl_id = statement_decl(self.working_set, "use")
             .ok_or(Unlowered::Unsupported("use that is not a keyword"))?;
-        if export && find_keyword_decl(self.working_set, b"export use").is_none() {
+        if export && statement_decl(self.working_set, "export use").is_none() {
             return Err(Unlowered::Unsupported("export use that is not a keyword"));
         }
         // `parse_export_in_module` parses an `export use` from its `use`, and

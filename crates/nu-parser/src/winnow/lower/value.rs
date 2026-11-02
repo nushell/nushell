@@ -88,7 +88,7 @@ impl<'s> Lower<'_, '_, 's> {
             [b'(', ..] => self.paren(e, shape),
             [b'{', ..] => self.brace(e, shape, input_type),
             [b'[', ..] => self.bracket(e, shape),
-            _ => self.leaf(e, shape, false),
+            _ => self.leaf(e, shape),
         }
     }
 
@@ -100,7 +100,7 @@ impl<'s> Lower<'_, '_, 's> {
     /// furthest along, with its errors and warnings, if that error is past the item's start or
     /// its last error is not just an expected value (but in a block, a closure or an
     /// expression); else the item is garbage, with an error that lists the shapes. A shape the
-    /// lowering gives back reported no errors to choose by, so the classic parser then chooses.
+    /// lowering gives back gives the statement back.
     pub(super) fn one_of(
         &mut self,
         e: &w::Expression<'s>,
@@ -192,22 +192,14 @@ impl<'s> Lower<'_, '_, 's> {
         if structured {
             return self.value(e, shape, input_type);
         }
-        self.leaf(e, shape, true)
+        self.leaf(e, shape)
     }
 
     /// An item without inner structure: a number, a word, a quoted string. The common shapes
     /// are read from the winnow literal; the others (a bare word as a path, a glob, a cell
-    /// path, a number as a string, units, dates, ranges) by the classic leaf parsers. With
-    /// `keep_errors`, the error of one stays reported with the value it recovers
-    /// ([`Self::reported_value`]); else it hands the statement back, as the classic parser
-    /// may read the item otherwise there (as an external command at a statement's head,
-    /// `is_math_expression_like`).
-    fn leaf(
-        &mut self,
-        e: &w::Expression<'s>,
-        shape: &SyntaxShape,
-        keep_errors: bool,
-    ) -> Lowered<Expression> {
+    /// path, a number as a string, units, dates, ranges) by the classic leaf parsers, whose
+    /// error stays reported with the value they recover.
+    fn leaf(&mut self, e: &w::Expression<'s>, shape: &SyntaxShape) -> Lowered<Expression> {
         let span = self.span(e.span);
         let (expr, ty) = match (shape, &e.expr) {
             (SyntaxShape::Any | SyntaxShape::Int | SyntaxShape::Number, w::Expr::Int(value)) => {
@@ -254,10 +246,7 @@ impl<'s> Lower<'_, '_, 's> {
                     _ => (Expr::GlobPattern(value, quoted), Type::Glob),
                 }
             }
-            _ if keep_errors => return Ok(classic_value(self.working_set, span, shape, None)),
-            _ => {
-                return Ok(classic_value(self.working_set, span, shape, None));
-            }
+            _ => return Ok(classic_value(self.working_set, span, shape, None)),
         };
         Ok(self.node(expr, span, ty))
     }
@@ -306,7 +295,7 @@ impl<'s> Lower<'_, '_, 's> {
             }
             // nu reads an item starting with `$` or `(` as a value wherever it is
             // (`is_math_expression_like`), so a bound's error stays (`$x..a`).
-            w::Expr::Range(_) => self.leaf(e, shape, true),
+            w::Expr::Range(_) => self.leaf(e, shape),
             w::Expr::Var(_) => self.full_cell_path(e.span, e, &[], input_type),
             w::Expr::FullCellPath(path) if !path.implicit_head => {
                 self.full_cell_path(e.span, &path.head, &path.tail, input_type)
@@ -323,7 +312,7 @@ impl<'s> Lower<'_, '_, 's> {
     fn paren(&mut self, e: &w::Expression<'s>, shape: &SyntaxShape) -> Lowered<Expression> {
         match &e.expr {
             // As a range starting with `$` ([`Self::dollar`]): `(1)abc..5`.
-            w::Expr::Range(_) => self.leaf(e, shape, true),
+            w::Expr::Range(_) => self.leaf(e, shape),
             _ if matches!(
                 shape,
                 SyntaxShape::Signature | SyntaxShape::ExternalSignature
@@ -509,7 +498,7 @@ impl<'s> Lower<'_, '_, 's> {
             SyntaxShape::Filepath
             | SyntaxShape::String
             | SyntaxShape::GlobPattern
-            | SyntaxShape::ExternalArgument => self.leaf(e, shape, false),
+            | SyntaxShape::ExternalArgument => self.leaf(e, shape),
             // Any other shape is `parse_value`'s error, the value garbage.
             _ => {
                 let span = self.span(e.span);
@@ -675,7 +664,19 @@ impl<'s> Lower<'_, '_, 's> {
     ) -> Lowered<Expression> {
         match &e.expr {
             w::Expr::List(items) => self.list(e.span, items, element),
-            w::Expr::Table(table) => self.table(e.span, table),
+            // A table the classic parser reports an error in, which the lowering gives back
+            // (`table`): nu's table parser reads the item, reporting it.
+            w::Expr::Table(table) => {
+                let errors = self.working_set.parse_errors.len();
+                match self.table(e.span, table) {
+                    Err(Unlowered::Error) => {
+                        self.working_set.parse_errors.truncate(errors);
+                        let span = self.span(e.span);
+                        Ok(parse_table_expression(self.working_set, span, element))
+                    }
+                    lowered => lowered,
+                }
+            }
             // Anything else the winnow parser read there (`...[a].0x`, whose list nu's lexer
             // leaves open): nu's table parser reads the item.
             _ => {
@@ -726,8 +727,9 @@ impl<'s> Lower<'_, '_, 's> {
 
     /// A table literal: a header row, `;`, then rows (`parse_table_expression`), typed by
     /// `table_type`, or `table` when reading the rows reported an error. A row of another
-    /// length than the header, a header without rows, and column types `table_type` rejects
-    /// are the classic parser's errors.
+    /// length than the header, a header without rows, a spread, and column types `table_type`
+    /// rejects (a column name that is no string) are given back, for nu's table parser to
+    /// report ([`Self::table_expression`]).
     fn table(&mut self, span: WSpan, table: &w::Table<'s>) -> Lowered<Expression> {
         let columns = self.table_row(&table.columns)?;
         let errors = self.working_set.parse_errors.len();

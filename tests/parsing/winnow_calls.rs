@@ -56,15 +56,16 @@ fn wrapped_command_takes_unknown_dash_items() -> Result {
         .expect_value_eq(r#"[true, ["-2"]]"#)?;
     let after = nu_parser::winnow_stats();
     assert_eq!(
-        after.classic_statements, before.classic_statements,
-        "a statement was handed to the classic parser"
+        after.unread_statements(),
+        before.unread_statements(),
+        "a statement was not read"
     );
     Ok(())
 }
 
 /// After an alias of a command, the words that follow may name a subcommand of the aliased
 /// command, which is then the command called (`find_longest_decl_with_prefix`), by the winnow
-/// front end, not handed to the classic parser.
+/// front end, every statement read.
 #[rstest]
 #[case::custom_subcommand(
     r#"def foo [x?] { $"foo got ($x)" }; def "foo bar" [] { "sub" }; alias f = foo; f bar"#,
@@ -86,8 +87,9 @@ fn alias_followed_by_a_subcommand_calls_the_subcommand(
     tester.run(code).expect_value_eq(expected)?;
     let after = nu_parser::winnow_stats();
     assert_eq!(
-        after.classic_statements, before.classic_statements,
-        "a statement was handed to the classic parser"
+        after.unread_statements(),
+        before.unread_statements(),
+        "a statement was not read"
     );
     Ok(())
 }
@@ -152,8 +154,7 @@ fn call_to_a_hidden_wrapped_command_uses_the_visible_one() -> Result {
 }
 
 /// A closure that is the last argument of a command taking a row condition (`any`, `all`,
-/// `take while`, ...) is lowered as the row condition `parse_row_condition` makes of it, not
-/// handed to the classic parser.
+/// `take while`, ...) is lowered as the row condition `parse_row_condition` makes of it.
 #[test]
 #[serial]
 #[exp(nu_experimental::WINNOW_PARSER)]
@@ -171,8 +172,9 @@ fn closure_row_condition_is_lowered() -> Result {
         .expect_value_eq(2)?;
     let after = nu_parser::winnow_stats();
     assert_eq!(
-        after.classic_statements, before.classic_statements,
-        "a statement was handed to the classic parser"
+        after.unread_statements(),
+        before.unread_statements(),
+        "a statement was not read"
     );
     Ok(())
 }
@@ -201,14 +203,15 @@ fn bare_row_condition_is_lowered() -> Result {
         .expect_value_eq(true)?;
     let after = nu_parser::winnow_stats();
     assert_eq!(
-        after.classic_statements, before.classic_statements,
-        "a statement was handed to the classic parser"
+        after.unread_statements(),
+        before.unread_statements(),
+        "a statement was not read"
     );
     Ok(())
 }
 
-/// A call through an alias of `match`, `if` or `try` parses as the keyword's statement; only
-/// that statement goes to the classic parser, which makes the call with the alias.
+/// A call through an alias of `match`, `if` or `try` parses as the keyword's statement, and is
+/// the call the classic parser makes with the alias.
 #[rstest]
 #[case::match_alias(r#"alias m = match; m 1 { 1 => "one", _ => "other" }"#, "one")]
 #[case::if_alias(r#"alias i = if; i false { "yes" } else { "no" }"#, "no")]
@@ -226,6 +229,43 @@ fn call_through_an_alias_of_a_keyword(#[case] code: &str, #[case] expected: &str
     test().run(code).expect_value_eq(expected)
 }
 
+/// A name that a `hide`, an `overlay hide` or a `use` bound to another command after the block
+/// declared it is read as the command it names then, as nu reads it: the block's own
+/// declaration of it no longer counts.
+#[rstest]
+#[case::alias_of_a_keyword_hidden(
+    "alias echo = if; hide echo; echo true {1} | length | to nuon",
+    "2"
+)]
+#[case::alias_bound_again_by_overlay_hide(
+    "alias e = echo x; overlay new o; alias e = ^echo y; overlay hide o; e",
+    "x"
+)]
+#[case::longer_name_hidden(
+    r#"alias "foo bar" = echo a; alias foo = echo b; hide "foo bar"; foo bar | to nuon"#,
+    "[b, bar]"
+)]
+#[case::alias_of_if_back_after_overlay_hide(
+    "alias a = if; overlay new o; alias a = any; overlay hide o; a true {1} | to nuon",
+    "1"
+)]
+#[case::alias_bound_again_by_use(
+    "module m { export alias e = echo x }; alias e = ^echo y; hide e; use m e; e",
+    "x"
+)]
+#[case::alias_of_try_back_after_overlay_hide(
+    "alias t = echo z; overlay new o; alias t = try; overlay hide o; let x = 1; t {1} catch $x | length | to nuon",
+    "4"
+)]
+#[nu_test_support::test]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn name_bound_again_reads_as_the_command_it_names(
+    #[case] code: &str,
+    #[case] expected: &str,
+) -> Result {
+    test().run(code).expect_value_eq(expected)
+}
+
 /// Parse `code` with the winnow front end, which must lower every statement itself, and give
 /// the errors it reported, each as its kind and the text it points at.
 pub(super) fn lowered_errors(code: &str) -> Vec<(String, String)> {
@@ -235,8 +275,9 @@ pub(super) fn lowered_errors(code: &str) -> Vec<(String, String)> {
     nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
     let after = nu_parser::winnow_stats();
     assert_eq!(
-        after.classic_statements, before.classic_statements,
-        "`{code}`: a statement was handed to the classic parser"
+        after.unread_statements(),
+        before.unread_statements(),
+        "`{code}`: a statement was not read"
     );
     working_set
         .parse_errors
@@ -376,7 +417,7 @@ fn keyword_call_with_an_error_is_the_plain_call() -> Result {
     let before = nu_parser::winnow_stats();
     let block = nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
     let after = nu_parser::winnow_stats();
-    assert_eq!(after.classic_statements, before.classic_statements);
+    assert_eq!(after.unread_statements(), before.unread_statements());
     assert!(matches!(
         working_set.parse_errors.as_slice(),
         [ParseError::TypeMismatch(..)]
@@ -754,7 +795,7 @@ fn failing_call_through_an_alias_of_a_keyword(
 /// Items nu reads again as one value and reports errors in, with what it recovers: a math
 /// expression after a dash item read as an unknown flag, an item where an operator goes, a range
 /// bound that is no number, a keyword's argument after `--`, a match block read as a call's
-/// argument, an unclosed raw string. All lowered, not handed to the classic parser.
+/// argument, an unclosed raw string. All lowered.
 #[rstest]
 #[case::if_condition_after_a_flag(
     "if -1 > 0 { }",

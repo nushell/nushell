@@ -2,7 +2,8 @@
 //!
 //! [`parse_block`] takes the place of the classic parser's `parse_block` for a whole block: it
 //! hands the block's definitions, then each of its statements, to a [`Driver`], which lowers
-//! them into the working set or has the classic parser parse them.
+//! them into the working set. A statement it cannot read (one with a syntax error the winnow
+//! parser did not go past, or one the lowering gives back) is a garbage pipeline with an error.
 //!
 //! The statements of a long block are parsed on a second thread, ahead of the lowering on this
 //! one ([`parse_ahead`]): the winnow parser needs only the source and the command names, and
@@ -11,7 +12,7 @@
 //! again after each statement that changes which commands exist (`use`, `overlay`, `hide`,
 //! `source`, `run`), up to which it parses. Every answer it got is checked against the live
 //! working set before its statement is lowered, so the tree is the one parsing on this thread
-//! would have built; when an answer differs, the classic parser takes the rest of the block.
+//! would have built; when an answer differs, the block is parsed again from that statement.
 //!
 //! ```text
 //! this thread                                   second thread
@@ -23,11 +24,9 @@
 //!   declare the block's definitions               parse a statement, its answers recorded
 //!   receive a statement <----------------------- send it with its answers
 //!     an answer differs now: set `stop`, the      go on unless the statement changes names
-//!       classic parser takes the rest of the      or has a syntax error, the block ends, or
-//!       block                                     `stop` is set
-//!     a syntax error: the classic parser parses   drop the sender
-//!       the statement
-//!     else lower it
+//!       block is parsed again from that           or has a syntax error, the block ends, or
+//!       statement                                 `stop` is set
+//!     else lower it                               drop the sender
 //!   ...until the sender is dropped
 //! the next statement changes names:
 //!   parse and lower it here
@@ -49,14 +48,14 @@ use std::{
 };
 
 use nu_protocol::{
-    Module, Span, Type,
+    Module, ParseError, Span, Type,
     ast::{Block, Pipeline},
     engine::StateWorkingSet,
 };
 
 use super::{
     lookup::{Asked, AskedLookup, EngineLookup, NamesSnapshot, changed_answer},
-    lower::{BlockErrors, BlockOf, Lower, Predecl, StatementTarget, parse_classic},
+    lower::{BlockErrors, BlockOf, Lower, Predecl, StatementTarget, garbage_pipeline},
     stats,
 };
 use crate::winnow::syntax::{
@@ -331,9 +330,16 @@ fn take_statements(
     let mut last_restart = None;
     let mut here_once = false;
     // Each turn hands `driver` a run of statements, parsed ahead or here. `go_on` turns false
-    // when the driver has handed the rest of the block to the classic parser.
+    // when the rest of the block cannot be lexed again ([`Driver::rest_unlexed`]).
     let mut go_on = true;
+    // Set when a turn ends at a statement that changed which commands exist
+    // ([`Driver::take_statement`]): the next turn parses with the working set's names where
+    // they differ from what the block's statements declared.
+    let mut names_changed = false;
     while go_on && !statements.is_done() {
+        if std::mem::take(&mut names_changed) {
+            statements.forget_changed_names(lookup);
+        }
         let short = statements.remaining().len() < AHEAD_MIN_BYTES;
         go_on = if let Some(threads) = threads
             && !short
@@ -342,7 +348,7 @@ fn take_statements(
             && let Some(_thread) = AheadThread::take()
         {
             let definitions = definitions.take().unwrap_or_default();
-            let restart = parse_ahead(
+            let (restart, changed) = parse_ahead(
                 threads,
                 source,
                 span,
@@ -351,6 +357,7 @@ fn take_statements(
                 lookup,
                 driver,
             );
+            names_changed = changed;
             match restart {
                 None => true,
                 // The statements from `start` on were parsed with names that changed: parsed
@@ -366,7 +373,7 @@ fn take_statements(
                             true
                         }
                         Err(_) => {
-                            driver.rest_to_classic(start);
+                            driver.rest_unlexed(start);
                             false
                         }
                     }
@@ -380,22 +387,21 @@ fn take_statements(
             // (the next turn would decide the same), else only the next statement: one that
             // changes the command names, so a run parsed ahead would end right after it, or one
             // parsed while both threads run other parses' runs, after which a thread may be
-            // free. The sink then stops after that statement, and this `go_on` carries the
-            // driver's answer to the loop, which goes on with a run that sees the new names.
+            // free. The sink then stops after that statement, and so after any statement that
+            // changed which commands exist, for the next turn to see the new names.
             let all = short || threads.is_none();
-            let mut go_on = true;
             statements.parse(source, lookup, &mut |pipeline, diagnostics, _| {
-                go_on = driver.statement(pipeline, diagnostics);
-                go_on && all
+                names_changed = driver.take_statement(&pipeline, &diagnostics);
+                all && !names_changed
             });
-            go_on
+            true
         };
     }
     // The loop takes them on its first turn: still here only for an empty block.
     if let Some(definitions) = definitions.take() {
         declare(definitions, source, span, lookup, driver);
     }
-    // When the classic parser took the rest of the block, it reported what it found there.
+    // A rest of the block that could not be lexed again is garbage, its errors unreported.
     go_on
         .then(|| dropped_error.or(statements.dropped_error()))
         .flatten()
@@ -430,9 +436,8 @@ struct Ahead<'a> {
 
 /// Parse statements on a second thread while this one declares the block's `definitions` and
 /// lowers the statements as they arrive, until one that changes which command names exist (the
-/// thread's copy of them is then out of date), one with a syntax error (which the classic
-/// parser parses, maybe declaring names) or the end of the block (`span`). Returns whether to
-/// go on with the block: `false` once the classic parser has taken the rest of it.
+/// thread's copy of them is then out of date), one with a syntax error (whose lowering may
+/// declare names the winnow parser could not) or the end of the block (`span`).
 ///
 /// The thread's names are copied before the definitions are declared, so that it starts at
 /// once: it never asks about the block's own definitions, which the winnow parser declared in
@@ -443,7 +448,9 @@ struct Ahead<'a> {
 /// would have asked it. When an answer differs, the run ends there: `stop` tells the thread to
 /// stop, what it sent meanwhile is dropped, and this returns where that statement starts, for
 /// the block to be parsed again from there (the thread has parsed on past it with the old
-/// names).
+/// names). So it does after a statement that changed which commands exist, which the thread
+/// went on past (a call through an alias of an overlay command; it stops after any other).
+/// Also returns whether the last statement lowered changed which commands exist.
 fn parse_ahead(
     threads: &rayon::ThreadPool,
     source: &str,
@@ -452,7 +459,7 @@ fn parse_ahead(
     definitions: Definitions,
     lookup: &EngineLookup,
     driver: &mut Driver,
-) -> Option<usize> {
+) -> (Option<usize>, bool) {
     let names = NamesSnapshot::new(lookup);
     // Set once this thread takes no more statements. It only saves the thread work (the
     // statements themselves go through the channel), so `Relaxed` is enough.
@@ -475,7 +482,7 @@ fn parse_ahead(
                 lookup,
                 &mut |pipeline, diagnostics, longest_name| {
                     let changes = statement_changes_names(&pipeline);
-                    // The classic parser parses a statement with a syntax error
+                    // A statement with a syntax error the winnow parser went past is lowered
                     // (`Driver::take_statement`), which may declare what the winnow parser
                     // could not (an alias): the run ends there, and the next one copies the
                     // names again.
@@ -498,10 +505,15 @@ fn parse_ahead(
         stats::record_ahead_run();
         declare(definitions, source, span, lookup, driver);
         let mut restart = None;
+        let mut names_changed = false;
         // Until the thread is done and drops its sender; after a stop, what it parsed
         // meanwhile is dropped (it is parsed again).
         for ahead in receiver {
             if restart.is_some() {
+                continue;
+            }
+            if names_changed {
+                restart = Some(driver.statement_start(&ahead.pipeline));
                 continue;
             }
             if let Some(changed) = changed_answer(lookup, &ahead.asked, ahead.longest_name) {
@@ -510,11 +522,12 @@ fn parse_ahead(
                 stop.store(true, Relaxed);
                 stats::record_ahead_fallback(&changed);
                 restart = Some(driver.statement_start(&ahead.pipeline));
-            } else {
-                driver.take_statement(&ahead.pipeline, &ahead.diagnostics);
+            } else if driver.take_statement(&ahead.pipeline, &ahead.diagnostics) {
+                names_changed = true;
+                stop.store(true, Relaxed);
             }
         }
-        restart
+        (restart, names_changed)
     })
 }
 
@@ -526,7 +539,7 @@ fn parse_ahead(
 /// A wrong answer costs only time: here a run ends early, or goes on past a statement this
 /// misses (an alias of `overlay use`) and [`changed_answer`] catches any later answer it
 /// changed; in a nested block (`changes_commands` in `lower`), the block is parsed again for
-/// nothing, or the lowering catches the alias once the classic parser has parsed it.
+/// nothing, or the lowering catches the alias once it is lowered.
 fn changes_names(words: (Option<&str>, Option<&str>)) -> bool {
     matches!(
         words,
@@ -650,7 +663,7 @@ enum Target {
 struct Driver<'c, 'w, 'e, 's> {
     /// The working set, in the cell the block's [`EngineLookup`] reads it through while a
     /// statement is parsed on this thread; borrowed mutably only while a definition or a
-    /// statement is handed over.
+    /// statement is lowered.
     working_set: &'c RefCell<&'w mut StateWorkingSet<'e>>,
     /// The text the winnow parser parses, which starts at `offset` in the working set's span
     /// space.
@@ -679,16 +692,21 @@ impl Driver<'_, '_, '_, '_> {
     /// Lower the next statement, `pipeline`, which parsing reported `diagnostics` in (see
     /// [`BlockSink::statement`]).
     ///
-    /// A statement with a syntax error the classic parser parses, reporting the error as it
-    /// always has. The winnow parser ended it where the classic lite parser ends it, or, where
-    /// it could not tell, at the end of the block, which the classic parser then takes.
-    fn take_statement(&mut self, pipeline: &w::Pipeline<'_>, diagnostics: &[Diagnostic]) {
+    /// A statement with a syntax error the winnow parser did not go past is a garbage pipeline
+    /// over it, with that error ([`syntax_error`]), unless the statement's lite-parse error
+    /// (a redirection refused) is the one nu reports for it.
+    ///
+    /// Returns whether the statement changed which commands exist for the statements after it:
+    /// one [`statement_changes_names`] tells by its words, or a call through an alias of an
+    /// overlay command.
+    fn take_statement(&mut self, pipeline: &w::Pipeline<'_>, diagnostics: &[Diagnostic]) -> bool {
         let cell = self.working_set;
         let working_set = &mut **cell.borrow_mut();
         let mut lower = Lower::new(working_set, self.source, self.offset);
         let span = lower.statement_span(pipeline);
         let mut target = statement_target(&mut self.target, &self.pipelines, self.span);
-        if let Some(error) = pipeline.lite_error() {
+        let lite_error = pipeline.lite_error();
+        if let Some(error) = lite_error {
             let error = lower.lite_parse_error(error);
             self.block_errors.lite_error(lower.working_set, error);
         }
@@ -698,27 +716,25 @@ impl Driver<'_, '_, '_, '_> {
         if let Some(error) = diagnostics.first()
             && !diagnostics.iter().all(|diagnostic| diagnostic.recovered)
         {
-            let errors = lower.working_set.parse_errors.len();
-            parse_classic(
-                lower.working_set,
-                span,
-                &mut target,
-                &mut self.pipelines,
-                &mut self.block_errors,
-            );
-            stats::record_error_statement(span, error, lower.working_set, errors);
-            return;
+            if lite_error.is_none() {
+                let error = syntax_error(&lower, error);
+                lower.working_set.error(error);
+            }
+            stats::record_error_statement(span, &diagnostics[0], lower.working_set);
+            self.pipelines
+                .push(garbage_pipeline(lower.working_set, span));
+            return false;
         }
         if !diagnostics.is_empty() {
             stats::record_recovered_statement();
         }
-        lower.statement_or_classic(
-            pipeline,
-            span,
-            &mut target,
-            &mut self.pipelines,
-            &mut self.block_errors,
-        );
+        let first = self.pipelines.len();
+        lower.statement_or_garbage(pipeline, span, &mut target, &mut self.pipelines);
+        statement_changes_names(pipeline)
+            || self.pipelines[first..]
+                .iter()
+                .flat_map(|pipeline| &pipeline.elements)
+                .any(|element| lower.calls_overlay(&element.expr))
     }
 
     /// Report `error`, in the text lexed from `lexed_from`, as the block's lexer error
@@ -749,25 +765,36 @@ impl Driver<'_, '_, '_, '_> {
         lower.statement_span(pipeline).start - self.offset
     }
 
-    /// Hand the rest of the block, from `start` on (in the winnow parser's span space), to the
-    /// classic parser: only when the winnow parser cannot lex it again on its own.
-    fn rest_to_classic(&mut self, start: usize) {
+    /// The rest of the block, from `start` on (in the winnow parser's span space), when the
+    /// winnow parser cannot lex it again on its own: it lexed as part of the block already, so
+    /// this is an internal error over a garbage pipeline.
+    fn rest_unlexed(&mut self, start: usize) {
         let cell = self.working_set;
         let working_set = &mut **cell.borrow_mut();
-        let lower = Lower::new(working_set, self.source, self.offset);
-        let start = self.offset + start;
-        let mut target = statement_target(&mut self.target, &self.pipelines, self.span);
-        // Where the statement ends is the classic parser's to decide, so it parses the rest
-        // of the block's statements (up to a closing brace, not through it).
-        let span = Span::new(start, self.inner.end);
-        stats::record_classic_statement(span.len(), false);
-        parse_classic(
-            lower.working_set,
+        let span = Span::new(self.offset + start, self.inner.end);
+        working_set.error(ParseError::InternalError(
+            "the winnow parser could not lex the rest of the block again".into(),
             span,
-            &mut target,
-            &mut self.pipelines,
-            &mut self.block_errors,
-        );
+        ));
+        self.pipelines.push(garbage_pipeline(working_set, span));
+    }
+}
+
+/// The error a statement the winnow parser did not go past `diagnostic` in reports: what it
+/// found, where, while parsing what, and its advice.
+fn syntax_error(lower: &Lower<'_, '_, '_>, diagnostic: &Diagnostic) -> ParseError {
+    let label = match diagnostic.context.first() {
+        Some(context) => format!("{} (while parsing {context})", diagnostic.kind),
+        None => diagnostic.kind.to_string(),
+    };
+    ParseError::LabeledErrorWithHelp {
+        error: "Syntax error".into(),
+        label,
+        help: diagnostic.help.clone().unwrap_or_else(|| {
+            "parse it with nu-parser to compare: turn the experimental option `winnow-parser` off"
+                .into()
+        }),
+        span: lower.span(diagnostic.span),
     }
 }
 
@@ -778,13 +805,12 @@ fn statement_target<'t>(
     span: Span,
 ) -> StatementTarget<'t> {
     match target {
-        Target::Block { input_type, of, .. } => StatementTarget::Block {
+        Target::Block { input_type, .. } => StatementTarget::Block {
             input_type: if pipelines.is_empty() {
                 input_type.as_ref()
             } else {
                 None
             },
-            of: *of,
         },
         Target::Module { module, name } => StatementTarget::Module { name, module, span },
     }

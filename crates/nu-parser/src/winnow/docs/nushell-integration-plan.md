@@ -46,8 +46,8 @@ source ──▶ parse_block_streaming (this parser) ──▶ one statement's s
   `export use` or `plugin use`. This parser leaves such a block unparsed in
   the first place (`CommandLookup::defers_command_changing_blocks`), an
   inline module's body among them, so it is parsed once. When a statement
-  that `nu-parser` parsed calls `overlay use`, `overlay hide` or `overlay
-  new` through an alias, `nu-parser` also parses the rest of that block.
+  calls `overlay use`, `overlay hide` or `overlay new` through an alias, the
+  rest of that block is parsed again with the commands known then.
 - **Blocks inside values `nu-parser` reads.** The lowering reads some values
   with `nu-parser`'s value parsers (a range, a list item, a flag's value, a
   pattern, an external word). Where such a value holds a block
@@ -55,19 +55,22 @@ source ──▶ parse_block_streaming (this parser) ──▶ one statement's s
   `parse_block` hands it back to this parser with the tokens its caller lexed
   (`winnow::nested_block`), so no statement of it is `nu-parser`'s.
   `WinnowStats::classic_pipelines` counts the pipelines `nu-parser`'s own
-  statement parser parses while the option is on: those of the hand-overs
-  below. With the option off, nothing of this parser runs.
+  statement parser parses while the option is on: those of a block handed
+  to it whole (not UTF-8, or one this parser cannot lex). With the option
+  off, nothing of this parser runs.
 - **Errors.** The lowering reports the errors `nu-parser` reports and goes on
   past (a call's argument errors, values and operations of the wrong type, ...;
-  see `lower/mod.rs`), with what `nu-parser` builds there; a statement it finds
-  another error in, or cannot handle, is parsed by `nu-parser` from its span,
-  which reports what it always has. A statement with a syntax error is parsed
-  by `nu-parser` too, alone where the winnow parser's lite parse found where it
-  ends, else with the rest of its block, unless the winnow parser went on past
-  every error in it (`Diagnostic::recovered`: a malformed literal left as a
-  garbage leaf, a bare word with a `:` in a record): that statement is lowered,
-  and the lowering reads each such item again with `nu-parser`'s leaf parser,
-  which reports `nu-parser`'s error with its garbage.
+  see `lower/mod.rs`), with what `nu-parser` builds there. No statement is
+  parsed by `nu-parser`: one the lowering finds another error in is a garbage
+  pipeline with the errors it reported, and one with a construct it does not
+  handle is a garbage pipeline with an error that names the construct. A
+  statement with a syntax error is a garbage pipeline with that error, from
+  its start to where the winnow parser's lite parse ended it, else to the
+  next end of line, unless the winnow parser went on past every error in it
+  (`Diagnostic::recovered`: a malformed literal left as a garbage leaf, a
+  bare word with a `:` in a record): that statement is lowered, and the
+  lowering reads each such item again with `nu-parser`'s leaf parser, which
+  reports `nu-parser`'s error with its garbage.
 - **Statements that link modules and files** (`use`, `module`, `overlay`,
   `hide`, `source`, `source-env`, `run`, `plugin use`): the lowering builds
   the call, and `nu-parser`'s code that does the rest (`finish_use`,
@@ -109,14 +112,14 @@ parsers for the rarer shape-dependent values).
   signatures, errors, highlighting).
 - `frontends bench [--clean] [--iters N] FILE|DIR...` times both front ends
   on the same files, and this parser's syntax pass alone.
-- nu-parser logs each hand-over to `nu-parser` at the debug level, with the
-  reason (`frontends --log`, or `nu --log-level debug --log-include
-  nu_parser::winnow` with the log flags first):
-  a statement the lowering gives back, the rest of a block from a statement
-  with a syntax error
-  (`winnow: syntax error (<kind>) [nu: <variant>]: <n> bytes: <first line>`,
-  `<variant>` being the first error `nu-parser` then reported), and a run
-  parsed ahead whose answers about command names changed.
+- nu-parser logs each statement this parser could not read at the debug
+  level, with the reason (`frontends --log`, or `nu --log-level debug
+  --log-include nu_parser::winnow` with the log flags first): a statement the
+  lowering gives back (`winnow: <reason>: <n> bytes: <first line>`), one with
+  a syntax error (`winnow: syntax error (<kind>): ...`), and also a block
+  handed to `nu-parser` whole and a run parsed ahead whose answers about
+  command names changed. `WinnowStats::unread_statements` counts the
+  statements.
 
 ## What the measurements say
 

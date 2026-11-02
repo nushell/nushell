@@ -213,7 +213,7 @@ enum Body {
     External,
 }
 
-/// An `alias` is lowered, not handed to the classic parser, and declared as `parse_alias`
+/// An `alias` is lowered and declared as `parse_alias`
 /// declares it. Its body is the text after `=` read as a call with the block's predeclared
 /// commands hidden, so a command the block defines later is an external one; a missing argument
 /// is forgiven; the description is the alias's doc comment, or `Alias for` the text after `=`.
@@ -246,8 +246,9 @@ fn alias_is_lowered(#[case] code: &str, #[case] body: Body, #[case] description:
     let after = nu_parser::winnow_stats();
     assert_eq!(working_set.parse_errors, [], "`{code}`");
     assert_eq!(
-        after.classic_statements, before.classic_statements,
-        "`{code}`: a statement was handed to the classic parser"
+        after.unread_statements(),
+        before.unread_statements(),
+        "`{code}`: a statement was not read"
     );
     let decl = working_set.get_decl(working_set.find_decl(b"s").expect("`s` is declared"));
     let alias = decl.as_alias().expect("`s` is an alias");
@@ -292,8 +293,7 @@ fn alias_with_an_error_in_its_body_is_garbage() -> Result {
     Ok(())
 }
 
-/// `alias` and `export alias` in a module's body and `export alias` in a script are lowered:
-/// nothing is handed to the classic parser.
+/// `alias` and `export alias` in a module's body and `export alias` in a script are lowered.
 #[rstest]
 #[case::module_export("module m {\n  export alias s = ls -a\n}\nuse m s")]
 #[case::module_private("module m {\n  alias p = ls -a\n  export alias s = p\n}\nuse m s")]
@@ -309,8 +309,9 @@ fn alias_in_a_module_or_exported_is_lowered(#[case] code: &str) -> Result {
     let after = nu_parser::winnow_stats();
     assert_eq!(working_set.parse_errors, [], "`{code}`");
     assert_eq!(
-        after.classic_statements, before.classic_statements,
-        "`{code}`: a statement was handed to the classic parser"
+        after.unread_statements(),
+        before.unread_statements(),
+        "`{code}`: a statement was not read"
     );
     let decl = working_set.get_decl(working_set.find_decl(b"s").expect("`s` is declared"));
     assert!(decl.as_alias().is_some(), "`{code}`: `s` is an alias");
@@ -347,8 +348,9 @@ fn use_is_lowered(#[case] code: &str, #[case] declared: Option<&str>) -> Result 
     let after = nu_parser::winnow_stats();
     assert_eq!(working_set.parse_errors, [], "`{code}`");
     assert_eq!(
-        after.classic_statements, before.classic_statements,
-        "`{code}`: a statement was handed to the classic parser"
+        after.unread_statements(),
+        before.unread_statements(),
+        "`{code}`: a statement was not read"
     );
     if let Some(name) = declared {
         assert!(
@@ -390,8 +392,9 @@ fn use_keeps_the_errors_of_finish_use(
         "`{code}`: {errors:?}"
     );
     assert_eq!(
-        after.classic_statements, before.classic_statements,
-        "`{code}`: a statement was handed to the classic parser"
+        after.unread_statements(),
+        before.unread_statements(),
+        "`{code}`: a statement was not read"
     );
     Ok(())
 }
@@ -420,8 +423,8 @@ fn use_call_gets_the_library_directories() -> Result {
 
 /// `module`, and `export module` in a script or a module's body, are lowered, not handed to
 /// the classic parser: the call to `module`, then `finish_module` as `parse_module` does it,
-/// which parses the body as the module's block and adds the module. Nothing is handed over:
-/// the `use` statements are lowered too.
+/// which parses the body as the module's block and adds the module. The `use` statements are
+/// lowered too.
 #[rstest]
 #[case::inline("module m { export def f [] { 1 } }\nuse m f", "f")]
 #[case::script_export("export module m { export def f [] { 1 } }\nuse m f", "f")]
@@ -443,8 +446,9 @@ fn module_is_lowered(#[case] code: &str, #[case] declared: &str) -> Result {
     let after = nu_parser::winnow_stats();
     assert_eq!(working_set.parse_errors, [], "`{code}`");
     assert_eq!(
-        after.classic_statements, before.classic_statements,
-        "`{code}`: a statement was handed to the classic parser"
+        after.unread_statements(),
+        before.unread_statements(),
+        "`{code}`: a statement was not read"
     );
     assert!(
         working_set.find_decl(declared.as_bytes()).is_some(),
@@ -506,8 +510,9 @@ fn module_keeps_the_errors_of_finish_module(
         "`{code}`: {errors:?}"
     );
     assert_eq!(
-        after.classic_statements, before.classic_statements,
-        "`{code}`: a statement was handed to the classic parser"
+        after.unread_statements(),
+        before.unread_statements(),
+        "`{code}`: a statement was not read"
     );
     Ok(())
 }
@@ -543,9 +548,9 @@ enum Effect {
     Overlay(&'static str),
 }
 
-/// The parser keywords other than the module statements are lowered, not handed to the classic
-/// parser, and do what the classic parser makes them do: `source`, `source-env` and `run` (of
-/// `null`, which loads nothing), `hide`, and the overlay commands, also through an alias.
+/// The parser keywords other than the module statements are lowered, and do what the classic
+/// parser makes them do: `source`, `source-env` and `run` (of `null`, which loads nothing),
+/// `hide`, and the overlay commands, also through an alias.
 #[rstest]
 #[case::source_null("source null", Effect::Noop)]
 #[case::source_env_null("source-env null", Effect::Noop)]
@@ -575,8 +580,9 @@ fn parser_keyword_is_lowered(#[case] code: &str, #[case] effect: Effect) -> Resu
     let after = nu_parser::winnow_stats();
     assert_eq!(working_set.parse_errors, [], "`{code}`");
     assert_eq!(
-        after.classic_statements, before.classic_statements,
-        "`{code}`: a statement was handed to the classic parser"
+        after.unread_statements(),
+        before.unread_statements(),
+        "`{code}`: a statement was not read"
     );
     match effect {
         Effect::Noop => {
@@ -624,7 +630,7 @@ fn percent_call_runs_the_built_in(#[case] code: &str, #[case] expected: Value) -
     test().run(code).expect_value_eq(expected)
 }
 
-/// `%` calls are lowered, not handed to the classic parser. As there, the head of `% ls` starts
+/// `%` calls are lowered. As in nu-parser, the head of `% ls` starts
 /// past the `%`, so it covers the blank before the name.
 #[rstest]
 #[case::bare("%ls", "ls")]
@@ -642,8 +648,9 @@ fn percent_call_is_lowered(#[case] code: &str, #[case] head: &str) -> Result {
     let after = nu_parser::winnow_stats();
     assert_eq!(working_set.parse_errors, [], "`{code}`");
     assert_eq!(
-        after.classic_statements, before.classic_statements,
-        "`{code}`: a statement was handed to the classic parser"
+        after.unread_statements(),
+        before.unread_statements(),
+        "`{code}`: a statement was not read"
     );
     let last = block
         .pipelines
@@ -693,8 +700,9 @@ fn type_alias_is_lowered(
         "`{code}`: {errors:?}"
     );
     assert_eq!(
-        after.classic_statements, before.classic_statements,
-        "`{code}`: a statement was handed to the classic parser"
+        after.unread_statements(),
+        before.unread_statements(),
+        "`{code}`: a statement was not read"
     );
     assert!(
         working_set.find_type_alias(b"T").is_some(),
@@ -727,10 +735,10 @@ enum Help {
     NotDeclared(&'static str),
 }
 
-/// A statement keyword's call for help is lowered, not handed to the classic parser, and is the
-/// call the keyword's parse function makes: `module` reads only its name and leaves its body
-/// garbage, `export-env` reads only its first item, `type` its first two, an `export` makes it
-/// a call to `export <keyword>`, and any `overlay` call for help is typed `any`.
+/// A statement keyword's call for help is lowered, and is the call the keyword's parse function
+/// makes: `module` reads only its name and leaves its body garbage, `export-env` reads only its
+/// first item, `type` its first two, an `export` makes it a call to `export <keyword>`, and any
+/// `overlay` call for help is typed `any`.
 #[rstest]
 #[case::def("def f --help [] {}", Help::NotDeclared("f"))]
 #[case::def_after_signature("def f [x: int] {} --help", Help::NotDeclared("f"))]
@@ -758,8 +766,9 @@ fn help_call_is_lowered(#[case] code: &str, #[case] help: Help) -> Result {
     let after = nu_parser::winnow_stats();
     assert_eq!(working_set.parse_errors, [], "`{code}`");
     assert_eq!(
-        after.classic_statements, before.classic_statements,
-        "`{code}`: a statement was handed to the classic parser"
+        after.unread_statements(),
+        before.unread_statements(),
+        "`{code}`: a statement was not read"
     );
     let last = &block.pipelines.last().expect("a statement").elements[0].expr;
     let call = match &last.expr {
@@ -885,8 +894,9 @@ fn keyword_in_a_pipeline_is_lowered(#[case] code: &str, #[case] command: &str) -
     let after = nu_parser::winnow_stats();
     assert_eq!(working_set.parse_errors, [], "`{code}`");
     assert_eq!(
-        after.classic_statements, before.classic_statements,
-        "`{code}`: a statement was handed to the classic parser"
+        after.unread_statements(),
+        before.unread_statements(),
+        "`{code}`: a statement was not read"
     );
     let last = &block.pipelines[0].elements.last().expect("an element").expr;
     let Expr::Call(call) = &last.expr else {
@@ -937,8 +947,9 @@ fn value_in_a_block_place_is_lowered(#[case] code: &str, #[case] ty: Type) -> Re
     let after = nu_parser::winnow_stats();
     assert_eq!(working_set.parse_errors, [], "`{code}`");
     assert_eq!(
-        after.classic_statements, before.classic_statements,
-        "`{code}`: a statement was handed to the classic parser"
+        after.unread_statements(),
+        before.unread_statements(),
+        "`{code}`: a statement was not read"
     );
     let last = &block.pipelines.last().expect("a statement").elements[0].expr;
     assert_eq!(last.ty, ty, "`{code}`");
@@ -1004,8 +1015,9 @@ fn call_through_an_alias_of_a_keyword_is_lowered(
     let after = nu_parser::winnow_stats();
     assert_eq!(working_set.parse_errors, [], "`{code}`");
     assert_eq!(
-        after.classic_statements, before.classic_statements,
-        "`{code}`: a statement was handed to the classic parser"
+        after.unread_statements(),
+        before.unread_statements(),
+        "`{code}`: a statement was not read"
     );
     let last = &block.pipelines.last().expect("a statement").elements;
     let last = &last.last().expect("an element").expr;
@@ -1044,8 +1056,9 @@ fn parse_lowered<'e>(
     let after = nu_parser::winnow_stats();
     assert_eq!(working_set.parse_errors, [], "`{code}`");
     assert_eq!(
-        after.classic_statements, before.classic_statements,
-        "`{code}`: a statement was handed to the classic parser"
+        after.unread_statements(),
+        before.unread_statements(),
+        "`{code}`: a statement was not read"
     );
     (working_set, block)
 }
@@ -1303,7 +1316,8 @@ fn definition_with_an_unknown_flag_defines_the_command(
     nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
     let after = nu_parser::winnow_stats();
     assert_eq!(
-        after.classic_statements, before.classic_statements,
+        after.unread_statements(),
+        before.unread_statements(),
         "`{code}`"
     );
     let decl_id = working_set.find_decl(name).expect("the command is defined");
@@ -1748,7 +1762,8 @@ fn redirected_statement_is_lowered(
     let block = nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
     let after = nu_parser::winnow_stats();
     assert_eq!(
-        after.classic_statements, before.classic_statements,
+        after.unread_statements(),
+        before.unread_statements(),
         "`{code}`"
     );
     let [ParseError::RedirectingBuiltinCommand(found, found_first, found_second)] =
@@ -2650,8 +2665,9 @@ fn module_call_adds_a_module_with_a_block_after_the_name(
     nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
     let after = nu_parser::winnow_stats();
     assert_eq!(
-        after.classic_statements, before.classic_statements,
-        "`{code}`: a statement was handed to the classic parser"
+        after.unread_statements(),
+        before.unread_statements(),
+        "`{code}`: a statement was not read"
     );
     assert_eq!(working_set.find_module(b"x").is_some(), added, "`{code}`");
     Ok(())
@@ -2976,7 +2992,8 @@ fn statement_after_an_error(#[case] code: &str, #[case] pipelines: usize) -> Res
     let block = nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
     let after = nu_parser::winnow_stats();
     assert_eq!(
-        after.classic_statements, before.classic_statements,
+        after.unread_statements(),
+        before.unread_statements(),
         "`{code}`"
     );
     assert_eq!(block.pipelines.len(), pipelines, "`{code}`");
@@ -3107,6 +3124,22 @@ fn dropped_err_pipe_is_the_next_commands_pipe(#[case] code: &str, #[case] at: us
     &[("Unbalanced", "}"), ("Unbalanced", "}")]
 )]
 #[case::record_spread_tail("echo { a: 1 }...", &[])]
+#[case::redirected_help_of_an_export("export def -h o> f.txt", &[("RedirectingBuiltinCommand", "o>")])]
+#[case::redirected_help_in_a_module(
+    "module m { def -h o> f.txt }",
+    &[("RedirectingBuiltinCommand", "o>")]
+)]
+#[case::redirected_export_help_in_a_module(
+    "module m { export def -h o> f.txt }",
+    &[("RedirectingBuiltinCommand", "o>")]
+)]
+#[case::redirected_definition_in_a_module(
+    "module m { export def f [] {} o> x }",
+    &[("RedirectingBuiltinCommand", "o>")]
+)]
+#[case::redirected_const_help_in_a_module("module m { export const -h o> f.txt }", &[])]
+#[case::signature_after_dashes_is_a_flag("def f -- -x {}", &[("Expected", "-")])]
+#[case::signature_after_dashes_before_the_name("def -- f --foo {}", &[("Expected", "-")])]
 #[nu_test_support::test]
 #[serial]
 #[exp(nu_experimental::WINNOW_PARSER)]
@@ -3161,14 +3194,15 @@ fn where_statement_drops_a_leading_pipe(#[case] code: &str) -> Result {
 }
 
 /// The block of the first statement of `code`, a parenthesized subexpression, parsed with the
-/// winnow front end: no statement is handed to the classic parser.
+/// winnow front end, every statement read.
 fn parenthesized_block(working_set: &mut StateWorkingSet, code: &str) -> nu_protocol::BlockId {
     let before = nu_parser::winnow_stats();
     let block = nu_parser::parse(working_set, None, code.as_bytes(), false);
     let after = nu_parser::winnow_stats();
     assert_eq!(
-        after.classic_statements, before.classic_statements,
-        "`{code}`: a statement was handed to the classic parser"
+        after.unread_statements(),
+        before.unread_statements(),
+        "`{code}`: a statement was not read"
     );
     match &block.pipelines[0].elements[0].expr.expr {
         Expr::FullCellPath(path) => match path.head.expr {
@@ -3264,7 +3298,8 @@ fn definition_read_past_an_error_keeps_its_comment(#[case] code: &str) -> Result
     nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
     let after = nu_parser::winnow_stats();
     assert_eq!(
-        after.classic_statements, before.classic_statements,
+        after.unread_statements(),
+        before.unread_statements(),
         "`{code}`"
     );
     let decl = working_set.get_decl(working_set.find_decl(b"f").expect("`f` is declared"));

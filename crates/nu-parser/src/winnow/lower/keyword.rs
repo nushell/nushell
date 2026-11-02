@@ -17,7 +17,7 @@ use nu_protocol::{
     },
 };
 
-use super::{BlockOf, Lower, Lowered, Unlowered, is_missing_argument};
+use super::{BlockOf, Lower, Lowered, Unlowered, is_missing_argument, statement_decl};
 use crate::winnow::syntax::{ItemsValue, Span as WSpan, ast as w};
 use crate::{
     exportable::Exportable,
@@ -34,7 +34,6 @@ use crate::{
         is_env_variable_name, is_math_expression_like, parse_expression, parse_value,
     },
     parse_helpers::{garbage, is_variable},
-    parse_keywords::find_keyword_decl,
     parse_module::{finish_export_env, warp_export_call},
     parse_patterns::parse_pattern,
     parse_shape_specs::parse_type,
@@ -539,9 +538,8 @@ impl<'s> Lower<'_, '_, 's> {
     /// may replace. Returns its `VarDecl` expression, the written type and the variable's name.
     ///
     /// The variable is not in scope yet. The caller puts it there (`insert_variable_into_scope`)
-    /// where the classic parser declares it or, when a later check can still hand the statement
-    /// back, once that check passed: the classic parser, parsing the statement again, must not
-    /// find the variable (`let x: string = $x` reads the `x` before it).
+    /// where the classic parser declares it or, when a later check can still give the statement
+    /// back, once that check passed: a statement given back declares nothing.
     pub(super) fn variable_declaration(
         &mut self,
         name: &crate::winnow::syntax::Spanned<&'s str>,
@@ -857,7 +855,7 @@ impl<'s> Lower<'_, '_, 's> {
         let (lowered_attributes, attribute_values) = self.attributes(attributes)?;
         // A `def` that is not the keyword (an engine without the core language) is parsed like
         // any command by the classic parser.
-        let decl_id = find_keyword_decl(self.working_set, b"def")
+        let decl_id = statement_decl(self.working_set, "def")
             .ok_or(Unlowered::Unsupported("def that is not a keyword"))?;
         // The call covers the command's items: from `def` (or `export`) to the body.
         let call_span = self.span(command.span);
@@ -891,17 +889,30 @@ impl<'s> Lower<'_, '_, 's> {
             };
             // `finish_def` compiles the body (`parse_def` marks it the same way). The outer
             // mark is restored before `?`: this `def` may be in another one's body, and a
-            // statement handed back does not end the lowering of the statements after it.
+            // statement given back does not end the lowering of the statements after it.
             let def_body_span = Some(this.span(body_span));
             let outer_def_body_span =
                 std::mem::replace(&mut this.working_set.def_body_span, def_body_span);
-            let body = this.closure(
-                body_span,
-                def.body_params.as_ref(),
-                &def.body,
-                &SyntaxShape::Closure(None),
-                Some(&input_type),
-            );
+            // A `def` that is no keyword (an engine without the core language) gets no special
+            // reading of its body (`SpecialCmd::Def`): `parse_value` reads it with the body's
+            // shape, and refuses one that reads as a record.
+            let body = if this.working_set.get_decl(decl_id).is_keyword() {
+                this.closure(
+                    body_span,
+                    def.body_params.as_ref(),
+                    &def.body,
+                    &SyntaxShape::Closure(None),
+                    Some(&input_type),
+                )
+            } else {
+                let span = this.span(body_span);
+                Ok(parse_value(
+                    this.working_set,
+                    span,
+                    &SyntaxShape::Closure(None),
+                    None,
+                ))
+            };
             this.working_set.def_body_span = outer_def_body_span;
             let body = body?;
             // The arguments in source order.
@@ -961,7 +972,7 @@ impl<'s> Lower<'_, '_, 's> {
     ) -> Lowered<Definition> {
         let (desc, extra_desc) = self.description(pipeline, attributes, command);
         let (lowered_attributes, attribute_values) = self.attributes(attributes)?;
-        let decl_id = find_keyword_decl(self.working_set, b"extern")
+        let decl_id = statement_decl(self.working_set, "extern")
             .ok_or(Unlowered::Unsupported("extern that is not a keyword"))?;
         let call_span = self.span(command.span);
         let head = self.command_head(command, "extern");
@@ -1153,9 +1164,9 @@ impl<'s> Lower<'_, '_, 's> {
         alias: &w::TypeAlias<'s>,
     ) -> Lowered<(Pipeline, Vec<Exportable>)> {
         let export = matches!(command.expr, w::Expr::Export(_));
-        let decl_id = find_keyword_decl(self.working_set, b"type")
+        let decl_id = statement_decl(self.working_set, "type")
             .ok_or(Unlowered::Unsupported("type that is not a keyword"))?;
-        if export && find_keyword_decl(self.working_set, b"export type").is_none() {
+        if export && statement_decl(self.working_set, "export type").is_none() {
             return Err(Unlowered::Unsupported("export type that is not a keyword"));
         }
         let head = self.command_head(command, "type");
@@ -1209,10 +1220,9 @@ impl<'s> Lower<'_, '_, 's> {
     /// `alias` and `type` drop the errors of the call, which `internal_call` hands back.
     ///
     /// Returns the statement and, for `def` and `extern`, the command it defined, which an
-    /// `export` in a module exports. Another keyword's call that does not ask for help, a
-    /// redirected statement
-    /// (an error for these keywords but `where`, which keeps it, and `const`, which drops it)
-    /// are the classic parser's.
+    /// `export` in a module exports. A redirection the statement's caller refuses first
+    /// (`Self::redirected_statement`) but `const`'s, which `parse_const` drops; `where`, which
+    /// keeps it, is read before.
     pub(super) fn help_statement(
         &mut self,
         pipeline: &w::Pipeline<'s>,
@@ -1223,13 +1233,14 @@ impl<'s> Lower<'_, '_, 's> {
         input_type: Option<&Type>,
     ) -> Lowered<Definition> {
         let keyword = call.head.name.as_ref();
-        if pipeline
-            .elements
-            .iter()
-            .any(|element| element.redirection.is_some())
+        if keyword != "const"
+            && pipeline
+                .elements
+                .iter()
+                .any(|element| element.redirection.is_some())
         {
             return Err(match keyword {
-                "where" | "const" => Unlowered::Unsupported("redirected call for help"),
+                "where" => Unlowered::Unsupported("redirected call for help"),
                 _ => Unlowered::Error,
             });
         }
@@ -1284,10 +1295,10 @@ impl<'s> Lower<'_, '_, 's> {
             }
             alias_spans = spans;
         }
-        let decl_id = find_keyword_decl(self.working_set, keyword.as_bytes())
+        let decl_id = statement_decl(self.working_set, keyword)
             .ok_or(Unlowered::Unsupported("keyword command"))?;
         let export_name = format!("export {keyword}");
-        if export && find_keyword_decl(self.working_set, export_name.as_bytes()).is_none() {
+        if export && statement_decl(self.working_set, &export_name).is_none() {
             return Err(Unlowered::Unsupported("export that is not a keyword"));
         }
         let head = self.command_head(command, keyword);
@@ -1511,7 +1522,7 @@ impl<'s> Lower<'_, '_, 's> {
         alias: &w::Alias<'s>,
         module_name: Option<&[u8]>,
     ) -> Lowered<Expression> {
-        let decl_id = find_keyword_decl(self.working_set, b"alias")
+        let decl_id = statement_decl(self.working_set, "alias")
             .ok_or(Unlowered::Unsupported("alias that is not a keyword"))?;
         let errors_before = self.working_set.parse_errors.len();
         let head = self.command_head(command, "alias");
@@ -1669,8 +1680,7 @@ impl<'s> Lower<'_, '_, 's> {
         self.working_set.search_predecls = outer_search_predecls;
         let wrapped_call = wrapped_call?;
         // When the first error is a missing argument, all are forgiven; any other makes the
-        // statement garbage, its errors kept. They come from the target's nested statements,
-        // which the classic parser parses when the lowering gives them back.
+        // statement garbage, its errors kept. They come from the target's nested statements.
         match self.working_set.parse_errors.get(errors_before) {
             None => {}
             Some(error) if is_missing_argument(error) => {
@@ -1703,7 +1713,7 @@ impl<'s> Lower<'_, '_, 's> {
         command: &w::Expression<'s>,
         call: &w::Call<'s>,
     ) -> Lowered<(Expression, Option<BlockId>)> {
-        let decl_id = find_keyword_decl(self.working_set, b"export-env")
+        let decl_id = statement_decl(self.working_set, "export-env")
             .ok_or(Unlowered::Unsupported("keyword command"))?;
         let call_span = self.span(command.span);
         if call.arguments.is_empty() {

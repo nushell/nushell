@@ -12,10 +12,9 @@
 //!   every byte of the source, written with the `winnow` crate. It asks a
 //!   [`CommandLookup`](syntax::CommandLookup) which commands exist. [`docs`] describes it,
 //!   chapter by chapter.
-//! * `driver` parses a block with `syntax::BlockStatements`, one statement at a
-//!   time, and hands each statement to the lowering (or to the classic parser, see below). A
-//!   `use` therefore affects how the following statements resolve their command names, as in
-//!   the classic parser. In a long block the statements are parsed on a second thread, ahead of
+//! * `driver` parses a block with `syntax::BlockStatements`, one statement at a time, and
+//!   hands each statement to the lowering. A `use` therefore affects how the following
+//!   statements resolve their command names, as in the classic parser. In a long block the statements are parsed on a second thread, ahead of
 //!   the lowering, with a copy of the command names; every name it resolved is checked against
 //!   the live working set before its statement is lowered.
 //! * `lookup` answers the winnow parser's questions about which commands exist from the live
@@ -25,17 +24,11 @@
 //! * `stats` counts what went where, so a benchmark can say how much of its input the winnow
 //!   front end parsed.
 //!
-//! The classic parser (lexing and parsing from the source, with its effects applied as usual)
-//! takes over wherever the winnow front end stops, so error messages stay the classic ones:
-//!
-//! * a statement the lowering gives back (an error to report, or a construct it does not
-//!   handle) is parsed alone;
-//! * from a statement the winnow parser reported an error in, or one parsed ahead with command
-//!   names that turned out different, the rest of the block is parsed, and so it is after a
-//!   statement given back in a nested block that changed its commands (a call through an alias
-//!   of `overlay use`);
-//! * a block the winnow parser cannot take as a whole (not UTF-8, it does not lex, or it has an
-//!   error about the whole block) is parsed entirely.
+//! No statement goes to the classic parser. One the winnow front end cannot read (a syntax
+//! error the winnow parser did not go past, a construct the lowering does not handle) is a
+//! garbage pipeline with an error. A block the winnow parser cannot take as a whole (not UTF-8,
+//! it does not lex, or it has an error about the whole block) is still parsed entirely by the
+//! classic parser.
 //!
 //! This module is public so that nu-parser's tests, examples and benchmarks and the comparison
 //! harness in `winnow/tools` can reach the winnow parser. It is experimental, like the option,

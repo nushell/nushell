@@ -99,6 +99,23 @@ impl Scope {
             .find(|(declared, _)| **declared == *name)
             .map_or(DeclKind::Declared, |&(_, kind)| kind)
     }
+
+    /// Keep only the names `keep` takes, given how calls to each parse.
+    fn retain(&mut self, mut keep: impl FnMut(&str, DeclKind) -> bool) {
+        let kept: Vec<(Box<str>, DeclKind)> = self
+            .commands
+            .names
+            .iter()
+            .map(|name| (name.clone(), self.kind(name)))
+            .filter(|(name, kind)| keep(name, *kind))
+            .collect();
+        if kept.len() < self.commands.names.len() {
+            *self = Scope::default();
+            for (name, kind) in kept {
+                self.declare(&name, kind);
+            }
+        }
+    }
 }
 
 /// The commands that exist, asked of an engine instead of a [`ParseConfig`].
@@ -218,6 +235,16 @@ pub(crate) struct ParseState {
     longest_declared: usize,
     /// The lexer errors found so far ([`WorkingSet::lex_block`]).
     lex_errors: Vec<(Span, LexError)>,
+}
+
+impl ParseState {
+    /// Forget each name the scopes declared that `lookup` answers otherwise for, so that its
+    /// answer counts ([`super::BlockStatements::forget_changed_names`]).
+    pub(crate) fn forget_names_unlike(&mut self, lookup: &impl CommandLookup) {
+        for scope in &mut self.scopes {
+            scope.retain(|name, kind| lookup.find_decl(name) == Some(kind));
+        }
+    }
 }
 
 /// What a finished parse collected besides the tree.

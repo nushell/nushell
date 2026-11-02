@@ -302,17 +302,15 @@ covering the statement, then goes on after it. The diagnostic is recorded
 as not recovered, even one marked recovered where it was made: such an error
 is gone past only by its construct's own parser (a record, a math
 expression, a value read with any shape), and one that reached the statement
-loop was gone past by nothing, so the statement is nu's to parse again.
-Where the statement ends:
+loop was gone past by nothing, so the statement stays garbage: the front end
+reports it as a syntax error. Where the statement ends:
 
 * where `parse_pipeline`'s lite parse ended it, when the error came after
   that (in a command), as nu's lite parser ends it: past a `|` that goes on
   to the next line, the comments on its lines included;
 * otherwise (the lite parse itself failed, or a `|` that no command follows
   hands on to the next statement), at the next `Eol` or `;`
-  (`skip_to_statement_end`), or, for `BlockStatements::parse`, whose consumer
-  hands such a statement to nu, at the end of the block
-  (`skip_to_block_end`): nu alone knows where it ends.
+  (`skip_to_statement_end`).
 
 Because every block (closure body, `if` body, subexpression, `let` value)
 goes through the same function, an error inside a nested block does not fail the enclosing

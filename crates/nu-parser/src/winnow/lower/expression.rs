@@ -11,14 +11,13 @@ use nu_protocol::{
     },
 };
 
-use super::{BlockOf, Lower, Lowered, Unlowered, call::STATEMENTS_IN_PIPELINE};
+use super::{BlockOf, Lower, Lowered, Unlowered, call::STATEMENTS_IN_PIPELINE, statement_decl};
 use crate::winnow::syntax::{Span as WSpan, ast as w, lex::AssignmentOperator};
 use crate::{
     lex::{TokenContents, is_assignment_operator, lex},
     parse_calls::{CallKind, parse_external_call},
     parse_captures_compile::compile_block,
     parse_expressions::{is_math_expression_like, parse_math_expression},
-    parse_keywords::find_keyword_decl,
     parse_literals::parse_string_strict,
     type_check::math_result_type,
     type_check::type_compatible,
@@ -644,8 +643,7 @@ impl<'s> Lower<'_, '_, 's> {
                 false,
             );
             // Restored before `?`: this `where` may sit in another row condition, and a
-            // statement handed back to the classic parser does not end the lowering of the
-            // statements after it.
+            // statement given back does not end the lowering of the statements after it.
             let saved = this.row_var.replace(var_id);
             let expression = match condition.expr {
                 // A condition the winnow parser left as garbage, a column that is no cell path
@@ -756,8 +754,12 @@ impl<'s> Lower<'_, '_, 's> {
         keyword: &str,
         input_type: Option<&Type>,
     ) -> Lowered<Expression> {
-        let decl_id = find_keyword_decl(self.working_set, keyword.as_bytes())
-            .ok_or(Unlowered::Unsupported("binding that is not a keyword"))?;
+        // No command of that name: `parse_call` makes the items an external call.
+        let Some(decl_id) = statement_decl(self.working_set, keyword) else {
+            let items = self.parts(e.span);
+            let span = self.span(e.span);
+            return Ok(parse_external_call(self.working_set, &items, span));
+        };
         let head = self.keyword_span(e, keyword);
         if binding.ty.is_some() {
             let (variable, _, name) =

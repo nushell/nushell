@@ -6,14 +6,13 @@ use nu_protocol::{
     ast::{Call, Expr, Expression, ListItem, Pipeline},
 };
 
-use super::{Lower, Lowered, Unlowered};
+use super::{Lower, Lowered, Unlowered, statement_decl};
 use crate::winnow::syntax::ast as w;
 use crate::{
     parse_calls::CallKind,
     parse_def::has_flag_const,
     parse_expressions::parse_value as classic_value,
     parse_helpers::{extract_spread_list, extract_spread_record},
-    parse_keywords::find_keyword_decl,
     parse_source::{finish_run, finish_source},
 };
 
@@ -23,8 +22,8 @@ impl<'s> Lower<'_, '_, 's> {
     /// `finish_source`, which evaluates the file's name, parses the file (in the caller's
     /// scope for `source`, in one of its own for `source-env`) and gives its block to the call.
     ///
-    /// As for `use`, once `finish_source` has run the statement is never handed back: the
-    /// file's definitions are declared, and the classic parser would parse it again.
+    /// As for `use`, once `finish_source` has run the statement is never given back: the
+    /// file's definitions are declared.
     pub(super) fn source(
         &mut self,
         e: &w::Expression<'s>,
@@ -60,8 +59,7 @@ impl<'s> Lower<'_, '_, 's> {
     /// to the call. `finish_run` parses the script, which declares its definitions in the
     /// caller's scope.
     pub(super) fn run(&mut self, e: &w::Expression<'s>, call: &w::Call<'s>) -> Lowered<Expression> {
-        let decl_id = find_keyword_decl(self.working_set, b"run")
-            .or_else(|| self.working_set.find_decl(b"run"))
+        let decl_id = statement_decl(self.working_set, "run")
             .ok_or(Unlowered::Unsupported("run that is not a command"))?;
         // `run`'s own flags come before the script's path, the first item that is no flag or
         // spread, or the item after `--`; the script's arguments follow it.

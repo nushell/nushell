@@ -43,8 +43,9 @@ do {{
         tester.run(code).expect_value_eq("from overlay")?;
         let after = nu_parser::winnow_stats();
         assert_eq!(
-            after.classic_statements, before.classic_statements,
-            "a statement was handed to the classic parser"
+            after.unread_statements(),
+            before.unread_statements(),
+            "a statement was not read"
         );
         Ok(())
     })

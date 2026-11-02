@@ -1,13 +1,14 @@
-//! Counters of what the winnow front end parsed and what it handed to the classic parser, to
-//! tell how much of an input took which path. They are always kept, for the whole process, and
-//! read with `nu_parser::winnow_stats()`: the `frontends` harness
-//! (`crates/nu-parser/winnow/tools/nushell-harness`) prints them after `compare` and `bench`.
+//! Counters of what the winnow front end parsed, to tell how much of an input took which path.
+//! They are always kept, for the whole process, and read with `nu_parser::winnow_stats()`: the
+//! `frontends` harness (`crates/nu-parser/winnow/tools/nushell-harness`) prints them after
+//! `compare` and `bench`.
 //!
-//! Each hand-over to the classic parser is also logged at the debug level, with its reason, to
-//! find what the lowering still lacks: a statement the lowering gives back, the rest of a block
-//! from a statement the winnow parser reported a syntax error in, and each run parsed ahead
-//! whose answers about command names changed. Every message starts with `winnow: `; to see
-//! them, run `nu --log-level debug --log-include nu_parser::winnow`, or `frontends --log`.
+//! Each statement the front end could not read (one the lowering gives back, or one with a
+//! syntax error the winnow parser did not go past), each block handed to nu-parser whole, each
+//! run parsed ahead whose answers about command names changed, and each pipeline nu-parser's
+//! own statement parser parsed is also logged at the debug level, with its reason, to find what
+//! the front end still lacks. Every message starts with `winnow: `; to see them, run
+//! `nu --log-level debug --log-include nu_parser::winnow`, or `frontends --log`.
 
 use std::{
     fmt::Display,
@@ -24,8 +25,7 @@ use crate::winnow::syntax::Diagnostic;
 static WINNOW_BLOCKS: AtomicU64 = AtomicU64::new(0);
 static CLASSIC_BLOCKS: AtomicU64 = AtomicU64::new(0);
 static LOWERED_STATEMENTS: AtomicU64 = AtomicU64::new(0);
-static CLASSIC_STATEMENTS: AtomicU64 = AtomicU64::new(0);
-static CLASSIC_STATEMENT_BYTES: AtomicU64 = AtomicU64::new(0);
+static UNLOWERED_STATEMENTS: AtomicU64 = AtomicU64::new(0);
 static ERROR_STATEMENTS: AtomicU64 = AtomicU64::new(0);
 static AHEAD_RUNS: AtomicU64 = AtomicU64::new(0);
 static AHEAD_FALLBACKS: AtomicU64 = AtomicU64::new(0);
@@ -37,33 +37,39 @@ static CLASSIC_PIPELINES: AtomicU64 = AtomicU64::new(0);
 pub struct WinnowStats {
     /// Blocks and module bodies whose statements the winnow parser parsed.
     pub winnow_blocks: u64,
-    /// Blocks handed to the classic parser whole (not UTF-8, or not taken by
-    /// `BlockStatements::new`: they do not lex, or have an error about the whole block).
+    /// Blocks handed to nu-parser whole (not UTF-8, or not taken by `BlockStatements::new`:
+    /// they do not lex, or have an error about the whole block).
     pub classic_blocks: u64,
     /// Statements the winnow parser parsed and the lowering turned into the AST.
     pub lowered_statements: u64,
-    /// Hand-overs to the classic parser, which parses from the source: a statement the
-    /// lowering gave back or the winnow parser reported an error in, or the rest of a block,
-    /// counted once.
-    pub classic_statements: u64,
-    /// The bytes of those hand-overs.
-    pub classic_statement_bytes: u64,
-    /// Of those, the statements the winnow parser reported an error in (each with the rest of
-    /// its block where the winnow parser could not tell where it ends).
+    /// Statements the lowering gave back: each is a garbage pipeline with an error.
+    pub unlowered_statements: u64,
+    /// Statements the winnow parser reported a syntax error in and did not go past: each is a
+    /// garbage pipeline with an error.
     pub error_statements: u64,
     /// Runs of statements a second thread parsed ahead of the lowering.
     pub ahead_runs: u64,
     /// Of those, the runs in which the live working set answered a question about command names
-    /// (or about their longest length) differently: the classic parser took the rest of the
-    /// block.
+    /// (or about their longest length) differently: the statements from there on were parsed
+    /// again.
     pub ahead_fallbacks: u64,
     /// Statements with errors the winnow parser went on past (each left as a garbage node that
-    /// the lowering reads again, reporting the error), lowered rather than handed over.
+    /// the lowering reads again, reporting the error), lowered.
     pub recovered_statements: u64,
     /// Pipelines `nu-parser`'s own statement parser (`parse_pipeline`) parsed while the option
-    /// was on: those of the hand-overs, and those of blocks the lowering had `nu-parser`'s value
-    /// parsers read (a closure, a subexpression). With the option on there should be none.
+    /// was on: those of the blocks handed to it whole, and those of blocks the lowering had
+    /// `nu-parser`'s value parsers read (a closure, a subexpression). With the option on there
+    /// should be none.
     pub classic_pipelines: u64,
+}
+
+impl WinnowStats {
+    /// The statements the front end could not read, each a garbage pipeline with an error:
+    /// those the lowering gave back and those with a syntax error the winnow parser did not go
+    /// past.
+    pub fn unread_statements(&self) -> u64 {
+        self.unlowered_statements + self.error_statements
+    }
 }
 
 /// The counters so far.
@@ -72,8 +78,7 @@ pub fn winnow_stats() -> WinnowStats {
         winnow_blocks: WINNOW_BLOCKS.load(Relaxed),
         classic_blocks: CLASSIC_BLOCKS.load(Relaxed),
         lowered_statements: LOWERED_STATEMENTS.load(Relaxed),
-        classic_statements: CLASSIC_STATEMENTS.load(Relaxed),
-        classic_statement_bytes: CLASSIC_STATEMENT_BYTES.load(Relaxed),
+        unlowered_statements: UNLOWERED_STATEMENTS.load(Relaxed),
         error_statements: ERROR_STATEMENTS.load(Relaxed),
         ahead_runs: AHEAD_RUNS.load(Relaxed),
         ahead_fallbacks: AHEAD_FALLBACKS.load(Relaxed),
@@ -87,10 +92,10 @@ pub(super) fn record_winnow_block() {
     WINNOW_BLOCKS.fetch_add(1, Relaxed);
 }
 
-/// Count a block covering `span` handed to the classic parser whole, and log it with `why`.
+/// Count a block covering `span` handed to nu-parser whole, and log it with `why`.
 pub(super) fn record_classic_block(why: impl Display, span: Span, working_set: &StateWorkingSet) {
     CLASSIC_BLOCKS.fetch_add(1, Relaxed);
-    log_hand_over(format_args!("classic block ({why})"), span, working_set);
+    log_statement(format_args!("classic block ({why})"), span, working_set);
 }
 
 /// Count a run of statements parsed ahead on the second thread.
@@ -98,7 +103,7 @@ pub(super) fn record_ahead_run() {
     AHEAD_RUNS.fetch_add(1, Relaxed);
 }
 
-/// Count a run whose statement the classic parser had to take, because the live working set
+/// Count a run whose statements from one on were parsed again, because the live working set
 /// answered a question about command names differently (`changed`), and log it.
 pub(super) fn record_ahead_fallback(changed: &str) {
     AHEAD_FALLBACKS.fetch_add(1, Relaxed);
@@ -114,7 +119,7 @@ pub(super) fn record_recovered_statement() {
 /// was on, and log it.
 pub(crate) fn record_classic_pipeline(span: Span, working_set: &StateWorkingSet) {
     CLASSIC_PIPELINES.fetch_add(1, Relaxed);
-    log_hand_over("nu-parser pipeline", span, working_set);
+    log_statement("nu-parser pipeline", span, working_set);
 }
 
 /// Count a statement the lowering turned into the AST.
@@ -122,59 +127,30 @@ pub(super) fn record_lowered_statement() {
     LOWERED_STATEMENTS.fetch_add(1, Relaxed);
 }
 
-/// Count a hand-over of `bytes` of source to the classic parser: a statement, or the rest of a
-/// block as one. `had_errors`: the winnow parser reported an error in its first statement.
-pub(super) fn record_classic_statement(bytes: usize, had_errors: bool) {
-    CLASSIC_STATEMENTS.fetch_add(1, Relaxed);
-    CLASSIC_STATEMENT_BYTES.fetch_add(bytes as u64, Relaxed);
-    if had_errors {
-        ERROR_STATEMENTS.fetch_add(1, Relaxed);
-    }
-}
-
-/// Count a statement the lowering gave back (it is then counted as a classic statement), and
-/// log it.
+/// Count a statement covering `span` the lowering gave back for `reason`, and log it.
 pub(super) fn record_unlowered(span: Span, reason: &Unlowered, working_set: &StateWorkingSet) {
-    record_classic_statement(span.len(), false);
-    log_hand_over(reason.reason(), span, working_set);
+    UNLOWERED_STATEMENTS.fetch_add(1, Relaxed);
+    log_statement(reason.reason(), span, working_set);
 }
 
-/// Count a statement covering `span` that the winnow parser reported `error` in, handed to the
-/// classic parser, and log it with the first error the classic parser reported for it (those
-/// from `nu_errors_from` on).
+/// Count a statement covering `span` that the winnow parser reported `error` in and did not go
+/// past, and log it.
 pub(super) fn record_error_statement(
     span: Span,
     error: &Diagnostic,
     working_set: &StateWorkingSet,
-    nu_errors_from: usize,
 ) {
-    record_classic_statement(span.len(), true);
-    if log_enabled!(Level::Debug) {
-        // The variant of the first error the classic parser reported for the statement, for
-        // telling its syntax errors from its semantic ones.
-        let nu_error = working_set
-            .parse_errors
-            .get(nu_errors_from)
-            .map(|error| {
-                let debug = format!("{error:?}");
-                debug
-                    .split(['(', ' ', '{'])
-                    .next()
-                    .unwrap_or_default()
-                    .to_owned()
-            })
-            .unwrap_or_else(|| "none".to_owned());
-        log_hand_over(
-            format_args!("syntax error ({}) [nu: {nu_error}]", error.kind),
-            span,
-            working_set,
-        );
-    }
+    ERROR_STATEMENTS.fetch_add(1, Relaxed);
+    log_statement(
+        format_args!("syntax error ({})", error.kind),
+        span,
+        working_set,
+    );
 }
 
-/// Log a hand-over of `span` to the classic parser: `why`, its length and its first line of
-/// code.
-fn log_hand_over(why: impl Display, span: Span, working_set: &StateWorkingSet) {
+/// Log `span`, which the winnow front end could not read or handed to nu-parser: `why`, its
+/// length and its first line of code.
+fn log_statement(why: impl Display, span: Span, working_set: &StateWorkingSet) {
     if log_enabled!(Level::Debug) {
         let text = String::from_utf8_lossy(working_set.get_span_contents(span));
         let first_line = text
