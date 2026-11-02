@@ -1035,6 +1035,29 @@ impl<'s> Lower<'_, '_, 's> {
         };
         self.working_set
             .error(ParseError::RedirectingBuiltinCommand(name, first, second));
+        // In a module's body an export goes to its keyword's parse function, which made it
+        // garbage: `warp_export_call` finds no call to export, and for an alias
+        // `parse_export_in_module` looks for the alias its third item names.
+        if in_module && exported {
+            let parts = self.parts(e.span);
+            if let Some(rest) = parts.get(1..).filter(|rest| !rest.is_empty()) {
+                let rest = Span::concat(rest);
+                self.working_set.error(ParseError::InternalError(
+                    "unexpected output from parsing a definition".into(),
+                    rest,
+                ));
+                let alias_found = parts.get(2).is_some_and(|name| {
+                    let name = trim_quotes(self.working_set.get_span_contents(*name));
+                    self.working_set.find_decl(name).is_some()
+                });
+                if keyword == "alias" && !alias_found {
+                    self.working_set.error(ParseError::InternalError(
+                        "failed to find added alias".into(),
+                        rest,
+                    ));
+                }
+            }
+        }
         let span = match name {
             "for" => Span::new(self.span(e.span).start, self.span(e.span).start + 3),
             _ => self.span(e.span),

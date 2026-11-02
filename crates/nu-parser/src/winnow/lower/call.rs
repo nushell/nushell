@@ -283,27 +283,17 @@ impl<'s> Lower<'_, '_, 's> {
             ));
             return Ok(Expression::garbage(self.working_set, span));
         }
-        let decl = self.working_set.get_decl(decl_id);
         let span = self.span(e.span);
-        if let Some(alias) = decl.as_alias()
-            && let Expr::ExternalCall(head, args) = &alias.wrapped_call.expr
+        if let Some(external) = self.external_alias_call(decl_id, head_span, &call.arguments, span)
         {
-            // An alias of an external command: its arguments come first.
-            let ty = alias.wrapped_call.ty.clone();
-            let mut head = head.clone();
-            head.span = head_span;
-            let mut arguments = args.to_vec();
-            for argument in &call.arguments {
-                arguments.push(self.call_argument_as_external(argument)?);
-            }
-            return Ok(self.node(Expr::ExternalCall(head, arguments.into()), span, ty));
+            return external;
         }
         // The words after an alias of a command may name a subcommand of that command
         // (`alias u = update; u cells {..}`, `alias o = overlay; o use m`), which the classic
         // parser then calls instead (`find_longest_decl_with_prefix`, asked here with the
         // aliased command's name): its head runs from the alias's name to the subcommand's last
         // word, and the arguments are the items after that.
-        if let Some(alias) = decl.as_alias()
+        if let Some(alias) = self.working_set.get_decl(decl_id).as_alias()
             && let Expr::Call(wrapped) = &alias.wrapped_call.expr
             && !call.arguments.is_empty()
         {
@@ -322,14 +312,48 @@ impl<'s> Lower<'_, '_, 's> {
                 find_longest_decl_with_prefix(self.working_set, &spans, &prefix)
             {
                 let head = Span::new(head_span.start, spans[words - 1].end);
+                let arguments = &call.arguments[words..];
+                if let Some(external) = self.external_alias_call(subcommand, head, arguments, span)
+                {
+                    return external;
+                }
                 let (call, output, _) =
-                    self.internal_call(head, &call.arguments[words..], subcommand, input_type)?;
+                    self.internal_call(head, arguments, subcommand, input_type)?;
                 return Ok(self.node(Expr::Call(call), span, output));
             }
         }
         let (call, output, _) =
             self.internal_call(head_span, &call.arguments, decl_id, input_type)?;
         Ok(self.node(Expr::Call(call), span, output))
+    }
+
+    /// A call covering `span` to `decl_id` when that is an alias of an external command
+    /// (`parse_call`'s alias of an external call): the external call the alias holds, its head
+    /// the alias's name (`head`), with the alias's arguments first and then `arguments`, read as
+    /// external arguments. `None` for any other command.
+    fn external_alias_call(
+        &mut self,
+        decl_id: DeclId,
+        head: Span,
+        arguments: &[w::Argument<'s>],
+        span: Span,
+    ) -> Option<Lowered<Expression>> {
+        let alias = self.working_set.get_decl(decl_id).as_alias()?;
+        let Expr::ExternalCall(alias_head, alias_arguments) = &alias.wrapped_call.expr else {
+            return None;
+        };
+        let ty = alias.wrapped_call.ty.clone();
+        let mut alias_head = alias_head.clone();
+        alias_head.span = head;
+        let mut all = alias_arguments.to_vec();
+        let rest = arguments
+            .iter()
+            .map(|argument| self.call_argument_as_external(argument))
+            .collect::<Lowered<Vec<_>>>();
+        Some(rest.map(|rest| {
+            all.extend(rest);
+            self.node(Expr::ExternalCall(alias_head, all.into()), span, ty)
+        }))
     }
 
     /// `%name args`, a call to the built-in command `name` even where a custom command or alias

@@ -270,8 +270,21 @@ impl<'s> Lower<'_, '_, 's> {
 
             let mut parameter = match &param.kind {
                 w::ParameterKind::Flag { long, short } => {
-                    if shape == Some(SyntaxShape::Boolean) {
-                        return Err(Unlowered::Error);
+                    // A type that is `bool` through a type alias, which the winnow parser does
+                    // not know: reported over the type (and its completer), as
+                    // `parse_signature_helper` reports it, and kept.
+                    if shape == Some(SyntaxShape::Boolean)
+                        && let Some(ty) = &param.ty
+                    {
+                        let span = match &param.completer {
+                            Some(completer) => self.span(ty.span.merge(completer.span)),
+                            None => self.span(ty.span),
+                        };
+                        self.working_set.error(ParseError::LabeledError(
+                            "Type annotations are not allowed for boolean switches.".into(),
+                            "Remove the `: bool` type annotation.".into(),
+                            span,
+                        ));
                     }
                     if let (Some(var_id), Some(shape)) = (var_id, &shape) {
                         self.working_set.set_variable_type(var_id, shape.to_type());

@@ -237,7 +237,11 @@ impl<'s> Lower<'_, '_, 's> {
                         branch_input,
                     )
                 }
-                _ => self.expression(&branch.body, branch_input)?,
+                _ => {
+                    let marks = self.error_marks();
+                    let body = self.expression(&branch.body, branch_input)?;
+                    self.block_or_expression(body, branch.body.span, marks, branch_input)
+                }
             };
             let branch_type = self.branch_type(&body, input_type);
             output = Some(match output {
@@ -501,8 +505,57 @@ impl<'s> Lower<'_, '_, 's> {
             w::Expr::Record(_) if self.text(body.span).starts_with('{') => {
                 self.value(body, &SyntaxShape::Block, input_type)
             }
-            _ => self.expression(body, input_type),
+            _ => {
+                let marks = self.error_marks();
+                let expression = self.expression(body, input_type)?;
+                Ok(self.block_or_expression(expression, body.span, marks, input_type))
+            }
         }
+    }
+
+    /// How many errors, warnings and compile errors the working set has, for
+    /// [`Self::block_or_expression`].
+    fn error_marks(&self) -> (usize, usize, usize) {
+        (
+            self.working_set.parse_errors.len(),
+            self.working_set.parse_warnings.len(),
+            self.working_set.compile_errors.len(),
+        )
+    }
+
+    /// An `else` branch or a match arm's result, `item`, which nu reads with
+    /// `oneof<block, expression>` (`parse_oneof`), given `expression`, the item read as an
+    /// expression with what it reported since `marks` ([`Self::error_marks`]). The block shape
+    /// fails first, at the item's start, so an expression whose first error is past it is nu's
+    /// best guess. Otherwise which wins depends on how the block shape fails, which nu's value
+    /// parser decides by the item's first byte (`else $foo {}` is the variable's error, `else
+    /// def f [] {}` that no shape reads it): what the lowering reported is dropped and nu's
+    /// value parser reads the item (`parse_multispan_value`) with `input_type`.
+    fn block_or_expression(
+        &mut self,
+        expression: Expression,
+        item: WSpan,
+        (errors, warnings, compile_errors): (usize, usize, usize),
+        input_type: Option<&Type>,
+    ) -> Expression {
+        let first_error = self.working_set.parse_errors[errors..]
+            .iter()
+            .map(|error| error.span().start)
+            .min();
+        if first_error.is_none_or(|first_error| first_error > self.span(item).start) {
+            return expression;
+        }
+        self.working_set.parse_errors.truncate(errors);
+        self.working_set.parse_warnings.truncate(warnings);
+        self.working_set.compile_errors.truncate(compile_errors);
+        let parts = self.parts(item);
+        parse_multispan_value(
+            self.working_set,
+            &parts,
+            &mut 0,
+            &SyntaxShape::OneOf(vec![SyntaxShape::Block, SyntaxShape::Expression]),
+            input_type,
+        )
     }
 
     /// `return` with an optional value.

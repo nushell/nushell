@@ -3131,15 +3131,49 @@ fn dropped_err_pipe_is_the_next_commands_pipe(#[case] code: &str, #[case] at: us
 )]
 #[case::redirected_export_help_in_a_module(
     "module m { export def -h o> f.txt }",
-    &[("RedirectingBuiltinCommand", "o>")]
+    &[
+        ("RedirectingBuiltinCommand", "o>"),
+        ("InternalError", "def -h")
+    ]
 )]
 #[case::redirected_definition_in_a_module(
     "module m { export def f [] {} o> x }",
-    &[("RedirectingBuiltinCommand", "o>")]
+    &[
+        ("RedirectingBuiltinCommand", "o>"),
+        ("InternalError", "def f [] {}")
+    ]
 )]
 #[case::redirected_const_help_in_a_module("module m { export const -h o> f.txt }", &[])]
 #[case::signature_after_dashes_is_a_flag("def f -- -x {}", &[("Expected", "-")])]
 #[case::signature_after_dashes_before_the_name("def -- f --foo {}", &[("Expected", "-")])]
+#[case::bool_switch_through_a_type_alias(
+    "type b = bool; def f [--x: b] {}",
+    &[("LabeledError", "b")]
+)]
+#[case::bool_switch_through_a_type_alias_nested(
+    "type b = bool; def g [] { def f [--x: b] {} }",
+    &[("LabeledError", "b")]
+)]
+#[case::variable_named_like_a_flag_after_dashes("let -- --x", &[("Expected", "--x")])]
+#[case::variable_named_like_a_short_flag_after_dashes("let -- -x", &[("Expected", "-x")])]
+#[case::alias_of_an_external_as_a_subcommand(r#"alias "str x" = ^ls; alias s = str; s x"#, &[])]
+#[case::statement_in_an_else_branch(
+    "if true {} else def f [] {}",
+    &[("ExpectedWithStringMsg", "def")]
+)]
+#[case::statement_in_a_match_arm("match 1 { _ => def }", &[("ExpectedWithStringMsg", "def")])]
+#[case::redirected_export_help_in_a_module_wraps_nothing(
+    "module m { export def --help o> x.txt }",
+    &[("RedirectingBuiltinCommand", "o>"), ("InternalError", "def --help")]
+)]
+#[case::redirected_export_alias_help_in_a_module(
+    "module m { export alias --help o> x.txt }",
+    &[
+        ("RedirectingBuiltinCommand", "o>"),
+        ("InternalError", "alias --help"),
+        ("InternalError", "alias --help")
+    ]
+)]
 #[nu_test_support::test]
 #[serial]
 #[exp(nu_experimental::WINNOW_PARSER)]

@@ -743,7 +743,8 @@ impl<'s> Lower<'_, '_, 's> {
     /// the call's output take `input_type` (only a `let` gets one). `mut` and `const` report
     /// their value as a missing positional, and their variable is not mutable. A `$` before the
     /// name stays in the variable's name. A `--` before it, which the winnow parser dropped,
-    /// changes nothing: it ends the options, and the keyword takes no unknown arguments. With a
+    /// ends the options: a name starting with `-` is then the variable's, which nu refuses
+    /// (`let -- --x`, "valid variable name"). With a
     /// type (`let x: int`; only `let`, whose value is optional, gets here with one), the name
     /// and the type are the variable's items, read as `parse_var_with_opt_type` reads them
     /// (`variable_declaration`), the variable typed so and in scope at once.
@@ -795,7 +796,20 @@ impl<'s> Lower<'_, '_, 's> {
             }),
             name_span,
         );
-        let arguments = [w::Argument::Positional(name)];
+        let after_keyword = (e.span.start + keyword.len()).min(name_span.start);
+        let before_name = WSpan::new(after_keyword, name_span.start);
+        let gap = self.text(before_name);
+        let end_of_options = gap
+            .split_ascii_whitespace()
+            .any(|word| word == "--")
+            .then(|| {
+                let at = before_name.start + gap.find("--").unwrap_or_default();
+                w::Argument::EndOfOptions(WSpan::new(at, at + 2))
+            });
+        let arguments: Vec<w::Argument<'s>> = end_of_options
+            .into_iter()
+            .chain([w::Argument::Positional(name)])
+            .collect();
         let (call, output, _) = self.internal_call(head, &arguments, decl_id, input_type)?;
         let span = self.span(e.span);
         Ok(self.node(Expr::Call(call), span, output))
