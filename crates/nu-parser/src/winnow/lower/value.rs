@@ -19,7 +19,6 @@ use crate::winnow::syntax::{Span as WSpan, ast as w, parse_braces_as_closure, pa
 use crate::{
     parse_calls::accepts_any_bareword,
     parse_captures_compile::compile_block,
-    parse_expressions::parse_value as classic_value,
     parse_expressions::{check_record_key_or_value, table_type},
     parse_literals::parse_full_cell_path,
     type_check::negation_type,
@@ -324,7 +323,8 @@ impl<'s> Lower<'_, '_, 's> {
             // A record starting with a spread is read as a record whatever the shape, unless the
             // shape wants a closure or a block, which nu's value parser reads the braces as (`do
             // {...$r}` calls `...$r`): read again so by the winnow parser. Braces that do not
-            // read so, and arms, are nu's value parser's.
+            // read so, and arms, are read from their text as nu's value parser reads them
+            // (`brace_text`).
             w::Expr::Record(items)
                 if matches!(items.first(), Some(w::RecordItem::Spread { .. })) =>
             {
@@ -334,8 +334,7 @@ impl<'s> Lower<'_, '_, 's> {
                         let lookup = EngineLookup::new(&cell);
                         let Some(closure) = parse_braces_as_closure(self.source, e.span, lookup)
                         else {
-                            let span = self.span(e.span);
-                            return Ok(classic_value(self.working_set, span, shape, input_type));
+                            return self.brace_text(e.span, shape, input_type);
                         };
                         let mut working_set = cell.borrow_mut();
                         let mut lower = Lower {
@@ -356,10 +355,7 @@ impl<'s> Lower<'_, '_, 's> {
                             ),
                         }
                     }
-                    SyntaxShape::MatchBlock => {
-                        let span = self.span(e.span);
-                        Ok(classic_value(self.working_set, span, shape, input_type))
-                    }
+                    SyntaxShape::MatchBlock => self.brace_text(e.span, shape, input_type),
                     // As `parse_brace_expr` probes it: a record, or a cell path on one when its
                     // first token (commas are no blanks there, `...$x,a`) is followed by `:`.
                     _ => self.brace_text(e.span, shape, input_type),
@@ -390,13 +386,13 @@ impl<'s> Lower<'_, '_, 's> {
                     // Arms the winnow parser read as a block, the argument of a call that
                     // reads it with the `match-block` shape (`match 1 { _ => 1 } extra`, which
                     // its extra argument makes an ordinary call): read again as arms. Arms
-                    // with an error are nu's value parser's, as for a `match` statement.
+                    // with an error are read from their text as nu's value parser reads them
+                    // (`brace_text`), as for a `match` statement.
                     SyntaxShape::MatchBlock if !has_params => {
                         let cell = RefCell::new(&mut *self.working_set);
                         let lookup = EngineLookup::new(&cell);
                         let Some(arms) = parse_match_arms(self.source, e.span, lookup) else {
-                            let span = self.span(e.span);
-                            return Ok(classic_value(self.working_set, span, shape, input_type));
+                            return self.brace_text(e.span, shape, input_type);
                         };
                         let mut working_set = cell.borrow_mut();
                         let mut lower = Lower {
@@ -857,32 +853,9 @@ impl<'s> Lower<'_, '_, 's> {
                 Some(params) => Some(this.closure_signature(params)?),
                 None => None,
             };
-            if let (SyntaxShape::Closure(Some(expected)), Some(signature), Some(params)) =
-                (shape, &signature, params)
-            {
+            if let (Some(signature), Some(params)) = (&signature, params) {
                 let params_span = this.span(params.span);
-                if signature.num_positionals() > expected.len() {
-                    this.working_set.error(ParseError::ExpectedWithStringMsg(
-                        format!(
-                            "{} closure parameter{}",
-                            expected.len(),
-                            if expected.len() > 1 { "s" } else { "" }
-                        ),
-                        params_span,
-                    ));
-                }
-                for (expected, PositionalArg { name, shape, .. }) in
-                    expected.iter().zip(signature.required_positional.iter())
-                {
-                    if expected != shape && *shape != SyntaxShape::Any {
-                        this.working_set.error(ParseError::ParameterMismatchType(
-                            name.to_owned(),
-                            expected.to_string(),
-                            shape.to_string(),
-                            params_span,
-                        ));
-                    }
-                }
+                this.check_closure_params(shape, signature, params_span);
             }
             let mut block = this.block(body, span, false, BlockOf::Code, input_type)?;
             // A `def` body is compiled by `finish_def`, once its scope is closed.
@@ -900,6 +873,42 @@ impl<'s> Lower<'_, '_, 's> {
         })?;
         let block_id = self.working_set.add_block(Arc::new(block));
         Ok(self.node(Expr::Closure(block_id), span, Type::Closure))
+    }
+
+    /// The checks of a closure's parameters, `signature`, read from `params_span`, against the
+    /// ones a `closure(...)` shape expects: more than it takes, or one of another type, is
+    /// reported, and the closure kept (`parse_closure_expression`).
+    pub(super) fn check_closure_params(
+        &mut self,
+        shape: &SyntaxShape,
+        signature: &nu_protocol::Signature,
+        params_span: Span,
+    ) {
+        let SyntaxShape::Closure(Some(expected)) = shape else {
+            return;
+        };
+        if signature.num_positionals() > expected.len() {
+            self.working_set.error(ParseError::ExpectedWithStringMsg(
+                format!(
+                    "{} closure parameter{}",
+                    expected.len(),
+                    if expected.len() > 1 { "s" } else { "" }
+                ),
+                params_span,
+            ));
+        }
+        for (expected, PositionalArg { name, shape, .. }) in
+            expected.iter().zip(signature.required_positional.iter())
+        {
+            if expected != shape && *shape != SyntaxShape::Any {
+                self.working_set.error(ParseError::ParameterMismatchType(
+                    name.to_owned(),
+                    expected.to_string(),
+                    shape.to_string(),
+                    params_span,
+                ));
+            }
+        }
     }
 
     /// A block in braces (`parse_block_expression`), covering `span`, in its own scope; not

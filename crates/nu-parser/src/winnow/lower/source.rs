@@ -11,7 +11,6 @@ use crate::winnow::syntax::ast as w;
 use crate::{
     parse_calls::CallKind,
     parse_def::has_flag_const,
-    parse_expressions::parse_value as classic_value,
     parse_helpers::{extract_spread_list, extract_spread_record},
     parse_source::{finish_run, finish_source},
 };
@@ -155,7 +154,7 @@ impl<'s> Lower<'_, '_, 's> {
                         w::Argument::Positional(expr) => {
                             self.value(expr, &SyntaxShape::Any, None)?
                         }
-                        _ => classic_value(self.working_set, span, &SyntaxShape::Any, None),
+                        _ => self.value_text(argument.span(), &SyntaxShape::Any)?,
                     };
                     call.add_unknown(value);
                 }

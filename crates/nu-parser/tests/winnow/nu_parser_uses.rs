@@ -89,20 +89,12 @@ const TO_PORT: &[&str] = &[
     "parse_expressions::parse_value",
     "parse_literals::parse_full_cell_path",
     // Externals.
-    "parse_calls::parse_external_call",
     // Math and expressions.
     "parse_expressions::parse_expression",
     // Closures, tables, patterns.
-    "parse_expressions::parse_closure_expression",
-    "parse_patterns::parse_pattern",
     // Signatures and types.
-    "parse_def::detect_params_in_name",
     // Calls and statement layouts read again.
-    "parse_alias::check_alias_name",
-    "parse_alias::report_incomplete_alias",
     "parse_calls::parse_call",
-    "parse_calls::parse_multispan_value",
-    "parse_type_alias::type_alias_layout_error",
     // The lexer and the lite parser.
     "lex::delimiter_diagnostics::delimiter_structure_hint",
 ];

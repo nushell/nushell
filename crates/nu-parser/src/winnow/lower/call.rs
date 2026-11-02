@@ -21,9 +21,8 @@ use crate::winnow::syntax::{
 use crate::{
     parse_calls::{
         CallKind, accepts_any_bareword, check_call, find_decl_with_command_type, find_longest_decl,
-        find_longest_decl_with_prefix, parse_external_call, shape_allows_negative_number,
+        find_longest_decl_with_prefix, shape_allows_negative_number,
     },
-    parse_expressions::{parse_closure_expression, parse_value as classic_value},
     parse_helpers::PERCENT_FORCED_BUILTIN_PARSER_INFO,
     parse_keywords::is_parser_keyword,
     parse_signatures::ensure_not_reserved_variable_name,
@@ -71,7 +70,7 @@ impl<'s> Lower<'_, '_, 's> {
             if call.arguments.iter().any(is_condition_argument) {
                 let items = self.parts(e.span);
                 let span = self.span(e.span);
-                return Ok(parse_external_call(self.working_set, &items, span));
+                return self.external_call_text(&items, span);
             }
             return self.call_as_external(e, call, input_type);
         };
@@ -767,19 +766,19 @@ impl<'s> Lower<'_, '_, 's> {
                 self.closure(e.span, None, &w::Block::default(), shape, input_type)
             }
             // A body the winnow parser read as a record (`{a: 1}`, which nu reads as a closure's
-            // statements) or a cell path, or went on past an error in: read by nu's closure
-            // parser, and when that gives no closure, by its value parser, as there.
+            // statements) or a cell path, or went on past an error in: read by the closure
+            // reader, and when that gives no closure, by the value reader, as there.
             w::Expr::Record(_) | w::Expr::FullCellPath(_) | w::Expr::Garbage
                 if !matches!(e.expr, w::Expr::Garbage) || self.text(e.span).starts_with('{') =>
             {
                 let span = self.span(e.span);
                 let errors = self.working_set.parse_errors.len();
-                let value = parse_closure_expression(self.working_set, shape, span, input_type);
+                let value = self.closure_text(span, shape, input_type)?;
                 if matches!(value.expr, Expr::Closure(_)) {
                     return Ok(value);
                 }
                 self.working_set.parse_errors.truncate(errors);
-                Ok(classic_value(self.working_set, span, shape, input_type))
+                self.value_text_with_input(e.span, shape, input_type)
             }
             _ => self.value(e, shape, None),
         }
@@ -819,7 +818,7 @@ impl<'s> Lower<'_, '_, 's> {
     /// expression of several items, which the winnow parser read one by one, it reads again as
     /// one (`reread`), and so an expression that is no lone math item, a signature of several
     /// with `parse_full_signature`.
-    fn multispan_value(
+    pub(super) fn multispan_value(
         &mut self,
         arguments: &[w::Argument<'s>],
         index: usize,
@@ -837,11 +836,7 @@ impl<'s> Lower<'_, '_, 's> {
             if let Some(argument) = arguments.get(index)
                 && !is_multispan_shape(shape)
             {
-                let span = self.span(argument.span());
-                return Ok((
-                    classic_value(self.working_set, span, shape, None),
-                    index + 1,
-                ));
+                return Ok((self.value_text(argument.span(), shape)?, index + 1));
             }
             // A math expression read from the items there, a flag first, as after a keyword the
             // call did not find (`let x y --help`: the `=`'s value is `--help`), and so an
@@ -993,11 +988,8 @@ impl<'s> Lower<'_, '_, 's> {
             }
             // And so any other shape, which it reads from one item (an import pattern).
             _ => {
-                let span = self.span(item.span);
-                return Ok((
-                    classic_value(self.working_set, span, shape, input_type),
-                    index + 1,
-                ));
+                let value = self.value_text_with_input(item.span, shape, input_type)?;
+                return Ok((value, index + 1));
             }
         };
         Ok((value, end))
@@ -1446,8 +1438,7 @@ impl<'s> Lower<'_, '_, 's> {
         match next {
             w::Argument::Positional(value) => self.flag_value(value, shape),
             _ => {
-                let span = self.span(next.span());
-                let value = classic_value(self.working_set, span, shape, None);
+                let value = self.value_text(next.span(), shape)?;
                 Ok(self.flag_type(value, shape))
             }
         }
@@ -1874,7 +1865,8 @@ pub(in crate::winnow) fn shorter_head_reading(
     let (_, words, _, decl) = find_longest_decl(working_set, &items[..greedy - 1]);
     let call_span = Span::concat(&items);
     let Some(decl_id) = decl else {
-        return Some(Some(parse_external_call(working_set, &items, call_span)));
+        let mut lower = Lower::new(working_set, &source, head.start);
+        return lower.external_call_text(&items, call_span).ok().map(Some);
     };
     let local = WSpan::new(call_span.start - head.start, call_span.end - head.start);
     let cell = RefCell::new(working_set);

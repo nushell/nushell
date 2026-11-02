@@ -19,7 +19,6 @@ use nu_protocol::{
 
 use super::list_text::ListItems;
 use super::{BlockOf, Lower, Lowered};
-use crate::parse_expressions::parse_value as classic_value;
 use crate::parse_literals::parse_full_cell_path;
 use crate::type_check::{check_range_types, negation_type};
 use crate::winnow::driver::{BlockKind, parse_block};
@@ -309,8 +308,8 @@ impl<'s> Lower<'_, '_, 's> {
             shape,
             SyntaxShape::Signature | SyntaxShape::ExternalSignature
         ) {
-            let span = self.span(span);
-            return Ok(classic_value(self.working_set, span, shape, None));
+            let external = matches!(shape, SyntaxShape::ExternalSignature);
+            return self.signature_text(self.span(span), external);
         }
         let scopes = self.working_set.delta.scope.len();
         let path = self.full_cell_path_text(span, None, None)?;
@@ -1115,8 +1114,8 @@ impl<'s> Lower<'_, '_, 's> {
             SyntaxShape::Table(_) => self.table_text(span, &SyntaxShape::Any),
             SyntaxShape::Any => self.full_cell_path_text(span, None, None),
             SyntaxShape::Signature | SyntaxShape::ExternalSignature => {
-                let span = self.span(span);
-                Ok(classic_value(self.working_set, span, shape, None))
+                let external = matches!(shape, SyntaxShape::ExternalSignature);
+                self.signature_text(self.span(span), external)
             }
             SyntaxShape::Filepath
             | SyntaxShape::String

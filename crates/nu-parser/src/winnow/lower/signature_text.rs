@@ -38,11 +38,6 @@ struct SignatureParams<'a> {
 }
 
 impl Lower<'_, '_, '_> {
-    /// The text of the working set at `span`.
-    fn span_text(&self, span: Span) -> String {
-        String::from_utf8_lossy(self.working_set.get_span_contents(span)).into_owned()
-    }
-
     /// The predeclarations of the statement at `span`, which the winnow parser read no
     /// definition in: each pipeline of one command lite-parsed from its text, as nu's
     /// `parse_block` predeclares them ([`Self::def_predecl_text`]).
@@ -66,17 +61,17 @@ impl Lower<'_, '_, '_> {
         if spans.len() < 3 {
             return Ok(());
         }
-        let mut pos = if self.span_text(spans[0]) == "export" {
+        let mut pos = if self.text_at(spans[0]) == "export" {
             2
         } else {
             1
         };
-        let external = match self.span_text(spans[pos - 1]).as_str() {
+        let external = match self.text_at(spans[pos - 1]) {
             "def" => false,
             "extern" => true,
             "type" => {
                 if let [name, equals, ..] = spans[pos..]
-                    && self.span_text(equals) == "="
+                    && self.text_at(equals) == "="
                 {
                     let name = self.working_set.get_span_contents(name).to_vec();
                     self.working_set.add_type_predecl(name, Span::concat(spans));
@@ -85,7 +80,7 @@ impl Lower<'_, '_, '_> {
             }
             _ => return Ok(()),
         };
-        while pos < spans.len() && self.span_text(spans[pos]).starts_with('-') {
+        while pos < spans.len() && self.text_at(spans[pos]).starts_with('-') {
             pos += 1;
         }
         let Some(&name_span) = spans.get(pos) else {
@@ -99,14 +94,11 @@ impl Lower<'_, '_, '_> {
             return Ok(());
         }
         let Some(signature_pos) =
-            (pos..spans.len()).find(|&pos| self.span_text(spans[pos]).starts_with(['[', '(']))
+            (pos..spans.len()).find(|&pos| self.text_at(spans[pos]).starts_with(['[', '(']))
         else {
             return Ok(());
         };
-        let wrapped = !external
-            && spans
-                .iter()
-                .any(|span| self.span_text(*span) == "--wrapped");
+        let wrapped = !external && spans.iter().any(|span| self.text_at(*span) == "--wrapped");
         let errors = self.working_set.parse_errors.len();
         self.working_set.enter_scope();
         let signature = self.full_signature_text(&spans[signature_pos..], external);
@@ -115,8 +107,8 @@ impl Lower<'_, '_, '_> {
         let Some(signature) = signature?.as_signature() else {
             return Ok(());
         };
-        let params = self.span_text(spans[signature_pos]);
-        self.declare_predecl(signature, name, name_span, &params, wrapped, external);
+        let params = self.text_at(spans[signature_pos]);
+        self.declare_predecl(signature, name, name_span, params, wrapped, external);
         Ok(())
     }
 
@@ -136,14 +128,14 @@ impl Lower<'_, '_, '_> {
                 Ok(Expression::garbage(self.working_set, Span::concat(spans)))
             }
             [only] => self.signature_text(*only, external),
-            [first, second] if self.span_text(*second).starts_with('{') => {
+            [first, second] if self.text_at(*second).starts_with('{') => {
                 self.signature_text(*first, external)
             }
             [first, second, ..] => {
-                let (mut signature, types_at) = if self.span_text(*first).ends_with(':') {
+                let (mut signature, types_at) = if self.text_at(*first).ends_with(':') {
                     let span = Span::new(first.start, first.end.saturating_sub(1));
                     (self.signature_text(span, external)?, 1)
-                } else if self.span_text(*second) == ":" {
+                } else if self.text_at(*second) == ":" {
                     (self.signature_text(*first, external)?, 2)
                 } else {
                     self.working_set.error(ParseError::Expected(
@@ -169,7 +161,7 @@ impl Lower<'_, '_, '_> {
 
     /// A signature between `[...]` or `(...)` (`parse_signature`).
     pub(super) fn signature_text(&mut self, span: Span, external: bool) -> Lowered<Expression> {
-        let text = self.span_text(span);
+        let text = self.text_at(span);
         let parenthesized = text.starts_with('(');
         if !parenthesized && !text.starts_with('[') {
             let at = Span::new(span.start, span.start + 1);
@@ -199,7 +191,11 @@ impl Lower<'_, '_, '_> {
     /// type after `:` (and a completer after its `@`) and a default value after `=`; comments
     /// describe the parameter before them. The variables are declared once every parameter is
     /// read, so that default values see the variables outside the signature.
-    fn signature_items(&mut self, span: Span, external: bool) -> Lowered<Box<Signature>> {
+    pub(super) fn signature_items(
+        &mut self,
+        span: Span,
+        external: bool,
+    ) -> Lowered<Box<Signature>> {
         let (tokens, error) = self.lex_span(span, LexOptions::SIGNATURE);
         if let Some(error) = error {
             self.working_set.error(error);
@@ -215,9 +211,9 @@ impl Lower<'_, '_, '_> {
             let token_span = self.span(token.span);
             match token.contents {
                 TokenContents::Item | TokenContents::AssignmentOperator(_) => {
-                    let contents = self.span_text(token_span);
+                    let contents = self.text_at(token_span);
                     let point = Span::new(token_span.end, token_span.end);
-                    match (contents.as_str(), mode) {
+                    match (contents, mode) {
                         // `:` separates a parameter from its type.
                         (":", Mode::Arg) if last_token => expected(self, "type", point),
                         (":", Mode::Arg) => mode = Mode::Type,
@@ -250,10 +246,10 @@ impl Lower<'_, '_, '_> {
                                 args: &mut args,
                                 pending: &mut pending,
                             };
-                            self.signature_parameter(&contents, token_span, &mut mode, params);
+                            self.signature_parameter(contents, token_span, &mut mode, params);
                         }
                         (_, Mode::Type) => {
-                            self.signature_type(&contents, token_span, external, &mut args)?;
+                            self.signature_type(contents, token_span, external, &mut args)?;
                             mode = Mode::AfterType;
                         }
                         (_, Mode::DefaultValue) => {
@@ -267,7 +263,7 @@ impl Lower<'_, '_, '_> {
                     }
                 }
                 TokenContents::Comment => {
-                    let text = self.span_text(Span::new(token_span.start + 1, token_span.end));
+                    let text = self.text_at(Span::new(token_span.start + 1, token_span.end));
                     let description = match args.last_mut() {
                         Some(Arg::Flag { flag, .. }) => &mut flag.desc,
                         Some(Arg::Positional { arg, .. } | Arg::RestPositional(arg)) => {
@@ -508,8 +504,8 @@ impl Lower<'_, '_, '_> {
             return Ok(Vec::new());
         }
         let mut span = Span::concat(spans);
-        let text = self.span_text(span);
-        let inner = text.strip_prefix('[').unwrap_or(&text);
+        let text = self.text_at(span);
+        let inner = text.strip_prefix('[').unwrap_or(text);
         if inner.len() < text.len() {
             span.start += 1;
         }
@@ -532,7 +528,7 @@ impl Lower<'_, '_, '_> {
         let mut items = tokens.iter();
         while let Some(input) = items.next() {
             let input_span = self.span(input.span);
-            let input_type = self.type_text(&self.span_text(input_span), input_span)?;
+            let input_type = self.type_text(self.text_at(input_span), input_span)?;
             let Some(arrow) = items.next() else {
                 let at = end_of(self, input);
                 self.working_set
@@ -540,7 +536,7 @@ impl Lower<'_, '_, '_> {
                 break;
             };
             let arrow_span = self.span(arrow.span);
-            if self.span_text(arrow_span) != "->" {
+            if self.text_at(arrow_span) != "->" {
                 self.working_set
                     .error(ParseError::Expected("arrow (->)", arrow_span));
             }
@@ -550,7 +546,7 @@ impl Lower<'_, '_, '_> {
                 break;
             };
             let output_span = self.span(output.span);
-            let output_type = self.type_text(&self.span_text(output_span), output_span)?;
+            let output_type = self.type_text(self.text_at(output_span), output_span)?;
             types.push((input_type, output_type));
         }
         Ok(types)

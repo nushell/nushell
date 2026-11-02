@@ -44,19 +44,24 @@
 //! capturing a `mut` variable reports that error once more.
 //!
 //! Leaf values whose meaning depends on the shape a command expects (a bare word as a file path,
-//! a glob, a cell path, a number as a string) are converted by the classic parser's leaf parsers
-//! (`parse_value` on the item's span): that is the lowering's job for such an item, and those
-//! parsers do exactly it. Everything with structure (blocks, closures, lists, records, calls,
-//! operators, cell paths on variables) is lowered from the winnow tree.
+//! a glob, a cell path, a number as a string) are read from their text by ports of nu's leaf
+//! parsers (`leaf.rs`). Everything with structure (blocks, closures, lists, records, calls,
+//! operators, cell paths on variables) is lowered from the winnow tree, and read again from its
+//! text by ports of nu's readers where the winnow parser read it otherwise or went on past an
+//! error in it (the `*_text.rs` modules).
 
+mod block_text;
 mod call;
+mod call_text;
 mod expression;
 mod keyword;
+mod layout_text;
 mod leaf;
 mod list_text;
 mod lite;
 mod math_items;
 mod module;
+mod pattern_text;
 mod record_text;
 mod shape_text;
 mod signature;
@@ -94,7 +99,7 @@ pub(super) fn nested_block(
     input_type: Option<&Type>,
 ) -> nu_protocol::ast::Block {
     use crate::TokenContents as Nu;
-    use crate::winnow::driver::{syntax_error, unread_block};
+    use crate::winnow::driver::unread_block;
     use crate::winnow::syntax::lex::{
         RedirectionOperator, Token, TokenContents, assignment_operator,
     };
@@ -152,11 +157,6 @@ pub(super) fn nested_block(
             span: local(token.span),
         });
     }
-    let end = converted.last().map_or(0, |last: &Token| last.span.end);
-    converted.push(Token {
-        contents: TokenContents::Eof,
-        span: WSpan::point(end),
-    });
     // The inside of `( ... )` was lexed with newlines as whitespace; a binding's value or an
     // assignment's right side as a block is.
     let of = match is_subexpression {
@@ -169,10 +169,44 @@ pub(super) fn nested_block(
         }
         true => BlockOf::Parentheses,
     };
+    lexed_block(
+        working_set,
+        &source,
+        extent.start,
+        converted,
+        span,
+        scoped,
+        of,
+        input_type,
+    )
+}
+
+/// The block covering `span` whose statements are `tokens`, lexed from `source` (its first byte
+/// at `offset` in the working set's span space) as nu's `parse_block` gets them: read by the
+/// winnow parser and lowered. What stops either is an error over a garbage block: the winnow
+/// parser's syntax error, or the error the lowering reported (else one saying why it gave up).
+#[allow(clippy::too_many_arguments)]
+pub(super) fn lexed_block(
+    working_set: &mut StateWorkingSet,
+    source: &str,
+    offset: usize,
+    mut tokens: Vec<crate::winnow::syntax::lex::Token>,
+    span: Span,
+    scoped: bool,
+    of: BlockOf,
+    input_type: Option<&Type>,
+) -> nu_protocol::ast::Block {
+    use crate::winnow::driver::{syntax_error, unread_block};
+    use crate::winnow::syntax::lex::{Token, TokenContents};
+    let end = tokens.last().map_or(0, |last: &Token| last.span.end);
+    tokens.push(Token {
+        contents: TokenContents::Eof,
+        span: WSpan::point(end),
+    });
     let cell = std::cell::RefCell::new(&mut *working_set);
     let parsed = crate::winnow::syntax::parse_lexed_block(
-        &source,
-        &converted,
+        source,
+        &tokens,
         of == BlockOf::Parentheses,
         crate::winnow::lookup::EngineLookup::new(&cell),
     );
@@ -180,11 +214,11 @@ pub(super) fn nested_block(
     let tree = match parsed {
         Ok(tree) => tree,
         Err(diagnostic) => {
-            working_set.error(syntax_error(extent.start, &diagnostic));
+            working_set.error(syntax_error(offset, &diagnostic));
             return unread_block(&mut working_set, span, span, &diagnostic.kind);
         }
     };
-    let mut lower = Lower::new(&mut working_set, &source, extent.start);
+    let mut lower = Lower::new(&mut working_set, source, offset);
     lower.caller_lexed = true;
     let errors = lower.working_set.parse_errors.len();
     match lower.block(&tree, span, scoped, of, input_type) {
@@ -289,6 +323,16 @@ impl<'w, 'e, 's> Lower<'w, 'e, 's> {
     #[inline]
     pub(super) fn text(&self, span: WSpan) -> &'s str {
         span.slice(self.source)
+    }
+
+    /// The source text at `span`, a span of the working set; empty outside this source.
+    pub(super) fn text_at(&self, span: Span) -> &'s str {
+        let start = span.start.checked_sub(self.offset);
+        let end = span.end.checked_sub(self.offset);
+        start
+            .zip(end)
+            .and_then(|(start, end)| self.source.get(start..end))
+            .unwrap_or_default()
     }
 
     /// Lowering for the statements of `source`, which starts at `offset` in the working set's

@@ -309,8 +309,8 @@ impl<'s> Lower<'_, '_, 's> {
     }
 
     /// A `{...}` item read from its text (`parse_brace_expr`): what its first two tokens make it,
-    /// with `shape`: a record, a cell path on a record, or a closure, block or match block (still
-    /// nu's reader's).
+    /// with `shape`: a record, a cell path on a record, a closure or a block, or a match block
+    /// (still nu's reader's).
     pub(super) fn brace_text(
         &mut self,
         span: WSpan,
@@ -328,8 +328,13 @@ impl<'s> Lower<'_, '_, 's> {
         if span.end <= span.start + 1 {
             return non_block(self);
         }
-        let classic =
-            |this: &mut Self| Ok(classic_value(this.working_set, full, shape, input_type));
+        // nu's closure, block and match-block readers, as `parse_brace_expr` calls them (a
+        // closure without the input type).
+        let braces = |this: &mut Self| match shape {
+            SyntaxShape::Block => Ok(this.block_text(full, input_type)),
+            SyntaxShape::MatchBlock => Ok(classic_value(this.working_set, full, shape, input_type)),
+            _ => this.closure_text(full, shape, None),
+        };
         // nu probes the bytes between the first and the last. When the last character takes
         // more than one byte (`{a: 1}╮`, `{é`), nu's probe sees the start of it as item bytes:
         // the inside here keeps the whole character, which lexes alike (item bytes, never a
@@ -362,7 +367,7 @@ impl<'s> Lower<'_, '_, 's> {
         match probe.as_slice() {
             [] => match shape {
                 SyntaxShape::Closure(_) | SyntaxShape::Block | SyntaxShape::MatchBlock => {
-                    classic(self)
+                    braces(self)
                 }
                 _ => self.record_text(span),
             },
@@ -380,14 +385,14 @@ impl<'s> Lower<'_, '_, 's> {
                     ));
                     return Ok(Expression::garbage(self.working_set, full));
                 }
-                classic(self)
+                self.closure_text(full, shape, None)
             }
             [_, second, ..] if self.text(second.span) == ":" => {
                 self.full_cell_path_text(span, None, None)
             }
             [first, ..] => match shape {
                 SyntaxShape::Closure(_) | SyntaxShape::Block | SyntaxShape::MatchBlock => {
-                    classic(self)
+                    braces(self)
                 }
                 // `{}.foo?`.
                 _ if self.text(first.span) == "}" => self.full_cell_path_text(span, None, None),
@@ -400,7 +405,7 @@ impl<'s> Lower<'_, '_, 's> {
                 {
                     self.record_text(span)
                 }
-                SyntaxShape::Any => classic(self),
+                SyntaxShape::Any => self.closure_text(full, shape, None),
                 _ => non_block(self),
             },
         }

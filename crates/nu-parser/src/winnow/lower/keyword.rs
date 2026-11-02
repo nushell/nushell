@@ -24,20 +24,15 @@ use crate::winnow::syntax::parse_helpers::is_variable;
 use crate::winnow::syntax::{ItemsValue, Span as WSpan, ast as w};
 use crate::{
     exportable::Exportable,
-    parse_alias::{
-        alias_name, alias_name_fits_module, check_alias_name, finish_alias, report_incomplete_alias,
-    },
-    parse_calls::{CallKind, parse_call, parse_external_call, parse_multispan_value},
+    parse_alias::{alias_name, alias_name_fits_module, finish_alias},
+    parse_calls::{CallKind, parse_call},
     parse_captures_compile::compile_block_with_id,
-    parse_def::{
-        DefCall, detect_params_in_name, finish_def, finish_extern, finish_for, yielded_type,
-    },
-    parse_expressions::{parse_expression, parse_value},
+    parse_def::{DefCall, finish_def, finish_extern, finish_for, yielded_type},
+    parse_expressions::parse_expression,
     parse_helpers::garbage,
     parse_module::{finish_export_env, warp_export_call},
-    parse_patterns::parse_pattern,
     parse_signatures::ensure_not_reserved_variable_name,
-    parse_type_alias::{finish_type_alias, type_alias_layout_error},
+    parse_type_alias::finish_type_alias,
     type_check::{check_pipeline_type, type_compatible},
 };
 
@@ -228,18 +223,15 @@ impl<'s> Lower<'_, '_, 's> {
                     if self.text(branch.body.span).starts_with('{')
                         && self.parts(branch.body.span).len() == 1 =>
                 {
-                    parse_multispan_value(
-                        self.working_set,
-                        &[self.span(branch.body.span)],
-                        &mut 0,
-                        &SyntaxShape::OneOf(vec![SyntaxShape::Block, SyntaxShape::Expression]),
-                        branch_input,
-                    )
+                    let span = self.span(branch.body.span);
+                    let shape =
+                        SyntaxShape::OneOf(vec![SyntaxShape::Block, SyntaxShape::Expression]);
+                    self.multispan_value_text(&[span], &shape, branch_input)?.0
                 }
                 _ => {
                     let marks = self.error_marks();
                     let body = self.expression(&branch.body, branch_input)?;
-                    self.block_or_expression(body, branch.body.span, marks, branch_input)
+                    self.block_or_expression(body, branch.body.span, marks, branch_input)?
                 }
             };
             let branch_type = self.branch_type(&body, input_type);
@@ -461,9 +453,9 @@ impl<'s> Lower<'_, '_, 's> {
         Ok(self.node(Expr::MatchBlock(lowered), span, output))
     }
 
-    /// A match arm's pattern, read by the classic pattern parser (`parse_pattern`), which also
-    /// declares its variables and reports its errors (a reserved variable name, a malformed
-    /// literal), as there. The alternatives of an or-pattern (`a | b`) are read one by one,
+    /// A match arm's pattern, read from its text as nu's pattern parser reads it
+    /// (`parse_pattern`), declaring its variables and reporting its errors (a reserved variable
+    /// name, a malformed literal), as there. The alternatives of an or-pattern (`a | b`) are read one by one,
     /// as `parse_match_block_expression` reads them.
     fn pattern(&mut self, pattern: &w::MatchPattern<'s>) -> Lowered<MatchPattern> {
         match &pattern.pattern {
@@ -482,7 +474,7 @@ impl<'s> Lower<'_, '_, 's> {
             }
             _ => {
                 let span = self.span(pattern.span);
-                Ok(parse_pattern(self.working_set, span))
+                self.pattern_text(span)
             }
         }
     }
@@ -507,7 +499,7 @@ impl<'s> Lower<'_, '_, 's> {
             _ => {
                 let marks = self.error_marks();
                 let expression = self.expression(body, input_type)?;
-                Ok(self.block_or_expression(expression, body.span, marks, input_type))
+                self.block_or_expression(expression, body.span, marks, input_type)
             }
         }
     }
@@ -528,33 +520,28 @@ impl<'s> Lower<'_, '_, 's> {
     /// fails first, at the item's start, so an expression whose first error is past it is nu's
     /// best guess. Otherwise which wins depends on how the block shape fails, which nu's value
     /// parser decides by the item's first byte (`else $foo {}` is the variable's error, `else
-    /// def f [] {}` that no shape reads it): what the lowering reported is dropped and nu's
-    /// value parser reads the item (`parse_multispan_value`) with `input_type`.
+    /// def f [] {}` that no shape reads it): what the lowering reported is dropped and the item
+    /// is read again from its text as `parse_multispan_value` reads it, with `input_type`.
     fn block_or_expression(
         &mut self,
         expression: Expression,
         item: WSpan,
         (errors, warnings, compile_errors): (usize, usize, usize),
         input_type: Option<&Type>,
-    ) -> Expression {
+    ) -> Lowered<Expression> {
         let first_error = self.working_set.parse_errors[errors..]
             .iter()
             .map(|error| error.span().start)
             .min();
         if first_error.is_none_or(|first_error| first_error > self.span(item).start) {
-            return expression;
+            return Ok(expression);
         }
         self.working_set.parse_errors.truncate(errors);
         self.working_set.parse_warnings.truncate(warnings);
         self.working_set.compile_errors.truncate(compile_errors);
         let parts = self.parts(item);
-        parse_multispan_value(
-            self.working_set,
-            &parts,
-            &mut 0,
-            &SyntaxShape::OneOf(vec![SyntaxShape::Block, SyntaxShape::Expression]),
-            input_type,
-        )
+        let shape = SyntaxShape::OneOf(vec![SyntaxShape::Block, SyntaxShape::Expression]);
+        Ok(self.multispan_value_text(&parts, &shape, input_type)?.0)
     }
 
     /// `return` with an optional value.
@@ -914,11 +901,10 @@ impl<'s> Lower<'_, '_, 's> {
             let mut call = Call::new(head);
             call.decl_id = decl_id;
             let _ = this.working_set.add_span(head);
-            let name_span = this.span(def.name.span);
             // The name is `def`'s `string` positional (`parse_value`, then the positional's type
             // check), which refuses a bare `true`, `false` or `null` and a `{...}` with garbage,
             // which `finish_def` then reports as no name.
-            let name = parse_value(this.working_set, name_span, &SyntaxShape::String, None);
+            let name = this.value_text(def.name.span, &SyntaxShape::String)?;
             let name = this.positional_value(name, &SyntaxShape::String);
             // The flags, before or after the name, come before the signature and the body, as
             // `parse_internal_call` reads the items in order (and the name keeps no error).
@@ -954,13 +940,7 @@ impl<'s> Lower<'_, '_, 's> {
                     Some(&input_type),
                 )
             } else {
-                let span = this.span(body_span);
-                Ok(parse_value(
-                    this.working_set,
-                    span,
-                    &SyntaxShape::Closure(None),
-                    None,
-                ))
+                this.value_text(body_span, &SyntaxShape::Closure(None))
             };
             this.working_set.def_body_span = outer_def_body_span;
             let body = body?;
@@ -1032,7 +1012,7 @@ impl<'s> Lower<'_, '_, 's> {
             let _ = this.working_set.add_span(head);
             // As for `def`: the name is `extern`'s `string` positional (`parse_value`, then
             // its type check), and the flags come before the signature.
-            let name = parse_value(this.working_set, name_span, &SyntaxShape::String, None);
+            let name = this.value_text(extern_def.name.span, &SyntaxShape::String)?;
             let name = this.positional_value(name, &SyntaxShape::String);
             let long = |flag| match flag {
                 w::ExternFlag::Strict => "strict",
@@ -1328,7 +1308,7 @@ impl<'s> Lower<'_, '_, 's> {
                         .map(|argument| self.span(argument.span())),
                 )
                 .collect();
-            if let Some(span) = check_alias_name(self.working_set, &spans) {
+            if let Some(span) = self.misplaced_alias_item(&spans) {
                 // An export makes the garbage cover the statement and reports that it holds no
                 // call to export (`warp_export_call`).
                 if export {
@@ -1340,7 +1320,7 @@ impl<'s> Lower<'_, '_, 's> {
                     ));
                     return Ok((garbage(self.working_set, statement), None));
                 }
-                return Ok((garbage(self.working_set, *span), None));
+                return Ok((garbage(self.working_set, span), None));
             }
             alias_spans = spans;
         }
@@ -1361,8 +1341,7 @@ impl<'s> Lower<'_, '_, 's> {
             .find(|span| !self.text(*span).starts_with('-'));
         if matches!(keyword, "def" | "extern")
             && let Some(name_span) = name_span
-            && let Some(error) =
-                detect_params_in_name(self.working_set, self.span(name_span), decl_id)
+            && let Some(error) = self.params_in_name(self.span(name_span), decl_id)
         {
             self.working_set.enter_scope();
             self.working_set.error(error);
@@ -1440,7 +1419,7 @@ impl<'s> Lower<'_, '_, 's> {
                 });
             }
             let args = usize::from(with_export) + 1;
-            report_incomplete_alias(self.working_set, &alias_spans[..args], &alias_spans[args..]);
+            self.incomplete_alias(&alias_spans[..args], &alias_spans[args..]);
         }
         // `parse_type_alias` reports items out of place, which the winnow parser read as the
         // call, with garbage over the statement.
@@ -1449,7 +1428,7 @@ impl<'s> Lower<'_, '_, 's> {
                 .iter()
                 .map(|argument| self.span(argument.span()))
                 .collect();
-            if let Some(error) = type_alias_layout_error(self.working_set, head, &spans) {
+            if let Some(error) = self.type_alias_layout(head, &spans) {
                 self.working_set.error(error);
                 let garbage = garbage(self.working_set, call_span);
                 return Ok(match &command.expr {
@@ -1580,7 +1559,7 @@ impl<'s> Lower<'_, '_, 's> {
         let _ = self.working_set.add_span(head);
         let name_span = self.span(alias.name.span);
         // Its errors are the call's, dropped below.
-        let name = parse_value(self.working_set, name_span, &SyntaxShape::String, None);
+        let name = self.value_text(alias.name.span, &SyntaxShape::String)?;
         let target = alias.value.as_ref();
         // Read as an expression, a target starting with `NAME=value` sets an environment
         // variable for the rest (a call to `with-env`): the winnow parser read the target as a
@@ -1705,7 +1684,7 @@ impl<'s> Lower<'_, '_, 's> {
             w::Expr::Garbage => {
                 let parts = self.parts(target.span);
                 let span = self.span(target.span);
-                Ok(parse_external_call(self.working_set, &parts, span))
+                self.external_call_text(&parts, span)
             }
             // Once `run`'s first reading has parsed its script (`finish_run`), the statement is
             // no longer handed back: a second reading the lowering cannot do is nu's call

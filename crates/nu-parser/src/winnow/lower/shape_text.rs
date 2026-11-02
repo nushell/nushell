@@ -26,9 +26,12 @@ fn type_name(text: &str) -> &str {
 }
 
 impl Lower<'_, '_, '_> {
-    /// The tokens of this lowering's source at `span` lexed with `options`, with nu's error for
-    /// the first lexer error (nu's `lex` and `lex_signature` there). The end is dropped and,
-    /// unless `options` skips them, comments are kept.
+    /// The tokens of this lowering's source at `span` lexed with `options`, as nu's `lex` and
+    /// `lex_signature` give them there, with nu's error for the first lexer error. The end is
+    /// dropped and, unless `options` skips them, comments are kept. A `|` starting a line
+    /// continues the line before, as nu's lexer has it: the `|` takes the place of that line's
+    /// end, and the ends of the comment lines just before it go (`ls⏎# c⏎| length` is `ls`, the
+    /// comment, `|`, `length`), so that a closure's `{⏎|x|` starts with its parameters.
     pub(super) fn lex_span(
         &self,
         span: Span,
@@ -49,11 +52,33 @@ impl Lower<'_, '_, '_> {
             .errors
             .first()
             .map(|(_, error)| self.lex_parse_error(error, local.start));
-        let tokens = lexed
-            .tokens
-            .into_iter()
-            .filter(|token| token.contents != TokenContents::Eof)
-            .collect();
+        let mut tokens: Vec<Token> = Vec::with_capacity(lexed.tokens.len());
+        for token in lexed.tokens {
+            match token.contents {
+                TokenContents::Eof => {}
+                // A `|` (not a `&&`, which nu's lexer reads apart) after the end of a line.
+                TokenContents::Pipe
+                    if self.text(token.span) == "|"
+                        && tokens.last().map(|last| last.contents) == Some(TokenContents::Eol) =>
+                {
+                    let last = tokens.len() - 1;
+                    tokens[last] = token;
+                    let mut offset = 2;
+                    while tokens.len() > offset {
+                        let index = tokens.len() - offset;
+                        if tokens[index].contents == TokenContents::Comment
+                            && tokens[index - 1].contents == TokenContents::Eol
+                        {
+                            tokens.remove(index - 1);
+                            offset += 1;
+                        } else {
+                            break;
+                        }
+                    }
+                }
+                _ => tokens.push(token),
+            }
+        }
         (tokens, error)
     }
 

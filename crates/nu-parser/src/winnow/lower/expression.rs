@@ -16,9 +16,7 @@ use super::{BlockOf, Lower, Lowered, Unlowered, call::STATEMENTS_IN_PIPELINE, st
 use crate::winnow::syntax::lex::{AssignmentOperator, LexOptions, TokenContents};
 use crate::winnow::syntax::{Span as WSpan, ast as w};
 use crate::{
-    parse_calls::{CallKind, parse_external_call},
-    parse_captures_compile::compile_block,
-    type_check::math_result_type,
+    parse_calls::CallKind, parse_captures_compile::compile_block, type_check::math_result_type,
     type_check::type_compatible,
 };
 
@@ -116,7 +114,7 @@ impl<'s> Lower<'_, '_, 's> {
                         return Err(Unlowered::Error);
                     }
                     let span = self.span(e.span);
-                    return Ok(parse_external_call(self.working_set, &items, span));
+                    return self.external_call_text(&items, span);
                 }
                 Ok(math)
             }
@@ -462,7 +460,7 @@ impl<'s> Lower<'_, '_, 's> {
                         let rest = WSpan::new(assignment.span.start, e.span.end);
                         let items = self.parts(rest);
                         let command_span = self.span(rest);
-                        let output = parse_external_call(self.working_set, &items, command_span);
+                        let output = self.external_call_text(&items, command_span)?;
                         if pairs.is_empty() {
                             return Ok(output);
                         }
@@ -773,7 +771,7 @@ impl<'s> Lower<'_, '_, 's> {
         let Some(decl_id) = statement_decl(self.working_set, keyword) else {
             let items = self.parts(e.span);
             let span = self.span(e.span);
-            return Ok(parse_external_call(self.working_set, &items, span));
+            return self.external_call_text(&items, span);
         };
         let head = self.keyword_span(e, keyword);
         if binding.ty.is_some() {
