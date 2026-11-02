@@ -19,12 +19,14 @@ use nu_protocol::{
 
 use super::{BlockOf, Lower, Lowered};
 use crate::parse_expressions::parse_value as classic_value;
-use crate::parse_literals::{parse_full_cell_path, parse_string_interpolation};
+use crate::parse_literals::parse_full_cell_path;
 use crate::type_check::check_range_types;
 use crate::winnow::driver::{BlockKind, parse_block};
 use crate::winnow::lookup::EngineLookup;
 use crate::winnow::syntax::lex::Token;
-use crate::winnow::syntax::lex::{GroupEnds, LexOptions, TokenContents, lex_recovering};
+use crate::winnow::syntax::lex::{
+    GroupEnds, LexOptions, TokenContents, interp_subexpr_step, lex_recovering,
+};
 use crate::winnow::syntax::parse_literals::{
     IntLiteral, UnitError, UnitValue, duration_value, filesize_value, is_bare_string_interpolation,
     is_invalid_date_literal, parse_float, read_int, simple_escape,
@@ -272,8 +274,11 @@ impl<'s> Lower<'_, '_, 's> {
     ) -> Lowered<Expression> {
         let text = self.text(span);
         if text.starts_with("$\"") || text.starts_with("$'") {
-            let span = self.span(span);
-            return Ok(classic_value(self.working_set, span, shape, input_type));
+            // A glob reads a `$"..."` with a `(` as a glob interpolation (`parse_glob_pattern`).
+            if matches!(shape, SyntaxShape::GlobPattern) && is_bare_string_interpolation(text) {
+                return self.interpolation_as(span, PathKind::Glob);
+            }
+            return self.interpolation_text(span);
         }
         if text.starts_with("$.") {
             return Ok(self.simple_cell_path(WSpan::new(span.start + 2, span.end)));
@@ -321,16 +326,122 @@ impl<'s> Lower<'_, '_, 's> {
         while self.working_set.delta.scope.len() > scopes {
             self.working_set.exit_scope();
         }
-        // nu's string interpolation parser, until it is read here; a glob keeps its parts.
+        match shape {
+            SyntaxShape::GlobPattern => self.interpolation_as(span, PathKind::Glob),
+            _ => self.interpolation_text(span),
+        }
+    }
+
+    /// A string interpolation read from the text covering `span` (`parse_string_interpolation`):
+    /// inside `$"..."` or `$'...'` (which must end at its closing quote), or the whole bare
+    /// word; text parts are strings (unescaped in double quotes) and each `(...)` part a full
+    /// cell path, whose `)` is found as the lexer finds it.
+    pub(super) fn interpolation_text(&mut self, span: WSpan) -> Lowered<Expression> {
+        let text = self.text(span);
+        let full = self.span(span);
+        let quote = match text.as_bytes() {
+            [b'$', quote @ (b'"' | b'\''), ..] => Some(*quote),
+            _ => None,
+        };
+        let (start, end) = match quote {
+            Some(quote) => {
+                if let Some(after) = text_after_closing_quote(text.as_bytes(), quote, 1) {
+                    let error = ParseError::ExtraTokensAfterClosingDelimiter(Span::new(
+                        full.start + after,
+                        full.end,
+                    ));
+                    self.working_set.error(error);
+                    return Ok(Expression::garbage(self.working_set, full));
+                }
+                let closed = text.as_bytes().last() == Some(&quote) && text.len() > 2;
+                (span.start + 2, if closed { span.end - 1 } else { span.end })
+            }
+            None => (span.start, span.end),
+        };
+        let double_quote = quote == Some(b'"');
+        let bytes = self.source.as_bytes();
+        let mut output = Vec::new();
+        let mut in_expression = false;
+        let mut token_start = start;
+        let mut closers: Vec<(u8, usize)> = Vec::new();
+        let mut backslashes = 0usize;
+        let mut at = start;
+        while at != end {
+            let byte = bytes[at];
+            if !in_expression {
+                let preceding = backslashes;
+                backslashes = if byte == b'\\' { preceding + 1 } else { 0 };
+                if byte == b'(' && (!double_quote || preceding.is_multiple_of(2)) {
+                    in_expression = true;
+                    if token_start < at {
+                        let part =
+                            self.interpolation_string(WSpan::new(token_start, at), double_quote);
+                        output.push(part);
+                        token_start = at;
+                    }
+                }
+            }
+            if in_expression {
+                // An escape in a nested double-quoted string: the escaped byte goes with it.
+                if interp_subexpr_step(&mut closers, byte, at) && at + 1 < end {
+                    at += 2;
+                    continue;
+                }
+                if byte == b')' && closers.is_empty() {
+                    in_expression = false;
+                    if token_start < at {
+                        let part = WSpan::new(token_start, at + 1);
+                        output.push(self.full_cell_path_text(part, None, None)?);
+                    }
+                    token_start = at + 1;
+                    // As nu does: the `)` is looked at once more, as text.
+                    continue;
+                }
+            }
+            at += 1;
+        }
+        if token_start < end {
+            let part = WSpan::new(token_start, end);
+            let part = match in_expression {
+                false => self.interpolation_string(part, double_quote),
+                true => self.full_cell_path_text(part, None, None)?,
+            };
+            output.push(part);
+        }
+        Ok(self.node(Expr::StringInterpolation(output), full, Type::String))
+    }
+
+    /// A text part of a string interpolation, unescaped when in double quotes, its error
+    /// reported.
+    fn interpolation_string(&mut self, span: WSpan, double_quote: bool) -> Expression {
+        let span_nu = self.span(span);
+        let text = self.text(span).as_bytes();
+        let (bytes, error) = match double_quote {
+            true => unescape(text, span_nu),
+            false => (text.to_vec(), None),
+        };
+        if let Some(error) = error {
+            self.working_set.error(error);
+        }
+        let value = String::from_utf8_lossy(&bytes).to_string();
+        self.node(Expr::String(value), span_nu, Type::String)
+    }
+
+    /// A string interpolation read as a path-like `kind` (`parse_path_like`): a glob keeps its
+    /// parts as a glob interpolation, quoted when the word has `'` or `"` quotes around it.
+    fn interpolation_as(&mut self, span: WSpan, kind: PathKind) -> Lowered<Expression> {
+        let quoted = is_quoted(self.text(span));
+        let interpolation = self.interpolation_text(span)?;
         let span = self.span(span);
-        let interpolation = parse_string_interpolation(self.working_set, span);
-        Ok(match (shape, interpolation.expr) {
-            (SyntaxShape::GlobPattern, Expr::StringInterpolation(parts)) => self.node(
-                Expr::GlobInterpolation(parts, false),
-                span,
-                interpolation.ty,
-            ),
-            (_, expr) => Expression {
+        Ok(match interpolation.expr {
+            Expr::StringInterpolation(parts) => {
+                let expr = match kind {
+                    PathKind::Glob => Expr::GlobInterpolation(parts, quoted),
+                    PathKind::Directory | PathKind::Filepath => Expr::StringInterpolation(parts),
+                };
+                self.node(expr, span, interpolation.ty)
+            }
+            expr => Expression {
                 expr,
                 ..interpolation
             },
@@ -790,7 +901,7 @@ impl<'s> Lower<'_, '_, 's> {
         }
         for quote in *b"\"'" {
             if text.as_bytes().first() == Some(&quote)
-                && let Some(after) = text_after_closing_quote(text.as_bytes(), quote)
+                && let Some(after) = text_after_closing_quote(text.as_bytes(), quote, 0)
             {
                 let error = ParseError::ExtraTokensAfterClosingDelimiter(Span::new(
                     span.start + after,
@@ -856,14 +967,14 @@ impl<'s> Lower<'_, '_, 's> {
         e: &w::Expression<'s>,
         shape: &SyntaxShape,
     ) -> Lowered<Expression> {
-        match &e.expr {
-            w::Expr::StringInterpolation(interpolation) => {
+        match (&e.expr, shape) {
+            (w::Expr::StringInterpolation(interpolation), _) => {
                 self.path_interpolation(e.span, interpolation, shape)
             }
-            _ => {
-                let span = self.span(e.span);
-                Ok(classic_value(self.working_set, span, shape, None))
-            }
+            (_, SyntaxShape::Filepath) => self.interpolation_as(e.span, PathKind::Filepath),
+            (_, SyntaxShape::Directory) => self.interpolation_as(e.span, PathKind::Directory),
+            (_, SyntaxShape::GlobPattern) => self.interpolation_as(e.span, PathKind::Glob),
+            _ => self.interpolation_text(e.span),
         }
     }
 }
@@ -883,12 +994,13 @@ pub(super) fn trim_quotes(text: &[u8]) -> &[u8] {
     }
 }
 
-/// Where the text after the closing quote of a word that opens with `quote` starts, when there
-/// is any (nu's `check_string_no_trailing_tokens`): the closing quote is the last one of its
-/// kind, and with none but the opening one the string is open, which is no error here.
-fn text_after_closing_quote(bytes: &[u8], quote: u8) -> Option<usize> {
+/// Where the text after the closing quote of a word whose opening `quote` is at `opening`
+/// starts, when there is any (nu's `check_string_no_trailing_tokens`): the closing quote is the
+/// last one of its kind, and with none but the opening one the string is open, which is no
+/// error here.
+fn text_after_closing_quote(bytes: &[u8], quote: u8, opening: usize) -> Option<usize> {
     let last = bytes.iter().rposition(|byte| *byte == quote)?;
-    (last != bytes.len() - 1 && last != 0).then_some(last + 1)
+    (last != bytes.len() - 1 && last != opening).then_some(last + 1)
 }
 
 /// A word's string (nu's `unescape_unquote_string`): a double-quoted word unescaped between its

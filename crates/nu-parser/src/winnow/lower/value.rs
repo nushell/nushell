@@ -76,6 +76,13 @@ impl<'s> Lower<'_, '_, 's> {
         shape: &SyntaxShape,
         input_type: Option<&Type>,
     ) -> Lowered<Expression> {
+        // An empty value the winnow parser went on past (`--flag=`): nu's value parser reports
+        // it before looking at the shape.
+        if self.text(e.span).is_empty() && matches!(e.expr, w::Expr::Garbage) {
+            let span = self.span(e.span);
+            self.working_set.error(ParseError::IncompleteParser(span));
+            return Ok(Expression::garbage(self.working_set, span));
+        }
         if let SyntaxShape::OneOf(shapes) = shape {
             return self.one_of(e, shapes, input_type);
         }
@@ -95,12 +102,6 @@ impl<'s> Lower<'_, '_, 's> {
             return self.unary_minus(e, minus, input_type);
         }
         match self.text(e.span).as_bytes() {
-            // An empty value the winnow parser went on past (`--flag=`): nu's value parser
-            // reports it (IncompleteParser) with garbage.
-            [] if matches!(e.expr, w::Expr::Garbage) => {
-                let span = self.span(e.span);
-                Ok(classic_value(self.working_set, span, shape, input_type))
-            }
             [] => Err(Unlowered::Error),
             // A cell path the winnow parser went on past an error in (`$x.a??`): read again from
             // its text, as nu reads it, reporting its errors with what it recovers.
