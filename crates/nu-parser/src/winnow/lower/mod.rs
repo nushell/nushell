@@ -58,6 +58,7 @@ mod lite;
 mod math_items;
 mod module;
 mod record_text;
+mod shape_text;
 mod signature;
 mod source;
 mod statement;

@@ -97,9 +97,6 @@ const TO_PORT: &[&str] = &[
     // Signatures and types.
     "parse_def::detect_params_in_name",
     "parse_def::parse_def_predecl",
-    "parse_shape_specs::parse_completer",
-    "parse_shape_specs::parse_shape_name",
-    "parse_shape_specs::parse_type",
     "parse_signatures::parse_full_signature",
     "parse_signatures::parse_input_output_types",
     "parse_signatures::parse_var_with_opt_type",

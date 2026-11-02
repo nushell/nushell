@@ -36,7 +36,6 @@ use crate::{
     parse_helpers::garbage,
     parse_module::{finish_export_env, warp_export_call},
     parse_patterns::parse_pattern,
-    parse_shape_specs::parse_type,
     parse_signatures::ensure_not_reserved_variable_name,
     parse_type_alias::{finish_type_alias, type_alias_layout_error},
     type_check::{check_pipeline_type, type_compatible},
@@ -636,7 +635,7 @@ impl<'s> Lower<'_, '_, 's> {
                     self.working_set.error(error);
                 }
                 let at = tokens.first().map_or(span, |token| token.span);
-                let ty = parse_type(self.working_set, text, at);
+                let ty = self.type_text(self.text(annotation.span), at);
                 // The classic parser gives the variable the span of the next-to-last item of
                 // `name: type...`: the name with its `:` when the type is one item.
                 let region = Span::new(name_span.start, span.end);

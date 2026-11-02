@@ -11,7 +11,6 @@ use super::{Lower, Lowered, Unlowered};
 use crate::winnow::syntax::{Span as WSpan, ast as w};
 use crate::{
     parse_def::{parse_def_predecl, reject_command_name, rest_param_is_type_annotated},
-    parse_shape_specs::{parse_completer, parse_shape_name},
     parse_signatures::{
         Arg, assemble_signature, ensure_not_reserved_variable_name, parse_input_output_types,
     },
@@ -250,15 +249,11 @@ impl<'s> Lower<'_, '_, 's> {
             let (shape, completion) = match &param.ty {
                 Some(ty) => {
                     let span = self.span(ty.span);
-                    let text = self.text(ty.span).as_bytes();
+                    let text = self.text(ty.span);
                     // An unknown type is `any`, an unknown completer none, each reported.
-                    let shape = parse_shape_name(self.working_set, text, span);
+                    let shape = self.shape_name(text, span);
                     let completion = match &param.completer {
-                        Some(completer) => {
-                            let span = self.span(completer.span);
-                            let text = completer.item.as_bytes();
-                            parse_completer(self.working_set, text, span)
-                        }
+                        Some(completer) => self.completer_text(completer.span),
                         None => None,
                     };
                     (Some(shape), completion)
