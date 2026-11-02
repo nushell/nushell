@@ -93,7 +93,7 @@ impl<'s> Lower<'_, '_, 's> {
     }
 
     /// The first of `shapes` that reads the item without an error (`parse_oneof`), each read
-    /// as `parse_value` reads it there ([`Self::reported_value`]). As there, the shapes that take
+    /// as `parse_value` reads it there ([`Self::value`]). As there, the shapes that take
     /// nearly any bare word go last unless the item starts with `$`, `(` or `{`, and each
     /// shape's errors, warnings and compile errors (a closure it compiled) are dropped before
     /// the next is tried. When none reads it, the value is the guess whose first error is the
@@ -126,7 +126,7 @@ impl<'s> Lower<'_, '_, 's> {
             let errors = self.working_set.parse_errors.len();
             let warnings = self.working_set.parse_warnings.len();
             let compile_errors = self.working_set.compile_errors.len();
-            match self.reported_value(e, shape, input_type) {
+            match self.value(e, shape, input_type) {
                 Ok(value) => {
                     let new_errors = &self.working_set.parse_errors[errors..];
                     let Some(first) = new_errors.iter().map(|error| error.span().start).min()
@@ -170,29 +170,6 @@ impl<'s> Lower<'_, '_, 's> {
                 Ok(Expression::garbage(self.working_set, span))
             }
         }
-    }
-
-    /// An item read with `shape` where the classic parser reads it with `parse_value` and
-    /// nothing reads it again (a call's argument, `parse_internal_call`; a shape of a `oneof`,
-    /// `parse_oneof`; a list's item, `parse_list_expression`; a parameter's default value,
-    /// `parse_signature_helper`): as [`Self::value`] reads it, except that an item without
-    /// inner structure keeps a classic leaf parser's error, reported with the value it recovers.
-    pub(super) fn reported_value(
-        &mut self,
-        e: &w::Expression<'s>,
-        shape: &SyntaxShape,
-        input_type: Option<&Type>,
-    ) -> Lowered<Expression> {
-        let structured = matches!(shape, SyntaxShape::OneOf(_))
-            || matches!(e.expr, w::Expr::UnaryMinus(_))
-            || matches!(
-                self.text(e.span).as_bytes().first(),
-                None | Some(b'$' | b'(' | b'{' | b'[')
-            );
-        if structured {
-            return self.value(e, shape, input_type);
-        }
-        self.leaf(e, shape)
     }
 
     /// An item without inner structure: a number, a word, a quoted string. The common shapes
@@ -687,7 +664,7 @@ impl<'s> Lower<'_, '_, 's> {
     }
 
     /// A list (`parse_list_expression`); its type is the union of its items' types. An item
-    /// keeps its leaf parser's error, as there ([`Self::reported_value`]). A spread,
+    /// keeps its leaf parser's error, as there ([`Self::leaf`]). A spread,
     /// `...$items`, is read as a list of `element` and adds its item type.
     pub(super) fn list(
         &mut self,
@@ -700,7 +677,7 @@ impl<'s> Lower<'_, '_, 's> {
         for item in items {
             let (item, ty) = match item {
                 w::ListItem::Item(expression) => {
-                    let value = self.reported_value(expression, element, None)?;
+                    let value = self.value(expression, element, None)?;
                     let ty = value.ty.clone();
                     (ListItem::Item(value), ty)
                 }
@@ -809,7 +786,7 @@ impl<'s> Lower<'_, '_, 's> {
                         }
                         None => key,
                     };
-                    let value = self.reported_value(value, &SyntaxShape::Any, None)?;
+                    let value = self.value(value, &SyntaxShape::Any, None)?;
                     let value = match check_record_key_or_value(self.working_set, &value, "value") {
                         Some(error) => {
                             self.working_set.error(error);

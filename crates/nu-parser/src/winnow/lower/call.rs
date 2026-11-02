@@ -693,7 +693,7 @@ impl<'s> Lower<'_, '_, 's> {
                             index = next;
                             value
                         } else {
-                            self.reported_value(expr, shape, positional_input)?
+                            self.value(expr, shape, positional_input)?
                         };
                         // `try`'s handler is a closure, compiled on its own, so a `break` in it
                         // is outside any loop: `parse_internal_call` drops that error when it
@@ -787,7 +787,7 @@ impl<'s> Lower<'_, '_, 's> {
                 self.working_set.parse_errors.truncate(errors);
                 Ok(classic_value(self.working_set, span, shape, input_type))
             }
-            _ => self.reported_value(e, shape, None),
+            _ => self.value(e, shape, None),
         }
     }
 
@@ -1005,7 +1005,7 @@ impl<'s> Lower<'_, '_, 's> {
             )?,
             // `parse_multispan_value` reads a one-item shape with `parse_value`, keeping its errors.
             _ if !is_multispan_shape(shape) => {
-                return Ok((self.reported_value(item, shape, input_type)?, index + 1));
+                return Ok((self.value(item, shape, input_type)?, index + 1));
             }
             // And so any other shape, which it reads from one item (an import pattern).
             _ => {
@@ -1446,7 +1446,7 @@ impl<'s> Lower<'_, '_, 's> {
         value: &w::Expression<'s>,
         shape: &SyntaxShape,
     ) -> Lowered<Expression> {
-        let value = self.reported_value(value, shape, None)?;
+        let value = self.value(value, shape, None)?;
         Ok(self.flag_type(value, shape))
     }
 

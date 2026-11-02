@@ -249,7 +249,7 @@ impl<'s> Lower<'_, '_, 's> {
             _ if is_keyword_operand(e) => self.expression(e, None),
             w::Expr::FullCellPath(path) if path.implicit_head => self.implicit_cell_path(e, path),
             // An operand keeps its leaf parser's error (`parse_math_operand`).
-            _ => self.reported_value(e, &SyntaxShape::Any, input_type),
+            _ => self.value(e, &SyntaxShape::Any, input_type),
         }
     }
 

@@ -78,14 +78,16 @@ source ──▶ parse_block_streaming (this parser) ──▶ one statement's s
   `parse_overlay_use`, ...) loads the module or file and changes the scope.
   As in `nu-parser`, `hide`, `run`, `source` and `source-env` are picked by
   the first word of the statement, so `source me` is a `source` even where a
-  command `source me` exists; this parser leaves such a statement to
-  `nu-parser`. The module bodies and files these load come back to this
-  parser through `parse_module_block` and `parse`. `nu-parser` also parses a call this parser
-  read for a `def --wrapped` command whose name a `hide`, `use` or
-  `overlay use` has since bound to another command, and reads its arguments
-  with that command's signature, and a call through an alias of `if`,
-  `match` or `try`, which this parser parses as the keyword's statement and
-  `nu-parser` makes with the alias.
+  command `source me` exists. The module bodies and files these load come
+  back to this parser through `parse_module_block` and `parse`.
+- **Names bound again.** A name a `hide`, `use` or `overlay hide` binds to
+  another command after the block declared it is answered by the working
+  set from the next statement on (`BlockStatements::forget_changed_names`).
+  A call this parser read for a `def --wrapped` command whose name has since
+  been bound to another command is read again with the commands known then,
+  and a call through an alias of `if`, `match` or `try`, which this parser
+  parses as the keyword's statement, is the call `nu-parser` makes with the
+  alias.
 
 The lowering's functions carry the names of the `nu-parser` functions they
 stand in for, and reuse `nu-parser`'s code wherever it does not read spans

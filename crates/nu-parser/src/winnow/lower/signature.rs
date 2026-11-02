@@ -345,7 +345,7 @@ impl<'s> Lower<'_, '_, 's> {
             if !is_external {
                 for default in param.earlier_defaults.iter().chain(&param.default) {
                     let shape = parameter.default_value_shape();
-                    let expression = self.reported_value(default, &shape, None)?;
+                    let expression = self.value(default, &shape, None)?;
                     parameter.set_default_value(self.working_set, expression);
                 }
             }

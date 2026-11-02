@@ -413,7 +413,7 @@ impl<'s> Lower<'_, '_, 's> {
         let value = self.value(&match_expr.value, &SyntaxShape::Any, None)?;
         call.add_positional(value);
         let block = if let Some(value_block) = &match_expr.value_block {
-            let block = self.reported_value(value_block, &SyntaxShape::MatchBlock, arms_input)?;
+            let block = self.value(value_block, &SyntaxShape::MatchBlock, arms_input)?;
             self.positional_value(block, &SyntaxShape::MatchBlock)
         } else {
             self.match_block(&match_expr.arms, match_expr.block_span, arms_input)?
@@ -833,7 +833,7 @@ impl<'s> Lower<'_, '_, 's> {
                     .insert_variable_into_scope(var_name, var_id);
             }
             // The `in` keyword's argument, whose leaf error nu keeps (`for i in 5..1kb {}`).
-            let iterable = this.reported_value(&for_loop.iterable, &SyntaxShape::Any, None)?;
+            let iterable = this.value(&for_loop.iterable, &SyntaxShape::Any, None)?;
             let body = this.block_argument(&for_loop.body, for_loop.body_value.as_deref(), None)?;
             Ok((var_decl, iterable, body))
         })?;
