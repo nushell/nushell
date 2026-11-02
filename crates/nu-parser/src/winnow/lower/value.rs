@@ -208,12 +208,11 @@ impl<'s> Lower<'_, '_, 's> {
                 span,
                 Type::String,
             )),
-            // A raw string the winnow parser went on past an error in: nu's raw string parser
-            // reads it. So does nu's negation, which it reads before anything else, a word the
-            // winnow parser read otherwise (`-$nope?`).
-            _ if self.text(e.span).starts_with("r#")
-                || reads_as_negation(self.text(e.span), shape) =>
-            {
+            // A raw string the winnow parser went on past an error in: read as nu reads it.
+            _ if self.text(e.span).starts_with("r#") => Ok(self.raw_string_text(e.span)),
+            // nu's negation, which it reads before anything else, of a word the winnow parser
+            // read otherwise (`-$nope?`).
+            _ if reads_as_negation(self.text(e.span), shape) => {
                 Ok(classic_value(self.working_set, span, shape, None))
             }
             _ => self.leaf_by_shape(e, shape),

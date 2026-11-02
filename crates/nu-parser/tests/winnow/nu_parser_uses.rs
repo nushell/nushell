@@ -91,7 +91,6 @@ const TO_PORT: &[&str] = &[
     "parse_helpers::trim_quotes",
     // Externals.
     "parse_calls::parse_external_call",
-    "parse_calls::parse_external_string",
     "parse_calls::parse_regular_external_arg",
     "parse_calls::parse_unknown_arg",
     "parse_calls::strict_extern_forwards",

@@ -21,9 +21,8 @@ use crate::winnow::syntax::{
 use crate::{
     parse_calls::{
         CallKind, accepts_any_bareword, check_call, find_decl_with_command_type, find_longest_decl,
-        find_longest_decl_with_prefix, parse_external_call, parse_external_string,
-        parse_regular_external_arg, parse_unknown_arg, shape_allows_negative_number,
-        strict_extern_forwards,
+        find_longest_decl_with_prefix, parse_external_call, parse_unknown_arg,
+        shape_allows_negative_number, strict_extern_forwards,
     },
     parse_expressions::{
         is_math_expression_like, parse_closure_expression, parse_math_expression,
@@ -1636,10 +1635,7 @@ impl<'s> Lower<'_, '_, 's> {
         // Any other head is a string or glob, even `[a b]` or `{a}` (`parse_external_string`).
         let head = match self.text(call.head.span).as_bytes().first() {
             Some(b'$' | b'(') => self.expression(&call.head, None)?,
-            _ => {
-                let span = self.span(call.head.span);
-                parse_external_string(self.working_set, span)
-            }
+            _ => self.external_string_text(call.head.span)?,
         };
         let mut arguments = Vec::with_capacity(call.arguments.len());
         for argument in &call.arguments {
@@ -1679,15 +1675,9 @@ impl<'s> Lower<'_, '_, 's> {
                 w::Expr::List(items) => self.list(value.span, items, &SyntaxShape::Any),
                 // An unclosed list (`[a].x`), which nu's list parser reports with garbage, or a
                 // table (`[[a]; [1]]`): read as nu reads an external argument.
-                _ => {
-                    let span = self.span(value.span);
-                    Ok(parse_regular_external_arg(self.working_set, span))
-                }
+                _ => self.regular_external_arg_text(value.span),
             },
-            _ => {
-                let span = self.span(value.span);
-                Ok(parse_regular_external_arg(self.working_set, span))
-            }
+            _ => self.regular_external_arg_text(value.span),
         }
     }
 
@@ -1758,15 +1748,12 @@ impl<'s> Lower<'_, '_, 's> {
         let Some((first, rest)) = words.split_first() else {
             return Err(Unlowered::Unsupported("unresolved command"));
         };
-        let head_span = self.span(*first);
-        let head = parse_external_string(self.working_set, head_span);
+        let head = self.external_string_text(*first)?;
         let mut arguments = Vec::with_capacity(rest.len() + call.arguments.len());
         for word in rest {
-            let span = self.span(*word);
-            arguments.push(ExternalArgument::Regular(parse_regular_external_arg(
-                self.working_set,
-                span,
-            )));
+            arguments.push(ExternalArgument::Regular(
+                self.regular_external_arg_text(*word)?,
+            ));
         }
         for argument in &call.arguments {
             arguments.push(self.call_argument_as_external(argument)?);
@@ -1788,20 +1775,12 @@ impl<'s> Lower<'_, '_, 's> {
             w::Argument::Positional(value) => {
                 Ok(ExternalArgument::Regular(self.external_argument(value)?))
             }
-            w::Argument::Named(flag) => {
-                let span = self.span(flag.span);
-                Ok(ExternalArgument::Regular(parse_regular_external_arg(
-                    self.working_set,
-                    span,
-                )))
-            }
-            w::Argument::EndOfOptions(span) => {
-                let span = self.span(*span);
-                Ok(ExternalArgument::Regular(parse_regular_external_arg(
-                    self.working_set,
-                    span,
-                )))
-            }
+            w::Argument::Named(flag) => Ok(ExternalArgument::Regular(
+                self.regular_external_arg_text(flag.span)?,
+            )),
+            w::Argument::EndOfOptions(span) => Ok(ExternalArgument::Regular(
+                self.regular_external_arg_text(*span)?,
+            )),
             w::Argument::Spread { expr, .. } => Ok(ExternalArgument::Spread(self.value(
                 expr,
                 &SyntaxShape::List(Box::new(SyntaxShape::Any)),

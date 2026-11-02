@@ -18,6 +18,7 @@ use nu_protocol::{
 };
 
 use super::{BlockOf, Lower, Lowered};
+use crate::parse_calls::parse_regular_external_arg;
 use crate::parse_expressions::parse_value as classic_value;
 use crate::parse_literals::parse_full_cell_path;
 use crate::type_check::check_range_types;
@@ -95,7 +96,7 @@ impl<'s> Lower<'_, '_, 's> {
             SyntaxShape::String => return self.string_leaf(e),
             SyntaxShape::Binary => self.binary_leaf(e),
             SyntaxShape::CellPath => self.simple_cell_path(e.span),
-            SyntaxShape::ExternalArgument => classic_value(self.working_set, span, shape, None),
+            SyntaxShape::ExternalArgument => return self.regular_external_arg_text(e.span),
             // `Expected`, which the `any` shape's reading relies on.
             SyntaxShape::Block | SyntaxShape::Closure(..) | SyntaxShape::Record(_) => {
                 self.leaf_error(ParseError::Expected("block, closure or record", span))
@@ -701,6 +702,213 @@ impl<'s> Lower<'_, '_, 's> {
     ) -> Vec<PathMember> {
         self.working_set.error(ParseError::Expected(expected, span));
         tail
+    }
+
+    /// A raw string `r#'...'#` (`parse_raw_string`): as many `#` after the closing quote as
+    /// before the opening one, the text between the quotes taken as it is.
+    pub(super) fn raw_string_text(&mut self, span: WSpan) -> Expression {
+        let raw_span = self.span(span);
+        let text = self.text(span);
+        let bytes = text.as_bytes();
+        if !bytes.starts_with(b"r#") {
+            return self.leaf_error(ParseError::Expected("r#", raw_span));
+        }
+        let hashes = 1 + bytes[2..].iter().take_while(|byte| **byte == b'#').count();
+        let unclosed = |this: &mut Self| {
+            let open = ParseError::opener_span(raw_span, 1);
+            this.working_set
+                .error(ParseError::unclosed("'", open, raw_span));
+            Expression::garbage(this.working_set, raw_span)
+        };
+        if bytes.len() < 2 * hashes + 3 {
+            return unclosed(self);
+        }
+        if bytes[bytes.len() - hashes..]
+            .iter()
+            .any(|byte| *byte != b'#')
+        {
+            return self.leaf_error(ParseError::unbalanced("prefix #", "postfix #", raw_span));
+        }
+        if bytes[1 + hashes] != b'\'' || bytes[bytes.len() - hashes - 1] != b'\'' {
+            return unclosed(self);
+        }
+        let value = text[hashes + 2..text.len() - 1 - hashes].to_string();
+        self.node(Expr::RawString(value), raw_span, Type::String)
+    }
+
+    /// An external command's argument read from the text covering `span`
+    /// (`parse_regular_external_arg`): a `$` or `(` item as a value, else a string or glob.
+    pub(super) fn regular_external_arg_text(&mut self, span: WSpan) -> Lowered<Expression> {
+        match self.text(span).as_bytes().first() {
+            Some(b'$') => self.dollar_text(span, &SyntaxShape::Any, None),
+            Some(b'(') => self.paren_text(span, &SyntaxShape::Any),
+            // nu's list and record parsers, until those are read here.
+            Some(b'[' | b'{') => {
+                let span = self.span(span);
+                Ok(parse_regular_external_arg(self.working_set, span))
+            }
+            _ => self.external_string_text(span),
+        }
+    }
+
+    /// An external command's name or argument word (`parse_external_string`): a raw string; a
+    /// word with quotes or parentheses split into its bare, quoted and parenthesized parts, each
+    /// read as a string, joined into one string or an interpolation; any other word a glob. A
+    /// word not quoted as a whole is a glob, so that `run-external` knows it is bare.
+    pub(super) fn external_string_text(&mut self, span: WSpan) -> Lowered<Expression> {
+        let text = self.text(span);
+        let bytes = text.as_bytes();
+        if bytes.starts_with(b"r#") {
+            return Ok(self.raw_string_text(span));
+        }
+        if !bytes
+            .iter()
+            .any(|byte| matches!(byte, b'"' | b'\'' | b'(' | b')' | b'`'))
+        {
+            let word = w::Expression::new(w::Expr::Garbage, span);
+            return self.path_leaf(&word, PathKind::Glob);
+        }
+        enum State {
+            Bare {
+                from: usize,
+            },
+            Backtick {
+                from: usize,
+            },
+            Quote {
+                from: usize,
+                quote: u8,
+                escaped: bool,
+            },
+            Parenthesized {
+                from: usize,
+                depth: usize,
+            },
+        }
+        let part = |from: usize, to: usize| WSpan::new(span.start + from, span.start + to);
+        let mut parts = Vec::new();
+        let mut state = State::Bare { from: 0 };
+        let mut index = 0;
+        while index < bytes.len() {
+            let byte = bytes[index];
+            match &mut state {
+                State::Bare { from } => match byte {
+                    b'"' | b'\'' => {
+                        if index != *from {
+                            parts.push(part(*from, index));
+                        }
+                        state = State::Quote {
+                            from: index,
+                            quote: byte,
+                            escaped: false,
+                        };
+                    }
+                    b'$' => {
+                        if let Some(&quote @ (b'"' | b'\'')) = bytes.get(index + 1) {
+                            if index != *from {
+                                parts.push(part(*from, index));
+                            }
+                            state = State::Quote {
+                                from: index,
+                                quote,
+                                escaped: false,
+                            };
+                            index += 2;
+                            continue;
+                        }
+                    }
+                    b'`' => {
+                        if index != *from {
+                            parts.push(part(*from, index));
+                        }
+                        state = State::Backtick { from: index };
+                    }
+                    b'(' => {
+                        if index != *from {
+                            parts.push(part(*from, index));
+                        }
+                        state = State::Parenthesized {
+                            from: index,
+                            depth: 1,
+                        };
+                    }
+                    _ => {}
+                },
+                State::Quote {
+                    from,
+                    quote,
+                    escaped,
+                } => match byte {
+                    byte if byte == *quote && !*escaped => {
+                        parts.push(part(*from, index + 1));
+                        state = State::Bare { from: index + 1 };
+                    }
+                    b'\\' if !*escaped && *quote == b'"' => *escaped = true,
+                    _ => *escaped = false,
+                },
+                State::Backtick { from } => {
+                    if byte == b'`' {
+                        parts.push(part(*from, index + 1));
+                        state = State::Bare { from: index + 1 };
+                    }
+                }
+                State::Parenthesized { from, depth } => {
+                    if byte == b')' {
+                        if *depth == 1 {
+                            parts.push(part(*from, index + 1));
+                            state = State::Bare { from: index + 1 };
+                        } else {
+                            *depth -= 1;
+                        }
+                    } else if byte == b'(' {
+                        *depth += 1;
+                    }
+                }
+            }
+            index += 1;
+        }
+        let (State::Bare { from }
+        | State::Quote { from, .. }
+        | State::Parenthesized { from, .. }
+        | State::Backtick { from }) = state;
+        if from < bytes.len() {
+            parts.push(part(from, bytes.len()));
+        }
+        let quoted = (bytes.len() >= 3 && bytes.starts_with(b"$\"") && bytes.ends_with(b"\""))
+            || is_quoted(text);
+        let mut values = Vec::with_capacity(parts.len());
+        for part in parts {
+            let word = w::Expression::new(w::Expr::Garbage, part);
+            values.push(self.string_leaf(&word)?);
+        }
+        let span = self.span(span);
+        if values
+            .iter()
+            .all(|value| matches!(value.expr, Expr::String(..)))
+        {
+            let value: String = values
+                .into_iter()
+                .filter_map(|value| match value.expr {
+                    Expr::String(text) => Some(text),
+                    _ => None,
+                })
+                .collect();
+            return Ok(match quoted {
+                true => self.node(Expr::String(value), span, Type::String),
+                false => self.node(Expr::GlobPattern(value, false), span, Type::Glob),
+            });
+        }
+        let parts: Vec<Expression> = values
+            .into_iter()
+            .flat_map(|value| match value.expr {
+                Expr::StringInterpolation(parts) => parts,
+                _ => vec![value],
+            })
+            .collect();
+        Ok(match quoted {
+            true => self.node(Expr::StringInterpolation(parts), span, Type::String),
+            false => self.node(Expr::GlobInterpolation(parts, false), span, Type::Glob),
+        })
     }
 
     /// `error` reported, and garbage over the item.
