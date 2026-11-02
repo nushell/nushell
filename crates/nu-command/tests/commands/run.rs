@@ -257,6 +257,121 @@ fn run_does_not_leak_env_from_script_main() -> Result {
     })
 }
 
+/// The script's commands and variable names stay inside it, like its environment.
+#[test]
+fn run_does_not_leak_definitions_into_the_caller() -> Result {
+    Playground::setup(
+        "run_does_not_leak_definitions_into_the_caller",
+        |dirs, sandbox| {
+            sandbox.with_files(&[FileWithContentToBeTrimmed(
+                "defs.nu",
+                "
+                    let local = 5
+                    def helper [] { 'script helper' }
+                    helper
+                ",
+            )]);
+
+            test()
+                .cwd(dirs.test())
+                .run("run defs.nu")
+                .expect_value_eq("script helper")?;
+            test()
+                .cwd(dirs.test())
+                .run("run defs.nu | ignore; helper")
+                .expect_error_code_eq("nu::shell::external_command")?;
+            let err = test()
+                .cwd(dirs.test())
+                .run("run defs.nu | ignore; $local")
+                .expect_parse_error()?;
+            assert_matches!(err, ParseError::VariableNotFound(..));
+            test()
+                .cwd(dirs.test())
+                .run("def helper [] { 'caller helper' }; run defs.nu | ignore; helper")
+                .expect_value_eq("caller helper")
+        },
+    )
+}
+
+/// While the script runs, `help` and `which` find the commands and modules it declared, as they do
+/// when `nu` runs the script itself.
+#[test]
+fn run_script_finds_its_own_definitions_by_name() -> Result {
+    Playground::setup(
+        "run_script_finds_its_own_definitions_by_name",
+        |dirs, sandbox| {
+            sandbox.with_files(&[FileWithContentToBeTrimmed(
+                "introspect.nu",
+                "
+                    # The script's helper
+                    def helper [] { 'h' }
+                    module tools { export def f [] { 1 } }
+                    def main [] {
+                        [(help helper | lines | first) (which helper | get 0.type) (help tools | lines | first)]
+                    }
+                ",
+            )]);
+
+            test()
+                .cwd(dirs.test())
+                .run("run introspect.nu")
+                .expect_value_eq(["The script's helper", "custom", "Module: tools"])
+        },
+    )
+}
+
+/// `source` of a file that `run` parsed before still declares the file's commands.
+#[test]
+fn source_after_run_of_the_same_file_declares_its_commands() -> Result {
+    Playground::setup(
+        "source_after_run_of_the_same_file_declares_its_commands",
+        |dirs, sandbox| {
+            sandbox.with_files(&[FileWithContentToBeTrimmed(
+                "defs.nu",
+                "
+                    def helper [] { 'script helper' }
+                ",
+            )]);
+
+            test()
+                .cwd(dirs.test())
+                .run("run defs.nu | ignore; source defs.nu; helper")
+                .expect_value_eq("script helper")
+        },
+    )
+}
+
+/// A `main` declared by a script that `run` calls isn't called again when the outer script ends.
+#[test]
+#[deps(NU)]
+fn run_main_is_not_called_again_by_the_outer_script() -> Result {
+    Playground::setup(
+        "run_main_is_not_called_again_by_the_outer_script",
+        |dirs, sandbox| {
+            sandbox.with_files(&[
+                FileWithContentToBeTrimmed(
+                    "double.nu",
+                    "
+                        def main [x: int] { $x * 2 }
+                    ",
+                ),
+                FileWithContentToBeTrimmed(
+                    "outer.nu",
+                    "
+                        run double.nu 21
+                    ",
+                ),
+            ]);
+
+            let result: CompleteResult =
+                test().cwd(dirs.test()).run("nu -n outer.nu | complete")?;
+            assert_eq!(result.exit_code, 0, "{result:?}");
+            assert_eq!(result.stdout.trim(), "42", "{result:?}");
+            Ok(())
+        },
+    )
+}
+
 #[test]
 fn run_missing_script_reports_error() -> Result {
     Playground::setup("run_missing_script_reports_error", |dirs, _| {
