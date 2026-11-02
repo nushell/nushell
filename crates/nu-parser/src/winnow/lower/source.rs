@@ -157,7 +157,7 @@ impl<'s> Lower<'_, '_, 's> {
                         w::Argument::Positional(expr) => {
                             self.value(expr, &SyntaxShape::Any, None)?
                         }
-                        _ => self.checked(|ws| classic_value(ws, span, &SyntaxShape::Any, None))?,
+                        _ => classic_value(self.working_set, span, &SyntaxShape::Any, None),
                     };
                     call.add_unknown(value);
                 }

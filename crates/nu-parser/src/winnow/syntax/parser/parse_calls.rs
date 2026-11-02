@@ -115,7 +115,11 @@ fn parse_call_with<'a>(
             };
         }
         None if working_set.has_builtin_decls() => {
-            let name = parse_external_string(working_set, head.span)?;
+            let name = recover_literal(
+                working_set,
+                head.span,
+                parse_external_string(working_set, head.span),
+            )?;
             return parse_external_arguments(None, name, tokens);
         }
         kind => kind,

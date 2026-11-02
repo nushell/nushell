@@ -493,7 +493,7 @@ impl<'s> Lower<'_, '_, 's> {
                     end_of_options = true;
                     if signature.allows_unknown_args {
                         let span = self.span(*span);
-                        let value = self.checked(|ws| parse_unknown_arg(ws, span, signature))?;
+                        let value = parse_unknown_arg(self.working_set, span, signature);
                         call.add_unknown(value);
                     }
                 }
@@ -546,7 +546,7 @@ impl<'s> Lower<'_, '_, 's> {
                                 index = next;
                                 value
                             } else {
-                                self.checked(|ws| classic_value(ws, span, &shape, None))?
+                                classic_value(self.working_set, span, &shape, None)
                             }
                         } else {
                             classic_value(self.working_set, span, &shape, None)
@@ -555,7 +555,7 @@ impl<'s> Lower<'_, '_, 's> {
                         call.add_positional(value);
                         positional_idx += 1;
                     } else if signature.allows_unknown_args {
-                        let value = self.checked(|ws| parse_unknown_arg(ws, span, signature))?;
+                        let value = parse_unknown_arg(self.working_set, span, signature);
                         call.add_unknown(value);
                     } else {
                         self.extra_positional(call, span, signature);
@@ -573,7 +573,7 @@ impl<'s> Lower<'_, '_, 's> {
                         call.add_positional(Expression::garbage(self.working_set, span));
                         positional_idx += 1;
                     } else if signature.allows_unknown_args {
-                        let value = self.checked(|ws| parse_unknown_arg(ws, span, signature))?;
+                        let value = parse_unknown_arg(self.working_set, span, signature);
                         call.add_unknown(value);
                     } else {
                         self.extra_positional(call, span, signature);
@@ -1012,7 +1012,6 @@ impl<'s> Lower<'_, '_, 's> {
             // `run` by its first word wherever it reads one, an alias's target too.
             alias_target: self.alias_target
                 && !matches!(value, ItemsValue::AliasTarget | ItemsValue::Expression),
-            drops_errors: self.drops_errors,
             redirection_spans: Vec::new(),
             caller_lexed: false,
         };
@@ -1277,7 +1276,7 @@ impl<'s> Lower<'_, '_, 's> {
         if flag.long {
             let Some(found) = signature.get_long_flag(flag.name) else {
                 if self.forwards_unknown_flag(token, signature) {
-                    let value = self.checked(|ws| parse_unknown_arg(ws, token, signature))?;
+                    let value = parse_unknown_arg(self.working_set, token, signature);
                     call.add_unknown(value);
                 } else {
                     let help = did_you_mean(signature.get_names(), flag.name)
@@ -1361,7 +1360,7 @@ impl<'s> Lower<'_, '_, 's> {
             ));
             if self.forwards_unknown_flag(token, signature) {
                 self.working_set.parse_errors.truncate(errors);
-                let value = self.checked(|ws| parse_unknown_arg(ws, token, signature))?;
+                let value = parse_unknown_arg(self.working_set, token, signature);
                 call.add_unknown(value);
                 return Ok(false);
             }
@@ -1599,7 +1598,7 @@ impl<'s> Lower<'_, '_, 's> {
             Some(b'$' | b'(') => self.expression(&call.head, None)?,
             _ => {
                 let span = self.span(call.head.span);
-                self.checked(|ws| parse_external_string(ws, span))?
+                parse_external_string(self.working_set, span)
             }
         };
         let mut arguments = Vec::with_capacity(call.arguments.len());

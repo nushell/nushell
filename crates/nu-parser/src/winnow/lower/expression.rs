@@ -329,8 +329,12 @@ impl<'s> Lower<'_, '_, 's> {
     ) -> Lowered<Expression> {
         // No right side (`$x =`), which nu reports: a `BinaryOp` with a garbage right side,
         // the left side unchecked. (A right side with no pipeline but its own error, `$x = |`,
-        // is one.)
-        if assignment.rhs.pipelines.is_empty() && assignment.rhs.without_pipelines.is_none() {
+        // is one, and so is one the winnow parser left unparsed, `$x = export def`, which
+        // changes commands: `Self::block` parses it again.)
+        if assignment.rhs.pipelines.is_empty()
+            && assignment.rhs.without_pipelines.is_none()
+            && self.text(assignment.rhs.span).trim().is_empty()
+        {
             let operator_span = self.span(assignment.op.span);
             self.working_set.error(ParseError::Expected(
                 "right hand side of assignment",
@@ -428,7 +432,7 @@ impl<'s> Lower<'_, '_, 's> {
         let mut pairs = Vec::with_capacity(shorthand.vars.len());
         for assignment in &shorthand.vars {
             let name_span = self.span(assignment.name.span);
-            let name = self.checked(|ws| parse_string_strict(ws, name_span))?;
+            let name = parse_string_strict(self.working_set, name_span);
             let value = match self.text(assignment.value.span).as_bytes() {
                 [] => self.node(Expr::String(String::new()), Span::unknown(), Type::Nothing),
                 // A value with an error ends the shorthands (`parse_expression` drops the
@@ -458,7 +462,7 @@ impl<'s> Lower<'_, '_, 's> {
                 }
                 _ => {
                     let span = self.span(assignment.value.span);
-                    self.checked(|ws| parse_string_strict(ws, span))?
+                    parse_string_strict(self.working_set, span)
                 }
             };
             pairs.push((name, value));
@@ -579,8 +583,7 @@ impl<'s> Lower<'_, '_, 's> {
         let _ = self.working_set.add_span(head);
         call.add_positional(condition);
         let signature = self.working_set.get_signature_shared(decl_id);
-        let kind =
-            self.checked(|ws| crate::parse_calls::check_call(ws, head, &signature, &call))?;
+        let kind = crate::parse_calls::check_call(self.working_set, head, &signature, &call);
         if kind != CallKind::Valid {
             return Err(Unlowered::Error);
         }

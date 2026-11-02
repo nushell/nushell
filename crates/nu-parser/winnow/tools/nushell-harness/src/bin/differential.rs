@@ -10,6 +10,7 @@
 //!   --no-std               do not load the standard library into nu-parser
 //!   --details              print every disagreement with both messages
 //!   --json                 print the summary as JSON instead of a table
+//!   --dump DIR             also write every mutant to DIR/mNNNNNN.nu, for `frontends compare`
 //! ```
 //!
 //! nu-parser's errors are split into *syntactic* ones (delimiters, keywords,
@@ -402,6 +403,7 @@ pub fn main() {
     let mut std = true;
     let mut details = false;
     let mut json = false;
+    let mut dump: Option<PathBuf> = None;
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
         match arg.as_str() {
@@ -416,6 +418,7 @@ pub fn main() {
             "--no-std" => std = false,
             "--details" => details = true,
             "--json" => json = true,
+            "--dump" => dump = Some(PathBuf::from(args.next().expect("--dump DIR"))),
             _ => paths.push(PathBuf::from(arg)),
         }
     }
@@ -455,6 +458,10 @@ pub fn main() {
     let mut originals = Summary::default();
     let mut mutated = Summary::default();
     let mut rng = Rng(seed);
+    if let Some(dir) = &dump {
+        std::fs::create_dir_all(dir).unwrap_or_else(|e| panic!("{}: {e}", dir.display()));
+    }
+    let mut dumped = 0usize;
     // From here on panics are counted, not printed. Installed only now, so that a bad
     // argument or snippet file above still reports its message.
     std::panic::set_hook(Box::new(|_| {}));
@@ -465,6 +472,12 @@ pub fn main() {
                 origin: format!("{} mutant {i}", unit.origin),
                 text: mutate(&unit.text, &mut rng),
             };
+            if let Some(dir) = &dump {
+                let file = dir.join(format!("m{dumped:06}.nu"));
+                std::fs::write(&file, &mutant.text)
+                    .unwrap_or_else(|e| panic!("{}: {e}", file.display()));
+                dumped += 1;
+            }
             compare(&engine_state, &config, &mutant, &mut mutated, details);
         }
     }

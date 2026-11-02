@@ -192,8 +192,8 @@ impl<Items> FoundDefinition<Items> {
 }
 
 /// A definition found by the scan, with its signature: the items from the
-/// first one starting with `[` or `(` after the name, up to (not including) a
-/// `def`'s body. A name that is no string (`def "a"b`, or a bare interpolation
+/// first one starting with `[` or `(` after the name on, as nu's predeclaration
+/// reads them. A name that is no string (`def "a"b`, or a bare interpolation
 /// such as `def $"a(1)"`, which nu's `parse_string` reads as one) gets no
 /// signature, so the engine predeclares nothing, as nu does.
 fn predeclared_def<'a>(
@@ -221,14 +221,10 @@ fn predeclared_def<'a>(
                     .get_span_contents(token.span)
                     .starts_with(['[', '('])
             })?;
-        // A `def`'s last item is its body unless it is the only one (`def f []`); every
-        // item of an `extern` is its signature's.
-        let signature_items = match &found.items[signature_start..] {
-            [only] => std::slice::from_ref(only),
-            [signature @ .., _body] if !found.external => signature,
-            all => all,
-        };
-        parse_full_signature(working_set, signature_items, found.external).ok()
+        // nu's predeclaration reads every item from there on, a `def`'s body too
+        // (`parse_def_predecl`): `parse_full_signature` drops a body that is the second
+        // item, and reads any other as part of the types (`def d [] {}x y`).
+        parse_full_signature(working_set, &found.items[signature_start..], found.external).ok()
     });
     let signature = signature.flatten();
     PredeclaredDef {

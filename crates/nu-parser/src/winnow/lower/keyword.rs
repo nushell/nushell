@@ -871,7 +871,7 @@ impl<'s> Lower<'_, '_, 's> {
             // The name is `def`'s `string` positional (`parse_value`), which refuses a bare
             // `true`, `false` or `null` and a `{...}`; a name it reads otherwise is the classic
             // parser's to report.
-            let name = this.checked(|ws| parse_value(ws, name_span, &SyntaxShape::String, None))?;
+            let name = parse_value(this.working_set, name_span, &SyntaxShape::String, None);
             if !matches!(&name.expr, Expr::String(s) if *s == *def.name.item) {
                 return Err(Unlowered::Error);
             }
@@ -974,7 +974,7 @@ impl<'s> Lower<'_, '_, 's> {
             let _ = this.working_set.add_span(head);
             // As for `def`: the name is `extern`'s `string` positional (`parse_value`), and
             // the flags come before the signature.
-            let name = this.checked(|ws| parse_value(ws, name_span, &SyntaxShape::String, None))?;
+            let name = parse_value(this.working_set, name_span, &SyntaxShape::String, None);
             if !matches!(&name.expr, Expr::String(s) if *s == *extern_def.name.item) {
                 return Err(Unlowered::Error);
             }
@@ -1310,6 +1310,20 @@ impl<'s> Lower<'_, '_, 's> {
         {
             self.working_set.enter_scope();
             self.working_set.error(error);
+            let garbage = garbage(self.working_set, call_span);
+            // The attributes before it make it their block's item (`parse_attribute_block`),
+            // which an export reports as no call, as below.
+            if !lowered_attributes.is_empty() {
+                let expression = self.definition_expression(
+                    garbage,
+                    lowered_attributes,
+                    command,
+                    attributes,
+                    module_name,
+                    &export_name,
+                )?;
+                return Ok((expression, None));
+            }
             // An export of that garbage is no call (`warp_export_call`).
             if let w::Expr::Export(export) = &command.expr {
                 let keyword = self.span(export.item.span);
@@ -1318,7 +1332,7 @@ impl<'s> Lower<'_, '_, 's> {
                     Span::new(keyword.start, call_span.end),
                 ));
             }
-            return Ok((garbage(self.working_set, call_span), None));
+            return Ok((garbage, None));
         }
         let errors_before_call = self.working_set.parse_errors.len();
         let (lowered, output, kind) = match keyword {
@@ -1997,10 +2011,15 @@ impl<'s> Lower<'_, '_, 's> {
                     call.decl_id = export_decl;
                 }
             }
+            // `warp_export_call` reports from the statement's second item on: the item after
+            // `export`, or, with attributes, after the first attribute's name.
             _ => {
                 let text = self.working_set.get_span_contents(span);
-                let after_export = text.get("export".len()..).unwrap_or_default();
-                let keyword = span.end - after_export.trim_ascii_start().len();
+                let first_end = text
+                    .iter()
+                    .position(u8::is_ascii_whitespace)
+                    .unwrap_or(text.len());
+                let keyword = span.end - text[first_end..].trim_ascii_start().len();
                 self.working_set.error(ParseError::InternalError(
                     "unexpected output from parsing a definition".into(),
                     Span::new(keyword, span.end),

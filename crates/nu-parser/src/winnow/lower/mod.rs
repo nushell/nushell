@@ -197,10 +197,6 @@ pub(super) struct Lower<'w, 'e, 's> {
     /// argument stays a call, its error reported for `alias` to forgive. Not in the target's
     /// nested blocks, whose statements are statements.
     pub(super) alias_target: bool,
-    /// Whether a predeclaration is being read, which, like `parse_def_predecl`, drops every
-    /// error at its end: a classic parser function's error ([`Lower::checked`]) keeps the value
-    /// it recovered (`any` for an unknown type) instead of ending the lowering.
-    pub(super) drops_errors: bool,
     /// The operators and file targets of the redirections of the pipeline element being
     /// lowered, which nu's lite parser takes out of the command's parts: the items read again
     /// from a text in the element ([`Lower::parts`]) leave them out (`"a" o> f b` is the math
@@ -238,7 +234,6 @@ impl<'w, 'e, 's> Lower<'w, 'e, 's> {
             offset,
             row_var: None,
             alias_target: false,
-            drops_errors: false,
             redirection_spans: Vec::new(),
             caller_lexed: false,
         }
@@ -304,20 +299,6 @@ impl<'w, 'e, 's> Lower<'w, 'e, 's> {
             _ if !errors.is_empty() && !forgiven => Err(Unlowered::Error),
             kind => Ok(kind),
         }
-    }
-
-    /// Run a classic parser function that reports errors in the working set, turning any error
-    /// it reported into [`Unlowered::Error`], unless the errors are dropped (`drops_errors`).
-    pub(super) fn checked<T>(
-        &mut self,
-        f: impl FnOnce(&mut StateWorkingSet<'_>) -> T,
-    ) -> Lowered<T> {
-        let before = self.working_set.parse_errors.len();
-        let value = f(self.working_set);
-        if self.working_set.parse_errors.len() > before && !self.drops_errors {
-            return Err(Unlowered::Error);
-        }
-        Ok(value)
     }
 }
 

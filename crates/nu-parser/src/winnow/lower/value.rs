@@ -256,7 +256,7 @@ impl<'s> Lower<'_, '_, 's> {
             }
             _ if keep_errors => return Ok(classic_value(self.working_set, span, shape, None)),
             _ => {
-                return self.checked(|working_set| classic_value(working_set, span, shape, None));
+                return Ok(classic_value(self.working_set, span, shape, None));
             }
         };
         Ok(self.node(expr, span, ty))

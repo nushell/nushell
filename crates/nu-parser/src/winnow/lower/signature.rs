@@ -2,7 +2,7 @@
 //! `parse_full_signature`), and the predeclaration of commands (`parse_def_predecl`).
 
 use nu_protocol::{
-    Flag, ParseError, PositionalArg, Signature, Span, SyntaxShape, Type, VarId,
+    Flag, ParseError, PositionalArg, Signature, SyntaxShape, Type, VarId,
     ast::{Expr, Expression},
     engine::CommandType,
 };
@@ -44,8 +44,8 @@ impl<'s> Lower<'_, '_, 's> {
     /// invalid name, a duplicate definition), and `true` means done, errors included. In order:
     /// the name checks; the signature, read in a scope of its own that takes its parameters'
     /// variables away again, with its errors dropped (the definition reports them) and the
-    /// values the classic functions recover kept (`drops_errors`: an unknown type, such as one a
-    /// `type` statement of the block defines later, is `any`); `--wrapped`
+    /// values the classic functions recover kept (an unknown type, such as one a `type`
+    /// statement of the block defines later, is `any`); `--wrapped`
     /// making the rest parameter take external arguments unless the signature's text types it;
     /// the declaration.
     pub(in crate::winnow) fn predecl(&mut self, predecl: Predecl<'_, 's>) -> bool {
@@ -67,9 +67,7 @@ impl<'s> Lower<'_, '_, 's> {
         }
         let errors = self.working_set.parse_errors.len();
         self.working_set.enter_scope();
-        let outer_drops_errors = std::mem::replace(&mut self.drops_errors, true);
         let lowered = self.signature_params(written, predecl.external);
-        self.drops_errors = outer_drops_errors;
         let lowered = lowered.map(|mut sig| {
             if let Some(types) = written.input_output_span {
                 // To the statement's end, as the classic predeclaration reads them.
@@ -150,13 +148,12 @@ impl<'s> Lower<'_, '_, 's> {
             w::Expr::AttributeBlock(block) => return self.predecl_statement(&block.item),
             // `def foo [] {} --help`, which the winnow tree has as a call: the classic
             // predeclaration still declares the command from the statement's items, as it reads
-            // them, the signature with `parse_full_signature` (and the call for help's
-            // `finish_def` takes the declaration away again).
+            // them, the signature with `parse_full_signature` from every item after the name
+            // (and the call for help's `finish_def` takes the declaration away again). The
+            // items are the statement's as nu's lite parser gives them, which an argument of
+            // the call may hold several of (`def d [] {}x y`).
             w::Expr::Call(call) if matches!(call.head.name.as_ref(), "def" | "extern") => {
-                let spans: Vec<Span> = std::iter::once(call.head.span)
-                    .chain(call.arguments.iter().map(w::Argument::span))
-                    .map(|span| self.span(span))
-                    .collect();
+                let spans = self.parts(e.span);
                 parse_def_predecl(self.working_set, &spans);
                 return Ok(());
             }
@@ -346,7 +343,12 @@ impl<'s> Lower<'_, '_, 's> {
             self.working_set.insert_variable_into_scope(name, var_id);
         }
         let span = self.span(signature.span);
-        self.checked(|working_set| assemble_signature(working_set, parameters, span, is_external))
+        Ok(assemble_signature(
+            self.working_set,
+            parameters,
+            span,
+            is_external,
+        ))
     }
 
     /// A parameter's description: the comments after it, each without its `#`, one per line.

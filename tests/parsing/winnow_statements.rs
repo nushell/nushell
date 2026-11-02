@@ -3041,7 +3041,10 @@ fn dropped_err_pipe_is_the_next_commands_pipe(#[case] code: &str, #[case] at: us
 /// `alias` without a name, also exported from a module; and a name or module item whose quote
 /// is left open, which nu's call reads to the end of the text; a row condition read for an
 /// alias `hide` hid since, which nu reads as an external call; a table as an external argument,
-/// a flag as an alias's target and a spread's list that nu's lexer leaves open.
+/// a flag as an alias's target and a spread's list that nu's lexer leaves open; an `export` as
+/// an assignment's value, which the winnow parser left for the lowering to parse again; a head
+/// word whose `(` is left open; attributes before an exported definition whose name holds its
+/// parameters; and a definition whose items after the signature nu predeclares with it.
 #[rstest]
 #[case::alias_in_a_pipeline(
     "alias \"hide me\" = ^echo hi\n[1] | hide me",
@@ -3069,6 +3072,16 @@ fn dropped_err_pipe_is_the_next_commands_pipe(#[case] code: &str, #[case] at: us
 )]
 #[case::flag_alias_target("alias zz = alias a = --long", &[("CantAliasKeyword", "alias")])]
 #[case::spread_list_left_open("echo ...[a].0x", &[("Unclosed", ""), ("Unbalanced", "]")])]
+#[case::export_assigned(
+    "x = export def",
+    &[("AssignmentRequiresVar", "x"), ("MissingPositional", "")]
+)]
+#[case::head_word_left_open("l(s", &[("Unclosed", "s"), ("Unclosed", "s"), ("Unclosed", "")])]
+#[case::exported_attributes_name_with_params(
+    "@search-terms a\nexport def  [] {}",
+    &[("LabeledErrorWithHelp", ""), ("InternalError", "a\nexport def  [] {}")]
+)]
+#[case::predeclared_signature_items("def d [] {}x y", &[("Expected", "y"), ("Expected", "y")])]
 #[nu_test_support::test]
 #[serial]
 #[exp(nu_experimental::WINNOW_PARSER)]
