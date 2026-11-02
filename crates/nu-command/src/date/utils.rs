@@ -42,10 +42,10 @@ pub(crate) fn generate_date_formats_list(head: Span) -> Value {
         .map(|row| {
             Value::record(
                 record! {
-                    "recognized_format" => Value::string(row.example, head),
-                    "format" => Value::string(row.format, head),
-                    "kind" => Value::string(row.kind, head),
-                    "description" => Value::string(row.description, head),
+                    "Recognized_Format" => Value::string(row.example, head),
+                    "Format" => Value::string(row.format, head),
+                    "Kind" => Value::string(row.kind, head),
+                    "Description" => Value::string(row.description, head),
                 },
                 head,
             )

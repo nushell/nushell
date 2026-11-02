@@ -419,13 +419,13 @@ fn list_flag_produces_available_format_entries() -> Result {
 fn formats_flag_columns() -> Result {
     test()
         .run("into datetime --formats | columns | to nuon")
-        .expect_value_eq("[recognized_format, format, kind, description]")
+        .expect_value_eq("[Recognized_Format, Format, Kind, Description]")
 }
 
 #[test]
 fn formats_flag_examples_all_convert() -> Result {
     // every example, the standards, variants and relative forms included, reads as a date
-    let code = "into datetime --formats | get recognized_format | each { into datetime | describe } | uniq";
+    let code = "into datetime --formats | get Recognized_Format | each { into datetime | describe } | uniq";
     test().run(code).expect_value_eq(["datetime"])
 }
 
