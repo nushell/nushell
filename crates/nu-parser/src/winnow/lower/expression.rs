@@ -18,7 +18,7 @@ use crate::{
     lex::{TokenContents, lex},
     parse_calls::{CallKind, parse_external_call},
     parse_captures_compile::compile_block,
-    parse_expressions::{is_math_expression_like, parse_math_expression},
+    parse_expressions::is_math_expression_like,
     type_check::math_result_type,
     type_check::type_compatible,
 };
@@ -161,12 +161,36 @@ impl<'s> Lower<'_, '_, 's> {
     /// go through the classic parser's operator stack, so that, as there, each operand is
     /// lowered in source order and each operation typed when the stack reduces it, after the
     /// operand that follows the next operator binding no tighter.
+    /// Whether an operand of the operations `e` is a lone `if` or `match` the winnow parser left
+    /// as garbage (`1 + if`).
+    fn has_lone_keyword_operand(&self, e: &w::Expression<'s>) -> bool {
+        match &e.expr {
+            w::Expr::BinaryOp(operation) => {
+                self.has_lone_keyword_operand(&operation.lhs)
+                    || self.has_lone_keyword_operand(&operation.rhs)
+            }
+            w::Expr::Garbage => matches!(self.text(e.span), "if" | "match"),
+            _ => false,
+        }
+    }
+
     pub(super) fn math(
         &mut self,
         e: &w::Expression<'s>,
         input_type: Option<&Type>,
     ) -> Lowered<Expression> {
         match &e.expr {
+            // An operation with a lone `if` or `match` as an operand, which the winnow parser
+            // left as garbage: nu reads it with the items after it as a call
+            // (`parse_math_expression`), so the whole expression is read again from its items.
+            w::Expr::BinaryOp(_) if self.has_lone_keyword_operand(e) => {
+                let items: Vec<WSpan> = self
+                    .parts(e.span)
+                    .iter()
+                    .map(|part| self.local(*part))
+                    .collect();
+                self.math_items(&items, self.row_var, input_type)
+            }
             // A math expression with an item where an operator goes that is none, or a lone
             // `if`, `match` or `not`, which the winnow parser left as garbage over its items:
             // nu's math parser reads them again, reporting its errors with what it recovers.
@@ -175,13 +199,12 @@ impl<'s> Lower<'_, '_, 's> {
                 if self.parts(e.span).len() > 1
                     || matches!(self.text(e.span), "if" | "match" | "not") =>
             {
-                let spans = self.parts(e.span);
-                Ok(parse_math_expression(
-                    self.working_set,
-                    &spans,
-                    self.row_var,
-                    input_type,
-                ))
+                let items: Vec<WSpan> = self
+                    .parts(e.span)
+                    .iter()
+                    .map(|part| self.local(*part))
+                    .collect();
+                self.math_items(&items, self.row_var, input_type)
             }
             // A single operation, in the order the operator stack would take it.
             w::Expr::BinaryOp(operation)
@@ -645,12 +668,14 @@ impl<'s> Lower<'_, '_, 's> {
                 // A condition the winnow parser left as garbage, a column that is no cell path
                 // among its operands (`where 1..'a'`): nu's math parser reads it again, its
                 // columns expanded, as for one of several items ([`Self::math`]).
-                w::Expr::Garbage => Ok(parse_math_expression(
-                    this.working_set,
-                    &this.parts(condition.span),
-                    Some(var_id),
-                    None,
-                )),
+                w::Expr::Garbage => {
+                    let items: Vec<WSpan> = this
+                        .parts(condition.span)
+                        .iter()
+                        .map(|part| this.local(*part))
+                        .collect();
+                    this.math_items(&items, Some(var_id), None)
+                }
                 _ => this.math(condition, None),
             };
             this.row_var = saved;
@@ -855,7 +880,7 @@ fn take_apart<'e, 's>(
     }
 }
 
-fn operator(operator: w::Operator) -> Operator {
+pub(super) fn operator(operator: w::Operator) -> Operator {
     match operator {
         w::Operator::Math(math) => Operator::Math(match math {
             w::Math::Add => Math::Add,

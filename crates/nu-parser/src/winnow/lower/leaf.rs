@@ -973,8 +973,18 @@ impl<'s> Lower<'_, '_, 's> {
     /// The item covering `span` read with `shape` from its text (`parse_value` on the item's
     /// span), as the lowering reads a garbage node.
     pub(super) fn value_text(&mut self, span: WSpan, shape: &SyntaxShape) -> Lowered<Expression> {
+        self.value_text_with_input(span, shape, None)
+    }
+
+    /// [`Self::value_text`], with the pipeline's input type for `$in`.
+    pub(super) fn value_text_with_input(
+        &mut self,
+        span: WSpan,
+        shape: &SyntaxShape,
+        input_type: Option<&Type>,
+    ) -> Lowered<Expression> {
         let item = w::Expression::new(w::Expr::Garbage, span);
-        self.value(&item, shape, None)
+        self.value(&item, shape, input_type)
     }
 
     /// `error` reported, and garbage over the item.

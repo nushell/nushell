@@ -93,7 +93,6 @@ const TO_PORT: &[&str] = &[
     // Math and expressions.
     "parse_expressions::is_math_expression_like",
     "parse_expressions::parse_expression",
-    "parse_expressions::parse_math_expression",
     // Closures, tables, patterns.
     "parse_expressions::parse_closure_expression",
     "parse_expressions::parse_table_expression",

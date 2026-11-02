@@ -53,6 +53,7 @@ mod call;
 mod expression;
 mod keyword;
 mod leaf;
+mod math_items;
 mod module;
 mod signature;
 mod source;
@@ -272,6 +273,11 @@ impl<'w, 'e, 's> Lower<'w, 'e, 's> {
     #[inline]
     pub(super) fn span(&self, span: WSpan) -> Span {
         Span::new(self.offset + span.start, self.offset + span.end)
+    }
+
+    /// The winnow span of `span`, a span of the working set over this lowering's source.
+    pub(super) fn local(&self, span: Span) -> WSpan {
+        WSpan::new(span.start - self.offset, span.end - self.offset)
     }
 
     /// The source text of a winnow span.

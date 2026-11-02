@@ -24,8 +24,7 @@ use crate::{
         find_longest_decl_with_prefix, parse_external_call, shape_allows_negative_number,
     },
     parse_expressions::{
-        is_math_expression_like, parse_closure_expression, parse_math_expression,
-        parse_value as classic_value,
+        is_math_expression_like, parse_closure_expression, parse_value as classic_value,
     },
     parse_helpers::PERCENT_FORCED_BUILTIN_PARSER_INFO,
     parse_keywords::is_parser_keyword,
@@ -945,8 +944,7 @@ impl<'s> Lower<'_, '_, 's> {
                 if matches!(text, "if" | "match") =>
             {
                 if one_item {
-                    let span = self.span(item.span);
-                    let value = parse_math_expression(self.working_set, &[span], None, input_type);
+                    let value = self.math_items(&[item.span], None, input_type)?;
                     return Ok((value, index + 1));
                 }
                 self.items_call(item, &arguments[index + 1..end], input_type)?
