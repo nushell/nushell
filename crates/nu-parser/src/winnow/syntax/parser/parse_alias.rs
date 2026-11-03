@@ -14,7 +14,7 @@ use super::WorkingSet;
 use super::parse_calls::parse_call_lenient;
 use super::parse_def::check_definition_name;
 use super::parse_expressions::{
-    ExpectedShape, is_math_expression_like, parse_builtin_commands, parse_math_expression,
+    ExpectedShape, is_math_expression_like_at, parse_builtin_commands, parse_math_expression,
     parse_value,
 };
 use super::parse_keywords::{
@@ -260,7 +260,8 @@ pub fn parse_alias<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>
         )));
     };
     let first_text = working_set.get_span_contents(first.span);
-    if !matches!(first_text, "if" | "match") && is_math_expression_like(first_text) {
+    if !matches!(first_text, "if" | "match") && is_math_expression_like_at(working_set, first.span)
+    {
         let diagnostic = Diagnostic::message("cannot create an alias to an expression", first.span)
             .with_help("an alias names a command and its arguments, such as `alias ll = ls -l`");
         // nu reports it, naming the expression its text reads as, and keeps the call to

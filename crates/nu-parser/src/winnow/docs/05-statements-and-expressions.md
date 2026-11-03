@@ -28,7 +28,7 @@ pub fn parse_expression<'a>(mut tokens: Tokens<'_, 'a>, position: Position) -> P
     let expression = if tokens.remaining().iter().any(|token| matches!(token.contents, TokenContents::AssignmentOperator(_))) {
         parse_assignment_expression(tokens.rest_stream())?
     // 5. A first item that looks like a value -> math expression.
-    } else if is_math_expression_like(first_text) {
+    } else if is_math_expression_like_at(working_set, first.span) {
         parse_math_expression(tokens.rest_stream())?
     // 6. Otherwise a keyword expression (if, match, ...) or a call.
     } else {
@@ -50,9 +50,12 @@ case applies. Details that are easy to miss:
   `true`, `false`, `null`, `not`, `if`, `match`, items starting with
   `( { [ $ " ' -` or `r#`, and items whose text is a number, unit, datetime,
   binary or range whose bounds parse (a `$` bound is a variable name and a
-  valid cell path, so `..$x.c!!` is an external command). It is a pure function of the text, so `-1 | math abs` is
-  math, `"ls"` is a string not a call, and `1 + 1` at a pipeline head is
-  arithmetic, all without parsing anything twice.
+  valid cell path, so `..$x.c!!` is an external command). It is a function of
+  the text, so `-1 | math abs` is math, `"ls"` is a string not a call, and
+  `1 + 1` at a pipeline head is arithmetic, all without parsing anything twice.
+  The head's check, `is_math_expression_like_at`, parses only a range with a
+  `{` in its text, whose record the text does not tell (`..{a: =}` is an
+  external command).
 * Statement keywords (`is_statement_keyword`: `def`, `let`, `mut`, `const`,
   `for`, `alias`, `type`, `module`, `use`, `export`, `export-env`, `extern`)
   are checked *before* the assignment test because `let x = 1` and

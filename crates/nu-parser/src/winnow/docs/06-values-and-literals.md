@@ -124,7 +124,9 @@ message.
 whether the first word of a command line starts a math expression instead of
 naming a command. Besides the literal kinds above it consults
 `looks_like_binary`, so `0b[1|2]` (a pipe inside the brackets) is a command
-name, as in nu, and `is_range_head` for a range (see Ranges below).
+name, as in nu, and `is_range_head` for a range (see Ranges below). At a
+command's head and as an alias's target, `is_math_expression_like_at` also
+parses a range whose text has a `{` in it.
 
 ## Literals (`parse_literals.rs`)
 
@@ -310,7 +312,11 @@ cell-path literal `1..$.a` are fine), a record or raw string with text after
 it (`5..{a: 1}b`, `5..r#'a'#b`; a cell path is fine after a record), and a
 subexpression followed by a broken cell path (`5..(1)!`, `5..(1).(2)`; other
 text makes a bare interpolation, `5..(1)x`, still a range). So `..$`,
-`1....5` and these are external commands there.
+`1....5` and these are external commands there. Whether a record parses its
+text does not tell (`..{a: =}`, `..{a: }`), so where the parser has the item
+(a command's head, an alias's target), `is_math_expression_like_at` parses a
+range with a `{` in its text and drops what it reports: a word with an error
+there is an external command, as for nu.
 
 ## `{ ... }`: record, closure or block
 

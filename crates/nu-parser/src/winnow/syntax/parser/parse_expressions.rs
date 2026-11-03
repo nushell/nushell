@@ -131,7 +131,7 @@ pub fn parse_expression<'a>(
         parse_assignment_expression(tokens.rest_stream())?
     } else if first.contents != TokenContents::Item {
         return Err(cut(Diagnostic::expected("command", first.span)));
-    } else if is_math_expression_like(working_set.get_span_contents(first.span)) {
+    } else if is_math_expression_like_at(working_set, first.span) {
         parse_math_expression(tokens.rest_stream())?
     } else if is_first_word_command(
         working_set.get_span_contents(first.span),
@@ -970,7 +970,9 @@ pub(super) fn recover_literal<'a>(
         Err(ErrMode::Cut(ParseFailure::Error(diagnostic)))
             if diagnostic.recovered
                 || matches!(diagnostic.kind, ErrorKind::InvalidLiteral { .. })
-                || (span.start <= diagnostic.span.start && diagnostic.span.end <= span.end) =>
+                // Starting inside the item or at the byte after it: the `'` an inner `r#` lacks,
+                // where nu's lexer ends the item (`[r#a]` lexes as `[r#` and `a]`).
+                || (span.start <= diagnostic.span.start && diagnostic.span.start <= span.end) =>
         {
             working_set.error(diagnostic.as_recovered());
             Ok(Expression::new(Expr::Garbage, span))
@@ -1296,6 +1298,28 @@ pub fn is_math_expression_like(text: &str) -> bool {
     }
 }
 
+/// [`is_math_expression_like`] for the item at `span`, which parses a range whose text has a
+/// `{` in it: nu's `parse_range` reads each bound with `parse_value` and is no range on any
+/// error, which a record's text does not tell (`..{a: =}`, `..{a: }`). The word is then a
+/// command, an external one, as for nu.
+pub fn is_math_expression_like_at(working_set: &WorkingSet<'_>, span: Span) -> bool {
+    let text = working_set.get_span_contents(span);
+    match text.as_bytes() {
+        _ if !text.contains('{') => is_math_expression_like(text),
+        [b'(' | b'{' | b'[' | b'$' | b'"' | b'\'' | b'-', ..] | [b'r', b'#', ..] => true,
+        // A literal whose text tells it, a broken binary one too (`0x[ab cd]{`).
+        _ if is_literal_like_but_range(text) => true,
+        _ if is_range_head(text) => {
+            let errors = working_set.error_count();
+            let range = parse_range(working_set, span);
+            let parses = range.is_ok() && working_set.error_count() == errors;
+            drop(working_set.take_errors_from(errors));
+            parses
+        }
+        _ => false,
+    }
+}
+
 /// `true` if `text` reads as a literal value (nu's `is_literal_like`): a number, a
 /// filesize, a duration, a datetime, a binary literal or a range. A word a literal
 /// kind rejects as an invalid literal of its own (`9223372036854775808`,
@@ -1303,6 +1327,11 @@ pub fn is_math_expression_like(text: &str) -> bool {
 /// then; other words are commands (`42m_b`, `0xdump`). A call's head word that
 /// this accepts is read as that value, so a command named so could never be called.
 pub fn is_literal_like(text: &str) -> bool {
+    is_literal_like_but_range(text) || is_range_head(text)
+}
+
+/// [`is_literal_like`] but for a range.
+fn is_literal_like_but_range(text: &str) -> bool {
     let unit = |result: Option<Result<_, UnitError>>| {
         matches!(result, Some(Ok(_) | Err(UnitError::TooLarge)))
     };
@@ -1315,7 +1344,6 @@ pub fn is_literal_like(text: &str) -> bool {
         || is_datetime(text)
         || is_invalid_date_literal(text)
         || looks_like_binary(text)
-        || is_range_head(text)
 }
 
 /// Parse `( ... )` as a subexpression. Newlines inside are whitespace, and comments are
