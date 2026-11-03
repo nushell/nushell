@@ -843,8 +843,15 @@ $env.config.abbreviations = {}
 # {completions, options} record name engine behaviour a menu has no say in and are ignored.
 #
 # Default: completion_menu, ide_completion_menu, history_menu, help_menu.
-# Inspect with `$env.config.menus`. Assigning this list merges into the
-# defaults by `name` rather than replacing them, so `=` never clears them.
+# Inspect with `$env.config.menus`. Assigning this list replaces it, defaults
+# included, so add menus with `++=`. Assigning only your own menus removes the
+# defaults, which also turns off Tab completion. Like any list it is stored as
+# written, and reedline registers the menus in order: when several share a
+# `name`, the last one wins, so `++=` with a default's name overrides that
+# default. To drop the ones a later menu overrides:
+# $env.config.menus = $env.config.menus | uniq-by name --keep-last
+# To get the defaults back in a running shell:
+# $env.config.menus = (^$nu.current-exe -n -c '$env.config.menus | to nuon' | from nuon)
 
 # Example: Custom completion menu configuration:
 # $env.config.menus ++= [{

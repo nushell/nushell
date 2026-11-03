@@ -89,6 +89,26 @@ fn appending_keybindings_keeps_entries_as_written() -> TestResult {
     )
 }
 
+/// Assigning `menus` replaces the list: `++=` keeps the defaults, a filtered
+/// list drops what it dropped and `[]` clears it.
+#[test]
+fn assigning_menus_replaces_appends_and_filters() -> TestResult {
+    run_test_std(
+        r#"
+            let defaults = $env.config.menus | length;
+            $env.config.menus ++= [
+                { name: extra, only_buffer_difference: false, marker: "E ", type: { layout: columnar }, style: {} }
+            ];
+            let appended = ($env.config.menus | length) == $defaults + 1;
+            $env.config.menus = $env.config.menus | where name != extra;
+            let filtered = ($env.config.menus | length) == $defaults;
+            $env.config.menus = [];
+            $appended and $filtered and ($env.config.menus | is-empty)
+        "#,
+        "true",
+    )
+}
+
 #[test]
 fn mutate_nu_config_nested_keybindings() -> TestResult {
     run_test_std(
