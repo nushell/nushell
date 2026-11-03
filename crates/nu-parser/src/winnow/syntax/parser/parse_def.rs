@@ -468,6 +468,13 @@ fn scan_definitions<'a>(
                     DeclKind::Declared
                 };
                 working_set.add_predecl(&name, kind);
+                // The signature item a call reads its arguments by, without a lookup.
+                if let Some((_, signature)) = statement()
+                    .skip_while(|(_, span)| *span != name_span)
+                    .find(|(word, _)| word.starts_with(['[', '(']))
+                {
+                    working_set.declare_signature(&name, signature, found.external);
+                }
                 // nu reports the name and goes on, the later definition predeclared (its
                 // `add_predecl`), and so does the consumer: the error is recorded as recovered.
                 if declared.contains(&name) {

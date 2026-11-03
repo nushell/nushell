@@ -1,0 +1,5 @@
+error: expected int
+  --> reject/calls/flag-value-refused-by-type.nu:2:6
+  |
+2 | f -n abc
+  |      ^^^

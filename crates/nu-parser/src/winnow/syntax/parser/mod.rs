@@ -9,6 +9,7 @@
 //! | [`parse_pipelines`] | blocks, pipelines, pipeline elements, redirections | `parse_pipelines.rs` |
 //! | [`parse_expressions`] | expressions, builtin dispatch, math, values, lists, records, blocks, closures, match blocks | `parse_expressions.rs` |
 //! | [`parse_calls`] | calls and their arguments, external and `%` calls, attributes, keyword-command signatures | `parse_calls.rs` |
+//! | [`call_shapes`] | a command's parameters as a call reads its arguments (without a lookup) | `Signature` in `parse_internal_call` |
 //! | [`parse_keywords`] | parser keywords, and [`parse_keywords::KeywordCall`]: nu's flags of a keyword command | `parse_keywords.rs` |
 //! | [`parse_def`] | `def`, `extern`, `for`, predeclaration | `parse_def.rs` |
 //! | [`parse_bindings`] | `let`, `mut`, `const` | `parse_bindings.rs` |
@@ -32,6 +33,7 @@
 //! `expression`, ...). Nested constructs (`[...]`, `{...}`, `(...)`) are lexed
 //! again from their interior, as in nu.
 
+pub(crate) mod call_shapes;
 pub(crate) mod lite_parser;
 pub(crate) mod parse_alias;
 pub(crate) mod parse_bindings;
@@ -52,15 +54,16 @@ pub(crate) mod parse_type_alias;
 pub(crate) mod tokens;
 pub(crate) mod working_set;
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::hash::{BuildHasherDefault, Hasher};
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 use crate::winnow::syntax::ast::{Ast, Block, Expr, Expression};
 use crate::winnow::syntax::error::Diagnostic;
 use crate::winnow::syntax::lex::{LexOptions, Token, TokenContents};
 use crate::winnow::syntax::span::Span;
 
+use call_shapes::CallShapes;
 pub use parse_def::{Definitions, PredeclaredDef, TypeAliasPredecl};
 pub use parse_pipelines::{BlockSink, BlockStatements};
 use working_set::Collected;
@@ -101,6 +104,18 @@ struct ConfiguredCommands {
     builtins: NameSet,
     /// The names whose first positional parameter is a row condition.
     row_conditions: NameSet,
+    /// The commands' signatures, by name ([`ParseConfig::add_signatures`]).
+    signatures: HashMap<Box<str>, ConfiguredSignature>,
+}
+
+/// A configured command's signature: the text of a signature item, and the parameters it
+/// gives, parsed the first time a call asks for them ([`ParseConfig::call_shapes`]).
+#[derive(Clone, Debug)]
+struct ConfiguredSignature {
+    /// The signature item, `[...]`.
+    text: &'static str,
+    /// Its parameters; `None` inside when it does not parse.
+    shapes: OnceLock<Option<Arc<CallShapes<'static>>>>,
 }
 
 /// The kind of a configured command (nu-protocol's `CommandType`, for the
@@ -184,19 +199,21 @@ impl CommandSet {
 }
 
 impl ParseConfig {
-    /// A configuration that knows the commands of a fresh `nu`.
+    /// A configuration that knows the commands of a fresh `nu`, with their signatures. It is
+    /// built once and shared, so the signatures any parse has read stay read.
     pub fn new() -> Self {
-        Self::default()
-            .add_typed_commands(
-                crate::winnow::syntax::builtin_commands::BUILTIN_COMMANDS
-                    .iter()
-                    .copied(),
-            )
-            .add_row_condition_commands(
-                crate::winnow::syntax::builtin_commands::ROW_CONDITION_COMMANDS
-                    .iter()
-                    .copied(),
-            )
+        static BUILTIN: OnceLock<ParseConfig> = OnceLock::new();
+        BUILTIN
+            .get_or_init(|| {
+                use crate::winnow::syntax::builtin_commands::{
+                    BUILTIN_COMMANDS, BUILTIN_SIGNATURES, ROW_CONDITION_COMMANDS,
+                };
+                Self::default()
+                    .add_typed_commands(BUILTIN_COMMANDS.iter().copied())
+                    .add_row_condition_commands(ROW_CONDITION_COMMANDS.iter().copied())
+                    .add_signatures(BUILTIN_SIGNATURES.iter().copied())
+            })
+            .clone()
     }
 
     /// A configuration that knows no commands: every call head is a single word.
@@ -254,6 +271,43 @@ impl ParseConfig {
             .row_conditions
             .extend(names.into_iter().map(|name| Box::from(name.as_ref())));
         self
+    }
+
+    /// Give known commands their signatures, each the text of a signature item (`[x: int,
+    /// --flag(-f): string]`): a call to one reads its arguments by its parameters, as nu's
+    /// does. A signature is parsed the first time a call asks for it.
+    pub fn add_signatures<I, S>(mut self, signatures: I) -> Self
+    where
+        I: IntoIterator<Item = (S, &'static str)>,
+        S: AsRef<str>,
+    {
+        let configured = Arc::make_mut(&mut self.commands);
+        for (name, text) in signatures {
+            let signature = ConfiguredSignature {
+                text,
+                shapes: OnceLock::new(),
+            };
+            configured
+                .signatures
+                .insert(Box::from(name.as_ref()), signature);
+        }
+        self
+    }
+
+    /// The parameters a call to `name` reads its arguments by, if it has a signature that
+    /// parses.
+    pub(crate) fn call_shapes(&self, name: &str) -> Option<Arc<CallShapes<'static>>> {
+        let signature = self.commands.signatures.get(name)?;
+        signature
+            .shapes
+            .get_or_init(|| {
+                let working_set = WorkingSet::new(signature.text, &ParseConfig::empty());
+                let span = Span::new(0, signature.text.len());
+                parse_signatures::parse_signature(&working_set, span, true)
+                    .ok()
+                    .map(|signature| Arc::new(CallShapes::new(&signature)))
+            })
+            .clone()
     }
 
     /// Whether `name` (with words separated by single spaces) is a known command.

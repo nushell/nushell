@@ -10,4 +10,5 @@ Block 0..37
         Filesize 1 kB 20..23
     | 26..27
     Call `get` 28..36
-      String Bare "name" 32..36
+      CellPath 32..36
+        Member "name" 32..36

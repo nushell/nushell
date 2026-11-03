@@ -7,5 +7,7 @@ Block 0..28
             String Bare "ls" 8..10
           | 11..12
           Call `get` 13..23
-            String Bare "0.path" 17..23
+            CellPath 17..23
+              Member 0 17..18
+              Member "path" 19..23
       String Bare "-l" 25..27

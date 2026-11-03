@@ -19,11 +19,14 @@ Block 0..205
     | 48..49
     Call `sort-by` 50..69
       Flag -r 58..60
-      String Bare "modified" 61..69
+      CellPath 61..69
+        Member "modified" 61..69
     | 70..71
     Call `select` 72..88
-      String Bare "name" 79..83
-      String Bare "size" 84..88
+      CellPath 79..83
+        Member "name" 79..83
+      CellPath 84..88
+        Member "size" 84..88
     | 89..90
     Call `each` 91..127
       Closure 96..127

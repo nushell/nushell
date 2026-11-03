@@ -251,6 +251,7 @@ fn is_module_item(expr: &Expression<'_>) -> bool {
 /// ignored ([`parse_import_pattern_member`]).
 pub fn parse_use<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
     let working_set = tokens.working_set;
+    working_set.note_import();
     let statement = tokens;
     let keyword = tokens.expect_item("use")?;
     // Flags are looked for before every argument of `use`, up to the `--` that ends the

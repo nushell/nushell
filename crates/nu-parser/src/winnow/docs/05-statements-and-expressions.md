@@ -508,10 +508,33 @@ be an argument; `parse_call_argument` reads one with
 | `...$x`, `...[..]`, `...(..)`, `...{..}` | `Argument::Spread` |
 | anything else | `Argument::Positional(parse_value(.., ExpectedShape::Any))` |
 
+That is how a call reads its arguments when the parser does not know the
+command's signature. Without a lookup (a `ParseConfig`, whose built-in commands
+carry their signatures, `BUILTIN_SIGNATURES`) a call to a configured command or
+to a `def` or `extern` of the text reads them by the command's parameters instead
+(`parse_call_arguments_by_shape`, nu's `parse_internal_call` for the one-item
+shapes every non-keyword command takes): after `--` every item is a positional;
+a long flag that takes a value takes it after `=` or from the next item
+(`NamedArgument::equals` tells which), read by the flag's shape, and a switch's
+`=value` is a bool; in a batch of short flags the last letter may take the next
+item; an item starting with `-` is flags unless none of its letters is a flag
+and the positional's shape takes a negative number (`-5` for an `int`, while
+`echo -5` is an unknown flag, as in nu); each positional is read by its
+parameter's shape (`parse_value` with `ExpectedShape::Declared`), `any` past
+them, and a value with an error nu goes on past is a garbage leaf, its error
+recorded as recovered (`ls 0b2` is a glob, `f 0b2` an error for an `int`
+parameter). Unknown flags and missing or extra positionals stay the consumer's.
+After a `use`, `overlay use` or `source` in a scope (`WorkingSet::note_import`)
+configured commands are read without their signatures: the parser loads no
+module, and an imported command may extend a configured one (`select
+column-slices` from `std-rfc/tables`) or shadow it. With a lookup, the front
+end in nu, which lowers every call by the real signature, every call is read
+without one.
+
 One more kind, `Argument::Unread`, is never read from an item here: `module`'s call (`parse_module_call`) puts it in the place of each positional after the name, which nu's call does not read (`ArgumentParsingLevel::FirstK`).
 
-Whether `--name value` binds `value` to the flag is a signature question and
-is left to the consumer; the bridge in `tools/` shows how (chapter 09). So
+Without the signature, whether `--name value` binds `value` to the flag is
+left to the consumer; the bridge in `tools/` shows how (chapter 09). So
 are the arguments of the commands that are keywords in nu-parser, with a
 fixed signature there, and calls here: `hide`, `source`, `source-env`,
 `run`, `overlay new`, `overlay use`, `overlay hide`, `overlay list`, `plugin

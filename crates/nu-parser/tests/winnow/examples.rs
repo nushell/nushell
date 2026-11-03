@@ -31,6 +31,10 @@ fn snippets(name: &str) -> Vec<Snippet> {
     serde_json::from_str(&text).unwrap_or_else(|e| panic!("{path} is not a snippet list: {e}"))
 }
 
+/// Examples written as pseudo-code, which nu-parser refuses too: `sleep duration` (the word
+/// `duration` for `sleep`'s duration parameter).
+const NOT_NUSHELL: &[&str] = &["loop { command; sleep duration }"];
+
 #[test]
 fn every_command_example_parses() {
     let config = ParseConfig::new();
@@ -41,7 +45,10 @@ fn every_command_example_parses() {
         list.len()
     );
     let mut failures = Vec::new();
-    for s in &list {
+    for s in list
+        .iter()
+        .filter(|s| !NOT_NUSHELL.contains(&s.snippet.as_str()))
+    {
         let (_, diagnostics) = parse_lenient(&s.snippet, &config);
         if let Some(d) = diagnostics.first() {
             failures.push(format!(

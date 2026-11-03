@@ -4,4 +4,5 @@ Block 0..17
       String Bare ".foons" 1..7
     | 9..10
     Call `get` 11..16
-      Int 0 15..16
+      CellPath 15..16
+        Member 0 15..16

@@ -1235,12 +1235,17 @@ impl<'a> Formatter<'a> {
                 Argument::Positional(e) => self.expr(e),
                 Argument::Named(f) => {
                     let dashes = if f.long { "--" } else { "-" };
-                    match &f.value {
-                        Some(v) => {
+                    match (&f.value, f.equals) {
+                        (Some(v), Some(_)) => {
                             self.word(&format!("{dashes}{}=", f.name));
                             self.glued(|f| f.expr(v));
                         }
-                        None => self.word(&format!("{dashes}{}", f.name)),
+                        // The value is the next item (`--flag value`).
+                        (Some(v), None) => {
+                            self.word(&format!("{dashes}{}", f.name));
+                            self.expr(v);
+                        }
+                        (None, _) => self.word(&format!("{dashes}{}", f.name)),
                     }
                 }
                 Argument::Spread { expr, .. } => {

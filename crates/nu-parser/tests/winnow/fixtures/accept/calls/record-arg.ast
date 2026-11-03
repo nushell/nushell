@@ -8,7 +8,8 @@ Block 0..47
       String Bare "x" 13..14
     | 15..16
     Call `update` 17..46
-      String Bare "x" 24..25
+      CellPath 24..25
+        Member "x" 24..25
       Closure 26..46
         Signature 28..33
           Param positional `row` 29..32

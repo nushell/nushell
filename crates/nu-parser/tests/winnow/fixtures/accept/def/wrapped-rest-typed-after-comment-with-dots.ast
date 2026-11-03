@@ -6,6 +6,6 @@ Block 0..67
       Body 61..61
   Pipeline 63..66
     Call `g` 63..66
-      Int 5 65..66
+      String Bare "5" 65..66
 Comments (1)
   20..39 "# usage: g ...flags"

@@ -42,16 +42,16 @@ enum name), with which its default value is parsed
 | `CellPath` | `parse_literals::parse_dollar_expr` (`$.a.b`), `parse_simple_cell_path` (a default declared `cell-path`) | `accept/cellpaths/literal-cell-path*.nu` | `cell_path_literals_and_heads` |
 | `Closure` | `parse_expressions::parse_closure_expression`, `ExpectedShape::Closure` | `accept/closures/*.nu` `accept/try/*.nu` | `closures_and_blocks` `try_forms` |
 | `DateTime` | `parse_literals::is_datetime` | `accept/literals/datetime-*.nu` | `units_and_datetimes` |
-| `Directory` | bare string (`Quote::Bare`); n/a without a signature | `accept/strings/bare-word.nu` | `number_like_strings` |
+| `Directory` | `parse_literals::parse_path_like`, for an argument read by its signature or a declared default; else a bare string (`Quote::Bare`) | `accept/strings/bare-word.nu` `accept/calls/words-read-by-signature.nu` | `number_like_strings` |
 | `Duration` | `parse_literals::parse_duration` | `accept/literals/duration-*.nu` `reject/literals/duration-*.nu` | `durations` `unit_suffix_with_a_bad_number_is_an_error` |
 | `Error` | n/a (a runtime value) | `accept/try/catch.nu` | `try_forms` |
 | `Expression` | `parse_expressions::parse_expression` | `accept/if/else-expression.nu` `accept/match/body-forms.nu` | `if_forms` `match_forms` |
 | `ExternalArgument` | `parse_calls::parse_external_arg`, `parse_external_string`, `check_external_list_argument` (a `[` argument must end with `]`) | `accept/externals/arg-*.nu` `reject/externals/*.nu` | `external_call_string_args` `external_call_structured_args` |
-| `Filepath` | bare string; n/a without a signature | `accept/strings/bare-word.nu` `accept/externals/relative-path-command.nu` | `relative_path_is_an_external_command` |
+| `Filepath` | `parse_literals::parse_path_like`, for an argument read by its signature or a declared default; else a bare string | `accept/strings/bare-word.nu` `accept/externals/relative-path-command.nu` | `relative_path_is_an_external_command` |
 | `Filesize` | `parse_literals::parse_filesize` | `accept/literals/filesize-*.nu` `reject/literals/filesize-*.nu` | `filesizes` |
 | `Float` | `parse_literals::parse_float` (the special floats are `inf`, `nan` and `NaN` only, signed or not; `SPECIAL_FLOAT_NAMES`) | `accept/literals/float-*.nu` `accept/literals/special-float-names.nu` `accept/strings/special-float-lookalikes.nu` | `floats` `number_literals_are_checked_for_range_and_spelling` |
 | `FullCellPath` | `parse_literals::parse_full_cell_path` | `accept/cellpaths/*.nu` `reject/variables/*.nu` | `variables_and_cell_paths` `cell_path_members` |
-| `GlobPattern` | bare string; n/a without a signature | `accept/strings/bare-word.nu` `accept/externals/head-forms.nu` | `external_call_heads` |
+| `GlobPattern` | `parse_literals::parse_path_like`, for an argument read by its signature or a declared default (`glob "[A-Z]*"..`); else a bare string | `accept/strings/bare-word.nu` `accept/externals/head-forms.nu` `accept/calls/words-read-by-signature.nu` | `external_call_heads` |
 | `Int` | `parse_literals::read_int` (`IntLiteral`: a sign before a radix prefix, digits too many for 64 bits an error), `parse_int` | `accept/literals/int-*.nu` `reject/literals/int-*.nu` `reject/literals/hex-too-large.nu` | `ints` `radix_prefixed_words_must_be_ints` `number_literals_are_checked_for_range_and_spelling` |
 | `ImportPattern` | `parse_module::parse_use`, `parse_import_pattern_member`, `parse_import_pattern_list` (dropped members are `ImportPatternMemberKind::Ignored` or ignored spans) | `accept/modules/use-*.nu` `reject/modules/use-*.nu` | `use_forms` |
 | `Keyword` | keyword arguments inside statements (`in`, `else`, `catch`, `=`), mostly matched with the token parsers `tokens::keyword` and `tokens_until` | `accept/loops/for-*.nu` `accept/if/else*.nu` `accept/try/*.nu` `reject/loops/for-missing-in.nu` | `loops_and_jumps` `if_forms` |

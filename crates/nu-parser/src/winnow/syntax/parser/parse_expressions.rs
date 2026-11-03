@@ -37,8 +37,9 @@ use super::parse_keywords::is_statement_keyword;
 use super::parse_literals::{
     IntLiteral, UnitError, has_range_operator, is_datetime, is_invalid_date_literal, is_range_head,
     is_range_syntax, looks_like_binary, parse_binary, parse_dollar_expr, parse_duration,
-    parse_filesize, parse_float, parse_full_cell_path, parse_number, parse_paren_expr, parse_range,
-    parse_raw_string, parse_simple_cell_path, parse_string, parse_string_literal, read_int,
+    parse_filesize, parse_float, parse_full_cell_path, parse_number, parse_paren_expr,
+    parse_path_like, parse_range, parse_raw_string, parse_simple_cell_path, parse_string,
+    parse_string_literal, read_int,
 };
 use super::parse_module::{parse_export_env, parse_export_in_block, parse_module, parse_use};
 use super::parse_patterns::pattern;
@@ -1103,6 +1104,12 @@ fn parse_value_for_shape<'a>(
     declared: &SyntaxShape<'a>,
 ) -> ParseResult<Expression<'a>> {
     let text = working_set.get_span_contents(span);
+    // nu's `parse_value` tries a `oneof`'s shapes before it looks at the item.
+    if let SyntaxShape::OneOf(alternatives) = declared
+        && !text.is_empty()
+    {
+        return parse_oneof(working_set, span, alternatives);
+    }
     let name = shape_description(declared);
     let expected = || cut(Diagnostic::expected(name, span));
     if text.starts_with('-')
@@ -1193,6 +1200,11 @@ fn parse_value_for_shape<'a>(
         SyntaxShape::Boolean if text == "true" => literal(Expr::Bool(true)),
         SyntaxShape::Boolean if text == "false" => literal(Expr::Bool(false)),
         SyntaxShape::Nothing if text == "null" => literal(Expr::Nothing),
+        SyntaxShape::Filepath | SyntaxShape::Directory | SyntaxShape::GlobPattern
+            if !matches!(text, "true" | "false" | "null") =>
+        {
+            parse_path_like(working_set, span)
+        }
         SyntaxShape::String
         | SyntaxShape::Filepath
         | SyntaxShape::Directory

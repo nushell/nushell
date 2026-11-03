@@ -10,7 +10,8 @@ Block 0..65
         Filesize 1 kB 31..34
     | 54..55
     Call `get` 56..64
-      String Bare "name" 60..64
+      CellPath 60..64
+        Member "name" 60..64
 Comments (2)
   5..13 "# filter"
   39..51 "# keep names"

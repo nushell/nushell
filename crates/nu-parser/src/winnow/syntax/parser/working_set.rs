@@ -9,6 +9,7 @@
 //! [`RefCell`], so the combinators that capture it can share one `&WorkingSet`.
 
 use std::cell::{Cell, RefCell};
+use std::rc::Rc;
 
 use crate::winnow::syntax::ast::Comment;
 use crate::winnow::syntax::error::Diagnostic;
@@ -16,6 +17,8 @@ use crate::winnow::syntax::input::{Input, ParseResult};
 use crate::winnow::syntax::lex::{self, GroupEnds, LexError, LexOptions, Token, TokenContents};
 use crate::winnow::syntax::span::Span;
 
+use super::call_shapes::{CallShapes, CommandShapes};
+use super::parse_signatures::parse_signature;
 use super::{CommandSet, ParseConfig};
 
 /// Where a command name known to the parser comes from.
@@ -80,6 +83,13 @@ struct Scope {
     /// and aliases of external commands, of row-condition commands and of
     /// keywords. Few, so a list.
     kinds: Vec<(Box<str>, DeclKind)>,
+    /// The `def`s and `extern`s declared here, each with the span of its signature item and
+    /// whether it is an `extern`: what a call to it reads its arguments with
+    /// ([`WorkingSet::call_shapes`]).
+    signatures: Vec<(Box<str>, Span, bool)>,
+    /// Whether a statement here brings in commands from elsewhere (`use`, `overlay use`,
+    /// `source`), which may extend or shadow the configured ones.
+    imports: bool,
 }
 
 impl Scope {
@@ -87,6 +97,7 @@ impl Scope {
     fn declare(&mut self, name: &str, kind: DeclKind) {
         self.commands.insert(name);
         self.kinds.retain(|(declared, _)| **declared != *name);
+        self.signatures.retain(|(declared, ..)| **declared != *name);
         if kind != DeclKind::Declared {
             self.kinds.push((Box::from(name), kind));
         }
@@ -110,10 +121,15 @@ impl Scope {
             .filter(|(name, kind)| keep(name, *kind))
             .collect();
         if kept.len() < self.commands.names.len() {
+            let mut signatures = std::mem::take(&mut self.signatures);
+            let imports = self.imports;
             *self = Scope::default();
-            for (name, kind) in kept {
-                self.declare(&name, kind);
+            self.imports = imports;
+            for (name, kind) in &kept {
+                self.declare(name, *kind);
             }
+            signatures.retain(|(declared, ..)| kept.iter().any(|(name, _)| name == declared));
+            self.signatures = signatures;
         }
     }
 }
@@ -209,6 +225,10 @@ pub struct WorkingSet<'a> {
     /// which nu's lite parser takes out of the command's parts
     /// ([`WorkingSet::replace_element_redirections`]).
     element_redirections: RefCell<Vec<Span>>,
+    /// The parameters of the commands the text defines that calls asked for so far, by the
+    /// span of the signature item ([`WorkingSet::call_shapes`]); `None` for one that does not
+    /// parse.
+    defined_shapes: RefCell<Vec<(Span, Option<Rc<CallShapes<'a>>>)>>,
 }
 
 impl std::fmt::Debug for WorkingSet<'_> {
@@ -273,6 +293,7 @@ impl<'a> WorkingSet<'a> {
             longest_declared: Cell::new(0),
             overlay_alias_called: Cell::new(false),
             element_redirections: RefCell::new(Vec::new()),
+            defined_shapes: RefCell::new(Vec::new()),
         }
     }
 
@@ -565,6 +586,81 @@ impl<'a> WorkingSet<'a> {
         if let Some(scope) = self.scopes.borrow_mut().last_mut() {
             scope.declare(name, kind);
         }
+    }
+
+    /// Record the signature item of the `def` or `extern` named `name` just predeclared in the
+    /// innermost scope (`external` for an `extern`), which a call to it reads its arguments by
+    /// ([`WorkingSet::call_shapes`]).
+    pub fn declare_signature(&self, name: &str, signature: Span, external: bool) {
+        // With a lookup no call reads by it.
+        if self.lookup.is_some() {
+            return;
+        }
+        if let Some(scope) = self.scopes.borrow_mut().last_mut() {
+            scope
+                .signatures
+                .push((Box::from(name), signature, external));
+        }
+    }
+
+    /// Note that a statement of the innermost scope brings in commands from elsewhere (`use`,
+    /// `overlay use`, `source`), which this parser does not load: from there on, a configured
+    /// command may be one of them (`select slices` from `std-rfc/tables`) or shadowed by one.
+    pub fn note_import(&self) {
+        if let Some(scope) = self.scopes.borrow_mut().last_mut() {
+            scope.imports = true;
+        }
+    }
+
+    /// The parameters a call to `name` reads its arguments by, when the parser has no
+    /// [`CommandLookup`] (with one, the consumer reads each argument by the real signature):
+    /// those of the `def` or `extern` of the innermost scope that declares `name`, parsed the
+    /// first time a call asks, or of a configured command unless an import may have brought in
+    /// another ([`WorkingSet::note_import`]). `None` for an alias, a definition whose signature
+    /// does not parse, and a command without a signature.
+    pub fn call_shapes(&self, name: &str) -> Option<CommandShapes<'a>> {
+        if self.lookup.is_some() {
+            return None;
+        }
+        let declared = {
+            let scopes = self.scopes.borrow();
+            scopes
+                .iter()
+                .rev()
+                .find(|scope| scope.commands.names.contains(name))
+                .map(|scope| {
+                    scope
+                        .signatures
+                        .iter()
+                        .find(|(declared, ..)| **declared == *name)
+                        .map(|&(_, span, external)| (span, external))
+                })
+        };
+        let Some(declared) = declared else {
+            if self.scopes.borrow().iter().any(|scope| scope.imports) {
+                return None;
+            }
+            return self.config.call_shapes(name).map(CommandShapes::Configured);
+        };
+        let (span, external) = declared?;
+        if let Some((_, shapes)) = self
+            .defined_shapes
+            .borrow()
+            .iter()
+            .find(|(parsed, _)| *parsed == span)
+        {
+            return shapes.clone().map(CommandShapes::Defined);
+        }
+        // Parsed on the side: what it reports is the definition's, reported where it is parsed.
+        let errors = self.error_count();
+        let shapes = parse_signature(self, span, external)
+            .ok()
+            .map(|signature| Rc::new(CallShapes::new(&signature)));
+        drop(self.take_errors_from(errors));
+        self.defined_shapes
+            .borrow_mut()
+            .push((span, shapes.clone()));
+        shapes.map(CommandShapes::Defined)
     }
 
     /// Declare an alias in the innermost scope once its statement is parsed

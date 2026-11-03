@@ -114,10 +114,12 @@ fn simple_call_and_pipeline() {
     assert_eq!(text(&ast, els[1].pipe.unwrap()), "|");
     kind!(els[1].expr, Expr::Where(_));
     assert_eq!(call(&els[2].expr).head.name, "get");
-    assert_eq!(
-        string(call(&els[2].expr).positional_iter().next().unwrap()),
-        ("name", Quote::Bare)
+    // `get`'s parameter is a cell path, which the word is read as.
+    let path = kind!(
+        call(&els[2].expr).positional_iter().next().unwrap(),
+        Expr::CellPath(path) => path
     );
+    assert_eq!(text(&ast, path.members[0].span), "name");
 }
 
 #[test]
@@ -750,23 +752,43 @@ fn subexpressions_span_lines() {
 
 #[test]
 fn multiword_commands_and_flags() {
-    let ast = ok("str trim --left --char=x -abc -- --not-a-flag -5 ...$args ...[1 2]");
+    let source = "str trim --left --char=x -abc -- --not-a-flag -5 ...$args ...[1 2]";
+    let describe = |ast: &Ast<'_>| -> Vec<String> {
+        call(expr(ast))
+            .arguments
+            .iter()
+            .map(|a| match a {
+                Argument::Named(f) => format!("flag:{}:{}:{}", f.name, f.long, f.value.is_some()),
+                Argument::Positional(e) => format!("pos:{}", text(ast, e.span)),
+                Argument::Spread { expr, .. } => format!("spread:{}", text(ast, expr.span)),
+                Argument::EndOfOptions(_) => "--".into(),
+                Argument::Unread(span) => format!("unread:{}", text(ast, *span)),
+            })
+            .collect()
+    };
+    // By `str trim`'s signature, as nu reads it: `-c` (`--char`) takes a value and is the
+    // batch's last letter, so it takes the next item, `--`; `-5` is no negative number for a
+    // cell path, so it is a flag.
+    let ast = ok(source);
     let c = call(expr(&ast));
     assert_eq!(c.head.name, "str trim");
     assert_eq!(text(&ast, c.head.span), "str trim");
-    let describe: Vec<String> = c
-        .arguments
-        .iter()
-        .map(|a| match a {
-            Argument::Named(f) => format!("flag:{}:{}:{}", f.name, f.long, f.value.is_some()),
-            Argument::Positional(e) => format!("pos:{}", text(&ast, e.span)),
-            Argument::Spread { expr, .. } => format!("spread:{}", text(&ast, expr.span)),
-            Argument::EndOfOptions(_) => "--".into(),
-            Argument::Unread(span) => format!("unread:{}", text(&ast, *span)),
-        })
-        .collect();
     assert_eq!(
-        describe,
+        describe(&ast),
+        vec![
+            "flag:left:true:false",
+            "flag:char:true:true",
+            "flag:abc:false:true",
+            "flag:not-a-flag:true:false",
+            "flag:5:false:false",
+            "spread:$args",
+            "spread:[1 2]"
+        ]
+    );
+    // Without the signature a flag takes no item after it, and `-5` is a value.
+    let ast = parse_with(source, &ParseConfig::with_commands(["str trim"])).unwrap();
+    assert_eq!(
+        describe(&ast),
         vec![
             "flag:left:true:false",
             "flag:char:true:true",

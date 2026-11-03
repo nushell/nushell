@@ -1201,14 +1201,18 @@ impl<'a> Call<'a> {
 /// positional argument may be the flag's value.
 #[derive(Clone, Debug, PartialEq)]
 pub struct NamedArgument<'a> {
-    /// The span of the whole flag, including any `=value`.
+    /// The span of the whole flag, including its value.
     pub span: Span,
     /// The name without leading dashes. For a batch of short flags (`-abc`)
     /// this is `abc`.
     pub name: &'a str,
     /// `true` for `--long`, `false` for `-s`.
     pub long: bool,
-    /// The value after `=`, if written as `--flag=value`.
+    /// The span of the `=` of `--flag=value`; `None` for a value that is the next item
+    /// (`--flag value`, `-f value`), which the parser reads by the command's signature when
+    /// it knows it.
+    pub equals: Option<Span>,
+    /// The flag's value.
     pub value: Option<Box<Expression<'a>>>,
 }
 

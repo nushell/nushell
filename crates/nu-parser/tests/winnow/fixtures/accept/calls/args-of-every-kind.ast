@@ -70,4 +70,4 @@ Block 0..211
       Flag --val 197..204
         Int 1 203..204
       EndOfOptions 205..207
-      Flag -x 208..210
+      String Bare "-x" 208..210

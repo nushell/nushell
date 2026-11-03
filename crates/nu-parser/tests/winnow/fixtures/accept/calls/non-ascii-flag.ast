@@ -6,5 +6,5 @@ Block 0..49
       Body 33..33
   Pipeline 35..48
     Call `nu-arg` 35..48
-      Flag -ö 42..45
-      Int 42 46..48
+      Flag -ö 42..48
+        Int 42 46..48

@@ -844,6 +844,42 @@ pub fn parse_string<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseResult
     }
 }
 
+/// A `glob`, `path` or `directory` value (nu's `parse_path_like`): a string whose quotes come
+/// off only when they close at its end, as nu's `unescape_unquote_string` takes them, so
+/// `"[A-Z]*"..` is that text, quotes and all; an item starting with `"` has its escapes read
+/// either way.
+pub fn parse_path_like<'a>(
+    working_set: &WorkingSet<'a>,
+    span: Span,
+) -> ParseResult<Expression<'a>> {
+    let text = working_set.get_span_contents(span);
+    if is_bare_string_interpolation(text) {
+        return parse_string_interpolation(working_set, span);
+    }
+    let quoted = |quote: char| text.len() > 1 && text.starts_with(quote) && text.ends_with(quote);
+    let inner = || &text[1..text.len() - 1];
+    let literal = match text.as_bytes().first() {
+        Some(b'"') if quoted('"') => StringLiteral {
+            value: unescape_string(inner(), span.start + 1).map_err(cut)?,
+            quote: Quote::Double,
+        },
+        Some(b'"') => StringLiteral {
+            value: unescape_string(text, span.start).map_err(cut)?,
+            quote: Quote::Bare,
+        },
+        Some(b'\'') if quoted('\'') => StringLiteral {
+            value: Cow::Borrowed(inner()),
+            quote: Quote::Single,
+        },
+        Some(b'`') if quoted('`') => StringLiteral {
+            value: Cow::Borrowed(inner()),
+            quote: Quote::Backtick,
+        },
+        _ => StringLiteral::bare(text),
+    };
+    Ok(Expression::new(Expr::String(literal), span))
+}
+
 /// The literal of a quoted, backtick or bare string item; a bare-word
 /// interpolation is *not* handled here.
 pub fn parse_string_literal<'a>(

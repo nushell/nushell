@@ -633,6 +633,7 @@ impl<'s> Lower<'_, '_, 's> {
                             span: expr.span,
                             name,
                             long: false,
+                            equals: None,
                             value: None,
                         };
                         if self.flag(call, &flags, arguments.get(index), signature)? {

@@ -717,8 +717,8 @@ Each rule describes the text of one item.
 ; Filepath, String, GlobPattern or ExternalArgument; every other shape rejects "["
 ; nu: parse_expressions.rs:869-885, 950-955
 ; here: src/winnow/syntax/parser/parse_expressions.rs::parse_value, parse_value_for_shape ("[" checked
-;       against the shape for the typed defaults of 7.1; the argument shapes of calls are
-;       the consumer's)
+;       against the shape for the typed defaults of 7.1, and for the arguments of calls
+;       whose signature the parser knows: no lookup, a built-in or a `def` of the text)
 
 <shaped-value>    ::= <any-value>              ; shape Any
                     | <int>                    ; Int
@@ -744,8 +744,9 @@ Each rule describes the text of one item.
 ; nu: parse_expressions.rs:893-1004
 ; here: src/winnow/syntax/parser/parse_expressions.rs::parse_value with
 ;       ExpectedShape::{Any,Number,String,Closure,MatchArmBody,Declared}:
-;       Declared is the declared shape of a parameter default (7.1); the argument shapes
-;       of calls are the consumer's
+;       Declared is the declared shape of a parameter default (7.1), or of a call's
+;       parameter when the parser knows the signature (no lookup: a built-in or a `def`
+;       of the text, parse_calls::parse_call_arguments_by_shape); otherwise the consumer's
 
 <any-value>       ::= <nothing> | <bool>
                     | <binary>       ; 1st: only "0x["/"0o["/"0b[" prefixes; bad digit = hard error
@@ -1966,8 +1967,8 @@ get nu-parser's full behaviour; none of it is decidable from the text alone.
 
 | shape-directed rule | what nu-parser needs | where the consumer hooks in |
 | --- | --- | --- |
-| positional argument shapes (`<positional>`) of ordinary commands | the command's signature | every `Argument::Positional` is a `ExpectedShape::Any` value; the keyword commands (6.5) and the built-in attributes are checked here |
-| `--flag value` binding, unknown flags, short-flag batches, `-1` as flag or number, for ordinary commands | signature | `Argument::Named`, `Argument::Positional`; the keyword commands are checked here |
+| positional argument shapes (`<positional>`) of ordinary commands | the command's signature | with a lookup, and for a command without a known signature, every `Argument::Positional` is a `ExpectedShape::Any` value; without one the built-ins' and the text's own definitions' are read by shape here; the keyword commands (6.5) and the built-in attributes are checked here |
+| `--flag value` binding, unknown flags, short-flag batches, `-1` as flag or number, for ordinary commands | signature | `Argument::Named` (`equals` tells `--flag value` from `--flag=value`), `Argument::Positional`; bound here when the signature is known as above, unknown flags the consumer's; the keyword commands are checked here |
 | spread validity (rest param, named flags) | signature | `Argument::Spread` |
 | glob vs string vs filepath for bare words | signature | `Expr::String` with `Quote::Bare` |
 | alias expansion and alias-subcommand heads | declarations | `Call` heads |

@@ -1,0 +1,25 @@
+Block 0..97
+  Pipeline 0..37
+    Def `f` 0..37
+      Signature 6..34
+        Param positional `x` 7..16 : string
+        Param flag --y -y `y` 18..33 : string
+      Body 36..36
+  Pipeline 38..44
+    Call `f` 38..44
+      String Bare "0xzz" 40..44
+  Pipeline 45..61
+    Call `f` 45..61
+      String Bare "0b2" 47..50
+      Flag --y 51..61
+        String Bare "0x[zz]" 55..61
+  Pipeline 62..83
+    Call `f` 62..83
+      String Bare "8EiB" 64..68
+      Flag --y 69..83
+        String Bare "2023-02-30" 73..83
+  Pipeline 84..96
+    Call `f` 84..96
+      String Single "x" 86..89
+      Flag -y 90..96
+        String Bare "0b2" 93..96
