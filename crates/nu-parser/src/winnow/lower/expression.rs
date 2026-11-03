@@ -640,7 +640,11 @@ impl<'s> Lower<'_, '_, 's> {
     /// `any`; one that isn't a bool is reported and is garbage.
     pub(super) fn row_condition(&mut self, condition: &w::Expression<'s>) -> Lowered<Expression> {
         let span = self.span(condition.span);
+        // A closure is read as one first; when that reports an error (a `$it` in its body,
+        // `chunk-by { |t| $it // 3 }`), its errors are dropped and the condition is read again
+        // below, with `$it` declared, as `parse_row_condition` does.
         if let w::Expr::Closure(closure) = &condition.expr {
+            let errors = self.working_set.parse_errors.len();
             let closure = self.closure(
                 condition.span,
                 closure.params.as_ref(),
@@ -648,10 +652,12 @@ impl<'s> Lower<'_, '_, 's> {
                 &SyntaxShape::Any,
                 None,
             )?;
-            let Expr::Closure(block_id) = closure.expr else {
-                return Err(Unlowered::Error);
-            };
-            return Ok(self.node(Expr::RowCondition(block_id), span, Type::Bool));
+            if self.working_set.parse_errors.len() == errors
+                && let Expr::Closure(block_id) = closure.expr
+            {
+                return Ok(self.node(Expr::RowCondition(block_id), span, Type::Bool));
+            }
+            self.working_set.parse_errors.truncate(errors);
         }
         // A condition the winnow parser left as garbage is tried as a closure first, its
         // errors dropped when it reads as none.

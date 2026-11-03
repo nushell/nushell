@@ -300,6 +300,33 @@ impl<'t, 'a> KeywordCall<'t, 'a> {
         tokens.expect_item(what).map(Some)
     }
 
+    /// [`Self::positional`], an assignment operator read as the item, as nu's call reads any
+    /// item: `for l = [1]` has an `=` where `in` belongs (ExpectedKeyword).
+    pub fn positional_word(
+        &mut self,
+        tokens: &mut Tokens<'t, 'a>,
+        what: &'static str,
+    ) -> ParseResult<Option<Token>> {
+        if self.call_flags(tokens)? {
+            return Ok(None);
+        }
+        match tokens.peek_token() {
+            None => {
+                self.missing();
+                Ok(None)
+            }
+            Some(token) if matches!(token.contents, TokenContents::AssignmentOperator(_)) => {
+                let token = *token;
+                tokens.next_token();
+                Ok(Some(Token {
+                    contents: TokenContents::Item,
+                    span: token.span,
+                }))
+            }
+            Some(_) => tokens.expect_item(what).map(Some),
+        }
+    }
+
     /// A positional missing at the end of the statement (`loop`, `if true`): nu's call reports
     /// it (MissingPositional, semantic, the consumer's) and goes on, so the statement is that
     /// call ([`Self::is_call`]).

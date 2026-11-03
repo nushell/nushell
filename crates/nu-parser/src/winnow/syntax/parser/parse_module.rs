@@ -330,10 +330,14 @@ pub fn parse_use<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> 
                 }
                 Err(error) => return Err(error),
             };
+            // A record nu's call reports as no string (TypeMismatch) and goes on with, as the
+            // consumer does, which reads the import pattern with nu's code.
             if let Expr::Record(_) = module.expr {
-                return Err(cut(
-                    Diagnostic::expected("string", module_token.span).with_help("found a record")
-                ));
+                working_set.error(
+                    Diagnostic::expected("string", module_token.span)
+                        .with_help("found a record")
+                        .as_recovered(),
+                );
             }
             module
         }

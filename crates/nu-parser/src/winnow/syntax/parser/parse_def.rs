@@ -16,7 +16,9 @@ use crate::winnow::syntax::lex::{LexOptions, Token, TokenContents};
 use crate::winnow::syntax::span::{Span, Spanned};
 
 use super::WorkingSet;
-use super::lite_parser::{AfterPipe, after_pipe_lines, as_item, pipe_on_later_line};
+use super::lite_parser::{
+    AfterPipe, after_pipe_lines, as_item, parse_lite_command, pipe_on_later_line,
+};
 use super::parse_calls::{parse_definition_call, parse_flag_value, split_long_flag};
 use super::parse_expressions::{
     BraceShape, ExpectedShape, brace_shape, is_literal_like, parse_block_body_unchecked,
@@ -345,6 +347,30 @@ fn scan_definitions<'a>(
                             .count()
                     });
                 let items = tokens.get(items_start..items_end).unwrap_or(&[]);
+                // A redirection after them: nu's lite parser keeps one without a target, and
+                // every item after a redirection, as the command's parts, which its
+                // predeclaration reads (`def f [] { } o> o> x`). Its errors are the statement's.
+                let lite_parts: Vec<Token>;
+                let items = match tokens.get(items_end) {
+                    Some(next) if matches!(next.contents, TokenContents::Redirection(_)) => {
+                        let errors = working_set.error_count();
+                        let command = &tokens[index - 1..];
+                        let end = command.last().map_or(0, |last| last.span.end);
+                        let parts =
+                            parse_lite_command(&mut Tokens::new(working_set, command, end), false)
+                                .map(|lite| lite.parts);
+                        drop(working_set.take_errors_from(errors));
+                        match parts {
+                            Ok(parts) => {
+                                lite_parts =
+                                    parts.into_iter().skip(items_start + 1 - index).collect();
+                                &lite_parts
+                            }
+                            Err(_) => items,
+                        }
+                    }
+                    _ => items,
+                };
                 // The rest of the statement, to its end of line: nu's lite parser absorbs what
                 // follows an `=` into the command (`def 1234 = echo 'x'`).
                 let rest_end = items_start
@@ -1037,7 +1063,8 @@ fn parse_extern_items<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<
 pub fn parse_for<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
     let working_set = tokens.working_set;
     let mut call = KeywordCall::start(&mut tokens)?;
-    let Some(variable) = call.positional(&mut tokens, "loop variable")? else {
+    // nu's call reads an `=` as any item, in each of `for`'s places (`for = [1] {}`).
+    let Some(variable) = call.positional_word(&mut tokens, "loop variable")? else {
         return call.help_call();
     };
     // nu's call to `for` takes a first `in` as its keyword, the variable missing before it
@@ -1080,7 +1107,7 @@ pub fn parse_for<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> 
         }
         false => None,
     };
-    let Some(in_keyword) = call.positional(&mut tokens, "`in`")? else {
+    let Some(in_keyword) = call.positional_word(&mut tokens, "`in`")? else {
         return call.help_call();
     };
     // nu reports another word (ExpectedKeyword) and goes on with its call.
@@ -1099,9 +1126,16 @@ pub fn parse_for<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> 
                 .with_help("`for` needs a value to iterate and a block: `for x in [1 2] { }`"),
         );
     }
-    let iterable = tokens.expect_item("value to iterate")?;
+    let iterable = match tokens.peek_token() {
+        Some(token) if matches!(token.contents, TokenContents::AssignmentOperator(_)) => {
+            let token = *token;
+            tokens.next_token();
+            token
+        }
+        _ => tokens.expect_item("value to iterate")?,
+    };
     let iterable = Box::new(parse_value(working_set, iterable.span, ExpectedShape::Any)?);
-    let Some(block) = call.positional(&mut tokens, "block")? else {
+    let Some(block) = call.positional_word(&mut tokens, "block")? else {
         return call.help_call();
     };
     // An item that is no block nu's call reports and goes on past (`for x in -h [1] {}`).

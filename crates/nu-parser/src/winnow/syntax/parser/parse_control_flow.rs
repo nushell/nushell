@@ -152,6 +152,16 @@ fn parse_if_parts<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>>
                     call.end(&mut tokens)?;
                     body
                 }
+                // The block nu tries first is read from one item by `parse_value`, which reads
+                // a `$`, `(` or `r#` item as a value whatever the shape: such an item is the
+                // argument alone (`else $x $x`: an extra positional), and the statement nu's
+                // call, whose reader settles an item with an error as nu's `parse_oneof` does
+                // (`else (1 +) 2` drops the `2`).
+                [first, _, ..] if let Some(body) = one_item_else(working_set, first) => {
+                    tokens.next_token();
+                    call.end(&mut tokens)?;
+                    body
+                }
                 _ => parse_expression(tokens.rest_stream(), Position::Element)?,
             };
             span = span.merge(body.span);
@@ -169,6 +179,25 @@ fn parse_if_parts<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>>
         else_branch,
     };
     call.finish(Expression::new(Expr::If(if_expression), span))
+}
+
+/// The value of the item after `else` that nu's `else` argument takes alone, as the block it
+/// tries first: a `$`, `(` or `r#` item, which `parse_value` reads by its first byte whatever
+/// the shape, an error in it recorded as recovered over a garbage leaf. Any other item is
+/// `None`: nu then reads the items as an expression.
+fn one_item_else<'a>(working_set: &WorkingSet<'a>, token: &Token) -> Option<Expression<'a>> {
+    let text = working_set.get_span_contents(token.span);
+    if !(text.starts_with(['$', '(']) || text.starts_with("r#")) {
+        return None;
+    }
+    match parse_value(working_set, token.span, ExpectedShape::Any) {
+        Ok(value) => Some(value),
+        Err(ErrMode::Cut(ParseFailure::Error(diagnostic))) => {
+            working_set.error(diagnostic.as_recovered());
+            Some(Expression::new(Expr::Garbage, token.span))
+        }
+        Err(_) => None,
+    }
 }
 
 /// A statement that is `keyword` alone (`if`, `match`), not a call through an alias of it: nu
