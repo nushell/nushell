@@ -2627,4 +2627,134 @@ mod test {
             "the visual table should keep reedline's extending arrow defaults"
         );
     }
+
+    /// A binding with no name, since a name plays no part in what a key does.
+    fn unnamed(keycode: &str, mode: Value, event: Value) -> ParsedKeybinding {
+        ParsedKeybinding {
+            name: None,
+            modifier: Value::test_string("none"),
+            keycode: Value::test_string(keycode),
+            event,
+            mode,
+        }
+    }
+
+    fn send(event: &str) -> Value {
+        Value::test_record(record! { "send" => Value::test_string(event) })
+    }
+
+    fn config_with(edit_mode: EditBindings, keybindings: Vec<ParsedKeybinding>) -> Config {
+        Config {
+            edit_mode,
+            keybindings,
+            ..Config::default()
+        }
+    }
+
+    /// `create_keybindings` built tables for another edit mode than asked for.
+    fn wrong_mode(expected: &str) -> ShellError {
+        ShellError::NushellFailed {
+            msg: format!("`edit_mode: {expected}` should produce {expected} keybindings"),
+        }
+    }
+
+    /// The emacs table `create_keybindings` builds from `keybindings`.
+    fn emacs_table(keybindings: Vec<ParsedKeybinding>) -> Result<Keybindings, ShellError> {
+        let config = config_with(EditBindings::Emacs, keybindings);
+        match create_keybindings(&config)? {
+            KeybindingsMode::Emacs(table) => Ok(table),
+            _ => Err(wrong_mode("emacs")),
+        }
+    }
+
+    /// The insert table `create_keybindings` builds from `keybindings` in vi mode.
+    fn vi_insert_table(keybindings: Vec<ParsedKeybinding>) -> Result<Keybindings, ShellError> {
+        let config = config_with(EditBindings::Vi, keybindings);
+        match create_keybindings(&config)? {
+            KeybindingsMode::Vi {
+                insert_keybindings, ..
+            } => Ok(insert_keybindings),
+            _ => Err(wrong_mode("vi")),
+        }
+    }
+
+    /// The entries are applied in order, so the last one on a key wins.
+    #[test]
+    fn the_last_entry_on_a_key_wins() -> Result<(), ShellError> {
+        let emacs = Value::test_string("emacs");
+        let table = emacs_table(vec![
+            unnamed("f20", emacs.clone(), send("enter")),
+            unnamed("f20", emacs, send("clearscreen")),
+        ])?;
+
+        assert_eq!(
+            table.find_binding(KeyModifiers::NONE, KeyCode::F(20)),
+            Some(ReedlineEvent::ClearScreen),
+        );
+        Ok(())
+    }
+
+    /// A `null` event removes whatever is on the key, including a binding that
+    /// comes from reedline's own base map rather than from the list.
+    #[test]
+    fn a_null_event_unbinds_a_reedline_base_binding() -> Result<(), ShellError> {
+        let base = default_emacs_keybindings();
+        assert!(
+            base.find_binding(KeyModifiers::CONTROL, KeyCode::Char('a'))
+                .is_some(),
+            "the test needs a base binding to remove"
+        );
+
+        let mut unbind = unnamed("char_a", Value::test_string("emacs"), Value::test_nothing());
+        unbind.modifier = Value::test_string("control");
+        let table = emacs_table(vec![unbind])?;
+
+        assert_eq!(
+            table.find_binding(KeyModifiers::CONTROL, KeyCode::Char('a')),
+            None
+        );
+        Ok(())
+    }
+
+    /// Each mode of an entry is its own spot. A later entry for fewer modes
+    /// wins only in those, and the earlier one keeps the rest.
+    #[test]
+    fn a_later_entry_for_fewer_modes_leaves_the_other_modes_alone() -> Result<(), ShellError> {
+        let wide = unnamed(
+            "f20",
+            Value::test_list(vec![
+                Value::test_string("emacs"),
+                Value::test_string("vi_insert"),
+            ]),
+            send("enter"),
+        );
+        let narrow = unnamed("f20", Value::test_string("emacs"), send("clearscreen"));
+        let list = vec![wide, narrow];
+
+        assert_eq!(
+            emacs_table(list.clone())?.find_binding(KeyModifiers::NONE, KeyCode::F(20)),
+            Some(ReedlineEvent::ClearScreen),
+        );
+        assert_eq!(
+            vi_insert_table(list)?.find_binding(KeyModifiers::NONE, KeyCode::F(20)),
+            Some(ReedlineEvent::Enter),
+        );
+        Ok(())
+    }
+
+    /// The entries are applied in one pass, so one that cannot be read fails
+    /// the whole list. The way out is to filter it from the list.
+    #[test]
+    fn an_unreadable_entry_fails_the_whole_list() {
+        let emacs = Value::test_string("emacs");
+        let config = config_with(
+            EditBindings::Emacs,
+            vec![
+                unnamed("f20", emacs.clone(), send("enter")),
+                unnamed("not_a_key", emacs, send("enter")),
+            ],
+        );
+
+        assert!(create_keybindings(&config).is_err());
+    }
 }
