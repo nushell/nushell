@@ -1039,8 +1039,8 @@ impl<'s> Lower<'_, '_, 's> {
 
     /// A multi-item `oneof` (`parse_oneof` with `multispan`): the first of `shapes` that reads
     /// the items from `index` without an error, in the order [`Self::one_of`] tries them. A
-    /// shape whose reading is left to the classic parser ends the search, since the classic
-    /// parser might read it without an error. When none reads them, the value is the guess
+    /// shape the lowering gives back gives the statement back: at once when unsupported, after
+    /// the other shapes when for an error. When none reads them, the value is the guess
     /// whose first error is the furthest along, with its errors and warnings, as in
     /// [`Self::one_of`], else garbage over the first item with an error that lists the shapes;
     /// either way the call goes on after the items the last shape tried read, as there.

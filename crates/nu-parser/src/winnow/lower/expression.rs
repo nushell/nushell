@@ -23,9 +23,9 @@ use crate::{
 impl<'s> Lower<'_, '_, 's> {
     /// A command or math expression (`parse_expression`); `input_type` is what the pipeline
     /// gives it. Statements (`let`, `def`, `for`, ...) are lowered as statements when they are a
-    /// pipeline of their own; met here, inside a longer pipeline, they are left to the classic
-    /// parser, as is `Garbage` (what the winnow parser could not read). Whatever is neither a
-    /// call nor a keyword is a math expression.
+    /// pipeline of their own; met here, inside a longer pipeline, they are given back, nu's
+    /// errors there. Whatever is neither a call nor a keyword is a math expression, `Garbage`
+    /// (what the winnow parser went on past an error in) read again from its items.
     pub(super) fn expression(
         &mut self,
         e: &w::Expression<'s>,
@@ -586,8 +586,7 @@ impl<'s> Lower<'_, '_, 's> {
 
     /// `where condition` (`parse_where_expr`): a call to `where` with a row condition, typed
     /// `any`, its head registered like `parse_internal_call` registers it. A call `check_call`
-    /// does not find `CallKind::Valid` is left to the classic parser, as `parse_where_expr`
-    /// returns it early.
+    /// does not find `CallKind::Valid` is given back, as `parse_where_expr` returns it early.
     pub(super) fn where_expression(
         &mut self,
         e: &w::Expression<'s>,
@@ -757,7 +756,7 @@ impl<'s> Lower<'_, '_, 's> {
     /// The span of the keyword `keyword` that starts `e`.
     /// `let name` where the classic parser reads a command, in a pipeline or after an
     /// environment shorthand (`parse_expression`): an ordinary call to `let` (`parse_call`,
-    /// [`Self::binding_without_value`]). A value after the name is left to the classic parser. (A
+    /// [`Self::binding_without_value`]). A value after the name is given back as unsupported. (A
     /// command named `let` and the name, which `parse_call` calls instead, the winnow parser
     /// already reads as a call.)
     fn let_call(

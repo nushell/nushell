@@ -8,8 +8,8 @@
 //! A call's argument errors the lowering reports as `parse_internal_call` does, and goes on as it
 //! does: a value of the wrong type for a positional or a flag, an extra positional, an unknown
 //! flag, a flag without its value, a spread the command can't take, a missing positional, a `oneof`
-//! argument no shape reads (`parse_oneof`'s guess), and the error of a classic leaf parser reading
-//! an argument or a list's item without inner structure (`Lower::leaf`). So it does
+//! argument no shape reads (`parse_oneof`'s guess), and the error of a leaf reader reading an
+//! argument or a list's item without inner structure (`Lower::leaf`). So it does
 //! with what the classic parser reports elsewhere and goes on past: a variable not in scope, a
 //! `{...}` a shape doesn't take, a closure's parameters a `closure(...)` shape doesn't give it, a
 //! negation or an operation of types it doesn't apply to (the operations typed in the classic

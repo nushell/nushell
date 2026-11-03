@@ -1,6 +1,6 @@
 //! Blocks, statements and pipelines (the classic parser's `parse_block`,
-//! `parse_builtin_commands`, `parse_pipeline` and `parse_pipeline_element`), and the hand-over
-//! of a statement to the classic parser.
+//! `parse_builtin_commands`, `parse_pipeline` and `parse_pipeline_element`), and a statement
+//! the lowering gives back: a garbage pipeline with an error.
 
 use std::borrow::Cow;
 
@@ -1291,8 +1291,8 @@ impl<'s> Lower<'_, '_, 's> {
         if scoped {
             self.working_set.enter_scope();
         }
-        // A definition the lowering cannot predeclare leaves the whole block, with the
-        // statement it is in, to the classic parser, which predeclares it.
+        // A definition the lowering cannot predeclare gives the whole block back, with the
+        // statement it is in.
         for pipeline in &block.pipelines {
             if let [element] = pipeline.elements.as_slice()
                 && let Err(unlowered) = self.predecl_statement(&element.expr)

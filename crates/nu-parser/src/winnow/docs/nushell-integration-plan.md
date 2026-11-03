@@ -48,18 +48,20 @@ source ──▶ parse_block_streaming (this parser) ──▶ one statement's s
   inline module's body among them, so it is parsed once. When a statement
   calls `overlay use`, `overlay hide` or `overlay new` through an alias, the
   rest of that block is parsed again with the commands known then.
-- **Blocks inside values `nu-parser` reads.** The lowering reads some values
-  with `nu-parser`'s value parsers (a range, a list item, a flag's value, a
-  pattern, an external word). Where such a value holds a block
-  (`0..($n - 1)`, `[(1 + 1)]`, `^echo foo(1 + 1)`), `nu-parser`'s
-  `parse_block` hands it back to this parser with the tokens its caller lexed
-  (`winnow::nested_block`), so no statement of it is `nu-parser`'s.
-  `WinnowStats::classic_pipelines` counts the pipelines `nu-parser`'s own
-  statement parser parses while the option is on: none, as its
-  `parse_block` hands every block to this parser. Text that is not UTF-8,
-  which this parser does not read, is an error (`NonUtf8`) at its first
-  byte that is not, over a garbage block. With the option off, nothing of
-  this parser runs.
+- **Values read again from their text.** Where this parser read items
+  otherwise than `nu-parser` does, or went on past an error in them, the
+  lowering reads them again from their text with its ports of `nu-parser`'s
+  readers (`lower/leaf.rs` and the `lower/*_text.rs` modules): a range, a list
+  item, a flag's value, a pattern, an external word, a closure, a signature, a
+  call from its items. Where such a value holds a block (`0..($n - 1)`,
+  `[(1 + 1)]`, `{|x| ...` left open), this parser parses it from the tokens
+  the port lexed (`lower::lexed_block`). `nu-parser`'s own `parse_block`, run
+  by any of its readers while the option is on, hands its block to this
+  parser too (`winnow::nested_block`), so no statement is `nu-parser`'s:
+  `WinnowStats::classic_pipelines` counts the pipelines `nu-parser`'s
+  statement parser parses, none. Text that is not UTF-8, which this parser
+  does not read, is an error (`NonUtf8`) at its first byte that is not, over
+  a garbage block. With the option off, nothing of this parser runs.
 - **Errors.** The lowering reports the errors `nu-parser` reports and goes on
   past (a call's argument errors, values and operations of the wrong type, ...;
   see `lower/mod.rs`), with what `nu-parser` builds there. No statement is
@@ -71,8 +73,8 @@ source ──▶ parse_block_streaming (this parser) ──▶ one statement's s
   next end of line, unless the winnow parser went on past every error in it
   (`Diagnostic::recovered`: a malformed literal left as a garbage leaf, a
   bare word with a `:` in a record): that statement is lowered, and the
-  lowering reads each such item again with `nu-parser`'s leaf parser, which
-  reports `nu-parser`'s error with its garbage.
+  lowering reads each such item again from its text as `nu-parser`'s reader
+  does, reporting `nu-parser`'s error with its garbage.
 - **Statements that link modules and files** (`use`, `module`, `overlay`,
   `hide`, `source`, `source-env`, `run`, `plugin use`): the lowering builds
   the call, and `nu-parser`'s code that does the rest (`finish_use`,
@@ -92,16 +94,15 @@ source ──▶ parse_block_streaming (this parser) ──▶ one statement's s
   alias.
 
 The lowering's functions carry the names of the `nu-parser` functions they
-stand in for, and reuse `nu-parser`'s code wherever it does not read spans
+stand in for. Of `nu-parser`'s own code they use only what reads no source
+text: the code that declares, loads and checks a statement once it is read
 (`finish_def`, `finish_extern`, `finish_alias`, `finish_use`, `finish_module`,
 `finish_source`, `finish_run`, `finish_hide`, `parse_overlay_use`,
-`parse_overlay_hide`, `parse_overlay_new`, `parse_plugin_use`,
-`add_exportables`, `exported_module`,
-`warp_export_call`, `finish_block`, `compile_block`,
-`assemble_signature`, `math_result_type`, `check_call`, `parse_variable_expr`,
-`parse_unknown_arg`, the predicates `is_parser_keyword`, `is_quoted`,
-`is_valid_command_name` and `shape_allows_negative_number`, and the leaf
-parsers for the rarer shape-dependent values).
+`parse_overlay_hide`, `parse_overlay_new`, `parse_plugin_use`, ...),
+compiling and types (`finish_block`, `compile_block`, `math_result_type`,
+`check_call`), name lookup and the checks on a name already read.
+`tests/winnow/nu_parser_uses.rs` lists that code (`SHARED`) and fails on any
+other use: `nu-parser`'s parsing and lexing all have winnow implementations.
 
 ## Checking it
 
@@ -121,7 +122,8 @@ parsers for the rarer shape-dependent values).
   --log-include nu_parser::winnow` with the log flags first): a statement the
   lowering gives back (`winnow: <reason>: <n> bytes: <first line>`), one with
   a syntax error (`winnow: syntax error (<kind>): ...`), and also a block
-  handed to `nu-parser` whole and a run parsed ahead whose answers about
+  this parser cannot read as a whole (`winnow: unread block (<why>): ...`,
+  an error over a garbage block) and a run parsed ahead whose answers about
   command names changed. `WinnowStats::unread_statements` counts the
   statements.
 

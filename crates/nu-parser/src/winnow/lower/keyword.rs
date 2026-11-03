@@ -133,7 +133,7 @@ impl<'s> Lower<'_, '_, 's> {
 
     /// The span of a block's braces, from the span of its inside: a winnow block covers the text
     /// between its braces, while the classic parser's block and closure expressions cover the
-    /// braces. A block that is not between braces in the source is left to the classic parser.
+    /// braces. A block that is not between braces in the source is given back as unsupported.
     pub(super) fn braces_span(&self, block: &w::Block<'s>) -> Lowered<WSpan> {
         let (start, end) = (block.span.start, block.span.end);
         if start == 0

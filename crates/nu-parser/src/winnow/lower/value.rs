@@ -368,7 +368,8 @@ impl<'s> Lower<'_, '_, 's> {
             // As `parse_brace_expr` decides: with parameters, a closure for any shape but a
             // block (an error); without, a block for a block shape, a closure for a closure or
             // any shape, an error for the rest. Each error is reported with the item garbage.
-            // Arms without parameters are the classic parser's.
+            // Arms without parameters, the argument of a `match-block` shape, are read again as
+            // arms.
             w::Expr::Closure(closure) => {
                 let has_params = closure.params.is_some();
                 match shape {
@@ -618,7 +619,7 @@ impl<'s> Lower<'_, '_, 's> {
 
     /// A string with interpolated expressions (`parse_string_interpolation`): text parts are
     /// strings, and each `(...)` part a subexpression, read as the head of a full cell path as
-    /// the classic parser reads it. Any other expression part is left to the classic parser.
+    /// the classic parser reads it. Any other expression part is given back as unsupported.
     fn interpolation(
         &mut self,
         span: WSpan,

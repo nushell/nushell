@@ -33,8 +33,9 @@ pub(in crate::winnow) struct Predecl<'d, 's> {
 
 impl<'s> Lower<'_, '_, 's> {
     /// Declare a command before the statements of its block are lowered, so calls to it
-    /// resolve (`parse_def_predecl`). Returns `false` when the lowering cannot read the
-    /// signature, for the classic predeclaration to do it.
+    /// resolve (`parse_def_predecl`). Returns `false` when the winnow tree has no signature to
+    /// read, for the predeclaration from the statement's text to do it
+    /// ([`Self::predecl_statement_text`]).
     ///
     /// Unlike a statement's lowering, this is the classic predeclaration done from the winnow
     /// tree, with no statement to hand back: it reports what `parse_def_predecl` reports (an
@@ -47,12 +48,12 @@ impl<'s> Lower<'_, '_, 's> {
     /// the declaration.
     pub(in crate::winnow) fn predecl(&mut self, predecl: Predecl<'_, 's>) -> bool {
         // Without a signature the winnow parser could read (none, or one with an error), the
-        // classic predeclaration decides, name checks included.
+        // predeclaration from the statement's text decides, name checks included.
         let Some(written) = predecl.signature else {
             return false;
         };
-        // A name item in brackets or parentheses (`def [foo] ...`): the classic predeclaration
-        // reads the signature from it, or gives up.
+        // A name item in brackets or parentheses (`def [foo] ...`): the predeclaration from the
+        // statement's text reads the signature from it, or gives up.
         if self.text(predecl.name_span).starts_with(['[', '(']) {
             return false;
         }

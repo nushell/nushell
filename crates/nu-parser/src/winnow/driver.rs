@@ -860,7 +860,7 @@ impl<'a> BlockSink<'a> for Driver<'_, '_, '_, '_> {
         if lowered {
             return;
         }
-        // The classic predeclaration, from the statement's text. What it cannot read is counted
+        // nu's predeclaration, read from the statement's text. What it cannot read is counted
         // and logged; the statement reports it.
         if let Err(unlowered) = lower.predecl_statement_text(span) {
             stats::record_unlowered(span, &unlowered, working_set);
