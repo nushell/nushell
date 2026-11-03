@@ -82,6 +82,23 @@ fn bare_word_expand_path_glob(prefix: &str) -> Result {
     })
 }
 
+/// With dc-glob, braces alternate in an argument that is a glob. A word with braces but no `*`,
+/// `?` or `[` isn't a glob, so it reaches the program unchanged.
+#[apply(direct_external_prefixes)]
+#[nu_test_support::test]
+#[exp(nu_experimental::DC_GLOB)]
+#[deps(TESTBIN_COCOCO)]
+fn dc_glob_braces_in_external_arguments(prefix: &str) -> Result {
+    Playground::setup("external with braces", |dirs, sandbox| {
+        sandbox.with_files(&[EmptyFile("a.rs"), EmptyFile("b.toml"), EmptyFile("c.txt")]);
+
+        test()
+            .cwd(dirs.test())
+            .run(format!("{prefix}cococo *.{{rs,toml}} HEAD@{{1}} x{{a,b}}"))
+            .expect_value_eq("a.rs b.toml HEAD@{1} x{a,b}")
+    })
+}
+
 #[apply(run_external_prefixes)]
 #[nu_test_support::test]
 #[deps(TESTBIN_COCOCO)]

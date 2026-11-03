@@ -539,9 +539,9 @@ fn ls_for_one_pattern(
                                         prefix.to_path_buf()
                                     };
 
-                                    // Bare trailing `**` (dc-glob) can match the
-                                    // start dir itself; after stripping the prefix
-                                    // that is an empty relative path → show ".".
+                                    // A match that is the prefix itself, with the
+                                    // prefix being the cwd, joins to an empty
+                                    // relative path → show ".".
                                     let joined = new_prefix.join(remainder);
                                     if joined.as_os_str().is_empty() {
                                         Some(".".to_string())
