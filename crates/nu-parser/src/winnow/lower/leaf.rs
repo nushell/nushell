@@ -138,7 +138,7 @@ impl<'s> Lower<'_, '_, 's> {
     /// `from..next..to`, either bound left out, each bound read again from its text as a value
     /// of the number shape. `None`, the error reported, when the text is no range or a bound has
     /// an error; the range's types are checked as nu checks them.
-    fn range(&mut self, span: WSpan) -> Lowered<Option<Expression>> {
+    pub(super) fn range(&mut self, span: WSpan) -> Lowered<Option<Expression>> {
         let errors = self.working_set.parse_errors.len();
         let text = self.text(span);
         let range_span = self.span(span);

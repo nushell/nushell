@@ -12,7 +12,6 @@ use nu_protocol::{
 use super::expression::operator;
 use super::leaf::is_assignment;
 use super::{Lower, Lowered, Unlowered};
-use crate::parse_calls::parse_call;
 use crate::type_check::math_result_type;
 use crate::winnow::syntax::{Span as WSpan, ast as w};
 
@@ -33,7 +32,7 @@ impl<'s> Lower<'_, '_, 's> {
             let first_span = self.span(first);
             if items.len() > 1 {
                 let spans: Vec<Span> = items.iter().map(|item| self.span(*item)).collect();
-                return Ok(parse_call(self.working_set, &spans, first_span, input_type));
+                return self.call_text(&spans, input_type);
             }
             self.working_set.error(ParseError::Expected(
                 "expression",
@@ -70,8 +69,7 @@ impl<'s> Lower<'_, '_, 's> {
             // `if` and `match` take the rest, the call headed by the first item (as nu does).
             if matches!(self.text(items[index]), "if" | "match") {
                 let spans: Vec<Span> = items[index..].iter().map(|item| self.span(*item)).collect();
-                let head = self.span(first);
-                let rhs = parse_call(self.working_set, &spans, head, None);
+                let rhs = self.call_text(&spans, None)?;
                 stack.push(op);
                 stack.push(rhs);
                 break;

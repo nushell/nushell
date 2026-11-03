@@ -86,15 +86,12 @@ const SHARED: &[&str] = &[
 /// nu-parser's parsing and lexing the winnow front end still calls, to be ported.
 const TO_PORT: &[&str] = &[
     // Leaves and values by shape.
-    "parse_expressions::parse_value",
     "parse_literals::parse_full_cell_path",
     // Externals.
     // Math and expressions.
-    "parse_expressions::parse_expression",
     // Closures, tables, patterns.
     // Signatures and types.
     // Calls and statement layouts read again.
-    "parse_calls::parse_call",
     // The lexer and the lite parser.
     "lex::delimiter_diagnostics::delimiter_structure_hint",
 ];

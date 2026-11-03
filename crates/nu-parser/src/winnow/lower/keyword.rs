@@ -25,10 +25,9 @@ use crate::winnow::syntax::{ItemsValue, Span as WSpan, ast as w};
 use crate::{
     exportable::Exportable,
     parse_alias::{alias_name, alias_name_fits_module, finish_alias},
-    parse_calls::{CallKind, parse_call},
+    parse_calls::CallKind,
     parse_captures_compile::compile_block_with_id,
     parse_def::{DefCall, finish_def, finish_extern, finish_for, yielded_type},
-    parse_expressions::parse_expression,
     parse_helpers::garbage,
     parse_module::{finish_export_env, warp_export_call},
     parse_signatures::ensure_not_reserved_variable_name,
@@ -1601,7 +1600,7 @@ impl<'s> Lower<'_, '_, 's> {
             {
                 return Err(Unlowered::Unsupported("alias target read as a call"));
             }
-            Ok(parse_expression(self.working_set, &parts, None))
+            self.expression_text(&parts, None)
         } else {
             // `parse_expression` reports a statement before it reads it as a call: dropped
             // below with the other errors, the error still leaves the closures read after it
@@ -1669,7 +1668,7 @@ impl<'s> Lower<'_, '_, 's> {
             && self.math_like_at(first)?
         {
             let errors = self.working_set.parse_errors.len();
-            let expression = parse_expression(self.working_set, &parts, None);
+            let expression = self.expression_text(&parts, None)?;
             self.working_set.parse_errors.truncate(errors);
             self.working_set.error(ParseError::CantAliasExpression(
                 expression.expr.description().to_string(),
@@ -1698,8 +1697,7 @@ impl<'s> Lower<'_, '_, 's> {
                     Err(_) => {
                         self.working_set.parse_errors.truncate(errors);
                         let parts = self.parts(target.span);
-                        let head = self.span(target_call.head.span);
-                        Ok(parse_call(self.working_set, &parts, head, None))
+                        self.call_text(&parts, None)
                     }
                 }
             }

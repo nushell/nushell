@@ -11,7 +11,7 @@ use nu_protocol::{
 };
 
 use super::{Lower, Lowered};
-use crate::parse_expressions::{check_record_key_or_value, parse_value as classic_value};
+use crate::parse_expressions::check_record_key_or_value;
 use crate::parse_helpers::extract_spread_record;
 use crate::winnow::syntax::lex::{
     GroupEnds, LexError, LexOptions, Token, TokenContents, lex_recovering,
@@ -309,8 +309,7 @@ impl<'s> Lower<'_, '_, 's> {
     }
 
     /// A `{...}` item read from its text (`parse_brace_expr`): what its first two tokens make it,
-    /// with `shape`: a record, a cell path on a record, a closure or a block, or a match block
-    /// (still nu's reader's).
+    /// with `shape`: a record, a cell path on a record, a closure, a block or a match block.
     pub(super) fn brace_text(
         &mut self,
         span: WSpan,
@@ -332,7 +331,7 @@ impl<'s> Lower<'_, '_, 's> {
         // closure without the input type).
         let braces = |this: &mut Self| match shape {
             SyntaxShape::Block => Ok(this.block_text(full, input_type)),
-            SyntaxShape::MatchBlock => Ok(classic_value(this.working_set, full, shape, input_type)),
+            SyntaxShape::MatchBlock => this.match_block_text(full, input_type),
             _ => this.closure_text(full, shape, None),
         };
         // nu probes the bytes between the first and the last. When the last character takes

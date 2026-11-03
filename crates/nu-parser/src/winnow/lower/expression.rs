@@ -372,6 +372,36 @@ impl<'s> Lower<'_, '_, 's> {
         // The left side must be a mutable variable or a cell path on one; nu reports any other
         // and goes on.
         let mut lhs = self.expression(&assignment.lhs, None)?;
+        self.check_assignment_target(&lhs);
+        let operator_span = self.span(assignment.op.span);
+        let mut operator = self.node(
+            Expr::Operator(Operator::Assignment(assignment_operator(
+                assignment.op.item,
+            ))),
+            operator_span,
+            Type::Any,
+        );
+        let rhs_span = self.span(assignment.rhs.span);
+        let rhs_block = self.block(&assignment.rhs, rhs_span, false, BlockOf::Value, input_type)?;
+        self.check_explicit_external(&rhs_block);
+        let rhs_ty = rhs_block.output_type();
+        let rhs_block_id = self.working_set.add_block(Arc::new(rhs_block));
+        let mut rhs = self.node(Expr::Subexpression(rhs_block_id), rhs_span, rhs_ty);
+        let (ty, error) = math_result_type(self.working_set, &mut lhs, &mut operator, &mut rhs);
+        if let Some(error) = error {
+            self.working_set.error(error);
+        }
+        let span = self.span(e.span);
+        Ok(self.node(
+            Expr::BinaryOp(Box::new(lhs), Box::new(operator), Box::new(rhs)),
+            span,
+            ty,
+        ))
+    }
+
+    /// The left side of an assignment, `lhs`, which must be a mutable variable, `$env` or a cell
+    /// path on one: nu reports any other and goes on.
+    pub(super) fn check_assignment_target(&mut self, lhs: &Expression) {
         match &lhs.expr {
             Expr::FullCellPath(path) => {
                 if let Expr::Var(var_id) = path.head.expr
@@ -386,19 +416,13 @@ impl<'s> Lower<'_, '_, 's> {
                 .working_set
                 .error(ParseError::AssignmentRequiresVar(lhs.span)),
         }
-        let operator_span = self.span(assignment.op.span);
-        let mut operator = self.node(
-            Expr::Operator(Operator::Assignment(assignment_operator(
-                assignment.op.item,
-            ))),
-            operator_span,
-            Type::Any,
-        );
-        let rhs_span = self.span(assignment.rhs.span);
-        let rhs_block = self.block(&assignment.rhs, rhs_span, false, BlockOf::Value, input_type)?;
-        // An external call must be explicit (`^cmd`) on the right side of an assignment. The
-        // head's span leaves out the `^`, so the byte before it is read too.
-        if let Some(Expr::ExternalCall(head, ..)) = rhs_block
+    }
+
+    /// An external call first on the right side of an assignment, `rhs`, must be explicit
+    /// (`^cmd`), else nu reports it. The head's span leaves out the `^`, so the byte before it
+    /// is read too.
+    pub(super) fn check_explicit_external(&mut self, rhs: &Block) {
+        if let Some(Expr::ExternalCall(head, ..)) = rhs
             .pipelines
             .first()
             .and_then(|pipeline| pipeline.elements.first())
@@ -415,19 +439,6 @@ impl<'s> Lower<'_, '_, 's> {
                 span: head.span,
             });
         }
-        let rhs_ty = rhs_block.output_type();
-        let rhs_block_id = self.working_set.add_block(Arc::new(rhs_block));
-        let mut rhs = self.node(Expr::Subexpression(rhs_block_id), rhs_span, rhs_ty);
-        let (ty, error) = math_result_type(self.working_set, &mut lhs, &mut operator, &mut rhs);
-        if let Some(error) = error {
-            self.working_set.error(error);
-        }
-        let span = self.span(e.span);
-        Ok(self.node(
-            Expr::BinaryOp(Box::new(lhs), Box::new(operator), Box::new(rhs)),
-            span,
-            ty,
-        ))
     }
 
     /// `NAME=value command`: the command in a closure run by `with-env` with a record of the
@@ -919,7 +930,7 @@ pub(super) fn operator(operator: w::Operator) -> Operator {
 }
 
 /// The classic parser's assignment operator for a winnow one (`parse_assignment_operator`).
-fn assignment_operator(operator: AssignmentOperator) -> Assignment {
+pub(super) fn assignment_operator(operator: AssignmentOperator) -> Assignment {
     match operator {
         AssignmentOperator::Assign => Assignment::Assign,
         AssignmentOperator::AddAssign => Assignment::AddAssign,

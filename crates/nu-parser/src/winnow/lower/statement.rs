@@ -26,7 +26,6 @@ use crate::winnow::syntax::{Span as WSpan, ast as w};
 use crate::{
     exportable::Exportable,
     lex::delimiter_diagnostics::delimiter_structure_hint,
-    parse_calls::parse_call,
     parse_captures_compile::wrap_element_with_collect,
     parse_helpers::PERCENT_FORCED_BUILTIN_PARSER_INFO,
     parse_module::{add_exportables, double_main_span},
@@ -808,8 +807,8 @@ impl<'s> Lower<'_, '_, 's> {
             if matches!(element.expr.expr, w::Expr::Assignment(_)) {
                 let statement_errors = self.working_set.parse_errors.split_off(errors);
                 let parts = self.parts(element.expr.span);
-                if let Some(&head) = parts.first() {
-                    parse_call(self.working_set, &parts, head, None);
+                if !parts.is_empty() {
+                    self.call_text(&parts, None)?;
                 }
                 self.working_set.parse_errors.extend(statement_errors);
             } else if self.working_set.parse_errors.len() > errors {

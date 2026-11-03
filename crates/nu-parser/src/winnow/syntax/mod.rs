@@ -33,6 +33,7 @@ pub mod span;
 pub use error::{Diagnostic, ErrorKind, ParseError};
 pub use parser::{BlockSink, CommandLookup, CommandType, DeclKind, ParseConfig, PredeclaredDef};
 // Only the front end (`crate::winnow`) uses these.
+pub(crate) use parser::parse_calls::item_argument;
 pub(crate) use parser::parse_expressions::is_env_variable_name;
 pub(crate) use parser::{
     AliasedKeyword, BlockStatements, Definitions, ItemsValue, TypeAliasPredecl,

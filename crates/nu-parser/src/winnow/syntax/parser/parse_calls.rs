@@ -497,6 +497,41 @@ pub(super) fn call_argument<'a>(
     })
 }
 
+/// The argument [`call_argument`] makes of the item `text` at `span`, its value left as a
+/// garbage node for the consumer to read from its text: `--`, a long flag (with its value after
+/// `=`), short flags, a spread or a positional.
+pub(crate) fn item_argument(text: &str, span: Span) -> Argument<'_> {
+    match text {
+        "--" => Argument::EndOfOptions(span),
+        _ if text.starts_with("--") && text.len() > 2 => {
+            let (name, value_span) = split_long_flag(text, span);
+            Argument::Named(NamedArgument {
+                span,
+                name,
+                long: true,
+                value: value_span.map(|value| Box::new(Expression::new(Expr::Garbage, value))),
+            })
+        }
+        _ if text.starts_with('-')
+            && text.len() > 1
+            && !is_negative_number_like(text)
+            && !text.starts_with("-..") =>
+        {
+            Argument::Named(NamedArgument {
+                span,
+                name: &text[1..],
+                long: false,
+                value: None,
+            })
+        }
+        _ if is_spread(text, b"[$({") => Argument::Spread {
+            dots: Span::new(span.start, span.start + 3),
+            expr: Expression::new(Expr::Garbage, Span::new(span.start + 3, span.end)),
+        },
+        _ => Argument::Positional(Expression::new(Expr::Garbage, span)),
+    }
+}
+
 /// The name of the long flag `text` at `span` without its dashes, and the span
 /// of its value when it is written `--name=value`, empty for `--name=`
 /// ([`parse_flag_value`]).
