@@ -83,7 +83,8 @@ fn bare_word_expand_path_glob(prefix: &str) -> Result {
 }
 
 /// With dc-glob, braces alternate in an argument that is a glob. A word with braces but no `*`,
-/// `?` or `[` isn't a glob, so it reaches the program unchanged.
+/// `?` or `[` isn't a glob, so it reaches the program unchanged. Glob matches come in
+/// filesystem order, so the arguments are sorted before comparing.
 #[apply(direct_external_prefixes)]
 #[nu_test_support::test]
 #[exp(nu_experimental::DC_GLOB)]
@@ -94,8 +95,10 @@ fn dc_glob_braces_in_external_arguments(prefix: &str) -> Result {
 
         test()
             .cwd(dirs.test())
-            .run(format!("{prefix}cococo *.{{rs,toml}} HEAD@{{1}} x{{a,b}}"))
-            .expect_value_eq("a.rs b.toml HEAD@{1} x{a,b}")
+            .run(format!(
+                "{prefix}cococo *.{{rs,toml}} HEAD@{{1}} x{{a,b}} | split row ' ' | sort"
+            ))
+            .expect_value_eq(["HEAD@{1}", "a.rs", "b.toml", "x{a,b}"])
     })
 }
 

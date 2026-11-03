@@ -345,13 +345,8 @@ fn glob_to(target: &Path, depth: usize, state: WalkState<'_>) {
                 handle_path_candidate(&parent_path, None, depth, true, state, scope)?;
             }
 
-            // All of the real results from the directory listing, in name order like the legacy
-            // backend, so the matches in one directory come out sorted. Subdirectories walked in
-            // parallel can still interleave with each other.
-            let mut results: Vec<_> = results.collect();
-            results.sort_by_cached_key(|result| {
-                result.as_ref().ok().map(|dir_entry| dir_entry.file_name())
-            });
+            // All of the real results from the directory listing, streamed in the order the
+            // filesystem returns them. Sorting would buffer the whole directory first.
             for result in results {
                 if state.interrupt.is_set() {
                     break;
