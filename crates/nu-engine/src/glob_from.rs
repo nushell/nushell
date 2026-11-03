@@ -16,6 +16,10 @@ use std::{
 /// to the user
 ///
 /// The second of the two values is an iterator over the matching filepaths.
+///
+/// With `require_literal_leading_dot` set in `options`, a glob matches a name that starts with
+/// `.` only where the pattern spells that dot out, at any depth, on either glob backend. See
+/// [`HiddenNameFilter`].
 #[allow(clippy::type_complexity)]
 pub fn glob_from(
     pattern: &Spanned<NuGlob>,
@@ -32,6 +36,8 @@ pub fn glob_from(
 > {
     let no_glob_for_pattern = matches!(pattern.item, NuGlob::DoNotExpand(_));
     let pattern_span = pattern.span;
+    let skip_hidden = options.is_some_and(|options| options.require_literal_leading_dot);
+    let mut hidden_name_filter = None;
     let (prefix, pattern) = if nu_glob::is_glob_with_backend(pattern.item.as_ref()) {
         // Pattern contains glob, split it
         let mut p = PathBuf::new();
@@ -64,6 +70,10 @@ pub fn glob_from(
         // Now expand `p` to get full prefix
         let path = expand_path_with(p, cwd, pattern.item.is_expand());
         let escaped_prefix = PathBuf::from(nu_glob::escape_with_backend(&path.to_string_lossy()));
+
+        if skip_hidden && !no_glob_for_pattern {
+            hidden_name_filter = Some(HiddenNameFilter::new(path.clone(), &just_pattern));
+        }
 
         (Some(path), escaped_prefix.join(just_pattern))
     } else {
@@ -141,7 +151,7 @@ pub fn glob_from(
             ))),
         });
 
-        Ok((prefix, Box::new(mapped)))
+        Ok((prefix, keep_allowed(mapped, hidden_name_filter)))
     } else {
         let glob_options = options.unwrap_or_default();
         let glob = nu_glob::glob_with(&pattern, glob_options, signals).map_err(|e| {
@@ -161,14 +171,125 @@ pub fn glob_from(
             ))),
         });
 
-        Ok((prefix, Box::new(mapped)))
+        Ok((prefix, keep_allowed(mapped, hidden_name_filter)))
     }
+}
+
+/// Boxes a glob's `matches`, dropping the ones `filter` doesn't allow. Errors are kept.
+fn keep_allowed(
+    matches: impl Iterator<Item = Result<PathBuf, ShellError>> + Send + 'static,
+    filter: Option<HiddenNameFilter>,
+) -> Box<dyn Iterator<Item = Result<PathBuf, ShellError>> + Send> {
+    match filter {
+        Some(filter) => Box::new(
+            matches.filter(move |path| path.as_ref().map_or(true, |path| filter.allows(path))),
+        ),
+        None => Box::new(matches),
+    }
+}
+
+/// Drops a glob's matches that reach a name starting with `.` where the pattern doesn't spell
+/// that dot out, at any depth: `*`, `?`, `[...]` and `**` never match a hidden name on their own.
+/// `.*` and `src/.cache/*` spell the dot out; so does the literal part of the pattern, the
+/// directory the glob starts from, so `.cache/*` and a glob run inside a hidden directory work.
+///
+/// The legacy backend already holds `*`, `?` and `[...]` to this through
+/// `require_literal_leading_dot`, but its `**` walks into hidden directories, and dc-glob takes no
+/// match options, so `glob_from` checks every match here instead.
+///
+/// Only a whole `**` part counts as recursive. A dc-glob part like `a**` or `{.a,b}` counts as
+/// one name that doesn't spell a dot, so its hidden matches are dropped rather than kept.
+struct HiddenNameFilter {
+    /// The directory the glob starts from.
+    start: PathBuf,
+    /// The number of components in `start`.
+    start_len: usize,
+    /// The pattern's parts below `start`.
+    parts: Vec<GlobPart>,
+}
+
+/// A part of a glob pattern, as far as hidden names go.
+#[derive(Clone, Copy)]
+enum GlobPart {
+    /// `**`: any number of names, none of them hidden.
+    Recurse,
+    /// One name, hidden exactly when the part starts with `.`.
+    One { hidden: bool },
+}
+
+impl HiddenNameFilter {
+    fn new(start: PathBuf, pattern: &Path) -> Self {
+        let parts = pattern
+            .components()
+            .map(|part| match part {
+                Component::Normal(name) if name == "**" => GlobPart::Recurse,
+                part => GlobPart::One {
+                    hidden: is_hidden(part),
+                },
+            })
+            .collect();
+        Self {
+            start_len: start.components().count(),
+            start,
+            parts,
+        }
+    }
+
+    /// Whether the match `path` may be kept.
+    fn allows(&self, path: &Path) -> bool {
+        // Both backends build every match on `start`, so most matches, the ones with no hidden
+        // name below it, are settled by skipping its components, without re-parsing it.
+        debug_assert!(
+            path.starts_with(&self.start),
+            "{path:?} isn't a match below {:?}",
+            self.start
+        );
+        if !path.components().skip(self.start_len).any(is_hidden) {
+            return true;
+        }
+        // Should a match turn up outside `start` anyway, drop it rather than guess.
+        let Ok(below) = path.strip_prefix(&self.start) else {
+            return false;
+        };
+        let names: Vec<bool> = below.components().map(is_hidden).collect();
+        dots_spelled_out(&self.parts, &names)
+    }
+}
+
+/// Whether a component is a name that starts with `.`. `.` and `..` themselves aren't names.
+fn is_hidden(component: Component) -> bool {
+    matches!(component, Component::Normal(name) if name.as_encoded_bytes().first() == Some(&b'.'))
+}
+
+/// Whether the pattern `parts` can stand for a match whose names below the start directory are
+/// hidden exactly where `names` is `true`.
+fn dots_spelled_out(parts: &[GlobPart], names: &[bool]) -> bool {
+    // `reach[j]`: the parts so far can stand for exactly the first `j` names.
+    let mut reach = vec![false; names.len() + 1];
+    reach[0] = true;
+    for part in parts {
+        match *part {
+            GlobPart::Recurse => {
+                for j in 1..=names.len() {
+                    reach[j] |= reach[j - 1] && !names[j - 1];
+                }
+            }
+            GlobPart::One { hidden } => {
+                for j in (1..=names.len()).rev() {
+                    reach[j] = reach[j - 1] && names[j - 1] == hidden;
+                }
+                reach[0] = false;
+            }
+        }
+    }
+    reach[names.len()]
 }
 
 #[cfg(test)]
 mod tests {
-    use super::glob_from;
+    use super::{HiddenNameFilter, glob_from};
     use nu_protocol::{NuGlob, Signals, Span, Spanned};
+    use rstest::rstest;
     use std::fs;
     use std::path::{Path, PathBuf};
     use std::sync::Arc;
@@ -176,6 +297,46 @@ mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
     static NEXT_ID: AtomicU64 = AtomicU64::new(0);
+
+    /// Which matches of a pattern, run from `/s`, keep a hidden name.
+    #[rstest]
+    #[case::star_plain("*", "foo", true)]
+    #[case::star_hidden("*", ".bar", false)]
+    #[case::dot_star("*.txt", ".b.txt", false)]
+    #[case::dot_spelled(".*", ".bar", true)]
+    #[case::recurse_plain("**/*.txt", "d/x.txt", true)]
+    #[case::recurse_into_hidden("**/*.txt", ".d/x.txt", false)]
+    #[case::recurse_into_nested_hidden("**/*.txt", "d/.e/x.txt", false)]
+    #[case::recurse_hidden_leaf("**/*.txt", "d/.x.txt", false)]
+    #[case::recurse_alone_is_start("**", "", true)]
+    #[case::recurse_alone_hidden("**", "d/.e", false)]
+    #[case::spelled_after_star("*/.cache", "d/.cache", true)]
+    #[case::star_before_spelled("*/.cache", ".v/.cache", false)]
+    #[case::recurse_to_spelled("**/.DS_Store", ".DS_Store", true)]
+    #[case::recurse_to_spelled_nested("**/.DS_Store", "d/.DS_Store", true)]
+    #[case::recurse_through_hidden("**/.DS_Store", ".git/.DS_Store", false)]
+    #[case::spelled_between_recurses("**/.cache/**", "a/.cache/b", true)]
+    #[case::hidden_before_spelled("**/.cache/**", ".a/.cache/b", false)]
+    #[case::hidden_after_spelled("**/.cache/**", "a/.cache/.b", false)]
+    #[case::star_after_spelled("d/.git/*", "d/.git/.x", false)]
+    #[case::parent_dir("d*/../*", "d1/../x", true)]
+    #[case::parent_dir_hidden("d*/../*", "d1/../.h", false)]
+    fn hidden_name_filter(#[case] pattern: &str, #[case] below: &str, #[case] kept: bool) {
+        let filter = HiddenNameFilter::new(PathBuf::from("/s"), Path::new(pattern));
+        assert_eq!(
+            filter.allows(&Path::new("/s").join(below)),
+            kept,
+            "`{pattern}` matching `{below}`"
+        );
+    }
+
+    /// The directory a glob starts from spells its own dots out, even outside the pattern.
+    #[test]
+    fn hidden_name_filter_ignores_hidden_start() {
+        let filter = HiddenNameFilter::new(PathBuf::from("/h/.config/nu"), Path::new("*"));
+        assert!(filter.allows(Path::new("/h/.config/nu/x")));
+        assert!(!filter.allows(Path::new("/h/.config/nu/.y")));
+    }
 
     fn unique_test_dir(prefix: &str) -> PathBuf {
         let ts = SystemTime::now()

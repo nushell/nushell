@@ -684,3 +684,36 @@ fn glob_dc_glob_missing_path_returns_empty_list() -> Result {
 
     Ok(())
 }
+
+#[test]
+#[exp(nu_experimental::DC_GLOB = false)]
+fn glob_matches_hidden_names_legacy_glob() -> Result {
+    check_glob_matches_hidden_names()
+}
+
+#[test]
+#[exp(nu_experimental::DC_GLOB)]
+fn glob_matches_hidden_names_dc_glob() -> Result {
+    check_glob_matches_hidden_names()
+}
+
+/// `glob` has no hidden-name rule: `*` and `**` match names that start with `.`, on both glob
+/// backends. It's the way to list every path, hidden ones included, where `rm`, `cp`, `mv` and
+/// `du` skip them without `--all`.
+fn check_glob_matches_hidden_names() -> Result {
+    Playground::setup("glob_matches_hidden_names", |dirs, sandbox| {
+        sandbox
+            .with_files(&[EmptyFile(".top"), EmptyFile("x")])
+            .within(".e")
+            .with_files(&[EmptyFile("y")]);
+
+        let names = |pattern: &str| -> Result<Vec<String>> {
+            test().cwd(dirs.test()).run(format!(
+                "glob '{pattern}' | each {{ path basename }} | sort"
+            ))
+        };
+        assert_eq!(names("*")?, [".e", ".top", "x"]);
+        assert_eq!(names("**/y")?, ["y"]);
+        Ok(())
+    })
+}
