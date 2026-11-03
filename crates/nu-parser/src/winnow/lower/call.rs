@@ -409,6 +409,22 @@ impl<'s> Lower<'_, '_, 's> {
         decl_id: DeclId,
         input_type: Option<&Type>,
     ) -> Lowered<(Box<Call>, Type, CallKind)> {
+        // A `--wrapped` command's arguments, which the winnow parser read as external ones.
+        let wrapped = decl_kind(self.working_set, decl_id) == DeclKind::Wrapped;
+        let outer = std::mem::replace(&mut self.wrapped_arguments, wrapped);
+        let lowered = self.signature_call(head, arguments, decl_id, input_type);
+        self.wrapped_arguments = outer;
+        lowered
+    }
+
+    /// [`Self::internal_call`] once it knows whether the command is `--wrapped`.
+    fn signature_call(
+        &mut self,
+        head: Span,
+        arguments: &[w::Argument<'s>],
+        decl_id: DeclId,
+        input_type: Option<&Type>,
+    ) -> Lowered<(Box<Call>, Type, CallKind)> {
         let mut call = Call::new(head);
         call.decl_id = decl_id;
         // Registered as `parse_internal_call` registers it.
@@ -1029,6 +1045,7 @@ impl<'s> Lower<'_, '_, 's> {
                 && !matches!(value, ItemsValue::AliasTarget | ItemsValue::Expression),
             redirection_spans: Vec::new(),
             caller_lexed: false,
+            wrapped_arguments: false,
         };
         match value {
             ItemsValue::Math => lower.math(&tree, input_type),

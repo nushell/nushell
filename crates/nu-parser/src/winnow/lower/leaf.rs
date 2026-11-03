@@ -258,6 +258,7 @@ impl<'s> Lower<'_, '_, 's> {
             alias_target: self.alias_target,
             redirection_spans: Vec::new(),
             caller_lexed: false,
+            wrapped_arguments: false,
         };
         lower.value(&tree, &SyntaxShape::Number, None)
     }

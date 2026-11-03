@@ -306,6 +306,10 @@ pub(super) struct Lower<'w, 'e, 's> {
     /// before handing it over ([`nested_block`]): read again statement by statement, it does
     /// not report that error again.
     pub(super) caller_lexed: bool,
+    /// The arguments of a call to a `--wrapped` command are being lowered, which the winnow
+    /// parser read as external arguments (a bare word a string): the lowering reads a bare word
+    /// with the parameter's shape from its text ([`Lower::leaf`]).
+    pub(super) wrapped_arguments: bool,
 }
 
 impl<'w, 'e, 's> Lower<'w, 'e, 's> {
@@ -351,6 +355,7 @@ impl<'w, 'e, 's> Lower<'w, 'e, 's> {
             alias_target: false,
             redirection_spans: Vec::new(),
             caller_lexed: false,
+            wrapped_arguments: false,
         }
     }
 

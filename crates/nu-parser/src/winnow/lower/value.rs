@@ -190,27 +190,75 @@ impl<'s> Lower<'_, '_, 's> {
     }
 
     /// An item starting with none of `$`, `(`, `{` and `[` (`parse_value`): a raw string
-    /// whatever the shape (`r#` is read first), else what the shape reads
-    /// ([`Self::leaf_by_shape`]).
+    /// whatever the shape (`r#` is read first); a value the winnow parser read as the one the
+    /// shape takes (an int, a float, a bool, `null`, a string or a path), as it is; else what
+    /// the shape reads from the item's text ([`Self::leaf_by_shape`]).
     fn leaf(&mut self, e: &w::Expression<'s>, shape: &SyntaxShape) -> Lowered<Expression> {
         let span = self.span(e.span);
         match &e.expr {
-            w::Expr::String(string) if matches!(string.quote, w::Quote::Raw(_)) => Ok(self.node(
-                Expr::RawString(string.value.to_string()),
-                span,
-                Type::String,
-            )),
+            w::Expr::String(string) if matches!(string.quote, w::Quote::Raw(_)) => {
+                return Ok(self.node(
+                    Expr::RawString(string.value.to_string()),
+                    span,
+                    Type::String,
+                ));
+            }
             // A raw string the winnow parser went on past an error in: read as nu reads it.
-            _ if self.text(e.span).starts_with("r#") => Ok(self.raw_string_text(e.span)),
+            _ if self.text(e.span).starts_with("r#") => return Ok(self.raw_string_text(e.span)),
             // nu's negation, which it reads before anything else, of a word the winnow parser
             // read otherwise (`-$nope?`).
             _ if negates(shape)
                 && let Some(negation) = self.negation_text(e.span, None)? =>
             {
-                Ok(negation)
+                return Ok(negation);
             }
-            _ => self.leaf_by_shape(e, shape),
+            _ => {}
         }
+        // The values the winnow parser read as nu reads them with the shape, taken as they are:
+        // the text readers give the same, but every leaf is a common item.
+        let (expr, ty) = match (shape, &e.expr) {
+            (SyntaxShape::Any | SyntaxShape::Int | SyntaxShape::Number, w::Expr::Int(value)) => {
+                (Expr::Int(*value), Type::Int)
+            }
+            (
+                SyntaxShape::Any | SyntaxShape::Float | SyntaxShape::Number,
+                w::Expr::Float(value),
+            ) => (Expr::Float(*value), Type::Float),
+            (SyntaxShape::Any | SyntaxShape::Boolean, w::Expr::Bool(value)) => {
+                (Expr::Bool(*value), Type::Bool)
+            }
+            (SyntaxShape::Any | SyntaxShape::Nothing, w::Expr::Nothing) => {
+                (Expr::Nothing, Type::Nothing)
+            }
+            // A bare word a `--wrapped` command's arguments hold is a string to the winnow
+            // parser whatever it spells (`1`), and read from its text.
+            (SyntaxShape::Any | SyntaxShape::String, w::Expr::String(string))
+                if !self.bare_wrapped(string) =>
+            {
+                (Expr::String(string.value.to_string()), Type::String)
+            }
+            // A word or quoted string as a path, a directory or a glob (`parse_path_like`),
+            // quoted when it has quotes (backticks do not count).
+            (
+                SyntaxShape::Filepath | SyntaxShape::Directory | SyntaxShape::GlobPattern,
+                w::Expr::String(string),
+            ) if !self.bare_wrapped(string) => {
+                let quoted = matches!(string.quote, w::Quote::Single | w::Quote::Double);
+                let value = string.value.to_string();
+                match shape {
+                    SyntaxShape::Filepath => (Expr::Filepath(value, quoted), Type::String),
+                    SyntaxShape::Directory => (Expr::Directory(value, quoted), Type::String),
+                    _ => (Expr::GlobPattern(value, quoted), Type::Glob),
+                }
+            }
+            _ => return self.leaf_by_shape(e, shape),
+        };
+        Ok(self.node(expr, span, ty))
+    }
+
+    /// Whether `string` is a bare word among a `--wrapped` command's arguments.
+    fn bare_wrapped(&self, string: &w::StringLiteral<'_>) -> bool {
+        self.wrapped_arguments && string.quote == w::Quote::Bare
     }
 
     /// `-$x` or `-(expr)` (`parse_negation`): the operand, read with any shape, negated. Its
