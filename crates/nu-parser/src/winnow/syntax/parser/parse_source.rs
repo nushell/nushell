@@ -3,7 +3,7 @@
 use crate::winnow::syntax::ast::{Expr, Expression, Where};
 use crate::winnow::syntax::input::ParseResult;
 
-use super::parse_expressions::{parse_closure_expression, parse_row_condition};
+use super::parse_expressions::{parse_closure_expression, parse_row_condition, recover_literal};
 use super::parse_keywords::KeywordCall;
 use super::tokens::Tokens;
 
@@ -34,8 +34,11 @@ pub fn parse_where<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>
 /// which takes a brace item with a tail as a value (`where {}..`).
 pub fn parse_condition<'a>(tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
     match tokens.remaining() {
+        // A closure with an error the parser goes on past is a garbage node, which the
+        // consumer reads again with nu's error (`where {|x 1}`).
         [only] if tokens.text(only).starts_with('{') && tokens.text(only).ends_with('}') => {
-            parse_closure_expression(tokens.working_set, only.span)
+            let closure = parse_closure_expression(tokens.working_set, only.span);
+            recover_literal(tokens.working_set, only.span, closure)
         }
         _ => parse_row_condition(tokens.rest_stream()),
     }

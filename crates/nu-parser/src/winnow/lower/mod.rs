@@ -53,6 +53,7 @@
 mod block_text;
 mod call;
 mod call_text;
+mod delimiter_hint;
 mod expression;
 mod keyword;
 mod layout_text;

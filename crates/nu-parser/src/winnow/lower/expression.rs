@@ -654,6 +654,18 @@ impl<'s> Lower<'_, '_, 's> {
             };
             return Ok(self.node(Expr::RowCondition(block_id), span, Type::Bool));
         }
+        // A condition the winnow parser left as garbage is tried as a closure first, its
+        // errors dropped when it reads as none.
+        if let w::Expr::Garbage = condition.expr {
+            let errors = self.working_set.parse_errors.len();
+            let closure = self.closure_text(span, &SyntaxShape::Any, None)?;
+            if self.working_set.parse_errors.len() == errors
+                && let Expr::Closure(block_id) = closure.expr
+            {
+                return Ok(self.node(Expr::RowCondition(block_id), span, Type::Bool));
+            }
+            self.working_set.parse_errors.truncate(errors);
+        }
         // `Ok(block_id)` is a row condition's block; `Err(expression)` the expression that
         // stands for the condition, where `parse_row_condition` returns early.
         let block_id = self.in_scope(|this| {

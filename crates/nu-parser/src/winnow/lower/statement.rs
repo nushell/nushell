@@ -13,6 +13,7 @@ use nu_protocol::{
     engine::StateWorkingSet,
 };
 
+use super::delimiter_hint::delimiter_structure_hint;
 use super::leaf::{is_env_name, trim_quotes};
 use super::module::{KeywordEffect, overlay_effect};
 use super::{Lower, Lowered, Unlowered};
@@ -25,7 +26,6 @@ use crate::winnow::syntax::lex::{
 use crate::winnow::syntax::{Span as WSpan, ast as w};
 use crate::{
     exportable::Exportable,
-    lex::delimiter_diagnostics::delimiter_structure_hint,
     parse_captures_compile::wrap_element_with_collect,
     parse_helpers::PERCENT_FORCED_BUILTIN_PARSER_INFO,
     parse_module::{add_exportables, double_main_span},

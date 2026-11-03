@@ -20,7 +20,6 @@ use crate::{
     parse_calls::accepts_any_bareword,
     parse_captures_compile::compile_block,
     parse_expressions::{check_record_key_or_value, table_type},
-    parse_literals::parse_full_cell_path,
     type_check::negation_type,
 };
 
@@ -476,16 +475,8 @@ impl<'s> Lower<'_, '_, 's> {
             }
             w::Expr::Record(items) => self.record(head.span, items)?,
             // A head the winnow parser read otherwise (a table with a `;` left over,
-            // `[[a b]; [1 2];].0.a`): the whole path read by nu's parser.
-            _ => {
-                let span = self.span(span);
-                return Ok(parse_full_cell_path(
-                    self.working_set,
-                    None,
-                    span,
-                    input_type,
-                ));
-            }
+            // `[[a b]; [1 2];].0.a`): the whole path read again from its text.
+            _ => return self.full_cell_path_text(span, None, input_type),
         };
         let tail = self.members(tail);
         let ty = if tail.is_empty() {

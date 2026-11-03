@@ -1,13 +1,13 @@
-//! The winnow front end parses and lexes with its own code: of the rest of nu-parser it may use
-//! only what reads no source text (the user's rule, 2026-11-02). That is the code both front
-//! ends share once a statement is parsed: the `finish_*` functions that declare, load and
-//! check, compiling and capture discovery, type checking, name lookup and the checks on a
-//! name already read, and plain data (`SHARED`). The parsing and lexing it still calls is
-//! `TO_PORT`, which shrinks to nothing as each piece gets a winnow implementation.
+//! The winnow front end parses and lexes with its own code: of the rest of nu-parser it uses
+//! only what reads no source text. That is the code both front ends share once a statement is
+//! parsed: the `finish_*` functions that declare, load and check, compiling and capture
+//! discovery, type checking, name lookup and the checks on a name already read, and plain data
+//! (`SHARED`).
 //!
 //! The test reads `src/winnow`'s sources and collects every path it names under `crate::`
-//! outside `crate::winnow` (in `use` statements and inline). Each must be in one list: a new
-//! one is classified here, and one no longer used is struck from `TO_PORT`.
+//! outside `crate::winnow` (in `use` statements and inline). Each must be in `SHARED`: a new
+//! one that reads no source text is added there, and nu-parser's parsing or lexing gets a
+//! winnow implementation instead. One no longer used is struck from it.
 #![allow(clippy::unwrap_used, reason = "tests may panic on failure")]
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -81,19 +81,6 @@ const SHARED: &[&str] = &[
     "type_check::math_result_type",
     "type_check::negation_type",
     "type_check::type_compatible",
-];
-
-/// nu-parser's parsing and lexing the winnow front end still calls, to be ported.
-const TO_PORT: &[&str] = &[
-    // Leaves and values by shape.
-    "parse_literals::parse_full_cell_path",
-    // Externals.
-    // Math and expressions.
-    // Closures, tables, patterns.
-    // Signatures and types.
-    // Calls and statement layouts read again.
-    // The lexer and the lite parser.
-    "lex::delimiter_diagnostics::delimiter_structure_hint",
 ];
 
 /// Every path under `crate::` outside `crate::winnow` that `src/winnow` names, with the files
@@ -207,20 +194,12 @@ fn winnow_front_end_uses_only_shared_nu_parser_code() {
     let used = nu_parser_paths();
     let unclassified: Vec<_> = used
         .iter()
-        .filter(|(path, _)| !SHARED.contains(&path.as_str()) && !TO_PORT.contains(&path.as_str()))
+        .filter(|(path, _)| !SHARED.contains(&path.as_str()))
         .collect();
     assert!(
         unclassified.is_empty(),
-        "nu-parser items src/winnow uses that are in neither SHARED nor TO_PORT \
-         (parsing or lexing goes to TO_PORT): {unclassified:?}"
-    );
-    let ported: Vec<_> = TO_PORT
-        .iter()
-        .filter(|path| !used.contains_key(**path))
-        .collect();
-    assert!(
-        ported.is_empty(),
-        "no longer used by src/winnow: strike from TO_PORT: {ported:?}"
+        "nu-parser items src/winnow uses that are not in SHARED (one that reads no source \
+         text goes there; parsing or lexing gets a winnow implementation): {unclassified:?}"
     );
     let unused: Vec<_> = SHARED
         .iter()

@@ -18,8 +18,7 @@ use nu_protocol::{
 };
 
 use super::list_text::ListItems;
-use super::{BlockOf, Lower, Lowered};
-use crate::parse_literals::parse_full_cell_path;
+use super::{BlockOf, Lower, Lowered, Unlowered};
 use crate::type_check::{check_range_types, negation_type};
 use crate::winnow::driver::{BlockKind, parse_block};
 use crate::winnow::lookup::EngineLookup;
@@ -458,13 +457,9 @@ impl<'s> Lower<'_, '_, 's> {
         input_type: Option<&Type>,
     ) -> Lowered<Expression> {
         let full_span = self.span(span);
+        // Text the lexer cannot end, which nu's lexer cannot end either.
         let Some(tokens) = self.cell_path_tokens(span) else {
-            return Ok(parse_full_cell_path(
-                self.working_set,
-                implicit_head,
-                full_span,
-                input_type,
-            ));
+            return Err(Unlowered::Unsupported("cell path the lexer cannot end"));
         };
         self.report_cell_path_lex_error(span);
         let Some(first) = tokens.first() else {
