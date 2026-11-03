@@ -72,7 +72,11 @@ impl Command for Du {
                 "Exclude files below this size.",
                 Some('m'),
             )
-            .switch("all", "Include hidden files if '*' is provided.", Some('a'))
+            .switch(
+                "all",
+                "Let glob patterns match hidden names (those starting with '.') at any depth.",
+                Some('a'),
+            )
             .category(Category::FileSystem)
     }
 

@@ -136,22 +136,38 @@ fn du_dc_glob_exclude_braces() -> Result {
     })
 }
 
-#[test]
-fn du_wildcards() -> Result {
+#[nu_test_support::test]
+#[exp(nu_experimental::DC_GLOB = false)]
+fn du_wildcards_legacy_glob() -> Result {
+    check_du_wildcards()
+}
+
+#[nu_test_support::test]
+#[exp(nu_experimental::DC_GLOB)]
+fn du_wildcards_dc_glob() -> Result {
+    check_du_wildcards()
+}
+
+/// A `*` or `**` given to `du` doesn't match a hidden name, at any depth, unless `-a` is given.
+fn check_du_wildcards() -> Result {
     Playground::setup("du_wildcards", |dirs, sandbox| {
-        sandbox.with_files(&[EmptyFile(".a")]);
+        sandbox
+            .with_files(&[EmptyFile(".a")])
+            .within("d")
+            .with_files(&[EmptyFile("x")])
+            .back_to_playground()
+            .within(".e")
+            .with_files(&[EmptyFile("y")]);
 
-        // by default, wildcard don't match dot files.
-        test()
-            .cwd(dirs.test())
-            .run("du * | length")
-            .expect_value_eq(0)?;
-
-        // unless `-a` flag is provided.
-        test()
-            .cwd(dirs.test())
-            .run("du -a * | length")
-            .expect_value_eq(1)
+        let names = |command: &str| -> Result<Vec<String>> {
+            test()
+                .cwd(dirs.test())
+                .run(format!("{command} | get path | path basename | sort"))
+        };
+        assert_eq!(names("du *")?, ["d"]);
+        assert_eq!(names("du **/*")?, ["d", "x"]);
+        assert_eq!(names("du -a *")?, [".a", ".e", "d"]);
+        Ok(())
     })
 }
 

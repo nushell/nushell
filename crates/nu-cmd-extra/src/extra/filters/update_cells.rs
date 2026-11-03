@@ -1,6 +1,7 @@
 use nu_engine::{ClosureEval, command_prelude::*};
 use nu_protocol::{
     DeprecationEntry, DeprecationType, PipelineIterator, ReportMode, engine::Closure,
+    shell_error::eval_block_with_input::EvalBlockWithInputError,
 };
 use std::collections::HashSet;
 
@@ -176,7 +177,7 @@ With `--recursive`, nested records and lists are descended into instead and the 
                     span,
                     columns.as_ref(),
                     recursive,
-                );
+                )?;
                 Ok(input)
             }
             _ => {
@@ -205,30 +206,36 @@ fn update_record(
     span: Span,
     cols: Option<&HashSet<String>>,
     recursive: bool,
-) {
+) -> Result<(), ShellError> {
     for (col, val) in record.iter_mut() {
         if cols.is_none_or(|columns| columns.contains(col)) {
-            *val = update_cell(closure, span, std::mem::take(val), recursive);
+            *val = update_cell(closure, span, std::mem::take(val), recursive)?;
         }
     }
+    Ok(())
 }
 
 /// Update a single cell: either run the closure on it directly, or (when `recursive`)
 /// descend through nested records and lists and run the closure on each leaf.
-fn update_cell(closure: &mut ClosureEval, span: Span, value: Value, recursive: bool) -> Value {
+fn update_cell(
+    closure: &mut ClosureEval,
+    span: Span,
+    value: Value,
+    recursive: bool,
+) -> Result<Value, ShellError> {
     if !recursive {
         return eval_value(closure, span, value);
     }
     match value {
         Value::Record { mut val, .. } => {
-            update_record(val.to_mut(), closure, span, None, true);
-            Value::record(val.into_owned(), span)
+            update_record(val.to_mut(), closure, span, None, true)?;
+            Ok(Value::record(val.into_owned(), span))
         }
         Value::List { mut vals, .. } => {
             for item in vals.to_mut() {
-                *item = update_cell(closure, span, std::mem::take(item), true);
+                *item = update_cell(closure, span, std::mem::take(item), true)?;
             }
-            Value::list(vals.into_owned(), span)
+            Ok(Value::list(vals.into_owned(), span))
         }
         leaf => eval_value(closure, span, leaf),
     }
@@ -248,7 +255,7 @@ impl Iterator for UpdateCellIterator {
     fn next(&mut self) -> Option<Self::Item> {
         let mut value = self.iter.next()?;
 
-        let value = if let Value::Record { val, .. } = &mut value {
+        let result = if let Value::Record { val, .. } = &mut value {
             let val = val.to_mut();
             update_record(
                 val,
@@ -256,21 +263,33 @@ impl Iterator for UpdateCellIterator {
                 self.span,
                 self.columns.as_ref(),
                 self.recursive,
-            );
-            value
+            )
+            .map(|()| value)
         } else {
             update_cell(&mut self.closure, self.span, value, self.recursive)
         };
 
-        Some(value)
+        Some(result.unwrap_or_else(|err| Value::error(err, self.span)))
     }
 }
 
-fn eval_value(closure: &mut ClosureEval, span: Span, value: Value) -> Value {
+fn eval_value(closure: &mut ClosureEval, span: Span, value: Value) -> Result<Value, ShellError> {
+    let input_span = value.span();
+    let input_is_error = value.is_error();
     closure
         .run_with_value(value)
         .and_then(|data| data.into_value(span))
-        .unwrap_or_else(|err| Value::error(err, span))
+        .map_err(|err| {
+            if input_is_error {
+                err
+            } else {
+                EvalBlockWithInputError::wrap(
+                    err,
+                    input_span,
+                    EvalBlockWithInputError::SOURCE_VALUE,
+                )
+            }
+        })
 }
 
 #[cfg(test)]
