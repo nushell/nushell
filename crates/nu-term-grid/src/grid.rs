@@ -401,7 +401,7 @@ impl Grid {
             }
         }
 
-        None
+        smallest_dimensions_yet
     }
 }
 
@@ -762,7 +762,14 @@ mod test {
         grid.add("a".into());
         grid.add("b".into());
 
-        assert_eq!(grid.fit_into_width(99), None);
+        // The two-column layout with one 100-wide separator doesn’t fit, but
+        // stacking both cells in a single column does.
+        let display = grid.fit_into_width(99).unwrap();
+
+        assert_eq!(display.dimensions.num_lines, 2);
+        assert_eq!(display.dimensions.widths, vec![1]);
+
+        assert_eq!(display.width(), 1);
     }
 
     #[test]
