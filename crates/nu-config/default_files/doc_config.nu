@@ -1521,16 +1521,38 @@ $env.config.tui.backdrop = { bg: default }
 # Default: "auto"
 $env.config.tui.image_protocol = "auto"
 
-# tui.file_* (color): Path cells by kind of file. `file_orphan` is a symlink whose target is gone,
-# `file_media` is audio or video, and `file_document` is a PDF or Word document. Any other file
-# is plain text.
-$env.config.tui.file_dir = { fg: blue }
-$env.config.tui.file_orphan = { bg: red }
-$env.config.tui.file_exec = { fg: green }
-$env.config.tui.file_image = { fg: yellow }
-$env.config.tui.file_media = { fg: magenta }
-$env.config.tui.file_archive = { fg: red }
-$env.config.tui.file_document = { fg: cyan }
+# tui.file_styles (list): How path cells look: `ls`'s `name` beside `type`, a `tui table --color`
+# column, and tree nodes. The first rule a file matches wins, and a file no rule matches is plain
+# text. `tui theme` replaces the whole list. A rule can ask for any of these, all of which must hold:
+#   kind: "dir", "file", "symlink" (not followed, so a link to a directory is a symlink), or
+#         "orphan" (a symlink whose target is gone)
+#   mime_type: a glob, or a list of them. From the row's `type` (`ls --mime-type`), else guessed
+#              from the extension. A directory has none.
+#   ext: an extension, or a list of them, ignoring case
+#   mode: a glob on the mode `ls -l` shows, or a list of them: "??x*" is owner-executable. A
+#         symlink's is its target's. Never matches on Windows.
+# It then looks like `fg`, `bg`, and `attr`, as a color does. Under `--icons`, `icon` replaces the
+# file's glyph, drawn in `fg` or else the glyph's usual color.
+$env.config.tui.file_styles = [
+    { kind: dir, fg: blue }
+    { kind: orphan, bg: red }
+    { kind: symlink, fg: cyan }
+    { kind: file, mode: "??x*", fg: green }
+    { mime_type: "image/*", fg: yellow }
+    { mime_type: ["audio/*", "video/*"], fg: magenta }
+    {
+        mime_type: [
+            "application/*zip*", "application/*rar*", "application/x-7z*", "application/*tar",
+            "application/x-xz", "application/*zstd", "application/x-lzma", "application/x-compress*",
+            "application/x-cpio", "application/x-arj", "application/x-xar", "application/vnd.ms-cab*"
+        ]
+        fg: red
+    }
+    {
+        mime_type: ["application/pdf", "application/msword", "application/rtf", "application/*wordprocessingml*"]
+        fg: cyan
+    }
+]
 
 # tui.title_caps / tui.status_caps / tui.tab_caps / tui.selected_caps (record): `{ open, close }`
 # glyphs of one cell each, or empty, drawn in the text's fill color at the ends of the title bar's

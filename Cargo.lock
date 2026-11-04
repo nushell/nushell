@@ -5529,6 +5529,7 @@ dependencies = [
  "nu-command",
  "nu-engine",
  "nu-explore",
+ "nu-glob",
  "nu-protocol",
  "nu-system",
  "nu-test-support",
@@ -5538,6 +5539,7 @@ dependencies = [
  "ratatui-image",
  "serde",
  "typetag",
+ "umask",
  "unicode-width 0.2.2",
 ]
 

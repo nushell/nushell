@@ -54,7 +54,7 @@ impl Command for TuiTable {
                 .named(
                     "color",
                     SyntaxShape::String,
-                    "A column to color and icon as paths (directories blue, executables green, images yellow, …; `$env.config.tui.file_*`): for a column of bare names beside the data's own `name`.",
+                    "A column to color and icon as paths (directories blue, executables green, images yellow, …; `$env.config.tui.file_styles`): for a column of bare names beside the data's own `name`.",
                     None,
                 ),
         )

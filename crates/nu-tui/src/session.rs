@@ -8,7 +8,7 @@ use crate::image::Images;
 use crate::keys::{KeyPress, normalize_bind, single_char};
 use crate::layout::{SplitterHandle, assign_areas, subtree_ids};
 use crate::stream::trim_front;
-use crate::theme::{FileKind, Theme};
+use crate::theme::{FileFacts, FileKind, FileStyle, Theme};
 use crate::tree::TreeRow;
 use crate::widget::{Effect, Size, Widget, WidgetKind, WidgetState};
 use crate::widgets::label::Slot;
@@ -23,7 +23,7 @@ use ratatui::style::Style;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ops::Deref;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -199,18 +199,17 @@ pub struct Session {
     tree_cache: RefCell<HashMap<String, Rc<Vec<TreeRow>>>>,
 }
 
-/// The owner's execute bit, the test yazi's `is = "exec"` makes. Nothing
-/// is executable by mode on Windows.
-fn is_executable(meta: &std::fs::Metadata) -> bool {
+/// The file's mode as `ls -l` shows it. Windows has none.
+fn mode_string(meta: &std::fs::Metadata) -> Option<String> {
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        meta.permissions().mode() & 0o100 != 0
+        Some(umask::Mode::from(meta.permissions().mode()).to_string())
     }
     #[cfg(not(unix))]
     {
         let _ = meta;
-        false
+        None
     }
 }
 
@@ -1791,36 +1790,44 @@ impl Session {
             .unwrap_or(full)
     }
 
-    /// What the file a path cell stands for is, for its color. The disk
-    /// decides where the file exists: a directory, a symlink with no
-    /// target, an executable (by the owner's bit, as yazi), else its mime
-    /// type. A row not on disk goes by its `type` column (`ls` gives `dir`
-    /// or, with `--mime-type`, the mime) and the name's extension.
-    fn file_kind(&self, row: &Value, path: &str) -> FileKind {
-        let disk = self.disk_path(row, path);
+    /// What the `file_styles` rules see of the file a path cell stands
+    /// for. The disk decides where the file exists: its kind and, through a
+    /// symlink, its target's mode. A row not on disk goes by its `type`
+    /// column (`ls` gives `dir` or, with `--mime-type`, the mime). The mime
+    /// is that column's where it holds one, else the name's guess.
+    fn file_facts<'a>(&self, row: &'a Value, disk: &Path) -> FileFacts<'a> {
         let row_type = row
             .as_record()
             .ok()
             .and_then(|r| r.get("type"))
             .and_then(|t| t.as_str().ok());
-        match std::fs::metadata(&disk) {
-            Ok(meta) if meta.is_dir() => return FileKind::Dir,
-            Ok(meta) if is_executable(&meta) => return FileKind::Exec,
-            Ok(_) => {}
-            // A symlink the disk has but cannot follow.
-            Err(_) if disk.is_symlink() => return FileKind::Orphan,
-            Err(_) if row_type == Some("dir") => return FileKind::Dir,
-            Err(_) => {}
-        }
-        let guessed;
-        let mime = match row_type {
-            Some(mime) if mime.contains('/') => mime,
-            _ => {
-                guessed = mime_guess::from_path(&disk).first_raw().unwrap_or_default();
-                guessed
-            }
+        let meta = std::fs::metadata(disk).ok();
+        let kind = match &meta {
+            None if disk.is_symlink() => FileKind::Orphan,
+            _ if disk.is_symlink() => FileKind::Symlink,
+            Some(meta) if meta.is_dir() => FileKind::Dir,
+            None if row_type == Some("dir") => FileKind::Dir,
+            _ => FileKind::File,
         };
-        FileKind::from_mime(mime)
+        let mime = match row_type {
+            _ if kind == FileKind::Dir => None,
+            Some(mime) if mime.contains('/') => Some(mime),
+            _ => mime_guess::from_path(disk).first_raw(),
+        };
+        FileFacts {
+            kind,
+            mime,
+            ext: disk
+                .extension()
+                .map(|ext| ext.to_string_lossy().to_lowercase()),
+            mode: meta.as_ref().and_then(mode_string),
+        }
+    }
+
+    /// The `file_styles` rule for the file a path cell stands for.
+    fn file_style(&self, row: &Value, path: &str) -> Option<&FileStyle> {
+        let disk = self.disk_path(row, path);
+        self.theme.file_style(&self.file_facts(row, &disk))
     }
 
     pub fn format_value(&self, value: &Value) -> String {
@@ -1856,7 +1863,7 @@ impl Session {
         if self.is_path_column(column, row, path_column)
             && let Some(path) = value.as_str().ok()
         {
-            return (text, self.theme.path_cell(self.file_kind(row, path)));
+            return (text, self.theme.path_cell(self.file_style(row, path)));
         }
         let style = match computer {
             Some(computer) => self.theme.value_cell(&value, computer),
@@ -1865,9 +1872,9 @@ impl Session {
         (text, style)
     }
 
-    /// The file icon `--icons` puts before a path cell, in devicons' color
-    /// for it, as `table --icons` and `grid --icons` draw. `None` for a
-    /// cell that is not a path.
+    /// The file icon `--icons` puts before a path cell: its rule's `icon`,
+    /// else devicons' as `table --icons` and `grid --icons` draw. `None` for
+    /// a cell that is not a path.
     pub fn path_icon(
         &self,
         row: &Value,
@@ -1880,10 +1887,19 @@ impl Session {
         }
         let path = row.as_record().ok()?.get(column)?.as_str().ok()?;
         let icon = icon_for_file(&self.disk_path(row, path), &None);
-        Some(ratatui::text::Span::styled(
-            format!("{} ", icon.icon),
-            self.theme.icon(icon.color),
-        ))
+        let span = match self
+            .file_style(row, path)
+            .filter(|rule| rule.icon().is_some())
+        {
+            Some(rule) => ratatui::text::Span::styled(
+                format!("{} ", rule.icon().unwrap_or_default()),
+                self.theme.rule_icon(rule, icon.color),
+            ),
+            None => {
+                ratatui::text::Span::styled(format!("{} ", icon.icon), self.theme.icon(icon.color))
+            }
+        };
+        Some(span)
     }
 
     /// Style of a tree node or list item: the file palette for paths, else
@@ -1893,7 +1909,7 @@ impl Session {
         if self.is_path_column("name", row, None)
             && let Some(path) = crate::widgets::preview::row_path(row)
         {
-            return self.theme.path_cell(self.file_kind(row, &path));
+            return self.theme.path_cell(self.file_style(row, &path));
         }
         match computer {
             Some(computer) => self.theme.value_cell(row, computer),

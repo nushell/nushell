@@ -31,17 +31,21 @@
 #   tab_inactive       the other tabs' titles
 #   progress           the reached part of `tui progress`'s bar (`muted` beyond)
 #   button             `tui button`
-#   file_dir           a path cell by what the file is: a directory,
-#   file_orphan        a symlink whose target is gone (`bg` reads best),
-#   file_exec          an executable, an image, audio or video, an archive,
-#   file_image         a PDF or Word document. Any other file is plain text.
-#   file_media         Path cells are `ls`'s `name` beside `type`, a
-#   file_archive       `tui table --color <column>`, and tree nodes.
-#   file_document
+#   file_styles        path cells: `ls`'s `name` beside `type`, a
+#                      `tui table --color <column>`, and tree nodes. A list
+#                      of rules, the first a file matches winning; see below
 #
 # A color is what `$env.config.color_config` takes: a color name, `#rrggbb`,
 # or `{fg, bg, attr}` where `attr` is letters: `b` bold, `d` dim,
 # `i` italic, `u` underline, `r` reverse.
+#
+# A `file_styles` rule asks for any of these, all of which must hold:
+#   kind               dir, file, symlink, or orphan (its target is gone)
+#   mime_type          a glob, or a list of them: `image/*`
+#   ext                an extension, or a list, ignoring case: `nu`
+#   mode               a glob on what `ls -l` shows, or a list: `??x*`
+# and looks like `fg`, `bg`, `attr`, and, under `--icons`, `icon`, which
+# replaces the file's glyph. A file no rule matches is plain text.
 #
 # Glyph slots, strings rather than colors. The caps are `{open, close}`,
 # one cell each, drawn in the text's fill color, so with powerline's
@@ -75,13 +79,16 @@ const THEMES = {
         tab_inactive: { fg: "#d8dee9", bg: "#3b4252" }
         progress: { fg: "#a3be8c" }                     # nord14
         button: { fg: "#2e3440", bg: "#81a1c1" }        # on nord9
-        file_dir: { fg: "#81a1c1" }                     # nord9
-        file_orphan: { bg: "#bf616a" }                  # nord11
-        file_exec: { fg: "#a3be8c" }                    # nord14
-        file_image: { fg: "#ebcb8b" }                   # nord13
-        file_media: { fg: "#b48ead" }                   # nord15
-        file_archive: { fg: "#d08770" }                 # nord12
-        file_document: { fg: "#8fbcbb" }                # nord7
+        file_styles: [
+            { kind: dir, fg: "#81a1c1" }                 # nord9
+            { kind: orphan, bg: "#bf616a" }              # nord11
+            { kind: symlink, fg: "#88c0d0" }             # nord8
+            { kind: file, mode: "??x*", fg: "#a3be8c" }  # nord14
+            { mime_type: "image/*", fg: "#ebcb8b" }     # nord13
+            { mime_type: ["audio/*" "video/*"], fg: "#b48ead" }   # nord15
+            { mime_type: ["application/*zip*" "application/*tar" "application/x-7z*"], fg: "#d08770" }   # nord12
+            { mime_type: ["application/pdf" "application/msword"], fg: "#8fbcbb" }  # nord7
+        ]
         # Powerline's half circles, U+E0B6 and U+E0B4 (a Nerd Font): the
         # pills yazi's bars and tabs are drawn with.
         title_caps: { open: "\u{e0b6}", close: "\u{e0b4}" }
@@ -110,13 +117,16 @@ const THEMES = {
         tab_inactive: { fg: "#ebdbb2", bg: "#3c3836" }
         progress: { fg: "#b8bb26" }                     # green
         button: { fg: "#282828", bg: "#83a598" }        # on blue
-        file_dir: { fg: "#83a598" }                     # blue
-        file_orphan: { bg: "#fb4934" }                  # red
-        file_exec: { fg: "#b8bb26" }                    # green
-        file_image: { fg: "#fabd2f" }                   # yellow
-        file_media: { fg: "#d3869b" }                   # purple
-        file_archive: { fg: "#fb4934" }                 # red
-        file_document: { fg: "#8ec07c" }                # aqua
+        file_styles: [
+            { kind: dir, fg: "#83a598" }                 # blue
+            { kind: orphan, bg: "#fb4934" }              # red
+            { kind: symlink, fg: "#8ec07c" }             # aqua
+            { kind: file, mode: "??x*", fg: "#b8bb26" }  # green
+            { mime_type: "image/*", fg: "#fabd2f" }     # yellow
+            { mime_type: ["audio/*" "video/*"], fg: "#d3869b" }   # purple
+            { mime_type: ["application/*zip*" "application/*tar" "application/x-7z*"], fg: "#fb4934" }   # red
+            { mime_type: ["application/pdf" "application/msword"], fg: "#8ec07c" }  # aqua
+        ]
         # Plain Unicode half-circles: no special font needed.
         title_caps: { open: "◖", close: "◗" }
         tab_caps: { open: "◖", close: "◗" }

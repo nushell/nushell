@@ -43,8 +43,8 @@
 
 # Defaults, under anything set before the script runs: `theme` holds slots
 # laid over `$env.config.tui` (`tui theme`), so
-# `$env.file-browser.theme.file_dir = cyan` recolors the directories here
-# and nowhere else. Previewers append to `preview.plugins`.
+# `$env.file-browser.theme.selected = { bg: "#3b4252" }` recolors the
+# highlighted row here and nowhere else. Previewers append to `preview.plugins`.
 $env.file-browser = {
     preview: {
         raster_px: 1600         # width of rasterised SVG and PDF pages

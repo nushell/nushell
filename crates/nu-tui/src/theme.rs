@@ -4,14 +4,17 @@
 //! or `{fg, bg, attr}`); see `default_tui` in nu-protocol for the defaults.
 //! `border_type` names the `table --theme` whose outline borders draw.
 //! Table cells follow `color_config` per value type, through the converters
-//! shared with `explore`. Path cells follow the `file_*` slots: yazi's
-//! palette by kind of file (directory, executable, image, …), not
+//! shared with `explore`. Path cells follow `file_styles`, an ordered list of
+//! rules on the kind of file, its mime type, extension, and mode, not
 //! `LS_COLORS`, whose default theme paints some names on a background.
 
-use nu_color_config::{StyleComputer, get_color_map, lookup_ansi_color_style};
+use nu_color_config::{
+    StyleComputer, color_record_to_nustyle, get_color_map, lookup_ansi_color_style,
+};
 use nu_explore::style::{nu_ansi_color_to_tui_color, nu_style_to_tui, text_style_to_tui_style};
+use nu_glob::Pattern;
 use nu_protocol::{
-    ShellError, TableMode, Value,
+    Config, ShellError, TableMode, Value,
     engine::{EngineState, Stack},
     shell_error::generic::GenericError,
 };
@@ -19,6 +22,7 @@ use ratatui::style::{Color, Modifier, Style};
 use ratatui::symbols::border;
 use std::collections::HashMap;
 use std::ops::RangeInclusive;
+use std::sync::{Arc, LazyLock};
 use unicode_width::UnicodeWidthStr;
 
 /// The border of widgets without their own `--border` when
@@ -27,7 +31,7 @@ const DEFAULT_BORDER: TableMode = TableMode::Single;
 
 /// The color slots `$env.config.tui` and `tui theme` take, and the two
 /// fills.
-pub const COLOR_SLOTS: [&str; 21] = [
+pub const COLOR_SLOTS: [&str; 14] = [
     "title_bar",
     "status_bar",
     "border",
@@ -42,13 +46,6 @@ pub const COLOR_SLOTS: [&str; 21] = [
     "button",
     "surface",
     "backdrop",
-    "file_dir",
-    "file_orphan",
-    "file_exec",
-    "file_image",
-    "file_media",
-    "file_archive",
-    "file_document",
 ];
 
 /// The glyph slots: strings, or `{open, close}` and `{on, off}` records.
@@ -67,7 +64,9 @@ pub const GLYPH_SLOTS: [&str; 9] = [
 
 /// Every key `$env.config.tui` and `tui theme` take.
 pub fn is_slot(name: &str) -> bool {
-    name == "border_type" || COLOR_SLOTS.contains(&name) || GLYPH_SLOTS.contains(&name)
+    matches!(name, "border_type" | "file_styles")
+        || COLOR_SLOTS.contains(&name)
+        || GLYPH_SLOTS.contains(&name)
 }
 
 /// Two glyphs round a run of text, as `{open: "\u{e0b6}", close:
@@ -329,8 +328,9 @@ pub struct Theme {
     tab_inactive: Style,
     progress: Style,
     button: Style,
-    /// `file_<kind>`: what a path cell of each [`FileKind`] looks like.
-    files: [(FileKind, Style); 7],
+    /// `file_styles`: how path cells look, the first matching rule winning.
+    /// Shared, since the theme is cloned for every frame.
+    file_styles: Arc<[FileStyle]>,
     /// `$env.config.tui.border_type`: the border of widgets without their
     /// own `--border`.
     border_type: TableMode,
@@ -365,78 +365,156 @@ impl Default for Theme {
             tab_inactive: Style::default().fg(Color::DarkGray),
             progress: Style::default().fg(Color::Green),
             button: Style::default().fg(Color::White).bg(Color::Blue),
-            files: [
-                (FileKind::Dir, Style::default().fg(Color::Blue)),
-                (FileKind::Orphan, Style::default().bg(Color::Red)),
-                (FileKind::Exec, Style::default().fg(Color::Green)),
-                (FileKind::Image, Style::default().fg(Color::Yellow)),
-                (FileKind::Media, Style::default().fg(Color::Magenta)),
-                (FileKind::Archive, Style::default().fg(Color::Red)),
-                (FileKind::Document, Style::default().fg(Color::Cyan)),
-            ],
+            file_styles: default_file_styles(),
             border_type: DEFAULT_BORDER,
             glyphs: Glyphs::default(),
         }
     }
 }
 
-/// What a path cell is, for its color: the kinds yazi's default
-/// `[filetype]` rules tell apart. `Other` is every remaining file and
-/// draws as plain text.
+/// What a path cell's file is on disk. A symlink is not followed for this:
+/// one that resolves is [`Symlink`](Self::Symlink), whatever it points at.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FileKind {
     Dir,
+    File,
+    Symlink,
     /// A symlink whose target is gone.
     Orphan,
-    Exec,
-    Image,
-    /// Audio or video.
-    Media,
-    Archive,
-    /// PDF, Word, RTF.
-    Document,
-    Other,
 }
 
 impl FileKind {
-    /// The kind a mime type names, for a file that is not a directory,
-    /// an orphan, or executable: yazi's rules on the type and subtype.
-    pub fn from_mime(mime: &str) -> Self {
-        let Some((kind, subtype)) = mime.split_once('/') else {
-            return Self::Other;
-        };
-        // `x-` and `vnd.` prefixes say nothing about the kind.
-        let subtype = subtype.trim_start_matches("x-").trim_start_matches("vnd.");
-        let is = |names: &[&str]| names.iter().any(|name| subtype.starts_with(name));
-        match kind {
-            "image" => Self::Image,
-            "audio" | "video" => Self::Media,
-            "application"
-                if is(&[
-                    "zip", "rar", "7z", "tar", "gzip", "xz", "zstd", "bzip", "lzma", "compress",
-                    "archive", "cpio", "arj", "xar", "ms-cab",
-                ]) =>
-            {
-                Self::Archive
-            }
-            "application" if is(&["pdf", "doc", "msword", "rtf"]) => Self::Document,
-            _ => Self::Other,
+    const NAMES: [&str; 4] = ["dir", "file", "symlink", "orphan"];
+
+    fn parse(name: &str) -> Option<Self> {
+        match name {
+            "dir" => Some(Self::Dir),
+            "file" => Some(Self::File),
+            "symlink" => Some(Self::Symlink),
+            "orphan" => Some(Self::Orphan),
+            _ => None,
         }
     }
+}
 
-    /// The `$env.config.tui` slot for this kind, if it has one.
-    fn slot(self) -> Option<&'static str> {
-        Some(match self {
-            Self::Dir => "file_dir",
-            Self::Orphan => "file_orphan",
-            Self::Exec => "file_exec",
-            Self::Image => "file_image",
-            Self::Media => "file_media",
-            Self::Archive => "file_archive",
-            Self::Document => "file_document",
-            Self::Other => return None,
-        })
+/// What a `file_styles` rule can look at. A field that is `None` (a
+/// directory's mime type, a mode on Windows) matches no rule that asks for it.
+#[derive(Debug)]
+pub struct FileFacts<'a> {
+    pub kind: FileKind,
+    pub mime: Option<&'a str>,
+    /// The extension, lowercased.
+    pub ext: Option<String>,
+    /// As `ls -l` shows it: `rwxr-xr-x`.
+    pub mode: Option<String>,
+}
+
+/// One rule of `$env.config.tui.file_styles`: what a file must be, all of it,
+/// and how it then looks. The first rule a file matches is the one it gets.
+#[derive(Debug, Default)]
+pub struct FileStyle {
+    kind: Option<FileKind>,
+    mime_types: Vec<Pattern>,
+    exts: Vec<String>,
+    modes: Vec<Pattern>,
+    style: Style,
+    icon: Option<String>,
+}
+
+impl FileStyle {
+    fn parse(value: &Value) -> Result<Self, ShellError> {
+        let mut rule = Self {
+            style: config_style(color_record_to_nustyle(value)),
+            ..Self::default()
+        };
+        for (field, value) in value.as_record()? {
+            match field.as_str() {
+                "kind" => {
+                    let name = value.as_str()?;
+                    rule.kind =
+                        Some(
+                            FileKind::parse(name).ok_or_else(|| ShellError::InvalidValue {
+                                valid: format!("one of {}", FileKind::NAMES.join(", ")),
+                                actual: name.into(),
+                                span: value.span(),
+                            })?,
+                        );
+                }
+                "mime_type" => rule.mime_types = patterns(value)?,
+                "mode" => rule.modes = patterns(value)?,
+                "ext" => {
+                    rule.exts = strings(value)?.into_iter().map(str::to_lowercase).collect();
+                }
+                "icon" => rule.icon = Some(value.as_str()?.to_string()),
+                "fg" | "bg" | "attr" => {}
+                _ => {
+                    return Err(ShellError::InvalidValue {
+                        valid: "one of kind, mime_type, ext, mode, fg, bg, attr, icon".into(),
+                        actual: field.clone(),
+                        span: value.span(),
+                    });
+                }
+            }
+        }
+        Ok(rule)
     }
+
+    fn matches(&self, file: &FileFacts) -> bool {
+        let glob = |patterns: &[Pattern], text: Option<&str>| {
+            patterns.is_empty() || text.is_some_and(|text| patterns.iter().any(|p| p.matches(text)))
+        };
+        self.kind.is_none_or(|kind| kind == file.kind)
+            && glob(&self.mime_types, file.mime)
+            && glob(&self.modes, file.mode.as_deref())
+            && (self.exts.is_empty()
+                || file.ext.as_ref().is_some_and(|ext| self.exts.contains(ext)))
+    }
+
+    /// The glyph that replaces `devicons`' under `--icons`.
+    pub fn icon(&self) -> Option<&str> {
+        self.icon.as_deref()
+    }
+}
+
+/// A field that takes one string or a list of them.
+fn strings(value: &Value) -> Result<Vec<&str>, ShellError> {
+    match value {
+        Value::List { vals, .. } => vals.iter().map(Value::as_str).collect(),
+        other => Ok(vec![other.as_str()?]),
+    }
+}
+
+/// A field that takes one glob or a list of them.
+fn patterns(value: &Value) -> Result<Vec<Pattern>, ShellError> {
+    strings(value)?
+        .into_iter()
+        .map(|glob| {
+            Pattern::new(glob).map_err(|err| ShellError::InvalidValue {
+                valid: format!("a glob ({err})"),
+                actual: glob.into(),
+                span: value.span(),
+            })
+        })
+        .collect()
+}
+
+/// Read a `file_styles` list, as `tui theme` and `Theme::from_config` do.
+pub fn parse_file_styles(value: &Value) -> Result<Vec<FileStyle>, ShellError> {
+    value.as_list()?.iter().map(FileStyle::parse).collect()
+}
+
+/// The rules in `default_tui`, read once: the theme is built with them
+/// before any config applies.
+fn default_file_styles() -> Arc<[FileStyle]> {
+    static DEFAULT: LazyLock<Arc<[FileStyle]>> = LazyLock::new(|| {
+        Config::default()
+            .tui
+            .get("file_styles")
+            .and_then(|value| parse_file_styles(value).ok())
+            .unwrap_or_default()
+            .into()
+    });
+    DEFAULT.clone()
 }
 
 impl Theme {
@@ -458,9 +536,7 @@ impl Theme {
             tab_inactive: Style::default(),
             progress: Style::default(),
             button: Style::default().add_modifier(Modifier::REVERSED),
-            files: Self::default()
-                .files
-                .map(|(kind, _)| (kind, Style::default())),
+            file_styles: default_file_styles(),
             border_type: DEFAULT_BORDER,
             glyphs: Glyphs::default(),
         }
@@ -482,6 +558,12 @@ impl Theme {
             .and_then(|value| value.as_str().ok())
             .and_then(TableMode::from_tui_border)
             .unwrap_or(DEFAULT_BORDER);
+        // Bad rules keep the default list, as a bad color does. `tui theme`
+        // reports them; a plain theme still takes the rules' icons.
+        let file_styles = tui
+            .get("file_styles")
+            .and_then(|value| parse_file_styles(value).ok())
+            .map_or_else(default_file_styles, Into::into);
         let mut glyphs = Glyphs::default();
         for name in GLYPH_SLOTS {
             if let Some(value) = tui.get(name) {
@@ -495,6 +577,7 @@ impl Theme {
         if !config.use_ansi_coloring.get_for(engine_state, is_terminal) {
             return Self {
                 border_type,
+                file_styles,
                 glyphs,
                 ..Self::plain()
             };
@@ -502,6 +585,7 @@ impl Theme {
         let colors = get_color_map(&tui);
         let mut theme = Self {
             border_type,
+            file_styles,
             glyphs,
             ..Self::default()
         };
@@ -522,11 +606,6 @@ impl Theme {
         slot("tab_inactive", &mut theme.tab_inactive);
         slot("progress", &mut theme.progress);
         slot("button", &mut theme.button);
-        for (kind, style) in &mut theme.files {
-            if let Some(name) = kind.slot() {
-                slot(name, style);
-            }
-        }
         // A fill is one color: a record's `bg`, or a bare color
         // (`surface: default`), which parses as a foreground.
         let fill = |name: &str, target: &mut Color| {
@@ -650,16 +729,26 @@ impl Theme {
         self.on_surface(text_style_to_tui_style(computer.style_primitive(value)))
     }
 
-    /// Style a path cell by what the file is. `Other` files are plain
-    /// text, as in yazi.
-    pub fn path_cell(&self, kind: FileKind) -> Style {
-        if !self.colored {
-            return self.text();
+    /// The first `file_styles` rule the file matches.
+    pub fn file_style(&self, file: &FileFacts) -> Option<&FileStyle> {
+        self.file_styles.iter().find(|rule| rule.matches(file))
+    }
+
+    /// Style a path cell by its rule. A file no rule matches is plain text.
+    pub fn path_cell(&self, rule: Option<&FileStyle>) -> Style {
+        match rule {
+            Some(rule) if self.colored => self.on_surface(rule.style),
+            _ => self.text(),
         }
-        self.files
-            .iter()
-            .find(|(k, _)| *k == kind)
-            .map_or_else(|| self.text(), |(_, style)| self.on_surface(*style))
+    }
+
+    /// Style for a rule's own icon: the rule's `fg`, else `color`, the
+    /// `#rrggbb` devicons gives the file.
+    pub fn rule_icon(&self, rule: &FileStyle, color: &str) -> Style {
+        match rule.style.fg {
+            Some(fg) if self.colored => self.on_surface(Style::default().fg(fg)),
+            _ => self.icon(color),
+        }
     }
 
     /// Style for a file icon, from the `#rrggbb` devicons gives it.
@@ -700,16 +789,138 @@ mod tests {
         assert_eq!(s.fg, Some(Color::Red));
     }
 
-    #[test]
-    fn path_cells_follow_yazi_palette_and_plain_files_have_no_foreground() {
+    /// A regular file with this mime type.
+    fn file(mime: &str) -> FileFacts<'_> {
+        FileFacts {
+            kind: FileKind::File,
+            mime: Some(mime),
+            ext: None,
+            mode: Some("rw-r--r--".into()),
+        }
+    }
+
+    /// The `fg` of the rule the default list picks.
+    fn default_fg(file: &FileFacts) -> Option<Color> {
         let theme = Theme::default();
-        assert_eq!(theme.path_cell(FileKind::Other).fg, None);
-        assert_eq!(theme.path_cell(FileKind::Dir).fg, Some(Color::Blue));
-        assert_eq!(theme.path_cell(FileKind::Orphan).bg, Some(Color::Red));
-        assert_eq!(theme.path_cell(FileKind::Exec).fg, Some(Color::Green));
-        // Every kind draws on the surface, as other cells do.
-        assert_eq!(theme.path_cell(FileKind::Dir).bg, Some(theme.surface));
-        assert_eq!(Theme::plain().path_cell(FileKind::Dir).fg, None);
+        theme.path_cell(theme.file_style(file)).fg
+    }
+
+    fn rules(nuon: &[Value]) -> Vec<FileStyle> {
+        parse_file_styles(&Value::test_list(nuon.to_vec())).expect("valid rules")
+    }
+
+    #[test]
+    fn default_rules_by_kind_mode_and_mime() {
+        let theme = Theme::default();
+        let of = |kind| FileFacts {
+            kind,
+            mime: None,
+            ext: None,
+            mode: None,
+        };
+        assert_eq!(default_fg(&of(FileKind::Dir)), Some(Color::Blue));
+        assert_eq!(default_fg(&of(FileKind::Symlink)), Some(Color::Cyan));
+        assert_eq!(
+            theme.path_cell(theme.file_style(&of(FileKind::Orphan))).bg,
+            Some(Color::Red)
+        );
+        let exec = FileFacts {
+            mode: Some("rwxr-xr-x".into()),
+            ..file("image/png")
+        };
+        assert_eq!(default_fg(&exec), Some(Color::Green));
+        // No rule: plain text on the surface.
+        assert_eq!(default_fg(&file("text/plain")), None);
+        assert_eq!(
+            theme.path_cell(theme.file_style(&file("text/plain"))).bg,
+            Some(theme.surface)
+        );
+        // A plain theme has no colors, whatever the rule.
+        let plain = Theme::plain();
+        assert_eq!(
+            plain.path_cell(plain.file_style(&of(FileKind::Dir))).fg,
+            None
+        );
+        for (mime, fg) in [
+            ("image/png", Some(Color::Yellow)),
+            ("audio/mpeg", Some(Color::Magenta)),
+            ("video/mp4", Some(Color::Magenta)),
+            ("application/zip", Some(Color::Red)),
+            ("application/x-tar", Some(Color::Red)),
+            ("application/x-7z-compressed", Some(Color::Red)),
+            ("application/vnd.rar", Some(Color::Red)),
+            ("application/gzip", Some(Color::Red)),
+            ("application/pdf", Some(Color::Cyan)),
+            ("application/msword", Some(Color::Cyan)),
+            ("application/json", None),
+            ("text/plain", None),
+        ] {
+            assert_eq!(default_fg(&file(mime)), fg, "{mime}");
+        }
+    }
+
+    #[test]
+    fn the_first_matching_rule_wins_and_every_field_must_match() {
+        use nu_protocol::record;
+        let s = Value::test_string;
+        let list = rules(&[
+            Value::test_record(record! {
+                "kind" => s("dir"), "ext" => s("nu"), "fg" => s("red"),
+            }),
+            Value::test_record(record! { "ext" => s("NU"), "fg" => s("green") }),
+            Value::test_record(record! {
+                "mime_type" => Value::test_list(vec![s("text/*"), s("image/*")]),
+                "fg" => s("blue"),
+            }),
+            Value::test_record(record! { "mode" => s("??x*"), "fg" => s("cyan") }),
+            Value::test_record(record! { "fg" => s("white") }),
+        ]);
+        let picked = |file: &FileFacts| {
+            let index = list.iter().position(|rule| rule.matches(file));
+            index.expect("the last rule matches anything")
+        };
+        let nu = FileFacts {
+            ext: Some("nu".into()),
+            ..file("text/plain")
+        };
+        assert_eq!(
+            picked(&nu),
+            1,
+            "file, so not the dir rule; ext ignores case"
+        );
+        assert_eq!(picked(&file("image/png")), 2);
+        let exec = FileFacts {
+            mode: Some("rwx------".into()),
+            ..file("application/json")
+        };
+        assert_eq!(picked(&exec), 3);
+        // A field the file lacks never matches a rule that asks for it.
+        let no_facts = FileFacts {
+            kind: FileKind::Dir,
+            mime: None,
+            ext: None,
+            mode: None,
+        };
+        assert_eq!(picked(&no_facts), 4);
+    }
+
+    #[test]
+    fn bad_rules_are_errors() {
+        use nu_protocol::record;
+        let s = Value::test_string;
+        for rule in [
+            Value::test_record(record! { "kind" => s("folder") }),
+            Value::test_record(record! { "extension" => s("nu") }),
+            Value::test_record(record! { "mime_type" => s("[") }),
+            Value::test_record(record! { "ext" => Value::test_int(1) }),
+            s("dir"),
+        ] {
+            assert!(
+                parse_file_styles(&Value::test_list(vec![rule.clone()])).is_err(),
+                "{rule:?}"
+            );
+        }
+        assert!(parse_file_styles(&s("dir")).is_err());
     }
 
     #[test]
@@ -723,21 +934,33 @@ mod tests {
         });
         let stack = Stack::new();
         let overrides = HashMap::from([
-            ("file_dir".to_string(), Value::test_string("red")),
+            (
+                "file_styles".to_string(),
+                Value::test_list(vec![Value::test_record(record! {
+                    "kind" => Value::test_string("dir"),
+                    "fg" => Value::test_string("red"),
+                })]),
+            ),
             (
                 "selected".to_string(),
                 Value::test_record(record! { "bg" => Value::test_string("white") }),
             ),
         ]);
         let theme = Theme::from_config(&engine_state, &stack, &overrides);
-        assert_eq!(theme.path_cell(FileKind::Dir).fg, Some(Color::Red));
+        let dir = FileFacts {
+            kind: FileKind::Dir,
+            mime: None,
+            ext: None,
+            mode: None,
+        };
+        assert_eq!(theme.path_cell(theme.file_style(&dir)).fg, Some(Color::Red));
         assert_eq!(theme.selected().bg, Some(Color::White));
+        // The list replaces the config's: its other rules are gone.
+        assert_eq!(theme.file_style(&file("image/png")).map(|_| ()), None);
         // Untouched slots keep the config's value.
-        assert_eq!(theme.path_cell(FileKind::Exec).fg, Some(Color::Green));
+        let config = Theme::from_config(&engine_state, &stack, &HashMap::new());
         assert_eq!(
-            Theme::from_config(&engine_state, &stack, &HashMap::new())
-                .path_cell(FileKind::Dir)
-                .fg,
+            config.path_cell(config.file_style(&dir)).fg,
             Some(Color::Blue)
         );
     }
@@ -807,28 +1030,6 @@ mod tests {
         // On the surface alone, the foreground is all there is to match.
         let on_surface = theme.on_surface(Style::default().fg(Color::Green));
         assert_eq!(theme.cap_style(on_surface).fg, Some(Color::Green));
-    }
-
-    #[test]
-    fn mime_types_map_to_yazi_kinds() {
-        use FileKind::*;
-        for (mime, kind) in [
-            ("image/png", Image),
-            ("audio/mpeg", Media),
-            ("video/mp4", Media),
-            ("application/zip", Archive),
-            ("application/x-tar", Archive),
-            ("application/x-7z-compressed", Archive),
-            ("application/vnd.rar", Archive),
-            ("application/gzip", Archive),
-            ("application/pdf", Document),
-            ("application/msword", Document),
-            ("application/json", Other),
-            ("text/plain", Other),
-            ("dir", Other),
-        ] {
-            assert_eq!(FileKind::from_mime(mime), kind, "{mime}");
-        }
     }
 
     #[test]

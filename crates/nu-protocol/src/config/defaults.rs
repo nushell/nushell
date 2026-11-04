@@ -18,6 +18,14 @@ fn str(s: &str) -> Value {
     Value::string(s, span())
 }
 
+fn list(vals: Vec<Value>) -> Value {
+    Value::list(vals, span())
+}
+
+fn strs(items: &[&str]) -> Value {
+    list(items.iter().copied().map(str).collect())
+}
+
 fn bool(b: bool) -> Value {
     Value::bool(b, span())
 }
@@ -347,14 +355,47 @@ pub fn default_tui() -> HashMap<String, Value> {
         ),
         ("surface", rec(record! { "bg" => str("default") })),
         ("backdrop", rec(record! { "bg" => str("default") })),
-        // Path cells by kind of file, as yazi's default `[filetype]` rules.
-        ("file_dir", rec(record! { "fg" => str("blue") })),
-        ("file_orphan", rec(record! { "bg" => str("red") })),
-        ("file_exec", rec(record! { "fg" => str("green") })),
-        ("file_image", rec(record! { "fg" => str("yellow") })),
-        ("file_media", rec(record! { "fg" => str("magenta") })),
-        ("file_archive", rec(record! { "fg" => str("red") })),
-        ("file_document", rec(record! { "fg" => str("cyan") })),
+        // How path cells look, the first matching rule winning.
+        (
+            "file_styles",
+            list(vec![
+                rec(record! { "kind" => str("dir"), "fg" => str("blue") }),
+                rec(record! { "kind" => str("orphan"), "bg" => str("red") }),
+                rec(record! { "kind" => str("symlink"), "fg" => str("cyan") }),
+                rec(record! { "kind" => str("file"), "mode" => str("??x*"), "fg" => str("green") }),
+                rec(record! { "mime_type" => str("image/*"), "fg" => str("yellow") }),
+                rec(record! {
+                    "mime_type" => strs(&["audio/*", "video/*"]),
+                    "fg" => str("magenta"),
+                }),
+                rec(record! {
+                    "mime_type" => strs(&[
+                        "application/*zip*",
+                        "application/*rar*",
+                        "application/x-7z*",
+                        "application/*tar",
+                        "application/x-xz",
+                        "application/*zstd",
+                        "application/x-lzma",
+                        "application/x-compress*",
+                        "application/x-cpio",
+                        "application/x-arj",
+                        "application/x-xar",
+                        "application/vnd.ms-cab*",
+                    ]),
+                    "fg" => str("red"),
+                }),
+                rec(record! {
+                    "mime_type" => strs(&[
+                        "application/pdf",
+                        "application/msword",
+                        "application/rtf",
+                        "application/*wordprocessingml*",
+                    ]),
+                    "fg" => str("cyan"),
+                }),
+            ]),
+        ),
         // Glyphs: caps round the bars and tabs (`title_caps`, `status_caps`,
         // `selected_caps` are unset: the bars fill their line), marks,
         // tree arrows, and the gauge fill.

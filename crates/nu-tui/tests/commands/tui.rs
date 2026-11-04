@@ -30,14 +30,18 @@ fn parent_command_lists_subcommands() -> Result {
 #[test]
 fn theme_slots_ride_in_the_tui_value_and_unknown_ones_are_errors() -> Result {
     let bg: String = test().run(
-        "tui table | tui theme {selected: {bg: red}} | tui theme {file_dir: cyan} | get theme.selected.bg",
+        "tui table | tui theme {selected: {bg: red}} | tui theme {file_styles: [{kind: dir, fg: cyan}]} | get theme.selected.bg",
     )?;
     assert_eq!(bg, "red");
     let err = test()
         .run("tui table | tui theme {not_a_slot: red}")
         .expect_error()?;
     assert_contains("not_a_slot", &format!("{err:?}"));
-    assert_contains("file_dir", &format!("{err:?}"));
+    assert_contains("file_styles", &format!("{err:?}"));
+    let err = test()
+        .run("tui table | tui theme {file_styles: [{kind: folder}]}")
+        .expect_error()?;
+    assert_contains("symlink", &format!("{err:?}"));
     let err = test()
         .run("tui table | tui theme {border_type: wavy}")
         .expect_error()?;
@@ -1599,6 +1603,47 @@ fn icons_go_before_path_cells_and_color_names_a_column_of_bare_names() -> Result
         )?;
         assert!(!plain.contains(rust), "{plain}");
         assert_contains("main.rs", &plain);
+        Ok(())
+    })
+}
+
+#[cfg(unix)]
+#[test]
+fn file_styles_rules_look_at_the_file_on_disk_and_set_its_icon() -> Result {
+    Playground::setup("tui_file_styles", |dirs, _| {
+        use std::os::unix::fs::{PermissionsExt, symlink};
+        let root = dirs.test();
+        std::fs::create_dir(root.join("sub"))?;
+        for name in ["a.nu", "run.sh", "b.txt"] {
+            std::fs::write(root.join(name), "x")?;
+        }
+        std::fs::set_permissions(root.join("run.sh"), PermissionsExt::from_mode(0o755))?;
+        std::fs::set_permissions(root.join("a.nu"), PermissionsExt::from_mode(0o644))?;
+        std::fs::set_permissions(root.join("b.txt"), PermissionsExt::from_mode(0o644))?;
+        // A link to a directory is a symlink, not a directory.
+        symlink("sub", root.join("link"))?;
+        symlink("missing", root.join("gone"))?;
+        let screen: String = test().cwd(root).run(
+            r#"
+                ls
+                | tui table --columns [name] --icons
+                | tui theme {file_styles: [
+                    {kind: orphan, icon: "O"}
+                    {kind: symlink, icon: "L"}
+                    {kind: dir, icon: "D"}
+                    {mode: "??x*", icon: "X"}
+                    {ext: NU, icon: "N"}
+                ]}
+                | tui debug --size [30 10]
+                | get screen
+            "#,
+        )?;
+        for cell in ["O gone", "L link", "D sub", "X run.sh", "N a.nu"] {
+            assert_contains(cell, &screen);
+        }
+        // No rule matches: devicons' own glyph.
+        let text = devicons::icon_for_file(std::path::Path::new("b.txt"), &None).icon;
+        assert_contains(format!("{text} b.txt"), &screen);
         Ok(())
     })
 }
