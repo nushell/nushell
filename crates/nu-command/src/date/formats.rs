@@ -121,6 +121,19 @@ static REWRITES: LazyLock<Vec<(Regex, &str)>> = LazyLock::new(|| {
         (r"(?i)(\d)(st|nd|rd|th)\b", "$1"),
         // 18 of April
         (r"(?i)\bof ", ""),
+        // a month name with `/` or `.` between the parts: Dec/30/2026, 30.Dec.26, 2026/Dec/30,
+        // and with `-` too when there are only two parts: Dec-30, 2026-Dec. The parts are
+        // separated by spaces instead, so the layouts with spaces read them.
+        (
+            r"(?i)(^| )((?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*)[/.](\d{1,2})[/.](\d{2,4})( |$)",
+            "$1$2 $3 $4$5",
+        ),
+        (
+            r"(?i)(^| )(\d{1,4})[/.]((?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*)[/.](\d{1,4})( |$)",
+            "$1$2 $3 $4$5",
+        ),
+        (r"(?i)(^| )((?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*)[/.-](\d{1,2})( |$)", "$1$2 $3$4"),
+        (r"(?i)(^| )(\d{1,4})[/.-]((?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*)( |$)", "$1$2 $3$4"),
         // month names to three letters, with or without a dot: `Apr.`, `Sept.`
         (
             r"(?i)\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)(uary|ruary|ch|il|e|y|ust|t|tember|ober|ember)?(?:\.|\b)",

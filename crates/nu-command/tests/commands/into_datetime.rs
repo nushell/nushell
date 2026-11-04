@@ -457,3 +457,29 @@ fn into_datetime_from_any_typed_pipeline_is_datetime() -> Result {
     "#;
     test().run(code).expect_value_eq("datetime")
 }
+
+#[rstest]
+#[case::month_day_year_slash("Dec/30/2026", "%Y-%m-%d", "2026-12-30")]
+#[case::month_day_short_year_slash("Dec/30/26", "%Y-%m-%d", "2026-12-30")]
+#[case::month_one_digit_day_slash("Dec/1/2026", "%Y-%m-%d", "2026-12-01")]
+#[case::day_month_year_slash("30/Dec/2026", "%Y-%m-%d", "2026-12-30")]
+#[case::day_month_short_year_slash("30/Dec/26", "%Y-%m-%d", "2026-12-30")]
+#[case::year_month_day_slash("2026/Dec/30", "%Y-%m-%d", "2026-12-30")]
+#[case::month_day_year_dot("Dec.30.2026", "%Y-%m-%d", "2026-12-30")]
+#[case::day_month_year_dot("30.Dec.26", "%Y-%m-%d", "2026-12-30")]
+#[case::year_month_day_dot("2026.Dec.30", "%Y-%m-%d", "2026-12-30")]
+#[case::full_month_name("30/December/2026", "%Y-%m-%d", "2026-12-30")]
+#[case::with_time("Dec/30/2026 10:00 AM", "%Y-%m-%d %H:%M", "2026-12-30 10:00")]
+#[case::month_day_slash("Dec/30", "%m-%d", "12-30")]
+#[case::month_day_dash("Dec-30", "%m-%d", "12-30")]
+#[case::year_month_slash("2026/Dec", "%Y-%m", "2026-12")]
+#[case::year_month_dot("2026.Dec", "%Y-%m", "2026-12")]
+#[case::year_month_dash("2026-Dec", "%Y-%m", "2026-12")]
+fn into_datetime_month_name_with_slash_dot_or_dash(
+    #[case] input: &str,
+    #[case] format: &str,
+    #[case] expected: &str,
+) -> Result {
+    let code = format!("$in | into datetime | format date '{format}'");
+    test().run_with_data(&code, input).expect_value_eq(expected)
+}
