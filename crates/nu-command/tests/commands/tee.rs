@@ -101,3 +101,22 @@ fn tee_single_value_non_streamable() -> Result {
 
     Ok(())
 }
+
+#[test]
+fn tee_closure_error_on_streamable_value_is_returned() -> Result {
+    let err = test()
+        .run(r#"'ho' | tee { error make {msg: "boom"} }"#)
+        .expect_shell_error()?;
+    assert_eq!(err.to_string(), "boom");
+    Ok(())
+}
+
+#[test]
+fn tee_closure_division_by_zero_on_streamable_value_is_returned() -> Result {
+    let err = test().run("'ho' | tee { 5 / 0 }").expect_shell_error()?;
+    assert!(
+        matches!(err, ShellError::DivisionByZero { .. }),
+        "expected a division by zero error, got {err:?}"
+    );
+    Ok(())
+}
