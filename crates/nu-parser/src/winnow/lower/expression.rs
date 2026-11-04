@@ -467,11 +467,19 @@ impl<'s> Lower<'_, '_, 's> {
                     let value = self.value(&assignment.value, &SyntaxShape::Any, None)?;
                     if self.working_set.parse_errors.len() > errors {
                         self.working_set.parse_errors.truncate(errors);
-                        // Its parts, the `|` of an alias's target among them.
+                        // Its parts, the `|` of an alias's target among them. An assignment
+                        // among them comes first, as in `parse_expression`.
                         let rest = WSpan::new(assignment.span.start, e.span.end);
                         let items = self.parts(rest);
                         let command_span = self.span(rest);
-                        let output = self.external_call_text(&items, command_span)?;
+                        let output = if items
+                            .iter()
+                            .any(|span| is_assignment(self.text_at(*span).as_bytes()))
+                        {
+                            self.assignment_text(&items, input_type)?
+                        } else {
+                            self.external_call_text(&items, command_span)?
+                        };
                         if pairs.is_empty() {
                             return Ok(output);
                         }

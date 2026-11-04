@@ -1447,11 +1447,34 @@ pub fn is_range_head(text: &str) -> bool {
         None => true,
     };
     has_range_operator(text)
-        && range_bounds(text).is_some_and(|(from, next, to)| {
+        && (range_bounds(text).is_some_and(|(from, next, to)| {
             bound_parses(from)
                 && next.is_none_or(|next| !next.is_empty() && bound_parses(next))
                 && bound_parses(to)
-        })
+        }) || int_too_large_fails_first(text))
+}
+
+/// Whether nu's `parse_range` first fails on an int too large for 64 bits, which makes the word a
+/// range for `is_literal_like` whatever the other bounds are (`9223372036854775808..ns`,
+/// `1....99999999999999999999`): it reads the first bound, then the last, then the middle one,
+/// which may be empty.
+fn int_too_large_fails_first(text: &str) -> bool {
+    let Some((from, next, to)) = range_parts(text) else {
+        return false;
+    };
+    for bound in [from, to]
+        .into_iter()
+        .filter(|bound| !bound.is_empty())
+        .chain(next)
+    {
+        if matches!(read_int(bound), IntLiteral::OutOfRange { .. }) {
+            return true;
+        }
+        if !is_range_bound(bound) {
+            return false;
+        }
+    }
+    false
 }
 
 /// Whether `tail`, the text after a variable's name, is a cell path that
@@ -1492,6 +1515,19 @@ fn is_cell_path_tail(tail: &str) -> bool {
 /// that ends with its operator has no `to` (`1...` is `1..`), and an empty
 /// `next` (`1....5`) is kept: nu commits to the range and fails on it.
 fn range_bounds(text: &str) -> Option<(&str, Option<&str>, &str)> {
+    let (from, next, to) = range_parts(text)?;
+    if from.is_empty() && to.is_empty() {
+        return None;
+    }
+    let bounds = (from.is_empty() || is_range_bound(from))
+        && next.is_none_or(|next| next.is_empty() || is_range_bound(next))
+        && (to.is_empty() || is_range_bound(to));
+    bounds.then_some((from, next, to))
+}
+
+/// The `from`, `next` and `to` texts between the range operators of `text`, whatever they hold,
+/// or `None` when its operators make no range.
+fn range_parts(text: &str) -> Option<(&str, Option<&str>, &str)> {
     if text.starts_with("...") {
         return None;
     }
@@ -1515,13 +1551,7 @@ fn range_bounds(text: &str) -> Option<(&str, Option<&str>, &str)> {
         true => "",
         false => &text[operator + operator_length..],
     };
-    if from.is_empty() && to.is_empty() {
-        return None;
-    }
-    let bounds = (from.is_empty() || is_range_bound(from))
-        && next.is_none_or(|next| next.is_empty() || is_range_bound(next))
-        && (to.is_empty() || is_range_bound(to));
-    bounds.then_some((from, next, to))
+    Some((from, next, to))
 }
 
 /// A range item (nu's `parse_range`); the caller has checked [`is_range_syntax`].

@@ -752,7 +752,8 @@ pub fn parse_row_condition<'a>(tokens: Tokens<'_, 'a>) -> ParseResult<Expression
 /// operator, both operands of `and`, `xor` and `or`, which need booleans on both sides
 /// (`where a and not b`), and a lone operand. The right operand of any other operator stays a
 /// value (`name == foo` compares with the string `foo`); one that is an operation of its own has
-/// operands to expand.
+/// operands to expand, and so has a `not`, which negates a math expression of its own
+/// (`a == not b` reads the column `b`, as nu's `parse_math_operand` does).
 fn expand_row_condition<'a>(
     working_set: &WorkingSet<'a>,
     mut condition: Expression<'a>,
@@ -763,7 +764,7 @@ fn expand_row_condition<'a>(
     replace_boxed(&mut binary.lhs, |lhs| {
         expand_row_condition(working_set, lhs)
     })?;
-    if matches!(binary.rhs.expr, Expr::BinaryOp(_))
+    if matches!(binary.rhs.expr, Expr::BinaryOp(_) | Expr::UnaryNot(_))
         || matches!(binary.op.item, Operator::Boolean(_))
     {
         replace_boxed(&mut binary.rhs, |rhs| {

@@ -4206,3 +4206,44 @@ fn description_comes_from_the_comments_nu_gives_the_command(
     );
     Ok(())
 }
+
+/// A `$` value with an error ends the shorthands, and `parse_expression` then looks for an
+/// assignment among the items left, the word with the bad value among them, before it reads a
+/// command: its left side is no variable.
+#[rstest]
+#[case::first("FOO=$nope y = 2")]
+#[case::after_a_shorthand("A=1 FOO=$nope y = 2")]
+#[case::let_statement_in_the_items("FOO=$nope let y = 2")]
+#[nu_test_support::test]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn assignment_after_a_shorthand_value_with_an_error(#[case] code: &str) -> Result {
+    test()
+        .run(code)
+        .expect_error_code_eq("nu::parser::assignment_requires_variable")
+}
+
+/// `is_literal_like` takes a word for a range when `parse_range`, which reads the first bound,
+/// then the last, then the middle one, first fails on an int too large for 64 bits, whatever the
+/// rest of the word is. The word is then that error, no external command to run.
+#[rstest]
+#[case::first_bound_then_no_number("9223372036854775808..ns")]
+#[case::last_bound_then_no_middle_one("1....99999999999999999999")]
+#[case::as_a_value("let r = 1....99999999999999999999")]
+#[case::in_a_list("[9223372036854775808..a]")]
+#[case::as_an_argument("print 5..a..99999999999999999999")]
+#[nu_test_support::test]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn range_with_an_int_too_large_before_any_other_error(#[case] code: &str) -> Result {
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    assert!(
+        matches!(
+            working_set.parse_errors.first(),
+            Some(ParseError::InvalidLiteral(..))
+        ),
+        "`{code}`: {:?}",
+        working_set.parse_errors
+    );
+    Ok(())
+}

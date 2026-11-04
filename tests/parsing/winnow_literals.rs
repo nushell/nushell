@@ -43,6 +43,25 @@ fn raw_string_in_a_row_condition_is_a_value() -> Result {
         .expect_value_eq(2)
 }
 
+/// What a `not` negates is a math expression of its own (`parse_math_operand`), whose lone word
+/// is a column, on the right of a comparison too: `a == not b` reads the column `b`, where
+/// `a == b` compares with the string `b`.
+#[rstest]
+#[case::after_a_comparison("[[a b]; [true false] [true true]] | where a == not b | length", 1)]
+#[case::twice("[[a b]; [true false] [true true]] | where a == not not b | length", 1)]
+#[case::in_an_operation_on_the_right(
+    "[[a b]; [1 false] [0 true]] | where a == 1 and true == not b | length",
+    1
+)]
+#[nu_test_support::test]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn word_negated_on_the_right_of_a_comparison_is_a_column(
+    #[case] code: &str,
+    #[case] rows: i64,
+) -> Result {
+    test().run(code).expect_value_eq(rows)
+}
+
 /// A range whose text ends with its operator has no upper bound: `1...` is `1..`.
 #[test]
 #[exp(nu_experimental::WINNOW_PARSER)]

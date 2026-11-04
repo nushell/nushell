@@ -239,9 +239,14 @@ impl<'s> Lower<'_, '_, 's> {
                 (Expr::Nothing, Type::Nothing)
             }
             // A bare word a `--wrapped` command's arguments hold is a string to the winnow
-            // parser whatever it spells (`1`), and read from its text.
+            // parser whatever it spells (`1`), and read from its text. So is a bare word with a
+            // `..` the shape `any` takes: nu tries it as a range first, and keeps the error of a
+            // bound that reports more than "no number" (`99999999999999999999..a`, `1..a..$nope`).
             (SyntaxShape::Any | SyntaxShape::String, w::Expr::String(string))
-                if !self.bare_wrapped(string) =>
+                if !self.bare_wrapped(string)
+                    && !(matches!(shape, SyntaxShape::Any)
+                        && string.quote == w::Quote::Bare
+                        && self.text(e.span).contains("..")) =>
             {
                 (Expr::String(string.value.to_string()), Type::String)
             }

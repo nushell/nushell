@@ -76,7 +76,8 @@ impl<'s> Lower<'_, '_, 's> {
     /// an assignment when one of the items is its operator ([`Self::assignment_text`]); else a
     /// first item that reads as a value starts a math expression, any other is a call
     /// ([`Self::call_text`]). An environment shorthand first and a statement's keyword first,
-    /// which nu reads otherwise, are not read so.
+    /// which nu reads otherwise, are not read so; a `$` value with an error makes no shorthand,
+    /// and the word is read like any other.
     pub(super) fn expression_text(
         &mut self,
         spans: &[Span],
@@ -86,13 +87,22 @@ impl<'s> Lower<'_, '_, 's> {
             return Err(Unlowered::Unsupported("expression without items"));
         };
         let text = self.text_at(first);
-        if text
-            .split_once('=')
-            .is_some_and(|(name, _)| is_env_name(name.as_bytes()))
+        if let Some((name, value)) = text.split_once('=')
+            && is_env_name(name.as_bytes())
         {
-            return Err(Unlowered::Unsupported(
-                "environment shorthand read from its items",
-            ));
+            let value_span = Span::new(first.start + name.len() + 1, first.end);
+            let errors = self.working_set.parse_errors.len();
+            if value.starts_with('$') {
+                let value_item = self.local(value_span);
+                self.value_text(value_item, &SyntaxShape::Any)?;
+            }
+            let value_fails = self.working_set.parse_errors.len() > errors;
+            self.working_set.parse_errors.truncate(errors);
+            if !value_fails {
+                return Err(Unlowered::Unsupported(
+                    "environment shorthand read from its items",
+                ));
+            }
         }
         if spans
             .iter()
