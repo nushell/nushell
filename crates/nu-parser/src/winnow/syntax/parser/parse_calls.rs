@@ -632,6 +632,14 @@ pub(super) fn call_argument<'a>(
             Err(ErrMode::Cut(ParseFailure::Error(_))) if garbage => {
                 Expression::new(Expr::Garbage, span)
             }
+            // A block for a wrapped command's argument: nu reports it (no block is an external
+            // argument) and goes on, and so does the consumer: `f { 1 }`.
+            Err(ErrMode::Cut(ParseFailure::Error(diagnostic)))
+                if wrapped && text.starts_with('{') =>
+            {
+                working_set.error(diagnostic.as_recovered());
+                Expression::new(Expr::Garbage, span)
+            }
             value => value?,
         }),
     })

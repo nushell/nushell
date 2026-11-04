@@ -3926,6 +3926,8 @@ fn words_read_otherwise_than_they_look_are_lowered(
 #[case::alias_of_an_external_range("alias q = 0..<$day", &[])]
 #[case::redirected_where_help("where -h o> /dev/null", &[])]
 #[case::row_condition_word_after_unknown_flag("where -1 >", &[("UnknownFlag", "1")])]
+#[case::block_for_a_wrapped_argument("def --wrapped f [...r] {}; f { 1 }", &[("ExpectedWithStringMsg", "{ 1 }")])]
+#[case::spread_for_a_member("use std ...$l", &[("ExportNotFound", "...$l")])]
 #[case::alias_of_a_definition_that_failed("def --wrapped f [...e]\nalias g = f\ng", &[("MissingPositional", "")])]
 #[case::spread_for_a_module("use ...$x", &[("MissingPositional", ""), ("LabeledError", "...$x"), ("UnknownState", "...$x")])]
 #[case::spread_for_a_module_with_a_member("use ...$x y", &[("MissingPositional", ""), ("LabeledError", "...$x y"), ("UnknownState", "...$x y")])]
@@ -4099,6 +4101,7 @@ fn errors_nu_reads_past_are_lowered(
 #[case::a_second_operator_is_the_target("def f [x: int] { } o> o>\nf 1", 1)]
 #[case::operator_on_an_attribute_line("@ o>\ndef f [", 1)]
 #[case::attribute_line_ended_by_a_semicolon("l|\n@;\ndef f [] {", 1)]
+#[case::attribute_line_ended_by_a_blank_line("ls |\n@a b\n \ndef f [] {}", 1)]
 #[nu_test_support::test]
 #[exp(nu_experimental::WINNOW_PARSER)]
 fn definition_predeclared_from_its_command_parts(

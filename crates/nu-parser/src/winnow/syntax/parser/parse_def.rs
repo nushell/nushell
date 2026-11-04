@@ -317,6 +317,10 @@ fn scan_definitions<'a>(
             TokenContents::Eol | TokenContents::Semicolon => {
                 at_line_start = true;
                 after_statement |= blank_line || token.contents == TokenContents::Semicolon;
+                // A blank line ends a command that had only attribute lines, with its pipeline.
+                if blank_line && in_attribute {
+                    after_pipe = false;
+                }
             }
             TokenContents::Comment => {}
             TokenContents::Pipe if at_line_start && after_statement => {}

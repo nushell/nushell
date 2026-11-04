@@ -259,6 +259,7 @@ pub fn parse_use<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> 
     // reads a flag `use` does not have as its call's (UnknownFlag) and goes on with the import:
     // such flags are kept for the consumer, the error recorded as recovered.
     let mut unknown = Vec::new();
+    let mut module_read = false;
     for token in tokens.remaining() {
         if working_set.get_span_contents(token.span) == "--" {
             break;
@@ -267,11 +268,12 @@ pub fn parse_use<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> 
             return parse_help_call(statement);
         }
         let text = working_set.get_span_contents(token.span);
-        // A spread goes to the rest parameter of nu's call, the members, not to its module
-        // (MissingPositional), as the consumer reports (`use ...$x`).
-        if is_spread(text, b"[$({") {
+        // A spread in the module's place goes to the rest parameter of nu's call, the members, and
+        // leaves the module missing (MissingPositional), as the consumer reports (`use ...$x`).
+        if !module_read && is_spread(text, b"[$({") {
             return parse_help_call(statement);
         }
+        module_read |= !text.starts_with('-');
         if token.contents == TokenContents::Item
             && text.starts_with('-')
             && text.len() > 1
